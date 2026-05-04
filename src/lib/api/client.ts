@@ -53,7 +53,12 @@ export async function bccFetch<T>(
     Accept: "application/json",
     ...extraHeaders,
   };
-  if (body !== undefined) {
+  // FormData bodies (file uploads) need different handling: the browser
+  // sets the multipart Content-Type with the correct boundary itself, and
+  // we must NOT JSON.stringify. Detect by instance check rather than a
+  // separate flag so callers just pass FormData and it Just Works.
+  const isFormData = typeof FormData !== "undefined" && body instanceof FormData;
+  if (body !== undefined && !isFormData) {
     headers["Content-Type"] = "application/json";
   }
   if (token !== undefined && token !== null && token !== "") {
@@ -68,7 +73,7 @@ export async function bccFetch<T>(
     credentials: "include",
   };
   if (body !== undefined) {
-    init.body = JSON.stringify(body);
+    init.body = isFormData ? (body as FormData) : JSON.stringify(body);
   }
   if (signal !== undefined) {
     init.signal = signal;

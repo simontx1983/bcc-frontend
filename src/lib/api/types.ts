@@ -1844,6 +1844,19 @@ export interface MemberProfile {
   handle: string;
   display_name: string;
   avatar_url: string;
+  /**
+   * §3.1 cover_photo_url — absolute URL to the user's PeepSo cover
+   * photo, or null when no custom cover is set. Frontend renders a
+   * default treatment in the null case.
+   */
+  cover_photo_url: string | null;
+  /**
+   * §3.1 cover_photo_position — crop position percentages (0–100)
+   * for the cover photo. `{x: 50, y: 50}` is center (the default).
+   * Always present; backed by PeepSo's
+   * peepso_cover_position_x / peepso_cover_position_y user_meta.
+   */
+  cover_photo_position: { x: number; y: number };
   /** ISO 8601 UTC. */
   joined_at: string;
   is_self: boolean;

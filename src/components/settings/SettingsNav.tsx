@@ -21,6 +21,11 @@ interface SettingsTab {
 
 const TABS: SettingsTab[] = [
   {
+    href: "/settings/profile" as Route,
+    label: "Profile",
+    blurb: "Bio, avatar, cover photo.",
+  },
+  {
     href: "/settings/identity" as Route,
     label: "Identity",
     blurb: "Handle, display name.",
@@ -34,6 +39,11 @@ const TABS: SettingsTab[] = [
     href: "/settings/notifications" as Route,
     label: "Notifications",
     blurb: "Bell + weekly email digest.",
+  },
+  {
+    href: "/settings/messages" as Route,
+    label: "Messages",
+    blurb: "Who can message you.",
   },
   {
     href: "/settings/blocks" as Route,
