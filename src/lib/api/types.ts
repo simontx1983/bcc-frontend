@@ -433,6 +433,13 @@ export interface FeedItem {
     [key: string]: unknown;
   };
   attached_card?: Card;
+  /**
+   * Group context for posts authored inside a PeepSo group (§3.3 v1.5).
+   * **Omitted** (not null) when the post is not in a group. Drives the
+   * "On-Chain Verified" badge on the feed card. Server-side ranking is
+   * unaffected by this field in v1 — it's metadata for badge rendering.
+   */
+  group?: GroupBlock;
 }
 
 export interface FeedPagination {
@@ -856,6 +863,24 @@ export interface GroupVerification {
 }
 
 /**
+ * Group context block on a `FeedItem` (§3.3 v1.5).
+ *
+ * Present when the post is a wall post inside a PeepSo group; omitted
+ * for non-group posts. `verification` is null for non-NFT-gated kinds
+ * (system / user / local) and populated for NFT-gated holder groups.
+ *
+ * `type` reuses the same union as `GroupDiscoveryItem.type` — same
+ * server-side enum (`GroupType` on the backend), no parallel string
+ * literal union.
+ */
+export interface GroupBlock {
+  /** group_id — matches §4.7.x endpoint paths. */
+  id: number;
+  type: GroupDiscoveryType;
+  verification: GroupVerification | null;
+}
+
+/**
  * Per-group activity block (anti-ghost-town signal). Heat thresholds
  * are server-tuned via the `bcc_group_heat_thresholds` filter — the
  * frontend renders the bucket but doesn't compute it (§S no-business-
@@ -870,6 +895,13 @@ export interface GroupActivity {
   /** ISO 8601 UTC. Null when no posts in window or timestamp invalid. */
   last_activity_at: string | null;
   heat: "cold" | "warm" | "hot";
+  /**
+   * Server-authoritative display string for the heat bucket
+   * ("Hot" / "Warm" / "Quiet" by default; filterable server-side via
+   * `bcc_group_heat_label`). Frontend renders verbatim per §A2 — no
+   * client-side `heat === "hot" ? "Hot" : ...` mapping.
+   */
+  heat_label: string;
 }
 
 /**
@@ -927,6 +959,95 @@ export interface HolderGroupPreferences {
   auto_join: boolean;
 }
 
+/**
+ * POST /me/groups/:id/join success (§4.7.3 plain group membership).
+ * Residual case for non-NFT, non-Local PeepSo groups. Closed/secret
+ * groups are rejected server-side with `bcc_permission_denied` —
+ * surface `error.message` verbatim (it points at PeepSo's request
+ * flow), never substitute a generic 403 string.
+ */
+export interface JoinPlainGroupResponse {
+  joined: true;
+  group_id: number;
+}
+
+/**
+ * POST /me/groups/:id/leave success (§4.7.3).
+ * Owners are rejected with `bcc_permission_denied`; render
+ * `error.message` verbatim.
+ */
+export interface LeavePlainGroupResponse {
+  left: true;
+  group_id: number;
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// §4.7.2 — Profile Groups Tab (`GET /users/{slug}/groups`)
+//
+// Cross-kind list of groups the target user is an active member of
+// (holder + local + user + system). Each row carries server-built
+// action URLs (varying by `type`) and viewer-aware `permissions` per
+// §A4 / §N7. V1 frontends may hardcode endpoint paths; V1.5 will
+// switch to following `actions[].url`.
+// ─────────────────────────────────────────────────────────────────────
+
+/** Server-built action endpoint pointer (per §A2). */
+export interface GroupActionUrl {
+  url: string;
+}
+
+export interface GroupActions {
+  join: GroupActionUrl;
+  leave: GroupActionUrl;
+}
+
+/**
+ * Single permission entry (per §A4 / §N7). `unlock_hint` is the
+ * server-authoritative copy when `allowed === false` — render
+ * verbatim, never substitute.
+ */
+export interface GroupPermissionEntry {
+  allowed: boolean;
+  unlock_hint: string | null;
+  /**
+   * Stable machine-readable reason. Known values per contract §4.7.2:
+   * `already_member`, `not_self`, `not_eligible`, `requires_approval`,
+   * `invite_only`. Unknown values are tolerated for forward compat.
+   */
+  reason_code: string | null;
+}
+
+export interface GroupPermissions {
+  can_join: GroupPermissionEntry;
+  can_leave: GroupPermissionEntry;
+}
+
+/**
+ * One row in `GET /users/:slug/groups`. Same shape across all four
+ * group kinds — `type` discriminates which action URLs in `actions{}`
+ * point at, and `verification` is null for non-NFT kinds.
+ *
+ * Reuses `GroupDiscoveryType` / `GroupDiscoveryPrivacy` / `GroupVerification`
+ * declared elsewhere — same backend enums (`GroupType`, `PeepSoPrivacy`,
+ * `GroupVerification`) apply across §4.7.x.
+ */
+export interface UserGroupItem {
+  group_id: number;
+  slug: string;
+  name: string;
+  type: GroupDiscoveryType;
+  member_count: number;
+  privacy: GroupDiscoveryPrivacy;
+  verification: GroupVerification | null;
+  actions: GroupActions;
+  permissions: GroupPermissions;
+}
+
+/** GET /users/:slug/groups response. No pagination per contract. */
+export interface UserGroupsResponse {
+  items: UserGroupItem[];
+}
+
 /** PATCH /me/holder-groups/preferences body. */
 export interface HolderGroupPreferencesPatch {
   auto_join: boolean;
@@ -946,6 +1067,133 @@ export interface HolderGroupPreferencesUpdateResponse {
     joined: number;
     skipped: number;
   };
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Groups Discovery (§4.7.4) — cross-kind community browse.
+//
+// Anonymous OR Bearer. Server filters out `secret` privacy and sorts by
+// (verified DESC, heat_score DESC, member_count DESC). Closed groups
+// appear with name + member_count visible; their content stays private
+// at PeepSo's layer. `verification` is null for non-NFT-gated groups
+// (system/user/local kinds); when present, render `label` verbatim.
+// ─────────────────────────────────────────────────────────────────────
+
+/**
+ * Group kind discriminator (matches GroupType enum on the backend).
+ *
+ *   - "nft"    — NFT-gated holder group (always carries verification block)
+ *   - "local"  — chapter / chain Local (browse via /locals/[slug])
+ *   - "system" — system-managed group (membership-everyone or similar)
+ *   - "user"   — user-created PeepSo group
+ */
+export type GroupDiscoveryType = "nft" | "local" | "system" | "user";
+
+/**
+ * Privacy level. `secret` is documented for completeness but the
+ * discovery endpoint excludes secret groups server-side, so callers
+ * should never see it in this response.
+ */
+export type GroupDiscoveryPrivacy = "open" | "closed" | "secret";
+
+/**
+ * Market-data block for NFT-gated discovery cards (§4.7.4). Drives
+ * the flip-card "back" surface.
+ *
+ * Two parallel sets of fields:
+ *   - **Raw values** (`floor_price`, `unique_holders`, etc.) — preserved
+ *     for sorting, charts, future tooling. Each independently nullable
+ *     since the upstream fetch can leave any column unpopulated.
+ *     Currency-bearing fields are strings (full decimal precision).
+ *   - **`*_display` strings** — server-pre-formatted for direct
+ *     rendering per §A2 / §S. Frontend renders verbatim — no client-
+ *     side number-formatting decisions. Em-dash (`"—"`) when the
+ *     underlying value is missing/zero so "0.00 STARS" never surfaces
+ *     as a fake-low signal.
+ *
+ * `distribution_pct` is the server-computed `holders / supply * 100`
+ * (rounded), exposed as a number alongside `holders_display` for any
+ * downstream chart use. Frontend never recomputes this client-side.
+ */
+export interface CollectionStats {
+  token_standard: string | null;
+  total_supply: number | null;
+  unique_holders: number | null;
+  floor_price: string | null;
+  floor_currency: string | null;
+  total_volume: string | null;
+  listed_percentage: number | null;
+  royalty_percentage: number | null;
+  distribution_pct: number | null;
+  /** Gate threshold (NFTs required to qualify for the holder group). */
+  min_balance: number | null;
+  floor_display: string | null;
+  volume_display: string | null;
+  holders_display: string | null;
+  supply_display: string | null;
+  listed_display: string | null;
+  royalty_display: string | null;
+  /** "1 NFT" / "5 NFTs" — server-formatted gate threshold. */
+  min_balance_display: string | null;
+  /**
+   * Canonical marketplace link for the underlying NFT collection.
+   * `null` when the chain isn't mapped server-side (Solana, NEAR, and
+   * the long-tail cosmos chains in V1). Frontend renders the URL with
+   * `target="_blank" rel="noopener noreferrer"` and stops propagation
+   * on click so opening the marketplace doesn't flip the card back.
+   */
+  marketplace: { url: string; label: string } | null;
+}
+
+export interface GroupDiscoveryItem {
+  group_id: number;
+  slug: string;
+  name: string;
+  type: GroupDiscoveryType;
+  member_count: number;
+  privacy: GroupDiscoveryPrivacy;
+  /**
+   * Server-authoritative verification badge. Null on non-verified
+   * groups; when present, render `label` verbatim per contract §4.7.1
+   * line 1460 (banned from abbreviation to "Verified" alone).
+   */
+  verification: GroupVerification | null;
+  /**
+   * Plain-text group description (post body, tag-stripped, truncated
+   * to ~200 chars with em-dash ellipsis). Null when the group has no
+   * description. Applies to all kinds.
+   */
+  description: string | null;
+  /**
+   * Cover-art URL (per §4.7.4). NFT-type cards return their underlying
+   * collection's image_url; non-NFT kinds return null in V1 (the
+   * frontend renders an initials block as fallback). PeepSo group
+   * avatars for non-NFT kinds is V1.5.
+   */
+  image_url: string | null;
+  /**
+   * Market-data block for NFT cards. Null for `local`/`system`/`user`
+   * kinds — there's no equivalent for those.
+   */
+  collection_stats: CollectionStats | null;
+  activity: GroupActivity;
+}
+
+/**
+ * Same offset shape as LocalsPagination (§1.5 contract). Kept as a
+ * distinct interface so a future contract change to one surface
+ * doesn't silently move the other.
+ */
+export interface GroupsDiscoveryPagination {
+  page: number;
+  page_size: number;
+  total: number;
+  total_pages: number;
+}
+
+export interface GroupsDiscoveryResponse {
+  items: GroupDiscoveryItem[];
+  pagination: GroupsDiscoveryPagination;
 }
 
 // ─────────────────────────────────────────────────────────────────────
@@ -1920,7 +2168,7 @@ export interface MemberActivityBreakdown {
 
 /** Profile tab counts (header strip). */
 export interface MemberTabCount {
-  key: "binder" | "reviews" | "activity" | "disputes" | "network";
+  key: "binder" | "reviews" | "activity" | "disputes" | "network" | "groups";
   label: string;
   count: number;
   /**

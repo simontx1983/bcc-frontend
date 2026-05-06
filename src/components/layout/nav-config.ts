@@ -21,13 +21,14 @@ export interface NavLink {
 }
 
 export const SITE_NAV: readonly NavLink[] = [
-  { label: "The Floor",  href: "/",           match: null },
-  { label: "Directory",  href: "/directory",  match: "/directory" },
-  { label: "Binder",     href: "/binder",     match: "/binder" },
-  { label: "Broadcast",  href: "/broadcast",  match: "/broadcast" },
-  { label: "Validators", href: "/validators", match: "/validators" },
-  { label: "Disputes",   href: "/disputes",   match: "/disputes" },
-  { label: "Members",    href: "/members",    match: "/members" },
+  { label: "The Floor",   href: "/",            match: null },
+  { label: "Directory",   href: "/directory",   match: "/directory" },
+  { label: "Communities", href: "/communities", match: "/communities" },
+  { label: "Binder",      href: "/binder",      match: "/binder" },
+  { label: "Broadcast",   href: "/broadcast",   match: "/broadcast" },
+  { label: "Validators",  href: "/validators",  match: "/validators" },
+  { label: "Disputes",    href: "/disputes",    match: "/disputes" },
+  { label: "Members",     href: "/members",     match: "/members" },
 ] as const;
 
 /** Pathname → human label for the rail "BCC // <LABEL>" readout. */
@@ -35,6 +36,7 @@ export function railLabelForPath(pathname: string): string {
   if (pathname === "/") return "The Floor";
   if (pathname.startsWith("/u/")) return "Member Profile";
   if (pathname.startsWith("/directory")) return "Directory";
+  if (pathname.startsWith("/communities")) return "Communities";
   if (pathname.startsWith("/binder")) return "Binder";
   if (pathname.startsWith("/broadcast")) return "Broadcast";
   if (pathname.startsWith("/validators")) return "Validators";

@@ -11,6 +11,7 @@ import { bccFetchAsClient } from "@/lib/api/client";
 import type {
   FeedResponse,
   UserDisputesResponse,
+  UserGroupsResponse,
   UserReviewsResponse,
 } from "@/lib/api/types";
 
@@ -80,4 +81,25 @@ export function getUserActivity(
   const qs = search.toString();
   const path = `users/${encodeURIComponent(handle)}/activity${qs !== "" ? `?${qs}` : ""}`;
   return bccFetchAsClient<FeedResponse>(path, { method: "GET", signal });
+}
+
+/**
+ * GET /users/:handle/groups — §4.7.2 Profile Groups Tab.
+ *
+ * Cross-kind list of all PeepSo groups the target user is an active
+ * member of. Server filters secret groups for non-self viewers and
+ * computes viewer-aware `permissions.can_join` / `can_leave` per row.
+ * No pagination; entire list returned in one shot (cap is the user's
+ * total membership count).
+ *
+ * Cache: `private, max-age=30` (per-viewer permissions).
+ * Anonymous reads supported (server returns public + closed groups,
+ * with all `can_leave.allowed = false`).
+ */
+export function getUserGroups(
+  handle: string,
+  signal?: AbortSignal,
+): Promise<UserGroupsResponse> {
+  const path = `users/${encodeURIComponent(handle)}/groups`;
+  return bccFetchAsClient<UserGroupsResponse>(path, { method: "GET", signal });
 }

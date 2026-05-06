@@ -23,6 +23,7 @@ import {
 import {
   getUserActivity,
   getUserDisputes,
+  getUserGroups,
   getUserReviews,
   type ActivityQueryParams,
 } from "@/lib/api/user-activity-endpoints";
@@ -30,6 +31,7 @@ import type {
   BccApiError,
   FeedResponse,
   UserDisputesResponse,
+  UserGroupsResponse,
   UserReviewsResponse,
 } from "@/lib/api/types";
 
@@ -39,6 +41,7 @@ const ACTIVITY_PAGE_SIZE = 20;
 export const USER_REVIEWS_QUERY_KEY_ROOT = ["users", "reviews"] as const;
 export const USER_DISPUTES_QUERY_KEY_ROOT = ["users", "disputes"] as const;
 export const USER_ACTIVITY_QUERY_KEY_ROOT = ["users", "activity"] as const;
+export const USER_GROUPS_QUERY_KEY_ROOT = ["users", "groups"] as const;
 
 export function useUserReviews(handle: string, page: number = 1) {
   return useQuery<UserReviewsResponse, BccApiError>({
@@ -84,4 +87,19 @@ function buildActivityParams(cursor: string | null): ActivityQueryParams {
     cursor,
     limit: ACTIVITY_PAGE_SIZE,
   };
+}
+
+/**
+ * Lazy-load the §4.7.2 Profile Groups Tab list. No pagination — the
+ * server returns the user's full membership in one shot. `staleTime`
+ * matches the contract's `private, max-age=30` cache header so a
+ * tab toggle within the window doesn't re-fetch.
+ */
+export function useUserGroups(handle: string) {
+  return useQuery<UserGroupsResponse, BccApiError>({
+    queryKey: [...USER_GROUPS_QUERY_KEY_ROOT, handle],
+    queryFn: ({ signal }) => getUserGroups(handle, signal),
+    enabled: handle !== "",
+    staleTime: 30_000,
+  });
 }

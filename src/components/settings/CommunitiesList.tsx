@@ -30,6 +30,9 @@ import {
   useMyHolderGroups,
   useUpdateHolderGroupPreferences,
 } from "@/hooks/useHolderGroups";
+import { GroupActionButton } from "@/components/groups/GroupActionButton";
+import { HeatBadge } from "@/components/groups/HeatBadge";
+import { VerificationBadge } from "@/components/groups/VerificationBadge";
 import type { GroupActivity, HolderGroupItem } from "@/lib/api/types";
 
 import { SettingsSectionHeader } from "@/app/settings/_components/SettingsSectionHeader";
@@ -278,46 +281,6 @@ function CommunityRow({ item, action }: CommunityRowProps) {
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// Badges
-// ─────────────────────────────────────────────────────────────────────
-
-function HeatBadge({ activity }: { activity: GroupActivity }) {
-  const colorClass =
-    activity.heat === "hot"
-      ? "text-safety"
-      : activity.heat === "warm"
-        ? "text-blueprint"
-        : "text-ink-soft";
-
-  const label =
-    activity.heat === "hot"
-      ? "Hot"
-      : activity.heat === "warm"
-        ? "Warm"
-        : "Quiet";
-
-  return (
-    <span className={"uppercase tracking-[0.16em] " + colorClass}>
-      {label} · {activity.posts_last_7d} posts/7d
-    </span>
-  );
-}
-
-/**
- * Renders the server-authoritative verification label verbatim.
- * Per contract §4.7.1 line 1460 the label MUST NOT be abbreviated —
- * never replace the prop with a hard-coded "Verified" string.
- */
-function VerificationBadge({ label }: { label: string }) {
-  return (
-    <span className="inline-flex items-center gap-1 uppercase tracking-[0.16em] text-blueprint">
-      <span aria-hidden>◆</span>
-      {label}
-    </span>
-  );
-}
-
-// ─────────────────────────────────────────────────────────────────────
 // Action buttons (with inline error surfacing for unlock_hint copy)
 // ─────────────────────────────────────────────────────────────────────
 
@@ -325,7 +288,7 @@ function JoinButton({ groupId }: { groupId: number }) {
   const mutation = useJoinHolderGroupMutation();
 
   return (
-    <ActionButton
+    <GroupActionButton
       groupId={groupId}
       label="JOIN"
       pendingLabel="JOINING…"
@@ -343,7 +306,7 @@ function LeaveButton({ groupId }: { groupId: number }) {
   const mutation = useLeaveHolderGroupMutation();
 
   return (
-    <ActionButton
+    <GroupActionButton
       groupId={groupId}
       label="LEAVE"
       pendingLabel="LEAVING…"
@@ -354,49 +317,6 @@ function LeaveButton({ groupId }: { groupId: number }) {
         mutation.mutate(groupId);
       }}
     />
-  );
-}
-
-interface ActionButtonProps {
-  groupId: number;
-  label: string;
-  pendingLabel: string;
-  isPending: boolean;
-  errorMessage: string | null;
-  onClick: () => void;
-}
-
-function ActionButton({
-  groupId,
-  label,
-  pendingLabel,
-  isPending,
-  errorMessage,
-  onClick,
-}: ActionButtonProps) {
-  return (
-    <div className="flex min-w-0 flex-col items-end gap-2">
-      <button
-        type="button"
-        onClick={onClick}
-        disabled={isPending}
-        aria-describedby={
-          errorMessage !== null ? `community-error-${groupId}` : undefined
-        }
-        className="bcc-mono inline-flex items-center border-2 border-cardstock-edge px-3 py-1.5 text-[11px] tracking-[0.18em] text-ink-soft transition hover:border-ink/50 hover:text-ink disabled:opacity-60"
-      >
-        {isPending ? pendingLabel : label}
-      </button>
-      {errorMessage !== null && (
-        <p
-          id={`community-error-${groupId}`}
-          role="alert"
-          className="bcc-mono max-w-[14rem] text-right text-[10px] tracking-[0.12em] text-safety"
-        >
-          {errorMessage}
-        </p>
-      )}
-    </div>
   );
 }
 

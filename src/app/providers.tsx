@@ -5,6 +5,7 @@ import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { SessionProvider } from "next-auth/react";
 import { useState, type ReactNode } from "react";
 
+import { EligibleCommunitiesModal } from "@/components/auth/EligibleCommunitiesModal";
 import { FingerprintReporter } from "@/components/system/FingerprintReporter";
 
 /**
@@ -46,6 +47,7 @@ export function Providers({ children }: { children: ReactNode }) {
       <QueryClientProvider client={queryClient}>
         {children}
         <FingerprintReporter />
+        <EligibleCommunitiesModal />
         <ReactQueryDevtools initialIsOpen={false} />
       </QueryClientProvider>
     </SessionProvider>

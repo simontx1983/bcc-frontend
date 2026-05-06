@@ -34,6 +34,7 @@ import { ReviewsPanel } from "./panels/ReviewsPanel";
 import { DisputesPanel } from "./panels/DisputesPanel";
 import { ActivityPanel } from "./panels/ActivityPanel";
 import { ComingSoonPanel } from "./panels/ComingSoonPanel";
+import { GroupsPanel } from "./panels/GroupsPanel";
 
 type TabKey = MemberTabCount["key"];
 
@@ -47,6 +48,7 @@ const DEFAULT_TABS: ReadonlyArray<{ key: TabKey; label: string }> = [
   { key: "reviews",  label: "Reviews" },
   { key: "activity", label: "Activity" },
   { key: "disputes", label: "Disputes" },
+  { key: "groups",   label: "Groups" },
   { key: "network",  label: "Network" },
 ];
 
@@ -145,6 +147,7 @@ export function ProfileTabs({ handle, displayName, isOwner = false, tabs }: Prof
             {active === "disputes" && <DisputesPanel handle={handle} />}
             {active === "binder"   && <ComingSoonPanel label="Binder" hint="3×3 ring-bound grid lands in Phase 6 with the gallery." />}
             {active === "activity" && <ActivityPanel handle={handle} isOwner={isOwner} />}
+            {active === "groups"   && <GroupsPanel handle={handle} />}
             {active === "network"  && <ComingSoonPanel label="Network" hint="Members you're watching + vouch graph — Phase 5." />}
           </>
         )}

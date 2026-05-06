@@ -25,6 +25,7 @@ import Link from "next/link";
 
 import { ReactionRail } from "@/components/feed/ReactionRail";
 import { ReportButton } from "@/components/feed/ReportButton";
+import { VerificationBadge } from "@/components/groups/VerificationBadge";
 import { formatRelativeTime } from "@/lib/format";
 import type { FeedItem } from "@/lib/api/types";
 
@@ -45,6 +46,10 @@ export function FeedItemCard({ item }: { item: FeedItem }) {
   const isReview  = item.post_kind === "review";
   const isBlog    = item.post_kind === "blog_excerpt";
   const summary   = isReview || isBlog ? "" : deriveBodySummary(item);
+
+  // Group block (§3.3 v1.5): only on posts authored inside a PeepSo
+  // group, and `verification` is null for non-NFT kinds.
+  const groupVerification = item.group?.verification ?? null;
 
   // Server-provided links — same `Route` cast pattern as CardFactory
   // for typedRoutes.
@@ -83,6 +88,12 @@ export function FeedItemCard({ item }: { item: FeedItem }) {
           >
             {kindLabel}
           </span>
+          {groupVerification !== null && (
+            <VerificationBadge
+              label={groupVerification.label}
+              className="bcc-mono shrink-0 text-[10px]"
+            />
+          )}
         </div>
         <time
           dateTime={item.posted_at}
