@@ -830,6 +830,125 @@ export interface LeaveLocalResponse {
 }
 
 // ─────────────────────────────────────────────────────────────────────
+// Holder Groups (§4.7.1) — NFT-gated PeepSo groups.
+//
+// Backend term: "holder groups." Frontend label: "Communities."
+// Wire/type names stay aligned with the backend (HolderGroup*) so a
+// debug session can match a JSON response field to its TS shape without
+// translation. UI labels live in the components, not in the types.
+//
+// Three buckets in the GET response — the server has already filtered
+// each row into exactly one of them; the frontend MUST NOT re-bucket
+// client-side (privacy gate is server-authoritative per §S / §A2):
+//   - joined          — viewer is a current member
+//   - eligible_to_join — viewer holds the gating NFT but isn't a member
+//   - opted_out       — viewer left or was mod-removed (TTL or permanent)
+// ─────────────────────────────────────────────────────────────────────
+
+/**
+ * Group verification badge (server-authoritative copy per §A2).
+ * `label` MUST be rendered verbatim — never abbreviate to "Verified"
+ * alone. Contract §4.7.1 line 1460 explicitly bans the abbreviation.
+ */
+export interface GroupVerification {
+  kind: "on_chain";
+  label: string;
+}
+
+/**
+ * Per-group activity block (anti-ghost-town signal). Heat thresholds
+ * are server-tuned via the `bcc_group_heat_thresholds` filter — the
+ * frontend renders the bucket but doesn't compute it (§S no-business-
+ * logic rule).
+ *
+ * Note: the contract doc (§4.7.1 lines 1465–1469) reserves an
+ * `active_members_last_7d` field for v2.5 — the current backend does
+ * NOT emit it. When the backend starts emitting it, widen this type.
+ */
+export interface GroupActivity {
+  posts_last_7d: number;
+  /** ISO 8601 UTC. Null when no posts in window or timestamp invalid. */
+  last_activity_at: string | null;
+  heat: "cold" | "warm" | "hot";
+}
+
+/**
+ * One holder-group row. Same shape across all three buckets in the GET
+ * response — the bucket name is the only thing that distinguishes
+ * "joined" from "eligible" from "opted_out."
+ */
+export interface HolderGroupItem {
+  group_id: number;
+  slug: string;
+  name: string;
+  member_count: number;
+  collection: {
+    /** Chain slug (e.g. "ethereum"). Null when chain row missing. */
+    chain: string | null;
+    /** Always populated — the gate config requires it. */
+    contract: string;
+    name: string | null;
+    image_url: string | null;
+  };
+  verification: GroupVerification;
+  activity: GroupActivity;
+}
+
+/** GET /me/holder-groups — three pre-bucketed lists. */
+export interface MyHolderGroupsResponse {
+  joined: HolderGroupItem[];
+  eligible_to_join: HolderGroupItem[];
+  opted_out: HolderGroupItem[];
+}
+
+/**
+ * POST /me/holder-groups/:id/join success.
+ * `code` distinguishes a fresh join from an idempotent re-join; both
+ * are 200, callers may surface a different toast per code.
+ */
+export interface JoinHolderGroupResponse {
+  joined: true;
+  group_id: number;
+  code: "ok" | "already_member";
+}
+
+/**
+ * POST /me/holder-groups/:id/leave success.
+ * No `viewer_membership` block (unlike Locals) because holder groups
+ * have no primary-pointer concept — just join/leave with TTL'd opt-out.
+ */
+export interface LeaveHolderGroupResponse {
+  left: true;
+  group_id: number;
+}
+
+/** GET /me/holder-groups/preferences. */
+export interface HolderGroupPreferences {
+  auto_join: boolean;
+}
+
+/** PATCH /me/holder-groups/preferences body. */
+export interface HolderGroupPreferencesPatch {
+  auto_join: boolean;
+}
+
+/**
+ * PATCH /me/holder-groups/preferences response.
+ *
+ * `reconciled.joined` reflects the immediate sync sweep when the user
+ * just toggled auto_join ON — the server runs the reconcile inline so
+ * the user doesn't wait for the next cron tick. When toggling OFF,
+ * both fields are 0 (no work to do).
+ */
+export interface HolderGroupPreferencesUpdateResponse {
+  auto_join: boolean;
+  reconciled: {
+    joined: number;
+    skipped: number;
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────
 // Binder (§C2 — projection of PeepSo follows + bcc_pull_meta sidecar)
 // ─────────────────────────────────────────────────────────────────────
 

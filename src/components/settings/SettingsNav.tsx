@@ -1,12 +1,17 @@
 "use client";
 
 /**
- * SettingsNav — shared tab strip across /settings/* pages.
+ * SettingsNav — integrated tab strip rendered inside the persistent
+ * hero panel (see app/settings/layout.tsx).
  *
- * Lives outside the page-specific server shells so the active tab
- * highlights correctly under client-side route changes. Each entry is
- * a typed Next.js Route — adding a new settings page means adding
- * one row here.
+ * Underline-style active marker on the cream cardstock surface: blueprint
+ * line under the active tab, dimmed-ink text on inactive tabs. Same
+ * pattern that GitHub / LinkedIn profile pages use — the tabs feel like
+ * part of the hero chrome rather than a separate nav strip.
+ *
+ * Only used inside SettingsLayout. The /settings/* layout wraps every
+ * settings page so the hero (cover + avatar) and this nav persist
+ * across navigation — just the content area below changes.
  */
 
 import Link from "next/link";
@@ -16,47 +21,26 @@ import type { Route } from "next";
 interface SettingsTab {
   href: Route;
   label: string;
-  blurb: string;
 }
 
 const TABS: SettingsTab[] = [
-  {
-    href: "/settings/profile" as Route,
-    label: "Profile",
-    blurb: "Bio, avatar, cover photo.",
-  },
-  {
-    href: "/settings/identity" as Route,
-    label: "Identity",
-    blurb: "Handle, display name.",
-  },
-  {
-    href: "/settings/privacy" as Route,
-    label: "Privacy",
-    blurb: "What's hidden from others.",
-  },
-  {
-    href: "/settings/notifications" as Route,
-    label: "Notifications",
-    blurb: "Bell + weekly email digest.",
-  },
-  {
-    href: "/settings/messages" as Route,
-    label: "Messages",
-    blurb: "Who can message you.",
-  },
-  {
-    href: "/settings/blocks" as Route,
-    label: "Blocks",
-    blurb: "Users you've blocked.",
-  },
+  { href: "/settings/profile"       as Route, label: "Profile" },
+  { href: "/settings/privacy"       as Route, label: "Privacy" },
+  { href: "/settings/notifications" as Route, label: "Notifications" },
+  { href: "/settings/messages"      as Route, label: "Messages" },
+  { href: "/settings/communities"   as Route, label: "Communities" },
+  { href: "/settings/account"       as Route, label: "Account" },
+  { href: "/settings/blocks"        as Route, label: "Blocks" },
 ];
 
 export function SettingsNav() {
   const pathname = usePathname();
 
   return (
-    <nav className="flex flex-wrap gap-2" aria-label="Settings sections">
+    <nav
+      className="flex flex-wrap items-end gap-1 overflow-x-auto border-t border-cardstock-edge/60 px-4 md:px-6"
+      aria-label="Settings sections"
+    >
       {TABS.map((tab) => {
         const active =
           pathname === tab.href || pathname.startsWith(tab.href + "/");
@@ -66,16 +50,13 @@ export function SettingsNav() {
             href={tab.href}
             aria-current={active ? "page" : undefined}
             className={
-              "bcc-mono inline-flex flex-col items-start gap-0.5 border-2 px-4 py-2 text-[11px] tracking-[0.18em] transition " +
+              "bcc-mono relative whitespace-nowrap px-3 py-3 text-[11px] uppercase tracking-[0.18em] transition " +
               (active
-                ? "border-ink bg-ink text-cardstock"
-                : "border-cardstock-edge bg-cardstock-deep/40 text-ink-soft hover:border-ink/50 hover:text-ink")
+                ? "text-ink after:absolute after:inset-x-0 after:bottom-0 after:h-[3px] after:bg-blueprint after:content-['']"
+                : "text-ink-soft hover:text-ink hover:after:absolute hover:after:inset-x-3 hover:after:bottom-0 hover:after:h-[2px] hover:after:bg-ink-soft/40 hover:after:content-['']")
             }
           >
-            <span className="uppercase">{tab.label}</span>
-            <span className="text-[9px] tracking-[0.12em] opacity-70 normal-case">
-              {tab.blurb}
-            </span>
+            {tab.label}
           </Link>
         );
       })}

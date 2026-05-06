@@ -1,52 +1,49 @@
 /**
- * /settings/profile — bio + avatar + cover photo (V2 Phase 2).
+ * /settings/profile — public-facing identity editor.
  *
- * Server-component shell that gates auth, fetches the viewer's full
- * MemberProfile, and forwards bio + avatar + cover state to the
- * client form. After mutations the form calls router.refresh() so
- * this server component re-runs and other surfaces (header avatar,
- * profile page) stay in sync.
+ * Renders inside SettingsLayout (which provides the persistent hero +
+ * nav). This file is content-only: handle change + admin-configured
+ * profile fields catalogue. Both sections live here because they're
+ * both "how you appear on the Floor".
  */
 
 import { getServerSession } from "next-auth";
-import { redirect } from "next/navigation";
 
-import { ProfileSettingsForm } from "@/components/settings/ProfileSettingsForm";
-import { SettingsNav } from "@/components/settings/SettingsNav";
-import { getUser } from "@/lib/api/user-endpoints";
+import { IdentitySettingsForm } from "@/components/settings/IdentitySettingsForm";
+import { ProfileFieldsList } from "@/components/settings/profile/ProfileFieldsList";
 import { authOptions } from "@/lib/auth";
 
-export default async function ProfileSettingsPage() {
-  const session = await getServerSession(authOptions);
-  if (session === null) {
-    redirect("/login?callbackUrl=/settings/profile");
-  }
+import { SettingsSectionHeader } from "../_components/SettingsSectionHeader";
 
-  const token = typeof session.bccToken === "string" ? session.bccToken : null;
-  const profile = await getUser(session.user.handle, token);
+export default async function ProfileSettingsPage() {
+  // Layout already redirects on null — the assertion just narrows the
+  // type so we can read session.user.handle without a guard.
+  const session = await getServerSession(authOptions);
+  const handle = session?.user.handle ?? "";
 
   return (
-    <main className="min-h-screen pb-24">
-      <section className="mx-auto max-w-2xl px-8 pt-12">
-        <span className="bcc-mono text-[10px] tracking-[0.24em] text-cardstock-deep">
-          SETTINGS · PROFILE
-        </span>
-        <h1 className="bcc-stencil mt-2 text-4xl text-cardstock md:text-5xl">
-          Profile + account
-        </h1>
-        <p className="mt-3 font-serif text-cardstock-deep">
-          Bio, avatar, and cover photo. These appear on your public
-          profile and anywhere your handle is rendered.
-        </p>
+    <>
+      <section className="mx-auto mt-10 max-w-3xl px-8">
+        <SettingsSectionHeader
+          eyebrow="IDENTITY"
+          title="Your handle"
+          blurb="How everyone on the Floor sees you. Handle changes have a 7-day cooldown."
+        />
+        <div className="mt-4">
+          <IdentitySettingsForm currentHandle={handle} />
+        </div>
       </section>
 
-      <section className="mx-auto mt-6 max-w-2xl px-8">
-        <SettingsNav />
+      <section className="mx-auto mt-10 max-w-3xl px-8">
+        <SettingsSectionHeader
+          eyebrow="ABOUT"
+          title="Profile fields"
+          blurb="Each field is editable independently and can be set to public, members-only, or private."
+        />
+        <div className="mt-4">
+          <ProfileFieldsList />
+        </div>
       </section>
-
-      <section className="mx-auto mt-6 max-w-2xl px-8">
-        <ProfileSettingsForm initialProfile={profile} />
-      </section>
-    </main>
+    </>
   );
 }
