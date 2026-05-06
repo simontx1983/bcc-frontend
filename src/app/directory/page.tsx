@@ -127,8 +127,8 @@ export default function DirectoryPage() {
         </h1>
         <p className="mt-4 max-w-2xl font-serif text-lg leading-relaxed text-cardstock-deep">
           Browse every validator, project, and creator graded on the floor.
-          Filter by tier, search by name, sort by trust. Pull the ones you
-          actually trust.
+          Filter by tier, search by name, sort by trust. Keep tabs on the
+          ones you actually trust.
         </p>
       </header>
 

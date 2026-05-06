@@ -120,8 +120,8 @@ function ExplainerStrip() {
       aria-label="How the Floor works"
     >
       <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-8 gap-y-2 px-8 py-3">
-        <ExplainerBullet n="1" title="Pull cards">
-          Follow validators, projects, and creators you trust.
+        <ExplainerBullet n="1" title="Keep tabs">
+          Keep tabs on validators, projects, and creators you trust.
         </ExplainerBullet>
         <ExplainerBullet n="2" title="Earn rank">
           Review, vouch, and post to climb from Apprentice up.
@@ -264,14 +264,14 @@ function FirstPullsStep({
     <>
       <section className="mx-auto max-w-6xl px-8 pt-12">
         <h1 className="bcc-stencil text-cardstock text-5xl md:text-6xl">
-          Pull a few cards.
+          Start your binder.
         </h1>
         <p className="mt-4 max-w-2xl font-serif text-xl text-cardstock-deep">
-          Pick the validators, projects, and creators you want to follow.
-          Your binder + Floor feed start with what you pull here.
+          Pick the validators, projects, and creators you want to keep tabs on.
+          Your binder + Floor feed start with the cards you pick here.
         </p>
         <p className="bcc-mono mt-3 text-cardstock-deep/70">
-          Skipping is fine — you can pull cards any time.
+          Skipping is fine — you can keep tabs any time.
         </p>
       </section>
 

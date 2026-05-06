@@ -10,8 +10,8 @@
  *
  * Per §A2 (no business logic), every visible field comes from the
  * server's view-model. The per-kind summaries are mechanical
- * label mappings ("X pulled N cards"), not computed state — they're
- * reading body fields the server already populated.
+ * label mappings ("X added N cards to their binder"), not computed
+ * state — they're reading body fields the server already populated.
  *
  * Future variants (deferred):
  *   - Embedded <CardFactory> when `attached_card` is present
@@ -30,7 +30,7 @@ import type { FeedItem } from "@/lib/api/types";
 
 const POST_KIND_LABELS: Record<string, string> = {
   status:        "POSTED",
-  pull_batch:    "PULLED",
+  pull_batch:    "WATCHED",
   page_claim:    "CLAIMED",
   review:        "REVIEWED",
   dispute:       "DISPUTED",
@@ -244,9 +244,9 @@ function deriveBodySummary(item: FeedItem): string {
     if (cardCount === 0) return "";
     const noun = cardCount === 1 ? "card" : "cards";
     if (moreCount > 0) {
-      return `Pulled ${cardCount} ${noun} (+${moreCount} more).`;
+      return `Added ${cardCount} ${noun} to their binder (+${moreCount} more).`;
     }
-    return `Pulled ${cardCount} ${noun}.`;
+    return `Added ${cardCount} ${noun} to their binder.`;
   }
 
   // page_claim's summary is server-rendered (§A2). When the backend

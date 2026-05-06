@@ -42,21 +42,27 @@ import {
 
 import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
 import type { Card, CardStat, CardTier } from "@/lib/api/types";
+import { FOLLOW_COPY } from "@/lib/copy";
 
 export interface CardFactoryProps {
   card: Card;
-  /** Pull (follow) the card. Disabled when permissions.can_pull.allowed is false. */
+  /**
+   * Toggle "Keep Tabs" on the card. Disabled when
+   * permissions.can_pull.allowed is false. The `can_pull` /
+   * `onPull` field names are part of the §9 API contract — the user-
+   * facing label is centralized in lib/copy.ts (FOLLOW_COPY).
+   */
   onPull?: ((card: Card) => void) | undefined;
   /** Open the review composer. Disabled when permissions.can_review.allowed is false. */
   onReview?: ((card: Card) => void) | undefined;
   /** Override the default click-to-flip behavior on the card body. */
   onCardClick?: ((card: Card) => void) | undefined;
   /**
-   * When true, the Pull button renders as "Pulled ✓" in muted state —
-   * indicates the card is already in the viewer's binder OR (during
-   * onboarding) selected for batch-pull on completion. The action is
-   * still clickable; clicking again should call `onPull` to toggle
-   * back to idle. Server permissions are still respected.
+   * When true, the CTA renders in muted state — indicates the card is
+   * already in the viewer's binder OR (during onboarding) selected for
+   * batch-add on completion. The action is still clickable; clicking
+   * again should call `onPull` to toggle back to idle. Server
+   * permissions are still respected.
    */
   isPulled?: boolean | undefined;
 }
@@ -471,10 +477,10 @@ function ActionBar({
         title={
           card.permissions.can_pull.allowed
             ? isPulled
-              ? "In your binder. Click to remove."
-              : "Follow this card"
+              ? FOLLOW_COPY.tooltipActive
+              : FOLLOW_COPY.tooltipIdle
             : card.permissions.can_pull.unlock_hint ??
-              "Pull is unavailable for this card."
+              "Keep Tabs is unavailable for this card."
         }
         onClick={(e) => {
           stop(e);
@@ -486,7 +492,17 @@ function ActionBar({
             : "bcc-stencil flex h-11 items-center justify-center bg-ink text-cardstock transition disabled:opacity-40"
         }
       >
-        {isPulled ? "Pulled ✓" : "Pull"}
+        {isPulled ? (
+          <>
+            {/* Active state — desktop variant; "Keeping Tabs ✓" overflows the
+                grid-cols-3 cell on <375px viewports, so we swap to the state
+                word "Watching ✓" below sm (matches the previous button width). */}
+            <span className="hidden sm:inline">{FOLLOW_COPY.ctaActiveDesktop}</span>
+            <span className="sm:hidden">{FOLLOW_COPY.ctaActiveMobile}</span>
+          </>
+        ) : (
+          FOLLOW_COPY.cta
+        )}
       </button>
 
       <button

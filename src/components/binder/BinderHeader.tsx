@@ -48,7 +48,7 @@ export function BinderHeader({ handle, total, summary }: BinderHeaderProps) {
       </h1>
 
       <p className="mt-4 max-w-2xl font-serif text-xl text-cardstock-deep">
-        Every card you&apos;ve pulled. Click through to view details, hover
+        Every card in your binder. Click through to view details, hover
         to remove.
       </p>
 

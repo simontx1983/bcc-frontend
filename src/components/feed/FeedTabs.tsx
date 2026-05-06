@@ -1,18 +1,22 @@
 "use client";
 
 /**
- * FeedTabs — §N6 scope selector (For You / Following / Signals).
+ * FeedTabs — §N6 scope selector (For You / Watching / Signals).
  *
  * V1 keeps the state local (no URL-syncing yet). The plan calls for
  * `?feed=signals` deep-linking; lift to URL state when the home page
  * needs shareable tab routes.
  *
  * Default tab is "for_you" per §N6 — the algorithmic feed that
- * combines follows, high-trust entities, and recency. New users with
- * zero follows still get a useful feed via §F2 fallback inside the
- * server's ranking service.
+ * combines watched entities, high-trust entities, and recency. New
+ * users with zero watched entities still get a useful feed via §F2
+ * fallback inside the server's ranking service.
+ *
+ * Note: the `following` scope value is part of the API contract
+ * (§9 — do not rename). The label is the only thing that changed.
  */
 
+import { FOLLOW_COPY } from "@/lib/copy";
 import type { FeedScope } from "@/lib/api/types";
 
 interface FeedTabsProps {
@@ -22,7 +26,7 @@ interface FeedTabsProps {
 
 const TABS: ReadonlyArray<{ scope: FeedScope; label: string }> = [
   { scope: "for_you",   label: "For You" },
-  { scope: "following", label: "Following" },
+  { scope: "following", label: FOLLOW_COPY.state },
   { scope: "signals",   label: "Signals" },
 ];
 

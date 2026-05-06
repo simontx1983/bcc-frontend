@@ -107,7 +107,7 @@ export default async function LocalDetailPage({ params }: PageProps) {
           <h2 className="bcc-stencil text-2xl text-ink">Coming soon</h2>
           <p className="mt-2 font-serif text-ink-soft">
             Posts, releases, and announcements scoped to this Local will
-            land here. For now, follow members and cards from the
+            land here. For now, keep tabs on members and cards from the
             directory.
           </p>
         </div>

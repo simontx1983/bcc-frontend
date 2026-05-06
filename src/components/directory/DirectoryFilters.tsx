@@ -53,7 +53,7 @@ const TIER_OPTIONS: { value: DirectoryTier | null; label: string }[] = [
 const SORT_OPTIONS: { value: DirectorySort; label: string }[] = [
   { value: "trust",        label: "Trust" },
   { value: "endorsements", label: "Endorsements" },
-  { value: "followers",    label: "Followers" },
+  { value: "followers",    label: "Watchers" },
   { value: "newest",       label: "Newest" },
 ];
 

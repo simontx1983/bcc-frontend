@@ -37,6 +37,7 @@ import { LivingHeader } from "@/components/profile/LivingHeader";
 import { ProfileTabs } from "@/components/profile/ProfileTabs";
 import { authOptions } from "@/lib/auth";
 import { getUser } from "@/lib/api/user-endpoints";
+import { FOLLOW_COPY } from "@/lib/copy";
 import { formatJoinDate } from "@/lib/format";
 import {
   BccApiError,
@@ -315,14 +316,16 @@ function BioBlock({ bio, signature }: { bio: string; signature: string }) {
 }
 
 // ──────────────────────────────────────────────────────────────────────
-// CountsStrip — six big stencil numbers from §3.1 counts. Followers /
-// following / binder / reviews / disputes signed / solids received.
+// CountsStrip — six big stencil numbers from §3.1 counts. Watchers /
+// watching / binder / reviews / disputes signed / solids received. The
+// `followers` / `following` API field names are part of the §9
+// contract — only the display labels changed (see lib/copy.ts).
 // ──────────────────────────────────────────────────────────────────────
 
 function CountsStrip({ counts }: { counts: MemberCounts }) {
   const cells: Array<{ label: string; value: number }> = [
-    { label: "FOLLOWERS",       value: counts.followers },
-    { label: "FOLLOWING",       value: counts.following },
+    { label: FOLLOW_COPY.nounUpper,     value: counts.followers },
+    { label: FOLLOW_COPY.watchingUpper, value: counts.following },
     { label: "BINDER",          value: counts.binder_size },
     { label: "REVIEWS WRITTEN", value: counts.reviews_written },
     { label: "DISPUTES SIGNED", value: counts.disputes_signed },

@@ -70,8 +70,8 @@ const BELL_ROWS: ReadonlyArray<BellRow> = [
   },
   {
     key: "bcc_card_pulled",
-    label: "Pulls on your card",
-    blurb: "Someone added your card to their binder.",
+    label: "Watchers on your card",
+    blurb: "Someone is now keeping tabs on your card.",
   },
   {
     key: "bcc_rank_up",

@@ -70,7 +70,7 @@ export function BinderTile({ item, isUnpulling = false }: BinderTileProps) {
         <span className="tracking-[0.12em]">{item.card_kind.toUpperCase()}</span>
         {item.is_legacy && (
           <span
-            title="Imported follow — no original pull moment"
+            title="Imported entry — no original Keep Tabs moment"
             className="bcc-mono px-1.5 py-0.5 text-[8px] text-white/70"
           >
             LEGACY

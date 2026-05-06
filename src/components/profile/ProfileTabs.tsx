@@ -145,7 +145,7 @@ export function ProfileTabs({ handle, displayName, isOwner = false, tabs }: Prof
             {active === "disputes" && <DisputesPanel handle={handle} />}
             {active === "binder"   && <ComingSoonPanel label="Binder" hint="3×3 ring-bound grid lands in Phase 6 with the gallery." />}
             {active === "activity" && <ActivityPanel handle={handle} isOwner={isOwner} />}
-            {active === "network"  && <ComingSoonPanel label="Network" hint="Followed members + vouch graph — Phase 5." />}
+            {active === "network"  && <ComingSoonPanel label="Network" hint="Members you're watching + vouch graph — Phase 5." />}
           </>
         )}
       </div>

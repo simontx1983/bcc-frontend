@@ -125,8 +125,8 @@ function FeedBody(props: FeedBodyProps) {
         <div className="bcc-panel mx-auto max-w-md p-6 text-center">
           <h2 className="bcc-stencil text-2xl text-ink">Quiet on the Floor</h2>
           <p className="mt-2 font-serif text-ink-soft">
-            Pull a card or two to start your feed, or check back in a bit —
-            new activity rolls in throughout the day.
+            Keep tabs on a card or two to start your feed, or check back in a
+            bit — new activity rolls in throughout the day.
           </p>
         </div>
       </div>

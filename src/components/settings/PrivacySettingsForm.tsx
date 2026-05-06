@@ -59,8 +59,8 @@ const SECTIONS: ToggleSection[] = [
       },
       {
         key: "follower_count_hidden",
-        label: "Hide my follower count",
-        helper: "“Pulled by” drops to 0 on others' renders of your card.",
+        label: "Hide my watcher count",
+        helper: "“Watchers” drops to 0 on others' renders of your card.",
       },
     ],
   },

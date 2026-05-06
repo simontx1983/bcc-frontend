@@ -107,11 +107,11 @@ function BinderGridBody({ result }: { result: ReturnType<typeof useBinder> }) {
         <div className="bcc-panel mx-auto max-w-xl p-8 text-center">
           <p className="bcc-mono text-safety">EMPTY BINDER</p>
           <h2 className="bcc-stencil mt-2 text-3xl text-ink">
-            Nothing pulled yet.
+            Nothing on your watch list yet.
           </h2>
           <p className="mt-3 font-serif leading-relaxed text-ink-soft">
-            Pull a validator, creator, or project you&rsquo;d actually trust.
-            The card lands here. The floor remembers.
+            Keep tabs on a validator, creator, or project you&rsquo;d actually
+            trust. The card lands here. The floor remembers.
           </p>
           <Link
             href="/directory"
