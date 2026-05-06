@@ -114,10 +114,10 @@ function GroupRow({ item }: { item: UserGroupItem }) {
     <div className="flex items-start justify-between gap-4">
       <div className="min-w-0 flex flex-col gap-1">
         <div
-          className="bcc-mono text-ink-ghost"
+          className="bcc-mono uppercase text-ink-ghost"
           style={{ fontSize: "9px", letterSpacing: "0.18em" }}
         >
-          {kindKicker(item.type)}
+          {item.type_label}
         </div>
         <div
           className="bcc-stencil text-ink"
@@ -337,17 +337,9 @@ function UnlockHint({ hint }: { hint: string }) {
 }
 
 // ──────────────────────────────────────────────────────────────────────
-// Header / Empty / kindKicker — unchanged from the display-only pass.
+// Header / Empty — kind kicker now reads `item.type_label` verbatim
+// from the server (per §A2 / §S); see [docs/api-contract-v1.md §4.7.2].
 // ──────────────────────────────────────────────────────────────────────
-
-function kindKicker(type: UserGroupItem["type"]): string {
-  switch (type) {
-    case "nft":    return "ON-CHAIN HOLDERS";
-    case "local":  return "LOCAL";
-    case "system": return "SYSTEM";
-    case "user":   return "GROUP";
-  }
-}
 
 function Header() {
   return (

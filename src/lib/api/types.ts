@@ -1036,6 +1036,13 @@ export interface UserGroupItem {
   slug: string;
   name: string;
   type: GroupDiscoveryType;
+  /**
+   * Server-authoritative display string for the `type` enum
+   * ("On-Chain Holders" / "Local" / "System" / "Group" by default;
+   * filterable via `bcc_group_type_label`). Frontend renders verbatim
+   * per §A2 — no client-side enum→label mapping.
+   */
+  type_label: string;
   member_count: number;
   privacy: GroupDiscoveryPrivacy;
   verification: GroupVerification | null;

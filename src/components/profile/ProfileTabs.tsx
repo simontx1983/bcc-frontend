@@ -3,9 +3,9 @@
 /**
  * ProfileTabs — the bottom-of-profile tab strip with the active panel.
  *
- * Tabs: Binder · Reviews · Activity · Disputes · Network. The Blog
- * entry sits beside the tab strip as a Link (it's a separate route
- * per §D6, not a panel).
+ * Tabs: Binder · Reviews · Activity · Disputes · Groups · Network.
+ * The Blog entry sits beside the tab strip as a Link (it's a separate
+ * route per §D6, not a panel).
  *
  * Decoupled from Phase4MemberProfile per the V1.5 refactor: the
  * component now takes `handle` + `displayName` directly so a §3.1
@@ -95,7 +95,7 @@ export function ProfileTabs({ handle, displayName, isOwner = false, tabs }: Prof
           (separate route per §D6) — sits at the right end so it reads
           as "and there's also a blog over here."
           On phones (< sm) we drop wrap + add horizontal scroll so the
-          5 + Blog tabs don't shrink below readable width — swiping the
+          6 + Blog tabs don't shrink below readable width — swiping the
           row beats stacking them on top of each other. */}
       <div
         role="tablist"
