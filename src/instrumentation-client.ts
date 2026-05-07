@@ -7,6 +7,18 @@ import * as Sentry from "@sentry/nextjs";
 Sentry.init({
   dsn: process.env['NEXT_PUBLIC_SENTRY_DSN'],
 
+  // See sentry.server.config.ts for rationale.
+  environment: process.env['NODE_ENV'],
+
+  // Stitch traces from browser fetches into the Next.js + bcc-trust
+  // call chain. Without this, browser-initiated requests are tagged in
+  // Sentry as orphaned spans rather than children of the user action.
+  tracePropagationTargets: [
+    "localhost",
+    /^\//,
+    /\/wp-json\/bcc/,
+  ],
+
   // Replay deliberately omitted. It records full DOM state, which on
   // BCC pages would capture wallet addresses, token balances, NFT
   // inventory, holder-group membership, and dispute content. Re-enable

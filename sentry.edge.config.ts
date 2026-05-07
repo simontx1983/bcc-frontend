@@ -8,6 +8,16 @@ import * as Sentry from "@sentry/nextjs";
 Sentry.init({
   dsn: process.env['NEXT_PUBLIC_SENTRY_DSN'],
 
+  // See sentry.server.config.ts for rationale.
+  environment: process.env['NODE_ENV'],
+
+  // See sentry.server.config.ts for rationale.
+  tracePropagationTargets: [
+    "localhost",
+    /^\//,
+    /\/wp-json\/bcc/,
+  ],
+
   // 10% sampling balances signal vs Sentry billing in production. Bump
   // to 1 only when actively debugging.
   tracesSampleRate: 0.1,
