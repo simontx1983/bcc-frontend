@@ -73,8 +73,14 @@ export default async function HomePage() {
               never blocks the Floor from rendering. */}
           <HighlightStrip />
 
-          {/* §D1 composer — auth-only inline status form. */}
-          <Composer />
+          {/* §D1 composer — auth-only inline status form. v1.5 quiet
+              idle row; expands on click. Long-form lives at /blog/new. */}
+          <Composer
+            viewerAvatarUrl={viewerProfile?.avatar_url}
+            viewerHandle={session.user.handle}
+            viewerDisplayName={viewerProfile?.display_name ?? null}
+          />
+
         </>
       ) : (
         <FloorIntro featuredCard={featuredCard} />

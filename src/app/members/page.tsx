@@ -235,11 +235,19 @@ function TypeFilterRow({
         {VALID_TYPE_FILTERS.map((type) => {
           const palette = TYPE_CHIP_PALETTE[type];
           const count = counts[type];
+          const isActive = active === type;
+          // Hide zero-count chips unless they're the currently-active
+          // filter — preserve the active chip even at 0 so the viewer
+          // can deselect (e.g., they had `?type=dao` and the count
+          // dropped to 0 between renders).
+          if (count === 0 && !isActive) {
+            return null;
+          }
           return (
             <FilterChip
               key={type}
-              isActive={active === type}
-              onClick={() => onSelect(active === type ? null : type)}
+              isActive={isActive}
+              onClick={() => onSelect(isActive ? null : type)}
               activeStyle={{ background: palette.bg, color: palette.text }}
               label={`${TYPE_FILTER_LABEL[type]} · ${count}`}
             />

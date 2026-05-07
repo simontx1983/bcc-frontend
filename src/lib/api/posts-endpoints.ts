@@ -10,6 +10,10 @@
 import { bccFetchAsClient } from "@/lib/api/client";
 import type {
   CreateBlogRequest,
+  CreateGifPostRequest,
+  CreateGifPostResponse,
+  CreatePhotoPostRequest,
+  CreatePhotoPostResponse,
   CreatePostRequest,
   CreatePostResponse,
   CreateReviewRequest,
@@ -71,6 +75,64 @@ export function createBlog(
   request: Omit<CreateBlogRequest, "kind">
 ): Promise<CreatePostResponse> {
   return createPost({ kind: "blog", ...request });
+}
+
+/**
+ * POST /posts/photo — multipart photo upload (v1.5).
+ *
+ * Separate route from /posts because the request shape is multipart
+ * (file + optional caption text field) rather than JSON. The
+ * `bccFetchAsClient` wrapper auto-detects FormData bodies and skips
+ * the JSON Content-Type override, so the same client works for both.
+ *
+ * Errors:
+ *   - bcc_unauthorized    — no session
+ *   - bcc_invalid_request — missing photo, multi-file (V1 single-only),
+ *                           upload error, oversized, unsupported mime
+ *   - bcc_forbidden       — PeepSo permission check refused
+ *   - bcc_rate_limited    — burst seatbelt fired
+ *   - bcc_unavailable     — PeepSo deactivated, persist failure
+ */
+export function createPhotoPost(
+  request: CreatePhotoPostRequest
+): Promise<CreatePhotoPostResponse> {
+  const fd = new FormData();
+  fd.append("photo", request.file, request.file.name);
+  if (request.caption !== undefined && request.caption !== "") {
+    fd.append("caption", request.caption);
+  }
+  return bccFetchAsClient<CreatePhotoPostResponse>("posts/photo", {
+    method: "POST",
+    body: fd,
+  });
+}
+
+/**
+ * POST /posts/gif — JSON body { url, caption? } (v1.5).
+ *
+ * Counterpart to createPhotoPost. Wraps PeepSo's existing giphy
+ * plugin under the hood; BCC server validates the URL contains
+ * `giphy.com` (matches PeepSo's own check). Caption optional.
+ *
+ * Errors:
+ *   - bcc_unauthorized    — no session
+ *   - bcc_invalid_request — empty URL, URL doesn't contain giphy.com,
+ *                           caption over 500 chars
+ *   - bcc_forbidden       — PeepSo permission check refused
+ *   - bcc_rate_limited    — burst seatbelt fired
+ *   - bcc_unavailable     — PeepSo deactivated, persist failure
+ */
+export function createGifPost(
+  request: CreateGifPostRequest
+): Promise<CreateGifPostResponse> {
+  const body: { url: string; caption?: string } = { url: request.url };
+  if (request.caption !== undefined && request.caption !== "") {
+    body.caption = request.caption;
+  }
+  return bccFetchAsClient<CreateGifPostResponse>("posts/gif", {
+    method: "POST",
+    body,
+  });
 }
 
 /**

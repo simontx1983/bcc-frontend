@@ -8,10 +8,17 @@
  *   - null  → exact match against "/" (the Floor)
  *   - "/x"  → active when pathname === "/x" or starts with "/x/"
  *
- * Routes that aren't built yet (broadcast/validators/disputes/members)
- * still appear in the nav so the surface matches the prototype. They'll
+ * Routes that aren't built yet (validators/disputes/members) still
+ * appear in the nav so the surface matches the prototype. They'll
  * 404 until the matching phase ships — that's intentional, so the nav
  * design lands now and the routes plug in as Phase 5+ work them in.
+ *
+ * Broadcast was retired (v1.5): the Floor's `signals` scope tab
+ * already covers "live rolling feed of trades / validations / dispute
+ * outcomes / signals," and with v1.5 reactions + comments the Floor
+ * is the daily driver. A separate Broadcast surface implied a second
+ * feed that didn't exist; cleaner to ship one coherent place and let
+ * the scope tabs do the slicing.
  */
 
 export interface NavLink {
@@ -25,7 +32,6 @@ export const SITE_NAV: readonly NavLink[] = [
   { label: "Directory",   href: "/directory",   match: "/directory" },
   { label: "Communities", href: "/communities", match: "/communities" },
   { label: "Binder",      href: "/binder",      match: "/binder" },
-  { label: "Broadcast",   href: "/broadcast",   match: "/broadcast" },
   { label: "Validators",  href: "/validators",  match: "/validators" },
   { label: "Disputes",    href: "/disputes",    match: "/disputes" },
   { label: "Members",     href: "/members",     match: "/members" },
@@ -38,7 +44,6 @@ export function railLabelForPath(pathname: string): string {
   if (pathname.startsWith("/directory")) return "Directory";
   if (pathname.startsWith("/communities")) return "Communities";
   if (pathname.startsWith("/binder")) return "Binder";
-  if (pathname.startsWith("/broadcast")) return "Broadcast";
   if (pathname.startsWith("/validators")) return "Validators";
   if (pathname.startsWith("/disputes")) return "Disputes";
   if (pathname.startsWith("/members")) return "Members";

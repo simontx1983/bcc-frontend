@@ -24,6 +24,36 @@ export function formatRelativeTime(iso: string): string {
   return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
+/**
+ * Format an ISO 8601 join timestamp as a "how old is this account"
+ * label for directory cards: `3d` / `2w` / `5mo` / `2y`. Distinct from
+ * `formatRelativeTime` (which falls through to a non-yeared "Mmm d"
+ * past 30 days, ambiguous on directory listings older than 12 months).
+ *
+ * Bands:
+ *   - <60s   → "just now"
+ *   - <60m   → "Nm"
+ *   - <24h   → "Nh"
+ *   - <14d   → "Nd"
+ *   - <60d   → "Nw"
+ *   - <365d  → "Nmo"
+ *   - else   → "Ny"
+ *
+ * Returns "" for unparseable input — caller suppresses the slot.
+ */
+export function formatJoinedAge(iso: string): string {
+  const epoch = Date.parse(iso);
+  if (Number.isNaN(epoch)) return "";
+  const seconds = Math.max(0, Math.floor((Date.now() - epoch) / 1000));
+  if (seconds < 60) return "just now";
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m`;
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h`;
+  if (seconds < 86400 * 14) return `${Math.floor(seconds / 86400)}d`;
+  if (seconds < 86400 * 60) return `${Math.floor(seconds / (86400 * 7))}w`;
+  if (seconds < 86400 * 365) return `${Math.floor(seconds / (86400 * 30))}mo`;
+  return `${Math.floor(seconds / (86400 * 365))}y`;
+}
+
 /** Format an ISO timestamp as "Mmm d, yyyy" in the viewer's locale. */
 export function formatShortDate(iso: string): string {
   const t = Date.parse(iso);

@@ -3,16 +3,16 @@
 /**
  * Composer — §D1 unified content-creation surface.
  *
- * Single component, two variants, three modes.
+ * Single component, two variants, two modes (v1.5):
  *
  *   variants:  "inline" | "modal"
- *   modes:     "status" | "review" | "blog"
+ *   modes:     "status" | "review"
  *
  * Variant is presentation only. State + submit pipelines are identical
  * across both — no forks. The inline variant renders directly on the
- * Floor for authed viewers; the modal variant is launched from action
- * entry points (today: ReviewCallout) with the right defaultMode +
- * reviewTargetId pre-set.
+ * Floor (and on a viewer's own per-user wall) for authed viewers; the
+ * modal variant is launched from action entry points (today:
+ * ReviewCallout) with the right defaultMode + reviewTargetId pre-set.
  *
  *   ┌──────── strict scope rule ──────────────────────────────────────┐
  *   │ The Composer handles content creation only. Pull, Endorse, and │
@@ -21,54 +21,77 @@
  *   │ own UX shape. Adding them back would dilute the surface.       │
  *   └────────────────────────────────────────────────────────────────┘
  *
- * Review-mode contract:
+ * v1.5 changes:
+ *   - The inline variant is no longer a cream-panel form with mode
+ *     tabs. It's a quiet single-line idle row in the dark feed flow
+ *     that expands on focus into a textarea + Publish + close-X.
+ *     Phillip's framing: "the collapsed state should almost feel
+ *     like a thought waiting to happen." PeepSo provides the
+ *     storage primitive (peepso_activities) underneath; BCC owns
+ *     the entire frontend identity.
+ *   - The Blog tab is gone from this surface. Long-form is now an
+ *     escalation path — an inline `Long-form →` link in the
+ *     expanded composer routes to `/blog/new`, where the dedicated
+ *     BlogForm renders with its own page chrome. Different mindset,
+ *     different context, by design.
+ *
+ * Review-mode contract (modal variant only in V1):
  *   - REQUIRES reviewTargetId (numeric page id) + reviewTargetName
- *   - Disables the Review tab + submit when missing
  *   - Renders a "Reviewing @handle" header + locks the target (no
  *     mid-composer target switching in V1)
  *   - Adds a grade picker (trust / neutral / caution per §D2)
- *
- * Other modes ignore reviewTargetId.
- *
- * Tab order (frequency-first):
- *   1. Update  — quick text post (default for the Floor)
- *   2. Review  — only when invoked with a target
- *   3. Blog    — long-form (excerpt + body)
- *
- * Announce (post-as-entity per §D3) is deliberately deferred — the
- * backend /posts endpoint has no entity-identity parameter, so the
- * tab would be dead even when shown. Lands when /posts gains a
- * post_as_entity_id field.
  *
  * Cache: each submit path invalidates the feed + highlights query
  * roots so a refetch surfaces the new post via the canonical
  * FeedRankingService hydration. No optimistic insert.
  */
 
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type FormEvent,
+  type KeyboardEvent as ReactKeyboardEvent,
+} from "react";
+import Link from "next/link";
+import type { Route } from "next";
 import { useQueryClient } from "@tanstack/react-query";
-import { useEffect, useMemo, useState } from "react";
 
-import { useCreatePostMutation } from "@/hooks/useCreatePost";
+import {
+  useCreateGifPostMutation,
+  useCreatePhotoPostMutation,
+  useCreatePostMutation,
+} from "@/hooks/useCreatePost";
+import { useGiphyIntegration } from "@/hooks/useGiphyIntegration";
+import { GifPicker } from "@/components/composer/GifPicker";
+import { MentionPopover } from "@/components/composer/MentionPopover";
 import { createReview } from "@/lib/api/posts-endpoints";
 import {
   BccApiError,
   BLOG_EXCERPT_MAX_LENGTH,
   BLOG_EXCERPT_MIN_LENGTH,
   BLOG_FULL_TEXT_MAX_LENGTH,
+  buildMentionToken,
+  MENTIONS_PER_POST_MAX,
+  PHOTO_ALLOWED_MIME_TYPES,
+  PHOTO_MAX_BYTES,
   REVIEW_BODY_MAX_LENGTH,
   STATUS_POST_MAX_LENGTH,
+  type GiphySearchResult,
+  type MentionSearchCandidate,
   type ReviewGrade,
 } from "@/lib/api/types";
 import { FEED_QUERY_KEY_ROOT, HOT_FEED_QUERY_KEY } from "@/hooks/useFeed";
 import { HIGHLIGHTS_QUERY_KEY } from "@/hooks/useHighlights";
 import { USER_ACTIVITY_QUERY_KEY_ROOT } from "@/hooks/useUserActivity";
 
-export type ComposerMode = "status" | "review" | "blog";
+export type ComposerMode = "status" | "review";
 
 export type ComposerVariant = "inline" | "modal";
 
 export interface ComposerProps {
-  /** Default tab. Falls back to "status" for inline, the supplied mode otherwise. */
+  /** Default tab. Inline variant always uses "status"; modal accepts both. */
   defaultMode?: ComposerMode;
   /** Required for review mode — the page id being reviewed. Ignored otherwise. */
   reviewTargetId?: number;
@@ -78,10 +101,23 @@ export interface ComposerProps {
   variant?: ComposerVariant;
   /** Required when variant === "modal". Called on dismiss + on success. */
   onClose?: () => void;
+  /**
+   * Inline-variant props for the collapsed-row identity treatment.
+   * All optional — when missing, the composer falls back to a quiet
+   * initial-letter placeholder. Server-resolved per §A2 (the Floor
+   * page SSR-fetches MemberProfile and threads it through; ActivityPanel
+   * may omit and accept the fallback).
+   */
+  viewerAvatarUrl?: string | undefined;
+  viewerHandle?: string | undefined;
+  viewerDisplayName?: string | null | undefined;
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// Outer shell: variant-aware wrapper around the same inner state.
+// Outer shell: variant-aware wrapper.
+//
+// Inline variant: dark-flow collapsed-idle composer. Status-only.
+// Modal variant: cream-panel form with mode tabs + ESC close.
 // ─────────────────────────────────────────────────────────────────────
 
 export function Composer({
@@ -90,71 +126,781 @@ export function Composer({
   reviewTargetName,
   variant = "inline",
   onClose,
+  viewerAvatarUrl,
+  viewerHandle,
+  viewerDisplayName,
 }: ComposerProps) {
-  // Review tab is only available when a target is supplied. If the
-  // caller passes defaultMode="review" without a target, fall back to
-  // status — fail closed rather than render a broken review form.
+  // Review tab is only available when a target is supplied. Fail closed.
   const reviewAvailable =
     typeof reviewTargetId === "number" &&
     reviewTargetId > 0 &&
     typeof reviewTargetName === "string" &&
     reviewTargetName.length > 0;
 
-  const initialMode: ComposerMode =
-    defaultMode === "review" && !reviewAvailable ? "status" : defaultMode;
-
-  const inner = (
-    <ComposerCore
-      initialMode={initialMode}
-      reviewTargetId={reviewAvailable ? reviewTargetId : undefined}
-      reviewTargetName={reviewAvailable ? reviewTargetName : undefined}
-      reviewAvailable={reviewAvailable}
-      onSubmitSuccess={onClose}
-    />
-  );
-
-  if (variant === "modal") {
+  if (variant === "inline") {
+    // Inline is status-only by design (v1.5). Review uses the modal
+    // variant; long-form lives at /blog/new behind the in-composer
+    // escalation link.
     return (
-      <ModalShell
-        title={
-          initialMode === "review" && reviewAvailable
-            ? `Write a review of ${reviewTargetName ?? ""}`
-            : "Compose"
-        }
-        onClose={onClose ?? noop}
-      >
-        {inner}
-      </ModalShell>
+      <InlineStatusComposer
+        viewerAvatarUrl={viewerAvatarUrl}
+        viewerHandle={viewerHandle}
+        viewerDisplayName={viewerDisplayName ?? null}
+      />
     );
   }
 
+  // Modal variant — keeps the existing cardstock-panel form for review
+  // composer flows + any future status-from-modal paths.
+  const initialMode: ComposerMode =
+    defaultMode === "review" && !reviewAvailable ? "status" : defaultMode;
+
   return (
-    <section className="mx-auto max-w-6xl px-8 pb-6">
-      <div className="bcc-panel flex flex-col gap-3 p-5">{inner}</div>
+    <ModalShell
+      title={
+        initialMode === "review" && reviewAvailable
+          ? `Write a review of ${reviewTargetName ?? ""}`
+          : "Compose"
+      }
+      onClose={onClose ?? noop}
+    >
+      <ModalCore
+        initialMode={initialMode}
+        reviewTargetId={reviewAvailable ? reviewTargetId : undefined}
+        reviewTargetName={reviewAvailable ? reviewTargetName : undefined}
+        reviewAvailable={reviewAvailable}
+        onSubmitSuccess={onClose}
+      />
+    </ModalShell>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// InlineStatusComposer — v1.5 quiet-idle / focused-expanded composer.
+//
+// Two states:
+//   - Collapsed (default): avatar chip + placeholder, sits in the dark
+//     feed flow with a faint top/bottom border. Reads as "a thought
+//     waiting to happen." Clicking anywhere on the row expands.
+//   - Expanded: textarea + char counter + `Long-form →` link + Publish
+//     button + close-X. The textarea autofocuses on expand.
+//
+// Click-outside collapses ONLY when the textarea is empty — never lose
+// a draft to a stray click. ESC behaves the same. The X button always
+// collapses + clears (explicit user intent to dismiss).
+// ─────────────────────────────────────────────────────────────────────
+
+interface InlineStatusComposerProps {
+  viewerAvatarUrl: string | undefined;
+  viewerHandle: string | undefined;
+  viewerDisplayName: string | null;
+}
+
+function InlineStatusComposer({
+  viewerAvatarUrl,
+  viewerHandle,
+  viewerDisplayName,
+}: InlineStatusComposerProps) {
+  const [expanded, setExpanded] = useState(false);
+  const [content, setContent] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  // v1.5 photo state. `attachedFile` holds the selected File; `previewUrl`
+  // is a transient `URL.createObjectURL()` for the thumbnail tile,
+  // revoked on remove or unmount. Treat the pair as one logical state —
+  // they're set + cleared together.
+  const [attachedFile, setAttachedFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  // v1.5 GIF state. Single-attachment-per-post invariant: selecting a
+  // GIF clears any attached file, and selecting a file clears the
+  // GIF. The picker open/closed state is local; the picker only
+  // mounts when the integration config says enabled.
+  const [selectedGif, setSelectedGif] = useState<GiphySearchResult | null>(null);
+  const [gifPickerOpen, setGifPickerOpen] = useState(false);
+  // §3.3.12 mention-picker state.
+  // `caretPos` mirrors the textarea's selectionEnd; updated on input
+  // and selection-change events. Drives mention-trigger detection
+  // (which is purely a function of (content, caretPos, ranges)).
+  const [caretPos, setCaretPos] = useState<number>(0);
+  // Active-option DOM id reported back from MentionPopover, mirrored
+  // as `aria-activedescendant` on the textarea so screen-reader users
+  // hear the focused row announced as they arrow through suggestions.
+  const [mentionActiveOptionId, setMentionActiveOptionId] = useState<string | null>(null);
+
+  const containerRef = useRef<HTMLDivElement>(null);
+  const textareaRef  = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Giphy integration — fetched once per session, cached. Drives the
+  // GIF button visibility (admin disabled → button hidden entirely
+  // per the §4.16 contract).
+  const giphyConfig = useGiphyIntegration({ enabled: expanded });
+  const giphyEnabled = giphyConfig.data?.enabled === true;
+
+  const clearAttachment = () => {
+    setAttachedFile(null);
+    setPreviewUrl((current) => {
+      if (current !== null) {
+        URL.revokeObjectURL(current);
+      }
+      return null;
+    });
+    if (fileInputRef.current !== null) {
+      fileInputRef.current.value = "";
+    }
+  };
+
+  const clearGif = () => {
+    setSelectedGif(null);
+    setGifPickerOpen(false);
+  };
+
+  const clearAllAttachments = () => {
+    clearAttachment();
+    clearGif();
+  };
+
+  const statusMutation = useCreatePostMutation({
+    onSuccess: () => {
+      setContent("");
+      setError(null);
+      setExpanded(false);
+    },
+    onError: (err) => setError(humanizeError(err)),
+  });
+
+  const photoMutation = useCreatePhotoPostMutation({
+    onSuccess: () => {
+      setContent("");
+      clearAttachment();
+      setError(null);
+      setExpanded(false);
+    },
+    onError: (err) => setError(humanizeError(err)),
+  });
+
+  const gifMutation = useCreateGifPostMutation({
+    onSuccess: () => {
+      setContent("");
+      clearGif();
+      setError(null);
+      setExpanded(false);
+    },
+    onError: (err) => setError(humanizeError(err)),
+  });
+
+  const isPending =
+    statusMutation.isPending || photoMutation.isPending || gifMutation.isPending;
+  const trimmed = content.trim();
+  const length  = content.length;
+  const overCap = length > STATUS_POST_MAX_LENGTH;
+
+  // §3.3.12 — derived mention state.
+  //
+  // `mentionRanges` are the [start, end) offsets of every wire-format
+  // token already inserted into the textarea. Recomputed from `content`
+  // every render (via useMemo) so we never have to manually shift them
+  // on edits. Used for atomic-token Backspace/Delete and for the
+  // pre-submit count cap.
+  //
+  // `mentionTrigger` is "are we currently typing an @-prefix that
+  // should open the picker?" — derived from (content, caretPos,
+  // mentionRanges). Active when the caret is just after `@<word-chars>`
+  // and `@` is at start-of-string OR preceded by whitespace/punctuation.
+  // Skipping the trigger when caret is INSIDE an existing token range
+  // prevents the picker from re-opening on the literal "@" inside
+  // `@peepso_user_42(name)`.
+  const mentionRanges  = useMemo(() => findMentionRanges(content), [content]);
+  const mentionTrigger = useMemo(
+    () => detectMentionTrigger(content, caretPos, mentionRanges),
+    [content, caretPos, mentionRanges]
+  );
+  const mentionPickerOpen = expanded && mentionTrigger.active && !isPending;
+  const overMentionCap    = mentionRanges.length > MENTIONS_PER_POST_MAX;
+  // v1.5: photo-only / GIF-only posts are valid. `canSubmit` requires
+  // SOMETHING — text OR photo OR GIF. Keeps casual posting frictionless
+  // ("post this meme" doesn't need a caption).
+  // §3.3.12 — pre-flight mention cap. Server still enforces; client
+  // gate skips the round-trip + lets the cap message render inline.
+  const canSubmit =
+    (trimmed !== "" || attachedFile !== null || selectedGif !== null) &&
+    !overCap &&
+    !overMentionCap &&
+    !isPending;
+
+  // Click-outside-collapse — only when text AND both attachment slots
+  // are empty, so a stray tap can't erase a draft OR a selected
+  // photo OR a selected GIF. Same idiom GlobalSearch uses.
+  useEffect(() => {
+    if (!expanded) return undefined;
+    const isEmpty = () =>
+      content.trim() === "" && attachedFile === null && selectedGif === null;
+    const onPointerDown = (event: globalThis.PointerEvent) => {
+      if (containerRef.current === null) return;
+      if (!(event.target instanceof Node)) return;
+      if (containerRef.current.contains(event.target)) return;
+      if (isEmpty()) {
+        setExpanded(false);
+      }
+    };
+    const onKeyDown = (event: globalThis.KeyboardEvent) => {
+      if (event.key === "Escape" && isEmpty()) {
+        setExpanded(false);
+        textareaRef.current?.blur();
+      }
+    };
+    window.addEventListener("pointerdown", onPointerDown);
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      window.removeEventListener("pointerdown", onPointerDown);
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [expanded, content, attachedFile, selectedGif]);
+
+  // Autofocus textarea on expand. The state-driven render means the
+  // textarea remounts each time, so the ref is fresh when this fires.
+  useEffect(() => {
+    if (expanded) {
+      textareaRef.current?.focus();
+    }
+  }, [expanded]);
+
+  // Cleanup any pending blob URL on unmount so the browser doesn't
+  // leak object URLs for a composer that disappeared mid-flight.
+  useEffect(() => {
+    return () => {
+      if (previewUrl !== null) {
+        URL.revokeObjectURL(previewUrl);
+      }
+    };
+  }, [previewUrl]);
+
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0] ?? null;
+    if (file === null) {
+      return;
+    }
+    if (!PHOTO_ALLOWED_MIME_TYPES.includes(file.type)) {
+      setError("Photo must be JPEG, PNG, WebP, or GIF.");
+      // Reset the input so re-picking the same bad file still triggers
+      // a change event next time.
+      if (fileInputRef.current !== null) fileInputRef.current.value = "";
+      return;
+    }
+    if (file.size > PHOTO_MAX_BYTES) {
+      setError("Photo is too large. 5 MB max.");
+      if (fileInputRef.current !== null) fileInputRef.current.value = "";
+      return;
+    }
+
+    // Single-attachment-per-post invariant: picking a photo silently
+    // replaces any selected GIF (and vice versa in handleGifSelect).
+    clearGif();
+
+    // Replace any prior attachment + revoke its preview URL.
+    setError(null);
+    setPreviewUrl((current) => {
+      if (current !== null) URL.revokeObjectURL(current);
+      return URL.createObjectURL(file);
+    });
+    setAttachedFile(file);
+  };
+
+  const handleGifSelect = (gif: GiphySearchResult) => {
+    // Single-attachment-per-post invariant: picking a GIF silently
+    // replaces any attached photo. Mirror of handleFileSelect.
+    clearAttachment();
+    setError(null);
+    setSelectedGif(gif);
+    setGifPickerOpen(false);
+    // Return focus to the textarea so the user can immediately type
+    // a caption (or skip and post). Matches the "selection instantly
+    // returns focus to composition" UX call.
+    textareaRef.current?.focus();
+  };
+
+  // §3.3.12 — handle a candidate selection from the mention popover.
+  //
+  // Splices the wire-format token at `mentionTrigger.anchor`,
+  // replacing the partial `@<prefix>` the user had typed. Appends a
+  // single space after the token so the caret lands ready for the
+  // next word. Caret position is restored via setSelectionRange in a
+  // microtask so React's controlled-textarea re-render lands first.
+  const handleMentionSelect = (c: MentionSearchCandidate) => {
+    if (!mentionTrigger.active) return;
+    if (mentionRanges.length >= MENTIONS_PER_POST_MAX) {
+      // Pre-flight cap. Server enforces too, but blocking client-side
+      // saves the round-trip + gives a clearer error.
+      setError(
+        `Up to ${MENTIONS_PER_POST_MAX} mentions per post — remove one before adding another.`
+      );
+      return;
+    }
+    const before = content.substring(0, mentionTrigger.anchor);
+    const after  = content.substring(caretPos);
+    const token  = buildMentionToken(c.user_id, c.display_name);
+    const insert = `${token} `;
+    const next   = before + insert + after;
+    const nextCaret = before.length + insert.length;
+
+    setError(null);
+    setContent(next);
+
+    // Defer caret restore to after React commits the new value;
+    // setSelectionRange against the textarea pre-commit would land
+    // inside the OLD value. The rAF tick is enough to win the race
+    // without touching React internals.
+    requestAnimationFrame(() => {
+      const el = textareaRef.current;
+      if (el === null) return;
+      el.focus();
+      el.setSelectionRange(nextCaret, nextCaret);
+      setCaretPos(nextCaret);
+    });
+  };
+
+  // Keep `caretPos` in sync with the textarea so mention-trigger
+  // detection stays accurate. Three event paths cover the cases:
+  //   - typing → onChange (handled inline below)
+  //   - arrow keys / mouse drag-to-position → onSelect
+  //   - blur/refocus → next onSelect on focus
+  const syncCaretFromEvent = (
+    e: React.SyntheticEvent<HTMLTextAreaElement>
+  ): void => {
+    const el = e.currentTarget;
+    setCaretPos(el.selectionEnd);
+  };
+
+  // Atomic-token Backspace / Delete — when the caret sits inside a
+  // tracked mention range, both Backspace and Delete remove the
+  // ENTIRE token in one stroke (Twitter/X-style). This avoids the
+  // "halfway through (name) → wire token broken → notification
+  // doesn't fire" footgun on token-in-textarea designs.
+  const handleTextareaKeyDown = (
+    e: ReactKeyboardEvent<HTMLTextAreaElement>
+  ): void => {
+    if (e.key !== "Backspace" && e.key !== "Delete") return;
+    const el = e.currentTarget;
+    // Selection delete (drag-select then Backspace) — let the
+    // browser do its native thing.
+    if (el.selectionStart !== el.selectionEnd) return;
+
+    const pos = el.selectionStart;
+    for (const [start, end] of mentionRanges) {
+      const insideForBackspace =
+        e.key === "Backspace" && pos > start && pos <= end;
+      const insideForDelete =
+        e.key === "Delete" && pos >= start && pos < end;
+      if (!insideForBackspace && !insideForDelete) continue;
+
+      e.preventDefault();
+      const next = content.substring(0, start) + content.substring(end);
+      setContent(next);
+      requestAnimationFrame(() => {
+        const t = textareaRef.current;
+        if (t === null) return;
+        t.focus();
+        t.setSelectionRange(start, start);
+        setCaretPos(start);
+      });
+      return;
+    }
+  };
+
+  const closeMentionPicker = (): void => {
+    // Blur the trigger by stepping caret one past the `@` so the
+    // detector goes inactive. Easiest: temporarily move caret to
+    // start of line… but that's user-hostile. Cleanest: just
+    // synthesize a "no active prefix" state via an empty content
+    // change at the same caret. Practically, Esc just blurs the
+    // popover — the picker mounts on `mentionPickerOpen` which is
+    // derived from the trigger, so we can't force-close without
+    // either moving caret or stripping the `@`. For V1d: leave
+    // dismissal to caret-movement / typing past the prefix.
+    // No-op preserves the textarea state; the popover hides on the
+    // next caret/content tick when the trigger evaluates false.
+    // (Hooked up so MentionPopover.onClose has somewhere to land.)
+  };
+
+  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!canSubmit) return;
+    setError(null);
+    if (selectedGif !== null) {
+      gifMutation.mutate({ url: selectedGif.url, caption: trimmed });
+    } else if (attachedFile !== null) {
+      photoMutation.mutate({ file: attachedFile, caption: trimmed });
+    } else {
+      statusMutation.mutate({ content: trimmed });
+    }
+  };
+
+  const dismiss = () => {
+    setContent("");
+    clearAllAttachments();
+    setError(null);
+    setExpanded(false);
+  };
+
+  const initial = resolveAvatarInitial(viewerDisplayName, viewerHandle);
+  const hasPhoto = attachedFile !== null;
+  const hasGif   = selectedGif !== null;
+  const hasAttachment = hasPhoto || hasGif;
+  const placeholder = hasAttachment
+    ? "Add a caption (optional)…"
+    : "Say what's on your mind…";
+
+  return (
+    <section
+      ref={containerRef}
+      className="mx-auto max-w-2xl px-4 sm:px-8"
+      aria-label="Compose a status post"
+    >
+      {!expanded ? (
+        // ────── Collapsed / idle state ─────────────────────────────
+        // A quiet row in the dark flow. No card chrome, no nested
+        // panels. Hover lifts a subtle background tint. The whole
+        // row is the click target — tab into it to expand via
+        // keyboard.
+        <button
+          type="button"
+          onClick={() => setExpanded(true)}
+          className="flex w-full items-center gap-3 border-y border-cardstock/10 bg-transparent px-1 py-3 text-left transition hover:bg-cardstock/5 focus-visible:bg-cardstock/5 focus-visible:outline-none"
+        >
+          <ComposerAvatar src={viewerAvatarUrl} initial={initial} />
+          <span className="font-serif italic text-cardstock-deep/75">
+            What&apos;s on your mind?
+          </span>
+        </button>
+      ) : (
+        // ────── Expanded state ──────────────────────────────────────
+        // Slight elevation via a thin border + faint background.
+        // No cardstock cream surface — stays in the dark zone so
+        // the composer never visually competes with the cream feed
+        // cards below it.
+        <form
+          onSubmit={handleSubmit}
+          className={
+            "flex flex-col gap-3 border-y bg-cardstock/5 px-3 py-3 transition-colors sm:px-4 " +
+            // Visual-shift on attachment: warmer border accent signals
+            // "this post now contains media" without going loud.
+            (hasAttachment
+              ? "border-blueprint/40"
+              : "border-cardstock-edge/30")
+          }
+        >
+          <header className="flex items-center gap-3">
+            <ComposerAvatar src={viewerAvatarUrl} initial={initial} />
+            <span className="bcc-mono text-[11px] tracking-[0.18em] text-cardstock-deep">
+              {viewerDisplayName !== null && viewerDisplayName !== ""
+                ? viewerDisplayName.toUpperCase()
+                : viewerHandle !== undefined && viewerHandle !== ""
+                  ? `@${viewerHandle.toUpperCase()}`
+                  : "POSTING"}
+            </span>
+            <button
+              type="button"
+              onClick={dismiss}
+              aria-label="Close composer"
+              className="bcc-mono ml-auto text-[10px] tracking-[0.24em] text-cardstock-deep/70 hover:text-cardstock"
+            >
+              ESC
+            </button>
+          </header>
+
+          <label htmlFor="composer-status-content" className="sr-only">
+            {placeholder}
+          </label>
+          <textarea
+            id="composer-status-content"
+            ref={textareaRef}
+            value={content}
+            onChange={(e) => {
+              setContent(e.target.value);
+              setCaretPos(e.target.selectionEnd);
+              if (error !== null) setError(null);
+            }}
+            // §3.3.12 — keep caretPos in lockstep with the textarea
+            // so the mention-trigger detector reflects arrow-key
+            // movement / mouse drag-positioning / focus restore.
+            onSelect={syncCaretFromEvent}
+            // §3.3.12 — atomic-token Backspace / Delete. The handler
+            // returns early on non-Backspace/Delete keys, so other
+            // bindings (Enter, etc.) still fall through to default.
+            onKeyDown={handleTextareaKeyDown}
+            placeholder={placeholder}
+            rows={3}
+            maxLength={STATUS_POST_MAX_LENGTH + 100}
+            disabled={isPending}
+            // ARIA combobox role wires the textarea to the popover
+            // listbox so screen readers narrate "X of N" as the user
+            // arrows through suggestions. The popover only mounts
+            // when mentionPickerOpen is true; aria-expanded mirrors.
+            // aria-activedescendant points at the currently-active
+            // option's DOM id (reported back from MentionPopover) so
+            // SR users hear the focused row as they arrow.
+            role="combobox"
+            aria-autocomplete="list"
+            aria-expanded={mentionPickerOpen}
+            aria-controls={MENTION_LISTBOX_ID}
+            aria-activedescendant={mentionActiveOptionId ?? undefined}
+            className="w-full resize-none bg-transparent font-serif text-base text-cardstock placeholder:text-cardstock-deep/40 focus:outline-none disabled:opacity-60"
+          />
+
+          {/*
+            §3.3.12 mention popover — mounts directly under the
+            textarea when the trigger is active. Anchored to the
+            composer container so outside-click detection treats the
+            whole composer surface as "inside" (clicking back into
+            the textarea preserves the picker). Listbox id is the
+            same constant the textarea points `aria-controls` at.
+          */}
+          {mentionPickerOpen && (
+            <MentionPopover
+              query={mentionTrigger.active ? mentionTrigger.query : ""}
+              open={mentionPickerOpen}
+              onSelect={handleMentionSelect}
+              onClose={closeMentionPicker}
+              anchorRef={containerRef}
+              listboxId={MENTION_LISTBOX_ID}
+              onActiveOptionChange={setMentionActiveOptionId}
+            />
+          )}
+
+          {hasPhoto && previewUrl !== null && (
+            <div className="relative inline-flex w-fit">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={previewUrl}
+                alt=""
+                className="h-24 w-24 rounded-sm border border-cardstock-edge/40 object-cover"
+              />
+              <button
+                type="button"
+                onClick={clearAttachment}
+                aria-label="Remove photo"
+                className="bcc-mono absolute -right-1.5 -top-1.5 inline-flex h-5 w-5 items-center justify-center rounded-full border border-cardstock-edge/60 bg-ink text-[10px] leading-none text-cardstock hover:bg-safety hover:text-cardstock"
+                title="Remove photo"
+              >
+                ×
+              </button>
+            </div>
+          )}
+
+          {hasGif && selectedGif !== null && (
+            <div className="relative inline-flex w-fit">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={selectedGif.preview_url}
+                alt=""
+                className="h-24 w-24 rounded-sm border border-cardstock-edge/40 object-cover"
+              />
+              <button
+                type="button"
+                onClick={clearGif}
+                aria-label="Remove GIF"
+                className="bcc-mono absolute -right-1.5 -top-1.5 inline-flex h-5 w-5 items-center justify-center rounded-full border border-cardstock-edge/60 bg-ink text-[10px] leading-none text-cardstock hover:bg-safety hover:text-cardstock"
+                title="Remove GIF"
+              >
+                ×
+              </button>
+            </div>
+          )}
+
+          {gifPickerOpen && giphyConfig.data?.enabled === true && (
+            <GifPicker
+              config={giphyConfig.data}
+              onSelect={handleGifSelect}
+              onClose={() => setGifPickerOpen(false)}
+            />
+          )}
+
+          {error !== null && (
+            <p role="alert" className="bcc-mono text-[11px] text-safety">
+              {error}
+            </p>
+          )}
+
+          <footer className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-4">
+              {/* 📷 attach affordance — leftmost in the footer per the
+                  "attachment belongs closer to creation than publishing"
+                  product call. Triggers the hidden file input. The
+                  button is disabled while a write is in flight so a
+                  user can't swap files mid-upload. */}
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isPending}
+                aria-label={hasPhoto ? "Replace photo" : "Attach a photo"}
+                title={hasPhoto ? "Replace photo" : "Attach a photo"}
+                className={
+                  "inline-flex h-7 w-7 items-center justify-center rounded-full border text-base leading-none transition disabled:cursor-not-allowed disabled:opacity-50 " +
+                  (hasPhoto
+                    ? "border-blueprint/60 bg-cardstock/10 text-cardstock"
+                    : "border-cardstock-edge/40 text-cardstock-deep/80 hover:border-cardstock-edge hover:text-cardstock")
+                }
+              >
+                <span aria-hidden>📷</span>
+              </button>
+              {/* GIF button — only mounts when the integration is
+                  enabled. Toggles the inline picker. Disabled while a
+                  write is in flight, same as 📷. */}
+              {giphyEnabled && (
+                <button
+                  type="button"
+                  onClick={() => setGifPickerOpen((open) => !open)}
+                  disabled={isPending}
+                  aria-label={hasGif ? "Replace GIF" : "Attach a GIF"}
+                  aria-expanded={gifPickerOpen}
+                  title={hasGif ? "Replace GIF" : "Attach a GIF"}
+                  className={
+                    "bcc-mono inline-flex h-7 items-center rounded-full border px-2 text-[10px] tracking-[0.18em] transition disabled:cursor-not-allowed disabled:opacity-50 " +
+                    (hasGif || gifPickerOpen
+                      ? "border-blueprint/60 bg-cardstock/10 text-cardstock"
+                      : "border-cardstock-edge/40 text-cardstock-deep/80 hover:border-cardstock-edge hover:text-cardstock")
+                  }
+                >
+                  GIF
+                </button>
+              )}
+              <span
+                className={
+                  "bcc-mono text-[11px] " +
+                  (overCap
+                    ? "text-safety"
+                    : length > STATUS_POST_MAX_LENGTH - 50
+                      ? "text-warning"
+                      : "text-cardstock-deep/60")
+                }
+              >
+                {length} / {STATUS_POST_MAX_LENGTH}
+                {hasPhoto && (
+                  <span className="ml-2 text-cardstock-deep/80">· 1 photo</span>
+                )}
+                {hasGif && (
+                  <span className="ml-2 text-cardstock-deep/80">· 1 GIF</span>
+                )}
+                {mentionRanges.length > 0 && (
+                  <span
+                    className={`ml-2 ${overMentionCap ? "text-safety" : "text-cardstock-deep/80"}`}
+                  >
+                    · {mentionRanges.length} / {MENTIONS_PER_POST_MAX} mentions
+                  </span>
+                )}
+              </span>
+              <Link
+                href={"/blog/new" as Route}
+                className="bcc-mono text-[11px] tracking-[0.18em] text-cardstock-deep/80 hover:text-cardstock hover:underline"
+              >
+                Long-form →
+              </Link>
+            </div>
+
+            <button
+              type="submit"
+              disabled={!canSubmit}
+              aria-disabled={!canSubmit}
+              className={
+                "bcc-stencil rounded-sm px-5 py-1.5 text-[12px] tracking-[0.2em] transition " +
+                (canSubmit
+                  ? "bg-cardstock text-ink hover:bg-blueprint hover:text-cardstock"
+                  : "cursor-not-allowed bg-cardstock-deep/40 text-cardstock-deep/60")
+              }
+            >
+              {isPending ? "POSTING…" : "POST"}
+            </button>
+          </footer>
+
+          {/* Hidden native file input. The visible 📷 button forwards
+              clicks via the ref. `accept` keeps the OS picker filtered
+              to the same mime allowlist the server enforces; the
+              client-side validator in handleFileSelect re-checks
+              because `accept` is hint-only and not authoritative. */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp,image/gif"
+            onChange={handleFileSelect}
+            className="hidden"
+            aria-hidden="true"
+            tabIndex={-1}
+          />
+        </form>
+      )}
     </section>
   );
 }
 
+interface ComposerAvatarProps {
+  src: string | undefined;
+  initial: string;
+}
+
+/**
+ * 32px avatar circle for the composer's identity slot. Mirrors the
+ * `Avatar({src, initial})` shape used elsewhere (MembersGrid, the user
+ * profile page) — same prop signature so a future shared <Avatar/> can
+ * absorb both call sites without a contract diff.
+ */
+function ComposerAvatar({ src, initial }: ComposerAvatarProps) {
+  if (src !== undefined && src !== "") {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={src}
+        alt=""
+        width={32}
+        height={32}
+        className="h-8 w-8 shrink-0 rounded-full bg-cardstock-edge/30 object-cover"
+      />
+    );
+  }
+  return (
+    <div
+      aria-hidden
+      className="bcc-mono flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-cardstock/15 text-[11px] tracking-[0.12em] text-cardstock-deep"
+    >
+      {initial}
+    </div>
+  );
+}
+
+function resolveAvatarInitial(
+  displayName: string | null,
+  handle: string | undefined
+): string {
+  if (displayName !== null && displayName !== "") {
+    return displayName.charAt(0).toUpperCase();
+  }
+  if (handle !== undefined && handle !== "") {
+    return handle.charAt(0).toUpperCase();
+  }
+  return "·";
+}
+
 // ─────────────────────────────────────────────────────────────────────
-// Core: shared state, tab strip, and per-mode forms. Variant-agnostic.
+// Modal core: shared state + tab strip for status/review modes.
+//
+// The Blog mode was lifted out of this surface in v1.5 and now lives
+// at /blog/new. The modal still hosts status (rare) + review (the
+// primary modal entry from ReviewCallout).
 // ─────────────────────────────────────────────────────────────────────
 
-interface ComposerCoreProps {
+interface ModalCoreProps {
   initialMode: ComposerMode;
   reviewTargetId: number | undefined;
   reviewTargetName: string | undefined;
   reviewAvailable: boolean;
-  /** Called after a successful submit (e.g. close the modal). */
   onSubmitSuccess: (() => void) | undefined;
 }
 
-function ComposerCore({
+function ModalCore({
   initialMode,
   reviewTargetId,
   reviewTargetName,
   reviewAvailable,
   onSubmitSuccess,
-}: ComposerCoreProps) {
+}: ModalCoreProps) {
   const [mode, setMode] = useState<ComposerMode>(initialMode);
 
   return (
@@ -172,13 +918,12 @@ function ComposerCore({
           onSubmitSuccess={onSubmitSuccess}
         />
       )}
-      {mode === "blog" && <BlogForm onSubmitSuccess={onSubmitSuccess} />}
     </>
   );
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// Tab strip
+// Tab strip — modal variant only (inline is single-mode).
 // ─────────────────────────────────────────────────────────────────────
 
 interface ComposerTabsProps {
@@ -190,9 +935,8 @@ interface ComposerTabsProps {
 function ComposerTabs({ mode, onChange, reviewAvailable }: ComposerTabsProps) {
   const tabs = useMemo(() => {
     const list: Array<{ key: ComposerMode; label: string; blurb: string; available: boolean }> = [
-      { key: "status", label: "Update", blurb: "Quick post — 500 chars.",     available: true },
-      { key: "review", label: "Review", blurb: "Grade + reasoning.",           available: reviewAvailable },
-      { key: "blog",   label: "Blog",   blurb: "Long-form — excerpt + body.",  available: true },
+      { key: "status", label: "Update", blurb: "Quick post — 500 chars.", available: true },
+      { key: "review", label: "Review", blurb: "Grade + reasoning.",      available: reviewAvailable },
     ];
     return list;
   }, [reviewAvailable]);
@@ -228,7 +972,9 @@ function ComposerTabs({ mode, onChange, reviewAvailable }: ComposerTabsProps) {
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// StatusForm
+// StatusForm — used by the modal variant. The inline variant has its
+// own collapsed/expanded shape (InlineStatusComposer) and does not
+// reuse this form.
 // ─────────────────────────────────────────────────────────────────────
 
 function StatusForm({ onSubmitSuccess }: { onSubmitSuccess: (() => void) | undefined }) {
@@ -269,11 +1015,11 @@ function StatusForm({ onSubmitSuccess }: { onSubmitSuccess: (() => void) | undef
       className="flex flex-col gap-3"
       aria-label="Compose a status post"
     >
-      <label htmlFor="composer-status-content" className="sr-only">
+      <label htmlFor="composer-modal-status-content" className="sr-only">
         What&apos;s happening on the floor?
       </label>
       <textarea
-        id="composer-status-content"
+        id="composer-modal-status-content"
         value={content}
         onChange={(e) => {
           setContent(e.target.value);
@@ -491,9 +1237,17 @@ function ReviewForm({
 
 // ─────────────────────────────────────────────────────────────────────
 // BlogForm — §D6 long-form post.
+//
+// Lifted out of the inline composer in v1.5; now mounted exclusively
+// at /blog/new (the dedicated long-form authoring route). Exported so
+// the route page can reuse it without a parallel implementation.
 // ─────────────────────────────────────────────────────────────────────
 
-function BlogForm({ onSubmitSuccess }: { onSubmitSuccess: (() => void) | undefined }) {
+export function BlogForm({
+  onSubmitSuccess,
+}: {
+  onSubmitSuccess?: () => void;
+}) {
   const [excerpt, setExcerpt] = useState("");
   const [body, setBody] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -678,7 +1432,12 @@ function ModalShell({
 // Helpers
 // ─────────────────────────────────────────────────────────────────────
 
-function humanizeError(err: unknown): string {
+/**
+ * Map BCC API error codes to user-readable strings for the composer
+ * surface. Exported so /blog/new (which mounts BlogForm directly,
+ * outside the Composer shell) shares the same humanization.
+ */
+export function humanizeError(err: unknown): string {
   if (err instanceof BccApiError) {
     switch (err.code) {
       case "bcc_unauthorized":
@@ -690,6 +1449,18 @@ function humanizeError(err: unknown): string {
         );
       case "bcc_invalid_request":
         return err.message || "That post can't be sent — check the content.";
+      case "bcc_invalid_mention_target":
+        // Per §3.3.12 — the server intentionally hides which user
+        // failed which check (privacy posture). The error payload
+        // echoes `user_id` for telemetry/debugging only.
+        return "Couldn't mention that user. Try removing the mention and posting again.";
+      case "bcc_too_many_mentions": {
+        const maxRaw = err.data?.["max"];
+        const max = typeof maxRaw === "number" ? maxRaw : null;
+        return max !== null
+          ? `Too many mentions — please mention up to ${max} people per post.`
+          : "Too many mentions in this post. Trim some and try again.";
+      }
       case "bcc_rate_limited":
         return "Slow down — wait a moment before posting again.";
       case "bcc_unavailable":
@@ -703,4 +1474,111 @@ function humanizeError(err: unknown): string {
 
 function noop(): void {
   /* placeholder when modal variant is mounted without an onClose */
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// §3.3.12 — mention helpers (Phase 1d)
+// ─────────────────────────────────────────────────────────────────────
+
+/**
+ * Wire-format token regex. Mirrors PeepSo's parser
+ * (peepso/classes/tags.php#L77) so what we extract here matches
+ * what the server's MentionExtractor / Tags::after_save_post
+ * extract on write.
+ *
+ * The capture group is intentional but unused in this client; we
+ * only need the match boundaries.
+ */
+/**
+ * DOM id for the mention listbox. Constant rather than `useId` so
+ * the textarea's `aria-controls` and the listbox's `id` stay
+ * lockstep without the parent threading the generated id through
+ * yet another prop. Single composer per page in V1d (the inline
+ * Floor composer mounts once); when a future surface mounts two
+ * composers concurrently, switch to a useId-derived id.
+ */
+const MENTION_LISTBOX_ID = "composer-mention-listbox";
+
+const MENTION_TOKEN_RE = /@peepso_user_[a-z]*\d+\([^)]+\)/gi;
+
+/**
+ * Walk the textarea value and emit `[start, end)` offsets of every
+ * wire-format token. Derived state — recomputed on every change so we
+ * never have to manually shift ranges through edits.
+ */
+function findMentionRanges(text: string): Array<[number, number]> {
+  const out: Array<[number, number]> = [];
+  if (text === "") return out;
+  // Reset lastIndex on the global flag so re-runs start clean.
+  MENTION_TOKEN_RE.lastIndex = 0;
+  let match: RegExpExecArray | null;
+  while ((match = MENTION_TOKEN_RE.exec(text)) !== null) {
+    out.push([match.index, match.index + match[0].length]);
+    if (match[0].length === 0) {
+      // Defensive — exec on a zero-width match would loop forever.
+      MENTION_TOKEN_RE.lastIndex += 1;
+    }
+  }
+  return out;
+}
+
+/**
+ * Detect whether the caret is currently positioned at an active
+ * mention trigger — i.e. "@<prefix>" where:
+ *   - `@` is at start-of-text OR preceded by whitespace / punctuation
+ *     (rejects email-like patterns: `foo@bar` should NOT trigger)
+ *   - the prefix between `@` and caret contains no whitespace
+ *   - the caret is NOT inside an already-tracked wire token range
+ *     (prevents the picker from re-opening on the literal `@` inside
+ *     `@peepso_user_42(name)`)
+ *
+ * Returns the prefix + its anchor offset on hit; otherwise inactive.
+ */
+type MentionTrigger =
+  | { active: false }
+  | { active: true; query: string; anchor: number };
+
+const TRIGGER_BREAK_RE = /[\s.,;:!?(){}\[\]<>'"]/;
+
+function detectMentionTrigger(
+  text: string,
+  caretPos: number,
+  ranges: ReadonlyArray<readonly [number, number]>
+): MentionTrigger {
+  if (caretPos < 1 || caretPos > text.length) return { active: false };
+
+  // Caret inside a tracked token? Atomic-delete owns this case;
+  // the picker stays closed.
+  for (const [start, end] of ranges) {
+    if (caretPos > start && caretPos < end) return { active: false };
+  }
+
+  // Walk back from caret looking for the `@`. Bail on whitespace
+  // (mention prefix can't contain whitespace).
+  let i = caretPos - 1;
+  while (i >= 0) {
+    const ch = text.charAt(i);
+    if (ch === "@") {
+      // `@` must be at start-of-text or preceded by a break char.
+      if (i === 0) {
+        return {
+          active: true,
+          query: text.substring(i + 1, caretPos),
+          anchor: i,
+        };
+      }
+      const prev = text.charAt(i - 1);
+      if (TRIGGER_BREAK_RE.test(prev)) {
+        return {
+          active: true,
+          query: text.substring(i + 1, caretPos),
+          anchor: i,
+        };
+      }
+      return { active: false };
+    }
+    if (TRIGGER_BREAK_RE.test(ch)) return { active: false };
+    i--;
+  }
+  return { active: false };
 }

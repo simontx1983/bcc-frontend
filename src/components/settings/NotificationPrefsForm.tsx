@@ -318,7 +318,7 @@ export function NotificationPrefsForm() {
           disabled={!dirty || disabled}
           aria-disabled={!dirty || disabled}
           className={
-            "bcc-stencil rounded-sm px-5 py-2.5 text-[12px] tracking-[0.2em] transition " +
+            "bcc-stencil rounded-sm px-5 py-2.5 text-[12px] tracking-[0.2em] transition motion-reduce:transition-none " +
             (dirty && !disabled
               ? "bg-ink text-cardstock hover:bg-blueprint"
               : "cursor-not-allowed bg-cardstock-deep/40 text-ink-soft/60")
@@ -354,7 +354,7 @@ function ToggleRow({
   return (
     <label
       className={
-        "flex cursor-pointer items-start justify-between gap-3 border border-cardstock-edge bg-cardstock-deep/40 px-4 py-3 transition " +
+        "flex cursor-pointer items-start justify-between gap-3 border border-cardstock-edge bg-cardstock-deep/40 px-4 py-3 transition motion-reduce:transition-none " +
         (disabled
           ? "cursor-not-allowed opacity-60"
           : "hover:border-ink/40")

@@ -31,6 +31,14 @@ export interface ApiErrorBody {
     code: string;
     message: string;
     status: number;
+    /**
+     * Optional structured context for the error. Per the §3.3.12
+     * contract, `bcc_invalid_mention_target` carries `{user_id}` and
+     * `bcc_too_many_mentions` carries `{max}`. Absent on errors that
+     * don't surface structured payloads. Future error codes MUST
+     * document the keys they place here.
+     */
+    data?: Record<string, unknown>;
   };
   _meta: ApiMeta;
 }
@@ -40,6 +48,7 @@ export class BccApiError extends Error {
   public readonly code: string;
   public readonly status: number;
   public readonly responseBody: ApiErrorBody | null;
+  public readonly data: Record<string, unknown> | null;
 
   constructor(code: string, message: string, status: number, body: ApiErrorBody | null) {
     super(message);
@@ -47,6 +56,10 @@ export class BccApiError extends Error {
     this.code = code;
     this.status = status;
     this.responseBody = body;
+    this.data =
+      body !== null && typeof body.error.data === "object" && body.error.data !== null
+        ? body.error.data
+        : null;
   }
 }
 
@@ -431,8 +444,10 @@ export interface Comment {
   /** Echoes the parent post's feed_id, not the comment's own. */
   feed_id: string;
   author: CommentAuthor;
-  /** Plain text + newlines; PeepSo sanitizes server-side. */
+  /** Plain text + newlines; PeepSo sanitizes server-side. May contain raw `@peepso_user_<id>(name)` tokens — overlay via `mentions` per §3.3.12. */
   body: string;
+  /** §3.3.12 mention overlay. Always present (`[]` when no mentions). */
+  mentions: Mention[];
   /** ISO-8601 UTC. */
   posted_at: string;
   permissions: {
@@ -1512,6 +1527,8 @@ export interface PhotoBody {
   photo_url: string;
   /** Always null in V1 — alt text deferred to V2 a11y per §3.3.9. */
   alt: string | null;
+  /** §3.3.12 mention overlay extracted from caption. Always present. */
+  mentions: Mention[];
 }
 
 // ─────────────────────────────────────────────────────────────────────
@@ -1555,6 +1572,87 @@ export interface GifBody {
   gif_url: string;
   /** Forward-stable enum; V1 always `'giphy'`. */
   provider: "giphy";
+  /** §3.3.12 mention overlay extracted from caption. Always present. */
+  mentions: Mention[];
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Mentions (v1.5 — Phase 1d, api-contract-v1.md §3.3.12 + §4.4)
+// ─────────────────────────────────────────────────────────────────────
+
+/**
+ * Hard cap on @-mentions per post body / caption / comment.
+ * Server enforces; UI hint mirrors so the composer can disable submit
+ * with a "max N mentions" affordance before round-tripping.
+ *
+ * Per §3.3.12 — over-cap returns `bcc_too_many_mentions` with
+ * `{max: 10}` echoed in the error payload.
+ */
+export const MENTIONS_PER_POST_MAX = 10;
+
+/**
+ * Wire format token written into the post body. Must match exactly
+ * what PeepSo's `Tags::after_save_post` regex extracts so the
+ * notification dispatcher fires.
+ *
+ * Source of truth: `peepso/classes/tags.php` `get_tag_template`.
+ */
+export function buildMentionToken(userId: number, displayName: string): string {
+  return `@peepso_user_${userId}(${displayName})`;
+}
+
+/**
+ * §3.3.12 Mention overlay row.
+ *
+ * **INVARIANT**: `range` references **raw stored body offsets** (UTF-16
+ * code units, matching JavaScript `String.prototype.substring`). Future
+ * formatting layers (markdown, emoji, embeds, contentEditable) MUST
+ * overlay AROUND these ranges, never through them. Always render via
+ * `text.substring(range[0], range[1])` against the raw body.
+ */
+export interface Mention {
+  user_id: number;
+  /** BCC handle at response time. Frontend routes to `/u/:handle`. */
+  handle: string;
+  /** Display name at response time. Render this; ignore the `(name)` literal in the wire token. */
+  display_name: string;
+  /** For hovercard / popover usage. */
+  avatar_url: string;
+  /** [start, end] in UTF-16 code units. End-exclusive. */
+  range: [number, number];
+}
+
+/**
+ * §4.4 GET /users/mention-search response — slim candidate row used
+ * by the composer's autocomplete dropdown. Distinct from the directory
+ * `MemberSummary` shape (no follower counts, no rank, no card tier —
+ * the picker is keystroke-driven and shouldn't enumerate group
+ * affiliation or rep tier through repeated prefix queries).
+ */
+export interface MentionSearchCandidate {
+  user_id: number;
+  handle: string;
+  display_name: string;
+  avatar_url: string;
+}
+
+export interface MentionSearchResponse {
+  items: MentionSearchCandidate[];
+}
+
+/**
+ * Body shape for `post_kind === "status"` (api-contract-v1.md §3.3.1).
+ * Frontends MAY narrow `FeedItem.body` to this when `post_kind` is
+ * `"status"`. Renderers that just walk `body.text` + `body.mentions`
+ * don't need the type — they can read from the loose
+ * `Record<string, unknown>` body field directly.
+ */
+export interface StatusBody {
+  text: string;
+  /** Reserved for future link/card embeds. Always `[]` in V1. */
+  embeds: unknown[];
+  /** §3.3.12 mention overlay. Always present (`[]` when no mentions). */
+  mentions: Mention[];
 }
 
 /**
@@ -2769,6 +2867,42 @@ export interface MemberSummary {
     project: number;
     nft: number;
     dao: number;
+  };
+  /**
+   * §3.1 cover_photo_url mirrored onto the slim summary so the
+   * directory's flippable card front face can render the cover
+   * image. Null when the user hasn't set a custom cover; frontend
+   * renders a tier-tinted gradient fallback in that case.
+   */
+  cover_photo_url: string | null;
+  /**
+   * Identity proofs for the back-of-card "Verified" panel.
+   * `x_verified` / `github_verified` are true only when an active,
+   * verified row exists in `bcc_trust_user_verifications`; the
+   * `*_username` siblings carry the public handle for click-through
+   * display. `wallets_verified` is the count of verified wallet
+   * links — per-wallet detail lives on `MemberProfile.wallets`.
+   */
+  verifications: {
+    x_verified: boolean;
+    x_username: string | null;
+    github_verified: boolean;
+    github_username: string | null;
+    wallets_verified: number;
+  };
+  /**
+   * Lifetime activity counts for the back-of-card "On The Floor"
+   * panel. `endorsements_received` aggregates across all pages this
+   * user owns. `solids_received` counts `KIND_SOLID` reactions on
+   * activities the user owns (returns 0 when the reaction set isn't
+   * seeded yet). `reviews_written` and `disputes_signed` mirror the
+   * `MemberCounts` fields of the same name.
+   */
+  engagement: {
+    endorsements_received: number;
+    solids_received: number;
+    reviews_written: number;
+    disputes_signed: number;
   };
 }
 

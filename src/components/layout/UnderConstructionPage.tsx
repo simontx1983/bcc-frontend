@@ -9,9 +9,9 @@
  */
 
 interface UnderConstructionPageProps {
-  /** File-rail label, e.g. "FLOOR // BROADCAST". */
+  /** File-rail label, e.g. "FLOOR // VALIDATORS". */
   rail: string;
-  /** Small orange kicker above the headline, e.g. "BROADCAST". */
+  /** Small orange kicker above the headline, e.g. "VALIDATORS". */
   kicker: string;
   /** Large stencil headline. */
   headline: string;

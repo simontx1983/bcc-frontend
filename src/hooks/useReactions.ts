@@ -194,7 +194,11 @@ function applyOptimisticSet(item: FeedItem, nextKind: ReactionKind): FeedReactio
   nextCounts[nextKind] = (nextCounts[nextKind] ?? 0) + 1;
 
   return {
-    counts: nextCounts,
+    // Grammar is fixed by the post's kind — a single reaction never
+    // moves a post between grammars. Preserve it through the
+    // optimistic mutation so the rail keeps rendering the right set.
+    kind_grammar:    prev.kind_grammar,
+    counts:          nextCounts,
     viewer_reaction: nextKind,
   };
 }
@@ -210,7 +214,8 @@ function applyOptimisticRemove(item: FeedItem): FeedReactions {
   nextCounts[prev.viewer_reaction] = Math.max(0, currentCount - 1);
 
   return {
-    counts: nextCounts,
+    kind_grammar:    prev.kind_grammar,
+    counts:          nextCounts,
     viewer_reaction: null,
   };
 }
