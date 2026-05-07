@@ -10,13 +10,18 @@
  */
 
 import { bccFetchAsClient } from "@/lib/api/client";
-import type { MembersResponse } from "@/lib/api/types";
+import type { MembersResponse, MembersTypeFilter } from "@/lib/api/types";
 
 export interface MembersQueryParams {
   page?: number;
   perPage?: number;
   /** Search across handle, display_name, user_login. Server caps at 64 chars. */
   q?: string;
+  /**
+   * Restrict to users who own ≥1 page of the given canonical type.
+   * Maps to the §4.4 `type` query param. `null` means "no filter".
+   */
+  type?: MembersTypeFilter | null;
 }
 
 export function getMembers(
@@ -32,6 +37,9 @@ export function getMembers(
   }
   if (params.q !== undefined && params.q !== "") {
     search.set("q", params.q);
+  }
+  if (params.type !== undefined && params.type !== null) {
+    search.set("type", params.type);
   }
   const qs = search.toString();
   const path = `members${qs !== "" ? `?${qs}` : ""}`;

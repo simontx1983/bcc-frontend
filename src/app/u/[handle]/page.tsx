@@ -35,6 +35,7 @@ import { notFound } from "next/navigation";
 
 import { LivingHeader } from "@/components/profile/LivingHeader";
 import { ProfileTabs } from "@/components/profile/ProfileTabs";
+import { RankChip } from "@/components/profile/RankChip";
 import { authOptions } from "@/lib/auth";
 import { getUser } from "@/lib/api/user-endpoints";
 import { FOLLOW_COPY } from "@/lib/copy";
@@ -212,17 +213,12 @@ function IdentityHeader({
         </div>
       </div>
 
+      {/* Order matters: standing chip first, rank chip second. Putting
+          the rank chip's tier-tinted left rail directly adjacent to the
+          bright-green GOOD STANDING fill caused a green-on-green
+          collision for Uncommon users specifically. Standing-then-rank
+          breaks the adjacency and lets the tier accent read on its own. */}
       <div className="flex flex-wrap items-center gap-2">
-        {profile.tier_label !== null && (
-          <span className="bcc-mono bg-weld text-ink px-2 py-[3px]">
-            {profile.tier_label.toUpperCase()}
-          </span>
-        )}
-        {profile.rank_label !== "" && (
-          <span className="bcc-mono bg-cardstock-deep text-ink px-2 py-[3px]">
-            {profile.rank_label.toUpperCase()}
-          </span>
-        )}
         {profile.is_in_good_standing ? (
           <span className="bcc-mono bg-verified px-2 py-[3px] text-white">
             ✓ GOOD STANDING
@@ -232,6 +228,11 @@ function IdentityHeader({
             UNDER REVIEW
           </span>
         )}
+        <RankChip
+          cardTier={profile.card_tier}
+          tierLabel={profile.tier_label}
+          rankLabel={profile.rank_label}
+        />
         {profile.flags.map((flag) => (
           <span
             key={flag}

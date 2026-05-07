@@ -39,6 +39,18 @@
   --tier-rare:       #1d4fbb;
   --tier-legendary:  #d9a400;
 
+  /* Owned-page types — per-type bg colors for the directory's typed role
+     badges (`6 PROJECTS`, `1 VALIDATOR`, etc.). Distinct grammar from the
+     reputation tier rail: tier = colored left rail on the rank chip,
+     type = full-fill color on the body of a separate badge. Picked to
+     avoid colliding with --tier-rare (cobalt) and --verified (good-standing
+     green) at small chip sizes. All four hit ≥4.5:1 contrast against the
+     paired text color (white on validator/nft/dao, ink on project). */
+  --owned-type-validator: #2c5990; /* steel blue — networks/infra */
+  --owned-type-project:   #d9a400; /* weld gold — trades vibe (matches --tier-legendary by design) */
+  --owned-type-nft:       #c52568; /* raspberry — creator energy */
+  --owned-type-dao:       #6b4cb6; /* violet — governance/collective */
+
   /* Member-profile additions — paper variants for layered surfaces, ink
      softer tones for muted body, phosphor-green for "live" / on-chain
      widgets, verified-green for the good-standing seal. */

@@ -363,23 +363,104 @@ export interface FeedAuthor {
 }
 
 /**
- * §D5 reaction kinds — locked union, single source of truth.
- * (Extending here is a contract change; coordinate with backend
- * ReactionTypeRegistry::ALL_KINDS.)
+ * Trust-grammar reaction kinds — §D5, locked. Coordinate any change
+ * with backend ReactionGrammarMap::TRUST_KINDS.
  */
-export type ReactionKind = "solid" | "vouch" | "stand_behind";
+export type TrustReactionKind = "solid" | "vouch" | "stand_behind";
 
 /**
- * Reactions block aggregated by kind. The §D5 reaction kinds (solid /
- * vouch / stand_behind) live here. `viewer_reaction` is set when the
- * viewer has reacted; null when they haven't.
+ * Social-grammar reaction kinds — v1.5 curated subset (👍 ❤️ 😂 😮 🔥).
+ * Coordinate any change with backend ReactionGrammarMap::SOCIAL_KINDS.
+ */
+export type SocialReactionKind = "like" | "love" | "haha" | "wow" | "fire";
+
+/**
+ * Union of every kind any grammar exposes. Used wherever a reaction
+ * kind appears at the wire boundary (request body, response payload,
+ * optimistic cache updates) — the per-grammar narrowing happens at
+ * the rail layer (ReactionRail branches on `kind_grammar`).
+ */
+export type ReactionKind = TrustReactionKind | SocialReactionKind;
+
+/**
+ * v1.5 reaction grammar discriminator (api-contract-v1.md §2.11).
+ *
+ *   - "trust"  — restrained, intentional. solid / vouch / stand_behind.
+ *   - "social" — expressive, emoji-forward. like / love / haha / wow / fire.
+ *   - "tribal" — reserved for V2 (same_wallet, onchain_confirm, etc.).
+ *                Currently no kinds; the discriminator exists so the
+ *                rail's grammar-branch is forward-compatible.
+ */
+export type ReactionGrammar = "trust" | "social" | "tribal";
+
+/**
+ * Reactions block aggregated by kind. The active grammar is named in
+ * `kind_grammar`; `counts` keys and `viewer_reaction` values both
+ * belong to that grammar (the server zero-fills counts for every
+ * kind in the grammar, even when zero).
  *
  * Same shape returned by /reactions POST + DELETE responses, so the
  * frontend patches its cache directly without translation.
  */
 export interface FeedReactions {
+  kind_grammar: ReactionGrammar;
   counts: Record<string, number>;
   viewer_reaction: ReactionKind | null;
+}
+
+/**
+ * Comment view-model returned by the §4.13 endpoints. One row per
+ * visible comment on a parent post.
+ *
+ * V1 is flat: top-level only, no thread context surfaced (PeepSo's
+ * UI shows replies-in-replies via @-mentions in body; the BCC drawer
+ * mirrors that approach). No edit; delete + recreate is the model.
+ */
+export interface CommentAuthor {
+  id: number;
+  handle: string;
+  display_name: string;
+  avatar_url: string;
+}
+
+export interface Comment {
+  /** Form: `comment_<int>`. Treat as opaque. */
+  id: string;
+  /** Same value as `id` — DELETE takes the id as a path param. */
+  comment_id: string;
+  /** Echoes the parent post's feed_id, not the comment's own. */
+  feed_id: string;
+  author: CommentAuthor;
+  /** Plain text + newlines; PeepSo sanitizes server-side. */
+  body: string;
+  /** ISO-8601 UTC. */
+  posted_at: string;
+  permissions: {
+    can_delete: FeedItemPermission;
+  };
+}
+
+/**
+ * Response shape for `GET /posts/:feed_id/comments`. Cursor mirrors
+ * the feed cursor encoding so the same `lib/api/client` cursor
+ * helpers work without modification.
+ */
+export interface CommentsResponse {
+  items: Comment[];
+  next_cursor: string | null;
+}
+
+export interface CreateCommentRequest {
+  feed_id: string;
+  body: string;
+}
+
+export interface CreateCommentResponse {
+  comment: Comment;
+}
+
+export interface DeleteCommentResponse {
+  comment_id: string;
 }
 
 /**
@@ -423,6 +504,14 @@ export interface FeedItem {
   author: FeedAuthor;
   body: Record<string, unknown>;
   reactions: FeedReactions;
+  /**
+   * v1.5 — number of visible (non-trashed) comments on the post at
+   * response-time. Server-computed via batched COUNT(*) GROUP BY.
+   * The feed card surfaces this as a chip; clicking the chip
+   * lazy-mounts <CommentDrawer /> which fetches the actual list
+   * via §4.13.
+   */
+  comment_count: number;
   permissions: Record<string, FeedItemPermission>;
   links: {
     self: string;
@@ -1370,6 +1459,136 @@ export type CreatePostResponse =
       excerpt_length: number;
       full_text_length: number;
     };
+
+// ─────────────────────────────────────────────────────────────────────
+// Photo posts (v1.5 — multipart, separate endpoint per §4.14)
+// ─────────────────────────────────────────────────────────────────────
+
+/** Caption cap on photo posts — same shape as status (500 chars). */
+export const PHOTO_CAPTION_MAX_LENGTH = STATUS_POST_MAX_LENGTH;
+
+/** Hard size cap on uploaded photos (5 MB). Mirrors the server cap. */
+export const PHOTO_MAX_BYTES = 5 * 1024 * 1024;
+
+/** Allowed mime types for photo uploads. Mirrors the server allowlist. */
+export const PHOTO_ALLOWED_MIME_TYPES: ReadonlyArray<string> = [
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/gif",
+];
+
+/**
+ * Multipart photo-post request. Caption is optional (photo-only is a
+ * real social use case). Server enforces the same caps.
+ */
+export interface CreatePhotoPostRequest {
+  file: File;
+  caption?: string;
+}
+
+/**
+ * Minimal photo-post response. Same `feed_id` echo pattern as status
+ * + a `photo_id` (peepso_photos.pho_id) for callers that want to
+ * reference the photo directly.
+ */
+export interface CreatePhotoPostResponse {
+  ok: true;
+  feed_id: string;
+  post_id: number;
+  act_id: number;
+  photo_id: number;
+}
+
+/**
+ * Body shape for `post_kind === "photo"` (api-contract-v1.md §3.3.9).
+ * Server-resolved per §A2 — every visible field comes from the
+ * view-model, no client-side derivation.
+ */
+export interface PhotoBody {
+  /** Optional caption text. `null` for photo-only posts. */
+  caption: string | null;
+  /** Canonical full image URL. Empty string on degraded reads. */
+  photo_url: string;
+  /** Always null in V1 — alt text deferred to V2 a11y per §3.3.9. */
+  alt: string | null;
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// GIF posts (v1.5 — JSON, separate endpoint per §4.15)
+// ─────────────────────────────────────────────────────────────────────
+
+/** Caption cap on GIF posts — same shape as status / photo. */
+export const GIF_CAPTION_MAX_LENGTH = STATUS_POST_MAX_LENGTH;
+
+/**
+ * JSON request body for POST /posts/gif. Server requires the URL to
+ * contain `giphy.com` (matches PeepSo's own check). Caption optional.
+ */
+export interface CreateGifPostRequest {
+  url: string;
+  caption?: string;
+}
+
+/**
+ * Minimal GIF-post response. Shares the status response shape — no
+ * photo_id (GIFs aren't stored in `peepso_photos`; they live as
+ * post_meta on the wp_post).
+ */
+export interface CreateGifPostResponse {
+  ok: true;
+  feed_id: string;
+  post_id: number;
+  act_id: number;
+}
+
+/**
+ * Body shape for `post_kind === "gif"` (api-contract-v1.md §3.3.10).
+ * GIF posts are status posts (act_module_id=1) promoted to `gif` by
+ * the body hydrator's metadata semantic override (§3.3.11) when the
+ * wp_post carries a `peepso_giphy` post_meta.
+ */
+export interface GifBody {
+  /** Optional caption. `null` for GIF-only posts. */
+  caption: string | null;
+  /** Giphy CDN URL — render with <img src> directly. */
+  gif_url: string;
+  /** Forward-stable enum; V1 always `'giphy'`. */
+  provider: "giphy";
+}
+
+/**
+ * Giphy integration config returned by GET /integrations/giphy
+ * (api-contract-v1.md §4.16). Drives the composer's GIF button visibility
+ * + the picker's API calls.
+ */
+export interface GiphyIntegrationConfig {
+  /** True when admin enabled `giphy_posts_enable` AND set an API key. */
+  enabled: boolean;
+  /** Empty string when disabled. */
+  api_key: string;
+  /** Giphy content rating: 'g' | 'pg' | 'pg-13' | 'r'. */
+  rating: string;
+  /** Max GIFs per page in the picker grid. Default 25. */
+  display_limit: number;
+}
+
+/**
+ * Single Giphy GIF result — narrowed to the fields the picker needs.
+ * Giphy's full API response has many more fields; we deliberately
+ * surface only the subset BCC's UI uses.
+ */
+export interface GiphySearchResult {
+  id: string;
+  /** Original/full GIF URL — what we POST to /posts/gif. */
+  url: string;
+  /** Tiny preview URL for the picker grid (saves bandwidth). */
+  preview_url: string;
+  width: number;
+  height: number;
+  /** Alt-text-style description from Giphy. May be empty. */
+  title: string;
+}
 
 // ─────────────────────────────────────────────────────────────────────
 // Wallet challenge / claim (§B5 + §N8)
@@ -2488,6 +2707,13 @@ export interface MemberSummary {
   avatar_url: string;
   /** ISO 8601 UTC. */
   joined_at: string;
+  /**
+   * §C1 card-tier slug. Mirrors the same field on the full `MemberProfile`
+   * (`/users/:handle`); surfaced here so list-shaped UIs can encode the
+   * tier as a color/border accent on the rank chip rather than rendering
+   * `tier_label` as a duplicate word. Null only for risky-tier users.
+   */
+  card_tier: CardTier;
   /** "Legendary" / "Rare" / "Uncommon" / "Common" / null (risky tier). */
   tier_label: string | null;
   /** "Apprentice" / "Journeyman" / etc. — never null, falls back to "". */
@@ -2495,9 +2721,78 @@ export interface MemberSummary {
   is_in_good_standing: boolean;
   /** Moderation/account flags ("suspended", "fraud_review", etc.). */
   flags: string[];
+  /**
+   * Augmented trust score per §D5 — base reputation_score + clamped
+   * lifetime participation bonus, [0, 100]. The directory's anchor
+   * "is this a real operator?" number; everything else is decoration.
+   */
+  trust_score: number;
+  /**
+   * Watchers count (followers, passive side of `peepso_follower`).
+   * Frontend renders with the floor's term ("watchers"); the wire
+   * field stays `followers_count` to match the §3.1 `counts.followers`
+   * naming on the full profile.
+   */
+  followers_count: number;
+  /**
+   * The user's primary Local — the row pointed to by their
+   * `bcc_primary_local_group_id` user_meta. Null when no primary set
+   * (or the pointer no longer resolves to an active Local). Same
+   * shape as `MemberProfile.primary_local`.
+   */
+  primary_local:
+    | { id: number; slug: string; name: string; number: number | null }
+    | null;
+  /**
+   * Count of PeepSo pages this user owns (`peepso_page_members`
+   * rows where `pm_user_status = 'member_owner'`). `> 0` is the
+   * "this user is a builder/operator, not just a community member"
+   * signal. The directory card now uses `owned_pages_by_type` for
+   * the typed-badge rendering; this raw count stays in the wire
+   * format for callers that don't need the breakdown.
+   */
+  owned_pages_count: number;
+  /**
+   * Per-canonical-type count of `member_owner` pages, derived from
+   * the PeepSo page-categories taxonomy. Each bucket counts pages
+   * tagged with the corresponding category — pages can be tagged
+   * with multiple categories, so the sum across types may exceed
+   * `owned_pages_count` for a multi-categorized portfolio. Pages
+   * with no recognized category don't contribute to any bucket.
+   *
+   * Type slugs are stable (`validator | project | nft | dao`) and
+   * decoupled from the underlying PeepSo category slugs (which
+   * are admin-controlled and may include legacy typos).
+   */
+  owned_pages_by_type: {
+    validator: number;
+    project: number;
+    nft: number;
+    dao: number;
+  };
 }
+
+/**
+ * §4.4 `/members?type=...` filter — canonical type slugs accepted by
+ * the directory's type filter. Mirror of `MemberSummary.owned_pages_by_type`
+ * keys; intentionally identical so a chip click uses the same slug as
+ * the badge it lights up.
+ */
+export type MembersTypeFilter = "validator" | "project" | "nft" | "dao";
+
+/**
+ * §4.4 `type_counts` — global count of distinct users with ≥1 owned
+ * page per canonical type. Independent of the active `q` and `type`
+ * filters: the directory's chip strip uses these to render
+ * `VALIDATORS · 5`, and a filter-specific empty state uses them to
+ * suggest alternative non-zero chips.
+ */
+export type MembersTypeCounts = {
+  [Type in MembersTypeFilter]: number;
+};
 
 export interface MembersResponse {
   items: MemberSummary[];
   pagination: OffsetPagination;
+  type_counts: MembersTypeCounts;
 }

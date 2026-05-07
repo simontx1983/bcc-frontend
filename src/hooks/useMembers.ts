@@ -16,7 +16,11 @@
 import { useQuery } from "@tanstack/react-query";
 
 import { getMembers } from "@/lib/api/members-endpoints";
-import type { BccApiError, MembersResponse } from "@/lib/api/types";
+import type {
+  BccApiError,
+  MembersResponse,
+  MembersTypeFilter,
+} from "@/lib/api/types";
 
 const DEFAULT_PER_PAGE = 24;
 
@@ -26,6 +30,9 @@ export interface UseMembersOptions {
   page?: number;
   perPage?: number;
   q?: string;
+  /** `null` (or omitted) = no type filter. Otherwise restricts to users
+   *  who own ≥1 page of the given canonical type. */
+  type?: MembersTypeFilter | null;
   enabled?: boolean;
 }
 
@@ -33,11 +40,12 @@ export function useMembers(options: UseMembersOptions = {}) {
   const page = options.page ?? 1;
   const perPage = options.perPage ?? DEFAULT_PER_PAGE;
   const q = options.q ?? "";
+  const type = options.type ?? null;
   const enabled = options.enabled ?? true;
 
   return useQuery<MembersResponse, BccApiError>({
-    queryKey: [...MEMBERS_QUERY_KEY_ROOT, page, perPage, q],
-    queryFn: ({ signal }) => getMembers({ page, perPage, q }, signal),
+    queryKey: [...MEMBERS_QUERY_KEY_ROOT, page, perPage, q, type],
+    queryFn: ({ signal }) => getMembers({ page, perPage, q, type }, signal),
     enabled,
     staleTime: 30_000,
   });

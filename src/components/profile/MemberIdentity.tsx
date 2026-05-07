@@ -13,13 +13,16 @@ import Link from "next/link";
 import type { Route } from "next";
 
 import { BlockToggle } from "@/components/profile/BlockToggle";
+import { RankChip } from "@/components/profile/RankChip";
 import type { Phase4MemberProfile } from "@/lib/api/types";
 
 // Phase-4 design scaffold. The live MemberProfile shape (§3.1) doesn't
-// supply `card`, `identity_meta`, or a structured `bio` — this
-// component reads the speculative super-shape that the backend will
-// expose once a §9 contract amendment lands. Decoupled from the real
-// MemberProfile to keep the design work compilable.
+// supply `identity_meta` or a structured `bio_block` — this component
+// reads the speculative super-shape that the backend will expose once a
+// §9 contract amendment lands. Decoupled from the real MemberProfile to
+// keep the design work compilable. (`card_tier`, `tier_label`,
+// `rank_label` ARE on the live MemberProfile and read directly from the
+// root, not from a synthetic `card` sub-object.)
 interface MemberIdentityProps {
   profile: Phase4MemberProfile;
   /** True when the viewer is the owner — toggles Edit / Settings actions. */
@@ -29,26 +32,15 @@ interface MemberIdentityProps {
 export function MemberIdentity({ profile, isOwner }: MemberIdentityProps) {
   return (
     <div className="bcc-stage-reveal" style={{ ["--stagger" as string]: "180ms" }}>
-      {/* Kicker: badges that say "what kind of member is this?".
-          tier_label + rank_label are server-rendered per §A2 — we
-          render them verbatim and suppress the chip when absent. */}
+      {/* Kicker strip: rank chip (with tier-tinted left rail per §C1)
+          + handle. The tier no longer renders as a separate word —
+          the rank chip carries it as a color accent. */}
       <div className="bcc-mono mb-4 flex flex-wrap items-center gap-3 text-safety">
-        {profile.card.tier_label !== null && (
-          <span
-            className="bg-weld text-ink px-2 py-[2px]"
-            style={{ fontWeight: 700, letterSpacing: "0.18em" }}
-          >
-            {profile.card.tier_label.toUpperCase()}
-          </span>
-        )}
-        {profile.card.rank_label !== null && (
-          <span
-            className="bg-verified px-2 py-[2px] text-white"
-            style={{ fontWeight: 700, letterSpacing: "0.18em" }}
-          >
-            {profile.card.rank_label.toUpperCase()}
-          </span>
-        )}
+        <RankChip
+          cardTier={profile.card_tier}
+          tierLabel={profile.tier_label}
+          rankLabel={profile.rank_label}
+        />
         <span>· @{profile.handle}</span>
       </div>
 
