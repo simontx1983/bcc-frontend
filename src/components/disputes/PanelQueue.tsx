@@ -16,14 +16,13 @@
  * independent decision-making. The UI must not surface accepts/rejects
  * counts on this page — even as 0/0.
  *
- * Click a row → <PanelVoteModal>. After voting, my_decision flips on
- * the row (refetch handled by the modal). Already-voted rows show
- * "ACCEPTED"/"REJECTED" badge instead of the vote button.
+ * Click a row → /disputes/{id} (full-page case file). The detail
+ * surface owns the vote action. Already-voted rows show
+ * "ACCEPTED"/"REJECTED" badge plus a "REVIEW CASE" link.
  */
 
-import { useState } from "react";
+import Link from "next/link";
 
-import { PanelVoteModal } from "@/components/disputes/PanelVoteModal";
 import { useMyParticipation, usePanelQueue } from "@/hooks/useDisputes";
 import type { MyParticipationStatus, PanelDispute } from "@/lib/api/types";
 
@@ -41,57 +40,41 @@ export function PanelQueue() {
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// PanelDutyList — the queue list + cast-vote modal, separated from the
-// page chrome so /disputes can mount it inside a tab without bringing
-// the full Header along.
-//
-// Owns the active-dispute selection state because the row click and
-// the modal's onClose both read/write it; lifting it to the page would
-// force every consumer to wire the same plumbing.
+// PanelDutyList — the queue list, separated from the page chrome so
+// /disputes can mount it inside a tab without bringing the full Header
+// along. Clicking a row routes to /disputes/{id} where the full-page
+// case file owns the vote action.
 // ─────────────────────────────────────────────────────────────────────
 
 export function PanelDutyList() {
   const query = usePanelQueue();
-  const [active, setActive] = useState<PanelDispute | null>(null);
 
   return (
-    <>
-      <section>
-        {query.isPending && (
-          <p className="bcc-mono text-cardstock-deep">Loading queue…</p>
-        )}
-
-        {query.isError && (
-          <div className="bcc-paper p-6">
-            <p role="alert" className="bcc-mono text-safety">
-              Couldn&apos;t load your panel queue: {query.error.message}
-            </p>
-          </div>
-        )}
-
-        {query.isSuccess && query.data.length === 0 && <PanelEmpty />}
-
-        {query.isSuccess && query.data.length > 0 && (
-          <ul className="flex flex-col gap-4">
-            {query.data.map((dispute) => (
-              <li key={dispute.id}>
-                <PanelRow
-                  dispute={dispute}
-                  onOpen={() => setActive(dispute)}
-                />
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-
-      {active !== null && (
-        <PanelVoteModal
-          dispute={active}
-          onClose={() => setActive(null)}
-        />
+    <section>
+      {query.isPending && (
+        <p className="bcc-mono text-cardstock-deep">Loading queue…</p>
       )}
-    </>
+
+      {query.isError && (
+        <div className="bcc-paper p-6">
+          <p role="alert" className="bcc-mono text-safety">
+            Couldn&apos;t load your panel queue: {query.error.message}
+          </p>
+        </div>
+      )}
+
+      {query.isSuccess && query.data.length === 0 && <PanelEmpty />}
+
+      {query.isSuccess && query.data.length > 0 && (
+        <ul className="flex flex-col gap-4">
+          {query.data.map((dispute) => (
+            <li key={dispute.id}>
+              <PanelRow dispute={dispute} />
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   );
 }
 
@@ -268,13 +251,7 @@ function clampPct(numerator: number, denominator: number): number {
 // "needs your vote" (action button) vs. "you've voted" (decision badge).
 // ─────────────────────────────────────────────────────────────────────
 
-function PanelRow({
-  dispute,
-  onOpen,
-}: {
-  dispute: PanelDispute;
-  onOpen: () => void;
-}) {
+function PanelRow({ dispute }: { dispute: PanelDispute }) {
   const voted = dispute.my_decision !== null;
 
   return (
@@ -283,9 +260,12 @@ function PanelRow({
         <div>
           <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
             <span className="bcc-mono text-safety">CASE //</span>
-            <span className="bcc-stencil text-2xl text-ink">
+            <Link
+              href={`/disputes/${dispute.id}`}
+              className="bcc-stencil text-2xl text-ink underline-offset-4 transition hover:underline hover:decoration-safety"
+            >
               {dispute.page_title || "Untitled page"}
-            </span>
+            </Link>
           </div>
           <p className="mt-1 bcc-mono text-ink-ghost">
             DISPUTED VOTE BY {dispute.voter_name.toUpperCase()}
@@ -324,17 +304,13 @@ function PanelRow({
         </div>
 
         <div className="flex flex-col items-stretch gap-2 sm:items-end">
-          {voted ? (
-            <DecisionBadge decision={dispute.my_decision} />
-          ) : (
-            <button
-              type="button"
-              onClick={onOpen}
-              className="bcc-stencil rounded-sm bg-ink px-5 py-2.5 text-[12px] tracking-[0.2em] text-cardstock transition hover:bg-blueprint"
-            >
-              CAST YOUR VOTE
-            </button>
-          )}
+          {voted && <DecisionBadge decision={dispute.my_decision} />}
+          <Link
+            href={`/disputes/${dispute.id}`}
+            className="bcc-stencil rounded-sm bg-ink px-5 py-2.5 text-center text-[12px] tracking-[0.2em] text-cardstock transition hover:bg-blueprint motion-reduce:transition-none"
+          >
+            {voted ? "REVIEW CASE" : "CAST YOUR VOTE"}
+          </Link>
         </div>
       </div>
     </article>

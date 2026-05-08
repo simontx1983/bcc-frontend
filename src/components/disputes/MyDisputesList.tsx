@@ -16,6 +16,8 @@
  *   - timeout_no_quorum  → panel ran out of time; downvote stands
  */
 
+import Link from "next/link";
+
 import { useMyDisputes } from "@/hooks/useDisputes";
 import type { PanelDispute } from "@/lib/api/types";
 
@@ -68,9 +70,12 @@ function MyDisputeRow({ dispute }: { dispute: PanelDispute }) {
         <div>
           <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
             <span className="bcc-mono text-safety">CASE //</span>
-            <span className="bcc-stencil text-2xl text-ink">
+            <Link
+              href={`/disputes/${dispute.id}`}
+              className="bcc-stencil text-2xl text-ink underline-offset-4 transition hover:underline hover:decoration-safety"
+            >
               {dispute.page_title || "Untitled page"}
-            </span>
+            </Link>
           </div>
           <p className="mt-1 bcc-mono text-ink-ghost">
             DISPUTING {dispute.voter_name.toUpperCase()}&rsquo;S DOWNVOTE
@@ -109,8 +114,14 @@ function MyDisputeRow({ dispute }: { dispute: PanelDispute }) {
           </p>
         </div>
 
-        <div className="flex items-start sm:justify-end">
+        <div className="flex flex-col items-stretch gap-2 sm:items-end">
           <StatusBadge status={dispute.status} />
+          <Link
+            href={`/disputes/${dispute.id}`}
+            className="bcc-mono text-cardstock-deep underline-offset-4 transition hover:text-safety hover:underline motion-reduce:transition-none"
+          >
+            VIEW CASE &rarr;
+          </Link>
         </div>
       </div>
     </article>
