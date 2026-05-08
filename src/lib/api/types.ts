@@ -1482,6 +1482,15 @@ export type CreatePostResponse =
 /** Caption cap on photo posts — same shape as status (500 chars). */
 export const PHOTO_CAPTION_MAX_LENGTH = STATUS_POST_MAX_LENGTH;
 
+/**
+ * Alt-text cap on photo posts (§3.3.9 / §4.18). Mirrors
+ * `PhotoAltRepository::ALT_TEXT_MAX_LENGTH` and the
+ * `bcc_photo_alts.alt_text` VARCHAR(500). A11y best practice is
+ * 125–150 chars — the cap is generous enough for descriptions of
+ * complex images while blocking alt-stuffing abuse.
+ */
+export const PHOTO_ALT_MAX_LENGTH = 500;
+
 /** Hard size cap on uploaded photos (5 MB). Mirrors the server cap. */
 export const PHOTO_MAX_BYTES = 5 * 1024 * 1024;
 

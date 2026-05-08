@@ -63,6 +63,7 @@ import {
   useCreatePhotoPostMutation,
   useCreatePostMutation,
 } from "@/hooks/useCreatePost";
+import { useSetPhotoAltMutation } from "@/hooks/useSetPhotoAlt";
 import { useGiphyIntegration } from "@/hooks/useGiphyIntegration";
 import { GifPicker } from "@/components/composer/GifPicker";
 import { MentionPopover } from "@/components/composer/MentionPopover";
@@ -75,6 +76,7 @@ import {
   buildMentionToken,
   MENTIONS_PER_POST_MAX,
   PHOTO_ALLOWED_MIME_TYPES,
+  PHOTO_ALT_MAX_LENGTH,
   PHOTO_MAX_BYTES,
   REVIEW_BODY_MAX_LENGTH,
   STATUS_POST_MAX_LENGTH,
@@ -210,6 +212,11 @@ function InlineStatusComposer({
   // they're set + cleared together.
   const [attachedFile, setAttachedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  // v1.5 a11y (§3.3.9): per-photo alt text. Cleared together with the
+  // photo state. Submitted via §4.18 PATCH /photos/:pho_id/alt right
+  // after the photo upload returns its `photo_id` — the photo post
+  // itself does not carry alt as a multipart field (see §4.14 spec).
+  const [altText, setAltText] = useState("");
   // v1.5 GIF state. Single-attachment-per-post invariant: selecting a
   // GIF clears any attached file, and selecting a file clears the
   // GIF. The picker open/closed state is local; the picker only
@@ -244,6 +251,7 @@ function InlineStatusComposer({
       }
       return null;
     });
+    setAltText("");
     if (fileInputRef.current !== null) {
       fileInputRef.current.value = "";
     }
@@ -268,8 +276,25 @@ function InlineStatusComposer({
     onError: (err) => setError(humanizeError(err)),
   });
 
+  // §3.3.9 / §4.18 alt-text writer. Fired after the photo upload
+  // returns its `photo_id`. Fire-and-forget by design — if the alt
+  // POST fails we surface a non-blocking inline note but the post
+  // itself stays published. The user can re-set alt later via the
+  // same endpoint (Phase 2 surface; not built yet).
+  const photoAltMutation = useSetPhotoAltMutation({
+    onError: () => {
+      setError(
+        "Photo posted, but we couldn't save your alt text. You can edit the photo to try again."
+      );
+    },
+  });
+
   const photoMutation = useCreatePhotoPostMutation({
-    onSuccess: () => {
+    onSuccess: (response) => {
+      const cleanedAlt = altText.trim();
+      if (cleanedAlt !== "") {
+        photoAltMutation.mutate({ pho_id: response.photo_id, alt: cleanedAlt });
+      }
       setContent("");
       clearAttachment();
       setError(null);
@@ -667,22 +692,65 @@ function InlineStatusComposer({
           )}
 
           {hasPhoto && previewUrl !== null && (
-            <div className="relative inline-flex w-fit">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={previewUrl}
-                alt=""
-                className="h-24 w-24 rounded-sm border border-cardstock-edge/40 object-cover"
-              />
-              <button
-                type="button"
-                onClick={clearAttachment}
-                aria-label="Remove photo"
-                className="bcc-mono absolute -right-1.5 -top-1.5 inline-flex h-5 w-5 items-center justify-center rounded-full border border-cardstock-edge/60 bg-ink text-[10px] leading-none text-cardstock hover:bg-safety hover:text-cardstock"
-                title="Remove photo"
-              >
-                ×
-              </button>
+            <div className="flex flex-col gap-2">
+              <div className="relative inline-flex w-fit">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={previewUrl}
+                  alt=""
+                  className="h-24 w-24 rounded-sm border border-cardstock-edge/40 object-cover"
+                />
+                <button
+                  type="button"
+                  onClick={clearAttachment}
+                  aria-label="Remove photo"
+                  className="bcc-mono absolute -right-1.5 -top-1.5 inline-flex h-5 w-5 items-center justify-center rounded-full border border-cardstock-edge/60 bg-ink text-[10px] leading-none text-cardstock hover:bg-safety hover:text-cardstock"
+                  title="Remove photo"
+                >
+                  ×
+                </button>
+              </div>
+              {/*
+                §3.3.9 / §4.18 alt-text input — author-supplied screen-reader
+                description for the photo. Optional; chained POST after the
+                photo upload via useSetPhotoAltMutation. Server applies the
+                same 500-char cap and HTML stripping.
+              */}
+              <label className="bcc-mono flex flex-col gap-1 text-[11px] text-cardstock/70">
+                <span>
+                  Describe this photo{" "}
+                  <span className="text-cardstock/40">(optional, helps screen readers)</span>
+                </span>
+                <textarea
+                  id="composer-photo-alt"
+                  aria-describedby="composer-photo-alt-counter"
+                  value={altText}
+                  onChange={(event) => setAltText(event.target.value)}
+                  maxLength={PHOTO_ALT_MAX_LENGTH}
+                  rows={2}
+                  disabled={isPending}
+                  className="font-serif resize-y rounded-sm border border-cardstock-edge/40 bg-cardstock/5 px-2 py-1 text-[13px] leading-snug text-ink placeholder:text-ink/40 focus-visible:border-cardstock-edge focus-visible:outline-none disabled:opacity-50"
+                  placeholder="e.g. Phillip standing under the BCC banner holding the demo board."
+                />
+                {/*
+                  Live region is unconditionally mounted so AT engines
+                  hook up at component mount; the visible-state toggle
+                  rides on `hidden` (not conditional render) so the
+                  threshold-cross is reliably announced.
+                */}
+                <span
+                  id="composer-photo-alt-counter"
+                  aria-live="polite"
+                  hidden={altText.length < PHOTO_ALT_MAX_LENGTH - 50}
+                  className={
+                    altText.length > PHOTO_ALT_MAX_LENGTH
+                      ? "text-safety"
+                      : "text-cardstock/50"
+                  }
+                >
+                  {altText.length}/{PHOTO_ALT_MAX_LENGTH}
+                </span>
+              </label>
             </div>
           )}
 

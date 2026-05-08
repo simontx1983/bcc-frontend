@@ -153,3 +153,31 @@ export function removeReview(
     { method: "DELETE" }
   );
 }
+
+/**
+ * PATCH /photos/:pho_id/alt — set or clear the author-supplied alt
+ * text on one of the viewer's own photos (v1.5 a11y, §3.3.9 / §4.18).
+ *
+ * Pass an empty string to clear a previously-set alt — the row is
+ * deleted server-side and the §3.3.9 wire shape returns `alt: null`
+ * on the next feed read.
+ *
+ * Errors:
+ *   - bcc_unauthorized    — no session
+ *   - bcc_not_found       — pho_id doesn't exist in peepso_photos
+ *   - bcc_forbidden       — pho_id exists but viewer isn't the owner
+ *   - bcc_invalid_request — alt over 500 chars after sanitisation
+ *   - bcc_unavailable     — DB write failure
+ */
+export function setPhotoAlt(
+  phoId: number,
+  alt: string
+): Promise<{ pho_id: number; alt: string | null }> {
+  return bccFetchAsClient<{ pho_id: number; alt: string | null }>(
+    `photos/${phoId}/alt`,
+    {
+      method: "PATCH",
+      body: { alt },
+    }
+  );
+}
