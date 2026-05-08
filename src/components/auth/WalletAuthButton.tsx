@@ -41,20 +41,21 @@ import {
 
 // ─────────────────────────────────────────────────────────────────────
 // Chain options — V1 wallet auth is Cosmos-only via Keplr. Slugs match
-// the bcc-trust ChainRepository entries (see backend's /auth/wallet-nonce
-// validator), NOT the §B4 home_chain slugs (which use "cosmos" rather
-// than "cosmoshub"). Different domain, different vocabulary.
+// the bcc-trust ChainRepository entries (`wp_bcc_chains.slug`), which
+// is the same vocabulary the §B4 home_chain field uses — Cosmos Hub is
+// `cosmos`, not `cosmoshub`. (The Keplr on-chain chain_id `cosmoshub-4`
+// lives in src/lib/wallet/keplr.ts and is unrelated to the BCC slug.)
 // ─────────────────────────────────────────────────────────────────────
 
 const CHAIN_OPTIONS: ReadonlyArray<{ slug: string; label: string }> = [
-  { slug: "cosmoshub", label: "Cosmos Hub" },
+  { slug: "cosmos",    label: "Cosmos Hub" },
   { slug: "osmosis",   label: "Osmosis"    },
   { slug: "injective", label: "Injective"  },
   { slug: "juno",      label: "Juno"       },
   { slug: "stargaze",  label: "Stargaze"   },
 ];
 
-const DEFAULT_CHAIN = "cosmoshub";
+const DEFAULT_CHAIN = "cosmos";
 
 // Stable error-code → user copy mapping. Anything unmapped falls
 // through to the message string we already have in hand.

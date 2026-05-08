@@ -107,12 +107,13 @@ export function WalletsSection() {
 // ─────────────────────────────────────────────────────────────────────
 // Link form — chain dropdown + "Link wallet" button. V1 wallet support
 // is Cosmos-only via Keplr; the chain slugs match the bcc-trust
-// ChainRepository entries (cosmoshub, osmosis, injective, juno,
-// stargaze) per the same constraint as <WalletAuthButton>.
+// ChainRepository entries (cosmos, osmosis, injective, juno, stargaze)
+// per the same constraint as <WalletAuthButton>. The Keplr on-chain
+// chain_id (`cosmoshub-4` etc.) is mapped from the slug in keplr.ts.
 // ─────────────────────────────────────────────────────────────────────
 
 const LINK_CHAIN_OPTIONS: ReadonlyArray<{ slug: string; label: string }> = [
-  { slug: "cosmoshub", label: "Cosmos Hub" },
+  { slug: "cosmos",    label: "Cosmos Hub" },
   { slug: "osmosis",   label: "Osmosis"    },
   { slug: "injective", label: "Injective"  },
   { slug: "juno",      label: "Juno"       },
@@ -121,7 +122,7 @@ const LINK_CHAIN_OPTIONS: ReadonlyArray<{ slug: string; label: string }> = [
 
 function LinkWalletForm() {
   const queryClient = useQueryClient();
-  const [chainSlug, setChainSlug] = useState<string>("cosmoshub");
+  const [chainSlug, setChainSlug] = useState<string>("cosmos");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);

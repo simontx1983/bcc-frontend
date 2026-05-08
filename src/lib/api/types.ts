@@ -228,7 +228,7 @@ export interface CardSocialProof {
 export interface CardClaimTarget {
   entity_type: "validator" | "collection";
   entity_id: number;
-  /** e.g. "cosmoshub", "osmosis", "ethereum". Drives the wallet picker. */
+  /** e.g. "cosmos", "osmosis", "ethereum". Drives the wallet picker. */
   chain_slug: string;
 }
 
@@ -239,7 +239,7 @@ export interface CardClaimTarget {
  * profile.
  */
 export interface CardChain {
-  /** e.g. "cosmoshub", "osmosis". Stable identifier. */
+  /** e.g. "cosmos", "osmosis". Stable identifier. */
   slug: string;
   /** Display label e.g. "Cosmos Hub", "Osmosis". */
   name: string;

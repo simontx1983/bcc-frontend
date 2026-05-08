@@ -71,8 +71,12 @@ declare global {
 // entry; the claim flow surface stays unchanged.
 // ─────────────────────────────────────────────────────────────────────
 
+// Keys are BCC slugs (`wp_bcc_chains.slug`). Values are Keplr's on-chain
+// chain_id format. Cosmos Hub's BCC slug is `cosmos`; its Keplr chain_id
+// stays `cosmoshub-4` (that's the real on-chain identifier, unrelated
+// to BCC's vocabulary).
 const COSMOS_CHAIN_IDS: Record<string, string> = {
-  cosmoshub: "cosmoshub-4",
+  cosmos:    "cosmoshub-4",
   osmosis:   "osmosis-1",
   injective: "injective-1",
   juno:      "juno-1",

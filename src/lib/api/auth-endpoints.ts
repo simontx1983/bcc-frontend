@@ -58,7 +58,7 @@ export async function signup(input: SignupRequest): Promise<AuthTokenResponse> {
 // ─────────────────────────────────────────────────────────────────────
 
 export interface NonceQueryParams {
-  /** Server slug for the chain (e.g. "cosmoshub", "osmosis"). */
+  /** Server slug for the chain (e.g. "cosmos", "osmosis"). */
   chain_slug: string;
   /** bech32 address — must match the wallet that will sign. */
   wallet_address: string;
