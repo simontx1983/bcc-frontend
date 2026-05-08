@@ -822,6 +822,161 @@ export interface CreatorGalleryResponse {
 }
 
 // ─────────────────────────────────────────────────────────────────────
+// NftPiece (§3.7 / §H1, V2 Phase 6) — per-piece detail view-model.
+//
+// One row per uniquely-identified NFT, addressed by
+// (chain_slug, contract_address, token_id). Returned by §4.17
+// `GET /bcc/v1/nft-pieces/{chainSlug}/{contractAddress}/{tokenId}`.
+//
+// Wire shape is snake_case verbatim per §3.7. The frontend renders
+// every server-formatted string as-is (`address_short`,
+// `meta.indexer_state_label[chain]`); no client-side derivation of
+// presentation. `permissions` is `{}` in V2 Phase 6 — no per-piece
+// viewer-aware actions yet.
+// ─────────────────────────────────────────────────────────────────────
+
+/**
+ * One trait/value pair on an NFT piece (OpenSea convention).
+ * `rarity_pct` is OPTIONAL — present only when the indexer has
+ * computed the trait's frequency across the collection. `attributes`
+ * is `[]` (never `null`) when the piece has no metadata.
+ */
+export interface NftPieceAttribute {
+  trait_type: string;
+  /** Wire type accepts string | number | boolean per §3.7. */
+  value: string | number | boolean;
+  rarity_pct?: number;
+}
+
+/**
+ * Co-owner row in `NftPiece.owners[]` (ERC-1155 only). Privacy-redacted
+ * server-side: wallet-only, no `is_linked` / `user` enrichment — only
+ * the dominant `owner` gets handle resolution.
+ */
+export interface NftPieceCoOwner {
+  wallet_address: string;
+  /** §1.7 wallet pattern: `<first-6>…<last-4>`. */
+  address_short: string;
+  /** Actual SUM(balance) for ERC-1155; not used for ERC-721 / CW-721. */
+  balance: number;
+}
+
+/**
+ * Dominant holder for the NFT piece. `null` for ERC-721 / CW-721
+ * cold-cache (no on-chain holder known yet). For ERC-1155, the
+ * top-balance holder, ties broken by lowest wallet_address lex.
+ *
+ * `user` is non-null IFF `is_linked` is true — the wallet has a
+ * BCC-linked user behind it. Frontend MUST NOT invent a user link
+ * when `is_linked === false`.
+ */
+export interface NftPieceOwner {
+  wallet_address: string;
+  /** §1.7 wallet pattern: `<first-6>…<last-4>`. */
+  address_short: string;
+  balance: number;
+  is_linked: boolean;
+  user: {
+    id: number;
+    handle: string;
+    display_name: string;
+    avatar_url: string;
+  } | null;
+}
+
+/**
+ * GET /bcc/v1/nft-pieces/{chainSlug}/{contractAddress}/{tokenId}
+ * — full piece-detail view-model (§3.7).
+ *
+ * Routing identity is `(collection.chain_slug, collection.contract_address,
+ * token_id)`; `id` is opaque (`nft_piece_<chain>_<short-contract>_<tokenId>`)
+ * and treated as a string by the frontend.
+ *
+ * `token_id` is a STRING — CW-721 token IDs are arbitrary, ERC-1155
+ * token IDs exceed `Number.MAX_SAFE_INTEGER`. NEVER coerce to Number.
+ *
+ * `meta.indexer_state` keys are chain slugs (e.g. `"ethereum"`); the
+ * value is one of the §3.6 status strings. `meta.indexer_state_label`
+ * carries the server-pre-formatted label per §S — render verbatim
+ * when non-empty, never invent copy.
+ */
+export interface NftPiece {
+  /** Opaque identifier — `nft_piece_<chain>_<short-contract>_<tokenId>`. */
+  id: string;
+  collection: {
+    /** Numeric collection row id; null for read-time chains (Cosmos)
+     *  with no persistent backing row. */
+    id: number | null;
+    /** Collection display name; null when the chain has no metadata yet. */
+    name: string | null;
+    /** Slug of the creator who owns this collection's profile, when
+     *  one exists. Null for collections without a claimed creator —
+     *  frontend falls back to `(chain_slug, contract_address)` for
+     *  breadcrumb routing. */
+    creator_handle: string | null;
+    chain_slug: string;
+    /** Canonical chain-form address (EVM lowercased, Solana base58,
+     *  Cosmos bech32). */
+    contract_address: string;
+    /** ∈ {`ERC-721`, `ERC-1155`, `SPL`, `CW-721`}; null on cold cache. */
+    token_standard: string | null;
+    /** Admin-managed flag. Unverified pieces are still served; the
+     *  field is a tier hint, not a hard gate. */
+    is_verified: boolean;
+  };
+  /** STRING per §3.7. Never coerce to Number. */
+  token_id: string;
+  /** Display name; null when the piece has no metadata. UI falls back
+   *  to `Untitled #{token_id}`. */
+  name: string | null;
+  /** Plain-text description; null when absent. UI hides the section
+   *  entirely on null — never render an empty paragraph. */
+  description: string | null;
+  /** Full-resolution asset URL (absolute per §1.7); null on cold cache. */
+  image_url: string | null;
+  /** CDN-resized thumbnail (≤512 px on the long edge); falls back to
+   *  `image_url` when no resize is available. */
+  image_url_thumb: string | null;
+  /** OpenSea-convention trait list. `[]` (never `null`) on no metadata. */
+  attributes: NftPieceAttribute[];
+  /** Single dominant holder; null on cold cache for ERC-721/CW-721. */
+  owner: NftPieceOwner | null;
+  /** Total distinct holder count. `1` for ERC-721/CW-721 with a known
+   *  holder; `0` when no holder is known. ERC-1155: count of wallets
+   *  with `balance > 0`. */
+  owners_count: number;
+  /** ERC-1155 only: top-N holders by balance, server-capped at N=10.
+   *  Empty (`[]`) for ERC-721 / CW-721. */
+  owners: NftPieceCoOwner[];
+  /** Per-chain marketplace links, server-curated from
+   *  `bcc_onchain_chains.marketplace_template`. `[]` when no template. */
+  marketplace_links: { name: string; url: string }[];
+  /** Relative path to the creator's mint surface with the token
+   *  pre-selected. Null when no mint surface exists. */
+  mint_link: string | null;
+  /** Reserved for future viewer-aware actions; `{}` in V2 Phase 6. */
+  permissions: Record<string, never>;
+  meta: {
+    /** True for chains with no persistent indexer (Cosmos in V2
+     *  Phase 6 — read-time + V1-transient per pattern-registry). */
+    read_time: boolean;
+    /** §3.6 status by chain slug. ∈ {`healthy`, `syncing`, `degraded`}. */
+    indexer_state: Record<string, "healthy" | "syncing" | "degraded">;
+    /** Server-pre-formatted human copy per §S — render verbatim when
+     *  non-empty; never substitute client copy. Empty string for
+     *  healthy chains. */
+    indexer_state_label: Record<string, string>;
+    /** §3.7: server-pre-formatted multi-holder summary (e.g.,
+     *  `"Held by 8 collectors"`). `null` for ERC-721 / CW-721 / SPL
+     *  and for ERC-1155 with `owners_count <= 1`. Frontend renders
+     *  verbatim; presence (non-null) is the signal to also render
+     *  `owners[]` co-owner tiles. The FE MUST NOT compose its own
+     *  count-with-noun string from `owners_count` (§S). */
+    owners_summary_label: string | null;
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────
 // Locals (§E3) — PeepSo Groups projected through BCC's union-local lens.
 //
 // Single-graph rule (LOCKED): membership lives in PeepSo's
