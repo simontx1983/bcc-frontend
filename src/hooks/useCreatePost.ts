@@ -36,8 +36,21 @@ import type {
   CreatePostResponse,
 } from "@/lib/api/types";
 import { FEED_QUERY_KEY_ROOT, HOT_FEED_QUERY_KEY } from "@/hooks/useFeed";
+import { GROUP_FEED_QUERY_KEY_ROOT } from "@/hooks/useGroupFeed";
 import { HIGHLIGHTS_QUERY_KEY } from "@/hooks/useHighlights";
 import { USER_ACTIVITY_QUERY_KEY_ROOT } from "@/hooks/useUserActivity";
+
+/**
+ * Resolve the optional group_id payload from any of the three create-post
+ * request shapes. Centralised so all three hooks stay aligned: when a
+ * post lands inside a group's wall (§4.7.6), we invalidate that group's
+ * feed in addition to the standard global feed roots, so the new post
+ * appears in `/groups/[slug]` without a manual refetch.
+ */
+function resolveTargetGroupId(req: { group_id?: number }): number | null {
+  const id = req.group_id;
+  return typeof id === "number" && id > 0 ? id : null;
+}
 
 export function useCreatePostMutation(
   options: Omit<
@@ -57,6 +70,18 @@ export function useCreatePostMutation(
       void queryClient.invalidateQueries({ queryKey: HOT_FEED_QUERY_KEY });
       void queryClient.invalidateQueries({ queryKey: USER_ACTIVITY_QUERY_KEY_ROOT });
       void queryClient.invalidateQueries({ queryKey: HIGHLIGHTS_QUERY_KEY });
+      // §4.7.6 — when the post was scoped to a group, invalidate that
+      // group's feed so /groups/[slug] surfaces the new item without
+      // a manual refetch. CreateReviewRequest / CreateBlogRequest don't
+      // carry group_id; the type guard via resolveTargetGroupId is the
+      // single seam handling all three request shapes.
+      const variables = args[1] as { group_id?: number };
+      const groupId = resolveTargetGroupId(variables);
+      if (groupId !== null) {
+        void queryClient.invalidateQueries({
+          queryKey: [...GROUP_FEED_QUERY_KEY_ROOT, groupId],
+        });
+      }
       return options.onSuccess?.(...args);
     },
   });
@@ -85,6 +110,12 @@ export function useCreateGifPostMutation(
       void queryClient.invalidateQueries({ queryKey: HOT_FEED_QUERY_KEY });
       void queryClient.invalidateQueries({ queryKey: USER_ACTIVITY_QUERY_KEY_ROOT });
       void queryClient.invalidateQueries({ queryKey: HIGHLIGHTS_QUERY_KEY });
+      const groupId = resolveTargetGroupId(args[1]);
+      if (groupId !== null) {
+        void queryClient.invalidateQueries({
+          queryKey: [...GROUP_FEED_QUERY_KEY_ROOT, groupId],
+        });
+      }
       return options.onSuccess?.(...args);
     },
   });
@@ -120,6 +151,12 @@ export function useCreatePhotoPostMutation(
       void queryClient.invalidateQueries({ queryKey: HOT_FEED_QUERY_KEY });
       void queryClient.invalidateQueries({ queryKey: USER_ACTIVITY_QUERY_KEY_ROOT });
       void queryClient.invalidateQueries({ queryKey: HIGHLIGHTS_QUERY_KEY });
+      const groupId = resolveTargetGroupId(args[1]);
+      if (groupId !== null) {
+        void queryClient.invalidateQueries({
+          queryKey: [...GROUP_FEED_QUERY_KEY_ROOT, groupId],
+        });
+      }
       return options.onSuccess?.(...args);
     },
   });

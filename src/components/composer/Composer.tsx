@@ -113,6 +113,24 @@ export interface ComposerProps {
   viewerAvatarUrl?: string | undefined;
   viewerHandle?: string | undefined;
   viewerDisplayName?: string | null | undefined;
+  /**
+   * §4.7.6 — when present and > 0, posts authored from this composer
+   * land inside that PeepSo group's wall (server sets `peepso_group_id`
+   * post-meta + validates the viewer is an active member). Used by
+   * `/groups/[slug]` to host an in-context composer above the group
+   * feed. When omitted / 0, posts go to the viewer's own wall (the
+   * default Floor / per-user-wall behavior). The composer also tucks
+   * the "Long-form →" escalation link when group-scoped — long-form
+   * blogs aren't group-scoped in V1.
+   */
+  groupId?: number;
+  /**
+   * Optional one-line scope label rendered as a kicker above the
+   * collapsed placeholder when `groupId` is set (e.g. "POST IN
+   * HOLDERS: JUPPETS"). Server-pinned text per §A2 / §L5; when omitted
+   * the composer falls back to the bare placeholder.
+   */
+  groupScopeLabel?: string;
 }
 
 // ─────────────────────────────────────────────────────────────────────
@@ -131,6 +149,8 @@ export function Composer({
   viewerAvatarUrl,
   viewerHandle,
   viewerDisplayName,
+  groupId,
+  groupScopeLabel,
 }: ComposerProps) {
   // Review tab is only available when a target is supplied. Fail closed.
   const reviewAvailable =
@@ -138,6 +158,11 @@ export function Composer({
     reviewTargetId > 0 &&
     typeof reviewTargetName === "string" &&
     reviewTargetName.length > 0;
+
+  // Normalize groupId once: any non-positive value (undefined, 0,
+  // negative) collapses to undefined so the InlineStatusComposer's
+  // membership-required code path stays binary.
+  const scopedGroupId = typeof groupId === "number" && groupId > 0 ? groupId : undefined;
 
   if (variant === "inline") {
     // Inline is status-only by design (v1.5). Review uses the modal
@@ -148,6 +173,8 @@ export function Composer({
         viewerAvatarUrl={viewerAvatarUrl}
         viewerHandle={viewerHandle}
         viewerDisplayName={viewerDisplayName ?? null}
+        groupId={scopedGroupId}
+        groupScopeLabel={groupScopeLabel}
       />
     );
   }
@@ -196,12 +223,24 @@ interface InlineStatusComposerProps {
   viewerAvatarUrl: string | undefined;
   viewerHandle: string | undefined;
   viewerDisplayName: string | null;
+  /**
+   * §4.7.6 — when present, every submit (status / photo / GIF) carries
+   * `group_id` so the post lands inside that group's wall. Membership
+   * is enforced server-side; the parent (`GroupFeedSection`) is
+   * responsible for not mounting this composer when the viewer isn't
+   * a member.
+   */
+  groupId: number | undefined;
+  /** Optional kicker copy rendered above the placeholder when group-scoped. */
+  groupScopeLabel: string | undefined;
 }
 
 function InlineStatusComposer({
   viewerAvatarUrl,
   viewerHandle,
   viewerDisplayName,
+  groupId,
+  groupScopeLabel,
 }: InlineStatusComposerProps) {
   const [expanded, setExpanded] = useState(false);
   const [content, setContent] = useState("");
@@ -550,12 +589,30 @@ function InlineStatusComposer({
     event.preventDefault();
     if (!canSubmit) return;
     setError(null);
+    // §4.7.6 — when this composer is mounted on a group page, every
+    // submit carries `group_id` so the post lands inside that group's
+    // wall. The mutation hooks invalidate the per-group feed query
+    // (in addition to the global feed roots) so the new post surfaces
+    // on /groups/[slug] without a manual refetch. `group_id` is
+    // omitted from the payload entirely when undefined to keep the
+    // wire body identical to today for non-group submits.
     if (selectedGif !== null) {
-      gifMutation.mutate({ url: selectedGif.url, caption: trimmed });
+      gifMutation.mutate({
+        url: selectedGif.url,
+        caption: trimmed,
+        ...(groupId !== undefined ? { group_id: groupId } : {}),
+      });
     } else if (attachedFile !== null) {
-      photoMutation.mutate({ file: attachedFile, caption: trimmed });
+      photoMutation.mutate({
+        file: attachedFile,
+        caption: trimmed,
+        ...(groupId !== undefined ? { group_id: groupId } : {}),
+      });
     } else {
-      statusMutation.mutate({ content: trimmed });
+      statusMutation.mutate({
+        content: trimmed,
+        ...(groupId !== undefined ? { group_id: groupId } : {}),
+      });
     }
   };
 
@@ -585,15 +642,29 @@ function InlineStatusComposer({
         // A quiet row in the dark flow. No card chrome, no nested
         // panels. Hover lifts a subtle background tint. The whole
         // row is the click target — tab into it to expand via
-        // keyboard.
+        // keyboard. When mounted on a group page, the optional
+        // `groupScopeLabel` kicker renders above the placeholder so
+        // the viewer reads the scope before they start typing.
         <button
           type="button"
           onClick={() => setExpanded(true)}
           className="flex w-full items-center gap-3 border-y border-cardstock/10 bg-transparent px-1 py-3 text-left transition hover:bg-cardstock/5 focus-visible:bg-cardstock/5 focus-visible:outline-none"
         >
           <ComposerAvatar src={viewerAvatarUrl} initial={initial} />
-          <span className="font-serif italic text-cardstock-deep/75">
-            What&apos;s on your mind?
+          <span className="flex flex-col">
+            {groupScopeLabel !== undefined && groupScopeLabel !== "" && (
+              <span
+                className="bcc-mono text-cardstock-deep/80"
+                style={{ fontSize: "9px", letterSpacing: "0.24em" }}
+              >
+                {groupScopeLabel}
+              </span>
+            )}
+            <span className="font-serif italic text-cardstock-deep/75">
+              {groupId !== undefined
+                ? "Post to this group…"
+                : "What's on your mind?"}
+            </span>
           </span>
         </button>
       ) : (
@@ -856,12 +927,21 @@ function InlineStatusComposer({
                   </span>
                 )}
               </span>
-              <Link
-                href={"/blog/new" as Route}
-                className="bcc-mono text-[11px] tracking-[0.18em] text-cardstock-deep/80 hover:text-cardstock hover:underline"
-              >
-                Long-form →
-              </Link>
+              {/*
+                §4.7.6 — long-form blogs are personal-wall content
+                in V1; the /blog/new flow has no group-scope concept.
+                Tucking the escalation link when the composer is
+                group-scoped avoids surfacing a path that would
+                silently drop the group affiliation.
+              */}
+              {groupId === undefined && (
+                <Link
+                  href={"/blog/new" as Route}
+                  className="bcc-mono text-[11px] tracking-[0.18em] text-cardstock-deep/80 hover:text-cardstock hover:underline"
+                >
+                  Long-form →
+                </Link>
+              )}
             </div>
 
             <button

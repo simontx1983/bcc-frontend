@@ -1565,6 +1565,14 @@ export type ReviewGrade = "trust" | "neutral" | "caution";
 export interface CreateStatusRequest {
   kind?: "status";
   content: string;
+  /**
+   * §4.7.6 — when present and > 0, the post lands inside that PeepSo
+   * group's wall (server sets `peepso_group_id` post-meta). The viewer
+   * MUST be an active member of the group; the server returns 403
+   * `bcc_permission_denied` otherwise. Omit / 0 → posts to viewer's
+   * own wall (existing behavior).
+   */
+  group_id?: number;
 }
 
 export interface CreateReviewRequest {
@@ -1660,10 +1668,15 @@ export const PHOTO_ALLOWED_MIME_TYPES: ReadonlyArray<string> = [
 /**
  * Multipart photo-post request. Caption is optional (photo-only is a
  * real social use case). Server enforces the same caps.
+ *
+ * §4.7.6 — `group_id` (when present and > 0) scopes the post to a
+ * PeepSo group's wall; member-only on the server. Omit / 0 → viewer's
+ * own wall.
  */
 export interface CreatePhotoPostRequest {
   file: File;
   caption?: string;
+  group_id?: number;
 }
 
 /**
@@ -1705,10 +1718,15 @@ export const GIF_CAPTION_MAX_LENGTH = STATUS_POST_MAX_LENGTH;
 /**
  * JSON request body for POST /posts/gif. Server requires the URL to
  * contain `giphy.com` (matches PeepSo's own check). Caption optional.
+ *
+ * §4.7.6 — `group_id` (when present and > 0) scopes the post to a
+ * PeepSo group's wall; member-only on the server. Omit / 0 → viewer's
+ * own wall.
  */
 export interface CreateGifPostRequest {
   url: string;
   caption?: string;
+  group_id?: number;
 }
 
 /**
@@ -3079,6 +3097,21 @@ export interface MemberSummary {
 export type MembersTypeFilter = "validator" | "project" | "nft" | "dao";
 
 /**
+ * §4.4 `rank` filter — slug of an EXPLICITLY-AWARDED rank from
+ * `bcc_user_ranks` (auto-derived Apprentice fallbacks are not
+ * included; see UserRankRepository::getUserIdsWithRank docblock).
+ * Mirror of `RankCatalog::RANK_*` slugs.
+ */
+export type MembersRankFilter = "apprentice" | "journeyman" | "foreman";
+
+/**
+ * §4.4 `verified[]` filter — one verification axis. Multi-select
+ * with AND semantics: passing `["x", "github"]` returns members
+ * with BOTH X and GitHub verified.
+ */
+export type MembersVerifiedAxis = "x" | "github" | "wallet";
+
+/**
  * §4.4 `type_counts` — global count of distinct users with ≥1 owned
  * page per canonical type. Independent of the active `q` and `type`
  * filters: the directory's chip strip uses these to render
@@ -3093,6 +3126,149 @@ export interface MembersResponse {
   items: MemberSummary[];
   pagination: OffsetPagination;
   type_counts: MembersTypeCounts;
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Group Detail Page (§4.7.5 / §4.7.6 / §4.7.7) — cross-kind single-group
+// view-model + scoped feed + paginated roster.
+//
+// SOURCE OF TRUTH for these shapes is the PHPDoc on
+// `GroupsService::getGroup` and `GroupMembersService::listMembers` —
+// the contract doc additions for §4.7.5/§4.7.6/§4.7.7 were promised
+// but never merged, so the PHP is canonical.
+//
+// Privacy gate is server-enforced (defense-in-depth, §S):
+//   secret + non-member → 404 (never leaks existence)
+//   closed + non-member → 200 with feed_visible=false, members_visible=false
+//   open OR member      → full view-model
+//
+// Frontend rule (§A2 / §S): NO client-side eligibility recomputation.
+// Render strictly off `feed_visible`, `members_visible`, and the
+// `permissions` block; surface `unlock_hint` strings VERBATIM.
+// ─────────────────────────────────────────────────────────────────────
+
+/**
+ * Per-permission entry on the detail-page response. Same shape as
+ * `GroupPermissionEntry` (§4.7.2) but kept distinct so a future
+ * divergence (e.g. detail-page-only `requires_2fa` reason) doesn't
+ * silently widen the §4.7.2 surface.
+ */
+export interface GroupDetailPermissionEntry {
+  allowed: boolean;
+  unlock_hint: string | null;
+  /**
+   * Stable machine-readable reason. Known values per
+   * `GroupsService::resolveCanJoin` / `resolveCanLeave` /
+   * `resolveCanReadFeed`:
+   *   `auth_required`, `already_member`, `not_member`,
+   *   `not_eligible`, `requires_approval`, `invite_only`,
+   *   `membership_required`. Unknown values tolerated for forward
+   *   compat — never branch UI off the message text.
+   */
+  reason_code: string | null;
+}
+
+/**
+ * Permissions block on `GroupDetailResponse`. Adds `can_read_feed`
+ * versus `GroupPermissions` (§4.7.2) — the §4.7.5 detail page is the
+ * only surface that needs it because it's the only one that renders
+ * the scoped feed inline.
+ */
+export interface GroupDetailPermissions {
+  can_join: GroupDetailPermissionEntry;
+  can_leave: GroupDetailPermissionEntry;
+  can_read_feed: GroupDetailPermissionEntry;
+}
+
+/**
+ * Viewer's membership block on the detail response. Cross-kind shape
+ * — no `is_primary` (that's a Local-only concept on `LocalMembership`).
+ *   - viewer anon                       → null
+ *   - viewer authed, not active member  → {is_member: false, joined_at: null}
+ *   - viewer authed, active member      → {is_member: true, joined_at: <iso>}
+ */
+export interface GroupViewerMembership {
+  is_member: boolean;
+  /** ISO 8601 UTC. Only populated when `is_member` is true. */
+  joined_at: string | null;
+}
+
+/**
+ * GET /bcc/v1/groups/{slug} — single-group detail view-model.
+ *
+ * Shape mirrors `GroupsService::getGroup`'s PHPDoc exactly; see
+ * the PHP file for the canonical definition of each field.
+ *
+ * `feed_visible` / `members_visible` are server-rendered booleans the
+ * frontend uses to decide whether to mount the feed / roster sections
+ * (vs the gated-notice fallback). The frontend does NOT recompute
+ * either from `permissions` + `privacy` + `type` — that would
+ * duplicate the server's privacy gate (§S).
+ */
+export interface GroupDetailResponse {
+  id: number;
+  slug: string;
+  name: string;
+  type: GroupDiscoveryType;
+  privacy: GroupDiscoveryPrivacy;
+  /** Plain-text body, tag-stripped, truncated to ~200 chars. */
+  description: string | null;
+  /** NFT-cover URL when `type === "nft"`; null otherwise. */
+  image_url: string | null;
+  member_count: number;
+  /** On-chain badge for NFT groups; null for local/system/user. */
+  verification: GroupVerification | null;
+  activity: GroupActivity;
+  /** Market-data block for NFT groups; null for non-NFT kinds. */
+  collection_stats: CollectionStats | null;
+  viewer_membership: GroupViewerMembership | null;
+  permissions: GroupDetailPermissions;
+  feed_visible: boolean;
+  members_visible: boolean;
+  links: { self: string };
+}
+
+/**
+ * One row in `GET /bcc/v1/groups/{id}/members`.
+ *
+ * Wire shape: `MemberSummary` (from §4.4) merged with the per-row
+ * group-membership fields. The server `array_merge`s the summary
+ * with `{role, role_label, joined_at}` so the public type extends
+ * `MemberSummary`. `joined_at` here is the per-group join timestamp
+ * (overrides the user's account `joined_at` from the summary —
+ * intentional; the roster cares about when this user joined the
+ * GROUP, not the platform).
+ */
+export interface GroupMember extends MemberSummary {
+  /** Normalized role — PeepSo `member_owner` / `member_moderator`
+   *  / `member_manager` collapsed to this triple per
+   *  `GroupMembersService::normalizeRole`. */
+  role: "owner" | "moderator" | "member";
+  /** Server-rendered display string ("OWNER" / "MODERATOR" /
+   *  "MEMBER" by default; filterable via `bcc_group_role_labels`).
+   *  Render verbatim per §A2 — no client-side enum→label mapping. */
+  role_label: string;
+  /** ISO 8601 UTC — when this user joined THIS group. */
+  joined_at: string;
+}
+
+/**
+ * Offset pagination shape used by §4.7.7. Distinct from
+ * `OffsetPagination` (page-based) because the roster is offset-based
+ * (`offset` / `limit` / `total` / `has_more`) — stable-ordered by
+ * (role_rank, joined_at DESC) so offset paginates correctly without
+ * timestamp drift.
+ */
+export interface GroupMembersPagination {
+  offset: number;
+  limit: number;
+  total: number;
+  has_more: boolean;
+}
+
+export interface GroupMembersResponse {
+  items: GroupMember[];
+  pagination: GroupMembersPagination;
 }
 
 // ────────────────────────────────────────────────────────────────────────
@@ -3193,4 +3369,100 @@ export interface NftSaveSelectionResponse {
 /** DELETE /nft-selections success body. */
 export interface NftDeleteSelectionResponse {
   ok: boolean;
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// §4.19 Direct Messages (v1.5)
+//
+// BCC adapter on top of PeepSo's `peepso_message_*` graph + the
+// `peepso-message` CPT. Single-graph rule on the server: writes go
+// through PeepSoMessageWriter, reads through PeepSoMessageRepository.
+// Frontend never touches PeepSo's tables directly.
+// ─────────────────────────────────────────────────────────────────────
+
+/** Hard cap on a message body — mirrors server `MESSAGE_BODY_MAX_LENGTH`. */
+export const MESSAGE_BODY_MAX_LENGTH = 5000;
+
+/** Slim author / participant view-model used in inbox + thread + picker. */
+export interface MessageUserMini {
+  id: number;
+  handle: string;
+  display_name: string;
+  avatar_url: string;
+}
+
+/** One message in a thread. `is_inline_notice` flags PeepSo system rows. */
+export interface MessageItem {
+  id: number;
+  author: MessageUserMini | null;
+  body: string;
+  posted_at: string;
+  is_inline_notice: boolean;
+}
+
+export interface ConversationLastMessage {
+  id: number;
+  author: MessageUserMini | null;
+  preview: string;
+  posted_at: string;
+}
+
+/**
+ * Conversation summary in the inbox. `peer` is the OTHER participant
+ * for 1-on-1s and `null` for groups (where `is_group === true` and the
+ * row title falls back to a participants list).
+ */
+export interface ConversationSummary {
+  id: number;
+  is_group: boolean;
+  participants: MessageUserMini[];
+  peer: MessageUserMini | null;
+  last_message: ConversationLastMessage;
+  unread_count: number;
+  last_activity: string;
+}
+
+export interface ConversationDetail {
+  id: number;
+  is_group: boolean;
+  participants: MessageUserMini[];
+  peer: MessageUserMini | null;
+}
+
+export interface ConversationListResponse {
+  items: ConversationSummary[];
+  pagination: OffsetPagination;
+}
+
+/** Thread offset pagination — `total` is unbounded; walk via `has_more`. */
+export interface ThreadPagination {
+  page: number;
+  per_page: number;
+  total: number | null;
+  has_more: boolean;
+}
+
+export interface ConversationThreadResponse {
+  conversation: ConversationDetail;
+  items: MessageItem[];
+  pagination: ThreadPagination;
+}
+
+export interface StartConversationRequest {
+  recipient_id: number;
+  body: string;
+}
+
+export interface SendMessageRequest {
+  body: string;
+}
+
+export interface SendMessageResponse {
+  conversation_id: number;
+  message_id: number;
+  is_new_conversation: boolean;
+}
+
+export interface UnreadMessageCountResponse {
+  count: number;
 }

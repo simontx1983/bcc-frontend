@@ -1,0 +1,163 @@
+"use client";
+
+/**
+ * GroupFeedSection — the §4.7.6 group-scoped feed surface.
+ *
+ * Two paths driven by `group.feed_visible` (server-authoritative gate
+ * per §A2 / §S — frontend NEVER recomputes from privacy + type):
+ *
+ *   feed_visible = false → render <GroupGatedNotice/> (verbatim
+ *                          unlock_hint), do NOT mount the feed query
+ *                          (avoids hitting the wire for a known 403).
+ *   feed_visible = true  → optional in-context Composer for active
+ *                          members + useGroupFeed(group.id) →
+ *                          existing FeedItemCard list.
+ *
+ * Composer mount rule (§4.7.6): only when the viewer is an active
+ * member of the group (`viewer_membership.is_member === true`). The
+ * composer carries `groupId={group.id}` so every submit (status /
+ * photo / GIF) lands inside the group's wall and the
+ * useCreatePost*Mutation hooks invalidate
+ * `[GROUP_FEED_QUERY_KEY_ROOT, group.id]` so the new post surfaces
+ * here without a manual refetch. The server enforces membership
+ * (POST returns 403 `bcc_permission_denied` otherwise) — the FE mount
+ * gate is convenience, not security.
+ *
+ * The rendered card list is wrapped in a `React.memo()` row component
+ * so per-row re-renders don't cascade across the list when only one
+ * item updates (matches the §S "memoize feed cards" rule).
+ */
+
+import { memo, useCallback } from "react";
+
+import { Composer } from "@/components/composer/Composer";
+import { FeedItemCard } from "@/components/feed/FeedItemCard";
+import { GroupGatedNotice } from "@/components/groups/GroupGatedNotice";
+import { useGroupFeed } from "@/hooks/useGroupFeed";
+import type { FeedItem, GroupDetailResponse } from "@/lib/api/types";
+
+interface GroupFeedSectionProps {
+  group: GroupDetailResponse;
+}
+
+export function GroupFeedSection({ group }: GroupFeedSectionProps) {
+  if (!group.feed_visible) {
+    return (
+      <GroupGatedNotice
+        hint={group.permissions.can_read_feed.unlock_hint}
+        variant="feed"
+      />
+    );
+  }
+
+  // Server-derived "viewer can post here right now." Anonymous viewers
+  // and non-members never see the composer; the membership flip is
+  // handled upstream by the join/leave mutations invalidating the
+  // useGroup query, which re-renders this section with a fresh
+  // viewer_membership block.
+  const canPost =
+    group.viewer_membership !== null &&
+    group.viewer_membership.is_member === true;
+
+  return (
+    <div className="flex flex-col gap-6">
+      {canPost && (
+        <Composer
+          variant="inline"
+          groupId={group.id}
+          groupScopeLabel={`POST IN ${group.name.toUpperCase()}`}
+        />
+      )}
+      <GroupFeedBody groupId={group.id} />
+    </div>
+  );
+}
+
+function GroupFeedBody({ groupId }: { groupId: number }) {
+  const query = useGroupFeed(groupId);
+
+  const handleLoadMore = useCallback(() => {
+    if (!query.isFetchingNextPage) {
+      void query.fetchNextPage();
+    }
+  }, [query]);
+
+  if (query.isLoading) {
+    return (
+      <div className="py-8 text-center">
+        <p className="bcc-mono text-cardstock-deep">Loading the floor…</p>
+      </div>
+    );
+  }
+
+  if (query.isError) {
+    return (
+      <div className="py-8">
+        <p role="alert" className="bcc-mono text-safety">
+          Couldn&apos;t load this group&apos;s feed
+          {query.error?.message !== undefined ? `: ${query.error.message}` : "."}
+        </p>
+        <button
+          type="button"
+          onClick={() => {
+            void query.refetch();
+          }}
+          className="bcc-mono mt-3 text-cardstock-deep underline"
+        >
+          Try again
+        </button>
+      </div>
+    );
+  }
+
+  const items = (query.data?.pages ?? []).flatMap((page) => page.items);
+
+  if (items.length === 0) {
+    return (
+      <div className="bcc-panel mx-auto p-6 text-center">
+        <h2 className="bcc-stencil text-2xl text-ink">Quiet inside</h2>
+        <p className="mt-2 font-serif text-ink-soft">
+          No posts here yet. Be the first to break the silence — or check
+          back when the heat picks up.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      {items.map((item) => (
+        <GroupFeedItem key={item.id} item={item} />
+      ))}
+
+      {query.hasNextPage && (
+        <button
+          type="button"
+          onClick={handleLoadMore}
+          disabled={query.isFetchingNextPage}
+          className="bcc-stencil mx-auto mt-4 border border-cardstock-edge/40 px-6 py-2.5 text-cardstock disabled:opacity-50"
+        >
+          {query.isFetchingNextPage ? "Loading…" : "Load more"}
+        </button>
+      )}
+
+      {!query.hasNextPage && items.length > 0 && (
+        <p className="bcc-mono mt-4 text-center text-cardstock-deep/60">
+          End of the feed.
+        </p>
+      )}
+    </div>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────────
+// Memoized row wrapper. `FeedItemCard` may have its own internal state
+// (open comments, reaction-rail focus); wrapping with `memo` here means
+// a reference-stable `item` skips the re-render. The `FeedItem` from
+// React Query's cache IS reference-stable across re-renders unless the
+// item actually changed, so default shallow-equality is sufficient.
+// ──────────────────────────────────────────────────────────────────────
+
+const GroupFeedItem = memo(function GroupFeedItem({ item }: { item: FeedItem }) {
+  return <FeedItemCard item={item} />;
+});
