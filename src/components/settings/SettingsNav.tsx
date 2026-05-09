@@ -29,6 +29,7 @@ const TABS: SettingsTab[] = [
   { href: "/settings/notifications" as Route, label: "Notifications" },
   { href: "/settings/messages"      as Route, label: "Messages" },
   { href: "/settings/communities"   as Route, label: "Communities" },
+  { href: "/settings/nft-showcase"  as Route, label: "Showcase" },
   { href: "/settings/account"       as Route, label: "Account" },
   { href: "/settings/blocks"        as Route, label: "Blocks" },
 ];

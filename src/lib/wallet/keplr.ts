@@ -75,12 +75,18 @@ declare global {
 // chain_id format. Cosmos Hub's BCC slug is `cosmos`; its Keplr chain_id
 // stays `cosmoshub-4` (that's the real on-chain identifier, unrelated
 // to BCC's vocabulary).
+//
+// THORChain rides this map — it's a Cosmos-SDK chain (secp256k1 +
+// bech32 with the `thor` HRP) and the backend's CosmosSignatureVerifier
+// derives the HRP from the address, so the same ADR-036 signing flow
+// works without a separate verifier.
 const COSMOS_CHAIN_IDS: Record<string, string> = {
   cosmos:    "cosmoshub-4",
   osmosis:   "osmosis-1",
   injective: "injective-1",
   juno:      "juno-1",
   stargaze:  "stargaze-1",
+  thorchain: "thorchain-1",
 };
 
 export function isCosmosChain(slug: string): boolean {

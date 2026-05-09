@@ -3094,3 +3094,103 @@ export interface MembersResponse {
   pagination: OffsetPagination;
   type_counts: MembersTypeCounts;
 }
+
+// ────────────────────────────────────────────────────────────────────────
+// Onchain — user NFT selections (§ Phase 2 picker UI).
+//
+// Backend: NftSelectionController @ /bcc/v1/nft-selections/* — picker
+// data, current list, save, delete, refresh, reorder. Full picker modal
+// is the v1 UI surface; reorder + refresh are deferred to a later pass.
+// ────────────────────────────────────────────────────────────────────────
+
+/**
+ * One holdings item from GET /nft-selections/picker. Mirrors the
+ * HoldingsService row shape with the `is_selected` flag NftSelectionService
+ * annotates server-side. Optional fields are optional in the payload —
+ * not all chain indexers ship name / image / metadata for every token.
+ */
+export interface NftPickerItem {
+  chain_id: number;
+  contract_address: string;
+  token_id: string;
+  wallet_link_id: number;
+  is_selected: boolean;
+  name?: string | null;
+  collection_name?: string | null;
+  image_url?: string | null;
+  metadata_uri?: string | null;
+  token_standard?: string | null;
+}
+
+/**
+ * Response body for GET /nft-selections/picker. `selected_keys` is
+ * `chain|contract|token` lowercased — we don't lean on it client-side
+ * (each item carries `is_selected`) but it's exposed for parity with
+ * the backend doc.
+ *
+ * `meta.indexer_state_label` is server-pre-formatted human copy (per §S);
+ * the picker renders it verbatim if non-empty without massaging the text.
+ */
+export interface NftPickerResponse {
+  items: NftPickerItem[];
+  truncated: boolean;
+  wallets_checked: number;
+  wallets_truncated: number;
+  selected_keys: Record<string, boolean>;
+  refreshed_at: Record<string, string>;
+  meta: {
+    indexer_state: Record<string, string>;
+    indexer_state_label: Record<string, string>;
+  };
+}
+
+/**
+ * One row from GET /nft-selections (the list of saved selections).
+ * Returned by NftSelectionRepository::getForUser — joins the chains
+ * table for chain_slug / chain_name / explorer_url so the UI can
+ * render badges + outbound links without a second fetch.
+ *
+ * Numeric fields arrive as strings from $wpdb->get_results unless
+ * the backend explicitly casts them; both shapes are accepted here
+ * to match the contract verbatim.
+ */
+export interface NftSelectionRow {
+  id: number | string;
+  user_id: number | string;
+  wallet_link_id: number | string;
+  chain_id: number | string;
+  contract_address: string;
+  token_id: string;
+  collection_name: string | null;
+  name: string | null;
+  image_url: string | null;
+  metadata_uri: string | null;
+  token_standard: string | null;
+  display_order: number | string;
+  added_at: string;
+  chain_slug: string;
+  chain_name: string;
+  explorer_url: string | null;
+}
+
+export interface NftSelectionsListResponse {
+  items: NftSelectionRow[];
+}
+
+/** Body for POST/DELETE /nft-selections — token identity tuple. */
+export interface NftSelectionIdentity {
+  chain_id: number;
+  contract_address: string;
+  token_id: string;
+}
+
+/** POST /nft-selections success body. The 403 / 500 paths throw BccApiError. */
+export interface NftSaveSelectionResponse {
+  ok: true;
+  id: number | null;
+}
+
+/** DELETE /nft-selections success body. */
+export interface NftDeleteSelectionResponse {
+  ok: boolean;
+}

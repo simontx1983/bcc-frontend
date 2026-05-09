@@ -27,12 +27,31 @@ import { getWalletNonce, linkWallet } from "@/lib/api/auth-endpoints";
 import { BccApiError, type LinkedWallet } from "@/lib/api/types";
 import { formatShortDate } from "@/lib/format";
 import {
+  findWalletChain,
+  groupedWalletChains,
+  type WalletChainType,
+} from "@/lib/wallet/chain-catalog";
+import {
   connectKeplr,
   KeplrError,
   KeplrUnavailableError,
   KeplrUserRejectedError,
   signKeplrChallenge,
 } from "@/lib/wallet/keplr";
+import {
+  connectMetaMask,
+  MetaMaskError,
+  MetaMaskUnavailableError,
+  MetaMaskUserRejectedError,
+  signMetaMaskChallenge,
+} from "@/lib/wallet/metamask";
+import {
+  connectPhantom,
+  PhantomError,
+  PhantomUnavailableError,
+  PhantomUserRejectedError,
+  signPhantomChallenge,
+} from "@/lib/wallet/phantom";
 
 export function WalletsSection() {
   const wallets = useMyWallets();
@@ -105,54 +124,54 @@ export function WalletsSection() {
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// Link form — chain dropdown + "Link wallet" button. V1 wallet support
-// is Cosmos-only via Keplr; the chain slugs match the bcc-trust
-// ChainRepository entries (cosmos, osmosis, injective, juno, stargaze)
-// per the same constraint as <WalletAuthButton>. The Keplr on-chain
-// chain_id (`cosmoshub-4` etc.) is mapped from the slug in keplr.ts.
+// Link form — chain dropdown + "Link wallet" button. Three signing
+// flows (EVM via MetaMask, Solana via Phantom, Cosmos via Keplr) are
+// dispatched on the catalog's `chainType` for the selected chain.
+//
+// All three flows hit /auth/wallet-link with the same shape; only the
+// `wallet_type` label and the contents of `extra` differ:
+//   - EVM    → wallet_type='metamask', extra={}
+//   - Solana → wallet_type='phantom',  extra={}
+//   - Cosmos → wallet_type='keplr',    extra={pub_key, chain_id}
+//
+// The cosmos `extra` payload is mandatory — `WalletVerifier::verify`
+// reads pub_key + chain_id from there for ADR-036 verification (the
+// EthSignatureVerifier and SolanaSignatureVerifier ignore `extra`
+// entirely; their signatures self-disclose the signer pubkey).
+//
+// Catalog source: lib/wallet/chain-catalog.ts. Adding a chain there
+// is the only step required to surface it here.
 // ─────────────────────────────────────────────────────────────────────
 
-const LINK_CHAIN_OPTIONS: ReadonlyArray<{ slug: string; label: string }> = [
-  { slug: "cosmos",    label: "Cosmos Hub" },
-  { slug: "osmosis",   label: "Osmosis"    },
-  { slug: "injective", label: "Injective"  },
-  { slug: "juno",      label: "Juno"       },
-  { slug: "stargaze",  label: "Stargaze"   },
-];
+const GROUPED_CHAINS = groupedWalletChains();
+const DEFAULT_SLUG = GROUPED_CHAINS[0]?.options[0]?.slug ?? "ethereum";
 
 function LinkWalletForm() {
   const queryClient = useQueryClient();
-  const [chainSlug, setChainSlug] = useState<string>("cosmos");
+  const [chainSlug, setChainSlug] = useState<string>(DEFAULT_SLUG);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
+  const selectedChain = findWalletChain(chainSlug);
+
   async function run() {
+    if (selectedChain === undefined) {
+      setError("Pick a supported chain.");
+      return;
+    }
     setError(null);
     setSuccess(null);
     setPending(true);
 
     try {
-      const connection = await connectKeplr(chainSlug);
-
-      const nonce = await getWalletNonce({
-        chain_slug:     connection.chainSlug,
-        wallet_address: connection.address,
-      });
-
-      const signed = await signKeplrChallenge(
-        connection.chainSlug,
-        connection.address,
-        nonce.message
-      );
+      const linked = await runLinkFlow(selectedChain.slug, selectedChain.chainType);
 
       const response = await linkWallet({
-        wallet_address: connection.address,
-        signature:      signed.signature,
-        wallet_type:    "keplr",
-        // pub_key + chain_id MUST live inside `extra` — that's where
-        // the cosmos verifier reads them per WalletVerifier::verify.
-        extra: { pub_key: signed.pubKey, chain_id: connection.chainId },
+        wallet_address: linked.address,
+        signature:      linked.signature,
+        wallet_type:    linked.walletType,
+        extra:          linked.extra,
       });
 
       void queryClient.invalidateQueries({ queryKey: MY_WALLETS_QUERY_KEY });
@@ -174,7 +193,7 @@ function LinkWalletForm() {
       </span>
 
       <div className="flex flex-wrap items-end gap-2">
-        <label className="flex min-w-[180px] flex-1 flex-col gap-1.5">
+        <label className="flex min-w-[200px] flex-1 flex-col gap-1.5">
           <span className="bcc-mono text-[11px] text-ink-soft">Chain</span>
           <select
             value={chainSlug}
@@ -182,10 +201,14 @@ function LinkWalletForm() {
             disabled={pending}
             className="border border-cardstock-edge bg-cardstock-deep/60 px-3 py-2 font-serif text-ink outline-none focus:border-blueprint focus:ring-1 focus:ring-blueprint disabled:opacity-50"
           >
-            {LINK_CHAIN_OPTIONS.map((opt) => (
-              <option key={opt.slug} value={opt.slug}>
-                {opt.label}
-              </option>
+            {GROUPED_CHAINS.map((group) => (
+              <optgroup key={group.chainType} label={group.label}>
+                {group.options.map((opt) => (
+                  <option key={opt.slug} value={opt.slug}>
+                    {opt.label}
+                  </option>
+                ))}
+              </optgroup>
             ))}
           </select>
         </label>
@@ -202,6 +225,15 @@ function LinkWalletForm() {
         </button>
       </div>
 
+      {selectedChain !== undefined && (
+        <p
+          className="bcc-mono text-[10px] tracking-[0.18em] text-ink-soft"
+          aria-live="polite"
+        >
+          {walletHintFor(selectedChain.chainType)}
+        </p>
+      )}
+
       {error !== null && (
         <p role="alert" className="bcc-mono text-[11px] text-safety">
           {error}
@@ -214,6 +246,96 @@ function LinkWalletForm() {
       )}
     </div>
   );
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// runLinkFlow — connect → request nonce → sign → return the bundle the
+// /auth/wallet-link POST needs. All three branches share the same
+// outer shape so the caller doesn't care which provider answered.
+// ─────────────────────────────────────────────────────────────────────
+
+interface LinkFlowResult {
+  address: string;
+  signature: string;
+  walletType: string;
+  extra: Record<string, string>;
+}
+
+async function runLinkFlow(
+  chainSlug: string,
+  chainType: WalletChainType,
+): Promise<LinkFlowResult> {
+  if (chainType === "evm") {
+    const chain = findWalletChain(chainSlug);
+    const desiredHex = chain?.chainIdHex ?? "";
+    const connection = await connectMetaMask(desiredHex);
+
+    const nonce = await getWalletNonce({
+      chain_slug:     chainSlug,
+      wallet_address: connection.address,
+    });
+
+    const signed = await signMetaMaskChallenge(connection.address, nonce.message);
+
+    return {
+      address:    connection.address,
+      signature:  signed.signature,
+      walletType: "metamask",
+      extra:      {},
+    };
+  }
+
+  if (chainType === "solana") {
+    const connection = await connectPhantom();
+
+    const nonce = await getWalletNonce({
+      chain_slug:     chainSlug,
+      wallet_address: connection.address,
+    });
+
+    const signed = await signPhantomChallenge(nonce.message);
+
+    return {
+      address:    connection.address,
+      signature:  signed.signature,
+      walletType: "phantom",
+      extra:      {},
+    };
+  }
+
+  // Cosmos (default branch) — Keplr ADR-036 flow.
+  const connection = await connectKeplr(chainSlug);
+
+  const nonce = await getWalletNonce({
+    chain_slug:     connection.chainSlug,
+    wallet_address: connection.address,
+  });
+
+  const signed = await signKeplrChallenge(
+    connection.chainSlug,
+    connection.address,
+    nonce.message,
+  );
+
+  return {
+    address:    connection.address,
+    signature:  signed.signature,
+    walletType: "keplr",
+    // pub_key + chain_id MUST live inside `extra` — that's where the
+    // cosmos verifier reads them per WalletVerifier::verify.
+    extra: { pub_key: signed.pubKey, chain_id: connection.chainId },
+  };
+}
+
+function walletHintFor(chainType: WalletChainType): string {
+  switch (chainType) {
+    case "evm":
+      return "SIGNS WITH METAMASK (OR ANY EIP-1193 EVM WALLET)";
+    case "solana":
+      return "SIGNS WITH PHANTOM (OR ANOTHER SOLANA WALLET)";
+    case "cosmos":
+      return "SIGNS WITH KEPLR";
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────
@@ -328,9 +450,11 @@ function EmptyState() {
     <div className="flex flex-col gap-2 border border-dashed border-cardstock-edge bg-cardstock-deep/20 p-4">
       <p className="bcc-mono text-[11px] text-ink-soft">No wallets linked yet.</p>
       <p className="font-serif text-[13px] text-ink-soft">
-        Pick a chain above and sign a challenge with Keplr — once
-        verified, the wallet shows up here. You can also link a wallet
-        through the claim flow on any validator or creator profile.
+        Pick a chain above and sign a challenge with the matching wallet
+        &mdash; MetaMask for EVM chains, Phantom for Solana, Keplr for
+        Cosmos. Once verified, the wallet shows up here. You can also
+        link a wallet through the claim flow on any validator or creator
+        profile.
       </p>
     </div>
   );
@@ -354,13 +478,26 @@ function humanizeError(err: BccApiError): string {
 }
 
 function humanizeLinkError(err: unknown): string {
-  if (err instanceof KeplrUnavailableError) {
-    return "Keplr extension not detected. Install Keplr to continue.";
+  // Per-provider unavailable / rejected paths first — clearest copy.
+  if (
+    err instanceof KeplrUnavailableError ||
+    err instanceof MetaMaskUnavailableError ||
+    err instanceof PhantomUnavailableError
+  ) {
+    return err.message;
   }
-  if (err instanceof KeplrUserRejectedError) {
+  if (
+    err instanceof KeplrUserRejectedError ||
+    err instanceof MetaMaskUserRejectedError ||
+    err instanceof PhantomUserRejectedError
+  ) {
     return "Wallet signing was canceled.";
   }
-  if (err instanceof KeplrError) {
+  if (
+    err instanceof KeplrError ||
+    err instanceof MetaMaskError ||
+    err instanceof PhantomError
+  ) {
     return err.message;
   }
   if (err instanceof BccApiError) {
