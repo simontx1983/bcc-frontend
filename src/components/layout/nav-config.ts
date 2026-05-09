@@ -35,6 +35,7 @@ export const SITE_NAV: readonly NavLink[] = [
   { label: "Validators",  href: "/validators",  match: "/validators" },
   { label: "Disputes",    href: "/disputes",    match: "/disputes" },
   { label: "Members",     href: "/members",     match: "/members" },
+  { label: "Messages",    href: "/messages",    match: "/messages" },
 ] as const;
 
 /** Pathname → human label for the rail "BCC // <LABEL>" readout. */
@@ -47,6 +48,7 @@ export function railLabelForPath(pathname: string): string {
   if (pathname.startsWith("/validators")) return "Validators";
   if (pathname.startsWith("/disputes")) return "Disputes";
   if (pathname.startsWith("/members")) return "Members";
+  if (pathname.startsWith("/messages")) return "Messages";
   if (pathname.startsWith("/onboarding")) return "Onboarding";
   if (pathname.startsWith("/login")) return "Sign In";
   if (pathname.startsWith("/signup")) return "Sign Up";

@@ -26,6 +26,7 @@ import { signOut } from "next-auth/react";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
+import { MessagesBadge } from "@/components/messages/MessagesBadge";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
 import { GlobalSearch } from "@/components/search/GlobalSearch";
 
@@ -85,6 +86,12 @@ export function SiteHeader({ viewerHandle, networkLabel = "Mainnet" }: SiteHeade
               left of the auth controls so it's the first chrome a new
               visitor reaches for. */}
           <GlobalSearch />
+
+          {/* §4.19 direct-message badge — sibling of NotificationBell.
+              Self-gates on `enabled`; anon viewers render null. Polls
+              the unread-count endpoint adaptively (5s active → 30s
+              idle, mirroring PeepSo's peepsomessages.js). */}
+          <MessagesBadge enabled={viewerHandle !== null} />
 
           {/* §I1 notifications — self-gates on `enabled`; renders null
               for anon viewers. Lives between search and the viewer
