@@ -21,6 +21,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { type FormEvent, useState } from "react";
 
 import { WalletAuthButton } from "@/components/auth/WalletAuthButton";
+import { WalletSignupPrompt } from "@/components/auth/WalletSignupPrompt";
 
 const ERROR_COPY: Record<string, string> = {
   bcc_invalid_credentials: "Invalid email or password.",
@@ -45,6 +46,11 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  // When wallet sign-in returns bcc_wallet_not_linked, open the inline
+  // signup prompt instead of bouncing to /signup. Keeps the user on
+  // the same surface and frames the choice as "create account for
+  // this wallet?" rather than starting over somewhere else.
+  const [walletSignupOpen, setWalletSignupOpen] = useState(false);
 
   function targetAfterLogin(): Route {
     return callbackUrl !== null && callbackUrl !== ""
@@ -137,12 +143,15 @@ export default function LoginPage() {
               router.replace(targetAfterLogin());
             }}
             onWalletNotLinked={() => {
-              // Per Decision B(a): no account exists for this wallet —
-              // route to /signup so the user can pick a handle and
-              // complete a wallet-signup. The signup page's wallet
-              // button will issue a fresh nonce + signature; the one
-              // we just used is consumed and can't be replayed here.
-              router.push("/signup");
+              // Per Decision B(a): no account exists for this wallet.
+              // Earlier this routed to /signup, but that loses the
+              // login context and forces a fresh wallet connect cycle.
+              // Open the in-page signup prompt instead — the user picks
+              // a handle and completes wallet-signup without leaving
+              // /login. The first nonce was consumed; the prompt's
+              // WalletAuthButton issues fresh ones for both the signup
+              // POST and the session-bridging login POST.
+              setWalletSignupOpen(true);
             }}
           />
         </div>
@@ -154,6 +163,21 @@ export default function LoginPage() {
           </Link>
         </p>
       </div>
+
+      {walletSignupOpen && (
+        <WalletSignupPrompt
+          onSuccess={() => {
+            setWalletSignupOpen(false);
+            // Same destination as the email-login success path: respect
+            // ?callbackUrl when present, fall through to onboarding for
+            // brand-new accounts that just got created via the prompt.
+            router.replace(targetAfterLogin());
+          }}
+          onDismiss={() => {
+            setWalletSignupOpen(false);
+          }}
+        />
+      )}
     </main>
   );
 }

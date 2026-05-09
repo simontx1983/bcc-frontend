@@ -29,40 +29,7 @@ import { type FormEvent, useState } from "react";
 import { WalletAuthButton } from "@/components/auth/WalletAuthButton";
 import { signup } from "@/lib/api/auth-endpoints";
 import { BccApiError } from "@/lib/api/types";
-
-// §B6: 3–20 chars, lowercase a–z + 0–9 + '-', no leading/trailing hyphen,
-// no consecutive hyphens. The server enforces the same rules.
-const HANDLE_REGEX = /^[a-z0-9](?:(?!--)[a-z0-9-])*[a-z0-9]$/;
-
-// Mirrored from HandleService::RESERVED (bcc-trust) so the form can
-// surface "@admin is reserved" inline. Keep these in sync — the server
-// is still the authoritative validator and will reject anything the
-// list misses with `bcc_handle_reserved`.
-const RESERVED_HANDLES: ReadonlySet<string> = new Set([
-  "admin", "administrator", "root", "owner",
-  "bcc", "blue-collar", "blue-collar-crypto",
-  "support", "help", "contact",
-  "system", "api", "null", "undefined",
-  "moderator", "mod",
-  "login", "signup", "signin", "register", "logout",
-  "me", "self", "dashboard", "settings", "about",
-]);
-
-type HandleErrorKind = "too-short" | "too-long" | "format" | "reserved" | null;
-
-/**
- * Local-first validation. Empty input returns null (neutral state, no
- * error). Server is still the authoritative validator — it'll catch
- * "already taken" on submit via the `bcc_conflict` error code.
- */
-function checkHandleLocal(handle: string): HandleErrorKind {
-  if (handle.length === 0) return null;
-  if (handle.length < 3) return "too-short";
-  if (handle.length > 20) return "too-long";
-  if (!HANDLE_REGEX.test(handle)) return "format";
-  if (RESERVED_HANDLES.has(handle)) return "reserved";
-  return null;
-}
+import { checkHandleLocal, formatHandleHint } from "@/lib/auth/handleValidation";
 
 const ERROR_COPY: Record<string, string> = {
   bcc_invalid_request:   "Email, password, and handle are all required.",
@@ -91,15 +58,7 @@ export default function SignupPage() {
   // it catches "already taken" on submit via `bcc_conflict`.
   const handleErrorKind = checkHandleLocal(handle);
   const handleValid = handleErrorKind === null;
-  const handleHint = handleErrorKind === null
-    ? "3–20 chars · a–z, 0–9, hyphens · no leading/trailing/double hyphen"
-    : handleErrorKind === "too-short"
-      ? `Need at least 3 characters (${handle.length} so far).`
-      : handleErrorKind === "too-long"
-        ? `Max 20 characters (${handle.length} so far).`
-        : handleErrorKind === "reserved"
-          ? `@${handle} is reserved. Pick something else.`
-          : "Only a–z, 0–9, and hyphens. No leading, trailing, or double hyphens.";
+  const handleHint = formatHandleHint(handle, handleErrorKind);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
