@@ -20,7 +20,12 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import { MembersGrid } from "@/components/members/MembersGrid";
 import { useMembers } from "@/hooks/useMembers";
-import type { MembersTypeCounts, MembersTypeFilter } from "@/lib/api/types";
+import type {
+  MembersRankFilter,
+  MembersTypeCounts,
+  MembersTypeFilter,
+  MembersVerifiedAxis,
+} from "@/lib/api/types";
 
 const ZERO_TYPE_COUNTS: MembersTypeCounts = {
   validator: 0,
@@ -39,11 +44,48 @@ const VALID_TYPE_FILTERS: readonly MembersTypeFilter[] = [
   "dao",
 ];
 
+const VALID_RANK_FILTERS: readonly MembersRankFilter[] = [
+  "foreman",
+  "journeyman",
+  "apprentice",
+];
+
+const VALID_VERIFIED_AXES: readonly MembersVerifiedAxis[] = [
+  "x",
+  "github",
+  "wallet",
+];
+
 function parseTypeFilter(raw: string | null): MembersTypeFilter | null {
   if (raw === null) return null;
   return (VALID_TYPE_FILTERS as readonly string[]).includes(raw)
     ? (raw as MembersTypeFilter)
     : null;
+}
+
+function parseRankFilter(raw: string | null): MembersRankFilter | null {
+  if (raw === null) return null;
+  return (VALID_RANK_FILTERS as readonly string[]).includes(raw)
+    ? (raw as MembersRankFilter)
+    : null;
+}
+
+function parseVerifiedAxes(raw: string | null): MembersVerifiedAxis[] {
+  if (raw === null || raw === "") return [];
+  const parts = raw.split(",").map((s) => s.trim());
+  const seen = new Set<string>();
+  const out: MembersVerifiedAxis[] = [];
+  for (const p of parts) {
+    if (
+      p !== "" &&
+      !seen.has(p) &&
+      (VALID_VERIFIED_AXES as readonly string[]).includes(p)
+    ) {
+      seen.add(p);
+      out.push(p as MembersVerifiedAxis);
+    }
+  }
+  return out;
 }
 
 // Filter chip palette mirrors the per-type body colors used on member
@@ -82,6 +124,14 @@ export default function MembersPage() {
     () => parseTypeFilter(searchParams.get("type")),
     [searchParams],
   );
+  const urlRank = useMemo(
+    () => parseRankFilter(searchParams.get("rank")),
+    [searchParams],
+  );
+  const urlVerified = useMemo(
+    () => parseVerifiedAxes(searchParams.get("verified")),
+    [searchParams],
+  );
 
   // Local state for the search input — keeps the box responsive while
   // we debounce the URL update.
@@ -96,27 +146,81 @@ export default function MembersPage() {
     if (localQ === lastUrlQRef.current) return;
     const t = window.setTimeout(() => {
       lastUrlQRef.current = localQ;
-      pushToUrl(router, { page: 1, q: localQ, type: urlType });
+      pushToUrl(router, {
+        page: 1,
+        q: localQ,
+        type: urlType,
+        rank: urlRank,
+        verified: urlVerified,
+      });
     }, SEARCH_DEBOUNCE_MS);
     return () => window.clearTimeout(t);
-  }, [localQ, router, urlType]);
+  }, [localQ, router, urlType, urlRank, urlVerified]);
 
   const query = useMembers({
     page: urlPage,
     perPage: PER_PAGE,
     q: urlQ,
     type: urlType,
+    rank: urlRank,
+    verified: urlVerified,
   });
 
   const goToPage = (next: number) => {
-    pushToUrl(router, { page: next, q: urlQ, type: urlType });
+    pushToUrl(router, {
+      page: next,
+      q: urlQ,
+      type: urlType,
+      rank: urlRank,
+      verified: urlVerified,
+    });
   };
 
   // Chip click handler — toggles the type filter and resets pagination
   // to page 1 (a new filter set is a new view; landing on page 7 of
   // the previous filter would feel buggy).
   const setTypeFilter = (next: MembersTypeFilter | null) => {
-    pushToUrl(router, { page: 1, q: urlQ, type: next });
+    pushToUrl(router, {
+      page: 1,
+      q: urlQ,
+      type: next,
+      rank: urlRank,
+      verified: urlVerified,
+    });
+  };
+
+  const setRankFilter = (next: MembersRankFilter | null) => {
+    pushToUrl(router, {
+      page: 1,
+      q: urlQ,
+      type: urlType,
+      rank: next,
+      verified: urlVerified,
+    });
+  };
+
+  const toggleVerifiedAxis = (axis: MembersVerifiedAxis) => {
+    const next = urlVerified.includes(axis)
+      ? urlVerified.filter((a) => a !== axis)
+      : [...urlVerified, axis];
+    pushToUrl(router, {
+      page: 1,
+      q: urlQ,
+      type: urlType,
+      rank: urlRank,
+      verified: next,
+    });
+  };
+
+  const hasRefinement = urlRank !== null || urlVerified.length > 0;
+  const clearRefinement = () => {
+    pushToUrl(router, {
+      page: 1,
+      q: urlQ,
+      type: urlType,
+      rank: null,
+      verified: [],
+    });
   };
 
   return (
@@ -156,6 +260,14 @@ export default function MembersPage() {
           counts={query.isSuccess ? query.data.type_counts : ZERO_TYPE_COUNTS}
           onSelect={setTypeFilter}
         />
+        <RefineRow
+          activeRank={urlRank}
+          activeVerified={urlVerified}
+          hasRefinement={hasRefinement}
+          onSelectRank={setRankFilter}
+          onToggleVerified={toggleVerifiedAxis}
+          onClear={clearRefinement}
+        />
       </section>
 
       <section className="mx-auto mt-8 max-w-[1560px] px-4 sm:px-7">
@@ -179,6 +291,8 @@ export default function MembersPage() {
               counts={query.data.type_counts}
               onSelectType={setTypeFilter}
             />
+          ) : hasRefinement ? (
+            <RosterRefinementEmpty onClear={clearRefinement} />
           ) : (
             <RosterEmpty hasSearch={urlQ !== ""} />
           ))}
@@ -253,6 +367,115 @@ function TypeFilterRow({
             />
           );
         })}
+      </div>
+    </div>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────────
+// RefineRow — secondary chip strip for filter axes that aren't a
+// kind-of-member (those live in TypeFilterRow above). The two axes
+// it carries today are EXPLICITLY-AWARDED rank (single-select) and
+// verifications (multi-select with AND semantics; "X verified AND
+// GitHub verified" narrows further).
+//
+// Layout intent: visually quiet — rank pills on one line, verification
+// pills on a second line, both labelled. A "CLEAR" affordance only
+// renders while at least one refinement is active so the row stays
+// minimal at rest.
+// ──────────────────────────────────────────────────────────────────────
+
+const RANK_FILTER_LABEL: Record<MembersRankFilter, string> = {
+  foreman:    "FOREMAN",
+  journeyman: "JOURNEYMAN",
+  apprentice: "APPRENTICE",
+};
+
+const VERIFIED_AXIS_LABEL: Record<MembersVerifiedAxis, string> = {
+  x:      "X VERIFIED",
+  github: "GITHUB VERIFIED",
+  wallet: "WALLET VERIFIED",
+};
+
+// Active-state palette — neutral cardstock against the dark flow.
+// Rank uses a single shade since it's a single-select; verifications
+// share the same shade so the AND-stack reads as one set of facts
+// about a single member rather than four competing signals.
+const REFINE_ACTIVE_STYLE = {
+  background: "var(--cardstock, #f0e3c2)",
+  color:      "var(--ink, #0f0d09)",
+};
+
+function RefineRow({
+  activeRank,
+  activeVerified,
+  hasRefinement,
+  onSelectRank,
+  onToggleVerified,
+  onClear,
+}: {
+  activeRank: MembersRankFilter | null;
+  activeVerified: MembersVerifiedAxis[];
+  hasRefinement: boolean;
+  onSelectRank: (next: MembersRankFilter | null) => void;
+  onToggleVerified: (axis: MembersVerifiedAxis) => void;
+  onClear: () => void;
+}) {
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span className="bcc-mono text-[10px] tracking-[0.24em] text-cardstock-deep">
+          REFINE
+        </span>
+        {hasRefinement && (
+          <button
+            type="button"
+            onClick={onClear}
+            className="bcc-mono text-[10px] tracking-[0.18em] text-cardstock-deep underline-offset-2 transition hover:text-cardstock hover:underline"
+          >
+            CLEAR REFINEMENT
+          </button>
+        )}
+      </div>
+
+      <div className="flex flex-col gap-2">
+        <span className="bcc-mono text-[9px] tracking-[0.20em] text-cardstock-deep/70">
+          RANK
+        </span>
+        <div className="flex flex-wrap gap-2">
+          {VALID_RANK_FILTERS.map((rank) => {
+            const isActive = activeRank === rank;
+            return (
+              <FilterChip
+                key={rank}
+                isActive={isActive}
+                onClick={() => onSelectRank(isActive ? null : rank)}
+                activeStyle={REFINE_ACTIVE_STYLE}
+                label={RANK_FILTER_LABEL[rank]}
+              />
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-2">
+        <span className="bcc-mono text-[9px] tracking-[0.20em] text-cardstock-deep/70">
+          VERIFICATIONS
+        </span>
+        <div className="flex flex-wrap gap-2">
+          {VALID_VERIFIED_AXES.map((axis) => {
+            const isActive = activeVerified.includes(axis);
+            return (
+              <FilterChip
+                key={axis}
+                isActive={isActive}
+                onClick={() => onToggleVerified(axis)}
+                activeStyle={REFINE_ACTIVE_STYLE}
+                label={VERIFIED_AXIS_LABEL[axis]}
+              />
+            );
+          })}
+        </div>
       </div>
     </div>
   );
@@ -446,6 +669,37 @@ function Pagination({
 // roster is genuinely empty.
 // ──────────────────────────────────────────────────────────────────────
 
+// ──────────────────────────────────────────────────────────────────────
+// RosterRefinementEmpty — fired when no member matches the active
+// rank / verifications combo (and no `?type=...` is set, since that
+// case is handled by RosterFilterEmpty above). Offers a single
+// "clear refinement" affordance — the refinement axes don't have
+// type_counts, so we can't suggest specific alternative chips the
+// way RosterFilterEmpty does.
+// ──────────────────────────────────────────────────────────────────────
+
+function RosterRefinementEmpty({ onClear }: { onClear: () => void }) {
+  return (
+    <div className="bcc-paper mx-auto max-w-2xl p-8 text-center">
+      <p className="bcc-mono mb-2 text-safety">NO MATCHES</p>
+      <h2 className="bcc-stencil text-3xl text-ink">
+        Nobody matches that combination.
+      </h2>
+      <p className="mt-3 font-serif italic leading-relaxed text-ink-soft">
+        Try loosening a refinement — fewer verifications, or a different
+        rank.
+      </p>
+      <button
+        type="button"
+        onClick={onClear}
+        className="bcc-mono mt-6 inline-flex items-center gap-2 border border-cardstock-edge bg-cardstock px-3 py-1.5 text-[10px] tracking-[0.18em] text-ink transition hover:bg-cardstock-deep/40"
+      >
+        CLEAR REFINEMENT
+      </button>
+    </div>
+  );
+}
+
 function RosterEmpty({ hasSearch }: { hasSearch: boolean }) {
   if (hasSearch) {
     return (
@@ -482,6 +736,8 @@ interface UrlState {
   page: number;
   q: string;
   type: MembersTypeFilter | null;
+  rank: MembersRankFilter | null;
+  verified: MembersVerifiedAxis[];
 }
 
 function pushToUrl(
@@ -497,6 +753,14 @@ function pushToUrl(
   }
   if (state.type !== null) {
     params.set("type", state.type);
+  }
+  if (state.rank !== null) {
+    params.set("rank", state.rank);
+  }
+  if (state.verified.length > 0) {
+    // Sorted CSV — matches the server's normaliseVerifiedAxes parser
+    // and keeps URL identity stable regardless of click order.
+    params.set("verified", [...state.verified].sort().join(","));
   }
   const qs = params.toString();
   router.replace(qs !== "" ? `/members?${qs}` : "/members", { scroll: false });
