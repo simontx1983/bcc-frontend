@@ -470,7 +470,7 @@ function ActionBar({
   const openHref = card.links.self as Route;
 
   return (
-    <div className="relative z-10 grid grid-cols-3 border-t border-cardstock-edge/40 bg-cardstock">
+    <div className="relative z-10 grid grid-cols-1 border-t border-cardstock-edge/40 bg-cardstock sm:grid-cols-3">
       <button
         type="button"
         disabled={!card.permissions.can_pull.allowed}

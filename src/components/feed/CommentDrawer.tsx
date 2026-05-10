@@ -112,7 +112,7 @@ export function CommentDrawer({ feedId, isOpen }: CommentDrawerProps) {
         <CommentComposer feedId={feedId} />
       ) : (
         <p className="bcc-mono mt-4 text-[11px] text-ink-soft/70">
-          <Link href={"/sign-in" as Route} className="text-ink hover:underline">
+          <Link href={"/login" as Route} className="text-ink hover:underline">
             Sign in
           </Link>{" "}
           to comment.
@@ -176,7 +176,7 @@ function CommentRow({ feedId, comment }: { feedId: string; comment: Comment }) {
                 deleteMut.mutate({ feedId, commentId: comment.id })
               }
               disabled={isPending}
-              className="bcc-mono ml-auto shrink-0 text-[10px] tracking-[0.18em] text-ink-soft/60 hover:text-ink disabled:cursor-not-allowed"
+              className="bcc-mono ml-auto inline-flex min-h-[36px] shrink-0 items-center px-2 text-[11px] tracking-[0.18em] text-ink-soft/60 hover:text-ink disabled:cursor-not-allowed"
               aria-label="Delete comment"
             >
               {isPending ? "…" : "DELETE"}

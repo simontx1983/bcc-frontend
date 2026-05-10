@@ -78,7 +78,7 @@ export default async function CommunitiesDiscoveryPage({ searchParams }: PagePro
 
   return (
     <main className="min-h-screen pb-24">
-      <section className="mx-auto max-w-6xl px-8 pt-12">
+      <section className="mx-auto max-w-6xl px-6 pt-12 sm:px-8">
         <span className="bcc-mono text-[10px] tracking-[0.24em] text-cardstock-deep">
           DISCOVERY · COMMUNITIES
         </span>
@@ -92,11 +92,11 @@ export default async function CommunitiesDiscoveryPage({ searchParams }: PagePro
         </p>
       </section>
 
-      <section className="mx-auto mt-8 max-w-6xl px-8">
+      <section className="mx-auto mt-8 max-w-6xl px-6 sm:px-8">
         <VerifiedFilterStrip verifiedOnly={verifiedOnly} />
       </section>
 
-      <section className="mx-auto mt-6 max-w-6xl px-8">
+      <section className="mx-auto mt-6 max-w-6xl px-6 sm:px-8">
         {fetchError !== null ? (
           <p role="alert" className="bcc-mono text-safety">
             Couldn&apos;t load communities: {fetchError}
@@ -109,7 +109,7 @@ export default async function CommunitiesDiscoveryPage({ searchParams }: PagePro
       </section>
 
       {pagination !== null && pagination.total_pages > 1 && (
-        <section className="mx-auto mt-8 max-w-6xl px-8">
+        <section className="mx-auto mt-8 max-w-6xl px-6 sm:px-8">
           <Pagination verifiedOnly={verifiedOnly} pagination={pagination} />
         </section>
       )}

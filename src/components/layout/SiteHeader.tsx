@@ -45,7 +45,10 @@ export function SiteHeader({ viewerHandle, networkLabel = "Mainnet" }: SiteHeade
 
   return (
     <header className="bcc-site-header">
-      <div className="bcc-rail">
+      {/* Mobile (<sm) hides the rail entirely — at 320px the four
+          fragments wrap to 2–3 rows and eat vertical space. The labels
+          are decorative; nothing operational depends on them. */}
+      <div className="bcc-rail hidden sm:flex">
         <span>
           <span className="bcc-rail-dot" aria-hidden />
           BCC // {railLabel}
@@ -84,8 +87,12 @@ export function SiteHeader({ viewerHandle, networkLabel = "Mainnet" }: SiteHeade
         <div className="bcc-nav-actions">
           {/* §G1 global autocomplete — visible to anon + authed alike,
               left of the auth controls so it's the first chrome a new
-              visitor reaches for. */}
-          <GlobalSearch />
+              visitor reaches for. Hidden below md so the action cluster
+              fits at 320px without compressing the touch targets; a
+              dedicated mobile search surface is Phase 4 scope. */}
+          <div className="hidden md:contents">
+            <GlobalSearch />
+          </div>
 
           {/* §4.19 direct-message badge — sibling of NotificationBell.
               Self-gates on `enabled`; anon viewers render null. Polls
@@ -106,7 +113,10 @@ export function SiteHeader({ viewerHandle, networkLabel = "Mainnet" }: SiteHeade
               <Link href="/login" className="bcc-btn bcc-btn-ghost">
                 Sign In
               </Link>
-              <Link href="/signup" className="bcc-btn bcc-btn-primary">
+              {/* Hidden on <sm: at 320px both auth CTAs together overflow
+                  the action cluster. "Sign In" stays as the always-visible
+                  entry; the primary "Join" CTA picks up at sm+. */}
+              <Link href="/signup" className="bcc-btn bcc-btn-primary hidden sm:inline-flex">
                 Join the Floor
               </Link>
             </>

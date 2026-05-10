@@ -43,7 +43,7 @@ export default async function UserBlogPage({ params }: PageProps) {
 
   return (
     <main className="min-h-screen pb-24">
-      <section className="mx-auto max-w-3xl px-8 pt-12">
+      <section className="mx-auto max-w-3xl px-6 pt-12 sm:px-8">
         <Link
           href={profileHref}
           className="bcc-mono inline-block text-[10px] tracking-[0.24em] text-cardstock-deep hover:text-cardstock"
@@ -58,7 +58,7 @@ export default async function UserBlogPage({ params }: PageProps) {
         </p>
       </section>
 
-      <section className="mx-auto mt-8 max-w-3xl px-8">
+      <section className="mx-auto mt-8 max-w-3xl px-6 sm:px-8">
         <UserBlogList handle={handle} />
       </section>
     </main>

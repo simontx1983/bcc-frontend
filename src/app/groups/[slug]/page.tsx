@@ -82,7 +82,7 @@ export default async function GroupDetailPage({ params }: PageProps) {
     <main className="min-h-screen pb-24">
       {/* Sticky brutalist rail — back link + breadcrumb. */}
       <div className="sticky top-0 z-30 border-b border-cardstock-edge/40 bg-concrete/85 backdrop-blur">
-        <div className="bcc-rail mx-auto max-w-3xl px-8 py-3">
+        <div className="bcc-rail mx-auto max-w-3xl px-6 py-3 sm:px-8">
           <Link
             href={"/communities" as Route}
             className="bcc-mono text-[10px] tracking-[0.18em] text-cardstock-deep hover:text-cardstock"
@@ -112,14 +112,14 @@ export default async function GroupDetailPage({ params }: PageProps) {
       </div>
 
       {/* Hero block — cover + kicker + name + meta. */}
-      <section className="mx-auto max-w-6xl px-8 pt-8">
+      <section className="mx-auto max-w-6xl px-6 pt-8 sm:px-8">
         <GroupHero group={group} />
       </section>
 
       {/* Membership strip — kind-dispatched join/leave or unlock_hint.
           Stays full-width above the split so the join CTA is the first
           interactive surface a visitor sees regardless of viewport. */}
-      <section className="mx-auto mt-10 max-w-6xl px-8">
+      <section className="mx-auto mt-10 max-w-6xl px-6 sm:px-8">
         <GroupMembershipStrip group={group} />
       </section>
 
@@ -135,7 +135,7 @@ export default async function GroupDetailPage({ params }: PageProps) {
           sticky to engage inside a CSS grid — without it the aside
           stretches to full row height and never scrolls relative to
           the parent. */}
-      <div className="mx-auto mt-12 max-w-6xl px-8 grid gap-10 lg:grid-cols-[minmax(0,1fr)_320px]">
+      <div className="mx-auto mt-12 max-w-6xl px-6 grid gap-10 sm:px-8 lg:grid-cols-[minmax(0,1fr)_320px]">
         {/* Roster — second column on lg+, first in DOM for narrow. */}
         <aside
           className="bcc-stage-reveal lg:col-start-2 lg:row-start-1 lg:sticky lg:top-24 lg:self-start"

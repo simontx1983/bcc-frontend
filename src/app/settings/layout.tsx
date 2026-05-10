@@ -37,7 +37,7 @@ export default async function SettingsLayout({
 
   return (
     <main className="min-h-screen pb-24 pt-8">
-      <section className="mx-auto max-w-3xl px-8">
+      <section className="mx-auto max-w-3xl px-6 sm:px-8">
         <ProfileHero profile={profile} nav={<SettingsNav />} />
       </section>
 

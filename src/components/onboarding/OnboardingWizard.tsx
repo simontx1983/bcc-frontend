@@ -119,7 +119,7 @@ function ExplainerStrip() {
       role="region"
       aria-label="How the Floor works"
     >
-      <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-8 gap-y-2 px-8 py-3">
+      <div className="mx-auto flex max-w-6xl flex-col items-start gap-y-2 px-6 py-3 sm:px-8 md:flex-row md:flex-wrap md:items-center md:gap-x-8">
         <ExplainerBullet n="1" title="Keep tabs">
           Keep tabs on validators, projects, and creators you trust.
         </ExplainerBullet>
@@ -185,7 +185,7 @@ function HomeChainStep({
 }) {
   return (
     <>
-      <section className="mx-auto max-w-6xl px-8 pt-12">
+      <section className="mx-auto max-w-6xl px-6 pt-12 sm:px-8">
         <h1 className="bcc-stencil text-cardstock text-5xl md:text-6xl">
           Where do you spend most of your time?
         </h1>
@@ -195,7 +195,7 @@ function HomeChainStep({
         </p>
       </section>
 
-      <section className="mx-auto mt-10 max-w-6xl px-8">
+      <section className="mx-auto mt-10 max-w-6xl px-6 sm:px-8">
         <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
           {CHAIN_OPTIONS.map((opt) => {
             const isSelected = selected === opt.id;
@@ -220,7 +220,7 @@ function HomeChainStep({
         </div>
       </section>
 
-      <footer className="mx-auto mt-12 flex max-w-6xl items-center justify-between gap-4 px-8">
+      <footer className="mx-auto mt-12 flex max-w-6xl items-center justify-between gap-4 px-6 sm:px-8">
         <button
           type="button"
           onClick={() => {
@@ -262,7 +262,7 @@ function FirstPullsStep({
 
   return (
     <>
-      <section className="mx-auto max-w-6xl px-8 pt-12">
+      <section className="mx-auto max-w-6xl px-6 pt-12 sm:px-8">
         <h1 className="bcc-stencil text-cardstock text-5xl md:text-6xl">
           Start your binder.
         </h1>
@@ -277,7 +277,7 @@ function FirstPullsStep({
 
       <SuggestionsBody result={suggestions} pulls={pulls} />
 
-      <footer className="mx-auto mt-16 flex max-w-6xl items-center justify-between gap-4 px-8">
+      <footer className="mx-auto mt-16 flex max-w-6xl items-center justify-between gap-4 px-6 sm:px-8">
         <button
           type="button"
           onClick={onBack}
@@ -369,7 +369,7 @@ function DopamineStep({
 
   if (complete.isError) {
     return (
-      <section className="mx-auto mt-16 max-w-xl px-8">
+      <section className="mx-auto mt-16 max-w-xl px-6 sm:px-8">
         <div className="bcc-panel p-6">
           <h2 className="bcc-stencil text-2xl text-ink">
             Couldn&apos;t finish onboarding
@@ -403,7 +403,7 @@ function DopamineStep({
   return (
     <section
       className={
-        "relative mx-auto mt-12 flex h-[560px] max-w-6xl items-center justify-center px-8 " +
+        "relative mx-auto mt-12 flex min-h-[60vh] max-h-[80vh] max-w-6xl items-center justify-center px-6 sm:px-8 " +
         (reducedMotion ? "" : "bcc-dopamine-backdrop")
       }
       aria-live="polite"
@@ -643,7 +643,7 @@ interface SuggestionsBodyProps {
 function SuggestionsBody({ result, pulls }: SuggestionsBodyProps) {
   if (result.isLoading) {
     return (
-      <section className="mx-auto mt-12 flex max-w-6xl justify-center px-8">
+      <section className="mx-auto mt-12 flex max-w-6xl justify-center px-6 sm:px-8">
         <p className="bcc-mono text-cardstock-deep">Loading suggestions…</p>
       </section>
     );
@@ -651,7 +651,7 @@ function SuggestionsBody({ result, pulls }: SuggestionsBodyProps) {
 
   if (result.isError) {
     return (
-      <section className="mx-auto mt-12 max-w-6xl px-8">
+      <section className="mx-auto mt-12 max-w-6xl px-6 sm:px-8">
         <p role="alert" className="bcc-mono text-safety">
           Couldn&apos;t load suggestions: {result.error.message}
         </p>
@@ -677,7 +677,7 @@ function SuggestionsBody({ result, pulls }: SuggestionsBodyProps) {
 
   if (allCards.length === 0) {
     return (
-      <section className="mx-auto mt-12 max-w-6xl px-8">
+      <section className="mx-auto mt-12 max-w-6xl px-6 sm:px-8">
         <div className="bcc-panel mx-auto max-w-xl p-6">
           <h2 className="bcc-stencil text-2xl text-ink">No suggestions yet</h2>
           <p className="mt-2 font-serif text-ink-soft">
@@ -690,7 +690,7 @@ function SuggestionsBody({ result, pulls }: SuggestionsBodyProps) {
   }
 
   return (
-    <section className="mx-auto mt-12 max-w-6xl px-8">
+    <section className="mx-auto mt-12 max-w-6xl px-6 sm:px-8">
       <div className="bcc-mono mb-6 flex items-center gap-3 text-cardstock-deep">
         <span className="inline-block h-px w-8 bg-cardstock-edge/50" />
         <span>Curated for you</span>

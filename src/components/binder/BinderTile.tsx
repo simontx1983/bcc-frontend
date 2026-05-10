@@ -59,7 +59,7 @@ export function BinderTile({ item, isUnpulling = false }: BinderTileProps) {
   return (
     <Link
       href={cardHref}
-      className="group bcc-panel relative flex h-[260px] w-[180px] flex-col overflow-hidden focus:outline-none focus-visible:ring-2 focus-visible:ring-blueprint"
+      className="group bcc-panel relative flex h-[260px] w-full max-w-[calc(50vw-1rem)] flex-col overflow-hidden focus:outline-none focus-visible:ring-2 focus-visible:ring-blueprint sm:w-[180px] sm:max-w-none"
       style={{ ["--bcc-chain-color" as string]: kindColor }}
     >
       {/* Kind band — color-coded, with the kind label */}

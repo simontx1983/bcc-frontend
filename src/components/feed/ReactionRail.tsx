@@ -111,7 +111,7 @@ function TrustRail({ item }: { item: FeedItem }) {
   const counts         = item.reactions.counts;
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex flex-wrap items-center gap-2">
       {TRUST_REACTIONS.map(({ kind, brand, helper }) => {
         const count    = counts[kind] ?? 0;
         const isActive = viewerReaction === kind;
@@ -138,7 +138,11 @@ function TrustRail({ item }: { item: FeedItem }) {
             }
           >
             <span className="font-medium">{brand}</span>
-            <span className="text-ink-soft/70 italic">{helper}</span>
+            {/* Helper copy hidden at <md so the trust pills fit at 320px
+                without crowding the count and footer actions. The brand
+                + count alone communicate the action; the helper exists
+                for first-time-user clarity on desktop. */}
+            <span className="hidden md:inline text-ink-soft/70 italic">{helper}</span>
             {count > 0 && (
               <span className={isActive ? "text-ink" : "text-ink-soft/80"}>
                 {count}
@@ -175,7 +179,7 @@ function SocialRail({ item }: { item: FeedItem }) {
   const counts         = item.reactions.counts;
 
   return (
-    <div className="flex items-center gap-1">
+    <div className="flex flex-wrap items-center gap-1">
       {SOCIAL_REACTIONS.map(({ kind, emoji, label }) => {
         const count    = counts[kind] ?? 0;
         const isActive = viewerReaction === kind;

@@ -1350,7 +1350,7 @@ function ReviewForm({
           rows={6}
           maxLength={REVIEW_BODY_MAX_LENGTH + 200}
           disabled={pending}
-          className="bcc-mono mt-1.5 min-h-[140px] w-full resize-y rounded-sm border border-cardstock-edge/30 bg-cardstock/30 px-3 py-2 text-ink placeholder:text-ink-soft/60 focus:border-blueprint focus:outline-none disabled:opacity-60"
+          className="bcc-mono mt-1.5 min-h-[100px] w-full resize-y rounded-sm border border-cardstock-edge/30 bg-cardstock/30 px-3 py-2 text-ink placeholder:text-ink-soft/60 focus:border-blueprint focus:outline-none disabled:opacity-60 sm:min-h-[140px]"
         />
         <p className={`bcc-mono mt-1 text-[11px] ${counterTone}`}>
           {length} / {REVIEW_BODY_MAX_LENGTH}
@@ -1493,7 +1493,7 @@ export function BlogForm({
           rows={10}
           maxLength={BLOG_FULL_TEXT_MAX_LENGTH + 1000}
           disabled={mutation.isPending}
-          className="bcc-mono min-h-[160px] w-full resize-y rounded-sm border border-cardstock-edge/30 bg-cardstock/30 px-3 py-2 text-ink placeholder:text-ink-soft/60 focus:border-blueprint focus:outline-none disabled:opacity-60"
+          className="bcc-mono min-h-[120px] w-full resize-y rounded-sm border border-cardstock-edge/30 bg-cardstock/30 px-3 py-2 text-ink placeholder:text-ink-soft/60 focus:border-blueprint focus:outline-none disabled:opacity-60 sm:min-h-[160px]"
         />
         <span className={`bcc-mono text-[11px] ${bodyTone}`}>
           {bodyLen} / {BLOG_FULL_TEXT_MAX_LENGTH}

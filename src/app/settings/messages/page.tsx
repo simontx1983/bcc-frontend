@@ -11,7 +11,7 @@ import { SettingsSectionHeader } from "../_components/SettingsSectionHeader";
 
 export default function MessagesSettingsPage() {
   return (
-    <section className="mx-auto mt-10 max-w-3xl px-8">
+    <section className="mx-auto mt-10 max-w-3xl px-6 sm:px-8">
       <SettingsSectionHeader
         eyebrow="MESSAGES"
         title="Who can message you"

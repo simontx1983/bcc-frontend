@@ -26,7 +26,7 @@ export default async function AdminModerationPage() {
 
   return (
     <main className="min-h-screen pb-24">
-      <section className="mx-auto max-w-4xl px-8 pt-12">
+      <section className="mx-auto max-w-4xl px-6 pt-12 sm:px-8">
         <span className="bcc-mono text-[10px] tracking-[0.24em] text-cardstock-deep">
           ADMIN · MODERATION
         </span>
@@ -40,7 +40,7 @@ export default async function AdminModerationPage() {
         </p>
       </section>
 
-      <section className="mx-auto mt-6 max-w-4xl px-8">
+      <section className="mx-auto mt-6 max-w-4xl px-6 sm:px-8">
         <ModerationQueue />
       </section>
     </main>

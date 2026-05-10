@@ -74,7 +74,7 @@ export function BinderGrid({ handle }: BinderGridProps) {
 function BinderGridBody({ result }: { result: ReturnType<typeof useBinder> }) {
   if (result.isLoading) {
     return (
-      <section className="mx-auto mt-12 flex max-w-6xl justify-center px-8">
+      <section className="mx-auto mt-12 flex max-w-6xl justify-center px-6 sm:px-8">
         <p className="bcc-mono text-cardstock-deep">Loading your binder…</p>
       </section>
     );
@@ -82,7 +82,7 @@ function BinderGridBody({ result }: { result: ReturnType<typeof useBinder> }) {
 
   if (result.isError) {
     return (
-      <section className="mx-auto mt-12 max-w-6xl px-8">
+      <section className="mx-auto mt-12 max-w-6xl px-6 sm:px-8">
         <p role="alert" className="bcc-mono text-safety">
           Couldn&apos;t load binder: {result.error.message}
         </p>
@@ -103,7 +103,7 @@ function BinderGridBody({ result }: { result: ReturnType<typeof useBinder> }) {
 
   if (items.length === 0) {
     return (
-      <section className="mx-auto mt-12 max-w-6xl px-8">
+      <section className="mx-auto mt-12 max-w-6xl px-6 sm:px-8">
         <div className="bcc-panel mx-auto max-w-xl p-8 text-center">
           <p className="bcc-mono text-safety">EMPTY BINDER</p>
           <h2 className="bcc-stencil mt-2 text-3xl text-ink">
@@ -153,7 +153,7 @@ function Pagination({ page, totalPages, onChange, isFetching }: PaginationProps)
   const canNext = page < totalPages && !isFetching;
 
   return (
-    <footer className="mx-auto mt-12 flex max-w-6xl items-center justify-between gap-4 px-8">
+    <footer className="mx-auto mt-12 flex max-w-6xl items-center justify-between gap-4 px-6 sm:px-8">
       <button
         type="button"
         onClick={() => onChange(page - 1)}

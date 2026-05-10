@@ -38,7 +38,7 @@ export interface BinderHeaderProps {
 
 export function BinderHeader({ handle, total, summary }: BinderHeaderProps) {
   return (
-    <section className="mx-auto max-w-6xl px-8 pt-16">
+    <section className="mx-auto max-w-6xl px-6 pt-16 sm:px-8">
       <p className="bcc-mono text-cardstock-deep/70">
         @{handle} · binder
       </p>

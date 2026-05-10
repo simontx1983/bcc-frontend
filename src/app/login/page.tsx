@@ -81,7 +81,7 @@ export default function LoginPage() {
 
   return (
     <main className="flex min-h-screen items-center justify-center px-6 py-12">
-      <div className="bcc-panel w-full max-w-md p-8">
+      <div className="bcc-panel w-full max-w-md p-6 sm:p-8">
         <h1 className="bcc-stencil text-3xl text-ink">Sign in</h1>
         <p className="mt-2 font-serif text-ink-soft">Welcome back to The Floor.</p>
 

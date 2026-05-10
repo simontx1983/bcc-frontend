@@ -107,7 +107,7 @@ export default function SignupPage() {
 
   return (
     <main className="flex min-h-screen items-center justify-center px-6 py-12">
-      <div className="bcc-panel w-full max-w-md p-8">
+      <div className="bcc-panel w-full max-w-md p-6 sm:p-8">
         <h1 className="bcc-stencil text-3xl text-ink">Get on the floor</h1>
         <p className="mt-2 font-serif text-ink-soft">
           Pick a handle. It&apos;s how everyone will see you.

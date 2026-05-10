@@ -32,7 +32,7 @@ const TABS: ReadonlyArray<{ scope: FeedScope; label: string }> = [
 
 export function FeedTabs({ active, onChange }: FeedTabsProps) {
   return (
-    <nav role="tablist" aria-label="Feed scope" className="flex items-center gap-1 border-b border-cardstock-edge/30">
+    <nav role="tablist" aria-label="Feed scope" className="flex items-center gap-1 overflow-x-auto border-b border-cardstock-edge/30">
       {TABS.map(({ scope, label }) => {
         const isActive = scope === active;
         return (
@@ -44,8 +44,8 @@ export function FeedTabs({ active, onChange }: FeedTabsProps) {
             onClick={() => onChange(scope)}
             className={
               isActive
-                ? "bcc-stencil border-b-2 border-safety px-4 py-2.5 text-sm text-cardstock"
-                : "bcc-stencil border-b-2 border-transparent px-4 py-2.5 text-sm text-cardstock-deep/70 hover:text-cardstock"
+                ? "bcc-stencil whitespace-nowrap border-b-2 border-safety px-2 py-2.5 text-[11px] text-cardstock sm:px-4 sm:text-sm"
+                : "bcc-stencil whitespace-nowrap border-b-2 border-transparent px-2 py-2.5 text-[11px] text-cardstock-deep/70 hover:text-cardstock sm:px-4 sm:text-sm"
             }
           >
             {label}

@@ -69,7 +69,7 @@ export function GifPicker({ config, onSelect, onClose }: GifPickerProps) {
           dominating the composer. ~280px gives room for ~3 rows of
           GIFs at typical preview aspect ratio without taking over
           the page. */}
-      <div className="max-h-[280px] overflow-y-auto">
+      <div className="max-h-[60vh] overflow-y-auto sm:max-h-[280px]">
         {search.isLoading && (
           <p className="bcc-mono py-6 text-center text-[11px] text-cardstock-deep/70">
             Loading GIFs…

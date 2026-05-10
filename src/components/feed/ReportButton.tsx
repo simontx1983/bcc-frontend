@@ -182,7 +182,7 @@ function ReportModal({ targetKind, targetId, onClose }: ReportModalProps) {
       {/* Panel — capped at 90vh on short phones so the 6 reasons + body
           textarea + buttons stay reachable via inner scroll instead of
           spilling off-screen. */}
-      <div className="bcc-panel relative z-10 flex max-h-[90vh] w-full max-w-md flex-col overflow-y-auto p-6">
+      <div className="bcc-panel relative z-10 flex max-h-[90vh] w-full max-w-md flex-col overflow-y-auto p-4 sm:p-6">
         {submittedState !== null ? (
           <div className="flex flex-col items-center gap-2 py-4 text-center">
             <h2
@@ -225,7 +225,7 @@ function ReportModal({ targetKind, targetId, onClose }: ReportModalProps) {
                   <label
                     key={opt.code}
                     className={
-                      "flex cursor-pointer items-start gap-3 border-2 px-3 py-2 transition " +
+                      "flex min-h-[44px] cursor-pointer items-start gap-3 border-2 px-3 py-2 transition " +
                       (checked
                         ? "border-ink bg-ink/5"
                         : "border-cardstock-edge hover:border-ink/40")

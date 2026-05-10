@@ -23,7 +23,7 @@ export default async function ProfileSettingsPage() {
 
   return (
     <>
-      <section className="mx-auto mt-10 max-w-3xl px-8">
+      <section className="mx-auto mt-10 max-w-3xl px-6 sm:px-8">
         <SettingsSectionHeader
           eyebrow="IDENTITY"
           title="Your handle"
@@ -34,7 +34,7 @@ export default async function ProfileSettingsPage() {
         </div>
       </section>
 
-      <section className="mx-auto mt-10 max-w-3xl px-8">
+      <section className="mx-auto mt-10 max-w-3xl px-6 sm:px-8">
         <SettingsSectionHeader
           eyebrow="ABOUT"
           title="Profile fields"

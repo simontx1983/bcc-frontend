@@ -21,6 +21,7 @@
  */
 
 import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 
 import { GroupActionButton } from "@/components/groups/GroupActionButton";
 import {
@@ -41,7 +42,24 @@ interface GroupMembershipStripProps {
   group: GroupDetailResponse;
 }
 
+/**
+ * Optimistic intent recorded the instant a join/leave action fires —
+ * lets the pill predict the post-mutation state and skip the ~500ms
+ * `router.refresh()` round-trip flicker. Reset to null on action error
+ * so a failed mutation snaps back to the server-truthful pill.
+ */
+type OptimisticIntent = "joining" | "leaving" | null;
+
 export function GroupMembershipStrip({ group }: GroupMembershipStripProps) {
+  const [optimisticIntent, setOptimisticIntent] = useState<OptimisticIntent>(null);
+
+  // When the server-supplied membership changes (router.refresh landed),
+  // the in-flight optimistic prediction has been replaced with truth —
+  // clear it so a future action starts from a clean state.
+  useEffect(() => {
+    setOptimisticIntent(null);
+  }, [group.viewer_membership]);
+
   return (
     <article
       className="bcc-paper bcc-stage-reveal"
@@ -54,11 +72,18 @@ export function GroupMembershipStrip({ group }: GroupMembershipStripProps) {
         >
           Your status here
         </h3>
-        <MembershipPill membership={group.viewer_membership} />
+        <MembershipPill
+          membership={group.viewer_membership}
+          optimisticIntent={optimisticIntent}
+        />
       </header>
 
       <div className="px-6 py-5">
-        <MembershipBody group={group} />
+        <MembershipBody
+          group={group}
+          onActionStart={setOptimisticIntent}
+          onActionError={() => setOptimisticIntent(null)}
+        />
       </div>
     </article>
   );
@@ -69,19 +94,35 @@ export function GroupMembershipStrip({ group }: GroupMembershipStripProps) {
 // nothing per §A4 / §N7 precedence.
 // ──────────────────────────────────────────────────────────────────────
 
-function MembershipBody({ group }: { group: GroupDetailResponse }) {
+interface MembershipBodyProps {
+  group: GroupDetailResponse;
+  onActionStart: (intent: OptimisticIntent) => void;
+  onActionError: () => void;
+}
+
+function MembershipBody({ group, onActionStart, onActionError }: MembershipBodyProps) {
   const { permissions } = group;
 
   if (permissions.can_leave.allowed) {
-    return <LeaveAction group={group} />;
+    return (
+      <LeaveAction group={group} onActionStart={onActionStart} onActionError={onActionError} />
+    );
   }
   if (permissions.can_join.allowed) {
-    return <JoinAction group={group} />;
+    return (
+      <JoinAction group={group} onActionStart={onActionStart} onActionError={onActionError} />
+    );
   }
   if (permissions.can_join.unlock_hint !== null) {
     return <UnlockHint hint={permissions.can_join.unlock_hint} />;
   }
   return <RestingCopy />;
+}
+
+interface ActionDispatchProps {
+  group: GroupDetailResponse;
+  onActionStart: (intent: OptimisticIntent) => void;
+  onActionError: () => void;
 }
 
 // ──────────────────────────────────────────────────────────────────────
@@ -94,28 +135,36 @@ function MembershipBody({ group }: { group: GroupDetailResponse }) {
 // to a shared per-kind dispatcher can lift both surfaces at once.
 // ──────────────────────────────────────────────────────────────────────
 
-function JoinAction({ group }: { group: GroupDetailResponse }) {
+function JoinAction({ group, onActionStart, onActionError }: ActionDispatchProps) {
+  const handlers = { onActionStart, onActionError };
   switch (group.type) {
     case "nft":
-      return <HolderJoinButton groupId={group.id} />;
+      return <HolderJoinButton groupId={group.id} {...handlers} />;
     case "local":
-      return <LocalJoinButton groupId={group.id} />;
+      return <LocalJoinButton groupId={group.id} {...handlers} />;
     case "user":
     case "system":
-      return <PlainJoinButton groupId={group.id} />;
+      return <PlainJoinButton groupId={group.id} {...handlers} />;
   }
 }
 
-function LeaveAction({ group }: { group: GroupDetailResponse }) {
+function LeaveAction({ group, onActionStart, onActionError }: ActionDispatchProps) {
+  const handlers = { onActionStart, onActionError };
   switch (group.type) {
     case "nft":
-      return <HolderLeaveButton groupId={group.id} />;
+      return <HolderLeaveButton groupId={group.id} {...handlers} />;
     case "local":
-      return <LocalLeaveButton groupId={group.id} />;
+      return <LocalLeaveButton groupId={group.id} {...handlers} />;
     case "user":
     case "system":
-      return <PlainLeaveButton groupId={group.id} />;
+      return <PlainLeaveButton groupId={group.id} {...handlers} />;
   }
+}
+
+interface ActionButtonProps {
+  groupId: number;
+  onActionStart: (intent: OptimisticIntent) => void;
+  onActionError: () => void;
 }
 
 function useRefreshOnSuccess(): () => void {
@@ -123,9 +172,9 @@ function useRefreshOnSuccess(): () => void {
   return () => router.refresh();
 }
 
-function HolderJoinButton({ groupId }: { groupId: number }) {
+function HolderJoinButton({ groupId, onActionStart, onActionError }: ActionButtonProps) {
   const onSuccess = useRefreshOnSuccess();
-  const mutation = useJoinHolderGroupMutation({ onSuccess });
+  const mutation = useJoinHolderGroupMutation({ onSuccess, onError: onActionError });
   return (
     <ActionRow primaryCopy="Join the group to read its feed and post inside it.">
       <GroupActionButton
@@ -136,6 +185,7 @@ function HolderJoinButton({ groupId }: { groupId: number }) {
         errorMessage={mutation.error?.message ?? null}
         onClick={() => {
           mutation.reset();
+          onActionStart("joining");
           mutation.mutate(groupId);
         }}
       />
@@ -143,9 +193,9 @@ function HolderJoinButton({ groupId }: { groupId: number }) {
   );
 }
 
-function HolderLeaveButton({ groupId }: { groupId: number }) {
+function HolderLeaveButton({ groupId, onActionStart, onActionError }: ActionButtonProps) {
   const onSuccess = useRefreshOnSuccess();
-  const mutation = useLeaveHolderGroupMutation({ onSuccess });
+  const mutation = useLeaveHolderGroupMutation({ onSuccess, onError: onActionError });
   return (
     <ActionRow primaryCopy="You're an active member. Posts you make here scope to this group's feed.">
       <GroupActionButton
@@ -156,6 +206,7 @@ function HolderLeaveButton({ groupId }: { groupId: number }) {
         errorMessage={mutation.error?.message ?? null}
         onClick={() => {
           mutation.reset();
+          onActionStart("leaving");
           mutation.mutate(groupId);
         }}
       />
@@ -163,9 +214,9 @@ function HolderLeaveButton({ groupId }: { groupId: number }) {
   );
 }
 
-function LocalJoinButton({ groupId }: { groupId: number }) {
+function LocalJoinButton({ groupId, onActionStart, onActionError }: ActionButtonProps) {
   const onSuccess = useRefreshOnSuccess();
-  const mutation = useJoinLocalMutation({ onSuccess });
+  const mutation = useJoinLocalMutation({ onSuccess, onError: onActionError });
   return (
     <ActionRow primaryCopy="Join the group to read its feed and post inside it.">
       <GroupActionButton
@@ -176,6 +227,7 @@ function LocalJoinButton({ groupId }: { groupId: number }) {
         errorMessage={mutation.error?.message ?? null}
         onClick={() => {
           mutation.reset();
+          onActionStart("joining");
           mutation.mutate(groupId);
         }}
       />
@@ -183,9 +235,9 @@ function LocalJoinButton({ groupId }: { groupId: number }) {
   );
 }
 
-function LocalLeaveButton({ groupId }: { groupId: number }) {
+function LocalLeaveButton({ groupId, onActionStart, onActionError }: ActionButtonProps) {
   const onSuccess = useRefreshOnSuccess();
-  const mutation = useLeaveLocalMutation({ onSuccess });
+  const mutation = useLeaveLocalMutation({ onSuccess, onError: onActionError });
   return (
     <ActionRow primaryCopy="You're an active member of this Local.">
       <GroupActionButton
@@ -196,6 +248,7 @@ function LocalLeaveButton({ groupId }: { groupId: number }) {
         errorMessage={mutation.error?.message ?? null}
         onClick={() => {
           mutation.reset();
+          onActionStart("leaving");
           mutation.mutate(groupId);
         }}
       />
@@ -203,9 +256,9 @@ function LocalLeaveButton({ groupId }: { groupId: number }) {
   );
 }
 
-function PlainJoinButton({ groupId }: { groupId: number }) {
+function PlainJoinButton({ groupId, onActionStart, onActionError }: ActionButtonProps) {
   const onSuccess = useRefreshOnSuccess();
-  const mutation = useJoinPlainGroupMutation({ onSuccess });
+  const mutation = useJoinPlainGroupMutation({ onSuccess, onError: onActionError });
   return (
     <ActionRow primaryCopy="Join the group to read its feed and post inside it.">
       <GroupActionButton
@@ -216,6 +269,7 @@ function PlainJoinButton({ groupId }: { groupId: number }) {
         errorMessage={mutation.error?.message ?? null}
         onClick={() => {
           mutation.reset();
+          onActionStart("joining");
           mutation.mutate(groupId);
         }}
       />
@@ -223,9 +277,9 @@ function PlainJoinButton({ groupId }: { groupId: number }) {
   );
 }
 
-function PlainLeaveButton({ groupId }: { groupId: number }) {
+function PlainLeaveButton({ groupId, onActionStart, onActionError }: ActionButtonProps) {
   const onSuccess = useRefreshOnSuccess();
-  const mutation = useLeavePlainGroupMutation({ onSuccess });
+  const mutation = useLeavePlainGroupMutation({ onSuccess, onError: onActionError });
   return (
     <ActionRow primaryCopy="You're an active member.">
       <GroupActionButton
@@ -236,6 +290,7 @@ function PlainLeaveButton({ groupId }: { groupId: number }) {
         errorMessage={mutation.error?.message ?? null}
         onClick={() => {
           mutation.reset();
+          onActionStart("leaving");
           mutation.mutate(groupId);
         }}
       />
@@ -306,10 +361,25 @@ function RestingCopy() {
 
 function MembershipPill({
   membership,
+  optimisticIntent,
 }: {
   membership: GroupDetailResponse["viewer_membership"];
+  optimisticIntent: OptimisticIntent;
 }) {
-  if (membership === null) {
+  // Predict the post-mutation state so the pill flips the instant the
+  // user clicks JOIN/LEAVE instead of after router.refresh() lands.
+  // Server response is still authoritative — when the refresh resolves
+  // and `membership` updates, the useEffect upstream clears
+  // `optimisticIntent` and the pill snaps to truth.
+  const isOptimisticMember = optimisticIntent === "joining"
+    ? true
+    : optimisticIntent === "leaving"
+      ? false
+      : null;
+
+  const effectiveIsMember = isOptimisticMember ?? membership?.is_member ?? null;
+
+  if (effectiveIsMember === null) {
     return (
       <span
         className="bcc-mono rounded-sm px-2 py-0.5 text-cardstock-deep"
@@ -324,7 +394,7 @@ function MembershipPill({
       </span>
     );
   }
-  if (!membership.is_member) {
+  if (!effectiveIsMember) {
     return (
       <span
         className="bcc-mono rounded-sm px-2 py-0.5 text-cardstock-deep"

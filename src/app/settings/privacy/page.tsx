@@ -16,7 +16,7 @@ import { SettingsSectionHeader } from "../_components/SettingsSectionHeader";
 export default function PrivacySettingsPage() {
   return (
     <>
-      <section className="mx-auto mt-10 max-w-3xl px-8">
+      <section className="mx-auto mt-10 max-w-3xl px-6 sm:px-8">
         <SettingsSectionHeader
           eyebrow="VISIBILITY"
           title="Who can see what"
@@ -27,7 +27,7 @@ export default function PrivacySettingsPage() {
         </div>
       </section>
 
-      <section className="mx-auto mt-10 max-w-3xl px-8">
+      <section className="mx-auto mt-10 max-w-3xl px-6 sm:px-8">
         <SettingsSectionHeader
           eyebrow="HIDE FROM PROFILE"
           title="Per-field privacy"
