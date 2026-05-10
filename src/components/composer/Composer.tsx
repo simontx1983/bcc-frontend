@@ -428,6 +428,28 @@ function InlineStatusComposer({
     }
   }, [expanded]);
 
+  // Drives the expand-in CSS transition. The form mounts with
+  // `max-h-0 opacity-0` and flips to `max-h-[400px] opacity-100`
+  // on the next paint, easing the surface open instead of swapping.
+  // Reduced-motion users skip the transition entirely (motion-safe:
+  // variants below + the global prefers-reduced-motion override at
+  // globals.css:115).
+  const [animatedOpen, setAnimatedOpen] = useState(false);
+  useEffect(() => {
+    if (!expanded) {
+      setAnimatedOpen(false);
+      return undefined;
+    }
+    // Defer the open class one frame so the browser registers the
+    // initial collapsed state before transitioning to the open state.
+    const raf = window.requestAnimationFrame(() => {
+      setAnimatedOpen(true);
+    });
+    return () => {
+      window.cancelAnimationFrame(raf);
+    };
+  }, [expanded]);
+
   // Cleanup any pending blob URL on unmount so the browser doesn't
   // leak object URLs for a composer that disappeared mid-flight.
   useEffect(() => {
@@ -680,8 +702,19 @@ function InlineStatusComposer({
             // Visual-shift on attachment: warmer border accent signals
             // "this post now contains media" without going loud.
             (hasAttachment
-              ? "border-blueprint/40"
-              : "border-cardstock-edge/30")
+              ? "border-blueprint/40 "
+              : "border-cardstock-edge/30 ") +
+            // Expand-in transition. Starts collapsed (max-h-0,
+            // opacity-0) on mount and flips open after the first
+            // paint via the `animatedOpen` rAF effect above. The
+            // 400px ceiling covers the 280-char status post; longer
+            // overflow is an acceptable one-frame artifact (see plan
+            // risks). motion-safe gates the entire treatment so
+            // reduced-motion users get the instant swap.
+            "motion-safe:overflow-hidden motion-safe:transition-[max-height,opacity] motion-safe:duration-200 motion-safe:ease-out " +
+            (animatedOpen
+              ? "motion-safe:max-h-[400px] motion-safe:opacity-100"
+              : "motion-safe:max-h-0 motion-safe:opacity-0")
           }
         >
           <header className="flex items-center gap-3">

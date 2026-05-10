@@ -1095,3 +1095,22 @@
     transform: none;
   }
 }
+
+/* ========================================================================
+   §S  SOCIAL-RAIL COUNT MICRO-BURST
+
+   Tiny scale + lift on the count chip when a social reaction count
+   ticks up. Used by SocialRail in ReactionRail.tsx; the trust rail is
+   intentionally still (its docstring forbids "engagement-bait"
+   animation, by design).
+
+   Globally gated by the prefers-reduced-motion block at line 115 —
+   the 0.01ms animation-duration override there makes this keyframe
+   a no-op on reduced-motion systems without an extra rule here.
+   ======================================================================== */
+
+@keyframes bcc-count-bump {
+  0%   { transform: scale(1) translateY(0); }
+  50%  { transform: scale(1.35) translateY(-2px); }
+  100% { transform: scale(1) translateY(0); }
+}

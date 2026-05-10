@@ -34,7 +34,7 @@
  *     update flips counts in one cache mutation.
  */
 
-import { type MouseEvent } from "react";
+import { type MouseEvent, useEffect, useRef, useState } from "react";
 
 import {
   useRemoveReactionMutation,
@@ -205,14 +205,58 @@ function SocialRail({ item }: { item: FeedItem }) {
             }
           >
             <span className="text-base leading-none">{emoji}</span>
-            {count > 0 && (
-              <span className="bcc-mono text-[10px] text-ink-soft/80">
-                {count}
-              </span>
-            )}
+            {count > 0 && <ReactionCount count={count} />}
           </button>
         );
       })}
     </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// ReactionCount — renders the count chip and runs the bcc-count-bump
+// keyframe (globals.css) when the value ticks UP. Removals don't
+// celebrate.
+//
+// The component is conditionally mounted only when `count > 0`, so
+// "first reaction" (0 → 1) is a fresh mount. Initializing prevRef to
+// `count - 1` makes that first mount register as an increment and fire
+// the bump — which is the user's most meaningful click on this post,
+// the one most worth confirming. Subsequent in-place increments
+// (1 → 2 → 3) compare against the prior render's value normally.
+//
+// `key={count}` forces the inner span to remount on every change,
+// which is the most reliable way to re-trigger a one-shot CSS
+// animation. The motion-safe: prefix keeps it off entirely on
+// reduced-motion systems (the global override at globals.css:115
+// would also neutralize the animation, but the prefix avoids
+// painting the class at all).
+// ─────────────────────────────────────────────────────────────────────
+
+function ReactionCount({ count }: { count: number }) {
+  const prevRef = useRef<number>(count - 1);
+  const [shouldBump, setShouldBump] = useState(false);
+
+  useEffect(() => {
+    if (count > prevRef.current) {
+      setShouldBump(true);
+    } else {
+      setShouldBump(false);
+    }
+    prevRef.current = count;
+  }, [count]);
+
+  return (
+    <span
+      key={count}
+      className={
+        "bcc-mono text-[10px] text-ink-soft/80 inline-block " +
+        (shouldBump
+          ? "motion-safe:animate-[bcc-count-bump_280ms_ease-out]"
+          : "")
+      }
+    >
+      {count}
+    </span>
   );
 }

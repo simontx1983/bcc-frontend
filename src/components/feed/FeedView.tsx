@@ -5,6 +5,7 @@
  *   - <FeedTabs>      scope switcher (logged-in only)
  *   - <FeedItemCard>  per-row renderer
  *   - "Load more"     cursor-paginated trigger via useInfiniteQuery
+ *                     + IntersectionObserver auto-load
  *
  * Two paths driven by `isAuthenticated`:
  *
@@ -18,9 +19,23 @@
  * "Hot on the Floor" fallback, which the server already merges into
  * the response when the viewer has zero follows; the frontend doesn't
  * branch on follow count.
+ *
+ * Loading state renders skeleton rows (matches DirectoryGrid's idiom)
+ * so there's no layout shift when data arrives.
+ *
+ * Each row is wrapped in a memoized `FeedRow` so a single reaction's
+ * surgical cache patch (see useReactions.patchFeedItem) re-renders
+ * only the affected row, not the whole visible feed. Pattern matches
+ * GroupFeedSection's `GroupFeedItem` wrapper.
+ *
+ * Pagination: a sentinel <div> just above the "Load more" button is
+ * observed with rootMargin 400px so the next page begins fetching
+ * before the user reaches the bottom. The button stays as a
+ * keyboard-accessible fallback (observers don't fire from tab+Enter
+ * navigation alone).
  */
 
-import { useState } from "react";
+import { memo, useCallback, useEffect, useRef, useState } from "react";
 
 import { FeedItemCard } from "@/components/feed/FeedItemCard";
 import { FeedTabs } from "@/components/feed/FeedTabs";
@@ -91,11 +106,71 @@ interface FeedBodyProps {
 function FeedBody(props: FeedBodyProps) {
   const { data, isLoading, isError, error, isFetchingNextPage, hasNextPage, fetchNextPage, refetch } = props;
 
+  // Sentinel for IntersectionObserver auto-load. Sits just above the
+  // "Load more" button so it scrolls into view (with the 400px root
+  // margin) before the button visually crests the viewport.
+  const sentinelRef = useRef<HTMLDivElement>(null);
+
+  // Stable load-more callback. Guard against duplicate dispatches when
+  // the observer fires repeatedly while a fetch is already in flight.
+  // Mirrors the GroupFeedSection pattern.
+  const handleLoadMore = useCallback(() => {
+    if (!isFetchingNextPage && hasNextPage) {
+      fetchNextPage();
+    }
+  }, [fetchNextPage, hasNextPage, isFetchingNextPage]);
+
+  // Auto-load: when the sentinel intersects (rootMargin 400px), kick
+  // the next page request. The internal !isFetchingNextPage guard
+  // prevents duplicate fetches even if the sentinel stays in view
+  // (e.g. very short feeds where the sentinel is permanently visible).
+  // Defensive: skip the observer entirely on platforms without
+  // IntersectionObserver — the "Load more" button below remains the
+  // fallback path.
+  useEffect(() => {
+    if (typeof IntersectionObserver === "undefined") return undefined;
+    const node = sentinelRef.current;
+    if (node === null) return undefined;
+    if (!hasNextPage) return undefined;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        if (entry !== undefined && entry.isIntersecting) {
+          handleLoadMore();
+        }
+      },
+      { rootMargin: "400px 0px" }
+    );
+    observer.observe(node);
+    return () => {
+      observer.disconnect();
+    };
+  }, [handleLoadMore, hasNextPage]);
+
   if (isLoading) {
+    // Skeleton rows match DirectoryGrid's idiom: bcc-panel + animate-pulse +
+    // opacity-40, sized to the average FeedItemCard height so there's no
+    // layout shift when data arrives. Two stacked grey bars per row hint at
+    // the header line + body line of a real card without inventing chrome.
     return (
-      <div className="py-8 text-center">
-        <p className="bcc-mono text-cardstock-deep">Loading the Floor…</p>
-      </div>
+      <ul
+        aria-label="Loading the Floor"
+        className="flex flex-col gap-4 py-4"
+      >
+        {Array.from({ length: 4 }).map((_, idx) => (
+          <li
+            key={idx}
+            aria-hidden
+            className="bcc-panel h-40 animate-pulse opacity-40"
+          >
+            <div className="flex h-full flex-col justify-between p-4">
+              <span className="block h-3 w-1/3 rounded-sm bg-cardstock-deep/30" />
+              <span className="block h-3 w-4/5 rounded-sm bg-cardstock-deep/20" />
+            </div>
+          </li>
+        ))}
+      </ul>
     );
   }
 
@@ -136,18 +211,23 @@ function FeedBody(props: FeedBodyProps) {
   return (
     <div className="flex flex-col gap-4 py-4">
       {items.map((item) => (
-        <FeedItemCard key={item.id} item={item} />
+        <FeedRow key={item.id} item={item} />
       ))}
 
       {hasNextPage && (
-        <button
-          type="button"
-          onClick={fetchNextPage}
-          disabled={isFetchingNextPage}
-          className="bcc-stencil mx-auto mt-4 border border-cardstock-edge/40 px-6 py-2.5 text-cardstock disabled:opacity-50"
-        >
-          {isFetchingNextPage ? "Loading…" : "Load more"}
-        </button>
+        <>
+          {/* Sentinel for the IntersectionObserver. h-px keeps it
+              effectively invisible but still observable. */}
+          <div ref={sentinelRef} aria-hidden className="h-px" />
+          <button
+            type="button"
+            onClick={handleLoadMore}
+            disabled={isFetchingNextPage}
+            className="bcc-stencil mx-auto mt-4 border border-cardstock-edge/40 px-6 py-2.5 text-cardstock disabled:opacity-50"
+          >
+            {isFetchingNextPage ? "Loading…" : "Load more"}
+          </button>
+        </>
       )}
 
       {!hasNextPage && items.length > 0 && (
@@ -158,3 +238,14 @@ function FeedBody(props: FeedBodyProps) {
     </div>
   );
 }
+
+// ─────────────────────────────────────────────────────────────────────
+// Memoized row wrapper. The reaction patches in useReactions clone
+// only the affected item (siblings keep reference identity), so React
+// will skip re-rendering siblings under shallow-equality memo. Mirror
+// of GroupFeedSection's GroupFeedItem.
+// ─────────────────────────────────────────────────────────────────────
+
+const FeedRow = memo(function FeedRow({ item }: { item: FeedItem }) {
+  return <FeedItemCard item={item} />;
+});

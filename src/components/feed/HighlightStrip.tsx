@@ -23,7 +23,15 @@
  * Auth: this component assumes the parent has gated mounting on a
  * logged-in session. The endpoint is auth-required and would 401
  * otherwise — bccFetchAsClient already handles 401-auto-signOut.
+ *
+ * Dismissal animation: clicking ✕ adds the id to a local
+ * `dismissingIds` set and starts a ~220ms fade/slide-out before the
+ * mutation fires. The cache update unmounts the <li> after the
+ * animation has visibly completed. Reduced-motion users skip the
+ * transition (motion-safe: variants) and unmount on the same tick.
  */
+
+import { useEffect, useRef, useState } from "react";
 
 import type { Route } from "next";
 import Link from "next/link";
@@ -40,9 +48,32 @@ const SLOT_ACCENT: Record<HighlightSlot, { bar: string; label: string }> = {
   external: { bar: "var(--blueprint)", label: "ON THE FLOOR" },
 };
 
+// Match the CSS transition window below; the cache update fires after
+// this delay so the exit animation is visibly complete before unmount.
+const DISMISS_ANIMATION_MS = 220;
+
 export function HighlightStrip() {
   const query = useHighlights();
   const dismiss = useDismissHighlightMutation();
+
+  // Local set of ids currently animating out. Driven only by the click
+  // handler; the cache update purges entries from `items` on its own
+  // schedule, so any stale ids in the set become harmless (the matching
+  // <li> is gone).
+  const [dismissingIds, setDismissingIds] = useState<Set<string>>(new Set());
+
+  // Pending dismissal timers. Cleared on unmount so a sign-out or route
+  // change during the animation window doesn't fire a stale mutate()
+  // against an already-torn-down auth context.
+  const pendingTimers = useRef<Set<number>>(new Set());
+
+  useEffect(() => {
+    const timers = pendingTimers.current;
+    return () => {
+      timers.forEach((id) => window.clearTimeout(id));
+      timers.clear();
+    };
+  }, []);
 
   // Silent failure modes — the strip is supplementary chrome.
   if (query.isError || query.isLoading) {
@@ -53,6 +84,24 @@ export function HighlightStrip() {
   if (items.length === 0) {
     return null;
   }
+
+  const handleDismiss = (id: string) => {
+    setDismissingIds((prev) => {
+      if (prev.has(id)) return prev;
+      const next = new Set(prev);
+      next.add(id);
+      return next;
+    });
+    // Delay the mutation so the exit animation has time to render.
+    // Reduced-motion users still see the same brief gap, which is
+    // acceptable — the global prefers-reduced-motion rule shortens
+    // the visual transition to ~0ms anyway.
+    const timerId = window.setTimeout(() => {
+      pendingTimers.current.delete(timerId);
+      dismiss.mutate(id);
+    }, DISMISS_ANIMATION_MS);
+    pendingTimers.current.add(timerId);
+  };
 
   return (
     <section
@@ -70,8 +119,12 @@ export function HighlightStrip() {
           <HighlightCard
             key={item.id}
             item={item}
-            onDismiss={() => dismiss.mutate(item.id)}
-            isDismissing={dismiss.isPending && dismiss.variables === item.id}
+            isDismissing={
+              (dismiss.isPending && dismiss.variables === item.id) ||
+              dismissingIds.has(item.id)
+            }
+            isExiting={dismissingIds.has(item.id)}
+            onDismiss={() => handleDismiss(item.id)}
           />
         ))}
       </ul>
@@ -81,16 +134,29 @@ export function HighlightStrip() {
 
 interface HighlightCardProps {
   item: HighlightItem;
-  onDismiss: () => void;
+  /** Disables the dismiss button (mutation in flight or animation queued). */
   isDismissing: boolean;
+  /** True once the animation has been triggered locally — applies exit styles. */
+  isExiting: boolean;
+  onDismiss: () => void;
 }
 
-function HighlightCard({ item, onDismiss, isDismissing }: HighlightCardProps) {
+function HighlightCard({
+  item,
+  isDismissing,
+  isExiting,
+  onDismiss,
+}: HighlightCardProps) {
   const accent = SLOT_ACCENT[item.slot];
 
   return (
     <li
-      className="bcc-panel relative overflow-hidden"
+      className={
+        "bcc-panel relative overflow-hidden transition-all duration-200 ease-out " +
+        (isExiting
+          ? "motion-safe:opacity-0 motion-safe:scale-95 motion-safe:-translate-x-2"
+          : "opacity-100")
+      }
       style={{ paddingLeft: "16px" }}
     >
       {/* Slot-color accent bar — left edge. */}

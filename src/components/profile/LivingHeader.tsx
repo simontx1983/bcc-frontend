@@ -196,36 +196,51 @@ function composeRemainingLabel(progression: MemberProgression): string | null {
 // ─────────────────────────────────────────────────────────────────────
 
 function FlameMark({ atRisk }: { atRisk: boolean }) {
+  // When `atRisk === true`, pulse the wrapper element rather than the
+  // SVG itself — animating the SVG's opacity directly would force the
+  // browser to re-rasterize the gradient on every keyframe step. The
+  // bcc-pulse keyframe lives in globals.css:891 and is reduced-motion
+  // gated globally (globals.css:115); motion-safe: keeps the class
+  // off entirely on reduced-motion machines so the wrapper doesn't
+  // even register the animation.
   return (
-    <svg
+    <span
       aria-hidden
-      width="40"
-      height="40"
-      viewBox="0 0 40 40"
       className={
-        atRisk
-          ? "drop-shadow-[0_0_4px_rgba(255,192,30,0.4)]"
-          : "drop-shadow-[0_0_6px_rgba(240,90,40,0.45)]"
+        "inline-block leading-none " +
+        (atRisk ? "motion-safe:animate-[bcc-pulse_2.4s_infinite]" : "")
       }
     >
-      <defs>
-        <linearGradient id="bcc-flame" x1="0" y1="1" x2="0" y2="0">
-          <stop offset="0%"  stopColor={atRisk ? "#ffe59c" : "#ffc01e"} />
-          <stop offset="55%" stopColor={atRisk ? "#c08020" : "#f05a28"} />
-          <stop offset="100%" stopColor="#7a1e08" />
-        </linearGradient>
-      </defs>
-      <path
-        d="M20 4 C16 12, 10 14, 12 22 C8 22, 6 28, 8 32 C10 36, 16 38, 20 38 C24 38, 30 36, 32 32 C34 28, 32 22, 28 22 C30 14, 24 12, 20 4 Z"
-        fill="url(#bcc-flame)"
-        stroke="#0f0d09"
-        strokeWidth="1.4"
-      />
-      <path
-        d="M20 18 C18 22, 16 24, 18 28 C20 32, 22 30, 22 26 C22 22, 21 20, 20 18 Z"
-        fill="#fff3c4"
-        opacity="0.85"
-      />
-    </svg>
+      <svg
+        aria-hidden
+        width="40"
+        height="40"
+        viewBox="0 0 40 40"
+        className={
+          atRisk
+            ? "drop-shadow-[0_0_4px_rgba(255,192,30,0.4)]"
+            : "drop-shadow-[0_0_6px_rgba(240,90,40,0.45)]"
+        }
+      >
+        <defs>
+          <linearGradient id="bcc-flame" x1="0" y1="1" x2="0" y2="0">
+            <stop offset="0%"  stopColor={atRisk ? "#ffe59c" : "#ffc01e"} />
+            <stop offset="55%" stopColor={atRisk ? "#c08020" : "#f05a28"} />
+            <stop offset="100%" stopColor="#7a1e08" />
+          </linearGradient>
+        </defs>
+        <path
+          d="M20 4 C16 12, 10 14, 12 22 C8 22, 6 28, 8 32 C10 36, 16 38, 20 38 C24 38, 30 36, 32 32 C34 28, 32 22, 28 22 C30 14, 24 12, 20 4 Z"
+          fill="url(#bcc-flame)"
+          stroke="#0f0d09"
+          strokeWidth="1.4"
+        />
+        <path
+          d="M20 18 C18 22, 16 24, 18 28 C20 32, 22 30, 22 26 C22 22, 21 20, 20 18 Z"
+          fill="#fff3c4"
+          opacity="0.85"
+        />
+      </svg>
+    </span>
   );
 }
