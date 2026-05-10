@@ -18,14 +18,17 @@ import {
 
 import {
   getAdminReports,
-  resolveAdminReport,
+  type QueueParams,
 } from "@/lib/api/admin-reports-endpoints";
+import { resolveAdminReport } from "@/lib/api/admin-reports-endpoints";
 import { FEED_QUERY_KEY_ROOT, HOT_FEED_QUERY_KEY } from "@/hooks/useFeed";
 import type {
   BccApiError,
+  ContentReportReason,
   ModerationAction,
   ModerationQueueResponse,
   ModerationStatusFilter,
+  ModerationTargetPostKind,
   ResolveReportResponse,
 } from "@/lib/api/types";
 
@@ -33,11 +36,52 @@ const PER_PAGE = 20;
 
 export const ADMIN_REPORTS_QUERY_KEY_ROOT = ["admin", "reports"] as const;
 
-export function useAdminReports(filter: ModerationStatusFilter, page: number = 1) {
+/**
+ * Caller-controlled filter inputs. The hook builds the QueueParams
+ * sent to the server from these — empty / null fields are dropped
+ * before serialization. `null` is the "no filter" sentinel for chip
+ * selections; empty string is the same for free-text + date inputs.
+ */
+export interface AdminReportsFilters {
+  status: ModerationStatusFilter;
+  reason: ContentReportReason | null;
+  reporterHandle: string;
+  postKind: ModerationTargetPostKind | null;
+  since: string;
+  until: string;
+}
+
+export const DEFAULT_ADMIN_REPORTS_FILTERS: AdminReportsFilters = {
+  status:         "pending",
+  reason:         null,
+  reporterHandle: "",
+  postKind:       null,
+  since:          "",
+  until:          "",
+};
+
+export function useAdminReports(filters: AdminReportsFilters, page: number = 1) {
+  // Build the query-string params: drop empty/null fields so the
+  // server's defaults apply and the cache key stays narrow.
+  const params: QueueParams = { status: filters.status, page, perPage: PER_PAGE };
+  if (filters.reason !== null) params.reason = filters.reason;
+  if (filters.reporterHandle !== "") params.reporterHandle = filters.reporterHandle;
+  if (filters.postKind !== null) params.postKind = filters.postKind;
+  if (filters.since !== "") params.since = filters.since;
+  if (filters.until !== "") params.until = filters.until;
+
   return useQuery<ModerationQueueResponse, BccApiError>({
-    queryKey: [...ADMIN_REPORTS_QUERY_KEY_ROOT, filter, page],
-    queryFn: ({ signal }) =>
-      getAdminReports({ status: filter, page, perPage: PER_PAGE }, signal),
+    queryKey: [
+      ...ADMIN_REPORTS_QUERY_KEY_ROOT,
+      filters.status,
+      filters.reason ?? "_any",
+      filters.reporterHandle,
+      filters.postKind ?? "_any",
+      filters.since,
+      filters.until,
+      page,
+    ],
+    queryFn: ({ signal }) => getAdminReports(params, signal),
     staleTime: 15_000,
   });
 }

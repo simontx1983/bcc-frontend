@@ -8,16 +8,31 @@
 
 import { bccFetchAsClient } from "@/lib/api/client";
 import type {
+  ContentReportReason,
   ModerationAction,
   ModerationQueueResponse,
   ModerationStatusFilter,
+  ModerationTargetPostKind,
   ResolveReportResponse,
 } from "@/lib/api/types";
 
-interface QueueParams {
+export interface QueueParams {
   status?: ModerationStatusFilter;
   page?: number;
   perPage?: number;
+  /** §K1 reason taxonomy filter — server-validated against
+   *  ContentReportService::REASON_CODES. */
+  reason?: ContentReportReason;
+  /** Partial bcc_handle search; server resolves to user_ids
+   *  (capped at 50). Empty string is the "no filter" sentinel. */
+  reporterHandle?: string;
+  /** PeepSo activity post_kind (act_module_id) — narrows the queue
+   *  to reports whose target activity is the given kind. */
+  postKind?: ModerationTargetPostKind;
+  /** ISO 8601 datetime — created_at lower bound. */
+  since?: string;
+  /** ISO 8601 datetime — created_at upper bound. */
+  until?: string;
 }
 
 export function getAdminReports(
@@ -33,6 +48,21 @@ export function getAdminReports(
   }
   if (params.perPage !== undefined) {
     search.set("per_page", String(params.perPage));
+  }
+  if (params.reason !== undefined && params.reason !== null) {
+    search.set("reason", params.reason);
+  }
+  if (params.reporterHandle !== undefined && params.reporterHandle !== "") {
+    search.set("reporter_handle", params.reporterHandle);
+  }
+  if (params.postKind !== undefined && params.postKind !== null) {
+    search.set("post_kind", params.postKind);
+  }
+  if (params.since !== undefined && params.since !== "") {
+    search.set("since", params.since);
+  }
+  if (params.until !== undefined && params.until !== "") {
+    search.set("until", params.until);
   }
   const qs = search.toString();
   const path = `admin/reports${qs !== "" ? `?${qs}` : ""}`;

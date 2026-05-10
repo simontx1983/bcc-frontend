@@ -22,6 +22,7 @@
 
 import type { ChangeEvent } from "react";
 
+import { FilterChipRow } from "@/components/ui/FilterChipRow";
 import type {
   DirectoryKind,
   DirectorySort,
@@ -124,45 +125,3 @@ export function DirectoryFilters({ value, onChange }: Props) {
   );
 }
 
-interface ChipRowProps<T extends string | null> {
-  label: string;
-  options: { value: T; label: string }[];
-  selected: T;
-  onSelect: (value: T) => void;
-}
-
-function FilterChipRow<T extends string | null>({
-  label,
-  options,
-  selected,
-  onSelect,
-}: ChipRowProps<T>) {
-  return (
-    <div className="flex flex-col gap-2">
-      <span className="bcc-mono text-[10px] tracking-[0.2em] text-cardstock-deep">
-        {label}
-      </span>
-      <div className="flex flex-wrap gap-2">
-        {options.map((opt) => {
-          const isActive = opt.value === selected;
-          return (
-            <button
-              key={String(opt.value)}
-              type="button"
-              onClick={() => onSelect(opt.value)}
-              aria-pressed={isActive}
-              className={
-                "bcc-mono rounded-sm px-3 py-1.5 text-[10px] tracking-[0.18em] transition " +
-                (isActive
-                  ? "bg-ink text-cardstock"
-                  : "bg-cardstock text-ink ring-1 ring-cardstock-edge hover:bg-cardstock-deep")
-              }
-            >
-              {opt.label.toUpperCase()}
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
