@@ -78,6 +78,11 @@ const BELL_ROWS: ReadonlyArray<BellRow> = [
     label: "Rank progression",
     blurb: "You climbed to a new rank — a quieter audit-trail companion to the celebration toast.",
   },
+  {
+    key: "bcc_welcome",
+    label: "Welcome notification",
+    blurb: "A one-time first-touch notification when you signed up — proves the bell channel works. You'll only ever see one.",
+  },
 ];
 
 // V2 Phase 1: push event taxonomy is a deliberate subset of the bell.

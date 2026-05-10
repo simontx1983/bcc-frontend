@@ -722,7 +722,9 @@ export type NotificationKind =
   | "bcc_reaction"
   | "bcc_review"
   | "bcc_card_pulled"
-  | "bcc_rank_up";
+  | "bcc_rank_up"
+  | "bcc_endorse"
+  | "bcc_welcome";
 
 export interface NotificationActor {
   id: number;
@@ -2282,6 +2284,20 @@ export type ModerationStatusFilter =
 
 export type ModerationAction = "hide" | "dismiss" | "restore";
 
+/**
+ * §K1 admin queue post-kind filter — narrow the queue to reports
+ * whose target peepso_activities row has the given act_module_id.
+ * Mirrors the kinds the queue's hydration cares about (see
+ * ModerationQueueService::shapeTarget). Server validates against
+ * the same enum.
+ */
+export type ModerationTargetPostKind =
+  | "status"
+  | "blog"
+  | "review"
+  | "photo"
+  | "gif";
+
 export interface ModerationReporterRef {
   user_id: number;
   handle: string;
@@ -2918,7 +2934,8 @@ export type BellEventType =
   | "bcc_review"
   | "bcc_card_pulled"
   | "bcc_rank_up"
-  | "bcc_endorse";
+  | "bcc_endorse"
+  | "bcc_welcome";
 
 export interface NotificationPrefs {
   email_digest: boolean;
