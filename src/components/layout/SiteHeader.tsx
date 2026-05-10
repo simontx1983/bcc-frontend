@@ -7,7 +7,7 @@
  *   - usePathname() drives the active nav underline + the rail's
  *     "BCC // <ROUTE>" readout
  *   - The UTC clock ticks every second; needs useEffect
- *   - The mobile-collapsed strip uses scroll, not JS, so no extra state
+ *   - The mobile menu sheet manages local open/close state
  *
  * Why rail + nav are paired here (not split):
  *   Both are global chrome with no per-route data. Pages that need
@@ -18,6 +18,13 @@
  *   The viewer's handle is read in the server-side RootLayout via
  *   getServerSession() and passed in as a prop. This component RENDERS
  *   it; it does not fetch.
+ *
+ * Responsive layout:
+ *   At <sm (mobile) the rail + inline nav-links + nav-actions cluster
+ *   are hidden. The hamburger button replaces them; clicking opens a
+ *   slide-down sheet that renders the same nav links + auth controls
+ *   vertically. At sm+ the hamburger hides and the original three-cell
+ *   grid layout (brand | nav-links | nav-actions) takes over.
  */
 
 import type { Route } from "next";
@@ -43,24 +50,58 @@ export function SiteHeader({ viewerHandle, networkLabel = "Mainnet" }: SiteHeade
   const pathname = usePathname() ?? "/";
   const railLabel = railLabelForPath(pathname).toUpperCase();
 
+  // Mobile menu state — controls the slide-down sheet rendered below
+  // the nav at <sm. Toggled by the hamburger button. Closes on route
+  // change + Escape.
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  // Close on route change so navigating from the sheet drops it.
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [pathname]);
+
+  // Close on Escape — pairs with the dialog `aria-modal` semantics
+  // without trapping focus (the sheet is a small linear list; native
+  // tab order is sufficient).
+  useEffect(() => {
+    if (!mobileOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setMobileOpen(false);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [mobileOpen]);
+
   return (
     <header className="bcc-site-header">
-      {/* Mobile (<sm) hides the rail entirely — at 320px the four
-          fragments wrap to 2–3 rows and eat vertical space. The labels
-          are decorative; nothing operational depends on them. */}
-      <div className="bcc-rail hidden sm:flex">
-        <span>
-          <span className="bcc-rail-dot" aria-hidden />
-          BCC // {railLabel}
-        </span>
-        <span className="flex flex-wrap items-center justify-end gap-x-6 gap-y-1">
-          <span>NET · {networkLabel.toUpperCase()}</span>
-          <span>OPERATOR · {viewerHandle !== null ? `@${viewerHandle}` : "ANON"}</span>
-          <UtcClock />
-        </span>
+      {/* Rail — hidden on mobile entirely. The labels (BCC // <ROUTE>,
+          NET, OPERATOR, UTC clock) are decorative and would wrap to
+          2–3 rows at 320px. Wrapper carries `hidden sm:block` because
+          globals.css's `.bcc-rail { display: flex }` is declared inside
+          `@layer components` — wrapping with a plain div sidesteps any
+          cascade-tie risk against Tailwind utilities. */}
+      <div className="hidden sm:block">
+        <div className="bcc-rail">
+          <span>
+            <span className="bcc-rail-dot" aria-hidden />
+            BCC // {railLabel}
+          </span>
+          <span className="flex flex-wrap items-center justify-end gap-x-6 gap-y-1">
+            <span>NET · {networkLabel.toUpperCase()}</span>
+            <span>OPERATOR · {viewerHandle !== null ? `@${viewerHandle}` : "ANON"}</span>
+            <UtcClock />
+          </span>
+        </div>
       </div>
 
-      <nav className="bcc-nav" aria-label="Primary">
+      {/* `relative` makes bcc-nav the containing block for the
+          absolutely-positioned mobile hamburger below. Avoids
+          fighting bcc-nav's own grid-template-columns @media rules
+          (single-column at ≤900px, 3-col at >900px); the hamburger
+          floats on top of the brand row at <sm and is plain
+          `display:none` at sm+ — natural bcc-nav layout takes over
+          on tablet/desktop. */}
+      <nav className="bcc-nav relative" aria-label="Primary">
         <Link href="/" className="bcc-brand" aria-label="Blue Collar Crypto — home">
           BLUE<span className="bcc-brand-accent">·</span>COLLAR
           <br />
@@ -68,73 +109,255 @@ export function SiteHeader({ viewerHandle, networkLabel = "Mainnet" }: SiteHeade
           <span className="bcc-brand-sub">Signed on-chain · Graded by the floor</span>
         </Link>
 
-        <div className="bcc-nav-links">
-          {SITE_NAV.map((link) => {
-            const active = isNavLinkActive(link, pathname);
-            return (
-              <Link
-                key={link.href}
-                href={link.href as Route}
-                className="bcc-nav-link"
-                aria-current={active ? "page" : undefined}
-              >
-                {link.label}
-              </Link>
-            );
-          })}
-        </div>
-
-        <div className="bcc-nav-actions">
-          {/* §G1 global autocomplete — visible to anon + authed alike,
-              left of the auth controls so it's the first chrome a new
-              visitor reaches for. Hidden below md so the action cluster
-              fits at 320px without compressing the touch targets; a
-              dedicated mobile search surface is Phase 4 scope. */}
-          <div className="hidden md:contents">
-            <GlobalSearch />
+        {/* Desktop nav-links + nav-actions. Hidden at <sm via a wrapping
+            div (display: contents at sm+ so the inner blocks remain
+            direct grid children of bcc-nav and the original layout
+            survives). The mobile sheet below renders the same items
+            vertically. */}
+        <div className="hidden sm:contents">
+          <div className="bcc-nav-links">
+            {SITE_NAV.map((link) => {
+              const active = isNavLinkActive(link, pathname);
+              return (
+                <Link
+                  key={link.href}
+                  href={link.href as Route}
+                  className="bcc-nav-link"
+                  aria-current={active ? "page" : undefined}
+                >
+                  {link.label}
+                </Link>
+              );
+            })}
           </div>
 
-          {/* §4.19 direct-message badge — sibling of NotificationBell.
-              Self-gates on `enabled`; anon viewers render null. Polls
-              the unread-count endpoint adaptively (5s active → 30s
-              idle, mirroring PeepSo's peepsomessages.js). */}
-          <MessagesBadge enabled={viewerHandle !== null} />
+          <div className="bcc-nav-actions">
+            {/* §G1 global autocomplete — visible at md+; hidden on
+                tablet so the action cluster stays compact. The mobile
+                sheet links to the discovery surfaces instead of
+                duplicating the search input. */}
+            <div className="hidden md:contents">
+              <GlobalSearch />
+            </div>
 
-          {/* §I1 notifications — self-gates on `enabled`; renders null
-              for anon viewers. Lives between search and the viewer
-              menu so the bell sits at the right edge of the auth-only
-              cluster. */}
-          <NotificationBell enabled={viewerHandle !== null} />
+            {/* §4.19 direct-message badge — sibling of NotificationBell.
+                Self-gates on `enabled`; anon viewers render null. Polls
+                the unread-count endpoint adaptively (5s active → 30s
+                idle, mirroring PeepSo's peepsomessages.js). */}
+            <MessagesBadge enabled={viewerHandle !== null} />
 
-          {viewerHandle !== null ? (
-            <ViewerMenu handle={viewerHandle} />
-          ) : (
-            <>
-              <Link href="/login" className="bcc-btn bcc-btn-ghost">
-                Sign In
-              </Link>
-              {/* Hidden on <sm: at 320px both auth CTAs together overflow
-                  the action cluster. "Sign In" stays as the always-visible
-                  entry; the primary "Join" CTA picks up at sm+. */}
-              <Link href="/signup" className="bcc-btn bcc-btn-primary hidden sm:inline-flex">
-                Join the Floor
-              </Link>
-            </>
-          )}
+            {/* §I1 notifications — self-gates on `enabled`; renders
+                null for anon viewers. */}
+            <NotificationBell enabled={viewerHandle !== null} />
+
+            {viewerHandle !== null ? (
+              <ViewerMenu handle={viewerHandle} />
+            ) : (
+              <>
+                <Link href="/login" className="bcc-btn bcc-btn-ghost">
+                  Sign In
+                </Link>
+                <Link href="/signup" className="bcc-btn bcc-btn-primary">
+                  Join the Floor
+                </Link>
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* Mobile hamburger — absolutely positioned at top-right of
+            bcc-nav so it floats over the brand row without fighting
+            bcc-nav's grid layout. The brand text ends well before the
+            right edge, so the hamburger never overlaps content. */}
+        <div className="absolute right-5 top-3 sm:hidden">
+          <button
+            type="button"
+            onClick={() => setMobileOpen((prev) => !prev)}
+            aria-expanded={mobileOpen}
+            aria-controls="bcc-mobile-menu"
+            aria-label={mobileOpen ? "Close site menu" : "Open site menu"}
+            className="inline-flex h-11 w-11 items-center justify-center border-2 border-cardstock/40 text-cardstock transition hover:border-cardstock"
+          >
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 20 20"
+              fill="none"
+              aria-hidden
+            >
+              {mobileOpen ? (
+                <>
+                  <line x1="4" y1="4" x2="16" y2="16" stroke="currentColor" strokeWidth="2" />
+                  <line x1="16" y1="4" x2="4" y2="16" stroke="currentColor" strokeWidth="2" />
+                </>
+              ) : (
+                <>
+                  <line x1="3" y1="6" x2="17" y2="6" stroke="currentColor" strokeWidth="2" />
+                  <line x1="3" y1="10" x2="17" y2="10" stroke="currentColor" strokeWidth="2" />
+                  <line x1="3" y1="14" x2="17" y2="14" stroke="currentColor" strokeWidth="2" />
+                </>
+              )}
+            </svg>
+          </button>
         </div>
       </nav>
+
+      {/* Mobile sheet — renders below the nav when the hamburger is
+          open. Wrapped in `sm:hidden` so it's always invisible to
+          tablet/desktop layouts. */}
+      {mobileOpen && (
+        <MobileMenuSheet
+          viewerHandle={viewerHandle}
+          pathname={pathname}
+          onClose={() => setMobileOpen(false)}
+        />
+      )}
     </header>
   );
 }
 
+// ─────────────────────────────────────────────────────────────────────
+// MobileMenuSheet — vertical menu rendered below the nav at <sm when
+// the hamburger is open. Carries the same nav links + auth controls
+// the desktop nav-actions cluster shows. Each row is a 48px touch
+// target with a 16px horizontal hit area on each side.
+// ─────────────────────────────────────────────────────────────────────
+
+function MobileMenuSheet({
+  viewerHandle,
+  pathname,
+  onClose,
+}: {
+  viewerHandle: string | null;
+  pathname: string;
+  onClose: () => void;
+}) {
+  return (
+    <div
+      id="bcc-mobile-menu"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Site navigation"
+      className="border-t border-cardstock-edge/30 bg-concrete sm:hidden"
+    >
+      <ul className="flex flex-col py-1">
+        {SITE_NAV.map((link) => {
+          const active = isNavLinkActive(link, pathname);
+          return (
+            <li key={link.href}>
+              <Link
+                href={link.href as Route}
+                aria-current={active ? "page" : undefined}
+                onClick={onClose}
+                className="bcc-stencil flex min-h-[48px] items-center px-6 text-[14px] tracking-[0.18em] text-cardstock"
+                style={{
+                  borderLeft: active
+                    ? "3px solid var(--safety)"
+                    : "3px solid transparent",
+                }}
+              >
+                {link.label}
+              </Link>
+            </li>
+          );
+        })}
+      </ul>
+
+      {/* Authed-only icon row — messaging + notifications. Anonymous
+          viewers see only the Sign In / Join CTAs below. */}
+      {viewerHandle !== null && (
+        <div className="border-t border-cardstock-edge/30 px-6 py-3">
+          <div className="flex items-center gap-3">
+            <MessagesBadge enabled={true} />
+            <NotificationBell enabled={true} />
+          </div>
+        </div>
+      )}
+
+      {/* Auth cluster — same destinations the ViewerMenu popover uses
+          on desktop, but rendered inline so the user doesn't need to
+          tap into yet another popover from inside a popover. */}
+      {viewerHandle !== null ? (
+        <ul className="flex flex-col border-t border-cardstock-edge/30 py-1">
+          <li>
+            <Link
+              href={`/u/${viewerHandle}` as Route}
+              onClick={onClose}
+              className="bcc-mono flex min-h-[48px] items-center px-6 text-[12px] tracking-[0.18em] text-cardstock-deep"
+            >
+              @{viewerHandle} — PROFILE
+            </Link>
+          </li>
+          <li>
+            <Link
+              href={"/panel" as Route}
+              onClick={onClose}
+              className="bcc-mono flex min-h-[48px] items-center px-6 text-[12px] tracking-[0.18em] text-cardstock-deep"
+            >
+              PANEL DUTY
+            </Link>
+          </li>
+          <li>
+            <Link
+              href={"/settings/profile" as Route}
+              onClick={onClose}
+              className="bcc-mono flex min-h-[48px] items-center px-6 text-[12px] tracking-[0.18em] text-cardstock-deep"
+            >
+              SETTINGS
+            </Link>
+          </li>
+          <li>
+            <button
+              type="button"
+              onClick={() => {
+                onClose();
+                // callbackUrl: "/" so the header re-renders anon-shaped
+                // immediately. NextAuth handles the cookie clear + nav.
+                void signOut({ callbackUrl: "/" });
+              }}
+              className="bcc-mono flex min-h-[48px] w-full items-center px-6 text-left text-[12px] tracking-[0.18em] text-safety"
+            >
+              SIGN OUT
+            </button>
+          </li>
+        </ul>
+      ) : (
+        <ul className="flex flex-col border-t border-cardstock-edge/30 py-1">
+          <li>
+            <Link
+              href="/login"
+              onClick={onClose}
+              className="bcc-stencil flex min-h-[48px] items-center px-6 text-[14px] tracking-[0.18em] text-cardstock"
+            >
+              Sign In
+            </Link>
+          </li>
+          <li>
+            <Link
+              href="/signup"
+              onClick={onClose}
+              className="bcc-stencil flex min-h-[48px] items-center bg-safety px-6 text-[14px] tracking-[0.18em] text-ink"
+            >
+              Join the Floor
+            </Link>
+          </li>
+        </ul>
+      )}
+    </div>
+  );
+}
+
 /**
- * ViewerMenu — small dropdown for the logged-in viewer.
+ * ViewerMenu — small dropdown for the logged-in viewer (desktop only).
  *
  * The header has three viewer-specific actions: jump to your own
  * profile, open settings, sign out. A flat row would crowd the
  * actions slot on narrow viewports; a button + popover keeps the
  * primary nav uncluttered while exposing the operations users actually
  * need (especially "Sign out", which was missing entirely before).
+ *
+ * On mobile, MobileMenuSheet renders the same destinations inline —
+ * this popover is desktop-only.
  *
  * UX behaviour:
  *   - Toggle on click. Closes on outside click, Escape, route change,
