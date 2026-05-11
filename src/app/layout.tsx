@@ -83,7 +83,13 @@ export default async function RootLayout({
         <Providers>
           <SiteHeader viewerHandle={viewerHandle} />
           {children}
-          <SiteFooter />
+          {/* SiteFooter receives viewerHandle so the 3-column index can
+              switch its third column between "Account" (authed) and
+              "Get Started" (anon), and so the anon-only acquisition
+              strip can mount. viewerInGoodStanding is omitted today —
+              wire it from the session once that signal is server-
+              resolvable; without it the contextual stamp stays hidden. */}
+          <SiteFooter viewerHandle={viewerHandle} />
           {/* §O1.2 Heavy celebration delivery — mounts globally so a
               rank-up landing on any route surfaces wherever the user is.
               Self-gates on session status; renders nothing for anon. */}

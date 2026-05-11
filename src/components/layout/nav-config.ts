@@ -1,24 +1,35 @@
 /**
  * Site-wide nav config — single source of truth.
  *
- * Imported by SiteHeader (rendering the strip) and SiteFooter (mirroring
- * the index). Adding a top-level route means adding one row here.
+ * Imported by SiteHeader (rendering the primary strip + OPS pop) and
+ * SiteFooter (mirroring the full index). Adding a top-level route
+ * means adding one row here and deciding which tier it belongs to.
+ *
+ * Tier rationale (2026-05-11 redesign):
+ *
+ *   PRIMARY — daily-driver destinations. Render inline at all sm+ sizes
+ *             in the main nav strip. Keep this list at 4 max — the 5th
+ *             primary link starts to crowd the action cluster at 1024px.
+ *
+ *   SPECIALIST — identity-load-bearing but lower-frequency. Collapse
+ *                behind the OPS pop-row on desktop; appear under the
+ *                "OPS" caption in the mobile sheet. Active-state still
+ *                surfaces on the OPS trigger so users navigating WITHIN
+ *                a specialist surface don't feel lost.
+ *
+ *   Messages is intentionally NOT in either tier — the MessagesBadge in
+ *             the action cluster is the canonical entry point. A nav-link
+ *             that targets the same route was double-counting the
+ *             affordance and crowding the primary strip.
  *
  * `match` rule for active state:
  *   - null  → exact match against "/" (the Floor)
  *   - "/x"  → active when pathname === "/x" or starts with "/x/"
  *
- * Routes that aren't built yet (validators/disputes/members) still
- * appear in the nav so the surface matches the prototype. They'll
- * 404 until the matching phase ships — that's intentional, so the nav
- * design lands now and the routes plug in as Phase 5+ work them in.
- *
  * Broadcast was retired (v1.5): the Floor's `signals` scope tab
  * already covers "live rolling feed of trades / validations / dispute
  * outcomes / signals," and with v1.5 reactions + comments the Floor
- * is the daily driver. A separate Broadcast surface implied a second
- * feed that didn't exist; cleaner to ship one coherent place and let
- * the scope tabs do the slicing.
+ * is the daily driver.
  */
 
 export interface NavLink {
@@ -27,15 +38,31 @@ export interface NavLink {
   readonly match: string | null;
 }
 
-export const SITE_NAV: readonly NavLink[] = [
+/** Tier 1 — daily-driver destinations. Render inline at sm+. */
+export const PRIMARY_NAV: readonly NavLink[] = [
   { label: "The Floor",   href: "/",            match: null },
   { label: "Directory",   href: "/directory",   match: "/directory" },
   { label: "Communities", href: "/communities", match: "/communities" },
   { label: "Binder",      href: "/binder",      match: "/binder" },
-  { label: "Validators",  href: "/validators",  match: "/validators" },
-  { label: "Disputes",    href: "/disputes",    match: "/disputes" },
-  { label: "Members",     href: "/members",     match: "/members" },
-  { label: "Messages",    href: "/messages",    match: "/messages" },
+] as const;
+
+/** Tier 2 — specialist destinations. Collapse behind OPS popover. */
+export const SPECIALIST_NAV: readonly NavLink[] = [
+  { label: "Validators", href: "/validators", match: "/validators" },
+  { label: "Disputes",   href: "/disputes",   match: "/disputes" },
+  { label: "Members",    href: "/members",    match: "/members" },
+] as const;
+
+/**
+ * Legacy concatenation for SiteFooter (which still wants the full
+ * flat list). Don't read this from header components — they should
+ * import PRIMARY_NAV / SPECIALIST_NAV directly so the tier intent is
+ * preserved at the call site.
+ */
+export const SITE_NAV: readonly NavLink[] = [
+  ...PRIMARY_NAV,
+  ...SPECIALIST_NAV,
+  { label: "Messages", href: "/messages", match: "/messages" },
 ] as const;
 
 /** Pathname → human label for the rail "BCC // <LABEL>" readout. */
@@ -52,6 +79,8 @@ export function railLabelForPath(pathname: string): string {
   if (pathname.startsWith("/onboarding")) return "Onboarding";
   if (pathname.startsWith("/login")) return "Sign In";
   if (pathname.startsWith("/signup")) return "Sign Up";
+  if (pathname.startsWith("/panel")) return "Panel Duty";
+  if (pathname.startsWith("/settings")) return "Settings";
   return "BCC";
 }
 

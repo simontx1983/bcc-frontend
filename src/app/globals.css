@@ -155,18 +155,25 @@
     text-transform: uppercase;
   }
 
-  /* bcc-rail — header-strip layout used for status bars / nav rails. */
+  /* bcc-rail — header-strip layout used for status bars / nav rails.
+     Redesigned 2026-05-11: three logical zones (left identifier, mid
+     network, right shift+clock) using `space-between` + flex-wrap so
+     the mid zone gracefully drops out on narrow widths and the right
+     cluster stays cohesive. Gap shrinks at mid widths so the
+     PANEL-DUTY chip doesn't push the clock off the line. */
   .bcc-rail {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 14px 32px;
+    gap: 16px;
+    padding: 12px 32px;
     border-bottom: 1px dashed rgba(239, 229, 207, 0.22);
     color: rgba(239, 229, 207, 0.7);
     font-family: var(--font-mono), ui-monospace, monospace;
     font-size: 11px;
     letter-spacing: 0.12em;
     text-transform: uppercase;
+    flex-wrap: wrap;
   }
 
   /* bcc-rail-dot — the pulsing safety-orange dot on rails. */
@@ -640,21 +647,53 @@
     border-bottom: 1px solid rgba(239, 229, 207, 0.06);
   }
 
-  /* bcc-brand — the BLUE·COLLAR / CRYPTO stencil mark. */
+  /* bcc-brand — single-line stencil mark + safety-orange bracket.
+     Redesigned 2026-05-11: previously a 3-line stack (BLUE·COLLAR /
+     CRYPTO / sub-tagline) that consumed ~30% of the desktop nav row.
+     Now a single horizontal mark that flexes from 22px (small phone)
+     to 28px (desktop) via clamp(). The "CRYPTO" word is set in
+     safety-orange and wrapped in stencil brackets, acting as the
+     visual anchor that holds the shape even when small. */
   .bcc-brand {
     font-family: var(--font-stencil), Impact, sans-serif;
     font-weight: 900;
-    font-size: 30px;
-    line-height: 0.9;
+    font-size: clamp(22px, 2.2vw, 28px);
+    line-height: 1;
     color: var(--cardstock);
     text-transform: uppercase;
     letter-spacing: -0.01em;
     text-decoration: none;
-    display: inline-block;
+    display: inline-flex;
+    align-items: center;
+    white-space: nowrap;
+  }
+  .bcc-brand-line {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.4em;
   }
   .bcc-brand-accent {
     color: var(--safety);
   }
+  /* Safety-orange "CRYPTO" bracket — flat letters with vertical rules
+     either side. Reads as a stamped label rather than text in flow,
+     which is the visual anchor the original 3-line stack provided. */
+  .bcc-brand-bracket {
+    display: inline-flex;
+    align-items: center;
+    color: var(--safety);
+    font-size: 0.62em;
+    letter-spacing: 0.14em;
+    padding: 0.18em 0.42em;
+    border-left: 2px solid var(--safety);
+    border-right: 2px solid var(--safety);
+    transform: translateY(-0.02em);
+  }
+  /* Legacy class — kept so any non-header caller (footer wordmark,
+     splash, etc.) doesn't break. Hidden by default in the new header
+     because the sub-tagline now lives on the brand link's
+     aria-label. Old call sites that want the sub-line can keep using
+     this; new call sites should prefer aria-label. */
   .bcc-brand-sub {
     display: block;
     font-family: var(--font-mono), monospace;
@@ -708,8 +747,13 @@
     }
   }
 
-  /* bcc-nav-link — single nav item; underline glows safety-orange when
-     aria-current="page". Hover lifts color to full cardstock. */
+  /* bcc-nav-link — single nav item.
+     Redesigned 2026-05-11: active and focus states no longer share
+     the safety-orange treatment. Active uses a SOLID 4px block
+     underline (visually heavier — it's a destination state). Focus
+     uses a DOTTED outline (transient — keyboard movement). On
+     keyboard tab through the row the user can now tell at a glance
+     where they ARE vs. where they MIGHT GO. */
   .bcc-nav-link {
     font-family: var(--font-stencil), Impact, sans-serif;
     font-weight: 800;
@@ -718,11 +762,21 @@
     text-transform: uppercase;
     color: rgba(239, 229, 207, 0.6);
     padding: 10px 14px;
-    border-bottom: 3px solid transparent;
+    border-bottom: 4px solid transparent;
     cursor: pointer;
     transition: color 0.2s, border-color 0.2s;
     white-space: nowrap;
     text-decoration: none;
+    background: transparent;
+    /* Resets for the OpsMenu trigger which renders this class on a
+       <button>. Without these the browser's default button chrome
+       (rounded corners, inset border, padding fudge) breaks the
+       inline alignment with sibling <a> tags. */
+    border-top: none;
+    border-left: none;
+    border-right: none;
+    font: inherit;
+    font-family: var(--font-stencil), Impact, sans-serif;
   }
   .bcc-nav-link:hover {
     color: var(--cardstock);
@@ -732,8 +786,15 @@
     border-bottom-color: var(--safety);
   }
   .bcc-nav-link:focus-visible {
-    outline: 2px solid var(--safety);
-    outline-offset: 2px;
+    outline: 2px dotted var(--cardstock);
+    outline-offset: 3px;
+  }
+  /* Honor prefers-reduced-motion: drop transition so the underline
+     swap is instantaneous for users who've asked for less motion. */
+  @media (prefers-reduced-motion: reduce) {
+    .bcc-nav-link {
+      transition: none;
+    }
   }
 
   /* bcc-nav-actions — right-most slot for sign-in / profile CTAs. */
@@ -749,12 +810,117 @@
     }
   }
 
-  /* bcc-footer — dashed-top index row. The verified stamp tilts -1.5° for
-     warehouse character; copyright + build labels flank it. */
+  /* bcc-site-footer — wrapper. Concrete background continues the
+     workshop register from the header; pads off main content with a
+     dashed top rule on its first zoned child. */
+  .bcc-site-footer {
+    background: var(--concrete);
+    color: rgba(239, 229, 207, 0.7);
+    margin-top: 80px;
+    border-top: 1px dashed rgba(239, 229, 207, 0.2);
+  }
+
+  /* bcc-footer-acquire — anon-only acquisition strip. Light touch:
+     one mono caption, one prose line, two CTAs. Hidden when the
+     viewer is authed (SiteFooter doesn't render the wrapper at all). */
+  .bcc-footer-acquire {
+    max-width: 1560px;
+    margin: 0 auto;
+    padding: 32px 28px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 20px 32px;
+    border-bottom: 1px dashed rgba(239, 229, 207, 0.12);
+  }
+  .bcc-footer-acquire-text {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    max-width: 60ch;
+  }
+  .bcc-footer-acquire-line {
+    font-family: var(--font-fraunces), Georgia, serif;
+    font-size: 17px;
+    color: var(--cardstock);
+    line-height: 1.4;
+  }
+  .bcc-footer-acquire-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  /* bcc-footer-grid — three-column zoned index. Each column has a
+     mono caps label and stencil link rows. Auto-fits at narrow widths
+     so the columns gracefully wrap to a single column on mobile. */
+  .bcc-footer-grid {
+    max-width: 1560px;
+    margin: 0 auto;
+    padding: 48px 28px 32px;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(180px, 1fr));
+    gap: 32px 48px;
+  }
+  @media (max-width: 720px) {
+    .bcc-footer-grid {
+      grid-template-columns: 1fr;
+      gap: 28px;
+      padding: 32px 24px 24px;
+    }
+  }
+  .bcc-footer-col {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .bcc-footer-col-label {
+    font-family: var(--font-mono), monospace;
+    font-size: 10px;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    color: var(--safety);
+    padding-bottom: 6px;
+    border-bottom: 1px dashed rgba(239, 229, 207, 0.18);
+  }
+  .bcc-footer-col-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+  .bcc-footer-col-link {
+    color: rgba(239, 229, 207, 0.65);
+    font-family: var(--font-stencil), Impact, sans-serif;
+    font-weight: 800;
+    font-size: 14px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    text-decoration: none;
+    transition: color 0.15s;
+    display: inline-block;
+    padding: 2px 0;
+  }
+  .bcc-footer-col-link:hover {
+    color: var(--cardstock);
+  }
+  .bcc-footer-col-link:focus-visible {
+    outline: 2px dotted var(--cardstock);
+    outline-offset: 3px;
+  }
+
+  /* bcc-footer — system-status meta row at the bottom. Dashed top
+     rule separates it from the zoned index above. Holds the
+     operational dot, copyright, optional good-standing stamp, and
+     the env-sourced build label. */
   .bcc-footer {
     max-width: 1560px;
-    margin: 56px auto 0;
-    padding: 24px 28px 36px;
+    margin: 0 auto;
+    padding: 20px 28px 32px;
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -767,6 +933,32 @@
     gap: 16px;
     flex-wrap: wrap;
   }
+  .bcc-footer-meta-cluster {
+    display: inline-flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+  }
+  /* bcc-footer-status — operational indicator with a quiet
+     verified-green dot. Static today; will swap to a useSystemHealth
+     reading when that hook lands (see SiteFooter.tsx FooterStatusDot
+     comment for the upgrade path). */
+  .bcc-footer-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .bcc-footer-status-dot {
+    display: inline-block;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--verified);
+    box-shadow: 0 0 6px rgba(44, 157, 102, 0.55);
+  }
+  /* bcc-footer-stamp — contextual "Member in Good Standing" mark.
+     The -1.5° tilt is the warehouse character. Only rendered when
+     authed + viewerInGoodStanding === true (see SiteFooter.tsx). */
   .bcc-footer-stamp {
     border: 1px solid var(--verified);
     color: var(--verified);
@@ -783,44 +975,19 @@
     color: var(--cardstock);
   }
   .bcc-footer a:focus-visible {
-    outline: 2px solid var(--safety);
+    outline: 2px dotted var(--cardstock);
     outline-offset: 2px;
   }
 
-  /* bcc-footer-index — the mono-cap site-index strip above the bottom row.
-     Mirrors the header nav so the footer doubles as a sitemap. */
-  .bcc-footer-index {
-    max-width: 1560px;
-    margin: 56px auto 0;
-    padding: 0 28px;
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 20px 24px;
-  }
-  .bcc-footer-index-label {
-    color: var(--safety);
-    font-family: var(--font-mono), monospace;
-    font-size: 10px;
-    letter-spacing: 0.28em;
-    text-transform: uppercase;
-  }
-  .bcc-footer-index a {
-    color: rgba(239, 229, 207, 0.65);
-    font-family: var(--font-stencil), Impact, sans-serif;
-    font-weight: 800;
-    font-size: 13px;
-    letter-spacing: 0.18em;
-    text-transform: uppercase;
-    text-decoration: none;
-    transition: color 0.15s;
-  }
-  .bcc-footer-index a:hover {
-    color: var(--cardstock);
-  }
-  .bcc-footer-index a:focus-visible {
-    outline: 2px solid var(--safety);
-    outline-offset: 2px;
+  /* Honor prefers-reduced-motion across the footer transitions. */
+  @media (prefers-reduced-motion: reduce) {
+    .bcc-footer-col-link,
+    .bcc-footer a {
+      transition: none;
+    }
+    .bcc-footer-status-dot {
+      box-shadow: none;
+    }
   }
 }
 
