@@ -83,6 +83,11 @@ const BELL_ROWS: ReadonlyArray<BellRow> = [
     label: "Welcome notification",
     blurb: "A one-time first-touch notification when you signed up — proves the bell channel works. You'll only ever see one.",
   },
+  {
+    key: "bcc_mention",
+    label: "Mentions in posts and comments",
+    blurb: "Someone @-tagged you in a post or comment. Fires once per author per post; edits don't ping again.",
+  },
 ];
 
 // V2 Phase 1: push event taxonomy is a deliberate subset of the bell.
@@ -107,6 +112,11 @@ const PUSH_ROWS: ReadonlyArray<PushRow> = [
     key: "panelist_selected",
     label: "Panelist selection",
     blurb: "You've been invited to vote on a new dispute panel.",
+  },
+  {
+    key: "mention",
+    label: "Mentions in posts and comments",
+    blurb: "Push to your device when someone @-tags you. Rapid-fire mentions coalesce into one push.",
   },
 ];
 

@@ -724,7 +724,8 @@ export type NotificationKind =
   | "bcc_card_pulled"
   | "bcc_rank_up"
   | "bcc_endorse"
-  | "bcc_welcome";
+  | "bcc_welcome"
+  | "bcc_mention";
 
 export interface NotificationActor {
   id: number;
@@ -2935,7 +2936,8 @@ export type BellEventType =
   | "bcc_card_pulled"
   | "bcc_rank_up"
   | "bcc_endorse"
-  | "bcc_welcome";
+  | "bcc_welcome"
+  | "bcc_mention";
 
 export interface NotificationPrefs {
   email_digest: boolean;
@@ -2972,7 +2974,8 @@ export type PushEventType =
   | "review"
   | "endorse"
   | "dispute_outcome"
-  | "panelist_selected";
+  | "panelist_selected"
+  | "mention";
 
 export interface PushPrefs {
   enabled: boolean;
