@@ -1,22 +1,40 @@
 /**
  * /locals/[slug] — single-Local detail page (per §E3).
  *
- * Server component. Fetches the §4.7 single-item view-model from
- * GET /bcc/v1/locals/:slug; missing slug → Next's `notFound()`.
+ * Server component. A Local is a semantic wrapper around a PeepSo group;
+ * the detail surface composes two existing view-models in parallel:
+ *
+ *   - GET /bcc/v1/locals/:slug   → LocalDetailResponse (header + membership)
+ *   - GET /bcc/v1/groups/:slug   → GroupDetailResponse (feed_visible +
+ *                                  permissions, consumed by GroupFeedSection)
+ *
+ * The feed itself comes from /bcc/v1/groups/:id/feed via
+ * <GroupFeedSection>'s internal useGroupFeed hook — no Local-specific
+ * REST surface is introduced. Slug is identical across both routes
+ * (PeepSo's `post_name`).
  *
  * V1 surface:
  *   - Header strip (chain · #number · name · member count)
  *   - Membership badge (★ PRIMARY / MEMBER / GUEST)
  *   - LocalMembershipControls (interactive — join, leave, set/clear primary)
- *   - Empty placeholder for the Local's stream feed (§E3 deferred)
+ *   - GroupFeedSection (composer for members + cursor-paginated feed +
+ *     server-authoritative feed_visible gating)
  *
- * Auth: anon allowed. When a session exists we forward the bearer so
- * the response carries the populated viewer_membership block.
+ * Auth: anon allowed. When a session exists we forward the bearer to
+ * both fetches so each response carries its viewer_membership block.
+ *
+ * Resilience: the two fetches are independent. If `/groups/:slug` fails
+ * (transient 5xx or a slug that exists as a Local but mismatches the
+ * group view-model), the header still renders and the feed slot shows
+ * an inline notice — the page never returns 500 because the feed is
+ * unreachable. A 404 from `/locals/:slug` still triggers Next's
+ * notFound() (defines the page's existence).
  *
  * What's deferred:
- *   - Local-scoped feed (needs FeedRankingService scope filter)
  *   - Member roster
- *   - Closed-group join requests (V1 Locals are open by convention)
+ *   - Closed-group join requests (V1 Locals are open by convention;
+ *     `<GroupFeedSection>` still respects `feed_visible` for the day
+ *     that changes)
  */
 
 import type { Route } from "next";
@@ -24,8 +42,10 @@ import { getServerSession } from "next-auth";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { GroupFeedSection } from "@/components/groups/GroupFeedSection";
 import { LocalMembershipControls } from "@/components/locals/LocalMembershipControls";
 import { authOptions } from "@/lib/auth";
+import { getGroup } from "@/lib/api/groups-detail-endpoints";
 import { getLocal } from "@/lib/api/locals-endpoints";
 import { BccApiError } from "@/lib/api/types";
 
@@ -39,15 +59,26 @@ export default async function LocalDetailPage({ params }: PageProps) {
   const session = await getServerSession(authOptions);
   const token = session?.bccToken ?? null;
 
-  let local;
-  try {
-    local = await getLocal(slug, token);
-  } catch (err) {
-    if (err instanceof BccApiError && err.status === 404) {
+  // Parallel SSR fetches — independent results so a failed group read
+  // never costs us the page header. The local result defines whether
+  // the page exists at all (404 → notFound); the group result feeds
+  // the GroupFeedSection slot.
+  const [localResult, groupResult] = await Promise.allSettled([
+    getLocal(slug, token),
+    getGroup(slug, token),
+  ]);
+
+  if (localResult.status === "rejected") {
+    if (
+      localResult.reason instanceof BccApiError
+      && localResult.reason.status === 404
+    ) {
       notFound();
     }
-    throw err;
+    throw localResult.reason;
   }
+
+  const local = localResult.value;
 
   return (
     <main className="min-h-screen pb-24">
@@ -103,14 +134,11 @@ export default async function LocalDetailPage({ params }: PageProps) {
           <span>The Local feed</span>
           <span className="inline-block h-px flex-1 bg-cardstock-edge/50" />
         </div>
-        <div className="bcc-panel mx-auto p-6 text-center">
-          <h2 className="bcc-stencil text-2xl text-ink">Coming soon</h2>
-          <p className="mt-2 font-serif text-ink-soft">
-            Posts, releases, and announcements scoped to this Local will
-            land here. For now, keep tabs on members and cards from the
-            directory.
-          </p>
-        </div>
+        {groupResult.status === "fulfilled" ? (
+          <GroupFeedSection group={groupResult.value} />
+        ) : (
+          <FeedUnavailableNotice />
+        )}
       </section>
     </main>
   );
@@ -175,5 +203,21 @@ function MembershipPill({
     >
       MEMBER
     </span>
+  );
+}
+
+// Co-located non-blocking notice for the rare case where the parallel
+// /groups/:slug fetch fails but /locals/:slug succeeded. Kept local to
+// avoid premature promotion to /components — promote only if a second
+// caller appears.
+function FeedUnavailableNotice() {
+  return (
+    <div className="bcc-panel mx-auto p-6 text-center">
+      <h2 className="bcc-stencil text-2xl text-ink">Feed unavailable</h2>
+      <p className="mt-2 font-serif text-ink-soft">
+        We couldn&apos;t load this Local&apos;s feed right now. Refresh to
+        try again.
+      </p>
+    </div>
   );
 }
