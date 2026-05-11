@@ -2343,10 +2343,45 @@ export interface ResolveReportRequest {
   action: ModerationAction;
 }
 
+/**
+ * Server-issued single-use recovery descriptor returned on every
+ * successful resolve action. Drives the §K1 undo-toast affordance.
+ *
+ * IMPORTANT — see pattern-registry.md "Moderation recovery
+ * affordances": this is a 30-second misclick recovery window, NOT a
+ * historical-correctness mechanism. The frontend MUST treat it as
+ * decorative chrome that can fail to render (the token is `null` when
+ * the server skipped issuance) or expire on its own clock. The
+ * server-side TTL is authoritative — the countdown is decoration.
+ */
+export interface ModerationUndoDescriptor {
+  /** 32-char hex (^[a-f0-9]{32}$). Single-use. */
+  token: string;
+  /** ISO 8601 UTC. Drives the countdown rendered on the toast. */
+  expires_at: string;
+  /** Server's TTL value at issuance — typically 30. */
+  ttl_seconds: number;
+}
+
 export interface ResolveReportResponse {
   ok: true;
   report_id: number;
   action: ModerationAction;
+  currently_hidden: boolean;
+  /**
+   * Recovery affordance descriptor. `null` when the server elected
+   * not to issue a token (defensive-dismiss fallback path, or
+   * transient write failed). The frontend treats `null` as "no
+   * toast" — the forward action still committed.
+   */
+  undo: ModerationUndoDescriptor | null;
+}
+
+/** Response from POST /bcc/v1/admin/reports/undo. */
+export interface UndoReportResponse {
+  ok: true;
+  report_id: number;
+  undone_action: ModerationAction;
   currently_hidden: boolean;
 }
 

@@ -14,6 +14,7 @@ import type {
   ModerationStatusFilter,
   ModerationTargetPostKind,
   ResolveReportResponse,
+  UndoReportResponse,
 } from "@/lib/api/types";
 
 export interface QueueParams {
@@ -76,5 +77,27 @@ export function resolveAdminReport(
   return bccFetchAsClient<ResolveReportResponse>(
     `admin/reports/${reportId}/resolve`,
     { method: "POST", body: { action } },
+  );
+}
+
+/**
+ * Reverse the most-recent moderation action within the server's 30s
+ * window. The token is the entire authorisation envelope — issued by
+ * `resolveAdminReport` and bound server-side to (admin, report,
+ * action, expected post-action state).
+ *
+ * Failure codes the server emits (all surfaced as `BccApiError`):
+ *   - `bcc_undo_expired`     — TTL gone or already consumed
+ *   - `bcc_undo_forbidden`   — token belongs to a different admin
+ *   - `bcc_undo_stale_state` — another moderator acted on the report
+ *
+ * The caller renders a brief toast in either case. The forward action
+ * is NOT rolled back on undo failure; an admin who hits stale-state
+ * re-evaluates the queue manually.
+ */
+export function undoAdminReport(token: string): Promise<UndoReportResponse> {
+  return bccFetchAsClient<UndoReportResponse>(
+    "admin/reports/undo",
+    { method: "POST", body: { token } },
   );
 }

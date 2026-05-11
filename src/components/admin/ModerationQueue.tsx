@@ -41,6 +41,7 @@ import Link from "next/link";
 import type { Route } from "next";
 
 import { FilterChipRow } from "@/components/ui/FilterChipRow";
+import { UndoToast, type UndoToastDescriptor } from "@/components/admin/UndoToast";
 import {
   useAdminReports,
   useResolveAdminReport,
@@ -107,6 +108,15 @@ export function ModerationQueue() {
   const [page, setPage] = useState(1);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const reducedMotion = usePrefersReducedMotion();
+
+  // §K1 recovery affordance state. Exactly ONE active toast at a time
+  // — a new resolve action REPLACES the previous descriptor (the prior
+  // token expires on its own server-side; we don't need to track it).
+  //
+  // Pressure to grow this into an undo STACK will absolutely appear
+  // later. Resist unless the moderation model itself fundamentally
+  // changes. See pattern-registry.md "Moderation recovery affordances".
+  const [lastUndoable, setLastUndoable] = useState<UndoToastDescriptor | null>(null);
 
   // Reporter search input is debounced — the user types fast, but we
   // don't want a roundtrip per keystroke. 200ms is the established
@@ -359,6 +369,7 @@ export function ModerationQueue() {
               onFocus={() => setFocusedIndex(idx)}
               setActionDispatcher={setRowAction}
               setRef={setRowRef(item.id)}
+              onResolveSuccess={setLastUndoable}
             />
           ))}
         </ul>
@@ -392,6 +403,20 @@ export function ModerationQueue() {
       )}
 
       {shortcutsOpen && <ShortcutOverlay onClose={() => setShortcutsOpen(false)} />}
+
+      {/* §K1 recovery affordance. Single active toast — instanceKey
+          forces a fresh mount when a new mutation replaces the prior
+          token (countdown resets cleanly). When `lastUndoable` is
+          null nothing renders; the forward action already committed
+          on the server, and recovery is an affordance, not an
+          entitlement. */}
+      {lastUndoable !== null && (
+        <UndoToast
+          key={lastUndoable.instanceKey}
+          descriptor={lastUndoable}
+          onDismiss={() => setLastUndoable(null)}
+        />
+      )}
     </div>
   );
 }
@@ -568,6 +593,15 @@ interface ReportRowProps {
     fn: ((action: ModerationAction) => void) | null,
   ) => void;
   setRef: (el: HTMLLIElement | null) => void;
+  /**
+   * Lift the undo descriptor up to the queue so a SINGLE active toast
+   * renders for the most-recent action across all rows. A new
+   * resolve REPLACES the previous descriptor — no stacking. The
+   * receiver passes `null` when the descriptor should be cleared
+   * (toast dismissed / TTL elapsed). The server's TTL is
+   * authoritative; failing to lift simply means no toast.
+   */
+  onResolveSuccess: (next: UndoToastDescriptor | null) => void;
 }
 
 function ReportRow({
@@ -576,8 +610,25 @@ function ReportRow({
   onFocus,
   setActionDispatcher,
   setRef,
+  onResolveSuccess,
 }: ReportRowProps) {
-  const mutation = useResolveAdminReport(item.id);
+  const mutation = useResolveAdminReport(item.id, {
+    onSuccess: (data) => {
+      // The server may decline to issue a token on certain edge paths
+      // (e.g. defensive-dismiss). Render no toast in that case — the
+      // forward action still committed.
+      if (data.undo === null) {
+        onResolveSuccess(null);
+        return;
+      }
+      onResolveSuccess({
+        instanceKey: `${data.report_id}-${data.undo.token}`,
+        action:      data.action,
+        reportId:    data.report_id,
+        undo:        data.undo,
+      });
+    },
+  });
 
   const trigger = useMemo(
     () => (action: ModerationAction) => {
