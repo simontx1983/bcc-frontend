@@ -160,12 +160,17 @@ export function ModerationQueue() {
   const query = useAdminReports(filters, page);
 
   // Track which row is keyboard-focused. Index into `items`. Reset to
-  // 0 whenever the items array identity changes (page or filter flip).
+  // 0 whenever the visible row count changes (page or filter flip).
+  // Depending on `items.length` (a primitive) rather than `items` (a
+  // fresh `?? []` array reference every render) keeps the effect from
+  // firing on every render. The functional setter is a no-op when
+  // prev still fits, so the previous form was harmless — but cheaper
+  // is cheaper.
   const [focusedIndex, setFocusedIndex] = useState(0);
   const items: ModerationReportItem[] = query.data?.items ?? [];
   useEffect(() => {
     setFocusedIndex((prev) => (prev >= items.length ? 0 : prev));
-  }, [items]);
+  }, [items.length]);
 
   const focusedItem = items[focusedIndex] ?? null;
 

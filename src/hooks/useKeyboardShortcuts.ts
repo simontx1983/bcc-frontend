@@ -87,6 +87,13 @@ export function useKeyboardShortcuts(
   // in a ref that's updated synchronously after each render and read
   // through it from the stable handler below.
   const shortcutsRef = useRef<KeyboardShortcut[]>(shortcuts);
+  // INTENTIONAL: no dep array. The ref must be refreshed every render
+  // so the stable keydown handler below always sees the latest
+  // shortcut closures (which capture the current focusedIndex /
+  // mobileOpen / etc. from the consumer's render scope). Do NOT
+  // "fix" this by adding `[shortcuts]` — consumers pass a fresh array
+  // literal every render anyway, and a dep array here would force a
+  // re-bind churn we explicitly extracted this hook to avoid.
   useEffect(() => {
     shortcutsRef.current = shortcuts;
   });
