@@ -678,6 +678,11 @@ export interface CardsListQueryParams {
   q?: string;
   page?: number;
   per_page?: number;
+  /**
+   * §G2 — restrict results to operators in good standing (tier ≥
+   * neutral on the server). Composes with `tier` via AND server-side.
+   */
+  good_standing_only?: boolean;
 }
 
 export interface CardsListPagination {

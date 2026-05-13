@@ -35,6 +35,9 @@ export function getCardsList(
   if (params.per_page !== undefined) {
     search.set("per_page", String(params.per_page));
   }
+  if (params.good_standing_only === true) {
+    search.set("good_standing_only", "1");
+  }
 
   const qs = search.toString();
   const path = qs === "" ? "cards" : `cards?${qs}`;

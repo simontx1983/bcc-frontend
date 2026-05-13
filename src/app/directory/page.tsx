@@ -53,6 +53,7 @@ const DEFAULT_FILTERS: Filters = {
   tier: null,
   sort: "trust",
   q: "",
+  goodStandingOnly: false,
 };
 
 export default function DirectoryPage() {
@@ -189,7 +190,8 @@ function ActiveFiltersStrip({
     filters.kind !== null ||
     filters.tier !== null ||
     filters.q !== "" ||
-    filters.sort !== "trust";
+    filters.sort !== "trust" ||
+    filters.goodStandingOnly;
 
   return (
     <div className="mt-10 border-y border-dashed border-cardstock/15">
@@ -210,6 +212,12 @@ function ActiveFiltersStrip({
           <FilterChip
             label={filters.tier.toUpperCase()}
             onClear={() => onChange({ ...filters, tier: null })}
+          />
+        )}
+        {filters.goodStandingOnly && (
+          <FilterChip
+            label="GOOD STANDING ONLY"
+            onClear={() => onChange({ ...filters, goodStandingOnly: false })}
           />
         )}
         {filters.q !== "" && (
@@ -279,7 +287,9 @@ function parseFilters(searchParams: URLSearchParams | null): Filters {
 
   const q = searchParams.get("q") ?? "";
 
-  return { kind, tier, sort, q };
+  const goodStandingOnly = searchParams.get("good_standing") === "1";
+
+  return { kind, tier, sort, q, goodStandingOnly };
 }
 
 function pushFiltersToUrl(
@@ -291,6 +301,7 @@ function pushFiltersToUrl(
   if (filters.tier !== null) params.set("tier", filters.tier);
   if (filters.sort !== "trust") params.set("sort", filters.sort);
   if (filters.q !== "") params.set("q", filters.q);
+  if (filters.goodStandingOnly) params.set("good_standing", "1");
 
   const qs = params.toString();
   const url = (qs === "" ? "/directory" : `/directory?${qs}`) as Route;

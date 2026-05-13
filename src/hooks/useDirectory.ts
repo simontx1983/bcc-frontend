@@ -48,6 +48,11 @@ export interface DirectoryFilters {
   tier: DirectoryTier | null;
   sort: DirectorySort;
   q: string;
+  /**
+   * §G2 — when true, the server restricts results to tier ≥ neutral
+   * (good standing). Composes with `tier` via AND server-side.
+   */
+  goodStandingOnly: boolean;
 }
 
 export const DIRECTORY_QUERY_KEY_ROOT = ["directory"] as const;
@@ -64,6 +69,7 @@ function buildQueryKey(filters: DirectoryFilters): QueryKey {
     filters.tier ?? "all",
     filters.sort,
     filters.q,
+    filters.goodStandingOnly ? "gs" : "any",
   ] as const;
 }
 
@@ -101,6 +107,9 @@ function buildParams(filters: DirectoryFilters, page: number): CardsListQueryPar
   }
   if (filters.q !== "") {
     params.q = filters.q;
+  }
+  if (filters.goodStandingOnly) {
+    params.good_standing_only = true;
   }
   return params;
 }

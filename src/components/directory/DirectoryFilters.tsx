@@ -12,6 +12,7 @@
  * V1 controls (per §G2 launch checklist):
  *   - Kind chips (validator / project / creator)
  *   - Tier chips (legendary / rare / uncommon / common)
+ *   - Good-Standing-Only toggle (§G2) — restricts to tier ≥ neutral
  *   - Sort dropdown (trust / newest / endorsements / followers)
  *   - Search box (debounced upstream)
  *
@@ -97,6 +98,22 @@ export function DirectoryFilters({ value, onChange }: Props) {
         selected={value.tier}
         onSelect={(next) => update({ tier: next })}
       />
+
+      {/* Good-Standing-Only toggle (§G2) */}
+      <div className="flex flex-col gap-2">
+        <span className="bcc-mono text-[10px] tracking-[0.2em] text-cardstock-deep">
+          STANDING
+        </span>
+        <label className="bcc-mono inline-flex cursor-pointer items-center gap-2 self-start border border-cardstock-edge bg-cardstock px-3 py-2 text-sm text-ink ring-1 ring-cardstock-edge transition hover:border-blueprint has-[:checked]:border-blueprint has-[:checked]:bg-blueprint/10 has-[:checked]:text-blueprint">
+          <input
+            type="checkbox"
+            checked={value.goodStandingOnly}
+            onChange={(e) => update({ goodStandingOnly: e.target.checked })}
+            className="h-3 w-3 accent-blueprint"
+          />
+          <span>GOOD STANDING ONLY</span>
+        </label>
+      </div>
 
       {/* Sort */}
       <div className="flex flex-col gap-2">
