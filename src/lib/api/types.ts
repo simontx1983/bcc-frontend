@@ -272,6 +272,35 @@ export interface Card {
    */
   bio: string;
   trust_score: number;
+  /**
+   * §4.20 cosmetic rename of `trust_score`. Backend dual-emits during
+   * the Phase 1 release cycle per §J.11. FE prefers `reputation_score`
+   * when present; falls back to `trust_score`. Optional during the
+   * Phase 1 backend rollout.
+   */
+  reputation_score?: number;
+  /**
+   * §J.3.2 asymmetric-display rule: positive-only public badge.
+   * Absent (undefined / null) when the entity hasn't earned one.
+   */
+  reliability_standing?: ReliabilityStandingPublic | null;
+  /**
+   * §J.6 aggregate attestation counts. Optional during Phase 1
+   * rollout; surfaces render empty-state copy when absent.
+   */
+  attestation_summary?: AttestationSummary;
+  /**
+   * §J.6 derived negative signals composing with the divergence_state
+   * classification. Optional — backend ships when synthesis layer is
+   * live.
+   */
+  negative_signals?: NegativeSignals;
+  /**
+   * §J.6 viewer-aware attestation relationship. Coexists with the
+   * legacy `viewer_has_endorsed` boolean during the Phase 1
+   * "endorse collapses into vouch" migration per §J.11.
+   */
+  viewer_attestation?: ViewerAttestation;
   reputation_tier: ReputationTier;
   card_tier: CardTier;
   tier_label: string | null;

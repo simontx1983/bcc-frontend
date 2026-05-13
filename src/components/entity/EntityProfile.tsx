@@ -27,9 +27,10 @@ import { ClaimCallout } from "@/components/claim/ClaimCallout";
 import { DisputeCallout } from "@/components/disputes/DisputeCallout";
 import { EndorseButton } from "@/components/endorse/EndorseButton";
 import { LockedStreamPanel } from "@/components/entity/LockedStreamPanel";
+import { ReputationSummaryPanel } from "@/components/profile/ReputationSummaryPanel";
 import { ReviewCallout } from "@/components/review/ReviewCallout";
 import type { Card } from "@/lib/api/types";
-import { isAllowed } from "@/lib/permissions";
+import { isAllowed, unlockHint } from "@/lib/permissions";
 
 export interface EntityProfileProps {
   card: Card;
@@ -145,63 +146,26 @@ function IdentityBlock({
 
       <p className="bcc-mono mt-2 text-cardstock-deep">@{card.handle}</p>
 
-      {/* Tier + rank + good-standing seal — three small badges in a row.
-          Each is server-pre-formatted and only renders when populated. */}
-      <div className="mt-5 flex flex-wrap items-center gap-2">
-        {card.tier_label !== null && card.card_tier !== null && (
-          <span
-            className="bcc-mono rounded-sm px-2 py-1 text-[10px] tracking-[0.18em]"
-            style={{
-              color: `var(--tier-${card.card_tier})`,
-              background: "rgba(15,13,9,0.04)",
-              border: "1px solid rgba(15,13,9,0.12)",
-            }}
-          >
-            {card.tier_label.toUpperCase()}
-          </span>
-        )}
-
-        {card.rank_label !== null && (
-          <span
-            className="bcc-mono rounded-sm px-2 py-1 text-[10px] tracking-[0.18em] text-ink"
-            style={{
-              background: "rgba(15,13,9,0.06)",
-              border: "1px solid rgba(15,13,9,0.16)",
-            }}
-          >
-            {card.rank_label.toUpperCase()}
-          </span>
-        )}
-
-        {card.is_in_good_standing && (
-          <span
-            className="bcc-mono rounded-sm px-2 py-1 text-[10px] tracking-[0.18em]"
-            style={{
-              color: "var(--verified)",
-              background: "rgba(44,157,102,0.10)",
-              border: "1px solid rgba(44,157,102,0.32)",
-            }}
-          >
-            ✓ IN GOOD STANDING
-          </span>
-        )}
+      {/* §J.6 reputation-first panel — replaces the legacy tier/rank/
+          good-standing chip row + flags strip with the locked layout.
+          Empty-state copy renders when the §4.20 attestation-layer
+          fields haven't shipped from the backend yet; entity surface
+          stays coherent during the Phase 1 rollout. */}
+      <div className="mt-5">
+        <ReputationSummaryPanel
+          reputationScore={card.reputation_score ?? card.trust_score}
+          reliabilityStanding={card.reliability_standing}
+          cardTier={card.card_tier}
+          tierLabel={card.tier_label}
+          rankLabel={card.rank_label ?? ""}
+          isInGoodStanding={card.is_in_good_standing}
+          flags={card.flags}
+          divergenceState={card.negative_signals?.divergence_state}
+          underReview={card.negative_signals?.under_review}
+          reputationVolatile={card.negative_signals?.volatile}
+          unresolvedClaimsCount={card.negative_signals?.unresolved_claims_count}
+        />
       </div>
-
-      {/* Flags strip — only renders when the server has surfaced any.
-          Server already filters which flags are visible per viewer. */}
-      {card.flags.length > 0 && (
-        <ul className="mt-4 flex flex-wrap gap-2">
-          {card.flags.map((flag) => (
-            <li
-              key={flag}
-              className="bcc-mono rounded-sm px-2 py-1 text-[10px] tracking-[0.18em] text-safety"
-              style={{ background: "rgba(240,90,40,0.08)", border: "1px solid rgba(240,90,40,0.32)" }}
-            >
-              {flag.toUpperCase()}
-            </li>
-          ))}
-        </ul>
-      )}
 
       {/* Social proof headline — server pre-renders the line. */}
       {card.social_proof?.headline !== undefined &&
@@ -224,14 +188,17 @@ function IdentityBlock({
       )}
 
       {/* §D2 Write-a-review entry — visible on every entity profile.
-          Disabled with explanatory tooltip when the viewer hasn't
-          unlocked reviews (Level 2 + reputation tier ≥ neutral).
+          Disabled with the server-supplied `unlock_hint` when the
+          viewer hasn't unlocked reviews; the gate itself
+          (Level + reputation tier thresholds) is server-resolved per
+          the Phase γ rule that frontend never mirrors backend gates.
           When the viewer already has a review on file, the CTA flips
           to "REMOVE YOUR REVIEW" with a confirm gate. */}
       <ReviewCallout
         pageId={card.id}
         pageName={card.name}
         canReview={isAllowed(card.permissions, "can_review")}
+        unlockHint={unlockHint(card.permissions, "can_review")}
         hasReviewed={card.viewer_has_reviewed}
         viewerAuthed={viewerAuthed}
       />
