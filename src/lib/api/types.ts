@@ -217,6 +217,21 @@ export interface CardPermissions {
   can_endorse: CardPermissionEntry;
   can_post_as_entity: boolean;
   can_edit_bio: boolean;
+  /**
+   * §J.6 Trust Attestation Layer permission extensions. Optional on
+   * the FE type during the Phase 1 backend rollout; backend ships
+   * these gates in Week 2 of the Phase 1 plan. Per §N7 the
+   * AttestationActionCluster hides each action when its permission
+   * entry is absent, then surfaces it (enabled or disabled with
+   * unlock_hint) once the gate ships.
+   *
+   * Note: the attestation-layer Dispute primitive uses the existing
+   * `can_dispute` field above — same gate, target_kind expands to
+   * include user_profile in Phase 1.5 per §J.1.
+   */
+  can_vouch?: CardPermissionEntry;
+  can_stand_behind?: CardPermissionEntry;
+  can_report?: CardPermissionEntry;
 }
 
 export interface CardSocialProof {
@@ -2239,6 +2254,16 @@ export interface MemberPermissions {
   can_message: MemberPermission;
   can_block: MemberPermission;
   can_edit_profile: MemberPermission;
+  /**
+   * §J.6 Trust Attestation Layer permission extensions for
+   * user_profile target_kind. Optional during Phase 1 rollout.
+   * `can_dispute` exists for user-profile attestations once the
+   * panel mechanics extend to user_profile (Phase 1.5).
+   */
+  can_vouch?: MemberPermission;
+  can_stand_behind?: MemberPermission;
+  can_dispute?: MemberPermission;
+  can_report?: MemberPermission;
 }
 
 /** Server-built relative URLs for profile sub-pages. */

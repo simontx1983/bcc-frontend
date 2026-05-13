@@ -27,6 +27,7 @@ import { ClaimCallout } from "@/components/claim/ClaimCallout";
 import { DisputeCallout } from "@/components/disputes/DisputeCallout";
 import { EndorseButton } from "@/components/endorse/EndorseButton";
 import { LockedStreamPanel } from "@/components/entity/LockedStreamPanel";
+import { AttestationActionCluster } from "@/components/profile/AttestationActionCluster";
 import { ReputationSummaryPanel } from "@/components/profile/ReputationSummaryPanel";
 import { ReviewCallout } from "@/components/review/ReviewCallout";
 import type { Card } from "@/lib/api/types";
@@ -174,6 +175,24 @@ function IdentityBlock({
             {card.social_proof.headline}
           </p>
         )}
+
+      {/* §J.6 trust-attestation action cluster — read-only scaffold.
+          Cluster self-hides when no permission entries are shipped
+          (Phase 1 backend rollout). Appears as backend lands the
+          can_vouch / can_stand_behind / can_dispute / can_report
+          gates in Phase 1 Week 2. Sits above the legacy callouts
+          so visual primacy reads correctly during the migration
+          window. */}
+      <div className="mt-5">
+        <AttestationActionCluster
+          canVouch={card.permissions.can_vouch}
+          canStandBehind={card.permissions.can_stand_behind}
+          canDispute={card.permissions.can_dispute}
+          canReport={card.permissions.can_report}
+          viewerAttestation={card.viewer_attestation}
+          viewerHasEndorsed={card.viewer_has_endorsed}
+        />
+      </div>
 
       {/* §N8 Claim flow entry — only when the page is unclaimed AND a
           claim target resolves on the server. Anonymous viewers see

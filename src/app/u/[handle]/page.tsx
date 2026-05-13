@@ -33,6 +33,7 @@ import { getServerSession } from "next-auth";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { AttestationActionCluster } from "@/components/profile/AttestationActionCluster";
 import { LivingHeader } from "@/components/profile/LivingHeader";
 import { ProfileTabs } from "@/components/profile/ProfileTabs";
 import { ReputationSummaryPanel } from "@/components/profile/ReputationSummaryPanel";
@@ -230,6 +231,21 @@ function IdentityHeader({
         underReview={profile.negative_signals?.under_review}
         reputationVolatile={profile.negative_signals?.volatile}
         unresolvedClaimsCount={profile.negative_signals?.unresolved_claims_count}
+      />
+
+      {/* §J.6 trust-attestation action cluster — read-only scaffold.
+          Cluster self-hides when no permission entries are shipped
+          (Phase 1 backend rollout). Appears as backend lands the
+          can_vouch / can_stand_behind / can_dispute / can_report
+          gates in Phase 1 Week 2. Profile surfaces have no legacy
+          equivalents to these primitives, so the cluster is purely
+          additive here. */}
+      <AttestationActionCluster
+        canVouch={profile.permissions.can_vouch}
+        canStandBehind={profile.permissions.can_stand_behind}
+        canDispute={profile.permissions.can_dispute}
+        canReport={profile.permissions.can_report}
+        viewerAttestation={profile.viewer_attestation}
       />
 
       <div className="flex flex-wrap items-center justify-between gap-4 border-t border-dashed border-cardstock/15 pt-4">
