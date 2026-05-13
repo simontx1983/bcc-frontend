@@ -207,7 +207,14 @@ function ModalContent({ items, onSkip }: ModalContentProps) {
 
 function EligibleRow({ item }: { item: HolderGroupItem }) {
   const mutation = useJoinHolderGroupMutation();
-  const errorMessage = mutation.error?.message ?? null;
+  // Substitute friendly copy for the per-user Throttle 429 emitted by
+  // HolderGroupsEndpoint::postJoin. Other server-typed errors fall
+  // through to the canonical .message verbatim.
+  const errorMessage = mutation.error
+    ? mutation.error.code === "bcc_rate_limited"
+      ? "Slow down — too many join attempts. Wait a minute."
+      : mutation.error.message
+    : null;
   const collectionName = item.collection.name ?? item.name;
 
   return (

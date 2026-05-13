@@ -34,13 +34,22 @@ export function JoinPlainGroupButton({ groupId }: { groupId: number }) {
     },
   });
 
+  // Substitute friendlier copy for the rate-limit 429 from
+  // MyGroupsEndpoint::postJoin's per-user Throttle bucket. Other
+  // server-typed errors fall through to the canonical .message.
+  const errorMessage = mutation.error
+    ? mutation.error.code === "bcc_rate_limited"
+      ? "Slow down — too many join attempts. Wait a minute."
+      : mutation.error.message
+    : null;
+
   return (
     <GroupActionButton
       groupId={groupId}
       label="JOIN"
       pendingLabel="JOINING…"
       isPending={mutation.isPending}
-      errorMessage={mutation.error?.message ?? null}
+      errorMessage={errorMessage}
       onClick={() => {
         mutation.reset();
         mutation.mutate(groupId);

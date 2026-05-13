@@ -173,7 +173,9 @@ function AutoJoinPreference() {
 
       {updateMutation.isError && (
         <p role="alert" className="bcc-mono mt-3 text-[11px] text-safety">
-          Couldn&apos;t save preference: {updateMutation.error.message}
+          {updateMutation.error.code === "bcc_rate_limited"
+            ? "Slow down — preference saved too many times. Wait a minute."
+            : `Couldn't save preference: ${updateMutation.error.message}`}
         </p>
       )}
     </section>
@@ -287,13 +289,22 @@ function CommunityRow({ item, action }: CommunityRowProps) {
 function JoinButton({ groupId }: { groupId: number }) {
   const mutation = useJoinHolderGroupMutation();
 
+  // Substitute friendlier copy for the per-user Throttle 429; other
+  // server-typed errors (e.g. bcc_permission_denied with an
+  // unlock_hint) still render the canonical .message verbatim.
+  const errorMessage = mutation.error
+    ? mutation.error.code === "bcc_rate_limited"
+      ? "Slow down — too many join attempts. Wait a minute."
+      : mutation.error.message
+    : null;
+
   return (
     <GroupActionButton
       groupId={groupId}
       label="JOIN"
       pendingLabel="JOINING…"
       isPending={mutation.isPending}
-      errorMessage={mutation.error?.message ?? null}
+      errorMessage={errorMessage}
       onClick={() => {
         mutation.reset();
         mutation.mutate(groupId);
@@ -305,13 +316,19 @@ function JoinButton({ groupId }: { groupId: number }) {
 function LeaveButton({ groupId }: { groupId: number }) {
   const mutation = useLeaveHolderGroupMutation();
 
+  const errorMessage = mutation.error
+    ? mutation.error.code === "bcc_rate_limited"
+      ? "Slow down — too many leave attempts. Wait a minute."
+      : mutation.error.message
+    : null;
+
   return (
     <GroupActionButton
       groupId={groupId}
       label="LEAVE"
       pendingLabel="LEAVING…"
       isPending={mutation.isPending}
-      errorMessage={mutation.error?.message ?? null}
+      errorMessage={errorMessage}
       onClick={() => {
         mutation.reset();
         mutation.mutate(groupId);

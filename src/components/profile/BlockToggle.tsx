@@ -17,6 +17,7 @@ import { useState } from "react";
 
 import { useBlockUser, useUnblockUser } from "@/hooks/useBlocks";
 import type { MemberProfile } from "@/lib/api/types";
+import { BccApiError } from "@/lib/api/types";
 
 interface BlockToggleProps {
   profile: MemberProfile;
@@ -30,16 +31,24 @@ export function BlockToggle({ profile }: BlockToggleProps) {
   const blocking = optimisticBlocking ?? profile.viewer_blocking;
 
   const blockMutation = useBlockUser({
-    onError: () => {
+    onError: (err) => {
       setOptimisticBlocking(false);
-      setErrorMessage("Couldn't block. Try again.");
+      setErrorMessage(
+        err instanceof BccApiError && err.code === "bcc_rate_limited"
+          ? "Slow down — too many block attempts. Wait a minute."
+          : "Couldn't block. Try again.",
+      );
     },
   });
 
   const unblockMutation = useUnblockUser({
-    onError: () => {
+    onError: (err) => {
       setOptimisticBlocking(true);
-      setErrorMessage("Couldn't unblock. Try again.");
+      setErrorMessage(
+        err instanceof BccApiError && err.code === "bcc_rate_limited"
+          ? "Slow down — too many unblock attempts. Wait a minute."
+          : "Couldn't unblock. Try again.",
+      );
     },
   });
 
