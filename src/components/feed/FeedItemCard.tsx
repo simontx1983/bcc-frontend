@@ -26,6 +26,7 @@ import Link from "next/link";
 
 import { CommentDrawer } from "@/components/feed/CommentDrawer";
 import { ReactionRail } from "@/components/feed/ReactionRail";
+import { ReactorStack } from "@/components/feed/ReactorStack";
 import { ReportButton } from "@/components/feed/ReportButton";
 import { VerificationBadge } from "@/components/groups/VerificationBadge";
 import { AuthorBadge } from "@/components/identity/AuthorBadge";
@@ -142,9 +143,7 @@ function FeedItemCardImpl({ item }: { item: FeedItem }) {
         </p>
       )}
 
-      {item.social_proof?.headline !== undefined && item.social_proof.headline !== null && (
-        <p className="bcc-mono text-[11px] text-ink-soft/80">{item.social_proof.headline}</p>
-      )}
+      <ReactorStack social_proof={item.social_proof} />
 
       <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-cardstock-edge/40 pt-2.5">
         <ReactionRail item={item} />

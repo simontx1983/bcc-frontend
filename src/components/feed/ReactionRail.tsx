@@ -264,10 +264,15 @@ function SocialRail({ item }: { item: FeedItem }) {
             className={
               // Emoji-forward, narrower padding — fits 5 reactions in
               // the same horizontal space the trust rail uses for 3.
-              // motion-safe:* variants honor reduced-motion users; on
-              // those systems the buttons stay still and rely on
-              // background change for active-state feedback.
-              "inline-flex min-h-[36px] items-center gap-1 rounded-full px-2.5 py-1 text-sm transition disabled:cursor-not-allowed motion-safe:hover:scale-110 motion-safe:active:scale-95 " +
+              //
+              // Sprint 2 constitutional revision: hover-scale removed.
+              // Hover-scale primes the hand the way generic-social apps
+              // do — it solicits the click before the operator has
+              // committed. Active-scale on click stays (it's
+              // user-initiated feedback for a deliberate action, not
+              // solicitation). The hover background change is the
+              // ambient acknowledgment.
+              "inline-flex min-h-[36px] items-center gap-1 rounded-full px-2.5 py-1 text-sm transition disabled:cursor-not-allowed motion-safe:active:scale-95 " +
               (isActive
                 ? "bg-cardstock text-ink ring-1 ring-safety/50"
                 : "text-ink-soft hover:bg-cardstock/60 hover:text-ink")

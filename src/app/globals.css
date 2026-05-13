@@ -1083,18 +1083,27 @@
 }
 
 /* ========================================================================
-   §O1 DOPAMINE STEP — onboarding send-off.
+   §O1 ONBOARDING SEND-OFF — first-run arrival moment.
+
+   Sprint 2 rename (2026-05-13): previously prefixed `bcc-dopamine-*`.
+   The vocabulary leaked intent — naming an animation after a brain-
+   chemical reward made the next casino-shaped animation feel paved
+   in. Renamed to `bcc-onboarding-*` so the ergonomic stops nudging
+   future reviewers toward engagement-bait patterns. No behaviour
+   change; pure prefix swap + verb refinement on the third keyframe
+   (`pop` → `arrive`).
 
    Three coordinated effects, all CSS-only (no Framer):
-     1. .bcc-dopamine-backdrop  — fades the cardstock panel toward concrete
-                                  over the same window the chips fly.
-     2. .bcc-dopamine-chip-*    — small abstract card chips sized + tinted
-                                  per card_tier, flying from centre to the
-                                  binder-icon corner. Stagger via the
-                                  --bcc-dopamine-delay CSS var the wizard
-                                  passes inline.
-     3. .bcc-dopamine-statpop   — the centre stat-pop card scaling in +
-                                  holding while the chips fly past it.
+     1. .bcc-onboarding-backdrop — fades the cardstock panel toward
+                                   concrete over the same window the
+                                   chips fly.
+     2. .bcc-onboarding-chip-*   — small abstract card chips sized +
+                                   tinted per card_tier, flying from
+                                   centre to the binder-icon corner.
+                                   Stagger via the --bcc-onboarding-delay
+                                   CSS var the wizard passes inline.
+     3. .bcc-onboarding-arrive   — the centre stat-pop card scaling
+                                   in + holding while the chips fly past.
 
    `prefers-reduced-motion: reduce` zeroes every animation duration so
    the still version of each surface remains. The wizard also
@@ -1102,13 +1111,13 @@
    media-query fallback covers any future caller that forgets.
    ======================================================================== */
 
-.bcc-dopamine-backdrop {
+.bcc-onboarding-backdrop {
   position: relative;
   isolation: isolate;
-  animation: bcc-dopamine-bg 2400ms ease-in forwards;
+  animation: bcc-onboarding-bg 2400ms ease-in forwards;
 }
 
-@keyframes bcc-dopamine-bg {
+@keyframes bcc-onboarding-bg {
   0%   { background: transparent; }
   60%  { background: rgba(20, 17, 13, 0.0); }   /* hold cardstock */
   100% { background: rgba(20, 17, 13, 0.55); }  /* tip toward concrete */
@@ -1118,7 +1127,7 @@
    top-right (where the binder dock lives) while pulsing a tier-tinted
    glow. The wizard renders 1..6 of these; each gets a delay offset
    so they fly in sequence. */
-.bcc-dopamine-chip {
+.bcc-onboarding-chip {
   position: absolute;
   top: 50%;
   left: 50%;
@@ -1127,29 +1136,29 @@
   border-radius: 4px;
   transform-origin: center;
   pointer-events: none;
-  --bcc-dopamine-tier: var(--tier-common);
-  background: var(--bcc-dopamine-tier);
+  --bcc-onboarding-tier: var(--tier-common);
+  background: var(--bcc-onboarding-tier);
   box-shadow:
     0 0 0 1px rgba(15, 13, 9, 0.4),
-    0 0 18px var(--bcc-dopamine-tier),
-    0 0 36px var(--bcc-dopamine-tier);
+    0 0 18px var(--bcc-onboarding-tier),
+    0 0 36px var(--bcc-onboarding-tier);
   opacity: 0;
-  animation: bcc-dopamine-fly 1600ms cubic-bezier(0.4, 0.0, 0.2, 1) forwards;
-  animation-delay: var(--bcc-dopamine-delay, 0ms);
+  animation: bcc-onboarding-fly 1600ms cubic-bezier(0.4, 0.0, 0.2, 1) forwards;
+  animation-delay: var(--bcc-onboarding-delay, 0ms);
 }
 
-.bcc-dopamine-chip-legendary { --bcc-dopamine-tier: var(--tier-legendary); }
-.bcc-dopamine-chip-rare      { --bcc-dopamine-tier: var(--tier-rare); }
-.bcc-dopamine-chip-uncommon  { --bcc-dopamine-tier: var(--tier-uncommon); }
-.bcc-dopamine-chip-common    { --bcc-dopamine-tier: var(--tier-common); }
-.bcc-dopamine-chip-neutral   { --bcc-dopamine-tier: var(--ink-ghost); }
+.bcc-onboarding-chip-legendary { --bcc-onboarding-tier: var(--tier-legendary); }
+.bcc-onboarding-chip-rare      { --bcc-onboarding-tier: var(--tier-rare); }
+.bcc-onboarding-chip-uncommon  { --bcc-onboarding-tier: var(--tier-uncommon); }
+.bcc-onboarding-chip-common    { --bcc-onboarding-tier: var(--tier-common); }
+.bcc-onboarding-chip-neutral   { --bcc-onboarding-tier: var(--ink-ghost); }
 
 /* Flight path: bloom from centre, arc up-right toward the binder
    dock, fade as it lands. The translation values match the binder's
    absolute placement (right-8 top-6 in the wizard) for a 6xl-max
    container; on smaller viewports the chip still lands "off-screen
    up-right" which reads correctly. */
-@keyframes bcc-dopamine-fly {
+@keyframes bcc-onboarding-fly {
   0% {
     opacity: 0;
     transform: translate(-50%, -50%) scale(0.6);
@@ -1164,16 +1173,18 @@
   }
 }
 
-/* Stat-pop — scales in, holds, lifts on the way out so the eye is led
-   away from the centre as the redirect fires. */
-.bcc-dopamine-statpop {
+/* Arrive — scales in, holds, lifts on the way out so the eye is led
+   away from the centre as the redirect fires. Verb-renamed from `pop`
+   (Sprint 2): "arrive" is constitutionally aligned with the room-
+   acknowledges-the-operator framing; "pop" was casino-shaped. */
+.bcc-onboarding-arrive {
   position: relative;
   z-index: 2;
-  animation: bcc-dopamine-pop 2400ms ease-out forwards;
+  animation: bcc-onboarding-arrive 2400ms ease-out forwards;
   transform-origin: center;
 }
 
-@keyframes bcc-dopamine-pop {
+@keyframes bcc-onboarding-arrive {
   0%   { opacity: 0; transform: scale(0.85) translateY(8px); }
   20%  { opacity: 1; transform: scale(1.04) translateY(0); }
   35%  { transform: scale(1.0) translateY(0); }
@@ -1182,12 +1193,12 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .bcc-dopamine-backdrop,
-  .bcc-dopamine-chip,
-  .bcc-dopamine-statpop {
+  .bcc-onboarding-backdrop,
+  .bcc-onboarding-chip,
+  .bcc-onboarding-arrive {
     animation: none !important;
   }
-  .bcc-dopamine-chip {
+  .bcc-onboarding-chip {
     /* Make stray chips disappear if a caller forgets to gate them. */
     display: none;
   }
@@ -1205,8 +1216,8 @@
                                     behind everything else.
      2. .bcc-celebration-toast    — the headline card that scales in,
                                     holds, and lifts away. Reuses the
-                                    bcc-dopamine-pop keyframes so a
-                                    user who saw onboarding gets a
+                                    bcc-onboarding-arrive keyframes so
+                                    a user who saw onboarding gets a
                                     consistent visual rhythm.
 
    Lifecycle is owned by the React component: mount → animate (1.5s) →
@@ -1244,7 +1255,7 @@
 }
 
 .bcc-celebration-toast {
-  animation: bcc-dopamine-pop 1500ms ease-out forwards;
+  animation: bcc-onboarding-arrive 1500ms ease-out forwards;
   transform-origin: center;
 }
 
@@ -1280,4 +1291,44 @@
   0%   { transform: scale(1) translateY(0); }
   50%  { transform: scale(1.35) translateY(-2px); }
   100% { transform: scale(1) translateY(0); }
+}
+
+/* ========================================================================
+   §S2  ROOM-ACKNOWLEDGES-OPERATOR — Sprint 2 motion vocabulary.
+
+   Two new keyframes, both one-shot, decay-to-rest, single-channel:
+
+     1. bcc-fade-in           — quiet opacity rise from 0 → 0.92 over
+                                240ms ease-out. Used on the reactor
+                                stack when a feed card first mounts in
+                                viewport. New reactors that arrive
+                                later DO NOT re-fire this; only first-
+                                mount runs the keyframe.
+     2. bcc-bell-acknowledge  — single phosphor wash on the
+                                NotificationBell SVG when unreadCount
+                                transitions n → n+m (m > 0). Brightens
+                                via opacity + drop-shadow at low
+                                phosphor intensity, returns to rest.
+                                The badge count changes value silently
+                                — the bell is the only animated
+                                channel (one-channel rule).
+
+   Both gated by `motion-safe:` at the call sites. The global
+   prefers-reduced-motion override at line 115 zeroes any animation
+   duration regardless — belt-and-braces.
+   ======================================================================== */
+
+@keyframes bcc-fade-in {
+  0%   { opacity: 0; }
+  100% { opacity: 0.92; }
+}
+
+@keyframes bcc-bell-acknowledge {
+  /* The room noticed you. A soft phosphor wash over the bell SVG that
+     borrows brightness for a beat and returns to ambient. No wobble,
+     no shake — that would be the machine demanding attention. The
+     bell stays a destination, not a button asking to be clicked. */
+  0%   { filter: drop-shadow(0 0 0 transparent); opacity: 1; }
+  35%  { filter: drop-shadow(0 0 6px rgba(125, 255, 154, 0.55)); opacity: 1; }
+  100% { filter: drop-shadow(0 0 0 transparent); opacity: 1; }
 }

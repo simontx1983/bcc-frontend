@@ -53,6 +53,37 @@ export function NotificationBell({ enabled }: NotificationBellProps) {
   const list = useNotifications({ enabled: enabled && open });
   const markRead = useMarkReadMutation();
 
+  // Sprint 2 — "the room acknowledged the operator." When unread count
+  // transitions n → n+m (m > 0), trigger a one-shot phosphor wash on
+  // the bell SVG via the `bcc-bell-acknowledge` keyframe. ONE channel:
+  // the bell warms; the badge count changes value silently (no count-
+  // bump). The acknowledgment is the bell; the count is the fact.
+  //
+  // Implementation notes:
+  //   - prevUnreadRef holds the last-seen count. On mount it's seeded
+  //     with the current count so a cold-load with 3 unread doesn't
+  //     fire the wash (the user just arrived; that's not an arrival
+  //     event, it's a state).
+  //   - acknowledgeKey is bumped on each detected delta-up; passing
+  //     it as the React `key` on the bell wrapper re-mounts the SVG
+  //     and re-fires the one-shot animation reliably.
+  //   - The hook does NOT decrement-detect (marking all read → 0 is
+  //     a user-initiated state change, not the room noticing
+  //     something for you).
+  const prevUnreadRef = useRef<number | null>(null);
+  const [acknowledgeKey, setAcknowledgeKey] = useState(0);
+  const unreadCount = unread.data?.unread_count ?? 0;
+  useEffect(() => {
+    if (prevUnreadRef.current === null) {
+      prevUnreadRef.current = unreadCount;
+      return;
+    }
+    if (unreadCount > prevUnreadRef.current) {
+      setAcknowledgeKey((k) => k + 1);
+    }
+    prevUnreadRef.current = unreadCount;
+  }, [unreadCount]);
+
   // Close on outside click + Escape — same primitive pattern used by
   // GlobalSearch and ViewerMenu.
   useEffect(() => {
@@ -78,7 +109,6 @@ export function NotificationBell({ enabled }: NotificationBellProps) {
     return null;
   }
 
-  const unreadCount = unread.data?.unread_count ?? 0;
   const items: NotificationItem[] = (list.data?.pages ?? []).flatMap((p) => p.items);
 
   const handleItemClick = (item: NotificationItem) => {
@@ -108,7 +138,17 @@ export function NotificationBell({ enabled }: NotificationBellProps) {
         }
         className="bcc-btn bcc-btn-ghost relative"
       >
-        <BellIcon />
+        <span
+          key={acknowledgeKey}
+          aria-hidden
+          className={
+            acknowledgeKey > 0
+              ? "inline-block motion-safe:animate-[bcc-bell-acknowledge_320ms_ease-out]"
+              : "inline-block"
+          }
+        >
+          <BellIcon />
+        </span>
         {unreadCount > 0 && (
           <span
             aria-hidden
@@ -116,6 +156,7 @@ export function NotificationBell({ enabled }: NotificationBellProps) {
             style={{
               background: "var(--safety)",
               color: "var(--cardstock)",
+              opacity: 0.88,
             }}
           >
             {unreadCount > 9 ? "9+" : unreadCount}
@@ -133,14 +174,16 @@ export function NotificationBell({ enabled }: NotificationBellProps) {
             <span className="bcc-mono text-[10px] tracking-[0.2em] text-cardstock-deep">
               NOTIFICATIONS
             </span>
-            <button
-              type="button"
-              onClick={handleMarkAll}
-              disabled={unreadCount === 0 || markRead.isPending}
-              className="bcc-mono text-[10px] tracking-[0.16em] text-blueprint hover:underline disabled:cursor-not-allowed disabled:text-ink-soft/40"
-            >
-              {markRead.isPending ? "MARKING…" : "MARK ALL READ"}
-            </button>
+            {unreadCount >= 3 && (
+              <button
+                type="button"
+                onClick={handleMarkAll}
+                disabled={markRead.isPending}
+                className="bcc-mono text-[10px] tracking-[0.16em] normal-case text-blueprint hover:underline disabled:cursor-not-allowed disabled:text-ink-soft/40"
+              >
+                {markRead.isPending ? "Marking…" : "Mark all read"}
+              </button>
+            )}
           </div>
 
           {list.isError ? (

@@ -65,6 +65,7 @@ import {
 } from "@/hooks/useCreatePost";
 import { useSetPhotoAltMutation } from "@/hooks/useSetPhotoAlt";
 import { useGiphyIntegration } from "@/hooks/useGiphyIntegration";
+import { Avatar } from "@/components/identity/Avatar";
 import { GifPicker } from "@/components/composer/GifPicker";
 import { MentionPopover } from "@/components/composer/MentionPopover";
 import { humanizeCode } from "@/lib/api/errors";
@@ -236,6 +237,15 @@ interface InlineStatusComposerProps {
   groupScopeLabel: string | undefined;
 }
 
+// Sprint 2 — civic prompts that cycle in the collapsed composer. Slow
+// 18s cadence; halts on hover/focus so the operator never has to read
+// a moving prompt. Reduced-motion users see the first prompt only.
+const COMPOSER_PROMPTS: ReadonlyArray<string> = [
+  "What's on your mind?",
+  "Share something with the floor.",
+  "Post an observation.",
+];
+
 function InlineStatusComposer({
   viewerAvatarUrl,
   viewerHandle,
@@ -244,6 +254,18 @@ function InlineStatusComposer({
   groupScopeLabel,
 }: InlineStatusComposerProps) {
   const [expanded, setExpanded] = useState(false);
+  // Sprint 2 — civic prompt rotation in the collapsed composer.
+  // 18s cadence; halts on hover/focus (promptPaused). Group composer
+  // pins the scope-pinned placeholder so this index is ignored there.
+  const [promptIndex, setPromptIndex] = useState(0);
+  const [promptPaused, setPromptPaused] = useState(false);
+  useEffect(() => {
+    if (expanded || promptPaused || groupId !== undefined) return undefined;
+    const id = window.setInterval(() => {
+      setPromptIndex((i) => (i + 1) % COMPOSER_PROMPTS.length);
+    }, 18_000);
+    return () => window.clearInterval(id);
+  }, [expanded, promptPaused, groupId]);
   const [content, setContent] = useState("");
   const [error, setError] = useState<string | null>(null);
   // v1.5 photo state. `attachedFile` holds the selected File; `previewUrl`
@@ -646,7 +668,6 @@ function InlineStatusComposer({
     setExpanded(false);
   };
 
-  const initial = resolveAvatarInitial(viewerDisplayName, viewerHandle);
   const hasPhoto = attachedFile !== null;
   const hasGif   = selectedGif !== null;
   const hasAttachment = hasPhoto || hasGif;
@@ -662,18 +683,34 @@ function InlineStatusComposer({
     >
       {!expanded ? (
         // ────── Collapsed / idle state ─────────────────────────────
-        // A quiet row in the dark flow. No card chrome, no nested
-        // panels. Hover lifts a subtle background tint. The whole
-        // row is the click target — tab into it to expand via
-        // keyboard. When mounted on a group page, the optional
-        // `groupScopeLabel` kicker renders above the placeholder so
-        // the viewer reads the scope before they start typing.
+        // Sprint 2 — "the room acknowledged the operator":
+        //   - Viewer Avatar at left anchors the row in identity.
+        //   - Hairline phosphor ring appears on hover/focus, not on
+        //     idle. The row is quiet until the operator looks at it.
+        //   - Single prompt rotates every 18s (group composer pins
+        //     "Post to this group…" — group context is the prompt).
+        //     Rotation halts while paused (hover/focus) so the
+        //     operator never has to read a moving target.
         <button
           type="button"
           onClick={() => setExpanded(true)}
-          className="flex w-full items-center gap-3 border-y border-cardstock/10 bg-transparent px-1 py-3 text-left transition hover:bg-cardstock/5 focus-visible:bg-cardstock/5 focus-visible:outline-none"
+          onMouseEnter={() => setPromptPaused(true)}
+          onMouseLeave={() => setPromptPaused(false)}
+          onFocus={() => setPromptPaused(true)}
+          onBlur={() => setPromptPaused(false)}
+          className="flex w-full items-center gap-3 border-y border-cardstock/10 bg-transparent px-1 py-3 text-left transition hover:bg-cardstock/5 hover:shadow-[inset_0_0_0_1px_rgba(125,255,154,0.18)] focus-visible:bg-cardstock/5 focus-visible:shadow-[inset_0_0_0_1px_rgba(125,255,154,0.28)] focus-visible:outline-none motion-safe:transition-shadow motion-safe:duration-200"
         >
-          <ComposerAvatar src={viewerAvatarUrl} initial={initial} />
+          <Avatar
+            avatarUrl={
+              viewerAvatarUrl !== undefined && viewerAvatarUrl !== ""
+                ? viewerAvatarUrl
+                : null
+            }
+            handle={viewerHandle ?? ""}
+            displayName={viewerDisplayName}
+            size="md"
+            variant="rounded"
+          />
           <span className="flex flex-col">
             {groupScopeLabel !== undefined && groupScopeLabel !== "" && (
               <span
@@ -683,10 +720,13 @@ function InlineStatusComposer({
                 {groupScopeLabel}
               </span>
             )}
-            <span className="font-serif italic text-cardstock-deep/75">
+            <span
+              key={promptIndex}
+              className="font-serif italic text-cardstock-deep/75 motion-safe:animate-[bcc-fade-in_360ms_ease-out]"
+            >
               {groupId !== undefined
                 ? "Post to this group…"
-                : "What's on your mind?"}
+                : COMPOSER_PROMPTS[promptIndex] ?? COMPOSER_PROMPTS[0]}
             </span>
           </span>
         </button>
@@ -719,7 +759,17 @@ function InlineStatusComposer({
           }
         >
           <header className="flex items-center gap-3">
-            <ComposerAvatar src={viewerAvatarUrl} initial={initial} />
+            <Avatar
+              avatarUrl={
+                viewerAvatarUrl !== undefined && viewerAvatarUrl !== ""
+                  ? viewerAvatarUrl
+                  : null
+              }
+              handle={viewerHandle ?? ""}
+              displayName={viewerDisplayName}
+              size="sm"
+              variant="rounded"
+            />
             <span className="bcc-mono text-[11px] tracking-[0.18em] text-cardstock-deep">
               {viewerDisplayName !== null && viewerDisplayName !== ""
                 ? viewerDisplayName.toUpperCase()
@@ -1013,52 +1063,13 @@ function InlineStatusComposer({
   );
 }
 
-interface ComposerAvatarProps {
-  src: string | undefined;
-  initial: string;
-}
-
-/**
- * 32px avatar circle for the composer's identity slot. Mirrors the
- * `Avatar({src, initial})` shape used elsewhere (MembersGrid, the user
- * profile page) — same prop signature so a future shared <Avatar/> can
- * absorb both call sites without a contract diff.
- */
-function ComposerAvatar({ src, initial }: ComposerAvatarProps) {
-  if (src !== undefined && src !== "") {
-    return (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img
-        src={src}
-        alt=""
-        width={32}
-        height={32}
-        className="h-8 w-8 shrink-0 rounded-full bg-cardstock-edge/30 object-cover"
-      />
-    );
-  }
-  return (
-    <div
-      aria-hidden
-      className="bcc-mono flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-cardstock/15 text-[11px] tracking-[0.12em] text-cardstock-deep"
-    >
-      {initial}
-    </div>
-  );
-}
-
-function resolveAvatarInitial(
-  displayName: string | null,
-  handle: string | undefined
-): string {
-  if (displayName !== null && displayName !== "") {
-    return displayName.charAt(0).toUpperCase();
-  }
-  if (handle !== undefined && handle !== "") {
-    return handle.charAt(0).toUpperCase();
-  }
-  return "·";
-}
+// Sprint 2 — local ComposerAvatar + resolveAvatarInitial removed.
+// The composer now consumes the shared <Avatar /> primitive
+// (components/identity/Avatar.tsx); initials derivation lives in
+// lib/format/initials.ts. This was the last inline-avatar leftover
+// that Sprint 1's consolidation pass had to defer because the
+// composer's expanded/collapsed sites required the rotation/ring
+// work that arrived in Sprint 2.
 
 // ─────────────────────────────────────────────────────────────────────
 // Modal core: shared state + tab strip for status/review modes.

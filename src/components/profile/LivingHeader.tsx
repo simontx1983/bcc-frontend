@@ -6,17 +6,13 @@
  *
  * What appears (left → right):
  *
- *   1. Streak counter — flame icon + "47-DAY STREAK" stencil readout.
- *      Pulled from `living.streak_days`. The `streak_at_risk_today`
- *      flag promotes the readout to a soft warning tone.
- *
- *   2. Today's impact line — composed from `living.today` non-zero
+ *   1. Today's impact line — composed from `living.today` non-zero
  *      counters (per §O3: zero values returned by the server are
  *      filtered before rendering). Falls back to a neutral "quiet
  *      shift" line when nothing has happened today, AND a §O3.1
  *      comparison sub-line when the server populated one.
  *
- *   3. Rank progression — phosphor-fill bar with a "next rank" label.
+ *   2. Rank progression — phosphor-fill bar with a "next rank" label.
  *      ONLY rendered when a `progression` prop is supplied (own-only
  *      profiles per §3.1). Server is the source of truth on the
  *      thresholds — this component computes one number: the percent
@@ -25,6 +21,17 @@
  * Server-supplied per §A2 — this component renders, never derives
  * scores or status. The percent number is presentation-only (CSS width)
  * so it doesn't qualify as business logic.
+ *
+ * Sprint 2 constitutional revision (2026-05-13): the streak column
+ * (FlameMark + day counter + STREAK label + at-risk pulse) has been
+ * removed. Streaks reward frequency and import behavioural-treadmill
+ * psychology into a platform whose currency is durable judgment. The
+ * "today" line + "Quiet shift. Floor's been still." fallback now
+ * carry the room-acknowledges-the-operator signal on their own. The
+ * `living.streak_days` and `living.streak_at_risk_today` fields stay
+ * on the view-model (backward compatibility); the FE just stops
+ * reading them. Backend cleanup of the streak computation is a
+ * follow-up.
  */
 
 import type { MemberLiving, MemberProgression } from "@/lib/api/types";
@@ -68,33 +75,14 @@ export function LivingHeader({ living, progression }: LivingHeaderProps) {
       aria-label="Member activity at a glance"
       className={
         "bcc-stage-reveal grid grid-cols-1 gap-4 " +
-        (showProgression ? "md:grid-cols-[auto_1fr_auto] md:gap-8" : "md:grid-cols-[auto_1fr] md:gap-8")
+        (showProgression ? "md:grid-cols-[1fr_auto] md:gap-8" : "")
       }
       style={{ ["--stagger" as string]: "120ms" }}
     >
-      {/* Streak — flame mark + day count + label.
-          `streak_at_risk_today` is optional on the §3.1 contract;
-          missing = "not at risk" (the conservative default). */}
-      <div className="flex items-center gap-3 border-l-[3px] border-safety pl-4">
-        <FlameMark atRisk={living.streak_at_risk_today ?? false} />
-        <div className="leading-none">
-          <div className="bcc-stencil text-cardstock text-3xl">
-            {living.streak_days}
-            <span className="text-ink-ghost ml-1 text-base">D</span>
-          </div>
-          <div
-            className={
-              living.streak_at_risk_today === true
-                ? "bcc-mono mt-1 text-weld"
-                : "bcc-mono mt-1 text-safety"
-            }
-          >
-            {living.streak_at_risk_today === true ? "STREAK · AT RISK" : "STREAK"}
-          </div>
-        </div>
-      </div>
-
-      {/* Today's impact + §O3.1 comparison — stacked editorial lines */}
+      {/* Today's impact + §O3.1 comparison — stacked editorial lines.
+          The streak column that used to occupy the left slot has been
+          removed (Sprint 2 — see component docstring). The "today"
+          line is now the primary acknowledgment surface. */}
       <div className="flex flex-col justify-center gap-1">
         <p className="font-serif text-base italic text-cardstock-deep md:text-lg">
           {todayLine}
@@ -242,57 +230,8 @@ function composeRemainingLabel(progression: MemberProgression): string | null {
   return `${remaining} ${first.label.toLowerCase()} to go`;
 }
 
-// ─────────────────────────────────────────────────────────────────────
-// FlameMark — crisp SVG flame in safety-orange. Drops to a dimmer tone
-// when the streak is at risk today, so the icon carries the warning.
-// ─────────────────────────────────────────────────────────────────────
-
-function FlameMark({ atRisk }: { atRisk: boolean }) {
-  // When `atRisk === true`, pulse the wrapper element rather than the
-  // SVG itself — animating the SVG's opacity directly would force the
-  // browser to re-rasterize the gradient on every keyframe step. The
-  // bcc-pulse keyframe lives in globals.css:891 and is reduced-motion
-  // gated globally (globals.css:115); motion-safe: keeps the class
-  // off entirely on reduced-motion machines so the wrapper doesn't
-  // even register the animation.
-  return (
-    <span
-      aria-hidden
-      className={
-        "inline-block leading-none " +
-        (atRisk ? "motion-safe:animate-[bcc-pulse_2.4s_infinite]" : "")
-      }
-    >
-      <svg
-        aria-hidden
-        width="40"
-        height="40"
-        viewBox="0 0 40 40"
-        className={
-          atRisk
-            ? "drop-shadow-[0_0_4px_rgba(255,192,30,0.4)]"
-            : "drop-shadow-[0_0_6px_rgba(240,90,40,0.45)]"
-        }
-      >
-        <defs>
-          <linearGradient id="bcc-flame" x1="0" y1="1" x2="0" y2="0">
-            <stop offset="0%"  stopColor={atRisk ? "#ffe59c" : "#ffc01e"} />
-            <stop offset="55%" stopColor={atRisk ? "#c08020" : "#f05a28"} />
-            <stop offset="100%" stopColor="#7a1e08" />
-          </linearGradient>
-        </defs>
-        <path
-          d="M20 4 C16 12, 10 14, 12 22 C8 22, 6 28, 8 32 C10 36, 16 38, 20 38 C24 38, 30 36, 32 32 C34 28, 32 22, 28 22 C30 14, 24 12, 20 4 Z"
-          fill="url(#bcc-flame)"
-          stroke="#0f0d09"
-          strokeWidth="1.4"
-        />
-        <path
-          d="M20 18 C18 22, 16 24, 18 28 C20 32, 22 30, 22 26 C22 22, 21 20, 20 18 Z"
-          fill="#fff3c4"
-          opacity="0.85"
-        />
-      </svg>
-    </span>
-  );
-}
+// FlameMark removed in Sprint 2 — the streak surface it served was
+// retired per the constitutional motion policy (streaks import
+// behavioural-treadmill psychology). The SVG itself was well-crafted;
+// if a future surface needs an iconographic flame for a different
+// purpose, lift it from git history (this file pre-2026-05-13).

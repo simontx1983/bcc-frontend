@@ -749,7 +749,7 @@ function DopamineStep({
     <section
       className={
         "relative mx-auto mt-12 flex min-h-[60vh] max-h-[80vh] max-w-6xl items-center justify-center px-6 sm:px-8 " +
-        (reducedMotion ? "" : "bcc-dopamine-backdrop")
+        (reducedMotion ? "" : "bcc-onboarding-backdrop")
       }
       aria-live="polite"
       aria-label="Welcome to the Floor"
@@ -767,15 +767,15 @@ function DopamineStep({
         visibleChips.map((card, i) => (
           <span
             key={card.id}
-            className={`bcc-dopamine-chip bcc-dopamine-chip-${tierClassName(card.tier)}`}
+            className={`bcc-onboarding-chip bcc-onboarding-chip-${tierClassName(card.tier)}`}
             style={{
-              ["--bcc-dopamine-delay" as string]: `${i * 120}ms`,
+              ["--bcc-onboarding-delay" as string]: `${i * 120}ms`,
             }}
             aria-hidden="true"
           />
         ))}
 
-      <div className={reducedMotion ? "" : "bcc-dopamine-statpop"}>
+      <div className={reducedMotion ? "" : "bcc-onboarding-arrive"}>
         <div className="bcc-panel px-8 py-6 text-center">
           <p className="bcc-stencil text-3xl text-ink md:text-4xl">
             You&apos;re on the Floor.
@@ -809,7 +809,7 @@ function DopamineStep({
 
 function tierClassName(tier: CardTier): string {
   // Tailwind/JIT can't see dynamic class joins, so the receiving
-  // .bcc-dopamine-chip-{name} CSS rules must be statically present in
+  // .bcc-onboarding-chip-{name} CSS rules must be statically present in
   // globals.css. Same name set as §C1 (legendary/rare/uncommon/common,
   // plus a "neutral" fallback for risky/null which the chip still
   // renders since it represents *a pull happened*).
@@ -877,11 +877,17 @@ function useWizardPulls(): WizardPullsApi {
     new Map()
   );
 
-  const followIds = useMemo<ReadonlyMap<number, number>>(() => {
-    const map = new Map<number, number>();
+  // V1.6 follows-by-card-id index. Carries the `source` discriminator
+  // so unpull routes to the correct table (peepso vs. bcc_page_follows)
+  // because their follow_id auto-increment ranges overlap.
+  const followIds = useMemo<ReadonlyMap<number, { follow_id: number; source: "peepso" | "page" }>>(() => {
+    const map = new Map<number, { follow_id: number; source: "peepso" | "page" }>();
     if (binder.data !== undefined) {
       for (const item of binder.data.items) {
-        map.set(item.card_id, item.follow_id);
+        map.set(item.card_id, {
+          follow_id: item.follow_id,
+          source: item.follow_source ?? "peepso",
+        });
       }
     }
     return map;
@@ -932,11 +938,11 @@ function useWizardPulls(): WizardPullsApi {
     setErrorFor(card.id, null);
     if (pending.has(card.id)) return;
 
-    const followId = followIds.get(card.id);
+    const entry = followIds.get(card.id);
     setPendingFor(card.id, true);
 
-    if (followId !== undefined) {
-      unpullMut.mutate(followId, {
+    if (entry !== undefined) {
+      unpullMut.mutate({ follow_id: entry.follow_id, source: entry.source }, {
         onSuccess: () => dropSessionPull(card.id),
         onError: (err) => setErrorFor(card.id, err.message),
         onSettled: () => setPendingFor(card.id, false),
