@@ -3163,6 +3163,45 @@ export interface AttestationReaffirmResponse {
   decay_reset_to: number;
 }
 
+/**
+ * One row in the §J.2 `slot_holders[]` picker payload, returned in
+ * the `error.data` of a `bcc_attestation_bandwidth_exhausted` (409)
+ * response when a new stand_behind cast is refused.
+ *
+ * Each row is one of the operator's currently-active stand_behind
+ * commitments. The FE renders a small picker so the operator can
+ * release one (changing assessment) to make room for another.
+ *
+ * `target_label` + `target_link` are server-rendered per §A2 — the
+ * FE does NOT compose display copy. Empty strings indicate the
+ * target is deleted / unresolvable; the FE renders the row without
+ * a clickable affordance in that case (rare; defense-in-depth).
+ */
+export interface SlotHolder {
+  id: number;
+  kind: "stand_behind";
+  target_kind: AttestationTargetKind;
+  target_id: number;
+  /** Server-rendered display label, e.g. "@phillip" or "Cosmos Hub". */
+  target_label: string;
+  /** Server-rendered relative URL, e.g. "/u/phillip" or "/v/cosmos-hub". */
+  target_link: string;
+  /** ISO 8601 UTC. */
+  created_at: string;
+  context_note: string | null;
+}
+
+/**
+ * Shape of `error.data` on `bcc_attestation_bandwidth_exhausted`
+ * (409). Carries the picker payload + the slot accounting so the
+ * FE can render the dialog without re-fetching anything.
+ */
+export interface BandwidthExhaustedData {
+  slot_holders: SlotHolder[];
+  slots_total: number;
+  slots_used: number;
+}
+
 export interface MemberProfile {
   id: number;
   /** Alias of `id`. Server emits both so callers using either name work. */

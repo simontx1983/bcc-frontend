@@ -47,16 +47,20 @@
  *     the button is sufficient feedback.
  */
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 
+import { SlotHoldersPicker } from "@/components/profile/SlotHoldersPicker";
 import {
   useCastAttestation,
   useRevokeAttestation,
 } from "@/hooks/useAttestations";
 import { humanizeCode } from "@/lib/api/errors";
 import type {
+  AttestationCastRequest,
   AttestationTargetKind,
+  BandwidthExhaustedData,
   BccApiError,
+  SlotHolder,
   ViewerAttestation,
 } from "@/lib/api/types";
 
@@ -114,6 +118,30 @@ export interface AttestationActionClusterProps {
   viewerHasEndorsed?: boolean | undefined;
 }
 
+interface PickerState {
+  open: boolean;
+  holders: SlotHolder[];
+  slotsTotal: number;
+  /** The cast request that triggered the bandwidth-exhausted error. */
+  pendingCast: AttestationCastRequest | null;
+  /** Holder id currently being released (revoke leg, then retry-cast leg). */
+  releasingId: number | null;
+  /** True during the retry-cast leg after a successful release. */
+  retryingCast: boolean;
+  /** Latest error in the picker flow (revoke OR retry-cast). */
+  pickerError: BccApiError | null;
+}
+
+const INITIAL_PICKER: PickerState = {
+  open: false,
+  holders: [],
+  slotsTotal: 0,
+  pendingCast: null,
+  releasingId: null,
+  retryingCast: false,
+  pickerError: null,
+};
+
 export function AttestationActionCluster(props: AttestationActionClusterProps) {
   const hasVouched =
     props.viewerAttestation?.vouch != null
@@ -127,15 +155,115 @@ export function AttestationActionCluster(props: AttestationActionClusterProps) {
     targetKind !== undefined && targetId !== undefined && targetId > 0;
 
   const [errorText, setErrorText] = useState<string | null>(null);
+  const [picker, setPicker] = useState<PickerState>(INITIAL_PICKER);
+
+  // Ref-flag the picker-driven release + retry-cast flow so the
+  // global mutation onError handlers don't double-handle errors
+  // that the picker's try/catch is already surfacing. Read on the
+  // same tick as the callback fires; never persists across renders.
+  const inPickerFlow = useRef(false);
 
   const castMutation = useCastAttestation({
-    onSuccess: () => setErrorText(null),
-    onError: (err) => setErrorText(humanizeAttestationError(err)),
+    onSuccess: () => {
+      if (inPickerFlow.current) {
+        // Retry-cast succeeded inside picker — close the dialog
+        // quietly. The cluster's own viewer_attestation prop will
+        // re-flow via the broad invalidate that useCastAttestation
+        // already triggers on `status === "created"`.
+        inPickerFlow.current = false;
+        setPicker(INITIAL_PICKER);
+        setErrorText(null);
+        return;
+      }
+      setErrorText(null);
+    },
+    onError: (err) => {
+      if (inPickerFlow.current) {
+        // mutateAsync's catch block in handleReleaseAndRetry handles
+        // this — don't double-surface.
+        return;
+      }
+      // Stand Behind hit the §J.1 bandwidth ceiling — open the
+      // picker instead of surfacing the raw error inline. The
+      // server's slot_holders[] payload feeds the dialog directly.
+      const isBandwidthExhausted =
+        err.code === "bcc_attestation_bandwidth_exhausted" &&
+        castMutation.variables?.kind === "stand_behind";
+      if (isBandwidthExhausted) {
+        const data = parseBandwidthExhaustedData(err.data);
+        const pending = castMutation.variables ?? null;
+        if (data !== null && pending !== null) {
+          setPicker({
+            open: true,
+            holders: data.slot_holders,
+            slotsTotal: data.slots_total,
+            pendingCast: pending,
+            releasingId: null,
+            retryingCast: false,
+            pickerError: null,
+          });
+          setErrorText(null);
+          return;
+        }
+      }
+      setErrorText(humanizeAttestationError(err));
+    },
   });
   const revokeMutation = useRevokeAttestation({
-    onSuccess: () => setErrorText(null),
-    onError: (err) => setErrorText(humanizeAttestationError(err)),
+    onSuccess: () => {
+      if (!inPickerFlow.current) {
+        setErrorText(null);
+      }
+    },
+    onError: (err) => {
+      if (inPickerFlow.current) {
+        return;
+      }
+      setErrorText(humanizeAttestationError(err));
+    },
   });
+
+  const handleReleaseAndRetry = async (holderId: number) => {
+    if (picker.pendingCast === null) {
+      return;
+    }
+    const pendingCast = picker.pendingCast;
+    setPicker((s) => ({
+      ...s,
+      releasingId: holderId,
+      retryingCast: false,
+      pickerError: null,
+    }));
+    inPickerFlow.current = true;
+    try {
+      await revokeMutation.mutateAsync(holderId);
+    } catch (err) {
+      inPickerFlow.current = false;
+      setPicker((s) => ({
+        ...s,
+        releasingId: null,
+        pickerError: err as BccApiError,
+      }));
+      return;
+    }
+    setPicker((s) => ({ ...s, retryingCast: true }));
+    try {
+      await castMutation.mutateAsync(pendingCast);
+      // castMutation.onSuccess closes the picker.
+    } catch (err) {
+      inPickerFlow.current = false;
+      setPicker((s) => ({
+        ...s,
+        retryingCast: false,
+        pickerError: err as BccApiError,
+      }));
+    }
+  };
+
+  const handleDismissPicker = () => {
+    inPickerFlow.current = false;
+    setPicker(INITIAL_PICKER);
+  };
 
   const handleVouchClick = () => {
     if (!canMutate || !targetKind || !targetId) return;
@@ -265,8 +393,51 @@ export function AttestationActionCluster(props: AttestationActionClusterProps) {
           {errorText}
         </p>
       )}
+
+      <SlotHoldersPicker
+        open={picker.open}
+        holders={picker.holders}
+        slotsTotal={picker.slotsTotal}
+        releasingHolderId={picker.releasingId}
+        retryingCast={picker.retryingCast}
+        error={picker.pickerError}
+        onRelease={handleReleaseAndRetry}
+        onDismiss={handleDismissPicker}
+      />
     </section>
   );
+}
+
+/**
+ * Defensive runtime narrowing for the §J.2
+ * `bcc_attestation_bandwidth_exhausted` `error.data` payload.
+ * The contract guarantees the shape, but typed error envelopes
+ * carry `Record<string, unknown> | null` — we validate the
+ * minimum we need (slot_holders array + slot counts) before
+ * trusting it. Returns null when the shape is wrong; the cluster
+ * falls back to the inline error path in that case.
+ */
+function parseBandwidthExhaustedData(
+  data: Record<string, unknown> | null,
+): BandwidthExhaustedData | null {
+  if (data === null || typeof data !== "object") {
+    return null;
+  }
+  const holdersRaw = data["slot_holders"];
+  if (!Array.isArray(holdersRaw)) {
+    return null;
+  }
+  const slotsTotal = typeof data["slots_total"] === "number"
+    ? data["slots_total"]
+    : 0;
+  const slotsUsed = typeof data["slots_used"] === "number"
+    ? data["slots_used"]
+    : 0;
+  return {
+    slot_holders: holdersRaw as SlotHolder[],
+    slots_total: slotsTotal,
+    slots_used: slotsUsed,
+  };
 }
 
 /**
