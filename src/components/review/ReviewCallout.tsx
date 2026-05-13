@@ -40,6 +40,15 @@ interface ReviewCalloutProps {
   pageId: number;
   pageName: string;
   canReview: boolean;
+  /**
+   * Server-supplied unlock hint from `card.permissions.can_review.unlock_hint`.
+   * Phase γ UX cleanup: the previous hardcoded "Reviews unlock at Level 2
+   * with reputation tier ≥ neutral" tooltip was a frontend mirror of a
+   * backend gate — drift risk if the gate ever moves. The server now
+   * resolves the unlock copy via `unlockHint(card.permissions, "can_review")`
+   * at view-model assembly time. Null when allowed.
+   */
+  unlockHint: string | null;
   hasReviewed: boolean;
   viewerAuthed: boolean;
 }
@@ -48,6 +57,7 @@ export function ReviewCallout({
   pageId,
   pageName,
   canReview,
+  unlockHint,
   hasReviewed,
   viewerAuthed,
 }: ReviewCalloutProps) {
@@ -116,7 +126,7 @@ export function ReviewCallout({
   const tooltip = !viewerAuthed
     ? "Sign in to write a review."
     : !canReview
-      ? "Reviews unlock at Level 2 with reputation tier ≥ neutral. Keep pulling and posting."
+      ? unlockHint ?? `You can't review ${pageName} yet — keep watching cards and posting on the Floor.`
       : `Write a review of ${pageName}.`;
 
   return (

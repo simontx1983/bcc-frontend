@@ -1635,7 +1635,7 @@ export function humanizeError(err: unknown): string {
     {
       bcc_unauthorized: "Sign in to post.",
       bcc_forbidden:
-        "You haven't unlocked this yet — keep pulling cards and writing on the Floor.",
+        "You haven't unlocked this yet — keep watching cards and writing on the Floor.",
       bcc_invalid_request: "That post can't be sent — check the content.",
       // Per §3.3.12 — the server intentionally hides which user failed
       // which check (privacy posture). The `user_id` in `data` is for

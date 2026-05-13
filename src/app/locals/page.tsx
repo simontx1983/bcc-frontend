@@ -233,7 +233,7 @@ function EmptyState({ chain }: { chain: string | null }) {
       </h2>
       <p className="mt-3 font-serif leading-relaxed text-ink-soft">
         {chain !== null
-          ? "Try a different chain, or pull the filter and see what's already on the books."
+          ? "Try a different chain, or drop the filter and see what's already on the books."
           : "Locals are how members of the same chain or scene cluster up. None on the books yet — first one's coming."}
       </p>
     </div>

@@ -102,7 +102,7 @@ export function SiteFooter({
               READY TO JOIN?
             </span>
             <span className="bcc-footer-acquire-line">
-              Pull cards, post reviews, build trust on the floor.
+              Watch cards, post reviews, build trust on the floor.
             </span>
           </span>
           <span className="bcc-footer-acquire-actions">

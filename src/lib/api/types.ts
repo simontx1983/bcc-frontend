@@ -2743,7 +2743,7 @@ export interface MyParticipationStatus {
 /** Live-shift feed row — recent on-chain activity attributed to the member. */
 export interface MemberLiveShiftEvent {
   id: string;
-  /** Pre-rendered short label e.g. "Pulled OSMO-VALIDATOR-7". */
+  /** Pre-rendered short label e.g. "Watched OSMO-VALIDATOR-7". */
   label: string;
   /** Pre-rendered short timestamp e.g. "2m". */
   ago: string;

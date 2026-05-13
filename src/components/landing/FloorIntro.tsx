@@ -238,7 +238,7 @@ const LOOP: readonly LoopStep[] = [
   { n: "02", verb: "Signal",   line: "Vote, endorse, or dispute." },
   { n: "03", verb: "Record",   line: "Everything is tracked. Nothing disappears." },
   { n: "04", verb: "Compound", line: "Your accuracy builds your weight." },
-  { n: "05", verb: "Access",   line: "Higher trust = deeper privileges." },
+  { n: "05", verb: "Access",   line: "Higher trust unlocks reviews, disputes, and endorsements." },
 ] as const;
 
 function LoopSteps() {

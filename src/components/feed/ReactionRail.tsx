@@ -102,7 +102,11 @@ interface TrustReactionDef {
 const TRUST_REACTIONS: ReadonlyArray<TrustReactionDef> = [
   { kind: "solid",        brand: "Solid",        helper: "Agree" },
   { kind: "vouch",        brand: "Vouch",        helper: "Back this" },
-  { kind: "stand_behind", brand: "Stand behind", helper: "Stake my rep" },
+  // `Stake my rep` was retired 2026-05-13 (Phase γ UX cleanup): `stake`
+  // is a token-finance verb in crypto-native contexts. The reaction
+  // here is reputational, not financial — the new helper makes that
+  // explicit without losing the commitment escalation.
+  { kind: "stand_behind", brand: "Stand behind", helper: "Put your name on it" },
 ];
 
 function TrustRail({ item }: { item: FeedItem }) {
@@ -111,7 +115,16 @@ function TrustRail({ item }: { item: FeedItem }) {
   const counts         = item.reactions.counts;
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    <div className="flex flex-col gap-1.5">
+      {/* Seam-copy (Phase γ UX cleanup): the trust rail looks identical
+          to the social rail at first glance but its buttons are
+          reputationally weighted — clicks stake your name, not just
+          your mood. A single-line caption named once on first
+          encounter beats explaining it in every tooltip. The hint is
+          dismissible via sessionStorage; once acknowledged it never
+          renders again for this session. See TrustRailHint below. */}
+      <TrustRailHint />
+      <div className="flex flex-wrap items-center gap-2">
       {TRUST_REACTIONS.map(({ kind, brand, helper }) => {
         const count    = counts[kind] ?? 0;
         const isActive = viewerReaction === kind;
@@ -151,7 +164,63 @@ function TrustRail({ item }: { item: FeedItem }) {
           </button>
         );
       })}
+      </div>
     </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// TrustRailHint — one-line first-encounter caption above the trust rail.
+//
+// Phase γ UX cleanup found the trust grammar (Solid / Vouch / Stand behind)
+// silently swaps in over the social grammar (Like / Love / Haha / Wow /
+// Fire) based on `post_kind`. The seam is invisible; users tap what
+// looks like a social reaction and instead stake their reputation.
+//
+// Mitigation: a single sentence rendered once per session above the
+// first trust rail the viewer encounters. Sessionstorage-gated so it
+// doesn't follow them around the feed. Reduced-motion respected by
+// having no animation at all — it just renders or doesn't.
+//
+// On-purpose constraints:
+//   - No close button; clicking the rail dismisses it implicitly.
+//   - sessionStorage write is try/catched (Safari private mode, etc.);
+//     a failed write means the hint shows on the next post too, which
+//     is acceptable.
+//   - Anonymous viewers see it the same way; sessionStorage scope
+//     covers them fine.
+// ─────────────────────────────────────────────────────────────────────
+
+const TRUST_RAIL_HINT_KEY = "bcc.trust_rail_hint_seen";
+
+function TrustRailHint() {
+  const [dismissed, setDismissed] = useState(() => {
+    if (typeof window === "undefined") return true;
+    try {
+      return window.sessionStorage.getItem(TRUST_RAIL_HINT_KEY) === "1";
+    } catch {
+      return false;
+    }
+  });
+
+  if (dismissed) return null;
+
+  const dismiss = () => {
+    setDismissed(true);
+    try {
+      window.sessionStorage.setItem(TRUST_RAIL_HINT_KEY, "1");
+    } catch {
+      // Safari private mode etc. — non-fatal; hint will reappear.
+    }
+  };
+
+  return (
+    <p
+      className="bcc-mono text-[10px] tracking-[0.16em] text-ink-soft/70"
+      onClick={dismiss}
+    >
+      TRUST SIGNAL · CLICKS HERE PUT YOUR NAME ON IT.
+    </p>
   );
 }
 

@@ -47,7 +47,7 @@ export function NftShowcaseSettings() {
 
         <div className="mt-5">
           {list.isPending && (
-            <p className="bcc-mono text-ink-soft">Pulling showcase…</p>
+            <p className="bcc-mono text-ink-soft">Loading showcase…</p>
           )}
 
           {list.isError && (

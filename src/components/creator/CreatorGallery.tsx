@@ -80,7 +80,7 @@ export function CreatorGallery({ slug, creatorName }: CreatorGalleryProps) {
       <GalleryShell title="The Gallery">
         <div className="bcc-panel mx-auto max-w-lg p-8 text-center">
           <h3 className="bcc-stencil text-2xl text-ink">
-            {isStale ? "Pulling from-chain…" : "Coming soon"}
+            {isStale ? "Loading collection…" : "Coming soon"}
           </h3>
           <p className="mt-2 font-serif text-ink-soft">
             {isStale

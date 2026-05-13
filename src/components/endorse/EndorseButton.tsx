@@ -125,7 +125,7 @@ export function EndorseButton({
     ? "Sign in to endorse."
     : !canEndorse
       ? unlockHint ?? `You can't endorse ${pageName} right now.`
-      : `Endorse ${pageName}. Adds a vested trust bonus to their score.`;
+      : `Endorse ${pageName}. Adds a long-term trust boost to their score — heavier than a Vouch, builds over time.`;
 
   const pending = endorse.isPending;
 

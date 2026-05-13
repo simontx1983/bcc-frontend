@@ -147,9 +147,12 @@ function composeTodayLine(today: MemberLiving["today"]): string {
   pushIf(parts, today.solids_received,          (n) => `${n} ${pluralize(n, "solid", "solids")}`);
   // vouches_received and pulls are optional on the §3.1 contract;
   // missing counters are treated as zero (filtered out by pushIf).
+  // The server enum is still `pulls` (storage primitive); the user-
+  // visible noun is `card watched` / `cards watched` per the
+  // Keep Tabs migration.
   pushIf(parts, today.vouches_received ?? 0,    (n) => `${n} ${pluralize(n, "vouch", "vouches")}`);
   pushIf(parts, today.disputes_signed,          (n) => `${n} ${pluralize(n, "dispute signed", "disputes signed")}`);
-  pushIf(parts, today.pulls ?? 0,               (n) => `${n} ${pluralize(n, "pull", "pulls")}`);
+  pushIf(parts, today.pulls ?? 0,               (n) => `${n} ${pluralize(n, "card watched", "cards watched")}`);
 
   if (parts.length === 0) {
     return "Quiet shift. Floor's been still.";

@@ -104,7 +104,7 @@ export function NftPickerModal({ onClose }: NftPickerModalProps) {
       </header>
 
       {picker.isPending && (
-        <p className="bcc-mono text-cardstock-deep">Pulling holdings…</p>
+        <p className="bcc-mono text-cardstock-deep">Loading holdings…</p>
       )}
 
       {picker.isError && (

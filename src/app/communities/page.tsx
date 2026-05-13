@@ -86,9 +86,10 @@ export default async function CommunitiesDiscoveryPage({ searchParams }: PagePro
           Communities
         </h1>
         <p className="mt-3 max-w-2xl font-serif text-lg text-cardstock-deep">
-          Active rooms across the floor. On-chain verified communities
-          rank first, then warmest, then largest — so you see the rooms
-          worth walking into, not the dead ones.
+          Active rooms across the floor. <span className="bcc-mono">HOLDERS</span> are NFT-gated,
+          <span className="bcc-mono"> LOCAL</span> rooms cluster by chain, and the rest are open
+          rooms anyone can join. Verified rooms rank first, then warmest, then largest — so
+          you see the rooms worth walking into, not the dead ones.
         </p>
       </section>
 
@@ -122,9 +123,15 @@ export default async function CommunitiesDiscoveryPage({ searchParams }: PagePro
 // ─────────────────────────────────────────────────────────────────────
 
 function VerifiedFilterStrip({ verifiedOnly }: { verifiedOnly: boolean }) {
+  // Phase γ UX cleanup: the chip used to read "On-Chain Verified",
+  // which is accurate (verification IS done by holding the NFT in a
+  // signed-on-chain wallet) but reads as crypto jargon to a casual
+  // visitor. "Verified" alone suffices at the directory level — the
+  // mechanic itself stays surfaced inside the holder-community claim
+  // flow + wallet settings, where the technical detail matters.
   const filters: ReadonlyArray<{ value: boolean; label: string }> = [
     { value: false, label: "All" },
-    { value: true,  label: "On-Chain Verified" },
+    { value: true,  label: "Verified" },
   ];
   return (
     <div className="flex flex-wrap items-center gap-2">
@@ -237,15 +244,23 @@ function CommunityCard({ item }: { item: GroupDiscoveryItem }) {
 }
 
 function CardBody({ item }: { item: GroupDiscoveryItem }) {
+  // Phase γ UX cleanup: surface the kind + accessibility-of-join as two
+  // small chips so users can distinguish HOLDERS (NFT-gated) vs LOCAL
+  // (chain-bound) vs OPEN (plain group, anyone can join) vs CLOSED
+  // (request-to-join, not handled in this surface) at a glance.
+  // accessibilityLabel is null for NFT/Local types where the join
+  // mechanic is implicit in the kind itself.
+  const accessibilityLabel = privacyChipLabel(item);
+
   return (
     <>
       <div className="flex items-baseline justify-between gap-3">
         <span className="bcc-mono text-[10px] tracking-[0.18em] text-cardstock-deep">
           {kindLabel(item.type)}
         </span>
-        {item.privacy === "closed" && (
+        {accessibilityLabel !== null && (
           <span className="bcc-mono text-[10px] tracking-[0.18em] text-cardstock-deep">
-            CLOSED
+            {accessibilityLabel}
           </span>
         )}
       </div>
@@ -282,7 +297,7 @@ function EmptyState({ verifiedOnly }: { verifiedOnly: boolean }) {
       <p className="bcc-mono text-safety">NO COMMUNITIES</p>
       <h2 className="bcc-stencil mt-2 text-3xl text-ink">
         {verifiedOnly
-          ? "No on-chain verified communities yet."
+          ? "No verified communities yet."
           : "No communities yet."}
       </h2>
       <p className="mt-3 font-serif leading-relaxed text-ink-soft">
@@ -365,6 +380,25 @@ function kindLabel(type: GroupDiscoveryItem["type"]): string {
     case "system": return "SYSTEM";
     case "user":   return "GROUP";
   }
+}
+
+/**
+ * Secondary chip that names the join model alongside the kind label.
+ *
+ *   - Plain groups (user/system) + privacy === "open"   → "OPEN"
+ *   - Plain groups (user/system) + privacy === "closed" → "CLOSED"
+ *   - NFT holder groups and Locals → null (the kind label HOLDERS / LOCAL
+ *     already communicates the gating model; doubling it up is noise)
+ *
+ * Phase γ UX cleanup: previously only CLOSED was rendered; OPEN was the
+ * implicit default. Surfacing both makes the directory scannable for a
+ * user who doesn't yet know "GROUP without a CLOSED tag" means open.
+ */
+function privacyChipLabel(item: GroupDiscoveryItem): string | null {
+  if (item.type !== "user" && item.type !== "system") return null;
+  if (item.privacy === "closed") return "CLOSED";
+  if (item.privacy === "open")   return "OPEN";
+  return null;
 }
 
 /**

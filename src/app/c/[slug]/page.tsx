@@ -52,7 +52,7 @@ export default async function CreatorProfilePage({ params }: PageProps) {
       {/* §H1 NFT gallery — client-side query against
           /bcc/v1/creators/:slug/gallery. Server-side SWR pattern: any
           stale rows trigger a background refresh; the UI shows a
-          "Coming soon" / "Pulling from-chain…" placeholder for first-
+          "Coming soon" / "Loading collection…" placeholder for first-
           ever requests. */}
       <CreatorGallery slug={slug} creatorName={card.name} />
     </>

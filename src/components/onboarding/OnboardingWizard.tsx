@@ -85,7 +85,7 @@ export function OnboardingWizard({ handle }: OnboardingWizardProps) {
 
   const wizardLabel: Record<Step, string> = {
     chain:         "Step 1 of 4 · Home Chain",
-    pulls:         "Step 2 of 4 · First Pulls",
+    pulls:         "Step 2 of 4 · Start watching",
     notifications: "Step 3 of 4 · Stay Posted",
     dopamine:      "Step 4 of 4 · Welcome",
   };
@@ -155,8 +155,8 @@ function ExplainerStrip() {
         <ExplainerBullet n="2" title="Earn rank">
           Review, vouch, and post to climb from Apprentice up.
         </ExplainerBullet>
-        <ExplainerBullet n="3" title="Sign on-chain">
-          Link a wallet to dispute, claim, and stake your rep.
+        <ExplainerBullet n="3" title="Link your wallet">
+          Connect a wallet to dispute, claim, and put your name on it.
         </ExplainerBullet>
       </div>
     </div>
@@ -327,10 +327,10 @@ function FirstPullsStep({
           className="bcc-stencil flex items-center gap-3 bg-safety px-6 py-3 text-ink disabled:cursor-wait disabled:opacity-60"
         >
           {pulls.anyPending
-            ? "Saving pulls…"
+            ? "Saving…"
             : pulls.pulledCount > 0
-              ? `Done (${pulls.pulledCount} pulled)`
-              : "Done — skip pulls"}
+              ? `Done (${pulls.pulledCount} on your list)`
+              : "Done — skip for now"}
         </button>
       </footer>
     </>
@@ -484,7 +484,7 @@ function NotificationsStep({
         {/* Bell rollup */}
         <WizardOptCard
           title="In-app bell"
-          subtitle="Reactions, reviews, endorsements, pulls on your cards, rank-ups."
+          subtitle="Reactions, reviews, endorsements, new watchers on your cards, rank-ups."
           checked={bellEnabled === true}
           disabled={prefsQuery.isLoading || saving}
           onChange={setBellEnabled}
@@ -1049,7 +1049,7 @@ function CardWithError({ card, pulls }: { card: Card; pulls: WizardPullsApi }) {
         {...(isPending ? {} : { onPull: pulls.toggle })}
       />
       {isPending && (
-        <span className="bcc-mono text-cardstock-deep/70">{isPulled ? "Removing…" : "Pulling…"}</span>
+        <span className="bcc-mono text-cardstock-deep/70">{isPulled ? "Removing…" : "Saving…"}</span>
       )}
       {error !== null && !isPending && (
         <span role="alert" className="bcc-mono max-w-[280px] text-center text-safety">

@@ -1039,7 +1039,7 @@ function CaseFileError({ message }: { message: string }) {
     <div className="mt-10 border-2 border-safety p-6">
       <p className="bcc-mono text-safety">CASE FILE ERROR //</p>
       <p className="bcc-stencil mt-2 text-2xl text-ink">
-        Couldn&rsquo;t pull the case.
+        Couldn&rsquo;t load the case.
       </p>
       <p role="alert" className="bcc-mono mt-3 text-ink-ghost">
         {message}
