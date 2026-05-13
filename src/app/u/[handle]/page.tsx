@@ -257,6 +257,8 @@ function IdentityHeader({
           equivalents to these primitives, so the cluster is purely
           additive here. */}
       <AttestationActionCluster
+        targetKind="user_profile"
+        targetId={profile.user_id}
         canVouch={profile.permissions.can_vouch}
         canStandBehind={profile.permissions.can_stand_behind}
         canDispute={profile.permissions.can_dispute}

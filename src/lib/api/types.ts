@@ -273,6 +273,39 @@ export interface CardChain {
   operator_address: string;
 }
 
+/**
+ * On-chain validator status reported by the chain (LCD/RPC). Mirrors
+ * the values stored in bcc_onchain_validators.status — `unknown` is
+ * surfaced when the indexer hasn't classified the row yet.
+ */
+export type ValidatorOnchainStatus = "active" | "inactive" | "jailed" | "unknown";
+
+/**
+ * §V1.6 validator-card on-chain signals block. All numeric fields use
+ * the conventions:
+ *   - `uptime_30d`, `commission_rate` — ratio in [0, 1], not percentage.
+ *     A frontend formatter renders them as "99.7%" / "5.0%".
+ *   - `total_stake`, `self_stake` — bigint preserved as STRING because
+ *     Cosmos token denominations regularly exceed JS Number precision.
+ *     The frontend formats with a chain-aware helper; never `parseFloat`.
+ *   - `voting_power_rank` — 1-based; lower is "better."
+ *   - `last_fetched_at` — ISO-8601 UTC; null on never-fetched rows.
+ *
+ * Any field except `status` may be null when the indexer hasn't filled
+ * it yet (enrichment runs asynchronously after the initial bulk-upsert).
+ */
+export interface OnchainSignals {
+  status: ValidatorOnchainStatus;
+  uptime_30d: number | null;
+  commission_rate: number | null;
+  voting_power_rank: number | null;
+  total_stake: string | null;
+  self_stake: string | null;
+  delegator_count: number | null;
+  jailed_count: number | null;
+  last_fetched_at: string | null;
+}
+
 export interface Card {
   id: number;
   name: string;
@@ -334,6 +367,18 @@ export interface Card {
    * when this is non-null.
    */
   chains: CardChain[] | null;
+  /**
+   * On-chain validator signals — status, uptime, commission, voting
+   * rank, stake — sourced directly from the chain LCD/RPC and surfaced
+   * on validator cards so unclaimed placeholders still tell the viewer
+   * what the operator actually does on-chain. Null for non-validator
+   * kinds and for validator pages with no resolvable on-chain row
+   * (transient indexer state).
+   *
+   * Optional during the V1.6 backend rollout per the §A2/§L5 contract
+   * conventions (mirrors `reputation_score?` / `attestation_summary?`).
+   */
+  onchain_signals?: OnchainSignals | null;
   /**
    * §D2 — true when the current viewer has already cast a review on
    * this page. Drives ReviewCallout's "WRITE A REVIEW" → "REMOVE
@@ -727,6 +772,13 @@ export interface CardsListQueryParams {
    * neutral on the server). Composes with `tier` via AND server-side.
    */
   good_standing_only?: boolean;
+  /**
+   * Chain slug filter — restricts validator results to a single chain
+   * (`akash`, `cosmos`, `osmosis`, …). Server validates against active
+   * chains and 400s on unknown slugs. Meaningful for `kind=validator`
+   * today; future kinds (creator/NFT collections) extend the same shape.
+   */
+  chain?: string;
 }
 
 export interface CardsListPagination {
@@ -787,7 +839,11 @@ export type NotificationKind =
   | "bcc_welcome"
   | "bcc_mention"
   | "bcc_local_post"
-  | "bcc_comment_received";
+  | "bcc_comment_received"
+  | "bcc_attestation_vouch_received"
+  | "bcc_attestation_stand_behind_received"
+  | "bcc_attestation_revoked"
+  | "bcc_attestation_reaffirmed";
 
 export interface NotificationActor {
   id: number;
@@ -2995,6 +3051,118 @@ export interface AttestationRosterResponse {
   };
 }
 
+// ─────────────────────────────────────────────────────────────────────
+// V2 Trust Attestation Layer — Slice C mutation surfaces (§4.20 §J.2 / §J.3).
+//
+// Three endpoints under /bcc/v1/me/attestations:
+//   POST                  — cast (vouch | stand_behind)
+//   DELETE /:id           — revoke (idempotent soft-delete)
+//   POST   /:id/reaffirm  — refresh decay baseline (§J.2.1)
+//
+// All three are self-only, Bearer-authed, no-store. Each error code
+// in the §J.2 catalogue is locked; the FE branches on `error.code`
+// (never on `error.message` per the §γ error-contract rule).
+// ─────────────────────────────────────────────────────────────────────
+
+/** §J.6 target taxonomy — covers operator profiles + the three card kinds. */
+export type AttestationTargetKind =
+  | "user_profile"
+  | "validator_card"
+  | "project_card"
+  | "creator_card";
+
+/** Body for POST /me/attestations. */
+export interface AttestationCastRequest {
+  kind: AttestationKind;
+  target_kind: AttestationTargetKind;
+  target_id: number;
+  /**
+   * Optional rationale; server-capped at 280 chars, trimmed,
+   * sanitized via WordPress `sanitize_textarea_field`. Empty / null
+   * is the common case — most casts ship without context.
+   */
+  context_note?: string | null;
+}
+
+/**
+ * Self-view attestor summary returned on cast / revoke / reaffirm.
+ * Per §J.3.2 asymmetric-display, the numeric reliability fields are
+ * SELF-ONLY — these responses always represent the viewer's own
+ * action, so the fields are present (V1 may emit null while Slice E
+ * computes the real values).
+ */
+export interface AttestorSummarySelf {
+  /** Active stand_behind attestations cast by this operator. */
+  stand_behind_slots_used: number;
+  /** Effective slot count = tier baseline + graduated bonus. */
+  stand_behind_slots_total: number;
+  /**
+   * Self-only — never exposed to third-party queries.
+   * V1 emits 0 while §J.1 graduation lands in Slice E.
+   */
+  stand_behind_slots_graduated: number;
+  /** §J.1 dormancy flag. V1 baseline `false`; Slice E computes. */
+  is_dormant: boolean;
+  /**
+   * §J.3.2 positive-only public standing badge. V1 default
+   * `"newly_active"`; Slice E computes the full classification.
+   */
+  reliability_standing: ReliabilityStandingPublic;
+  /** V1 catalogue: highly_reliable / consistent / newly_active / early_read. */
+  badges: string[];
+  /**
+   * Self-only numeric reliability. V1 returns null pending Slice E.
+   */
+  operator_reliability: number | null;
+  /** Self-only §J.3.2.1 sub-track. V1 null. */
+  consensus_reliability: number | null;
+  /** Self-only §J.3.2.1 sub-track. V1 null. */
+  early_read_accuracy: number | null;
+}
+
+/** §J.2 cast response — same shape for status='created' (201) and 'existing' (200). */
+export interface AttestationCastResponse {
+  id: number;
+  status: "created" | "existing";
+  kind: AttestationKind;
+  target_kind: AttestationTargetKind;
+  target_id: number;
+  /** §J.4.1 — V1 weight is 1.0; synthesis applies decay at read-time (Slice E). */
+  weight_at_time: number;
+  context_note: string | null;
+  /** ISO 8601 UTC. */
+  created_at: string;
+  /** ISO 8601 UTC or null if never reaffirmed. */
+  reaffirmed_at: string | null;
+  /**
+   * §J.2 decay surface — current effective weight + as-of timestamp.
+   * V1 returns weight_at_time + created_at (no decay yet); Slice E
+   * computes from the decay curve.
+   */
+  decay: {
+    current_weight: number;
+    as_of: string;
+  };
+  attestor_summary: AttestorSummarySelf;
+}
+
+/** §J.3 revoke response. */
+export interface AttestationRevokeResponse {
+  id: number;
+  /** ISO 8601 UTC. */
+  revoked_at: string | null;
+  attestor_summary: AttestorSummarySelf;
+}
+
+/** §J.2.1 reaffirm response. */
+export interface AttestationReaffirmResponse {
+  id: number;
+  /** ISO 8601 UTC. */
+  reaffirmed_at: string | null;
+  /** New decay baseline (always weight_at_time for V1). */
+  decay_reset_to: number;
+}
+
 export interface MemberProfile {
   id: number;
   /** Alias of `id`. Server emits both so callers using either name work. */
@@ -3239,7 +3407,11 @@ export type BellEventType =
   | "bcc_welcome"
   | "bcc_mention"
   | "bcc_local_post"
-  | "bcc_comment_received";
+  | "bcc_comment_received"
+  | "bcc_attestation_vouch_received"
+  | "bcc_attestation_stand_behind_received"
+  | "bcc_attestation_revoked"
+  | "bcc_attestation_reaffirmed";
 
 export interface NotificationPrefs {
   email_digest: boolean;
@@ -3295,7 +3467,11 @@ export type PushEventType =
   | "panelist_selected"
   | "mention"
   | "local_post"
-  | "comment_received";
+  | "comment_received"
+  | "attestation_vouch_received"
+  | "attestation_stand_behind_received"
+  | "attestation_revoked"
+  | "attestation_reaffirmed";
 
 export interface PushPrefs {
   enabled: boolean;

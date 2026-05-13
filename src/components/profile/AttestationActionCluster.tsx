@@ -5,11 +5,11 @@
  * §J.6: Vouch / Stand Behind / Dispute / Report. The load-bearing
  * interaction surface for the Trust Attestation Layer.
  *
- * Phase 1 status: READ-ONLY scaffold. `onClick` handlers are no-ops
- * pending the §J.2 / §J.3 POST endpoints landing in Phase 1 Week 2
- * per the implementation plan. The cluster validates semantics,
- * eligibility-gate rendering, and emotional readability before
- * mutation wiring exists.
+ * Slice C status: Vouch + Stand Behind buttons wired to the §4.20
+ * §J mutation endpoints. Each button toggles between cast / revoke
+ * based on `viewer_attestation`. Dispute + Report remain scaffold —
+ * Dispute Phase 1.5; Report wires to the existing content-report
+ * surface in a future slice.
  *
  * Anti-complexity heuristics (§J.7) — enforced:
  *   - #4: one action per primitive. No settings panel. No
@@ -26,28 +26,39 @@
  * §N7 visibility rule: every gated action renders disabled with
  * inline unlock_hint UNLESS it's structurally impossible
  * (`allowed: false, unlock_hint: null`), in which case it's hidden.
- * Phase 1 backend rollout: when a permission entry is undefined
- * entirely (backend hasn't shipped the gate yet), the action is
- * hidden. As permissions ship in Phase 1 Week 2, the buttons appear.
  *
  * §J.4.1 synthesis invisibility: no math surfaces. The Stand Behind
  * allocation indicator ("2 OF 5") is intentional-scarcity surfacing
  * per heuristic #5 — not synthesis math. No weights, multipliers,
  * decay curves, or caps appear anywhere in the rendered output.
  *
- * Disabled-state emotional tone (Phillip's note: scarcity +
- * eligibility should feel aspirational, not exclusionary):
- *   - unlock_hint copy comes from the server per §A2. FE renders it
- *     inline below the disabled button — visible path forward, not
- *     hidden behind a tooltip.
- *   - For scarcity-exhausted Stand Behind: server hint reads as an
- *     invitation to choose ("All slots in use. Drop one to add
- *     this."), not a rejection.
- *   - For tier-gated Dispute: server hint is aspirational ("Reach
- *     Trusted tier to file disputes."), not stigma.
+ * Mutation-error handling: per the §γ error-contract rule, the
+ * cluster branches on `err.code`, never on `err.message`. The
+ * server-authoritative aspirational copy for tier-gate failures
+ * arrives in `err.data.unlock_hint` for `bcc_attestation_ineligible`;
+ * we render it verbatim (already in the right tone). For everything
+ * else we use `humanizeCode` with a small per-code map.
+ *
+ * Optimistic UI: NOT used. Reasons:
+ *   - Cast is idempotent; double-click is structurally safe.
+ *   - Revoke is idempotent; toggle UI rolls back cleanly on error
+ *     because we never mutate local state until the server confirms.
+ *   - The mutation latency is sub-200ms; the pending-state class on
+ *     the button is sufficient feedback.
  */
 
-import type { ViewerAttestation } from "@/lib/api/types";
+import { useState } from "react";
+
+import {
+  useCastAttestation,
+  useRevokeAttestation,
+} from "@/hooks/useAttestations";
+import { humanizeCode } from "@/lib/api/errors";
+import type {
+  AttestationTargetKind,
+  BccApiError,
+  ViewerAttestation,
+} from "@/lib/api/types";
 
 /**
  * Structural subset of permission entries compatible with both
@@ -62,6 +73,15 @@ interface ActionPermission {
 
 export interface AttestationActionClusterProps {
   /**
+   * The target this cluster acts on. Required to dispatch the §4.20
+   * §J.2 / §J.3 mutations. Optional during Phase 1 rollout — when
+   * absent the cluster degrades to read-only (no click handlers
+   * attach). Once all parent surfaces ship the prop the optional is
+   * dropped.
+   */
+  targetKind?: AttestationTargetKind | undefined;
+  targetId?: number | undefined;
+  /**
    * Server-resolved permissions per §J.6 / §N7. Undefined → backend
    * hasn't shipped this gate yet, action is hidden. Defined →
    * renders enabled when allowed, disabled with inline unlock_hint
@@ -74,7 +94,8 @@ export interface AttestationActionClusterProps {
   canReport?: ActionPermission | undefined;
   /**
    * Has the viewer already cast an attestation on this target?
-   * Drives the cast-state copy ("VOUCHED" / "STANDING BEHIND").
+   * Drives the cast-state copy ("VOUCHED" / "STANDING BEHIND")
+   * AND the click-to-revoke branch.
    */
   viewerAttestation?: ViewerAttestation | undefined;
   /**
@@ -100,6 +121,50 @@ export function AttestationActionCluster(props: AttestationActionClusterProps) {
       : props.viewerHasEndorsed ?? false;
   const isStandingBehind = props.viewerAttestation?.stand_behind != null;
 
+  const targetKind = props.targetKind;
+  const targetId = props.targetId;
+  const canMutate =
+    targetKind !== undefined && targetId !== undefined && targetId > 0;
+
+  const [errorText, setErrorText] = useState<string | null>(null);
+
+  const castMutation = useCastAttestation({
+    onSuccess: () => setErrorText(null),
+    onError: (err) => setErrorText(humanizeAttestationError(err)),
+  });
+  const revokeMutation = useRevokeAttestation({
+    onSuccess: () => setErrorText(null),
+    onError: (err) => setErrorText(humanizeAttestationError(err)),
+  });
+
+  const handleVouchClick = () => {
+    if (!canMutate || !targetKind || !targetId) return;
+    setErrorText(null);
+    if (hasVouched && props.viewerAttestation?.vouch?.id != null) {
+      revokeMutation.mutate(props.viewerAttestation.vouch.id);
+      return;
+    }
+    castMutation.mutate({
+      kind: "vouch",
+      target_kind: targetKind,
+      target_id: targetId,
+    });
+  };
+
+  const handleStandBehindClick = () => {
+    if (!canMutate || !targetKind || !targetId) return;
+    setErrorText(null);
+    if (isStandingBehind && props.viewerAttestation?.stand_behind?.id != null) {
+      revokeMutation.mutate(props.viewerAttestation.stand_behind.id);
+      return;
+    }
+    castMutation.mutate({
+      kind: "stand_behind",
+      target_kind: targetKind,
+      target_id: targetId,
+    });
+  };
+
   // §N7: cluster renders nothing when all permissions are absent.
   // During Phase 1 backend rollout this means the cluster doesn't
   // appear yet — it surfaces as gates ship in Week 2.
@@ -112,6 +177,20 @@ export function AttestationActionCluster(props: AttestationActionClusterProps) {
     return null;
   }
 
+  // Stand Behind cast pending = vouch button stays interactive (they
+  // are independent kinds); same for revoke. Each tracks its own
+  // kind by looking at the mutation variables.
+  const isVouchPending =
+    (castMutation.isPending && castMutation.variables?.kind === "vouch") ||
+    (revokeMutation.isPending &&
+      revokeMutation.variables === props.viewerAttestation?.vouch?.id);
+  const isStandBehindPending =
+    (castMutation.isPending &&
+      castMutation.variables?.kind === "stand_behind") ||
+    (revokeMutation.isPending &&
+      revokeMutation.variables ===
+        props.viewerAttestation?.stand_behind?.id);
+
   return (
     <section
       aria-label="Trust attestation actions"
@@ -119,26 +198,42 @@ export function AttestationActionCluster(props: AttestationActionClusterProps) {
     >
       {props.canVouch !== undefined && (
         <ActionButton
-          label={hasVouched ? "VOUCHED" : "VOUCH"}
+          label={
+            isVouchPending
+              ? hasVouched
+                ? "REVOKING…"
+                : "VOUCHING…"
+              : hasVouched
+                ? "VOUCHED"
+                : "VOUCH"
+          }
           permission={props.canVouch}
           isCast={hasVouched}
           tone="positive"
+          onClick={canMutate ? handleVouchClick : undefined}
+          isPending={isVouchPending}
         />
       )}
 
       {props.canStandBehind !== undefined && (
         <ActionButton
           label={
-            isStandingBehind
-              ? "STANDING BEHIND"
-              : formatStandBehindLabel(
-                  props.standBehindSlotsUsed,
-                  props.standBehindSlotsTotal,
-                )
+            isStandBehindPending
+              ? isStandingBehind
+                ? "REVOKING…"
+                : "STANDING BEHIND…"
+              : isStandingBehind
+                ? "STANDING BEHIND"
+                : formatStandBehindLabel(
+                    props.standBehindSlotsUsed,
+                    props.standBehindSlotsTotal,
+                  )
           }
           permission={props.canStandBehind}
           isCast={isStandingBehind}
           tone="conviction"
+          onClick={canMutate ? handleStandBehindClick : undefined}
+          isPending={isStandBehindPending}
         />
       )}
 
@@ -148,6 +243,7 @@ export function AttestationActionCluster(props: AttestationActionClusterProps) {
           permission={props.canDispute}
           isCast={false}
           tone="adversarial"
+          isPending={false}
         />
       )}
 
@@ -157,7 +253,17 @@ export function AttestationActionCluster(props: AttestationActionClusterProps) {
           permission={props.canReport}
           isCast={false}
           tone="utility"
+          isPending={false}
         />
+      )}
+
+      {errorText !== null && (
+        <p
+          role="alert"
+          className="bcc-mono pl-1 text-[11px] tracking-[0.14em] text-safety"
+        >
+          {errorText}
+        </p>
       )}
     </section>
   );
@@ -186,11 +292,15 @@ function ActionButton({
   permission,
   isCast,
   tone,
+  onClick,
+  isPending,
 }: {
   label: string;
   permission: ActionPermission;
   isCast: boolean;
   tone: ActionTone;
+  onClick?: (() => void) | undefined;
+  isPending: boolean;
 }) {
   // §N7 structural-deny: allowed=false AND unlock_hint=null →
   // hidden, not rendered as disabled. Covers self-attest etc.
@@ -200,7 +310,7 @@ function ActionButton({
     return null;
   }
 
-  const isEnabled = permission.allowed;
+  const isEnabled = permission.allowed && onClick !== undefined && !isPending;
   const className = buttonClassFor(tone, isCast, !isEnabled);
 
   return (
@@ -208,15 +318,14 @@ function ActionButton({
       <button
         type="button"
         disabled={!isEnabled}
-        onClick={() => {
-          /* Read-only scaffold — mutation wiring lands Phase 1 Week 2.
-             The cluster validates semantics + emotional tone first. */
-        }}
+        aria-disabled={!isEnabled}
+        aria-busy={isPending}
+        onClick={onClick}
         className={className}
       >
         {label}
       </button>
-      {!isEnabled && permission.unlock_hint !== null && (
+      {!permission.allowed && permission.unlock_hint !== null && (
         <p className="bcc-mono pl-1 text-[11px] tracking-[0.14em] text-cardstock-deep">
           {permission.unlock_hint}
         </p>
@@ -239,9 +348,8 @@ function buttonClassFor(
     return `${BASE_BUTTON_CLASS} border border-cardstock/20 text-cardstock-deep/60`;
   }
   if (isCast) {
-    // Already cast — action remains enabled (the click would revoke
-    // when mutation wiring lands) but visually reads "done, in good
-    // order." Phosphor tint signals completion.
+    // Already cast — action remains enabled (the click revokes).
+    // Phosphor tint signals completion.
     return `${BASE_BUTTON_CLASS} border border-phosphor/60 bg-phosphor/10 text-phosphor hover:bg-phosphor/15`;
   }
   switch (tone) {
@@ -265,4 +373,40 @@ function buttonClassFor(
       // eligible viewers.
       return `${BASE_BUTTON_CLASS} border border-cardstock/40 bg-cardstock/5 text-cardstock hover:bg-cardstock/15`;
   }
+}
+
+/**
+ * Branch on error.code per the §γ error-contract rule. For the tier-
+ * gate error, the server supplies the aspirational unlock_hint
+ * verbatim in error.data.unlock_hint — emit it instead of the
+ * code-map fallback so the FE stays single-source-of-truth for tone.
+ */
+function humanizeAttestationError(err: BccApiError): string {
+  if (err.code === "bcc_attestation_ineligible") {
+    const data = err.data;
+    if (data !== null && typeof data === "object" && !Array.isArray(data)) {
+      const hint = (data as Record<string, unknown>)["unlock_hint"];
+      if (typeof hint === "string" && hint !== "") {
+        return hint;
+      }
+    }
+  }
+  return humanizeCode(
+    err,
+    {
+      bcc_unauthorized: "Sign in to attest.",
+      bcc_rate_limited: "Too many actions just now. Wait a moment.",
+      bcc_invalid_request: "We couldn't record that attestation.",
+      bcc_attestation_self: "You can't attest on yourself.",
+      bcc_attestation_bandwidth_exhausted:
+        "You're at your Stand Behind limit. Revoke one to free a slot.",
+      bcc_attestation_fraud_blocked:
+        "Your account is temporarily restricted from attesting.",
+      bcc_attestation_revoked:
+        "That attestation was already revoked.",
+      bcc_not_found: "Attestation not found.",
+      bcc_forbidden: "You can only act on your own attestations.",
+    },
+    "Couldn't update attestation. Try again.",
+  );
 }

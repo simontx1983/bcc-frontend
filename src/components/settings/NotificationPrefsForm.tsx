@@ -104,6 +104,26 @@ const BELL_ROWS: ReadonlyArray<BellRow> = [
     label: "Comments on your posts",
     blurb: "Someone commented on a post you authored. Coalesced to at most one bell per post per 5-minute window — hot posts don't spam.",
   },
+  {
+    key: "bcc_attestation_vouch_received",
+    label: "Vouches received",
+    blurb: "Someone vouched for you — operator profile or one of your cards.",
+  },
+  {
+    key: "bcc_attestation_stand_behind_received",
+    label: "Stand Behind received",
+    blurb: "Someone put a Stand Behind slot on your operator profile or one of your cards. High-conviction.",
+  },
+  {
+    key: "bcc_attestation_revoked",
+    label: "Attestation revoked",
+    blurb: "Someone revoked a vouch or Stand Behind they had previously cast on you. Reads as a neutral state change.",
+  },
+  {
+    key: "bcc_attestation_reaffirmed",
+    label: "Attestation reaffirmed",
+    blurb: "Someone reaffirmed an attestation on you — refresh signal that they still endorse you.",
+  },
 ];
 
 // V2 Phase 1: push event taxonomy is a deliberate subset of the bell.
@@ -143,6 +163,26 @@ const PUSH_ROWS: ReadonlyArray<PushRow> = [
     key: "comment_received",
     label: "Comments on your posts",
     blurb: "Push when someone comments on a post you authored. Rapid bursts on a hot post coalesce into 'N new comments'.",
+  },
+  {
+    key: "attestation_vouch_received",
+    label: "Vouches received",
+    blurb: "Push when someone vouches for you. Per-attestor debounce coalesces rapid bursts.",
+  },
+  {
+    key: "attestation_stand_behind_received",
+    label: "Stand Behind received",
+    blurb: "Push when someone Stand Behinds you — scarce, high-conviction signal.",
+  },
+  {
+    key: "attestation_revoked",
+    label: "Attestation revoked",
+    blurb: "Push when someone revokes a previously-cast attestation on you. Neutral state-change notice.",
+  },
+  {
+    key: "attestation_reaffirmed",
+    label: "Attestation reaffirmed",
+    blurb: "Push when someone reaffirms their attestation on you. Periodic positive nudge.",
   },
 ];
 

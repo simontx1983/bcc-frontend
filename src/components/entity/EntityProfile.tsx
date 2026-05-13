@@ -31,8 +31,36 @@ import { AttestationActionCluster } from "@/components/profile/AttestationAction
 import { AttestationRoster } from "@/components/profile/AttestationRoster";
 import { ReputationSummaryPanel } from "@/components/profile/ReputationSummaryPanel";
 import { ReviewCallout } from "@/components/review/ReviewCallout";
-import type { Card } from "@/lib/api/types";
+import type {
+  AttestationTargetKind,
+  Card,
+  CardKind,
+  OnchainSignals,
+} from "@/lib/api/types";
 import { isAllowed, unlockHint } from "@/lib/permissions";
+
+/**
+ * Map the FE's CardKind to the §4.20 §J target_kind taxonomy for
+ * attestation mutations. The "member" CardKind is not a Card target
+ * (operator profiles use the user_profile branch in /u/[handle]), so
+ * we return null for it — the caller-side guard in the cluster
+ * (canMutate) skips the click handler when targetKind is undefined.
+ */
+function cardKindToAttestationTargetKind(
+  kind: CardKind,
+): AttestationTargetKind | undefined {
+  switch (kind) {
+    case "validator":
+      return "validator_card";
+    case "project":
+      return "project_card";
+    case "creator":
+      return "creator_card";
+    case "member":
+    default:
+      return undefined;
+  }
+}
 
 export interface EntityProfileProps {
   card: Card;
@@ -102,6 +130,24 @@ export function EntityProfile({ card, kindLabel, streamEmptyState, viewerAuthed 
       <section className="mx-auto mt-12 max-w-[1560px] px-7">
         <StatsPanel card={card} />
       </section>
+
+      {/* ── On-chain signals — validator-only block sourced from the
+            chain LCD/RPC. Surfaces the operator's real-world data
+            (uptime, commission, voting rank, stake, delegators) so a
+            viewer can evaluate the validator regardless of whether
+            anyone has claimed the page yet. Hidden when the card
+            isn't a validator OR when the indexer hasn't produced a
+            row for this entity. ───────────────────────────────────── */}
+      {card.onchain_signals != null && (
+        <section className="mx-auto mt-12 max-w-[1560px] px-7">
+          <div className="bcc-mono mb-4 flex items-center gap-3 text-cardstock-deep">
+            <span className="inline-block h-px w-8 bg-cardstock-edge/50" />
+            <span>On-chain Signal</span>
+            <span className="inline-block h-px flex-1 bg-cardstock-edge/50" />
+          </div>
+          <OnchainSignalsBlock signals={card.onchain_signals} />
+        </section>
+      )}
 
       {/* ── §K3 Cross-chain identity strip — mounts only when this
             operator runs on 2+ chains and has linked wallets to the
@@ -206,6 +252,8 @@ function IdentityBlock({
           window. */}
       <div className="mt-5">
         <AttestationActionCluster
+          targetKind={cardKindToAttestationTargetKind(card.card_kind)}
+          targetId={card.id}
           canVouch={card.permissions.can_vouch}
           canStandBehind={card.permissions.can_stand_behind}
           canDispute={card.permissions.can_dispute}
@@ -302,4 +350,150 @@ function StatsPanel({ card }: { card: Card }) {
       ))}
     </div>
   );
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// OnchainSignalsBlock — table-shaped breakdown of the validator's
+// on-chain data (status, uptime, commission, voting rank, stake,
+// delegators, last refresh). The compact one-line summary lives on the
+// card in /directory; this is the full surface for the profile page.
+//
+// Each cell self-hides when its value is null so a partially-enriched
+// validator doesn't render "—%" placeholders that look like missing UI.
+// The full block hides itself only when the parent gates on
+// `card.onchain_signals != null` — at least the chain + status will
+// always render past that gate.
+// ─────────────────────────────────────────────────────────────────────
+
+function OnchainSignalsBlock({ signals }: { signals: OnchainSignals }) {
+  const cells: Array<{ label: string; value: string }> = [];
+
+  cells.push({ label: "Status", value: formatStatus(signals.status) });
+
+  if (signals.uptime_30d !== null) {
+    cells.push({
+      label: "Uptime · 30d",
+      value: `${(signals.uptime_30d * 100).toFixed(2)}%`,
+    });
+  }
+  if (signals.commission_rate !== null) {
+    cells.push({
+      label: "Commission",
+      value: `${(signals.commission_rate * 100).toFixed(2)}%`,
+    });
+  }
+  if (signals.voting_power_rank !== null) {
+    cells.push({
+      label: "Voting Rank",
+      value: `#${signals.voting_power_rank}`,
+    });
+  }
+  if (signals.total_stake !== null) {
+    cells.push({
+      label: "Total Stake",
+      value: formatStake(signals.total_stake),
+    });
+  }
+  if (signals.self_stake !== null) {
+    cells.push({
+      label: "Self Stake",
+      value: formatStake(signals.self_stake),
+    });
+  }
+  if (signals.delegator_count !== null) {
+    cells.push({
+      label: "Delegators",
+      value: signals.delegator_count.toLocaleString(),
+    });
+  }
+  if (signals.jailed_count !== null && signals.jailed_count > 0) {
+    cells.push({
+      label: "Jailed Events",
+      value: signals.jailed_count.toLocaleString(),
+    });
+  }
+
+  return (
+    <>
+      <div
+        className="bcc-panel grid gap-px overflow-hidden"
+        style={{
+          gridTemplateColumns: `repeat(${Math.min(cells.length, 4)}, minmax(0,1fr))`,
+          background: "rgba(15,13,9,0.08)",
+        }}
+      >
+        {cells.map((cell) => (
+          <div
+            key={cell.label}
+            className="flex flex-col items-start gap-1 bg-cardstock px-4 py-4"
+          >
+            <span className="bcc-mono text-[10px] tracking-[0.18em] text-ink-soft">
+              {cell.label.toUpperCase()}
+            </span>
+            <span className="bcc-stencil text-xl text-ink">{cell.value}</span>
+          </div>
+        ))}
+      </div>
+      {signals.last_fetched_at !== null && (
+        <p className="bcc-mono mt-3 text-[10px] tracking-[0.18em] text-cardstock-deep">
+          LAST SYNCED · {formatLastFetched(signals.last_fetched_at)}
+        </p>
+      )}
+    </>
+  );
+}
+
+function formatStatus(status: OnchainSignals["status"]): string {
+  switch (status) {
+    case "active":
+      return "Active";
+    case "inactive":
+      return "Inactive";
+    case "jailed":
+      return "Jailed";
+    default:
+      return "Unknown";
+  }
+}
+
+// Stake values arrive as strings to preserve Cosmos token precision.
+// Render with thousands separators and trim trailing zeros after the
+// decimal. Chain-aware token-unit formatting is V1.7; today we surface
+// the raw number so operators can sanity-check what the indexer captured.
+function formatStake(raw: string): string {
+  const num = Number(raw);
+  if (!Number.isFinite(num)) {
+    return raw;
+  }
+  if (num >= 1_000_000) {
+    return `${(num / 1_000_000).toLocaleString(undefined, {
+      maximumFractionDigits: 2,
+    })}M`;
+  }
+  if (num >= 1_000) {
+    return `${(num / 1_000).toLocaleString(undefined, {
+      maximumFractionDigits: 1,
+    })}K`;
+  }
+  return num.toLocaleString(undefined, { maximumFractionDigits: 4 });
+}
+
+function formatLastFetched(iso: string): string {
+  const ts = Date.parse(iso);
+  if (!Number.isFinite(ts)) {
+    return iso;
+  }
+  const minutesAgo = Math.max(0, Math.floor((Date.now() - ts) / 60_000));
+  if (minutesAgo < 1) {
+    return "just now";
+  }
+  if (minutesAgo < 60) {
+    return `${minutesAgo}m ago`;
+  }
+  const hoursAgo = Math.floor(minutesAgo / 60);
+  if (hoursAgo < 24) {
+    return `${hoursAgo}h ago`;
+  }
+  const daysAgo = Math.floor(hoursAgo / 24);
+  return `${daysAgo}d ago`;
 }
