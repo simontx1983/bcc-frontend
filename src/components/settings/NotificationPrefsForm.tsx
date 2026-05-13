@@ -88,6 +88,11 @@ const BELL_ROWS: ReadonlyArray<BellRow> = [
     label: "Mentions in posts and comments",
     blurb: "Someone @-tagged you in a post or comment. Fires once per author per post; edits don't ping again.",
   },
+  {
+    key: "bcc_local_post",
+    label: "Posts in your primary Local",
+    blurb: "Someone posted in the Local you've designated as primary. Coalesced to at most one bell per Local per 5-minute window.",
+  },
 ];
 
 // V2 Phase 1: push event taxonomy is a deliberate subset of the bell.
@@ -117,6 +122,11 @@ const PUSH_ROWS: ReadonlyArray<PushRow> = [
     key: "mention",
     label: "Mentions in posts and comments",
     blurb: "Push to your device when someone @-tags you. Rapid-fire mentions coalesce into one push.",
+  },
+  {
+    key: "local_post",
+    label: "Posts in your primary Local",
+    blurb: "Push when your primary Local has new activity. Rapid bursts coalesce into a single 'N new posts' push.",
   },
 ];
 
