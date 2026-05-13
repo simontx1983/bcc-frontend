@@ -30,6 +30,7 @@ import type { Route } from "next";
 import Link from "next/link";
 import { memo, useCallback, useEffect, useState } from "react";
 
+import { Avatar } from "@/components/identity/Avatar";
 import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
 import type {
   NftPiece,
@@ -330,11 +331,18 @@ function OwnerBlock({
             href={`/u/${linkedUser.handle}` as Route}
             className="flex items-center gap-3 text-ink transition hover:text-blueprint"
           >
+            {/*
+              Sprint 1 Identity Grammar — consolidated to the shared
+              <Avatar>. Previous local Avatar derived a per-user HSL hue
+              for the initials background (intentional cohesion-loss
+              for the global identity grammar; see GroupMembersStrip).
+            */}
             <Avatar
-              src={linkedUser.avatar_url === "" ? null : linkedUser.avatar_url}
-              alt={`${linkedUser.display_name} avatar`}
-              initials={deriveInitials(linkedUser.display_name, linkedUser.handle)}
-              userId={linkedUser.id}
+              avatarUrl={linkedUser.avatar_url === "" ? null : linkedUser.avatar_url}
+              handle={linkedUser.handle}
+              displayName={linkedUser.display_name}
+              size="md"
+              variant="rounded"
             />
             <div className="flex flex-col">
               <span className="bcc-stencil text-base">{linkedUser.display_name}</span>
@@ -345,7 +353,13 @@ function OwnerBlock({
           </Link>
         ) : (
           <div className="flex items-center gap-3">
-            <Avatar src={null} alt="" initials="?" userId={hashWallet(owner.wallet_address)} />
+            <Avatar
+              avatarUrl={null}
+              handle={owner.address_short}
+              displayName={null}
+              size="md"
+              variant="rounded"
+            />
             <div className="flex flex-col">
               <span className="bcc-mono text-[12px] text-ink">{owner.address_short}</span>
               <span className="bcc-mono text-[10px] text-ink-soft/60">
@@ -415,66 +429,6 @@ function SectionRule({ label }: { label: string }) {
 // lands (e.g., a piece-card in a feed list), promote to /components/ui.
 // ─────────────────────────────────────────────────────────────────────
 
-function Avatar({
-  src,
-  alt,
-  initials,
-  userId,
-}: {
-  src: string | null;
-  alt: string;
-  initials: string;
-  userId: number;
-}) {
-  // Stable hue per user_id — same hashing rule as GroupMembersStrip's
-  // local Avatar so the initials block looks consistent across pages.
-  const hue = (userId * 47) % 360;
-
-  if (src !== null && src !== "") {
-    return (
-      // eslint-disable-next-line @next/next/no-img-element -- avatars are remote PeepSo URLs without a domain allowlist for next/image
-      <img
-        src={src}
-        alt={alt}
-        className="h-10 w-10 rounded-full border border-cardstock-edge/30 object-cover"
-      />
-    );
-  }
-  return (
-    <div
-      aria-hidden
-      className="flex h-10 w-10 items-center justify-center rounded-full border border-cardstock-edge/30"
-      style={{ backgroundColor: `hsl(${hue}, 32%, 40%)` }}
-    >
-      <span className="bcc-stencil text-sm text-cardstock/90">
-        {initials}
-      </span>
-    </div>
-  );
-}
-
-function deriveInitials(displayName: string, handle: string): string {
-  const stripped = (displayName === "" ? handle : displayName).trim();
-  if (stripped === "") return "??";
-  const parts = stripped.split(/\s+/).filter(Boolean);
-  const first = parts[0] ?? "";
-  const second = parts[1] ?? "";
-  if (first === "") return "??";
-  if (second === "") return first.slice(0, 2).toUpperCase();
-  return (first.charAt(0) + second.charAt(0)).toUpperCase();
-}
-
-/**
- * Wallet-derived stable integer for the unlinked-owner avatar hue.
- * Cheap djb2-ish hash — just needs to be stable, not cryptographic.
- */
-function hashWallet(addr: string): number {
-  let h = 5381;
-  for (let i = 0; i < addr.length; i++) {
-    h = ((h << 5) + h + addr.charCodeAt(i)) | 0;
-  }
-  return Math.abs(h);
-}
 
 function pickBackHref(routeSlug: string, collectionHandle: string | null): Route {
   // Prefer the route's entry slug (the user clicked from /c/{routeSlug});

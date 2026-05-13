@@ -33,6 +33,7 @@ import { getServerSession } from "next-auth";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { Avatar } from "@/components/identity/Avatar";
 import { AttestationActionCluster } from "@/components/profile/AttestationActionCluster";
 import { AttestationRoster } from "@/components/profile/AttestationRoster";
 import { LivingHeader } from "@/components/profile/LivingHeader";
@@ -217,8 +218,12 @@ function IdentityHeader({
     <div className="flex flex-col gap-6">
       <div className="flex items-start gap-5">
         <Avatar
-          src={profile.avatar_url}
-          initial={profile.handle.charAt(0).toUpperCase()}
+          avatarUrl={profile.avatar_url}
+          handle={profile.handle}
+          displayName={profile.display_name}
+          size="lg"
+          variant="rounded"
+          tier={profile.card_tier}
         />
         <div className="min-w-0 flex-1">
           <p className="bcc-mono text-safety">@{profile.handle}</p>
@@ -282,35 +287,6 @@ function IdentityHeader({
 }
 
 
-function Avatar({ src, initial }: { src: string; initial: string }) {
-  // Avatar shrinks on phones so the kicker + handle still fit beside
-  // it on a 320–375px viewport. Desktop unchanged.
-  const sizeClasses = "h-20 w-20 sm:h-28 sm:w-28";
-
-  if (src === "") {
-    return (
-      <div
-        aria-hidden
-        className={`bcc-stencil flex ${sizeClasses} items-center justify-center border-2 border-cardstock/30 bg-cardstock-deep/30 text-5xl text-cardstock sm:text-6xl`}
-      >
-        {initial}
-      </div>
-    );
-  }
-  // Plain <img> — Next.js <Image> wants width/height + remotePatterns
-  // config that's adjacent to the auth flow; staying with <img> until
-  // we add remote-pattern entries for the WP avatar host.
-  return (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img
-      src={src}
-      alt=""
-      width={112}
-      height={112}
-      className={`${sizeClasses} border-2 border-cardstock/30 object-cover`}
-    />
-  );
-}
 
 // ──────────────────────────────────────────────────────────────────────
 // BioBlock — plain string bio. The §3.1 contract returns bio as a

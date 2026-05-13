@@ -208,7 +208,14 @@ export function ProfileHero({ profile, nav }: ProfileHeroProps) {
           )}
         </div>
 
-        {/* Avatar overlay — sits half-over the cover, half-over the panel */}
+        {/* Avatar overlay — sits half-over the cover, half-over the panel.
+            Sprint-1-deferred consolidation candidate: this is the
+            own-avatar EDITOR surface (cover frame + hover CHANGE/REMOVE
+            overlay), not a plain identity render. Consolidating into the
+            shared <Avatar> primitive would either drop the editor chrome
+            or push a circular avatar inside the existing square framed
+            cover, which clashes visually. Promote when an editor
+            variant of Avatar exists. */}
         <div className="group/avatar absolute -bottom-12 left-6 md:left-8">
           <div className="relative h-24 w-24 overflow-hidden border-4 border-cardstock bg-cardstock-deep shadow-md md:h-28 md:w-28">
             {hasAvatar ? (

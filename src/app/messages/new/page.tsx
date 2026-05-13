@@ -20,6 +20,7 @@ import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
+import { Avatar } from "@/components/identity/Avatar";
 import { useMembers } from "@/hooks/useMembers";
 import { useStartConversationMutation } from "@/hooks/useStartConversation";
 import { humanizeCode } from "@/lib/api/errors";
@@ -230,7 +231,13 @@ function SelectedRecipient({
 }) {
   return (
     <div className="flex items-center gap-3 rounded-sm border border-cardstock-edge/40 bg-cardstock-deep/30 px-3 py-2">
-      <Avatar src={recipient.avatar_url ?? ""} initial={(recipient.display_name || recipient.handle).slice(0, 1).toUpperCase()} />
+      <Avatar
+        avatarUrl={recipient.avatar_url ?? null}
+        handle={recipient.handle}
+        displayName={recipient.display_name}
+        size="sm"
+        variant="rounded"
+      />
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm text-cardstock">
           {recipient.display_name !== "" ? recipient.display_name : recipient.handle}
@@ -300,8 +307,11 @@ function RecipientPicker({
                 className="flex w-full items-center gap-3 px-3 py-2 text-left transition hover:bg-cardstock-deep/40"
               >
                 <Avatar
-                  src={m.avatar_url ?? ""}
-                  initial={(m.display_name || m.handle).slice(0, 1).toUpperCase()}
+                  avatarUrl={m.avatar_url ?? null}
+                  handle={m.handle}
+                  displayName={m.display_name}
+                  size="sm"
+                  variant="rounded"
                 />
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm text-cardstock">
@@ -320,24 +330,3 @@ function RecipientPicker({
   );
 }
 
-function Avatar({ src, initial }: { src: string; initial: string }) {
-  if (src === "") {
-    return (
-      <span
-        aria-hidden
-        className="bcc-mono flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-cardstock-deep text-xs text-cardstock"
-      >
-        {initial}
-      </span>
-    );
-  }
-  return (
-    /* eslint-disable-next-line @next/next/no-img-element */
-    <img
-      src={src}
-      alt=""
-      className="h-9 w-9 shrink-0 rounded-full object-cover"
-      loading="lazy"
-    />
-  );
-}

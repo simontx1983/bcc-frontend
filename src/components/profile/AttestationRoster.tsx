@@ -63,6 +63,7 @@
  * Heuristic #9 elevated to risk-mitigation status.
  */
 
+import { Avatar } from "@/components/identity/Avatar";
 import { useAttestationRoster } from "@/hooks/useAttestationRoster";
 import type {
   AttestationRosterItem,
@@ -202,8 +203,11 @@ function RosterRow({ item }: { item: AttestationRosterItem }) {
       className={`flex items-start gap-3 border-b border-cardstock/15 py-3 last:border-b-0 ${rowToneClass}`}
     >
       <Avatar
-        src={item.attestor.avatar_url}
-        initial={item.attestor.handle.charAt(0).toUpperCase()}
+        avatarUrl={item.attestor.avatar_url}
+        handle={item.attestor.handle}
+        displayName={item.attestor.display_name}
+        size="md"
+        variant="rounded"
       />
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
@@ -244,29 +248,6 @@ function RosterRow({ item }: { item: AttestationRosterItem }) {
         )}
       </div>
     </li>
-  );
-}
-
-function Avatar({ src, initial }: { src: string; initial: string }) {
-  if (src === "") {
-    return (
-      <div
-        aria-hidden
-        className="bcc-stencil flex h-10 w-10 shrink-0 items-center justify-center border border-cardstock/30 bg-cardstock-deep/30 text-lg text-cardstock"
-      >
-        {initial}
-      </div>
-    );
-  }
-  return (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img
-      src={src}
-      alt=""
-      width={40}
-      height={40}
-      className="h-10 w-10 shrink-0 border border-cardstock/30 object-cover"
-    />
   );
 }
 

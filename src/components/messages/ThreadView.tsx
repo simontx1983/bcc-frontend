@@ -16,6 +16,7 @@
 
 import { useEffect, useRef } from "react";
 
+import { Avatar } from "@/components/identity/Avatar";
 import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
 import type { MessageItem } from "@/lib/api/types";
 
@@ -97,7 +98,13 @@ function Bubble({ msg, isMine }: { msg: MessageItem; isMine: boolean }) {
         "flex gap-2 " + (isMine ? "flex-row-reverse" : "flex-row")
       }
     >
-      <Avatar src={author?.avatar_url ?? ""} initial={authorName.slice(0, 1).toUpperCase()} />
+      <Avatar
+        avatarUrl={author?.avatar_url ?? null}
+        handle={author?.handle ?? ""}
+        displayName={author?.display_name}
+        size="sm"
+        variant="rounded"
+      />
       <div
         className={
           "flex max-w-[80%] flex-col gap-1 " +
@@ -128,28 +135,6 @@ function Bubble({ msg, isMine }: { msg: MessageItem; isMine: boolean }) {
         </time>
       </div>
     </div>
-  );
-}
-
-function Avatar({ src, initial }: { src: string; initial: string }) {
-  if (src === "") {
-    return (
-      <span
-        aria-hidden
-        className="bcc-mono flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-cardstock-deep text-xs text-cardstock"
-      >
-        {initial}
-      </span>
-    );
-  }
-  return (
-    /* eslint-disable-next-line @next/next/no-img-element */
-    <img
-      src={src}
-      alt=""
-      className="h-8 w-8 shrink-0 rounded-full object-cover"
-      loading="lazy"
-    />
   );
 }
 

@@ -25,6 +25,7 @@ import { memo, useState } from "react";
 import Link from "next/link";
 import type { Route } from "next";
 
+import { Avatar } from "@/components/identity/Avatar";
 import { GroupGatedNotice } from "@/components/groups/GroupGatedNotice";
 import { useGroupMembers } from "@/hooks/useGroupMembers";
 import type { GroupDetailResponse, GroupMember } from "@/lib/api/types";
@@ -151,11 +152,21 @@ const MemberTile = memo(function MemberTile({ member }: { member: GroupMember })
       href={`/u/${member.handle}` as Route}
       className="group flex flex-col items-center gap-2 rounded-sm border border-cardstock-edge/30 bg-cardstock/5 p-3 transition motion-reduce:transition-none hover:border-cardstock-edge/70"
     >
+      {/*
+        Sprint 1 Identity Grammar — consolidated to the shared <Avatar>.
+        The previous local Avatar derived a stable per-user HSL hue
+        (userId * 47 % 360) for the initials background. That was a
+        cohesion-loss but a §A2 / cohesion-grammar win — initial-block
+        avatars now match the rest of the app (cardstock-deep ground,
+        stencil monogram). Re-introducing per-user hue requires server-
+        resolved presentation data, not client-side derivation.
+      */}
       <Avatar
-        src={member.avatar_url !== "" ? member.avatar_url : null}
-        alt={`${member.display_name} avatar`}
-        initials={deriveInitials(member.display_name, member.handle)}
-        userId={member.id}
+        avatarUrl={member.avatar_url !== "" ? member.avatar_url : null}
+        handle={member.handle}
+        displayName={member.display_name}
+        size="md"
+        variant="rounded"
       />
       <div className="flex w-full min-w-0 flex-col items-center text-center">
         <span
@@ -186,58 +197,3 @@ const MemberTile = memo(function MemberTile({ member }: { member: GroupMember })
   );
 });
 
-// ──────────────────────────────────────────────────────────────────────
-// Avatar — image with initials-block fallback. We don't use
-// CommunityCover here because the aspect / sizing are different
-// (CommunityCover assumes an absolute-positioned host with a parent
-// aspect-ratio; this is a fixed-size circle).
-// ──────────────────────────────────────────────────────────────────────
-
-function Avatar({
-  src,
-  alt,
-  initials,
-  userId,
-}: {
-  src: string | null;
-  alt: string;
-  initials: string;
-  userId: number;
-}) {
-  // Stable hue per user_id — keeps initials blocks visually consistent
-  // across page loads.
-  const hue = (userId * 47) % 360;
-
-  if (src !== null && src !== "") {
-    return (
-      // eslint-disable-next-line @next/next/no-img-element -- avatars are remote PeepSo URLs without a domain allowlist for next/image
-      <img
-        src={src}
-        alt={alt}
-        className="h-12 w-12 rounded-full border border-cardstock-edge/30 object-cover"
-      />
-    );
-  }
-  return (
-    <div
-      aria-hidden
-      className="flex h-12 w-12 items-center justify-center rounded-full border border-cardstock-edge/30"
-      style={{ backgroundColor: `hsl(${hue}, 32%, 40%)` }}
-    >
-      <span className="bcc-stencil text-cardstock/90" style={{ fontSize: "16px" }}>
-        {initials}
-      </span>
-    </div>
-  );
-}
-
-function deriveInitials(displayName: string, handle: string): string {
-  const stripped = (displayName === "" ? handle : displayName).trim();
-  if (stripped === "") return "??";
-  const parts = stripped.split(/\s+/).filter(Boolean);
-  const first = parts[0] ?? "";
-  const second = parts[1] ?? "";
-  if (first === "") return "??";
-  if (second === "") return first.slice(0, 2).toUpperCase();
-  return (first.charAt(0) + second.charAt(0)).toUpperCase();
-}

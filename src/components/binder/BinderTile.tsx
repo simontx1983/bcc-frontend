@@ -27,6 +27,7 @@ import { type MouseEvent } from "react";
 
 import { useUnpullMutation } from "@/hooks/useBinderPull";
 import { formatRelativeTime } from "@/lib/format";
+import { deriveInitials } from "@/lib/format/initials";
 import type { BinderItem, CardKind } from "@/lib/api/types";
 
 export interface BinderTileProps {
@@ -49,10 +50,19 @@ export function BinderTile({ item, isUnpulling = false }: BinderTileProps) {
   const handleUnpull = (event: MouseEvent<HTMLButtonElement>) => {
     event.preventDefault();
     event.stopPropagation();
-    unpullMut.mutate(item.follow_id);
+    unpullMut.mutate({
+      follow_id: item.follow_id,
+      source: item.follow_source ?? "peepso",
+    });
   };
 
-  const initials = deriveInitials(item.card_handle);
+  // Sprint 1 Identity Grammar: deriveInitials now lives in the shared
+  // helper at lib/format/initials.ts. The BinderTile crest itself is
+  // a Sprint-1-deferred consolidation candidate — its hex crest +
+  // kind-band framing is binder-specific chrome that would push scope
+  // into the cosmetic layer. Promote to <Avatar variant="hex" size="xl"
+  // tier={card_tier_at_pull}> when the binder visual refresh lands.
+  const initials = deriveInitials(null, item.card_handle) || "BC";
   const kindColor = KIND_COLORS[item.card_kind];
   const cardHref = item.links.card as Route;
 
@@ -127,23 +137,4 @@ export function BinderTile({ item, isUnpulling = false }: BinderTileProps) {
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────
-// Helpers
-// ─────────────────────────────────────────────────────────────────────
-
-/**
- * Derive 2-character initials from a handle. Strips hyphens, takes
- * the first character of each word (or first two chars if single word).
- * Always uppercase, always exactly 2 chars (handles short handles by
- * padding the second char with the first).
- */
-function deriveInitials(handle: string): string {
-  if (handle === "") return "BC";
-  const words = handle.split("-").filter((w) => w.length > 0);
-  if (words.length >= 2) {
-    return ((words[0]?.[0] ?? "") + (words[1]?.[0] ?? "")).toUpperCase();
-  }
-  const first = words[0] ?? handle;
-  return (first.slice(0, 2).padEnd(2, first[0] ?? "")).toUpperCase();
-}
 

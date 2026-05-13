@@ -30,6 +30,7 @@ import {
   useState,
 } from "react";
 
+import { Avatar } from "@/components/identity/Avatar";
 import {
   useMarkReadMutation,
   useNotifications,
@@ -207,6 +208,23 @@ function NotificationRow({ item, onActivate }: NotificationRowProps) {
           />
         )}
         {item.read && <span aria-hidden className="mt-1.5 h-1.5 w-1.5 shrink-0" />}
+
+        {/*
+          Sprint 1 Identity Grammar — actor Avatar gives the bell social
+          presence. NotificationActor ships handle / display_name /
+          avatar_url (types.ts:848-854); rank+tier are NOT on the actor
+          view-model so we render the plain Avatar (no tier ring,
+          gracefully degrades to initials when avatar_url is empty).
+        */}
+        <span aria-hidden className="mt-0.5 shrink-0">
+          <Avatar
+            avatarUrl={item.actor.avatar_url === "" ? null : item.actor.avatar_url}
+            handle={item.actor.handle}
+            displayName={item.actor.display_name}
+            size="sm"
+            variant="rounded"
+          />
+        </span>
 
         <span className="flex flex-1 flex-col gap-1 overflow-hidden">
           <span className="bcc-stencil text-sm text-ink">

@@ -36,6 +36,7 @@
 
 import { useEffect, useState } from "react";
 
+import { Avatar } from "@/components/identity/Avatar";
 import { useMentionSearch } from "@/hooks/useMentionSearch";
 import type { MentionSearchCandidate } from "@/lib/api/types";
 
@@ -208,15 +209,21 @@ export function MentionPopover({
                     isActive ? "bg-blueprint/10" : "hover:bg-blueprint/5"
                   }`}
                 >
-                  {c.avatar_url !== "" && (
-                    // eslint-disable-next-line @next/next/no-img-element -- avatar URL comes from PeepSo's get_avatar_url across many domains; <Image> would require a per-tenant remotePatterns allow-list we don't maintain.
-                    <img
-                      src={c.avatar_url}
-                      alt=""
-                      className="h-6 w-6 shrink-0 rounded-full border border-cardstock-edge/40 object-cover"
-                      loading="lazy"
-                    />
-                  )}
+                  {/*
+                    Sprint 1 Identity Grammar — adopting the shared
+                    Avatar at xs (20px) here would be too tight in a
+                    24px-tall row; xs is for reaction stacks. Using
+                    sm (28px) with initials fallback gives the popover
+                    a faces-first feel; previously only candidates with
+                    avatars rendered a chip, which silently hid identity.
+                  */}
+                  <Avatar
+                    avatarUrl={c.avatar_url === "" ? null : c.avatar_url}
+                    handle={c.handle}
+                    displayName={c.display_name}
+                    size="xs"
+                    variant="rounded"
+                  />
                   <span className="flex flex-col">
                     <span className="text-[12px] text-cardstock">
                       {c.display_name}

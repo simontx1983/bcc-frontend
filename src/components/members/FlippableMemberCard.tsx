@@ -28,6 +28,7 @@
 
 import Link from "next/link";
 
+import { Avatar } from "@/components/identity/Avatar";
 import { FlipCard } from "@/components/ui/FlipCard";
 import { RankChip } from "@/components/profile/RankChip";
 import { formatJoinedAge } from "@/lib/format";
@@ -153,33 +154,25 @@ function FrontFace({ member }: { member: MemberSummary }) {
       </div>
 
       {/* Avatar — floats at the seam between cover and cream panel.
-          No border; soft drop-shadow gives it depth so it reads as
-          "lifted off the surface" without a frame competing with the
-          cover gradient or the cream panel below. */}
+          Sprint 1 Identity Grammar: the inner avatar render is now the
+          shared <Avatar> at lg (64px) with tier-tinted ring. The
+          wrapping <div> still provides the cover-seam positioning +
+          drop shadow (magazine-cover treatment, see header comment).
+          Cosmetic shift: avatar is now circular (rounded), not square. */}
       <div
         className={
           "absolute left-1/2 top-1/2 z-20 -translate-x-1/2 -translate-y-1/2 " +
-          "h-16 w-16 overflow-hidden " +
-          "shadow-[0_4px_12px_rgba(15,13,9,0.35)]"
+          "shadow-[0_4px_12px_rgba(15,13,9,0.35)] rounded-full"
         }
       >
-        {member.avatar_url !== "" ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={member.avatar_url}
-            alt=""
-            width={64}
-            height={64}
-            className="h-full w-full object-cover"
-          />
-        ) : (
-          <div
-            aria-hidden
-            className="bcc-stencil flex h-full w-full items-center justify-center bg-cardstock-deep text-2xl text-ink"
-          >
-            {member.handle.charAt(0).toUpperCase()}
-          </div>
-        )}
+        <Avatar
+          avatarUrl={member.avatar_url === "" ? null : member.avatar_url}
+          handle={member.handle}
+          displayName={member.display_name}
+          size="lg"
+          variant="rounded"
+          tier={member.card_tier}
+        />
       </div>
     </div>
   );

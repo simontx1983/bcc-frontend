@@ -20,7 +20,7 @@
  *   - Per-kind layouts: review with grade chip, dispute with status
  */
 
-import { useState } from "react";
+import { memo, useState } from "react";
 import type { Route } from "next";
 import Link from "next/link";
 
@@ -28,6 +28,7 @@ import { CommentDrawer } from "@/components/feed/CommentDrawer";
 import { ReactionRail } from "@/components/feed/ReactionRail";
 import { ReportButton } from "@/components/feed/ReportButton";
 import { VerificationBadge } from "@/components/groups/VerificationBadge";
+import { AuthorBadge } from "@/components/identity/AuthorBadge";
 import { formatRelativeTime } from "@/lib/format";
 import { readMentions, renderTextWithMentions } from "@/lib/format/mentions";
 import type { FeedItem } from "@/lib/api/types";
@@ -46,7 +47,7 @@ const POST_KIND_LABELS: Record<string, string> = {
   blog_excerpt:  "PUBLISHED",
 };
 
-export function FeedItemCard({ item }: { item: FeedItem }) {
+function FeedItemCardImpl({ item }: { item: FeedItem }) {
   const kindLabel = POST_KIND_LABELS[item.post_kind] ?? item.post_kind.toUpperCase();
   const isReview  = item.post_kind === "review";
   const isBlog    = item.post_kind === "blog_excerpt";
@@ -65,8 +66,7 @@ export function FeedItemCard({ item }: { item: FeedItem }) {
 
   // Server-provided links — same `Route` cast pattern as CardFactory
   // for typedRoutes.
-  const selfHref   = item.links.self as Route;
-  const authorHref = item.links.author === "" ? null : (item.links.author as Route);
+  const selfHref = item.links.self as Route;
 
   // v1.5 comments — drawer is closed by default; opens on chip click.
   // Lazy-mount: the GET /comments request only fires when the drawer
@@ -77,50 +77,48 @@ export function FeedItemCard({ item }: { item: FeedItem }) {
 
   return (
     <article className="bcc-panel relative flex flex-col gap-3 px-5 py-4">
-      <header className="flex items-baseline justify-between gap-3">
-        <div className="flex items-baseline gap-2 truncate">
-          {authorHref !== null ? (
-            <Link href={authorHref} className="bcc-stencil truncate text-ink hover:underline">
-              {item.author.display_name ?? `@${item.author.handle}`}
-            </Link>
-          ) : (
-            <span className="bcc-stencil truncate text-ink">
-              {item.author.display_name ?? `@${item.author.handle}`}
-            </span>
-          )}
-          {item.author.is_operator === true && (
-            <span
-              className="bcc-mono shrink-0 rounded px-1.5 py-0.5 text-[10px] tracking-[0.18em]"
-              style={{
-                color:      "var(--verified)",
-                background: "rgba(44,157,102,0.10)",
-                border:     "1px solid rgba(44,157,102,0.40)",
-              }}
-              title="Verified operator/creator on at least one entity."
+      {/*
+        Sprint 1 Identity Grammar — header is now <AuthorBadge>. Operator
+        pill folds into AuthorBadge (driven by author.is_operator); kind
+        label + verification badge ride as inline adornments; timestamp
+        is the trailing slot. Identity now reads continuously into the
+        comment drawer below (which uses the same AuthorBadge primitive).
+
+        Sprint 1 known gap: FeedAuthor does NOT carry card_tier /
+        tier_label / rank_label (types.ts:463-476). RankChip under the
+        display name gracefully omits until backend extends FeedAuthor.
+        See frontend-implementer report blocker for the contract
+        extension this is waiting on.
+      */}
+      <header>
+        <AuthorBadge
+          author={item.author}
+          inlineAdornments={
+            <>
+              <span
+                className="bcc-mono shrink-0 rounded px-1.5 py-0.5 text-[10px]"
+                style={{ background: "rgba(15,13,9,0.06)", color: "var(--ink-soft)" }}
+              >
+                {kindLabel}
+              </span>
+              {groupVerification !== null && (
+                <VerificationBadge
+                  label={groupVerification.label}
+                  className="bcc-mono shrink-0 text-[10px]"
+                />
+              )}
+            </>
+          }
+          trailing={
+            <time
+              dateTime={item.posted_at}
+              title={item.posted_at}
+              className="bcc-mono shrink-0 text-[11px] text-ink-soft/70"
             >
-              OPERATOR
-            </span>
-          )}
-          <span
-            className="bcc-mono shrink-0 rounded px-1.5 py-0.5 text-[10px]"
-            style={{ background: "rgba(15,13,9,0.06)", color: "var(--ink-soft)" }}
-          >
-            {kindLabel}
-          </span>
-          {groupVerification !== null && (
-            <VerificationBadge
-              label={groupVerification.label}
-              className="bcc-mono shrink-0 text-[10px]"
-            />
-          )}
-        </div>
-        <time
-          dateTime={item.posted_at}
-          title={item.posted_at}
-          className="bcc-mono shrink-0 text-[11px] text-ink-soft/70"
-        >
-          {formatRelativeTime(item.posted_at)}
-        </time>
+              {formatRelativeTime(item.posted_at)}
+            </time>
+          }
+        />
       </header>
 
       {isReview && <ReviewBody body={item.body} />}
@@ -177,6 +175,14 @@ export function FeedItemCard({ item }: { item: FeedItem }) {
     </article>
   );
 }
+
+// Memoized at the export boundary — the feed list re-renders every
+// time a sibling card mutates (reaction, comment drawer open). Stable
+// `item` references should skip re-render. Memoization was previously
+// absent on this surface; adding it as part of Sprint 1 Identity
+// Grammar to keep the new AuthorBadge sub-tree from amplifying churn.
+export const FeedItemCard = memo(FeedItemCardImpl);
+FeedItemCard.displayName = "FeedItemCard";
 
 // ─────────────────────────────────────────────────────────────────────
 // Review variant — grade chip + target page link + body text.

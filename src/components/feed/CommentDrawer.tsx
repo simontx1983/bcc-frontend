@@ -29,6 +29,7 @@ import { useSession } from "next-auth/react";
 import Link from "next/link";
 import type { Route } from "next";
 
+import { AuthorBadge } from "@/components/identity/AuthorBadge";
 import {
   useComments,
   useCreateCommentMutation,
@@ -132,63 +133,49 @@ function CommentRow({ feedId, comment }: { feedId: string; comment: Comment }) {
   const deleteMut = useDeleteCommentMutation();
   const canDelete = isAllowed(comment.permissions, "can_delete");
   const isPending = deleteMut.isPending;
-  const authorHref = `/u/${comment.author.handle}` as Route;
 
+  // CommentAuthor (types.ts:532-537) ships handle, display_name,
+  // avatar_url — but NOT rank_label / card_tier / tier_label. AuthorBadge
+  // gracefully omits the RankChip when rank_label is absent, so the
+  // comment row stays austere until those fields ship on the comment
+  // view-model (backend gap — see frontend-implementer report).
   return (
-    <article className="flex gap-3">
-      {comment.author.avatar_url !== "" ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={comment.author.avatar_url}
-          alt=""
-          width={32}
-          height={32}
-          className="h-8 w-8 shrink-0 rounded-full bg-cardstock-edge/30 object-cover"
-        />
-      ) : (
-        <div className="h-8 w-8 shrink-0 rounded-full bg-cardstock-edge/30" aria-hidden />
-      )}
-      <div className="min-w-0 flex-1">
-        <header className="flex items-baseline gap-2">
-          {comment.author.handle !== "" ? (
-            <Link
-              href={authorHref}
-              className="bcc-stencil truncate text-[12px] text-ink hover:underline"
+    <article className="flex flex-col gap-1">
+      <AuthorBadge
+        author={{
+          handle: comment.author.handle,
+          display_name: comment.author.display_name,
+          avatar_url: comment.author.avatar_url,
+        }}
+        size="sm"
+        trailing={
+          <div className="flex items-baseline gap-2">
+            <time
+              dateTime={comment.posted_at}
+              title={comment.posted_at}
+              className="bcc-mono shrink-0 text-[10px] text-ink-soft/70"
             >
-              {comment.author.display_name !== ""
-                ? comment.author.display_name
-                : `@${comment.author.handle}`}
-            </Link>
-          ) : (
-            <span className="bcc-stencil truncate text-[12px] text-ink">
-              {comment.author.display_name !== "" ? comment.author.display_name : "Anonymous"}
-            </span>
-          )}
-          <time
-            dateTime={comment.posted_at}
-            title={comment.posted_at}
-            className="bcc-mono shrink-0 text-[10px] text-ink-soft/70"
-          >
-            {formatRelativeTime(comment.posted_at)}
-          </time>
-          {canDelete && (
-            <button
-              type="button"
-              onClick={() =>
-                deleteMut.mutate({ feedId, commentId: comment.id })
-              }
-              disabled={isPending}
-              className="bcc-mono ml-auto inline-flex min-h-[36px] shrink-0 items-center px-2 text-[11px] tracking-[0.18em] text-ink-soft/60 hover:text-ink disabled:cursor-not-allowed"
-              aria-label="Delete comment"
-            >
-              {isPending ? "…" : "DELETE"}
-            </button>
-          )}
-        </header>
-        <p className="font-serif text-[14px] text-ink whitespace-pre-line">
-          {renderTextWithMentions(comment.body, comment.mentions)}
-        </p>
-      </div>
+              {formatRelativeTime(comment.posted_at)}
+            </time>
+            {canDelete && (
+              <button
+                type="button"
+                onClick={() =>
+                  deleteMut.mutate({ feedId, commentId: comment.id })
+                }
+                disabled={isPending}
+                className="bcc-mono inline-flex min-h-[36px] shrink-0 items-center px-2 text-[11px] tracking-[0.18em] text-ink-soft/60 hover:text-ink disabled:cursor-not-allowed"
+                aria-label="Delete comment"
+              >
+                {isPending ? "…" : "DELETE"}
+              </button>
+            )}
+          </div>
+        }
+      />
+      <p className="font-serif pl-[40px] text-[14px] text-ink whitespace-pre-line">
+        {renderTextWithMentions(comment.body, comment.mentions)}
+      </p>
     </article>
   );
 }

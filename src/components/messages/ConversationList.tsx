@@ -13,6 +13,7 @@ import { memo } from "react";
 import type { Route } from "next";
 import Link from "next/link";
 
+import { Avatar } from "@/components/identity/Avatar";
 import type { ConversationSummary } from "@/lib/api/types";
 
 interface ConversationListProps {
@@ -36,7 +37,12 @@ const ConversationRow = memo(function ConversationRow({
 }) {
   const title = resolveTitle(conv);
   const avatarUrl = conv.peer?.avatar_url ?? "";
-  const initial = title.slice(0, 1).toUpperCase();
+  // Avatar wants handle + displayName for the initials fallback. For
+  // 1-on-1 convos we have `peer`; for group convos we fall back to the
+  // resolved title (the deriveInitials helper handles "Group A, Group B"
+  // -> "GA" via whitespace+hyphen split).
+  const avatarHandle = conv.peer?.handle ?? title;
+  const avatarDisplay = conv.peer?.display_name ?? title;
   const hasUnread = conv.unread_count > 0;
 
   return (
@@ -50,7 +56,13 @@ const ConversationRow = memo(function ConversationRow({
             : "hover:bg-cardstock-deep/30")
         }
       >
-        <Avatar src={avatarUrl} initial={initial} />
+        <Avatar
+          avatarUrl={avatarUrl}
+          handle={avatarHandle}
+          displayName={avatarDisplay}
+          size="md"
+          variant="rounded"
+        />
 
         <div className="min-w-0 flex-1">
           <div className="flex items-baseline justify-between gap-3">
@@ -130,28 +142,6 @@ function previewLine(conv: ConversationSummary): string {
     return `${name}: ${preview}`;
   }
   return preview;
-}
-
-function Avatar({ src, initial }: { src: string; initial: string }) {
-  if (src === "") {
-    return (
-      <span
-        aria-hidden
-        className="bcc-mono flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-cardstock-deep text-sm text-cardstock"
-      >
-        {initial}
-      </span>
-    );
-  }
-  return (
-    /* eslint-disable-next-line @next/next/no-img-element */
-    <img
-      src={src}
-      alt=""
-      className="h-10 w-10 shrink-0 rounded-full object-cover"
-      loading="lazy"
-    />
-  );
 }
 
 /**

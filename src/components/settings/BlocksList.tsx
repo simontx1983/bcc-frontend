@@ -11,6 +11,7 @@
 
 import { useState } from "react";
 
+import { Avatar } from "@/components/identity/Avatar";
 import { useMyBlocks, useUnblockUser } from "@/hooks/useBlocks";
 
 export function BlocksList() {
@@ -72,16 +73,13 @@ export function BlocksList() {
             className="flex items-center justify-between gap-4 px-5 py-4"
           >
             <div className="flex min-w-0 items-center gap-3">
-              {entry.avatar_url !== "" && (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={entry.avatar_url}
-                  alt=""
-                  width={36}
-                  height={36}
-                  className="h-9 w-9 shrink-0 rounded-full border border-cardstock-edge"
-                />
-              )}
+              <Avatar
+                avatarUrl={entry.avatar_url === "" ? null : entry.avatar_url}
+                handle={entry.handle}
+                displayName={entry.display_name}
+                size="sm"
+                variant="rounded"
+              />
               <div className="min-w-0">
                 <p className="bcc-stencil truncate text-ink">
                   {entry.display_name !== "" ? entry.display_name : `@${entry.handle}`}
