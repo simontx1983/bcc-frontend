@@ -37,6 +37,7 @@
 
 import { memo, useCallback, useEffect, useRef, useState } from "react";
 
+import { DiscoverPanel } from "@/components/feed/DiscoverPanel";
 import { FeedItemCard } from "@/components/feed/FeedItemCard";
 import { FeedTabs } from "@/components/feed/FeedTabs";
 import { useFeed, useHotFeed } from "@/hooks/useFeed";
@@ -195,17 +196,14 @@ function FeedBody(props: FeedBodyProps) {
   const items = (data?.pages ?? []).flatMap((page) => page.items);
 
   if (items.length === 0) {
-    return (
-      <div className="py-12">
-        <div className="bcc-panel mx-auto max-w-md p-6 text-center">
-          <h2 className="bcc-stencil text-2xl text-ink">Quiet on the Floor</h2>
-          <p className="mt-2 font-serif text-ink-soft">
-            Keep tabs on a card or two to start your feed, or check back in a
-            bit — new activity rolls in throughout the day.
-          </p>
-        </div>
-      </div>
-    );
+    // §F5 / Sprint 3 — cold-start bridge surface. DiscoverPanel mounts
+    // ONLY here (parent gates on items.length === 0). It is NOT a
+    // default feed for inactive users; it's a one-shot map showing the
+    // room is still here and offering three paths forward. See
+    // DiscoverPanel.tsx for the full constitutional comment + locked
+    // phrases. On loading/error/all-empty it falls back to a quiet
+    // Floor panel that preserves the prior empty-state voice.
+    return <DiscoverPanel enabled />;
   }
 
   return (
