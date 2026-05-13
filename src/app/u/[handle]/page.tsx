@@ -107,7 +107,8 @@ export default async function MemberProfilePage({ params }: PageProps) {
           renders empty-state copy per risk-assessment §2.9. */}
       <SectionFrame fileNumber="02" label="BACKING">
         <AttestationRoster
-          items={undefined}
+          targetKind="user_profile"
+          targetId={profile.user_id}
           emptyState={{
             body: "This operator hasn't been backed yet. Their reputation will form as they participate.",
           }}

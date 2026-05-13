@@ -119,7 +119,8 @@ export function EntityProfile({ card, kindLabel, streamEmptyState, viewerAuthed 
           <span className="inline-block h-px flex-1 bg-cardstock-edge/50" />
         </div>
         <AttestationRoster
-          items={undefined}
+          targetKind={cardKindToAttestationTargetKind(card.card_kind)}
+          targetId={card.id}
           emptyState={{
             body: "No attestations on file yet. Be the first to vouch.",
           }}

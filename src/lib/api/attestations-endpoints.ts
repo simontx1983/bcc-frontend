@@ -25,9 +25,30 @@ import { bccFetchAsClient } from "@/lib/api/client";
 import type {
   AttestationCastRequest,
   AttestationCastResponse,
+  AttestationKind,
   AttestationReaffirmResponse,
   AttestationRevokeResponse,
+  AttestationRosterResponse,
+  AttestationTargetKind,
 } from "@/lib/api/types";
+
+export interface AttestationRosterParams {
+  /** Filter to one kind, or `all` (default) to mix both. */
+  kind?: AttestationKind | "all";
+  /**
+   * Server-side ORDER BY mode. V1 baseline: `reliability` collapses
+   * to `decayed_weight` behavior until Slice E ships the
+   * Operator Reliability synthesis. The parameter is accepted on
+   * the wire either way (contract-stable).
+   */
+  sort?: "decayed_weight" | "recency" | "reliability";
+  /** Include revoked rows after the active set. Default false. */
+  include_revoked?: boolean;
+  /** 1..20. */
+  page?: number;
+  /** 1..50, default 24. */
+  per_page?: number;
+}
 
 /**
  * POST /me/attestations — cast a new attestation.
@@ -88,5 +109,49 @@ export function reaffirmAttestation(
   return bccFetchAsClient<AttestationReaffirmResponse>(
     `me/attestations/${attestationId}/reaffirm`,
     { method: "POST" },
+  );
+}
+
+/**
+ * GET /entities/:target_kind/:target_id/attestations — paged + sorted
+ * attestation roster for any of the four §J target kinds.
+ *
+ * Auth-optional. Anonymous viewers receive the same row shape as
+ * Bearer viewers — the §J.4 row carries no per-viewer state, so the
+ * server returns identical payloads. Caching diverges (anon: shared
+ * 30s; authed: private 30s) but that's invisible to the caller.
+ *
+ * §J.4.1 synthesis invisibility preserved end-to-end: the response
+ * carries no `weight_at_time` / `decayed_weight` per-row. Sorting
+ * happens server-side; the FE renders the order it receives.
+ */
+export function getAttestationRoster(
+  targetKind: AttestationTargetKind,
+  targetId: number,
+  params: AttestationRosterParams = {},
+  signal?: AbortSignal,
+): Promise<AttestationRosterResponse> {
+  const search = new URLSearchParams();
+  if (params.kind !== undefined) {
+    search.set("kind", params.kind);
+  }
+  if (params.sort !== undefined) {
+    search.set("sort", params.sort);
+  }
+  if (params.include_revoked === true) {
+    search.set("include_revoked", "1");
+  }
+  if (params.page !== undefined) {
+    search.set("page", String(params.page));
+  }
+  if (params.per_page !== undefined) {
+    search.set("per_page", String(params.per_page));
+  }
+  const query = search.toString();
+  const path = `entities/${targetKind}/${targetId}/attestations${query !== "" ? `?${query}` : ""}`;
+
+  return bccFetchAsClient<AttestationRosterResponse>(
+    path,
+    signal !== undefined ? { method: "GET", signal } : { method: "GET" },
   );
 }

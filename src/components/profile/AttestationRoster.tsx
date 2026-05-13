@@ -63,8 +63,10 @@
  * Heuristic #9 elevated to risk-mitigation status.
  */
 
+import { useAttestationRoster } from "@/hooks/useAttestationRoster";
 import type {
   AttestationRosterItem,
+  AttestationTargetKind,
   ReliabilityStandingPublic,
 } from "@/lib/api/types";
 import { formatRelativeTime } from "@/lib/format";
@@ -73,10 +75,17 @@ interface AttestationRosterProps {
   /**
    * Roster rows from `GET /entities/.../attestations`. Server-side
    * sorted (typically by decayed_weight desc per §J.4). When
-   * undefined, backend hasn't shipped data yet — roster renders an
-   * empty-state copy block.
+   * provided, overrides the hook fetch — the component renders
+   * this array verbatim (the SSR + admin-preview path).
    */
-  items: AttestationRosterItem[] | undefined;
+  items?: AttestationRosterItem[] | undefined;
+  /**
+   * §J.4 target taxonomy. When `items` is not explicitly provided,
+   * the component self-fetches via `useAttestationRoster` using
+   * these two props.
+   */
+  targetKind?: AttestationTargetKind | undefined;
+  targetId?: number | undefined;
   /**
    * Empty-state copy — varies by target_kind. Per heuristic #9
    * and risk-assessment §2.9, the empty state is an invitation,
@@ -91,20 +100,49 @@ const RELIABILITY_LABEL: Record<ReliabilityStandingPublic, string> = {
   newly_active: "Newly Active",
 };
 
-export function AttestationRoster({ items, emptyState }: AttestationRosterProps) {
-  // Phase 1 rollout: backend endpoint not shipped. Surface stays
-  // coherent during the migration window by rendering the
-  // designed empty state (NOT "no data available" or similar).
-  if (items === undefined) {
+export function AttestationRoster({
+  items,
+  targetKind,
+  targetId,
+  emptyState,
+}: AttestationRosterProps) {
+  // Hook fires only when items are NOT explicitly provided AND we
+  // have a target. include_revoked=true so the "SHOW REVOKED" toggle
+  // below has rows to reveal without a follow-up request.
+  const shouldFetch = items === undefined;
+  const { data } = useAttestationRoster(
+    shouldFetch ? targetKind : undefined,
+    shouldFetch ? targetId : undefined,
+    { include_revoked: true },
+  );
+
+  const effectiveItems: AttestationRosterItem[] | undefined =
+    items ?? data?.items;
+
+  // Rollout posture: during the initial query window AND when the
+  // server returns zero rows, render the SAME empty-state block.
+  // Phillip's note: the surface must progress from empty → populated
+  // without emotional-tone changes; rendering a spinner during load
+  // would create exactly that kind of state flicker.
+  if (effectiveItems === undefined || effectiveItems.length === 0) {
     return <EmptyState body={emptyState.body} />;
   }
 
-  if (items.length === 0) {
-    return <EmptyState body={emptyState.body} />;
-  }
+  const active = effectiveItems.filter((item) => item.revoked_at === null);
+  const revoked = effectiveItems.filter((item) => item.revoked_at !== null);
 
-  const active = items.filter((item) => item.revoked_at === null);
-  const revoked = items.filter((item) => item.revoked_at !== null);
+  // Even with rows, an "active-empty + revoked-only" surface gets the
+  // empty-state treatment for the primary list. Revoked stays behind
+  // the toggle — Phillip's "no hiding the past" preserved, but
+  // not in the foreground when there's nothing currently active.
+  if (active.length === 0 && revoked.length > 0) {
+    return (
+      <section aria-label="Attestation roster" className="flex flex-col">
+        <EmptyState body={emptyState.body} />
+        <RevokedSection revoked={revoked} />
+      </section>
+    );
+  }
 
   return (
     <section aria-label="Attestation roster" className="flex flex-col">
