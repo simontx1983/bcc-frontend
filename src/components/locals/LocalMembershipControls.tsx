@@ -36,7 +36,8 @@ import {
   useLeaveLocalMutation,
   useSetPrimaryLocalMutation,
 } from "@/hooks/useLocalsPrimary";
-import type { BccApiError, LocalItem } from "@/lib/api/types";
+import { humanizeCode } from "@/lib/api/errors";
+import type { LocalItem } from "@/lib/api/types";
 
 interface LocalMembershipControlsProps {
   groupId: number;
@@ -55,7 +56,7 @@ export function LocalMembershipControls({
     setError(null);
     router.refresh();
   };
-  const onError = (err: BccApiError) => setError(humanizeError(err));
+  const onError = (err: unknown) => setError(humanizeError(err));
 
   const joinMut    = useJoinLocalMutation({ onSuccess, onError });
   const leaveMut   = useLeaveLocalMutation({ onSuccess, onError });
@@ -258,13 +259,17 @@ function resolveState(membership: LocalItem["viewer_membership"]): ResolvedState
   return { kind: "member", isPrimary: membership.is_primary };
 }
 
-function humanizeError(err: BccApiError): string {
-  switch (err.code) {
-    case "bcc_unauthorized": return "Sign in first.";
-    case "bcc_forbidden":    return "This Local doesn't accept open membership.";
-    case "bcc_not_found":    return "This Local no longer exists.";
-    case "bcc_unavailable":  return "Membership service is down. Try again shortly.";
-    case "bcc_rate_limited": return "Slow down — try again in a minute.";
-    default:                 return err.message || "Something went wrong. Try again.";
-  }
+function humanizeError(err: unknown): string {
+  return humanizeCode(
+    err,
+    {
+      bcc_unauthorized: "Sign in first.",
+      bcc_forbidden: "This Local doesn't accept open membership.",
+      bcc_not_found: "This Local no longer exists.",
+      bcc_unavailable: "Membership service is down. Try again shortly.",
+      bcc_rate_limited: "Slow down — try again in a minute.",
+      bcc_invalid_request: "Couldn't update your Local. Try again.",
+    },
+    "Something went wrong. Try again.",
+  );
 }

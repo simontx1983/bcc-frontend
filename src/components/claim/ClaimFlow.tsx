@@ -29,11 +29,9 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { getWalletNonce, linkWallet } from "@/lib/api/auth-endpoints";
+import { humanizeCode } from "@/lib/api/errors";
 import { claimPage } from "@/lib/api/pages-endpoints";
-import {
-  BccApiError,
-  type CardClaimTarget,
-} from "@/lib/api/types";
+import { type CardClaimTarget } from "@/lib/api/types";
 import {
   connectKeplr,
   isCosmosChain,
@@ -465,25 +463,18 @@ function humanizeError(err: unknown): string {
   if (err instanceof KeplrError) {
     return humanizeWalletError(err);
   }
-  if (err instanceof BccApiError) {
-    switch (err.code) {
-      case "bcc_unauthorized":
-        return "Sign in first.";
-      case "bcc_precondition_failed":
-        return "Connect a wallet before claiming this page.";
-      case "bcc_forbidden":
-        return "This wallet doesn't match the validator's operator address.";
-      case "bcc_conflict":
-        return "This page is already claimed by another wallet.";
-      case "bcc_signature_invalid":
-        return "Signature didn't verify. Try signing again.";
-      case "bcc_rate_limited":
-        return "Too many attempts — wait a minute and retry.";
-      case "bcc_not_found":
-        return "Page not found. Refresh and try again.";
-      default:
-        return err.message || "Couldn't complete the claim. Try again.";
-    }
-  }
-  return "Something went wrong. Try again.";
+  return humanizeCode(
+    err,
+    {
+      bcc_unauthorized: "Sign in first.",
+      bcc_precondition_failed: "Connect a wallet before claiming this page.",
+      bcc_forbidden: "This wallet doesn't match the validator's operator address.",
+      bcc_conflict: "This page is already claimed by another wallet.",
+      bcc_signature_invalid: "Signature didn't verify. Try signing again.",
+      bcc_rate_limited: "Too many attempts — wait a minute and retry.",
+      bcc_not_found: "Page not found. Refresh and try again.",
+      bcc_invalid_request: "Couldn't complete the claim. Check the form and try again.",
+    },
+    "Couldn't complete the claim. Try again.",
+  );
 }

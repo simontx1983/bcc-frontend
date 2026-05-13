@@ -67,6 +67,7 @@ import { useSetPhotoAltMutation } from "@/hooks/useSetPhotoAlt";
 import { useGiphyIntegration } from "@/hooks/useGiphyIntegration";
 import { GifPicker } from "@/components/composer/GifPicker";
 import { MentionPopover } from "@/components/composer/MentionPopover";
+import { humanizeCode } from "@/lib/api/errors";
 import { createReview } from "@/lib/api/posts-endpoints";
 import {
   BccApiError,
@@ -1619,38 +1620,33 @@ function ModalShell({
  * outside the Composer shell) shares the same humanization.
  */
 export function humanizeError(err: unknown): string {
-  if (err instanceof BccApiError) {
-    switch (err.code) {
-      case "bcc_unauthorized":
-        return "Sign in to post.";
-      case "bcc_forbidden":
-        return (
-          err.message ||
-          "You haven't unlocked this yet — keep pulling cards and writing on the Floor."
-        );
-      case "bcc_invalid_request":
-        return err.message || "That post can't be sent — check the content.";
-      case "bcc_invalid_mention_target":
-        // Per §3.3.12 — the server intentionally hides which user
-        // failed which check (privacy posture). The error payload
-        // echoes `user_id` for telemetry/debugging only.
-        return "Couldn't mention that user. Try removing the mention and posting again.";
-      case "bcc_too_many_mentions": {
-        const maxRaw = err.data?.["max"];
-        const max = typeof maxRaw === "number" ? maxRaw : null;
-        return max !== null
-          ? `Too many mentions — please mention up to ${max} people per post.`
-          : "Too many mentions in this post. Trim some and try again.";
-      }
-      case "bcc_rate_limited":
-        return "Slow down — wait a moment before posting again.";
-      case "bcc_unavailable":
-        return "Posts are temporarily unavailable. Try again shortly.";
-      default:
-        return err.message || "Couldn't send your post. Try again.";
-    }
+  // `bcc_too_many_mentions` carries a structured `data.max` we want to
+  // surface in the copy, so it needs its own branch before falling into
+  // the helper's static copy map.
+  if (err instanceof BccApiError && err.code === "bcc_too_many_mentions") {
+    const maxRaw = err.data?.["max"];
+    const max = typeof maxRaw === "number" ? maxRaw : null;
+    return max !== null
+      ? `Too many mentions — please mention up to ${max} people per post.`
+      : "Too many mentions in this post. Trim some and try again.";
   }
-  return "Something went wrong. Try again.";
+  return humanizeCode(
+    err,
+    {
+      bcc_unauthorized: "Sign in to post.",
+      bcc_forbidden:
+        "You haven't unlocked this yet — keep pulling cards and writing on the Floor.",
+      bcc_invalid_request: "That post can't be sent — check the content.",
+      // Per §3.3.12 — the server intentionally hides which user failed
+      // which check (privacy posture). The `user_id` in `data` is for
+      // telemetry only and is never user-visible.
+      bcc_invalid_mention_target:
+        "Couldn't mention that user. Try removing the mention and posting again.",
+      bcc_rate_limited: "Slow down — wait a moment before posting again.",
+      bcc_unavailable: "Posts are temporarily unavailable. Try again shortly.",
+    },
+    "Couldn't send your post. Try again.",
+  );
 }
 
 function noop(): void {

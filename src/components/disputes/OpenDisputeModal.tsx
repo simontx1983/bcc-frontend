@@ -36,8 +36,8 @@ import {
   useOpenDispute,
 } from "@/hooks/useDisputes";
 import { USER_DISPUTES_QUERY_KEY_ROOT } from "@/hooks/useUserActivity";
+import { humanizeCode } from "@/lib/api/errors";
 import {
-  BccApiError,
   DISPUTE_PANEL_SIZE,
   DISPUTE_REASON_MAX_LENGTH,
   DISPUTE_REASON_MIN_LENGTH,
@@ -387,34 +387,26 @@ function ModalShell({
 // ─────────────────────────────────────────────────────────────────────
 
 function humanizeError(err: unknown): string {
-  if (err instanceof BccApiError) {
-    switch (err.code) {
-      case "bcc_unauthorized":
-        return "Sign in first.";
-      case "not_page_owner":
-        return "Only the page owner can open disputes.";
-      case "upvote_not_disputable":
-        return "Only downvotes can be disputed.";
-      case "already_disputed":
-        return "This vote already has an active dispute.";
-      case "insufficient_panelists":
-        return (
-          err.message ||
-          "Not enough qualified panelists are online right now. Try again shortly."
-        );
-      case "dispute_limit_reached":
-        return "This page has hit its dispute limit. Wait for an existing dispute to resolve.";
-      case "reporter_limit_reached":
-        return "You have too many open disputes. Wait for one to resolve before filing another.";
-      case "vote_no_longer_active":
-        return "That vote was removed before the dispute landed. Refresh and pick another.";
-      case "dispute_subsystem_unhealthy":
-        return "Dispute filing is temporarily unavailable. An operator has been notified.";
-      case "db_transient":
-        return "Connection blip — please try again.";
-      default:
-        return err.message || "Couldn't file the dispute. Try again.";
-    }
-  }
-  return "Something went wrong. Try again.";
+  return humanizeCode(
+    err,
+    {
+      bcc_unauthorized: "Sign in first.",
+      not_page_owner: "Only the page owner can open disputes.",
+      upvote_not_disputable: "Only downvotes can be disputed.",
+      already_disputed: "This vote already has an active dispute.",
+      insufficient_panelists:
+        "Not enough qualified panelists are online right now. Try again shortly.",
+      dispute_limit_reached:
+        "This page has hit its dispute limit. Wait for an existing dispute to resolve.",
+      reporter_limit_reached:
+        "You have too many open disputes. Wait for one to resolve before filing another.",
+      vote_no_longer_active:
+        "That vote was removed before the dispute landed. Refresh and pick another.",
+      dispute_subsystem_unhealthy:
+        "Dispute filing is temporarily unavailable. An operator has been notified.",
+      db_transient: "Connection blip — please try again.",
+      bcc_rate_limited: "Too many dispute attempts — wait a moment.",
+    },
+    "Couldn't file the dispute. Try again.",
+  );
 }

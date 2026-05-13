@@ -34,6 +34,7 @@ import {
   useCreateCommentMutation,
   useDeleteCommentMutation,
 } from "@/hooks/useComments";
+import { humanizeCode } from "@/lib/api/errors";
 import { formatRelativeTime } from "@/lib/format";
 import { renderTextWithMentions } from "@/lib/format/mentions";
 import type { Comment } from "@/lib/api/types";
@@ -239,7 +240,19 @@ function CommentComposer({ feedId }: { feedId: string }) {
           {trimmed.length}/{COMMENT_MAX_LENGTH}
           {error !== null && (
             <span className="ml-2 text-safety">
-              {error.message !== "" ? error.message : `(${error.code ?? "error"})`}
+              {humanizeCode(
+                error,
+                {
+                  bcc_unauthorized: "Sign in to comment.",
+                  bcc_rate_limited: "Commenting too fast — slow down.",
+                  bcc_forbidden: "You can't comment here.",
+                  bcc_blocked: "You can't comment here.",
+                  bcc_invalid_request: "Comment couldn't be posted.",
+                  bcc_too_many_mentions: "Too many @-mentions in one comment.",
+                  bcc_invalid_mention_target: "One of your @-mentions can't receive notifications.",
+                },
+                "Couldn't post the comment.",
+              )}
             </span>
           )}
           {overCap && !error && (

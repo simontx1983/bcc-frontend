@@ -12,6 +12,7 @@
 import { useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 
 import { useReplyInConversationMutation } from "@/hooks/useReplyInConversation";
+import { humanizeCode } from "@/lib/api/errors";
 import { MESSAGE_BODY_MAX_LENGTH } from "@/lib/api/types";
 
 interface MessageComposerProps {
@@ -28,7 +29,20 @@ export function MessageComposer({ conversationId }: MessageComposerProps) {
       setError(null);
     },
     onError: (err) => {
-      setError(err.message !== "" ? err.message : "Couldn't send your message.");
+      setError(
+        humanizeCode(
+          err,
+          {
+            bcc_unauthorized: "Sign in to send a message.",
+            bcc_rate_limited: "Sending too fast — wait a moment and try again.",
+            bcc_invalid_request: "Message couldn't be sent. Check the contents.",
+            bcc_forbidden: "You can't reply to this conversation.",
+            bcc_blocked: "You can't reply to this conversation.",
+            bcc_not_found: "This conversation no longer exists.",
+          },
+          "Couldn't send your message.",
+        ),
+      );
     },
   });
 

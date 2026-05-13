@@ -59,6 +59,7 @@ import { useOnboardingSuggestions } from "@/hooks/useOnboardingSuggestions";
 import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
 import { usePullMutation, useUnpullMutation } from "@/hooks/useBinderPull";
 import { usePushSubscription } from "@/hooks/usePushSubscription";
+import { humanizeCode } from "@/lib/api/errors";
 import type {
   Card,
   CardTier,
@@ -442,7 +443,19 @@ function NotificationsStep({
     setError(null);
     updatePrefs.mutate(patch, {
       onSuccess: () => onDone(),
-      onError: (err) => setError(err.message || "Couldn't save preferences."),
+      onError: (err) =>
+        setError(
+          humanizeCode(
+            err,
+            {
+              bcc_unauthorized: "Sign in to save your preferences.",
+              bcc_rate_limited: "Saving too fast — try again in a moment.",
+              bcc_invalid_request:
+                "Couldn't save these preferences. Check your selections.",
+            },
+            "Couldn't save preferences.",
+          ),
+        ),
     });
   };
 

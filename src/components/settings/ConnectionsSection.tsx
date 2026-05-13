@@ -34,9 +34,9 @@ import {
   useStartXConnect,
 } from "@/hooks/useOAuthConnections";
 import { useXStatus } from "@/hooks/useOAuthConnections";
+import { humanizeCode } from "@/lib/api/errors";
 import { formatShortDate } from "@/lib/format";
 import type {
-  BccApiError,
   GitHubStatusResponse,
   XStatusResponse,
 } from "@/lib/api/types";
@@ -349,24 +349,21 @@ function ProviderCard<S extends XStatusResponse | GitHubStatusResponse>({
 // Helpers
 // ─────────────────────────────────────────────────────────────────────
 
-function humanizeOAuthError(err: BccApiError, providerLabel: string): string {
-  switch (err.code) {
-    case "x_not_configured":
-    case "github_not_configured":
-      return `${providerLabel} OAuth isn't configured on the server. Ask an admin.`;
-    case "rate_limited":
-      return "Too many attempts. Wait a moment, then try again.";
-    case "invalid_nonce":
-      return "Session expired. Refresh the page and retry.";
-    case "share_not_found":
-      return "We couldn't find a recent tweet linking to this site. Tweet and try again.";
-    case "bcc_unauthorized":
-      return "Sign in required.";
-    default:
-      return err.message !== ""
-        ? err.message
-        : `${providerLabel} request failed. Try again.`;
-  }
+function humanizeOAuthError(err: unknown, providerLabel: string): string {
+  return humanizeCode(
+    err,
+    {
+      x_not_configured: `${providerLabel} OAuth isn't configured on the server. Ask an admin.`,
+      github_not_configured: `${providerLabel} OAuth isn't configured on the server. Ask an admin.`,
+      rate_limited: "Too many attempts. Wait a moment, then try again.",
+      bcc_rate_limited: "Too many attempts. Wait a moment, then try again.",
+      invalid_nonce: "Session expired. Refresh the page and retry.",
+      share_not_found:
+        "We couldn't find a recent tweet linking to this site. Tweet and try again.",
+      bcc_unauthorized: "Sign in required.",
+    },
+    `${providerLabel} request failed. Try again.`,
+  );
 }
 
 

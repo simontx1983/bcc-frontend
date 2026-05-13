@@ -32,13 +32,19 @@ import {
   useUpdateNotificationPrefs,
 } from "@/hooks/useNotificationPrefs";
 import { usePushSubscription } from "@/hooks/usePushSubscription";
+import { humanizeCode } from "@/lib/api/errors";
 import type {
-  BccApiError,
   BellEventType,
   NotificationPrefs,
   NotificationPrefsPatch,
   PushEventType,
 } from "@/lib/api/types";
+import {
+  PushPermissionDeniedError,
+  PushSubscriptionKeysError,
+  PushUnsupportedError,
+  ServiceWorkerError,
+} from "@/lib/push/register";
 
 interface BellRow {
   key: BellEventType;
@@ -488,35 +494,45 @@ function diffPatch(
 // Error humanizer
 // ─────────────────────────────────────────────────────────────────────
 
-function humanizeError(err: BccApiError): string {
-  switch (err.code) {
-    case "bcc_unauthorized":
-      return "Sign in required.";
-    case "bcc_invalid_request":
-      return err.message || "Couldn't save these preferences.";
-    default:
-      return err.message !== ""
-        ? err.message
-        : "Couldn't save these preferences. Try again.";
-  }
+function humanizeError(err: unknown): string {
+  return humanizeCode(
+    err,
+    {
+      bcc_unauthorized: "Sign in required.",
+      bcc_invalid_request: "Couldn't save these preferences. Check your selections.",
+      bcc_rate_limited: "Saving too fast — try again in a moment.",
+    },
+    "Couldn't save these preferences. Try again.",
+  );
 }
 
-// Push enable/disable mutations can reject with either a server-side
-// BccApiError (e.g. bcc_push_not_configured 503) or a client-side
-// Error (permission denied, browser unsupported, etc). Duck-type on
-// the `code` property to fork into the right humanizer.
-function humanizePushMutationError(err: BccApiError | Error): string {
-  if (typeof (err as BccApiError).code === "string") {
-    const apiErr = err as BccApiError;
-    if (apiErr.code === "bcc_push_not_configured") {
-      return "Push isn't configured on this site yet. Ask an administrator to generate VAPID keys.";
-    }
-    return humanizeError(apiErr);
-  }
-  if (err.message.includes("permission") || err.message.includes("denied")) {
+// Push enable/disable mutations can reject with one of three failure
+// surfaces: typed browser errors from `lib/push/register.ts` (permission
+// denied / unsupported / SW failure), server-side BccApiError envelopes
+// (e.g. bcc_push_not_configured 503), or a plain Error (network / unknown).
+// We branch on `instanceof` for the typed paths; never on `err.message`.
+function humanizePushMutationError(err: unknown): string {
+  if (err instanceof PushPermissionDeniedError) {
     return "Notification permission was blocked in your browser. Re-allow it in your site settings to enable push.";
   }
-  return err.message !== ""
-    ? err.message
-    : "Couldn't update push notifications. Try again.";
+  if (err instanceof PushUnsupportedError) {
+    return "Push isn't supported in this browser. Try another browser or install BCC as an app.";
+  }
+  if (err instanceof ServiceWorkerError) {
+    return "Couldn't set up background sync. Reload the page and try again.";
+  }
+  if (err instanceof PushSubscriptionKeysError) {
+    return "Your browser returned an unexpected push subscription. Reload and try again.";
+  }
+  return humanizeCode(
+    err,
+    {
+      bcc_push_not_configured:
+        "Push isn't configured on this site yet. Ask an administrator to generate VAPID keys.",
+      bcc_unauthorized: "Sign in required.",
+      bcc_invalid_request: "Couldn't update push notifications. Check your selections.",
+      bcc_rate_limited: "Saving too fast — try again in a moment.",
+    },
+    "Couldn't update push notifications. Try again.",
+  );
 }

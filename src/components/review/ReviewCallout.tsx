@@ -31,8 +31,8 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { Composer } from "@/components/composer/Composer";
+import { humanizeCode } from "@/lib/api/errors";
 import { removeReview } from "@/lib/api/posts-endpoints";
-import { BccApiError } from "@/lib/api/types";
 import { FEED_QUERY_KEY_ROOT } from "@/hooks/useFeed";
 import { HIGHLIGHTS_QUERY_KEY } from "@/hooks/useHighlights";
 
@@ -156,17 +156,16 @@ export function ReviewCallout({
 }
 
 function humanizeError(err: unknown): string {
-  if (err instanceof BccApiError) {
-    switch (err.code) {
-      case "bcc_unauthorized":
-        return "Sign in first.";
-      case "bcc_invalid_request":
-        return err.message || "Couldn't remove this review.";
-      case "bcc_unavailable":
-        return "Review service is offline. Try again shortly.";
-      default:
-        return err.message || "Couldn't remove your review. Try again.";
-    }
-  }
-  return "Something went wrong. Try again.";
+  return humanizeCode(
+    err,
+    {
+      bcc_unauthorized: "Sign in first.",
+      bcc_invalid_request: "Couldn't remove this review.",
+      bcc_unavailable: "Review service is offline. Try again shortly.",
+      bcc_rate_limited: "Too many attempts — wait a moment and retry.",
+      bcc_not_found: "That review no longer exists.",
+      bcc_forbidden: "You can't remove this review.",
+    },
+    "Couldn't remove your review. Try again.",
+  );
 }

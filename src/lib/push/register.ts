@@ -15,6 +15,49 @@ import type { PushSubscriptionPayload } from "@/lib/api/push-endpoints";
 const SW_PATH = "/sw.js";
 
 /**
+ * Typed errors for the registration pipeline.
+ *
+ * Phase γ doctrine: callers MUST branch on these classes (`instanceof`),
+ * never on `err.message.includes(...)`. The English copy on each error
+ * is for debugging surfaces (Sentry, console) and is allowed to evolve.
+ *
+ * The four failure modes are surface-distinct in UX:
+ *   - PushUnsupportedError    → "Your browser doesn't support push." (terminal)
+ *   - ServiceWorkerError      → "Background sync setup failed." (retry-able)
+ *   - PushPermissionDeniedError → "You blocked notifications in your browser."
+ *     (terminal until the user changes browser settings)
+ *   - PushSubscriptionKeysError → "Your browser returned an unexpected push
+ *     subscription shape." (vendor bug; almost never happens)
+ */
+export class PushUnsupportedError extends Error {
+  constructor() {
+    super("Push notifications are not supported in this browser.");
+    this.name = "PushUnsupportedError";
+  }
+}
+
+export class ServiceWorkerError extends Error {
+  constructor() {
+    super("Service worker registration failed.");
+    this.name = "ServiceWorkerError";
+  }
+}
+
+export class PushPermissionDeniedError extends Error {
+  constructor() {
+    super("Notification permission was denied.");
+    this.name = "PushPermissionDeniedError";
+  }
+}
+
+export class PushSubscriptionKeysError extends Error {
+  constructor() {
+    super("Push subscription is missing required keys.");
+    this.name = "PushSubscriptionKeysError";
+  }
+}
+
+/**
  * Three-way feature check the UI uses to hide the master toggle on
  * unsupported browsers (mobile Safari without PWA install, embedded
  * webviews, ancient browsers, etc.).
@@ -79,12 +122,12 @@ export async function registerBrowserPush(
   vapidPublicKey: string,
 ): Promise<PushSubscription> {
   if (!isPushSupported()) {
-    throw new Error("Push notifications are not supported in this browser.");
+    throw new PushUnsupportedError();
   }
 
   const reg = await ensureServiceWorker();
   if (reg === null) {
-    throw new Error("Service worker registration failed.");
+    throw new ServiceWorkerError();
   }
 
   // Permission must be requested in response to a user gesture; the
@@ -92,7 +135,7 @@ export async function registerBrowserPush(
   // prompt always fires under that constraint.
   const permission = await Notification.requestPermission();
   if (permission !== "granted") {
-    throw new Error("Notification permission was denied.");
+    throw new PushPermissionDeniedError();
   }
 
   const applicationServerKey = urlBase64ToUint8Array(vapidPublicKey);
@@ -146,7 +189,7 @@ export function subscriptionToPayload(
   const p256dh = json.keys?.["p256dh"];
   const auth = json.keys?.["auth"];
   if (typeof p256dh !== "string" || typeof auth !== "string") {
-    throw new Error("Push subscription is missing required keys.");
+    throw new PushSubscriptionKeysError();
   }
   const payload: PushSubscriptionPayload = {
     endpoint: sub.endpoint,

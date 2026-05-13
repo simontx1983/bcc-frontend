@@ -27,8 +27,8 @@ import {
   PANEL_QUEUE_QUERY_KEY_ROOT,
   useCastPanelVote,
 } from "@/hooks/useDisputes";
+import { humanizeCode } from "@/lib/api/errors";
 import {
-  BccApiError,
   type CastPanelVoteResponse,
   type PanelDispute,
 } from "@/lib/api/types";
@@ -422,21 +422,17 @@ function ModalShell({
 // ─────────────────────────────────────────────────────────────────────
 
 function humanizeError(err: unknown): string {
-  if (err instanceof BccApiError) {
-    switch (err.code) {
-      case "bcc_unauthorized":
-        return "Sign in first.";
-      case "not_assigned":
-        return "You're not on this dispute's panel.";
-      case "already_voted":
-        return "You've already voted on this one.";
-      case "invalid_decision":
-        return "Pick accept or reject.";
-      case "dispute_closed":
-        return "This dispute resolved before your vote landed.";
-      default:
-        return err.message || "Couldn't record your vote. Try again.";
-    }
-  }
-  return "Something went wrong. Try again.";
+  return humanizeCode(
+    err,
+    {
+      bcc_unauthorized: "Sign in first.",
+      not_assigned: "You're not on this dispute's panel.",
+      already_voted: "You've already voted on this one.",
+      invalid_decision: "Pick accept or reject.",
+      dispute_closed: "This dispute resolved before your vote landed.",
+      bcc_rate_limited: "Too many vote attempts — wait a moment.",
+      bcc_forbidden: "You're not allowed to vote on this dispute.",
+    },
+    "Couldn't record your vote. Try again.",
+  );
 }

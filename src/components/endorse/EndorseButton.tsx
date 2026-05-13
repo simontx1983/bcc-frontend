@@ -27,7 +27,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { useEndorsePage, useRevokeEndorsement } from "@/hooks/useEndorse";
-import { BccApiError } from "@/lib/api/types";
+import { humanizeCode } from "@/lib/api/errors";
 
 interface EndorseButtonProps {
   pageId: number;
@@ -161,20 +161,28 @@ export function EndorseButton({
 }
 
 function humanizeError(err: unknown): string {
-  if (err instanceof BccApiError) {
-    // The endorse controller passes through human-readable messages
-    // for quest/age/eligibility errors as 400s — surface them directly.
-    if (err.status === 400 && err.message !== "") {
-      return err.message;
-    }
-    switch (err.code) {
-      case "bcc_unauthorized":
-        return "Sign in first.";
-      case "bcc_rate_limited":
-        return "Too many endorsements just now. Wait a moment.";
-      default:
-        return err.message !== "" ? err.message : "Couldn't endorse. Try again.";
-    }
-  }
-  return "Something went wrong. Try again.";
+  // Phase γ doctrine: the canonical UX path for eligibility errors is
+  // the server-supplied `permissions.can_endorse.allowed` + `unlock_hint`
+  // gate (resolved by CardViewService::resolvePagePermissions). When the
+  // gate says allowed=true and a 400 still comes back, that's a race
+  // condition — fall through to a generic message rather than leaking
+  // the server's quest/age string (which is also Sentry-loggable copy,
+  // not stable contract surface).
+  //
+  // TODO(bcc-trust): the endorse controller at
+  //   app/Domain/Core/Controllers/TrustRestController.php:373-380
+  // currently returns `trust_error` for all eligibility paths with
+  // human-readable text. Once the controller emits stable codes
+  // (e.g. bcc_endorse_quest_locked, bcc_endorse_age_locked,
+  // bcc_endorse_unauthorized), add them to the map below.
+  return humanizeCode(
+    err,
+    {
+      bcc_unauthorized: "Sign in first.",
+      bcc_rate_limited: "Too many endorsements just now. Wait a moment.",
+      bcc_invalid_request: "We couldn't endorse this page right now.",
+      bcc_forbidden: "You can't endorse this page.",
+    },
+    "Couldn't endorse. Try again.",
+  );
 }

@@ -35,10 +35,13 @@ import {
   useNftPicker,
   useSaveNftSelection,
 } from "@/hooks/useNftSelections";
+import { humanizeCode } from "@/lib/api/errors";
 import {
   BccApiError,
   type NftPickerItem,
 } from "@/lib/api/types";
+
+import { IndexerStateChip } from "./IndexerStateChip";
 
 interface NftPickerModalProps {
   onClose: () => void;
@@ -151,14 +154,12 @@ export function NftPickerModal({ onClose }: NftPickerModalProps) {
                   {Object.entries(picker.data.meta.indexer_state_label).map(
                     ([chain, label]) =>
                       label === "" ? null : (
-                        <li
-                          key={chain}
-                          className="bcc-mono text-ink-ghost"
-                          style={{ fontSize: "10px", letterSpacing: "0.18em" }}
-                        >
-                          <span className="text-safety">{chain.toUpperCase()}</span>
-                          <span className="ml-2">&middot;</span>
-                          <span className="ml-2">{label}</span>
+                        <li key={chain}>
+                          <IndexerStateChip
+                            chain={chain}
+                            state={picker.data.meta.indexer_state[chain] ?? ""}
+                            label={label}
+                          />
                         </li>
                       ),
                   )}
@@ -394,14 +395,37 @@ function itemKey(item: NftPickerItem): string {
 }
 
 function humanizeError(err: unknown): string {
+  // Phase γ doctrine: branch on `err.code`, not `err.status`.
+  //
+  // KNOWN BACKEND-CONTRACT DEBT (tracked):
+  //   The NftSelectionController at
+  //     app/public/wp-content/plugins/bcc-trust/app/Domain/Onchain/Controllers/NftSelectionController.php
+  //   currently emits NON-canonical envelopes for some failure paths
+  //   (lines 90-91, 111-112, 130-135, 146-147, 162-163). When that
+  //   controller is migrated to the canonical envelope + stable codes
+  //   (`bcc_nft_not_owned` for 403, `bcc_rate_limited` for 429,
+  //   `bcc_invalid_request` for 400), the status-branching fallback
+  //   below collapses into a pure code map.
+  //
+  // Until then, the `status` branches are deliberate temporary
+  // compatibility shims, NOT a violation of Phase γ doctrine. They are
+  // contract-fragile by acknowledgment: a server change to the legacy
+  // status/payload would silently break this UI. The fix is on the
+  // server side, not here.
   if (err instanceof BccApiError) {
-    if (err.status === 403) {
+    if (err.code === "bcc_nft_not_owned" || err.status === 403) {
       return "That NFT isn't in your linked wallets right now. Try the wallet picker first.";
     }
-    if (err.status === 429) {
+    if (err.code === "bcc_rate_limited" || err.status === 429) {
       return "Easy on the clicks — give it a beat and try again.";
     }
-    return err.message || "Couldn't update your showcase. Try again.";
   }
-  return "Something went wrong. Try again.";
+  return humanizeCode(
+    err,
+    {
+      bcc_unauthorized: "Sign in to update your showcase.",
+      bcc_invalid_request: "Couldn't update your showcase. Check your selections.",
+    },
+    "Couldn't update your showcase. Try again.",
+  );
 }

@@ -18,8 +18,8 @@
 import { useEffect, useState } from "react";
 
 import { useReportContent } from "@/hooks/useReportContent";
+import { humanizeCode } from "@/lib/api/errors";
 import {
-  type BccApiError,
   CONTENT_REPORT_COMMENT_MAX_LENGTH,
   type ContentReportReason,
   type ContentReportTargetKind,
@@ -314,17 +314,17 @@ function ReportModal({ targetKind, targetId, onClose }: ReportModalProps) {
   );
 }
 
-function humanizeError(err: BccApiError): string {
-  switch (err.code) {
-    case "bcc_unauthorized":
-      return "Sign in to report.";
-    case "bcc_invalid_request":
-      return err.message || "Check the form and try again.";
-    case "bcc_rate_limited":
-      return "Too many reports just now. Wait a moment, then retry.";
-    case "bcc_unavailable":
-      return "Reports are temporarily unavailable. Try again shortly.";
-    default:
-      return err.message || "Couldn't file the report. Try again.";
-  }
+function humanizeError(err: unknown): string {
+  return humanizeCode(
+    err,
+    {
+      bcc_unauthorized: "Sign in to report.",
+      bcc_invalid_request: "Check the form and try again.",
+      bcc_rate_limited: "Too many reports just now. Wait a moment, then retry.",
+      bcc_unavailable: "Reports are temporarily unavailable. Try again shortly.",
+      bcc_forbidden: "You can't file a report against this content.",
+      bcc_not_found: "That content no longer exists.",
+    },
+    "Couldn't file the report. Try again.",
+  );
 }

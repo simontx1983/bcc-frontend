@@ -24,6 +24,7 @@ import { useState } from "react";
 
 import { MY_WALLETS_QUERY_KEY, useMyWallets, useUnlinkWallet } from "@/hooks/useWallets";
 import { getWalletNonce, linkWallet } from "@/lib/api/auth-endpoints";
+import { humanizeCode } from "@/lib/api/errors";
 import { BccApiError, type LinkedWallet } from "@/lib/api/types";
 import { formatShortDate } from "@/lib/format";
 import {
@@ -464,21 +465,24 @@ function EmptyState() {
 // Helpers
 // ─────────────────────────────────────────────────────────────────────
 
-function humanizeError(err: BccApiError): string {
-  switch (err.code) {
-    case "bcc_unauthorized":
-      return "Sign in required.";
-    case "bcc_rate_limited":
-      return "Too many requests. Wait a moment and retry.";
-    case "bcc_invalid_request":
-      return "Couldn't unlink that wallet. Refresh and try again.";
-    default:
-      return err.message !== "" ? err.message : "Couldn't unlink. Try again.";
-  }
+function humanizeError(err: unknown): string {
+  return humanizeCode(
+    err,
+    {
+      bcc_unauthorized: "Sign in required.",
+      bcc_rate_limited: "Too many requests. Wait a moment and retry.",
+      bcc_invalid_request: "Couldn't unlink that wallet. Refresh and try again.",
+      bcc_not_found: "That wallet is no longer linked.",
+      bcc_forbidden: "You can't unlink that wallet.",
+    },
+    "Couldn't unlink. Try again.",
+  );
 }
 
 function humanizeLinkError(err: unknown): string {
-  // Per-provider unavailable / rejected paths first — clearest copy.
+  // Per-provider unavailable paths carry typed errors with copy authored
+  // at construction time — those are presentation strings owned by our
+  // own code, not server-supplied. Pass them through.
   if (
     err instanceof KeplrUnavailableError ||
     err instanceof MetaMaskUnavailableError ||
@@ -486,6 +490,7 @@ function humanizeLinkError(err: unknown): string {
   ) {
     return err.message;
   }
+  // User-cancel is a uniform UX surface across the three wallets.
   if (
     err instanceof KeplrUserRejectedError ||
     err instanceof MetaMaskUserRejectedError ||
@@ -493,6 +498,7 @@ function humanizeLinkError(err: unknown): string {
   ) {
     return "Wallet signing was canceled.";
   }
+  // Other typed wallet errors are constructed by us with deliberate copy.
   if (
     err instanceof KeplrError ||
     err instanceof MetaMaskError ||
@@ -500,23 +506,18 @@ function humanizeLinkError(err: unknown): string {
   ) {
     return err.message;
   }
-  if (err instanceof BccApiError) {
-    switch (err.code) {
-      case "bcc_unauthorized":
-        return "Sign in required.";
-      case "bcc_rate_limited":
-        return "Too many wallet attempts. Wait a moment and retry.";
-      case "bcc_signature_invalid":
-        return "Wallet signature didn't verify. Try again.";
-      case "bcc_conflict":
-        return "This wallet is already linked.";
-      default:
-        return err.message !== "" ? err.message : "Couldn't link the wallet.";
-    }
-  }
-  if (err instanceof Error) {
-    return err.message;
-  }
-  return "Couldn't link the wallet.";
+  // Server-side BccApiError envelopes branch on `.code`, never `.message`.
+  return humanizeCode(
+    err,
+    {
+      bcc_unauthorized: "Sign in required.",
+      bcc_rate_limited: "Too many wallet attempts. Wait a moment and retry.",
+      bcc_signature_invalid: "Wallet signature didn't verify. Try again.",
+      bcc_conflict: "This wallet is already linked.",
+      bcc_invalid_request: "Couldn't link the wallet. Check the chain selection.",
+      bcc_wallet_not_supported: "That wallet chain isn't supported yet.",
+    },
+    "Couldn't link the wallet.",
+  );
 }
 

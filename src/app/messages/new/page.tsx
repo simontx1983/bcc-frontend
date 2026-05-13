@@ -22,6 +22,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import { useMembers } from "@/hooks/useMembers";
 import { useStartConversationMutation } from "@/hooks/useStartConversation";
+import { humanizeCode } from "@/lib/api/errors";
 import {
   MESSAGE_BODY_MAX_LENGTH,
   type MemberSummary,
@@ -69,7 +70,19 @@ export default function NewMessagePage() {
       router.push(`/messages/${data.conversation_id}` as Route);
     },
     onError: (err) => {
-      setError(err.message !== "" ? err.message : "Couldn't start the conversation.");
+      setError(
+        humanizeCode(
+          err,
+          {
+            bcc_unauthorized: "Sign in to start a conversation.",
+            bcc_rate_limited: "Too many new conversations — wait a moment and try again.",
+            bcc_invalid_request: "Couldn't start the conversation. Check the recipient and message.",
+            bcc_forbidden: "You can't message this person.",
+            bcc_blocked: "You can't message this person.",
+          },
+          "Couldn't start the conversation.",
+        ),
+      );
     },
   });
 
