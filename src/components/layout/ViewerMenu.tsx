@@ -115,6 +115,13 @@ export function ViewerMenu({ handle }: ViewerMenuProps) {
             Profile
           </Link>
           <Link
+            href={"/me/progression" as Route}
+            role="menuitem"
+            className="bcc-stencil bg-cardstock px-4 py-3 text-[13px] tracking-[0.16em] text-ink hover:bg-cardstock-deep"
+          >
+            Progression
+          </Link>
+          <Link
             href={"/panel" as Route}
             role="menuitem"
             className="bcc-stencil bg-cardstock px-4 py-3 text-[13px] tracking-[0.16em] text-ink hover:bg-cardstock-deep"
