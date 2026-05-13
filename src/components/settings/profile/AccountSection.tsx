@@ -29,6 +29,11 @@ const ERROR_COPY: Record<string, string> = {
   bcc_forbidden:          "Not allowed.",
   bcc_conflict:           "Already in use.",
   bcc_internal_error:     "Server error. Try again.",
+  // The credential-gated routes (email / password / delete) sit behind
+  // a per-user 60s Throttle so the current_password brute-force surface
+  // is itself rate-limited. Tell the user the cooldown is short so they
+  // don't escalate to support thinking they're locked out.
+  bcc_rate_limited:       "Too many attempts. Wait a minute and try again.",
 };
 
 function humanizeError(err: BccApiError | Error): string {
