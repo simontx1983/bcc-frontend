@@ -212,35 +212,154 @@ export async function bccFetchAsClient<T>(
   }
 
   const session = await getSession();
-  const hadSessionToken =
-    session !== null && typeof session.bccToken === "string" && session.bccToken !== "";
+  const sessionToken =
+    session !== null && typeof session.bccToken === "string" && session.bccToken !== ""
+      ? session.bccToken
+      : null;
+  const hadSessionToken = sessionToken !== null;
   // The session JWT can outlive the BCC bearer (auth.ts blanks
-  // session.bccToken once bccTokenExpiresAt is past). Treat that
-  // case the same as a 401 — clear the now-useless NextAuth session
-  // so subsequent client calls go fully anonymous.
+  // session.bccToken once bccTokenExpiresAt is past). When that
+  // happens we have a CHANCE to silently refresh the bearer via
+  // /auth/refresh (Phase β.3) before the request fires — the
+  // server allows REFRESH_GRACE_SECONDS of post-exp window per
+  // JwtToken::decodeForRefresh.
   const sessionExpired =
     session !== null &&
     typeof session.bccTokenExpiresAt === "number" &&
     Date.now() >= session.bccTokenExpiresAt;
 
-  if (sessionExpired) {
-    await signOut({ redirect: false });
+  let effectiveToken = sessionToken;
+  if (sessionExpired && sessionToken !== null) {
+    // Pre-emptive refresh: NextAuth says the bearer is dead. Try to
+    // mint a fresh one BEFORE the fetch. If refresh succeeds, the
+    // SPA never sees a 401; if it fails, signOut and let the call
+    // proceed anonymously (the caller will surface whatever the
+    // endpoint returns — typically bcc_unauthorized).
+    const refreshed = await tryRefresh(sessionToken);
+    if (refreshed === null) {
+      await signOut({ redirect: false });
+      effectiveToken = null;
+    } else {
+      effectiveToken = refreshed;
+    }
   }
 
   try {
     return await bccFetch<T>(path, {
       ...options,
-      token: session?.bccToken ?? null,
+      token: effectiveToken,
     });
   } catch (err) {
-    // 401 + we DID send a token → the server rejected our JWT (expired,
-    // revoked, signature mismatch). Clear the dead NextAuth session so
-    // the next call doesn't reuse the stale token and 401 again.
-    // We don't redirect here — that's the caller's call (typically
-    // a route-level error boundary or React Query's onError).
-    if (err instanceof BccApiError && err.status === 401 && hadSessionToken) {
-      await signOut({ redirect: false });
+    if (!(err instanceof BccApiError) || err.status !== 401 || !hadSessionToken) {
+      throw err;
     }
+    // Reactive 401: server rejected our bearer, but NextAuth didn't
+    // know it was dead yet. Attempt one refresh-then-retry before
+    // signOut. We only do this once — if the retry ALSO 401s, the
+    // refresh-then-retry path won't fire again because the retry
+    // path uses bccFetch directly (no recursion into bccFetchAsClient).
+    const tokenToRefresh = effectiveToken ?? sessionToken;
+    if (tokenToRefresh !== null) {
+      const refreshed = await tryRefresh(tokenToRefresh);
+      if (refreshed !== null) {
+        return await bccFetch<T>(path, { ...options, token: refreshed });
+      }
+    }
+    await signOut({ redirect: false });
     throw err;
+  }
+}
+
+/**
+ * Phase β.3 silent-refresh helper. Exchanges a (possibly-expired)
+ * Bearer JWT for a fresh one via POST /bcc/v1/auth/refresh.
+ *
+ * On success:
+ *   - Persists the new token + expiresAt into the NextAuth session via
+ *     POST /api/auth/session (jwt callback trigger='update'), so the
+ *     NEXT bccFetchAsClient call reads the fresh token from getSession.
+ *     Session-update failure is non-fatal — the immediate retry still
+ *     uses the new token; subsequent calls would just re-refresh.
+ *   - Returns the new token string.
+ *
+ * On any failure: returns null. The caller treats null the same as
+ * a hard auth failure (signOut + propagate the original 401).
+ *
+ * Uses a raw `fetch` directly (NOT bccFetch) so this can be called
+ * from inside bccFetchAsClient's 401 handler without recursion risk.
+ * Tolerates any response shape that has data.token + data.expires_in.
+ */
+async function tryRefresh(currentToken: string): Promise<string | null> {
+  try {
+    const r = await fetch(`${clientEnv.BCC_API_URL}/wp-json/bcc/v1/auth/refresh`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${currentToken}`,
+        Accept: "application/json",
+      },
+    });
+    if (!r.ok) return null;
+    const body = (await r.json().catch(() => null)) as
+      | { data?: { token?: unknown; expires_in?: unknown } }
+      | null;
+    const newToken =
+      typeof body?.data?.token === "string" && body.data.token !== ""
+        ? body.data.token
+        : null;
+    const expiresIn =
+      typeof body?.data?.expires_in === "number" && body.data.expires_in > 0
+        ? body.data.expires_in
+        : null;
+    if (newToken === null || expiresIn === null) return null;
+
+    const newExpiresAt = Date.now() + expiresIn * 1000;
+
+    // Persist into the NextAuth session so the next getSession() call
+    // returns the fresh token instead of repeating the refresh dance.
+    //
+    // NextAuth 4.x session-write contract (load-bearing):
+    //   1. Body MUST include csrfToken read from GET /api/auth/csrf,
+    //      otherwise the POST silently no-ops at status 200.
+    //   2. The payload to merge into the JWT MUST be wrapped under
+    //      `data:` — NextAuth unwraps that and passes it as `session`
+    //      to the jwt callback when trigger === 'update'.
+    //      (See bcc-frontend/src/lib/auth.ts jwt callback for the
+    //      receiving side.)
+    //
+    // Both gotchas were empirically verified 2026-05-13: omitting either
+    // one returns 200 but session.bccToken stays unchanged on the next
+    // getSession call. With both, the new token + expiry land in the
+    // session within one request cycle.
+    //
+    // Failure here is non-fatal: the immediate retry still uses the
+    // fresh token, and subsequent calls would just re-refresh. The
+    // session-update is the optimization that avoids that re-refresh.
+    try {
+      const csrfResp = await fetch("/api/auth/csrf", { credentials: "include" });
+      const csrfBody = (await csrfResp.json().catch(() => null)) as
+        | { csrfToken?: unknown }
+        | null;
+      const csrfToken =
+        typeof csrfBody?.csrfToken === "string" ? csrfBody.csrfToken : null;
+      if (csrfToken !== null) {
+        await fetch("/api/auth/session", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            csrfToken,
+            data: { bccToken: newToken, bccTokenExpiresAt: newExpiresAt },
+          }),
+        });
+      }
+    } catch {
+      // Session-update failure is non-fatal — the immediate retry
+      // still works because the caller has the fresh token in hand;
+      // the cost is one extra refresh round-trip on the next call.
+    }
+
+    return newToken;
+  } catch {
+    return null;
   }
 }

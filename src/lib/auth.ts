@@ -196,7 +196,7 @@ export const authOptions: NextAuthOptions = {
   ],
 
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger, session }) {
       // First-call (right after authorize) — copy User fields onto JWT.
       if (user) {
         token.id = user.id;
@@ -206,12 +206,38 @@ export const authOptions: NextAuthOptions = {
         token.inGoodStanding = user.inGoodStanding;
       }
 
+      // Phase β.3 silent-refresh hook. When the SPA's
+      // `bccFetchAsClient::tryRefresh` POSTs to /api/auth/session
+      // after a successful /auth/refresh round-trip, NextAuth invokes
+      // this callback with trigger='update' and the POST body in
+      // `session`. We accept ONLY the fields we expect (bccToken +
+      // bccTokenExpiresAt) and IGNORE anything else — a compromised
+      // page cannot use this seam to forge identity (id / handle /
+      // inGoodStanding stay at their current values).
+      if (trigger === "update" && session !== null && typeof session === "object") {
+        const next = session as {
+          bccToken?: unknown;
+          bccTokenExpiresAt?: unknown;
+        };
+        if (typeof next.bccToken === "string" && next.bccToken !== "") {
+          token.bccToken = next.bccToken;
+        }
+        if (typeof next.bccTokenExpiresAt === "number") {
+          token.bccTokenExpiresAt = next.bccTokenExpiresAt;
+        }
+      }
+
       // Subsequent calls — when the BCC JWT has expired, blank the
       // bccToken on the session so client code stops sending a stale
       // Bearer (every request would 401 otherwise). The NextAuth
       // session JWT may still be valid; emptying `bccToken` causes
       // bccFetchAsClient to send unauth'd, and protected endpoints
       // 401 with a typed error the route boundaries can redirect on.
+      //
+      // Note: this still runs after a successful refresh-merge above
+      // because the new bccTokenExpiresAt is way in the future, so
+      // the predicate evaluates false. The blanking only fires when
+      // a refresh wasn't attempted OR the refresh failed.
       if (
         typeof token.bccTokenExpiresAt === "number" &&
         Date.now() >= token.bccTokenExpiresAt
