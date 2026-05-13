@@ -175,6 +175,14 @@ function useRefreshOnSuccess(): () => void {
 function HolderJoinButton({ groupId, onActionStart, onActionError }: ActionButtonProps) {
   const onSuccess = useRefreshOnSuccess();
   const mutation = useJoinHolderGroupMutation({ onSuccess, onError: onActionError });
+  // Friendlier copy for HolderGroupsEndpoint::postJoin's per-user
+  // Throttle 429; non-429 errors fall through to the canonical
+  // .message (e.g. bcc_permission_denied unlock_hint).
+  const errorMessage = mutation.error
+    ? mutation.error.code === "bcc_rate_limited"
+      ? "Slow down — too many join attempts. Wait a minute."
+      : mutation.error.message
+    : null;
   return (
     <ActionRow primaryCopy="Join the group to read its feed and post inside it.">
       <GroupActionButton
@@ -182,7 +190,7 @@ function HolderJoinButton({ groupId, onActionStart, onActionError }: ActionButto
         label="JOIN"
         pendingLabel="JOINING…"
         isPending={mutation.isPending}
-        errorMessage={mutation.error?.message ?? null}
+        errorMessage={errorMessage}
         onClick={() => {
           mutation.reset();
           onActionStart("joining");
@@ -196,6 +204,11 @@ function HolderJoinButton({ groupId, onActionStart, onActionError }: ActionButto
 function HolderLeaveButton({ groupId, onActionStart, onActionError }: ActionButtonProps) {
   const onSuccess = useRefreshOnSuccess();
   const mutation = useLeaveHolderGroupMutation({ onSuccess, onError: onActionError });
+  const errorMessage = mutation.error
+    ? mutation.error.code === "bcc_rate_limited"
+      ? "Slow down — too many leave attempts. Wait a minute."
+      : mutation.error.message
+    : null;
   return (
     <ActionRow primaryCopy="You're an active member. Posts you make here scope to this group's feed.">
       <GroupActionButton
@@ -203,7 +216,7 @@ function HolderLeaveButton({ groupId, onActionStart, onActionError }: ActionButt
         label="LEAVE"
         pendingLabel="LEAVING…"
         isPending={mutation.isPending}
-        errorMessage={mutation.error?.message ?? null}
+        errorMessage={errorMessage}
         onClick={() => {
           mutation.reset();
           onActionStart("leaving");
@@ -259,6 +272,11 @@ function LocalLeaveButton({ groupId, onActionStart, onActionError }: ActionButto
 function PlainJoinButton({ groupId, onActionStart, onActionError }: ActionButtonProps) {
   const onSuccess = useRefreshOnSuccess();
   const mutation = useJoinPlainGroupMutation({ onSuccess, onError: onActionError });
+  const errorMessage = mutation.error
+    ? mutation.error.code === "bcc_rate_limited"
+      ? "Slow down — too many join attempts. Wait a minute."
+      : mutation.error.message
+    : null;
   return (
     <ActionRow primaryCopy="Join the group to read its feed and post inside it.">
       <GroupActionButton
@@ -266,7 +284,7 @@ function PlainJoinButton({ groupId, onActionStart, onActionError }: ActionButton
         label="JOIN"
         pendingLabel="JOINING…"
         isPending={mutation.isPending}
-        errorMessage={mutation.error?.message ?? null}
+        errorMessage={errorMessage}
         onClick={() => {
           mutation.reset();
           onActionStart("joining");
@@ -280,6 +298,11 @@ function PlainJoinButton({ groupId, onActionStart, onActionError }: ActionButton
 function PlainLeaveButton({ groupId, onActionStart, onActionError }: ActionButtonProps) {
   const onSuccess = useRefreshOnSuccess();
   const mutation = useLeavePlainGroupMutation({ onSuccess, onError: onActionError });
+  const errorMessage = mutation.error
+    ? mutation.error.code === "bcc_rate_limited"
+      ? "Slow down — too many leave attempts. Wait a minute."
+      : mutation.error.message
+    : null;
   return (
     <ActionRow primaryCopy="You're an active member.">
       <GroupActionButton
@@ -287,7 +310,7 @@ function PlainLeaveButton({ groupId, onActionStart, onActionError }: ActionButto
         label="LEAVE"
         pendingLabel="LEAVING…"
         isPending={mutation.isPending}
-        errorMessage={mutation.error?.message ?? null}
+        errorMessage={errorMessage}
         onClick={() => {
           mutation.reset();
           onActionStart("leaving");
