@@ -49,6 +49,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { CardFactory } from "@/components/cards/CardFactory";
+import { OnboardingTrustLayerSteps } from "@/components/onboarding/OnboardingTrustLayerSteps";
 import { useBinder } from "@/hooks/useBinder";
 import { useCompleteOnboarding } from "@/hooks/useCompleteOnboarding";
 import {
@@ -72,7 +73,12 @@ import type {
 // Step machine
 // ─────────────────────────────────────────────────────────────────────
 
-type Step = "chain" | "pulls" | "notifications" | "dopamine";
+type Step =
+  | "chain"
+  | "pulls"
+  | "trust"
+  | "notifications"
+  | "dopamine";
 
 export interface OnboardingWizardProps {
   handle: string;
@@ -84,10 +90,11 @@ export function OnboardingWizard({ handle }: OnboardingWizardProps) {
   const pulls = useWizardPulls();
 
   const wizardLabel: Record<Step, string> = {
-    chain:         "Step 1 of 4 · Home Chain",
-    pulls:         "Step 2 of 4 · Start watching",
-    notifications: "Step 3 of 4 · Stay Posted",
-    dopamine:      "Step 4 of 4 · Welcome",
+    chain:         "Step 1 of 5 · Home Chain",
+    pulls:         "Step 2 of 5 · Start watching",
+    trust:         "Step 3 of 5 · How the graph works",
+    notifications: "Step 4 of 5 · Stay Posted",
+    dopamine:      "Step 5 of 5 · Welcome",
   };
 
   return (
@@ -100,7 +107,11 @@ export function OnboardingWizard({ handle }: OnboardingWizardProps) {
         <span className="bcc-mono text-cardstock-deep">@{handle}</span>
       </header>
 
-      {step !== "dopamine" && <ExplainerStrip />}
+      {/* ExplainerStrip is a brief "how the Floor works" header for
+          the early wizard steps. The trust step is its own thorough
+          explainer (4 cards), so the strip would be redundant there
+          — hide it. Dopamine is the full-bleed send-off — also hide. */}
+      {step !== "dopamine" && step !== "trust" && <ExplainerStrip />}
 
       {step === "chain" && (
         <HomeChainStep
@@ -114,13 +125,20 @@ export function OnboardingWizard({ handle }: OnboardingWizardProps) {
         <FirstPullsStep
           pulls={pulls}
           onBack={() => setStep("chain")}
+          onDone={() => setStep("trust")}
+        />
+      )}
+
+      {step === "trust" && (
+        <OnboardingTrustLayerSteps
+          onBack={() => setStep("pulls")}
           onDone={() => setStep("notifications")}
         />
       )}
 
       {step === "notifications" && (
         <NotificationsStep
-          onBack={() => setStep("pulls")}
+          onBack={() => setStep("trust")}
           onDone={() => setStep("dopamine")}
         />
       )}
