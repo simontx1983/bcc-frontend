@@ -93,6 +93,11 @@ const BELL_ROWS: ReadonlyArray<BellRow> = [
     label: "Posts in your primary Local",
     blurb: "Someone posted in the Local you've designated as primary. Coalesced to at most one bell per Local per 5-minute window.",
   },
+  {
+    key: "bcc_comment_received",
+    label: "Comments on your posts",
+    blurb: "Someone commented on a post you authored. Coalesced to at most one bell per post per 5-minute window — hot posts don't spam.",
+  },
 ];
 
 // V2 Phase 1: push event taxonomy is a deliberate subset of the bell.
@@ -127,6 +132,11 @@ const PUSH_ROWS: ReadonlyArray<PushRow> = [
     key: "local_post",
     label: "Posts in your primary Local",
     blurb: "Push when your primary Local has new activity. Rapid bursts coalesce into a single 'N new posts' push.",
+  },
+  {
+    key: "comment_received",
+    label: "Comments on your posts",
+    blurb: "Push when someone comments on a post you authored. Rapid bursts on a hot post coalesce into 'N new comments'.",
   },
 ];
 

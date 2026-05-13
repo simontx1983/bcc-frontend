@@ -737,7 +737,8 @@ export type NotificationKind =
   | "bcc_endorse"
   | "bcc_welcome"
   | "bcc_mention"
-  | "bcc_local_post";
+  | "bcc_local_post"
+  | "bcc_comment_received";
 
 export interface NotificationActor {
   id: number;
@@ -2985,7 +2986,8 @@ export type BellEventType =
   | "bcc_endorse"
   | "bcc_welcome"
   | "bcc_mention"
-  | "bcc_local_post";
+  | "bcc_local_post"
+  | "bcc_comment_received";
 
 export interface NotificationPrefs {
   email_digest: boolean;
@@ -3024,7 +3026,8 @@ export type PushEventType =
   | "dispute_outcome"
   | "panelist_selected"
   | "mention"
-  | "local_post";
+  | "local_post"
+  | "comment_received";
 
 export interface PushPrefs {
   enabled: boolean;
