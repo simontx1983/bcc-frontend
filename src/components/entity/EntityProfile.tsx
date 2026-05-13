@@ -28,6 +28,7 @@ import { DisputeCallout } from "@/components/disputes/DisputeCallout";
 import { EndorseButton } from "@/components/endorse/EndorseButton";
 import { LockedStreamPanel } from "@/components/entity/LockedStreamPanel";
 import { AttestationActionCluster } from "@/components/profile/AttestationActionCluster";
+import { AttestationRoster } from "@/components/profile/AttestationRoster";
 import { ReputationSummaryPanel } from "@/components/profile/ReputationSummaryPanel";
 import { ReviewCallout } from "@/components/review/ReviewCallout";
 import type { Card } from "@/lib/api/types";
@@ -75,6 +76,26 @@ export function EntityProfile({ card, kindLabel, streamEmptyState, viewerAuthed 
             viewerAuthed={viewerAuthed}
           />
         </div>
+      </section>
+
+      {/* ── §J.6 attestation roster — THE primary content of an
+            entity card per the constitution. Sits above stats and
+            stream because reputation is the headline, not the
+            chronological activity stream. Phase 1 status: backend
+            endpoint not yet shipped; roster renders empty-state
+            copy per risk-assessment §2.9. ────────────────────────── */}
+      <section className="mx-auto mt-12 max-w-[1560px] px-7">
+        <div className="bcc-mono mb-4 flex items-center gap-3 text-cardstock-deep">
+          <span className="inline-block h-px w-8 bg-cardstock-edge/50" />
+          <span>Backing</span>
+          <span className="inline-block h-px flex-1 bg-cardstock-edge/50" />
+        </div>
+        <AttestationRoster
+          items={undefined}
+          emptyState={{
+            body: "No attestations on file yet. Be the first to vouch.",
+          }}
+        />
       </section>
 
       {/* ── Stats strip ─────────────────────────────────────────── */}

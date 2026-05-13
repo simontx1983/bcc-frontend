@@ -34,6 +34,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { AttestationActionCluster } from "@/components/profile/AttestationActionCluster";
+import { AttestationRoster } from "@/components/profile/AttestationRoster";
 import { LivingHeader } from "@/components/profile/LivingHeader";
 import { ProfileTabs } from "@/components/profile/ProfileTabs";
 import { ReputationSummaryPanel } from "@/components/profile/ReputationSummaryPanel";
@@ -98,24 +99,39 @@ export default async function MemberProfilePage({ params }: PageProps) {
         </div>
       </section>
 
+      {/* §J.6 attestation roster — THE primary content of an
+          operator passport per the constitution. Renumbered to FILE
+          02 to reflect the new content hierarchy (reputation-first).
+          Bio + Numbers + Locals + Wallets + On File shift to 03–07.
+          Phase 1 status: backend endpoint not yet shipped; roster
+          renders empty-state copy per risk-assessment §2.9. */}
+      <SectionFrame fileNumber="02" label="BACKING">
+        <AttestationRoster
+          items={undefined}
+          emptyState={{
+            body: "This operator hasn't been backed yet. Their reputation will form as they participate.",
+          }}
+        />
+      </SectionFrame>
+
       {profile.bio.trim() !== "" && (
-        <SectionFrame fileNumber="02" label="BIO">
+        <SectionFrame fileNumber="03" label="BIO">
           <BioBlock bio={profile.bio} signature={profile.display_name} />
         </SectionFrame>
       )}
 
-      <SectionFrame fileNumber="03" label="THE NUMBERS">
+      <SectionFrame fileNumber="04" label="THE NUMBERS">
         <CountsStrip counts={profile.counts} />
       </SectionFrame>
 
       {profile.locals.length > 0 && (
-        <SectionFrame fileNumber="04" label="LOCALS">
+        <SectionFrame fileNumber="05" label="LOCALS">
           <LocalsStrip locals={profile.locals} />
         </SectionFrame>
       )}
 
       {profile.wallets.length > 0 && (
-        <SectionFrame fileNumber="05" label="WALLETS">
+        <SectionFrame fileNumber="06" label="WALLETS">
           <WalletsStrip wallets={profile.wallets} />
         </SectionFrame>
       )}
@@ -125,7 +141,7 @@ export default async function MemberProfilePage({ params }: PageProps) {
           (count badges + PRIVATE chips); each panel resolves its own
           hidden state on fetch. When backend phases up to ship
           MemberTabCount[], pass it through as a `tabs` prop. */}
-      <SectionFrame fileNumber="06" label="ON FILE">
+      <SectionFrame fileNumber="07" label="ON FILE">
         <ProfileTabs
           handle={profile.handle}
           displayName={profile.display_name}

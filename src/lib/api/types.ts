@@ -2904,6 +2904,97 @@ export interface ViewerAttestation {
   stand_behind: { id: number; created_at: string } | null;
 }
 
+/** Attestation kinds available at V1 per §J.1. */
+export type AttestationKind = "vouch" | "stand_behind";
+
+/**
+ * Attestor mini-view embedded in roster rows. Public-display only —
+ * the numeric reliability score is structurally absent per the
+ * §J.3.2 asymmetric-display rule. Per the §J.4.1 synthesis-
+ * invisibility reconciliation, per-attestation weights
+ * (`weight_at_time`, `decayed_weight`) are server-side only and do
+ * NOT appear here either.
+ */
+export interface AttestationRosterAttestor {
+  id: number;
+  handle: string;
+  display_name: string;
+  avatar_url: string;
+  /**
+   * §C1 reputation tier — categorical only. Public-display safe.
+   */
+  reputation_score?: number;
+  /**
+   * §J.3.2 positive-only public badge. Absent when the attestor
+   * hasn't earned one (asymmetric-display rule).
+   */
+  reliability_standing: ReliabilityStandingPublic | null;
+  /**
+   * §J.6 attestor badges array. V1 catalogue:
+   * `highly_reliable` / `consistent` / `newly_active` /
+   * `early_read`. Asymmetric-display rule preserved — no negative
+   * badges exist in the catalogue.
+   */
+  badges: string[];
+  /**
+   * §J.1 dormancy signal — true when the attestor has had no
+   * platform activity in the dormancy window (default 60 days).
+   * Drives the roster's visual dimming per the long-term graph
+   * health refinements. Optional during Phase 1 backend rollout.
+   */
+  is_dormant?: boolean;
+}
+
+/**
+ * Per-row roster item from `GET /entities/:target_kind/:target_id/
+ * attestations` per §J.4.
+ */
+export interface AttestationRosterItem {
+  id: number;
+  kind: AttestationKind;
+  attestor: AttestationRosterAttestor;
+  /**
+   * §J.3.2.1 marker — this attestation was a pre-consensus call
+   * (first stand-behind on the target, or in the early window).
+   * Drives the subtle "EARLY READ" marker on the row. Independent
+   * of whether the attestor carries the broader `early_read` badge.
+   */
+  is_pre_consensus_pick: boolean;
+  /**
+   * Position in the attestation sequence on this target.
+   * Provided for transparency but the FE does NOT display the
+   * number on the row — the position is used by server-side
+   * sorting; the FE renders the order it receives.
+   */
+  attestation_order: number;
+  context_note: string | null;
+  created_at: string;
+  revoked_at: string | null;
+}
+
+/**
+ * Aggregate summary from `GET /entities/:target_kind/:target_id/
+ * attestations` per §J.4. Per the consistency-audit reconciliation,
+ * the legacy `divergence_signal` field was removed; the entity
+ * view-model's `divergence_state` is the authoritative divergence
+ * surface.
+ */
+export interface AttestationRosterSummary {
+  vouch_count: number;
+  stand_behind_count: number;
+}
+
+export interface AttestationRosterResponse {
+  items: AttestationRosterItem[];
+  summary: AttestationRosterSummary;
+  pagination: {
+    page: number;
+    per_page: number;
+    total_pages: number;
+    has_more: boolean;
+  };
+}
+
 export interface MemberProfile {
   id: number;
   /** Alias of `id`. Server emits both so callers using either name work. */
