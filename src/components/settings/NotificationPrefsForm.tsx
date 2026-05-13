@@ -282,7 +282,25 @@ export function NotificationPrefsForm() {
           per device or at the account level any time.
         </p>
 
-        {!push.isSupported ? (
+        {draft.push_available === false ? (
+          /*
+           * Server-side capability gate. The instance doesn't have
+           * BCC_PUSH_VAPID_PUBLIC_KEY configured, so push delivery
+           * cannot work regardless of browser support. Hide the
+           * toggle and explain why — prevents an enable-then-fail
+           * cold-start flow on fresh deployments and mobile clients.
+           *
+           * `push_available` is optional in the type for backward
+           * compatibility; treat undefined as truthy (the existing
+           * behavior — the toggle renders and we discover the gap
+           * via the 503 from getVapidPublicKey on click).
+           */
+          <p className="bcc-mono mt-2 text-[11px] text-ink-soft/70">
+            Push notifications aren&apos;t configured on this site yet.
+            Contact an administrator if you&apos;d like them enabled.
+            The bell and weekly email digest above still work.
+          </p>
+        ) : !push.isSupported ? (
           <p className="bcc-mono mt-2 text-[11px] text-ink-soft/70">
             Your browser doesn&apos;t support push notifications. The bell
             and weekly email digest above still work.

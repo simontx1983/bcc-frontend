@@ -2998,6 +2998,22 @@ export interface NotificationPrefs {
   email_digest: boolean;
   bell: Record<BellEventType, boolean>;
   push: PushPrefs;
+  /**
+   * Server-side push capability flag. True when the BCC_PUSH_VAPID_PUBLIC_KEY
+   * wp-config constant is configured (the server can actually deliver
+   * push). False otherwise — frontends should hide / disable the
+   * "Enable push" CTA on a false value, even when the browser supports
+   * push, to avoid a click-and-fail flow on cold start.
+   *
+   * Optional in the type for backward-compatibility with stale clients
+   * during deploy windows; the server emits it unconditionally on
+   * /me/notification-prefs responses (server-rendered as `false` when
+   * the constant is missing rather than omitted). Treat `undefined` the
+   * same as `false`.
+   *
+   * @since 2026-05-13 — stabilization-plan Phase β / item 2
+   */
+  push_available?: boolean;
 }
 
 /**
