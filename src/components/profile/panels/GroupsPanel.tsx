@@ -49,6 +49,7 @@ import {
   useUserGroups,
 } from "@/hooks/useUserActivity";
 import type { UserGroupItem } from "@/lib/api/types";
+import { isAllowed, unlockHint } from "@/lib/permissions";
 
 interface GroupsPanelProps {
   handle: string;
@@ -163,14 +164,15 @@ function GroupRow({ item }: { item: UserGroupItem }) {
 function GroupRowActions({ item }: { item: UserGroupItem }) {
   const { permissions } = item;
 
-  if (permissions.can_leave.allowed) {
+  if (isAllowed(permissions, "can_leave")) {
     return <LeaveAction item={item} />;
   }
-  if (permissions.can_join.allowed) {
+  if (isAllowed(permissions, "can_join")) {
     return <JoinAction item={item} />;
   }
-  if (permissions.can_join.unlock_hint !== null) {
-    return <UnlockHint hint={permissions.can_join.unlock_hint} />;
+  const joinHint = unlockHint(permissions, "can_join");
+  if (joinHint !== null) {
+    return <UnlockHint hint={joinHint} />;
   }
   return null;
 }

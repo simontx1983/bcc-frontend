@@ -37,6 +37,7 @@ import {
 import { formatRelativeTime } from "@/lib/format";
 import { renderTextWithMentions } from "@/lib/format/mentions";
 import type { Comment } from "@/lib/api/types";
+import { isAllowed } from "@/lib/permissions";
 
 const COMMENT_MAX_LENGTH = 2000;
 
@@ -128,7 +129,7 @@ export function CommentDrawer({ feedId, isOpen }: CommentDrawerProps) {
 
 function CommentRow({ feedId, comment }: { feedId: string; comment: Comment }) {
   const deleteMut = useDeleteCommentMutation();
-  const canDelete = comment.permissions.can_delete.allowed;
+  const canDelete = isAllowed(comment.permissions, "can_delete");
   const isPending = deleteMut.isPending;
   const authorHref = `/u/${comment.author.handle}` as Route;
 

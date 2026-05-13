@@ -18,13 +18,14 @@ import { useState } from "react";
 import { useBlockUser, useUnblockUser } from "@/hooks/useBlocks";
 import type { MemberProfile } from "@/lib/api/types";
 import { BccApiError } from "@/lib/api/types";
+import { isAllowed } from "@/lib/permissions";
 
 interface BlockToggleProps {
   profile: MemberProfile;
 }
 
 export function BlockToggle({ profile }: BlockToggleProps) {
-  const canBlock = profile.permissions.can_block.allowed;
+  const canBlock = isAllowed(profile.permissions, "can_block");
   const [optimisticBlocking, setOptimisticBlocking] = useState<boolean | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 

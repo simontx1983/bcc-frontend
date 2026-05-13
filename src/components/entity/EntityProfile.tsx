@@ -29,6 +29,7 @@ import { EndorseButton } from "@/components/endorse/EndorseButton";
 import { LockedStreamPanel } from "@/components/entity/LockedStreamPanel";
 import { ReviewCallout } from "@/components/review/ReviewCallout";
 import type { Card } from "@/lib/api/types";
+import { isAllowed } from "@/lib/permissions";
 
 export interface EntityProfileProps {
   card: Card;
@@ -230,7 +231,7 @@ function IdentityBlock({
       <ReviewCallout
         pageId={card.id}
         pageName={card.name}
-        canReview={card.permissions.can_review.allowed}
+        canReview={isAllowed(card.permissions, "can_review")}
         hasReviewed={card.viewer_has_reviewed}
         viewerAuthed={viewerAuthed}
       />
@@ -243,7 +244,7 @@ function IdentityBlock({
       <EndorseButton
         pageId={card.id}
         pageName={card.name}
-        canEndorse={card.permissions.can_endorse.allowed}
+        canEndorse={isAllowed(card.permissions, "can_endorse")}
         unlockHint={card.endorse_unlock_hint}
         hasEndorsed={card.viewer_has_endorsed}
         viewerAuthed={viewerAuthed}
@@ -256,7 +257,7 @@ function IdentityBlock({
       <DisputeCallout
         pageId={card.id}
         pageName={card.name}
-        canDispute={card.permissions.can_dispute.allowed}
+        canDispute={isAllowed(card.permissions, "can_dispute")}
       />
     </div>
   );

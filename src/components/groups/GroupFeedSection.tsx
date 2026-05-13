@@ -35,6 +35,7 @@ import { FeedItemCard } from "@/components/feed/FeedItemCard";
 import { GroupGatedNotice } from "@/components/groups/GroupGatedNotice";
 import { useGroupFeed } from "@/hooks/useGroupFeed";
 import type { FeedItem, GroupDetailResponse } from "@/lib/api/types";
+import { unlockHint } from "@/lib/permissions";
 
 interface GroupFeedSectionProps {
   group: GroupDetailResponse;
@@ -44,7 +45,7 @@ export function GroupFeedSection({ group }: GroupFeedSectionProps) {
   if (!group.feed_visible) {
     return (
       <GroupGatedNotice
-        hint={group.permissions.can_read_feed.unlock_hint}
+        hint={unlockHint(group.permissions, "can_read_feed")}
         variant="feed"
       />
     );

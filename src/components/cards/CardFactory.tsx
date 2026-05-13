@@ -43,6 +43,7 @@ import {
 import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
 import type { Card, CardStat, CardTier } from "@/lib/api/types";
 import { FOLLOW_COPY } from "@/lib/copy";
+import { isAllowed, unlockHint } from "@/lib/permissions";
 
 export interface CardFactoryProps {
   card: Card;
@@ -473,13 +474,13 @@ function ActionBar({
     <div className="relative z-10 grid grid-cols-1 border-t border-cardstock-edge/40 bg-cardstock sm:grid-cols-3">
       <button
         type="button"
-        disabled={!card.permissions.can_pull.allowed}
+        disabled={!isAllowed(card.permissions, "can_pull")}
         title={
-          card.permissions.can_pull.allowed
+          isAllowed(card.permissions, "can_pull")
             ? isPulled
               ? FOLLOW_COPY.tooltipActive
               : FOLLOW_COPY.tooltipIdle
-            : card.permissions.can_pull.unlock_hint ??
+            : unlockHint(card.permissions, "can_pull") ??
               "Keep Tabs is unavailable for this card."
         }
         onClick={(e) => {
@@ -507,11 +508,11 @@ function ActionBar({
 
       <button
         type="button"
-        disabled={!card.permissions.can_review.allowed}
+        disabled={!isAllowed(card.permissions, "can_review")}
         title={
-          card.permissions.can_review.allowed
+          isAllowed(card.permissions, "can_review")
             ? "Write a review"
-            : card.permissions.can_review.unlock_hint ??
+            : unlockHint(card.permissions, "can_review") ??
               "Reviews unlock at neutral reputation."
         }
         onClick={(e) => {

@@ -37,6 +37,7 @@ import {
   useLeavePlainGroupMutation,
 } from "@/hooks/useMyGroups";
 import type { GroupDetailResponse } from "@/lib/api/types";
+import { isAllowed, unlockHint } from "@/lib/permissions";
 
 interface GroupMembershipStripProps {
   group: GroupDetailResponse;
@@ -103,18 +104,19 @@ interface MembershipBodyProps {
 function MembershipBody({ group, onActionStart, onActionError }: MembershipBodyProps) {
   const { permissions } = group;
 
-  if (permissions.can_leave.allowed) {
+  if (isAllowed(permissions, "can_leave")) {
     return (
       <LeaveAction group={group} onActionStart={onActionStart} onActionError={onActionError} />
     );
   }
-  if (permissions.can_join.allowed) {
+  if (isAllowed(permissions, "can_join")) {
     return (
       <JoinAction group={group} onActionStart={onActionStart} onActionError={onActionError} />
     );
   }
-  if (permissions.can_join.unlock_hint !== null) {
-    return <UnlockHint hint={permissions.can_join.unlock_hint} />;
+  const joinHint = unlockHint(permissions, "can_join");
+  if (joinHint !== null) {
+    return <UnlockHint hint={joinHint} />;
   }
   return <RestingCopy />;
 }
