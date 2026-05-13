@@ -26,12 +26,20 @@ declare module "next-auth" {
     bccToken: string;
     /** Epoch milliseconds at which the BCC JWT (`bccToken`) expires. */
     bccTokenExpiresAt: number;
+    /**
+     * §I1 chrome signal — "Member in Good Standing" boolean resolved at
+     * login from the user's reputation tier. Bounded-staleness V1:
+     * carried through the JWT until next login.
+     */
+    inGoodStanding: boolean;
   }
 
   interface Session {
     user: {
       id: string;
       handle: string;
+      /** Mirrors User.inGoodStanding; drives the SiteFooter stamp. */
+      inGoodStanding: boolean;
       // Standard NextAuth fields stay optional in case we ever populate them.
       name?: string | null;
       email?: string | null;
@@ -50,5 +58,7 @@ declare module "next-auth/jwt" {
     handle: string;
     bccToken: string;
     bccTokenExpiresAt: number;
+    /** §I1 chrome signal — carried through the JWT until next login. */
+    inGoodStanding: boolean;
   }
 }

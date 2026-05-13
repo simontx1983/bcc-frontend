@@ -83,6 +83,17 @@ export interface AuthTokenResponse {
   /** Seconds until exp from now. JwtToken::TTL_SECONDS = 604800 (7 days) for V1. */
   expires_in: number;
   token_type: "Bearer";
+  /**
+   * §I1 chrome signal — whether the viewer holds "Member in Good Standing"
+   * status. Resolved fresh at login server-side from the reputation tier;
+   * carried through the NextAuth JWT until the next login. Drives the
+   * SiteFooter contextual stamp.
+   *
+   * Bounded-staleness V1 posture: if a user falls out of good standing
+   * mid-session, the chrome stamp persists until next login (or until the
+   * BCC JWT expires + the session re-authenticates).
+   */
+  in_good_standing: boolean;
 }
 
 export interface HandleUpdateResponse {

@@ -52,6 +52,7 @@ async function callBccAuth(
   handle: string;
   bccToken: string;
   bccTokenExpiresAt: number;
+  inGoodStanding: boolean;
 }> {
   let response: Response;
   try {
@@ -93,11 +94,22 @@ async function callBccAuth(
     throw new Error("bcc_invalid_envelope");
   }
 
+  // `in_good_standing` is required on the backend response shape per
+  // AuthTokenResponse, but be defensive about absence so a backend that
+  // hasn't deployed the field yet doesn't blow up the frontend during
+  // a rolling deploy. Default to false (the more conservative default —
+  // the SiteFooter stamp shows only when truthy).
+  const inGoodStanding =
+    typeof parsed.data.in_good_standing === "boolean"
+      ? parsed.data.in_good_standing
+      : false;
+
   return {
     id: String(parsed.data.user_id),
     handle: parsed.data.handle,
     bccToken: parsed.data.token,
     bccTokenExpiresAt: Date.now() + parsed.data.expires_in * 1000,
+    inGoodStanding,
   };
 }
 
@@ -191,6 +203,7 @@ export const authOptions: NextAuthOptions = {
         token.handle = user.handle;
         token.bccToken = user.bccToken;
         token.bccTokenExpiresAt = user.bccTokenExpiresAt;
+        token.inGoodStanding = user.inGoodStanding;
       }
 
       // Subsequent calls — when the BCC JWT has expired, blank the
@@ -215,6 +228,7 @@ export const authOptions: NextAuthOptions = {
         ...session.user,
         id: token.id,
         handle: token.handle,
+        inGoodStanding: token.inGoodStanding,
       };
       session.bccToken = token.bccToken;
       session.bccTokenExpiresAt = token.bccTokenExpiresAt;

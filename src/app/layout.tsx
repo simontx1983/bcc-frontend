@@ -75,6 +75,13 @@ export default async function RootLayout({
   // on first paint — no auth flicker, no client-side fetch round-trip.
   const session = await getServerSession(authOptions);
   const viewerHandle = session?.user.handle ?? null;
+  // §I1 chrome signal — bounded-staleness "Member in Good Standing"
+  // boolean. Carried through the NextAuth JWT from the login response
+  // (see /auth/login + /auth/wallet-login + signup/walletSignup
+  // responses on the bcc-trust AuthEndpoint). Drives the SiteFooter
+  // contextual stamp. Defaults false when anon or when the session
+  // pre-dates the field rollout — failsafe direction (stamp hidden).
+  const viewerInGoodStanding = session?.user.inGoodStanding ?? false;
 
   const fontVars = `${stencil.variable} ${fraunces.variable} ${mono.variable} ${script.variable}`;
   return (
@@ -86,10 +93,13 @@ export default async function RootLayout({
           {/* SiteFooter receives viewerHandle so the 3-column index can
               switch its third column between "Account" (authed) and
               "Get Started" (anon), and so the anon-only acquisition
-              strip can mount. viewerInGoodStanding is omitted today —
-              wire it from the session once that signal is server-
-              resolvable; without it the contextual stamp stays hidden. */}
-          <SiteFooter viewerHandle={viewerHandle} />
+              strip can mount. viewerInGoodStanding carries the §I1
+              good-standing signal from the NextAuth JWT (resolved fresh
+              at login server-side); drives the contextual stamp. */}
+          <SiteFooter
+            viewerHandle={viewerHandle}
+            viewerInGoodStanding={viewerInGoodStanding}
+          />
           {/* §O1.2 Heavy celebration delivery — mounts globally so a
               rank-up landing on any route surfaces wherever the user is.
               Self-gates on session status; renders nothing for anon. */}
