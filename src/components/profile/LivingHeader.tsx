@@ -41,7 +41,24 @@ interface LivingHeaderProps {
 export function LivingHeader({ living, progression }: LivingHeaderProps) {
   const todayLine = composeTodayLine(living.today);
   const showProgression = progression !== undefined && progression !== null;
-  const pct = showProgression ? leadingThresholdPercent(progression) : 0;
+  // Terminal-state detection: user has no auto-promotion target ahead
+  // of them. Either they're already at the top of the auto-ladder
+  // (Foreman, or any future top rank) OR the next rank is admin-
+  // conferred so there's no honest percentage to render.
+  //
+  // Phase γ retention pass (2026-05-13): the smoke test showed
+  // "JOURNEYMAN · 100%" on the home FloorBriefing for new-default
+  // users, which reads as "max level reached" — discouraging the
+  // first action. When terminal, render the rank chip with a quiet
+  // status caption instead of a saturated bar.
+  const terminal =
+    showProgression &&
+    progression !== undefined &&
+    (progression.next_rank === null ||
+      progression.next_rank_thresholds.length === 0);
+  const pct = showProgression && !terminal
+    ? leadingThresholdPercent(progression)
+    : 0;
   const remainingLabel = showProgression
     ? composeRemainingLabel(progression)
     : null;
@@ -89,8 +106,40 @@ export function LivingHeader({ living, progression }: LivingHeaderProps) {
         )}
       </div>
 
-      {/* Rank progress — phosphor bar with ribboned end-cap. Own only. */}
-      {showProgression && progression !== undefined && (
+      {/* Rank progress — phosphor bar with ribboned end-cap. Own only.
+          Terminal-state branch suppresses the progress bar entirely and
+          renders just the rank chip + status caption. Rationale: a 100%
+          bar next to a rank chip reads as "max level reached" — which
+          discourages new users from doing anything, since the cue tells
+          them they're already done. The terminal branch keeps the rank
+          visible and replaces the saturated bar with a status line
+          telling them what's next (admin-conferred, or top of ladder). */}
+      {showProgression && progression !== undefined && terminal && (
+        <div className="w-full sm:min-w-[260px] md:max-w-[320px]">
+          <div className="bcc-mono mb-1 flex items-baseline justify-between text-cardstock-deep">
+            <span>
+              <span className="text-cardstock">{progression.current_rank_label.toUpperCase()}</span>
+              {progression.next_rank_label !== null && (
+                <>
+                  <span className="mx-2 text-ink-ghost">→</span>
+                  <span className="text-ink-ghost">{progression.next_rank_label.toUpperCase()}</span>
+                </>
+              )}
+            </span>
+          </div>
+          {/* Terminal status caption — quiet, intentional, civic. Falls
+              back to a default when the server didn't ship a remaining
+              label (defensive against contract softening). */}
+          <p className="bcc-mono text-ink-ghost">
+            {remainingLabel ?? (
+              progression.next_rank === null
+                ? "Top of the auto-ladder."
+                : "Auto-promotion ladder complete."
+            )}
+          </p>
+        </div>
+      )}
+      {showProgression && progression !== undefined && !terminal && (
         <div className="w-full sm:min-w-[260px] md:max-w-[320px]">
           <div className="bcc-mono mb-1 flex items-baseline justify-between text-cardstock-deep">
             <span>

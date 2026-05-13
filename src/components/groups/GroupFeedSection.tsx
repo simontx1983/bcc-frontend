@@ -69,12 +69,20 @@ export function GroupFeedSection({ group }: GroupFeedSectionProps) {
           groupScopeLabel={`POST IN ${group.name.toUpperCase()}`}
         />
       )}
-      <GroupFeedBody groupId={group.id} />
+      <GroupFeedBody groupId={group.id} canPost={canPost} groupKind={group.type} />
     </div>
   );
 }
 
-function GroupFeedBody({ groupId }: { groupId: number }) {
+function GroupFeedBody({
+  groupId,
+  canPost,
+  groupKind,
+}: {
+  groupId: number;
+  canPost: boolean;
+  groupKind: GroupDetailResponse["type"];
+}) {
   const query = useGroupFeed(groupId);
 
   const handleLoadMore = useCallback(() => {
@@ -114,12 +122,21 @@ function GroupFeedBody({ groupId }: { groupId: number }) {
   const items = (query.data?.pages ?? []).flatMap((page) => page.items);
 
   if (items.length === 0) {
+    // Phase γ retention pass (2026-05-13): rather than the generic
+    // "Quiet inside" copy, surface a founder-chair frame when the
+    // viewer is a member who can post — turns the empty room from
+    // "this place is dead" into "you're early, and the next move is
+    // yours." For anonymous viewers / non-members the original copy
+    // stands because they can't act on the prompt anyway.
     return (
       <div className="bcc-panel mx-auto p-6 text-center">
-        <h2 className="bcc-stencil text-2xl text-ink">Quiet inside</h2>
+        <h2 className="bcc-stencil text-2xl text-ink">
+          {canPost ? emptyHeading(groupKind) : "Quiet inside"}
+        </h2>
         <p className="mt-2 font-serif text-ink-soft">
-          No posts here yet. Be the first to break the silence — or check
-          back when the heat picks up.
+          {canPost
+            ? emptyBody(groupKind)
+            : "No posts here yet. Be the first to break the silence — or check back when the heat picks up."}
         </p>
       </div>
     );
@@ -149,6 +166,39 @@ function GroupFeedBody({ groupId }: { groupId: number }) {
       )}
     </div>
   );
+}
+
+// ──────────────────────────────────────────────────────────────────────
+// Empty-feed founder-chair copy — surfaces only when the viewer is a
+// member who can post. Tone matches the platform's civic register
+// (no exclamation marks, no fake urgency); the goal is "you're early"
+// not "engagement bait."
+// ──────────────────────────────────────────────────────────────────────
+
+function emptyHeading(kind: GroupDetailResponse["type"]): string {
+  switch (kind) {
+    case "local":
+      return "Looking for its first shift.";
+    case "nft":
+      return "Empty room. Your call.";
+    case "system":
+    case "user":
+    default:
+      return "First post lands here.";
+  }
+}
+
+function emptyBody(kind: GroupDetailResponse["type"]): string {
+  switch (kind) {
+    case "local":
+      return "Nobody's posted in this Local yet. The first post sets the tone — the rest of the chain sees it when they show up.";
+    case "nft":
+      return "You hold the gating NFT and you're inside. So is anyone else who qualifies — but the room's quiet. First post sets the tone for the holders.";
+    case "system":
+    case "user":
+    default:
+      return "No posts here yet. You're early. The first post on the floor of this room is a permanent piece of its record.";
+  }
 }
 
 // ──────────────────────────────────────────────────────────────────────
