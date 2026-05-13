@@ -35,7 +35,7 @@ import { notFound } from "next/navigation";
 
 import { LivingHeader } from "@/components/profile/LivingHeader";
 import { ProfileTabs } from "@/components/profile/ProfileTabs";
-import { RankChip } from "@/components/profile/RankChip";
+import { ReputationSummaryPanel } from "@/components/profile/ReputationSummaryPanel";
 import { authOptions } from "@/lib/auth";
 import { getUser } from "@/lib/api/user-endpoints";
 import { FOLLOW_COPY } from "@/lib/copy";
@@ -213,35 +213,24 @@ function IdentityHeader({
         </div>
       </div>
 
-      {/* Order matters: standing chip first, rank chip second. Putting
-          the rank chip's tier-tinted left rail directly adjacent to the
-          bright-green GOOD STANDING fill caused a green-on-green
-          collision for Uncommon users specifically. Standing-then-rank
-          breaks the adjacency and lets the tier accent read on its own. */}
-      <div className="flex flex-wrap items-center gap-2">
-        {profile.is_in_good_standing ? (
-          <span className="bcc-mono bg-verified px-2 py-[3px] text-white">
-            ✓ GOOD STANDING
-          </span>
-        ) : (
-          <span className="bcc-mono border border-safety/60 px-2 py-[3px] text-safety">
-            UNDER REVIEW
-          </span>
-        )}
-        <RankChip
-          cardTier={profile.card_tier}
-          tierLabel={profile.tier_label}
-          rankLabel={profile.rank_label}
-        />
-        {profile.flags.map((flag) => (
-          <span
-            key={flag}
-            className="bcc-mono border border-safety/60 px-2 py-[3px] text-safety"
-          >
-            {flag.toUpperCase().replace(/_/g, " ")}
-          </span>
-        ))}
-      </div>
+      {/* §J.6 reputation-first panel. Identity (avatar + handle +
+          display name) sits above; this panel carries the trust
+          headline. Empty-state copy renders when the §4.20
+          attestation-layer fields haven't shipped from the backend
+          yet — profile remains coherent during the Phase 1 rollout. */}
+      <ReputationSummaryPanel
+        reputationScore={profile.reputation_score ?? profile.trust_score}
+        reliabilityStanding={profile.reliability_standing}
+        cardTier={profile.card_tier}
+        tierLabel={profile.tier_label}
+        rankLabel={profile.rank_label}
+        isInGoodStanding={profile.is_in_good_standing}
+        flags={profile.flags}
+        divergenceState={profile.negative_signals?.divergence_state}
+        underReview={profile.negative_signals?.under_review}
+        reputationVolatile={profile.negative_signals?.volatile}
+        unresolvedClaimsCount={profile.negative_signals?.unresolved_claims_count}
+      />
 
       <div className="flex flex-wrap items-center justify-between gap-4 border-t border-dashed border-cardstock/15 pt-4">
         <p className="bcc-mono text-cardstock-deep">

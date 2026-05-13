@@ -2780,6 +2780,76 @@ export type Phase4MemberProfile = MemberProfile;
  * `wallets[].address` is the same: present on own profile, omitted for
  * others' (privacy floor — only `address_short` leaks across users).
  */
+
+// ─────────────────────────────────────────────────────────────────────
+// §4.20 Trust Attestation Layer view-model extensions
+//
+// View-model fields added to MemberProfile and Card per the §J wire
+// contract. All optional on the FE type — backend may emit them in
+// later Phase 1 increments; the FE renders sensible empty states when
+// they're absent.
+//
+// See `docs/trust-attestation-layer.md` (constitution) and
+// `docs/api-contract-v1.md` §4.20 §J.6 for the full contract.
+// ─────────────────────────────────────────────────────────────────────
+
+/**
+ * Positive-only public reliability badge per §J.3.2 asymmetric-display
+ * rule. There is NO negative public badge — operators whose reliability
+ * softens simply lose their positive badge, never gaining a negative one.
+ */
+export type ReliabilityStandingPublic =
+  | "highly_reliable"
+  | "consistent"
+  | "newly_active";
+
+/**
+ * Five-state synthesis classifier per §J.2. Mutually exclusive — every
+ * entity falls into exactly one state. `polarizing` is intelligence,
+ * not condemnation; `disputed` flags active multi-claim contention;
+ * `well_regarded` and `untested` surface without alarm UI.
+ */
+export type DivergenceState =
+  | "untested"
+  | "well_regarded"
+  | "poorly_regarded"
+  | "polarizing"
+  | "disputed";
+
+/**
+ * Aggregate attestation counts for an entity card or operator profile.
+ * Server-rolled per §A2; FE never derives.
+ */
+export interface AttestationSummary {
+  vouch_count: number;
+  stand_behind_count: number;
+}
+
+/**
+ * Derived negative signals composing with the divergence_state
+ * classification. Per §J.4.1 synthesis-invisibility, these are
+ * OUTCOMES of the synthesis math — never the rules themselves.
+ */
+export interface NegativeSignals {
+  /** Active dispute (state ∈ open/in_panel). Real-time flag. */
+  under_review: boolean;
+  /** Five-state divergence classification. */
+  divergence_state: DivergenceState;
+  /** Rapid reputation_score swing in a rolling window (nightly worker). */
+  volatile: boolean;
+  /** Open dispute + open content-report total. */
+  unresolved_claims_count: number;
+}
+
+/**
+ * Whether the viewer has cast an attestation on this target.
+ * Self-aware per §A2 — server resolves the viewer relationship.
+ */
+export interface ViewerAttestation {
+  vouch: { id: number; created_at: string } | null;
+  stand_behind: { id: number; created_at: string } | null;
+}
+
 export interface MemberProfile {
   id: number;
   /** Alias of `id`. Server emits both so callers using either name work. */
@@ -2804,6 +2874,38 @@ export interface MemberProfile {
   joined_at: string;
   is_self: boolean;
   trust_score: number;
+  /**
+   * §4.20 cosmetic rename of `trust_score`. Backend dual-emits during
+   * the Phase 1 release cycle per §J.11 migration. FE prefers
+   * `reputation_score` when present; falls back to `trust_score`.
+   * Optional on the FE type because backend may not ship it in the
+   * earliest Phase 1 increments.
+   */
+  reputation_score?: number;
+  /**
+   * §J.3.2 asymmetric-display rule: positive-only public badge. Absent
+   * (undefined) when the operator hasn't earned a public badge. Null
+   * is reserved for explicit "no current standing" semantics from the
+   * server; FE treats undefined and null the same way.
+   */
+  reliability_standing?: ReliabilityStandingPublic | null;
+  /**
+   * §J.6 aggregate attestation counts. Optional during Phase 1
+   * rollout; FE renders empty-state copy when absent.
+   */
+  attestation_summary?: AttestationSummary;
+  /**
+   * §J.6 derived negative signals composing with the divergence_state
+   * classification. Optional — backend ships when synthesis layer is
+   * live.
+   */
+  negative_signals?: NegativeSignals;
+  /**
+   * §J.6 viewer-aware attestation relationship — does the viewer
+   * currently have a vouch / stand_behind cast against this target?
+   * Optional during Phase 1 rollout.
+   */
+  viewer_attestation?: ViewerAttestation;
   reputation_tier: ReputationTier;
   card_tier: CardTier;
   tier_label: string | null;
