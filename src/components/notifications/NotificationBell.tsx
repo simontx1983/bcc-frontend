@@ -195,8 +195,15 @@ export function NotificationBell({ enabled }: NotificationBellProps) {
               Loading…
             </div>
           ) : items.length === 0 ? (
+            // Sprint 5 empty-state hygiene: "No notifications yet. We'll
+            // let you know when something happens." was the SaaS-dashboard
+            // inbox-notify framing ("we'll notify you"). Replaced with
+            // "Nothing on file." — the workshop/ledger vocabulary the
+            // rest of the product uses (FILE 01-07 frames on profile,
+            // "on the books" on locals empty). Observational; no
+            // promise; no system-speaking-at-you.
             <div className="bcc-mono bg-cardstock px-4 py-6 text-center text-[11px] text-ink-soft">
-              No notifications yet. We’ll let you know when something happens.
+              Nothing on file.
             </div>
           ) : (
             <ul role="presentation" className="flex max-h-[60vh] flex-col gap-px overflow-y-auto">

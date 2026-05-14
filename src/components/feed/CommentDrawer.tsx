@@ -87,17 +87,18 @@ export function CommentDrawer({ feedId, isOpen }: CommentDrawerProps) {
 
   return (
     <div className="mt-3 border-t border-cardstock-edge/40 pt-3">
+      {/* Sprint 5 empty-state hygiene: the "No comments yet." line was
+          deleted — it restated an absence the composer below already
+          answers as the next action. Empty state is now communicated
+          by the empty list itself; the loading branch above still
+          renders "Loading comments…" so a load-in-flight isn't
+          confused for "no comments yet." */}
       <ul className="flex flex-col gap-3">
         {items.map((comment) => (
           <li key={comment.id}>
             <CommentRow feedId={feedId} comment={comment} />
           </li>
         ))}
-        {items.length === 0 && (
-          <li className="bcc-mono text-[11px] text-ink-soft/60 italic">
-            No comments yet.
-          </li>
-        )}
       </ul>
 
       {hasMore && (

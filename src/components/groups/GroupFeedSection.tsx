@@ -136,7 +136,7 @@ function GroupFeedBody({
         <p className="mt-2 font-serif text-ink-soft">
           {canPost
             ? emptyBody(groupKind)
-            : "No posts here yet. Be the first to break the silence — or check back when the heat picks up."}
+            : "Members will write the first chapter here."}
         </p>
       </div>
     );
