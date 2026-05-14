@@ -16,9 +16,11 @@
  *
  * Empty / loading / error states per §N10 — every surface explicitly
  * handles all three. The empty state for the For You tab is the §F2
- * "Hot on the Floor" fallback, which the server already merges into
- * the response when the viewer has zero follows; the frontend doesn't
- * branch on follow count.
+ * recent-activity fallback bucket, which the server already merges
+ * into the response when the viewer has zero follows; the frontend
+ * doesn't branch on follow count. (Sprint 4: the in-code label
+ * previously said "Hot on the Floor" — renamed here so the engagement-
+ * metric metaphor doesn't pave a road to future user-facing copy.)
  *
  * Loading state renders skeleton rows (matches DirectoryGrid's idiom)
  * so there's no layout shift when data arrives.
@@ -75,7 +77,7 @@ function AuthedFeed({ scope }: { scope: FeedScope }) {
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// Anon branch — useHotFeed. No tabs; the §F2 "Hot on the Floor" view.
+// Anon branch — useHotFeed. No tabs; the §F2 recent-activity bucket.
 // ─────────────────────────────────────────────────────────────────────
 
 function AnonFeed() {

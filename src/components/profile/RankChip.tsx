@@ -47,12 +47,22 @@ interface RankChipProps {
   className?: string;
 }
 
-const RAIL_BY_TIER: Record<NonNullable<CardTier>, string> = {
-  legendary: "border-l-tier-legendary",
-  rare:      "border-l-tier-rare",
-  uncommon:  "border-l-tier-uncommon",
-  common:    "border-l-tier-common",
-};
+// Sprint 4 cohesion subtraction: tier rails neutralized.
+//
+// The previous map painted the four tiers in NFT-rarity colors
+// (gold / blue / green / gray for legendary / rare / uncommon /
+// common). The vocabulary was already earned-by-participation —
+// tier-word + sr-only prefix + tooltip — but the colors imported
+// collectible-scarcity reading into a system that explicitly says
+// "we don't rank people." A single neutral rail for any tier-set
+// user, slightly brighter than the no-tier fallback, preserves the
+// "you have a tier" vs "no tier yet" distinction without the
+// rarity-palette baggage.
+//
+// If you find yourself wanting to re-introduce per-tier color here
+// — please re-read docs/Sprint-4-audit before doing so.
+const TIER_PRESENT_RAIL = "border-l-cardstock/40";
+const TIER_ABSENT_RAIL = "border-l-cardstock/20";
 
 const SIZE_STYLES: Record<RankChipSize, { rail: string; pad: string; font: string }> = {
   default: {
@@ -79,8 +89,7 @@ export function RankChip({
   }
 
   const sizeStyles = SIZE_STYLES[size];
-  const rail =
-    cardTier !== null ? RAIL_BY_TIER[cardTier] : "border-l-cardstock/30";
+  const rail = cardTier !== null ? TIER_PRESENT_RAIL : TIER_ABSENT_RAIL;
 
   return (
     <span

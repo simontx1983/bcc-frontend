@@ -43,10 +43,21 @@ interface LivingHeaderProps {
    * when supplied; the slot collapses when omitted (others' profiles).
    */
   progression?: MemberProgression | undefined;
+  /**
+   * Sprint 4 cohesion: when true, the "Quiet shift. Floor's been still."
+   * fallback line is suppressed entirely (the today paragraph
+   * collapses). FloorBriefing sets this on the home page so the
+   * empty-state stack — FloorBriefing greeting → DiscoverPanel
+   * "Quiet on the Floor" headline → DiscoverPanel kicker — doesn't
+   * pile three "quiet" signals on top of each other. Profile-page
+   * callers leave it undefined so the fallback still surfaces there
+   * (where it carries observational meaning rather than redundancy).
+   */
+  hideEmptyShiftFallback?: boolean | undefined;
 }
 
-export function LivingHeader({ living, progression }: LivingHeaderProps) {
-  const todayLine = composeTodayLine(living.today);
+export function LivingHeader({ living, progression, hideEmptyShiftFallback }: LivingHeaderProps) {
+  const todayLine = composeTodayLine(living.today, hideEmptyShiftFallback === true);
   const showProgression = progression !== undefined && progression !== null;
   // Terminal-state detection: user has no auto-promotion target ahead
   // of them. Either they're already at the top of the auto-ladder
@@ -84,9 +95,11 @@ export function LivingHeader({ living, progression }: LivingHeaderProps) {
           removed (Sprint 2 — see component docstring). The "today"
           line is now the primary acknowledgment surface. */}
       <div className="flex flex-col justify-center gap-1">
-        <p className="font-serif text-base italic text-cardstock-deep md:text-lg">
-          {todayLine}
-        </p>
+        {todayLine !== "" && (
+          <p className="font-serif text-base italic text-cardstock-deep md:text-lg">
+            {todayLine}
+          </p>
+        )}
         {living.comparison !== null && (
           <p className="bcc-mono text-[11px] tracking-[0.18em] text-phosphor">
             {living.comparison.headline.toUpperCase()}
@@ -178,7 +191,7 @@ export function LivingHeader({ living, progression }: LivingHeaderProps) {
 // Empty case falls back to the neutral "quiet shift" copy.
 // ─────────────────────────────────────────────────────────────────────
 
-function composeTodayLine(today: MemberLiving["today"]): string {
+function composeTodayLine(today: MemberLiving["today"], hideEmptyFallback: boolean): string {
   const parts: string[] = [];
   pushIf(parts, today.reviews,                  (n) => `${n} ${pluralize(n, "review", "reviews")}`);
   pushIf(parts, today.solids_received,          (n) => `${n} ${pluralize(n, "solid", "solids")}`);
@@ -192,7 +205,11 @@ function composeTodayLine(today: MemberLiving["today"]): string {
   pushIf(parts, today.pulls ?? 0,               (n) => `${n} ${pluralize(n, "card watched", "cards watched")}`);
 
   if (parts.length === 0) {
-    return "Quiet shift. Floor's been still.";
+    // Sprint 4: FloorBriefing on the home page passes hideEmptyFallback
+    // so the DiscoverPanel "Quiet on the Floor" headline isn't shadowed
+    // by a redundant "Quiet shift" line above it. Profile-page callers
+    // leave the flag off and still see the observational fallback.
+    return hideEmptyFallback ? "" : "Quiet shift. Floor's been still.";
   }
   // "Today: 2 reviews · 14 solids · 3 vouches"
   return `Today: ${parts.join(" · ")}.`;

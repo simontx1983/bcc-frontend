@@ -525,10 +525,15 @@ function buttonClassFor(
   }
   switch (tone) {
     case "conviction":
-      // Stand Behind — strongest visual weight per heuristic #5.
-      // Safety-orange-tinted to signal "high-cost, intentional."
-      // Scarcity is valuable, thoughtful — not gamified.
-      return `${BASE_BUTTON_CLASS} border border-safety bg-safety/10 text-safety hover:bg-safety/20`;
+      // Stand Behind — strongest visual weight per heuristic #5, BUT
+      // (Sprint 4 cohesion subtraction) without the safety-orange
+      // tint. The crypto-native subconscious-reading audit flagged
+      // safety-orange + "N OF M" allocation as pattern-matching to
+      // staking / locked-capital UX. The intentional-scarcity
+      // surfacing stays via the N OF M label; the financial visual
+      // is what was screaming. Phosphor border = "live, deliberate"
+      // commitment without the capital-allocation read.
+      return `${BASE_BUTTON_CLASS} border border-phosphor/70 bg-cardstock-deep/5 text-ink hover:bg-cardstock-deep/15`;
     case "adversarial":
       // Dispute — visibly distinct from positive actions. Quieter
       // than conviction but still readable. This is an adversarial

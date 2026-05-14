@@ -1114,13 +1114,23 @@
 .bcc-onboarding-backdrop {
   position: relative;
   isolation: isolate;
-  animation: bcc-onboarding-bg 2400ms ease-in forwards;
+  /* Sprint 4: shortened from 2400ms → 1500ms. The arrive moment was
+     the loudest single motion in the product; reducing its duration
+     proportions it to the rest of the motion vocabulary (Sprint 2
+     keyframes top out around 280-360ms; this one stays louder
+     because it's an arrival, but it shouldn't dominate the user's
+     reference frame for "what motion in this app feels like"). */
+  animation: bcc-onboarding-bg 1500ms ease-in forwards;
 }
 
 @keyframes bcc-onboarding-bg {
+  /* Sprint 4: terminal tint lowered from 0.55 → 0.35. The backdrop
+     still tips toward concrete so the chips read against contrast,
+     but doesn't fully eclipse the cardstock — the arrive feels like
+     dimming the room, not blacking it out. */
   0%   { background: transparent; }
   60%  { background: rgba(20, 17, 13, 0.0); }   /* hold cardstock */
-  100% { background: rgba(20, 17, 13, 0.55); }  /* tip toward concrete */
+  100% { background: rgba(20, 17, 13, 0.35); }  /* tip toward concrete */
 }
 
 /* Chip atom — small absolute-centered square that translates to the
@@ -1176,20 +1186,25 @@
 /* Arrive — scales in, holds, lifts on the way out so the eye is led
    away from the centre as the redirect fires. Verb-renamed from `pop`
    (Sprint 2): "arrive" is constitutionally aligned with the room-
-   acknowledges-the-operator framing; "pop" was casino-shaped. */
+   acknowledges-the-operator framing; "pop" was casino-shaped.
+   Sprint 4: duration reduced 2400ms → 1500ms (matches the backdrop)
+   and the overshoot scale tightened from 1.04 → 1.02. The arrive
+   moment still registers, but proportions to the rest of the
+   product's motion language instead of becoming the user's first-
+   impression reference frame for "what motion here feels like." */
 .bcc-onboarding-arrive {
   position: relative;
   z-index: 2;
-  animation: bcc-onboarding-arrive 2400ms ease-out forwards;
+  animation: bcc-onboarding-arrive 1500ms ease-out forwards;
   transform-origin: center;
 }
 
 @keyframes bcc-onboarding-arrive {
-  0%   { opacity: 0; transform: scale(0.85) translateY(8px); }
-  20%  { opacity: 1; transform: scale(1.04) translateY(0); }
-  35%  { transform: scale(1.0) translateY(0); }
-  85%  { opacity: 1; transform: scale(1.0) translateY(-4px); }
-  100% { opacity: 0.85; transform: scale(0.98) translateY(-8px); }
+  0%   { opacity: 0; transform: scale(0.88) translateY(6px); }
+  25%  { opacity: 1; transform: scale(1.02) translateY(0); }
+  40%  { transform: scale(1.0) translateY(0); }
+  85%  { opacity: 1; transform: scale(1.0) translateY(-3px); }
+  100% { opacity: 0.85; transform: scale(0.98) translateY(-6px); }
 }
 
 @media (prefers-reduced-motion: reduce) {

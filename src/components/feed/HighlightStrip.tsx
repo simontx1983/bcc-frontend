@@ -42,9 +42,17 @@ import {
 } from "@/hooks/useHighlights";
 import type { HighlightItem, HighlightSlot } from "@/lib/api/types";
 
+// Sprint 4 cohesion subtraction: "FOR YOU" renamed → "WORTH KNOWING".
+// "FOR YOU" is the lingua franca of algorithmic feeds (TikTok / IG /
+// X) and imports the engagement-recommendation framing that the rest
+// of this product spent five sprints avoiding. "WORTH KNOWING" stays
+// in the same slot, with the same verified-green rail, but reframes
+// the signal as "things you'd reasonably want to know" — a journalistic
+// posture, not an algorithmic one. The slot still surfaces the same
+// §O2.1 server-resolved positive bucket; only the label changes.
 const SLOT_ACCENT: Record<HighlightSlot, { bar: string; label: string }> = {
   negative: { bar: "var(--safety)",    label: "WATCH" },
-  positive: { bar: "var(--verified)",  label: "FOR YOU" },
+  positive: { bar: "var(--verified)",  label: "WORTH KNOWING" },
   external: { bar: "var(--blueprint)", label: "ON THE FLOOR" },
 };
 

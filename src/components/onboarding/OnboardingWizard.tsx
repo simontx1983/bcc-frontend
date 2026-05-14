@@ -743,7 +743,12 @@ function DopamineStep({
   // Cap the visible flying chips so the animation doesn't get crowded
   // when a user pulled a dozen cards. The stat-pop's "+ N" still
   // reflects the true count.
-  const visibleChips = pulledCards.slice(0, 6);
+  //
+  // Sprint 4: cap reduced 6 → 3. The arrive moment is the loudest
+  // motion in the product; six chips flying simultaneously over-
+  // shadows the rest of the motion vocabulary the user will encounter.
+  // Three chips communicates "you pulled cards" without the spectacle.
+  const visibleChips = pulledCards.slice(0, 3);
 
   return (
     <section

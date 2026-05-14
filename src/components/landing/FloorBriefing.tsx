@@ -48,12 +48,18 @@ export function FloorBriefing({ handle, profile }: FloorBriefingProps) {
 
       {/* §O3 status block — own-only blocks (`living`, `progression`)
           arrive on /users/:handle when is_self === true. Both are
-          marked optional in the §3.1 type so we guard at the render. */}
+          marked optional in the §3.1 type so we guard at the render.
+          Sprint 4: hideEmptyShiftFallback=true so the "Quiet shift"
+          line collapses on the home page when there's no activity
+          today — the DiscoverPanel below already says "Quiet on the
+          Floor" once; three sequential quiet signals reads as the
+          app over-apologizing. */}
       {profile?.living !== undefined && (
         <div className="mt-10 border-t border-cardstock/10 pt-8">
           <LivingHeader
             living={profile.living}
             progression={profile.progression}
+            hideEmptyShiftFallback
           />
         </div>
       )}
