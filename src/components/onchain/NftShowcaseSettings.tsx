@@ -12,20 +12,58 @@
  * background (CommunitiesList uses the same pattern). Tiles render on
  * the brighter `bcc-paper` tone for a subtle two-tone hierarchy.
  *
- * v1 scope: list + open-picker. Drag-to-reorder and per-tile remove
- * controls are deferred — removal happens via the picker modal too.
+ * Per-tile MOVE UP / MOVE DOWN buttons set display_order via the
+ * `POST /nft-selections/reorder` endpoint with an optimistic cache
+ * patch. Buttons are chosen over drag-and-drop because the codebase
+ * has no DnD library and buttons are WCAG-friendly out of the box —
+ * a per-tile-focused keyboard user gets the same affordance a mouse
+ * user does. Reorder failure restores the previous order from the
+ * snapshot; the user sees no half-state.
+ *
+ * Per-tile remove is still deferred to the picker modal.
  */
 
+import { BccApiError } from "@/lib/api/types";
 import Link from "next/link";
 import { useState } from "react";
 
 import { NftPickerModal } from "@/components/onchain/NftPickerModal";
-import { useNftSelectionsList } from "@/hooks/useNftSelections";
+import {
+  useNftSelectionsList,
+  useReorderNftSelections,
+} from "@/hooks/useNftSelections";
+import { humanizeCode } from "@/lib/api/errors";
 import type { NftSelectionRow } from "@/lib/api/types";
 
 export function NftShowcaseSettings() {
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [reorderError, setReorderError] = useState<string | null>(null);
   const list = useNftSelectionsList();
+  const reorder = useReorderNftSelections();
+
+  const items = list.isSuccess ? list.data.items : [];
+
+  const handleMove = (index: number, direction: "up" | "down"): void => {
+    const swapWith = direction === "up" ? index - 1 : index + 1;
+    if (swapWith < 0 || swapWith >= items.length) return;
+    if (reorder.isPending) return;
+
+    const newOrder = items.map((row) => Number(row.id));
+    // Bounds were checked above, but noUncheckedIndexedAccess types
+    // newOrder[i] as `number | undefined` — pull explicit locals.
+    const a = newOrder[index];
+    const b = newOrder[swapWith];
+    if (a === undefined || b === undefined) return;
+    newOrder[index] = b;
+    newOrder[swapWith] = a;
+
+    setReorderError(null);
+    reorder.mutate(newOrder, {
+      onError: (err) => {
+        setReorderError(humanizeReorderError(err));
+      },
+    });
+  };
 
   return (
     <>
@@ -56,16 +94,31 @@ export function NftShowcaseSettings() {
             </p>
           )}
 
-          {list.isSuccess && list.data.items.length === 0 && <ShowcaseEmpty />}
+          {list.isSuccess && items.length === 0 && <ShowcaseEmpty />}
 
-          {list.isSuccess && list.data.items.length > 0 && (
+          {list.isSuccess && items.length > 0 && (
             <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
-              {list.data.items.map((item) => (
+              {items.map((item, index) => (
                 <li key={String(item.id)}>
-                  <ShowcaseTile item={item} />
+                  <ShowcaseTile
+                    item={item}
+                    canMoveUp={index > 0 && !reorder.isPending}
+                    canMoveDown={index < items.length - 1 && !reorder.isPending}
+                    onMoveUp={() => handleMove(index, "up")}
+                    onMoveDown={() => handleMove(index, "down")}
+                  />
                 </li>
               ))}
             </ul>
+          )}
+
+          {reorderError !== null && (
+            <p
+              role="alert"
+              className="bcc-mono mt-4 border-l-2 border-safety pl-3 text-safety"
+            >
+              {reorderError}
+            </p>
           )}
         </div>
       </div>
@@ -75,13 +128,42 @@ export function NftShowcaseSettings() {
   );
 }
 
+function humanizeReorderError(err: unknown): string {
+  // Phase γ doctrine: branch on `err.code`, not `err.message`. The
+  // reorder endpoint has no per-row throttle, so 429 is rare; the
+  // most likely failure is a session timeout while the modal sits
+  // open.
+  if (err instanceof BccApiError && err.code === "bcc_rate_limited") {
+    return "Cooling off — give it a beat and try again.";
+  }
+  return humanizeCode(
+    err,
+    {
+      bcc_unauthorized: "Sign in to reorder your showcase.",
+    },
+    "Couldn't save the new order. The tiles are back where they were.",
+  );
+}
+
 // ─────────────────────────────────────────────────────────────────────
 // ShowcaseTile — read-only display of a single saved selection. The
 // picker modal is the single source for add/remove; this surface is a
 // preview of what's currently on the floor.
 // ─────────────────────────────────────────────────────────────────────
 
-function ShowcaseTile({ item }: { item: NftSelectionRow }) {
+function ShowcaseTile({
+  item,
+  canMoveUp,
+  canMoveDown,
+  onMoveUp,
+  onMoveDown,
+}: {
+  item: NftSelectionRow;
+  canMoveUp: boolean;
+  canMoveDown: boolean;
+  onMoveUp: () => void;
+  onMoveDown: () => void;
+}) {
   const displayName = (item.name ?? "").trim();
   const collection = (item.collection_name ?? "").trim();
   const fallbackTitle =
@@ -93,7 +175,7 @@ function ShowcaseTile({ item }: { item: NftSelectionRow }) {
 
   return (
     <article
-      className="block w-full overflow-hidden border-2 border-ink/15"
+      className="group relative block w-full overflow-hidden border-2 border-ink/15 focus-within:border-ink/40"
       style={{ background: "var(--paper)" }}
     >
       <div className="relative aspect-square w-full bg-cardstock-deep/30">
@@ -115,6 +197,33 @@ function ShowcaseTile({ item }: { item: NftSelectionRow }) {
             </span>
           </div>
         )}
+
+        {/*
+          MOVE UP / MOVE DOWN affordance. Visible on hover OR keyboard
+          focus-within so a keyboard user can reorder without ever
+          touching a pointer. Disabled at list endpoints so the user
+          gets immediate first-tile / last-tile feedback.
+        */}
+        <div className="absolute left-2 top-2 flex flex-col gap-1 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 motion-reduce:transition-none">
+          <button
+            type="button"
+            onClick={onMoveUp}
+            disabled={!canMoveUp}
+            aria-label={`Move ${fallbackTitle} up`}
+            className="bcc-mono border border-ink/30 bg-cardstock/95 px-2 py-0.5 text-[10px] tracking-[0.18em] text-ink transition hover:bg-cardstock disabled:cursor-not-allowed disabled:opacity-30 motion-reduce:transition-none"
+          >
+            ↑ UP
+          </button>
+          <button
+            type="button"
+            onClick={onMoveDown}
+            disabled={!canMoveDown}
+            aria-label={`Move ${fallbackTitle} down`}
+            className="bcc-mono border border-ink/30 bg-cardstock/95 px-2 py-0.5 text-[10px] tracking-[0.18em] text-ink transition hover:bg-cardstock disabled:cursor-not-allowed disabled:opacity-30 motion-reduce:transition-none"
+          >
+            ↓ DOWN
+          </button>
+        </div>
       </div>
 
       <div className="border-t border-ink/10 px-3 py-2">

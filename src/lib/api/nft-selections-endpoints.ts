@@ -4,21 +4,25 @@
  * Backend: NftSelectionController @ Domain/Onchain. Standard BCC
  * envelope (`{data, _meta}`). Auth required — bearer JWT.
  *
- * Surfaces wired in v1 (MVP picker modal):
- *   - GET  /nft-selections/picker  → live holdings + selected-state
- *   - GET  /nft-selections          → currently-selected list (with chain join)
- *   - POST /nft-selections          → add a selection
- *   - DELETE /nft-selections        → remove a selection
+ * Surfaces wired in v1 (MVP picker modal + showcase reorder):
+ *   - GET  /nft-selections/picker   → live holdings + selected-state
+ *   - GET  /nft-selections           → currently-selected list (with chain join)
+ *   - POST /nft-selections           → add a selection
+ *   - DELETE /nft-selections         → remove a selection
+ *   - POST /nft-selections/reorder   → set new display order
  *
  * Deferred — backend exists, no frontend consumer yet:
- *   - POST /nft-selections/refresh  → force re-fetch on-chain
- *   - POST /nft-selections/reorder  → drag-to-reorder
+ *   - POST /nft-selections/refresh  → explicit force re-fetch on-chain
+ *     (the picker uses `GET /picker?force=1` instead; this POST is
+ *     reserved for non-picker contexts like a future wallets-section
+ *     refresh button).
  */
 
 import { bccFetchAsClient } from "@/lib/api/client";
 import type {
   NftDeleteSelectionResponse,
   NftPickerResponse,
+  NftReorderResponse,
   NftSaveSelectionResponse,
   NftSelectionIdentity,
   NftSelectionsListResponse,
@@ -79,5 +83,21 @@ export function deleteNftSelection(
   return bccFetchAsClient<NftDeleteSelectionResponse>("nft-selections", {
     method: "DELETE",
     body: identity,
+  });
+}
+
+/**
+ * POST /nft-selections/reorder. `orderedIds` is the new display order
+ * (first element becomes display_order=0, etc.). Selection ids the
+ * caller doesn't own are silently skipped server-side — the response
+ * `updated` may be smaller than `orderedIds.length` if the local
+ * cache lagged behind a remote delete.
+ */
+export function reorderNftSelections(
+  orderedIds: number[],
+): Promise<NftReorderResponse> {
+  return bccFetchAsClient<NftReorderResponse>("nft-selections/reorder", {
+    method: "POST",
+    body: { ordered_ids: orderedIds },
   });
 }

@@ -3915,6 +3915,21 @@ export interface NftSelectionIdentity {
   token_id: string;
 }
 
+/** Body for POST /nft-selections/reorder — selection ids in new order. */
+export interface NftReorderRequest {
+  ordered_ids: number[];
+}
+
+/**
+ * Response for POST /nft-selections/reorder. `updated` is the number of
+ * rows the server actually wrote (unowned ids are silently skipped, so
+ * `updated` can be less than `ordered_ids.length`).
+ */
+export interface NftReorderResponse {
+  ok: true;
+  updated: number;
+}
+
 /** POST /nft-selections success body. The 403 / 500 paths throw BccApiError. */
 export interface NftSaveSelectionResponse {
   ok: true;

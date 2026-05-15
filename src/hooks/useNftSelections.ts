@@ -3,7 +3,7 @@
 /**
  * useNftSelections — React Query hooks for the NFT showcase.
  *
- * Two reads, two mutations:
+ * Two reads, three mutations:
  *
  *   READ
  *     - useNftPicker(force?)         → live holdings + selection state
@@ -12,16 +12,19 @@
  *   WRITE
  *     - useSaveNftSelection()        → POST /nft-selections
  *     - useDeleteNftSelection()      → DELETE /nft-selections
+ *     - useReorderNftSelections()    → POST /nft-selections/reorder
+ *                                       (optimistic; rolls back on error)
  *
- * Invalidation is left to callers (matches the project's standard
- * pattern; see useDisputes / useReportContent). The query-key roots
- * are exported so a single onSuccess handler can refresh both reads
- * in one go.
+ * Invalidation is left to callers for save/delete (matches the
+ * project's standard pattern; see useDisputes / useReportContent).
+ * Reorder is self-managing because the optimistic-update pattern owns
+ * cache mutation directly — callers don't need invalidate handlers.
  */
 
 import {
   useMutation,
   useQuery,
+  useQueryClient,
   type UseMutationOptions,
 } from "@tanstack/react-query";
 
@@ -29,14 +32,17 @@ import {
   deleteNftSelection,
   getNftPicker,
   listNftSelections,
+  reorderNftSelections,
   saveNftSelection,
 } from "@/lib/api/nft-selections-endpoints";
 import type {
   BccApiError,
   NftDeleteSelectionResponse,
   NftPickerResponse,
+  NftReorderResponse,
   NftSaveSelectionResponse,
   NftSelectionIdentity,
+  NftSelectionRow,
   NftSelectionsListResponse,
 } from "@/lib/api/types";
 
@@ -115,5 +121,76 @@ export function useDeleteNftSelection(
   return useMutation<NftDeleteSelectionResponse, BccApiError, NftSelectionIdentity>({
     mutationFn: (identity) => deleteNftSelection(identity),
     ...options,
+  });
+}
+
+interface ReorderMutationContext {
+  /** Snapshot of the selections list before the optimistic patch. */
+  previous: NftSelectionsListResponse | undefined;
+}
+
+/**
+ * POST /nft-selections/reorder — set new display order for the
+ * viewer's selections.
+ *
+ * Optimistic-mutation idiom (see `useReactions.ts` and `useMyPrivacy.ts`
+ * for sibling implementations):
+ *
+ *   1. onMutate    → cancel in-flight refetches, snapshot the current
+ *                    list, patch the cache to the new order so the UI
+ *                    re-renders instantly.
+ *   2. onError     → restore the snapshot.
+ *   3. onSettled   → invalidate both the selections list AND the
+ *                    picker (the picker's `is_selected` order isn't
+ *                    visible, but downstream consumers may key off the
+ *                    list order, so we keep them in sync).
+ */
+export function useReorderNftSelections() {
+  const queryClient = useQueryClient();
+
+  return useMutation<NftReorderResponse, BccApiError, number[], ReorderMutationContext>({
+    mutationFn: (orderedIds) => reorderNftSelections(orderedIds),
+
+    onMutate: async (orderedIds) => {
+      await queryClient.cancelQueries({ queryKey: NFT_SELECTIONS_QUERY_KEY_ROOT });
+
+      const previous = queryClient.getQueryData<NftSelectionsListResponse>(
+        [...NFT_SELECTIONS_QUERY_KEY_ROOT],
+      );
+
+      if (previous !== undefined) {
+        const byId = new Map<number, NftSelectionRow>();
+        for (const row of previous.items) {
+          byId.set(Number(row.id), row);
+        }
+        const reordered: NftSelectionRow[] = [];
+        orderedIds.forEach((id, idx) => {
+          const row = byId.get(id);
+          if (row !== undefined) {
+            reordered.push({ ...row, display_order: idx });
+          }
+        });
+        queryClient.setQueryData<NftSelectionsListResponse>(
+          [...NFT_SELECTIONS_QUERY_KEY_ROOT],
+          { items: reordered },
+        );
+      }
+
+      return { previous };
+    },
+
+    onError: (_err, _orderedIds, context) => {
+      if (context?.previous !== undefined) {
+        queryClient.setQueryData(
+          [...NFT_SELECTIONS_QUERY_KEY_ROOT],
+          context.previous,
+        );
+      }
+    },
+
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: NFT_SELECTIONS_QUERY_KEY_ROOT });
+      void queryClient.invalidateQueries({ queryKey: NFT_PICKER_QUERY_KEY_ROOT });
+    },
   });
 }
