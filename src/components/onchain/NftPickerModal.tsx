@@ -18,10 +18,18 @@
  * selected tiles, faint cardstock-edge border on unselected. Brutalist
  * grid — sharp corners, dashed dividers, mono labels.
  *
- * Out of v1: refresh button (POST /refresh), drag-to-reorder
- * (POST /reorder), per-chain filter chips. The modal closes via the ESC
- * button or backdrop click; selections persist as soon as the mutation
- * lands.
+ * The "REFRESH HOLDINGS" button bypasses the HoldingsService transient
+ * (via GET ?force=1) and seeds the same cached query slot the modal is
+ * reading, so the refetch propagates without remounting the query.
+ *
+ * The "SYNCED Xm ago" line is the most-recent wallet refresh across
+ * any chain — backend ships per-wallet timestamps (refreshed_at keyed
+ * by wallet_link_id), not per-chain, so we report the global maximum
+ * rather than inventing a chain-id → slug aggregation client-side.
+ *
+ * Out of v1: drag-to-reorder (POST /reorder), per-chain filter chips.
+ * The modal closes via the ESC button or backdrop click; selections
+ * persist as soon as the mutation lands.
  */
 
 import { useQueryClient } from "@tanstack/react-query";
@@ -36,10 +44,12 @@ import {
   useSaveNftSelection,
 } from "@/hooks/useNftSelections";
 import { humanizeCode } from "@/lib/api/errors";
+import { getNftPicker } from "@/lib/api/nft-selections-endpoints";
 import {
   BccApiError,
   type NftPickerItem,
 } from "@/lib/api/types";
+import { formatRelativeTime } from "@/lib/format";
 
 import { IndexerStateChip } from "./IndexerStateChip";
 
@@ -57,10 +67,31 @@ export function NftPickerModal({ onClose }: NftPickerModalProps) {
   // Keyed instead of boolean so a second click doesn't double-toggle.
   const [pendingKey, setPendingKey] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const invalidateAll = (): void => {
     void queryClient.invalidateQueries({ queryKey: NFT_PICKER_QUERY_KEY_ROOT });
     void queryClient.invalidateQueries({ queryKey: NFT_SELECTIONS_QUERY_KEY_ROOT });
+  };
+
+  const handleRefresh = async (): Promise<void> => {
+    if (isRefreshing) return;
+    setIsRefreshing(true);
+    setErrorMessage(null);
+    try {
+      const fresh = await getNftPicker({ force: true });
+      // Seed the SAME cache slot the modal is reading from. The "force"
+      // and "cached" keys are independent queries; setQueryData on the
+      // cached slot makes the new payload visible without remounting.
+      queryClient.setQueryData(
+        [...NFT_PICKER_QUERY_KEY_ROOT, "cached"],
+        fresh,
+      );
+    } catch (err) {
+      setErrorMessage(humanizeRefreshError(err));
+    } finally {
+      setIsRefreshing(false);
+    }
   };
 
   const handleToggle = async (item: NftPickerItem): Promise<void> => {
@@ -147,24 +178,7 @@ export function NftPickerModal({ onClose }: NftPickerModalProps) {
                 })}
               </ul>
 
-              {Object.values(picker.data.meta.indexer_state_label).some(
-                (label) => label !== "",
-              ) && (
-                <ul className="mt-5 flex flex-col gap-1 border-t border-dashed border-ink/20 pt-4">
-                  {Object.entries(picker.data.meta.indexer_state_label).map(
-                    ([chain, label]) =>
-                      label === "" ? null : (
-                        <li key={chain}>
-                          <IndexerStateChip
-                            chain={chain}
-                            state={picker.data.meta.indexer_state[chain] ?? ""}
-                            label={label}
-                          />
-                        </li>
-                      ),
-                  )}
-                </ul>
-              )}
+              <SyncStatusBlock data={picker.data} />
             </>
           )}
         </>
@@ -179,7 +193,17 @@ export function NftPickerModal({ onClose }: NftPickerModalProps) {
         </p>
       )}
 
-      <div className="mt-6 flex justify-end border-t border-dashed border-ink/20 pt-4">
+      <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-dashed border-ink/20 pt-4">
+        <button
+          type="button"
+          onClick={() => {
+            void handleRefresh();
+          }}
+          disabled={isRefreshing || picker.isPending}
+          className="bcc-mono border border-ink/40 px-3 py-2 text-[11px] tracking-[0.18em] text-ink transition hover:bg-ink/10 disabled:cursor-wait disabled:opacity-50 motion-reduce:transition-none"
+        >
+          {isRefreshing ? "REFRESHING…" : "REFRESH HOLDINGS →"}
+        </button>
         <button
           type="button"
           onClick={onClose}
@@ -189,6 +213,67 @@ export function NftPickerModal({ onClose }: NftPickerModalProps) {
         </button>
       </div>
     </ModalShell>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// SyncStatusBlock — per-chain indexer chips + a global "SYNCED N ago"
+// footer. Renders only if at least one chip or a refresh timestamp is
+// present; otherwise emits nothing so the empty state stays clean.
+//
+// Why global, not per-chain: backend ships `refreshed_at` keyed by
+// wallet_link_id, while indexer_state_label is keyed by chain_slug.
+// Mapping wallets → chains would require a chain_id → chain_slug
+// bridge the response doesn't ship, which crosses into FE business
+// logic. The max-across-wallets reading is honest about the data.
+// ─────────────────────────────────────────────────────────────────────
+
+function SyncStatusBlock({
+  data,
+}: {
+  data: {
+    refreshed_at: Record<string, string>;
+    meta: {
+      indexer_state: Record<string, string>;
+      indexer_state_label: Record<string, string>;
+    };
+  };
+}) {
+  const chipsPresent = Object.values(data.meta.indexer_state_label).some(
+    (label) => label !== "",
+  );
+  const latestRefresh = pickLatestRefresh(data.refreshed_at);
+  if (!chipsPresent && latestRefresh === "") return null;
+
+  const syncedAgo = latestRefresh !== "" ? formatRelativeTime(latestRefresh) : "";
+
+  return (
+    <div className="mt-5 flex flex-col gap-2 border-t border-dashed border-ink/20 pt-4">
+      {chipsPresent && (
+        <ul className="flex flex-col gap-1">
+          {Object.entries(data.meta.indexer_state_label).map(
+            ([chain, label]) =>
+              label === "" ? null : (
+                <li key={chain}>
+                  <IndexerStateChip
+                    chain={chain}
+                    state={data.meta.indexer_state[chain] ?? ""}
+                    label={label}
+                  />
+                </li>
+              ),
+          )}
+        </ul>
+      )}
+      {syncedAgo !== "" && (
+        <p
+          className="bcc-mono text-ink-ghost"
+          style={{ fontSize: "10px", letterSpacing: "0.18em" }}
+        >
+          SYNCED {syncedAgo.toUpperCase()} AGO
+        </p>
+      )}
+    </div>
   );
 }
 
@@ -428,4 +513,42 @@ function humanizeError(err: unknown): string {
     },
     "Couldn't update your showcase. Try again.",
   );
+}
+
+function humanizeRefreshError(err: unknown): string {
+  // Same Phase γ doctrine as humanizeError above, but the copy is
+  // refresh-flavored. The picker GET shares the 10/60 throttle bucket,
+  // so 429 is the most likely user-visible failure here.
+  if (err instanceof BccApiError) {
+    if (err.code === "bcc_rate_limited" || err.status === 429) {
+      return "Cooling off — give the indexers a beat and try again.";
+    }
+  }
+  return humanizeCode(
+    err,
+    {
+      bcc_unauthorized: "Sign in to refresh your holdings.",
+    },
+    "Couldn't refresh holdings. Try again.",
+  );
+}
+
+/**
+ * Pick the most-recent timestamp from `refreshed_at` (keyed by
+ * wallet_link_id). Returns "" if the dict is empty.
+ *
+ * Lexical max is correct ONLY because the backend currently emits a
+ * single format (zero-padded MySQL UTC `YYYY-MM-DD HH:MM:SS`) per
+ * `current_time('mysql', true)`. Within that format, lexical and
+ * chronological order agree. If the backend ever mixes ISO 8601 and
+ * MySQL in the same dict, ISO would sort greater than MySQL for the
+ * same instant (`T` > ` `), so the comparison would prefer ISO rows
+ * regardless of recency. Normalize at the boundary in that case.
+ */
+function pickLatestRefresh(refreshedAt: Record<string, string>): string {
+  let latest = "";
+  for (const ts of Object.values(refreshedAt)) {
+    if (ts > latest) latest = ts;
+  }
+  return latest;
 }

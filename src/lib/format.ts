@@ -11,9 +11,23 @@
  * Format an ISO 8601 UTC timestamp as a relative phrase like "2d" /
  * "3h" / "just now". Bounded resolution — no calendar math beyond
  * 30 days; older shows "Mmm dd".
+ *
+ * Accepts two input shapes:
+ *   - ISO 8601 with `T` and/or `Z`  (e.g. "2026-05-15T12:34:56Z")
+ *   - MySQL UTC datetime            (e.g. "2026-05-15 12:34:56")
+ *
+ * MySQL datetime is what WordPress' `current_time('mysql', true)`
+ * emits. Chrome and Firefox parse the bare space-separated form as
+ * NaN, so we normalize it to ISO at the boundary (one regex, no new
+ * helper sprawl). Returns "" for unparseable input so callers can
+ * omit the slot rather than rendering a confusing dash.
  */
-export function formatRelativeTime(iso: string): string {
-  const epoch = Date.parse(iso);
+export function formatRelativeTime(input: string): string {
+  const normalized =
+    input.includes("T") || input.includes("Z")
+      ? input
+      : input.replace(" ", "T") + "Z";
+  const epoch = Date.parse(normalized);
   if (Number.isNaN(epoch)) return "";
   const seconds = Math.max(0, Math.floor((Date.now() - epoch) / 1000));
   if (seconds < 60) return "just now";
