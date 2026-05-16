@@ -96,7 +96,7 @@ function EndorsementRow({ item }: { item: UserEndorsementItem }) {
           {item.created_at !== null && item.created_at !== "" && (
             <>
               <span>·</span>
-              <time dateTime={item.created_at}>
+              <time dateTime={toIsoDateTime(item.created_at)}>
                 {formatRelativeTime(item.created_at)}
               </time>
             </>
@@ -110,6 +110,19 @@ function EndorsementRow({ item }: { item: UserEndorsementItem }) {
       </div>
     </li>
   );
+}
+
+/**
+ * Normalize a MySQL UTC datetime (`YYYY-MM-DD HH:MM:SS`) or ISO 8601
+ * string to a valid `dateTime` attribute value (HTML spec wants ISO).
+ * Same regex as `formatRelativeTime`'s internal normalizer — kept
+ * local because emitting the raw MySQL form into the DOM attribute
+ * is non-conforming HTML even though browsers tolerate it.
+ */
+function toIsoDateTime(input: string): string {
+  return input.includes("T") || input.includes("Z")
+    ? input
+    : input.replace(" ", "T") + "Z";
 }
 
 function PageAvatar({

@@ -72,7 +72,7 @@ export function BackingPanel({
 // ─────────────────────────────────────────────────────────────────────
 // SubTabStrip — the within-panel toggle. Brutalist mono labels, hi-vis
 // underline on the active tab. Keyboard-accessible via standard button
-// semantics; the active tab carries aria-pressed so screen readers
+// semantics; the active tab carries aria-selected so screen readers
 // can announce which face of the trust graph is currently rendered.
 // ─────────────────────────────────────────────────────────────────────
 
