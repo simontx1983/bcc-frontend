@@ -47,7 +47,7 @@
  *     the button is sufficient feedback.
  */
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { SlotHoldersPicker } from "@/components/profile/SlotHoldersPicker";
 import {
@@ -322,8 +322,17 @@ export function AttestationActionCluster(props: AttestationActionClusterProps) {
   return (
     <section
       aria-label="Trust attestation actions"
-      className="flex flex-col gap-2"
+      className="grid grid-cols-1 justify-items-start gap-2 sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]"
     >
+      {/* §J trust-not-adversarial weighting (per 2026-05-13 UX review):
+          VOUCH + STAND BEHIND occupy the 2fr left column at peer prominence;
+          DISPUTE + REPORT occupy the 1fr right column at quieter weight.
+          The visual hierarchy reads "trust signals are the headline,
+          adversarial/moderation paths are the quiet right channel."
+          Mobile collapses to a single column with reading order:
+          VOUCH → DISPUTE → STAND BEHIND → REPORT — keeps the trust
+          buttons stacked above their adversarial pair so the hierarchy
+          survives the reflow. */}
       {props.canVouch !== undefined && (
         <ActionButton
           label={
@@ -335,11 +344,25 @@ export function AttestationActionCluster(props: AttestationActionClusterProps) {
                 ? "VOUCHED"
                 : "VOUCH"
           }
+          description="Trust signal. Not a like."
           permission={props.canVouch}
           isCast={hasVouched}
           tone="positive"
+          size="primary"
           onClick={canMutate ? handleVouchClick : undefined}
           isPending={isVouchPending}
+        />
+      )}
+
+      {props.canDispute !== undefined && (
+        <ActionButton
+          label="DISPUTE"
+          description="Adversarial commit. Not a downvote."
+          permission={props.canDispute}
+          isCast={false}
+          tone="adversarial"
+          size="secondary"
+          isPending={false}
         />
       )}
 
@@ -357,30 +380,24 @@ export function AttestationActionCluster(props: AttestationActionClusterProps) {
                     props.standBehindSlotsTotal,
                   )
           }
+          description="Strongest conviction. Not a follow."
           permission={props.canStandBehind}
           isCast={isStandingBehind}
           tone="conviction"
+          size="primary"
           onClick={canMutate ? handleStandBehindClick : undefined}
           isPending={isStandBehindPending}
-        />
-      )}
-
-      {props.canDispute !== undefined && (
-        <ActionButton
-          label="DISPUTE"
-          permission={props.canDispute}
-          isCast={false}
-          tone="adversarial"
-          isPending={false}
         />
       )}
 
       {props.canReport !== undefined && (
         <ActionButton
           label="REPORT"
+          description="Moderation flag. Not disagreement."
           permission={props.canReport}
           isCast={false}
           tone="utility"
+          size="secondary"
           isPending={false}
         />
       )}
@@ -458,18 +475,31 @@ function formatStandBehindLabel(
 
 type ActionTone = "positive" | "conviction" | "adversarial" | "utility";
 
+type ActionSize = "primary" | "secondary";
+
 function ActionButton({
   label,
+  description,
   permission,
   isCast,
   tone,
+  size,
   onClick,
   isPending,
 }: {
   label: string;
+  /** Action-intent copy rendered as a visible 2-line mono caption
+   *  beneath the button. Reminds operators that this surface is about
+   *  TRUST, not "liking" — short tight copy ("Trust signal. Not a like.")
+   *  reads in the brutalist voice without requiring hover. */
+  description?: string;
   permission: ActionPermission;
   isCast: boolean;
   tone: ActionTone;
+  /** "primary" → larger padding + label; "secondary" → quieter weight.
+   *  Drives the visual hierarchy between trust signals (vouch / stand
+   *  behind) and adversarial paths (dispute / report) per the §J review. */
+  size: ActionSize;
   onClick?: (() => void) | undefined;
   isPending: boolean;
 }) {
@@ -482,22 +512,78 @@ function ActionButton({
   }
 
   const isEnabled = permission.allowed && onClick !== undefined && !isPending;
-  const className = buttonClassFor(tone, isCast, !isEnabled);
+  const className = buttonClassFor(tone, isCast, !isEnabled, size);
+
+  // Description renders ONLY when the button is enabled — on disabled
+  // states the unlock_hint is the operator-actionable copy, and stacking
+  // two mono lines under each button doubled the caption density without
+  // adding signal (per the 2026-05-13 UX review).
+  const showDescription =
+    isEnabled && description !== undefined && description !== "";
+  const showUnlockHint =
+    !permission.allowed && permission.unlock_hint !== null;
+
+  // VOUCH is the page's most likely visitor action when permitted —
+  // surface a quiet rail-dot prefix on the label to nudge attention
+  // without shouting. Drops once the viewer has cast (no need to
+  // re-suggest what they just did) or when the button is disabled.
+  const showPrimaryNudge =
+    tone === "positive" && isEnabled && !isCast;
+
+  // Cast confirmation flash — when isCast flips from false → true the
+  // button briefly pulses phosphor. The label flip alone is a quiet
+  // change; the pulse gives the cast moment a confirmation beat so the
+  // user feels "yes, that landed." Respects prefers-reduced-motion via
+  // the global motion-gate in globals.css.
+  const prevIsCast = useRef(isCast);
+  const [flashing, setFlashing] = useState(false);
+  useEffect(() => {
+    if (!prevIsCast.current && isCast) {
+      setFlashing(true);
+      const t = window.setTimeout(() => setFlashing(false), 600);
+      prevIsCast.current = isCast;
+      return () => window.clearTimeout(t);
+    }
+    prevIsCast.current = isCast;
+    return undefined;
+  }, [isCast]);
+
+  const flashClass = flashing
+    ? "motion-safe:animate-pulse motion-safe:[animation-duration:600ms]"
+    : "";
 
   return (
-    <div className="flex flex-col gap-1">
+    <div className="flex w-full max-w-[320px] flex-col gap-1">
       <button
         type="button"
         disabled={!isEnabled}
         aria-disabled={!isEnabled}
         aria-busy={isPending}
         onClick={onClick}
-        className={className}
+        className={`${className} ${flashClass}`}
       >
+        {showPrimaryNudge && (
+          <span
+            aria-hidden
+            className="bcc-rail-dot mr-2"
+            style={{ background: "var(--safety)" }}
+          />
+        )}
         {label}
       </button>
-      {!permission.allowed && permission.unlock_hint !== null && (
-        <p className="bcc-mono pl-1 text-[11px] tracking-[0.14em] text-cardstock-deep">
+      {showDescription && (
+        <p
+          className="bcc-mono pl-1 leading-snug text-cardstock-deep/70"
+          style={{ fontSize: "10px", letterSpacing: "0.14em" }}
+        >
+          {description}
+        </p>
+      )}
+      {showUnlockHint && (
+        <p
+          className="bcc-mono pl-1 leading-snug text-safety/80"
+          style={{ fontSize: "10px", letterSpacing: "0.14em" }}
+        >
           {permission.unlock_hint}
         </p>
       )}
@@ -505,23 +591,39 @@ function ActionButton({
   );
 }
 
+// Brutalist hover treatment — a sharp 2px safety-orange shadow offset
+// 3px down-right (no blur, no soft fade) plus a letter-spacing pop
+// from 0.18em → 0.22em over 80ms. Reads as "the button just hardened
+// under your cursor." Disabled buttons skip the pop. Motion-safe gate
+// keeps reduced-motion users at neutral.
 const BASE_BUTTON_CLASS =
-  "bcc-mono inline-flex items-center justify-center self-start px-4 py-2 text-sm tracking-[0.18em] transition disabled:cursor-not-allowed";
+  "bcc-mono inline-flex w-full items-center justify-center tracking-[0.18em] transition motion-safe:hover:tracking-[0.22em] motion-safe:hover:shadow-[3px_3px_0_0_var(--safety)] disabled:cursor-not-allowed disabled:motion-safe:hover:tracking-[0.18em] disabled:motion-safe:hover:shadow-none";
+
+/** Size drives padding + label-size weight per the §J trust-not-adversarial
+ *  hierarchy: "primary" tones (vouch / stand behind) ship the larger box;
+ *  "secondary" tones (dispute / report) stay quieter and sit in the right
+ *  column of the 2fr/1fr grid. */
+const SIZE_CLASS: Record<ActionSize, string> = {
+  primary:   "px-4 py-3 text-sm",
+  secondary: "px-3 py-2 text-[11px]",
+};
 
 function buttonClassFor(
   tone: ActionTone,
   isCast: boolean,
   isDisabled: boolean,
+  size: ActionSize,
 ): string {
+  const sizeClass = SIZE_CLASS[size];
   if (isDisabled) {
     // Disabled state reads as quiet, not exclusionary. The
     // unlock_hint below the button carries the path forward.
-    return `${BASE_BUTTON_CLASS} border border-cardstock/20 text-cardstock-deep/60`;
+    return `${BASE_BUTTON_CLASS} ${sizeClass} border border-cardstock/20 text-cardstock-deep/60`;
   }
   if (isCast) {
     // Already cast — action remains enabled (the click revokes).
     // Phosphor tint signals completion.
-    return `${BASE_BUTTON_CLASS} border border-phosphor/60 bg-phosphor/10 text-phosphor hover:bg-phosphor/15`;
+    return `${BASE_BUTTON_CLASS} ${sizeClass} border border-phosphor/60 bg-phosphor/10 text-phosphor hover:bg-phosphor/15`;
   }
   switch (tone) {
     case "conviction":
@@ -533,21 +635,21 @@ function buttonClassFor(
       // surfacing stays via the N OF M label; the financial visual
       // is what was screaming. Phosphor border = "live, deliberate"
       // commitment without the capital-allocation read.
-      return `${BASE_BUTTON_CLASS} border border-phosphor/70 bg-cardstock-deep/5 text-ink hover:bg-cardstock-deep/15`;
+      return `${BASE_BUTTON_CLASS} ${sizeClass} border border-phosphor/70 bg-cardstock-deep/5 text-cardstock hover:bg-cardstock-deep/15`;
     case "adversarial":
       // Dispute — visibly distinct from positive actions. Quieter
       // than conviction but still readable. This is an adversarial
       // commit, not a quick gesture.
-      return `${BASE_BUTTON_CLASS} border border-cardstock/50 text-cardstock hover:bg-cardstock/10`;
+      return `${BASE_BUTTON_CLASS} ${sizeClass} border border-cardstock/50 text-cardstock hover:bg-cardstock/10`;
     case "utility":
       // Report — least prominent. Functional moderation surface,
       // not a primary trust signal.
-      return `${BASE_BUTTON_CLASS} border border-cardstock/30 text-cardstock-deep hover:bg-cardstock-deep/10`;
+      return `${BASE_BUTTON_CLASS} ${sizeClass} border border-cardstock/30 text-cardstock-deep hover:bg-cardstock-deep/10`;
     case "positive":
     default:
       // Vouch — primary positive action. Always available to
       // eligible viewers.
-      return `${BASE_BUTTON_CLASS} border border-cardstock/40 bg-cardstock/5 text-cardstock hover:bg-cardstock/15`;
+      return `${BASE_BUTTON_CLASS} ${sizeClass} border border-cardstock/40 bg-cardstock/5 text-cardstock hover:bg-cardstock/15`;
   }
 }
 

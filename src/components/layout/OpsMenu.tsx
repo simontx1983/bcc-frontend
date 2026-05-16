@@ -5,7 +5,7 @@
  *
  * Houses the three lower-frequency destinations (Validators / Disputes
  * / Members) so the PRIMARY four (Floor / Directory / Communities /
- * Binder) keep the inline strip uncluttered.
+ * Watching) keep the inline strip uncluttered.
  *
  * Visual signal: the trigger renders as a normal nav-link with a small
  * caret. When the active route lives inside the specialist tier (e.g.

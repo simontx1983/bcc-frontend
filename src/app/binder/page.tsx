@@ -1,27 +1,14 @@
 /**
- * /binder — server-component shell wrapping the client BinderGrid.
+ * /binder — legacy redirect stub.
  *
- * Same auth-probe pattern as /onboarding: server-side `getServerSession`
- * with a 307 to /login on unauth. Avoids the loading-flash + bounce
- * a client-only check would produce.
- *
- * Only the user's `handle` crosses the RSC boundary — every other
- * concern (paginated query, mutations, optimistic state) lives in
- * the client component. Same boundary discipline as <OnboardingWizard>
- * on /onboarding.
+ * The watchlist surface moved to /watching on 2026-05-13 per the
+ * §1.1.1 additive-deprecation runway. This stub permanently redirects
+ * bookmarks / external links to the canonical path. It is removed in
+ * release N+1 alongside the deprecated /me/binder/* API routes.
  */
 
-import { getServerSession } from "next-auth";
-import { redirect } from "next/navigation";
+import { permanentRedirect } from "next/navigation";
 
-import { BinderGrid } from "@/components/binder/BinderGrid";
-import { authOptions } from "@/lib/auth";
-
-export default async function BinderPage() {
-  const session = await getServerSession(authOptions);
-  if (session === null) {
-    redirect("/login?callbackUrl=/binder");
-  }
-
-  return <BinderGrid handle={session.user.handle} />;
+export default function LegacyBinderRedirect() {
+  permanentRedirect("/watching");
 }

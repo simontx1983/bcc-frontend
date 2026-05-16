@@ -27,8 +27,9 @@
  */
 
 import { useQueryClient } from "@tanstack/react-query";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
+import type { Route } from "next";
 
 import { Composer } from "@/components/composer/Composer";
 import { humanizeCode } from "@/lib/api/errors";
@@ -62,11 +63,40 @@ export function ReviewCallout({
   viewerAuthed,
 }: ReviewCalloutProps) {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const queryClient = useQueryClient();
 
   const [open, setOpen] = useState(false);
   const [removing, setRemoving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // ── Deep-link auto-open ───────────────────────────────────────────
+  // CardFactory's Review button pushes to `{entity-profile}?compose=review`
+  // (server-resolved `card.links.review`). When the page loads with
+  // that query param AND the viewer can write a review, auto-open the
+  // composer and strip the param so a refresh doesn't re-open. We don't
+  // gate on `hasReviewed` here — if the viewer landed via that link but
+  // already has a review, the "REMOVE YOUR REVIEW" branch above renders
+  // and the auto-open is a no-op (composer mode isn't shown).
+  useEffect(() => {
+    if (searchParams === null) return;
+    if (searchParams.get("compose") !== "review") return;
+    if (!viewerAuthed || !canReview || hasReviewed) {
+      // Strip the param anyway — leaving it sticky on a denied flow
+      // would re-fire after every soft navigation that lands here.
+      const next = new URLSearchParams(searchParams.toString());
+      next.delete("compose");
+      const qs = next.toString();
+      router.replace((qs !== "" ? `${pathname}?${qs}` : pathname) as Route);
+      return;
+    }
+    setOpen(true);
+    const next = new URLSearchParams(searchParams.toString());
+    next.delete("compose");
+    const qs = next.toString();
+    router.replace((qs !== "" ? `${pathname}?${qs}` : pathname) as Route);
+  }, [searchParams, pathname, router, viewerAuthed, canReview, hasReviewed]);
 
   const handleRemove = async () => {
     if (!viewerAuthed) return;

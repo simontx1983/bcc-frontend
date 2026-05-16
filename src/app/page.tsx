@@ -74,7 +74,8 @@ export default async function HomePage() {
           <HighlightStrip />
 
           {/* §D1 composer — auth-only inline status form. v1.5 quiet
-              idle row; expands on click. Long-form lives at /blog/new. */}
+              idle row; expands on click. Long-form lives on the
+              author's blog tab CREATE sub-tab. */}
           <Composer
             viewerAvatarUrl={viewerProfile?.avatar_url}
             viewerHandle={session.user.handle}

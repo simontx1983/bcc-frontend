@@ -12,7 +12,7 @@
  *     readers + crawlers see the brand promise.
  *
  *   - Two-tier nav: PRIMARY four (Floor / Directory / Communities /
- *     Binder) render inline at all sm+ sizes; SPECIALIST three
+ *     Watching) render inline at all sm+ sizes; SPECIALIST three
  *     (Validators / Disputes / Members) collapse behind an OPS pop-row.
  *     Messages stays exclusively in the right-side action cluster
  *     (the MessagesBadge already deep-links there — the nav-link was

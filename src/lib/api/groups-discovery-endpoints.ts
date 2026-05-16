@@ -19,6 +19,21 @@ import type { GroupsDiscoveryResponse } from "@/lib/api/types";
 export interface GroupsDiscoveryQueryParams {
   /** When true, restricts to on-chain verified (NFT-gated) groups. */
   verified?: boolean;
+  /**
+   * V1.6 — when true, restricts to communities the viewer is a member
+   * of. Requires a token; anonymous viewers get an empty result back.
+   * The response is viewer-scoped so the server emits
+   * `Cache-Control: private, no-store` instead of the public 60s cache.
+   */
+  mine?: boolean;
+  /**
+   * V1.6 — chain slug restricting to NFT-holder communities on that
+   * chain (`stargaze`, `solana`, …). Filters via the group's
+   * `_bcc_gate_chain_id` post_meta, so user/system groups and Locals
+   * (no chain binding) drop out of chain-scoped results. Unknown
+   * slugs return an empty list rather than 400.
+   */
+  chain?: string;
   /** 1-based page index. Defaults server-side to 1. */
   page?: number;
   /** Items per page. Server caps at 50; default 20. */
@@ -33,6 +48,12 @@ export function getGroupsDiscovery(
   const search = new URLSearchParams();
   if (params.verified === true) {
     search.set("verified", "1");
+  }
+  if (params.mine === true) {
+    search.set("mine", "1");
+  }
+  if (params.chain !== undefined && params.chain !== "") {
+    search.set("chain", params.chain);
   }
   if (params.page !== undefined) {
     search.set("page", String(params.page));

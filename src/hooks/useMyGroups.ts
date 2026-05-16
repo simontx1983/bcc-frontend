@@ -22,11 +22,14 @@
 import { useMutation, type UseMutationOptions } from "@tanstack/react-query";
 
 import {
+  createPlainGroup,
   joinPlainGroup,
   leavePlainGroup,
 } from "@/lib/api/my-groups-endpoints";
 import type {
   BccApiError,
+  CreatePlainGroupRequest,
+  CreatePlainGroupResponse,
   JoinPlainGroupResponse,
   LeavePlainGroupResponse,
 } from "@/lib/api/types";
@@ -51,6 +54,26 @@ export function useLeavePlainGroupMutation(
 ) {
   return useMutation<LeavePlainGroupResponse, BccApiError, number>({
     mutationFn: (groupId) => leavePlainGroup(groupId),
+    ...options,
+  });
+}
+
+/**
+ * V1.6 — `useCreatePlainGroupMutation`. Same shape as join/leave —
+ * caller decides what to do with the response (typically a
+ * router.push to /communities and a toast). No cache surgery here;
+ * the /communities surface is server-rendered, so the caller drives
+ * `router.refresh()` (or just navigates back) to surface the new
+ * group in the discovery list.
+ */
+export function useCreatePlainGroupMutation(
+  options: Omit<
+    UseMutationOptions<CreatePlainGroupResponse, BccApiError, CreatePlainGroupRequest>,
+    "mutationFn"
+  > = {}
+) {
+  return useMutation<CreatePlainGroupResponse, BccApiError, CreatePlainGroupRequest>({
+    mutationFn: (request) => createPlainGroup(request),
     ...options,
   });
 }

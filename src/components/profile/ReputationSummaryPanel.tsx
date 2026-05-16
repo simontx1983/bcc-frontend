@@ -46,6 +46,7 @@
  */
 
 import { RankChip } from "@/components/profile/RankChip";
+import { ReliabilityStandingBadge } from "@/components/reliability/ReliabilityStandingBadge";
 import type {
   CardTier,
   DivergenceState,
@@ -92,12 +93,6 @@ const DIVERGENCE_LABEL: Record<DivergenceState, string> = {
   poorly_regarded: "Poorly Regarded",
   polarizing: "Polarizing",
   disputed: "Disputed",
-};
-
-const RELIABILITY_LABEL: Record<ReliabilityStandingPublic, string> = {
-  highly_reliable: "Highly Reliable",
-  consistent: "Consistent",
-  newly_active: "Newly Active",
 };
 
 /**
@@ -230,33 +225,6 @@ function StandingChip({ isInGoodStanding }: { isInGoodStanding: boolean }) {
   return (
     <span className="bcc-mono border border-safety/60 px-2 py-[3px] text-safety">
       UNDER REVIEW
-    </span>
-  );
-}
-
-// ─────────────────────────────────────────────────────────────────────
-// Reliability Standing badge — positive-only per §J.3.2. Highly
-// Reliable + Consistent render as celebratory (phosphor accent);
-// Newly Active renders neutral (starting state, not stigma).
-// ─────────────────────────────────────────────────────────────────────
-
-function ReliabilityStandingBadge({
-  standing,
-}: {
-  standing: ReliabilityStandingPublic;
-}) {
-  const label = RELIABILITY_LABEL[standing];
-  const isAchievement =
-    standing === "highly_reliable" || standing === "consistent";
-  return (
-    <span
-      className={
-        isAchievement
-          ? "bcc-mono border border-phosphor/60 bg-phosphor/10 px-2 py-[3px] text-phosphor"
-          : "bcc-mono border border-cardstock/30 px-2 py-[3px] text-cardstock-deep"
-      }
-    >
-      {label.toUpperCase()}
     </span>
   );
 }

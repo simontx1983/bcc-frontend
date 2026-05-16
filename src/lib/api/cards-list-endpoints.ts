@@ -3,12 +3,16 @@
  *
  * Sibling to the per-card cards/:type/:id endpoint — same per-item
  * Card shape, just batched + filtered. The endpoint is anonymous-OK
- * (no session required to browse), so we use the public `bccFetch`
- * variant. When a viewer is logged in, NextAuth attaches the Bearer
- * token automatically and the server gates `permissions` per-viewer.
+ * (no session required to browse), but viewer-aware permissions
+ * (`can_pull`, `can_review`, …) only resolve correctly when the
+ * server sees the Bearer token. We use `bccFetchAsClient` so that
+ * NextAuth's session is read in the browser and forwarded as
+ * Authorization: Bearer automatically — signed-in viewers get
+ * `allowed: true` on Keep Tabs; anon viewers still get the page
+ * back, just with permissions locked.
  */
 
-import { bccFetch } from "@/lib/api/client";
+import { bccFetchAsClient } from "@/lib/api/client";
 import type { CardsListQueryParams, CardsListResponse } from "@/lib/api/types";
 
 export function getCardsList(
@@ -38,11 +42,14 @@ export function getCardsList(
   if (params.good_standing_only === true) {
     search.set("good_standing_only", "1");
   }
+  if (params.chain !== undefined && params.chain !== "") {
+    search.set("chain", params.chain);
+  }
 
   const qs = search.toString();
   const path = qs === "" ? "cards" : `cards?${qs}`;
 
-  return bccFetch<CardsListResponse>(path, {
+  return bccFetchAsClient<CardsListResponse>(path, {
     method: "GET",
     ...(signal !== undefined ? { signal } : {}),
   });

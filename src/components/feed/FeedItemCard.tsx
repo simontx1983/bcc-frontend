@@ -10,7 +10,7 @@
  *
  * Per §A2 (no business logic), every visible field comes from the
  * server's view-model. The per-kind summaries are mechanical
- * label mappings ("X added N cards to their binder"), not computed
+ * label mappings ("X started watching N cards"), not computed
  * state — they're reading body fields the server already populated.
  *
  * Future variants (deferred):
@@ -263,16 +263,55 @@ interface BlogExcerptBodyProps {
   authorHandle: string;
 }
 
+const FEED_CATEGORY_LABELS: Record<string, string> = {
+  news:     "News",
+  analysis: "Analysis",
+  guide:    "Guide",
+  opinion:  "Opinion",
+  tools:    "Tools",
+  events:   "Events",
+};
+
 function BlogExcerptBody({ body, authorHandle }: BlogExcerptBodyProps) {
-  const excerpt = readString(body, "excerpt") ?? "";
+  const title    = readString(body, "title") ?? "";
+  const excerpt  = readString(body, "excerpt") ?? "";
+  const category = readString(body, "category");
+  const chainTags = readBlogChainTags(body);
   // Server's body.author_handle wins when present (kept for future
   // cross-author renders); fall back to the FeedItem author handle.
   const handle = readString(body, "author_handle") ?? authorHandle;
   const blogHref =
-    handle !== "" ? (`/u/${handle}/blog` as Route) : null;
+    handle !== "" ? (`/u/${handle}?tab=blog` as Route) : null;
 
   return (
     <div className="flex flex-col gap-2">
+      {(category !== null || chainTags.length > 0) && (
+        <div className="flex flex-wrap items-center gap-2">
+          {category !== null && (
+            <span className="bcc-mono border border-safety/40 bg-safety/10 px-2 py-1 text-[10px] tracking-[0.18em] text-safety">
+              {(FEED_CATEGORY_LABELS[category] ?? category).toUpperCase()}
+            </span>
+          )}
+          {chainTags.map((c) => (
+            <span
+              key={c.slug}
+              className="bcc-mono inline-flex items-center gap-1 border bg-cardstock-deep/10 px-2 py-1 text-[10px] tracking-[0.18em]"
+              style={
+                c.color !== null
+                  ? { borderColor: c.color, color: c.color }
+                  : { borderColor: "var(--cardstock-edge)", color: "var(--ink-soft)" }
+              }
+            >
+              {c.name.toUpperCase()}
+            </span>
+          ))}
+        </div>
+      )}
+      {title !== "" && (
+        <h3 className="bcc-stencil text-lg text-ink leading-tight sm:text-xl">
+          {title}
+        </h3>
+      )}
       {excerpt !== "" && (
         <p className="font-serif text-ink whitespace-pre-line">{excerpt}</p>
       )}
@@ -286,6 +325,24 @@ function BlogExcerptBody({ body, authorHandle }: BlogExcerptBodyProps) {
       )}
     </div>
   );
+}
+
+function readBlogChainTags(
+  body: Record<string, unknown>
+): Array<{ slug: string; name: string; color: string | null }> {
+  const raw = body["chain_tags"];
+  if (!Array.isArray(raw)) return [];
+  const out: Array<{ slug: string; name: string; color: string | null }> = [];
+  for (const item of raw) {
+    if (typeof item !== "object" || item === null) continue;
+    const obj = item as Record<string, unknown>;
+    const slug = typeof obj["slug"] === "string" ? obj["slug"] : "";
+    if (slug === "") continue;
+    const name = typeof obj["name"] === "string" ? obj["name"] : slug;
+    const color = typeof obj["color"] === "string" && obj["color"] !== "" ? obj["color"] : null;
+    out.push({ slug, name, color });
+  }
+  return out;
 }
 
 // ─────────────────────────────────────────────────────────────────────
@@ -398,15 +455,15 @@ function deriveBodySummary(item: FeedItem): string {
     return readString(body, "text") ?? "";
   }
 
-  if (item.post_kind === "pull_batch") {
+  if (item.post_kind === "watch_batch" || item.post_kind === "pull_batch") {
     const cardCount = readNumber(body, "card_count") ?? 0;
     const moreCount = readNumber(body, "more_count") ?? 0;
     if (cardCount === 0) return "";
     const noun = cardCount === 1 ? "card" : "cards";
     if (moreCount > 0) {
-      return `Added ${cardCount} ${noun} to their binder (+${moreCount} more).`;
+      return `Started watching ${cardCount} ${noun} (+${moreCount} more).`;
     }
-    return `Added ${cardCount} ${noun} to their binder.`;
+    return `Started watching ${cardCount} ${noun}.`;
   }
 
   // page_claim's summary is server-rendered (§A2). When the backend

@@ -155,6 +155,25 @@
     text-transform: uppercase;
   }
 
+  /* bcc-mono-chip — small uppercase mono chip with a 1px border, used for
+     identity badges (REPUTATION value, GOOD STANDING, JOURNEYMAN, tier
+     labels). Promotes a 4×-repeated inline-style pattern into a single
+     class so chip dimensions stay consistent across surfaces. Color is
+     left to the caller — apply `text-cardstock`, `text-verified`, etc.
+     on the element. */
+  .bcc-mono-chip {
+    font-family: var(--font-mono), ui-monospace, monospace;
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    border: 1px solid var(--cardstock-edge);
+    padding: 4px 8px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    line-height: 1;
+  }
+
   /* bcc-rail — header-strip layout used for status bars / nav rails.
      Redesigned 2026-05-11: three logical zones (left identifier, mid
      network, right shift+clock) using `space-between` + flex-wrap so
@@ -228,7 +247,13 @@
   }
 
   /* bcc-card — the 3D-rotated wrapper. Width/height are set on the
-     element so the front + back faces have something to fill. */
+     element so the front + back faces have something to fill.
+
+     Narrow-viewport responsive variant (320–360px): the fixed 316px
+     width overflows a 320px viewport's safe area. Below 380px we let
+     the card shrink to fit its parent while preserving the 316/440
+     aspect ratio. The bcc-card-face uses `position: absolute; inset: 0`
+     so it follows whatever the parent renders at. */
   .bcc-card {
     width: 316px;
     height: 440px;
@@ -241,6 +266,14 @@
   }
   .bcc-card.is-flipped {
     transform: rotateX(var(--bcc-rx, 0deg)) rotateY(calc(180deg + var(--bcc-ry, 0deg)));
+  }
+  @media (max-width: 380px) {
+    .bcc-card {
+      width: 100%;
+      max-width: 296px;
+      height: auto;
+      aspect-ratio: 316 / 440;
+    }
   }
 
   /* Card faces — positioned absolutely, backface hidden. The aged
@@ -557,7 +590,7 @@
     font-family: var(--font-script), cursive;
   }
 
-  /* bcc-tab — the profile tab strip across Binder/Reviews/Activity/etc. */
+  /* bcc-tab — the profile tab strip across Watching/Reviews/Activity/etc. */
   .bcc-tab {
     font-family: var(--font-stencil), Impact, sans-serif;
     font-weight: 800;
@@ -575,6 +608,16 @@
   }
   .bcc-tab:hover {
     color: var(--cardstock);
+    /* Brutalist ink-bleed — 1px text-shadow in cardstock-deep, no blur.
+       Reads as ink running into the paper grain on hover, not as a
+       glow effect. Reduced-motion users skip the bleed (matches the
+       motion-safe gate the rest of the page uses). */
+    text-shadow: 1px 0 0 rgba(15, 13, 9, 0.45);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .bcc-tab:hover {
+      text-shadow: none;
+    }
   }
   .bcc-tab[aria-selected="true"] {
     color: var(--cardstock);
@@ -1099,7 +1142,7 @@
                                    chips fly.
      2. .bcc-onboarding-chip-*   — small abstract card chips sized +
                                    tinted per card_tier, flying from
-                                   centre to the binder-icon corner.
+                                   centre to the watchlist-icon corner.
                                    Stagger via the --bcc-onboarding-delay
                                    CSS var the wizard passes inline.
      3. .bcc-onboarding-arrive   — the centre stat-pop card scaling
@@ -1134,7 +1177,7 @@
 }
 
 /* Chip atom — small absolute-centered square that translates to the
-   top-right (where the binder dock lives) while pulsing a tier-tinted
+   top-right (where the watchlist dock lives) while pulsing a tier-tinted
    glow. The wizard renders 1..6 of these; each gets a delay offset
    so they fly in sequence. */
 .bcc-onboarding-chip {
@@ -1163,8 +1206,9 @@
 .bcc-onboarding-chip-common    { --bcc-onboarding-tier: var(--tier-common); }
 .bcc-onboarding-chip-neutral   { --bcc-onboarding-tier: var(--ink-ghost); }
 
-/* Flight path: bloom from centre, arc up-right toward the binder
-   dock, fade as it lands. The translation values match the binder's
+/* Flight path: bloom from centre, arc up-right toward the watchlist
+   dock, fade as it lands. The translation values match the watchlist
+   dock's
    absolute placement (right-8 top-6 in the wizard) for a 6xl-max
    container; on smaller viewports the chip still lands "off-screen
    up-right" which reads correctly. */

@@ -7,7 +7,7 @@
  * Redesigned 2026-05-11 — four visually-distinct zones replace the
  * flat 1-list-fits-all approach:
  *
- *   [ZONE 1]  Primary destinations (Floor / Directory / Communities / Binder)
+ *   [ZONE 1]  Primary destinations (Floor / Directory / Communities / Watching)
  *   [ZONE 2]  Specialist destinations (Validators / Disputes / Members)
  *             — captioned "OPS" so the demotion is visible, not hidden
  *   [ZONE 3]  Shift status + bell + messages row (authed only) — the

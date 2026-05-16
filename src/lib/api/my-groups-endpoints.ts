@@ -13,6 +13,8 @@
 
 import { bccFetchAsClient } from "@/lib/api/client";
 import type {
+  CreatePlainGroupRequest,
+  CreatePlainGroupResponse,
   JoinPlainGroupResponse,
   LeavePlainGroupResponse,
 } from "@/lib/api/types";
@@ -55,4 +57,25 @@ export function leavePlainGroup(
     `me/groups/${groupId}/leave`,
     { method: "POST" }
   );
+}
+
+/**
+ * POST /me/groups — create a new plain (non-gated, non-Local) group
+ * owned by the viewer. V1: name + description + privacy (open|closed).
+ *
+ * Errors:
+ *   - bcc_unauthorized (401) — anonymous caller
+ *   - bcc_invalid_request (400) — name too short / too long / description
+ *     exceeds 2000 chars. Render `message` verbatim per §A2.
+ *   - bcc_rate_limited (429) — 5/hour per user
+ *   - bcc_internal_error (500) — PeepSo unavailable / wp_insert_post
+ *     failed; safe to retry after a moment
+ */
+export function createPlainGroup(
+  input: CreatePlainGroupRequest
+): Promise<CreatePlainGroupResponse> {
+  return bccFetchAsClient<CreatePlainGroupResponse>("me/groups", {
+    method: "POST",
+    body: input,
+  });
 }

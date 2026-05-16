@@ -41,7 +41,17 @@ export function GroupActionButton({
     <div className="flex min-w-0 flex-col items-end gap-2">
       <button
         type="button"
-        onClick={onClick}
+        onClick={(e) => {
+          // The /communities discovery card wraps each tile in a
+          // surrounding link (PeepSo group page for plain groups,
+          // /locals/[slug] for Locals). Without this stop, clicking
+          // JOIN would also navigate away from the discovery surface
+          // mid-mutation. preventDefault for the same reason if any
+          // ancestor anchor wraps via SSR.
+          e.stopPropagation();
+          e.preventDefault();
+          onClick();
+        }}
         disabled={isPending}
         aria-describedby={errorMessage !== null ? errorId : undefined}
         className="bcc-mono inline-flex items-center border-2 border-cardstock-edge px-3 py-1.5 text-[11px] tracking-[0.18em] text-ink-soft transition motion-reduce:transition-none hover:border-ink/50 hover:text-ink disabled:opacity-60"

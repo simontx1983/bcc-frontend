@@ -26,7 +26,7 @@ export const FOLLOW_COPY = {
   /** Active-state CTA on <sm breakpoints. Falls back to the state word. */
   ctaActiveMobile: "Watching ✓",
   /** Tooltip when the user IS already kept-tabs (button toggles off). */
-  tooltipActive: "In your binder. Click to remove.",
+  tooltipActive: "Watching. Click to unwatch.",
   /** Tooltip when the user IS NOT already kept-tabs (button toggles on). */
   tooltipIdle: "Keep tabs on this card",
   /** State word — used in tabs, captions, descriptions. */

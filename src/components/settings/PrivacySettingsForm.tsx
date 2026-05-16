@@ -38,8 +38,8 @@ const SECTIONS: ToggleSection[] = [
     blurb: "Hide tabs and counts from non-self viewers.",
     toggles: [
       {
-        key: "binder_hidden",
-        label: "Hide my binder",
+        key: "watching_hidden",
+        label: "Hide my watchlist",
         helper: "Others see a private placeholder; the count drops to 0.",
       },
       {
@@ -155,7 +155,7 @@ export function PrivacySettingsForm() {
 
           <ul className="flex flex-col divide-y divide-cardstock-edge/60">
             {section.toggles.map((toggle) => {
-              const value = data[toggle.key];
+              const value = data[toggle.key] ?? false;
               const status =
                 recent !== null && recent.key === toggle.key ? recent.state : null;
               return (

@@ -1,7 +1,7 @@
 /**
  * /panel — server-component shell wrapping the client PanelQueue.
  *
- * §D5 panelist surface. Mirrors /binder's auth-probe pattern: server-
+ * §D5 panelist surface. Mirrors /watching's auth-probe pattern: server-
  * side `getServerSession` with a 307 to /login on unauth. The actual
  * queue + vote flow lives in the client component because the panelist
  * may cast votes that need optimistic invalidation of the queue.

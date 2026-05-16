@@ -8,12 +8,20 @@
  * Lazy-fetches via useUserReviews on mount.
  */
 
+import { useState } from "react";
+
 import { useUserReviews } from "@/hooks/useUserActivity";
 import type { MemberReview } from "@/lib/api/types";
 
 interface ReviewsPanelProps {
   handle: string;
 }
+
+/** Initial visible row count before the SHOW MORE cap reveals the rest.
+ *  Per the 2026-05-14 UX review — 10+ identical rows render as visual
+ *  noise; capping at 5 with an explicit expand affordance lets the
+ *  scanning eye breathe before committing to read more. */
+const INITIAL_VISIBLE_REVIEWS = 5;
 
 export function ReviewsPanel({ handle }: ReviewsPanelProps) {
   const query = useUserReviews(handle);
@@ -80,6 +88,13 @@ export function ReviewsPanel({ handle }: ReviewsPanelProps) {
 // ──────────────────────────────────────────────────────────────────────
 
 function ReviewsPanelStatic({ reviews }: { reviews: MemberReview[] }) {
+  const [expanded, setExpanded] = useState(false);
+  const visible = expanded
+    ? reviews
+    : reviews.slice(0, INITIAL_VISIBLE_REVIEWS);
+  const hiddenCount = Math.max(0, reviews.length - INITIAL_VISIBLE_REVIEWS);
+  const showCap = hiddenCount > 0 && !expanded;
+
   return (
     <article className="bcc-paper">
       <Header />
@@ -88,7 +103,7 @@ function ReviewsPanelStatic({ reviews }: { reviews: MemberReview[] }) {
         <ReviewsEmpty />
       ) : (
         <ul>
-          {reviews.map((review) => (
+          {visible.map((review) => (
             <li
               key={review.id}
               className="grid grid-cols-[62px_1fr] gap-4 border-b border-dashed border-ink/22 px-5 py-4 last:border-b-0"
@@ -133,6 +148,19 @@ function ReviewsPanelStatic({ reviews }: { reviews: MemberReview[] }) {
               </div>
             </li>
           ))}
+          {showCap && (
+            <li className="border-t border-dashed border-ink/22 px-5 py-3 text-center">
+              <button
+                type="button"
+                onClick={() => setExpanded(true)}
+                className="bcc-mono text-safety hover:underline"
+                style={{ fontSize: "10px", letterSpacing: "0.18em" }}
+                aria-expanded={false}
+              >
+                SHOW {hiddenCount} MORE →
+              </button>
+            </li>
+          )}
         </ul>
       )}
     </article>

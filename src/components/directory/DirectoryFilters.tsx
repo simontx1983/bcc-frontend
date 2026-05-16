@@ -29,6 +29,7 @@ import type {
   DirectorySort,
   DirectoryTier,
 } from "@/lib/api/types";
+import { VALIDATOR_CHAIN_CATALOG } from "@/lib/validators/chain-catalog";
 
 import type { DirectoryFilters as Filters } from "@/hooks/useDirectory";
 
@@ -88,8 +89,44 @@ export function DirectoryFilters({ value, onChange }: Props) {
         label="KIND"
         options={KIND_OPTIONS}
         selected={value.kind}
-        onSelect={(next) => update({ kind: next })}
+        onSelect={(next) => {
+          // Switching kind away from `validator` clears the chain filter
+          // — the chain JOIN only applies to validator pages today, so
+          // a stale chain selection on a non-validator kind would just
+          // silently zero out results.
+          const nextChain = next === "validator" ? value.chain : null;
+          update({ kind: next, chain: nextChain });
+        }}
       />
+
+      {/* Chain dropdown — only meaningful for validator kind today; the
+          backend JOIN goes through `_bcc_onchain_validator_id` post_meta
+          which only validator pages carry. */}
+      {value.kind === "validator" && (
+        <div className="flex flex-col gap-2">
+          <label
+            htmlFor="directory-chain"
+            className="bcc-mono text-[10px] tracking-[0.2em] text-cardstock-deep"
+          >
+            CHAIN
+          </label>
+          <select
+            id="directory-chain"
+            value={value.chain ?? ""}
+            onChange={(e: ChangeEvent<HTMLSelectElement>) =>
+              update({ chain: e.target.value === "" ? null : e.target.value })
+            }
+            className="bcc-mono w-full bg-cardstock px-3 py-2 text-sm text-ink ring-1 ring-cardstock-edge focus:outline-none focus:ring-2 focus:ring-blueprint"
+          >
+            <option value="">All chains</option>
+            {VALIDATOR_CHAIN_CATALOG.map((opt) => (
+              <option key={opt.slug} value={opt.slug}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
 
       {/* Tier chips */}
       <FilterChipRow

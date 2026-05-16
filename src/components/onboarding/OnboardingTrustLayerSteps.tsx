@@ -55,6 +55,11 @@
 
 import { useState } from "react";
 
+import {
+  ABSENCE_NOT_NEGATIVE,
+  REPUTATION_VS_RELIABILITY,
+} from "@/lib/copy/trust-layer";
+
 type TrustCard = "what" | "actions" | "reputation" | "first_vouch";
 
 interface OnboardingTrustLayerStepsProps {
@@ -246,6 +251,12 @@ function CardThree({
       </header>
 
       <div className="flex flex-col gap-5 font-serif text-cardstock-deep text-lg leading-relaxed">
+        {/* The three sentences below + the absence-not-negative
+            paragraph are imported from a shared constants module
+            (lib/copy/trust-layer.ts) so the same teaching renders
+            verbatim on /me/reliability and any future surface. Drift
+            between surfaces reopens the §2.9 failure mode; the lift
+            prevents that without ceding the layout to a content CMS. */}
         <p>
           Your <span className="font-semibold text-cardstock">reputation</span>{" "}
           grows from what others say about you.
@@ -254,20 +265,19 @@ function CardThree({
           Your <span className="font-semibold text-cardstock">reliability</span>{" "}
           is your own track record as a judge of others.
         </p>
-        <p>Both grow slowly. Both are durable.</p>
+        <p>{REPUTATION_VS_RELIABILITY.both_grow_slowly}</p>
 
         {/* This block is load-bearing per risk-assessment §2.9. The
             exact wording is the primary mitigation against "no
             vouch = bad" interpretation drift. Softening, rephrasing,
-            or breaking up the sentence reopens the failure mode. */}
+            or breaking up the sentence reopens the failure mode —
+            which is why both the headline and body are imported
+            constants, not inline strings. */}
         <p className="border-l-[3px] border-safety/60 pl-4 italic">
           <span className="not-italic font-semibold text-cardstock">
-            Absence of attestation is not a negative signal.
+            {ABSENCE_NOT_NEGATIVE.headline}
           </span>{" "}
-          Most operators are silent — that&apos;s normal and acceptable.
-          The graph doesn&apos;t expect you to attest on any schedule.
-          Cast attestations only when you have genuine judgment to
-          offer.
+          {ABSENCE_NOT_NEGATIVE.body}
         </p>
       </div>
 

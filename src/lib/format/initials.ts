@@ -3,7 +3,7 @@
  *
  * Single source of truth for the avatar initials fallback used across
  * the app. Replaces three drift-prone duplicates that previously lived
- * in BinderTile, GroupMembersStrip, and NftPieceDetail.
+ * in WatchingTile, GroupMembersStrip, and NftPieceDetail.
  *
  * Rules (mechanical — no business logic):
  *   - Prefer `displayName` when non-empty; otherwise fall back to

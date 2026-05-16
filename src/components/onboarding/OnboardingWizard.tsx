@@ -9,11 +9,14 @@
  *   1. "chain"         — pick a home chain (skippable). Stores the choice
  *                        locally; persisted to wp_usermeta.bcc_home_chain
  *                        on the final POST /me/onboarding/complete call.
- *   2. "pulls"         — first-pull suggestions. Each Pull commits
- *                        immediately to the binder via POST
- *                        /me/binder/pull (real mutation; server's batch
+ *   2. "pulls"         — first-watch suggestions. Each Watch commits
+ *                        immediately to the watchlist via POST
+ *                        /me/watching/watch (real mutation; server's batch
  *                        aggregator decides when those become a feed
- *                        item per §C3).
+ *                        item per §C3). Internal variable name "pulls"
+ *                        retained as a step label — the step still uses
+ *                        the legacy onboarding-state vocabulary; only
+ *                        the user-facing copy + API path changed.
  *   3. "notifications" — V2 Phase 2 retention slice. Surfaces the bell /
  *                        email digest / push opt-ins so users learn the
  *                        channel exists at signup, not by digging into
@@ -25,8 +28,9 @@
  *                        notification (NotificationDispatcher::onUserSignup)
  *                        which arrives within seconds of signup so a user
  *                        who turns the bell on sees something there.
- *   4. "dopamine"      — the §O1 send-off. Cards fly into a binder icon
- *                        with rarity-tinted glow trails, a stat-pop
+ *   4. "dopamine"      — the §O1 send-off. Cards fly into a watchlist icon
+ *                        (the visual still uses the 3-ring binder iconography
+ *                        per pattern-registry) with rarity-tinted glow trails, a stat-pop
  *                        appears, the cream cardstock backdrop fades to
  *                        concrete floor. Mutation fires in parallel; once
  *                        both the animation has played its minimum hold
@@ -50,7 +54,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import { CardFactory } from "@/components/cards/CardFactory";
 import { OnboardingTrustLayerSteps } from "@/components/onboarding/OnboardingTrustLayerSteps";
-import { useBinder } from "@/hooks/useBinder";
+import { useWatching } from "@/hooks/useWatching";
 import { useCompleteOnboarding } from "@/hooks/useCompleteOnboarding";
 import {
   useNotificationPrefs,
@@ -58,7 +62,7 @@ import {
 } from "@/hooks/useNotificationPrefs";
 import { useOnboardingSuggestions } from "@/hooks/useOnboardingSuggestions";
 import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
-import { usePullMutation, useUnpullMutation } from "@/hooks/useBinderPull";
+import { useWatchMutation, useUnwatchMutation } from "@/hooks/useWatch";
 import { usePushSubscription } from "@/hooks/usePushSubscription";
 import { humanizeCode } from "@/lib/api/errors";
 import type {
@@ -311,14 +315,14 @@ function FirstPullsStep({
     <>
       <section className="mx-auto max-w-6xl px-6 pt-12 sm:px-8">
         <h1 className="bcc-stencil text-cardstock text-5xl md:text-6xl">
-          Start your binder.
+          Start watching.
         </h1>
         <p className="mt-4 max-w-2xl font-serif text-xl text-cardstock-deep">
           Pick the validators, projects, and creators you want to keep tabs on.
-          Your binder + Floor feed start with the cards you pick here.
+          Your watchlist + Floor feed start with the cards you pick here.
         </p>
         <p className="bcc-mono mt-3 text-cardstock-deep/70">
-          Skipping is fine — you can keep tabs any time.
+          Skipping is fine — you can start watching any time.
         </p>
       </section>
 
@@ -336,7 +340,7 @@ function FirstPullsStep({
 
         {/* Gate Done while any pull is in flight — otherwise the
             /complete mutation can race a still-flying pull and the
-            server flips `onboarded` before the binder row lands. */}
+            server flips `onboarded` before the watchlist row lands. */}
         <button
           type="button"
           onClick={onDone}
@@ -662,7 +666,8 @@ function humanizePushMutationErrorBrief(err: { message?: string; code?: string }
 // mutation errors, show a retry tile and skip the redirect.
 //
 // The animation itself is pure CSS — N abstract card chips with
-// rarity-tinted glow trails fly toward a binder icon docked
+// rarity-tinted glow trails fly toward a watchlist icon (the visual
+// still uses the 3-ring binder iconography per pattern-registry) docked
 // top-right; a stat-pop holds in the centre; the cardstock backdrop
 // fades to a concrete-floor tone over the same window. No
 // per-card DOM measurement; this is a *stylized* moment, not a
@@ -759,12 +764,12 @@ function DopamineStep({
       aria-live="polite"
       aria-label="Welcome to the Floor"
     >
-      {/* Binder dock — the destination for the chips. */}
+      {/* Watchlist dock — the destination for the chips. */}
       <div className="absolute right-8 top-6 flex flex-col items-end gap-1">
         <div className="bcc-panel flex h-14 w-14 items-center justify-center text-2xl">
           📒
         </div>
-        <span className="bcc-mono text-[10px] text-cardstock-deep">Binder</span>
+        <span className="bcc-mono text-[10px] text-cardstock-deep">Watchlist</span>
       </div>
 
       {/* Flying chips — only when motion is allowed. */}
@@ -831,14 +836,14 @@ function tierClassName(tier: CardTier): string {
 // useWizardPulls — pulled-state machine driven by the server.
 //
 // Source of truth split:
-//   - `isPulled(cardId)` reads the binder query (`useBinder()`). This
-//     is the *real* "is this in my binder right now" state — it
-//     correctly shows pre-existing binder rows from earlier sessions
+//   - `isPulled(cardId)` reads the watching query (`useWatching()`). This
+//     is the *real* "is this in my watchlist right now" state — it
+//     correctly shows pre-existing watchlist rows from earlier sessions
 //     as already-pulled.
 //   - `pulledCount` + `snapshot()` track ONLY this wizard session's
 //     pulls. The §O1 dopamine moment is a celebration of what the
 //     user just did, not their lifetime collection. We can't derive
-//     the visual `card_tier` from a generic BinderItem (which only
+//     the visual `card_tier` from a generic WatchingItem (which only
 //     carries the raw reputation tier per §A4) — but every pull made
 //     during the wizard goes through a Card view-model that already
 //     carries the server-computed `card_tier`. Snapshot reads the
@@ -854,7 +859,7 @@ interface WizardPullsApi {
   isPending: (cardId: number) => boolean;
   errorFor: (cardId: number) => string | null;
   toggle: (card: Card) => void;
-  /** Count of cards pulled IN THIS WIZARD SESSION (not lifetime binder size). */
+  /** Count of cards pulled IN THIS WIZARD SESSION (not lifetime watchlist size). */
   pulledCount: number;
   /** True while ANY pull/unpull mutation is in flight. Gates wizard nav. */
   anyPending: boolean;
@@ -863,13 +868,13 @@ interface WizardPullsApi {
 }
 
 function useWizardPulls(): WizardPullsApi {
-  const pullMut = usePullMutation();
-  const unpullMut = useUnpullMutation();
+  const pullMut = useWatchMutation();
+  const unpullMut = useUnwatchMutation();
 
   // Page size 50: comfortable headroom for the wizard's <=12 surfaced
-  // cards. A larger pre-existing binder won't change the wizard's
+  // cards. A larger pre-existing watchlist won't change the wizard's
   // state machine — we only key by card_id.
-  const binder = useBinder({ page_size: 50 });
+  const watching = useWatching({ page_size: 50 });
 
   const [pending, setPending] = useState<ReadonlySet<number>>(new Set());
   const [errors, setErrors] = useState<ReadonlyMap<number, string>>(new Map());
@@ -887,8 +892,8 @@ function useWizardPulls(): WizardPullsApi {
   // because their follow_id auto-increment ranges overlap.
   const followIds = useMemo<ReadonlyMap<number, { follow_id: number; source: "peepso" | "page" }>>(() => {
     const map = new Map<number, { follow_id: number; source: "peepso" | "page" }>();
-    if (binder.data !== undefined) {
-      for (const item of binder.data.items) {
+    if (watching.data !== undefined) {
+      for (const item of watching.data.items) {
         map.set(item.card_id, {
           follow_id: item.follow_id,
           source: item.follow_source ?? "peepso",
@@ -896,7 +901,7 @@ function useWizardPulls(): WizardPullsApi {
       }
     }
     return map;
-  }, [binder.data]);
+  }, [watching.data]);
 
   const setPendingFor = (cardId: number, isPending: boolean) => {
     setPending((prev) => {
@@ -965,8 +970,8 @@ function useWizardPulls(): WizardPullsApi {
   };
 
   const isPulled = (cardId: number): boolean => {
-    const inBinder = followIds.has(cardId);
-    return pending.has(cardId) ? !inBinder : inBinder;
+    const isWatched = followIds.has(cardId);
+    return pending.has(cardId) ? !isWatched : isWatched;
   };
 
   return {

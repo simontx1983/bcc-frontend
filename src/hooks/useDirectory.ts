@@ -53,6 +53,14 @@ export interface DirectoryFilters {
    * (good standing). Composes with `tier` via AND server-side.
    */
   goodStandingOnly: boolean;
+  /**
+   * Chain slug filter — null when no chain is selected. Server-side
+   * the chain JOIN only fires for validator-backed pages, so this is
+   * effective today only when `kind === 'validator'`. The page-level
+   * filter UI hides the chain pill outside that kind so a user can't
+   * accidentally select a chain that would just zero out their results.
+   */
+  chain: string | null;
 }
 
 export const DIRECTORY_QUERY_KEY_ROOT = ["directory"] as const;
@@ -70,6 +78,7 @@ function buildQueryKey(filters: DirectoryFilters): QueryKey {
     filters.sort,
     filters.q,
     filters.goodStandingOnly ? "gs" : "any",
+    filters.chain ?? "any-chain",
   ] as const;
 }
 
@@ -110,6 +119,9 @@ function buildParams(filters: DirectoryFilters, page: number): CardsListQueryPar
   }
   if (filters.goodStandingOnly) {
     params.good_standing_only = true;
+  }
+  if (filters.chain !== null && filters.chain !== "") {
+    params.chain = filters.chain;
   }
   return params;
 }

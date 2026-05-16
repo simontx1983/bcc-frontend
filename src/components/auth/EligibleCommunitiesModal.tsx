@@ -275,8 +275,8 @@ function EligibleRow({ item }: { item: HolderGroupItem }) {
 
 // ─────────────────────────────────────────────────────────────────────
 // ModalShell — local copy of the existing per-modal pattern (Composer,
-// OpenDisputeModal, PanelVoteModal, ClaimFlow). Adds reduced-motion
-// awareness on the fade-in.
+// OpenDisputeModal, ClaimFlow). Adds reduced-motion awareness on the
+// fade-in.
 // ─────────────────────────────────────────────────────────────────────
 
 interface ModalShellProps {

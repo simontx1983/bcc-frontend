@@ -114,6 +114,16 @@ function MembershipBody({ group, onActionStart, onActionError }: MembershipBodyP
       <JoinAction group={group} onActionStart={onActionStart} onActionError={onActionError} />
     );
   }
+  // V1.6 — surface `can_leave.unlock_hint` when present. Today this is
+  // the `owner_cannot_leave` case (owners can't drop their own group
+  // without a handoff); future server-pinned leave gates surface here
+  // too without a per-reason FE branch. Ranked above the join-hint
+  // path because an existing-member's blocker is more informative
+  // than a not-yet-joined nudge.
+  const leaveHint = unlockHint(permissions, "can_leave");
+  if (leaveHint !== null) {
+    return <UnlockHint hint={leaveHint} />;
+  }
   const joinHint = unlockHint(permissions, "can_join");
   if (joinHint !== null) {
     return <UnlockHint hint={joinHint} />;

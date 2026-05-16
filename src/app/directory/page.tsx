@@ -54,6 +54,7 @@ const DEFAULT_FILTERS: Filters = {
   sort: "trust",
   q: "",
   goodStandingOnly: false,
+  chain: null,
 };
 
 export default function DirectoryPage() {
@@ -191,7 +192,8 @@ function ActiveFiltersStrip({
     filters.tier !== null ||
     filters.q !== "" ||
     filters.sort !== "trust" ||
-    filters.goodStandingOnly;
+    filters.goodStandingOnly ||
+    filters.chain !== null;
 
   return (
     <div className="mt-10 border-y border-dashed border-cardstock/15">
@@ -206,6 +208,12 @@ function ActiveFiltersStrip({
           <FilterChip
             label={filters.kind.toUpperCase()}
             onClear={() => onChange({ ...filters, kind: null })}
+          />
+        )}
+        {filters.chain !== null && (
+          <FilterChip
+            label={`CHAIN · ${filters.chain.toUpperCase()}`}
+            onClear={() => onChange({ ...filters, chain: null })}
           />
         )}
         {filters.tier !== null && (
@@ -289,7 +297,14 @@ function parseFilters(searchParams: URLSearchParams | null): Filters {
 
   const goodStandingOnly = searchParams.get("good_standing") === "1";
 
-  return { kind, tier, sort, q, goodStandingOnly };
+  // Chain slug — passed through verbatim. Server validates against
+  // active chains and rejects unknown slugs at the endpoint boundary,
+  // so a bogus URL param surfaces as an API error rather than silently
+  // matching nothing.
+  const chainRaw = searchParams.get("chain");
+  const chain = chainRaw !== null && chainRaw !== "" ? chainRaw : null;
+
+  return { kind, tier, sort, q, goodStandingOnly, chain };
 }
 
 function pushFiltersToUrl(
@@ -302,6 +317,7 @@ function pushFiltersToUrl(
   if (filters.sort !== "trust") params.set("sort", filters.sort);
   if (filters.q !== "") params.set("q", filters.q);
   if (filters.goodStandingOnly) params.set("good_standing", "1");
+  if (filters.chain !== null) params.set("chain", filters.chain);
 
   const qs = params.toString();
   const url = (qs === "" ? "/directory" : `/directory?${qs}`) as Route;

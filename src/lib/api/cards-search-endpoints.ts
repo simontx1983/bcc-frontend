@@ -5,9 +5,15 @@
  * The endpoint mirrors bcc-search's quality gate (min 2 chars,
  * stopwords dropped) so a too-short query gets a fast empty
  * response instead of a 400.
+ *
+ * Uses `bccFetchAsClient` so signed-in viewers get their Bearer
+ * token attached automatically (the hook caller in
+ * `useGlobalSearch.ts` runs in a client component). Without this,
+ * signed-in users would see search results as if anonymous —
+ * viewer-aware ranking signals on the server would silently degrade.
  */
 
-import { bccFetch } from "@/lib/api/client";
+import { bccFetchAsClient } from "@/lib/api/client";
 import type {
   DirectoryKind,
   SearchSuggestionsResponse,
@@ -27,7 +33,7 @@ export function getSearchSuggestions(
   if (params.kind !== undefined) {
     search.set("kind", params.kind);
   }
-  return bccFetch<SearchSuggestionsResponse>(
+  return bccFetchAsClient<SearchSuggestionsResponse>(
     `cards/search?${search.toString()}`,
     {
       method: "GET",

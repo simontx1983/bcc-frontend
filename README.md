@@ -71,5 +71,5 @@ These land in subsequent waves alongside their parent endpoints:
 - `/login`, `/signup`, `/onboarding/*` route handlers
 - Card components (`<ValidatorCard>`, `<CardFactory>`)
 - Floor feed (`<FeedTabs>`, `<HighlightStrip>`)
-- Binder UI
+- Watchlist UI (formerly "Binder," renamed 2026-05-13)
 - Profile pages (`/u/[handle]`, `/v/[slug]`, `/c/[slug]`)

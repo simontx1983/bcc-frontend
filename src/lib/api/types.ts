@@ -405,6 +405,9 @@ export interface Card {
   social_proof: CardSocialProof | null;
   links: {
     self: string;
+    watching?: string;
+    /** Legacy alias for `watching`. Emitted by backend during the
+     *  §1.1.1 deprecation window; removed in release N+1. */
     binder?: string;
     review?: string;
   };
@@ -467,6 +470,20 @@ export interface FeedAuthor {
   avatar_url?: string;
   rank_label?: string | null;
   reputation_tier?: ReputationTier;
+  /**
+   * Sprint 1 Identity Grammar — server-resolved §C1 card_tier slug
+   * for the rank chip's tint. Per §A2 the frontend MUST NOT derive
+   * this from reputation_tier; the server runs the mapping via
+   * ReputationTierMap so feed/comment/notification surfaces share
+   * one source of truth with the canonical /users/:handle payload.
+   */
+  card_tier?: CardTier;
+  /**
+   * Pre-rendered tier label ("Uncommon", "Rare", "Legendary"...).
+   * Server-owned per §A2; the frontend never templates from the
+   * card_tier slug.
+   */
+  tier_label?: string | null;
   /**
    * §N8 operator badge — true when the author holds a verified
    * operator/creator claim on any entity. Drives the OPERATOR chip
@@ -534,6 +551,28 @@ export interface CommentAuthor {
   handle: string;
   display_name: string;
   avatar_url: string;
+  /**
+   * Sprint 1 Identity Grammar cohesion — pre-rendered §E2 rank
+   * ("Apprentice", "Journeyman"...). Optional during the rollout
+   * window; stale frontends keep rendering the avatar+name pair.
+   * Empty string and `null` are both treated as "no chip" by
+   * AuthorBadge.
+   */
+  rank_label?: string | null;
+  /**
+   * Server-resolved §C1 card_tier slug. Drives the rank chip's
+   * tint on the comment row's AuthorBadge. Per §A2 the frontend
+   * MUST NOT derive this from reputation_tier.
+   */
+  card_tier?: CardTier;
+  /** Pre-rendered tier word ("Uncommon", "Rare"...). Server-owned. */
+  tier_label?: string | null;
+  /**
+   * Author's reputation tier — surfaced for parity with FeedAuthor.
+   * Frontend uses it only as an opaque value; rank/card_tier
+   * mapping stays server-side.
+   */
+  reputation_tier?: ReputationTier;
 }
 
 export interface Comment {
@@ -587,16 +626,19 @@ export interface DeleteCommentResponse {
  *
  * Known body shapes (informational; not enforced at this layer):
  *   - status      → { text: string, attached_card?: Card }
- *   - pull_batch  → { card_count, more_count, top_cards: [...] }
+ *   - watch_batch → { card_count, more_count, top_cards: [...] } (legacy kind name `pull_batch` accepted during §1.1.1 deprecation)
  *   - page_claim  → { entity_type, role, page_id }
  *   - review      → { grade, text, page_id }
  *   - dispute     → { reason, page_id, status }
  *   - blog_excerpt
- *       Floor context  → { excerpt, full_text: null, author_handle, wp_post_id }
- *       Blog tab ctx   → { excerpt, full_text: string, wp_post_id }
+ *       Floor context  → { title, excerpt, full_text: null, author_handle, wp_post_id, category?, tags?, chain_tags?, disclosure?, cover_image_url? }
+ *       Blog tab ctx   → { title, excerpt, full_text: string, wp_post_id, category?, tags?, chain_tags?, disclosure?, cover_image_url? }
  *     Frontend reads `full_text` to decide whether to render the full
  *     body inline (blog tab) or show an excerpt + "Read full post"
- *     affordance (Floor) — see §D6 / FeedItemNormalizer.
+ *     affordance (Floor) — see §D6 / FeedItemNormalizer. The new
+ *     post-PR-A fields (title, category, tags, chain_tags, disclosure,
+ *     cover_image_url) are nullable/optional for backward compat with
+ *     blog posts created before the schema expansion.
  */
 /**
  * Per-action permission entry on a FeedItem. Mirrors the backend
@@ -608,6 +650,37 @@ export interface DeleteCommentResponse {
 export interface FeedItemPermission {
   allowed: boolean;
   unlock_hint: string | null;
+}
+
+/**
+ * Recent-reactor entry on a FeedItem's social_proof block. Drives the
+ * stacked-avatar rail (Sprint 1 cohesion — replaces the text-only
+ * "X and 3 others reacted" headline as the primary signal).
+ *
+ * `avatar_url` may be an empty string when the user hasn't set an
+ * avatar — matches the existing avatar_url convention used elsewhere
+ * (FeedAuthor.avatar_url, CommentAuthor.avatar_url).
+ */
+export interface FeedSocialProofReactor {
+  handle: string;
+  display_name: string;
+  avatar_url: string;
+}
+
+/**
+ * SocialProof block on a FeedItem. The text headline (§O4) and the
+ * stacked-avatar list (Sprint 1) are independent surfaces — either
+ * may be present without the other depending on whether the viewer
+ * has network connection (headline) and whether the post has any
+ * reactions yet (recent_reactors).
+ *
+ * Both fields are optional during the v1.6 rollout window; stale
+ * frontends that only read `headline` keep working. New frontends
+ * read `recent_reactors` first and fall back to the headline.
+ */
+export interface FeedSocialProof {
+  headline?: string | null;
+  recent_reactors?: FeedSocialProofReactor[];
 }
 
 export interface FeedItem {
@@ -632,10 +705,7 @@ export interface FeedItem {
     self: string;
     author: string;
   };
-  social_proof?: {
-    headline: string | null;
-    [key: string]: unknown;
-  };
+  social_proof?: FeedSocialProof;
   attached_card?: Card;
   /**
    * Group context for posts authored inside a PeepSo group (§3.3 v1.5).
@@ -1361,6 +1431,56 @@ export interface LeavePlainGroupResponse {
   group_id: number;
 }
 
+/**
+ * Privacy mode for the community create flow. Four canonical modes:
+ *
+ *   - open    — anyone signed in can join; feed reads publicly
+ *   - closed  — discoverable, but admin approves each join
+ *   - secret  — invite-only; hidden from /communities discovery
+ *   - trust   — open join gated on a reputation-score threshold
+ *               (paired with `trust_min`: 25 | 50 | 75)
+ *
+ * Each mode is IMMUTABLE after creation — the choice locks at the
+ * moment of `POST /me/groups`.
+ */
+export type CommunityPrivacy = "open" | "closed" | "secret" | "trust";
+
+/**
+ * V1.6 — POST /me/groups payload for creating a plain peepso-group.
+ * Server validates name (3–100 chars), description (≤2000 chars),
+ * privacy (one of four CommunityPrivacy modes), and trust_min when
+ * privacy=trust (must be 25, 50, or 75).
+ *
+ * `chain` is REQUIRED and IMMUTABLE — the chain tag locks at creation
+ * and can't be changed later. The /communities chain filter joins on
+ * `_bcc_chain_tag` post_meta so a tagged community surfaces when its
+ * chain is selected in the discovery dropdown. Slug must match an
+ * active row in `bcc_onchain_chains`.
+ */
+export interface CreatePlainGroupRequest {
+  name: string;
+  description?: string;
+  privacy?: CommunityPrivacy;
+  /** Required when privacy === 'trust'; one of 25 | 50 | 75. */
+  trust_min?: 25 | 50 | 75;
+  chain: string;
+}
+
+/** Server response for POST /me/groups (HTTP 201 on success). */
+export interface CreatePlainGroupResponse {
+  group_id: number;
+  slug: string;
+  name: string;
+  privacy: CommunityPrivacy;
+  /** Slug of the chain tag the community was locked to at creation. */
+  chain_tag: string;
+  /**
+   * Trust threshold the join is gated on. Non-null only when
+   * `privacy === 'trust'`; null for the other three modes.
+   */
+  trust_min: 25 | 50 | 75 | null;
+}
+
 // ─────────────────────────────────────────────────────────────────────
 // §4.7.2 — Profile Groups Tab (`GET /users/{slug}/groups`)
 //
@@ -1434,6 +1554,221 @@ export interface UserGroupItem {
 export interface UserGroupsResponse {
   items: UserGroupItem[];
 }
+
+// ─────────────────────────────────────────────────────────────────────
+// User Albums (§3.1 Photos → Albums sub-tab) — read-only view of a
+// member's PeepSo photo albums. Privacy filter happens server-side so
+// non-visible rows never reach the frontend; `privacy_label` is the
+// caller-facing chip on tiles the viewer can see.
+// ─────────────────────────────────────────────────────────────────────
+
+/**
+ * Album privacy slug — same vocabulary as MemberPrivacy enums so
+ * one render branch covers both surfaces.
+ *   public         = visible to everyone (anon + members)
+ *   site_members   = visible to logged-in viewers
+ *   friends_only   = visible to friends + owner
+ *   only_me        = visible to owner only (frontend never sees these
+ *                    rows when viewing someone else's profile)
+ */
+export type AlbumPrivacy =
+  | "public"
+  | "site_members"
+  | "friends_only"
+  | "only_me";
+
+/**
+ * One album row from GET /users/:handle/albums.
+ *
+ * `cover_url` is `""` when the album has no cover photo set OR when
+ * the cover lives on S3 and the V1 PHP resolver can't construct a URL
+ * for it; the frontend falls back to a stylized empty-cover tile in
+ * both cases.
+ */
+export interface UserAlbum {
+  id: number;
+  title: string;
+  description: string | null;
+  photo_count: number;
+  cover_url: string;
+  privacy: AlbumPrivacy;
+  /**
+   * Server-authoritative display label ("Public" / "Members" /
+   * "Friends" / "Private"; filterable via `bcc_album_privacy_label`).
+   * Frontend renders verbatim per §A2 — no client-side enum→label
+   * mapping.
+   */
+  privacy_label: string;
+  /**
+   * True for PeepSo's auto-created albums (Stream, Profile, Cover).
+   * The UI surfaces these the same as user-created albums; the flag
+   * is plumbed through for downstream sorting / filtering features.
+   */
+  is_system_album: boolean;
+  /** MySQL TIMESTAMP string from peepso_photos_album.pho_created. */
+  created_at: string;
+}
+
+/** GET /users/:slug/albums response. No pagination per contract — the
+ *  server caps the result set at PeepSoAlbumRepository's bounded query. */
+export interface UserAlbumsResponse {
+  items: UserAlbum[];
+}
+
+/**
+ * One photo row from GET /users/:handle/albums/:id/photos.
+ *
+ * `photo_url` is `""` when the photo lives on S3 and V1's PHP resolver
+ * can't construct a URL for it — frontend gracefully omits the image.
+ * `source_post` is null when the photo has no parent activity post
+ * (rare; only when the post was deleted out from under the album row).
+ */
+export interface AlbumPhoto {
+  id: number;
+  photo_url: string;
+  source_post: {
+    id: number;
+    url: string;
+  } | null;
+}
+
+/** GET /users/:slug/albums/:id/photos response. */
+export interface AlbumPhotosResponse {
+  items: AlbumPhoto[];
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// User Endorsements (§J.6 given direction) — pages this user has
+// endorsed. Distinct from AttestationRoster (received direction).
+// Anonymous-readable per §J trust-graph doctrine; tier + trust_score
+// carried for the badge marker but the UI renders rows with equal
+// visual weight regardless of tier (no leaderboard treatment).
+// ─────────────────────────────────────────────────────────────────────
+
+/**
+ * One row from GET /users/:handle/endorsements. Mirrors the
+ * `/endorsements/mine` shape — same hydration helper on the server
+ * (`UserEndorsementsEndpoint::hydrate`).
+ *
+ * `created_at` is a MySQL UTC datetime string (`YYYY-MM-DD HH:MM:SS`)
+ * per the WordPress `endorsement_created_at` column convention;
+ * `formatRelativeTime` normalizes at the boundary.
+ */
+export interface UserEndorsementItem {
+  id: number;
+  page_id: number;
+  page_title: string;
+  page_url: string;
+  avatar_url: string;
+  trust_score: number | null;
+  tier: string;
+  weight: number;
+  context: string;
+  reason: string | null;
+  created_at: string | null;
+}
+
+/** GET /users/:handle/endorsements response. */
+export interface UserEndorsementsResponse {
+  items: UserEndorsementItem[];
+  total: number;
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// User Follows (§3.1 Watching tab) — paginated lists of the people a
+// member is being watched by (followers) and the people they're
+// keeping tabs on (following). Same `MemberSummary` shape as the
+// /members directory + /groups/:id/members so the row rendering is
+// homogeneous across surfaces.
+//
+// Privacy: when `watching_hidden` is set on the target's profile,
+// non-self viewers get 403 `bcc_permission_denied` with the
+// reason_code surfaced in the error body — the frontend renders the
+// "watching is private" empty-state instead of treating it as failure.
+// ─────────────────────────────────────────────────────────────────────
+
+export interface UserFollowsResponse {
+  items: MemberSummary[];
+  pagination: {
+    offset: number;
+    limit: number;
+    total: number;
+    has_more: boolean;
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Entity card tabs (§Phase 2 entity tab parity) — Reviews / Disputes /
+// Watchers panels on /v, /p, /c. Backend mirrors the user-side
+// architecture: same pagination shape, same MemberSummary hydration for
+// authors / flaggers / watchers — just filtered by card target instead
+// of by user.
+// ─────────────────────────────────────────────────────────────────────
+
+/**
+ * The three entity-card kinds the new endpoints accept. `user_profile`
+ * isn't here — /users/{handle}/reviews already serves that target.
+ * Wire shape mirrors the §J.6 target_kind taxonomy.
+ */
+export type EntityCardKind = "validator_card" | "project_card" | "creator_card";
+
+/**
+ * One row in `/entities/{kind}/{id}/reviews`. Author is the full
+ * MemberSummary so the panel renders a real operator card per row
+ * (avatar, handle, rank, trust score) — same shape /members directory
+ * uses. Grade is server-resolved per §A2.
+ */
+export interface CardReview {
+  id: number;
+  grade: "A" | "B" | "C";
+  text: string;
+  posted_at_label: string;
+  author: MemberSummary;
+}
+
+/** GET /entities/{kind}/{id}/reviews response. */
+export interface CardReviewsResponse {
+  items: CardReview[];
+  pagination: {
+    page: number;
+    per_page: number;
+    total: number;
+    total_pages: number;
+  };
+}
+
+/**
+ * One row in `/entities/{kind}/{id}/disputes`. V1 only surfaces open
+ * disputes (status=0); resolved + dismissed don't reach this list.
+ * `flagger` is the user who opened the dispute — full MemberSummary
+ * so the panel can show "@phillip opened this dispute" with a real
+ * trust card.
+ */
+export interface CardDispute {
+  id: number;
+  body: string;
+  posted_at_label: string;
+  flagger: MemberSummary;
+}
+
+/** GET /entities/{kind}/{id}/disputes response. */
+export interface CardDisputesResponse {
+  items: CardDispute[];
+  pagination: {
+    page: number;
+    per_page: number;
+    total: number;
+    total_pages: number;
+  };
+}
+
+/**
+ * GET /entities/{kind}/{id}/watchers response. Same shape as
+ * UserFollowsResponse (offset-based, MemberSummary rows) so the panel
+ * reuses the list/grid toggle pattern. Empty for unclaimed cards (no
+ * graph anchor — see CardWatchersService).
+ */
+export type CardWatchersResponse = UserFollowsResponse;
 
 /** PATCH /me/holder-groups/preferences body. */
 export interface HolderGroupPreferencesPatch {
@@ -1564,6 +1899,23 @@ export interface GroupDiscoveryItem {
    */
   collection_stats: CollectionStats | null;
   activity: GroupActivity;
+  /**
+   * Chain-tag slug the group is bound to (e.g. "stargaze", "akash").
+   * Resolved server-side from either `_bcc_gate_chain_id` (NFT holder
+   * groups) or `_bcc_chain_tag` (user-created plain groups). Null when
+   * the group has no chain tag (Locals, legacy untagged groups).
+   * Lookup label via `COMMUNITY_CHAIN_CATALOG.find(o => o.slug === tag)`.
+   */
+  chain_tag: string | null;
+  /**
+   * BCC reputation-score threshold required to join. Set only on plain
+   * groups created with privacy="trust"; null otherwise. Trust-gated
+   * groups use PeepSo's open privacy under the hood, so `privacy` here
+   * is "open" even when `trust_min !== null` — `trust_min` is the
+   * canonical signal that the group is reputation-gated. Mirrors the
+   * `CreatePlainGroupResponse.trust_min` wire shape.
+   */
+  trust_min: 25 | 50 | 75 | null;
 }
 
 /**
@@ -1584,52 +1936,70 @@ export interface GroupsDiscoveryResponse {
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// Binder (§C2 — projection of PeepSo follows + bcc_pull_meta sidecar)
+// Watching (§C2 — projection of PeepSo follows + bcc_pull_meta sidecar)
 // ─────────────────────────────────────────────────────────────────────
+//
+// Renamed from "Binder" 2026-05-13 per the §1.1.1 additive-deprecation
+// runway. The storage table retains its legacy physical name
+// `bcc_pull_meta`; the logical concept is "watch metadata."
 
 /**
- * BinderItem — a single row in /me/binder.
+ * WatchingItem — a single row in /me/watching.
  *
  * Identifier-only by design (§C2): no name/trust/tier/crest fields
  * here. To render a full card, fetch the view-model via
- * `actions.view.href` (`GET /cards/:kind/:id`). The binder page
+ * `actions.view.href` (`GET /cards/:kind/:id`). The watchlist page
  * renders slim tiles directly from these fields to avoid N+1
  * lookups; full cards are loaded on click-through.
  *
- * Field semantics (locked, see BinderService::buildItem doc):
+ * Field semantics (locked, see WatchingService::buildItem doc):
  *   - card_handle         always set (bcc_handle)
  *   - card_slug           set when page-backed AND kind is recognized; null otherwise
  *   - card_id             always the followee user_id (NOT post_id)
  *   - is_resolved         true when page-backed (validator/project/creator)
  *   - is_legacy           true when no bcc_pull_meta sidecar (pre-V1 follow);
- *                         these MUST NOT be surfaced as recent pulls
- *   - card_tier_at_pull   §C1 card_tier captured at pull time (snapshot).
+ *                         these MUST NOT be surfaced as recent watches
+ *   - card_tier_at_watch  §C1 card_tier captured at watch time (snapshot).
  *                         Null for legacy follows OR when the followee was
- *                         risky-tier at pull time. Drives both the tile
+ *                         risky-tier at watch time. Drives both the tile
  *                         color (`var(--tier-${...})`) and label.
- *   - tier_label_at_pull  pre-rendered display string (§A2) — server picks
+ *   - tier_label_at_watch pre-rendered display string (§A2) — server picks
  *                         the label, frontend renders verbatim
- *   - pulled_at           ISO 8601 UTC, or null when is_legacy
+ *   - watched_at          ISO 8601 UTC, or null when is_legacy
  */
-export interface BinderItemAction {
+export interface WatchingItemAction {
   method: "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
   href: string;
   idempotent: boolean;
   requires_auth: boolean;
 }
 
-export interface BinderItem {
+/**
+ * V1.6 watch dual-source discriminator. `peepso` items come from
+ * PeepSo user→user follows (the legacy path — claimed pages + member
+ * follows). `page` items come from `bcc_page_follows`, the BCC-owned
+ * pre-claim placeholder follow table.
+ *
+ * The frontend MUST echo this value back to DELETE /me/watching/{id}
+ * as the `source` query param because follow_id auto-increment ranges
+ * overlap across the two tables. Optional during the V1.6 rollout —
+ * absence implies 'peepso' (backward-compatible default).
+ */
+export type WatchingFollowSource = "peepso" | "page";
+
+export interface WatchingItem {
   follow_id: number;
+  follow_source?: WatchingFollowSource;
   card_kind: CardKind;
   is_resolved: boolean;
   card_id: number;
   card_handle: string;
   card_slug: string | null;
   page_id: number | null;
-  card_tier_at_pull: CardTier;
-  tier_label_at_pull: string | null;
+  card_tier_at_watch: CardTier;
+  tier_label_at_watch: string | null;
   batch_id: string | null;
-  pulled_at: string | null;
+  watched_at: string | null;
   is_legacy: boolean;
   links: {
     /** Frontend route for the card detail page. */
@@ -1637,30 +2007,30 @@ export interface BinderItem {
   };
   actions: {
     /** API endpoint to fetch the full Card view-model. */
-    view: BinderItemAction;
+    view: WatchingItemAction;
   };
 }
 
-export interface PullCardResponse {
-  status: "pulled" | "already_pulled";
-  item: BinderItem;
+export interface WatchCardResponse {
+  status: "watched" | "already_watching";
+  item: WatchingItem;
 }
 
-export interface UnpullCardResponse {
-  status: "unpulled";
+export interface UnwatchCardResponse {
+  status: "unwatched";
   follow_id: number;
 }
 
-export interface BinderPagination {
+export interface WatchingPagination {
   page: number;
   page_size: number;
   total: number;
   total_pages: number;
 }
 
-export interface BinderResponse {
-  items: BinderItem[];
-  pagination: BinderPagination;
+export interface WatchingResponse {
+  items: WatchingItem[];
+  pagination: WatchingPagination;
 }
 
 // ─────────────────────────────────────────────────────────────────────
@@ -1677,8 +2047,61 @@ export const REVIEW_BODY_MAX_LENGTH = 4000;
 export const BLOG_EXCERPT_MIN_LENGTH = 80;
 export const BLOG_EXCERPT_MAX_LENGTH = 500;
 export const BLOG_FULL_TEXT_MAX_LENGTH = 60_000;
+/** §D6 — title cap on long-form posts. Mirrors PHP `PostsService::BLOG_TITLE_MAX_LENGTH`. */
+export const BLOG_TITLE_MAX_LENGTH = 120;
+/** §D6 — free-form tag caps. Mirrors `PostsService::BLOG_TAGS_MAX` + `BLOG_TAG_LEN_MAX`. */
+export const BLOG_TAGS_MAX = 5;
+export const BLOG_TAG_LEN_MAX = 24;
+/** §D6 — chain-tag cap. Mirrors `PostsService::BLOG_CHAIN_TAGS_MAX`. */
+export const BLOG_CHAIN_TAGS_MAX = 3;
+/** §D6 — disclosure block caps. Mirrors the PHP-side constants. */
+export const BLOG_DISCLOSURE_TICKERS_MAX = 20;
+export const BLOG_DISCLOSURE_TICKER_LEN_MAX = 12;
+export const BLOG_DISCLOSURE_NOTE_MAX = 500;
 
 export type PostKind = "status" | "review" | "blog";
+
+/**
+ * §D6 blog category — the discriminator for "what kind of post is this."
+ * Distinct axis from `PostKind` (which discriminates FeedItem body shape);
+ * a `blog_excerpt` FeedItem always has one of these categories.
+ *
+ * Mirrors the PHP enum `app/Domain/Core/ValueObjects/BlogCategory`.
+ */
+export type BlogCategory =
+  | "news"      // short-form, time-sensitive
+  | "analysis"  // long-form research / deep dives (reputation builder)
+  | "guide"     // actionable evergreen content
+  | "opinion"   // author POV / editorial
+  | "tools"     // product surveys / tool reviews
+  | "events";   // conference recap / preview / coverage
+
+/**
+ * §D6 — chain-tag rendering payload. Hydrator resolves the join
+ * `bcc_blog_chain_tags → bcc_onchain_chains` and ships the display
+ * fields inline so cards/post pages render without a second fetch.
+ */
+export interface BlogChainTag {
+  id: number;
+  slug: string;
+  name: string;
+  /** Hex (#RRGGBB) for chip styling. Null when the chain row has no curated color. */
+  color: string | null;
+  /** Absolute URL to the chain logo. Null when missing. */
+  icon_url: string | null;
+}
+
+/**
+ * §D6 — author-declared disclosure block. Stored verbatim, rendered
+ * as a fixed footer aside on the post. Empty disclosure renders
+ * "NO DISCLOSURES" downstream — the silence is itself information.
+ */
+export interface BlogDisclosure {
+  /** Uppercased symbols. ≤ 20 entries; each ≤ 12 chars. */
+  tickers: string[];
+  /** Free-text caveat. ≤ 500 chars. */
+  note: string;
+}
 
 /** §D2 review grade — symbolic key, server maps to vote_type internally. */
 export type ReviewGrade = "trust" | "neutral" | "caution";
@@ -1712,16 +2135,112 @@ export interface CreateReviewRequest {
  */
 export interface CreateBlogRequest {
   kind: "blog";
+  /**
+   * Title — server stores in `wp_posts.post_title`. Optional in the
+   * request schema for backward compat with pre-PR-A blog posts, but
+   * the V1 composer REQUIRES it and refuses to submit when empty.
+   * ≤ BLOG_TITLE_MAX_LENGTH chars after trim.
+   */
+  title?: string;
   /** 80..BLOG_EXCERPT_MAX_LENGTH chars after trim. */
   excerpt: string;
-  /** 1..BLOG_FULL_TEXT_MAX_LENGTH chars after trim. */
+  /** 1..BLOG_FULL_TEXT_MAX_LENGTH chars after trim. Markdown source. */
   content: string;
+  /**
+   * Post category — the primary filter axis on /directory?kind=blog.
+   * Optional on the wire for backward compat; the V1 composer requires
+   * a pick. Server enums the string against `BlogCategory`.
+   */
+  category?: BlogCategory;
+  /**
+   * Free-form tags. 0..BLOG_TAGS_MAX entries, each ≤ BLOG_TAG_LEN_MAX
+   * chars, alnum + dash only. Server lowercases and dedupes.
+   */
+  tags?: string[];
+  /**
+   * Chain slugs (NOT IDs) — resolved server-side via ChainRepository.
+   * 0..BLOG_CHAIN_TAGS_MAX entries; unknown slugs return
+   * `bcc_invalid_request`. Slug stability is part of the §9 contract
+   * (renames flow through the chain registry, not the post).
+   */
+  chain_tags?: string[];
+  /** Author-declared disclosure. Null/omitted means "no disclosures." */
+  disclosure?: BlogDisclosure | null;
+  /**
+   * WP attachment ID. Server verifies the author owns the attachment
+   * before pinning via `set_post_thumbnail()`. Optional in V1.
+   */
+  cover_image_id?: number;
+  /**
+   * Publish state. Defaults to "publish" when omitted (backward compat).
+   * Drafts skip the activity-row insertion (no Floor surface) until
+   * the author flips to publish.
+   */
+  status?: "draft" | "publish";
 }
 
 export type CreatePostRequest =
   | CreateStatusRequest
   | CreateReviewRequest
   | CreateBlogRequest;
+
+/**
+ * §D6 — owner-edit payload for `PATCH /bcc/v1/posts/{id}`. Partial
+ * update semantics: every field is optional; an omitted field means
+ * "leave unchanged." Server enforces ownership; `bcc_forbidden` when
+ * the viewer isn't `post_author`.
+ *
+ * Field semantics (matching the PR-B backend):
+ *  - `tags = []` and `chain_tags = []` mean **clear** (semantically
+ *    distinct from omitting the field).
+ *  - `disclosure: null` means **clear** the existing disclosure.
+ *  - `cover_image_id: 0` means **un-pin** the cover image (legacy
+ *    callers can also send `null`; server normalizes both).
+ *
+ * Excludes `kind` (always `blog` for this route) and `id` (URL
+ * parameter, not in the body).
+ */
+export interface UpdateBlogRequest {
+  title?: string;
+  excerpt?: string;
+  content?: string;
+  category?: BlogCategory;
+  tags?: string[];
+  chain_tags?: string[];
+  disclosure?: BlogDisclosure | null;
+  cover_image_id?: number | null;
+  status?: "draft" | "publish";
+}
+
+/**
+ * §D6 — `POST /bcc/v1/blog/cover-image` response. Multipart upload
+ * returns the attachment id (later passed back in
+ * `CreateBlogRequest.cover_image_id` / `UpdateBlogRequest.cover_image_id`)
+ * plus the resolved URL + dimensions for the composer preview.
+ */
+export interface BlogCoverImageUploadResponse {
+  attachment_id: number;
+  url: string;
+  width: number;
+  height: number;
+}
+
+/**
+ * §D6 — `GET /bcc/v1/blog/chain-options` response. Anonymous-readable
+ * picker source; mirrors `bcc_onchain_chains` active rows. Returned in
+ * a stable display order keyed off the curated `is_active` set.
+ */
+export interface BlogChainOption {
+  id: number;
+  slug: string;
+  name: string;
+  color: string | null;
+  icon_url: string | null;
+}
+
+export interface BlogChainOptionsResponse {
+  items: BlogChainOption[];
+}
 
 /**
  * Minimal §L5 post-create response. The endpoint deliberately returns
@@ -2073,36 +2592,36 @@ export interface ClaimPageResponse {
 }
 
 /**
- * §N9 binder identity-snapshot — GET /me/binder/summary.
+ * §N9 watchlist identity-snapshot — GET /me/watching/summary.
  *
  * All fields are pre-computed server-side per §A2/§L5. Tier
  * percentages are integer-rounded and may not sum to exactly 100.
  */
-export interface BinderTierSlot {
+export interface WatchingTierSlot {
   count: number;
-  /** 0-100 integer percentage of the binder. */
+  /** 0-100 integer percentage of the watchlist. */
   percent: number;
 }
 
-export interface BinderTierDistribution {
-  legendary: BinderTierSlot;
-  rare: BinderTierSlot;
-  uncommon: BinderTierSlot;
-  common: BinderTierSlot;
-  /** Legacy follows pulled before tier_at_pull was tracked. */
-  unknown: BinderTierSlot;
+export interface WatchingTierDistribution {
+  legendary: WatchingTierSlot;
+  rare: WatchingTierSlot;
+  uncommon: WatchingTierSlot;
+  common: WatchingTierSlot;
+  /** Legacy follows watched before tier_at_watch was tracked. */
+  unknown: WatchingTierSlot;
 }
 
-export interface BinderMonthlyActivity {
+export interface WatchingMonthlyActivity {
   reviews: number;
   solids_received: number;
   disputes_signed: number;
 }
 
-export interface BinderSummaryResponse {
+export interface WatchingSummaryResponse {
   total: number;
-  tier_distribution: BinderTierDistribution;
-  monthly_activity: BinderMonthlyActivity;
+  tier_distribution: WatchingTierDistribution;
+  monthly_activity: WatchingMonthlyActivity;
 }
 
 // ─────────────────────────────────────────────────────────────────────
@@ -2252,16 +2771,28 @@ export interface MemberLocal {
 export interface MemberCounts {
   followers: number;
   following: number;
-  binder_size: number;
+  watching_size: number;
+  /** Legacy alias for `watching_size`. Emitted by backend during the
+   *  §1.1.1 deprecation window; removed in release N+1. */
+  binder_size?: number;
   reviews_written: number;
   disputes_signed: number;
   solids_given: number;
   solids_received: number;
+  /**
+   * §D6 — lifetime count of published blog posts authored by this user
+   * (peepso_activities rows where act_module_id='blog', joined against
+   * wp_posts for the published filter). Surfaced on the profile FILE 04
+   * counts strip beside reviews_written / disputes_signed.
+   */
+  blog_posts_written: number;
 }
 
 /** Privacy block — what's hidden from the viewer (server-decided per §3.1). */
 export interface MemberPrivacy {
-  binder_hidden: boolean;
+  watching_hidden: boolean;
+  /** Legacy alias for `watching_hidden`. §1.1.1 deprecation window. */
+  binder_hidden?: boolean;
   reviews_hidden: boolean;
   disputes_hidden: boolean;
   delegations_hidden: boolean;
@@ -2281,7 +2812,9 @@ export interface MemberPrivacy {
  * so it lives only behind /me/privacy.
  */
 export interface MyPrivacySettings {
-  binder_hidden: boolean;
+  watching_hidden: boolean;
+  /** Legacy alias for `watching_hidden`. §1.1.1 deprecation window. */
+  binder_hidden?: boolean;
   reviews_hidden: boolean;
   disputes_hidden: boolean;
   delegations_hidden: boolean;
@@ -2325,7 +2858,9 @@ export interface MemberPermissions {
 /** Server-built relative URLs for profile sub-pages. */
 export interface MemberLinks {
   self: string;
-  binder: string;
+  watching: string;
+  /** Legacy alias for `watching`. §1.1.1 deprecation window. */
+  binder?: string;
   reviews: string;
   activity: string;
   disputes: string;
@@ -2388,7 +2923,7 @@ export interface MemberReview {
 
 /**
  * Offset pagination block shared by /users/:handle/reviews + /disputes
- * + /me/blocks. Mirrors BinderEndpoint's pagination shape — directory-
+ * + /me/blocks. Mirrors WatchingEndpoint's pagination shape — directory-
  * style, not cursor-style (per the §V1.5 endpoint, where total_pages
  * helps the panel show a count).
  */
@@ -2854,7 +3389,15 @@ export interface MemberActivityBreakdown {
 
 /** Profile tab counts (header strip). */
 export interface MemberTabCount {
-  key: "binder" | "reviews" | "activity" | "disputes" | "network" | "groups";
+  key:
+    | "watching"
+    /** Legacy key emitted during §1.1.1 deprecation window. */
+    | "binder"
+    | "reviews"
+    | "activity"
+    | "disputes"
+    | "network"
+    | "groups";
   label: string;
   count: number;
   /**
@@ -3202,6 +3745,105 @@ export interface BandwidthExhaustedData {
   slots_used: number;
 }
 
+/**
+ * §J.5 trend direction — three-state classifier. Never numeric:
+ * the operator sees direction, not magnitude, per the §2.7 status-
+ * anxiety mitigation (no real-time ticker, no percentage delta).
+ *
+ * V1 baseline: every operator gets `steady` until Slice E populates
+ * the rolling reliability history.
+ */
+export type ReliabilityTrendDirection = "softening" | "steady" | "improving";
+
+/**
+ * Shape of `GET /bcc/v1/me/reliability` per §J.5 — the operator's
+ * self-mirror surface. Self-only by construction: the numeric
+ * `operator_reliability` + the trend block live ONLY on this route,
+ * for the requester. Third-party surfaces carry only the categorical
+ * `reliability_standing` per §J.3.2.
+ *
+ * V1 baselines (Slice E populates from `bcc_attestor_reliability_cache`):
+ *   - `operator_reliability` = 0.0
+ *   - `reliability_standing` = "newly_active"
+ *   - `track_record.outcomes.*` = 0
+ *   - `trends.reliability_30d_ago` = 0.0
+ *   - `trends.reliability_90d_ago` = 0.0
+ *   - `trends.direction` = "steady"
+ *   - `stand_behind_allocation.slots_recyclable_count` = 0
+ *   - `stand_behind_allocation.next_slot_unlocks_at` = null
+ *
+ * Live counts shipped today:
+ *   - `since_attestation_count` (lifetime cast count from DB)
+ *   - `stand_behind_allocation.slots_total` (tier baseline)
+ *   - `stand_behind_allocation.slots_used` (active rows count)
+ */
+export interface MeReliabilityResponse {
+  /**
+   * 0.0–1.0 numeric — operator's reliability as a judge of others.
+   * Self-only by §J.3.2 asymmetric-display rule. V1 baseline 0.0;
+   * Slice E populates from the operator-reliability synthesis.
+   */
+  operator_reliability: number;
+  /**
+   * Categorical positive-only badge — same enum the public roster
+   * carries. V1 baseline `"newly_active"` for every operator.
+   */
+  reliability_standing: ReliabilityStandingPublic;
+  /**
+   * Lifetime attestation cast count (vouch + stand_behind, including
+   * revoked rows). Real on day one — bounded query against
+   * `bcc_trust_attestations`.
+   */
+  since_attestation_count: number;
+  stand_behind_allocation: {
+    slots_total: number;
+    slots_used: number;
+    /**
+     * Count of currently-allocated stand_behind slots whose
+     * decayed_weight has crossed the 50% threshold. V1 baseline 0;
+     * Slice E populates as the decay function ships.
+     */
+    slots_recyclable_count: number;
+    /** ISO 8601 UTC — null until graduated-bonus tracker is implemented. */
+    next_slot_unlocks_at: string | null;
+  };
+  track_record: {
+    total_attestations: number;
+    outcomes: {
+      targets_disputed_and_upheld: number;
+      targets_disputed_and_dismissed: number;
+      targets_received_further_attestations: number;
+      targets_clean_and_active: number;
+    };
+  };
+  trends: {
+    reliability_30d_ago: number;
+    reliability_90d_ago: number;
+    direction: ReliabilityTrendDirection;
+  };
+  /**
+   * §J.5 PR-8a — the operator's own divergence-state classification.
+   * Same five-state enum as `NegativeSignals.divergence_state` on entity
+   * cards; surfaced here as SELF-ONLY context per §J.10 q14 (the
+   * categorical badge ships publicly via §J.6 negative_signals; the
+   * paired `explainer` body below is self-only).
+   */
+  divergence_state: DivergenceState;
+  /**
+   * Server-pinned headline + body explaining the current divergence
+   * state in plain language. Per §A2 the FE renders both strings
+   * verbatim — no client-side recomposition, no enum→copy mapping.
+   * Lives ONLY on `/me/reliability` (third-party endpoints carry the
+   * state slug but never the explainer body). The body is calibrated
+   * per §2.7 status-anxiety mitigation — descriptive, not prescriptive.
+   */
+  explainer: {
+    state: DivergenceState;
+    headline: string;
+    body: string;
+  };
+}
+
 export interface MemberProfile {
   id: number;
   /** Alias of `id`. Server emits both so callers using either name work. */
@@ -3284,6 +3926,31 @@ export interface MemberProfile {
   primary_local: { id: number; slug: string; name: string; number: number | null } | null;
   locals: MemberLocal[];
   wallets: MemberWallet[];
+  /**
+   * Identity-verification status per `UserViewService::getProfile`.
+   * `x_verified` / `github_verified` are true only when an active,
+   * verified row exists in `bcc_trust_user_verifications`. The
+   * `*_username` siblings carry the public handle for display.
+   * `wallets_verified` is the count of verified wallet links —
+   * per-wallet detail lives on the parallel `wallets` array.
+   *
+   * Surfaced on `/me/progression` (own-file context) and the
+   * §3.1 verified panel on /u/[handle].
+   */
+  verifications: {
+    x_verified: boolean;
+    x_username: string | null;
+    github_verified: boolean;
+    github_username: string | null;
+    wallets_verified: number;
+    /**
+     * PeepSo profile-fields completeness percentage (0–100). Sourced
+     * from `PeepSoUser::profile_fields_stats.completeness` — same
+     * primitive QuestValidator uses for the COMPLETE_PROFILE quest.
+     * Surfaced on /me/progression as the 4th VERIFIED IDENTITY row.
+     */
+    profile_completeness: number;
+  };
   counts: MemberCounts;
   privacy: MemberPrivacy;
   permissions: MemberPermissions;
@@ -3780,6 +4447,18 @@ export interface GroupDetailResponse {
   permissions: GroupDetailPermissions;
   feed_visible: boolean;
   members_visible: boolean;
+  /**
+   * Chain-tag slug. Same shape + source as `GroupDiscoveryItem.chain_tag`.
+   * Null when the group has no chain binding.
+   */
+  chain_tag: string | null;
+  /**
+   * Reputation threshold (25 / 50 / 75) required to join. Same shape +
+   * source as `GroupDiscoveryItem.trust_min`. Null on non-trust groups.
+   * Note: `privacy` is "open" under the hood for trust groups, so use
+   * `trust_min` (not privacy) to detect the trust-gate state.
+   */
+  trust_min: 25 | 50 | 75 | null;
   links: { self: string };
 }
 
@@ -4035,4 +4714,57 @@ export interface SendMessageResponse {
 
 export interface UnreadMessageCountResponse {
   count: number;
+}
+
+// ────────────────────────────────────────────────────────────────────────
+// Sprint 3 — Cold-start bridge surface (§F5 / GET /feed/cold-start).
+//
+// Three blocks for the home-feed empty state. CIVIC MAP, NOT a
+// recommendation engine. See FeedColdStartService.php for the
+// full constitutional comment block. Frontend mirrors that posture:
+// no ranking, no metrics beside operators, no "for you" framing, no
+// load-more, no analytics. DiscoverPanel.tsx encodes the locked phrases.
+// ────────────────────────────────────────────────────────────────────────
+
+export interface ColdStartLocal {
+  /** Slug for /locals/[slug] routing. */
+  slug: string;
+  /** Pre-rendered display name per §A2. */
+  name: string;
+  /** Server-resolved chain slug (cosmos / osmosis / etc.) — drives the chain accent. */
+  chain_slug: string;
+  /** Member-count tally — informational only. NOT used for ranking on FE. */
+  member_count: number;
+}
+
+export interface ColdStartOperator {
+  handle: string;
+  display_name: string;
+  /** May be empty when the user hasn't set an avatar. */
+  avatar_url: string;
+  /** §C1 card-tier slug, or null for risky/non-tier users. */
+  card_tier: CardTier;
+  /** Pre-rendered §A2 tier display ("Uncommon", etc.). */
+  tier_label: string | null;
+  /** Pre-rendered §E2 rank ("Apprentice", "Journeyman", ...). May be empty. */
+  rank_label: string;
+  /**
+   * Server-rendered past-tense action phrase. Vocabulary is locked
+   * server-side to feed-kind verbs (REVIEWED, POSTED, WATCHED, VOUCHED,
+   * STOOD BEHIND, SIGNED, DROPPED, RELEASED) plus the terminal fallback
+   * "Recently on the floor." Do NOT manipulate or compose this text
+   * client-side.
+   */
+  recent_action: string;
+  /** Server-built `/u/{handle}` link. Safe to pass to <Link>. */
+  link: string;
+}
+
+export interface ColdStartResponse {
+  /** 0-3 entries. */
+  locals: ColdStartLocal[];
+  /** 0-4 entries, recency-ordered server-side. NEVER trust/follower-ranked. */
+  recent_operators: ColdStartOperator[];
+  /** 0-2 entries from FeedRankingService::getHotFeed. Rendered as full FeedItemCards. */
+  hot_posts: FeedItem[];
 }

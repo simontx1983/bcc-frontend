@@ -5,9 +5,14 @@
  * stale-while-revalidate loop server-side: any expired rows trigger
  * an async refresh, the response carries `is_stale` so the UI can
  * show a soft "Refreshing…" hint without blocking the render.
+ *
+ * Uses `bccFetchAsClient` so signed-in viewers get their Bearer
+ * token forwarded — the only caller (`useCreatorGallery`) runs in
+ * a client component. Without this, viewer-aware per-piece
+ * permission flags would silently degrade to the anonymous shape.
  */
 
-import { bccFetch } from "@/lib/api/client";
+import { bccFetchAsClient } from "@/lib/api/client";
 import type {
   CreatorGalleryResponse,
   CreatorGallerySort,
@@ -39,7 +44,7 @@ export function getCreatorGallery(
     ? `creators/${encodeURIComponent(params.slug)}/gallery`
     : `creators/${encodeURIComponent(params.slug)}/gallery?${qs}`;
 
-  return bccFetch<CreatorGalleryResponse>(path, {
+  return bccFetchAsClient<CreatorGalleryResponse>(path, {
     method: "GET",
     ...(signal !== undefined ? { signal } : {}),
   });

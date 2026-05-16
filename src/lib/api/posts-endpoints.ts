@@ -17,6 +17,7 @@ import type {
   CreatePostRequest,
   CreatePostResponse,
   CreateReviewRequest,
+  UpdateBlogRequest,
 } from "@/lib/api/types";
 
 /**
@@ -69,12 +70,54 @@ export function createReview(
 /**
  * Convenience wrapper for the blog-specific path. Same endpoint as
  * createPost. `excerpt` becomes the Floor teaser; `content` becomes
- * the full body that surfaces in the per-user blog tab.
+ * the full markdown body that surfaces in the per-user blog tab.
+ *
+ * Post-PR-A optional fields (auto-picked-up via the type):
+ *   - title          — required by V1 composer, optional on the wire
+ *   - category       — BlogCategory pick (required by V1 composer)
+ *   - tags           — 0..5 free-form pills
+ *   - chain_tags     — 0..3 chain slugs (must exist in bcc_onchain_chains)
+ *   - disclosure     — { tickers, note } or null
+ *   - cover_image_id — WP attachment ID (author must own it)
+ *   - status         — "draft" | "publish", defaults "publish"
+ *
+ * Backward-compatible: callers passing only `excerpt` + `content`
+ * continue to work as a published blog post with no title/category/tags.
  */
 export function createBlog(
   request: Omit<CreateBlogRequest, "kind">
 ): Promise<CreatePostResponse> {
   return createPost({ kind: "blog", ...request });
+}
+
+/**
+ * PATCH /posts/{id} — owner edit for a blog post.
+ *
+ * Partial-update semantics: omitted fields are left unchanged on the
+ * server. Empty `tags`/`chain_tags` arrays mean "clear"; `disclosure:
+ * null` clears the disclosure block; `cover_image_id: 0` (or null)
+ * un-pins the cover image.
+ *
+ * The endpoint wraps `wp_save_post_revision()` server-side BEFORE any
+ * mutation, so edit history is preserved automatically — no caller
+ * action needed.
+ *
+ * Errors:
+ *   - bcc_unauthorized    — no session
+ *   - bcc_not_found       — post doesn't exist OR isn't a blog post
+ *   - bcc_forbidden       — viewer isn't the post_author
+ *   - bcc_invalid_request — any validation failure (same shape as
+ *                           createBlog)
+ *   - bcc_rate_limited    — burst seatbelt fired
+ */
+export function updateBlog(
+  id: number,
+  changes: UpdateBlogRequest
+): Promise<CreatePostResponse> {
+  return bccFetchAsClient<CreatePostResponse>(`posts/${id}`, {
+    method: "PATCH",
+    body: changes,
+  });
 }
 
 /**

@@ -6,11 +6,12 @@
  * who is standing behind." Evidence of backing — NOT a leaderboard,
  * NOT a prestige wall.
  *
- * Phase 1 status: READ-ONLY scaffold. Consumes the locked §J.4
- * response shape (`AttestationRosterItem[]`). Endpoint
- * (`GET /entities/:target_kind/:target_id/attestations`) ships in
- * Phase 1 Week 2 of the implementation plan; until then the roster
- * receives `undefined` items and renders an empty state.
+ * Slice D status (2026-05-13): READ live. Endpoint
+ * (`GET /entities/:target_kind/:target_id/attestations`) shipped end-
+ * to-end; the component renders real roster rows. V1 baselines on
+ * every row (`is_dormant: false`, `reliability_standing:
+ * "newly_active"`, `badges: []`) are contract-stable — Slice E
+ * activates the real values without breaking this surface.
  *
  * Design constraints (Phillip's note: the roster should feel like
  * EVIDENCE of backing, not a leaderboard / prestige wall):
@@ -64,11 +65,11 @@
  */
 
 import { Avatar } from "@/components/identity/Avatar";
+import { RELIABILITY_LABEL } from "@/components/reliability/ReliabilityStandingBadge";
 import { useAttestationRoster } from "@/hooks/useAttestationRoster";
 import type {
   AttestationRosterItem,
   AttestationTargetKind,
-  ReliabilityStandingPublic,
 } from "@/lib/api/types";
 import { formatRelativeTime } from "@/lib/format";
 
@@ -94,12 +95,6 @@ interface AttestationRosterProps {
    */
   emptyState: { body: string };
 }
-
-const RELIABILITY_LABEL: Record<ReliabilityStandingPublic, string> = {
-  highly_reliable: "Highly Reliable",
-  consistent: "Consistent",
-  newly_active: "Newly Active",
-};
 
 export function AttestationRoster({
   items,
@@ -193,7 +188,7 @@ function RosterRow({ item }: { item: AttestationRosterItem }) {
 
   const reliabilityLabel =
     item.attestor.reliability_standing !== null
-      ? RELIABILITY_LABEL[item.attestor.reliability_standing]
+      ? RELIABILITY_LABEL[item.attestor.reliability_standing] ?? null
       : null;
 
   const kindLabel = item.kind === "vouch" ? "VOUCHED" : "STOOD BEHIND";

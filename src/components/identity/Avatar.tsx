@@ -15,14 +15,14 @@
  *   only carries `reputation_tier` should pass `undefined` for `tier`
  *   and accept a neutral cardstock border until the BE ships
  *   `card_tier` on that view-model. Confirmed:
- *     - MemberProfile, BinderItem, MemberDirectoryRow ship card_tier
+ *     - MemberProfile, WatchingItem, MemberDirectoryRow ship card_tier
  *     - FeedAuthor, CommentAuthor, NotificationActor do NOT (Sprint 1
  *       blocker — see frontend-implementer report)
  *
  * Variants:
  *   - rounded — circle; comments, notifications, message threads,
  *               composer chip, settings rows.
- *   - hex     — triple-layer .bcc-hex crest; reserved for the binder
+ *   - hex     — triple-layer .bcc-hex crest; reserved for the watchlist
  *               surface (and any future "card-style" identity slots).
  *
  * Sizes (CSS px, matched to the surfaces in the audit):
@@ -30,7 +30,7 @@
  *   sm  28  comment rows, notification rows, feed cards, composer chips
  *   md  40  message previews, composer collapsed, prominent rows
  *   lg  64  members directory, attestation roster heroes
- *   xl  140 binder/profile hero (not used in Sprint 1; reserved)
+ *   xl  140 watchlist/profile hero (not used in Sprint 1; reserved)
  *
  * Behaviour:
  *   - Non-empty avatarUrl → <img loading="lazy"> in the variant shape
@@ -155,7 +155,7 @@ function AvatarImpl({
   // Hex variant composes the canonical `.bcc-hex` triple-layer from
   // globals.css:293-307. The clip-path is owned by `.bcc-hex-outer/mid/inner`
   // and clips descendants — so an `<img>` placed inside `.bcc-hex-inner`
-  // is automatically clipped to the hex shape. Mirrors BinderTile.tsx's
+  // is automatically clipped to the hex shape. Mirrors WatchingTile.tsx's
   // composition (initials as z-[2] sibling); only difference is the
   // image branch puts the `<img>` inside the inner layer for clipping.
   const inner =

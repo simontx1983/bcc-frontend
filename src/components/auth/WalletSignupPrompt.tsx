@@ -62,10 +62,10 @@ export function WalletSignupPrompt(props: WalletSignupPromptProps) {
   const handleHint = formatHandleHint(handle, handleErrorKind);
 
   // Initial focus on the handle input. Project convention is no body
-  // scroll lock — the other six modals in this codebase (Composer,
-  // ClaimFlow, OpenDisputeModal, PanelVoteModal, EligibleCommunitiesModal,
-  // ReportButton) all skip the lock. Match that until we decide to
-  // change the project-wide standard.
+  // scroll lock — the other modals in this codebase (Composer,
+  // ClaimFlow, OpenDisputeModal, EligibleCommunitiesModal, ReportButton)
+  // all skip the lock. Match that until we decide to change the
+  // project-wide standard.
   useEffect(() => {
     handleInputRef.current?.focus();
   }, []);

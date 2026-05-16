@@ -1,24 +1,29 @@
 /**
- * EntityProfile — minimum-viable detail surface for validator /
- * project / creator entities (per Phase 4 of the §Plan).
+ * EntityProfile — detail surface for validator / project / creator
+ * entities. Matches the /u/[handle] shape exactly so the platform reads
+ * as one product:
  *
- * Reuses the §L5 Card view-model the rest of the app already speaks.
- * The same view-model that powers the polymorphic <CardFactory> in
- * the feed — here we render it at hero scale, plus an identity
- * strip, a stats panel, and a per-kind stream placeholder.
+ *   FileRail   (FLOOR // {KIND} · @handle  …  FILE NNNN // OPEN)
+ *   <h1>       (stencil clamp 1.75rem–4.5rem, card.name)
+ *              @handle kicker in safety orange
+ *   PageHero   (card on left, actions cluster on right, StatsStrip below)
+ *   EntityTabs (Backing · Activity · On-chain · Chains)
+ *
+ * Tabs replace the old linear section stack (backing → stats → on-chain →
+ * chains → stream). StatsStrip lives in the hero's `belowHero` slot,
+ * mirroring how /u/[handle] surfaces CountsStrip there.
+ *
+ * Reuses the §L5 Card view-model the rest of the app speaks. No new
+ * data shape; same fields the legacy two-column hero consumed.
  *
  * What's deferred (Phase 4 polish):
- *   - "Wanted" poster overlay + locked stream gating for unclaimed
- *     validator pages (the unclaimed/claimed view-model split is
- *     already on the server; the UI variant is the deferred part)
- *   - Operator stream feed (will reuse FeedItemCard / useFeed once
- *     /v/:slug/feed is exposed; today the panel is a §N10 empty state)
- *   - Reviews list + Letters from the Floor (creator + validator)
- *   - Gallery for creators (Phase 6 — needs the NFT indexer)
- *   - Claim flow (the four-step §N8 modal — separate component)
- *
- * What ships now: a real destination for every "View →" link in the
- * app, grounded in real data. Click-throughs stop 404'ing.
+ *   - "Wanted" poster overlay for unclaimed validator pages (server
+ *     view-model split already exists; the UI variant is the pending
+ *     piece)
+ *   - Operator stream feed in the Activity tab (will reuse FeedItemCard
+ *     / useFeed once /v/:slug/feed is exposed; today the tab is a §N10
+ *     empty state or LockedStreamPanel)
+ *   - Reviews tab + per-page reviews list (deferred)
  */
 
 import { CardFactory } from "@/components/cards/CardFactory";
@@ -26,7 +31,13 @@ import { ChainTabs } from "@/components/entity/ChainTabs";
 import { ClaimCallout } from "@/components/claim/ClaimCallout";
 import { DisputeCallout } from "@/components/disputes/DisputeCallout";
 import { EndorseButton } from "@/components/endorse/EndorseButton";
+import { EntityTabs } from "@/components/entity/EntityTabs";
+import { CardDisputesPanel } from "@/components/entity/panels/CardDisputesPanel";
+import { CardReviewsPanel } from "@/components/entity/panels/CardReviewsPanel";
+import { CardWatchersPanel } from "@/components/entity/panels/CardWatchersPanel";
 import { LockedStreamPanel } from "@/components/entity/LockedStreamPanel";
+import { FileRail } from "@/components/layout/FileRail";
+import { PageHero } from "@/components/layout/PageHero";
 import { AttestationActionCluster } from "@/components/profile/AttestationActionCluster";
 import { AttestationRoster } from "@/components/profile/AttestationRoster";
 import { ReputationSummaryPanel } from "@/components/profile/ReputationSummaryPanel";
@@ -35,9 +46,26 @@ import type {
   AttestationTargetKind,
   Card,
   CardKind,
+  EntityCardKind,
   OnchainSignals,
 } from "@/lib/api/types";
 import { isAllowed, unlockHint } from "@/lib/permissions";
+
+/**
+ * Map the FE's CardKind to the §J entity tab namespace
+ * (`{kind}_card`) used by the new /entities/{kind}/{id}/{tab}
+ * endpoints. Returns null for `member` since those cards don't
+ * render through EntityProfile.
+ */
+function cardKindToEntityCardKind(kind: CardKind): EntityCardKind | null {
+  switch (kind) {
+    case "validator": return "validator_card";
+    case "project":   return "project_card";
+    case "creator":   return "creator_card";
+    case "member":
+    default:          return null;
+  }
+}
 
 /**
  * Map the FE's CardKind to the §4.20 §J target_kind taxonomy for
@@ -65,16 +93,17 @@ function cardKindToAttestationTargetKind(
 export interface EntityProfileProps {
   card: Card;
   /**
-   * Per-kind subtitle copy for the hero block. Each entity-route
-   * shell passes the right one — e.g. /v passes "Validator", /c
-   * passes "NFT Creator". Keeps the shared component honest about
-   * what it doesn't know.
+   * Per-kind subtitle copy used in the FileRail kicker (e.g.
+   * "VALIDATOR", "PROJECT", "CREATOR"). Each entity-route shell passes
+   * the right one — keeps the shared component honest about what it
+   * doesn't know.
    */
   kindLabel: string;
   /**
-   * §N10 empty-state copy for the stream placeholder. Per kind the
-   * messaging is slightly different ("This validator hasn't claimed
-   * the page yet" vs. "This creator hasn't dropped anything yet").
+   * §N10 empty-state copy for the Activity tab when the page is
+   * claimed-but-quiet. Per kind the messaging is slightly different
+   * ("This validator hasn't claimed the page yet" vs. "This creator
+   * hasn't dropped anything yet"). Used only when card.is_claimed.
    */
   streamEmptyState: { title: string; body: string };
   /**
@@ -85,260 +114,240 @@ export interface EntityProfileProps {
   viewerAuthed: boolean;
 }
 
-export function EntityProfile({ card, kindLabel, streamEmptyState, viewerAuthed }: EntityProfileProps) {
+export function EntityProfile({
+  card,
+  kindLabel,
+  streamEmptyState,
+  viewerAuthed,
+}: EntityProfileProps) {
+  const targetKind     = cardKindToAttestationTargetKind(card.card_kind);
+  const entityCardKind = cardKindToEntityCardKind(card.card_kind);
+
   return (
     <main className="pb-24">
-      {/* ── Hero ────────────────────────────────────────────────── */}
-      <section className="mx-auto max-w-[1560px] px-7 pt-12">
-        <div className="grid grid-cols-1 items-start gap-12 lg:grid-cols-[minmax(316px,340px)_1fr]">
-          <div
-            className="bcc-stage-reveal"
-            style={{ ["--stagger" as string]: "0ms" }}
+      {/* ── FileRail ────────────────────────────────────────────────
+          Mirrors /u/[handle]: FLOOR // KIND  AT-HANDLE on the left,
+          FILE NNNN // STATUS on the right. Status reads "OPEN" for
+          claimed entities, "WANTED" for unclaimed ones — same word the
+          Phase-4 poster overlay will surface. */}
+      <FileRail
+        kind={kindLabel}
+        subject={card.handle !== "" ? `@${card.handle.toUpperCase()}` : ""}
+        fileNumber={String(card.id).padStart(4, "0")}
+        status={card.is_claimed === false ? "WANTED" : "OPEN"}
+      />
+
+      {/* ── §J page title — large stencil display name above the hero.
+          Same vocabulary as /u/[handle]: the trading-card primitive
+          carries identity inside its nameplate strip, but a 12px line
+          inside a 316px tile isn't a page title. The big name here
+          answers "whose page am I on?" without making the viewer
+          parse the card. ────────────────────────────────────────── */}
+      <header className="mx-auto mt-12 max-w-[1440px] px-4 sm:px-7">
+        <h1
+          className="bcc-stencil text-cardstock leading-[0.92]"
+          style={{ fontSize: "clamp(1.75rem, 5.5vw, 4.5rem)", wordBreak: "break-word" }}
+        >
+          {card.name}
+        </h1>
+        {card.handle !== "" && (
+          <p
+            className="bcc-mono mt-3 text-safety"
+            style={{ fontSize: "11px", letterSpacing: "0.18em" }}
           >
-            <CardFactory card={card} />
-          </div>
+            @{card.handle}
+          </p>
+        )}
+      </header>
 
-          <IdentityBlock
-            card={card}
-            kindLabel={kindLabel}
-            viewerAuthed={viewerAuthed}
-          />
-        </div>
-      </section>
+      {/* ── HERO — unified PageHero shape ───────────────────────────
+          card slot: trading card (CardFactory at hero scale, full 316px).
+          actions slot: ReputationSummaryPanel + AttestationActionCluster
+                        + ClaimCallout + ReviewCallout + EndorseButton
+                        + DisputeCallout (the legacy IdentityBlock stack).
+          belowHero slot: StatsStrip (lives inside the dotted box, same
+                          slot CountsStrip occupies on /u/[handle]). ── */}
+      <section className="mt-8">
+        <PageHero
+          card={
+            <div
+              className="bcc-stage-reveal"
+              style={{ ["--stagger" as string]: "0ms" }}
+            >
+              <CardFactory card={card} />
+            </div>
+          }
+          actions={
+            <div
+              className="bcc-stage-reveal flex flex-col gap-3"
+              style={{ ["--stagger" as string]: "120ms" }}
+            >
+              {/* §J.6 reputation-first panel — same component /u/[handle]'s
+                  inline reputation cell uses, just sourced from card data. */}
+              <ReputationSummaryPanel
+                reputationScore={card.reputation_score ?? card.trust_score}
+                reliabilityStanding={card.reliability_standing}
+                cardTier={card.card_tier}
+                tierLabel={card.tier_label}
+                rankLabel={card.rank_label ?? ""}
+                isInGoodStanding={card.is_in_good_standing}
+                flags={card.flags}
+                divergenceState={card.negative_signals?.divergence_state}
+                underReview={card.negative_signals?.under_review}
+                reputationVolatile={card.negative_signals?.volatile}
+                unresolvedClaimsCount={card.negative_signals?.unresolved_claims_count}
+              />
 
-      {/* ── §J.6 attestation roster — THE primary content of an
-            entity card per the constitution. Sits above stats and
-            stream because reputation is the headline, not the
-            chronological activity stream. Phase 1 status: backend
-            endpoint not yet shipped; roster renders empty-state
-            copy per risk-assessment §2.9. ────────────────────────── */}
-      <section className="mx-auto mt-12 max-w-[1560px] px-7">
-        <div className="bcc-mono mb-4 flex items-center gap-3 text-cardstock-deep">
-          <span className="inline-block h-px w-8 bg-cardstock-edge/50" />
-          <span>Backing</span>
-          <span className="inline-block h-px flex-1 bg-cardstock-edge/50" />
-        </div>
-        <AttestationRoster
-          targetKind={cardKindToAttestationTargetKind(card.card_kind)}
-          targetId={card.id}
-          emptyState={{
-            body: "No attestations on file yet. Be the first to vouch.",
-          }}
+              {/* Social proof headline — server pre-renders the line. */}
+              {card.social_proof?.headline !== undefined &&
+                card.social_proof.headline !== null && (
+                  <p className="bcc-mono text-sm text-cardstock-deep">
+                    {card.social_proof.headline}
+                  </p>
+                )}
+
+              <AttestationActionCluster
+                targetKind={targetKind}
+                targetId={card.id}
+                canVouch={card.permissions.can_vouch}
+                canStandBehind={card.permissions.can_stand_behind}
+                canDispute={card.permissions.can_dispute}
+                canReport={card.permissions.can_report}
+                viewerAttestation={card.viewer_attestation}
+                viewerHasEndorsed={card.viewer_has_endorsed}
+              />
+
+              {card.is_claimed === false && card.claim_target !== null && (
+                <ClaimCallout
+                  pageId={card.id}
+                  pageName={card.name}
+                  target={card.claim_target}
+                  viewerAuthed={viewerAuthed}
+                />
+              )}
+
+              <ReviewCallout
+                pageId={card.id}
+                pageName={card.name}
+                canReview={isAllowed(card.permissions, "can_review")}
+                unlockHint={unlockHint(card.permissions, "can_review")}
+                hasReviewed={card.viewer_has_reviewed}
+                viewerAuthed={viewerAuthed}
+              />
+
+              <EndorseButton
+                pageId={card.id}
+                pageName={card.name}
+                canEndorse={isAllowed(card.permissions, "can_endorse")}
+                unlockHint={card.endorse_unlock_hint}
+                hasEndorsed={card.viewer_has_endorsed}
+                viewerAuthed={viewerAuthed}
+              />
+
+              <DisputeCallout
+                pageId={card.id}
+                pageName={card.name}
+                canDispute={isAllowed(card.permissions, "can_dispute")}
+              />
+            </div>
+          }
+          belowHero={card.stats.length > 0 ? (
+            <div>
+              <div className="mb-3 flex items-center gap-3">
+                <span className="bcc-mono text-cardstock-deep">FILE 04</span>
+                <span className="bcc-mono text-safety">{"//"} STATS</span>
+              </div>
+              <StatsStrip stats={card.stats} />
+            </div>
+          ) : null}
         />
       </section>
 
-      {/* ── Stats strip ─────────────────────────────────────────── */}
-      <section className="mx-auto mt-12 max-w-[1560px] px-7">
-        <StatsPanel card={card} />
-      </section>
-
-      {/* ── On-chain signals — validator-only block sourced from the
-            chain LCD/RPC. Surfaces the operator's real-world data
-            (uptime, commission, voting rank, stake, delegators) so a
-            viewer can evaluate the validator regardless of whether
-            anyone has claimed the page yet. Hidden when the card
-            isn't a validator OR when the indexer hasn't produced a
-            row for this entity. ───────────────────────────────────── */}
-      {card.onchain_signals != null && (
-        <section className="mx-auto mt-12 max-w-[1560px] px-7">
-          <div className="bcc-mono mb-4 flex items-center gap-3 text-cardstock-deep">
-            <span className="inline-block h-px w-8 bg-cardstock-edge/50" />
-            <span>On-chain Signal</span>
-            <span className="inline-block h-px flex-1 bg-cardstock-edge/50" />
-          </div>
-          <OnchainSignalsBlock signals={card.onchain_signals} />
-        </section>
-      )}
-
-      {/* ── §K3 Cross-chain identity strip — mounts only when this
-            operator runs on 2+ chains and has linked wallets to the
-            same peepso-page. Self-hides when card.chains is null. ── */}
-      {card.chains !== null && (
-        <section className="mx-auto max-w-[1560px] px-7">
-          <ChainTabs chains={card.chains} />
-        </section>
-      )}
-
-      {/* ── Stream slot — §N8/§B5 locked treatment when unclaimed,
-            §N10 empty state when claimed-but-quiet. The real feed
-            wires in once /v/:slug/feed exposes operator posts. ──── */}
-      <section className="mx-auto mt-12 max-w-[1560px] px-7">
-        <div className="bcc-mono mb-4 flex items-center gap-3 text-cardstock-deep">
-          <span className="inline-block h-px w-8 bg-cardstock-edge/50" />
-          <span>The Stream</span>
-          <span className="inline-block h-px flex-1 bg-cardstock-edge/50" />
-        </div>
-        {card.is_claimed === false ? (
-          <LockedStreamPanel pageName={card.name} />
-        ) : (
-          <div className="bcc-panel mx-auto max-w-2xl p-8 text-center">
-            <h2 className="bcc-stencil text-2xl text-ink">
-              {streamEmptyState.title}
-            </h2>
-            <p className="mt-2 font-serif text-ink-soft">
-              {streamEmptyState.body}
-            </p>
-          </div>
-        )}
+      {/* ── EntityTabs — replaces the old linear section stack ────── */}
+      <section className="mx-auto mt-16 max-w-[1440px] px-4 sm:px-7">
+        <EntityTabs
+          backingPanel={
+            <AttestationRoster
+              targetKind={targetKind}
+              targetId={card.id}
+              emptyState={{
+                body: "No attestations on file yet. Be the first to vouch.",
+              }}
+            />
+          }
+          reviewsPanel={
+            entityCardKind !== null ? (
+              <CardReviewsPanel
+                kind={entityCardKind}
+                cardId={card.id}
+                cardName={card.name}
+              />
+            ) : null
+          }
+          activityPanel={
+            card.is_claimed === false ? (
+              <LockedStreamPanel pageName={card.name} />
+            ) : (
+              <div className="bcc-panel mx-auto max-w-2xl p-8 text-center">
+                <h2 className="bcc-stencil text-2xl text-ink">
+                  {streamEmptyState.title}
+                </h2>
+                <p className="mt-2 font-serif text-ink-soft">
+                  {streamEmptyState.body}
+                </p>
+              </div>
+            )
+          }
+          watchersPanel={
+            entityCardKind !== null ? (
+              <CardWatchersPanel
+                kind={entityCardKind}
+                cardId={card.id}
+                cardName={card.name}
+                isClaimed={card.is_claimed === true}
+              />
+            ) : null
+          }
+          disputesPanel={
+            entityCardKind !== null ? (
+              <CardDisputesPanel
+                kind={entityCardKind}
+                cardId={card.id}
+                cardName={card.name}
+              />
+            ) : null
+          }
+          onchainPanel={
+            card.onchain_signals !== null && card.onchain_signals !== undefined
+              ? <OnchainSignalsBlock signals={card.onchain_signals} />
+              : null
+          }
+          chainsPanel={
+            card.chains !== null ? <ChainTabs chains={card.chains} /> : null
+          }
+        />
       </section>
     </main>
   );
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// IdentityBlock — name + handle + tier ribbon + flags strip beside the
-// hero card. Reads pre-formatted fields from the view-model; no
-// derivations (per §A2).
+// StatsStrip — compact server-formatted stats grid. Same data as the
+// CardFactory back face, surfaced at hero scale so the user doesn't
+// have to flip the card. Lives inside the PageHero dotted-border box
+// (belowHero slot) so it reads as "header stats" not "page section."
 // ─────────────────────────────────────────────────────────────────────
 
-function IdentityBlock({
-  card,
-  kindLabel,
-  viewerAuthed,
-}: {
-  card: Card;
-  kindLabel: string;
-  viewerAuthed: boolean;
-}) {
-  return (
-    <div
-      className="bcc-stage-reveal"
-      style={{ ["--stagger" as string]: "120ms" }}
-    >
-      <span className="bcc-mono text-[10px] tracking-[0.24em] text-cardstock-deep">
-        {kindLabel.toUpperCase()}
-      </span>
-
-      <h1 className="bcc-stencil mt-2 text-5xl text-cardstock md:text-6xl">
-        {card.name}
-      </h1>
-
-      <p className="bcc-mono mt-2 text-cardstock-deep">@{card.handle}</p>
-
-      {/* §J.6 reputation-first panel — replaces the legacy tier/rank/
-          good-standing chip row + flags strip with the locked layout.
-          Empty-state copy renders when the §4.20 attestation-layer
-          fields haven't shipped from the backend yet; entity surface
-          stays coherent during the Phase 1 rollout. */}
-      <div className="mt-5">
-        <ReputationSummaryPanel
-          reputationScore={card.reputation_score ?? card.trust_score}
-          reliabilityStanding={card.reliability_standing}
-          cardTier={card.card_tier}
-          tierLabel={card.tier_label}
-          rankLabel={card.rank_label ?? ""}
-          isInGoodStanding={card.is_in_good_standing}
-          flags={card.flags}
-          divergenceState={card.negative_signals?.divergence_state}
-          underReview={card.negative_signals?.under_review}
-          reputationVolatile={card.negative_signals?.volatile}
-          unresolvedClaimsCount={card.negative_signals?.unresolved_claims_count}
-        />
-      </div>
-
-      {/* Social proof headline — server pre-renders the line. */}
-      {card.social_proof?.headline !== undefined &&
-        card.social_proof.headline !== null && (
-          <p className="bcc-mono mt-5 text-sm text-cardstock-deep">
-            {card.social_proof.headline}
-          </p>
-        )}
-
-      {/* §J.6 trust-attestation action cluster — read-only scaffold.
-          Cluster self-hides when no permission entries are shipped
-          (Phase 1 backend rollout). Appears as backend lands the
-          can_vouch / can_stand_behind / can_dispute / can_report
-          gates in Phase 1 Week 2. Sits above the legacy callouts
-          so visual primacy reads correctly during the migration
-          window. */}
-      <div className="mt-5">
-        <AttestationActionCluster
-          targetKind={cardKindToAttestationTargetKind(card.card_kind)}
-          targetId={card.id}
-          canVouch={card.permissions.can_vouch}
-          canStandBehind={card.permissions.can_stand_behind}
-          canDispute={card.permissions.can_dispute}
-          canReport={card.permissions.can_report}
-          viewerAttestation={card.viewer_attestation}
-          viewerHasEndorsed={card.viewer_has_endorsed}
-        />
-      </div>
-
-      {/* §N8 Claim flow entry — only when the page is unclaimed AND a
-          claim target resolves on the server. Anonymous viewers see
-          the CTA disabled with a sign-in tooltip. */}
-      {card.is_claimed === false && card.claim_target !== null && (
-        <ClaimCallout
-          pageId={card.id}
-          pageName={card.name}
-          target={card.claim_target}
-          viewerAuthed={viewerAuthed}
-        />
-      )}
-
-      {/* §D2 Write-a-review entry — visible on every entity profile.
-          Disabled with the server-supplied `unlock_hint` when the
-          viewer hasn't unlocked reviews; the gate itself
-          (Level + reputation tier thresholds) is server-resolved per
-          the Phase γ rule that frontend never mirrors backend gates.
-          When the viewer already has a review on file, the CTA flips
-          to "REMOVE YOUR REVIEW" with a confirm gate. */}
-      <ReviewCallout
-        pageId={card.id}
-        pageName={card.name}
-        canReview={isAllowed(card.permissions, "can_review")}
-        unlockHint={unlockHint(card.permissions, "can_review")}
-        hasReviewed={card.viewer_has_reviewed}
-        viewerAuthed={viewerAuthed}
-      />
-
-      {/* §V1.5 Endorse entry — server resolves can_endorse via
-          EndorsementService::getEndorseEligibility (identity quest +
-          account age + fraud-score gates). When the viewer has already
-          endorsed, the CTA flips to "REMOVE ENDORSEMENT" with a
-          confirm gate. */}
-      <EndorseButton
-        pageId={card.id}
-        pageName={card.name}
-        canEndorse={isAllowed(card.permissions, "can_endorse")}
-        unlockHint={card.endorse_unlock_hint}
-        hasEndorsed={card.viewer_has_endorsed}
-        viewerAuthed={viewerAuthed}
-      />
-
-      {/* §D5 Open-a-dispute entry — owner-only. Server returns the
-          {allowed, ...} Permission shape; the callout self-hides when
-          allowed=false (anonymous viewers, non-owners, owners who
-          haven't unlocked disputes). */}
-      <DisputeCallout
-        pageId={card.id}
-        pageName={card.name}
-        canDispute={isAllowed(card.permissions, "can_dispute")}
-      />
-    </div>
-  );
-}
-
-// ─────────────────────────────────────────────────────────────────────
-// StatsPanel — compact server-formatted stats table. Same data as the
-// CardFactory back face, surfaced here at the page level so the user
-// can scan it without flipping the card.
-// ─────────────────────────────────────────────────────────────────────
-
-function StatsPanel({ card }: { card: Card }) {
-  if (card.stats.length === 0) {
-    return null;
-  }
-
+function StatsStrip({ stats }: { stats: Card["stats"] }) {
   return (
     <div
       className="bcc-panel grid gap-px overflow-hidden"
       style={{
-        gridTemplateColumns: `repeat(${Math.min(card.stats.length, 6)}, minmax(0,1fr))`,
+        gridTemplateColumns: `repeat(${Math.min(stats.length, 6)}, minmax(0,1fr))`,
         background: "rgba(15,13,9,0.08)",
       }}
     >
-      {card.stats.map((stat) => (
+      {stats.map((stat) => (
         <div
           key={stat.key}
           className="flex flex-col items-start gap-1 bg-cardstock px-4 py-4"
@@ -356,14 +365,11 @@ function StatsPanel({ card }: { card: Card }) {
 // ─────────────────────────────────────────────────────────────────────
 // OnchainSignalsBlock — table-shaped breakdown of the validator's
 // on-chain data (status, uptime, commission, voting rank, stake,
-// delegators, last refresh). The compact one-line summary lives on the
-// card in /directory; this is the full surface for the profile page.
+// delegators, last refresh). Same shape as the legacy linear-section
+// version; lives in the On-chain tab now.
 //
 // Each cell self-hides when its value is null so a partially-enriched
 // validator doesn't render "—%" placeholders that look like missing UI.
-// The full block hides itself only when the parent gates on
-// `card.onchain_signals != null` — at least the chain + status will
-// always render past that gate.
 // ─────────────────────────────────────────────────────────────────────
 
 function OnchainSignalsBlock({ signals }: { signals: OnchainSignals }) {

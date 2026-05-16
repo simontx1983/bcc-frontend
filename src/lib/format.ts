@@ -94,3 +94,33 @@ export function formatJoinDate(iso: string): string {
   ];
   return `${months[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
 }
+
+/**
+ * Pick the cleanest available label for a page-title rendering of an
+ * operator's identity. Centralizes the rule that an email-shaped
+ * `display_name` is not page-title-grade input — falls through to the
+ * handle, then a generic "OPERATOR · @{handle}" label.
+ *
+ * This is presentation only (§A2-compliant): same class as
+ * `formatJoinDate` — derives nothing from the trust model, just picks
+ * which presentation field to render.
+ *
+ * Priority:
+ *   1. `display_name` if non-empty AND not email-shaped (no `@`)
+ *      AND ≤ 32 chars.
+ *   2. Otherwise the handle uppercased (the operator's chosen identity).
+ *   3. Otherwise a defensive `OPERATOR` fallback for missing data.
+ */
+export function presentationName(
+  identity: { display_name: string; handle: string },
+): string {
+  const dn = identity.display_name.trim();
+  if (dn !== "" && !dn.includes("@") && dn.length <= 32) {
+    return dn;
+  }
+  const handle = identity.handle.trim();
+  if (handle !== "" && !handle.includes("@")) {
+    return handle.toUpperCase();
+  }
+  return "OPERATOR";
+}

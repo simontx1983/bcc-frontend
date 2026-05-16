@@ -24,14 +24,23 @@
 
 import { Composer } from "@/components/composer/Composer";
 import { FeedItemCard } from "@/components/feed/FeedItemCard";
+import { LivingHeader } from "@/components/profile/LivingHeader";
 import { useUserActivity } from "@/hooks/useUserActivity";
+import type { MemberLiving, MemberProgression } from "@/lib/api/types";
 
 export function ActivityPanel({
   handle,
   isOwner = false,
+  living,
+  progression,
 }: {
   handle: string;
   isOwner?: boolean;
+  /** Own-profile-only "today's impact" + streak data. Renders at the
+   *  top of the activity panel as the LIVE SHIFT block. Server only
+   *  ships these on is_self; pass undefined for visitor views. */
+  living?: MemberLiving | undefined;
+  progression?: MemberProgression | undefined;
 }) {
   const query = useUserActivity(handle);
 
@@ -61,10 +70,22 @@ export function ActivityPanel({
   }
 
   const items = query.data.pages.flatMap((page) => page.items);
+  // LIVE SHIFT — own-profile "today's impact" + streak panel.
+  // Pulled in from the FILE 0A SectionFrame above the tab strip per
+  // the 2026-05-14 reorganization. Sits ABOVE the composer so the
+  // own-profile view reads: live status → write something → recent
+  // posts.
+  const liveShiftBlock = isOwner && living !== undefined ? (
+    <LivingHeader
+      living={living}
+      {...(progression !== undefined ? { progression } : {})}
+    />
+  ) : null;
 
   if (items.length === 0) {
     return (
       <>
+        {liveShiftBlock}
         {isOwner && <Composer variant="inline" defaultMode="status" />}
         <ActivityEmpty />
       </>
@@ -73,6 +94,7 @@ export function ActivityPanel({
 
   return (
     <div className="flex flex-col gap-4 py-4">
+      {liveShiftBlock}
       {isOwner && <Composer variant="inline" defaultMode="status" />}
       {items.map((item) => (
         <FeedItemCard key={item.id} item={item} />

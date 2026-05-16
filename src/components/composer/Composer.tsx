@@ -31,9 +31,10 @@
  *     the entire frontend identity.
  *   - The Blog tab is gone from this surface. Long-form is now an
  *     escalation path — an inline `Long-form →` link in the
- *     expanded composer routes to `/blog/new`, where the dedicated
- *     BlogForm renders with its own page chrome. Different mindset,
- *     different context, by design.
+ *     expanded composer routes to
+ *     `/u/{handle}?tab=blog&blogsub=create`, which lands the author
+ *     on the Blog tab's CREATE sub-tab inside their own profile.
+ *     Different mindset, different context, by design.
  *
  * Review-mode contract (modal variant only in V1):
  *   - REQUIRES reviewTargetId (numeric page id) + reviewTargetName
@@ -168,8 +169,8 @@ export function Composer({
 
   if (variant === "inline") {
     // Inline is status-only by design (v1.5). Review uses the modal
-    // variant; long-form lives at /blog/new behind the in-composer
-    // escalation link.
+    // variant; long-form lives on the author's blog tab CREATE
+    // sub-tab, behind the in-composer escalation link.
     return (
       <InlineStatusComposer
         viewerAvatarUrl={viewerAvatarUrl}
@@ -1012,15 +1013,19 @@ function InlineStatusComposer({
                 )}
               </span>
               {/*
-                §4.7.6 — long-form blogs are personal-wall content
-                in V1; the /blog/new flow has no group-scope concept.
-                Tucking the escalation link when the composer is
-                group-scoped avoids surfacing a path that would
-                silently drop the group affiliation.
+                §4.7.6 — long-form blogs are personal-wall content in
+                V1; the blog tab's CREATE sub-tab has no group-scope
+                concept. Tucking the escalation link when the composer
+                is group-scoped avoids surfacing a path that would
+                silently drop the group affiliation. Also requires
+                viewerHandle so the deep-link can target the author's
+                own blog page.
               */}
-              {groupId === undefined && (
+              {groupId === undefined &&
+                viewerHandle !== undefined &&
+                viewerHandle !== "" && (
                 <Link
-                  href={"/blog/new" as Route}
+                  href={`/u/${viewerHandle}?tab=blog&blogsub=create` as Route}
                   className="bcc-mono text-[11px] tracking-[0.18em] text-cardstock-deep/80 hover:text-cardstock hover:underline"
                 >
                   Long-form →
@@ -1075,8 +1080,8 @@ function InlineStatusComposer({
 // Modal core: shared state + tab strip for status/review modes.
 //
 // The Blog mode was lifted out of this surface in v1.5 and now lives
-// at /blog/new. The modal still hosts status (rare) + review (the
-// primary modal entry from ReviewCallout).
+// on the author's blog tab CREATE sub-tab. The modal still hosts
+// status (rare) + review (the primary modal entry from ReviewCallout).
 // ─────────────────────────────────────────────────────────────────────
 
 interface ModalCoreProps {
@@ -1432,8 +1437,8 @@ function ReviewForm({
 // BlogForm — §D6 long-form post.
 //
 // Lifted out of the inline composer in v1.5; now mounted exclusively
-// at /blog/new (the dedicated long-form authoring route). Exported so
-// the route page can reuse it without a parallel implementation.
+// inside the blog tab's CREATE sub-tab (see BlogTabClient). Exported
+// so the sub-tab can reuse it without a parallel implementation.
 // ─────────────────────────────────────────────────────────────────────
 
 export function BlogForm({
@@ -1574,9 +1579,8 @@ export function BlogForm({
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// Modal shell — local idiom shared with OpenDisputeModal /
-// PanelVoteModal until the design system grows a real <Dialog>. ESC
-// + backdrop click both close.
+// Modal shell — local idiom shared with OpenDisputeModal until the
+// design system grows a real <Dialog>. ESC + backdrop click both close.
 // ─────────────────────────────────────────────────────────────────────
 
 function ModalShell({
@@ -1627,8 +1631,9 @@ function ModalShell({
 
 /**
  * Map BCC API error codes to user-readable strings for the composer
- * surface. Exported so /blog/new (which mounts BlogForm directly,
- * outside the Composer shell) shares the same humanization.
+ * surface. Exported so the blog tab's CREATE sub-tab (which mounts
+ * BlogForm directly, outside the Composer shell) shares the same
+ * humanization.
  */
 export function humanizeError(err: unknown): string {
   // `bcc_too_many_mentions` carries a structured `data.max` we want to
