@@ -482,26 +482,16 @@ function itemKey(item: NftPickerItem): string {
 function humanizeError(err: unknown): string {
   // Phase γ doctrine: branch on `err.code`, not `err.status`.
   //
-  // KNOWN BACKEND-CONTRACT DEBT (tracked):
-  //   The NftSelectionController at
-  //     app/public/wp-content/plugins/bcc-trust/app/Domain/Onchain/Controllers/NftSelectionController.php
-  //   currently emits NON-canonical envelopes for some failure paths
-  //   (lines 90-91, 111-112, 130-135, 146-147, 162-163). When that
-  //   controller is migrated to the canonical envelope + stable codes
-  //   (`bcc_nft_not_owned` for 403, `bcc_rate_limited` for 429,
-  //   `bcc_invalid_request` for 400), the status-branching fallback
-  //   below collapses into a pure code map.
-  //
-  // Until then, the `status` branches are deliberate temporary
-  // compatibility shims, NOT a violation of Phase γ doctrine. They are
-  // contract-fragile by acknowledgment: a server change to the legacy
-  // status/payload would silently break this UI. The fix is on the
-  // server side, not here.
+  // NftSelectionController emits canonical envelopes + stable codes for
+  // every failure path (bcc_nft_not_owned for 403, bcc_rate_limited for
+  // 429, bcc_invalid_request for 400, bcc_internal_error for 500), so
+  // these branches are pure code matches — Phase γ doctrine, no status
+  // fallback needed.
   if (err instanceof BccApiError) {
-    if (err.code === "bcc_nft_not_owned" || err.status === 403) {
+    if (err.code === "bcc_nft_not_owned") {
       return "That NFT isn't in your linked wallets right now. Try the wallet picker first.";
     }
-    if (err.code === "bcc_rate_limited" || err.status === 429) {
+    if (err.code === "bcc_rate_limited") {
       return "Easy on the clicks — give it a beat and try again.";
     }
   }
@@ -520,7 +510,7 @@ function humanizeRefreshError(err: unknown): string {
   // refresh-flavored. The picker GET shares the 10/60 throttle bucket,
   // so 429 is the most likely user-visible failure here.
   if (err instanceof BccApiError) {
-    if (err.code === "bcc_rate_limited" || err.status === 429) {
+    if (err.code === "bcc_rate_limited") {
       return "Cooling off — give the indexers a beat and try again.";
     }
   }
