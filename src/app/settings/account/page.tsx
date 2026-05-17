@@ -8,7 +8,9 @@
 
 import { getServerSession } from "next-auth";
 
+import { AccountActivitySection } from "@/components/settings/AccountActivitySection";
 import { ConnectionsSection } from "@/components/settings/ConnectionsSection";
+import { SessionsRevokeSection } from "@/components/settings/SessionsRevokeSection";
 import { WalletsSection } from "@/components/settings/WalletsSection";
 import { AccountSection } from "@/components/settings/profile/AccountSection";
 import { authOptions } from "@/lib/auth";
@@ -52,6 +54,28 @@ export default async function AccountSettingsPage() {
         />
         <div className="mt-4">
           <WalletsSection />
+        </div>
+      </section>
+
+      <section className="mx-auto mt-10 max-w-3xl px-6 sm:px-8">
+        <SettingsSectionHeader
+          eyebrow="ACCOUNT ACTIVITY"
+          title="Security events on this account"
+          blurb="Email changes, password changes, wallet links, and sign-out actions. Cross-reference with the email alerts you receive — if anything here doesn't match an email you got, something's wrong."
+        />
+        <div className="mt-4">
+          <AccountActivitySection />
+        </div>
+      </section>
+
+      <section className="mx-auto mt-10 mb-16 max-w-3xl px-6 sm:px-8">
+        <SettingsSectionHeader
+          eyebrow="SESSIONS"
+          title="Sign out everywhere"
+          blurb="If you suspect a stolen session, invalidate every active sign-in at once. You'll need to sign back in on every device."
+        />
+        <div className="mt-4">
+          <SessionsRevokeSection />
         </div>
       </section>
     </>

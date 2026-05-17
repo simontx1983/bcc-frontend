@@ -4768,3 +4768,50 @@ export interface ColdStartResponse {
   /** 0-2 entries from FeedRankingService::getHotFeed. Rendered as full FeedItemCards. */
   hot_posts: FeedItem[];
 }
+
+// ─────────────────────────────────────────────────────────────────────
+// Account activity (§4.23 — Tier D in-app audit timeline)
+//
+// Mirrors AccountSecurityMailer's 6-event taxonomy: email change,
+// password change, account deletion, wallet link/unlink, sessions
+// revoked all. Server-side allowlist enforced — non-security audit
+// rows (vote_cast, endorse_*, etc.) do NOT leak into this surface.
+// IP is masked at the server boundary; never the raw VARBINARY value.
+// ─────────────────────────────────────────────────────────────────────
+
+/**
+ * One row from GET /me/account-activity.
+ *
+ * `action` is a stable code — branch on it via the FE label map, never
+ * on the humanized string. `target_type`/`target_id` are kept on the
+ * row for future enrichment surfaces; V1 the UI only renders the
+ * action + masked IP + relative timestamp.
+ *
+ * `ip_masked` is `""` when the source IP wasn't recorded (anonymous
+ * mutations are rare in this scope but the schema permits NULL).
+ *
+ * `created_at` is MySQL UTC datetime (`YYYY-MM-DD HH:MM:SS`);
+ * `formatRelativeTime` normalizes at the boundary.
+ */
+export interface AccountActivityItem {
+  id: number;
+  action: string;
+  target_type: string;
+  target_id: number;
+  ip_masked: string;
+  created_at: string;
+}
+
+/** GET /me/account-activity response — offset paginated. */
+export interface AccountActivityResponse {
+  items: AccountActivityItem[];
+  total: number;
+  page: number;
+  per_page: number;
+  total_pages: number;
+}
+
+/** POST /auth/logout-everywhere success body. */
+export interface LogoutEverywhereResponse {
+  ok: true;
+}
