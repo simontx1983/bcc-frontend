@@ -34,6 +34,7 @@ import { getServerSession } from "next-auth";
 import Link from "next/link";
 
 import { authOptions } from "@/lib/auth";
+import { tokenFromSession } from "@/lib/api/client";
 import { getGroupsDiscovery } from "@/lib/api/groups-discovery-endpoints";
 import { COMMUNITY_CHAIN_CATALOG } from "@/lib/communities/chain-catalog";
 import { CommunityCover } from "@/components/communities/CommunityCover";
@@ -64,7 +65,7 @@ export default async function CommunitiesDiscoveryPage({ searchParams }: PagePro
   const page = clampPage(params.page);
 
   const session = await getServerSession(authOptions);
-  const token = session?.bccToken ?? null;
+  const token = tokenFromSession(session);
 
   let result;
   let fetchError: string | null = null;

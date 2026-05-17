@@ -12,6 +12,7 @@ import { notFound } from "next/navigation";
 
 import { EntityProfile } from "@/components/entity/EntityProfile";
 import { authOptions } from "@/lib/auth";
+import { tokenFromSession } from "@/lib/api/client";
 import { getCardEntity } from "@/lib/api/card-endpoints";
 import { BccApiError } from "@/lib/api/types";
 
@@ -22,7 +23,7 @@ interface PageProps {
 export default async function ProjectProfilePage({ params }: PageProps) {
   const { slug } = await params;
   const session = await getServerSession(authOptions);
-  const token = session?.bccToken ?? null;
+  const token = tokenFromSession(session);
 
   let card;
   try {

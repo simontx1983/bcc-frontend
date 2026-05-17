@@ -20,6 +20,8 @@
  * may be localized later).
  */
 
+import type { Session } from "next-auth";
+
 import { clientEnv } from "@/lib/env";
 import type { ApiErrorBody, ApiSuccess } from "./types";
 import { BccApiError } from "./types";
@@ -172,13 +174,8 @@ function isSuccessEnvelope<T>(value: unknown): value is ApiSuccess<T> {
 // client-only. Calling `bccFetchAsClient` from a server component or
 // route handler is a programming error — guarded below with a
 // `typeof window` check that fails loud rather than silently shipping
-// the wrong fetch path. Server-side callers use `bccFetch` with a
-// token sourced from `getServerSession(authOptions)`.
-//
-// TODO (deferred): when SSR pages start needing the BCC token, add a
-// `bccFetchWithSession(session, path, options)` server-side helper
-// that takes a server-fetched session and threads through Bearer.
-// Tracked at: <plan reference, when V1.5 SSR work begins>
+// the wrong fetch path. Server-side callers use `bccFetchWithSession`
+// (or `bccFetch` with an explicit token) — see helpers below.
 // =====================================================================
 
 import { getSession, signOut } from "next-auth/react";
@@ -362,4 +359,60 @@ async function tryRefresh(currentToken: string): Promise<string | null> {
   } catch {
     return null;
   }
+}
+
+// =====================================================================
+// Server-side session-aware wrappers
+// =====================================================================
+// Mirror of bccFetchAsClient for SSR pages and route handlers. The base
+// `bccFetch` already accepts an explicit `token`, but every SSR page
+// would otherwise re-derive `session?.bccToken ?? null` itself — these
+// helpers centralize that read so the bearer-extraction lives in one
+// place (and is the seam where server-side refresh-on-401 will land
+// when a real consumer needs it).
+//
+// `import type { Session }` is type-only and erased at build time —
+// no next-auth runtime gets pulled into the client bundle.
+//
+// bcc-trust-client.ts does not yet have a server twin; add
+// `bccTrustFetchWithSession` mirroring this shape when the first SSR
+// caller of /bcc-trust/v1 appears.
+// =====================================================================
+
+/**
+ * Extract the BCC bearer token from a server-fetched NextAuth session.
+ *
+ * Returns null when the session is null, lacks bccToken, or carries an
+ * empty/non-string value. Pages that feed an endpoint wrapper (e.g.
+ * getCardEntity(slug, token)) use this instead of inlining
+ * `session?.bccToken ?? null` at every call site.
+ */
+export function tokenFromSession(session: Session | null): string | null {
+  if (session === null) return null;
+  const t: unknown = session.bccToken;
+  return typeof t === "string" && t !== "" ? t : null;
+}
+
+/**
+ * Session-aware fetch for SSR pages and route handlers. Server mirror
+ * of bccFetchAsClient: takes a session fetched via
+ * getServerSession(authOptions), extracts the bearer, and forwards to
+ * bccFetch.
+ *
+ * Use this for one-off direct fetches from Server Components. Endpoint
+ * wrappers under lib/api/*-endpoints.ts keep their `token: string|null`
+ * parameter so the same wrapper works from both client and server
+ * callers — those wrappers should be reached via tokenFromSession.
+ *
+ * Server-side silent refresh is NOT performed. Server Components cannot
+ * write back to the NextAuth session cookie cleanly, so an expired
+ * bearer surfaces as `bcc_unauthorized` from the endpoint and the page
+ * handles it like any other auth-required failure (notFound / redirect).
+ */
+export async function bccFetchWithSession<T>(
+  session: Session | null,
+  path: string,
+  options: Omit<RequestOptions, "token"> = {}
+): Promise<T> {
+  return bccFetch<T>(path, { ...options, token: tokenFromSession(session) });
 }

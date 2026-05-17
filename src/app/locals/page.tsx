@@ -21,6 +21,7 @@ import { getServerSession } from "next-auth";
 import Link from "next/link";
 
 import { authOptions } from "@/lib/auth";
+import { tokenFromSession } from "@/lib/api/client";
 import { getLocals } from "@/lib/api/locals-endpoints";
 import type { LocalItem } from "@/lib/api/types";
 
@@ -53,7 +54,7 @@ export default async function LocalsDirectoryPage({ searchParams }: PageProps) {
   const page = clampPage(params.page);
 
   const session = await getServerSession(authOptions);
-  const token = session?.bccToken ?? null;
+  const token = tokenFromSession(session);
 
   // Failure non-fatal: render an empty grid + a small error note. The
   // directory shouldn't 500 the whole page on a transient backend

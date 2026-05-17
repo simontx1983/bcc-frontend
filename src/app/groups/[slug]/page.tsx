@@ -19,6 +19,7 @@ import { notFound } from "next/navigation";
 
 import { GroupDetailShell } from "@/components/groups/GroupDetailShell";
 import { authOptions } from "@/lib/auth";
+import { tokenFromSession } from "@/lib/api/client";
 import { getGroup } from "@/lib/api/groups-detail-endpoints";
 import { BccApiError, type GroupDetailResponse } from "@/lib/api/types";
 
@@ -30,7 +31,7 @@ export default async function GroupDetailPage({ params }: PageProps) {
   const { slug } = await params;
 
   const session = await getServerSession(authOptions);
-  const token = session?.bccToken ?? null;
+  const token = tokenFromSession(session);
 
   let group: GroupDetailResponse;
   try {

@@ -25,6 +25,7 @@ import { notFound } from "next/navigation";
 
 import { NftPieceDetail } from "@/components/creator/NftPieceDetail";
 import { authOptions } from "@/lib/auth";
+import { tokenFromSession } from "@/lib/api/client";
 import { getNftPiece } from "@/lib/api/nft-pieces-endpoints";
 import { BccApiError } from "@/lib/api/types";
 
@@ -49,7 +50,7 @@ export default async function NftPiecePage({ params, searchParams }: PageProps) 
   }
 
   const session = await getServerSession(authOptions);
-  const token = session?.bccToken ?? null;
+  const token = tokenFromSession(session);
 
   let piece;
   try {

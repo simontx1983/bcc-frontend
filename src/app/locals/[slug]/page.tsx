@@ -32,6 +32,7 @@ import { notFound } from "next/navigation";
 import { GroupDetailShell } from "@/components/groups/GroupDetailShell";
 import { LocalMembershipControls } from "@/components/locals/LocalMembershipControls";
 import { authOptions } from "@/lib/auth";
+import { tokenFromSession } from "@/lib/api/client";
 import { getGroup } from "@/lib/api/groups-detail-endpoints";
 import { getLocal } from "@/lib/api/locals-endpoints";
 import { BccApiError } from "@/lib/api/types";
@@ -44,7 +45,7 @@ export default async function LocalDetailPage({ params }: PageProps) {
   const { slug } = await params;
 
   const session = await getServerSession(authOptions);
-  const token = session?.bccToken ?? null;
+  const token = tokenFromSession(session);
 
   // Parallel SSR fetches — independent so a failed group read doesn't
   // 500 the page when the local exists.

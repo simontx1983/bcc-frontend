@@ -44,8 +44,15 @@ export async function bccTrustFetch<T>(
   options: BccTrustFetchOptions = {},
 ): Promise<T> {
   if (typeof window === "undefined") {
+    // No server twin exists yet — the /bcc-trust/v1 namespace has zero
+    // SSR consumers today. When the first one appears, add
+    // `bccTrustFetchWithSession(session, path, options)` mirroring
+    // `bccFetchWithSession` in lib/api/client.ts: extract the bearer
+    // from the passed session via the existing tokenFromSession helper,
+    // then run the same trust-envelope parse as below without touching
+    // next-auth/react.
     throw new Error(
-      "[bcc-frontend] bccTrustFetch is client-only. Server-side callers need their own session-aware helper.",
+      "[bcc-frontend] bccTrustFetch is client-only. SSR callers: add bccTrustFetchWithSession (mirrors bccFetchWithSession in client.ts).",
     );
   }
 

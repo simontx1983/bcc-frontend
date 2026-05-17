@@ -40,6 +40,7 @@ import { PageHero } from "@/components/layout/PageHero";
 import { AttestationActionCluster } from "@/components/profile/AttestationActionCluster";
 import { ProfileTabs } from "@/components/profile/ProfileTabs";
 import { authOptions } from "@/lib/auth";
+import { tokenFromSession } from "@/lib/api/client";
 import { getMeReliability } from "@/lib/api/me-reliability-endpoints";
 import { getUser } from "@/lib/api/user-endpoints";
 import { FOLLOW_COPY } from "@/lib/copy";
@@ -59,7 +60,7 @@ export default async function MemberProfilePage({ params }: PageProps) {
   const { handle } = await params;
 
   const session = await getServerSession(authOptions);
-  const token = session?.bccToken ?? null;
+  const token = tokenFromSession(session);
 
   let profile: MemberProfile;
   try {
