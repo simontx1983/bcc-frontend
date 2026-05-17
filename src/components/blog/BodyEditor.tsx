@@ -165,6 +165,14 @@ export function BodyEditor({
         <span className="bcc-mono text-[10px] text-ink-soft">
           {savedAt !== null ? `Auto-saved ${formatAgo(savedAt)}` : "Auto-save runs every 5s"}
         </span>
+        <span className="bcc-mono text-[10px] text-ink-soft">
+          {/*
+            Read time + word count. Descriptive ("~4 min read · 920
+            words"), never prescriptive — no "aim for", no "longer
+            posts perform better." Per §2.7 cadence-pressure policy.
+          */}
+          {formatReadTime(value)} · {formatWordCount(value)}
+        </span>
         <span className={`bcc-mono text-[10px] ${tone}`}>
           {len.toLocaleString()} / {BLOG_FULL_TEXT_MAX_LENGTH.toLocaleString()}
           {overCap && (
@@ -174,6 +182,35 @@ export function BodyEditor({
       </div>
     </div>
   );
+}
+
+// Words-per-minute for read-time calc. 200 is the industry-standard
+// "average adult on screen" rate (Nielsen, Medium, Substack all use
+// it within ±15). We render the result rounded UP to the next whole
+// minute so a 199-word post reads as "1 min" rather than "0 min."
+const READ_WORDS_PER_MINUTE = 200;
+
+function countWords(text: string): number {
+  const trimmed = text.trim();
+  if (trimmed === "") return 0;
+  // Split on any run of whitespace. Markdown noise (asterisks,
+  // brackets, backticks) doesn't get stripped — a "word" here is a
+  // whitespace-bounded token, which over-counts slightly for code-
+  // heavy posts but matches what most authors expect from a word
+  // counter (it's what GitHub / Notion / Substack do).
+  return trimmed.split(/\s+/).length;
+}
+
+function formatReadTime(text: string): string {
+  const words = countWords(text);
+  if (words === 0) return "0 min read";
+  const minutes = Math.max(1, Math.ceil(words / READ_WORDS_PER_MINUTE));
+  return `~${minutes} min read`;
+}
+
+function formatWordCount(text: string): string {
+  const words = countWords(text);
+  return `${words.toLocaleString()} ${words === 1 ? "word" : "words"}`;
 }
 
 function formatAgo(ms: number): string {

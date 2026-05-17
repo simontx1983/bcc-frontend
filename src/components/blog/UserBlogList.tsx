@@ -39,7 +39,21 @@ const CATEGORY_LABELS: Record<string, string> = {
   events:   "Events",
 };
 
-export function UserBlogList({ handle }: { handle: string }) {
+export interface UserBlogListProps {
+  handle: string;
+  /**
+   * Owner-only edit affordance. When provided, each post renders an
+   * "Edit" link in its header; clicking it fires this callback with
+   * the full FeedItem (the parent — `BlogPanel` — uses it to switch
+   * sub-tabs and hand the post body to the composer as
+   * initialValues).
+   *
+   * Undefined for visitor views; the link is hidden.
+   */
+  onEdit?: (item: FeedItem) => void;
+}
+
+export function UserBlogList({ handle, onEdit }: UserBlogListProps) {
   const query = useUserBlog(handle);
 
   if (query.isPending) {
@@ -78,7 +92,11 @@ export function UserBlogList({ handle }: { handle: string }) {
       {pages.map((page, pageIdx) => (
         <Fragment key={pageIdx}>
           {page.items.map((item) => (
-            <BlogPostBody key={item.id} item={item} />
+            <BlogPostBody
+              key={item.id}
+              item={item}
+              {...(onEdit !== undefined ? { onEdit } : {})}
+            />
           ))}
         </Fragment>
       ))}
@@ -104,7 +122,13 @@ export function UserBlogList({ handle }: { handle: string }) {
 // BlogPostBody — full-body render with §D6 rich fields.
 // ─────────────────────────────────────────────────────────────────────
 
-function BlogPostBody({ item }: { item: FeedItem }) {
+interface BlogPostBodyProps {
+  item: FeedItem;
+  /** Owner-only edit affordance — undefined for visitor views. */
+  onEdit?: (item: FeedItem) => void;
+}
+
+function BlogPostBody({ item, onEdit }: BlogPostBodyProps) {
   const title    = readString(item.body, "title") ?? "";
   const excerpt  = readString(item.body, "excerpt") ?? "";
   const fullText = readString(item.body, "full_text") ?? "";
@@ -112,6 +136,7 @@ function BlogPostBody({ item }: { item: FeedItem }) {
   const coverUrl = readString(item.body, "cover_image_url");
   const chainTags = readChainTags(item.body);
   const disclosure = readDisclosure(item.body);
+  const sources = readSources(item.body);
 
   return (
     <article id={item.id} className="bcc-panel flex flex-col gap-5 px-6 py-6">
@@ -156,13 +181,24 @@ function BlogPostBody({ item }: { item: FeedItem }) {
           <span className="bcc-mono text-[10px] tracking-[0.24em] text-ink-soft">
             @{item.author.handle}
           </span>
-          <time
-            dateTime={item.posted_at}
-            title={item.posted_at}
-            className="bcc-mono shrink-0 text-[11px] text-ink-soft"
-          >
-            {formatRelativeTime(item.posted_at)}
-          </time>
+          <div className="flex items-baseline gap-3">
+            {onEdit !== undefined && (
+              <button
+                type="button"
+                onClick={() => onEdit(item)}
+                className="bcc-mono text-[10px] tracking-[0.18em] text-safety hover:underline underline-offset-4"
+              >
+                EDIT
+              </button>
+            )}
+            <time
+              dateTime={item.posted_at}
+              title={item.posted_at}
+              className="bcc-mono shrink-0 text-[11px] text-ink-soft"
+            >
+              {formatRelativeTime(item.posted_at)}
+            </time>
+          </div>
         </div>
 
         {excerpt !== "" && (
@@ -176,6 +212,27 @@ function BlogPostBody({ item }: { item: FeedItem }) {
         <p className="bcc-mono text-ink-soft">
           (Body unavailable.)
         </p>
+      )}
+
+      {sources.length > 0 && (
+        <section
+          aria-label="Sources"
+          className="border-t border-dashed border-cardstock-edge/40 pt-3"
+        >
+          <p className="bcc-mono mb-2 text-[10px] tracking-[0.18em] text-cardstock-deep">
+            SOURCES
+          </p>
+          <ol className="flex flex-col gap-1 text-[12px] text-ink-soft">
+            {sources.map((src, idx) => (
+              <li key={idx} className="flex gap-2">
+                <span className="bcc-mono shrink-0 tabular-nums text-ink-soft/70">
+                  {idx + 1}.
+                </span>
+                <SourceEntry value={src} />
+              </li>
+            ))}
+          </ol>
+        </section>
       )}
 
       <footer className="border-t border-dashed border-cardstock-edge/40 pt-3">
@@ -257,4 +314,34 @@ function readDisclosure(body: Record<string, unknown>): { tickers: string[]; not
     : [];
   const note = typeof obj["note"] === "string" ? obj["note"] : "";
   return { tickers, note };
+}
+
+function readSources(body: Record<string, unknown>): string[] {
+  const raw = body["sources"];
+  if (!Array.isArray(raw)) return [];
+  return raw.filter((s): s is string => typeof s === "string" && s !== "");
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// SourceEntry — renders a single source string. URLs become external
+// links; everything else renders as plain text. We only auto-link
+// http(s) so an author can't smuggle javascript: or data: URIs
+// through the citation slot.
+// ─────────────────────────────────────────────────────────────────────
+
+function SourceEntry({ value }: { value: string }) {
+  const trimmed = value.trim();
+  if (/^https?:\/\//i.test(trimmed)) {
+    return (
+      <a
+        href={trimmed}
+        target="_blank"
+        rel="noopener noreferrer nofollow"
+        className="break-all text-blueprint hover:underline underline-offset-2"
+      >
+        {trimmed}
+      </a>
+    );
+  }
+  return <span className="break-words">{trimmed}</span>;
 }

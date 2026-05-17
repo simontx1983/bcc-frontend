@@ -631,14 +631,14 @@ export interface DeleteCommentResponse {
  *   - review      → { grade, text, page_id }
  *   - dispute     → { reason, page_id, status }
  *   - blog_excerpt
- *       Floor context  → { title, excerpt, full_text: null, author_handle, wp_post_id, category?, tags?, chain_tags?, disclosure?, cover_image_url? }
- *       Blog tab ctx   → { title, excerpt, full_text: string, wp_post_id, category?, tags?, chain_tags?, disclosure?, cover_image_url? }
+ *       Floor context  → { title, excerpt, full_text: null, author_handle, wp_post_id, category?, tags?, chain_tags?, disclosure?, sources?, cover_image_url? }
+ *       Blog tab ctx   → { title, excerpt, full_text: string, wp_post_id, category?, tags?, chain_tags?, disclosure?, sources?, cover_image_url? }
  *     Frontend reads `full_text` to decide whether to render the full
  *     body inline (blog tab) or show an excerpt + "Read full post"
  *     affordance (Floor) — see §D6 / FeedItemNormalizer. The new
  *     post-PR-A fields (title, category, tags, chain_tags, disclosure,
- *     cover_image_url) are nullable/optional for backward compat with
- *     blog posts created before the schema expansion.
+ *     sources, cover_image_url) are nullable/optional for backward
+ *     compat with blog posts created before the schema expansion.
  */
 /**
  * Per-action permission entry on a FeedItem. Mirrors the backend
@@ -2058,6 +2058,9 @@ export const BLOG_CHAIN_TAGS_MAX = 3;
 export const BLOG_DISCLOSURE_TICKERS_MAX = 20;
 export const BLOG_DISCLOSURE_TICKER_LEN_MAX = 12;
 export const BLOG_DISCLOSURE_NOTE_MAX = 500;
+/** §D6 V1.5 — citation/sources caps. Mirrors `PostsService::BLOG_SOURCES_MAX` + `BLOG_SOURCE_LEN_MAX`. */
+export const BLOG_SOURCES_MAX = 20;
+export const BLOG_SOURCE_LEN_MAX = 280;
 
 export type PostKind = "status" | "review" | "blog";
 
@@ -2167,6 +2170,12 @@ export interface CreateBlogRequest {
   /** Author-declared disclosure. Null/omitted means "no disclosures." */
   disclosure?: BlogDisclosure | null;
   /**
+   * Numbered citations. Each entry is a free-form string (URL or short
+   * reference). 0..BLOG_SOURCES_MAX entries, each ≤ BLOG_SOURCE_LEN_MAX
+   * chars. Server trims, drops empties, dedupes by exact match.
+   */
+  sources?: string[];
+  /**
    * WP attachment ID. Server verifies the author owns the attachment
    * before pinning via `set_post_thumbnail()`. Optional in V1.
    */
@@ -2208,6 +2217,12 @@ export interface UpdateBlogRequest {
   tags?: string[];
   chain_tags?: string[];
   disclosure?: BlogDisclosure | null;
+  /**
+   * Numbered citations. `sources: []` clears; non-empty replaces;
+   * omitting the field leaves the existing list unchanged. Same
+   * three-state tunnel as `tags` / `chain_tags`.
+   */
+  sources?: string[];
   cover_image_id?: number | null;
   status?: "draft" | "publish";
 }

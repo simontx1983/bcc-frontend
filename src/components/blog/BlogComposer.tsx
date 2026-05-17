@@ -34,6 +34,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
+import { useQueryClient } from "@tanstack/react-query";
 
 import {
   BLOG_EXCERPT_MAX_LENGTH,
@@ -43,12 +44,14 @@ import {
 } from "@/lib/api/types";
 import { createBlog, updateBlog } from "@/lib/api/posts-endpoints";
 import { humanizeCode } from "@/lib/api/errors";
+import { USER_BLOG_QUERY_KEY_ROOT } from "@/hooks/useUserBlog";
 
 import { BodyEditor } from "./BodyEditor";
 import { CategoryPicker } from "./CategoryPicker";
 import { ChainTagsPicker } from "./ChainTagsPicker";
 import { CoverImageUpload, type CoverImageValue } from "./CoverImageUpload";
 import { DisclosureBlock } from "./DisclosureBlock";
+import { SourcesField } from "./SourcesField";
 import { StatusToggle, type BlogStatus } from "./StatusToggle";
 import { TagsInput } from "./TagsInput";
 import { TitleInput } from "./TitleInput";
@@ -61,6 +64,7 @@ export interface BlogComposerInitialValues {
   tags?: string[];
   chain_tags?: string[];
   disclosure?: BlogDisclosure | null;
+  sources?: string[];
   cover_image?: CoverImageValue | null;
   status?: BlogStatus;
 }
@@ -88,6 +92,7 @@ export function BlogComposer({
 }: BlogComposerProps) {
   const router = useRouter();
   const session = useSession();
+  const queryClient = useQueryClient();
   const userId = session.data?.user.handle ?? "anon";
   const autosaveKey = `bcc.blog.draft.${userId}`;
 
@@ -98,6 +103,7 @@ export function BlogComposer({
   const [tags,      setTags]      = useState<string[]>(initialValues?.tags ?? []);
   const [chainTags, setChainTags] = useState<string[]>(initialValues?.chain_tags ?? []);
   const [disclosure, setDisclosure] = useState<BlogDisclosure | null>(initialValues?.disclosure ?? null);
+  const [sources,   setSources]   = useState<string[]>(initialValues?.sources ?? []);
   const [cover,     setCover]     = useState<CoverImageValue | null>(initialValues?.cover_image ?? null);
   const [status,    setStatus]    = useState<BlogStatus>(initialValues?.status ?? "publish");
 
@@ -145,6 +151,14 @@ export function BlogComposer({
         ? disclosure
         : null;
 
+    // Sources normalization: drop empty entries before submit. The
+    // server runs the same pass server-side (trim + drop empties +
+    // dedupe + cap) but pre-trimming here keeps the wire payload
+    // tight and avoids round-tripping garbage.
+    const normalizedSources = sources
+      .map((s) => s.trim())
+      .filter((s) => s !== "");
+
     try {
       if (editingPostId !== undefined) {
         await updateBlog(editingPostId, {
@@ -155,6 +169,10 @@ export function BlogComposer({
           tags,
           chain_tags:      chainTags,
           disclosure:      normalizedDisclosure,
+          // Always send sources on edit: [] clears, non-empty replaces.
+          // Omitting would mean "unchanged," which would surprise a
+          // writer who explicitly emptied the list.
+          sources:         normalizedSources,
           cover_image_id:  cover?.attachment_id ?? 0,
           status,
         });
@@ -167,6 +185,7 @@ export function BlogComposer({
           tags,
           chain_tags:      chainTags,
           ...(normalizedDisclosure !== null ? { disclosure: normalizedDisclosure } : {}),
+          ...(normalizedSources.length > 0 ? { sources: normalizedSources } : {}),
           ...(cover !== null ? { cover_image_id: cover.attachment_id } : {}),
           status,
         });
@@ -178,6 +197,14 @@ export function BlogComposer({
       } catch {
         /* silent */
       }
+
+      // Invalidate the blog-tab list so VIEW reflects the create/edit
+      // without a hard reload. `router.refresh()` re-runs server
+      // components but doesn't reach React Query's client cache —
+      // useUserBlog hangs onto its paginated cache otherwise.
+      void queryClient.invalidateQueries({
+        queryKey: USER_BLOG_QUERY_KEY_ROOT,
+      });
 
       onSubmitSuccess?.();
       router.refresh();
@@ -234,6 +261,7 @@ export function BlogComposer({
       <ChainTagsPicker value={chainTags} onChange={setChainTags} disabled={submitting} />
       <TagsInput value={tags} onChange={setTags} disabled={submitting} />
       <DisclosureBlock value={disclosure} onChange={setDisclosure} disabled={submitting} />
+      <SourcesField value={sources} onChange={setSources} disabled={submitting} />
 
       <div className="flex flex-wrap items-center justify-between gap-3 border-t border-dashed border-cardstock-edge/30 pt-4">
         <StatusToggle value={status} onChange={setStatus} disabled={submitting} />

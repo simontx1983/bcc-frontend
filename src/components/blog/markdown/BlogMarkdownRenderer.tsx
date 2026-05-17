@@ -70,7 +70,6 @@ const DISALLOWED_ELEMENTS = [
 
 export function BlogMarkdownRenderer({
   body,
-  mentions: _mentions,
 }: BlogMarkdownRendererProps) {
   return (
     <div className="bcc-blog-prose">
