@@ -50,4 +50,26 @@ export const serverEnv = Object.freeze({
     }
     return required("NEXTAUTH_SECRET", process.env["NEXTAUTH_SECRET"]);
   },
+  /**
+   * Shared secret forwarded as `X-Bcc-Internal` to the WP
+   * /bcc/v1/internal/* endpoints. Must match `BCC_INTERNAL_CRON_SECRET`
+   * in the WordPress wp-config.php.
+   */
+  get BCC_INTERNAL_CRON_SECRET(): string {
+    if (typeof window !== "undefined") {
+      throw new Error("[bcc-frontend] serverEnv accessed in client code");
+    }
+    return required("BCC_INTERNAL_CRON_SECRET", process.env["BCC_INTERNAL_CRON_SECRET"]);
+  },
+  /**
+   * Vercel-issued cron secret. When set in the project's env, Vercel
+   * Cron attaches `Authorization: Bearer <CRON_SECRET>` to every
+   * invocation; the cron routes verify it before forwarding to WP.
+   */
+  get CRON_SECRET(): string {
+    if (typeof window !== "undefined") {
+      throw new Error("[bcc-frontend] serverEnv accessed in client code");
+    }
+    return required("CRON_SECRET", process.env["CRON_SECRET"]);
+  },
 });
