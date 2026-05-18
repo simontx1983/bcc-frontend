@@ -156,7 +156,8 @@ export function useCreateCommentMutation(
       });
 
       bumpFeedCommentCount(queryClient, req.feed_id, +1);
-      return { prevData, optimisticId, ...options.onMutate?.(req, undefined as never) };
+      const userContext = (await options.onMutate?.(req, undefined as never)) ?? {};
+      return { prevData, optimisticId, ...userContext };
     },
 
     onError: (_err, req, context) => {
@@ -221,7 +222,8 @@ export function useDeleteCommentMutation(
       });
 
       bumpFeedCommentCount(queryClient, params.feedId, -1);
-      return { prevData, ...options.onMutate?.(params, undefined as never) };
+      const userContext = (await options.onMutate?.(params, undefined as never)) ?? {};
+      return { prevData, ...userContext };
     },
 
     onError: (_err, params, context) => {

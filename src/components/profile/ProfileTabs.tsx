@@ -27,7 +27,7 @@
 import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 
-import type { MemberLiving, MemberProfile, MemberProgression, MemberTabCount } from "@/lib/api/types";
+import type { MeReliabilityResponse, MemberLiving, MemberProfile, MemberProgression, MemberTabCount } from "@/lib/api/types";
 
 import { ActivityPanel } from "./panels/ActivityPanel";
 import { BackingPanel } from "./panels/BackingPanel";
@@ -174,7 +174,7 @@ export interface ProfileTabsProps {
    * via getMeReliability when isOwner, undefined otherwise. The
    * sub-tab falls back to a soft "unavailable" state when missing.
    */
-  reliability?: import("@/lib/api/types").MeReliabilityResponse | undefined;
+  reliability?: MeReliabilityResponse | undefined;
   /**
    * Viewer signed-in flag — drives the Blog panel CREATE sub-tab
    * gating (anonymous vs signed-in-but-not-owner vs owner).

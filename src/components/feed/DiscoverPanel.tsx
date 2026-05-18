@@ -150,7 +150,9 @@ function DiscoverPanelImpl({ enabled }: DiscoverPanelProps) {
               */}
               <button
                 type="button"
-                onClick={() => query.refetch()}
+                onClick={() => {
+                  void query.refetch();
+                }}
                 className="bcc-mono text-[10px] tracking-[0.18em] text-blueprint hover:underline"
               >
                 Refresh the floor →

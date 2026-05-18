@@ -25,7 +25,7 @@ import { useState } from "react";
 import { MY_WALLETS_QUERY_KEY, useMyWallets, useUnlinkWallet } from "@/hooks/useWallets";
 import { getWalletNonce, linkWallet } from "@/lib/api/auth-endpoints";
 import { humanizeCode } from "@/lib/api/errors";
-import { BccApiError, type LinkedWallet } from "@/lib/api/types";
+import type { LinkedWallet } from "@/lib/api/types";
 import { formatShortDate } from "@/lib/format";
 import {
   findWalletChain,

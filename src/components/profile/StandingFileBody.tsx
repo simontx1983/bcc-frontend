@@ -20,7 +20,7 @@ import type { Route } from "next";
 import Link from "next/link";
 
 import { RankChip } from "@/components/profile/RankChip";
-import type { MemberProfile, MemberProgression } from "@/lib/api/types";
+import type { CardTier, MemberProfile, MemberProgression } from "@/lib/api/types";
 
 // Threshold mirrors QuestValidator::COMPLETE_PROFILE_THRESHOLD (PHP).
 // Same number both sides — if you tune one, tune both.
@@ -116,7 +116,7 @@ function CurrentGradeBlock({
   rankLabel,
   trustScore,
 }: {
-  cardTier: import("@/lib/api/types").CardTier;
+  cardTier: CardTier;
   tierLabel: string | null;
   rankLabel: string;
   trustScore: number;

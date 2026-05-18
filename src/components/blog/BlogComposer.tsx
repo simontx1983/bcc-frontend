@@ -216,7 +216,13 @@ export function BlogComposer({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-5" aria-label="Compose a blog post">
+    <form
+      onSubmit={(e) => {
+        void handleSubmit(e);
+      }}
+      className="flex flex-col gap-5"
+      aria-label="Compose a blog post"
+    >
       <CategoryPicker value={category} onChange={setCategory} disabled={submitting} />
       <TitleInput value={title} onChange={setTitle} disabled={submitting} />
       <CoverImageUpload value={cover} onChange={setCover} disabled={submitting} />

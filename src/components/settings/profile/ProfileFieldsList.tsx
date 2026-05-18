@@ -74,7 +74,7 @@ export function ProfileFieldsList() {
   if (data === undefined || data.fields.length === 0) {
     return (
       <p className="bcc-mono py-4 text-[11px] text-cardstock-deep">
-        Your administrator hasn't configured any profile fields yet.
+        Your administrator hasn&apos;t configured any profile fields yet.
       </p>
     );
   }

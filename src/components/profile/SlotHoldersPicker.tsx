@@ -56,8 +56,6 @@
  * @see SLOT_HOLDERS_PICKER_INVARIANTS in docs/trust-attestation-layer.md
  */
 
-import { useState } from "react";
-
 import { humanizeCode } from "@/lib/api/errors";
 import type { BccApiError, SlotHolder } from "@/lib/api/types";
 import { formatRelativeTime } from "@/lib/format";

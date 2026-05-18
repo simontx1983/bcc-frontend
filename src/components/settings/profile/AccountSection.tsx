@@ -86,7 +86,7 @@ function ChangeEmailCard({ currentEmail }: { currentEmail: string }) {
     <section className="bcc-panel p-5">
       <h3 className="bcc-stencil text-lg text-ink">Change email</h3>
       <p className="bcc-mono mt-1 text-[10px] text-ink-soft">
-        We'll need your current password to confirm.
+        We&apos;ll need your current password to confirm.
       </p>
 
       <form
@@ -171,7 +171,7 @@ function ChangePasswordCard() {
     <section className="bcc-panel p-5">
       <h3 className="bcc-stencil text-lg text-ink">Change password</h3>
       <p className="bcc-mono mt-1 text-[10px] text-ink-soft">
-        At least 10 characters. We'll re-establish your session afterwards.
+        At least 10 characters. We&apos;ll re-establish your session afterwards.
       </p>
 
       <form
@@ -229,7 +229,7 @@ function ChangePasswordCard() {
           </p>
         )}
         {confirmPassword !== "" && !matches && (
-          <p className="bcc-mono text-[10px] text-safety">Passwords don't match.</p>
+          <p className="bcc-mono text-[10px] text-safety">Passwords don&apos;t match.</p>
         )}
 
         <SaveRow
@@ -276,7 +276,7 @@ function DeleteAccountCard() {
         <h3 className="bcc-stencil text-lg text-safety">Delete account</h3>
         <p className="bcc-mono mt-1 text-[10px] text-ink-soft">
           Permanent. Most of your data is removed; some references in
-          others' inboxes and friend lists may persist.
+          others&apos; inboxes and friend lists may persist.
         </p>
         <button
           type="button"

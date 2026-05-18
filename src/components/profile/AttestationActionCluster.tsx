@@ -503,6 +503,27 @@ function ActionButton({
   onClick?: (() => void) | undefined;
   isPending: boolean;
 }) {
+  // Cast confirmation flash — when isCast flips from false → true the
+  // button briefly pulses phosphor. The label flip alone is a quiet
+  // change; the pulse gives the cast moment a confirmation beat so the
+  // user feels "yes, that landed." Respects prefers-reduced-motion via
+  // the global motion-gate in globals.css.
+  //
+  // Hooks run before the §N7 structural-deny early return so React's
+  // rules-of-hooks ordering invariant holds across renders.
+  const prevIsCast = useRef(isCast);
+  const [flashing, setFlashing] = useState(false);
+  useEffect(() => {
+    if (!prevIsCast.current && isCast) {
+      setFlashing(true);
+      const t = window.setTimeout(() => setFlashing(false), 600);
+      prevIsCast.current = isCast;
+      return () => window.clearTimeout(t);
+    }
+    prevIsCast.current = isCast;
+    return undefined;
+  }, [isCast]);
+
   // §N7 structural-deny: allowed=false AND unlock_hint=null →
   // hidden, not rendered as disabled. Covers self-attest etc.
   const isStructuralDeny =
@@ -529,24 +550,6 @@ function ActionButton({
   // re-suggest what they just did) or when the button is disabled.
   const showPrimaryNudge =
     tone === "positive" && isEnabled && !isCast;
-
-  // Cast confirmation flash — when isCast flips from false → true the
-  // button briefly pulses phosphor. The label flip alone is a quiet
-  // change; the pulse gives the cast moment a confirmation beat so the
-  // user feels "yes, that landed." Respects prefers-reduced-motion via
-  // the global motion-gate in globals.css.
-  const prevIsCast = useRef(isCast);
-  const [flashing, setFlashing] = useState(false);
-  useEffect(() => {
-    if (!prevIsCast.current && isCast) {
-      setFlashing(true);
-      const t = window.setTimeout(() => setFlashing(false), 600);
-      prevIsCast.current = isCast;
-      return () => window.clearTimeout(t);
-    }
-    prevIsCast.current = isCast;
-    return undefined;
-  }, [isCast]);
 
   const flashClass = flashing
     ? "motion-safe:animate-pulse motion-safe:[animation-duration:600ms]"
