@@ -7,6 +7,7 @@ import { useState, type ReactNode } from "react";
 
 import { EligibleCommunitiesModal } from "@/components/auth/EligibleCommunitiesModal";
 import { FingerprintReporter } from "@/components/system/FingerprintReporter";
+import { BadgesProvider } from "@/hooks/useBadges";
 
 /**
  * Client-side providers — wrap every page.
@@ -45,10 +46,12 @@ export function Providers({ children }: { children: ReactNode }) {
   return (
     <SessionProvider>
       <QueryClientProvider client={queryClient}>
-        {children}
-        <FingerprintReporter />
-        <EligibleCommunitiesModal />
-        <ReactQueryDevtools initialIsOpen={false} />
+        <BadgesProvider>
+          {children}
+          <FingerprintReporter />
+          <EligibleCommunitiesModal />
+          <ReactQueryDevtools initialIsOpen={false} />
+        </BadgesProvider>
       </QueryClientProvider>
     </SessionProvider>
   );

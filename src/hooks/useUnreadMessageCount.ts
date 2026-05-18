@@ -1,85 +1,52 @@
 "use client";
 
 /**
- * useUnreadMessageCount — GET /me/messages/unread-count (§4.19).
+ * useUnreadMessageCount — thin shim over `useBadges`.
  *
- * Powers the global header DM badge. Adaptive polling that mirrors
- * PeepSo's `peepsomessages.js` cadence:
+ * Before the polling-coalesce work this owned its own adaptive
+ * polling against /me/messages/unread-count. The polling now lives
+ * in {@link BadgesProvider} which fires one /me/badges request and
+ * serves both this hook and the bell-badge hook from the same query.
+ * The cadence + auth gating moved with it (see useBadges.ts); this
+ * hook just selects its slice of the payload and returns the same
+ * shape callers used before so MessagesBadge.tsx stays unchanged.
  *
- *   - Visible tab + count just changed   → 5s
- *   - Visible tab + steady state         → multiply by 1.5 each cycle,
- *                                            cap at 30s (so a quiet
- *                                            inbox stops spamming
- *                                            after ~5 cycles)
- *   - Hidden tab                          → 30s (long-poll equivalent)
- *
- * `enabled` is the parent-supplied auth signal — anonymous viewers
- * never fire this query (matches `useUnreadCount` notification badge).
+ * Returns `{ count: 0 }` while the first /me/badges fetch is in
+ * flight (or for anonymous viewers — the Provider never fires the
+ * query then). That matches the previous "no data yet" UX where the
+ * badge was simply hidden until the first response landed.
  */
 
-import { useRef } from "react";
-import { useQuery, type Query } from "@tanstack/react-query";
-
-import { getUnreadMessageCount } from "@/lib/api/messages-endpoints";
+import { useBadges } from "@/hooks/useBadges";
 import type { BccApiError, UnreadMessageCountResponse } from "@/lib/api/types";
-
-const POLL_MIN_MS = 5_000;
-const POLL_MAX_MS = 30_000;
-const POLL_BACKOFF_MULTIPLIER = 1.5;
 
 export const UNREAD_MESSAGE_COUNT_QUERY_KEY = ["messages", "unread-count"] as const;
 
 export interface UseUnreadMessageCountOptions {
-  /** Pass false for anonymous viewers; the query short-circuits without firing. */
-  enabled: boolean;
+  /**
+   * Retained for source-compat with the previous hook signature.
+   * Auth gating is now centralised in `BadgesProvider` (it reads
+   * `useSession()`), so this flag is ignored at runtime — callers
+   * can drop it on their next pass through the file.
+   */
+  enabled?: boolean;
 }
 
-export function useUnreadMessageCount({ enabled }: UseUnreadMessageCountOptions) {
-  // Track the prior count + the current adaptive interval. Refs keep
-  // the React Query callback referentially stable; updating them
-  // doesn't re-run the hook.
-  const priorCount = useRef<number | null>(null);
-  const currentInterval = useRef<number>(POLL_MIN_MS);
+export interface UseUnreadMessageCountResult {
+  data: UnreadMessageCountResponse | undefined;
+  isLoading: boolean;
+  error: BccApiError | null;
+}
 
-  return useQuery<UnreadMessageCountResponse, BccApiError>({
-    queryKey: UNREAD_MESSAGE_COUNT_QUERY_KEY,
-    queryFn: ({ signal }) => getUnreadMessageCount(signal),
-    enabled,
-    staleTime: POLL_MIN_MS / 2,
-    refetchOnWindowFocus: true,
-    refetchIntervalInBackground: false,
-    refetchInterval: (query: Query<UnreadMessageCountResponse, BccApiError>) => {
-      if (!enabled) return false;
+export function useUnreadMessageCount(
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- kept for source-compat with the legacy hook signature; auth gating moved into BadgesProvider
+  _options: UseUnreadMessageCountOptions = {},
+): UseUnreadMessageCountResult {
+  const { data, isLoading, error } = useBadges();
 
-      const isVisible =
-        typeof document !== "undefined" &&
-        document.visibilityState === "visible";
-      if (!isVisible) {
-        // Hidden tab — single-shot long-poll cadence.
-        currentInterval.current = POLL_MAX_MS;
-        return POLL_MAX_MS;
-      }
-
-      const data = query.state.data;
-      const count = data ? data.count : null;
-      if (count === null) {
-        currentInterval.current = POLL_MIN_MS;
-        return POLL_MIN_MS;
-      }
-
-      // Count changed (either side of zero) → reset to MIN. Otherwise
-      // back off geometrically up to MAX.
-      if (priorCount.current !== count) {
-        priorCount.current = count;
-        currentInterval.current = POLL_MIN_MS;
-        return POLL_MIN_MS;
-      }
-      const next = Math.min(
-        Math.round(currentInterval.current * POLL_BACKOFF_MULTIPLIER),
-        POLL_MAX_MS,
-      );
-      currentInterval.current = next;
-      return next;
-    },
-  });
+  return {
+    data: data === undefined ? undefined : { count: data.messages_unread },
+    isLoading,
+    error,
+  };
 }

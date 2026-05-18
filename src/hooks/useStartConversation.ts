@@ -20,8 +20,8 @@ import type {
   SendMessageResponse,
   StartConversationRequest,
 } from "@/lib/api/types";
+import { BADGES_QUERY_KEY_ROOT } from "@/hooks/useBadges";
 import { CONVERSATIONS_QUERY_KEY_ROOT } from "@/hooks/useConversations";
-import { UNREAD_MESSAGE_COUNT_QUERY_KEY } from "@/hooks/useUnreadMessageCount";
 
 export function useStartConversationMutation(
   options: Omit<
@@ -36,7 +36,10 @@ export function useStartConversationMutation(
     ...options,
     onSuccess: (...args) => {
       void queryClient.invalidateQueries({ queryKey: CONVERSATIONS_QUERY_KEY_ROOT });
-      void queryClient.invalidateQueries({ queryKey: UNREAD_MESSAGE_COUNT_QUERY_KEY });
+      // Refresh badges immediately so the messages-unread badge picks
+      // up the new conversation. Server-side bump already ran inside
+      // MessagesService::sendMessage.
+      void queryClient.invalidateQueries({ queryKey: BADGES_QUERY_KEY_ROOT });
       return options.onSuccess?.(...args);
     },
   });

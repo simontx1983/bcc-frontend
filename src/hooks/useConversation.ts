@@ -5,17 +5,30 @@
  *
  * Server marks every unread message in the conversation as viewed
  * as a side-effect of this read, so opening the thread also clears
- * the unread badge automatically. We refetch on focus + every 5s
- * while the tab is visible so peer messages surface live.
+ * the unread badge automatically.
+ *
+ * Live-update mechanism (post polling-coalesce):
+ *   The hook no longer polls every 5s. Instead it registers the
+ *   conversation id with `useOpenThreadHint`, which folds a
+ *   per-thread `latest_message_id` hint into the shared /me/badges
+ *   payload. When that id advances the hint hook invalidates this
+ *   query and React Query refetches — same UX, ~13× fewer requests.
+ *   `refetchOnWindowFocus: true` is the safety net for the rare case
+ *   where a tab woke up before the next /me/badges tick.
+ *
+ *   To preserve this property: do NOT add a `refetchInterval` here.
+ *   If you need faster-than-8s latency, lower the badges poll cadence
+ *   in useBadges.tsx instead — that change moves every consumer at
+ *   once.
  */
 
 import { useQuery } from "@tanstack/react-query";
 
+import { useOpenThreadHint } from "@/hooks/useBadges";
 import { getConversation } from "@/lib/api/messages-endpoints";
 import type { BccApiError, ConversationThreadResponse } from "@/lib/api/types";
 
 const DEFAULT_PER_PAGE = 30;
-const POLL_VISIBLE_MS = 5_000;
 
 export const CONVERSATION_QUERY_KEY_ROOT = ["conversation"] as const;
 
@@ -34,6 +47,12 @@ export function useConversation(
   const callerEnabled = options.enabled ?? true;
   const enabled = callerEnabled && id !== null && id > 0;
 
+  // Register the thread with the shared badges poll so the server
+  // returns a latest_message_id hint. The hook handles invalidation
+  // of this query when the hint advances — no need to wire anything
+  // additional here.
+  useOpenThreadHint(enabled ? id : null);
+
   return useQuery<ConversationThreadResponse, BccApiError>({
     queryKey: [...CONVERSATION_QUERY_KEY_ROOT, id ?? 0, page, perPage],
     queryFn: ({ signal }) => {
@@ -42,8 +61,6 @@ export function useConversation(
     },
     enabled,
     staleTime: 2_000,
-    refetchInterval: enabled ? POLL_VISIBLE_MS : false,
-    refetchIntervalInBackground: false,
     refetchOnWindowFocus: true,
   });
 }

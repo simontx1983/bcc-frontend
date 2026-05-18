@@ -4732,6 +4732,31 @@ export interface UnreadMessageCountResponse {
 }
 
 // ────────────────────────────────────────────────────────────────────────
+// §4.31 /me/badges — coalesced polling payload.
+//
+// One cached endpoint replaces /me/messages/unread-count +
+// /me/notifications/unread-count + the per-thread 5s conversation
+// poll. Server-side cached 15s with generation-counter invalidation
+// (bumped from NotificationDispatcher, NotificationsEndpoint, and
+// MessagesService write paths). See useBadges.ts for the cadence.
+// ────────────────────────────────────────────────────────────────────────
+
+export interface BadgesOpenThreadHint {
+  latest_message_id: number;
+  /** ISO 8601 UTC with `Z` suffix (§1.7). */
+  posted_at: string;
+}
+
+export interface BadgesResponse {
+  messages_unread: number;
+  notifications_unread: number;
+  /** Map of open conversation root id → latest-message hint. Empty when caller passes no open_threads param. */
+  open_thread_hints: Record<string, BadgesOpenThreadHint>;
+  /** Server timestamp (ISO 8601 UTC). Useful for staleness debugging. */
+  polled_at: string;
+}
+
+// ────────────────────────────────────────────────────────────────────────
 // Sprint 3 — Cold-start bridge surface (§F5 / GET /feed/cold-start).
 //
 // Three blocks for the home-feed empty state. CIVIC MAP, NOT a
