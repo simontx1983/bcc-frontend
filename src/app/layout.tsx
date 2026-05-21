@@ -87,11 +87,6 @@ export default async function RootLayout({
   const session = await getServerSession(authOptions);
   const viewerHandle = session?.user.handle ?? null;
 
-  // §I1 chrome signal — "Member in Good Standing" boolean from JWT.
-  // Kept in layout so CelebrationGate and any future server-side
-  // chrome can reference it without a client fetch.
-  const viewerInGoodStanding = session?.user.inGoodStanding ?? false;
-
   const fontVars = [
     stencil.variable,
     fraunces.variable,
