@@ -13,6 +13,7 @@
  */
 
 import { useEffect, useRef, useState } from "react";
+import type { Route } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -21,6 +22,9 @@ import { usePathname, useRouter } from "next/navigation";
 
 type Theme  = "light" | "dark";
 type Accent = "primary" | "secondary";
+
+/** Operator shift status surfaced in HeaderRail / MobileMenuSheet. */
+export type ShiftStatus = "on_duty" | "quiet" | "off";
 
 // ── Theme helpers ─────────────────────────────────────────────────────────────
 
@@ -47,8 +51,8 @@ function applyTheme(theme: Theme, accent: Accent) {
 // ── Shared modal dismiss hook ─────────────────────────────────────────────────
 
 function useModalDismiss(
-  modalRef: React.RefObject<HTMLDivElement>,
-  anchorRef: React.RefObject<HTMLButtonElement>,
+  modalRef: React.RefObject<HTMLDivElement | null>,
+  anchorRef: React.RefObject<HTMLButtonElement | null>,
   onClose: () => void,
 ) {
   useEffect(() => {
@@ -157,7 +161,7 @@ interface ThemeModalProps {
   onThemeChange: (t: Theme) => void;
   onAccentChange: (a: Accent) => void;
   onClose: () => void;
-  anchorRef: React.RefObject<HTMLButtonElement>;
+  anchorRef: React.RefObject<HTMLButtonElement | null>;
 }
 
 function ThemeModal({ theme, accent, onThemeChange, onAccentChange, onClose, anchorRef }: ThemeModalProps) {
@@ -230,7 +234,7 @@ function ThemeModal({ theme, accent, onThemeChange, onAccentChange, onClose, anc
 
 interface MessagesModalProps {
   onClose: () => void;
-  anchorRef: React.RefObject<HTMLButtonElement>;
+  anchorRef: React.RefObject<HTMLButtonElement | null>;
 }
 
 function MessagesModal({ onClose, anchorRef }: MessagesModalProps) {
@@ -262,7 +266,7 @@ function MessagesModal({ onClose, anchorRef }: MessagesModalProps) {
 
 interface NotifModalProps {
   onClose: () => void;
-  anchorRef: React.RefObject<HTMLButtonElement>;
+  anchorRef: React.RefObject<HTMLButtonElement | null>;
 }
 
 function NotifModal({ onClose, anchorRef }: NotifModalProps) {
@@ -273,7 +277,7 @@ function NotifModal({ onClose, anchorRef }: NotifModalProps) {
     <div ref={modalRef} role="dialog" aria-label="Notifications" className="bcc-header-modal" style={modalShellStyle}>
       <div style={modalHeadStyle}>
         <span style={modalTitleStyle}>Notifications</span>
-        <Link href="/notifications" style={modalSeeAllStyle} onClick={onClose}>
+        <Link href={"/notifications" as Route} style={modalSeeAllStyle} onClick={onClose}>
           See all
         </Link>
       </div>
@@ -302,7 +306,7 @@ const AVATAR_MENU = [
 interface AvatarDropdownProps {
   handle: string;
   onClose: () => void;
-  anchorRef: React.RefObject<HTMLButtonElement>;
+  anchorRef: React.RefObject<HTMLButtonElement | null>;
 }
 
 function AvatarDropdown({ handle, onClose, anchorRef }: AvatarDropdownProps) {
@@ -339,7 +343,7 @@ function AvatarDropdown({ handle, onClose, anchorRef }: AvatarDropdownProps) {
         return (
           <Link
             key={item.label}
-            href={href}
+            href={href as Route}
             role="menuitem"
             onClick={onClose}
             style={{

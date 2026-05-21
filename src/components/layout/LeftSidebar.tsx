@@ -1,5 +1,6 @@
 "use client";
 
+import type { Route } from "next";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -101,7 +102,7 @@ export function LeftSidebar({ collapsed, onToggle }: LeftSidebarProps) {
               {QUICK_LINKS.map(item => {
                 const isActive = pathname.startsWith(item.href);
                 return (
-                  <Link key={item.href} href={item.href}
+                  <Link key={item.href} href={item.href as Route}
                     className={`bcc-nav-item${isActive ? " active" : ""}`}
                     aria-current={isActive ? "page" : undefined}
                     style={{ fontSize: 12 }}
