@@ -1,29 +1,40 @@
 import type { Metadata, Viewport } from "next";
-import { Big_Shoulders_Stencil, Fraunces, JetBrains_Mono, Homemade_Apple } from "next/font/google";
+import {
+  Big_Shoulders_Stencil,
+  Fraunces,
+  JetBrains_Mono,
+  Homemade_Apple,
+} from "next/font/google";
 import { getServerSession } from "next-auth";
 
-import { CelebrationGate } from "@/components/celebration/CelebrationGate";
-import { SiteFooter } from "@/components/layout/SiteFooter";
+import { AppShell } from "@/components/layout/AppShell";
 import { SiteHeader } from "@/components/layout/SiteHeader";
+import { CelebrationGate } from "@/components/celebration/CelebrationGate";
 import { authOptions } from "@/lib/auth";
 
 import { Providers } from "./providers";
 import "./globals.css";
 
 /**
- * Root layout — sets up the four BCC fonts via next/font/google,
- * wraps everything in client-side providers (React Query +
- * NextAuth SessionProvider), and renders a single <main> slot.
+ * Root layout — redesign v2.
  *
- * Font choice rationale:
- *   - Big Shoulders Stencil → caps-lock headlines, numerals,
- *     stencil aesthetic for tier labels and stats.
- *   - Fraunces → editorial body type. Magazine feel for profile copy.
- *   - JetBrains Mono → caption rails, technical labels, on-chain data.
- *   - Homemade Apple → handwritten flourishes (signatures, margin notes).
+ * Changes from v1:
+ *   - SiteFooter removed (links moved to LeftSidebar quick-links section)
+ *   - AppShell added: wraps {children} in the 100vh three-column shell
+ *     (LeftSidebar + center column + RightSidebar)
+ *   - <html> gets data-theme="dark" and data-accent="primary" as defaults;
+ *     the SiteHeader theme switcher overrides these client-side from
+ *     localStorage on first render.
+ *   - viewport themeColor updated to match dark bg token (#0d1117)
  *
- * All four are loaded via next/font so they're inlined in the build
- * (no FOIT, no external request to fonts.googleapis.com at runtime).
+ * Font choice rationale (unchanged from v1):
+ *   - Big Shoulders Stencil → caps-lock headlines, tier labels, stats
+ *   - Fraunces → editorial body type, profile copy
+ *   - JetBrains Mono → caption rails, technical labels, on-chain data
+ *   - Homemade Apple → handwritten flourishes, signatures
+ *
+ * All four loaded via next/font — no FOIT, no external fonts.googleapis.com
+ * request at runtime.
  */
 
 const stencil = Big_Shoulders_Stencil({
@@ -37,7 +48,7 @@ const fraunces = Fraunces({
   subsets: ["latin"],
   weight: ["400", "500"],
   style: ["normal", "italic"],
-  variable: "--font-fraunces",
+  variable: "--font-serif",
   display: "swap",
 });
 
@@ -61,7 +72,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#14110d",
+  themeColor: "#0d1117",
   width: "device-width",
   initialScale: 1,
 };
@@ -75,34 +86,44 @@ export default async function RootLayout({
   // on first paint — no auth flicker, no client-side fetch round-trip.
   const session = await getServerSession(authOptions);
   const viewerHandle = session?.user.handle ?? null;
-  // §I1 chrome signal — bounded-staleness "Member in Good Standing"
-  // boolean. Carried through the NextAuth JWT from the login response
-  // (see /auth/login + /auth/wallet-login + signup/walletSignup
-  // responses on the bcc-trust AuthEndpoint). Drives the SiteFooter
-  // contextual stamp. Defaults false when anon or when the session
-  // pre-dates the field rollout — failsafe direction (stamp hidden).
+
+  // §I1 chrome signal — "Member in Good Standing" boolean from JWT.
+  // Kept in layout so CelebrationGate and any future server-side
+  // chrome can reference it without a client fetch.
   const viewerInGoodStanding = session?.user.inGoodStanding ?? false;
 
-  const fontVars = `${stencil.variable} ${fraunces.variable} ${mono.variable} ${script.variable}`;
+  const fontVars = [
+    stencil.variable,
+    fraunces.variable,
+    mono.variable,
+    script.variable,
+  ].join(" ");
+
   return (
-    <html lang="en" className={fontVars}>
+    <html
+      lang="en"
+      className={fontVars}
+      // Default theme/accent — SiteHeader overrides these from
+      // localStorage on mount so there's no flash of wrong theme.
+      data-theme="dark"
+      data-accent="primary"
+    >
       <body>
         <Providers>
+          {/* Fixed glass header — outside AppShell so it stays above
+              the shell's overflow:hidden container. */}
           <SiteHeader viewerHandle={viewerHandle} />
-          {children}
-          {/* SiteFooter receives viewerHandle so the 3-column index can
-              switch its third column between "Account" (authed) and
-              "Get Started" (anon), and so the anon-only acquisition
-              strip can mount. viewerInGoodStanding carries the §I1
-              good-standing signal from the NextAuth JWT (resolved fresh
-              at login server-side); drives the contextual stamp. */}
-          <SiteFooter
-            viewerHandle={viewerHandle}
-            viewerInGoodStanding={viewerInGoodStanding}
-          />
+
+          {/* App shell — 100vh, three-column, each column scrolls
+              independently. Pages render into the center column. */}
+          <AppShell>
+            {children}
+          </AppShell>
+
           {/* §O1.2 Heavy celebration delivery — mounts globally so a
               rank-up landing on any route surfaces wherever the user is.
-              Self-gates on session status; renders nothing for anon. */}
+              Self-gates on session status; renders nothing for anon.
+              viewerInGoodStanding kept for future chrome signals. */}
           <CelebrationGate />
         </Providers>
       </body>
