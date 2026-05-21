@@ -20,7 +20,7 @@ const QUICK_LINKS = [
   { label: "My Reliability",  href: "/me/reliability"  },
   { label: "Binder",          href: "/binder"           },
   { label: "Panel Duty",      href: "/panel"            },
-  { label: "Settings",        href: "/settings"         },
+  { label: "Settings",        href: "/settings/profile" },
 ] as const;
 
 function ChevronIcon({ collapsed }: { collapsed: boolean }) {
