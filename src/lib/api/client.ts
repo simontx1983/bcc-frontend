@@ -67,12 +67,28 @@ export async function bccFetch<T>(
     headers["Authorization"] = `Bearer ${token}`;
   }
 
-  // `same-origin` would block cross-origin cookies; `include` lets the
-  // WP auth cookie flow when same-origin AND respects CORS allowlist.
+  // `omit` is intentional. The headless cross-origin chain (Vercel
+  // frontend → Hostinger WP backend) is Bearer-only — sending WP
+  // cookies on these requests adds nothing useful and breaks auth in
+  // multiple ways on LiteSpeed:
+  //   1. LiteSpeed cache keys vary on Cookie header, so cookie-bearing
+  //      requests land in a different cache bucket than cookie-less
+  //      ones (Authorization is not in the cache key).
+  //   2. With wordpress_logged_in_* cookies present from a prior
+  //      wp-admin visit on the WP origin, WordPress's cookie-auth
+  //      filter fires before BearerAuth; if the cookie is stale or
+  //      from a different user, the result is a silent 401 with no
+  //      indication that BearerAuth was even consulted.
+  //   3. Combined Cookie + Authorization headers can exceed LiteSpeed's
+  //      HTTP/2 per-request header budget, in which case Authorization
+  //      is the one that gets dropped (empirically observed 2026-05-21).
+  // For same-origin deployments (frontend and WP on the same host),
+  // 'omit' still works because BCC is JWT-auth, not cookie-auth — WP's
+  // session cookies aren't part of the BCC contract.
   const init: RequestInit = {
     method,
     headers,
-    credentials: "include",
+    credentials: "omit",
   };
   if (body !== undefined) {
     init.body = isFormData ? (body as FormData) : JSON.stringify(body);
