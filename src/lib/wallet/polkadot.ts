@@ -129,6 +129,25 @@ export interface PolkadotConnection {
 const DAPP_NAME = "Blue Collar Crypto";
 
 /**
+ * Pinned injected-wallet reference from the most recent successful
+ * connectPolkadot() call, keyed by source. signPolkadotChallenge
+ * reuses this instead of re-resolving via `window.injectedWeb3[source]`
+ * — because the Substrate-family injector registry is a Record that
+ * any extension can mutate (Backpack, Namada, etc. routinely
+ * override or wrap entries even when the user doesn't intend them to
+ * handle the request). Pinning at connect time guarantees the second
+ * signature in the wallet-signup flow goes to the same provider that
+ * issued the address, regardless of what window.injectedWeb3 looks
+ * like at sign time.
+ *
+ * Module-level state is fine here: scope is one browser tab; cache
+ * is most-recent-wins (multiple concurrent connect calls just update
+ * the entry); on page navigation the module unloads with everything
+ * else.
+ */
+const pinnedInjected: Map<string, PolkadotInjected> = new Map();
+
+/**
  * Discover an injected Substrate wallet, request access, and return
  * the first account. Throws `PolkadotUnavailableError` when no
  * provider is present and `PolkadotUserRejectedError` when the user
@@ -173,6 +192,10 @@ export async function connectPolkadot(): Promise<PolkadotConnection> {
     throw new PolkadotNoAccountsError();
   }
 
+  // Pin the injected reference so signPolkadotChallenge can reuse it
+  // without going through window.injectedWeb3 again.
+  pinnedInjected.set(sourceKey, injected);
+
   return { address: first.address, source: sourceKey };
 }
 
@@ -182,32 +205,45 @@ export async function connectPolkadot(): Promise<PolkadotConnection> {
  * `PolkadotSignatureVerifier` (via the Next.js verify route)
  * accepts.
  *
+ * Reuses the pinned `injected` reference from connectPolkadot() so
+ * other extensions overwriting `window.injectedWeb3[source]` between
+ * connect and sign cannot redirect the signing request to a different
+ * wallet (which would produce a signature for a different pubkey and
+ * fail server-side verification). On cache miss (page reload between
+ * connect and sign, or sign called without a prior connect) we fall
+ * back to the original re-resolution path.
+ *
  * Caller is responsible for ensuring `connectPolkadot()` ran first
- * AND for passing the same source the connect call returned. We
- * resolve the signer via the source key so a wallet switch mid-
- * flow (user disables Polkadot.js, enables Talisman) is detected
- * cleanly as "unavailable" rather than silently signing with the
- * wrong wallet.
+ * AND for passing the same source the connect call returned.
  */
 export async function signPolkadotChallenge(
   source: string,
   signerAddress: string,
   message: string,
 ): Promise<{ signature: string }> {
-  const injectors = typeof window !== "undefined" ? window.injectedWeb3 : undefined;
-  if (injectors === undefined) {
-    throw new PolkadotUnavailableError();
-  }
-  const injector = injectors[source];
-  if (injector === undefined) {
-    throw new PolkadotUnavailableError();
-  }
-
   let injected: PolkadotInjected;
-  try {
-    injected = await injector.enable(DAPP_NAME);
-  } catch (err) {
-    throw normalizePolkadotError(err);
+  const pinned = pinnedInjected.get(source);
+  if (pinned !== undefined) {
+    injected = pinned;
+  } else {
+    // Fallback: cache miss. Resolve via window.injectedWeb3 as the
+    // adapter originally did. Reaching this branch means either the
+    // page reloaded between connect and sign or the caller violated
+    // the "connect first" contract.
+    const injectors = typeof window !== "undefined" ? window.injectedWeb3 : undefined;
+    if (injectors === undefined) {
+      throw new PolkadotUnavailableError();
+    }
+    const injector = injectors[source];
+    if (injector === undefined) {
+      throw new PolkadotUnavailableError();
+    }
+    try {
+      injected = await injector.enable(DAPP_NAME);
+    } catch (err) {
+      throw normalizePolkadotError(err);
+    }
+    pinnedInjected.set(source, injected);
   }
 
   try {
