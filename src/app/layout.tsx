@@ -6,6 +6,7 @@ import {
   Homemade_Apple,
 } from "next/font/google";
 import { getServerSession } from "next-auth";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 
 import { AppShell } from "@/components/layout/AppShell";
 import { SiteHeader } from "@/components/layout/SiteHeader";
@@ -120,6 +121,10 @@ export default async function RootLayout({
               Self-gates on session status; renders nothing for anon.
               viewerInGoodStanding kept for future chrome signals. */}
           <CelebrationGate />
+
+          {/* Vercel Speed Insights — tracks Core Web Vitals and
+              performance metrics. */}
+          <SpeedInsights />
         </Providers>
       </body>
     </html>
