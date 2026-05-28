@@ -97,12 +97,12 @@ function ResultsView({ query }: { query: string }) {
 
   const counts = {
     all:
-      (projects.data?.results.length ?? 0) +
-      (users.data?.results.length ?? 0) +
-      (groups.data?.results.length ?? 0),
-    projects: projects.data?.results.length ?? 0,
-    users: users.data?.results.length ?? 0,
-    groups: groups.data?.results.length ?? 0,
+      (projects.data?.results?.length ?? 0) +
+      (users.data?.results?.length ?? 0) +
+      (groups.data?.results?.length ?? 0),
+    projects: projects.data?.results?.length ?? 0,
+    users: users.data?.results?.length ?? 0,
+    groups: groups.data?.results?.length ?? 0,
   };
   const anyLoading = projects.isLoading || users.isLoading || groups.isLoading;
 
