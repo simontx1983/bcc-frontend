@@ -6,6 +6,7 @@ import {
   Homemade_Apple,
 } from "next/font/google";
 import { getServerSession } from "next-auth";
+import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 
 import { AppShell } from "@/components/layout/AppShell";
@@ -126,6 +127,7 @@ export default async function RootLayout({
               performance metrics. */}
           <SpeedInsights />
         </Providers>
+        <Analytics />
       </body>
     </html>
   );
