@@ -395,6 +395,120 @@ async function tryRefresh(currentToken: string): Promise<string | null> {
 // caller of /bcc-trust/v1 appears.
 // =====================================================================
 
+// =====================================================================
+// bcc-search raw-response variant
+// =====================================================================
+// bcc-search endpoints (e.g. /bcc/v1/search/users, /bcc/v1/search/groups,
+// /bcc/v1/search?trending=1) predate the §L5 envelope and return raw
+// shapes like `{ results, meta }` plus legacy WP error bodies of the form
+// `{ code, message, data: { status } }`. Passing those through bccFetch
+// would throw `bcc_invalid_envelope` even on a 200, so this sibling
+// helper exists for that specific surface.
+//
+// Behaviour parity with bccFetchAsClient:
+//   - Same Bearer-attach (token sent so viewer-aware ranking signals
+//     keep working when the user is signed in; the endpoints are public
+//     so anon callers also succeed).
+//   - Same credentials:'omit' (cross-origin chain).
+//   - Same BccApiError contract — code-first, never err.message — so
+//     UI error handling per `project_phase_gamma_complete` doesn't fork.
+//
+// NOT included (deliberately):
+//   - Silent JWT refresh on 401 (bcc-search endpoints are public; a 401
+//     here would mean an unrelated proxy/WAF failure, not an expired
+//     bearer, so retry-then-signOut is the wrong response).
+//   - Envelope unwrap (the whole reason for this helper).
+//
+// If a future bcc-search endpoint adopts the §L5 envelope, migrate its
+// caller back to bccFetchAsClient and shrink this helper's footprint.
+// =====================================================================
+export async function bccSearchFetchAsClient<T>(
+  path: string,
+  options: Omit<RequestOptions, "token" | "body" | "method"> = {}
+): Promise<T> {
+  if (typeof window === "undefined") {
+    throw new Error(
+      "[bcc-frontend] bccSearchFetchAsClient called from a server context. " +
+        "bcc-search endpoints are public; SSR pages can use bccFetch with token:null instead."
+    );
+  }
+
+  const session = await getSession();
+  const token =
+    session !== null &&
+    typeof session.bccToken === "string" &&
+    session.bccToken !== ""
+      ? session.bccToken
+      : null;
+
+  const url = buildUrl(path);
+  const headers: Record<string, string> = {
+    Accept: "application/json",
+    ...options.headers,
+  };
+  if (token !== null) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+
+  const init: RequestInit = {
+    method: "GET",
+    headers,
+    credentials: "omit",
+  };
+  if (options.signal !== undefined) {
+    init.signal = options.signal;
+  }
+
+  const response = await fetch(url, init);
+
+  if (response.status === 204) {
+    return undefined as T;
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = await response.json();
+  } catch {
+    throw new BccApiError(
+      "bcc_invalid_response",
+      `Non-JSON response from ${path} (${response.status})`,
+      response.status,
+      null
+    );
+  }
+
+  if (!response.ok) {
+    // Legacy WP error shape: { code, message, data: { status } }.
+    // Map to BccApiError so UI code branches on `err.code` uniformly.
+    // `responseBody` stays null — the legacy shape isn't an ApiErrorBody
+    // and BccApiError.data wouldn't survive the cast anyway; the
+    // meaningful info already lives in code/message/status above.
+    const legacy = isLegacyWpError(parsed) ? parsed : null;
+    throw new BccApiError(
+      legacy !== null ? legacy.code : "bcc_search_unavailable",
+      legacy !== null
+        ? legacy.message
+        : `bcc-search ${response.status} on ${path}`,
+      response.status,
+      null
+    );
+  }
+
+  return parsed as T;
+}
+
+function isLegacyWpError(
+  value: unknown
+): value is { code: string; message: string; data: { status: number } } {
+  if (typeof value !== "object" || value === null) return false;
+  const v = value as Record<string, unknown>;
+  if (typeof v["code"] !== "string") return false;
+  if (typeof v["message"] !== "string") return false;
+  const data = v["data"];
+  if (typeof data !== "object" || data === null) return false;
+  return typeof (data as Record<string, unknown>)["status"] === "number";
+}
+
 /**
  * Extract the BCC bearer token from a server-fetched NextAuth session.
  *

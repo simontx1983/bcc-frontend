@@ -8,14 +8,22 @@
  * regardless of session state.
  *
  * UX:
- *   - Focus expands the input. Empty / sub-2-char input shows nothing.
+ *   - Focus on an empty input → "Pre-search" surface: most recent
+ *     searches (localStorage) above the current trending list.
  *   - 2+ chars → dropdown of up to 12 results, ranked by bcc-search.
- *   - Each row links to the entity profile (`/v/:slug`, `/p/:slug`,
+ *     Each row links to the entity profile (`/v/:slug`, `/p/:slug`,
  *     `/c/:slug`). Server pre-built the route per §A2.
  *   - Keyboard: ↓/↑ moves focus, Enter activates, Esc closes,
  *     outside-click closes (mirrors the SiteHeader's ViewerMenu).
- *   - The "View all in directory" footer link shuttles the user to
- *     `/directory?q=…` when they want more than the top 12.
+ *   - The footer link shuttles the user to `/search?q=…` (the
+ *     multi-vertical results page) when they want more than the
+ *     auto-complete preview.
+ *
+ * Single-vertical scope (deliberate):
+ *   The dropdown talks only to `/bcc/v1/cards/search` (the §A2 cards
+ *   wrapper). It does NOT fan out to /search/users + /search/groups on
+ *   every keystroke — the multi-vertical UX lives on the /search
+ *   results page so a single keystroke costs one request, not three.
  *
  * Why not server-render the dropdown:
  *   The whole component is interaction state — input value, dropdown
@@ -35,7 +43,14 @@ import {
 } from "react";
 
 import { useGlobalSearch } from "@/hooks/useGlobalSearch";
-import type { SearchSuggestion } from "@/lib/api/types";
+import { useRecentSearches } from "@/hooks/useRecentSearches";
+import { useTrendingSearches } from "@/hooks/useTrendingSearches";
+import type {
+  ProjectSearchResult,
+  SearchSuggestion,
+} from "@/lib/api/types";
+
+const MAX_TRENDING_IN_DROPDOWN = 5;
 
 export function GlobalSearch() {
   const router = useRouter();
@@ -50,6 +65,15 @@ export function GlobalSearch() {
 
   const search = useGlobalSearch(query);
   const items: SearchSuggestion[] = search.data?.items ?? [];
+
+  const recents = useRecentSearches();
+  const trimmed = query.trim();
+  const showPreSearch = open && trimmed.length < 2;
+  const showResults = open && trimmed.length >= 2;
+  // Only fetch trending when we'd actually display it (pre-search surface
+  // is visible AND the input is focused). Avoids a network call for users
+  // who never touch the search bar.
+  const trending = useTrendingSearches({ enabled: showPreSearch });
 
   // Close on outside click + Escape — same primitive as SiteHeader's
   // ViewerMenu. Single effect, scoped on `open` to avoid leaking
@@ -82,6 +106,13 @@ export function GlobalSearch() {
     setActiveIndex(-1);
   }, [items.length, query]);
 
+  const submitFreeText = (q: string) => {
+    const cleaned = q.trim();
+    if (cleaned.length < 2) return;
+    recents.push(cleaned);
+    navigateAndClose(`/search?q=${encodeURIComponent(cleaned)}`);
+  };
+
   const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
     if (event.key === "ArrowDown") {
       event.preventDefault();
@@ -98,20 +129,22 @@ export function GlobalSearch() {
       return;
     }
     if (event.key === "Enter") {
-      // Active suggestion → navigate. No active suggestion + non-empty
-      // query → fall through to the directory with the query pre-set.
+      // Active suggestion → navigate to that entity AND record the
+      // query in recents (the user just used it productively).
       if (activeIndex >= 0 && activeIndex < items.length) {
         event.preventDefault();
         const target = items[activeIndex];
         if (target !== undefined) {
+          if (trimmed.length >= 2) recents.push(trimmed);
           navigateAndClose(target.href);
         }
         return;
       }
-      const trimmed = query.trim();
+      // No active suggestion + non-empty query → fall through to the
+      // /search page with the query pre-set.
       if (trimmed.length >= 2) {
         event.preventDefault();
-        navigateAndClose(`/directory?q=${encodeURIComponent(trimmed)}`);
+        submitFreeText(trimmed);
       }
     }
   };
@@ -124,10 +157,7 @@ export function GlobalSearch() {
     router.push(href as Route);
   };
 
-  // Show the dropdown when focused AND we have something to render
-  // (results in flight, results back, or "no matches" message).
-  const trimmed = query.trim();
-  const showDropdown = open && trimmed.length >= 2;
+  const showDropdown = showPreSearch || showResults;
 
   return (
     <div ref={containerRef} className="relative">
@@ -163,7 +193,23 @@ export function GlobalSearch() {
           className="bcc-panel absolute right-0 top-full z-30 mt-1 flex w-[min(28rem,90vw)] flex-col gap-px overflow-hidden"
           style={{ background: "rgba(15,13,9,0.06)" }}
         >
-          {search.isError ? (
+          {showPreSearch ? (
+            <PreSearchSurface
+              recents={recents.recent}
+              onSelectRecent={(q) => {
+                setQuery(q);
+                inputRef.current?.focus();
+              }}
+              onRemoveRecent={recents.remove}
+              onClearRecents={recents.clear}
+              trending={trending.data?.results ?? []}
+              trendingLoading={trending.isLoading}
+              onSelectTrending={(q) => {
+                recents.push(q);
+                navigateAndClose(`/search?q=${encodeURIComponent(q)}`);
+              }}
+            />
+          ) : search.isError ? (
             <div className="bcc-mono bg-cardstock px-4 py-3 text-[11px] text-ink-soft">
               Search is briefly unavailable. Try again in a moment.
             </div>
@@ -179,7 +225,10 @@ export function GlobalSearch() {
                   item={item}
                   id={`${inputId}-opt-${idx}`}
                   active={idx === activeIndex}
-                  onActivate={() => navigateAndClose(item.href)}
+                  onActivate={() => {
+                    if (trimmed.length >= 2) recents.push(trimmed);
+                    navigateAndClose(item.href);
+                  }}
                   onHover={() => setActiveIndex(idx)}
                 />
               ))}
@@ -189,16 +238,127 @@ export function GlobalSearch() {
           {trimmed.length >= 2 && (
             <button
               type="button"
-              onClick={() =>
-                navigateAndClose(`/directory?q=${encodeURIComponent(trimmed)}`)
-              }
-              className="bcc-mono bg-cardstock px-4 py-2.5 text-left text-[10px] tracking-[0.18em] text-blueprint hover:bg-cardstock-deep"
+              onClick={() => submitFreeText(trimmed)}
+              className="bcc-mono bg-cardstock px-4 py-2.5 text-left text-[10px] tracking-[0.18em] text-blueprint hover:bg-cardstock-deep motion-safe:transition-colors motion-safe:duration-bcc-fast"
             >
-              VIEW ALL IN DIRECTORY →
+              VIEW ALL RESULTS →
             </button>
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// PreSearchSurface — empty-input dropdown content.
+// Two sections: RECENT (localStorage, hidden if none) and TRENDING
+// (top 5 projects from /bcc/v1/search?trending=1).
+// ─────────────────────────────────────────────────────────────────────
+
+interface PreSearchSurfaceProps {
+  recents: string[];
+  onSelectRecent: (q: string) => void;
+  onRemoveRecent: (q: string) => void;
+  onClearRecents: () => void;
+  trending: ProjectSearchResult[];
+  trendingLoading: boolean;
+  onSelectTrending: (q: string) => void;
+}
+
+function PreSearchSurface({
+  recents,
+  onSelectRecent,
+  onRemoveRecent,
+  onClearRecents,
+  trending,
+  trendingLoading,
+  onSelectTrending,
+}: PreSearchSurfaceProps) {
+  const trendingItems = trending.slice(0, MAX_TRENDING_IN_DROPDOWN);
+  return (
+    <>
+      {recents.length > 0 && (
+        <div className="bg-cardstock">
+          <SectionHeader
+            label="RECENT"
+            action={
+              <button
+                type="button"
+                onClick={onClearRecents}
+                className="bcc-mono text-[9px] tracking-[0.18em] text-blueprint hover:underline"
+              >
+                CLEAR
+              </button>
+            }
+          />
+          <ul role="presentation" className="flex flex-col gap-px">
+            {recents.map((q) => (
+              <li key={q} className="flex items-center bg-cardstock">
+                <button
+                  type="button"
+                  onClick={() => onSelectRecent(q)}
+                  className="bcc-stencil flex-1 truncate px-4 py-2 text-left text-sm text-ink hover:bg-cardstock-deep motion-safe:transition-colors motion-safe:duration-bcc-fast"
+                >
+                  {q}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onRemoveRecent(q)}
+                  aria-label={`Remove ${q} from recent searches`}
+                  className="bcc-mono px-3 py-2 text-[10px] text-ink-soft hover:text-safety motion-safe:transition-colors motion-safe:duration-bcc-fast"
+                >
+                  ✕
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      <div className="bg-cardstock">
+        <SectionHeader label="TRENDING" />
+        {trendingLoading ? (
+          <div className="bcc-mono px-4 py-2.5 text-[11px] text-ink-soft">
+            Loading trending…
+          </div>
+        ) : trendingItems.length === 0 ? (
+          <div className="bcc-mono px-4 py-2.5 text-[11px] text-ink-soft">
+            Nothing trending right now.
+          </div>
+        ) : (
+          <ul role="presentation" className="flex flex-col gap-px">
+            {trendingItems.map((row) => (
+              <li key={`trend-${row.page_id}`} className="bg-cardstock">
+                <button
+                  type="button"
+                  onClick={() => onSelectTrending(row.page_name)}
+                  className="bcc-stencil w-full truncate px-4 py-2 text-left text-sm text-ink hover:bg-cardstock-deep motion-safe:transition-colors motion-safe:duration-bcc-fast"
+                >
+                  {row.page_name}
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </>
+  );
+}
+
+function SectionHeader({
+  label,
+  action,
+}: {
+  label: string;
+  action?: React.ReactNode;
+}) {
+  return (
+    <div className="flex items-center justify-between border-b border-cardstock-edge/30 bg-cardstock px-4 py-1.5">
+      <span className="bcc-mono text-[9px] tracking-[0.18em] text-ink-soft">
+        {label}
+      </span>
+      {action}
     </div>
   );
 }
@@ -219,7 +379,7 @@ function SuggestionRow({ item, id, active, onActivate, onHover }: SuggestionRowP
         onClick={onActivate}
         onMouseEnter={onHover}
         className={
-          "flex w-full items-center justify-between gap-3 px-4 py-2.5 text-left transition " +
+          "flex w-full items-center justify-between gap-3 px-4 py-2.5 text-left motion-safe:transition motion-safe:duration-bcc-fast " +
           (active ? "bg-cardstock-deep" : "bg-cardstock hover:bg-cardstock-deep")
         }
       >

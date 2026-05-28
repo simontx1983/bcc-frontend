@@ -892,6 +892,80 @@ export interface SearchSuggestionsResponse {
 }
 
 // ─────────────────────────────────────────────────────────────────────
+// Multi-vertical search (/bcc/v1/search/* — raw bcc-search responses)
+//
+// These endpoints predate the §L5 envelope and return raw `{ results,
+// meta }` shapes. The frontend reaches them via `bccSearchFetchAsClient`
+// (not the envelope-strict `bccFetch`). Used by the /search results
+// page and the GlobalSearch dropdown's pre-search trending surface.
+//
+// Each vertical has its own row shape:
+//   - Project rows mirror what bcc-search's SearchController returns
+//     (the same shape the /cards/search wrapper consumes internally).
+//   - User rows are scoped to display data the autocomplete needs;
+//     full profile data is at /v/:slug on click-through.
+//   - Group rows include slug + description for the wider results-page
+//     card.
+//
+// Trending uses the same project shape — bcc-search's trending mode is
+// "top-scored pages regardless of query," so result rows match `?q=…`
+// project results.
+// ─────────────────────────────────────────────────────────────────────
+
+export interface ProjectSearchResult {
+  page_id: number;
+  page_name: string;
+  page_url: string;
+  /** Non-nullable per SearchController::buildResults — falls back to an
+   *  empty string when no avatar resolves, not null. */
+  avatar_url: string;
+  trust_score: number | null;
+  tier: string | null;
+  endorsements: number;
+  verified: boolean;
+  followers: number;
+  category: string | null;
+  category_slug: string | null;
+}
+
+export interface ProjectSearchResponse {
+  results: ProjectSearchResult[];
+  categories: Array<{ slug: string; name: string }>;
+}
+
+export interface UserSearchResult {
+  id: number;
+  username: string;
+  display_name: string;
+  avatar_url: string | null;
+  profile_url: string;
+}
+
+export interface UserSearchResponse {
+  results: UserSearchResult[];
+  meta: { count: number; query: string };
+}
+
+export interface GroupSearchResult {
+  id: number;
+  name: string;
+  slug: string;
+  description: string | null;
+  avatar_url: string | null;
+  group_url: string;
+}
+
+export interface GroupSearchResponse {
+  results: GroupSearchResult[];
+  meta: { count: number; query: string };
+}
+
+// Trending mode of /bcc/v1/search — same response shape as a project
+// search but `query` is ignored. 5-minute server cache with LKG.
+export type TrendingResult = ProjectSearchResult;
+export type TrendingResponse = ProjectSearchResponse;
+
+// ─────────────────────────────────────────────────────────────────────
 // Notifications (§I1)
 //
 // Server-rendered messages per §A2 — the frontend never templates a
