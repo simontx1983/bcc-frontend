@@ -22,7 +22,7 @@
  * only side effect is `signatureVerify` running on the input.
  */
 
-import { checkAddress, signatureVerify } from "@polkadot/util-crypto";
+import { decodeAddress, encodeAddress, signatureVerify } from "@polkadot/util-crypto";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
@@ -48,6 +48,13 @@ interface VerifyBody {
 interface VerifyResponse {
   isValid: boolean;
   crypto?: string;
+  /**
+   * Polkadot only: canonical prefix-0 (Polkadot mainnet) SS58 form of
+   * the submitted address. Present on `isValid: true` so the caller can
+   * dedup storage by underlying public key, not by which prefix the
+   * user's wallet rendered. Omitted on `isValid: false`.
+   */
+  canonical_address?: string;
 }
 
 export async function POST(request: NextRequest): Promise<NextResponse<VerifyResponse | { error: string }>> {
@@ -104,17 +111,22 @@ export async function POST(request: NextRequest): Promise<NextResponse<VerifyRes
     );
   }
 
-  // Step 4: SS58 prefix pinning. `chain_type === "polkadot"` means
-  // Polkadot mainnet (SS58 prefix 0). Without this check, a user holding
-  // key pair K could submit a Kusama-format address (prefix 2) — sig
-  // still verifies because signatureVerify decodes the address to a
-  // pubkey regardless of which SS58 prefix encoded it — and bcc-trust
-  // would persist the Kusama-encoded string as a chain_id=polkadot
-  // wallet row. Caller must still own the key (not a privilege
-  // escalation), but this prevents the same key being linked twice on
-  // the same chain via different SS58 encodings.
-  const [prefixOk] = checkAddress(body.address, 0);
-  if (!prefixOk) {
+  // Step 4: SS58 prefix normalisation. We accept ANY valid SS58
+  // encoding (Polkadot prefix 0, generic substrate prefix 42, Kusama
+  // prefix 2, etc.) and re-encode to the canonical Polkadot mainnet
+  // (prefix 0) form. The original 5e1c0a6 hard-rejected non-prefix-0
+  // addresses to prevent the same key being linked twice via different
+  // SS58 encodings — normalising achieves the same dedup property by
+  // a different route (downstream storage always uses the canonical
+  // prefix-0 string) while letting users whose wallet defaults to
+  // prefix 42 (the Polkadot.js extension "Substrate" default) actually
+  // sign up. `decodeAddress` throws on malformed input (wrong length,
+  // wrong checksum, illegal characters); treated as not-valid.
+  let canonicalAddress: string;
+  try {
+    const publicKey = decodeAddress(body.address);
+    canonicalAddress = encodeAddress(publicKey, 0);
+  } catch {
     return NextResponse.json(
       { isValid: false },
       { status: 200, headers: { "Cache-Control": "no-store" } },
@@ -127,10 +139,20 @@ export async function POST(request: NextRequest): Promise<NextResponse<VerifyRes
   // therefore verify against the wrapped form FIRST, then fall back
   // to the bare form for older wallets / different signers that
   // don't wrap. Both calls are cheap (<5ms each).
+  //
+  // Verification uses the canonical address — signatureVerify decodes
+  // the address to a pubkey internally, and the canonical/original
+  // forms decode to the same pubkey by construction, so the result is
+  // identical. Using the canonical here keeps the upstream-returned
+  // address and the address-used-to-verify consistent.
   const wrapped = `<Bytes>${body.message}</Bytes>`;
-  const result = verifyEitherForm(wrapped, body.message, body.signature, body.address);
+  const result = verifyEitherForm(wrapped, body.message, body.signature, canonicalAddress);
 
-  return NextResponse.json(result, {
+  const response: VerifyResponse = result.isValid
+    ? { isValid: true, ...(result.crypto !== undefined ? { crypto: result.crypto } : {}), canonical_address: canonicalAddress }
+    : { isValid: false };
+
+  return NextResponse.json(response, {
     status: 200,
     headers: { "Cache-Control": "no-store" },
   });
