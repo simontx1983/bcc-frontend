@@ -1,6 +1,6 @@
 {
   "name": "bcc-frontend",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "Blue Collar Crypto — headless Next.js frontend for the bcc-trust WordPress backend.",
   "scripts": {
