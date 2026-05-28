@@ -118,6 +118,15 @@ export function linkWallet(
 /**
  * GET /auth/wallet-nonce — anonymous wallet-signature challenge.
  * Same response shape as /auth/nonce, no session required.
+ *
+ * Cache-buster `_t=<ms>` appended to defeat edge / reverse-proxy caches
+ * (LiteSpeed, Hostinger, Cloudflare) that key on full URL incl. query
+ * string. The OPTIONS preflight for this endpoint has previously been
+ * pinned by such caches when an early request landed before the
+ * CorsHandler had Cache-Control: no-store wired in; a unique URL per
+ * call sidesteps any current OR future stale entry without needing
+ * operator-side purges. Server-side this just adds an ignored query
+ * param — WP REST routes don't care.
  */
 export function getPublicWalletNonce(
   params: NonceQueryParams
@@ -125,6 +134,7 @@ export function getPublicWalletNonce(
   const search = new URLSearchParams({
     chain_slug:     params.chain_slug,
     wallet_address: params.wallet_address,
+    _t:             Date.now().toString(),
   });
   return bccFetch<WalletNonceResponse>(
     `auth/wallet-nonce?${search.toString()}`,
