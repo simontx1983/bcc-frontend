@@ -33,26 +33,12 @@ import {
   type WalletChainType,
 } from "@/lib/wallet/chain-catalog";
 import {
-  connectKeplr,
-  KeplrError,
-  KeplrUnavailableError,
-  KeplrUserRejectedError,
-  signKeplrChallenge,
-} from "@/lib/wallet/keplr";
-import {
-  connectMetaMask,
-  MetaMaskError,
-  MetaMaskUnavailableError,
-  MetaMaskUserRejectedError,
-  signMetaMaskChallenge,
-} from "@/lib/wallet/metamask";
-import {
-  connectPhantom,
-  PhantomError,
-  PhantomUnavailableError,
-  PhantomUserRejectedError,
-  signPhantomChallenge,
-} from "@/lib/wallet/phantom";
+  connectWallet,
+  humanizeWalletProviderError,
+  signWalletChallenge,
+  walletHintFor,
+  walletTypeFor,
+} from "@/lib/wallet/dispatch";
 
 export function WalletsSection() {
   const wallets = useMyWallets();
@@ -251,8 +237,9 @@ function LinkWalletForm() {
 
 // ─────────────────────────────────────────────────────────────────────
 // runLinkFlow — connect → request nonce → sign → return the bundle the
-// /auth/wallet-link POST needs. All three branches share the same
-// outer shape so the caller doesn't care which provider answered.
+// /auth/wallet-link POST needs. The three provider branches are
+// dispatched inside lib/wallet/dispatch.ts so this layer stays one
+// straight-line flow.
 // ─────────────────────────────────────────────────────────────────────
 
 interface LinkFlowResult {
@@ -266,77 +253,26 @@ async function runLinkFlow(
   chainSlug: string,
   chainType: WalletChainType,
 ): Promise<LinkFlowResult> {
-  if (chainType === "evm") {
-    const chain = findWalletChain(chainSlug);
-    const desiredHex = chain?.chainIdHex ?? "";
-    const connection = await connectMetaMask(desiredHex);
-
-    const nonce = await getWalletNonce({
-      chain_slug:     chainSlug,
-      wallet_address: connection.address,
-    });
-
-    const signed = await signMetaMaskChallenge(connection.address, nonce.message);
-
-    return {
-      address:    connection.address,
-      signature:  signed.signature,
-      walletType: "metamask",
-      extra:      {},
-    };
-  }
-
-  if (chainType === "solana") {
-    const connection = await connectPhantom();
-
-    const nonce = await getWalletNonce({
-      chain_slug:     chainSlug,
-      wallet_address: connection.address,
-    });
-
-    const signed = await signPhantomChallenge(nonce.message);
-
-    return {
-      address:    connection.address,
-      signature:  signed.signature,
-      walletType: "phantom",
-      extra:      {},
-    };
-  }
-
-  // Cosmos (default branch) — Keplr ADR-036 flow.
-  const connection = await connectKeplr(chainSlug);
+  const connection = await connectWallet(chainSlug, chainType);
 
   const nonce = await getWalletNonce({
-    chain_slug:     connection.chainSlug,
+    chain_slug:     chainSlug,
     wallet_address: connection.address,
   });
 
-  const signed = await signKeplrChallenge(
-    connection.chainSlug,
-    connection.address,
+  const signed = await signWalletChallenge(
+    chainSlug,
+    chainType,
+    connection,
     nonce.message,
   );
 
   return {
     address:    connection.address,
     signature:  signed.signature,
-    walletType: "keplr",
-    // pub_key + chain_id MUST live inside `extra` — that's where the
-    // cosmos verifier reads them per WalletVerifier::verify.
-    extra: { pub_key: signed.pubKey, chain_id: connection.chainId },
+    walletType: walletTypeFor(chainType),
+    extra:      signed.extra,
   };
-}
-
-function walletHintFor(chainType: WalletChainType): string {
-  switch (chainType) {
-    case "evm":
-      return "SIGNS WITH METAMASK (OR ANY EIP-1193 EVM WALLET)";
-    case "solana":
-      return "SIGNS WITH PHANTOM (OR ANOTHER SOLANA WALLET)";
-    case "cosmos":
-      return "SIGNS WITH KEPLR";
-  }
 }
 
 // ─────────────────────────────────────────────────────────────────────
@@ -480,33 +416,14 @@ function humanizeError(err: unknown): string {
 }
 
 function humanizeLinkError(err: unknown): string {
-  // Per-provider unavailable paths carry typed errors with copy authored
-  // at construction time — those are presentation strings owned by our
-  // own code, not server-supplied. Pass them through.
-  if (
-    err instanceof KeplrUnavailableError ||
-    err instanceof MetaMaskUnavailableError ||
-    err instanceof PhantomUnavailableError
-  ) {
-    return err.message;
-  }
-  // User-cancel is a uniform UX surface across the three wallets.
-  if (
-    err instanceof KeplrUserRejectedError ||
-    err instanceof MetaMaskUserRejectedError ||
-    err instanceof PhantomUserRejectedError
-  ) {
-    return "Wallet signing was canceled.";
-  }
-  // Other typed wallet errors are constructed by us with deliberate copy.
-  if (
-    err instanceof KeplrError ||
-    err instanceof MetaMaskError ||
-    err instanceof PhantomError
-  ) {
-    return err.message;
-  }
-  // Server-side BccApiError envelopes branch on `.code`, never `.message`.
+  // Provider-side errors (Keplr / MetaMask / Phantom unavailable, user
+  // cancel, etc.) come back as typed objects; dispatch.ts owns the
+  // copy. Returns null for non-provider errors → fall through to
+  // server-side BccApiError mapping (`humanizeCode` branches on
+  // `.code`, never `.message`).
+  const provider = humanizeWalletProviderError(err);
+  if (provider !== null) return provider;
+
   return humanizeCode(
     err,
     {

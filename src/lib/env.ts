@@ -72,4 +72,17 @@ export const serverEnv = Object.freeze({
     }
     return required("CRON_SECRET", process.env["CRON_SECRET"]);
   },
+  /**
+   * Shared secret accepted on the `X-Bcc-Internal` header by the
+   * /api/internal/verify-wallet-signature route. Must match
+   * `BCC_INTERNAL_VERIFY_SECRET` in the WordPress wp-config.php.
+   * Separate from BCC_INTERNAL_CRON_SECRET so leaking one doesn't
+   * widen access to the other.
+   */
+  get BCC_INTERNAL_VERIFY_SECRET(): string {
+    if (typeof window !== "undefined") {
+      throw new Error("[bcc-frontend] serverEnv accessed in client code");
+    }
+    return required("BCC_INTERNAL_VERIFY_SECRET", process.env["BCC_INTERNAL_VERIFY_SECRET"]);
+  },
 });
