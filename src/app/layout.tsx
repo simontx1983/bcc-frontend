@@ -6,6 +6,7 @@ import {
   Homemade_Apple,
 } from "next/font/google";
 import { getServerSession } from "next-auth";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 
 import { AppShell } from "@/components/layout/AppShell";
 import { SiteHeader } from "@/components/layout/SiteHeader";
@@ -121,6 +122,7 @@ export default async function RootLayout({
               viewerInGoodStanding kept for future chrome signals. */}
           <CelebrationGate />
         </Providers>
+        <SpeedInsights />
       </body>
     </html>
   );
