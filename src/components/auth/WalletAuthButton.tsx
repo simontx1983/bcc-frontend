@@ -130,38 +130,40 @@ export function WalletAuthButton(props: WalletAuthButtonProps) {
   }
 
   return (
-    <div className="flex flex-col gap-2">
-      <label className="flex flex-col gap-1.5">
-        <span className="bcc-mono text-ink-soft">Wallet chain</span>
-        <select
-          value={chainSlug}
-          onChange={(e) => setChainSlug(e.target.value)}
-          disabled={pending || props.disabled === true}
-          className="border border-cardstock-edge bg-cardstock-deep/60 px-3 py-2 font-serif text-ink outline-none focus:border-blueprint focus:ring-1 focus:ring-blueprint disabled:opacity-50"
-        >
-          {CHAIN_OPTIONS.map((opt) => (
-            <option key={opt.slug} value={opt.slug}>
-              {opt.label}
-            </option>
-          ))}
-        </select>
-      </label>
+    <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+      <div className="bcc-auth-field">
+        <label className="bcc-auth-label" htmlFor="wallet-chain">Wallet chain</label>
+        <div className="bcc-auth-select-wrap">
+          <select
+            id="wallet-chain"
+            value={chainSlug}
+            onChange={(e) => setChainSlug(e.target.value)}
+            disabled={pending || props.disabled === true}
+            className="bcc-auth-input bcc-auth-select"
+          >
+            {CHAIN_OPTIONS.map((opt) => (
+              <option key={opt.slug} value={opt.slug}>{opt.label}</option>
+            ))}
+          </select>
+          <span className="bcc-auth-select-arrow" aria-hidden="true">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+          </span>
+        </div>
+      </div>
 
       <button
         type="button"
-        onClick={() => {
-          void run();
-        }}
+        onClick={() => { void run(); }}
         disabled={pending || props.disabled === true}
-        className="bcc-stencil border border-ink bg-cardstock py-3 text-ink transition hover:bg-ink hover:text-cardstock disabled:opacity-50"
+        className="bcc-auth-submit bcc-auth-submit--outline"
       >
         {pending ? "Waiting for wallet…" : buttonLabel}
       </button>
 
       {error !== null && (
-        <p role="alert" className="bcc-mono text-center text-safety">
-          {error}
-        </p>
+        <p role="alert" className="bcc-auth-error">{error}</p>
       )}
     </div>
   );

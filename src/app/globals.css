@@ -57,6 +57,7 @@
 
   /* Layout dimensions */
   --bcc-header-h:        60px;
+  --bcc-mobile-nav-h:    60px;
   --bcc-sidebar-left-w:  260px;
   --bcc-sidebar-right-w: 280px;
   --bcc-content-max-w:   680px;
@@ -74,6 +75,12 @@
   /* Glass effect */
   --bcc-glass-blur:      12px;
   --bcc-glass-blur-heavy:20px;
+
+  /* Blur effect */
+  --bcc-blur-sm:      blur(4px);
+  --bcc-blur-md:      blur(10px);
+  --bcc-blur-sm-saturate: blur(4px) saturate(160%);
+  --bcc-blur-md-saturate: blur(10px) saturate(180%);
 
   /* Shadows */
   --bcc-shadow-sm:       0 1px 3px rgba(0,0,0,0.10), 0 1px 2px rgba(0,0,0,0.06);
@@ -126,8 +133,9 @@
   --bcc-text-placeholder:#b3b8c3;
   --bcc-text-inverse:    #ffffff;
 
-  --bcc-glass-bg:        rgba(255,255,255,0.72);
+  --bcc-glass-bg:        rgba(255,255,255,0.42);
   --bcc-glass-bg-solid:  rgba(255,255,255,0.92);
+  --bcc-glass-bg-frosted:rgba(255,255,255,0.10);
   --bcc-glass-border:    rgba(0,0,0,0.08);
 
   /* Header specific */
@@ -174,8 +182,9 @@
     --bcc-text-placeholder:#3d444d;
     --bcc-text-inverse:    #0d1117;
 
-    --bcc-glass-bg:        rgba(22,27,34,0.75);
+    --bcc-glass-bg:        rgba(22,27,34,0.42);
     --bcc-glass-bg-solid:  rgba(22,27,34,0.92);
+    --bcc-glass-bg-frosted:rgba(22,27,34,0.1);
     --bcc-glass-border:    rgba(255,255,255,0.08);
 
     --bcc-header-bg:       rgba(13,17,23,0.55);
@@ -222,7 +231,9 @@
   --bcc-text-placeholder:#3d444d;
   --bcc-text-inverse:    #0d1117;
 
-  --bcc-glass-bg:        rgba(22,27,34,0.75);
+  --bcc-glass-bg:        rgba(22,27,34,0.42);
+  --bcc-glass-bg-solid:  rgba(22,27,34,0.92);
+  --bcc-glass-bg-frosted:rgba(22,27,34,0.10);
   --bcc-glass-border:    rgba(255,255,255,0.08);
 
   --bcc-header-bg:       rgba(13,17,23,0.55);
@@ -275,6 +286,13 @@
     height: 100dvh;
     transition: background-color var(--bcc-transition-slow),
                 color var(--bcc-transition-slow);
+  }
+
+  /* Auth pages need the body to scroll — override the shell lock */
+  body:has(.bcc-minimal-shell) {
+    overflow: auto;
+    height: auto;
+    min-height: 100dvh;
   }
 
   /* Scrollbar styling — gutter always reserved (no layout shift), thumb hidden until hover */
@@ -368,7 +386,7 @@
     height: 100dvh;
     overflow: hidden;
     background: var(--bcc-bg);
-    padding-top: var(--bcc-header-h);
+  
   }
 
   /* bcc-body — the three-column row below the header */
@@ -393,7 +411,7 @@
     flex-shrink: 0;
     background: var(--bcc-sidebar-bg);
     border-right: 1px solid var(--bcc-sidebar-border);
-    padding: 0;
+    padding-top: var(--bcc-header-h);
     overflow: hidden;
     display: flex;
     flex-direction: column;
@@ -429,7 +447,7 @@
   .bcc-col-center > div {
     max-width: var(--bcc-content-max-w);
     margin: 0 auto;
-    padding: 0;
+    padding-top: var(--bcc-header-h);
   }
 
   /* bcc-col-right — widgets sidebar */
@@ -438,7 +456,7 @@
     flex-shrink: 0;
     background: var(--bcc-bg);
     border-left: 1px solid var(--bcc-border);
-    padding: 16px 12px;
+    padding: calc(var(--bcc-header-h) + 16px) 12px 16px 12px;
     scrollbar-gutter: stable;
     transition: background var(--bcc-transition-slow),
                 border-color var(--bcc-transition-slow);
@@ -474,14 +492,34 @@
     border-top: 1px solid var(--bcc-border-light);
   }
 
-  /* Responsive — hide right sidebar below 1100px, left below 768px */
-  @media (max-width: 1100px) {
-    .bcc-col-right { display: none; }
-    .bcc-col-center { max-width: none; }
+  /* Mobile nav — hidden on tablet and desktop */
+  .bcc-mobile-nav {
+    display: flex;
   }
-  @media (max-width: 768px) {
-    .bcc-col-left { display: none; }
-    .bcc-col-center { max-width: none; }
+  @media (min-width: 768px) {
+    .bcc-mobile-nav {
+      display: none !important;
+    }
+  }
+
+  /* ── Responsive breakpoints ──────────────────────────────────── */
+
+  /* Tablet: 768px–1279px — left sidebar collapses to icon rail, right sidebar HIDDEN on portrait tablet */
+  @media (max-width: 1279px) {
+    .bcc-col-left {
+      width: 64px;
+      overflow: hidden;
+    }
+    .bcc-col-right {
+      display: none;
+    }
+  }
+
+  /* Below 768px — both sidebars hidden, center column clears bottom nav */
+  @media (max-width: 767px), (max-width: 900px) and (orientation: landscape) {
+    .bcc-col-left  { display: none; }
+    .bcc-col-right { display: none; }
+    .bcc-col-center { padding-bottom: var(--bcc-mobile-nav-h); }
   }
 }
 
@@ -500,16 +538,26 @@
     height: var(--bcc-header-h);
     display: flex;
     align-items: center;
-    padding: 0 16px;
+    padding: 0 16px 0 10px;
     gap: 12px;
-    background: var(--bcc-header-bg);
+    background: transparent;
     border-bottom: 1px solid var(--bcc-header-border);
-    backdrop-filter: blur(16px) saturate(160%);
-    -webkit-backdrop-filter: blur(16px) saturate(160%);
     z-index: 200;
-    transition: background var(--bcc-transition-slow),
-                border-color var(--bcc-transition-slow);
+    transition: border-color var(--bcc-transition-slow);
   }
+
+  /* Blur layer — sits behind all header content, carries the frosted effect */
+  .bcc-header-blur-layer {
+    position: absolute;
+    inset: 0;
+    background: var(--bcc-header-bg);
+    backdrop-filter: var(--bcc-blur-md-saturate);
+    -webkit-backdrop-filter: var(--bcc-blur-md-saturate);
+    z-index: 0;
+    pointer-events: none;
+    transition: background var(--bcc-transition-slow);
+  }
+
   .bcc-header::before {
     content: '';
     position: absolute;
@@ -525,10 +573,11 @@
   .bcc-brand {
     display: inline-flex;
     align-items: center;
-    gap: 10px;
+    gap: 2px;
     text-decoration: none;
     flex-shrink: 0;
     white-space: nowrap;
+    z-index: 200;
   }
   .bcc-brand-logo {
     width: 45px;
@@ -570,7 +619,8 @@
     width: 100%;
     height: 36px;
     padding: 0 36px 0 14px;
-    background: var(--bcc-input-bg);
+    background: var(--bcc-glass-bg-frosted);
+    backdrop-filter: var(--bcc-blur-sm);
     border: 1px solid var(--bcc-input-border);
     border-radius: var(--bcc-radius-full);
     color: var(--bcc-text);
@@ -598,6 +648,31 @@
     height: 16px;
   }
 
+  /* Mobile header padding — tighter on small screens */
+  @media (max-width: 599px) {
+    .bcc-header {
+      padding: 0 10px 0 6px;
+      gap: 8px;
+    }
+  }
+
+  /* Mobile: hide search bar (replaced by icon button in SiteHeader.tsx) */
+  @media (max-width: 599px) {
+    .bcc-search { display: none; }
+  }
+
+  /* Mobile: hide notifications bell from header (moves to offcanvas) */
+  .bcc-header-notif-btn, 
+  .bcc-header-palette-btn,
+  .bcc-header-settings-btn {
+    display: flex; /* default — shown on desktop/tablet */
+  }
+
+  /* Guest buttons on mobile — hide Sign In, keep only Sign Up */
+  .bcc-header-signin-btn {
+    display: flex;
+  }
+
   /* bcc-header-actions — right-side icon cluster */
   .bcc-header-actions {
     display: flex;
@@ -609,11 +684,143 @@
 
   /* Header dropdown modals — glass style */
   .bcc-header-modal {
-    background: var(--bcc-glass-bg-solid);
-    backdrop-filter: blur(20px) saturate(160%);
-    -webkit-backdrop-filter: blur(20px) saturate(160%);
+    background: var(--bcc-glass-bg-frosted);
+    backdrop-filter: var(--bcc-blur-sm);
+    -webkit-backdrop-filter: var(--bcc-blur-sm);
     border: 1px solid var(--bcc-glass-border);
     box-shadow: var(--bcc-shadow-xl);
+  }
+
+  /* On tablet/mobile — anchor modals to viewport right edge to prevent clipping */
+  @media (max-width: 1279px) {
+    .bcc-header-modal {
+      position: fixed !important;
+      top: calc(var(--bcc-header-h) + 8px) !important;
+      right: 12px !important;
+      left: auto !important;
+    }
+  }
+}
+
+/* ========================================================================
+   OFFCANVAS
+   ======================================================================== */
+
+@layer components {
+  .bcc-offcanvas-scrim {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 390;
+  }
+
+  /* Replace the existing .bcc-offcanvas rule with this: */
+  .bcc-offcanvas {
+    position: fixed;
+    top: 0; left: 0; bottom: 0;
+    width: 280px;
+    z-index: 400;
+    background: var(--bcc-sidebar-bg);
+    border-right: 1px solid var(--bcc-border);
+    display: flex;
+    flex-direction: column;
+    transform: translateX(-100%);
+    transition: transform 0.25s var(--bcc-ease-out, ease-out);
+    overflow: hidden;
+  }
+
+  .bcc-offcanvas--open {
+    transform: translateX(0);
+  }
+
+  .bcc-offcanvas-identity-card {
+    margin: 12px 10px 0;
+    border-radius: var(--bcc-radius-lg);
+    border: 1px solid var(--bcc-border);
+    background: var(--bcc-glass-bg);
+    webkit-backdrop-filter: var(--bcc-blur-sm);
+    overflow: hidden;
+    flex-shrink: 0;
+  }
+
+  .bcc-offcanvas-identity-main {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 12px;
+    position: relative;
+  }
+
+  .bcc-offcanvas-identity-info {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .bcc-offcanvas-identity-name {
+    font-family: var(--font-stencil), Impact, sans-serif;
+    font-weight: 800;
+    font-size: 14px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--bcc-text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .bcc-offcanvas-identity-handle {
+    font-family: var(--font-mono), monospace;
+    font-size: 11px;
+    color: var(--bcc-text-muted);
+    letter-spacing: 0.04em;
+    margin-top: 1px;
+  }
+
+  .bcc-offcanvas-palette-btn {
+    width: 30px;
+    height: 30px;
+    border-radius: var(--bcc-radius-md);
+    border: 1px solid var(--bcc-border);
+    background: transparent;
+    color: var(--bcc-text-muted);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background var(--bcc-transition-fast), color var(--bcc-transition-fast);
+  }
+  .bcc-offcanvas-palette-btn:hover,
+  .bcc-offcanvas-palette-btn.active {
+    background: var(--bcc-accent-subtle);
+    color: var(--bcc-accent);
+    border-color: var(--bcc-accent);
+  }
+
+  .bcc-offcanvas-theme-drawer {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 300ms ease;
+    border-top: 0px solid var(--bcc-border);
+  }
+  .bcc-offcanvas-theme-drawer--open {
+    max-height: 200px;
+    border-top-width: 1px;
+  }
+
+  .bcc-offcanvas-theme-inner {
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .bcc-offcanvas-guest-block {
+    padding: 16px 12px;
+    display: flex;
+    gap: 8px;
+    border-bottom: 1px solid var(--bcc-border);
+    flex-shrink: 0;
   }
 }
 
@@ -1375,6 +1582,547 @@
     background: var(--bcc-border-light);
     margin: 16px 0;
   }
+}
+
+/* ========================================================================
+   AUTH PAGE SHELL & FOOTER
+     The wrapper for auth pages, with the colorful radial gradients and
+     the fixed footer with legal links.
+   ======================================================================== */
+
+.bcc-minimal-shell {
+  min-height: 100vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: var(--bcc-bg);
+  position: relative;
+  padding: 40px 16px 60px 16px;
+}
+.bcc-minimal-shell::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 60% 50% at 20% 20%, var(--bcc-primary-subtle), transparent),
+    radial-gradient(ellipse 50% 40% at 80% 80%, var(--bcc-secondary-subtle), transparent);
+  pointer-events: none;
+}
+.bcc-auth-footer {
+
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 12px 16px;
+  font-family: var(--font-mono), monospace;
+  font-size: 11px;
+  color: var(--bcc-text-muted);
+  letter-spacing: 0.05em;
+}
+.bcc-auth-footer a {
+  color: var(--bcc-text-muted);
+  text-decoration: none;
+  transition: color 150ms ease;
+}
+.bcc-auth-footer a:hover {
+  color: var(--bcc-text-secondary);
+}
+
+/* ─── AUTH CARD ──────────────────────────────────────────────────────────────
+   Used by login, signup, forgot-password pages AND as a popup modal (AuthGate).
+   ─────────────────────────────────────────────────────────────────────────── */
+
+.bcc-auth-card {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 420px;
+  background: var(--bcc-surface);
+  border: 1px solid var(--bcc-border);
+  border-radius: var(--bcc-radius-xl);
+  padding: 36px 40px 32px;
+  box-shadow: var(--bcc-shadow-lg);
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+/* Theme toggle — top right corner */
+.bcc-auth-theme-toggle {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--bcc-radius-md);
+  border: 1px solid var(--bcc-border);
+  background: transparent;
+  color: var(--bcc-text-muted);
+  cursor: pointer;
+  transition: color 150ms ease, background 150ms ease, border-color 150ms ease;
+}
+.bcc-auth-theme-toggle:hover {
+  color: var(--bcc-text-primary);
+  background: var(--bcc-glass-bg-frosted);
+  border-color: var(--bcc-border-strong);
+}
+
+/* Logo */
+.bcc-auth-logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 20px;
+}
+.bcc-auth-logo-img {
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+}
+
+/* Heading group */
+.bcc-auth-heading-group {
+  text-align: center;
+  margin-bottom: 24px;
+}
+.bcc-auth-heading {
+  font-family: var(--font-stencil), sans-serif;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--bcc-text-primary);
+  line-height: 1.2;
+  margin: 0;
+}
+.bcc-auth-subheading {
+  font-family: var(--font-serif), serif;
+  font-size: 14px;
+  color: var(--bcc-text-muted);
+  margin: 6px 0 0;
+  line-height: 1.5;
+}
+
+/* Body slot */
+.bcc-auth-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Card footer (New to BCC? / Already have an account?) */
+.bcc-auth-card-footer {
+  margin-top: 20px;
+  text-align: center;
+  font-family: var(--font-serif), serif;
+  font-size: 13px;
+  color: var(--bcc-text-muted);
+}
+.bcc-auth-card-footer a {
+  color: var(--bcc-accent);
+  text-decoration: none;
+  font-weight: 500;
+  transition: opacity 150ms ease;
+}
+.bcc-auth-card-footer a:hover {
+  opacity: 0.8;
+}
+
+/* ─── SSO BUTTONS ─────────────────────────────────────────────────────────── */
+
+.bcc-sso-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: var(--bcc-radius-md);
+  border: 1px solid var(--bcc-border-strong);
+  background: transparent;
+  color: var(--bcc-text-primary);
+  font-family: var(--font-mono), monospace;
+  font-size: 12px;
+  letter-spacing: 0.03em;
+  cursor: not-allowed;
+  transition: background 150ms ease, border-color 150ms ease;
+  opacity: 0.6;
+  position: relative;
+}
+.bcc-sso-icon {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+.bcc-sso-label {
+  flex: 1;
+  text-align: left;
+}
+.bcc-sso-soon {
+  font-size: 9px;
+  font-family: var(--font-mono), monospace;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--bcc-text-muted);
+  border: 1px solid var(--bcc-border);
+  border-radius: 4px;
+  padding: 2px 5px;
+}
+
+/* ─── DIVIDER ─────────────────────────────────────────────────────────────── */
+
+.bcc-auth-divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 4px 0;
+}
+.bcc-auth-divider-line {
+  flex: 1;
+  height: 1px;
+  background: var(--bcc-border);
+}
+.bcc-auth-divider-text {
+  font-family: var(--font-mono), monospace;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: var(--bcc-text-muted);
+  text-transform: uppercase;
+}
+
+/* ─── AUTH FORM FIELDS ────────────────────────────────────────────────────── */
+
+.bcc-auth-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.bcc-auth-label {
+  font-family: var(--font-mono), monospace;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--bcc-text-secondary);
+}
+.bcc-auth-input {
+  width: 100%;
+  padding: 9px 12px;
+  border-radius: var(--bcc-radius-md);
+  border: 1px solid var(--bcc-border-strong);
+  background: var(--bcc-glass-bg-frosted);
+  color: var(--bcc-text-primary);
+  font-family: var(--font-serif), serif;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+.bcc-auth-input:focus {
+  border-color: var(--bcc-accent);
+  box-shadow: 0 0 0 3px var(--bcc-accent-subtle);
+}
+.bcc-auth-input::placeholder {
+  color: var(--bcc-text-muted);
+  opacity: 0.5;
+}
+
+/* Submit button */
+.bcc-auth-submit {
+  width: 100%;
+  padding: 10px 16px;
+  border-radius: var(--bcc-radius-md);
+  border: none;
+  background: var(--bcc-accent);
+  color: #fff;
+  font-family: var(--font-stencil), sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: opacity 150ms ease, transform 100ms ease;
+  margin-top: 4px;
+}
+.bcc-auth-submit:hover:not(:disabled) {
+  opacity: 0.88;
+}
+.bcc-auth-submit:active:not(:disabled) {
+  transform: scale(0.99);
+}
+.bcc-auth-submit:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* Error message */
+.bcc-auth-error {
+  font-family: var(--font-mono), monospace;
+  font-size: 11px;
+  letter-spacing: 0.03em;
+  color: var(--bcc-color-error, #f87171);
+  text-align: center;
+  padding: 8px 10px;
+  border-radius: var(--bcc-radius-md);
+  background: rgba(248, 113, 113, 0.08);
+  border: 1px solid rgba(248, 113, 113, 0.2);
+}
+
+/* Forgot password link row */
+.bcc-auth-forgot {
+  text-align: right;
+  margin-top: -4px;
+}
+.bcc-auth-forgot a {
+  font-family: var(--font-mono), monospace;
+  font-size: 11px;
+  letter-spacing: 0.03em;
+  color: var(--bcc-text-muted);
+  text-decoration: none;
+  transition: color 150ms ease;
+}
+.bcc-auth-forgot a:hover {
+  color: var(--bcc-accent);
+}
+
+/* Success state (used on forgot-password confirmation) */
+.bcc-auth-success {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+  text-align: center;
+}
+.bcc-auth-success-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--bcc-accent-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--bcc-accent);
+}
+.bcc-auth-success-title {
+  font-family: var(--font-stencil), sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--bcc-text-primary);
+}
+.bcc-auth-success-body {
+  font-family: var(--font-serif), serif;
+  font-size: 13px;
+  color: var(--bcc-text-muted);
+  line-height: 1.5;
+  max-width: 300px;
+}
+
+/* Handle input wrapper */
+.bcc-auth-handle-wrap {
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--bcc-border-strong);
+  border-radius: var(--bcc-radius-md);
+  background: var(--bcc-input-bg, var(--bcc-surface));
+  overflow: hidden;
+}
+.bcc-auth-handle-prefix {
+  padding: 0 8px 0 12px;
+  font-family: var(--font-mono), monospace;
+  font-size: 13px;
+  color: var(--bcc-text-muted);
+  user-select: none;
+}
+.bcc-auth-handle-input {
+  border: none !important;   /* border is on the wrapper */
+  border-radius: 0 !important;
+  background: transparent !important;
+  flex: 1;
+}
+
+/* Hint text below inputs */
+.bcc-auth-hint {
+  font-family: var(--font-mono), monospace;
+  font-size: 11px;
+  color: var(--bcc-text-muted);
+  margin-top: 4px;
+}
+.bcc-auth-hint--error {
+  color: var(--bcc-error, #f87171);
+}
+
+/* Optional label suffix */
+.bcc-auth-label-optional {
+  font-weight: 400;
+  opacity: 0.6;
+}
+
+.bcc-auth-submit--outline {
+  background: transparent;
+  color: var(--bcc-text-primary);
+  border: 1px solid var(--bcc-border-strong);
+}
+.bcc-auth-submit--outline:hover:not(:disabled) {
+  background: var(--bcc-glass-bg-frosted);
+  border-color: var(--bcc-accent);
+  color: var(--bcc-accent);
+}
+.bcc-auth-select-wrap {
+  position: relative;
+  display: block;
+}
+.bcc-auth-select {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  cursor: pointer;
+  padding-right: 36px; /* room for arrow */
+}
+.bcc-auth-select-arrow {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  color: var(--bcc-text-muted);
+  display: flex;
+  align-items: center;
+}
+.bcc-auth-select option {
+  background: var(--bcc-surface);
+  color: var(--bcc-text-primary);
+}
+.bcc-auth-chain-opt {
+  padding: 6px 14px;
+  border-radius: var(--bcc-radius-md);
+  border: 1px solid var(--bcc-border-strong);
+  background: transparent;
+  color: var(--bcc-text-muted);
+  font-family: var(--font-mono), monospace;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: all 150ms ease;
+}
+.bcc-auth-chain-opt:hover:not(:disabled) {
+  border-color: var(--bcc-accent);
+  color: var(--bcc-accent);
+}
+.bcc-auth-chain-opt--active {
+  border-color: var(--bcc-accent);
+  background: var(--bcc-accent-subtle);
+  color: var(--bcc-accent);
+}
+.bcc-auth-chain-opt:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.bcc-auth-input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.bcc-auth-input--has-icon {
+  padding-right: 40px;
+}
+.bcc-auth-input-icon {
+  position: absolute;
+  right: 10px;
+  background: none;
+  border: none;
+  padding: 4px;
+  cursor: pointer;
+  color: var(--bcc-text-muted);
+  display: flex;
+  align-items: center;
+  transition: color 150ms ease;
+}
+.bcc-auth-input-icon:hover {
+  color: var(--bcc-text-primary);
+}
+
+/* Mobile adjustments */
+@media (max-width: 480px) {
+  .bcc-auth-card {
+    max-width: 100%;
+    border-radius: var(--bcc-radius-lg);
+    padding: 28px 24px 24px;
+    margin: 0 12px;
+  }
+}
+
+
+/* ─── SIGN OUT MODAL ─────────────────────────────────────────────────────── */
+
+.bcc-signout-scrim {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  z-index: 390;
+}
+
+.bcc-signout-modal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 400;
+  width: 100%;
+  max-width: 360px;
+  border-radius: var(--bcc-radius-xl);
+  border: 1px solid var(--bcc-border);
+  overflow: hidden;
+}
+
+.bcc-signout-blur-layer {
+  position: absolute;
+  inset: 0;
+  background: var(--bcc-glass-bg-solid);
+  backdrop-filter: blur(20px) saturate(160%);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  z-index: 0;
+  pointer-events: none;
+}
+
+.bcc-signout-content {
+  position: relative;
+  z-index: 1;
+  padding: 32px 28px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.bcc-signout-title {
+  font-family: var(--font-stencil), sans-serif;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--bcc-text-primary);
+  margin: 0;
+}
+
+.bcc-signout-body {
+  font-family: var(--font-serif), serif;
+  font-size: 14px;
+  color: var(--bcc-text-muted);
+  margin: 0 0 12px;
+}
+
+.bcc-signout-actions {
+  display: flex;
+  gap: 10px;
 }
 
 /* ========================================================================
