@@ -493,7 +493,7 @@ export function SiteHeader() {
   function handleSearch(e: React.FormEvent) {
     e.preventDefault();
     if (search.trim()) {
-      router.push(`/members?q=${encodeURIComponent(search.trim())}`);
+      router.push(`/search?q=${encodeURIComponent(search.trim())}`);
       setSearch("");
     }
   }

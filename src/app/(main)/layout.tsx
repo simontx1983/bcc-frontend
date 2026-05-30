@@ -4,6 +4,9 @@ import { AppShell } from "@/components/layout/AppShell";
 import { SiteHeader } from "@/components/layout/SiteHeader";
 import { CelebrationGate } from "@/components/celebration/CelebrationGate";
 import { MobileShell } from "@/components/layout/MobileShell";
+import { Analytics } from "@vercel/analytics/next";
+import { SpeedInsights } from "@vercel/speed-insights/next";
+
 
 export default async function MainLayout({
   children,
@@ -21,6 +24,8 @@ export default async function MainLayout({
       </AppShell>
       <CelebrationGate />
       <MobileShell />
+      <Analytics />
+      <SpeedInsights />
     </>
   );
 }

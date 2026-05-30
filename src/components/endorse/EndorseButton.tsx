@@ -164,24 +164,26 @@ function humanizeError(err: unknown): string {
   // Phase γ doctrine: the canonical UX path for eligibility errors is
   // the server-supplied `permissions.can_endorse.allowed` + `unlock_hint`
   // gate (resolved by CardViewService::resolvePagePermissions). When the
-  // gate says allowed=true and a 400 still comes back, that's a race
-  // condition — fall through to a generic message rather than leaking
-  // the server's quest/age string (which is also Sentry-loggable copy,
-  // not stable contract surface).
+  // gate says allowed=true and a 4xx still comes back, that's a race
+  // condition — these copy strings are the race fallback only.
   //
-  // TODO(bcc-trust): the endorse controller at
-  //   app/Domain/Core/Controllers/TrustRestController.php:373-380
-  // currently returns `trust_error` for all eligibility paths with
-  // human-readable text. Once the controller emits stable codes
-  // (e.g. bcc_endorse_quest_locked, bcc_endorse_age_locked,
-  // bcc_endorse_unauthorized), add them to the map below.
+  // Codes map to TrustRestController::endorse() / ::revoke_endorsement()
+  // (contract v1.20+, §1.4.6). The server's `err.message` is never
+  // user-visible via `humanizeCode` — including for soft gates where
+  // the server-supplied `data.unlock_hint` is the authoritative copy
+  // surfaced via the EndorseButton's `unlockHint` prop instead.
   return humanizeCode(
     err,
     {
       bcc_unauthorized: "Sign in first.",
-      bcc_rate_limited: "Too many endorsements just now. Wait a moment.",
       bcc_invalid_request: "We couldn't endorse this page right now.",
+      bcc_permission_denied: "You haven't unlocked endorsements yet.",
       bcc_forbidden: "You can't endorse this page.",
+      bcc_endorse_self: "You can't endorse your own page.",
+      bcc_fraud_locked: "Your account is temporarily restricted from endorsing.",
+      bcc_conflict: "You've already endorsed this page. Refresh to see.",
+      bcc_not_found: "That endorsement no longer exists. Refresh to see.",
+      bcc_rate_limited: "Too many endorsements just now. Wait a moment.",
     },
     "Couldn't endorse. Try again.",
   );

@@ -12,14 +12,15 @@
  *
  *   - mode="signup" → connect → public nonce #1 → sign #1 → POST
  *                     /auth/wallet-signup. Then a *fresh* nonce + sign
- *                     (Keplr prompt #2) feeds signIn("wallet") to bridge
- *                     the JWT into a NextAuth session cookie. Two prompts
- *                     because each nonce is one-shot — we can't reuse the
- *                     signup signature to mint a session.
+ *                     (provider prompt #2) feeds signIn("wallet") to
+ *                     bridge the JWT into a NextAuth session cookie.
+ *                     Two prompts because each nonce is one-shot — the
+ *                     signup signature is consumed server-side and
+ *                     can't be reused to mint a session.
  *
- * V1 wallet support is Cosmos-only via Keplr (per src/lib/wallet/keplr.ts).
- * EVM / Solana adapters are V2; the prop surface stays neutral so adding
- * them is a strict addition rather than a rename.
+ * All three providers are supported (MetaMask / Phantom / Keplr) via
+ * the shared dispatch helper in lib/wallet/dispatch.ts. The two-prompt
+ * UX cost is identical regardless of provider.
  */
 
 import { signIn } from "next-auth/react";
@@ -31,31 +32,27 @@ import {
 } from "@/lib/api/auth-endpoints";
 import { BccApiError } from "@/lib/api/types";
 import {
-  connectKeplr,
-  KeplrError,
-  KeplrUnavailableError,
-  KeplrUserRejectedError,
-  signKeplrChallenge,
-  type KeplrConnection,
-} from "@/lib/wallet/keplr";
+  groupedWalletChains,
+  findWalletChain,
+  type WalletChainType,
+} from "@/lib/wallet/chain-catalog";
+import {
+  connectWallet,
+  humanizeWalletProviderError,
+  signWalletChallenge,
+  walletHintFor,
+  type WalletConnection,
+} from "@/lib/wallet/dispatch";
 
 // ─────────────────────────────────────────────────────────────────────
-// Chain options — V1 wallet auth is Cosmos-only via Keplr. Slugs match
-// the bcc-trust ChainRepository entries (`wp_bcc_chains.slug`), which
-// is the same vocabulary the §B4 home_chain field uses — Cosmos Hub is
-// `cosmos`, not `cosmoshub`. (The Keplr on-chain chain_id `cosmoshub-4`
-// lives in src/lib/wallet/keplr.ts and is unrelated to the BCC slug.)
+// Chain options — full catalog of providers BCC has signing flows for
+// (EVM via MetaMask, Solana via Phantom, Cosmos via Keplr). The
+// grouped layout renders <optgroup>s in the dropdown so the user can
+// see provider context at a glance.
 // ─────────────────────────────────────────────────────────────────────
 
-const CHAIN_OPTIONS: ReadonlyArray<{ slug: string; label: string }> = [
-  { slug: "cosmos",    label: "Cosmos Hub" },
-  { slug: "osmosis",   label: "Osmosis"    },
-  { slug: "injective", label: "Injective"  },
-  { slug: "juno",      label: "Juno"       },
-  { slug: "stargaze",  label: "Stargaze"   },
-];
-
-const DEFAULT_CHAIN = "cosmos";
+const GROUPED_CHAINS = groupedWalletChains();
+const DEFAULT_SLUG = GROUPED_CHAINS[0]?.options[0]?.slug ?? "ethereum";
 
 // Stable error-code → user copy mapping. Anything unmapped falls
 // through to the message string we already have in hand.
@@ -91,15 +88,21 @@ export interface WalletAuthButtonProps {
 }
 
 export function WalletAuthButton(props: WalletAuthButtonProps) {
-  const [chainSlug, setChainSlug] = useState<string>(DEFAULT_CHAIN);
+  const [chainSlug, setChainSlug] = useState<string>(DEFAULT_SLUG);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const selectedChain = findWalletChain(chainSlug);
   const isSignup = props.mode === "signup";
   const buttonLabel = isSignup ? "Sign up with wallet" : "Sign in with wallet";
 
   async function run() {
     setError(null);
+
+    if (selectedChain === undefined) {
+      setError("Pick a supported chain.");
+      return;
+    }
 
     if (isSignup) {
       const handle = (props.handle ?? "").trim();
@@ -109,16 +112,17 @@ export function WalletAuthButton(props: WalletAuthButtonProps) {
       }
     }
 
+    const chainType = selectedChain.chainType;
+
     setPending(true);
     try {
-      const connection = await connectKeplr(chainSlug);
-      const signed = await fetchAndSign(connection);
-      const extra = { pub_key: signed.pubKey, chain_id: connection.chainId };
+      const connection = await connectWallet(chainSlug, chainType);
+      const signed = await fetchAndSign(chainSlug, chainType, connection);
 
       if (isSignup) {
-        await runSignup(connection, signed.signature, extra, props);
+        await runSignup(chainSlug, chainType, connection, signed, props);
       } else {
-        await runLogin(connection, signed.signature, extra, props);
+        await runLogin(connection, signed, props);
       }
 
       props.onSuccess();
@@ -162,6 +166,15 @@ export function WalletAuthButton(props: WalletAuthButtonProps) {
         {pending ? "Waiting for wallet…" : buttonLabel}
       </button>
 
+      {selectedChain !== undefined && (
+        <p
+          className="bcc-mono text-center text-[10px] tracking-[0.18em] text-ink-soft"
+          aria-live="polite"
+        >
+          {walletHintFor(selectedChain.chainType)}
+        </p>
+      )}
+
       {error !== null && (
         <p role="alert" className="bcc-auth-error">{error}</p>
       )}
@@ -170,35 +183,32 @@ export function WalletAuthButton(props: WalletAuthButtonProps) {
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// Internals
+// Internals — connect/sign + login/signup branches.
 // ─────────────────────────────────────────────────────────────────────
 
-async function fetchAndSign(connection: KeplrConnection) {
+async function fetchAndSign(
+  chainSlug: string,
+  chainType: WalletChainType,
+  connection: WalletConnection,
+) {
   const nonce = await getPublicWalletNonce({
-    chain_slug:     connection.chainSlug,
+    chain_slug:     chainSlug,
     wallet_address: connection.address,
   });
 
-  const signed = await signKeplrChallenge(
-    connection.chainSlug,
-    connection.address,
-    nonce.message
-  );
-
-  return signed;
+  return signWalletChallenge(chainSlug, chainType, connection, nonce.message);
 }
 
 async function runLogin(
-  connection: KeplrConnection,
-  signature: string,
-  extra: Record<string, unknown>,
-  props: WalletAuthButtonProps
+  connection: WalletConnection,
+  signed: { signature: string; extra: Record<string, string> },
+  props: WalletAuthButtonProps,
 ): Promise<void> {
   const result = await signIn("wallet", {
     wallet_address: connection.address,
-    signature,
-    extra: JSON.stringify(extra),
-    redirect: false,
+    signature:      signed.signature,
+    extra:          JSON.stringify(signed.extra),
+    redirect:       false,
   });
 
   if (result?.error !== undefined && result.error !== null) {
@@ -225,10 +235,11 @@ async function runLogin(
 }
 
 async function runSignup(
-  connection: KeplrConnection,
-  signature: string,
-  extra: Record<string, unknown>,
-  props: WalletAuthButtonProps
+  chainSlug: string,
+  chainType: WalletChainType,
+  connection: WalletConnection,
+  signed: { signature: string; extra: Record<string, string> },
+  props: WalletAuthButtonProps,
 ): Promise<void> {
   const handle = (props.handle ?? "").trim().toLowerCase();
   const displayName = (props.displayName ?? "").trim();
@@ -236,8 +247,8 @@ async function runSignup(
 
   await walletSignup({
     wallet_address: connection.address,
-    signature,
-    extra,
+    signature:      signed.signature,
+    extra:          signed.extra,
     handle,
     ...(displayName !== "" ? { display_name: displayName } : {}),
     ...(emailRaw !== ""    ? { email: emailRaw } : {}),
@@ -245,16 +256,16 @@ async function runSignup(
 
   // Account created + wallet linked. The signup signature was consumed
   // server-side; we need a fresh nonce + signature to bridge to the
-  // NextAuth session via /auth/wallet-login. Two Keplr prompts is the
-  // honest UX cost — the alternative (returning a session-bridging
+  // NextAuth session via /auth/wallet-login. Two provider prompts is
+  // the honest UX cost — the alternative (returning a session-bridging
   // token from /auth/wallet-signup that bypasses NextAuth) is worse.
-  const second = await fetchAndSign(connection);
+  const second = await fetchAndSign(chainSlug, chainType, connection);
 
   const result = await signIn("wallet", {
     wallet_address: connection.address,
-    signature: second.signature,
-    extra: JSON.stringify({ pub_key: second.pubKey, chain_id: connection.chainId }),
-    redirect: false,
+    signature:      second.signature,
+    extra:          JSON.stringify(second.extra),
+    redirect:       false,
   });
 
   if (result?.error !== undefined && result.error !== null) {
@@ -270,17 +281,13 @@ async function runSignup(
 }
 
 function humanizeError(err: unknown): string {
-  if (err instanceof KeplrUnavailableError) {
-    return "Keplr extension not detected. Install Keplr to continue.";
-  }
-  if (err instanceof KeplrUserRejectedError) {
-    return "Wallet signing was canceled.";
-  }
+  // Provider-side errors (Keplr / MetaMask / Phantom unavailable, user
+  // cancel, unsupported chain, etc.) — dispatch.ts owns the copy.
+  const provider = humanizeWalletProviderError(err);
+  if (provider !== null) return provider;
+
   if (err instanceof BccApiError) {
     return ERROR_COPY[err.code] ?? err.message;
-  }
-  if (err instanceof KeplrError) {
-    return err.message;
   }
   if (err instanceof Error) {
     return ERROR_COPY[err.message] ?? err.message;
