@@ -52,8 +52,7 @@ import {
 // ─────────────────────────────────────────────────────────────────────
 
 const GROUPED_CHAINS = groupedWalletChains();
-const CHAIN_OPTIONS  = GROUPED_CHAINS.flatMap(group => group.options);
-const DEFAULT_SLUG   = GROUPED_CHAINS[0]?.options[0]?.slug ?? "ethereum";
+const DEFAULT_SLUG = GROUPED_CHAINS[0]?.options[0]?.slug ?? "ethereum";
 
 // Stable error-code → user copy mapping. Anything unmapped falls
 // through to the message string we already have in hand.
@@ -146,8 +145,16 @@ export function WalletAuthButton(props: WalletAuthButtonProps) {
             disabled={pending || props.disabled === true}
             className="bcc-auth-input bcc-auth-select"
           >
-            {CHAIN_OPTIONS.map((opt) => (
-              <option key={opt.slug} value={opt.slug}>{opt.label}</option>
+            {GROUPED_CHAINS.map((group) => (
+              <optgroup key={group.chainType} label={group.label} style={{
+                  background: "var(--bcc-primary)",
+                  fontWeight: "bold",
+                  padding: "44px 8px",
+                }}>
+                {group.options.map((opt) => (
+                  <option key={opt.slug} value={opt.slug}>{opt.label}</option>
+                ))}
+              </optgroup>
             ))}
           </select>
           <span className="bcc-auth-select-arrow" aria-hidden="true">
@@ -169,7 +176,8 @@ export function WalletAuthButton(props: WalletAuthButtonProps) {
 
       {selectedChain !== undefined && (
         <p
-          className="bcc-mono text-center text-[10px] tracking-[0.18em] text-ink-soft"
+          className="bcc-mono"
+          style={{ textAlign: "center", fontSize: 10, letterSpacing: "0.18em", color: "var(--bcc-text-muted)" }}
           aria-live="polite"
         >
           {walletHintFor(selectedChain.chainType)}
