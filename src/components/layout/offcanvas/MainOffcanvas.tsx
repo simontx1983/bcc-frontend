@@ -1,5 +1,6 @@
 "use client";
 
+import type { Route } from "next";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
@@ -260,7 +261,7 @@ export function MainOffcanvas({ open, onClose }: MainOffcanvasProps) {
             {PRIMARY_NAV.map(item => (
               <Link
                 key={item.href}
-                href={item.href}
+                href={item.href as Route}
                 onClick={onClose}
                 className={`bcc-nav-item${isActive(item.href) ? " active" : ""}`}
                 aria-current={isActive(item.href) ? "page" : undefined}
@@ -279,7 +280,7 @@ export function MainOffcanvas({ open, onClose }: MainOffcanvasProps) {
                 {QUICK_LINKS.map(item => (
                   <Link
                     key={item.href}
-                    href={item.href}
+                    href={item.href as Route}
                     onClick={onClose}
                     className={`bcc-nav-item${isActive(item.href) ? " active" : ""}`}
                     aria-current={isActive(item.href) ? "page" : undefined}
@@ -302,7 +303,7 @@ export function MainOffcanvas({ open, onClose }: MainOffcanvasProps) {
             ].map(item => (
               <Link
                 key={item.href}
-                href={item.href}
+                href={item.href as Route}
                 onClick={onClose}
                 style={{
                   fontFamily: "var(--font-mono), monospace",

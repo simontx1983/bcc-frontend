@@ -5,6 +5,7 @@ import {
   JetBrains_Mono,
   Homemade_Apple,
 } from "next/font/google";
+import { Analytics } from "@vercel/analytics/next";
 
 import { Providers } from "./providers";
 import "./globals.css";

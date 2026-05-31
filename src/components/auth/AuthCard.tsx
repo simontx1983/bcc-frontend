@@ -5,7 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 
 interface AuthCardProps {
   heading: string;
-  subheading?: string;
+  subheading?: string | undefined;
   children: React.ReactNode;
   footer?: React.ReactNode;
 }

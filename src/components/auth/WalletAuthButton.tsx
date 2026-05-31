@@ -52,7 +52,8 @@ import {
 // ─────────────────────────────────────────────────────────────────────
 
 const GROUPED_CHAINS = groupedWalletChains();
-const DEFAULT_SLUG = GROUPED_CHAINS[0]?.options[0]?.slug ?? "ethereum";
+const CHAIN_OPTIONS  = GROUPED_CHAINS.flatMap(group => group.options);
+const DEFAULT_SLUG   = GROUPED_CHAINS[0]?.options[0]?.slug ?? "ethereum";
 
 // Stable error-code → user copy mapping. Anything unmapped falls
 // through to the message string we already have in hand.

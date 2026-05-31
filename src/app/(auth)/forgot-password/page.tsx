@@ -69,7 +69,7 @@ export default function ForgotPasswordPage() {
           </div>
           <p className="bcc-auth-success-title">Check your inbox</p>
           <p className="bcc-auth-success-body">
-            If an account exists for <strong>{email}</strong>, you'll receive a password reset link shortly.
+            If an account exists for <strong>{email}</strong>, you&apos;ll receive a password reset link shortly.
           </p>
         </div>
       ) : (
