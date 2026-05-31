@@ -3,19 +3,23 @@
 /**
  * Forgot password page.
  *
- * Submits the email to /wp-json/bcc/v1/auth/forgot-password.
- * On success, shows a confirmation state — no redirect, user stays
- * on this page with instructions to check their inbox.
+ * Submits the email to /wp-json/bcc/v1/auth/forgot-password. The
+ * backend always responds ok=true regardless of whether the email
+ * matches an account (anti-enumeration); only real matches actually
+ * dispatch a reset email. UI shows the same "check your inbox"
+ * confirmation either way.
  *
- * The backend endpoint is not yet wired — the form submits but the
- * fetch is stubbed with a TODO. Replace with the real API call when
- * Phillip has the endpoint ready.
+ * Errors a caller can see:
+ *   - bcc_rate_limited → "Too many requests, try again later"
+ *   - network failure  → "Something went wrong, try again"
  */
 
 import Link from "next/link";
 import { type FormEvent, useState } from "react";
 
 import { AuthCard } from "@/components/auth/AuthCard";
+import { requestPasswordReset } from "@/lib/api/auth-endpoints";
+import { BccApiError } from "@/lib/api/types";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
@@ -29,19 +33,14 @@ export default function ForgotPasswordPage() {
     setSubmitting(true);
 
     try {
-      // TODO: replace with real endpoint when available
-      // const res = await fetch(`${process.env.NEXT_PUBLIC_BCC_API_URL}/wp-json/bcc/v1/auth/forgot-password`, {
-      //   method: "POST",
-      //   headers: { "Content-Type": "application/json" },
-      //   body: JSON.stringify({ email }),
-      // });
-      // if (!res.ok) throw new Error("request_failed");
-
-      // Stub — simulate success for now
-      await new Promise((r) => setTimeout(r, 800));
+      await requestPasswordReset(email);
       setSent(true);
-    } catch {
-      setError("Something went wrong. Please try again.");
+    } catch (err) {
+      if (err instanceof BccApiError && err.code === "bcc_rate_limited") {
+        setError("Too many password-reset requests. Try again later.");
+      } else {
+        setError("Something went wrong. Please try again.");
+      }
     } finally {
       setSubmitting(false);
     }

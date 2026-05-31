@@ -188,3 +188,51 @@ export function walletSignup(
     body: request,
   });
 }
+
+// ─────────────────────────────────────────────────────────────────────
+// Password-reset flow — anonymous, two-step.
+//
+//   1. /forgot-password page POSTs an email here. Backend ALWAYS
+//      responds 200 ok=true regardless of whether the email matches —
+//      anti-enumeration. On a real match, backend emails a reset link.
+//   2. User clicks the emailed link → /reset-password?key=...&login=...
+//      page POSTs to confirmPasswordReset with the new password.
+// ─────────────────────────────────────────────────────────────────────
+
+/**
+ * POST /auth/forgot-password — request a password-reset email.
+ *
+ * Returns void; the backend always responds ok=true regardless of
+ * whether the email matched a user (anti-enumeration). UI should show
+ * a "check your inbox" confirmation either way.
+ *
+ * Only error a caller can see is `bcc_rate_limited` (3/hour per IP) or
+ * a network failure — both warrant surfacing a retryable error.
+ */
+export async function requestPasswordReset(email: string): Promise<void> {
+  await bccFetch<{ ok: true }>("auth/forgot-password", {
+    method: "POST",
+    body: { email },
+  });
+}
+
+/**
+ * POST /auth/reset-password — consume a reset key + set a new password.
+ *
+ * Errors:
+ *   - bcc_invalid_reset_token — key is expired, single-use already
+ *     consumed, or never existed. UI: "link is expired or invalid".
+ *   - bcc_weak_password       — < 8 characters.
+ *   - bcc_rate_limited        — 10/hour per IP attempt cap tripped.
+ *   - bcc_invalid_request     — missing field.
+ */
+export async function confirmPasswordReset(
+  key: string,
+  login: string,
+  password: string,
+): Promise<void> {
+  await bccFetch<{ ok: true }>("auth/reset-password", {
+    method: "POST",
+    body: { key, login, password },
+  });
+}
