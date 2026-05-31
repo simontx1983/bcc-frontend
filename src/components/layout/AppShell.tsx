@@ -19,16 +19,30 @@ export function AppShell({
   const glowRef   = useRef<HTMLDivElement>(null);
   const [collapsed, setCollapsed] = useState(false);
 
-  // Restore collapse preference
   useEffect(() => {
-    const stored = localStorage.getItem("bcc-sidebar-collapsed");
-    if (stored === "true") setCollapsed(true);
+    if (window.innerWidth < 1280) {
+      setCollapsed(true);
+    } else {
+      setCollapsed(localStorage.getItem("bcc-sidebar-collapsed") === "true");
+    }
+
+    const handleResize = () => {
+      if (window.innerWidth < 1280) {
+        setCollapsed(true);
+      } else {
+        setCollapsed(localStorage.getItem("bcc-sidebar-collapsed") === "true");
+      }
+    };
+    window.addEventListener("resize", handleResize, { passive: true });
+    return () => window.removeEventListener("resize", handleResize);
   }, []);
 
   function handleToggle() {
     const next = !collapsed;
     setCollapsed(next);
-    localStorage.setItem("bcc-sidebar-collapsed", String(next));
+    if (window.innerWidth >= 1280) {
+      localStorage.setItem("bcc-sidebar-collapsed", String(next));
+    }
   }
 
   // Cursor glow

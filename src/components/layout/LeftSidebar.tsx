@@ -118,7 +118,7 @@ export function LeftSidebar({ collapsed, onToggle }: LeftSidebarProps) {
       </div>
 
       {/* ── Collapse toggle — always pinned at bottom ── */}
-      <div className="bcc-sidebar-pin-bottom" style={{ padding: collapsed ? "12px 8px" : "12px 16px" }}>
+      <div className="bcc-sidebar-pin-bottom" style={{ padding: collapsed ? "8px 8px" : "8px 8px" }}>
         <button
           onClick={onToggle}
           className="bcc-btn-icon"

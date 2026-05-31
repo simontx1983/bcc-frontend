@@ -13,10 +13,12 @@
  */
 
 import { useEffect, useRef, useState } from "react";
+import { useSession } from "next-auth/react";
 import type { Route } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { SignOutModal } from "@/components/auth/SignOutModal";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -306,10 +308,11 @@ const AVATAR_MENU = [
 interface AvatarDropdownProps {
   handle: string;
   onClose: () => void;
+  onSignOut: () => void;
   anchorRef: React.RefObject<HTMLButtonElement | null>;
 }
 
-function AvatarDropdown({ handle, onClose, anchorRef }: AvatarDropdownProps) {
+function AvatarDropdown({ handle, onClose, onSignOut, anchorRef }: AvatarDropdownProps) {
   const dropRef = useRef<HTMLDivElement>(null);
   useModalDismiss(dropRef, anchorRef, onClose);
 
@@ -340,35 +343,67 @@ function AvatarDropdown({ handle, onClose, anchorRef }: AvatarDropdownProps) {
       {AVATAR_MENU.map(item => {
         const href = item.href.replace("[handle]", handle);
         const isDanger = item.label === "Sign Out";
+        const sharedStyle = {
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+          padding: "8px 12px",
+          borderRadius: "var(--bcc-radius-md)",
+          textDecoration: "none",
+          color: isDanger ? "var(--bcc-danger)" : "var(--bcc-text-secondary)",
+          fontSize: 13,
+          fontFamily: "var(--font-serif), Georgia, serif",
+          transition: "background 120ms ease, color 120ms ease",
+          marginTop: isDanger ? 4 : 0,
+          borderTop: isDanger ? "1px solid var(--bcc-border-light)" : "none",
+          cursor: "pointer",
+          background: "transparent",
+          border: isDanger ? "none" : undefined,
+          borderTopWidth: isDanger ? 1 : undefined,
+          borderTopStyle: isDanger ? "solid" as const : undefined,
+          borderTopColor: isDanger ? "var(--bcc-border-light)" : undefined,
+          width: "100%",
+          boxSizing: "border-box" as const,
+        };
+
+        if (isDanger) {
+          return (
+            <button
+              key={item.label}
+              type="button"
+              role="menuitem"
+              style={sharedStyle}
+              onClick={() => {
+                onClose();
+                onSignOut();
+              }}
+              onMouseEnter={e => {
+                (e.currentTarget as HTMLElement).style.background = "rgba(239,68,68,0.08)";
+              }}
+              onMouseLeave={e => {
+                (e.currentTarget as HTMLElement).style.background = "transparent";
+              }}
+            >
+              <span style={{ width: 16, height: 16, flexShrink: 0, opacity: 0.8 }}>{item.icon}</span>
+              {item.label}
+            </button>
+          );
+        }
+
         return (
           <Link
             key={item.label}
             href={href as Route}
             role="menuitem"
             onClick={onClose}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 10,
-              padding: "8px 12px",
-              borderRadius: "var(--bcc-radius-md)",
-              textDecoration: "none",
-              color: isDanger ? "var(--bcc-danger)" : "var(--bcc-text-secondary)",
-              fontSize: 13,
-              fontFamily: "var(--font-serif), Georgia, serif",
-              transition: "background 120ms ease, color 120ms ease",
-              marginTop: isDanger ? 4 : 0,
-              borderTop: isDanger ? "1px solid var(--bcc-border-light)" : "none",
-            }}
+            style={sharedStyle}
             onMouseEnter={e => {
-              (e.currentTarget as HTMLElement).style.background = isDanger
-                ? "rgba(239,68,68,0.08)"
-                : "var(--bcc-surface-hover)";
-              if (!isDanger) (e.currentTarget as HTMLElement).style.color = "var(--bcc-text)";
+              (e.currentTarget as HTMLElement).style.background = "var(--bcc-surface-hover)";
+              (e.currentTarget as HTMLElement).style.color = "var(--bcc-text)";
             }}
             onMouseLeave={e => {
               (e.currentTarget as HTMLElement).style.background = "transparent";
-              (e.currentTarget as HTMLElement).style.color = isDanger ? "var(--bcc-danger)" : "var(--bcc-text-secondary)";
+              (e.currentTarget as HTMLElement).style.color = "var(--bcc-text-secondary)";
             }}
           >
             <span style={{ width: 16, height: 16, flexShrink: 0, opacity: 0.8 }}>{item.icon}</span>
@@ -382,11 +417,10 @@ function AvatarDropdown({ handle, onClose, anchorRef }: AvatarDropdownProps) {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-interface SiteHeaderProps {
-  viewerHandle: string | null;
-}
-
-export function SiteHeader({ viewerHandle }: SiteHeaderProps) {
+export function SiteHeader() {
+  const { data: session, status } = useSession();
+  const viewerHandle = session?.user?.handle ?? null;
+  const isLoading = status === "loading";
   const pathname   = usePathname() ?? "/";
   const router     = useRouter();
   const searchRef  = useRef<HTMLInputElement>(null);
@@ -409,6 +443,22 @@ export function SiteHeader({ viewerHandle }: SiteHeaderProps) {
   const [messagesOpen, setMessagesOpen] = useState(false);
   const [notifOpen,    setNotifOpen]    = useState(false);
   const [avatarOpen,   setAvatarOpen]   = useState(false);
+
+  // Sign-out confirmation dropdown 
+  const [showSignOut, setShowSignOut] = useState(false);
+
+  // Mobile: track viewport width to show search icon vs search bar
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth <= 599);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
+
+  // Mobile search overlay open state
+  const [searchOverlayOpen, setSearchOverlayOpen] = useState(false);
+  const searchIconRef = useRef<HTMLButtonElement>(null);
 
   // Restore theme preference on mount
   useEffect(() => {
@@ -456,6 +506,9 @@ export function SiteHeader({ viewerHandle }: SiteHeaderProps) {
   return (
     <header className="bcc-header">
 
+      {/* ── Blur layer — sibling to content, carries backdrop-filter so modals can blur freely ── */}
+      <div className="bcc-header-blur-layer" aria-hidden />
+
       {/* ── Logo ── */}
       <Link href="/" className="bcc-brand" aria-label="BCC Home">
         <Image
@@ -499,31 +552,49 @@ export function SiteHeader({ viewerHandle }: SiteHeaderProps) {
       {/* ── Right controls ── */}
       <div className="bcc-header-actions" style={{ position: "relative" }}>
 
+        {/* Search icon — mobile only, shown via CSS class */}
+        {isMobile && (
+          <button
+            ref={searchIconRef}
+            onClick={() => setSearchOverlayOpen(o => !o)}
+            className="bcc-btn-icon bcc-header-search-icon-btn"
+            aria-label="Search"
+            title="Search"
+          >
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden>
+              <circle cx="7.5" cy="7.5" r="5" stroke="currentColor" strokeWidth="1.5"/>
+              <path d="M12 12l4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+            </svg>
+          </button>)}
+
         {/* Palette — theme/accent */}
-        <button
+        {!isMobile && (
+          <button
           ref={paletteRef}
           onClick={() => themeOpen ? setThemeOpen(false) : openTheme()}
-          className={`bcc-btn-icon${themeOpen ? " active" : ""}`}
+          className={`bcc-btn-icon bcc-header-palette-btn${themeOpen ? " active" : ""}`}
           aria-label="Theme settings"
           title="Theme & accent"
           style={activeStyle(themeOpen)}
         >
           <PaletteIcon />
-        </button>
+        </button>)}
 
         {/* Settings — links to profile edit */}
-        <Link
+        {viewerHandle && !isMobile && (
+         <Link
           href="/settings/profile"
-          className={`bcc-btn-icon${pathname.startsWith("/settings") ? " active" : ""}`}
+          className={`bcc-btn-icon bcc-header-settings-btn${pathname.startsWith("/settings") ? " active" : ""}`}
           aria-label="Settings"
           title="Settings"
           style={pathname.startsWith("/settings") ? { color: "var(--bcc-accent)", background: "var(--bcc-accent-subtle)" } : undefined}
         >
           <CogIcon />
-        </Link>
+        </Link>)}
 
         {/* Messages */}
-        <button
+        {viewerHandle && 
+          <button
           ref={messagesRef}
           onClick={() => messagesOpen ? setMessagesOpen(false) : openMessages()}
           className={`bcc-btn-icon${messagesOpen ? " active" : ""}`}
@@ -532,14 +603,14 @@ export function SiteHeader({ viewerHandle }: SiteHeaderProps) {
           style={activeStyle(messagesOpen)}
         >
           <ChatIcon />
-        </button>
+        </button>}
 
-        {/* Notifications — authed only */}
-        {viewerHandle && (
+        {/* Notifications — authed only, hidden on mobile via CSS class */}
+        {viewerHandle &&!isMobile && (
           <button
             ref={notifRef}
             onClick={() => notifOpen ? setNotifOpen(false) : openNotif()}
-            className={`bcc-btn-icon${notifOpen ? " active" : ""}`}
+            className={`bcc-btn-icon bcc-header-notif-btn${notifOpen ? " active" : ""}`}
             aria-label="Notifications"
             title="Notifications"
             style={activeStyle(notifOpen)}
@@ -548,8 +619,59 @@ export function SiteHeader({ viewerHandle }: SiteHeaderProps) {
           </button>
         )}
 
+        {/* Mobile search overlay */}
+        {searchOverlayOpen && (
+          <>
+          {/* Backdrop Overlay */}
+          <div
+            onClick={() => setSearchOverlayOpen(false)}
+            style={{
+              position: "fixed",
+              inset: 0,
+              zIndex: 299,
+              background: "var(--bcc-glass-bg-frosted);",
+              backdropFilter: "var(--bcc-blur-sm)",
+              animation: "bcc-fade-in 0.2s ease",
+            }}
+          />
+          <div
+            role="dialog"
+            aria-label="Search"
+            style={{
+              position: "fixed",
+              top: "calc(var(--bcc-header-h) + 12px)",
+              left: 0,
+              right: 0,
+              marginLeft: "auto",
+              marginRight: "auto",
+              zIndex: 300,
+              padding: "8px",
+              background: "var(--bcc-glass-bg-solid)",
+              backdropFilter: "blur(20px) saturate(160%)",
+              WebkitBackdropFilter: "blur(20px) saturate(160%)",
+              borderBottom: "1px solid var(--bcc-glass-border)",
+              boxShadow: "var(--bcc-shadow-lg)",
+              width: "80%",
+              borderRadius: "var(--bcc-radius-xl)",
+              animation: "bcc-fade-in 0.15s ease forwards",
+            }}
+          >
+            <input
+              autoFocus
+              type="search"
+              placeholder="Search BCC…"
+              className="bcc-search-input"
+              style={{ width: "100%" }}
+              onKeyDown={e => e.key === "Escape" && setSearchOverlayOpen(false)}
+            />
+          </div>
+          </>
+        )}
+
         {/* Avatar / Sign in */}
-        {viewerHandle ? (
+        {isLoading ? (
+          <div style={{ width: 32, height: 32, borderRadius: "var(--bcc-radius-md)", background: "var(--bcc-surface-hover)", opacity: 0.5 }} />
+        ) : viewerHandle ? (
           <button
             ref={avatarRef}
             onClick={() => avatarOpen ? setAvatarOpen(false) : openAvatar()}
@@ -579,9 +701,16 @@ export function SiteHeader({ viewerHandle }: SiteHeaderProps) {
             <ChevronDownIcon />
           </button>
         ) : (
-          <Link href="/login" className="bcc-btn bcc-btn-sm bcc-btn-primary">
-            Sign in
-          </Link>
+          <div style={{ display: "flex", gap: 8 }}>
+            <Link href="/signup" className="bcc-btn bcc-btn-sm bcc-btn-primary">
+              Sign Up
+            </Link>
+            {!isMobile && (
+              <Link href="/login" className="bcc-btn bcc-btn-sm bcc-btn-ghost bcc-header-signin-btn">
+                Sign In
+              </Link>
+            )}
+          </div>
         )}
 
         {/* ── Modals ── */}
@@ -615,9 +744,12 @@ export function SiteHeader({ viewerHandle }: SiteHeaderProps) {
           <AvatarDropdown
             handle={viewerHandle}
             onClose={() => setAvatarOpen(false)}
+            onSignOut={() => setShowSignOut(true)}
             anchorRef={avatarRef}
           />
         )}
+
+        {showSignOut && <SignOutModal onClose={() => setShowSignOut(false)} />}
 
       </div>
     </header>
