@@ -35,7 +35,7 @@ import { HeatBadge } from "@/components/groups/HeatBadge";
 import { VerificationBadge } from "@/components/groups/VerificationBadge";
 import type { GroupActivity, HolderGroupItem } from "@/lib/api/types";
 
-import { SettingsSectionHeader } from "@/app/(main)/settings/_components/SettingsSectionHeader";
+import { SettingsSectionHeader } from "@/app/settings/_components/SettingsSectionHeader";
 
 const HEAT_ORDER: Record<GroupActivity["heat"], number> = {
   hot: 0,
