@@ -12,6 +12,18 @@ const nextConfig: NextConfig = {
   // Pin the workspace root to this folder so Next does not walk up the
   // tree and pick the stray package-lock.json in the user's home dir.
   outputFileTracingRoot: path.join(__dirname),
+  // @polkadot/* packages use dynamic internal requires to load their
+  // WASM bytes. Bundling them breaks those relative-path lookups and
+  // causes Vercel lambdas to fail at cold-start. Mark them external so
+  // they are loaded from node_modules at runtime, not inlined.
+  serverExternalPackages: [
+    "@polkadot/util-crypto",
+    "@polkadot/wasm-crypto",
+    "@polkadot/wasm-crypto-wasm",
+    "@polkadot/wasm-bridge",
+    "@polkadot/wasm-crypto-asmjs",
+    "@polkadot/wasm-crypto-init",
+  ],
 };
 
 export default withSentryConfig(nextConfig, {
