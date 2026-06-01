@@ -261,7 +261,7 @@ export function MainOffcanvas({ open, onClose }: MainOffcanvasProps) {
             {PRIMARY_NAV.map(item => (
               <Link
                 key={item.href}
-                href={item.href}
+                href={item.href as Route}
                 onClick={onClose}
                 className={`bcc-nav-item${isActive(item.href) ? " active" : ""}`}
                 aria-current={isActive(item.href) ? "page" : undefined}
@@ -280,7 +280,7 @@ export function MainOffcanvas({ open, onClose }: MainOffcanvasProps) {
                 {QUICK_LINKS.map(item => (
                   <Link
                     key={item.href}
-                    href={item.href}
+                    href={item.href as Route}
                     onClick={onClose}
                     className={`bcc-nav-item${isActive(item.href) ? " active" : ""}`}
                     aria-current={isActive(item.href) ? "page" : undefined}
