@@ -18,7 +18,7 @@ import type { Route } from "next";
 import { signIn } from "next-auth/react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useState, Suspense } from "react";
 
 import { AuthCard, AuthDivider, SSOButton } from "@/components/auth/AuthCard";
 import { WalletAuthButton } from "@/components/auth/WalletAuthButton";
@@ -35,7 +35,7 @@ const ERROR_COPY: Record<string, string> = {
   CredentialsSignin:       "Invalid email or password.",
 };
 
-export default function LoginPage() {
+function LoginPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get("callbackUrl");
@@ -182,5 +182,13 @@ export default function LoginPage() {
         />
       )}
     </>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginPageContent />
+    </Suspense>
   );
 }

@@ -18,7 +18,7 @@
 import type { Route } from "next";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useState, Suspense } from "react";
 
 import { AuthCard } from "@/components/auth/AuthCard";
 import { confirmPasswordReset } from "@/lib/api/auth-endpoints";
@@ -33,7 +33,7 @@ const ERROR_COPY: Record<string, string> = {
   bcc_invalid_request:     "Missing required fields.",
 };
 
-export default function ResetPasswordPage() {
+function ResetPasswordContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const key   = searchParams.get("key")   ?? "";
@@ -138,5 +138,13 @@ export default function ResetPasswordPage() {
         </button>
       </form>
     </AuthCard>
+  );
+}
+
+export default function ResetPasswordPage() {
+  return (
+    <Suspense>
+      <ResetPasswordContent />
+    </Suspense>
   );
 }
