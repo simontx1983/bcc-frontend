@@ -50,11 +50,7 @@ export default function ForgotPasswordPage() {
   return (
     <AuthCard
       heading="Reset password"
-      subheading={
-        sent
-          ? undefined
-          : "Enter your email and we'll send you a reset link."
-      }
+      {...(!sent && { subheading: "Enter your email and we'll send you a reset link." })}
       footer={
         <Link href="/login">Back to sign in</Link>
       }
