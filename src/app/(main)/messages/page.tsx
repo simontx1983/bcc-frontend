@@ -14,14 +14,14 @@ import type { Route } from "next";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { useMemo } from "react";
+import { useMemo, Suspense } from "react";
 
 import { ConversationList } from "@/components/messages/ConversationList";
 import { useConversations } from "@/hooks/useConversations";
 
 const PER_PAGE = 20;
 
-export default function MessagesPage() {
+function MessagesPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const session = useSession();
@@ -206,3 +206,5 @@ function Pagination({
     </nav>
   );
 }
+
+export default function MessagesPage() { return <Suspense><MessagesPageContent /></Suspense>; }

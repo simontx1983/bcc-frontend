@@ -32,7 +32,7 @@
 
 import type { Route } from "next";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, Suspense } from "react";
 
 import { DirectoryFilters } from "@/components/directory/DirectoryFilters";
 import { DirectoryGrid } from "@/components/directory/DirectoryGrid";
@@ -57,7 +57,7 @@ const DEFAULT_FILTERS: Filters = {
   chain: null,
 };
 
-export default function DirectoryPage() {
+function DirectoryPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -323,3 +323,5 @@ function pushFiltersToUrl(
   const url = (qs === "" ? "/directory" : `/directory?${qs}`) as Route;
   router.replace(url, { scroll: false });
 }
+
+export default function DirectoryPage() { return <Suspense><DirectoryPageContent /></Suspense>; }

@@ -16,7 +16,7 @@
  */
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, Suspense } from "react";
 
 import { MembersGrid } from "@/components/members/MembersGrid";
 import { useMembers } from "@/hooks/useMembers";
@@ -109,7 +109,7 @@ const TYPE_FILTER_LABEL: Record<MembersTypeFilter, string> = {
   dao:       "DAOS",
 };
 
-export default function MembersPage() {
+function MembersPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -765,3 +765,5 @@ function pushToUrl(
   const qs = params.toString();
   router.replace(qs !== "" ? `/members?${qs}` : "/members", { scroll: false });
 }
+
+export default function MembersPage() { return <Suspense><MembersPageContent /></Suspense>; }
