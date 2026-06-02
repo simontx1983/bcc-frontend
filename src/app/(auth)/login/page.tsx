@@ -25,14 +25,17 @@ import { WalletAuthButton } from "@/components/auth/WalletAuthButton";
 import { WalletSignupPrompt } from "@/components/auth/WalletSignupPrompt";
 
 const ERROR_COPY: Record<string, string> = {
-  bcc_invalid_credentials: "Invalid email or password.",
-  bcc_invalid_request:     "Email and password are required.",
-  bcc_rate_limited:        "Too many login attempts. Try again in a minute.",
-  bcc_invalid_state:       "This account is missing a handle. Contact support.",
-  bcc_network_error:       "Couldn't reach the server. Check your connection.",
-  bcc_invalid_envelope:    "Server returned an unexpected response. Try again.",
-  bcc_unknown:             "Sign-in failed. Try again, or contact support if the issue persists.",
-  CredentialsSignin:       "Invalid email or password.",
+  bcc_invalid_credentials:  "Invalid email or password.",
+  bcc_invalid_request:      "Email and password are required.",
+  bcc_rate_limited:         "Too many login attempts. Try again in a minute.",
+  bcc_invalid_state:        "This account is missing a handle. Contact support.",
+  bcc_network_error:        "Couldn't reach the server. Check your connection.",
+  bcc_invalid_envelope:     "Server returned an unexpected response. Try again.",
+  bcc_unknown:              "Sign-in failed. Try again, or contact support if the issue persists.",
+  CredentialsSignin:        "Invalid email or password.",
+  // Email verification gate — set by /auth/login when _bcc_email_verified = '0'.
+  // Message is shown with a "Verify now" link rendered separately below the form.
+  bcc_email_not_verified:   "Please verify your email address before signing in.",
 };
 
 function LoginPageContent() {
@@ -46,6 +49,8 @@ function LoginPageContent() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [walletSignupOpen, setWalletSignupOpen] = useState(false);
+  /** Set to the email address when the server blocks login with bcc_email_not_verified. */
+  const [notVerifiedEmail, setNotVerifiedEmail] = useState<string | null>(null);
 
   function targetAfterLogin(): Route {
     return callbackUrl !== null && callbackUrl !== ""
@@ -68,9 +73,13 @@ function LoginPageContent() {
 
     if (result?.error !== undefined && result.error !== null) {
       setError(ERROR_COPY[result.error] ?? "Sign-in failed. Try again.");
+      if (result.error === "bcc_email_not_verified") {
+        setNotVerifiedEmail(email);
+      }
       return;
     }
 
+    setNotVerifiedEmail(null);
     router.replace(targetAfterLogin());
   }
 
@@ -151,6 +160,16 @@ function LoginPageContent() {
 
           {error !== null && (
             <p role="alert" className="bcc-auth-error">{error}</p>
+          )}
+
+          {notVerifiedEmail !== null && (
+            <p className="bcc-auth-hint">
+              <Link
+                href={`/verify-email?email=${encodeURIComponent(notVerifiedEmail)}`}
+              >
+                Verify your email →
+              </Link>
+            </p>
           )}
 
           <button

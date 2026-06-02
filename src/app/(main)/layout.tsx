@@ -1,5 +1,3 @@
-import { SpeedInsights } from "@vercel/speed-insights/next";
-
 import { AppShell } from "@/components/layout/AppShell";
 import { SiteHeader } from "@/components/layout/SiteHeader";
 import { CelebrationGate } from "@/components/celebration/CelebrationGate";
@@ -18,7 +16,6 @@ export default function MainLayout({
       </AppShell>
       <CelebrationGate />
       <MobileShell />
-      <SpeedInsights />
     </>
   );
 }

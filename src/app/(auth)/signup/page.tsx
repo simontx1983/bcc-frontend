@@ -1,17 +1,16 @@
 "use client";
 
 /**
- * Signup page — email + password + handle → /auth/signup → NextAuth session.
+ * Signup page — email + password + handle → /auth/signup → /verify-email.
  *
- * Two-step handshake on success:
- *   1. POST /auth/signup creates the WP user and returns a JWT.
- *   2. signIn("credentials", { email, password }) establishes the NextAuth session.
+ * On success: POST /auth/signup returns {ok, email}. No JWT is minted —
+ * the user must verify their email before they can log in. We redirect
+ * them to /verify-email?email=<email> to complete the flow.
  *
  * Handle validation: client-side regex gives instant feedback.
  * Server is authoritative — catches "already taken" via bcc_conflict.
  */
 
-import { signIn } from "next-auth/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { type FormEvent, useState } from "react";
@@ -52,10 +51,11 @@ export default function SignupPage() {
     setError(null);
     setSubmitting(true);
 
+    const trimmedEmail = email.trim();
     try {
       const trimmedDisplayName = displayName.trim();
       await signup({
-        email:   email.trim(),
+        email:   trimmedEmail,
         password,
         handle:  handle.trim().toLowerCase(),
         ...(trimmedDisplayName !== "" ? { display_name: trimmedDisplayName } : {}),
@@ -70,21 +70,8 @@ export default function SignupPage() {
       return;
     }
 
-    const result = await signIn("credentials", {
-      email:    email.trim(),
-      password,
-      redirect: false,
-    });
-
     setSubmitting(false);
-
-    if (result?.error !== undefined && result.error !== null) {
-      setError("Account created, but auto-sign-in failed. Try logging in.");
-      router.replace("/login");
-      return;
-    }
-
-    router.replace("/onboarding");
+    router.replace(`/verify-email?email=${encodeURIComponent(trimmedEmail)}`);
   }
 
   return (

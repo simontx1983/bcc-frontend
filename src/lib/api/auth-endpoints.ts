@@ -5,14 +5,15 @@
  * not from here. This file covers the OTHER auth endpoints that need
  * direct client invocation:
  *
- *   - signup       → POST /auth/signup       (creates account, returns JWT)
- *   - token        → POST /auth/token        (re-mint for already-authed user)
- *   - wallet nonce → GET  /auth/nonce        (§N8 claim challenge)
- *   - wallet link  → POST /auth/wallet-link  (§N8 verify + persist)
+ *   - signup               → POST /auth/signup               (creates account, sends verification email)
+ *   - verifyEmail          → POST /auth/verify-email         (OTP code OR one-shot token)
+ *   - resendVerification   → POST /auth/resend-verification  (re-send OTP + link)
+ *   - token                → POST /auth/token                (re-mint for already-authed user)
+ *   - wallet nonce         → GET  /auth/nonce                (§N8 claim challenge)
+ *   - wallet link          → POST /auth/wallet-link          (§N8 verify + persist)
  *
- * Signup runs unauthenticated then hands off to NextAuth's signIn()
- * to establish the session cookie. See app/signup/page.tsx for the
- * full handshake.
+ * Email signup flow:
+ *   signup() → {ok:true, email} → /verify-email page → verifyEmail() → /login
  */
 
 import { bccFetch, bccFetchAsClient } from "@/lib/api/client";
@@ -33,21 +34,77 @@ export interface SignupRequest {
 }
 
 /**
- * POST /auth/signup. Returns the JWT + identity payload, OR throws
- * BccApiError on conflict / validation failure (codes:
- * `bcc_invalid_request`, `bcc_invalid_handle`, `bcc_handle_reserved`,
- * `bcc_conflict`, `bcc_rate_limited`, `bcc_internal_error`).
- *
- * Caller should follow up with NextAuth signIn("credentials", ...)
- * using the same email/password to establish the session cookie.
- * The JWT in this response is the source of truth either way — a
- * server-component path that wants to skip NextAuth entirely could
- * stash it directly.
+ * Returned by POST /auth/signup. No JWT — the user must verify their
+ * email via /auth/verify-email before they can sign in.
  */
-export async function signup(input: SignupRequest): Promise<AuthTokenResponse> {
-  return bccFetch<AuthTokenResponse>("auth/signup", {
+export interface SignupResponse {
+  ok: true;
+  /** The email address a verification code was sent to. */
+  email: string;
+}
+
+/**
+ * POST /auth/signup. Creates the WP user and dispatches a verification
+ * email, then returns {ok, email}. No JWT is minted — the user must
+ * complete email verification before they can log in.
+ *
+ * On success: redirect the user to /verify-email?email=<email>.
+ *
+ * Errors (thrown as BccApiError):
+ *   bcc_invalid_request    — missing or malformed fields
+ *   bcc_invalid_handle     — handle violates character rules
+ *   bcc_handle_reserved    — handle is on the reserved list
+ *   bcc_conflict           — handle or email already taken
+ *   bcc_rate_limited       — too many signups from this IP
+ *   bcc_internal_error     — server-side failure
+ */
+export async function signup(input: SignupRequest): Promise<SignupResponse> {
+  return bccFetch<SignupResponse>("auth/signup", {
     method: "POST",
     body: input,
+  });
+}
+
+/**
+ * POST /auth/verify-email — confirm email ownership and complete signup.
+ *
+ * Two verification paths — pass exactly one:
+ *   OTP path:   { email, code }  — 6-digit code from the email (15 min TTL)
+ *   Token path: { token }        — one-shot link token from the email (24 h TTL)
+ *
+ * On success returns a JWT payload (same shape as /auth/login). The frontend
+ * should redirect the user to /login after showing a success state, as
+ * the returned JWT is not used to establish a NextAuth session directly.
+ *
+ * Errors (thrown as BccApiError):
+ *   bcc_invalid_otp          — wrong or expired OTP code
+ *   bcc_invalid_verify_token — link token expired or already used
+ *   bcc_already_verified     — account is already verified (409)
+ *   bcc_invalid_request      — missing fields
+ *   bcc_rate_limited         — 10/hour per IP
+ */
+export async function verifyEmail(input: {
+  email?: string;
+  code?: string;
+  token?: string;
+}): Promise<AuthTokenResponse> {
+  return bccFetch<AuthTokenResponse>("auth/verify-email", {
+    method: "POST",
+    body: input,
+  });
+}
+
+/**
+ * POST /auth/resend-verification — send a fresh OTP + verify link.
+ *
+ * Always resolves (backend returns ok=true regardless of whether the
+ * email matches a real unverified account — anti-enumeration). Only
+ * throws on network error or rate-limit (3/hour per IP).
+ */
+export async function resendVerification(email: string): Promise<void> {
+  await bccFetch<{ ok: true }>("auth/resend-verification", {
+    method: "POST",
+    body: { email },
   });
 }
 
