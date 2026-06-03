@@ -1,0 +1,435 @@
+/* ==========================================================================
+   BCC PRELOADER — animation styles
+
+   Phase lifecycle (managed by Preloader.tsx React state):
+     init     → component mounted, JS measuring path lengths (invisible)
+     drawing  → stroke-dashoffset animates to 0 (logo draws in)
+     filling  → fill colors transition in
+     exiting  → whole overlay fades out
+     gone     → component unmounts (return null)
+
+   Validator Ring (PageSpinner) lives here too — used for inter-page
+   navigation via NavigationProgress.tsx.
+   ========================================================================== */
+
+/* ── Overlay ── */
+.bcc-preloader {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--bcc-bg, #0d1117);
+  transition: opacity 500ms ease, visibility 500ms ease;
+  opacity: 1;
+  visibility: visible;
+}
+
+.bcc-preloader--exiting {
+  opacity: 0;
+  visibility: hidden;
+}
+
+/* ── Logo container — subtle scale-up on fill phase ── */
+.bcc-preloader__logo {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ── SVG base — all paths start invisible ── */
+.bcc-logo-svg {
+  overflow: visible;
+  /* Responsive size — controlled here, not via HTML attributes */
+  width: 150px;
+  height: 150px;
+}
+
+@media (max-width: 640px) {
+  .bcc-logo-svg {
+    width: 110px;
+    height: 110px;
+  }
+}
+
+@media (max-width: 380px) {
+  .bcc-logo-svg {
+    width: 88px;
+    height: 88px;
+  }
+}
+
+/* ── Path base styles ── */
+.bcc-path {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 3;
+  /* stroke-dasharray and stroke-dashoffset are set by JS (getTotalLength) */
+  transition:
+    fill 400ms ease 100ms,
+    opacity 400ms ease;
+  opacity: 0;
+}
+
+.bcc-path--blue  { stroke: #16b5e6; }
+.bcc-path--orange { stroke: #f98a1c; }
+
+/* ── Drawing phase — strokes animate in ── */
+.bcc-preloader--drawing .bcc-path {
+  opacity: 1;
+}
+
+.bcc-preloader--drawing #bcc-p0 {
+  animation: bcc-draw 1.0s cubic-bezier(0.4, 0, 0.2, 1) 0.05s forwards;
+}
+.bcc-preloader--drawing #bcc-p1 {
+  animation: bcc-draw 0.6s cubic-bezier(0.4, 0, 0.2, 1) 1.0s forwards;
+}
+.bcc-preloader--drawing #bcc-p2 {
+  animation: bcc-draw 0.25s cubic-bezier(0.4, 0, 0.2, 1) 1.55s forwards;
+}
+
+@keyframes bcc-draw {
+  to { stroke-dashoffset: 0; }
+}
+
+/* ── Filling phase — fills flood in, strokes fade slightly ── */
+.bcc-preloader--filling .bcc-path,
+.bcc-preloader--exiting .bcc-path {
+  opacity: 1;
+  stroke-dashoffset: 0;
+  animation: none;
+}
+
+.bcc-preloader--filling #bcc-p0,
+.bcc-preloader--exiting #bcc-p0 {
+  fill: rgba(44, 179, 225, 0.94);    /* matches original .s0 */
+  stroke: #16b5e6;
+  stroke-width: 1;
+}
+.bcc-preloader--filling #bcc-p1,
+.bcc-preloader--exiting #bcc-p1 {
+  fill: rgba(229, 158, 64, 0.98);    /* matches original .s1 */
+  stroke: #f98a1c;
+  stroke-width: 1;
+}
+.bcc-preloader--filling #bcc-p2,
+.bcc-preloader--exiting #bcc-p2 {
+  fill: rgba(44, 179, 225, 0.94);
+  stroke: #16b5e6;
+  stroke-width: 1;
+}
+
+/* Subtle glow pulse during fill phase */
+.bcc-preloader__logo {
+  transition: filter 400ms ease;
+}
+.bcc-preloader--filling .bcc-preloader__logo {
+  filter: drop-shadow(0 0 12px rgba(22, 181, 230, 0.35));
+}
+
+/* ── Reduce motion — skip straight to filled state ── */
+@media (prefers-reduced-motion: reduce) {
+  .bcc-path {
+    animation: none !important;
+    stroke-dashoffset: 0 !important;
+    transition: fill 200ms ease, opacity 200ms ease;
+  }
+  .bcc-preloader--drawing .bcc-path {
+    opacity: 1;
+  }
+}
+
+/* ==========================================================================
+   PAGE SPINNER — Validator Ring
+   8 dots in a circle, each pulsing with staggered delay.
+   ========================================================================== */
+
+.bcc-spinner {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  width: 40px;
+  height: 40px;
+}
+
+.bcc-spinner__ring {
+  position: absolute;
+  inset: 0;
+}
+
+.bcc-spinner__dot {
+  position: absolute;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--bcc-primary, #16b5e6);
+  top: 50%;
+  left: 50%;
+  transform-origin: 0 0;
+  opacity: 0.15;
+  animation: bcc-spinner-pulse 1.2s ease-in-out infinite;
+}
+
+/* Position each dot around the ring (r = 15px) */
+.bcc-spinner__dot:nth-child(1)  { transform: translate(-50%, -50%) rotate(  0deg) translateY(-15px); animation-delay: 0.00s; }
+.bcc-spinner__dot:nth-child(2)  { transform: translate(-50%, -50%) rotate( 45deg) translateY(-15px); animation-delay: 0.15s; }
+.bcc-spinner__dot:nth-child(3)  { transform: translate(-50%, -50%) rotate( 90deg) translateY(-15px); animation-delay: 0.30s; }
+.bcc-spinner__dot:nth-child(4)  { transform: translate(-50%, -50%) rotate(135deg) translateY(-15px); animation-delay: 0.45s; }
+.bcc-spinner__dot:nth-child(5)  { transform: translate(-50%, -50%) rotate(180deg) translateY(-15px); animation-delay: 0.60s; }
+.bcc-spinner__dot:nth-child(6)  { transform: translate(-50%, -50%) rotate(225deg) translateY(-15px); animation-delay: 0.75s; }
+.bcc-spinner__dot:nth-child(7)  { transform: translate(-50%, -50%) rotate(270deg) translateY(-15px); animation-delay: 0.90s; }
+.bcc-spinner__dot:nth-child(8)  { transform: translate(-50%, -50%) rotate(315deg) translateY(-15px); animation-delay: 1.05s; }
+
+@keyframes bcc-spinner-pulse {
+  0%, 100% { opacity: 0.15; transform: translate(-50%, -50%) rotate(var(--r)) translateY(-15px) scale(0.75); }
+  50%       { opacity: 1;    transform: translate(-50%, -50%) rotate(var(--r)) translateY(-15px) scale(1);    }
+}
+
+/* Fix: nth-child rotations need inline --r for the scale keyframe trick.
+   We override the transform in the keyframes via per-dot rotation. */
+.bcc-spinner__dot:nth-child(1)  { --r:   0deg; }
+.bcc-spinner__dot:nth-child(2)  { --r:  45deg; }
+.bcc-spinner__dot:nth-child(3)  { --r:  90deg; }
+.bcc-spinner__dot:nth-child(4)  { --r: 135deg; }
+.bcc-spinner__dot:nth-child(5)  { --r: 180deg; }
+.bcc-spinner__dot:nth-child(6)  { --r: 225deg; }
+.bcc-spinner__dot:nth-child(7)  { --r: 270deg; }
+.bcc-spinner__dot:nth-child(8)  { --r: 315deg; }
+
+/* Size variants */
+.bcc-spinner--sm { width: 24px; height: 24px; }
+.bcc-spinner--sm .bcc-spinner__dot { width: 3px; height: 3px; }
+.bcc-spinner--sm .bcc-spinner__dot { transform: translate(-50%, -50%) rotate(var(--r)) translateY(-9px) !important; }
+
+.bcc-spinner--lg { width: 56px; height: 56px; }
+.bcc-spinner--lg .bcc-spinner__dot { width: 7px; height: 7px; }
+.bcc-spinner--lg .bcc-spinner__dot { transform: translate(-50%, -50%) rotate(var(--r)) translateY(-21px) !important; }
+
+/* ── Navigation progress bar (top of page) ── */
+.bcc-nav-progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 9998;
+  height: 2px;
+  background: transparent;
+  pointer-events: none;
+}
+
+.bcc-nav-progress__bar {
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    var(--bcc-primary, #16b5e6) 0%,
+    var(--bcc-primary-light, #55ccf0) 50%,
+    var(--bcc-secondary, #f98a1c) 100%
+  );
+  border-radius: 0 2px 2px 0;
+  transform-origin: left;
+  opacity: 1;
+}
+
+/* loading: bar creeps from 0 → 85% over a long duration.
+   It deliberately never finishes — it waits for the route to change. */
+.bcc-nav-progress--loading .bcc-nav-progress__bar {
+  animation: bcc-progress-loading 12s cubic-bezier(0.1, 0.4, 0.6, 1) forwards;
+}
+
+/* completing: bar snaps to 100% then fades out */
+.bcc-nav-progress--completing .bcc-nav-progress__bar {
+  animation: bcc-progress-complete 450ms ease-out forwards;
+}
+
+@keyframes bcc-progress-loading {
+  0%   { transform: scaleX(0);    }
+  40%  { transform: scaleX(0.55); }
+  70%  { transform: scaleX(0.75); }
+  100% { transform: scaleX(0.85); }
+}
+
+@keyframes bcc-progress-complete {
+  0%   { transform: scaleX(0.85); opacity: 1; }
+  60%  { transform: scaleX(1);    opacity: 1; }
+  100% { transform: scaleX(1);    opacity: 0; }
+}
+
+/* ── Centered Validator Ring wrapper ── */
+.bcc-nav-ring-wrap {
+  position: fixed;
+  top: 42%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 9998;
+  pointer-events: none;
+}
+
+/* ==========================================================================
+   VALIDATOR RING
+   200×200 container. Glass backdrop. BCC logo at center.
+   8 nodes orbit and pulse sequentially. 2 expanding wave rings.
+   ========================================================================== */
+
+.bcc-vr {
+  position: relative;
+  width: 200px;
+  height: 200px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+
+  /* Scale down to ~50% of design size — feels right on both desktop and mobile */
+  transform: scale(0.5);
+  transform-origin: center center;
+
+  /* Frosted glass backdrop — adapts to theme */
+  background: var(--bcc-bg-overlay, rgba(13, 17, 23, 0.80));
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid var(--bcc-glass-border, rgba(22, 181, 230, 0.15));
+  box-shadow:
+    0 0 0 1px rgba(22, 181, 230, 0.08),
+    0 12px 48px rgba(0, 0, 0, 0.40),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+/* Light mode override */
+[data-theme="light"] .bcc-vr {
+  background: rgba(255, 255, 255, 0.88);
+  border-color: rgba(22, 181, 230, 0.20);
+  box-shadow:
+    0 0 0 1px rgba(22, 181, 230, 0.10),
+    0 12px 48px rgba(0, 0, 0, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.80);
+}
+
+/* ── BCC logo center ── */
+.bcc-vr__logo {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  filter: drop-shadow(0 2px 8px rgba(22, 181, 230, 0.30));
+}
+
+/* ── Faint orbit track ring ── */
+.bcc-vr__track {
+  position: absolute;
+  width: 170px;
+  height: 170px;
+  border-radius: 50%;
+  border: 1px solid rgba(22, 181, 230, 0.12);
+  pointer-events: none;
+}
+
+/* ── Validator nodes ── */
+.bcc-vr__node {
+  position: absolute;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  top: 50%;
+  left: 50%;
+  background: var(--bcc-primary, #16b5e6);
+  animation: bcc-vr-pulse 1.6s ease-in-out infinite;
+  z-index: 3;
+}
+
+/* Position each node at its angle around r=85px */
+.bcc-vr__node--1 { transform: translate(-50%, -50%) rotate(  0deg) translateY(-85px); --vr-delay: 0.00s; }
+.bcc-vr__node--2 { transform: translate(-50%, -50%) rotate( 45deg) translateY(-85px); --vr-delay: 0.20s; }
+.bcc-vr__node--3 { transform: translate(-50%, -50%) rotate( 90deg) translateY(-85px); --vr-delay: 0.40s; }
+.bcc-vr__node--4 { transform: translate(-50%, -50%) rotate(135deg) translateY(-85px); --vr-delay: 0.60s; }
+.bcc-vr__node--5 { transform: translate(-50%, -50%) rotate(180deg) translateY(-85px); --vr-delay: 0.80s; }
+.bcc-vr__node--6 { transform: translate(-50%, -50%) rotate(225deg) translateY(-85px); --vr-delay: 1.00s; }
+.bcc-vr__node--7 { transform: translate(-50%, -50%) rotate(270deg) translateY(-85px); --vr-delay: 1.20s; }
+.bcc-vr__node--8 { transform: translate(-50%, -50%) rotate(315deg) translateY(-85px); --vr-delay: 1.40s; }
+
+/* Apply staggered delays */
+.bcc-vr__node--1 { animation-delay: 0.00s; }
+.bcc-vr__node--2 { animation-delay: 0.20s; }
+.bcc-vr__node--3 { animation-delay: 0.40s; }
+.bcc-vr__node--4 { animation-delay: 0.60s; }
+.bcc-vr__node--5 { animation-delay: 0.80s; }
+.bcc-vr__node--6 { animation-delay: 1.00s; }
+.bcc-vr__node--7 { animation-delay: 1.20s; }
+.bcc-vr__node--8 { animation-delay: 1.40s; }
+
+/* Alternate nodes use orange accent */
+.bcc-vr__node--2,
+.bcc-vr__node--5,
+.bcc-vr__node--7 {
+  background: var(--bcc-secondary, #f98a1c);
+}
+
+@keyframes bcc-vr-pulse {
+  0%, 100% {
+    opacity: 0.20;
+    box-shadow: none;
+  }
+  50% {
+    opacity: 1;
+    box-shadow:
+      0 0 6px 3px rgba(22, 181, 230, 0.70),
+      0 0 14px 5px rgba(22, 181, 230, 0.30);
+  }
+}
+
+/* Orange glow for alternate nodes */
+.bcc-vr__node--2,
+.bcc-vr__node--5,
+.bcc-vr__node--7 {
+  animation-name: bcc-vr-pulse-orange;
+}
+
+@keyframes bcc-vr-pulse-orange {
+  0%, 100% {
+    opacity: 0.20;
+    box-shadow: none;
+  }
+  50% {
+    opacity: 1;
+    box-shadow:
+      0 0 6px 3px rgba(249, 138, 28, 0.70),
+      0 0 14px 5px rgba(249, 138, 28, 0.30);
+  }
+}
+
+/* ── Expanding pulse wave rings (Pulse Ring / Wave effect) ── */
+.bcc-vr__wave {
+  position: absolute;
+  border-radius: 50%;
+  border: 1.5px solid rgba(22, 181, 230, 0.50);
+  width: 140px;
+  height: 140px;
+  animation: bcc-vr-wave 2.4s ease-out infinite;
+  pointer-events: none;
+}
+
+.bcc-vr__wave--2 {
+  animation-delay: 1.2s;
+}
+
+@keyframes bcc-vr-wave {
+  0%   { transform: scale(0.75); opacity: 0.60; }
+  70%  { opacity: 0.20; }
+  100% { transform: scale(1.35); opacity: 0; }
+}
+
+/* ── Reduce motion ── */
+@media (prefers-reduced-motion: reduce) {
+  .bcc-vr__node,
+  .bcc-vr__wave {
+    animation: none;
+  }
+  .bcc-vr__node {
+    opacity: 0.6;
+  }
+}

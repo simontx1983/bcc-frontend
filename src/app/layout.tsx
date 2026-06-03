@@ -9,6 +9,8 @@ import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 
 import { Providers } from "./providers";
+import { Preloader } from "@/components/preloader/Preloader";
+import { NavigationProgress } from "@/components/preloader/NavigationProgress";
 import "./globals.css";
 
 const stencil = Big_Shoulders_Stencil({
@@ -71,6 +73,8 @@ export default function RootLayout({
       data-accent="primary"
     >
       <body>
+        <Preloader />
+        <NavigationProgress />
         <Providers>
           {children}
         </Providers>
