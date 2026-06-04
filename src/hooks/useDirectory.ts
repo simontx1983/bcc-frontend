@@ -38,6 +38,7 @@ import type {
   DirectoryKind,
   DirectorySort,
   DirectoryTier,
+  ValidatorStatusFilter,
 } from "@/lib/api/types";
 
 const PAGE_SIZE = 24;
@@ -61,6 +62,13 @@ export interface DirectoryFilters {
    * accidentally select a chain that would just zero out their results.
    */
   chain: string | null;
+  /**
+   * Validator-only axes — set by the `/validators` page, left null on
+   * `/directory` (the shared directory never exposes these controls).
+   * The server treats them as no-ops on non-validator kinds.
+   */
+  status?: ValidatorStatusFilter | null;
+  minSelfStake?: number | null;
 }
 
 export const DIRECTORY_QUERY_KEY_ROOT = ["directory"] as const;
@@ -79,6 +87,8 @@ function buildQueryKey(filters: DirectoryFilters): QueryKey {
     filters.q,
     filters.goodStandingOnly ? "gs" : "any",
     filters.chain ?? "any-chain",
+    filters.status ?? "any-status",
+    filters.minSelfStake ?? "any-stake",
   ] as const;
 }
 
@@ -122,6 +132,12 @@ function buildParams(filters: DirectoryFilters, page: number): CardsListQueryPar
   }
   if (filters.chain !== null && filters.chain !== "") {
     params.chain = filters.chain;
+  }
+  if (filters.status !== null && filters.status !== undefined) {
+    params.status = filters.status;
+  }
+  if (filters.minSelfStake !== null && filters.minSelfStake !== undefined) {
+    params.min_self_stake = filters.minSelfStake;
   }
   return params;
 }

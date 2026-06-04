@@ -218,6 +218,13 @@ export interface CardPermissions {
   can_post_as_entity: boolean;
   can_edit_bio: boolean;
   /**
+   * Claimer-only gate for changing a page's image (validator/project/
+   * creator). Granted to the verified claimer; `not_applicable` on member
+   * cards (member self-avatars use /me/profile/avatar). Consumers gate on
+   * `.allowed`. Backed by POST/DELETE /bcc/v1/pages/{id}/avatar.
+   */
+  can_edit_image: CardPermissionEntry;
+  /**
    * §J.6 Trust Attestation Layer permission extensions. Optional on
    * the FE type during the Phase 1 backend rollout; backend ships
    * these gates in Week 2 of the Phase 1 plan. Per §N7 the
@@ -824,11 +831,26 @@ export interface ConsumeCelebrationResponse {
 /** Card kinds the directory surfaces. Members aren't "browsed" here. */
 export type DirectoryKind = "validator" | "project" | "creator";
 
-/** Sort modes accepted by the cards-list endpoint. */
-export type DirectorySort = "trust" | "newest" | "endorsements" | "followers";
+/**
+ * Sort modes accepted by the cards-list endpoint. `self_stake` (bonded
+ * self-stake, DESC) is validator-only — meaningful on `/validators`,
+ * where every result is a validator.
+ */
+export type DirectorySort =
+  | "trust"
+  | "newest"
+  | "endorsements"
+  | "followers"
+  | "self_stake";
 
 /** Tier values the directory accepts (matches §C1 card_tier; risky hidden). */
 export type DirectoryTier = "legendary" | "rare" | "uncommon" | "common";
+
+/**
+ * Validator on-chain status values selectable as a filter — the
+ * `OnchainSignals.status` union minus `unknown` (not user-selectable).
+ */
+export type ValidatorStatusFilter = Exclude<ValidatorOnchainStatus, "unknown">;
 
 export interface CardsListQueryParams {
   kind?: DirectoryKind;
@@ -849,6 +871,17 @@ export interface CardsListQueryParams {
    * today; future kinds (creator/NFT collections) extend the same shape.
    */
   chain?: string;
+  /**
+   * Validator-only on-chain status filter (`active`|`jailed`|`inactive`).
+   * Server 400s on any other value. No-op on non-validator kinds.
+   */
+  status?: ValidatorStatusFilter;
+  /**
+   * Validator-only bonded self-stake floor (≥ 0). Excludes validators
+   * below the threshold and those with no stake reading. Server 400s on
+   * negatives.
+   */
+  min_self_stake?: number;
 }
 
 export interface CardsListPagination {

@@ -174,7 +174,17 @@ export function EntityProfile({
               className="bcc-stage-reveal"
               style={{ ["--stagger" as string]: "0ms" }}
             >
-              <CardFactory card={card} />
+              {/* The hero card is the claimer's natural edit surface for
+                  the page image: it's the single largest render of the
+                  crest, the page they "own," and it mirrors how a member
+                  edits their own avatar on /u/[handle]. `can_edit_image`
+                  is `{allowed:true}` only for the verified claimer, so
+                  feed/directory cards (which never pass canEditAvatar)
+                  stay read-only. */}
+              <CardFactory
+                card={card}
+                canEditAvatar={isAllowed(card.permissions, "can_edit_image")}
+              />
             </div>
           }
           actions={

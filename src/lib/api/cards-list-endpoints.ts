@@ -45,6 +45,12 @@ export function getCardsList(
   if (params.chain !== undefined && params.chain !== "") {
     search.set("chain", params.chain);
   }
+  if (params.status !== undefined) {
+    search.set("status", params.status);
+  }
+  if (params.min_self_stake !== undefined) {
+    search.set("min_self_stake", String(params.min_self_stake));
+  }
 
   const qs = search.toString();
   const path = qs === "" ? "cards" : `cards?${qs}`;

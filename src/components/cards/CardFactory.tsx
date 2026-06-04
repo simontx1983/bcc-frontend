@@ -45,6 +45,7 @@ import { useQueryClient } from "@tanstack/react-query";
 
 import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
 import { useUploadAvatar } from "@/hooks/useUpdateProfile";
+import { useUploadPageAvatar, useDeletePageAvatar } from "@/hooks/usePageAvatar";
 import type { Card, CardKind, CardStat, CardTier, OnchainSignals } from "@/lib/api/types";
 import { FOLLOW_COPY } from "@/lib/copy";
 import { isAllowed, unlockHint } from "@/lib/permissions";
@@ -367,12 +368,7 @@ function Portrait({
           "linear-gradient(180deg, var(--bcc-chain-color, var(--chain-cosmos)) 0%, color-mix(in srgb, var(--bcc-chain-color, var(--chain-cosmos)) 60%, #000) 100%)",
       }}
     >
-      <Crest
-        initials={card.crest.initials}
-        monogramColor={card.crest.monogram_color}
-        imageUrl={card.crest.image_url}
-        canEditAvatar={canEditAvatar}
-      />
+      <Crest card={card} canEditAvatar={canEditAvatar} />
       {/* Halftone overlay — purely decorative. */}
       <span
         aria-hidden
@@ -404,35 +400,52 @@ function Portrait({
  * without a Gravatar / WP avatar).
  */
 function Crest({
-  initials,
-  monogramColor,
-  imageUrl,
+  card,
   canEditAvatar,
 }: {
-  initials: string;
-  monogramColor: string;
-  imageUrl: string | null;
+  card: Card;
   canEditAvatar: boolean;
 }) {
+  const { initials, monogram_color: monogramColor, image_url: imageUrl } =
+    card.crest;
   const hexClip = "polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)";
 
-  // Owner-only upload affordance: hover shows an "UPDATE AVATAR" hint,
-  // click opens a file picker, selection fires the PeepSo avatar
-  // upload mutation. `stopPropagation` prevents the card's
-  // click-to-flip handler from triggering when the user clicks the
-  // avatar. Cache invalidation (`user-by-handle`) refreshes the
-  // crest's image_url after upload; router.refresh() rehydrates the
-  // server-rendered profile so adjacent surfaces (site header avatar,
-  // composer chip) reflect the change without a hard reload.
+  // Member cards edit their avatar via /me/profile/avatar (PeepSo member
+  // photo); page cards (validator/project/creator) edit via the claimer-
+  // gated /pages/{id}/avatar routes, keyed by the card id. We call all
+  // hooks unconditionally (Rules of Hooks) and pick the active mutation
+  // by card_kind. Member behaviour is unchanged: same hook, same
+  // `user-by-handle` invalidation, same router.refresh(); page mutations
+  // own their `["card"]` invalidation + refresh inside the hook.
+  const isPageCard = card.card_kind !== "member";
+
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const router = useRouter();
   const queryClient = useQueryClient();
-  const uploadAvatar = useUploadAvatar({
+
+  // Member avatar upload — hover "UPDATE AVATAR" hint, click opens the
+  // picker, selection fires the PeepSo upload. Cache invalidation
+  // (`user-by-handle`) refreshes the crest after upload; router.refresh()
+  // rehydrates the server-rendered profile so adjacent surfaces (header
+  // avatar, composer chip) reflect the change without a hard reload.
+  const memberUpload = useUploadAvatar({
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["user-by-handle"] });
       router.refresh();
     },
   });
+
+  // Page (claimer) avatar — upload + remove. The hooks invalidate the
+  // `["card"]` root and call router.refresh() internally so the crest
+  // re-resolves (uploaded image ranks above the auto logo; delete
+  // reverts to logo / initials).
+  const pageUpload = useUploadPageAvatar(card.id);
+  const pageDelete = useDeletePageAvatar(card.id);
+
+  // Active upload mutation drives the picker + pending/error UI. Both
+  // hooks expose the React Query shape, so the consuming JSX only needs
+  // `.mutate` / `.isPending` / `.isError`.
+  const activeUpload = isPageCard ? pageUpload : memberUpload;
 
   const handleOpenPicker = (event: MouseEvent<HTMLButtonElement>) => {
     event.stopPropagation();
@@ -444,15 +457,23 @@ function Crest({
     if (file === undefined) {
       return;
     }
-    uploadAvatar.mutate(file);
+    activeUpload.mutate(file);
     // Reset so picking the same file twice re-triggers onChange.
     event.target.value = "";
   };
 
+  const handleRemove = (event: MouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation();
+    pageDelete.mutate();
+  };
+
   const hasImage = imageUrl !== null && imageUrl !== "";
+  // Remove affordance is page-only (member avatar removal lives in the
+  // settings ProfileHero) and only when an image is actually present.
+  const canRemoveImage = canEditAvatar && isPageCard && hasImage;
 
   return (
-    <div className="bcc-hex h-[160px] w-[140px] drop-shadow-[0_6px_8px_rgba(0,0,0,0.5)]">
+    <div className="group bcc-hex h-[160px] w-[140px] drop-shadow-[0_6px_8px_rgba(0,0,0,0.5)]">
       <span aria-hidden className="bcc-hex-outer" />
       <span aria-hidden className="bcc-hex-mid" />
       <span aria-hidden className="bcc-hex-inner" />
@@ -535,7 +556,7 @@ function Crest({
             type="button"
             onClick={handleOpenPicker}
             aria-label="Update avatar"
-            disabled={uploadAvatar.isPending}
+            disabled={activeUpload.isPending || pageDelete.isPending}
             className="group absolute z-[4] cursor-pointer border-0 bg-transparent p-0 outline-none focus-visible:ring-2 focus-visible:ring-safety disabled:cursor-wait"
             style={{
               top: "14px",
@@ -565,15 +586,33 @@ function Crest({
                 fontWeight: 600,
               }}
             >
-              {uploadAvatar.isPending ? "UPLOADING…" : "UPDATE AVATAR"}
+              {activeUpload.isPending ? "UPLOADING…" : "UPDATE AVATAR"}
             </span>
           </button>
         </>
       )}
 
-      {/* Inline error surface — sits below the hex when the upload
-          mutation fails. Quiet mono, doesn't break the card layout. */}
-      {canEditAvatar && uploadAvatar.isError && (
+      {/* Remove affordance — page cards only, shown when an image is set
+          and the viewer can edit. Pinned to the top-right corner of the
+          hex so it doesn't collide with the bottom UPDATE AVATAR strip.
+          stopPropagation keeps the card from flipping on click. */}
+      {canRemoveImage && (
+        <button
+          type="button"
+          onClick={handleRemove}
+          aria-label="Remove page image"
+          disabled={pageDelete.isPending || activeUpload.isPending}
+          className="bcc-mono absolute right-1 top-1 z-[5] cursor-pointer border border-safety/70 bg-ink/80 px-2 py-0.5 text-cardstock opacity-0 backdrop-blur transition-opacity hover:bg-ink focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-safety disabled:cursor-wait group-hover:opacity-100"
+          style={{ fontSize: "9px", letterSpacing: "0.16em" }}
+        >
+          {pageDelete.isPending ? "REMOVING…" : "REMOVE"}
+        </button>
+      )}
+
+      {/* Inline error surface — sits below the hex when the upload OR
+          remove mutation fails. Quiet mono, doesn't break the card
+          layout. */}
+      {canEditAvatar && (activeUpload.isError || pageDelete.isError) && (
         <span
           role="alert"
           className="bcc-mono absolute left-1/2 z-[5] -translate-x-1/2 whitespace-nowrap text-safety"
@@ -583,7 +622,7 @@ function Crest({
             letterSpacing: "0.18em",
           }}
         >
-          UPLOAD FAILED
+          {pageDelete.isError ? "REMOVE FAILED" : "UPLOAD FAILED"}
         </span>
       )}
     </div>
