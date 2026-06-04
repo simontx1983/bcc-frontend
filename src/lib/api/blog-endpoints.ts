@@ -17,6 +17,7 @@ import { bccFetchAsClient } from "@/lib/api/client";
 import type {
   BlogChainOptionsResponse,
   BlogCoverImageUploadResponse,
+  BlogEditViewModel,
   FeedResponse,
 } from "@/lib/api/types";
 
@@ -43,6 +44,30 @@ export function getUserBlog(
     (qs !== "" ? `?${qs}` : "");
 
   return bccFetchAsClient<FeedResponse>(path, {
+    method: "GET",
+    signal,
+  });
+}
+
+/**
+ * GET /posts/{id} — owner-only edit-read backing the composer's
+ * `?edit=<id>` cold-load / deep-link path.
+ *
+ * Returns the flat blog-edit view-model (§3.3.8 body fields + `status`),
+ * NOT a FeedItem. The author's own DRAFTS are returned too — a draft
+ * has no activity row, so it's unreachable via `/users/:handle/blog`;
+ * this is the only way to hydrate one for editing.
+ *
+ * Errors (per §8.2):
+ *   - bcc_unauthorized — no session
+ *   - bcc_forbidden    — viewer is not the post_author
+ *   - bcc_not_found    — missing, or not a blog post
+ */
+export function getBlogPost(
+  id: number,
+  signal?: AbortSignal
+): Promise<BlogEditViewModel> {
+  return bccFetchAsClient<BlogEditViewModel>(`posts/${id}`, {
     method: "GET",
     signal,
   });

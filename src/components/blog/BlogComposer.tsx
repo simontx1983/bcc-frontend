@@ -10,10 +10,11 @@
  * Submit:
  *   - new post → POST /bcc/v1/posts {kind: "blog", …}
  *   - existing post (editingPostId set) → PATCH /bcc/v1/posts/{id}
- *     (V1 ship: editing path is wired but initialValues hydration
- *      from the server is a V1.5 polish — composer accepts
- *      `initialValues` prop from the caller for now.
- *      TODO(V1.5): wire `?edit=<id>` initialValues fetch.)
+ *     The composer is presentation-only: it accepts `editingPostId` +
+ *     `initialValues` from BlogPanel. BlogPanel owns the `?edit=<id>`
+ *     URL contract — it hydrates from the useUserBlog cache (fast path)
+ *     or `GET /posts/{id}` (cold load / draft) and passes the result
+ *     down. Drafts are reachable only via the GET path.
  *
  * Auto-save: BodyEditor writes the body string to
  * `bcc.blog.draft.{userId}` every 5s. On mount, BlogComposer

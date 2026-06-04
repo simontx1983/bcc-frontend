@@ -2213,6 +2213,30 @@ export interface BlogDisclosure {
   note: string;
 }
 
+/**
+ * §D6 blog-edit view-model — `GET /posts/{id}` (owner-only edit-read).
+ *
+ * The flat body fields the composer needs to hydrate `?edit=<id>` on a
+ * cold load / deep link (not in the per-user blog feed cache, or a
+ * DRAFT that never appears there at all), plus `status`. Deliberately
+ * NOT a FeedItem: no reactions / social_proof / permissions / links —
+ * and a draft has no `peepso_activities` row to back a FeedItem anyway.
+ */
+export interface BlogEditViewModel {
+  wp_post_id: number;
+  title: string;
+  excerpt: string;
+  full_text: string;
+  category: BlogCategory | null;
+  tags: string[];
+  chain_tags: BlogChainTag[];
+  disclosure: BlogDisclosure | null;
+  cover_image_url: string | null;
+  cover_image_id: number | null;
+  sources: string[];
+  status: "draft" | "publish";
+}
+
 /** §D2 review grade — symbolic key, server maps to vote_type internally. */
 export type ReviewGrade = "trust" | "neutral" | "caution";
 

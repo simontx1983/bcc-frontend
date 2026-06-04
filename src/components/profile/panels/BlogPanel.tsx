@@ -5,10 +5,10 @@
  *
  * Sub-tab strip (VIEW · CREATE):
  *   VIEW   — UserBlogList, the existing read-only post list (everyone).
- *   CREATE — BlogForm for the owner; gated explainer panel for visitors
- *            and anonymous viewers. The strip itself is always visible
- *            (per the 2026-05-14 UX call) so visitors can see the
- *            surface exists, but the mutation seam stays owner-only.
+ *   CREATE — BlogComposer for the owner; gated explainer panel for
+ *            visitors and anonymous viewers. The strip itself is always
+ *            visible (per the 2026-05-14 UX call) so visitors can see
+ *            the surface exists, but the mutation seam stays owner-only.
  *
  * This panel is the single mount-point for the long-form composer:
  *   - The previous standalone /blog/new route was retired on
@@ -18,19 +18,27 @@
  *     the inline Floor composer escalation now target
  *     /u/{handle}?tab=blog (+ &blogsub=create for direct authoring).
  *
- * Deep-link contract:
+ * Deep-link contract (all editing state lives in the URL):
  *   - The outer tab key (`?tab=blog`) is read by ProfileTabs.
- *   - The inner sub-tab key (`?blogsub=create`) is read here on mount.
+ *   - `?blogsub=create` selects the CREATE sub-tab.
+ *   - `?edit=<id>` puts CREATE into edit mode for that post. The Edit
+ *     button on a list row navigates here, so an in-flight edit is
+ *     refresh-safe and shareable. Hydration takes the cache fast-path
+ *     (the post is already in the useUserBlog cache when you click Edit
+ *     on a row you're looking at) and falls back to `GET /posts/{id}`
+ *     for cold loads, deep links, and DRAFTS (which never appear in the
+ *     blog feed).
  *
- * On successful submit, the sub-tab flips back to VIEW so the author
- * sees their post in the list (BlogForm's mutation already invalidates
+ * On successful submit, we navigate back to VIEW so the author sees
+ * their post in the list (BlogComposer's mutation already invalidates
  * the list query).
  */
 
-import { useState } from "react";
+import { useMemo } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import type { Route } from "next";
+import { useQueryClient, type InfiniteData } from "@tanstack/react-query";
 
 import {
   BlogComposer,
@@ -38,11 +46,16 @@ import {
 } from "@/components/blog/BlogComposer";
 import { UserBlogList } from "@/components/blog/UserBlogList";
 import type { CoverImageValue } from "@/components/blog/CoverImageUpload";
+import type { BlogStatus } from "@/components/blog/StatusToggle";
+import { USER_BLOG_QUERY_KEY_ROOT } from "@/hooks/useUserBlog";
+import { useBlogPost } from "@/hooks/useBlogPost";
 import type {
+  BccApiError,
   BlogCategory,
   BlogChainTag,
   BlogDisclosure,
   FeedItem,
+  FeedResponse,
 } from "@/lib/api/types";
 
 type SubTabKey = "view" | "create";
@@ -74,44 +87,61 @@ export function BlogPanel({
   isSignedIn,
   viewerHandle,
 }: BlogPanelProps) {
-  // Deep-link support — the inline Composer's "Long-form →" escalation
-  // link routes to `/u/{handle}?tab=blog&blogsub=create` so an author
-  // can land directly on the composer surface without extra clicks.
-  // The outer `?tab=blog` is read by ProfileTabs; we read `?blogsub`
-  // here to disambiguate from the outer key.
+  const router = useRouter();
+  const queryClient = useQueryClient();
   const searchParams = useSearchParams();
-  const initialTab: SubTabKey =
-    searchParams?.get("blogsub") === "create" ? "create" : "view";
-  const [active, setActive] = useState<SubTabKey>(initialTab);
 
-  // Edit-flow state. When the owner clicks "Edit" on a post in VIEW,
-  // we lift the post's body up here and pass it to the composer as
-  // initialValues + editingPostId. On a successful submit (PATCH) or
-  // an explicit cancel, this clears and the composer falls back to
-  // its "blank canvas" create mode.
-  const [editing, setEditing] = useState<{
-    postId: number;
-    initialValues: BlogComposerInitialValues;
-  } | null>(null);
+  // Sub-tab + edit target are both derived from the URL — the URL is the
+  // single source of truth so editing survives refresh and is shareable.
+  const editId = parseEditId(searchParams?.get("edit"));
+  const active: SubTabKey =
+    searchParams?.get("blogsub") === "create" || editId > 0 ? "create" : "view";
+
+  // Cache fast-path: when the post is already in the useUserBlog cache
+  // (the common "Edit a row you're looking at" case), hydrate from it
+  // with no network round-trip.
+  const cachedInit = useMemo<BlogComposerInitialValues | null>(() => {
+    if (editId <= 0) return null;
+    const data = queryClient.getQueryData<InfiniteData<FeedResponse>>([
+      ...USER_BLOG_QUERY_KEY_ROOT,
+      handle,
+    ]);
+    if (!data) return null;
+    for (const page of data.pages) {
+      for (const item of page.items) {
+        if (readPostId(item) === editId) return bodyToInitialValues(item.body);
+      }
+    }
+    return null;
+  }, [queryClient, editId, handle]);
+
+  // Cold path: fetch only on a cache miss (deep link, page refresh, an
+  // older post past the first list page, or a draft). Hook is disabled
+  // (postId=0) whenever the fast-path already has the post.
+  const needsFetch = editId > 0 && cachedInit === null;
+  const blogPost = useBlogPost(needsFetch ? editId : 0);
+  const fetchedInit =
+    needsFetch && blogPost.data ? bodyToInitialValues(blogPost.data) : null;
+
+  const initialValues = cachedInit ?? fetchedInit ?? undefined;
 
   const handleEdit = (item: FeedItem): void => {
-    const initial = feedItemToInitialValues(item);
     const postId = readPostId(item);
-    if (postId <= 0) {
-      // Defensive — the body should always carry wp_post_id post-PR-A,
-      // but a malformed payload shouldn't crash the panel. Bail to
-      // create-mode and let the writer start over.
-      setEditing(null);
-      setActive("create");
-      return;
-    }
-    setEditing({ postId, initialValues: initial });
-    setActive("create");
+    // Defensive — the body should always carry wp_post_id post-PR-A, but
+    // a malformed payload shouldn't crash the panel. Bail to a blank
+    // create form rather than a broken edit URL.
+    router.push(
+      postId > 0
+        ? blogUrl(handle, { editId: postId })
+        : blogUrl(handle, { create: true }),
+      { scroll: false },
+    );
   };
 
   const handleSubmitSuccess = (): void => {
-    setEditing(null);
-    setActive("view");
+    // Back to VIEW (clears blogsub + edit). The mutation already
+    // invalidated the list query, so the edited row is fresh.
+    router.push(blogUrl(handle, {}), { scroll: false });
   };
 
   return (
@@ -119,10 +149,9 @@ export function BlogPanel({
       <SubTabNav
         active={active}
         onSelect={(next) => {
-          // Switching to view abandons any in-flight edit — author
-          // can re-click Edit on the post to resume.
-          if (next === "view") setEditing(null);
-          setActive(next);
+          router.push(blogUrl(handle, { create: next === "create" }), {
+            scroll: false,
+          });
         }}
       />
 
@@ -139,11 +168,11 @@ export function BlogPanel({
           isSignedIn={isSignedIn}
           viewerHandle={viewerHandle}
           onSubmitSuccess={handleSubmitSuccess}
-          {...(editing !== null
-            ? {
-                editingPostId: editing.postId,
-                initialValues:  editing.initialValues,
-              }
+          editId={editId}
+          isEditLoading={needsFetch && blogPost.isLoading}
+          editError={needsFetch ? blogPost.error : null}
+          {...(editId > 0 && initialValues !== undefined
+            ? { editingPostId: editId, initialValues }
             : {})}
         />
       )}
@@ -152,13 +181,39 @@ export function BlogPanel({
 }
 
 // ──────────────────────────────────────────────────────────────────────
-// Edit-flow plumbing — convert a §3.3.8 FeedItem body into the
-// composer's initial-values shape. Defensive narrowing because
-// `FeedItem.body` is `Record<string, unknown>` on the wire.
+// URL helper — all blog-panel navigation routes through here so the
+// `?tab=blog` outer key is never dropped.
 // ──────────────────────────────────────────────────────────────────────
 
-function feedItemToInitialValues(item: FeedItem): BlogComposerInitialValues {
-  const body = item.body;
+function blogUrl(
+  handle: string,
+  opts: { create?: boolean; editId?: number },
+): Route {
+  const editing = opts.editId !== undefined && opts.editId > 0;
+  let url = `/u/${encodeURIComponent(handle)}?tab=blog`;
+  if (opts.create || editing) url += "&blogsub=create";
+  if (editing) url += `&edit=${opts.editId}`;
+  return url as Route;
+}
+
+function parseEditId(raw: string | null | undefined): number {
+  if (raw === null || raw === undefined || raw === "") return 0;
+  const n = Number(raw);
+  return Number.isInteger(n) && n > 0 ? n : 0;
+}
+
+// ──────────────────────────────────────────────────────────────────────
+// Edit-flow plumbing — convert a §3.3.8 body (a FeedItem body from the
+// list cache OR the flat GET /posts/{id} edit view-model) into the
+// composer's initial-values shape. Defensive narrowing because both
+// arrive as untyped JSON on the wire.
+// ──────────────────────────────────────────────────────────────────────
+
+function bodyToInitialValues(bodyRaw: unknown): BlogComposerInitialValues {
+  const body: Record<string, unknown> =
+    typeof bodyRaw === "object" && bodyRaw !== null
+      ? (bodyRaw as Record<string, unknown>)
+      : {};
   const out: BlogComposerInitialValues = {};
 
   const title = readString(body, "title");
@@ -179,10 +234,9 @@ function feedItemToInitialValues(item: FeedItem): BlogComposerInitialValues {
   const chainSlugs = readChainSlugs(body);
   if (chainSlugs !== null) out.chain_tags = chainSlugs;
 
-  const disclosure = readDisclosure(body);
   // `null` means "no disclosure declared" — preserve it explicitly so
   // the composer's collapsible block opens to the empty state.
-  out.disclosure = disclosure;
+  out.disclosure = readDisclosure(body);
 
   // Sources — hydrate even when empty so the composer's collapsible
   // opens to the empty state. Round-tripping `[]` as the field value
@@ -193,6 +247,12 @@ function feedItemToInitialValues(item: FeedItem): BlogComposerInitialValues {
 
   const cover = readCover(body);
   if (cover !== null) out.cover_image = cover;
+
+  // Only the GET edit view-model carries `status` — a FeedItem body has
+  // none (anything in the blog feed is published). When absent the
+  // composer defaults to "publish".
+  const status = readBlogStatus(body);
+  if (status !== null) out.status = status;
 
   return out;
 }
@@ -220,6 +280,11 @@ function readBlogCategory(body: Record<string, unknown>): BlogCategory | null {
     return value;
   }
   return null;
+}
+
+function readBlogStatus(body: Record<string, unknown>): BlogStatus | null {
+  const value = body["status"];
+  return value === "draft" || value === "publish" ? value : null;
 }
 
 function readStringArray(body: Record<string, unknown>, key: string): string[] | null {
@@ -261,10 +326,10 @@ function readCover(body: Record<string, unknown>): CoverImageValue | null {
   const url = body["cover_image_url"];
   if (typeof id !== "number" || id <= 0) return null;
   if (typeof url !== "string" || url === "") return null;
-  // `width` + `height` aren't shipped in the FeedItem body (the cover
-  // preview uses `<Image fill>` which ignores them). Zeros satisfy
-  // the CoverImageValue contract without round-tripping the actual
-  // pixel dims through the wire.
+  // `width` + `height` aren't shipped in the body (the cover preview
+  // uses `<Image fill>` which ignores them). Zeros satisfy the
+  // CoverImageValue contract without round-tripping the actual pixel
+  // dims through the wire.
   return { attachment_id: id, url, width: 0, height: 0 };
 }
 
@@ -309,10 +374,9 @@ function SubTabNav({
 }
 
 // ──────────────────────────────────────────────────────────────────────
-// CreateSubTab — three branches:
-//   1. Owner → BlogForm with onSubmitSuccess flipping back to VIEW.
-//   2. Signed-in visitor → "your composer lives on your own blog page."
-//   3. Anonymous → "sign in to write."
+// CreateSubTab — owner branch shows the composer (with cold-load
+// hydration loading/error states for `?edit=<id>`); non-owners get the
+// gated explainer panels.
 // ──────────────────────────────────────────────────────────────────────
 
 function CreateSubTab({
@@ -320,6 +384,9 @@ function CreateSubTab({
   isSignedIn,
   viewerHandle,
   onSubmitSuccess,
+  editId,
+  isEditLoading,
+  editError,
   editingPostId,
   initialValues,
 }: {
@@ -327,14 +394,53 @@ function CreateSubTab({
   isSignedIn: boolean;
   viewerHandle: string | null;
   onSubmitSuccess: () => void;
+  /** Post id from `?edit=<id>` (0 = blank create). Drives hydration UX. */
+  editId: number;
+  /** Cold-load hydration is in flight (cache miss). */
+  isEditLoading: boolean;
+  /** Cold-load hydration failed (forbidden / not-found / network). */
+  editError: BccApiError | null;
   /** When set, composer mounts in edit mode and PATCHes on submit. */
   editingPostId?: number;
   initialValues?: BlogComposerInitialValues;
 }) {
   if (isOwner) {
+    if (editId > 0 && editError !== null) {
+      return (
+        <div className="bcc-panel flex flex-col gap-3 p-6">
+          <p
+            className="bcc-mono text-safety"
+            style={{ fontSize: "10px", letterSpacing: "0.24em" }}
+          >
+            CAN&rsquo;T OPEN POST
+          </p>
+          <p className="font-serif text-base text-ink">
+            {editPostErrorCopy(editError)}
+          </p>
+        </div>
+      );
+    }
+
+    if (editId > 0 && initialValues === undefined && isEditLoading) {
+      return (
+        <div className="bcc-panel flex flex-col gap-3 p-6">
+          <p
+            className="bcc-mono text-cardstock-deep"
+            style={{ fontSize: "10px", letterSpacing: "0.24em" }}
+          >
+            LOADING POST…
+          </p>
+        </div>
+      );
+    }
+
     return (
       <div className="bcc-panel flex flex-col gap-3 p-5 md:p-7">
+        {/* Key on the edit target so navigating between posts (or from a
+            blank draft to an edit) remounts the composer with fresh
+            initial values rather than reusing stale form state. */}
         <BlogComposer
+          key={editingPostId ?? "new"}
           onSubmitSuccess={onSubmitSuccess}
           {...(editingPostId !== undefined ? { editingPostId } : {})}
           {...(initialValues !== undefined ? { initialValues } : {})}
@@ -386,4 +492,17 @@ function CreateSubTab({
       </Link>
     </div>
   );
+}
+
+// Presentation copy owned at the call site (§A2) — branch on err.code,
+// never err.message.
+function editPostErrorCopy(err: BccApiError): string {
+  switch (err.code) {
+    case "bcc_forbidden":
+      return "That post belongs to another operator — you can only edit your own.";
+    case "bcc_not_found":
+      return "That post no longer exists — it may have been deleted.";
+    default:
+      return "Couldn't load that post. Try again in a moment.";
+  }
 }
