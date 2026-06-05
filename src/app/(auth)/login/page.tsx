@@ -113,8 +113,8 @@ function LoginPageContent() {
         }
       >
         {/* SSO */}
-        <SSOButton provider="google" mode="login" />
-        <SSOButton provider="twitter" mode="login" />
+        <SSOButton provider="google"  mode="login" callbackUrl={callbackUrl ?? "/onboarding"} />
+        <SSOButton provider="twitter" mode="login" callbackUrl={callbackUrl ?? "/onboarding"} />
 
         <AuthDivider />
 

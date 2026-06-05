@@ -99,6 +99,46 @@ export async function resend2faCode(challengeToken: string): Promise<void> {
   });
 }
 
+// ─────────────────────────────────────────────────────────────────────
+// OAuth SSO flow — /auth/oauth (server-side only, called from NextAuth
+// signIn/jwt callbacks) + /auth/oauth-complete (client-side, called
+// from /signup/complete-profile after handle selection).
+// ─────────────────────────────────────────────────────────────────────
+
+export interface OAuthHandleRequiredResponse {
+  status: "handle_required";
+  provider_token: string;
+  email: string;
+  display_name: string;
+}
+
+export interface OAuthCompleteRequest {
+  provider_token: string;
+  handle: string;
+  display_name?: string;
+}
+
+/**
+ * POST /auth/oauth-complete — finish OAuth signup by selecting a handle.
+ *
+ * Called client-side from /signup/complete-profile after the backend
+ * returned {status:"handle_required"} during the NextAuth OAuth callback.
+ * On success, use `signIn("bcc-verified", ...)` to establish the session.
+ *
+ * Errors (thrown as BccApiError):
+ *   bcc_invalid_oauth_token — provider_token expired (15 min); restart OAuth
+ *   bcc_invalid_handle      — handle violates character rules
+ *   bcc_handle_reserved     — handle is reserved
+ *   bcc_conflict            — handle or email already taken
+ *   bcc_rate_limited        — too many attempts from this IP
+ */
+export async function oauthComplete(input: OAuthCompleteRequest): Promise<AuthTokenResponse> {
+  return bccFetch<AuthTokenResponse>("auth/oauth-complete", {
+    method: "POST",
+    body: input,
+  });
+}
+
 export interface SignupRequest {
   email: string;
   password: string;

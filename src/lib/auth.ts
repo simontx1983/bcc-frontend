@@ -29,9 +29,12 @@
 
 import type { NextAuthOptions } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
+import GoogleProvider from "next-auth/providers/google";
+import TwitterProvider from "next-auth/providers/twitter";
 
 import { clientEnv } from "@/lib/env";
 import type { ApiSuccess, AuthTokenResponse } from "@/lib/api/types";
+import type { OAuthHandleRequiredResponse } from "@/lib/api/auth-endpoints";
 
 /**
  * Shared POST handler for the credentials providers.
@@ -113,6 +116,54 @@ async function callBccAuth(
   };
 }
 
+/**
+ * POST /auth/oauth — look up or provision a BCC user for an OAuth sign-in.
+ *
+ * Called from the `signIn` and `jwt` callbacks. Returns AuthTokenResponse
+ * for existing users or OAuthHandleRequiredResponse for new users.
+ *
+ * Server-side only; uses the WP REST base URL directly (no session cookie).
+ */
+async function callBccOauth(body: {
+  provider: string;
+  provider_id: string;
+  email: string;
+  display_name: string;
+}): Promise<AuthTokenResponse | OAuthHandleRequiredResponse> {
+  let response: Response;
+  try {
+    response = await fetch(
+      `${clientEnv.BCC_API_URL}/wp-json/bcc/v1/auth/oauth`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify(body),
+      }
+    );
+  } catch {
+    throw new Error("bcc_network_error");
+  }
+
+  const parsed = (await response.json().catch(() => null)) as
+    | ApiSuccess<AuthTokenResponse | OAuthHandleRequiredResponse>
+    | { error?: { code?: string } }
+    | null;
+
+  if (!response.ok) {
+    const code =
+      parsed && "error" in parsed && parsed.error?.code
+        ? parsed.error.code
+        : "bcc_unknown";
+    throw new Error(code);
+  }
+
+  if (!parsed || !("data" in parsed)) {
+    throw new Error("bcc_invalid_envelope");
+  }
+
+  return parsed.data;
+}
+
 export const authOptions: NextAuthOptions = {
   // JWT-strategy sessions — required for headless deploys where the
   // Next.js host doesn't share cookies with the WP origin.
@@ -127,6 +178,18 @@ export const authOptions: NextAuthOptions = {
   },
 
   providers: [
+    GoogleProvider({
+      clientId:     process.env["GOOGLE_CLIENT_ID"]     ?? "",
+      clientSecret: process.env["GOOGLE_CLIENT_SECRET"] ?? "",
+      authorization: { params: { prompt: "select_account" } },
+    }),
+
+    TwitterProvider({
+      clientId:     process.env["TWITTER_CLIENT_ID"]     ?? "",
+      clientSecret: process.env["TWITTER_CLIENT_SECRET"] ?? "",
+      version: "2.0",
+    }),
+
     Credentials({
       name: "credentials",
       credentials: {
@@ -232,8 +295,62 @@ export const authOptions: NextAuthOptions = {
   ],
 
   callbacks: {
-    async jwt({ token, user, trigger, session }) {
-      // First-call (right after authorize) — copy User fields onto JWT.
+    /**
+     * OAuth gate — runs after a successful Google/Twitter redirect.
+     *
+     * For credentials providers this is a no-op (authorize() is the
+     * gate there). For OAuth, we call /auth/oauth:
+     *   - Existing BCC user → return true (jwt callback mints the BCC session).
+     *   - New user → return the /signup/complete-profile URL so NextAuth
+     *     redirects there and we collect a handle before creating the account.
+     *   - Backend error → return false (block sign-in).
+     */
+    async signIn({ account, user }) {
+      if (account?.type !== "oauth") return true;
+
+      try {
+        const result = await callBccOauth({
+          provider:     account.provider,
+          provider_id:  account.providerAccountId,
+          email:        user.email ?? "",
+          display_name: user.name  ?? "",
+        });
+
+        if ("status" in result && result.status === "handle_required") {
+          return `/signup/complete-profile?pt=${result.provider_token}`;
+        }
+
+        return true;
+      } catch {
+        return false;
+      }
+    },
+
+    async jwt({ token, user, account, trigger, session }) {
+      // OAuth first sign-in — get the BCC JWT from the backend.
+      // `account` is only non-null on the very first call after sign-in.
+      if (account?.type === "oauth" && user) {
+        try {
+          const result = await callBccOauth({
+            provider:     account.provider,
+            provider_id:  account.providerAccountId,
+            email:        user.email ?? "",
+            display_name: user.name  ?? "",
+          });
+          if (!("status" in result)) {
+            token.id              = String(result.user_id);
+            token.handle          = result.handle;
+            token.bccToken        = result.token;
+            token.bccTokenExpiresAt = Date.now() + result.expires_in * 1000;
+            token.inGoodStanding  = result.in_good_standing;
+          }
+        } catch {
+          // OAuth→BCC bridge failed — token stays empty; protected routes will 401.
+        }
+        return token;
+      }
+
+      // First-call for credentials providers — copy User fields onto JWT.
       if (user) {
         token.id = user.id;
         token.handle = user.handle;
