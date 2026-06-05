@@ -36,8 +36,11 @@ import {
   useJoinPlainGroupMutation,
   useLeavePlainGroupMutation,
 } from "@/hooks/useMyGroups";
+import { useLinkWalletMutation, useMyWallets } from "@/hooks/useWallets";
 import type { GroupDetailResponse } from "@/lib/api/types";
-import { isAllowed, unlockHint } from "@/lib/permissions";
+import { isAllowed, reasonCode, unlockHint } from "@/lib/permissions";
+import { findWalletChain } from "@/lib/wallet/chain-catalog";
+import { humanizeLinkError } from "@/lib/wallet/linkFlow";
 
 interface GroupMembershipStripProps {
   group: GroupDetailResponse;
@@ -123,6 +126,27 @@ function MembershipBody({ group, onActionStart, onActionError }: MembershipBodyP
   const leaveHint = unlockHint(permissions, "can_leave");
   if (leaveHint !== null) {
     return <UnlockHint hint={leaveHint} />;
+  }
+  // NFT holder group, authenticated non-member, server couldn't pre-confirm
+  // ownership (the detail view-model never runs a live on-chain check at
+  // page-load — RPC cost). Instead of a dead LOCKED badge, offer a
+  // CHECK & JOIN button that fires the canonical eligibility round-trip
+  // (POST /me/holder-groups/:id/join). Gated on `not_eligible` specifically
+  // so the anonymous `auth_required` gate still falls through to the
+  // sign-in hint, and non-NFT gates (trust_threshold / invite_only /
+  // requires_approval) keep their verbatim LOCKED hint.
+  if (
+    group.type === "nft" &&
+    !isAllowed(permissions, "can_join") &&
+    reasonCode(permissions, "can_join") === "not_eligible"
+  ) {
+    return (
+      <HolderEligibilityCheck
+        group={group}
+        onActionStart={onActionStart}
+        onActionError={onActionError}
+      />
+    );
   }
   const joinHint = unlockHint(permissions, "can_join");
   if (joinHint !== null) {
@@ -210,6 +234,136 @@ function HolderJoinButton({ groupId, onActionStart, onActionError }: ActionButto
         }}
       />
     </ActionRow>
+  );
+}
+
+/**
+ * CHECK & JOIN — for an NFT holder group the viewer isn't yet a confirmed
+ * holder of. Fires the same join mutation as HolderJoinButton (the endpoint
+ * is join-if-eligible: it runs the live on-chain ownership check and joins
+ * the user when they qualify, or returns a collection-aware 403 when they
+ * don't). Unlike HolderJoinButton it does NOT set the optimistic "joining"
+ * intent: success here is genuinely uncertain, and flipping the pill to
+ * MEMBER then snapping back on a not-eligible 403 would read as "joined then
+ * kicked". The pill resolves from server truth — MEMBER only after
+ * router.refresh() lands on a successful join.
+ */
+function HolderEligibilityCheck({ group, onActionStart, onActionError }: ActionDispatchProps) {
+  void onActionStart; // intentionally unused — no optimistic flip on a speculative check
+  const onSuccess = useRefreshOnSuccess();
+  const join = useJoinHolderGroupMutation({ onSuccess, onError: onActionError });
+  const link = useLinkWalletMutation();
+  // CHECK & JOIN only checks wallets the user has ALREADY linked + verified
+  // (the server does no fresh wallet/signature round-trip). A user with no
+  // wallet on this group's chain would get a misleading "hold an NFT" 403, so
+  // instead we let them connect + sign + link a wallet inline, then join.
+  // `chain_tag` is the group's required chain SLUG (server-resolved); linked
+  // wallets carry the same slug vocabulary. Exact-slug match mirrors the
+  // backend's exact-chain holdings lookup (no EVM-family leniency). Degrade to
+  // CHECK & JOIN on loading / error / untagged / non-linkable chain — never
+  // block on a wallets fetch, never crash. Picking which CTA to show is a UI
+  // affordance, not an eligibility computation — the server still owns the
+  // ownership decision when the join fires.
+  const wallets = useMyWallets();
+  const requiredChain = group.chain_tag;
+  const chainOpt = requiredChain !== null ? findWalletChain(requiredChain) : undefined;
+  const canConnect = chainOpt !== undefined;
+  const noMatchingWallet =
+    requiredChain !== null &&
+    wallets.isSuccess &&
+    !wallets.data.items.some(
+      (w) => w.verified && w.chain_slug === requiredChain
+    );
+
+  const busy = link.isPending || join.isPending;
+  // Phase-aware pending label for the connect flow: the wallet popup first,
+  // then the server-side ownership check.
+  const connectLabel = link.isPending ? "WAITING FOR WALLET…" : "VERIFYING…";
+
+  // Shared orchestration: connect + sign + link a wallet on the group's chain,
+  // then immediately attempt the join. Sequential — linkWallet sets verified_at
+  // server-side before it resolves, so the join's holdings lookup sees the new
+  // wallet (no snapshot race). No optimistic pill flip; server truth only.
+  async function connectAndJoin() {
+    if (chainOpt === undefined) return;
+    link.reset();
+    join.reset();
+    try {
+      await link.mutateAsync({ chainSlug: chainOpt.slug, chainType: chainOpt.chainType });
+      await join.mutateAsync(group.id);
+    } catch {
+      // Errors surface via link.error / join.error below.
+    }
+  }
+
+  // Provider / user-cancel copy from the link step takes precedence; otherwise
+  // the server join error (collection-aware not-eligible / opt-out), verbatim,
+  // with the friendly rate-limit override.
+  const joinErrorMessage = join.error
+    ? join.error.code === "bcc_rate_limited"
+      ? "Slow down — too many join attempts. Wait a minute."
+      : join.error.message
+    : null;
+  const errorMessage = link.error ? humanizeLinkError(link.error) : joinErrorMessage;
+
+  // No verified wallet on the group's chain → connect one inline, then join.
+  if (noMatchingWallet && canConnect) {
+    return (
+      <ActionRow primaryCopy={`Connect a ${chainOpt.label} wallet to verify you hold this NFT.`}>
+        <GroupActionButton
+          groupId={group.id}
+          label="CONNECT WALLET & VERIFY"
+          pendingLabel={connectLabel}
+          isPending={busy}
+          errorMessage={errorMessage}
+          onClick={() => {
+            void connectAndJoin();
+          }}
+        />
+      </ActionRow>
+    );
+  }
+
+  // Has a wallet on the chain (or we couldn't determine) → CHECK & JOIN against
+  // the already-linked wallet (no signature). If it comes back not-eligible,
+  // offer a secondary "connect another wallet" so a user holding the NFT in an
+  // unlinked wallet can link it and retry.
+  const hint =
+    unlockHint(group.permissions, "can_join") ??
+    "Hold an NFT from this collection to join.";
+  const showConnectAnother =
+    canConnect && join.error !== null && join.error.code !== "bcc_rate_limited" && !busy;
+  return (
+    <div className="flex flex-col gap-3">
+      <ActionRow primaryCopy={hint}>
+        <GroupActionButton
+          groupId={group.id}
+          label="CHECK & JOIN"
+          pendingLabel={busy ? connectLabel : "CHECKING…"}
+          isPending={busy}
+          errorMessage={errorMessage}
+          onClick={() => {
+            link.reset();
+            join.reset();
+            join.mutate(group.id);
+          }}
+        />
+      </ActionRow>
+      {showConnectAnother && (
+        <div className="flex justify-end">
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => {
+              void connectAndJoin();
+            }}
+            className="bcc-mono inline-flex shrink-0 items-center border-2 border-cardstock-edge px-3 py-1.5 text-[11px] tracking-[0.18em] text-ink-soft transition motion-reduce:transition-none hover:border-ink/50 hover:text-ink disabled:opacity-60"
+          >
+            CONNECT ANOTHER WALLET
+          </button>
+        </div>
+      )}
+    </div>
   );
 }
 

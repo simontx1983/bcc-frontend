@@ -98,3 +98,29 @@ export function unlockHint(permissions: unknown, capability: string): string | n
   }
   return hint;
 }
+
+/**
+ * Returns the machine-readable `reason_code` for a capability when one is
+ * present and non-empty; null otherwise. Use to branch UI on a specific
+ * denial reason (e.g. distinguish an NFT holder-group "not_eligible" gate,
+ * where the user can try a live eligibility round-trip, from an anonymous
+ * "auth_required" gate, where the action is sign-in instead).
+ *
+ * Same defensive posture as `isAllowed` / `unlockHint`: accepts `unknown`
+ * and validates the chain at each step, so a missing field degrades to null
+ * rather than crashing.
+ */
+export function reasonCode(permissions: unknown, capability: string): string | null {
+  if (typeof permissions !== "object" || permissions === null) {
+    return null;
+  }
+  const entry = (permissions as Record<string, unknown>)[capability];
+  if (typeof entry !== "object" || entry === null) {
+    return null;
+  }
+  const code = (entry as { reason_code?: unknown }).reason_code;
+  if (typeof code !== "string" || code === "") {
+    return null;
+  }
+  return code;
+}

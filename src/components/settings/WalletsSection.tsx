@@ -23,22 +23,13 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
 import { MY_WALLETS_QUERY_KEY, useMyWallets, useUnlinkWallet } from "@/hooks/useWallets";
-import { getWalletNonce, linkWallet } from "@/lib/api/auth-endpoints";
+import { linkWallet } from "@/lib/api/auth-endpoints";
 import { humanizeCode } from "@/lib/api/errors";
 import type { LinkedWallet } from "@/lib/api/types";
 import { formatShortDate } from "@/lib/format";
-import {
-  findWalletChain,
-  groupedWalletChains,
-  type WalletChainType,
-} from "@/lib/wallet/chain-catalog";
-import {
-  connectWallet,
-  humanizeWalletProviderError,
-  signWalletChallenge,
-  walletHintFor,
-  walletTypeFor,
-} from "@/lib/wallet/dispatch";
+import { findWalletChain, groupedWalletChains } from "@/lib/wallet/chain-catalog";
+import { walletHintFor } from "@/lib/wallet/dispatch";
+import { humanizeLinkError, runLinkFlow } from "@/lib/wallet/linkFlow";
 
 export function WalletsSection() {
   const wallets = useMyWallets();
@@ -236,46 +227,6 @@ function LinkWalletForm() {
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// runLinkFlow — connect → request nonce → sign → return the bundle the
-// /auth/wallet-link POST needs. The three provider branches are
-// dispatched inside lib/wallet/dispatch.ts so this layer stays one
-// straight-line flow.
-// ─────────────────────────────────────────────────────────────────────
-
-interface LinkFlowResult {
-  address: string;
-  signature: string;
-  walletType: string;
-  extra: Record<string, string>;
-}
-
-async function runLinkFlow(
-  chainSlug: string,
-  chainType: WalletChainType,
-): Promise<LinkFlowResult> {
-  const connection = await connectWallet(chainSlug, chainType);
-
-  const nonce = await getWalletNonce({
-    chain_slug:     chainSlug,
-    wallet_address: connection.address,
-  });
-
-  const signed = await signWalletChallenge(
-    chainSlug,
-    chainType,
-    connection,
-    nonce.message,
-  );
-
-  return {
-    address:    connection.address,
-    signature:  signed.signature,
-    walletType: walletTypeFor(chainType),
-    extra:      signed.extra,
-  };
-}
-
-// ─────────────────────────────────────────────────────────────────────
 // Row
 // ─────────────────────────────────────────────────────────────────────
 
@@ -415,26 +366,4 @@ function humanizeError(err: unknown): string {
   );
 }
 
-function humanizeLinkError(err: unknown): string {
-  // Provider-side errors (Keplr / MetaMask / Phantom unavailable, user
-  // cancel, etc.) come back as typed objects; dispatch.ts owns the
-  // copy. Returns null for non-provider errors → fall through to
-  // server-side BccApiError mapping (`humanizeCode` branches on
-  // `.code`, never `.message`).
-  const provider = humanizeWalletProviderError(err);
-  if (provider !== null) return provider;
-
-  return humanizeCode(
-    err,
-    {
-      bcc_unauthorized: "Sign in required.",
-      bcc_rate_limited: "Too many wallet attempts. Wait a moment and retry.",
-      bcc_signature_invalid: "Wallet signature didn't verify. Try again.",
-      bcc_conflict: "This wallet is already linked.",
-      bcc_invalid_request: "Couldn't link the wallet. Check the chain selection.",
-      bcc_wallet_not_supported: "That wallet chain isn't supported yet.",
-    },
-    "Couldn't link the wallet.",
-  );
-}
 
