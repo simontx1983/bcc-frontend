@@ -1753,10 +1753,16 @@
   font-family: var(--font-mono), monospace;
   font-size: 12px;
   letter-spacing: 0.03em;
-  cursor: not-allowed;
-  transition: background 150ms ease, border-color 150ms ease;
-  opacity: 0.6;
+  cursor: pointer;
+  transition: background 150ms ease, border-color 150ms ease, opacity 150ms ease;
   position: relative;
+}
+.bcc-sso-btn:hover {
+  background: var(--bcc-glass-bg-frosted);
+  border-color: var(--bcc-accent);
+}
+.bcc-sso-btn:active {
+  transform: scale(0.99);
 }
 .bcc-sso-icon {
   display: flex;
