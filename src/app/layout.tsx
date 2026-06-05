@@ -71,6 +71,10 @@ export default function RootLayout({
       className={fontVars}
       data-theme="dark"
       data-accent="primary"
+      // Inline bg prevents the black flash that appears before the stylesheet
+      // loads on a hard refresh. Matches --bcc-bg in dark mode (#0d1117).
+      // Once CSS loads this value is superseded by var(--bcc-bg).
+      style={{ backgroundColor: "#0d1117" }}
     >
       <body>
         <Preloader />

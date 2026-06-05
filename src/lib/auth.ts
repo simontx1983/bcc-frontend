@@ -147,6 +147,42 @@ export const authOptions: NextAuthOptions = {
       },
     }),
 
+    // Post-verification bridge — accepts a BCC JWT that was just minted by
+    // /auth/verify-email (or /auth/wallet-signup) and already validated
+    // server-side. No second backend call; the token will be validated on
+    // every subsequent API call via Bearer. Used by the verify-email page
+    // so the user is signed in immediately after OTP confirmation.
+    Credentials({
+      id: "bcc-verified",
+      name: "BCC Verified",
+      credentials: {
+        user_id:          { label: "User ID",       type: "text" },
+        handle:           { label: "Handle",        type: "text" },
+        token:            { label: "Token",         type: "text" },
+        expires_in:       { label: "Expires In",    type: "text" },
+        in_good_standing: { label: "Good Standing", type: "text" },
+      },
+      async authorize(credentials) {
+        const userId      = credentials?.user_id?.trim()  ?? "";
+        const handle      = credentials?.handle?.trim()   ?? "";
+        const token       = credentials?.token            ?? "";
+        const expiresIn   = parseInt(credentials?.expires_in ?? "0", 10);
+        const inGoodStanding = credentials?.in_good_standing === "true";
+
+        if (userId === "" || handle === "" || token === "") {
+          throw new Error("bcc_invalid_request");
+        }
+
+        return {
+          id: userId,
+          handle,
+          bccToken: token,
+          bccTokenExpiresAt: Date.now() + expiresIn * 1000,
+          inGoodStanding,
+        };
+      },
+    }),
+
     // Wallet credentials provider — wallet IS the credential.
     // /auth/wallet-login on the backend verifies the signed challenge
     // anonymously and returns the same AuthTokenResponse shape as the

@@ -23,13 +23,13 @@ import "./preloader.css";
 type Phase = "drawing" | "filling" | "exiting" | "gone";
 
 // Delay constants (ms) — adjust here if timing needs tuning
-const T_FILL  = 1900;   // drawing → filling
-const T_EXIT  = 2350;   // filling → exiting
-const T_GONE  = 2900;   // exiting → gone (unmount)
+const T_FILL  = 1900;   // drawing  → filling  (gives ~1.85s for stroke draw-in)
+const T_EXIT  = 2700;   // filling  → exiting  (800ms window for fill-fade + glow)
+const T_GONE  = 3200;   // exiting  → gone     (500ms for overlay fade-out)
 
 export function Preloader() {
-  const svgRef        = useRef<SVGSVGElement>(null);
-  const [phase, setPhase] = useState<Phase | null>(null); // null = not yet determined
+  const svgRef    = useRef<SVGSVGElement>(null);
+  const [phase, setPhase] = useState<Phase | null>(null);
 
   useEffect(() => {
     const svg = svgRef.current;
@@ -42,26 +42,88 @@ export function Preloader() {
         path.style.strokeDasharray  = `${len}`;
         path.style.strokeDashoffset = `${len}`;
       } catch {
-        // Fallback for any edge-case where getTotalLength isn't available
         path.style.strokeDasharray  = "12000";
         path.style.strokeDashoffset = "12000";
       }
     });
 
-    // Two RAFs ensure layout has completed before we kick off the animation
-    const raf = requestAnimationFrame(() =>
-      requestAnimationFrame(() => setPhase("drawing"))
-    );
+    // ── Shared abort flag ────────────────────────────────────────────────────
+    // Checked by every async callback (rAF + timers + visibility handler).
+    // Set to true whenever we fast-forward or complete the preloader, so
+    // any stale callbacks that fire afterwards are silently ignored.
+    let aborted  = false;
+    let innerRaf = 0;
 
-    const t1 = setTimeout(() => setPhase("filling"), T_FILL);
-    const t2 = setTimeout(() => setPhase("exiting"),  T_EXIT);
-    const t3 = setTimeout(() => setPhase("gone"), T_GONE);
+    const startTime = Date.now();
 
-    return () => {
-      cancelAnimationFrame(raf);
+    // Two RAFs ensure layout has completed before kicking off the animation.
+    // Track the inner rAF id so it can be cancelled if needed.
+    const outerRaf = requestAnimationFrame(() => {
+      innerRaf = requestAnimationFrame(() => {
+        if (!aborted) setPhase("drawing");
+      });
+    });
+
+    const t1 = setTimeout(() => { if (!aborted) setPhase("filling"); }, T_FILL);
+    const t2 = setTimeout(() => { if (!aborted) setPhase("exiting"); }, T_EXIT);
+    const t3 = setTimeout(() => {
+      if (!aborted) { aborted = true; setPhase("gone"); }
+    }, T_GONE);
+
+    // ── Page Visibility fix ───────────────────────────────────────────────────
+    // rAF is fully paused and setTimeout is throttled (min ~1s) in background
+    // tabs. When the user returns the stalled callbacks fire out of sync,
+    // causing the preloader to re-appear in "drawing" state even though the
+    // page loaded long ago.
+    //
+    // Fix: on every visibility-gain event, compute real elapsed wall-clock
+    // time and jump straight to the correct phase. The `aborted` flag prevents
+    // any still-queued rAF / timer callbacks from overriding this.
+    function onVisibilityChange() {
+      // Only act when the tab becomes visible (not when it hides)
+      if (document.hidden || aborted) return;
+
+      const elapsed = Date.now() - startTime;
+
+      // Abort everything — we take over phase control from here
+      aborted = true;
+      cancelAnimationFrame(outerRaf);
+      cancelAnimationFrame(innerRaf);
       clearTimeout(t1);
       clearTimeout(t2);
       clearTimeout(t3);
+
+      if (elapsed >= T_GONE) {
+        setPhase("gone");
+      } else if (elapsed >= T_EXIT) {
+        setPhase("exiting");
+        setTimeout(() => setPhase("gone"), T_GONE - elapsed);
+      } else if (elapsed >= T_FILL) {
+        setPhase("filling");
+        setTimeout(() => setPhase("exiting"), T_EXIT - elapsed);
+        setTimeout(() => setPhase("gone"),    T_GONE - elapsed);
+      } else {
+        // Still in the drawing window — re-arm everything with corrected delays
+        aborted = false;
+        innerRaf = requestAnimationFrame(() => {
+          if (!aborted) setPhase("drawing");
+        });
+        setTimeout(() => { if (!aborted) setPhase("filling"); }, T_FILL - elapsed);
+        setTimeout(() => { if (!aborted) setPhase("exiting"); }, T_EXIT - elapsed);
+        setTimeout(() => { if (!aborted) setPhase("gone");    }, T_GONE - elapsed);
+      }
+    }
+
+    document.addEventListener("visibilitychange", onVisibilityChange);
+
+    return () => {
+      aborted = true;
+      cancelAnimationFrame(outerRaf);
+      cancelAnimationFrame(innerRaf);
+      clearTimeout(t1);
+      clearTimeout(t2);
+      clearTimeout(t3);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
     };
   }, []);
 
@@ -77,7 +139,24 @@ export function Preloader() {
   ].filter(Boolean).join(" ");
 
   return (
-    <div className={overlayClass} aria-hidden="true" role="presentation">
+    <div
+      className={overlayClass}
+      aria-hidden="true"
+      role="presentation"
+      style={{
+        // These critical styles are inline so they take effect immediately in
+        // the SSR HTML, before the external CSS file is parsed. Without this,
+        // the preloader div is unstyled on first paint and the user sees a
+        // blank dark flash before the overlay appears.
+        position: "fixed",
+        top: 0, right: 0, bottom: 0, left: 0,
+        zIndex: 9999,
+        backgroundColor: "var(--bcc-bg, #0d1117)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
       <div className="bcc-preloader__logo">
         <svg
           ref={svgRef}

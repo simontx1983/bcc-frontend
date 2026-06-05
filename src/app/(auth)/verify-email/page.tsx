@@ -8,16 +8,19 @@
  *   1. After signup     → ?email=xxx  (OTP form shown; no token in URL)
  *   2. Email link click → ?email=xxx&token=yyy  (auto-verifies on mount)
  *
- * On successful verification (either path): shows a success state and
- * a "Sign in" button linking to /login. A separate sign-in step is
- * required because the returned JWT is not fed into NextAuth directly.
+ * On successful verification (either path): the returned JWT is bridged
+ * directly into NextAuth via the "bcc-verified" provider, signing the
+ * user in automatically and redirecting to /onboarding. The manual
+ * "Sign in now" button is shown only as a fallback if that signIn call
+ * fails (e.g. network error).
  *
  * Resend: rate-limited to 3/hour on the server. Client-side 60-second
  * cooldown prevents accidental double-taps and shows a countdown.
  */
 
+import { signIn } from "next-auth/react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   type FormEvent,
   Suspense,
@@ -31,7 +34,7 @@ import {
   resendVerification,
   verifyEmail,
 } from "@/lib/api/auth-endpoints";
-import { BccApiError } from "@/lib/api/types";
+import { BccApiError, type AuthTokenResponse } from "@/lib/api/types";
 
 const ERROR_COPY: Record<string, string> = {
   bcc_invalid_verify_token: "This link has expired or has already been used.",
@@ -45,6 +48,7 @@ const ERROR_COPY: Record<string, string> = {
 type PageState = "otp-form" | "auto-verifying" | "success" | "link-expired";
 
 function VerifyEmailContent() {
+  const router        = useRouter();
   const searchParams  = useSearchParams();
   const email         = searchParams.get("email") ?? "";
   const tokenParam    = searchParams.get("token") ?? "";
@@ -55,14 +59,38 @@ function VerifyEmailContent() {
   const [code, setCode]                 = useState("");
   const [error, setError]               = useState<string | null>(null);
   const [submitting, setSubmitting]     = useState(false);
+  const [signingIn, setSigningIn]       = useState(false);
   const [resending, setResending]       = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
+
+  async function autoSignIn(tokenResp: AuthTokenResponse) {
+    setSigningIn(true);
+    try {
+      const result = await signIn("bcc-verified", {
+        user_id:          String(tokenResp.user_id),
+        handle:           tokenResp.handle,
+        token:            tokenResp.token,
+        expires_in:       String(tokenResp.expires_in),
+        in_good_standing: String(tokenResp.in_good_standing),
+        redirect:         false,
+      });
+      if (result?.ok) {
+        router.replace("/onboarding");
+        return;
+      }
+    } catch {
+      // fall through to the manual sign-in button
+    }
+    setSigningIn(false);
+  }
 
   // ── Token path: auto-verify on mount ──────────────────────────
   const autoVerify = useCallback(async () => {
     try {
-      await verifyEmail({ token: tokenParam });
+      const tokenResp = await verifyEmail({ token: tokenParam });
+      setSigningIn(true);
       setPageState("success");
+      void autoSignIn(tokenResp);
     } catch (err) {
       setPageState("link-expired");
       if (err instanceof BccApiError) {
@@ -71,6 +99,7 @@ function VerifyEmailContent() {
         setError("Verification failed. The link may have expired.");
       }
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tokenParam]);
 
   useEffect(() => {
@@ -96,8 +125,10 @@ function VerifyEmailContent() {
     setError(null);
     setSubmitting(true);
     try {
-      await verifyEmail({ email, code });
+      const tokenResp = await verifyEmail({ email, code });
+      setSigningIn(true);
       setPageState("success");
+      void autoSignIn(tokenResp);
     } catch (err) {
       if (err instanceof BccApiError) {
         setError(ERROR_COPY[err.code] ?? err.message);
@@ -139,15 +170,25 @@ function VerifyEmailContent() {
     return (
       <AuthCard
         heading="Email verified"
-        subheading="Your account is confirmed. Sign in to get started on the floor."
+        subheading={
+          signingIn
+            ? "Signing you in…"
+            : "Your account is confirmed. Sign in to get started on the floor."
+        }
       >
-        <Link
-          href="/login"
-          className="bcc-auth-submit"
-          style={{ textAlign: "center", textDecoration: "none", display: "block" }}
-        >
-          Sign in now
-        </Link>
+        {signingIn ? (
+          <p className="bcc-auth-hint" style={{ textAlign: "center", padding: "8px 0" }}>
+            Just a moment…
+          </p>
+        ) : (
+          <Link
+            href="/login"
+            className="bcc-auth-submit"
+            style={{ textAlign: "center", textDecoration: "none", display: "block" }}
+          >
+            Sign in now
+          </Link>
+        )}
       </AuthCard>
     );
   }
