@@ -5,12 +5,19 @@
  * not from here. This file covers the OTHER auth endpoints that need
  * direct client invocation:
  *
+ *   - loginWithEmail       → POST /auth/login                (email + password → JWT or 2FA challenge)
+ *   - verify2fa            → POST /auth/2fa/verify           (challenge token + OTP → JWT)
+ *   - resend2faCode        → POST /auth/2fa/resend           (re-send 2FA OTP)
  *   - signup               → POST /auth/signup               (creates account, sends verification email)
  *   - verifyEmail          → POST /auth/verify-email         (OTP code OR one-shot token)
  *   - resendVerification   → POST /auth/resend-verification  (re-send OTP + link)
  *   - token                → POST /auth/token                (re-mint for already-authed user)
  *   - wallet nonce         → GET  /auth/nonce                (§N8 claim challenge)
  *   - wallet link          → POST /auth/wallet-link          (§N8 verify + persist)
+ *
+ * Email login flow (2FA):
+ *   loginWithEmail() → {status:"2fa_required", challenge_token} → /login/two-factor page
+ *                    → verify2fa() → AuthTokenResponse → signIn("bcc-verified") → session
  *
  * Email signup flow:
  *   signup() → {ok:true, email} → /verify-email page → verifyEmail() → /login
@@ -25,6 +32,112 @@ import type {
   WalletNonceResponse,
   WalletSignupRequest,
 } from "@/lib/api/types";
+
+// ─────────────────────────────────────────────────────────────────────
+// 2FA login flow — /auth/login now returns a challenge instead of a JWT.
+// The caller checks `status === "2fa_required"` and routes to the 2FA
+// page; on success /auth/2fa/verify returns the same AuthTokenResponse
+// shape as before, so the signIn("bcc-verified") bridge is unchanged.
+// ─────────────────────────────────────────────────────────────────────
+
+export interface TwoFaChallengeResponse {
+  status: "2fa_required";
+  method: "email";
+  challenge_token: string;
+}
+
+/**
+ * POST /auth/login — email + password credentials.
+ *
+ * Returns either a 2FA challenge (status "2fa_required") or a full JWT
+ * payload (AuthTokenResponse) when 2FA has already been satisfied.
+ * Currently always returns the challenge; check `status` to discriminate.
+ *
+ * Errors (thrown as BccApiError):
+ *   bcc_invalid_credentials  — wrong email or password
+ *   bcc_email_not_verified   — account hasn't completed signup verification
+ *   bcc_invalid_state        — account missing a handle (legacy account)
+ *   bcc_rate_limited         — too many attempts from this IP
+ */
+export async function loginWithEmail(
+  email: string,
+  password: string,
+): Promise<TwoFaChallengeResponse | AuthTokenResponse> {
+  return bccFetch<TwoFaChallengeResponse | AuthTokenResponse>("auth/login", {
+    method: "POST",
+    body: { email, password },
+  });
+}
+
+/**
+ * POST /auth/2fa/verify — consume challenge token + 6-digit OTP → JWT.
+ *
+ * On wrong code: throws bcc_invalid_2fa_code (challenge token remains
+ * valid — the user can retry without restarting login).
+ * On expired challenge: throws bcc_invalid_2fa_token.
+ */
+export async function verify2fa(
+  challengeToken: string,
+  code: string,
+): Promise<AuthTokenResponse> {
+  return bccFetch<AuthTokenResponse>("auth/2fa/verify", {
+    method: "POST",
+    body: { challenge_token: challengeToken, code },
+  });
+}
+
+/**
+ * POST /auth/2fa/resend — send a fresh 2FA OTP for an in-progress challenge.
+ *
+ * Always resolves (backend returns ok=true regardless of token validity —
+ * anti-enumeration). Only throws on network error or rate-limit (3/min).
+ */
+export async function resend2faCode(challengeToken: string): Promise<void> {
+  await bccFetch<{ ok: true }>("auth/2fa/resend", {
+    method: "POST",
+    body: { challenge_token: challengeToken },
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// OAuth SSO flow — /auth/oauth (server-side only, called from NextAuth
+// signIn/jwt callbacks) + /auth/oauth-complete (client-side, called
+// from /signup/complete-profile after handle selection).
+// ─────────────────────────────────────────────────────────────────────
+
+export interface OAuthHandleRequiredResponse {
+  status: "handle_required";
+  provider_token: string;
+  email: string;
+  display_name: string;
+}
+
+export interface OAuthCompleteRequest {
+  provider_token: string;
+  handle: string;
+  display_name?: string;
+}
+
+/**
+ * POST /auth/oauth-complete — finish OAuth signup by selecting a handle.
+ *
+ * Called client-side from /signup/complete-profile after the backend
+ * returned {status:"handle_required"} during the NextAuth OAuth callback.
+ * On success, use `signIn("bcc-verified", ...)` to establish the session.
+ *
+ * Errors (thrown as BccApiError):
+ *   bcc_invalid_oauth_token — provider_token expired (15 min); restart OAuth
+ *   bcc_invalid_handle      — handle violates character rules
+ *   bcc_handle_reserved     — handle is reserved
+ *   bcc_conflict            — handle or email already taken
+ *   bcc_rate_limited        — too many attempts from this IP
+ */
+export async function oauthComplete(input: OAuthCompleteRequest): Promise<AuthTokenResponse> {
+  return bccFetch<AuthTokenResponse>("auth/oauth-complete", {
+    method: "POST",
+    body: input,
+  });
+}
 
 export interface SignupRequest {
   email: string;

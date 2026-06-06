@@ -96,23 +96,24 @@
   to { stroke-dashoffset: 0; }
 }
 
-/* ── Filling phase — fills flood in, strokes fade slightly ── */
+/* ── Filling / exiting phase base — drawing complete, strokes locked ── */
 .bcc-preloader--filling .bcc-path,
 .bcc-preloader--exiting .bcc-path {
   opacity: 1;
   stroke-dashoffset: 0;
-  animation: none;
+  animation: none; /* stop draw animation; ID-specific rules below override this */
 }
 
+/* Fill colour applied in both phases (exiting inherits the visible state) */
 .bcc-preloader--filling #bcc-p0,
 .bcc-preloader--exiting #bcc-p0 {
-  fill: rgba(44, 179, 225, 0.94);    /* matches original .s0 */
+  fill: rgba(44, 179, 225, 0.94);
   stroke: #16b5e6;
   stroke-width: 1;
 }
 .bcc-preloader--filling #bcc-p1,
 .bcc-preloader--exiting #bcc-p1 {
-  fill: rgba(229, 158, 64, 0.98);    /* matches original .s1 */
+  fill: rgba(229, 158, 64, 0.98);
   stroke: #f98a1c;
   stroke-width: 1;
 }
@@ -123,12 +124,38 @@
   stroke-width: 1;
 }
 
-/* Subtle glow pulse during fill phase */
-.bcc-preloader__logo {
-  transition: filter 400ms ease;
+/* Slow fill-fade — ID selectors beat the class `animation:none` above.
+   Each path fades in sequentially, bottom layers first. */
+.bcc-preloader--filling #bcc-p0 {
+  animation: bcc-fill-fade 600ms ease-out 0ms   forwards;
 }
-.bcc-preloader--filling .bcc-preloader__logo {
+.bcc-preloader--filling #bcc-p1 {
+  animation: bcc-fill-fade 480ms ease-out 120ms forwards;
+}
+.bcc-preloader--filling #bcc-p2 {
+  animation: bcc-fill-fade 300ms ease-out 260ms forwards;
+}
+
+@keyframes bcc-fill-fade {
+  from { fill-opacity: 0; }
+  to   { fill-opacity: 1; }
+}
+
+/* Ensure full opacity is locked once exiting (animation gone, CSS takes over) */
+.bcc-preloader--exiting #bcc-p0,
+.bcc-preloader--exiting #bcc-p1,
+.bcc-preloader--exiting #bcc-p2 {
+  fill-opacity: 1;
+}
+
+/* Glow — delayed so it fires AFTER the fill is mostly visible (~480ms in) */
+.bcc-preloader__logo {
+  transition: filter 350ms ease;
+}
+.bcc-preloader--filling .bcc-preloader__logo,
+.bcc-preloader--exiting .bcc-preloader__logo {
   filter: drop-shadow(0 0 12px rgba(22, 181, 230, 0.35));
+  transition: filter 350ms ease 480ms; /* 480ms delay — fills are mostly in */
 }
 
 /* ── Reduce motion — skip straight to filled state ── */

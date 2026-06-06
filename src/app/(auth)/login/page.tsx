@@ -1,17 +1,17 @@
 "use client";
 
 /**
- * Login page — email + password → NextAuth credentials sign-in.
+ * Login page — email + password → 2FA challenge → JWT → NextAuth session.
  *
- * Error surfacing: `signIn("credentials", { redirect: false })` returns
- * `{ error?: string }`. When `lib/auth.ts` throws an Error with a
- * `bcc_*` code, that code lands in `error` verbatim. We map known
- * codes to user-facing copy here; unknown codes (or NextAuth's own
- * "CredentialsSignin" fallback) get the generic message.
+ * The email/password form calls /auth/login directly (not via NextAuth's
+ * credentials provider). On success the backend always returns a 2FA
+ * challenge; we redirect to /login/two-factor which completes the flow
+ * and bridges into NextAuth via the "bcc-verified" provider.
  *
- * Redirect: on success, replace() to either the `callbackUrl` query
- * param (for "return to where you came from" flows) or /onboarding
- * for first-time logins.
+ * Wallet login still goes through NextAuth's wallet provider unchanged.
+ *
+ * Redirect: after full sign-in, replace() to the `callbackUrl` query param
+ * (if present) or /onboarding. This URL is threaded through the 2FA page.
  */
 
 import type { Route } from "next";
@@ -23,18 +23,16 @@ import { type FormEvent, useState, Suspense } from "react";
 import { AuthCard, AuthDivider, SSOButton } from "@/components/auth/AuthCard";
 import { WalletAuthButton } from "@/components/auth/WalletAuthButton";
 import { WalletSignupPrompt } from "@/components/auth/WalletSignupPrompt";
+import { loginWithEmail } from "@/lib/api/auth-endpoints";
+import { BccApiError, type AuthTokenResponse } from "@/lib/api/types";
 
 const ERROR_COPY: Record<string, string> = {
   bcc_invalid_credentials:  "Invalid email or password.",
   bcc_invalid_request:      "Email and password are required.",
   bcc_rate_limited:         "Too many login attempts. Try again in a minute.",
   bcc_invalid_state:        "This account is missing a handle. Contact support.",
-  bcc_network_error:        "Couldn't reach the server. Check your connection.",
-  bcc_invalid_envelope:     "Server returned an unexpected response. Try again.",
   bcc_unknown:              "Sign-in failed. Try again, or contact support if the issue persists.",
-  CredentialsSignin:        "Invalid email or password.",
   // Email verification gate — set by /auth/login when _bcc_email_verified = '0'.
-  // Message is shown with a "Verify now" link rendered separately below the form.
   bcc_email_not_verified:   "Please verify your email address before signing in.",
 };
 
@@ -61,26 +59,45 @@ function LoginPageContent() {
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
+    setNotVerifiedEmail(null);
     setSubmitting(true);
 
-    const result = await signIn("credentials", {
-      email,
-      password,
-      redirect: false,
-    });
+    try {
+      const resp = await loginWithEmail(email, password);
 
-    setSubmitting(false);
+      if ("status" in resp && resp.status === "2fa_required") {
+        const params = new URLSearchParams({ ct: resp.challenge_token });
+        if (callbackUrl !== null && callbackUrl !== "") {
+          params.set("callbackUrl", callbackUrl);
+        }
+        router.replace(`/login/two-factor?${params.toString()}` as Route);
+        return;
+      }
 
-    if (result?.error !== undefined && result.error !== null) {
-      setError(ERROR_COPY[result.error] ?? "Sign-in failed. Try again.");
-      if (result.error === "bcc_email_not_verified") {
+      // Fallback: backend returned a JWT directly (future: 2FA disabled).
+      const jwtResp = resp as AuthTokenResponse;
+      const result = await signIn("bcc-verified", {
+        user_id:          String(jwtResp.user_id),
+        handle:           jwtResp.handle,
+        token:            jwtResp.token,
+        expires_in:       String(jwtResp.expires_in),
+        in_good_standing: String(jwtResp.in_good_standing),
+        redirect:         false,
+      });
+      if (result?.ok) {
+        router.replace(targetAfterLogin());
+      } else {
+        setError("Sign-in failed. Try again.");
+      }
+    } catch (err) {
+      const code = err instanceof BccApiError ? err.code : "bcc_unknown";
+      setError(ERROR_COPY[code] ?? "Sign-in failed. Try again.");
+      if (code === "bcc_email_not_verified") {
         setNotVerifiedEmail(email);
       }
-      return;
+    } finally {
+      setSubmitting(false);
     }
-
-    setNotVerifiedEmail(null);
-    router.replace(targetAfterLogin());
   }
 
   return (
@@ -96,8 +113,8 @@ function LoginPageContent() {
         }
       >
         {/* SSO */}
-        <SSOButton provider="google" mode="login" />
-        <SSOButton provider="twitter" mode="login" />
+        <SSOButton provider="google"  mode="login" callbackUrl={callbackUrl ?? "/onboarding"} />
+        <SSOButton provider="twitter" mode="login" callbackUrl={callbackUrl ?? "/onboarding"} />
 
         <AuthDivider />
 

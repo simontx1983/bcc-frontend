@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import { signIn } from "next-auth/react";
 import { useCallback, useEffect, useState } from "react";
 
 interface AuthCardProps {
@@ -79,21 +80,28 @@ export function AuthCard({ heading, subheading, children, footer }: AuthCardProp
 interface SSOButtonProps {
   provider: "google" | "twitter";
   mode: "login" | "signup";
+  /** Where NextAuth redirects after successful OAuth sign-in (existing users only). */
+  callbackUrl?: string;
 }
 
-export function SSOButton({ provider, mode }: SSOButtonProps) {
+export function SSOButton({ provider, mode, callbackUrl = "/onboarding" }: SSOButtonProps) {
   const label = mode === "login" ? "Continue with" : "Sign up with";
-  const name = provider === "google" ? "Google" : "X";
+  const name  = provider === "google" ? "Google" : "X";
+
+  const providerId = provider === "twitter" ? "twitter" : "google";
 
   return (
-    <button type="button" className="bcc-sso-btn" disabled>
+    <button
+      type="button"
+      className="bcc-sso-btn"
+      onClick={() => { void signIn(providerId, { callbackUrl }); }}
+    >
       <span className="bcc-sso-icon">
         {provider === "google" ? <GoogleIcon /> : <TwitterIcon />}
       </span>
       <span className="bcc-sso-label">
         {label} {name}
       </span>
-      <span className="bcc-sso-soon">Soon</span>
     </button>
   );
 }
