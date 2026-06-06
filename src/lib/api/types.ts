@@ -2240,6 +2240,16 @@ export interface BlogEditViewModel {
 /** §D2 review grade — symbolic key, server maps to vote_type internally. */
 export type ReviewGrade = "trust" | "neutral" | "caution";
 
+/**
+ * §4.7.6 — group-post visibility. Only honored when `group_id` is set;
+ * the server defaults to `members_only` when omitted.
+ *
+ *   - members_only — only group members can see the post.
+ *   - public_group — anyone can see it on the group page.
+ *   - public_all   — surfaces in the group AND the main feed.
+ */
+export type GroupPostVisibility = "members_only" | "public_group" | "public_all";
+
 export interface CreateStatusRequest {
   kind?: "status";
   content: string;
@@ -2251,6 +2261,11 @@ export interface CreateStatusRequest {
    * own wall (existing behavior).
    */
   group_id?: number;
+  /**
+   * §4.7.6 — group-post visibility. Only honored when `group_id` is set;
+   * defaults to `members_only` server-side when omitted.
+   */
+  visibility?: GroupPostVisibility;
 }
 
 export interface CreateReviewRequest {
@@ -2463,6 +2478,11 @@ export interface CreatePhotoPostRequest {
   file: File;
   caption?: string;
   group_id?: number;
+  /**
+   * §4.7.6 — group-post visibility. Only honored when `group_id` is set;
+   * defaults to `members_only` server-side when omitted.
+   */
+  visibility?: GroupPostVisibility;
 }
 
 /**
@@ -2513,6 +2533,11 @@ export interface CreateGifPostRequest {
   url: string;
   caption?: string;
   group_id?: number;
+  /**
+   * §4.7.6 — group-post visibility. Only honored when `group_id` is set;
+   * defaults to `members_only` server-side when omitted.
+   */
+  visibility?: GroupPostVisibility;
 }
 
 /**

@@ -84,6 +84,7 @@ import {
   REVIEW_BODY_MAX_LENGTH,
   STATUS_POST_MAX_LENGTH,
   type GiphySearchResult,
+  type GroupPostVisibility,
   type MentionSearchCandidate,
   type ReviewGrade,
 } from "@/lib/api/types";
@@ -247,6 +248,30 @@ const COMPOSER_PROMPTS: ReadonlyArray<string> = [
   "Post an observation.",
 ];
 
+// §4.7.6 — group-post visibility options. Static copy only; the wire
+// value (`key`) is forwarded verbatim and the server owns enforcement.
+const VISIBILITY_OPTIONS: ReadonlyArray<{
+  key: GroupPostVisibility;
+  label: string;
+  description: string;
+}> = [
+  {
+    key: "members_only",
+    label: "MEMBERS ONLY",
+    description: "Only group members can see this.",
+  },
+  {
+    key: "public_group",
+    label: "PUBLIC GROUP",
+    description: "Anyone can see it on the group page.",
+  },
+  {
+    key: "public_all",
+    label: "PUBLIC",
+    description: "Shows in the group and the main feed.",
+  },
+];
+
 function InlineStatusComposer({
   viewerAvatarUrl,
   viewerHandle,
@@ -269,6 +294,11 @@ function InlineStatusComposer({
   }, [expanded, promptPaused, groupId]);
   const [content, setContent] = useState("");
   const [error, setError] = useState<string | null>(null);
+  // §4.7.6 group-post visibility. Only surfaced (and only sent) when the
+  // composer is group-scoped; defaults to members_only, matching the
+  // server-side default when the field is omitted.
+  const [visibility, setVisibility] =
+    useState<GroupPostVisibility>("members_only");
   // v1.5 photo state. `attachedFile` holds the selected File; `previewUrl`
   // is a transient `URL.createObjectURL()` for the thumbnail tile,
   // revoked on remove or unmount. Treat the pair as one logical state —
@@ -333,6 +363,7 @@ function InlineStatusComposer({
   const statusMutation = useCreatePostMutation({
     onSuccess: () => {
       setContent("");
+      setVisibility("members_only");
       setError(null);
       setExpanded(false);
     },
@@ -360,6 +391,7 @@ function InlineStatusComposer({
       }
       setContent("");
       clearAttachment();
+      setVisibility("members_only");
       setError(null);
       setExpanded(false);
     },
@@ -370,6 +402,7 @@ function InlineStatusComposer({
     onSuccess: () => {
       setContent("");
       clearGif();
+      setVisibility("members_only");
       setError(null);
       setExpanded(false);
     },
@@ -646,18 +679,18 @@ function InlineStatusComposer({
       gifMutation.mutate({
         url: selectedGif.url,
         caption: trimmed,
-        ...(groupId !== undefined ? { group_id: groupId } : {}),
+        ...(groupId !== undefined ? { group_id: groupId, visibility } : {}),
       });
     } else if (attachedFile !== null) {
       photoMutation.mutate({
         file: attachedFile,
         caption: trimmed,
-        ...(groupId !== undefined ? { group_id: groupId } : {}),
+        ...(groupId !== undefined ? { group_id: groupId, visibility } : {}),
       });
     } else {
       statusMutation.mutate({
         content: trimmed,
-        ...(groupId !== undefined ? { group_id: groupId } : {}),
+        ...(groupId !== undefined ? { group_id: groupId, visibility } : {}),
       });
     }
   };
@@ -665,6 +698,7 @@ function InlineStatusComposer({
   const dismiss = () => {
     setContent("");
     clearAllAttachments();
+    setVisibility("members_only");
     setError(null);
     setExpanded(false);
   };
@@ -942,6 +976,46 @@ function InlineStatusComposer({
             <p role="alert" className="bcc-mono text-[11px] text-safety">
               {error}
             </p>
+          )}
+
+          {/*
+            §4.7.6 — group-post visibility selector. Only rendered for
+            group-scoped composers; the global composer has no group to
+            scope visibility against, so the field never surfaces (and is
+            never sent). Mirrors the ReviewForm grade-picker pattern.
+          */}
+          {groupId !== undefined && (
+            <fieldset className="flex flex-col gap-2">
+              <legend className="bcc-mono text-[10px] tracking-[0.18em] text-cardstock-deep/80">
+                VISIBILITY
+              </legend>
+              <div className="grid gap-2 md:grid-cols-3">
+                {VISIBILITY_OPTIONS.map((opt) => {
+                  const active = visibility === opt.key;
+                  return (
+                    <button
+                      key={opt.key}
+                      type="button"
+                      onClick={() => setVisibility(opt.key)}
+                      aria-pressed={active}
+                      className={
+                        "rounded-sm border px-3 py-3 text-left transition motion-reduce:transition-none " +
+                        (active
+                          ? "border-cardstock bg-cardstock/10"
+                          : "border-cardstock-edge/30 bg-cardstock/[0.03] hover:border-cardstock-edge/60")
+                      }
+                    >
+                      <span className="bcc-stencil block text-[12px] tracking-[0.2em] text-cardstock">
+                        {opt.label}
+                      </span>
+                      <span className="mt-1 block font-serif text-[13px] text-cardstock-deep/80">
+                        {opt.description}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </fieldset>
           )}
 
           <footer className="flex flex-wrap items-center justify-between gap-3">

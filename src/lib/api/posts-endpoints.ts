@@ -17,6 +17,7 @@ import type {
   CreatePostRequest,
   CreatePostResponse,
   CreateReviewRequest,
+  GroupPostVisibility,
   UpdateBlogRequest,
 } from "@/lib/api/types";
 
@@ -144,6 +145,17 @@ export function createPhotoPost(
   if (request.caption !== undefined && request.caption !== "") {
     fd.append("caption", request.caption);
   }
+  // §4.7.6 — scope the post to a group wall when present. Without this the
+  // server defaults to the viewer's own wall and the post never surfaces in
+  // the group feed (which filters on the `peepso_group_id` post-meta).
+  if (request.group_id !== undefined && request.group_id > 0) {
+    fd.append("group_id", String(request.group_id));
+  }
+  // §4.7.6 — visibility only matters for group-scoped posts; the server
+  // ignores it without a group_id and defaults to members_only when omitted.
+  if (request.visibility !== undefined) {
+    fd.append("visibility", request.visibility);
+  }
   return bccFetchAsClient<CreatePhotoPostResponse>("posts/photo", {
     method: "POST",
     body: fd,
@@ -168,9 +180,24 @@ export function createPhotoPost(
 export function createGifPost(
   request: CreateGifPostRequest
 ): Promise<CreateGifPostResponse> {
-  const body: { url: string; caption?: string } = { url: request.url };
+  const body: {
+    url: string;
+    caption?: string;
+    group_id?: number;
+    visibility?: GroupPostVisibility;
+  } = {
+    url: request.url,
+  };
   if (request.caption !== undefined && request.caption !== "") {
     body.caption = request.caption;
+  }
+  // §4.7.6 — scope to the group wall when present (see createPhotoPost).
+  if (request.group_id !== undefined && request.group_id > 0) {
+    body.group_id = request.group_id;
+  }
+  // §4.7.6 — group-only visibility; server defaults to members_only.
+  if (request.visibility !== undefined) {
+    body.visibility = request.visibility;
   }
   return bccFetchAsClient<CreateGifPostResponse>("posts/gif", {
     method: "POST",

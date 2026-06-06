@@ -46,9 +46,21 @@ const COMMENT_MAX_LENGTH = 2000;
 interface CommentDrawerProps {
   feedId: string;
   isOpen: boolean;
+  /**
+   * When false, existing comments still render (read-only) but the
+   * write composer is suppressed entirely — used by the §4.7.6
+   * non-member group teaser where commenting is member-only (server
+   * returns 403). Defaults to true so every other feed surface keeps
+   * its composer.
+   */
+  canInteract?: boolean;
 }
 
-export function CommentDrawer({ feedId, isOpen }: CommentDrawerProps) {
+export function CommentDrawer({
+  feedId,
+  isOpen,
+  canInteract = true,
+}: CommentDrawerProps) {
   const session = useSession();
   const isAuthed = session.status === "authenticated";
 
@@ -112,16 +124,21 @@ export function CommentDrawer({ feedId, isOpen }: CommentDrawerProps) {
         </button>
       )}
 
-      {isAuthed ? (
-        <CommentComposer feedId={feedId} />
-      ) : (
-        <p className="bcc-mono mt-4 text-[11px] text-ink-soft/70">
-          <Link href={"/login" as Route} className="text-ink hover:underline">
-            Sign in
-          </Link>{" "}
-          to comment.
-        </p>
-      )}
+      {/* Non-member group teaser (canInteract=false): suppress both the
+          composer AND the anonymous sign-in prompt. The "join to
+          interact" affordance lives once on GroupFeedSection — repeating
+          a write prompt per card here would be redundant noise. */}
+      {canInteract &&
+        (isAuthed ? (
+          <CommentComposer feedId={feedId} />
+        ) : (
+          <p className="bcc-mono mt-4 text-[11px] text-ink-soft/70">
+            <Link href={"/login" as Route} className="text-ink hover:underline">
+              Sign in
+            </Link>{" "}
+            to comment.
+          </p>
+        ))}
     </div>
   );
 }

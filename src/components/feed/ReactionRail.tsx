@@ -47,14 +47,27 @@ import type {
   TrustReactionKind,
 } from "@/lib/api/types";
 
-export function ReactionRail({ item }: { item: FeedItem }) {
+export function ReactionRail({
+  item,
+  canInteract = true,
+}: {
+  item: FeedItem;
+  /**
+   * When false, the rail still renders counts + the viewer's existing
+   * reaction (read-only), but every button is `disabled` so no
+   * set/remove POST can fire. Drives the §4.7.6 non-member group teaser
+   * (the server returns 403 anyway; this hides the write affordance).
+   * Defaults to true so every other feed surface is unchanged.
+   */
+  canInteract?: boolean;
+}) {
   const grammar = item.reactions.kind_grammar;
 
   if (grammar === "trust") {
-    return <TrustRail item={item} />;
+    return <TrustRail item={item} canInteract={canInteract} />;
   }
   if (grammar === "social") {
-    return <SocialRail item={item} />;
+    return <SocialRail item={item} canInteract={canInteract} />;
   }
   // tribal — reserved for V2; render nothing until kinds ship.
   return null;
@@ -109,10 +122,19 @@ const TRUST_REACTIONS: ReadonlyArray<TrustReactionDef> = [
   { kind: "stand_behind", brand: "Stand behind", helper: "Put your name on it" },
 ];
 
-function TrustRail({ item }: { item: FeedItem }) {
+function TrustRail({
+  item,
+  canInteract,
+}: {
+  item: FeedItem;
+  canInteract: boolean;
+}) {
   const { handleClick, isPending } = useReactionClick(item);
   const viewerReaction = item.reactions.viewer_reaction;
   const counts         = item.reactions.counts;
+  // Non-interactive (non-member teaser): disable every button. Counts +
+  // any existing viewer_reaction still render read-only.
+  const disabled = isPending || !canInteract;
 
   return (
     <div className="flex flex-col gap-1.5">
@@ -122,8 +144,10 @@ function TrustRail({ item }: { item: FeedItem }) {
           your mood. A single-line caption named once on first
           encounter beats explaining it in every tooltip. The hint is
           dismissible via sessionStorage; once acknowledged it never
-          renders again for this session. See TrustRailHint below. */}
-      <TrustRailHint />
+          renders again for this session. See TrustRailHint below. The
+          hint is suppressed when the viewer can't interact — there's
+          no action to caption. */}
+      {canInteract && <TrustRailHint />}
       <div className="flex flex-wrap items-center gap-2">
       {TRUST_REACTIONS.map(({ kind, brand, helper }) => {
         const count    = counts[kind] ?? 0;
@@ -133,7 +157,8 @@ function TrustRail({ item }: { item: FeedItem }) {
             key={kind}
             type="button"
             onClick={handleClick(kind)}
-            disabled={isPending}
+            disabled={disabled}
+            aria-disabled={disabled}
             aria-pressed={isActive}
             title={`${brand} — ${helper}`}
             className={
@@ -242,10 +267,19 @@ const SOCIAL_REACTIONS: ReadonlyArray<SocialReactionDef> = [
   { kind: "fire", emoji: "🔥", label: "Fire" },
 ];
 
-function SocialRail({ item }: { item: FeedItem }) {
+function SocialRail({
+  item,
+  canInteract,
+}: {
+  item: FeedItem;
+  canInteract: boolean;
+}) {
   const { handleClick, isPending } = useReactionClick(item);
   const viewerReaction = item.reactions.viewer_reaction;
   const counts         = item.reactions.counts;
+  // Non-interactive (non-member teaser): disable every button. Counts +
+  // any existing viewer_reaction still render read-only.
+  const disabled = isPending || !canInteract;
 
   return (
     <div className="flex flex-wrap items-center gap-1">
@@ -257,7 +291,8 @@ function SocialRail({ item }: { item: FeedItem }) {
             key={kind}
             type="button"
             onClick={handleClick(kind)}
-            disabled={isPending}
+            disabled={disabled}
+            aria-disabled={disabled}
             aria-pressed={isActive}
             aria-label={label}
             title={label}

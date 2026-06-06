@@ -48,7 +48,21 @@ const POST_KIND_LABELS: Record<string, string> = {
   blog_excerpt:  "PUBLISHED",
 };
 
-function FeedItemCardImpl({ item }: { item: FeedItem }) {
+function FeedItemCardImpl({
+  item,
+  canInteract = true,
+}: {
+  item: FeedItem;
+  /**
+   * Gates the WRITE affordances only. When false (§4.7.6 non-member
+   * group teaser): the reaction rail's buttons are disabled and the
+   * comment composer is suppressed — but reading existing comments and
+   * seeing reaction counts stays available. Defaults to true so the
+   * global feed, profile activity, and discover surfaces are unchanged.
+   * A plain boolean keeps the memo() shallow-compare stable.
+   */
+  canInteract?: boolean;
+}) {
   const kindLabel = POST_KIND_LABELS[item.post_kind] ?? item.post_kind.toUpperCase();
   const isReview  = item.post_kind === "review";
   const isBlog    = item.post_kind === "blog_excerpt";
@@ -146,7 +160,7 @@ function FeedItemCardImpl({ item }: { item: FeedItem }) {
       <ReactorStack social_proof={item.social_proof} />
 
       <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-cardstock-edge/40 pt-2.5">
-        <ReactionRail item={item} />
+        <ReactionRail item={item} canInteract={canInteract} />
         <div className="flex shrink-0 items-center gap-4">
           <button
             type="button"
@@ -169,7 +183,7 @@ function FeedItemCardImpl({ item }: { item: FeedItem }) {
         </div>
       </footer>
       <div id={`comments-${item.id}`}>
-        <CommentDrawer feedId={item.id} isOpen={commentsOpen} />
+        <CommentDrawer feedId={item.id} isOpen={commentsOpen} canInteract={canInteract} />
       </div>
     </article>
   );

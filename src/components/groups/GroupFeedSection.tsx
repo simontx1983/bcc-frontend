@@ -51,36 +51,55 @@ export function GroupFeedSection({ group }: GroupFeedSectionProps) {
     );
   }
 
-  // Server-derived "viewer can post here right now." Anonymous viewers
-  // and non-members never see the composer; the membership flip is
-  // handled upstream by the join/leave mutations invalidating the
+  // Server-derived "viewer is an active member here right now." Drives
+  // BOTH the composer mount AND the per-card write affordances. Phase 2:
+  // feed_visible is now true for non-members of nft/closed groups (they
+  // get a public-only filtered teaser), so feed_visible alone no longer
+  // implies the viewer can interact — membership does. Anonymous
+  // viewers and non-members never see the composer; the membership flip
+  // is handled upstream by the join/leave mutations invalidating the
   // useGroup query, which re-renders this section with a fresh
   // viewer_membership block.
-  const canPost =
+  const canInteract =
     group.viewer_membership !== null &&
     group.viewer_membership.is_member === true;
 
   return (
     <div className="flex flex-col gap-6">
-      {canPost && (
+      {canInteract && (
         <Composer
           variant="inline"
           groupId={group.id}
           groupScopeLabel={`POST IN ${group.name.toUpperCase()}`}
         />
       )}
-      <GroupFeedBody groupId={group.id} canPost={canPost} groupKind={group.type} />
+      {/* Non-member teaser hint (Phase 2): feed_visible is true but the
+          viewer can't write here. Client-authored affordance copy — not
+          a server verdict. The actual CHECK & JOIN button lives on
+          GroupMembershipStrip, so we don't duplicate it; this is just a
+          one-line orientation so the disabled comment/reaction controls
+          below don't read as broken. */}
+      {!canInteract && (
+        <p className="bcc-mono text-[11px] tracking-[0.16em] text-ink-soft/70">
+          You&apos;re viewing public posts. Join to comment and react.
+        </p>
+      )}
+      <GroupFeedBody
+        groupId={group.id}
+        canInteract={canInteract}
+        groupKind={group.type}
+      />
     </div>
   );
 }
 
 function GroupFeedBody({
   groupId,
-  canPost,
+  canInteract,
   groupKind,
 }: {
   groupId: number;
-  canPost: boolean;
+  canInteract: boolean;
   groupKind: GroupDetailResponse["type"];
 }) {
   const query = useGroupFeed(groupId);
@@ -131,10 +150,10 @@ function GroupFeedBody({
     return (
       <div className="bcc-panel mx-auto p-6 text-center">
         <h2 className="bcc-stencil text-2xl text-ink">
-          {canPost ? emptyHeading(groupKind) : "Quiet inside"}
+          {canInteract ? emptyHeading(groupKind) : "Quiet inside"}
         </h2>
         <p className="mt-2 font-serif text-ink-soft">
-          {canPost
+          {canInteract
             ? emptyBody(groupKind)
             : "Members will write the first chapter here."}
         </p>
@@ -145,7 +164,7 @@ function GroupFeedBody({
   return (
     <div className="flex flex-col gap-4">
       {items.map((item) => (
-        <GroupFeedItem key={item.id} item={item} />
+        <GroupFeedItem key={item.id} item={item} canInteract={canInteract} />
       ))}
 
       {query.hasNextPage && (
@@ -209,6 +228,12 @@ function emptyBody(kind: GroupDetailResponse["type"]): string {
 // item actually changed, so default shallow-equality is sufficient.
 // ──────────────────────────────────────────────────────────────────────
 
-const GroupFeedItem = memo(function GroupFeedItem({ item }: { item: FeedItem }) {
-  return <FeedItemCard item={item} />;
+const GroupFeedItem = memo(function GroupFeedItem({
+  item,
+  canInteract,
+}: {
+  item: FeedItem;
+  canInteract: boolean;
+}) {
+  return <FeedItemCard item={item} canInteract={canInteract} />;
 });
