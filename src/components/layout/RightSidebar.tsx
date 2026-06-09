@@ -10,10 +10,14 @@
  *   - Ads slot
  *
  * TODO: Replace static placeholder data with TanStack Query hooks
- * once Phase 2 API integration begins.
+ * once Phase 2 API integration begins. (Trending block: DONE — wired to
+ * useTrendingHashtags. Top Directories / Suggested remain placeholder.)
  */
 
 import Link from "next/link";
+
+import { Skeleton } from "@/components/ui/Skeleton";
+import { useTrendingHashtags } from "@/hooks/useTrendingHashtags";
 
 // ── Placeholder data ──────────────────────────────────────────────────────────
 
@@ -21,17 +25,6 @@ const TOP_DIRECTORIES = [
   { slug: "injective-validators", name: "Injective Validators", count: 48, tier: "legendary" },
   { slug: "cosmos-operators",     name: "Cosmos Operators",     count: 34, tier: "rare"      },
   { slug: "floor-crew",           name: "Floor Crew",           count: 27, tier: "uncommon"  },
-] as const;
-
-const TRENDING_TAGS = [
-  { tag: "validators",       count: 142 },
-  { tag: "dispute",          count: 98  },
-  { tag: "reputation",       count: 87  },
-  { tag: "cosmos",           count: 74  },
-  { tag: "injective",        count: 61  },
-  { tag: "panel",            count: 55  },
-  { tag: "nft",              count: 49  },
-  { tag: "bluecollarcrypto", count: 44  },
 ] as const;
 
 const SUGGESTED_MEMBERS = [
@@ -101,21 +94,7 @@ export function RightSidebar() {
       </div>
 
       {/* ── Trending hashtags ── */}
-      <div className="bcc-widget">
-        <div className="bcc-widget-head">Trending</div>
-        <div className="bcc-hashtag-cloud">
-          {TRENDING_TAGS.map(({ tag, count }) => (
-            <Link
-              key={tag}
-              href={`/members?q=%23${tag}`}
-              className="bcc-hashtag"
-              title={`${count} posts`}
-            >
-              #{tag}
-            </Link>
-          ))}
-        </div>
-      </div>
+      <TrendingWidget />
 
       {/* ── Suggested members ── */}
       <div className="bcc-widget">
@@ -164,6 +143,52 @@ export function RightSidebar() {
         </span>
       </div>
 
+    </div>
+  );
+}
+
+// ── Trending hashtags widget ────────────────────────────────────────────────
+//
+// Wired to GET /bcc/v1/hashtags/trending via useTrendingHashtags. Rows
+// render in server order (no client-side ranking). On loading: two
+// muted skeleton chips (reduced-motion safe via SKELETON_CLASS). On
+// error or empty result: render nothing — the widget hides gracefully
+// rather than showing an empty frame or a placeholder count.
+
+function TrendingWidget() {
+  const { data, isLoading, isError } = useTrendingHashtags();
+  const tags = data?.items ?? [];
+
+  if (isLoading) {
+    return (
+      <div className="bcc-widget">
+        <div className="bcc-widget-head">Trending</div>
+        <div className="bcc-hashtag-cloud">
+          <Skeleton className="h-6 w-20" count={4} />
+        </div>
+      </div>
+    );
+  }
+
+  if (isError || tags.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="bcc-widget">
+      <div className="bcc-widget-head">Trending</div>
+      <div className="bcc-hashtag-cloud">
+        {tags.map(({ tag, count }) => (
+          <Link
+            key={tag}
+            href={`/t/${encodeURIComponent(tag)}`}
+            className="bcc-hashtag"
+            title={`${count} posts`}
+          >
+            #{tag}
+          </Link>
+        ))}
+      </div>
     </div>
   );
 }

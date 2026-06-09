@@ -96,7 +96,7 @@ function AnonFeed() {
 // useHotFeed feed it without a wrapper.
 // ─────────────────────────────────────────────────────────────────────
 
-interface FeedBodyProps {
+export interface FeedBodyProps {
   data: { pages: { items: FeedItem[] }[] } | undefined;
   isLoading: boolean;
   isError: boolean;
@@ -105,10 +105,16 @@ interface FeedBodyProps {
   hasNextPage: boolean;
   fetchNextPage: () => void;
   refetch: () => void;
+  /**
+   * Override the empty-result surface. Defaults to <DiscoverPanel /> —
+   * the §F5 cold-start bridge for the main Floor feed. Tag/scoped feeds
+   * pass their own quiet empty tile instead.
+   */
+  emptyState?: React.ReactNode;
 }
 
-function FeedBody(props: FeedBodyProps) {
-  const { data, isLoading, isError, error, isFetchingNextPage, hasNextPage, fetchNextPage, refetch } = props;
+export function FeedBody(props: FeedBodyProps) {
+  const { data, isLoading, isError, error, isFetchingNextPage, hasNextPage, fetchNextPage, refetch, emptyState } = props;
 
   // Sentinel for IntersectionObserver auto-load. Sits just above the
   // "Load more" button so it scrolls into view (with the 400px root
@@ -206,7 +212,10 @@ function FeedBody(props: FeedBodyProps) {
     // DiscoverPanel.tsx for the full constitutional comment + locked
     // phrases. On loading/error/all-empty it falls back to a quiet
     // Floor panel that preserves the prior empty-state voice.
-    return <DiscoverPanel enabled />;
+    //
+    // Callers (tag/scoped feeds) may override with their own quiet
+    // empty tile; the main Floor feed keeps DiscoverPanel as default.
+    return <>{emptyState ?? <DiscoverPanel enabled />}</>;
   }
 
   return (

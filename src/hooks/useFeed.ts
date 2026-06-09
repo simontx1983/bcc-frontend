@@ -25,7 +25,12 @@ import {
   type QueryKey,
 } from "@tanstack/react-query";
 
-import { getFeed, getHotFeed, type FeedQueryParams } from "@/lib/api/feed-endpoints";
+import {
+  getFeed,
+  getHotFeed,
+  getTagFeed,
+  type FeedQueryParams,
+} from "@/lib/api/feed-endpoints";
 import type { BccApiError, FeedResponse, FeedScope } from "@/lib/api/types";
 
 const PAGE_SIZE = 20;
@@ -67,6 +72,31 @@ export function useFeed(scope: FeedScope) {
     getNextPageParam: (lastPage) =>
       lastPage.pagination.has_more ? lastPage.pagination.next_cursor : undefined,
     staleTime: 30_000,
+  });
+}
+
+/**
+ * useTagFeed — cursor-paginated feed of posts carrying a PeepSo hashtag.
+ * Mirrors useFeed exactly; the only differences are the queryKey
+ * (namespaced by tag), the queryFn target (getTagFeed), and the
+ * `enabled` guard so an empty tag never fires a request.
+ */
+export function useTagFeed(tag: string) {
+  return useInfiniteQuery<
+    FeedResponse,
+    BccApiError,
+    InfiniteData<FeedResponse>,
+    QueryKey,
+    string | null
+  >({
+    queryKey: [...FEED_QUERY_KEY_ROOT, "tag", tag],
+    initialPageParam: null,
+    queryFn: ({ pageParam, signal }) =>
+      getTagFeed(tag, buildParams(pageParam), signal),
+    getNextPageParam: (lastPage) =>
+      lastPage.pagination.has_more ? lastPage.pagination.next_cursor : undefined,
+    staleTime: 30_000,
+    enabled: tag.length > 0,
   });
 }
 

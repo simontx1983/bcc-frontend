@@ -760,6 +760,22 @@ export interface FeedResponse {
 }
 
 // ─────────────────────────────────────────────────────────────────────
+// Trending hashtags — GET /bcc/v1/hashtags/trending. PeepSo-hashtag
+// derived; `tag` carries NO leading "#" (the renderer adds it). `count`
+// is the server-computed occurrence tally used only for a hover title,
+// not for any client-side ranking (rows render in server order).
+// ─────────────────────────────────────────────────────────────────────
+
+export interface TrendingHashtag {
+  tag: string;
+  count: number;
+}
+
+export interface TrendingHashtagsResponse {
+  items: TrendingHashtag[];
+}
+
+// ─────────────────────────────────────────────────────────────────────
 // Highlights (§O2 / §O2.1)
 //
 // "What to care about RIGHT NOW" strip atop the Floor feed. Three

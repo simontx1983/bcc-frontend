@@ -50,6 +50,22 @@ export function getFeed(
   return bccFetchAsClient<FeedResponse>(path, { method: "GET", signal });
 }
 
+/**
+ * GET /feed/tag — posts carrying a given PeepSo hashtag. Same response
+ * shape as /feed (FeedResponse + cursor pagination). The `tag` carries
+ * no leading "#" — callers strip it before passing.
+ */
+export function getTagFeed(
+  tag: string,
+  params: FeedQueryParams = {},
+  signal?: AbortSignal
+): Promise<FeedResponse> {
+  const search = paramSearch(params);
+  search.set("tag", tag);
+  const path = `feed/tag?${search.toString()}`;
+  return bccFetchAsClient<FeedResponse>(path, { method: "GET", signal });
+}
+
 // ─────────────────────────────────────────────────────────────────────
 
 function paramSearch(params: FeedQueryParams): URLSearchParams {
