@@ -241,6 +241,25 @@ export interface CardPermissions {
   can_report?: CardPermissionEntry;
 }
 
+/**
+ * §4.4 member-card dossier block. Present (object) on `card_kind: "member"`
+ * cards, `null` on validator/project/creator cards. Drives the BACK face
+ * of a member CardFactory: the VERIFIED section, the ON THE FLOOR section,
+ * the typed-role pills, the primary-local chip, and the cold-start
+ * "fresh account" fallback.
+ *
+ * The four sub-shapes are intentionally identical to the same-named
+ * fields on `MemberSummary` (verifications / engagement /
+ * owned_pages_by_type / primary_local) — the backend hydrates them from
+ * the same source so the relocated dossier renderer reads either type.
+ */
+export interface MemberDossier {
+  verifications: MemberSummary["verifications"];
+  engagement: MemberSummary["engagement"];
+  owned_pages_by_type: MemberSummary["owned_pages_by_type"];
+  primary_local: MemberSummary["primary_local"];
+}
+
 export interface CardSocialProof {
   followed_by_in_network: number;
   vouched_by_in_network: number;
@@ -408,6 +427,13 @@ export interface Card {
   endorse_unlock_hint: string | null;
   crest: CardCrest;
   stats: CardStat[];
+  /**
+   * §4.4 member dossier — populated (object) on `card_kind: "member"`
+   * cards, `null` on validator/project/creator cards. Always present.
+   * Drives the member CardFactory back face (VERIFIED / ON THE FLOOR
+   * sections, typed-role pills, primary-local chip, cold-start fallback).
+   */
+  member_dossier: MemberDossier | null;
   permissions: CardPermissions;
   social_proof: CardSocialProof | null;
   links: {
@@ -1795,7 +1821,13 @@ export interface UserEndorsementsResponse {
 // ─────────────────────────────────────────────────────────────────────
 
 export interface UserFollowsResponse {
-  items: MemberSummary[];
+  /**
+   * §4.4 — each row is now the full member `Card` view-model (with the
+   * `member_dossier` block) so the watching panels render the canonical
+   * CardFactory trading card, identical to /members and the entity
+   * watchers panel. `CardWatchersResponse` aliases this type.
+   */
+  items: Card[];
   pagination: {
     offset: number;
     limit: number;
@@ -4516,7 +4548,14 @@ export type MembersTypeCounts = {
 };
 
 export interface MembersResponse {
-  items: MemberSummary[];
+  /**
+   * §4.4 — each row is the full member `Card` view-model (with the
+   * `member_dossier` block) so the directory renders the canonical
+   * CardFactory trading card. `MemberSummary` survives for the
+   * review-author / dispute-flagger / cold-start / group-member /
+   * mention-picker surfaces that still consume the slim shape.
+   */
+  items: Card[];
   pagination: OffsetPagination;
   type_counts: MembersTypeCounts;
 }

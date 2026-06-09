@@ -2,7 +2,8 @@
  * Typed wrapper for GET /bcc/v1/members — paginated member directory.
  *
  * Sibling to /bcc/v1/cards (entity directory: validator/project/creator).
- * Returns the slim summary shape from UserViewService::getSummary.
+ * Returns full member `Card` view-models (each with a `member_dossier`
+ * block) so the directory renders the canonical CardFactory trading card.
  *
  * Pagination is offset-style (page + per_page), matching reviews/disputes
  * — the directory needs `total_pages` for the count chip the panel

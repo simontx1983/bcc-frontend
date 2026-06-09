@@ -18,7 +18,7 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, Suspense } from "react";
 
-import { MembersGrid } from "@/components/members/MembersGrid";
+import { CardGrid } from "@/components/cards/CardGrid";
 import { useMembers } from "@/hooks/useMembers";
 import type {
   MembersRankFilter,
@@ -89,7 +89,7 @@ function parseVerifiedAxes(raw: string | null): MembersVerifiedAxis[] {
 }
 
 // Filter chip palette mirrors the per-type body colors used on member
-// cards (`MembersGrid`'s TypedRoleBadge). Active state = full bg fill;
+// cards (the CardFactory dossier's TypedRoleBadge). Active state = full bg fill;
 // inactive = neutral cardstock with a subtle 1px ring. Keeps the chips
 // readable as filters without competing with the badges below.
 const TYPE_CHIP_PALETTE: Record<
@@ -304,7 +304,7 @@ function MembersPageContent() {
               {query.data.pagination.total === 1 ? "" : "S"}
               {urlQ !== "" && ` MATCHING "${urlQ.toUpperCase()}"`}
             </p>
-            <MembersGrid items={query.data.items} />
+            <CardGrid cards={query.data.items} />
             <Pagination
               page={query.data.pagination.page}
               totalPages={query.data.pagination.total_pages}

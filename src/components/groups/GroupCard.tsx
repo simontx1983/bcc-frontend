@@ -1,7 +1,7 @@
 /**
  * GroupCard — 316px-wide presentation card for the PageHero `card` slot.
  *
- * Sibling to FlippableMemberCard / FlippableNftCard / CardFactory: same
+ * Sibling to FlippableNftCard / CardFactory: same
  * slot, same width, same visual scale. Groups don't have a flip / back-
  * face dossier (no view-model for it), so this is a single-face card —
  * cover image at the top, name + kicker + meta below.

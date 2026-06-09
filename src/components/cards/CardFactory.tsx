@@ -46,6 +46,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
 import { useUploadAvatar } from "@/hooks/useUpdateProfile";
 import { useUploadPageAvatar, useDeletePageAvatar } from "@/hooks/usePageAvatar";
+import { MemberDossierBack } from "@/components/cards/MemberDossier";
 import type { Card, CardKind, CardStat, CardTier, OnchainSignals } from "@/lib/api/types";
 import { FOLLOW_COPY } from "@/lib/copy";
 import { isAllowed, unlockHint } from "@/lib/permissions";
@@ -294,28 +295,41 @@ export function CardFactory({
 
             <hr className="my-4 border-cardstock-edge/50" />
 
-            <dl className="space-y-2 text-sm">
-              {card.stats.map((stat) => (
-                <div key={stat.key} className="flex justify-between gap-4">
-                  <dt className="bcc-mono text-ink-soft">{stat.label}</dt>
-                  <dd className="font-serif text-ink">{stat.value}</dd>
-                </div>
-              ))}
-            </dl>
+            {/* Member cards render the trust dossier as their back face
+                (VERIFIED / ON THE FLOOR sections, typed-role pills,
+                primary-local chip, cold-start fallback). The front-face
+                StatsPanel already shows trust/reviews/watchers, so the
+                generic stats <dl> is skipped for members to avoid a
+                duplicate number wall. Page kinds (validator/project/
+                creator) keep the stats + on-chain + social-proof block. */}
+            {card.card_kind === "member" && card.member_dossier != null ? (
+              <MemberDossierBack dossier={card.member_dossier} />
+            ) : (
+              <>
+                <dl className="space-y-2 text-sm">
+                  {card.stats.map((stat) => (
+                    <div key={stat.key} className="flex justify-between gap-4">
+                      <dt className="bcc-mono text-ink-soft">{stat.label}</dt>
+                      <dd className="font-serif text-ink">{stat.value}</dd>
+                    </div>
+                  ))}
+                </dl>
 
-            {/* On-chain stats — surfaces under the BCC reputation stats so
-                the back-face reads top-down: who they are (bio), what BCC
-                knows (trust/followers/etc.), then what the chain itself
-                says (commission, self stake, rank, delegators). Only
-                renders for validator cards with resolvable signals. */}
-            {card.onchain_signals != null && (
-              <OnchainStatsList signals={card.onchain_signals} />
-            )}
+                {/* On-chain stats — surfaces under the BCC reputation stats
+                    so the back-face reads top-down: who they are (bio), what
+                    BCC knows (trust/followers/etc.), then what the chain
+                    itself says (commission, self stake, rank, delegators).
+                    Only renders for validator cards with resolvable signals. */}
+                {card.onchain_signals != null && (
+                  <OnchainStatsList signals={card.onchain_signals} />
+                )}
 
-            {card.social_proof?.headline != null && (
-              <p className="bcc-mono mt-auto text-ink-soft">
-                {card.social_proof.headline}
-              </p>
+                {card.social_proof?.headline != null && (
+                  <p className="bcc-mono mt-auto text-ink-soft">
+                    {card.social_proof.headline}
+                  </p>
+                )}
+              </>
             )}
           </div>
         </div>

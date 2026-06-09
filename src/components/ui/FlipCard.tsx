@@ -36,9 +36,10 @@
  * />
  * ```
  *
- * Both `FlippableNftCard` (communities) and `FlippableMemberCard`
- * (members directory) consume this; new flip-card surfaces should too
- * rather than re-inventing the perspective/backface stack.
+ * `FlippableNftCard` (communities) consumes this; new flip-card
+ * surfaces should too rather than re-inventing the perspective/backface
+ * stack. (Members now render via CardFactory's own flip, not this
+ * primitive.)
  */
 
 import { useState, type ReactNode } from "react";

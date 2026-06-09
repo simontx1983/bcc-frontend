@@ -26,7 +26,7 @@ import { useStartConversationMutation } from "@/hooks/useStartConversation";
 import { humanizeCode } from "@/lib/api/errors";
 import {
   MESSAGE_BODY_MAX_LENGTH,
-  type MemberSummary,
+  type Card,
 } from "@/lib/api/types";
 
 const SEARCH_DEBOUNCE_MS = 250;
@@ -37,7 +37,7 @@ export default function NewMessagePage() {
   const session = useSession();
   const isAuthed = session.status === "authenticated";
 
-  const [recipient, setRecipient] = useState<MemberSummary | null>(null);
+  const [recipient, setRecipient] = useState<Card | null>(null);
   const [searchInput, setSearchInput] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [body, setBody] = useState("");
@@ -226,21 +226,21 @@ function SelectedRecipient({
   recipient,
   onClear,
 }: {
-  recipient: MemberSummary;
+  recipient: Card;
   onClear: () => void;
 }) {
   return (
     <div className="flex items-center gap-3 rounded-sm border border-cardstock-edge/40 bg-cardstock-deep/30 px-3 py-2">
       <Avatar
-        avatarUrl={recipient.avatar_url ?? null}
+        avatarUrl={recipient.crest.image_url}
         handle={recipient.handle}
-        displayName={recipient.display_name}
+        displayName={recipient.name}
         size="sm"
         variant="rounded"
       />
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm text-cardstock">
-          {recipient.display_name !== "" ? recipient.display_name : recipient.handle}
+          {recipient.name !== "" ? recipient.name : recipient.handle}
         </p>
         <p className="bcc-mono truncate text-[10px] tracking-[0.16em] text-cardstock-deep/70">
           @{recipient.handle}
@@ -266,7 +266,7 @@ function RecipientPicker({
   searchInput: string;
   onSearchChange: (s: string) => void;
   query: ReturnType<typeof useMembers>;
-  onSelect: (member: MemberSummary) => void;
+  onSelect: (member: Card) => void;
 }) {
   return (
     <div className="flex flex-col gap-2">
@@ -307,15 +307,15 @@ function RecipientPicker({
                 className="flex w-full items-center gap-3 px-3 py-2 text-left transition hover:bg-cardstock-deep/40"
               >
                 <Avatar
-                  avatarUrl={m.avatar_url ?? null}
+                  avatarUrl={m.crest.image_url}
                   handle={m.handle}
-                  displayName={m.display_name}
+                  displayName={m.name}
                   size="sm"
                   variant="rounded"
                 />
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm text-cardstock">
-                    {m.display_name !== "" ? m.display_name : m.handle}
+                    {m.name !== "" ? m.name : m.handle}
                   </p>
                   <p className="bcc-mono truncate text-[10px] tracking-[0.16em] text-cardstock-deep/70">
                     @{m.handle}

@@ -12,9 +12,9 @@
  *                   PeepSo's `/profile/{handle}/followers/following`
  *                   view.
  *
- * Rows render in a compact list shape (avatar + display_name + handle
- * + rank chip) — same `MemberSummary` payload the /members directory
- * uses, just denser. Clicking a row navigates to that user's profile.
+ * Rows render in a compact list shape (avatar + name + handle + rank
+ * chip) — same member `Card` payload the /members directory uses, just
+ * denser. Clicking a row navigates to that user's profile.
  *
  * Privacy: when the target has `watching_hidden` set and the viewer
  * isn't the owner, the endpoint responds 403 `bcc_permission_denied`.
@@ -32,9 +32,10 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import type { Route } from "next";
 
-import { MembersGrid } from "@/components/members/MembersGrid";
+import { CardGrid } from "@/components/cards/CardGrid";
+import { Avatar } from "@/components/identity/Avatar";
 import { useUserFollowers, useUserFollowing } from "@/hooks/useUserActivity";
-import type { BccApiError, MemberSummary, UserFollowsResponse } from "@/lib/api/types";
+import type { BccApiError, Card, UserFollowsResponse } from "@/lib/api/types";
 
 interface WatchingPanelProps {
   handle: string;
@@ -259,7 +260,7 @@ function FollowingList({
 }
 
 // ──────────────────────────────────────────────────────────────────────
-// RosterList — paginated MemberSummary list with three empty branches
+// RosterList — paginated member-Card list with three empty branches
 // (loading / privacy-denied / no-data) and a Load More CTA.
 // ──────────────────────────────────────────────────────────────────────
 
@@ -284,7 +285,7 @@ function RosterList(props: RosterListProps) {
   // to `accumulated`. Resetting offset to 0 (e.g. sub-tab switch) is
   // handled by the wrapper re-mounting this component, so we don't
   // need to track the reset boundary here.
-  const [accumulated, setAccumulated] = useState<MemberSummary[]>([]);
+  const [accumulated, setAccumulated] = useState<Card[]>([]);
   const [seenOffset, setSeenOffset] = useState<number | null>(null);
 
   const { query, offset } = props;
@@ -360,15 +361,16 @@ function RosterList(props: RosterListProps) {
       </p>
 
       {props.view === "grid" ? (
-        // Grid view reuses the /members directory's FlippableMemberCard
-        // so the roster reads as a slice of that surface. Same flip
-        // mechanic, same trust-dossier back face — no parallel card
+        // Grid view reuses the shared CardGrid (the same CardFactory
+        // trading card the /members directory + entity watchers panel
+        // render) so the roster reads as a slice of that surface. Same
+        // flip mechanic, same trust-dossier back face — no parallel card
         // implementation.
-        <MembersGrid items={accumulated} />
+        <CardGrid cards={accumulated} />
       ) : (
         <ul className="divide-y divide-ink/10 border-y border-ink/10">
-          {accumulated.map((member) => (
-            <MemberRow key={member.id} member={member} />
+          {accumulated.map((card) => (
+            <MemberRow key={card.id} card={card} />
           ))}
         </ul>
       )}
@@ -394,57 +396,49 @@ function RosterList(props: RosterListProps) {
 // the left, rank chip on the right. Whole row clickable to /u/{handle}.
 // ──────────────────────────────────────────────────────────────────────
 
-function MemberRow({ member }: { member: MemberSummary }) {
-  const href = `/u/${member.handle}` as Route;
-  const initial =
-    member.display_name !== "" ? member.display_name.charAt(0).toUpperCase() : "·";
+function MemberRow({ card }: { card: Card }) {
+  const href = `/u/${card.handle}` as Route;
+  // rank_label is `string | null` at the Card level (`""` on a member
+  // with no awarded rank, `null` on page kinds). Guard both so the chip
+  // only renders when there's a real rank to show.
+  const rankLabel = card.rank_label;
+  const hasRank = rankLabel !== null && rankLabel !== "";
 
   return (
     <li>
       <Link
         href={href}
         className="group flex items-center gap-3 py-3 transition-colors hover:bg-ink/[0.03]"
-        aria-label={`Open ${member.display_name}'s profile`}
+        aria-label={`Open ${card.name}'s profile`}
       >
-        <span className="relative inline-flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-ink/20 bg-cardstock-deep">
-          {member.avatar_url !== "" ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={member.avatar_url}
-              alt=""
-              loading="lazy"
-              className="absolute inset-0 h-full w-full object-cover"
-            />
-          ) : (
-            <span
-              className="bcc-stencil text-ink/60"
-              style={{ fontSize: "16px" }}
-              aria-hidden
-            >
-              {initial}
-            </span>
-          )}
-        </span>
+        <Avatar
+          avatarUrl={card.crest.image_url}
+          handle={card.handle}
+          displayName={card.name}
+          size="md"
+          variant="rounded"
+          tier={card.card_tier}
+        />
 
         <span className="min-w-0 flex-1">
           <span className="bcc-stencil block truncate text-ink" style={{ fontSize: "16px" }}>
-            {member.display_name}
+            {card.name}
           </span>
           <span
             className="bcc-mono block truncate text-ink-soft"
             style={{ fontSize: "10px", letterSpacing: "0.18em" }}
           >
-            @{member.handle.toUpperCase()}
+            @{card.handle.toUpperCase()}
           </span>
         </span>
 
-        {member.rank_label !== "" && (
+        {hasRank && (
           <span
             className="bcc-mono shrink-0 border border-ink/30 bg-cardstock px-2 py-0.5 text-ink"
             style={{ fontSize: "9px", letterSpacing: "0.18em" }}
-            aria-label={`Rank: ${member.rank_label}`}
+            aria-label={`Rank: ${rankLabel}`}
           >
-            {member.rank_label.toUpperCase()}
+            {rankLabel.toUpperCase()}
           </span>
         )}
       </Link>
