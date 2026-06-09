@@ -28,6 +28,7 @@ import type { Route } from "next";
 import { useState } from "react";
 
 import { useAlbumPhotos, useUserActivity, useUserAlbums } from "@/hooks/useUserActivity";
+import { SKELETON_CLASS } from "@/components/ui/Skeleton";
 import type { AlbumPhoto, FeedItem, PhotoBody, UserAlbum } from "@/lib/api/types";
 import { clientEnv } from "@/lib/env";
 
@@ -180,8 +181,16 @@ function AllPhotos({ handle, isOwner }: { handle: string; isOwner: boolean }) {
 
   if (query.isPending) {
     return (
-      <div className="px-8 py-12">
-        <p className="bcc-mono text-ink-soft">Loading photos…</p>
+      <div className="px-5 py-5">
+        <ul
+          aria-label="Loading photos"
+          className="grid gap-2"
+          style={{ gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))" }}
+        >
+          {Array.from({ length: 6 }).map((_, idx) => (
+            <li key={idx} aria-hidden className={SKELETON_CLASS + " aspect-square"} />
+          ))}
+        </ul>
       </div>
     );
   }
@@ -220,7 +229,7 @@ function AllPhotos({ handle, isOwner }: { handle: string; isOwner: boolean }) {
             type="button"
             onClick={() => { void query.fetchNextPage(); }}
             disabled={query.isFetchingNextPage}
-            className="bcc-mono border border-ink/30 bg-cardstock px-4 py-2 text-ink disabled:opacity-60"
+            className="bcc-mono border border-ink/30 bg-cardstock px-4 py-2 text-ink disabled:cursor-not-allowed disabled:opacity-60"
             style={{ fontSize: "10px", letterSpacing: "0.18em" }}
           >
             {query.isFetchingNextPage ? "LOADING…" : "LOAD MORE"}

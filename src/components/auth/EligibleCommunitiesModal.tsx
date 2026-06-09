@@ -33,9 +33,9 @@ import {
   useJoinHolderGroupMutation,
   useMyHolderGroups,
 } from "@/hooks/useHolderGroups";
-import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
 import { HeatBadge } from "@/components/groups/HeatBadge";
 import { VerificationBadge } from "@/components/groups/VerificationBadge";
+import { Dialog } from "@/components/ui/Dialog";
 import type { GroupActivity, HolderGroupItem } from "@/lib/api/types";
 
 const SESSION_DISMISS_KEY = "bcc.communities.dismissed";
@@ -130,24 +130,16 @@ function EligibleCommunitiesModalInner({ onDismiss }: { onDismiss: () => void })
     onDismiss();
   };
 
-  // ESC dismisses (matches click-outside / Skip).
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") handleDismiss();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- handleDismiss is stable for the lifetime of an open modal; re-binding on every render churns the listener
-  }, [open]);
+  // ESC dismissal is handled by <Dialog> (onClose → handleDismiss), which
+  // matches the click-outside / Skip path.
 
   if (!open) return null;
   if (eligible.length === 0) return null;
 
   return (
-    <ModalShell title="Communities you qualify for" onClose={handleDismiss}>
+    <Dialog title="Communities you qualify for" onClose={handleDismiss} animateIn>
       <ModalContent items={eligible} onSkip={handleDismiss} />
-    </ModalShell>
+    </Dialog>
   );
 }
 
@@ -273,73 +265,3 @@ function EligibleRow({ item }: { item: HolderGroupItem }) {
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────
-// ModalShell — local copy of the existing per-modal pattern (Composer,
-// OpenDisputeModal, ClaimFlow). Adds reduced-motion awareness on the
-// fade-in.
-// ─────────────────────────────────────────────────────────────────────
-
-interface ModalShellProps {
-  title: string;
-  children: React.ReactNode;
-  onClose: () => void;
-}
-
-/**
- * Synchronous read of the OS reduced-motion preference. Used to
- * initialize `mounted` so reduced-motion users skip the opacity-0 →
- * opacity-100 fade entirely (no one-frame flicker between hydration
- * and matchMedia resolution). The hook below still drives the className
- * branch — this is just a flicker-free initial state.
- *
- * Modal HTML is never in the SSR payload (only mounts after `open`
- * goes true via client effects), so a server/client divergence on
- * this initializer can't cause a hydration mismatch.
- */
-function getInitialMotionPreference(): boolean {
-  if (typeof window === "undefined") return false;
-  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-}
-
-function ModalShell({ title, children, onClose }: ModalShellProps) {
-  const reducedMotion = usePrefersReducedMotion();
-  const [mounted, setMounted] = useState(getInitialMotionPreference);
-  useEffect(() => {
-    if (reducedMotion) {
-      setMounted(true);
-      return;
-    }
-    // Trigger fade-in next frame so the transition runs.
-    const id = window.requestAnimationFrame(() => setMounted(true));
-    return () => window.cancelAnimationFrame(id);
-  }, [reducedMotion]);
-
-  return (
-    <div
-      role="dialog"
-      aria-modal
-      aria-label={title}
-      className={
-        "fixed inset-0 z-50 flex items-end justify-center bg-ink/70 p-4 backdrop-blur-sm md:items-center " +
-        (reducedMotion
-          ? ""
-          : "transition-opacity duration-200 " + (mounted ? "opacity-100" : "opacity-0"))
-      }
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-    >
-      <div className="bcc-panel relative w-full max-w-2xl p-6 md:p-8">
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="Close"
-          className="bcc-mono absolute right-4 top-4 text-cardstock-deep hover:text-ink"
-        >
-          ESC
-        </button>
-        {children}
-      </div>
-    </div>
-  );
-}

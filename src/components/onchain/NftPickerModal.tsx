@@ -50,6 +50,7 @@ import {
   type NftPickerItem,
 } from "@/lib/api/types";
 import { formatRelativeTime } from "@/lib/format";
+import { Dialog } from "@/components/ui/Dialog";
 
 import { IndexerStateChip } from "./IndexerStateChip";
 
@@ -121,7 +122,11 @@ export function NftPickerModal({ onClose }: NftPickerModalProps) {
   };
 
   return (
-    <ModalShell onClose={onClose} title="Pick the NFTs to showcase">
+    <Dialog
+      onClose={onClose}
+      title="Pick the NFTs to showcase"
+      panelClassName="max-w-3xl max-h-[92vh] overflow-y-auto"
+    >
       <header className="mb-5">
         <p className="bcc-mono text-safety">SHOWCASE //</p>
         <h2 className="bcc-stencil mt-1 text-3xl text-ink leading-[0.95]">
@@ -212,7 +217,7 @@ export function NftPickerModal({ onClose }: NftPickerModalProps) {
           DONE
         </button>
       </div>
-    </ModalShell>
+    </Dialog>
   );
 }
 
@@ -426,46 +431,6 @@ function NftPickerEmpty() {
         >
           LINK A WALLET →
         </Link>
-      </div>
-    </div>
-  );
-}
-
-// ─────────────────────────────────────────────────────────────────────
-// ModalShell — same idiom as PanelVoteModal / OpenDisputeModal so the
-// modal stack on this app reads consistently. ESC button in the corner;
-// click-outside also closes via the backdrop.
-// ─────────────────────────────────────────────────────────────────────
-
-function ModalShell({
-  title,
-  children,
-  onClose,
-}: {
-  title: string;
-  children: React.ReactNode;
-  onClose: () => void;
-}) {
-  return (
-    <div
-      role="dialog"
-      aria-modal
-      aria-label={title}
-      className="fixed inset-0 z-50 flex items-end justify-center bg-ink/70 p-4 backdrop-blur-sm md:items-center"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-    >
-      <div className="bcc-panel relative max-h-[92vh] w-full max-w-3xl overflow-y-auto p-6 md:p-8">
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="Close"
-          className="bcc-mono absolute right-4 top-4 text-cardstock-deep hover:text-ink"
-        >
-          ESC
-        </button>
-        {children}
       </div>
     </div>
   );

@@ -69,6 +69,7 @@ import { useGiphyIntegration } from "@/hooks/useGiphyIntegration";
 import { Avatar } from "@/components/identity/Avatar";
 import { GifPicker } from "@/components/composer/GifPicker";
 import { MentionPopover } from "@/components/composer/MentionPopover";
+import { Dialog } from "@/components/ui/Dialog";
 import { humanizeCode } from "@/lib/api/errors";
 import { createReview } from "@/lib/api/posts-endpoints";
 import {
@@ -189,13 +190,14 @@ export function Composer({
     defaultMode === "review" && !reviewAvailable ? "status" : defaultMode;
 
   return (
-    <ModalShell
+    <Dialog
       title={
         initialMode === "review" && reviewAvailable
           ? `Write a review of ${reviewTargetName ?? ""}`
           : "Compose"
       }
       onClose={onClose ?? noop}
+      panelClassName="max-w-2xl flex flex-col gap-3"
     >
       <ModalCore
         initialMode={initialMode}
@@ -204,7 +206,7 @@ export function Composer({
         reviewAvailable={reviewAvailable}
         onSubmitSuccess={onClose}
       />
-    </ModalShell>
+    </Dialog>
   );
 }
 
@@ -1652,52 +1654,6 @@ export function BlogForm({
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────
-// Modal shell — local idiom shared with OpenDisputeModal until the
-// design system grows a real <Dialog>. ESC + backdrop click both close.
-// ─────────────────────────────────────────────────────────────────────
-
-function ModalShell({
-  title,
-  children,
-  onClose,
-}: {
-  title: string;
-  children: React.ReactNode;
-  onClose: () => void;
-}) {
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [onClose]);
-
-  return (
-    <div
-      role="dialog"
-      aria-modal
-      aria-label={title}
-      className="fixed inset-0 z-50 flex items-end justify-center bg-ink/70 p-4 backdrop-blur-sm md:items-center"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-    >
-      <div className="bcc-panel relative flex w-full max-w-2xl flex-col gap-3 p-6 md:p-8">
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="Close"
-          className="bcc-mono absolute right-4 top-4 text-[10px] tracking-[0.24em] text-cardstock-deep hover:text-ink"
-        >
-          ESC
-        </button>
-        {children}
-      </div>
-    </div>
-  );
-}
 
 // ─────────────────────────────────────────────────────────────────────
 // Helpers

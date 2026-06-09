@@ -19,6 +19,8 @@ import type { Route } from "next";
 import Link from "next/link";
 import { memo, useMemo } from "react";
 
+import { SKELETON_CLASS } from "@/components/ui/Skeleton";
+
 import type {
   GroupSearchResult,
   ProjectSearchResult,
@@ -107,7 +109,7 @@ function SkeletonList() {
         <li
           key={idx}
           aria-hidden
-          className="bcc-panel h-16 opacity-40 motion-safe:animate-pulse"
+          className={SKELETON_CLASS + " h-16"}
         />
       ))}
     </ul>

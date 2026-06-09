@@ -12,6 +12,7 @@
 import { useState } from "react";
 
 import { Avatar } from "@/components/identity/Avatar";
+import { Skeleton } from "@/components/ui/Skeleton";
 import { useMyBlocks, useUnblockUser } from "@/hooks/useBlocks";
 
 export function BlocksList() {
@@ -22,8 +23,8 @@ export function BlocksList() {
 
   if (query.isPending) {
     return (
-      <div className="bcc-panel p-6">
-        <p className="bcc-mono text-ink-soft">Loading blocks…</p>
+      <div aria-label="Loading blocks" className="flex flex-col gap-2">
+        <Skeleton className="h-[68px]" count={3} />
       </div>
     );
   }

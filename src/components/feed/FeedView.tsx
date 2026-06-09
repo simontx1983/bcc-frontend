@@ -42,6 +42,7 @@ import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { DiscoverPanel } from "@/components/feed/DiscoverPanel";
 import { FeedItemCard } from "@/components/feed/FeedItemCard";
 import { FeedTabs } from "@/components/feed/FeedTabs";
+import { SKELETON_CLASS } from "@/components/ui/Skeleton";
 import { useFeed, useHotFeed } from "@/hooks/useFeed";
 import type { FeedItem, FeedScope } from "@/lib/api/types";
 
@@ -165,7 +166,7 @@ function FeedBody(props: FeedBodyProps) {
           <li
             key={idx}
             aria-hidden
-            className="bcc-panel h-40 animate-pulse opacity-40"
+            className={SKELETON_CLASS + " h-40"}
           >
             <div className="flex h-full flex-col justify-between p-4">
               <span className="block h-3 w-1/3 rounded-sm bg-cardstock-deep/30" />
@@ -223,7 +224,7 @@ function FeedBody(props: FeedBodyProps) {
             type="button"
             onClick={handleLoadMore}
             disabled={isFetchingNextPage}
-            className="bcc-stencil mx-auto mt-4 border border-cardstock-edge/40 px-6 py-2.5 text-cardstock disabled:opacity-50"
+            className="bcc-stencil mx-auto mt-4 border border-cardstock-edge/40 px-6 py-2.5 text-cardstock disabled:cursor-not-allowed disabled:opacity-50"
           >
             {isFetchingNextPage ? "Loading…" : "Load more"}
           </button>

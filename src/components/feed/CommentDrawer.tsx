@@ -30,6 +30,7 @@ import Link from "next/link";
 import type { Route } from "next";
 
 import { AuthorBadge } from "@/components/identity/AuthorBadge";
+import { Skeleton } from "@/components/ui/Skeleton";
 import {
   useComments,
   useCreateCommentMutation,
@@ -72,8 +73,11 @@ export function CommentDrawer({
 
   if (query.isLoading) {
     return (
-      <div className="bcc-mono mt-3 border-t border-cardstock-edge/40 pt-3 text-[11px] text-ink-soft/70">
-        Loading comments…
+      <div
+        aria-label="Loading comments"
+        className="mt-3 flex flex-col gap-2 border-t border-cardstock-edge/40 pt-3"
+      >
+        <Skeleton className="h-12" count={2} />
       </div>
     );
   }

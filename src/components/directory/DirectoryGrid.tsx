@@ -33,6 +33,7 @@ import type { Route } from "next";
 import { useRouter } from "next/navigation";
 
 import { CardGrid } from "@/components/cards/CardGrid";
+import { SKELETON_CLASS } from "@/components/ui/Skeleton";
 import type {
   BccApiError,
   Card,
@@ -74,7 +75,7 @@ export function DirectoryGrid({ query }: Props) {
           <li
             key={idx}
             aria-hidden
-            className="bcc-panel h-[460px] animate-pulse opacity-40"
+            className={SKELETON_CLASS + " h-[460px]"}
           />
         ))}
       </ul>

@@ -30,6 +30,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { Dialog } from "@/components/ui/Dialog";
+
 import {
   DISPUTABLE_VOTES_QUERY_KEY_ROOT,
   useDisputableVotes,
@@ -111,7 +113,7 @@ export function OpenDisputeModal({
   };
 
   return (
-    <ModalShell
+    <Dialog
       title={`Open a dispute on ${pageName}`}
       onClose={() => {
         if (!submit.isPending) onClose();
@@ -208,8 +210,7 @@ export function OpenDisputeModal({
               rows={5}
               maxLength={DISPUTE_REASON_MAX_LENGTH}
               placeholder="What's wrong with this downvote? Be specific — panelists need facts, not feelings."
-              className="bcc-panel w-full p-3 font-serif text-ink"
-              style={{ resize: "vertical" }}
+              className="bcc-panel w-full resize-y p-3 font-serif text-ink"
             />
             <div className="bcc-mono mt-1 flex items-center justify-between text-[10px] tracking-[0.18em]">
               <span
@@ -267,7 +268,7 @@ export function OpenDisputeModal({
               type="button"
               onClick={onClose}
               disabled={submit.isPending}
-              className="bcc-mono rounded-sm px-4 py-2 text-cardstock-deep hover:text-ink disabled:opacity-50"
+              className="bcc-mono rounded-sm px-4 py-2 text-cardstock-deep hover:text-ink disabled:cursor-not-allowed disabled:opacity-50"
             >
               CANCEL
             </button>
@@ -287,7 +288,7 @@ export function OpenDisputeModal({
           </div>
         </form>
       )}
-    </ModalShell>
+    </Dialog>
   );
 }
 
@@ -338,45 +339,6 @@ function VoteOption({
         </p>
       )}
     </button>
-  );
-}
-
-// ─────────────────────────────────────────────────────────────────────
-// ModalShell — same idiom as Composer's modal variant. Kept local until the
-// design system grows a real <Dialog> primitive.
-// ─────────────────────────────────────────────────────────────────────
-
-function ModalShell({
-  title,
-  children,
-  onClose,
-}: {
-  title: string;
-  children: React.ReactNode;
-  onClose: () => void;
-}) {
-  return (
-    <div
-      role="dialog"
-      aria-modal
-      aria-label={title}
-      className="fixed inset-0 z-50 flex items-end justify-center bg-ink/70 p-4 backdrop-blur-sm md:items-center"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-    >
-      <div className="bcc-panel relative w-full max-w-2xl p-6 md:p-8">
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="Close"
-          className="bcc-mono absolute right-4 top-4 text-cardstock-deep hover:text-ink"
-        >
-          ESC
-        </button>
-        {children}
-      </div>
-    </div>
   );
 }
 

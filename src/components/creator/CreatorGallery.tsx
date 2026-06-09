@@ -28,6 +28,7 @@
  */
 
 import { useCreatorGallery } from "@/hooks/useCreatorGallery";
+import { SKELETON_CLASS } from "@/components/ui/Skeleton";
 import type { CreatorGalleryItem } from "@/lib/api/types";
 
 interface CreatorGalleryProps {
@@ -62,7 +63,7 @@ export function CreatorGallery({ slug, creatorName }: CreatorGalleryProps) {
             <li
               key={idx}
               aria-hidden
-              className="bcc-panel aspect-square animate-pulse opacity-40"
+              className={SKELETON_CLASS + " aspect-square"}
             />
           ))}
         </ul>
