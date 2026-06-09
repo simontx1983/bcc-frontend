@@ -776,6 +776,37 @@ export interface TrendingHashtagsResponse {
 }
 
 // ─────────────────────────────────────────────────────────────────────
+// Suggested members — GET /bcc/v1/suggestions/users (AUTH REQUIRED).
+// Server-personalized recommender; rows render in server order (no
+// client-side ranking). `suggestion_reason` is a pre-rendered
+// presentation pair ({ code, label }) — the FE shows the label
+// verbatim, never derives copy from the code. `card_tier` / `tier_label`
+// / `rank_label` are the same server-owned identity-presentation fields
+// the directory cards carry. `is_in_good_standing` is a server verdict.
+// ─────────────────────────────────────────────────────────────────────
+
+export interface SuggestionReason {
+  code: string;
+  label: string;
+}
+
+export interface SuggestedMember {
+  id: number;
+  handle: string;
+  display_name: string;
+  avatar_url: string;
+  card_tier: CardTier;
+  tier_label: string | null;
+  rank_label: string;
+  is_in_good_standing: boolean;
+  suggestion_reason: SuggestionReason | null;
+}
+
+export interface SuggestedMembersResponse {
+  items: SuggestedMember[];
+}
+
+// ─────────────────────────────────────────────────────────────────────
 // Highlights (§O2 / §O2.1)
 //
 // "What to care about RIGHT NOW" strip atop the Floor feed. Three
