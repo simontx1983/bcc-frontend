@@ -3330,6 +3330,39 @@ export type CreateContentReportResponse = {
   status: "created" | "existing";
 };
 
+// ─────────────────────────────────────────────────────────────────────
+// Member report — POST /bcc/v1/report-user (api-contract §4.27)
+//
+// Distinct from the content report above: this targets a MEMBER
+// (reported_user_id), not a feed_item. Reason taxonomy is locked in
+// lockstep with DisputeController::report_user's `reason_key` enum —
+// adding/renaming a reason needs both edges to ship together. Unlike
+// content reports there is no idempotent success status: the endpoint
+// returns only `{ message }`, and the "already filed" case comes back
+// as the `already_reported` error code (409), not a success body.
+export type UserReportReason =
+  | "spam"
+  | "harassment"
+  | "fraud"
+  | "misinformation"
+  | "inappropriate"
+  | "impersonation"
+  | "other";
+
+/** `reason_detail` cap. Mirrors the DisputeController maxLength. */
+export const USER_REPORT_DETAIL_MAX_LENGTH = 1000;
+
+export interface CreateUserReportRequest {
+  reported_user_id: number;
+  reason_key: UserReportReason;
+  /** Required (server-enforced) when reason_key === "other". */
+  reason_detail?: string;
+}
+
+export type CreateUserReportResponse = {
+  message: string;
+};
+
 /** §K1 Phase A — one row in the viewer's block list. Server-shaped. */
 export interface MyBlockEntry {
   user_id: number;

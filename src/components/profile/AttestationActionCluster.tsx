@@ -49,6 +49,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
+import { ReportMemberModal } from "@/components/profile/ReportMemberModal";
 import { SlotHoldersPicker } from "@/components/profile/SlotHoldersPicker";
 import {
   useCastAttestation,
@@ -154,8 +155,15 @@ export function AttestationActionCluster(props: AttestationActionClusterProps) {
   const canMutate =
     targetKind !== undefined && targetId !== undefined && targetId > 0;
 
+  // REPORT wires to POST /report-user, which targets a MEMBER. Only
+  // user_profile surfaces can report (the endpoint takes a
+  // reported_user_id); on entity-card surfaces the REPORT scaffold stays
+  // un-clickable — there is no entity-report endpoint.
+  const canReportMember = canMutate && targetKind === "user_profile";
+
   const [errorText, setErrorText] = useState<string | null>(null);
   const [picker, setPicker] = useState<PickerState>(INITIAL_PICKER);
+  const [reportOpen, setReportOpen] = useState(false);
 
   // Ref-flag the picker-driven release + retry-cast flow so the
   // global mutation onError handlers don't double-handle errors
@@ -398,6 +406,7 @@ export function AttestationActionCluster(props: AttestationActionClusterProps) {
           isCast={false}
           tone="utility"
           size="secondary"
+          onClick={canReportMember ? () => setReportOpen(true) : undefined}
           isPending={false}
         />
       )}
@@ -421,6 +430,13 @@ export function AttestationActionCluster(props: AttestationActionClusterProps) {
         onRelease={handleReleaseAndRetry}
         onDismiss={handleDismissPicker}
       />
+
+      {reportOpen && targetId !== undefined && (
+        <ReportMemberModal
+          reportedUserId={targetId}
+          onClose={() => setReportOpen(false)}
+        />
+      )}
     </section>
   );
 }
