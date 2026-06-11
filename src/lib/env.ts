@@ -85,4 +85,16 @@ export const serverEnv = Object.freeze({
     }
     return required("BCC_INTERNAL_VERIFY_SECRET", process.env["BCC_INTERNAL_VERIFY_SECRET"]);
   },
+  /**
+   * Shared secret sent as the `X-Bcc-Oauth-Secret` header on every call to
+   * /wp-json/bcc/v1/auth/oauth. Must match `BCC_OAUTH_BRIDGE_SECRET` in the
+   * WordPress wp-config.php — that endpoint fails closed (500/401) without
+   * a matching header, so OAuth sign-in is down until both sides are set.
+   */
+  get BCC_OAUTH_BRIDGE_SECRET(): string {
+    if (typeof window !== "undefined") {
+      throw new Error("[bcc-frontend] serverEnv accessed in client code");
+    }
+    return required("BCC_OAUTH_BRIDGE_SECRET", process.env["BCC_OAUTH_BRIDGE_SECRET"]);
+  },
 });

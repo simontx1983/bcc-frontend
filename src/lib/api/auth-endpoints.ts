@@ -116,6 +116,13 @@ export interface OAuthCompleteRequest {
   provider_token: string;
   handle: string;
   display_name?: string;
+  /**
+   * Required when /auth/oauth returned an empty `email` (Twitter, whose
+   * OAuth2 user-context never includes one) — collected on
+   * /signup/complete-profile so the account has a real, recoverable
+   * address and the welcome email can be sent.
+   */
+  email?: string;
 }
 
 /**
@@ -129,6 +136,8 @@ export interface OAuthCompleteRequest {
  *   bcc_invalid_oauth_token — provider_token expired (15 min); restart OAuth
  *   bcc_invalid_handle      — handle violates character rules
  *   bcc_handle_reserved     — handle is reserved
+ *   bcc_invalid_email       — email missing/invalid (required when the
+ *                             OAuth provider didn't supply one)
  *   bcc_conflict            — handle or email already taken
  *   bcc_rate_limited        — too many attempts from this IP
  */
