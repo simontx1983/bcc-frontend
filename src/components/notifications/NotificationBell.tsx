@@ -1,43 +1,36 @@
 "use client";
 
 /**
- * NotificationBell — §I1 bell button + dropdown for the SiteHeader.
+ * NotificationBell — §I1 bell button + dropdown.
  *
  * Behaviour:
  *   - Closed state: bell icon + unread-count badge (max "9+").
- *   - Open state: dropdown of recent notifications (newest first),
- *     each linking to the server-built `link`. Click marks the row
- *     read; "Mark all read" header button bulk-clears.
+ *   - Open state: dropdown of recent notifications (newest first) —
+ *     rendered by the shared NotificationsPanel (also used by the
+ *     desktop SiteHeader's notifications modal; do not fork the row
+ *     rendering here).
  *   - Polls unread count every 60s + on window focus (via
  *     useUnreadCount). The list itself only fetches when the
- *     dropdown opens.
+ *     dropdown opens (NotificationsPanel gates on `open`).
  *
  * Auth gating: parent passes `enabled` (= viewerHandle !== null).
  * The component renders nothing for anon viewers.
  *
  * Accessibility:
  *   - Trigger has aria-haspopup + aria-expanded
- *   - Dropdown is a list with role="menu" and items as menuitems
+ *   - Dropdown content is a list with role="menu" (inside the panel)
  *   - Esc + outside-click close the dropdown (mirrors ViewerMenu)
  *   - The unread badge is hidden from screen readers when count is 0
  */
 
-import type { Route } from "next";
-import { useRouter } from "next/navigation";
 import {
   useEffect,
   useRef,
   useState,
 } from "react";
 
-import { Avatar } from "@/components/identity/Avatar";
-import {
-  useMarkReadMutation,
-  useNotifications,
-  useUnreadCount,
-} from "@/hooks/useNotifications";
-import type { NotificationItem } from "@/lib/api/types";
-import { formatRelativeTime } from "@/lib/format";
+import { NotificationsPanel } from "@/components/notifications/NotificationsPanel";
+import { useUnreadCount } from "@/hooks/useNotifications";
 
 interface NotificationBellProps {
   /** False for anon — the component renders null in that case. */
@@ -45,13 +38,10 @@ interface NotificationBellProps {
 }
 
 export function NotificationBell({ enabled }: NotificationBellProps) {
-  const router = useRouter();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [open, setOpen] = useState(false);
 
   const unread = useUnreadCount({ enabled });
-  const list = useNotifications({ enabled: enabled && open });
-  const markRead = useMarkReadMutation();
 
   // Sprint 2 — "the room acknowledged the operator." When unread count
   // transitions n → n+m (m > 0), trigger a one-shot phosphor wash on
@@ -109,21 +99,6 @@ export function NotificationBell({ enabled }: NotificationBellProps) {
     return null;
   }
 
-  const items: NotificationItem[] = (list.data?.pages ?? []).flatMap((p) => p.items);
-
-  const handleItemClick = (item: NotificationItem) => {
-    if (!item.read) {
-      markRead.mutate(item.id);
-    }
-    setOpen(false);
-    router.push(item.link as Route);
-  };
-
-  const handleMarkAll = () => {
-    if (unreadCount === 0) return;
-    markRead.mutate(undefined);
-  };
-
   return (
     <div ref={containerRef} className="relative">
       <button
@@ -165,129 +140,15 @@ export function NotificationBell({ enabled }: NotificationBellProps) {
       </button>
 
       {open && (
-        <div
-          role="menu"
-          className="bcc-panel absolute right-0 top-full z-30 mt-1 flex w-[min(24rem,90vw)] flex-col gap-px overflow-hidden"
-          style={{ background: "rgba(15,13,9,0.06)" }}
-        >
-          <div className="flex items-center justify-between bg-cardstock px-4 py-2.5">
-            <span className="bcc-mono text-[10px] tracking-[0.2em] text-cardstock-deep">
-              NOTIFICATIONS
-            </span>
-            {unreadCount >= 3 && (
-              <button
-                type="button"
-                onClick={handleMarkAll}
-                disabled={markRead.isPending}
-                className="bcc-mono text-[10px] tracking-[0.16em] normal-case text-blueprint hover:underline disabled:cursor-not-allowed disabled:text-ink-soft/40"
-              >
-                {markRead.isPending ? "Marking…" : "Mark all read"}
-              </button>
-            )}
-          </div>
-
-          {list.isError ? (
-            <div className="bcc-mono bg-cardstock px-4 py-3 text-[11px] text-ink-soft">
-              Couldn’t load notifications. Try again in a moment.
-            </div>
-          ) : list.isLoading ? (
-            <div className="bcc-mono bg-cardstock px-4 py-3 text-[11px] text-ink-soft">
-              Loading…
-            </div>
-          ) : items.length === 0 ? (
-            // Sprint 5 empty-state hygiene: "No notifications yet. We'll
-            // let you know when something happens." was the SaaS-dashboard
-            // inbox-notify framing ("we'll notify you"). Replaced with
-            // "Nothing on file." — the workshop/ledger vocabulary the
-            // rest of the product uses (FILE 01-07 frames on profile,
-            // "on the books" on locals empty). Observational; no
-            // promise; no system-speaking-at-you.
-            <div className="bcc-mono bg-cardstock px-4 py-6 text-center text-[11px] text-ink-soft">
-              Nothing on file.
-            </div>
-          ) : (
-            <ul role="presentation" className="flex max-h-[60vh] flex-col gap-px overflow-y-auto">
-              {items.map((item) => (
-                <NotificationRow
-                  key={item.id}
-                  item={item}
-                  onActivate={() => handleItemClick(item)}
-                />
-              ))}
-              {list.hasNextPage && (
-                <li>
-                  <button
-                    type="button"
-                    onClick={() => void list.fetchNextPage()}
-                    disabled={list.isFetchingNextPage}
-                    className="bcc-mono w-full bg-cardstock px-4 py-2.5 text-center text-[10px] tracking-[0.18em] text-blueprint hover:bg-cardstock-deep disabled:cursor-wait"
-                  >
-                    {list.isFetchingNextPage ? "LOADING…" : "LOAD MORE"}
-                  </button>
-                </li>
-              )}
-            </ul>
-          )}
+        <div className="bcc-panel absolute right-0 top-full z-30 mt-1 w-[min(24rem,90vw)] overflow-hidden">
+          <NotificationsPanel
+            enabled={enabled}
+            open={open}
+            onNavigate={() => setOpen(false)}
+          />
         </div>
       )}
     </div>
-  );
-}
-
-interface NotificationRowProps {
-  item: NotificationItem;
-  onActivate: () => void;
-}
-
-function NotificationRow({ item, onActivate }: NotificationRowProps) {
-  return (
-    <li role="menuitem">
-      <button
-        type="button"
-        onClick={onActivate}
-        className={
-          "flex w-full items-start gap-3 px-4 py-3 text-left transition " +
-          (item.read ? "bg-cardstock hover:bg-cardstock-deep" : "bg-cardstock-deep/50 hover:bg-cardstock-deep")
-        }
-      >
-        {!item.read && (
-          <span
-            aria-hidden
-            className="mt-1.5 inline-block h-1.5 w-1.5 shrink-0 rounded-full"
-            style={{ background: "var(--blueprint)" }}
-          />
-        )}
-        {item.read && <span aria-hidden className="mt-1.5 h-1.5 w-1.5 shrink-0" />}
-
-        {/*
-          Sprint 1 Identity Grammar — actor Avatar gives the bell social
-          presence. NotificationActor ships handle / display_name /
-          avatar_url (types.ts:848-854); rank+tier are NOT on the actor
-          view-model so we render the plain Avatar (no tier ring,
-          gracefully degrades to initials when avatar_url is empty).
-        */}
-        <span aria-hidden className="mt-0.5 shrink-0">
-          <Avatar
-            avatarUrl={item.actor.avatar_url === "" ? null : item.actor.avatar_url}
-            handle={item.actor.handle}
-            displayName={item.actor.display_name}
-            size="sm"
-            variant="rounded"
-          />
-        </span>
-
-        <span className="flex flex-1 flex-col gap-1 overflow-hidden">
-          <span className="bcc-stencil text-sm text-ink">
-            {item.message}
-          </span>
-          {item.created_at !== "" && (
-            <span className="bcc-mono text-[10px] tracking-[0.12em] text-ink-soft/70">
-              {formatRelativeTime(item.created_at)}
-            </span>
-          )}
-        </span>
-      </button>
-    </li>
   );
 }
 
@@ -309,4 +170,3 @@ function BellIcon() {
     </svg>
   );
 }
-

@@ -20,6 +20,9 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 
+import { NotificationsPanel } from "@/components/notifications/NotificationsPanel";
+import { useUnreadCount } from "@/hooks/useNotifications";
+
 // Code-split — the sign-out confirm only mounts behind the SIGN OUT
 // click, so its chunk stays out of the every-page header bundle.
 const SignOutModal = dynamic(
@@ -291,15 +294,17 @@ function NotifModal({ onClose, anchorRef }: NotifModalProps) {
           See all
         </Link>
       </div>
-      <div style={modalEmptyStyle}>
-        <div style={{ fontSize: 28, marginBottom: 10 }}>🔔</div>
-        <p style={{ fontFamily: "var(--font-stencil), Impact, sans-serif", fontWeight: 800, fontSize: 15, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--bcc-text)", marginBottom: 8 }}>
-          All Clear
-        </p>
-        <p style={{ fontFamily: "var(--font-serif), Georgia, serif", fontSize: 13, color: "var(--bcc-text-secondary)", lineHeight: 1.6 }}>
-          No notifications yet. Activity from your network will show up here.
-        </p>
-      </div>
+      {/* Shared §I1 list panel — same rows/states as the mobile bell
+          (NotificationBell). showTitle={false}: the modal head above
+          already carries the title + See-all link. NotifModal only
+          mounts for authed viewers (notifOpen && viewerHandle), so
+          enabled is unconditionally true here. */}
+      <NotificationsPanel
+        enabled={true}
+        open={true}
+        showTitle={false}
+        onNavigate={onClose}
+      />
     </div>
   );
 }
@@ -442,6 +447,12 @@ export function SiteHeader() {
   // Theme state
   const [theme,  setTheme]  = useState<Theme>("dark");
   const [accent, setAccent] = useState<Accent>("primary");
+
+  // Bell unread badge — reads the shared BadgesProvider polling via
+  // useUnreadCount (no extra request; same source as the mobile
+  // NotificationBell). BadgesProvider gates anon viewers itself.
+  const notifUnread = useUnreadCount({ enabled: viewerHandle !== null });
+  const notifUnreadCount = notifUnread.data?.unread_count ?? 0;
 
   // Search state
   const [search, setSearch] = useState("");
@@ -619,11 +630,25 @@ export function SiteHeader() {
             ref={notifRef}
             onClick={() => notifOpen ? setNotifOpen(false) : openNotif()}
             className={`bcc-btn-icon bcc-header-notif-btn${notifOpen ? " active" : ""}`}
-            aria-label="Notifications"
+            aria-label={
+              notifUnreadCount > 0
+                ? `Notifications — ${notifUnreadCount} unread`
+                : "Notifications"
+            }
             title="Notifications"
-            style={activeStyle(notifOpen)}
+            style={{ position: "relative", ...activeStyle(notifOpen) }}
           >
             <BellIcon />
+            {/* Unread badge — same chip classes as MessagesBadge;
+                count capped at "9+" like the mobile NotificationBell. */}
+            {notifUnreadCount > 0 && (
+              <span
+                aria-hidden
+                className="bcc-mono absolute -right-0.5 -top-0.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-safety px-1 text-[9px] font-semibold leading-none text-cardstock"
+              >
+                {notifUnreadCount > 9 ? "9+" : notifUnreadCount}
+              </span>
+            )}
           </button>
         )}
 

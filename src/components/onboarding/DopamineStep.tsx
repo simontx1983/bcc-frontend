@@ -2,13 +2,28 @@
 
 /**
  * DopamineStep — §O1 send-off animation. Extracted from
- * OnboardingWizard.tsx (Phase 3.3 god-component split); markup and
- * behavior unchanged.
+ * OnboardingWizard.tsx (Phase 3.3 god-component split).
  *
  * On entry: fire the /complete mutation (with home_chain) AND start a
  * minimum-display timer (~2.4s reduced to ~0.6s on prefers-reduced-
  * motion). Once BOTH have settled, route the user to /. If the
  * mutation errors, show a retry tile and skip the redirect.
+ *
+ * COMPLETION-TRACKING GOTCHA (do not regress): the save outcome is
+ * tracked in LOCAL state driven by the `mutateAsync` promise, NOT by
+ * the useMutation hook's `isPending`/`isSuccess`/`isError` fields.
+ * With reactStrictMode (dev), React simulates an unmount/remount right
+ * after mount; React Query v5's MutationObserver detaches from the
+ * in-flight mutation on unsubscribe (`onUnsubscribe` →
+ * `currentMutation.removeObserver(this)`) and never re-attaches on
+ * resubscribe. Because we fire the mutation inside a mount effect, the
+ * hook's render state froze at `isPending: true` forever — "Saving…"
+ * never cleared and the redirect never fired. The mutateAsync promise
+ * settles regardless of observer attachment, so local state is the
+ * reliable channel. Same reasoning applies to the hold timer: it lives
+ * in its own effect (cleanup re-arms on StrictMode's second pass)
+ * instead of the ref-guarded fire-once effect, whose second pass
+ * early-returns and would leave the timer permanently cleared.
  *
  * The animation itself is pure CSS — N abstract card chips with
  * rarity-tinted glow trails fly toward a watchlist icon (the visual
@@ -20,14 +35,28 @@
  */
 
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { useCompleteOnboarding } from "@/hooks/useCompleteOnboarding";
 import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
-import type { CardTier, HomeChain } from "@/lib/api/types";
+import { humanizeCode } from "@/lib/api/errors";
+import type {
+  CardTier,
+  HomeChain,
+  OnboardingCompleteResponse,
+} from "@/lib/api/types";
 
 const MIN_HOLD_MS_FULL    = 2400;
 const MIN_HOLD_MS_REDUCED = 600;
+
+/**
+ * Local save-state machine — see COMPLETION-TRACKING GOTCHA above for
+ * why this exists instead of reading the useMutation result fields.
+ */
+type SaveState =
+  | { status: "saving" }
+  | { status: "saved"; data: OnboardingCompleteResponse }
+  | { status: "error"; copy: string };
 
 export function DopamineStep({
   homeChain,
@@ -37,39 +66,70 @@ export function DopamineStep({
   pulledCards: ReadonlyArray<{ id: number; tier: CardTier }>;
 }) {
   const router = useRouter();
-  const complete = useCompleteOnboarding();
+  const { mutateAsync: completeAsync } = useCompleteOnboarding();
   const reducedMotion = usePrefersReducedMotion();
+  const [save, setSave] = useState<SaveState>({ status: "saving" });
   const [holdElapsed, setHoldElapsed] = useState(false);
 
-  // Fire the mutation + start the hold timer once on mount. The
-  // ref-guarded mutate call protects against React 19 strict-mode
-  // double-invoke; the server's complete handler is idempotent
-  // anyway, but firing twice would double the audit-log noise.
+  const runComplete = useCallback(() => {
+    setSave({ status: "saving" });
+    completeAsync({
+      ...(homeChain !== null ? { home_chain: homeChain } : {}),
+    })
+      .then((data) => setSave({ status: "saved", data }))
+      .catch((err: unknown) => {
+        // Phase γ: copy is owned here, keyed on err.code — never
+        // err.message (humanizeCode refuses the fallback by design).
+        setSave({
+          status: "error",
+          copy: humanizeCode(
+            err,
+            {
+              bcc_unauthorized:
+                "Your session expired — sign in again to finish setup.",
+              bcc_rate_limited:
+                "Too many attempts — wait a moment and try again.",
+            },
+            "Couldn't save your setup. Check your connection and try again."
+          ),
+        });
+      });
+  }, [completeAsync, homeChain]);
+
+  // Fire the mutation once on mount. The ref-guarded call protects
+  // against React 19 strict-mode double-invoke; the server's complete
+  // handler is idempotent anyway, but firing twice would double the
+  // audit-log noise. (`completeAsync` is referentially stable, so this
+  // effect runs only on mount + strict-mode's simulated remount.)
   const firedRef = useRef(false);
   useEffect(() => {
     if (firedRef.current) return;
     firedRef.current = true;
-    complete.mutate({
-      ...(homeChain !== null ? { home_chain: homeChain } : {}),
-    });
+    runComplete();
+  }, [runComplete]);
 
+  // Minimum-display hold timer — deliberately its OWN effect so the
+  // strict-mode cleanup/re-setup cycle re-arms it (a timer started in
+  // the ref-guarded effect above would be cleared on the simulated
+  // unmount and never restarted). Re-arming on a live reduced-motion
+  // toggle is harmless: worst case the hold restarts once.
+  useEffect(() => {
     const holdMs = reducedMotion ? MIN_HOLD_MS_REDUCED : MIN_HOLD_MS_FULL;
     const handle = window.setTimeout(() => setHoldElapsed(true), holdMs);
     return () => window.clearTimeout(handle);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [reducedMotion]);
 
   // Route home only when BOTH the animation has held its minimum AND
   // the server has confirmed completion. Errors abort the redirect so
   // the user can see + retry.
   useEffect(() => {
     if (!holdElapsed) return;
-    if (complete.isSuccess) {
+    if (save.status === "saved") {
       router.replace("/");
     }
-  }, [holdElapsed, complete.isSuccess, router]);
+  }, [holdElapsed, save.status, router]);
 
-  if (complete.isError) {
+  if (save.status === "error") {
     return (
       <section className="mx-auto mt-16 max-w-xl px-6 sm:px-8">
         <div className="bcc-panel p-6">
@@ -77,17 +137,11 @@ export function DopamineStep({
             Couldn&apos;t finish onboarding
           </h2>
           <p className="mt-2 font-serif text-ink-soft">
-            {complete.error.message}
+            {save.copy}
           </p>
           <button
             type="button"
-            onClick={() => {
-              complete.reset();
-              firedRef.current = false;
-              complete.mutate({
-                ...(homeChain !== null ? { home_chain: homeChain } : {}),
-              });
-            }}
+            onClick={runComplete}
             className="bcc-mono mt-4 text-blueprint underline"
           >
             Try again
@@ -147,9 +201,9 @@ export function DopamineStep({
               the segment (server didn't have one to send). */}
           <p className="bcc-mono mt-3 text-ink-soft">
             +{pulledCards.length} card{pulledCards.length === 1 ? "" : "s"}
-            {complete.data !== undefined && complete.data.rank_label !== "" && (
+            {save.status === "saved" && save.data.rank_label !== "" && (
               <>
-                {" · "}{complete.data.rank_label} rank
+                {" · "}{save.data.rank_label} rank
               </>
             )}
             {homeChain !== null && (
@@ -158,7 +212,7 @@ export function DopamineStep({
               </>
             )}
           </p>
-          {complete.isPending && (
+          {save.status === "saving" && (
             <p className="bcc-mono mt-3 text-[10px] text-ink-soft/70">
               Saving…
             </p>
