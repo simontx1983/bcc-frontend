@@ -26,6 +26,7 @@ import { Composer } from "@/components/composer/Composer";
 import { FeedItemCard } from "@/components/feed/FeedItemCard";
 import { LivingHeader } from "@/components/profile/LivingHeader";
 import { useUserActivity } from "@/hooks/useUserActivity";
+import { humanizeCode } from "@/lib/api/errors";
 import type { MemberLiving, MemberProgression } from "@/lib/api/types";
 
 export function ActivityPanel({
@@ -56,7 +57,16 @@ export function ActivityPanel({
     return (
       <div className="py-8">
         <p role="alert" className="bcc-mono text-safety">
-          Couldn&apos;t load this wall: {query.error.message}
+          {/* §γ — copy is keyed on err.code; never render err.message. */}
+          {humanizeCode(
+            query.error,
+            {
+              bcc_unauthorized: "Sign in to view this wall.",
+              bcc_rate_limited: "Loading too fast — give it a moment and try again.",
+              bcc_unavailable: "This wall is temporarily unavailable. Try again shortly.",
+            },
+            "Couldn't load this wall. Try again in a moment.",
+          )}
         </p>
         <button
           type="button"

@@ -39,6 +39,7 @@ import {
 
 import { useCreatePlainGroupMutation } from "@/hooks/useMyGroups";
 import { COMMUNITY_CHAIN_CATALOG } from "@/lib/communities/chain-catalog";
+import { humanizeCode } from "@/lib/api/errors";
 import type { CommunityPrivacy } from "@/lib/api/types";
 
 const NAME_MIN = 3;
@@ -109,8 +110,20 @@ export default function CreateCommunityPage() {
 
   // Server error (mutation.error) takes precedence over client-side
   // validation copy — once a submit hits the server, that's the
-  // authoritative message.
-  const errorMessage = mutation.error?.message ?? clientError;
+  // authoritative state. §γ — copy is keyed on err.code; never render
+  // err.message.
+  const errorMessage = mutation.error
+    ? humanizeCode(
+        mutation.error,
+        {
+          bcc_unauthorized: "Sign in to create a community.",
+          bcc_rate_limited: "Slow down — too many attempts. Wait a minute.",
+          bcc_invalid_request: "Check the form — some details aren't valid.",
+          bcc_conflict: "A community with that name already exists.",
+        },
+        "Couldn't create the community. Try again.",
+      )
+    : clientError;
   const isSubmitting = mutation.isPending;
 
   return (

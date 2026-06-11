@@ -94,7 +94,8 @@ function VerifyEmailContent() {
     } catch (err) {
       setPageState("link-expired");
       if (err instanceof BccApiError) {
-        setError(ERROR_COPY[err.code] ?? err.message);
+        // §γ — unmapped codes fall back to generic copy, never err.message.
+        setError(ERROR_COPY[err.code] ?? "Verification failed. The link may have expired.");
       } else {
         setError("Verification failed. The link may have expired.");
       }
@@ -131,7 +132,8 @@ function VerifyEmailContent() {
       void autoSignIn(tokenResp);
     } catch (err) {
       if (err instanceof BccApiError) {
-        setError(ERROR_COPY[err.code] ?? err.message);
+        // §γ — unmapped codes fall back to generic copy, never err.message.
+        setError(ERROR_COPY[err.code] ?? "Verification failed. Try again.");
       } else {
         setError("Verification failed. Try again.");
       }

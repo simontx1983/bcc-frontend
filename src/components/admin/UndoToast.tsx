@@ -136,8 +136,10 @@ export function UndoToast({ descriptor, onDismiss }: Props) {
     undoMutation.mutate(undo.token);
   };
 
-  const errorMessage = undoMutation.error?.message ?? null;
-  const errorCode    = undoMutation.error?.code ?? null;
+  // §γ — render keyed on err.code via undoFailureCopy; we hold only a
+  // presence flag, never the server's raw err.message.
+  const hasError  = undoMutation.error !== null;
+  const errorCode = undoMutation.error?.code ?? null;
 
   const progressPercent = Math.max(0, Math.min(100, (secondsLeft / undo.ttl_seconds) * 100));
 
@@ -153,7 +155,7 @@ export function UndoToast({ descriptor, onDismiss }: Props) {
           <span className="bcc-mono text-[10px] tracking-[0.18em] text-safety">
             {ACTION_LABELS[action].toUpperCase()} · REPORT #{reportId}
           </span>
-          {errorMessage === null ? (
+          {!hasError ? (
             <span className="font-serif text-sm text-ink-soft">
               {undoMutation.isPending
                 ? "Reversing…"
@@ -161,12 +163,12 @@ export function UndoToast({ descriptor, onDismiss }: Props) {
             </span>
           ) : (
             <span className="bcc-mono text-[11px] text-safety">
-              {undoFailureCopy(errorCode, errorMessage)}
+              {undoFailureCopy(errorCode)}
             </span>
           )}
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          {errorMessage === null && (
+          {!hasError && (
             <button
               type="button"
               onClick={handleUndoClick}
@@ -191,7 +193,7 @@ export function UndoToast({ descriptor, onDismiss }: Props) {
       {/* Progress bar — decorative, motion-safe transitioned. Reduced
           motion users still see the numeric countdown above; the bar
           just stops easing. */}
-      {errorMessage === null && (
+      {!hasError && (
         <div
           aria-hidden
           className="h-[2px] w-full overflow-hidden bg-cardstock-edge/30"
@@ -209,8 +211,10 @@ export function UndoToast({ descriptor, onDismiss }: Props) {
 /**
  * Map the server's undo error codes to short, admin-readable copy.
  * Every branch is a fail-closed state — no retry path renders here.
+ * §γ — keyed on err.code; the default never leaks the server's
+ * raw err.message.
  */
-function undoFailureCopy(code: string | null, fallback: string): string {
+function undoFailureCopy(code: string | null): string {
   switch (code) {
     case "bcc_undo_expired":
       return "Undo window expired.";
@@ -219,6 +223,6 @@ function undoFailureCopy(code: string | null, fallback: string): string {
     case "bcc_undo_stale_state":
       return "Another moderator already acted on this report.";
     default:
-      return `Undo failed: ${fallback}`;
+      return "Undo failed. Try again.";
   }
 }

@@ -54,8 +54,8 @@ import {
 const GROUPED_CHAINS = groupedWalletChains();
 const DEFAULT_SLUG = GROUPED_CHAINS[0]?.options[0]?.slug ?? "ethereum";
 
-// Stable error-code → user copy mapping. Anything unmapped falls
-// through to the message string we already have in hand.
+// Stable error-code → user copy mapping. §γ: anything unmapped falls
+// through to generic copy, never the server's raw err.message.
 const ERROR_COPY: Record<string, string> = {
   bcc_invalid_request:        "Wallet request was malformed. Try again.",
   bcc_signature_invalid:      "Wallet signature didn't verify. Try again.",
@@ -296,10 +296,10 @@ function humanizeError(err: unknown): string {
   if (provider !== null) return provider;
 
   if (err instanceof BccApiError) {
-    return ERROR_COPY[err.code] ?? err.message;
+    return ERROR_COPY[err.code] ?? "Wallet sign-in failed. Try again.";
   }
   if (err instanceof Error) {
-    return ERROR_COPY[err.message] ?? err.message;
+    return ERROR_COPY[err.message] ?? "Wallet sign-in failed. Try again.";
   }
   return "Wallet sign-in failed. Try again.";
 }

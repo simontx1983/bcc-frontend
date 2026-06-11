@@ -28,6 +28,7 @@ import type { Route } from "next";
 import { useState } from "react";
 
 import { useAlbumPhotos, useUserActivity, useUserAlbums } from "@/hooks/useUserActivity";
+import { humanizeCode } from "@/lib/api/errors";
 import { SKELETON_CLASS } from "@/components/ui/Skeleton";
 import type { AlbumPhoto, FeedItem, PhotoBody, UserAlbum } from "@/lib/api/types";
 import { clientEnv } from "@/lib/env";
@@ -199,7 +200,16 @@ function AllPhotos({ handle, isOwner }: { handle: string; isOwner: boolean }) {
     return (
       <div className="px-8 py-12">
         <p role="alert" className="bcc-mono text-safety">
-          Couldn&apos;t load photos: {query.error.message}
+          {/* §γ — copy is keyed on err.code; never render err.message. */}
+          {humanizeCode(
+            query.error,
+            {
+              bcc_unauthorized: "Sign in to see photos.",
+              bcc_rate_limited: "Loading too fast — give it a moment and try again.",
+              bcc_unavailable: "Photos are temporarily unavailable. Try again shortly.",
+            },
+            "Couldn't load photos. Try again in a moment.",
+          )}
         </p>
       </div>
     );
@@ -366,7 +376,16 @@ function AlbumsGrid({
     return (
       <div className="px-8 py-12">
         <p role="alert" className="bcc-mono text-safety">
-          Couldn&apos;t load albums: {query.error.message}
+          {/* §γ — copy is keyed on err.code; never render err.message. */}
+          {humanizeCode(
+            query.error,
+            {
+              bcc_unauthorized: "Sign in to see albums.",
+              bcc_rate_limited: "Loading too fast — give it a moment and try again.",
+              bcc_unavailable: "Albums are temporarily unavailable. Try again shortly.",
+            },
+            "Couldn't load albums. Try again in a moment.",
+          )}
         </p>
       </div>
     );
@@ -480,7 +499,16 @@ function AlbumDetail({
 
       {query.isError && (
         <p role="alert" className="bcc-mono mt-6 text-safety">
-          Couldn&apos;t load photos: {query.error.message}
+          {/* §γ — copy is keyed on err.code; never render err.message. */}
+          {humanizeCode(
+            query.error,
+            {
+              bcc_unauthorized: "Sign in to see photos.",
+              bcc_rate_limited: "Loading too fast — give it a moment and try again.",
+              bcc_unavailable: "Photos are temporarily unavailable. Try again shortly.",
+            },
+            "Couldn't load photos. Try again in a moment.",
+          )}
         </p>
       )}
 

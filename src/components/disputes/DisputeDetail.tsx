@@ -30,6 +30,7 @@ import {
   useMyParticipation,
   usePanelQueue,
 } from "@/hooks/useDisputes";
+import { humanizeCode } from "@/lib/api/errors";
 import {
   type MyParticipationStatus,
   type PanelDispute,
@@ -81,9 +82,16 @@ export function DisputeDetail({ id }: DisputeDetailProps) {
       <CaseFileChrome>
         <CaseFileError
           message={
-            panelQueue.error?.message ??
-            myDisputes.error?.message ??
-            "Couldn't load this case."
+            // §γ — copy is keyed on err.code; never render err.message.
+            humanizeCode(
+              panelQueue.error ?? myDisputes.error,
+              {
+                bcc_unauthorized: "Sign in to view this case.",
+                bcc_rate_limited: "Loading too fast — give it a moment and try again.",
+                bcc_unavailable: "This case is temporarily unavailable. Try again shortly.",
+              },
+              "Couldn't load this case.",
+            )
           }
         />
       </CaseFileChrome>

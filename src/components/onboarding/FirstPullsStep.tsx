@@ -10,6 +10,7 @@
 
 import { CardFactory } from "@/components/cards/CardFactory";
 import { useOnboardingSuggestions } from "@/hooks/useOnboardingSuggestions";
+import { humanizeCode } from "@/lib/api/errors";
 import type { Card, OnboardingSuggestions } from "@/lib/api/types";
 
 import type { WizardPullsApi } from "./useWizardPulls";
@@ -96,7 +97,16 @@ function SuggestionsBody({ result, pulls }: SuggestionsBodyProps) {
     return (
       <section className="mx-auto mt-12 max-w-6xl px-6 sm:px-8">
         <p role="alert" className="bcc-mono text-safety">
-          Couldn&apos;t load suggestions: {result.error.message}
+          {/* §γ — copy is keyed on err.code; never render err.message. */}
+          {humanizeCode(
+            result.error,
+            {
+              bcc_unauthorized: "Sign in to see suggestions.",
+              bcc_rate_limited: "Loading too fast — give it a moment and try again.",
+              bcc_unavailable: "Suggestions are temporarily unavailable. Try again shortly.",
+            },
+            "Couldn't load suggestions. Try again in a moment.",
+          )}
         </p>
         <button
           type="button"

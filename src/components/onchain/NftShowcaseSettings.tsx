@@ -101,7 +101,16 @@ export function NftShowcaseSettings() {
 
           {list.isError && (
             <p role="alert" className="bcc-mono text-safety">
-              Couldn&rsquo;t load your showcase: {list.error.message}
+              {/* §γ — copy is keyed on err.code; never render err.message. */}
+              {humanizeCode(
+                list.error,
+                {
+                  bcc_unauthorized: "Sign in to manage your showcase.",
+                  bcc_rate_limited: "Loading too fast — give it a moment and try again.",
+                  bcc_unavailable: "Your showcase is temporarily unavailable. Try again shortly.",
+                },
+                "Couldn't load your showcase. Try again in a moment.",
+              )}
             </p>
           )}
 

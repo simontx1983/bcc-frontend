@@ -33,6 +33,7 @@ import {
 import { GroupActionButton } from "@/components/groups/GroupActionButton";
 import { HeatBadge } from "@/components/groups/HeatBadge";
 import { VerificationBadge } from "@/components/groups/VerificationBadge";
+import { humanizeCode } from "@/lib/api/errors";
 import type { GroupActivity, HolderGroupItem } from "@/lib/api/types";
 
 import { SettingsSectionHeader } from "@/app/settings/_components/SettingsSectionHeader";
@@ -67,7 +68,16 @@ export function CommunitiesList() {
     return (
       <div className="bcc-panel p-6">
         <p role="alert" className="bcc-mono text-safety">
-          Couldn&apos;t load communities: {listQuery.error.message}
+          {/* §γ — copy is keyed on err.code; never render err.message. */}
+          {humanizeCode(
+            listQuery.error,
+            {
+              bcc_unauthorized: "Sign in to see your communities.",
+              bcc_rate_limited: "Loading too fast — give it a moment and try again.",
+              bcc_unavailable: "Communities are temporarily unavailable. Try again shortly.",
+            },
+            "Couldn't load communities. Try again in a moment.",
+          )}
         </p>
       </div>
     );
@@ -173,9 +183,15 @@ function AutoJoinPreference() {
 
       {updateMutation.isError && (
         <p role="alert" className="bcc-mono mt-3 text-[11px] text-safety">
-          {updateMutation.error.code === "bcc_rate_limited"
-            ? "Slow down — preference saved too many times. Wait a minute."
-            : `Couldn't save preference: ${updateMutation.error.message}`}
+          {/* §γ — copy is keyed on err.code; never render err.message. */}
+          {humanizeCode(
+            updateMutation.error,
+            {
+              bcc_rate_limited: "Slow down — preference saved too many times. Wait a minute.",
+              bcc_unauthorized: "Sign in to change this preference.",
+            },
+            "Couldn't save preference. Try again.",
+          )}
         </p>
       )}
     </section>
@@ -291,13 +307,17 @@ function CommunityRow({ item, action }: CommunityRowProps) {
 function JoinButton({ groupId }: { groupId: number }) {
   const mutation = useJoinHolderGroupMutation();
 
-  // Substitute friendlier copy for the per-user Throttle 429; other
-  // server-typed errors (e.g. bcc_permission_denied with an
-  // unlock_hint) still render the canonical .message verbatim.
+  // §γ — copy is keyed on err.code; never render err.message.
   const errorMessage = mutation.error
-    ? mutation.error.code === "bcc_rate_limited"
-      ? "Slow down — too many join attempts. Wait a minute."
-      : mutation.error.message
+    ? humanizeCode(
+        mutation.error,
+        {
+          bcc_rate_limited: "Slow down — too many join attempts. Wait a minute.",
+          bcc_unauthorized: "Sign in to join this community.",
+          bcc_permission_denied: "You don't meet this community's join requirements yet.",
+        },
+        "Couldn't join this community. Try again.",
+      )
     : null;
 
   return (
@@ -318,10 +338,16 @@ function JoinButton({ groupId }: { groupId: number }) {
 function LeaveButton({ groupId }: { groupId: number }) {
   const mutation = useLeaveHolderGroupMutation();
 
+  // §γ — copy is keyed on err.code; never render err.message.
   const errorMessage = mutation.error
-    ? mutation.error.code === "bcc_rate_limited"
-      ? "Slow down — too many leave attempts. Wait a minute."
-      : mutation.error.message
+    ? humanizeCode(
+        mutation.error,
+        {
+          bcc_rate_limited: "Slow down — too many leave attempts. Wait a minute.",
+          bcc_unauthorized: "Sign in to leave this community.",
+        },
+        "Couldn't leave this community. Try again.",
+      )
     : null;
 
   return (

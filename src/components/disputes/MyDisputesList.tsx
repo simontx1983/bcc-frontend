@@ -19,6 +19,7 @@
 import Link from "next/link";
 
 import { useMyDisputes } from "@/hooks/useDisputes";
+import { humanizeCode } from "@/lib/api/errors";
 import type { PanelDispute } from "@/lib/api/types";
 
 export function MyDisputesList() {
@@ -34,7 +35,16 @@ export function MyDisputesList() {
     return (
       <div className="bcc-paper p-6">
         <p role="alert" className="bcc-mono text-safety">
-          Couldn&apos;t load your filed disputes: {query.error.message}
+          {/* §γ — copy is keyed on err.code; never render err.message. */}
+          {humanizeCode(
+            query.error,
+            {
+              bcc_unauthorized: "Sign in to see your filed disputes.",
+              bcc_rate_limited: "Loading too fast — give it a moment and try again.",
+              bcc_unavailable: "Disputes are temporarily unavailable. Try again shortly.",
+            },
+            "Couldn't load your filed disputes. Try again in a moment.",
+          )}
         </p>
       </div>
     );

@@ -28,7 +28,24 @@ import { useMemo, useState } from "react";
 
 import { useWatching } from "@/hooks/useWatching";
 import { useWatchMutation, useUnwatchMutation } from "@/hooks/useWatch";
+import { humanizeCode } from "@/lib/api/errors";
 import type { Card, CardTier } from "@/lib/api/types";
+
+/**
+ * §γ — pull/unpull failures render the returned string inline; copy is
+ * keyed on err.code, never err.message.
+ */
+function humanizePullError(err: unknown): string {
+  return humanizeCode(
+    err,
+    {
+      bcc_unauthorized: "Sign in to pull cards.",
+      bcc_rate_limited: "Too fast — wait a moment and try again.",
+      bcc_unavailable: "Pulls are temporarily unavailable. Try again shortly.",
+    },
+    "Couldn't update this pull. Try again.",
+  );
+}
 
 export interface WizardPullsApi {
   isPulled: (cardId: number) => boolean;
@@ -130,7 +147,7 @@ export function useWizardPulls(): WizardPullsApi {
     if (entry !== undefined) {
       unpullMut.mutate({ follow_id: entry.follow_id, source: entry.source }, {
         onSuccess: () => dropSessionPull(card.id),
-        onError: (err) => setErrorFor(card.id, err.message),
+        onError: (err) => setErrorFor(card.id, humanizePullError(err)),
         onSettled: () => setPendingFor(card.id, false),
       });
     } else {
@@ -138,7 +155,7 @@ export function useWizardPulls(): WizardPullsApi {
         { target_kind: card.card_kind, target_id: card.id },
         {
           onSuccess: () => recordSessionPull(card.id, card.card_tier),
-          onError: (err) => setErrorFor(card.id, err.message),
+          onError: (err) => setErrorFor(card.id, humanizePullError(err)),
           onSettled: () => setPendingFor(card.id, false),
         }
       );

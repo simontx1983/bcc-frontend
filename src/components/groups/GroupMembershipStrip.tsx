@@ -40,10 +40,27 @@ import { useLinkWalletMutation, useMyWallets } from "@/hooks/useWallets";
 import type { GroupDetailResponse } from "@/lib/api/types";
 import { isAllowed, reasonCode, unlockHint } from "@/lib/permissions";
 import { findWalletChain } from "@/lib/wallet/chain-catalog";
+import { humanizeCode } from "@/lib/api/errors";
 import { humanizeLinkError } from "@/lib/wallet/linkFlow";
 
 interface GroupMembershipStripProps {
   group: GroupDetailResponse;
+}
+
+/**
+ * §γ — join/leave failures render the returned string inline; copy is
+ * keyed on err.code, never err.message. `verb` is "join" | "leave".
+ */
+function humanizeMembershipError(err: unknown, verb: "join" | "leave"): string {
+  return humanizeCode(
+    err,
+    {
+      bcc_rate_limited: `Slow down — too many ${verb} attempts. Wait a minute.`,
+      bcc_unauthorized: `Sign in to ${verb} this group.`,
+      bcc_permission_denied: "You don't meet this group's requirements yet.",
+    },
+    `Couldn't ${verb} this group. Try again.`,
+  );
 }
 
 /**
@@ -211,13 +228,8 @@ function useRefreshOnSuccess(): () => void {
 function HolderJoinButton({ groupId, onActionStart, onActionError }: ActionButtonProps) {
   const onSuccess = useRefreshOnSuccess();
   const mutation = useJoinHolderGroupMutation({ onSuccess, onError: onActionError });
-  // Friendlier copy for HolderGroupsEndpoint::postJoin's per-user
-  // Throttle 429; non-429 errors fall through to the canonical
-  // .message (e.g. bcc_permission_denied unlock_hint).
   const errorMessage = mutation.error
-    ? mutation.error.code === "bcc_rate_limited"
-      ? "Slow down — too many join attempts. Wait a minute."
-      : mutation.error.message
+    ? humanizeMembershipError(mutation.error, "join")
     : null;
   return (
     <ActionRow primaryCopy="Join the group to read its feed and post inside it.">
@@ -297,12 +309,9 @@ function HolderEligibilityCheck({ group, onActionStart, onActionError }: ActionD
   }
 
   // Provider / user-cancel copy from the link step takes precedence; otherwise
-  // the server join error (collection-aware not-eligible / opt-out), verbatim,
-  // with the friendly rate-limit override.
+  // §γ-keyed join copy (collection-aware not-eligible / opt-out / rate-limit).
   const joinErrorMessage = join.error
-    ? join.error.code === "bcc_rate_limited"
-      ? "Slow down — too many join attempts. Wait a minute."
-      : join.error.message
+    ? humanizeMembershipError(join.error, "join")
     : null;
   const errorMessage = link.error ? humanizeLinkError(link.error) : joinErrorMessage;
 
@@ -371,9 +380,7 @@ function HolderLeaveButton({ groupId, onActionStart, onActionError }: ActionButt
   const onSuccess = useRefreshOnSuccess();
   const mutation = useLeaveHolderGroupMutation({ onSuccess, onError: onActionError });
   const errorMessage = mutation.error
-    ? mutation.error.code === "bcc_rate_limited"
-      ? "Slow down — too many leave attempts. Wait a minute."
-      : mutation.error.message
+    ? humanizeMembershipError(mutation.error, "leave")
     : null;
   return (
     <ActionRow primaryCopy="You're an active member. Posts you make here scope to this group's feed.">
@@ -396,6 +403,9 @@ function HolderLeaveButton({ groupId, onActionStart, onActionError }: ActionButt
 function LocalJoinButton({ groupId, onActionStart, onActionError }: ActionButtonProps) {
   const onSuccess = useRefreshOnSuccess();
   const mutation = useJoinLocalMutation({ onSuccess, onError: onActionError });
+  const errorMessage = mutation.error
+    ? humanizeMembershipError(mutation.error, "join")
+    : null;
   return (
     <ActionRow primaryCopy="Join the group to read its feed and post inside it.">
       <GroupActionButton
@@ -403,7 +413,7 @@ function LocalJoinButton({ groupId, onActionStart, onActionError }: ActionButton
         label="JOIN"
         pendingLabel="JOINING…"
         isPending={mutation.isPending}
-        errorMessage={mutation.error?.message ?? null}
+        errorMessage={errorMessage}
         onClick={() => {
           mutation.reset();
           onActionStart("joining");
@@ -417,6 +427,9 @@ function LocalJoinButton({ groupId, onActionStart, onActionError }: ActionButton
 function LocalLeaveButton({ groupId, onActionStart, onActionError }: ActionButtonProps) {
   const onSuccess = useRefreshOnSuccess();
   const mutation = useLeaveLocalMutation({ onSuccess, onError: onActionError });
+  const errorMessage = mutation.error
+    ? humanizeMembershipError(mutation.error, "leave")
+    : null;
   return (
     <ActionRow primaryCopy="You're an active member of this Local.">
       <GroupActionButton
@@ -424,7 +437,7 @@ function LocalLeaveButton({ groupId, onActionStart, onActionError }: ActionButto
         label="LEAVE"
         pendingLabel="LEAVING…"
         isPending={mutation.isPending}
-        errorMessage={mutation.error?.message ?? null}
+        errorMessage={errorMessage}
         onClick={() => {
           mutation.reset();
           onActionStart("leaving");
@@ -439,9 +452,7 @@ function PlainJoinButton({ groupId, onActionStart, onActionError }: ActionButton
   const onSuccess = useRefreshOnSuccess();
   const mutation = useJoinPlainGroupMutation({ onSuccess, onError: onActionError });
   const errorMessage = mutation.error
-    ? mutation.error.code === "bcc_rate_limited"
-      ? "Slow down — too many join attempts. Wait a minute."
-      : mutation.error.message
+    ? humanizeMembershipError(mutation.error, "join")
     : null;
   return (
     <ActionRow primaryCopy="Join the group to read its feed and post inside it.">
@@ -465,9 +476,7 @@ function PlainLeaveButton({ groupId, onActionStart, onActionError }: ActionButto
   const onSuccess = useRefreshOnSuccess();
   const mutation = useLeavePlainGroupMutation({ onSuccess, onError: onActionError });
   const errorMessage = mutation.error
-    ? mutation.error.code === "bcc_rate_limited"
-      ? "Slow down — too many leave attempts. Wait a minute."
-      : mutation.error.message
+    ? humanizeMembershipError(mutation.error, "leave")
     : null;
   return (
     <ActionRow primaryCopy="You're an active member.">

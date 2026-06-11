@@ -25,6 +25,7 @@ import { useState } from "react";
 import { WatchingHeader } from "@/components/watching/WatchingHeader";
 import { WatchingTile } from "@/components/watching/WatchingTile";
 import { useWatching, useWatchingSummary } from "@/hooks/useWatching";
+import { humanizeCode } from "@/lib/api/errors";
 
 export interface WatchingGridProps {
   handle: string;
@@ -91,7 +92,16 @@ function WatchingGridBody({ result }: { result: ReturnType<typeof useWatching> }
     return (
       <section className="mx-auto mt-12 max-w-6xl px-6 sm:px-8">
         <p role="alert" className="bcc-mono text-safety">
-          Couldn&apos;t load watchlist: {result.error.message}
+          {/* §γ — copy is keyed on err.code; never render err.message. */}
+          {humanizeCode(
+            result.error,
+            {
+              bcc_unauthorized: "Sign in to see your watchlist.",
+              bcc_rate_limited: "Loading too fast — give it a moment and try again.",
+              bcc_unavailable: "Your watchlist is temporarily unavailable. Try again shortly.",
+            },
+            "Couldn't load your watchlist. Try again in a moment.",
+          )}
         </p>
         <button
           type="button"

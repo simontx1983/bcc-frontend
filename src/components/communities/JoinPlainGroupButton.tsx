@@ -25,6 +25,7 @@ import { useRouter } from "next/navigation";
 
 import { GroupActionButton } from "@/components/groups/GroupActionButton";
 import { useJoinPlainGroupMutation } from "@/hooks/useMyGroups";
+import { humanizeCode } from "@/lib/api/errors";
 
 export function JoinPlainGroupButton({ groupId }: { groupId: number }) {
   const router = useRouter();
@@ -34,13 +35,17 @@ export function JoinPlainGroupButton({ groupId }: { groupId: number }) {
     },
   });
 
-  // Substitute friendlier copy for the rate-limit 429 from
-  // MyGroupsEndpoint::postJoin's per-user Throttle bucket. Other
-  // server-typed errors fall through to the canonical .message.
+  // §γ — copy is keyed on err.code; never render err.message.
   const errorMessage = mutation.error
-    ? mutation.error.code === "bcc_rate_limited"
-      ? "Slow down — too many join attempts. Wait a minute."
-      : mutation.error.message
+    ? humanizeCode(
+        mutation.error,
+        {
+          bcc_rate_limited: "Slow down — too many join attempts. Wait a minute.",
+          bcc_unauthorized: "Sign in to join this group.",
+          bcc_permission_denied: "You don't meet this group's requirements yet.",
+        },
+        "Couldn't join this group. Try again.",
+      )
     : null;
 
   return (

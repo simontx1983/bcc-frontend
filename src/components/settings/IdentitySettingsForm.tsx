@@ -69,7 +69,8 @@ export function IdentitySettingsForm({ currentHandle }: IdentitySettingsFormProp
     onError: (err) => {
       setConfirmed(null);
       if (err instanceof BccApiError) {
-        setServerError(ERROR_COPY[err.code] ?? err.message);
+        // §γ — unmapped codes fall back to generic copy, never err.message.
+        setServerError(ERROR_COPY[err.code] ?? "Couldn't update handle. Try again.");
       } else {
         setServerError("Couldn't update handle. Try again.");
       }

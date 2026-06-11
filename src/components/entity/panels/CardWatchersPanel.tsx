@@ -20,6 +20,7 @@ import type { Route } from "next";
 import { CardGrid } from "@/components/cards/CardGrid";
 import { Avatar } from "@/components/identity/Avatar";
 import { useCardWatchers } from "@/hooks/useCardTabs";
+import { humanizeCode } from "@/lib/api/errors";
 import type {
   Card,
   CardWatchersResponse,
@@ -124,7 +125,16 @@ function Body(props: BodyProps) {
     return (
       <div className="px-8 py-12">
         <p role="alert" className="bcc-mono text-safety">
-          Couldn&apos;t load watchers: {query.error.message}
+          {/* §γ — copy is keyed on err.code; never render err.message. */}
+          {humanizeCode(
+            query.error,
+            {
+              bcc_unauthorized: "Sign in to see watchers.",
+              bcc_rate_limited: "Loading too fast — give it a moment and try again.",
+              bcc_unavailable: "Watchers are temporarily unavailable. Try again shortly.",
+            },
+            "Couldn't load watchers. Try again in a moment.",
+          )}
         </p>
       </div>
     );

@@ -16,6 +16,7 @@
 import { useEffect, useState } from "react";
 
 import { useMyPrivacy, useUpdateMyPrivacy } from "@/hooks/useMyPrivacy";
+import { humanizeCode } from "@/lib/api/errors";
 import type { MyPrivacySettings } from "@/lib/api/types";
 
 type ToggleKey = keyof MyPrivacySettings;
@@ -134,7 +135,16 @@ export function PrivacySettingsForm() {
     return (
       <div className="bcc-panel p-6">
         <p role="alert" className="bcc-mono text-safety">
-          Couldn&apos;t load privacy settings: {error.message}
+          {/* §γ — copy is keyed on err.code; never render err.message. */}
+          {humanizeCode(
+            error,
+            {
+              bcc_unauthorized: "Sign in to manage your privacy settings.",
+              bcc_rate_limited: "Loading too fast — give it a moment and try again.",
+              bcc_unavailable: "Privacy settings are temporarily unavailable. Try again shortly.",
+            },
+            "Couldn't load privacy settings. Try again in a moment.",
+          )}
         </p>
       </div>
     );

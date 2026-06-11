@@ -14,6 +14,7 @@ import { useState } from "react";
 import { Avatar } from "@/components/identity/Avatar";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { useMyBlocks, useUnblockUser } from "@/hooks/useBlocks";
+import { humanizeCode } from "@/lib/api/errors";
 
 export function BlocksList() {
   const [page, setPage] = useState(1);
@@ -33,7 +34,16 @@ export function BlocksList() {
     return (
       <div className="bcc-panel p-6">
         <p role="alert" className="bcc-mono text-safety">
-          Couldn&apos;t load blocks: {query.error.message}
+          {/* §γ — copy is keyed on err.code; never render err.message. */}
+          {humanizeCode(
+            query.error,
+            {
+              bcc_unauthorized: "Sign in to manage your blocks.",
+              bcc_rate_limited: "Loading too fast — give it a moment and try again.",
+              bcc_unavailable: "Blocks are temporarily unavailable. Try again shortly.",
+            },
+            "Couldn't load your blocks. Try again in a moment.",
+          )}
         </p>
       </div>
     );

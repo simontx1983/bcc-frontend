@@ -35,6 +35,7 @@ import type { Route } from "next";
 import { CardGrid } from "@/components/cards/CardGrid";
 import { Avatar } from "@/components/identity/Avatar";
 import { useUserFollowers, useUserFollowing } from "@/hooks/useUserActivity";
+import { humanizeCode } from "@/lib/api/errors";
 import type { BccApiError, Card, UserFollowsResponse } from "@/lib/api/types";
 
 interface WatchingPanelProps {
@@ -307,7 +308,16 @@ function RosterList(props: RosterListProps) {
     return (
       <div className="px-8 py-12">
         <p role="alert" className="bcc-mono text-safety">
-          Couldn&apos;t load this list: {queryError.message}
+          {/* §γ — copy is keyed on err.code; never render err.message. */}
+          {humanizeCode(
+            queryError,
+            {
+              bcc_unauthorized: "Sign in to see this list.",
+              bcc_rate_limited: "Loading too fast — give it a moment and try again.",
+              bcc_unavailable: "This list is temporarily unavailable. Try again shortly.",
+            },
+            "Couldn't load this list. Try again in a moment.",
+          )}
         </p>
       </div>
     );

@@ -145,7 +145,16 @@ export function NftPickerModal({ onClose }: NftPickerModalProps) {
 
       {picker.isError && (
         <p role="alert" className="bcc-mono text-safety">
-          Couldn&rsquo;t load your holdings: {picker.error.message}
+          {/* §γ — copy is keyed on err.code; never render err.message. */}
+          {humanizeCode(
+            picker.error,
+            {
+              bcc_unauthorized: "Sign in to see your holdings.",
+              bcc_rate_limited: "Loading too fast — give it a moment and try again.",
+              bcc_unavailable: "Your holdings are temporarily unavailable. Try again shortly.",
+            },
+            "Couldn't load your holdings. Try again in a moment.",
+          )}
         </p>
       )}
 
