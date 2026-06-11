@@ -23,6 +23,7 @@
  */
 
 import { useQuery } from "@tanstack/react-query";
+import { useSession } from "next-auth/react";
 
 import {
   getWatching,
@@ -38,10 +39,18 @@ import type {
 export const WATCHING_QUERY_KEY_ROOT = ["watching"] as const;
 
 export function useWatching(params: WatchingQueryParams = {}) {
+  // Auth gate (same pattern as useBadges' provider): /me/watching is a
+  // viewer-scoped endpoint that 401s for anonymous viewers, so the query
+  // never fires without a session. Anon consumers see `data: undefined`
+  // and keep their existing empty-state shape (`data?.items ?? []`), so
+  // Pull buttons still render their signed-out affordance.
+  const session = useSession();
+
   return useQuery<WatchingResponse>({
     queryKey: [...WATCHING_QUERY_KEY_ROOT, params],
     queryFn: ({ signal }) => getWatching(params, signal),
     staleTime: 30_000,
+    enabled: session.status === "authenticated",
   });
 }
 
@@ -52,9 +61,13 @@ export function useWatching(params: WatchingQueryParams = {}) {
  * automatically refetch the summary alongside the paginated list.
  */
 export function useWatchingSummary() {
+  // Same anon gate as useWatching — see comment there.
+  const session = useSession();
+
   return useQuery<WatchingSummaryResponse>({
     queryKey: [...WATCHING_QUERY_KEY_ROOT, "summary"],
     queryFn: ({ signal }) => getWatchingSummary(signal),
     staleTime: 30_000,
+    enabled: session.status === "authenticated",
   });
 }

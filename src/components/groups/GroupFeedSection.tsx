@@ -34,6 +34,7 @@ import { Composer } from "@/components/composer/Composer";
 import { FeedItemCard } from "@/components/feed/FeedItemCard";
 import { GroupGatedNotice } from "@/components/groups/GroupGatedNotice";
 import { useGroupFeed } from "@/hooks/useGroupFeed";
+import { humanizeCode } from "@/lib/api/errors";
 import type { FeedItem, GroupDetailResponse } from "@/lib/api/types";
 import { unlockHint } from "@/lib/permissions";
 
@@ -122,8 +123,16 @@ function GroupFeedBody({
     return (
       <div className="py-8">
         <p role="alert" className="bcc-mono text-safety">
-          Couldn&apos;t load this group&apos;s feed
-          {query.error?.message !== undefined ? `: ${query.error.message}` : "."}
+          {/* §γ — copy is keyed on err.code; never render err.message. */}
+          {humanizeCode(
+            query.error,
+            {
+              bcc_unauthorized: "Sign in to read this group's feed.",
+              bcc_rate_limited: "Loading too fast — give it a moment and try again.",
+              bcc_unavailable: "This group's feed is temporarily unavailable. Try again shortly.",
+            },
+            "Couldn't load this group's feed. Try again in a moment.",
+          )}
         </p>
         <button
           type="button"

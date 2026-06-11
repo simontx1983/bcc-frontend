@@ -57,6 +57,8 @@ export function CommunityCover({ imageUrl, name, groupId }: CommunityCoverProps)
             setErrored(true);
           }
         }}
+        loading="lazy"
+        decoding="async"
         className="absolute inset-0 h-full w-full object-cover"
       />
     );

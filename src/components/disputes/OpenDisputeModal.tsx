@@ -140,7 +140,16 @@ export function OpenDisputeModal({
       {votesQuery.isError && (
         <div className="bcc-paper p-6">
           <p role="alert" className="bcc-mono text-safety">
-            Couldn&apos;t load votes for this page: {votesQuery.error.message}
+            {/* §γ — copy is keyed on err.code; never render err.message. */}
+            {humanizeCode(
+              votesQuery.error,
+              {
+                bcc_unauthorized: "Sign in to see these votes.",
+                bcc_rate_limited: "Loading too fast — give it a moment and try again.",
+                bcc_unavailable: "Votes are temporarily unavailable. Try again shortly.",
+              },
+              "Couldn't load votes for this page. Try again in a moment.",
+            )}
           </p>
         </div>
       )}

@@ -33,8 +33,10 @@ const ERROR_COPY: Record<string, string> = {
 };
 
 function humanizeError(err: BccApiError | Error): string {
+  // §γ — keyed on err.code; unmapped codes fall back to generic copy,
+  // never the server's raw err.message.
   if (err instanceof BccApiError) {
-    return ERROR_COPY[err.code] ?? err.message;
+    return ERROR_COPY[err.code] ?? "Something went wrong. Try again.";
   }
   return "Something went wrong. Try again.";
 }

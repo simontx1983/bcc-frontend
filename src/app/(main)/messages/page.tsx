@@ -18,6 +18,7 @@ import { useMemo, Suspense } from "react";
 
 import { ConversationList } from "@/components/messages/ConversationList";
 import { useConversations } from "@/hooks/useConversations";
+import { humanizeCode } from "@/lib/api/errors";
 
 const PER_PAGE = 20;
 
@@ -84,7 +85,19 @@ function MessagesPageContent() {
         {isAuthed && query.isError && (
           <div className="bcc-paper p-6">
             <p role="alert" className="bcc-mono text-safety">
-              Couldn&apos;t load your inbox: {query.error.message}
+              {/* §γ — copy is keyed on err.code; never render err.message. */}
+              {humanizeCode(
+                query.error,
+                {
+                  bcc_unauthorized:
+                    "Your session expired — sign in again to read your messages.",
+                  bcc_rate_limited:
+                    "Too many refreshes — give it a moment and try again.",
+                  bcc_unavailable:
+                    "Messages are temporarily unavailable. Try again shortly.",
+                },
+                "Couldn't load your inbox. Try again in a moment.",
+              )}
             </p>
           </div>
         )}

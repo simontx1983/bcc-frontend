@@ -14,9 +14,19 @@
  * (pick a downvote → reason → submit) and drives its own invalidation.
  */
 
+import dynamic from "next/dynamic";
 import { useState } from "react";
 
-import { OpenDisputeModal } from "@/components/disputes/OpenDisputeModal";
+// Code-split — the modal only mounts after the owner clicks the CTA,
+// so its chunk (form flow + dispute hooks) stays out of the entity
+// profile bundle until then.
+const OpenDisputeModal = dynamic(
+  () =>
+    import("@/components/disputes/OpenDisputeModal").then(
+      (m) => m.OpenDisputeModal
+    ),
+  { ssr: false }
+);
 
 interface DisputeCalloutProps {
   pageId: number;

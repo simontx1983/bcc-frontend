@@ -63,7 +63,8 @@ export default function SignupPage() {
     } catch (err) {
       setSubmitting(false);
       if (err instanceof BccApiError) {
-        setError(ERROR_COPY[err.code] ?? err.message);
+        // §γ — unmapped codes fall back to generic copy, never err.message.
+        setError(ERROR_COPY[err.code] ?? "Sign-up failed. Try again.");
       } else {
         setError("Sign-up failed. Try again.");
       }

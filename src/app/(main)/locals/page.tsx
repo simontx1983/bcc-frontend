@@ -22,6 +22,7 @@ import Link from "next/link";
 
 import { authOptions } from "@/lib/auth";
 import { tokenFromSession } from "@/lib/api/client";
+import { humanizeCode } from "@/lib/api/errors";
 import { getLocals } from "@/lib/api/locals-endpoints";
 import type { LocalItem } from "@/lib/api/types";
 
@@ -68,7 +69,15 @@ export default async function LocalsDirectoryPage({ searchParams }: PageProps) {
     );
   } catch (err) {
     result = null;
-    fetchError = err instanceof Error ? err.message : "Couldn't load Locals.";
+    // §γ — copy is keyed on err.code; never render err.message.
+    fetchError = humanizeCode(
+      err,
+      {
+        bcc_rate_limited: "Loading too fast — give it a moment and try again.",
+        bcc_unavailable: "Locals are temporarily unavailable. Try again shortly.",
+      },
+      "Couldn't load Locals. Try again in a moment.",
+    );
   }
 
   const items = result?.items ?? [];
@@ -97,7 +106,7 @@ export default async function LocalsDirectoryPage({ searchParams }: PageProps) {
       <section className="mx-auto mt-6 max-w-6xl px-6 sm:px-8">
         {fetchError !== null ? (
           <p role="alert" className="bcc-mono text-safety">
-            Couldn&apos;t load Locals: {fetchError}
+            {fetchError}
           </p>
         ) : items.length === 0 ? (
           <EmptyState chain={chain} />

@@ -36,6 +36,7 @@ import {
 import { HeatBadge } from "@/components/groups/HeatBadge";
 import { VerificationBadge } from "@/components/groups/VerificationBadge";
 import { Dialog } from "@/components/ui/Dialog";
+import { humanizeCode } from "@/lib/api/errors";
 import type { GroupActivity, HolderGroupItem } from "@/lib/api/types";
 
 const SESSION_DISMISS_KEY = "bcc.communities.dismissed";
@@ -199,13 +200,17 @@ function ModalContent({ items, onSkip }: ModalContentProps) {
 
 function EligibleRow({ item }: { item: HolderGroupItem }) {
   const mutation = useJoinHolderGroupMutation();
-  // Substitute friendly copy for the per-user Throttle 429 emitted by
-  // HolderGroupsEndpoint::postJoin. Other server-typed errors fall
-  // through to the canonical .message verbatim.
+  // §γ — copy is keyed on err.code; never render err.message.
   const errorMessage = mutation.error
-    ? mutation.error.code === "bcc_rate_limited"
-      ? "Slow down — too many join attempts. Wait a minute."
-      : mutation.error.message
+    ? humanizeCode(
+        mutation.error,
+        {
+          bcc_rate_limited: "Slow down — too many join attempts. Wait a minute.",
+          bcc_unauthorized: "Sign in to join this community.",
+          bcc_permission_denied: "You don't meet this community's join requirements yet.",
+        },
+        "Couldn't join this community. Try again.",
+      )
     : null;
   const collectionName = item.collection.name ?? item.name;
 
@@ -219,6 +224,8 @@ function EligibleRow({ item }: { item: HolderGroupItem }) {
             alt=""
             width={36}
             height={36}
+            loading="lazy"
+            decoding="async"
             className="h-9 w-9 shrink-0 rounded-full border border-cardstock-edge object-cover"
           />
         ) : (

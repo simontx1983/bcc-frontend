@@ -26,6 +26,7 @@ import Image from "next/image";
 
 import { useUserBlog } from "@/hooks/useUserBlog";
 import { formatRelativeTime } from "@/lib/format";
+import { humanizeCode } from "@/lib/api/errors";
 import type { FeedItem } from "@/lib/api/types";
 
 import { BlogMarkdownRenderer } from "./markdown/BlogMarkdownRenderer";
@@ -68,7 +69,16 @@ export function UserBlogList({ handle, onEdit }: UserBlogListProps) {
     return (
       <div className="bcc-panel p-6">
         <p role="alert" className="bcc-mono text-safety">
-          Couldn&apos;t load posts: {query.error.message}
+          {/* §γ — copy is keyed on err.code; never render err.message. */}
+          {humanizeCode(
+            query.error,
+            {
+              bcc_unauthorized: "Sign in to read these posts.",
+              bcc_rate_limited: "Loading too fast — give it a moment and try again.",
+              bcc_unavailable: "Posts are temporarily unavailable. Try again shortly.",
+            },
+            "Couldn't load posts. Try again in a moment.",
+          )}
         </p>
       </div>
     );

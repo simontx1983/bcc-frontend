@@ -24,16 +24,27 @@
  */
 
 import { BccApiError } from "@/lib/api/types";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useState } from "react";
 
-import { NftPickerModal } from "@/components/onchain/NftPickerModal";
 import {
   useNftSelectionsList,
   useReorderNftSelections,
 } from "@/hooks/useNftSelections";
 import { humanizeCode } from "@/lib/api/errors";
 import type { NftSelectionRow } from "@/lib/api/types";
+
+// Code-split — the picker only mounts behind the MANAGE SHOWCASE
+// click, so its chunk (inventory grid + selection mutations) stays
+// out of the settings bundle until then.
+const NftPickerModal = dynamic(
+  () =>
+    import("@/components/onchain/NftPickerModal").then(
+      (m) => m.NftPickerModal
+    ),
+  { ssr: false }
+);
 
 export function NftShowcaseSettings() {
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -90,7 +101,16 @@ export function NftShowcaseSettings() {
 
           {list.isError && (
             <p role="alert" className="bcc-mono text-safety">
-              Couldn&rsquo;t load your showcase: {list.error.message}
+              {/* §γ — copy is keyed on err.code; never render err.message. */}
+              {humanizeCode(
+                list.error,
+                {
+                  bcc_unauthorized: "Sign in to manage your showcase.",
+                  bcc_rate_limited: "Loading too fast — give it a moment and try again.",
+                  bcc_unavailable: "Your showcase is temporarily unavailable. Try again shortly.",
+                },
+                "Couldn't load your showcase. Try again in a moment.",
+              )}
             </p>
           )}
 
@@ -185,6 +205,7 @@ function ShowcaseTile({
             src={item.image_url}
             alt=""
             loading="lazy"
+            decoding="async"
             className="h-full w-full object-cover"
           />
         ) : (

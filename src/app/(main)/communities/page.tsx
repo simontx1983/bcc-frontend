@@ -35,6 +35,7 @@ import Link from "next/link";
 
 import { authOptions } from "@/lib/auth";
 import { tokenFromSession } from "@/lib/api/client";
+import { humanizeCode } from "@/lib/api/errors";
 import { getGroupsDiscovery } from "@/lib/api/groups-discovery-endpoints";
 import { COMMUNITY_CHAIN_CATALOG } from "@/lib/communities/chain-catalog";
 import { CommunityCover } from "@/components/communities/CommunityCover";
@@ -82,7 +83,15 @@ export default async function CommunitiesDiscoveryPage({ searchParams }: PagePro
     );
   } catch (err) {
     result = null;
-    fetchError = err instanceof Error ? err.message : "Couldn't load communities.";
+    // §γ — copy is keyed on err.code; never render err.message.
+    fetchError = humanizeCode(
+      err,
+      {
+        bcc_rate_limited: "Loading too fast — give it a moment and try again.",
+        bcc_unavailable: "Communities are temporarily unavailable. Try again shortly.",
+      },
+      "Couldn't load communities. Try again in a moment.",
+    );
   }
 
   const items = result?.items ?? [];
@@ -133,7 +142,7 @@ export default async function CommunitiesDiscoveryPage({ searchParams }: PagePro
       <section className="mx-auto mt-6 max-w-6xl px-6 sm:px-8">
         {fetchError !== null ? (
           <p role="alert" className="bcc-mono text-safety">
-            Couldn&apos;t load communities: {fetchError}
+            {fetchError}
           </p>
         ) : items.length === 0 ? (
           <EmptyState

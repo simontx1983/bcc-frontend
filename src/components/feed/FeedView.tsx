@@ -44,6 +44,7 @@ import { FeedItemCard } from "@/components/feed/FeedItemCard";
 import { FeedTabs } from "@/components/feed/FeedTabs";
 import { SKELETON_CLASS } from "@/components/ui/Skeleton";
 import { useFeed, useHotFeed } from "@/hooks/useFeed";
+import { humanizeCode } from "@/lib/api/errors";
 import type { FeedItem, FeedScope } from "@/lib/api/types";
 
 export interface FeedViewProps {
@@ -188,7 +189,16 @@ export function FeedBody(props: FeedBodyProps) {
     return (
       <div className="py-8">
         <p role="alert" className="bcc-mono text-safety">
-          Couldn&apos;t load the feed{error?.message !== undefined ? `: ${error.message}` : "."}
+          {/* §γ — copy is keyed on err.code; never render err.message. */}
+          {humanizeCode(
+            error,
+            {
+              bcc_unauthorized: "Sign in to see your feed.",
+              bcc_rate_limited: "Loading too fast — give it a moment and try again.",
+              bcc_unavailable: "The feed is temporarily unavailable. Try again shortly.",
+            },
+            "Couldn't load the feed. Try again in a moment.",
+          )}
         </p>
         <button
           type="button"

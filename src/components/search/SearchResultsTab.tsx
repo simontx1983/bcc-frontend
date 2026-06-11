@@ -242,6 +242,7 @@ function Avatar({
         src={src}
         alt=""
         loading="lazy"
+        decoding="async"
         className={`h-10 w-10 shrink-0 object-cover ${radius}`}
       />
     );

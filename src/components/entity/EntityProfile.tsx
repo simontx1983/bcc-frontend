@@ -257,7 +257,11 @@ export function EntityProfile({
               <DisputeCallout
                 pageId={card.id}
                 pageName={card.name}
-                canDispute={isAllowed(card.permissions, "can_dispute")}
+                // can_open_dispute (owner-only vote-dispute gate), NOT
+                // can_dispute — that's the §J attestation cast and once
+                // wrongly drove this callout (any veteran saw the
+                // owner-only CTA; real owners below veteran never did).
+                canDispute={isAllowed(card.permissions, "can_open_dispute")}
               />
             </div>
           }

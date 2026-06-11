@@ -47,10 +47,20 @@
  *     the button is sufficient feedback.
  */
 
+import dynamic from "next/dynamic";
 import { useEffect, useRef, useState } from "react";
 
-import { ReportMemberModal } from "@/components/profile/ReportMemberModal";
 import { SlotHoldersPicker } from "@/components/profile/SlotHoldersPicker";
+
+// Code-split — the report dialog only mounts behind the REPORT click,
+// so its chunk stays out of the profile bundle until then.
+const ReportMemberModal = dynamic(
+  () =>
+    import("@/components/profile/ReportMemberModal").then(
+      (m) => m.ReportMemberModal
+    ),
+  { ssr: false }
+);
 import {
   useCastAttestation,
   useRevokeAttestation,

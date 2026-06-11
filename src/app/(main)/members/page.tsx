@@ -20,6 +20,7 @@ import { useEffect, useMemo, useRef, useState, Suspense } from "react";
 
 import { CardGrid } from "@/components/cards/CardGrid";
 import { useMembers } from "@/hooks/useMembers";
+import { humanizeCode } from "@/lib/api/errors";
 import type {
   MembersRankFilter,
   MembersTypeCounts,
@@ -278,7 +279,16 @@ function MembersPageContent() {
         {query.isError && (
           <div className="bcc-paper p-6">
             <p role="alert" className="bcc-mono text-safety">
-              Couldn&apos;t load the roster: {query.error.message}
+              {/* §γ — copy is keyed on err.code; never render err.message. */}
+              {humanizeCode(
+                query.error,
+                {
+                  bcc_unauthorized: "Sign in to browse the roster.",
+                  bcc_rate_limited: "Loading too fast — give it a moment and try again.",
+                  bcc_unavailable: "The roster is temporarily unavailable. Try again shortly.",
+                },
+                "Couldn't load the roster. Try again in a moment.",
+              )}
             </p>
           </div>
         )}

@@ -59,6 +59,7 @@ import type {
   ModerationTargetPostKind,
 } from "@/lib/api/types";
 import { formatRelativeTime } from "@/lib/format";
+import { humanizeCode } from "@/lib/api/errors";
 
 const STATUS_FILTERS: Array<{ key: ModerationStatusFilter; label: string }> = [
   { key: "pending",   label: "Pending" },
@@ -721,7 +722,16 @@ function ReportRow({
 
       {mutation.isError && (
         <p role="alert" className="bcc-mono text-[11px] text-safety">
-          Couldn&apos;t apply action: {mutation.error.message}
+          {/* §γ — copy is keyed on err.code; never render err.message. */}
+          {humanizeCode(
+            mutation.error,
+            {
+              bcc_unauthorized: "Sign in again to apply moderation actions.",
+              bcc_forbidden: "You don't have permission to apply this action.",
+              bcc_rate_limited: "Too many actions — wait a moment and try again.",
+            },
+            "Couldn't apply action. Try again.",
+          )}
         </p>
       )}
 
@@ -893,7 +903,16 @@ function QueueError({ filter, onChange, error }: QueueErrorProps) {
     <div className="bcc-panel p-6">
       <StatusTabs value={filter} onChange={onChange} />
       <p role="alert" className="bcc-mono mt-4 text-safety">
-        Couldn&apos;t load reports: {error.message}
+        {/* §γ — copy is keyed on err.code; never render err.message. */}
+        {humanizeCode(
+          error,
+          {
+            bcc_unauthorized: "Sign in again to view the moderation queue.",
+            bcc_rate_limited: "Loading too fast — give it a moment and try again.",
+            bcc_unavailable: "The moderation queue is temporarily unavailable. Try again shortly.",
+          },
+          "Couldn't load reports. Try again in a moment.",
+        )}
       </p>
     </div>
   );

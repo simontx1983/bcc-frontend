@@ -24,14 +24,15 @@
  * settings page and need consistent query-state handling.
  */
 
+import dynamic from "next/dynamic";
 import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 
+import { Skeleton } from "@/components/ui/Skeleton";
 import type { MeReliabilityResponse, MemberLiving, MemberProfile, MemberProgression, MemberTabCount } from "@/lib/api/types";
 
 import { ActivityPanel } from "./panels/ActivityPanel";
 import { BackingPanel } from "./panels/BackingPanel";
-import { BlogPanel } from "./panels/BlogPanel";
 import { ComingSoonPanel } from "./panels/ComingSoonPanel";
 import { DisputesPanel } from "./panels/DisputesPanel";
 import { GroupsPanel } from "./panels/GroupsPanel";
@@ -40,6 +41,18 @@ import { ProfilePanel } from "./panels/ProfilePanel";
 import { ReviewsPanel } from "./panels/ReviewsPanel";
 import { SetupPanel } from "./panels/SetupPanel";
 import { WatchingPanel } from "./panels/WatchingPanel";
+
+// Code-split — BlogPanel drags in the whole long-form chain (composer,
+// react-markdown, remark/rehype plugins, the Shiki highlighter) and
+// only mounts when the Blog tab is active, so its chunk stays out of
+// the profile-page bundle until the operator actually opens it.
+const BlogPanel = dynamic(
+  () => import("./panels/BlogPanel").then((m) => m.BlogPanel),
+  {
+    ssr: false,
+    loading: () => <Skeleton className="h-40" />,
+  }
+);
 
 /**
  * Local TabKey supersets MemberTabCount["key"] with frontend-only

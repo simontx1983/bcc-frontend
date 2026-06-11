@@ -28,6 +28,7 @@ import type { Route } from "next";
 import { Avatar } from "@/components/identity/Avatar";
 import { GroupGatedNotice } from "@/components/groups/GroupGatedNotice";
 import { useGroupMembers } from "@/hooks/useGroupMembers";
+import { humanizeCode } from "@/lib/api/errors";
 import type { GroupDetailResponse, GroupMember } from "@/lib/api/types";
 
 const PREVIEW_COUNT = 8;
@@ -65,8 +66,16 @@ function GroupMembersBody({ group }: { group: GroupDetailResponse }) {
     return (
       <div className="py-6">
         <p role="alert" className="bcc-mono text-safety">
-          Couldn&apos;t load roster
-          {query.error?.message !== undefined ? `: ${query.error.message}` : "."}
+          {/* §γ — copy is keyed on err.code; never render err.message. */}
+          {humanizeCode(
+            query.error,
+            {
+              bcc_unauthorized: "Sign in to see this roster.",
+              bcc_rate_limited: "Loading too fast — give it a moment and try again.",
+              bcc_unavailable: "The roster is temporarily unavailable. Try again shortly.",
+            },
+            "Couldn't load the roster. Try again in a moment.",
+          )}
         </p>
         <button
           type="button"

@@ -48,6 +48,7 @@ import {
   USER_GROUPS_QUERY_KEY_ROOT,
   useUserGroups,
 } from "@/hooks/useUserActivity";
+import { humanizeCode } from "@/lib/api/errors";
 import type { UserGroupItem } from "@/lib/api/types";
 import { isAllowed, unlockHint } from "@/lib/permissions";
 
@@ -75,7 +76,16 @@ export function GroupsPanel({ handle }: GroupsPanelProps) {
         <Header />
         <div className="px-8 py-12">
           <p role="alert" className="bcc-mono text-safety">
-            Couldn&apos;t load groups: {query.error.message}
+            {/* §γ — copy is keyed on err.code; never render err.message. */}
+            {humanizeCode(
+              query.error,
+              {
+                bcc_unauthorized: "Sign in to see groups.",
+                bcc_rate_limited: "Loading too fast — give it a moment and try again.",
+                bcc_unavailable: "Groups are temporarily unavailable. Try again shortly.",
+              },
+              "Couldn't load groups. Try again in a moment.",
+            )}
           </p>
         </div>
       </article>
@@ -214,6 +224,25 @@ function useInvalidateUserGroups(): () => void {
   };
 }
 
+/**
+ * §γ — join/leave failures render the returned string inline; copy is
+ * keyed on err.code, never err.message.
+ */
+function groupActionError(err: unknown): string | null {
+  if (err === null || err === undefined) {
+    return null;
+  }
+  return humanizeCode(
+    err,
+    {
+      bcc_rate_limited: "Slow down — too many attempts. Wait a minute.",
+      bcc_unauthorized: "Sign in to manage your membership.",
+      bcc_permission_denied: "You don't meet this group's requirements yet.",
+    },
+    "Couldn't update your membership. Try again.",
+  );
+}
+
 function HolderJoinButton({ groupId }: { groupId: number }) {
   const onSuccess = useInvalidateUserGroups();
   const mutation = useJoinHolderGroupMutation({ onSuccess });
@@ -223,7 +252,7 @@ function HolderJoinButton({ groupId }: { groupId: number }) {
       label="JOIN"
       pendingLabel="JOINING…"
       isPending={mutation.isPending}
-      errorMessage={mutation.error?.message ?? null}
+      errorMessage={groupActionError(mutation.error)}
       onClick={() => {
         mutation.reset();
         mutation.mutate(groupId);
@@ -241,7 +270,7 @@ function HolderLeaveButton({ groupId }: { groupId: number }) {
       label="LEAVE"
       pendingLabel="LEAVING…"
       isPending={mutation.isPending}
-      errorMessage={mutation.error?.message ?? null}
+      errorMessage={groupActionError(mutation.error)}
       onClick={() => {
         mutation.reset();
         mutation.mutate(groupId);
@@ -259,7 +288,7 @@ function LocalJoinButton({ groupId }: { groupId: number }) {
       label="JOIN"
       pendingLabel="JOINING…"
       isPending={mutation.isPending}
-      errorMessage={mutation.error?.message ?? null}
+      errorMessage={groupActionError(mutation.error)}
       onClick={() => {
         mutation.reset();
         mutation.mutate(groupId);
@@ -277,7 +306,7 @@ function LocalLeaveButton({ groupId }: { groupId: number }) {
       label="LEAVE"
       pendingLabel="LEAVING…"
       isPending={mutation.isPending}
-      errorMessage={mutation.error?.message ?? null}
+      errorMessage={groupActionError(mutation.error)}
       onClick={() => {
         mutation.reset();
         mutation.mutate(groupId);
@@ -295,7 +324,7 @@ function PlainJoinButton({ groupId }: { groupId: number }) {
       label="JOIN"
       pendingLabel="JOINING…"
       isPending={mutation.isPending}
-      errorMessage={mutation.error?.message ?? null}
+      errorMessage={groupActionError(mutation.error)}
       onClick={() => {
         mutation.reset();
         mutation.mutate(groupId);
@@ -313,7 +342,7 @@ function PlainLeaveButton({ groupId }: { groupId: number }) {
       label="LEAVE"
       pendingLabel="LEAVING…"
       isPending={mutation.isPending}
-      errorMessage={mutation.error?.message ?? null}
+      errorMessage={groupActionError(mutation.error)}
       onClick={() => {
         mutation.reset();
         mutation.mutate(groupId);

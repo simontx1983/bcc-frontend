@@ -11,6 +11,7 @@
 import { useState } from "react";
 
 import { useUserReviews } from "@/hooks/useUserActivity";
+import { humanizeCode } from "@/lib/api/errors";
 import type { MemberReview } from "@/lib/api/types";
 
 interface ReviewsPanelProps {
@@ -43,7 +44,16 @@ export function ReviewsPanel({ handle }: ReviewsPanelProps) {
         <Header />
         <div className="px-8 py-12">
           <p role="alert" className="bcc-mono text-safety">
-            Couldn&apos;t load reviews: {query.error.message}
+            {/* §γ — copy is keyed on err.code; never render err.message. */}
+            {humanizeCode(
+              query.error,
+              {
+                bcc_unauthorized: "Sign in to read reviews.",
+                bcc_rate_limited: "Loading too fast — give it a moment and try again.",
+                bcc_unavailable: "Reviews are temporarily unavailable. Try again shortly.",
+              },
+              "Couldn't load reviews. Try again in a moment.",
+            )}
           </p>
         </div>
       </article>

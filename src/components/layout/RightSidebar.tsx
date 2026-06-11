@@ -4,15 +4,14 @@
  * RightSidebar — persistent right column.
  *
  * Contains:
- *   - Top Directories widget (placeholder — wire to API later)
+ *   - Newest members widget
  *   - Trending hashtags widget
  *   - Suggested members widget
  *   - Ads slot
  *
- * TODO: Replace static placeholder data with TanStack Query hooks
- * once Phase 2 API integration begins. (Trending block: DONE — wired to
- * useTrendingHashtags. Suggested block: DONE — wired to
- * useSuggestedMembers. Top Directories remains placeholder.)
+ * All data widgets are wired to live endpoints (Newest → useMembers
+ * default sort = recently joined, public; Trending → useTrendingHashtags;
+ * Suggested → useSuggestedMembers, auth-only).
  */
 
 import { useCallback, useMemo } from "react";
@@ -22,19 +21,12 @@ import { useSession } from "next-auth/react";
 import { Avatar } from "@/components/identity/Avatar";
 import { RankChip } from "@/components/profile/RankChip";
 import { Skeleton } from "@/components/ui/Skeleton";
+import { useMembers } from "@/hooks/useMembers";
 import { useTrendingHashtags } from "@/hooks/useTrendingHashtags";
 import { useSuggestedMembers } from "@/hooks/useSuggestedMembers";
 import { useWatching } from "@/hooks/useWatching";
 import { useWatchMutation, useUnwatchMutation } from "@/hooks/useWatch";
 import type { SuggestedMember, WatchingFollowSource } from "@/lib/api/types";
-
-// ── Placeholder data ──────────────────────────────────────────────────────────
-
-const TOP_DIRECTORIES = [
-  { slug: "injective-validators", name: "Injective Validators", count: 48, tier: "legendary" },
-  { slug: "cosmos-operators",     name: "Cosmos Operators",     count: 34, tier: "rare"      },
-  { slug: "floor-crew",           name: "Floor Crew",           count: 27, tier: "uncommon"  },
-] as const;
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
@@ -42,59 +34,8 @@ export function RightSidebar() {
   return (
     <div className="bcc-sidebar-inner">
 
-      {/* ── Top Directories ── */}
-      <div className="bcc-widget">
-        <div className="bcc-widget-head">Top Directories</div>
-        <div className="bcc-widget-body" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          {TOP_DIRECTORIES.map(({ slug, name, count, tier }) => (
-            <Link
-              key={slug}
-              href={`/directory?filter=${slug}`}
-              style={{ display: "flex", alignItems: "center", gap: 10, textDecoration: "none" }}
-            >
-              {/* Tier color dot */}
-              <span style={{
-                width: 8,
-                height: 8,
-                borderRadius: "50%",
-                background: `var(--bcc-tier-${tier})`,
-                flexShrink: 0,
-              }} />
-              <span style={{ flex: 1, minWidth: 0 }}>
-                <span className="bcc-truncate" style={{
-                  display: "block",
-                  fontSize: 13,
-                  fontWeight: 600,
-                  color: "var(--bcc-text)",
-                }}>
-                  {name}
-                </span>
-                <span className="bcc-mono bcc-text-muted" style={{ fontSize: 11 }}>
-                  {count} operators
-                </span>
-              </span>
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden
-                style={{ color: "var(--bcc-text-muted)", flexShrink: 0 }}>
-                <path d="M5 3l4 4-4 4" stroke="currentColor" strokeWidth="1.4"
-                  strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-            </Link>
-          ))}
-          <Link
-            href="/directory"
-            style={{
-              fontSize: 12,
-              fontFamily: "var(--font-mono), monospace",
-              color: "var(--bcc-accent)",
-              letterSpacing: "0.06em",
-              textTransform: "uppercase",
-              marginTop: 4,
-            }}
-          >
-            View all →
-          </Link>
-        </div>
-      </div>
+      {/* ── Newest members ── */}
+      <NewestMembersWidget />
 
       {/* ── Trending hashtags ── */}
       <TrendingWidget />
@@ -117,6 +58,78 @@ export function RightSidebar() {
         </span>
       </div>
 
+    </div>
+  );
+}
+
+// ── Newest members widget ───────────────────────────────────────────────────
+//
+// Wired to GET /bcc/v1/members via useMembers — the directory's default
+// sort is "joined most recently", so page 1 is the newest faces on the
+// Floor. Public (the members directory is anon-readable), so this widget
+// shows for signed-out visitors too. Rows render in server order (no
+// client ranking). loading → skeleton rows; error/empty → render nothing
+// (hides gracefully, like the other widgets). Replaced the fabricated
+// "Top Directories" stub.
+
+const NEWEST_COUNT = 5;
+
+function NewestMembersWidget() {
+  const { data, isLoading, isError } = useMembers({ page: 1, perPage: NEWEST_COUNT });
+
+  if (isLoading) {
+    return (
+      <div className="bcc-widget">
+        <div className="bcc-widget-head">Newest Members</div>
+        <div className="bcc-widget-body" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          <Skeleton className="h-9" count={3} />
+        </div>
+      </div>
+    );
+  }
+
+  const members = data?.items ?? [];
+  if (isError || members.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="bcc-widget">
+      <div className="bcc-widget-head">Newest Members</div>
+      <div className="bcc-widget-body" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        {members.map((member) => (
+          <Link
+            key={member.id}
+            href={`/u/${member.handle}`}
+            style={{ display: "flex", alignItems: "center", gap: 10, textDecoration: "none", minWidth: 0 }}
+          >
+            <Avatar
+              avatarUrl={member.crest.image_url ?? ""}
+              handle={member.handle}
+              displayName={member.name}
+              size="sm"
+              variant="rounded"
+              tier={member.card_tier}
+            />
+            <span style={{ flex: 1, minWidth: 0 }}>
+              <span className="bcc-truncate" style={{ display: "block", fontSize: 13, fontWeight: 600, color: "var(--bcc-text)" }}>
+                {member.name}
+              </span>
+              <span style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 2 }}>
+                <RankChip
+                  cardTier={member.card_tier}
+                  tierLabel={member.tier_label}
+                  // Card.rank_label is nullable (page cards have no rank);
+                  // member cards always carry one. Empty falls back to the
+                  // tier label inside RankChip.
+                  rankLabel={member.rank_label ?? ""}
+                  size="compact"
+                />
+              </span>
+            </span>
+          </Link>
+        ))}
+      </div>
     </div>
   );
 }

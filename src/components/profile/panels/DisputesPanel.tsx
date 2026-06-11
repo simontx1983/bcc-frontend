@@ -17,6 +17,7 @@
  */
 
 import { useUserDisputes } from "@/hooks/useUserActivity";
+import { humanizeCode } from "@/lib/api/errors";
 import type { MemberDispute } from "@/lib/api/types";
 
 interface DisputesPanelProps {
@@ -43,7 +44,16 @@ export function DisputesPanel({ handle }: DisputesPanelProps) {
         <Header />
         <div className="px-8 py-12">
           <p role="alert" className="bcc-mono text-safety">
-            Couldn&apos;t load disputes: {query.error.message}
+            {/* §γ — copy is keyed on err.code; never render err.message. */}
+            {humanizeCode(
+              query.error,
+              {
+                bcc_unauthorized: "Sign in to read disputes.",
+                bcc_rate_limited: "Loading too fast — give it a moment and try again.",
+                bcc_unavailable: "Disputes are temporarily unavailable. Try again shortly.",
+              },
+              "Couldn't load disputes. Try again in a moment.",
+            )}
           </p>
         </div>
       </article>

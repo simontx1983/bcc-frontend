@@ -173,6 +173,7 @@ function AvatarImpl({
               src={avatarUrl as string}
               alt={a11yName}
               loading="lazy"
+              decoding="async"
               className="absolute inset-0 h-full w-full object-cover"
             />
           )}
@@ -189,6 +190,7 @@ function AvatarImpl({
         src={avatarUrl as string}
         alt={a11yName}
         loading="lazy"
+        decoding="async"
         className={`h-full w-full ${shapeBase} object-cover`}
       />
     ) : (
