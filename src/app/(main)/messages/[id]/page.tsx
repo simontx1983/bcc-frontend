@@ -16,6 +16,7 @@ import { useSession } from "next-auth/react";
 import { MessageComposer } from "@/components/messages/MessageComposer";
 import { ThreadView } from "@/components/messages/ThreadView";
 import { useConversation } from "@/hooks/useConversation";
+import { humanizeCode } from "@/lib/api/errors";
 
 export default function ConversationPage() {
   const params = useParams<{ id: string }>();
@@ -82,7 +83,19 @@ export default function ConversationPage() {
           : (
             <div className="bcc-paper p-6">
               <p role="alert" className="bcc-mono text-safety">
-                Couldn&apos;t load this conversation: {query.error.message}
+                {/* §γ — copy is keyed on err.code; never render err.message. */}
+                {humanizeCode(
+                  query.error,
+                  {
+                    bcc_unauthorized:
+                      "Your session expired — sign in again to view this conversation.",
+                    bcc_forbidden:
+                      "You're not a participant in this conversation.",
+                    bcc_unavailable:
+                      "Messages are temporarily unavailable. Try again shortly.",
+                  },
+                  "Couldn't load this conversation. Try again in a moment.",
+                )}
               </p>
             </div>
           ))}

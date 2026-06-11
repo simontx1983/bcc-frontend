@@ -75,7 +75,11 @@ export function WatchingGrid({ handle }: WatchingGridProps) {
 // ─────────────────────────────────────────────────────────────────────
 
 function WatchingGridBody({ result }: { result: ReturnType<typeof useWatching> }) {
-  if (result.isLoading) {
+  // isPending, not isLoading: useWatching is auth-gated, and a disabled
+  // query (session still resolving) is pending but NOT loading — using
+  // isLoading here would flash the terminal empty state at users who
+  // have a watchlist, on every hard load, before the session settles.
+  if (result.isPending) {
     return (
       <section className="mx-auto mt-12 flex max-w-6xl justify-center px-6 sm:px-8">
         <p className="bcc-mono text-cardstock-deep">Loading your watchlist…</p>
