@@ -157,6 +157,7 @@ export function ProfileHero({ profile, nav }: ProfileHeroProps) {
           <img
             src={profile.cover_photo_url ?? ""}
             alt=""
+            decoding="async"
             className="h-full w-full object-cover"
             style={{ objectPosition: `${posX}% ${posY}%` }}
           />
@@ -223,6 +224,7 @@ export function ProfileHero({ profile, nav }: ProfileHeroProps) {
               <img
                 src={profile.avatar_url}
                 alt={`${profile.display_name}'s avatar`}
+                decoding="async"
                 className="h-full w-full object-cover"
               />
             ) : (

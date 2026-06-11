@@ -24,16 +24,27 @@
  */
 
 import { BccApiError } from "@/lib/api/types";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useState } from "react";
 
-import { NftPickerModal } from "@/components/onchain/NftPickerModal";
 import {
   useNftSelectionsList,
   useReorderNftSelections,
 } from "@/hooks/useNftSelections";
 import { humanizeCode } from "@/lib/api/errors";
 import type { NftSelectionRow } from "@/lib/api/types";
+
+// Code-split — the picker only mounts behind the MANAGE SHOWCASE
+// click, so its chunk (inventory grid + selection mutations) stays
+// out of the settings bundle until then.
+const NftPickerModal = dynamic(
+  () =>
+    import("@/components/onchain/NftPickerModal").then(
+      (m) => m.NftPickerModal
+    ),
+  { ssr: false }
+);
 
 export function NftShowcaseSettings() {
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -185,6 +196,7 @@ function ShowcaseTile({
             src={item.image_url}
             alt=""
             loading="lazy"
+            decoding="async"
             className="h-full w-full object-cover"
           />
         ) : (

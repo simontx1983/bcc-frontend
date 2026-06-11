@@ -404,6 +404,7 @@ function PhotoBody({ body }: { body: Record<string, unknown> }) {
             alt={alt}
             className="max-h-[480px] max-w-full rounded-sm border border-cardstock-edge/30 object-contain"
             loading="lazy"
+            decoding="async"
           />
         </a>
       )}
@@ -450,6 +451,7 @@ function GifBody({ body }: { body: Record<string, unknown> }) {
             alt=""
             className="max-h-[480px] max-w-full rounded-sm border border-cardstock-edge/30 object-contain"
             loading="lazy"
+            decoding="async"
           />
         </a>
       )}

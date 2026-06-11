@@ -206,6 +206,7 @@ function AuthorRef({ author }: { author: MemberSummary }) {
             src={author.avatar_url}
             alt=""
             loading="lazy"
+            decoding="async"
             className="absolute inset-0 h-full w-full object-cover"
           />
         ) : (

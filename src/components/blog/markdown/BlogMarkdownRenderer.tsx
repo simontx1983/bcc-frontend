@@ -34,22 +34,41 @@
 
 import Link from "next/link";
 import type { Route } from "next";
+import {
+  isValidElement,
+  useEffect,
+  useState,
+  type ReactElement,
+  type ReactNode,
+} from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
 import type { Mention } from "@/lib/api/types";
+import { getShiki, highlightCode, shikiReady } from "@/lib/shiki";
 
 import { bccRemarkPlugins } from "./plugins";
 
-// V1: code blocks render unstyled via react-markdown's default `<pre><code>`
-// chrome. Syntax highlighting was prototyped with rehype-pretty-code +
-// Shiki, but Shiki's grammar loader is async and react-markdown 10.x
-// calls the unified pipeline via `runSync`, which throws
-// "runSync finished async" when a Shiki rehype plugin yields. Two V1.5
-// paths land cleanly here: (a) swap in rehype-highlight (highlight.js,
-// fully sync, no Solidity grammar though); (b) pre-warm a Shiki
-// singleton in a layout-level loader so runSync sees a cached
-// highlighter. Path (b) preserves the better grammar coverage.
+// Syntax highlighting — path (b) from the old V1 note, now shipped:
+// Shiki's grammar loader is async and react-markdown 10.x calls the
+// unified pipeline via `runSync` (a Shiki rehype plugin would throw
+// "runSync finished async"), so instead of a rehype plugin we warm a
+// module-level Shiki singleton (src/lib/shiki.ts — the warm-up kicks
+// off when this module is imported with the blog chunk) and highlight
+// synchronously in the `pre` component override below. Before the
+// warm-up resolves, fenced blocks render via react-markdown's default
+// unstyled `<pre><code>` chrome and re-render highlighted once ready.
+
+/**
+ * Narrow react-markdown's `pre` children to the fenced-code `<code>`
+ * element it emits (`<pre><code class="language-x">…`). Inline code
+ * never sits inside a `pre`, so this only matches fenced blocks.
+ */
+function isFencedCode(
+  node: ReactNode
+): node is ReactElement<{ className?: string; children?: ReactNode }> {
+  return isValidElement(node) && node.type === "code";
+}
 
 interface BlogMarkdownRendererProps {
   body: string;
@@ -71,6 +90,22 @@ const DISALLOWED_ELEMENTS = [
 export function BlogMarkdownRenderer({
   body,
 }: BlogMarkdownRendererProps) {
+  // Shiki warm-up tracker — seeds from the singleton (already-warm on
+  // every render after the first post), otherwise re-renders once the
+  // module-level warm-up promise lands. `shikiReady` resolves null on
+  // load failure, in which case we just stay on the unstyled fallback.
+  const [shiki, setShiki] = useState(getShiki());
+  useEffect(() => {
+    if (shiki !== null) return;
+    let cancelled = false;
+    void shikiReady.then((h) => {
+      if (!cancelled && h !== null) setShiki(h);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [shiki]);
+
   return (
     <div className="bcc-blog-prose">
       <ReactMarkdown
@@ -78,6 +113,31 @@ export function BlogMarkdownRenderer({
         disallowedElements={[...DISALLOWED_ELEMENTS]}
         unwrapDisallowed
         components={{
+          pre: ({ children }) => {
+            // Fenced code → sync Shiki highlight on the warmed
+            // singleton. Anything that doesn't match (no language tag,
+            // highlighter not warm yet, non-string children) falls
+            // through to the plain <pre>.
+            if (shiki !== null && isFencedCode(children)) {
+              const match = /language-([\w+#-]+)/.exec(
+                children.props.className ?? ""
+              );
+              const raw = children.props.children;
+              if (match?.[1] !== undefined && typeof raw === "string") {
+                const html = highlightCode(raw.replace(/\n$/, ""), match[1]);
+                if (html !== null) {
+                  return (
+                    // XSS posture unchanged: Shiki escapes all code
+                    // content before emitting markup, so the only HTML
+                    // injected here is Shiki's own pre/span scaffolding
+                    // (same guarantee that lets us keep rehype-raw out).
+                    <div dangerouslySetInnerHTML={{ __html: html }} />
+                  );
+                }
+              }
+            }
+            return <pre>{children}</pre>;
+          },
           a: ({ href, children, title }) => {
             const url = href ?? "";
             const isInternal = url.startsWith("/");

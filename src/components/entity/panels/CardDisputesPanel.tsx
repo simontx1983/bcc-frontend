@@ -186,6 +186,7 @@ function FlaggerRef({ flagger }: { flagger: MemberSummary }) {
             src={flagger.avatar_url}
             alt=""
             loading="lazy"
+            decoding="async"
             className="absolute inset-0 h-full w-full object-cover"
           />
         ) : (

@@ -101,6 +101,7 @@ export function GifPicker({ config, onSelect, onClose }: GifPickerProps) {
                     src={gif.preview_url}
                     alt=""
                     loading="lazy"
+                    decoding="async"
                     className="h-full w-full object-cover"
                   />
                 </button>

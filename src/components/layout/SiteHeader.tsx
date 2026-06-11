@@ -18,7 +18,15 @@ import type { Route } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { SignOutModal } from "@/components/auth/SignOutModal";
+import dynamic from "next/dynamic";
+
+// Code-split — the sign-out confirm only mounts behind the SIGN OUT
+// click, so its chunk stays out of the every-page header bundle.
+const SignOutModal = dynamic(
+  () =>
+    import("@/components/auth/SignOutModal").then((m) => m.SignOutModal),
+  { ssr: false }
+);
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 

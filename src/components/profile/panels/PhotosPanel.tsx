@@ -269,6 +269,7 @@ function PhotoTile({
           src={photoUrl}
           alt={typeof alt === "string" ? alt : ""}
           loading="lazy"
+          decoding="async"
           className="absolute inset-0 h-full w-full object-cover transition-transform duration-200 motion-safe:group-hover:scale-105"
         />
         {item.body.caption !== null && item.body.caption !== "" && (
@@ -411,6 +412,7 @@ function AlbumTile({
             src={album.cover_url}
             alt=""
             loading="lazy"
+            decoding="async"
             className="absolute inset-0 h-full w-full object-cover transition-transform duration-200 motion-safe:group-hover:scale-105"
           />
         ) : (
@@ -566,6 +568,7 @@ function AlbumPhotoTile({ photo }: { photo: AlbumPhoto }) {
           src={photo.photo_url}
           alt=""
           loading="lazy"
+          decoding="async"
           className="absolute inset-0 h-full w-full object-cover transition-transform duration-200 motion-safe:group-hover:scale-105"
         />
       ) : (
