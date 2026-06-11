@@ -239,6 +239,14 @@ export interface CardPermissions {
   can_vouch?: CardPermissionEntry;
   can_stand_behind?: CardPermissionEntry;
   can_report?: CardPermissionEntry;
+  /**
+   * §7 owner vote-dispute entry (DisputeCallout → OpenDisputeModal →
+   * POST /disputes). Owner-only: mirrors DisputeController's
+   * Permissions::owns_page write gate exactly — no feature ladder.
+   * Distinct from `can_dispute`, which is the §J attestation cast.
+   * Optional during rollout; isAllowed() treats absent as denied.
+   */
+  can_open_dispute?: CardPermissionEntry;
 }
 
 /**
