@@ -40,13 +40,6 @@ import type {
 const PAGE_SIZE = 20;
 
 export const NOTIFICATIONS_QUERY_KEY = ["me", "notifications"] as const;
-/**
- * @deprecated The standalone unread-count polling query is gone — the
- * badge now reads from `useBadges()` via the shim below. This key is
- * retained as a no-op invalidation target for legacy callers; new
- * code should invalidate `BADGES_QUERY_KEY_ROOT` instead.
- */
-export const UNREAD_COUNT_QUERY_KEY = ["me", "notifications", "unread-count"] as const;
 
 interface UseNotificationsOptions {
   /** Pass false for anonymous viewers; the hook short-circuits without firing. */

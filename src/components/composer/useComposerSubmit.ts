@@ -131,8 +131,7 @@ export function useInlineComposerSubmit({
 
 /**
  * Map BCC API error codes to user-readable strings for the composer
- * surface. Exported so the blog tab's CREATE sub-tab (which mounts
- * BlogForm directly, outside the Composer shell) shares the same
+ * surface. Exported so sibling composer forms can share the same
  * humanization.
  */
 export function humanizeError(err: unknown): string {

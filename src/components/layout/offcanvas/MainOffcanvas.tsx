@@ -157,30 +157,17 @@ export function MainOffcanvas({ open, onClose }: MainOffcanvasProps) {
             </button>
           </div>
 
-          {/* Member badge, authed only */}
-          {handle && (
-            <div style={{ padding: "0 14px 10px", textAlign: "center" }}>
-              {/* TODO: wire rank/tier from session when available */}
-              <span className="bcc-badge bcc-badge-neutral">Member</span>
-            </div>
-          )}
-
           {/* Divider — 75% centered */}
           <div style={{ width: "75%", height: 1, background: "var(--bcc-border)", margin: "0 auto" }} />
 
-          {/* Followers / Following row — authed only */}
-          {handle ? (
-            <div style={{ padding: "8px 14px", display: "flex", gap: 16, justifyContent: "center" }}>
-              {/* TODO: wire from API */}
-              <span style={{ fontFamily: "var(--font-mono), monospace", fontSize: 11, color: "var(--bcc-text-secondary)", letterSpacing: "0.04em" }}>
-                <strong style={{ color: "var(--bcc-text)", fontWeight: 700 }}>42</strong> Following
-              </span>
-              <span style={{ fontFamily: "var(--font-mono), monospace", fontSize: 11, color: "var(--bcc-text-muted)" }}>·</span>
-              <span style={{ fontFamily: "var(--font-mono), monospace", fontSize: 11, color: "var(--bcc-text-secondary)", letterSpacing: "0.04em" }}>
-                <strong style={{ color: "var(--bcc-text)", fontWeight: 700 }}>18</strong> Followers
-              </span>
-            </div>
-          ) : (
+          {/* Guest auth actions — sign-up/in prompt for anonymous viewers.
+              Authed viewers see no stats strip here: the viewer's
+              follower/following counts + rank live on the §3.1 user
+              view-model (GET /users/:handle), which the shell does not
+              otherwise fetch. Surfacing them would mean a new query on
+              every menu open; rather than ship fabricated numbers we
+              omit the strip until that data is cheaply available. */}
+          {!handle && (
             <div style={{ padding: "10px 12px", display: "flex", gap: 8 }}>
               <Link href="/signup" className="bcc-btn bcc-btn-primary bcc-btn-sm" onClick={onClose} style={{ flex: 1, justifyContent: "center" }}>
                 Sign Up

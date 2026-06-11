@@ -4,15 +4,14 @@
  * RightSidebar — persistent right column.
  *
  * Contains:
- *   - Top Directories widget (placeholder — wire to API later)
  *   - Trending hashtags widget
  *   - Suggested members widget
  *   - Ads slot
  *
- * TODO: Replace static placeholder data with TanStack Query hooks
- * once Phase 2 API integration begins. (Trending block: DONE — wired to
- * useTrendingHashtags. Suggested block: DONE — wired to
- * useSuggestedMembers. Top Directories remains placeholder.)
+ * Both data widgets are wired to live endpoints (Trending →
+ * useTrendingHashtags, Suggested → useSuggestedMembers). A
+ * server-backed "Top Directories" widget can be added here once an
+ * endpoint that returns named groupings with operator counts exists.
  */
 
 import { useCallback, useMemo } from "react";
@@ -28,73 +27,11 @@ import { useWatching } from "@/hooks/useWatching";
 import { useWatchMutation, useUnwatchMutation } from "@/hooks/useWatch";
 import type { SuggestedMember, WatchingFollowSource } from "@/lib/api/types";
 
-// ── Placeholder data ──────────────────────────────────────────────────────────
-
-const TOP_DIRECTORIES = [
-  { slug: "injective-validators", name: "Injective Validators", count: 48, tier: "legendary" },
-  { slug: "cosmos-operators",     name: "Cosmos Operators",     count: 34, tier: "rare"      },
-  { slug: "floor-crew",           name: "Floor Crew",           count: 27, tier: "uncommon"  },
-] as const;
-
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export function RightSidebar() {
   return (
     <div className="bcc-sidebar-inner">
-
-      {/* ── Top Directories ── */}
-      <div className="bcc-widget">
-        <div className="bcc-widget-head">Top Directories</div>
-        <div className="bcc-widget-body" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          {TOP_DIRECTORIES.map(({ slug, name, count, tier }) => (
-            <Link
-              key={slug}
-              href={`/directory?filter=${slug}`}
-              style={{ display: "flex", alignItems: "center", gap: 10, textDecoration: "none" }}
-            >
-              {/* Tier color dot */}
-              <span style={{
-                width: 8,
-                height: 8,
-                borderRadius: "50%",
-                background: `var(--bcc-tier-${tier})`,
-                flexShrink: 0,
-              }} />
-              <span style={{ flex: 1, minWidth: 0 }}>
-                <span className="bcc-truncate" style={{
-                  display: "block",
-                  fontSize: 13,
-                  fontWeight: 600,
-                  color: "var(--bcc-text)",
-                }}>
-                  {name}
-                </span>
-                <span className="bcc-mono bcc-text-muted" style={{ fontSize: 11 }}>
-                  {count} operators
-                </span>
-              </span>
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden
-                style={{ color: "var(--bcc-text-muted)", flexShrink: 0 }}>
-                <path d="M5 3l4 4-4 4" stroke="currentColor" strokeWidth="1.4"
-                  strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-            </Link>
-          ))}
-          <Link
-            href="/directory"
-            style={{
-              fontSize: 12,
-              fontFamily: "var(--font-mono), monospace",
-              color: "var(--bcc-accent)",
-              letterSpacing: "0.06em",
-              textTransform: "uppercase",
-              marginTop: 4,
-            }}
-          >
-            View all →
-          </Link>
-        </div>
-      </div>
 
       {/* ── Trending hashtags ── */}
       <TrendingWidget />
