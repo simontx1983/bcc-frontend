@@ -4,14 +4,14 @@
  * RightSidebar — persistent right column.
  *
  * Contains:
+ *   - Newest members widget
  *   - Trending hashtags widget
  *   - Suggested members widget
  *   - Ads slot
  *
- * Both data widgets are wired to live endpoints (Trending →
- * useTrendingHashtags, Suggested → useSuggestedMembers). A
- * server-backed "Top Directories" widget can be added here once an
- * endpoint that returns named groupings with operator counts exists.
+ * All data widgets are wired to live endpoints (Newest → useMembers
+ * default sort = recently joined, public; Trending → useTrendingHashtags;
+ * Suggested → useSuggestedMembers, auth-only).
  */
 
 import { useCallback, useMemo } from "react";
@@ -21,6 +21,7 @@ import { useSession } from "next-auth/react";
 import { Avatar } from "@/components/identity/Avatar";
 import { RankChip } from "@/components/profile/RankChip";
 import { Skeleton } from "@/components/ui/Skeleton";
+import { useMembers } from "@/hooks/useMembers";
 import { useTrendingHashtags } from "@/hooks/useTrendingHashtags";
 import { useSuggestedMembers } from "@/hooks/useSuggestedMembers";
 import { useWatching } from "@/hooks/useWatching";
@@ -32,6 +33,9 @@ import type { SuggestedMember, WatchingFollowSource } from "@/lib/api/types";
 export function RightSidebar() {
   return (
     <div className="bcc-sidebar-inner">
+
+      {/* ── Newest members ── */}
+      <NewestMembersWidget />
 
       {/* ── Trending hashtags ── */}
       <TrendingWidget />
@@ -54,6 +58,78 @@ export function RightSidebar() {
         </span>
       </div>
 
+    </div>
+  );
+}
+
+// ── Newest members widget ───────────────────────────────────────────────────
+//
+// Wired to GET /bcc/v1/members via useMembers — the directory's default
+// sort is "joined most recently", so page 1 is the newest faces on the
+// Floor. Public (the members directory is anon-readable), so this widget
+// shows for signed-out visitors too. Rows render in server order (no
+// client ranking). loading → skeleton rows; error/empty → render nothing
+// (hides gracefully, like the other widgets). Replaced the fabricated
+// "Top Directories" stub.
+
+const NEWEST_COUNT = 5;
+
+function NewestMembersWidget() {
+  const { data, isLoading, isError } = useMembers({ page: 1, perPage: NEWEST_COUNT });
+
+  if (isLoading) {
+    return (
+      <div className="bcc-widget">
+        <div className="bcc-widget-head">Newest Members</div>
+        <div className="bcc-widget-body" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          <Skeleton className="h-9" count={3} />
+        </div>
+      </div>
+    );
+  }
+
+  const members = data?.items ?? [];
+  if (isError || members.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="bcc-widget">
+      <div className="bcc-widget-head">Newest Members</div>
+      <div className="bcc-widget-body" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        {members.map((member) => (
+          <Link
+            key={member.id}
+            href={`/u/${member.handle}`}
+            style={{ display: "flex", alignItems: "center", gap: 10, textDecoration: "none", minWidth: 0 }}
+          >
+            <Avatar
+              avatarUrl={member.crest.image_url ?? ""}
+              handle={member.handle}
+              displayName={member.name}
+              size="sm"
+              variant="rounded"
+              tier={member.card_tier}
+            />
+            <span style={{ flex: 1, minWidth: 0 }}>
+              <span className="bcc-truncate" style={{ display: "block", fontSize: 13, fontWeight: 600, color: "var(--bcc-text)" }}>
+                {member.name}
+              </span>
+              <span style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 2 }}>
+                <RankChip
+                  cardTier={member.card_tier}
+                  tierLabel={member.tier_label}
+                  // Card.rank_label is nullable (page cards have no rank);
+                  // member cards always carry one. Empty falls back to the
+                  // tier label inside RankChip.
+                  rankLabel={member.rank_label ?? ""}
+                  size="compact"
+                />
+              </span>
+            </span>
+          </Link>
+        ))}
+      </div>
     </div>
   );
 }
