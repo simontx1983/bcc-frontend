@@ -20,8 +20,10 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 
+import { ConversationsPanel } from "@/components/messages/ConversationsPanel";
 import { NotificationsPanel } from "@/components/notifications/NotificationsPanel";
 import { useUnreadCount } from "@/hooks/useNotifications";
+import { useUnreadMessageCount } from "@/hooks/useUnreadMessageCount";
 
 // Code-split — the sign-out confirm only mounts behind the SIGN OUT
 // click, so its chunk stays out of the every-page header bundle.
@@ -161,11 +163,6 @@ const modalSeeAllStyle: React.CSSProperties = {
   letterSpacing: "0.06em",
 };
 
-const modalEmptyStyle: React.CSSProperties = {
-  padding: "32px 20px",
-  textAlign: "center",
-};
-
 // ── Theme Modal ───────────────────────────────────────────────────────────────
 
 interface ThemeModalProps {
@@ -262,15 +259,17 @@ function MessagesModal({ onClose, anchorRef }: MessagesModalProps) {
           See all
         </Link>
       </div>
-      <div style={modalEmptyStyle}>
-        <div style={{ fontSize: 28, marginBottom: 10 }}>📭</div>
-        <p style={{ fontFamily: "var(--font-stencil), Impact, sans-serif", fontWeight: 800, fontSize: 15, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--bcc-text)", marginBottom: 8 }}>
-          Quiet Inbox
-        </p>
-        <p style={{ fontFamily: "var(--font-serif), Georgia, serif", fontSize: 13, color: "var(--bcc-text-secondary)", lineHeight: 1.6 }}>
-          No conversations yet. Start one from the directory — every operator has a file, every file has a Message button.
-        </p>
-      </div>
+      {/* Shared inbox preview panel — same rows as /messages
+          (ConversationList) behind the same useConversations query.
+          The "Quiet Inbox" copy lives inside the panel now, rendered
+          only when the inbox is genuinely empty. MessagesModal only
+          mounts for authed viewers (messagesOpen && viewerHandle), so
+          enabled is unconditionally true here. */}
+      <ConversationsPanel
+        enabled={true}
+        open={true}
+        onNavigate={onClose}
+      />
     </div>
   );
 }
@@ -454,6 +453,13 @@ export function SiteHeader() {
   const notifUnread = useUnreadCount({ enabled: viewerHandle !== null });
   const notifUnreadCount = notifUnread.data?.unread_count ?? 0;
 
+  // Chat unread badge — selects the messages_unread slice of the SAME
+  // BadgesProvider /me/badges payload (see useUnreadMessageCount.ts);
+  // zero additional polling. Auth gating is centralised in the
+  // provider, so no enabled flag is passed here.
+  const msgUnread = useUnreadMessageCount();
+  const msgUnreadCount = msgUnread.data?.count ?? 0;
+
   // Search state
   const [search, setSearch] = useState("");
 
@@ -612,16 +618,30 @@ export function SiteHeader() {
         </Link>)}
 
         {/* Messages */}
-        {viewerHandle && 
+        {viewerHandle &&
           <button
           ref={messagesRef}
           onClick={() => messagesOpen ? setMessagesOpen(false) : openMessages()}
           className={`bcc-btn-icon${messagesOpen ? " active" : ""}`}
-          aria-label="Messages"
+          aria-label={
+            msgUnreadCount > 0
+              ? `Messages — ${msgUnreadCount} unread`
+              : "Messages"
+          }
           title="Messages"
-          style={activeStyle(messagesOpen)}
+          style={{ position: "relative", ...activeStyle(messagesOpen) }}
         >
           <ChatIcon />
+          {/* Unread badge — same chip classes as the bell badge below
+              and MessagesBadge; count capped at "9+" like the bell. */}
+          {msgUnreadCount > 0 && (
+            <span
+              aria-hidden
+              className="bcc-mono absolute -right-0.5 -top-0.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-safety px-1 text-[9px] font-semibold leading-none text-cardstock"
+            >
+              {msgUnreadCount > 9 ? "9+" : msgUnreadCount}
+            </span>
+          )}
         </button>}
 
         {/* Notifications — authed only, hidden on mobile via CSS class */}
@@ -759,7 +779,7 @@ export function SiteHeader() {
           />
         )}
 
-        {messagesOpen && (
+        {messagesOpen && viewerHandle && (
           <MessagesModal
             onClose={() => setMessagesOpen(false)}
             anchorRef={messagesRef}
