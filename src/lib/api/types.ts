@@ -4366,12 +4366,64 @@ export interface LinkedWallet {
 
 export interface MyWalletsResponse {
   items: LinkedWallet[];
+  /**
+   * Account-recovery posture, returned alongside the wallet list so the
+   * §V2 recovery-email banner can render without a second round-trip.
+   *
+   *  - has_recovery_email: a real (non-placeholder) recovery email is on
+   *    file and verified.
+   *  - verified_wallet_count: how many of the user's linked wallets have
+   *    passed signature verification — drives the banner's urgency copy
+   *    (a single verified wallet with no recovery email = lockout risk).
+   */
+  recovery: {
+    has_recovery_email: boolean;
+    verified_wallet_count: number;
+  };
 }
 
 export interface UnlinkWalletResponse {
   ok: true;
   id: number;
   removed: boolean;
+}
+
+// ────────────────────────────────────────────────────────────────────────
+// §V2 — recovery email (attach a real, deliverable email to a wallet-only
+// account, proven by a fresh wallet signature + a 6-digit OTP).
+//
+// Backend: MyAccountEndpoint. Two-step:
+//   1. POST /me/account/recovery-email        — sign + submit email → OTP sent
+//   2. POST /me/account/recovery-email/verify — confirm the OTP → email bound
+// ────────────────────────────────────────────────────────────────────────
+
+export interface RecoveryEmailRequestBody {
+  wallet_address: string;
+  chain_slug: string;
+  /** base64/hex signature over the authed nonce challenge. */
+  signature: string;
+  email: string;
+  /** Cosmos carries pub_key + chain_id here; other chains send {}. */
+  extra?: Record<string, string>;
+}
+
+export interface RecoveryEmailRequestResponse {
+  ok: true;
+  /** Masked form of the submitted email, safe to echo back in the UI. */
+  email_masked: string;
+  /** Seconds until the OTP expires. */
+  expires_in: number;
+}
+
+export interface VerifyRecoveryEmailBody {
+  /** 6-digit OTP from the recovery-email message. */
+  code: string;
+}
+
+export interface VerifyRecoveryEmailResponse {
+  ok: true;
+  /** The now-confirmed recovery email (full, not masked). */
+  email: string;
 }
 
 // ────────────────────────────────────────────────────────────────────────

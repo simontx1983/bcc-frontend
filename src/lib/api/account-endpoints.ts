@@ -10,6 +10,11 @@
  *   - patchAccountPassword → PATCH  /me/account/password
  *   - deleteAccount        → DELETE /me/account
  *
+ * Plus the §V2 recovery-email pair (wallet-only accounts attaching a real
+ * deliverable email, proven by a wallet signature + OTP):
+ *   - requestRecoveryEmail → POST /me/account/recovery-email
+ *   - verifyRecoveryEmail  → POST /me/account/recovery-email/verify
+ *
  * After a successful deleteAccount() the server tears down the auth
  * cookie, so the client should redirect to `logout_url` (or `/`) rather
  * than try another authenticated call.
@@ -19,6 +24,10 @@ import { bccFetchAsClient } from "@/lib/api/client";
 import type {
   AccountActivityResponse,
   LogoutEverywhereResponse,
+  RecoveryEmailRequestBody,
+  RecoveryEmailRequestResponse,
+  VerifyRecoveryEmailBody,
+  VerifyRecoveryEmailResponse,
 } from "@/lib/api/types";
 
 export interface PatchAccountEmailBody {
@@ -75,6 +84,49 @@ export function deleteAccount(
     method: "DELETE",
     body,
   });
+}
+
+/**
+ * POST /me/account/recovery-email — submit a wallet-signed proof + a real
+ * email. The caller signs an authed nonce (via runLinkFlow) for a wallet
+ * that is already linked + verified; the server emails a 6-digit OTP to
+ * the address and returns its masked form + the OTP TTL.
+ *
+ * Errors (thrown as BccApiError):
+ *   bcc_unauthorized      — no session
+ *   bcc_invalid_request   — missing fields / unknown chain / wallet not
+ *                           linked-or-verified / challenge expired /
+ *                           placeholder or malformed email
+ *   bcc_signature_invalid — signature did not verify
+ *   bcc_conflict          — email already in use by another account
+ *   bcc_rate_limited       — too many attempts
+ */
+export function requestRecoveryEmail(
+  body: RecoveryEmailRequestBody,
+): Promise<RecoveryEmailRequestResponse> {
+  return bccFetchAsClient<RecoveryEmailRequestResponse>(
+    "me/account/recovery-email",
+    { method: "POST", body },
+  );
+}
+
+/**
+ * POST /me/account/recovery-email/verify — confirm the 6-digit OTP and
+ * bind the recovery email to the account.
+ *
+ * Errors (thrown as BccApiError):
+ *   bcc_invalid_request — no pending request (400) / incorrect or expired
+ *                         code (422)
+ *   bcc_conflict        — email taken in the interim
+ *   bcc_rate_limited    — too many attempts
+ */
+export function verifyRecoveryEmail(
+  body: VerifyRecoveryEmailBody,
+): Promise<VerifyRecoveryEmailResponse> {
+  return bccFetchAsClient<VerifyRecoveryEmailResponse>(
+    "me/account/recovery-email/verify",
+    { method: "POST", body },
+  );
 }
 
 /**
