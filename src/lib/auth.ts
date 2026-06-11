@@ -136,7 +136,17 @@ async function callBccOauth(body: {
       `${clientEnv.BCC_API_URL}/wp-json/bcc/v1/auth/oauth`,
       {
         method: "POST",
-        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+          // Server-to-server shared secret. /auth/oauth trusts the OAuth
+          // identity we assert (after NextAuth verified the provider token),
+          // so the backend requires this secret to prove the call came from
+          // here and not an arbitrary client. Server-side only (NextAuth
+          // callback) — never exposed to the browser. Backend:
+          // AuthEndpoint::oauthBridgeGate (BCC_OAUTH_BRIDGE_SECRET).
+          "X-Bcc-Oauth-Secret": process.env["BCC_OAUTH_BRIDGE_SECRET"] ?? "",
+        },
         body: JSON.stringify(body),
       }
     );
