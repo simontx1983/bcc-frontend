@@ -29,6 +29,7 @@
  * page renders only what §3.1 actually ships.
  */
 
+import type { Metadata } from "next";
 import { getServerSession } from "next-auth";
 import Link from "next/link";
 import type { Route } from "next";
@@ -39,6 +40,7 @@ import { BioBox } from "@/components/layout/BioBox";
 import { PageHero } from "@/components/layout/PageHero";
 import { AttestationActionCluster } from "@/components/profile/AttestationActionCluster";
 import { ProfileTabs } from "@/components/profile/ProfileTabs";
+import { ShareProfileButton } from "@/components/profile/ShareProfileButton";
 import { authOptions } from "@/lib/auth";
 import { tokenFromSession } from "@/lib/api/client";
 import { getMeReliability } from "@/lib/api/me-reliability-endpoints";
@@ -54,6 +56,77 @@ import {
 
 interface PageProps {
   params: Promise<{ handle: string }>;
+}
+
+/**
+ * generateMetadata — Open Graph / Twitter-card tags so a pasted
+ * /u/[handle] link renders a rich preview on social platforms.
+ *
+ * Profiles are PUBLIC (anon-viewable), so we fetch with a null token —
+ * the §3.1 endpoint returns the public view-model for anonymous reads.
+ * Metadata generation runs without a session, so there is no token to
+ * forward anyway; the anon path is exactly what a social crawler sees.
+ *
+ * Unknown handle → minimal "Profile not found" metadata rather than a
+ * throw (a throw here would surface as a 500 in the <head> render path).
+ *
+ * URLs are emitted relative ("/u/handle", avatar path) and resolved to
+ * absolute by the root layout's `metadataBase`, which OG requires.
+ */
+export async function generateMetadata({
+  params,
+}: PageProps): Promise<Metadata> {
+  const { handle } = await params;
+
+  let profile: MemberProfile;
+  try {
+    profile = await getUser(handle, null);
+  } catch {
+    // 404 or any transient failure → safe minimal head. Don't throw.
+    return { title: "Profile not found · Blue Collar Crypto" };
+  }
+
+  const name = presentationName(profile);
+  const handleSuffix = profile.handle.includes("@")
+    ? ""
+    : ` (@${profile.handle})`;
+  const title = `${name}${handleSuffix}`;
+
+  const bio = profile.bio.trim();
+  const description =
+    bio !== ""
+      ? bio
+      : `${name} on the Floor — trust, identity, and reputation for crypto operators.`;
+
+  const canonical = `/u/${encodeURIComponent(profile.handle)}`;
+
+  // Prefer the wide cover for a large card; fall back to the avatar/crest
+  // for the compact summary card. Both are absolute public URLs from the
+  // backend (PeepSo media), resolved as-is when already absolute.
+  const cover = profile.cover_photo_url;
+  const avatar = profile.avatar_url.trim();
+  const hasCover = cover !== null && cover.trim() !== "";
+  const imageUrl = hasCover ? cover : avatar !== "" ? avatar : null;
+  const images = imageUrl !== null ? [imageUrl] : undefined;
+
+  return {
+    title,
+    description,
+    alternates: { canonical },
+    openGraph: {
+      title,
+      description,
+      url: canonical,
+      type: "profile",
+      ...(images !== undefined ? { images } : {}),
+    },
+    twitter: {
+      card: hasCover ? "summary_large_image" : "summary",
+      title,
+      description,
+      ...(images !== undefined ? { images } : {}),
+    },
+  };
 }
 
 export default async function MemberProfilePage({ params }: PageProps) {
@@ -138,12 +211,21 @@ export default async function MemberProfilePage({ params }: PageProps) {
           the viewer parse the card. Suppress the handle line when the
           handle is email-shaped (default PeepSo before claim). */}
       <header className="mx-auto mt-12 max-w-[1440px] px-4 sm:px-7">
-        <h1
-          className="bcc-stencil text-cardstock leading-[0.92]"
-          style={{ fontSize: "clamp(1.75rem, 5.5vw, 4.5rem)", wordBreak: "break-word" }}
-        >
-          {title}
-        </h1>
+        {/* Title row — stencil display name on the left, Share on the
+            right. Share is public-to-everyone (any viewer can share any
+            public profile), distinct from the owner-only Edit Profile
+            CTA which lives down in the hero action column. */}
+        <div className="flex items-start justify-between gap-4">
+          <h1
+            className="bcc-stencil text-cardstock leading-[0.92]"
+            style={{ fontSize: "clamp(1.75rem, 5.5vw, 4.5rem)", wordBreak: "break-word" }}
+          >
+            {title}
+          </h1>
+          <div className="shrink-0 pt-1">
+            <ShareProfileButton handle={profile.handle} displayName={title} />
+          </div>
+        </div>
         {showHandleKicker && (
           <p
             className="bcc-mono mt-3 text-safety"

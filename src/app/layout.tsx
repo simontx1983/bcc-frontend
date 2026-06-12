@@ -42,7 +42,36 @@ const script = Homemade_Apple({
   display: "swap",
 });
 
+/**
+ * App's own origin for absolute OG / canonical URLs. Open Graph and
+ * Twitter-card images MUST be absolute — `metadataBase` lets per-page
+ * metadata emit relative paths that Next resolves against this origin.
+ *
+ * Source order:
+ *   1. NEXTAUTH_URL — the canonical URL of THIS Next.js app (already
+ *      required by NextAuth; NOT the WP API URL). This is the right
+ *      answer in dev and in any deploy that sets it.
+ *   2. VERCEL_URL — Vercel injects the deployment host (no scheme) for
+ *      preview/prod builds where NEXTAUTH_URL may be omitted.
+ *   3. http://localhost:3000 — last-resort dev fallback so a missing
+ *      env never crashes metadata generation. In that case absolute
+ *      OG URLs point at localhost (only a concern if NEXTAUTH_URL is
+ *      unset in a real deploy — set it).
+ */
+function appOrigin(): string {
+  const fromNextAuth = process.env["NEXTAUTH_URL"];
+  if (fromNextAuth !== undefined && fromNextAuth !== "") {
+    return fromNextAuth.replace(/\/$/, "");
+  }
+  const fromVercel = process.env["VERCEL_URL"];
+  if (fromVercel !== undefined && fromVercel !== "") {
+    return `https://${fromVercel}`;
+  }
+  return "http://localhost:3000";
+}
+
 export const metadata: Metadata = {
+  metadataBase: new URL(appOrigin()),
   title: "Blue Collar Crypto",
   description: "The Floor — trust, identity, and reputation for crypto operators.",
 };
