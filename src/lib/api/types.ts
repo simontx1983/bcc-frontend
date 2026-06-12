@@ -683,10 +683,12 @@ export interface DeleteCommentResponse {
  */
 /**
  * Per-action permission entry on a FeedItem. Mirrors the backend
- * shape: `{allowed, unlock_hint}` per key. Known keys today:
- *   can_react · can_reply · can_share · can_report
- * Unknown keys default to `{allowed: false, unlock_hint: null}` if a
- * future backend ships one before the frontend types are bumped.
+ * shape: `{allowed, unlock_hint}` per key. Known key today: `can_report`
+ * (read by ReportButton). The earlier can_react/can_reply/can_share keys
+ * were removed 2026-06-11 — never emitted with real values, never read,
+ * and `share` had no feature. Unknown keys default to
+ * `{allowed: false, unlock_hint: null}` if a future backend ships one
+ * before the frontend types are bumped.
  */
 export interface FeedItemPermission {
   allowed: boolean;
