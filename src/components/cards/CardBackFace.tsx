@@ -10,6 +10,7 @@
  */
 
 import { OnchainStatsList } from "@/components/cards/CardOnchainSignals";
+import { CommunityDossierBack } from "@/components/cards/CommunityDossier";
 import { MemberDossierBack } from "@/components/cards/MemberDossier";
 import type { Card } from "@/lib/api/types";
 
@@ -48,6 +49,12 @@ export function CardBackFace({ card }: { card: Card }) {
             creator) keep the stats + on-chain + social-proof block. */}
         {card.card_kind === "member" && card.member_dossier != null ? (
           <MemberDossierBack dossier={card.member_dossier} />
+        ) : card.card_kind === "community" && card.community_dossier != null ? (
+          // Community cards render the COLLECTION / THE FLOOR dossier;
+          // the generic stats <dl> is skipped (front-face StatsPanel
+          // already shows Members + Posts 7d) — same de-duplication
+          // rationale as the member branch above.
+          <CommunityDossierBack dossier={card.community_dossier} />
         ) : (
           <>
             <dl className="space-y-2 text-sm">

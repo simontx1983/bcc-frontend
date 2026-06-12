@@ -140,7 +140,7 @@ export interface OnboardingStatus {
 // Cards (§L5 polymorphic view-model)
 // ─────────────────────────────────────────────────────────────────────
 
-export type CardKind = "validator" | "project" | "creator" | "member";
+export type CardKind = "validator" | "project" | "creator" | "member" | "community";
 export type ReputationTier = "elite" | "trusted" | "neutral" | "caution" | "risky";
 export type CardTier = "legendary" | "rare" | "uncommon" | "common" | null;
 
@@ -266,6 +266,34 @@ export interface MemberDossier {
   engagement: MemberSummary["engagement"];
   owned_pages_by_type: MemberSummary["owned_pages_by_type"];
   primary_local: MemberSummary["primary_local"];
+}
+
+/**
+ * Community-card dossier block. Present (object) on `card_kind:
+ * "community"` cards, `null` on every other kind — mirrors the
+ * `member_dossier` convention. Drives the community CardFactory front
+ * strip (gate / verification labels), the JOIN cell of the community
+ * action bar, and the BACK face (COLLECTION stats for NFT groups,
+ * THE FLOOR facts for locals/plain groups).
+ *
+ * The sub-shapes are intentionally identical to the same-named fields
+ * on `GroupDiscoveryItem` / `GroupDetailResponse` — the backend
+ * hydrates them from the same `GroupsService` source.
+ */
+export interface CardCommunityDossier {
+  type: GroupDiscoveryType;
+  privacy: GroupDiscoveryPrivacy;
+  member_count: number;
+  verification: GroupVerification | null;
+  chain_tag: string | null;
+  trust_min: 25 | 50 | 75 | null;
+  collection_stats: CollectionStats | null;
+  /**
+   * True when the current viewer is an active member of the group.
+   * Always false for anonymous viewers. Drives the MEMBER ✓ state of
+   * the community action bar and the pinned back-face member line.
+   */
+  viewer_is_member: boolean;
 }
 
 export interface CardSocialProof {
@@ -442,6 +470,14 @@ export interface Card {
    * sections, typed-role pills, primary-local chip, cold-start fallback).
    */
   member_dossier: MemberDossier | null;
+  /**
+   * Community dossier — populated (object) on `card_kind: "community"`
+   * cards, `null` on every other kind. Always present on the wire —
+   * mirrors the `member_dossier` declaration style. Drives the
+   * community CardFactory front signals strip, JOIN action bar, and
+   * COLLECTION / THE FLOOR back face.
+   */
+  community_dossier: CardCommunityDossier | null;
   permissions: CardPermissions;
   social_proof: CardSocialProof | null;
   links: {
@@ -2112,6 +2148,14 @@ export interface GroupDiscoveryItem {
    * `CreatePlainGroupResponse.trust_min` wire shape.
    */
   trust_min: 25 | 50 | 75 | null;
+  /**
+   * §L5 polymorphic card view-model (card_kind "community") — the
+   * server renders every discovery item as a full trading card so
+   * /communities composes CardFactory directly. Carries the
+   * `community_dossier` block (gate / verification / collection
+   * stats / viewer_is_member).
+   */
+  card: Card;
 }
 
 /**
@@ -4812,6 +4856,12 @@ export interface GroupDetailResponse {
    */
   trust_min: 25 | 50 | 75 | null;
   links: { self: string };
+  /**
+   * §L5 polymorphic card view-model (card_kind "community") — same
+   * shape as `GroupDiscoveryItem.card`. Drives the GroupDetailShell
+   * hero card (CardFactory with JOIN wiring).
+   */
+  card: Card;
 }
 
 /**

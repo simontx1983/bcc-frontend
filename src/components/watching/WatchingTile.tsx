@@ -45,6 +45,7 @@ const KIND_COLORS: Record<CardKind, string> = {
   project:   "var(--chain-injective)",
   creator:   "var(--chain-osmosis)",
   member:    "var(--blueprint)",
+  community: "var(--union)",
 };
 
 export function WatchingTile({ item, isUnwatching = false }: WatchingTileProps) {

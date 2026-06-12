@@ -71,6 +71,7 @@ const KIND_TO_COLOR_VAR: Partial<Record<CardKind, string>> = {
   validator: "var(--blueprint)",
   project:   "var(--safety)",
   creator:   "var(--chain-kujira)",
+  community: "var(--union)",
 };
 
 export interface CardFactoryProps {
@@ -107,6 +108,21 @@ export interface CardFactoryProps {
    * cards, directory cards, etc. don't accidentally surface the
    * upload affordance. */
   canEditAvatar?: boolean | undefined;
+  /**
+   * Community cards only (same convention as onPull/isPulled) — fires
+   * the kind-appropriate join mutation. The caller owns the dispatch
+   * (holder / local / plain) because hooks can't be conditional inside
+   * this polymorphic component. Ignored for non-community kinds.
+   */
+  onJoin?: ((card: Card) => void) | undefined;
+  /**
+   * Community cards only — optimistic "already joined" override for
+   * the JOIN cell (plain/local paths; the NFT path never flips
+   * optimistically — server truth only).
+   */
+  isJoined?: boolean | undefined;
+  /** Community cards only — renders JOINING…/CHECKING… in the JOIN cell. */
+  joinPending?: boolean | undefined;
 }
 
 export function CardFactory({
@@ -117,6 +133,9 @@ export function CardFactory({
   isPulled = false,
   hideOpenAction = false,
   canEditAvatar = false,
+  onJoin,
+  isJoined = false,
+  joinPending = false,
 }: CardFactoryProps) {
   const [flipped, setFlipped] = useState(false);
   const cardRef = useRef<HTMLDivElement | null>(null);
@@ -167,6 +186,20 @@ export function CardFactory({
   // they don't have a single per-kind identity in the same way
   // (a "member" card is the person, not a category).
   const chainStyle = useMemo<CSSProperties>(() => {
+    // Community cards with a chain-bound crest (NFT holder groups) keep
+    // their chain identity — a Stargaze holders room reads as Stargaze,
+    // not as generic community-green. Non-chain community crests fall
+    // through to the union color in KIND_TO_COLOR_VAR.
+    if (
+      card.card_kind === "community" &&
+      card.crest.background_kind === "chain" &&
+      card.crest.background_value !== ""
+    ) {
+      return {
+        ["--bcc-chain-color" as string]: `var(--chain-${card.crest.background_value})`,
+      };
+    }
+
     const kindColor = KIND_TO_COLOR_VAR[card.card_kind];
     if (kindColor !== undefined) {
       return { ["--bcc-chain-color" as string]: kindColor };
@@ -210,6 +243,9 @@ export function CardFactory({
           isPulled={isPulled}
           hideOpenAction={hideOpenAction}
           canEditAvatar={canEditAvatar}
+          onJoin={onJoin}
+          isJoined={isJoined}
+          joinPending={joinPending}
         />
         <CardBackFace card={card} />
       </div>

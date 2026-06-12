@@ -9,10 +9,10 @@
 
 import type { Route } from "next";
 import Link from "next/link";
-import type { MouseEvent } from "react";
+import type { MouseEvent, ReactNode } from "react";
 import { useRouter } from "next/navigation";
 
-import type { Card } from "@/lib/api/types";
+import type { Card, CardCommunityDossier } from "@/lib/api/types";
 import { FOLLOW_COPY } from "@/lib/copy";
 import { isAllowed, unlockHint } from "@/lib/permissions";
 
@@ -127,6 +127,138 @@ export function ActionBar({
           className="bcc-stencil flex h-11 items-center justify-center border-l border-cardstock-edge/40 bg-safety text-center text-cardstock transition hover:bg-ink"
         >
           View profile
+        </Link>
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// CommunityActionBar — the community-card variant of the action band.
+// Two cells: JOIN (state machine over the server dossier) + OPEN.
+// ─────────────────────────────────────────────────────────────────────
+
+/**
+ * JOIN-cell state machine. Branches ONLY on `card.community_dossier`
+ * (§A2 — the server already resolved membership/gating; nothing here
+ * recomputes eligibility):
+ *
+ *   viewer_is_member (or optimistic isJoined) → MEMBER ✓   (no-op)
+ *   nft, not a member                         → CHECK & JOIN (onJoin)
+ *   trust-gated non-member                    → JOIN (enabled — the
+ *                                               server adjudicates the
+ *                                               threshold on the POST)
+ *   local / open plain group                  → JOIN
+ *   closed non-trust                          → PRIVATE   (disabled)
+ *   secret                                    → INVITE-ONLY (disabled)
+ *
+ * Pending state renders CHECKING… on the NFT path (a speculative
+ * on-chain ownership check) and JOINING… everywhere else.
+ *
+ * Every click stops propagation so actions never flip the card.
+ */
+export function CommunityActionBar({
+  card,
+  dossier,
+  onJoin,
+  isJoined,
+  joinPending,
+  hideOpenAction,
+}: {
+  card: Card;
+  dossier: CardCommunityDossier;
+  onJoin?: ((card: Card) => void) | undefined;
+  isJoined: boolean;
+  joinPending: boolean;
+  hideOpenAction?: boolean;
+}) {
+  const stop = (event: MouseEvent) => event.stopPropagation();
+  const openHref = card.links.self as Route;
+  const cols = hideOpenAction === true ? "" : " sm:grid-cols-2";
+
+  const isMember = dossier.viewer_is_member || isJoined;
+  const isNft = dossier.type === "nft";
+
+  let joinCell: ReactNode;
+  if (isMember) {
+    joinCell = (
+      <button
+        type="button"
+        onClick={stop}
+        title="You're a member — manage membership on the community page."
+        className="bcc-stencil flex h-11 cursor-default items-center justify-center bg-ink text-cardstock"
+      >
+        MEMBER ✓
+      </button>
+    );
+  } else if (
+    dossier.type !== "nft" &&
+    dossier.trust_min === null &&
+    dossier.privacy === "closed"
+  ) {
+    joinCell = (
+      <button
+        type="button"
+        disabled
+        onClick={stop}
+        title="Request to join on the community page."
+        className="bcc-stencil flex h-11 items-center justify-center bg-cardstock text-ink opacity-40 disabled:cursor-not-allowed"
+      >
+        PRIVATE
+      </button>
+    );
+  } else if (dossier.type !== "nft" && dossier.privacy === "secret") {
+    joinCell = (
+      <button
+        type="button"
+        disabled
+        onClick={stop}
+        title="Members join by invitation."
+        className="bcc-stencil flex h-11 items-center justify-center bg-cardstock text-ink opacity-40 disabled:cursor-not-allowed"
+      >
+        INVITE-ONLY
+      </button>
+    );
+  } else {
+    // NFT (CHECK & JOIN), trust-gated, local, or open plain group —
+    // all enabled; the server owns the final yes/no when the join fires.
+    const idleLabel = isNft ? "CHECK & JOIN" : "JOIN";
+    const pendingLabel = isNft ? "CHECKING…" : "JOINING…";
+    joinCell = (
+      <button
+        type="button"
+        disabled={joinPending}
+        title={
+          isNft
+            ? "Verifies your linked wallet holds this collection, then joins."
+            : "Join this community."
+        }
+        onClick={(e) => {
+          stop(e);
+          if (onJoin !== undefined) onJoin(card);
+        }}
+        className="bcc-stencil flex h-11 items-center justify-center bg-ink text-cardstock transition-colors hover:bg-safety disabled:cursor-wait disabled:opacity-70"
+      >
+        {joinPending ? pendingLabel : idleLabel}
+      </button>
+    );
+  }
+
+  return (
+    <div
+      className={`relative z-10 grid grid-cols-1 border-t border-cardstock-edge/40 bg-cardstock${cols}`}
+    >
+      {joinCell}
+
+      {hideOpenAction !== true && (
+        <Link
+          href={openHref}
+          onClick={stop}
+          title={`Open ${card.name}`}
+          aria-label={`Open ${card.name}`}
+          className="bcc-stencil flex h-11 items-center justify-center border-l border-cardstock-edge/40 bg-safety text-center text-cardstock transition hover:bg-ink"
+        >
+          Open
         </Link>
       )}
     </div>

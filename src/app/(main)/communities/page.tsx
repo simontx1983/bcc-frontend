@@ -18,15 +18,12 @@
  * shape regardless of viewer (the endpoint returns no per-viewer
  * fields).
  *
- * Click-through (V1):
- *   - type === "local" → /locals/[slug] (existing detail route)
- *   - type === "nft"   → /settings/communities (where Join lives)
- *   - type === "user" | "system" + privacy === "open" → no link;
- *     inline JOIN button wires §4.7.3 plain group join. The card stops
- *     sliding on hover so the button stays reachable.
- *   - type === "user" | "system" + privacy === "closed" → no link,
- *     no action (display-only). PeepSo's request-to-join flow lives
- *     on the group page itself; we don't replicate it.
+ * Cards: every discovery item arrives with a full §L5 `card`
+ * view-model (card_kind "community"), so the grid composes
+ * CardFactory directly — same trading-card chassis as /directory and
+ * /members. Click-through lives in the card's OPEN cell
+ * (card.links.self → /communities/[slug] or /locals/[slug],
+ * server-resolved); JOIN wiring lives in CommunityCardGrid.
  */
 
 import type { Route } from "next";
@@ -38,15 +35,8 @@ import { tokenFromSession } from "@/lib/api/client";
 import { humanizeCode } from "@/lib/api/errors";
 import { getGroupsDiscovery } from "@/lib/api/groups-discovery-endpoints";
 import { COMMUNITY_CHAIN_CATALOG } from "@/lib/communities/chain-catalog";
-import { CommunityCover } from "@/components/communities/CommunityCover";
-import { FlippableNftCard } from "@/components/communities/FlippableNftCard";
-import { JoinPlainGroupButton } from "@/components/communities/JoinPlainGroupButton";
-import { HeatBadge } from "@/components/groups/HeatBadge";
-import { VerificationBadge } from "@/components/groups/VerificationBadge";
-import type {
-  GroupDiscoveryItem,
-  GroupsDiscoveryPagination,
-} from "@/lib/api/types";
+import { CommunityCardGrid } from "@/components/communities/CommunityCardGrid";
+import type { GroupsDiscoveryPagination } from "@/lib/api/types";
 
 interface PageProps {
   // Next 15 App Router: searchParams is async per the routes contract.
@@ -99,8 +89,11 @@ export default async function CommunitiesDiscoveryPage({ searchParams }: PagePro
   const isAnon = session === null;
 
   return (
-    <main className="min-h-screen pb-24">
-      <section className="mx-auto max-w-6xl px-6 pt-12 sm:px-8">
+    // `bcc-page-wide` opts this grid page out of the app shell's 680px
+    // reading-width cap (see globals.css escape hatch) — the trading-
+    // card grid needs the full viewport to go multi-column.
+    <main className="bcc-page-wide min-h-screen pb-24">
+      <section className="mx-auto max-w-[1440px] px-6 pt-12 sm:px-8">
         <div className="flex flex-wrap items-start justify-between gap-6">
           <div className="min-w-0 flex-1">
             <span className="bcc-mono text-[10px] tracking-[0.24em] text-cardstock-deep">
@@ -124,14 +117,14 @@ export default async function CommunitiesDiscoveryPage({ searchParams }: PagePro
       {/* Chain dropdown — own row above the scope pills so the chain
           choice reads as the primary filter axis. Scope pills below
           compose with whichever chain is active. */}
-      <section className="mx-auto mt-8 max-w-6xl px-6 sm:px-8">
+      <section className="mx-auto mt-8 max-w-[1440px] px-6 sm:px-8">
         <ChainDropdown
           chain={chain}
           scope={mineOnly ? "mine" : verifiedOnly ? "verified" : "all"}
         />
       </section>
 
-      <section className="mx-auto mt-4 max-w-6xl px-6 sm:px-8">
+      <section className="mx-auto mt-4 max-w-[1440px] px-6 sm:px-8">
         <FilterStrip
           verifiedOnly={verifiedOnly}
           mineOnly={mineOnly}
@@ -139,7 +132,7 @@ export default async function CommunitiesDiscoveryPage({ searchParams }: PagePro
         />
       </section>
 
-      <section className="mx-auto mt-6 max-w-6xl px-6 sm:px-8">
+      <section className="mx-auto mt-6 max-w-[1440px] px-6 sm:px-8">
         {fetchError !== null ? (
           <p role="alert" className="bcc-mono text-safety">
             {fetchError}
@@ -152,12 +145,12 @@ export default async function CommunitiesDiscoveryPage({ searchParams }: PagePro
             isAnon={isAnon}
           />
         ) : (
-          <CommunitiesGrid items={items} />
+          <CommunityCardGrid items={items} />
         )}
       </section>
 
       {pagination !== null && pagination.total_pages > 1 && (
-        <section className="mx-auto mt-8 max-w-6xl px-6 sm:px-8">
+        <section className="mx-auto mt-8 max-w-[1440px] px-6 sm:px-8">
           <Pagination
             verifiedOnly={verifiedOnly}
             mineOnly={mineOnly}
@@ -361,177 +354,6 @@ function buildCommunitiesHref({
     : `/communities?${parts.join("&")}`) as Route;
 }
 
-function CommunitiesGrid({ items }: { items: GroupDiscoveryItem[] }) {
-  return (
-    <ul className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-      {items.map((item) => (
-        <li key={item.group_id}>
-          <CommunityCard item={item} />
-        </li>
-      ))}
-    </ul>
-  );
-}
-
-/**
- * Square card with a full-bleed cover (image or generated initials)
- * and a cream info panel pinned to the bottom half. On hover the panel
- * slides down off the card to reveal the full cover. Reduced-motion
- * users keep the panel in place — `motion-safe:` gates both the
- * transition AND the transform, so no movement happens at all when
- * the OS preference is set.
- */
-function CommunityCard({ item }: { item: GroupDiscoveryItem }) {
-  const link = clickThroughHref(item);
-
-  // NFT cards with market-data carry the flip-to-back UX. The flip
-  // surfaces decision-grade signals (floor / holders / volume) before
-  // the user clicks through to /settings/communities to actually join.
-  // FlippableNftCard accepts an internal Route — NFT routing today is
-  // always internal so this cast is contract-safe.
-  if (
-    item.type === "nft" &&
-    item.collection_stats !== null &&
-    link !== null &&
-    !link.external
-  ) {
-    return <FlippableNftCard item={item} href={link.url as Route} />;
-  }
-
-  const joinable = isPlainGroupJoinable(item);
-  const baseClass =
-    "group relative block aspect-square overflow-hidden border-2 border-cardstock-edge/40 bg-cardstock-deep/40";
-  // Focus ring lives on the link wrappers only (the static <div> branch
-  // isn't focusable). Cream + offset against the dark site bg keeps the
-  // outline legible against arbitrary NFT artwork once the panel slides
-  // off — `focus-visible:` so it doesn't appear on click-only.
-  const linkClass =
-    baseClass +
-    " focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cardstock focus-visible:ring-offset-2 focus-visible:ring-offset-ink";
-
-  // Joinable plain-group cards keep the panel pinned so the inline
-  // JOIN button stays clickable on hover. Other cards keep the
-  // slide-off reveal (cover art shows through on hover).
-  const panelMotionClass = joinable
-    ? ""
-    : " motion-safe:transition-transform motion-safe:duration-200 motion-safe:group-hover:translate-y-full motion-safe:group-focus-visible:translate-y-full";
-
-  const inner = (
-    <>
-      <CommunityCover
-        imageUrl={item.image_url}
-        name={item.name}
-        groupId={item.group_id}
-      />
-      <div
-        className={
-          // `translate-y-0` initializes the --tw-translate-* CSS vars
-          // so the conditional `group-hover:translate-y-full` rule
-          // produces a valid `transform` shorthand. Without it Tailwind
-          // emits `translate(, 100%)` which the browser drops as invalid.
-          "absolute inset-x-0 bottom-0 h-1/2 bg-cardstock px-5 py-4 translate-y-0" +
-          panelMotionClass
-        }
-      >
-        <CardBody item={item} />
-      </div>
-    </>
-  );
-
-  if (link === null) {
-    return <div className={baseClass}>{inner}</div>;
-  }
-
-  // External URLs (plain user/system groups → PeepSo's group page on
-  // the WP host) need a plain anchor; Next's <Link> is typed-routes
-  // only and would reject the cross-origin URL at compile time.
-  // `target="_blank"` because the PeepSo group page is a different
-  // app shell — opening in-tab would lose the /communities context.
-  if (link.external) {
-    return (
-      <a
-        href={link.url}
-        target="_blank"
-        rel="noopener noreferrer"
-        className={linkClass}
-      >
-        {inner}
-      </a>
-    );
-  }
-
-  return (
-    <Link href={link.url as Route} className={linkClass}>
-      {inner}
-    </Link>
-  );
-}
-
-function CardBody({ item }: { item: GroupDiscoveryItem }) {
-  // Phase γ UX cleanup: surface the kind + accessibility-of-join as two
-  // small chips so users can distinguish HOLDERS (NFT-gated) vs LOCAL
-  // (chain-bound) vs OPEN (plain group, anyone can join) vs CLOSED
-  // (request-to-join, not handled in this surface) at a glance.
-  // accessibilityLabel is null for NFT/Local types where the join
-  // mechanic is implicit in the kind itself.
-  const accessibilityLabel = privacyChipLabel(item);
-  const chainLabel =
-    item.chain_tag !== null
-      ? COMMUNITY_CHAIN_CATALOG.find((o) => o.slug === item.chain_tag)?.label ??
-        item.chain_tag.toUpperCase()
-      : null;
-  // Kind on the left composes with the chain tag when present, so the
-  // viewer sees "GROUP · STARGAZE" instead of just "GROUP." Kind sits
-  // first because it answers "what kind of room is this?"; chain
-  // answers "which chain?" — read left-to-right.
-  const kindWithChain =
-    chainLabel !== null
-      ? `${kindLabel(item.type)} · ${chainLabel.toUpperCase()}`
-      : kindLabel(item.type);
-
-  return (
-    <>
-      <div className="flex items-baseline justify-between gap-3">
-        <span className="bcc-mono text-[10px] tracking-[0.18em] text-cardstock-deep">
-          {kindWithChain}
-        </span>
-        {accessibilityLabel !== null && (
-          <span className="bcc-mono text-[10px] tracking-[0.18em] text-cardstock-deep">
-            {accessibilityLabel}
-          </span>
-        )}
-      </div>
-
-      <h2 className="bcc-stencil mt-2 line-clamp-2 text-lg text-ink">
-        {item.name}
-      </h2>
-
-      {item.verification !== null && (
-        <p className="bcc-mono mt-2 text-[10px]">
-          <VerificationBadge label={item.verification.label} />
-        </p>
-      )}
-
-      <div className="mt-2 flex items-center justify-between">
-        <span className="bcc-mono text-[10px] text-ink-soft">
-          {item.member_count.toLocaleString()} member{item.member_count === 1 ? "" : "s"}
-        </span>
-        <HeatBadge activity={item.activity} />
-      </div>
-
-      {isPlainGroupJoinable(item) && (
-        // The surrounding card is now a clickable link (PeepSo group
-        // page for plain groups). The JOIN button's own handler stops
-        // propagation inside GroupActionButton so clicking JOIN fires
-        // the mutation without ALSO following the card link.
-        <div className="mt-3 flex justify-end">
-          <JoinPlainGroupButton groupId={item.group_id} />
-        </div>
-      )}
-    </>
-  );
-}
-
 function EmptyState({
   verifiedOnly,
   mineOnly,
@@ -686,85 +508,3 @@ function normalizeChainSlug(raw: string | undefined): string | null {
   return match !== undefined ? match.slug : null;
 }
 
-function kindLabel(type: GroupDiscoveryItem["type"]): string {
-  switch (type) {
-    case "nft":    return "HOLDERS";
-    case "local":  return "LOCAL";
-    case "system": return "SYSTEM";
-    case "user":   return "GROUP";
-  }
-}
-
-/**
- * Secondary chip that names the join model alongside the kind label.
- *
- *   - Trust-gated groups → "TRUST <N>+" (subsumes OPEN — trust groups
- *     run on PeepSo's open privacy under the hood, so without this
- *     branch they'd render as plain OPEN and the gate would be invisible)
- *   - Plain groups (user/system) + privacy === "open"   → "OPEN"
- *   - Plain groups (user/system) + privacy === "closed" → "CLOSED"
- *   - NFT holder groups and Locals → null (the kind label HOLDERS / LOCAL
- *     already communicates the gating model; doubling it up is noise)
- *
- * Phase γ UX cleanup: previously only CLOSED was rendered; OPEN was the
- * implicit default. Surfacing all four states makes the directory
- * scannable for a viewer who doesn't yet know which rooms they can walk
- * straight into.
- */
-function privacyChipLabel(item: GroupDiscoveryItem): string | null {
-  if (item.trust_min !== null) return `TRUST ${item.trust_min}+`;
-  if (item.type !== "user" && item.type !== "system") return null;
-  if (item.privacy === "closed") return "CLOSED";
-  if (item.privacy === "open")   return "OPEN";
-  return null;
-}
-
-/**
- * Per-type click-through. Tagged with `external` so the card wrapper
- * picks the right element (`<Link>` for internal Next routes,
- * `<a target="_blank">` for cross-host pages).
- *
- * V1.6 routing — every kind now has a native Next page:
- *   - local        → /locals/[slug]        (existing Local surface)
- *   - nft          → /communities/[slug]   (NEW unified detail page)
- *   - user/system  → /communities/[slug]   (NEW unified detail page)
- *
- * The /communities/[slug] page mounts `GroupDetailShell` (FileRail +
- * PageHero with GroupCard + GroupMembershipStrip in the actions slot +
- * GroupTabs over Stream / Members / About). The shared shell already
- * speaks the §4.7.5 GroupDetailResponse view-model, so a single
- * shell handles all four kinds across /communities, /groups, /locals. NFT cards route here instead of
- * /settings/communities so the discovery → detail → join flow stays
- * in-app; /settings/communities remains the source of truth for the
- * holder-set management surface.
- *
- * Returns null only when slug is missing — defensive; the discovery
- * endpoint always emits one. The card renders a non-clickable shell
- * in that pathological case rather than a dead link.
- */
-function clickThroughHref(item: GroupDiscoveryItem):
-  | { url: string; external: boolean }
-  | null {
-  if (item.slug === "") return null;
-
-  if (item.type === "local") {
-    return {
-      url: `/locals/${encodeURIComponent(item.slug)}`,
-      external: false,
-    };
-  }
-
-  return {
-    url: `/communities/${encodeURIComponent(item.slug)}`,
-    external: false,
-  };
-}
-
-/**
- * Plain (non-NFT, non-Local) groups whose privacy allows a direct join.
- * Closed/secret groups are server-rejected with a hint pointing at
- * PeepSo's request-flow page (§4.7.3) — we don't replicate that UI.
- */
-function isPlainGroupJoinable(item: GroupDiscoveryItem): boolean {
-  return (item.type === "user" || item.type === "system") && item.privacy === "open";
-}

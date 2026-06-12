@@ -7,7 +7,8 @@
  * CardFactory.tsx — this face is pure render over the §L5 view-model.
  */
 
-import { ActionBar } from "@/components/cards/CardActionBar";
+import { ActionBar, CommunityActionBar } from "@/components/cards/CardActionBar";
+import { CommunitySignalsStrip } from "@/components/cards/CardCommunitySignals";
 import { OnchainSignalsStrip } from "@/components/cards/CardOnchainSignals";
 import { Crest } from "@/components/cards/Crest";
 import type { Card, CardStat, CardTier } from "@/lib/api/types";
@@ -20,6 +21,9 @@ export function CardFrontFace({
   isPulled,
   hideOpenAction,
   canEditAvatar,
+  onJoin,
+  isJoined = false,
+  joinPending = false,
 }: {
   card: Card;
   /** Drives the ↻ FLIP affordance visibility (hidden once flipped). */
@@ -29,11 +33,20 @@ export function CardFrontFace({
   isPulled: boolean;
   hideOpenAction: boolean;
   canEditAvatar: boolean;
+  /** Community-card join wiring — see CardFactoryProps. */
+  onJoin?: ((card: Card) => void) | undefined;
+  isJoined?: boolean | undefined;
+  joinPending?: boolean | undefined;
 }) {
+  const isCommunity =
+    card.card_kind === "community" && card.community_dossier != null;
+
   return (
     <div className="bcc-card-face">
       <ChainBand card={card} />
-      <Portrait card={card} canEditAvatar={canEditAvatar} />
+      {/* Community cards never surface the avatar-upload affordance —
+          group art is managed by the group owner surface, not here. */}
+      <Portrait card={card} canEditAvatar={isCommunity ? false : canEditAvatar} />
       <Nameplate card={card} />
       {/* On-chain validator signals strip — surfaces what the operator
           actually does on-chain (uptime, commission, voting rank). Shown
@@ -43,14 +56,30 @@ export function CardFrontFace({
       {card.onchain_signals != null && (
         <OnchainSignalsStrip signals={card.onchain_signals} />
       )}
+      {/* Community signals strip — same chassis slot as the validator
+          strip (gate label + verification, server-resolved). */}
+      {card.community_dossier != null && (
+        <CommunitySignalsStrip dossier={card.community_dossier} />
+      )}
       <StatsPanel stats={card.stats} />
-      <ActionBar
-        card={card}
-        onPull={onPull}
-        onReview={onReview}
-        isPulled={isPulled}
-        hideOpenAction={hideOpenAction}
-      />
+      {isCommunity && card.community_dossier != null ? (
+        <CommunityActionBar
+          card={card}
+          dossier={card.community_dossier}
+          onJoin={onJoin}
+          isJoined={isJoined}
+          joinPending={joinPending}
+          hideOpenAction={hideOpenAction}
+        />
+      ) : (
+        <ActionBar
+          card={card}
+          onPull={onPull}
+          onReview={onReview}
+          isPulled={isPulled}
+          hideOpenAction={hideOpenAction}
+        />
+      )}
 
       {/* Tier strip — own row at the very bottom of the card. Earlier
           this was absolute-positioned over the action bar and would
@@ -257,13 +286,28 @@ function Nameplate({ card }: { card: Card }) {
   );
 }
 
+/**
+ * Column-count map for the front-face stats grid. Cards that ship
+ * fewer than three stats (community cards ship two: Members +
+ * Posts 7d) previously rendered into a hard-coded grid-cols-3 and
+ * left a dangling empty column — the map centers however many stats
+ * actually arrived. Literal class strings (not template interpolation)
+ * so Tailwind's static extractor sees them.
+ */
+const STATS_COLS: Record<number, string> = {
+  1: "grid-cols-1",
+  2: "grid-cols-2",
+  3: "grid-cols-3",
+};
+
 function StatsPanel({ stats }: { stats: CardStat[] }) {
   // Front-face stats panel shows up to three rows. The full list is
   // on the back face. The server may return more than three; we slice
   // for layout, never re-derive the values.
   const visible = stats.slice(0, 3);
+  const cols = STATS_COLS[visible.length] ?? "grid-cols-3";
   return (
-    <div className="relative z-10 grid grid-cols-3 gap-2 border-t border-cardstock-edge/40 bg-cardstock-deep/30 px-4 py-3">
+    <div className={`relative z-10 grid ${cols} gap-2 border-t border-cardstock-edge/40 bg-cardstock-deep/30 px-4 py-3`}>
       {visible.map((stat) => (
         <div key={stat.key} className="flex flex-col items-center text-center">
           <span className="bcc-mono text-[10px] text-ink-soft">{stat.label}</span>

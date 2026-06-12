@@ -23,7 +23,7 @@
  *
  * Composition rules:
  *   - `card` is anything the caller wants — typically a directory-style
- *     card (FlippableNftCard / CardFactory). Caller
+ *     card (CardFactory / CommunityJoinCard). Caller
  *     constrains the width via the wrapping div.
  *   - `actions` is the page-specific cluster — AttestationActionCluster
  *     + ClaimCallout + ReviewCallout + EndorseButton + DisputeCallout on

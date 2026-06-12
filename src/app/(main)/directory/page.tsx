@@ -116,7 +116,7 @@ function DirectoryPageContent() {
   const query = useDirectory(filtersFromUrl);
 
   return (
-    <main className="pb-24">
+    <main className="bcc-page-wide pb-24">
       <DirectoryRail />
 
       <header className="mx-auto max-w-[1560px] px-4 sm:px-7 pt-12">

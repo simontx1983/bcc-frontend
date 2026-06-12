@@ -9,7 +9,7 @@
  * Server component. Composes:
  *   1. FileRail            — top status strip (FLOOR // KIND  {SLUG}  ·  FILE / OPEN)
  *   2. <h1> stencil title  — group.name (matches /u/[handle]'s page title)
- *   3. PageHero            — GroupCard in card slot; actions slot caller-supplied
+ *   3. PageHero            — CommunityJoinCard (CardFactory) in card slot; actions slot caller-supplied
  *   4. GroupTabs           — Stream / Members / About
  *
  * Mirrors the EntityProfile shape so /groups, /communities, /locals
@@ -21,9 +21,9 @@ import Link from "next/link";
 import type { Route } from "next";
 
 import { ShareButton } from "@/components/common/ShareButton";
+import { CommunityJoinCard } from "@/components/communities/CommunityJoinCard";
 import { FileRail } from "@/components/layout/FileRail";
 import { GroupAboutPanel } from "@/components/groups/GroupAboutPanel";
-import { GroupCard } from "@/components/groups/GroupCard";
 import { GroupFeedSection } from "@/components/groups/GroupFeedSection";
 import { GroupMembersStrip } from "@/components/groups/GroupMembersStrip";
 import { GroupMembershipStrip } from "@/components/groups/GroupMembershipStrip";
@@ -107,7 +107,7 @@ export function GroupDetailShell({
 
       {/* §J page title — large stencil name. Same vocabulary as
           /u/[handle] / EntityProfile so the platform reads as one
-          product. The trading-card-style GroupCard sits below in the
+          product. The CardFactory community card sits below in the
           PageHero `card` slot; this is the page-level identifier. */}
       <header className="mx-auto mt-8 max-w-[1440px] px-4 sm:px-7">
         {showBreadcrumb && (
@@ -157,8 +157,13 @@ export function GroupDetailShell({
       </header>
 
       <section className="mt-8">
+        {/* CardFactory community card in the hero slot — the same §L5
+            trading card the /communities grid renders, with live JOIN
+            wiring. OPEN is hidden (it would loop back to this page);
+            the JOIN cell benignly duplicates GroupMembershipStrip in
+            the actions slot — both fire the same server mutations. */}
         <PageHero
-          card={<GroupCard group={group} />}
+          card={<CommunityJoinCard card={group.card} hideOpenAction />}
           actions={
             <div
               className="bcc-stage-reveal flex flex-col gap-3"

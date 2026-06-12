@@ -50,8 +50,12 @@ interface GroupMembershipStripProps {
 /**
  * §γ — join/leave failures render the returned string inline; copy is
  * keyed on err.code, never err.message. `verb` is "join" | "leave".
+ *
+ * Exported for reuse by CommunityJoinCard (the community trading card
+ * joins through the same three mutations and must speak the same
+ * copy).
  */
-function humanizeMembershipError(err: unknown, verb: "join" | "leave"): string {
+export function humanizeMembershipError(err: unknown, verb: "join" | "leave"): string {
   return humanizeCode(
     err,
     {
