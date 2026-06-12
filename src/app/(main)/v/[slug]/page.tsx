@@ -15,6 +15,7 @@
  * to the framework error UI.
  */
 
+import type { Metadata } from "next";
 import { getServerSession } from "next-auth";
 import { notFound } from "next/navigation";
 
@@ -22,10 +23,28 @@ import { EntityProfile } from "@/components/entity/EntityProfile";
 import { authOptions } from "@/lib/auth";
 import { tokenFromSession } from "@/lib/api/client";
 import { getCardEntity } from "@/lib/api/card-endpoints";
+import { buildEntityMetadata } from "@/lib/og/entity-metadata";
 import { BccApiError } from "@/lib/api/types";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
+}
+
+/**
+ * generateMetadata — OG / Twitter-card tags for a pasted /v/[slug] link.
+ * Shared builder (anon public fetch, no manual og:image — the
+ * opengraph-image.tsx convention route owns it). See entity-metadata.ts.
+ */
+export async function generateMetadata({
+  params,
+}: PageProps): Promise<Metadata> {
+  const { slug } = await params;
+  return buildEntityMetadata({
+    kind: "validator",
+    slug,
+    kindLabel: "Validator",
+    pathPrefix: "/v",
+  });
 }
 
 export default async function ValidatorProfilePage({ params }: PageProps) {

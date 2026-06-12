@@ -40,7 +40,7 @@ import { BioBox } from "@/components/layout/BioBox";
 import { PageHero } from "@/components/layout/PageHero";
 import { AttestationActionCluster } from "@/components/profile/AttestationActionCluster";
 import { ProfileTabs } from "@/components/profile/ProfileTabs";
-import { ShareProfileButton } from "@/components/profile/ShareProfileButton";
+import { ShareButton } from "@/components/common/ShareButton";
 import { authOptions } from "@/lib/auth";
 import { tokenFromSession } from "@/lib/api/client";
 import { getMeReliability } from "@/lib/api/me-reliability-endpoints";
@@ -223,7 +223,11 @@ export default async function MemberProfilePage({ params }: PageProps) {
             {title}
           </h1>
           <div className="shrink-0 pt-1">
-            <ShareProfileButton handle={profile.handle} displayName={title} />
+            <ShareButton
+              path={`/u/${encodeURIComponent(profile.handle)}`}
+              title={title}
+              ariaLabel={`Share ${title}'s profile`}
+            />
           </div>
         </div>
         {showHandleKicker && (

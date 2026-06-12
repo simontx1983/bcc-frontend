@@ -27,6 +27,7 @@
  */
 
 import { CardFactory } from "@/components/cards/CardFactory";
+import { ShareButton } from "@/components/common/ShareButton";
 import { ChainTabs } from "@/components/entity/ChainTabs";
 import { ClaimCallout } from "@/components/claim/ClaimCallout";
 import { DisputeCallout } from "@/components/disputes/DisputeCallout";
@@ -144,12 +145,26 @@ export function EntityProfile({
           answers "whose page am I on?" without making the viewer
           parse the card. ────────────────────────────────────────── */}
       <header className="mx-auto mt-12 max-w-[1440px] px-4 sm:px-7">
-        <h1
-          className="bcc-stencil text-cardstock leading-[0.92]"
-          style={{ fontSize: "clamp(1.75rem, 5.5vw, 4.5rem)", wordBreak: "break-word" }}
-        >
-          {card.name}
-        </h1>
+        {/* Title row — stencil display name on the left, Share on the
+            right. Entity pages are PUBLIC, so Share is visible to every
+            viewer (no gate), mirroring /u/[handle]. The share path is the
+            server-supplied entity route (`card.links.self` → "/v/:slug"
+            etc.) read verbatim per §A2 — no client-side kind→path map. */}
+        <div className="flex items-start justify-between gap-4">
+          <h1
+            className="bcc-stencil text-cardstock leading-[0.92]"
+            style={{ fontSize: "clamp(1.75rem, 5.5vw, 4.5rem)", wordBreak: "break-word" }}
+          >
+            {card.name}
+          </h1>
+          <div className="shrink-0 pt-1">
+            <ShareButton
+              path={card.links.self}
+              title={card.name}
+              ariaLabel={`Share ${card.name}`}
+            />
+          </div>
+        </div>
         {card.handle !== "" && (
           <p
             className="bcc-mono mt-3 text-safety"

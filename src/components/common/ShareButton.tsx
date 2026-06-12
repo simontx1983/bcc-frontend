@@ -1,13 +1,19 @@
 "use client";
 
 /**
- * ShareProfileButton — native external sharing for a public member
- * profile (/u/[handle]).
+ * ShareButton — native external sharing for any PUBLIC page (member
+ * profiles /u/[handle], entity pages /v /p /c, …).
  *
- * Profiles are PUBLIC, so there is no permission gate: any viewer can
- * share any profile. This is OUR sharing surface — PeepSo owns post /
- * repost sharing through its own templates, which this Next.js app does
- * not render, so none of it surfaces here.
+ * Generalized from the original member-only ShareProfileButton: it now
+ * takes a `path` (app-relative, e.g. "/v/coinbase01-cosmos") plus a
+ * `title`, so the same component drives every shareable surface. Member
+ * profile and entity pages both mount THIS one component — there is no
+ * forked copy.
+ *
+ * Public surfaces have no permission gate: any viewer can share. This is
+ * OUR sharing surface — PeepSo owns post / repost sharing through its own
+ * templates, which this Next.js app does not render, so none of it
+ * surfaces here.
  *
  * Degradation:
  *   - If `navigator.share` exists (mobile / supported browsers), the
@@ -17,20 +23,31 @@
  *     Copy link + X / Facebook / LinkedIn intent links. These mirror
  *     PeepSo's provider set.
  *
- * No business logic, no raw fetch, no `as any`. The profile URL is built
- * from `window.location.origin` on the client so it's always the app's
- * real origin without threading an env var into the bundle.
+ * No business logic, no raw fetch, no `as any`. The shareable URL is
+ * built from `window.location.origin` + the supplied `path` on the
+ * client so it's always the app's real origin without threading an env
+ * var into the bundle.
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
 
-interface ShareProfileButtonProps {
-  /** Bare handle (no leading @). Used to build /u/<handle>. */
-  handle: string;
-  /** Already-presented display name (page title), used as share title. */
-  displayName: string;
+interface ShareButtonProps {
+  /**
+   * App-relative path to share (leading slash, no origin), e.g.
+   * "/u/phillipcosmos" or "/v/coinbase01-cosmos". The origin is
+   * resolved client-side at click time.
+   */
+  path: string;
+  /** Already-presented display name, used as the share-sheet title. */
+  title: string;
+  /**
+   * Accessible label for the trigger button. Defaults to a generic
+   * "Share this page" — callers pass a more specific label (e.g.
+   * "Share Phillip's profile") when they have one.
+   */
+  ariaLabel?: string;
 }
 
 /** Detect the Web Share API without tripping `any`. */
@@ -40,10 +57,7 @@ function canUseNativeShare(): boolean {
   );
 }
 
-export function ShareProfileButton({
-  handle,
-  displayName,
-}: ShareProfileButtonProps) {
+export function ShareButton({ path, title, ariaLabel }: ShareButtonProps) {
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [nativeShare, setNativeShare] = useState(false);
@@ -52,19 +66,23 @@ export function ShareProfileButton({
   const menuRef = useRef<HTMLDivElement>(null);
   const reducedMotion = usePrefersReducedMotion();
 
+  const label = ariaLabel ?? "Share this page";
+
   // Resolve native-share availability after hydration so SSR + first
   // paint always render the fallback-capable button (no hydration drift).
   useEffect(() => {
     setNativeShare(canUseNativeShare());
   }, []);
 
-  const profileUrl = useCallback((): string => {
+  const shareUrl = useCallback((): string => {
     const origin =
       typeof window !== "undefined" ? window.location.origin : "";
-    return `${origin}/u/${encodeURIComponent(handle)}`;
-  }, [handle]);
+    // `path` is already an app route (e.g. "/v/<slug>"); only the origin
+    // is resolved client-side. Slug encoding is the caller's job.
+    return `${origin}${path}`;
+  }, [path]);
 
-  const shareTitle = `${displayName} on the Floor`;
+  const shareTitle = `${title} on the Floor`;
 
   // ── Outside-click + Esc dismiss (mirrors SiteHeader's useModalDismiss).
   useEffect(() => {
@@ -94,17 +112,17 @@ export function ShareProfileButton({
   }, [open]);
 
   const onPrimaryClick = useCallback(() => {
-    const url = profileUrl();
+    const url = shareUrl();
     if (canUseNativeShare()) {
       // Web Share rejects on user-cancel; swallow — it's not an error.
       void navigator.share({ title: shareTitle, url }).catch(() => {});
       return;
     }
     setOpen((v) => !v);
-  }, [profileUrl, shareTitle]);
+  }, [shareUrl, shareTitle]);
 
   const onCopy = useCallback(() => {
-    const url = profileUrl();
+    const url = shareUrl();
     if (typeof navigator !== "undefined" && navigator.clipboard) {
       void navigator.clipboard
         .writeText(url)
@@ -114,9 +132,9 @@ export function ShareProfileButton({
         })
         .catch(() => {});
     }
-  }, [profileUrl]);
+  }, [shareUrl]);
 
-  // Social intent URLs — encoded profile URL. Mirrors PeepSo's provider
+  // Social intent URLs — encoded share URL. Mirrors PeepSo's provider
   // intents (X / Facebook / LinkedIn). Computed at click time so the
   // origin is resolved client-side.
   const intents: Array<{ label: string; build: (u: string) => string }> = [
@@ -161,7 +179,7 @@ export function ShareProfileButton({
         ref={anchorRef}
         type="button"
         className="bcc-btn bcc-btn-ghost"
-        aria-label={`Share ${displayName}'s profile`}
+        aria-label={label}
         {...(!nativeShare
           ? { "aria-haspopup": "menu" as const, "aria-expanded": open }
           : {})}
@@ -175,7 +193,7 @@ export function ShareProfileButton({
         <div
           ref={menuRef}
           role="menu"
-          aria-label="Share this profile"
+          aria-label={label}
           className="bcc-header-modal"
           style={{
             position: "absolute",
@@ -211,7 +229,7 @@ export function ShareProfileButton({
             <a
               key={intent.label}
               role="menuitem"
-              href={intent.build(profileUrl())}
+              href={intent.build(shareUrl())}
               target="_blank"
               rel="noopener noreferrer"
               style={menuItemStyle}
