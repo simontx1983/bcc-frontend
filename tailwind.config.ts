@@ -109,6 +109,50 @@ const config: Config = {
         "bcc-type-project":     "var(--bcc-type-project)",
         "bcc-type-nft":         "var(--bcc-type-nft)",
         "bcc-type-dao":         "var(--bcc-type-dao)",
+
+        // ── Trading-card / workshop layer aliases (RESTORED) ───────────────
+        // Restored post-PR-#10 merge — dropped in the keep-redesign conflict
+        // resolution. Classes like text-ink / bg-cardstock across CardFactory,
+        // PageHero, profile panels etc. compile to nothing without these.
+        // The CSS variables live in the "TRADING-CARD + WORKSHOP LAYER —
+        // RESTORED" block at the bottom of globals.css.
+        cardstock: {
+          DEFAULT: "var(--cardstock)",        // #efe5cf
+          deep:    "var(--cardstock-deep)",   // #d9c9a3
+          edge:    "var(--cardstock-edge)",   // #b09877
+        },
+        paper: {
+          DEFAULT: "var(--paper)",       // #f7efd9
+          warm:    "var(--paper-warm)",  // #f2e6c8
+        },
+        ink: {
+          DEFAULT: "var(--ink)",         // #0f0d09
+          soft:    "var(--ink-soft)",    // #2a251c
+          ghost:   "var(--ink-ghost)",   // #6b6355 — muted secondary text
+        },
+        phosphor: "var(--phosphor)",     // #7dff9a — "live" green
+        verified: "var(--verified)",     // #2c9d66 — good-standing green
+        concrete: {
+          DEFAULT: "var(--concrete)",     // #14110d
+          hi:      "var(--concrete-hi)",  // #1d1913
+        },
+        blueprint: "var(--blueprint)", // #0f1e3c
+        safety:    "var(--safety)",    // #f05a28 — caution-tape orange
+        weld:      "var(--weld)",      // #ffc01e — arc-weld yellow
+        chain: {
+          cosmos:    "var(--chain-cosmos)",    // #1a0f3e
+          osmosis:   "var(--chain-osmosis)",   // #c73f86
+          injective: "var(--chain-injective)", // #0a72ff
+          kujira:    "var(--chain-kujira)",    // #e62c3f
+        },
+        // Card tiers — server returns card_tier; we just paint it.
+        // --tier-* map onto the redesign's --bcc-tier-* tokens.
+        tier: {
+          common:    "var(--tier-common)",    // #6b6e72
+          uncommon:  "var(--tier-uncommon)",  // #247a3f
+          rare:      "var(--tier-rare)",      // #1d4fbb
+          legendary: "var(--tier-legendary)", // #d9a400
+        },
       },
 
       // ── Typography ────────────────────────────────────────────────────────

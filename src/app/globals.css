@@ -449,6 +449,13 @@
     margin: 0 auto;
     padding-top: var(--bcc-header-h);
   }
+  /* Wide-page escape hatch — grid pages (communities / members /
+     directory / validators) mark their <main> with .bcc-page-wide to
+     opt out of the 680px reading-width cap; the page then manages its
+     own max-width. */
+  .bcc-col-center > div:has(.bcc-page-wide) {
+    max-width: none;
+  }
 
   /* bcc-col-right — widgets sidebar */
   .bcc-col-right {
@@ -1042,21 +1049,12 @@
 
 @layer components {
 
-  /* bcc-card — base card surface */
-  .bcc-card {
-    background: var(--bcc-surface);
-    border: 1px solid var(--bcc-border);
-    border-radius: var(--bcc-radius-lg);
-    box-shadow: var(--bcc-shadow-sm);
-    transition: background var(--bcc-transition-slow),
-                border-color var(--bcc-transition-slow),
-                box-shadow var(--bcc-transition-base);
-    overflow: hidden;
-    position: relative;
-  }
-  .bcc-card:hover {
-    box-shadow: var(--bcc-shadow-md);
-  }
+  /* NOTE: the redesign's generic `.bcc-card` surface rule was removed
+     here — nothing in src/ used it (surfaces use .bcc-panel /
+     .bcc-card-interactive), and the class name belongs to the 316x440
+     3D trading card (see TRADING-CARD + WORKSHOP LAYER — RESTORED at
+     the bottom of this file). Its `overflow: hidden` would also have
+     flattened the preserve-3d flip. */
 
   /* bcc-card-interactive — card with cursor glow radiance effect.
      The glow follows the mouse via --mouse-x / --mouse-y CSS vars
@@ -2225,4 +2223,890 @@
   .animate-pulse-dot     { animation: bcc-pulse 2s infinite; }
   .animate-spin-slow     { animation: bcc-spin 2s linear infinite; }
   .animate-slide-right   { animation: bcc-slide-in-right 0.25s ease forwards; }
+}
+/* ========================================================================
+   TRADING-CARD + WORKSHOP LAYER — RESTORED
+   ------------------------------------------------------------------------
+   Trading-card layer restored post-PR-#10 merge — dropped in the
+   keep-redesign conflict resolution (redesign commits 149626e/0d13eea
+   replaced globals.css wholesale; merge 4a41d7b kept the redesign file).
+   The redesign is canonical for app chrome (header, sidebar, theme
+   system, .bcc-panel/.bcc-mono/.bcc-stencil/.bcc-btn/.bcc-tab). This
+   block restores ONLY the still-consumed primitives the redesign
+   dropped: design tokens, the 316x440 3D trading card, hex crest, rails,
+   paper sheets, footer, marquee/dropcap, onboarding send-off, and
+   celebration sweep. Source of truth: 149626e^:src/app/globals.css.
+
+   .bcc-card name collision: the redesign also defined a generic
+   .bcc-card surface, but nothing in src/ used it (components use
+   .bcc-panel / .bcc-card-interactive). The unused redesign rule was
+   deleted and the trading-card .bcc-card keeps its original name —
+   smallest-diff resolution; its overflow:hidden would have flattened
+   the preserve-3d flip anyway.
+
+   Tier tokens are MAPPED onto the redesign's --bcc-tier-* (identical
+   hex values) rather than duplicated.
+   ======================================================================== */
+
+:root {
+  /* Cardstock palette — warm paper for card surfaces. */
+  --cardstock:       #efe5cf;
+  --cardstock-deep:  #d9c9a3;
+  --cardstock-edge:  #b09877;
+
+  /* Ink — type on cardstock. */
+  --ink:             #0f0d09;
+  --ink-soft:        #2a251c;
+
+  /* Concrete — the warehouse-floor backdrop. */
+  --concrete:        #14110d;
+  --concrete-hi:     #1d1913;
+
+  /* Accent / chrome. */
+  --blueprint:       #0f1e3c;
+  --safety:          #f05a28;
+  --weld:            #ffc01e;
+
+  /* Chain colors. */
+  --chain-cosmos:    #1a0f3e;
+  --chain-osmosis:   #c73f86;
+  --chain-injective: #0a72ff;
+  --chain-kujira:    #e62c3f;
+  /* Chains referenced by crest.background_value on community cards
+     (COMMUNITY_CHAIN_CATALOG slugs). Without these the ChainBand /
+     hex-crest background resolves to an invalid var() and vanishes. */
+  --chain-stargaze:  #db2877;
+  --chain-solana:    #9945ff;
+  --chain-ethereum:  #627eea;
+  --chain-polygon:   #8247e5;
+  --chain-base:      #0052ff;
+
+  /* Community kind color — union-hall green (community trading cards). */
+  --union:           #355e3b;
+
+  /* Card tiers — mapped onto the redesign's tokens (same hex values). */
+  --tier-common:     var(--bcc-tier-common);
+  --tier-uncommon:   var(--bcc-tier-uncommon);
+  --tier-rare:       var(--bcc-tier-rare);
+  --tier-legendary:  var(--bcc-tier-legendary);
+
+  /* Owned-entity type hues (members directory chips + member dossier). */
+  --owned-type-validator: #2c5990; /* steel blue — networks/infra */
+  --owned-type-project:   #d9a400; /* weld gold — matches --tier-legendary by design */
+  --owned-type-nft:       #c52568; /* raspberry — creator energy */
+  --owned-type-dao:       #6b4cb6; /* violet — governance/collective */
+
+  /* Paper variants + live/verified greens. */
+  --paper:           #f7efd9;
+  --paper-warm:      #f2e6c8;
+  --ink-ghost:       #6b6355;
+  --phosphor:        #7dff9a;
+  --verified:        #2c9d66;
+}
+
+@layer components {
+  /* bcc-rail — header-strip layout used for status bars / nav rails.
+     Redesigned 2026-05-11: three logical zones (left identifier, mid
+     network, right shift+clock) using `space-between` + flex-wrap so
+     the mid zone gracefully drops out on narrow widths and the right
+     cluster stays cohesive. Gap shrinks at mid widths so the
+     PANEL-DUTY chip doesn't push the clock off the line. */
+  .bcc-rail {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    padding: 12px 32px;
+    border-bottom: 1px dashed rgba(239, 229, 207, 0.22);
+    color: rgba(239, 229, 207, 0.7);
+    font-family: var(--font-mono), ui-monospace, monospace;
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    flex-wrap: wrap;
+  }
+
+  /* bcc-rail-dot — the pulsing safety-orange dot on rails. */
+  .bcc-rail-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    background: var(--safety);
+    border-radius: 50%;
+    margin-right: 8px;
+    vertical-align: middle;
+    box-shadow: 0 0 10px var(--safety);
+    animation: bcc-pulse 2.4s infinite;
+  }
+
+  /* bcc-foil-band — diagonal foil shimmer for legendary cards. Apply
+     to the card body, not the page. */
+  .bcc-foil-band {
+    background: linear-gradient(
+      120deg,
+      transparent 30%,
+      rgba(255, 255, 255, 0.18) 45%,
+      rgba(255, 255, 255, 0.42) 50%,
+      rgba(255, 255, 255, 0.18) 55%,
+      transparent 70%
+    );
+    background-size: 200% 200%;
+    animation: bcc-foil 6s linear infinite;
+    mix-blend-mode: overlay;
+  }
+
+  /* bcc-caution-tape — the diagonal yellow/black warning stripe. */
+  .bcc-caution-tape {
+    background-image: repeating-linear-gradient(
+      135deg,
+      var(--weld) 0 16px,
+      #000 16px 32px
+    );
+  }
+}
+
+/* ========================================================================
+   CARD PRIMITIVES — 3D stage, faces, hex crest. Component styles that
+   Tailwind can't express cleanly (perspective, clip-path, backface).
+   ======================================================================== */
+
+@layer components {
+  /* bcc-card-stage — perspective container around a card. Sets the
+     viewing angle; the card itself does the 3D rotation. */
+  .bcc-card-stage {
+    perspective: 2400px;
+  }
+
+  /* bcc-card — the 3D-rotated wrapper. Width/height are set on the
+     element so the front + back faces have something to fill.
+
+     Narrow-viewport responsive variant (320–360px): the fixed 316px
+     width overflows a 320px viewport's safe area. Below 380px we let
+     the card shrink to fit its parent while preserving the 316/440
+     aspect ratio. The bcc-card-face uses `position: absolute; inset: 0`
+     so it follows whatever the parent renders at. */
+  .bcc-card {
+    width: 316px;
+    height: 440px;
+    position: relative;
+    transform-style: preserve-3d;
+    cursor: pointer;
+    transition: transform 0.7s cubic-bezier(.2,.9,.25,1);
+    will-change: transform;
+    transform: rotateX(var(--bcc-rx, 0deg)) rotateY(var(--bcc-ry, 0deg));
+  }
+  .bcc-card.is-flipped {
+    transform: rotateX(var(--bcc-rx, 0deg)) rotateY(calc(180deg + var(--bcc-ry, 0deg)));
+  }
+  @media (max-width: 380px) {
+    .bcc-card {
+      width: 100%;
+      max-width: 296px;
+      height: auto;
+      aspect-ratio: 316 / 440;
+    }
+  }
+
+  /* Card faces — positioned absolutely, backface hidden. The aged
+     cardstock texture (multiply blends + noise) lives on the .bcc-card-face
+     ::before/::after so it applies to both front and back faces. */
+  .bcc-card-face {
+    position: absolute;
+    inset: 0;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+    border-radius: 14px;
+    overflow: hidden;
+    background: var(--cardstock);
+    color: var(--ink);
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.7) inset,
+      0 -1px 0 rgba(0, 0, 0, 0.2) inset,
+      0 30px 60px -20px rgba(0, 0, 0, 0.7),
+      0 10px 25px -5px rgba(0, 0, 0, 0.5);
+  }
+  .bcc-card-face::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image:
+      radial-gradient(circle at 20% 15%, rgba(176, 152, 119, 0.22), transparent 40%),
+      radial-gradient(circle at 85% 80%, rgba(176, 152, 119, 0.28), transparent 50%),
+      radial-gradient(circle at 60% 30%, rgba(42, 37, 28, 0.08), transparent 30%);
+    pointer-events: none;
+    mix-blend-mode: multiply;
+    z-index: 1;
+  }
+  .bcc-card-face::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='1.3' numOctaves='2' stitchTiles='stitch'/></filter><rect width='200' height='200' filter='url(%23n)' opacity='0.45'/></svg>");
+    mix-blend-mode: multiply;
+    opacity: 0.18;
+    pointer-events: none;
+    z-index: 2;
+  }
+  .bcc-card-back {
+    transform: rotateY(180deg);
+  }
+
+  /* bcc-hex — hexagonal crest shape used for monogram badges.
+     Three nested layers (outer cardstock ring, mid chain-color stroke,
+     inner cardstock-deep fill) are stacked via ::before / ::after. */
+  .bcc-hex {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .bcc-hex-outer,
+  .bcc-hex-mid,
+  .bcc-hex-inner {
+    position: absolute;
+    clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+  }
+  .bcc-hex-outer { inset: 0;  background: var(--cardstock); }
+  .bcc-hex-mid   { inset: 8px; background: var(--bcc-chain-color, var(--chain-cosmos)); }
+  .bcc-hex-inner { inset: 14px; background: var(--cardstock-deep); }
+
+  /* Reduced-motion fallback — drop the 3D rotation transition entirely
+     so flip is instant and tilt is neutralized. Animations themselves
+     are killed in the global @media block above. */
+  @media (prefers-reduced-motion: reduce) {
+    .bcc-card { transition: none; }
+  }
+}
+
+@layer components {
+  /* bcc-paper — warmer, brighter cardstock used for full-width "sheet"
+     surfaces (bio block, record card, stream box). Same noise + soft
+     vignette overlay as the card faces, just bigger. */
+  .bcc-paper {
+    position: relative;
+    background: var(--paper);
+    color: var(--ink);
+    border: 1px solid rgba(15, 13, 9, 0.18);
+    box-shadow:
+      0 14px 28px -14px rgba(0, 0, 0, 0.6),
+      0 4px 8px -2px rgba(0, 0, 0, 0.3);
+    overflow: hidden;
+  }
+  .bcc-paper::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image:
+      radial-gradient(circle at 12% 14%, rgba(176, 152, 119, 0.18), transparent 45%),
+      radial-gradient(circle at 88% 82%, rgba(176, 152, 119, 0.22), transparent 50%);
+    mix-blend-mode: multiply;
+    pointer-events: none;
+    z-index: 1;
+  }
+  .bcc-paper::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='1.3' numOctaves='2' stitchTiles='stitch'/></filter><rect width='200' height='200' filter='url(%23n)' opacity='0.35'/></svg>");
+    mix-blend-mode: multiply;
+    opacity: 0.16;
+    pointer-events: none;
+    z-index: 1;
+  }
+  .bcc-paper > * {
+    position: relative;
+    z-index: 2;
+  }
+
+  /* bcc-paper-head — black bar across the top of any bcc-paper sheet
+     (record card, stream box, etc.). Safety-orange divider below it. */
+  .bcc-paper-head {
+    background: var(--ink);
+    color: var(--cardstock);
+    padding: 12px 18px;
+    border-bottom: 3px solid var(--safety);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+
+  /* bcc-phosphor-text — the green "live" / on-chain readout style.
+     Used in the live-shift column and progress-bar fills. */
+  .bcc-phosphor-text {
+    color: var(--phosphor);
+    text-shadow: 0 0 4px rgba(125, 255, 154, 0.5);
+  }
+
+  /* bcc-phosphor-dot — the pulsing green "LIVE" indicator. */
+
+  /* bcc-grade — the boxed letter-grade badge used on review listings. */
+  .bcc-grade {
+    background: var(--ink);
+    color: var(--weld);
+    font-family: var(--font-stencil), Impact, sans-serif;
+    font-weight: 900;
+    font-size: 26px;
+    letter-spacing: 0.04em;
+    text-align: center;
+    height: 58px;
+    width: 62px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  /* bcc-pill — small status pill (open/resolved/dismissed for disputes). */
+  .bcc-pill {
+    font-family: var(--font-stencil), Impact, sans-serif;
+    font-weight: 900;
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    padding: 3px 8px;
+    text-transform: uppercase;
+    display: inline-block;
+  }
+  .bcc-pill[data-status="open"]      { background: var(--weld);          color: var(--ink); }
+  .bcc-pill[data-status="resolved"]  { background: var(--verified);      color: #fff; }
+  .bcc-pill[data-status="dismissed"] { background: var(--cardstock-deep); color: var(--ink-soft); }
+
+  /* bcc-stage-reveal — staggered fade-in for the hero block on first
+     paint. Use with --stagger custom property to delay siblings. */
+  .bcc-stage-reveal {
+    opacity: 0;
+    transform: translateY(8px);
+    animation: bcc-stage-reveal 0.6s cubic-bezier(0.2, 0.9, 0.25, 1) forwards;
+    animation-delay: var(--stagger, 0ms);
+  }
+
+  /* bcc-nav-link — single nav item.
+     Redesigned 2026-05-11: active and focus states no longer share
+     the safety-orange treatment. Active uses a SOLID 4px block
+     underline (visually heavier — it's a destination state). Focus
+     uses a DOTTED outline (transient — keyboard movement). On
+     keyboard tab through the row the user can now tell at a glance
+     where they ARE vs. where they MIGHT GO. */
+  .bcc-nav-link {
+    font-family: var(--font-stencil), Impact, sans-serif;
+    font-weight: 800;
+    font-size: 14px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: rgba(239, 229, 207, 0.6);
+    padding: 10px 14px;
+    border-bottom: 4px solid transparent;
+    cursor: pointer;
+    transition: color 0.2s, border-color 0.2s;
+    white-space: nowrap;
+    text-decoration: none;
+    background: transparent;
+    /* Resets for the OpsMenu trigger which renders this class on a
+       <button>. Without these the browser's default button chrome
+       (rounded corners, inset border, padding fudge) breaks the
+       inline alignment with sibling <a> tags. */
+    border-top: none;
+    border-left: none;
+    border-right: none;
+    font: inherit;
+    font-family: var(--font-stencil), Impact, sans-serif;
+  }
+  .bcc-nav-link:hover {
+    color: var(--cardstock);
+  }
+  .bcc-nav-link[aria-current="page"] {
+    color: var(--cardstock);
+    border-bottom-color: var(--safety);
+  }
+  .bcc-nav-link:focus-visible {
+    outline: 2px dotted var(--cardstock);
+    outline-offset: 3px;
+  }
+  /* Honor prefers-reduced-motion: drop transition so the underline
+     swap is instantaneous for users who've asked for less motion. */
+  @media (prefers-reduced-motion: reduce) {
+    .bcc-nav-link {
+      transition: none;
+    }
+  }
+
+
+  /* bcc-site-footer — wrapper. Concrete background continues the
+     workshop register from the header; pads off main content with a
+     dashed top rule on its first zoned child. */
+  .bcc-site-footer {
+    background: var(--concrete);
+    color: rgba(239, 229, 207, 0.7);
+    margin-top: 80px;
+    border-top: 1px dashed rgba(239, 229, 207, 0.2);
+  }
+
+  /* bcc-footer-acquire — anon-only acquisition strip. Light touch:
+     one mono caption, one prose line, two CTAs. Hidden when the
+     viewer is authed (SiteFooter doesn't render the wrapper at all). */
+  .bcc-footer-acquire {
+    max-width: 1560px;
+    margin: 0 auto;
+    padding: 32px 28px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 20px 32px;
+    border-bottom: 1px dashed rgba(239, 229, 207, 0.12);
+  }
+  .bcc-footer-acquire-text {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    max-width: 60ch;
+  }
+  .bcc-footer-acquire-line {
+    font-family: var(--font-fraunces), Georgia, serif;
+    font-size: 17px;
+    color: var(--cardstock);
+    line-height: 1.4;
+  }
+  .bcc-footer-acquire-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  /* bcc-footer-grid — three-column zoned index. Each column has a
+     mono caps label and stencil link rows. Auto-fits at narrow widths
+     so the columns gracefully wrap to a single column on mobile. */
+  .bcc-footer-grid {
+    max-width: 1560px;
+    margin: 0 auto;
+    padding: 48px 28px 32px;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(180px, 1fr));
+    gap: 32px 48px;
+  }
+  @media (max-width: 720px) {
+    .bcc-footer-grid {
+      grid-template-columns: 1fr;
+      gap: 28px;
+      padding: 32px 24px 24px;
+    }
+  }
+  .bcc-footer-col {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .bcc-footer-col-label {
+    font-family: var(--font-mono), monospace;
+    font-size: 10px;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    color: var(--safety);
+    padding-bottom: 6px;
+    border-bottom: 1px dashed rgba(239, 229, 207, 0.18);
+  }
+  .bcc-footer-col-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+  .bcc-footer-col-link {
+    color: rgba(239, 229, 207, 0.65);
+    font-family: var(--font-stencil), Impact, sans-serif;
+    font-weight: 800;
+    font-size: 14px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    text-decoration: none;
+    transition: color 0.15s;
+    display: inline-block;
+    padding: 2px 0;
+  }
+  .bcc-footer-col-link:hover {
+    color: var(--cardstock);
+  }
+  .bcc-footer-col-link:focus-visible {
+    outline: 2px dotted var(--cardstock);
+    outline-offset: 3px;
+  }
+
+  /* bcc-footer — system-status meta row at the bottom. Dashed top
+     rule separates it from the zoned index above. Holds the
+     operational dot, copyright, optional good-standing stamp, and
+     the env-sourced build label. */
+  .bcc-footer {
+    max-width: 1560px;
+    margin: 0 auto;
+    padding: 20px 28px 32px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-top: 1px dashed rgba(239, 229, 207, 0.2);
+    font-family: var(--font-mono), monospace;
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: rgba(239, 229, 207, 0.45);
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .bcc-footer-meta-cluster {
+    display: inline-flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+  }
+  /* bcc-footer-status — operational indicator with a quiet
+     verified-green dot. Static today; will swap to a useSystemHealth
+     reading when that hook lands (see SiteFooter.tsx FooterStatusDot
+     comment for the upgrade path). */
+  .bcc-footer-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .bcc-footer-status-dot {
+    display: inline-block;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--verified);
+    box-shadow: 0 0 6px rgba(44, 157, 102, 0.55);
+  }
+  /* bcc-footer-stamp — contextual "Member in Good Standing" mark.
+     The -1.5° tilt is the warehouse character. Only rendered when
+     authed + viewerInGoodStanding === true (see SiteFooter.tsx). */
+  .bcc-footer-stamp {
+    border: 1px solid var(--verified);
+    color: var(--verified);
+    padding: 4px 8px;
+    letter-spacing: 0.22em;
+    transform: rotate(-1.5deg);
+  }
+  .bcc-footer a {
+    color: inherit;
+    text-decoration: none;
+    transition: color 0.15s;
+  }
+  .bcc-footer a:hover {
+    color: var(--cardstock);
+  }
+  .bcc-footer a:focus-visible {
+    outline: 2px dotted var(--cardstock);
+    outline-offset: 2px;
+  }
+
+  /* Honor prefers-reduced-motion across the footer transitions. */
+  @media (prefers-reduced-motion: reduce) {
+    .bcc-footer-col-link,
+    .bcc-footer a {
+      transition: none;
+    }
+    .bcc-footer-status-dot {
+      box-shadow: none;
+    }
+  }
+}
+
+/* ========================================================================
+   EDITORIAL PRIMITIVES — drop cap + marquee.
+
+   Used by FloorIntro to push the anon landing into a broadsheet-meets-
+   warehouse register. The drop cap reuses Big Shoulders Stencil so the
+   opening capital echoes the H1's display vocabulary (safety-orange tint
+   marks it as a feature lead). The marquee is a slow horizontal ticker
+   that loops a "NOT FOR SALE / ↓ live floor below" rotation; pauses on
+   hover/focus, and the global prefers-reduced-motion media block at the
+   top of this file zeroes its animation duration.
+   ======================================================================== */
+
+@layer components {
+  /* bcc-dropcap — apply to the first <p> of an editorial standfirst.
+     Floats the leading character (::first-letter) at ~4 lines of body
+     height in stencil + safety-orange so the body opening reads as a
+     deliberate lede, not a stray paragraph. */
+  .bcc-dropcap::first-letter {
+    float: left;
+    font-family: var(--font-stencil), Impact, sans-serif;
+    font-weight: 800;
+    font-size: 4.5em;
+    line-height: 0.85;
+    margin-right: 0.12em;
+    margin-top: 0.06em;
+    color: var(--safety);
+    text-transform: uppercase;
+    letter-spacing: 0;
+  }
+
+  /* bcc-marquee — outer clip + edge mask. Wraps a single
+     .bcc-marquee-track that contains the items rendered TWICE so a
+     translateX(-50%) loop is seamless. Dashed rules above + below echo
+     the rest of BCC's rail vocabulary; the soft mask hides items as
+     they enter / leave the strip. */
+  .bcc-marquee {
+    display: flex;
+    overflow: hidden;
+    user-select: none;
+    -webkit-mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent);
+    mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent);
+    border-top: 1px dashed rgba(239, 229, 207, 0.25);
+    border-bottom: 1px dashed rgba(239, 229, 207, 0.25);
+    padding: 14px 0;
+  }
+  .bcc-marquee-track {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    gap: 3rem;
+    padding-right: 3rem;
+    animation: bcc-marquee-scroll 60s linear infinite;
+    will-change: transform;
+  }
+  .bcc-marquee:hover .bcc-marquee-track,
+  .bcc-marquee:focus-within .bcc-marquee-track {
+    animation-play-state: paused;
+  }
+}
+
+
+/* Restored keyframes (bcc-pulse / bcc-fade-in / bcc-count-bump already
+   exist in the redesign layer above and are not redefined here). */
+
+@keyframes bcc-foil {
+  0%   { background-position: 0% 0%; }
+  100% { background-position: 200% 200%; }
+}
+
+@keyframes bcc-stage-reveal {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes bcc-marquee-scroll {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+
+/* ========================================================================
+   §O1 ONBOARDING SEND-OFF — first-run arrival moment.
+
+   Sprint 2 rename (2026-05-13): previously prefixed `bcc-dopamine-*`.
+   The vocabulary leaked intent — naming an animation after a brain-
+   chemical reward made the next casino-shaped animation feel paved
+   in. Renamed to `bcc-onboarding-*` so the ergonomic stops nudging
+   future reviewers toward engagement-bait patterns. No behaviour
+   change; pure prefix swap + verb refinement on the third keyframe
+   (`pop` → `arrive`).
+
+   Three coordinated effects, all CSS-only (no Framer):
+     1. .bcc-onboarding-backdrop — fades the cardstock panel toward
+                                   concrete over the same window the
+                                   chips fly.
+     2. .bcc-onboarding-chip-*   — small abstract card chips sized +
+                                   tinted per card_tier, flying from
+                                   centre to the watchlist-icon corner.
+                                   Stagger via the --bcc-onboarding-delay
+                                   CSS var the wizard passes inline.
+     3. .bcc-onboarding-arrive   — the centre stat-pop card scaling
+                                   in + holding while the chips fly past.
+
+   `prefers-reduced-motion: reduce` zeroes every animation duration so
+   the still version of each surface remains. The wizard also
+   conditionally OMITS these classes for reduced-motion users, but the
+   media-query fallback covers any future caller that forgets.
+   ======================================================================== */
+
+.bcc-onboarding-backdrop {
+  position: relative;
+  isolation: isolate;
+  /* Sprint 4: shortened from 2400ms → 1500ms. The arrive moment was
+     the loudest single motion in the product; reducing its duration
+     proportions it to the rest of the motion vocabulary (Sprint 2
+     keyframes top out around 280-360ms; this one stays louder
+     because it's an arrival, but it shouldn't dominate the user's
+     reference frame for "what motion in this app feels like"). */
+  animation: bcc-onboarding-bg 1500ms ease-in forwards;
+}
+
+@keyframes bcc-onboarding-bg {
+  /* Sprint 4: terminal tint lowered from 0.55 → 0.35. The backdrop
+     still tips toward concrete so the chips read against contrast,
+     but doesn't fully eclipse the cardstock — the arrive feels like
+     dimming the room, not blacking it out. */
+  0%   { background: transparent; }
+  60%  { background: rgba(20, 17, 13, 0.0); }   /* hold cardstock */
+  100% { background: rgba(20, 17, 13, 0.35); }  /* tip toward concrete */
+}
+
+/* Chip atom — small absolute-centered square that translates to the
+   top-right (where the watchlist dock lives) while pulsing a tier-tinted
+   glow. The wizard renders 1..6 of these; each gets a delay offset
+   so they fly in sequence. */
+.bcc-onboarding-chip {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 32px;
+  height: 44px;
+  border-radius: 4px;
+  transform-origin: center;
+  pointer-events: none;
+  --bcc-onboarding-tier: var(--tier-common);
+  background: var(--bcc-onboarding-tier);
+  box-shadow:
+    0 0 0 1px rgba(15, 13, 9, 0.4),
+    0 0 18px var(--bcc-onboarding-tier),
+    0 0 36px var(--bcc-onboarding-tier);
+  opacity: 0;
+  animation: bcc-onboarding-fly 1600ms cubic-bezier(0.4, 0.0, 0.2, 1) forwards;
+  animation-delay: var(--bcc-onboarding-delay, 0ms);
+}
+
+.bcc-onboarding-chip-legendary { --bcc-onboarding-tier: var(--tier-legendary); }
+.bcc-onboarding-chip-rare      { --bcc-onboarding-tier: var(--tier-rare); }
+.bcc-onboarding-chip-uncommon  { --bcc-onboarding-tier: var(--tier-uncommon); }
+.bcc-onboarding-chip-common    { --bcc-onboarding-tier: var(--tier-common); }
+.bcc-onboarding-chip-neutral   { --bcc-onboarding-tier: var(--ink-ghost); }
+
+/* Flight path: bloom from centre, arc up-right toward the watchlist
+   dock, fade as it lands. The translation values match the watchlist
+   dock's
+   absolute placement (right-8 top-6 in the wizard) for a 6xl-max
+   container; on smaller viewports the chip still lands "off-screen
+   up-right" which reads correctly. */
+@keyframes bcc-onboarding-fly {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.6);
+  }
+  20% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(calc(50vw - 80px), calc(-50vh + 80px)) scale(0.4) rotate(8deg);
+  }
+}
+
+/* Arrive — scales in, holds, lifts on the way out so the eye is led
+   away from the centre as the redirect fires. Verb-renamed from `pop`
+   (Sprint 2): "arrive" is constitutionally aligned with the room-
+   acknowledges-the-operator framing; "pop" was casino-shaped.
+   Sprint 4: duration reduced 2400ms → 1500ms (matches the backdrop)
+   and the overshoot scale tightened from 1.04 → 1.02. The arrive
+   moment still registers, but proportions to the rest of the
+   product's motion language instead of becoming the user's first-
+   impression reference frame for "what motion here feels like." */
+.bcc-onboarding-arrive {
+  position: relative;
+  z-index: 2;
+  animation: bcc-onboarding-arrive 1500ms ease-out forwards;
+  transform-origin: center;
+}
+
+@keyframes bcc-onboarding-arrive {
+  0%   { opacity: 0; transform: scale(0.88) translateY(6px); }
+  25%  { opacity: 1; transform: scale(1.02) translateY(0); }
+  40%  { transform: scale(1.0) translateY(0); }
+  85%  { opacity: 1; transform: scale(1.0) translateY(-3px); }
+  100% { opacity: 0.85; transform: scale(0.98) translateY(-6px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bcc-onboarding-backdrop,
+  .bcc-onboarding-chip,
+  .bcc-onboarding-arrive {
+    animation: none !important;
+  }
+  .bcc-onboarding-chip {
+    /* Make stray chips disappear if a caller forgets to gate them. */
+    display: none;
+  }
+}
+
+/* ========================================================================
+   §O1.2 HEAVY CELEBRATION — rank-up / level-up / tier-upgrade.
+
+   Same motif as §O1 onboarding (the centre stat-pop card) but reusable
+   for any Heavy intensity moment that fires after a state change. Two
+   parts:
+
+     1. .bcc-celebration-sweep    — a verified-green brand-color band
+                                    that wipes across the viewport once,
+                                    behind everything else.
+     2. .bcc-celebration-toast    — the headline card that scales in,
+                                    holds, and lifts away. Reuses the
+                                    bcc-onboarding-arrive keyframes so
+                                    a user who saw onboarding gets a
+                                    consistent visual rhythm.
+
+   Lifecycle is owned by the React component: mount → animate (1.5s) →
+   fade and unmount, with auto-consume firing after the animation
+   completes.
+
+   `prefers-reduced-motion: reduce` zeroes the sweep and replaces the
+   toast pop with a static appearance — no movement, but the message
+   still surfaces.
+   ======================================================================== */
+
+.bcc-celebration-sweep {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  pointer-events: none;
+  background: linear-gradient(
+    100deg,
+    transparent 0%,
+    transparent 35%,
+    rgba(44, 157, 102, 0.18) 50%,
+    transparent 65%,
+    transparent 100%
+  );
+  background-size: 300% 100%;
+  background-position: -100% 0;
+  animation: bcc-celebration-sweep 1500ms cubic-bezier(0.4, 0.0, 0.2, 1) forwards;
+}
+
+@keyframes bcc-celebration-sweep {
+  0%   { background-position: -100% 0; opacity: 0; }
+  10%  { opacity: 1; }
+  90%  { opacity: 1; }
+  100% { background-position: 200% 0; opacity: 0; }
+}
+
+.bcc-celebration-toast {
+  animation: bcc-onboarding-arrive 1500ms ease-out forwards;
+  transform-origin: center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bcc-celebration-sweep {
+    animation: none !important;
+    /* Fade in the band gently rather than wiping. Still on-screen
+       briefly so the moment is registered, but no sweeping motion. */
+    background: rgba(44, 157, 102, 0.10);
+    opacity: 1;
+  }
+  .bcc-celebration-toast {
+    animation: none !important;
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes bcc-bell-acknowledge {
+  /* The room noticed you. A soft phosphor wash over the bell SVG that
+     borrows brightness for a beat and returns to ambient. No wobble,
+     no shake — that would be the machine demanding attention. The
+     bell stays a destination, not a button asking to be clicked. */
+  0%   { filter: drop-shadow(0 0 0 transparent); opacity: 1; }
+  35%  { filter: drop-shadow(0 0 6px rgba(125, 255, 154, 0.55)); opacity: 1; }
+  100% { filter: drop-shadow(0 0 0 transparent); opacity: 1; }
 }
