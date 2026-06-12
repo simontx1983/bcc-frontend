@@ -4,19 +4,25 @@
  * OAuth complete-profile page — /signup/complete-profile
  *
  * Entry point: NextAuth's signIn callback redirects here after an OAuth
- * sign-in where no matching BCC account was found, appending ?pt=<token>.
+ * sign-in where no matching BCC account was found, appending
+ * ?pt=<token>&email=<email> (email omitted when the provider didn't
+ * supply one — currently always the case for Twitter).
  *
  * Flow:
  *   1. User picks a handle (and optionally edits their display name).
- *   2. POST /auth/oauth-complete (provider_token + handle) → JWT.
+ *      If the provider didn't supply an email, also collects one here —
+ *      it's required so the account is recoverable and gets a welcome
+ *      email.
+ *   2. POST /auth/oauth-complete (provider_token + handle [+ email]) → JWT.
  *   3. signIn("bcc-verified", JWT fields) → NextAuth session.
  *   4. router.replace("/onboarding").
  *
  * The provider_token is short-lived (15 min). On expiry, show an error
  * with a link back to /login so they can restart the OAuth flow.
  *
- * Validation errors (handle taken / invalid) leave the provider_token
- * intact on the backend so the user can correct and retry in place.
+ * Validation errors (handle taken / invalid, email taken / invalid) leave
+ * the provider_token intact on the backend so the user can correct and
+ * retry in place.
  */
 
 import type { Route } from "next";
@@ -30,11 +36,14 @@ import { oauthComplete } from "@/lib/api/auth-endpoints";
 import { BccApiError } from "@/lib/api/types";
 import { checkHandleLocal, formatHandleHint } from "@/lib/auth/handleValidation";
 
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 const ERROR_COPY: Record<string, string> = {
   bcc_invalid_oauth_token: "Your sign-in session expired. Please start again.",
   bcc_invalid_handle:      "Handle must be 3–20 chars, lowercase letters, digits, or hyphens.",
   bcc_handle_reserved:     "That handle is reserved. Pick another.",
-  bcc_conflict:            "That handle is already taken. Try a different one.",
+  bcc_invalid_email:       "Please enter a valid email address.",
+  bcc_conflict:            "That handle or email is already taken. Try a different one.",
   bcc_rate_limited:        "Too many attempts. Wait a moment.",
   bcc_unknown:             "Something went wrong. Please try again.",
 };
@@ -43,9 +52,11 @@ function CompleteProfileContent() {
   const router       = useRouter();
   const searchParams = useSearchParams();
   const pt           = searchParams.get("pt") ?? "";
+  const needsEmail   = (searchParams.get("email") ?? "") === "";
 
   const [handle, setHandle]               = useState("");
   const [displayName, setDisplayName]     = useState("");
+  const [email, setEmail]                 = useState("");
   const [error, setError]                 = useState<string | null>(null);
   const [submitting, setSubmitting]       = useState(false);
   const [signingIn, setSigningIn]         = useState(false);
@@ -54,10 +65,11 @@ function CompleteProfileContent() {
   const handleErrorKind = checkHandleLocal(handle);
   const handleValid     = handleErrorKind === null && handle.length >= 3;
   const handleHint      = formatHandleHint(handle, handleErrorKind);
+  const emailValid      = !needsEmail || EMAIL_RE.test(email.trim());
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    if (!handleValid || pt === "") return;
+    if (!handleValid || !emailValid || pt === "") return;
     setError(null);
     setSubmitting(true);
 
@@ -66,6 +78,7 @@ function CompleteProfileContent() {
         provider_token: pt,
         handle:         handle.trim().toLowerCase(),
         ...(displayName.trim() !== "" ? { display_name: displayName.trim() } : {}),
+        ...(needsEmail ? { email: email.trim() } : {}),
       });
 
       setSigningIn(true);
@@ -143,6 +156,26 @@ function CompleteProfileContent() {
         onSubmit={(e) => { void handleSubmit(e); }}
         style={{ display: "flex", flexDirection: "column", gap: "12px" }}
       >
+        {needsEmail && (
+          <div className="bcc-auth-field">
+            <label className="bcc-auth-label" htmlFor="email">Email</label>
+            <input
+              id="email"
+              type="email"
+              required
+              autoComplete="email"
+              placeholder="you@example.com"
+              value={email}
+              onChange={(e) => { setEmail(e.target.value); }}
+              className="bcc-auth-input"
+            />
+            <span className="bcc-auth-hint">
+              X doesn&apos;t share your email with us — we need one so you can
+              recover your account and get updates.
+            </span>
+          </div>
+        )}
+
         <div className="bcc-auth-field">
           <label className="bcc-auth-label" htmlFor="handle">Handle</label>
           <div className="bcc-auth-handle-wrap">
@@ -192,7 +225,7 @@ function CompleteProfileContent() {
 
         <button
           type="submit"
-          disabled={submitting || signingIn || !handleValid}
+          disabled={submitting || signingIn || !handleValid || !emailValid}
           className="bcc-auth-submit"
         >
           {submitting ? "Creating account…" : "Join the floor"}

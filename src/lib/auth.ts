@@ -32,7 +32,7 @@ import Credentials from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
 import TwitterProvider from "next-auth/providers/twitter";
 
-import { clientEnv } from "@/lib/env";
+import { clientEnv, serverEnv } from "@/lib/env";
 import type { ApiSuccess, AuthTokenResponse } from "@/lib/api/types";
 import type { OAuthHandleRequiredResponse } from "@/lib/api/auth-endpoints";
 
@@ -145,7 +145,7 @@ async function callBccOauth(body: {
           // here and not an arbitrary client. Server-side only (NextAuth
           // callback) — never exposed to the browser. Backend:
           // AuthEndpoint::oauthBridgeGate (BCC_OAUTH_BRIDGE_SECRET).
-          "X-Bcc-Oauth-Secret": process.env["BCC_OAUTH_BRIDGE_SECRET"] ?? "",
+          "X-Bcc-Oauth-Secret": serverEnv.BCC_OAUTH_BRIDGE_SECRET,
         },
         body: JSON.stringify(body),
       }
@@ -181,10 +181,13 @@ export const authOptions: NextAuthOptions = {
     strategy: "jwt",
   },
 
-  // Custom sign-in / error pages live under app/login (we redirect
-  // unauthed access there from server components).
+  // Custom sign-in / error pages live under app/login and app/auth-error
+  // (we redirect unauthed access to /login from server components; NextAuth
+  // redirects rejected sign-ins — most commonly AccessDenied from the
+  // signIn callback below — to /auth-error).
   pages: {
     signIn: "/login",
+    error: "/auth-error",
   },
 
   providers: [
@@ -198,6 +201,14 @@ export const authOptions: NextAuthOptions = {
       clientId:     process.env["TWITTER_CLIENT_ID"]     ?? "",
       clientSecret: process.env["TWITTER_CLIENT_SECRET"] ?? "",
       version: "2.0",
+      // next-auth's built-in provider hardcodes twitter.com/api.twitter.com,
+      // but X's session cookies live on x.com — authorizing against
+      // twitter.com can't see an existing x.com login, so it shows a fresh
+      // login screen and then loops back to it after auth completes.
+      // (Deep-merged with the provider defaults, so scope/params are kept.)
+      authorization: { url: "https://x.com/i/oauth2/authorize" },
+      token: { url: "https://api.x.com/2/oauth2/token" },
+      userinfo: { url: "https://api.x.com/2/users/me" },
     }),
 
     Credentials({
@@ -327,7 +338,11 @@ export const authOptions: NextAuthOptions = {
         });
 
         if ("status" in result && result.status === "handle_required") {
-          return `/signup/complete-profile?pt=${result.provider_token}`;
+          // Twitter doesn't return an email, so result.email is "" — the
+          // complete-profile page treats a missing param as "collect one".
+          const params = new URLSearchParams({ pt: result.provider_token });
+          if (result.email !== "") params.set("email", result.email);
+          return `/signup/complete-profile?${params.toString()}`;
         }
 
         return true;
