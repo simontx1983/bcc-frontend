@@ -70,8 +70,15 @@ interface PageProps {
  * Unknown handle → minimal "Profile not found" metadata rather than a
  * throw (a throw here would surface as a 500 in the <head> render path).
  *
- * URLs are emitted relative ("/u/handle", avatar path) and resolved to
- * absolute by the root layout's `metadataBase`, which OG requires.
+ * og:image / twitter:image are NOT set here. The sibling
+ * `opengraph-image.tsx` (+ `twitter-image.tsx`) file-convention route
+ * generates a branded operator-file card and Next auto-emits the image
+ * tags pointing at it. Setting `openGraph.images` here too would emit a
+ * duplicate (and worse: the old avatar SVG, which crawlers can't render
+ * as a card). We keep only title/description/canonical/card-type.
+ *
+ * URLs are emitted relative ("/u/handle") and resolved to absolute by the
+ * root layout's `metadataBase`, which OG requires.
  */
 export async function generateMetadata({
   params,
@@ -100,15 +107,10 @@ export async function generateMetadata({
 
   const canonical = `/u/${encodeURIComponent(profile.handle)}`;
 
-  // Prefer the wide cover for a large card; fall back to the avatar/crest
-  // for the compact summary card. Both are absolute public URLs from the
-  // backend (PeepSo media), resolved as-is when already absolute.
-  const cover = profile.cover_photo_url;
-  const avatar = profile.avatar_url.trim();
-  const hasCover = cover !== null && cover.trim() !== "";
-  const imageUrl = hasCover ? cover : avatar !== "" ? avatar : null;
-  const images = imageUrl !== null ? [imageUrl] : undefined;
-
+  // No image entries — the opengraph-image.tsx / twitter-image.tsx
+  // convention routes generate the branded card and Next emits the
+  // og:image / twitter:image tags automatically. The generated card is a
+  // wide 1200×630 PNG, so the twitter card type is summary_large_image.
   return {
     title,
     description,
@@ -118,13 +120,11 @@ export async function generateMetadata({
       description,
       url: canonical,
       type: "profile",
-      ...(images !== undefined ? { images } : {}),
     },
     twitter: {
-      card: hasCover ? "summary_large_image" : "summary",
+      card: "summary_large_image",
       title,
       description,
-      ...(images !== undefined ? { images } : {}),
     },
   };
 }
