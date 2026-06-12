@@ -28,7 +28,6 @@ import type {
   AuthTokenResponse,
   LinkWalletRequest,
   LinkWalletResponse,
-  WalletLoginRequest,
   WalletNonceResponse,
   WalletSignupRequest,
 } from "@/lib/api/types";
@@ -321,26 +320,11 @@ export function getPublicWalletNonce(
   );
 }
 
-/**
- * POST /auth/wallet-login — verify a signature and mint a JWT for the
- * BCC user the wallet is linked to. Anonymous; the signature IS the
- * credential.
- *
- * Errors:
- *   - bcc_invalid_request    — missing fields / expired or unknown nonce
- *   - bcc_signature_invalid  — wallet did not produce a valid signature
- *   - bcc_wallet_not_linked  — no account exists for this wallet (frontend should route to /signup)
- *   - bcc_invalid_state      — account exists but has no §B6 handle
- *   - bcc_rate_limited       — IP-keyed throttle tripped
- */
-export function walletLogin(
-  request: WalletLoginRequest
-): Promise<AuthTokenResponse> {
-  return bccFetch<AuthTokenResponse>("auth/wallet-login", {
-    method: "POST",
-    body: request,
-  });
-}
+// NOTE: there is deliberately no walletLogin() wrapper here — wallet
+// login flows through the NextAuth wallet Credentials provider
+// (lib/auth.ts), which posts to /auth/wallet-login itself so the JWT
+// lands inside the NextAuth session. A typed wrapper existed and was
+// dead code; deleted 2026-06-12 per the fresh-install policy.
 
 /**
  * POST /auth/wallet-signup — create an account from a wallet
