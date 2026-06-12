@@ -20,6 +20,7 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import type { Route } from "next";
 
+import { ShareButton } from "@/components/common/ShareButton";
 import { FileRail } from "@/components/layout/FileRail";
 import { GroupAboutPanel } from "@/components/groups/GroupAboutPanel";
 import { GroupCard } from "@/components/groups/GroupCard";
@@ -67,6 +68,14 @@ export interface GroupDetailShellProps {
    */
   backHref?: string;
   backLabel?: string;
+  /**
+   * App-relative path to share (leading slash, no origin), e.g.
+   * "/communities/{slug}". Built by the route the viewer is on — the shell
+   * is shared across /communities, /groups, and /locals, so the share +
+   * canonical surface differs per route and is threaded down rather than
+   * derived from a single `links.self`. Omit to hide the Share button.
+   */
+  sharePath?: string;
 }
 
 export function GroupDetailShell({
@@ -76,6 +85,7 @@ export function GroupDetailShell({
   actions,
   backHref,
   backLabel,
+  sharePath,
 }: GroupDetailShellProps) {
   const actionCluster =
     actions !== undefined ? actions : <GroupMembershipStrip group={group} />;
@@ -83,6 +93,8 @@ export function GroupDetailShell({
   const showBreadcrumb =
     backHref !== undefined && backHref !== "" &&
     backLabel !== undefined && backLabel !== "";
+
+  const showShare = sharePath !== undefined && sharePath !== "";
 
   return (
     <main className="pb-24">
@@ -107,15 +119,35 @@ export function GroupDetailShell({
             ← {backLabel?.toUpperCase()}
           </Link>
         )}
-        <h1
+        {/* Title row — stencil name on the left, Share on the right.
+            Group/community/local detail pages are a shareable surface for
+            any viewer who can see them; the page itself owns the privacy
+            gate, so a Share button on a page you're already looking at is
+            fine. The share path is the route the viewer is on (threaded in
+            as `sharePath`) — the shell is reused across three routes, so we
+            don't derive it from a single `links.self`. */}
+        <div
           className={
-            "bcc-stencil text-cardstock leading-[0.92] " +
+            "flex items-start justify-between gap-4 " +
             (showBreadcrumb ? "mt-4" : "")
           }
-          style={{ fontSize: "clamp(1.75rem, 5.5vw, 4.5rem)", wordBreak: "break-word" }}
         >
-          {group.name}
-        </h1>
+          <h1
+            className="bcc-stencil text-cardstock leading-[0.92]"
+            style={{ fontSize: "clamp(1.75rem, 5.5vw, 4.5rem)", wordBreak: "break-word" }}
+          >
+            {group.name}
+          </h1>
+          {showShare && (
+            <div className="shrink-0 pt-1">
+              <ShareButton
+                path={sharePath}
+                title={group.name}
+                ariaLabel={`Share ${group.name}`}
+              />
+            </div>
+          )}
+        </div>
         <p
           className="bcc-mono mt-3 text-safety"
           style={{ fontSize: "11px", letterSpacing: "0.18em" }}

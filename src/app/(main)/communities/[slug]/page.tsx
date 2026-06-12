@@ -17,6 +17,7 @@
  * never distinguish them on the wire (privacy leak per §S).
  */
 
+import type { Metadata } from "next";
 import { getServerSession } from "next-auth";
 import { notFound } from "next/navigation";
 
@@ -24,10 +25,27 @@ import { GroupDetailShell } from "@/components/groups/GroupDetailShell";
 import { authOptions } from "@/lib/auth";
 import { tokenFromSession } from "@/lib/api/client";
 import { getGroup } from "@/lib/api/groups-detail-endpoints";
+import { buildGroupMetadata } from "@/lib/og/group-metadata";
 import { BccApiError } from "@/lib/api/types";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
+}
+
+/**
+ * generateMetadata — OG / Twitter-card tags for a pasted /communities/[slug]
+ * link. Shared builder (anon public fetch, no manual og:image — the
+ * opengraph-image.tsx convention route owns it). See group-metadata.ts.
+ */
+export async function generateMetadata({
+  params,
+}: PageProps): Promise<Metadata> {
+  const { slug } = await params;
+  return buildGroupMetadata({
+    slug,
+    pathPrefix: "/communities",
+    kindLabel: "Community",
+  });
 }
 
 export default async function CommunityStreamPage({ params }: PageProps) {
@@ -51,6 +69,7 @@ export default async function CommunityStreamPage({ params }: PageProps) {
       group={group}
       initialTab="stream"
       urlBase={`/communities/${slug}`}
+      sharePath={`/communities/${encodeURIComponent(slug)}`}
       backHref="/communities"
       backLabel="Communities"
     />

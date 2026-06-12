@@ -24,7 +24,7 @@
  * header + the LocalMembershipControls + a feed-unavailable notice.
  */
 
-import type { Route } from "next";
+import type { Metadata, Route } from "next";
 import { getServerSession } from "next-auth";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -35,10 +35,28 @@ import { authOptions } from "@/lib/auth";
 import { tokenFromSession } from "@/lib/api/client";
 import { getGroup } from "@/lib/api/groups-detail-endpoints";
 import { getLocal } from "@/lib/api/locals-endpoints";
+import { buildGroupMetadata } from "@/lib/og/group-metadata";
 import { BccApiError } from "@/lib/api/types";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
+}
+
+/**
+ * generateMetadata — OG / Twitter-card tags for a pasted /locals/[slug]
+ * link. Shared builder (anon public fetch, no manual og:image — the
+ * opengraph-image.tsx convention route owns it). A Local is a wrapper over
+ * the same group view-model, so the group fetch powers the preview copy.
+ */
+export async function generateMetadata({
+  params,
+}: PageProps): Promise<Metadata> {
+  const { slug } = await params;
+  return buildGroupMetadata({
+    slug,
+    pathPrefix: "/locals",
+    kindLabel: "Local",
+  });
 }
 
 export default async function LocalDetailPage({ params }: PageProps) {
@@ -72,6 +90,7 @@ export default async function LocalDetailPage({ params }: PageProps) {
       <GroupDetailShell
         group={groupResult.value}
         initialTab="stream"
+        sharePath={`/locals/${encodeURIComponent(slug)}`}
         backHref="/locals"
         backLabel="Locals"
         actions={
