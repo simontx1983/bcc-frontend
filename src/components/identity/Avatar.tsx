@@ -72,6 +72,14 @@ export interface AvatarProps {
   /** When true, wraps the avatar in a `<Link>` to `/u/{handle}`. */
   asLink?: boolean | undefined;
   className?: string | undefined;
+  /**
+   * Override the ring/border color (e.g. "var(--bcc-accent)"), taking
+   * precedence over the tier-derived ring. For surfaces that want a
+   * consistent accent ring regardless of the member's card tier
+   * (e.g. sidebar "Newest Members" widgets). Ignored by the hex
+   * variant, whose ring is tier/chain-driven by design.
+   */
+  ringColor?: string | undefined;
 }
 
 interface SizeSpec {
@@ -83,10 +91,20 @@ interface SizeSpec {
   operatorPx: number;
 }
 
+// PeepSo's core plugin auto-generates a placeholder avatar — a flat
+// rgb(50,50,50) square with the WordPress *username's* first letter — for
+// any user who hasn't uploaded a real photo, and returns its URL the same
+// as a real avatar (never null/""). Every seed account's WP username is
+// "u_*", so every placeholder renders a dark square with a plain "U",
+// which is what was leaking through as a "broken-looking" avatar. Treat
+// this generated URL the same as "no avatar set" so our initials monogram
+// renders instead.
+const PEEPSO_GENERATED_AVATAR = "/peepso/avatars-svg/";
+
 const SIZE_TABLE: Record<AvatarSize, SizeSpec> = {
   xs: { px: 20,  fontClass: "bcc-mono text-[9px] tracking-tight",  operatorPx: 0 },
   sm: { px: 28,  fontClass: "bcc-stencil text-[11px]",              operatorPx: 6 },
-  md: { px: 40,  fontClass: "bcc-stencil text-[14px]",              operatorPx: 8 },
+  md: { px: 36,  fontClass: "bcc-stencil text-[14px]",              operatorPx: 8 },
   lg: { px: 64,  fontClass: "bcc-stencil text-[22px]",              operatorPx: 10 },
   xl: { px: 140, fontClass: "bcc-stencil text-[44px]",              operatorPx: 14 },
 };
@@ -101,10 +119,14 @@ function AvatarImpl({
   isOperator = false,
   asLink = false,
   className,
+  ringColor,
 }: AvatarProps) {
   const spec = SIZE_TABLE[size];
   const initials = deriveInitials(displayName, handle);
-  const hasImage = typeof avatarUrl === "string" && avatarUrl !== "";
+  const hasImage =
+    typeof avatarUrl === "string" &&
+    avatarUrl !== "" &&
+    !avatarUrl.includes(PEEPSO_GENERATED_AVATAR);
 
   // Tier tint via the existing CSS vars (globals.css:37-40). No JS
   // tier→color map. `undefined` and `null` both fall back to a neutral
@@ -129,20 +151,33 @@ function AvatarImpl({
   // gets applied to the outer ring.
   const shapeBase = variant === "hex" ? "" : "rounded-full";
 
-  // Border / ring driver. When we have a tier color, paint a 2px solid
-  // ring of that color; otherwise a faint cardstock edge so the shape
-  // is visible against any background. Hex variant has its own outer
-  // ring built into .bcc-hex-outer — we still set CSS var so the mid
-  // band can pick it up if the consumer wants chain coloration.
+  // Border / ring driver. `ringColor` (when given) wins outright —
+  // used by surfaces that want a consistent accent ring regardless of
+  // tier. Otherwise, a tier color paints a 2px solid ring; with no
+  // signal at all, a faint cardstock edge keeps the shape visible
+  // against any background. Hex variant has its own outer ring built
+  // into .bcc-hex-outer — we still set CSS var so the mid band can
+  // pick it up if the consumer wants chain coloration.
+  //
+  // `ringColor` also adds the accent-subtle halo (box-shadow) used by
+  // the header avatar (SiteHeader) — pairing the two keeps the visual
+  // footprint identical wherever the accent ring appears (sidebars,
+  // header), since the halo extends past the box without affecting
+  // layout size.
   const ringStyle: CSSProperties =
     variant === "hex"
       ? { ["--bcc-chain-color" as string]: tierColor ?? "var(--cardstock-edge)" }
-      : {
-          border:
-            tierColor !== null
-              ? `2px solid ${tierColor}`
-              : "1px solid var(--cardstock-edge)",
-        };
+      : ringColor !== undefined
+        ? {
+            border: `2px solid ${ringColor}`,
+            boxShadow: "0 0 0 3px var(--bcc-accent-subtle)",
+          }
+        : {
+            border:
+              tierColor !== null
+                ? `2px solid ${tierColor}`
+                : "1px solid var(--cardstock-edge)",
+          };
 
   const a11yName = (() => {
     if (typeof displayName === "string" && displayName !== "") return displayName;
@@ -194,8 +229,13 @@ function AvatarImpl({
         className={`h-full w-full ${shapeBase} object-cover`}
       />
     ) : (
+      // Subtle theme-aware placeholder — matches the header's own
+      // avatar fallback (.bcc-avatar) rather than the cardstock
+      // trading-card palette, so the "no image" monogram reads
+      // consistently across the app shell (header, sidebars,
+      // notifications, etc.).
       <span
-        className={`flex h-full w-full items-center justify-center ${shapeBase} bg-cardstock-deep text-cardstock ${spec.fontClass}`}
+        className={`flex h-full w-full items-center justify-center ${shapeBase} bg-[var(--bcc-surface-hover)] text-[var(--bcc-text-secondary)] ${spec.fontClass}`}
         aria-hidden
       >
         {initials !== "" ? initials : "?"}

@@ -5,12 +5,14 @@ import {
   JetBrains_Mono,
   Homemade_Apple,
 } from "next/font/google";
+import { getServerSession } from "next-auth";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 
 import { Providers } from "./providers";
 import { Preloader } from "@/components/preloader/Preloader";
 import { NavigationProgress } from "@/components/preloader/NavigationProgress";
+import { authOptions } from "@/lib/auth";
 import "./globals.css";
 
 const stencil = Big_Shoulders_Stencil({
@@ -82,7 +84,7 @@ export const viewport: Viewport = {
   initialScale: 1,
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
@@ -93,6 +95,12 @@ export default function RootLayout({
     mono.variable,
     script.variable,
   ].join(" ");
+
+  // Server-resolved session, handed to SessionProvider as initial state
+  // so useSession() resolves to "authenticated"/"unauthenticated" on the
+  // very first client render — no "loading" flash for the header's
+  // icon cluster / avatar on a normal page load.
+  const session = await getServerSession(authOptions);
 
   return (
     <html
@@ -108,7 +116,7 @@ export default function RootLayout({
       <body>
         <Preloader />
         <NavigationProgress />
-        <Providers>
+        <Providers session={session}>
           {children}
         </Providers>
         <Analytics />

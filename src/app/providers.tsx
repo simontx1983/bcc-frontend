@@ -2,6 +2,7 @@
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
+import type { Session } from "next-auth";
 import { SessionProvider } from "next-auth/react";
 import dynamic from "next/dynamic";
 import { useState, type ReactNode } from "react";
@@ -46,7 +47,13 @@ const EligibleCommunitiesModal = dynamic(
  *     one-off queries; the shorter window keeps the cache footprint
  *     bounded without hurting back-navigation within a session.
  */
-export function Providers({ children }: { children: ReactNode }) {
+export function Providers({
+  children,
+  session,
+}: {
+  children: ReactNode;
+  session: Session | null;
+}) {
   const [queryClient] = useState(
     () =>
       new QueryClient({
@@ -62,7 +69,7 @@ export function Providers({ children }: { children: ReactNode }) {
   );
 
   return (
-    <SessionProvider>
+    <SessionProvider session={session}>
       <QueryClientProvider client={queryClient}>
         <BadgesProvider>
           {children}
