@@ -107,15 +107,16 @@ function NewestMembersWidget() {
               avatarUrl={member.crest.image_url ?? ""}
               handle={member.handle}
               displayName={member.name}
-              size="sm"
+              size="md"
               variant="rounded"
               tier={member.card_tier}
+              ringColor="var(--bcc-accent)"
             />
             <span style={{ flex: 1, minWidth: 0 }}>
-              <span className="bcc-truncate" style={{ display: "block", fontSize: 13, fontWeight: 600, color: "var(--bcc-text)" }}>
+              <span className="bcc-truncate" style={{ display: "block", fontSize: 13, lineHeight: 1.25, fontWeight: 600, color: "var(--bcc-text)" }}>
                 {member.name}
               </span>
-              <span style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 2 }}>
+              <span style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 1, lineHeight: 1 }}>
                 <RankChip
                   cardTier={member.card_tier}
                   tierLabel={member.tier_label}
@@ -283,15 +284,16 @@ function SuggestedWidget() {
                   avatarUrl={member.avatar_url}
                   handle={member.handle}
                   displayName={member.display_name}
-                  size="sm"
+                  size="md"
                   variant="rounded"
                   tier={member.card_tier}
+                  ringColor="var(--bcc-accent)"
                 />
                 <span style={{ flex: 1, minWidth: 0 }}>
-                  <span className="bcc-truncate" style={{ display: "block", fontSize: 13, fontWeight: 600, color: "var(--bcc-text)" }}>
+                  <span className="bcc-truncate" style={{ display: "block", fontSize: 13, lineHeight: 1.25, fontWeight: 600, color: "var(--bcc-text)" }}>
                     {member.display_name}
                   </span>
-                  <span style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 2 }}>
+                  <span style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 1, lineHeight: 1 }}>
                     <RankChip
                       cardTier={member.card_tier}
                       tierLabel={member.tier_label}
@@ -308,7 +310,7 @@ function SuggestedWidget() {
               </Link>
               <button
                 type="button"
-                className="bcc-btn bcc-btn-sm bcc-btn-ghost"
+                className={`bcc-btn bcc-btn-sm ${isFollowing ? "bcc-btn-ghost" : "bcc-btn-outline"}`}
                 style={{ flexShrink: 0, fontSize: 12, padding: "3px 10px" }}
                 disabled={isMutating}
                 aria-pressed={isFollowing}

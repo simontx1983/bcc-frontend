@@ -8,8 +8,12 @@
  * Rules (mechanical — no business logic):
  *   - Prefer `displayName` when non-empty; otherwise fall back to
  *     `handle` (with any leading `@` stripped).
- *   - Split on whitespace OR hyphen — handles both "Phillip Walker"
- *     (display name) and "blue-collar-bot" (handle) cleanly.
+ *   - Split on whitespace, hyphen, OR underscore — handles "Phillip
+ *     Walker" (display name), "blue-collar-bot", and "u_expocas"
+ *     (handle) cleanly. Without the underscore split, an
+ *     underscore-joined handle collapses to its first two raw
+ *     characters (e.g. "u_" for "u_expocas"), which reads as a single
+ *     glyph in the avatar monogram — splitting gives "UE" instead.
  *   - Two-or-more tokens → first char of first two tokens.
  *   - One token → first two chars of that token.
  *   - One-char token → that single char (no padding — caller can
@@ -33,7 +37,7 @@ export function deriveInitials(
   const source = fromDisplay !== "" ? fromDisplay : fromHandle;
   if (source === "") return "";
 
-  const tokens = source.split(/[\s-]+/).filter((t) => t !== "");
+  const tokens = source.split(/[\s_-]+/).filter((t) => t !== "");
   if (tokens.length === 0) return "";
 
   if (tokens.length >= 2) {

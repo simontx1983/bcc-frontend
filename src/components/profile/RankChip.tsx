@@ -2,7 +2,7 @@
  * RankChip — the canonical "rank flavored by tier" identity chip.
  *
  * Renders the user's rank (`Apprentice`/`Journeyman`/`Foreman`) as the
- * single visible word on a cardstock-deep body, with the §C1 reputation
+ * single visible word on a neutral "ash" surface, with the §C1 reputation
  * tier (`legendary`/`rare`/`uncommon`/`common`) demoted to a colored
  * left rail. The tier is no longer rendered as a competing word — it
  * tints the chip, the rank carries the meaning.
@@ -59,10 +59,14 @@ interface RankChipProps {
 // "you have a tier" vs "no tier yet" distinction without the
 // rarity-palette baggage.
 //
-// If you find yourself wanting to re-introduce per-tier color here
-// — please re-read docs/Sprint-4-audit before doing so.
-const TIER_PRESENT_RAIL = "border-l-cardstock/40";
-const TIER_ABSENT_RAIL = "border-l-cardstock/20";
+// If you find yourself wanting to re-introduce PER-TIER color here
+// — please re-read docs/Sprint-4-audit before doing so. The single
+// accent rail below is the site's own theme accent (day/night +
+// blue/orange aware), not a rarity palette — "you have a tier" still
+// reads as one consistent signal, just tied to the shell's theme
+// instead of a fixed cardstock tint.
+const TIER_PRESENT_RAIL = "border-l-[var(--bcc-accent)]";
+const TIER_ABSENT_RAIL = "border-l-[var(--bcc-border-strong)]";
 
 const SIZE_STYLES: Record<RankChipSize, { rail: string; pad: string; font: string }> = {
   default: {
@@ -94,7 +98,7 @@ export function RankChip({
   return (
     <span
       className={[
-        "bcc-mono inline-flex items-center bg-cardstock-deep text-ink",
+        "bcc-mono inline-flex items-center rounded-full bg-[var(--bcc-surface-active)] text-[var(--bcc-text)]",
         sizeStyles.pad,
         sizeStyles.font,
         sizeStyles.rail,

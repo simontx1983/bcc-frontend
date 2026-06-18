@@ -82,20 +82,21 @@ export function NotificationsPanel({
   const showMarkAll = unreadCount >= 3;
 
   return (
-    <div
-      role="menu"
-      className="flex flex-col gap-px overflow-hidden"
-      style={{ background: "rgba(15,13,9,0.06)" }}
-    >
+    // Renders directly on the host surface (SiteHeader's
+    // .bcc-header-modal glass panel, or NotificationBell's .bcc-panel
+    // on mobile) — no background of its own, so loading/empty/list
+    // states all sit on ONE consistent surface instead of layering an
+    // opaque cardstock block on top.
+    <div role="menu" className="flex flex-col gap-px overflow-hidden">
       {(showTitle || showMarkAll) && (
         <div
           className={
-            "flex items-center bg-cardstock px-4 py-2.5 " +
+            "flex items-center px-4 py-2.5 " +
             (showTitle ? "justify-between" : "justify-end")
           }
         >
           {showTitle && (
-            <span className="bcc-mono text-[10px] tracking-[0.2em] text-cardstock-deep">
+            <span className="bcc-mono text-[10px] tracking-[0.2em] text-[var(--bcc-text-secondary)]">
               NOTIFICATIONS
             </span>
           )}
@@ -104,7 +105,7 @@ export function NotificationsPanel({
               type="button"
               onClick={handleMarkAll}
               disabled={markRead.isPending}
-              className="bcc-mono text-[10px] tracking-[0.16em] normal-case text-blueprint hover:underline disabled:cursor-not-allowed disabled:text-ink-soft/40"
+              className="bcc-mono text-[10px] tracking-[0.16em] normal-case text-[var(--bcc-accent)] hover:underline disabled:cursor-not-allowed disabled:text-[var(--bcc-text-muted)]"
             >
               {markRead.isPending ? "Marking…" : "Mark all read"}
             </button>
@@ -113,11 +114,11 @@ export function NotificationsPanel({
       )}
 
       {list.isError ? (
-        <div className="bcc-mono bg-cardstock px-4 py-3 text-[11px] text-ink-soft">
+        <div className="bcc-mono px-4 py-3 text-[11px] text-[var(--bcc-text-secondary)]">
           Couldn’t load notifications. Try again in a moment.
         </div>
       ) : list.isLoading ? (
-        <div className="bcc-mono bg-cardstock px-4 py-3 text-[11px] text-ink-soft">
+        <div className="bcc-mono px-4 py-3 text-[11px] text-[var(--bcc-text-secondary)]">
           Loading…
         </div>
       ) : items.length === 0 ? (
@@ -128,7 +129,7 @@ export function NotificationsPanel({
         // rest of the product uses (FILE 01-07 frames on profile,
         // "on the books" on locals empty). Observational; no
         // promise; no system-speaking-at-you.
-        <div className="bcc-mono bg-cardstock px-4 py-6 text-center text-[11px] text-ink-soft">
+        <div className="bcc-mono px-4 py-6 text-center text-[11px] text-[var(--bcc-text-secondary)]">
           Nothing on file.
         </div>
       ) : (
@@ -146,7 +147,7 @@ export function NotificationsPanel({
                 type="button"
                 onClick={() => void list.fetchNextPage()}
                 disabled={list.isFetchingNextPage}
-                className="bcc-mono w-full bg-cardstock px-4 py-2.5 text-center text-[10px] tracking-[0.18em] text-blueprint hover:bg-cardstock-deep disabled:cursor-wait"
+                className="bcc-mono w-full px-4 py-2.5 text-center text-[10px] tracking-[0.18em] text-[var(--bcc-accent)] hover:bg-[var(--bcc-surface-hover)] disabled:cursor-wait"
               >
                 {list.isFetchingNextPage ? "LOADING…" : "LOAD MORE"}
               </button>
@@ -170,15 +171,15 @@ function NotificationRow({ item, onActivate }: NotificationRowProps) {
         type="button"
         onClick={onActivate}
         className={
-          "flex w-full items-start gap-3 px-4 py-3 text-left transition " +
-          (item.read ? "bg-cardstock hover:bg-cardstock-deep" : "bg-cardstock-deep/50 hover:bg-cardstock-deep")
+          "flex w-full items-start gap-3 px-4 py-3 text-left transition hover:bg-[var(--bcc-surface-hover)] " +
+          (item.read ? "" : "bg-[var(--bcc-accent-subtle)]")
         }
       >
         {!item.read && (
           <span
             aria-hidden
             className="mt-1.5 inline-block h-1.5 w-1.5 shrink-0 rounded-full"
-            style={{ background: "var(--blueprint)" }}
+            style={{ background: "var(--bcc-accent)" }}
           />
         )}
         {item.read && <span aria-hidden className="mt-1.5 h-1.5 w-1.5 shrink-0" />}
@@ -201,11 +202,11 @@ function NotificationRow({ item, onActivate }: NotificationRowProps) {
         </span>
 
         <span className="flex flex-1 flex-col gap-1 overflow-hidden">
-          <span className="bcc-stencil text-sm text-ink">
+          <span className="text-sm text-[var(--bcc-text)]">
             {item.message}
           </span>
           {item.created_at !== "" && (
-            <span className="bcc-mono text-[10px] tracking-[0.12em] text-ink-soft/70">
+            <span className="bcc-mono text-[10px] tracking-[0.12em] text-[var(--bcc-text-muted)]">
               {formatRelativeTime(item.created_at)}
             </span>
           )}

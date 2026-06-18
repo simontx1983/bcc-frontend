@@ -689,9 +689,14 @@
     flex-shrink: 0;
   }
 
-  /* Header dropdown modals — glass style */
+  /* Header dropdown modals — glass style.
+     Uses the "solid" glass token (not "frosted") — these panels carry
+     readable menu/list text, and the frosted 10%-opacity variant let
+     whatever's behind the header bleed through enough to wreck
+     --bcc-text-secondary contrast in dark mode (account dropdown,
+     notification/message panels). */
   .bcc-header-modal {
-    background: var(--bcc-glass-bg-frosted);
+    background: var(--bcc-glass-bg-solid);
     backdrop-filter: var(--bcc-blur-sm);
     -webkit-backdrop-filter: var(--bcc-blur-sm);
     border: 1px solid var(--bcc-glass-border);
@@ -1285,7 +1290,7 @@
     text-transform: uppercase;
   }
   .bcc-avatar-sm  { width: 28px; height: 28px; font-size: 11px; }
-  .bcc-avatar-md  { width: 40px; height: 40px; font-size: 14px; }
+  .bcc-avatar-md  { width: 36px; height: 36px; font-size: 14px; }
   .bcc-avatar-lg  { width: 56px; height: 56px; font-size: 18px; }
   .bcc-avatar-xl  { width: 80px; height: 80px; font-size: 24px; }
   .bcc-avatar-2xl { width: 120px; height: 120px; font-size: 36px; }

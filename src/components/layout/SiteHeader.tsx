@@ -410,12 +410,16 @@ function AvatarDropdown({ handle, onClose, onSignOut, anchorRef }: AvatarDropdow
             onClick={onClose}
             style={sharedStyle}
             onMouseEnter={e => {
-              (e.currentTarget as HTMLElement).style.background = "var(--bcc-surface-hover)";
-              (e.currentTarget as HTMLElement).style.color = "var(--bcc-text)";
+              const el = e.currentTarget as HTMLElement;
+              el.style.background = "var(--bcc-surface-hover)";
+              el.style.color = "var(--bcc-accent)";
+              el.style.fontWeight = "600";
             }}
             onMouseLeave={e => {
-              (e.currentTarget as HTMLElement).style.background = "transparent";
-              (e.currentTarget as HTMLElement).style.color = "var(--bcc-text-secondary)";
+              const el = e.currentTarget as HTMLElement;
+              el.style.background = "transparent";
+              el.style.color = "var(--bcc-text-secondary)";
+              el.style.fontWeight = "normal";
             }}
           >
             <span style={{ width: 16, height: 16, flexShrink: 0, opacity: 0.8 }}>{item.icon}</span>
@@ -430,9 +434,12 @@ function AvatarDropdown({ handle, onClose, onSignOut, anchorRef }: AvatarDropdow
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export function SiteHeader() {
-  const { data: session, status } = useSession();
+  // Root layout resolves the session server-side and hands it to
+  // SessionProvider as initial state, so this is "authenticated" /
+  // "unauthenticated" on the very first render — no "loading" status,
+  // no skeleton branch needed here.
+  const { data: session } = useSession();
   const viewerHandle = session?.user?.handle ?? null;
-  const isLoading = status === "loading";
   const pathname   = usePathname() ?? "/";
   const router     = useRouter();
   const searchRef  = useRef<HTMLInputElement>(null);
@@ -633,11 +640,13 @@ export function SiteHeader() {
         >
           <ChatIcon />
           {/* Unread badge — same chip classes as the bell badge below
-              and MessagesBadge; count capped at "9+" like the bell. */}
+              and MessagesBadge; count capped at "9+" like the bell.
+              Background is the active accent (not Phillip's "safety"
+              red) so it tracks the user's chosen accent color. */}
           {msgUnreadCount > 0 && (
             <span
               aria-hidden
-              className="bcc-mono absolute -right-0.5 -top-0.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-safety px-1 text-[9px] font-semibold leading-none text-cardstock"
+              className="bcc-mono absolute -right-0.5 -top-0.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-[var(--bcc-accent)] px-1 text-[9px] font-semibold leading-none text-cardstock"
             >
               {msgUnreadCount > 9 ? "9+" : msgUnreadCount}
             </span>
@@ -660,11 +669,13 @@ export function SiteHeader() {
           >
             <BellIcon />
             {/* Unread badge — same chip classes as MessagesBadge;
-                count capped at "9+" like the mobile NotificationBell. */}
+                count capped at "9+" like the mobile NotificationBell.
+                Background is the active accent (not Phillip's "safety"
+                red) so it tracks the user's chosen accent color. */}
             {notifUnreadCount > 0 && (
               <span
                 aria-hidden
-                className="bcc-mono absolute -right-0.5 -top-0.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-safety px-1 text-[9px] font-semibold leading-none text-cardstock"
+                className="bcc-mono absolute -right-0.5 -top-0.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-[var(--bcc-accent)] px-1 text-[9px] font-semibold leading-none text-cardstock"
               >
                 {notifUnreadCount > 9 ? "9+" : notifUnreadCount}
               </span>
@@ -722,9 +733,7 @@ export function SiteHeader() {
         )}
 
         {/* Avatar / Sign in */}
-        {isLoading ? (
-          <div style={{ width: 32, height: 32, borderRadius: "var(--bcc-radius-md)", background: "var(--bcc-surface-hover)", opacity: 0.5 }} />
-        ) : viewerHandle ? (
+        {viewerHandle ? (
           <button
             ref={avatarRef}
             onClick={() => avatarOpen ? setAvatarOpen(false) : openAvatar()}
@@ -745,9 +754,22 @@ export function SiteHeader() {
             onMouseEnter={e => (e.currentTarget.style.background = "var(--bcc-surface-hover)")}
             onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
           >
+            {/* Ring + halo match the offcanvas avatar treatment
+                (MainOffcanvas) so the identity affordance is consistent
+                wherever the avatar appears. The surface-hover background
+                override gives the placeholder visible contrast against
+                the light-mode header (--bcc-surface-raised is nearly
+                indistinguishable from --bcc-header-bg there), matching
+                how it already reads in dark mode. */}
             <span
               className="bcc-avatar bcc-avatar-sm bcc-stencil"
-              style={{ fontSize: 12, pointerEvents: "none" }}
+              style={{
+                fontSize: 12,
+                pointerEvents: "none",
+                background: "var(--bcc-surface-hover)",
+                border: "2px solid var(--bcc-accent)",
+                boxShadow: "0 0 0 3px var(--bcc-accent-subtle)",
+              }}
             >
               {viewerHandle.slice(0, 2).toUpperCase()}
             </span>

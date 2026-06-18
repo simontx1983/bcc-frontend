@@ -41,7 +41,7 @@ export function ConversationsPanel({ enabled, open, onNavigate }: ConversationsP
 
   if (query.isError) {
     return (
-      <div className="bcc-mono bg-cardstock px-4 py-3 text-[11px] text-ink-soft">
+      <div className="bcc-mono px-4 py-3 text-[11px] text-[var(--bcc-text-secondary)]">
         {humanizeCode(
           query.error,
           {
@@ -55,7 +55,7 @@ export function ConversationsPanel({ enabled, open, onNavigate }: ConversationsP
 
   if (query.isPending) {
     return (
-      <div className="bcc-mono bg-cardstock px-4 py-3 text-[11px] text-ink-soft">
+      <div className="bcc-mono px-4 py-3 text-[11px] text-[var(--bcc-text-secondary)]">
         Loading…
       </div>
     );
