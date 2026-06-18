@@ -14,9 +14,12 @@
  * `undefined` when exhausted (TanStack's signal to stop offering
  * a next page).
  *
- * Stale time: 30s. Feeds are time-sensitive but not real-time; the
- * brief stale window matches the server's `Cache-Control: max-age=15
- * / 60` and the user's perception of "fresh enough."
+ * Stale time aligns to the server's `Cache-Control: max-age=15 / 60`:
+ * the hot feed (ranked, time-sensitive, max-age=15) stays at 30s, while
+ * the standard chronological + tag feeds (max-age=60) use 60s. Feeds
+ * carry no `refetchInterval`, so staleTime only governs refetch on
+ * remount/navigation — a longer window cuts redundant back-nav fetches
+ * without making anything feel stale.
  */
 
 import {
@@ -71,7 +74,7 @@ export function useFeed(scope: FeedScope) {
       getFeed(scope, buildParams(pageParam), signal),
     getNextPageParam: (lastPage) =>
       lastPage.pagination.has_more ? lastPage.pagination.next_cursor : undefined,
-    staleTime: 30_000,
+    staleTime: 60_000,
   });
 }
 
@@ -95,7 +98,7 @@ export function useTagFeed(tag: string) {
       getTagFeed(tag, buildParams(pageParam), signal),
     getNextPageParam: (lastPage) =>
       lastPage.pagination.has_more ? lastPage.pagination.next_cursor : undefined,
-    staleTime: 30_000,
+    staleTime: 60_000,
     enabled: tag.length > 0,
   });
 }

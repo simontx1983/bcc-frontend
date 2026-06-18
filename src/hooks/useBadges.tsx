@@ -9,7 +9,8 @@
  * server-side cache is 15s with generation-counter invalidation;
  * client-side cadence is adaptive:
  *
- *   - Visible + any unread > 0 OR an open thread → 8s
+ *   - Visible + an open thread                   → 10s  (live chat)
+ *   - Visible + unread > 0, no open thread       → 25s  (bell freshness)
  *   - Visible + all zeros + no open threads      → 30s, back off to 60s
  *   - Hidden                                     → 90s
  *
@@ -52,7 +53,14 @@ import type {
 
 // ── Cadence constants ───────────────────────────────────────────────────
 
-const POLL_ACTIVE_MS = 8_000;
+// Visible + an open conversation thread: keep chat snappy. This poll
+// replaced the old per-thread 5s message poll, so it can't slow much.
+const POLL_THREAD_MS = 10_000;
+// Visible + unread badges but no open thread: bell/unread freshness only.
+// This is the dominant polling cohort at scale, so it carries the req/s
+// budget — a ~25s lag on an unread *count* is imperceptible, and it cuts
+// the sustained rate to roughly a third of the old flat 8s.
+const POLL_UNREAD_MS = 25_000;
 const POLL_IDLE_MIN_MS = 30_000;
 const POLL_IDLE_MAX_MS = 60_000;
 const POLL_HIDDEN_MS = 90_000;
@@ -210,13 +218,13 @@ export function BadgesProvider({ children }: { children: ReactNode }) {
   }, [refCounts]);
 
   // Adaptive interval tracker.
-  const currentIntervalRef = useRef<number>(POLL_ACTIVE_MS);
+  const currentIntervalRef = useRef<number>(POLL_THREAD_MS);
 
   const query = useQuery<BadgesResponse, BccApiError>({
     queryKey: [...BADGES_QUERY_KEY_ROOT, openThreadIds],
     queryFn: ({ signal }) => getBadges({ openThreadIds }, signal),
     enabled,
-    staleTime: POLL_ACTIVE_MS / 2,
+    staleTime: POLL_THREAD_MS / 2,
     refetchOnWindowFocus: true,
     refetchIntervalInBackground: false,
     refetchInterval: (q: Query<BadgesResponse, BccApiError>) => {
@@ -230,20 +238,27 @@ export function BadgesProvider({ children }: { children: ReactNode }) {
         return POLL_HIDDEN_MS;
       }
 
-      const data = q.state.data;
-      const hasActivity =
-        data !== undefined &&
-        (data.messages_unread > 0 ||
-          data.notifications_unread > 0 ||
-          openThreadIds.length > 0);
+      // An open conversation needs live-chat cadence — this poll is the
+      // message-delivery channel for the thread view.
+      if (openThreadIds.length > 0) {
+        currentIntervalRef.current = POLL_THREAD_MS;
+        return POLL_THREAD_MS;
+      }
 
-      if (hasActivity) {
-        currentIntervalRef.current = POLL_ACTIVE_MS;
-        return POLL_ACTIVE_MS;
+      // Unread badges but no open thread: only the bell/unread count is
+      // at stake, so we can poll far slower. This is the dominant cohort.
+      const data = q.state.data;
+      const hasUnread =
+        data !== undefined &&
+        (data.messages_unread > 0 || data.notifications_unread > 0);
+
+      if (hasUnread) {
+        currentIntervalRef.current = POLL_UNREAD_MS;
+        return POLL_UNREAD_MS;
       }
 
       // Idle: geometric backoff from MIN to MAX, resets to MIN any
-      // time activity returns (handled by the branch above).
+      // time activity returns (handled by the branches above).
       const next = Math.min(
         Math.max(POLL_IDLE_MIN_MS, Math.round(currentIntervalRef.current * POLL_BACKOFF_MULTIPLIER)),
         POLL_IDLE_MAX_MS,
