@@ -38,14 +38,15 @@ import type {
 export function getGroup(
   slug: string,
   token: string | null,
-  signal?: AbortSignal
+  opts?: { signal?: AbortSignal; revalidate?: number }
 ): Promise<GroupDetailResponse> {
   return bccFetch<GroupDetailResponse>(
     `groups/${encodeURIComponent(slug)}`,
     {
       method: "GET",
       token,
-      ...(signal !== undefined ? { signal } : {}),
+      ...(opts?.signal !== undefined ? { signal: opts.signal } : {}),
+      ...(opts?.revalidate !== undefined ? { revalidate: opts.revalidate } : {}),
     }
   );
 }

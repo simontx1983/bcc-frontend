@@ -21,6 +21,10 @@ import { getCardEntity } from "@/lib/api/card-endpoints";
 export const size = OG_SIZE;
 export const contentType = OG_CONTENT_TYPE;
 export const alt = "Blue Collar Crypto project file";
+// ISR (F2): anonymous + deterministic per slug — cache the rendered PNG for
+// 1h so crawler re-fetch / re-share storms skip the satori render + fetch.
+// A literal is required — route-segment config can't reference an import.
+export const revalidate = 3600;
 
 interface OgImageProps {
   params: Promise<{ slug: string }>;
@@ -33,7 +37,7 @@ export default async function OpengraphImage({ params }: OgImageProps) {
 
   let card;
   try {
-    card = await getCardEntity("project", slug, null);
+    card = await getCardEntity("project", slug, null, { revalidate });
   } catch {
     return renderGenericCard(fonts);
   }

@@ -37,6 +37,15 @@ export interface RequestOptions {
   signal?: AbortSignal | undefined;
   /** Additional headers; merged on top of defaults. */
   headers?: Record<string, string> | undefined;
+  /**
+   * SSR-only Next.js Data Cache revalidation window, in seconds. Set this
+   * ONLY for anonymous reads (token === null) — never on authed or
+   * otherwise personalized fetches, or a viewer-specific response could be
+   * served to other viewers. No-op in the browser (the `next` fetch
+   * extension is ignored outside the Next server runtime). Omitted → Next's
+   * default for this app, which is uncached (no-store). See lib/api/cache-policy.ts.
+   */
+  revalidate?: number | undefined;
 }
 
 /**
@@ -47,7 +56,7 @@ export async function bccFetch<T>(
   path: string,
   options: RequestOptions = {}
 ): Promise<T> {
-  const { method = "GET", body, token, signal, headers: extraHeaders } = options;
+  const { method = "GET", body, token, signal, headers: extraHeaders, revalidate } = options;
 
   const url = buildUrl(path);
 
@@ -95,6 +104,14 @@ export async function bccFetch<T>(
   }
   if (signal !== undefined) {
     init.signal = signal;
+  }
+  // Anon SSR Data Cache opt-in (F2). `next` is the Next.js fetch extension;
+  // typed inline so this server-safe module needs no next/server import.
+  // No-op in the browser. Only ever set by anon (token === null) callers.
+  if (revalidate !== undefined) {
+    (init as RequestInit & { next?: { revalidate: number } }).next = {
+      revalidate,
+    };
   }
 
   const response = await fetch(url, init);

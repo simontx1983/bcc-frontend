@@ -19,6 +19,7 @@
 import type { Metadata } from "next";
 
 import { getCardEntity } from "@/lib/api/card-endpoints";
+import { ANON_SSR_REVALIDATE_SECONDS } from "@/lib/api/cache-policy";
 import { presentationName } from "@/lib/format";
 import type { CardKind } from "@/lib/api/types";
 
@@ -39,7 +40,9 @@ export async function buildEntityMetadata({
 }: EntityMetadataInput): Promise<Metadata> {
   let card;
   try {
-    card = await getCardEntity(kind, slug, null);
+    card = await getCardEntity(kind, slug, null, {
+      revalidate: ANON_SSR_REVALIDATE_SECONDS,
+    });
   } catch {
     // 404 or any transient failure → safe minimal head. Don't throw.
     return { title: `${kindLabel} not found · Blue Collar Crypto` };

@@ -16,6 +16,7 @@ import { EntityProfile } from "@/components/entity/EntityProfile";
 import { authOptions } from "@/lib/auth";
 import { tokenFromSession } from "@/lib/api/client";
 import { getCardEntity } from "@/lib/api/card-endpoints";
+import { ANON_SSR_REVALIDATE_SECONDS } from "@/lib/api/cache-policy";
 import { buildEntityMetadata } from "@/lib/og/entity-metadata";
 import { BccApiError } from "@/lib/api/types";
 
@@ -47,7 +48,12 @@ export default async function CreatorProfilePage({ params }: PageProps) {
 
   let card;
   try {
-    card = await getCardEntity("creator", slug, token);
+    card = await getCardEntity(
+      "creator",
+      slug,
+      token,
+      token === null ? { revalidate: ANON_SSR_REVALIDATE_SECONDS } : undefined,
+    );
   } catch (err) {
     if (err instanceof BccApiError && err.status === 404) {
       notFound();

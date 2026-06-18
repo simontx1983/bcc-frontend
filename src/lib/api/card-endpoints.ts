@@ -28,11 +28,12 @@ export function getCardEntity(
   type: CardKind,
   idOrSlug: string,
   token: string | null,
-  signal?: AbortSignal
+  opts?: { signal?: AbortSignal; revalidate?: number }
 ): Promise<Card> {
   return bccFetch<Card>(`cards/${type}/${encodeURIComponent(idOrSlug)}`, {
     method: "GET",
     token,
-    ...(signal !== undefined ? { signal } : {}),
+    ...(opts?.signal !== undefined ? { signal: opts.signal } : {}),
+    ...(opts?.revalidate !== undefined ? { revalidate: opts.revalidate } : {}),
   });
 }

@@ -48,6 +48,11 @@ import { presentationName } from "@/lib/format";
 export const size = OG_SIZE;
 export const contentType = OG_CONTENT_TYPE;
 export const alt = "Blue Collar Crypto operator file";
+// ISR (F2): the card is anonymous + deterministic per handle, so cache the
+// rendered PNG for 1h. Crawler re-fetch / re-share storms then serve the
+// cached image instead of re-running satori + re-fetching the view-model.
+// A literal is required — route-segment config can't reference an import.
+export const revalidate = 3600;
 
 interface OgImageProps {
   params: Promise<{ handle: string }>;
@@ -63,7 +68,7 @@ export default async function OpengraphImage({ params }: OgImageProps) {
   // session anyway. Any failure → generic branded card.
   let profile;
   try {
-    profile = await getUser(handle, null);
+    profile = await getUser(handle, null, { revalidate });
   } catch {
     return renderGenericCard(fonts);
   }

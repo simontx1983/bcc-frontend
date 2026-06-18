@@ -34,6 +34,7 @@ import { LocalMembershipControls } from "@/components/locals/LocalMembershipCont
 import { authOptions } from "@/lib/auth";
 import { tokenFromSession } from "@/lib/api/client";
 import { getGroup } from "@/lib/api/groups-detail-endpoints";
+import { ANON_SSR_REVALIDATE_SECONDS } from "@/lib/api/cache-policy";
 import { getLocal } from "@/lib/api/locals-endpoints";
 import { buildGroupMetadata } from "@/lib/og/group-metadata";
 import { BccApiError } from "@/lib/api/types";
@@ -69,7 +70,11 @@ export default async function LocalDetailPage({ params }: PageProps) {
   // 500 the page when the local exists.
   const [localResult, groupResult] = await Promise.allSettled([
     getLocal(slug, token),
-    getGroup(slug, token),
+    getGroup(
+      slug,
+      token,
+      token === null ? { revalidate: ANON_SSR_REVALIDATE_SECONDS } : undefined,
+    ),
   ]);
 
   if (localResult.status === "rejected") {

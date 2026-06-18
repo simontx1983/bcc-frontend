@@ -31,6 +31,10 @@ import { getGroup } from "@/lib/api/groups-detail-endpoints";
 export const size = OG_SIZE;
 export const contentType = OG_CONTENT_TYPE;
 export const alt = "Blue Collar Crypto community file";
+// ISR (F2): anonymous + deterministic per slug — cache the rendered PNG for
+// 1h so crawler re-fetch / re-share storms skip the satori render + fetch.
+// A literal is required — route-segment config can't reference an import.
+export const revalidate = 3600;
 
 interface OgImageProps {
   params: Promise<{ slug: string }>;
@@ -45,7 +49,7 @@ export default async function OpengraphImage({ params }: OgImageProps) {
   try {
     // Anonymous read — public group view-model (the crawler's view). A
     // private/secret group 403/404s here → generic branded card.
-    group = await getGroup(slug, null);
+    group = await getGroup(slug, null, { revalidate });
   } catch {
     return renderGenericCard(fonts);
   }

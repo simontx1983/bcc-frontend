@@ -26,6 +26,7 @@
 import type { Metadata } from "next";
 
 import { getGroup } from "@/lib/api/groups-detail-endpoints";
+import { ANON_SSR_REVALIDATE_SECONDS } from "@/lib/api/cache-policy";
 
 interface GroupMetadataInput {
   slug: string;
@@ -49,7 +50,9 @@ export async function buildGroupMetadata({
   try {
     // Anonymous read — the public crawler view. A private/secret group or
     // any transient failure → safe minimal head, never a throw.
-    group = await getGroup(slug, null);
+    group = await getGroup(slug, null, {
+      revalidate: ANON_SSR_REVALIDATE_SECONDS,
+    });
   } catch {
     return { title: `${kindLabel} not found · Blue Collar Crypto` };
   }

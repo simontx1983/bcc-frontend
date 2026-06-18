@@ -22,6 +22,7 @@ import { GroupDetailShell } from "@/components/groups/GroupDetailShell";
 import { authOptions } from "@/lib/auth";
 import { tokenFromSession } from "@/lib/api/client";
 import { getGroup } from "@/lib/api/groups-detail-endpoints";
+import { ANON_SSR_REVALIDATE_SECONDS } from "@/lib/api/cache-policy";
 import { buildGroupMetadata } from "@/lib/og/group-metadata";
 import { BccApiError, type GroupDetailResponse } from "@/lib/api/types";
 
@@ -53,7 +54,11 @@ export default async function GroupDetailPage({ params }: PageProps) {
 
   let group: GroupDetailResponse;
   try {
-    group = await getGroup(slug, token);
+    group = await getGroup(
+      slug,
+      token,
+      token === null ? { revalidate: ANON_SSR_REVALIDATE_SECONDS } : undefined,
+    );
   } catch (err) {
     if (err instanceof BccApiError && err.status === 404) {
       notFound();

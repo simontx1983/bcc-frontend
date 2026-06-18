@@ -31,11 +31,12 @@ import type { MemberProfile } from "@/lib/api/types";
 export function getUser(
   handle: string,
   token: string | null,
-  signal?: AbortSignal
+  opts?: { signal?: AbortSignal; revalidate?: number }
 ): Promise<MemberProfile> {
   return bccFetch<MemberProfile>(`users/${encodeURIComponent(handle)}`, {
     method: "GET",
     token,
-    ...(signal !== undefined ? { signal } : {}),
+    ...(opts?.signal !== undefined ? { signal: opts.signal } : {}),
+    ...(opts?.revalidate !== undefined ? { revalidate: opts.revalidate } : {}),
   });
 }

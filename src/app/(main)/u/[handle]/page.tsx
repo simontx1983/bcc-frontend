@@ -45,6 +45,7 @@ import { authOptions } from "@/lib/auth";
 import { tokenFromSession } from "@/lib/api/client";
 import { getMeReliability } from "@/lib/api/me-reliability-endpoints";
 import { getUser } from "@/lib/api/user-endpoints";
+import { ANON_SSR_REVALIDATE_SECONDS } from "@/lib/api/cache-policy";
 import { FOLLOW_COPY } from "@/lib/copy";
 import { formatJoinDate, presentationName } from "@/lib/format";
 import {
@@ -87,7 +88,10 @@ export async function generateMetadata({
 
   let profile: MemberProfile;
   try {
-    profile = await getUser(handle, null);
+    // Always anon here (metadata has no session) → safe to Data-Cache.
+    profile = await getUser(handle, null, {
+      revalidate: ANON_SSR_REVALIDATE_SECONDS,
+    });
   } catch {
     // 404 or any transient failure → safe minimal head. Don't throw.
     return { title: "Profile not found · Blue Collar Crypto" };
@@ -137,7 +141,13 @@ export default async function MemberProfilePage({ params }: PageProps) {
 
   let profile: MemberProfile;
   try {
-    profile = await getUser(handle, token);
+    // Anon visitors (token === null) share a 60s Data-Cache entry for the
+    // public view-model; authed reads stay uncached (personalized).
+    profile = await getUser(
+      handle,
+      token,
+      token === null ? { revalidate: ANON_SSR_REVALIDATE_SECONDS } : undefined,
+    );
   } catch (err) {
     if (err instanceof BccApiError && err.status === 404) {
       notFound();
