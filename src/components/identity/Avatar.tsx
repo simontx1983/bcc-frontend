@@ -91,15 +91,29 @@ interface SizeSpec {
   operatorPx: number;
 }
 
-// PeepSo's core plugin auto-generates a placeholder avatar — a flat
-// rgb(50,50,50) square with the WordPress *username's* first letter — for
-// any user who hasn't uploaded a real photo, and returns its URL the same
-// as a real avatar (never null/""). Every seed account's WP username is
-// "u_*", so every placeholder renders a dark square with a plain "U",
-// which is what was leaking through as a "broken-looking" avatar. Treat
-// this generated URL the same as "no avatar set" so our initials monogram
-// renders instead.
-const PEEPSO_GENERATED_AVATAR = "/peepso/avatars-svg/";
+// PeepSo never returns null/"" for a user without a photo — it hands back
+// one of its own placeholder URLs, which we treat as "no avatar set" so
+// our initials monogram renders instead. Two flavors:
+//
+//   1. /peepso/avatars-svg/...  — the "name-based" generated avatar (a
+//      flat square with the WP *username's* first letter; seed accounts
+//      are "u_*", so these read as a plain "U" on a dark square).
+//   2. /assets/images/avatar/user-{neutral,male,female}.png — PeepSo's
+//      STATIC default, returned when name-based avatars are disabled.
+//      We disable name-based avatars server-side (they regenerate per
+//      request — a heavy query source) precisely because we render
+//      initials anyway; this marker keeps that swap visually invisible.
+//
+// Real uploads live under /peepso/users/{id}/...; they match neither
+// marker and render as the image.
+const PEEPSO_PLACEHOLDER_MARKERS = [
+  "/peepso/avatars-svg/",
+  "/assets/images/avatar/user-",
+];
+
+function isPeepSoPlaceholder(url: string): boolean {
+  return PEEPSO_PLACEHOLDER_MARKERS.some((marker) => url.includes(marker));
+}
 
 const SIZE_TABLE: Record<AvatarSize, SizeSpec> = {
   xs: { px: 20,  fontClass: "bcc-mono text-[9px] tracking-tight",  operatorPx: 0 },
@@ -126,7 +140,7 @@ function AvatarImpl({
   const hasImage =
     typeof avatarUrl === "string" &&
     avatarUrl !== "" &&
-    !avatarUrl.includes(PEEPSO_GENERATED_AVATAR);
+    !isPeepSoPlaceholder(avatarUrl);
 
   // Tier tint via the existing CSS vars (globals.css:37-40). No JS
   // tier→color map. `undefined` and `null` both fall back to a neutral
