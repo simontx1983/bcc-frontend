@@ -4,7 +4,8 @@
   "private": true,
   "description": "Blue Collar Crypto — headless Next.js frontend for the bcc-trust WordPress backend.",
   "scripts": {
-    "dev": "cross-env NODE_ENV=development next dev",
+    "predev": "node scripts/dev-clean.mjs",
+    "dev": "cross-env NODE_ENV=development next dev -p 3000",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
