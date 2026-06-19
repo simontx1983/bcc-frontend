@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  node:
+    name: Frontend — tsc · lint · vitest · build
+    runs-on: ubuntu-latest
+    env:
+      # Build-time placeholders. NEXT_PUBLIC_BCC_API_URL is read at module load
+      # (clientEnv); the rest are lazy server getters set so a prerender that
+      # touches them doesn't throw. None point at a real service.
+      NEXT_PUBLIC_BCC_API_URL: https://ci.invalid/wp-json
+      NEXTAUTH_URL: https://ci.invalid
+      NEXTAUTH_SECRET: ci-placeholder-not-a-real-secret
+      NEXT_TELEMETRY_DISABLED: '1'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      - name: Lint
+        run: npx next lint
+
+      - name: Unit tests
+        run: npx vitest run
+
+      - name: Production build
+        run: npx next build
