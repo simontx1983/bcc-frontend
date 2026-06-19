@@ -26,6 +26,7 @@ import { type FormEvent, Suspense, useCallback, useEffect, useState } from "reac
 import { AuthCard } from "@/components/auth/AuthCard";
 import { resend2faCode, verify2fa } from "@/lib/api/auth-endpoints";
 import { BccApiError } from "@/lib/api/types";
+import { safeCallbackPath } from "@/lib/auth/safe-callback";
 
 const ERROR_COPY: Record<string, string> = {
   bcc_invalid_2fa_code:  "Incorrect or expired code. Check your email and try again.",
@@ -40,6 +41,8 @@ function TwoFactorContent() {
   const searchParams = useSearchParams();
   const ct           = searchParams.get("ct") ?? "";
   const callbackUrl  = searchParams.get("callbackUrl");
+  // Only ever follow a same-origin internal path — blocks open-redirect phishing.
+  const safeCallback = safeCallbackPath(callbackUrl);
 
   const [code, setCode]                     = useState("");
   const [error, setError]                   = useState<string | null>(null);
@@ -50,9 +53,7 @@ function TwoFactorContent() {
   const [sessionExpired, setSessionExpired] = useState(ct === "");
 
   function targetAfterLogin(): Route {
-    return callbackUrl !== null && callbackUrl !== ""
-      ? (callbackUrl as Route)
-      : "/onboarding";
+    return safeCallback ?? "/onboarding";
   }
 
   // ── Resend cooldown tick ───────────────────────────────────────

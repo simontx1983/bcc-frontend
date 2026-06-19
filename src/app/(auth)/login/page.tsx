@@ -25,6 +25,7 @@ import { WalletAuthButton } from "@/components/auth/WalletAuthButton";
 import { WalletSignupPrompt } from "@/components/auth/WalletSignupPrompt";
 import { loginWithEmail } from "@/lib/api/auth-endpoints";
 import { BccApiError, type AuthTokenResponse } from "@/lib/api/types";
+import { safeCallbackPath } from "@/lib/auth/safe-callback";
 
 const ERROR_COPY: Record<string, string> = {
   bcc_invalid_credentials:  "Invalid email or password.",
@@ -40,6 +41,8 @@ function LoginPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get("callbackUrl");
+  // Only ever follow a same-origin internal path — blocks open-redirect phishing.
+  const safeCallback = safeCallbackPath(callbackUrl);
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -51,9 +54,7 @@ function LoginPageContent() {
   const [notVerifiedEmail, setNotVerifiedEmail] = useState<string | null>(null);
 
   function targetAfterLogin(): Route {
-    return callbackUrl !== null && callbackUrl !== ""
-      ? (callbackUrl as Route)
-      : "/onboarding";
+    return safeCallback ?? "/onboarding";
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -67,8 +68,8 @@ function LoginPageContent() {
 
       if ("status" in resp && resp.status === "2fa_required") {
         const params = new URLSearchParams({ ct: resp.challenge_token });
-        if (callbackUrl !== null && callbackUrl !== "") {
-          params.set("callbackUrl", callbackUrl);
+        if (safeCallback !== null) {
+          params.set("callbackUrl", safeCallback);
         }
         router.replace(`/login/two-factor?${params.toString()}` as Route);
         return;
@@ -113,8 +114,8 @@ function LoginPageContent() {
         }
       >
         {/* SSO */}
-        <SSOButton provider="google"  mode="login" callbackUrl={callbackUrl ?? "/onboarding"} />
-        <SSOButton provider="twitter" mode="login" callbackUrl={callbackUrl ?? "/onboarding"} />
+        <SSOButton provider="google"  mode="login" callbackUrl={safeCallback ?? "/onboarding"} />
+        <SSOButton provider="twitter" mode="login" callbackUrl={safeCallback ?? "/onboarding"} />
 
         <AuthDivider />
 
