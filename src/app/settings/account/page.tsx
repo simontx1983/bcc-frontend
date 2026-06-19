@@ -24,7 +24,7 @@ export default async function AccountSettingsPage() {
 
   return (
     <>
-      <section className="mx-auto mt-10 max-w-3xl px-6 sm:px-8">
+      <section className="mx-auto mt-10 max-w-3xl px-2 sm:px-3">
         <SettingsSectionHeader
           eyebrow="LOGIN"
           title="Email, password, deletion"
@@ -35,7 +35,7 @@ export default async function AccountSettingsPage() {
         </div>
       </section>
 
-      <section className="mx-auto mt-10 max-w-3xl px-6 sm:px-8">
+      <section className="mx-auto mt-10 max-w-3xl px-2 sm:px-3">
         <SettingsSectionHeader
           eyebrow="VERIFIED ACCOUNTS"
           title="Linked external accounts"
@@ -46,7 +46,7 @@ export default async function AccountSettingsPage() {
         </div>
       </section>
 
-      <section className="mx-auto mt-10 max-w-3xl px-6 sm:px-8">
+      <section className="mx-auto mt-10 max-w-3xl px-2 sm:px-3">
         <SettingsSectionHeader
           eyebrow="WALLETS"
           title="Linked addresses"
@@ -57,7 +57,7 @@ export default async function AccountSettingsPage() {
         </div>
       </section>
 
-      <section className="mx-auto mt-10 max-w-3xl px-6 sm:px-8">
+      <section className="mx-auto mt-10 max-w-3xl px-2 sm:px-3">
         <SettingsSectionHeader
           eyebrow="ACCOUNT ACTIVITY"
           title="Security events on this account"
@@ -68,7 +68,7 @@ export default async function AccountSettingsPage() {
         </div>
       </section>
 
-      <section className="mx-auto mt-10 mb-16 max-w-3xl px-6 sm:px-8">
+      <section className="mx-auto mt-10 mb-16 max-w-3xl px-2 sm:px-3">
         <SettingsSectionHeader
           eyebrow="SESSIONS"
           title="Sign out everywhere"

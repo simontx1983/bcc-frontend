@@ -171,8 +171,8 @@ function TrustRail({
               // deliberate, not engagement-bait.
               "bcc-mono inline-flex min-h-[36px] items-center gap-1.5 rounded-full border px-3 py-1.5 text-[11px] transition disabled:cursor-not-allowed " +
               (isActive
-                ? "border-safety bg-safety/10 text-ink"
-                : "border-cardstock-edge/40 bg-cardstock text-ink-soft hover:border-cardstock-edge hover:text-ink")
+                ? "border-[var(--bcc-accent)] bg-[var(--bcc-accent-subtle)] text-[var(--bcc-text)]"
+                : "border-[var(--bcc-border)] bg-[var(--bcc-surface)] text-[var(--bcc-text-secondary)] hover:border-[var(--bcc-text-muted)] hover:text-[var(--bcc-text)]")
             }
           >
             <span className="font-medium">{brand}</span>
@@ -180,9 +180,9 @@ function TrustRail({
                 without crowding the count and footer actions. The brand
                 + count alone communicate the action; the helper exists
                 for first-time-user clarity on desktop. */}
-            <span className="hidden md:inline text-ink-soft/70 italic">{helper}</span>
+            <span className="hidden md:inline text-[var(--bcc-text-muted)] italic">{helper}</span>
             {count > 0 && (
-              <span className={isActive ? "text-ink" : "text-ink-soft/80"}>
+              <span className={isActive ? "text-[var(--bcc-text)]" : "text-[var(--bcc-text-secondary)]"}>
                 {count}
               </span>
             )}
@@ -241,7 +241,7 @@ function TrustRailHint() {
 
   return (
     <p
-      className="bcc-mono text-[10px] tracking-[0.16em] text-ink-soft/70"
+      className="bcc-mono text-[10px] tracking-[0.16em] text-[var(--bcc-text-muted)]"
       onClick={dismiss}
     >
       TRUST SIGNAL · CLICKS HERE PUT YOUR NAME ON IT.
@@ -309,8 +309,8 @@ function SocialRail({
               // ambient acknowledgment.
               "inline-flex min-h-[36px] items-center gap-1 rounded-full px-2.5 py-1 text-sm transition disabled:cursor-not-allowed motion-safe:active:scale-95 " +
               (isActive
-                ? "bg-cardstock text-ink ring-1 ring-safety/50"
-                : "text-ink-soft hover:bg-cardstock/60 hover:text-ink")
+                ? "bg-[var(--bcc-surface-active)] text-[var(--bcc-text)] ring-1 ring-[var(--bcc-accent)]/50"
+                : "text-[var(--bcc-text-secondary)] hover:bg-[var(--bcc-surface-active)] hover:text-[var(--bcc-text)]")
             }
           >
             <span className="text-base leading-none">{emoji}</span>
@@ -359,7 +359,7 @@ function ReactionCount({ count }: { count: number }) {
     <span
       key={count}
       className={
-        "bcc-mono text-[10px] text-ink-soft/80 inline-block " +
+        "bcc-mono text-[10px] text-[var(--bcc-text-secondary)] inline-block " +
         (shouldBump
           ? "motion-safe:animate-[bcc-count-bump_280ms_ease-out]"
           : "")

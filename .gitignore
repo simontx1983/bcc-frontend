@@ -49,3 +49,9 @@ next-env.d.ts
 
 .vercel
 .env*.local
+
+# Claude Code local overrides
+.claude/settings.local.json
+
+# Playwright MCP artifacts (screenshots, console logs, snapshots)
+.playwright-mcp/

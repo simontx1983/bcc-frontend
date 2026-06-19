@@ -10,7 +10,7 @@
 /**
  * Format an ISO 8601 UTC timestamp as a relative phrase like "2d" /
  * "3h" / "just now". Bounded resolution — no calendar math beyond
- * 30 days; older shows "Mmm dd".
+ * 7 days; older shows "Mmm dd".
  *
  * Accepts two input shapes:
  *   - ISO 8601 with `T` and/or `Z`  (e.g. "2026-05-15T12:34:56Z")
@@ -33,9 +33,34 @@ export function formatRelativeTime(input: string): string {
   if (seconds < 60) return "just now";
   if (seconds < 3600) return `${Math.floor(seconds / 60)}m`;
   if (seconds < 86400) return `${Math.floor(seconds / 3600)}h`;
-  if (seconds < 86400 * 30) return `${Math.floor(seconds / 86400)}d`;
+  if (seconds < 86400 * 7) return `${Math.floor(seconds / 86400)}d`;
   const date = new Date(epoch);
   return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+/**
+ * Format an ISO 8601 / MySQL UTC timestamp as a humanized absolute
+ * date-time for a `title` tooltip — e.g. "Jun 14, 2026, 3:42 PM". Pure
+ * presentation companion to `formatRelativeTime`'s short relative
+ * label; does not touch that function's 30-day relative→absolute
+ * threshold, which other surfaces depend on. Accepts the same two
+ * input shapes (ISO with T/Z, or MySQL "YYYY-MM-DD HH:MM:SS"). Returns
+ * "" for unparseable input so callers can omit the attribute.
+ */
+export function formatAbsoluteDateTime(input: string): string {
+  const normalized =
+    input.includes("T") || input.includes("Z")
+      ? input
+      : input.replace(" ", "T") + "Z";
+  const epoch = Date.parse(normalized);
+  if (Number.isNaN(epoch)) return "";
+  return new Date(epoch).toLocaleString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
 }
 
 /**

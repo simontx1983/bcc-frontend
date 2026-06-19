@@ -5,8 +5,10 @@ import { MobileShell } from "@/components/layout/MobileShell";
 
 export default function MainLayout({
   children,
+  modal,
 }: {
   children: React.ReactNode;
+  modal: React.ReactNode;
 }) {
   return (
     <>
@@ -14,6 +16,7 @@ export default function MainLayout({
       <AppShell>
         {children}
       </AppShell>
+      {modal}
       <CelebrationGate />
       <MobileShell />
     </>

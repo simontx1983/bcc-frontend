@@ -37,6 +37,16 @@
   --bcc-tier-rare:       #1d4fbb;
   --bcc-tier-legendary:  #d9a400;
 
+  /* Trust-band dot colors (identity chip) — a semantic risk→trust ramp,
+     distinct in MEANING from the --bcc-tier-* rarity set above. Used by
+     RankChip's leading dot: risky=red, caution=amber, neutral=ash,
+     trusted=green, elite=gold. Stable across themes. */
+  --bcc-trust-risky:     #c8472f;
+  --bcc-trust-caution:   #e0a32e;
+  --bcc-trust-neutral:   #6b6e72;
+  --bcc-trust-trusted:   #247a3f;
+  --bcc-trust-elite:     #d9a400;
+
   /* Operator type badge colors */
   --bcc-type-validator:  #2c5990;
   --bcc-type-project:    #d9a400;
@@ -48,6 +58,16 @@
   --bcc-warning:         #f59e0b;
   --bcc-danger:          #ef4444;
   --bcc-info:            #3b82f6;
+
+  /* Floor accent colors — canonical source for the trading-card
+     layer's --safety/--weld/--verified/--blueprint aliases below.
+     Same hex values as before consolidation; this block is now the
+     single source of truth, following the --tier-* -> --bcc-tier-*
+     precedent. */
+  --bcc-safety:          #f05a28;
+  --bcc-weld:            #ffc01e;
+  --bcc-verified:        #2c9d66;
+  --bcc-blueprint:       #0f1e3c;
 
   /* Typography — loaded via next/font in layout.tsx */
   --font-stencil:        'Big Shoulders Stencil';
@@ -2267,10 +2287,11 @@
   --concrete:        #14110d;
   --concrete-hi:     #1d1913;
 
-  /* Accent / chrome. */
-  --blueprint:       #0f1e3c;
-  --safety:          #f05a28;
-  --weld:            #ffc01e;
+  /* Accent / chrome — mapped onto the redesign's --bcc-* tokens
+     (same hex values), same precedent as the --tier-* mapping below. */
+  --blueprint:       var(--bcc-blueprint);
+  --safety:          var(--bcc-safety);
+  --weld:            var(--bcc-weld);
 
   /* Chain colors. */
   --chain-cosmos:    #1a0f3e;
@@ -2306,7 +2327,7 @@
   --paper-warm:      #f2e6c8;
   --ink-ghost:       #6b6355;
   --phosphor:        #7dff9a;
-  --verified:        #2c9d66;
+  --verified:        var(--bcc-verified);
 }
 
 @layer components {

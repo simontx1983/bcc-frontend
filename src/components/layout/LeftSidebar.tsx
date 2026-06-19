@@ -4,6 +4,8 @@ import type { Route } from "next";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
+import { NewPostTrigger } from "@/components/composer/NewPostTrigger";
+
 const PRIMARY_NAV = [
   { label: "Home",        href: "/",           icon: <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden><path d="M3 9.5L10 3l7 6.5V17a1 1 0 01-1 1H4a1 1 0 01-1-1V9.5z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round"/><path d="M7.5 18v-5h5v5" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round"/></svg> },
   { label: "Members",     href: "/members",     icon: <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden><circle cx="8" cy="7" r="3" stroke="currentColor" strokeWidth="1.6"/><path d="M2 17c0-3.314 2.686-5 6-5s6 1.686 6 5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/><circle cx="15" cy="7" r="2.5" stroke="currentColor" strokeWidth="1.4"/><path d="M17.5 16c0-2.5-1.5-4-3.5-4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/></svg> },
@@ -55,20 +57,20 @@ export function LeftSidebar({ collapsed, onToggle }: LeftSidebarProps) {
       {/* ── Compose button ── */}
       <div className="bcc-sidebar-pin-top" style={{ padding: collapsed ? "12px 8px 8px" : "12px 12px 8px" }}>
         {collapsed ? (
-          <Link href="/?compose=1" className="bcc-btn-icon" aria-label="New Post" title="New Post"
+          <NewPostTrigger className="bcc-btn-icon" ariaLabel="New Post" title="New Post"
             style={{ width: 36, height: 36, background: "var(--bcc-accent)", color: "#fff", borderRadius: "var(--bcc-radius-md)", margin: "0 auto", display: "flex" }}
           >
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>
               <path d="M7 1v12M1 7h12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
             </svg>
-          </Link>
+          </NewPostTrigger>
         ) : (
-          <Link href="/?compose=1" className="bcc-btn bcc-btn-primary" style={{ width: "100%", justifyContent: "center" }}>
+          <NewPostTrigger className="bcc-btn bcc-btn-primary" style={{ width: "100%", justifyContent: "center" }}>
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>
               <path d="M7 1v12M1 7h12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
             </svg>
             New Post
-          </Link>
+          </NewPostTrigger>
         )}
       </div>
 

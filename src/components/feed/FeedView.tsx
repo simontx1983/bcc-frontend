@@ -55,7 +55,7 @@ export function FeedView({ isAuthenticated }: FeedViewProps) {
   const [scope, setScope] = useState<FeedScope>("for_you");
 
   return (
-    <section className="mx-auto w-full max-w-3xl px-6">
+    <section className="mx-auto w-full max-w-3xl px-2 sm:px-3">
       {isAuthenticated ? (
         <>
           <FeedTabs active={scope} onChange={setScope} />
@@ -86,6 +86,11 @@ function AnonFeed() {
   const query = useHotFeed();
   return (
     <div className="pt-2">
+      <div className="bcc-mono mb-3 flex items-center gap-3 text-cardstock-deep">
+        <span className="inline-block h-px w-8 bg-cardstock-edge/50" />
+        <span>On the floor right now</span>
+        <span className="inline-block h-px flex-1 bg-cardstock-edge/50" />
+      </div>
       <FeedBody {...query} />
     </div>
   );

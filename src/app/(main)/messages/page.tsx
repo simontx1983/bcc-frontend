@@ -51,7 +51,7 @@ function MessagesPageContent() {
     <main className="pb-24">
       <Rail />
 
-      <header className="mx-auto max-w-3xl px-4 sm:px-7 pt-12">
+      <header className="mx-auto max-w-3xl px-2 sm:px-3 pt-12">
         <p className="bcc-mono text-safety">DIRECT</p>
         <h1
           className="bcc-stencil mt-3 text-cardstock leading-[0.95]"
@@ -73,7 +73,7 @@ function MessagesPageContent() {
         </div>
       </header>
 
-      <section className="mx-auto mt-10 max-w-3xl px-4 sm:px-7">
+      <section className="mx-auto mt-10 max-w-3xl px-2 sm:px-3">
         {!isAuthed && session.status !== "loading" && (
           <NotSignedIn />
         )}

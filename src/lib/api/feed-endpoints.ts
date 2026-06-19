@@ -11,8 +11,8 @@
  * passes the same cursor back as the `cursor` query param.
  */
 
-import { bccFetchAsClient } from "@/lib/api/client";
-import type { FeedResponse, FeedScope } from "@/lib/api/types";
+import { bccFetch, bccFetchAsClient } from "@/lib/api/client";
+import type { FeedItem, FeedResponse, FeedScope } from "@/lib/api/types";
 
 export interface FeedQueryParams {
   /** Opaque cursor from the previous page's `pagination.next_cursor`. */
@@ -64,6 +64,28 @@ export function getTagFeed(
   search.set("tag", tag);
   const path = `feed/tag?${search.toString()}`;
   return bccFetchAsClient<FeedResponse>(path, { method: "GET", signal });
+}
+
+/**
+ * GET /feed/:id — single-item permalink read. Anonymous-OK, backs the
+ * `/post/[id]` detail page + its intercepting modal. Server-safe (uses
+ * `bccFetch` directly) so `generateMetadata` and the SSR page body can
+ * both call it during render — same pattern as `getCardEntity`.
+ *
+ * 404 contract: backend returns `bcc_not_found` (status 404) when the
+ * id doesn't resolve OR isn't visible to this viewer. Callers branch on
+ * the BccApiError status to delegate to Next's `notFound()`.
+ */
+export function getFeedItemById(
+  id: string,
+  token: string | null,
+  signal?: AbortSignal
+): Promise<FeedItem> {
+  return bccFetch<FeedItem>(`feed/${encodeURIComponent(id)}`, {
+    method: "GET",
+    token,
+    ...(signal !== undefined ? { signal } : {}),
+  });
 }
 
 // ─────────────────────────────────────────────────────────────────────

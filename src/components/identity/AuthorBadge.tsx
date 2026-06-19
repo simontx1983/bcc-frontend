@@ -63,8 +63,14 @@ export interface AuthorBadgeProps {
   trailing?: React.ReactNode;
   /** Pills/badges rendered to the right of the display name. */
   inlineAdornments?: React.ReactNode;
-  /** sm (default) = 28px avatar; md = 40px avatar (composer, prominent rows). */
+  /** sm (default) = 28px avatar; md = 36px avatar (composer, prominent rows). */
   size?: "sm" | "md" | undefined;
+  /**
+   * Override the avatar's ring color (e.g. "var(--bcc-accent)"), taking
+   * precedence over the tier-derived ring. Forwarded straight to
+   * `<Avatar ringColor>` — see its doc comment for the rationale.
+   */
+  avatarRingColor?: string | undefined;
   /** Whether the avatar + display name link to /u/{handle}. */
   asLink?: boolean | undefined;
   className?: string | undefined;
@@ -75,11 +81,21 @@ const AVATAR_SIZE_BY_BADGE: Record<"sm" | "md", AvatarSize> = {
   md: "md",
 };
 
+// Identity column height mirrors the avatar so the name pins to the
+// top and the RankChip pins to the bottom (Composer's `h-9` pattern —
+// see Composer.tsx:461). Tailwind's h-7/h-9 land exactly on the
+// Avatar SIZE_TABLE's 28px/36px.
+const IDENTITY_HEIGHT_BY_BADGE: Record<"sm" | "md", string> = {
+  sm: "h-7",
+  md: "h-9",
+};
+
 function AuthorBadgeImpl({
   author,
   trailing,
   inlineAdornments,
   size = "sm",
+  avatarRingColor,
   asLink = true,
   className,
 }: AuthorBadgeProps) {
@@ -125,12 +141,12 @@ function AuthorBadgeImpl({
   const nameNode = asLink ? (
     <Link
       href={`/u/${author.handle}` as Route}
-      className="bcc-stencil truncate text-ink hover:underline"
+      className="bcc-stencil truncate text-[var(--bcc-text)] hover:underline"
     >
       {nameText}
     </Link>
   ) : (
-    <span className="bcc-stencil truncate text-ink">{nameText}</span>
+    <span className="bcc-stencil truncate text-[var(--bcc-text)]">{nameText}</span>
   );
 
   return (
@@ -147,8 +163,9 @@ function AuthorBadgeImpl({
           tier={cardTier === null ? undefined : cardTier}
           isOperator={author.is_operator === true}
           asLink={asLink}
+          ringColor={avatarRingColor}
         />
-        <div className="flex min-w-0 flex-1 flex-col gap-1">
+        <div className={`flex min-w-0 flex-1 flex-col justify-between ${IDENTITY_HEIGHT_BY_BADGE[size]}`}>
           <div className="flex min-w-0 flex-wrap items-baseline gap-2">
             {nameNode}
             {operatorPill}
@@ -160,6 +177,7 @@ function AuthorBadgeImpl({
               tierLabel={tierLabel}
               rankLabel={rankLabel}
               size="compact"
+              className="self-start"
             />
           )}
         </div>

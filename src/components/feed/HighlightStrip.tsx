@@ -186,15 +186,15 @@ function HighlightCard({
             type="button"
             onClick={onDismiss}
             disabled={isDismissing}
-            className="bcc-mono text-[10px] text-ink-soft/70 hover:text-ink disabled:opacity-50"
+            className="bcc-mono text-[10px] text-[var(--bcc-text-secondary)]/70 hover:text-[var(--bcc-text)] disabled:opacity-50"
             aria-label="Dismiss highlight"
           >
             {isDismissing ? "…" : "✕"}
           </button>
         </div>
 
-        <h3 className="bcc-stencil text-base text-ink">{item.title}</h3>
-        <p className="font-serif text-sm text-ink-soft">{item.body}</p>
+        <h3 className="bcc-stencil text-base text-[var(--bcc-text)]">{item.title}</h3>
+        <p className="font-serif text-sm text-[var(--bcc-text-secondary)]">{item.body}</p>
 
         <Link
           href={item.cta.href as Route}

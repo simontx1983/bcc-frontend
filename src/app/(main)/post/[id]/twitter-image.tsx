@@ -1,0 +1,11 @@
+/**
+ * /post/[id]/twitter-image — Twitter card image.
+ *
+ * Re-exports the generated post card from opengraph-image.tsx so the
+ * `twitter:image` tag points at the identical branded PNG. Next's
+ * metadata convention requires the size / contentType / alt exports here
+ * too, so we re-export them.
+ */
+
+export { size, contentType, alt } from "./opengraph-image";
+export { default } from "./opengraph-image";

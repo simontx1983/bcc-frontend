@@ -49,7 +49,7 @@ export function ReportButton({ item }: ReportButtonProps) {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="bcc-mono shrink-0 text-[10px] text-ink-soft/70 hover:text-safety hover:underline"
+        className="bcc-mono shrink-0 text-[10px] text-[var(--bcc-text-secondary)] hover:text-safety hover:underline"
       >
         Report
       </button>
