@@ -32,8 +32,12 @@ jobs:
           node-version: '20'
           cache: npm
 
+      # `npm install` (not `npm ci`): the committed package-lock.json is
+      # generated on Windows, so it lacks Linux-native optional deps
+      # (@rollup/*-linux-*, @next/swc-linux-*). npm install re-resolves the
+      # platform binaries for the runner. See npm/cli#4828.
       - name: Install dependencies
-        run: npm ci
+        run: npm install --no-audit --no-fund
 
       - name: Typecheck
         run: npx tsc --noEmit
