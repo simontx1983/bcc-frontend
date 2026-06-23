@@ -16,7 +16,7 @@ import type {
   CreatePhotoPostResponse,
   CreatePostRequest,
   CreatePostResponse,
-  CreateReviewRequest,
+  CreateReviewArgs,
   GroupPostVisibility,
   UpdateBlogRequest,
 } from "@/lib/api/types";
@@ -63,9 +63,16 @@ export function createPost(
  * the required fields (`target_page_id` + `grade` + `content`).
  */
 export function createReview(
-  request: Omit<CreateReviewRequest, "kind">
+  request: CreateReviewArgs
 ): Promise<CreatePostResponse> {
-  return createPost({ kind: "review", ...request });
+  // Narrow on the member discriminant so the spread keeps a concrete
+  // union member (spreading the bare union widens the target fields to
+  // optional, which satisfies neither variant).
+  return createPost(
+    "target_kind" in request
+      ? { kind: "review", ...request }
+      : { kind: "review", ...request },
+  );
 }
 
 /**

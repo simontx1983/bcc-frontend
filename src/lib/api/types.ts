@@ -2401,14 +2401,44 @@ export interface CreateStatusRequest {
   visibility?: GroupPostVisibility;
 }
 
-export interface CreateReviewRequest {
+interface CreateReviewRequestBase {
   kind: "review";
-  /** peepso-page id of the entity being reviewed (validator/project/creator). */
-  target_page_id: number;
   grade: ReviewGrade;
-  /** Long-form review body (1..REVIEW_BODY_MAX_LENGTH after trim). */
+  /** Long-form review body (1..REVIEW_BODY_MAX_LENGTH after trim). Required. */
   content: string;
 }
+
+/** Review targeting an ENTITY card (validator / project / creator). */
+export interface CreateEntityReviewRequest extends CreateReviewRequestBase {
+  /** peepso-page id of the entity being reviewed. */
+  target_page_id: number;
+}
+
+/**
+ * Review targeting a MEMBER self-page (Slice 2, Architecture A — a person
+ * is a trust subject). Same endpoint + grade→vote mapping as the entity
+ * path; only the target differs. The server resolves `target_user_id` to
+ * the member's lazily-provisioned self-page id.
+ */
+export interface CreateMemberReviewRequest extends CreateReviewRequestBase {
+  target_kind: "user_profile";
+  /** user_id of the member being reviewed. */
+  target_user_id: number;
+}
+
+export type CreateReviewRequest =
+  | CreateEntityReviewRequest
+  | CreateMemberReviewRequest;
+
+/**
+ * Args for the `createReview` wrapper — `kind` is fixed by the wrapper.
+ * Spelled as a union of per-member `Omit`s because `Omit<Union, K>`
+ * collapses to the members' COMMON keys (dropping the target fields);
+ * this keeps each variant's `target_page_id` / `target_user_id`.
+ */
+export type CreateReviewArgs =
+  | Omit<CreateEntityReviewRequest, "kind">
+  | Omit<CreateMemberReviewRequest, "kind">;
 
 /**
  * §D6 — long-form blog post. `content` carries the full_text (rendered
