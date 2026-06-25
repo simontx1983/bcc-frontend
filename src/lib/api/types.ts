@@ -49,13 +49,26 @@ export class BccApiError extends Error {
   public readonly status: number;
   public readonly responseBody: ApiErrorBody | null;
   public readonly data: Record<string, unknown> | null;
+  /**
+   * Server correlation id (the `X-Request-Id` response header) for tying this
+   * frontend error back to the backend logs / _meta.request_id. Null when the
+   * response carried no header (e.g. a network failure before any response).
+   */
+  public readonly requestId: string | null;
 
-  constructor(code: string, message: string, status: number, body: ApiErrorBody | null) {
+  constructor(
+    code: string,
+    message: string,
+    status: number,
+    body: ApiErrorBody | null,
+    requestId: string | null = null
+  ) {
     super(message);
     this.name = "BccApiError";
     this.code = code;
     this.status = status;
     this.responseBody = body;
+    this.requestId = requestId;
     this.data =
       body !== null && typeof body.error.data === "object" && body.error.data !== null
         ? body.error.data
