@@ -37,7 +37,7 @@
  * navigation alone).
  */
 
-import { memo, useCallback, useEffect, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { DiscoverPanel } from "@/components/feed/DiscoverPanel";
 import { FeedItemCard } from "@/components/feed/FeedItemCard";
@@ -159,6 +159,14 @@ export function FeedBody(props: FeedBodyProps) {
     };
   }, [handleLoadMore, hasNextPage]);
 
+  // Flatten paginated pages into one list — memoized so it isn't rebuilt into a
+  // new array (and new downstream identities) on every render (perf-audit F5).
+  // Placed above the early returns to satisfy the rules of hooks.
+  const items = useMemo(
+    () => (data?.pages ?? []).flatMap((page) => page.items),
+    [data?.pages]
+  );
+
   if (isLoading) {
     // Skeleton rows match DirectoryGrid's idiom: bcc-panel + animate-pulse +
     // opacity-40, sized to the average FeedItemCard height so there's no
@@ -210,9 +218,6 @@ export function FeedBody(props: FeedBodyProps) {
       </div>
     );
   }
-
-  // Flatten paginated pages into one list.
-  const items = (data?.pages ?? []).flatMap((page) => page.items);
 
   if (items.length === 0) {
     // §F5 / Sprint 3 — cold-start bridge surface. DiscoverPanel mounts
