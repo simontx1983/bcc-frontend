@@ -555,6 +555,12 @@ export type FeedScope = "for_you" | "following" | "signals";
  */
 export interface FeedAuthor {
   user_id: number;
+  /**
+   * The author's user id (the v1.5 polymorphic author block ships `id`;
+   * `user_id` is retained for back-compat). Target of the byline Vouch
+   * toggle — `target_id` for the `user_profile` attestation.
+   */
+  id?: number;
   handle: string;
   display_name?: string;
   avatar_url?: string;
@@ -580,6 +586,18 @@ export interface FeedAuthor {
    * next to the author name in feed cards. Server-resolved per §A2.
    */
   is_operator?: boolean;
+  /**
+   * Authed-only — the viewer's own vouch/stand_behind state on THIS
+   * author's self-page, behind the byline Vouch toggle (vouch is author
+   * credibility, not a post reaction). Omitted for anonymous viewers.
+   */
+  viewer_attestation?: ViewerAttestation;
+  /**
+   * Authed-only — whether the viewer may vouch for this author
+   * (`{allowed, unlock_hint}`). Self/below-Neutral come back
+   * `allowed=false`. Omitted for anonymous viewers.
+   */
+  can_vouch?: AuthorVouchPermission;
 }
 
 /**
@@ -663,6 +681,16 @@ export interface CommentAuthor {
    * mapping stays server-side.
    */
   reputation_tier?: ReputationTier;
+  /**
+   * Authed-only — the viewer's own vouch state on this commenter's
+   * self-page, behind the byline Vouch toggle. Identical shape +
+   * semantics to FeedAuthor; omitted for anonymous viewers. One vouch,
+   * one weight, everywhere — already-VOUCHED here iff vouched from a
+   * feed byline (and vice-versa).
+   */
+  viewer_attestation?: ViewerAttestation;
+  /** Authed-only — whether the viewer may vouch for this commenter. */
+  can_vouch?: AuthorVouchPermission;
 }
 
 export interface Comment {
@@ -3881,6 +3909,18 @@ export interface NegativeSignals {
 export interface ViewerAttestation {
   vouch: { id: number; created_at: string } | null;
   stand_behind: { id: number; created_at: string } | null;
+}
+
+/**
+ * Minimal `{allowed, unlock_hint}` permission entry — the shape the
+ * server emits for the per-author `can_vouch` field on feed/comment
+ * author blocks (no `reason_code`, unlike CardPermissionEntry). When
+ * `allowed === false`, `unlock_hint` carries the server-authoritative
+ * aspirational copy (render verbatim) or is `null` (self → omit slot).
+ */
+export interface AuthorVouchPermission {
+  allowed: boolean;
+  unlock_hint: string | null;
 }
 
 /** Attestation kinds available at V1 per §J.1. */
