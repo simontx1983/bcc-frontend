@@ -19,6 +19,8 @@
  *   - `disallowedElements` + `unwrapDisallowed` for XSS safety (no
  *     `<script>`, `<iframe>`, `<object>`, `<embed>`, `<style>`; no
  *     `rehype-raw`, so HTML in markdown is escaped, not rendered)
+ *   - an explicit `urlTransform` scheme allowlist (audit F4) so link/image
+ *     URL safety is intentional, not an implicit reliance on the default
  *
  * The renderer overrides anchor (`a`) rendering: internal links
  * (starting with `/`) use Next.js `<Link>` for client-side nav;
@@ -48,6 +50,7 @@ import type { Mention } from "@/lib/api/types";
 import { getShiki, highlightCode, shikiReady } from "@/lib/shiki";
 
 import { bccRemarkPlugins } from "./plugins";
+import { safeUrlTransform } from "./url-allowlist";
 
 // Syntax highlighting — path (b) from the old V1 note, now shipped:
 // Shiki's grammar loader is async and react-markdown 10.x calls the
@@ -112,6 +115,7 @@ export function BlogMarkdownRenderer({
         remarkPlugins={[remarkGfm, ...bccRemarkPlugins]}
         disallowedElements={[...DISALLOWED_ELEMENTS]}
         unwrapDisallowed
+        urlTransform={safeUrlTransform}
         components={{
           pre: ({ children }) => {
             // Fenced code → sync Shiki highlight on the warmed

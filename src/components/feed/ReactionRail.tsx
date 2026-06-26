@@ -114,7 +114,9 @@ interface TrustReactionDef {
 
 const TRUST_REACTIONS: ReadonlyArray<TrustReactionDef> = [
   { kind: "solid",        brand: "Solid",        helper: "Agree" },
-  { kind: "vouch",        brand: "Vouch",        helper: "Back this" },
+  // Vouch left the reaction rail: it is author credibility, not a post
+  // reaction, and now lives as the first-class per-author byline Vouch
+  // toggle (AuthorVouchButton). One vouch, one weight, per person.
   // `Stake my rep` was retired 2026-05-13 (Phase γ UX cleanup): `stake`
   // is a token-finance verb in crypto-native contexts. The reaction
   // here is reputational, not financial — the new helper makes that

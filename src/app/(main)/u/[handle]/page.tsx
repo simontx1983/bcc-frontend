@@ -40,6 +40,7 @@ import { BioBox } from "@/components/layout/BioBox";
 import { PageHero } from "@/components/layout/PageHero";
 import { AttestationActionCluster } from "@/components/profile/AttestationActionCluster";
 import { ProfileTabs } from "@/components/profile/ProfileTabs";
+import { MemberReviewControl } from "@/components/review/MemberReviewControl";
 import { ShareButton } from "@/components/common/ShareButton";
 import { authOptions } from "@/lib/auth";
 import { tokenFromSession } from "@/lib/api/client";
@@ -339,6 +340,11 @@ export default async function MemberProfilePage({ params }: PageProps) {
                 canReport={profile.permissions.can_report}
                 viewerAttestation={profile.viewer_attestation}
               />
+              {/* Slice 2 — direct person-review. UX gate only (signed-in,
+                  not self); the backend enforces eligibility. */}
+              {session !== null && !isOwner && (
+                <MemberReviewControl userId={profile.user_id} displayName={title} />
+              )}
               <BioBox
                 text={profile.bio}
                 label="BIO"

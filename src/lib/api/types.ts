@@ -49,13 +49,26 @@ export class BccApiError extends Error {
   public readonly status: number;
   public readonly responseBody: ApiErrorBody | null;
   public readonly data: Record<string, unknown> | null;
+  /**
+   * Server correlation id (the `X-Request-Id` response header) for tying this
+   * frontend error back to the backend logs / _meta.request_id. Null when the
+   * response carried no header (e.g. a network failure before any response).
+   */
+  public readonly requestId: string | null;
 
-  constructor(code: string, message: string, status: number, body: ApiErrorBody | null) {
+  constructor(
+    code: string,
+    message: string,
+    status: number,
+    body: ApiErrorBody | null,
+    requestId: string | null = null
+  ) {
     super(message);
     this.name = "BccApiError";
     this.code = code;
     this.status = status;
     this.responseBody = body;
+    this.requestId = requestId;
     this.data =
       body !== null && typeof body.error.data === "object" && body.error.data !== null
         ? body.error.data
@@ -542,6 +555,12 @@ export type FeedScope = "for_you" | "following" | "signals";
  */
 export interface FeedAuthor {
   user_id: number;
+  /**
+   * The author's user id (the v1.5 polymorphic author block ships `id`;
+   * `user_id` is retained for back-compat). Target of the byline Vouch
+   * toggle — `target_id` for the `user_profile` attestation.
+   */
+  id?: number;
   handle: string;
   display_name?: string;
   avatar_url?: string;
@@ -567,6 +586,18 @@ export interface FeedAuthor {
    * next to the author name in feed cards. Server-resolved per §A2.
    */
   is_operator?: boolean;
+  /**
+   * Authed-only — the viewer's own vouch/stand_behind state on THIS
+   * author's self-page, behind the byline Vouch toggle (vouch is author
+   * credibility, not a post reaction). Omitted for anonymous viewers.
+   */
+  viewer_attestation?: ViewerAttestation;
+  /**
+   * Authed-only — whether the viewer may vouch for this author
+   * (`{allowed, unlock_hint}`). Self/below-Neutral come back
+   * `allowed=false`. Omitted for anonymous viewers.
+   */
+  can_vouch?: AuthorVouchPermission;
 }
 
 /**
@@ -650,6 +681,16 @@ export interface CommentAuthor {
    * mapping stays server-side.
    */
   reputation_tier?: ReputationTier;
+  /**
+   * Authed-only — the viewer's own vouch state on this commenter's
+   * self-page, behind the byline Vouch toggle. Identical shape +
+   * semantics to FeedAuthor; omitted for anonymous viewers. One vouch,
+   * one weight, everywhere — already-VOUCHED here iff vouched from a
+   * feed byline (and vice-versa).
+   */
+  viewer_attestation?: ViewerAttestation;
+  /** Authed-only — whether the viewer may vouch for this commenter. */
+  can_vouch?: AuthorVouchPermission;
 }
 
 export interface Comment {
@@ -2401,14 +2442,44 @@ export interface CreateStatusRequest {
   visibility?: GroupPostVisibility;
 }
 
-export interface CreateReviewRequest {
+interface CreateReviewRequestBase {
   kind: "review";
-  /** peepso-page id of the entity being reviewed (validator/project/creator). */
-  target_page_id: number;
   grade: ReviewGrade;
-  /** Long-form review body (1..REVIEW_BODY_MAX_LENGTH after trim). */
+  /** Long-form review body (1..REVIEW_BODY_MAX_LENGTH after trim). Required. */
   content: string;
 }
+
+/** Review targeting an ENTITY card (validator / project / creator). */
+export interface CreateEntityReviewRequest extends CreateReviewRequestBase {
+  /** peepso-page id of the entity being reviewed. */
+  target_page_id: number;
+}
+
+/**
+ * Review targeting a MEMBER self-page (Slice 2, Architecture A — a person
+ * is a trust subject). Same endpoint + grade→vote mapping as the entity
+ * path; only the target differs. The server resolves `target_user_id` to
+ * the member's lazily-provisioned self-page id.
+ */
+export interface CreateMemberReviewRequest extends CreateReviewRequestBase {
+  target_kind: "user_profile";
+  /** user_id of the member being reviewed. */
+  target_user_id: number;
+}
+
+export type CreateReviewRequest =
+  | CreateEntityReviewRequest
+  | CreateMemberReviewRequest;
+
+/**
+ * Args for the `createReview` wrapper — `kind` is fixed by the wrapper.
+ * Spelled as a union of per-member `Omit`s because `Omit<Union, K>`
+ * collapses to the members' COMMON keys (dropping the target fields);
+ * this keeps each variant's `target_page_id` / `target_user_id`.
+ */
+export type CreateReviewArgs =
+  | Omit<CreateEntityReviewRequest, "kind">
+  | Omit<CreateMemberReviewRequest, "kind">;
 
 /**
  * §D6 — long-form blog post. `content` carries the full_text (rendered
@@ -3838,6 +3909,18 @@ export interface NegativeSignals {
 export interface ViewerAttestation {
   vouch: { id: number; created_at: string } | null;
   stand_behind: { id: number; created_at: string } | null;
+}
+
+/**
+ * Minimal `{allowed, unlock_hint}` permission entry — the shape the
+ * server emits for the per-author `can_vouch` field on feed/comment
+ * author blocks (no `reason_code`, unlike CardPermissionEntry). When
+ * `allowed === false`, `unlock_hint` carries the server-authoritative
+ * aspirational copy (render verbatim) or is `null` (self → omit slot).
+ */
+export interface AuthorVouchPermission {
+  allowed: boolean;
+  unlock_hint: string | null;
 }
 
 /** Attestation kinds available at V1 per §J.1. */

@@ -37,10 +37,23 @@ import Link from "next/link";
 import type { Route } from "next";
 
 import { Avatar, type AvatarSize } from "@/components/identity/Avatar";
+import { AuthorVouchButton } from "@/components/identity/AuthorVouchButton";
 import { RankChip } from "@/components/profile/RankChip";
-import type { CardTier } from "@/lib/api/types";
+import type {
+  AuthorVouchPermission,
+  CardTier,
+  ViewerAttestation,
+} from "@/lib/api/types";
 
 export interface AuthorBadgeAuthor {
+  /**
+   * Author user id — present on feed/comment author blocks (the v1.5
+   * polymorphic shape ships `id`; `user_id` is the legacy alias). Target
+   * of the byline Vouch toggle.
+   */
+  id?: number | undefined;
+  /** Legacy alias for {@link AuthorBadgeAuthor.id}; preferred is `id`. */
+  user_id?: number | undefined;
   handle: string;
   display_name?: string | undefined;
   avatar_url?: string | undefined;
@@ -55,6 +68,14 @@ export interface AuthorBadgeAuthor {
   /** Pre-rendered tier word ("Uncommon", "Rare", etc.). Server-owned. */
   tier_label?: string | null | undefined;
   is_operator?: boolean | undefined;
+  /**
+   * Authed-only — the viewer's vouch state on this author, behind the
+   * byline Vouch toggle. Absent (anon / surfaces that don't ship it) →
+   * the toggle simply doesn't render.
+   */
+  viewer_attestation?: ViewerAttestation | undefined;
+  /** Authed-only — whether the viewer may vouch for this author. */
+  can_vouch?: AuthorVouchPermission | undefined;
 }
 
 export interface AuthorBadgeProps {
@@ -119,6 +140,16 @@ function AuthorBadgeImpl({
       ? author.tier_label
       : null;
 
+  // Vouch toggle target — prefer the v1.5 `id`, fall back to the legacy
+  // `user_id`. AuthorVouchButton self-hides when the author block carries
+  // no can_vouch/viewer_attestation (anon, or surfaces that don't ship it).
+  const vouchTargetId =
+    typeof author.id === "number" && author.id > 0
+      ? author.id
+      : typeof author.user_id === "number" && author.user_id > 0
+        ? author.user_id
+        : 0;
+
   // Operator pill is intentionally folded into AuthorBadge per Sprint 1
   // brief — it used to render inline on FeedItemCard; consolidating
   // here makes operator presence travel with identity to every surface
@@ -169,6 +200,14 @@ function AuthorBadgeImpl({
           <div className="flex min-w-0 flex-wrap items-baseline gap-2">
             {nameNode}
             {operatorPill}
+            {vouchTargetId > 0 && (
+              <AuthorVouchButton
+                targetUserId={vouchTargetId}
+                displayName={nameText}
+                viewerAttestation={author.viewer_attestation}
+                canVouch={author.can_vouch}
+              />
+            )}
             {inlineAdornments}
           </div>
           {rankLabel !== "" && (

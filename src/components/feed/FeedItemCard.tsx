@@ -18,7 +18,7 @@
  *   - Inline reaction rail (Solid / Vouch / Stand-behind buttons)
  */
 
-import { memo } from "react";
+import { memo, useMemo } from "react";
 import type { Route } from "next";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -93,6 +93,40 @@ function FeedItemCardImpl({
     router.push(selfHref);
   };
 
+  // Grouped secondary meta line (kind label · verification · timestamp ·
+  // overflow) rendered in AuthorBadge's trailing slot, so the display
+  // name reads clean on its own. Memoized: AuthorBadge is memo()'d, and
+  // passing fresh inline JSX every render would silently defeat its
+  // shallow-compare (perf-audit F4) — the same fix main applied, kept
+  // here for the redesign's grouped layout.
+  const trailing = useMemo(
+    () => (
+      <div className="flex shrink-0 items-baseline gap-2">
+        <span
+          className="bcc-mono shrink-0 rounded px-1.5 py-0.5 text-[10px] text-[var(--bcc-text-secondary)]"
+          style={{ background: "var(--bcc-surface-active)" }}
+        >
+          {kindLabel}
+        </span>
+        {groupVerification !== null && (
+          <VerificationBadge
+            label={groupVerification.label}
+            className="bcc-mono shrink-0 text-[10px]"
+          />
+        )}
+        <time
+          dateTime={item.posted_at}
+          title={formatAbsoluteDateTime(item.posted_at)}
+          className="bcc-mono shrink-0 text-[11px] text-[var(--bcc-text-secondary)]/70"
+        >
+          {formatRelativeTime(item.posted_at)}
+        </time>
+        <PostOverflowMenu selfHref={selfHref} />
+      </div>
+    ),
+    [kindLabel, groupVerification, item.posted_at, selfHref]
+  );
+
   return (
     <article
       onClick={handleBodyClick}
@@ -114,30 +148,7 @@ function FeedItemCardImpl({
           author={item.author}
           size="md"
           avatarRingColor="var(--bcc-accent)"
-          trailing={
-            <div className="flex shrink-0 items-baseline gap-2">
-              <span
-                className="bcc-mono shrink-0 rounded px-1.5 py-0.5 text-[10px] text-[var(--bcc-text-secondary)]"
-                style={{ background: "var(--bcc-surface-active)" }}
-              >
-                {kindLabel}
-              </span>
-              {groupVerification !== null && (
-                <VerificationBadge
-                  label={groupVerification.label}
-                  className="bcc-mono shrink-0 text-[10px]"
-                />
-              )}
-              <time
-                dateTime={item.posted_at}
-                title={formatAbsoluteDateTime(item.posted_at)}
-                className="bcc-mono shrink-0 text-[11px] text-[var(--bcc-text-secondary)]/70"
-              >
-                {formatRelativeTime(item.posted_at)}
-              </time>
-              <PostOverflowMenu selfHref={selfHref} />
-            </div>
-          }
+          trailing={trailing}
         />
       </header>
 

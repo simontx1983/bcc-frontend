@@ -75,7 +75,10 @@ import {
 } from "@/lib/api/types";
 import { FEED_QUERY_KEY_ROOT, HOT_FEED_QUERY_KEY } from "@/hooks/useFeed";
 import { HIGHLIGHTS_QUERY_KEY } from "@/hooks/useHighlights";
-import { USER_ACTIVITY_QUERY_KEY_ROOT } from "@/hooks/useUserActivity";
+import {
+  USER_ACTIVITY_QUERY_KEY_ROOT,
+  USER_REVIEWS_QUERY_KEY_ROOT,
+} from "@/hooks/useUserActivity";
 
 export type ComposerMode = "status" | "review";
 
@@ -84,9 +87,16 @@ export type ComposerVariant = "inline" | "modal";
 export interface ComposerProps {
   /** Default tab. Inline variant always uses "status"; modal accepts both. */
   defaultMode?: ComposerMode;
-  /** Required for review mode — the page id being reviewed. Ignored otherwise. */
+  /** Review mode (entity target) — the page id being reviewed. Ignored otherwise. */
   reviewTargetId?: number;
-  /** Required for review mode — the page name shown in the "Reviewing @x" header. */
+  /**
+   * Review mode (member target, Slice 2) — the user_id of the member being
+   * reviewed. Mutually exclusive with reviewTargetId; when > 0 the review is
+   * submitted with target_kind=user_profile and the server resolves the
+   * self-page. Ignored otherwise.
+   */
+  reviewTargetUserId?: number;
+  /** Required for review mode — the name shown in the "Reviewing @x" header. */
   reviewTargetName?: string;
   /** "inline" embeds in the page; "modal" wraps in a fixed-position overlay with backdrop + close. */
   variant?: ComposerVariant;
@@ -158,6 +168,7 @@ export interface ComposerProps {
 export function Composer({
   defaultMode = "status",
   reviewTargetId,
+  reviewTargetUserId,
   reviewTargetName,
   variant = "inline",
   onClose,
@@ -172,10 +183,14 @@ export function Composer({
   groupId,
   groupScopeLabel,
 }: ComposerProps) {
-  // Review tab is only available when a target is supplied. Fail closed.
+  // Review tab is only available when a target (entity page OR member) is
+  // supplied. Fail closed.
+  const hasEntityTarget =
+    typeof reviewTargetId === "number" && reviewTargetId > 0;
+  const hasMemberTarget =
+    typeof reviewTargetUserId === "number" && reviewTargetUserId > 0;
   const reviewAvailable =
-    typeof reviewTargetId === "number" &&
-    reviewTargetId > 0 &&
+    (hasEntityTarget || hasMemberTarget) &&
     typeof reviewTargetName === "string" &&
     reviewTargetName.length > 0;
 
@@ -222,7 +237,8 @@ export function Composer({
     >
       <ModalCore
         initialMode={initialMode}
-        reviewTargetId={reviewAvailable ? reviewTargetId : undefined}
+        reviewTargetId={reviewAvailable && hasEntityTarget ? reviewTargetId : undefined}
+        reviewTargetUserId={reviewAvailable && hasMemberTarget ? reviewTargetUserId : undefined}
         reviewTargetName={reviewAvailable ? reviewTargetName : undefined}
         reviewAvailable={reviewAvailable}
         onSubmitSuccess={onClose}
@@ -926,6 +942,7 @@ function InlineStatusComposer({
 interface ModalCoreProps {
   initialMode: ComposerMode;
   reviewTargetId: number | undefined;
+  reviewTargetUserId: number | undefined;
   reviewTargetName: string | undefined;
   reviewAvailable: boolean;
   onSubmitSuccess: (() => void) | undefined;
@@ -934,11 +951,21 @@ interface ModalCoreProps {
 function ModalCore({
   initialMode,
   reviewTargetId,
+  reviewTargetUserId,
   reviewTargetName,
   reviewAvailable,
   onSubmitSuccess,
 }: ModalCoreProps) {
   const [mode, setMode] = useState<ComposerMode>(initialMode);
+
+  // Resolve the discriminated review target — member takes precedence
+  // (the two are mutually exclusive at the Composer boundary).
+  const reviewTarget: ReviewTarget | null =
+    reviewTargetUserId !== undefined
+      ? { kind: "member", userId: reviewTargetUserId }
+      : reviewTargetId !== undefined
+        ? { kind: "entity", pageId: reviewTargetId }
+        : null;
 
   return (
     <>
@@ -948,9 +975,9 @@ function ModalCore({
         reviewAvailable={reviewAvailable}
       />
       {mode === "status" && <StatusForm onSubmitSuccess={onSubmitSuccess} />}
-      {mode === "review" && reviewAvailable && reviewTargetId !== undefined && (
+      {mode === "review" && reviewAvailable && reviewTarget !== null && (
         <ReviewForm
-          targetId={reviewTargetId}
+          target={reviewTarget}
           targetName={reviewTargetName ?? ""}
           onSubmitSuccess={onSubmitSuccess}
         />
@@ -1150,12 +1177,21 @@ const REVIEW_GRADE_OPTIONS: ReadonlyArray<{
   { key: "caution", label: "CAUTION", description: "Others should know what I've seen here.",  accent: "var(--safety)" },
 ];
 
+/**
+ * A review target is either an entity card (page id) or a member
+ * (user id, Slice 2). The submit shape differs only in which field the
+ * server resolves; the grade→vote mapping stays server-side.
+ */
+type ReviewTarget =
+  | { kind: "entity"; pageId: number }
+  | { kind: "member"; userId: number };
+
 function ReviewForm({
-  targetId,
+  target,
   targetName,
   onSubmitSuccess,
 }: {
-  targetId: number;
+  target: ReviewTarget;
   targetName: string;
   onSubmitSuccess: (() => void) | undefined;
 }) {
@@ -1169,7 +1205,9 @@ function ReviewForm({
   const length = content.length;
   const overCap = length > REVIEW_BODY_MAX_LENGTH;
   const isEmpty = trimmed === "";
-  const canSubmit = grade !== null && !isEmpty && !overCap && !pending && targetId > 0;
+  const targetReady =
+    target.kind === "entity" ? target.pageId > 0 : target.userId > 0;
+  const canSubmit = grade !== null && !isEmpty && !overCap && !pending && targetReady;
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -1178,15 +1216,23 @@ function ReviewForm({
     setPending(true);
     setError(null);
     try {
-      await createReview({
-        target_page_id: targetId,
-        grade,
-        content: trimmed,
-      });
+      // Two explicit calls so each literal matches one union member
+      // exactly (a ternary widens the target fields and trips excess-
+      // property checking against the discriminated union).
+      if (target.kind === "entity") {
+        await createReview({ target_page_id: target.pageId, grade, content: trimmed });
+      } else {
+        await createReview({ target_kind: "user_profile", target_user_id: target.userId, grade, content: trimmed });
+      }
       void queryClient.invalidateQueries({ queryKey: FEED_QUERY_KEY_ROOT });
       void queryClient.invalidateQueries({ queryKey: HOT_FEED_QUERY_KEY });
       void queryClient.invalidateQueries({ queryKey: USER_ACTIVITY_QUERY_KEY_ROOT });
       void queryClient.invalidateQueries({ queryKey: HIGHLIGHTS_QUERY_KEY });
+      // Member reviews land on the target's self-page → refresh their
+      // "reviews on file" list so the new entry surfaces.
+      if (target.kind === "member") {
+        void queryClient.invalidateQueries({ queryKey: USER_REVIEWS_QUERY_KEY_ROOT });
+      }
       onSubmitSuccess?.();
     } catch (err) {
       setError(humanizeReviewError(err));
