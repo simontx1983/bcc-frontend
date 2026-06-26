@@ -116,6 +116,11 @@ export async function bccFetch<T>(
 
   const response = await fetch(url, init);
 
+  // Phase 4c: the server stamps every BCC response with X-Request-Id (exposed
+  // via CORS). Carry it on any error so a frontend failure can be correlated to
+  // the backend logs — error envelopes have no _meta, so the header is the link.
+  const requestId = response.headers.get("X-Request-Id");
+
   // 204 No Content — no body to parse. Return undefined cast as T;
   // callers using bccFetch<void> see this cleanly.
   if (response.status === 204) {
@@ -130,7 +135,8 @@ export async function bccFetch<T>(
       "bcc_invalid_response",
       `Non-JSON response from ${path} (${response.status})`,
       response.status,
-      null
+      null,
+      requestId
     );
   }
 
@@ -140,7 +146,8 @@ export async function bccFetch<T>(
       parsed.error.code,
       parsed.error.message,
       parsed.error.status,
-      parsed
+      parsed,
+      requestId
     );
   }
 
@@ -150,7 +157,8 @@ export async function bccFetch<T>(
       "bcc_unexpected_status",
       `Unexpected ${response.status} response from ${path}`,
       response.status,
-      null
+      null,
+      requestId
     );
   }
 
@@ -159,7 +167,8 @@ export async function bccFetch<T>(
       "bcc_invalid_envelope",
       `Response from ${path} did not match the BCC envelope shape`,
       response.status,
-      null
+      null,
+      requestId
     );
   }
 
@@ -478,6 +487,9 @@ export async function bccSearchFetchAsClient<T>(
 
   const response = await fetch(url, init);
 
+  // Phase 4c: correlation id (see bccFetch) — carried on bcc-search errors too.
+  const requestId = response.headers.get("X-Request-Id");
+
   if (response.status === 204) {
     return undefined as T;
   }
@@ -490,7 +502,8 @@ export async function bccSearchFetchAsClient<T>(
       "bcc_invalid_response",
       `Non-JSON response from ${path} (${response.status})`,
       response.status,
-      null
+      null,
+      requestId
     );
   }
 
@@ -507,7 +520,8 @@ export async function bccSearchFetchAsClient<T>(
         ? legacy.message
         : `bcc-search ${response.status} on ${path}`,
       response.status,
-      null
+      null,
+      requestId
     );
   }
 

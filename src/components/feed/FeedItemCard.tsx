@@ -20,7 +20,7 @@
  *   - Per-kind layouts: review with grade chip, dispute with status
  */
 
-import { memo, useState } from "react";
+import { memo, useMemo, useState } from "react";
 import type { Route } from "next";
 import Link from "next/link";
 
@@ -90,6 +90,43 @@ function FeedItemCardImpl({
   const [commentsOpen, setCommentsOpen] = useState(false);
   const commentCount = item.comment_count ?? 0;
 
+  // Hoist the AuthorBadge adornment/trailing JSX into useMemo so the memoized
+  // AuthorBadge (and its Avatar/RankChip children) doesn't re-render on every
+  // FeedItemCard render — inline JSX is a fresh object reference each time,
+  // which silently defeated AuthorBadge's memo (perf-audit F4).
+  const inlineAdornments = useMemo(
+    () => (
+      <>
+        <span
+          className="bcc-mono shrink-0 rounded px-1.5 py-0.5 text-[10px]"
+          style={{ background: "rgba(15,13,9,0.06)", color: "var(--ink-soft)" }}
+        >
+          {kindLabel}
+        </span>
+        {groupVerification !== null && (
+          <VerificationBadge
+            label={groupVerification.label}
+            className="bcc-mono shrink-0 text-[10px]"
+          />
+        )}
+      </>
+    ),
+    [kindLabel, groupVerification]
+  );
+
+  const trailing = useMemo(
+    () => (
+      <time
+        dateTime={item.posted_at}
+        title={item.posted_at}
+        className="bcc-mono shrink-0 text-[11px] text-ink-soft/70"
+      >
+        {formatRelativeTime(item.posted_at)}
+      </time>
+    ),
+    [item.posted_at]
+  );
+
   return (
     <article className="bcc-panel relative flex flex-col gap-3 px-5 py-4">
       {/*
@@ -108,31 +145,8 @@ function FeedItemCardImpl({
       <header>
         <AuthorBadge
           author={item.author}
-          inlineAdornments={
-            <>
-              <span
-                className="bcc-mono shrink-0 rounded px-1.5 py-0.5 text-[10px]"
-                style={{ background: "rgba(15,13,9,0.06)", color: "var(--ink-soft)" }}
-              >
-                {kindLabel}
-              </span>
-              {groupVerification !== null && (
-                <VerificationBadge
-                  label={groupVerification.label}
-                  className="bcc-mono shrink-0 text-[10px]"
-                />
-              )}
-            </>
-          }
-          trailing={
-            <time
-              dateTime={item.posted_at}
-              title={item.posted_at}
-              className="bcc-mono shrink-0 text-[11px] text-ink-soft/70"
-            >
-              {formatRelativeTime(item.posted_at)}
-            </time>
-          }
+          inlineAdornments={inlineAdornments}
+          trailing={trailing}
         />
       </header>
 
