@@ -165,9 +165,15 @@ function CommentRow({ feedId, comment }: { feedId: string; comment: Comment }) {
     <article className="flex flex-col gap-1">
       <AuthorBadge
         author={{
+          id: comment.author.id,
           handle: comment.author.handle,
           display_name: comment.author.display_name,
           avatar_url: comment.author.avatar_url,
+          // Per-author Vouch toggle next to the commenter's name — same
+          // vouch, same weight as the feed byline (authed-only; absent
+          // fields → the toggle self-hides).
+          viewer_attestation: comment.author.viewer_attestation,
+          can_vouch: comment.author.can_vouch,
         }}
         size="sm"
         trailing={
