@@ -24,7 +24,6 @@ import { CommentDrawer } from "@/components/feed/CommentDrawer";
 import { PostOverflowMenu } from "@/components/feed/PostOverflowMenu";
 import { ReactionRail } from "@/components/feed/ReactionRail";
 import { ReactorStack } from "@/components/feed/ReactorStack";
-import { ReportButton } from "@/components/feed/ReportButton";
 import { ShareButton } from "@/components/feed/ShareButton";
 import { VerificationBadge } from "@/components/groups/VerificationBadge";
 import { AuthorBadge } from "@/components/identity/AuthorBadge";
@@ -76,7 +75,7 @@ export function PostDetail({ item, canInteract = true }: PostDetailProps) {
               >
                 {formatRelativeTime(item.posted_at)}
               </time>
-              <PostOverflowMenu selfHref={item.links.self} />
+              <PostOverflowMenu selfHref={item.links.self} item={item} />
             </div>
           }
         />
@@ -105,7 +104,6 @@ export function PostDetail({ item, canInteract = true }: PostDetailProps) {
             selfHref={item.links.self}
             shareTitle={`${item.author.display_name ?? item.author.handle} on Blue Collar Crypto`}
           />
-          <ReportButton item={item} />
         </div>
       </footer>
 

@@ -34,7 +34,6 @@ import {
 import { PostOverflowMenu } from "@/components/feed/PostOverflowMenu";
 import { ReactionRail } from "@/components/feed/ReactionRail";
 import { ReactorStack } from "@/components/feed/ReactorStack";
-import { ReportButton } from "@/components/feed/ReportButton";
 import { ShareButton } from "@/components/feed/ShareButton";
 import { VerificationBadge } from "@/components/groups/VerificationBadge";
 import { AuthorBadge } from "@/components/identity/AuthorBadge";
@@ -121,10 +120,10 @@ function FeedItemCardImpl({
         >
           {formatRelativeTime(item.posted_at)}
         </time>
-        <PostOverflowMenu selfHref={selfHref} />
+        <PostOverflowMenu selfHref={selfHref} item={item} />
       </div>
     ),
-    [kindLabel, groupVerification, item.posted_at, selfHref]
+    [kindLabel, groupVerification, selfHref, item]
   );
 
   return (
@@ -177,36 +176,71 @@ function FeedItemCardImpl({
         <ReactorStack social_proof={item.social_proof} />
       </div>
 
-      <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-[var(--bcc-border)] pt-2.5">
-        <ReactionRail item={item} canInteract={canInteract} />
-        <div className="flex shrink-0 items-center gap-3.5">
-          <Link
-            href={selfHref}
-            aria-label="View post and comments"
-            className="bcc-mono inline-flex min-h-[36px] items-center gap-1.5 text-[11px] text-[var(--bcc-text-secondary)] hover:text-[var(--bcc-text)]"
-            title="View post and comments"
-          >
-            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden>
-              <path
-                d="M2.5 3.5h11a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H7l-2.8 2.4a.5.5 0 0 1-.82-.38V11.5h-1a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1Z"
-                stroke="currentColor"
-                strokeWidth="1.3"
-                strokeLinejoin="round"
-              />
-            </svg>
-            <span>{commentCount}</span>
-          </Link>
-          <ShareButton selfHref={selfHref} shareTitle={`${item.author.display_name ?? item.author.handle} on Blue Collar Crypto`} />
-          <ReportButton item={item} />
-          <Link
-            href={selfHref}
-            className="bcc-mono inline-flex min-h-[36px] items-center text-[11px] text-[var(--bcc-text-secondary)] hover:text-[var(--bcc-text)] hover:underline"
-          >
-            View →
-          </Link>
+      <footer className="flex items-center justify-between gap-3 border-t border-[var(--bcc-border)] pt-2.5">
+        <div className="flex items-center gap-1">
+          <ActionPill active={item.reactions.viewer_has_stoked === true} tintColor="var(--bcc-secondary)">
+            <ReactionRail item={item} canInteract={canInteract} />
+          </ActionPill>
+          <ActionPill>
+            <Link
+              href={selfHref}
+              aria-label="View post and comments"
+              className="bcc-mono inline-flex min-h-[36px] items-center gap-1.5 rounded-full px-1.5 text-[11px] text-[var(--bcc-text-secondary)] hover:text-[var(--bcc-text)]"
+              title="View post and comments"
+            >
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden>
+                <path
+                  d="M2.5 3.5h11a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H7l-2.8 2.4a.5.5 0 0 1-.82-.38V11.5h-1a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1Z"
+                  stroke="currentColor"
+                  strokeWidth="1.3"
+                  strokeLinejoin="round"
+                />
+              </svg>
+              <span>{commentCount}</span>
+            </Link>
+          </ActionPill>
+          <ActionPill>
+            <ShareButton selfHref={selfHref} shareTitle={`${item.author.display_name ?? item.author.handle} on Blue Collar Crypto`} />
+          </ActionPill>
         </div>
+        <Link
+          href={selfHref}
+          className="bcc-mono inline-flex min-h-[36px] shrink-0 items-center text-[11px] text-[var(--bcc-text-secondary)] hover:text-[var(--bcc-text)] hover:underline"
+        >
+          View →
+        </Link>
       </footer>
     </article>
+  );
+}
+
+/**
+ * Shared, very-subtle pill treatment so Stoke / Comment / Share read as
+ * one quiet action row (X/Reddit-style) instead of a flame floating
+ * away from a separate cluster. Transparent at rest; a faint surface
+ * tint on hover; an even fainter color-tint when `active` (today, only
+ * Stoke uses this — a stoked post's pill warms toward forge-orange).
+ */
+function ActionPill({
+  children,
+  active = false,
+  tintColor,
+}: {
+  children: React.ReactNode;
+  active?: boolean;
+  tintColor?: string;
+}) {
+  return (
+    <span
+      className="inline-flex items-center rounded-full px-0.5 transition-colors duration-150 hover:bg-[var(--bcc-surface-active)]"
+      style={
+        active && tintColor !== undefined
+          ? { backgroundColor: `color-mix(in srgb, ${tintColor} 14%, transparent)` }
+          : undefined
+      }
+    >
+      {children}
+    </span>
   );
 }
 

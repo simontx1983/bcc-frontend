@@ -2,19 +2,23 @@
 
 /**
  * PostOverflowMenu — zone-2 "⋯" affordance shared by FeedItemCard and
- * PostDetail. One real action today (copy link); the inline popover
- * shape leaves room for "Mute author" / "Hide post" etc. later without
- * redesigning the affordance.
+ * PostDetail. Copy link, plus Report when `item` is passed and the
+ * viewer is allowed to report it (folded in here rather than living as
+ * its own footer link, so Report never appears in two places).
  */
 
 import { useEffect, useRef, useState } from "react";
 
+import { canReportFeedItem, ReportModal, resolveTargetId } from "@/components/feed/ReportButton";
 import { useCopyConfirm } from "@/hooks/useCopyConfirm";
+import type { FeedItem } from "@/lib/api/types";
 
-export function PostOverflowMenu({ selfHref }: { selfHref: string }) {
+export function PostOverflowMenu({ selfHref, item }: { selfHref: string; item?: FeedItem }) {
   const [open, setOpen] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
   const { copied, copy } = useCopyConfirm();
   const containerRef = useRef<HTMLDivElement>(null);
+  const canReport = item !== undefined && canReportFeedItem(item);
 
   useEffect(() => {
     if (!open) return;
@@ -65,7 +69,27 @@ export function PostOverflowMenu({ selfHref }: { selfHref: string }) {
           >
             {copied ? "Copied" : "Copy link"}
           </button>
+          {canReport && (
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                setOpen(false);
+                setReportOpen(true);
+              }}
+              className="bcc-mono block w-full rounded-sm px-2 py-1.5 text-left text-[11px] text-[var(--bcc-text-secondary)] hover:bg-[var(--bcc-surface-active)] hover:text-safety"
+            >
+              Report
+            </button>
+          )}
         </div>
+      )}
+      {reportOpen && item !== undefined && (
+        <ReportModal
+          targetKind="feed_item"
+          targetId={resolveTargetId(item)}
+          onClose={() => setReportOpen(false)}
+        />
       )}
     </div>
   );

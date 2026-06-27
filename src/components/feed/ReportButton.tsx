@@ -1,15 +1,22 @@
 "use client";
 
 /**
- * ReportButton + ReportModal — §K1 Phase B inline content reporting.
+ * ReportModal — §K1 Phase B inline content reporting.
  *
- * Renders a small "Report" link on each FeedItemCard footer. Clicking
- * opens a modal with a reason picker + optional comment + submit. After
- * a successful submit (or "existing" idempotent reply) the modal shows
- * a thank-you state for ~1.4s then auto-closes.
+ * Folded into `PostOverflowMenu`'s "⋯" menu (Quora-style — Report no
+ * longer sits as its own footer link) so the footer reads as one quiet
+ * action row instead of duplicating Report in two places. This module
+ * exports the modal + `canReportFeedItem`/`resolveTargetId` so
+ * `PostOverflowMenu` can drive it; it has no button of its own.
  *
- * Permissions: hidden when `permissions.can_report.allowed === false`.
- * Server is the source of truth — this is just visibility hygiene.
+ * Clicking the menu's "Report" item opens a modal with a reason picker
+ * + optional comment + submit. After a successful submit (or "existing"
+ * idempotent reply) the modal shows a thank-you state for ~1.4s then
+ * auto-closes.
+ *
+ * Permissions: caller hides the menu item when
+ * `permissions.can_report.allowed === false`. Server is the source of
+ * truth — this is just visibility hygiene.
  *
  * No portal: the modal renders inline as a fixed-position overlay so we
  * don't need a portal root. ESC + backdrop-click both close.
@@ -26,42 +33,9 @@ import {
   type FeedItem,
 } from "@/lib/api/types";
 
-interface ReportButtonProps {
-  item: FeedItem;
-}
-
-export function ReportButton({ item }: ReportButtonProps) {
-  const canReport = item.permissions["can_report"]?.allowed === true;
-
-  const [open, setOpen] = useState(false);
-
-  if (!canReport) {
-    return null;
-  }
-
-  const targetId = resolveTargetId(item);
-  if (targetId === 0) {
-    return null;
-  }
-
-  return (
-    <>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="bcc-mono shrink-0 text-[10px] text-[var(--bcc-text-secondary)] hover:text-safety hover:underline"
-      >
-        Report
-      </button>
-      {open && (
-        <ReportModal
-          targetKind="feed_item"
-          targetId={targetId}
-          onClose={() => setOpen(false)}
-        />
-      )}
-    </>
-  );
+/** Whether this viewer is allowed to report `item` at all (drives the menu item's visibility). */
+export function canReportFeedItem(item: FeedItem): boolean {
+  return item.permissions["can_report"]?.allowed === true && resolveTargetId(item) !== 0;
 }
 
 // ─────────────────────────────────────────────────────────────────────
@@ -74,7 +48,7 @@ export function ReportButton({ item }: ReportButtonProps) {
  * `external_id` is the module-specific FK (vote_id for reviews,
  * batch_id for pulls, etc.) — that's the wrong identifier here.
  */
-function resolveTargetId(item: FeedItem): number {
+export function resolveTargetId(item: FeedItem): number {
   if (item.id.startsWith("feed_")) {
     const parsed = Number.parseInt(item.id.slice("feed_".length), 10);
     return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
@@ -109,7 +83,7 @@ const REASONS: ReasonOption[] = [
   { code: "other",           label: "Other",           blurb: "Tell us what happened in the comment.",         requiresComment: true  },
 ];
 
-function ReportModal({ targetKind, targetId, onClose }: ReportModalProps) {
+export function ReportModal({ targetKind, targetId, onClose }: ReportModalProps) {
   const [reason, setReason] = useState<ContentReportReason | null>(null);
   const [comment, setComment] = useState("");
   const [errorText, setErrorText] = useState<string | null>(null);

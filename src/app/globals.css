@@ -153,6 +153,12 @@
   --bcc-text-placeholder:#b3b8c3;
   --bcc-text-inverse:    #ffffff;
 
+  /* Stoke's "ash" outline stroke — only used when heat_stage hasn't
+     shipped yet (no real heat signal to grade by). A warm-tinted muted
+     tone, not flat UI grey, so the cold flame still reads as "ember,"
+     not "disabled icon." */
+  --bcc-stoke-ash:       #a39086;
+
   --bcc-glass-bg:        rgba(255,255,255,0.62);
   --bcc-glass-bg-solid:  rgba(255,255,255,0.82);
   --bcc-glass-bg-frosted:rgba(255,255,255,0.10);
@@ -201,6 +207,7 @@
     --bcc-text-muted:      #484f58;
     --bcc-text-placeholder:#3d444d;
     --bcc-text-inverse:    #0d1117;
+    --bcc-stoke-ash:       #6f6358;
 
     --bcc-glass-bg:        rgba(22,27,34,0.62);
     --bcc-glass-bg-solid:  rgba(22,27,34,0.82);
@@ -250,6 +257,7 @@
   --bcc-text-muted:      #484f58;
   --bcc-text-placeholder:#3d444d;
   --bcc-text-inverse:    #0d1117;
+  --bcc-stoke-ash:       #6f6358;
 
   --bcc-glass-bg:        rgba(22,27,34,0.62);
   --bcc-glass-bg-solid:  rgba(22,27,34,0.82);
@@ -2242,18 +2250,19 @@
 }
 
 /* ========================================================================
-   STOKE — forge-fire reaction rail.
+   STOKE — forge-fire reaction rail. X-"like" model: two orthogonal axes.
 
-   Static by default at the post's true heat_stage (size/brightness via
-   inline style per stage, set by ReactionRail.tsx) — no idle animation
-   anywhere. Motion is invited, never ambient:
+   FILL = personal (viewer_has_stoked) — ash outline <-> solid forge-
+   orange, swapped instantly via the SVG fill/stroke attributes (no
+   transition needed, no motion to gate). HEAT = aggregate (heat_stage)
+   — static size/glow/color-temperature, set by inline style per stage
+   in ReactionRail.tsx. No idle animation anywhere. Motion is invited,
+   never ambient:
      - desktop hover (gated on `(hover: hover)`, not `:hover` alone, so a
        tap-to-hover touch browser can't get stuck mid-flicker) flickers
        the flame and brightens the glow
-     - tap bumps the flame + a couple of small spark particles
-     - double-tap (handled in JS — see ReactionRail.tsx) fires a bigger
-       scale/glow burst + more particles, then decays back to the
-       static resting stage
+     - stoke-ON (not unstoke — that's silent) fires one richer burst:
+       flame scale-pop + a glow flash + a 7-particle radial spark fan
 
    GPU-only: every animation here touches transform/opacity exclusively.
    The glow's blur is a STATIC `filter: blur()` (set once, never part of
@@ -2279,9 +2288,9 @@
 }
 
 @keyframes bcc-stoke-particle {
-  0%   { opacity: 0; transform: translate(0, 0) scale(0.6); }
-  25%  { opacity: 1; }
-  100% { opacity: 0; transform: translate(var(--bcc-stoke-particle-x), var(--bcc-stoke-particle-y)) scale(1); }
+  0%   { opacity: 0;   transform: translate(0, 0) scale(0.6); }
+  20%  { opacity: 1; }
+  100% { opacity: 0;   transform: translate(var(--bcc-stoke-particle-x), var(--bcc-stoke-particle-y)) scale(1.1); }
 }
 
 @media (hover: hover) {

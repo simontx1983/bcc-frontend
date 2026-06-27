@@ -8,13 +8,13 @@
  * generic cache-walking helpers directly since the infinite-query
  * lookup-by-id is reaction-shape-agnostic.
  *
- * Unlike a reaction (set/replace one kind), a stoke ADDS — so the
- * optimistic patch increments `viewer_stoke_count` (capped at 5
- * client-side; the server is the real enforcement) rather than
- * swapping a `viewer_reaction` kind. `heat_stage` is NOT guessed
- * optimistically — it's a server-computed velocity aggregate, so the
- * rail keeps rendering the pre-mutation stage until the server
- * response (or the next refetch) lands.
+ * One stoke per person (X-"like" model) — `viewer_has_stoked` is a
+ * boolean toggle, not a counter. The optimistic patch flips the
+ * viewer's own fill state and nudges the public `stoke_count` by one,
+ * guarded so a double-fire (e.g. a stale re-render) can't double-apply.
+ * `heat_stage` is NOT guessed optimistically — it's a server-computed
+ * velocity aggregate, so the rail keeps rendering the pre-mutation
+ * stage until the server response (or the next refetch) lands.
  */
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -28,8 +28,6 @@ import {
 } from "@/hooks/useReactions";
 import { FEED_QUERY_KEY_ROOT } from "@/hooks/useFeed";
 import type { BccApiError, FeedReactions, FeedItem } from "@/lib/api/types";
-
-const STOKE_CAP = 5;
 
 export function useStokeMutation() {
   const queryClient = useQueryClient();
@@ -79,18 +77,24 @@ export function useUnstokeMutation() {
 
 function applyOptimisticStoke(item: FeedItem): FeedReactions {
   const prev = item.reactions;
-  const current = prev.viewer_stoke_count ?? 0;
-  if (current >= STOKE_CAP) {
+  if (prev.viewer_has_stoked === true) {
     return prev;
   }
-  return { ...prev, viewer_stoke_count: current + 1 };
+  return {
+    ...prev,
+    viewer_has_stoked: true,
+    stoke_count: (prev.stoke_count ?? 0) + 1,
+  };
 }
 
 function applyOptimisticUnstoke(item: FeedItem): FeedReactions {
   const prev = item.reactions;
-  const current = prev.viewer_stoke_count ?? 0;
-  if (current <= 0) {
+  if (prev.viewer_has_stoked !== true) {
     return prev;
   }
-  return { ...prev, viewer_stoke_count: current - 1 };
+  return {
+    ...prev,
+    viewer_has_stoked: false,
+    stoke_count: Math.max(0, (prev.stoke_count ?? 0) - 1),
+  };
 }

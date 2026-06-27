@@ -647,10 +647,10 @@ export type HeatStage = 1 | 2 | 3 | 4 | 5;
  * Same shape returned by /reactions POST + DELETE responses, so the
  * frontend patches its cache directly without translation.
  *
- * `heat_stage`/`viewer_stoke_count` are additive (Stoke) fields — they
- * coexist with the legacy `kind_grammar`/`counts`/`viewer_reaction`
- * trio rather than replacing it; only the rail's rendering changed to
- * Stoke-only, not the wire contract.
+ * `heat_stage`/`viewer_has_stoked`/`stoke_count` are additive (Stoke)
+ * fields — they coexist with the legacy `kind_grammar`/`counts`/
+ * `viewer_reaction` trio rather than replacing it; only the rail's
+ * rendering changed to Stoke-only, not the wire contract.
  */
 export interface FeedReactions {
   kind_grammar: ReactionGrammar;
@@ -658,8 +658,10 @@ export interface FeedReactions {
   viewer_reaction: ReactionKind | null;
   /** Aggregate heat (1-5), velocity-weighted + time-decayed. Absent = Stoke not shipped yet. */
   heat_stage?: HeatStage;
-  /** This viewer's stoke count on this post (0-5, server-capped). Absent = Stoke not shipped yet. */
-  viewer_stoke_count?: number;
+  /** Does this viewer have a stoke on this post. Drives the flame's fill (ash <-> orange). Absent = Stoke not shipped yet. */
+  viewer_has_stoked?: boolean;
+  /** Total distinct stokers (public). Rendered as the count beside the flame. Absent = Stoke not shipped yet. */
+  stoke_count?: number;
 }
 
 /**
