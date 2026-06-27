@@ -2241,6 +2241,58 @@
   100% { transform: scale(1); }
 }
 
+/* ========================================================================
+   STOKE — forge-fire reaction rail.
+
+   Static by default at the post's true heat_stage (size/brightness via
+   inline style per stage, set by ReactionRail.tsx) — no idle animation
+   anywhere. Motion is invited, never ambient:
+     - desktop hover (gated on `(hover: hover)`, not `:hover` alone, so a
+       tap-to-hover touch browser can't get stuck mid-flicker) flickers
+       the flame and brightens the glow
+     - tap bumps the flame + a couple of small spark particles
+     - double-tap (handled in JS — see ReactionRail.tsx) fires a bigger
+       scale/glow burst + more particles, then decays back to the
+       static resting stage
+
+   GPU-only: every animation here touches transform/opacity exclusively.
+   The glow's blur is a STATIC `filter: blur()` (set once, never part of
+   an animated property) — only its opacity transitions/animates, per
+   the "never animate filter:blur() per frame" rule.
+   ======================================================================== */
+
+@keyframes bcc-stoke-flicker {
+  0%, 100% { transform: scale(1) translateY(0); }
+  50%      { transform: scale(1.07) translateY(-1px); }
+}
+
+@keyframes bcc-stoke-burst-scale {
+  0%   { transform: scale(1); }
+  30%  { transform: scale(1.5); }
+  100% { transform: scale(1); }
+}
+
+@keyframes bcc-stoke-burst-glow {
+  0%   { opacity: 0; }
+  30%  { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+@keyframes bcc-stoke-particle {
+  0%   { opacity: 0; transform: translate(0, 0) scale(0.6); }
+  25%  { opacity: 1; }
+  100% { opacity: 0; transform: translate(var(--bcc-stoke-particle-x), var(--bcc-stoke-particle-y)) scale(1); }
+}
+
+@media (hover: hover) {
+  .bcc-stoke-button:hover .bcc-stoke-flame {
+    animation: bcc-stoke-flicker 900ms ease-in-out infinite;
+  }
+  .bcc-stoke-button:hover .bcc-stoke-glow {
+    opacity: var(--bcc-stoke-hover-opacity, 0.6);
+  }
+}
+
 /* Animation utility classes */
 @layer utilities {
   .animate-fade-in       { animation: bcc-fade-in 0.3s ease forwards; }

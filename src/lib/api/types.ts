@@ -632,6 +632,13 @@ export type ReactionKind = TrustReactionKind | SocialReactionKind;
 export type ReactionGrammar = "trust" | "social" | "tribal";
 
 /**
+ * Velocity-derived heat stage (1-5) backing the Stoke rail's static
+ * size/brightness/glow. Omitted when the backend hasn't shipped Stoke
+ * yet — the rail falls back to a flat single-stage fire in that case.
+ */
+export type HeatStage = 1 | 2 | 3 | 4 | 5;
+
+/**
  * Reactions block aggregated by kind. The active grammar is named in
  * `kind_grammar`; `counts` keys and `viewer_reaction` values both
  * belong to that grammar (the server zero-fills counts for every
@@ -639,11 +646,20 @@ export type ReactionGrammar = "trust" | "social" | "tribal";
  *
  * Same shape returned by /reactions POST + DELETE responses, so the
  * frontend patches its cache directly without translation.
+ *
+ * `heat_stage`/`viewer_stoke_count` are additive (Stoke) fields — they
+ * coexist with the legacy `kind_grammar`/`counts`/`viewer_reaction`
+ * trio rather than replacing it; only the rail's rendering changed to
+ * Stoke-only, not the wire contract.
  */
 export interface FeedReactions {
   kind_grammar: ReactionGrammar;
   counts: Record<string, number>;
   viewer_reaction: ReactionKind | null;
+  /** Aggregate heat (1-5), velocity-weighted + time-decayed. Absent = Stoke not shipped yet. */
+  heat_stage?: HeatStage;
+  /** This viewer's stoke count on this post (0-5, server-capped). Absent = Stoke not shipped yet. */
+  viewer_stoke_count?: number;
 }
 
 /**
