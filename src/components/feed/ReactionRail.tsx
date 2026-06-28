@@ -44,16 +44,19 @@ interface StagePreset {
 }
 
 const STAGE_PRESETS: Record<HeatStage, StagePreset> = {
-  1: { size: 18, color: "var(--bcc-secondary-dark)",  glowOpacity: 0.12 },
-  2: { size: 19, color: "var(--bcc-secondary-dark)",  glowOpacity: 0.21 },
-  3: { size: 20, color: "var(--bcc-secondary)",       glowOpacity: 0.30 },
-  4: { size: 21, color: "var(--bcc-secondary-light)", glowOpacity: 0.42 },
-  5: { size: 22, color: "var(--bcc-secondary-light)", glowOpacity: 0.55 },
+  1: { size: 22, color: "var(--bcc-secondary-dark)",  glowOpacity: 0.12 },
+  2: { size: 23, color: "var(--bcc-secondary-dark)",  glowOpacity: 0.20 },
+  3: { size: 24, color: "var(--bcc-secondary)",       glowOpacity: 0.28 },
+  4: { size: 25, color: "var(--bcc-secondary-light)", glowOpacity: 0.38 },
+  5: { size: 26, color: "var(--bcc-secondary-light)", glowOpacity: 0.48 },
 };
 
+/** Box the flame + glow are centered in — sized to the largest stage so the icon never clips. */
+const FLAME_BOX = 26;
+
 /** No heat_stage at all (backend not shipped) — distinct from "stage 1", which is a real (if cold) signal. */
-const FALLBACK_LIT: StagePreset = { size: 18, color: "var(--bcc-stoke-ash)", glowOpacity: 0.25 };
-const FALLBACK_DIM: StagePreset = { size: 18, color: "var(--bcc-stoke-ash)", glowOpacity: 0.12 };
+const FALLBACK_LIT: StagePreset = { size: 22, color: "var(--bcc-stoke-ash)", glowOpacity: 0.25 };
+const FALLBACK_DIM: StagePreset = { size: 22, color: "var(--bcc-stoke-ash)", glowOpacity: 0.12 };
 
 /** Radial spread for the stoke-ON spark burst — evenly fanned so they never stack. */
 const PARTICLE_COUNT = 7;
@@ -121,19 +124,19 @@ export function ReactionRail({
       title={hasStoked ? "Stoked — tap to remove" : "Stoke"}
       className="bcc-stoke-button relative inline-flex min-h-[36px] items-center gap-1 rounded-full px-1.5 disabled:cursor-not-allowed"
     >
-      <span className="relative inline-flex items-center justify-center" style={{ width: 22, height: 22 }}>
+      <span className="relative inline-flex items-center justify-center" style={{ width: FLAME_BOX, height: FLAME_BOX }}>
         <span
           aria-hidden
           className="bcc-stoke-glow pointer-events-none absolute rounded-full"
           style={
             {
-              width: preset.size * 2.2,
-              height: preset.size * 2.2,
+              width: preset.size * 1.3,
+              height: preset.size * 1.3,
               background: "var(--bcc-secondary-glow)",
-              filter: "blur(6px)",
+              filter: "blur(3px)",
               opacity: preset.glowOpacity,
               transition: "opacity 200ms ease",
-              "--bcc-stoke-hover-opacity": Math.min(1, preset.glowOpacity + 0.35),
+              "--bcc-stoke-hover-opacity": Math.min(1, preset.glowOpacity + 0.2),
             } as CSSProperties
           }
         />
@@ -147,6 +150,10 @@ export function ReactionRail({
               height: preset.size * 2.8,
               background: "var(--bcc-secondary-glow)",
               filter: "blur(8px)",
+              // Resting opacity 0 so once the one-shot burst ends (no
+              // `forwards` fill-mode) it reverts to invisible instead of
+              // latching a permanent glow on every card stoked this session.
+              opacity: 0,
             }}
           />
         )}
@@ -169,6 +176,9 @@ export function ReactionRail({
               style={
                 {
                   background: "var(--bcc-secondary-light)",
+                  // Same reason as the burst glow: rest invisible so spent
+                  // sparks don't revert to opacity 1 stuck behind the flame.
+                  opacity: 0,
                   "--bcc-stoke-particle-x": `${offset.x}px`,
                   "--bcc-stoke-particle-y": `${offset.y}px`,
                 } as CSSProperties

@@ -40,9 +40,16 @@ export function ShareButton({
       onClick={handleClick}
       aria-label="Share post"
       title={copied ? "Copied" : "Share"}
-      className="bcc-mono inline-flex min-h-[36px] items-center gap-1 text-[11px] text-[var(--bcc-text-secondary)] hover:text-[var(--bcc-text)]"
+      className="group bcc-mono inline-flex min-h-[36px] items-center gap-1 text-[12px] text-[var(--bcc-text-secondary)]"
     >
-      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden>
+      <svg
+        width="18"
+        height="18"
+        viewBox="0 0 16 16"
+        fill="none"
+        aria-hidden
+        className="text-[var(--bcc-success)] transition-transform duration-150 group-hover:-translate-y-0.5 group-hover:translate-x-0.5"
+      >
         <path
           d="M6.5 3.5h-2a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-2"
           stroke="currentColor"

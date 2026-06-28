@@ -185,10 +185,17 @@ function FeedItemCardImpl({
             <Link
               href={selfHref}
               aria-label="View post and comments"
-              className="bcc-mono inline-flex min-h-[36px] items-center gap-1.5 rounded-full px-1.5 text-[11px] text-[var(--bcc-text-secondary)] hover:text-[var(--bcc-text)]"
+              className="group bcc-mono inline-flex min-h-[36px] items-center gap-1.5 rounded-full px-1.5 text-[12px] text-[var(--bcc-text-secondary)]"
               title="View post and comments"
             >
-              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden>
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 16 16"
+                fill="none"
+                aria-hidden
+                className="text-[var(--bcc-info)] transition-transform duration-150 group-hover:-translate-y-0.5"
+              >
                 <path
                   d="M2.5 3.5h11a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H7l-2.8 2.4a.5.5 0 0 1-.82-.38V11.5h-1a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1Z"
                   stroke="currentColor"
@@ -205,9 +212,10 @@ function FeedItemCardImpl({
         </div>
         <Link
           href={selfHref}
-          className="bcc-mono inline-flex min-h-[36px] shrink-0 items-center text-[11px] text-[var(--bcc-text-secondary)] hover:text-[var(--bcc-text)] hover:underline"
+          className="group bcc-mono inline-flex min-h-[36px] shrink-0 items-center gap-1 text-[12px] text-[var(--bcc-primary)] hover:underline"
         >
-          View →
+          View
+          <span className="transition-transform duration-150 group-hover:translate-x-1">→</span>
         </Link>
       </footer>
     </article>
