@@ -72,7 +72,6 @@ export function railLabelForPath(pathname: string): string {
   if (pathname.startsWith("/directory")) return "Directory";
   if (pathname.startsWith("/communities")) return "Communities";
   if (pathname.startsWith("/watching")) return "Watching";
-  if (pathname.startsWith("/binder")) return "Watching";
   if (pathname.startsWith("/validators")) return "Validators";
   if (pathname.startsWith("/disputes")) return "Disputes";
   if (pathname.startsWith("/members")) return "Members";

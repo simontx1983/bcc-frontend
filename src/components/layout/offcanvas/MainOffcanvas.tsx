@@ -36,7 +36,6 @@ const PRIMARY_NAV = [
 const QUICK_LINKS = [
   { label: "My Progression", href: "/me/progression" },
   { label: "My Reliability",  href: "/me/reliability" },
-  { label: "Binder",          href: "/binder" },
   { label: "Panel Duty",      href: "/panel" },
   { label: "Settings",        href: "/settings/profile" },
 ] as const;

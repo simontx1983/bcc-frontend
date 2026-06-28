@@ -30,7 +30,6 @@ export const config = {
     "/api/auth/signout",
     "/messages/:path*",
     "/me/:path*",
-    "/binder",
     "/panel",
     "/settings/:path*",
     "/watching",

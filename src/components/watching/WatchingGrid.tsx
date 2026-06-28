@@ -145,7 +145,13 @@ function WatchingGridBody({ result }: { result: ReturnType<typeof useWatching> }
     <section className="mx-auto mt-12 max-w-6xl px-8">
       <div className="flex flex-wrap justify-center gap-6">
         {items.map((item) => (
-          <WatchingTile key={item.follow_id} item={item} />
+          // follow_id auto-increment ranges overlap across the two
+          // watch sources (peepso follows vs bcc_page_follows), so the
+          // key must include follow_source to stay unique on a mixed page.
+          <WatchingTile
+            key={`${item.follow_source ?? "peepso"}-${item.follow_id}`}
+            item={item}
+          />
         ))}
       </div>
     </section>
