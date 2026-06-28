@@ -1,13 +1,22 @@
+"use client";
+
 /**
  * FeedPostBody — per-kind body renderers shared by `FeedItemCard` (the
  * feed row) and `PostDetail` (the permalink + modal view). Hoisted out
  * of FeedItemCard so both surfaces render an identical post body
  * without duplicating the review/blog/photo/gif markup.
+ *
+ * "use client" — PhotoBody/GifBody own the Lightbox's open/closed
+ * state. The other exports here have no state of their own; Next
+ * renders them fine as client components inside PostDetail's server
+ * tree.
  */
 
+import { useState } from "react";
 import type { Route } from "next";
 import Link from "next/link";
 
+import { Lightbox } from "@/components/ui/Lightbox";
 import { readMentions, renderTextWithMentions } from "@/lib/format/mentions";
 import type { FeedItem } from "@/lib/api/types";
 
@@ -210,6 +219,7 @@ export function PhotoBody({ body }: { body: Record<string, unknown> }) {
   // Fall back to "" so the <img> renders as decorative until alt
   // text collection ships.
   const alt = readString(body, "alt") ?? "";
+  const [lightboxOpen, setLightboxOpen] = useState(false);
 
   return (
     <div className="flex flex-col gap-3">
@@ -219,22 +229,26 @@ export function PhotoBody({ body }: { body: Record<string, unknown> }) {
         </p>
       )}
       {photoUrl !== "" && (
-        <a
-          href={photoUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="block w-full"
-          aria-label={alt !== "" ? alt : "Open photo in new tab"}
-        >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={photoUrl}
-            alt={alt}
-            className="h-auto max-h-[480px] w-full rounded-sm border border-[var(--bcc-border)] object-cover"
-            loading="lazy"
-            decoding="async"
-          />
-        </a>
+        <>
+          <button
+            type="button"
+            onClick={() => setLightboxOpen(true)}
+            className="block w-full"
+            aria-label={alt !== "" ? alt : "Open photo"}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={photoUrl}
+              alt={alt}
+              className="h-auto max-h-[480px] w-full rounded-xl border border-[var(--bcc-border)] object-contain"
+              loading="lazy"
+              decoding="async"
+            />
+          </button>
+          {lightboxOpen && (
+            <Lightbox src={photoUrl} alt={alt} onClose={() => setLightboxOpen(false)} />
+          )}
+        </>
       )}
     </div>
   );
@@ -257,6 +271,7 @@ export function GifBody({ body }: { body: Record<string, unknown> }) {
   const caption = readString(body, "caption") ?? "";
   const gifUrl  = readString(body, "gif_url") ?? "";
   const mentions = readMentions(body);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
 
   return (
     <div className="flex flex-col gap-3">
@@ -266,22 +281,26 @@ export function GifBody({ body }: { body: Record<string, unknown> }) {
         </p>
       )}
       {gifUrl !== "" && (
-        <a
-          href={gifUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="block w-full"
-          aria-label="Open GIF in new tab"
-        >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={gifUrl}
-            alt=""
-            className="h-auto max-h-[480px] w-full rounded-sm border border-[var(--bcc-border)] object-cover"
-            loading="lazy"
-            decoding="async"
-          />
-        </a>
+        <>
+          <button
+            type="button"
+            onClick={() => setLightboxOpen(true)}
+            className="block w-full"
+            aria-label="Open GIF"
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={gifUrl}
+              alt=""
+              className="h-auto max-h-[480px] w-full rounded-xl border border-[var(--bcc-border)] object-contain"
+              loading="lazy"
+              decoding="async"
+            />
+          </button>
+          {lightboxOpen && (
+            <Lightbox src={gifUrl} alt="" onClose={() => setLightboxOpen(false)} />
+          )}
+        </>
       )}
     </div>
   );
