@@ -164,7 +164,7 @@ function FeedItemCardImpl({
           <p className="font-serif text-[var(--bcc-text)] whitespace-pre-line">
             {/*
               §3.3.12 — status bodies carry a `mentions[]` overlay.
-              Other kinds (pull_batch, page_claim, dispute) emit a
+              Other kinds (watch_batch, page_claim, dispute) emit a
               server-rendered string summary with no token wire format,
               so passing an empty mentions array renders the plain
               text unchanged.

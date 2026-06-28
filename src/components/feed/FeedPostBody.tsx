@@ -15,7 +15,7 @@ export const POST_KIND_LABELS: Record<string, string> = {
   status:        "POSTED",
   photo:         "POSTED",
   gif:           "POSTED",
-  pull_batch:    "WATCHED",
+  watch_batch:   "WATCHED",
   page_claim:    "CLAIMED",
   review:        "REVIEWED",
   dispute:       "DISPUTED",
@@ -299,7 +299,7 @@ export function deriveBodySummary(item: FeedItem): string {
     return readString(body, "text") ?? "";
   }
 
-  if (item.post_kind === "watch_batch" || item.post_kind === "pull_batch") {
+  if (item.post_kind === "watch_batch") {
     const cardCount = readNumber(body, "card_count") ?? 0;
     const moreCount = readNumber(body, "more_count") ?? 0;
     if (cardCount === 0) return "";
