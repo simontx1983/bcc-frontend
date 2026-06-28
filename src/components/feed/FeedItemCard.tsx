@@ -76,6 +76,9 @@ function FeedItemCardImpl({
   // Server-provided links — same `Route` cast pattern as CardFactory
   // for typedRoutes.
   const selfHref = item.links.self as Route;
+  // Comment chip opens the same detail view with `intent=comment`, which
+  // PostModal/PostDetail read to focus + scroll to the composer on mount.
+  const commentHref = `${selfHref}?intent=comment` as Route;
 
   const commentCount = item.comment_count ?? 0;
 
@@ -176,47 +179,38 @@ function FeedItemCardImpl({
         <ReactorStack social_proof={item.social_proof} />
       </div>
 
-      <footer className="flex items-center justify-between gap-3 border-t border-[var(--bcc-border)] pt-2.5">
-        <div className="flex items-center gap-1">
-          <ActionPill active={item.reactions.viewer_has_stoked === true} tintColor="var(--bcc-secondary)">
-            <ReactionRail item={item} canInteract={canInteract} />
-          </ActionPill>
-          <ActionPill>
-            <Link
-              href={selfHref}
-              aria-label="View post and comments"
-              className="group bcc-mono inline-flex min-h-[36px] items-center gap-1.5 rounded-full px-1.5 text-[12px] text-[var(--bcc-text-secondary)]"
-              title="View post and comments"
+      <footer className="flex items-center gap-1 border-t border-[var(--bcc-border)] pt-2.5">
+        <ActionPill active={item.reactions.viewer_has_stoked === true} tintColor="var(--bcc-secondary)">
+          <ReactionRail item={item} canInteract={canInteract} />
+        </ActionPill>
+        <ActionPill>
+          <Link
+            href={commentHref}
+            aria-label="Open comments, focus the composer"
+            className="group bcc-mono inline-flex min-h-[36px] items-center gap-1.5 rounded-full px-1.5 text-[12px] text-[var(--bcc-text-secondary)]"
+            title="Open comments, focus the composer"
+          >
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 16 16"
+              fill="none"
+              aria-hidden
+              className="text-[var(--bcc-info)] transition-transform duration-150 group-hover:-translate-y-0.5"
             >
-              <svg
-                width="18"
-                height="18"
-                viewBox="0 0 16 16"
-                fill="none"
-                aria-hidden
-                className="text-[var(--bcc-info)] transition-transform duration-150 group-hover:-translate-y-0.5"
-              >
-                <path
-                  d="M2.5 3.5h11a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H7l-2.8 2.4a.5.5 0 0 1-.82-.38V11.5h-1a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1Z"
-                  stroke="currentColor"
-                  strokeWidth="1.3"
-                  strokeLinejoin="round"
-                />
-              </svg>
-              <span>{commentCount}</span>
-            </Link>
-          </ActionPill>
-          <ActionPill>
-            <ShareButton selfHref={selfHref} shareTitle={`${item.author.display_name ?? item.author.handle} on Blue Collar Crypto`} />
-          </ActionPill>
-        </div>
-        <Link
-          href={selfHref}
-          className="group bcc-mono inline-flex min-h-[36px] shrink-0 items-center gap-1 text-[12px] text-[var(--bcc-primary)] hover:underline"
-        >
-          View
-          <span className="transition-transform duration-150 group-hover:translate-x-1">→</span>
-        </Link>
+              <path
+                d="M2.5 3.5h11a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H7l-2.8 2.4a.5.5 0 0 1-.82-.38V11.5h-1a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1Z"
+                stroke="currentColor"
+                strokeWidth="1.3"
+                strokeLinejoin="round"
+              />
+            </svg>
+            <span>{commentCount}</span>
+          </Link>
+        </ActionPill>
+        <ActionPill>
+          <ShareButton selfHref={selfHref} shareTitle={`${item.author.display_name ?? item.author.handle} on Blue Collar Crypto`} />
+        </ActionPill>
       </footer>
     </article>
   );

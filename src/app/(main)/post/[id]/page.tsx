@@ -21,6 +21,7 @@ import { BccApiError } from "@/lib/api/types";
 
 interface PageProps {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ intent?: string }>;
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
@@ -28,8 +29,9 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   return buildPostMetadata(id);
 }
 
-export default async function PostPage({ params }: PageProps) {
+export default async function PostPage({ params, searchParams }: PageProps) {
   const { id } = await params;
+  const { intent } = await searchParams;
   const session = await getServerSession(authOptions);
   const token = tokenFromSession(session);
 
@@ -51,7 +53,7 @@ export default async function PostPage({ params }: PageProps) {
       >
         ← Back to feed
       </Link>
-      <PostDetail item={item} />
+      <PostDetail item={item} focusComposer={intent === "comment"} />
     </div>
   );
 }

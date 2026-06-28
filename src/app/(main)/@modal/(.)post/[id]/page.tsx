@@ -20,10 +20,12 @@ import { BccApiError } from "@/lib/api/types";
 
 interface PageProps {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ intent?: string }>;
 }
 
-export default async function InterceptedPostModal({ params }: PageProps) {
+export default async function InterceptedPostModal({ params, searchParams }: PageProps) {
   const { id } = await params;
+  const { intent } = await searchParams;
   const session = await getServerSession(authOptions);
   const token = tokenFromSession(session);
 
@@ -37,5 +39,5 @@ export default async function InterceptedPostModal({ params }: PageProps) {
     throw err;
   }
 
-  return <PostModal item={item} />;
+  return <PostModal item={item} focusComposer={intent === "comment"} />;
 }
