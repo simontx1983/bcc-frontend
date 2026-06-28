@@ -331,7 +331,6 @@ export function ProfileTabs({
             {active === "watching" && (
               <WatchingPanel handle={handle} displayName={displayName} />
             )}
-            {active === "binder"   && <ComingSoonPanel label="Binder" hint="3×3 ring-bound grid lands in Phase 6 with the gallery." />}
             {active === "activity" && (
               <ActivityPanel
                 handle={handle}

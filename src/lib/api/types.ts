@@ -225,7 +225,7 @@ export interface CardPermissionEntry {
 export interface CardPermissions {
   can_review: CardPermissionEntry;
   can_dispute: CardPermissionEntry;
-  can_pull: CardPermissionEntry;
+  can_watch: CardPermissionEntry;
   /** §V1.5 — endorse this entity (page-cards only; member cards always denied). */
   can_endorse: CardPermissionEntry;
   can_post_as_entity: boolean;
@@ -496,9 +496,6 @@ export interface Card {
   links: {
     self: string;
     watching?: string;
-    /** Legacy alias for `watching`. Emitted by backend during the
-     *  §1.1.1 deprecation window; removed in release N+1. */
-    binder?: string;
     review?: string;
   };
   /**
@@ -762,7 +759,7 @@ export interface DeleteCommentResponse {
  *
  * Known body shapes (informational; not enforced at this layer):
  *   - status      → { text: string, attached_card?: Card }
- *   - watch_batch → { card_count, more_count, top_cards: [...] } (legacy kind name `pull_batch` accepted during §1.1.1 deprecation)
+ *   - watch_batch → { card_count, more_count, top_cards: [...] }
  *   - page_claim  → { entity_type, role, page_id }
  *   - review      → { grade, text, page_id }
  *   - dispute     → { reason, page_id, status }
@@ -1188,7 +1185,7 @@ export type TrendingResponse = ProjectSearchResponse;
 export type NotificationKind =
   | "bcc_reaction"
   | "bcc_review"
-  | "bcc_card_pulled"
+  | "bcc_card_watched"
   | "bcc_rank_up"
   | "bcc_endorse"
   | "bcc_welcome"
@@ -3165,9 +3162,6 @@ export interface MemberCounts {
   followers: number;
   following: number;
   watching_size: number;
-  /** Legacy alias for `watching_size`. Emitted by backend during the
-   *  §1.1.1 deprecation window; removed in release N+1. */
-  binder_size?: number;
   reviews_written: number;
   disputes_signed: number;
   solids_given: number;
@@ -3184,8 +3178,6 @@ export interface MemberCounts {
 /** Privacy block — what's hidden from the viewer (server-decided per §3.1). */
 export interface MemberPrivacy {
   watching_hidden: boolean;
-  /** Legacy alias for `watching_hidden`. §1.1.1 deprecation window. */
-  binder_hidden?: boolean;
   reviews_hidden: boolean;
   disputes_hidden: boolean;
   delegations_hidden: boolean;
@@ -3206,8 +3198,6 @@ export interface MemberPrivacy {
  */
 export interface MyPrivacySettings {
   watching_hidden: boolean;
-  /** Legacy alias for `watching_hidden`. §1.1.1 deprecation window. */
-  binder_hidden?: boolean;
   reviews_hidden: boolean;
   disputes_hidden: boolean;
   delegations_hidden: boolean;
@@ -3252,8 +3242,6 @@ export interface MemberPermissions {
 export interface MemberLinks {
   self: string;
   watching: string;
-  /** Legacy alias for `watching`. §1.1.1 deprecation window. */
-  binder?: string;
   reviews: string;
   activity: string;
   disputes: string;
@@ -3817,8 +3805,6 @@ export interface MemberActivityBreakdown {
 export interface MemberTabCount {
   key:
     | "watching"
-    /** Legacy key emitted during §1.1.1 deprecation window. */
-    | "binder"
     | "reviews"
     | "activity"
     | "disputes"
@@ -4597,7 +4583,7 @@ export interface VerifyRecoveryEmailResponse {
 export type BellEventType =
   | "bcc_reaction"
   | "bcc_review"
-  | "bcc_card_pulled"
+  | "bcc_card_watched"
   | "bcc_rank_up"
   | "bcc_endorse"
   | "bcc_welcome"

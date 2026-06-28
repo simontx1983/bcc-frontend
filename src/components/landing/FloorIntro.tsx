@@ -22,7 +22,7 @@
  *
  * Server component. The only interactive island is <CardFactory />,
  * which already manages its own state. Anon viewers see the card's
- * Pull / Review buttons disabled (server returns can_pull: false /
+ * Pull / Review buttons disabled (server returns can_watch: false /
  * can_review: false in anon contexts per §N7) — correct UX, since
  * actually pulling requires sign-in.
  *

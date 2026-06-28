@@ -22,7 +22,11 @@
  * helper sprawl). Returns "" for unparseable input so callers can
  * omit the slot rather than rendering a confusing dash.
  */
-export function formatRelativeTime(input: string): string {
+export function formatRelativeTime(input: string | null | undefined): string {
+  // Defensive: a missing/null timestamp (absent field, not-yet-loaded
+  // value) returns "" so the caller omits the slot rather than throwing
+  // on `.includes` — same contract as the unparseable-input case below.
+  if (typeof input !== "string" || input === "") return "";
   const normalized =
     input.includes("T") || input.includes("Z")
       ? input

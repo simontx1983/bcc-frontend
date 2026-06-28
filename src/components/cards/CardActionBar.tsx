@@ -67,13 +67,13 @@ export function ActionBar({
     <div className={`relative z-10 grid grid-cols-1 border-t border-cardstock-edge/40 bg-cardstock ${cols}`}>
       <button
         type="button"
-        disabled={!isAllowed(card.permissions, "can_pull")}
+        disabled={!isAllowed(card.permissions, "can_watch")}
         title={
-          isAllowed(card.permissions, "can_pull")
+          isAllowed(card.permissions, "can_watch")
             ? isPulled
               ? FOLLOW_COPY.tooltipActive
               : FOLLOW_COPY.tooltipIdle
-            : unlockHint(card.permissions, "can_pull") ??
+            : unlockHint(card.permissions, "can_watch") ??
               "Keep Tabs is unavailable for this card."
         }
         onClick={(e) => {
