@@ -35,9 +35,23 @@ interface PostDetailProps {
   item: FeedItem;
   /** Same write-gate as FeedItemCard's `canInteract` — see its doc comment. */
   canInteract?: boolean;
+  /**
+   * Override the outer panel's classes. Defaults to the permalink page's
+   * own look (rounded on every corner). `PostModal` overrides this on
+   * mobile so the sheet reads flush-bottom with top-only rounding,
+   * without touching the `/post/[id]` full-page route.
+   */
+  className?: string;
+  /** Opens with the comment composer focused + scrolled into view. */
+  focusComposer?: boolean;
 }
 
-export function PostDetail({ item, canInteract = true }: PostDetailProps) {
+export function PostDetail({
+  item,
+  canInteract = true,
+  className = "bcc-panel relative flex flex-col gap-3 p-4 sm:p-5",
+  focusComposer = false,
+}: PostDetailProps) {
   const kindLabel = POST_KIND_LABELS[item.post_kind] ?? item.post_kind.toUpperCase();
   const isReview  = item.post_kind === "review";
   const isBlog    = item.post_kind === "blog_excerpt";
@@ -48,7 +62,7 @@ export function PostDetail({ item, canInteract = true }: PostDetailProps) {
   const groupVerification = item.group?.verification ?? null;
 
   return (
-    <article className="bcc-panel relative flex flex-col gap-3 p-4 sm:p-5">
+    <article className={className}>
       <header>
         <AuthorBadge
           author={item.author}
@@ -107,7 +121,12 @@ export function PostDetail({ item, canInteract = true }: PostDetailProps) {
         </div>
       </footer>
 
-      <CommentDrawer feedId={item.id} isOpen canInteract={canInteract} />
+      <CommentDrawer
+        feedId={item.id}
+        isOpen
+        canInteract={canInteract}
+        focusComposer={focusComposer}
+      />
     </article>
   );
 }

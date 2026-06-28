@@ -59,6 +59,17 @@ type DialogProps = {
    * Post composer).
    */
   center?: boolean;
+  /**
+   * Opt into a true edge-to-edge bottom sheet on mobile: zero backdrop
+   * inset (the panel touches the viewport edges) plus a slide-up-on-open
+   * transition. Off by default — the existing bottom-sheet-on-phones
+   * split already gives every other call-site (OpenDisputeModal,
+   * NftPickerModal, etc.) a small margin around the sheet, which reads
+   * fine for action pickers. PostModal opts in because a detail-view
+   * sheet should feel native (flush, slides up) rather than floating.
+   * Always skipped under prefers-reduced-motion.
+   */
+  mobileSheet?: boolean;
 };
 
 const FOCUSABLE =
@@ -72,18 +83,21 @@ export function Dialog({
   animateIn = false,
   bare = false,
   center = false,
+  mobileSheet = false,
 }: DialogProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   const reducedMotion = usePrefersReducedMotion();
   const fade = animateIn && !reducedMotion;
-  const [shown, setShown] = useState(!fade);
+  const slide = mobileSheet && !reducedMotion;
+  const animate = fade || slide;
+  const [shown, setShown] = useState(!animate);
 
-  // Trigger the fade-in next frame so the opacity transition runs.
+  // Trigger the fade-in / slide-up next frame so the transition runs.
   useEffect(() => {
-    if (!fade) return;
+    if (!animate) return;
     const id = window.requestAnimationFrame(() => setShown(true));
     return () => window.cancelAnimationFrame(id);
-  }, [fade]);
+  }, [animate]);
 
   // ESC to close + Tab focus trap, scoped to this dialog's lifetime.
   useEffect(() => {
@@ -154,7 +168,8 @@ export function Dialog({
       className={
         // z-[400] clears the fixed SiteHeader (z-300) and MobileNav
         // (z-200) — a dialog must always sit above both chrome layers.
-        "fixed inset-0 z-[400] flex justify-center bg-ink/70 p-4 backdrop-blur-sm " +
+        "fixed inset-0 z-[400] flex justify-center bg-ink/70 backdrop-blur-sm " +
+        (mobileSheet ? "p-0 md:p-4 " : "p-4 ") +
         (center ? "items-center " : "items-end md:items-center ") +
         (fade ? "transition-opacity duration-200 " + (shown ? "opacity-100" : "opacity-0") : "")
       }
@@ -167,6 +182,10 @@ export function Dialog({
         tabIndex={-1}
         className={
           (bare ? "relative w-full outline-none " : "bcc-panel relative w-full p-6 outline-none md:p-8 ") +
+          (mobileSheet
+            ? "md:translate-y-0 " +
+              (slide ? "transition-transform duration-200 " + (shown ? "translate-y-0" : "translate-y-full") + " " : "")
+            : "") +
           panelClassName
         }
       >

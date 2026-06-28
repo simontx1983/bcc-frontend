@@ -14,11 +14,24 @@ import { Dialog } from "@/components/ui/Dialog";
 import { PostDetail } from "@/components/feed/PostDetail";
 import type { FeedItem } from "@/lib/api/types";
 
-export function PostModal({ item }: { item: FeedItem }) {
+export function PostModal({
+  item,
+  focusComposer = false,
+}: {
+  item: FeedItem;
+  /** Opens with the comment composer focused + scrolled into view. */
+  focusComposer?: boolean;
+}) {
   const router = useRouter();
 
   return (
-    <Dialog title="Post" bare onClose={() => router.back()} panelClassName="max-w-2xl max-h-[92vh] overflow-y-auto">
+    <Dialog
+      title="Post"
+      bare
+      mobileSheet
+      onClose={() => router.back()}
+      panelClassName="max-w-2xl max-h-[92vh] overflow-y-auto"
+    >
       <button
         type="button"
         onClick={() => router.back()}
@@ -26,7 +39,11 @@ export function PostModal({ item }: { item: FeedItem }) {
       >
         ← Back
       </button>
-      <PostDetail item={item} />
+      <PostDetail
+        item={item}
+        focusComposer={focusComposer}
+        className="bcc-panel relative flex flex-col gap-3 rounded-b-none rounded-t-2xl p-4 sm:p-5 md:rounded-2xl"
+      />
     </Dialog>
   );
 }
