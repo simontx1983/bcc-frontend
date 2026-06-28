@@ -75,7 +75,7 @@ const BELL_ROWS: ReadonlyArray<BellRow> = [
     blurb: "Someone endorsed a validator / project / creator page you own.",
   },
   {
-    key: "bcc_card_pulled",
+    key: "bcc_card_watched",
     label: "Watchers on your card",
     blurb: "Someone is now keeping tabs on your card.",
   },

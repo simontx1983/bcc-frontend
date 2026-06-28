@@ -38,7 +38,7 @@ const POST_KIND_LABELS: Record<string, string> = {
   status:        "POSTED",
   photo:         "POSTED",
   gif:           "POSTED",
-  pull_batch:    "WATCHED",
+  watch_batch:   "WATCHED",
   page_claim:    "CLAIMED",
   review:        "REVIEWED",
   dispute:       "DISPUTED",
@@ -162,7 +162,7 @@ function FeedItemCardImpl({
         <p className="font-serif text-ink whitespace-pre-line">
           {/*
             §3.3.12 — status bodies carry a `mentions[]` overlay.
-            Other kinds (pull_batch, page_claim, dispute) emit a
+            Other kinds (watch_batch, page_claim, dispute) emit a
             server-rendered string summary with no token wire format,
             so passing an empty mentions array renders the plain
             text unchanged.
@@ -485,7 +485,7 @@ function deriveBodySummary(item: FeedItem): string {
     return readString(body, "text") ?? "";
   }
 
-  if (item.post_kind === "watch_batch" || item.post_kind === "pull_batch") {
+  if (item.post_kind === "watch_batch") {
     const cardCount = readNumber(body, "card_count") ?? 0;
     const moreCount = readNumber(body, "more_count") ?? 0;
     if (cardCount === 0) return "";

@@ -4,7 +4,7 @@
  * Sibling to the per-card cards/:type/:id endpoint — same per-item
  * Card shape, just batched + filtered. The endpoint is anonymous-OK
  * (no session required to browse), but viewer-aware permissions
- * (`can_pull`, `can_review`, …) only resolve correctly when the
+ * (`can_watch`, `can_review`, …) only resolve correctly when the
  * server sees the Bearer token. We use `bccFetchAsClient` so that
  * NextAuth's session is read in the browser and forwarded as
  * Authorization: Bearer automatically — signed-in viewers get

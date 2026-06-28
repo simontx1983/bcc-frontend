@@ -78,7 +78,7 @@ export interface CardFactoryProps {
   card: Card;
   /**
    * Toggle "Keep Tabs" on the card. Disabled when
-   * permissions.can_pull.allowed is false. The `can_pull` /
+   * permissions.can_watch.allowed is false. The `can_watch` /
    * `onPull` field names are part of the §9 API contract — the user-
    * facing label is centralized in lib/copy.ts (FOLLOW_COPY).
    */
