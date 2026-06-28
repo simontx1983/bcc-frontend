@@ -36,8 +36,8 @@ import { memo } from "react";
 import Link from "next/link";
 import type { Route } from "next";
 
-import { Avatar, type AvatarSize } from "@/components/identity/Avatar";
-import { AuthorVouchButton } from "@/components/identity/AuthorVouchButton";
+import { type AvatarSize } from "@/components/identity/Avatar";
+import { AvatarHovercard } from "@/components/identity/AvatarHovercard";
 import { RankChip } from "@/components/profile/RankChip";
 import type {
   AuthorVouchPermission,
@@ -185,29 +185,25 @@ function AuthorBadgeImpl({
       className={`flex w-full items-start justify-between gap-3 ${className ?? ""}`}
     >
       <div className="flex min-w-0 flex-1 items-start gap-2.5">
-        <Avatar
+        <AvatarHovercard
           avatarUrl={author.avatar_url}
           handle={author.handle}
           displayName={author.display_name}
           size={avatarSize}
-          variant="rounded"
-          tier={cardTier === null ? undefined : cardTier}
+          cardTier={cardTier}
           isOperator={author.is_operator === true}
-          asLink={asLink}
           ringColor={avatarRingColor}
+          asLink={asLink}
+          rankLabel={rankLabel}
+          tierLabel={tierLabel}
+          vouchTargetId={vouchTargetId}
+          viewerAttestation={author.viewer_attestation}
+          canVouch={author.can_vouch}
         />
         <div className={`flex min-w-0 flex-1 flex-col justify-between ${IDENTITY_HEIGHT_BY_BADGE[size]}`}>
           <div className="flex min-w-0 flex-wrap items-baseline gap-2">
             {nameNode}
             {operatorPill}
-            {vouchTargetId > 0 && (
-              <AuthorVouchButton
-                targetUserId={vouchTargetId}
-                displayName={nameText}
-                viewerAttestation={author.viewer_attestation}
-                canVouch={author.can_vouch}
-              />
-            )}
             {inlineAdornments}
           </div>
           {rankLabel !== "" && (
