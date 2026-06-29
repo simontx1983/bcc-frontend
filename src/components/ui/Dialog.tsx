@@ -65,8 +65,8 @@ type DialogProps = {
    * transition. Off by default — the existing bottom-sheet-on-phones
    * split already gives every other call-site (OpenDisputeModal,
    * NftPickerModal, etc.) a small margin around the sheet, which reads
-   * fine for action pickers. PostModal opts in because a detail-view
-   * sheet should feel native (flush, slides up) rather than floating.
+   * fine for action pickers. The post quick view opts in because a
+   * detail-view sheet should feel native (flush, slides up) not floating.
    * Always skipped under prefers-reduced-motion.
    */
   mobileSheet?: boolean;

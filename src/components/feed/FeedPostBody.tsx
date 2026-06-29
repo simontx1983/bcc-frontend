@@ -240,7 +240,7 @@ export function PhotoBody({ body }: { body: Record<string, unknown> }) {
             <img
               src={photoUrl}
               alt={alt}
-              className="h-auto max-h-[480px] w-full rounded-xl border border-[var(--bcc-border)] object-contain"
+              className="h-auto max-h-[480px] w-full rounded-xl border border-[var(--bcc-border)] object-cover"
               loading="lazy"
               decoding="async"
             />
@@ -292,7 +292,7 @@ export function GifBody({ body }: { body: Record<string, unknown> }) {
             <img
               src={gifUrl}
               alt=""
-              className="h-auto max-h-[480px] w-full rounded-xl border border-[var(--bcc-border)] object-contain"
+              className="h-auto max-h-[480px] w-full rounded-xl border border-[var(--bcc-border)] object-cover"
               loading="lazy"
               decoding="async"
             />

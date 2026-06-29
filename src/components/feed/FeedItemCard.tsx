@@ -20,8 +20,6 @@
 
 import { memo, useMemo } from "react";
 import type { Route } from "next";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
 
 import {
   BlogExcerptBody,
@@ -32,6 +30,7 @@ import {
   deriveBodySummary,
 } from "@/components/feed/FeedPostBody";
 import { PostOverflowMenu } from "@/components/feed/PostOverflowMenu";
+import { usePostQuickView } from "@/components/feed/PostQuickViewProvider";
 import { ReactionRail } from "@/components/feed/ReactionRail";
 import { ReactorStack } from "@/components/feed/ReactorStack";
 import { ShareButton } from "@/components/feed/ShareButton";
@@ -56,7 +55,7 @@ function FeedItemCardImpl({
    */
   canInteract?: boolean;
 }) {
-  const router = useRouter();
+  const quickView = usePostQuickView();
   const kindLabel = POST_KIND_LABELS[item.post_kind] ?? item.post_kind.toUpperCase();
   const isReview  = item.post_kind === "review";
   const isBlog    = item.post_kind === "blog_excerpt";
@@ -73,26 +72,23 @@ function FeedItemCardImpl({
   // group, and `verification` is null for non-NFT kinds.
   const groupVerification = item.group?.verification ?? null;
 
-  // Server-provided links — same `Route` cast pattern as CardFactory
-  // for typedRoutes.
+  // Server-provided link — same `Route` cast pattern as CardFactory for
+  // typedRoutes. Used by Share + the overflow menu's copy-link; the
+  // permalink page `/post/[id]` is the hard-nav / SEO source of truth.
   const selfHref = item.links.self as Route;
-  // Comment chip opens the same detail view with `intent=comment`, which
-  // PostModal/PostDetail read to focus + scroll to the composer on mount.
-  const commentHref = `${selfHref}?intent=comment` as Route;
 
   const commentCount = item.comment_count ?? 0;
 
-  // Whole-card click-to-navigate: any interactive descendant (avatar /
+  // Whole-card click opens the in-feed quick view (not a route change —
+  // see PostQuickViewProvider). Any interactive descendant (avatar /
   // author links, mention links, the review/blog target link, photo/gif
-  // new-tab anchor, reaction + footer buttons, overflow menu) opts out
-  // by virtue of `closest("a, button")` — clicking it runs the native
-  // link/button behavior instead of navigating to the post. The
-  // selection check keeps highlighting body text from accidentally
-  // firing a navigation.
+  // lightbox button, reaction + footer buttons, overflow menu) opts out
+  // via `closest("a, button")` so its own handler runs instead. The
+  // selection check keeps highlighting body text from firing the open.
   const handleBodyClick = (e: React.MouseEvent<HTMLElement>) => {
     if ((e.target as HTMLElement).closest("a, button")) return;
     if ((window.getSelection()?.toString() ?? "") !== "") return;
-    router.push(selfHref);
+    quickView.open(item);
   };
 
   // Grouped secondary meta line (kind label · verification · timestamp ·
@@ -184,8 +180,9 @@ function FeedItemCardImpl({
           <ReactionRail item={item} canInteract={canInteract} />
         </ActionPill>
         <ActionPill>
-          <Link
-            href={commentHref}
+          <button
+            type="button"
+            onClick={() => quickView.open(item, { focusComposer: true })}
             aria-label="Open comments, focus the composer"
             className="group bcc-mono inline-flex min-h-[36px] items-center gap-1.5 rounded-full px-1.5 text-[12px] text-[var(--bcc-text-secondary)]"
             title="Open comments, focus the composer"
@@ -206,7 +203,7 @@ function FeedItemCardImpl({
               />
             </svg>
             <span>{commentCount}</span>
-          </Link>
+          </button>
         </ActionPill>
         <ActionPill>
           <ShareButton selfHref={selfHref} shareTitle={`${item.author.display_name ?? item.author.handle} on Blue Collar Crypto`} />

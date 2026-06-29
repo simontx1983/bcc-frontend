@@ -1,6 +1,6 @@
 /**
  * PostDetail — full-detail render of one FeedItem for the `/post/[id]`
- * permalink page and its intercepting modal. Same identity header,
+ * permalink page and its in-feed quick view. Same identity header,
  * per-kind body, and reaction surfaces as `FeedItemCard`, but the
  * comment thread is permanently expanded (`CommentDrawer isOpen`)
  * instead of living behind a toggle — this IS the comments surface,
@@ -37,7 +37,7 @@ interface PostDetailProps {
   canInteract?: boolean;
   /**
    * Override the outer panel's classes. Defaults to the permalink page's
-   * own look (rounded on every corner). `PostModal` overrides this on
+   * own look (rounded on every corner). `PostQuickViewProvider` overrides this on
    * mobile so the sheet reads flush-bottom with top-only rounding,
    * without touching the `/post/[id]` full-page route.
    */

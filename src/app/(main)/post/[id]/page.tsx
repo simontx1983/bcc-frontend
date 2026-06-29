@@ -1,7 +1,7 @@
 /**
  * /post/[id] — feed post permalink (full page, direct nav / refresh).
- * The in-app click-through opens the same content as a modal via the
- * `(.)post/[id]` intercepting route instead — see `src/app/(main)/@modal`.
+ * The in-app click-through opens the same content as an in-feed quick
+ * view instead — see `PostQuickViewProvider`.
  *
  * Same shell pattern as `/p/[slug]`: server component + `generateMetadata`,
  * SSR fetch via `getFeedItemById`, 404 on `bcc_not_found`.

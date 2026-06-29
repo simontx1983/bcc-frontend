@@ -65,7 +65,7 @@ export function PostOverflowMenu({ selfHref, item }: { selfHref: string; item?: 
             onClick={() => {
               void copy(`${window.location.origin}${selfHref}`);
             }}
-            className="bcc-mono block w-full rounded-sm px-2 py-1.5 text-left text-[11px] text-[var(--bcc-text-secondary)] hover:bg-[var(--bcc-surface-active)] hover:text-[var(--bcc-text)]"
+            className="bcc-mono block w-full rounded-lg px-2 py-1.5 text-left text-[11px] text-[var(--bcc-text-secondary)] hover:bg-[var(--bcc-surface-active)] hover:text-[var(--bcc-text)]"
           >
             {copied ? "Copied" : "Copy link"}
           </button>
@@ -77,7 +77,7 @@ export function PostOverflowMenu({ selfHref, item }: { selfHref: string; item?: 
                 setOpen(false);
                 setReportOpen(true);
               }}
-              className="bcc-mono block w-full rounded-sm px-2 py-1.5 text-left text-[11px] text-[var(--bcc-text-secondary)] hover:bg-[var(--bcc-surface-active)] hover:text-safety"
+              className="bcc-mono block w-full rounded-lg px-2 py-1.5 text-left text-[11px] text-[var(--bcc-text-secondary)] hover:bg-[var(--bcc-surface-active)] hover:text-safety"
             >
               Report
             </button>
