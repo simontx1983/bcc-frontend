@@ -20,6 +20,7 @@
 // ─────────────────────────────────────────────────────────────────────
 
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
 
@@ -41,6 +42,34 @@ type DialogProps = {
    * Always skipped under prefers-reduced-motion.
    */
   animateIn?: boolean;
+  /**
+   * Skip the bcc-panel chrome (padding/shadow/rounding) and the corner
+   * ESC button on the inner panel — for callers whose children already
+   * supply their own panel surface and dismiss control (e.g. the
+   * Composer's own card + "discard draft" X). Backdrop, focus trap,
+   * ESC-to-close, and scroll lock are unchanged.
+   */
+  bare?: boolean;
+  /**
+   * Center the panel on every breakpoint instead of the default
+   * bottom-sheet-on-phones / centered-on-md+ split. Off by default —
+   * the bottom sheet is the established mobile idiom for picker/action
+   * modals (OpenDisputeModal, NftPickerModal, etc). Opt in for modals
+   * that read as a single floating card rather than a sheet (the New
+   * Post composer).
+   */
+  center?: boolean;
+  /**
+   * Opt into a true edge-to-edge bottom sheet on mobile: zero backdrop
+   * inset (the panel touches the viewport edges) plus a slide-up-on-open
+   * transition. Off by default — the existing bottom-sheet-on-phones
+   * split already gives every other call-site (OpenDisputeModal,
+   * NftPickerModal, etc.) a small margin around the sheet, which reads
+   * fine for action pickers. The post quick view opts in because a
+   * detail-view sheet should feel native (flush, slides up) not floating.
+   * Always skipped under prefers-reduced-motion.
+   */
+  mobileSheet?: boolean;
 };
 
 const FOCUSABLE =
@@ -52,18 +81,23 @@ export function Dialog({
   children,
   panelClassName = "max-w-2xl",
   animateIn = false,
+  bare = false,
+  center = false,
+  mobileSheet = false,
 }: DialogProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   const reducedMotion = usePrefersReducedMotion();
   const fade = animateIn && !reducedMotion;
-  const [shown, setShown] = useState(!fade);
+  const slide = mobileSheet && !reducedMotion;
+  const animate = fade || slide;
+  const [shown, setShown] = useState(!animate);
 
-  // Trigger the fade-in next frame so the opacity transition runs.
+  // Trigger the fade-in / slide-up next frame so the transition runs.
   useEffect(() => {
-    if (!fade) return;
+    if (!animate) return;
     const id = window.requestAnimationFrame(() => setShown(true));
     return () => window.cancelAnimationFrame(id);
-  }, [fade]);
+  }, [animate]);
 
   // ESC to close + Tab focus trap, scoped to this dialog's lifetime.
   useEffect(() => {
@@ -120,13 +154,23 @@ export function Dialog({
     };
   }, []);
 
-  return (
+  // Portaled to document.body — trigger sites like MobileNav's center
+  // button set `backdrop-filter` on an ancestor, which (per spec) gives
+  // `position: fixed` descendants a containing block other than the
+  // viewport. Rendered inline, the backdrop would be confined to that
+  // ancestor's box instead of covering the screen. The portal sidesteps
+  // any ancestor's stacking/containing-block quirks entirely.
+  return createPortal(
     <div
       role="dialog"
       aria-modal
       aria-label={title}
       className={
-        "fixed inset-0 z-50 flex items-end justify-center bg-ink/70 p-4 backdrop-blur-sm md:items-center " +
+        // z-[400] clears the fixed SiteHeader (z-300) and MobileNav
+        // (z-200) — a dialog must always sit above both chrome layers.
+        "fixed inset-0 z-[400] flex justify-center bg-ink/70 backdrop-blur-sm " +
+        (mobileSheet ? "p-0 md:p-4 " : "p-4 ") +
+        (center ? "items-center " : "items-end md:items-center ") +
         (fade ? "transition-opacity duration-200 " + (shown ? "opacity-100" : "opacity-0") : "")
       }
       onClick={(e) => {
@@ -136,18 +180,28 @@ export function Dialog({
       <div
         ref={panelRef}
         tabIndex={-1}
-        className={"bcc-panel relative w-full p-6 outline-none md:p-8 " + panelClassName}
+        className={
+          (bare ? "relative w-full outline-none " : "bcc-panel relative w-full p-6 outline-none md:p-8 ") +
+          (mobileSheet
+            ? "md:translate-y-0 " +
+              (slide ? "transition-transform duration-200 " + (shown ? "translate-y-0" : "translate-y-full") + " " : "")
+            : "") +
+          panelClassName
+        }
       >
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="Close"
-          className="bcc-mono absolute right-4 top-4 text-[10px] tracking-[0.24em] text-cardstock-deep hover:text-ink"
-        >
-          ESC
-        </button>
+        {!bare && (
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
+            className="bcc-mono absolute right-4 top-4 text-[10px] tracking-[0.24em] text-cardstock-deep hover:text-ink"
+          >
+            ESC
+          </button>
+        )}
         {children}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

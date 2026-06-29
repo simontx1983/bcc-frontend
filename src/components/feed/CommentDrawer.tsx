@@ -24,7 +24,7 @@
  * Local UI state: composer textarea content, submission pending flag.
  */
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import type { Route } from "next";
@@ -55,12 +55,15 @@ interface CommentDrawerProps {
    * its composer.
    */
   canInteract?: boolean;
+  /** Focus the composer textarea + scroll it into view on mount. */
+  focusComposer?: boolean;
 }
 
 export function CommentDrawer({
   feedId,
   isOpen,
   canInteract = true,
+  focusComposer = false,
 }: CommentDrawerProps) {
   const session = useSession();
   const isAuthed = session.status === "authenticated";
@@ -134,7 +137,7 @@ export function CommentDrawer({
           a write prompt per card here would be redundant noise. */}
       {canInteract &&
         (isAuthed ? (
-          <CommentComposer feedId={feedId} />
+          <CommentComposer feedId={feedId} autoFocus={focusComposer} />
         ) : (
           <p className="bcc-mono mt-4 text-[11px] text-ink-soft/70">
             <Link href={"/login" as Route} className="text-ink hover:underline">
@@ -212,12 +215,28 @@ function CommentRow({ feedId, comment }: { feedId: string; comment: Comment }) {
 // Composer
 // ─────────────────────────────────────────────────────────────────────
 
-function CommentComposer({ feedId }: { feedId: string }) {
+function CommentComposer({
+  feedId,
+  autoFocus = false,
+}: {
+  feedId: string;
+  /** Focus the textarea + scroll it into view once, on mount. */
+  autoFocus?: boolean;
+}) {
   const [draft, setDraft] = useState("");
   const createMut = useCreateCommentMutation();
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const trimmed = draft.trim();
   const canSubmit =
     trimmed !== "" && trimmed.length <= COMMENT_MAX_LENGTH && !createMut.isPending;
+
+  useEffect(() => {
+    if (!autoFocus) return;
+    textareaRef.current?.focus();
+    textareaRef.current?.scrollIntoView({ block: "center" });
+    // Mount-only — the composer remounts when its drawer remounts.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -243,6 +262,7 @@ function CommentComposer({ feedId }: { feedId: string }) {
       </label>
       <textarea
         id={`comment-${feedId}`}
+        ref={textareaRef}
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
         rows={2}

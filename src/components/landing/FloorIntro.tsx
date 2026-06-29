@@ -9,9 +9,9 @@
  * needs answered before the feed below makes any sense:
  *
  *   1. Hero        → "What is this?"            (3 seconds)
- *   2. Pillars     → "What do you stand for?"   (10 seconds)
- *   3. Loop        → "How does it work?"        (15 seconds)
- *   4. Demo card   → "What does it feel like?"  (interactive)
+ *   2. Demo card   → "What does it feel like?"  (interactive)
+ *   3. Pillars     → "What do you stand for?"   (10 seconds)
+ *   4. Loop        → "How does it work?"        (15 seconds)
  *   5. Closing CTA → "What do I do now?"
  *
  * A slow horizontal marquee runs along the very top of the section
@@ -50,9 +50,9 @@ export function FloorIntro({ featuredCard }: FloorIntroProps) {
     <section aria-label="Welcome to Blue Collar Crypto">
       <MarqueeBanner />
       <Hero />
+      {featuredCard !== null && <DemoCard card={featuredCard} />}
       <Pillars />
       <LoopSteps />
-      {featuredCard !== null && <DemoCard card={featuredCard} />}
       <ClosingCta />
     </section>
   );

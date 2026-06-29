@@ -37,6 +37,16 @@
   --bcc-tier-rare:       #1d4fbb;
   --bcc-tier-legendary:  #d9a400;
 
+  /* Trust-band dot colors (identity chip) — a semantic risk→trust ramp,
+     distinct in MEANING from the --bcc-tier-* rarity set above. Used by
+     RankChip's leading dot: risky=red, caution=amber, neutral=ash,
+     trusted=green, elite=gold. Stable across themes. */
+  --bcc-trust-risky:     #c8472f;
+  --bcc-trust-caution:   #e0a32e;
+  --bcc-trust-neutral:   #6b6e72;
+  --bcc-trust-trusted:   #247a3f;
+  --bcc-trust-elite:     #d9a400;
+
   /* Operator type badge colors */
   --bcc-type-validator:  #2c5990;
   --bcc-type-project:    #d9a400;
@@ -48,6 +58,16 @@
   --bcc-warning:         #f59e0b;
   --bcc-danger:          #ef4444;
   --bcc-info:            #3b82f6;
+
+  /* Floor accent colors — canonical source for the trading-card
+     layer's --safety/--weld/--verified/--blueprint aliases below.
+     Same hex values as before consolidation; this block is now the
+     single source of truth, following the --tier-* -> --bcc-tier-*
+     precedent. */
+  --bcc-safety:          #f05a28;
+  --bcc-weld:            #ffc01e;
+  --bcc-verified:        #2c9d66;
+  --bcc-blueprint:       #0f1e3c;
 
   /* Typography — loaded via next/font in layout.tsx */
   --font-stencil:        'Big Shoulders Stencil';
@@ -133,6 +153,12 @@
   --bcc-text-placeholder:#b3b8c3;
   --bcc-text-inverse:    #ffffff;
 
+  /* Stoke's "ash" outline stroke — only used when heat_stage hasn't
+     shipped yet (no real heat signal to grade by). A warm-tinted muted
+     tone, not flat UI grey, so the cold flame still reads as "ember,"
+     not "disabled icon." */
+  --bcc-stoke-ash:       #a39086;
+
   --bcc-glass-bg:        rgba(255,255,255,0.62);
   --bcc-glass-bg-solid:  rgba(255,255,255,0.82);
   --bcc-glass-bg-frosted:rgba(255,255,255,0.10);
@@ -181,6 +207,7 @@
     --bcc-text-muted:      #484f58;
     --bcc-text-placeholder:#3d444d;
     --bcc-text-inverse:    #0d1117;
+    --bcc-stoke-ash:       #6f6358;
 
     --bcc-glass-bg:        rgba(22,27,34,0.62);
     --bcc-glass-bg-solid:  rgba(22,27,34,0.82);
@@ -230,6 +257,7 @@
   --bcc-text-muted:      #484f58;
   --bcc-text-placeholder:#3d444d;
   --bcc-text-inverse:    #0d1117;
+  --bcc-stoke-ash:       #6f6358;
 
   --bcc-glass-bg:        rgba(22,27,34,0.62);
   --bcc-glass-bg-solid:  rgba(22,27,34,0.82);
@@ -2221,6 +2249,59 @@
   100% { transform: scale(1); }
 }
 
+/* ========================================================================
+   STOKE — forge-fire reaction rail. X-"like" model: two orthogonal axes.
+
+   FILL = personal (viewer_has_stoked) — ash outline <-> solid forge-
+   orange, swapped instantly via the SVG fill/stroke attributes (no
+   transition needed, no motion to gate). HEAT = aggregate (heat_stage)
+   — static size/glow/color-temperature, set by inline style per stage
+   in ReactionRail.tsx. No idle animation anywhere. Motion is invited,
+   never ambient:
+     - desktop hover (gated on `(hover: hover)`, not `:hover` alone, so a
+       tap-to-hover touch browser can't get stuck mid-flicker) flickers
+       the flame and brightens the glow
+     - stoke-ON (not unstoke — that's silent) fires one richer burst:
+       flame scale-pop + a glow flash + a 7-particle radial spark fan
+
+   GPU-only: every animation here touches transform/opacity exclusively.
+   The glow's blur is a STATIC `filter: blur()` (set once, never part of
+   an animated property) — only its opacity transitions/animates, per
+   the "never animate filter:blur() per frame" rule.
+   ======================================================================== */
+
+@keyframes bcc-stoke-flicker {
+  0%, 100% { transform: scale(1) translateY(0); }
+  50%      { transform: scale(1.07) translateY(-1px); }
+}
+
+@keyframes bcc-stoke-burst-scale {
+  0%   { transform: scale(1); }
+  30%  { transform: scale(1.5); }
+  100% { transform: scale(1); }
+}
+
+@keyframes bcc-stoke-burst-glow {
+  0%   { opacity: 0; }
+  30%  { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+@keyframes bcc-stoke-particle {
+  0%   { opacity: 0;   transform: translate(0, 0) scale(0.6); }
+  20%  { opacity: 1; }
+  100% { opacity: 0;   transform: translate(var(--bcc-stoke-particle-x), var(--bcc-stoke-particle-y)) scale(1.1); }
+}
+
+@media (hover: hover) {
+  .bcc-stoke-button:hover .bcc-stoke-flame {
+    animation: bcc-stoke-flicker 900ms ease-in-out infinite;
+  }
+  .bcc-stoke-button:hover .bcc-stoke-glow {
+    opacity: var(--bcc-stoke-hover-opacity, 0.6);
+  }
+}
+
 /* Animation utility classes */
 @layer utilities {
   .animate-fade-in       { animation: bcc-fade-in 0.3s ease forwards; }
@@ -2267,10 +2348,11 @@
   --concrete:        #14110d;
   --concrete-hi:     #1d1913;
 
-  /* Accent / chrome. */
-  --blueprint:       #0f1e3c;
-  --safety:          #f05a28;
-  --weld:            #ffc01e;
+  /* Accent / chrome — mapped onto the redesign's --bcc-* tokens
+     (same hex values), same precedent as the --tier-* mapping below. */
+  --blueprint:       var(--bcc-blueprint);
+  --safety:          var(--bcc-safety);
+  --weld:            var(--bcc-weld);
 
   /* Chain colors. */
   --chain-cosmos:    #1a0f3e;
@@ -2306,7 +2388,7 @@
   --paper-warm:      #f2e6c8;
   --ink-ghost:       #6b6355;
   --phosphor:        #7dff9a;
-  --verified:        #2c9d66;
+  --verified:        var(--bcc-verified);
 }
 
 @layer components {

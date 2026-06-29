@@ -16,37 +16,29 @@
  * Future variants (deferred):
  *   - Embedded <CardFactory> when `attached_card` is present
  *   - Inline reaction rail (Solid / Vouch / Stand-behind buttons)
- *   - Click-through to the full post detail
- *   - Per-kind layouts: review with grade chip, dispute with status
  */
 
-import { memo, useMemo, useState } from "react";
+import { memo, useMemo } from "react";
 import type { Route } from "next";
-import Link from "next/link";
 
-import { CommentDrawer } from "@/components/feed/CommentDrawer";
+import {
+  BlogExcerptBody,
+  GifBody,
+  PhotoBody,
+  POST_KIND_LABELS,
+  ReviewBody,
+  deriveBodySummary,
+} from "@/components/feed/FeedPostBody";
+import { PostOverflowMenu } from "@/components/feed/PostOverflowMenu";
+import { usePostQuickView } from "@/components/feed/PostQuickViewProvider";
 import { ReactionRail } from "@/components/feed/ReactionRail";
 import { ReactorStack } from "@/components/feed/ReactorStack";
-import { ReportButton } from "@/components/feed/ReportButton";
+import { ShareButton } from "@/components/feed/ShareButton";
 import { VerificationBadge } from "@/components/groups/VerificationBadge";
 import { AuthorBadge } from "@/components/identity/AuthorBadge";
-import { formatRelativeTime } from "@/lib/format";
+import { formatAbsoluteDateTime, formatRelativeTime } from "@/lib/format";
 import { readMentions, renderTextWithMentions } from "@/lib/format/mentions";
 import type { FeedItem } from "@/lib/api/types";
-
-const POST_KIND_LABELS: Record<string, string> = {
-  status:        "POSTED",
-  photo:         "POSTED",
-  gif:           "POSTED",
-  watch_batch:   "WATCHED",
-  page_claim:    "CLAIMED",
-  review:        "REVIEWED",
-  dispute:       "DISPUTED",
-  drop:          "DROPPED",
-  release:       "RELEASED",
-  signal:        "SIGNAL",
-  blog_excerpt:  "PUBLISHED",
-};
 
 function FeedItemCardImpl({
   item,
@@ -63,6 +55,7 @@ function FeedItemCardImpl({
    */
   canInteract?: boolean;
 }) {
+  const quickView = usePostQuickView();
   const kindLabel = POST_KIND_LABELS[item.post_kind] ?? item.post_kind.toUpperCase();
   const isReview  = item.post_kind === "review";
   const isBlog    = item.post_kind === "blog_excerpt";
@@ -79,27 +72,37 @@ function FeedItemCardImpl({
   // group, and `verification` is null for non-NFT kinds.
   const groupVerification = item.group?.verification ?? null;
 
-  // Server-provided links — same `Route` cast pattern as CardFactory
-  // for typedRoutes.
+  // Server-provided link — same `Route` cast pattern as CardFactory for
+  // typedRoutes. Used by Share + the overflow menu's copy-link; the
+  // permalink page `/post/[id]` is the hard-nav / SEO source of truth.
   const selfHref = item.links.self as Route;
 
-  // v1.5 comments — drawer is closed by default; opens on chip click.
-  // Lazy-mount: the GET /comments request only fires when the drawer
-  // opens, so feed cards stay light by default. Persisted per-card,
-  // not globally, so navigating tabs preserves the open state.
-  const [commentsOpen, setCommentsOpen] = useState(false);
   const commentCount = item.comment_count ?? 0;
 
-  // Hoist the AuthorBadge adornment/trailing JSX into useMemo so the memoized
-  // AuthorBadge (and its Avatar/RankChip children) doesn't re-render on every
-  // FeedItemCard render — inline JSX is a fresh object reference each time,
-  // which silently defeated AuthorBadge's memo (perf-audit F4).
-  const inlineAdornments = useMemo(
+  // Whole-card click opens the in-feed quick view (not a route change —
+  // see PostQuickViewProvider). Any interactive descendant (avatar /
+  // author links, mention links, the review/blog target link, photo/gif
+  // lightbox button, reaction + footer buttons, overflow menu) opts out
+  // via `closest("a, button")` so its own handler runs instead. The
+  // selection check keeps highlighting body text from firing the open.
+  const handleBodyClick = (e: React.MouseEvent<HTMLElement>) => {
+    if ((e.target as HTMLElement).closest("a, button")) return;
+    if ((window.getSelection()?.toString() ?? "") !== "") return;
+    quickView.open(item);
+  };
+
+  // Grouped secondary meta line (kind label · verification · timestamp ·
+  // overflow) rendered in AuthorBadge's trailing slot, so the display
+  // name reads clean on its own. Memoized: AuthorBadge is memo()'d, and
+  // passing fresh inline JSX every render would silently defeat its
+  // shallow-compare (perf-audit F4) — the same fix main applied, kept
+  // here for the redesign's grouped layout.
+  const trailing = useMemo(
     () => (
-      <>
+      <div className="flex shrink-0 items-baseline gap-2">
         <span
-          className="bcc-mono shrink-0 rounded px-1.5 py-0.5 text-[10px]"
-          style={{ background: "rgba(15,13,9,0.06)", color: "var(--ink-soft)" }}
+          className="bcc-mono shrink-0 rounded px-1.5 py-0.5 text-[10px] text-[var(--bcc-text-secondary)]"
+          style={{ background: "var(--bcc-surface-active)" }}
         >
           {kindLabel}
         </span>
@@ -109,97 +112,134 @@ function FeedItemCardImpl({
             className="bcc-mono shrink-0 text-[10px]"
           />
         )}
-      </>
+        <time
+          dateTime={item.posted_at}
+          title={formatAbsoluteDateTime(item.posted_at)}
+          className="bcc-mono shrink-0 text-[11px] text-[var(--bcc-text-secondary)]/70"
+        >
+          {formatRelativeTime(item.posted_at)}
+        </time>
+        <PostOverflowMenu selfHref={selfHref} item={item} />
+      </div>
     ),
-    [kindLabel, groupVerification]
-  );
-
-  const trailing = useMemo(
-    () => (
-      <time
-        dateTime={item.posted_at}
-        title={item.posted_at}
-        className="bcc-mono shrink-0 text-[11px] text-ink-soft/70"
-      >
-        {formatRelativeTime(item.posted_at)}
-      </time>
-    ),
-    [item.posted_at]
+    [kindLabel, groupVerification, selfHref, item]
   );
 
   return (
-    <article className="bcc-panel relative flex flex-col gap-3 px-5 py-4">
+    <article
+      onClick={handleBodyClick}
+      className="bcc-panel relative flex cursor-pointer flex-col gap-3 p-3.5 sm:p-4"
+    >
       {/*
         Sprint 1 Identity Grammar — header is now <AuthorBadge>. Operator
         pill folds into AuthorBadge (driven by author.is_operator); kind
-        label + verification badge ride as inline adornments; timestamp
-        is the trailing slot. Identity now reads continuously into the
-        comment drawer below (which uses the same AuthorBadge primitive).
+        label + verification badge + timestamp are grouped into the
+        trailing slot as one secondary meta line, so the display name
+        reads clean on its own.
 
-        Sprint 1 known gap: FeedAuthor does NOT carry card_tier /
-        tier_label / rank_label (types.ts:463-476). RankChip under the
-        display name gracefully omits until backend extends FeedAuthor.
-        See frontend-implementer report blocker for the contract
-        extension this is waiting on.
+        size="md" + the accent ring match the Composer's identity
+        header so a viewer's own posting avatar and every author's feed
+        avatar render at the same scale/treatment.
       */}
       <header>
         <AuthorBadge
           author={item.author}
-          inlineAdornments={inlineAdornments}
+          size="md"
+          avatarRingColor="var(--bcc-accent)"
           trailing={trailing}
         />
       </header>
 
-      {isReview && <ReviewBody body={item.body} />}
+      <div className="flex flex-col gap-3">
+        {isReview && <ReviewBody body={item.body} />}
 
-      {isBlog && <BlogExcerptBody body={item.body} authorHandle={item.author.handle} />}
+        {isBlog && <BlogExcerptBody body={item.body} authorHandle={item.author.handle} />}
 
-      {isPhoto && <PhotoBody body={item.body} />}
+        {isPhoto && <PhotoBody body={item.body} />}
 
-      {isGif && <GifBody body={item.body} />}
+        {isGif && <GifBody body={item.body} />}
 
-      {summary !== "" && (
-        <p className="font-serif text-ink whitespace-pre-line">
-          {/*
-            §3.3.12 — status bodies carry a `mentions[]` overlay.
-            Other kinds (watch_batch, page_claim, dispute) emit a
-            server-rendered string summary with no token wire format,
-            so passing an empty mentions array renders the plain
-            text unchanged.
-          */}
-          {renderTextWithMentions(summary, readMentions(item.body))}
-        </p>
-      )}
+        {summary !== "" && (
+          <p className="font-serif text-[var(--bcc-text)] whitespace-pre-line">
+            {/*
+              §3.3.12 — status bodies carry a `mentions[]` overlay.
+              Other kinds (watch_batch, page_claim, dispute) emit a
+              server-rendered string summary with no token wire format,
+              so passing an empty mentions array renders the plain
+              text unchanged.
+            */}
+            {renderTextWithMentions(summary, readMentions(item.body))}
+          </p>
+        )}
 
-      <ReactorStack social_proof={item.social_proof} />
+        <ReactorStack social_proof={item.social_proof} />
+      </div>
 
-      <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-cardstock-edge/40 pt-2.5">
-        <ReactionRail item={item} canInteract={canInteract} />
-        <div className="flex shrink-0 items-center gap-4">
+      <footer className="flex items-center gap-1 border-t border-[var(--bcc-border)] pt-2.5">
+        <ActionPill active={item.reactions.viewer_has_stoked === true} tintColor="var(--bcc-secondary)">
+          <ReactionRail item={item} canInteract={canInteract} />
+        </ActionPill>
+        <ActionPill>
           <button
             type="button"
-            onClick={() => setCommentsOpen((open) => !open)}
-            aria-pressed={commentsOpen}
-            aria-controls={`comments-${item.id}`}
-            className="bcc-mono inline-flex min-h-[36px] items-center gap-1.5 text-[11px] text-ink-soft hover:text-ink"
-            title={commentsOpen ? "Hide comments" : "Show comments"}
+            onClick={() => quickView.open(item, { focusComposer: true })}
+            aria-label="Open comments, focus the composer"
+            className="group bcc-mono inline-flex min-h-[36px] items-center gap-1.5 rounded-full px-1.5 text-[12px] text-[var(--bcc-text-secondary)]"
+            title="Open comments, focus the composer"
           >
-            <span aria-hidden>💬</span>
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 16 16"
+              fill="none"
+              aria-hidden
+              className="text-[var(--bcc-info)] transition-transform duration-150 group-hover:-translate-y-0.5"
+            >
+              <path
+                d="M2.5 3.5h11a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H7l-2.8 2.4a.5.5 0 0 1-.82-.38V11.5h-1a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1Z"
+                stroke="currentColor"
+                strokeWidth="1.3"
+                strokeLinejoin="round"
+              />
+            </svg>
             <span>{commentCount}</span>
           </button>
-          <ReportButton item={item} />
-          <Link
-            href={selfHref}
-            className="bcc-mono inline-flex min-h-[36px] items-center text-[11px] text-ink-soft hover:underline"
-          >
-            View →
-          </Link>
-        </div>
+        </ActionPill>
+        <ActionPill>
+          <ShareButton selfHref={selfHref} shareTitle={`${item.author.display_name ?? item.author.handle} on Blue Collar Crypto`} />
+        </ActionPill>
       </footer>
-      <div id={`comments-${item.id}`}>
-        <CommentDrawer feedId={item.id} isOpen={commentsOpen} canInteract={canInteract} />
-      </div>
     </article>
+  );
+}
+
+/**
+ * Shared, very-subtle pill treatment so Stoke / Comment / Share read as
+ * one quiet action row (X/Reddit-style) instead of a flame floating
+ * away from a separate cluster. Transparent at rest; a faint surface
+ * tint on hover; an even fainter color-tint when `active` (today, only
+ * Stoke uses this — a stoked post's pill warms toward forge-orange).
+ */
+function ActionPill({
+  children,
+  active = false,
+  tintColor,
+}: {
+  children: React.ReactNode;
+  active?: boolean;
+  tintColor?: string;
+}) {
+  return (
+    <span
+      className="inline-flex items-center rounded-full px-0.5 transition-colors duration-150 hover:bg-[var(--bcc-surface-active)]"
+      style={
+        active && tintColor !== undefined
+          ? { backgroundColor: `color-mix(in srgb, ${tintColor} 14%, transparent)` }
+          : undefined
+      }
+    >
+      {children}
+    </span>
   );
 }
 
@@ -210,319 +250,3 @@ function FeedItemCardImpl({
 // Grammar to keep the new AuthorBadge sub-tree from amplifying churn.
 export const FeedItemCard = memo(FeedItemCardImpl);
 FeedItemCard.displayName = "FeedItemCard";
-
-// ─────────────────────────────────────────────────────────────────────
-// Review variant — grade chip + target page link + body text.
-// Mirrors the review composer's grade tones (Trust/Neutral/Caution).
-// ─────────────────────────────────────────────────────────────────────
-
-const REVIEW_GRADE_LABELS: Record<string, { label: string; accent: string }> = {
-  trust:   { label: "TRUST",   accent: "var(--verified)" },
-  neutral: { label: "NEUTRAL", accent: "var(--blueprint)" },
-  caution: { label: "CAUTION", accent: "var(--safety)" },
-};
-
-/** card_kind → entity-route prefix. Mirrors CardUrlMap on the server. */
-const REVIEW_KIND_PREFIX: Record<string, string> = {
-  validator: "/v",
-  project:   "/p",
-  creator:   "/c",
-};
-
-function ReviewBody({ body }: { body: Record<string, unknown> }) {
-  const grade      = readString(body, "grade") ?? "";
-  const text       = readString(body, "text") ?? "";
-  const pageHandle = readString(body, "page_handle") ?? "";
-  const pageName   = readString(body, "page_name") ?? "";
-  const pageKind   = readString(body, "page_kind") ?? "";
-
-  const tone = REVIEW_GRADE_LABELS[grade];
-  // Server pre-resolves the entity kind so reviews of projects /
-  // creators don't 404 by linking to /v/. Empty kind = unresolved
-  // page; we suppress the link rather than guess.
-  const prefix = REVIEW_KIND_PREFIX[pageKind];
-  const targetHref =
-    pageHandle !== "" && prefix !== undefined
-      ? (`${prefix}/${pageHandle}` as Route)
-      : null;
-
-  return (
-    <div className="flex flex-col gap-2">
-      <div className="flex flex-wrap items-baseline gap-2">
-        {tone !== undefined && (
-          <span
-            className="bcc-mono rounded-sm px-2 py-0.5 text-[10px] tracking-[0.18em]"
-            style={{
-              color:      tone.accent,
-              background: "rgba(15,13,9,0.04)",
-              border:     `1px solid ${tone.accent}`,
-            }}
-          >
-            {tone.label}
-          </span>
-        )}
-        {pageName !== "" && targetHref !== null && (
-          <Link
-            href={targetHref}
-            className="bcc-mono text-[11px] text-ink-soft hover:text-ink hover:underline"
-          >
-            on {pageName}
-          </Link>
-        )}
-        {pageName !== "" && targetHref === null && (
-          <span className="bcc-mono text-[11px] text-ink-soft">on {pageName}</span>
-        )}
-      </div>
-
-      {text !== "" && <p className="font-serif text-ink whitespace-pre-line">{text}</p>}
-    </div>
-  );
-}
-
-// ─────────────────────────────────────────────────────────────────────
-// Blog excerpt variant — Floor context. Server hydrates body.excerpt
-// only (full_text is null on Floor). The "Read full post" affordance
-// links to the author's blog tab; deep-linking to the individual post
-// is V1.5 work.
-// ─────────────────────────────────────────────────────────────────────
-
-interface BlogExcerptBodyProps {
-  body: Record<string, unknown>;
-  authorHandle: string;
-}
-
-const FEED_CATEGORY_LABELS: Record<string, string> = {
-  news:     "News",
-  analysis: "Analysis",
-  guide:    "Guide",
-  opinion:  "Opinion",
-  tools:    "Tools",
-  events:   "Events",
-};
-
-function BlogExcerptBody({ body, authorHandle }: BlogExcerptBodyProps) {
-  const title    = readString(body, "title") ?? "";
-  const excerpt  = readString(body, "excerpt") ?? "";
-  const category = readString(body, "category");
-  const chainTags = readBlogChainTags(body);
-  // Server's body.author_handle wins when present (kept for future
-  // cross-author renders); fall back to the FeedItem author handle.
-  const handle = readString(body, "author_handle") ?? authorHandle;
-  const blogHref =
-    handle !== "" ? (`/u/${handle}?tab=blog` as Route) : null;
-
-  return (
-    <div className="flex flex-col gap-2">
-      {(category !== null || chainTags.length > 0) && (
-        <div className="flex flex-wrap items-center gap-2">
-          {category !== null && (
-            <span className="bcc-mono border border-safety/40 bg-safety/10 px-2 py-1 text-[10px] tracking-[0.18em] text-safety">
-              {(FEED_CATEGORY_LABELS[category] ?? category).toUpperCase()}
-            </span>
-          )}
-          {chainTags.map((c) => (
-            <span
-              key={c.slug}
-              className="bcc-mono inline-flex items-center gap-1 border bg-cardstock-deep/10 px-2 py-1 text-[10px] tracking-[0.18em]"
-              style={
-                c.color !== null
-                  ? { borderColor: c.color, color: c.color }
-                  : { borderColor: "var(--cardstock-edge)", color: "var(--ink-soft)" }
-              }
-            >
-              {c.name.toUpperCase()}
-            </span>
-          ))}
-        </div>
-      )}
-      {title !== "" && (
-        <h3 className="bcc-stencil text-lg text-ink leading-tight sm:text-xl">
-          {title}
-        </h3>
-      )}
-      {excerpt !== "" && (
-        <p className="font-serif text-ink whitespace-pre-line">{excerpt}</p>
-      )}
-      {blogHref !== null && (
-        <Link
-          href={blogHref}
-          className="bcc-mono self-start text-[11px] tracking-[0.18em] text-ink-soft hover:text-ink hover:underline"
-        >
-          READ FULL POST →
-        </Link>
-      )}
-    </div>
-  );
-}
-
-function readBlogChainTags(
-  body: Record<string, unknown>
-): Array<{ slug: string; name: string; color: string | null }> {
-  const raw = body["chain_tags"];
-  if (!Array.isArray(raw)) return [];
-  const out: Array<{ slug: string; name: string; color: string | null }> = [];
-  for (const item of raw) {
-    if (typeof item !== "object" || item === null) continue;
-    const obj = item as Record<string, unknown>;
-    const slug = typeof obj["slug"] === "string" ? obj["slug"] : "";
-    if (slug === "") continue;
-    const name = typeof obj["name"] === "string" ? obj["name"] : slug;
-    const color = typeof obj["color"] === "string" && obj["color"] !== "" ? obj["color"] : null;
-    out.push({ slug, name, color });
-  }
-  return out;
-}
-
-// ─────────────────────────────────────────────────────────────────────
-// Photo variant (v1.5) — caption (optional) above an inline image at
-// the photo's natural aspect ratio. Click opens the native image in
-// a new tab; lightbox / zoom is V2. The image is constrained by card
-// width, capped at ~480px tall so a portrait photo doesn't stretch
-// the feed row beyond reasonable scrollability.
-//
-// Per §A2 (no business logic on frontend), every visible field comes
-// from the server view-model — `body.caption`, `body.photo_url`,
-// `body.alt`. When `photo_url` is empty (S3-only deployment without
-// fallback URL, or a race where save_images hasn't completed), the
-// image is omitted gracefully and only the caption renders. The card
-// stays a coherent post even in the degraded state.
-// ─────────────────────────────────────────────────────────────────────
-
-function PhotoBody({ body }: { body: Record<string, unknown> }) {
-  const caption  = readString(body, "caption") ?? "";
-  const photoUrl = readString(body, "photo_url") ?? "";
-  const mentions = readMentions(body);
-  // Alt text is null in V1 per the contract (deferred a11y debt).
-  // Fall back to "" so the <img> renders as decorative until alt
-  // text collection ships.
-  const alt = readString(body, "alt") ?? "";
-
-  return (
-    <div className="flex flex-col gap-3">
-      {caption !== "" && (
-        <p className="font-serif text-ink whitespace-pre-line">
-          {renderTextWithMentions(caption, mentions)}
-        </p>
-      )}
-      {photoUrl !== "" && (
-        <a
-          href={photoUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="block self-start"
-          aria-label={alt !== "" ? alt : "Open photo in new tab"}
-        >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={photoUrl}
-            alt={alt}
-            className="max-h-[480px] max-w-full rounded-sm border border-cardstock-edge/30 object-contain"
-            loading="lazy"
-            decoding="async"
-          />
-        </a>
-      )}
-    </div>
-  );
-}
-
-// ─────────────────────────────────────────────────────────────────────
-// GIF variant (v1.5) — caption (optional) above an inline GIF
-// rendered directly from Giphy's CDN. Same layout shape as
-// PhotoBody, different field name (`gif_url` vs `photo_url`) +
-// no alt text concern (Giphy's image content is intentionally
-// expressive, not informational; alt="" for decorative is correct
-// per current a11y guidance for emoji-style media).
-//
-// Click opens the native GIF in a new tab. Lightbox / zoom is V2.
-// Per Phase 1c product call, no per-card "via Giphy" attribution —
-// attribution lives only inside the picker during selection.
-// ─────────────────────────────────────────────────────────────────────
-
-function GifBody({ body }: { body: Record<string, unknown> }) {
-  const caption = readString(body, "caption") ?? "";
-  const gifUrl  = readString(body, "gif_url") ?? "";
-  const mentions = readMentions(body);
-
-  return (
-    <div className="flex flex-col gap-3">
-      {caption !== "" && (
-        <p className="font-serif text-ink whitespace-pre-line">
-          {renderTextWithMentions(caption, mentions)}
-        </p>
-      )}
-      {gifUrl !== "" && (
-        <a
-          href={gifUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="block self-start"
-          aria-label="Open GIF in new tab"
-        >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={gifUrl}
-            alt=""
-            className="max-h-[480px] max-w-full rounded-sm border border-cardstock-edge/30 object-contain"
-            loading="lazy"
-            decoding="async"
-          />
-        </a>
-      )}
-    </div>
-  );
-}
-
-// ─────────────────────────────────────────────────────────────────────
-// Per-kind body → summary text. Reads body fields the server wrote;
-// fallback is the post_kind label so unknown kinds still render.
-// ─────────────────────────────────────────────────────────────────────
-
-function deriveBodySummary(item: FeedItem): string {
-  const body = item.body;
-
-  if (item.post_kind === "status") {
-    return readString(body, "text") ?? "";
-  }
-
-  if (item.post_kind === "watch_batch") {
-    const cardCount = readNumber(body, "card_count") ?? 0;
-    const moreCount = readNumber(body, "more_count") ?? 0;
-    if (cardCount === 0) return "";
-    const noun = cardCount === 1 ? "card" : "cards";
-    if (moreCount > 0) {
-      return `Started watching ${cardCount} ${noun} (+${moreCount} more).`;
-    }
-    return `Started watching ${cardCount} ${noun}.`;
-  }
-
-  // page_claim's summary is server-rendered (§A2). When the backend
-  // ships a body.summary/body.text field for claim posts, the generic
-  // fallback below picks it up; until then claim items render with
-  // just the kind label + author.
-
-  // Review + blog_excerpt have dedicated body renderers above —
-  // bail out so the generic summary line doesn't double-render.
-  if (item.post_kind === "review" || item.post_kind === "blog_excerpt") {
-    return "";
-  }
-
-  if (item.post_kind === "dispute") {
-    return readString(body, "reason") ?? "Signed a dispute.";
-  }
-
-  // Unknown kind — render any text field the server provided, else empty.
-  return readString(body, "text") ?? readString(body, "summary") ?? "";
-}
-
-function readString(body: Record<string, unknown>, key: string): string | null {
-  const value = body[key];
-  return typeof value === "string" && value !== "" ? value : null;
-}
-
-
-function readNumber(body: Record<string, unknown>, key: string): number | null {
-  const value = body[key];
-  return typeof value === "number" ? value : null;
-}
-

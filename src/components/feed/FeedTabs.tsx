@@ -32,7 +32,15 @@ const TABS: ReadonlyArray<{ scope: FeedScope; label: string }> = [
 
 export function FeedTabs({ active, onChange }: FeedTabsProps) {
   return (
-    <nav role="tablist" aria-label="Feed scope" className="flex items-center gap-1 overflow-x-auto border-b border-cardstock-edge/30">
+    <nav
+      role="tablist"
+      aria-label="Feed scope"
+      // Sticky-docks under the fixed header for free — `.bcc-col-center`
+      // (FeedView's scroll ancestor) already independent-scrolls, so no
+      // JS/IntersectionObserver is needed to pin this on scroll.
+      className="bcc-glass sticky z-30 mb-2 flex items-stretch overflow-hidden"
+      style={{ top: "var(--bcc-header-h)" }}
+    >
       {TABS.map(({ scope, label }) => {
         const isActive = scope === active;
         return (
@@ -44,8 +52,8 @@ export function FeedTabs({ active, onChange }: FeedTabsProps) {
             onClick={() => onChange(scope)}
             className={
               isActive
-                ? "bcc-stencil whitespace-nowrap border-b-2 border-safety px-2 py-2.5 text-[11px] text-cardstock sm:px-4 sm:text-sm"
-                : "bcc-stencil whitespace-nowrap border-b-2 border-transparent px-2 py-2.5 text-[11px] text-cardstock-deep/70 hover:text-cardstock sm:px-4 sm:text-sm"
+                ? "bcc-stencil flex-1 border-b-2 border-[var(--bcc-accent)] bg-[var(--bcc-accent-subtle)] px-2 py-2.5 text-center text-[11px] text-[var(--bcc-accent)] sm:text-sm"
+                : "bcc-stencil flex-1 border-b-2 border-transparent px-2 py-2.5 text-center text-[11px] text-[var(--bcc-text-secondary)] transition hover:bg-[var(--bcc-surface-active)] hover:text-[var(--bcc-text)] sm:text-sm"
             }
           >
             {label}

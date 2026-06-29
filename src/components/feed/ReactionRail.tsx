@@ -1,51 +1,73 @@
 "use client";
 
 /**
- * ReactionRail — grammar-aware reaction rail.
+ * ReactionRail — Stoke, the single forge-fire reaction. X-"like" model.
  *
- * v1.5 layered model (api-contract-v1.md §2.11): the rail branches
- * on `item.reactions.kind_grammar`. Two grammars render today:
+ * Replaces the v1.5 layered grammar (Solid/Stand-behind + Like/Love/
+ * Haha/Wow/Fire) entirely. Vouch is NOT here — it relocated to the
+ * per-author byline toggle (AuthorVouchButton, rendered in AuthorBadge)
+ * in the Phase γ cleanup and stays there.
  *
- *   - trust  — restrained, intentional. Solid / Vouch / Stand-behind.
- *              Carries the §N1 dual-label (brand + plain-English
- *              helper). Visually quiet — closer to "signing your
- *              name" than "smashing Like."
+ * Stoke is cosmetic for trust (never moves a score) but a real feed-
+ * ranking input. Two orthogonal axes, both server-driven:
+ *   - FILL = personal (`viewer_has_stoked`, boolean) — ash outline when
+ *     you haven't stoked, solid forge-orange when you have. One stoke
+ *     per person; click toggles. No multi-stoke, no cap, no double-tap.
+ *   - HEAT = aggregate (`heat_stage`, 1-5, velocity-weighted + time-
+ *     decayed) — everyone sees the same glow/color-temperature/size,
+ *     independent of whether THIS viewer has stoked. A hot post you
+ *     haven't stoked still glows warm as an outline.
  *
- *   - social — expressive, emoji-forward. Like / Love / Haha / Wow /
- *              Fire. Light hover/active scale, count chips fade on
- *              when the count is non-zero. Reduced-motion respected
- *              via `motion-safe:` variants.
+ * A richer spark burst fires on stoke-ON only; unstoke is silent (the
+ * fill just drains back to ash). Desktop-only hover flicker is gated
+ * on `(hover: hover)` in globals.css so a tap-to-hover touch browser
+ * can't get stuck mid-flicker.
  *
- *   - tribal — reserved for V2 (same_wallet, onchain_confirm, etc.).
- *              Currently renders nothing; the discriminator exists so
- *              the layered model is forward-compatible.
- *
- * Every reaction kind across all grammars writes to the same backing
- * table (peepso_reactions); the discriminator only changes which
- * kinds the rail surfaces. Per §A2, this component reads
- * `kind_grammar` from the server view-model — never derives it from
- * `post_kind` client-side.
- *
- * Behaviour (both rails):
- *   - Click an idle button → set that reaction (POST /reactions).
- *   - Click your active reaction → remove it (DELETE /reactions/:id).
- *   - Click a different button while another is active → swap.
- *     Server's set endpoint is idempotent on swap; the optimistic
- *     update flips counts in one cache mutation.
+ * Fallback: when `heat_stage`/`viewer_has_stoked`/`stoke_count` are
+ * absent (backend not shipped yet), the rail renders a flat ash/lit
+ * flame from whatever legacy reaction counts already exist — never
+ * throws, never blanks the rail.
  */
 
-import { type MouseEvent, useEffect, useRef, useState } from "react";
+import { useState, type CSSProperties, type MouseEvent } from "react";
 
-import {
-  useRemoveReactionMutation,
-  useSetReactionMutation,
-} from "@/hooks/useReactions";
-import type {
-  FeedItem,
-  ReactionKind,
-  SocialReactionKind,
-  TrustReactionKind,
-} from "@/lib/api/types";
+import { useStokeMutation, useUnstokeMutation } from "@/hooks/useStoke";
+import type { FeedItem, HeatStage } from "@/lib/api/types";
+
+interface StagePreset {
+  /** Flame icon box size, px — a tight band so the rail stays aligned with its siblings. */
+  size: number;
+  /** Heat-graded color (dark -> light forge-orange). Used as `stroke` when ash, `fill` when stoked. */
+  color: string;
+  /** Glow opacity behind the flame — public aggregate signal, independent of personal fill. */
+  glowOpacity: number;
+}
+
+const STAGE_PRESETS: Record<HeatStage, StagePreset> = {
+  1: { size: 22, color: "var(--bcc-secondary-dark)",  glowOpacity: 0.12 },
+  2: { size: 23, color: "var(--bcc-secondary-dark)",  glowOpacity: 0.20 },
+  3: { size: 24, color: "var(--bcc-secondary)",       glowOpacity: 0.28 },
+  4: { size: 25, color: "var(--bcc-secondary-light)", glowOpacity: 0.38 },
+  5: { size: 26, color: "var(--bcc-secondary-light)", glowOpacity: 0.48 },
+};
+
+/** Box the flame + glow are centered in — sized to the largest stage so the icon never clips. */
+const FLAME_BOX = 26;
+
+/** No heat_stage at all (backend not shipped) — distinct from "stage 1", which is a real (if cold) signal. */
+const FALLBACK_LIT: StagePreset = { size: 22, color: "var(--bcc-stoke-ash)", glowOpacity: 0.25 };
+const FALLBACK_DIM: StagePreset = { size: 22, color: "var(--bcc-stoke-ash)", glowOpacity: 0.12 };
+
+/** Radial spread for the stoke-ON spark burst — evenly fanned so they never stack. */
+const PARTICLE_COUNT = 7;
+const PARTICLE_RADIUS = 18;
+const PARTICLE_OFFSETS: ReadonlyArray<{ x: number; y: number }> = Array.from(
+  { length: PARTICLE_COUNT },
+  (_, i) => {
+    const angle = (i / PARTICLE_COUNT) * Math.PI * 2 - Math.PI / 2;
+    return { x: Math.round(Math.cos(angle) * PARTICLE_RADIUS), y: Math.round(Math.sin(angle) * PARTICLE_RADIUS) };
+  }
+);
 
 export function ReactionRail({
   item,
@@ -53,321 +75,163 @@ export function ReactionRail({
 }: {
   item: FeedItem;
   /**
-   * When false, the rail still renders counts + the viewer's existing
-   * reaction (read-only), but every button is `disabled` so no
-   * set/remove POST can fire. Drives the §4.7.6 non-member group teaser
-   * (the server returns 403 anyway; this hides the write affordance).
-   * Defaults to true so every other feed surface is unchanged.
+   * When false, the pill still renders the read-only fill + heat but is
+   * disabled — drives the §4.7.6 non-member group teaser. Defaults to
+   * true so every other feed surface is unchanged.
    */
   canInteract?: boolean;
 }) {
-  const grammar = item.reactions.kind_grammar;
-
-  if (grammar === "trust") {
-    return <TrustRail item={item} canInteract={canInteract} />;
-  }
-  if (grammar === "social") {
-    return <SocialRail item={item} canInteract={canInteract} />;
-  }
-  // tribal — reserved for V2; render nothing until kinds ship.
-  return null;
-}
-
-// ─────────────────────────────────────────────────────────────────────
-// Shared click-handler hook — both rails use this.
-//
-// Keeps the click semantics in one place so the trust + social rails
-// can never drift on idempotency, swap, or pending-state behaviour.
-// ─────────────────────────────────────────────────────────────────────
-
-function useReactionClick(item: FeedItem) {
-  const setMut    = useSetReactionMutation();
-  const removeMut = useRemoveReactionMutation();
-  const isPending = setMut.isPending || removeMut.isPending;
-
-  const handleClick =
-    (kind: ReactionKind) => (event: MouseEvent<HTMLButtonElement>) => {
-      // Stop propagation in case the rail ends up inside a future
-      // clickable container (e.g. card-body click navigation).
-      event.stopPropagation();
-      if (isPending) return;
-
-      if (item.reactions.viewer_reaction === kind) {
-        removeMut.mutate(item.id);
-      } else {
-        setMut.mutate({ feed_id: item.id, reaction: kind });
-      }
-    };
-
-  return { handleClick, isPending };
-}
-
-// ─────────────────────────────────────────────────────────────────────
-// Trust rail — §D5 / §N1, restrained.
-// ─────────────────────────────────────────────────────────────────────
-
-interface TrustReactionDef {
-  kind: TrustReactionKind;
-  brand: string;
-  helper: string;
-}
-
-const TRUST_REACTIONS: ReadonlyArray<TrustReactionDef> = [
-  { kind: "solid",        brand: "Solid",        helper: "Agree" },
-  // Vouch left the reaction rail: it is author credibility, not a post
-  // reaction, and now lives as the first-class per-author byline Vouch
-  // toggle (AuthorVouchButton). One vouch, one weight, per person.
-  // `Stake my rep` was retired 2026-05-13 (Phase γ UX cleanup): `stake`
-  // is a token-finance verb in crypto-native contexts. The reaction
-  // here is reputational, not financial — the new helper makes that
-  // explicit without losing the commitment escalation.
-  { kind: "stand_behind", brand: "Stand behind", helper: "Put your name on it" },
-];
-
-function TrustRail({
-  item,
-  canInteract,
-}: {
-  item: FeedItem;
-  canInteract: boolean;
-}) {
-  const { handleClick, isPending } = useReactionClick(item);
-  const viewerReaction = item.reactions.viewer_reaction;
-  const counts         = item.reactions.counts;
-  // Non-interactive (non-member teaser): disable every button. Counts +
-  // any existing viewer_reaction still render read-only.
+  const stokeMut = useStokeMutation();
+  const unstokeMut = useUnstokeMutation();
+  const heatStage = item.reactions.heat_stage;
+  const hasStoked = item.reactions.viewer_has_stoked ?? false;
+  const count = item.reactions.stoke_count ?? 0;
+  const isPending = stokeMut.isPending || unstokeMut.isPending;
   const disabled = isPending || !canInteract;
 
-  return (
-    <div className="flex flex-col gap-1.5">
-      {/* Seam-copy (Phase γ UX cleanup): the trust rail looks identical
-          to the social rail at first glance but its buttons are
-          reputationally weighted — clicks stake your name, not just
-          your mood. A single-line caption named once on first
-          encounter beats explaining it in every tooltip. The hint is
-          dismissible via sessionStorage; once acknowledged it never
-          renders again for this session. See TrustRailHint below. The
-          hint is suppressed when the viewer can't interact — there's
-          no action to caption. */}
-      {canInteract && <TrustRailHint />}
-      <div className="flex flex-wrap items-center gap-2">
-      {TRUST_REACTIONS.map(({ kind, brand, helper }) => {
-        const count    = counts[kind] ?? 0;
-        const isActive = viewerReaction === kind;
-        return (
-          <button
-            key={kind}
-            type="button"
-            onClick={handleClick(kind)}
-            disabled={disabled}
-            aria-disabled={disabled}
-            aria-pressed={isActive}
-            title={`${brand} — ${helper}`}
-            className={
-              // Touch target: min-h-[36px] hits the practical phone
-              // tap floor without making desktop feel chunky. Helpers
-              // ride visible at all widths until §N1 familiarity gates
-              // them off (the view-model doesn't yet expose the flag).
-              // Intentionally *no* hover-scale or other dopamine
-              // animation — the trust rail's job is to feel
-              // deliberate, not engagement-bait.
-              "bcc-mono inline-flex min-h-[36px] items-center gap-1.5 rounded-full border px-3 py-1.5 text-[11px] transition disabled:cursor-not-allowed " +
-              (isActive
-                ? "border-safety bg-safety/10 text-ink"
-                : "border-cardstock-edge/40 bg-cardstock text-ink-soft hover:border-cardstock-edge hover:text-ink")
-            }
-          >
-            <span className="font-medium">{brand}</span>
-            {/* Helper copy hidden at <md so the trust pills fit at 320px
-                without crowding the count and footer actions. The brand
-                + count alone communicate the action; the helper exists
-                for first-time-user clarity on desktop. */}
-            <span className="hidden md:inline text-ink-soft/70 italic">{helper}</span>
-            {count > 0 && (
-              <span className={isActive ? "text-ink" : "text-ink-soft/80"}>
-                {count}
-              </span>
-            )}
-          </button>
-        );
-      })}
-      </div>
-    </div>
-  );
-}
+  const preset =
+    heatStage !== undefined
+      ? STAGE_PRESETS[heatStage]
+      : hasAnyLegacyEngagement(item)
+        ? FALLBACK_LIT
+        : FALLBACK_DIM;
 
-// ─────────────────────────────────────────────────────────────────────
-// TrustRailHint — one-line first-encounter caption above the trust rail.
-//
-// Phase γ UX cleanup found the trust grammar (Solid / Vouch / Stand behind)
-// silently swaps in over the social grammar (Like / Love / Haha / Wow /
-// Fire) based on `post_kind`. The seam is invisible; users tap what
-// looks like a social reaction and instead stake their reputation.
-//
-// Mitigation: a single sentence rendered once per session above the
-// first trust rail the viewer encounters. Sessionstorage-gated so it
-// doesn't follow them around the feed. Reduced-motion respected by
-// having no animation at all — it just renders or doesn't.
-//
-// On-purpose constraints:
-//   - No close button; clicking the rail dismisses it implicitly.
-//   - sessionStorage write is try/catched (Safari private mode, etc.);
-//     a failed write means the hint shows on the next post too, which
-//     is acceptable.
-//   - Anonymous viewers see it the same way; sessionStorage scope
-//     covers them fine.
-// ─────────────────────────────────────────────────────────────────────
+  const [burstKey, setBurstKey] = useState(0);
 
-const TRUST_RAIL_HINT_KEY = "bcc.trust_rail_hint_seen";
+  const handleClick = (event: MouseEvent<HTMLButtonElement>) => {
+    // Stop propagation so the card's whole-body click-to-navigate
+    // handler never sees this — it already excludes `button` targets,
+    // but this keeps the toggle unambiguously scoped to the pill.
+    event.stopPropagation();
+    if (disabled) return;
 
-function TrustRailHint() {
-  const [dismissed, setDismissed] = useState(() => {
-    if (typeof window === "undefined") return true;
-    try {
-      return window.sessionStorage.getItem(TRUST_RAIL_HINT_KEY) === "1";
-    } catch {
-      return false;
+    if (hasStoked) {
+      unstokeMut.mutate(item.id);
+      return;
     }
-  });
-
-  if (dismissed) return null;
-
-  const dismiss = () => {
-    setDismissed(true);
-    try {
-      window.sessionStorage.setItem(TRUST_RAIL_HINT_KEY, "1");
-    } catch {
-      // Safari private mode etc. — non-fatal; hint will reappear.
-    }
+    setBurstKey((k) => k + 1);
+    stokeMut.mutate(item.id);
   };
 
   return (
-    <p
-      className="bcc-mono text-[10px] tracking-[0.16em] text-ink-soft/70"
-      onClick={dismiss}
+    <button
+      type="button"
+      onClick={handleClick}
+      disabled={disabled}
+      aria-disabled={disabled}
+      aria-pressed={hasStoked}
+      aria-label={hasStoked ? "Stoked — tap to remove" : "Stoke"}
+      title={hasStoked ? "Stoked — tap to remove" : "Stoke"}
+      className="bcc-stoke-button relative inline-flex min-h-[36px] items-center gap-1 rounded-full px-1.5 disabled:cursor-not-allowed"
     >
-      TRUST SIGNAL · CLICKS HERE PUT YOUR NAME ON IT.
-    </p>
+      <span className="relative inline-flex items-center justify-center" style={{ width: FLAME_BOX, height: FLAME_BOX }}>
+        <span
+          aria-hidden
+          className="bcc-stoke-glow pointer-events-none absolute rounded-full"
+          style={
+            {
+              width: preset.size * 1.3,
+              height: preset.size * 1.3,
+              background: "var(--bcc-secondary-glow)",
+              filter: "blur(3px)",
+              opacity: preset.glowOpacity,
+              transition: "opacity 200ms ease",
+              "--bcc-stoke-hover-opacity": Math.min(1, preset.glowOpacity + 0.2),
+            } as CSSProperties
+          }
+        />
+        {burstKey > 0 && (
+          <span
+            key={`burst-glow-${burstKey}`}
+            aria-hidden
+            className="bcc-stoke-burst-glow pointer-events-none absolute rounded-full motion-safe:animate-[bcc-stoke-burst-glow_650ms_ease-out]"
+            style={{
+              width: preset.size * 2.8,
+              height: preset.size * 2.8,
+              background: "var(--bcc-secondary-glow)",
+              filter: "blur(8px)",
+              // Resting opacity 0 so once the one-shot burst ends (no
+              // `forwards` fill-mode) it reverts to invisible instead of
+              // latching a permanent glow on every card stoked this session.
+              opacity: 0,
+            }}
+          />
+        )}
+        <FlameIcon
+          key={`flame-${burstKey}`}
+          size={preset.size}
+          color={preset.color}
+          outline={!hasStoked}
+          className={
+            "bcc-stoke-flame " +
+            (burstKey > 0 ? "motion-safe:animate-[bcc-stoke-burst-scale_650ms_ease-out]" : "")
+          }
+        />
+        {burstKey > 0 &&
+          PARTICLE_OFFSETS.map((offset, i) => (
+            <span
+              key={`particle-${burstKey}-${i}`}
+              aria-hidden
+              className="pointer-events-none absolute h-1 w-1 rounded-full motion-safe:animate-[bcc-stoke-particle_650ms_ease-out]"
+              style={
+                {
+                  background: "var(--bcc-secondary-light)",
+                  // Same reason as the burst glow: rest invisible so spent
+                  // sparks don't revert to opacity 1 stuck behind the flame.
+                  opacity: 0,
+                  "--bcc-stoke-particle-x": `${offset.x}px`,
+                  "--bcc-stoke-particle-y": `${offset.y}px`,
+                } as CSSProperties
+              }
+            />
+          ))}
+      </span>
+      {count > 0 && (
+        <span
+          className="bcc-mono text-[11px]"
+          style={{ color: hasStoked ? preset.color : "var(--bcc-text-secondary)" }}
+        >
+          {count}
+        </span>
+      )}
+    </button>
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────
-// Social rail — v1.5 culture-formation grammar, expressive.
-// ─────────────────────────────────────────────────────────────────────
-
-interface SocialReactionDef {
-  kind: SocialReactionKind;
-  emoji: string;
-  label: string;
+/** Fallback signal when `heat_stage` hasn't shipped: any existing reaction count at all lights the flame. */
+function hasAnyLegacyEngagement(item: FeedItem): boolean {
+  return Object.values(item.reactions.counts).some((count) => count > 0);
 }
 
-const SOCIAL_REACTIONS: ReadonlyArray<SocialReactionDef> = [
-  { kind: "like", emoji: "👍", label: "Like" },
-  { kind: "love", emoji: "❤️", label: "Love" },
-  { kind: "haha", emoji: "😂", label: "Haha" },
-  { kind: "wow",  emoji: "😮", label: "Wow"  },
-  { kind: "fire", emoji: "🔥", label: "Fire" },
-];
-
-function SocialRail({
-  item,
-  canInteract,
+function FlameIcon({
+  size,
+  color,
+  outline,
+  className = "",
 }: {
-  item: FeedItem;
-  canInteract: boolean;
+  size: number;
+  color: string;
+  /** true = ash outline (not stoked); false = solid fill (stoked). */
+  outline: boolean;
+  className?: string;
 }) {
-  const { handleClick, isPending } = useReactionClick(item);
-  const viewerReaction = item.reactions.viewer_reaction;
-  const counts         = item.reactions.counts;
-  // Non-interactive (non-member teaser): disable every button. Counts +
-  // any existing viewer_reaction still render read-only.
-  const disabled = isPending || !canInteract;
-
   return (
-    <div className="flex flex-wrap items-center gap-1">
-      {SOCIAL_REACTIONS.map(({ kind, emoji, label }) => {
-        const count    = counts[kind] ?? 0;
-        const isActive = viewerReaction === kind;
-        return (
-          <button
-            key={kind}
-            type="button"
-            onClick={handleClick(kind)}
-            disabled={disabled}
-            aria-disabled={disabled}
-            aria-pressed={isActive}
-            aria-label={label}
-            title={label}
-            className={
-              // Emoji-forward, narrower padding — fits 5 reactions in
-              // the same horizontal space the trust rail uses for 3.
-              //
-              // Sprint 2 constitutional revision: hover-scale removed.
-              // Hover-scale primes the hand the way generic-social apps
-              // do — it solicits the click before the operator has
-              // committed. Active-scale on click stays (it's
-              // user-initiated feedback for a deliberate action, not
-              // solicitation). The hover background change is the
-              // ambient acknowledgment.
-              "inline-flex min-h-[36px] items-center gap-1 rounded-full px-2.5 py-1 text-sm transition disabled:cursor-not-allowed motion-safe:active:scale-95 " +
-              (isActive
-                ? "bg-cardstock text-ink ring-1 ring-safety/50"
-                : "text-ink-soft hover:bg-cardstock/60 hover:text-ink")
-            }
-          >
-            <span className="text-base leading-none">{emoji}</span>
-            {count > 0 && <ReactionCount count={count} />}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
-// ─────────────────────────────────────────────────────────────────────
-// ReactionCount — renders the count chip and runs the bcc-count-bump
-// keyframe (globals.css) when the value ticks UP. Removals don't
-// celebrate.
-//
-// The component is conditionally mounted only when `count > 0`, so
-// "first reaction" (0 → 1) is a fresh mount. Initializing prevRef to
-// `count - 1` makes that first mount register as an increment and fire
-// the bump — which is the user's most meaningful click on this post,
-// the one most worth confirming. Subsequent in-place increments
-// (1 → 2 → 3) compare against the prior render's value normally.
-//
-// `key={count}` forces the inner span to remount on every change,
-// which is the most reliable way to re-trigger a one-shot CSS
-// animation. The motion-safe: prefix keeps it off entirely on
-// reduced-motion systems (the global override at globals.css:115
-// would also neutralize the animation, but the prefix avoids
-// painting the class at all).
-// ─────────────────────────────────────────────────────────────────────
-
-function ReactionCount({ count }: { count: number }) {
-  const prevRef = useRef<number>(count - 1);
-  const [shouldBump, setShouldBump] = useState(false);
-
-  useEffect(() => {
-    if (count > prevRef.current) {
-      setShouldBump(true);
-    } else {
-      setShouldBump(false);
-    }
-    prevRef.current = count;
-  }, [count]);
-
-  return (
-    <span
-      key={count}
-      className={
-        "bcc-mono text-[10px] text-ink-soft/80 inline-block " +
-        (shouldBump
-          ? "motion-safe:animate-[bcc-count-bump_280ms_ease-out]"
-          : "")
-      }
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      aria-hidden
+      className={className}
+      style={{ transition: "width 200ms ease, height 200ms ease" }}
     >
-      {count}
-    </span>
+      <path
+        d="M12 2c1.2 2.6-0.4 4-1.4 5.4C9.4 8.8 8 10.4 8 12.8c0 .9.2 1.7.6 2.4-1-.5-1.8-1.4-2.2-2.6-.7 1-1.1 2.2-1.1 3.5 0 3.3 2.9 6 6.7 6s6.7-2.7 6.7-6c0-2.6-1-4.3-2.3-5.9.1.8.1 1.6-.1 2.3-.4-2.6-1.9-4.6-3.5-6.2C13.6 5.3 12.7 3.7 12 2Z"
+        fill={outline ? "none" : color}
+        stroke={outline ? color : "none"}
+        strokeWidth={outline ? 1.6 : 0}
+        strokeLinejoin="round"
+      />
+    </svg>
   );
 }

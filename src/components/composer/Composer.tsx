@@ -48,8 +48,6 @@
  */
 
 import { useMemo, useState } from "react";
-import Link from "next/link";
-import type { Route } from "next";
 import { useQueryClient } from "@tanstack/react-query";
 
 import { useCreatePostMutation } from "@/hooks/useCreatePost";
@@ -63,6 +61,7 @@ import {
   useComposerState,
 } from "@/components/composer/useComposerState";
 import { humanizeError } from "@/components/composer/useComposerSubmit";
+import { RankChip } from "@/components/profile/RankChip";
 import { Dialog } from "@/components/ui/Dialog";
 import { humanizeCode } from "@/lib/api/errors";
 import { createReview } from "@/lib/api/posts-endpoints";
@@ -70,6 +69,7 @@ import {
   MENTIONS_PER_POST_MAX,
   REVIEW_BODY_MAX_LENGTH,
   STATUS_POST_MAX_LENGTH,
+  type CardTier,
   type GroupPostVisibility,
   type ReviewGrade,
 } from "@/lib/api/types";
@@ -100,8 +100,24 @@ export interface ComposerProps {
   reviewTargetName?: string;
   /** "inline" embeds in the page; "modal" wraps in a fixed-position overlay with backdrop + close. */
   variant?: ComposerVariant;
-  /** Required when variant === "modal". Called on dismiss + on success. */
+  /** Called on dismiss + on success. Required when variant === "modal"; inline callers pass it when they're hosting the composer inside their own Dialog (e.g. the New Post modal — see NewPostTrigger). */
   onClose?: () => void;
+  /**
+   * Inline variant only — mounts already expanded (textarea visible)
+   * instead of the idle collapsed row. Used by NewPostTrigger's modal
+   * and by the homepage's own `?compose=1` deep link (e.g. after a
+   * guest signs in from the New Post redirect).
+   */
+  startExpanded?: boolean;
+  /**
+   * Inline variant only — drops the homepage-specific outer margin/
+   * page-gutter since a host container (e.g. Dialog) already supplies
+   * width/inset. Independent of `startExpanded`: the homepage's
+   * `?compose=1` deep link wants startExpanded WITHOUT hosted (it's
+   * still laid out on the page, not inside a modal). Used by
+   * NewPostTrigger's modal.
+   */
+  hosted?: boolean;
   /**
    * Inline-variant props for the collapsed-row identity treatment.
    * All optional — when missing, the composer falls back to a quiet
@@ -112,6 +128,16 @@ export interface ComposerProps {
   viewerAvatarUrl?: string | undefined;
   viewerHandle?: string | undefined;
   viewerDisplayName?: string | null | undefined;
+  /**
+   * §C1 card-tier slug + pre-rendered tier/rank labels for the
+   * collapsed card's identity header (avatar + RankChip). Sourced
+   * from the same MemberProfile fields the old FloorBriefing
+   * IdentityRow used. Omitted entirely → header renders avatar +
+   * name only, no RankChip.
+   */
+  viewerCardTier?: CardTier | undefined;
+  viewerTierLabel?: string | null | undefined;
+  viewerRankLabel?: string | undefined;
   /**
    * §4.7.6 — when present and > 0, posts authored from this composer
    * land inside that PeepSo group's wall (server sets `peepso_group_id`
@@ -146,9 +172,14 @@ export function Composer({
   reviewTargetName,
   variant = "inline",
   onClose,
+  startExpanded,
+  hosted,
   viewerAvatarUrl,
   viewerHandle,
   viewerDisplayName,
+  viewerCardTier,
+  viewerTierLabel,
+  viewerRankLabel,
   groupId,
   groupScopeLabel,
 }: ComposerProps) {
@@ -177,8 +208,14 @@ export function Composer({
         viewerAvatarUrl={viewerAvatarUrl}
         viewerHandle={viewerHandle}
         viewerDisplayName={viewerDisplayName ?? null}
+        viewerCardTier={viewerCardTier ?? null}
+        viewerTierLabel={viewerTierLabel ?? null}
+        viewerRankLabel={viewerRankLabel ?? ""}
         groupId={scopedGroupId}
         groupScopeLabel={groupScopeLabel}
+        startExpanded={startExpanded}
+        hosted={hosted}
+        onClose={onClose}
       />
     );
   }
@@ -229,6 +266,12 @@ interface InlineStatusComposerProps {
   viewerAvatarUrl: string | undefined;
   viewerHandle: string | undefined;
   viewerDisplayName: string | null;
+  /** §C1 card-tier slug for the identity header's Avatar tint + RankChip rail. */
+  viewerCardTier: CardTier;
+  /** Pre-rendered §A2 tier display string, sr-only/tooltip only on RankChip. */
+  viewerTierLabel: string | null;
+  /** Pre-rendered rank display string. Empty → RankChip omitted. */
+  viewerRankLabel: string;
   /**
    * §4.7.6 — when present, every submit (status / photo / GIF) carries
    * `group_id` so the post lands inside that group's wall. Membership
@@ -239,11 +282,31 @@ interface InlineStatusComposerProps {
   groupId: number | undefined;
   /** Optional kicker copy rendered above the placeholder when group-scoped. */
   groupScopeLabel: string | undefined;
+  /** See ComposerProps.startExpanded. */
+  startExpanded?: boolean | undefined;
+  /** See ComposerProps.hosted. */
+  hosted?: boolean | undefined;
+  /** See ComposerProps.onClose. */
+  onClose?: (() => void) | undefined;
 }
 
 // Sprint 2 civic prompts + the §3.3.12 mention listbox id moved to
 // useComposerState.ts in the Phase 3.3 split — they're part of the
 // state machine's vocabulary and are re-imported above for the JSX.
+
+// Seed/wallet-provisioned accounts carry WordPress's default
+// display_name == user_login == "u_<handle>". Strip that artifact
+// prefix wherever a display name or handle becomes user-facing text.
+function stripSeedPrefix(value: string): string {
+  return value.startsWith("u_") ? value.slice(2) : value;
+}
+
+// Render-only — leaves the rest of the string untouched (no full
+// title-casing), so e.g. "tiamiyu" -> "Tiamiyu" but "u_van halen" ->
+// "Van halen".
+function capitalizeFirst(value: string): string {
+  return value === "" ? value : value.charAt(0).toUpperCase() + value.slice(1);
+}
 
 // §4.7.6 — group-post visibility options. Static copy only; the wire
 // value (`key`) is forwarded verbatim and the server owns enforcement.
@@ -273,8 +336,14 @@ function InlineStatusComposer({
   viewerAvatarUrl,
   viewerHandle,
   viewerDisplayName,
+  viewerCardTier,
+  viewerTierLabel,
+  viewerRankLabel,
   groupId,
   groupScopeLabel,
+  startExpanded,
+  hosted,
+  onClose,
 }: InlineStatusComposerProps) {
   // Phase 3.3 split — the entire form state machine (expand/collapse,
   // prompt rotation, body + validation, photo/GIF attachment slots,
@@ -285,7 +354,6 @@ function InlineStatusComposer({
     setExpanded,
     promptIndex,
     setPromptPaused,
-    animatedOpen,
     content,
     setContent,
     error,
@@ -328,384 +396,529 @@ function InlineStatusComposer({
     hasGif,
     hasAttachment,
     placeholder,
-  } = useComposerState({ groupId });
+  } = useComposerState({ groupId, initialExpanded: startExpanded, onClose });
+
+  // Identity-header label for the collapsed card: display name, else
+  // handle, else nothing (bare-mount call sites like ActivityPanel pass
+  // neither — the header degrades to avatar-only). Seed/wallet-provisioned
+  // accounts ship WordPress's default display_name == user_login ==
+  // "u_<handle>" until the member sets a real display name — strip that
+  // artifact prefix so the header never shows a raw "u_" username.
+  const identityLabel = capitalizeFirst(
+    viewerDisplayName !== null && viewerDisplayName !== ""
+      ? stripSeedPrefix(viewerDisplayName)
+      : viewerHandle !== undefined && viewerHandle !== ""
+        ? stripSeedPrefix(viewerHandle)
+        : "",
+  );
+  const hasRank = viewerRankLabel !== "";
 
   return (
     <section
       ref={containerRef}
-      className="mx-auto max-w-2xl px-4 sm:px-8"
+      // hosted implies a host container (e.g. Dialog) already supplies
+      // width/inset — skip the homepage outer margin/gutter.
+      className={"w-full " + (hosted === true ? "" : "mx-auto mt-2 max-w-3xl px-2 sm:mt-4 sm:px-3")}
       aria-label="Compose a status post"
     >
-      {!expanded ? (
-        // ────── Collapsed / idle state ─────────────────────────────
-        // Sprint 2 — "the room acknowledged the operator":
-        //   - Viewer Avatar at left anchors the row in identity.
-        //   - Hairline phosphor ring appears on hover/focus, not on
-        //     idle. The row is quiet until the operator looks at it.
-        //   - Single prompt rotates every 18s (group composer pins
-        //     "Post to this group…" — group context is the prompt).
-        //     Rotation halts while paused (hover/focus) so the
-        //     operator never has to read a moving target.
-        <button
-          type="button"
-          onClick={() => setExpanded(true)}
-          onMouseEnter={() => setPromptPaused(true)}
-          onMouseLeave={() => setPromptPaused(false)}
-          onFocus={() => setPromptPaused(true)}
-          onBlur={() => setPromptPaused(false)}
-          className="flex w-full items-center gap-3 border-y border-cardstock/10 bg-transparent px-1 py-3 text-left transition hover:bg-cardstock/5 hover:shadow-[inset_0_0_0_1px_rgba(125,255,154,0.18)] focus-visible:bg-cardstock/5 focus-visible:shadow-[inset_0_0_0_1px_rgba(125,255,154,0.28)] focus-visible:outline-none motion-safe:transition-shadow motion-safe:duration-200"
-        >
-          <Avatar
-            avatarUrl={
-              viewerAvatarUrl !== undefined && viewerAvatarUrl !== ""
-                ? viewerAvatarUrl
-                : null
-            }
-            handle={viewerHandle ?? ""}
-            displayName={viewerDisplayName}
-            size="md"
-            variant="rounded"
-          />
-          <span className="flex flex-col">
-            {groupScopeLabel !== undefined && groupScopeLabel !== "" && (
-              <span
-                className="bcc-mono text-cardstock-deep/80"
-                style={{ fontSize: "9px", letterSpacing: "0.24em" }}
-              >
-                {groupScopeLabel}
-              </span>
-            )}
-            <span
-              key={promptIndex}
-              className="font-serif italic text-cardstock-deep/75 motion-safe:animate-[bcc-fade-in_360ms_ease-out]"
-            >
-              {groupId !== undefined
-                ? "Post to this group…"
-                : COMPOSER_PROMPTS[promptIndex] ?? COMPOSER_PROMPTS[0]}
-            </span>
+      {/*
+        Composer-as-card: a single persistent bcc-panel that never
+        unmounts across collapsed/expanded. An inner card holds the
+        shared identity row (avatar + name + rank chip) plus the prompt
+        row; the prompt row and the form below the inner card each
+        animate open via a CSS grid 0fr<->1fr row (an "accordion"), so
+        expand/collapse reads as one card opening, not two surfaces
+        swapping. motion-safe gates the transition; reduced-motion users
+        get an instant swap to the same end state.
+      */}
+      <div
+        className={
+          "bcc-panel flex flex-col rounded-2xl p-2 shadow-[var(--bcc-shadow-md)] transition-colors sm:p-3 " +
+          (expanded ? "gap-2" : "gap-0 sm:gap-2") + " " +
+          (hasAttachment ? "border-blueprint/40" : "")
+        }
+      >
+        {groupScopeLabel !== undefined && groupScopeLabel !== "" && (
+          <span
+            className="bcc-mono text-cardstock-deep/80"
+            style={{ fontSize: "9px", letterSpacing: "0.24em" }}
+          >
+            {groupScopeLabel}
           </span>
-        </button>
-      ) : (
-        // ────── Expanded state ──────────────────────────────────────
-        // Slight elevation via a thin border + faint background.
-        // No cardstock cream surface — stays in the dark zone so
-        // the composer never visually competes with the cream feed
-        // cards below it.
-        <form
-          onSubmit={handleSubmit}
+        )}
+
+        <div
           className={
-            "flex flex-col gap-3 border-y bg-cardstock/5 px-3 py-3 transition-colors sm:px-4 " +
-            // Visual-shift on attachment: warmer border accent signals
-            // "this post now contains media" without going loud.
-            (hasAttachment
-              ? "border-blueprint/40 "
-              : "border-cardstock-edge/30 ") +
-            // Expand-in transition. Starts collapsed (max-h-0,
-            // opacity-0) on mount and flips open after the first
-            // paint via the `animatedOpen` rAF effect above. The
-            // 400px ceiling covers the 280-char status post; longer
-            // overflow is an acceptable one-frame artifact (see plan
-            // risks). motion-safe gates the entire treatment so
-            // reduced-motion users get the instant swap.
-            "motion-safe:overflow-hidden motion-safe:transition-[max-height,opacity] motion-safe:duration-200 motion-safe:ease-out " +
-            (animatedOpen
-              ? "motion-safe:max-h-[400px] motion-safe:opacity-100"
-              : "motion-safe:max-h-0 motion-safe:opacity-0")
+            "flex flex-col rounded-xl bg-[var(--bcc-surface-raised)] p-2 transition-colors sm:p-3 " +
+            (expanded ? "" : "cursor-pointer hover:bg-[var(--bcc-surface-active)]")
           }
+          onClick={() => {
+            if (!expanded) setExpanded(true);
+          }}
         >
-          <header className="flex items-center gap-3">
-            <Avatar
-              avatarUrl={
-                viewerAvatarUrl !== undefined && viewerAvatarUrl !== ""
-                  ? viewerAvatarUrl
-                  : null
-              }
-              handle={viewerHandle ?? ""}
-              displayName={viewerDisplayName}
-              size="sm"
-              variant="rounded"
-            />
-            <span className="bcc-mono text-[11px] tracking-[0.18em] text-cardstock-deep">
-              {viewerDisplayName !== null && viewerDisplayName !== ""
-                ? viewerDisplayName.toUpperCase()
-                : viewerHandle !== undefined && viewerHandle !== ""
-                  ? `@${viewerHandle.toUpperCase()}`
-                  : "POSTING"}
-            </span>
-            <button
-              type="button"
-              onClick={dismiss}
-              aria-label="Close composer"
-              className="bcc-mono ml-auto text-[10px] tracking-[0.24em] text-cardstock-deep/70 hover:text-cardstock"
-            >
-              ESC
-            </button>
-          </header>
-
-          <label htmlFor="composer-status-content" className="sr-only">
-            {placeholder}
-          </label>
-          <textarea
-            id="composer-status-content"
-            ref={textareaRef}
-            value={content}
-            onChange={(e) => {
-              setContent(e.target.value);
-              setCaretPos(e.target.selectionEnd);
-              if (error !== null) setError(null);
-            }}
-            // §3.3.12 — keep caretPos in lockstep with the textarea
-            // so the mention-trigger detector reflects arrow-key
-            // movement / mouse drag-positioning / focus restore.
-            onSelect={syncCaretFromEvent}
-            // §3.3.12 — atomic-token Backspace / Delete. The handler
-            // returns early on non-Backspace/Delete keys, so other
-            // bindings (Enter, etc.) still fall through to default.
-            onKeyDown={handleTextareaKeyDown}
-            placeholder={placeholder}
-            rows={3}
-            maxLength={STATUS_POST_MAX_LENGTH + 100}
-            disabled={isPending}
-            // ARIA combobox role wires the textarea to the popover
-            // listbox so screen readers narrate "X of N" as the user
-            // arrows through suggestions. The popover only mounts
-            // when mentionPickerOpen is true; aria-expanded mirrors.
-            // aria-activedescendant points at the currently-active
-            // option's DOM id (reported back from MentionPopover) so
-            // SR users hear the focused row as they arrow.
-            role="combobox"
-            aria-autocomplete="list"
-            aria-expanded={mentionPickerOpen}
-            aria-controls={MENTION_LISTBOX_ID}
-            aria-activedescendant={mentionActiveOptionId ?? undefined}
-            className="w-full resize-none bg-transparent font-serif text-base text-cardstock placeholder:text-cardstock-deep/40 focus:outline-none disabled:opacity-60"
-          />
-
-          {/*
-            §3.3.12 mention popover — mounts directly under the
-            textarea when the trigger is active. Anchored to the
-            composer container so outside-click detection treats the
-            whole composer surface as "inside" (clicking back into
-            the textarea preserves the picker). Listbox id is the
-            same constant the textarea points `aria-controls` at.
-          */}
-          {mentionPickerOpen && (
-            <MentionPopover
-              query={mentionTrigger.active ? mentionTrigger.query : ""}
-              open={mentionPickerOpen}
-              onSelect={handleMentionSelect}
-              onClose={closeMentionPicker}
-              anchorRef={containerRef}
-              listboxId={MENTION_LISTBOX_ID}
-              onActiveOptionChange={setMentionActiveOptionId}
-            />
-          )}
-
-          {hasPhoto && previewUrl !== null && (
-            <PhotoPicker
-              previewUrl={previewUrl}
-              altText={altText}
-              onAltTextChange={setAltText}
-              onRemove={clearAttachment}
-              disabled={isPending}
-            />
-          )}
-
-          {hasGif && selectedGif !== null && (
-            <div className="relative inline-flex w-fit">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={selectedGif.preview_url}
-                alt=""
-                decoding="async"
-                className="h-24 w-24 rounded-sm border border-cardstock-edge/40 object-cover"
+          <div className={(expanded ? "flex" : "hidden sm:flex") + " items-center justify-between gap-3 pb-2"}>
+            <div className="flex items-center gap-2.5">
+              <Avatar
+                avatarUrl={
+                  viewerAvatarUrl !== undefined && viewerAvatarUrl !== ""
+                    ? viewerAvatarUrl
+                    : null
+                }
+                handle={viewerHandle ?? ""}
+                displayName={viewerDisplayName}
+                size="md"
+                variant="rounded"
+                tier={viewerCardTier ?? undefined}
+                // Accent glow ring, matching the header avatar and the
+                // sidebar's Newest Members / Suggested widgets.
+                ringColor="var(--bcc-accent)"
               />
-              <button
-                type="button"
-                onClick={clearGif}
-                aria-label="Remove GIF"
-                className="bcc-mono absolute -right-1.5 -top-1.5 inline-flex h-5 w-5 items-center justify-center rounded-full border border-cardstock-edge/60 bg-ink text-[10px] leading-none text-cardstock hover:bg-safety hover:text-cardstock"
-                title="Remove GIF"
-              >
-                ×
-              </button>
-            </div>
-          )}
-
-          {gifPickerOpen && giphyConfig.data?.enabled === true && (
-            <GifPicker
-              config={giphyConfig.data}
-              onSelect={handleGifSelect}
-              onClose={() => setGifPickerOpen(false)}
-            />
-          )}
-
-          {error !== null && (
-            <p role="alert" className="bcc-mono text-[11px] text-safety">
-              {error}
-            </p>
-          )}
-
-          {/*
-            §4.7.6 — group-post visibility selector. Only rendered for
-            group-scoped composers; the global composer has no group to
-            scope visibility against, so the field never surfaces (and is
-            never sent). Mirrors the ReviewForm grade-picker pattern.
-          */}
-          {groupId !== undefined && (
-            <fieldset className="flex flex-col gap-2">
-              <legend className="bcc-mono text-[10px] tracking-[0.18em] text-cardstock-deep/80">
-                VISIBILITY
-              </legend>
-              <div className="grid gap-2 md:grid-cols-3">
-                {VISIBILITY_OPTIONS.map((opt) => {
-                  const active = visibility === opt.key;
-                  return (
-                    <button
-                      key={opt.key}
-                      type="button"
-                      onClick={() => setVisibility(opt.key)}
-                      aria-pressed={active}
+              {(identityLabel !== "" || hasRank || expanded) && (
+                <div className="flex h-9 flex-col justify-between">
+                  {identityLabel !== "" && (
+                    <span
                       className={
-                        "rounded-sm border px-3 py-3 text-left transition motion-reduce:transition-none " +
-                        (active
-                          ? "border-cardstock bg-cardstock/10"
-                          : "border-cardstock-edge/30 bg-cardstock/[0.03] hover:border-cardstock-edge/60")
+                        "bcc-mono text-[12px] font-semibold tracking-[0.04em] text-[var(--bcc-text)] " +
+                        (expanded ? "" : "hidden sm:inline")
                       }
                     >
-                      <span className="bcc-stencil block text-[12px] tracking-[0.2em] text-cardstock">
-                        {opt.label}
-                      </span>
-                      <span className="mt-1 block font-serif text-[13px] text-cardstock-deep/80">
-                        {opt.description}
-                      </span>
+                      {identityLabel}
+                    </span>
+                  )}
+                  {!expanded && hasRank && (
+                    <span className="hidden sm:inline-flex">
+                      <RankChip
+                        cardTier={viewerCardTier ?? null}
+                        tierLabel={viewerTierLabel ?? null}
+                        rankLabel={viewerRankLabel}
+                        size="micro"
+                        className="self-start"
+                      />
+                    </span>
+                  )}
+                  {expanded && (
+                    // Design-only stub — where this post will be published.
+                    // Not wired to any destination/visibility logic yet;
+                    // revisit once the backend has a "post destinations"
+                    // contract (see [[project-homepage-redesign]] deferred
+                    // follow-up on the composer post-type/destination switcher).
+                    <button
+                      type="button"
+                      aria-label="Post destination: the Floor"
+                      title="Post destination (coming soon)"
+                      className="bcc-mono inline-flex w-fit items-center gap-1 self-start rounded-full bg-[var(--bcc-surface-active)] px-2 py-[3px] text-[9px] tracking-[0.18em] text-[var(--bcc-text-secondary)] transition hover:bg-[var(--bcc-surface-hover)] hover:text-[var(--bcc-text)]"
+                    >
+                      FLOOR
+                      <svg width="8" height="8" viewBox="0 0 8 8" fill="none" aria-hidden>
+                        <path
+                          d="M1.5 3L4 5.5L6.5 3"
+                          stroke="currentColor"
+                          strokeWidth="1.2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
                     </button>
-                  );
-                })}
-              </div>
-            </fieldset>
-          )}
-
-          <footer className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-4">
-              {/* 📷 attach affordance — leftmost in the footer per the
-                  "attachment belongs closer to creation than publishing"
-                  product call. Triggers the hidden file input. The
-                  button is disabled while a write is in flight so a
-                  user can't swap files mid-upload. */}
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={isPending}
-                aria-label={hasPhoto ? "Replace photo" : "Attach a photo"}
-                title={hasPhoto ? "Replace photo" : "Attach a photo"}
-                className={
-                  "inline-flex h-7 w-7 items-center justify-center rounded-full border text-base leading-none transition disabled:cursor-not-allowed disabled:opacity-50 " +
-                  (hasPhoto
-                    ? "border-blueprint/60 bg-cardstock/10 text-cardstock"
-                    : "border-cardstock-edge/40 text-cardstock-deep/80 hover:border-cardstock-edge hover:text-cardstock")
-                }
-              >
-                <span aria-hidden>📷</span>
-              </button>
-              {/* GIF button — only mounts when the integration is
-                  enabled. Toggles the inline picker. Disabled while a
-                  write is in flight, same as 📷. */}
-              {giphyEnabled && (
-                <button
-                  type="button"
-                  onClick={() => setGifPickerOpen((open) => !open)}
-                  disabled={isPending}
-                  aria-label={hasGif ? "Replace GIF" : "Attach a GIF"}
-                  aria-expanded={gifPickerOpen}
-                  title={hasGif ? "Replace GIF" : "Attach a GIF"}
-                  className={
-                    "bcc-mono inline-flex h-7 items-center rounded-full border px-2 text-[10px] tracking-[0.18em] transition disabled:cursor-not-allowed disabled:opacity-50 " +
-                    (hasGif || gifPickerOpen
-                      ? "border-blueprint/60 bg-cardstock/10 text-cardstock"
-                      : "border-cardstock-edge/40 text-cardstock-deep/80 hover:border-cardstock-edge hover:text-cardstock")
-                  }
-                >
-                  GIF
-                </button>
-              )}
-              <span
-                className={
-                  "bcc-mono text-[11px] " +
-                  (overCap
-                    ? "text-safety"
-                    : length > STATUS_POST_MAX_LENGTH - 50
-                      ? "text-warning"
-                      : "text-cardstock-deep/60")
-                }
-              >
-                {length} / {STATUS_POST_MAX_LENGTH}
-                {hasPhoto && (
-                  <span className="ml-2 text-cardstock-deep/80">· 1 photo</span>
-                )}
-                {hasGif && (
-                  <span className="ml-2 text-cardstock-deep/80">· 1 GIF</span>
-                )}
-                {mentionRanges.length > 0 && (
-                  <span
-                    className={`ml-2 ${overMentionCap ? "text-safety" : "text-cardstock-deep/80"}`}
-                  >
-                    · {mentionRanges.length} / {MENTIONS_PER_POST_MAX} mentions
-                  </span>
-                )}
-              </span>
-              {/*
-                §4.7.6 — long-form blogs are personal-wall content in
-                V1; the blog tab's CREATE sub-tab has no group-scope
-                concept. Tucking the escalation link when the composer
-                is group-scoped avoids surfacing a path that would
-                silently drop the group affiliation. Also requires
-                viewerHandle so the deep-link can target the author's
-                own blog page.
-              */}
-              {groupId === undefined &&
-                viewerHandle !== undefined &&
-                viewerHandle !== "" && (
-                <Link
-                  href={`/u/${viewerHandle}?tab=blog&blogsub=create` as Route}
-                  className="bcc-mono text-[11px] tracking-[0.18em] text-cardstock-deep/80 hover:text-cardstock hover:underline"
-                >
-                  Long-form →
-                </Link>
+                  )}
+                </div>
               )}
             </div>
+            {expanded && (
+              <button
+                type="button"
+                onClick={dismiss}
+                aria-label="Discard draft"
+                title="Discard draft"
+                className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[var(--bcc-text-secondary)] transition hover:bg-[var(--bcc-surface-hover)] hover:text-[var(--bcc-text)]"
+              >
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden>
+                  <path
+                    d="M3 3L13 13M13 3L3 13"
+                    stroke="currentColor"
+                    strokeWidth="1.4"
+                    strokeLinecap="round"
+                  />
+                </svg>
+              </button>
+            )}
+          </div>
 
-            <button
-              type="submit"
-              disabled={!canSubmit}
-              aria-disabled={!canSubmit}
-              className={
-                "bcc-stencil rounded-sm px-5 py-1.5 text-[12px] tracking-[0.2em] transition " +
-                (canSubmit
-                  ? "bg-cardstock text-ink hover:bg-blueprint hover:text-cardstock"
-                  : "cursor-not-allowed bg-cardstock-deep/40 text-cardstock-deep/60")
-              }
-            >
-              {isPending ? "POSTING…" : "POST"}
-            </button>
-          </footer>
+          {/* Prompt + Post row — single prompt rotates every 18s (group
+              composer pins "Post to this group…"), pausing while
+              hovered/focused. Collapses to nothing once the form opens. */}
+          <div
+            className={
+              "grid motion-safe:transition-[grid-template-rows] motion-safe:duration-200 motion-safe:ease-out " +
+              (expanded ? "grid-rows-[0fr]" : "grid-rows-[1fr]")
+            }
+          >
+            <div className="min-h-0 overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setExpanded(true)}
+                onMouseEnter={() => setPromptPaused(true)}
+                onMouseLeave={() => setPromptPaused(false)}
+                onFocus={() => setPromptPaused(true)}
+                onBlur={() => setPromptPaused(false)}
+                inert={expanded}
+                className="flex w-full items-center gap-2.5 rounded-lg pt-0 pl-0 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--bcc-accent)] sm:gap-3 sm:pt-1.5 sm:pl-[46px]"
+              >
+                {/* Mobile-only — at sm+ the header row above already
+                    carries the avatar, so this would duplicate it. */}
+                <span className="shrink-0 sm:hidden">
+                  <Avatar
+                    avatarUrl={
+                      viewerAvatarUrl !== undefined && viewerAvatarUrl !== ""
+                        ? viewerAvatarUrl
+                        : null
+                    }
+                    handle={viewerHandle ?? ""}
+                    displayName={viewerDisplayName}
+                    size="md"
+                    variant="rounded"
+                    tier={viewerCardTier ?? undefined}
+                    ringColor="var(--bcc-accent)"
+                  />
+                </span>
+                {groupId !== undefined ? (
+                  <span className="bcc-mono ml-1 min-w-0 flex-1 truncate text-xs tracking-[0.25em] text-[var(--bcc-text-secondary)] sm:ml-0 sm:tracking-[0.3em]">
+                    Post to this group…
+                  </span>
+                ) : (
+                  <span className="bcc-mono ml-1 min-w-0 flex-1 truncate text-xs tracking-[0.25em] text-[var(--bcc-text-secondary)] sm:ml-0 sm:tracking-[0.3em]">
+                    What&apos;s the{" "}
+                    <span
+                      key={promptIndex}
+                      className="motion-safe:animate-[bcc-fade-in_360ms_ease-out]"
+                    >
+                      {COMPOSER_PROMPTS[promptIndex] ?? COMPOSER_PROMPTS[0]}
+                    </span>
+                  </span>
+                )}
+                <span className="bcc-stencil inline-flex h-9 w-9 shrink-0 items-center justify-center gap-1.5 rounded-full bg-[var(--bcc-accent)] text-[11px] tracking-[0.18em] text-[var(--bcc-text-inverse)] shadow-[0_0_0_3px_var(--bcc-accent-subtle)] sm:h-auto sm:w-auto sm:px-4 sm:py-1.5 sm:shadow-none">
+                  <span className="sr-only sm:not-sr-only">POST</span>
+                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden>
+                    <path
+                      d="M14.5 1.5L7.5 8.5M14.5 1.5L10 14.5L7.5 8.5L1.5 6L14.5 1.5Z"
+                      stroke="currentColor"
+                      strokeWidth="1.4"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </span>
+              </button>
+            </div>
+          </div>
 
-          {/* Hidden native file input. The visible 📷 button forwards
-              clicks via the ref. `accept` keeps the OS picker filtered
-              to the same mime allowlist the server enforces; the
-              client-side validator in handleFileSelect re-checks
-              because `accept` is hint-only and not authoritative. */}
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/jpeg,image/png,image/webp,image/gif"
-            onChange={handleFileSelect}
-            className="hidden"
-            aria-hidden="true"
-            tabIndex={-1}
-          />
+          {/* Expanded form — grows open from the same 0fr<->1fr grid trick. */}
+          <form
+            onSubmit={handleSubmit}
+            inert={!expanded}
+            className={
+              "grid motion-safe:transition-[grid-template-rows] motion-safe:duration-200 motion-safe:ease-out " +
+              (expanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]")
+            }
+          >
+            <div className="flex min-h-0 flex-col gap-3 overflow-hidden">
+            <label htmlFor="composer-status-content" className="sr-only">
+              {placeholder}
+            </label>
+            <textarea
+              id="composer-status-content"
+              ref={textareaRef}
+              value={content}
+              onChange={(e) => {
+                setContent(e.target.value);
+                setCaretPos(e.target.selectionEnd);
+                if (error !== null) setError(null);
+              }}
+              // §3.3.12 — keep caretPos in lockstep with the textarea
+              // so the mention-trigger detector reflects arrow-key
+              // movement / mouse drag-positioning / focus restore.
+              onSelect={syncCaretFromEvent}
+              // §3.3.12 — atomic-token Backspace / Delete. The handler
+              // returns early on non-Backspace/Delete keys, so other
+              // bindings (Enter, etc.) still fall through to default.
+              onKeyDown={handleTextareaKeyDown}
+              placeholder={placeholder}
+              rows={3}
+              maxLength={STATUS_POST_MAX_LENGTH + 100}
+              disabled={isPending}
+              // ARIA combobox role wires the textarea to the popover
+              // listbox so screen readers narrate "X of N" as the user
+              // arrows through suggestions. The popover only mounts
+              // when mentionPickerOpen is true; aria-expanded mirrors.
+              // aria-activedescendant points at the currently-active
+              // option's DOM id (reported back from MentionPopover) so
+              // SR users hear the focused row as they arrow.
+              role="combobox"
+              aria-autocomplete="list"
+              aria-expanded={mentionPickerOpen}
+              aria-controls={MENTION_LISTBOX_ID}
+              aria-activedescendant={mentionActiveOptionId ?? undefined}
+              // mt-2 (not pt-2 on the wrapper above) — padding on the
+              // grid-collapsing wrapper itself can't be clipped away by
+              // its own overflow-hidden when grid-rows-[0fr] forces it
+              // to zero height (padding is part of the box, not
+              // overflowing content), which left a permanent sliver at
+              // the card's bottom edge when collapsed. A child's margin
+              // is ordinary overflowing content and collapses cleanly.
+              className="mt-2 w-full resize-none bg-transparent font-serif text-base text-[var(--bcc-text)] placeholder:text-[var(--bcc-text-muted)] focus:outline-none disabled:opacity-60"
+            />
+
+            {/*
+              §3.3.12 mention popover — mounts directly under the
+              textarea when the trigger is active. Anchored to the
+              composer container so outside-click detection treats the
+              whole composer surface as "inside" (clicking back into
+              the textarea preserves the picker). Listbox id is the
+              same constant the textarea points `aria-controls` at.
+            */}
+            {mentionPickerOpen && (
+              <MentionPopover
+                query={mentionTrigger.active ? mentionTrigger.query : ""}
+                open={mentionPickerOpen}
+                onSelect={handleMentionSelect}
+                onClose={closeMentionPicker}
+                anchorRef={containerRef}
+                listboxId={MENTION_LISTBOX_ID}
+                onActiveOptionChange={setMentionActiveOptionId}
+              />
+            )}
+
+            {hasPhoto && previewUrl !== null && (
+              <PhotoPicker
+                previewUrl={previewUrl}
+                altText={altText}
+                onAltTextChange={setAltText}
+                onRemove={clearAttachment}
+                disabled={isPending}
+              />
+            )}
+
+            {hasGif && selectedGif !== null && (
+              <div className="relative inline-flex w-fit">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={selectedGif.preview_url}
+                  alt=""
+                  decoding="async"
+                  className="h-24 w-24 rounded-sm border border-[var(--bcc-border)] object-cover"
+                />
+                <button
+                  type="button"
+                  onClick={clearGif}
+                  aria-label="Remove GIF"
+                  className="bcc-mono absolute -right-1.5 -top-1.5 inline-flex h-5 w-5 items-center justify-center rounded-full border border-[var(--bcc-border)] bg-[var(--bcc-surface-active)] text-[10px] leading-none text-[var(--bcc-text)] hover:bg-safety"
+                  title="Remove GIF"
+                >
+                  ×
+                </button>
+              </div>
+            )}
+
+            {gifPickerOpen && giphyConfig.data?.enabled === true && (
+              <GifPicker
+                config={giphyConfig.data}
+                onSelect={handleGifSelect}
+                onClose={() => setGifPickerOpen(false)}
+              />
+            )}
+
+            {error !== null && (
+              <p role="alert" className="bcc-mono text-[11px] text-safety">
+                {error}
+              </p>
+            )}
+
+            {/*
+              §4.7.6 — group-post visibility selector. Only rendered for
+              group-scoped composers; the global composer has no group to
+              scope visibility against, so the field never surfaces (and is
+              never sent). Mirrors the ReviewForm grade-picker pattern.
+            */}
+            {groupId !== undefined && (
+              <fieldset className="flex flex-col gap-2">
+                <legend className="bcc-mono text-[10px] tracking-[0.18em] text-[var(--bcc-text-muted)]">
+                  VISIBILITY
+                </legend>
+                <div className="grid gap-2 md:grid-cols-3">
+                  {VISIBILITY_OPTIONS.map((opt) => {
+                    const active = visibility === opt.key;
+                    return (
+                      <button
+                        key={opt.key}
+                        type="button"
+                        onClick={() => setVisibility(opt.key)}
+                        aria-pressed={active}
+                        className={
+                          "rounded-sm border px-3 py-3 text-left transition motion-reduce:transition-none " +
+                          (active
+                            ? "border-[var(--bcc-accent)] bg-[var(--bcc-accent-subtle)]"
+                            : "border-[var(--bcc-border)] bg-[var(--bcc-surface-hover)] hover:border-[var(--bcc-border-strong)]")
+                        }
+                      >
+                        <span className="bcc-stencil block text-[12px] tracking-[0.2em] text-[var(--bcc-text)]">
+                          {opt.label}
+                        </span>
+                        <span className="mt-1 block font-serif text-[13px] text-[var(--bcc-text-secondary)]">
+                          {opt.description}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </fieldset>
+            )}
+
+            <footer className="flex items-center justify-between gap-2 sm:gap-3">
+              <div className="flex min-w-0 flex-1 items-center gap-1.5 sm:gap-2">
+                {/* Photo — leftmost in the footer per the "attachment
+                    belongs closer to creation than publishing" product
+                    call. Triggers the hidden file input. Disabled while a
+                    write is in flight so a user can't swap files
+                    mid-upload. */}
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isPending}
+                  aria-label={hasPhoto ? "Replace photo" : "Attach a photo"}
+                  title={hasPhoto ? "Replace photo" : "Attach a photo"}
+                  className={
+                    "inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border transition disabled:cursor-not-allowed disabled:opacity-50 sm:h-7 sm:w-7 " +
+                    (hasPhoto
+                      ? "border-[var(--bcc-accent)] bg-[var(--bcc-accent-subtle)] text-[var(--bcc-accent)]"
+                      : "border-[var(--bcc-border)] text-[var(--bcc-text-secondary)] hover:border-[var(--bcc-border-strong)] hover:text-[var(--bcc-text)]")
+                  }
+                >
+                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                    <rect x="1.5" y="2.5" width="13" height="11" rx="1.5" />
+                    <circle cx="5.5" cy="6" r="1.25" />
+                    <path d="M1.5 11L5.5 8L8.5 10.5L11 8L14.5 11.5" />
+                  </svg>
+                </button>
+                {/* GIF button — only mounts when the integration is
+                    enabled. Toggles the inline picker. Disabled while a
+                    write is in flight, same as Photo. "GIF" stays as a
+                    text badge — there's no widely-recognized glyph for it. */}
+                {giphyEnabled && (
+                  <button
+                    type="button"
+                    onClick={() => setGifPickerOpen((open) => !open)}
+                    disabled={isPending}
+                    aria-label={hasGif ? "Replace GIF" : "Attach a GIF"}
+                    aria-expanded={gifPickerOpen}
+                    title={hasGif ? "Replace GIF" : "Attach a GIF"}
+                    className={
+                      "bcc-mono inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-[9px] transition disabled:cursor-not-allowed disabled:opacity-50 sm:h-7 sm:w-7 " +
+                      (hasGif || gifPickerOpen
+                        ? "border-[var(--bcc-accent)] bg-[var(--bcc-accent-subtle)] text-[var(--bcc-accent)]"
+                        : "border-[var(--bcc-border)] text-[var(--bcc-text-secondary)] hover:border-[var(--bcc-border-strong)] hover:text-[var(--bcc-text)]")
+                    }
+                  >
+                    GIF
+                  </button>
+                )}
+                {/* Poll / Location — visual stubs for the planned
+                    attachment types, disabled until the backend supports
+                    them. */}
+                <button
+                  type="button"
+                  disabled
+                  aria-label="Poll — coming soon"
+                  title="Poll — coming soon"
+                  className="inline-flex h-6 w-6 shrink-0 cursor-not-allowed items-center justify-center rounded-full border border-[var(--bcc-border)] text-[var(--bcc-text-muted)] opacity-50 sm:h-7 sm:w-7"
+                >
+                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                    <path d="M3 13V7" />
+                    <path d="M8 13V3" />
+                    <path d="M13 13V9" />
+                  </svg>
+                </button>
+                <button
+                  type="button"
+                  disabled
+                  aria-label="Location — coming soon"
+                  title="Location — coming soon"
+                  className="inline-flex h-6 w-6 shrink-0 cursor-not-allowed items-center justify-center rounded-full border border-[var(--bcc-border)] text-[var(--bcc-text-muted)] opacity-50 sm:h-7 sm:w-7"
+                >
+                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                    <path d="M8 14.5C8 14.5 13 10.5 13 6.5C13 3.74 10.76 1.5 8 1.5C5.24 1.5 3 3.74 3 6.5C3 10.5 8 14.5 8 14.5Z" />
+                    <circle cx="8" cy="6.5" r="1.75" />
+                  </svg>
+                </button>
+                <span
+                  className={
+                    "bcc-mono min-w-0 truncate text-[11px] " +
+                    (overCap
+                      ? "text-safety"
+                      : length > STATUS_POST_MAX_LENGTH - 50
+                        ? "text-warning"
+                        : "text-[var(--bcc-text-muted)]")
+                  }
+                >
+                  {length} / {STATUS_POST_MAX_LENGTH}
+                  {hasPhoto && (
+                    <span className="ml-2 hidden text-[var(--bcc-text-secondary)] sm:inline">· 1 photo</span>
+                  )}
+                  {hasGif && (
+                    <span className="ml-2 hidden text-[var(--bcc-text-secondary)] sm:inline">· 1 GIF</span>
+                  )}
+                  {mentionRanges.length > 0 && (
+                    <span
+                      className={`ml-2 hidden sm:inline ${overMentionCap ? "text-safety" : "text-[var(--bcc-text-secondary)]"}`}
+                    >
+                      · {mentionRanges.length} / {MENTIONS_PER_POST_MAX} mentions
+                    </span>
+                  )}
+                </span>
+              </div>
+
+              <button
+                type="submit"
+                disabled={!canSubmit}
+                aria-disabled={!canSubmit}
+                className={
+                  "bcc-stencil inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] tracking-[0.18em] transition sm:px-4 " +
+                  (canSubmit
+                    ? "bg-[var(--bcc-accent)] text-[var(--bcc-text-inverse)] hover:opacity-90"
+                    : "cursor-not-allowed bg-[var(--bcc-surface-active)] text-[var(--bcc-text-muted)]")
+                }
+              >
+                {isPending ? "POSTING…" : "POST"}
+                {!isPending && (
+                  <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden>
+                    <path
+                      d="M14.5 1.5L7.5 8.5M14.5 1.5L10 14.5L7.5 8.5L1.5 6L14.5 1.5Z"
+                      stroke="currentColor"
+                      strokeWidth="1.4"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                )}
+              </button>
+            </footer>
+
+            {/* Hidden native file input. The visible Photo button forwards
+                clicks via the ref. `accept` keeps the OS picker filtered
+                to the same mime allowlist the server enforces; the
+                client-side validator in handleFileSelect re-checks
+                because `accept` is hint-only and not authoritative. */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/gif"
+              onChange={handleFileSelect}
+              className="hidden"
+              aria-hidden="true"
+              tabIndex={-1}
+            />
+          </div>
         </form>
-      )}
+        </div>
+      </div>
     </section>
   );
 }
