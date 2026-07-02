@@ -8,13 +8,15 @@
  * gaining a stigma marker. (`newly_active` is the neutral starting
  * state, not a stigma.)
  *
- * Three consumers as of PR-2:
+ * Consumers:
  *   - `ReputationSummaryPanel` — third-party + own-profile reputation
  *     surface; carries the badge inline alongside rank + good-standing
  *   - `AttestationRoster` — per-row attestor mini-view; carries the
  *     same badge as a tiny inline marker
  *   - `SelfMirrorReliabilityView` — operator's own self-mirror page,
  *     where the standing is the headline of the surface
+ *   - `CardFrontFace` Nameplate — trading-card standing chip under the
+ *     name; renders only when `Card.reliability_standing` is non-null
  *
  * `RELIABILITY_LABEL` lives here too so the three consumers de-dupe
  * the display string. Filterable text (i18n) would land server-side
