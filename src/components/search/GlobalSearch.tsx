@@ -42,6 +42,7 @@ import {
   type KeyboardEvent,
 } from "react";
 
+import { VerifiedBadge } from "@/components/ui/VerifiedBadge";
 import { useGlobalSearch } from "@/hooks/useGlobalSearch";
 import { useRecentSearches } from "@/hooks/useRecentSearches";
 import { useTrendingSearches } from "@/hooks/useTrendingSearches";
@@ -390,18 +391,24 @@ function SuggestionRow({ item, id, active, onActivate, onHover }: SuggestionRowP
           </span>
         </span>
 
-        {item.tier_label !== null && item.card_tier !== null && (
-          <span
-            className="bcc-mono shrink-0 rounded-sm px-2 py-0.5 text-[9px] tracking-[0.18em]"
-            style={{
-              color: `var(--tier-${item.card_tier})`,
-              background: "rgba(15,13,9,0.04)",
-              border: "1px solid rgba(15,13,9,0.12)",
-            }}
-          >
-            {item.tier_label.toUpperCase()}
-          </span>
-        )}
+        {/* Right-hand cluster: claim-verified checkmark (§ verified-wins,
+            server-resolved boolean) beside the tier chip. Either may
+            render without the other. */}
+        <span className="flex shrink-0 items-center gap-1.5">
+          {item.is_verified && <VerifiedBadge />}
+          {item.tier_label !== null && item.card_tier !== null && (
+            <span
+              className="bcc-mono shrink-0 rounded-sm px-2 py-0.5 text-[9px] tracking-[0.18em]"
+              style={{
+                color: `var(--tier-${item.card_tier})`,
+                background: "rgba(15,13,9,0.04)",
+                border: "1px solid rgba(15,13,9,0.12)",
+              }}
+            >
+              {item.tier_label.toUpperCase()}
+            </span>
+          )}
+        </span>
       </button>
     </li>
   );

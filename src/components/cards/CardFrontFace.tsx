@@ -11,6 +11,7 @@ import { ActionBar, CommunityActionBar } from "@/components/cards/CardActionBar"
 import { CommunitySignalsStrip } from "@/components/cards/CardCommunitySignals";
 import { OnchainSignalsStrip } from "@/components/cards/CardOnchainSignals";
 import { Crest } from "@/components/cards/Crest";
+import { ReliabilityStandingBadge } from "@/components/reliability/ReliabilityStandingBadge";
 import type { Card, CardStat, CardTier } from "@/lib/api/types";
 
 export function CardFrontFace({
@@ -281,6 +282,17 @@ function Nameplate({ card }: { card: Card }) {
         <p className="bcc-mono mt-1 text-[10px] text-ink-soft">
           @{card.handle}
         </p>
+      )}
+      {/* §J.3.2 reliability standing — positive-only public badge,
+          server-resolved. Absent/null means the entity hasn't earned
+          one: render nothing at all (asymmetric-display rule — losing
+          the badge is never a stigma marker). Reuses the canonical
+          ReliabilityStandingBadge; the prop is a plain enum string so
+          the memoized card tree stays referentially stable. */}
+      {card.reliability_standing != null && (
+        <span className="mt-1.5">
+          <ReliabilityStandingBadge standing={card.reliability_standing} />
+        </span>
       )}
     </div>
   );

@@ -20,6 +20,7 @@ import Link from "next/link";
 import { memo, useMemo } from "react";
 
 import { SKELETON_CLASS } from "@/components/ui/Skeleton";
+import { VerifiedBadge } from "@/components/ui/VerifiedBadge";
 
 import type {
   GroupSearchResult,
@@ -158,8 +159,13 @@ export const ProjectRow = memo(function ProjectRow({ row }: { row: ProjectSearch
     >
       <Avatar src={row.avatar_url} name={row.page_name} shape="circle" />
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <span className="bcc-stencil truncate text-sm text-ink">
-          {row.page_name}
+        <span className="flex min-w-0 items-center gap-1.5">
+          <span className="bcc-stencil truncate text-sm text-ink">
+            {row.page_name}
+          </span>
+          {/* Claim-verified checkmark (§ verified-wins) — server-resolved
+              boolean, distinct from email verification. */}
+          {row.verified && <VerifiedBadge />}
         </span>
         <span className="bcc-mono truncate text-[10px] text-cardstock-deep">
           {[row.category, row.tier !== null ? `TIER · ${row.tier}` : null]
