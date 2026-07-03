@@ -5001,6 +5001,13 @@ export interface NftPickerItem {
   image_url?: string | null;
   metadata_uri?: string | null;
   token_standard?: string | null;
+  /**
+   * v1.31 — whether the operator has verified this item's collection
+   * (holder community activated). Display-only: unverified items render
+   * dimmed with a "community not yet activated" tag, never hidden.
+   * Absent (older payloads) reads as verified — don't dim on missing data.
+   */
+  collection_verified?: boolean;
 }
 
 /**
