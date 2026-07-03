@@ -43,7 +43,6 @@ export const VALIDATOR_CHAIN_CATALOG: ReadonlyArray<ValidatorChainOption> = [
   { slug: "juno",           label: "Juno" },
   { slug: "kujira",         label: "Kujira" },
   { slug: "osmosis",        label: "Osmosis" },
-  { slug: "stargaze",       label: "Stargaze" },
   { slug: "thorchain",      label: "THORChain" },
 
   // Non-Cosmos chains the indexer also covers.

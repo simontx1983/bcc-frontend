@@ -6,8 +6,9 @@
  * vocabulary as `lib/validators/chain-catalog.ts` (the directory's
  * CHAIN dropdown) — keeps the two filter surfaces consistent.
  *
- * Today the live data set is Stargaze + Solana (the two chains the
- * NFT indexer has seeded gated groups on). The other entries are
+ * Today the live data set is Cosmos Hub + Solana (Hub CW-721
+ * collections replaced Stargaze after the 2026 chain migration;
+ * Solana via the NFT indexer). The other entries are
  * forward-looking: when an admin grants holder-gating for a chain
  * the system already indexes (Ethereum, Polygon, Base, etc.), the
  * filter is one row-edit away from working. Selecting a chain with
@@ -27,9 +28,9 @@ export interface CommunityChainOption {
 }
 
 export const COMMUNITY_CHAIN_CATALOG: ReadonlyArray<CommunityChainOption> = [
-  // Cosmos chains with NFT holder groups (Stargaze live; the rest
-  // pre-wired for V1.5 admin-approved gating).
-  { slug: "stargaze",  label: "Stargaze" },
+  // Cosmos chains with NFT holder groups (Cosmos Hub live — it hosts
+  // the migrated Stargaze collections; the rest pre-wired for V1.5
+  // admin-approved gating).
   { slug: "cosmos",    label: "Cosmos Hub" },
   { slug: "osmosis",   label: "Osmosis" },
   { slug: "injective", label: "Injective" },

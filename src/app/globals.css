@@ -2280,7 +2280,6 @@
   /* Chains referenced by crest.background_value on community cards
      (COMMUNITY_CHAIN_CATALOG slugs). Without these the ChainBand /
      hex-crest background resolves to an invalid var() and vanishes. */
-  --chain-stargaze:  #db2877;
   --chain-solana:    #9945ff;
   --chain-ethereum:  #627eea;
   --chain-polygon:   #8247e5;

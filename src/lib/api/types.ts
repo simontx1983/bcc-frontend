@@ -2170,7 +2170,7 @@ export interface GroupDiscoveryItem {
   collection_stats: CollectionStats | null;
   activity: GroupActivity;
   /**
-   * Chain-tag slug the group is bound to (e.g. "stargaze", "akash").
+   * Chain-tag slug the group is bound to (e.g. "cosmos", "akash").
    * Resolved server-side from either `_bcc_gate_chain_id` (NFT holder
    * groups) or `_bcc_chain_tag` (user-created plain groups). Null when
    * the group has no chain tag (Locals, legacy untagged groups).

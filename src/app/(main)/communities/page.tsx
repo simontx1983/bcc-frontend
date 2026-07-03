@@ -178,7 +178,7 @@ export default async function CommunitiesDiscoveryPage({ searchParams }: PagePro
  * picking a chain preserves the current `verified` / `mine` selection.
  * Picking a chain on the All scope simply adds `?chain=<slug>`. When
  * a chain is selected and the result is empty (e.g. no member
- * communities on Stargaze), the empty-state copy explains the
+ * communities on Osmosis), the empty-state copy explains the
  * combined filter rather than the scope alone.
  *
  * Same dropdown vocabulary as /directory's CHAIN filter so the two
