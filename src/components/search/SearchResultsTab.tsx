@@ -165,7 +165,7 @@ export const ProjectRow = memo(function ProjectRow({ row }: { row: ProjectSearch
           </span>
           {/* Claim-verified checkmark (§ verified-wins) — server-resolved
               boolean, distinct from email verification. */}
-          {row.verified && <VerifiedBadge />}
+          {row.is_claim_verified && <VerifiedBadge />}
         </span>
         <span className="bcc-mono truncate text-[10px] text-cardstock-deep">
           {[row.category, row.tier !== null ? `TIER · ${row.tier}` : null]

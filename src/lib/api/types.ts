@@ -1073,6 +1073,9 @@ export interface SearchSuggestion {
   tier_label: string | null;
   trust_score: number | null;
   is_verified: boolean;
+  /** Verified operator/creator claim (§ verified-wins) — distinct from
+   *  the email-verified `is_verified` flag. Drives the VerifiedBadge. */
+  is_claim_verified: boolean;
   /** Pre-built headless route (`/v/:slug`, `/p/:slug`, `/c/:slug`). */
   href: string;
 }
@@ -1113,6 +1116,9 @@ export interface ProjectSearchResult {
   tier: string | null;
   endorsements: number;
   verified: boolean;
+  /** Verified operator/creator claim (§ verified-wins) — distinct from
+   *  the email-verified `verified` flag. Drives the VerifiedBadge. */
+  is_claim_verified: boolean;
   followers: number;
   category: string | null;
   category_slug: string | null;

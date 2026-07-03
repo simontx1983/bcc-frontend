@@ -56,8 +56,13 @@ export interface KeyboardShortcut {
 /**
  * Returns true when the focused element is one where letter
  * shortcuts would interfere with typing.
+ *
+ * Exported for consumers whose NON-letter shortcuts should also stay
+ * quiet while the user types (the hook only auto-suppresses plain
+ * letters) — e.g. GlobalSearch's "/" focus shortcut, which must not
+ * steal focus mid-sentence in the composer.
  */
-function isTypingTarget(target: EventTarget | null): boolean {
+export function isTypingTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
   const tag = target.tagName;
   if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return true;

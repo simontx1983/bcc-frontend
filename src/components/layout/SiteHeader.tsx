@@ -22,6 +22,7 @@ import dynamic from "next/dynamic";
 
 import { ConversationsPanel } from "@/components/messages/ConversationsPanel";
 import { NotificationsPanel } from "@/components/notifications/NotificationsPanel";
+import { GlobalSearch } from "@/components/search/GlobalSearch";
 import { useUnreadCount } from "@/hooks/useNotifications";
 import { useUnreadMessageCount } from "@/hooks/useUnreadMessageCount";
 
@@ -442,7 +443,6 @@ export function SiteHeader() {
   const viewerHandle = session?.user?.handle ?? null;
   const pathname   = usePathname() ?? "/";
   const router     = useRouter();
-  const searchRef  = useRef<HTMLInputElement>(null);
 
   // Button refs (for modal anchor positioning + dismiss detection)
   const paletteRef  = useRef<HTMLButtonElement>(null);
@@ -466,9 +466,6 @@ export function SiteHeader() {
   // provider, so no enabled flag is passed here.
   const msgUnread = useUnreadMessageCount();
   const msgUnreadCount = msgUnread.data?.count ?? 0;
-
-  // Search state
-  const [search, setSearch] = useState("");
 
   // Modal open state — only one can be open at a time
   const [themeOpen,    setThemeOpen]    = useState(false);
@@ -501,34 +498,12 @@ export function SiteHeader() {
     applyTheme(t, a);
   }, []);
 
-  // ⌘K / `/` focuses search
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      const tag = (e.target as HTMLElement).tagName;
-      if ((e.key === "/" && !["INPUT", "TEXTAREA"].includes(tag)) ||
-          ((e.metaKey || e.ctrlKey) && e.key === "k")) {
-        e.preventDefault();
-        searchRef.current?.focus();
-      }
-    };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, []);
-
   // Mutual-exclusion helpers — opening one closes all others
   function closeAll() { setThemeOpen(false); setMessagesOpen(false); setNotifOpen(false); setAvatarOpen(false); }
   function openTheme()    { closeAll(); setThemeOpen(true);    }
   function openMessages() { closeAll(); setMessagesOpen(true); }
   function openNotif()    { closeAll(); setNotifOpen(true);    }
   function openAvatar()   { closeAll(); setAvatarOpen(true);   }
-
-  function handleSearch(e: React.FormEvent) {
-    e.preventDefault();
-    if (search.trim()) {
-      router.push(`/search?q=${encodeURIComponent(search.trim())}`);
-      setSearch("");
-    }
-  }
 
   // Shared active icon style
   function activeStyle(open: boolean): React.CSSProperties | undefined {
@@ -557,21 +532,20 @@ export function SiteHeader() {
         </span>
       </Link>
 
-      {/* ── Search ── */}
-      <form
-        onSubmit={handleSearch}
-        className="bcc-search"
-        role="search"
-        style={{ flex: 1, maxWidth: 480, margin: "0 auto" }}
-      >
-        <input
-          ref={searchRef}
-          type="search"
+      {/* ── Search — §G1 combobox (suggestions via cards/search,
+             trending + recents pre-search surface, keyboard nav).
+             GlobalSearch owns the role="search" landmark and the
+             "/" + ⌘K focus shortcut; this wrapper is only the layout
+             slot (hidden ≤599px by the .bcc-search media query — the
+             mobile overlay below takes over). The magnifier sits as a
+             sibling so the .bcc-search-icon absolute positioning keeps
+             working against the .bcc-search relative box. ── */}
+      <div className="bcc-search" style={{ flex: 1, maxWidth: 480, margin: "0 auto" }}>
+        <GlobalSearch
+          className="w-full"
+          inputClassName="bcc-search-input"
           placeholder="Search BCC…  /"
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          className="bcc-search-input"
-          aria-label="Search BCC"
+          focusShortcut
         />
         <span className="bcc-search-icon" aria-hidden>
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
@@ -579,7 +553,7 @@ export function SiteHeader() {
             <path d="M10.5 10.5l3.5 3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
           </svg>
         </span>
-      </form>
+      </div>
 
       {/* ── Right controls ── */}
       <div className="bcc-header-actions" style={{ position: "relative" }}>
@@ -720,13 +694,26 @@ export function SiteHeader() {
               animation: "bcc-fade-in 0.15s ease forwards",
             }}
           >
+            {/* Minimal wiring by design: Enter → /search?q= (the full
+                combobox stays desktop-only for now; the /search results
+                page carries the mobile experience). */}
             <input
               autoFocus
               type="search"
               placeholder="Search BCC…"
               className="bcc-search-input"
               style={{ width: "100%" }}
-              onKeyDown={e => e.key === "Escape" && setSearchOverlayOpen(false)}
+              aria-label="Search BCC"
+              onKeyDown={e => {
+                if (e.key === "Escape") setSearchOverlayOpen(false);
+                if (e.key === "Enter") {
+                  const q = e.currentTarget.value.trim();
+                  if (q.length > 0) {
+                    setSearchOverlayOpen(false);
+                    router.push(`/search?q=${encodeURIComponent(q)}`);
+                  }
+                }
+              }}
             />
           </div>
           </>
