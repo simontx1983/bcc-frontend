@@ -38,6 +38,7 @@ import {
 } from "@/lib/wallet/chain-catalog";
 import { walletHintFor } from "@/lib/wallet/dispatch";
 import { humanizeLinkError, runLinkFlow } from "@/lib/wallet/linkFlow";
+import { CollectionStancePanel } from "@/components/onchain/CollectionStancePanel";
 
 export function WalletsSection() {
   const wallets = useMyWallets();
@@ -261,6 +262,17 @@ function LinkWalletForm({ chainSelectRef }: LinkWalletFormProps) {
         <p className="bcc-mono text-[11px]" style={{ color: "var(--verified)" }}>
           {success}
         </p>
+      )}
+
+      {/* The moment of maximum intent: the wallet just linked, its
+          collections were just discovered server-side — ask the user
+          which communities they actually want (and which holdings are
+          airdropped junk) right here rather than hoping they find the
+          affordance later. */}
+      {success !== null && (
+        <div className="mt-2 border-t border-dashed border-ink/20 pt-3">
+          <CollectionStancePanel />
+        </div>
       )}
     </div>
   );
