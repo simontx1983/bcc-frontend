@@ -18,7 +18,7 @@ export const LEGAL = {
   brand: "Blue Collar Crypto",
 
   /** Registered legal entity that operates the service. */
-  entity: "Blue Collar Labs LLC]",
+  entity: "Blue Collar Labs LLC",
 
   /** Governing law + venue for disputes. Materially affects enforceability. */
   jurisdiction: "Texas, USA",
