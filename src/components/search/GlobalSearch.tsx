@@ -395,7 +395,7 @@ function SuggestionRow({ item, id, active, onActivate, onHover }: SuggestionRowP
             server-resolved boolean) beside the tier chip. Either may
             render without the other. */}
         <span className="flex shrink-0 items-center gap-1.5">
-          {item.is_verified && <VerifiedBadge />}
+          {item.is_claim_verified && <VerifiedBadge />}
           {item.tier_label !== null && item.card_tier !== null && (
             <span
               className="bcc-mono shrink-0 rounded-sm px-2 py-0.5 text-[9px] tracking-[0.18em]"
