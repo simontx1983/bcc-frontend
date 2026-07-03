@@ -1648,6 +1648,48 @@ export interface MyHolderGroupsResponse {
 }
 
 /**
+ * One row of GET /me/collection-stances/panel (§4.31, v1.32) — a
+ * collection the viewer's linked wallets hold, with the state that
+ * decides which button pair renders:
+ *   - state "live"     → verified + community exists → Join community
+ *                        (drives the existing POST /me/holder-groups/
+ *                        {group_id}/join)
+ *   - state "waitlist" → not yet activated → Join the waitlist
+ * `viewer_stance` is the viewer's current declaration (toggleable);
+ * `waitlist_count` is public social proof. Collections the operator
+ * hid or the community soft-hid never appear here.
+ */
+export interface CollectionStancePanelItem {
+  chain_id: number;
+  chain_slug: string;
+  contract_address: string;
+  name: string | null;
+  image_url: string | null;
+  collection_verified: boolean;
+  state: "live" | "waitlist";
+  group_id: number | null;
+  waitlist_count: number;
+  viewer_stance: "waitlist" | "spam" | null;
+}
+
+export interface CollectionStancePanelResponse {
+  items: CollectionStancePanelItem[];
+}
+
+/** POST /me/collection-stances body + success echo. */
+export interface SetCollectionStanceRequest {
+  chain_id: number;
+  contract_address: string;
+  stance: "waitlist" | "spam";
+}
+
+export interface CollectionStanceResponse {
+  chain_id: number;
+  contract_address: string;
+  stance: "waitlist" | "spam" | null;
+}
+
+/**
  * POST /me/holder-groups/:id/join success.
  * `code` distinguishes a fresh join from an idempotent re-join; both
  * are 200, callers may surface a different toast per code.
