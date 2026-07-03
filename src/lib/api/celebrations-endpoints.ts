@@ -1,7 +1,7 @@
 /**
  * Typed wrappers for /me/celebrations/* endpoints (§O1.2).
  *
- * Heavy-intensity moments — rank-up, level-up, tier-upgrade — fire
+ * Heavy-intensity moments — rank-up, tier-upgrade — fire
  * out-of-band from the originating action because their subscribers
  * run async per §A3. The frontend polls /me/celebrations/pending,
  * renders the toast when it lands, and POSTs /consume to clear the
