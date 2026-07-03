@@ -39,6 +39,7 @@ import { CardFactory } from "@/components/cards/CardFactory";
 import { BioBox } from "@/components/layout/BioBox";
 import { PageHero } from "@/components/layout/PageHero";
 import { AttestationActionCluster } from "@/components/profile/AttestationActionCluster";
+import { BlockToggle } from "@/components/profile/BlockToggle";
 import { ProfileTabs } from "@/components/profile/ProfileTabs";
 import { MemberReviewControl } from "@/components/review/MemberReviewControl";
 import { ShareButton } from "@/components/common/ShareButton";
@@ -345,6 +346,12 @@ export default async function MemberProfilePage({ params }: PageProps) {
               {session !== null && !isOwner && (
                 <MemberReviewControl userId={profile.user_id} displayName={title} />
               )}
+              {/* §K1 block control — the quiet moderation affordance.
+                  Self-hides when the viewer can't block (anonymous / self /
+                  tier-gated) via profile.permissions.can_block, so it needs
+                  no extra guard here. Sits below the review control as the
+                  lowest-key action in the column. */}
+              <BlockToggle profile={profile} />
               <BioBox
                 text={profile.bio}
                 label="BIO"
