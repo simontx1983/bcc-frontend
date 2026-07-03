@@ -85,7 +85,6 @@ const COSMOS_CHAIN_IDS: Record<string, string> = {
   osmosis:   "osmosis-1",
   injective: "injective-1",
   juno:      "juno-1",
-  stargaze:  "stargaze-1",
   thorchain: "thorchain-1",
 };
 

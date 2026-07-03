@@ -187,7 +187,7 @@ export function CardFactory({
   // (a "member" card is the person, not a category).
   const chainStyle = useMemo<CSSProperties>(() => {
     // Community cards with a chain-bound crest (NFT holder groups) keep
-    // their chain identity — a Stargaze holders room reads as Stargaze,
+    // their chain identity — a Cosmos Hub holders room reads as Cosmos,
     // not as generic community-green. Non-chain community crests fall
     // through to the union color in KIND_TO_COLOR_VAR.
     if (
