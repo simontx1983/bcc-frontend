@@ -955,10 +955,10 @@ export interface DismissHighlightResponse {
 
 /**
  * Stable kind identifier for the Heavy celebration. Today rank_up is
- * the only producer; level_up / tier_upgrade will join as the
+ * the only producer; tier_upgrade will join as the
  * corresponding listeners land.
  */
-export type CelebrationKind = "rank_up" | "level_up" | "tier_upgrade";
+export type CelebrationKind = "rank_up" | "tier_upgrade";
 
 export interface Celebration {
   kind: CelebrationKind;
