@@ -3121,6 +3121,29 @@ export interface MemberLiving {
   } | null;
 }
 
+/** One §N11 quest: a one-time step that contributes to the vote-weight multiplier. */
+export interface MemberQuestItem {
+  slug: string;
+  label: string;
+  hint: string;
+  done: boolean;
+  /** Vote-weight bonus this quest folds into the multiplier when done. */
+  weight_bonus: number;
+  category: string;
+}
+
+/** §N11 quest progress: the checklist plus the earned vote-weight multiplier. */
+export interface MemberQuestProgress {
+  /** Earned vote-weight multiplier (1.00–1.30) applied to the operator's votes at cast time. */
+  multiplier: number;
+  completed_count: number;
+  total_count: number;
+  /** 0–100, `round(completed_count / total_count × 100)`. */
+  pct: number;
+  /** Stable catalogue order. */
+  items: MemberQuestItem[];
+}
+
 /** §2.5 ProgressionBlock — own profile only (omitted on others'). */
 export interface MemberProgression {
   current_rank: string;
@@ -3142,6 +3165,11 @@ export interface MemberProgression {
     /** ISO date `YYYY-MM-DD`. */
     at: string;
   }>;
+  /**
+   * §N11 quest checklist + earned vote-weight multiplier. Own-only. Optional
+   * for deploy-skew tolerance (older backends omit it); the UI guards on it.
+   */
+  quests?: MemberQuestProgress;
 }
 
 /** §2.6 FeatureAccessBlock — own profile only. Encodes §O5. */
