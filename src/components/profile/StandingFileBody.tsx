@@ -65,14 +65,39 @@ export function StandingFileBody({ profile }: { profile: MemberProfile }) {
             <SectionFrame fileNumber="06" label="TRUST QUESTS">
               <TrustQuestsBlock
                 quests={progression.quests}
-                renderAction={(quest) =>
-                  quest.slug === "share_x" ? (
-                    <TrustQuestShareAction
-                      handle={profile.handle}
-                      xVerified={profile.verifications.x_verified}
-                    />
-                  ) : null
-                }
+                renderAction={(quest) => {
+                  switch (quest.slug) {
+                    case "share_x":
+                      return (
+                        <TrustQuestShareAction
+                          handle={profile.handle}
+                          xVerified={profile.verifications.x_verified}
+                        />
+                      );
+                    case "first_vote":
+                      return (
+                        <QuestNavLink
+                          href={"/members" as Route}
+                          label="Browse members →"
+                        />
+                      );
+                    case "explore_projects":
+                      return (
+                        <span className="flex flex-col items-end gap-1">
+                          <QuestNavLink
+                            href={"/communities" as Route}
+                            label="Communities →"
+                          />
+                          <QuestNavLink
+                            href={"/validators" as Route}
+                            label="Validators →"
+                          />
+                        </span>
+                      );
+                    default:
+                      return null;
+                  }
+                }}
               />
             </SectionFrame>
           )}
@@ -121,6 +146,23 @@ function SectionFrame({
       </div>
       {children}
     </section>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────────
+// QuestNavLink — a quest's "go do it" CTA (e.g. Cast your first vote →
+// members, Explore projects → communities/validators). Matches the CTA
+// vocabulary used by the VERIFIED IDENTITY rows.
+// ──────────────────────────────────────────────────────────────────────
+
+function QuestNavLink({ href, label }: { href: Route; label: string }) {
+  return (
+    <Link
+      href={href}
+      className="bcc-mono whitespace-nowrap text-safety hover:underline underline-offset-4"
+    >
+      {label}
+    </Link>
   );
 }
 
