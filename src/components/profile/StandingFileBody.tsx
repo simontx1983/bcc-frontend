@@ -21,12 +21,9 @@ import type { Route } from "next";
 import Link from "next/link";
 
 import { RankChip } from "@/components/profile/RankChip";
-import type {
-  CardTier,
-  MemberProfile,
-  MemberProgression,
-  MemberQuestProgress,
-} from "@/lib/api/types";
+import { TrustQuestShareAction } from "@/components/profile/TrustQuestShareAction";
+import { TrustQuestsBlock } from "@/components/profile/TrustQuestsBlock";
+import type { CardTier, MemberProfile, MemberProgression } from "@/lib/api/types";
 
 // Threshold mirrors QuestValidator::COMPLETE_PROFILE_THRESHOLD (PHP).
 // Same number both sides — if you tune one, tune both.
@@ -66,7 +63,17 @@ export function StandingFileBody({ profile }: { profile: MemberProfile }) {
 
           {progression.quests !== undefined && (
             <SectionFrame fileNumber="06" label="TRUST QUESTS">
-              <TrustQuestsBlock quests={progression.quests} />
+              <TrustQuestsBlock
+                quests={progression.quests}
+                renderAction={(quest) =>
+                  quest.slug === "share_x" ? (
+                    <TrustQuestShareAction
+                      handle={profile.handle}
+                      xVerified={profile.verifications.x_verified}
+                    />
+                  ) : null
+                }
+              />
             </SectionFrame>
           )}
         </>
@@ -422,91 +429,6 @@ function thresholdPercent(current: number, required: number): number {
   }
   const raw = (current / required) * 100;
   return Math.max(0, Math.min(100, Math.round(raw)));
-}
-
-// ──────────────────────────────────────────────────────────────────────
-// TrustQuestsBlock — the §N11 quest checklist and the vote-weight
-// multiplier it earns. All values server-rendered; this component only
-// formats and never derives trust. Copy is descriptive per §2.7 — no
-// prescriptive "complete these" nudge.
-// ──────────────────────────────────────────────────────────────────────
-
-export function TrustQuestsBlock({ quests }: { quests: MemberQuestProgress }) {
-  const pct = Math.max(0, Math.min(100, quests.pct));
-
-  return (
-    <div className="flex flex-col gap-6">
-      <p className="font-serif text-base leading-relaxed text-cardstock-deep max-w-prose">
-        Each of these one-time steps folds a little weight into your votes.
-        Finished steps are already counted in the multiplier below — the rest
-        are here whenever you get to them.
-      </p>
-
-      <div className="bcc-panel flex flex-col gap-4 p-5">
-        <div className="flex flex-wrap items-end justify-between gap-4">
-          <div className="flex flex-col">
-            <span className="bcc-mono text-[10px] tracking-[0.2em] text-ink-soft">
-              YOUR VOTE MULTIPLIER
-            </span>
-            <span className="bcc-stencil text-4xl leading-none text-ink">
-              {quests.multiplier.toFixed(2)}×
-            </span>
-          </div>
-          <span className="bcc-mono text-ink-soft">
-            <span className="text-ink">{quests.completed_count}</span>
-            <span className="mx-1 text-ink-ghost">/</span>
-            {quests.total_count} steps folded in
-          </span>
-        </div>
-        <div className="relative h-3 border border-cardstock/25 bg-concrete-hi">
-          <div
-            className="absolute inset-y-0 left-0"
-            style={{
-              width: `${pct}%`,
-              background:
-                "linear-gradient(90deg, var(--verified), var(--phosphor))",
-              boxShadow: "0 0 8px rgba(125, 255, 154, 0.6)",
-            }}
-          />
-        </div>
-      </div>
-
-      <ul className="flex flex-col">
-        {quests.items.map((quest) => (
-          <li
-            key={quest.slug}
-            className="grid grid-cols-[auto_1fr_auto] items-baseline gap-4 border-b border-dashed border-cardstock/15 py-3 last:border-b-0"
-          >
-            <span
-              aria-hidden
-              className={
-                "bcc-mono text-lg leading-none " +
-                (quest.done ? "text-phosphor" : "text-ink-ghost")
-              }
-            >
-              {quest.done ? "✓" : "○"}
-            </span>
-            <span className="flex flex-col">
-              <span className="bcc-mono text-cardstock">
-                {quest.label.toUpperCase()}
-              </span>
-              <span className="font-serif text-sm text-cardstock-deep">
-                {quest.hint}
-              </span>
-            </span>
-            <span
-              className={
-                "bcc-mono whitespace-nowrap " +
-                (quest.done ? "text-phosphor" : "text-cardstock-deep")
-              }
-            >
-              +{quest.weight_bonus.toFixed(2)}×
-            </span>
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
 }
 
 // ──────────────────────────────────────────────────────────────────────
