@@ -308,6 +308,9 @@ function NftTile({
   onToggle: () => void;
 }) {
   const selected = item.is_selected;
+  // Absent flag (older cached payloads) reads as verified — dimming on
+  // missing data would flash the whole grid during deploy skew.
+  const unverifiedCollection = item.collection_verified === false;
   const displayName = (item.name ?? "").trim();
   const collection = (item.collection_name ?? "").trim();
   const fallbackTitle =
@@ -322,7 +325,7 @@ function NftTile({
       type="button"
       role="checkbox"
       aria-checked={selected}
-      aria-label={`${selected ? "Remove" : "Add"} ${fallbackTitle} ${selected ? "from" : "to"} your showcase`}
+      aria-label={`${selected ? "Remove" : "Add"} ${fallbackTitle} ${selected ? "from" : "to"} your showcase${unverifiedCollection ? " (collection's community not yet activated)" : ""}`}
       onClick={onToggle}
       disabled={disabled || pending}
       className="group relative block w-full overflow-hidden border-2 text-left transition motion-reduce:transition-none"
@@ -345,9 +348,17 @@ function NftTile({
             loading="lazy"
             decoding="async"
             className="h-full w-full object-cover"
+            style={
+              unverifiedCollection
+                ? { opacity: 0.55, filter: "saturate(0.35)" }
+                : undefined
+            }
           />
         ) : (
-          <div className="flex h-full w-full items-center justify-center">
+          <div
+            className="flex h-full w-full items-center justify-center"
+            style={unverifiedCollection ? { opacity: 0.55 } : undefined}
+          >
             <span
               className="bcc-stencil text-3xl"
               style={{ color: "var(--cardstock-deep)" }}
@@ -355,6 +366,21 @@ function NftTile({
               №{item.token_id.length > 4 ? item.token_id.slice(0, 4) : item.token_id}
             </span>
           </div>
+        )}
+
+        {unverifiedCollection && !selected && (
+          <span
+            aria-hidden
+            className="bcc-mono absolute left-2 top-2 px-1.5 py-0.5"
+            style={{
+              background: "rgba(15,13,9,0.72)",
+              color: "var(--cardstock)",
+              fontSize: "8px",
+              letterSpacing: "0.16em",
+            }}
+          >
+            COMMUNITY NOT YET ACTIVATED
+          </span>
         )}
 
         {selected && (

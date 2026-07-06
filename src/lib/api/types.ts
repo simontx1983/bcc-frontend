@@ -975,10 +975,10 @@ export interface DismissHighlightResponse {
 
 /**
  * Stable kind identifier for the Heavy celebration. Today rank_up is
- * the only producer; level_up / tier_upgrade will join as the
+ * the only producer; tier_upgrade will join as the
  * corresponding listeners land.
  */
-export type CelebrationKind = "rank_up" | "level_up" | "tier_upgrade";
+export type CelebrationKind = "rank_up" | "tier_upgrade";
 
 export interface Celebration {
   kind: CelebrationKind;
@@ -1093,6 +1093,9 @@ export interface SearchSuggestion {
   tier_label: string | null;
   trust_score: number | null;
   is_verified: boolean;
+  /** Verified operator/creator claim (§ verified-wins) — distinct from
+   *  the email-verified `is_verified` flag. Drives the VerifiedBadge. */
+  is_claim_verified: boolean;
   /** Pre-built headless route (`/v/:slug`, `/p/:slug`, `/c/:slug`). */
   href: string;
 }
@@ -1133,6 +1136,9 @@ export interface ProjectSearchResult {
   tier: string | null;
   endorsements: number;
   verified: boolean;
+  /** Verified operator/creator claim (§ verified-wins) — distinct from
+   *  the email-verified `verified` flag. Drives the VerifiedBadge. */
+  is_claim_verified: boolean;
   followers: number;
   category: string | null;
   category_slug: string | null;
@@ -1668,6 +1674,48 @@ export interface MyHolderGroupsResponse {
 }
 
 /**
+ * One row of GET /me/collection-stances/panel (§4.31, v1.32) — a
+ * collection the viewer's linked wallets hold, with the state that
+ * decides which button pair renders:
+ *   - state "live"     → verified + community exists → Join community
+ *                        (drives the existing POST /me/holder-groups/
+ *                        {group_id}/join)
+ *   - state "waitlist" → not yet activated → Join the waitlist
+ * `viewer_stance` is the viewer's current declaration (toggleable);
+ * `waitlist_count` is public social proof. Collections the operator
+ * hid or the community soft-hid never appear here.
+ */
+export interface CollectionStancePanelItem {
+  chain_id: number;
+  chain_slug: string;
+  contract_address: string;
+  name: string | null;
+  image_url: string | null;
+  collection_verified: boolean;
+  state: "live" | "waitlist";
+  group_id: number | null;
+  waitlist_count: number;
+  viewer_stance: "waitlist" | "spam" | null;
+}
+
+export interface CollectionStancePanelResponse {
+  items: CollectionStancePanelItem[];
+}
+
+/** POST /me/collection-stances body + success echo. */
+export interface SetCollectionStanceRequest {
+  chain_id: number;
+  contract_address: string;
+  stance: "waitlist" | "spam";
+}
+
+export interface CollectionStanceResponse {
+  chain_id: number;
+  contract_address: string;
+  stance: "waitlist" | "spam" | null;
+}
+
+/**
  * POST /me/holder-groups/:id/join success.
  * `code` distinguishes a fresh join from an idempotent re-join; both
  * are 200, callers may surface a different toast per code.
@@ -2190,7 +2238,7 @@ export interface GroupDiscoveryItem {
   collection_stats: CollectionStats | null;
   activity: GroupActivity;
   /**
-   * Chain-tag slug the group is bound to (e.g. "stargaze", "akash").
+   * Chain-tag slug the group is bound to (e.g. "cosmos", "akash").
    * Resolved server-side from either `_bcc_gate_chain_id` (NFT holder
    * groups) or `_bcc_chain_tag` (user-created plain groups). Null when
    * the group has no chain tag (Locals, legacy untagged groups).
@@ -3093,6 +3141,29 @@ export interface MemberLiving {
   } | null;
 }
 
+/** One §N11 quest: a one-time step that contributes to the vote-weight multiplier. */
+export interface MemberQuestItem {
+  slug: string;
+  label: string;
+  hint: string;
+  done: boolean;
+  /** Vote-weight bonus this quest folds into the multiplier when done. */
+  weight_bonus: number;
+  category: string;
+}
+
+/** §N11 quest progress: the checklist plus the earned vote-weight multiplier. */
+export interface MemberQuestProgress {
+  /** Earned vote-weight multiplier (1.00–1.30) applied to the operator's votes at cast time. */
+  multiplier: number;
+  completed_count: number;
+  total_count: number;
+  /** 0–100, `round(completed_count / total_count × 100)`. */
+  pct: number;
+  /** Stable catalogue order. */
+  items: MemberQuestItem[];
+}
+
 /** §2.5 ProgressionBlock — own profile only (omitted on others'). */
 export interface MemberProgression {
   current_rank: string;
@@ -3114,6 +3185,11 @@ export interface MemberProgression {
     /** ISO date `YYYY-MM-DD`. */
     at: string;
   }>;
+  /**
+   * §N11 quest checklist + earned vote-weight multiplier. Own-only. Optional
+   * for deploy-skew tolerance (older backends omit it); the UI guards on it.
+   */
+  quests?: MemberQuestProgress;
 }
 
 /** §2.6 FeatureAccessBlock — own profile only. Encodes §O5. */
@@ -4473,14 +4549,6 @@ export interface GitHubDisconnectResponse {
   username: string | null;
 }
 
-/** POST /github/refresh — re-fetches GH stats (followers/repos/orgs). */
-export interface GitHubRefreshResponse {
-  refreshed: true;
-  followers?: number;
-  repos?: number;
-  orgs?: number;
-}
-
 // ────────────────────────────────────────────────────────────────────────
 // §V1.5 — linked wallets (§B2 multi-wallet linking).
 //
@@ -5021,6 +5089,13 @@ export interface NftPickerItem {
   image_url?: string | null;
   metadata_uri?: string | null;
   token_standard?: string | null;
+  /**
+   * v1.31 — whether the operator has verified this item's collection
+   * (holder community activated). Display-only: unverified items render
+   * dimmed with a "community not yet activated" tag, never hidden.
+   * Absent (older payloads) reads as verified — don't dim on missing data.
+   */
+  collection_verified?: boolean;
 }
 
 /**

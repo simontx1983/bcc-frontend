@@ -11,6 +11,7 @@
  *   03 // ON THE FLOOR
  *   04 // NEXT RANK (when progression block present)
  *   05 // REPUTATION RECORD (when progression block present)
+ *   06 // TRUST QUESTS (when progression.quests present)
  *
  * All copy is calibrated per the §2.7 cadence-pressure mitigation —
  * descriptive, not prescriptive. See `scripts/cadence-pressure-guard.sh`.
@@ -20,6 +21,8 @@ import type { Route } from "next";
 import Link from "next/link";
 
 import { RankChip } from "@/components/profile/RankChip";
+import { TrustQuestShareAction } from "@/components/profile/TrustQuestShareAction";
+import { TrustQuestsBlock } from "@/components/profile/TrustQuestsBlock";
 import type { CardTier, MemberProfile, MemberProgression } from "@/lib/api/types";
 
 // Threshold mirrors QuestValidator::COMPLETE_PROFILE_THRESHOLD (PHP).
@@ -57,6 +60,47 @@ export function StandingFileBody({ profile }: { profile: MemberProfile }) {
           <SectionFrame fileNumber="05" label="REPUTATION RECORD">
             <RecentChangesBlock changes={progression.trust_score_recent_changes} />
           </SectionFrame>
+
+          {progression.quests !== undefined && (
+            <SectionFrame fileNumber="06" label="TRUST QUESTS">
+              <TrustQuestsBlock
+                quests={progression.quests}
+                renderAction={(quest) => {
+                  switch (quest.slug) {
+                    case "share_x":
+                      return (
+                        <TrustQuestShareAction
+                          handle={profile.handle}
+                          xVerified={profile.verifications.x_verified}
+                        />
+                      );
+                    case "first_vote":
+                      return (
+                        <QuestNavLink
+                          href={"/members" as Route}
+                          label="Browse members →"
+                        />
+                      );
+                    case "explore_projects":
+                      return (
+                        <span className="flex flex-col items-end gap-1">
+                          <QuestNavLink
+                            href={"/communities" as Route}
+                            label="Communities →"
+                          />
+                          <QuestNavLink
+                            href={"/validators" as Route}
+                            label="Validators →"
+                          />
+                        </span>
+                      );
+                    default:
+                      return null;
+                  }
+                }}
+              />
+            </SectionFrame>
+          )}
         </>
       )}
 
@@ -102,6 +146,23 @@ function SectionFrame({
       </div>
       {children}
     </section>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────────
+// QuestNavLink — a quest's "go do it" CTA (e.g. Cast your first vote →
+// members, Explore projects → communities/validators). Matches the CTA
+// vocabulary used by the VERIFIED IDENTITY rows.
+// ──────────────────────────────────────────────────────────────────────
+
+function QuestNavLink({ href, label }: { href: Route; label: string }) {
+  return (
+    <Link
+      href={href}
+      className="bcc-mono whitespace-nowrap text-safety hover:underline underline-offset-4"
+    >
+      {label}
+    </Link>
   );
 }
 

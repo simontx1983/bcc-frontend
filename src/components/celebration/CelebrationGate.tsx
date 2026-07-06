@@ -24,7 +24,7 @@
  * returns 401, which would otherwise trigger the auto-signOut branch
  * of bccFetchAsClient and create a bad UX.
  *
- * Cadence: 60s poll. Heavy moments (rank-up, level-up, tier-upgrade)
+ * Cadence: 60s poll. Heavy moments (rank-up, tier-upgrade)
  * are rare events — once per user per major progression milestone.
  * A faster poll would burn requests for nothing; a slower poll would
  * make the celebration feel laggy after the activity that triggered

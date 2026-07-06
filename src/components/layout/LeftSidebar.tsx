@@ -3,6 +3,7 @@
 import type { Route } from "next";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useSession } from "next-auth/react";
 
 import { NewPostTrigger } from "@/components/composer/NewPostTrigger";
 
@@ -42,6 +43,10 @@ interface LeftSidebarProps {
 
 export function LeftSidebar({ collapsed, onToggle }: LeftSidebarProps) {
   const pathname = usePathname() ?? "/";
+  // Session is resolved server-side and seeded into SessionProvider (see
+  // SiteHeader) — authed/anon on first render, no loading branch needed.
+  const { data: session } = useSession();
+  const handle = session?.user?.handle ?? null;
 
   const iconOnlyItem: React.CSSProperties = {
     justifyContent: "center",
@@ -95,7 +100,8 @@ export function LeftSidebar({ collapsed, onToggle }: LeftSidebarProps) {
           })}
         </nav>
 
-        {!collapsed && (
+        {/* Quick links — authed only (viewer-scoped /me/* + settings routes) */}
+        {!collapsed && handle !== null && (
           <>
             <div className="bcc-nav-divider" />
             <p className="bcc-nav-section">Quick links</p>

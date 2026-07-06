@@ -57,6 +57,7 @@
 
 import { useState } from "react";
 
+import { CollectionsStep } from "@/components/onboarding/CollectionsStep";
 import { DopamineStep } from "@/components/onboarding/DopamineStep";
 import { FirstPullsStep } from "@/components/onboarding/FirstPullsStep";
 import { HomeChainStep } from "@/components/onboarding/HomeChainStep";
@@ -72,6 +73,7 @@ import type { HomeChain } from "@/lib/api/types";
 type Step =
   | "chain"
   | "pulls"
+  | "collections"
   | "trust"
   | "notifications"
   | "dopamine";
@@ -86,11 +88,12 @@ export function OnboardingWizard({ handle }: OnboardingWizardProps) {
   const pulls = useWizardPulls();
 
   const wizardLabel: Record<Step, string> = {
-    chain:         "Step 1 of 5 · Home Chain",
-    pulls:         "Step 2 of 5 · Start watching",
-    trust:         "Step 3 of 5 · How the graph works",
-    notifications: "Step 4 of 5 · Stay Posted",
-    dopamine:      "Step 5 of 5 · Welcome",
+    chain:         "Step 1 of 6 · Home Chain",
+    pulls:         "Step 2 of 6 · Start watching",
+    collections:   "Step 3 of 6 · Your collections",
+    trust:         "Step 4 of 6 · How the graph works",
+    notifications: "Step 5 of 6 · Stay Posted",
+    dopamine:      "Step 6 of 6 · Welcome",
   };
 
   return (
@@ -121,13 +124,20 @@ export function OnboardingWizard({ handle }: OnboardingWizardProps) {
         <FirstPullsStep
           pulls={pulls}
           onBack={() => setStep("chain")}
+          onDone={() => setStep("collections")}
+        />
+      )}
+
+      {step === "collections" && (
+        <CollectionsStep
+          onBack={() => setStep("pulls")}
           onDone={() => setStep("trust")}
         />
       )}
 
       {step === "trust" && (
         <OnboardingTrustLayerSteps
-          onBack={() => setStep("pulls")}
+          onBack={() => setStep("collections")}
           onDone={() => setStep("notifications")}
         />
       )}

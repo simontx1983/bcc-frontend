@@ -218,6 +218,23 @@ export default function SignupPage() {
           onSuccess={() => { router.replace("/onboarding"); }}
         />
       </div>
+
+      {/* Signup disclosure. Completing signup by any method fires
+          bcc_user_signup, which grants consent to the automated device
+          checks the backend uses for multi-account / bot detection
+          (DeviceFingerprinter::hasConsent). Keep this factual + neutral —
+          no cadence-pressure nudge language. */}
+      <p
+        className="bcc-auth-hint"
+        style={{ marginTop: "16px", fontSize: "11px", lineHeight: 1.5 }}
+      >
+        By creating an account, you agree to our{" "}
+        <Link href="/terms">Terms of Service</Link> and{" "}
+        <Link href="/privacy">Privacy Policy</Link>, including automated
+        fraud-prevention device checks (see our{" "}
+        <Link href="/cookies">Cookie Policy</Link>) that help keep the floor
+        free of fake and automated accounts.
+      </p>
     </AuthCard>
   );
 }

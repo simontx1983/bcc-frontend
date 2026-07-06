@@ -15,7 +15,7 @@
  *
  * Icon mapping is intentionally light — one inline SVG per known
  * `kind`, with a generic chevron-up fallback for unknown kinds we
- * haven't shipped UI for yet (level_up, tier_upgrade are reserved
+ * haven't shipped UI for yet (tier_upgrade is reserved
  * but not yet produced server-side).
  */
 
@@ -74,8 +74,6 @@ function labelForKind(kind: Celebration["kind"]): string {
   switch (kind) {
     case "rank_up":
       return "RANK UP";
-    case "level_up":
-      return "LEVEL UP";
     case "tier_upgrade":
       return "TIER UPGRADE";
     default:

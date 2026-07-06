@@ -27,7 +27,6 @@ import { bccTrustFetch } from "@/lib/api/bcc-trust-client";
 import type {
   GitHubAuthUrlResponse,
   GitHubDisconnectResponse,
-  GitHubRefreshResponse,
   GitHubStatusResponse,
   XAuthUrlResponse,
   XDisconnectResponse,
@@ -98,8 +97,4 @@ export function disconnectGitHub(): Promise<GitHubDisconnectResponse> {
   return bccTrustFetch<GitHubDisconnectResponse>("/github/disconnect", {
     method: "POST",
   });
-}
-
-export function refreshGitHub(): Promise<GitHubRefreshResponse> {
-  return bccTrustFetch<GitHubRefreshResponse>("/github/refresh", { method: "POST" });
 }

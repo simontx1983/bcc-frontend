@@ -65,7 +65,6 @@ export const WALLET_CHAIN_CATALOG: ReadonlyArray<WalletChainOption> = [
   { slug: "osmosis",   label: "Osmosis",           chainType: "cosmos" },
   { slug: "injective", label: "Injective",         chainType: "cosmos" },
   { slug: "juno",      label: "Juno",              chainType: "cosmos" },
-  { slug: "stargaze",  label: "Stargaze",          chainType: "cosmos" },
   { slug: "thorchain", label: "THORChain",         chainType: "cosmos" },
 
   // Polkadot — wallet-link only (no NFT discovery yet, see header).

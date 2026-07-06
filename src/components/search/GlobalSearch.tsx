@@ -3,9 +3,10 @@
 /**
  * GlobalSearch — §G1 nav-bar autocomplete.
  *
- * A small search input with a dropdown of <SearchSuggestion> rows.
- * Lives in the SiteHeader's nav-actions slot. Anonymous-OK; visible
- * regardless of session state.
+ * A search input with a dropdown of <SearchSuggestion> rows. Mounted
+ * in the SiteHeader's centered search slot (the header passes
+ * `inputClassName="bcc-search-input"` so the input keeps the header's
+ * visual language). Anonymous-OK; visible regardless of session state.
  *
  * UX:
  *   - Focus on an empty input → "Pre-search" surface: most recent
@@ -42,7 +43,12 @@ import {
   type KeyboardEvent,
 } from "react";
 
+import { VerifiedBadge } from "@/components/ui/VerifiedBadge";
 import { useGlobalSearch } from "@/hooks/useGlobalSearch";
+import {
+  isTypingTarget,
+  useKeyboardShortcuts,
+} from "@/hooks/useKeyboardShortcuts";
 import { useRecentSearches } from "@/hooks/useRecentSearches";
 import { useTrendingSearches } from "@/hooks/useTrendingSearches";
 import type {
@@ -52,7 +58,31 @@ import type {
 
 const MAX_TRENDING_IN_DROPDOWN = 5;
 
-export function GlobalSearch() {
+interface GlobalSearchProps {
+  /** Extra classes appended to the positioning container (`relative`). */
+  className?: string;
+  /**
+   * REPLACES the default compact input styling when provided — the
+   * SiteHeader passes `bcc-search-input` so the combobox inherits the
+   * header's glass input treatment instead of the Tailwind default.
+   */
+  inputClassName?: string;
+  /** Input placeholder override. */
+  placeholder?: string;
+  /**
+   * Register the page-global "/" and ⌘K/Ctrl+K focus-search shortcut
+   * (via useKeyboardShortcuts). Enable on at most ONE mounted instance
+   * per page so two listeners don't fight over focus.
+   */
+  focusShortcut?: boolean;
+}
+
+export function GlobalSearch({
+  className,
+  inputClassName,
+  placeholder = "Search the floor…",
+  focusShortcut = false,
+}: GlobalSearchProps) {
   const router = useRouter();
   const inputId = useId();
 
@@ -88,6 +118,10 @@ export function GlobalSearch() {
     };
     const onKeyDown = (event: globalThis.KeyboardEvent) => {
       if (event.key === "Escape") {
+        // preventDefault: Chrome's native <input type="search"> action
+        // clears the text on Escape, which fires onChange → setOpen(true)
+        // and would re-open the dropdown this handler just closed.
+        event.preventDefault();
         setOpen(false);
         inputRef.current?.blur();
       }
@@ -105,6 +139,40 @@ export function GlobalSearch() {
   useEffect(() => {
     setActiveIndex(-1);
   }, [items.length, query]);
+
+  // "/" (plus ⌘K/Ctrl+K, preserving the SiteHeader's historical
+  // binding) focuses the input from anywhere on the page. Opt-in via
+  // `focusShortcut` so a second mounted instance can't double-register.
+  // "/" stays quiet while the user is typing elsewhere (composer,
+  // settings forms) — the ⌘K chord fires regardless, like before.
+  useKeyboardShortcuts(
+    [
+      {
+        key: "/",
+        description: "Focus search",
+        when: (event) =>
+          !event.metaKey &&
+          !event.ctrlKey &&
+          !event.altKey &&
+          !isTypingTarget(event.target),
+        run: (event) => {
+          event.preventDefault();
+          inputRef.current?.focus();
+        },
+      },
+      {
+        key: "k",
+        label: "⌘K",
+        description: "Focus search",
+        when: (event) => event.metaKey || event.ctrlKey,
+        run: (event) => {
+          event.preventDefault();
+          inputRef.current?.focus();
+        },
+      },
+    ],
+    focusShortcut,
+  );
 
   const submitFreeText = (q: string) => {
     const cleaned = q.trim();
@@ -160,7 +228,11 @@ export function GlobalSearch() {
   const showDropdown = showPreSearch || showResults;
 
   return (
-    <div ref={containerRef} className="relative">
+    <div
+      ref={containerRef}
+      role="search"
+      className={className ? `relative ${className}` : "relative"}
+    >
       <label htmlFor={inputId} className="sr-only">
         Search the floor
       </label>
@@ -182,15 +254,18 @@ export function GlobalSearch() {
         aria-activedescendant={
           activeIndex >= 0 ? `${inputId}-opt-${activeIndex}` : undefined
         }
-        placeholder="Search the floor…"
-        className="bcc-mono w-36 bg-cardstock px-3 py-1.5 text-[12px] text-ink placeholder:text-ink-soft/60 ring-1 ring-cardstock-edge focus:outline-none focus:ring-2 focus:ring-blueprint sm:w-48 md:w-64"
+        placeholder={placeholder}
+        className={
+          inputClassName ??
+          "bcc-mono w-36 bg-cardstock px-3 py-1.5 text-[12px] text-ink placeholder:text-ink-soft/60 ring-1 ring-cardstock-edge focus:outline-none focus:ring-2 focus:ring-blueprint sm:w-48 md:w-64"
+        }
       />
 
       {showDropdown && (
         <div
           id={`${inputId}-listbox`}
           role="listbox"
-          className="bcc-panel absolute right-0 top-full z-30 mt-1 flex w-[min(28rem,90vw)] flex-col gap-px overflow-hidden"
+          className="bcc-panel absolute left-0 top-full z-30 mt-1 flex w-full min-w-[min(28rem,90vw)] flex-col gap-px overflow-hidden"
           style={{ background: "rgba(15,13,9,0.06)" }}
         >
           {showPreSearch ? (
@@ -390,18 +465,24 @@ function SuggestionRow({ item, id, active, onActivate, onHover }: SuggestionRowP
           </span>
         </span>
 
-        {item.tier_label !== null && item.card_tier !== null && (
-          <span
-            className="bcc-mono shrink-0 rounded-sm px-2 py-0.5 text-[9px] tracking-[0.18em]"
-            style={{
-              color: `var(--tier-${item.card_tier})`,
-              background: "rgba(15,13,9,0.04)",
-              border: "1px solid rgba(15,13,9,0.12)",
-            }}
-          >
-            {item.tier_label.toUpperCase()}
-          </span>
-        )}
+        {/* Right-hand cluster: claim-verified checkmark (§ verified-wins,
+            server-resolved boolean) beside the tier chip. Either may
+            render without the other. */}
+        <span className="flex shrink-0 items-center gap-1.5">
+          {item.is_claim_verified && <VerifiedBadge />}
+          {item.tier_label !== null && item.card_tier !== null && (
+            <span
+              className="bcc-mono shrink-0 rounded-sm px-2 py-0.5 text-[9px] tracking-[0.18em]"
+              style={{
+                color: `var(--tier-${item.card_tier})`,
+                background: "rgba(15,13,9,0.04)",
+                border: "1px solid rgba(15,13,9,0.12)",
+              }}
+            >
+              {item.tier_label.toUpperCase()}
+            </span>
+          )}
+        </span>
       </button>
     </li>
   );
