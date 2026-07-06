@@ -72,4 +72,19 @@ describe("TrustQuestsBlock", () => {
     expect(bar).not.toBeNull();
     expect(bar?.style.width).toBe("86%");
   });
+
+  it("renders a per-quest action only while the quest is pending", () => {
+    render(
+      <TrustQuestsBlock
+        quests={quests}
+        renderAction={(quest) => (
+          <span>action:{quest.slug}</span>
+        )}
+      />,
+    );
+    // explore_projects is pending → its action shows.
+    expect(screen.getByText("action:explore_projects")).toBeInTheDocument();
+    // connect_wallet is done → no action.
+    expect(screen.queryByText("action:connect_wallet")).toBeNull();
+  });
 });
