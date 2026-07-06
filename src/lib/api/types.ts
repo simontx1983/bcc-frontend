@@ -4529,14 +4529,6 @@ export interface GitHubDisconnectResponse {
   username: string | null;
 }
 
-/** POST /github/refresh — re-fetches GH stats (followers/repos/orgs). */
-export interface GitHubRefreshResponse {
-  refreshed: true;
-  followers?: number;
-  repos?: number;
-  orgs?: number;
-}
-
 // ────────────────────────────────────────────────────────────────────────
 // §V1.5 — linked wallets (§B2 multi-wallet linking).
 //

@@ -27,14 +27,12 @@ import {
   getGitHubStatus,
   getXAuthUrl,
   getXStatus,
-  refreshGitHub,
   verifyXShare,
 } from "@/lib/api/oauth-endpoints";
 import type {
   BccApiError,
   GitHubAuthUrlResponse,
   GitHubDisconnectResponse,
-  GitHubRefreshResponse,
   GitHubStatusResponse,
   XAuthUrlResponse,
   XDisconnectResponse,
@@ -150,27 +148,6 @@ export function useDisconnectGitHub(
 
   return useMutation<GitHubDisconnectResponse, BccApiError, void>({
     mutationFn: () => disconnectGitHub(),
-    onSuccess: (data) => {
-      void queryClient.invalidateQueries({ queryKey: GITHUB_STATUS_QUERY_KEY });
-      callerOnSuccess?.(data);
-    },
-    ...rest,
-  });
-}
-
-export function useRefreshGitHub(
-  options: Omit<
-    UseMutationOptions<GitHubRefreshResponse, BccApiError, void>,
-    "mutationFn" | "onSuccess"
-  > & {
-    onSuccess?: (data: GitHubRefreshResponse) => void;
-  } = {},
-) {
-  const queryClient = useQueryClient();
-  const { onSuccess: callerOnSuccess, ...rest } = options;
-
-  return useMutation<GitHubRefreshResponse, BccApiError, void>({
-    mutationFn: () => refreshGitHub(),
     onSuccess: (data) => {
       void queryClient.invalidateQueries({ queryKey: GITHUB_STATUS_QUERY_KEY });
       callerOnSuccess?.(data);
