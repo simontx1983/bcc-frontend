@@ -316,8 +316,9 @@
                 color var(--bcc-transition-slow);
   }
 
-  /* Auth pages need the body to scroll — override the shell lock */
-  body:has(.bcc-minimal-shell) {
+  /* Auth pages and legal doc pages need the body to scroll — override the shell lock */
+  body:has(.bcc-minimal-shell),
+  body:has(.bcc-legal-shell) {
     overflow: auto;
     height: auto;
     min-height: 100dvh;
@@ -954,6 +955,19 @@
     height: 1px;
     background: var(--bcc-border-light);
     margin: 8px 16px;
+  }
+  /* Small/faint legal links — LeftSidebar + MainOffcanvas. Same hover
+     language as .bcc-auth-footer a (lighten toward -secondary, darkens
+     back down in day theme since the token itself flips). */
+  .bcc-legal-link {
+    font-family: var(--font-mono), monospace;
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    color: var(--bcc-text-muted);
+    transition: color 150ms ease;
+  }
+  .bcc-legal-link:hover {
+    color: var(--bcc-text-secondary);
   }
 }
 
@@ -1672,8 +1686,26 @@
   color: var(--bcc-text-secondary);
 }
 
+/* Copyright brand mark — no accent switcher lives on auth pages, so this
+   is hardcoded primary/secondary (not --bcc-accent) rather than
+   switchable. Decorative hover only — the text isn't a link. */
+.bcc-auth-copyright-year,
+.bcc-auth-copyright-brand {
+  transition: color 150ms ease;
+}
+.bcc-auth-copyright:hover .bcc-auth-copyright-year {
+  color: var(--bcc-secondary);
+}
+.bcc-auth-copyright:hover .bcc-auth-copyright-brand {
+  color: var(--bcc-primary);
+}
+
 /* Mobile: stack copyright above the legal links instead of cramming
-   everything onto one fixed-width row. */
+   everything onto one fixed-width row. The footer is position:fixed
+   (pinned to the viewport, not the scroll content), so the taller 2-row
+   footer needs a bigger reserved gap below the card on .bcc-minimal-shell
+   — otherwise a tall card (login/signup) visually collides with it.
+   Short cards (forgot-password) clear either way. */
 @media (max-width: 480px) {
   .bcc-auth-footer {
     flex-direction: column;
@@ -1682,6 +1714,9 @@
   }
   .bcc-auth-footer-links {
     gap: 12px;
+  }
+  .bcc-minimal-shell {
+    padding-bottom: 100px;
   }
 }
 

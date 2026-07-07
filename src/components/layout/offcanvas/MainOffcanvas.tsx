@@ -285,20 +285,15 @@ export function MainOffcanvas({ open, onClose }: MainOffcanvasProps) {
           <div className="bcc-nav-divider" />
           <div style={{ padding: "8px 16px", display: "flex", gap: 12, flexWrap: "wrap" }}>
             {[
-              { label: "Privacy", href: LEGAL_ROUTES.privacy },
               { label: "Terms",   href: LEGAL_ROUTES.terms },
+              { label: "Privacy", href: LEGAL_ROUTES.privacy },
               { label: "Cookies", href: LEGAL_ROUTES.cookies },
             ].map(item => (
               <Link
                 key={item.href}
                 href={item.href as Route}
                 onClick={onClose}
-                style={{
-                  fontFamily: "var(--font-mono), monospace",
-                  fontSize: 11,
-                  color: "var(--bcc-text-muted)",
-                  letterSpacing: "0.06em",
-                }}
+                className="bcc-legal-link"
               >
                 {item.label}
               </Link>

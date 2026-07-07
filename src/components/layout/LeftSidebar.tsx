@@ -27,8 +27,8 @@ const QUICK_LINKS = [
 ] as const;
 
 const LEGAL_LINKS = [
-  { label: "Privacy", href: LEGAL_ROUTES.privacy },
   { label: "Terms",   href: LEGAL_ROUTES.terms },
+  { label: "Privacy", href: LEGAL_ROUTES.privacy },
   { label: "Cookies", href: LEGAL_ROUTES.cookies },
 ] as const;
 
@@ -135,16 +135,7 @@ export function LeftSidebar({ collapsed, onToggle }: LeftSidebarProps) {
             <div className="bcc-nav-divider" />
             <div style={{ padding: "8px 16px", display: "flex", gap: 12, flexWrap: "wrap" }}>
               {LEGAL_LINKS.map(item => (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  style={{
-                    fontFamily: "var(--font-mono), monospace",
-                    fontSize: 11,
-                    color: "var(--bcc-text-muted)",
-                    letterSpacing: "0.06em",
-                  }}
-                >
+                <Link key={item.href} href={item.href} className="bcc-legal-link">
                   {item.label}
                 </Link>
               ))}

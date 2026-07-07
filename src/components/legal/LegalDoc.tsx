@@ -33,7 +33,7 @@ export function LegalDoc({
     <article className="mx-auto w-full max-w-3xl px-5 py-12 sm:px-8 sm:py-16">
       <header className="border-b border-dashed border-[var(--bcc-border)] pb-8">
         <p
-          className="bcc-mono text-safety"
+          className="bcc-mono text-[var(--bcc-accent)]"
           style={{ fontSize: "11px", letterSpacing: "0.24em" }}
         >
           LEGAL {"//"} {DOC_LABELS[docKey].toUpperCase()}
@@ -63,11 +63,11 @@ export function LegalDoc({
         </p>
         <p className="mt-2 text-[var(--bcc-text-secondary)]" style={{ fontSize: "14px", lineHeight: 1.6 }}>
           Contact us at{" "}
-          <a href={`mailto:${LEGAL.legalEmail}`} className="text-safety underline">
+          <a href={`mailto:${LEGAL.legalEmail}`} className="text-[var(--bcc-accent)] underline">
             {LEGAL.legalEmail}
           </a>{" "}
           (legal) or{" "}
-          <a href={`mailto:${LEGAL.privacyEmail}`} className="text-safety underline">
+          <a href={`mailto:${LEGAL.privacyEmail}`} className="text-[var(--bcc-accent)] underline">
             {LEGAL.privacyEmail}
           </a>{" "}
           (privacy / data requests).
@@ -116,7 +116,7 @@ export function LegalSection({
   return (
     <section id={id} className="mb-9 scroll-mt-24">
       <h2 className="bcc-mono text-[var(--bcc-text)]" style={{ fontSize: "14px", letterSpacing: "0.12em" }}>
-        <span className="text-safety">{String(n).padStart(2, "0")}</span> · {heading.toUpperCase()}
+        <span className="text-[var(--bcc-accent)]">{String(n).padStart(2, "0")}</span> · {heading.toUpperCase()}
       </h2>
       <div className="mt-3 space-y-3">{children}</div>
     </section>

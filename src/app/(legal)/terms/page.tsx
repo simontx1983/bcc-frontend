@@ -51,7 +51,7 @@ export default function TermsPage() {
           current. You are responsible for all activity under your account and
           for maintaining the confidentiality of your credentials. Notify us
           promptly at{" "}
-          <a href={`mailto:${LEGAL.legalEmail}`} className="text-safety underline">{LEGAL.legalEmail}</a>{" "}
+          <a href={`mailto:${LEGAL.legalEmail}`} className="text-[var(--bcc-accent)] underline">{LEGAL.legalEmail}</a>{" "}
           of any unauthorized use. One person or entity may not maintain
           multiple accounts to manipulate reputation, disputes, or any other
           feature of the Service.
@@ -228,7 +228,7 @@ export default function TermsPage() {
         </LegalP>
         <LegalP>
           Notices to us may be sent to{" "}
-          <a href={`mailto:${LEGAL.legalEmail}`} className="text-safety underline">{LEGAL.legalEmail}</a>{" "}
+          <a href={`mailto:${LEGAL.legalEmail}`} className="text-[var(--bcc-accent)] underline">{LEGAL.legalEmail}</a>{" "}
           or {LEGAL.address}.
         </LegalP>
       </LegalSection>

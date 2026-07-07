@@ -17,7 +17,7 @@ export function LegalTabs() {
   const pathname = usePathname() ?? "";
 
   return (
-    <nav aria-label="Legal documents" className="flex gap-1 pb-3">
+    <nav aria-label="Legal documents" className="flex gap-1">
       {TABS.map((tab) => {
         const active = pathname === tab.href;
         return (

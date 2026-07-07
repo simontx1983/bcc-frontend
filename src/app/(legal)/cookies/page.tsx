@@ -103,7 +103,7 @@ export default function CookiesPage() {
         <LegalP>
           We may update this Cookie Policy as the Service evolves. We will update
           the effective date when we do. Questions? Contact{" "}
-          <a href={`mailto:${LEGAL.privacyEmail}`} className="text-safety underline">{LEGAL.privacyEmail}</a>.
+          <a href={`mailto:${LEGAL.privacyEmail}`} className="text-[var(--bcc-accent)] underline">{LEGAL.privacyEmail}</a>.
         </LegalP>
       </LegalSection>
     </LegalDoc>

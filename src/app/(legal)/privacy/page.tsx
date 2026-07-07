@@ -144,7 +144,7 @@ export default function PrivacyPage() {
         </LegalP>
         <LegalP>
           To exercise your rights, contact{" "}
-          <a href={`mailto:${LEGAL.privacyEmail}`} className="text-safety underline">{LEGAL.privacyEmail}</a>.
+          <a href={`mailto:${LEGAL.privacyEmail}`} className="text-[var(--bcc-accent)] underline">{LEGAL.privacyEmail}</a>.
           We may need to verify your identity. You may also have the right to
           complain to your local data-protection authority.
         </LegalP>
