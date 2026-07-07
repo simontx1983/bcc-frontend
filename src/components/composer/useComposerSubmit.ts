@@ -150,6 +150,7 @@ export function humanizeError(err: unknown): string {
     {
       bcc_unauthorized: "Sign in to post.",
       bcc_forbidden:
+        // cadence-pressure-guard:allow — unlock-requirement explanation on a denied action, not a schedule nudge
         "You haven't unlocked this yet — keep watching cards and writing on the Floor.",
       bcc_invalid_request: "That post can't be sent — check the content.",
       // Per §3.3.12 — the server intentionally hides which user failed

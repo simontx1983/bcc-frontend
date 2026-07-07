@@ -128,6 +128,19 @@ export function ViewerMenu({ handle }: ViewerMenuProps) {
           >
             Panel Duty
           </Link>
+          {/* No capability gate by design (v1: no FE role checks — see
+              admin-architecture decision). Non-admins who click land on
+              the page's own "Admin access required" error state; the
+              API layer owns the manage_options check. Without this
+              entry the §K1 reports queue had NO inbound link anywhere
+              and filed reports accumulated invisibly. */}
+          <Link
+            href={"/admin/moderation" as Route}
+            role="menuitem"
+            className="bcc-stencil bg-cardstock px-4 py-3 text-[13px] tracking-[0.16em] text-ink hover:bg-cardstock-deep"
+          >
+            Moderation
+          </Link>
           <Link
             href={"/settings/identity" as Route}
             role="menuitem"

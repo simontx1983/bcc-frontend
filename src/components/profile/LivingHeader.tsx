@@ -91,8 +91,9 @@ export function LivingHeader({ living, progression, hideEmptyShiftFallback }: Li
       style={{ ["--stagger" as string]: "120ms" }}
     >
       {/* Today's impact + §O3.1 comparison — stacked editorial lines.
-          The streak column that used to occupy the left slot has been
-          removed (Sprint 2 — see component docstring). The "today"
+          cadence-pressure-guard:allow — this comment documents the
+          REMOVAL of the streak column that used to occupy the left slot
+          (Sprint 2 — see component docstring). The "today"
           line is now the primary acknowledgment surface. */}
       <div className="flex flex-col justify-center gap-1">
         {todayLine !== "" && (
