@@ -324,16 +324,15 @@
     min-height: 100dvh;
   }
 
-  /* These are whole-page (body-level) scrolls, not a small contained
-     column — the hover-to-reveal thumb convention below (.bcc-col:hover)
-     doesn't apply here, so without this the thumb stays permanently
-     transparent and the page looks like it has no scrollbar at all. */
-  body:has(.bcc-minimal-shell),
-  body:has(.bcc-legal-shell) {
+  /* Legal pages only (not auth) get a visible scrollbar thumb. Once
+     body's overflow is unlocked above, the browser propagates it to the
+     viewport and `html` (not `body`) becomes the actual scrolling
+     element — styling body::-webkit-scrollbar-thumb has no effect on
+     the real, visible scrollbar; it has to target html here. */
+  html:has(.bcc-legal-shell) {
     scrollbar-color: var(--bcc-scrollbar-thumb) var(--bcc-scrollbar-track);
   }
-  body:has(.bcc-minimal-shell)::-webkit-scrollbar-thumb,
-  body:has(.bcc-legal-shell)::-webkit-scrollbar-thumb {
+  html:has(.bcc-legal-shell)::-webkit-scrollbar-thumb {
     background: var(--bcc-scrollbar-thumb);
   }
 
