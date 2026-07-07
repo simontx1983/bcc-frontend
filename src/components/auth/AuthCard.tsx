@@ -5,6 +5,8 @@ import { signIn } from "next-auth/react";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
+import { applyTheme, getStoredAccent, getStoredTheme, type Accent, type Theme } from "@/lib/theme";
+
 interface AuthCardProps {
   heading: string;
   subheading?: string | undefined;
@@ -13,18 +15,25 @@ interface AuthCardProps {
 }
 
 export function AuthCard({ heading, subheading, children, footer }: AuthCardProps) {
-  const [theme, setTheme] = useState<"dark" | "light">("dark");
+  const [theme, setTheme] = useState<Theme>("dark");
+  // No accent switcher on auth pages (kept simple by design) — this only
+  // mirrors the globally-saved accent so buttons/links here follow whatever
+  // the user picked elsewhere, instead of always rendering the primary hue.
+  const [accent, setAccent] = useState<Accent>("primary");
 
   useEffect(() => {
-    const stored = document.documentElement.getAttribute("data-theme");
-    if (stored === "light") setTheme("light");
+    const t = getStoredTheme();
+    const a = getStoredAccent();
+    setTheme(t);
+    setAccent(a);
+    applyTheme(t, a);
   }, []);
 
   const toggleTheme = useCallback(() => {
     const next = theme === "dark" ? "light" : "dark";
     setTheme(next);
-    document.documentElement.setAttribute("data-theme", next);
-  }, [theme]);
+    applyTheme(next, accent);
+  }, [theme, accent]);
 
   return (
     <div className="bcc-auth-card">

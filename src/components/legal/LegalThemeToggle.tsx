@@ -2,16 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
-type Theme = "light" | "dark";
-type Accent = "primary" | "secondary";
-
-function applyTheme(theme: Theme, accent: Accent) {
-  const html = document.documentElement;
-  html.setAttribute("data-theme", theme);
-  html.setAttribute("data-accent", accent);
-  localStorage.setItem("bcc-theme", theme);
-  localStorage.setItem("bcc-accent", accent);
-}
+import { applyTheme, getStoredAccent, getStoredTheme, type Accent, type Theme } from "@/lib/theme";
 
 function PaletteIcon() {
   return (
@@ -37,10 +28,11 @@ export function LegalThemeToggle() {
   const modalRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const t = (document.documentElement.getAttribute("data-theme") ?? "dark") as Theme;
-    const a = (document.documentElement.getAttribute("data-accent") ?? "primary") as Accent;
+    const t = getStoredTheme();
+    const a = getStoredAccent();
     setTheme(t);
     setAccent(a);
+    applyTheme(t, a);
   }, []);
 
   useEffect(() => {

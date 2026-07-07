@@ -25,6 +25,7 @@ import { NotificationsPanel } from "@/components/notifications/NotificationsPane
 import { GlobalSearch } from "@/components/search/GlobalSearch";
 import { useUnreadCount } from "@/hooks/useNotifications";
 import { useUnreadMessageCount } from "@/hooks/useUnreadMessageCount";
+import { applyTheme, getStoredAccent, getStoredTheme, type Accent, type Theme } from "@/lib/theme";
 
 // Code-split — the sign-out confirm only mounts behind the SIGN OUT
 // click, so its chunk stays out of the every-page header bundle.
@@ -36,33 +37,8 @@ const SignOutModal = dynamic(
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-type Theme  = "light" | "dark";
-type Accent = "primary" | "secondary";
-
 /** Operator shift status surfaced in HeaderRail / MobileMenuSheet. */
 export type ShiftStatus = "on_duty" | "quiet" | "off";
-
-// ── Theme helpers ─────────────────────────────────────────────────────────────
-
-function getStoredTheme(): Theme {
-  if (typeof window === "undefined") return "dark";
-  const stored = localStorage.getItem("bcc-theme") as Theme | null;
-  if (stored) return stored;
-  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-}
-
-function getStoredAccent(): Accent {
-  if (typeof window === "undefined") return "primary";
-  return (localStorage.getItem("bcc-accent") as Accent | null) ?? "primary";
-}
-
-function applyTheme(theme: Theme, accent: Accent) {
-  const html = document.documentElement;
-  html.setAttribute("data-theme", theme);
-  html.setAttribute("data-accent", accent);
-  localStorage.setItem("bcc-theme", theme);
-  localStorage.setItem("bcc-accent", accent);
-}
 
 // ── Shared modal dismiss hook ─────────────────────────────────────────────────
 
