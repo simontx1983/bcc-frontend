@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { signIn } from "next-auth/react";
+import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
 interface AuthCardProps {
@@ -49,7 +50,7 @@ export function AuthCard({ heading, subheading, children, footer }: AuthCardProp
       </button>
 
       {/* Logo */}
-      <div className="bcc-auth-logo">
+      <Link href="/" className="bcc-auth-logo" aria-label="Blue Collar Crypto home">
         <Image
           src="/images/Blue_Collar_Crypto_Logo.png"
           alt="Blue Collar Crypto"
@@ -58,7 +59,7 @@ export function AuthCard({ heading, subheading, children, footer }: AuthCardProp
           className="bcc-auth-logo-img"
           priority
         />
-      </div>
+      </Link>
 
       {/* Heading */}
       <div className="bcc-auth-heading-group">

@@ -31,21 +31,21 @@ export function LegalDoc({
 }) {
   return (
     <article className="mx-auto w-full max-w-3xl px-5 py-12 sm:px-8 sm:py-16">
-      <header className="border-b border-dashed border-cardstock/20 pb-8">
+      <header className="border-b border-dashed border-[var(--bcc-border)] pb-8">
         <p
           className="bcc-mono text-safety"
           style={{ fontSize: "11px", letterSpacing: "0.24em" }}
         >
           LEGAL {"//"} {DOC_LABELS[docKey].toUpperCase()}
         </p>
-        <h1 className="bcc-stencil mt-3 text-cardstock" style={{ fontSize: "clamp(1.75rem, 5vw, 3rem)", lineHeight: 1.02 }}>
+        <h1 className="bcc-stencil mt-3 text-[var(--bcc-text)]" style={{ fontSize: "clamp(1.75rem, 5vw, 3rem)", lineHeight: 1.02 }}>
           {title}
         </h1>
-        <p className="font-serif italic text-ink-soft mt-4" style={{ fontSize: "15px", lineHeight: 1.55 }}>
+        <p className="font-serif italic text-[var(--bcc-text-secondary)] mt-4" style={{ fontSize: "15px", lineHeight: 1.55 }}>
           {intro}
         </p>
         <p
-          className="bcc-mono mt-4 text-cardstock-deep"
+          className="bcc-mono mt-4 text-[var(--bcc-text-muted)]"
           style={{ fontSize: "11px", letterSpacing: "0.14em" }}
         >
           Effective {LEGAL.effectiveDate} · {LEGAL.brand} is operated by {LEGAL.entity}.
@@ -54,14 +54,14 @@ export function LegalDoc({
 
       <div className="bcc-legal-body mt-10">{children}</div>
 
-      <footer className="mt-14 border-t border-dashed border-cardstock/20 pt-8">
+      <footer className="mt-14 border-t border-dashed border-[var(--bcc-border)] pt-8">
         <p
-          className="bcc-mono text-cardstock-deep"
+          className="bcc-mono text-[var(--bcc-text-muted)]"
           style={{ fontSize: "11px", letterSpacing: "0.14em" }}
         >
           QUESTIONS
         </p>
-        <p className="mt-2 text-ink-soft" style={{ fontSize: "14px", lineHeight: 1.6 }}>
+        <p className="mt-2 text-[var(--bcc-text-secondary)]" style={{ fontSize: "14px", lineHeight: 1.6 }}>
           Contact us at{" "}
           <a href={`mailto:${LEGAL.legalEmail}`} className="text-safety underline">
             {LEGAL.legalEmail}
@@ -79,7 +79,7 @@ export function LegalDoc({
               key={key}
               href={LEGAL_ROUTES[key]}
               aria-current={key === docKey ? "page" : undefined}
-              className={`bcc-mono ${key === docKey ? "text-cardstock" : "text-cardstock-deep hover:text-cardstock"}`}
+              className={`bcc-mono ${key === docKey ? "text-[var(--bcc-text)]" : "text-[var(--bcc-text-muted)] hover:text-[var(--bcc-text)]"}`}
               style={{ fontSize: "11px", letterSpacing: "0.18em" }}
             >
               {DOC_LABELS[key].toUpperCase()}
@@ -87,7 +87,7 @@ export function LegalDoc({
           ))}
           <Link
             href="/"
-            className="bcc-mono text-cardstock-deep hover:text-cardstock"
+            className="bcc-mono text-[var(--bcc-text-muted)] hover:text-[var(--bcc-text)]"
             style={{ fontSize: "11px", letterSpacing: "0.18em" }}
           >
             ← BACK TO THE FLOOR
@@ -115,7 +115,7 @@ export function LegalSection({
   const id = `s${n}`;
   return (
     <section id={id} className="mb-9 scroll-mt-24">
-      <h2 className="bcc-mono text-cardstock" style={{ fontSize: "14px", letterSpacing: "0.12em" }}>
+      <h2 className="bcc-mono text-[var(--bcc-text)]" style={{ fontSize: "14px", letterSpacing: "0.12em" }}>
         <span className="text-safety">{String(n).padStart(2, "0")}</span> · {heading.toUpperCase()}
       </h2>
       <div className="mt-3 space-y-3">{children}</div>
@@ -125,7 +125,7 @@ export function LegalSection({
 
 export function LegalP({ children }: { children: React.ReactNode }) {
   return (
-    <p className="text-ink-soft" style={{ fontSize: "14px", lineHeight: 1.7 }}>
+    <p className="text-[var(--bcc-text-secondary)]" style={{ fontSize: "14px", lineHeight: 1.7 }}>
       {children}
     </p>
   );
@@ -133,7 +133,7 @@ export function LegalP({ children }: { children: React.ReactNode }) {
 
 export function LegalUL({ children }: { children: React.ReactNode }) {
   return (
-    <ul className="ml-5 list-disc space-y-2 text-ink-soft" style={{ fontSize: "14px", lineHeight: 1.65 }}>
+    <ul className="ml-5 list-disc space-y-2 text-[var(--bcc-text-secondary)]" style={{ fontSize: "14px", lineHeight: 1.65 }}>
       {children}
     </ul>
   );

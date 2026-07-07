@@ -6,6 +6,8 @@ import { usePathname } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
 import { useState, useEffect, useRef } from "react";
 
+import { LEGAL_ROUTES } from "@/lib/legal/config";
+
 interface MainOffcanvasProps {
   open: boolean;
   onClose: () => void;
@@ -283,9 +285,9 @@ export function MainOffcanvas({ open, onClose }: MainOffcanvasProps) {
           <div className="bcc-nav-divider" />
           <div style={{ padding: "8px 16px", display: "flex", gap: 12, flexWrap: "wrap" }}>
             {[
-              { label: "Privacy", href: "/privacy" },
-              { label: "Terms",   href: "/terms" },
-              { label: "About",   href: "/about" },
+              { label: "Privacy", href: LEGAL_ROUTES.privacy },
+              { label: "Terms",   href: LEGAL_ROUTES.terms },
+              { label: "Cookies", href: LEGAL_ROUTES.cookies },
             ].map(item => (
               <Link
                 key={item.href}

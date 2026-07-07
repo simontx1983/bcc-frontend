@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
 
 import { NewPostTrigger } from "@/components/composer/NewPostTrigger";
+import { LEGAL_ROUTES } from "@/lib/legal/config";
 
 const PRIMARY_NAV = [
   { label: "Home",        href: "/",           icon: <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden><path d="M3 9.5L10 3l7 6.5V17a1 1 0 01-1 1H4a1 1 0 01-1-1V9.5z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round"/><path d="M7.5 18v-5h5v5" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round"/></svg> },
@@ -23,6 +24,12 @@ const QUICK_LINKS = [
   { label: "My Reliability",  href: "/me/reliability"  },
   { label: "Panel Duty",      href: "/panel"            },
   { label: "Settings",        href: "/settings/profile" },
+] as const;
+
+const LEGAL_LINKS = [
+  { label: "Privacy", href: LEGAL_ROUTES.privacy },
+  { label: "Terms",   href: LEGAL_ROUTES.terms },
+  { label: "Cookies", href: LEGAL_ROUTES.cookies },
 ] as const;
 
 function ChevronIcon({ collapsed }: { collapsed: boolean }) {
@@ -119,6 +126,29 @@ export function LeftSidebar({ collapsed, onToggle }: LeftSidebarProps) {
                 );
               })}
             </nav>
+          </>
+        )}
+
+        {/* Legal links — always shown, small and faint */}
+        {!collapsed && (
+          <>
+            <div className="bcc-nav-divider" />
+            <div style={{ padding: "8px 16px", display: "flex", gap: 12, flexWrap: "wrap" }}>
+              {LEGAL_LINKS.map(item => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  style={{
+                    fontFamily: "var(--font-mono), monospace",
+                    fontSize: 11,
+                    color: "var(--bcc-text-muted)",
+                    letterSpacing: "0.06em",
+                  }}
+                >
+                  {item.label}
+                </Link>
+              ))}
+            </div>
           </>
         )}
 

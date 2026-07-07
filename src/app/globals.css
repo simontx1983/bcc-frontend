@@ -1642,7 +1642,6 @@
   pointer-events: none;
 }
 .bcc-auth-footer {
-
   position: fixed;
   bottom: 0;
   left: 0;
@@ -1657,6 +1656,13 @@
   color: var(--bcc-text-muted);
   letter-spacing: 0.05em;
 }
+.bcc-auth-footer-links {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
 .bcc-auth-footer a {
   color: var(--bcc-text-muted);
   text-decoration: none;
@@ -1664,6 +1670,19 @@
 }
 .bcc-auth-footer a:hover {
   color: var(--bcc-text-secondary);
+}
+
+/* Mobile: stack copyright above the legal links instead of cramming
+   everything onto one fixed-width row. */
+@media (max-width: 480px) {
+  .bcc-auth-footer {
+    flex-direction: column;
+    gap: 6px;
+    padding: 10px 16px 14px;
+  }
+  .bcc-auth-footer-links {
+    gap: 12px;
+  }
 }
 
 /* ─── AUTH CARD ──────────────────────────────────────────────────────────────

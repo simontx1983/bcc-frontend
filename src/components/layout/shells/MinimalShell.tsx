@@ -8,9 +8,11 @@ export function MinimalShell({ children }: { children: React.ReactNode }) {
       {children}
       <footer className="bcc-auth-footer">
         <span>© 2026 {LEGAL.brand}</span>
-        <Link href={LEGAL_ROUTES.terms}>Terms of Service</Link>
-        <Link href={LEGAL_ROUTES.privacy}>Privacy Policy</Link>
-        <Link href={LEGAL_ROUTES.cookies}>Cookie Policy</Link>
+        <nav className="bcc-auth-footer-links" aria-label="Legal">
+          <Link href={LEGAL_ROUTES.terms}>Terms of Service</Link>
+          <Link href={LEGAL_ROUTES.privacy}>Privacy Policy</Link>
+          <Link href={LEGAL_ROUTES.cookies}>Cookie Policy</Link>
+        </nav>
       </footer>
     </div>
   );
