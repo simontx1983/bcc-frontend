@@ -37,7 +37,6 @@ export function MessageComposer({ conversationId }: MessageComposerProps) {
             bcc_rate_limited: "Sending too fast — wait a moment and try again.",
             bcc_invalid_request: "Message couldn't be sent. Check the contents.",
             bcc_forbidden: "You can't reply to this conversation.",
-            bcc_blocked: "You can't reply to this conversation.",
             bcc_not_found: "This conversation no longer exists.",
           },
           "Couldn't send your message.",

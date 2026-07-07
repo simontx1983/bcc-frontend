@@ -70,7 +70,6 @@ export function humanizeLinkError(err: unknown): string {
       bcc_signature_invalid: "Wallet signature didn't verify. Try again.",
       bcc_conflict: "This wallet is already linked.",
       bcc_invalid_request: "Couldn't link the wallet. Check the chain selection.",
-      bcc_wallet_not_supported: "That wallet chain isn't supported yet.",
     },
     "Couldn't link the wallet.",
   );

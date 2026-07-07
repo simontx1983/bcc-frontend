@@ -79,7 +79,6 @@ export default function NewMessagePage() {
             bcc_rate_limited: "Too many new conversations — wait a moment and try again.",
             bcc_invalid_request: "Couldn't start the conversation. Check the recipient and message.",
             bcc_forbidden: "You can't message this person.",
-            bcc_blocked: "You can't message this person.",
           },
           "Couldn't start the conversation.",
         ),

@@ -84,7 +84,14 @@ export async function bccTrustFetch<T>(
   const requestInit: RequestInit = {
     method: options.method ?? "GET",
     headers,
-    credentials: "include",
+    // "omit" is load-bearing — identical to client.ts. Sending cookies
+    // re-opens three empirically observed production failures on the
+    // Vercel→Hostinger/LiteSpeed chain (2026-05-21): a stale wp-admin
+    // cookie fires WP cookie-auth before BearerAuth → silent 401; the
+    // cookie splits the cache bucket; and the extra header weight can
+    // push Authorization over LiteSpeed's HTTP/2 header budget. Bearer
+    // JWT is the only credential this API uses.
+    credentials: "omit",
   };
   if (options.body !== undefined) {
     requestInit.body = JSON.stringify(options.body);
