@@ -324,6 +324,19 @@
     min-height: 100dvh;
   }
 
+  /* These are whole-page (body-level) scrolls, not a small contained
+     column — the hover-to-reveal thumb convention below (.bcc-col:hover)
+     doesn't apply here, so without this the thumb stays permanently
+     transparent and the page looks like it has no scrollbar at all. */
+  body:has(.bcc-minimal-shell),
+  body:has(.bcc-legal-shell) {
+    scrollbar-color: var(--bcc-scrollbar-thumb) var(--bcc-scrollbar-track);
+  }
+  body:has(.bcc-minimal-shell)::-webkit-scrollbar-thumb,
+  body:has(.bcc-legal-shell)::-webkit-scrollbar-thumb {
+    background: var(--bcc-scrollbar-thumb);
+  }
+
   /* Scrollbar styling — gutter always reserved (no layout shift), thumb hidden until hover */
   * {
     scrollbar-width: thin;
