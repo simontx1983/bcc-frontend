@@ -599,9 +599,11 @@ export interface FeedAuthor {
 
 /**
  * Trust-grammar reaction kinds — §D5, locked. Coordinate any change
- * with backend ReactionGrammarMap::TRUST_KINDS.
+ * with backend ReactionGrammarMap::TRUST_KINDS (= [solid, vouch]).
+ * `stand_behind` is NOT a post reaction — it is an AttestationKind cast
+ * via the Stand Behind / attestation flow (see AttestationKind below).
  */
-export type TrustReactionKind = "solid" | "vouch" | "stand_behind";
+export type TrustReactionKind = "solid" | "vouch";
 
 /**
  * Social-grammar reaction kinds — v1.5 curated subset (👍 ❤️ 😂 😮 🔥).
@@ -620,13 +622,20 @@ export type ReactionKind = TrustReactionKind | SocialReactionKind;
 /**
  * v1.5 reaction grammar discriminator (api-contract-v1.md §2.11).
  *
- *   - "trust"  — restrained, intentional. solid / vouch / stand_behind.
+ *   - "trust"  — restrained, intentional. solid / vouch.
  *   - "social" — expressive, emoji-forward. like / love / haha / wow / fire.
  *   - "tribal" — reserved for V2 (same_wallet, onchain_confirm, etc.).
  *                Currently no kinds; the discriminator exists so the
  *                rail's grammar-branch is forward-compatible.
  */
 export type ReactionGrammar = "trust" | "social" | "tribal";
+
+/**
+ * Velocity-derived heat stage (1-5) backing the Stoke rail's static
+ * size/brightness/glow. Omitted when the backend hasn't shipped Stoke
+ * yet — the rail falls back to a flat single-stage fire in that case.
+ */
+export type HeatStage = 1 | 2 | 3 | 4 | 5;
 
 /**
  * Reactions block aggregated by kind. The active grammar is named in
@@ -636,11 +645,22 @@ export type ReactionGrammar = "trust" | "social" | "tribal";
  *
  * Same shape returned by /reactions POST + DELETE responses, so the
  * frontend patches its cache directly without translation.
+ *
+ * `heat_stage`/`viewer_has_stoked`/`stoke_count` are additive (Stoke)
+ * fields — they coexist with the legacy `kind_grammar`/`counts`/
+ * `viewer_reaction` trio rather than replacing it; only the rail's
+ * rendering changed to Stoke-only, not the wire contract.
  */
 export interface FeedReactions {
   kind_grammar: ReactionGrammar;
   counts: Record<string, number>;
   viewer_reaction: ReactionKind | null;
+  /** Aggregate heat (1-5), velocity-weighted + time-decayed. Absent = Stoke not shipped yet. */
+  heat_stage?: HeatStage;
+  /** Does this viewer have a stoke on this post. Drives the flame's fill (ash <-> orange). Absent = Stoke not shipped yet. */
+  viewer_has_stoked?: boolean;
+  /** Total distinct stokers (public). Rendered as the count beside the flame. Absent = Stoke not shipped yet. */
+  stoke_count?: number;
 }
 
 /**

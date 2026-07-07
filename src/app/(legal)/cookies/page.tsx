@@ -53,11 +53,11 @@ export default function CookiesPage() {
         <div className="overflow-x-auto">
           <table className="mt-1 w-full border-collapse text-left" style={{ fontSize: "13px" }}>
             <thead>
-              <tr className="border-b border-cardstock/25">
+              <tr className="border-b border-[var(--bcc-border)]">
                 {["Name", "Type", "Purpose", "Category"].map((h) => (
                   <th
                     key={h}
-                    className="bcc-mono py-2 pr-4 text-cardstock-deep"
+                    className="bcc-mono py-2 pr-4 text-[var(--bcc-text-muted)]"
                     style={{ fontSize: "10px", letterSpacing: "0.16em", verticalAlign: "bottom" }}
                   >
                     {h.toUpperCase()}
@@ -67,11 +67,11 @@ export default function CookiesPage() {
             </thead>
             <tbody>
               {STORAGE.map((row) => (
-                <tr key={row.name} className="border-b border-dashed border-cardstock/15 align-top">
-                  <td className="py-3 pr-4 text-cardstock" style={{ lineHeight: 1.5 }}>{row.name}</td>
-                  <td className="py-3 pr-4 text-ink-soft" style={{ lineHeight: 1.5 }}>{row.type}</td>
-                  <td className="py-3 pr-4 text-ink-soft" style={{ lineHeight: 1.5, minWidth: 220 }}>{row.purpose}</td>
-                  <td className="py-3 pr-2 text-ink-soft" style={{ lineHeight: 1.5 }}>{row.category}</td>
+                <tr key={row.name} className="border-b border-dashed border-[var(--bcc-border-light)] align-top">
+                  <td className="py-3 pr-4 text-[var(--bcc-text)]" style={{ lineHeight: 1.5 }}>{row.name}</td>
+                  <td className="py-3 pr-4 text-[var(--bcc-text-secondary)]" style={{ lineHeight: 1.5 }}>{row.type}</td>
+                  <td className="py-3 pr-4 text-[var(--bcc-text-secondary)]" style={{ lineHeight: 1.5, minWidth: 220 }}>{row.purpose}</td>
+                  <td className="py-3 pr-2 text-[var(--bcc-text-secondary)]" style={{ lineHeight: 1.5 }}>{row.category}</td>
                 </tr>
               ))}
             </tbody>
@@ -103,7 +103,7 @@ export default function CookiesPage() {
         <LegalP>
           We may update this Cookie Policy as the Service evolves. We will update
           the effective date when we do. Questions? Contact{" "}
-          <a href={`mailto:${LEGAL.privacyEmail}`} className="text-safety underline">{LEGAL.privacyEmail}</a>.
+          <a href={`mailto:${LEGAL.privacyEmail}`} className="text-[var(--bcc-accent)] underline">{LEGAL.privacyEmail}</a>.
         </LegalP>
       </LegalSection>
     </LegalDoc>

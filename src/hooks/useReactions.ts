@@ -43,7 +43,7 @@ import type {
   ReactionKind,
 } from "@/lib/api/types";
 
-interface SetMutationContext {
+export interface SetMutationContext {
   /** Snapshot of every feed page we touched, keyed by query key (JSON). */
   snapshots: Array<{ queryKey: readonly unknown[]; data: InfiniteData<FeedResponse> | undefined }>;
 }
@@ -106,8 +106,13 @@ export function useRemoveReactionMutation() {
 /**
  * Snapshot every feed-namespace infinite-query that contains the
  * target feed_id. Restorable on error.
+ *
+ * Exported for reuse by useStoke.ts — the snapshot/patch/restore
+ * cache-walking is reaction-shape-agnostic (it just locates the item
+ * by `id` and replaces its `reactions` block), so Stoke's mutations
+ * share it rather than re-implementing the same infinite-query walk.
  */
-function snapshotMatchingPages(
+export function snapshotMatchingPages(
   queryClient: QueryClient,
   feedId: string
 ): SetMutationContext["snapshots"] {
@@ -125,7 +130,7 @@ function snapshotMatchingPages(
   return snapshots;
 }
 
-function restoreSnapshots(
+export function restoreSnapshots(
   queryClient: QueryClient,
   snapshots: SetMutationContext["snapshots"]
 ): void {
@@ -138,7 +143,7 @@ function restoreSnapshots(
  * Walk every feed-namespace infinite query and apply `update` to
  * the matching item. The update returns the new `reactions` block.
  */
-function patchFeedItem(
+export function patchFeedItem(
   queryClient: QueryClient,
   feedId: string,
   update: (item: FeedItem) => FeedReactions

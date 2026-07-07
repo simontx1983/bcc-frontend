@@ -122,7 +122,7 @@ export default async function LocalDetailPage({ params }: PageProps) {
   // suppress the feed.
   return (
     <main className="min-h-screen pb-24">
-      <section className="mx-auto max-w-3xl px-6 pt-12 sm:px-8">
+      <section className="mx-auto max-w-3xl px-2 pt-12 sm:px-3">
         <Link
           href={"/locals" as Route}
           className="bcc-mono text-[10px] tracking-[0.18em] text-cardstock-deep hover:underline"
@@ -151,7 +151,7 @@ export default async function LocalDetailPage({ params }: PageProps) {
         </div>
       </section>
 
-      <section className="mx-auto mt-8 max-w-3xl px-6 sm:px-8">
+      <section className="mx-auto mt-8 max-w-3xl px-2 sm:px-3">
         <div className="bcc-panel flex flex-col gap-4 p-6">
           <h2 className="bcc-stencil text-xl text-ink">Your status here</h2>
           <p className="font-serif text-ink-soft">
@@ -168,7 +168,7 @@ export default async function LocalDetailPage({ params }: PageProps) {
         </div>
       </section>
 
-      <section className="mx-auto mt-8 max-w-3xl px-6 sm:px-8">
+      <section className="mx-auto mt-8 max-w-3xl px-2 sm:px-3">
         <div
           className="bcc-mono mb-4 flex items-center gap-3 text-cardstock-deep"
           style={{ fontSize: "10px", letterSpacing: "0.18em" }}

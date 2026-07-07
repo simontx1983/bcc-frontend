@@ -83,7 +83,7 @@ function ReactorStackImpl({ social_proof }: ReactorStackProps) {
         </div>
       )}
       {headline !== null && (
-        <p className="bcc-mono text-[11px] text-ink-soft/80">{headline}</p>
+        <p className="bcc-mono text-[11px] text-[var(--bcc-text-secondary)]">{headline}</p>
       )}
     </div>
   );

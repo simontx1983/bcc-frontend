@@ -108,7 +108,7 @@ export default function NewMessagePage() {
     <main className="pb-24">
       <Rail />
 
-      <header className="mx-auto max-w-3xl px-4 sm:px-7 pt-12">
+      <header className="mx-auto max-w-3xl px-2 sm:px-3 pt-12">
         <Link
           href={"/messages" as Route}
           className="bcc-mono text-[10px] tracking-[0.18em] text-cardstock-deep transition hover:text-cardstock"
@@ -123,7 +123,7 @@ export default function NewMessagePage() {
         </h1>
       </header>
 
-      <section className="mx-auto mt-10 max-w-3xl px-4 sm:px-7">
+      <section className="mx-auto mt-10 max-w-3xl px-2 sm:px-3">
         {!isAuthed && session.status !== "loading" && (
           <p className="bcc-mono text-cardstock-deep">Sign in to start a conversation.</p>
         )}

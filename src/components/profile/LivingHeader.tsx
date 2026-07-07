@@ -191,7 +191,7 @@ export function LivingHeader({ living, progression, hideEmptyShiftFallback }: Li
 // Empty case falls back to the neutral "quiet shift" copy.
 // ─────────────────────────────────────────────────────────────────────
 
-function composeTodayLine(today: MemberLiving["today"], hideEmptyFallback: boolean): string {
+export function composeTodayLine(today: MemberLiving["today"], hideEmptyFallback: boolean): string {
   const parts: string[] = [];
   pushIf(parts, today.reviews,                  (n) => `${n} ${pluralize(n, "review", "reviews")}`);
   pushIf(parts, today.solids_received,          (n) => `${n} ${pluralize(n, "solid", "solids")}`);

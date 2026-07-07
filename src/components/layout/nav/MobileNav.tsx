@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
+import { NewPostTrigger } from "@/components/composer/NewPostTrigger";
+
 interface MobileNavProps {
   onMenuOpen?: () => void;
 }
@@ -83,9 +85,8 @@ export function MobileNav({ onMenuOpen }: MobileNavProps) {
 
       {/* Center Post button */}
       <div style={{ flex: 1, display: "flex", justifyContent: "center", alignItems: "center", position: "relative" }}>
-        <Link
-          href="/?compose=1"
-          aria-label="New Post"
+        <NewPostTrigger
+          ariaLabel="New Post"
           style={{
             position: "absolute",
             bottom: -16,
@@ -105,7 +106,7 @@ export function MobileNav({ onMenuOpen }: MobileNavProps) {
           <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden>
             <path d="M10 3v14M3 10h14" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"/>
           </svg>
-        </Link>
+        </NewPostTrigger>
       </div>
 
       {/* Communities */}

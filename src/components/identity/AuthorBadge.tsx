@@ -36,8 +36,8 @@ import { memo } from "react";
 import Link from "next/link";
 import type { Route } from "next";
 
-import { Avatar, type AvatarSize } from "@/components/identity/Avatar";
-import { AuthorVouchButton } from "@/components/identity/AuthorVouchButton";
+import { type AvatarSize } from "@/components/identity/Avatar";
+import { AvatarHovercard } from "@/components/identity/AvatarHovercard";
 import { RankChip } from "@/components/profile/RankChip";
 import type {
   AuthorVouchPermission,
@@ -84,8 +84,14 @@ export interface AuthorBadgeProps {
   trailing?: React.ReactNode;
   /** Pills/badges rendered to the right of the display name. */
   inlineAdornments?: React.ReactNode;
-  /** sm (default) = 28px avatar; md = 40px avatar (composer, prominent rows). */
+  /** sm (default) = 28px avatar; md = 36px avatar (composer, prominent rows). */
   size?: "sm" | "md" | undefined;
+  /**
+   * Override the avatar's ring color (e.g. "var(--bcc-accent)"), taking
+   * precedence over the tier-derived ring. Forwarded straight to
+   * `<Avatar ringColor>` — see its doc comment for the rationale.
+   */
+  avatarRingColor?: string | undefined;
   /** Whether the avatar + display name link to /u/{handle}. */
   asLink?: boolean | undefined;
   className?: string | undefined;
@@ -96,11 +102,21 @@ const AVATAR_SIZE_BY_BADGE: Record<"sm" | "md", AvatarSize> = {
   md: "md",
 };
 
+// Identity column height mirrors the avatar so the name pins to the
+// top and the RankChip pins to the bottom (Composer's `h-9` pattern —
+// see Composer.tsx:461). Tailwind's h-7/h-9 land exactly on the
+// Avatar SIZE_TABLE's 28px/36px.
+const IDENTITY_HEIGHT_BY_BADGE: Record<"sm" | "md", string> = {
+  sm: "h-7",
+  md: "h-9",
+};
+
 function AuthorBadgeImpl({
   author,
   trailing,
   inlineAdornments,
   size = "sm",
+  avatarRingColor,
   asLink = true,
   className,
 }: AuthorBadgeProps) {
@@ -156,12 +172,12 @@ function AuthorBadgeImpl({
   const nameNode = asLink ? (
     <Link
       href={`/u/${author.handle}` as Route}
-      className="bcc-stencil truncate text-ink hover:underline"
+      className="bcc-stencil truncate text-[var(--bcc-text)] hover:underline"
     >
       {nameText}
     </Link>
   ) : (
-    <span className="bcc-stencil truncate text-ink">{nameText}</span>
+    <span className="bcc-stencil truncate text-[var(--bcc-text)]">{nameText}</span>
   );
 
   return (
@@ -169,28 +185,25 @@ function AuthorBadgeImpl({
       className={`flex w-full items-start justify-between gap-3 ${className ?? ""}`}
     >
       <div className="flex min-w-0 flex-1 items-start gap-2.5">
-        <Avatar
+        <AvatarHovercard
           avatarUrl={author.avatar_url}
           handle={author.handle}
           displayName={author.display_name}
           size={avatarSize}
-          variant="rounded"
-          tier={cardTier === null ? undefined : cardTier}
+          cardTier={cardTier}
           isOperator={author.is_operator === true}
+          ringColor={avatarRingColor}
           asLink={asLink}
+          rankLabel={rankLabel}
+          tierLabel={tierLabel}
+          vouchTargetId={vouchTargetId}
+          viewerAttestation={author.viewer_attestation}
+          canVouch={author.can_vouch}
         />
-        <div className="flex min-w-0 flex-1 flex-col gap-1">
+        <div className={`flex min-w-0 flex-1 flex-col justify-between ${IDENTITY_HEIGHT_BY_BADGE[size]}`}>
           <div className="flex min-w-0 flex-wrap items-baseline gap-2">
             {nameNode}
             {operatorPill}
-            {vouchTargetId > 0 && (
-              <AuthorVouchButton
-                targetUserId={vouchTargetId}
-                displayName={nameText}
-                viewerAttestation={author.viewer_attestation}
-                canVouch={author.can_vouch}
-              />
-            )}
             {inlineAdornments}
           </div>
           {rankLabel !== "" && (
@@ -199,6 +212,7 @@ function AuthorBadgeImpl({
               tierLabel={tierLabel}
               rankLabel={rankLabel}
               size="compact"
+              className="self-start"
             />
           )}
         </div>

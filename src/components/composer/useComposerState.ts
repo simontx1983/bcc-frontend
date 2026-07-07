@@ -34,13 +34,14 @@ import {
 
 import { useInlineComposerSubmit } from "./useComposerSubmit";
 
-// Sprint 2 — civic prompts that cycle in the collapsed composer. Slow
-// 18s cadence; halts on hover/focus so the operator never has to read
-// a moving prompt. Reduced-motion users see the first prompt only.
+// Rotating suffixes for the collapsed composer prompt. The static
+// prefix "What's the" is rendered separately so only the suffix
+// crossfades on each cycle (3.5s cadence, pauses on hover/focus).
+// Reduced-motion users see the first entry only.
 export const COMPOSER_PROMPTS: ReadonlyArray<string> = [
-  "What's on your mind?",
-  "Share something with the floor.",
-  "Post an observation.",
+  "alpha?",
+  "truth?",
+  "proof?",
 ];
 
 /**
@@ -62,10 +63,14 @@ interface UseComposerStateArgs {
    * a member.
    */
   groupId: number | undefined;
+  /** Mount already expanded — used when the composer opens as an explicit action (e.g. inside a modal) rather than sitting idle in a feed. */
+  initialExpanded?: boolean | undefined;
+  /** Called after a discard or a successful submit. Modal call sites use this to close their wrapping Dialog; the homepage inline composer leaves it unset and just collapses back to the idle row. */
+  onClose?: (() => void) | undefined;
 }
 
-export function useComposerState({ groupId }: UseComposerStateArgs) {
-  const [expanded, setExpanded] = useState(false);
+export function useComposerState({ groupId, initialExpanded, onClose }: UseComposerStateArgs) {
+  const [expanded, setExpanded] = useState(initialExpanded ?? false);
   // Sprint 2 — civic prompt rotation in the collapsed composer.
   // 18s cadence; halts on hover/focus (promptPaused). Group composer
   // pins the scope-pinned placeholder so this index is ignored there.
@@ -75,7 +80,7 @@ export function useComposerState({ groupId }: UseComposerStateArgs) {
     if (expanded || promptPaused || groupId !== undefined) return undefined;
     const id = window.setInterval(() => {
       setPromptIndex((i) => (i + 1) % COMPOSER_PROMPTS.length);
-    }, 18_000);
+    }, 3_500);
     return () => window.clearInterval(id);
   }, [expanded, promptPaused, groupId]);
   const [content, setContent] = useState("");
@@ -155,6 +160,7 @@ export function useComposerState({ groupId }: UseComposerStateArgs) {
       setVisibility("members_only");
       setError(null);
       setExpanded(false);
+      onClose?.();
     },
     onPhotoSuccess: () => {
       setContent("");
@@ -162,6 +168,7 @@ export function useComposerState({ groupId }: UseComposerStateArgs) {
       setVisibility("members_only");
       setError(null);
       setExpanded(false);
+      onClose?.();
     },
     onGifSuccess: () => {
       setContent("");
@@ -169,6 +176,7 @@ export function useComposerState({ groupId }: UseComposerStateArgs) {
       setVisibility("members_only");
       setError(null);
       setExpanded(false);
+      onClose?.();
     },
     onError: setError,
   });
@@ -245,28 +253,6 @@ export function useComposerState({ groupId }: UseComposerStateArgs) {
     if (expanded) {
       textareaRef.current?.focus();
     }
-  }, [expanded]);
-
-  // Drives the expand-in CSS transition. The form mounts with
-  // `max-h-0 opacity-0` and flips to `max-h-[400px] opacity-100`
-  // on the next paint, easing the surface open instead of swapping.
-  // Reduced-motion users skip the transition entirely (motion-safe:
-  // variants below + the global prefers-reduced-motion override at
-  // globals.css:115).
-  const [animatedOpen, setAnimatedOpen] = useState(false);
-  useEffect(() => {
-    if (!expanded) {
-      setAnimatedOpen(false);
-      return undefined;
-    }
-    // Defer the open class one frame so the browser registers the
-    // initial collapsed state before transitioning to the open state.
-    const raf = window.requestAnimationFrame(() => {
-      setAnimatedOpen(true);
-    });
-    return () => {
-      window.cancelAnimationFrame(raf);
-    };
   }, [expanded]);
 
   // Cleanup any pending blob URL on unmount so the browser doesn't
@@ -439,14 +425,20 @@ export function useComposerState({ groupId }: UseComposerStateArgs) {
     setVisibility("members_only");
     setError(null);
     setExpanded(false);
+    onClose?.();
   };
 
   const hasPhoto = attachedFile !== null;
   const hasGif   = selectedGif !== null;
   const hasAttachment = hasPhoto || hasGif;
+  // Mirrors the collapsed row's copy so expanding doesn't jump-cut the
+  // prompt: groupId pins "Post to this group…", otherwise the rotating
+  // suffix carries over frozen at whatever it was showing pre-expand.
   const placeholder = hasAttachment
     ? "Add a caption (optional)…"
-    : "Say what's on your mind…";
+    : groupId !== undefined
+      ? "Post to this group…"
+      : `What's the ${COMPOSER_PROMPTS[promptIndex] ?? COMPOSER_PROMPTS[0]}`;
 
   return {
     // expand/collapse + prompt rotation
@@ -454,7 +446,6 @@ export function useComposerState({ groupId }: UseComposerStateArgs) {
     setExpanded,
     promptIndex,
     setPromptPaused,
-    animatedOpen,
     // body + validation
     content,
     setContent,

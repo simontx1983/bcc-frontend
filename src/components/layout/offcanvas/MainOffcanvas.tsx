@@ -6,6 +6,9 @@ import { usePathname } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
 import { useState, useEffect, useRef } from "react";
 
+import { CopyrightMark } from "@/components/layout/CopyrightMark";
+import { LEGAL_ROUTES } from "@/lib/legal/config";
+
 interface MainOffcanvasProps {
   open: boolean;
   onClose: () => void;
@@ -279,24 +282,22 @@ export function MainOffcanvas({ open, onClose }: MainOffcanvasProps) {
             </>
           )}
 
-          {/* Legal links */}
+          {/* Copyright + legal links */}
           <div className="bcc-nav-divider" />
-          <div style={{ padding: "8px 16px", display: "flex", gap: 12, flexWrap: "wrap" }}>
+          <div style={{ padding: "0 16px 4px" }}>
+            <CopyrightMark />
+          </div>
+          <div style={{ padding: "4px 16px 8px", display: "flex", gap: 12, flexWrap: "wrap" }}>
             {[
-              { label: "Privacy", href: "/privacy" },
-              { label: "Terms",   href: "/terms" },
-              { label: "About",   href: "/about" },
+              { label: "Terms",   href: LEGAL_ROUTES.terms },
+              { label: "Privacy", href: LEGAL_ROUTES.privacy },
+              { label: "Cookies", href: LEGAL_ROUTES.cookies },
             ].map(item => (
               <Link
                 key={item.href}
                 href={item.href as Route}
                 onClick={onClose}
-                style={{
-                  fontFamily: "var(--font-mono), monospace",
-                  fontSize: 11,
-                  color: "var(--bcc-text-muted)",
-                  letterSpacing: "0.06em",
-                }}
+                className="bcc-legal-link"
               >
                 {item.label}
               </Link>

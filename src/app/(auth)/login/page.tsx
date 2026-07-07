@@ -1,12 +1,15 @@
 "use client";
 
 /**
- * Login page — email + password → 2FA challenge → JWT → NextAuth session.
+ * Login page — email/handle + password → 2FA challenge → JWT → NextAuth
+ * session.
  *
- * The email/password form calls /auth/login directly (not via NextAuth's
- * credentials provider). On success the backend always returns a 2FA
- * challenge; we redirect to /login/two-factor which completes the flow
- * and bridges into NextAuth via the "bcc-verified" provider.
+ * The identifier/password form calls /auth/login directly (not via
+ * NextAuth's credentials provider). The backend accepts either an email
+ * address or a handle on the same field (shape-detected server-side) —
+ * one input, no client-side switch. On success the backend always returns
+ * a 2FA challenge; we redirect to /login/two-factor which completes the
+ * flow and bridges into NextAuth via the "bcc-verified" provider.
  *
  * Wallet login still goes through NextAuth's wallet provider unchanged.
  *
@@ -23,13 +26,13 @@ import { type FormEvent, useState, Suspense } from "react";
 import { AuthCard, AuthDivider, SSOButton } from "@/components/auth/AuthCard";
 import { WalletAuthButton } from "@/components/auth/WalletAuthButton";
 import { WalletSignupPrompt } from "@/components/auth/WalletSignupPrompt";
-import { loginWithEmail } from "@/lib/api/auth-endpoints";
+import { loginWithIdentifier } from "@/lib/api/auth-endpoints";
 import { BccApiError, type AuthTokenResponse } from "@/lib/api/types";
 import { safeCallbackPath } from "@/lib/auth/safe-callback";
 
 const ERROR_COPY: Record<string, string> = {
-  bcc_invalid_credentials:  "Invalid email or password.",
-  bcc_invalid_request:      "Email and password are required.",
+  bcc_invalid_credentials:  "Invalid email/handle or password.",
+  bcc_invalid_request:      "Email/handle and password are required.",
   bcc_rate_limited:         "Too many login attempts. Try again in a minute.",
   bcc_invalid_state:        "This account is missing a handle. Contact support.",
   bcc_unknown:              "Sign-in failed. Try again, or contact support if the issue persists.",
@@ -44,13 +47,16 @@ function LoginPageContent() {
   // Only ever follow a same-origin internal path — blocks open-redirect phishing.
   const safeCallback = safeCallbackPath(callbackUrl);
 
-  const [email, setEmail] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [walletSignupOpen, setWalletSignupOpen] = useState(false);
-  /** Set to the email address when the server blocks login with bcc_email_not_verified. */
+  /** Set to the email address when the server blocks login with bcc_email_not_verified.
+   * Only set when `identifier` itself was an email — if the user typed a
+   * handle instead, we don't have their address to deep-link /verify-email
+   * with, so the shortcut link is omitted (the generic error still shows). */
   const [notVerifiedEmail, setNotVerifiedEmail] = useState<string | null>(null);
 
   function targetAfterLogin(): Route {
@@ -64,7 +70,7 @@ function LoginPageContent() {
     setSubmitting(true);
 
     try {
-      const resp = await loginWithEmail(email, password);
+      const resp = await loginWithIdentifier(identifier, password);
 
       if ("status" in resp && resp.status === "2fa_required") {
         const params = new URLSearchParams({ ct: resp.challenge_token });
@@ -94,7 +100,7 @@ function LoginPageContent() {
       const code = err instanceof BccApiError ? err.code : "bcc_unknown";
       setError(ERROR_COPY[code] ?? "Sign-in failed. Try again.");
       if (code === "bcc_email_not_verified") {
-        setNotVerifiedEmail(email);
+        setNotVerifiedEmail(identifier.includes("@") ? identifier : null);
       }
     } finally {
       setSubmitting(false);
@@ -125,15 +131,15 @@ function LoginPageContent() {
           style={{ display: "flex", flexDirection: "column", gap: "12px" }}
         >
           <div className="bcc-auth-field">
-            <label className="bcc-auth-label" htmlFor="email">Email</label>
+            <label className="bcc-auth-label" htmlFor="identifier">Email or handle</label>
             <input
-              id="email"
-              type="email"
+              id="identifier"
+              type="text"
               required
-              autoComplete="email"
-              placeholder="you@example.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              autoComplete="username"
+              placeholder="you@example.com or handle"
+              value={identifier}
+              onChange={(e) => setIdentifier(e.target.value)}
               className="bcc-auth-input"
             />
           </div>

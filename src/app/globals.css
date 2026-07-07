@@ -37,6 +37,16 @@
   --bcc-tier-rare:       #1d4fbb;
   --bcc-tier-legendary:  #d9a400;
 
+  /* Trust-band dot colors (identity chip) — a semantic risk→trust ramp,
+     distinct in MEANING from the --bcc-tier-* rarity set above. Used by
+     RankChip's leading dot: risky=red, caution=amber, neutral=ash,
+     trusted=green, elite=gold. Stable across themes. */
+  --bcc-trust-risky:     #c8472f;
+  --bcc-trust-caution:   #e0a32e;
+  --bcc-trust-neutral:   #6b6e72;
+  --bcc-trust-trusted:   #247a3f;
+  --bcc-trust-elite:     #d9a400;
+
   /* Operator type badge colors */
   --bcc-type-validator:  #2c5990;
   --bcc-type-project:    #d9a400;
@@ -48,6 +58,16 @@
   --bcc-warning:         #f59e0b;
   --bcc-danger:          #ef4444;
   --bcc-info:            #3b82f6;
+
+  /* Floor accent colors — canonical source for the trading-card
+     layer's --safety/--weld/--verified/--blueprint aliases below.
+     Same hex values as before consolidation; this block is now the
+     single source of truth, following the --tier-* -> --bcc-tier-*
+     precedent. */
+  --bcc-safety:          #f05a28;
+  --bcc-weld:            #ffc01e;
+  --bcc-verified:        #2c9d66;
+  --bcc-blueprint:       #0f1e3c;
 
   /* Typography — loaded via next/font in layout.tsx */
   --font-stencil:        'Big Shoulders Stencil';
@@ -133,6 +153,12 @@
   --bcc-text-placeholder:#b3b8c3;
   --bcc-text-inverse:    #ffffff;
 
+  /* Stoke's "ash" outline stroke — only used when heat_stage hasn't
+     shipped yet (no real heat signal to grade by). A warm-tinted muted
+     tone, not flat UI grey, so the cold flame still reads as "ember,"
+     not "disabled icon." */
+  --bcc-stoke-ash:       #a39086;
+
   --bcc-glass-bg:        rgba(255,255,255,0.62);
   --bcc-glass-bg-solid:  rgba(255,255,255,0.82);
   --bcc-glass-bg-frosted:rgba(255,255,255,0.10);
@@ -181,6 +207,7 @@
     --bcc-text-muted:      #484f58;
     --bcc-text-placeholder:#3d444d;
     --bcc-text-inverse:    #0d1117;
+    --bcc-stoke-ash:       #6f6358;
 
     --bcc-glass-bg:        rgba(22,27,34,0.62);
     --bcc-glass-bg-solid:  rgba(22,27,34,0.82);
@@ -230,6 +257,7 @@
   --bcc-text-muted:      #484f58;
   --bcc-text-placeholder:#3d444d;
   --bcc-text-inverse:    #0d1117;
+  --bcc-stoke-ash:       #6f6358;
 
   --bcc-glass-bg:        rgba(22,27,34,0.62);
   --bcc-glass-bg-solid:  rgba(22,27,34,0.82);
@@ -288,11 +316,24 @@
                 color var(--bcc-transition-slow);
   }
 
-  /* Auth pages need the body to scroll — override the shell lock */
-  body:has(.bcc-minimal-shell) {
+  /* Auth pages and legal doc pages need the body to scroll — override the shell lock */
+  body:has(.bcc-minimal-shell),
+  body:has(.bcc-legal-shell) {
     overflow: auto;
     height: auto;
     min-height: 100dvh;
+  }
+
+  /* Legal pages only (not auth) get a visible scrollbar thumb. Once
+     body's overflow is unlocked above, the browser propagates it to the
+     viewport and `html` (not `body`) becomes the actual scrolling
+     element — styling body::-webkit-scrollbar-thumb has no effect on
+     the real, visible scrollbar; it has to target html here. */
+  html:has(.bcc-legal-shell) {
+    scrollbar-color: var(--bcc-scrollbar-thumb) var(--bcc-scrollbar-track);
+  }
+  html:has(.bcc-legal-shell)::-webkit-scrollbar-thumb {
+    background: var(--bcc-scrollbar-thumb);
   }
 
   /* Scrollbar styling — gutter always reserved (no layout shift), thumb hidden until hover */
@@ -926,6 +967,19 @@
     height: 1px;
     background: var(--bcc-border-light);
     margin: 8px 16px;
+  }
+  /* Small/faint legal links — LeftSidebar + MainOffcanvas. Same hover
+     language as .bcc-auth-footer a (lighten toward -secondary, darkens
+     back down in day theme since the token itself flips). */
+  .bcc-legal-link {
+    font-family: var(--font-mono), monospace;
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    color: var(--bcc-text-muted);
+    transition: color 150ms ease;
+  }
+  .bcc-legal-link:hover {
+    color: var(--bcc-text-secondary);
   }
 }
 
@@ -1614,7 +1668,6 @@
   pointer-events: none;
 }
 .bcc-auth-footer {
-
   position: fixed;
   bottom: 0;
   left: 0;
@@ -1629,6 +1682,13 @@
   color: var(--bcc-text-muted);
   letter-spacing: 0.05em;
 }
+.bcc-auth-footer-links {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
 .bcc-auth-footer a {
   color: var(--bcc-text-muted);
   text-decoration: none;
@@ -1636,6 +1696,57 @@
 }
 .bcc-auth-footer a:hover {
   color: var(--bcc-text-secondary);
+}
+
+/* Copyright brand mark (CopyrightMark component) — shared across
+   LeftSidebar, MainOffcanvas, MinimalShell's auth footer, and the legal
+   doc pages. Hardcoded primary/secondary (not --bcc-accent) since not
+   every surface it appears on has an accent switcher — this mirrors the
+   header's .bcc-brand-top/.bcc-brand-bottom two-tone, not the switchable
+   accent. Decorative hover only — the text isn't a link. */
+.bcc-copyright {
+  font-family: var(--font-mono), monospace;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: var(--bcc-text-muted);
+}
+.bcc-copyright-lg {
+  font-size: 13px;
+  letter-spacing: 0.16em;
+}
+.bcc-copyright-year,
+.bcc-copyright-collar,
+.bcc-copyright-crypto {
+  transition: color 150ms ease;
+}
+.bcc-copyright:hover .bcc-copyright-year {
+  color: var(--bcc-text-secondary);
+}
+.bcc-copyright:hover .bcc-copyright-collar {
+  color: var(--bcc-primary);
+}
+.bcc-copyright:hover .bcc-copyright-crypto {
+  color: var(--bcc-secondary);
+}
+
+/* Mobile: stack copyright above the legal links instead of cramming
+   everything onto one fixed-width row. The footer is position:fixed
+   (pinned to the viewport, not the scroll content), so the taller 2-row
+   footer needs a bigger reserved gap below the card on .bcc-minimal-shell
+   — otherwise a tall card (login/signup) visually collides with it.
+   Short cards (forgot-password) clear either way. */
+@media (max-width: 480px) {
+  .bcc-auth-footer {
+    flex-direction: column;
+    gap: 6px;
+    padding: 10px 16px 14px;
+  }
+  .bcc-auth-footer-links {
+    gap: 12px;
+  }
+  .bcc-minimal-shell {
+    padding-bottom: 100px;
+  }
 }
 
 /* ─── AUTH CARD ──────────────────────────────────────────────────────────────
@@ -2221,6 +2332,59 @@
   100% { transform: scale(1); }
 }
 
+/* ========================================================================
+   STOKE — forge-fire reaction rail. X-"like" model: two orthogonal axes.
+
+   FILL = personal (viewer_has_stoked) — ash outline <-> solid forge-
+   orange, swapped instantly via the SVG fill/stroke attributes (no
+   transition needed, no motion to gate). HEAT = aggregate (heat_stage)
+   — static size/glow/color-temperature, set by inline style per stage
+   in ReactionRail.tsx. No idle animation anywhere. Motion is invited,
+   never ambient:
+     - desktop hover (gated on `(hover: hover)`, not `:hover` alone, so a
+       tap-to-hover touch browser can't get stuck mid-flicker) flickers
+       the flame and brightens the glow
+     - stoke-ON (not unstoke — that's silent) fires one richer burst:
+       flame scale-pop + a glow flash + a 7-particle radial spark fan
+
+   GPU-only: every animation here touches transform/opacity exclusively.
+   The glow's blur is a STATIC `filter: blur()` (set once, never part of
+   an animated property) — only its opacity transitions/animates, per
+   the "never animate filter:blur() per frame" rule.
+   ======================================================================== */
+
+@keyframes bcc-stoke-flicker {
+  0%, 100% { transform: scale(1) translateY(0); }
+  50%      { transform: scale(1.07) translateY(-1px); }
+}
+
+@keyframes bcc-stoke-burst-scale {
+  0%   { transform: scale(1); }
+  30%  { transform: scale(1.5); }
+  100% { transform: scale(1); }
+}
+
+@keyframes bcc-stoke-burst-glow {
+  0%   { opacity: 0; }
+  30%  { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+@keyframes bcc-stoke-particle {
+  0%   { opacity: 0;   transform: translate(0, 0) scale(0.6); }
+  20%  { opacity: 1; }
+  100% { opacity: 0;   transform: translate(var(--bcc-stoke-particle-x), var(--bcc-stoke-particle-y)) scale(1.1); }
+}
+
+@media (hover: hover) {
+  .bcc-stoke-button:hover .bcc-stoke-flame {
+    animation: bcc-stoke-flicker 900ms ease-in-out infinite;
+  }
+  .bcc-stoke-button:hover .bcc-stoke-glow {
+    opacity: var(--bcc-stoke-hover-opacity, 0.6);
+  }
+}
+
 /* Animation utility classes */
 @layer utilities {
   .animate-fade-in       { animation: bcc-fade-in 0.3s ease forwards; }
@@ -2267,10 +2431,11 @@
   --concrete:        #14110d;
   --concrete-hi:     #1d1913;
 
-  /* Accent / chrome. */
-  --blueprint:       #0f1e3c;
-  --safety:          #f05a28;
-  --weld:            #ffc01e;
+  /* Accent / chrome — mapped onto the redesign's --bcc-* tokens
+     (same hex values), same precedent as the --tier-* mapping below. */
+  --blueprint:       var(--bcc-blueprint);
+  --safety:          var(--bcc-safety);
+  --weld:            var(--bcc-weld);
 
   /* Chain colors. */
   --chain-cosmos:    #1a0f3e;
@@ -2305,7 +2470,7 @@
   --paper-warm:      #f2e6c8;
   --ink-ghost:       #6b6355;
   --phosphor:        #7dff9a;
-  --verified:        #2c9d66;
+  --verified:        var(--bcc-verified);
 }
 
 @layer components {

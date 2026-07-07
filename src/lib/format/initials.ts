@@ -9,11 +9,12 @@
  *   - Prefer `displayName` when non-empty; otherwise fall back to
  *     `handle` (with any leading `@` stripped).
  *   - Split on whitespace, hyphen, OR underscore — handles "Phillip
- *     Walker" (display name), "blue-collar-bot", and "u_expocas"
- *     (handle) cleanly. Without the underscore split, an
- *     underscore-joined handle collapses to its first two raw
- *     characters (e.g. "u_" for "u_expocas"), which reads as a single
- *     glyph in the avatar monogram — splitting gives "UE" instead.
+ *     Walker" (display name) and "blue-collar-bot" (handle) cleanly,
+ *     producing "PW" / "BC".
+ *   - A leading "u_" (WordPress seed-account prefix, case-insensitive)
+ *     is stripped before tokenizing, so "u_expocas" -> "expocas" ->
+ *     "EX" — not "UE"/"U_". Mirrors stripSeedPrefix in Composer.tsx,
+ *     which applies the same strip to user-facing display text.
  *   - Two-or-more tokens → first char of first two tokens.
  *   - One token → first two chars of that token.
  *   - One-char token → that single char (no padding — caller can
@@ -37,7 +38,12 @@ export function deriveInitials(
   const source = fromDisplay !== "" ? fromDisplay : fromHandle;
   if (source === "") return "";
 
-  const tokens = source.split(/[\s_-]+/).filter((t) => t !== "");
+  // Strip WordPress's seed-account prefix before tokenizing — see the
+  // module docblock.
+  const named = source.replace(/^u_/i, "");
+  if (named === "") return "";
+
+  const tokens = named.split(/[\s_-]+/).filter((t) => t !== "");
   if (tokens.length === 0) return "";
 
   if (tokens.length >= 2) {

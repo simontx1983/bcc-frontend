@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from "react";
 import { LeftSidebar } from "./LeftSidebar";
 import { RightSidebar } from "./RightSidebar";
-import { SiteLegalFooter } from "./SiteLegalFooter";
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -98,7 +97,6 @@ export function AppShell({
             }}
           />
           <div style={{ position: "relative", zIndex: 1 }}>{children}</div>
-          <SiteLegalFooter />
         </main>
 
         {!hideRightSidebar && (

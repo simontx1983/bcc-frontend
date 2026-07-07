@@ -5,7 +5,7 @@
  * not from here. This file covers the OTHER auth endpoints that need
  * direct client invocation:
  *
- *   - loginWithEmail       → POST /auth/login                (email + password → JWT or 2FA challenge)
+ *   - loginWithIdentifier  → POST /auth/login                (email or handle + password → JWT or 2FA challenge)
  *   - verify2fa            → POST /auth/2fa/verify           (challenge token + OTP → JWT)
  *   - resend2faCode        → POST /auth/2fa/resend           (re-send 2FA OTP)
  *   - signup               → POST /auth/signup               (creates account, sends verification email)
@@ -46,25 +46,27 @@ export interface TwoFaChallengeResponse {
 }
 
 /**
- * POST /auth/login — email + password credentials.
+ * POST /auth/login — email OR handle + password credentials. The backend
+ * detects which shape `identifier` is (is_email() check) and looks up the
+ * matching account either way — same field, no client-side branching.
  *
  * Returns either a 2FA challenge (status "2fa_required") or a full JWT
  * payload (AuthTokenResponse) when 2FA has already been satisfied.
  * Currently always returns the challenge; check `status` to discriminate.
  *
  * Errors (thrown as BccApiError):
- *   bcc_invalid_credentials  — wrong email or password
+ *   bcc_invalid_credentials  — wrong identifier or password
  *   bcc_email_not_verified   — account hasn't completed signup verification
  *   bcc_invalid_state        — account missing a handle (legacy account)
  *   bcc_rate_limited         — too many attempts from this IP
  */
-export async function loginWithEmail(
-  email: string,
+export async function loginWithIdentifier(
+  identifier: string,
   password: string,
 ): Promise<TwoFaChallengeResponse | AuthTokenResponse> {
   return bccFetch<TwoFaChallengeResponse | AuthTokenResponse>("auth/login", {
     method: "POST",
-    body: { email, password },
+    body: { identifier, password },
   });
 }
 
