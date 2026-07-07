@@ -1698,6 +1698,10 @@
   letter-spacing: 0.06em;
   color: var(--bcc-text-muted);
 }
+.bcc-copyright-lg {
+  font-size: 13px;
+  letter-spacing: 0.16em;
+}
 .bcc-copyright-year,
 .bcc-copyright-collar,
 .bcc-copyright-crypto {

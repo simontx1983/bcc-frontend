@@ -56,7 +56,15 @@ export function LegalDoc({
 
       <div className="bcc-legal-body mt-10">{children}</div>
 
-      <footer className="mt-14 border-t border-dashed border-[var(--bcc-border)] pt-8">
+      {/* Short, faint, centered rule — separates the contact/questions
+          block from the main content with generous breathing room, not
+          the full-width dashed rule (that one's reserved for setting the
+          copyright sign-off apart below, see the footer's own border). */}
+      <div className="mt-20 flex justify-center">
+        <div style={{ width: 56, height: 1, background: "var(--bcc-border-light)" }} />
+      </div>
+
+      <footer className="mt-10">
         <p
           className="bcc-mono text-[var(--bcc-text-muted)]"
           style={{ fontSize: "11px", letterSpacing: "0.14em" }}
@@ -75,8 +83,8 @@ export function LegalDoc({
           (privacy / data requests).
         </p>
 
-        <div className="mt-8">
-          <CopyrightMark />
+        <div className="mt-10 flex justify-center border-t border-dashed border-[var(--bcc-border)] pt-8">
+          <CopyrightMark size="lg" />
         </div>
       </footer>
     </article>

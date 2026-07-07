@@ -27,7 +27,7 @@ import { LegalThemeToggle } from "@/components/legal/LegalThemeToggle";
 export default function LegalLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="bcc-legal-shell min-h-screen" style={{ background: "var(--bcc-bg)" }}>
-      <div className="sticky top-0 z-10 border-b border-[var(--bcc-header-border)]" style={{ position: "relative" }}>
+      <div className="sticky top-0 z-10 border-b border-[var(--bcc-header-border)]">
         <div
           aria-hidden
           style={{
