@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
 
 import { NewPostTrigger } from "@/components/composer/NewPostTrigger";
+import { CopyrightMark } from "@/components/layout/CopyrightMark";
 import { LEGAL_ROUTES } from "@/lib/legal/config";
 
 const PRIMARY_NAV = [
@@ -129,11 +130,14 @@ export function LeftSidebar({ collapsed, onToggle }: LeftSidebarProps) {
           </>
         )}
 
-        {/* Legal links — always shown, small and faint */}
+        {/* Copyright + legal links — always shown, small and faint */}
         {!collapsed && (
           <>
             <div className="bcc-nav-divider" />
-            <div style={{ padding: "8px 16px", display: "flex", gap: 12, flexWrap: "wrap" }}>
+            <div style={{ padding: "0 16px 4px" }}>
+              <CopyrightMark />
+            </div>
+            <div style={{ padding: "4px 16px 8px", display: "flex", gap: 12, flexWrap: "wrap" }}>
               {LEGAL_LINKS.map(item => (
                 <Link key={item.href} href={item.href} className="bcc-legal-link">
                   {item.label}

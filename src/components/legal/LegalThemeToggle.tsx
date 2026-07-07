@@ -15,7 +15,7 @@ function applyTheme(theme: Theme, accent: Accent) {
 
 function PaletteIcon() {
   return (
-    <svg width="15" height="15" viewBox="0 0 18 18" fill="none" aria-hidden>
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden>
       <path d="M9 2a7 7 0 100 14c1.1 0 2-.9 2-2v-.5c0-.28.22-.5.5-.5H13a3 3 0 003-3A7 7 0 009 2z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/>
       <circle cx="6" cy="8" r="1" fill="currentColor"/>
       <circle cx="9" cy="5.5" r="1" fill="currentColor"/>

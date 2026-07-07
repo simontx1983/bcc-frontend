@@ -1,12 +1,14 @@
-import Link from "next/link";
-
-import { LEGAL, LEGAL_ROUTES } from "@/lib/legal/config";
+import { CopyrightMark } from "@/components/layout/CopyrightMark";
+import { LEGAL } from "@/lib/legal/config";
 
 /**
  * Shared chrome for the legal documents (Terms / Privacy / Cookies).
- * Renders a consistent title block, readable prose column, cross-links to
- * the sibling documents, and the operator contact line. Content is passed
- * as children (JSX) so each document keeps full control of its structure.
+ * Renders a consistent title block, readable prose column, and the
+ * operator contact line. Content is passed as children (JSX) so each
+ * document keeps full control of its structure. Cross-doc navigation and
+ * "back to the floor" live in the LegalLayout header now (LegalTabs +
+ * the logo, which already links home) — repeating them in every page's
+ * footer was redundant.
  */
 
 type LegalKey = "terms" | "privacy" | "cookies";
@@ -73,26 +75,9 @@ export function LegalDoc({
           (privacy / data requests).
         </p>
 
-        <nav className="mt-8 flex flex-wrap gap-x-6 gap-y-2">
-          {(Object.keys(DOC_LABELS) as LegalKey[]).map((key) => (
-            <Link
-              key={key}
-              href={LEGAL_ROUTES[key]}
-              aria-current={key === docKey ? "page" : undefined}
-              className={`bcc-mono ${key === docKey ? "text-[var(--bcc-text)]" : "text-[var(--bcc-text-muted)] hover:text-[var(--bcc-text)]"}`}
-              style={{ fontSize: "11px", letterSpacing: "0.18em" }}
-            >
-              {DOC_LABELS[key].toUpperCase()}
-            </Link>
-          ))}
-          <Link
-            href="/"
-            className="bcc-mono text-[var(--bcc-text-muted)] hover:text-[var(--bcc-text)]"
-            style={{ fontSize: "11px", letterSpacing: "0.18em" }}
-          >
-            ← BACK TO THE FLOOR
-          </Link>
-        </nav>
+        <div className="mt-8">
+          <CopyrightMark />
+        </div>
       </footer>
     </article>
   );

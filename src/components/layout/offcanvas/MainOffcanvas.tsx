@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
 import { useState, useEffect, useRef } from "react";
 
+import { CopyrightMark } from "@/components/layout/CopyrightMark";
 import { LEGAL_ROUTES } from "@/lib/legal/config";
 
 interface MainOffcanvasProps {
@@ -281,9 +282,12 @@ export function MainOffcanvas({ open, onClose }: MainOffcanvasProps) {
             </>
           )}
 
-          {/* Legal links */}
+          {/* Copyright + legal links */}
           <div className="bcc-nav-divider" />
-          <div style={{ padding: "8px 16px", display: "flex", gap: 12, flexWrap: "wrap" }}>
+          <div style={{ padding: "0 16px 4px" }}>
+            <CopyrightMark />
+          </div>
+          <div style={{ padding: "4px 16px 8px", display: "flex", gap: 12, flexWrap: "wrap" }}>
             {[
               { label: "Terms",   href: LEGAL_ROUTES.terms },
               { label: "Privacy", href: LEGAL_ROUTES.privacy },

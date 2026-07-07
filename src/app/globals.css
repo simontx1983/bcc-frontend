@@ -1686,18 +1686,31 @@
   color: var(--bcc-text-secondary);
 }
 
-/* Copyright brand mark — no accent switcher lives on auth pages, so this
-   is hardcoded primary/secondary (not --bcc-accent) rather than
-   switchable. Decorative hover only — the text isn't a link. */
-.bcc-auth-copyright-year,
-.bcc-auth-copyright-brand {
+/* Copyright brand mark (CopyrightMark component) — shared across
+   LeftSidebar, MainOffcanvas, MinimalShell's auth footer, and the legal
+   doc pages. Hardcoded primary/secondary (not --bcc-accent) since not
+   every surface it appears on has an accent switcher — this mirrors the
+   header's .bcc-brand-top/.bcc-brand-bottom two-tone, not the switchable
+   accent. Decorative hover only — the text isn't a link. */
+.bcc-copyright {
+  font-family: var(--font-mono), monospace;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: var(--bcc-text-muted);
+}
+.bcc-copyright-year,
+.bcc-copyright-collar,
+.bcc-copyright-crypto {
   transition: color 150ms ease;
 }
-.bcc-auth-copyright:hover .bcc-auth-copyright-year {
-  color: var(--bcc-secondary);
+.bcc-copyright:hover .bcc-copyright-year {
+  color: var(--bcc-text-secondary);
 }
-.bcc-auth-copyright:hover .bcc-auth-copyright-brand {
+.bcc-copyright:hover .bcc-copyright-collar {
   color: var(--bcc-primary);
+}
+.bcc-copyright:hover .bcc-copyright-crypto {
+  color: var(--bcc-secondary);
 }
 
 /* Mobile: stack copyright above the legal links instead of cramming
