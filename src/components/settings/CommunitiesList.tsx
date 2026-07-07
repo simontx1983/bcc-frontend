@@ -95,7 +95,7 @@ export function CommunitiesList() {
         title="Joined"
         blurb="Communities you're currently a member of. Leaving records a 90-day cooldown so the auto-join sweep doesn't re-add you."
         items={joined}
-        emptyCopy="You haven't joined any holder communities yet. Eligible communities — if any — are listed below."
+        emptyCopy="You haven't joined any holder communities yet. Eligible communities — if any — are listed below." /* cadence-pressure-guard:allow — neutral empty-state fact, no attest cadence */
         renderAction={(item) => <LeaveButton groupId={item.group_id} />}
       />
 
@@ -113,7 +113,7 @@ export function CommunitiesList() {
         title="Opted out"
         blurb="Communities you left or were removed from. Cooldown clears in 90 days for self-leaves; mod-removals are permanent."
         items={opted_out}
-        emptyCopy="Nothing here. You haven't left any holder communities."
+        emptyCopy="Nothing here. You haven't left any holder communities." /* cadence-pressure-guard:allow — neutral empty-state fact, no attest cadence */
         renderAction={() => null}
       />
     </div>

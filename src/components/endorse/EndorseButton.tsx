@@ -177,6 +177,7 @@ function humanizeError(err: unknown): string {
     {
       bcc_unauthorized: "Sign in first.",
       bcc_invalid_request: "We couldn't endorse this page right now.",
+      // cadence-pressure-guard:allow — unlock-requirement explanation on a denied action, not a schedule nudge
       bcc_permission_denied: "You haven't unlocked endorsements yet.",
       bcc_forbidden: "You can't endorse this page.",
       bcc_endorse_self: "You can't endorse your own page.",

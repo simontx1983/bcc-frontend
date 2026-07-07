@@ -386,6 +386,7 @@ function EmptyState({
       `Drop the chain filter to see every room you've joined, or browse ${chainLabel} from All to find one to join.`;
   } else if (mineOnly) {
     label = "NO MEMBERSHIPS";
+    // cadence-pressure-guard:allow — neutral empty-state fact, no attest cadence or temporal pressure
     title = "You haven't joined anything yet.";
     body =
       "Hop into a room from All or Verified — once you join, it'll show up here for one-click access.";
