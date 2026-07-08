@@ -211,8 +211,8 @@ function ViewerBadge({ membership }: { membership: LocalItem["viewer_membership"
         className="bcc-mono rounded-sm px-2 py-0.5 text-[9px] tracking-[0.18em]"
         style={{
           color: "var(--verified)",
-          background: "rgba(44,157,102,0.10)",
-          border: "1px solid rgba(44,157,102,0.32)",
+          background: "rgb(var(--verified-rgb) / 0.10)",
+          border: "1px solid rgb(var(--verified-rgb) / 0.32)",
         }}
       >
         ★ PRIMARY
@@ -223,8 +223,8 @@ function ViewerBadge({ membership }: { membership: LocalItem["viewer_membership"
     <span
       className="bcc-mono rounded-sm px-2 py-0.5 text-[9px] tracking-[0.18em] text-ink"
       style={{
-        background: "rgba(15,13,9,0.06)",
-        border: "1px solid rgba(15,13,9,0.16)",
+        background: "rgb(var(--ink-rgb) / 0.06)",
+        border: "1px solid rgb(var(--ink-rgb) / 0.16)",
       }}
     >
       MEMBER

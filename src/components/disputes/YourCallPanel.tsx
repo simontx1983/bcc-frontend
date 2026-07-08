@@ -214,9 +214,9 @@ function DecisionButton({
       onClick={onSelect}
       className="group relative flex flex-col items-stretch gap-1 border p-3 text-left transition motion-reduce:transition-none"
       style={{
-        borderColor: selected ? accent : "rgba(15,13,9,0.3)",
+        borderColor: selected ? accent : "rgb(var(--ink-rgb) / 0.3)",
         boxShadow: selected ? `inset 0 0 0 2px ${accent}` : "none",
-        background: selected ? "rgba(255,255,255,0.4)" : "transparent",
+        background: selected ? "rgb(var(--bcc-white-rgb) / 0.4)" : "transparent",
       }}
     >
       <span

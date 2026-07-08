@@ -69,6 +69,32 @@
   --bcc-verified:        #2c9d66;
   --bcc-blueprint:       #0f1e3c;
 
+  /* RGB triplets — companions to the brand/status colors above, for
+     translucent fills via the CSS Color 4 slash syntax:
+       rgb(var(--bcc-safety-rgb) / 0.32)
+     Same channels as the hex above, so any alpha is pixel-exact. */
+  --bcc-primary-rgb:     22 181 230;
+  --bcc-secondary-rgb:   249 138 28;
+  --bcc-danger-rgb:      239 68 68;
+
+  /* Spam/flag warning red (WP-admin lineage) — distinct from --bcc-danger. */
+  --bcc-flag:            #d63638;
+  --bcc-flag-rgb:        214 54 56;
+  /* NB: safety/verified rgb triplets live in the workshop layer below as
+     --safety-rgb / --verified-rgb (the aesthetic namespace), NOT here — the
+     color-token guard reserves the --bcc-safety/-verified names for the
+     brand layer it polices out of page chrome. */
+
+  /* Fixed black/white + a fixed near-black surface (equals the dark-theme
+     bg value, but pinned regardless of theme where a surface is meant to
+     stay dark). Do NOT swap these for --bcc-bg/-text-inverse: those flip. */
+  --bcc-white:           #ffffff;
+  --bcc-white-rgb:       255 255 255;
+  --bcc-black:           #000000;
+  --bcc-black-rgb:       0 0 0;
+  --bcc-night:           #0d1117;
+  --bcc-night-rgb:       13 17 23;
+
   /* Typography — loaded via next/font in layout.tsx */
   --font-stencil:        'Big Shoulders Stencil';
   --font-serif:          'Fraunces';
@@ -2471,6 +2497,36 @@
   --ink-ghost:       #6b6355;
   --phosphor:        #7dff9a;
   --verified:        var(--bcc-verified);
+
+  /* RGB triplets for the cardstock/ink/phosphor aesthetic — same channels
+     as the hex above, for translucent tints: rgb(var(--ink-rgb) / 0.18).
+     --safety-rgb / --verified-rgb sit here (aesthetic namespace) so
+     translucent safety/verified tints don't trip the brand-layer guard. */
+  --ink-rgb:         15 13 9;
+  --cardstock-rgb:   239 229 207;
+  --phosphor-rgb:    125 255 154;
+  --safety-rgb:      240 90 40;
+  --verified-rgb:    44 157 102;
+
+  /* Additional cardstock/paper tints used at alpha on card + dispute-panel
+     surfaces (each backs 2+ call sites; values unchanged from the literals
+     they replace). */
+  --cardstock-ash:   #ccc6b8;
+  --cardstock-ash-rgb: 204 198 184;
+  --paper-hi:        #fffaf2;
+  --paper-hi-rgb:    255 250 242;
+  --paper-pale:      #f7f2e1;
+  --paper-pale-rgb:  247 242 225;
+  --paper-cream:     #f0e3c2;
+
+  /* Bespoke accents recurring across card/panel chrome. */
+  --bcc-ember:       #ff6b35;
+  --steel-blue:      #1f6eb8;
+  --steel-blue-rgb:  31 110 184;
+  --sky-bright:      #2cb3e1;
+  --sky-bright-rgb:  44 179 225;
+  --amber-deep:      #e59e40;
+  --amber-deep-rgb:  229 158 64;
 }
 
 @layer components {

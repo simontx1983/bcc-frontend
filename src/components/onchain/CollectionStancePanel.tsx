@@ -127,7 +127,7 @@ function StanceRow({ item }: { item: CollectionStancePanelItem }) {
     <div
       className="flex items-center gap-3 border-2 px-3 py-2"
       style={{
-        borderColor: flaggedSpam ? "rgba(214,54,56,0.5)" : "rgba(15,13,9,0.18)",
+        borderColor: flaggedSpam ? "rgb(var(--bcc-flag-rgb) / 0.5)" : "rgb(var(--ink-rgb) / 0.18)",
         background: "var(--paper)",
         opacity: flaggedSpam ? 0.75 : 1,
       }}
@@ -175,7 +175,7 @@ function StanceRow({ item }: { item: CollectionStancePanelItem }) {
           joined ? (
             <span
               className="bcc-stencil px-3 py-1.5 text-[11px] tracking-[0.16em]"
-              style={{ background: "var(--verified, #2e7d32)", color: "var(--cardstock)" }}
+              style={{ background: "var(--verified)", color: "var(--cardstock)" }}
             >
               ✓ JOINED
             </span>
@@ -228,7 +228,7 @@ function StanceRow({ item }: { item: CollectionStancePanelItem }) {
           }
           disabled={busy}
           className="bcc-mono text-[10px] tracking-[0.14em] underline-offset-2 transition hover:underline disabled:opacity-50 motion-reduce:transition-none"
-          style={{ color: flaggedSpam ? "#d63638" : "var(--ink-soft)" }}
+          style={{ color: flaggedSpam ? "var(--bcc-flag)" : "var(--ink-soft)" }}
         >
           {flaggedSpam ? "⚑ REPORTED AS SPAM — UNDO" : "REPORT AS SPAM"}
         </button>

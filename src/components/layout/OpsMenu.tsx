@@ -80,12 +80,12 @@ export function OpsMenu({ items, pathname }: OpsMenuProps) {
           role="menu"
           aria-label="Specialist surfaces"
           className="bcc-panel absolute left-1/2 top-full z-30 mt-1 flex min-w-[220px] -translate-x-1/2 flex-col gap-px overflow-hidden"
-          style={{ background: "rgba(15,13,9,0.06)" }}
+          style={{ background: "rgb(var(--ink-rgb) / 0.06)" }}
         >
           {/* Caption strip — matches the workshop tone of the rail. */}
           <div
             className="bcc-mono bg-cardstock px-4 py-2 text-[9px] tracking-[0.24em] text-cardstock-deep"
-            style={{ borderBottom: "1px dashed rgba(15,13,9,0.18)" }}
+            style={{ borderBottom: "1px dashed rgb(var(--ink-rgb) / 0.18)" }}
             aria-hidden
           >
             OPS · SPECIALIST SURFACES

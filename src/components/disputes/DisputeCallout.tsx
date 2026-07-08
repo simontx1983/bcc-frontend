@@ -4,7 +4,7 @@
  * DisputeCallout — owner-only "Open a Dispute" CTA on entity profiles.
  *
  * Sibling to <ClaimCallout> + <ReviewCallout> in IdentityBlock. Only
- * mounts when `card.permissions.can_dispute === true`, which the
+ * mounts when `card.permissions.can_open_dispute === true`, which the
  * server sets exclusively for the page owner. Non-owners never see
  * this button (vs. ReviewCallout, which shows-disabled for everyone
  * who hasn't unlocked reviews — disputes are owner-only and the

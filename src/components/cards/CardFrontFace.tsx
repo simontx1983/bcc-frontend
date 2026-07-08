@@ -140,11 +140,11 @@ function ChainBand({ card }: { card: Card }) {
 
   return (
     <div
-      className="bcc-stencil relative z-10 flex h-14 items-center justify-between border-b-[3px] border-ink px-4 text-white"
+      className="bcc-stencil relative z-10 flex h-14 items-center justify-between border-b-[3px] border-ink px-4 text-bcc-white"
       style={{ background: "var(--bcc-chain-color, var(--chain-cosmos))" }}
     >
       <span className="text-2xl tracking-[0.06em]">{chainName}</span>
-      <span className="bcc-mono border border-white/60 px-2 py-0.5 text-[9px] tracking-[0.2em]">
+      <span className="bcc-mono border border-bcc-white/60 px-2 py-0.5 text-[9px] tracking-[0.2em]">
         {card.card_kind.toUpperCase()}
       </span>
     </div>
@@ -163,8 +163,8 @@ function Portrait({
       className="relative z-10 flex items-center justify-center overflow-hidden"
       style={{
         background:
-          "radial-gradient(circle at 50% 35%, rgba(255,255,255,0.15) 0%, transparent 60%), " +
-          "linear-gradient(180deg, var(--bcc-chain-color, var(--chain-cosmos)) 0%, color-mix(in srgb, var(--bcc-chain-color, var(--chain-cosmos)) 60%, #000) 100%)",
+          "radial-gradient(circle at 50% 35%, rgb(var(--bcc-white-rgb) / 0.15) 0%, transparent 60%), " +
+          "linear-gradient(180deg, var(--bcc-chain-color, var(--chain-cosmos)) 0%, color-mix(in srgb, var(--bcc-chain-color, var(--chain-cosmos)) 60%, var(--bcc-black)) 100%)",
       }}
     >
       <Crest card={card} canEditAvatar={canEditAvatar} />
@@ -173,12 +173,12 @@ function Portrait({
         aria-hidden
         className="pointer-events-none absolute inset-0"
         style={{
-          backgroundImage: "radial-gradient(circle, rgba(255,255,255,0.12) 1px, transparent 1.5px)",
+          backgroundImage: "radial-gradient(circle, rgb(var(--bcc-white-rgb) / 0.12) 1px, transparent 1.5px)",
           backgroundSize: "6px 6px",
           mixBlendMode: "overlay",
         }}
       />
-      <span aria-hidden className="pointer-events-none absolute inset-3 border border-white/10" />
+      <span aria-hidden className="pointer-events-none absolute inset-3 border border-bcc-white/10" />
     </div>
   );
 }
@@ -197,11 +197,11 @@ function WantedCornerStamp() {
   return (
     <span
       aria-hidden
-      className="bcc-mono pointer-events-none absolute left-1/2 top-1/2 z-20 select-none px-2 py-0.5 text-[9px] tracking-[0.2em] text-white"
+      className="bcc-mono pointer-events-none absolute left-1/2 top-1/2 z-20 select-none px-2 py-0.5 text-[9px] tracking-[0.2em] text-bcc-white"
       style={{
-        background: "var(--safety, #ff6b35)",
+        background: "var(--safety)",
         transform: "translate(-50%, -50%) rotate(6deg)",
-        boxShadow: "0 1px 0 rgba(0,0,0,0.2)",
+        boxShadow: "0 1px 0 rgb(var(--bcc-black-rgb) / 0.2)",
       }}
     >
       WANTED
@@ -232,7 +232,7 @@ function TierStrip({
     <div
       className="relative z-10 flex items-center justify-center border-t border-cardstock-edge/40 px-3 py-2"
       style={{
-        background: "rgba(15,13,9,0.05)",
+        background: "rgb(var(--ink-rgb) / 0.05)",
         borderLeft: `4px solid var(--tier-${cardTier})`,
       }}
     >

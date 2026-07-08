@@ -70,7 +70,7 @@ export function LeftSidebar({ collapsed, onToggle }: LeftSidebarProps) {
       <div className="bcc-sidebar-pin-top" style={{ padding: collapsed ? "12px 8px 8px" : "12px 12px 8px" }}>
         {collapsed ? (
           <NewPostTrigger className="bcc-btn-icon" ariaLabel="New Post" title="New Post"
-            style={{ width: 36, height: 36, background: "var(--bcc-accent)", color: "#fff", borderRadius: "var(--bcc-radius-md)", margin: "0 auto", display: "flex" }}
+            style={{ width: 36, height: 36, background: "var(--bcc-accent)", color: "var(--bcc-white)", borderRadius: "var(--bcc-radius-md)", margin: "0 auto", display: "flex" }}
           >
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>
               <path d="M7 1v12M1 7h12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>

@@ -87,7 +87,7 @@ export function TallyPanel({
           style={{
             width: `${pendingPct}%`,
             backgroundImage:
-              "repeating-linear-gradient(135deg, rgba(15,13,9,0.18) 0 6px, transparent 6px 12px)",
+              "repeating-linear-gradient(135deg, rgb(var(--ink-rgb) / 0.18) 0 6px, transparent 6px 12px)",
           }}
           aria-hidden
         />

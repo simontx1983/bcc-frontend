@@ -92,8 +92,8 @@ function CelebrationIcon({ kind }: { kind: Celebration["kind"] }) {
       aria-hidden
       className="inline-flex h-12 w-12 items-center justify-center rounded-full"
       style={{
-        background: "rgba(44,157,102,0.12)",
-        border: "1px solid rgba(44,157,102,0.45)",
+        background: "rgb(var(--verified-rgb) / 0.12)",
+        border: "1px solid rgb(var(--verified-rgb) / 0.45)",
       }}
     >
       <svg

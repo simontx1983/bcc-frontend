@@ -93,12 +93,15 @@ const TIER_LABELS: Record<(typeof TIER_ORDER)[number], string> = {
 // Inline tier accents — distinct enough at a glance, deliberately
 // understated to fit the cardstock palette. If/when the design
 // system grows formal tier tokens, swap to CSS vars.
+// color-token-guard:allow — watching rarity palette, deliberately distinct
+// from the --bcc-tier-* / --tier-* tokens (understated to fit the cardstock
+// look). Kept as literals per the note above; mark each so the guard passes.
 const TIER_COLORS: Record<(typeof TIER_ORDER)[number], string> = {
-  legendary: "#d4af37",
-  rare:      "#5a7fb5",
-  uncommon:  "#5b9c66",
-  common:    "#9a8f78",
-  unknown:   "#3d3a35",
+  legendary: "#d4af37", // color-token-guard:allow — watching rarity palette
+  rare:      "#5a7fb5", // color-token-guard:allow — watching rarity palette
+  uncommon:  "#5b9c66", // color-token-guard:allow — watching rarity palette
+  common:    "#9a8f78", // color-token-guard:allow — watching rarity palette
+  unknown:   "#3d3a35", // color-token-guard:allow — watching rarity palette
 };
 
 function TierDistribution({

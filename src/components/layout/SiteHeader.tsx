@@ -185,7 +185,7 @@ function ThemeModal({ theme, accent, onThemeChange, onAccentChange, onClose, anc
             letterSpacing: "0.1em", textTransform: "uppercase",
             transition: "background 150ms ease, color 150ms ease",
             background: theme === t ? "var(--bcc-accent)" : "transparent",
-            color: theme === t ? "#fff" : "var(--bcc-text-secondary)",
+            color: theme === t ? "var(--bcc-white)" : "var(--bcc-text-secondary)",
           }}>
             {t === "light" ? "☀ Day" : "☾ Night"}
           </button>
@@ -198,8 +198,8 @@ function ThemeModal({ theme, accent, onThemeChange, onAccentChange, onClose, anc
 
       <div style={{ display: "flex", gap: 8 }}>
         {[
-          { value: "primary"   as Accent, color: "#16b5e6", label: "Blue"   },
-          { value: "secondary" as Accent, color: "#f98a1c", label: "Orange" },
+          { value: "primary"   as Accent, color: "var(--bcc-primary)", label: "Blue"   },
+          { value: "secondary" as Accent, color: "var(--bcc-secondary)", label: "Orange" },
         ].map(({ value, color, label }) => (
           <button key={value} onClick={() => onAccentChange(value)}
             className={`bcc-theme-option${accent === value ? " selected" : ""}`}
@@ -367,7 +367,7 @@ function AvatarDropdown({ handle, onClose, onSignOut, anchorRef }: AvatarDropdow
                 onSignOut();
               }}
               onMouseEnter={e => {
-                (e.currentTarget as HTMLElement).style.background = "rgba(239,68,68,0.08)";
+                (e.currentTarget as HTMLElement).style.background = "rgb(var(--bcc-danger-rgb) / 0.08)";
               }}
               onMouseLeave={e => {
                 (e.currentTarget as HTMLElement).style.background = "transparent";

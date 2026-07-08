@@ -78,14 +78,14 @@ export function WatchingTile({ item, isUnwatching = false }: WatchingTileProps) 
     >
       {/* Kind band — color-coded, with the kind label */}
       <div
-        className="bcc-stencil flex h-9 items-center justify-between border-b-[2px] border-ink px-3 text-xs text-white"
+        className="bcc-stencil flex h-9 items-center justify-between border-b-[2px] border-ink px-3 text-xs text-bcc-white"
         style={{ background: kindColor }}
       >
         <span className="tracking-[0.12em]">{item.card_kind.toUpperCase()}</span>
         {item.is_legacy && (
           <span
             title="Imported entry — no original Watch moment"
-            className="bcc-mono px-1.5 py-0.5 text-[8px] text-white/70"
+            className="bcc-mono px-1.5 py-0.5 text-[8px] text-bcc-white/70"
           >
             LEGACY
           </span>
@@ -94,7 +94,7 @@ export function WatchingTile({ item, isUnwatching = false }: WatchingTileProps) 
 
       {/* Crest — hex with initials. Reuses globals.css .bcc-hex layers. */}
       <div className="relative flex flex-1 items-center justify-center bg-cardstock-deep/30">
-        <div className="bcc-hex h-[110px] w-[100px] drop-shadow-[0_4px_6px_rgba(0,0,0,0.4)]">
+        <div className="bcc-hex h-[110px] w-[100px] drop-shadow-[0_4px_6px_rgb(var(--bcc-black-rgb)_/_0.4)]">
           <span aria-hidden className="bcc-hex-outer" />
           <span aria-hidden className="bcc-hex-mid" />
           <span aria-hidden className="bcc-hex-inner" />
@@ -133,7 +133,7 @@ export function WatchingTile({ item, isUnwatching = false }: WatchingTileProps) 
         onClick={handleUnwatch}
         disabled={isUnwatching || unwatchMut.isPending}
         title="Stop watching"
-        className="bcc-mono absolute right-2 top-1.5 z-10 h-6 w-6 rounded-full border border-white/40 bg-black/50 text-[10px] text-white opacity-0 transition group-hover:opacity-100 group-focus-within:opacity-100 disabled:opacity-50"
+        className="bcc-mono absolute right-2 top-1.5 z-10 h-6 w-6 rounded-full border border-bcc-white/40 bg-bcc-black/50 text-[10px] text-bcc-white opacity-0 transition group-hover:opacity-100 group-focus-within:opacity-100 disabled:opacity-50"
       >
         {isUnwatching || unwatchMut.isPending ? "…" : "✕"}
       </button>

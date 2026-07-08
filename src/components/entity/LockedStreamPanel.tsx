@@ -28,7 +28,7 @@ export function LockedStreamPanel({ pageName }: LockedStreamPanelProps) {
             <span className="bcc-stencil text-ink">{pageName}</span>
             <span
               className="bcc-mono rounded px-1.5 py-0.5 text-[9px]"
-              style={{ background: "rgba(15,13,9,0.06)", color: "var(--ink-soft)" }}
+              style={{ background: "rgb(var(--ink-rgb) / 0.06)", color: "var(--ink-soft)" }}
             >
               POSTED
             </span>
@@ -42,7 +42,7 @@ export function LockedStreamPanel({ pageName }: LockedStreamPanelProps) {
             <span className="bcc-stencil text-ink">{pageName}</span>
             <span
               className="bcc-mono rounded px-1.5 py-0.5 text-[9px]"
-              style={{ background: "rgba(15,13,9,0.06)", color: "var(--ink-soft)" }}
+              style={{ background: "rgb(var(--ink-rgb) / 0.06)", color: "var(--ink-soft)" }}
             >
               ANNOUNCED
             </span>
@@ -56,7 +56,7 @@ export function LockedStreamPanel({ pageName }: LockedStreamPanelProps) {
             <span className="bcc-stencil text-ink">{pageName}</span>
             <span
               className="bcc-mono rounded px-1.5 py-0.5 text-[9px]"
-              style={{ background: "rgba(15,13,9,0.06)", color: "var(--ink-soft)" }}
+              style={{ background: "rgb(var(--ink-rgb) / 0.06)", color: "var(--ink-soft)" }}
             >
               REVIEWED
             </span>
@@ -75,7 +75,7 @@ export function LockedStreamPanel({ pageName }: LockedStreamPanelProps) {
         className="pointer-events-none absolute inset-0"
         style={{
           background:
-            "radial-gradient(ellipse at center, rgba(247,242,225,0.55) 0%, rgba(247,242,225,0.92) 80%)",
+            "radial-gradient(ellipse at center, rgb(var(--paper-pale-rgb) / 0.55) 0%, rgb(var(--paper-pale-rgb) / 0.92) 80%)",
         }}
       />
 
@@ -116,12 +116,12 @@ function LockMark() {
       width="36"
       height="36"
       viewBox="0 0 36 36"
-      className="drop-shadow-[0_0_4px_rgba(240,90,40,0.45)]"
+      className="drop-shadow-[0_0_4px_rgb(var(--safety-rgb)_/_0.45)]"
     >
       <path
         d="M11 16 V12 a7 7 0 0 1 14 0 V16"
         fill="none"
-        stroke="#f05a28"
+        stroke="var(--safety)"
         strokeWidth="2.5"
         strokeLinecap="round"
       />
@@ -131,12 +131,12 @@ function LockMark() {
         width="20"
         height="14"
         rx="2"
-        fill="#f05a28"
-        stroke="#0f0d09"
+        fill="var(--safety)"
+        stroke="var(--ink)"
         strokeWidth="1.4"
       />
-      <circle cx="18" cy="22" r="2" fill="#0f0d09" />
-      <rect x="17.4" y="22" width="1.2" height="4" fill="#0f0d09" />
+      <circle cx="18" cy="22" r="2" fill="var(--ink)" />
+      <rect x="17.4" y="22" width="1.2" height="4" fill="var(--ink)" />
     </svg>
   );
 }

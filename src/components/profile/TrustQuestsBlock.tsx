@@ -52,7 +52,7 @@ export function TrustQuestsBlock({
               width: `${pct}%`,
               background:
                 "linear-gradient(90deg, var(--verified), var(--phosphor))",
-              boxShadow: "0 0 8px rgba(125, 255, 154, 0.6)",
+              boxShadow: "0 0 8px rgb(var(--phosphor-rgb) / 0.6)",
             }}
           />
         </div>

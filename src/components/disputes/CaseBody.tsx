@@ -138,7 +138,7 @@ function CustodyEvent({
             tone === "live" ? "var(--safety)" : "var(--cardstock-deep)",
           boxShadow:
             tone === "live"
-              ? "0 0 0 3px rgba(240,90,40,0.18)"
+              ? "0 0 0 3px rgb(var(--safety-rgb) / 0.18)"
               : "none",
         }}
       />

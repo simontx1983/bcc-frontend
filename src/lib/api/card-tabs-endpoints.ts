@@ -2,7 +2,6 @@
  * Typed wrappers for the §Phase 2 entity-card tab endpoints.
  *
  *   getCardReviews   → GET /entities/{kind}/{id}/reviews   (page-pagination)
- *   getCardDisputes  → GET /entities/{kind}/{id}/disputes  (page-pagination)
  *   getCardWatchers  → GET /entities/{kind}/{id}/watchers  (offset-pagination)
  *
  * Mirrors `user-activity-endpoints.ts` exactly — same `bccFetchAsClient`
@@ -12,7 +11,6 @@
 
 import { bccFetchAsClient } from "@/lib/api/client";
 import type {
-  CardDisputesResponse,
   CardReviewsResponse,
   CardWatchersResponse,
   EntityCardKind,
@@ -66,21 +64,6 @@ export function getCardReviews(
 ): Promise<CardReviewsResponse> {
   const path = `entities/${kind}/${id}/reviews${buildPageQuery(params)}`;
   return bccFetchAsClient<CardReviewsResponse>(path, { method: "GET", signal });
-}
-
-/**
- * GET /entities/{kind}/{id}/disputes — paginated list of open disputes
- * filed against this entity (V1 surfaces only status=0; resolved +
- * dismissed are intentionally hidden from the entity profile).
- */
-export function getCardDisputes(
-  kind: EntityCardKind,
-  id: number,
-  params: PageParams = {},
-  signal?: AbortSignal,
-): Promise<CardDisputesResponse> {
-  const path = `entities/${kind}/${id}/disputes${buildPageQuery(params)}`;
-  return bccFetchAsClient<CardDisputesResponse>(path, { method: "GET", signal });
 }
 
 /**

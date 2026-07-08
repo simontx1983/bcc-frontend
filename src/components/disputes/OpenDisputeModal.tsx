@@ -5,7 +5,7 @@
  *
  * Triggered from <DisputeCallout> on /v/[slug], /p/[slug], /c/[slug]
  * when the viewer is the page owner (server gate via card.permissions.
- * can_dispute). Two-step modal:
+ * can_open_dispute). Two-step modal:
  *
  *   1. Pick — list disputable downvotes on this page (server returns
  *             upvotes too for context; UI disables them with copy).
