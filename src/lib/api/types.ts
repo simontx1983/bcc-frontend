@@ -599,11 +599,12 @@ export interface FeedAuthor {
 
 /**
  * Trust-grammar reaction kinds — §D5, locked. Coordinate any change
- * with backend ReactionGrammarMap::TRUST_KINDS (= [solid, vouch]).
- * `stand_behind` is NOT a post reaction — it is an AttestationKind cast
- * via the Stand Behind / attestation flow (see AttestationKind below).
+ * with backend ReactionGrammarMap::TRUST_KINDS (= [solid]).
+ * `vouch`/`stand_behind` are NOT post reactions — they are attestations
+ * cast via the byline Vouch toggle / Stand Behind flow (see
+ * AttestationKind below), a separate system that moves trust scores.
  */
-export type TrustReactionKind = "solid" | "vouch";
+export type TrustReactionKind = "solid";
 
 /**
  * Social-grammar reaction kinds — v1.5 curated subset (👍 ❤️ 😂 😮 🔥).
@@ -622,7 +623,7 @@ export type ReactionKind = TrustReactionKind | SocialReactionKind;
 /**
  * v1.5 reaction grammar discriminator (api-contract-v1.md §2.11).
  *
- *   - "trust"  — restrained, intentional. solid / vouch.
+ *   - "trust"  — restrained, intentional. solid only (vouch is an attestation).
  *   - "social" — expressive, emoji-forward. like / love / haha / wow / fire.
  *   - "tribal" — reserved for V2 (same_wallet, onchain_confirm, etc.).
  *                Currently no kinds; the discriminator exists so the
