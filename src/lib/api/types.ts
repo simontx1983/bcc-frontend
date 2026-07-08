@@ -598,11 +598,12 @@ export interface FeedAuthor {
 }
 
 /**
- * Trust-grammar reaction kinds — §D5, locked. Coordinate any change
- * with backend ReactionGrammarMap::TRUST_KINDS (= [solid]).
- * `vouch`/`stand_behind` are NOT post reactions — they are attestations
- * cast via the byline Vouch toggle / Stand Behind flow (see
- * AttestationKind below), a separate system that moves trust scores.
+ * Trust-grammar reaction kinds — §D5. Coordinate any change with backend
+ * ReactionGrammarMap::TRUST_KINDS (= [solid]). `solid` is the ONLY trust
+ * reaction. `vouch` and `stand_behind` are NOT post reactions — they're
+ * AttestationKinds cast via the person/entity attestation flow (the
+ * byline Vouch toggle + §J profile actions; see AttestationKind below),
+ * a separate system that moves trust scores.
  */
 export type TrustReactionKind = "solid";
 
@@ -623,7 +624,7 @@ export type ReactionKind = TrustReactionKind | SocialReactionKind;
 /**
  * v1.5 reaction grammar discriminator (api-contract-v1.md §2.11).
  *
- *   - "trust"  — restrained, intentional. solid only (vouch is an attestation).
+ *   - "trust"  — restrained, intentional. solid only (vouch relocated to attestations).
  *   - "social" — expressive, emoji-forward. like / love / haha / wow / fire.
  *   - "tribal" — reserved for V2 (same_wallet, onchain_confirm, etc.).
  *                Currently no kinds; the discriminator exists so the
@@ -644,13 +645,12 @@ export type HeatStage = 1 | 2 | 3 | 4 | 5;
  * belong to that grammar (the server zero-fills counts for every
  * kind in the grammar, even when zero).
  *
- * Same shape returned by /reactions POST + DELETE responses, so the
- * frontend patches its cache directly without translation.
- *
- * `heat_stage`/`viewer_has_stoked`/`stoke_count` are additive (Stoke)
- * fields — they coexist with the legacy `kind_grammar`/`counts`/
- * `viewer_reaction` trio rather than replacing it; only the rail's
- * rendering changed to Stoke-only, not the wire contract.
+ * `heat_stage`/`viewer_has_stoked`/`stoke_count` are the Stoke fields the
+ * feed card actually renders (via ReactionRail). The `kind_grammar`/
+ * `counts`/`viewer_reaction` trio is still hydrated on the wire by the
+ * backend but is currently UNREAD by the frontend — the reaction rail
+ * was replaced by Stoke. Kept on the type for wire fidelity; do not
+ * assume a rendered control exists for it.
  */
 export interface FeedReactions {
   kind_grammar: ReactionGrammar;
