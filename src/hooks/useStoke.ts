@@ -25,7 +25,7 @@ import {
   restoreSnapshots,
   snapshotMatchingPages,
   type SetMutationContext,
-} from "@/hooks/useReactions";
+} from "@/hooks/useFeedCache";
 import { FEED_QUERY_KEY_ROOT } from "@/hooks/useFeed";
 import type { BccApiError, FeedReactions, FeedItem } from "@/lib/api/types";
 
