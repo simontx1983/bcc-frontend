@@ -86,10 +86,10 @@ function ShiftBadge({ status }: { status: ShiftStatus }) {
 
   const surface =
     status === "on_duty"
-      ? { background: "rgba(240,90,40,0.18)", border: "1px solid var(--safety)", color: "var(--cardstock)" }
+      ? { background: "rgb(var(--safety-rgb) / 0.18)", border: "1px solid var(--safety)", color: "var(--cardstock)" }
     : status === "quiet"
-      ? { background: "transparent", border: "1px solid rgba(239,229,207,0.22)", color: "rgba(239,229,207,0.7)" }
-      : { background: "transparent", border: "1px solid rgba(239,229,207,0.10)", color: "rgba(239,229,207,0.32)" };
+      ? { background: "transparent", border: "1px solid rgb(var(--cardstock-rgb) / 0.22)", color: "rgb(var(--cardstock-rgb) / 0.7)" }
+      : { background: "transparent", border: "1px solid rgb(var(--cardstock-rgb) / 0.10)", color: "rgb(var(--cardstock-rgb) / 0.32)" };
 
   return (
     <span
@@ -104,7 +104,7 @@ function ShiftBadge({ status }: { status: ShiftStatus }) {
         <span
           aria-hidden
           className="inline-block h-1.5 w-1.5 rounded-full"
-          style={{ background: "rgba(239,229,207,0.5)" }}
+          style={{ background: "rgb(var(--cardstock-rgb) / 0.5)" }}
         />
       )}
       {label}

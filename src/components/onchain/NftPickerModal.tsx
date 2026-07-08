@@ -330,7 +330,7 @@ function NftTile({
       disabled={disabled || pending}
       className="group relative block w-full overflow-hidden border-2 text-left transition motion-reduce:transition-none"
       style={{
-        borderColor: selected ? "var(--safety)" : "rgba(15,13,9,0.18)",
+        borderColor: selected ? "var(--safety)" : "rgb(var(--ink-rgb) / 0.18)",
         background: "var(--paper)",
         opacity: disabled ? 0.5 : 1,
         cursor: disabled || pending ? "wait" : "pointer",
@@ -373,7 +373,7 @@ function NftTile({
             aria-hidden
             className="bcc-mono absolute left-2 top-2 px-1.5 py-0.5"
             style={{
-              background: "rgba(15,13,9,0.72)",
+              background: "rgb(var(--ink-rgb) / 0.72)",
               color: "var(--cardstock)",
               fontSize: "8px",
               letterSpacing: "0.16em",
@@ -401,7 +401,7 @@ function NftTile({
             aria-hidden
             className="bcc-mono absolute inset-0 flex items-center justify-center text-cardstock"
             style={{
-              background: "rgba(15,13,9,0.55)",
+              background: "rgb(var(--ink-rgb) / 0.55)",
               fontSize: "10px",
               letterSpacing: "0.22em",
             }}

@@ -228,10 +228,10 @@ function ShiftRow({ status }: { status: ShiftStatus }) {
 
   const surface =
     status === "on_duty"
-      ? { background: "rgba(240,90,40,0.18)", border: "1px solid var(--safety)", color: "var(--cardstock)" }
+      ? { background: "rgb(var(--safety-rgb) / 0.18)", border: "1px solid var(--safety)", color: "var(--cardstock)" }
     : status === "quiet"
-      ? { background: "transparent", border: "1px solid rgba(239,229,207,0.22)", color: "rgba(239,229,207,0.85)" }
-      : { background: "transparent", border: "1px solid rgba(239,229,207,0.10)", color: "rgba(239,229,207,0.4)" };
+      ? { background: "transparent", border: "1px solid rgb(var(--cardstock-rgb) / 0.22)", color: "rgb(var(--cardstock-rgb) / 0.85)" }
+      : { background: "transparent", border: "1px solid rgb(var(--cardstock-rgb) / 0.10)", color: "rgb(var(--cardstock-rgb) / 0.4)" };
 
   return (
     <span

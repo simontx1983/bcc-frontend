@@ -236,7 +236,6 @@ export function EntityProfile({
                 targetId={card.id}
                 canVouch={card.permissions.can_vouch}
                 canStandBehind={card.permissions.can_stand_behind}
-                canDispute={card.permissions.can_dispute}
                 canReport={card.permissions.can_report}
                 viewerAttestation={card.viewer_attestation}
                 viewerHasEndorsed={card.viewer_has_endorsed}
@@ -272,10 +271,10 @@ export function EntityProfile({
               <DisputeCallout
                 pageId={card.id}
                 pageName={card.name}
-                // can_open_dispute (owner-only vote-dispute gate), NOT
-                // can_dispute — that's the §J attestation cast and once
-                // wrongly drove this callout (any veteran saw the
-                // owner-only CTA; real owners below veteran never did).
+                // can_open_dispute is the owner-only vote-dispute gate —
+                // the sole dispute entry point. (The dead can_dispute
+                // "attestation cast" gate, which once wrongly drove this
+                // callout, was retired.)
                 canDispute={isAllowed(card.permissions, "can_open_dispute")}
               />
             </div>
@@ -373,7 +372,7 @@ function StatsStrip({ stats }: { stats: Card["stats"] }) {
       className="bcc-panel grid gap-px overflow-hidden"
       style={{
         gridTemplateColumns: `repeat(${Math.min(stats.length, 6)}, minmax(0,1fr))`,
-        background: "rgba(15,13,9,0.08)",
+        background: "rgb(var(--ink-rgb) / 0.08)",
       }}
     >
       {stats.map((stat) => (
@@ -455,7 +454,7 @@ function OnchainSignalsBlock({ signals }: { signals: OnchainSignals }) {
         className="bcc-panel grid gap-px overflow-hidden"
         style={{
           gridTemplateColumns: `repeat(${Math.min(cells.length, 4)}, minmax(0,1fr))`,
-          background: "rgba(15,13,9,0.08)",
+          background: "rgb(var(--ink-rgb) / 0.08)",
         }}
       >
         {cells.map((cell) => (

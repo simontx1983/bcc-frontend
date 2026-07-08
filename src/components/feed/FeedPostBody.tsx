@@ -77,7 +77,7 @@ export function ReviewBody({ body }: { body: Record<string, unknown> }) {
             className="bcc-mono rounded-sm px-2 py-0.5 text-[10px] tracking-[0.18em]"
             style={{
               color:      tone.accent,
-              background: "rgba(15,13,9,0.04)",
+              background: "rgb(var(--ink-rgb) / 0.04)",
               border:     `1px solid ${tone.accent}`,
             }}
           >

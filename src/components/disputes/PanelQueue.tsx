@@ -340,11 +340,11 @@ function DecisionBadge({
       style={{
         color: accepted ? "var(--verified)" : "var(--safety)",
         background: accepted
-          ? "rgba(44, 157, 102, 0.08)"
-          : "rgba(240, 90, 40, 0.08)",
+          ? "rgb(var(--verified-rgb) / 0.08)"
+          : "rgb(var(--safety-rgb) / 0.08)",
         borderColor: accepted
-          ? "rgba(44, 157, 102, 0.32)"
-          : "rgba(240, 90, 40, 0.32)",
+          ? "rgb(var(--verified-rgb) / 0.32)"
+          : "rgb(var(--safety-rgb) / 0.32)",
       }}
     >
       YOU VOTED · {accepted ? "ACCEPT" : "REJECT"}

@@ -194,10 +194,10 @@ const TYPE_LABELS: Record<OwnedPageType, { singular: string; plural: string }> =
 const TYPE_RENDER_ORDER: OwnedPageType[] = ["validator", "project", "nft", "dao"];
 
 const TYPE_CHIP_STYLE: Record<OwnedPageType, { bg: string; text: string }> = {
-  validator: { bg: "var(--owned-type-validator)", text: "#fff" },
-  project: { bg: "var(--owned-type-project)", text: "var(--ink, #0f0d09)" },
-  nft: { bg: "var(--owned-type-nft)", text: "#fff" },
-  dao: { bg: "var(--owned-type-dao)", text: "#fff" },
+  validator: { bg: "var(--owned-type-validator)", text: "var(--bcc-white)" },
+  project: { bg: "var(--owned-type-project)", text: "var(--ink)" },
+  nft: { bg: "var(--owned-type-nft)", text: "var(--bcc-white)" },
+  dao: { bg: "var(--owned-type-dao)", text: "var(--bcc-white)" },
 };
 
 export function collectTypedRoleBadges(

@@ -79,7 +79,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0d1117",
+  themeColor: "var(--bcc-night)",
   width: "device-width",
   initialScale: 1,
 };
@@ -109,9 +109,9 @@ export default async function RootLayout({
       data-theme="dark"
       data-accent="primary"
       // Inline bg prevents the black flash that appears before the stylesheet
-      // loads on a hard refresh. Matches --bcc-bg in dark mode (#0d1117).
+      // loads on a hard refresh. Matches --bcc-bg in dark mode (var(--bcc-night)).
       // Once CSS loads this value is superseded by var(--bcc-bg).
-      style={{ backgroundColor: "#0d1117" }}
+      style={{ backgroundColor: "var(--bcc-night)" }}
     >
       <body>
         <Preloader />

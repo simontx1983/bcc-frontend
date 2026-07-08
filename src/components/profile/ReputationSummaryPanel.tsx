@@ -217,7 +217,7 @@ function ReputationHeadline({
 function StandingChip({ isInGoodStanding }: { isInGoodStanding: boolean }) {
   if (isInGoodStanding) {
     return (
-      <span className="bcc-mono bg-verified px-2 py-[3px] text-white">
+      <span className="bcc-mono bg-verified px-2 py-[3px] text-bcc-white">
         ✓ GOOD STANDING
       </span>
     );

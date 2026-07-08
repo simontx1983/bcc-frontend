@@ -269,7 +269,7 @@ function AvatarImpl({
           bottom: 0,
           width: spec.operatorPx,
           height: spec.operatorPx,
-          background: "var(--phosphor, #b6ff5e)",
+          background: "var(--phosphor)",
           boxShadow: "0 0 0 2px var(--cardstock)",
         }}
       />

@@ -98,11 +98,11 @@ export function ViewerMenu({ handle }: ViewerMenuProps) {
         <div
           role="menu"
           className="bcc-panel absolute right-0 top-full z-30 mt-1 flex min-w-[220px] flex-col gap-px overflow-hidden"
-          style={{ background: "rgba(15,13,9,0.06)" }}
+          style={{ background: "rgb(var(--ink-rgb) / 0.06)" }}
         >
           <div
             className="bcc-mono bg-cardstock px-4 py-2 text-[9px] tracking-[0.24em] text-cardstock-deep"
-            style={{ borderBottom: "1px dashed rgba(15,13,9,0.18)" }}
+            style={{ borderBottom: "1px dashed rgb(var(--ink-rgb) / 0.18)" }}
             aria-hidden
           >
             OPERATOR · @{handle.toUpperCase()}
@@ -157,7 +157,7 @@ export function ViewerMenu({ handle }: ViewerMenuProps) {
               void signOut({ callbackUrl: "/" });
             }}
             className="bcc-stencil bg-cardstock px-4 py-3 text-left text-[13px] tracking-[0.16em] text-safety hover:bg-cardstock-deep"
-            style={{ borderTop: "1px dashed rgba(15,13,9,0.18)" }}
+            style={{ borderTop: "1px dashed rgb(var(--ink-rgb) / 0.18)" }}
           >
             Sign Out
           </button>

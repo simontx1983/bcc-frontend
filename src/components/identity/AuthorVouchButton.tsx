@@ -131,8 +131,8 @@ function AuthorVouchButtonImpl({
   const pillStyle = hasVouched
     ? {
         color: "var(--verified)",
-        background: "rgba(44,157,102,0.12)",
-        border: "1px solid rgba(44,157,102,0.45)",
+        background: "rgb(var(--verified-rgb) / 0.12)",
+        border: "1px solid rgb(var(--verified-rgb) / 0.45)",
       }
     : {
         color: "var(--safety)",
@@ -166,7 +166,7 @@ function AuthorVouchButtonImpl({
       {errorText !== null && (
         <span
           role="status"
-          className="bcc-mono text-[10px] leading-snug text-[color:var(--danger,#b3261e)]"
+          className="bcc-mono text-[10px] leading-snug text-[color:var(--danger)]"
         >
           {errorText}
         </span>

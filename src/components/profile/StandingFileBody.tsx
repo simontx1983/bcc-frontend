@@ -439,7 +439,7 @@ function NextRankBlock({ progression }: { progression: MemberProgression }) {
                     width: `${pct}%`,
                     background:
                       "linear-gradient(90deg, var(--verified), var(--phosphor))",
-                    boxShadow: "0 0 8px rgba(125, 255, 154, 0.6)",
+                    boxShadow: "0 0 8px rgb(var(--phosphor-rgb) / 0.6)",
                   }}
                 />
                 <div
@@ -448,7 +448,7 @@ function NextRankBlock({ progression }: { progression: MemberProgression }) {
                   style={{
                     width: `${100 - pct}%`,
                     backgroundImage:
-                      "repeating-linear-gradient(135deg, transparent 0 6px, rgba(239,229,207,0.15) 6px 7px)",
+                      "repeating-linear-gradient(135deg, transparent 0 6px, rgb(var(--cardstock-rgb) / 0.15) 6px 7px)",
                   }}
                 />
               </div>

@@ -588,8 +588,8 @@ function MembershipPill({
         style={{
           fontSize: "10px",
           letterSpacing: "0.18em",
-          background: "rgba(255,250,242,0.06)",
-          border: "1px solid rgba(255,250,242,0.18)",
+          background: "rgb(var(--paper-hi-rgb) / 0.06)",
+          border: "1px solid rgb(var(--paper-hi-rgb) / 0.18)",
         }}
       >
         GUEST
@@ -603,8 +603,8 @@ function MembershipPill({
         style={{
           fontSize: "10px",
           letterSpacing: "0.18em",
-          background: "rgba(255,250,242,0.06)",
-          border: "1px solid rgba(255,250,242,0.18)",
+          background: "rgb(var(--paper-hi-rgb) / 0.06)",
+          border: "1px solid rgb(var(--paper-hi-rgb) / 0.18)",
         }}
       >
         NOT A MEMBER
@@ -618,8 +618,8 @@ function MembershipPill({
         fontSize: "10px",
         letterSpacing: "0.18em",
         color: "var(--verified)",
-        background: "rgba(44,157,102,0.10)",
-        border: "1px solid rgba(44,157,102,0.32)",
+        background: "rgb(var(--verified-rgb) / 0.10)",
+        border: "1px solid rgb(var(--verified-rgb) / 0.32)",
       }}
     >
       MEMBER

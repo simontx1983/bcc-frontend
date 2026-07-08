@@ -182,7 +182,7 @@ function CollectionTile({ item }: CollectionTileProps) {
         <span
           className="bcc-mono absolute right-2 top-2 rounded-sm px-2 py-0.5 text-[9px] tracking-[0.18em]"
           style={{
-            background: "rgba(15,13,9,0.72)",
+            background: "rgb(var(--ink-rgb) / 0.72)",
             color: "var(--cardstock)",
           }}
         >

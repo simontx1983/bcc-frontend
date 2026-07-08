@@ -20,7 +20,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: var(--bcc-bg, #0d1117);
+  background-color: var(--bcc-bg);
   transition: opacity 500ms ease, visibility 500ms ease;
   opacity: 1;
   visibility: visible;
@@ -74,8 +74,8 @@
   opacity: 0;
 }
 
-.bcc-path--blue  { stroke: #16b5e6; }
-.bcc-path--orange { stroke: #f98a1c; }
+.bcc-path--blue  { stroke: var(--bcc-primary); }
+.bcc-path--orange { stroke: var(--bcc-secondary); }
 
 /* ── Drawing phase — strokes animate in ── */
 .bcc-preloader--drawing .bcc-path {
@@ -107,20 +107,20 @@
 /* Fill colour applied in both phases (exiting inherits the visible state) */
 .bcc-preloader--filling #bcc-p0,
 .bcc-preloader--exiting #bcc-p0 {
-  fill: rgba(44, 179, 225, 0.94);
-  stroke: #16b5e6;
+  fill: rgb(var(--sky-bright-rgb) / 0.94);
+  stroke: var(--bcc-primary);
   stroke-width: 1;
 }
 .bcc-preloader--filling #bcc-p1,
 .bcc-preloader--exiting #bcc-p1 {
-  fill: rgba(229, 158, 64, 0.98);
-  stroke: #f98a1c;
+  fill: rgb(var(--amber-deep-rgb) / 0.98);
+  stroke: var(--bcc-secondary);
   stroke-width: 1;
 }
 .bcc-preloader--filling #bcc-p2,
 .bcc-preloader--exiting #bcc-p2 {
-  fill: rgba(44, 179, 225, 0.94);
-  stroke: #16b5e6;
+  fill: rgb(var(--sky-bright-rgb) / 0.94);
+  stroke: var(--bcc-primary);
   stroke-width: 1;
 }
 
@@ -154,7 +154,7 @@
 }
 .bcc-preloader--filling .bcc-preloader__logo,
 .bcc-preloader--exiting .bcc-preloader__logo {
-  filter: drop-shadow(0 0 12px rgba(22, 181, 230, 0.35));
+  filter: drop-shadow(0 0 12px rgb(var(--bcc-primary-rgb) / 0.35));
   transition: filter 350ms ease 480ms; /* 480ms delay — fills are mostly in */
 }
 
@@ -194,7 +194,7 @@
   width: 5px;
   height: 5px;
   border-radius: 50%;
-  background: var(--bcc-primary, #16b5e6);
+  background: var(--bcc-primary);
   top: 50%;
   left: 50%;
   transform-origin: 0 0;
@@ -253,9 +253,9 @@
   height: 100%;
   background: linear-gradient(
     90deg,
-    var(--bcc-primary, #16b5e6) 0%,
-    var(--bcc-primary-light, #55ccf0) 50%,
-    var(--bcc-secondary, #f98a1c) 100%
+    var(--bcc-primary) 0%,
+    var(--bcc-primary-light) 50%,
+    var(--bcc-secondary) 100%
   );
   border-radius: 0 2px 2px 0;
   transform-origin: left;
@@ -316,24 +316,24 @@
   transform-origin: center center;
 
   /* Frosted glass backdrop — adapts to theme */
-  background: var(--bcc-bg-overlay, rgba(13, 17, 23, 0.80));
+  background: var(--bcc-bg-overlay, rgb(var(--bcc-night-rgb) / 0.80));
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
-  border: 1px solid var(--bcc-glass-border, rgba(22, 181, 230, 0.15));
+  border: 1px solid var(--bcc-glass-border, rgb(var(--bcc-primary-rgb) / 0.15));
   box-shadow:
-    0 0 0 1px rgba(22, 181, 230, 0.08),
-    0 12px 48px rgba(0, 0, 0, 0.40),
-    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    0 0 0 1px rgb(var(--bcc-primary-rgb) / 0.08),
+    0 12px 48px rgb(var(--bcc-black-rgb) / 0.40),
+    inset 0 1px 0 rgb(var(--bcc-white-rgb) / 0.06);
 }
 
 /* Light mode override */
 [data-theme="light"] .bcc-vr {
-  background: rgba(255, 255, 255, 0.88);
-  border-color: rgba(22, 181, 230, 0.20);
+  background: rgb(var(--bcc-white-rgb) / 0.88);
+  border-color: rgb(var(--bcc-primary-rgb) / 0.20);
   box-shadow:
-    0 0 0 1px rgba(22, 181, 230, 0.10),
-    0 12px 48px rgba(0, 0, 0, 0.12),
-    inset 0 1px 0 rgba(255, 255, 255, 0.80);
+    0 0 0 1px rgb(var(--bcc-primary-rgb) / 0.10),
+    0 12px 48px rgb(var(--bcc-black-rgb) / 0.12),
+    inset 0 1px 0 rgb(var(--bcc-white-rgb) / 0.80);
 }
 
 /* ── BCC logo center ── */
@@ -343,7 +343,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  filter: drop-shadow(0 2px 8px rgba(22, 181, 230, 0.30));
+  filter: drop-shadow(0 2px 8px rgb(var(--bcc-primary-rgb) / 0.30));
 }
 
 /* ── Faint orbit track ring ── */
@@ -352,7 +352,7 @@
   width: 170px;
   height: 170px;
   border-radius: 50%;
-  border: 1px solid rgba(22, 181, 230, 0.12);
+  border: 1px solid rgb(var(--bcc-primary-rgb) / 0.12);
   pointer-events: none;
 }
 
@@ -364,7 +364,7 @@
   border-radius: 50%;
   top: 50%;
   left: 50%;
-  background: var(--bcc-primary, #16b5e6);
+  background: var(--bcc-primary);
   animation: bcc-vr-pulse 1.6s ease-in-out infinite;
   z-index: 3;
 }
@@ -393,7 +393,7 @@
 .bcc-vr__node--2,
 .bcc-vr__node--5,
 .bcc-vr__node--7 {
-  background: var(--bcc-secondary, #f98a1c);
+  background: var(--bcc-secondary);
 }
 
 @keyframes bcc-vr-pulse {
@@ -404,8 +404,8 @@
   50% {
     opacity: 1;
     box-shadow:
-      0 0 6px 3px rgba(22, 181, 230, 0.70),
-      0 0 14px 5px rgba(22, 181, 230, 0.30);
+      0 0 6px 3px rgb(var(--bcc-primary-rgb) / 0.70),
+      0 0 14px 5px rgb(var(--bcc-primary-rgb) / 0.30);
   }
 }
 
@@ -424,8 +424,8 @@
   50% {
     opacity: 1;
     box-shadow:
-      0 0 6px 3px rgba(249, 138, 28, 0.70),
-      0 0 14px 5px rgba(249, 138, 28, 0.30);
+      0 0 6px 3px rgb(var(--bcc-secondary-rgb) / 0.70),
+      0 0 14px 5px rgb(var(--bcc-secondary-rgb) / 0.30);
   }
 }
 
@@ -433,7 +433,7 @@
 .bcc-vr__wave {
   position: absolute;
   border-radius: 50%;
-  border: 1.5px solid rgba(22, 181, 230, 0.50);
+  border: 1.5px solid rgb(var(--bcc-primary-rgb) / 0.50);
   width: 140px;
   height: 140px;
   animation: bcc-vr-wave 2.4s ease-out infinite;

@@ -94,7 +94,7 @@ export function MobileNav({ onMenuOpen }: MobileNavProps) {
             height: 52,
             borderRadius: "50%",
             background: "var(--bcc-accent)",
-            color: "#fff",
+            color: "var(--bcc-white)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",

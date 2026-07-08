@@ -97,10 +97,10 @@ const TYPE_CHIP_PALETTE: Record<
   MembersTypeFilter,
   { bg: string; text: string; ring: string }
 > = {
-  validator: { bg: "var(--owned-type-validator)", text: "#fff",            ring: "ring-[color:var(--owned-type-validator)]/40" },
-  project:   { bg: "var(--owned-type-project)",   text: "var(--ink, #0f0d09)", ring: "ring-[color:var(--owned-type-project)]/40" },
-  nft:       { bg: "var(--owned-type-nft)",       text: "#fff",            ring: "ring-[color:var(--owned-type-nft)]/40" },
-  dao:       { bg: "var(--owned-type-dao)",       text: "#fff",            ring: "ring-[color:var(--owned-type-dao)]/40" },
+  validator: { bg: "var(--owned-type-validator)", text: "var(--bcc-white)",            ring: "ring-[color:var(--owned-type-validator)]/40" },
+  project:   { bg: "var(--owned-type-project)",   text: "var(--ink)", ring: "ring-[color:var(--owned-type-project)]/40" },
+  nft:       { bg: "var(--owned-type-nft)",       text: "var(--bcc-white)",            ring: "ring-[color:var(--owned-type-nft)]/40" },
+  dao:       { bg: "var(--owned-type-dao)",       text: "var(--bcc-white)",            ring: "ring-[color:var(--owned-type-dao)]/40" },
 };
 
 const TYPE_FILTER_LABEL: Record<MembersTypeFilter, string> = {
@@ -353,7 +353,7 @@ function TypeFilterRow({
         <FilterChip
           isActive={active === null}
           onClick={() => onSelect(null)}
-          activeStyle={{ background: "var(--ink, #0f0d09)", color: "var(--cardstock, #f0e3c2)" }}
+          activeStyle={{ background: "var(--ink)", color: "var(--cardstock)" }}
           label="ALL"
         />
         {VALID_TYPE_FILTERS.map((type) => {
@@ -412,8 +412,8 @@ const VERIFIED_AXIS_LABEL: Record<MembersVerifiedAxis, string> = {
 // share the same shade so the AND-stack reads as one set of facts
 // about a single member rather than four competing signals.
 const REFINE_ACTIVE_STYLE = {
-  background: "var(--cardstock, #f0e3c2)",
-  color:      "var(--ink, #0f0d09)",
+  background: "var(--cardstock)",
+  color:      "var(--ink)",
 };
 
 function RefineRow({

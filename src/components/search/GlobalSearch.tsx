@@ -266,7 +266,7 @@ export function GlobalSearch({
           id={`${inputId}-listbox`}
           role="listbox"
           className="bcc-panel absolute left-0 top-full z-30 mt-1 flex w-full min-w-[min(28rem,90vw)] flex-col gap-px overflow-hidden"
-          style={{ background: "rgba(15,13,9,0.06)" }}
+          style={{ background: "rgb(var(--ink-rgb) / 0.06)" }}
         >
           {showPreSearch ? (
             <PreSearchSurface
@@ -475,8 +475,8 @@ function SuggestionRow({ item, id, active, onActivate, onHover }: SuggestionRowP
               className="bcc-mono shrink-0 rounded-sm px-2 py-0.5 text-[9px] tracking-[0.18em]"
               style={{
                 color: `var(--tier-${item.card_tier})`,
-                background: "rgba(15,13,9,0.04)",
-                border: "1px solid rgba(15,13,9,0.12)",
+                background: "rgb(var(--ink-rgb) / 0.04)",
+                border: "1px solid rgb(var(--ink-rgb) / 0.12)",
               }}
             >
               {item.tier_label.toUpperCase()}

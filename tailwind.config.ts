@@ -32,6 +32,13 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
+        // ── Fixed black/white (theme-independent) ──────────────────────────
+        // Use these instead of Tailwind's raw `text-white`/`bg-black`. The
+        // `<alpha-value>` placeholder lets opacity modifiers work:
+        // `text-bcc-white/70`, `bg-bcc-black/50`.
+        "bcc-white":            "rgb(var(--bcc-white-rgb) / <alpha-value>)",
+        "bcc-black":            "rgb(var(--bcc-black-rgb) / <alpha-value>)",
+
         // ── Brand constants (never change with theme) ──────────────────────
         "bcc-primary":          "var(--bcc-primary)",
         "bcc-primary-light":    "var(--bcc-primary-light)",

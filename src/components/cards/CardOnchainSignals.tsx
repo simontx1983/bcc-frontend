@@ -48,14 +48,14 @@ export function OnchainSignalsStrip({ signals }: { signals: OnchainSignals }) {
   return (
     <div
       className="relative z-10 flex items-center gap-2 overflow-hidden border-t border-cardstock-edge/40 px-3 py-1.5"
-      style={{ background: "rgba(15,13,9,0.03)" }}
+      style={{ background: "rgb(var(--ink-rgb) / 0.03)" }}
     >
       <span
         aria-hidden
         className="bcc-rail-dot"
         style={
           signals.status === "jailed"
-            ? { background: "var(--safety, #ff6b35)" }
+            ? { background: "var(--safety)" }
             : undefined
         }
       />

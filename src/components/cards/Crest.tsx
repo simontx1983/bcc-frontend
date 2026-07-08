@@ -101,7 +101,7 @@ export function Crest({
   const canRemoveImage = canEditAvatar && isPageCard && hasImage;
 
   return (
-    <div className="group bcc-hex h-[160px] w-[140px] drop-shadow-[0_6px_8px_rgba(0,0,0,0.5)]">
+    <div className="group bcc-hex h-[160px] w-[140px] drop-shadow-[0_6px_8px_rgb(var(--bcc-black-rgb)_/_0.5)]">
       <span aria-hidden className="bcc-hex-outer" />
       <span aria-hidden className="bcc-hex-mid" />
       <span aria-hidden className="bcc-hex-inner" />

@@ -102,7 +102,7 @@ export function LegalThemeToggle() {
                   letterSpacing: "0.1em", textTransform: "uppercase",
                   transition: "background 150ms ease, color 150ms ease",
                   background: theme === t ? "var(--bcc-accent)" : "transparent",
-                  color: theme === t ? "#fff" : "var(--bcc-text-secondary)",
+                  color: theme === t ? "var(--bcc-white)" : "var(--bcc-text-secondary)",
                 }}
               >
                 {t === "light" ? "☀ Day" : "☾ Night"}
@@ -115,8 +115,8 @@ export function LegalThemeToggle() {
           </p>
           <div style={{ display: "flex", gap: 8 }}>
             {([
-              { value: "primary" as Accent, color: "#16b5e6", label: "Blue" },
-              { value: "secondary" as Accent, color: "#f98a1c", label: "Orange" },
+              { value: "primary" as Accent, color: "var(--bcc-primary)", label: "Blue" },
+              { value: "secondary" as Accent, color: "var(--bcc-secondary)", label: "Orange" },
             ]).map(({ value, color, label }) => (
               <button
                 key={value}

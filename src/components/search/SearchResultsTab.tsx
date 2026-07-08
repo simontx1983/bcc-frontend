@@ -269,8 +269,8 @@ function TierBadge({ tier }: { tier: string }) {
       className="bcc-mono shrink-0 rounded-sm px-2 py-0.5 text-[9px] tracking-[0.18em]"
       style={{
         color: `var(--tier-${tier})`,
-        background: "rgba(15,13,9,0.04)",
-        border: "1px solid rgba(15,13,9,0.12)",
+        background: "rgb(var(--ink-rgb) / 0.04)",
+        border: "1px solid rgb(var(--ink-rgb) / 0.12)",
       }}
     >
       {tier.toUpperCase()}

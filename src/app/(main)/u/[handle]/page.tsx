@@ -337,7 +337,6 @@ export default async function MemberProfilePage({ params }: PageProps) {
                 targetId={profile.user_id}
                 canVouch={profile.permissions.can_vouch}
                 canStandBehind={profile.permissions.can_stand_behind}
-                canDispute={profile.permissions.can_dispute}
                 canReport={profile.permissions.can_report}
                 viewerAttestation={profile.viewer_attestation}
               />

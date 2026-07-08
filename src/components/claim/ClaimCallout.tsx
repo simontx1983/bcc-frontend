@@ -48,8 +48,8 @@ export function ClaimCallout({
           className="bcc-mono inline-flex w-fit items-center gap-2 rounded-sm px-3 py-1.5 text-[11px] tracking-[0.24em]"
           style={{
             color: "var(--safety)",
-            background: "rgba(240,90,40,0.10)",
-            border: "1px solid rgba(240,90,40,0.40)",
+            background: "rgb(var(--safety-rgb) / 0.10)",
+            border: "1px solid rgb(var(--safety-rgb) / 0.40)",
           }}
         >
           <span aria-hidden>★</span>

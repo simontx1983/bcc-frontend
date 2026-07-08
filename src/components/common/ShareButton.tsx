@@ -215,7 +215,7 @@ export function ShareButton({ path, title, ariaLabel }: ShareButtonProps) {
             onClick={onCopy}
             onMouseEnter={(e) => {
               (e.currentTarget as HTMLElement).style.background =
-                "var(--bcc-surface-hover, rgba(255,255,255,0.06))";
+                "var(--bcc-surface-hover, rgb(var(--bcc-white-rgb) / 0.06))";
             }}
             onMouseLeave={(e) => {
               (e.currentTarget as HTMLElement).style.background = "transparent";
@@ -236,7 +236,7 @@ export function ShareButton({ path, title, ariaLabel }: ShareButtonProps) {
               onClick={() => setOpen(false)}
               onMouseEnter={(e) => {
                 (e.currentTarget as HTMLElement).style.background =
-                  "var(--bcc-surface-hover, rgba(255,255,255,0.06))";
+                  "var(--bcc-surface-hover, rgb(var(--bcc-white-rgb) / 0.06))";
               }}
               onMouseLeave={(e) => {
                 (e.currentTarget as HTMLElement).style.background =
