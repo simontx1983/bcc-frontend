@@ -231,7 +231,7 @@ export function NotificationPrefsForm() {
   if (query.isLoading || draft === null) {
     return (
       <div className="bcc-panel p-6">
-        <p className="bcc-mono text-[11px] text-ink-soft/70">
+        <p className="bcc-mono text-[11px] text-bcc-text-secondary/70">
           Loading your preferences…
         </p>
       </div>
@@ -269,8 +269,8 @@ export function NotificationPrefsForm() {
         <span className="bcc-mono text-[10px] tracking-[0.24em] text-cardstock-deep">
           NOTIFICATIONS · EMAIL DIGEST
         </span>
-        <h2 className="bcc-stencil text-2xl text-ink">Weekly email digest</h2>
-        <p className="font-serif text-sm text-ink-soft">
+        <h2 className="bcc-stencil text-2xl text-bcc-text">Weekly email digest</h2>
+        <p className="font-serif text-sm text-bcc-text-secondary">
           A plain-text summary of unread bell notifications from the past week.
           Off by default — turn it on to keep up without checking back in. You
           can unsubscribe with one click from any digest email.
@@ -289,8 +289,8 @@ export function NotificationPrefsForm() {
         <span className="bcc-mono text-[10px] tracking-[0.24em] text-cardstock-deep">
           NOTIFICATIONS · BELL
         </span>
-        <h2 className="bcc-stencil text-2xl text-ink">In-app bell</h2>
-        <p className="font-serif text-sm text-ink-soft">
+        <h2 className="bcc-stencil text-2xl text-bcc-text">In-app bell</h2>
+        <p className="font-serif text-sm text-bcc-text-secondary">
           Per-event toggles for the bell dropdown. Turning one off stops new
           rows of that type from arriving — existing rows stay visible until
           you mark them read.
@@ -320,8 +320,8 @@ export function NotificationPrefsForm() {
         <span className="bcc-mono text-[10px] tracking-[0.24em] text-cardstock-deep">
           NOTIFICATIONS · PUSH
         </span>
-        <h2 className="bcc-stencil text-2xl text-ink">Browser push</h2>
-        <p className="font-serif text-sm text-ink-soft">
+        <h2 className="bcc-stencil text-2xl text-bcc-text">Browser push</h2>
+        <p className="font-serif text-sm text-bcc-text-secondary">
           Real-time pings to this device for high-stakes events only — bell
           + email digest still cover the rest. Off by default; turning it on
           asks the browser for notification permission. You can disable it
@@ -341,13 +341,13 @@ export function NotificationPrefsForm() {
            * behavior — the toggle renders and we discover the gap
            * via the 503 from getVapidPublicKey on click).
            */
-          <p className="bcc-mono mt-2 text-[11px] text-ink-soft/70">
+          <p className="bcc-mono mt-2 text-[11px] text-bcc-text-secondary/70">
             Push notifications aren&apos;t configured on this site yet.
             Contact an administrator if you&apos;d like them enabled.
             The bell and weekly email digest above still work.
           </p>
         ) : !push.isSupported ? (
-          <p className="bcc-mono mt-2 text-[11px] text-ink-soft/70">
+          <p className="bcc-mono mt-2 text-[11px] text-bcc-text-secondary/70">
             Your browser doesn&apos;t support push notifications. The bell
             and weekly email digest above still work.
           </p>
@@ -401,7 +401,7 @@ export function NotificationPrefsForm() {
       </section>
 
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="bcc-mono text-[11px] text-ink-soft/70">
+        <div className="bcc-mono text-[11px] text-bcc-text-secondary/70">
           {savedAt !== null && (
             <span style={{ color: "var(--verified)" }}>Saved.</span>
           )}

@@ -123,10 +123,10 @@ function WatchingGridBody({ result }: { result: ReturnType<typeof useWatching> }
       <section className="mx-auto mt-12 max-w-6xl px-6 sm:px-8">
         <div className="bcc-panel mx-auto max-w-xl p-8 text-center">
           <p className="bcc-mono text-safety">WATCHING NOTHING</p>
-          <h2 className="bcc-stencil mt-2 text-3xl text-ink">
+          <h2 className="bcc-stencil mt-2 text-3xl text-bcc-text">
             Nothing on your watchlist yet.
           </h2>
-          <p className="mt-3 font-serif leading-relaxed text-ink-soft">
+          <p className="mt-3 font-serif leading-relaxed text-bcc-text-secondary">
             Start watching a validator, creator, or project you&rsquo;d actually
             trust. The card lands here. The floor remembers.
           </p>

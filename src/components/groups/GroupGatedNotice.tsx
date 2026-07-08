@@ -46,13 +46,13 @@ export function GroupGatedNotice({ hint, variant = "feed" }: GroupGatedNoticePro
           GATED
         </p>
         <h3
-          className="bcc-stencil mt-2 text-ink"
+          className="bcc-stencil mt-2 text-bcc-text"
           style={{ fontSize: "26px", letterSpacing: "0.06em", lineHeight: 1.05 }}
         >
           {heading}
         </h3>
         <p
-          className="font-serif italic text-ink-soft mx-auto mt-3"
+          className="font-serif italic text-bcc-text-secondary mx-auto mt-3"
           style={{ fontSize: "16px", lineHeight: 1.5, maxWidth: "44ch" }}
         >
           {message}

@@ -60,7 +60,7 @@ export function UserBlogList({ handle, onEdit }: UserBlogListProps) {
   if (query.isPending) {
     return (
       <div className="bcc-panel p-6">
-        <p className="bcc-mono text-ink-soft">Loading posts…</p>
+        <p className="bcc-mono text-bcc-text-secondary">Loading posts…</p>
       </div>
     );
   }
@@ -90,7 +90,7 @@ export function UserBlogList({ handle, onEdit }: UserBlogListProps) {
   if (totalCount === 0) {
     return (
       <div className="bcc-panel p-6">
-        <p className="bcc-mono text-ink-soft">
+        <p className="bcc-mono text-bcc-text-secondary">
           No blog posts yet.
         </p>
       </div>
@@ -182,13 +182,13 @@ function BlogPostBody({ item, onEdit }: BlogPostBodyProps) {
         </div>
 
         {title !== "" && (
-          <h2 className="bcc-stencil text-2xl text-ink leading-tight sm:text-3xl">
+          <h2 className="bcc-stencil text-2xl text-bcc-text leading-tight sm:text-3xl">
             {title}
           </h2>
         )}
 
         <div className="flex flex-wrap items-baseline justify-between gap-3">
-          <span className="bcc-mono text-[10px] tracking-[0.24em] text-ink-soft">
+          <span className="bcc-mono text-[10px] tracking-[0.24em] text-bcc-text-secondary">
             @{item.author.handle}
           </span>
           <div className="flex items-baseline gap-3">
@@ -204,7 +204,7 @@ function BlogPostBody({ item, onEdit }: BlogPostBodyProps) {
             <time
               dateTime={item.posted_at}
               title={item.posted_at}
-              className="bcc-mono shrink-0 text-[11px] text-ink-soft"
+              className="bcc-mono shrink-0 text-[11px] text-bcc-text-secondary"
             >
               {formatRelativeTime(item.posted_at)}
             </time>
@@ -212,14 +212,14 @@ function BlogPostBody({ item, onEdit }: BlogPostBodyProps) {
         </div>
 
         {excerpt !== "" && (
-          <p className="font-serif italic text-ink-soft">{excerpt}</p>
+          <p className="font-serif italic text-bcc-text-secondary">{excerpt}</p>
         )}
       </header>
 
       {fullText !== "" ? (
         <BlogMarkdownRenderer body={fullText} />
       ) : (
-        <p className="bcc-mono text-ink-soft">
+        <p className="bcc-mono text-bcc-text-secondary">
           (Body unavailable.)
         </p>
       )}
@@ -232,10 +232,10 @@ function BlogPostBody({ item, onEdit }: BlogPostBodyProps) {
           <p className="bcc-mono mb-2 text-[10px] tracking-[0.18em] text-cardstock-deep">
             SOURCES
           </p>
-          <ol className="flex flex-col gap-1 text-[12px] text-ink-soft">
+          <ol className="flex flex-col gap-1 text-[12px] text-bcc-text-secondary">
             {sources.map((src, idx) => (
               <li key={idx} className="flex gap-2">
-                <span className="bcc-mono shrink-0 tabular-nums text-ink-soft/70">
+                <span className="bcc-mono shrink-0 tabular-nums text-bcc-text-secondary/70">
                   {idx + 1}.
                 </span>
                 <SourceEntry value={src} />
@@ -264,7 +264,7 @@ function DisclosureFooter({ disclosure }: { disclosure: { tickers: string[]; not
     (disclosure.tickers.length === 0 && disclosure.note.trim() === "")
   ) {
     return (
-      <p className="bcc-mono text-[10px] tracking-[0.18em] text-ink-soft">
+      <p className="bcc-mono text-[10px] tracking-[0.18em] text-bcc-text-secondary">
         NO DISCLOSURES
       </p>
     );
@@ -275,12 +275,12 @@ function DisclosureFooter({ disclosure }: { disclosure: { tickers: string[]; not
         DISCLOSURE
       </p>
       {disclosure.tickers.length > 0 && (
-        <p className="bcc-mono text-[11px] text-ink">
+        <p className="bcc-mono text-[11px] text-bcc-text">
           {disclosure.tickers.join(" · ")}
         </p>
       )}
       {disclosure.note.trim() !== "" && (
-        <p className="font-serif text-sm text-ink">{disclosure.note}</p>
+        <p className="font-serif text-sm text-bcc-text">{disclosure.note}</p>
       )}
     </div>
   );

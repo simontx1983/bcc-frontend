@@ -1256,14 +1256,14 @@ function ReviewForm({
         <p className="bcc-mono text-[10px] tracking-[0.24em] text-cardstock-deep">
           REVIEWING //
         </p>
-        <h3 className="bcc-stencil mt-1 text-2xl text-ink">{targetName}</h3>
-        <p className="mt-2 font-serif text-ink-soft">
+        <h3 className="bcc-stencil mt-1 text-2xl text-bcc-text">{targetName}</h3>
+        <p className="mt-2 font-serif text-bcc-text-secondary">
           Your read goes on the record — trust scores update, others see your reasoning. Be specific.
         </p>
       </div>
 
       <fieldset className="flex flex-col gap-2">
-        <legend className="bcc-mono text-[10px] tracking-[0.18em] text-ink-soft">
+        <legend className="bcc-mono text-[10px] tracking-[0.18em] text-bcc-text-secondary">
           YOUR READ
         </legend>
         <div className="grid gap-2 md:grid-cols-3">
@@ -1301,7 +1301,7 @@ function ReviewForm({
       <div>
         <label
           htmlFor="composer-review-body"
-          className="bcc-mono text-[10px] tracking-[0.18em] text-ink-soft"
+          className="bcc-mono text-[10px] tracking-[0.18em] text-bcc-text-secondary"
         >
           YOUR REASONING
         </label>

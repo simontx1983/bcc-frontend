@@ -100,8 +100,8 @@ function DiscoverPanelImpl({ enabled }: DiscoverPanelProps) {
     >
       <div className="bcc-panel flex flex-col gap-0 overflow-hidden">
         <header className="px-5 py-4">
-          <h2 className="bcc-stencil text-2xl text-ink">Quiet on the Floor</h2>
-          <p className="font-serif text-ink-soft">
+          <h2 className="bcc-stencil text-2xl text-bcc-text">Quiet on the Floor</h2>
+          <p className="font-serif text-bcc-text-secondary">
             The room&apos;s still here. {composeKicker(data)}
           </p>
         </header>
@@ -197,8 +197,8 @@ function QuietOnTheFloorPanel({ terminal }: { terminal?: boolean }) {
   return (
     <div className="py-12">
       <div className="bcc-panel mx-auto max-w-md p-6 text-center">
-        <h2 className="bcc-stencil text-2xl text-ink">Quiet on the Floor</h2>
-        <p className="mt-2 font-serif text-ink-soft">
+        <h2 className="bcc-stencil text-2xl text-bcc-text">Quiet on the Floor</h2>
+        <p className="mt-2 font-serif text-bcc-text-secondary">
           {terminal === true
             ? "The floor's just opening up. Check back soon."
             : "Keep tabs on a card or two to start your feed, or check back in a bit — new activity rolls in throughout the day."}
@@ -259,10 +259,10 @@ function LocalCard({ local }: { local: ColdStartLocal }) {
           borderLeft: `3px solid var(--chain-${local.chain_slug}, var(--cardstock-edge))`,
         }}
       >
-        <span className="bcc-stencil block truncate text-sm text-ink">
+        <span className="bcc-stencil block truncate text-sm text-bcc-text">
           {local.name}
         </span>
-        <span className="bcc-mono mt-1 block text-[10px] tracking-[0.14em] text-ink-soft">
+        <span className="bcc-mono mt-1 block text-[10px] tracking-[0.14em] text-bcc-text-secondary">
           {local.chain_slug.toUpperCase()} · {local.member_count}{" "}
           {local.member_count === 1 ? "member" : "members"}
         </span>
@@ -296,10 +296,10 @@ function OperatorRow({ op }: { op: ColdStartOperator }) {
           tier={op.card_tier === null ? undefined : op.card_tier}
         />
         <div className="flex min-w-0 flex-1 flex-col">
-          <span className="bcc-stencil truncate text-sm text-ink">
+          <span className="bcc-stencil truncate text-sm text-bcc-text">
             {op.display_name !== "" ? op.display_name : `@${op.handle}`}
           </span>
-          <span className="bcc-mono truncate text-[10px] tracking-[0.12em] text-ink-soft">
+          <span className="bcc-mono truncate text-[10px] tracking-[0.12em] text-bcc-text-secondary">
             {op.recent_action}
           </span>
         </div>

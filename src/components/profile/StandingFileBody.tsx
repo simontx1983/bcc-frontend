@@ -356,7 +356,7 @@ function OnTheFloorBlock({ profile }: { profile: MemberProfile }) {
             <dt className="bcc-mono text-[10px] tracking-[0.2em] text-ink-soft">
               {stat.label.toUpperCase()}
             </dt>
-            <dd className="bcc-stencil text-3xl text-ink leading-none">
+            <dd className="bcc-stencil text-3xl text-bcc-text leading-none">
               {stat.value}
             </dd>
             {stat.link !== undefined && (
@@ -423,12 +423,12 @@ function NextRankBlock({ progression }: { progression: MemberProgression }) {
               className="bcc-panel flex flex-col gap-2 p-4"
             >
               <div className="flex flex-wrap items-baseline justify-between gap-2">
-                <span className="bcc-mono text-ink">
+                <span className="bcc-mono text-bcc-text">
                   {threshold.label.toUpperCase()}
                 </span>
-                <span className="bcc-mono text-ink-soft">
-                  <span className="text-ink">{threshold.current}</span>
-                  <span className="mx-1 text-ink-ghost">/</span>
+                <span className="bcc-mono text-bcc-text-secondary">
+                  <span className="text-bcc-text">{threshold.current}</span>
+                  <span className="mx-1 text-bcc-text-muted">/</span>
                   {threshold.required}
                 </span>
               </div>
@@ -452,7 +452,7 @@ function NextRankBlock({ progression }: { progression: MemberProgression }) {
                   }}
                 />
               </div>
-              <p className="bcc-mono text-ink-ghost">
+              <p className="bcc-mono text-bcc-text-muted">
                 {remaining === 0
                   ? "THRESHOLD REACHED"
                   : `${remaining} ${threshold.label.toLowerCase()} remaining`}

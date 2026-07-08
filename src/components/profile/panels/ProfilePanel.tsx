@@ -800,9 +800,9 @@ function WalletRow({ wallet }: { wallet: MemberWallet }) {
     <li
       className={`bcc-panel flex flex-wrap items-center justify-between gap-3 px-4 py-3 ${primaryRing}`}
     >
-      <span className="bcc-mono inline-flex items-center gap-3 text-ink">
-        <span className="text-ink-soft">{wallet.chain_name.toUpperCase()}</span>
-        <span className="font-mono text-ink" title={full}>
+      <span className="bcc-mono inline-flex items-center gap-3 text-bcc-text">
+        <span className="text-bcc-text-secondary">{wallet.chain_name.toUpperCase()}</span>
+        <span className="font-mono text-bcc-text" title={full}>
           {truncated}
         </span>
       </span>

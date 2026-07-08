@@ -81,7 +81,7 @@ export function GroupFeedSection({ group }: GroupFeedSectionProps) {
           one-line orientation so the disabled comment/reaction controls
           below don't read as broken. */}
       {!canInteract && (
-        <p className="bcc-mono text-[11px] tracking-[0.16em] text-ink-soft/70">
+        <p className="bcc-mono text-[11px] tracking-[0.16em] text-bcc-text-secondary/70">
           You&apos;re viewing public posts. Join to comment and react.
         </p>
       )}
@@ -158,10 +158,10 @@ function GroupFeedBody({
     // stands because they can't act on the prompt anyway.
     return (
       <div className="bcc-panel mx-auto p-6 text-center">
-        <h2 className="bcc-stencil text-2xl text-ink">
+        <h2 className="bcc-stencil text-2xl text-bcc-text">
           {canInteract ? emptyHeading(groupKind) : "Quiet inside"}
         </h2>
-        <p className="mt-2 font-serif text-ink-soft">
+        <p className="mt-2 font-serif text-bcc-text-secondary">
           {canInteract
             ? emptyBody(groupKind)
             : "Members will write the first chapter here."}

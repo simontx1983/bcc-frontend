@@ -80,7 +80,7 @@ export function NftShowcaseSettings() {
     <>
       <div className="bcc-panel p-5 md:p-6">
         <div className="flex flex-wrap items-baseline justify-between gap-3 border-b border-dashed border-ink/15 pb-3">
-          <p className="bcc-mono text-ink-soft">
+          <p className="bcc-mono text-bcc-text-secondary">
             {list.isSuccess
               ? `ON FLOOR // ${list.data.items.length} ${list.data.items.length === 1 ? "ITEM" : "ITEMS"}`
               : "ON FLOOR //"}
@@ -96,7 +96,7 @@ export function NftShowcaseSettings() {
 
         <div className="mt-5">
           {list.isPending && (
-            <p className="bcc-mono text-ink-soft">Loading showcase…</p>
+            <p className="bcc-mono text-bcc-text-secondary">Loading showcase…</p>
           )}
 
           {list.isError && (
@@ -195,7 +195,7 @@ function ShowcaseTile({
 
   return (
     <article
-      className="group relative block w-full overflow-hidden border-2 border-ink/15 focus-within:border-ink/40"
+      className="group relative block w-full overflow-hidden border-2 border-bcc-border/15 focus-within:border-bcc-border/40"
       style={{ background: "var(--paper)" }}
     >
       <div className="relative aspect-square w-full bg-cardstock-deep/30">

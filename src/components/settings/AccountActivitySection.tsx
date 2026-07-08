@@ -82,13 +82,13 @@ export function AccountActivitySection() {
       {totalPages > 1 && (
         <nav
           aria-label="Activity pagination"
-          className="bcc-mono mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-dashed border-ink/20 pt-3 text-[10px] tracking-[0.18em] text-ink-soft"
+          className="bcc-mono mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-dashed border-ink/20 pt-3 text-[10px] tracking-[0.18em] text-bcc-text-secondary"
         >
           <button
             type="button"
             onClick={() => setPage((p) => Math.max(1, p - 1))}
             disabled={page <= 1}
-            className="border border-ink/30 px-3 py-1 text-ink transition hover:bg-ink/10 disabled:cursor-not-allowed disabled:opacity-30 motion-reduce:transition-none"
+            className="border border-bcc-border/30 px-3 py-1 text-bcc-text transition hover:bg-ink/10 disabled:cursor-not-allowed disabled:opacity-30 motion-reduce:transition-none"
           >
             ← NEWER
           </button>
@@ -99,7 +99,7 @@ export function AccountActivitySection() {
             type="button"
             onClick={() => setPage((p) => p + 1)}
             disabled={page >= totalPages}
-            className="border border-ink/30 px-3 py-1 text-ink transition hover:bg-ink/10 disabled:cursor-not-allowed disabled:opacity-30 motion-reduce:transition-none"
+            className="border border-bcc-border/30 px-3 py-1 text-bcc-text transition hover:bg-ink/10 disabled:cursor-not-allowed disabled:opacity-30 motion-reduce:transition-none"
           >
             OLDER →
           </button>
@@ -112,7 +112,7 @@ export function AccountActivitySection() {
 function EmptyState() {
   return (
     <section className="bcc-panel p-5">
-      <p className="font-serif italic text-ink-soft">
+      <p className="font-serif italic text-bcc-text-secondary">
         No security events recorded yet. Activity here when you change
         your email, password, or wallet links.
       </p>
@@ -126,8 +126,8 @@ function ActivityRow({ item }: { item: AccountActivityItem }) {
 
   return (
     <li className="flex flex-wrap items-baseline gap-x-3 gap-y-1 border-b border-cardstock/15 py-3 last:border-b-0">
-      <span className="bcc-stencil text-ink">{label}</span>
-      <div className="bcc-mono flex flex-wrap items-baseline gap-x-2 text-[10px] tracking-[0.18em] text-ink-soft">
+      <span className="bcc-stencil text-bcc-text">{label}</span>
+      <div className="bcc-mono flex flex-wrap items-baseline gap-x-2 text-[10px] tracking-[0.18em] text-bcc-text-secondary">
         <time dateTime={toIsoDateTime(item.created_at)}>
           {formatRelativeTime(item.created_at)}
         </time>

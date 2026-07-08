@@ -414,7 +414,7 @@ function CreateSubTab({
           >
             CAN&rsquo;T OPEN POST
           </p>
-          <p className="font-serif text-base text-ink">
+          <p className="font-serif text-base text-bcc-text">
             {editPostErrorCopy(editError)}
           </p>
         </div>
@@ -459,7 +459,7 @@ function CreateSubTab({
         >
           NOT YOUR FILE
         </p>
-        <p className="font-serif text-base text-ink">
+        <p className="font-serif text-base text-bcc-text">
           You can&rsquo;t post to another operator&rsquo;s blog. Your
           composer lives on your own blog page.
         </p>
@@ -481,7 +481,7 @@ function CreateSubTab({
       >
         SIGN IN
       </p>
-      <p className="font-serif text-base text-ink">
+      <p className="font-serif text-base text-bcc-text">
         Sign in to write long-form posts on your own blog page.
       </p>
       <Link

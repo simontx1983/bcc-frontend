@@ -44,7 +44,7 @@ export function CreatorGallery({ slug, creatorName }: CreatorGalleryProps) {
     return (
       <GalleryShell title="The Gallery">
         <div className="bcc-panel mx-auto max-w-md p-6 text-center">
-          <p className="font-serif text-sm text-ink-soft">
+          <p className="font-serif text-sm text-bcc-text-secondary">
             Couldn&rsquo;t load this creator&rsquo;s gallery right now. Try again in a moment.
           </p>
         </div>
@@ -80,10 +80,10 @@ export function CreatorGallery({ slug, creatorName }: CreatorGalleryProps) {
     return (
       <GalleryShell title="The Gallery">
         <div className="bcc-panel mx-auto max-w-lg p-8 text-center">
-          <h3 className="bcc-stencil text-2xl text-ink">
+          <h3 className="bcc-stencil text-2xl text-bcc-text">
             {isStale ? "Loading collection…" : "Coming soon"}
           </h3>
-          <p className="mt-2 font-serif text-ink-soft">
+          <p className="mt-2 font-serif text-bcc-text-secondary">
             {isStale
               ? `We&rsquo;re indexing ${creatorName}&rsquo;s collections now. Check back in a minute or two.`
               : `${creatorName} hasn&rsquo;t dropped anything yet. When they do, the work shows up here.`}
@@ -191,23 +191,23 @@ function CollectionTile({ item }: CollectionTileProps) {
       </div>
 
       <div className="flex flex-1 flex-col gap-1.5 p-3">
-        <h3 className="bcc-stencil truncate text-base text-ink" title={item.name}>
+        <h3 className="bcc-stencil truncate text-base text-bcc-text" title={item.name}>
           {item.name}
         </h3>
         <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
           {item.floor_price_label !== null && (
-            <span className="bcc-mono text-[11px] text-ink">
-              <span className="text-ink-soft/70">FLOOR</span> {item.floor_price_label}
+            <span className="bcc-mono text-[11px] text-bcc-text">
+              <span className="text-bcc-text-secondary/70">FLOOR</span> {item.floor_price_label}
             </span>
           )}
           {item.unique_holders_label !== null && (
-            <span className="bcc-mono text-[10px] text-ink-soft/70">
+            <span className="bcc-mono text-[10px] text-bcc-text-secondary/70">
               {item.unique_holders_label}
             </span>
           )}
         </div>
         {item.total_volume_label !== null && (
-          <span className="bcc-mono text-[10px] text-ink-soft/70">
+          <span className="bcc-mono text-[10px] text-bcc-text-secondary/70">
             {item.total_volume_label}
           </span>
         )}

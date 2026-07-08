@@ -135,17 +135,17 @@ export function SlotHoldersPicker({
           }}
           aria-label="Close"
           disabled={releasingHolderId !== null || retryingCast}
-          className="bcc-mono absolute right-4 top-4 text-cardstock-deep transition hover:text-ink disabled:cursor-not-allowed disabled:opacity-40"
+          className="bcc-mono absolute right-4 top-4 text-cardstock-deep transition hover:text-bcc-text disabled:cursor-not-allowed disabled:opacity-40"
         >
           ESC
         </button>
 
         <header className="mb-5 pr-12">
           <p className="bcc-mono text-cardstock-deep">STANDING BEHIND //</p>
-          <h3 className="bcc-stencil mt-1 text-2xl text-ink">
+          <h3 className="bcc-stencil mt-1 text-2xl text-bcc-text">
             Your current commitments
           </h3>
-          <p className="mt-3 max-w-prose font-serif text-ink-soft">
+          <p className="mt-3 max-w-prose font-serif text-bcc-text-secondary">
             Each row is a public commitment to that operator&rsquo;s work.
             Release any that no longer reflects your current assessment to
             make room for a new one. Releasing has no reputation cost &mdash;

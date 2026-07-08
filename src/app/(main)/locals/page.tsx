@@ -189,10 +189,10 @@ function LocalCard({ item }: { item: LocalItem }) {
         )}
       </div>
 
-      <h2 className="bcc-stencil mt-2 text-xl text-ink">{item.name}</h2>
+      <h2 className="bcc-stencil mt-2 text-xl text-bcc-text">{item.name}</h2>
 
       <div className="mt-3 flex items-center justify-between">
-        <span className="bcc-mono text-[10px] text-ink-soft">
+        <span className="bcc-mono text-[10px] text-bcc-text-secondary">
           {item.member_count} member{item.member_count === 1 ? "" : "s"}
         </span>
         <ViewerBadge membership={item.viewer_membership} />
@@ -236,12 +236,12 @@ function EmptyState({ chain }: { chain: string | null }) {
   return (
     <div className="bcc-panel mx-auto max-w-xl p-8 text-center">
       <p className="bcc-mono text-safety">NO LOCALS</p>
-      <h2 className="bcc-stencil mt-2 text-3xl text-ink">
+      <h2 className="bcc-stencil mt-2 text-3xl text-bcc-text">
         {chain !== null
           ? `Nothing chartered on ${chain}.`
           : "No Locals chartered yet."}
       </h2>
-      <p className="mt-3 font-serif leading-relaxed text-ink-soft">
+      <p className="mt-3 font-serif leading-relaxed text-bcc-text-secondary">
         {chain !== null
           ? "Try a different chain, or drop the filter and see what's already on the books."
           : "Locals are how members of the same chain or scene cluster up. None on the books yet — first one's coming."}

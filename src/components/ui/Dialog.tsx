@@ -194,7 +194,7 @@ export function Dialog({
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="bcc-mono absolute right-4 top-4 text-[10px] tracking-[0.24em] text-cardstock-deep hover:text-ink"
+            className="bcc-mono absolute right-4 top-4 text-[10px] tracking-[0.24em] text-cardstock-deep hover:text-bcc-text"
           >
             ESC
           </button>

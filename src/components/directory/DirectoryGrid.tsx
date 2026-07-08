@@ -58,7 +58,7 @@ export function DirectoryGrid({ query }: Props) {
   if (query.isError) {
     return (
       <div className="bcc-panel mx-auto max-w-md p-6 text-center">
-        <p className="font-serif text-sm text-ink-soft">
+        <p className="font-serif text-sm text-bcc-text-secondary">
           The directory hit a snag. Try a different filter or refresh in a moment.
         </p>
       </div>
@@ -90,10 +90,10 @@ export function DirectoryGrid({ query }: Props) {
     return (
       <div className="bcc-panel mx-auto max-w-md p-8 text-center">
         <p className="bcc-mono text-safety">NO MATCHES</p>
-        <h2 className="bcc-stencil mt-2 text-3xl text-ink">
+        <h2 className="bcc-stencil mt-2 text-3xl text-bcc-text">
           Filter&rsquo;s too tight.
         </h2>
-        <p className="mt-3 font-serif leading-relaxed text-ink-soft">
+        <p className="mt-3 font-serif leading-relaxed text-bcc-text-secondary">
           Drop a tier, switch the kind, or clear the search. Plenty more
           on the floor.
         </p>

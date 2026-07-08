@@ -32,16 +32,16 @@ export function TrustQuestsBlock({
       <div className="bcc-panel flex flex-col gap-4 p-5">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div className="flex flex-col">
-            <span className="bcc-mono text-[10px] tracking-[0.2em] text-ink-soft">
+            <span className="bcc-mono text-[10px] tracking-[0.2em] text-bcc-text-secondary">
               YOUR VOTE MULTIPLIER
             </span>
-            <span className="bcc-stencil text-4xl leading-none text-ink">
+            <span className="bcc-stencil text-4xl leading-none text-bcc-text">
               {quests.multiplier.toFixed(2)}×
             </span>
           </div>
-          <span className="bcc-mono text-ink-soft">
-            <span className="text-ink">{quests.completed_count}</span>
-            <span className="mx-1 text-ink-ghost">/</span>
+          <span className="bcc-mono text-bcc-text-secondary">
+            <span className="text-bcc-text">{quests.completed_count}</span>
+            <span className="mx-1 text-bcc-text-muted">/</span>
             {quests.total_count} steps folded in
           </span>
         </div>

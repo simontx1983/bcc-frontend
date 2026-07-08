@@ -133,10 +133,10 @@ export function DopamineStep({
     return (
       <section className="mx-auto mt-16 max-w-xl px-6 sm:px-8">
         <div className="bcc-panel p-6">
-          <h2 className="bcc-stencil text-2xl text-ink">
+          <h2 className="bcc-stencil text-2xl text-bcc-text">
             Couldn&apos;t finish onboarding
           </h2>
-          <p className="mt-2 font-serif text-ink-soft">
+          <p className="mt-2 font-serif text-bcc-text-secondary">
             {save.copy}
           </p>
           <button
@@ -193,13 +193,13 @@ export function DopamineStep({
 
       <div className={reducedMotion ? "" : "bcc-onboarding-arrive"}>
         <div className="bcc-panel px-8 py-6 text-center">
-          <p className="bcc-stencil text-3xl text-ink md:text-4xl">
+          <p className="bcc-stencil text-3xl text-bcc-text md:text-4xl">
             You&apos;re on the Floor.
           </p>
           {/* Rank label is server-rendered (§A2) — completion response
               echoes the user's current rank. Empty string = suppress
               the segment (server didn't have one to send). */}
-          <p className="bcc-mono mt-3 text-ink-soft">
+          <p className="bcc-mono mt-3 text-bcc-text-secondary">
             +{pulledCards.length} card{pulledCards.length === 1 ? "" : "s"}
             {save.status === "saved" && save.data.rank_label !== "" && (
               <>
@@ -208,12 +208,12 @@ export function DopamineStep({
             )}
             {homeChain !== null && (
               <>
-                {" · "}home: <span className="text-ink">{homeChain}</span>
+                {" · "}home: <span className="text-bcc-text">{homeChain}</span>
               </>
             )}
           </p>
           {save.status === "saving" && (
-            <p className="bcc-mono mt-3 text-[10px] text-ink-soft/70">
+            <p className="bcc-mono mt-3 text-[10px] text-bcc-text-secondary/70">
               Saving…
             </p>
           )}

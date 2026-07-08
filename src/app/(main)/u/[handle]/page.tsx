@@ -404,11 +404,11 @@ export default async function MemberProfilePage({ params }: PageProps) {
             >
               JOINED {formatJoinDate(profile.joined_at)} · {joinedAgeDays}D AGO
             </p>
-            <h2 className="bcc-stencil mt-3 text-2xl text-ink">
+            <h2 className="bcc-stencil mt-3 text-2xl text-bcc-text">
               Early days for this operator.
             </h2>
             <p
-              className="font-serif italic text-ink-soft mt-2"
+              className="font-serif italic text-bcc-text-secondary mt-2"
               style={{ fontSize: "15px", lineHeight: 1.55, maxWidth: "60ch" }}
             >
               No backing, no Locals linked, no wallets on file yet — the

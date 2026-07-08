@@ -86,8 +86,8 @@ function ChangeEmailCard({ currentEmail }: { currentEmail: string }) {
 
   return (
     <section className="bcc-panel p-5">
-      <h3 className="bcc-stencil text-lg text-ink">Change email</h3>
-      <p className="bcc-mono mt-1 text-[10px] text-ink-soft">
+      <h3 className="bcc-stencil text-lg text-bcc-text">Change email</h3>
+      <p className="bcc-mono mt-1 text-[10px] text-bcc-text-secondary">
         We&apos;ll need your current password to confirm.
       </p>
 
@@ -171,8 +171,8 @@ function ChangePasswordCard() {
 
   return (
     <section className="bcc-panel p-5">
-      <h3 className="bcc-stencil text-lg text-ink">Change password</h3>
-      <p className="bcc-mono mt-1 text-[10px] text-ink-soft">
+      <h3 className="bcc-stencil text-lg text-bcc-text">Change password</h3>
+      <p className="bcc-mono mt-1 text-[10px] text-bcc-text-secondary">
         At least 10 characters. We&apos;ll re-establish your session afterwards.
       </p>
 
@@ -276,7 +276,7 @@ function DeleteAccountCard() {
     return (
       <section className="bcc-panel p-5">
         <h3 className="bcc-stencil text-lg text-safety">Delete account</h3>
-        <p className="bcc-mono mt-1 text-[10px] text-ink-soft">
+        <p className="bcc-mono mt-1 text-[10px] text-bcc-text-secondary">
           Permanent. Most of your data is removed; some references in
           others&apos; inboxes and friend lists may persist.
         </p>
@@ -294,8 +294,8 @@ function DeleteAccountCard() {
   return (
     <section className="bcc-panel border-safety/40 p-5">
       <h3 className="bcc-stencil text-lg text-safety">Delete account</h3>
-      <p className="bcc-mono mt-1 text-[10px] text-ink-soft">
-        This is permanent. To confirm, type <code className="bcc-mono text-ink">DELETE</code> below
+      <p className="bcc-mono mt-1 text-[10px] text-bcc-text-secondary">
+        This is permanent. To confirm, type <code className="bcc-mono text-bcc-text">DELETE</code> below
         and enter your current password.
       </p>
 
@@ -355,7 +355,7 @@ function DeleteAccountCard() {
                 setServerError(null);
               }}
               disabled={mutation.isPending}
-              className="bcc-mono px-3 py-2 text-[11px] tracking-[0.14em] text-ink-soft hover:text-ink"
+              className="bcc-mono px-3 py-2 text-[11px] tracking-[0.14em] text-bcc-text-secondary hover:text-bcc-text"
             >
               CANCEL
             </button>
@@ -383,7 +383,7 @@ const fieldClass =
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <label className="flex flex-col gap-1">
-      <span className="bcc-mono text-[10px] tracking-[0.16em] text-ink-soft">
+      <span className="bcc-mono text-[10px] tracking-[0.16em] text-bcc-text-secondary">
         {label.toUpperCase()}
       </span>
       {children}

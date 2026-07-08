@@ -83,8 +83,8 @@ export function ConnectionsSection() {
         <span className="bcc-mono text-[10px] tracking-[0.24em] text-cardstock-deep">
           IDENTITY · CONNECTIONS
         </span>
-        <h2 className="bcc-stencil text-2xl text-ink">Verified accounts</h2>
-        <p className="font-serif text-sm text-ink-soft">
+        <h2 className="bcc-stencil text-2xl text-bcc-text">Verified accounts</h2>
+        <p className="font-serif text-sm text-bcc-text-secondary">
           Connect your X and GitHub to strengthen your identity. Each
           connection shows on your profile and feeds into your trust score.
         </p>
@@ -129,7 +129,7 @@ function CallbackBannerView({
         type="button"
         onClick={onDismiss}
         aria-label="Dismiss"
-        className="bcc-mono shrink-0 text-[10px] tracking-[0.18em] text-ink-soft hover:text-ink"
+        className="bcc-mono shrink-0 text-[10px] tracking-[0.18em] text-bcc-text-secondary hover:text-bcc-text"
       >
         DISMISS
       </button>

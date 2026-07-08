@@ -95,8 +95,8 @@ function GroupMembersBody({ group }: { group: GroupDetailResponse }) {
   if (items.length === 0) {
     return (
       <div className="bcc-panel mx-auto p-6 text-center">
-        <h2 className="bcc-stencil text-2xl text-ink">Empty roster</h2>
-        <p className="mt-2 font-serif text-ink-soft">
+        <h2 className="bcc-stencil text-2xl text-bcc-text">Empty roster</h2>
+        <p className="mt-2 font-serif text-bcc-text-secondary">
           No active members listed yet.
         </p>
       </div>

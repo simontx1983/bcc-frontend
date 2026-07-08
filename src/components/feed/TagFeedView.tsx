@@ -53,7 +53,7 @@ function TagFeedEmpty({ tag }: { tag: string }) {
       >
         NOTHING ON FILE
       </p>
-      <p className="font-serif italic text-ink-soft mt-3" style={{ fontSize: "15px" }}>
+      <p className="font-serif italic text-bcc-text-secondary mt-3" style={{ fontSize: "15px" }}>
         No posts tagged #{tag} yet.
       </p>
     </div>

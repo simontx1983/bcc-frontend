@@ -46,7 +46,7 @@ export function ChainTabs({ chains }: ChainTabsProps) {
         <span className="bcc-mono text-[10px] tracking-[0.24em] text-cardstock-deep">
           CROSS-CHAIN //
         </span>
-        <span className="bcc-mono text-[10px] tracking-[0.18em] text-ink-soft/70">
+        <span className="bcc-mono text-[10px] tracking-[0.18em] text-bcc-text-secondary/70">
           {chains.length} CHAINS
         </span>
       </header>
