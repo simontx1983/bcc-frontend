@@ -164,10 +164,10 @@ function ModalContent({ items, onSkip }: ModalContentProps) {
         <p className="bcc-mono mb-2 text-[10px] tracking-[0.24em] text-blueprint">
           ELIGIBLE COMMUNITIES
         </p>
-        <h2 className="bcc-stencil text-2xl text-ink md:text-3xl">
+        <h2 className="bcc-stencil text-2xl text-bcc-text md:text-3xl">
           You already qualify
         </h2>
-        <p className="font-serif mt-2 italic text-ink-soft">
+        <p className="font-serif mt-2 italic text-bcc-text-secondary">
           {remaining === 1
             ? "You hold the gating NFT for this community. Join now or skip and find it later in settings."
             : `You hold the gating NFT for ${remaining} communities. Join now or skip and find them later in settings.`}
@@ -184,7 +184,7 @@ function ModalContent({ items, onSkip }: ModalContentProps) {
         <button
           type="button"
           onClick={onSkip}
-          className="bcc-mono inline-flex items-center px-4 py-2 text-[11px] tracking-[0.18em] text-ink-soft hover:text-ink"
+          className="bcc-mono inline-flex items-center px-4 py-2 text-[11px] tracking-[0.18em] text-bcc-text-secondary hover:text-bcc-text"
         >
           MAYBE LATER
         </button>
@@ -238,8 +238,8 @@ function EligibleRow({ item }: { item: HolderGroupItem }) {
         )}
 
         <div className="min-w-0">
-          <p className="bcc-stencil truncate text-ink">{item.name}</p>
-          <p className="bcc-mono mt-0.5 flex flex-wrap items-center gap-2 truncate text-[11px] text-ink-soft">
+          <p className="bcc-stencil truncate text-bcc-text">{item.name}</p>
+          <p className="bcc-mono mt-0.5 flex flex-wrap items-center gap-2 truncate text-[11px] text-bcc-text-secondary">
             <span>{item.member_count.toLocaleString()} members</span>
             <span aria-hidden className="text-cardstock-edge">·</span>
             <HeatBadge activity={item.activity} />

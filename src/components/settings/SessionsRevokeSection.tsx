@@ -47,11 +47,11 @@ export function SessionsRevokeSection() {
   if (!showConfirm) {
     return (
       <section className="bcc-panel p-5">
-        <h3 className="bcc-stencil text-lg text-ink">Sign out of all devices</h3>
-        <p className="bcc-mono mt-1 text-[10px] tracking-[0.18em] text-ink-soft">
+        <h3 className="bcc-stencil text-lg text-bcc-text">Sign out of all devices</h3>
+        <p className="bcc-mono mt-1 text-[10px] tracking-[0.18em] text-bcc-text-secondary">
           IF YOU SUSPECT A STOLEN SESSION
         </p>
-        <p className="mt-2 font-serif text-ink-soft">
+        <p className="mt-2 font-serif text-bcc-text-secondary">
           Invalidate every active sign-in on your account. You&rsquo;ll need
           to sign back in on every device, including this one. A confirmation
           email goes to your account address either way.
@@ -59,7 +59,7 @@ export function SessionsRevokeSection() {
         <button
           type="button"
           onClick={() => setShowConfirm(true)}
-          className="bcc-mono mt-3 border-2 border-ink/50 px-4 py-2 text-[11px] tracking-[0.16em] text-ink transition hover:bg-ink/10 motion-reduce:transition-none"
+          className="bcc-mono mt-3 border-2 border-bcc-border/50 px-4 py-2 text-[11px] tracking-[0.16em] text-bcc-text transition hover:bg-ink/10 motion-reduce:transition-none"
         >
           SIGN OUT ALL DEVICES…
         </button>
@@ -71,8 +71,8 @@ export function SessionsRevokeSection() {
 
   return (
     <section className="bcc-panel border-ink/40 p-5">
-      <h3 className="bcc-stencil text-lg text-ink">Sign out of all devices</h3>
-      <p className="mt-2 font-serif text-ink-soft">
+      <h3 className="bcc-stencil text-lg text-bcc-text">Sign out of all devices</h3>
+      <p className="mt-2 font-serif text-bcc-text-secondary">
         This signs you out everywhere you&rsquo;re currently logged in,
         including this device. The next request from any of them will be
         rejected. You can sign back in normally.
@@ -110,7 +110,7 @@ export function SessionsRevokeSection() {
             setShowConfirm(false);
             setServerError(null);
           }}
-          className="bcc-mono border border-ink/30 px-4 py-2 text-[11px] tracking-[0.16em] text-ink transition hover:bg-ink/10 disabled:opacity-50 motion-reduce:transition-none"
+          className="bcc-mono border border-bcc-border/30 px-4 py-2 text-[11px] tracking-[0.16em] text-bcc-text transition hover:bg-ink/10 disabled:opacity-50 motion-reduce:transition-none"
         >
           CANCEL
         </button>

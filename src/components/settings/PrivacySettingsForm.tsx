@@ -126,7 +126,7 @@ export function PrivacySettingsForm() {
   if (isPending) {
     return (
       <div className="bcc-panel p-6">
-        <p className="bcc-mono text-ink-soft">Loading…</p>
+        <p className="bcc-mono text-bcc-text-secondary">Loading…</p>
       </div>
     );
   }
@@ -158,7 +158,7 @@ export function PrivacySettingsForm() {
             <h2 className="bcc-stencil text-xl text-cardstock">
               {section.title}
             </h2>
-            <p className="bcc-mono mt-1 text-[11px] tracking-[0.14em] text-ink-soft">
+            <p className="bcc-mono mt-1 text-[11px] tracking-[0.14em] text-bcc-text-secondary">
               {section.blurb}
             </p>
           </header>
@@ -174,12 +174,12 @@ export function PrivacySettingsForm() {
                   className="flex items-start justify-between gap-4 py-3"
                 >
                   <div className="flex flex-col gap-1">
-                    <span className="font-serif text-ink">{toggle.label}</span>
-                    <span className="bcc-mono text-[11px] text-ink-soft">
+                    <span className="font-serif text-bcc-text">{toggle.label}</span>
+                    <span className="bcc-mono text-[11px] text-bcc-text-secondary">
                       {toggle.helper}
                     </span>
                     {status === "saving" && (
-                      <span className="bcc-mono text-[10px] tracking-[0.18em] text-ink-soft/70">
+                      <span className="bcc-mono text-[10px] tracking-[0.18em] text-bcc-text-secondary/70">
                         SAVING…
                       </span>
                     )}

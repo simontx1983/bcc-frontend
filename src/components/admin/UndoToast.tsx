@@ -156,7 +156,7 @@ export function UndoToast({ descriptor, onDismiss }: Props) {
             {ACTION_LABELS[action].toUpperCase()} · REPORT #{reportId}
           </span>
           {!hasError ? (
-            <span className="font-serif text-sm text-ink-soft">
+            <span className="font-serif text-sm text-bcc-text-secondary">
               {undoMutation.isPending
                 ? "Reversing…"
                 : `Undo within ${secondsLeft}s`}
@@ -183,7 +183,7 @@ export function UndoToast({ descriptor, onDismiss }: Props) {
             type="button"
             onClick={onDismiss}
             aria-label="Dismiss undo affordance"
-            className="bcc-mono inline-flex min-h-[36px] min-w-[36px] items-center justify-center text-[14px] text-ink-soft hover:text-ink"
+            className="bcc-mono inline-flex min-h-[36px] min-w-[36px] items-center justify-center text-[14px] text-bcc-text-secondary hover:text-bcc-text"
           >
             ✕
           </button>

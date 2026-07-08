@@ -59,7 +59,7 @@ export function CommunitiesList() {
   if (listQuery.isPending) {
     return (
       <div className="bcc-panel p-6">
-        <p className="bcc-mono text-ink-soft">Loading communities…</p>
+        <p className="bcc-mono text-bcc-text-secondary">Loading communities…</p>
       </div>
     );
   }
@@ -159,8 +159,8 @@ function AutoJoinPreference() {
       />
       <div className="bcc-panel mt-4 flex items-center justify-between gap-4 px-5 py-4">
         <div className="min-w-0">
-          <p className="bcc-stencil text-ink">Auto-join is {value ? "ON" : "OFF"}</p>
-          <p className="bcc-mono mt-1 text-[11px] text-ink-soft">
+          <p className="bcc-stencil text-bcc-text">Auto-join is {value ? "ON" : "OFF"}</p>
+          <p className="bcc-mono mt-1 text-[11px] text-bcc-text-secondary">
             Default is OFF — we suggest, you decide.
           </p>
         </div>
@@ -231,7 +231,7 @@ function CommunitiesSection({
           >
             NONE ON FILE
           </p>
-          <p className="font-serif italic text-ink-soft">{emptyCopy}</p>
+          <p className="font-serif italic text-bcc-text-secondary">{emptyCopy}</p>
         </div>
       ) : (
         <ul className="bcc-panel mt-4 divide-y divide-cardstock-edge/60">
@@ -277,15 +277,15 @@ function CommunityRow({ item, action }: CommunityRowProps) {
         ) : (
           <div
             aria-hidden
-            className="bcc-mono flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-cardstock-edge bg-cardstock-deep/40 text-[10px] text-ink-soft"
+            className="bcc-mono flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-cardstock-edge bg-cardstock-deep/40 text-[10px] text-bcc-text-soft"
           >
             {collectionName.slice(0, 2).toUpperCase()}
           </div>
         )}
 
         <div className="min-w-0">
-          <p className="bcc-stencil truncate text-ink">{item.name}</p>
-          <p className="bcc-mono mt-0.5 flex flex-wrap items-center gap-2 truncate text-[11px] text-ink-soft">
+          <p className="bcc-stencil truncate text-bcc-text">{item.name}</p>
+          <p className="bcc-mono mt-0.5 flex flex-wrap items-center gap-2 truncate text-[11px] text-bcc-text-secondary">
             <span>{item.member_count.toLocaleString()} members</span>
             <span aria-hidden className="text-cardstock-edge">·</span>
             <HeatBadge activity={item.activity} />

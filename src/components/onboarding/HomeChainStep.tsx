@@ -62,8 +62,8 @@ export function HomeChainStep({
                     : "hover:border-cardstock-edge")
                 }
               >
-                <span className="bcc-stencil text-lg text-ink">{opt.label}</span>
-                <span className="bcc-mono text-[10px] text-ink-soft">{opt.blurb}</span>
+                <span className="bcc-stencil text-lg text-bcc-text">{opt.label}</span>
+                <span className="bcc-mono text-[10px] text-bcc-text-secondary">{opt.blurb}</span>
               </button>
             );
           })}

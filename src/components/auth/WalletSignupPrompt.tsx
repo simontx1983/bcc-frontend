@@ -111,17 +111,17 @@ export function WalletSignupPrompt(props: WalletSignupPromptProps) {
         }}
         className="bcc-panel w-full max-w-md p-8"
       >
-        <h2 id={titleId} className="bcc-stencil text-2xl text-ink">
+        <h2 id={titleId} className="bcc-stencil text-2xl text-bcc-text">
           Create an account for this wallet
         </h2>
-        <p className="mt-2 font-serif text-ink-soft">
+        <p className="mt-2 font-serif text-bcc-text-secondary">
           No BCC account is linked to that wallet yet. Pick a handle and we&apos;ll
           mint one — your wallet stays the credential.
         </p>
 
         <div className="mt-6 flex flex-col gap-4">
           <label className="flex flex-col gap-1.5">
-            <span className="bcc-mono text-ink-soft">Handle</span>
+            <span className="bcc-mono text-bcc-text-secondary">Handle</span>
             <div className="flex items-center border border-cardstock-edge bg-cardstock-deep/60 focus-within:border-blueprint focus-within:ring-1 focus-within:ring-blueprint">
               <span className="bcc-mono pl-3 text-ink-soft">@</span>
               <input
@@ -138,7 +138,7 @@ export function WalletSignupPrompt(props: WalletSignupPromptProps) {
               />
             </div>
             <span
-              className={`bcc-mono ${handleValid ? "text-ink-soft/70" : "text-safety"}`}
+              className={`bcc-mono ${handleValid ? "text-bcc-text-secondary/70" : "text-safety"}`}
               role={handleValid ? undefined : "alert"}
               aria-live="polite"
             >
@@ -147,7 +147,7 @@ export function WalletSignupPrompt(props: WalletSignupPromptProps) {
           </label>
 
           <label className="flex flex-col gap-1.5">
-            <span className="bcc-mono text-ink-soft">Display name (optional)</span>
+            <span className="bcc-mono text-bcc-text-secondary">Display name (optional)</span>
             <input
               type="text"
               maxLength={60}
@@ -158,7 +158,7 @@ export function WalletSignupPrompt(props: WalletSignupPromptProps) {
           </label>
 
           <label className="flex flex-col gap-1.5">
-            <span className="bcc-mono text-ink-soft">Email (optional)</span>
+            <span className="bcc-mono text-bcc-text-secondary">Email (optional)</span>
             <input
               type="email"
               autoComplete="email"
@@ -166,7 +166,7 @@ export function WalletSignupPrompt(props: WalletSignupPromptProps) {
               onChange={(e) => setEmail(e.target.value)}
               className="border border-cardstock-edge bg-cardstock-deep/60 px-3 py-2 font-serif text-ink outline-none focus:border-blueprint focus:ring-1 focus:ring-blueprint"
             />
-            <span className="bcc-mono text-ink-soft/70">
+            <span className="bcc-mono text-bcc-text-secondary/70">
               Skipped? We mint a placeholder so password recovery still works if
               you add one later.
             </span>
@@ -188,7 +188,7 @@ export function WalletSignupPrompt(props: WalletSignupPromptProps) {
           <button
             type="button"
             onClick={props.onDismiss}
-            className="bcc-mono py-2 text-ink-soft underline"
+            className="bcc-mono py-2 text-bcc-text-secondary underline"
           >
             Cancel
           </button>

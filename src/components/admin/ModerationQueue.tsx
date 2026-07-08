@@ -319,7 +319,7 @@ export function ModerationQueue() {
           onUntilDraftChange={setUntilDraft}
           reporterInputRef={reporterInputRef}
         />
-        <p className="bcc-mono text-ink-soft">Loading reports…</p>
+        <p className="bcc-mono text-bcc-text-secondary">Loading reports…</p>
       </div>
     );
   }
@@ -356,7 +356,7 @@ export function ModerationQueue() {
           >
             QUEUE CLEAR
           </p>
-          <p className="font-serif italic text-ink-soft">
+          <p className="font-serif italic text-bcc-text-secondary">
             No reports {filters.status === "all" ? "match the current filters." : `with status "${filters.status}".`}
           </p>
         </div>
@@ -378,14 +378,14 @@ export function ModerationQueue() {
 
       {pagination.total_pages > 1 && (
         <nav
-          className="bcc-mono flex items-center justify-between gap-3 text-[11px] tracking-[0.16em] text-ink-soft"
+          className="bcc-mono flex items-center justify-between gap-3 text-[11px] tracking-[0.16em] text-bcc-text-secondary"
           aria-label="Pagination"
         >
           <button
             type="button"
             onClick={() => setPage((p) => Math.max(1, p - 1))}
             disabled={page <= 1}
-            className="border-2 border-cardstock-edge px-3 py-1 transition hover:border-ink/50 hover:text-ink disabled:opacity-50"
+            className="border-2 border-cardstock-edge px-3 py-1 transition hover:border-ink/50 hover:text-bcc-text disabled:opacity-50"
           >
             ← PREV
           </button>
@@ -396,7 +396,7 @@ export function ModerationQueue() {
             type="button"
             onClick={() => setPage((p) => p + 1)}
             disabled={page >= pagination.total_pages}
-            className="border-2 border-cardstock-edge px-3 py-1 transition hover:border-ink/50 hover:text-ink disabled:opacity-50"
+            className="border-2 border-cardstock-edge px-3 py-1 transition hover:border-ink/50 hover:text-bcc-text disabled:opacity-50"
           >
             NEXT →
           </button>
@@ -567,11 +567,11 @@ interface KeyboardHintProps {
 
 function KeyboardHint({ onOpenOverlay }: KeyboardHintProps) {
   return (
-    <div className="bcc-mono flex items-center justify-end gap-2 text-[10px] tracking-[0.18em] text-ink-soft/70">
+    <div className="bcc-mono flex items-center justify-end gap-2 text-[10px] tracking-[0.18em] text-bcc-text-secondary/70">
       <button
         type="button"
         onClick={onOpenOverlay}
-        className="inline-flex items-center gap-1.5 hover:text-ink"
+        className="inline-flex items-center gap-1.5 hover:text-bcc-text"
         aria-label="Open keyboard-shortcut help"
       >
         <kbd className="border border-cardstock-edge px-1.5 py-0.5 text-[10px] not-italic">?</kbd>
@@ -665,7 +665,7 @@ function ReportRow({
       <header className="flex flex-wrap items-baseline justify-between gap-3">
         <div className="flex flex-wrap items-baseline gap-2">
           <span
-            className="bcc-mono inline-flex items-center border-2 border-cardstock-edge px-2 py-0.5 text-[10px] tracking-[0.18em] text-ink-soft"
+            className="bcc-mono inline-flex items-center border-2 border-cardstock-edge px-2 py-0.5 text-[10px] tracking-[0.18em] text-bcc-text-secondary"
             data-status={item.status_label.toLowerCase()}
           >
             {item.status_label}
@@ -683,24 +683,24 @@ function ReportRow({
             </span>
           )}
         </div>
-        <span className="bcc-mono text-[10px] text-ink-soft">
+        <span className="bcc-mono text-[10px] text-bcc-text-secondary">
           report #{item.id} · {formatRelativeTime(item.created_at)}
         </span>
       </header>
 
       <div className="flex flex-col gap-1">
-        <p className="bcc-mono text-[11px] tracking-[0.14em] text-ink-soft">
+        <p className="bcc-mono text-[11px] tracking-[0.14em] text-bcc-text-secondary">
           REPORTED BY{" "}
           {profileHref !== null ? (
-            <Link href={profileHref} className="text-ink hover:underline">
+            <Link href={profileHref} className="text-bcc-text hover:underline">
               @{item.reporter.handle}
             </Link>
           ) : (
-            <span className="text-ink">{item.reporter.display_name}</span>
+            <span className="text-bcc-text">{item.reporter.display_name}</span>
           )}
         </p>
         {item.comment !== "" && (
-          <p className="font-serif italic text-ink">&ldquo;{item.comment}&rdquo;</p>
+          <p className="font-serif italic text-bcc-text">&ldquo;{item.comment}&rdquo;</p>
         )}
       </div>
 
@@ -764,7 +764,7 @@ function ReportRow({
           />
         )}
         {mutation.isPending && (
-          <span className="bcc-mono text-[10px] tracking-[0.18em] text-ink-soft">
+          <span className="bcc-mono text-[10px] tracking-[0.18em] text-bcc-text-secondary">
             WORKING…
           </span>
         )}
@@ -792,7 +792,7 @@ function ActionButton({ label, shortcut, tone, onClick, disabled }: ActionButton
         "bcc-mono inline-flex min-h-[36px] items-center gap-2 border-2 px-3 py-1.5 text-[11px] tracking-[0.18em] transition disabled:opacity-50 " +
         (tone === "primary"
           ? "border-ink bg-ink text-cardstock hover:bg-blueprint"
-          : "border-cardstock-edge text-ink-soft hover:border-ink/50 hover:text-ink")
+          : "border-cardstock-edge text-bcc-text-secondary hover:border-ink/50 hover:text-bcc-text")
       }
     >
       <span>{label.toUpperCase()}</span>
@@ -838,11 +838,11 @@ function ShortcutOverlay({ onClose }: ShortcutOverlayProps) {
         onClick={(e) => e.stopPropagation()}
       >
         <header className="flex items-baseline justify-between gap-3">
-          <h2 className="bcc-stencil text-2xl text-ink">Keyboard shortcuts</h2>
+          <h2 className="bcc-stencil text-2xl text-bcc-text">Keyboard shortcuts</h2>
           <button
             type="button"
             onClick={onClose}
-            className="bcc-mono text-[10px] tracking-[0.18em] text-ink-soft hover:text-ink"
+            className="bcc-mono text-[10px] tracking-[0.18em] text-bcc-text-secondary hover:text-bcc-text"
             aria-label="Close shortcut sheet"
           >
             CLOSE
@@ -857,11 +857,11 @@ function ShortcutOverlay({ onClose }: ShortcutOverlayProps) {
               <kbd className="bcc-mono inline-flex min-w-[60px] justify-center rounded-sm border border-cardstock-edge bg-cardstock-deep/40 px-2 py-1 text-[11px] not-italic text-ink">
                 {row.keys}
               </kbd>
-              <span className="font-serif text-ink-soft">{row.description}</span>
+              <span className="font-serif text-bcc-text-secondary">{row.description}</span>
             </li>
           ))}
         </ul>
-        <p className="bcc-mono text-[10px] tracking-[0.18em] text-ink-soft/70">
+        <p className="bcc-mono text-[10px] tracking-[0.18em] text-bcc-text-secondary/70">
           Letter shortcuts are suppressed while typing in inputs.
         </p>
       </div>
@@ -889,7 +889,7 @@ function QueueError({ filter, onChange, error }: QueueErrorProps) {
         >
           ADMIN ACCESS REQUIRED
         </p>
-        <p className="font-serif italic text-ink-soft">
+        <p className="font-serif italic text-bcc-text-secondary">
           The moderation queue is restricted to platform admins. If you
           should have access, ask an admin to grant your account the
           <code className="bcc-mono mx-1 text-[12px]">manage_options</code>

@@ -74,7 +74,7 @@ export function MessagesPrefsForm() {
   if (query.isLoading || draft === null) {
     return (
       <div className="bcc-panel p-6">
-        <p className="bcc-mono text-ink-soft">Loading messages preferences…</p>
+        <p className="bcc-mono text-bcc-text-secondary">Loading messages preferences…</p>
       </div>
     );
   }
@@ -106,8 +106,8 @@ export function MessagesPrefsForm() {
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-6">
       <div className="bcc-panel p-6">
-        <h2 className="bcc-stencil text-xl text-ink">Direct messages</h2>
-        <p className="bcc-mono mt-1 text-[11px] text-ink-soft">
+        <h2 className="bcc-stencil text-xl text-bcc-text">Direct messages</h2>
+        <p className="bcc-mono mt-1 text-[11px] text-bcc-text-secondary">
           Control who can start a chat with you. Changes apply
           immediately when you save.
         </p>
@@ -181,8 +181,8 @@ function ToggleRow({ label, blurb, checked, onChange, disabled = false }: Toggle
         onChange={(event) => onChange(event.target.checked)}
       />
       <span className="flex flex-col gap-0.5">
-        <span className="bcc-mono text-[12px] text-ink">{label}</span>
-        <span className="bcc-mono text-[11px] text-ink-soft">{blurb}</span>
+        <span className="bcc-mono text-[12px] text-bcc-text">{label}</span>
+        <span className="bcc-mono text-[11px] text-bcc-text-secondary">{blurb}</span>
       </span>
     </label>
   );

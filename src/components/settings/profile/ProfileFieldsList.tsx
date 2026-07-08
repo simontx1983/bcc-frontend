@@ -85,10 +85,10 @@ export function ProfileFieldsList() {
     <div className="flex flex-col gap-6">
       {data.stats.total > 0 && (
         <div className="bcc-panel flex items-baseline justify-between px-4 py-3">
-          <span className="bcc-mono text-[10px] tracking-[0.18em] text-ink-soft">
+          <span className="bcc-mono text-[10px] tracking-[0.18em] text-bcc-text-secondary">
             COMPLETENESS
           </span>
-          <span className="bcc-mono text-[11px] text-ink">
+          <span className="bcc-mono text-[11px] text-bcc-text">
             {data.stats.filled} / {data.stats.total} fields filled · {data.stats.completeness}%
           </span>
         </div>
@@ -169,7 +169,7 @@ function ProfileFieldRow({ field }: { field: ProfileField }) {
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <label
           htmlFor={`field-${field.key}`}
-          className="bcc-mono text-[11px] tracking-[0.16em] text-ink"
+          className="bcc-mono text-[11px] tracking-[0.16em] text-bcc-text"
         >
           {field.label.toUpperCase()}
           {field.required && <span className="ml-1 text-safety">*</span>}
@@ -183,7 +183,7 @@ function ProfileFieldRow({ field }: { field: ProfileField }) {
       </div>
 
       {field.help_text !== null && (
-        <p className="bcc-mono mt-1 text-[10px] text-ink-soft">{field.help_text}</p>
+        <p className="bcc-mono mt-1 text-[10px] text-bcc-text-secondary">{field.help_text}</p>
       )}
 
       <div className="mt-3">
@@ -354,8 +354,8 @@ function FieldInput({ field, value, onChange, disabled }: FieldInputProps) {
                 className={
                   "bcc-mono inline-flex cursor-pointer items-center gap-2 border-2 px-3 py-1 text-[11px] transition " +
                   (selected
-                    ? "border-blueprint bg-blueprint/15 text-ink"
-                    : "border-cardstock-edge text-ink-soft hover:border-ink/50")
+                    ? "border-blueprint bg-blueprint/15 text-bcc-text"
+                    : "border-cardstock-edge text-bcc-text-secondary hover:border-ink/50")
                 }
               >
                 <input
@@ -409,7 +409,7 @@ function VisibilityPicker({
     <div className="flex items-center gap-2">
       {locked && (
         <span
-          className="bcc-mono text-[9px] tracking-[0.16em] text-ink-soft"
+          className="bcc-mono text-[9px] tracking-[0.16em] text-bcc-text-secondary"
           title="Visibility for this field is set by the administrator and cannot be changed."
         >
           LOCKED

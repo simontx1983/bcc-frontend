@@ -80,8 +80,8 @@ export function WalletsSection() {
         <span className="bcc-mono text-[10px] tracking-[0.24em] text-cardstock-deep">
           IDENTITY · WALLETS
         </span>
-        <h2 className="bcc-stencil text-2xl text-ink">Linked wallets</h2>
-        <p className="font-serif text-sm text-ink-soft">
+        <h2 className="bcc-stencil text-2xl text-bcc-text">Linked wallets</h2>
+        <p className="font-serif text-sm text-bcc-text-secondary">
           Wallets you&apos;ve verified by signing a challenge. Each one
           unlocks on-chain credentials on your profile and lets you sign
           disputes.
@@ -99,7 +99,7 @@ export function WalletsSection() {
       <LinkWalletForm chainSelectRef={linkChainSelectRef} />
 
       {wallets.isLoading ? (
-        <p className="bcc-mono text-[11px] text-ink-soft/70">Checking…</p>
+        <p className="bcc-mono text-[11px] text-bcc-text-secondary/70">Checking…</p>
       ) : wallets.isError ? (
         <p role="alert" className="bcc-mono text-[11px] text-safety">
           Couldn&apos;t load your wallets. Refresh and try again.
@@ -313,7 +313,7 @@ function RecoveryEmailPanel({
         <span className="bcc-mono text-[10px] tracking-[0.24em] text-safety">
           ACCOUNT RECOVERY
         </span>
-        <p className="font-serif text-sm text-ink">
+        <p className="font-serif text-sm text-bcc-text">
           {urgent
             ? "Your wallet is the only way into this account — add a recovery email so you can't get locked out."
             : "Add a recovery email so you can get back in if you lose your wallets."}
@@ -469,14 +469,14 @@ function RecoveryEmailForm({
   if (maskedEmail !== null) {
     return (
       <div className="flex flex-col gap-3">
-        <p className="font-serif text-[13px] text-ink-soft" aria-live="polite">
+        <p className="font-serif text-[13px] text-bcc-text-secondary" aria-live="polite">
           We sent a 6-digit code to {maskedEmail}. Enter it below to confirm.
           The code expires shortly — use <em>start over</em> if it lapses.
         </p>
 
         <div className="flex flex-wrap items-end gap-2">
           <label className="flex flex-col gap-1.5">
-            <span className="bcc-mono text-[11px] text-ink-soft">
+            <span className="bcc-mono text-[11px] text-bcc-text-secondary">
               Verification code
             </span>
             <input
@@ -505,7 +505,7 @@ function RecoveryEmailForm({
             type="button"
             onClick={startOver}
             disabled={verify.isPending}
-            className="bcc-mono text-[11px] tracking-[0.14em] text-ink-soft hover:text-ink disabled:opacity-50"
+            className="bcc-mono text-[11px] tracking-[0.14em] text-bcc-text-secondary hover:text-bcc-text disabled:opacity-50"
           >
             Start over
           </button>
@@ -524,7 +524,7 @@ function RecoveryEmailForm({
   return (
     <div className="flex flex-col gap-3">
       {options.length === 0 ? (
-        <p className="font-serif text-[13px] text-ink-soft">
+        <p className="font-serif text-[13px] text-bcc-text-secondary">
           You need at least one verified wallet on a supported chain to add
           a recovery email this way. Link and verify a wallet first.
         </p>
@@ -532,7 +532,7 @@ function RecoveryEmailForm({
         <>
           <div className="flex flex-wrap items-end gap-2">
             <label className="flex min-w-[220px] flex-1 flex-col gap-1.5">
-              <span className="bcc-mono text-[11px] text-ink-soft">
+              <span className="bcc-mono text-[11px] text-bcc-text-secondary">
                 Recovery email
               </span>
               <input
@@ -547,7 +547,7 @@ function RecoveryEmailForm({
             </label>
 
             <label className="flex min-w-[200px] flex-col gap-1.5">
-              <span className="bcc-mono text-[11px] text-ink-soft">
+              <span className="bcc-mono text-[11px] text-bcc-text-secondary">
                 Sign with
               </span>
               <select
@@ -580,7 +580,7 @@ function RecoveryEmailForm({
               type="button"
               onClick={onClose}
               disabled={request.isPending}
-              className="bcc-mono text-[11px] tracking-[0.14em] text-ink-soft hover:text-ink disabled:opacity-50"
+              className="bcc-mono text-[11px] tracking-[0.14em] text-bcc-text-secondary hover:text-bcc-text disabled:opacity-50"
             >
               Cancel
             </button>

@@ -132,8 +132,8 @@ function SuggestionsBody({ result, pulls }: SuggestionsBodyProps) {
     return (
       <section className="mx-auto mt-12 max-w-6xl px-6 sm:px-8">
         <div className="bcc-panel mx-auto max-w-xl p-6">
-          <h2 className="bcc-stencil text-2xl text-ink">No suggestions yet</h2>
-          <p className="mt-2 font-serif text-ink-soft">
+          <h2 className="bcc-stencil text-2xl text-bcc-text">No suggestions yet</h2>
+          <p className="mt-2 font-serif text-bcc-text-secondary">
             The Floor is still warming up — once admins curate cards, they&apos;ll
             show here. Skip this step and head to the Floor.
           </p>

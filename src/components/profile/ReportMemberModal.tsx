@@ -135,11 +135,11 @@ export function ReportMemberModal({ reportedUserId, onClose }: ReportMemberModal
           <div className="flex flex-col items-center gap-2 py-4 text-center">
             <h2
               id="bcc-report-member-modal-title"
-              className="bcc-stencil text-2xl text-ink"
+              className="bcc-stencil text-2xl text-bcc-text"
             >
               Thank you.
             </h2>
-            <p className="bcc-mono text-[11px] tracking-[0.18em] text-ink-soft">
+            <p className="bcc-mono text-[11px] tracking-[0.18em] text-bcc-text-secondary">
               {submittedState === "existing" ? "ALREADY ON FILE" : "REPORT SUBMITTED"}
             </p>
           </div>
@@ -148,21 +148,21 @@ export function ReportMemberModal({ reportedUserId, onClose }: ReportMemberModal
             <header className="flex items-baseline justify-between gap-3">
               <h2
                 id="bcc-report-member-modal-title"
-                className="bcc-stencil text-xl text-ink"
+                className="bcc-stencil text-xl text-bcc-text"
               >
                 Report this member
               </h2>
               <button
                 type="button"
                 onClick={onClose}
-                className="bcc-mono text-[10px] tracking-[0.18em] text-ink-soft hover:text-ink"
+                className="bcc-mono text-[10px] tracking-[0.18em] text-bcc-text-secondary hover:text-bcc-text"
               >
                 CLOSE
               </button>
             </header>
 
             <fieldset className="flex flex-col gap-2">
-              <legend className="bcc-mono mb-1 text-[10px] tracking-[0.24em] text-ink-soft">
+              <legend className="bcc-mono mb-1 text-[10px] tracking-[0.24em] text-bcc-text-secondary">
                 REASON
               </legend>
               {REASONS.map((opt) => {
@@ -186,8 +186,8 @@ export function ReportMemberModal({ reportedUserId, onClose }: ReportMemberModal
                       className="mt-1"
                     />
                     <div className="flex flex-col gap-0.5">
-                      <span className="font-serif text-ink">{opt.label}</span>
-                      <span className="bcc-mono text-[10px] text-ink-soft">
+                      <span className="font-serif text-bcc-text">{opt.label}</span>
+                      <span className="bcc-mono text-[10px] text-bcc-text-secondary">
                         {opt.blurb}
                       </span>
                     </div>
@@ -197,7 +197,7 @@ export function ReportMemberModal({ reportedUserId, onClose }: ReportMemberModal
             </fieldset>
 
             <label className="flex flex-col gap-1">
-              <span className="bcc-mono text-[10px] tracking-[0.18em] text-ink-soft">
+              <span className="bcc-mono text-[10px] tracking-[0.18em] text-bcc-text-secondary">
                 DESCRIPTION {detailRequired ? "(required)" : "(optional)"}
               </span>
               <textarea
@@ -217,7 +217,7 @@ export function ReportMemberModal({ reportedUserId, onClose }: ReportMemberModal
               />
               <span
                 className={
-                  "bcc-mono text-[10px] " + (overCap ? "text-safety" : "text-ink-soft")
+                  "bcc-mono text-[10px] " + (overCap ? "text-safety" : "text-bcc-text-secondary")
                 }
               >
                 {detail.length} / {USER_REPORT_DETAIL_MAX_LENGTH}
@@ -234,7 +234,7 @@ export function ReportMemberModal({ reportedUserId, onClose }: ReportMemberModal
               <button
                 type="button"
                 onClick={onClose}
-                className="bcc-mono border-2 border-cardstock-edge px-4 py-2 text-[11px] tracking-[0.18em] text-ink-soft hover:border-ink/50 hover:text-ink"
+                className="bcc-mono border-2 border-cardstock-edge px-4 py-2 text-[11px] tracking-[0.18em] text-bcc-text-secondary hover:border-ink/50 hover:text-bcc-text"
               >
                 CANCEL
               </button>

@@ -61,7 +61,7 @@ export function CelebrationToast({ celebration, onComplete }: CelebrationToastPr
             {labelForKind(celebration.kind)}
           </span>
 
-          <h2 className="bcc-stencil text-2xl text-ink md:text-3xl">
+          <h2 className="bcc-stencil text-2xl text-bcc-text md:text-3xl">
             {celebration.label}
           </h2>
         </div>

@@ -413,8 +413,8 @@ function EmptyState({
   return (
     <div className="bcc-panel mx-auto max-w-xl p-8 text-center">
       <p className="bcc-mono text-safety">{label}</p>
-      <h2 className="bcc-stencil mt-2 text-3xl text-ink">{title}</h2>
-      <p className="mt-3 font-serif leading-relaxed text-ink-soft">{body}</p>
+      <h2 className="bcc-stencil mt-2 text-3xl text-bcc-text">{title}</h2>
+      <p className="mt-3 font-serif leading-relaxed text-bcc-text-secondary">{body}</p>
       {mineOnly && isAnon && (
         <p className="mt-5">
           <Link

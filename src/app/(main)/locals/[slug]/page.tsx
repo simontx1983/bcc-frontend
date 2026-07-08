@@ -100,8 +100,8 @@ export default async function LocalDetailPage({ params }: PageProps) {
         backLabel="Locals"
         actions={
           <div className="bcc-panel flex flex-col gap-4 p-6">
-            <h2 className="bcc-stencil text-xl text-ink">Your status here</h2>
-            <p className="font-serif text-ink-soft">
+            <h2 className="bcc-stencil text-xl text-bcc-text">Your status here</h2>
+            <p className="font-serif text-bcc-text-secondary">
               Join a Local to vote in its stream and bias your Floor feed.
               You can hold membership in many Locals at once; designate one as
               your primary to show it on your card. Switch any time.
@@ -153,8 +153,8 @@ export default async function LocalDetailPage({ params }: PageProps) {
 
       <section className="mx-auto mt-8 max-w-3xl px-2 sm:px-3">
         <div className="bcc-panel flex flex-col gap-4 p-6">
-          <h2 className="bcc-stencil text-xl text-ink">Your status here</h2>
-          <p className="font-serif text-ink-soft">
+          <h2 className="bcc-stencil text-xl text-bcc-text">Your status here</h2>
+          <p className="font-serif text-bcc-text-secondary">
             Join a Local to vote in its stream and bias your Floor feed.
             You can hold membership in many Locals at once; designate one as
             your primary to show it on your card. Switch any time.
@@ -179,7 +179,7 @@ export default async function LocalDetailPage({ params }: PageProps) {
         </div>
         <p
           role="status"
-          className="bcc-panel font-serif text-ink-soft"
+          className="bcc-panel font-serif text-bcc-text-secondary"
           style={{ padding: "1.5rem" }}
         >
           The feed is briefly unavailable. Refresh in a moment.

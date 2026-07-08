@@ -56,6 +56,22 @@ pattern as the ones above; never hardcode it in the component. Genuine exception
 Satori OG-image code in `src/lib/og/`, which can't read CSS vars) carry an inline
 `color-token-guard:allow — <reason>` marker on the same or preceding line.
 
+**What the guard mechanically enforces vs. what's on you:** the hook blocks hardcoded
+literals (hex, `rgb()/hsl()` literals, named Tailwind palette classes, `bg-white`) and the
+brand-namespaced `--bcc-safety/-weld/-verified/-blueprint` outside `src/components/cards/`.
+It does **not** flag the workshop aesthetic *classes* (`text-safety`, `text-cardstock`,
+`text-ink`, `bg-paper`, …) — those are used ~1800× across the current chrome as the
+"blue-collar workshop" design language, so a regex can't police them without flagging the
+whole UI. Keeping the caution-tape (`safety`/`weld`) look out of page chrome per the rule
+above is therefore on you, not the hook. Pulling the cardstock aesthetic out of chrome is
+a deliberate redesign, not a lint fix.
+
+**Dark-mode gotcha:** don't put the fixed cardstock ink (`text-ink` `#0f0d09`, `text-ink-soft`)
+on a *theme* surface (`bcc-panel`/`bg-bcc-surface`) — it stays near-black while the surface
+flips dark, so it's invisible in dark mode. Use the theme text scale (`text-bcc-text`,
+`text-bcc-text-secondary`) on theme surfaces; reserve `text-ink` for the fixed cardstock/paper
+surfaces (card faces) it's designed for.
+
 ### Other
 - Glass effect uses the blur-layer sibling pattern — never add `backdrop-filter` to an element whose children also need `backdrop-filter`
 - Font variables: `--font-stencil`, `--font-serif`, `--font-mono`, `--font-script`

@@ -112,7 +112,7 @@ export function ProfilePrefsSection() {
 
   if (query.isLoading) {
     return (
-      <p className="bcc-mono py-4 text-[11px] text-ink-soft">Loading preferences…</p>
+      <p className="bcc-mono py-4 text-[11px] text-bcc-text-secondary">Loading preferences…</p>
     );
   }
   if (query.isError || query.data === undefined) {
@@ -192,10 +192,10 @@ function ProfilePrefsForm({ initial }: { initial: ProfilePrefs }) {
   return (
     <div className="flex flex-col gap-6">
       <section className="bcc-panel p-5">
-        <h3 className="bcc-mono text-[11px] tracking-[0.18em] text-ink">
+        <h3 className="bcc-mono text-[11px] tracking-[0.18em] text-bcc-text">
           WHO CAN SEE MY PROFILE
         </h3>
-        <p className="bcc-mono mt-1 text-[10px] text-ink-soft">
+        <p className="bcc-mono mt-1 text-[10px] text-bcc-text-secondary">
           Using anything other than Public may reduce the visibility and reach of your posts.
         </p>
         <RadioGroup
@@ -208,7 +208,7 @@ function ProfilePrefsForm({ initial }: { initial: ProfilePrefs }) {
       </section>
 
       <section className="bcc-panel p-5">
-        <h3 className="bcc-mono text-[11px] tracking-[0.18em] text-ink">
+        <h3 className="bcc-mono text-[11px] tracking-[0.18em] text-bcc-text">
           WHO CAN POST ON MY PROFILE
         </h3>
         <RadioGroup
@@ -221,8 +221,8 @@ function ProfilePrefsForm({ initial }: { initial: ProfilePrefs }) {
       </section>
 
       <section className="bcc-panel p-5">
-        <h3 className="bcc-mono text-[11px] tracking-[0.18em] text-ink">DEFAULT AUDIENCE FOR MY POSTS</h3>
-        <p className="bcc-mono mt-1 text-[10px] text-ink-soft">
+        <h3 className="bcc-mono text-[11px] tracking-[0.18em] text-bcc-text">DEFAULT AUDIENCE FOR MY POSTS</h3>
+        <p className="bcc-mono mt-1 text-[10px] text-bcc-text-secondary">
           The audience picker on new wall posts starts on this. Posting with a different audience
           updates the default to match — this is a sticky preference, not a hard lock.
         </p>
@@ -236,8 +236,8 @@ function ProfilePrefsForm({ initial }: { initial: ProfilePrefs }) {
       </section>
 
       <section className="bcc-panel p-5">
-        <h3 className="bcc-mono text-[11px] tracking-[0.18em] text-ink">DISCOVERY</h3>
-        <p className="bcc-mono mt-1 text-[10px] text-ink-soft">
+        <h3 className="bcc-mono text-[11px] tracking-[0.18em] text-bcc-text">DISCOVERY</h3>
+        <p className="bcc-mono mt-1 text-[10px] text-bcc-text-secondary">
           Stay readable but lower-profile. These don&apos;t affect who can see your content — just
           where you appear.
         </p>
@@ -253,10 +253,10 @@ function ProfilePrefsForm({ initial }: { initial: ProfilePrefs }) {
               className="mt-1 accent-ink"
             />
             <span>
-              <span className="bcc-mono block text-[11px] tracking-[0.14em] text-ink">
+              <span className="bcc-mono block text-[11px] tracking-[0.14em] text-bcc-text">
                 Hide my online status
               </span>
-              <span className="bcc-mono mt-1 block text-[10px] text-ink-soft">
+              <span className="bcc-mono mt-1 block text-[10px] text-bcc-text-secondary">
                 Suppress the green dot on your profile and member widgets.
               </span>
             </span>
@@ -273,10 +273,10 @@ function ProfilePrefsForm({ initial }: { initial: ProfilePrefs }) {
               className="mt-1 accent-ink"
             />
             <span>
-              <span className="bcc-mono block text-[11px] tracking-[0.14em] text-ink">
+              <span className="bcc-mono block text-[11px] tracking-[0.14em] text-bcc-text">
                 Don&apos;t list me in member search
               </span>
-              <span className="bcc-mono mt-1 block text-[10px] text-ink-soft">
+              <span className="bcc-mono mt-1 block text-[10px] text-bcc-text-secondary">
                 Removed from the directory and search results. Direct profile links still work.
               </span>
             </span>
@@ -285,7 +285,7 @@ function ProfilePrefsForm({ initial }: { initial: ProfilePrefs }) {
       </section>
 
       <section className="bcc-panel p-5">
-        <h3 className="bcc-mono text-[11px] tracking-[0.18em] text-ink">BIRTHDAY</h3>
+        <h3 className="bcc-mono text-[11px] tracking-[0.18em] text-bcc-text">BIRTHDAY</h3>
         <label className="mt-2 flex items-start gap-3">
           <input
             type="checkbox"
@@ -297,10 +297,10 @@ function ProfilePrefsForm({ initial }: { initial: ProfilePrefs }) {
             className="mt-1 accent-ink"
           />
           <span>
-            <span className="bcc-mono block text-[11px] tracking-[0.14em] text-ink">
+            <span className="bcc-mono block text-[11px] tracking-[0.14em] text-bcc-text">
               Hide my birthday year
             </span>
-            <span className="bcc-mono mt-1 block text-[10px] text-ink-soft">
+            <span className="bcc-mono mt-1 block text-[10px] text-bcc-text-secondary">
               Show only the day and month on your profile.
             </span>
           </span>
@@ -376,10 +376,10 @@ function RadioGroup<T extends string>({
             className="mt-1 accent-ink"
           />
           <span>
-            <span className="bcc-mono block text-[11px] tracking-[0.14em] text-ink">
+            <span className="bcc-mono block text-[11px] tracking-[0.14em] text-bcc-text">
               {opt.label}
             </span>
-            <span className="bcc-mono mt-1 block text-[10px] text-ink-soft">
+            <span className="bcc-mono mt-1 block text-[10px] text-bcc-text-secondary">
               {opt.blurb}
             </span>
           </span>

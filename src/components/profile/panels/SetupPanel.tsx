@@ -143,7 +143,7 @@ function ReliabilityUnavailable() {
       <p className="bcc-mono text-safety" style={{ fontSize: "10px", letterSpacing: "0.24em" }}>
         UNAVAILABLE
       </p>
-      <p className="font-serif text-base text-ink-soft">
+      <p className="font-serif text-base text-bcc-text-secondary">
         Your reliability surface couldn&rsquo;t load this time. Try
         again in a moment, or open the full mirror directly.
       </p>

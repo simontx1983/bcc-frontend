@@ -316,10 +316,10 @@ export function EntityProfile({
               <LockedStreamPanel pageName={card.name} />
             ) : (
               <div className="bcc-panel mx-auto max-w-2xl p-8 text-center">
-                <h2 className="bcc-stencil text-2xl text-ink">
+                <h2 className="bcc-stencil text-2xl text-bcc-text">
                   {streamEmptyState.title}
                 </h2>
-                <p className="mt-2 font-serif text-ink-soft">
+                <p className="mt-2 font-serif text-bcc-text-secondary">
                   {streamEmptyState.body}
                 </p>
               </div>

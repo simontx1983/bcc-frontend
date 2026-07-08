@@ -121,10 +121,10 @@ export function OpenDisputeModal({
     >
       <header className="mb-5">
         <p className="bcc-mono text-safety">OPEN A DISPUTE //</p>
-        <h3 className="bcc-stencil mt-1 text-3xl text-ink">
+        <h3 className="bcc-stencil mt-1 text-3xl text-bcc-text">
           {pageName}
         </h3>
-        <p className="mt-2 max-w-prose font-serif text-ink-soft">
+        <p className="mt-2 max-w-prose font-serif text-bcc-text-secondary">
           Flag a downvote you believe is invalid. {DISPUTE_PANEL_SIZE} panelists
           will review the evidence and decide. Disputes are public and
           permanent — file when you have grounds, not just disagreement.
@@ -208,7 +208,7 @@ export function OpenDisputeModal({
               className="bcc-mono mb-2 block text-cardstock-deep"
             >
               YOUR REASON //
-              <span className="ml-2 text-ink-ghost">
+              <span className="ml-2 text-bcc-text-muted">
                 ({DISPUTE_REASON_MIN_LENGTH}–{DISPUTE_REASON_MAX_LENGTH} chars)
               </span>
             </label>
@@ -219,14 +219,14 @@ export function OpenDisputeModal({
               rows={5}
               maxLength={DISPUTE_REASON_MAX_LENGTH}
               placeholder="What's wrong with this downvote? Be specific — panelists need facts, not feelings."
-              className="bcc-panel w-full resize-y p-3 font-serif text-ink"
+              className="bcc-panel w-full resize-y p-3 font-serif text-bcc-text"
             />
             <div className="bcc-mono mt-1 flex items-center justify-between text-[10px] tracking-[0.18em]">
               <span
                 className={
                   reasonTooShort
                     ? "text-cardstock-deep"
-                    : "text-ink-soft"
+                    : "text-bcc-text-secondary"
                 }
               >
                 {reasonTooShort
@@ -253,7 +253,7 @@ export function OpenDisputeModal({
               className="bcc-mono mb-2 block text-cardstock-deep"
             >
               EVIDENCE URL //
-              <span className="ml-2 text-ink-ghost">(optional)</span>
+              <span className="ml-2 text-bcc-text-muted">(optional)</span>
             </label>
             <input
               id="dispute-evidence"
@@ -261,7 +261,7 @@ export function OpenDisputeModal({
               value={evidenceUrl}
               onChange={(e) => setEvidenceUrl(e.target.value)}
               placeholder="https://… link a tx, screenshot, or document panelists should see"
-              className="bcc-panel w-full p-3 font-serif text-ink"
+              className="bcc-panel w-full p-3 font-serif text-bcc-text"
               maxLength={2083}
             />
           </div>
@@ -277,7 +277,7 @@ export function OpenDisputeModal({
               type="button"
               onClick={onClose}
               disabled={submit.isPending}
-              className="bcc-mono rounded-sm px-4 py-2 text-cardstock-deep hover:text-ink disabled:cursor-not-allowed disabled:opacity-50"
+              className="bcc-mono rounded-sm px-4 py-2 text-cardstock-deep hover:text-bcc-text disabled:cursor-not-allowed disabled:opacity-50"
             >
               CANCEL
             </button>

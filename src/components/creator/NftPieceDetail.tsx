@@ -137,10 +137,10 @@ function NftPieceDetailImpl({ piece, routeCreatorSlug }: NftPieceDetailProps) {
               className="bcc-panel inline-flex items-center gap-2 self-start px-3 py-2"
               role="status"
             >
-              <span aria-hidden className="bcc-mono text-[10px] text-ink-soft/70">
+              <span aria-hidden className="bcc-mono text-[10px] text-bcc-text-secondary/70">
                 ◇
               </span>
-              <span className="bcc-mono text-[10px] uppercase tracking-[0.18em] text-ink-soft">
+              <span className="bcc-mono text-[10px] uppercase tracking-[0.18em] text-bcc-text-secondary">
                 {chainStateLabel}
               </span>
             </div>
@@ -155,7 +155,7 @@ function NftPieceDetailImpl({ piece, routeCreatorSlug }: NftPieceDetailProps) {
           )}
           {showLiveOwnerHint && (
             <div className="bcc-panel px-4 py-3" role="status">
-              <p className="font-serif text-sm text-ink-soft">
+              <p className="font-serif text-sm text-bcc-text-secondary">
                 Live data &mdash; owner lookup in progress.
               </p>
             </div>
@@ -329,7 +329,7 @@ function OwnerBlock({
         {linkedUser !== null ? (
           <Link
             href={`/u/${linkedUser.handle}` as Route}
-            className="flex items-center gap-3 text-ink transition hover:text-blueprint"
+            className="flex items-center gap-3 text-bcc-text transition hover:text-blueprint"
           >
             {/*
               Sprint 1 Identity Grammar — consolidated to the shared
@@ -346,7 +346,7 @@ function OwnerBlock({
             />
             <div className="flex flex-col">
               <span className="bcc-stencil text-base">{linkedUser.display_name}</span>
-              <span className="bcc-mono text-[10px] text-ink-soft/70">
+              <span className="bcc-mono text-[10px] text-bcc-text-secondary/70">
                 @{linkedUser.handle} &middot; {owner.address_short}
               </span>
             </div>
@@ -361,8 +361,8 @@ function OwnerBlock({
               variant="rounded"
             />
             <div className="flex flex-col">
-              <span className="bcc-mono text-[12px] text-ink">{owner.address_short}</span>
-              <span className="bcc-mono text-[10px] text-ink-soft/60">
+              <span className="bcc-mono text-[12px] text-bcc-text">{owner.address_short}</span>
+              <span className="bcc-mono text-[10px] text-bcc-text-secondary/60">
                 Unlinked wallet
               </span>
             </div>
@@ -370,7 +370,7 @@ function OwnerBlock({
         )}
       </div>
       {ownersSummaryLabel !== null && (
-        <span className="bcc-mono text-[10px] text-ink-soft/70">
+        <span className="bcc-mono text-[10px] text-bcc-text-secondary/70">
           {ownersSummaryLabel}
         </span>
       )}
@@ -384,8 +384,8 @@ function OwnerBlock({
 function CoOwnerTile({ coOwner }: { coOwner: NftPieceCoOwner }) {
   return (
     <div className="bcc-panel flex flex-col gap-1 px-3 py-2">
-      <span className="bcc-mono text-[11px] text-ink">{coOwner.address_short}</span>
-      <span className="bcc-mono text-[9px] text-ink-soft/60">
+      <span className="bcc-mono text-[11px] text-bcc-text">{coOwner.address_short}</span>
+      <span className="bcc-mono text-[9px] text-bcc-text-secondary/60">
         balance {coOwner.balance}
       </span>
     </div>
@@ -395,14 +395,14 @@ function CoOwnerTile({ coOwner }: { coOwner: NftPieceCoOwner }) {
 function AttributeTile({ attr }: { attr: NftPieceAttribute }) {
   return (
     <div className="bcc-panel flex flex-col gap-1 px-3 py-2">
-      <span className="bcc-mono text-[9px] uppercase tracking-[0.16em] text-ink-soft/60">
+      <span className="bcc-mono text-[9px] uppercase tracking-[0.16em] text-bcc-text-secondary/60">
         {attr.trait_type}
       </span>
-      <span className="bcc-stencil truncate text-sm text-ink" title={String(attr.value)}>
+      <span className="bcc-stencil truncate text-sm text-bcc-text" title={String(attr.value)}>
         {String(attr.value)}
       </span>
       {attr.rarity_pct !== undefined && (
-        <span className="bcc-mono text-[9px] text-ink-soft/70">
+        <span className="bcc-mono text-[9px] text-bcc-text-secondary/70">
           ({attr.rarity_pct}%)
         </span>
       )}

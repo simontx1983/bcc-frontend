@@ -60,7 +60,7 @@ export function BlocksList() {
         >
           NONE ON FILE
         </p>
-        <p className="font-serif italic text-ink-soft">
+        <p className="font-serif italic text-bcc-text-secondary">
           You haven&apos;t blocked anyone. The Block button lives on a
           member&apos;s profile page when you need it.
         </p>
@@ -92,11 +92,11 @@ export function BlocksList() {
                 variant="rounded"
               />
               <div className="min-w-0">
-                <p className="bcc-stencil truncate text-ink">
+                <p className="bcc-stencil truncate text-bcc-text">
                   {entry.display_name !== "" ? entry.display_name : `@${entry.handle}`}
                 </p>
                 {entry.handle !== "" && (
-                  <p className="bcc-mono truncate text-[11px] text-ink-soft">
+                  <p className="bcc-mono truncate text-[11px] text-bcc-text-secondary">
                     @{entry.handle}
                   </p>
                 )}
@@ -107,7 +107,7 @@ export function BlocksList() {
               type="button"
               onClick={() => handleUnblock(entry.user_id)}
               disabled={pendingId === entry.user_id}
-              className="bcc-mono inline-flex items-center border-2 border-cardstock-edge px-3 py-1.5 text-[11px] tracking-[0.18em] text-ink-soft transition hover:border-ink/50 hover:text-ink disabled:opacity-60"
+              className="bcc-mono inline-flex items-center border-2 border-cardstock-edge px-3 py-1.5 text-[11px] tracking-[0.18em] text-bcc-text-secondary transition hover:border-ink/50 hover:text-bcc-text disabled:opacity-60"
             >
               {pendingId === entry.user_id ? "WORKING…" : "UNBLOCK"}
             </button>
@@ -117,14 +117,14 @@ export function BlocksList() {
 
       {pagination.total_pages > 1 && (
         <nav
-          className="bcc-mono flex items-center justify-between gap-3 text-[11px] tracking-[0.16em] text-ink-soft"
+          className="bcc-mono flex items-center justify-between gap-3 text-[11px] tracking-[0.16em] text-bcc-text-secondary"
           aria-label="Pagination"
         >
           <button
             type="button"
             onClick={() => setPage((p) => Math.max(1, p - 1))}
             disabled={page <= 1}
-            className="border-2 border-cardstock-edge px-3 py-1 transition hover:border-ink/50 hover:text-ink disabled:opacity-50"
+            className="border-2 border-cardstock-edge px-3 py-1 transition hover:border-ink/50 hover:text-bcc-text disabled:opacity-50"
           >
             ← PREV
           </button>
@@ -135,7 +135,7 @@ export function BlocksList() {
             type="button"
             onClick={() => setPage((p) => p + 1)}
             disabled={page >= pagination.total_pages}
-            className="border-2 border-cardstock-edge px-3 py-1 transition hover:border-ink/50 hover:text-ink disabled:opacity-50"
+            className="border-2 border-cardstock-edge px-3 py-1 transition hover:border-ink/50 hover:text-bcc-text disabled:opacity-50"
           >
             NEXT →
           </button>

@@ -121,7 +121,7 @@ function ErrorTile() {
   return (
     <div className="bcc-panel mx-auto max-w-md p-6 text-center">
       <p className="bcc-mono text-safety">SEARCH UNAVAILABLE</p>
-      <p className="mt-3 font-serif text-sm text-ink-soft">
+      <p className="mt-3 font-serif text-sm text-bcc-text-secondary">
         That vertical hit a snag. Try a different filter or refresh in a moment.
       </p>
     </div>
@@ -132,10 +132,10 @@ function EmptyTile({ query }: { query: string }) {
   return (
     <div className="bcc-panel mx-auto max-w-md p-8 text-center">
       <p className="bcc-mono text-safety">NO MATCHES</p>
-      <h2 className="bcc-stencil mt-2 text-2xl text-ink">
+      <h2 className="bcc-stencil mt-2 text-2xl text-bcc-text">
         Nothing found for &ldquo;{query}&rdquo;.
       </h2>
-      <p className="mt-3 font-serif leading-relaxed text-ink-soft">
+      <p className="mt-3 font-serif leading-relaxed text-bcc-text-secondary">
         Try a different keyword or switch tabs.
       </p>
     </div>
@@ -160,7 +160,7 @@ export const ProjectRow = memo(function ProjectRow({ row }: { row: ProjectSearch
       <Avatar src={row.avatar_url} name={row.page_name} shape="circle" />
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         <span className="flex min-w-0 items-center gap-1.5">
-          <span className="bcc-stencil truncate text-sm text-ink">
+          <span className="bcc-stencil truncate text-sm text-bcc-text">
             {row.page_name}
           </span>
           {/* Claim-verified checkmark (§ verified-wins) — server-resolved
@@ -187,7 +187,7 @@ export const UserRow = memo(function UserRow({ row }: { row: UserSearchResult })
     >
       <Avatar src={row.avatar_url} name={row.display_name || row.username} shape="circle" />
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <span className="bcc-stencil truncate text-sm text-ink">
+        <span className="bcc-stencil truncate text-sm text-bcc-text">
           {row.display_name || row.username}
         </span>
         <span className="bcc-mono truncate text-[10px] text-cardstock-deep">
@@ -206,12 +206,12 @@ export const GroupRow = memo(function GroupRow({ row }: { row: GroupSearchResult
     >
       <Avatar src={row.avatar_url} name={row.name} shape="square" />
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <span className="bcc-stencil truncate text-sm text-ink">{row.name}</span>
+        <span className="bcc-stencil truncate text-sm text-bcc-text">{row.name}</span>
         <span className="bcc-mono truncate text-[10px] text-cardstock-deep">
           /{row.slug}
         </span>
         {row.description !== null && row.description !== "" && (
-          <span className="truncate font-serif text-[11px] text-ink-soft">
+          <span className="truncate font-serif text-[11px] text-bcc-text-secondary">
             {row.description}
           </span>
         )}

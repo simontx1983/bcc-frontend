@@ -178,8 +178,8 @@ export function NotificationsStep({
         <div className="bcc-panel flex flex-col gap-3 px-5 py-4">
           <div className="flex items-baseline justify-between gap-3">
             <div>
-              <h3 className="bcc-stencil text-lg text-ink">Browser push</h3>
-              <p className="bcc-mono mt-1 text-[11px] text-ink-soft">
+              <h3 className="bcc-stencil text-lg text-bcc-text">Browser push</h3>
+              <p className="bcc-mono mt-1 text-[11px] text-bcc-text-secondary">
                 Real-time pings for high-stakes events only — reviews,
                 endorsements, dispute outcomes, panelist invites. Off by default.
               </p>
@@ -205,7 +205,7 @@ export function NotificationsStep({
                     : "ENABLE"}
               </button>
             ) : (
-              <span className="bcc-mono shrink-0 text-[10px] text-ink-soft/70">
+              <span className="bcc-mono shrink-0 text-[10px] text-bcc-text-secondary/70">
                 NOT SUPPORTED
               </span>
             )}
@@ -282,8 +282,8 @@ function WizardOptCard({
       }
     >
       <div className="flex flex-col gap-1">
-        <h3 className="bcc-stencil text-lg text-ink">{title}</h3>
-        <p className="bcc-mono text-[11px] text-ink-soft">{subtitle}</p>
+        <h3 className="bcc-stencil text-lg text-bcc-text">{title}</h3>
+        <p className="bcc-mono text-[11px] text-bcc-text-secondary">{subtitle}</p>
       </div>
       <input
         type="checkbox"

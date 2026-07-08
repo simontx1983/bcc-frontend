@@ -326,10 +326,10 @@ export function ProfileHero({ profile, nav }: ProfileHeroProps) {
       {/* Identity caption + status messages */}
       <div className="flex flex-wrap items-end justify-between gap-3 px-6 pb-4 pt-16 md:px-8 md:pt-20">
         <div>
-          <h2 className="bcc-stencil text-2xl text-ink md:text-3xl">
+          <h2 className="bcc-stencil text-2xl text-bcc-text md:text-3xl">
             {profile.display_name}
           </h2>
-          <p className="bcc-mono mt-1 text-[11px] tracking-[0.16em] text-ink-soft">
+          <p className="bcc-mono mt-1 text-[11px] tracking-[0.16em] text-bcc-text-secondary">
             @{profile.handle}
           </p>
         </div>

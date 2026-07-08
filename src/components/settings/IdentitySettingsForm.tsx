@@ -91,7 +91,7 @@ export function IdentitySettingsForm({ currentHandle }: IdentitySettingsFormProp
     <div className="bcc-panel p-6">
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         <label className="flex flex-col gap-1.5">
-          <span className="bcc-mono text-ink-soft">Handle</span>
+          <span className="bcc-mono text-bcc-text-secondary">Handle</span>
           <div className="flex items-center border border-cardstock-edge bg-cardstock-deep/60 focus-within:border-blueprint focus-within:ring-1 focus-within:ring-blueprint">
             <span className="bcc-mono pl-3 text-ink-soft">@</span>
             <input
@@ -106,14 +106,14 @@ export function IdentitySettingsForm({ currentHandle }: IdentitySettingsFormProp
               className="flex-1 bg-transparent px-2 py-2 font-serif text-ink outline-none"
             />
           </div>
-          <span className={`bcc-mono ${isClientValid || trimmed === "" ? "text-ink-soft/70" : "text-safety"}`}>
+          <span className={`bcc-mono ${isClientValid || trimmed === "" ? "text-bcc-text-secondary/70" : "text-safety"}`}>
             3–20 chars · a–z, 0–9, hyphens · no leading/trailing/double hyphen
           </span>
         </label>
 
         <div className="flex items-center justify-between gap-4">
-          <span className="bcc-mono text-[10px] text-ink-soft/70">
-            Currently <span className="text-ink">@{currentHandle}</span>
+          <span className="bcc-mono text-[10px] text-bcc-text-secondary/70">
+            Currently <span className="text-bcc-text">@{currentHandle}</span>
           </span>
           <button
             type="submit"

@@ -20,18 +20,18 @@ export function GroupAboutPanel({ group }: { group: GroupDetailResponse }) {
   return (
     <article className="bcc-panel flex flex-col gap-6 p-6 sm:p-8">
       <header className="flex flex-col gap-2">
-        <span className="bcc-mono text-[10px] tracking-[0.24em] text-ink-soft">
+        <span className="bcc-mono text-[10px] tracking-[0.24em] text-bcc-text-secondary">
           ABOUT
         </span>
-        <h2 className="bcc-stencil text-2xl text-ink">{group.name}</h2>
+        <h2 className="bcc-stencil text-2xl text-bcc-text">{group.name}</h2>
       </header>
 
       {group.description !== null && group.description !== "" ? (
-        <p className="font-serif leading-relaxed text-ink-soft">
+        <p className="font-serif leading-relaxed text-bcc-text-secondary">
           {group.description}
         </p>
       ) : (
-        <p className="bcc-mono text-[12px] tracking-[0.18em] text-ink-soft/60">
+        <p className="bcc-mono text-[12px] tracking-[0.18em] text-bcc-text-secondary/60">
           NO DESCRIPTION YET — THE OWNER HASN&apos;T WRITTEN A DOOR SIGN.
         </p>
       )}
@@ -63,7 +63,7 @@ export function GroupAboutPanel({ group }: { group: GroupDetailResponse }) {
 
       {group.verification !== null && (
         <div className="border-t border-cardstock-edge/40 pt-5">
-          <span className="bcc-mono mb-2 block text-[10px] tracking-[0.24em] text-ink-soft">
+          <span className="bcc-mono mb-2 block text-[10px] tracking-[0.24em] text-bcc-text-secondary">
             VERIFICATION
           </span>
           <VerificationBadge label={group.verification.label} />
@@ -84,10 +84,10 @@ function MetaCell({
 }) {
   return (
     <div className="flex flex-col gap-1">
-      <dt className="bcc-mono text-[10px] tracking-[0.24em] text-ink-soft">
+      <dt className="bcc-mono text-[10px] tracking-[0.24em] text-bcc-text-secondary">
         {label.toUpperCase()}
       </dt>
-      <dd className="bcc-mono text-sm text-ink">
+      <dd className="bcc-mono text-sm text-bcc-text">
         {value !== null ? value : children}
       </dd>
     </div>
