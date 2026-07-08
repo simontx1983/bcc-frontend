@@ -614,10 +614,10 @@ function CountsStrip({ counts }: { counts: MemberCounts }) {
                 key={cell.label}
                 className="bcc-panel px-2 py-3 text-center sm:px-4 sm:py-5"
               >
-                <p className="bcc-stencil text-3xl text-ink sm:text-4xl">
+                <p className="bcc-stencil text-3xl text-bcc-text sm:text-4xl">
                   {cell.value}
                 </p>
-                <p className="bcc-mono mt-1 text-[10px] text-ink-soft sm:text-[11px]">
+                <p className="bcc-mono mt-1 text-[10px] text-bcc-text-secondary sm:text-[11px]">
                   {cell.label}
                 </p>
               </div>

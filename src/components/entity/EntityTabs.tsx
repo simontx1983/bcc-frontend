@@ -13,7 +13,6 @@
  *   Activity  — operator stream (LockedStreamPanel / §N10 empty)
  *   Watchers  — CardWatchersPanel (PeepSo follower graph anchored on
  *               the page's post_author; empty for unclaimed cards)
- *   Disputes  — CardDisputesPanel (open disputes filed against this card)
  *   On-chain  — OnchainSignalsBlock (validator-only; tab hidden when
  *               indexer hasn't produced data)
  *   Chains    — ChainTabs (multi-chain operators only)
@@ -23,7 +22,8 @@
  *
  * Order mirrors /u/[handle]'s ProfileTabs: Backing first (trust
  * headline), Reviews/Activity in the middle (read-then-act), Watchers,
- * Disputes after (adversarial signal), entity-only tabs at the end.
+ * entity-only tabs at the end. (A Disputes tab was retired 2026-07-08 —
+ * active-dispute context now lives in the §J negative-signals summary.)
  */
 
 import { useState } from "react";
@@ -34,7 +34,6 @@ type EntityTabKey =
   | "reviews"
   | "activity"
   | "watchers"
-  | "disputes"
   | "onchain"
   | "chains";
 
@@ -52,8 +51,6 @@ export interface EntityTabsProps {
   activityPanel: ReactNode;
   /** Always-on Watchers panel content. */
   watchersPanel: ReactNode;
-  /** Always-on Disputes panel content. */
-  disputesPanel: ReactNode;
   /** Optional On-chain panel — when null, the tab is hidden. */
   onchainPanel?: ReactNode | null;
   /** Optional Chains panel — when null, the tab is hidden. */
@@ -65,7 +62,6 @@ export function EntityTabs({
   reviewsPanel,
   activityPanel,
   watchersPanel,
-  disputesPanel,
   onchainPanel,
   chainsPanel,
 }: EntityTabsProps) {
@@ -74,7 +70,6 @@ export function EntityTabs({
     { key: "reviews",  label: "Reviews"  },
     { key: "activity", label: "Activity" },
     { key: "watchers", label: "Watchers" },
-    { key: "disputes", label: "Disputes" },
   ];
   if (onchainPanel !== undefined && onchainPanel !== null) {
     tabs.push({ key: "onchain", label: "On-chain" });
@@ -122,7 +117,6 @@ export function EntityTabs({
         {active === "reviews"  && reviewsPanel}
         {active === "activity" && activityPanel}
         {active === "watchers" && watchersPanel}
-        {active === "disputes" && disputesPanel}
         {active === "onchain"  && onchainPanel !== undefined && onchainPanel !== null && onchainPanel}
         {active === "chains"   && chainsPanel  !== undefined && chainsPanel  !== null && chainsPanel}
       </div>

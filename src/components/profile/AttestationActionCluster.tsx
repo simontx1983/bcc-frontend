@@ -345,12 +345,11 @@ export function AttestationActionCluster(props: AttestationActionClusterProps) {
     >
       {/* §J trust-not-adversarial weighting (per 2026-05-13 UX review):
           VOUCH + STAND BEHIND occupy the 2fr left column at peer prominence;
-          DISPUTE + REPORT occupy the 1fr right column at quieter weight.
-          The visual hierarchy reads "trust signals are the headline,
-          adversarial/moderation paths are the quiet right channel."
-          Mobile collapses to a single column with reading order:
-          VOUCH → DISPUTE → STAND BEHIND → REPORT — keeps the trust
-          buttons stacked above their adversarial pair so the hierarchy
+          REPORT occupies the 1fr right column at quieter weight. The visual
+          hierarchy reads "trust signals are the headline, the moderation
+          path is the quiet right channel." Mobile collapses to a single
+          column with reading order: VOUCH → STAND BEHIND → REPORT — the
+          trust buttons stack above the moderation action so the hierarchy
           survives the reflow. */}
       {props.canVouch !== undefined && (
         <ActionButton
@@ -370,18 +369,6 @@ export function AttestationActionCluster(props: AttestationActionClusterProps) {
           size="primary"
           onClick={canMutate ? handleVouchClick : undefined}
           isPending={isVouchPending}
-        />
-      )}
-
-      {props.canDispute !== undefined && (
-        <ActionButton
-          label="DISPUTE"
-          description="Adversarial commit. Not a downvote."
-          permission={props.canDispute}
-          isCast={false}
-          tone="adversarial"
-          size="secondary"
-          isPending={false}
         />
       )}
 
@@ -500,7 +487,7 @@ function formatStandBehindLabel(
   return `STAND BEHIND · ${slotsUsed} OF ${slotsTotal}`;
 }
 
-type ActionTone = "positive" | "conviction" | "adversarial" | "utility";
+type ActionTone = "positive" | "conviction" | "utility";
 
 type ActionSize = "primary" | "secondary";
 
@@ -666,11 +653,6 @@ function buttonClassFor(
       // is what was screaming. Phosphor border = "live, deliberate"
       // commitment without the capital-allocation read.
       return `${BASE_BUTTON_CLASS} ${sizeClass} border border-phosphor/70 bg-cardstock-deep/5 text-cardstock hover:bg-cardstock-deep/15`;
-    case "adversarial":
-      // Dispute — visibly distinct from positive actions. Quieter
-      // than conviction but still readable. This is an adversarial
-      // commit, not a quick gesture.
-      return `${BASE_BUTTON_CLASS} ${sizeClass} border border-cardstock/50 text-cardstock hover:bg-cardstock/10`;
     case "utility":
       // Report — least prominent. Functional moderation surface,
       // not a primary trust signal.

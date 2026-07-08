@@ -224,7 +224,6 @@ export interface CardPermissionEntry {
 
 export interface CardPermissions {
   can_review: CardPermissionEntry;
-  can_dispute: CardPermissionEntry;
   can_watch: CardPermissionEntry;
   /** §V1.5 — endorse this entity (page-cards only; member cards always denied). */
   can_endorse: CardPermissionEntry;
@@ -243,11 +242,8 @@ export interface CardPermissions {
    * these gates in Week 2 of the Phase 1 plan. Per §N7 the
    * AttestationActionCluster hides each action when its permission
    * entry is absent, then surfaces it (enabled or disabled with
-   * unlock_hint) once the gate ships.
-   *
-   * Note: the attestation-layer Dispute primitive uses the existing
-   * `can_dispute` field above — same gate, target_kind expands to
-   * include user_profile in Phase 1.5 per §J.1.
+   * unlock_hint) once the gate ships. The sole negative action here is
+   * `can_report`; vote-disputes are owner-only via `can_open_dispute`.
    */
   can_vouch?: CardPermissionEntry;
   can_stand_behind?: CardPermissionEntry;
@@ -256,8 +252,9 @@ export interface CardPermissions {
    * §7 owner vote-dispute entry (DisputeCallout → OpenDisputeModal →
    * POST /disputes). Owner-only: mirrors DisputeController's
    * Permissions::owns_page write gate exactly — no feature ladder.
-   * Distinct from `can_dispute`, which is the §J attestation cast.
-   * Optional during rollout; isAllowed() treats absent as denied.
+   * This is the SOLE dispute gate (the dead can_dispute "attestation
+   * cast" gate was retired). Optional during rollout; isAllowed()
+   * treats absent as denied.
    */
   can_open_dispute?: CardPermissionEntry;
 }
@@ -2076,30 +2073,10 @@ export interface CardReviewsResponse {
   };
 }
 
-/**
- * One row in `/entities/{kind}/{id}/disputes`. V1 only surfaces open
- * disputes (status=0); resolved + dismissed don't reach this list.
- * `flagger` is the user who opened the dispute — full MemberSummary
- * so the panel can show "@phillip opened this dispute" with a real
- * trust card.
- */
-export interface CardDispute {
-  id: number;
-  body: string;
-  posted_at_label: string;
-  flagger: MemberSummary;
-}
-
-/** GET /entities/{kind}/{id}/disputes response. */
-export interface CardDisputesResponse {
-  items: CardDispute[];
-  pagination: {
-    page: number;
-    per_page: number;
-    total: number;
-    total_pages: number;
-  };
-}
+// CardDispute / CardDisputesResponse removed — the entity Disputes tab
+// (GET /entities/{kind}/{id}/disputes) was retired 2026-07-08. Active-
+// dispute context for an entity now lives in the §J negative-signals
+// summary on the card view-model.
 
 /**
  * GET /entities/{kind}/{id}/watchers response. Same shape as
@@ -3307,13 +3284,12 @@ export interface MemberPermissions {
   can_edit_profile: MemberPermission;
   /**
    * §J.6 Trust Attestation Layer permission extensions for
-   * user_profile target_kind. Optional during Phase 1 rollout.
-   * `can_dispute` exists for user-profile attestations once the
-   * panel mechanics extend to user_profile (Phase 1.5).
+   * user_profile target_kind. Optional during Phase 1 rollout. The
+   * sole person-level negative action is `can_report`; vote-disputes
+   * are page/self-page owner-only (not a person-level action).
    */
   can_vouch?: MemberPermission;
   can_stand_behind?: MemberPermission;
-  can_dispute?: MemberPermission;
   can_report?: MemberPermission;
 }
 

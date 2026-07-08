@@ -33,7 +33,6 @@ import { ClaimCallout } from "@/components/claim/ClaimCallout";
 import { DisputeCallout } from "@/components/disputes/DisputeCallout";
 import { EndorseButton } from "@/components/endorse/EndorseButton";
 import { EntityTabs } from "@/components/entity/EntityTabs";
-import { CardDisputesPanel } from "@/components/entity/panels/CardDisputesPanel";
 import { CardReviewsPanel } from "@/components/entity/panels/CardReviewsPanel";
 import { CardWatchersPanel } from "@/components/entity/panels/CardWatchersPanel";
 import { LockedStreamPanel } from "@/components/entity/LockedStreamPanel";
@@ -333,15 +332,6 @@ export function EntityProfile({
                 cardId={card.id}
                 cardName={card.name}
                 isClaimed={card.is_claimed === true}
-              />
-            ) : null
-          }
-          disputesPanel={
-            entityCardKind !== null ? (
-              <CardDisputesPanel
-                kind={entityCardKind}
-                cardId={card.id}
-                cardName={card.name}
               />
             ) : null
           }
