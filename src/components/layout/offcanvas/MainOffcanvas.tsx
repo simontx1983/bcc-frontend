@@ -8,21 +8,11 @@ import { useState, useEffect, useRef } from "react";
 
 import { CopyrightMark } from "@/components/layout/CopyrightMark";
 import { LEGAL_ROUTES } from "@/lib/legal/config";
+import { applyTheme, getStoredAccent, getStoredTheme, type Accent, type Theme } from "@/lib/theme";
 
 interface MainOffcanvasProps {
   open: boolean;
   onClose: () => void;
-}
-
-type Theme = "light" | "dark";
-type Accent = "primary" | "secondary";
-
-function applyTheme(theme: Theme, accent: Accent) {
-  const html = document.documentElement;
-  html.setAttribute("data-theme", theme);
-  html.setAttribute("data-accent", accent);
-  localStorage.setItem("bcc-theme", theme);
-  localStorage.setItem("bcc-accent", accent);
 }
 
 const PRIMARY_NAV = [
@@ -53,12 +43,13 @@ export function MainOffcanvas({ open, onClose }: MainOffcanvasProps) {
   const [currentAccent, setCurrentAccent] = useState<Accent>("primary");
   const cardRef = useRef<HTMLDivElement>(null);
 
-  // Initialise theme/accent from DOM on mount
+  // Initialise theme/accent from the saved preference on mount
   useEffect(() => {
-    const t = (document.documentElement.getAttribute("data-theme") ?? "dark") as Theme;
-    const a = (document.documentElement.getAttribute("data-accent") ?? "primary") as Accent;
+    const t = getStoredTheme();
+    const a = getStoredAccent();
     setCurrentTheme(t);
     setCurrentAccent(a);
+    applyTheme(t, a);
   }, []);
 
   useEffect(() => {
