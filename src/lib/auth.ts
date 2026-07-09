@@ -27,6 +27,8 @@
  * without dragging the route handler into their bundle.
  */
 
+import { createHmac, randomBytes } from "node:crypto";
+
 import type { NextAuthOptions } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
@@ -130,6 +132,21 @@ async function callBccOauth(body: {
   email: string;
   display_name: string;
 }): Promise<AuthTokenResponse | OAuthHandleRequiredResponse> {
+  // Signed server-to-server request. /auth/oauth trusts the OAuth identity
+  // we assert (after NextAuth verified the provider token), so we prove we
+  // hold BCC_OAUTH_BRIDGE_SECRET by SIGNING the request rather than sending
+  // it — the secret never crosses the wire (a TLS-terminating proxy or a
+  // request log can't capture a replayable bearer value). The timestamp +
+  // single-use nonce bound replay. The signature covers the EXACT raw body
+  // bytes we send. Server-side only (NextAuth callback). Backend:
+  // OAuthController::oauthBridgeGate.
+  const rawBody = JSON.stringify(body);
+  const timestamp = Math.floor(Date.now() / 1000).toString();
+  const nonce = randomBytes(16).toString("hex");
+  const signature = createHmac("sha256", serverEnv.BCC_OAUTH_BRIDGE_SECRET)
+    .update(`${timestamp}\n${nonce}\n${rawBody}`)
+    .digest("hex");
+
   let response: Response;
   try {
     response = await fetch(
@@ -139,15 +156,11 @@ async function callBccOauth(body: {
         headers: {
           "Content-Type": "application/json",
           Accept: "application/json",
-          // Server-to-server shared secret. /auth/oauth trusts the OAuth
-          // identity we assert (after NextAuth verified the provider token),
-          // so the backend requires this secret to prove the call came from
-          // here and not an arbitrary client. Server-side only (NextAuth
-          // callback) — never exposed to the browser. Backend:
-          // AuthEndpoint::oauthBridgeGate (BCC_OAUTH_BRIDGE_SECRET).
-          "X-Bcc-Oauth-Secret": serverEnv.BCC_OAUTH_BRIDGE_SECRET,
+          "X-Bcc-Oauth-Timestamp": timestamp,
+          "X-Bcc-Oauth-Nonce": nonce,
+          "X-Bcc-Oauth-Signature": signature,
         },
-        body: JSON.stringify(body),
+        body: rawBody,
       }
     );
   } catch {
