@@ -309,14 +309,18 @@ function CommentActionRail({
   return (
     <div className="-ml-1 flex items-center gap-1">
       <CommentStokeButton feedId={feedId} comment={comment} canStoke={canStoke} />
+      {/* Icons match the feed action rail (comment speech-bubble + share
+          box-arrow) for consistency; both stay disabled until Slice 2
+          lands threaded replies + a per-comment permalink. */}
       <SoonAction label="Reply" title="Replies — coming soon">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-          <path d="M21 11.5a8.38 8.38 0 0 1-8.5 8.5 8.5 8.5 0 0 1-3.8-.9L3 21l1.9-5.7A8.5 8.5 0 1 1 21 11.5Z" />
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" aria-hidden>
+          <path d="M2.5 3.5h11a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H7l-2.8 2.4a.5.5 0 0 1-.82-.38V11.5h-1a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1Z" />
         </svg>
       </SoonAction>
       <SoonAction label="Share" title="Share — coming soon">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-          <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8M16 6l-4-4-4 4M12 2v13" />
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <path d="M6.5 3.5h-2a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-2" />
+          <path d="M7 9 12.5 3.5M9 3.5h3.5V7" />
         </svg>
       </SoonAction>
     </div>
@@ -343,7 +347,11 @@ function CommentStokeButton({
   const hasStoked = comment.viewer_has_stoked ?? false;
   const count = comment.stoke_count ?? 0;
   const disabled = !canStoke || stokeMut.isPending;
-  const color = hasStoked ? "var(--bcc-secondary)" : "var(--bcc-stoke-ash)";
+  // Match the feed flame's resting look: burnt-orange outline when
+  // unstoked (like the post rail's cold heat-stage), solid forge-orange
+  // when stoked — not the grey-brown stoke-ash, which read as an odd
+  // yellow next to the feed's flame.
+  const color = hasStoked ? "var(--bcc-secondary)" : "var(--bcc-secondary-dark)";
 
   return (
     <button
