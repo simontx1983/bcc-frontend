@@ -70,6 +70,14 @@ type DialogProps = {
    * Always skipped under prefers-reduced-motion.
    */
   mobileSheet?: boolean;
+  /**
+   * Override the backdrop's tint/blur utilities (default
+   * "bg-ink/70 backdrop-blur-sm"). The Lightbox opts into a darker,
+   * heavier blur ("bg-ink/90 backdrop-blur-md") so a full-bleed image
+   * reads as theater mode rather than a floating card. Layout utilities
+   * (fixed/inset/z/flex) are unaffected.
+   */
+  backdropClassName?: string;
 };
 
 const FOCUSABLE =
@@ -84,6 +92,7 @@ export function Dialog({
   bare = false,
   center = false,
   mobileSheet = false,
+  backdropClassName = "bg-ink/70 backdrop-blur-sm",
 }: DialogProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   const reducedMotion = usePrefersReducedMotion();
@@ -168,7 +177,7 @@ export function Dialog({
       className={
         // z-[400] clears the fixed SiteHeader (z-300) and MobileNav
         // (z-200) — a dialog must always sit above both chrome layers.
-        "fixed inset-0 z-[400] flex justify-center bg-ink/70 backdrop-blur-sm " +
+        "fixed inset-0 z-[400] flex justify-center " + backdropClassName + " " +
         (mobileSheet ? "p-0 md:p-4 " : "p-4 ") +
         (center ? "items-center " : "items-end md:items-center ") +
         (fade ? "transition-opacity duration-200 " + (shown ? "opacity-100" : "opacity-0") : "")
@@ -194,9 +203,26 @@ export function Dialog({
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="bcc-mono absolute right-4 top-4 text-[10px] tracking-[0.24em] text-cardstock-deep hover:text-bcc-text"
+            className="absolute right-3 top-3 inline-flex h-8 w-8 items-center justify-center rounded-full text-[var(--bcc-text-secondary)] transition-colors hover:text-[var(--bcc-text)]"
+            style={{
+              background: "var(--bcc-glass-bg)",
+              backdropFilter: "blur(var(--bcc-glass-blur))",
+              WebkitBackdropFilter: "blur(var(--bcc-glass-blur))",
+              border: "1px solid var(--bcc-glass-border)",
+            }}
           >
-            ESC
+            <svg
+              width="15"
+              height="15"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.2"
+              strokeLinecap="round"
+              aria-hidden
+            >
+              <path d="M6 6l12 12M18 6L6 18" />
+            </svg>
           </button>
         )}
         {children}

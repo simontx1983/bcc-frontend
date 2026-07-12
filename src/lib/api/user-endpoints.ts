@@ -17,7 +17,7 @@
  * delegate to Next's `notFound()`.
  */
 
-import { bccFetch } from "@/lib/api/client";
+import { bccFetch, bccFetchAsClient } from "@/lib/api/client";
 import type { MemberProfile } from "@/lib/api/types";
 
 /**
@@ -38,5 +38,21 @@ export function getUser(
     token,
     ...(opts?.signal !== undefined ? { signal: opts.signal } : {}),
     ...(opts?.revalidate !== undefined ? { revalidate: opts.revalidate } : {}),
+  });
+}
+
+/**
+ * Client twin of `getUser` — reads the session bearer itself. Backs the
+ * lazy `useUser` hook that enriches the author hover/sidebar card (bio +
+ * counts) on demand, Twitter-style. Cached per handle by React Query so
+ * repeated hovers over the same author don't refetch.
+ */
+export function getUserAsClient(
+  handle: string,
+  signal?: AbortSignal
+): Promise<MemberProfile> {
+  return bccFetchAsClient<MemberProfile>(`users/${encodeURIComponent(handle)}`, {
+    method: "GET",
+    ...(signal !== undefined ? { signal } : {}),
   });
 }

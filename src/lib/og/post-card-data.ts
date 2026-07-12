@@ -11,7 +11,7 @@
 
 import { deriveInitials } from "@/lib/format/initials";
 import { presentationName } from "@/lib/format";
-import { POST_KIND_LABELS } from "@/components/feed/FeedPostBody";
+import { POST_KIND_LABELS } from "@/components/feed/postBody";
 import type { FeedItem } from "@/lib/api/types";
 import type { OgCardData } from "@/lib/og/card-image";
 

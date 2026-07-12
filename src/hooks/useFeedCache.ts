@@ -27,22 +27,30 @@
 
 import type { InfiniteData, QueryClient } from "@tanstack/react-query";
 
-import { FEED_QUERY_KEY_ROOT } from "@/hooks/useFeed";
+import { FEED_ITEM_QUERY_KEY, FEED_QUERY_KEY_ROOT } from "@/hooks/useFeed";
 import type { FeedItem, FeedReactions, FeedResponse } from "@/lib/api/types";
 
 export interface SetMutationContext {
   /** Snapshot of every feed page we touched, keyed by query key (JSON). */
   snapshots: Array<{ queryKey: readonly unknown[]; data: InfiniteData<FeedResponse> | undefined }>;
+  /**
+   * Snapshot of the `["feedItem", id]` single-post cache (the `/post/[id]`
+   * detail view). Present whether or not that query exists — `data` is
+   * `undefined` when it doesn't, which restores cleanly to "no entry".
+   */
+  single: { queryKey: readonly unknown[]; data: FeedItem | undefined };
 }
 
 /**
- * Snapshot every feed-namespace infinite-query that contains the
- * target feed_id. Restorable on error.
+ * Snapshot every place the target item lives — feed pages AND the
+ * single-post detail cache — so an optimistic patch is fully restorable
+ * on error. Replaces the former `snapshotMatchingPages` (feed-only),
+ * which left the detail view un-rolled-back.
  */
-export function snapshotMatchingPages(
+export function snapshotFeed(
   queryClient: QueryClient,
   feedId: string
-): SetMutationContext["snapshots"] {
+): SetMutationContext {
   const queries = queryClient.getQueriesData<InfiniteData<FeedResponse>>({
     queryKey: FEED_QUERY_KEY_ROOT,
   });
@@ -54,21 +62,30 @@ export function snapshotMatchingPages(
       snapshots.push({ queryKey: key, data });
     }
   }
-  return snapshots;
+
+  const singleKey = FEED_ITEM_QUERY_KEY(feedId);
+  return {
+    snapshots,
+    single: { queryKey: singleKey, data: queryClient.getQueryData<FeedItem>(singleKey) },
+  };
 }
 
-export function restoreSnapshots(
+export function restoreFeed(
   queryClient: QueryClient,
-  snapshots: SetMutationContext["snapshots"]
+  context: SetMutationContext | undefined
 ): void {
-  for (const { queryKey, data } of snapshots) {
+  if (context === undefined) return;
+  for (const { queryKey, data } of context.snapshots) {
     queryClient.setQueryData(queryKey, data);
   }
+  queryClient.setQueryData(context.single.queryKey, context.single.data);
 }
 
 /**
- * Walk every feed-namespace infinite query and apply `update` to
- * the matching item. The update returns the new `reactions` block.
+ * Apply `update` (returns the new `reactions` block) to the matching item
+ * everywhere it's cached: every feed-namespace infinite query AND the
+ * `["feedItem", id]` detail cache. Patching both is what keeps the detail
+ * view's rail live and in sync with the feed row after a Stoke.
  */
 export function patchFeedItem(
   queryClient: QueryClient,
@@ -91,6 +108,10 @@ export function patchFeedItem(
         })),
       };
     }
+  );
+
+  queryClient.setQueryData<FeedItem>(FEED_ITEM_QUERY_KEY(feedId), (old) =>
+    old === undefined ? old : { ...old, reactions: update(old) }
   );
 }
 

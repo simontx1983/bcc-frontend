@@ -45,6 +45,15 @@ export interface AuthorVouchButtonProps {
   viewerAttestation?: ViewerAttestation | undefined;
   /** Whether the viewer may vouch (authed-only). */
   canVouch?: AuthorVouchPermission | undefined;
+  /**
+   * Visual size. "byline" (default) is the compact chip that rides next
+   * to a name; "card" is the rounded-full pill used in the author card's
+   * action row, sized to sit beside the Follow pill. Same behavior, only
+   * the shape/scale differs.
+   */
+  size?: "byline" | "card";
+  /** Extra classes for the card-variant wrapper (e.g. `flex-1` for a 50/50 row). */
+  className?: string;
 }
 
 function humanizeVouchError(err: BccApiError): string {
@@ -77,6 +86,8 @@ function AuthorVouchButtonImpl({
   displayName,
   viewerAttestation,
   canVouch,
+  size = "byline",
+  className = "",
 }: AuthorVouchButtonProps) {
   const [errorText, setErrorText] = useState<string | null>(null);
 
@@ -140,29 +151,60 @@ function AuthorVouchButtonImpl({
         border: "1px solid var(--safety)",
       };
 
+  const isCard = size === "card";
+
+  const button = (
+    <button
+      type="button"
+      onClick={handleClick}
+      disabled={isPending}
+      aria-busy={isPending}
+      aria-pressed={hasVouched}
+      aria-label={
+        hasVouched
+          ? `Remove your vouch for ${displayName}`
+          : `Vouch for ${displayName}`
+      }
+      title={
+        hasVouched
+          ? `You vouch for ${displayName}. Click to revoke.`
+          : `Vouch for ${displayName} — back this operator.`
+      }
+      className={
+        isCard
+          ? // Card variant shares the Follow button's shape, stencil font,
+            // 1.5px border, and hover fill (via .bcc-btn-vouch[-on]) so the
+            // two pills read as one equal-height set.
+            `bcc-btn bcc-btn-sm w-full ${hasVouched ? "bcc-btn-vouch-on" : "bcc-btn-vouch"}`
+          : "bcc-mono shrink-0 rounded px-1.5 py-0.5 text-[10px] tracking-[0.18em] transition-opacity disabled:opacity-60"
+      }
+      style={isCard ? undefined : pillStyle}
+    >
+      {label}
+    </button>
+  );
+
+  // Card variant is a full-width block (it lives in a flex-1 slot beside
+  // Follow); byline variant is an inline chip that rides next to a name.
+  if (isCard) {
+    return (
+      <span className={`flex w-full flex-col gap-1 ${className}`}>
+        {button}
+        {errorText !== null && (
+          <span
+            role="status"
+            className="bcc-mono text-[10px] leading-snug text-[color:var(--danger)]"
+          >
+            {errorText}
+          </span>
+        )}
+      </span>
+    );
+  }
+
   return (
     <span className="inline-flex shrink-0 items-baseline gap-1.5">
-      <button
-        type="button"
-        onClick={handleClick}
-        disabled={isPending}
-        aria-busy={isPending}
-        aria-pressed={hasVouched}
-        aria-label={
-          hasVouched
-            ? `Remove your vouch for ${displayName}`
-            : `Vouch for ${displayName}`
-        }
-        title={
-          hasVouched
-            ? `You vouch for ${displayName}. Click to revoke.`
-            : `Vouch for ${displayName} — back this operator.`
-        }
-        className="bcc-mono shrink-0 rounded px-1.5 py-0.5 text-[10px] tracking-[0.18em] transition-opacity disabled:opacity-60"
-        style={pillStyle}
-      >
-        {label}
-      </button>
+      {button}
       {errorText !== null && (
         <span
           role="status"

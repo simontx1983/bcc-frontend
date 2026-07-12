@@ -22,11 +22,11 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { removeStoke, setStoke } from "@/lib/api/stoke-endpoints";
 import {
   patchFeedItem,
-  restoreSnapshots,
-  snapshotMatchingPages,
+  restoreFeed,
+  snapshotFeed,
   type SetMutationContext,
 } from "@/hooks/useFeedCache";
-import { FEED_QUERY_KEY_ROOT } from "@/hooks/useFeed";
+import { FEED_ITEM_QUERY_KEY, FEED_QUERY_KEY_ROOT } from "@/hooks/useFeed";
 import type { BccApiError, FeedReactions, FeedItem } from "@/lib/api/types";
 
 export function useStokeMutation() {
@@ -37,9 +37,10 @@ export function useStokeMutation() {
 
     onMutate: async (feedId) => {
       await queryClient.cancelQueries({ queryKey: FEED_QUERY_KEY_ROOT });
-      const snapshots = snapshotMatchingPages(queryClient, feedId);
+      await queryClient.cancelQueries({ queryKey: FEED_ITEM_QUERY_KEY(feedId) });
+      const context = snapshotFeed(queryClient, feedId);
       patchFeedItem(queryClient, feedId, (item) => applyOptimisticStoke(item));
-      return { snapshots };
+      return context;
     },
 
     onSuccess: (serverState, feedId) => {
@@ -47,7 +48,7 @@ export function useStokeMutation() {
     },
 
     onError: (_err, _feedId, context) => {
-      restoreSnapshots(queryClient, context?.snapshots ?? []);
+      restoreFeed(queryClient, context);
     },
   });
 }
@@ -60,9 +61,10 @@ export function useUnstokeMutation() {
 
     onMutate: async (feedId) => {
       await queryClient.cancelQueries({ queryKey: FEED_QUERY_KEY_ROOT });
-      const snapshots = snapshotMatchingPages(queryClient, feedId);
+      await queryClient.cancelQueries({ queryKey: FEED_ITEM_QUERY_KEY(feedId) });
+      const context = snapshotFeed(queryClient, feedId);
       patchFeedItem(queryClient, feedId, (item) => applyOptimisticUnstoke(item));
-      return { snapshots };
+      return context;
     },
 
     onSuccess: (serverState, feedId) => {
@@ -70,7 +72,7 @@ export function useUnstokeMutation() {
     },
 
     onError: (_err, _feedId, context) => {
-      restoreSnapshots(queryClient, context?.snapshots ?? []);
+      restoreFeed(queryClient, context);
     },
   });
 }

@@ -27,6 +27,8 @@ import { Fragment, type ReactNode } from "react";
 import Link from "next/link";
 import type { Route } from "next";
 
+import { MentionHovercard } from "@/components/identity/MentionHovercard";
+
 import type { Mention } from "@/lib/api/types";
 
 export function renderTextWithMentions(
@@ -57,13 +59,19 @@ export function renderTextWithMentions(
       );
     }
     out.push(
-      <Link
+      <MentionHovercard
         key={`m-${key++}-${m.user_id}`}
-        href={`/u/${m.handle}` as Route}
-        className="text-blueprint hover:underline"
+        handle={m.handle}
+        userId={m.user_id}
+        displayName={m.display_name}
       >
-        @{m.display_name}
-      </Link>
+        <Link
+          href={`/u/${m.handle}` as Route}
+          className="text-[var(--bcc-accent)] hover:underline"
+        >
+          @{m.display_name}
+        </Link>
+      </MentionHovercard>
     );
     cursor = end;
   }

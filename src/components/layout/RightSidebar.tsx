@@ -18,7 +18,8 @@ import { useCallback, useMemo } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 
-import { Avatar } from "@/components/identity/Avatar";
+import { AdCarousel } from "@/components/layout/AdCarousel";
+import { AvatarHovercard } from "@/components/identity/AvatarHovercard";
 import { RankChip } from "@/components/profile/RankChip";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { useMembers } from "@/hooks/useMembers";
@@ -44,19 +45,7 @@ export function RightSidebar() {
       <SuggestedWidget />
 
       {/* ── Ad slot ── */}
-      <div
-        className="bcc-widget"
-        style={{
-          minHeight: 100,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      >
-        <span className="bcc-mono bcc-text-muted" style={{ fontSize: 11 }}>
-          AD SLOT
-        </span>
-      </div>
+      <AdCarousel />
 
     </div>
   );
@@ -98,21 +87,26 @@ function NewestMembersWidget() {
       <div className="bcc-widget-head">Newest Members</div>
       <div className="bcc-widget-body" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         {members.map((member) => (
-          <Link
+          <div
             key={member.id}
-            href={`/u/${member.handle}`}
-            style={{ display: "flex", alignItems: "center", gap: 10, textDecoration: "none", minWidth: 0 }}
+            style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}
           >
-            <Avatar
+            <AvatarHovercard
               avatarUrl={member.crest.image_url ?? ""}
               handle={member.handle}
               displayName={member.name}
               size="md"
-              variant="rounded"
-              tier={member.card_tier}
+              cardTier={member.card_tier}
+              rankLabel={member.rank_label ?? ""}
+              tierLabel={member.tier_label}
+              vouchTargetId={member.id}
               ringColor="var(--bcc-accent)"
+              asLink
             />
-            <span style={{ flex: 1, minWidth: 0 }}>
+            <Link
+              href={`/u/${member.handle}`}
+              style={{ flex: 1, minWidth: 0, textDecoration: "none" }}
+            >
               <span className="bcc-truncate" style={{ display: "block", fontSize: 13, lineHeight: 1.25, fontWeight: 600, color: "var(--bcc-text)" }}>
                 {member.name}
               </span>
@@ -127,8 +121,8 @@ function NewestMembersWidget() {
                   size="compact"
                 />
               </span>
-            </span>
-          </Link>
+            </Link>
+          </div>
         ))}
       </div>
     </div>
@@ -276,20 +270,23 @@ function SuggestedWidget() {
               key={member.id}
               style={{ display: "flex", alignItems: "center", gap: 10 }}
             >
+              <AvatarHovercard
+                avatarUrl={member.avatar_url}
+                handle={member.handle}
+                displayName={member.display_name}
+                size="md"
+                cardTier={member.card_tier}
+                rankLabel={member.rank_label}
+                tierLabel={member.tier_label}
+                vouchTargetId={member.id}
+                ringColor="var(--bcc-accent)"
+                asLink
+              />
               <Link
                 href={`/u/${member.handle}`}
-                style={{ display: "flex", alignItems: "center", gap: 10, textDecoration: "none", flex: 1, minWidth: 0 }}
+                style={{ textDecoration: "none", flex: 1, minWidth: 0 }}
               >
-                <Avatar
-                  avatarUrl={member.avatar_url}
-                  handle={member.handle}
-                  displayName={member.display_name}
-                  size="md"
-                  variant="rounded"
-                  tier={member.card_tier}
-                  ringColor="var(--bcc-accent)"
-                />
-                <span style={{ flex: 1, minWidth: 0 }}>
+                <span style={{ display: "block", minWidth: 0 }}>
                   <span className="bcc-truncate" style={{ display: "block", fontSize: 13, lineHeight: 1.25, fontWeight: 600, color: "var(--bcc-text)" }}>
                     {member.display_name}
                   </span>

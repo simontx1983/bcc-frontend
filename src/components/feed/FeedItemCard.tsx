@@ -18,19 +18,18 @@
  *   - Inline reaction rail (Solid / Vouch / Stand-behind buttons)
  */
 
-import { memo, useMemo } from "react";
+import { memo, useCallback, useMemo } from "react";
 import type { Route } from "next";
+import { useRouter } from "next/navigation";
 
 import {
   BlogExcerptBody,
   GifBody,
   PhotoBody,
-  POST_KIND_LABELS,
   ReviewBody,
-  deriveBodySummary,
 } from "@/components/feed/FeedPostBody";
+import { POST_KIND_LABELS, deriveBodySummary } from "@/components/feed/postBody";
 import { PostOverflowMenu } from "@/components/feed/PostOverflowMenu";
-import { usePostQuickView } from "@/components/feed/PostQuickViewProvider";
 import { ReactionRail } from "@/components/feed/ReactionRail";
 import { ReactorStack } from "@/components/feed/ReactorStack";
 import { ShareButton } from "@/components/feed/ShareButton";
@@ -55,7 +54,7 @@ function FeedItemCardImpl({
    */
   canInteract?: boolean;
 }) {
-  const quickView = usePostQuickView();
+  const router = useRouter();
   const kindLabel = POST_KIND_LABELS[item.post_kind] ?? item.post_kind.toUpperCase();
   const isReview  = item.post_kind === "review";
   const isBlog    = item.post_kind === "blog_excerpt";
@@ -79,17 +78,24 @@ function FeedItemCardImpl({
 
   const commentCount = item.comment_count ?? 0;
 
-  // Whole-card click opens the in-feed quick view (not a route change —
-  // see PostQuickViewProvider). Any interactive descendant (avatar /
-  // author links, mention links, the review/blog target link, photo/gif
-  // lightbox button, reaction + footer buttons, overflow menu) opts out
-  // via `closest("a, button")` so its own handler runs instead. The
-  // selection check keeps highlighting body text from firing the open.
+  // Whole-card click soft-navigates to the post permalink (Reddit/Twitter
+  // style — real URL change, native Back restores the feed's scroll from
+  // React Query's cache). Any interactive descendant (avatar / author
+  // links, mention links, the review/blog target link, photo/gif lightbox
+  // button, reaction + footer buttons, overflow menu) opts out via
+  // `closest("a, button")` so its own handler runs instead. The selection
+  // check keeps highlighting body text from firing the navigation.
   const handleBodyClick = (e: React.MouseEvent<HTMLElement>) => {
     if ((e.target as HTMLElement).closest("a, button")) return;
     if ((window.getSelection()?.toString() ?? "") !== "") return;
-    quickView.open(item);
+    router.push(selfHref);
   };
+
+  // Warm the permalink on hover so the click lands instantly (Twitter-fast
+  // rather than Reddit-loady). Prefetch is idempotent and cheap.
+  const prefetchSelf = useCallback(() => {
+    router.prefetch(selfHref);
+  }, [router, selfHref]);
 
   // Grouped secondary meta line (kind label · verification · timestamp ·
   // overflow) rendered in AuthorBadge's trailing slot, so the display
@@ -100,12 +106,16 @@ function FeedItemCardImpl({
   const trailing = useMemo(
     () => (
       <div className="flex shrink-0 items-baseline gap-2">
-        <span
-          className="bcc-mono shrink-0 rounded px-1.5 py-0.5 text-[10px] text-[var(--bcc-text-secondary)]"
-          style={{ background: "var(--bcc-surface-active)" }}
-        >
-          {kindLabel}
-        </span>
+        {/* Kind chip — suppressed for plain posts ("POSTED" adds nothing);
+            kept for action kinds (WATCHED, REVIEWED, DISPUTED, …). */}
+        {kindLabel !== "POSTED" && (
+          <span
+            className="bcc-mono shrink-0 rounded px-1.5 py-0.5 text-[10px] text-[var(--bcc-text-secondary)]"
+            style={{ background: "var(--bcc-surface-active)" }}
+          >
+            {kindLabel}
+          </span>
+        )}
         {groupVerification !== null && (
           <VerificationBadge
             label={groupVerification.label}
@@ -128,6 +138,7 @@ function FeedItemCardImpl({
   return (
     <article
       onClick={handleBodyClick}
+      onMouseEnter={prefetchSelf}
       className="bcc-panel relative flex cursor-pointer flex-col gap-3 p-3.5 sm:p-4"
     >
       {/*
@@ -155,9 +166,9 @@ function FeedItemCardImpl({
 
         {isBlog && <BlogExcerptBody body={item.body} authorHandle={item.author.handle} />}
 
-        {isPhoto && <PhotoBody body={item.body} />}
+        {isPhoto && <PhotoBody item={item} />}
 
-        {isGif && <GifBody body={item.body} />}
+        {isGif && <GifBody item={item} />}
 
         {summary !== "" && (
           <p className="font-serif text-[var(--bcc-text)] whitespace-pre-line">
@@ -182,7 +193,7 @@ function FeedItemCardImpl({
         <ActionPill>
           <button
             type="button"
-            onClick={() => quickView.open(item, { focusComposer: true })}
+            onClick={() => router.push(`${selfHref}?intent=comment` as Route)}
             aria-label="Open comments, focus the composer"
             className="group bcc-mono inline-flex min-h-[36px] items-center gap-1.5 rounded-full px-1.5 text-[12px] text-[var(--bcc-text-secondary)]"
             title="Open comments, focus the composer"
