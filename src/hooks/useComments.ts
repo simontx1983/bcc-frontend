@@ -25,6 +25,7 @@
  */
 
 import {
+  keepPreviousData,
   useInfiniteQuery,
   useMutation,
   useQueryClient,
@@ -44,6 +45,7 @@ import { USER_ACTIVITY_QUERY_KEY_ROOT } from "@/hooks/useUserActivity";
 import type {
   BccApiError,
   Comment,
+  CommentSort,
   CommentsResponse,
   CreateCommentRequest,
   CreateCommentResponse,
@@ -52,13 +54,30 @@ import type {
 
 const PAGE_SIZE = 20;
 
-/** Root key — keyed by feed_id so each post's drawer has its own cache. */
+const DEFAULT_SORT: CommentSort = "relevant";
+
+/**
+ * Prefix key — keyed by feed_id so each post's drawer has its own cache.
+ * Each sort caches independently under `[...prefix, sort]` (see
+ * `commentsListQueryKey`); the write mutations patch across every cached
+ * sort variant by matching this prefix, so a new/deleted/stoked comment
+ * stays consistent whichever tab the viewer switches to.
+ */
 export function commentsQueryKey(feedId: string): QueryKey {
   return ["comments", feedId];
 }
 
-export function useComments(feedId: string, options: { enabled?: boolean } = {}) {
+/** Exact list key for one sort — the dimension that makes each tab its own cache. */
+export function commentsListQueryKey(feedId: string, sort: CommentSort): QueryKey {
+  return ["comments", feedId, sort];
+}
+
+export function useComments(
+  feedId: string,
+  options: { enabled?: boolean; sort?: CommentSort } = {},
+) {
   const enabled = options.enabled ?? true;
+  const sort = options.sort ?? DEFAULT_SORT;
   return useInfiniteQuery<
     CommentsResponse,
     BccApiError,
@@ -66,7 +85,7 @@ export function useComments(feedId: string, options: { enabled?: boolean } = {})
     QueryKey,
     string | null
   >({
-    queryKey: commentsQueryKey(feedId),
+    queryKey: commentsListQueryKey(feedId, sort),
     enabled: enabled && feedId !== "",
     initialPageParam: null,
     queryFn: ({ pageParam, signal }) =>
@@ -74,6 +93,7 @@ export function useComments(feedId: string, options: { enabled?: boolean } = {})
         feedId,
         cursor: pageParam ?? undefined,
         limit: PAGE_SIZE,
+        sort,
       }).then((res) => {
         // signal is forwarded by react-query for cancellation; the
         // typed wrapper doesn't accept one yet, so we just return.
@@ -84,12 +104,31 @@ export function useComments(feedId: string, options: { enabled?: boolean } = {})
       }),
     getNextPageParam: (lastPage) => lastPage.next_cursor ?? undefined,
     staleTime: 30_000,
+    // Keep the current tab's rows on screen while a newly-selected sort
+    // loads, so switching Relevant/Top/New doesn't flash the skeleton.
+    placeholderData: keepPreviousData,
   });
 }
 
+/**
+ * Snapshot of every cached sort variant for one feed's comments (each
+ * `[queryKey, data]` pair from `getQueriesData`), captured for rollback.
+ */
+export type CommentsSnapshot = Array<[QueryKey, InfiniteData<CommentsResponse> | undefined]>;
+
+export function restoreCommentsSnapshot(
+  queryClient: QueryClient,
+  snapshot: CommentsSnapshot | undefined,
+): void {
+  if (snapshot === undefined) return;
+  for (const [key, data] of snapshot) {
+    queryClient.setQueryData(key, data);
+  }
+}
+
 interface CreateMutationContext {
-  /** Snapshot of the comments cache for rollback on error. */
-  prevData: InfiniteData<CommentsResponse> | undefined;
+  /** Snapshot of every cached sort variant, for rollback on error. */
+  prevData: CommentsSnapshot;
   /** Optimistic comment id we inserted; used to replace on success. */
   optimisticId: string;
 }
@@ -106,10 +145,11 @@ export function useCreateCommentMutation(
     mutationFn: (req) => createComment(req),
 
     onMutate: async (req) => {
+      // Prefix key → patch every cached sort variant at once.
       const key = commentsQueryKey(req.feed_id);
       await queryClient.cancelQueries({ queryKey: key });
 
-      const prevData = queryClient.getQueryData<InfiniteData<CommentsResponse>>(key);
+      const prevData = queryClient.getQueriesData<InfiniteData<CommentsResponse>>({ queryKey: key });
       const optimisticId = `comment_optimistic_${Date.now()}`;
 
       const optimistic: Comment = {
@@ -135,17 +175,13 @@ export function useCreateCommentMutation(
         permissions: { can_delete: { allowed: true, unlock_hint: null } },
       };
 
-      queryClient.setQueryData<InfiniteData<CommentsResponse>>(key, (oldData) => {
-        if (oldData === undefined) {
-          return {
-            pages: [{ items: [optimistic], next_cursor: null }],
-            pageParams: [null],
-          };
-        }
+      // Prepend to the first page of every cached sort. For top/relevant
+      // this shows the fresh (zero-stoke) comment above its eventual
+      // sorted slot; the next refetch reconciles the order. New is exact.
+      queryClient.setQueriesData<InfiniteData<CommentsResponse>>({ queryKey: key }, (oldData) => {
+        if (oldData === undefined) return oldData;
         const [firstPage, ...rest] = oldData.pages;
-        if (firstPage === undefined) {
-          return oldData;
-        }
+        if (firstPage === undefined) return oldData;
         return {
           ...oldData,
           pages: [
@@ -161,20 +197,15 @@ export function useCreateCommentMutation(
     },
 
     onError: (_err, req, context) => {
-      const key = commentsQueryKey(req.feed_id);
-      if (context?.prevData !== undefined) {
-        queryClient.setQueryData(key, context.prevData);
-      }
+      restoreCommentsSnapshot(queryClient, context?.prevData);
       bumpFeedCommentCount(queryClient, req.feed_id, -1);
     },
 
     onSuccess: (response, req, context) => {
       const key = commentsQueryKey(req.feed_id);
-      queryClient.setQueryData<InfiniteData<CommentsResponse>>(key, (oldData) => {
-        if (oldData === undefined) {
-          return oldData;
-        }
-        const optimisticId = context?.optimisticId;
+      const optimisticId = context?.optimisticId;
+      queryClient.setQueriesData<InfiniteData<CommentsResponse>>({ queryKey: key }, (oldData) => {
+        if (oldData === undefined) return oldData;
         return {
           ...oldData,
           pages: oldData.pages.map((page) => ({
@@ -191,7 +222,7 @@ export function useCreateCommentMutation(
 }
 
 interface DeleteMutationContext {
-  prevData: InfiniteData<CommentsResponse> | undefined;
+  prevData: CommentsSnapshot;
 }
 
 export function useDeleteCommentMutation(
@@ -209,8 +240,8 @@ export function useDeleteCommentMutation(
       const key = commentsQueryKey(params.feedId);
       await queryClient.cancelQueries({ queryKey: key });
 
-      const prevData = queryClient.getQueryData<InfiniteData<CommentsResponse>>(key);
-      queryClient.setQueryData<InfiniteData<CommentsResponse>>(key, (oldData) => {
+      const prevData = queryClient.getQueriesData<InfiniteData<CommentsResponse>>({ queryKey: key });
+      queryClient.setQueriesData<InfiniteData<CommentsResponse>>({ queryKey: key }, (oldData) => {
         if (oldData === undefined) return oldData;
         return {
           ...oldData,
@@ -227,10 +258,7 @@ export function useDeleteCommentMutation(
     },
 
     onError: (_err, params, context) => {
-      const key = commentsQueryKey(params.feedId);
-      if (context?.prevData !== undefined) {
-        queryClient.setQueryData(key, context.prevData);
-      }
+      restoreCommentsSnapshot(queryClient, context?.prevData);
       bumpFeedCommentCount(queryClient, params.feedId, +1);
     },
     ...options,

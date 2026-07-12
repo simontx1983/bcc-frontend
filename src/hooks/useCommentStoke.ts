@@ -20,7 +20,11 @@ import {
 } from "@tanstack/react-query";
 
 import { removeCommentStoke, setCommentStoke } from "@/lib/api/comment-endpoints";
-import { commentsQueryKey } from "@/hooks/useComments";
+import {
+  commentsQueryKey,
+  restoreCommentsSnapshot,
+  type CommentsSnapshot,
+} from "@/hooks/useComments";
 import type {
   BccApiError,
   Comment,
@@ -35,7 +39,8 @@ interface CommentStokeVars {
 }
 
 interface CommentStokeContext {
-  prevData: InfiniteData<CommentsResponse> | undefined;
+  /** Snapshot of every cached sort variant for rollback ([queryKey, data] pairs). */
+  prevData: CommentsSnapshot;
 }
 
 /**
@@ -61,6 +66,8 @@ function patchCommentRow(
 
 export function useCommentStoke(feedId: string) {
   const queryClient = useQueryClient();
+  // Prefix key — the same comment row lives in each cached sort variant
+  // (`["comments", feedId, sort]`), so patch/snapshot across all of them.
   const key = commentsQueryKey(feedId);
 
   return useMutation<CommentStokeResponse, BccApiError, CommentStokeVars, CommentStokeContext>({
@@ -69,9 +76,9 @@ export function useCommentStoke(feedId: string) {
 
     onMutate: async ({ commentId, hasStoked }) => {
       await queryClient.cancelQueries({ queryKey: key });
-      const prevData = queryClient.getQueryData<InfiniteData<CommentsResponse>>(key);
+      const prevData = queryClient.getQueriesData<InfiniteData<CommentsResponse>>({ queryKey: key });
 
-      queryClient.setQueryData<InfiniteData<CommentsResponse>>(key, (data) =>
+      queryClient.setQueriesData<InfiniteData<CommentsResponse>>({ queryKey: key }, (data) =>
         patchCommentRow(data, commentId, (row) => {
           const currently = row.viewer_has_stoked ?? false;
           const count = row.stoke_count ?? 0;
@@ -90,7 +97,7 @@ export function useCommentStoke(feedId: string) {
     },
 
     onSuccess: (server, { commentId }) => {
-      queryClient.setQueryData<InfiniteData<CommentsResponse>>(key, (data) =>
+      queryClient.setQueriesData<InfiniteData<CommentsResponse>>({ queryKey: key }, (data) =>
         patchCommentRow(data, commentId, () => ({
           stoke_count: server.stoke_count,
           viewer_has_stoked: server.viewer_has_stoked,
@@ -99,9 +106,7 @@ export function useCommentStoke(feedId: string) {
     },
 
     onError: (_err, _vars, context) => {
-      if (context?.prevData !== undefined) {
-        queryClient.setQueryData(key, context.prevData);
-      }
+      restoreCommentsSnapshot(queryClient, context?.prevData);
     },
   });
 }

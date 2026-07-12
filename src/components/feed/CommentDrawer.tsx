@@ -57,7 +57,7 @@ import { useCommentStoke } from "@/hooks/useCommentStoke";
 import { humanizeCode } from "@/lib/api/errors";
 import { formatRelativeTime } from "@/lib/format";
 import { renderTextWithMentions } from "@/lib/format/mentions";
-import type { Comment } from "@/lib/api/types";
+import type { Comment, CommentSort } from "@/lib/api/types";
 import { isAllowed } from "@/lib/permissions";
 
 const COMMENT_MAX_LENGTH = 2000;
@@ -88,7 +88,9 @@ export function CommentDrawer({
   const session = useSession();
   const isAuthed = session.status === "authenticated";
 
-  const query = useComments(feedId, { enabled: isOpen });
+  // §C15 sort — `relevant` is the server default (lean stoke×recency).
+  const [sort, setSort] = useState<CommentSort>("relevant");
+  const query = useComments(feedId, { enabled: isOpen, sort });
 
   if (!isOpen) {
     return null;
@@ -126,12 +128,10 @@ export function CommentDrawer({
 
   return (
     <div className="mt-3 border-t border-[var(--bcc-border)] pt-3">
-      {/* Filter row (§C15). "Newest" is the server default and the only
-          order the flat comment view-model supports today; "Top" is
-          pending a comment score + sort param on bcc-trust (see the
-          C-batch backend brief). Shown disabled so the affordance reads
-          without pretending to work. */}
-      {items.length > 0 && <CommentFilterRow />}
+      {/* Filter row (§C15) — Relevant (default) / Top / New, all live.
+          Relevant + Top sort on the comment stoke_count; the server owns
+          the ordering (§A2). */}
+      {items.length > 0 && <CommentFilterRow sort={sort} onSortChange={setSort} />}
 
       {/* Sprint 5 empty-state hygiene: the "No comments yet." line was
           deleted — it restated an absence the composer below already
@@ -189,22 +189,42 @@ export function CommentDrawer({
 // Filter row
 // ─────────────────────────────────────────────────────────────────────
 
-function CommentFilterRow() {
+const SORT_TABS: ReadonlyArray<{ value: CommentSort; label: string; title: string }> = [
+  { value: "relevant", label: "RELEVANT", title: "Best first — stoke + recency" },
+  { value: "top",      label: "TOP",      title: "Most-stoked first" },
+  { value: "new",      label: "NEW",      title: "Newest first" },
+];
+
+function CommentFilterRow({
+  sort,
+  onSortChange,
+}: {
+  sort: CommentSort;
+  onSortChange: (sort: CommentSort) => void;
+}) {
   return (
     <div className="mb-3 flex items-center gap-1.5">
-      <span
-        className="bcc-mono rounded-full px-2.5 py-1 text-[10px] tracking-[0.14em] text-[var(--bcc-accent)]"
-        style={{ background: "var(--bcc-accent-subtle)" }}
-        aria-current="true"
-      >
-        NEWEST
-      </span>
-      <span
-        className="bcc-mono cursor-not-allowed rounded-full px-2.5 py-1 text-[10px] tracking-[0.14em] text-[var(--bcc-text-muted)] opacity-60"
-        title="Top comments — coming soon"
-      >
-        TOP
-      </span>
+      {SORT_TABS.map((tab) => {
+        const active = tab.value === sort;
+        return (
+          <button
+            key={tab.value}
+            type="button"
+            onClick={() => onSortChange(tab.value)}
+            aria-current={active ? "true" : undefined}
+            title={tab.title}
+            className={
+              "bcc-mono rounded-full px-2.5 py-1 text-[10px] tracking-[0.14em] transition-colors " +
+              (active
+                ? "text-[var(--bcc-accent)]"
+                : "text-[var(--bcc-text-muted)] hover:text-[var(--bcc-text-secondary)]")
+            }
+            style={active ? { background: "var(--bcc-accent-subtle)" } : undefined}
+          >
+            {tab.label}
+          </button>
+        );
+      })}
     </div>
   );
 }

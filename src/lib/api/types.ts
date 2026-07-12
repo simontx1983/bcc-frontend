@@ -737,6 +737,13 @@ export interface Comment {
 }
 
 /**
+ * Comment list sort (§4.13 `sort` param). `relevant` is the server
+ * default — a lean stoke×recency heuristic; `top` is most-stoked;
+ * `new` is chronological.
+ */
+export type CommentSort = "relevant" | "top" | "new";
+
+/**
  * Response shape for `GET /posts/:feed_id/comments`. Cursor mirrors
  * the feed cursor encoding so the same `lib/api/client` cursor
  * helpers work without modification.
