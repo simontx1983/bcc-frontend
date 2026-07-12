@@ -13,11 +13,38 @@
 
 import { bccFetchAsClient } from "@/lib/api/client";
 import type {
+  CommentStokeResponse,
   CommentsResponse,
   CreateCommentRequest,
   CreateCommentResponse,
   DeleteCommentResponse,
 } from "@/lib/api/types";
+
+/**
+ * Comment ids are `comment_<act_id>`; the stoke route is keyed by the
+ * bare numeric act_id (matching `/feed/{id}/stoke`). Strip the prefix.
+ */
+function actIdFromCommentId(commentId: string): string {
+  return commentId.startsWith("comment_")
+    ? commentId.slice("comment_".length)
+    : commentId;
+}
+
+/** POST /comments/:id/stoke — add the viewer's stoke. Idempotent server-side. */
+export function setCommentStoke(commentId: string): Promise<CommentStokeResponse> {
+  return bccFetchAsClient<CommentStokeResponse>(
+    `comments/${encodeURIComponent(actIdFromCommentId(commentId))}/stoke`,
+    { method: "POST" }
+  );
+}
+
+/** DELETE /comments/:id/stoke — remove the viewer's stoke. Idempotent at zero. */
+export function removeCommentStoke(commentId: string): Promise<CommentStokeResponse> {
+  return bccFetchAsClient<CommentStokeResponse>(
+    `comments/${encodeURIComponent(actIdFromCommentId(commentId))}/stoke`,
+    { method: "DELETE" }
+  );
+}
 
 export interface ListCommentsParams {
   feedId: string;

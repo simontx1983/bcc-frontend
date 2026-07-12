@@ -39,6 +39,7 @@ import {
   useRef,
   useState,
   type FormEvent,
+  type ReactNode,
 } from "react";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
@@ -52,6 +53,7 @@ import {
   useCreateCommentMutation,
   useDeleteCommentMutation,
 } from "@/hooks/useComments";
+import { useCommentStoke } from "@/hooks/useCommentStoke";
 import { humanizeCode } from "@/lib/api/errors";
 import { formatRelativeTime } from "@/lib/format";
 import { renderTextWithMentions } from "@/lib/format/mentions";
@@ -140,7 +142,11 @@ export function CommentDrawer({
       <ul className="flex flex-col gap-3">
         {items.map((comment) => (
           <li key={comment.id}>
-            <CommentRow feedId={feedId} comment={comment} />
+            <CommentRow
+              feedId={feedId}
+              comment={comment}
+              canStoke={isAuthed && canInteract}
+            />
           </li>
         ))}
       </ul>
@@ -207,16 +213,21 @@ function CommentFilterRow() {
 // Single comment row
 // ─────────────────────────────────────────────────────────────────────
 
-function CommentRow({ feedId, comment }: { feedId: string; comment: Comment }) {
-  const deleteMut = useDeleteCommentMutation();
+function CommentRow({
+  feedId,
+  comment,
+  canStoke,
+}: {
+  feedId: string;
+  comment: Comment;
+  /** Viewer is authed AND allowed to interact (member on gated posts). */
+  canStoke: boolean;
+}) {
   const canDelete = isAllowed(comment.permissions, "can_delete");
-  const isPending = deleteMut.isPending;
 
-  // CommentAuthor (types.ts:672-709) ships handle, display_name,
-  // avatar_url — but NOT rank_label / card_tier / tier_label. AuthorBadge
-  // gracefully omits the RankChip when rank_label is absent, so the
-  // comment row stays austere until those fields ship on the comment
-  // view-model (backend gap — see frontend-implementer report).
+  // CommentAuthor (types.ts) ships handle, display_name, avatar_url plus
+  // rank/tier + vouch fields; AuthorBadge gracefully omits the RankChip
+  // when rank_label is absent.
   return (
     <article className="flex flex-col gap-1">
       <AuthorBadge
@@ -234,7 +245,7 @@ function CommentRow({ feedId, comment }: { feedId: string; comment: Comment }) {
         size="sm"
         avatarRingColor="var(--bcc-accent)"
         trailing={
-          <div className="flex items-baseline gap-2">
+          <div className="flex items-center gap-1">
             <time
               dateTime={comment.posted_at}
               title={comment.posted_at}
@@ -242,26 +253,225 @@ function CommentRow({ feedId, comment }: { feedId: string; comment: Comment }) {
             >
               {formatRelativeTime(comment.posted_at)}
             </time>
-            {canDelete && (
-              <button
-                type="button"
-                onClick={() =>
-                  deleteMut.mutate({ feedId, commentId: comment.id })
-                }
-                disabled={isPending}
-                className="bcc-mono inline-flex min-h-[36px] shrink-0 items-center px-2 text-[11px] tracking-[0.18em] text-[var(--bcc-text-muted)] hover:text-[var(--bcc-text)] disabled:cursor-not-allowed"
-                aria-label="Delete comment"
-              >
-                {isPending ? "…" : "DELETE"}
-              </button>
-            )}
+            <CommentOverflowMenu
+              feedId={feedId}
+              comment={comment}
+              canDelete={canDelete}
+            />
           </div>
         }
       />
       <p className="whitespace-pre-line pl-[40px] font-serif text-[14px] text-[var(--bcc-text)]">
         {renderTextWithMentions(comment.body, comment.mentions)}
       </p>
+      <div className="pl-[40px]">
+        <CommentActionRail feedId={feedId} comment={comment} canStoke={canStoke} />
+      </div>
     </article>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Action rail — Stoke (live) + Reply / Share (disabled until Slice 2's
+// parent_id + comment permalink land). Mirrors the feed stoke visual
+// language at a smaller size.
+// ─────────────────────────────────────────────────────────────────────
+
+function CommentActionRail({
+  feedId,
+  comment,
+  canStoke,
+}: {
+  feedId: string;
+  comment: Comment;
+  canStoke: boolean;
+}) {
+  return (
+    <div className="-ml-1 flex items-center gap-1">
+      <CommentStokeButton feedId={feedId} comment={comment} canStoke={canStoke} />
+      <SoonAction label="Reply" title="Replies — coming soon">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <path d="M21 11.5a8.38 8.38 0 0 1-8.5 8.5 8.5 8.5 0 0 1-3.8-.9L3 21l1.9-5.7A8.5 8.5 0 1 1 21 11.5Z" />
+        </svg>
+      </SoonAction>
+      <SoonAction label="Share" title="Share — coming soon">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8M16 6l-4-4-4 4M12 2v13" />
+        </svg>
+      </SoonAction>
+    </div>
+  );
+}
+
+function CommentStokeButton({
+  feedId,
+  comment,
+  canStoke,
+}: {
+  feedId: string;
+  comment: Comment;
+  canStoke: boolean;
+}) {
+  const stokeMut = useCommentStoke(feedId);
+
+  // Presence of the field is the rollout signal — a pre-1.2.22 backend
+  // omits it, so we hide the flame rather than post to a 404 endpoint.
+  if (comment.viewer_has_stoked === undefined && comment.stoke_count === undefined) {
+    return null;
+  }
+
+  const hasStoked = comment.viewer_has_stoked ?? false;
+  const count = comment.stoke_count ?? 0;
+  const disabled = !canStoke || stokeMut.isPending;
+  const color = hasStoked ? "var(--bcc-secondary)" : "var(--bcc-stoke-ash)";
+
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        if (disabled) return;
+        stokeMut.mutate({ commentId: comment.id, hasStoked });
+      }}
+      disabled={disabled}
+      aria-pressed={hasStoked}
+      aria-label={hasStoked ? "Stoked — tap to remove" : "Stoke"}
+      title={hasStoked ? "Stoked — tap to remove" : "Stoke"}
+      className="bcc-mono inline-flex min-h-[32px] items-center gap-1 rounded-full px-2 text-[11px] hover:bg-[var(--bcc-surface-hover)] disabled:cursor-not-allowed disabled:hover:bg-transparent"
+      style={{ color }}
+    >
+      <CommentFlameIcon color={color} outline={!hasStoked} />
+      {count > 0 && <span>{count}</span>}
+    </button>
+  );
+}
+
+/** Disabled "coming soon" action — reads as an affordance without pretending to work. */
+function SoonAction({
+  label,
+  title,
+  children,
+}: {
+  label: string;
+  title: string;
+  children: ReactNode;
+}) {
+  return (
+    <span
+      title={title}
+      aria-disabled="true"
+      className="bcc-mono inline-flex min-h-[32px] cursor-not-allowed items-center gap-1 rounded-full px-2 text-[11px] text-[var(--bcc-text-muted)] opacity-60"
+    >
+      {children}
+      {label}
+    </span>
+  );
+}
+
+function CommentFlameIcon({ color, outline }: { color: string; outline: boolean }) {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M12 2c1.2 2.6-0.4 4-1.4 5.4C9.4 8.8 8 10.4 8 12.8c0 .9.2 1.7.6 2.4-1-.5-1.8-1.4-2.2-2.6-.7 1-1.1 2.2-1.1 3.5 0 3.3 2.9 6 6.7 6s6.7-2.7 6.7-6c0-2.6-1-4.3-2.3-5.9.1.8.1 1.6-.1 2.3-.4-2.6-1.9-4.6-3.5-6.2C13.6 5.3 12.7 3.7 12 2Z"
+        fill={outline ? "none" : color}
+        stroke={outline ? color : "none"}
+        strokeWidth={outline ? 1.6 : 0}
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Overflow menu (⋯) — glassy popover replacing the old inline DELETE
+// text button. Delete is live (author-only); Report + Copy link are
+// stubbed until their backend / comment-permalink slices land.
+// ─────────────────────────────────────────────────────────────────────
+
+function CommentOverflowMenu({
+  feedId,
+  comment,
+  canDelete,
+}: {
+  feedId: string;
+  comment: Comment;
+  canDelete: boolean;
+}) {
+  const deleteMut = useDeleteCommentMutation();
+  const [open, setOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const onDocClick = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    window.addEventListener("click", onDocClick);
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      window.removeEventListener("click", onDocClick);
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [open]);
+
+  return (
+    <div ref={containerRef} className="relative shrink-0">
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          setOpen((o) => !o);
+        }}
+        aria-label="More actions"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        className="bcc-mono inline-flex min-h-[32px] items-center px-1 text-[var(--bcc-text-muted)] hover:text-[var(--bcc-text)]"
+      >
+        ⋯
+      </button>
+      {open && (
+        <div
+          role="menu"
+          onClick={(e) => e.stopPropagation()}
+          className="bcc-panel absolute right-0 top-full z-20 mt-1 min-w-[140px] p-1"
+        >
+          <span
+            role="menuitem"
+            aria-disabled="true"
+            title="Report — coming soon"
+            className="bcc-mono block w-full cursor-not-allowed rounded-lg px-2 py-1.5 text-left text-[11px] text-[var(--bcc-text-muted)] opacity-60"
+          >
+            Report
+          </span>
+          <span
+            role="menuitem"
+            aria-disabled="true"
+            title="Copy link — coming soon"
+            className="bcc-mono block w-full cursor-not-allowed rounded-lg px-2 py-1.5 text-left text-[11px] text-[var(--bcc-text-muted)] opacity-60"
+          >
+            Copy link
+          </span>
+          {canDelete && (
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                deleteMut.mutate({ feedId, commentId: comment.id });
+                setOpen(false);
+              }}
+              disabled={deleteMut.isPending}
+              className="bcc-mono block w-full rounded-lg px-2 py-1.5 text-left text-[11px] text-[var(--bcc-text-secondary)] hover:bg-[var(--bcc-surface-active)] hover:text-[var(--bcc-danger)] disabled:cursor-not-allowed"
+            >
+              {deleteMut.isPending ? "Deleting…" : "Delete"}
+            </button>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 
