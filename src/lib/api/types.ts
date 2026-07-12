@@ -725,6 +725,15 @@ export interface Comment {
   permissions: {
     can_delete: FeedItemPermission;
   };
+  /**
+   * Comment Stoke state (§3.5) — a plain X-"like" toggle, NOT the post
+   * rail's velocity signal (no `heat_stage`). Both optional during
+   * rollout: absent (stale backend) → the row hides its stoke rail.
+   * `viewer_has_stoked` drives the flame fill; `stoke_count` the count
+   * beside it (hidden at 0).
+   */
+  stoke_count?: number;
+  viewer_has_stoked?: boolean;
 }
 
 /**
@@ -748,6 +757,16 @@ export interface CreateCommentResponse {
 
 export interface DeleteCommentResponse {
   comment_id: string;
+}
+
+/**
+ * Response for `POST`/`DELETE /comments/:id/stoke` — the comment's
+ * stoke pair only (no post-rail reaction envelope, no `heat_stage`).
+ * Patched onto the matching row in the comments cache.
+ */
+export interface CommentStokeResponse {
+  stoke_count: number;
+  viewer_has_stoked: boolean;
 }
 
 /**
