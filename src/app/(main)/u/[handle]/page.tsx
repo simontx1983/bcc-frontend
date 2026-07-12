@@ -552,10 +552,13 @@ function SectionFrame({
 // ──────────────────────────────────────────────────────────────────────
 
 function CountsStrip({ counts }: { counts: MemberCounts }) {
-  // Grouped per the 2026-05-13 UX review: SOCIAL (reach) · LIBRARY
-  // (watchlist) · TRUST OUTPUT (what they've done on the floor). Each
-  // group gets a kicker label so the six numbers read as three
-  // concepts rather than a flat row of equal stats.
+  // Grouped: SOCIAL (reach) · LIBRARY (watchlist) · TRUST WORK (real
+  // trust-layer acts) · RECOGNITION (social acknowledgement). Solids
+  // are a Layer-0 social ack that confers no trust (api-contract §670),
+  // so they live in their own RECOGNITION group — NOT beside reviews /
+  // disputes under a "trust" heading, which would read popularity as
+  // trust. Each group gets a kicker label so the numbers read as
+  // distinct concepts rather than a flat row of equal stats.
   const groups: Array<{
     label: string;
     cells: Array<{ label: string; value: number }>;
@@ -574,20 +577,25 @@ function CountsStrip({ counts }: { counts: MemberCounts }) {
       ],
     },
     {
-      label: "TRUST OUTPUT",
+      label: "TRUST WORK",
       cells: [
         { label: "REVIEWS WRITTEN", value: counts.reviews_written },
         { label: "DISPUTES SIGNED", value: counts.disputes_signed },
+      ],
+    },
+    {
+      label: "RECOGNITION",
+      cells: [
         { label: "SOLIDS RECEIVED", value: counts.solids_received },
       ],
     },
   ];
-  // 2/1/3 column proportions per the 2026-05-13 UX review — without
-  // these the single LIBRARY cell would render 2-3× wider than peer
-  // cells inside SOCIAL / TRUST OUTPUT, making BINDER read as
-  // anomalously loud.
+  // Column proportions track each group's cell count so cells stay
+  // visually even — without this the single-cell LIBRARY / RECOGNITION
+  // groups would render 2-3× wider than peer cells (see the 2026-05-13
+  // UX review note that first tuned this).
   return (
-    <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[2fr_1fr_3fr] lg:items-stretch lg:gap-6">
+    <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[2fr_1fr_2fr_1fr] lg:items-stretch lg:gap-6">
       {groups.map((group, idx) => (
         <div
           key={group.label}
