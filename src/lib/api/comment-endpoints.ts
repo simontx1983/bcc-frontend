@@ -13,6 +13,7 @@
 
 import { bccFetchAsClient } from "@/lib/api/client";
 import type {
+  CommentSort,
   CommentStokeResponse,
   CommentsResponse,
   CreateCommentRequest,
@@ -50,14 +51,18 @@ export interface ListCommentsParams {
   feedId: string;
   cursor?: string | undefined;
   limit?: number | undefined;
+  sort?: CommentSort | undefined;
 }
 
 /** GET /posts/:feed_id/comments — paginated list. */
 export function listComments(params: ListCommentsParams): Promise<CommentsResponse> {
-  const { feedId, cursor, limit } = params;
+  const { feedId, cursor, limit, sort } = params;
   const search = new URLSearchParams();
   if (limit !== undefined) {
     search.set("limit", String(limit));
+  }
+  if (sort !== undefined) {
+    search.set("sort", sort);
   }
   if (cursor !== undefined && cursor !== "") {
     search.set("cursor", cursor);
