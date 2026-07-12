@@ -2,7 +2,9 @@
 
 import { useEffect, useRef, useState } from "react";
 import { LeftSidebar } from "./LeftSidebar";
-import { RightSidebar } from "./RightSidebar";
+import { RightRailOutlet } from "./RightRailOutlet";
+import { RightRailProvider } from "./RightRailContext";
+import { useScrollRestoration } from "@/hooks/useScrollRestoration";
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -18,6 +20,11 @@ export function AppShell({
   const centerRef = useRef<HTMLElement>(null);
   const glowRef   = useRef<HTMLDivElement>(null);
   const [collapsed, setCollapsed] = useState(false);
+
+  // The feed scrolls inside this center column, not the window, so Next's
+  // scroll restoration can't reach it — remember + restore per route so
+  // Back from a post lands where you were. See useScrollRestoration.
+  useScrollRestoration(centerRef);
 
   useEffect(() => {
     if (window.innerWidth < 1280) {
@@ -69,6 +76,7 @@ export function AppShell({
   }, []);
 
   return (
+    <RightRailProvider>
     <div className="bcc-app-shell">
       <div className="bcc-body">
 
@@ -101,11 +109,12 @@ export function AppShell({
 
         {!hideRightSidebar && (
           <aside className="bcc-col bcc-col-right">
-            <RightSidebar />
+            <RightRailOutlet />
           </aside>
         )}
 
       </div>
     </div>
+    </RightRailProvider>
   );
 }

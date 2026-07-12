@@ -1,25 +1,27 @@
+"use client";
+
 /**
  * PostDetail — full-detail render of one FeedItem for the `/post/[id]`
- * permalink page and its in-feed quick view. Same identity header,
- * per-kind body, and reaction surfaces as `FeedItemCard`, but the
- * comment thread is permanently expanded (`CommentDrawer isOpen`)
- * instead of living behind a toggle — this IS the comments surface,
- * so there's nothing left to collapse.
+ * permalink page. Same identity header, per-kind body, and reaction
+ * surfaces as `FeedItemCard`, but the comment thread is permanently
+ * expanded (`CommentDrawer isOpen`) instead of living behind a toggle —
+ * this IS the comments surface, so there's nothing left to collapse.
  *
- * No "use client" — this component has no own state/hooks, so it
- * renders on the server in both the full-page route and the modal
- * route. `CommentDrawer`/`ReactionRail`/`ReactorStack` are client
- * components themselves; Next renders them fine inside a server tree.
+ * "use client" + `useFeedItem`: the server page fetches the post and
+ * hands it in as `initialData`, but the view reads it back through a
+ * React Query cache entry so Stoke (and future comment/reaction) patches
+ * re-render the rail. Rendered off a plain server prop, the rail was
+ * frozen — clicking Stoke updated the feed cache but never this view.
  */
 
 import {
   BlogExcerptBody,
   GifBody,
   PhotoBody,
-  POST_KIND_LABELS,
   ReviewBody,
-  deriveBodySummary,
 } from "@/components/feed/FeedPostBody";
+import { POST_KIND_LABELS, deriveBodySummary } from "@/components/feed/postBody";
+import { useFeedItem } from "@/hooks/useFeed";
 import { CommentDrawer } from "@/components/feed/CommentDrawer";
 import { PostOverflowMenu } from "@/components/feed/PostOverflowMenu";
 import { ReactionRail } from "@/components/feed/ReactionRail";
@@ -37,9 +39,8 @@ interface PostDetailProps {
   canInteract?: boolean;
   /**
    * Override the outer panel's classes. Defaults to the permalink page's
-   * own look (rounded on every corner). `PostQuickViewProvider` overrides this on
-   * mobile so the sheet reads flush-bottom with top-only rounding,
-   * without touching the `/post/[id]` full-page route.
+   * own look (rounded on every corner); kept as a prop so other surfaces
+   * can reuse PostDetail with their own framing.
    */
   className?: string;
   /** Opens with the comment composer focused + scrolled into view. */
@@ -47,11 +48,15 @@ interface PostDetailProps {
 }
 
 export function PostDetail({
-  item,
+  item: initialItem,
   canInteract = true,
   className = "bcc-panel relative flex flex-col gap-3 p-4 sm:p-5",
   focusComposer = false,
 }: PostDetailProps) {
+  // Reactive read seeded by the server fetch (initialData). Renders
+  // instantly with no client fetch; mutations patch this cache so the
+  // rail below reflects Stoke immediately instead of staying frozen.
+  const item = useFeedItem(initialItem.id, initialItem).data;
   const kindLabel = POST_KIND_LABELS[item.post_kind] ?? item.post_kind.toUpperCase();
   const isReview  = item.post_kind === "review";
   const isBlog    = item.post_kind === "blog_excerpt";
@@ -68,14 +73,20 @@ export function PostDetail({
           author={item.author}
           size="md"
           avatarRingColor="var(--bcc-accent)"
+          // The full author card already lives in the detail right rail —
+          // no hover popover on the byline here (B7).
+          hovercard={false}
           trailing={
             <div className="flex shrink-0 items-baseline gap-2">
-              <span
-                className="bcc-mono shrink-0 rounded px-1.5 py-0.5 text-[10px] text-[var(--bcc-text-secondary)]"
-                style={{ background: "var(--bcc-surface-active)" }}
-              >
-                {kindLabel}
-              </span>
+              {/* "POSTED" adds nothing; keep action kinds only. */}
+              {kindLabel !== "POSTED" && (
+                <span
+                  className="bcc-mono shrink-0 rounded px-1.5 py-0.5 text-[10px] text-[var(--bcc-text-secondary)]"
+                  style={{ background: "var(--bcc-surface-active)" }}
+                >
+                  {kindLabel}
+                </span>
+              )}
               {groupVerification !== null && (
                 <VerificationBadge
                   label={groupVerification.label}
@@ -99,9 +110,9 @@ export function PostDetail({
 
       {isBlog && <BlogExcerptBody body={item.body} authorHandle={item.author.handle} />}
 
-      {isPhoto && <PhotoBody body={item.body} />}
+      {isPhoto && <PhotoBody item={item} />}
 
-      {isGif && <GifBody body={item.body} />}
+      {isGif && <GifBody item={item} />}
 
       {summary !== "" && (
         <p className="font-serif text-[var(--bcc-text)] whitespace-pre-line">

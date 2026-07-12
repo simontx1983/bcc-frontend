@@ -24,23 +24,54 @@
 
 import {
   useInfiniteQuery,
+  useQuery,
   type InfiniteData,
   type QueryKey,
 } from "@tanstack/react-query";
 
 import {
   getFeed,
+  getFeedItemByIdAsClient,
   getHotFeed,
   getTagFeed,
   type FeedQueryParams,
 } from "@/lib/api/feed-endpoints";
-import type { BccApiError, FeedResponse, FeedScope } from "@/lib/api/types";
+import type { BccApiError, FeedItem, FeedResponse, FeedScope } from "@/lib/api/types";
 
 const PAGE_SIZE = 20;
 
 /** Root keys — exported so other code can invalidate the namespace. */
 export const FEED_QUERY_KEY_ROOT = ["feed"] as const;
 export const HOT_FEED_QUERY_KEY = ["feed", "hot"] as const;
+
+/**
+ * Single-item cache key — the `/post/[id]` detail view's reactive slot.
+ * Separate namespace from `["feed", …]` so it isn't swept by feed
+ * invalidations; the stoke/reaction cache helpers patch it explicitly
+ * (see useFeedCache) so the detail view's rail stays in sync with the
+ * feed row.
+ */
+export const FEED_ITEM_QUERY_KEY = (id: string) => ["feedItem", id] as const;
+
+/**
+ * useFeedItem — reactive read of one post for the permalink detail view.
+ *
+ * The `/post/[id]` server page fetches the item and passes it as
+ * `initialData`, so this renders instantly with no client fetch and no
+ * loading flash. Its real job is to give the detail view a React Query
+ * cache entry that mutations (Stoke, comments) can patch — the old
+ * static server prop couldn't reflect a toggle, which is why the rail
+ * looked dead in the detail view. `staleTime` keeps the SSR snapshot
+ * authoritative for a minute rather than refetching on mount.
+ */
+export function useFeedItem(id: string, initialData: FeedItem) {
+  return useQuery<FeedItem, BccApiError>({
+    queryKey: FEED_ITEM_QUERY_KEY(id),
+    queryFn: ({ signal }) => getFeedItemByIdAsClient(id, signal),
+    initialData,
+    staleTime: 60_000,
+  });
+}
 
 export function useHotFeed() {
   return useInfiniteQuery<

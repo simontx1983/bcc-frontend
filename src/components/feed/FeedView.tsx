@@ -43,6 +43,7 @@ import { DiscoverPanel } from "@/components/feed/DiscoverPanel";
 import { FeedItemCard } from "@/components/feed/FeedItemCard";
 import { FeedTabs } from "@/components/feed/FeedTabs";
 import { SKELETON_CLASS } from "@/components/ui/Skeleton";
+import { Spinner } from "@/components/ui/Spinner";
 import { useFeed, useHotFeed } from "@/hooks/useFeed";
 import { humanizeCode } from "@/lib/api/errors";
 import type { FeedItem, FeedScope } from "@/lib/api/types";
@@ -249,14 +250,19 @@ export function FeedBody(props: FeedBodyProps) {
           {/* Sentinel for the IntersectionObserver. h-px keeps it
               effectively invisible but still observable. */}
           <div ref={sentinelRef} aria-hidden className="h-px" />
-          <button
-            type="button"
-            onClick={handleLoadMore}
-            disabled={isFetchingNextPage}
-            className="bcc-stencil mx-auto mt-4 border border-cardstock-edge/40 px-6 py-2.5 text-cardstock disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {isFetchingNextPage ? "Loading…" : "Load more"}
-          </button>
+          {isFetchingNextPage ? (
+            <div className="mt-4 flex justify-center py-2.5 text-[var(--bcc-accent)]">
+              <Spinner size={22} />
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={handleLoadMore}
+              className="bcc-stencil mx-auto mt-4 rounded-lg border border-[var(--bcc-border)] px-6 py-2.5 text-[var(--bcc-text-secondary)] transition-colors hover:border-[var(--bcc-accent)] hover:text-[var(--bcc-accent)]"
+            >
+              Load more
+            </button>
+          )}
         </>
       )}
 

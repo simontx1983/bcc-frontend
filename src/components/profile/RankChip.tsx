@@ -22,6 +22,11 @@
  * backend handover); see TIER_DOT below for the colour rationale.
  */
 
+"use client";
+
+import { useState } from "react";
+
+import { RankInfoModal } from "@/components/identity/RankInfoModal";
 import type { CardTier } from "@/lib/api/types";
 
 type RankChipSize = "default" | "compact" | "micro";
@@ -45,6 +50,12 @@ interface RankChipProps {
    */
   size?: RankChipSize;
   className?: string;
+  /**
+   * When set, the chip becomes a button that opens the Rank & Trust
+   * explainer modal (RankInfoModal) for this member. Omitted → the chip
+   * is inert display only (directory rows, member cards, etc.).
+   */
+  handle?: string;
 }
 
 // Tier DOT — overrides the Sprint-4 "no per-tier color" decision (read
@@ -80,7 +91,10 @@ export function RankChip({
   rankLabel,
   size = "default",
   className,
+  handle,
 }: RankChipProps) {
+  const [open, setOpen] = useState(false);
+
   if (rankLabel === "") {
     return null;
   }
@@ -88,19 +102,18 @@ export function RankChip({
   const sizeStyles = SIZE_STYLES[size];
   const dot = cardTier !== null ? TIER_DOT[cardTier] : NO_TIER_DOT;
 
-  return (
-    <span
-      className={[
-        "bcc-mono inline-flex items-center rounded-full border border-[var(--bcc-border)] bg-transparent text-[var(--bcc-text)] tracking-[0.18em]",
-        sizeStyles.gap,
-        sizeStyles.pad,
-        sizeStyles.font,
-        className ?? "",
-      ]
-        .filter(Boolean)
-        .join(" ")}
-      title={tierLabel !== null ? `${tierLabel} reputation tier` : undefined}
-    >
+  const baseClass = [
+    "bcc-mono inline-flex items-center rounded-full border border-[var(--bcc-border)] bg-transparent text-[var(--bcc-text)] tracking-[0.18em]",
+    sizeStyles.gap,
+    sizeStyles.pad,
+    sizeStyles.font,
+    className ?? "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  const inner = (
+    <>
       {tierLabel !== null && (
         <span className="sr-only">{tierLabel} reputation tier — </span>
       )}
@@ -116,6 +129,52 @@ export function RankChip({
         }}
       />
       {rankLabel.toUpperCase()}
-    </span>
+    </>
+  );
+
+  // Inert display (directory rows, member cards) when no handle.
+  if (handle === undefined) {
+    return (
+      <span
+        className={baseClass}
+        title={tierLabel !== null ? `${tierLabel} reputation tier` : undefined}
+      >
+        {inner}
+      </span>
+    );
+  }
+
+  // Interactive: the whole pill opens the Rank & Trust explainer. stop
+  // propagation + preventDefault so a click doesn't also trigger an
+  // enclosing card link / row navigation.
+  return (
+    <>
+      <button
+        type="button"
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          setOpen(true);
+        }}
+        aria-haspopup="dialog"
+        title={
+          tierLabel !== null
+            ? `${tierLabel} reputation tier — what does this mean?`
+            : "Rank & trust — what does this mean?"
+        }
+        className={`${baseClass} cursor-pointer transition-colors hover:border-[var(--bcc-accent)] hover:text-[var(--bcc-accent)]`}
+      >
+        {inner}
+      </button>
+      {open && (
+        <RankInfoModal
+          handle={handle}
+          cardTier={cardTier}
+          tierLabel={tierLabel}
+          rankLabel={rankLabel}
+          onClose={() => setOpen(false)}
+        />
+      )}
+    </>
   );
 }

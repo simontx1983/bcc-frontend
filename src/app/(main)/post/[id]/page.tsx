@@ -1,7 +1,7 @@
 /**
- * /post/[id] — feed post permalink (full page, direct nav / refresh).
- * The in-app click-through opens the same content as an in-feed quick
- * view instead — see `PostQuickViewProvider`.
+ * /post/[id] — feed post permalink (full page). This is the single
+ * detail surface: clicking a feed card soft-navigates here (Reddit/
+ * Twitter style), and direct nav / refresh / shared links land here too.
  *
  * Same shell pattern as `/p/[slug]`: server component + `generateMetadata`,
  * SSR fetch via `getFeedItemById`, 404 on `bcc_not_found`.
@@ -9,10 +9,11 @@
 
 import type { Metadata } from "next";
 import { getServerSession } from "next-auth";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { PostBackButton } from "@/components/feed/PostBackButton";
 import { PostDetail } from "@/components/feed/PostDetail";
+import { PostRailRegistrar } from "@/components/feed/PostRailRegistrar";
 import { authOptions } from "@/lib/auth";
 import { tokenFromSession } from "@/lib/api/client";
 import { getFeedItemById } from "@/lib/api/feed-endpoints";
@@ -47,12 +48,8 @@ export default async function PostPage({ params, searchParams }: PageProps) {
 
   return (
     <div className="mx-auto max-w-2xl px-3 py-4 sm:px-0">
-      <Link
-        href="/"
-        className="bcc-mono mb-3 inline-flex items-center gap-1 text-[11px] text-[var(--bcc-text-secondary)] hover:text-[var(--bcc-text)]"
-      >
-        ← Back to feed
-      </Link>
+      <PostBackButton />
+      <PostRailRegistrar author={item.author} feedId={item.id} />
       <PostDetail item={item} focusComposer={intent === "comment"} />
     </div>
   );

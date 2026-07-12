@@ -13,7 +13,7 @@
 import type { Metadata } from "next";
 
 import { getFeedItemById } from "@/lib/api/feed-endpoints";
-import { POST_KIND_LABELS, deriveBodySummary } from "@/components/feed/FeedPostBody";
+import { POST_KIND_LABELS, deriveBodySummary } from "@/components/feed/postBody";
 import { presentationName } from "@/lib/format";
 import type { FeedItem } from "@/lib/api/types";
 

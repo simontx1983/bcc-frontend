@@ -1,32 +1,29 @@
 "use client";
 
 /**
- * AvatarHovercard — wraps `Avatar` with a desktop-only hover popover
- * (display name + handle, tier dot/rank, Vouch) so the byline itself
- * can drop the always-visible `AuthorVouchButton` and read cleaner.
+ * AvatarHovercard — wraps `Avatar` with a desktop-only hover popover that
+ * shows the full `AuthorCard`. The popover is PORTALED to document.body
+ * and positioned with fixed coordinates from the trigger's rect, so it
+ * floats above everything and can't be clipped by an ancestor's
+ * `overflow: hidden` (e.g. the `.bcc-widget` sidebar cards) — the
+ * previous inline-absolute version got buried inside those cards.
  *
- * Hover-only by design: touch devices have no hover, so the wrapper
- * only arms the open/close timers when `(hover: hover)` matches —
- * elsewhere the wrapped `Avatar` just behaves like it always did
- * (`asLink` tap-to-profile, no popover).
+ * Hover-only by design: touch devices have no hover, so the wrapper only
+ * arms the open/close timers when `(hover: hover)` matches — elsewhere the
+ * wrapped `Avatar` just behaves as before (`asLink` tap-to-profile).
  *
- * Presentational only — every field is pre-resolved by the caller
- * (`AuthorBadge`), same §A2 boundary as `AuthorVouchButton`.
+ * Presentational only — every field is pre-resolved by the caller.
  */
 
-import { useEffect, useRef, useState } from "react";
-
 import { Avatar, type AvatarSize } from "@/components/identity/Avatar";
-import { AuthorVouchButton } from "@/components/identity/AuthorVouchButton";
-import { RankChip } from "@/components/profile/RankChip";
+import { AuthorHoverPanel } from "@/components/identity/AuthorHoverPanel";
+import { useHovercard } from "@/hooks/useHovercard";
+import { usePrefetchUser } from "@/hooks/useUser";
 import type {
   AuthorVouchPermission,
   CardTier,
   ViewerAttestation,
 } from "@/lib/api/types";
-
-const OPEN_DELAY_MS = 300;
-const CLOSE_DELAY_MS = 150;
 
 export interface AvatarHovercardProps {
   avatarUrl: string | null | undefined;
@@ -60,54 +57,25 @@ export function AvatarHovercard({
   viewerAttestation,
   canVouch,
 }: AvatarHovercardProps) {
-  const [open, setOpen] = useState(false);
-  const openTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const clearTimers = () => {
-    if (openTimer.current !== null) {
-      clearTimeout(openTimer.current);
-      openTimer.current = null;
-    }
-    if (closeTimer.current !== null) {
-      clearTimeout(closeTimer.current);
-      closeTimer.current = null;
-    }
-  };
-
-  const canHover = () =>
-    typeof window !== "undefined" && window.matchMedia("(hover: hover)").matches;
-
-  const handleEnter = () => {
-    if (!canHover()) return;
-    clearTimers();
-    openTimer.current = setTimeout(() => setOpen(true), OPEN_DELAY_MS);
-  };
-
-  const handleLeave = () => {
-    clearTimers();
-    closeTimer.current = setTimeout(() => setOpen(false), CLOSE_DELAY_MS);
-  };
-
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [open]);
-
-  useEffect(() => clearTimers, []);
+  const { open, coords, triggerRef, triggerHandlers, popoverHandlers } = useHovercard();
+  const prefetchUser = usePrefetchUser();
 
   const nameText =
     typeof displayName === "string" && displayName !== "" ? displayName : `@${handle}`;
 
+  // Warm the profile cache the instant the pointer lands, before the hover
+  // open delay elapses — so the card usually has bio/counts ready on mount.
+  const onEnter = () => {
+    prefetchUser(handle);
+    triggerHandlers.onMouseEnter();
+  };
+
   return (
     <span
-      className="relative inline-block shrink-0"
-      onMouseEnter={handleEnter}
-      onMouseLeave={handleLeave}
+      ref={triggerRef}
+      className="inline-block shrink-0"
+      onMouseEnter={onEnter}
+      onMouseLeave={triggerHandlers.onMouseLeave}
     >
       <Avatar
         avatarUrl={avatarUrl}
@@ -120,32 +88,23 @@ export function AvatarHovercard({
         asLink={asLink}
         ringColor={ringColor}
       />
-      {open && (
-        <div
-          role="dialog"
-          aria-label={`${nameText} preview`}
-          onMouseEnter={handleEnter}
-          onMouseLeave={handleLeave}
-          className="bcc-panel absolute left-0 top-full z-[120] mt-2 flex w-60 flex-col gap-2 p-3 text-left shadow-lg"
-        >
-          <div className="flex min-w-0 flex-col gap-0.5">
-            <span className="bcc-stencil truncate text-[var(--bcc-text)]">{nameText}</span>
-            <span className="bcc-mono truncate text-[11px] text-[var(--bcc-text-secondary)]">
-              @{handle}
-            </span>
-          </div>
-          {rankLabel !== "" && (
-            <RankChip cardTier={cardTier} tierLabel={tierLabel} rankLabel={rankLabel} size="compact" />
-          )}
-          {vouchTargetId > 0 && (
-            <AuthorVouchButton
-              targetUserId={vouchTargetId}
-              displayName={nameText}
-              viewerAttestation={viewerAttestation}
-              canVouch={canVouch}
-            />
-          )}
-        </div>
+      {open && coords !== null && (
+        <AuthorHoverPanel
+          coords={coords}
+          handlers={popoverHandlers}
+          label={`${nameText} preview`}
+          handle={handle}
+          displayName={displayName}
+          avatarUrl={avatarUrl}
+          cardTier={cardTier}
+          tierLabel={tierLabel}
+          rankLabel={rankLabel}
+          isOperator={isOperator}
+          userId={vouchTargetId}
+          viewerAttestation={viewerAttestation}
+          canVouch={canVouch}
+          enabled={open}
+        />
       )}
     </span>
   );

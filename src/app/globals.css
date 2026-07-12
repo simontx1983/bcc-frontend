@@ -42,7 +42,7 @@
      RankChip's leading dot: risky=red, caution=amber, neutral=ash,
      trusted=green, elite=gold. Stable across themes. */
   --bcc-trust-risky:     #c8472f;
-  --bcc-trust-caution:   #e0a32e;
+  --bcc-trust-caution:   #f2ca1b;
   --bcc-trust-neutral:   #6b6e72;
   --bcc-trust-trusted:   #247a3f;
   --bcc-trust-elite:     #d9a400;
@@ -1113,6 +1113,51 @@
     background: var(--bcc-surface-hover);
     color: var(--bcc-text);
     opacity: 1;
+  }
+
+  /* Vouch — mirrors .bcc-btn-outline's geometry (1.5px border + subtle
+     hover fill) in the vouch safety/verified colors, so the card's Vouch
+     pill sits as an exact-height peer beside the Follow pill. Un-cast =
+     safety-orange outline; cast = verified-green filled. */
+  .bcc-btn-vouch {
+    background: transparent;
+    color: var(--safety);
+    border: 1.5px solid var(--safety);
+  }
+  .bcc-btn-vouch:hover {
+    background: rgb(var(--safety-rgb) / 0.12);
+    opacity: 1;
+  }
+  .bcc-btn-vouch-on {
+    color: var(--verified);
+    background: rgb(var(--verified-rgb) / 0.12);
+    border: 1.5px solid rgb(var(--verified-rgb) / 0.5);
+  }
+  .bcc-btn-vouch-on:hover {
+    background: rgb(var(--verified-rgb) / 0.2);
+    opacity: 1;
+  }
+
+  /* Pulsing trust dot (RankInfoModal risky/elite). A soft glow layer that
+     breathes via opacity + transform only (GPU-friendly — never animates
+     box-shadow/filter per frame). Static under prefers-reduced-motion. */
+  .bcc-dot-glow {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    border-radius: 9999px;
+    pointer-events: none;
+    opacity: 0.6;
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .bcc-dot-glow--pulse {
+      animation: bcc-dot-pulse 2s ease-in-out infinite;
+    }
+  }
+  @keyframes bcc-dot-pulse {
+    0%, 100% { opacity: 0.35; transform: translate(-50%, -50%) scale(1); }
+    50%      { opacity: 0.9;  transform: translate(-50%, -50%) scale(1.7); }
   }
 
   /* Size variants */

@@ -88,6 +88,24 @@ export function getFeedItemById(
   });
 }
 
+/**
+ * Client twin of `getFeedItemById` — reads the session bearer itself via
+ * `bccFetchAsClient`. Backs `useFeedItem`, which the `/post/[id]` page
+ * seeds with SSR `initialData`; this refetch path only fires when that
+ * cache entry goes stale in the browser (e.g. a background revalidate),
+ * so the detail view stays a live, mutation-patchable cache entry rather
+ * than a frozen server prop.
+ */
+export function getFeedItemByIdAsClient(
+  id: string,
+  signal?: AbortSignal
+): Promise<FeedItem> {
+  return bccFetchAsClient<FeedItem>(`feed/${encodeURIComponent(id)}`, {
+    method: "GET",
+    ...(signal !== undefined ? { signal } : {}),
+  });
+}
+
 // ─────────────────────────────────────────────────────────────────────
 
 function paramSearch(params: FeedQueryParams): URLSearchParams {
