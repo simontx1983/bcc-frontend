@@ -75,12 +75,19 @@ export function listComments(params: ListCommentsParams): Promise<CommentsRespon
 
 /** POST /posts/:feed_id/comments — create. */
 export function createComment(request: CreateCommentRequest): Promise<CreateCommentResponse> {
+  const body: { body: string; attachment_id?: number; gif_url?: string } = {
+    body: request.body,
+  };
+  // §3.5 one attachment per comment — photo wins if both are set.
+  if (request.attachment_id !== undefined && request.attachment_id > 0) {
+    body.attachment_id = request.attachment_id;
+  } else if (request.gif_url !== undefined && request.gif_url !== "") {
+    body.gif_url = request.gif_url;
+  }
+
   return bccFetchAsClient<CreateCommentResponse>(
     `posts/${encodeURIComponent(request.feed_id)}/comments`,
-    {
-      method: "POST",
-      body: { body: request.body },
-    }
+    { method: "POST", body }
   );
 }
 

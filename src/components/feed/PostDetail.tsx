@@ -23,10 +23,9 @@ import {
 import { POST_KIND_LABELS, deriveBodySummary } from "@/components/feed/postBody";
 import { useFeedItem } from "@/hooks/useFeed";
 import { CommentDrawer } from "@/components/feed/CommentDrawer";
+import { PostActionBar } from "@/components/feed/PostActionBar";
 import { PostOverflowMenu } from "@/components/feed/PostOverflowMenu";
-import { ReactionRail } from "@/components/feed/ReactionRail";
 import { ReactorStack } from "@/components/feed/ReactorStack";
-import { ShareButton } from "@/components/feed/ShareButton";
 import { VerificationBadge } from "@/components/groups/VerificationBadge";
 import { AuthorBadge } from "@/components/identity/AuthorBadge";
 import { formatAbsoluteDateTime, formatRelativeTime } from "@/lib/format";
@@ -122,15 +121,20 @@ export function PostDetail({
 
       <ReactorStack social_proof={item.social_proof} />
 
-      <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-[var(--bcc-border)] pt-2.5">
-        <ReactionRail item={item} canInteract={canInteract} />
-        <div className="flex shrink-0 items-center gap-3.5">
-          <ShareButton
-            selfHref={item.links.self}
-            shareTitle={`${item.author.display_name ?? item.author.handle} on Blue Collar Crypto`}
-          />
-        </div>
-      </footer>
+      <PostActionBar
+        item={item}
+        canInteract={canInteract}
+        commentCount={item.comment_count ?? 0}
+        onComment={() => {
+          // Comments are always open below on the detail page — jump the
+          // viewer to the composer rather than navigating anywhere.
+          const el = document.getElementById(`comment-${item.id}`);
+          el?.scrollIntoView({ block: "center", behavior: "smooth" });
+          (el as HTMLTextAreaElement | null)?.focus();
+        }}
+        commentTitle="Jump to the composer"
+        shareTitle={`${item.author.display_name ?? item.author.handle} on Blue Collar Crypto`}
+      />
 
       <CommentDrawer
         feedId={item.id}

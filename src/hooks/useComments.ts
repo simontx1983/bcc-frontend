@@ -173,6 +173,10 @@ export function useCreateCommentMutation(
         mentions:  [],
         posted_at: new Date().toISOString(),
         permissions: { can_delete: { allowed: true, unlock_hint: null } },
+        // §3.5 optimistic attachment — the composer passes the media it
+        // already resolved (uploaded photo URL / picked gif URL) so the
+        // image paints instantly; the server row replaces it onSuccess.
+        ...(req.media !== undefined ? { media: req.media } : {}),
       };
 
       // Prepend to the first page of every cached sort. For top/relevant

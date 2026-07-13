@@ -46,6 +46,8 @@ import Link from "next/link";
 import type { Route } from "next";
 
 import { AuthorBadge } from "@/components/identity/AuthorBadge";
+import { CommentGifPicker } from "@/components/feed/CommentGifPicker";
+import { Dialog } from "@/components/ui/Dialog";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { Spinner } from "@/components/ui/Spinner";
 import {
@@ -54,10 +56,17 @@ import {
   useDeleteCommentMutation,
 } from "@/hooks/useComments";
 import { useCommentStoke } from "@/hooks/useCommentStoke";
+import { useGiphyIntegration } from "@/hooks/useGiphyIntegration";
+import { uploadBlogCoverImage } from "@/lib/api/blog-endpoints";
 import { humanizeCode } from "@/lib/api/errors";
 import { formatRelativeTime } from "@/lib/format";
 import { renderTextWithMentions } from "@/lib/format/mentions";
-import type { Comment, CommentSort } from "@/lib/api/types";
+import type {
+  Comment,
+  CommentMedia,
+  CommentSort,
+  GiphySearchResult,
+} from "@/lib/api/types";
 import { isAllowed } from "@/lib/permissions";
 
 const COMMENT_MAX_LENGTH = 2000;
@@ -284,6 +293,11 @@ function CommentRow({
       <p className="whitespace-pre-line pl-[40px] font-serif text-[14px] text-[var(--bcc-text)]">
         {renderTextWithMentions(comment.body, comment.mentions)}
       </p>
+      {comment.media !== undefined && (
+        <div className="pl-[40px]">
+          <CommentMediaView media={comment.media} />
+        </div>
+      )}
       <div className="pl-[40px]">
         <CommentActionRail feedId={feedId} comment={comment} canStoke={canStoke} />
       </div>
@@ -309,14 +323,18 @@ function CommentActionRail({
   return (
     <div className="-ml-1 flex items-center gap-1">
       <CommentStokeButton feedId={feedId} comment={comment} canStoke={canStoke} />
+      {/* Icons match the feed action rail (comment speech-bubble + share
+          box-arrow) for consistency; both stay disabled until Slice 2
+          lands threaded replies + a per-comment permalink. */}
       <SoonAction label="Reply" title="Replies — coming soon">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-          <path d="M21 11.5a8.38 8.38 0 0 1-8.5 8.5 8.5 8.5 0 0 1-3.8-.9L3 21l1.9-5.7A8.5 8.5 0 1 1 21 11.5Z" />
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" aria-hidden>
+          <path d="M2.5 3.5h11a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H7l-2.8 2.4a.5.5 0 0 1-.82-.38V11.5h-1a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1Z" />
         </svg>
       </SoonAction>
       <SoonAction label="Share" title="Share — coming soon">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-          <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8M16 6l-4-4-4 4M12 2v13" />
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <path d="M6.5 3.5h-2a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-2" />
+          <path d="M7 9 12.5 3.5M9 3.5h3.5V7" />
         </svg>
       </SoonAction>
     </div>
@@ -343,7 +361,11 @@ function CommentStokeButton({
   const hasStoked = comment.viewer_has_stoked ?? false;
   const count = comment.stoke_count ?? 0;
   const disabled = !canStoke || stokeMut.isPending;
-  const color = hasStoked ? "var(--bcc-secondary)" : "var(--bcc-stoke-ash)";
+  // Match the feed flame's resting look: burnt-orange outline when
+  // unstoked (like the post rail's cold heat-stage), solid forge-orange
+  // when stoked — not the grey-brown stoke-ash, which read as an odd
+  // yellow next to the feed's flame.
+  const color = hasStoked ? "var(--bcc-secondary)" : "var(--bcc-secondary-dark)";
 
   return (
     <button
@@ -398,6 +420,61 @@ function CommentFlameIcon({ color, outline }: { color: string; outline: boolean 
         strokeLinejoin="round"
       />
     </svg>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Attached media (§3.5) — one photo XOR gif, rendered above the body.
+// Photos open a lightweight zoom (the feed Lightbox wants a whole
+// FeedItem + comments panel — wrong shape for a comment attachment, so
+// we use the shared Dialog primitive directly). GIFs render inline.
+// ─────────────────────────────────────────────────────────────────────
+
+/** Capped display box for a comment attachment — keeps tall media from dominating the row. */
+const COMMENT_MEDIA_MAX_HEIGHT = 280;
+
+function CommentMediaView({ media }: { media: CommentMedia }) {
+  const [zoomed, setZoomed] = useState(false);
+  const isPhoto = media.kind === "photo";
+
+  const img = (
+    // eslint-disable-next-line @next/next/no-img-element -- remote WP/Giphy media, no per-tenant remotePatterns allow-list
+    <img
+      src={media.url}
+      alt=""
+      loading="lazy"
+      decoding="async"
+      {...(media.width !== undefined && media.width > 0 ? { width: media.width } : {})}
+      {...(media.height !== undefined && media.height > 0 ? { height: media.height } : {})}
+      className="h-auto w-auto max-w-full rounded-xl border border-[var(--bcc-border)] object-contain"
+      style={{ maxHeight: COMMENT_MEDIA_MAX_HEIGHT }}
+    />
+  );
+
+  return (
+    <div className="mt-1.5">
+      {isPhoto ? (
+        <button
+          type="button"
+          onClick={() => setZoomed(true)}
+          aria-label="View image"
+          className="block max-w-full rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--bcc-accent)]"
+        >
+          {img}
+        </button>
+      ) : (
+        img
+      )}
+
+      {zoomed && (
+        <Dialog title="Image" bare center backdropClassName="bg-ink/90 backdrop-blur-md" onClose={() => setZoomed(false)}>
+          <div className="flex max-h-[92vh] max-w-[92vw] items-center justify-center">
+            {/* eslint-disable-next-line @next/next/no-img-element -- remote media, see above */}
+            <img src={media.url} alt="" className="max-h-[92vh] max-w-[92vw] rounded-xl object-contain" />
+          </div>
+        </Dialog>
+      )}
+    </div>
   );
 }
 
@@ -514,10 +591,73 @@ function CommentComposer({
   const createMut = useCreateCommentMutation();
   const formRef = useRef<HTMLFormElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // §3.5 attachment — one photo XOR gif. `photo` holds the uploaded
+  // attachment (id for the wire + url/dims for the preview & optimistic
+  // row); `gif` holds the picked Giphy result. Selecting one clears the
+  // other, so only ever one is set.
+  const [photo, setPhoto] = useState<
+    { attachment_id: number; url: string; width: number; height: number } | null
+  >(null);
+  const [gif, setGif] = useState<GiphySearchResult | null>(null);
+  const [gifPickerOpen, setGifPickerOpen] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [mediaError, setMediaError] = useState<string | null>(null);
+
+  // GIF button mounts only when the admin Giphy integration is on (config
+  // is server-owned; anon never reaches here — the composer is authed).
+  const giphy = useGiphyIntegration();
+  const gifEnabled = giphy.data?.enabled === true;
+  const hasMedia = photo !== null || gif !== null;
 
   const trimmed = draft.trim();
   const overCap = trimmed.length > COMMENT_MAX_LENGTH;
-  const canSubmit = trimmed !== "" && !overCap && !createMut.isPending;
+  const canSubmit = trimmed !== "" && !overCap && !createMut.isPending && !uploading;
+
+  const clearMedia = () => {
+    setPhoto(null);
+    setGif(null);
+    setMediaError(null);
+  };
+
+  const handlePhotoFile = async (file: File) => {
+    setMediaError(null);
+    setGifPickerOpen(false);
+    setUploading(true);
+    try {
+      const res = await uploadBlogCoverImage(file);
+      setGif(null);
+      setPhoto({
+        attachment_id: res.attachment_id,
+        url: res.url,
+        width: res.width,
+        height: res.height,
+      });
+    } catch (err) {
+      // Surface the real reason (too large / bad mime / rate limited)
+      // rather than a generic line, reusing the shared code map.
+      setMediaError(
+        humanizeCode(
+          err,
+          {
+            bcc_invalid_request: "That image can't be attached (check size/format).",
+            bcc_rate_limited: "Uploading too fast — wait a moment.",
+            bcc_unauthorized: "Sign in to attach an image.",
+          },
+          "Couldn't attach that image.",
+        ),
+      );
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleGifSelect = (picked: GiphySearchResult) => {
+    setPhoto(null);
+    setGif(picked);
+    setGifPickerOpen(false);
+  };
 
   // Grow-with-text: size the textarea to its content up to the cap while
   // expanded; snap back to a single line when collapsed.
@@ -569,12 +709,34 @@ function CommentComposer({
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!canSubmit) return;
+
+    // §3.5 one attachment per comment — photo wins if both are somehow set.
+    // `media` is the client-only optimistic-render hint (see CreateCommentRequest);
+    // the wire fields are attachment_id / gif_url.
+    const media: CommentMedia | undefined =
+      photo !== null
+        ? { kind: "photo", url: photo.url, width: photo.width, height: photo.height }
+        : gif !== null
+          ? { kind: "gif", url: gif.url }
+          : undefined;
+
     createMut.mutate(
-      { feed_id: feedId, body: trimmed },
+      {
+        feed_id: feedId,
+        body: trimmed,
+        ...(photo !== null
+          ? { attachment_id: photo.attachment_id }
+          : gif !== null
+            ? { gif_url: gif.url }
+            : {}),
+        ...(media !== undefined ? { media } : {}),
+      },
       {
         onSuccess: () => {
           setDraft("");
           setExpanded(false);
+          clearMedia();
+          setGifPickerOpen(false);
         },
       },
     );
@@ -621,35 +783,119 @@ function CommentComposer({
           )}
         </div>
 
-        {/* Expanded footer — word count + collapse + full submit, all
-            inside the box (§C14). */}
+        {/* Hidden file input — driven by the photo button below. Restrict
+            to the four mimes BlogCoverImageWriter accepts. */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp,image/gif"
+          className="hidden"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file !== undefined) void handlePhotoFile(file);
+            e.target.value = "";
+          }}
+        />
+
+        {/* Attachment preview — thumbnail + remove, or an uploading tile.
+            One media at a time (§3.5); the remove-X clears it. */}
+        {expanded && (hasMedia || uploading) && (
+          <div className="flex items-center gap-2">
+            <div className="relative inline-flex">
+              {uploading ? (
+                <div className="flex h-16 w-16 items-center justify-center rounded-lg border border-[var(--bcc-border)] text-[var(--bcc-accent)]">
+                  <Spinner size={18} />
+                </div>
+              ) : (
+                <>
+                  {/* eslint-disable-next-line @next/next/no-img-element -- remote WP/Giphy media, no per-tenant remotePatterns allow-list */}
+                  <img
+                    src={photo?.url ?? gif?.preview_url ?? ""}
+                    alt=""
+                    className="h-16 w-16 rounded-lg border border-[var(--bcc-border)] object-cover"
+                  />
+                  <button
+                    type="button"
+                    onClick={clearMedia}
+                    aria-label="Remove attachment"
+                    title="Remove attachment"
+                    className="bcc-mono absolute -right-1.5 -top-1.5 inline-flex h-5 w-5 items-center justify-center rounded-full border border-[var(--bcc-border)] bg-[var(--bcc-surface)] text-[11px] leading-none text-[var(--bcc-text)] hover:text-[var(--bcc-danger)]"
+                  >
+                    ×
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* GIF picker panel — inline expansion below the composer. */}
+        {expanded && gifPickerOpen && gifEnabled && giphy.data !== undefined && (
+          <CommentGifPicker
+            config={giphy.data}
+            onSelect={handleGifSelect}
+            onClose={() => setGifPickerOpen(false)}
+          />
+        )}
+
+        {/* Expanded footer — media buttons + word count + collapse + full
+            submit, all inside the box (§C14). */}
         {expanded && (
           <div className="flex items-center justify-between gap-3">
-            <p className="bcc-mono text-[10px] text-[var(--bcc-text-muted)]">
-              {trimmed.length}/{COMMENT_MAX_LENGTH}
-              {error !== null && (
-                <span className="ml-2 text-[var(--bcc-danger)]">
-                  {humanizeCode(
-                    error,
-                    {
-                      bcc_unauthorized: "Sign in to comment.",
-                      bcc_rate_limited: "Commenting too fast — slow down.",
-                      bcc_forbidden: "You can't comment here.",
-                      bcc_invalid_request: "Comment couldn't be posted.",
-                      bcc_too_many_mentions: "Too many @-mentions in one comment.",
-                      bcc_invalid_mention_target:
-                        "One of your @-mentions can't receive notifications.",
-                    },
-                    "Couldn't post the comment.",
-                  )}
-                </span>
+            <div className="flex min-w-0 items-center gap-0.5">
+              <MediaIconButton
+                onClick={() => fileInputRef.current?.click()}
+                active={photo !== null}
+                disabled={uploading}
+                label="Attach photo"
+              >
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <rect x="3" y="4" width="18" height="16" rx="2" />
+                  <circle cx="8.5" cy="9.5" r="1.5" />
+                  <path d="m4 17 4.5-4.5a2 2 0 0 1 2.8 0L18 19" />
+                </svg>
+              </MediaIconButton>
+
+              {gifEnabled && (
+                <MediaIconButton
+                  onClick={() => setGifPickerOpen((o) => !o)}
+                  active={gif !== null || gifPickerOpen}
+                  disabled={uploading}
+                  label="Attach GIF"
+                >
+                  <span className="bcc-mono text-[11px] font-bold tracking-tight">GIF</span>
+                </MediaIconButton>
               )}
-              {overCap && error === null && (
-                <span className="ml-2 text-[var(--bcc-danger)]">
-                  Over the {COMMENT_MAX_LENGTH}-char cap.
-                </span>
-              )}
-            </p>
+
+              <p className="bcc-mono ml-1 min-w-0 truncate text-[10px] text-[var(--bcc-text-muted)]">
+                {trimmed.length}/{COMMENT_MAX_LENGTH}
+                {mediaError !== null && (
+                  <span className="ml-2 text-[var(--bcc-danger)]">{mediaError}</span>
+                )}
+                {error !== null && (
+                  <span className="ml-2 text-[var(--bcc-danger)]">
+                    {humanizeCode(
+                      error,
+                      {
+                        bcc_unauthorized: "Sign in to comment.",
+                        bcc_rate_limited: "Commenting too fast — slow down.",
+                        bcc_forbidden: "You can't comment here.",
+                        bcc_invalid_request: "Comment couldn't be posted.",
+                        bcc_too_many_mentions: "Too many @-mentions in one comment.",
+                        bcc_invalid_mention_target:
+                          "One of your @-mentions can't receive notifications.",
+                      },
+                      "Couldn't post the comment.",
+                    )}
+                  </span>
+                )}
+                {overCap && error === null && (
+                  <span className="ml-2 text-[var(--bcc-danger)]">
+                    Over the {COMMENT_MAX_LENGTH}-char cap.
+                  </span>
+                )}
+              </p>
+            </div>
 
             <div className="flex items-center gap-1">
               <button
@@ -705,5 +951,35 @@ function SendIcon() {
       <path d="M22 2L11 13" />
       <path d="M22 2l-7 20-4-9-9-4 20-7z" />
     </svg>
+  );
+}
+
+/** Composer attach button (photo / gif) — accent-tinted when its media is selected. */
+function MediaIconButton({
+  onClick,
+  active,
+  disabled,
+  label,
+  children,
+}: {
+  onClick: () => void;
+  active: boolean;
+  disabled: boolean;
+  label: string;
+  children: ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      aria-label={label}
+      aria-pressed={active}
+      title={label}
+      className="inline-flex h-8 min-w-8 items-center justify-center rounded-full px-1.5 transition-colors hover:bg-[var(--bcc-surface-hover)] disabled:cursor-not-allowed disabled:opacity-40"
+      style={{ color: active ? "var(--bcc-accent)" : "var(--bcc-text-secondary)" }}
+    >
+      {children}
+    </button>
   );
 }
