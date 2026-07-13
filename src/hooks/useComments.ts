@@ -177,20 +177,32 @@ export function useCreateCommentMutation(
         // already resolved (uploaded photo URL / picked gif URL) so the
         // image paints instantly; the server row replaces it onSuccess.
         ...(req.media !== undefined ? { media: req.media } : {}),
+        // §3.5 threading — a reply carries its parent so the tree builder
+        // nests it under the parent immediately; the parent's reply_count
+        // is bumped below so the "Follow the thread" control updates too.
+        ...(req.parent_id !== undefined ? { parent_id: req.parent_id } : {}),
       };
 
-      // Prepend to the first page of every cached sort. For top/relevant
-      // this shows the fresh (zero-stoke) comment above its eventual
-      // sorted slot; the next refetch reconciles the order. New is exact.
+      // Prepend to the first page of every cached sort, and — for a reply —
+      // bump the parent row's reply_count wherever it's cached. For
+      // top/relevant this shows the fresh (zero-stoke) comment above its
+      // eventual sorted slot; the next refetch reconciles the order. New is
+      // exact. The tree builder (lib/comments/thread.ts) nests the reply
+      // under its parent from the flat list regardless of page position.
       queryClient.setQueriesData<InfiniteData<CommentsResponse>>({ queryKey: key }, (oldData) => {
         if (oldData === undefined) return oldData;
+        const parentId = req.parent_id;
+        const bumpReplyCount = (item: Comment): Comment =>
+          parentId !== undefined && item.id === parentId
+            ? { ...item, reply_count: (item.reply_count ?? 0) + 1 }
+            : item;
         const [firstPage, ...rest] = oldData.pages;
         if (firstPage === undefined) return oldData;
         return {
           ...oldData,
           pages: [
-            { ...firstPage, items: [optimistic, ...firstPage.items] },
-            ...rest,
+            { ...firstPage, items: [optimistic, ...firstPage.items.map(bumpReplyCount)] },
+            ...rest.map((page) => ({ ...page, items: page.items.map(bumpReplyCount) })),
           ],
         };
       });

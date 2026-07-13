@@ -740,6 +740,20 @@ export interface Comment {
    * backends), so a stale frontend renders the comment unchanged.
    */
   media?: CommentMedia;
+  /**
+   * §3.5 threading (Slice 2) — the parent comment this is a reply to, in
+   * the same `comment_<int>` form as `id`; `null`/absent = top-level.
+   * Additive-optional: a pre-threading backend omits it, so every row
+   * reads as a root and the drawer renders the flat list unchanged.
+   * The frontend threads the flat list client-side (`lib/comments/thread.ts`).
+   */
+  parent_id?: string | null;
+  /**
+   * §3.5 threading — count of DIRECT replies to this comment (not the whole
+   * subtree). Drives the "Follow the thread" drill-down control once a
+   * thread passes the visual-indent cap. Absent → treated as 0.
+   */
+  reply_count?: number;
 }
 
 /**
@@ -782,6 +796,12 @@ export interface CreateCommentRequest {
    */
   attachment_id?: number;
   gif_url?: string;
+  /**
+   * §3.5 threading (Slice 2) — when set, this comment is a reply to that
+   * parent comment (`comment_<int>` form). Omitted for a top-level comment.
+   * The server validates it resolves to a live comment on the SAME parent post.
+   */
+  parent_id?: string;
   /**
    * Client-only optimistic-render hint — the resolved media the composer
    * already holds (uploaded photo URL + dims, or the picked gif URL), used
