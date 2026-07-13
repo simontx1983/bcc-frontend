@@ -734,6 +734,25 @@ export interface Comment {
    */
   stoke_count?: number;
   viewer_has_stoked?: boolean;
+  /**
+   * Attached media (§3.5, v1.41) — one photo XOR gif per comment.
+   * Additive-optional: absent on text-only comments (and pre-1.2.26
+   * backends), so a stale frontend renders the comment unchanged.
+   */
+  media?: CommentMedia;
+}
+
+/**
+ * A comment's single attachment (§3.5) — a photo (uploaded WP attachment)
+ * or a gif (remote Giphy CDN URL). Render `<img src={url}>` for both.
+ * `width`/`height` ride on `photo` only (from the attachment metadata; the
+ * gif renders at natural size) — use them to reserve layout + avoid reflow.
+ */
+export interface CommentMedia {
+  kind: "photo" | "gif";
+  url: string;
+  width?: number;
+  height?: number;
 }
 
 /**
@@ -756,6 +775,21 @@ export interface CommentsResponse {
 export interface CreateCommentRequest {
   feed_id: string;
   body: string;
+  /**
+   * §3.5 optional attachment — one photo XOR gif (photo wins if both).
+   * `attachment_id` is a WP attachment the viewer uploaded via the shared
+   * `POST /blog/cover-image` route; `gif_url` is a remote Giphy CDN URL.
+   */
+  attachment_id?: number;
+  gif_url?: string;
+  /**
+   * Client-only optimistic-render hint — the resolved media the composer
+   * already holds (uploaded photo URL + dims, or the picked gif URL), used
+   * to paint the attachment on the optimistic row instantly. NOT sent on
+   * the wire (createComment only serializes `attachment_id`/`gif_url`); the
+   * server's canonical `media` block replaces it on success.
+   */
+  media?: CommentMedia;
 }
 
 export interface CreateCommentResponse {
