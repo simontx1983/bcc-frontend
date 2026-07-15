@@ -7,10 +7,10 @@ Consumes the `bcc-trust` WordPress REST API at `/wp-json/bcc/v1/*`.
 
 - Next.js 15 (App Router)
 - React 19
-- TypeScript 5.7+ (strict)
+- TypeScript 5.9 (strict + `exactOptionalPropertyTypes`, `noUncheckedIndexedAccess`, …)
 - Tailwind v3.4
 - TanStack Query v5
-- NextAuth v4 (Credentials + Wallet providers — wired in Phase 2)
+- NextAuth v4 (Credentials + Wallet providers)
 
 ## Architectural rule (locked)
 
@@ -51,25 +51,24 @@ authenticate against it:
 src/
 ├─ app/
 │  ├─ layout.tsx       Root layout — fonts, providers, body chrome
-│  ├─ page.tsx         Floor (zero-state placeholder for now)
-│  ├─ globals.css      Tailwind + CSS custom properties + utility primitives
-│  ├─ providers.tsx    React Query + NextAuth SessionProvider
-│  └─ api/auth/[...nextauth]/route.ts   NextAuth handler (Phase 2 wave)
-├─ lib/
-│  ├─ env.ts           Typed env-var loader
-│  └─ api/
-│     ├─ types.ts      Envelope + endpoint TypeScript types
-│     └─ client.ts     fetch wrapper (Bearer auth, envelope unwrap, error map)
-└─ styles/             Reserved for future component-scoped styles
+│  ├─ globals.css      Tailwind + --bcc-* design tokens + utility primitives
+│  ├─ providers.tsx    React Query + NextAuth SessionProvider (the only one)
+│  ├─ (main)/          Authed/anon app shell — feed, profiles, entities,
+│  │                   groups, locals, messages, disputes, admin, search…
+│  ├─ (auth)/          Login / signup / verify flows
+│  ├─ (legal)/         Terms / privacy / cookies
+│  └─ api/             NextAuth handler, OG image routes, internal cron proxy
+├─ components/         By domain: cards/, feed/, profile/, blog/, groups/,
+│                      composer/, disputes/, onboarding/, settings/, …
+├─ hooks/              ~70 React Query hooks (use*.ts), one per capability
+└─ lib/
+   ├─ api/             types.ts (contract mirror), client.ts (bcc/v1),
+   │                   bcc-trust-client.ts (bcc-trust/v1), per-domain
+   │                   *-endpoints.ts modules, cache-policy.ts
+   ├─ permissions.ts   Defensive accessors for server capability blocks
+   ├─ theme.ts         Theme/accent persistence (localStorage is truth)
+   └─ auth.ts          NextAuth config (Credentials + wallet, JWT refresh)
 ```
 
-## What's NOT in this scaffold yet
-
-These land in subsequent waves alongside their parent endpoints:
-
-- NextAuth Credentials + Wallet providers
-- `/login`, `/signup`, `/onboarding/*` route handlers
-- Card components (`<ValidatorCard>`, `<CardFactory>`)
-- Floor feed (`<FeedTabs>`, `<HighlightStrip>`)
-- Watchlist UI (formerly "Binder," renamed 2026-05-13)
-- Profile pages (`/u/[handle]`, `/v/[slug]`, `/c/[slug]`)
+Conventions, rationale, and the definition-of-done live in
+[docs/frontend-doctrine.md](docs/frontend-doctrine.md) and [CLAUDE.md](CLAUDE.md).
