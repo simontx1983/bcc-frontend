@@ -55,3 +55,6 @@ next-env.d.ts
 
 # Playwright MCP artifacts (screenshots, console logs, snapshots)
 .playwright-mcp/
+
+# Local-only agent instructions (not shared via git — see Tia/Phillip agreement 2026-07-08)
+CLAUDE.md
