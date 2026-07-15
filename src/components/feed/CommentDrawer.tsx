@@ -37,6 +37,7 @@
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
   type FormEvent,
@@ -48,7 +49,10 @@ import type { Route } from "next";
 
 import { AuthorBadge } from "@/components/identity/AuthorBadge";
 import { buildCommentTree, findNode, type CommentNode } from "@/lib/comments/thread";
+import { ActionRailButton } from "@/components/feed/ActionRailButton";
+import { ClockIcon, PhotoIcon, ReplyIcon, ShareIcon } from "@/components/feed/actionIcons";
 import { CommentGifPicker } from "@/components/feed/CommentGifPicker";
+import { StokeFlame } from "@/components/feed/StokeFlame";
 import { Dialog } from "@/components/ui/Dialog";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { Spinner } from "@/components/ui/Spinner";
@@ -289,6 +293,9 @@ export function CommentDrawer({
 // click-through link; see the §Slice-2 design note in the handover).
 // ─────────────────────────────────────────────────────────────────────
 
+/** Avatar box (size="sm") — the trunk line starts right below it. */
+const AVATAR_SIZE = 28;
+
 function CommentBranch({
   node,
   baseDepth,
@@ -311,39 +318,155 @@ function CommentBranch({
   // Children would land one tier deeper; fold them behind the drill control
   // when that tier reaches the cap.
   const childrenAtCap = relativeDepth + 1 >= MAX_RENDER_DEPTH;
+  const [collapsed, setCollapsed] = useState(false);
+  const toggleCollapsed = useCallback(() => setCollapsed((c) => !c), []);
+  const replyCount = node.comment.reply_count ?? node.children.length;
+
+  // The trunk line must stop at the LAST child's elbow, not run through that
+  // child's own (arbitrary-height) body/media/rail down to its bottom — the
+  // "cut off midway... unless there's another comment further down that
+  // branch" bug. There's no way to know a child's rendered height up front
+  // (body length, attached media, its own nested replies), so measure it:
+  // the last child's `offsetTop` relative to this branch's own container
+  // (its offsetParent, since both are `position:relative`) gives the exact
+  // stop point, re-measured via ResizeObserver whenever content changes
+  // (image load, a nested reply added, etc.) — same pattern as the feed
+  // filter's sliding-thumb measurement.
+  const branchRef = useRef<HTMLDivElement>(null);
+  const lastChildRef = useRef<HTMLDivElement>(null);
+  const [trunkHeight, setTrunkHeight] = useState(0);
+  const showTrunk = hasChildren && !collapsed && !childrenAtCap;
+
+  useLayoutEffect(() => {
+    if (!showTrunk) return undefined;
+    const container = branchRef.current;
+    const lastChild = lastChildRef.current;
+    if (container === null || lastChild === null) return undefined;
+    const measure = () => {
+      // Stop exactly where the last child's own elbow begins (its
+      // offsetTop), not partway through it — the trunk and the elbow are
+      // two separate elements, so ending the trunk mid-elbow (they used to
+      // overlap for ELBOW_HEIGHT px) left a doubled/misaligned stub
+      // wherever the two didn't line up to the sub-pixel. Butting them
+      // end-to-end instead means only the elbow itself draws the curve.
+      setTrunkHeight(Math.max(0, lastChild.offsetTop - AVATAR_SIZE));
+    };
+    measure();
+    if (typeof ResizeObserver === "undefined") return undefined;
+    const observer = new ResizeObserver(measure);
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, [showTrunk, node.children.length]);
 
   return (
-    <div className="flex flex-col gap-3">
+    <div ref={branchRef} className="relative flex flex-col gap-3">
       <CommentRow
         feedId={feedId}
         comment={node.comment}
         canStoke={canStoke}
         canReply={canStoke}
         onReply={onReply}
+        collapsible={hasChildren && !childrenAtCap}
+        collapsed={collapsed}
+        onToggleCollapse={toggleCollapsed}
       />
 
-      {hasChildren &&
-        (childrenAtCap ? (
+      {hasChildren && collapsed && (
+        <CollapsedRepliesHint count={replyCount} onExpand={toggleCollapsed} />
+      )}
+
+      {hasChildren && !collapsed && (
+        childrenAtCap ? (
           <ContinueControl node={node} onContinue={onContinue} />
         ) : (
-          <div
-            className="flex flex-col gap-3 border-l border-[var(--bcc-border)] pl-3"
-            style={{ marginLeft: THREAD_INDENT }}
-          >
-            {node.children.map((child) => (
-              <CommentBranch
+          <>
+            {/* Trunk — one continuous line from beneath this comment's own
+                avatar down to the LAST child's elbow (measured above), so
+                it reads as "these replies branch from the comment above"
+                without either starting mid-air (the original bug) or
+                running past the last reply into empty space (this fix). */}
+            <span
+              aria-hidden
+              className="absolute w-px"
+              style={{ left: THREAD_INDENT, top: AVATAR_SIZE, height: trunkHeight, background: "var(--bcc-border)" }}
+            />
+            <div className="flex flex-col gap-3" style={{ marginLeft: THREAD_INDENT, paddingLeft: 12 }}>
+            {node.children.map((child, i) => (
+              <div
                 key={child.comment.id}
-                node={child}
-                baseDepth={baseDepth}
-                feedId={feedId}
-                canStoke={canStoke}
-                onReply={onReply}
-                onContinue={onContinue}
-              />
+                ref={i === node.children.length - 1 ? lastChildRef : undefined}
+                className="relative"
+              >
+                {/* Branch elbow — curves from the trunk into a nub pointing
+                    at this child's avatar, so multiple siblings read as
+                    branches off one tree rather than a flat straight line. */}
+                <span
+                  aria-hidden
+                  className="absolute"
+                  style={{
+                    left: -12,
+                    top: 0,
+                    width: 12,
+                    height: 16,
+                    borderLeft: "1px solid var(--bcc-border)",
+                    borderBottom: "1px solid var(--bcc-border)",
+                    borderBottomLeftRadius: 8,
+                  }}
+                />
+                <CommentBranch
+                  node={child}
+                  baseDepth={baseDepth}
+                  feedId={feedId}
+                  canStoke={canStoke}
+                  onReply={onReply}
+                  onContinue={onContinue}
+                />
+              </div>
             ))}
-          </div>
-        ))}
+            </div>
+          </>
+        )
+      )}
     </div>
+  );
+}
+
+/** The +/- glyph shared by the inline per-comment collapse toggle and the collapsed-hint's expand cue. */
+function CollapseToggleIcon({ collapsed, size = 8 }: { collapsed: boolean; size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 8 8" aria-hidden>
+      {collapsed ? (
+        <path d="M4 0v8M0 4h8" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+      ) : (
+        <path d="M0 4h8" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+      )}
+    </svg>
+  );
+}
+
+/** Collapsed-thread affordance — same visual grammar as ContinueControl, but expands in place instead of drilling in. */
+function CollapsedRepliesHint({ count, onExpand }: { count: number; onExpand: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation();
+        onExpand();
+      }}
+      className="group flex items-center gap-2 pl-3 text-left"
+      style={{ marginLeft: THREAD_INDENT }}
+    >
+      <span
+        aria-hidden
+        className="inline-flex h-4 w-4 items-center justify-center rounded-full text-[var(--bcc-text-secondary)]"
+        style={{ background: "var(--bcc-surface-raised)", border: "1px solid var(--bcc-border)" }}
+      >
+        <CollapseToggleIcon collapsed />
+      </span>
+      <span className="bcc-mono text-[11px] tracking-[0.08em] text-[var(--bcc-text-secondary)] group-hover:text-[var(--bcc-text)] group-hover:underline">
+        {count > 0 ? `${count} ${count === 1 ? "reply" : "replies"} hidden` : "Replies hidden"}
+      </span>
+    </button>
   );
 }
 
@@ -486,6 +609,9 @@ function CommentRow({
   canStoke,
   canReply,
   onReply,
+  collapsible = false,
+  collapsed = false,
+  onToggleCollapse,
 }: {
   feedId: string;
   comment: Comment;
@@ -494,20 +620,42 @@ function CommentRow({
   /** Same gate as canStoke — drives the live Reply affordance. */
   canReply: boolean;
   onReply: (comment: Comment) => void;
+  /** Has nested replies — enables tap-row-to-collapse (the desktop +/- icon on the trunk line is too small a target for touch). */
+  collapsible?: boolean;
+  collapsed?: boolean;
+  onToggleCollapse?: () => void;
 }) {
   const canDelete = isAllowed(comment.permissions, "can_delete");
+
+  // Whole-row tap toggles collapse on touch (where the trunk-line +/-
+  // icon is impractically small to hit) — any interactive descendant
+  // (author link, mention link, action-rail buttons, timestamp) opts out
+  // via closest(), same exclusion pattern as the feed card's click-to-
+  // navigate handler, plus a text-selection guard.
+  const handleRowClick = (e: React.MouseEvent<HTMLElement>) => {
+    if (!collapsible || onToggleCollapse === undefined) return;
+    if ((e.target as HTMLElement).closest("a, button, time")) return;
+    if ((window.getSelection()?.toString() ?? "") !== "") return;
+    onToggleCollapse();
+  };
 
   // CommentAuthor (types.ts) ships handle, display_name, avatar_url plus
   // rank/tier + vouch fields; AuthorBadge gracefully omits the RankChip
   // when rank_label is absent.
   return (
-    <article className="flex flex-col gap-1">
+    <article
+      onClick={handleRowClick}
+      className={"flex flex-col gap-1" + (collapsible ? " cursor-pointer" : "")}
+    >
       <AuthorBadge
         author={{
           id: comment.author.id,
           handle: comment.author.handle,
           display_name: comment.author.display_name,
           avatar_url: comment.author.avatar_url,
+          rank_label: comment.author.rank_label,
+          card_tier: comment.author.card_tier,
+          tier_label: comment.author.tier_label,
           // Per-author Vouch toggle next to the commenter's name — same
           // vouch, same weight as the feed byline (authed-only; absent
           // fields → the toggle self-hides).
@@ -517,20 +665,11 @@ function CommentRow({
         size="sm"
         avatarRingColor="var(--bcc-accent)"
         trailing={
-          <div className="flex items-center gap-1">
-            <time
-              dateTime={comment.posted_at}
-              title={comment.posted_at}
-              className="bcc-mono shrink-0 text-[10px] text-[var(--bcc-text-muted)]"
-            >
-              {formatRelativeTime(comment.posted_at)}
-            </time>
-            <CommentOverflowMenu
-              feedId={feedId}
-              comment={comment}
-              canDelete={canDelete}
-            />
-          </div>
+          <CommentOverflowMenu
+            feedId={feedId}
+            comment={comment}
+            canDelete={canDelete}
+          />
         }
       />
       <p className="whitespace-pre-line pl-[40px] font-serif text-[14px] text-[var(--bcc-text)]">
@@ -548,6 +687,10 @@ function CommentRow({
           canStoke={canStoke}
           canReply={canReply}
           onReply={onReply}
+          timestamp={comment.posted_at}
+          collapsible={collapsible}
+          collapsed={collapsed}
+          onToggleCollapse={onToggleCollapse}
         />
       </div>
     </article>
@@ -566,12 +709,21 @@ function CommentActionRail({
   canStoke,
   canReply,
   onReply,
+  timestamp,
+  collapsible = false,
+  collapsed = false,
+  onToggleCollapse,
 }: {
   feedId: string;
   comment: Comment;
   canStoke: boolean;
   canReply: boolean;
   onReply: (comment: Comment) => void;
+  timestamp: string;
+  /** This comment has its own replies — shows a +/- toggle next to the clock. */
+  collapsible?: boolean;
+  collapsed?: boolean;
+  onToggleCollapse?: (() => void) | undefined;
 }) {
   return (
     <div className="-ml-1 flex items-center gap-1">
@@ -581,34 +733,70 @@ function CommentActionRail({
           Optimistic replies (an unsaved comment_optimistic_* id) can't be
           a parent yet, so Reply is suppressed until the row is confirmed. */}
       {canReply && !comment.id.startsWith("comment_optimistic_") ? (
+        <ActionRailButton
+          icon={<ReplyIcon size={15} />}
+          label="Reply"
+          hoverClassName="hover:text-[var(--bcc-info)]"
+          onClick={() => onReply(comment)}
+          ariaLabel={`Reply to ${comment.author.display_name}`}
+        />
+      ) : (
+        <ActionRailButton
+          icon={<ReplyIcon size={15} />}
+          label="Reply"
+          hoverClassName="hover:text-[var(--bcc-info)]"
+          soon
+          title="Replies — coming soon"
+          ariaLabel="Reply — coming soon"
+        />
+      )}
+      {/* No comment permalink on the view-model yet — kept a visually
+          consistent stub (same icon + hover grammar as the feed's Share)
+          until a backend comment-permalink field lands. */}
+      <ActionRailButton
+        icon={<ShareIcon size={15} />}
+        label="Share"
+        hoverClassName="hover:text-[var(--bcc-success)]"
+        soon
+        title="Share — coming soon"
+        ariaLabel="Share — coming soon"
+      />
+      <time
+        dateTime={timestamp}
+        title={timestamp}
+        className="bcc-mono inline-flex items-center gap-1 pl-1 text-[10px] text-[var(--bcc-text-muted)]"
+      >
+        <ClockIcon size={12} />
+        {formatRelativeTime(timestamp)}
+      </time>
+      {/* Collapse toggle lives on the comment it actually controls — a
+          floating icon on the nesting line was ambiguous about which
+          comment it belonged to (confusing even in Reddit's own version).
+          Right after the timestamp so it doesn't compete with the other
+          actions for attention. */}
+      {collapsible && onToggleCollapse !== undefined && (
         <button
           type="button"
-          onClick={() => onReply(comment)}
-          aria-label={`Reply to ${comment.author.display_name}`}
-          title="Reply"
-          className="bcc-mono inline-flex min-h-[32px] items-center gap-1 rounded-full px-2 text-[11px] text-[var(--bcc-text-secondary)] hover:bg-[var(--bcc-surface-hover)] hover:text-[var(--bcc-text)]"
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleCollapse();
+          }}
+          aria-label={collapsed ? "Expand replies" : "Collapse replies"}
+          title={collapsed ? "Expand replies" : "Collapse replies"}
+          className="inline-flex h-4 w-4 items-center justify-center rounded-full text-[var(--bcc-text-muted)] hover:bg-[var(--bcc-surface-active)] hover:text-[var(--bcc-text-secondary)]"
         >
-          <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" aria-hidden>
-            <path d="M2.5 3.5h11a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H7l-2.8 2.4a.5.5 0 0 1-.82-.38V11.5h-1a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1Z" />
-          </svg>
-          Reply
+          <CollapseToggleIcon collapsed={collapsed} />
         </button>
-      ) : (
-        <SoonAction label="Reply" title="Replies — coming soon">
-          <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" aria-hidden>
-            <path d="M2.5 3.5h11a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H7l-2.8 2.4a.5.5 0 0 1-.82-.38V11.5h-1a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1Z" />
-          </svg>
-        </SoonAction>
       )}
-      <SoonAction label="Share" title="Share — coming soon">
-        <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-          <path d="M6.5 3.5h-2a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-2" />
-          <path d="M7 9 12.5 3.5M9 3.5h3.5V7" />
-        </svg>
-      </SoonAction>
     </div>
   );
 }
+
+/** Comment flame box + glow — smaller than the feed's, same visual language. */
+const COMMENT_FLAME_BOX = 18;
+const COMMENT_FLAME_SIZE = 16;
+const COMMENT_PARTICLE_RADIUS = 12;
+const COMMENT_GLOW_OPACITY = 0.22;
 
 function CommentStokeButton({
   feedId,
@@ -620,6 +808,7 @@ function CommentStokeButton({
   canStoke: boolean;
 }) {
   const stokeMut = useCommentStoke(feedId);
+  const [burstKey, setBurstKey] = useState(0);
 
   // Presence of the field is the rollout signal — a pre-1.2.22 backend
   // omits it, so we hide the flame rather than post to a 404 endpoint.
@@ -641,54 +830,27 @@ function CommentStokeButton({
       type="button"
       onClick={() => {
         if (disabled) return;
+        if (!hasStoked) setBurstKey((k) => k + 1);
         stokeMut.mutate({ commentId: comment.id, hasStoked });
       }}
       disabled={disabled}
       aria-pressed={hasStoked}
       aria-label={hasStoked ? "Stoked — tap to remove" : "Stoke"}
       title={hasStoked ? "Stoked — tap to remove" : "Stoke"}
-      className="bcc-mono inline-flex min-h-[32px] items-center gap-1 rounded-full px-2 text-[11px] hover:bg-[var(--bcc-surface-hover)] disabled:cursor-not-allowed disabled:hover:bg-transparent"
+      className="bcc-stoke-button bcc-mono inline-flex min-h-[28px] items-center gap-1 rounded-full px-2 py-1 text-[11px] transition-colors duration-150 hover:bg-[var(--bcc-surface-active)] disabled:cursor-not-allowed"
       style={{ color }}
     >
-      <CommentFlameIcon color={color} outline={!hasStoked} />
-      {count > 0 && <span>{count}</span>}
-    </button>
-  );
-}
-
-/** Disabled "coming soon" action — reads as an affordance without pretending to work. */
-function SoonAction({
-  label,
-  title,
-  children,
-}: {
-  label: string;
-  title: string;
-  children: ReactNode;
-}) {
-  return (
-    <span
-      title={title}
-      aria-disabled="true"
-      className="bcc-mono inline-flex min-h-[32px] cursor-not-allowed items-center gap-1 rounded-full px-2 text-[11px] text-[var(--bcc-text-muted)] opacity-60"
-    >
-      {children}
-      {label}
-    </span>
-  );
-}
-
-function CommentFlameIcon({ color, outline }: { color: string; outline: boolean }) {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path
-        d="M12 2c1.2 2.6-0.4 4-1.4 5.4C9.4 8.8 8 10.4 8 12.8c0 .9.2 1.7.6 2.4-1-.5-1.8-1.4-2.2-2.6-.7 1-1.1 2.2-1.1 3.5 0 3.3 2.9 6 6.7 6s6.7-2.7 6.7-6c0-2.6-1-4.3-2.3-5.9.1.8.1 1.6-.1 2.3-.4-2.6-1.9-4.6-3.5-6.2C13.6 5.3 12.7 3.7 12 2Z"
-        fill={outline ? "none" : color}
-        stroke={outline ? color : "none"}
-        strokeWidth={outline ? 1.6 : 0}
-        strokeLinejoin="round"
+      <StokeFlame
+        boxSize={COMMENT_FLAME_BOX}
+        flameSize={COMMENT_FLAME_SIZE}
+        color={color}
+        outline={!hasStoked}
+        glowOpacity={COMMENT_GLOW_OPACITY}
+        burstKey={burstKey}
+        particleRadius={COMMENT_PARTICLE_RADIUS}
       />
-    </svg>
+      Stoke{count > 0 ? ` ${count}` : ""}
+    </button>
   );
 }
 
@@ -1158,11 +1320,7 @@ function CommentComposer({
                 disabled={uploading}
                 label="Attach photo"
               >
-                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                  <rect x="3" y="4" width="18" height="16" rx="2" />
-                  <circle cx="8.5" cy="9.5" r="1.5" />
-                  <path d="m4 17 4.5-4.5a2 2 0 0 1 2.8 0L18 19" />
-                </svg>
+                <PhotoIcon />
               </MediaIconButton>
 
               {gifEnabled && (
@@ -1285,8 +1443,11 @@ function MediaIconButton({
       aria-label={label}
       aria-pressed={active}
       title={label}
-      className="inline-flex h-8 min-w-8 items-center justify-center rounded-full px-1.5 transition-colors hover:bg-[var(--bcc-surface-hover)] disabled:cursor-not-allowed disabled:opacity-40"
-      style={{ color: active ? "var(--bcc-accent)" : "var(--bcc-text-secondary)" }}
+      className={
+        "inline-flex h-8 min-w-8 items-center justify-center rounded-full px-1.5 transition-colors hover:bg-[var(--bcc-surface-hover)] disabled:cursor-not-allowed disabled:opacity-40 " +
+        (active ? "" : "text-[var(--bcc-text-secondary)] hover:text-[var(--bcc-accent)]")
+      }
+      style={active ? { color: "var(--bcc-accent)" } : undefined}
     >
       {children}
     </button>

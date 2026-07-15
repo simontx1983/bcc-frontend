@@ -240,7 +240,7 @@ export function FeedBody(props: FeedBodyProps) {
   }
 
   return (
-    <div className="flex flex-col gap-4 py-4">
+    <div className="flex flex-col gap-4 pb-4 pt-1">
       {items.map((item) => (
         <FeedRow key={item.id} item={item} />
       ))}

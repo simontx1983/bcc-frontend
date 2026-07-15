@@ -2447,6 +2447,14 @@
   100% { opacity: 0;   transform: translate(var(--bcc-stoke-particle-x), var(--bcc-stoke-particle-y)) scale(1.1); }
 }
 
+.bcc-stoke-glow {
+  /* Resting opacity driven by a custom property (not inline `opacity`)
+     so the hover rule below — a normal stylesheet declaration — can
+     win the cascade instead of losing to an inline style every time. */
+  opacity: var(--bcc-stoke-rest-opacity, 0.25);
+  transition: opacity 200ms ease;
+}
+
 @media (hover: hover) {
   .bcc-stoke-button:hover .bcc-stoke-flame {
     animation: bcc-stoke-flicker 900ms ease-in-out infinite;

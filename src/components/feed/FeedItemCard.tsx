@@ -34,7 +34,7 @@ import { PostOverflowMenu } from "@/components/feed/PostOverflowMenu";
 import { ReactorStack } from "@/components/feed/ReactorStack";
 import { VerificationBadge } from "@/components/groups/VerificationBadge";
 import { AuthorBadge } from "@/components/identity/AuthorBadge";
-import { formatAbsoluteDateTime, formatRelativeTime } from "@/lib/format";
+import { formatAbsoluteDateTime } from "@/lib/format";
 import { readMentions, renderTextWithMentions } from "@/lib/format/mentions";
 import type { FeedItem } from "@/lib/api/types";
 
@@ -121,13 +121,6 @@ function FeedItemCardImpl({
             className="bcc-mono shrink-0 text-[10px]"
           />
         )}
-        <time
-          dateTime={item.posted_at}
-          title={formatAbsoluteDateTime(item.posted_at)}
-          className="bcc-mono shrink-0 text-[11px] text-[var(--bcc-text-secondary)]/70"
-        >
-          {formatRelativeTime(item.posted_at)}
-        </time>
         <PostOverflowMenu selfHref={selfHref} item={item} />
       </div>
     ),
@@ -138,7 +131,7 @@ function FeedItemCardImpl({
     <article
       onClick={handleBodyClick}
       onMouseEnter={prefetchSelf}
-      className="bcc-panel relative flex cursor-pointer flex-col gap-3 p-3.5 sm:p-4"
+      className="bcc-panel relative flex cursor-pointer flex-col gap-3 p-3.5 pb-2.5 sm:p-4 sm:pb-3"
     >
       {/*
         Sprint 1 Identity Grammar — header is now <AuthorBadge>. Operator
@@ -192,6 +185,8 @@ function FeedItemCardImpl({
         onComment={() => router.push(`${selfHref}?intent=comment` as Route)}
         commentTitle="Open comments, focus the composer"
         shareTitle={`${item.author.display_name ?? item.author.handle} on Blue Collar Crypto`}
+        timestamp={item.posted_at}
+        absoluteTitle={formatAbsoluteDateTime(item.posted_at)}
       />
     </article>
   );

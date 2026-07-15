@@ -10,10 +10,11 @@
  * page — so it arrives as an `onComment` callback.
  */
 
-import type { ReactNode } from "react";
-
+import { ActionRailButton } from "@/components/feed/ActionRailButton";
+import { ClockIcon, ReplyIcon } from "@/components/feed/actionIcons";
 import { ReactionRail } from "@/components/feed/ReactionRail";
 import { ShareButton } from "@/components/feed/ShareButton";
+import { formatRelativeTime } from "@/lib/format";
 import type { FeedItem } from "@/lib/api/types";
 
 export function PostActionBar({
@@ -23,6 +24,8 @@ export function PostActionBar({
   onComment,
   commentTitle = "Comments",
   shareTitle,
+  timestamp,
+  absoluteTitle,
 }: {
   item: FeedItem;
   canInteract?: boolean;
@@ -30,73 +33,35 @@ export function PostActionBar({
   onComment: () => void;
   commentTitle?: string;
   shareTitle?: string;
+  /** ISO timestamp — rendered as a small muted clock+relative-time after Share. */
+  timestamp?: string;
+  absoluteTitle?: string;
 }) {
   return (
-    <footer className="flex items-center gap-1 border-t border-[var(--bcc-border)] pt-2.5">
-      <ActionPill active={item.reactions.viewer_has_stoked === true} tintColor="var(--bcc-secondary)">
-        <ReactionRail item={item} canInteract={canInteract} />
-      </ActionPill>
-      <ActionPill>
-        <button
-          type="button"
-          onClick={onComment}
-          aria-label={commentTitle}
-          title={commentTitle}
-          className="group bcc-mono inline-flex min-h-[36px] items-center gap-1.5 rounded-full px-1.5 text-[12px] text-[var(--bcc-text-secondary)]"
+    <footer className="flex items-center gap-1 border-t border-[var(--bcc-border)] pt-2">
+      <ReactionRail item={item} canInteract={canInteract} />
+      <ActionRailButton
+        icon={<ReplyIcon />}
+        label="Comment"
+        count={commentCount}
+        hoverClassName="hover:text-[var(--bcc-info)]"
+        onClick={onComment}
+        ariaLabel={commentTitle}
+      />
+      <ShareButton
+        selfHref={item.links.self}
+        {...(shareTitle !== undefined ? { shareTitle } : {})}
+      />
+      {timestamp !== undefined && (
+        <time
+          dateTime={timestamp}
+          title={absoluteTitle}
+          className="bcc-mono inline-flex items-center gap-1 pl-1 text-[11px] text-[var(--bcc-text-muted)]"
         >
-          <svg
-            width="18"
-            height="18"
-            viewBox="0 0 16 16"
-            fill="none"
-            aria-hidden
-            className="text-[var(--bcc-info)] transition-transform duration-150 group-hover:-translate-y-0.5"
-          >
-            <path
-              d="M2.5 3.5h11a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H7l-2.8 2.4a.5.5 0 0 1-.82-.38V11.5h-1a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1Z"
-              stroke="currentColor"
-              strokeWidth="1.3"
-              strokeLinejoin="round"
-            />
-          </svg>
-          <span>{commentCount}</span>
-        </button>
-      </ActionPill>
-      <ActionPill>
-        <ShareButton
-          selfHref={item.links.self}
-          {...(shareTitle !== undefined ? { shareTitle } : {})}
-        />
-      </ActionPill>
+          <ClockIcon />
+          {formatRelativeTime(timestamp)}
+        </time>
+      )}
     </footer>
-  );
-}
-
-/**
- * Very-subtle pill treatment so Stoke / Comment / Share read as one quiet
- * action row (X/Reddit-style). Transparent at rest; a faint surface tint
- * on hover; an even fainter color-tint when `active` (today only Stoke
- * uses it — a stoked post's pill warms toward forge-orange).
- */
-export function ActionPill({
-  children,
-  active = false,
-  tintColor,
-}: {
-  children: ReactNode;
-  active?: boolean;
-  tintColor?: string;
-}) {
-  return (
-    <span
-      className="inline-flex items-center rounded-full px-0.5 transition-colors duration-150 hover:bg-[var(--bcc-surface-active)]"
-      style={
-        active && tintColor !== undefined
-          ? { backgroundColor: `color-mix(in srgb, ${tintColor} 14%, transparent)` }
-          : undefined
-      }
-    >
-      {children}
-    </span>
   );
 }

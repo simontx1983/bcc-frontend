@@ -78,6 +78,14 @@ type DialogProps = {
    * (fixed/inset/z/flex) are unaffected.
    */
   backdropClassName?: string;
+  /**
+   * Frost the inner panel with the app's glass surface (`--bcc-glass-*`)
+   * instead of the opaque `bcc-panel` background — for modals that should
+   * read as floating over the page rather than a solid card (e.g.
+   * RankInfoModal). No effect when `bare` (the caller owns its own
+   * surface). The backdrop is unaffected — only the panel frosts.
+   */
+  glass?: boolean;
 };
 
 const FOCUSABLE =
@@ -93,6 +101,7 @@ export function Dialog({
   center = false,
   mobileSheet = false,
   backdropClassName = "bg-ink/70 backdrop-blur-sm",
+  glass = false,
 }: DialogProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   const reducedMotion = usePrefersReducedMotion();
@@ -190,12 +199,30 @@ export function Dialog({
         ref={panelRef}
         tabIndex={-1}
         className={
-          (bare ? "relative w-full outline-none " : "bcc-panel relative w-full p-6 outline-none md:p-8 ") +
+          (bare
+            ? "relative w-full outline-none "
+            : glass
+              ? "relative w-full rounded-2xl p-6 outline-none md:p-8 "
+              : "bcc-panel relative w-full p-6 outline-none md:p-8 ") +
           (mobileSheet
             ? "md:translate-y-0 " +
               (slide ? "transition-transform duration-200 " + (shown ? "translate-y-0" : "translate-y-full") + " " : "")
             : "") +
           panelClassName
+        }
+        style={
+          !bare && glass
+            ? {
+                // The lighter `--bcc-glass-bg` (.62 opacity) reads as too
+                // transparent on a full modal panel full of text — use the
+                // more-opaque "solid" glass tier + heavier blur instead, the
+                // same combination the header/nav glass surfaces use.
+                background: "var(--bcc-glass-bg-solid)",
+                backdropFilter: "blur(var(--bcc-glass-blur-heavy))",
+                WebkitBackdropFilter: "blur(var(--bcc-glass-blur-heavy))",
+                border: "1px solid var(--bcc-glass-border)",
+              }
+            : undefined
         }
       >
         {!bare && (
