@@ -77,7 +77,11 @@ export function MoreFromAuthor({
  * reaction rail — this is a compact pointer, not an interactive row.
  */
 function MoreRow({ item }: { item: FeedItem }) {
-  const summary = deriveBodySummary(item);
+  // deriveBodySummary() returns "" for photo/gif posts (their caption
+  // lives in body.caption, rendered by the feed card's PhotoBody/GifBody
+  // — this mini row has no such renderer, so fall back to the caption
+  // directly instead of silently dropping it behind the thumbnail.
+  const summary = deriveBodySummary(item) || readString(item.body, "caption") || "";
   const mediaUrl =
     readString(item.body, "photo_url") ?? readString(item.body, "gif_url") ?? "";
 

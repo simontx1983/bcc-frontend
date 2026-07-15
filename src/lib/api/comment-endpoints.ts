@@ -75,7 +75,12 @@ export function listComments(params: ListCommentsParams): Promise<CommentsRespon
 
 /** POST /posts/:feed_id/comments — create. */
 export function createComment(request: CreateCommentRequest): Promise<CreateCommentResponse> {
-  const body: { body: string; attachment_id?: number; gif_url?: string } = {
+  const body: {
+    body: string;
+    attachment_id?: number;
+    gif_url?: string;
+    parent_id?: string;
+  } = {
     body: request.body,
   };
   // §3.5 one attachment per comment — photo wins if both are set.
@@ -83,6 +88,10 @@ export function createComment(request: CreateCommentRequest): Promise<CreateComm
     body.attachment_id = request.attachment_id;
   } else if (request.gif_url !== undefined && request.gif_url !== "") {
     body.gif_url = request.gif_url;
+  }
+  // §3.5 threading — reply target; omitted for a top-level comment.
+  if (request.parent_id !== undefined && request.parent_id !== "") {
+    body.parent_id = request.parent_id;
   }
 
   return bccFetchAsClient<CreateCommentResponse>(

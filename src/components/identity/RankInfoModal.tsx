@@ -104,6 +104,7 @@ export function RankInfoModal({
       onClose={onClose}
       center
       animateIn
+      glass
       panelClassName="max-w-[440px] flex flex-col gap-4"
     >
       {/* Header — the member's rank is the focus. */}

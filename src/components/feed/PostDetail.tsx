@@ -28,7 +28,7 @@ import { PostOverflowMenu } from "@/components/feed/PostOverflowMenu";
 import { ReactorStack } from "@/components/feed/ReactorStack";
 import { VerificationBadge } from "@/components/groups/VerificationBadge";
 import { AuthorBadge } from "@/components/identity/AuthorBadge";
-import { formatAbsoluteDateTime, formatRelativeTime } from "@/lib/format";
+import { formatAbsoluteDateTime } from "@/lib/format";
 import { readMentions, renderTextWithMentions } from "@/lib/format/mentions";
 import type { FeedItem } from "@/lib/api/types";
 
@@ -49,7 +49,7 @@ interface PostDetailProps {
 export function PostDetail({
   item: initialItem,
   canInteract = true,
-  className = "bcc-panel relative flex flex-col gap-3 p-4 sm:p-5",
+  className = "bcc-panel relative flex flex-col gap-3 p-4 pb-3 sm:p-5 sm:pb-3.5",
   focusComposer = false,
 }: PostDetailProps) {
   // Reactive read seeded by the server fetch (initialData). Renders
@@ -92,13 +92,6 @@ export function PostDetail({
                   className="bcc-mono shrink-0 text-[10px]"
                 />
               )}
-              <time
-                dateTime={item.posted_at}
-                title={formatAbsoluteDateTime(item.posted_at)}
-                className="bcc-mono shrink-0 text-[11px] text-[var(--bcc-text-secondary)]/70"
-              >
-                {formatRelativeTime(item.posted_at)}
-              </time>
               <PostOverflowMenu selfHref={item.links.self} item={item} />
             </div>
           }
@@ -134,6 +127,8 @@ export function PostDetail({
         }}
         commentTitle="Jump to the composer"
         shareTitle={`${item.author.display_name ?? item.author.handle} on Blue Collar Crypto`}
+        timestamp={item.posted_at}
+        absoluteTitle={formatAbsoluteDateTime(item.posted_at)}
       />
 
       <CommentDrawer

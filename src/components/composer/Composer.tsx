@@ -51,6 +51,7 @@ import { useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 
 import { useCreatePostMutation } from "@/hooks/useCreatePost";
+import { PhotoIcon } from "@/components/feed/actionIcons";
 import { Avatar } from "@/components/identity/Avatar";
 import { GifPicker } from "@/components/composer/GifPicker";
 import { MentionPopover } from "@/components/composer/MentionPopover";
@@ -792,11 +793,7 @@ function InlineStatusComposer({
                       : "border-[var(--bcc-border)] text-[var(--bcc-text-secondary)] hover:border-[var(--bcc-border-strong)] hover:text-[var(--bcc-text)]")
                   }
                 >
-                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                    <rect x="1.5" y="2.5" width="13" height="11" rx="1.5" />
-                    <circle cx="5.5" cy="6" r="1.25" />
-                    <path d="M1.5 11L5.5 8L8.5 10.5L11 8L14.5 11.5" />
-                  </svg>
+                  <PhotoIcon size={14} />
                 </button>
                 {/* GIF button — only mounts when the integration is
                     enabled. Toggles the inline picker. Disabled while a
