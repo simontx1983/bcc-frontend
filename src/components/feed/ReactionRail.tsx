@@ -45,19 +45,19 @@ interface StagePreset {
 }
 
 const STAGE_PRESETS: Record<HeatStage, StagePreset> = {
-  1: { size: 22, color: "var(--bcc-secondary-dark)",  glowOpacity: 0.12 },
-  2: { size: 23, color: "var(--bcc-secondary-dark)",  glowOpacity: 0.20 },
-  3: { size: 24, color: "var(--bcc-secondary)",       glowOpacity: 0.28 },
-  4: { size: 25, color: "var(--bcc-secondary-light)", glowOpacity: 0.38 },
-  5: { size: 26, color: "var(--bcc-secondary-light)", glowOpacity: 0.48 },
+  1: { size: 18, color: "var(--bcc-secondary-dark)",  glowOpacity: 0.12 },
+  2: { size: 19, color: "var(--bcc-secondary-dark)",  glowOpacity: 0.20 },
+  3: { size: 20, color: "var(--bcc-secondary)",       glowOpacity: 0.28 },
+  4: { size: 21, color: "var(--bcc-secondary-light)", glowOpacity: 0.38 },
+  5: { size: 22, color: "var(--bcc-secondary-light)", glowOpacity: 0.48 },
 };
 
 /** Box the flame + glow are centered in — sized to the largest stage so the icon never clips. */
-const FLAME_BOX = 26;
+const FLAME_BOX = 22;
 
 /** No heat_stage at all (backend not shipped) — distinct from "stage 1", which is a real (if cold) signal. */
-const FALLBACK_LIT: StagePreset = { size: 22, color: "var(--bcc-stoke-ash)", glowOpacity: 0.25 };
-const FALLBACK_DIM: StagePreset = { size: 22, color: "var(--bcc-stoke-ash)", glowOpacity: 0.12 };
+const FALLBACK_LIT: StagePreset = { size: 18, color: "var(--bcc-stoke-ash)", glowOpacity: 0.25 };
+const FALLBACK_DIM: StagePreset = { size: 18, color: "var(--bcc-stoke-ash)", glowOpacity: 0.12 };
 
 /** Radial spread for the stoke-ON spark burst — evenly fanned so they never stack. */
 const PARTICLE_RADIUS = 18;
@@ -115,7 +115,7 @@ export function ReactionRail({
       aria-pressed={hasStoked}
       aria-label={hasStoked ? "Stoked — tap to remove" : "Stoke"}
       title={hasStoked ? "Stoked — tap to remove" : "Stoke"}
-      className="bcc-stoke-button relative inline-flex min-h-[28px] items-center gap-1.5 rounded-full px-2 py-1 transition-colors duration-150 hover:bg-[var(--bcc-surface-active)] disabled:cursor-not-allowed"
+      className="bcc-stoke-button relative inline-flex min-h-[26px] items-center gap-1.5 rounded-full px-2 py-0.5 transition-colors duration-150 hover:bg-[var(--bcc-surface-active)] disabled:cursor-not-allowed"
     >
       <StokeFlame
         boxSize={FLAME_BOX}
@@ -130,7 +130,8 @@ export function ReactionRail({
         className="bcc-mono text-[11px]"
         style={{ color: hasStoked ? preset.color : "var(--bcc-text-secondary)" }}
       >
-        Stoke{count > 0 ? ` ${count}` : ""}
+        <span className="hidden sm:inline">Stoke</span>
+        {count > 0 ? ` ${count}` : ""}
       </span>
     </button>
   );

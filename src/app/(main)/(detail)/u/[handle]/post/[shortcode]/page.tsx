@@ -53,7 +53,7 @@ export default async function PostByShortcodePage({ params, searchParams }: Page
   }
 
   return (
-    <div className="mx-auto max-w-2xl px-3 py-4 sm:px-0">
+    <div className="mx-auto max-w-2xl px-2 py-4 sm:px-0">
       <PostBackButton />
       <PostRailRegistrar author={item.author} feedId={item.id} />
       <PostDetail item={item} focusComposer={intent === "comment"} />

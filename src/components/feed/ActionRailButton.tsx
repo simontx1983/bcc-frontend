@@ -41,14 +41,14 @@ export function ActionRailButton({
   soon?: boolean;
 }) {
   const classes =
-    "bcc-mono inline-flex min-h-[28px] items-center gap-1.5 rounded-full px-2 py-1 text-[11px] text-[var(--bcc-text-secondary)] transition-colors duration-150 hover:bg-[var(--bcc-surface-active)] " +
+    "bcc-mono inline-flex min-h-[26px] items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] text-[var(--bcc-text-secondary)] transition-colors duration-150 hover:bg-[var(--bcc-surface-active)] " +
     hoverClassName +
     (soon ? " cursor-not-allowed opacity-70" : " disabled:cursor-not-allowed disabled:opacity-60");
 
   const content = (
     <>
       <span className="inline-flex">{icon}</span>
-      <span>{label}</span>
+      <span className="hidden sm:inline">{label}</span>
       {count !== undefined && count > 0 && <span>{count}</span>}
     </>
   );

@@ -49,7 +49,10 @@ interface PostDetailProps {
 export function PostDetail({
   item: initialItem,
   canInteract = true,
-  className = "bcc-panel relative flex flex-col gap-3 p-4 pb-3 sm:p-5 sm:pb-3.5",
+  // Mobile padding matches FeedItemCard's exactly (Item 7.3/9 — the detail
+  // card read heavier than the feed at the same width); sm:+ keeps its
+  // own slightly roomier detail-page sizing.
+  className = "bcc-panel relative flex flex-col gap-3 p-3.5 pb-2.5 sm:p-5 sm:pb-3.5",
   focusComposer = false,
 }: PostDetailProps) {
   // Reactive read seeded by the server fetch (initialData). Renders
@@ -107,7 +110,7 @@ export function PostDetail({
       {isGif && <GifBody item={item} />}
 
       {summary !== "" && (
-        <p className="font-serif text-[var(--bcc-text)] whitespace-pre-line">
+        <p className="font-serif text-[var(--bcc-text)] whitespace-pre-line break-words">
           {renderTextWithMentions(summary, readMentions(item.body))}
         </p>
       )}
@@ -136,6 +139,7 @@ export function PostDetail({
         isOpen
         canInteract={canInteract}
         focusComposer={focusComposer}
+        topDivider={false}
       />
     </article>
   );

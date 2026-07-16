@@ -84,7 +84,7 @@ export function ReviewBody({ body }: { body: Record<string, unknown> }) {
         )}
       </div>
 
-      {text !== "" && <p className="font-serif text-[var(--bcc-text)] whitespace-pre-line">{text}</p>}
+      {text !== "" && <p className="font-serif text-[var(--bcc-text)] whitespace-pre-line break-words">{text}</p>}
     </div>
   );
 }
@@ -151,7 +151,7 @@ export function BlogExcerptBody({ body, authorHandle }: BlogExcerptBodyProps) {
         </h3>
       )}
       {excerpt !== "" && (
-        <p className="font-serif text-[var(--bcc-text)] whitespace-pre-line">{excerpt}</p>
+        <p className="font-serif text-[var(--bcc-text)] whitespace-pre-line break-words">{excerpt}</p>
       )}
       {blogHref !== null && (
         <Link
@@ -212,7 +212,7 @@ export function PhotoBody({ item }: { item: FeedItem }) {
   return (
     <div className="flex flex-col gap-3">
       {caption !== "" && (
-        <p className="font-serif text-[var(--bcc-text)] whitespace-pre-line">
+        <p className="font-serif text-[var(--bcc-text)] whitespace-pre-line break-words">
           {renderTextWithMentions(caption, mentions)}
         </p>
       )}
@@ -265,7 +265,7 @@ export function GifBody({ item }: { item: FeedItem }) {
   return (
     <div className="flex flex-col gap-3">
       {caption !== "" && (
-        <p className="font-serif text-[var(--bcc-text)] whitespace-pre-line">
+        <p className="font-serif text-[var(--bcc-text)] whitespace-pre-line break-words">
           {renderTextWithMentions(caption, mentions)}
         </p>
       )}

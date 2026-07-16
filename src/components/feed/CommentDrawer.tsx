@@ -54,6 +54,7 @@ import { ClockIcon, PhotoIcon, ReplyIcon, ShareIcon } from "@/components/feed/ac
 import { CommentGifPicker } from "@/components/feed/CommentGifPicker";
 import { StokeFlame } from "@/components/feed/StokeFlame";
 import { Dialog } from "@/components/ui/Dialog";
+import { LoadFailure } from "@/components/ui/LoadFailure";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { Spinner } from "@/components/ui/Spinner";
 import {
@@ -84,10 +85,10 @@ const COMPOSER_MAX_HEIGHT = 160;
  * folded behind the "Follow the thread" drill control. Tiers are 0-indexed
  * relative to the current view root: relativeDepth 0…MAX_RENDER_DEPTH-1
  * render inline; a node whose children would land at MAX_RENDER_DEPTH shows
- * the control instead. 5 = five visible tiers (Tia's call — Reddit does ~10,
- * 5 reads fine in a drawer). Drilling in re-roots and the count resets.
+ * the control instead. 3 = three visible tiers (Tia's revised call — 5 read
+ * too deep once real threads nested). Drilling in re-roots and the count resets.
  */
-const MAX_RENDER_DEPTH = 5;
+const MAX_RENDER_DEPTH = 3;
 /** px the guide-line indents each nested tier. */
 const THREAD_INDENT = 14;
 /** Drill-control copy (Tia wanted something other than "Continue thread"). */
@@ -113,6 +114,15 @@ interface CommentDrawerProps {
   canInteract?: boolean;
   /** Focus the composer textarea + scroll it into view on mount. */
   focusComposer?: boolean;
+  /**
+   * The drawer's own top border + margin — needed when it can appear
+   * directly below page content with no other divider (the original
+   * toggle-below-a-feed-card usage). PostDetail and Lightbox always stack
+   * this immediately under `PostActionBar`, which already renders its own
+   * top divider, so a second one back-to-back reads as two redundant
+   * lines with a dead gap between them — both pass `false`.
+   */
+  topDivider?: boolean;
 }
 
 export function CommentDrawer({
@@ -120,6 +130,7 @@ export function CommentDrawer({
   isOpen,
   canInteract = true,
   focusComposer = false,
+  topDivider = true,
 }: CommentDrawerProps) {
   const session = useSession();
   const isAuthed = session.status === "authenticated";
@@ -162,11 +173,16 @@ export function CommentDrawer({
     return null;
   }
 
+  // See the `topDivider` doc comment — suppressed when PostActionBar's own
+  // top divider already sits immediately above (PostDetail, Lightbox).
+  const divider = topDivider ? "mt-3 border-t border-[var(--bcc-border)] " : "";
+  const dividerPad = topDivider ? "mt-3 border-t border-[var(--bcc-border)] pt-3 " : "";
+
   if (query.isLoading) {
     return (
       <div
         aria-label="Loading comments"
-        className="mt-3 flex flex-col gap-2 border-t border-[var(--bcc-border)] pt-3"
+        className={dividerPad + "flex flex-col gap-2"}
       >
         <Skeleton className="h-12" count={2} />
       </div>
@@ -177,14 +193,17 @@ export function CommentDrawer({
     const code = query.error?.code ?? "";
     if (code === "bcc_forbidden") {
       return (
-        <div className="bcc-mono mt-3 border-t border-[var(--bcc-border)] pt-3 text-[11px] text-[var(--bcc-text-secondary)]">
+        <div className={"bcc-mono " + dividerPad + "text-[11px] text-[var(--bcc-text-secondary)]"}>
           Join the group to see this thread.
         </div>
       );
     }
     return (
-      <div className="bcc-mono mt-3 border-t border-[var(--bcc-border)] pt-3 text-[11px] text-[var(--bcc-text-muted)]">
-        Couldn&apos;t load comments. {code === "" ? "" : `(${code})`}
+      <div className={divider}>
+        <LoadFailure
+          message="Couldn't load comments."
+          onRetry={() => void query.refetch()}
+        />
       </div>
     );
   }
@@ -206,7 +225,7 @@ export function CommentDrawer({
   const canStoke = isAuthed && canInteract;
 
   return (
-    <div className="mt-3 border-t border-[var(--bcc-border)] pt-3">
+    <div className={dividerPad.trim()}>
       {/* Drill-down header — back out of a followed thread, with the
           collapsed-ancestor indicator (the "earlier replies are hidden"
           several-lines motif). Only in a drilled view. */}
@@ -672,14 +691,27 @@ function CommentRow({
           />
         }
       />
-      <p className="whitespace-pre-line pl-[40px] font-serif text-[14px] text-[var(--bcc-text)]">
-        {renderTextWithMentions(comment.body, comment.mentions)}
-      </p>
+      {comment.body !== "" && (
+        <p className="whitespace-pre-line break-words pl-[40px] font-serif text-[14px] text-[var(--bcc-text)]">
+          {renderTextWithMentions(comment.body, comment.mentions)}
+        </p>
+      )}
       {comment.media !== undefined && (
         <div className="pl-[40px]">
           <CommentMediaView media={comment.media} />
         </div>
       )}
+      {/* Mobile-only: the rail is too tight to also carry the timestamp once
+          a row is indented, so it gets its own line here; the in-rail copy
+          (CommentActionRail) is hidden below sm: to avoid rendering twice. */}
+      <time
+        dateTime={comment.posted_at}
+        title={comment.posted_at}
+        className="bcc-mono inline-flex items-center gap-1 pl-[40px] text-[10px] text-[var(--bcc-text-muted)] sm:hidden"
+      >
+        <ClockIcon size={12} />
+        {formatRelativeTime(comment.posted_at)}
+      </time>
       <div className="pl-[40px]">
         <CommentActionRail
           feedId={feedId}
@@ -764,7 +796,7 @@ function CommentActionRail({
       <time
         dateTime={timestamp}
         title={timestamp}
-        className="bcc-mono inline-flex items-center gap-1 pl-1 text-[10px] text-[var(--bcc-text-muted)]"
+        className="bcc-mono hidden items-center gap-1 pl-1 text-[10px] text-[var(--bcc-text-muted)] sm:inline-flex"
       >
         <ClockIcon size={12} />
         {formatRelativeTime(timestamp)}
@@ -837,7 +869,7 @@ function CommentStokeButton({
       aria-pressed={hasStoked}
       aria-label={hasStoked ? "Stoked — tap to remove" : "Stoke"}
       title={hasStoked ? "Stoked — tap to remove" : "Stoke"}
-      className="bcc-stoke-button bcc-mono inline-flex min-h-[28px] items-center gap-1 rounded-full px-2 py-1 text-[11px] transition-colors duration-150 hover:bg-[var(--bcc-surface-active)] disabled:cursor-not-allowed"
+      className="bcc-stoke-button bcc-mono inline-flex min-h-[24px] items-center gap-1 rounded-full px-2 py-0.5 text-[11px] transition-colors duration-150 hover:bg-[var(--bcc-surface-active)] disabled:cursor-not-allowed"
       style={{ color }}
     >
       <StokeFlame
@@ -849,7 +881,8 @@ function CommentStokeButton({
         burstKey={burstKey}
         particleRadius={COMMENT_PARTICLE_RADIUS}
       />
-      Stoke{count > 0 ? ` ${count}` : ""}
+      <span className="hidden sm:inline">Stoke</span>
+      {count > 0 ? ` ${count}` : ""}
     </button>
   );
 }
@@ -1049,7 +1082,7 @@ function CommentComposer({
 
   const trimmed = draft.trim();
   const overCap = trimmed.length > COMMENT_MAX_LENGTH;
-  const canSubmit = trimmed !== "" && !overCap && !createMut.isPending && !uploading;
+  const canSubmit = (trimmed !== "" || hasMedia) && !overCap && !createMut.isPending && !uploading;
 
   const clearMedia = () => {
     setPhoto(null);

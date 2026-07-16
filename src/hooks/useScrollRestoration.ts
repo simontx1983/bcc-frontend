@@ -10,13 +10,22 @@
  * restore here and every soft-nav back to the feed landed at the top.
  *
  * This hook makes the column remember where each route was scrolled and
- * puts it back on return. It works because `.bcc-col-center` lives in the
- * persistent `(main)` layout, so the element (and this hook's state)
- * survive navigation between the feed and `/post/[id]`.
+ * puts it back on return.
+ *
+ * `positions` is a MODULE-level map, not a `useRef` — `(app)`/`(detail)`
+ * are separate route groups (Item 7 split) that each mount their own
+ * `AppShell`/`.bcc-col-center` instance, so navigating feed → post detail
+ * unmounts one and mounts another. A `useRef`'s state dies with its
+ * component instance, which would silently wipe scroll memory on every
+ * such crossing — the module-level map survives remounts within the same
+ * JS session (any live route group can read/write the same map) while
+ * still resetting on a real page reload, since that reinitializes the
+ * module. Was previously safe as a `useRef` back when `.bcc-col-center`
+ * lived in one persistent `(main)` layout shared by every route.
  *
  * Mechanism:
  *   - A passive scroll listener continuously records the current path's
- *     scrollTop into an in-memory map (rAF-throttled).
+ *     scrollTop into the map (rAF-throttled).
  *   - On pathname change, a layout effect updates the "current path" ref
  *     synchronously (before the browser fires the clamp-scroll event that
  *     content-height changes trigger — otherwise that event would save the
@@ -25,18 +34,15 @@
  *     the route's content has committed and its height is measurable —
  *     React Query serves the cached feed synchronously, so full height is
  *     present immediately).
- *
- * In-memory (not sessionStorage) is deliberate: this is for SPA back-nav,
- * which is the only case where the container persists. A full reload
- * remounts the shell and legitimately starts at the top.
  */
 
 import { useEffect, useLayoutEffect, useRef, type RefObject } from "react";
 import { usePathname } from "next/navigation";
 
+const positions = new Map<string, number>();
+
 export function useScrollRestoration(ref: RefObject<HTMLElement | null>): void {
   const pathname = usePathname();
-  const positions = useRef<Map<string, number>>(new Map());
   // Tracks which path the scroll listener should attribute saves to.
   // Kept in sync via the layout effect below so it's correct BEFORE any
   // post-navigation scroll event fires.
@@ -50,7 +56,7 @@ export function useScrollRestoration(ref: RefObject<HTMLElement | null>): void {
     const onScroll = () => {
       cancelAnimationFrame(raf);
       raf = requestAnimationFrame(() => {
-        positions.current.set(currentPath.current, el.scrollTop);
+        positions.set(currentPath.current, el.scrollTop);
       });
     };
     el.addEventListener("scroll", onScroll, { passive: true });
@@ -66,7 +72,7 @@ export function useScrollRestoration(ref: RefObject<HTMLElement | null>): void {
     currentPath.current = pathname;
     const el = ref.current;
     if (el === null) return undefined;
-    const saved = positions.current.get(pathname) ?? 0;
+    const saved = positions.get(pathname) ?? 0;
     const raf = requestAnimationFrame(() => {
       el.scrollTop = saved;
     });

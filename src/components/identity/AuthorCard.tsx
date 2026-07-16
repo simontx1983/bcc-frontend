@@ -139,6 +139,7 @@ export function AuthorCard({
                 tierLabel={effectiveTierLabel}
                 rankLabel={effectiveRankLabel}
                 size="compact"
+                handle={handle}
               />
             </span>
           )}
