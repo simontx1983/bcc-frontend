@@ -1,19 +1,20 @@
+import type { Metadata } from "next";
+
+import { FloorIntro } from "@/components/landing/FloorIntro";
+
 /**
- * /welcome — the guest landing page (Direction A "LEDGER"). Placeholder
- * during the Item 7 route-group split; the real FloorIntro rebuild lands
- * in the next pass (handover Item 1). Anon `/` rewrites here via
- * middleware; authed `/` renders the (app) feed instead.
+ * /welcome — the guest landing page (Direction A "LEDGER"). Anon `/`
+ * middleware-rewrites here so the URL bar stays "/" for guests; authed
+ * "/" renders the (app) feed instead. Also reachable directly at
+ * `/welcome` (the handover's documented fallback if the rewrite ever
+ * needs replacing with a redirect).
  */
+export const metadata: Metadata = {
+  title: "Blue Collar Crypto — Reputation you can't buy",
+  description:
+    "On-chain reputation, earned in public. No paid placement, no sponsored grades, no bought checkmarks — the only currency on the floor is the work you actually did.",
+};
+
 export default function WelcomePage() {
-  return (
-    <main className="mx-auto max-w-[1180px] px-4 py-16 sm:px-6">
-      <h1 className="bcc-stencil text-3xl text-[var(--bcc-text)]">
-        Reputation you can&apos;t buy.
-      </h1>
-      <p className="mt-3 max-w-xl font-serif text-[var(--bcc-text-secondary)]">
-        Blue Collar Crypto is on-chain reputation, earned in public — not sponsored,
-        not boosted, not bought.
-      </p>
-    </main>
-  );
+  return <FloorIntro />;
 }

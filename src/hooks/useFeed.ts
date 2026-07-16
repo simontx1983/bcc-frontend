@@ -91,6 +91,26 @@ export function useHotFeed() {
   });
 }
 
+/** Distinct from HOT_FEED_QUERY_KEY — a 3-item peek is a different
+ * shape/cache lifetime than the paginated feed and shouldn't collide
+ * with (or get invalidated alongside) it. */
+export const HOT_FEED_PEEK_QUERY_KEY = ["feed", "hot", "peek"] as const;
+
+/**
+ * useHotFeedPeek — the guest landing page's bounded "on the floor now"
+ * section (handover Item 1). A plain `useQuery` (not `useInfiniteQuery`)
+ * for a small fixed slice — `useHotFeed` always pages at PAGE_SIZE=20
+ * with cursor pagination, which is the wrong shape for 3 static cards
+ * with no load-more.
+ */
+export function useHotFeedPeek(count: number) {
+  return useQuery<FeedResponse, BccApiError>({
+    queryKey: HOT_FEED_PEEK_QUERY_KEY,
+    queryFn: ({ signal }) => getHotFeed({ cursor: null, limit: count }, signal),
+    staleTime: 30_000,
+  });
+}
+
 export function useFeed(scope: FeedScope) {
   return useInfiniteQuery<
     FeedResponse,
