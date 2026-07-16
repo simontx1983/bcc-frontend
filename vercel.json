@@ -2,7 +2,7 @@
   "crons": [
     {
       "path": "/api/internal/cron/indexer-tick",
-      "schedule": "0 0 * * *"
+      "schedule": "* * * * *"
     }
   ]
 }
