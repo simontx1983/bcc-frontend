@@ -139,7 +139,6 @@ export function PostDetail({
         isOpen
         canInteract={canInteract}
         focusComposer={focusComposer}
-        topDivider={false}
       />
     </article>
   );

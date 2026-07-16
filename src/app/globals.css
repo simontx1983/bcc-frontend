@@ -3501,8 +3501,14 @@
   color: var(--bcc-text-muted); text-transform: uppercase;
   display: inline-flex; gap: 10px; align-items: center;
 }
-.bcc-ldg-marquee-x { color: var(--bcc-secondary); font-weight: 700; }
-.bcc-ldg-marquee-em { color: var(--bcc-accent); font-style: italic; }
+/* Specificity must beat `.bcc-ldg-marquee-track span` above (class+tag) —
+   a bare `.bcc-ldg-marquee-x` class alone loses that fight and silently
+   renders as the muted default, which is why these previously showed no
+   color at all despite the rule existing. Brand-fixed colors (not
+   `--bcc-accent`) — the ticker is a static identity device, unlike the
+   hero strike-through (see `.bcc-ldg-strike`), which does track accent. */
+.bcc-ldg-marquee-track .bcc-ldg-marquee-x { color: var(--bcc-secondary); font-weight: 700; }
+.bcc-ldg-marquee-track .bcc-ldg-marquee-em { color: var(--bcc-primary); font-style: italic; }
 @keyframes bcc-ldg-slide { to { transform: translateX(-50%); } }
 
 /* ---- shared section frame ---- */
@@ -3555,7 +3561,7 @@
   font-family: var(--font-stencil), Impact, sans-serif; font-weight: 400; text-transform: uppercase;
   letter-spacing: 0.005em; line-height: 0.86; font-size: clamp(3.4rem, 9.5vw, 7.5rem); margin: 22px 0 0;
 }
-.bcc-ldg-strike { color: var(--bcc-secondary); position: relative; display: inline-block; }
+.bcc-ldg-strike { color: var(--bcc-accent); position: relative; display: inline-block; }
 .bcc-ldg-strike::after {
   content: ""; position: absolute; left: -2%; right: -2%; top: 46%; height: 0.1em; background: currentColor;
   transform: scaleX(0); transform-origin: left; animation: bcc-ldg-strike 1s 0.5s var(--bcc-ldg-ease) forwards;

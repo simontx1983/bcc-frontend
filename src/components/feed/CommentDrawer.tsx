@@ -117,10 +117,11 @@ interface CommentDrawerProps {
   /**
    * The drawer's own top border + margin — needed when it can appear
    * directly below page content with no other divider (the original
-   * toggle-below-a-feed-card usage). PostDetail and Lightbox always stack
-   * this immediately under `PostActionBar`, which already renders its own
-   * top divider, so a second one back-to-back reads as two redundant
-   * lines with a dead gap between them — both pass `false`.
+   * toggle-below-a-feed-card usage, and PostDetail, whose PostActionBar
+   * renders bare with nothing below it). Lightbox passes `false`: its
+   * PostActionBar sits inside a wrapper that already draws its own
+   * bottom border, so this divider would double up with a dead gap
+   * between the two lines.
    */
   topDivider?: boolean;
 }
@@ -173,10 +174,14 @@ export function CommentDrawer({
     return null;
   }
 
-  // See the `topDivider` doc comment — suppressed when PostActionBar's own
-  // top divider already sits immediately above (PostDetail, Lightbox).
-  const divider = topDivider ? "mt-3 border-t border-[var(--bcc-border)] " : "";
-  const dividerPad = topDivider ? "mt-3 border-t border-[var(--bcc-border)] pt-3 " : "";
+  // See the `topDivider` doc comment. Lean spacing (mt-2/pt-2, not the
+  // original mt-3/pt-3) — PostDetail is the only caller that still needs
+  // this divider (its PostActionBar renders bare, with nothing below it),
+  // and the original spacing read as "too wide" even as a single line.
+  // Lightbox passes false: its own wrapping strip already draws the
+  // rail-to-comments divider (see PostActionBar's `topBorder` prop).
+  const divider = topDivider ? "mt-2 border-t border-[var(--bcc-border)] " : "";
+  const dividerPad = topDivider ? "mt-2 border-t border-[var(--bcc-border)] pt-2 " : "";
 
   if (query.isLoading) {
     return (
@@ -889,9 +894,11 @@ function CommentStokeButton({
 
 // ─────────────────────────────────────────────────────────────────────
 // Attached media (§3.5) — one photo XOR gif, rendered above the body.
-// Photos open a lightweight zoom (the feed Lightbox wants a whole
-// FeedItem + comments panel — wrong shape for a comment attachment, so
-// we use the shared Dialog primitive directly). GIFs render inline.
+// Both open a zoom (the feed Lightbox wants a whole FeedItem + comments
+// panel — wrong shape for a single comment attachment, so this uses the
+// shared Dialog primitive directly rather than the feed Lightbox
+// component), styled to match its theater treatment — same dark backdrop
+// and the same visible circular close button — for visual consistency.
 // ─────────────────────────────────────────────────────────────────────
 
 /** Capped display box for a comment attachment — keeps tall media from dominating the row. */
@@ -917,22 +924,26 @@ function CommentMediaView({ media }: { media: CommentMedia }) {
 
   return (
     <div className="mt-1.5">
-      {isPhoto ? (
-        <button
-          type="button"
-          onClick={() => setZoomed(true)}
-          aria-label="View image"
-          className="block max-w-full rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--bcc-accent)]"
-        >
-          {img}
-        </button>
-      ) : (
-        img
-      )}
+      <button
+        type="button"
+        onClick={() => setZoomed(true)}
+        aria-label={isPhoto ? "View image" : "View GIF"}
+        className="block max-w-full rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--bcc-accent)]"
+      >
+        {img}
+      </button>
 
       {zoomed && (
-        <Dialog title="Image" bare center backdropClassName="bg-ink/90 backdrop-blur-md" onClose={() => setZoomed(false)}>
-          <div className="flex max-h-[92vh] max-w-[92vw] items-center justify-center">
+        <Dialog title={isPhoto ? "Image" : "GIF"} bare center backdropClassName="bg-ink/90 backdrop-blur-md" onClose={() => setZoomed(false)}>
+          <div className="relative flex max-h-[92vh] max-w-[92vw] items-center justify-center">
+            <button
+              type="button"
+              onClick={() => setZoomed(false)}
+              aria-label="Close"
+              className="fixed right-3 top-3 z-10 inline-flex h-9 w-9 items-center justify-center rounded-full bg-ink/60 text-lg text-paper backdrop-blur-sm transition-colors hover:bg-ink"
+            >
+              ✕
+            </button>
             {/* eslint-disable-next-line @next/next/no-img-element -- remote media, see above */}
             <img src={media.url} alt="" className="max-h-[92vh] max-w-[92vw] rounded-xl object-contain" />
           </div>
@@ -1083,6 +1094,8 @@ function CommentComposer({
   const trimmed = draft.trim();
   const overCap = trimmed.length > COMMENT_MAX_LENGTH;
   const canSubmit = (trimmed !== "" || hasMedia) && !overCap && !createMut.isPending && !uploading;
+  /** Collapsed box has content to summarize — swap the raw textarea for a truncated preview (items 8/9). */
+  const showCollapsedPreview = !expanded && (trimmed !== "" || hasMedia);
 
   const clearMedia = () => {
     setPhoto(null);
@@ -1269,17 +1282,45 @@ function CommentComposer({
           </div>
         )}
         <div className="flex items-end gap-2">
-          <textarea
-            id={`comment-${feedId}`}
-            ref={textareaRef}
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            onFocus={() => setExpanded(true)}
-            rows={1}
-            maxLength={COMMENT_MAX_LENGTH * 2 /* soft over-type buffer; canSubmit gates submit */}
-            placeholder={replyTarget !== null ? `Reply to @${replyTarget.handle}…` : "Write a comment…"}
-            className="w-full flex-1 resize-none bg-transparent text-[14px] leading-snug text-[var(--bcc-text)] placeholder:text-[var(--bcc-text-muted)] focus:outline-none"
-          />
+          {/* Collapsed-state preview: a textarea showing wrapped-then-clipped
+              draft text (no ellipsis, no indication more text follows) read
+              as empty for a media-only draft (the attachment preview only
+              renders when expanded) and unreadable for a long text draft —
+              items 8/9. Swapped in only when there's actually something to
+              summarize; an empty collapsed box still shows the real
+              textarea so its placeholder keeps working. `truncate` (CSS
+              ellipsis) rather than a hardcoded character cap — it adapts to
+              whatever width the composer actually has at any breakpoint,
+              mobile included, instead of guessing a fixed count that's
+              wrong at some viewport. */}
+          <div className="relative w-full flex-1">
+            <textarea
+              id={`comment-${feedId}`}
+              ref={textareaRef}
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onFocus={() => setExpanded(true)}
+              rows={1}
+              maxLength={COMMENT_MAX_LENGTH * 2 /* soft over-type buffer; canSubmit gates submit */}
+              placeholder={replyTarget !== null ? `Reply to @${replyTarget.handle}…` : "Write a comment…"}
+              className={
+                "w-full flex-1 resize-none bg-transparent text-[14px] leading-snug text-[var(--bcc-text)] placeholder:text-[var(--bcc-text-muted)] focus:outline-none" +
+                (showCollapsedPreview ? " invisible" : "")
+              }
+            />
+            {showCollapsedPreview && (
+              <div className="pointer-events-none absolute inset-0 flex items-center gap-1.5 text-[14px] leading-snug text-[var(--bcc-text)]">
+                {hasMedia && (
+                  <span className="inline-flex shrink-0 text-[var(--bcc-text-secondary)]" aria-hidden>
+                    <PhotoIcon size={14} />
+                  </span>
+                )}
+                <span className="truncate">
+                  {trimmed !== "" ? trimmed : gif !== null ? "GIF attached" : "Photo attached"}
+                </span>
+              </div>
+            )}
+          </div>
 
           {/* Icon-only submit while the box is at rest. */}
           {!expanded && (
@@ -1343,82 +1384,85 @@ function CommentComposer({
         )}
 
         {/* Expanded footer — media buttons + word count + collapse + full
-            submit, all inside the box (§C14). */}
+            submit, all inside the box (§C14). Error/cap messages get their
+            own full-width row below (not truncated) — cramming them into
+            the counter's single truncated line clipped the message
+            entirely on narrow (mobile) widths, leaving no visible reason
+            the submit failed. */}
         {expanded && (
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex min-w-0 items-center gap-0.5">
-              <MediaIconButton
-                onClick={() => fileInputRef.current?.click()}
-                active={photo !== null}
-                disabled={uploading}
-                label="Attach photo"
-              >
-                <PhotoIcon />
-              </MediaIconButton>
-
-              {gifEnabled && (
+          <div className="flex flex-col gap-1">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex min-w-0 items-center gap-0.5">
                 <MediaIconButton
-                  onClick={() => setGifPickerOpen((o) => !o)}
-                  active={gif !== null || gifPickerOpen}
+                  onClick={() => fileInputRef.current?.click()}
+                  active={photo !== null}
                   disabled={uploading}
-                  label="Attach GIF"
+                  label="Attach photo"
                 >
-                  <span className="bcc-mono text-[11px] font-bold tracking-tight">GIF</span>
+                  <PhotoIcon />
                 </MediaIconButton>
-              )}
 
-              <p className="bcc-mono ml-1 min-w-0 truncate text-[10px] text-[var(--bcc-text-muted)]">
-                {trimmed.length}/{COMMENT_MAX_LENGTH}
-                {mediaError !== null && (
-                  <span className="ml-2 text-[var(--bcc-danger)]">{mediaError}</span>
+                {gifEnabled && (
+                  <MediaIconButton
+                    onClick={() => setGifPickerOpen((o) => !o)}
+                    active={gif !== null || gifPickerOpen}
+                    disabled={uploading}
+                    label="Attach GIF"
+                  >
+                    <span className="bcc-mono text-[11px] font-bold tracking-tight">GIF</span>
+                  </MediaIconButton>
                 )}
-                {error !== null && (
-                  <span className="ml-2 text-[var(--bcc-danger)]">
-                    {humanizeCode(
-                      error,
-                      {
-                        bcc_unauthorized: "Sign in to comment.",
-                        bcc_rate_limited: "Commenting too fast — slow down.",
-                        bcc_forbidden: "You can't comment here.",
-                        bcc_invalid_request: "Comment couldn't be posted.",
-                        bcc_too_many_mentions: "Too many @-mentions in one comment.",
-                        bcc_invalid_mention_target:
-                          "One of your @-mentions can't receive notifications.",
-                      },
-                      "Couldn't post the comment.",
-                    )}
-                  </span>
-                )}
-                {overCap && error === null && (
-                  <span className="ml-2 text-[var(--bcc-danger)]">
-                    Over the {COMMENT_MAX_LENGTH}-char cap.
-                  </span>
-                )}
+
+                <p className="bcc-mono ml-1 min-w-0 truncate text-[10px] text-[var(--bcc-text-muted)]">
+                  {trimmed.length}/{COMMENT_MAX_LENGTH}
+                </p>
+              </div>
+
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={collapse}
+                  aria-label="Collapse composer"
+                  title="Collapse"
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-full text-[var(--bcc-text-secondary)] hover:bg-[var(--bcc-surface-hover)] hover:text-[var(--bcc-text)]"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                    {/* two arrows collapsing toward center */}
+                    <path d="M4 14h6v6M20 10h-6V4M14 10l7-7M3 21l7-7" />
+                  </svg>
+                </button>
+                <button
+                  type="submit"
+                  disabled={!canSubmit}
+                  className="bcc-btn bcc-btn-sm bcc-btn-primary"
+                >
+                  {createMut.isPending ? "Posting…" : "Comment"}
+                  <SendIcon />
+                </button>
+              </div>
+            </div>
+
+            {(mediaError !== null || error !== null || overCap) && (
+              <p className="bcc-mono min-w-0 break-words text-[10px] text-[var(--bcc-danger)]">
+                {mediaError !== null
+                  ? mediaError
+                  : error !== null
+                    ? humanizeCode(
+                        error,
+                        {
+                          bcc_unauthorized: "Sign in to comment.",
+                          bcc_rate_limited: "Commenting too fast — slow down.",
+                          bcc_forbidden: "You can't comment here.",
+                          bcc_invalid_request: "Comment couldn't be posted.",
+                          bcc_too_many_mentions: "Too many @-mentions in one comment.",
+                          bcc_invalid_mention_target:
+                            "One of your @-mentions can't receive notifications.",
+                        },
+                        "Couldn't post the comment.",
+                      )
+                    : `Over the ${COMMENT_MAX_LENGTH}-char cap.`}
               </p>
-            </div>
-
-            <div className="flex items-center gap-1">
-              <button
-                type="button"
-                onClick={collapse}
-                aria-label="Collapse composer"
-                title="Collapse"
-                className="inline-flex h-8 w-8 items-center justify-center rounded-full text-[var(--bcc-text-secondary)] hover:bg-[var(--bcc-surface-hover)] hover:text-[var(--bcc-text)]"
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                  {/* two arrows collapsing toward center */}
-                  <path d="M4 14h6v6M20 10h-6V4M14 10l7-7M3 21l7-7" />
-                </svg>
-              </button>
-              <button
-                type="submit"
-                disabled={!canSubmit}
-                className="bcc-btn bcc-btn-sm bcc-btn-primary"
-              >
-                {createMut.isPending ? "Posting…" : "Comment"}
-                <SendIcon />
-              </button>
-            </div>
+            )}
           </div>
         )}
       </div>

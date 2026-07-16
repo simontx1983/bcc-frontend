@@ -19,12 +19,12 @@
  *   shows instantly; comments stream in behind `CommentDrawer`'s own
  *   skeleton so the panel never blocks the picture.
  *
- *   Mobile (<md): the whole dialog panel scrolls vertically — the image
- *   fills the opening view, and scrolling up reveals the same comments
- *   block beneath it (sheet-style), instead of handing off to
- *   `/post/[id]`. The Comment pill in the action bar is the discoverable
- *   jump-to-thread affordance (native scroll already does the rest, so
- *   no bespoke swipe-gesture handling is needed).
+ *   Mobile (<md): near-fullscreen (100dvh, edge-to-edge, no rounding —
+ *   `mobileSheet` on Dialog drops the outer padding that would otherwise
+ *   leave a margin). The image pane is a full 100dvh, so the comments
+ *   block sits entirely below the initial fold — scrolling the panel up
+ *   (or tapping the Comment pill, which does the same `scrollIntoView`)
+ *   reveals it, instead of handing off to `/post/[id]`.
  *
  * Action rail: both the mobile overlay bar and the desktop strip render
  * the shared `PostActionBar` (not a hand-assembled rail) so the lightbox
@@ -83,12 +83,13 @@ export function Lightbox({
       title={alt !== "" ? alt : "Photo"}
       bare
       center
+      mobileSheet
       backdropClassName="bg-ink/90 backdrop-blur-md"
       onClose={onClose}
-      panelClassName="flex h-[92vh] max-h-none w-full max-w-6xl flex-col overflow-y-auto rounded-2xl md:flex-row md:overflow-hidden"
+      panelClassName="flex h-[100dvh] w-full max-w-none flex-col overflow-y-auto rounded-none md:h-[92vh] md:max-h-none md:max-w-6xl md:flex-row md:overflow-hidden md:rounded-2xl"
     >
       {/* ── Image pane ─────────────────────────────────────────────── */}
-      <div className="relative flex min-h-[70vh] shrink-0 items-center justify-center bg-ink md:min-h-0 md:flex-1">
+      <div className="relative flex min-h-[100dvh] shrink-0 items-center justify-center bg-ink md:min-h-0 md:flex-1">
         {/* fixed (mobile) so it survives the panel's own scroll once the
             user has scrolled up into the comments sheet; absolute (desktop)
             matches the pre-existing pane-relative placement, unchanged
@@ -122,6 +123,7 @@ export function Lightbox({
             onComment={scrollToComments}
             commentTitle="Jump to comments"
             shareTitle={shareTitle}
+            topBorder={false}
           />
         </div>
       </div>
@@ -159,6 +161,7 @@ export function Lightbox({
             onComment={scrollToComments}
             commentTitle="Jump to comments"
             shareTitle={shareTitle}
+            topBorder={false}
           />
         </div>
 

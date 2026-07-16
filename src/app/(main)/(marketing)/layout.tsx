@@ -1,13 +1,24 @@
 import Image from "next/image";
 import Link from "next/link";
 
+import { ThemeSwitcher } from "@/components/layout/ThemeSwitcher";
+
 /**
  * (marketing) — the guest landing page's shell. Bare, full-bleed, no
- * AppShell sidebars — a slim header (logo + Join/Sign in) instead of the
- * full SiteHeader. Modeled on (legal)'s shell: same blur-layer header
+ * AppShell sidebars — a slim header (logo + palette + Join/Sign in) instead
+ * of the full SiteHeader. Modeled on (legal)'s shell: same blur-layer header
  * pattern, and `.bcc-marketing-shell` opts the body out of AppShell's
  * per-column scroll lock the same way `.bcc-legal-shell` does (see
  * globals.css) — the landing scrolls natively, full-bleed.
+ *
+ * Button order/grammar matches SiteHeader's signed-out state: primary CTA
+ * first (left), ghost Sign In second (right) — the landing previously had
+ * these reversed. The label itself ("Join the Floor" vs SiteHeader's
+ * "Sign Up") stays intentionally different: it's the same `/signup` link,
+ * but the landing's copy voice carries the "floor" metaphor used
+ * throughout this page (hero CTA, closing CTA) — flattening it to "Sign
+ * Up" here would read inconsistently with its own surface, not more
+ * consistent with the app shell's.
  */
 export default function MarketingLayout({
   children,
@@ -43,11 +54,12 @@ export default function MarketingLayout({
             </span>
           </Link>
           <div className="flex items-center gap-2">
-            <Link href="/login" className="bcc-btn bcc-btn-sm bcc-btn-ghost">
-              Sign In
-            </Link>
+            <ThemeSwitcher />
             <Link href="/signup" className="bcc-btn bcc-btn-sm bcc-btn-primary">
               Join the Floor
+            </Link>
+            <Link href="/login" className="bcc-btn bcc-btn-sm bcc-btn-ghost">
+              Sign In
             </Link>
           </div>
         </div>
