@@ -747,9 +747,15 @@
     height: 16px;
   }
 
-  /* Mobile header padding — tighter on small screens */
+  /* Mobile header padding — tighter on small screens. Also drops the
+     middle grid track entirely: .bcc-search is display:none below 599px
+     (mobile uses the icon+overlay pattern instead), but the 3-column
+     grid still reserved min(480px, 40vw) for it either way — on a phone
+     that's 100+ dead px stolen from the logo/actions columns, which is
+     what was pushing the actions cluster off the right edge. */
   @media (max-width: 599px) {
     .bcc-header {
+      grid-template-columns: auto 1fr;
       padding: 0 10px 0 6px;
       gap: 8px;
     }

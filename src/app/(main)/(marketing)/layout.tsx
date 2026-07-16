@@ -1,7 +1,9 @@
 import Image from "next/image";
 import Link from "next/link";
 
+import { CopyrightMark } from "@/components/layout/CopyrightMark";
 import { ThemeSwitcher } from "@/components/layout/ThemeSwitcher";
+import { LEGAL_ROUTES } from "@/lib/legal/config";
 
 /**
  * (marketing) — the guest landing page's shell. Bare, full-bleed, no
@@ -58,13 +60,31 @@ export default function MarketingLayout({
             <Link href="/signup" className="bcc-btn bcc-btn-sm bcc-btn-primary">
               Join the Floor
             </Link>
-            <Link href="/login" className="bcc-btn bcc-btn-sm bcc-btn-ghost">
+            {/* Hidden below 600px — the pair didn't fit the mobile header
+                width and Sign In was getting clipped at the viewport edge.
+                Same call SiteHeader already makes for its own guest state
+                (.bcc-header-signin-btn is desktop-only there too). */}
+            <Link href="/login" className="bcc-btn bcc-btn-sm bcc-btn-ghost hidden sm:inline-flex">
               Sign In
             </Link>
           </div>
         </div>
       </div>
       {children}
+
+      {/* Same footer type as the auth pages (MinimalShell) — copyright +
+          legal links — but static/end-of-page rather than fixed, since
+          this is a long-scrolling page, not a single short-content card. */}
+      <footer className="border-t border-[var(--bcc-border-light)] px-4 py-6 sm:px-6">
+        <div className="flex flex-col items-center justify-center gap-3 sm:flex-row sm:gap-4">
+          <CopyrightMark />
+          <nav className="flex flex-wrap items-center justify-center gap-4" aria-label="Legal">
+            <Link href={LEGAL_ROUTES.terms} className="bcc-legal-link">Terms</Link>
+            <Link href={LEGAL_ROUTES.privacy} className="bcc-legal-link">Privacy</Link>
+            <Link href={LEGAL_ROUTES.cookies} className="bcc-legal-link">Cookies</Link>
+          </nav>
+        </div>
+      </footer>
     </div>
   );
 }

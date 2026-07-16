@@ -1212,6 +1212,16 @@ function CommentComposer({
           ? { kind: "gif", url: gif.url }
           : undefined;
 
+    // Snapshot for restore-on-error, below — the composer clears
+    // immediately (optimistic) rather than waiting for the real network
+    // round-trip, which visibly lagged behind the comment already
+    // appearing in the thread (useCreateCommentMutation's own onMutate
+    // inserts it into the cache synchronously). If the request actually
+    // fails, restore exactly what was here so nothing typed is lost.
+    const draftSnapshot = draft;
+    const photoSnapshot = photo;
+    const gifSnapshot = gif;
+
     createMut.mutate(
       {
         feed_id: feedId,
@@ -1226,15 +1236,20 @@ function CommentComposer({
         ...(replyTarget !== null ? { parent_id: replyTarget.parentId } : {}),
       },
       {
-        onSuccess: () => {
-          setDraft("");
-          setExpanded(false);
-          clearMedia();
-          setGifPickerOpen(false);
-          onClearReply();
+        onError: () => {
+          setDraft(draftSnapshot);
+          setPhoto(photoSnapshot);
+          setGif(gifSnapshot);
+          setExpanded(true);
         },
       },
     );
+
+    setDraft("");
+    setExpanded(false);
+    clearMedia();
+    setGifPickerOpen(false);
+    onClearReply();
   };
 
   const error = createMut.error;

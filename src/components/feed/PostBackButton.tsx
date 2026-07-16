@@ -59,9 +59,18 @@ export function PostBackButton() {
     const el = rootRef.current;
     if (el === null) return undefined;
 
+    // Stop before document.body/documentElement — the mobile bare shell
+    // sets `overflow: auto` on body for CSS propagation purposes (see
+    // .bcc-detail-shell in globals.css), so the walk would otherwise
+    // "find" body as a scroll container, but body.scrollTop never
+    // actually moves for viewport-level scrolling (the browser scrolls
+    // the viewport itself, not body's own box) — collapse never fired
+    // on mobile as a result. Only a genuine inner scroll region (like
+    // desktop's .bcc-col-center) should be picked up here; anything
+    // that bottoms out at body correctly falls back to window instead.
     let scroller: HTMLElement | Window = window;
     let parent = el.parentElement;
-    while (parent !== null) {
+    while (parent !== null && parent !== document.body) {
       const overflowY = getComputedStyle(parent).overflowY;
       if (overflowY === "auto" || overflowY === "scroll") {
         scroller = parent;
@@ -94,8 +103,11 @@ export function PostBackButton() {
   // circle, mobile or desktop. Desktop is unchanged from before the split.
   const mobileBar = isMobile && !collapsed;
 
+  // -mt-4 cancels the page wrapper's own py-4 top padding (post/[id]/
+  // page.tsx) — this bar stands in for the page's header, so it needs to
+  // sit flush against the true viewport top with no gap above it.
   const wrapperClass = mobileBar
-    ? "sticky top-0 z-30 mb-3 -mx-2 w-[calc(100%+16px)]"
+    ? "sticky top-0 z-30 -mx-2 -mt-4 mb-3 w-[calc(100%+16px)]"
     : isMobile
       ? "sticky top-3 z-30 mb-3 w-fit"
       : "sticky top-[72px] z-30 mb-3 w-fit";
