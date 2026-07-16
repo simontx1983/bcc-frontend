@@ -101,6 +101,33 @@ interface ReplyTarget {
   displayName: string;
 }
 
+// ─────────────────────────────────────────────────────────────────────
+// Drill-down scroll bookkeeping — same "stop before body" scroller
+// detection as PostBackButton (see its doc comment): body has
+// `overflow: auto` set for CSS-propagation reasons on the mobile bare
+// shells, but body.scrollTop never actually reflects viewport scroll,
+// so it has to be excluded explicitly rather than trusted as a hit.
+// ─────────────────────────────────────────────────────────────────────
+
+function findScrollAncestor(el: HTMLElement | null): HTMLElement | Window {
+  let parent = el?.parentElement ?? null;
+  while (parent !== null && parent !== document.body) {
+    const overflowY = getComputedStyle(parent).overflowY;
+    if (overflowY === "auto" || overflowY === "scroll") return parent;
+    parent = parent.parentElement;
+  }
+  return window;
+}
+
+function readScrollTop(scroller: HTMLElement | Window): number {
+  return scroller === window ? window.scrollY : (scroller as HTMLElement).scrollTop;
+}
+
+function setScrollTop(scroller: HTMLElement | Window, top: number): void {
+  if (scroller === window) window.scrollTo({ top, behavior: "auto" });
+  else (scroller as HTMLElement).scrollTop = top;
+}
+
 interface CommentDrawerProps {
   feedId: string;
   isOpen: boolean;
@@ -145,11 +172,35 @@ export function CommentDrawer({
   const [focusStack, setFocusStack] = useState<string[]>([]);
   const [replyTarget, setReplyTarget] = useState<ReplyTarget | null>(null);
 
+  // Drill transition — which direction the view just switched, so the
+  // (re-keyed, re-mounted) content block picks up the matching slide-in
+  // animation: forward into a thread slides in from the right, back out
+  // slides in from the left. scrollStack is a parallel stack to
+  // focusStack — drilling in remembers exactly where the viewer was
+  // scrolled in the view they're leaving, so drilling back restores it
+  // instead of dumping them back at the top of the thread.
+  const [slideDir, setSlideDir] = useState<"in" | "out">("in");
+  const drawerRootRef = useRef<HTMLDivElement>(null);
+  const scrollStack = useRef<number[]>([]);
+
   const drillInto = useCallback((commentId: string) => {
+    const scroller = findScrollAncestor(drawerRootRef.current);
+    scrollStack.current.push(readScrollTop(scroller));
+    setSlideDir("in");
     setFocusStack((stack) => [...stack, commentId]);
   }, []);
   const drillBack = useCallback(() => {
+    const savedTop = scrollStack.current.pop();
+    setSlideDir("out");
     setFocusStack((stack) => stack.slice(0, -1));
+    if (savedTop !== undefined) {
+      // Next frame — after React commits the view switch back to the
+      // parent thread, so the scroller's content (and its height) match
+      // what `savedTop` was measured against.
+      requestAnimationFrame(() => {
+        setScrollTop(findScrollAncestor(drawerRootRef.current), savedTop);
+      });
+    }
   }, []);
   const startReply = useCallback((comment: Comment) => {
     setReplyTarget({
@@ -167,6 +218,7 @@ export function CommentDrawer({
     if (!isOpen) {
       setFocusStack([]);
       setReplyTarget(null);
+      scrollStack.current = [];
     }
   }, [isOpen]);
 
@@ -230,56 +282,67 @@ export function CommentDrawer({
   const canStoke = isAuthed && canInteract;
 
   return (
-    <div className={dividerPad.trim()}>
-      {/* Drill-down header — back out of a followed thread, with the
-          collapsed-ancestor indicator (the "earlier replies are hidden"
-          several-lines motif). Only in a drilled view. */}
-      {isDrilled ? (
-        <DrillHeader onBack={drillBack} unavailable={focusNode === null} />
-      ) : (
-        /* Filter row (§C15) — Relevant (default) / Top / New, all live.
-           Relevant + Top sort on the comment stoke_count; the server owns
-           the ordering (§A2). Hidden inside a drilled thread. */
-        items.length > 0 && <CommentFilterRow sort={sort} onSortChange={setSort} />
-      )}
-
-      {/* Sprint 5 empty-state hygiene: the "No comments yet." line was
-          deleted — it restated an absence the composer below already
-          answers as the next action. Empty state is now communicated
-          by the empty list itself; the loading branch above still
-          renders its skeleton so a load-in-flight isn't confused for
-          "no comments yet." */}
-      <div className="flex flex-col gap-3">
-        {rootNodes.map((node) => (
-          <CommentBranch
-            key={node.comment.id}
-            node={node}
-            baseDepth={baseDepth}
-            feedId={feedId}
-            canStoke={canStoke}
-            onReply={startReply}
-            onContinue={drillInto}
-          />
-        ))}
-      </div>
-
-      {/* Load-more pages the flat list (root view only — a drilled subtree
-          renders from the already-loaded set). */}
-      {!isDrilled &&
-        hasMore &&
-        (query.isFetchingNextPage ? (
-          <div className="mt-3 flex py-1 text-[var(--bcc-accent)]">
-            <Spinner size={18} />
-          </div>
+    <div ref={drawerRootRef} className={dividerPad.trim()}>
+      {/* Re-keyed on the current view (root vs. a specific drilled pivot)
+          so React remounts this block on every drill in/out, re-triggering
+          the slide animation each time — a subtle-but-visible swipe
+          rather than an instant content swap. overflow-hidden clips the
+          translateX during the ~200ms animation so it can't cause a
+          transient horizontal scrollbar. */}
+      <div
+        key={focusId ?? "root"}
+        className={"overflow-hidden " + (slideDir === "in" ? "bcc-thread-slide-in" : "bcc-thread-slide-out")}
+      >
+        {/* Drill-down header — back out of a followed thread, with the
+            collapsed-ancestor indicator (the "earlier replies are hidden"
+            several-lines motif). Only in a drilled view. */}
+        {isDrilled ? (
+          <DrillHeader onBack={drillBack} unavailable={focusNode === null} />
         ) : (
-          <button
-            type="button"
-            onClick={() => void query.fetchNextPage()}
-            className="bcc-mono mt-3 inline-flex min-h-[36px] items-center text-[11px] tracking-[0.18em] text-[var(--bcc-text-secondary)] hover:text-[var(--bcc-text)] hover:underline"
-          >
-            LOAD MORE →
-          </button>
-        ))}
+          /* Filter row (§C15) — Relevant (default) / Top / New, all live.
+             Relevant + Top sort on the comment stoke_count; the server owns
+             the ordering (§A2). Hidden inside a drilled thread. */
+          items.length > 0 && <CommentFilterRow sort={sort} onSortChange={setSort} />
+        )}
+
+        {/* Sprint 5 empty-state hygiene: the "No comments yet." line was
+            deleted — it restated an absence the composer below already
+            answers as the next action. Empty state is now communicated
+            by the empty list itself; the loading branch above still
+            renders its skeleton so a load-in-flight isn't confused for
+            "no comments yet." */}
+        <div className="flex flex-col gap-3">
+          {rootNodes.map((node) => (
+            <CommentBranch
+              key={node.comment.id}
+              node={node}
+              baseDepth={baseDepth}
+              feedId={feedId}
+              canStoke={canStoke}
+              onReply={startReply}
+              onContinue={drillInto}
+            />
+          ))}
+        </div>
+
+        {/* Load-more pages the flat list (root view only — a drilled subtree
+            renders from the already-loaded set). */}
+        {!isDrilled &&
+          hasMore &&
+          (query.isFetchingNextPage ? (
+            <div className="mt-3 flex py-1 text-[var(--bcc-accent)]">
+              <Spinner size={18} />
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => void query.fetchNextPage()}
+              className="bcc-mono mt-3 inline-flex min-h-[36px] items-center text-[11px] tracking-[0.18em] text-[var(--bcc-text-secondary)] hover:text-[var(--bcc-text)] hover:underline"
+            >
+              LOAD MORE →
+            </button>
+          ))}
+      </div>
 
       {/* Non-member group teaser (canInteract=false): suppress both the
           composer AND the anonymous sign-in prompt. The "join to
@@ -458,11 +521,13 @@ function CommentBranch({
 /** The +/- glyph shared by the inline per-comment collapse toggle and the collapsed-hint's expand cue. */
 function CollapseToggleIcon({ collapsed, size = 8 }: { collapsed: boolean; size?: number }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 8 8" aria-hidden>
+    <svg width={size} height={size} viewBox="0 0 8 8" fill="none" aria-hidden>
       {collapsed ? (
-        <path d="M4 0v8M0 4h8" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+        // Caret down — replies are hidden, click to expand.
+        <path d="M1 3l3 3 3-3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
       ) : (
-        <path d="M0 4h8" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+        // Caret up — replies are showing, click to collapse.
+        <path d="M1 5l3-3 3 3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
       )}
     </svg>
   );
@@ -596,29 +661,92 @@ function CommentFilterRow({
   sort: CommentSort;
   onSortChange: (sort: CommentSort) => void;
 }) {
+  const [open, setOpen] = useState(false);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const active = SORT_TABS.find((tab) => tab.value === sort) ?? SORT_TABS[0];
+
+  useEffect(() => {
+    if (!open) return undefined;
+    function onDocClick(e: MouseEvent) {
+      if (
+        menuRef.current && !menuRef.current.contains(e.target as Node) &&
+        triggerRef.current && !triggerRef.current.contains(e.target as Node)
+      ) setOpen(false);
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false);
+    }
+    document.addEventListener("mousedown", onDocClick);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDocClick);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
   return (
-    <div className="mb-3 flex items-center gap-1.5">
-      {SORT_TABS.map((tab) => {
-        const active = tab.value === sort;
-        return (
-          <button
-            key={tab.value}
-            type="button"
-            onClick={() => onSortChange(tab.value)}
-            aria-current={active ? "true" : undefined}
-            title={tab.title}
-            className={
-              "bcc-mono rounded-full px-2.5 py-1 text-[10px] tracking-[0.14em] transition-colors " +
-              (active
-                ? "text-[var(--bcc-accent)]"
-                : "text-[var(--bcc-text-muted)] hover:text-[var(--bcc-text-secondary)]")
-            }
-            style={active ? { background: "var(--bcc-accent-subtle)" } : undefined}
-          >
-            {tab.label}
-          </button>
-        );
-      })}
+    <div className="relative mb-3 inline-block">
+      <button
+        ref={triggerRef}
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        className="bcc-mono inline-flex items-center gap-1.5 rounded-full border border-[var(--bcc-border)] px-2.5 py-1 text-[10px] tracking-[0.14em] text-[var(--bcc-text-secondary)] transition-colors hover:text-[var(--bcc-text)]"
+      >
+        {active?.label}
+        <svg width="8" height="8" viewBox="0 0 8 8" fill="none" aria-hidden className={open ? "rotate-180" : ""}>
+          <path d="M1 3l3 3 3-3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </button>
+
+      {/* Glassy dropdown, not a native <select> — anchored to its own
+          trigger (not .bcc-header-modal, whose mobile/tablet override
+          force-pins it under the header, which is right for the header's
+          own modals but wrong here, where the trigger sits inline in the
+          comment thread). */}
+      {open && (
+        <div
+          ref={menuRef}
+          role="listbox"
+          className="absolute left-0 top-full z-20 mt-1 min-w-[150px] overflow-hidden rounded-xl p-1"
+          style={{
+            background: "var(--bcc-glass-bg-solid)",
+            backdropFilter: "var(--bcc-blur-sm)",
+            WebkitBackdropFilter: "var(--bcc-blur-sm)",
+            border: "1px solid var(--bcc-glass-border)",
+            boxShadow: "var(--bcc-shadow-xl)",
+            animation: "bcc-fade-in 0.15s ease forwards",
+          }}
+        >
+          {SORT_TABS.map((tab) => {
+            const isActive = tab.value === sort;
+            return (
+              <button
+                key={tab.value}
+                type="button"
+                role="option"
+                aria-selected={isActive}
+                title={tab.title}
+                onClick={() => {
+                  onSortChange(tab.value);
+                  setOpen(false);
+                }}
+                className={
+                  "bcc-mono block w-full rounded-lg px-2.5 py-1.5 text-left text-[11px] tracking-[0.12em] transition-colors " +
+                  (isActive
+                    ? "text-[var(--bcc-accent)]"
+                    : "text-[var(--bcc-text-secondary)] hover:bg-[var(--bcc-surface-active)] hover:text-[var(--bcc-text)]")
+                }
+                style={isActive ? { background: "var(--bcc-accent-subtle)" } : undefined}
+              >
+                {tab.label}
+              </button>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

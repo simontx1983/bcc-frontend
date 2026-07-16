@@ -2414,6 +2414,24 @@
   to   { opacity: 1; }
 }
 
+/* Comment thread drill-down (CommentDrawer) — the re-keyed view block
+   slides in from the direction matching what the viewer just did:
+   forward into a thread feels like it's coming from the right, back out
+   feels like it's returning from the left. */
+@keyframes bcc-thread-in {
+  from { transform: translateX(18px); opacity: 0; }
+  to   { transform: translateX(0);    opacity: 1; }
+}
+@keyframes bcc-thread-out {
+  from { transform: translateX(-18px); opacity: 0; }
+  to   { transform: translateX(0);     opacity: 1; }
+}
+.bcc-thread-slide-in  { animation: bcc-thread-in  0.22s ease-out; }
+.bcc-thread-slide-out { animation: bcc-thread-out 0.22s ease-out; }
+@media (prefers-reduced-motion: reduce) {
+  .bcc-thread-slide-in, .bcc-thread-slide-out { animation: none; }
+}
+
 @keyframes bcc-pulse {
   0%, 100% { opacity: 1; }
   50%       { opacity: 0.4; }

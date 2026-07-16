@@ -31,12 +31,51 @@ import { MentionHovercard } from "@/components/identity/MentionHovercard";
 
 import type { Mention } from "@/lib/api/types";
 
+const NAMED_HTML_ENTITIES: Record<string, string> = {
+  amp: "&",
+  lt: "<",
+  gt: ">",
+  quot: '"',
+  apos: "'",
+  nbsp: " ",
+};
+
+/**
+ * Comments read straight off PeepSo's `post_excerpt` column via raw SQL
+ * (CommentRepository), bypassing every WordPress content-filter that
+ * would normally reverse this on output: `add_comment` runs the body
+ * through `htmlspecialchars()` (so `'` becomes the literal 6-character
+ * string `&#039;`), and WordPress's own `wp_encode_emoji()` converts
+ * 4-byte emoji into `&#x1f602;`-style hex entities for pre-utf8mb4 DB
+ * compatibility. Feed posts don't go through either path (bcc-trust's
+ * own write path), which is why only comments showed this. Decoding is
+ * safe here because the result only ever reaches a plain-text React
+ * node (Fragment), never `dangerouslySetInnerHTML` — a decoded `<script>`
+ * substring still renders as inert text, not markup.
+ */
+export function decodeHtmlEntities(text: string): string {
+  if (!text.includes("&")) return text;
+  return text.replace(/&(#x[0-9a-fA-F]+|#[0-9]+|[a-zA-Z]+);/g, (match, entity: string) => {
+    if (entity[0] === "#") {
+      const isHex = entity[1] === "x" || entity[1] === "X";
+      const code = isHex ? parseInt(entity.slice(2), 16) : parseInt(entity.slice(1), 10);
+      if (Number.isNaN(code)) return match;
+      try {
+        return String.fromCodePoint(code);
+      } catch {
+        return match;
+      }
+    }
+    return NAMED_HTML_ENTITIES[entity] ?? match;
+  });
+}
+
 export function renderTextWithMentions(
   text: string,
   mentions: Mention[]
 ): ReactNode {
   if (text === "") return null;
-  if (mentions.length === 0) return text;
+  if (mentions.length === 0) return decodeHtmlEntities(text);
 
   // Defensive sort — server emits in document order today, but we
   // never trust unordered overlays. Overlapping ranges (server bug
@@ -54,7 +93,7 @@ export function renderTextWithMentions(
     if (start > cursor) {
       out.push(
         <Fragment key={`t-${key++}`}>
-          {text.substring(cursor, start)}
+          {decodeHtmlEntities(text.substring(cursor, start))}
         </Fragment>
       );
     }
@@ -77,7 +116,7 @@ export function renderTextWithMentions(
   }
   if (cursor < text.length) {
     out.push(
-      <Fragment key={`t-${key++}`}>{text.substring(cursor)}</Fragment>
+      <Fragment key={`t-${key++}`}>{decodeHtmlEntities(text.substring(cursor))}</Fragment>
     );
   }
   return out;

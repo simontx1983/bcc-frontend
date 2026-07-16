@@ -75,10 +75,10 @@ export default function MarketingLayout({
       {/* Same footer type as the auth pages (MinimalShell) — copyright +
           legal links — but static/end-of-page rather than fixed, since
           this is a long-scrolling page, not a single short-content card. */}
-      <footer className="border-t border-[var(--bcc-border-light)] px-4 py-6 sm:px-6">
-        <div className="flex flex-col items-center justify-center gap-3 sm:flex-row sm:gap-4">
+      <footer className="border-t border-[var(--bcc-border-light)] px-4 py-3 sm:px-6">
+        <div className="flex flex-col items-center justify-center gap-1.5 sm:flex-row sm:gap-3">
           <CopyrightMark />
-          <nav className="flex flex-wrap items-center justify-center gap-4" aria-label="Legal">
+          <nav className="flex flex-wrap items-center justify-center gap-3" aria-label="Legal">
             <Link href={LEGAL_ROUTES.terms} className="bcc-legal-link">Terms</Link>
             <Link href={LEGAL_ROUTES.privacy} className="bcc-legal-link">Privacy</Link>
             <Link href={LEGAL_ROUTES.cookies} className="bcc-legal-link">Cookies</Link>
