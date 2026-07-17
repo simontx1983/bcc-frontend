@@ -15,8 +15,11 @@
  * Presentational only — every field is pre-resolved by the caller.
  */
 
+import { useState } from "react";
+
 import { Avatar, type AvatarSize } from "@/components/identity/Avatar";
 import { AuthorHoverPanel } from "@/components/identity/AuthorHoverPanel";
+import { RankInfoModal } from "@/components/identity/RankInfoModal";
 import { useHovercard } from "@/hooks/useHovercard";
 import { usePrefetchUser } from "@/hooks/useUser";
 import type {
@@ -57,8 +60,11 @@ export function AvatarHovercard({
   viewerAttestation,
   canVouch,
 }: AvatarHovercardProps) {
-  const { open, coords, triggerRef, triggerHandlers, popoverHandlers } = useHovercard();
+  const { open, coords, triggerRef, close, triggerHandlers, popoverHandlers } = useHovercard();
   const prefetchUser = usePrefetchUser();
+  // Owned here, not by RankChip, specifically so it survives the
+  // hovercard closing — see RankChip's onOpenRankInfo doc comment.
+  const [rankModalOpen, setRankModalOpen] = useState(false);
 
   const nameText =
     typeof displayName === "string" && displayName !== "" ? displayName : `@${handle}`;
@@ -104,6 +110,19 @@ export function AvatarHovercard({
           viewerAttestation={viewerAttestation}
           canVouch={canVouch}
           enabled={open}
+          onOpenRankInfo={() => {
+            close();
+            setRankModalOpen(true);
+          }}
+        />
+      )}
+      {rankModalOpen && (
+        <RankInfoModal
+          handle={handle}
+          cardTier={cardTier}
+          tierLabel={tierLabel}
+          rankLabel={rankLabel}
+          onClose={() => setRankModalOpen(false)}
         />
       )}
     </span>
