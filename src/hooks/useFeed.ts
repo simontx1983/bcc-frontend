@@ -105,7 +105,7 @@ export const HOT_FEED_PEEK_QUERY_KEY = ["feed", "hot", "peek"] as const;
  */
 export function useHotFeedPeek(count: number) {
   return useQuery<FeedResponse, BccApiError>({
-    queryKey: HOT_FEED_PEEK_QUERY_KEY,
+    queryKey: [...HOT_FEED_PEEK_QUERY_KEY, count],
     queryFn: ({ signal }) => getHotFeed({ cursor: null, limit: count }, signal),
     staleTime: 30_000,
   });

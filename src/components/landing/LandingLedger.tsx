@@ -7,7 +7,7 @@
  * client JS needed.
  */
 
-type EventKind = "vouch" | "review" | "dispute" | "endorse";
+type EventKind = "vouch" | "review" | "dispute" | "attest";
 
 interface LedgerEvent {
   kind: EventKind;
@@ -22,11 +22,11 @@ const EVENTS: readonly LedgerEvent[] = [
   { kind: "vouch", handle: "@coldforge", verb: "vouched", target: "@stakehouse", detail: "peer vouch · weight +1", tag: null },
   { kind: "review", handle: "@merkle.dev", verb: "reviewed", target: "Injective Validator", detail: "on-chain review", tag: "TRUST" },
   { kind: "dispute", handle: "@nakamoto99", verb: "disputed", target: "“airdrop farm”", detail: "flagged for panel", tag: "CAUTION" },
-  { kind: "endorse", handle: "@onchain.kate", verb: "endorsed", target: "@blockmason", detail: "skill: contract audits", tag: null },
+  { kind: "attest", handle: "@onchain.kate", verb: "attested for", target: "@blockmason", detail: "contract audits · marked solid", tag: null },
   { kind: "review", handle: "@satoshigrl", verb: "reviewed", target: "Cosmos Hub Node", detail: "uptime verified", tag: "TRUST" },
   { kind: "vouch", handle: "@rustyrig", verb: "vouched", target: "@coldforge", detail: "2 yrs on the floor", tag: null },
-  { kind: "dispute", handle: "@ledgerhand", verb: "disputed", target: "fake endorsement", detail: "evidence attached", tag: "CAUTION" },
-  { kind: "endorse", handle: "@blockmason", verb: "endorsed", target: "@merkle.dev", detail: "skill: MEV defense", tag: null },
+  { kind: "dispute", handle: "@ledgerhand", verb: "disputed", target: "fake attestation", detail: "evidence attached", tag: "CAUTION" },
+  { kind: "attest", handle: "@blockmason", verb: "attested for", target: "@merkle.dev", detail: "MEV defense · marked solid", tag: null },
   { kind: "review", handle: "@nodesmith", verb: "reviewed", target: "Celestia DA", detail: "slashing history clean", tag: "TRUST" },
   { kind: "vouch", handle: "@deepstake", verb: "vouched", target: "@nodesmith", detail: "worked a season", tag: null },
 ];
@@ -35,7 +35,7 @@ const DOT_COLOR: Record<EventKind, string> = {
   vouch: "var(--bcc-trust-trusted)",
   review: "var(--bcc-info)",
   dispute: "var(--bcc-trust-risky)",
-  endorse: "var(--bcc-trust-elite)",
+  attest: "var(--bcc-trust-elite)",
 };
 
 const TAG_COLOR: Record<NonNullable<LedgerEvent["tag"]>, string> = {
