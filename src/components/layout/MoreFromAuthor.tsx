@@ -11,9 +11,11 @@
  */
 
 import type { Route } from "next";
+import Image from "next/image";
 import Link from "next/link";
 
 import { AuthorBadge } from "@/components/identity/AuthorBadge";
+import { isWpMediaUrl } from "@/lib/media";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { deriveBodySummary, readString } from "@/components/feed/postBody";
 import { useUserActivity } from "@/hooks/useUserActivity";
@@ -105,15 +107,25 @@ function MoreRow({ item }: { item: FeedItem }) {
             {summary}
           </p>
         )}
-        {mediaUrl !== "" && (
-          // eslint-disable-next-line @next/next/no-img-element -- remote feed media
-          <img
-            src={mediaUrl}
-            alt=""
-            className="mt-1.5 h-20 w-full rounded-md border border-[var(--bcc-border)] object-cover"
-            loading="lazy"
-          />
-        )}
+        {mediaUrl !== "" &&
+          (isWpMediaUrl(mediaUrl) ? (
+            <Image
+              src={mediaUrl}
+              alt=""
+              width={280}
+              height={80}
+              sizes="280px"
+              className="mt-1.5 h-20 w-full rounded-md border border-[var(--bcc-border)] object-cover"
+            />
+          ) : (
+            // eslint-disable-next-line @next/next/no-img-element -- non-WP host (Giphy GIFs land here) — outside the next/image allowlist; see lib/media.ts
+            <img
+              src={mediaUrl}
+              alt=""
+              className="mt-1.5 h-20 w-full rounded-md border border-[var(--bcc-border)] object-cover"
+              loading="lazy"
+            />
+          ))}
       </Link>
     </div>
   );

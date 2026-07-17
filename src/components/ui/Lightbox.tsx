@@ -40,7 +40,10 @@
  * with the feed row and the detail view — the same cache all three share.
  */
 
+import Image from "next/image";
+
 import { Dialog } from "@/components/ui/Dialog";
+import { isWpMediaUrl } from "@/lib/media";
 import { AuthorBadge } from "@/components/identity/AuthorBadge";
 import { CommentDrawer } from "@/components/feed/CommentDrawer";
 import { PostActionBar } from "@/components/feed/PostActionBar";
@@ -103,12 +106,22 @@ export function Lightbox({
           ✕
         </button>
 
-        {/* eslint-disable-next-line @next/next/no-img-element -- remote feed media, no per-tenant remotePatterns allow-list */}
-        <img
-          src={src}
-          alt={alt}
-          className="max-h-full max-w-full object-contain"
-        />
+        {isWpMediaUrl(src) ? (
+          <Image
+            src={src}
+            alt={alt}
+            fill
+            sizes="100vw"
+            className="object-contain"
+          />
+        ) : (
+          // eslint-disable-next-line @next/next/no-img-element -- non-WP host (Giphy GIFs open here too) — outside the next/image allowlist; see lib/media.ts
+          <img
+            src={src}
+            alt={alt}
+            className="max-h-full max-w-full object-contain"
+          />
+        )}
 
         {/* Mobile action bar — the shared rail, dark-theme-scoped since it
             sits over theater chrome, not the page's live theme. Hidden on

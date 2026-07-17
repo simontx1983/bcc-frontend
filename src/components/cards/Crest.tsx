@@ -20,11 +20,13 @@
  */
 
 import { type ChangeEvent, type MouseEvent, useRef } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 
 import { useUploadAvatar } from "@/hooks/useUpdateProfile";
 import { useUploadPageAvatar, useDeletePageAvatar } from "@/hooks/usePageAvatar";
+import { isWpMediaUrl } from "@/lib/media";
 import type { Card } from "@/lib/api/types";
 
 export function Crest({
@@ -126,17 +128,30 @@ export function Crest({
               zIndex: 2,
             }}
           >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={imageUrl}
-              alt=""
-              loading="lazy"
-              decoding="async"
-              className="h-full w-full object-cover"
-              style={{
-                filter: "saturate(0.92) contrast(1.02)",
-              }}
-            />
+            {isWpMediaUrl(imageUrl) ? (
+              <Image
+                src={imageUrl}
+                alt=""
+                fill
+                sizes="112px"
+                className="object-cover"
+                style={{
+                  filter: "saturate(0.92) contrast(1.02)",
+                }}
+              />
+            ) : (
+              // eslint-disable-next-line @next/next/no-img-element -- non-WP host (page-card art can be NFT/IPFS) — outside the next/image allowlist; see lib/media.ts
+              <img
+                src={imageUrl}
+                alt=""
+                loading="lazy"
+                decoding="async"
+                className="h-full w-full object-cover"
+                style={{
+                  filter: "saturate(0.92) contrast(1.02)",
+                }}
+              />
+            )}
           </div>
           {/* Chain-color multiply overlay — subtle brand tie-in only.
               Matches the avatar's hex shape so the tint stays inside

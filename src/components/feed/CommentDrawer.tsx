@@ -44,10 +44,12 @@ import {
   type ReactNode,
 } from "react";
 import { useSession } from "next-auth/react";
+import Image from "next/image";
 import Link from "next/link";
 import type { Route } from "next";
 
 import { AuthorBadge } from "@/components/identity/AuthorBadge";
+import { isWpMediaUrl } from "@/lib/media";
 import { buildCommentTree, findNode, type CommentNode } from "@/lib/comments/thread";
 import { ActionRailButton } from "@/components/feed/ActionRailButton";
 import { ClockIcon, PhotoIcon, ReplyIcon, ShareIcon } from "@/components/feed/actionIcons";
@@ -1036,8 +1038,21 @@ function CommentMediaView({ media }: { media: CommentMedia }) {
   const [zoomed, setZoomed] = useState(false);
   const isPhoto = media.kind === "photo";
 
-  const img = (
-    // eslint-disable-next-line @next/next/no-img-element -- remote WP/Giphy media, no per-tenant remotePatterns allow-list
+  const img = isWpMediaUrl(media.url) ? (
+    // WP-hosted comment photo → Vercel image CDN. Server-provided
+    // width/height keep the reserved box honest; fall back to a
+    // landscape hint when the API omits them (pre-slice-4 rows).
+    <Image
+      src={media.url}
+      alt=""
+      width={media.width !== undefined && media.width > 0 ? media.width : 600}
+      height={media.height !== undefined && media.height > 0 ? media.height : 400}
+      sizes="(max-width: 640px) 90vw, 480px"
+      className="h-auto w-auto max-w-full rounded-xl border border-[var(--bcc-border)] object-contain"
+      style={{ maxHeight: COMMENT_MEDIA_MAX_HEIGHT }}
+    />
+  ) : (
+    // eslint-disable-next-line @next/next/no-img-element -- Giphy GIFs (already a CDN) — outside the next/image allowlist; see lib/media.ts
     <img
       src={media.url}
       alt=""
@@ -1072,8 +1087,19 @@ function CommentMediaView({ media }: { media: CommentMedia }) {
             >
               ✕
             </button>
-            {/* eslint-disable-next-line @next/next/no-img-element -- remote media, see above */}
-            <img src={media.url} alt="" className="max-h-[92vh] max-w-[92vw] rounded-xl object-contain" />
+            {isWpMediaUrl(media.url) ? (
+              <Image
+                src={media.url}
+                alt=""
+                width={media.width !== undefined && media.width > 0 ? media.width : 1600}
+                height={media.height !== undefined && media.height > 0 ? media.height : 1200}
+                sizes="92vw"
+                className="h-auto w-auto max-h-[92vh] max-w-[92vw] rounded-xl object-contain"
+              />
+            ) : (
+              // eslint-disable-next-line @next/next/no-img-element -- non-WP host (GIF zoom lands here) — outside the next/image allowlist; see lib/media.ts
+              <img src={media.url} alt="" className="max-h-[92vh] max-w-[92vw] rounded-xl object-contain" />
+            )}
           </div>
         </Dialog>
       )}
@@ -1496,12 +1522,22 @@ function CommentComposer({
                 </div>
               ) : (
                 <>
-                  {/* eslint-disable-next-line @next/next/no-img-element -- remote WP/Giphy media, no per-tenant remotePatterns allow-list */}
-                  <img
-                    src={photo?.url ?? gif?.preview_url ?? ""}
-                    alt=""
-                    className="h-16 w-16 rounded-lg border border-[var(--bcc-border)] object-cover"
-                  />
+                  {isWpMediaUrl(photo?.url ?? gif?.preview_url ?? "") ? (
+                    <Image
+                      src={photo?.url ?? gif?.preview_url ?? ""}
+                      alt=""
+                      width={64}
+                      height={64}
+                      className="h-16 w-16 rounded-lg border border-[var(--bcc-border)] object-cover"
+                    />
+                  ) : (
+                    // eslint-disable-next-line @next/next/no-img-element -- Giphy previews (already a CDN) — outside the next/image allowlist; see lib/media.ts
+                    <img
+                      src={photo?.url ?? gif?.preview_url ?? ""}
+                      alt=""
+                      className="h-16 w-16 rounded-lg border border-[var(--bcc-border)] object-cover"
+                    />
+                  )}
                   <button
                     type="button"
                     onClick={clearMedia}

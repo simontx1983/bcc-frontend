@@ -23,9 +23,12 @@
  * with the albums endpoint.
  */
 
+import Image from "next/image";
 import Link from "next/link";
 import type { Route } from "next";
 import { useState } from "react";
+
+import { isWpMediaUrl } from "@/lib/media";
 
 import { useAlbumPhotos, useUserActivity, useUserAlbums } from "@/hooks/useUserActivity";
 import { humanizeCode } from "@/lib/api/errors";
@@ -274,14 +277,24 @@ function PhotoTile({
         className="group relative block aspect-square overflow-hidden border border-ink/20 bg-ink/5"
         aria-label={typeof alt === "string" && alt !== "" ? alt : "Open photo"}
       >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={photoUrl}
-          alt={typeof alt === "string" ? alt : ""}
-          loading="lazy"
-          decoding="async"
-          className="absolute inset-0 h-full w-full object-cover transition-transform duration-200 motion-safe:group-hover:scale-105"
-        />
+        {isWpMediaUrl(photoUrl) ? (
+          <Image
+            src={photoUrl}
+            alt={typeof alt === "string" ? alt : ""}
+            fill
+            sizes="(max-width: 420px) 100vw, 240px"
+            className="object-cover transition-transform duration-200 motion-safe:group-hover:scale-105"
+          />
+        ) : (
+          // eslint-disable-next-line @next/next/no-img-element -- non-WP host — outside the next/image allowlist; see lib/media.ts
+          <img
+            src={photoUrl}
+            alt={typeof alt === "string" ? alt : ""}
+            loading="lazy"
+            decoding="async"
+            className="absolute inset-0 h-full w-full object-cover transition-transform duration-200 motion-safe:group-hover:scale-105"
+          />
+        )}
         {item.body.caption !== null && item.body.caption !== "" && (
           <span
             aria-hidden
@@ -425,8 +438,16 @@ function AlbumTile({
         className="group relative block aspect-square w-full overflow-hidden border border-ink/20 bg-ink/5 text-left"
         aria-label={`Open album ${album.title}`}
       >
-        {album.cover_url !== "" ? (
-          // eslint-disable-next-line @next/next/no-img-element
+        {album.cover_url !== "" && isWpMediaUrl(album.cover_url) ? (
+          <Image
+            src={album.cover_url}
+            alt=""
+            fill
+            sizes="(max-width: 420px) 100vw, 240px"
+            className="object-cover transition-transform duration-200 motion-safe:group-hover:scale-105"
+          />
+        ) : album.cover_url !== "" ? (
+          // eslint-disable-next-line @next/next/no-img-element -- non-WP host — outside the next/image allowlist; see lib/media.ts
           <img
             src={album.cover_url}
             alt=""
@@ -590,8 +611,16 @@ function AlbumPhotoTile({ photo }: { photo: AlbumPhoto }) {
 
   const inner = (
     <>
-      {hasUrl ? (
-        // eslint-disable-next-line @next/next/no-img-element
+      {hasUrl && isWpMediaUrl(photo.photo_url) ? (
+        <Image
+          src={photo.photo_url}
+          alt=""
+          fill
+          sizes="(max-width: 420px) 100vw, 240px"
+          className="object-cover transition-transform duration-200 motion-safe:group-hover:scale-105"
+        />
+      ) : hasUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element -- non-WP host — outside the next/image allowlist; see lib/media.ts
         <img
           src={photo.photo_url}
           alt=""

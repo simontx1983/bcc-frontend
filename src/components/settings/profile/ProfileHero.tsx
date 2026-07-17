@@ -17,8 +17,11 @@
  * a single bottom row.
  */
 
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
+
+import { isWpMediaUrl } from "@/lib/media";
 
 import {
   useDeleteAvatar,
@@ -154,8 +157,20 @@ export function ProfileHero({ profile, nav }: ProfileHeroProps) {
         className="group/cover relative h-40 w-full overflow-hidden bg-cardstock-deep md:h-56"
         style={{ aspectRatio: "3 / 1" }}
       >
-        {hasCover ? (
-          // eslint-disable-next-line @next/next/no-img-element
+        {hasCover && isWpMediaUrl(profile.cover_photo_url ?? "") ? (
+          // Above-fold hero — `priority` skips lazy-loading so the
+          // banner doesn't pop in after the panel paints.
+          <Image
+            src={profile.cover_photo_url ?? ""}
+            alt=""
+            fill
+            priority
+            sizes="100vw"
+            className="object-cover"
+            style={{ objectPosition: `${posX}% ${posY}%` }}
+          />
+        ) : hasCover ? (
+          // eslint-disable-next-line @next/next/no-img-element -- non-WP host — outside the next/image allowlist; see lib/media.ts
           <img
             src={profile.cover_photo_url ?? ""}
             alt=""
@@ -221,8 +236,19 @@ export function ProfileHero({ profile, nav }: ProfileHeroProps) {
             variant of Avatar exists. */}
         <div className="group/avatar absolute -bottom-12 left-6 md:left-8">
           <div className="relative h-24 w-24 overflow-hidden border-4 border-cardstock bg-cardstock-deep shadow-md md:h-28 md:w-28">
-            {hasAvatar ? (
-              // eslint-disable-next-line @next/next/no-img-element
+            {hasAvatar && isWpMediaUrl(profile.avatar_url) ? (
+              // Above-fold editor surface — `priority` matches the old
+              // eager (no loading="lazy") behavior.
+              <Image
+                src={profile.avatar_url}
+                alt={`${profile.display_name}'s avatar`}
+                fill
+                priority
+                sizes="112px"
+                className="object-cover"
+              />
+            ) : hasAvatar ? (
+              // eslint-disable-next-line @next/next/no-img-element -- non-WP host — outside the next/image allowlist; see lib/media.ts
               <img
                 src={profile.avatar_url}
                 alt={`${profile.display_name}'s avatar`}
