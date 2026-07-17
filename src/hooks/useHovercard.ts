@@ -108,7 +108,18 @@ export function useHovercard(): Hovercard {
     };
     // A fixed popover would detach from a scrolled trigger — close instead.
     // Capture phase so inner scroll containers (the feed column) count.
-    const onScroll = () => setOpen(false);
+    // Same nested-dialog guard as handleLeave below: RankInfoModal's own
+    // Dialog focuses its panel on mount (focus-trap setup), and focusing
+    // an element not fully in view can trigger a genuine browser
+    // auto-scroll — which this capture-phase listener saw as "the viewer
+    // scrolled the page" and closed the hovercard (and the modal with
+    // it) before this guard existed. This was the real culprit; the
+    // mouseleave guard alone didn't fix it because this is a separate
+    // close path.
+    const onScroll = () => {
+      if (document.querySelectorAll('[role="dialog"]').length > 1) return;
+      setOpen(false);
+    };
     window.addEventListener("keydown", onKey);
     window.addEventListener("scroll", onScroll, true);
     return () => {
