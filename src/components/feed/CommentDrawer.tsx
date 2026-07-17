@@ -54,6 +54,7 @@ import { ClockIcon, PhotoIcon, ReplyIcon, ShareIcon } from "@/components/feed/ac
 import { CommentGifPicker } from "@/components/feed/CommentGifPicker";
 import { StokeFlame } from "@/components/feed/StokeFlame";
 import { Dialog } from "@/components/ui/Dialog";
+import { LoadFailure } from "@/components/ui/LoadFailure";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { Spinner } from "@/components/ui/Spinner";
 import {
@@ -84,10 +85,10 @@ const COMPOSER_MAX_HEIGHT = 160;
  * folded behind the "Follow the thread" drill control. Tiers are 0-indexed
  * relative to the current view root: relativeDepth 0…MAX_RENDER_DEPTH-1
  * render inline; a node whose children would land at MAX_RENDER_DEPTH shows
- * the control instead. 5 = five visible tiers (Tia's call — Reddit does ~10,
- * 5 reads fine in a drawer). Drilling in re-roots and the count resets.
+ * the control instead. 3 = three visible tiers (Tia's revised call — 5 read
+ * too deep once real threads nested). Drilling in re-roots and the count resets.
  */
-const MAX_RENDER_DEPTH = 5;
+const MAX_RENDER_DEPTH = 3;
 /** px the guide-line indents each nested tier. */
 const THREAD_INDENT = 14;
 /** Drill-control copy (Tia wanted something other than "Continue thread"). */
@@ -98,6 +99,33 @@ interface ReplyTarget {
   parentId: string;
   handle: string;
   displayName: string;
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Drill-down scroll bookkeeping — same "stop before body" scroller
+// detection as PostBackButton (see its doc comment): body has
+// `overflow: auto` set for CSS-propagation reasons on the mobile bare
+// shells, but body.scrollTop never actually reflects viewport scroll,
+// so it has to be excluded explicitly rather than trusted as a hit.
+// ─────────────────────────────────────────────────────────────────────
+
+function findScrollAncestor(el: HTMLElement | null): HTMLElement | Window {
+  let parent = el?.parentElement ?? null;
+  while (parent !== null && parent !== document.body) {
+    const overflowY = getComputedStyle(parent).overflowY;
+    if (overflowY === "auto" || overflowY === "scroll") return parent;
+    parent = parent.parentElement;
+  }
+  return window;
+}
+
+function readScrollTop(scroller: HTMLElement | Window): number {
+  return scroller === window ? window.scrollY : (scroller as HTMLElement).scrollTop;
+}
+
+function setScrollTop(scroller: HTMLElement | Window, top: number): void {
+  if (scroller === window) window.scrollTo({ top, behavior: "auto" });
+  else (scroller as HTMLElement).scrollTop = top;
 }
 
 interface CommentDrawerProps {
@@ -113,6 +141,16 @@ interface CommentDrawerProps {
   canInteract?: boolean;
   /** Focus the composer textarea + scroll it into view on mount. */
   focusComposer?: boolean;
+  /**
+   * The drawer's own top border + margin — needed when it can appear
+   * directly below page content with no other divider (the original
+   * toggle-below-a-feed-card usage, and PostDetail, whose PostActionBar
+   * renders bare with nothing below it). Lightbox passes `false`: its
+   * PostActionBar sits inside a wrapper that already draws its own
+   * bottom border, so this divider would double up with a dead gap
+   * between the two lines.
+   */
+  topDivider?: boolean;
 }
 
 export function CommentDrawer({
@@ -120,6 +158,7 @@ export function CommentDrawer({
   isOpen,
   canInteract = true,
   focusComposer = false,
+  topDivider = true,
 }: CommentDrawerProps) {
   const session = useSession();
   const isAuthed = session.status === "authenticated";
@@ -133,11 +172,35 @@ export function CommentDrawer({
   const [focusStack, setFocusStack] = useState<string[]>([]);
   const [replyTarget, setReplyTarget] = useState<ReplyTarget | null>(null);
 
+  // Drill transition — which direction the view just switched, so the
+  // (re-keyed, re-mounted) content block picks up the matching slide-in
+  // animation: forward into a thread slides in from the right, back out
+  // slides in from the left. scrollStack is a parallel stack to
+  // focusStack — drilling in remembers exactly where the viewer was
+  // scrolled in the view they're leaving, so drilling back restores it
+  // instead of dumping them back at the top of the thread.
+  const [slideDir, setSlideDir] = useState<"in" | "out">("in");
+  const drawerRootRef = useRef<HTMLDivElement>(null);
+  const scrollStack = useRef<number[]>([]);
+
   const drillInto = useCallback((commentId: string) => {
+    const scroller = findScrollAncestor(drawerRootRef.current);
+    scrollStack.current.push(readScrollTop(scroller));
+    setSlideDir("in");
     setFocusStack((stack) => [...stack, commentId]);
   }, []);
   const drillBack = useCallback(() => {
+    const savedTop = scrollStack.current.pop();
+    setSlideDir("out");
     setFocusStack((stack) => stack.slice(0, -1));
+    if (savedTop !== undefined) {
+      // Next frame — after React commits the view switch back to the
+      // parent thread, so the scroller's content (and its height) match
+      // what `savedTop` was measured against.
+      requestAnimationFrame(() => {
+        setScrollTop(findScrollAncestor(drawerRootRef.current), savedTop);
+      });
+    }
   }, []);
   const startReply = useCallback((comment: Comment) => {
     setReplyTarget({
@@ -155,6 +218,7 @@ export function CommentDrawer({
     if (!isOpen) {
       setFocusStack([]);
       setReplyTarget(null);
+      scrollStack.current = [];
     }
   }, [isOpen]);
 
@@ -162,11 +226,20 @@ export function CommentDrawer({
     return null;
   }
 
+  // See the `topDivider` doc comment. Lean spacing (mt-2/pt-2, not the
+  // original mt-3/pt-3) — PostDetail is the only caller that still needs
+  // this divider (its PostActionBar renders bare, with nothing below it),
+  // and the original spacing read as "too wide" even as a single line.
+  // Lightbox passes false: its own wrapping strip already draws the
+  // rail-to-comments divider (see PostActionBar's `topBorder` prop).
+  const divider = topDivider ? "mt-2 border-t border-[var(--bcc-border)] " : "";
+  const dividerPad = topDivider ? "mt-2 border-t border-[var(--bcc-border)] pt-2 " : "";
+
   if (query.isLoading) {
     return (
       <div
         aria-label="Loading comments"
-        className="mt-3 flex flex-col gap-2 border-t border-[var(--bcc-border)] pt-3"
+        className={dividerPad + "flex flex-col gap-2"}
       >
         <Skeleton className="h-12" count={2} />
       </div>
@@ -177,14 +250,17 @@ export function CommentDrawer({
     const code = query.error?.code ?? "";
     if (code === "bcc_forbidden") {
       return (
-        <div className="bcc-mono mt-3 border-t border-[var(--bcc-border)] pt-3 text-[11px] text-[var(--bcc-text-secondary)]">
+        <div className={"bcc-mono " + dividerPad + "text-[11px] text-[var(--bcc-text-secondary)]"}>
           Join the group to see this thread.
         </div>
       );
     }
     return (
-      <div className="bcc-mono mt-3 border-t border-[var(--bcc-border)] pt-3 text-[11px] text-[var(--bcc-text-muted)]">
-        Couldn&apos;t load comments. {code === "" ? "" : `(${code})`}
+      <div className={divider}>
+        <LoadFailure
+          message="Couldn't load comments."
+          onRetry={() => void query.refetch()}
+        />
       </div>
     );
   }
@@ -206,56 +282,67 @@ export function CommentDrawer({
   const canStoke = isAuthed && canInteract;
 
   return (
-    <div className="mt-3 border-t border-[var(--bcc-border)] pt-3">
-      {/* Drill-down header — back out of a followed thread, with the
-          collapsed-ancestor indicator (the "earlier replies are hidden"
-          several-lines motif). Only in a drilled view. */}
-      {isDrilled ? (
-        <DrillHeader onBack={drillBack} unavailable={focusNode === null} />
-      ) : (
-        /* Filter row (§C15) — Relevant (default) / Top / New, all live.
-           Relevant + Top sort on the comment stoke_count; the server owns
-           the ordering (§A2). Hidden inside a drilled thread. */
-        items.length > 0 && <CommentFilterRow sort={sort} onSortChange={setSort} />
-      )}
-
-      {/* Sprint 5 empty-state hygiene: the "No comments yet." line was
-          deleted — it restated an absence the composer below already
-          answers as the next action. Empty state is now communicated
-          by the empty list itself; the loading branch above still
-          renders its skeleton so a load-in-flight isn't confused for
-          "no comments yet." */}
-      <div className="flex flex-col gap-3">
-        {rootNodes.map((node) => (
-          <CommentBranch
-            key={node.comment.id}
-            node={node}
-            baseDepth={baseDepth}
-            feedId={feedId}
-            canStoke={canStoke}
-            onReply={startReply}
-            onContinue={drillInto}
-          />
-        ))}
-      </div>
-
-      {/* Load-more pages the flat list (root view only — a drilled subtree
-          renders from the already-loaded set). */}
-      {!isDrilled &&
-        hasMore &&
-        (query.isFetchingNextPage ? (
-          <div className="mt-3 flex py-1 text-[var(--bcc-accent)]">
-            <Spinner size={18} />
-          </div>
+    <div ref={drawerRootRef} className={dividerPad.trim()}>
+      {/* Re-keyed on the current view (root vs. a specific drilled pivot)
+          so React remounts this block on every drill in/out, re-triggering
+          the slide animation each time — a subtle-but-visible swipe
+          rather than an instant content swap. overflow-hidden clips the
+          translateX during the ~200ms animation so it can't cause a
+          transient horizontal scrollbar. */}
+      <div
+        key={focusId ?? "root"}
+        className={"overflow-hidden " + (slideDir === "in" ? "bcc-thread-slide-in" : "bcc-thread-slide-out")}
+      >
+        {/* Drill-down header — back out of a followed thread, with the
+            collapsed-ancestor indicator (the "earlier replies are hidden"
+            several-lines motif). Only in a drilled view. */}
+        {isDrilled ? (
+          <DrillHeader onBack={drillBack} unavailable={focusNode === null} />
         ) : (
-          <button
-            type="button"
-            onClick={() => void query.fetchNextPage()}
-            className="bcc-mono mt-3 inline-flex min-h-[36px] items-center text-[11px] tracking-[0.18em] text-[var(--bcc-text-secondary)] hover:text-[var(--bcc-text)] hover:underline"
-          >
-            LOAD MORE →
-          </button>
-        ))}
+          /* Filter row (§C15) — Relevant (default) / Top / New, all live.
+             Relevant + Top sort on the comment stoke_count; the server owns
+             the ordering (§A2). Hidden inside a drilled thread. */
+          items.length > 0 && <CommentFilterRow sort={sort} onSortChange={setSort} />
+        )}
+
+        {/* Sprint 5 empty-state hygiene: the "No comments yet." line was
+            deleted — it restated an absence the composer below already
+            answers as the next action. Empty state is now communicated
+            by the empty list itself; the loading branch above still
+            renders its skeleton so a load-in-flight isn't confused for
+            "no comments yet." */}
+        <div className="flex flex-col gap-3">
+          {rootNodes.map((node) => (
+            <CommentBranch
+              key={node.comment.id}
+              node={node}
+              baseDepth={baseDepth}
+              feedId={feedId}
+              canStoke={canStoke}
+              onReply={startReply}
+              onContinue={drillInto}
+            />
+          ))}
+        </div>
+
+        {/* Load-more pages the flat list (root view only — a drilled subtree
+            renders from the already-loaded set). */}
+        {!isDrilled &&
+          hasMore &&
+          (query.isFetchingNextPage ? (
+            <div className="mt-3 flex py-1 text-[var(--bcc-accent)]">
+              <Spinner size={18} />
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => void query.fetchNextPage()}
+              className="bcc-mono mt-3 inline-flex min-h-[36px] items-center text-[11px] tracking-[0.18em] text-[var(--bcc-text-secondary)] hover:text-[var(--bcc-text)] hover:underline"
+            >
+              LOAD MORE →
+            </button>
+          ))}
+      </div>
 
       {/* Non-member group teaser (canInteract=false): suppress both the
           composer AND the anonymous sign-in prompt. The "join to
@@ -434,11 +521,13 @@ function CommentBranch({
 /** The +/- glyph shared by the inline per-comment collapse toggle and the collapsed-hint's expand cue. */
 function CollapseToggleIcon({ collapsed, size = 8 }: { collapsed: boolean; size?: number }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 8 8" aria-hidden>
+    <svg width={size} height={size} viewBox="0 0 8 8" fill="none" aria-hidden>
       {collapsed ? (
-        <path d="M4 0v8M0 4h8" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+        // Caret down — replies are hidden, click to expand.
+        <path d="M1 3l3 3 3-3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
       ) : (
-        <path d="M0 4h8" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+        // Caret up — replies are showing, click to collapse.
+        <path d="M1 5l3-3 3 3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
       )}
     </svg>
   );
@@ -572,29 +661,92 @@ function CommentFilterRow({
   sort: CommentSort;
   onSortChange: (sort: CommentSort) => void;
 }) {
+  const [open, setOpen] = useState(false);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const active = SORT_TABS.find((tab) => tab.value === sort) ?? SORT_TABS[0];
+
+  useEffect(() => {
+    if (!open) return undefined;
+    function onDocClick(e: MouseEvent) {
+      if (
+        menuRef.current && !menuRef.current.contains(e.target as Node) &&
+        triggerRef.current && !triggerRef.current.contains(e.target as Node)
+      ) setOpen(false);
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false);
+    }
+    document.addEventListener("mousedown", onDocClick);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDocClick);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
   return (
-    <div className="mb-3 flex items-center gap-1.5">
-      {SORT_TABS.map((tab) => {
-        const active = tab.value === sort;
-        return (
-          <button
-            key={tab.value}
-            type="button"
-            onClick={() => onSortChange(tab.value)}
-            aria-current={active ? "true" : undefined}
-            title={tab.title}
-            className={
-              "bcc-mono rounded-full px-2.5 py-1 text-[10px] tracking-[0.14em] transition-colors " +
-              (active
-                ? "text-[var(--bcc-accent)]"
-                : "text-[var(--bcc-text-muted)] hover:text-[var(--bcc-text-secondary)]")
-            }
-            style={active ? { background: "var(--bcc-accent-subtle)" } : undefined}
-          >
-            {tab.label}
-          </button>
-        );
-      })}
+    <div className="relative mb-3 inline-block">
+      <button
+        ref={triggerRef}
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        className="bcc-mono inline-flex items-center gap-1.5 rounded-full border border-[var(--bcc-border)] px-2.5 py-1 text-[10px] tracking-[0.14em] text-[var(--bcc-text-secondary)] transition-colors hover:text-[var(--bcc-text)]"
+      >
+        {active?.label}
+        <svg width="8" height="8" viewBox="0 0 8 8" fill="none" aria-hidden className={open ? "rotate-180" : ""}>
+          <path d="M1 3l3 3 3-3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </button>
+
+      {/* Glassy dropdown, not a native <select> — anchored to its own
+          trigger (not .bcc-header-modal, whose mobile/tablet override
+          force-pins it under the header, which is right for the header's
+          own modals but wrong here, where the trigger sits inline in the
+          comment thread). */}
+      {open && (
+        <div
+          ref={menuRef}
+          role="listbox"
+          className="absolute left-0 top-full z-20 mt-1 min-w-[150px] overflow-hidden rounded-xl p-1"
+          style={{
+            background: "var(--bcc-glass-bg-solid)",
+            backdropFilter: "var(--bcc-blur-sm)",
+            WebkitBackdropFilter: "var(--bcc-blur-sm)",
+            border: "1px solid var(--bcc-glass-border)",
+            boxShadow: "var(--bcc-shadow-xl)",
+            animation: "bcc-fade-in 0.15s ease forwards",
+          }}
+        >
+          {SORT_TABS.map((tab) => {
+            const isActive = tab.value === sort;
+            return (
+              <button
+                key={tab.value}
+                type="button"
+                role="option"
+                aria-selected={isActive}
+                title={tab.title}
+                onClick={() => {
+                  onSortChange(tab.value);
+                  setOpen(false);
+                }}
+                className={
+                  "bcc-mono block w-full rounded-lg px-2.5 py-1.5 text-left text-[11px] tracking-[0.12em] transition-colors " +
+                  (isActive
+                    ? "text-[var(--bcc-accent)]"
+                    : "text-[var(--bcc-text-secondary)] hover:bg-[var(--bcc-surface-active)] hover:text-[var(--bcc-text)]")
+                }
+                style={isActive ? { background: "var(--bcc-accent-subtle)" } : undefined}
+              >
+                {tab.label}
+              </button>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
@@ -672,14 +824,27 @@ function CommentRow({
           />
         }
       />
-      <p className="whitespace-pre-line pl-[40px] font-serif text-[14px] text-[var(--bcc-text)]">
-        {renderTextWithMentions(comment.body, comment.mentions)}
-      </p>
+      {comment.body !== "" && (
+        <p className="whitespace-pre-line break-words pl-[40px] font-serif text-[14px] text-[var(--bcc-text)]">
+          {renderTextWithMentions(comment.body, comment.mentions)}
+        </p>
+      )}
       {comment.media !== undefined && (
         <div className="pl-[40px]">
           <CommentMediaView media={comment.media} />
         </div>
       )}
+      {/* Mobile-only: the rail is too tight to also carry the timestamp once
+          a row is indented, so it gets its own line here; the in-rail copy
+          (CommentActionRail) is hidden below sm: to avoid rendering twice. */}
+      <time
+        dateTime={comment.posted_at}
+        title={comment.posted_at}
+        className="bcc-mono inline-flex items-center gap-1 pl-[40px] text-[10px] text-[var(--bcc-text-muted)] sm:hidden"
+      >
+        <ClockIcon size={12} />
+        {formatRelativeTime(comment.posted_at)}
+      </time>
       <div className="pl-[40px]">
         <CommentActionRail
           feedId={feedId}
@@ -764,7 +929,7 @@ function CommentActionRail({
       <time
         dateTime={timestamp}
         title={timestamp}
-        className="bcc-mono inline-flex items-center gap-1 pl-1 text-[10px] text-[var(--bcc-text-muted)]"
+        className="bcc-mono hidden items-center gap-1 pl-1 text-[10px] text-[var(--bcc-text-muted)] sm:inline-flex"
       >
         <ClockIcon size={12} />
         {formatRelativeTime(timestamp)}
@@ -837,7 +1002,7 @@ function CommentStokeButton({
       aria-pressed={hasStoked}
       aria-label={hasStoked ? "Stoked — tap to remove" : "Stoke"}
       title={hasStoked ? "Stoked — tap to remove" : "Stoke"}
-      className="bcc-stoke-button bcc-mono inline-flex min-h-[28px] items-center gap-1 rounded-full px-2 py-1 text-[11px] transition-colors duration-150 hover:bg-[var(--bcc-surface-active)] disabled:cursor-not-allowed"
+      className="bcc-stoke-button bcc-mono inline-flex min-h-[24px] items-center gap-1 rounded-full px-2 py-0.5 text-[11px] transition-colors duration-150 hover:bg-[var(--bcc-surface-active)] disabled:cursor-not-allowed"
       style={{ color }}
     >
       <StokeFlame
@@ -849,16 +1014,19 @@ function CommentStokeButton({
         burstKey={burstKey}
         particleRadius={COMMENT_PARTICLE_RADIUS}
       />
-      Stoke{count > 0 ? ` ${count}` : ""}
+      <span className="hidden sm:inline">Stoke</span>
+      {count > 0 ? ` ${count}` : ""}
     </button>
   );
 }
 
 // ─────────────────────────────────────────────────────────────────────
 // Attached media (§3.5) — one photo XOR gif, rendered above the body.
-// Photos open a lightweight zoom (the feed Lightbox wants a whole
-// FeedItem + comments panel — wrong shape for a comment attachment, so
-// we use the shared Dialog primitive directly). GIFs render inline.
+// Both open a zoom (the feed Lightbox wants a whole FeedItem + comments
+// panel — wrong shape for a single comment attachment, so this uses the
+// shared Dialog primitive directly rather than the feed Lightbox
+// component), styled to match its theater treatment — same dark backdrop
+// and the same visible circular close button — for visual consistency.
 // ─────────────────────────────────────────────────────────────────────
 
 /** Capped display box for a comment attachment — keeps tall media from dominating the row. */
@@ -884,22 +1052,26 @@ function CommentMediaView({ media }: { media: CommentMedia }) {
 
   return (
     <div className="mt-1.5">
-      {isPhoto ? (
-        <button
-          type="button"
-          onClick={() => setZoomed(true)}
-          aria-label="View image"
-          className="block max-w-full rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--bcc-accent)]"
-        >
-          {img}
-        </button>
-      ) : (
-        img
-      )}
+      <button
+        type="button"
+        onClick={() => setZoomed(true)}
+        aria-label={isPhoto ? "View image" : "View GIF"}
+        className="block max-w-full rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--bcc-accent)]"
+      >
+        {img}
+      </button>
 
       {zoomed && (
-        <Dialog title="Image" bare center backdropClassName="bg-ink/90 backdrop-blur-md" onClose={() => setZoomed(false)}>
-          <div className="flex max-h-[92vh] max-w-[92vw] items-center justify-center">
+        <Dialog title={isPhoto ? "Image" : "GIF"} bare center backdropClassName="bg-ink/90 backdrop-blur-md" onClose={() => setZoomed(false)}>
+          <div className="relative flex max-h-[92vh] max-w-[92vw] items-center justify-center">
+            <button
+              type="button"
+              onClick={() => setZoomed(false)}
+              aria-label="Close"
+              className="fixed right-3 top-3 z-10 inline-flex h-9 w-9 items-center justify-center rounded-full bg-ink/60 text-lg text-paper backdrop-blur-sm transition-colors hover:bg-ink"
+            >
+              ✕
+            </button>
             {/* eslint-disable-next-line @next/next/no-img-element -- remote media, see above */}
             <img src={media.url} alt="" className="max-h-[92vh] max-w-[92vw] rounded-xl object-contain" />
           </div>
@@ -1049,7 +1221,9 @@ function CommentComposer({
 
   const trimmed = draft.trim();
   const overCap = trimmed.length > COMMENT_MAX_LENGTH;
-  const canSubmit = trimmed !== "" && !overCap && !createMut.isPending && !uploading;
+  const canSubmit = (trimmed !== "" || hasMedia) && !overCap && !createMut.isPending && !uploading;
+  /** Collapsed box has content to summarize — swap the raw textarea for a truncated preview (items 8/9). */
+  const showCollapsedPreview = !expanded && (trimmed !== "" || hasMedia);
 
   const clearMedia = () => {
     setPhoto(null);
@@ -1166,6 +1340,16 @@ function CommentComposer({
           ? { kind: "gif", url: gif.url }
           : undefined;
 
+    // Snapshot for restore-on-error, below — the composer clears
+    // immediately (optimistic) rather than waiting for the real network
+    // round-trip, which visibly lagged behind the comment already
+    // appearing in the thread (useCreateCommentMutation's own onMutate
+    // inserts it into the cache synchronously). If the request actually
+    // fails, restore exactly what was here so nothing typed is lost.
+    const draftSnapshot = draft;
+    const photoSnapshot = photo;
+    const gifSnapshot = gif;
+
     createMut.mutate(
       {
         feed_id: feedId,
@@ -1180,15 +1364,20 @@ function CommentComposer({
         ...(replyTarget !== null ? { parent_id: replyTarget.parentId } : {}),
       },
       {
-        onSuccess: () => {
-          setDraft("");
-          setExpanded(false);
-          clearMedia();
-          setGifPickerOpen(false);
-          onClearReply();
+        onError: () => {
+          setDraft(draftSnapshot);
+          setPhoto(photoSnapshot);
+          setGif(gifSnapshot);
+          setExpanded(true);
         },
       },
     );
+
+    setDraft("");
+    setExpanded(false);
+    clearMedia();
+    setGifPickerOpen(false);
+    onClearReply();
   };
 
   const error = createMut.error;
@@ -1236,17 +1425,45 @@ function CommentComposer({
           </div>
         )}
         <div className="flex items-end gap-2">
-          <textarea
-            id={`comment-${feedId}`}
-            ref={textareaRef}
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            onFocus={() => setExpanded(true)}
-            rows={1}
-            maxLength={COMMENT_MAX_LENGTH * 2 /* soft over-type buffer; canSubmit gates submit */}
-            placeholder={replyTarget !== null ? `Reply to @${replyTarget.handle}…` : "Write a comment…"}
-            className="w-full flex-1 resize-none bg-transparent text-[14px] leading-snug text-[var(--bcc-text)] placeholder:text-[var(--bcc-text-muted)] focus:outline-none"
-          />
+          {/* Collapsed-state preview: a textarea showing wrapped-then-clipped
+              draft text (no ellipsis, no indication more text follows) read
+              as empty for a media-only draft (the attachment preview only
+              renders when expanded) and unreadable for a long text draft —
+              items 8/9. Swapped in only when there's actually something to
+              summarize; an empty collapsed box still shows the real
+              textarea so its placeholder keeps working. `truncate` (CSS
+              ellipsis) rather than a hardcoded character cap — it adapts to
+              whatever width the composer actually has at any breakpoint,
+              mobile included, instead of guessing a fixed count that's
+              wrong at some viewport. */}
+          <div className="relative w-full flex-1">
+            <textarea
+              id={`comment-${feedId}`}
+              ref={textareaRef}
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onFocus={() => setExpanded(true)}
+              rows={1}
+              maxLength={COMMENT_MAX_LENGTH * 2 /* soft over-type buffer; canSubmit gates submit */}
+              placeholder={replyTarget !== null ? `Reply to @${replyTarget.handle}…` : "Write a comment…"}
+              className={
+                "w-full flex-1 resize-none bg-transparent text-[14px] leading-snug text-[var(--bcc-text)] placeholder:text-[var(--bcc-text-muted)] focus:outline-none" +
+                (showCollapsedPreview ? " invisible" : "")
+              }
+            />
+            {showCollapsedPreview && (
+              <div className="pointer-events-none absolute inset-0 flex items-center gap-1.5 text-[14px] leading-snug text-[var(--bcc-text)]">
+                {hasMedia && (
+                  <span className="inline-flex shrink-0 text-[var(--bcc-text-secondary)]" aria-hidden>
+                    <PhotoIcon size={14} />
+                  </span>
+                )}
+                <span className="truncate">
+                  {trimmed !== "" ? trimmed : gif !== null ? "GIF attached" : "Photo attached"}
+                </span>
+              </div>
+            )}
+          </div>
 
           {/* Icon-only submit while the box is at rest. */}
           {!expanded && (
@@ -1310,82 +1527,85 @@ function CommentComposer({
         )}
 
         {/* Expanded footer — media buttons + word count + collapse + full
-            submit, all inside the box (§C14). */}
+            submit, all inside the box (§C14). Error/cap messages get their
+            own full-width row below (not truncated) — cramming them into
+            the counter's single truncated line clipped the message
+            entirely on narrow (mobile) widths, leaving no visible reason
+            the submit failed. */}
         {expanded && (
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex min-w-0 items-center gap-0.5">
-              <MediaIconButton
-                onClick={() => fileInputRef.current?.click()}
-                active={photo !== null}
-                disabled={uploading}
-                label="Attach photo"
-              >
-                <PhotoIcon />
-              </MediaIconButton>
-
-              {gifEnabled && (
+          <div className="flex flex-col gap-1">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex min-w-0 items-center gap-0.5">
                 <MediaIconButton
-                  onClick={() => setGifPickerOpen((o) => !o)}
-                  active={gif !== null || gifPickerOpen}
+                  onClick={() => fileInputRef.current?.click()}
+                  active={photo !== null}
                   disabled={uploading}
-                  label="Attach GIF"
+                  label="Attach photo"
                 >
-                  <span className="bcc-mono text-[11px] font-bold tracking-tight">GIF</span>
+                  <PhotoIcon />
                 </MediaIconButton>
-              )}
 
-              <p className="bcc-mono ml-1 min-w-0 truncate text-[10px] text-[var(--bcc-text-muted)]">
-                {trimmed.length}/{COMMENT_MAX_LENGTH}
-                {mediaError !== null && (
-                  <span className="ml-2 text-[var(--bcc-danger)]">{mediaError}</span>
+                {gifEnabled && (
+                  <MediaIconButton
+                    onClick={() => setGifPickerOpen((o) => !o)}
+                    active={gif !== null || gifPickerOpen}
+                    disabled={uploading}
+                    label="Attach GIF"
+                  >
+                    <span className="bcc-mono text-[11px] font-bold tracking-tight">GIF</span>
+                  </MediaIconButton>
                 )}
-                {error !== null && (
-                  <span className="ml-2 text-[var(--bcc-danger)]">
-                    {humanizeCode(
-                      error,
-                      {
-                        bcc_unauthorized: "Sign in to comment.",
-                        bcc_rate_limited: "Commenting too fast — slow down.",
-                        bcc_forbidden: "You can't comment here.",
-                        bcc_invalid_request: "Comment couldn't be posted.",
-                        bcc_too_many_mentions: "Too many @-mentions in one comment.",
-                        bcc_invalid_mention_target:
-                          "One of your @-mentions can't receive notifications.",
-                      },
-                      "Couldn't post the comment.",
-                    )}
-                  </span>
-                )}
-                {overCap && error === null && (
-                  <span className="ml-2 text-[var(--bcc-danger)]">
-                    Over the {COMMENT_MAX_LENGTH}-char cap.
-                  </span>
-                )}
+
+                <p className="bcc-mono ml-1 min-w-0 truncate text-[10px] text-[var(--bcc-text-muted)]">
+                  {trimmed.length}/{COMMENT_MAX_LENGTH}
+                </p>
+              </div>
+
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={collapse}
+                  aria-label="Collapse composer"
+                  title="Collapse"
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-full text-[var(--bcc-text-secondary)] hover:bg-[var(--bcc-surface-hover)] hover:text-[var(--bcc-text)]"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                    {/* two arrows collapsing toward center */}
+                    <path d="M4 14h6v6M20 10h-6V4M14 10l7-7M3 21l7-7" />
+                  </svg>
+                </button>
+                <button
+                  type="submit"
+                  disabled={!canSubmit}
+                  className="bcc-btn bcc-btn-sm bcc-btn-primary"
+                >
+                  {createMut.isPending ? "Posting…" : "Comment"}
+                  <SendIcon />
+                </button>
+              </div>
+            </div>
+
+            {(mediaError !== null || error !== null || overCap) && (
+              <p className="bcc-mono min-w-0 break-words text-[10px] text-[var(--bcc-danger)]">
+                {mediaError !== null
+                  ? mediaError
+                  : error !== null
+                    ? humanizeCode(
+                        error,
+                        {
+                          bcc_unauthorized: "Sign in to comment.",
+                          bcc_rate_limited: "Commenting too fast — slow down.",
+                          bcc_forbidden: "You can't comment here.",
+                          bcc_invalid_request: "Comment couldn't be posted.",
+                          bcc_too_many_mentions: "Too many @-mentions in one comment.",
+                          bcc_invalid_mention_target:
+                            "One of your @-mentions can't receive notifications.",
+                        },
+                        "Couldn't post the comment.",
+                      )
+                    : `Over the ${COMMENT_MAX_LENGTH}-char cap.`}
               </p>
-            </div>
-
-            <div className="flex items-center gap-1">
-              <button
-                type="button"
-                onClick={collapse}
-                aria-label="Collapse composer"
-                title="Collapse"
-                className="inline-flex h-8 w-8 items-center justify-center rounded-full text-[var(--bcc-text-secondary)] hover:bg-[var(--bcc-surface-hover)] hover:text-[var(--bcc-text)]"
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                  {/* two arrows collapsing toward center */}
-                  <path d="M4 14h6v6M20 10h-6V4M14 10l7-7M3 21l7-7" />
-                </svg>
-              </button>
-              <button
-                type="submit"
-                disabled={!canSubmit}
-                className="bcc-btn bcc-btn-sm bcc-btn-primary"
-              >
-                {createMut.isPending ? "Posting…" : "Comment"}
-                <SendIcon />
-              </button>
-            </div>
+            )}
           </div>
         )}
       </div>

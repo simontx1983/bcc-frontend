@@ -184,9 +184,10 @@ export function Dialog({
       aria-modal
       aria-label={title}
       className={
-        // z-[400] clears the fixed SiteHeader (z-300) and MobileNav
-        // (z-200) — a dialog must always sit above both chrome layers.
-        "fixed inset-0 z-[400] flex justify-center " + backdropClassName + " " +
+        // z-[550] clears the fixed SiteHeader (z-300), MobileNav (z-200),
+        // and AuthorHoverPanel (z-500) — a dialog opened from inside the
+        // hovercard (e.g. RankInfoModal via RankChip) must render above it.
+        "fixed inset-0 z-[550] flex justify-center " + backdropClassName + " " +
         (mobileSheet ? "p-0 md:p-4 " : "p-4 ") +
         (center ? "items-center " : "items-end md:items-center ") +
         (fade ? "transition-opacity duration-200 " + (shown ? "opacity-100" : "opacity-0") : "")

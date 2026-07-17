@@ -1,113 +1,98 @@
 /**
- * FloorIntro — anon-only context block for the home page.
+ * FloorIntro — the guest landing page, Direction A "LEDGER" (locked with
+ * Tia; Direction B "Forge Floor" is a deferred trading-card-redesign
+ * track, see HANDOVER-ux-batch-landing-mobile-comments.md's appendix).
+ * Mounted at `(marketing)/welcome`; anon `/` middleware-rewrites here.
  *
- * Mounts above <FeedView /> on `/` only when the viewer is logged out.
- * The Floor feed is shown to anon users immediately (per §F2 Hot
- * fallback), but a fresh visitor lands on a stream of posts about
- * validators, creators, and projects they have no context for. They
- * bounce. This block answers — in order — five questions a visitor
- * needs answered before the feed below makes any sense:
+ * Full-bleed marketing surface on the page-chrome token system — replaces
+ * the old workshop-palette (cardstock/safety/weld) FloorIntro entirely.
+ * Server component shell; small "use client" islands carry the animated
+ * pieces (embers canvas, scroll-reveal, count-up, magnetic CTAs) so the
+ * RSC surface stays large. The live ledger and marquee are pure CSS
+ * (`@keyframes` loops over server-rendered doubled lists) — no client JS
+ * needed for either.
  *
- *   1. Hero        → "What is this?"            (3 seconds)
- *   2. Demo card   → "What does it feel like?"  (interactive)
- *   3. Pillars     → "What do you stand for?"   (10 seconds)
- *   4. Loop        → "How does it work?"        (15 seconds)
- *   5. Closing CTA → "What do I do now?"
- *
- * A slow horizontal marquee runs along the very top of the section
- * (edge-to-edge, above the hero) cycling the wedge in motion —
- * "✕ PAID PLACEMENT — NOT AVAILABLE / — REPUTATION YOU CAN'T BUY —"
- * etc. It establishes the positioning before the H1 lands and keeps
- * the anti-paid-trust message live as the visitor scrolls.
- *
- * Server component. The only interactive island is <CardFactory />,
- * which already manages its own state. Anon viewers see the card's
- * Pull / Review buttons disabled (server returns can_watch: false /
- * can_review: false in anon contexts per §N7) — correct UX, since
- * actually pulling requires sign-in.
- *
- * Voice: one wedge, repeated. Verification you earn, not buy. No paid
- * checkmarks. No bought grades. No bot reviews. No sponsored tier.
- * The only currency on the floor is the work you actually did.
+ * The demo trading-card section is deliberately NOT here — deferred until
+ * the card redesign lands (see the handover appendix for the reference
+ * CSS/JS to build it from then).
  */
 
 import Link from "next/link";
 
-import { CardFactory } from "@/components/cards/CardFactory";
-import type { Card } from "@/lib/api/types";
+import { LandingCountUp } from "@/components/landing/LandingCountUp";
+import { LandingEmbers } from "@/components/landing/LandingEmbers";
+import { LandingFloorPeek } from "@/components/landing/LandingFloorPeek";
+import { LandingLedger } from "@/components/landing/LandingLedger";
+import { LandingMagneticLink } from "@/components/landing/LandingMagneticLink";
+import { LandingReveal } from "@/components/landing/LandingReveal";
 
-export interface FloorIntroProps {
-  /**
-   * A real Card pulled server-side from /bcc/v1/cards. Null when the
-   * API didn't return one (network failure, or the directory is empty
-   * pre-launch). The demo-card section gracefully omits in that case.
-   */
-  featuredCard: Card | null;
-}
-
-export function FloorIntro({ featuredCard }: FloorIntroProps) {
+export function FloorIntro() {
   return (
-    <section aria-label="Welcome to Blue Collar Crypto">
-      <MarqueeBanner />
-      <Hero />
-      {featuredCard !== null && <DemoCard card={featuredCard} />}
-      <Pillars />
-      <LoopSteps />
-      <ClosingCta />
-    </section>
+    <div className="bcc-ldg-root">
+      <div className="bcc-ldg-field" aria-hidden>
+        <div className="bcc-ldg-field-grid" />
+        <div className="bcc-ldg-field-glow bcc-ldg-field-g1" />
+        <div className="bcc-ldg-field-glow bcc-ldg-field-g2" />
+      </div>
+
+      <div className="bcc-ldg-wrap">
+        <Marquee />
+        <Hero />
+
+        <section className="bcc-ldg-section">
+          <LandingReveal as="p" className="bcc-ldg-eyebrow">
+            What the floor stands for
+          </LandingReveal>
+          <Pillars />
+        </section>
+
+        <section className="bcc-ldg-section" style={{ paddingTop: 0 }}>
+          <Loop />
+        </section>
+
+        <section className="bcc-ldg-section" style={{ paddingTop: 0 }}>
+          <FloorNow />
+        </section>
+
+        <section className="bcc-ldg-section bcc-ldg-closing">
+          <ClosingCta />
+        </section>
+      </div>
+    </div>
   );
 }
 
-// ──────────────────────────────────────────────────────────────────────
-// 0. MarqueeBanner — slow horizontal ticker at the very top, edge-to-
-//    edge above the hero. Establishes the "not-for-sale" positioning
-//    before the H1 lands. Eight items in rotation: six "✕ NOT AVAILABLE"
-//    wedge lines and two italic sigils as visual rhythm breaks. Pure
-//    decoration (aria-hidden); the wedge is also delivered statically
-//    in NotStrip and Pillars, so AT users don't miss it.
-// ──────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────
+// Marquee — the "not for sale" wedge, edge-to-edge above the hero.
+// Anti-pay message targets reputation, not ad inventory (BCC will run
+// external ads) — reworded copy per Tia. Pure CSS scroll, doubled list.
+// ─────────────────────────────────────────────────────────────────────
 
 interface MarqueeItem {
-  /** Mark prefix: "✕" for the wedge, "—" for an italic sigil. */
   mark: "✕" | "—";
   body: string;
 }
 
 const MARQUEE_ITEMS: readonly MarqueeItem[] = [
-  { mark: "✕", body: "PAID PLACEMENT — NOT AVAILABLE" },
-  { mark: "✕", body: "SPONSORED GRADES — NOT AVAILABLE" },
-  { mark: "—", body: "REPUTATION YOU CAN'T BUY" },
-  { mark: "✕", body: "BOUGHT CHECKMARKS — NOT AVAILABLE" },
-  { mark: "✕", body: "BOT REVIEWS — NOT AVAILABLE" },
-  { mark: "—", body: "BUILT IN PUBLIC" },
-  { mark: "✕", body: "FOLLOWER PADDING — NOT AVAILABLE" },
-  { mark: "✕", body: "FAKE ENDORSEMENTS — NOT AVAILABLE" },
+  { mark: "✕", body: "Bought rank — not available" },
+  { mark: "—", body: "Reputation you can't buy" },
+  { mark: "✕", body: "Sponsored grades — not available" },
+  { mark: "—", body: "Built in public" },
+  { mark: "✕", body: "Boosted accounts — not available" },
+  { mark: "✕", body: "Bot reviews — not available" },
+  { mark: "—", body: "The chain remembers" },
+  { mark: "✕", body: "Paid checkmarks — not available" },
 ] as const;
 
-function MarqueeBanner() {
-  // Render the items twice in a single track so a translateX(-50%)
-  // animation loops seamlessly. Decorative-only (no semantic content
-  // beyond what the static sections below carry).
+function Marquee() {
   const doubled = [...MARQUEE_ITEMS, ...MARQUEE_ITEMS];
   return (
-    <div aria-hidden="true" className="bcc-marquee">
-      <div className="bcc-marquee-track">
+    <div className="bcc-ldg-marquee" aria-hidden>
+      <div className="bcc-ldg-marquee-track">
         {doubled.map((item, idx) => (
-          <span
-            key={idx}
-            className="bcc-mono flex items-center gap-3 whitespace-nowrap text-cardstock-deep"
-          >
-            <span
-              aria-hidden
-              className={item.mark === "✕" ? "text-safety" : "text-cardstock"}
-            >
-              {item.mark}
-            </span>
-            <span
-              className={item.mark === "—" ? "italic text-cardstock" : ""}
-            >
-              {item.body}
-            </span>
+          <span key={idx}>
+            <span className={item.mark === "✕" ? "bcc-ldg-marquee-x" : "bcc-ldg-marquee-em"}>{item.mark}</span>
+            {item.body}
           </span>
         ))}
       </div>
@@ -115,279 +100,201 @@ function MarqueeBanner() {
   );
 }
 
-// ──────────────────────────────────────────────────────────────────────
-// 1. Hero — the 3-second elevator pitch. Concrete bg already supplies
-//    grain + scan-lines + radial glows from globals.css body styles,
-//    so this block stays compositionally light. The standfirst carries
-//    a stencil drop cap (.bcc-dropcap) — a small editorial flourish that
-//    elevates the lede out of body-paragraph territory.
-// ──────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────
+// Hero — the thesis. Left: stencil wedge + lede + CTAs + stat tiles.
+// Right: the live Reputation Ledger. Ambient embers drift behind both.
+// ─────────────────────────────────────────────────────────────────────
 
 function Hero() {
   return (
-    <div className="mx-auto max-w-[1560px] px-6 pb-14 pt-14 sm:pt-20 lg:px-8">
-      <div className="flex items-center gap-3">
-        <span aria-hidden className="bcc-rail-dot" />
-        <p className="bcc-mono text-safety">FLOOR &nbsp;//&nbsp; OPEN</p>
+    <section className="bcc-ldg-hero" style={{ position: "relative" }}>
+      <LandingEmbers />
+      <div>
+        <span className="bcc-ldg-status">
+          <span className="bcc-ldg-pulse" aria-hidden />
+          Floor // Open
+        </span>
+        <h1 className="bcc-ldg-disp">
+          Reputation
+          <br />
+          you can&rsquo;t <span className="bcc-ldg-strike">buy.</span>
+        </h1>
+        <p className="bcc-ldg-lede">
+          You can&rsquo;t buy a checkmark. You can&rsquo;t pay for a tier. You can&rsquo;t sponsor a grade.{" "}
+          <b>The only currency on the floor is the work you actually did.</b>
+        </p>
+        <div className="bcc-ldg-cta">
+          <LandingMagneticLink href="/signup" className="bcc-ldg-btn bcc-ldg-btn-primary">
+            Join the Floor →
+          </LandingMagneticLink>
+          <Link href="/login" className="bcc-ldg-btn bcc-ldg-btn-ghost">
+            Sign In
+          </Link>
+        </div>
+        <div className="bcc-ldg-stats">
+          <div>
+            <div className="n">0</div>
+            <div className="k">Boosted accounts</div>
+          </div>
+          <div>
+            <div className="n">0</div>
+            <div className="k">Sponsored grades</div>
+          </div>
+          <div>
+            <div className="n">
+              <LandingCountUp target={100} suffix="%" />
+            </div>
+            <div className="k">Earned on-chain</div>
+          </div>
+        </div>
       </div>
 
-      <h1 className="bcc-stencil mt-5 text-cardstock leading-[0.92] text-[clamp(2.75rem,9vw,7rem)]">
-        REPUTATION
-        <br />
-        YOU CAN&rsquo;T <span className="text-safety">BUY.</span>
-      </h1>
-
-      <p className="bcc-dropcap mt-7 max-w-2xl font-serif text-lg leading-relaxed text-cardstock-deep sm:text-xl">
-        You can&rsquo;t buy a checkmark here. You can&rsquo;t pay for
-        a tier. You can&rsquo;t sponsor a grade. The only currency on
-        the floor is the work you actually did.
-      </p>
-
-      <div className="mt-9 flex flex-wrap gap-3">
-        <Link href="/signup" className="bcc-btn bcc-btn-primary">
-          Join the Floor
-        </Link>
-        <Link href="/login" className="bcc-btn bcc-btn-ghost">
-          Sign In
-        </Link>
-      </div>
-
-      {/* Caution-tape strip: a 6px slice that says "this is a working
-          surface, not a pitch deck" — flush left, doesn't span. */}
-      <div aria-hidden className="bcc-caution-tape mt-12 h-1.5 w-40 opacity-80" />
-    </div>
+      <LandingLedger />
+    </section>
   );
 }
 
-// ──────────────────────────────────────────────────────────────────────
-// 2. Pillars — three claims, one sentence each. What BCC stands FOR
-//    (and implicitly, what it stands AGAINST: paid placement, sybils,
-//    closed-door grading).
-// ──────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────
+// Pillars — three claims, what BCC stands for (and against).
+// ─────────────────────────────────────────────────────────────────────
 
 interface Pillar {
-  kicker: string;
+  no: string;
   title: string;
   copy: string;
 }
 
 const PILLARS: readonly Pillar[] = [
   {
-    kicker: "01",
-    title: "Earned, Not Bought",
-    copy: "No paid placement. No sponsored grades. No buying your way to legendary. Every mark on your card came from a real person who actually worked with you.",
+    no: "01",
+    title: "Earned, not bought",
+    copy: "No paid placement. No sponsored grades. No buying your way to legendary. Every mark came from a real person who worked with you.",
   },
   {
-    kicker: "02",
-    title: "Verified Human",
-    copy: "Wallet on-chain. History on file. Community vouching baked in. Bot farms can't fake their way into a real reputation here — they have nothing real to fake from.",
+    no: "02",
+    title: "Verified human",
+    copy: "Wallet on-chain. History on file. Community vouching baked in. Bot farms can't fake their way into a real reputation here.",
   },
   {
-    kicker: "03",
-    title: "Built in Public",
-    copy: "Every review, every dispute, every endorsement — on the record. No back-room moderation. No silent shadowbans. The floor sees everything, and so do you.",
+    no: "03",
+    title: "Built in public",
+    copy: "Every review, every dispute, every endorsement — on the record. No back-room moderation. No silent shadowbans.",
   },
 ] as const;
 
 function Pillars() {
   return (
-    <div className="mx-auto max-w-[1560px] border-y border-cardstock/10 px-6 py-14 lg:px-8">
-      <div className="grid gap-12 md:grid-cols-3 md:gap-10">
-        {PILLARS.map((pillar, i) => (
-          <div
-            key={pillar.kicker}
-            className={
-              i > 0
-                ? "md:border-l md:border-dashed md:border-cardstock/15 md:pl-10"
-                : ""
-            }
-          >
-            <span className="bcc-stencil block text-5xl text-safety">
-              {pillar.kicker}
-            </span>
-            <h3 className="bcc-stencil mt-2 text-2xl text-cardstock">
-              {pillar.title}
-            </h3>
-            <p className="mt-3 max-w-sm font-serif leading-relaxed text-cardstock-deep">
-              {pillar.copy}
-            </p>
-          </div>
-        ))}
-      </div>
+    <div className="bcc-ldg-pillars">
+      {PILLARS.map((pillar, i) => (
+        <LandingReveal key={pillar.no} delayMs={i * 80} className="bcc-ldg-pillar">
+          <div className="no">{pillar.no}</div>
+          <h3>{pillar.title}</h3>
+          <p>{pillar.copy}</p>
+        </LandingReveal>
+      ))}
     </div>
   );
 }
 
-// ──────────────────────────────────────────────────────────────────────
-// 3. LoopSteps — the §O1 product loop, framed as "THE TRUST ENGINE" on
-//    screen. Five paper chips on the concrete, each a verb in the
-//    sequence Discover → Signal → Record → Compound → Access. Crypto-
-//    native voice on purpose: SIGNAL maps to the real backend verbs
-//    (POST /bcc-trust/v1/vote, /endorse, /dispute), COMPOUND points at
-//    weighted-reputation scoring, ACCESS at FeatureAccessService gates.
-// ──────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────
+// Loop — the 5-move trust engine. A real ordered process, numbered
+// markers are earned here (unlike a generic feature list).
+// ─────────────────────────────────────────────────────────────────────
 
 interface LoopStep {
   n: string;
   verb: string;
-  line: string;
+  line: React.ReactNode;
 }
 
 const LOOP: readonly LoopStep[] = [
-  { n: "01", verb: "Discover", line: "Find real operators doing real work." },
-  { n: "02", verb: "Signal",   line: "Vote, endorse, or dispute." },
-  { n: "03", verb: "Record",   line: "Everything is tracked. Nothing disappears." },
-  { n: "04", verb: "Compound", line: "Your accuracy builds your weight." },
-  { n: "05", verb: "Access",   line: "Higher trust unlocks reviews, disputes, and endorsements." },
-] as const;
-
-function LoopSteps() {
-  return (
-    <div className="mx-auto max-w-[1560px] px-6 py-16 lg:px-8">
-      <p className="bcc-mono text-safety">THE TRUST ENGINE</p>
-      <h2 className="bcc-stencil mt-2 text-cardstock text-4xl sm:text-5xl">
-        Proof over promises. Always.
-      </h2>
-      <p className="mt-3 max-w-xl font-serif leading-relaxed text-cardstock-deep">
-        Five moves. The chain remembers everything. Your signal earns
-        its weight.
-      </p>
-
-      <ol className="mt-10 grid gap-4 md:grid-cols-5">
-        {LOOP.map((step, i) => (
-          <li
-            key={step.n}
-            className="bcc-paper bcc-stage-reveal p-5"
-            style={{ ["--stagger" as string]: `${i * 90}ms` }}
-          >
-            <div className="relative z-[2]">
-              <span className="bcc-mono text-ink-ghost">STEP {step.n}</span>
-              <h3 className="bcc-stencil mt-1 text-3xl text-ink">
-                {step.verb}.
-              </h3>
-              <p className="mt-2 font-serif leading-snug text-ink-soft">
-                {step.line}
-              </p>
-            </div>
-          </li>
-        ))}
-      </ol>
-    </div>
-  );
-}
-
-// ──────────────────────────────────────────────────────────────────────
-// 4. DemoCard — a real Card from /bcc/v1/cards. The aesthetic IS the
-//    pitch; rendering a real operator is more honest than a mock.
-//
-//    Layout: card on the left, instructional callouts on the right.
-//    Stacks on mobile. The card itself handles flip + tilt + foil; we
-//    just frame it with three short bullets that prime the visitor on
-//    HOW to interact with it.
-// ──────────────────────────────────────────────────────────────────────
-
-interface InstructionRow {
-  label: string;
-  copy: React.ReactNode;
-}
-
-const DEMO_INSTRUCTIONS: readonly InstructionRow[] = [
+  { n: "Step 01", verb: "Discover", line: "Find real operators doing real work." },
+  { n: "Step 02", verb: "Signal", line: "Vote, endorse, or dispute." },
+  { n: "Step 03", verb: "Record", line: "Everything is tracked. Nothing disappears." },
+  { n: "Step 04", verb: "Compound", line: "Your accuracy builds your weight." },
   {
-    label: "CLICK",
-    copy: (
-      <>
-        Flip the card. Front shows the operator. Back shows the receipts
-        — every grade, every review, every dispute.
-      </>
-    ),
-  },
-  {
-    label: "HOVER",
-    copy: <>Tilt it. Every card on the floor has weight.</>,
-  },
-  {
-    label: "EARN",
-    copy: (
-      <>
-        Sign up, do the work, and your <em className="text-cardstock">own</em> card
-        mints right here. Same shape — your name on the front.
-      </>
-    ),
+    n: "Step 05",
+    verb: "Access →",
+    line: "Higher trust unlocks reviews, disputes & endorsements.",
   },
 ] as const;
 
-function DemoCard({ card }: { card: Card }) {
+function Loop() {
   return (
-    <div className="mx-auto max-w-[1560px] px-6 py-16 lg:px-8">
-      <p className="bcc-mono text-safety">EXHIBIT A</p>
-      <h2 className="bcc-stencil mt-2 text-cardstock text-4xl sm:text-5xl">
-        A verified human, on the record.
-      </h2>
-      <p className="mt-3 max-w-2xl font-serif leading-relaxed text-cardstock-deep">
-        This is what a credential looks like when you can&rsquo;t buy
-        it. Wallet signed. History on file. Reviews from real members.
-        Grades earned in public &mdash; receipts attached.
-      </p>
-
-      <div className="mt-12 grid items-center gap-12 lg:grid-cols-[auto_1fr] lg:gap-16">
-        <div className="flex flex-col items-center gap-3 lg:items-start">
-          <CardFactory card={card} />
-          <p className="bcc-mono text-cardstock-deep">
-            FIG. 1 &middot; SPECIMEN OF RECORD
-          </p>
+    <>
+      <div className="bcc-ldg-looptop">
+        <div>
+          <LandingReveal as="p" className="bcc-ldg-eyebrow" style={{ marginBottom: 0 }}>
+            The trust engine
+          </LandingReveal>
+          <LandingReveal as="h2">Five moves. The chain remembers everything.</LandingReveal>
         </div>
-
-        <ul className="space-y-7 font-serif">
-          {DEMO_INSTRUCTIONS.map((row) => (
-            <li key={row.label} className="flex items-baseline gap-5">
-              <span className="bcc-mono shrink-0 text-weld">{row.label}</span>
-              <span className="leading-relaxed text-cardstock-deep">
-                {row.copy}
-              </span>
-            </li>
-          ))}
-        </ul>
+        <LandingReveal as="p">
+          Your signal earns its weight. Discover real operators, act on what you see, and compound the record over time.
+        </LandingReveal>
       </div>
+      <div className="bcc-ldg-loop">
+        {LOOP.map((step, i) => (
+          <LandingReveal key={step.n} delayMs={i * 60} className="bcc-ldg-step" as="div">
+            <div className="s">{step.n}</div>
+            <h4>{step.verb}</h4>
+            <p>{step.line}</p>
+          </LandingReveal>
+        ))}
+      </div>
+    </>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// On the floor now — bounded proof-of-life peek (NOT the infinite feed).
+// ─────────────────────────────────────────────────────────────────────
+
+function FloorNow() {
+  return (
+    <div className="bcc-ldg-floornow">
+      <LandingReveal as="div" className="bcc-ldg-fh">
+        <span className="bcc-ldg-fh-live">
+          <i aria-hidden />
+          On the floor right now
+        </span>
+        <span className="bcc-ldg-fh-rule" aria-hidden />
+        <Link href="/directory">See the whole floor →</Link>
+      </LandingReveal>
+      <LandingFloorPeek />
     </div>
   );
 }
 
-// ──────────────────────────────────────────────────────────────────────
-// 5. ClosingCta — last call before the eye lands on the live feed.
-//    Centered for a clean break from the left-aligned blocks above.
-//    The handwritten "signed, the floor" stamp is a deliberate visual
-//    sign-off — the brand subtitle "signed on-chain" rendered in actual
-//    handwriting (Homemade Apple) gives the closing block character
-//    without breaking the typographic system.
-// ──────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────
+// Closing — last CTA before conversion, handwritten sign-off.
+// ─────────────────────────────────────────────────────────────────────
 
 function ClosingCta() {
   return (
-    <div className="mx-auto max-w-[1560px] px-6 py-20 text-center lg:px-8">
-      <p className="bcc-mono text-safety">SHIFT START</p>
-      <h2 className="bcc-stencil mt-3 text-cardstock leading-[0.95] text-[clamp(2.5rem,6vw,5rem)]">
-        Step onto the floor.
-      </h2>
-      <p className="mx-auto mt-4 max-w-xl font-serif leading-relaxed text-cardstock-deep">
-        Free to join. Free to read. Sign your first review and start
-        building a record nobody can buy.
-      </p>
-      <div className="mt-9 flex flex-wrap justify-center gap-3">
-        <Link href="/signup" className="bcc-btn bcc-btn-primary">
-          Join the Floor
-        </Link>
-        <Link href="/login" className="bcc-btn bcc-btn-ghost">
+    <>
+      <LandingReveal as="p" className="bcc-ldg-eyebrow" style={{ justifyContent: "center" }}>
+        Shift start
+      </LandingReveal>
+      <LandingReveal as="h2">
+        Step onto
+        <br />
+        the floor.
+      </LandingReveal>
+      <LandingReveal as="p">
+        Free to join. Free to read. Sign your first review and start building a record nobody can buy.
+      </LandingReveal>
+      <LandingReveal as="div" className="bcc-ldg-cta" style={{ justifyContent: "center" }}>
+        <LandingMagneticLink href="/signup" className="bcc-ldg-btn bcc-ldg-btn-primary">
+          Join the Floor →
+        </LandingMagneticLink>
+        <Link href="/login" className="bcc-ldg-btn bcc-ldg-btn-ghost">
           Sign In
         </Link>
-      </div>
-
-      <span
-        aria-hidden
-        className="bcc-script mt-10 inline-block text-2xl text-cardstock-deep/80"
-        style={{ transform: "rotate(-2deg)" }}
-      >
+      </LandingReveal>
+      <span aria-hidden className="bcc-ldg-signed">
         — signed, the floor
       </span>
-    </div>
+    </>
   );
 }

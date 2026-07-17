@@ -32,6 +32,8 @@ export interface Hovercard {
   open: boolean;
   coords: HovercardCoords | null;
   triggerRef: RefObject<HTMLSpanElement | null>;
+  /** Immediate close, bypassing the hover-intent timers — see its own doc comment. */
+  close: () => void;
   triggerHandlers: { onMouseEnter: () => void; onMouseLeave: () => void };
   popoverHandlers: { onMouseEnter: () => void; onMouseLeave: () => void };
 }
@@ -107,10 +109,20 @@ export function useHovercard(): Hovercard {
 
   useEffect(() => clearTimers, []);
 
+  // Explicit, immediate close — for a caller-initiated action (e.g.
+  // RankChip opening RankInfoModal) that wants the card gone right away,
+  // as opposed to the timer-based handleLeave/onScroll paths above which
+  // exist to tolerate incidental pointer/scroll noise while hovering.
+  const close = () => {
+    clearTimers();
+    setOpen(false);
+  };
+
   return {
     open,
     coords,
     triggerRef,
+    close,
     triggerHandlers: { onMouseEnter: handleEnter, onMouseLeave: handleLeave },
     popoverHandlers: { onMouseEnter: handleEnter, onMouseLeave: handleLeave },
   };

@@ -34,12 +34,13 @@
  * re-renders in dense lists (notification dropdown, comment thread).
  */
 
-import { memo } from "react";
+import { memo, useState } from "react";
 import Link from "next/link";
 import type { Route } from "next";
 
 import { Avatar, type AvatarSize } from "@/components/identity/Avatar";
 import { AuthorHoverPanel } from "@/components/identity/AuthorHoverPanel";
+import { RankInfoModal } from "@/components/identity/RankInfoModal";
 import { RankChip } from "@/components/profile/RankChip";
 import { useHovercard } from "@/hooks/useHovercard";
 import { usePrefetchUser } from "@/hooks/useUser";
@@ -128,6 +129,9 @@ function AuthorBadgeImpl({
   const avatarSize = AVATAR_SIZE_BY_BADGE[size];
   const hover = useHovercard();
   const prefetchUser = usePrefetchUser();
+  // Owned here, not by RankChip, specifically so it survives the
+  // hovercard closing — see RankChip's onOpenRankInfo doc comment.
+  const [rankModalOpen, setRankModalOpen] = useState(false);
   const hasDisplayName =
     typeof author.display_name === "string" && author.display_name !== "";
   const nameText = hasDisplayName ? (author.display_name as string) : `@${author.handle}`;
@@ -273,6 +277,10 @@ function AuthorBadgeImpl({
                 viewerAttestation={author.viewer_attestation}
                 canVouch={author.can_vouch}
                 enabled={hover.open}
+                onOpenRankInfo={() => {
+                  hover.close();
+                  setRankModalOpen(true);
+                }}
               />
             )}
           </span>
@@ -283,6 +291,15 @@ function AuthorBadgeImpl({
       </div>
       {trailing !== undefined && trailing !== null && (
         <div className="flex shrink-0 items-baseline">{trailing}</div>
+      )}
+      {rankModalOpen && (
+        <RankInfoModal
+          handle={author.handle}
+          cardTier={cardTier}
+          tierLabel={tierLabel}
+          rankLabel={rankLabel}
+          onClose={() => setRankModalOpen(false)}
+        />
       )}
     </div>
   );

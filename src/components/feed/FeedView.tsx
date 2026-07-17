@@ -42,6 +42,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DiscoverPanel } from "@/components/feed/DiscoverPanel";
 import { FeedItemCard } from "@/components/feed/FeedItemCard";
 import { FeedTabs } from "@/components/feed/FeedTabs";
+import { LoadFailure } from "@/components/ui/LoadFailure";
 import { SKELETON_CLASS } from "@/components/ui/Skeleton";
 import { Spinner } from "@/components/ui/Spinner";
 import { useFeed, useHotFeed } from "@/hooks/useFeed";
@@ -201,27 +202,19 @@ export function FeedBody(props: FeedBodyProps) {
 
   if (isError) {
     return (
-      <div className="py-8">
-        <p role="alert" className="bcc-mono text-safety">
-          {/* §γ — copy is keyed on err.code; never render err.message. */}
-          {humanizeCode(
-            error,
-            {
-              bcc_unauthorized: "Sign in to see your feed.",
-              bcc_rate_limited: "Loading too fast — give it a moment and try again.",
-              bcc_unavailable: "The feed is temporarily unavailable. Try again shortly.",
-            },
-            "Couldn't load the feed. Try again in a moment.",
-          )}
-        </p>
-        <button
-          type="button"
-          onClick={refetch}
-          className="bcc-mono mt-3 text-cardstock-deep underline"
-        >
-          Try again
-        </button>
-      </div>
+      <LoadFailure
+        // §γ — copy is keyed on err.code; never render err.message.
+        message={humanizeCode(
+          error,
+          {
+            bcc_unauthorized: "Sign in to see your feed.",
+            bcc_rate_limited: "Loading too fast — give it a moment and try again.",
+            bcc_unavailable: "The feed is temporarily unavailable. Try again shortly.",
+          },
+          "Couldn't load the feed. Try again in a moment.",
+        )}
+        onRetry={refetch}
+      />
     );
   }
 

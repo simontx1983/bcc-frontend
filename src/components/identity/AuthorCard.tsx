@@ -44,6 +44,8 @@ export interface AuthorCardProps {
    * passes true. Defaults to true.
    */
   enabled?: boolean;
+  /** Forwarded to RankChip — see its own doc comment. */
+  onOpenRankInfo?: () => void;
 }
 
 export function AuthorCard({
@@ -58,6 +60,7 @@ export function AuthorCard({
   viewerAttestation,
   canVouch,
   enabled = true,
+  onOpenRankInfo,
 }: AuthorCardProps) {
   const { data: profile, isLoading } = useUser(handle, { enabled });
   const loadingProfile = isLoading && profile === undefined;
@@ -139,6 +142,8 @@ export function AuthorCard({
                 tierLabel={effectiveTierLabel}
                 rankLabel={effectiveRankLabel}
                 size="compact"
+                handle={handle}
+                {...(onOpenRankInfo !== undefined ? { onOpenRankInfo } : {})}
               />
             </span>
           )}
