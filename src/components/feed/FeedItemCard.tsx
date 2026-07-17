@@ -163,7 +163,7 @@ function FeedItemCardImpl({
         {isGif && <GifBody item={item} />}
 
         {summary !== "" && (
-          <p className="font-serif text-[var(--bcc-text)] whitespace-pre-line">
+          <p className="font-serif text-[var(--bcc-text)] whitespace-pre-line break-words">
             {/*
               §3.3.12 — status bodies carry a `mentions[]` overlay.
               Other kinds (watch_batch, page_claim, dispute) emit a

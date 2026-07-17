@@ -56,6 +56,20 @@ interface RankChipProps {
    * is inert display only (directory rows, member cards, etc.).
    */
   handle?: string;
+  /**
+   * When provided, a click calls this instead of opening the modal via
+   * local state — used by AvatarHovercard/MentionHovercard, which own
+   * the modal themselves (rendered as a sibling of the hovercard, not a
+   * descendant of this chip) specifically so it survives the hovercard
+   * closing. A modal rendered here as RankChip's own child would unmount
+   * along with it the instant the hovercard above it closes — which is
+   * exactly the "click closes the card, opens the modal" behavior this
+   * exists to support: the two need to become independent of each
+   * other's lifecycle, not just of each other's timing. Omitted → RankChip
+   * manages the modal itself (PostDetail sidebar, directory rows, etc.),
+   * unchanged from before.
+   */
+  onOpenRankInfo?: () => void;
 }
 
 // Tier DOT — overrides the Sprint-4 "no per-tier color" decision (read
@@ -92,6 +106,7 @@ export function RankChip({
   size = "default",
   className,
   handle,
+  onOpenRankInfo,
 }: RankChipProps) {
   const [open, setOpen] = useState(false);
 
@@ -154,7 +169,11 @@ export function RankChip({
         onClick={(e) => {
           e.preventDefault();
           e.stopPropagation();
-          setOpen(true);
+          if (onOpenRankInfo !== undefined) {
+            onOpenRankInfo();
+          } else {
+            setOpen(true);
+          }
         }}
         aria-haspopup="dialog"
         title={
@@ -166,7 +185,9 @@ export function RankChip({
       >
         {inner}
       </button>
-      {open && (
+      {/* Only self-manages the modal when the caller hasn't taken ownership
+          of it (see onOpenRankInfo doc). */}
+      {onOpenRankInfo === undefined && open && (
         <RankInfoModal
           handle={handle}
           cardTier={cardTier}

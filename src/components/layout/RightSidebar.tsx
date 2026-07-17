@@ -20,7 +20,6 @@ import { useSession } from "next-auth/react";
 
 import { AdCarousel } from "@/components/layout/AdCarousel";
 import { AvatarHovercard } from "@/components/identity/AvatarHovercard";
-import { RankChip } from "@/components/profile/RankChip";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { useMembers } from "@/hooks/useMembers";
 import { useTrendingHashtags } from "@/hooks/useTrendingHashtags";
@@ -110,16 +109,8 @@ function NewestMembersWidget() {
               <span className="bcc-truncate" style={{ display: "block", fontSize: 13, lineHeight: 1.25, fontWeight: 600, color: "var(--bcc-text)" }}>
                 {member.name}
               </span>
-              <span style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 1, lineHeight: 1 }}>
-                <RankChip
-                  cardTier={member.card_tier}
-                  tierLabel={member.tier_label}
-                  // Card.rank_label is nullable (page cards have no rank);
-                  // member cards always carry one. Empty falls back to the
-                  // tier label inside RankChip.
-                  rankLabel={member.rank_label ?? ""}
-                  size="compact"
-                />
+              <span className="bcc-mono truncate text-[11px] leading-tight text-[var(--bcc-text-secondary)]" style={{ display: "block", marginTop: 1 }}>
+                @{member.handle}
               </span>
             </Link>
           </div>
@@ -290,13 +281,8 @@ function SuggestedWidget() {
                   <span className="bcc-truncate" style={{ display: "block", fontSize: 13, lineHeight: 1.25, fontWeight: 600, color: "var(--bcc-text)" }}>
                     {member.display_name}
                   </span>
-                  <span style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 1, lineHeight: 1 }}>
-                    <RankChip
-                      cardTier={member.card_tier}
-                      tierLabel={member.tier_label}
-                      rankLabel={member.rank_label}
-                      size="compact"
-                    />
+                  <span className="bcc-mono truncate text-[11px] leading-tight text-[var(--bcc-text-secondary)]" style={{ display: "block", marginTop: 1 }}>
+                    @{member.handle}
                   </span>
                   {member.suggestion_reason !== null && (
                     <span className="bcc-mono bcc-text-muted" style={{ display: "block", fontSize: 11, marginTop: 2 }}>

@@ -9,43 +9,49 @@
  * floating card.
  *
  * Layout is post-aware — it takes the whole `FeedItem`, not just a URL,
- * so the viewer keeps the post's context alongside the image:
+ * so the viewer keeps the post's context alongside the image. A single
+ * `CommentDrawer` mount is repositioned by CSS rather than duplicated —
+ * two live instances would double-fetch the thread and collide on the
+ * composer's DOM id:
  *
  *   Desktop (md+): a two-pane theater — image on the left, a live
  *   comments/reactions rail on the right (Facebook-style). The image
  *   shows instantly; comments stream in behind `CommentDrawer`'s own
  *   skeleton so the panel never blocks the picture.
  *
- *   Mobile (<md): the image owns the screen (checking the image is the
- *   point). A compact action bar carries Stoke + Share, and a "comments"
- *   affordance — tap it or swipe up — hands off to the full `/post/[id]`
- *   detail view scrolled to the thread, instead of cramming a side panel
- *   onto a phone.
+ *   Mobile (<md): near-fullscreen (100dvh, edge-to-edge, no rounding —
+ *   `mobileSheet` on Dialog drops the outer padding that would otherwise
+ *   leave a margin). The image pane is a full 100dvh, so the comments
+ *   block sits entirely below the initial fold — scrolling the panel up
+ *   (or tapping the Comment pill, which does the same `scrollIntoView`)
+ *   reveals it, instead of handing off to `/post/[id]`.
+ *
+ * Action rail: both the mobile overlay bar and the desktop strip render
+ * the shared `PostActionBar` (not a hand-assembled rail) so the lightbox
+ * can't drift from the feed/detail height or grammar — see Item 9/11b.
+ * The mobile bar sits over dark theater chrome (not the page's live
+ * theme), so it's `data-theme="dark"` scoped: PostActionBar's `--bcc-*`
+ * tokens need to resolve to their dark values there regardless of the
+ * site's actual light/dark setting, same as the old hardcoded
+ * `text-paper`/`bg-ink` treatment did implicitly.
  *
  * Reactivity: reads the post back through `useFeedItem` (seeded by the
  * `item` passed in) so the in-frame Stoke rail is live and stays in sync
  * with the feed row and the detail view — the same cache all three share.
  */
 
-import { useRef } from "react";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
-import type { Route } from "next";
 
 import { Dialog } from "@/components/ui/Dialog";
 import { isWpMediaUrl } from "@/lib/media";
 import { AuthorBadge } from "@/components/identity/AuthorBadge";
 import { CommentDrawer } from "@/components/feed/CommentDrawer";
-import { ReactionRail } from "@/components/feed/ReactionRail";
-import { ShareButton } from "@/components/feed/ShareButton";
+import { PostActionBar } from "@/components/feed/PostActionBar";
 import { readString } from "@/components/feed/postBody";
 import { useFeedItem } from "@/hooks/useFeed";
 import { formatRelativeTime } from "@/lib/format";
 import { readMentions, renderTextWithMentions } from "@/lib/format/mentions";
 import type { FeedItem } from "@/lib/api/types";
-
-/** Min upward travel (px) for a mobile swipe-up to open comments. */
-const SWIPE_UP_THRESHOLD = 60;
 
 export function Lightbox({
   item: initialItem,
@@ -61,32 +67,18 @@ export function Lightbox({
   // Reactive read seeded by the passed item — keeps the in-frame Stoke
   // rail live and shared with the feed/detail caches. See #5.
   const item = useFeedItem(initialItem.id, initialItem).data;
-  const router = useRouter();
 
-  const selfHref = item.links.self as Route;
   const caption = readString(item.body, "caption");
   const mentions = readMentions(item.body);
   const commentCount = item.comment_count ?? 0;
   const shareTitle = `${item.author.display_name ?? item.author.handle} on Blue Collar Crypto`;
 
-  // Mobile hand-off: the phone doesn't cram a side panel — it opens the
-  // full detail view scrolled to the thread (intent=comment).
-  const openComments = () => {
-    router.push(`${selfHref}?intent=comment` as Route);
-    onClose();
-  };
-
-  const touchStartY = useRef<number | null>(null);
-  const onTouchStart = (e: React.TouchEvent) => {
-    touchStartY.current = e.touches[0]?.clientY ?? null;
-  };
-  const onTouchEnd = (e: React.TouchEvent) => {
-    const start = touchStartY.current;
-    const end = e.changedTouches[0]?.clientY ?? null;
-    touchStartY.current = null;
-    if (start !== null && end !== null && start - end > SWIPE_UP_THRESHOLD) {
-      openComments();
-    }
+  // Same jump-to-composer behavior on both surfaces — there's only ever
+  // one CommentDrawer mount, CSS just repositions it (see doc comment).
+  const scrollToComments = () => {
+    const el = document.getElementById(`comment-${item.id}`);
+    el?.scrollIntoView({ block: "center", behavior: "smooth" });
+    (el as HTMLTextAreaElement | null)?.focus();
   };
 
   return (
@@ -94,21 +86,22 @@ export function Lightbox({
       title={alt !== "" ? alt : "Photo"}
       bare
       center
+      mobileSheet
       backdropClassName="bg-ink/90 backdrop-blur-md"
       onClose={onClose}
-      panelClassName="flex h-[92vh] max-h-none w-full max-w-6xl overflow-hidden rounded-2xl"
+      panelClassName="flex h-[100dvh] w-full max-w-none flex-col overflow-y-auto rounded-none md:h-[92vh] md:max-h-none md:max-w-6xl md:flex-row md:overflow-hidden md:rounded-2xl"
     >
       {/* ── Image pane ─────────────────────────────────────────────── */}
-      <div
-        className="relative flex flex-1 items-center justify-center bg-ink"
-        onTouchStart={onTouchStart}
-        onTouchEnd={onTouchEnd}
-      >
+      <div className="relative flex min-h-[100dvh] shrink-0 items-center justify-center bg-ink md:min-h-0 md:flex-1">
+        {/* fixed (mobile) so it survives the panel's own scroll once the
+            user has scrolled up into the comments sheet; absolute (desktop)
+            matches the pre-existing pane-relative placement, unchanged
+            there since desktop never scrolls the image out of view. */}
         <button
           type="button"
           onClick={onClose}
           aria-label="Close"
-          className="absolute right-3 top-3 z-10 inline-flex h-9 w-9 items-center justify-center rounded-full bg-ink/60 text-lg text-paper backdrop-blur-sm transition-colors hover:bg-ink"
+          className="fixed right-3 top-3 z-10 inline-flex h-9 w-9 items-center justify-center rounded-full bg-ink/60 text-lg text-paper backdrop-blur-sm transition-colors hover:bg-ink md:absolute"
         >
           ✕
         </button>
@@ -130,27 +123,30 @@ export function Lightbox({
           />
         )}
 
-        {/* Mobile action bar — Stoke + Share inline, comments hand off to
-            the detail view. Hidden on md+ where the side panel takes over. */}
-        <div className="absolute inset-x-0 bottom-0 flex items-center justify-between gap-2 bg-gradient-to-t from-ink/80 to-transparent px-4 pb-4 pt-8 md:hidden">
-          <ReactionRail item={item} />
-          <button
-            type="button"
-            onClick={openComments}
-            className="bcc-mono inline-flex items-center gap-1.5 rounded-full bg-ink/60 px-3 py-1.5 text-[12px] text-paper backdrop-blur-sm"
-            aria-label={`View ${commentCount} comments`}
-          >
-            <CommentGlyph />
-            <span>{commentCount}</span>
-            <span className="ml-0.5 opacity-70">↑ comments</span>
-          </button>
-          <ShareButton selfHref={selfHref} shareTitle={shareTitle} />
+        {/* Mobile action bar — the shared rail, dark-theme-scoped since it
+            sits over theater chrome, not the page's live theme. Hidden on
+            md+ where the side panel's own strip takes over. */}
+        <div
+          data-theme="dark"
+          className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-ink/80 to-transparent px-4 pb-4 pt-8 md:hidden"
+        >
+          <PostActionBar
+            item={item}
+            commentCount={commentCount}
+            onComment={scrollToComments}
+            commentTitle="Jump to comments"
+            shareTitle={shareTitle}
+            topBorder={false}
+          />
         </div>
       </div>
 
-      {/* ── Desktop comments/reactions panel ───────────────────────── */}
-      <aside className="hidden w-[360px] shrink-0 flex-col border-l border-[var(--bcc-border)] bg-[var(--bcc-surface)] md:flex">
-        <header className="border-b border-[var(--bcc-border-light)] p-4">
+      {/* ── Comments/reactions panel — one block, repositioned by CSS: a
+          full-width sheet below the image on mobile (the whole dialog
+          panel scrolls, so scrolling up reveals it — no swipe-gesture
+          plumbing needed), a fixed-width side aside on desktop. ── */}
+      <div className="flex flex-col border-t border-[var(--bcc-border)] bg-[var(--bcc-surface)] md:w-[360px] md:shrink-0 md:border-l md:border-t-0">
+        <header className="hidden border-b border-[var(--bcc-border-light)] p-4 md:block">
           <AuthorBadge
             author={item.author}
             size="md"
@@ -165,36 +161,31 @@ export function Lightbox({
             }
           />
           {caption !== null && (
-            <p className="mt-3 font-serif text-[var(--bcc-text)] whitespace-pre-line">
+            <p className="mt-3 font-serif text-[var(--bcc-text)] whitespace-pre-line break-words">
               {renderTextWithMentions(caption, mentions)}
             </p>
           )}
         </header>
 
-        <div className="flex items-center justify-between gap-3 border-b border-[var(--bcc-border-light)] px-4 py-2.5">
-          <ReactionRail item={item} />
-          <ShareButton selfHref={selfHref} shareTitle={shareTitle} />
+        <div className="hidden items-center justify-between gap-3 border-b border-[var(--bcc-border-light)] px-4 py-1.5 md:flex">
+          <PostActionBar
+            item={item}
+            commentCount={commentCount}
+            onComment={scrollToComments}
+            commentTitle="Jump to comments"
+            shareTitle={shareTitle}
+            topBorder={false}
+          />
         </div>
 
-        {/* Comments scroll independently; CommentDrawer owns its own
-            loading skeleton so the image never waits on the thread. */}
-        <div className="min-h-0 flex-1 overflow-y-auto p-4">
-          <CommentDrawer feedId={item.id} isOpen />
+        {/* Desktop: scrolls independently within its fixed-height column.
+            Mobile: natural flow — the outer dialog panel is the one
+            scroll container. CommentDrawer owns its own loading skeleton
+            so the image never waits on the thread. */}
+        <div className="p-4 md:min-h-0 md:flex-1 md:overflow-y-auto">
+          <CommentDrawer feedId={item.id} isOpen topDivider={false} />
         </div>
-      </aside>
+      </div>
     </Dialog>
-  );
-}
-
-function CommentGlyph() {
-  return (
-    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden>
-      <path
-        d="M2.5 3.5h11a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H7l-2.8 2.4a.5.5 0 0 1-.82-.38V11.5h-1a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1Z"
-        stroke="currentColor"
-        strokeWidth="1.3"
-        strokeLinejoin="round"
-      />
-    </svg>
   );
 }

@@ -26,6 +26,7 @@ export function PostActionBar({
   shareTitle,
   timestamp,
   absoluteTitle,
+  topBorder = true,
 }: {
   item: FeedItem;
   canInteract?: boolean;
@@ -36,9 +37,18 @@ export function PostActionBar({
   /** ISO timestamp — rendered as a small muted clock+relative-time after Share. */
   timestamp?: string;
   absoluteTitle?: string;
+  /**
+   * Omit the rail's own top divider — for callers that already sit inside
+   * a bordered wrapper (Lightbox's header/strip already draws that line),
+   * where this bar's own border-t would show as a second, orphaned line
+   * right above the icons. Defaults to true for every other surface
+   * (FeedItemCard, PostDetail), where it's the only divider between the
+   * post body and the rail.
+   */
+  topBorder?: boolean;
 }) {
   return (
-    <footer className="flex items-center gap-1 border-t border-[var(--bcc-border)] pt-2">
+    <footer className={"flex items-center gap-1" + (topBorder ? " border-t border-[var(--bcc-border)] pt-2" : "")}>
       <ReactionRail item={item} canInteract={canInteract} />
       <ActionRailButton
         icon={<ReplyIcon />}

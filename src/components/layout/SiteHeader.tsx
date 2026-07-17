@@ -23,6 +23,7 @@ import dynamic from "next/dynamic";
 import { ConversationsPanel } from "@/components/messages/ConversationsPanel";
 import { NotificationsPanel } from "@/components/notifications/NotificationsPanel";
 import { GlobalSearch } from "@/components/search/GlobalSearch";
+import { useIsMobile } from "@/hooks/useIsMobile";
 import { useUnreadCount } from "@/hooks/useNotifications";
 import { useUnreadMessageCount } from "@/hooks/useUnreadMessageCount";
 import { applyTheme, getStoredAccent, getStoredTheme, type Accent, type Theme } from "@/lib/theme";
@@ -453,13 +454,7 @@ export function SiteHeader() {
   const [showSignOut, setShowSignOut] = useState(false);
 
   // Mobile: track viewport width to show search icon vs search bar
-  const [isMobile, setIsMobile] = useState(false);
-  useEffect(() => {
-    const check = () => setIsMobile(window.innerWidth <= 599);
-    check();
-    window.addEventListener("resize", check);
-    return () => window.removeEventListener("resize", check);
-  }, []);
+  const isMobile = useIsMobile();
 
   // Mobile search overlay open state
   const [searchOverlayOpen, setSearchOverlayOpen] = useState(false);
@@ -516,7 +511,7 @@ export function SiteHeader() {
              mobile overlay below takes over). The magnifier sits as a
              sibling so the .bcc-search-icon absolute positioning keeps
              working against the .bcc-search relative box. ── */}
-      <div className="bcc-search" style={{ flex: 1, maxWidth: 480, margin: "0 auto" }}>
+      <div className="bcc-search">
         <GlobalSearch
           className="w-full"
           inputClassName="bcc-search-input"

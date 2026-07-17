@@ -342,23 +342,33 @@
                 color var(--bcc-transition-slow);
   }
 
-  /* Auth pages and legal doc pages need the body to scroll — override the shell lock */
+  /* Auth pages, legal doc pages, the mobile-bare (detail) shell, and the
+     (marketing) landing all need the body to scroll — override the shell
+     lock. (detail)'s desktop chrome still uses AppShell/.bcc-col-center
+     (per-column scroll, lock stays); .bcc-detail-shell only mounts on the
+     bare mobile branch. */
   body:has(.bcc-minimal-shell),
-  body:has(.bcc-legal-shell) {
+  body:has(.bcc-legal-shell),
+  body:has(.bcc-detail-shell),
+  body:has(.bcc-marketing-shell) {
     overflow: auto;
     height: auto;
     min-height: 100dvh;
   }
 
-  /* Legal pages only (not auth) get a visible scrollbar thumb. Once
+  /* Legal/detail/marketing pages get a visible scrollbar thumb. Once
      body's overflow is unlocked above, the browser propagates it to the
      viewport and `html` (not `body`) becomes the actual scrolling
      element — styling body::-webkit-scrollbar-thumb has no effect on
      the real, visible scrollbar; it has to target html here. */
-  html:has(.bcc-legal-shell) {
+  html:has(.bcc-legal-shell),
+  html:has(.bcc-detail-shell),
+  html:has(.bcc-marketing-shell) {
     scrollbar-color: var(--bcc-scrollbar-thumb) var(--bcc-scrollbar-track);
   }
-  html:has(.bcc-legal-shell)::-webkit-scrollbar-thumb {
+  html:has(.bcc-legal-shell)::-webkit-scrollbar-thumb,
+  html:has(.bcc-detail-shell)::-webkit-scrollbar-thumb,
+  html:has(.bcc-marketing-shell)::-webkit-scrollbar-thumb {
     background: var(--bcc-scrollbar-thumb);
   }
 
@@ -603,14 +613,29 @@
 
 @layer components {
 
-  /* bcc-header — sticky, glass effect, backdrop blur */
+  /* bcc-header — sticky, glass effect, backdrop blur.
+     Grid (not flex) so the search cell is truly viewport-centered: with
+     flex + margin:auto on the search wrapper, an unequal-width logo vs.
+     actions cluster centers the search in the *leftover* space instead
+     of the header, and it visibly drifts. 1fr/auto/1fr keeps the two
+     side cells equal width regardless of their content. */
   .bcc-header {
     position: fixed;
     top: 0;
     left: 0;
     right: 0;
     height: var(--bcc-header-h);
-    display: flex;
+    display: grid;
+    /* The center track's size must come from the track function itself,
+       not the search item's own width — an "auto" track sizes off the
+       item's intrinsic/content width, and a percentage inside min() on
+       the item (e.g. width:min(480px,100%)) is circular against an auto
+       track and resolves way under 480px in practice (measured ~210px).
+       min(480px, 40vw) is a track-level function with no item/content
+       dependency, so it's deterministic; 40vw ≈ 480px on a typical desktop
+       viewport and shrinks gracefully on tablet widths instead of
+       overflowing. */
+    grid-template-columns: 1fr min(480px, 40vw) 1fr;
     align-items: center;
     padding: 0 16px 0 10px;
     gap: 12px;
@@ -682,9 +707,9 @@
 
   /* bcc-search — centered search bar in header */
   .bcc-search {
-    flex: 1;
-    max-width: 420px;
-    margin: 0 auto;
+    /* Fills whatever the header's center track (min(480px, 40vw)) gives
+       it — sizing lives on the track, not here. See .bcc-header. */
+    width: 100%;
     position: relative;
     display: flex;
     align-items: center;
@@ -722,9 +747,15 @@
     height: 16px;
   }
 
-  /* Mobile header padding — tighter on small screens */
+  /* Mobile header padding — tighter on small screens. Also drops the
+     middle grid track entirely: .bcc-search is display:none below 599px
+     (mobile uses the icon+overlay pattern instead), but the 3-column
+     grid still reserved min(480px, 40vw) for it either way — on a phone
+     that's 100+ dead px stolen from the logo/actions columns, which is
+     what was pushing the actions cluster off the right edge. */
   @media (max-width: 599px) {
     .bcc-header {
+      grid-template-columns: auto 1fr;
       padding: 0 10px 0 6px;
       gap: 8px;
     }
@@ -2383,6 +2414,24 @@
   to   { opacity: 1; }
 }
 
+/* Comment thread drill-down (CommentDrawer) — the re-keyed view block
+   slides in from the direction matching what the viewer just did:
+   forward into a thread feels like it's coming from the right, back out
+   feels like it's returning from the left. */
+@keyframes bcc-thread-in {
+  from { transform: translateX(18px); opacity: 0; }
+  to   { transform: translateX(0);    opacity: 1; }
+}
+@keyframes bcc-thread-out {
+  from { transform: translateX(-18px); opacity: 0; }
+  to   { transform: translateX(0);     opacity: 1; }
+}
+.bcc-thread-slide-in  { animation: bcc-thread-in  0.22s ease-out; }
+.bcc-thread-slide-out { animation: bcc-thread-out 0.22s ease-out; }
+@media (prefers-reduced-motion: reduce) {
+  .bcc-thread-slide-in, .bcc-thread-slide-out { animation: none; }
+}
+
 @keyframes bcc-pulse {
   0%, 100% { opacity: 1; }
   50%       { opacity: 0.4; }
@@ -3397,4 +3446,297 @@
   0%   { filter: drop-shadow(0 0 0 transparent); opacity: 1; }
   35%  { filter: drop-shadow(0 0 6px rgba(125, 255, 154, 0.55)); opacity: 1; }
   100% { filter: drop-shadow(0 0 0 transparent); opacity: 1; }
+}
+
+/* ========================================================================
+   LANDING — "LEDGER" (Item 1, guest landing page at (marketing)/welcome)
+
+   Ported from the approved mockup (Direction A only — Direction B "Forge
+   Floor" is the deferred trading-card track, see the handover appendix).
+   Every color/radius/shadow/font below maps 1:1 to a real --bcc-* token —
+   the mockup's local --acc/--bg/--text/etc. names were the SAME semantic
+   slots under different local names for the preview harness. The four
+   ledger event-type dot colors reuse the existing --bcc-trust- ramp and
+   --bcc-info (vouch is close to trusted green, review is an exact match
+   on info blue, dispute is an exact match on risky red, attest is an
+   exact match on elite gold) rather than inventing near-duplicate tokens.
+
+   All classes are `bcc-ldg-*` prefixed — this page has its own full-bleed
+   marketing look, not the app-chrome `.bcc-btn`/`.bcc-panel` idiom, and
+   several mockup class names (`.card`, `.row`, `.step`) are common enough
+   to be a real collision risk in a stylesheet this size.
+   ======================================================================== */
+
+.bcc-ldg-root {
+  --bcc-ldg-ease: cubic-bezier(0.2, 0.9, 0.25, 1);
+  position: relative;
+  background: var(--bcc-bg);
+  color: var(--bcc-text);
+  font-family: var(--font-serif), Georgia, serif;
+  line-height: 1.55;
+  overflow-x: hidden;
+}
+.bcc-ldg-mono {
+  font-family: var(--font-mono), monospace;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.bcc-ldg-disp {
+  font-family: var(--font-stencil), Impact, sans-serif;
+  font-weight: 400;
+  letter-spacing: 0.01em;
+  line-height: 0.9;
+  text-transform: uppercase;
+  text-wrap: balance;
+}
+
+/* ambient background field — grid + two glows, shared by every section */
+.bcc-ldg-field { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
+.bcc-ldg-field-grid {
+  position: absolute; inset: -2px;
+  background:
+    linear-gradient(var(--bcc-border-light) 1px, transparent 1px) 0 0/56px 56px,
+    linear-gradient(90deg, var(--bcc-border-light) 1px, transparent 1px) 0 0/56px 56px;
+  opacity: 0.5;
+  mask-image: radial-gradient(ellipse 90% 70% at 50% 0%, #000 30%, transparent 78%);
+  -webkit-mask-image: radial-gradient(ellipse 90% 70% at 50% 0%, #000 30%, transparent 78%);
+}
+.bcc-ldg-field-glow { position: absolute; border-radius: 50%; filter: blur(70px); opacity: 0.5; }
+.bcc-ldg-field-g1 { width: 60vw; height: 60vw; left: -14vw; top: -24vw; background: var(--bcc-accent-glow); }
+.bcc-ldg-field-g2 { width: 46vw; height: 46vw; right: -14vw; top: 6vw; background: var(--bcc-secondary-glow); }
+
+.bcc-ldg-wrap { position: relative; z-index: 1; }
+
+/* ---- top marquee: the "not for sale" wedge ---- */
+.bcc-ldg-marquee {
+  position: relative; z-index: 2; border-bottom: 1px solid var(--bcc-border-light);
+  background: linear-gradient(180deg, var(--bcc-bg-elevated), transparent);
+  overflow: hidden; white-space: nowrap;
+  mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+}
+.bcc-ldg-marquee-track {
+  display: inline-flex; gap: 34px; padding: 9px 0;
+  animation: bcc-ldg-slide 34s linear infinite; will-change: transform;
+}
+.bcc-ldg-marquee-track span {
+  font-family: var(--font-mono), monospace; font-size: 11px; letter-spacing: 0.16em;
+  color: var(--bcc-text-muted); text-transform: uppercase;
+  display: inline-flex; gap: 10px; align-items: center;
+}
+/* Specificity must beat `.bcc-ldg-marquee-track span` above (class+tag) —
+   a bare `.bcc-ldg-marquee-x` class alone loses that fight and silently
+   renders as the muted default, which is why these previously showed no
+   color at all despite the rule existing. Brand-fixed colors (not
+   `--bcc-accent`) — the ticker is a static identity device, unlike the
+   hero strike-through (see `.bcc-ldg-strike`), which does track accent. */
+.bcc-ldg-marquee-track .bcc-ldg-marquee-x { color: var(--bcc-secondary); font-weight: 700; }
+.bcc-ldg-marquee-track .bcc-ldg-marquee-em { color: var(--bcc-primary); font-style: italic; }
+@keyframes bcc-ldg-slide { to { transform: translateX(-50%); } }
+
+/* ---- shared section frame ---- */
+.bcc-ldg-section { max-width: 1180px; margin: 0 auto; padding: clamp(56px, 9vw, 120px) clamp(20px, 5vw, 40px); }
+.bcc-ldg-eyebrow {
+  display: inline-flex; align-items: center; gap: 10px; color: var(--bcc-accent);
+  font-family: var(--font-mono), monospace; font-size: 11px; letter-spacing: 0.22em;
+  text-transform: uppercase; margin: 0 0 18px;
+}
+.bcc-ldg-eyebrow::before { content: ""; width: 26px; height: 1px; background: currentColor; opacity: 0.7; }
+
+.bcc-ldg-btn {
+  display: inline-flex; align-items: center; gap: 9px;
+  font-family: var(--font-mono), monospace; font-size: 12px; letter-spacing: 0.12em;
+  text-transform: uppercase; text-decoration: none; padding: 13px 22px;
+  border-radius: var(--bcc-radius-full); cursor: pointer; border: 1px solid transparent;
+  transition: transform 0.18s var(--bcc-ldg-ease), box-shadow 0.25s, background 0.2s, border-color 0.2s;
+  will-change: transform;
+}
+.bcc-ldg-btn-primary { background: var(--bcc-accent); color: var(--bcc-text-inverse); box-shadow: 0 6px 22px var(--bcc-accent-glow); }
+.bcc-ldg-btn-primary:hover { box-shadow: 0 10px 34px var(--bcc-accent-glow); transform: translateY(-2px); }
+.bcc-ldg-btn-ghost { border-color: var(--bcc-border); color: var(--bcc-text); background: var(--bcc-surface-raised); }
+.bcc-ldg-btn-ghost:hover { border-color: var(--bcc-accent); color: var(--bcc-accent); transform: translateY(-2px); }
+
+/* reveal on scroll — LandingReveal toggles .is-visible */
+.bcc-ldg-reveal { opacity: 0; transform: translateY(22px); transition: opacity 0.7s var(--bcc-ldg-ease), transform 0.7s var(--bcc-ldg-ease); }
+.bcc-ldg-reveal.is-visible { opacity: 1; transform: none; }
+
+/* ============ HERO — LEDGER ============ */
+.bcc-ldg-hero {
+  position: relative; display: grid; grid-template-columns: 1.15fr 0.85fr; gap: 48px; align-items: center;
+  max-width: 1180px; margin: 0 auto; padding: clamp(48px, 7vw, 96px) clamp(20px, 5vw, 40px) clamp(40px, 6vw, 72px);
+}
+.bcc-ldg-hero > div { position: relative; z-index: 1; }
+.bcc-ldg-hero canvas { position: absolute; inset: 0; z-index: 0; pointer-events: none; }
+.bcc-ldg-status {
+  display: inline-flex; align-items: center; gap: 9px; color: var(--bcc-secondary);
+  font-family: var(--font-mono), monospace; font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase;
+}
+.bcc-ldg-pulse {
+  width: 8px; height: 8px; border-radius: 50%; background: var(--bcc-secondary);
+  box-shadow: 0 0 0 0 var(--bcc-secondary-glow); animation: bcc-ldg-pulse 2.2s infinite;
+}
+@keyframes bcc-ldg-pulse {
+  0% { box-shadow: 0 0 0 0 var(--bcc-secondary-glow); }
+  70% { box-shadow: 0 0 0 12px transparent; }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+.bcc-ldg-hero h1 {
+  font-family: var(--font-stencil), Impact, sans-serif; font-weight: 400; text-transform: uppercase;
+  letter-spacing: 0.005em; line-height: 0.86; font-size: clamp(3.4rem, 9.5vw, 7.5rem); margin: 22px 0 0;
+}
+.bcc-ldg-strike { color: var(--bcc-accent); position: relative; display: inline-block; }
+.bcc-ldg-strike::after {
+  content: ""; position: absolute; left: -2%; right: -2%; top: 46%; height: 0.1em; background: currentColor;
+  transform: scaleX(0); transform-origin: left; animation: bcc-ldg-strike 1s 0.5s var(--bcc-ldg-ease) forwards;
+}
+@keyframes bcc-ldg-strike { to { transform: scaleX(1); } }
+.bcc-ldg-lede { font-size: clamp(1.05rem, 1.5vw, 1.25rem); color: var(--bcc-text-secondary); max-width: 33ch; margin: 26px 0 0; line-height: 1.6; }
+.bcc-ldg-lede b { color: var(--bcc-text); font-weight: 600; }
+.bcc-ldg-cta { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 32px; }
+.bcc-ldg-stats { display: flex; gap: 22px; margin-top: 34px; flex-wrap: wrap; }
+.bcc-ldg-stats > div { font-family: var(--font-mono), monospace; }
+.bcc-ldg-stats .n { font-family: var(--font-stencil), Impact, sans-serif; font-size: 2.1rem; color: var(--bcc-text); line-height: 1; letter-spacing: 0.02em; }
+.bcc-ldg-stats .k { font-size: 9.5px; letter-spacing: 0.16em; color: var(--bcc-text-muted); text-transform: uppercase; margin-top: 6px; }
+
+/* the live ledger */
+.bcc-ldg-ledger {
+  position: relative; border: 1px solid var(--bcc-border); border-radius: var(--bcc-radius-lg);
+  background: var(--bcc-glass-bg); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  box-shadow: var(--bcc-shadow-lg); overflow: hidden; height: 420px;
+}
+.bcc-ldg-ledger-head {
+  display: flex; align-items: center; justify-content: space-between; padding: 13px 16px;
+  border-bottom: 1px solid var(--bcc-border-light); background: var(--bcc-surface-raised);
+}
+.bcc-ldg-ledger-head .t { font-family: var(--font-mono), monospace; font-size: 10.5px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--bcc-text-secondary); }
+.bcc-ldg-ledger-live {
+  display: inline-flex; align-items: center; gap: 6px; font-family: var(--font-mono), monospace;
+  font-size: 9.5px; letter-spacing: 0.14em; color: var(--bcc-trust-trusted); text-transform: uppercase;
+}
+.bcc-ldg-ledger-live i { width: 6px; height: 6px; border-radius: 50%; background: var(--bcc-trust-trusted); animation: bcc-ldg-blink 1.4s infinite; }
+@keyframes bcc-ldg-blink { 50% { opacity: 0.25; } }
+.bcc-ldg-ledger-scan {
+  position: absolute; left: 0; right: 0; top: 47px; height: 120px; pointer-events: none; z-index: 2;
+  background: linear-gradient(180deg, transparent, var(--bcc-accent-subtle), transparent);
+  animation: bcc-ldg-scan 4.5s linear infinite; opacity: 0.9;
+}
+@keyframes bcc-ldg-scan { 0% { transform: translateY(-40px); } 100% { transform: translateY(300px); } }
+.bcc-ldg-ledger-feed {
+  position: absolute; left: 0; right: 0; top: 47px; bottom: 0; overflow: hidden;
+  mask-image: linear-gradient(180deg, transparent, #000 12%, #000 84%, transparent);
+  -webkit-mask-image: linear-gradient(180deg, transparent, #000 12%, #000 84%, transparent);
+}
+.bcc-ldg-ledger-col { display: flex; flex-direction: column; animation: bcc-ldg-rise 22s linear infinite; will-change: transform; }
+.bcc-ldg-row { display: flex; align-items: flex-start; gap: 11px; padding: 12px 16px; border-bottom: 1px solid var(--bcc-border-light); }
+.bcc-ldg-row-dot { width: 8px; height: 8px; border-radius: 50%; margin-top: 6px; flex: none; box-shadow: 0 0 8px currentColor; }
+.bcc-ldg-row-body { min-width: 0; }
+.bcc-ldg-row-l1 { font-family: var(--font-mono), monospace; font-size: 12px; color: var(--bcc-text); letter-spacing: 0.02em; }
+.bcc-ldg-row-l1 .h { color: var(--bcc-accent); }
+.bcc-ldg-row-l1 .v { color: var(--bcc-text-secondary); }
+.bcc-ldg-row-l2 { font-family: var(--font-mono), monospace; font-size: 9.5px; letter-spacing: 0.13em; text-transform: uppercase; color: var(--bcc-text-muted); margin-top: 3px; }
+.bcc-ldg-tag { font-family: var(--font-mono), monospace; font-size: 9px; letter-spacing: 0.1em; padding: 2px 7px; border-radius: var(--bcc-radius-full); border: 1px solid currentColor; margin-left: 6px; }
+@keyframes bcc-ldg-rise { from { transform: translateY(0); } to { transform: translateY(-50%); } }
+
+@media (max-width: 900px) {
+  .bcc-ldg-hero { grid-template-columns: 1fr; gap: 34px; }
+  .bcc-ldg-ledger { height: 340px; order: 2; }
+}
+
+/* ============ PILLARS ============ */
+.bcc-ldg-pillars { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+.bcc-ldg-pillar {
+  padding: 28px; border-radius: var(--bcc-radius-lg); border: 1px solid var(--bcc-border); background: var(--bcc-glass-bg);
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  transition: transform 0.3s var(--bcc-ldg-ease), border-color 0.3s, box-shadow 0.3s;
+}
+.bcc-ldg-pillar:hover { transform: translateY(-6px); border-color: var(--bcc-accent); box-shadow: var(--bcc-shadow-lg); }
+.bcc-ldg-pillar .no { font-family: var(--font-stencil), Impact, sans-serif; font-size: 2.6rem; color: var(--bcc-accent); line-height: 1; }
+.bcc-ldg-pillar h3 { font-family: var(--font-stencil), Impact, sans-serif; font-size: 1.7rem; text-transform: uppercase; letter-spacing: 0.01em; margin: 10px 0 10px; line-height: 1; }
+.bcc-ldg-pillar p { color: var(--bcc-text-secondary); font-size: 0.98rem; margin: 0; }
+@media (max-width: 820px) { .bcc-ldg-pillars { grid-template-columns: 1fr; } }
+
+/* ============ LOOP ============ */
+.bcc-ldg-looptop { display: flex; justify-content: space-between; align-items: flex-end; gap: 24px; flex-wrap: wrap; margin-bottom: 44px; }
+.bcc-ldg-looptop h2 { font-family: var(--font-stencil), Impact, sans-serif; font-size: clamp(2.4rem, 5vw, 4rem); text-transform: uppercase; margin: 12px 0 0; line-height: 0.92; max-width: 16ch; }
+.bcc-ldg-looptop p { color: var(--bcc-text-secondary); max-width: 34ch; margin: 0; }
+.bcc-ldg-loop { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; }
+.bcc-ldg-step {
+  position: relative; padding: 22px 18px; border-radius: var(--bcc-radius-md); border: 1px solid var(--bcc-border);
+  background: var(--bcc-surface-raised); overflow: hidden; transition: transform 0.3s var(--bcc-ldg-ease), border-color 0.3s;
+}
+.bcc-ldg-step:hover { transform: translateY(-5px); border-color: var(--bcc-accent); }
+.bcc-ldg-step::before {
+  content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--bcc-accent);
+  transform: scaleY(0); transform-origin: top; transition: transform 0.4s var(--bcc-ldg-ease);
+}
+.bcc-ldg-step:hover::before { transform: scaleY(1); }
+.bcc-ldg-step .s { font-family: var(--font-mono), monospace; font-size: 9.5px; letter-spacing: 0.16em; color: var(--bcc-text-muted); text-transform: uppercase; }
+.bcc-ldg-step h4 { font-family: var(--font-stencil), Impact, sans-serif; font-size: 1.5rem; text-transform: uppercase; margin: 8px 0 8px; line-height: 1; }
+.bcc-ldg-step p { font-size: 0.86rem; color: var(--bcc-text-secondary); margin: 0; line-height: 1.45; }
+.bcc-ldg-step .arrow { color: var(--bcc-accent); }
+@media (max-width: 900px) { .bcc-ldg-loop { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 520px) { .bcc-ldg-loop { grid-template-columns: 1fr; } }
+
+/* ============ ON THE FLOOR NOW — bounded proof-of-life peek ============ */
+.bcc-ldg-fh { display: flex; align-items: center; gap: 12px; margin-bottom: 26px; flex-wrap: wrap; }
+.bcc-ldg-fh-live {
+  display: inline-flex; align-items: center; gap: 8px; font-family: var(--font-mono), monospace; font-size: 11px;
+  letter-spacing: 0.16em; text-transform: uppercase; color: var(--bcc-trust-trusted);
+}
+.bcc-ldg-fh-live i { width: 7px; height: 7px; border-radius: 50%; background: var(--bcc-trust-trusted); box-shadow: 0 0 8px var(--bcc-trust-trusted); animation: bcc-ldg-blink 1.4s infinite; }
+.bcc-ldg-fh-rule { flex: 1; height: 1px; background: var(--bcc-border-light); min-width: 40px; }
+.bcc-ldg-fh a { font-family: var(--font-mono), monospace; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--bcc-accent); text-decoration: none; white-space: nowrap; }
+.bcc-ldg-peek { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.bcc-ldg-pcard {
+  display: flex; flex-direction: column; gap: 13px; padding: 18px; border-radius: var(--bcc-radius-lg); border: 1px solid var(--bcc-border);
+  background: var(--bcc-glass-bg); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); cursor: pointer;
+  transition: transform 0.3s var(--bcc-ldg-ease), border-color 0.3s, box-shadow 0.3s; text-decoration: none; color: inherit;
+}
+.bcc-ldg-pcard:hover { transform: translateY(-5px); border-color: var(--bcc-accent); box-shadow: var(--bcc-shadow-lg); }
+.bcc-ldg-pc-head { display: flex; align-items: center; gap: 11px; }
+.bcc-ldg-pc-av {
+  width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; flex: none;
+  font-family: var(--font-stencil), Impact, sans-serif; font-size: 17px; background: var(--bcc-surface-raised); color: var(--bcc-text);
+  border: 2px solid var(--bcc-accent); box-shadow: 0 0 0 3px var(--bcc-accent-subtle); overflow: hidden;
+}
+.bcc-ldg-pc-id { min-width: 0; }
+.bcc-ldg-pc-nm { font-family: var(--font-stencil), Impact, sans-serif; font-size: 1.2rem; text-transform: uppercase; line-height: 1; letter-spacing: 0.01em; }
+.bcc-ldg-pc-hd { font-family: var(--font-mono), monospace; font-size: 10.5px; color: var(--bcc-text-secondary); letter-spacing: 0.04em; margin-top: 3px; }
+.bcc-ldg-pc-rank {
+  margin-left: auto; display: inline-flex; align-items: center; gap: 6px; flex: none;
+  font-family: var(--font-mono), monospace; font-size: 9px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--bcc-text-secondary);
+  border: 1px solid var(--bcc-border); border-radius: var(--bcc-radius-full); padding: 4px 8px;
+}
+.bcc-ldg-pc-rank i { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.bcc-ldg-pc-body { font-family: var(--font-serif), Georgia, serif; font-size: 0.96rem; line-height: 1.5; color: var(--bcc-text); margin: 0; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; line-clamp: 3; -webkit-box-orient: vertical; }
+.bcc-ldg-pc-rail {
+  display: flex; align-items: center; gap: 18px; border-top: 1px solid var(--bcc-border-light); padding-top: 12px; margin-top: auto;
+  font-family: var(--font-mono), monospace; font-size: 11px; color: var(--bcc-text-secondary);
+}
+.bcc-ldg-pc-rail .stoke { color: var(--bcc-secondary); display: inline-flex; align-items: center; gap: 6px; }
+.bcc-ldg-pc-rail span { display: inline-flex; align-items: center; gap: 6px; }
+@media (max-width: 860px) { .bcc-ldg-peek { grid-template-columns: 1fr; } }
+
+/* ============ CLOSING ============ */
+.bcc-ldg-closing { text-align: center; position: relative; }
+.bcc-ldg-closing::before {
+  content: ""; position: absolute; left: 50%; top: 0; transform: translateX(-50%); width: min(680px, 80%); height: 1px;
+  background: linear-gradient(90deg, transparent, var(--bcc-border), transparent);
+}
+.bcc-ldg-closing h2 { font-family: var(--font-stencil), Impact, sans-serif; font-size: clamp(2.8rem, 8vw, 6rem); text-transform: uppercase; line-height: 0.88; margin: 0 0 6px; }
+.bcc-ldg-closing p { color: var(--bcc-text-secondary); max-width: 44ch; margin: 18px auto 0; }
+.bcc-ldg-closing .bcc-ldg-cta { justify-content: center; }
+.bcc-ldg-signed { display: block; margin-top: 46px; font-family: var(--font-script), var(--font-serif), serif; font-style: italic; color: var(--bcc-text-muted); transform: rotate(-2deg); font-size: 1.15rem; }
+
+@media (prefers-reduced-motion: reduce) {
+  .bcc-ldg-root *,
+  .bcc-ldg-root *::before,
+  .bcc-ldg-root *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+  .bcc-ldg-reveal { opacity: 1; transform: none; }
+  .bcc-ldg-strike::after { transform: scaleX(1); }
 }
