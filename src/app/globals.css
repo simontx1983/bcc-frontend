@@ -3458,7 +3458,7 @@
    slots under different local names for the preview harness. The four
    ledger event-type dot colors reuse the existing --bcc-trust- ramp and
    --bcc-info (vouch is close to trusted green, review is an exact match
-   on info blue, dispute is an exact match on risky red, endorse is an
+   on info blue, dispute is an exact match on risky red, attest is an
    exact match on elite gold) rather than inventing near-duplicate tokens.
 
    All classes are `bcc-ldg-*` prefixed — this page has its own full-bleed

@@ -178,7 +178,7 @@ const PILLARS: readonly Pillar[] = [
   {
     no: "03",
     title: "Built in public",
-    copy: "Every review, every dispute, every endorsement — on the record. No back-room moderation. No silent shadowbans.",
+    copy: "Every review, every dispute, every attestation — on the record. No back-room moderation. No silent shadowbans.",
   },
 ] as const;
 
@@ -209,13 +209,13 @@ interface LoopStep {
 
 const LOOP: readonly LoopStep[] = [
   { n: "Step 01", verb: "Discover", line: "Find real operators doing real work." },
-  { n: "Step 02", verb: "Signal", line: "Vote, endorse, or dispute." },
+  { n: "Step 02", verb: "Signal", line: "Vote, attest, or dispute." },
   { n: "Step 03", verb: "Record", line: "Everything is tracked. Nothing disappears." },
   { n: "Step 04", verb: "Compound", line: "Your accuracy builds your weight." },
   {
     n: "Step 05",
     verb: "Access →",
-    line: "Higher trust unlocks reviews, disputes & endorsements.",
+    line: "Higher trust unlocks reviews, disputes & attestations.",
   },
 ] as const;
 
