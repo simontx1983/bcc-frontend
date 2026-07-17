@@ -88,19 +88,7 @@ export function useHovercard(): Hovercard {
 
   const handleLeave = () => {
     clearTimers();
-    closeTimer.current = setTimeout(() => {
-      // A modal opened from inside this card (e.g. RankChip's
-      // RankInfoModal) renders at a higher z-index directly over the
-      // cursor — the browser re-runs its hit-test at the same coordinates
-      // and fires this mouseleave even though the pointer never moved.
-      // Closing here would unmount the popover's whole subtree, taking
-      // the just-opened modal down with it before anyone can see it.
-      // Skip the close while any such nested dialog is open (more than
-      // just this popover's own role="dialog"); it closes normally once
-      // that dialog does, via the same mouseleave path.
-      if (document.querySelectorAll('[role="dialog"]').length > 1) return;
-      setOpen(false);
-    }, CLOSE_DELAY_MS);
+    closeTimer.current = setTimeout(() => setOpen(false), CLOSE_DELAY_MS);
   };
 
   useEffect(() => {
@@ -110,18 +98,7 @@ export function useHovercard(): Hovercard {
     };
     // A fixed popover would detach from a scrolled trigger — close instead.
     // Capture phase so inner scroll containers (the feed column) count.
-    // Same nested-dialog guard as handleLeave below: RankInfoModal's own
-    // Dialog focuses its panel on mount (focus-trap setup), and focusing
-    // an element not fully in view can trigger a genuine browser
-    // auto-scroll — which this capture-phase listener saw as "the viewer
-    // scrolled the page" and closed the hovercard (and the modal with
-    // it) before this guard existed. This was the real culprit; the
-    // mouseleave guard alone didn't fix it because this is a separate
-    // close path.
-    const onScroll = () => {
-      if (document.querySelectorAll('[role="dialog"]').length > 1) return;
-      setOpen(false);
-    };
+    const onScroll = () => setOpen(false);
     window.addEventListener("keydown", onKey);
     window.addEventListener("scroll", onScroll, true);
     return () => {
