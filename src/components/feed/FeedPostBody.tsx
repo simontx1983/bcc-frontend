@@ -14,9 +14,11 @@
 
 import { useState } from "react";
 import type { Route } from "next";
+import Image from "next/image";
 import Link from "next/link";
 
 import { Lightbox } from "@/components/ui/Lightbox";
+import { isWpMediaUrl } from "@/lib/media";
 import { readString } from "@/components/feed/postBody";
 import { readMentions, renderTextWithMentions } from "@/lib/format/mentions";
 import type { FeedItem } from "@/lib/api/types";
@@ -224,14 +226,28 @@ export function PhotoBody({ item }: { item: FeedItem }) {
             className="block w-full"
             aria-label={alt !== "" ? alt : "Open photo"}
           >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={photoUrl}
-              alt={alt}
-              className="h-auto max-h-[480px] w-full rounded-xl border border-[var(--bcc-border)] object-cover"
-              loading="lazy"
-              decoding="async"
-            />
+            {isWpMediaUrl(photoUrl) ? (
+              // width/height are a layout hint (feed column ≈ 600px);
+              // h-auto w-full keeps the photo's real ratio like the old
+              // <img> did, max-h + object-cover cap tall portraits.
+              <Image
+                src={photoUrl}
+                alt={alt}
+                width={800}
+                height={480}
+                sizes="(max-width: 640px) 100vw, 600px"
+                className="h-auto max-h-[480px] w-full rounded-xl border border-[var(--bcc-border)] object-cover"
+              />
+            ) : (
+              // eslint-disable-next-line @next/next/no-img-element -- non-WP host — outside the next/image allowlist; see lib/media.ts
+              <img
+                src={photoUrl}
+                alt={alt}
+                className="h-auto max-h-[480px] w-full rounded-xl border border-[var(--bcc-border)] object-cover"
+                loading="lazy"
+                decoding="async"
+              />
+            )}
           </button>
           {lightboxOpen && (
             <Lightbox item={item} src={photoUrl} alt={alt} onClose={() => setLightboxOpen(false)} />

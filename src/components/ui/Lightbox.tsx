@@ -28,10 +28,12 @@
  */
 
 import { useRef } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import type { Route } from "next";
 
 import { Dialog } from "@/components/ui/Dialog";
+import { isWpMediaUrl } from "@/lib/media";
 import { AuthorBadge } from "@/components/identity/AuthorBadge";
 import { CommentDrawer } from "@/components/feed/CommentDrawer";
 import { ReactionRail } from "@/components/feed/ReactionRail";
@@ -111,12 +113,22 @@ export function Lightbox({
           ✕
         </button>
 
-        {/* eslint-disable-next-line @next/next/no-img-element -- remote feed media, no per-tenant remotePatterns allow-list */}
-        <img
-          src={src}
-          alt={alt}
-          className="max-h-full max-w-full object-contain"
-        />
+        {isWpMediaUrl(src) ? (
+          <Image
+            src={src}
+            alt={alt}
+            fill
+            sizes="100vw"
+            className="object-contain"
+          />
+        ) : (
+          // eslint-disable-next-line @next/next/no-img-element -- non-WP host (Giphy GIFs open here too) — outside the next/image allowlist; see lib/media.ts
+          <img
+            src={src}
+            alt={alt}
+            className="max-h-full max-w-full object-contain"
+          />
+        )}
 
         {/* Mobile action bar — Stoke + Share inline, comments hand off to
             the detail view. Hidden on md+ where the side panel takes over. */}

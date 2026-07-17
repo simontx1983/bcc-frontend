@@ -33,7 +33,10 @@
  *   xl  140 watchlist/profile hero (not used in Sprint 1; reserved)
  *
  * Behaviour:
- *   - Non-empty avatarUrl → <img loading="lazy"> in the variant shape
+ *   - Non-empty WP-hosted avatarUrl → next/image (Vercel image CDN:
+ *     resize + WebP + lazy) in the variant shape
+ *   - Non-empty avatarUrl on a non-allowlisted host (Gravatar, IPFS…)
+ *     → raw <img loading="lazy"> — see isWpMediaUrl() in lib/media.ts
  *   - Empty/null avatarUrl → initials monogram via deriveInitials()
  *   - tier !== undefined/null → tinted ring/border via CSS var
  *   - isOperator (sm+) → tiny phosphor dot bottom-right
@@ -46,10 +49,12 @@
  */
 
 import { memo, type CSSProperties } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import type { Route } from "next";
 
 import { deriveInitials } from "@/lib/format/initials";
+import { isWpMediaUrl } from "@/lib/media";
 import type { CardTier } from "@/lib/api/types";
 
 export type AvatarSize = "xs" | "sm" | "md" | "lg" | "xl";
@@ -141,6 +146,9 @@ function AvatarImpl({
     typeof avatarUrl === "string" &&
     avatarUrl !== "" &&
     !isPeepSoPlaceholder(avatarUrl);
+  // WP-hosted uploads ride Vercel's image CDN; anything else (Gravatar,
+  // IPFS, non-allowlisted hosts) keeps the raw <img> path below.
+  const useNextImage = hasImage && isWpMediaUrl(avatarUrl);
 
   // Tier tint via the existing CSS vars (globals.css:37-40). No JS
   // tier→color map. `undefined` and `null` both fall back to a neutral
@@ -216,16 +224,25 @@ function AvatarImpl({
         <span className="bcc-hex-outer" aria-hidden />
         <span className="bcc-hex-mid" aria-hidden />
         <span className="bcc-hex-inner">
-          {hasImage && (
-            // eslint-disable-next-line @next/next/no-img-element -- avatars are remote PeepSo URLs; next/image would need per-tenant remotePatterns allow-list.
-            <img
-              src={avatarUrl as string}
-              alt={a11yName}
-              loading="lazy"
-              decoding="async"
-              className="absolute inset-0 h-full w-full object-cover"
-            />
-          )}
+          {hasImage &&
+            (useNextImage ? (
+              <Image
+                src={avatarUrl}
+                alt={a11yName}
+                fill
+                sizes={sizePx}
+                className="object-cover"
+              />
+            ) : (
+              // eslint-disable-next-line @next/next/no-img-element -- non-WP host (Gravatar/IPFS/…) — outside the next/image allowlist; see lib/media.ts
+              <img
+                src={avatarUrl}
+                alt={a11yName}
+                loading="lazy"
+                decoding="async"
+                className="absolute inset-0 h-full w-full object-cover"
+              />
+            ))}
         </span>
         {!hasImage && (
           <span className={`relative z-[2] text-cardstock ${spec.fontClass}`}>
@@ -233,10 +250,18 @@ function AvatarImpl({
           </span>
         )}
       </span>
+    ) : hasImage && useNextImage ? (
+      <Image
+        src={avatarUrl}
+        alt={a11yName}
+        width={spec.px}
+        height={spec.px}
+        className={`h-full w-full ${shapeBase} object-cover`}
+      />
     ) : hasImage ? (
-      // eslint-disable-next-line @next/next/no-img-element -- avatars are remote PeepSo URLs (legacy inline Avatars used the same exemption)
+      // eslint-disable-next-line @next/next/no-img-element -- non-WP host (Gravatar/IPFS/…) — outside the next/image allowlist; see lib/media.ts
       <img
-        src={avatarUrl as string}
+        src={avatarUrl}
         alt={a11yName}
         loading="lazy"
         decoding="async"

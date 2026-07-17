@@ -16,11 +16,13 @@
  */
 
 import type { Route } from "next";
+import NextImage from "next/image";
 import Link from "next/link";
 import { memo, useMemo } from "react";
 
 import { SKELETON_CLASS } from "@/components/ui/Skeleton";
 import { VerifiedBadge } from "@/components/ui/VerifiedBadge";
+import { isWpMediaUrl } from "@/lib/media";
 
 import type {
   GroupSearchResult,
@@ -239,11 +241,22 @@ function Avatar({
   }, [name]);
   const radius = shape === "circle" ? "rounded-full" : "rounded-sm";
   if (src !== null && src !== "") {
-    // Avatars come from arbitrary external hosts (PeepSo, Gravatar,
-    // IPFS). next/image with a configured loader would just add a
-    // round-trip without payoff at this size.
+    // WP-hosted avatars (PeepSo uploads) ride Vercel's image CDN;
+    // arbitrary external hosts (Gravatar, IPFS) keep the raw <img> —
+    // they're outside the next/image allowlist (see lib/media.ts).
+    if (isWpMediaUrl(src)) {
+      return (
+        <NextImage
+          src={src}
+          alt=""
+          width={40}
+          height={40}
+          className={`h-10 w-10 shrink-0 object-cover ${radius}`}
+        />
+      );
+    }
     return (
-      // eslint-disable-next-line @next/next/no-img-element
+      // eslint-disable-next-line @next/next/no-img-element -- non-WP host (Gravatar/IPFS) — outside the next/image allowlist; see lib/media.ts
       <img
         src={src}
         alt=""

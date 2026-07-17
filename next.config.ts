@@ -9,6 +9,22 @@ const nextConfig: NextConfig = {
   // proxy through Next's rewrites because the backend's CORS contract
   // is the one we want to exercise in dev (matching prod).
   typedRoutes: true,
+  // WP-hosted media (PeepSo avatars, cover photos, feed/comment photos)
+  // is served through Vercel's image CDN via next/image. Patterns are
+  // path-scoped to /wp-content/** so the optimizer cannot be used as a
+  // general proxy of the WP origin. Keep this list in sync with
+  // isWpMediaUrl() in src/lib/media.ts — mixed-host call sites use that
+  // helper to decide <Image> vs raw <img>. SVG placeholders
+  // (avatars-svg/*) never reach next/image: the helper excludes .svg,
+  // so dangerouslyAllowSVG stays off.
+  images: {
+    remotePatterns: [
+      { protocol: "https", hostname: "bluecollarcrypto.io", pathname: "/wp-content/**" },
+      { protocol: "https", hostname: "stage.bluecollarcrypto.io", pathname: "/wp-content/**" },
+      { protocol: "https", hostname: "blue-collar-crypto-custom.local", pathname: "/wp-content/**" },
+      { protocol: "http", hostname: "blue-collar-crypto-custom.local", pathname: "/wp-content/**" },
+    ],
+  },
   // Pin the workspace root to this folder so Next does not walk up the
   // tree and pick the stray package-lock.json in the user's home dir.
   outputFileTracingRoot: path.join(__dirname),
