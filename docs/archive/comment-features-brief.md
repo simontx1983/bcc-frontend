@@ -1,3 +1,5 @@
+> **ARCHIVED 2026-07-19 — completed plan.** All three features shipped: comment media attach (contract v1.41; media-only comments v1.44), threaded replies (v1.42), comment sort (v1.40). Note: the "Top" sort shipped as **most-stoked**, not this brief's recommended reply_count signal. Do not read as current guidance — the umbrella docs/api-contract-v1.md is authoritative.
+
 # Decision brief — comment attachments, threaded replies, and "Top" sort
 
 **Status:** frontend composer redesign shipped (glassy sticky grow-with-text box,
