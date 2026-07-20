@@ -15,13 +15,13 @@
  * single homogeneous list.
  */
 
-import type { Route } from "next";
 import NextImage from "next/image";
 import Link from "next/link";
 import { memo, useMemo } from "react";
 
 import { SKELETON_CLASS } from "@/components/ui/Skeleton";
 import { VerifiedBadge } from "@/components/ui/VerifiedBadge";
+import { toInternalHref } from "@/lib/internal-route";
 import { isWpMediaUrl } from "@/lib/media";
 
 import type {
@@ -131,14 +131,27 @@ function ErrorTile() {
 }
 
 function EmptyTile({ query }: { query: string }) {
+  // An empty query is the trending-landing state (no user query to echo),
+  // not a failed search — don't render a sentinel like "trending" as if
+  // the user typed it.
+  const trimmed = query.trim();
+  const isTrendingLanding = trimmed === "";
   return (
     <div className="bcc-panel mx-auto max-w-md p-8 text-center">
-      <p className="bcc-mono text-safety">NO MATCHES</p>
+      <p className="bcc-mono text-safety">
+        {isTrendingLanding ? "NOTHING TRENDING" : "NO MATCHES"}
+      </p>
       <h2 className="bcc-stencil mt-2 text-2xl text-bcc-text">
-        Nothing found for &ldquo;{query}&rdquo;.
+        {isTrendingLanding ? (
+          "Nothing trending right now."
+        ) : (
+          <>Nothing found for &ldquo;{trimmed}&rdquo;.</>
+        )}
       </h2>
       <p className="mt-3 font-serif leading-relaxed text-bcc-text-secondary">
-        Try a different keyword or switch tabs.
+        {isTrendingLanding
+          ? "Check back soon, or search for a project, member, or community."
+          : "Try a different keyword or switch tabs."}
       </p>
     </div>
   );
@@ -156,7 +169,7 @@ function EmptyTile({ query }: { query: string }) {
 export const ProjectRow = memo(function ProjectRow({ row }: { row: ProjectSearchResult }) {
   return (
     <Link
-      href={row.page_url as Route}
+      href={toInternalHref(row.page_url)}
       className="bcc-panel flex items-center gap-3 px-4 py-3 hover:bg-cardstock-deep motion-safe:transition motion-safe:duration-bcc-fast"
     >
       <Avatar src={row.avatar_url} name={row.page_name} shape="circle" />
@@ -184,7 +197,7 @@ export const ProjectRow = memo(function ProjectRow({ row }: { row: ProjectSearch
 export const UserRow = memo(function UserRow({ row }: { row: UserSearchResult }) {
   return (
     <Link
-      href={row.profile_url as Route}
+      href={toInternalHref(row.profile_url)}
       className="bcc-panel flex items-center gap-3 px-4 py-3 hover:bg-cardstock-deep motion-safe:transition motion-safe:duration-bcc-fast"
     >
       <Avatar src={row.avatar_url} name={row.display_name || row.username} shape="circle" />
@@ -203,7 +216,7 @@ export const UserRow = memo(function UserRow({ row }: { row: UserSearchResult })
 export const GroupRow = memo(function GroupRow({ row }: { row: GroupSearchResult }) {
   return (
     <Link
-      href={row.group_url as Route}
+      href={toInternalHref(row.group_url)}
       className="bcc-panel flex items-center gap-3 px-4 py-3 hover:bg-cardstock-deep motion-safe:transition motion-safe:duration-bcc-fast"
     >
       <Avatar src={row.avatar_url} name={row.name} shape="square" />

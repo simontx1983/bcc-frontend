@@ -634,18 +634,22 @@ export function SiteHeader() {
           {/* Backdrop Overlay */}
           <div
             onClick={() => setSearchOverlayOpen(false)}
+            // Fade gated on motion-safe so a reduced-motion user gets no
+            // animation (globals.css has no global reduce kill-switch;
+            // inline styles can't carry a media query).
+            className="motion-safe:[animation:bcc-fade-in_0.2s_ease]"
             style={{
               position: "fixed",
               inset: 0,
               zIndex: 299,
               background: "var(--bcc-glass-bg-frosted);",
               backdropFilter: "var(--bcc-blur-sm)",
-              animation: "bcc-fade-in 0.2s ease",
             }}
           />
           <div
             role="dialog"
             aria-label="Search"
+            className="motion-safe:[animation:bcc-fade-in_0.15s_ease_forwards]"
             style={{
               position: "fixed",
               top: "calc(var(--bcc-header-h) + 12px)",
@@ -662,7 +666,6 @@ export function SiteHeader() {
               boxShadow: "var(--bcc-shadow-lg)",
               width: "80%",
               borderRadius: "var(--bcc-radius-xl)",
-              animation: "bcc-fade-in 0.15s ease forwards",
             }}
           >
             {/* Minimal wiring by design: Enter → /search?q= (the full
