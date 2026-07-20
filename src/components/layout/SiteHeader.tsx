@@ -114,7 +114,9 @@ const modalShellStyle: React.CSSProperties = {
   borderRadius: "var(--bcc-radius-lg)",
   boxShadow: "var(--bcc-shadow-lg)",
   zIndex: 300,
-  animation: "bcc-fade-in 0.15s ease forwards",
+  // Entrance fade lives on the shared `.bcc-header-modal` class
+  // (motion-safe, in globals.css) rather than here — an inline
+  // `animation` can't be gated for reduced motion.
   overflow: "hidden",
 };
 
@@ -170,7 +172,6 @@ function ThemeModal({ theme, accent, onThemeChange, onAccentChange, onClose, anc
         borderRadius: "var(--bcc-radius-lg)",
         padding: "16px",
         zIndex: 300,
-        animation: "bcc-fade-in 0.15s ease forwards",
       }}
     >
       <p style={{ fontFamily: "var(--font-mono), monospace", fontSize: 10, fontWeight: 800, letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--bcc-text)", marginBottom: 10 }}>
@@ -320,7 +321,6 @@ function AvatarDropdown({ handle, onClose, onSignOut, anchorRef }: AvatarDropdow
         borderRadius: "var(--bcc-radius-lg)",
         padding: "8px",
         zIndex: 300,
-        animation: "bcc-fade-in 0.15s ease forwards",
       }}
     >
       {/* Handle label */}
@@ -634,18 +634,22 @@ export function SiteHeader() {
           {/* Backdrop Overlay */}
           <div
             onClick={() => setSearchOverlayOpen(false)}
+            // Fade gated on motion-safe so a reduced-motion user gets no
+            // animation (globals.css has no global reduce kill-switch;
+            // inline styles can't carry a media query).
+            className="motion-safe:[animation:bcc-fade-in_0.2s_ease]"
             style={{
               position: "fixed",
               inset: 0,
               zIndex: 299,
               background: "var(--bcc-glass-bg-frosted);",
               backdropFilter: "var(--bcc-blur-sm)",
-              animation: "bcc-fade-in 0.2s ease",
             }}
           />
           <div
             role="dialog"
             aria-label="Search"
+            className="motion-safe:[animation:bcc-fade-in_0.15s_ease_forwards]"
             style={{
               position: "fixed",
               top: "calc(var(--bcc-header-h) + 12px)",
@@ -662,7 +666,6 @@ export function SiteHeader() {
               boxShadow: "var(--bcc-shadow-lg)",
               width: "80%",
               borderRadius: "var(--bcc-radius-xl)",
-              animation: "bcc-fade-in 0.15s ease forwards",
             }}
           >
             {/* Minimal wiring by design: Enter → /search?q= (the full

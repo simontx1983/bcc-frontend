@@ -310,7 +310,9 @@ function TrendingLanding() {
       <div className="mt-6">
         <SearchResultsTab
           kind="projects"
-          query="trending"
+          // Empty query → EmptyTile renders the trending-landing message
+          // instead of echoing a "trending" sentinel as a user query.
+          query=""
           results={results}
           isLoading={trending.isLoading}
           isError={trending.isError}
