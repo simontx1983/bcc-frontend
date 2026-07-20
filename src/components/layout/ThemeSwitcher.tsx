@@ -85,7 +85,9 @@ export function ThemeSwitcher({ className }: { className?: string }) {
             borderRadius: "var(--bcc-radius-lg)",
             padding: "16px",
             zIndex: 300,
-            animation: "bcc-fade-in 0.15s ease forwards",
+            // Entrance fade comes from the shared `.bcc-header-modal`
+            // class (motion-safe, globals.css) — an inline `animation`
+            // here would override it AND run under reduced motion.
           }}
         >
           <p style={{ fontFamily: "var(--font-mono), monospace", fontSize: 10, fontWeight: 800, letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--bcc-text)", marginBottom: 10 }}>

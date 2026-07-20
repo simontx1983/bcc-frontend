@@ -712,14 +712,13 @@ function CommentFilterRow({
         <div
           ref={menuRef}
           role="listbox"
-          className="absolute left-0 top-full z-20 mt-1 min-w-[150px] overflow-hidden rounded-xl p-1"
+          className="absolute left-0 top-full z-20 mt-1 min-w-[150px] overflow-hidden rounded-xl p-1 motion-safe:[animation:bcc-fade-in_0.15s_ease_forwards]"
           style={{
             background: "var(--bcc-glass-bg-solid)",
             backdropFilter: "var(--bcc-blur-sm)",
             WebkitBackdropFilter: "var(--bcc-blur-sm)",
             border: "1px solid var(--bcc-glass-border)",
             boxShadow: "var(--bcc-shadow-xl)",
-            animation: "bcc-fade-in 0.15s ease forwards",
           }}
         >
           {SORT_TABS.map((tab) => {
