@@ -1,3 +1,5 @@
+> **ARCHIVED 2026-07-19 — completed plan; DECISION INVERTED at ship time.** Post URLs shipped as contract v1.39 with a stored, immutable **8-letter `short_id`** — the **opposite** of this brief's Hashids recommendation (production launches empty, so the backfill cost that motivated Hashids was moot; see the api-contract v1.39 changelog entry). Do not read as current guidance.
+
 # Decision brief — scalable post URLs (`/u/{handle}/post/{shortcode}`)
 
 **Status:** route shape decided; **encoding is the open decision (Tia + Phillip).**
