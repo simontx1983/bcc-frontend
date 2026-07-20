@@ -33,7 +33,6 @@
  *   that the user always touches before it does anything.
  */
 
-import type { Route } from "next";
 import { useRouter } from "next/navigation";
 import {
   useEffect,
@@ -55,6 +54,7 @@ import type {
   ProjectSearchResult,
   SearchSuggestion,
 } from "@/lib/api/types";
+import { toInternalHref } from "@/lib/internal-route";
 
 const MAX_TRENDING_IN_DROPDOWN = 5;
 
@@ -222,7 +222,7 @@ export function GlobalSearch({
     setQuery("");
     setActiveIndex(-1);
     inputRef.current?.blur();
-    router.push(href as Route);
+    router.push(toInternalHref(href));
   };
 
   const showDropdown = showPreSearch || showResults;
