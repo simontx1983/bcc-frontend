@@ -801,6 +801,16 @@
     box-shadow: var(--bcc-shadow-xl);
   }
 
+  /* Entrance fade for every header modal (theme / messages / notifications
+     / avatar). Motion-safe only — reduced-motion users get no animation.
+     Owned here rather than as an inline `animation` on each modal so it is
+     reduced-motion-aware (an inline style can't carry a media query). */
+  @media (prefers-reduced-motion: no-preference) {
+    .bcc-header-modal {
+      animation: bcc-fade-in 0.15s ease forwards;
+    }
+  }
+
   /* On tablet/mobile — anchor modals to viewport right edge to prevent clipping */
   @media (max-width: 1279px) {
     .bcc-header-modal {

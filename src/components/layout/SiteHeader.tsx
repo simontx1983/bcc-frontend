@@ -114,7 +114,9 @@ const modalShellStyle: React.CSSProperties = {
   borderRadius: "var(--bcc-radius-lg)",
   boxShadow: "var(--bcc-shadow-lg)",
   zIndex: 300,
-  animation: "bcc-fade-in 0.15s ease forwards",
+  // Entrance fade lives on the shared `.bcc-header-modal` class
+  // (motion-safe, in globals.css) rather than here — an inline
+  // `animation` can't be gated for reduced motion.
   overflow: "hidden",
 };
 
@@ -170,7 +172,6 @@ function ThemeModal({ theme, accent, onThemeChange, onAccentChange, onClose, anc
         borderRadius: "var(--bcc-radius-lg)",
         padding: "16px",
         zIndex: 300,
-        animation: "bcc-fade-in 0.15s ease forwards",
       }}
     >
       <p style={{ fontFamily: "var(--font-mono), monospace", fontSize: 10, fontWeight: 800, letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--bcc-text)", marginBottom: 10 }}>
@@ -320,7 +321,6 @@ function AvatarDropdown({ handle, onClose, onSignOut, anchorRef }: AvatarDropdow
         borderRadius: "var(--bcc-radius-lg)",
         padding: "8px",
         zIndex: 300,
-        animation: "bcc-fade-in 0.15s ease forwards",
       }}
     >
       {/* Handle label */}
