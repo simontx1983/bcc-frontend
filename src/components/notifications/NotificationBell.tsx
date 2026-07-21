@@ -19,7 +19,8 @@
  * Accessibility:
  *   - Trigger has aria-haspopup + aria-expanded
  *   - Dropdown content is a list with role="menu" (inside the panel)
- *   - Esc + outside-click close the dropdown (mirrors ViewerMenu)
+ *   - Esc + outside-click close the dropdown (mirrors the
+ *     SiteHeader avatar menu)
  *   - The unread badge is hidden from screen readers when count is 0
  */
 
@@ -75,7 +76,7 @@ export function NotificationBell({ enabled }: NotificationBellProps) {
   }, [unreadCount]);
 
   // Close on outside click + Escape — same primitive pattern used by
-  // GlobalSearch and ViewerMenu.
+  // GlobalSearch and the SiteHeader avatar menu.
   useEffect(() => {
     if (!open) return;
     const onPointerDown = (event: PointerEvent) => {

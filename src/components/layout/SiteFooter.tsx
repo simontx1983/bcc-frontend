@@ -61,8 +61,8 @@ const BUILD_LABEL = process.env["NEXT_PUBLIC_BCC_BUILD_LABEL"] ?? "v1";
 
 /**
  * Account zone for authed users. The destinations mirror what the
- * ViewerMenu popover in the header exposes — the footer is the
- * fallback when the popover isn't on-screen (scrolled off the top).
+ * SiteHeader avatar menu exposes — the footer is the fallback when
+ * the menu isn't on-screen (scrolled off the top).
  */
 function authedAccountLinks(handle: string): readonly NavLink[] {
   return [

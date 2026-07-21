@@ -105,7 +105,7 @@ export function useAccountActivity(page: number = 1, perPage: number = 20) {
  * The server-side handler audit-logs + emails + revokes BEFORE the
  * response is sent, so by the time we resolve here the bearer is
  * already dead. We force a NextAuth signOut to clear the local
- * session and hard-redirect to `/` (matches the ViewerMenu /
+ * session and hard-redirect to `/` (matches the avatar-menu /
  * MobileMenuSheet logout idiom). The signOut() also navigates, so
  * any caller-side "you signed out" toast must be transient or
  * preserved via the redirect query string.
