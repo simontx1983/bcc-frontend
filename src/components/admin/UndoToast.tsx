@@ -94,9 +94,11 @@ export function UndoToast({ descriptor, onDismiss }: Props) {
   const undoMutation = useUndoAdminReport({
     onSuccess: () => onDismiss(),
     onError:   () => {
-      // Surface the error in the toast body for 2s then dismiss.
-      // No retry, no requeue — see the file-level docblock.
-      window.setTimeout(onDismiss, 2000);
+      // Surface the error in the toast body, then dismiss. 4s — long
+      // enough to actually read "Undo window expired." (2s proved too
+      // short to register during the 2026-07-21 admin audit). No
+      // retry, no requeue — see the file-level docblock.
+      window.setTimeout(onDismiss, 4000);
     },
   });
 

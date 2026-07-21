@@ -292,6 +292,14 @@ function NotifModal({ onClose, anchorRef }: NotifModalProps) {
 const AVATAR_MENU = [
   { label: "My Profile",    href: "/u/[handle]",     icon: <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="5.5" r="2.5" stroke="currentColor" strokeWidth="1.4"/><path d="M2.5 14c0-2.76 2.46-4.5 5.5-4.5s5.5 1.74 5.5 4.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/></svg> },
   { label: "My Progression",href: "/me/progression", icon: <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 12l4-4 3 3 5-6" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/></svg> },
+  /* No capability gate by design (v1: no FE role checks — see the
+     admin-architecture decision). Non-admins who click land on the
+     page's own "Admin access required" panel; the API layer owns the
+     manage_options check. Without this entry the §K1 reports queue
+     has NO inbound link anywhere and filed reports accumulate
+     invisibly (regressed once already when this menu replaced the
+     old ViewerMenu — 2026-07-21 admin audit P1). */
+  { label: "Moderation",    href: "/admin/moderation", icon: <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 1.5l5.5 2v4c0 3.2-2.2 5.9-5.5 7-3.3-1.1-5.5-3.8-5.5-7v-4l5.5-2z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"/><path d="M5.5 8l1.8 1.8L10.8 6" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/></svg> },
   { label: "Settings",      href: "/settings/profile",icon: <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="2" stroke="currentColor" strokeWidth="1.4"/><path d="M13 8c0-.25-.02-.49-.05-.73l1.55-1.2-1.25-2.17-1.85.75a5.5 5.5 0 00-1.26-.73L9.8 2H6.2l-.34 1.92c-.45.18-.87.43-1.26.73l-1.85-.75L1.5 6.07l1.55 1.2A5.6 5.6 0 003 8c0 .25.02.49.05.73L1.5 9.93l1.25 2.17 1.85-.75c.39.3.81.55 1.26.73L6.2 14h3.6l.34-1.92c.45-.18.87-.43 1.26-.73l1.85.75 1.25-2.17-1.55-1.2C12.98 8.49 13 8.25 13 8z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"/></svg> },
   { label: "Sign Out",      href: "/api/auth/signout",icon: <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 14H3a1 1 0 01-1-1V3a1 1 0 011-1h3M10.5 11.5L14 8l-3.5-3.5M14 8H6" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/></svg> },
 ] as const;
