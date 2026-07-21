@@ -176,6 +176,7 @@ export function RankChip({
           }
         }}
         aria-haspopup="dialog"
+        data-bcc-tour="rankchip.trigger"
         title={
           tierLabel !== null
             ? `${tierLabel} reputation tier — what does this mean?`

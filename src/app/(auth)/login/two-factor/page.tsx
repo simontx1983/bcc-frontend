@@ -11,7 +11,9 @@
  *   1. User enters the 6-digit OTP sent to their email.
  *   2. POST /auth/2fa/verify (challenge_token + code) → JWT.
  *   3. signIn("bcc-verified", JWT fields) → NextAuth session.
- *   4. router.replace(callbackUrl ?? "/onboarding").
+ *   4. router.replace(callbackUrl ?? "/"). Returning users only reach this
+ *      page, so the default is the Floor; new signups route to /onboarding
+ *      via their own flows (verify-email / complete-profile / wallet).
  *
  * Resend: 60-second cooldown. Calls /auth/2fa/resend with the
  * challenge token to send a fresh OTP without restarting login.
@@ -53,7 +55,15 @@ function TwoFactorContent() {
   const [sessionExpired, setSessionExpired] = useState(ct === "");
 
   function targetAfterLogin(): Route {
-    return safeCallback ?? "/onboarding";
+    // Returning sign-in lands on the Floor, not /onboarding — the 2FA page
+    // is only reached by EXISTING users (email/password login always routes
+    // through here). New signups reach the wizard via their own explicit
+    // redirects (verify-email / complete-profile / wallet-signup), never
+    // this default. Defaulting here to /onboarding made the onboarding
+    // page's "already onboarded? → /" server gate flash the wizard for a
+    // beat before bouncing returning users home. A same-origin callbackUrl
+    // still wins when present.
+    return safeCallback ?? "/";
   }
 
   // ── Resend cooldown tick ───────────────────────────────────────

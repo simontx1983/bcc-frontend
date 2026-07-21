@@ -43,6 +43,7 @@ import { BlockToggle } from "@/components/profile/BlockToggle";
 import { ProfileTabs } from "@/components/profile/ProfileTabs";
 import { MemberReviewControl } from "@/components/review/MemberReviewControl";
 import { ShareButton } from "@/components/common/ShareButton";
+import { TourAutoStart } from "@/components/tour/TourAutoStart";
 import { authOptions } from "@/lib/auth";
 import { tokenFromSession } from "@/lib/api/client";
 import { getMeReliability } from "@/lib/api/me-reliability-endpoints";
@@ -222,7 +223,9 @@ export default async function MemberProfilePage({ params }: PageProps) {
           big name here answers "whose page am I on?" without making
           the viewer parse the card. Suppress the handle line when the
           handle is email-shaped (default PeepSo before claim). */}
-      <header className="mx-auto mt-12 max-w-[1440px] px-4 sm:px-7">
+      {/* First-visit tour of your own profile (owner only). */}
+      {isOwner && <TourAutoStart tourId="profile" />}
+      <header className="mx-auto mt-12 max-w-[1440px] px-4 sm:px-7" data-bcc-tour="profile.header">
         {/* Title row — stencil display name on the left, Share on the
             right. Share is public-to-everyone (any viewer can share any
             public profile), distinct from the owner-only Edit Profile

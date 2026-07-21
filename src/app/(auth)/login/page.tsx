@@ -60,7 +60,12 @@ function LoginPageContent() {
   const [notVerifiedEmail, setNotVerifiedEmail] = useState<string | null>(null);
 
   function targetAfterLogin(): Route {
-    return safeCallback ?? "/onboarding";
+    // Returning sign-in lands on the Floor, not /onboarding. The wizard is
+    // reached only right after signup (verify-email → complete-profile →
+    // /onboarding). Sending returning users to /onboarding made the page's
+    // server gate ("already onboarded? → /") flash the wizard before
+    // bouncing them home. A same-origin callbackUrl still wins when present.
+    return safeCallback ?? "/";
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -119,9 +124,10 @@ function LoginPageContent() {
           </>
         }
       >
-        {/* SSO */}
-        <SSOButton provider="google"  mode="login" callbackUrl={safeCallback ?? "/onboarding"} />
-        <SSOButton provider="twitter" mode="login" callbackUrl={safeCallback ?? "/onboarding"} />
+        {/* SSO — returning login lands on the Floor; new SSO users still
+            reach onboarding via complete-profile's own redirect. */}
+        <SSOButton provider="google"  mode="login" callbackUrl={safeCallback ?? "/"} />
+        <SSOButton provider="twitter" mode="login" callbackUrl={safeCallback ?? "/"} />
 
         <AuthDivider />
 

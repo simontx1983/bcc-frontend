@@ -3750,3 +3750,245 @@
   .bcc-ldg-reveal { opacity: 1; transform: none; }
   .bcc-ldg-strike::after { transform: scaleX(1); }
 }
+
+/* ========================================================================
+   ONBOARDING WIZARD — bcc-onb-*  (Direction: LEDGER, matches the landing)
+
+   Full-bleed post-signup setup surface on the page-chrome token system.
+   Replaces the old workshop-palette (cardstock/safety/ink) onboarding
+   chrome entirely. Reuses the landing field/glow background markup
+   (.bcc-ldg-field*) and the landing client islands (LandingReveal,
+   LandingMagneticLink, LandingEmbers) so the setup flow reads as the same
+   product as /welcome. Every color resolves to a --bcc-* page-chrome token.
+   ======================================================================== */
+
+.bcc-onb-root {
+  --bcc-onb-ease: cubic-bezier(0.2, 0.9, 0.25, 1);
+  position: relative;
+  min-height: 100vh;
+  color: var(--bcc-text);
+  background: var(--bcc-bg);
+  overflow-x: hidden;
+  padding-bottom: clamp(48px, 8vw, 96px);
+}
+.bcc-onb-wrap { position: relative; z-index: 1; max-width: 1080px; margin: 0 auto; padding: 0 clamp(20px, 5vw, 40px); }
+
+/* Header rail + progress */
+.bcc-onb-rail {
+  position: relative; z-index: 1;
+  display: flex; justify-content: space-between; align-items: center; gap: 16px;
+  max-width: 1080px; margin: 0 auto; padding: 16px clamp(20px, 5vw, 40px) 12px;
+  font-family: var(--font-mono), monospace; font-size: 10.5px; letter-spacing: 0.16em;
+  text-transform: uppercase; color: var(--bcc-text-secondary);
+}
+.bcc-onb-rail-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--bcc-accent); margin-right: 9px; box-shadow: 0 0 0 0 var(--bcc-accent-glow); animation: bcc-onb-pulse 2.2s infinite; }
+@keyframes bcc-onb-pulse { 0% { box-shadow: 0 0 0 0 var(--bcc-accent-glow); } 70% { box-shadow: 0 0 0 7px transparent; } 100% { box-shadow: 0 0 0 0 transparent; } }
+.bcc-onb-rail .who { color: var(--bcc-text); }
+
+.bcc-onb-progress { position: relative; z-index: 1; max-width: 1080px; margin: 0 auto; padding: 0 clamp(20px, 5vw, 40px); }
+.bcc-onb-progress-track { height: 2px; width: 100%; background: var(--bcc-border-light); border-radius: var(--bcc-radius-full); overflow: hidden; }
+.bcc-onb-progress-fill { height: 100%; background: var(--bcc-accent); border-radius: var(--bcc-radius-full); transition: width 0.5s var(--bcc-onb-ease); }
+
+/* Step scaffold */
+.bcc-onb-step { padding-top: clamp(32px, 6vw, 72px); }
+.bcc-onb-eyebrow { display: inline-flex; align-items: center; gap: 10px; font-family: var(--font-mono), monospace; font-size: 10px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--bcc-accent); margin: 0 0 18px; }
+.bcc-onb-eyebrow::before { content: ""; width: 22px; height: 1px; background: currentColor; opacity: 0.7; }
+.bcc-onb-disp { font-family: var(--font-stencil), Impact, sans-serif; font-weight: 800; letter-spacing: 0.02em; text-transform: uppercase; font-size: clamp(2.4rem, 6vw, 4.2rem); line-height: 0.94; margin: 0; color: var(--bcc-text); }
+.bcc-onb-lede { font-family: var(--font-serif), Georgia, serif; font-size: clamp(1.05rem, 1.6vw, 1.3rem); line-height: 1.6; color: var(--bcc-text-secondary); max-width: 46ch; margin: 20px 0 0; }
+.bcc-onb-lede b { color: var(--bcc-text); font-weight: 600; }
+.bcc-onb-lede a { color: var(--bcc-accent); text-decoration: none; }
+.bcc-onb-lede a:hover { text-decoration: underline; }
+.bcc-onb-note { font-family: var(--font-mono), monospace; font-size: 11px; letter-spacing: 0.04em; color: var(--bcc-text-muted); margin: 14px 0 0; }
+
+/* Surfaces */
+.bcc-onb-panel { border: 1px solid var(--bcc-border); border-radius: var(--bcc-radius-lg); background: var(--bcc-surface-raised); padding: clamp(18px, 3vw, 28px); }
+
+/* Buttons */
+.bcc-onb-foot { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-top: clamp(28px, 5vw, 52px); }
+.bcc-onb-foot-end { display: flex; align-items: center; gap: 18px; }
+.bcc-onb-btn {
+  font-family: var(--font-stencil), Impact, sans-serif; text-transform: uppercase; letter-spacing: 0.04em;
+  font-size: 0.9rem; padding: 10px 24px; border-radius: var(--bcc-radius-md); border: 1.5px solid transparent;
+  cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 10px;
+  transition: transform 0.18s var(--bcc-onb-ease), box-shadow 0.25s, background 0.2s, border-color 0.2s, opacity 0.2s;
+}
+.bcc-onb-btn:disabled { cursor: wait; opacity: 0.6; }
+.bcc-onb-btn-primary { background: var(--bcc-accent); color: var(--bcc-text-inverse); box-shadow: 0 6px 22px var(--bcc-accent-glow); }
+.bcc-onb-btn-primary:not(:disabled):hover { box-shadow: 0 10px 34px var(--bcc-accent-glow); transform: translateY(-2px); }
+.bcc-onb-btn-ghost { border-color: var(--bcc-border); color: var(--bcc-text); background: var(--bcc-surface-raised); }
+.bcc-onb-btn-ghost:not(:disabled):hover { border-color: var(--bcc-accent); color: var(--bcc-accent); transform: translateY(-2px); }
+.bcc-onb-link { font-family: var(--font-mono), monospace; font-size: 12px; letter-spacing: 0.08em; color: var(--bcc-text-secondary); background: none; border: none; cursor: pointer; text-decoration: none; padding: 4px 2px; }
+.bcc-onb-link:not(:disabled):hover { color: var(--bcc-text); text-decoration: underline; text-underline-offset: 4px; }
+.bcc-onb-link:disabled { opacity: 0.5; cursor: default; }
+
+/* Selectable chips (chain bias, welcome preview) */
+.bcc-onb-chips { display: flex; flex-wrap: wrap; gap: 10px; }
+.bcc-onb-chip {
+  font-family: var(--font-mono), monospace; font-size: 12px; letter-spacing: 0.04em;
+  padding: 9px 16px; border-radius: var(--bcc-radius-full); border: 1px solid var(--bcc-border);
+  background: var(--bcc-surface); color: var(--bcc-text-secondary); cursor: pointer;
+  transition: border-color 0.18s, color 0.18s, background 0.18s, transform 0.18s var(--bcc-onb-ease);
+}
+.bcc-onb-chip:hover { border-color: var(--bcc-border-strong); color: var(--bcc-text); transform: translateY(-1px); }
+.bcc-onb-chip.is-active { border-color: var(--bcc-accent); color: var(--bcc-accent); background: var(--bcc-accent-subtle); }
+
+/* Welcome preview row */
+.bcc-onb-preview { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: clamp(28px, 5vw, 44px); }
+.bcc-onb-pv { border: 1px solid var(--bcc-border); border-radius: var(--bcc-radius-lg); background: var(--bcc-surface-raised); padding: 20px; }
+.bcc-onb-pv .n { font-family: var(--font-stencil), Impact, sans-serif; font-size: 1.6rem; color: var(--bcc-accent); line-height: 1; }
+.bcc-onb-pv h3 { font-family: var(--font-stencil), Impact, sans-serif; font-size: 1.15rem; text-transform: uppercase; letter-spacing: 0.01em; margin: 10px 0 6px; line-height: 1; color: var(--bcc-text); }
+.bcc-onb-pv p { font-size: 0.9rem; color: var(--bcc-text-secondary); margin: 0; line-height: 1.45; }
+@media (max-width: 760px) { .bcc-onb-preview { grid-template-columns: 1fr; } }
+
+/* Trust primitives list */
+.bcc-onb-prim { border-left: 3px solid var(--bcc-border-strong); padding-left: 16px; }
+.bcc-onb-prim + .bcc-onb-prim { margin-top: 18px; }
+.bcc-onb-prim .k { font-family: var(--font-mono), monospace; font-size: 12px; letter-spacing: 0.14em; color: var(--bcc-text); }
+.bcc-onb-prim .q { font-family: var(--font-serif), Georgia, serif; font-style: italic; color: var(--bcc-text-secondary); margin: 4px 0 2px; }
+.bcc-onb-prim .d { font-family: var(--font-serif), Georgia, serif; color: var(--bcc-text-secondary); margin: 0; }
+.bcc-onb-prim-accent { border-left-color: var(--bcc-accent); }
+
+/* Identity step */
+.bcc-onb-id-cover {
+  position: relative; height: clamp(120px, 22vw, 180px); border-radius: var(--bcc-radius-lg);
+  overflow: hidden; border: 1px solid var(--bcc-border); background: var(--bcc-surface-hover);
+  display: flex; align-items: center; justify-content: center;
+}
+.bcc-onb-id-cover img { width: 100%; height: 100%; object-fit: cover; }
+.bcc-onb-id-cover-empty { font-family: var(--font-mono), monospace; font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--bcc-text-muted); }
+.bcc-onb-id-avatar {
+  position: relative; width: 96px; height: 96px; border-radius: var(--bcc-radius-full);
+  overflow: hidden; border: 3px solid var(--bcc-surface); background: var(--bcc-surface-hover);
+  margin: -52px 0 0 24px; box-shadow: var(--bcc-shadow-md);
+  display: flex; align-items: center; justify-content: center;
+}
+.bcc-onb-id-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.bcc-onb-id-avatar-empty { font-family: var(--font-stencil), Impact, sans-serif; font-size: 2rem; color: var(--bcc-text-muted); }
+.bcc-onb-id-media-btn {
+  position: absolute; font-family: var(--font-mono), monospace; font-size: 9px; letter-spacing: 0.14em;
+  text-transform: uppercase; padding: 6px 10px; border-radius: var(--bcc-radius-sm);
+  border: 1px solid var(--bcc-border); background: var(--bcc-bg-overlay); color: var(--bcc-text);
+  backdrop-filter: var(--bcc-blur-sm); cursor: pointer; transition: border-color 0.18s, color 0.18s;
+}
+.bcc-onb-id-media-btn:hover { border-color: var(--bcc-accent); color: var(--bcc-accent); }
+.bcc-onb-id-cover .bcc-onb-id-media-btn { right: 12px; bottom: 12px; }
+.bcc-onb-field-label { font-family: var(--font-mono), monospace; font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--bcc-text-secondary); display: block; margin-bottom: 8px; }
+.bcc-onb-textarea {
+  width: 100%; min-height: 96px; resize: vertical; padding: 12px 14px; border-radius: var(--bcc-radius-md);
+  border: 1px solid var(--bcc-input-border); background: var(--bcc-input-bg); color: var(--bcc-text);
+  font-family: var(--font-serif), Georgia, serif; font-size: 1rem; line-height: 1.5;
+}
+.bcc-onb-textarea:focus { outline: none; border-color: var(--bcc-input-border-focus); box-shadow: 0 0 0 3px var(--bcc-accent-subtle); }
+.bcc-onb-textarea::placeholder { color: var(--bcc-text-placeholder); opacity: 1; }
+.bcc-onb-err { font-family: var(--font-mono), monospace; font-size: 11px; color: var(--bcc-danger); }
+.bcc-onb-mini-btn { font-family: var(--font-mono), monospace; font-size: 11px; letter-spacing: 0.06em; padding: 7px 14px; border-radius: var(--bcc-radius-full); border: 1px solid var(--bcc-border); background: var(--bcc-surface); color: var(--bcc-text-secondary); cursor: pointer; transition: border-color 0.18s, color 0.18s; }
+.bcc-onb-mini-btn:hover:not(:disabled) { border-color: var(--bcc-accent); color: var(--bcc-accent); }
+.bcc-onb-mini-btn:disabled { opacity: 0.5; cursor: wait; }
+
+/* Notification opt cards */
+.bcc-onb-opt { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; border: 1px solid var(--bcc-border); border-radius: var(--bcc-radius-lg); background: var(--bcc-surface-raised); padding: 18px 20px; cursor: pointer; transition: border-color 0.18s; }
+.bcc-onb-opt:hover { border-color: var(--bcc-border-strong); }
+.bcc-onb-opt h3 { font-family: var(--font-stencil), Impact, sans-serif; font-size: 1.1rem; text-transform: uppercase; letter-spacing: 0.01em; margin: 0 0 6px; color: var(--bcc-text); }
+.bcc-onb-opt p { font-family: var(--font-mono), monospace; font-size: 11px; line-height: 1.5; color: var(--bcc-text-secondary); margin: 0; }
+.bcc-onb-opt input[type="checkbox"] { width: 20px; height: 20px; flex: none; margin-top: 2px; accent-color: var(--bcc-accent); cursor: pointer; }
+.bcc-onb-opt-toggle { font-family: var(--font-stencil), Impact, sans-serif; text-transform: uppercase; letter-spacing: 0.14em; font-size: 10px; padding: 8px 12px; border-radius: var(--bcc-radius-sm); border: none; cursor: pointer; flex: none; transition: background 0.18s, opacity 0.2s; }
+.bcc-onb-opt-toggle.is-on { background: var(--bcc-surface-active); color: var(--bcc-text); }
+.bcc-onb-opt-toggle.is-off { background: var(--bcc-accent); color: var(--bcc-text-inverse); }
+.bcc-onb-opt-toggle:disabled { opacity: 0.6; cursor: wait; }
+
+/* Mobile — the onboarding is DESIGNED for narrow, not just resized. Trim
+   the display type, padding, and gaps so a step fits with far less
+   scrolling at 375px while staying legible. */
+@media (max-width: 640px) {
+  .bcc-onb-rail { flex-wrap: wrap; gap: 4px 12px; font-size: 9px; padding: 12px clamp(16px, 5vw, 40px) 10px; }
+  .bcc-onb-step { padding-top: 22px; }
+  .bcc-onb-eyebrow { margin-bottom: 12px; }
+  .bcc-onb-disp { font-size: clamp(1.9rem, 8.5vw, 2.6rem); }
+  .bcc-onb-lede { font-size: 1rem; margin-top: 14px; }
+  .bcc-onb-panel { padding: 16px; }
+  .bcc-onb-preview { gap: 10px; margin-top: 22px; }
+  .bcc-onb-pv { padding: 15px; }
+  .bcc-onb-pv .n { font-size: 1.3rem; }
+  .bcc-onb-pv h3 { font-size: 1rem; margin: 8px 0 5px; }
+  .bcc-onb-foot { margin-top: 26px; }
+  .bcc-onb-btn { padding: 10px 20px; }
+  .bcc-onb-id-cover { height: 120px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bcc-onb-root *, .bcc-onb-root *::before, .bcc-onb-root *::after { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
+  .bcc-onb-rail-dot { animation: none; }
+}
+
+/* ========================================================================
+   TOUR / COACHMARK ENGINE — bcc-tour-*
+
+   The overlay drawn by TourLayer: a dimmed backdrop with a rounded
+   spotlight cut around the active target, plus an adaptive popover.
+   Theme-agnostic dim (dark scrim reads correctly over both light and dark
+   surfaces); the popover + ring track the page-chrome tokens so they flip
+   with the theme. Portalled to <body>, so it sits above all app chrome.
+   ======================================================================== */
+
+.bcc-tour-overlay { position: fixed; inset: 0; z-index: 4000; }
+.bcc-tour-scrim, .bcc-tour-scrim-svg { position: fixed; inset: 0; width: 100%; height: 100%; }
+.bcc-tour-scrim { background: rgba(9, 11, 16, 0.62); animation: bcc-tour-fade 0.2s ease both; }
+.bcc-tour-scrim-fill { fill: rgba(9, 11, 16, 0.62); }
+.bcc-tour-scrim-svg { animation: bcc-tour-fade 0.2s ease both; }
+@keyframes bcc-tour-fade { from { opacity: 0; } to { opacity: 1; } }
+
+.bcc-tour-ring {
+  position: fixed; pointer-events: none;
+  box-shadow: 0 0 0 2px var(--bcc-accent), 0 0 0 6px var(--bcc-accent-subtle), 0 0 22px 4px var(--bcc-accent-glow);
+  transition: top 0.25s var(--bcc-transition-slow), left 0.25s var(--bcc-transition-slow),
+              width 0.25s var(--bcc-transition-slow), height 0.25s var(--bcc-transition-slow);
+}
+
+.bcc-tour-pop {
+  position: fixed; z-index: 4001; width: min(340px, calc(100vw - 24px));
+  /* Glass panel — consistent with every other modal on the platform
+     (Dialog's frosted surface). Sits over the dim scrim, so the frost
+     reads as depth, not mud. */
+  background: var(--bcc-glass-bg-solid); border: 1px solid var(--bcc-glass-border);
+  backdrop-filter: var(--bcc-blur-sm); -webkit-backdrop-filter: var(--bcc-blur-sm);
+  border-radius: var(--bcc-radius-lg); box-shadow: var(--bcc-shadow-xl);
+  padding: 18px 18px 16px; outline: none;
+  animation: bcc-tour-pop-in 0.22s var(--bcc-transition-slow) both;
+}
+.bcc-tour-pop.is-center { top: 50%; left: 50%; transform: translate(-50%, -50%); width: min(420px, calc(100vw - 24px)); text-align: center; }
+@keyframes bcc-tour-pop-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+.bcc-tour-pop.is-center { animation-name: bcc-tour-pop-in-center; }
+@keyframes bcc-tour-pop-in-center { from { opacity: 0; transform: translate(-50%, -46%); } to { opacity: 1; transform: translate(-50%, -50%); } }
+
+.bcc-tour-pop-progress { font-family: var(--font-mono), monospace; font-size: 9.5px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--bcc-accent); }
+.bcc-tour-pop-title { font-family: var(--font-stencil), Impact, sans-serif; text-transform: uppercase; letter-spacing: 0.01em; font-size: 1.25rem; line-height: 1.05; margin: 8px 0 8px; color: var(--bcc-text); }
+.bcc-tour-pop-body { font-family: var(--font-serif), Georgia, serif; font-size: 0.95rem; line-height: 1.5; color: var(--bcc-text-secondary); margin: 0 0 16px; }
+.bcc-tour-pop-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.bcc-tour-pop.is-center .bcc-tour-pop-foot { justify-content: center; flex-direction: row-reverse; }
+.bcc-tour-pop-nav { display: flex; align-items: center; gap: 8px; }
+.bcc-tour-pop-skip { font-family: var(--font-mono), monospace; font-size: 11px; letter-spacing: 0.06em; background: none; border: none; color: var(--bcc-text-muted); cursor: pointer; padding: 6px 2px; }
+.bcc-tour-pop-skip:hover { color: var(--bcc-text-secondary); text-decoration: underline; text-underline-offset: 3px; }
+.bcc-tour-pop-dsa { display: flex; align-items: center; gap: 7px; margin-top: 12px; font-family: var(--font-mono), monospace; font-size: 10.5px; letter-spacing: 0.04em; color: var(--bcc-text-muted); cursor: pointer; }
+.bcc-tour-pop-dsa input { width: 14px; height: 14px; accent-color: var(--bcc-accent); cursor: pointer; }
+.bcc-tour-pop.is-center .bcc-tour-pop-dsa { justify-content: center; }
+
+.bcc-tour-btn { font-family: var(--font-stencil), Impact, sans-serif; text-transform: uppercase; letter-spacing: 0.04em; font-size: 0.76rem; padding: 6px 15px; border-radius: var(--bcc-radius-sm); border: 1.5px solid transparent; cursor: pointer; transition: background 0.18s, border-color 0.18s, color 0.18s, transform 0.18s; }
+.bcc-tour-btn-primary { background: var(--bcc-accent); color: var(--bcc-text-inverse); box-shadow: 0 4px 14px var(--bcc-accent-glow); }
+.bcc-tour-btn-primary:hover { transform: translateY(-1px); }
+.bcc-tour-btn-ghost { border-color: var(--bcc-border); background: var(--bcc-surface-raised); color: var(--bcc-text); }
+.bcc-tour-btn-ghost:hover { border-color: var(--bcc-accent); color: var(--bcc-accent); }
+
+/* Narrow screens: dock the popover to the bottom so placement math never
+   strands it off-screen. Spotlight ring still highlights the target. */
+@media (max-width: 600px) {
+  .bcc-tour-pop, .bcc-tour-pop.is-center {
+    top: auto !important; bottom: 12px; left: 12px !important; right: 12px;
+    width: auto; transform: none; text-align: left;
+    animation-name: bcc-tour-pop-in;
+  }
+  .bcc-tour-pop.is-center .bcc-tour-pop-foot { justify-content: space-between; flex-direction: row; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bcc-tour-scrim, .bcc-tour-scrim-svg, .bcc-tour-pop, .bcc-tour-ring { animation: none !important; transition: none !important; }
+}

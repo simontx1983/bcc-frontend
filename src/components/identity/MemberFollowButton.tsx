@@ -16,6 +16,7 @@ import { useSession } from "next-auth/react";
 
 import { useWatching } from "@/hooks/useWatching";
 import { useWatchMutation, useUnwatchMutation } from "@/hooks/useWatch";
+import { FOLLOW_COPY } from "@/lib/copy";
 
 export function MemberFollowButton({
   userId,
@@ -63,7 +64,7 @@ export function MemberFollowButton({
       aria-pressed={isFollowing}
       className={`bcc-btn bcc-btn-sm ${isFollowing ? "bcc-btn-ghost" : "bcc-btn-outline"} ${className}`}
     >
-      {isFollowing ? "Following" : "Follow"}
+      {isFollowing ? FOLLOW_COPY.state : FOLLOW_COPY.cta}
     </button>
   );
 }

@@ -7,6 +7,7 @@ import { useSession } from "next-auth/react";
 
 import { NewPostTrigger } from "@/components/composer/NewPostTrigger";
 import { CopyrightMark } from "@/components/layout/CopyrightMark";
+import { TourMenu } from "@/components/tour/TourMenu";
 import { LEGAL_ROUTES } from "@/lib/legal/config";
 
 const PRIMARY_NAV = [
@@ -100,6 +101,7 @@ export function LeftSidebar({ collapsed, onToggle }: LeftSidebarProps) {
                 aria-current={isActive ? "page" : undefined}
                 title={collapsed ? item.label : undefined}
                 style={collapsed ? iconOnlyItem : undefined}
+                data-bcc-tour={item.href === "/watching" ? "nav.watching" : undefined}
               >
                 <span className="bcc-nav-item-icon">{item.icon}</span>
                 {!collapsed && item.label}
@@ -126,6 +128,7 @@ export function LeftSidebar({ collapsed, onToggle }: LeftSidebarProps) {
                   </Link>
                 );
               })}
+              <TourMenu />
             </nav>
           </>
         )}

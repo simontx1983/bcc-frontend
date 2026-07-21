@@ -165,7 +165,7 @@ function Body(props: BodyProps) {
         heading={`No one is watching ${cardName} yet.`}
         hint={
           isClaimed
-            ? `Watchers light up once members start pulling this card to keep tabs on it.`
+            ? `Watchers light up once members start watching this card.`
             : `${cardName} hasn't been claimed yet — claim anchors the page so members can pull it into their roster.`
         }
       />

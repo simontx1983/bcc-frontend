@@ -63,7 +63,7 @@ export function DisputesRoom() {
         </span>
       </div>
 
-      <header className="mt-10">
+      <header className="mt-10" data-bcc-tour="disputes.panel">
         <p className="bcc-mono text-safety">DISPUTE ROOM</p>
         <h1
           className="bcc-stencil mt-2 text-cardstock leading-[0.95]"

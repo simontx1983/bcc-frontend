@@ -23,6 +23,7 @@ import { getServerSession } from "next-auth";
 import { Composer } from "@/components/composer/Composer";
 import { FeedView } from "@/components/feed/FeedView";
 import { FloorBriefing } from "@/components/landing/FloorBriefing";
+import { TourAutoStart } from "@/components/tour/TourAutoStart";
 import { getUser } from "@/lib/api/user-endpoints";
 import type { CardTier, MemberProfile } from "@/lib/api/types";
 import { authOptions } from "@/lib/auth";
@@ -63,13 +64,20 @@ export default async function HomePage({ searchParams }: PageProps) {
 
   return (
     <main className="min-h-screen pb-24">
+      {/* First-visit walkthrough of the Floor. Self-guards: won't fire if
+          already seen, or if another tour is running. */}
+      {isAuthenticated && <TourAutoStart tourId="home-feed" />}
+
       {isAuthenticated && (
         <>
           <FloorBriefing profile={viewerProfile} />
 
           {/* §D1 composer — auth-only inline status form. v1.5 quiet
               idle row; expands on click. Long-form lives on the
-              author's blog tab CREATE sub-tab. */}
+              author's blog tab CREATE sub-tab. Tagged for the home-feed
+              tour's posting step — this box is present on mobile AND
+              desktop (unlike the sidebar trigger). */}
+          <div data-bcc-tour="composer.box">
           <Composer
             viewerAvatarUrl={viewerProfile?.avatar_url}
             viewerHandle={session.user.handle}
@@ -79,6 +87,7 @@ export default async function HomePage({ searchParams }: PageProps) {
             viewerRankLabel={rankLabel}
             startExpanded={compose === "1"}
           />
+          </div>
         </>
       )}
 
