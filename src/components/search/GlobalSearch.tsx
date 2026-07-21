@@ -80,7 +80,7 @@ interface GlobalSearchProps {
 export function GlobalSearch({
   className,
   inputClassName,
-  placeholder = "Search the floor…",
+  placeholder = "Search BCC…",
   focusShortcut = false,
 }: GlobalSearchProps) {
   const router = useRouter();
@@ -234,7 +234,7 @@ export function GlobalSearch({
       className={className ? `relative ${className}` : "relative"}
     >
       <label htmlFor={inputId} className="sr-only">
-        Search the floor
+        Search BCC
       </label>
       <input
         ref={inputRef}
