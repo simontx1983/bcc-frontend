@@ -93,7 +93,8 @@ function ResultsView({ query }: { query: string }) {
   // Category filter for the Projects tab, held in the URL (`?type=`) the
   // same way `?tab=` is. Only applied when the Projects tab is active — the
   // All tab stays an unfiltered overview.
-  const rawType = searchParams.get("type");
+  // `|| null` folds a bare `?type=` (empty value) into the All state.
+  const rawType = searchParams.get("type") || null;
   const setType = (next: string | null): void => {
     const params = new URLSearchParams(searchParams.toString());
     if (next === null) {
@@ -157,8 +158,13 @@ function ResultsView({ query }: { query: string }) {
           <FilterChipRow<string | null>
             label="Category"
             options={[
+              // Our null "All" chip is the canonical all-categories option;
+              // drop the server's empty-slug "All Types" pseudo-category so
+              // it isn't rendered as a second, redundant "all" chip.
               { value: null, label: "All" },
-              ...categories.map((c) => ({ value: c.slug, label: c.name })),
+              ...categories
+                .filter((c) => c.slug !== "")
+                .map((c) => ({ value: c.slug, label: c.name })),
             ]}
             selected={selectedType}
             onSelect={setType}
