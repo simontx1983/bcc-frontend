@@ -32,6 +32,7 @@ import {
   SearchResultsTab,
   UserRow,
 } from "@/components/search/SearchResultsTab";
+import { FilterChipRow } from "@/components/ui/FilterChipRow";
 import { useSearchGroups } from "@/hooks/useSearchGroups";
 import { useSearchProjects } from "@/hooks/useSearchProjects";
 import { useSearchUsers } from "@/hooks/useSearchUsers";
@@ -89,11 +90,44 @@ function ResultsView({ query }: { query: string }) {
     });
   };
 
+  // Category filter for the Projects tab, held in the URL (`?type=`) the
+  // same way `?tab=` is. Only applied when the Projects tab is active — the
+  // All tab stays an unfiltered overview.
+  const rawType = searchParams.get("type");
+  const setType = (next: string | null): void => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (next === null) {
+      params.delete("type");
+    } else {
+      params.set("type", next);
+    }
+    const qs = params.toString();
+    router.replace((qs !== "" ? `/search?${qs}` : "/search") as Route, {
+      scroll: false,
+    });
+  };
+
   // Fire all three verticals in parallel. The currently-inactive tabs'
   // queries warm the React Query cache so tab-switch is instant.
-  const projects = useSearchProjects(query);
+  // The projects query is only type-filtered while the Projects tab is
+  // active, so the All tab and the other verticals are never narrowed.
+  const projectsType = tab === "projects" && rawType !== null ? rawType : null;
+  const projects = useSearchProjects(
+    query,
+    projectsType !== null ? { type: projectsType } : {},
+  );
   const users = useSearchUsers(query);
   const groups = useSearchGroups(query);
+
+  // Canonical category list comes from the projects response (always the
+  // full set for a valid/absent type). A `?type=` that isn't a live
+  // category slug is treated as "All" so a stale/hand-edited link can't
+  // strand the user on an empty, unrecoverable filtered view.
+  const categories = projects.data?.categories ?? [];
+  const selectedType =
+    rawType !== null && categories.some((c) => c.slug === rawType)
+      ? rawType
+      : null;
 
   const counts = {
     all:
@@ -117,6 +151,20 @@ function ResultsView({ query }: { query: string }) {
       </header>
 
       <TabBar tab={tab} setTab={setTab} counts={counts} loading={anyLoading} />
+
+      {tab === "projects" && (
+        <div className="mt-6">
+          <FilterChipRow<string | null>
+            label="Category"
+            options={[
+              { value: null, label: "All" },
+              ...categories.map((c) => ({ value: c.slug, label: c.name })),
+            ]}
+            selected={selectedType}
+            onSelect={setType}
+          />
+        </div>
+      )}
 
       <div className="mt-6">
         {tab === "all" && (
