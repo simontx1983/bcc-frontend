@@ -12,7 +12,7 @@
  *
  * Behaviour redesign (2026-05-11):
  *
- *   - Dropped the duplicated `OPERATOR · @handle` — the ViewerMenu
+ *   - Dropped the duplicated `OPERATOR · @handle` — the avatar menu
  *     below already carries the identity. Replaced with a SHIFT
  *     status badge that pulses safety-orange when the viewer has a
  *     live obligation (on_duty), goes flat-cardstock when quiet,

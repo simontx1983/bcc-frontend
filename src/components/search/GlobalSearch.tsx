@@ -15,7 +15,7 @@
  *     Each row links to the entity profile (`/v/:slug`, `/p/:slug`,
  *     `/c/:slug`). Server pre-built the route per §A2.
  *   - Keyboard: ↓/↑ moves focus, Enter activates, Esc closes,
- *     outside-click closes (mirrors the SiteHeader's ViewerMenu).
+ *     outside-click closes (mirrors the SiteHeader avatar menu).
  *   - The footer link shuttles the user to `/search?q=…` (the
  *     multi-vertical results page) when they want more than the
  *     auto-complete preview.
@@ -105,8 +105,8 @@ export function GlobalSearch({
   // who never touch the search bar.
   const trending = useTrendingSearches({ enabled: showPreSearch });
 
-  // Close on outside click + Escape — same primitive as SiteHeader's
-  // ViewerMenu. Single effect, scoped on `open` to avoid leaking
+  // Close on outside click + Escape — same primitive as the SiteHeader
+  // avatar menu. Single effect, scoped on `open` to avoid leaking
   // listeners when the dropdown is hidden.
   useEffect(() => {
     if (!open) return;

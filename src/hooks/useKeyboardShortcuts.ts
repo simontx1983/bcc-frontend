@@ -11,7 +11,7 @@
  * Why this hook exists:
  *   §11 duplicate scan found ten ad-hoc `addEventListener("keydown", …)`
  *   call sites across the SPA (GlobalSearch, MentionPopover, modals,
- *   ViewerMenu, etc.). Each handles Escape + arrow keys inline. This
+ *   the SiteHeader avatar menu, etc.). Each handles Escape + arrow keys inline. This
  *   hook is the eleventh case waiting to happen — extracted now so
  *   any future shortcut surface (admin queue, panel duty, …) plugs in
  *   instead of forking another inline listener.
