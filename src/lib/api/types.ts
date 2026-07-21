@@ -3489,10 +3489,12 @@ export interface ModerationReporterRef {
 export interface ModerationTargetRef {
   target_kind: "feed_item";
   target_id: number;
-  /** Trimmed body text (excerpt for blog, content head for status). Empty for kinds without bodies. */
+  /** Trimmed body text (excerpt for blog, content head for status/gif). Empty for kinds without bodies. */
   preview: string;
-  /** peepso act_module_id (status, blog, review, ...). Null when the activity row was deleted. */
+  /** Semantic post kind (status, blog, review, photo, gif, ...). Null when the activity row was deleted. */
   post_kind: string | null;
+  /** Canonical post permalink (/u/{handle}/post/{code}). Empty when the code or author handle could not resolve. */
+  post_url: string;
   /** Author user_id. Null when the activity row was deleted. */
   author_id: number | null;
   /** ISO 8601 UTC. Null when missing. */

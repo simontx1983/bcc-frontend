@@ -710,12 +710,25 @@ function ReportRow({
           {item.target.posted_at !== null && (
             <span> · {formatRelativeTime(item.target.posted_at)}</span>
           )}
+          {item.target.post_url !== "" && (
+            <>
+              {" · "}
+              <Link
+                href={item.target.post_url as Route}
+                className="text-bcc-text hover:underline"
+              >
+                VIEW POST ↗
+              </Link>
+            </>
+          )}
         </p>
         {item.target.preview !== "" ? (
           <p className="font-serif text-ink">{item.target.preview}</p>
         ) : (
           <p className="font-serif italic text-ink-soft">
-            (No preview available — open the activity directly to view in full.)
+            {item.target.post_url !== ""
+              ? "(No preview available — use VIEW POST to see it in full.)"
+              : "(No preview available and no permalink resolved for this activity.)"}
           </p>
         )}
       </div>
@@ -880,7 +893,13 @@ interface QueueErrorProps {
 }
 
 function QueueError({ filter, onChange, error }: QueueErrorProps) {
-  if (error.code === "bcc_forbidden") {
+  // Two codes, one meaning: the endpoint's in-handler adminGate()
+  // emits bcc_forbidden, but the REST permission_callback rejects
+  // first with WP-core's rest_forbidden — which is what non-admins
+  // actually receive. Branching on only bcc_forbidden made this panel
+  // unreachable (non-admins got the generic retry copy below, which
+  // invites retrying something that can never succeed).
+  if (error.code === "bcc_forbidden" || error.code === "rest_forbidden") {
     return (
       <div className="bcc-panel p-6">
         <p
