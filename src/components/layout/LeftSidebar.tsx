@@ -7,7 +7,6 @@ import { useSession } from "next-auth/react";
 
 import { NewPostTrigger } from "@/components/composer/NewPostTrigger";
 import { CopyrightMark } from "@/components/layout/CopyrightMark";
-import { TourMenu } from "@/components/tour/TourMenu";
 import { LEGAL_ROUTES } from "@/lib/legal/config";
 
 const PRIMARY_NAV = [
@@ -128,7 +127,6 @@ export function LeftSidebar({ collapsed, onToggle }: LeftSidebarProps) {
                   </Link>
                 );
               })}
-              <TourMenu />
             </nav>
           </>
         )}

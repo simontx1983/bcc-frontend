@@ -51,35 +51,10 @@ const HOME_FEED: TourDefinition = {
   ],
 };
 
-const RANKCHIP: TourDefinition = {
-  id: "rankchip",
-  label: "Reputation",
-  steps: [
-    {
-      target: '[data-bcc-tour="rankchip.trigger"]',
-      title: "How reputation reads.",
-      body: "The chip is a snapshot: the rank an operator has earned from what others say about them. Tap it for the full breakdown — backing, standing, and history.",
-      placement: "auto",
-      // Rankchips live on the feed — launch here from anywhere.
-      route: "/",
-    },
-  ],
-};
-
-const COMPOSER: TourDefinition = {
-  id: "composer",
-  label: "Posting",
-  steps: [
-    {
-      target: '[data-bcc-tour="composer.trigger"]',
-      title: "Start a post.",
-      body: "Share an update, attach media, or link a review. Keep it real — this is a record, not a feed of noise.",
-      placement: "auto",
-      // The composer trigger sits in the sidebar on the Floor.
-      route: "/",
-    },
-  ],
-};
+// NOTE: there are deliberately NO standalone "rankchip" or "composer"
+// tours. The rank-explainer modal and the composer box each explain
+// themselves on open, so a separate spotlight tour would be redundant.
+// The home-feed tour already points both out on first visit.
 
 const PROFILE: TourDefinition = {
   id: "profile",
@@ -109,8 +84,6 @@ const DISPUTES: TourDefinition = {
 
 export const tourRegistry: Record<string, TourDefinition> = {
   [HOME_FEED.id]: HOME_FEED,
-  [RANKCHIP.id]: RANKCHIP,
-  [COMPOSER.id]: COMPOSER,
   [PROFILE.id]: PROFILE,
   [DISPUTES.id]: DISPUTES,
 };
