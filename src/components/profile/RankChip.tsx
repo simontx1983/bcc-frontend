@@ -16,24 +16,39 @@
  * `sr-only` prefix and exposed as a `title` tooltip. Sighted users see
  * the rank word; the tier comes through as the dot color.
  *
- * For `card_tier: null` (unknown / no tier yet) the dot falls back to a
- * neutral grey with no glow so the rank still ships — no false risk
- * signal. The true risky-RED dot needs an explicit server tier (see the
- * backend handover); see TIER_DOT below for the colour rationale.
+ * Canonical color source is `reputationTier` (the real 5-band axis,
+ * including a true risky-RED dot). `cardTier` is a legacy fallback for
+ * the handful of card-only view-models with no `reputation_tier` field —
+ * see DOT_BY_REPUTATION_TIER / TIER_DOT below for the split rationale.
  */
 
 "use client";
 
 import { useState } from "react";
+import { Star } from "lucide-react";
 
 import { RankInfoModal } from "@/components/identity/RankInfoModal";
-import type { CardTier } from "@/lib/api/types";
+import type { CardTier, ReputationTier } from "@/lib/api/types";
 
 type RankChipSize = "default" | "compact" | "micro";
 
 interface RankChipProps {
-  /** §C1 card-tier slug, or null for risky-tier users (no tier accent). */
-  cardTier: CardTier;
+  /**
+   * §C1 card-tier slug, or null for risky-tier users (no tier accent).
+   * Legacy fallback — only consulted when `reputationTier` is omitted.
+   * Card-only view-models (directory/search suggestion surfaces) have no
+   * `reputation_tier` field at all and still rely on this path.
+   */
+  cardTier?: CardTier;
+  /**
+   * The canonical trust-band signal (`risky | caution | neutral | trusted
+   * | elite`), already server-resolved. Takes priority over `cardTier`
+   * when present (including explicitly `null` — "no tier data yet") since
+   * it's the only path that can render the true risky-red dot (`cardTier`
+   * is always `null` for risky by design — see TIER_DOT below). Prefer
+   * this prop for any new caller.
+   */
+  reputationTier?: ReputationTier | null;
   /** Pre-rendered §A2 tier display string ("Uncommon", etc.) — used for sr-only + tooltip only. */
   tierLabel: string | null;
   /**
@@ -41,6 +56,14 @@ interface RankChipProps {
    * the component renders nothing — caller doesn't need to guard.
    */
   rankLabel: string;
+  /**
+   * Foreman is a conferred role, not a rank rung or trust tier (see
+   * docs/trust-rank redesign notes) — a permanent purple star marker +
+   * chip border layered on top of whatever rank/tier the member also
+   * carries. The star (not a plain dot) is deliberate — it needs to read
+   * as its own signal at a glance, not just another tier color.
+   */
+  isForeman?: boolean;
   /**
    * "default" — profile hero (11px text, 6px rail).
    * "compact" — directory rows / member cards (10px text, 4px rail).
@@ -79,11 +102,23 @@ interface RankChipProps {
 // of this user/page → gold = elite), not a scarcity palette. The colors
 // are the semantic --bcc-trust-* ramp, never the --bcc-tier-* rarity set.
 //
-// Keyed by card_tier (the prop we receive). card_tier ⇆ reputation band:
-// legendary=elite, rare=trusted, uncommon=neutral, common=caution.
-// `null` card_tier = unknown / no-tier-yet → neutral grey, NO glow. The
-// true risky-RED dot needs the server to send an explicit reputation
-// tier (FeedAuthor doesn't always ship one) — see the backend handover.
+// Canonical: keyed directly by reputation_tier (the real 5-band axis).
+// Covers `risky`, which `cardTier` structurally cannot represent (the
+// server maps risky → card_tier:null so risky entities are hidden from
+// card-collecting UI — see ReputationTierMap::TIER_TO_CARD). Prefer this
+// map whenever the caller has a real `reputation_tier`.
+const DOT_BY_REPUTATION_TIER: Record<ReputationTier, { color: string; glow: boolean }> = {
+  risky:   { color: "var(--bcc-trust-risky)",   glow: true  },
+  caution: { color: "var(--bcc-trust-caution)", glow: true  },
+  neutral: { color: "var(--bcc-trust-neutral)", glow: false },
+  trusted: { color: "var(--bcc-trust-trusted)", glow: true  },
+  elite:   { color: "var(--bcc-trust-elite)",   glow: true  },
+};
+
+// Legacy fallback — only consulted when the caller has no reputationTier
+// at all (card-only view-models: directory/search-suggestion surfaces).
+// Keyed by card_tier ⇆ reputation band: legendary=elite, rare=trusted,
+// uncommon=neutral, common=caution. `null`/absent → neutral grey, no glow.
 const TIER_DOT: Record<NonNullable<CardTier>, { color: string; glow: boolean }> = {
   legendary: { color: "var(--bcc-trust-elite)",   glow: true  },
   rare:      { color: "var(--bcc-trust-trusted)",  glow: true  },
@@ -101,8 +136,10 @@ const SIZE_STYLES: Record<RankChipSize, { dot: number; gap: string; pad: string;
 
 export function RankChip({
   cardTier,
+  reputationTier,
   tierLabel,
   rankLabel,
+  isForeman = false,
   size = "default",
   className,
   handle,
@@ -115,10 +152,21 @@ export function RankChip({
   }
 
   const sizeStyles = SIZE_STYLES[size];
-  const dot = cardTier !== null ? TIER_DOT[cardTier] : NO_TIER_DOT;
+  // Canonical path: a real reputationTier (even explicitly null) always
+  // wins over the legacy cardTier translation — see DOT_BY_REPUTATION_TIER
+  // doc comment above for why cardTier can't represent risky.
+  const dot =
+    reputationTier !== undefined
+      ? reputationTier !== null
+        ? DOT_BY_REPUTATION_TIER[reputationTier]
+        : NO_TIER_DOT
+      : cardTier !== undefined && cardTier !== null
+        ? TIER_DOT[cardTier]
+        : NO_TIER_DOT;
 
   const baseClass = [
-    "bcc-mono inline-flex items-center rounded-full border border-[var(--bcc-border)] bg-transparent text-[var(--bcc-text)] tracking-[0.18em]",
+    "bcc-mono inline-flex items-center rounded-full border bg-transparent text-[var(--bcc-text)] tracking-[0.18em]",
+    isForeman ? "border-[var(--bcc-trust-foreman)]" : "border-[var(--bcc-border)]",
     sizeStyles.gap,
     sizeStyles.pad,
     sizeStyles.font,
@@ -144,6 +192,20 @@ export function RankChip({
         }}
       />
       {rankLabel.toUpperCase()}
+      {isForeman && (
+        <>
+          <span title="Foreman — conferred role" style={{ display: "inline-flex", flexShrink: 0 }}>
+            <Star
+              aria-hidden
+              size={sizeStyles.dot + 4}
+              fill="var(--bcc-trust-foreman)"
+              stroke="var(--bcc-trust-foreman)"
+              strokeWidth={1}
+            />
+          </span>
+          <span className="sr-only"> — Foreman, a conferred role</span>
+        </>
+      )}
     </>
   );
 
@@ -191,7 +253,7 @@ export function RankChip({
       {onOpenRankInfo === undefined && open && (
         <RankInfoModal
           handle={handle}
-          cardTier={cardTier}
+          cardTier={cardTier ?? null}
           tierLabel={tierLabel}
           rankLabel={rankLabel}
           onClose={() => setOpen(false)}
