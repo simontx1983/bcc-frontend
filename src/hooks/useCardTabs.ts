@@ -27,6 +27,7 @@ import type {
   CardReviewsResponse,
   CardWatchersResponse,
   EntityCardKind,
+  ReviewTargetKind,
 } from "@/lib/api/types";
 
 const DEFAULT_PER_PAGE = 20;
@@ -36,7 +37,7 @@ export const CARD_REVIEWS_QUERY_KEY_ROOT  = ["entities", "reviews"]  as const;
 export const CARD_WATCHERS_QUERY_KEY_ROOT = ["entities", "watchers"] as const;
 
 export function useCardReviews(
-  kind: EntityCardKind,
+  kind: ReviewTargetKind,
   id: number,
   page: number = 1,
 ) {

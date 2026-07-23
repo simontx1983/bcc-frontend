@@ -1,9 +1,12 @@
 "use client";
 
 /**
- * CardReviewsPanel — entity-profile Reviews tab content.
+ * CardReviewsPanel — Reviews tab content for entity profiles AND
+ * member profiles (v1.48: kind `user_profile` reads a member's
+ * received reviews; `cardId` is then the raw user id, translated to
+ * the self-page server-side).
  *
- * Paginated list of reviews filed against the entity (server filters
+ * Paginated list of reviews filed against the target (server filters
  * by `votes.page_id`). Each row shows:
  *   - GRADE pill (A/B/C, safety / cardstock-deep / dispute color)
  *   - Author MemberRow (avatar + display_name + handle + rank chip)
@@ -26,12 +29,12 @@ import { useCardReviews } from "@/hooks/useCardTabs";
 import { humanizeCode } from "@/lib/api/errors";
 import type {
   CardReview,
-  EntityCardKind,
   MemberSummary,
+  ReviewTargetKind,
 } from "@/lib/api/types";
 
 interface CardReviewsPanelProps {
-  kind: EntityCardKind;
+  kind: ReviewTargetKind;
   cardId: number;
   cardName: string;
 }

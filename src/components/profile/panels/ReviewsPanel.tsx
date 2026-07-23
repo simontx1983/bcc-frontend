@@ -1,9 +1,15 @@
 "use client";
 
 /**
- * ReviewsPanel — paper sheet listing the member's written reviews.
+ * ReviewsPanel — paper sheet listing the member's WRITTEN reviews
+ * (the "Written" tab since the v1.48 split; received reviews live on
+ * the sibling Reviews tab via CardReviewsPanel kind="user_profile").
  * Letter-grade boxes anchor each row; subject + scope + line-clamped
  * preview body to the right.
+ *
+ * Member-target rows carry scope_label MEMBER and may have an empty
+ * subject_handle (handle-less account) — the ON @… link is suppressed
+ * rather than rendering a bare "ON @".
  *
  * Lazy-fetches via useUserReviews on mount.
  */
@@ -150,10 +156,12 @@ function ReviewsPanelStatic({ reviews }: { reviews: MemberReview[] }) {
                   className="bcc-mono mt-2 flex flex-wrap gap-3 text-ink-ghost"
                   style={{ fontSize: "9px", letterSpacing: "0.14em" }}
                 >
-                  <span>
-                    ON <strong className="text-safety" style={{ fontWeight: 500 }}>@{review.subject_handle}</strong>
-                  </span>
-                  <span>· {review.posted_at_label}</span>
+                  {review.subject_handle !== "" && (
+                    <span>
+                      ON <strong className="text-safety" style={{ fontWeight: 500 }}>@{review.subject_handle}</strong>
+                    </span>
+                  )}
+                  <span>{review.subject_handle !== "" ? "· " : ""}{review.posted_at_label}</span>
                 </div>
               </div>
             </li>
@@ -181,7 +189,7 @@ function Header() {
   return (
     <header className="bcc-paper-head">
       <h3 className="bcc-stencil" style={{ fontSize: "16px", letterSpacing: "0.18em" }}>
-        Reviews on file
+        Reviews written
       </h3>
       <span className="bcc-mono text-weld" style={{ fontSize: "9px" }}>
         MOST RECENT FIRST

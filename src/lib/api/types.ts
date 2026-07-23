@@ -2122,11 +2122,19 @@ export interface UserFollowsResponse {
 // ─────────────────────────────────────────────────────────────────────
 
 /**
- * The three entity-card kinds the new endpoints accept. `user_profile`
- * isn't here — /users/{handle}/reviews already serves that target.
+ * The three entity-card kinds the §Phase 2 tab endpoints accept.
  * Wire shape mirrors the §J.6 target_kind taxonomy.
  */
 export type EntityCardKind = "validator_card" | "project_card" | "creator_card";
+
+/**
+ * Target kinds `/entities/{kind}/{id}/reviews` accepts (v1.48).
+ * `user_profile` reads a member's RECEIVED reviews — its id is the RAW
+ * user id (the server translates to the member's self-page). Public,
+ * like entity reviews; `reviews_hidden` governs only the written list
+ * on /users/{handle}/reviews.
+ */
+export type ReviewTargetKind = EntityCardKind | "user_profile";
 
 /**
  * One row in `/entities/{kind}/{id}/reviews`. Author is the full
