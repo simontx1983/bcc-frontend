@@ -26,7 +26,7 @@
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 
-import { OnboardingWizard } from "@/components/onboarding/OnboardingWizard";
+import { isValidStep, OnboardingWizard, type Step } from "@/components/onboarding/OnboardingWizard";
 import { getOnboardingStatusServerSide } from "@/lib/api/onboarding-endpoints";
 import type { MemberProfile } from "@/lib/api/types";
 import { getUser } from "@/lib/api/user-endpoints";
@@ -36,7 +36,7 @@ export default async function OnboardingPage({
   searchParams,
 }: {
   // Next 15: searchParams is async.
-  searchParams: Promise<{ preview?: string }>;
+  searchParams: Promise<{ preview?: string; step?: string }>;
 }) {
   const session = await getServerSession(authOptions);
   if (session === null) {
@@ -47,8 +47,14 @@ export default async function OnboardingPage({
   // "already onboarded → /" gate so the wizard can be viewed without
   // resetting the backend flag. Completing again is idempotent, so this
   // is harmless to leave enabled.
-  const { preview } = await searchParams;
+  const { preview, step: stepParam } = await searchParams;
   const previewMode = preview === "1";
+
+  // Resume deep link (task 7) — `?step=<step>` from the home feed's
+  // "resume setup?" prompt. Untrusted input, validated against the real
+  // step union; anything else falls through to the normal "welcome" start.
+  const initialStep: Step | undefined =
+    stepParam !== undefined && isValidStep(stepParam) ? stepParam : undefined;
 
   // Fresh-read the onboarding flag. Failure is non-fatal — render the
   // wizard so the user isn't stranded; completing again is idempotent.
@@ -78,6 +84,7 @@ export default async function OnboardingPage({
     <OnboardingWizard
       handle={session.user.handle}
       profile={profile ?? placeholderProfile(session.user.handle)}
+      {...(initialStep !== undefined ? { initialStep } : {})}
     />
   );
 }

@@ -23,6 +23,7 @@ import { getServerSession } from "next-auth";
 import { Composer } from "@/components/composer/Composer";
 import { FeedView } from "@/components/feed/FeedView";
 import { FloorBriefing } from "@/components/landing/FloorBriefing";
+import { ResumeOnboardingPrompt } from "@/components/onboarding/ResumeOnboardingPrompt";
 import { TourAutoStart } from "@/components/tour/TourAutoStart";
 import { getUser } from "@/lib/api/user-endpoints";
 import type { CardTier, MemberProfile } from "@/lib/api/types";
@@ -67,6 +68,11 @@ export default async function HomePage({ searchParams }: PageProps) {
       {/* First-visit walkthrough of the Floor. Self-guards: won't fire if
           already seen, or if another tour is running. */}
       {isAuthenticated && <TourAutoStart tourId="home-feed" />}
+
+      {/* "Resume setup?" nudge for an interrupted onboarding wizard.
+          Self-guards: renders nothing unless real, undismissed progress
+          exists in localStorage — see its own doc comment. */}
+      {isAuthenticated && <ResumeOnboardingPrompt />}
 
       {isAuthenticated && (
         <>

@@ -29,7 +29,7 @@
  * the watching step's bias chips + the dopamine step's /complete call.
  */
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { DopamineStep } from "@/components/onboarding/DopamineStep";
 import { FirstPullsStep } from "@/components/onboarding/FirstPullsStep";
@@ -38,13 +38,14 @@ import { NotificationsStep } from "@/components/onboarding/NotificationsStep";
 import { OnboardingTrustLayerSteps } from "@/components/onboarding/OnboardingTrustLayerSteps";
 import { WelcomeStep } from "@/components/onboarding/WelcomeStep";
 import { useWizardPulls } from "@/components/onboarding/useWizardPulls";
+import { clearOnboardingProgress, setOnboardingProgress } from "@/lib/onboarding/storage";
 import type { HomeChain, MemberProfile } from "@/lib/api/types";
 
 // ─────────────────────────────────────────────────────────────────────
 // Step machine
 // ─────────────────────────────────────────────────────────────────────
 
-type Step =
+export type Step =
   | "welcome"
   | "identity"
   | "trust"
@@ -63,6 +64,11 @@ const STEP_ORDER: readonly Step[] = [
   "dopamine",
 ];
 
+/** Type guard for a resume deep link's `?step=` query param — untrusted input. */
+export function isValidStep(value: string): value is Step {
+  return (STEP_ORDER as readonly string[]).includes(value);
+}
+
 const STEP_LABEL: Record<Step, string> = {
   welcome:       "Welcome",
   identity:      "Your identity",
@@ -76,12 +82,29 @@ export interface OnboardingWizardProps {
   handle: string;
   /** Server-fetched own profile — seeds the identity step's avatar/cover/bio. */
   profile: MemberProfile;
+  /**
+   * Deep-link entry point for the "resume setup?" prompt (task 7) — start
+   * the machine here instead of "welcome". Omitted → normal fresh start.
+   */
+  initialStep?: Step;
 }
 
-export function OnboardingWizard({ handle, profile }: OnboardingWizardProps) {
-  const [step, setStep] = useState<Step>("welcome");
+export function OnboardingWizard({ handle, profile, initialStep }: OnboardingWizardProps) {
+  const [step, setStep] = useState<Step>(initialStep ?? "welcome");
   const [homeChain, setHomeChain] = useState<HomeChain | null>(null);
   const pulls = useWizardPulls();
+
+  // Step-progress persistence (task 7) — the local half of "resume
+  // setup?". Reaching the send-off screen means the wizard is done (either
+  // completed normally or via "Skip setup"), so that's the clear signal,
+  // not a step to persist as a resume point.
+  useEffect(() => {
+    if (step === "dopamine") {
+      clearOnboardingProgress();
+    } else {
+      setOnboardingProgress(step);
+    }
+  }, [step]);
 
   const stepIndex = STEP_ORDER.indexOf(step);
   const progressPct = Math.round((stepIndex / (STEP_ORDER.length - 1)) * 100);
