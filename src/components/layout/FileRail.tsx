@@ -74,17 +74,17 @@ export function FileRail({
   extraMeta,
 }: FileRailProps) {
   return (
-    <div className="border-b border-dashed border-cardstock/15">
+    <div className="border-b border-dashed border-bcc-border">
       <div className="mx-auto flex max-w-[1440px] flex-wrap items-center justify-between gap-4 px-4 py-3 sm:px-7">
-        <span className="bcc-mono inline-flex items-center gap-2 text-cardstock-deep">
+        <span className="bcc-mono inline-flex items-center gap-2 text-bcc-text-secondary">
           <span className="bcc-rail-dot" aria-hidden />
           <span>FLOOR &nbsp;//&nbsp; {kind.toUpperCase()}</span>
-          <span className="text-cardstock">{subject}</span>
+          <span className="text-bcc-text">{subject}</span>
           {isOwner && (
-            <span className="text-phosphor">&nbsp;·&nbsp;YOU</span>
+            <span className="text-verified">&nbsp;·&nbsp;YOU</span>
           )}
         </span>
-        <span className="bcc-mono inline-flex flex-wrap items-center gap-x-4 gap-y-1 text-cardstock/50">
+        <span className="bcc-mono inline-flex flex-wrap items-center gap-x-4 gap-y-1 text-bcc-text-muted">
           {joinedLabel !== null && joinedLabel !== undefined && joinedLabel !== "" && (
             <span>JOINED&nbsp;{joinedLabel}</span>
           )}
