@@ -31,6 +31,8 @@ import { useSearchParams } from "next/navigation";
 import { Skeleton } from "@/components/ui/Skeleton";
 import type { MeReliabilityResponse, MemberLiving, MemberProfile, MemberProgression, MemberTabCount } from "@/lib/api/types";
 
+import { CardReviewsPanel } from "@/components/entity/panels/CardReviewsPanel";
+
 import { ActivityPanel } from "./panels/ActivityPanel";
 import { BackingPanel } from "./panels/BackingPanel";
 import { ComingSoonPanel } from "./panels/ComingSoonPanel";
@@ -59,14 +61,21 @@ const BlogPanel = dynamic(
  * tabs that aren't yet part of the §9 Phase-4 tab metadata contract
  * (e.g. "photos" — placeholder slot for the upcoming media gallery,
  * shown as ComingSoonPanel until the server ships counts for it).
- * When the server's `tabs` prop is passed it carries only the contract
- * keys; the FE-only tabs are appended from DEFAULT_TABS.
+ *
+ * Caveat: when a server `tabs` prop is passed it REPLACES the default
+ * list wholesale — FE-only tabs (photos/backing/setup/profile/blog/
+ * written) do not render in that mode, and the contract's `reviews`
+ * count still carries written-list semantics while the Reviews tab
+ * shows received reviews (v1.48 split). No caller passes `tabs` today
+ * (/u/[handle] uses DEFAULT_TABS); if Phase-4 metadata ever ships,
+ * append the FE-only tabs and reconcile the `reviews` count first.
  */
-type TabKey = MemberTabCount["key"] | "photos" | "backing" | "setup" | "profile" | "blog";
+type TabKey = MemberTabCount["key"] | "photos" | "backing" | "setup" | "profile" | "blog" | "written";
 
 const TAB_KEYS: ReadonlyArray<TabKey> = [
   "activity",
   "reviews",
+  "written",
   "watching",
   "disputes",
   "network",
@@ -98,7 +107,13 @@ const DEFAULT_TABS: ReadonlyArray<{ key: TabKey; label: string; soon?: boolean; 
   // one answered by the panel content (even though Profile is the
   // first tab in the strip).
   { key: "backing",  label: "Backing" },
+  // v1.48 split: "Reviews" = reviews RECEIVED (filed on this member's
+  // self-page — public trust signal, mirrors entity cards); "Written"
+  // = reviews this member authored. The pre-v1.48 single tab showed
+  // authored under a "Reviews on file" header — misleading once
+  // member-target reviews existed.
   { key: "reviews",  label: "Reviews" },
+  { key: "written",  label: "Written" },
   { key: "activity", label: "Activity" },
   // §3.1 — bidirectional follow graph (followers + following).
   // Renamed from "Watching" because "Watching" leaned outgoing-only
@@ -326,7 +341,14 @@ export function ProfileTabs({
                 reputationScore={reputationScore}
               />
             )}
-            {active === "reviews"  && <ReviewsPanel handle={handle} />}
+            {active === "reviews"  && (
+              <CardReviewsPanel
+                kind="user_profile"
+                cardId={targetUserId}
+                cardName={displayName}
+              />
+            )}
+            {active === "written"  && <ReviewsPanel handle={handle} />}
             {active === "disputes" && <DisputesPanel handle={handle} />}
             {active === "watching" && (
               <WatchingPanel handle={handle} displayName={displayName} />

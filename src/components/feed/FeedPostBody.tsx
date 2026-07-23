@@ -34,11 +34,13 @@ const REVIEW_GRADE_LABELS: Record<string, { label: string; accent: string }> = {
   caution: { label: "CAUTION", accent: "var(--safety)" },
 };
 
-/** card_kind → entity-route prefix. Mirrors CardUrlMap on the server. */
+/** card_kind → entity-route prefix. Mirrors CardUrlMap on the server.
+ *  `member` (v1.48) is a reviewed member — links to their /u profile. */
 const REVIEW_KIND_PREFIX: Record<string, string> = {
   validator: "/v",
   project:   "/p",
   creator:   "/c",
+  member:    "/u",
 };
 
 export function ReviewBody({ body }: { body: Record<string, unknown> }) {

@@ -74,6 +74,7 @@ import {
   type GroupPostVisibility,
   type ReviewGrade,
 } from "@/lib/api/types";
+import { CARD_REVIEWS_QUERY_KEY_ROOT } from "@/hooks/useCardTabs";
 import { FEED_QUERY_KEY_ROOT, HOT_FEED_QUERY_KEY } from "@/hooks/useFeed";
 import { HIGHLIGHTS_QUERY_KEY } from "@/hooks/useHighlights";
 import {
@@ -1225,11 +1226,15 @@ function ReviewForm({
       void queryClient.invalidateQueries({ queryKey: HOT_FEED_QUERY_KEY });
       void queryClient.invalidateQueries({ queryKey: USER_ACTIVITY_QUERY_KEY_ROOT });
       void queryClient.invalidateQueries({ queryKey: HIGHLIGHTS_QUERY_KEY });
-      // Member reviews land on the target's self-page → refresh their
-      // "reviews on file" list so the new entry surfaces.
-      if (target.kind === "member") {
-        void queryClient.invalidateQueries({ queryKey: USER_REVIEWS_QUERY_KEY_ROOT });
-      }
+      // The target's received-reviews list (entity Reviews tab, or the
+      // member-profile Reviews tab since the v1.48 split) reads
+      // /entities/{kind}/{id}/reviews — refresh it so the new review
+      // surfaces without a manual reload.
+      void queryClient.invalidateQueries({ queryKey: CARD_REVIEWS_QUERY_KEY_ROOT });
+      // The author's written list (/users/:handle/reviews → the
+      // Written tab) includes entity- AND member-target reviews, so
+      // refresh it unconditionally.
+      void queryClient.invalidateQueries({ queryKey: USER_REVIEWS_QUERY_KEY_ROOT });
       onSubmitSuccess?.();
     } catch (err) {
       setError(humanizeReviewError(err));

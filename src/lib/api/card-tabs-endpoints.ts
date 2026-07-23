@@ -14,6 +14,7 @@ import type {
   CardReviewsResponse,
   CardWatchersResponse,
   EntityCardKind,
+  ReviewTargetKind,
 } from "@/lib/api/types";
 
 interface PageParams {
@@ -52,12 +53,16 @@ function buildOffsetQuery(params: OffsetParams): string {
 
 /**
  * GET /entities/{kind}/{id}/reviews — paginated list of reviews filed
- * against this entity. Each row carries the full MemberSummary of the
+ * against this target. Each row carries the full MemberSummary of the
  * review's author. Cache: anon `public, max-age=30`; authed
  * `private, max-age=30`.
+ *
+ * v1.48: `kind` also accepts `user_profile` (member received reviews);
+ * its `id` is the raw user id — the server translates to the member's
+ * self-page.
  */
 export function getCardReviews(
-  kind: EntityCardKind,
+  kind: ReviewTargetKind,
   id: number,
   params: PageParams = {},
   signal?: AbortSignal,
