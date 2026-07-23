@@ -23,8 +23,11 @@ interface SettingsTab {
   label: string;
 }
 
+// "Profile" is intentionally absent: profile editing (avatar/cover,
+// handle, profile fields) moved to the owner-only "My Profile" tab on
+// /u/[handle], and /settings/profile now just redirects there. Listing
+// it here would bounce the operator out of the settings shell mid-nav.
 const TABS: SettingsTab[] = [
-  { href: "/settings/profile"       as Route, label: "Profile" },
   { href: "/settings/privacy"       as Route, label: "Privacy" },
   { href: "/settings/notifications" as Route, label: "Notifications" },
   { href: "/settings/messages"      as Route, label: "Messages" },
