@@ -454,10 +454,20 @@ export interface Card {
   /**
    * §D2 — true when the current viewer has already cast a review on
    * this page. Drives ReviewCallout's "WRITE A REVIEW" → "REMOVE
-   * YOUR REVIEW" CTA swap. Always false for anonymous viewers and
-   * for member cards (members are reviewed via different surface).
+   * YOUR REVIEW" CTA swap. Always false for anonymous viewers.
+   * v1.49: REAL on member cards too (a vote on the member's
+   * self-page) — the old "always false on member cards" rule is
+   * retired.
    */
   viewer_has_reviewed: boolean;
+  /**
+   * v1.49 — member cards only (absent on other kinds): the member's
+   * self-page id, i.e. the page their reviews live on. This is the
+   * `:id` passed to DELETE /me/reviews/:id to remove the viewer's
+   * review of this member. The client never derives ID_BASE itself
+   * (§L5). Optional during the v1.49 backend rollout.
+   */
+  review_target_id?: number;
   /**
    * §V1.5 — true when the current viewer has already endorsed this
    * page. Drives EndorseButton's "ENDORSE" → "REMOVE ENDORSEMENT"
@@ -3307,6 +3317,13 @@ export interface MemberCounts {
   following: number;
   watching_size: number;
   reviews_written: number;
+  /**
+   * v1.49 — reviews RECEIVED: votes filed on the member's self-page
+   * (what the /u Reviews tab lists since the v1.48 split). Public by
+   * the 2026-07-22 decision — never zeroed by reviews_hidden.
+   * Optional during the v1.49 backend rollout.
+   */
+  reviews_received?: number;
   disputes_signed: number;
   solids_given: number;
   solids_received: number;
@@ -3951,11 +3968,17 @@ export interface MemberTabCount {
   key:
     | "watching"
     | "reviews"
+    | "written"
     | "activity"
     | "disputes"
     | "network"
     | "groups";
   label: string;
+  /**
+   * v1.49 split: key `reviews` counts reviews RECEIVED (matches the
+   * tab's content since v1.48; public — never hidden), key `written`
+   * counts reviews AUTHORED (reviews_hidden governed).
+   */
   count: number;
   /**
    * §K2: server marks a tab `hidden=true` for non-self viewers when the

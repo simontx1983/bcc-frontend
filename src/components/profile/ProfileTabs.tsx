@@ -73,12 +73,13 @@ const BlogPanel = dynamic(
  * shown as ComingSoonPanel until the server ships counts for it).
  *
  * Caveat: when a server `tabs` prop is passed it REPLACES the default
- * list wholesale — FE-only tabs (photos/backing/setup/profile/blog/
- * written) do not render in that mode, and the contract's `reviews`
- * count still carries written-list semantics while the Reviews tab
- * shows received reviews (v1.48 split). No caller passes `tabs` today
- * (/u/[handle] uses DEFAULT_TABS); if Phase-4 metadata ever ships,
- * append the FE-only tabs and reconcile the `reviews` count first.
+ * list wholesale — FE-only tabs (photos/backing/setup/profile/blog)
+ * do not render in that mode. No caller passes `tabs` today
+ * (/u/[handle] uses DEFAULT_TABS + the receivedCount/writtenCount
+ * badge props); if Phase-4 metadata ever ships, append the FE-only
+ * tabs first. Count semantics are reconciled as of v1.49: the
+ * contract's `reviews` tab counts RECEIVED and `written` counts
+ * authored, matching the badge props.
  */
 type TabKey = MemberTabCount["key"] | "photos" | "backing" | "setup" | "profile" | "blog" | "written";
 
@@ -225,6 +226,14 @@ export interface ProfileTabsProps {
    * own blog" link when the viewer is signed in but not the owner.
    */
   viewerHandle?: string | null;
+  /**
+   * v1.49 count badges for the default-tabs path (the server `tabs`
+   * prop is still unused — see the TabKey caveat above). Fed from
+   * `profile.counts.reviews_received` / `reviews_written`; undefined
+   * hides the badge (pre-v1.49 payloads).
+   */
+  receivedCount?: number | undefined;
+  writtenCount?: number | undefined;
 }
 
 export function ProfileTabs({
@@ -240,6 +249,8 @@ export function ProfileTabs({
   reliability,
   isSignedIn = false,
   viewerHandle = null,
+  receivedCount,
+  writtenCount,
 }: ProfileTabsProps) {
   // `?tab=<key>` drives the panel — external deep links (Floor composer
   // escalation, "Open your blog →", and the retired /settings/* redirects)
@@ -292,7 +303,17 @@ export function ProfileTabs({
     return true;
   });
 
-  const tabsToRender: TabRow[] = tabs ?? filteredDefaults.map((t) => ({ ...t }));
+  // v1.49 — count badges on the review tabs (default-tabs path only;
+  // a server `tabs` prop carries its own counts).
+  const tabsToRender: TabRow[] = tabs ?? filteredDefaults.map((t) => {
+    if (t.key === "reviews" && receivedCount !== undefined) {
+      return { ...t, count: receivedCount };
+    }
+    if (t.key === "written" && writtenCount !== undefined) {
+      return { ...t, count: writtenCount };
+    }
+    return { ...t };
+  });
 
   // Resolve the requested tab against what THIS VIEWER is allowed to see.
   // The ownerOnly filter above only removes the button from the strip —
