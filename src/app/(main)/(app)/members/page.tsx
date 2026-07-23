@@ -231,12 +231,12 @@ function MembersPageContent() {
       <header className="mx-auto max-w-[1560px] px-4 sm:px-7 pt-12">
         <p className="bcc-mono text-safety">THE ROSTER</p>
         <h1
-          className="bcc-stencil mt-3 text-cardstock leading-[0.95]"
+          className="bcc-stencil mt-3 text-bcc-text leading-[0.95]"
           style={{ fontSize: "clamp(2.5rem, 6.5vw, 5.5rem)" }}
         >
           Every operator on the floor.
         </h1>
-        <p className="mt-4 max-w-2xl font-serif text-lg leading-relaxed text-cardstock-deep">
+        <p className="mt-4 max-w-2xl font-serif text-lg leading-relaxed text-bcc-text-secondary">
           Members in good standing, sorted by who joined most recently. Search
           by handle or name. Click anyone to read their file.
         </p>
@@ -244,7 +244,7 @@ function MembersPageContent() {
 
       <section className="mx-auto mt-10 flex max-w-[1560px] flex-col gap-6 px-4 sm:px-7">
         <label className="flex flex-col gap-1.5">
-          <span className="bcc-mono text-[10px] tracking-[0.24em] text-cardstock-deep">
+          <span className="bcc-mono text-[10px] tracking-[0.24em] text-bcc-text-secondary">
             SEARCH
           </span>
           <input
@@ -253,7 +253,7 @@ function MembersPageContent() {
             onChange={(e) => setLocalQ(e.target.value)}
             placeholder="Handle or display name…"
             maxLength={64}
-            className="bcc-mono w-full max-w-md rounded-sm border border-cardstock-edge bg-cardstock-deep/40 px-3 py-2 text-cardstock outline-none placeholder:text-cardstock-deep/60 focus:border-blueprint focus:ring-1 focus:ring-blueprint"
+            className="bcc-mono w-full max-w-md rounded-sm border border-bcc-input-border bg-bcc-input-bg px-3 py-2 text-bcc-text outline-none placeholder:text-bcc-text-placeholder focus:border-bcc-accent focus:ring-1 focus:ring-bcc-accent"
           />
         </label>
         <TypeFilterRow
@@ -273,7 +273,7 @@ function MembersPageContent() {
 
       <section className="mx-auto mt-8 max-w-[1560px] px-4 sm:px-7">
         {query.isPending && (
-          <p className="bcc-mono text-cardstock-deep">Loading the roster…</p>
+          <p className="bcc-mono text-bcc-text-secondary">Loading the roster…</p>
         )}
 
         {query.isError && (
@@ -309,7 +309,7 @@ function MembersPageContent() {
 
         {query.isSuccess && query.data.items.length > 0 && (
           <>
-            <p className="bcc-mono mb-4 text-cardstock-deep">
+            <p className="bcc-mono mb-4 text-bcc-text-secondary">
               {query.data.pagination.total} OPERATOR
               {query.data.pagination.total === 1 ? "" : "S"}
               {urlQ !== "" && ` MATCHING "${urlQ.toUpperCase()}"`}
@@ -346,7 +346,7 @@ function TypeFilterRow({
 }) {
   return (
     <div className="flex flex-col gap-2">
-      <span className="bcc-mono text-[10px] tracking-[0.24em] text-cardstock-deep">
+      <span className="bcc-mono text-[10px] tracking-[0.24em] text-bcc-text-secondary">
         FILTER BY ROLE
       </span>
       <div className="flex flex-wrap gap-2">
@@ -434,14 +434,14 @@ function RefineRow({
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <span className="bcc-mono text-[10px] tracking-[0.24em] text-cardstock-deep">
+        <span className="bcc-mono text-[10px] tracking-[0.24em] text-bcc-text-secondary">
           REFINE
         </span>
         {hasRefinement && (
           <button
             type="button"
             onClick={onClear}
-            className="bcc-mono text-[10px] tracking-[0.18em] text-cardstock-deep underline-offset-2 transition hover:text-cardstock hover:underline"
+            className="bcc-mono text-[10px] tracking-[0.18em] text-bcc-text-secondary underline-offset-2 transition hover:text-bcc-text hover:underline"
           >
             CLEAR REFINEMENT
           </button>
@@ -449,7 +449,7 @@ function RefineRow({
       </div>
 
       <div className="flex flex-col gap-2">
-        <span className="bcc-mono text-[9px] tracking-[0.20em] text-cardstock-deep/70">
+        <span className="bcc-mono text-[9px] tracking-[0.20em] text-bcc-text-muted">
           RANK
         </span>
         <div className="flex flex-wrap gap-2">
@@ -469,7 +469,7 @@ function RefineRow({
       </div>
 
       <div className="flex flex-col gap-2">
-        <span className="bcc-mono text-[9px] tracking-[0.20em] text-cardstock-deep/70">
+        <span className="bcc-mono text-[9px] tracking-[0.20em] text-bcc-text-muted">
           VERIFICATIONS
         </span>
         <div className="flex flex-wrap gap-2">
@@ -602,7 +602,7 @@ function FilterChip({
         "bcc-mono px-3 py-1.5 text-[10px] tracking-[0.18em] transition " +
         (isActive
           ? ""
-          : "border border-cardstock-edge bg-cardstock-deep/30 text-cardstock hover:bg-cardstock-deep/50")
+          : "border border-bcc-border bg-bcc-surface-hover text-bcc-text-secondary hover:bg-bcc-surface-active")
       }
       style={isActive ? activeStyle : undefined}
     >
@@ -617,13 +617,13 @@ function FilterChip({
 
 function Rail() {
   return (
-    <div className="border-b border-dashed border-cardstock/15">
+    <div className="border-b border-dashed border-bcc-border">
       <div className="mx-auto flex max-w-[1560px] flex-wrap items-center justify-between gap-4 px-7 py-3">
-        <span className="bcc-mono inline-flex items-center gap-2 text-cardstock-deep">
+        <span className="bcc-mono inline-flex items-center gap-2 text-bcc-text-secondary">
           <span className="bcc-rail-dot" aria-hidden />
           <span>FLOOR &nbsp;//&nbsp; MEMBERS</span>
         </span>
-        <span className="bcc-mono text-cardstock/50">FILE INDEX &nbsp;//&nbsp; ALL OPERATORS</span>
+        <span className="bcc-mono text-bcc-text-muted">FILE INDEX &nbsp;//&nbsp; ALL OPERATORS</span>
       </div>
     </div>
   );
@@ -648,14 +648,14 @@ function Pagination({
 
   return (
     <nav
-      className="bcc-mono mt-8 flex items-center justify-between gap-3 text-[11px] tracking-[0.16em] text-cardstock-deep"
+      className="bcc-mono mt-8 flex items-center justify-between gap-3 text-[11px] tracking-[0.16em] text-bcc-text-secondary"
       aria-label="Pagination"
     >
       <button
         type="button"
         onClick={() => onPage(Math.max(1, page - 1))}
         disabled={page <= 1}
-        className="border-2 border-cardstock-edge px-3 py-1 transition hover:border-ink/50 hover:text-ink disabled:opacity-40"
+        className="border-2 border-bcc-border px-3 py-1 transition hover:border-bcc-border-strong hover:text-bcc-text disabled:opacity-40"
       >
         ← PREV
       </button>
@@ -666,7 +666,7 @@ function Pagination({
         type="button"
         onClick={() => onPage(Math.min(totalPages, page + 1))}
         disabled={page >= totalPages}
-        className="border-2 border-cardstock-edge px-3 py-1 transition hover:border-ink/50 hover:text-ink disabled:opacity-40"
+        className="border-2 border-bcc-border px-3 py-1 transition hover:border-bcc-border-strong hover:text-bcc-text disabled:opacity-40"
       >
         NEXT →
       </button>

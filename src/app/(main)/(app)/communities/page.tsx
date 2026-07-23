@@ -96,13 +96,13 @@ export default async function CommunitiesDiscoveryPage({ searchParams }: PagePro
       <section className="mx-auto max-w-[1440px] px-6 pt-12 sm:px-8">
         <div className="flex flex-wrap items-start justify-between gap-6">
           <div className="min-w-0 flex-1">
-            <span className="bcc-mono text-[10px] tracking-[0.24em] text-cardstock-deep">
+            <span className="bcc-mono text-[10px] tracking-[0.24em] text-bcc-text-secondary">
               DISCOVERY · COMMUNITIES
             </span>
-            <h1 className="bcc-stencil mt-2 text-5xl text-cardstock md:text-6xl">
+            <h1 className="bcc-stencil mt-2 text-5xl text-bcc-text md:text-6xl">
               Communities
             </h1>
-            <p className="mt-3 max-w-2xl font-serif text-lg text-cardstock-deep">
+            <p className="mt-3 max-w-2xl font-serif text-lg text-bcc-text-secondary">
               Active rooms across the floor. <span className="bcc-mono">HOLDERS</span> are NFT-gated,
               <span className="bcc-mono"> LOCAL</span> rooms cluster by chain, and the rest are open
               rooms anyone can join. Verified rooms rank first, then warmest, then largest — so
@@ -255,7 +255,7 @@ function CreateCommunityCta({ isAnon }: { isAnon: boolean }) {
     return (
       <Link
         href={"/login" as Route}
-        className="bcc-stencil inline-flex shrink-0 items-center gap-2 rounded-sm border-2 border-cardstock-edge/60 bg-cardstock/10 px-5 py-3 text-sm tracking-[0.12em] text-cardstock-deep transition hover:border-cardstock hover:text-cardstock"
+        className="bcc-stencil inline-flex shrink-0 items-center gap-2 rounded-sm border-2 border-bcc-border bg-bcc-surface-hover px-5 py-3 text-sm tracking-[0.12em] text-bcc-text-secondary transition hover:border-bcc-border-strong hover:text-bcc-text"
         title="Sign in to create a community"
       >
         <span aria-hidden>＋</span>
@@ -300,7 +300,7 @@ function ChainDropdown({
       {scope === "mine" && <input type="hidden" name="mine" value="1" />}
       <label
         htmlFor="communities-chain"
-        className="bcc-mono text-[10px] tracking-[0.18em] text-cardstock-deep"
+        className="bcc-mono text-[10px] tracking-[0.18em] text-bcc-text-secondary"
       >
         CHAIN
       </label>
@@ -459,15 +459,15 @@ function Pagination({
         <Link
           href={buildHref(page - 1)}
           rel="prev"
-          className="bcc-mono text-cardstock-deep hover:underline"
+          className="bcc-mono text-bcc-text-secondary hover:underline"
         >
           ← Previous
         </Link>
       ) : (
-        <span className="bcc-mono text-cardstock-deep/40">← Previous</span>
+        <span className="bcc-mono text-bcc-text-muted">← Previous</span>
       )}
 
-      <span className="bcc-mono text-[10px] text-cardstock-deep">
+      <span className="bcc-mono text-[10px] text-bcc-text-secondary">
         PAGE {page} / {total_pages}
       </span>
 
@@ -475,12 +475,12 @@ function Pagination({
         <Link
           href={buildHref(page + 1)}
           rel="next"
-          className="bcc-mono text-cardstock-deep hover:underline"
+          className="bcc-mono text-bcc-text-secondary hover:underline"
         >
           Next →
         </Link>
       ) : (
-        <span className="bcc-mono text-cardstock-deep/40">Next →</span>
+        <span className="bcc-mono text-bcc-text-muted">Next →</span>
       )}
     </nav>
   );
