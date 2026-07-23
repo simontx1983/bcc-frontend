@@ -355,7 +355,7 @@ export default async function MemberProfilePage({ params }: PageProps) {
                 text={profile.bio}
                 label="BIO"
                 {...(isOwner
-                  ? { ownerEditHref: "/settings/identity" as Route }
+                  ? { ownerEditHref: "/settings/profile" as Route }
                   : {})}
               />
               {/* Edit Profile — owner-only column exit. JOINED metadata
@@ -365,7 +365,7 @@ export default async function MemberProfilePage({ params }: PageProps) {
               {isOwner && (
                 <div className="flex justify-end border-t border-dashed border-cardstock/15 pt-4">
                   <Link
-                    href="/settings/identity"
+                    href="/settings/profile"
                     className="bcc-btn bcc-btn-primary"
                   >
                     Edit Profile
