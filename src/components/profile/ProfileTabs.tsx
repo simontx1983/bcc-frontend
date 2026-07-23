@@ -66,6 +66,43 @@ const BlogPanel = dynamic(
   }
 );
 
+// Owner-only editor panels (absorbed from /settings/*). Code-split per
+// tab so a public visitor to /u/alice never downloads any of this form
+// code, and an owner opening "Blocks" doesn't pull in the NFT picker.
+const SETTINGS_PANEL_OPTS = {
+  ssr: false as const,
+  loading: () => <Skeleton className="h-40" />,
+};
+
+const PrivacySettingsPanel = dynamic(
+  () => import("./panels/settings/PrivacySettingsPanel").then((m) => m.PrivacySettingsPanel),
+  SETTINGS_PANEL_OPTS
+);
+const NotificationsSettingsPanel = dynamic(
+  () => import("./panels/settings/NotificationsSettingsPanel").then((m) => m.NotificationsSettingsPanel),
+  SETTINGS_PANEL_OPTS
+);
+const MessagesSettingsPanel = dynamic(
+  () => import("./panels/settings/MessagesSettingsPanel").then((m) => m.MessagesSettingsPanel),
+  SETTINGS_PANEL_OPTS
+);
+const CommunitiesSettingsPanel = dynamic(
+  () => import("./panels/settings/CommunitiesSettingsPanel").then((m) => m.CommunitiesSettingsPanel),
+  SETTINGS_PANEL_OPTS
+);
+const ShowcaseSettingsPanel = dynamic(
+  () => import("./panels/settings/ShowcaseSettingsPanel").then((m) => m.ShowcaseSettingsPanel),
+  SETTINGS_PANEL_OPTS
+);
+const BlocksSettingsPanel = dynamic(
+  () => import("./panels/settings/BlocksSettingsPanel").then((m) => m.BlocksSettingsPanel),
+  SETTINGS_PANEL_OPTS
+);
+const AccountSettingsPanel = dynamic(
+  () => import("./panels/settings/AccountSettingsPanel").then((m) => m.AccountSettingsPanel),
+  SETTINGS_PANEL_OPTS
+);
+
 /**
  * Local TabKey supersets MemberTabCount["key"] with frontend-only
  * tabs that aren't yet part of the §9 Phase-4 tab metadata contract
@@ -81,7 +118,22 @@ const BlogPanel = dynamic(
  * contract's `reviews` tab counts RECEIVED and `written` counts
  * authored, matching the badge props.
  */
-type TabKey = MemberTabCount["key"] | "photos" | "backing" | "setup" | "profile" | "blog" | "written";
+type TabKey =
+  | MemberTabCount["key"]
+  | "photos"
+  | "backing"
+  | "setup"
+  | "profile"
+  | "blog"
+  | "written"
+  // Owner-only editor tabs, absorbed from the retired /settings/* routes.
+  | "account"
+  | "privacy"
+  | "notifications"
+  | "messages"
+  | "communities"
+  | "showcase"
+  | "blocks";
 
 const TAB_KEYS: ReadonlyArray<TabKey> = [
   "activity",
@@ -96,6 +148,13 @@ const TAB_KEYS: ReadonlyArray<TabKey> = [
   "setup",
   "profile",
   "blog",
+  "account",
+  "privacy",
+  "notifications",
+  "messages",
+  "communities",
+  "showcase",
+  "blocks",
 ];
 
 function isTabKey(value: string | null | undefined): value is TabKey {
@@ -149,6 +208,18 @@ const DEFAULT_TABS: ReadonlyArray<{ key: TabKey; label: string; soon?: boolean; 
   // Network tab hidden in V1 per the 2026-05-13 UX review — stub
   // ComingSoonPanel trains operators that tabs lie. Reinstate when
   // the §C2 watchers + vouch-graph data ships (Phase 5).
+  //
+  // ── Owner-only editors, absorbed from the retired /settings/* routes ──
+  // Grouped at the end so the content tabs (what a visitor came for) stay
+  // leftmost; a visitor sees none of these. Order mirrors the old
+  // SettingsNav so muscle memory survives the move.
+  { key: "privacy",       label: "Privacy",       ownerOnly: true },
+  { key: "notifications", label: "Notifications", ownerOnly: true },
+  { key: "messages",      label: "Messages",      ownerOnly: true },
+  { key: "communities",   label: "Communities",   ownerOnly: true },
+  { key: "showcase",      label: "Showcase",      ownerOnly: true },
+  { key: "account",       label: "Account",       ownerOnly: true },
+  { key: "blocks",        label: "Blocks",        ownerOnly: true },
 ];
 
 interface TabRow {
@@ -234,6 +305,15 @@ export interface ProfileTabsProps {
    */
   receivedCount?: number | undefined;
   writtenCount?: number | undefined;
+  /**
+   * Signed-in operator's email, forwarded from the server session by the
+   * profile page. Only the owner-only Account tab uses it: AccountSection
+   * needs the current address for the change-email form, and the retired
+   * /settings/account page read it via getServerSession — which a client
+   * tab panel can't do. Empty for visitors (that tab doesn't render for
+   * them anyway).
+   */
+  viewerEmail?: string;
 }
 
 export function ProfileTabs({
@@ -251,6 +331,7 @@ export function ProfileTabs({
   viewerHandle = null,
   receivedCount,
   writtenCount,
+  viewerEmail = "",
 }: ProfileTabsProps) {
   // `?tab=<key>` drives the panel — external deep links (Floor composer
   // escalation, "Open your blog →", and the retired /settings/* redirects)
@@ -448,6 +529,19 @@ export function ProfileTabs({
                 profile={profile}
                 reliability={reliability}
               />
+            )}
+
+            {/* Owner-only editors absorbed from /settings/*. Reachable
+                only when effectiveActive resolved to them, which the
+                ownerOnly filter above already restricts to the owner. */}
+            {effectiveActive === "privacy"       && <PrivacySettingsPanel />}
+            {effectiveActive === "notifications" && <NotificationsSettingsPanel />}
+            {effectiveActive === "messages"      && <MessagesSettingsPanel />}
+            {effectiveActive === "communities"   && <CommunitiesSettingsPanel />}
+            {effectiveActive === "showcase"      && <ShowcaseSettingsPanel />}
+            {effectiveActive === "blocks"        && <BlocksSettingsPanel />}
+            {effectiveActive === "account"       && (
+              <AccountSettingsPanel currentEmail={viewerEmail} />
             )}
           </>
         )}

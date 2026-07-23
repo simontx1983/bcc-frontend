@@ -161,6 +161,11 @@ export default async function MemberProfilePage({ params }: PageProps) {
   const isOwner =
     session !== null && session.user.handle === profile.handle;
 
+  // Owner "edit" affordances open the profile-editor TAB on this same
+  // page. Built from the viewed handle rather than /u/me so the owner
+  // doesn't take a redirect hop back to the profile they're already on.
+  const profileEditHref = `/u/${encodeURIComponent(profile.handle)}?tab=profile` as Route;
+
   // PR-11b — Setup tab RELIABILITY sub-tab embeds the §J.5 self-mirror.
   // Fetch is owner-only (the endpoint is Bearer-authed and refuses
   // third-party reads). Fire-and-forget on failure: a partial outage
@@ -371,7 +376,7 @@ export default async function MemberProfilePage({ params }: PageProps) {
                 text={profile.bio}
                 label="BIO"
                 {...(isOwner
-                  ? { ownerEditHref: "/settings/profile" as Route }
+                  ? { ownerEditHref: profileEditHref }
                   : {})}
               />
               {/* Edit Profile — owner-only column exit. JOINED metadata
@@ -381,7 +386,7 @@ export default async function MemberProfilePage({ params }: PageProps) {
               {isOwner && (
                 <div className="flex justify-end border-t border-dashed border-cardstock/15 pt-4">
                   <Link
-                    href="/settings/profile"
+                    href={profileEditHref}
                     className="bcc-btn bcc-btn-primary"
                   >
                     Edit Profile
@@ -463,6 +468,13 @@ export default async function MemberProfilePage({ params }: PageProps) {
               viewerHandle={session?.user.handle ?? null}
               receivedCount={profile.counts.reviews_received}
               writtenCount={profile.counts.reviews_written}
+              // Owner-only Account tab needs the signed-in address for the
+              // change-email form. Forwarded only to the owner.
+              viewerEmail={
+                isOwner && typeof session?.user.email === "string"
+                  ? session.user.email
+                  : ""
+              }
             />
           </section>
 
@@ -471,11 +483,13 @@ export default async function MemberProfilePage({ params }: PageProps) {
               GroupsPanel (type === "local" rows), so a separate
               section was redundant.
 
-              FILE 06 // WALLETS moved into the "My Profile" tab. That
-              tab is now the owner's real profile EDITOR
-              (ProfileEditPanel) and is owner-only, so wallets are no
-              longer surfaced to visitors here; wallet management lives
-              on /settings/account until that editor moves too. */}
+              FILE 06 // WALLETS moved into the "My Profile" tab, which is
+              now the owner's real profile EDITOR (ProfileEditPanel) and is
+              owner-only — so wallets are no longer surfaced to visitors
+              here. Linked-wallet management lives on the owner's Account
+              tab (?tab=account). If verified wallets should be a PUBLIC
+              trust signal they need a real public surface; the old
+              read-only panel was never one. */}
         </>
       )}
     </main>
