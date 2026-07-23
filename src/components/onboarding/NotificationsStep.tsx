@@ -138,8 +138,8 @@ export function NotificationsStep({
 
   return (
     <section className="bcc-onb-step">
-      <p className="bcc-onb-eyebrow">Stay posted</p>
-      <h1 className="bcc-onb-disp">Stay in the loop.</h1>
+      <p className="bcc-onb-eyebrow">Before you go</p>
+      <h1 className="bcc-onb-disp">How should we reach you?</h1>
       {/* No settings link here on purpose — onboarding funnels toward the
           Floor; a deep link out to settings pulls a brand-new user away
           from that path. The reassurance stays as plain text. */}

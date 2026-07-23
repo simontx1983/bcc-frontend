@@ -26,8 +26,8 @@ const PREVIEW: readonly PreviewCard[] = [
   },
   {
     n: "02",
-    title: "Learn the graph",
-    body: "Sixty seconds on how reputation is earned here — back, stand behind, or dispute.",
+    title: "How trust works here",
+    body: "Sixty seconds on how reputation is earned — vouch, stand behind, or dispute.",
   },
   {
     n: "03",
@@ -57,9 +57,8 @@ export function WelcomeStep({
           <span style={{ color: "var(--bcc-accent)" }}>@{handle}</span>.
         </h1>
         <p className="bcc-onb-lede">
-          Blue Collar Crypto is an operator intelligence network — reputation you
-          can&rsquo;t buy, earned in public. <b>Two minutes to set up your floor.</b>{" "}
-          Every step is skippable.
+          You just joined a place where trust is earned in the open, not purchased.{" "}
+          <b>Two minutes gets you set up</b> — skip anything you want.
         </p>
       </LandingReveal>
 
