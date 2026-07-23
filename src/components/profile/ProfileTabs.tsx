@@ -69,38 +69,38 @@ const BlogPanel = dynamic(
 // Owner-only editor panels (absorbed from /settings/*). Code-split per
 // tab so a public visitor to /u/alice never downloads any of this form
 // code, and an owner opening "Blocks" doesn't pull in the NFT picker.
-const SETTINGS_PANEL_OPTS = {
-  ssr: false as const,
-  loading: () => <Skeleton className="h-40" />,
-};
-
+//
+// The options object is repeated at each call site on purpose: Next's
+// SWC transform requires `next/dynamic` options to be an inline object
+// literal, and rejects a shared constant
+// (https://nextjs.org/docs/messages/invalid-dynamic-options-type).
 const PrivacySettingsPanel = dynamic(
   () => import("./panels/settings/PrivacySettingsPanel").then((m) => m.PrivacySettingsPanel),
-  SETTINGS_PANEL_OPTS
+  { ssr: false, loading: () => <Skeleton className="h-40" /> }
 );
 const NotificationsSettingsPanel = dynamic(
   () => import("./panels/settings/NotificationsSettingsPanel").then((m) => m.NotificationsSettingsPanel),
-  SETTINGS_PANEL_OPTS
+  { ssr: false, loading: () => <Skeleton className="h-40" /> }
 );
 const MessagesSettingsPanel = dynamic(
   () => import("./panels/settings/MessagesSettingsPanel").then((m) => m.MessagesSettingsPanel),
-  SETTINGS_PANEL_OPTS
+  { ssr: false, loading: () => <Skeleton className="h-40" /> }
 );
 const CommunitiesSettingsPanel = dynamic(
   () => import("./panels/settings/CommunitiesSettingsPanel").then((m) => m.CommunitiesSettingsPanel),
-  SETTINGS_PANEL_OPTS
+  { ssr: false, loading: () => <Skeleton className="h-40" /> }
 );
 const ShowcaseSettingsPanel = dynamic(
   () => import("./panels/settings/ShowcaseSettingsPanel").then((m) => m.ShowcaseSettingsPanel),
-  SETTINGS_PANEL_OPTS
+  { ssr: false, loading: () => <Skeleton className="h-40" /> }
 );
 const BlocksSettingsPanel = dynamic(
   () => import("./panels/settings/BlocksSettingsPanel").then((m) => m.BlocksSettingsPanel),
-  SETTINGS_PANEL_OPTS
+  { ssr: false, loading: () => <Skeleton className="h-40" /> }
 );
 const AccountSettingsPanel = dynamic(
   () => import("./panels/settings/AccountSettingsPanel").then((m) => m.AccountSettingsPanel),
-  SETTINGS_PANEL_OPTS
+  { ssr: false, loading: () => <Skeleton className="h-40" /> }
 );
 
 /**
