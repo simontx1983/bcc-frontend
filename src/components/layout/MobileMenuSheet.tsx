@@ -110,7 +110,7 @@ export function MobileMenuSheet({
           </li>
           <li>
             <Link
-              href={"/settings/profile" as Route}
+              href={"/u/me?tab=profile" as Route}
               onClick={onClose}
               className="bcc-mono flex min-h-[48px] items-center px-6 text-[12px] tracking-[0.18em] text-cardstock-deep"
             >

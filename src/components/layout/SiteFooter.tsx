@@ -70,7 +70,7 @@ function authedAccountLinks(handle: string): readonly NavLink[] {
     { label: "Messages",     href: "/messages",           match: null },
     { label: "Panel Duty",   href: "/panel",              match: null },
     { label: "Notifications", href: "/me/notification-prefs", match: null },
-    { label: "Settings",     href: "/settings/profile",   match: null },
+    { label: "Settings",     href: "/u/me?tab=profile",   match: null },
   ];
 }
 
