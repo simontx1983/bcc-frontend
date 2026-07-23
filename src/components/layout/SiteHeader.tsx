@@ -13,6 +13,20 @@
  */
 
 import { useEffect, useRef, useState } from "react";
+import {
+  Bell,
+  ChevronDown,
+  LogOut,
+  MessageSquare,
+  Moon,
+  Palette,
+  Search,
+  Settings,
+  ShieldCheck,
+  Sun,
+  TrendingUp,
+  User,
+} from "lucide-react";
 import { useSession } from "next-auth/react";
 import type { Route } from "next";
 import Image from "next/image";
@@ -66,43 +80,15 @@ function useModalDismiss(
 }
 
 // ── Icons ─────────────────────────────────────────────────────────────────────
+// Backed by lucide-react (task 5, icon standardization) — these were
+// previously hand-redrawn here, at a different geometry than the same
+// concepts elsewhere (NotificationBell, MessagesBadge, LeftSidebar…).
 
-const CogIcon = () => (
-  <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden>
-    <path d="M9 11.5a2.5 2.5 0 100-5 2.5 2.5 0 000 5z" stroke="currentColor" strokeWidth="1.5"/>
-    <path d="M14.5 9c0-.28-.02-.55-.06-.82l1.76-1.37-1.5-2.6-2.1.85a6.5 6.5 0 00-1.42-.82L10.8 2h-3l-.38 2.24c-.51.2-.99.48-1.42.82l-2.1-.85-1.5 2.6 1.76 1.37A6.6 6.6 0 003.5 9c0 .28.02.55.06.82L1.8 11.19l1.5 2.6 2.1-.85c.43.34.91.62 1.42.82L7.2 16h3l.38-2.24c.51-.2.99-.48 1.42-.82l2.1.85 1.5-2.6-1.76-1.37c.04-.27.06-.54.06-.82z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/>
-  </svg>
-);
-
-const PaletteIcon = () => (
-  <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden>
-    <path d="M9 2a7 7 0 100 14c1.1 0 2-.9 2-2v-.5c0-.28.22-.5.5-.5H13a3 3 0 003-3A7 7 0 009 2z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/>
-    <circle cx="6"  cy="8"   r="1" fill="currentColor"/>
-    <circle cx="9"  cy="5.5" r="1" fill="currentColor"/>
-    <circle cx="12" cy="8"   r="1" fill="currentColor"/>
-  </svg>
-);
-
-const ChatIcon = () => (
-  <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden>
-    <path d="M2 3.5A1.5 1.5 0 013.5 2h11A1.5 1.5 0 0116 3.5v8A1.5 1.5 0 0114.5 13H6l-4 3V3.5z"
-      stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/>
-  </svg>
-);
-
-const BellIcon = () => (
-  <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden>
-    <path d="M9 2a4.5 4.5 0 00-4.5 4.5V9L3 11h12l-1.5-2V6.5A4.5 4.5 0 009 2z"
-      stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/>
-    <path d="M7 13.5a2 2 0 004 0" stroke="currentColor" strokeWidth="1.5"/>
-  </svg>
-);
-
-const ChevronDownIcon = () => (
-  <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden>
-    <path d="M2 4l4 4 4-4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
-  </svg>
-);
+const CogIcon = () => <Settings size={18} aria-hidden strokeWidth={1.8} />;
+const PaletteIcon = () => <Palette size={18} aria-hidden strokeWidth={1.8} />;
+const ChatIcon = () => <MessageSquare size={18} aria-hidden strokeWidth={1.8} />;
+const BellIcon = () => <Bell size={18} aria-hidden strokeWidth={1.8} />;
+const ChevronDownIcon = () => <ChevronDown size={12} aria-hidden strokeWidth={2} />;
 
 // ── Shared modal shell style ──────────────────────────────────────────────────
 
@@ -183,13 +169,15 @@ function ThemeModal({ theme, accent, onThemeChange, onAccentChange, onClose, anc
         {(["light", "dark"] as Theme[]).map(t => (
           <button key={t} onClick={() => onThemeChange(t)} style={{
             flex: 1, padding: "6px 0", borderRadius: "var(--bcc-radius-full)", border: "none", cursor: "pointer",
+            display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6,
             fontFamily: "var(--font-stencil), Impact, sans-serif", fontWeight: 800, fontSize: 11,
             letterSpacing: "0.1em", textTransform: "uppercase",
             transition: "background 150ms ease, color 150ms ease",
             background: theme === t ? "var(--bcc-accent)" : "transparent",
             color: theme === t ? "var(--bcc-white)" : "var(--bcc-text-secondary)",
           }}>
-            {t === "light" ? "☀ Day" : "☾ Night"}
+            {t === "light" ? <Sun size={13} aria-hidden strokeWidth={2} /> : <Moon size={13} aria-hidden strokeWidth={2} />}
+            {t === "light" ? "Day" : "Night"}
           </button>
         ))}
       </div>
@@ -290,8 +278,8 @@ function NotifModal({ onClose, anchorRef }: NotifModalProps) {
 // ── Avatar Dropdown ───────────────────────────────────────────────────────────
 
 const AVATAR_MENU = [
-  { label: "My Profile",    href: "/u/[handle]",     icon: <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="5.5" r="2.5" stroke="currentColor" strokeWidth="1.4"/><path d="M2.5 14c0-2.76 2.46-4.5 5.5-4.5s5.5 1.74 5.5 4.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/></svg> },
-  { label: "My Progression",href: "/me/progression", icon: <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 12l4-4 3 3 5-6" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/></svg> },
+  { label: "My Profile",    href: "/u/[handle]",     icon: <User size={16} strokeWidth={1.8} /> },
+  { label: "My Progression",href: "/me/progression", icon: <TrendingUp size={16} strokeWidth={1.8} /> },
   /* No capability gate by design (v1: no FE role checks — see the
      admin-architecture decision). Non-admins who click land on the
      page's own "Admin access required" panel; the API layer owns the
@@ -299,9 +287,9 @@ const AVATAR_MENU = [
      has NO inbound link anywhere and filed reports accumulate
      invisibly (regressed once already when this menu replaced the
      old ViewerMenu — 2026-07-21 admin audit P1). */
-  { label: "Moderation",    href: "/admin/moderation", icon: <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 1.5l5.5 2v4c0 3.2-2.2 5.9-5.5 7-3.3-1.1-5.5-3.8-5.5-7v-4l5.5-2z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"/><path d="M5.5 8l1.8 1.8L10.8 6" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/></svg> },
-  { label: "Settings",      href: "/settings/profile",icon: <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="2" stroke="currentColor" strokeWidth="1.4"/><path d="M13 8c0-.25-.02-.49-.05-.73l1.55-1.2-1.25-2.17-1.85.75a5.5 5.5 0 00-1.26-.73L9.8 2H6.2l-.34 1.92c-.45.18-.87.43-1.26.73l-1.85-.75L1.5 6.07l1.55 1.2A5.6 5.6 0 003 8c0 .25.02.49.05.73L1.5 9.93l1.25 2.17 1.85-.75c.39.3.81.55 1.26.73L6.2 14h3.6l.34-1.92c.45-.18.87-.43 1.26-.73l1.85.75 1.25-2.17-1.55-1.2C12.98 8.49 13 8.25 13 8z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"/></svg> },
-  { label: "Sign Out",      href: "/api/auth/signout",icon: <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 14H3a1 1 0 01-1-1V3a1 1 0 011-1h3M10.5 11.5L14 8l-3.5-3.5M14 8H6" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/></svg> },
+  { label: "Moderation",    href: "/admin/moderation", icon: <ShieldCheck size={16} strokeWidth={1.8} /> },
+  { label: "Settings",      href: "/settings/profile",icon: <Settings size={16} strokeWidth={1.8} /> },
+  { label: "Sign Out",      href: "/api/auth/signout",icon: <LogOut size={16} strokeWidth={1.8} /> },
 ] as const;
 
 interface AvatarDropdownProps {
@@ -527,10 +515,7 @@ export function SiteHeader() {
           focusShortcut
         />
         <span className="bcc-search-icon" aria-hidden>
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-            <circle cx="6.5" cy="6.5" r="4.5" stroke="currentColor" strokeWidth="1.5"/>
-            <path d="M10.5 10.5l3.5 3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-          </svg>
+          <Search size={16} strokeWidth={1.8} />
         </span>
       </div>
 
@@ -546,10 +531,7 @@ export function SiteHeader() {
             aria-label="Search"
             title="Search"
           >
-            <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden>
-              <circle cx="7.5" cy="7.5" r="5" stroke="currentColor" strokeWidth="1.5"/>
-              <path d="M12 12l4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-            </svg>
+            <Search size={18} aria-hidden strokeWidth={1.8} />
           </button>)}
 
         {/* Palette — theme/accent */}

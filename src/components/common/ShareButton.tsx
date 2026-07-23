@@ -31,6 +31,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { ShareIcon } from "@/components/feed/actionIcons";
 import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
 
 interface ShareButtonProps {
@@ -254,22 +255,9 @@ export function ShareButton({ path, title, ariaLabel }: ShareButtonProps) {
 }
 
 // ── Icons ──────────────────────────────────────────────────────────────
-
-function ShareIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
-      <circle cx="12.5" cy="3.5" r="2" stroke="currentColor" strokeWidth="1.4" />
-      <circle cx="3.5" cy="8" r="2" stroke="currentColor" strokeWidth="1.4" />
-      <circle cx="12.5" cy="12.5" r="2" stroke="currentColor" strokeWidth="1.4" />
-      <path
-        d="M5.3 7l5.4-2.7M5.3 9l5.4 2.7"
-        stroke="currentColor"
-        strokeWidth="1.4"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
-}
+// ShareIcon now imported from feed/actionIcons.tsx — same "share" glyph
+// as the feed action bar (task 5: was two different metaphors, one file
+// each; consolidated to one, see the Lucide icon audit).
 
 function LinkIcon() {
   return (

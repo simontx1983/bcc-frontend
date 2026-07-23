@@ -1,18 +1,12 @@
 "use client";
 
+import { Moon, Palette, Sun } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { applyTheme, getStoredAccent, getStoredTheme, type Accent, type Theme } from "@/lib/theme";
 
 function PaletteIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden>
-      <path d="M9 2a7 7 0 100 14c1.1 0 2-.9 2-2v-.5c0-.28.22-.5.5-.5H13a3 3 0 003-3A7 7 0 009 2z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/>
-      <circle cx="6" cy="8" r="1" fill="currentColor"/>
-      <circle cx="9" cy="5.5" r="1" fill="currentColor"/>
-      <circle cx="12" cy="8" r="1" fill="currentColor"/>
-    </svg>
-  );
+  return <Palette size={18} strokeWidth={1.5} aria-hidden />;
 }
 
 /** Self-contained theme/accent switcher for the legal-page header — same
@@ -100,6 +94,7 @@ export function LegalThemeToggle() {
                 onClick={() => handleThemeChange(t)}
                 style={{
                   flex: 1, padding: "6px 0", borderRadius: "var(--bcc-radius-full)", border: "none", cursor: "pointer",
+                  display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6,
                   fontFamily: "var(--font-stencil), Impact, sans-serif", fontWeight: 800, fontSize: 11,
                   letterSpacing: "0.1em", textTransform: "uppercase",
                   transition: "background 150ms ease, color 150ms ease",
@@ -107,7 +102,8 @@ export function LegalThemeToggle() {
                   color: theme === t ? "var(--bcc-white)" : "var(--bcc-text-secondary)",
                 }}
               >
-                {t === "light" ? "☀ Day" : "☾ Night"}
+                {t === "light" ? <Sun size={13} strokeWidth={2} aria-hidden /> : <Moon size={13} strokeWidth={2} aria-hidden />}
+                {t === "light" ? "Day" : "Night"}
               </button>
             ))}
           </div>

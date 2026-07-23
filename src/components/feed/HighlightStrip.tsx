@@ -32,6 +32,7 @@
  */
 
 import { useEffect, useRef, useState } from "react";
+import { X } from "lucide-react";
 
 import type { Route } from "next";
 import Link from "next/link";
@@ -186,10 +187,10 @@ function HighlightCard({
             type="button"
             onClick={onDismiss}
             disabled={isDismissing}
-            className="bcc-mono text-[10px] text-[var(--bcc-text-secondary)]/70 hover:text-[var(--bcc-text)] disabled:opacity-50"
+            className="inline-flex text-[var(--bcc-text-secondary)]/70 hover:text-[var(--bcc-text)] disabled:opacity-50"
             aria-label="Dismiss highlight"
           >
-            {isDismissing ? "…" : "✕"}
+            {isDismissing ? <span className="bcc-mono text-[10px]">…</span> : <X size={13} strokeWidth={2} aria-hidden />}
           </button>
         </div>
 

@@ -34,6 +34,7 @@
  * physically-accurate flight from each rendered card.
  */
 
+import { BookMarked } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -168,8 +169,8 @@ export function DopamineStep({
     >
       {/* Watchlist dock — the destination for the chips. */}
       <div className="absolute right-8 top-6 flex flex-col items-end gap-1">
-        <div className="bcc-onb-panel flex h-14 w-14 items-center justify-center p-0 text-2xl">
-          📒
+        <div className="bcc-onb-panel flex h-14 w-14 items-center justify-center p-0 text-[var(--bcc-text)]">
+          <BookMarked size={24} strokeWidth={1.7} aria-hidden />
         </div>
         <span className="bcc-onb-note">Watchlist</span>
       </div>

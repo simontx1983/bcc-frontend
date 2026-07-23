@@ -10,6 +10,7 @@
  * link.
  */
 
+import { MessageSquare } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
 
@@ -51,20 +52,7 @@ export function MessagesBadge({ enabled }: MessagesBadgeProps) {
 }
 
 function Icon() {
-  return (
-    <svg
-      width="18"
-      height="18"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.6"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-      focusable="false"
-    >
-      <path d="M3 5h18v12H7l-4 4z" />
-    </svg>
-  );
+  // Backed by lucide-react (task 5) — was previously a different
+  // geometry than SiteHeader's desktop chat icon; same icon everywhere now.
+  return <MessageSquare size={18} strokeWidth={1.8} aria-hidden focusable="false" />;
 }

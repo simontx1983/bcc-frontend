@@ -43,6 +43,15 @@ import {
   type FormEvent,
   type ReactNode,
 } from "react";
+import {
+  ChevronDown,
+  ChevronLeft,
+  ChevronUp,
+  Minimize2,
+  MoreHorizontal,
+  Send,
+  X,
+} from "lucide-react";
 import { useSession } from "next-auth/react";
 import Image from "next/image";
 import Link from "next/link";
@@ -522,16 +531,12 @@ function CommentBranch({
 
 /** The +/- glyph shared by the inline per-comment collapse toggle and the collapsed-hint's expand cue. */
 function CollapseToggleIcon({ collapsed, size = 8 }: { collapsed: boolean; size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 8 8" fill="none" aria-hidden>
-      {collapsed ? (
-        // Caret down — replies are hidden, click to expand.
-        <path d="M1 3l3 3 3-3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
-      ) : (
-        // Caret up — replies are showing, click to collapse.
-        <path d="M1 5l3-3 3 3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
-      )}
-    </svg>
+  // Backed by lucide-react (task 5) — part of the app-wide chevron
+  // consolidation (was one of 6+ independently-drawn caret glyphs).
+  return collapsed ? (
+    <ChevronDown size={size} strokeWidth={1.8} aria-hidden />
+  ) : (
+    <ChevronUp size={size} strokeWidth={1.8} aria-hidden />
   );
 }
 
@@ -621,9 +626,7 @@ function DrillHeader({
         onClick={onBack}
         className="bcc-mono inline-flex min-h-[32px] w-fit items-center gap-1.5 text-[11px] tracking-[0.08em] text-[var(--bcc-text-secondary)] hover:text-[var(--bcc-text)]"
       >
-        <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-          <path d="M10 3.5 5.5 8 10 12.5" />
-        </svg>
+        <ChevronLeft size={15} strokeWidth={1.8} aria-hidden />
         Back
       </button>
       {unavailable ? (
@@ -1082,9 +1085,9 @@ function CommentMediaView({ media }: { media: CommentMedia }) {
               type="button"
               onClick={() => setZoomed(false)}
               aria-label="Close"
-              className="fixed right-3 top-3 z-10 inline-flex h-9 w-9 items-center justify-center rounded-full bg-ink/60 text-lg text-paper backdrop-blur-sm transition-colors hover:bg-ink"
+              className="fixed right-3 top-3 z-10 inline-flex h-9 w-9 items-center justify-center rounded-full bg-ink/60 text-paper backdrop-blur-sm transition-colors hover:bg-ink"
             >
-              ✕
+              <X size={18} strokeWidth={2} aria-hidden />
             </button>
             {isWpMediaUrl(media.url) ? (
               <Image
@@ -1156,7 +1159,7 @@ function CommentOverflowMenu({
         aria-expanded={open}
         className="bcc-mono inline-flex min-h-[32px] items-center px-1 text-[var(--bcc-text-muted)] hover:text-[var(--bcc-text)]"
       >
-        ⋯
+        <MoreHorizontal size={16} strokeWidth={2} aria-hidden />
       </button>
       {open && (
         <div
@@ -1604,10 +1607,7 @@ function CommentComposer({
                   title="Collapse"
                   className="inline-flex h-8 w-8 items-center justify-center rounded-full text-[var(--bcc-text-secondary)] hover:bg-[var(--bcc-surface-hover)] hover:text-[var(--bcc-text)]"
                 >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                    {/* two arrows collapsing toward center */}
-                    <path d="M4 14h6v6M20 10h-6V4M14 10l7-7M3 21l7-7" />
-                  </svg>
+                  <Minimize2 size={16} strokeWidth={2} aria-hidden />
                 </button>
                 <button
                   type="submit"
@@ -1668,12 +1668,7 @@ function SubmitIconButton({ disabled, pending }: { disabled: boolean; pending: b
 }
 
 function SendIcon() {
-  return (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d="M22 2L11 13" />
-      <path d="M22 2l-7 20-4-9-9-4 20-7z" />
-    </svg>
-  );
+  return <Send size={15} strokeWidth={2} aria-hidden />;
 }
 
 /** Composer attach button (photo / gif) — accent-tinted when its media is selected. */
