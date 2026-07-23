@@ -41,7 +41,7 @@ import { PageHero } from "@/components/layout/PageHero";
 import { AttestationActionCluster } from "@/components/profile/AttestationActionCluster";
 import { BlockToggle } from "@/components/profile/BlockToggle";
 import { ProfileTabs } from "@/components/profile/ProfileTabs";
-import { MemberReviewControl } from "@/components/review/MemberReviewControl";
+import { ReviewCallout } from "@/components/review/ReviewCallout";
 import { ShareButton } from "@/components/common/ShareButton";
 import { authOptions } from "@/lib/auth";
 import { tokenFromSession } from "@/lib/api/client";
@@ -50,6 +50,7 @@ import { getUser } from "@/lib/api/user-endpoints";
 import { ANON_SSR_REVALIDATE_SECONDS } from "@/lib/api/cache-policy";
 import { FOLLOW_COPY } from "@/lib/copy";
 import { formatJoinDate, presentationName } from "@/lib/format";
+import { isAllowed, unlockHint } from "@/lib/permissions";
 import {
   BccApiError,
   type MemberCounts,
@@ -340,10 +341,25 @@ export default async function MemberProfilePage({ params }: PageProps) {
                 canReport={profile.permissions.can_report}
                 viewerAttestation={profile.viewer_attestation}
               />
-              {/* Slice 2 — direct person-review. UX gate only (signed-in,
-                  not self); the backend enforces eligibility. */}
+              {/* v1.49 — direct person-review via the shared
+                  ReviewCallout, fed from the member hero card's real
+                  server-resolved gates (can_review / viewer_has_reviewed
+                  / review_target_id). Ineligible viewers see the
+                  disabled CTA with the unlock hint instead of a 403;
+                  reviewers get the REMOVE branch. */}
               {session !== null && !isOwner && (
-                <MemberReviewControl userId={profile.user_id} displayName={title} />
+                <ReviewCallout
+                  target={{
+                    kind: "member",
+                    userId: profile.user_id,
+                    removePageId: profile.card.review_target_id,
+                  }}
+                  pageName={title}
+                  canReview={isAllowed(profile.card.permissions, "can_review")}
+                  unlockHint={unlockHint(profile.card.permissions, "can_review")}
+                  hasReviewed={profile.card.viewer_has_reviewed}
+                  viewerAuthed
+                />
               )}
               {/* §K1 block control — the quiet moderation affordance.
                   Self-hides when the viewer can't block (anonymous / self /
@@ -445,6 +461,8 @@ export default async function MemberProfilePage({ params }: PageProps) {
               {...(reliability !== undefined ? { reliability } : {})}
               isSignedIn={session !== null}
               viewerHandle={session?.user.handle ?? null}
+              receivedCount={profile.counts.reviews_received}
+              writtenCount={profile.counts.reviews_written}
             />
           </section>
 
