@@ -25,6 +25,7 @@ import {
   createPlainGroup,
   joinPlainGroup,
   leavePlainGroup,
+  setGroupPostPolicy,
 } from "@/lib/api/my-groups-endpoints";
 import type {
   BccApiError,
@@ -32,6 +33,7 @@ import type {
   CreatePlainGroupResponse,
   JoinPlainGroupResponse,
   LeavePlainGroupResponse,
+  SetGroupPostPolicyResponse,
 } from "@/lib/api/types";
 
 export function useJoinPlainGroupMutation(
@@ -74,6 +76,35 @@ export function useCreatePlainGroupMutation(
 ) {
   return useMutation<CreatePlainGroupResponse, BccApiError, CreatePlainGroupRequest>({
     mutationFn: (request) => createPlainGroup(request),
+    ...options,
+  });
+}
+
+/**
+ * CL-FN06 — `useSetGroupPostPolicyMutation`. Owner/manager control for
+ * whether ordinary members may set `visibility=public_all` (syndicate
+ * a group post to the main feed). Same shape as join/leave: no cache
+ * surgery here; the group page is SSR'd, so the caller renders the
+ * response's `public_all_members_enabled` (server truth) and drives
+ * `router.refresh()` to re-fetch the detail view-model.
+ */
+export function useSetGroupPostPolicyMutation(
+  options: Omit<
+    UseMutationOptions<
+      SetGroupPostPolicyResponse,
+      BccApiError,
+      { groupId: number; publicAllMembers: boolean }
+    >,
+    "mutationFn"
+  > = {}
+) {
+  return useMutation<
+    SetGroupPostPolicyResponse,
+    BccApiError,
+    { groupId: number; publicAllMembers: boolean }
+  >({
+    mutationFn: ({ groupId, publicAllMembers }) =>
+      setGroupPostPolicy(groupId, publicAllMembers),
     ...options,
   });
 }
