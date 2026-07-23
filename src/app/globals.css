@@ -47,6 +47,12 @@
   --bcc-trust-trusted:   #247a3f;
   --bcc-trust-elite:     #d9a400;
 
+  /* Foreman — a conferred role (panel/adjudication), not a rank rung or
+     trust tier. Permanent purple marker, distinct from both ramps above
+     so it never reads as "just another tier." Stable across themes. */
+  --bcc-trust-foreman:        #8b6bd6;
+  --bcc-trust-foreman-subtle: rgba(139, 107, 214, 0.10);
+
   /* Operator type badge colors */
   --bcc-type-validator:  #2c5990;
   --bcc-type-project:    #d9a400;
@@ -117,6 +123,68 @@
   --bcc-transition-fast: 120ms ease;
   --bcc-transition-base: 200ms ease;
   --bcc-transition-slow: 360ms cubic-bezier(0.2, 0.9, 0.25, 1);
+
+  /* Type scale (task 6, design-system consolidation) — generalizes the
+     sizes already in use across bcc-onb- and bcc-ldg- rules rather than
+     inventing new ones. Headings are clamp()'d because the surfaces that use them
+     (onboarding display type, landing hero) already scale fluidly with
+     viewport; body/label sizes are fixed since they were fixed before.
+     New surfaces should reference these instead of a bare px/rem value —
+     existing rules migrate incrementally, not in one pass. */
+  --bcc-font-size-overline: 10px;
+  --bcc-font-size-caption:  11px;
+  --bcc-font-size-body-sm:  13px;
+  --bcc-font-size-body:     15px;
+  --bcc-font-size-body-lg:  clamp(0.95rem, 1.3vw, 1.05rem);
+  --bcc-font-size-h6:       1.1rem;
+  --bcc-font-size-h5:       1.3rem;
+  --bcc-font-size-h4:       1.5rem;
+  --bcc-font-size-h3:       1.7rem;
+  --bcc-font-size-h2:       clamp(2.4rem, 5vw, 4rem);
+  --bcc-font-size-h1:       clamp(2.8rem, 8vw, 6rem);
+
+  --bcc-line-height-tight:   1;
+  --bcc-line-height-snug:    1.2;
+  --bcc-line-height-normal:  1.5;
+  --bcc-line-height-relaxed: 1.6;
+
+  /* Spacing scale (task 6) — 4px base. New surfaces should reference
+     these instead of ad-hoc px/rem gap/padding/margin values. */
+  --bcc-space-1:  4px;
+  --bcc-space-2:  8px;
+  --bcc-space-3:  12px;
+  --bcc-space-4:  16px;
+  --bcc-space-5:  20px;
+  --bcc-space-6:  24px;
+  --bcc-space-7:  28px;
+  --bcc-space-8:  32px;
+  --bcc-space-9:  36px;
+  --bcc-space-10: 40px;
+  --bcc-space-11: 44px;
+  --bcc-space-12: 48px;
+
+  /* Display/marketing button geometry (task 6) — shared source of truth
+     for .bcc-onb-btn + .bcc-tour-btn, which were previously two fully
+     independent hardcoded blocks (the "different height/radius per
+     screen" drift). sm = tour's existing size (compact, sits inside a
+     spotlight popover); md = onboarding's existing size (the wizard's
+     primary CTA) — both reference these tiers now instead of duplicating
+     literals, so a future edit updates both, and a new display button
+     reaches for an existing tier instead of inventing a new one. Values
+     are unchanged from what each class already rendered — this tokenizes
+     the geometry, it doesn't restyle it. lg is reserved for a future
+     larger CTA; not consumed yet. */
+  --bcc-display-btn-pad-sm:    6px 15px;
+  --bcc-display-btn-font-sm:   0.76rem;
+  --bcc-display-btn-radius-sm: var(--bcc-radius-sm);
+
+  --bcc-display-btn-pad-md:    10px 24px;
+  --bcc-display-btn-font-md:   0.9rem;
+  --bcc-display-btn-radius-md: var(--bcc-radius-md);
+
+  --bcc-display-btn-pad-lg:    13px 28px;
+  --bcc-display-btn-font-lg:   1rem;
+  --bcc-display-btn-radius-lg: var(--bcc-radius-lg);
 
   /* Glass effect */
   --bcc-glass-blur:      12px;
@@ -3448,6 +3516,137 @@
   }
 }
 
+/* ========================================================================
+   Onboarding reputation demo (trust step) — cycling RankChip/border swap
+   + a contained Vouch "bloom + sparkle burst" scoped to
+   onboarding/reputation-demo/.
+
+   .bcc-rep-demo-swap    — snappier cousin of .bcc-onboarding-arrive (this
+                            one repeats every ~3.5-4s on a timer, so the
+                            full 1500ms arrive-and-lift would feel sluggish).
+   .bcc-rep-demo-bloom   — a soft radial pulse confined to the Vouch
+                            button's own bounding box (parent needs
+                            position:relative) — NOT a full-viewport sweep
+                            like .bcc-celebration-sweep.
+   .bcc-rep-demo-vouch-sparkle — small star particles fanned outward from
+                            the button on the same click (mirrors
+                            StokeFlame's particle-burst mechanics: caller
+                            positions each via --bcc-vouch-particle-x/-y/
+                            -rotate custom properties). Both reuse
+                            --verified, the same "vouch confirmed" green
+                            already used by .bcc-btn-vouch-on, so the burst
+                            reads as more of the same signal, not a new one.
+   ======================================================================== */
+
+.bcc-rep-demo-swap {
+  animation: bcc-rep-demo-swap 650ms ease-out forwards;
+}
+
+@keyframes bcc-rep-demo-swap {
+  0%   { opacity: 0; transform: scale(0.94) translateY(2px); }
+  60%  { opacity: 1; transform: scale(1.015) translateY(0); }
+  100% { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.bcc-rep-demo-bloom {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  background: radial-gradient(ellipse 70% 60% at 50% 100%, rgb(var(--verified-rgb) / 0.28), transparent 70%);
+  animation: bcc-rep-demo-bloom 900ms ease-out forwards;
+}
+
+@keyframes bcc-rep-demo-bloom {
+  0%   { opacity: 0; }
+  25%  { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+.bcc-rep-demo-vouch-sparkle {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  animation: bcc-rep-demo-vouch-sparkle 700ms ease-out forwards;
+}
+
+@keyframes bcc-rep-demo-vouch-sparkle {
+  0%   { opacity: 0; transform: translate(-50%, -50%) scale(0.3) rotate(0deg); }
+  25%  { opacity: 1; }
+  100% {
+    opacity: 0;
+    transform:
+      translate(calc(-50% + var(--bcc-vouch-particle-x)), calc(-50% + var(--bcc-vouch-particle-y)))
+      scale(1)
+      rotate(var(--bcc-vouch-particle-rotate));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bcc-rep-demo-swap,
+  .bcc-rep-demo-bloom,
+  .bcc-rep-demo-vouch-sparkle {
+    animation: none !important;
+    display: none;
+  }
+}
+
+/* ========================================================================
+   "Resume setup?" floating prompt (task 7) — home feed only, for a
+   visitor whose onboarding was interrupted mid-wizard. Sits above the
+   mobile bottom nav (same 768px split .bcc-mobile-nav itself uses) so it
+   never overlaps it.
+   ======================================================================== */
+
+.bcc-resume-fab {
+  position: fixed;
+  right: 16px;
+  bottom: calc(var(--bcc-mobile-nav-h) + 16px);
+  z-index: 150;
+  width: 48px;
+  height: 48px;
+  border-radius: var(--bcc-radius-full);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bcc-accent);
+  color: var(--bcc-text-inverse);
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 6px 20px var(--bcc-accent-glow);
+  transition: transform var(--bcc-transition-base), box-shadow var(--bcc-transition-base);
+}
+.bcc-resume-fab:hover { transform: translateY(-2px); box-shadow: 0 10px 28px var(--bcc-accent-glow); }
+@media (min-width: 768px) {
+  .bcc-resume-fab { bottom: 24px; }
+}
+
+.bcc-resume-fab-tooltip {
+  position: fixed;
+  right: 16px;
+  bottom: calc(var(--bcc-mobile-nav-h) + 72px);
+  z-index: 150;
+  max-width: 220px;
+  padding: 10px 12px;
+  border-radius: var(--bcc-radius-md);
+  background: var(--bcc-surface-raised);
+  border: 1px solid var(--bcc-border);
+  box-shadow: var(--bcc-shadow-md);
+  color: var(--bcc-text);
+  font-family: var(--font-serif), Georgia, serif;
+  font-size: var(--bcc-font-size-body-sm);
+  line-height: var(--bcc-line-height-normal);
+  animation: bcc-fade-in 0.2s ease forwards;
+}
+@media (min-width: 768px) {
+  .bcc-resume-fab-tooltip { bottom: 80px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bcc-resume-fab-tooltip { animation: none; }
+}
+
 @keyframes bcc-bell-acknowledge {
   /* The room noticed you. A soft phosphor wash over the bell SVG that
      borrows brightness for a beat and returns to ambient. No wobble,
@@ -3791,24 +3990,25 @@
 
 /* Step scaffold */
 .bcc-onb-step { padding-top: clamp(32px, 6vw, 72px); }
-.bcc-onb-eyebrow { display: inline-flex; align-items: center; gap: 10px; font-family: var(--font-mono), monospace; font-size: 10px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--bcc-accent); margin: 0 0 18px; }
+.bcc-onb-eyebrow { display: inline-flex; align-items: center; gap: 10px; font-family: var(--font-mono), monospace; font-size: var(--bcc-font-size-overline); letter-spacing: 0.22em; text-transform: uppercase; color: var(--bcc-accent); margin: 0 0 18px; }
 .bcc-onb-eyebrow::before { content: ""; width: 22px; height: 1px; background: currentColor; opacity: 0.7; }
 .bcc-onb-disp { font-family: var(--font-stencil), Impact, sans-serif; font-weight: 800; letter-spacing: 0.02em; text-transform: uppercase; font-size: clamp(2.4rem, 6vw, 4.2rem); line-height: 0.94; margin: 0; color: var(--bcc-text); }
-.bcc-onb-lede { font-family: var(--font-serif), Georgia, serif; font-size: clamp(1.05rem, 1.6vw, 1.3rem); line-height: 1.6; color: var(--bcc-text-secondary); max-width: 46ch; margin: 20px 0 0; }
+.bcc-onb-lede { font-family: var(--font-serif), Georgia, serif; font-size: var(--bcc-font-size-body-lg); line-height: var(--bcc-line-height-relaxed); color: var(--bcc-text-secondary); max-width: 46ch; margin: 20px 0 0; }
 .bcc-onb-lede b { color: var(--bcc-text); font-weight: 600; }
 .bcc-onb-lede a { color: var(--bcc-accent); text-decoration: none; }
 .bcc-onb-lede a:hover { text-decoration: underline; }
-.bcc-onb-note { font-family: var(--font-mono), monospace; font-size: 11px; letter-spacing: 0.04em; color: var(--bcc-text-muted); margin: 14px 0 0; }
+.bcc-onb-note { font-family: var(--font-mono), monospace; font-size: var(--bcc-font-size-caption); letter-spacing: 0.04em; color: var(--bcc-text-muted); margin: 14px 0 0; }
 
 /* Surfaces */
 .bcc-onb-panel { border: 1px solid var(--bcc-border); border-radius: var(--bcc-radius-lg); background: var(--bcc-surface-raised); padding: clamp(18px, 3vw, 28px); }
 
 /* Buttons */
-.bcc-onb-foot { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-top: clamp(28px, 5vw, 52px); }
+.bcc-onb-foot { display: flex; align-items: center; justify-content: space-between; gap: var(--bcc-space-4); flex-wrap: wrap; margin-top: clamp(28px, 5vw, 52px); }
 .bcc-onb-foot-end { display: flex; align-items: center; gap: 18px; }
 .bcc-onb-btn {
   font-family: var(--font-stencil), Impact, sans-serif; text-transform: uppercase; letter-spacing: 0.04em;
-  font-size: 0.9rem; padding: 10px 24px; border-radius: var(--bcc-radius-md); border: 1.5px solid transparent;
+  font-size: var(--bcc-display-btn-font-md); padding: var(--bcc-display-btn-pad-md);
+  border-radius: var(--bcc-display-btn-radius-md); border: 1.5px solid transparent;
   cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 10px;
   transition: transform 0.18s var(--bcc-onb-ease), box-shadow 0.25s, background 0.2s, border-color 0.2s, opacity 0.2s;
 }
@@ -3872,7 +4072,7 @@
 }
 .bcc-onb-id-media-btn:hover { border-color: var(--bcc-accent); color: var(--bcc-accent); }
 .bcc-onb-id-cover .bcc-onb-id-media-btn { right: 12px; bottom: 12px; }
-.bcc-onb-field-label { font-family: var(--font-mono), monospace; font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--bcc-text-secondary); display: block; margin-bottom: 8px; }
+.bcc-onb-field-label { font-family: var(--font-mono), monospace; font-size: var(--bcc-font-size-overline); letter-spacing: 0.16em; text-transform: uppercase; color: var(--bcc-text-secondary); display: block; margin-bottom: var(--bcc-space-2); }
 .bcc-onb-textarea {
   width: 100%; min-height: 96px; resize: vertical; padding: 12px 14px; border-radius: var(--bcc-radius-md);
   border: 1px solid var(--bcc-input-border); background: var(--bcc-input-bg); color: var(--bcc-text);
@@ -3972,7 +4172,7 @@
 .bcc-tour-pop-dsa input { width: 14px; height: 14px; accent-color: var(--bcc-accent); cursor: pointer; }
 .bcc-tour-pop.is-center .bcc-tour-pop-dsa { justify-content: center; }
 
-.bcc-tour-btn { font-family: var(--font-stencil), Impact, sans-serif; text-transform: uppercase; letter-spacing: 0.04em; font-size: 0.76rem; padding: 6px 15px; border-radius: var(--bcc-radius-sm); border: 1.5px solid transparent; cursor: pointer; transition: background 0.18s, border-color 0.18s, color 0.18s, transform 0.18s; }
+.bcc-tour-btn { font-family: var(--font-stencil), Impact, sans-serif; text-transform: uppercase; letter-spacing: 0.04em; font-size: var(--bcc-display-btn-font-sm); padding: var(--bcc-display-btn-pad-sm); border-radius: var(--bcc-display-btn-radius-sm); border: 1.5px solid transparent; cursor: pointer; transition: background 0.18s, border-color 0.18s, color 0.18s, transform 0.18s; }
 .bcc-tour-btn-primary { background: var(--bcc-accent); color: var(--bcc-text-inverse); box-shadow: 0 4px 14px var(--bcc-accent-glow); }
 .bcc-tour-btn-primary:hover { transform: translateY(-1px); }
 .bcc-tour-btn-ghost { border-color: var(--bcc-border); background: var(--bcc-surface-raised); color: var(--bcc-text); }

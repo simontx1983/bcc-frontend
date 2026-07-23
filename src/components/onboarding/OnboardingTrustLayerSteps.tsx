@@ -15,16 +15,21 @@
  *   Screen B — "How reputation works" (LOAD-BEARING per risk-assessment
  *              §2.9 — the "absence is not a negative signal" teaching, the
  *              primary mitigation against "no vouch = bad" drift) + the
- *              sample-vouch practice action.
+ *              live `<ReputationDemo />` (see reputation-demo/).
  *
  * The absence-not-negative + reputation/reliability strings are imported
  * from `lib/copy/trust-layer.ts` so they render verbatim across every
- * surface (onboarding, /me/reliability, future). Phase 1: the sample
- * VOUCH is a UX walkthrough, not a real mutation — clicking it advances.
+ * surface (onboarding, /me/reliability, future).
+ *
+ * The demo's own Vouch button no longer advances the wizard (it used to,
+ * as a Phase 1 stopgap) — it's a real, re-clickable "try it" moment now
+ * (fires a bloom, not a mutation), decoupled from wizard progress. The
+ * footer's Continue button is the only way forward on this screen.
  */
 
 import { useState } from "react";
 
+import { ReputationDemo } from "@/components/onboarding/reputation-demo/ReputationDemo";
 import {
   ABSENCE_NOT_NEGATIVE,
   REPUTATION_VS_RELIABILITY,
@@ -104,7 +109,7 @@ function PrimerScreen({ onBack, onContinue }: { onBack: () => void; onContinue: 
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// Screen B — "How reputation works." (load-bearing §2.9) + practice vouch.
+// Screen B — "How reputation works." (load-bearing §2.9) + the live demo.
 // ─────────────────────────────────────────────────────────────────────
 
 function ReputationScreen({ onBack, onContinue }: { onBack: () => void; onContinue: () => void }) {
@@ -134,45 +139,17 @@ function ReputationScreen({ onBack, onContinue }: { onBack: () => void; onContin
         </p>
       </div>
 
-      <div className="bcc-onb-panel" style={{ marginTop: "clamp(24px, 4vw, 40px)" }}>
+      <div style={{ marginTop: "clamp(24px, 4vw, 40px)" }}>
         <p className="bcc-onb-field-label" style={{ marginBottom: "14px" }}>
-          Try it — cast your first vouch
+          See it in action
         </p>
-        <div style={{ display: "flex", alignItems: "flex-start", gap: "14px" }}>
-          <span
-            aria-hidden
-            style={{
-              display: "flex", alignItems: "center", justifyContent: "center",
-              width: "52px", height: "52px", flex: "none", borderRadius: "var(--bcc-radius-md)",
-              border: "1px solid var(--bcc-border)", background: "var(--bcc-surface-hover)",
-              fontFamily: "var(--font-stencil), Impact, sans-serif", fontSize: "1.4rem", color: "var(--bcc-text-secondary)",
-            }}
-          >
-            S
-          </span>
-          <div style={{ minWidth: 0 }}>
-            <div style={{ fontFamily: "var(--font-mono), monospace", fontSize: "13px", color: "var(--bcc-text)" }}>
-              @sample-operator
-            </div>
-            <p style={{ fontFamily: "var(--font-serif), Georgia, serif", fontStyle: "italic", color: "var(--bcc-text-secondary)", margin: "6px 0 0" }}>
-              A placeholder card so you can feel the Vouch action before you encounter real operators.
-            </p>
-          </div>
-        </div>
-        <button
-          type="button"
-          onClick={onContinue}
-          className="bcc-onb-btn bcc-onb-btn-ghost"
-          style={{ marginTop: "16px" }}
-        >
-          Vouch
-        </button>
+        <ReputationDemo />
       </div>
 
       <footer className="bcc-onb-foot">
         <button type="button" className="bcc-onb-link" onClick={onBack}>← Back</button>
-        <button type="button" className="bcc-onb-link" onClick={onContinue}>
-          Skip — I&rsquo;ll vouch later
+        <button type="button" className="bcc-onb-btn bcc-onb-btn-primary" onClick={onContinue}>
+          Continue →
         </button>
       </footer>
     </>
