@@ -7,7 +7,7 @@
 
 import { MessagesPrefsForm } from "@/components/settings/MessagesPrefsForm";
 
-import { SettingsSectionHeader } from "../_components/SettingsSectionHeader";
+import { SettingsSectionHeader } from "@/components/settings/SettingsSectionHeader";
 
 export default function MessagesSettingsPage() {
   return (

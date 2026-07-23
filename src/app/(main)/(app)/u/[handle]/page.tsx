@@ -471,9 +471,11 @@ export default async function MemberProfilePage({ params }: PageProps) {
               GroupsPanel (type === "local" rows), so a separate
               section was redundant.
 
-              FILE 06 // WALLETS moved into the new "My Profile" tab
-              (ProfilePanel) — first tab in the strip. The owner's
-              "+ ADD WALLET" affordance lives inside the panel header. */}
+              FILE 06 // WALLETS moved into the "My Profile" tab. That
+              tab is now the owner's real profile EDITOR
+              (ProfileEditPanel) and is owner-only, so wallets are no
+              longer surfaced to visitors here; wallet management lives
+              on /settings/account until that editor moves too. */}
         </>
       )}
     </main>
@@ -659,7 +661,8 @@ function CountsStrip({ counts }: { counts: MemberCounts }) {
 // (rows with type === "local"), so the standalone strip was redundant
 // after the FILE 05 SectionFrame deletion.
 //
-// WalletsStrip + WalletRow moved to
-// `@/components/profile/panels/ProfilePanel` — they back the new "My
-// Profile" tab (first in the strip) instead of the FILE 06
-// SectionFrame.
+// WalletsStrip + WalletRow moved to the "My Profile" tab and were
+// removed along with the read-only ProfilePanel shadow UI. That tab is
+// now ProfileEditPanel (the owner's real editor); linked-wallet
+// management lives on /settings/account until it migrates to an owner
+// tab of its own.

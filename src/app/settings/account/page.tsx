@@ -15,7 +15,7 @@ import { WalletsSection } from "@/components/settings/WalletsSection";
 import { AccountSection } from "@/components/settings/profile/AccountSection";
 import { authOptions } from "@/lib/auth";
 
-import { SettingsSectionHeader } from "../_components/SettingsSectionHeader";
+import { SettingsSectionHeader } from "@/components/settings/SettingsSectionHeader";
 
 export default async function AccountSettingsPage() {
   const session = await getServerSession(authOptions);

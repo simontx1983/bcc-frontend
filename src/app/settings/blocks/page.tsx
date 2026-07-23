@@ -8,7 +8,7 @@
 
 import { BlocksList } from "@/components/settings/BlocksList";
 
-import { SettingsSectionHeader } from "../_components/SettingsSectionHeader";
+import { SettingsSectionHeader } from "@/components/settings/SettingsSectionHeader";
 
 export default function BlocksSettingsPage() {
   return (

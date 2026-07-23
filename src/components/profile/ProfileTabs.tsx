@@ -49,7 +49,7 @@ import { ComingSoonPanel } from "./panels/ComingSoonPanel";
 import { DisputesPanel } from "./panels/DisputesPanel";
 import { GroupsPanel } from "./panels/GroupsPanel";
 import { PhotosPanel } from "./panels/PhotosPanel";
-import { ProfilePanel } from "./panels/ProfilePanel";
+import { ProfileEditPanel } from "./panels/ProfileEditPanel";
 import { ReviewsPanel } from "./panels/ReviewsPanel";
 import { SetupPanel } from "./panels/SetupPanel";
 import { WatchingPanel } from "./panels/WatchingPanel";
@@ -108,11 +108,13 @@ function isTabKey(value: string | null | undefined): value is TabKey {
  * whether or not counts are available.
  */
 const DEFAULT_TABS: ReadonlyArray<{ key: TabKey; label: string; soon?: boolean; ownerOnly?: boolean }> = [
-  // "My Profile" tab — identity-bound metadata (wallets, future:
-  // verifications etc). Sits first per the 2026-05-14 reorganization
-  // request. NOT the default active tab — visitors still land on
-  // Backing for the trust evaluation, owners on Activity.
-  { key: "profile",  label: "My Profile" },
+  // "My Profile" — the owner's profile EDITOR (avatar/cover, handle,
+  // profile fields + per-field visibility). Owner-only: the tab is
+  // literally "My Profile", and its predecessor wrongly showed personal
+  // Preference/Notifications/Account sub-tabs to visitors. Sits first
+  // per the 2026-05-14 reorganization request. NOT the default active
+  // tab — owners still land on Activity, visitors on Backing.
+  { key: "profile",  label: "My Profile", ownerOnly: true },
   // §J.6 — backing is the trust headline. Visitor's default active
   // tab so the "can I trust this operator?" question is the first
   // one answered by the panel content (even though Profile is the
@@ -312,7 +314,20 @@ export function ProfileTabs({
     }
     return { ...t };
   });
-  const activeTab = tabsToRender.find((t) => t.key === active);
+
+  // Resolve the requested tab against what THIS VIEWER is allowed to see.
+  // The ownerOnly filter above only removes the button from the strip —
+  // the panel switch below keys off the active key, so without this a
+  // deep link like `?tab=profile` would still mount the owner's editor
+  // for a visitor (no server data leak, since every editor talks to
+  // session-scoped /me/* endpoints, but a signed-in non-owner would see
+  // THEIR OWN fields loaded under someone else's profile). Anything not
+  // in the rendered set falls back to this viewer's default tab.
+  const effectiveActive: TabKey = tabsToRender.some((t) => t.key === active)
+    ? active
+    : fallbackTab;
+
+  const activeTab = tabsToRender.find((t) => t.key === effectiveActive);
   const activeHidden = activeTab?.hidden === true;
 
   return (
@@ -334,7 +349,7 @@ export function ProfileTabs({
             type="button"
             role="tab"
             id={`tab-${tab.key}`}
-            aria-selected={active === tab.key}
+            aria-selected={effectiveActive === tab.key}
             aria-controls={`tabpanel-${tab.key}`}
             onClick={() => handleTabChange(tab.key)}
             className="bcc-tab shrink-0"
@@ -375,8 +390,8 @@ export function ProfileTabs({
           panel changes when the tab flips. */}
       <div
         role="tabpanel"
-        id={`tabpanel-${active}`}
-        aria-labelledby={`tab-${active}`}
+        id={`tabpanel-${effectiveActive}`}
+        aria-labelledby={`tab-${effectiveActive}`}
         aria-live="polite"
         className="mt-6"
       >
@@ -387,29 +402,29 @@ export function ProfileTabs({
           />
         ) : (
           <>
-            {active === "profile"  && (
-              <ProfilePanel profile={profile} isOwner={isOwner} />
+            {effectiveActive === "profile"  && (
+              <ProfileEditPanel profile={profile} />
             )}
-            {active === "backing"  && (
+            {effectiveActive === "backing"  && (
               <BackingPanel
                 handle={handle}
                 targetUserId={targetUserId}
                 reputationScore={reputationScore}
               />
             )}
-            {active === "reviews"  && (
+            {effectiveActive === "reviews"  && (
               <CardReviewsPanel
                 kind="user_profile"
                 cardId={targetUserId}
                 cardName={displayName}
               />
             )}
-            {active === "written"  && <ReviewsPanel handle={handle} />}
-            {active === "disputes" && <DisputesPanel handle={handle} />}
-            {active === "watching" && (
+            {effectiveActive === "written"  && <ReviewsPanel handle={handle} />}
+            {effectiveActive === "disputes" && <DisputesPanel handle={handle} />}
+            {effectiveActive === "watching" && (
               <WatchingPanel handle={handle} displayName={displayName} />
             )}
-            {active === "activity" && (
+            {effectiveActive === "activity" && (
               <ActivityPanel
                 handle={handle}
                 isOwner={isOwner}
@@ -417,9 +432,9 @@ export function ProfileTabs({
                 {...(progression !== undefined ? { progression } : {})}
               />
             )}
-            {active === "photos"   && <PhotosPanel handle={handle} isOwner={isOwner} />}
-            {active === "groups"   && <GroupsPanel handle={handle} />}
-            {active === "blog" && (
+            {effectiveActive === "photos"   && <PhotosPanel handle={handle} isOwner={isOwner} />}
+            {effectiveActive === "groups"   && <GroupsPanel handle={handle} />}
+            {effectiveActive === "blog" && (
               <BlogPanel
                 handle={handle}
                 isOwner={isOwner}
@@ -427,8 +442,8 @@ export function ProfileTabs({
                 viewerHandle={viewerHandle}
               />
             )}
-            {active === "network"  && <ComingSoonPanel label="Network" hint="Members you're watching + vouch graph — Phase 5." />}
-            {active === "setup" && (
+            {effectiveActive === "network"  && <ComingSoonPanel label="Network" hint="Members you're watching + vouch graph — Phase 5." />}
+            {effectiveActive === "setup" && (
               <SetupPanel
                 profile={profile}
                 reliability={reliability}

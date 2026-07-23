@@ -25,6 +25,27 @@ const nextConfig: NextConfig = {
       { protocol: "http", hostname: "blue-collar-crypto-custom.local", pathname: "/wp-content/**" },
     ],
   },
+  // Retired /settings/* routes. Handled here rather than with a
+  // redirecting page component so the hop happens at the routing layer,
+  // BEFORE the settings layout's auth gate runs — otherwise a signed-out
+  // visitor following an old bookmark lands on
+  // /login?callbackUrl=/settings/profile and is only forwarded to the new
+  // home after authenticating.
+  //
+  // `/u/me` resolves to the signed-in operator's handle (and bounces
+  // anonymous visitors through login), so these targets don't need to
+  // know the handle.
+  //
+  // `permanent: false` (307) on purpose while the settings-into-profile
+  // migration is in flight: a 308 is cached hard by browsers, and the
+  // remaining tabs are still moving. Flip these to permanent in the final
+  // retirement PR, once the owner-tab structure has settled.
+  async redirects() {
+    return [
+      { source: "/settings/profile", destination: "/u/me?tab=profile", permanent: false },
+      { source: "/settings/identity", destination: "/u/me?tab=profile", permanent: false },
+    ];
+  },
   // Pin the workspace root to this folder so Next does not walk up the
   // tree and pick the stray package-lock.json in the user's home dir.
   outputFileTracingRoot: path.join(__dirname),

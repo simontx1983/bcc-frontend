@@ -10,7 +10,7 @@
 
 import { CommunitiesList } from "@/components/settings/CommunitiesList";
 
-import { SettingsSectionHeader } from "../_components/SettingsSectionHeader";
+import { SettingsSectionHeader } from "@/components/settings/SettingsSectionHeader";
 
 export default function CommunitiesSettingsPage() {
   return (
