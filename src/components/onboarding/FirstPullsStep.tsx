@@ -159,6 +159,18 @@ function SuggestionsBody({ result, pulls }: SuggestionsBodyProps) {
   );
 }
 
+/**
+ * Stable no-op handler for the pending window. The wizard used to OMIT
+ * onPull while pending — but since ActionBar grew its own watch
+ * fallback for unwired hosts (2026-07-23), an absent onPull now means
+ * "self-serve toggle", which would double-fire against the wizard's
+ * in-flight mutation and override its optimistic isPulled. Passing a
+ * defined no-op keeps the fallback inactive AND keeps the click inert.
+ */
+const PENDING_NOOP = () => {
+  /* click is a deliberate no-op while the wizard mutation is in flight */
+};
+
 function CardWithError({ card, pulls }: { card: Card; pulls: WizardPullsApi }) {
   const isPulled = pulls.isPulled(card.id);
   const isPending = pulls.isPending(card.id);
@@ -169,10 +181,7 @@ function CardWithError({ card, pulls }: { card: Card; pulls: WizardPullsApi }) {
       <CardFactory
         card={card}
         isPulled={isPulled}
-        // Omit onPull entirely while pending so the button-click is a
-        // no-op (CardFactory's internal pendingRef pattern). Passing
-        // `undefined` explicitly violates exactOptionalPropertyTypes.
-        {...(isPending ? {} : { onPull: pulls.toggle })}
+        onPull={isPending ? PENDING_NOOP : pulls.toggle}
       />
       {isPending && (
         <span className="bcc-mono text-cardstock-deep/70">{isPulled ? "Removing…" : "Saving…"}</span>

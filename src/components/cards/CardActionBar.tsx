@@ -3,15 +3,27 @@
 /**
  * ActionBar — the action band along the bottom of the card's front
  * face (Keep Tabs / Review / View profile). Extracted from
- * CardFactory.tsx (Phase 3.3 god-component split); markup and
- * behavior unchanged.
+ * CardFactory.tsx (Phase 3.3 god-component split).
+ *
+ * Watch fallback (2026-07-23): like the Review button before it, the
+ * Keep Tabs button was a SILENT NO-OP on every surface that didn't
+ * wire `onPull` — which was every profile hero card (entity AND /u
+ * member pages; only the directory grids wired it). When no `onPull`
+ * override is supplied, the bar now composes the same primitives
+ * CardGrid uses: the shared `useWatching` query (React Query dedupes
+ * it against the grids' identical key, and it self-gates on session)
+ * resolves the true watching state + follow_id, and the watch/unwatch
+ * mutations toggle it. Hosts that pass `onPull` are untouched.
  */
 
 import type { Route } from "next";
 import Link from "next/link";
 import type { MouseEvent, ReactNode } from "react";
+import { useMemo } from "react";
 import { useRouter } from "next/navigation";
 
+import { useWatchMutation, useUnwatchMutation } from "@/hooks/useWatch";
+import { useWatching } from "@/hooks/useWatching";
 import type { Card, CardCommunityDossier } from "@/lib/api/types";
 import { FOLLOW_COPY } from "@/lib/copy";
 import { isAllowed, unlockHint } from "@/lib/permissions";
@@ -37,6 +49,44 @@ export function ActionBar({
   // (with a tooltip) when permissions deny. Hidden actions teach the
   // user nothing.
   const stop = (event: MouseEvent) => event.stopPropagation();
+
+  // ── Watch fallback (no onPull wired) ─────────────────────────────
+  // Same follow-map semantics as CardGrid's buildFollowMap: a watching
+  // row matches this card when kinds agree and (page_id ?? card_id)
+  // equals card.id. The query self-gates on session, so anon viewers
+  // never fire it (their button is server-disabled via can_watch).
+  const watchFallbackActive = onPull === undefined;
+  const watchingQuery = useWatching({ page_size: 50 });
+  const watchMutation = useWatchMutation();
+  const unwatchMutation = useUnwatchMutation();
+  const fallbackEntry = useMemo(() => {
+    if (!watchFallbackActive) return undefined;
+    const items = watchingQuery.data?.items ?? [];
+    const hit = items.find(
+      (item) =>
+        item.card_kind === card.card_kind &&
+        (item.page_id !== null ? item.page_id : item.card_id) === card.id
+    );
+    return hit !== undefined
+      ? { follow_id: hit.follow_id, source: hit.follow_source ?? "peepso" }
+      : undefined;
+  }, [watchFallbackActive, watchingQuery.data, card.card_kind, card.id]);
+  // Hosts that own optimistic state pass isPulled; the fallback derives
+  // it from the watching query (flips after the mutation's namespace
+  // invalidation refetches — same cadence the grids have).
+  const effectivePulled = watchFallbackActive ? fallbackEntry !== undefined : isPulled;
+  const handleWatchClick = () => {
+    if (onPull !== undefined) {
+      onPull(card);
+      return;
+    }
+    if (watchMutation.isPending || unwatchMutation.isPending) return;
+    if (fallbackEntry !== undefined) {
+      unwatchMutation.mutate({ follow_id: fallbackEntry.follow_id, source: fallbackEntry.source });
+    } else {
+      watchMutation.mutate({ target_kind: card.card_kind, target_id: card.id });
+    }
+  };
 
   // The Open destination is a server-supplied path. With typedRoutes
   // enabled we can't statically prove it's a valid app route, so we
@@ -70,7 +120,7 @@ export function ActionBar({
         disabled={!isAllowed(card.permissions, "can_watch")}
         title={
           isAllowed(card.permissions, "can_watch")
-            ? isPulled
+            ? effectivePulled
               ? FOLLOW_COPY.tooltipActive
               : FOLLOW_COPY.tooltipIdle
             : unlockHint(card.permissions, "can_watch") ??
@@ -78,11 +128,11 @@ export function ActionBar({
         }
         onClick={(e) => {
           stop(e);
-          if (onPull !== undefined) onPull(card);
+          handleWatchClick();
         }}
         className="bcc-stencil flex h-11 items-center justify-center bg-ink text-cardstock transition-colors disabled:cursor-not-allowed"
       >
-        {isPulled ? (
+        {effectivePulled ? (
           <>
             {/* Active state — desktop variant; "Keeping Tabs ✓" overflows the
                 grid-cols-3 cell on <375px viewports, so we swap to the state
