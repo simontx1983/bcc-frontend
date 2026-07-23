@@ -158,6 +158,15 @@ export interface ComposerProps {
    * the composer falls back to the bare placeholder.
    */
   groupScopeLabel?: string;
+  /**
+   * CL-FN06 — the group detail's `can_use_public_all`: may THIS viewer
+   * pick `visibility=public_all` here? `false` renders the PUBLIC
+   * option disabled with an explanatory tooltip (§N7 — gated actions
+   * stay visible). Absent/undefined = pre-CL-FN06 backend (no server
+   * gate) → option stays enabled, matching that backend's behavior.
+   * The server enforces authoritatively either way (403 reject).
+   */
+  canUsePublicAll?: boolean | undefined;
 }
 
 // ─────────────────────────────────────────────────────────────────────
@@ -184,6 +193,7 @@ export function Composer({
   viewerRankLabel,
   groupId,
   groupScopeLabel,
+  canUsePublicAll,
 }: ComposerProps) {
   // Review tab is only available when a target (entity page OR member) is
   // supplied. Fail closed.
@@ -215,6 +225,7 @@ export function Composer({
         viewerRankLabel={viewerRankLabel ?? ""}
         groupId={scopedGroupId}
         groupScopeLabel={groupScopeLabel}
+        canUsePublicAll={canUsePublicAll}
         startExpanded={startExpanded}
         hosted={hosted}
         onClose={onClose}
@@ -284,6 +295,8 @@ interface InlineStatusComposerProps {
   groupId: number | undefined;
   /** Optional kicker copy rendered above the placeholder when group-scoped. */
   groupScopeLabel: string | undefined;
+  /** See ComposerProps.canUsePublicAll (CL-FN06 visibility gate). */
+  canUsePublicAll: boolean | undefined;
   /** See ComposerProps.startExpanded. */
   startExpanded?: boolean | undefined;
   /** See ComposerProps.hosted. */
@@ -343,6 +356,7 @@ function InlineStatusComposer({
   viewerRankLabel,
   groupId,
   groupScopeLabel,
+  canUsePublicAll,
   startExpanded,
   hosted,
   onClose,
@@ -748,24 +762,41 @@ function InlineStatusComposer({
                 <div className="grid gap-2 md:grid-cols-3">
                   {VISIBILITY_OPTIONS.map((opt) => {
                     const active = visibility === opt.key;
+                    // CL-FN06 — `public_all` is server-gated per viewer.
+                    // Only an explicit `false` disables (§N7: visible but
+                    // inert + tooltip); absent means a pre-CL-FN06 backend
+                    // with no gate, so the option stays live there.
+                    const gated =
+                      opt.key === "public_all" && canUsePublicAll === false;
                     return (
                       <button
                         key={opt.key}
                         type="button"
                         onClick={() => setVisibility(opt.key)}
+                        disabled={gated}
                         aria-pressed={active}
+                        title={
+                          gated
+                            ? "Only group leaders can post to the main feed from this group."
+                            : undefined
+                        }
                         className={
-                          "rounded-sm border px-3 py-3 text-left transition motion-reduce:transition-none " +
+                          "rounded-sm border px-3 py-3 text-left transition motion-reduce:transition-none disabled:cursor-not-allowed disabled:opacity-50 " +
                           (active
                             ? "border-[var(--bcc-accent)] bg-[var(--bcc-accent-subtle)]"
-                            : "border-[var(--bcc-border)] bg-[var(--bcc-surface-hover)] hover:border-[var(--bcc-border-strong)]")
+                            : "border-[var(--bcc-border)] bg-[var(--bcc-surface-hover)] " +
+                              (gated
+                                ? ""
+                                : "hover:border-[var(--bcc-border-strong)]"))
                         }
                       >
                         <span className="bcc-stencil block text-[12px] tracking-[0.2em] text-[var(--bcc-text)]">
                           {opt.label}
                         </span>
                         <span className="mt-1 block font-serif text-[13px] text-[var(--bcc-text-secondary)]">
-                          {opt.description}
+                          {gated
+                            ? "Only group leaders can post to the main feed from this group."
+                            : opt.description}
                         </span>
                       </button>
                     );

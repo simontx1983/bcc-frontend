@@ -1901,6 +1901,16 @@ export interface CreatePlainGroupResponse {
   trust_min: 25 | 50 | 75 | null;
 }
 
+/**
+ * CL-FN06 — POST /me/groups/:id/post-policy success. Echoes the
+ * policy's post-write value (server truth; render this, don't assume
+ * the request landed as sent).
+ */
+export interface SetGroupPostPolicyResponse {
+  ok: true;
+  public_all_members_enabled: boolean;
+}
+
 // ─────────────────────────────────────────────────────────────────────
 // §4.7.2 — Profile Groups Tab (`GET /users/{slug}/groups`)
 //
@@ -5090,6 +5100,31 @@ export interface GroupDetailResponse {
   permissions: GroupDetailPermissions;
   feed_visible: boolean;
   members_visible: boolean;
+  /**
+   * CL-FN06 (§4.7 / v1.47+) — whether THIS viewer may set
+   * `visibility=public_all` when posting here (drives the composer's
+   * PUBLIC option). `false` for anon/non-members and members not
+   * authorized to syndicate; open groups allow any posting member.
+   * Optional: absent on pre-CL-FN06 backends (prod until it catches
+   * up) — treat absent as "no server gate" (keep the option enabled;
+   * the server was not enforcing on those backends either).
+   */
+  can_use_public_all?: boolean;
+  /**
+   * CL-FN06 — whether THIS viewer may change the group-wide
+   * ordinary-member syndication opt-in (owner / manager / site admin;
+   * moderators excluded — they can USE public_all but not manage the
+   * policy). Drives the owner toggle. Optional during rollout.
+   */
+  can_manage_public_all_policy?: boolean;
+  /**
+   * CL-FN06 — the group's ordinary-member syndication opt-in state.
+   * MINIMUM EXPOSURE: real value only when
+   * `can_manage_public_all_policy` is true; every other viewer sees
+   * `false` (raw config undisclosed — they rely on
+   * `can_use_public_all`). Toggled via POST /me/groups/:id/post-policy.
+   */
+  public_all_members_enabled?: boolean;
   /**
    * Chain-tag slug. Same shape + source as `GroupDiscoveryItem.chain_tag`.
    * Null when the group has no chain binding.
