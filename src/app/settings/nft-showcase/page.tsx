@@ -9,7 +9,7 @@
 
 import { NftShowcaseSettings } from "@/components/onchain/NftShowcaseSettings";
 
-import { SettingsSectionHeader } from "../_components/SettingsSectionHeader";
+import { SettingsSectionHeader } from "@/components/settings/SettingsSectionHeader";
 
 export default function NftShowcaseSettingsPage() {
   return (

@@ -11,7 +11,7 @@
 import { PrivacySettingsForm } from "@/components/settings/PrivacySettingsForm";
 import { ProfilePrefsSection } from "@/components/settings/profile/ProfilePrefsSection";
 
-import { SettingsSectionHeader } from "../_components/SettingsSectionHeader";
+import { SettingsSectionHeader } from "@/components/settings/SettingsSectionHeader";
 
 export default function PrivacySettingsPage() {
   return (

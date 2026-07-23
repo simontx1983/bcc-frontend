@@ -8,7 +8,7 @@
 
 import { NotificationPrefsForm } from "@/components/settings/NotificationPrefsForm";
 
-import { SettingsSectionHeader } from "../_components/SettingsSectionHeader";
+import { SettingsSectionHeader } from "@/components/settings/SettingsSectionHeader";
 
 export default function NotificationSettingsPage() {
   return (

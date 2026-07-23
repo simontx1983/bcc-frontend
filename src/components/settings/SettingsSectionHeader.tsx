@@ -1,10 +1,11 @@
 /**
- * SettingsSectionHeader — visual section divider used inside settings
- * pages (Profile, Privacy, Account). Blueprint accent line + eyebrow
- * label + title + blurb. Pure presentation, no client state.
+ * SettingsSectionHeader — visual section divider used by every editor
+ * surface (profile fields, privacy, account, …). Blueprint accent line +
+ * eyebrow label + title + blurb. Pure presentation, no client state.
  *
- * Lives under settings/_components so Next.js doesn't treat it as a
- * route segment (the underscore prefix marks it private).
+ * Lives in components/ rather than under the settings route group so it
+ * survives the settings-into-profile migration: the owner tabs on
+ * /u/[handle] use it too, and `src/app/settings/**` is being retired.
  */
 
 export function SettingsSectionHeader({
