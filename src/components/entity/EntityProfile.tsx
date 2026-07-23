@@ -250,7 +250,7 @@ export function EntityProfile({
               )}
 
               <ReviewCallout
-                pageId={card.id}
+                target={{ kind: "entity", pageId: card.id }}
                 pageName={card.name}
                 canReview={isAllowed(card.permissions, "can_review")}
                 unlockHint={unlockHint(card.permissions, "can_review")}
