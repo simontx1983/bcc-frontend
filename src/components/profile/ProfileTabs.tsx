@@ -19,13 +19,23 @@
  * useUserDisputes), so the strip stays cheap to mount — no upfront
  * cost beyond the chip rendering.
  *
- * URL state is intentionally omitted in V1 — the deep-link contract
- * (?tab=disputes) is a Phase-5 follow-up once we're wiring the
- * settings page and need consistent query-state handling.
+ * `?tab=<key>` is the AUTHORITATIVE tab state: the active tab is seeded
+ * from the URL and every click syncs it back, so tabs are deep-linkable,
+ * shareable and refresh-safe. This is the foundation the settings-absorbs
+ * -into-profile migration needs — retired /settings/* URLs redirect to
+ * `/u/me?tab=<key>`.
+ *
+ * We sync with the native History API (`replaceState`), not
+ * `router.replace`, on purpose:
+ *   - `router.replace` would re-run the server component on every tab
+ *     click (a fresh `getUser` round-trip + panel flash).
+ *   - `replaceState` adds no history entry, so Back leaves the profile
+ *     instead of walking backwards through twelve tabs.
+ * Next 15 propagates History updates to `useSearchParams`.
  */
 
 import dynamic from "next/dynamic";
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -229,11 +239,10 @@ export function ProfileTabs({
   isSignedIn = false,
   viewerHandle = null,
 }: ProfileTabsProps) {
-  // Deep-link support — external links (Floor composer escalation,
-  // "Open your blog →" affordances) target `?tab=<key>` so they land
-  // on the right panel without a second click. Only the initial value
-  // is sourced from the URL; subsequent tab clicks stay in React state
-  // (no history pollution).
+  // `?tab=<key>` drives the panel — external deep links (Floor composer
+  // escalation, "Open your blog →", and the retired /settings/* redirects)
+  // land on the right panel, and every click writes the key back so the
+  // URL always reflects what's on screen.
   const searchParams = useSearchParams();
   const urlTab = searchParams?.get("tab") ?? null;
 
@@ -244,6 +253,32 @@ export function ProfileTabs({
   const fallbackTab: TabKey = isOwner ? "activity" : "backing";
   const initialTab: TabKey = isTabKey(urlTab) ? urlTab : fallbackTab;
   const [active, setActive] = useState<TabKey>(initialTab);
+
+  // Tab we just wrote to the URL. Until the History update propagates
+  // back through useSearchParams we ignore the (still stale) URL, so a
+  // click can never be reverted by its own echo — and if propagation
+  // never lands, we degrade to "URL follows clicks" rather than fighting.
+  const pendingTab = useRef<TabKey | null>(null);
+
+  // Follow the URL when it genuinely changes underneath us (an in-page
+  // link to ?tab=…, or a deep link arriving while already mounted).
+  useEffect(() => {
+    if (!isTabKey(urlTab)) return;
+    if (pendingTab.current !== null) {
+      if (urlTab === pendingTab.current) pendingTab.current = null;
+      return;
+    }
+    if (urlTab !== active) setActive(urlTab);
+  }, [urlTab, active]);
+
+  const handleTabChange = useCallback((key: TabKey) => {
+    setActive(key);
+    if (typeof window === "undefined") return;
+    pendingTab.current = key;
+    const params = new URLSearchParams(window.location.search);
+    params.set("tab", key);
+    window.history.replaceState(null, "", `${window.location.pathname}?${params.toString()}`);
+  }, []);
 
   // PR-11b — Setup tab no longer auto-hides on a finished checklist.
   // The tab now holds three sub-tabs (Checklist / Standing /
@@ -280,7 +315,7 @@ export function ProfileTabs({
             id={`tab-${tab.key}`}
             aria-selected={active === tab.key}
             aria-controls={`tabpanel-${tab.key}`}
-            onClick={() => setActive(tab.key)}
+            onClick={() => handleTabChange(tab.key)}
             className="bcc-tab shrink-0"
           >
             {tab.label}

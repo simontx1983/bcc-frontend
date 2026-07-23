@@ -51,7 +51,7 @@ export function CollectionsStep({
           <p className="font-serif italic text-cardstock-deep">
             No wallet linked yet — you can do it any time in{" "}
             <a
-              href="/settings/identity"
+              href="/settings/profile"
               className="underline-offset-4 hover:underline"
             >
               settings

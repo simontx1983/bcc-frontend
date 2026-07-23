@@ -151,7 +151,7 @@ function AboutSubTab({ profile, isOwner }: { profile: MemberProfile; isOwner: bo
         </h3>
         {isOwner && (
           <Link
-            href={"/settings/identity" as Route}
+            href="/settings/profile"
             className="bcc-mono text-safety hover:underline"
             style={{ fontSize: "10px", letterSpacing: "0.18em" }}
           >
@@ -273,7 +273,7 @@ function AboutRow({
             <PrivacySelect />
             {editable && (
               <Link
-                href={"/settings/identity" as Route}
+                href="/settings/profile"
                 className="bcc-mono text-safety hover:underline"
                 style={{ fontSize: "10px", letterSpacing: "0.18em" }}
               >
@@ -763,7 +763,7 @@ function WalletsSubTab({ wallets, isOwner }: { wallets: MemberWallet[]; isOwner:
         <span aria-hidden className="h-px flex-1 bg-cardstock/15" />
         {isOwner && (
           <Link
-            href={"/settings/wallets" as Route}
+            href="/settings/account"
             className="bcc-mono text-safety hover:underline"
             style={{ fontSize: "10px", letterSpacing: "0.18em" }}
           >
@@ -829,11 +829,12 @@ function WalletRow({ wallet }: { wallet: MemberWallet }) {
 //                       deactivation vs. irrevocable deletion live in
 //                       different routes; same brutalist warning rail)
 //
-// V1 scope: shell with current-state read where available. Each row
-// links to the canonical settings surface
-// (`/settings/account`, `/settings/connections`, `/settings/wallets`)
-// for actual edits. Inline mutations land when the corresponding
-// PATCH endpoints ship.
+// V1 scope: shell with current-state read where available. Every row
+// links to `/settings/account` — the single surface that actually holds
+// the email/password, OAuth connections, wallets and sessions sections.
+// (`/settings/connections` and `/settings/wallets` never existed; those
+// links 404'd until 2026-07-23.) Inline mutations land when this panel
+// is replaced by the real editors in the settings-into-profile migration.
 //
 // Owner-only sub-tab in practice (the outer ProfilePanel can render
 // it for any viewer, but the email + password + danger-zone rows
@@ -887,21 +888,21 @@ function AccountSubTab({
           label="X (Twitter)"
           value="Not connected"
           actionLabel="CONNECT"
-          actionHref={"/settings/connections" as Route}
+          actionHref="/settings/account"
           isOwner={isOwner}
         />
         <AccountRow
           label="GitHub"
           value="Not connected"
           actionLabel="CONNECT"
-          actionHref={"/settings/connections" as Route}
+          actionHref="/settings/account"
           isOwner={isOwner}
         />
         <AccountRow
           label="Verified wallets"
           value={`${profile.wallets.length} on file`}
           actionLabel="MANAGE"
-          actionHref={"/settings/wallets" as Route}
+          actionHref="/settings/account"
           isOwner={isOwner}
         />
       </PreferenceSection>
