@@ -238,7 +238,7 @@ function ToggleSwitch({ label, value, pending, onChange }: ToggleSwitchProps) {
       className={
         "relative inline-flex h-7 w-12 flex-shrink-0 items-center border-2 transition disabled:opacity-60 " +
         (value
-          ? "border-bcc-accent bg-bcc-accent"
+          ? "border-bcc-accent-dark bg-bcc-accent-dark"
           : "border-bcc-border bg-bcc-surface-hover")
       }
     >

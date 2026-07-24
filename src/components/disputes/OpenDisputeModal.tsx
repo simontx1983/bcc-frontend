@@ -289,7 +289,7 @@ export function OpenDisputeModal({
                 "bcc-stencil rounded-sm px-5 py-2.5 text-[12px] tracking-[0.2em] transition " +
                 (canSubmit
                   ? "bg-ink text-cardstock hover:bg-blueprint"
-                  : "cursor-not-allowed bg-bcc-surface-hover text-bcc-text-muted")
+                  : "cursor-not-allowed bg-bcc-surface-active text-bcc-text-muted")
               }
             >
               {submit.isPending ? "FILING…" : "OPEN DISPUTE"}

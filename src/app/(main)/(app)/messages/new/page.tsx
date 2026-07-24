@@ -168,7 +168,7 @@ export default function NewMessagePage() {
                 rows={5}
                 disabled={mutation.isPending}
                 placeholder="Write your first message…"
-                className="font-serif resize-y rounded-sm border border-bcc-input-border bg-bcc-input-bg px-3 py-2 text-[14px] leading-snug text-bcc-text placeholder:text-bcc-text-placeholder focus-visible:border-bcc-accent focus-visible:outline-none disabled:opacity-50"
+                className="font-serif resize-y rounded-sm border border-bcc-input-border bg-bcc-input-bg px-3 py-2 text-[14px] leading-snug text-bcc-text placeholder:text-bcc-text-placeholder focus-visible:border-bcc-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-bcc-accent disabled:opacity-50"
               />
               <span
                 id="new-message-counter"
@@ -248,7 +248,7 @@ function SelectedRecipient({
       <button
         type="button"
         onClick={onClear}
-        className="bcc-mono text-[10px] tracking-[0.18em] text-bcc-text-muted transition hover:text-bcc-text"
+        className="bcc-mono text-[10px] tracking-[0.18em] text-bcc-text-secondary transition hover:text-bcc-text"
       >
         CHANGE
       </button>
@@ -279,19 +279,19 @@ function RecipientPicker({
       />
 
       {searchInput.length < 2 && (
-        <p className="bcc-mono text-[10px] tracking-[0.16em] text-bcc-text-muted">
+        <p className="bcc-mono text-[10px] tracking-[0.16em] text-bcc-text-secondary">
           Type at least 2 characters to search.
         </p>
       )}
 
       {searchInput.length >= 2 && query.isPending && (
-        <p className="bcc-mono text-[10px] tracking-[0.16em] text-bcc-text-muted">
+        <p className="bcc-mono text-[10px] tracking-[0.16em] text-bcc-text-secondary">
           Searching…
         </p>
       )}
 
       {searchInput.length >= 2 && query.isSuccess && query.data.items.length === 0 && (
-        <p className="bcc-mono text-[10px] tracking-[0.16em] text-bcc-text-muted">
+        <p className="bcc-mono text-[10px] tracking-[0.16em] text-bcc-text-secondary">
           No members match.
         </p>
       )}

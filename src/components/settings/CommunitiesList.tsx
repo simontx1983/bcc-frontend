@@ -277,7 +277,7 @@ function CommunityRow({ item, action }: CommunityRowProps) {
         ) : (
           <div
             aria-hidden
-            className="bcc-mono flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-bcc-border bg-bcc-surface-hover text-[10px] text-bcc-text-soft"
+            className="bcc-mono flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-bcc-border bg-bcc-surface-hover text-[10px] text-bcc-text-secondary"
           >
             {collectionName.slice(0, 2).toUpperCase()}
           </div>
@@ -391,7 +391,7 @@ function ToggleSwitch({ label, value, pending, onChange }: ToggleSwitchProps) {
       className={
         "relative inline-flex h-7 w-12 flex-shrink-0 items-center border-2 transition disabled:opacity-60 " +
         (value
-          ? "border-bcc-accent bg-bcc-accent"
+          ? "border-bcc-accent-dark bg-bcc-accent-dark"
           : "border-bcc-border bg-bcc-surface-hover")
       }
     >

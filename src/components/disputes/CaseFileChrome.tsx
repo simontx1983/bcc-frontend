@@ -85,7 +85,7 @@ export function CaseFileError({ message }: { message: string }) {
       <p className="bcc-stencil mt-2 text-2xl text-bcc-text">
         Couldn&rsquo;t load the case.
       </p>
-      <p role="alert" className="bcc-mono mt-3 text-bcc-text-muted">
+      <p role="alert" className="bcc-mono mt-3 text-bcc-text-secondary">
         {message}
       </p>
     </div>

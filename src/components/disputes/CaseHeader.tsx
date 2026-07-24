@@ -123,9 +123,9 @@ const VERDICT_STAMP: Partial<
   dismissed: { label: "DISMISSED", color: "var(--safety)" },
   timeout_no_quorum: {
     label: "TIMED OUT",
-    color: "var(--bcc-text-muted)",
+    color: "var(--bcc-text-secondary)",
   },
-  closed: { label: "CLOSED", color: "var(--bcc-text-muted)" },
+  closed: { label: "CLOSED", color: "var(--bcc-text-secondary)" },
 };
 
 // ─────────────────────────────────────────────────────────────────────
@@ -155,9 +155,9 @@ const STATUS_CONFIG: Record<
 > = {
   reviewing: {
     label: "REVIEWING",
-    color: "var(--bcc-info)",
-    background: "rgb(var(--steel-blue-rgb) / 0.08)",
-    borderColor: "rgb(var(--steel-blue-rgb) / 0.32)",
+    color: "var(--bcc-text)",
+    background: "var(--bcc-surface-hover)",
+    borderColor: "var(--bcc-info)",
   },
   accepted: {
     label: "ACCEPTED",

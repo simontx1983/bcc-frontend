@@ -52,7 +52,7 @@ const ConversationRow = memo(function ConversationRow({
         className={
           "flex items-center gap-3 px-3 py-3 transition " +
           (hasUnread
-            ? "bg-bcc-accent-subtle hover:bg-bcc-surface-active"
+            ? "bg-bcc-accent-subtle"
             : "hover:bg-bcc-surface-hover")
         }
       >
@@ -87,8 +87,8 @@ const ConversationRow = memo(function ConversationRow({
             className={
               "truncate text-[13px] leading-snug " +
               (hasUnread
-                ? "text-bcc-text-secondary"
-                : "text-bcc-text-muted")
+                ? "text-bcc-text"
+                : "text-bcc-text-secondary")
             }
           >
             {previewLine(conv)}

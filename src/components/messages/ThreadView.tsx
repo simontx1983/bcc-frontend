@@ -68,7 +68,7 @@ export function ThreadView({ items, viewerId }: ThreadViewProps) {
           return (
             <p
               key={msg.id}
-              className="bcc-mono mx-auto text-center text-[10px] tracking-[0.18em] text-bcc-text-muted"
+              className="bcc-mono mx-auto text-center text-[10px] tracking-[0.18em] text-bcc-text-secondary"
             >
               {stripHtml(msg.body)}
             </p>
@@ -121,7 +121,7 @@ function Bubble({ msg, isMine }: { msg: MessageItem; isMine: boolean }) {
             "rounded-lg px-3 py-2 text-sm whitespace-pre-wrap break-words " +
             (isMine
               ? "bg-cardstock text-ink"
-              : "bg-bcc-surface-raised text-bcc-text")
+              : "border border-bcc-border bg-bcc-surface-raised text-bcc-text")
           }
         >
           {stripHtml(msg.body)}

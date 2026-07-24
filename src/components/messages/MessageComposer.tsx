@@ -81,7 +81,7 @@ export function MessageComposer({ conversationId }: MessageComposerProps) {
           rows={3}
           disabled={mutation.isPending}
           placeholder="Write a message…"
-          className="font-serif resize-y rounded-sm border border-bcc-input-border bg-bcc-input-bg px-3 py-2 text-[14px] leading-snug text-bcc-text placeholder:text-bcc-text-placeholder focus-visible:border-bcc-accent focus-visible:outline-none disabled:opacity-50"
+          className="font-serif resize-y rounded-sm border border-bcc-input-border bg-bcc-input-bg px-3 py-2 text-[14px] leading-snug text-bcc-text placeholder:text-bcc-text-placeholder focus-visible:border-bcc-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-bcc-accent disabled:opacity-50"
         />
         <span
           id="message-composer-counter"
