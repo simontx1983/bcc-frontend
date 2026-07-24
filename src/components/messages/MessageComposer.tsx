@@ -69,7 +69,7 @@ export function MessageComposer({ conversationId }: MessageComposerProps) {
         submit();
       }}
     >
-      <label className="bcc-mono flex flex-col gap-1 text-[11px] tracking-[0.16em] text-cardstock-deep">
+      <label className="bcc-mono flex flex-col gap-1 text-[11px] tracking-[0.16em] text-bcc-text-secondary">
         <span className="sr-only">Message</span>
         <textarea
           id="message-composer-body"
@@ -81,7 +81,7 @@ export function MessageComposer({ conversationId }: MessageComposerProps) {
           rows={3}
           disabled={mutation.isPending}
           placeholder="Write a message…"
-          className="font-serif resize-y rounded-sm border border-cardstock-edge/40 bg-cardstock-deep/30 px-3 py-2 text-[14px] leading-snug text-cardstock placeholder:text-cardstock-deep/60 focus-visible:border-cardstock focus-visible:outline-none disabled:opacity-50"
+          className="font-serif resize-y rounded-sm border border-bcc-input-border bg-bcc-input-bg px-3 py-2 text-[14px] leading-snug text-bcc-text placeholder:text-bcc-text-placeholder focus-visible:border-bcc-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-bcc-accent disabled:opacity-50"
         />
         <span
           id="message-composer-counter"
@@ -90,7 +90,7 @@ export function MessageComposer({ conversationId }: MessageComposerProps) {
           className={
             body.length > MESSAGE_BODY_MAX_LENGTH
               ? "text-safety"
-              : "text-cardstock-deep/60"
+              : "text-bcc-text-muted"
           }
         >
           {body.length}/{MESSAGE_BODY_MAX_LENGTH}
@@ -104,13 +104,13 @@ export function MessageComposer({ conversationId }: MessageComposerProps) {
       )}
 
       <div className="flex items-center justify-between">
-        <span className="bcc-mono text-[10px] tracking-[0.16em] text-cardstock-deep/50">
+        <span className="bcc-mono text-[10px] tracking-[0.16em] text-bcc-text-muted">
           ENTER TO SEND · SHIFT + ENTER FOR NEWLINE
         </span>
         <button
           type="submit"
           disabled={!canSend}
-          className="bcc-mono inline-flex items-center gap-2 border-2 border-cardstock-edge px-3 py-1.5 text-[10px] tracking-[0.18em] text-cardstock transition hover:bg-cardstock hover:text-ink disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-cardstock"
+          className="bcc-mono inline-flex items-center gap-2 border-2 border-bcc-border px-3 py-1.5 text-[10px] tracking-[0.18em] text-bcc-text transition hover:bg-bcc-surface-hover hover:border-bcc-border-strong disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
         >
           {mutation.isPending ? "SENDING…" : "SEND"}
         </button>

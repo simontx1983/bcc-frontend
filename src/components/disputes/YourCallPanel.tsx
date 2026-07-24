@@ -72,7 +72,7 @@ export function YourCallPanel({
         className="border-2 border-ink/30 p-5"
         style={{ background: "var(--paper)" }}
       >
-        <p className="bcc-mono text-cardstock-deep">YOUR CALL //</p>
+        <p className="bcc-mono text-ink-ghost">YOUR CALL //</p>
         <p className="bcc-stencil mt-2 text-2xl text-ink">CASE CLOSED</p>
         <p className="bcc-mono mt-2 text-ink-ghost">
           Deliberation ended before your vote landed.
@@ -145,7 +145,7 @@ export function YourCallPanel({
       <div className="mt-4">
         <label
           htmlFor="case-note"
-          className="bcc-mono mb-2 block text-cardstock-deep"
+          className="bcc-mono mb-2 block text-ink-ghost"
         >
           INTERNAL NOTE //
           <span className="ml-2 text-ink-ghost">
@@ -162,7 +162,7 @@ export function YourCallPanel({
           className="w-full border border-ink/30 bg-transparent p-3 font-serif text-ink"
           style={{ resize: "vertical" }}
         />
-        <div className="bcc-mono mt-1 text-right text-cardstock-deep">
+        <div className="bcc-mono mt-1 text-right text-ink-ghost">
           {note.length}/{NOTE_MAX_LENGTH}
         </div>
       </div>
@@ -251,7 +251,7 @@ function YourCallLocked({
         borderColor: accent,
       }}
     >
-      <p className="bcc-mono text-cardstock-deep">YOUR CALL //</p>
+      <p className="bcc-mono text-ink-ghost">YOUR CALL //</p>
       <p
         className="bcc-stencil mt-2 text-3xl"
         style={{ color: accent }}
@@ -264,7 +264,7 @@ function YourCallLocked({
 
       {participation !== null && (
         <div className="mt-4 border-t border-dashed border-ink/20 pt-4">
-          <p className="bcc-mono text-cardstock-deep">PANEL DUTY TODAY //</p>
+          <p className="bcc-mono text-ink-ghost">PANEL DUTY TODAY //</p>
           <p className="bcc-mono mt-1 text-ink">
             {participation.credited_today} VOTE
             {participation.credited_today === 1 ? "" : "S"} CREDITED ·{" "}
@@ -304,7 +304,7 @@ function YourCallRecorded({ result }: { result: CastPanelVoteResponse }) {
       </p>
 
       <div className="mt-4 border-t border-dashed border-ink/20 pt-4">
-        <p className="bcc-mono text-cardstock-deep">PARTICIPATION CREDIT //</p>
+        <p className="bcc-mono text-ink-ghost">PARTICIPATION CREDIT //</p>
         <p
           className="bcc-stencil mt-1 text-xl"
           style={{ color: credited ? accent : "var(--ink)" }}
@@ -332,7 +332,7 @@ export function ReporterWaiting() {
       className="border-2 border-ink/30 p-5"
       style={{ background: "var(--paper)" }}
     >
-      <p className="bcc-mono text-cardstock-deep">YOUR FILING //</p>
+      <p className="bcc-mono text-ink-ghost">YOUR FILING //</p>
       <p className="bcc-stencil mt-2 text-2xl text-ink">ON THE FLOOR</p>
       <p className="bcc-mono mt-2 text-ink-ghost">
         Three panelists are weighing your case. You can&rsquo;t vote on

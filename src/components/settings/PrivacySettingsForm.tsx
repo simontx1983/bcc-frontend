@@ -154,8 +154,8 @@ export function PrivacySettingsForm() {
     <div className="flex flex-col gap-6">
       {SECTIONS.map((section) => (
         <section key={section.title} className="bcc-panel p-6">
-          <header className="mb-4 border-b border-cardstock-edge pb-3">
-            <h2 className="bcc-stencil text-xl text-cardstock">
+          <header className="mb-4 border-b border-bcc-border pb-3">
+            <h2 className="bcc-stencil text-xl text-bcc-text">
               {section.title}
             </h2>
             <p className="bcc-mono mt-1 text-[11px] tracking-[0.14em] text-bcc-text-secondary">
@@ -163,7 +163,7 @@ export function PrivacySettingsForm() {
             </p>
           </header>
 
-          <ul className="flex flex-col divide-y divide-cardstock-edge/60">
+          <ul className="flex flex-col divide-y divide-bcc-border">
             {section.toggles.map((toggle) => {
               const value = data[toggle.key] ?? false;
               const status =
@@ -238,15 +238,15 @@ function ToggleSwitch({ label, value, pending, onChange }: ToggleSwitchProps) {
       className={
         "relative inline-flex h-7 w-12 flex-shrink-0 items-center border-2 transition disabled:opacity-60 " +
         (value
-          ? "border-ink bg-ink"
-          : "border-cardstock-edge bg-cardstock-deep/40")
+          ? "border-bcc-accent-dark bg-bcc-accent-dark"
+          : "border-bcc-border bg-bcc-surface-hover")
       }
     >
       <span
         aria-hidden
         className={
           "block h-4 w-4 transition-transform " +
-          (value ? "translate-x-6 bg-cardstock" : "translate-x-1 bg-ink")
+          (value ? "translate-x-6 bg-bcc-text-inverse" : "translate-x-1 bg-bcc-text")
         }
       />
     </button>

@@ -77,7 +77,7 @@ export function BlocksList() {
 
   return (
     <div className="flex flex-col gap-4">
-      <ul className="bcc-panel divide-y divide-cardstock-edge/60">
+      <ul className="bcc-panel divide-y divide-bcc-border">
         {items.map((entry) => (
           <li
             key={entry.user_id}
@@ -107,7 +107,7 @@ export function BlocksList() {
               type="button"
               onClick={() => handleUnblock(entry.user_id)}
               disabled={pendingId === entry.user_id}
-              className="bcc-mono inline-flex items-center border-2 border-cardstock-edge px-3 py-1.5 text-[11px] tracking-[0.18em] text-bcc-text-secondary transition hover:border-ink/50 hover:text-bcc-text disabled:opacity-60"
+              className="bcc-mono inline-flex items-center border-2 border-bcc-border px-3 py-1.5 text-[11px] tracking-[0.18em] text-bcc-text-secondary transition hover:border-bcc-border-strong hover:text-bcc-text disabled:opacity-60"
             >
               {pendingId === entry.user_id ? "WORKING…" : "UNBLOCK"}
             </button>
@@ -124,7 +124,7 @@ export function BlocksList() {
             type="button"
             onClick={() => setPage((p) => Math.max(1, p - 1))}
             disabled={page <= 1}
-            className="border-2 border-cardstock-edge px-3 py-1 transition hover:border-ink/50 hover:text-bcc-text disabled:opacity-50"
+            className="border-2 border-bcc-border px-3 py-1 transition hover:border-bcc-border-strong hover:text-bcc-text disabled:opacity-50"
           >
             ← PREV
           </button>
@@ -135,7 +135,7 @@ export function BlocksList() {
             type="button"
             onClick={() => setPage((p) => p + 1)}
             disabled={page >= pagination.total_pages}
-            className="border-2 border-cardstock-edge px-3 py-1 transition hover:border-ink/50 hover:text-bcc-text disabled:opacity-50"
+            className="border-2 border-bcc-border px-3 py-1 transition hover:border-bcc-border-strong hover:text-bcc-text disabled:opacity-50"
           >
             NEXT →
           </button>
