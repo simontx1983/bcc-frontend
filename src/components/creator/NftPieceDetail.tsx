@@ -30,12 +30,12 @@ import type { Route } from "next";
 import Link from "next/link";
 import { memo, useCallback, useEffect, useState } from "react";
 
-import { Avatar } from "@/components/identity/Avatar";
+// <Avatar> import removed with the owner-identity block — the holder's
+// avatar/handle is no longer disclosed. See docs/wallet-privacy-policy.md.
 import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
 import type {
   NftPiece,
   NftPieceAttribute,
-  NftPieceCoOwner,
   NftPieceOwner,
 } from "@/lib/api/types";
 
@@ -51,7 +51,7 @@ export interface NftPieceDetailProps {
 }
 
 function NftPieceDetailImpl({ piece, routeCreatorSlug }: NftPieceDetailProps) {
-  const { collection, owner, owners, attributes, meta } = piece;
+  const { collection, owner, attributes, meta } = piece;
 
   // Fall-back rendering for null name (per §3.7: name is null when no
   // metadata yet — render `Untitled #{token_id}` rather than blank).
@@ -194,19 +194,16 @@ function NftPieceDetailImpl({ piece, routeCreatorSlug }: NftPieceDetailProps) {
         </section>
       )}
 
-      {/* ── Co-owners (ERC-1155 only) ───────────────────────────── */}
-      {owners.length > 0 && (
-        <section className="mt-12">
-          <SectionRule label="Held by" />
-          <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
-            {owners.map((coOwner) => (
-              <li key={coOwner.wallet_address}>
-                <CoOwnerTile coOwner={coOwner} />
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
+      {/*
+        ── Co-owners (ERC-1155) — REMOVED 2026-07-23 ─────────────────
+        The grid rendered one tile per holder with a shortened wallet
+        address and that wallet's balance, on a page any anonymous
+        visitor can load. Both are forbidden disclosures, and the server
+        now returns `owners: []` unconditionally. The holder count still
+        reaches the reader through `meta.owners_summary_label` on the
+        owner block, which is an aggregate and identifies nobody.
+        See docs/wallet-privacy-policy.md.
+      */}
     </main>
   );
 }
@@ -308,8 +305,20 @@ function HeroImage({
 }
 
 /**
- * Dominant-owner row. Links to `/u/{owner.user.handle}` when the
- * wallet is BCC-linked; renders wallet-only otherwise.
+ * Dominant-owner row.
+ *
+ * PRIVACY (2026-07-23): this block used to render the holder's shortened
+ * wallet address, and — when the wallet was BCC-linked — their avatar,
+ * display name, and `@handle` linking to their profile, all on a page
+ * any anonymous visitor can load. That published a member↔holding join
+ * built from a PRIVATE wallet link, which is exactly what the policy
+ * forbids: verifying a wallet is not consent to broadcast what it holds.
+ * Holdings are disclosed only through the explicit opt-in NFT showcase.
+ *
+ * What remains is `is_linked` — whether *some* BCC member holds it —
+ * which names nobody. The server no longer sends anything else.
+ *
+ * See docs/wallet-privacy-policy.md.
  */
 function OwnerBlock({
   owner,
@@ -318,76 +327,19 @@ function OwnerBlock({
   owner: NftPieceOwner;
   ownersSummaryLabel: string | null;
 }) {
-  const linkedUser = owner.is_linked ? owner.user : null;
-
   return (
     <div className="bcc-panel flex flex-col gap-3 px-4 py-3">
       <span className="bcc-mono text-[10px] uppercase tracking-[0.18em] text-ink-soft/60">
         Owner
       </span>
-      <div className="flex items-center gap-3">
-        {linkedUser !== null ? (
-          <Link
-            href={`/u/${linkedUser.handle}` as Route}
-            className="flex items-center gap-3 text-bcc-text transition hover:text-blueprint"
-          >
-            {/*
-              Sprint 1 Identity Grammar — consolidated to the shared
-              <Avatar>. Previous local Avatar derived a per-user HSL hue
-              for the initials background (intentional cohesion-loss
-              for the global identity grammar; see GroupMembersStrip).
-            */}
-            <Avatar
-              avatarUrl={linkedUser.avatar_url === "" ? null : linkedUser.avatar_url}
-              handle={linkedUser.handle}
-              displayName={linkedUser.display_name}
-              size="md"
-              variant="rounded"
-            />
-            <div className="flex flex-col">
-              <span className="bcc-stencil text-base">{linkedUser.display_name}</span>
-              <span className="bcc-mono text-[10px] text-bcc-text-secondary/70">
-                @{linkedUser.handle} &middot; {owner.address_short}
-              </span>
-            </div>
-          </Link>
-        ) : (
-          <div className="flex items-center gap-3">
-            <Avatar
-              avatarUrl={null}
-              handle={owner.address_short}
-              displayName={null}
-              size="md"
-              variant="rounded"
-            />
-            <div className="flex flex-col">
-              <span className="bcc-mono text-[12px] text-bcc-text">{owner.address_short}</span>
-              <span className="bcc-mono text-[10px] text-bcc-text-secondary/60">
-                Unlinked wallet
-              </span>
-            </div>
-          </div>
-        )}
-      </div>
+      <span className="bcc-mono text-[12px] text-bcc-text">
+        {owner.is_linked ? "Held by a BCC member" : "Held by an unlinked wallet"}
+      </span>
       {ownersSummaryLabel !== null && (
         <span className="bcc-mono text-[10px] text-bcc-text-secondary/70">
           {ownersSummaryLabel}
         </span>
       )}
-    </div>
-  );
-}
-
-/**
- * Co-owner tile (ERC-1155 only). Wallet-only per §3.7 privacy redaction.
- */
-function CoOwnerTile({ coOwner }: { coOwner: NftPieceCoOwner }) {
-  return (
-    <div className="bcc-panel flex flex-col gap-1 px-3 py-2">
-      <span className="bcc-mono text-[11px] text-bcc-text">{coOwner.address_short}</span>
-      <span className="bcc-mono text-[9px] text-bcc-text-secondary/60">
-        balance {coOwner.balance}
-      </span>
     </div>
   );
 }
