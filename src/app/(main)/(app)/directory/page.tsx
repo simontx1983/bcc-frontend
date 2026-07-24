@@ -122,12 +122,12 @@ function DirectoryPageContent() {
       <header className="mx-auto max-w-[1560px] px-4 sm:px-7 pt-12">
         <p className="bcc-mono text-safety">FIND YOUR FLOOR</p>
         <h1
-          className="bcc-stencil mt-3 text-cardstock leading-[0.95]"
+          className="bcc-stencil mt-3 text-bcc-text leading-[0.95]"
           style={{ fontSize: "clamp(2.5rem, 6.5vw, 5.5rem)" }}
         >
           Every operator on the floor.
         </h1>
-        <p className="mt-4 max-w-2xl font-serif text-lg leading-relaxed text-cardstock-deep">
+        <p className="mt-4 max-w-2xl font-serif text-lg leading-relaxed text-bcc-text-secondary">
           Browse every validator, project, and creator graded on the floor.
           Filter by tier, search by name, sort by trust. Keep tabs on the
           ones you actually trust.
@@ -157,13 +157,13 @@ function DirectoryPageContent() {
 
 function DirectoryRail() {
   return (
-    <div className="border-b border-dashed border-cardstock/15">
+    <div className="border-b border-dashed border-bcc-border">
       <div className="mx-auto flex max-w-[1560px] flex-wrap items-center justify-between gap-4 px-7 py-3">
-        <span className="bcc-mono inline-flex items-center gap-2 text-cardstock-deep">
+        <span className="bcc-mono inline-flex items-center gap-2 text-bcc-text-secondary">
           <span className="bcc-rail-dot" aria-hidden />
           <span>FLOOR &nbsp;//&nbsp; DIRECTORY</span>
         </span>
-        <span className="bcc-mono text-cardstock/50">
+        <span className="bcc-mono text-bcc-text-muted">
           FILE INDEX &nbsp;//&nbsp; ALL OPERATORS
         </span>
       </div>
@@ -196,12 +196,12 @@ function ActiveFiltersStrip({
     filters.chain !== null;
 
   return (
-    <div className="mt-10 border-y border-dashed border-cardstock/15">
+    <div className="mt-10 border-y border-dashed border-bcc-border">
       <div className="mx-auto flex max-w-[1560px] flex-wrap items-center gap-3 px-7 py-3">
-        <span className="bcc-mono text-cardstock-deep">FILTER //</span>
+        <span className="bcc-mono text-bcc-text-secondary">FILTER //</span>
 
         {!hasAny && (
-          <span className="bcc-mono text-cardstock/50">SHOWING ALL</span>
+          <span className="bcc-mono text-bcc-text-muted">SHOWING ALL</span>
         )}
 
         {filters.kind !== null && (
@@ -261,10 +261,10 @@ function FilterChip({ label, onClear }: { label: string; onClear: () => void }) 
       type="button"
       onClick={onClear}
       aria-label={`Clear filter ${label}`}
-      className="bcc-mono inline-flex items-center gap-2 border border-cardstock/30 px-2 py-1 text-cardstock transition hover:border-safety hover:text-safety"
+      className="bcc-mono inline-flex items-center gap-2 border border-bcc-border px-2 py-1 text-bcc-text-secondary transition hover:border-safety hover:text-safety"
     >
       <span>{label}</span>
-      <span aria-hidden className="text-cardstock-deep">✕</span>
+      <span aria-hidden className="text-bcc-text-muted">✕</span>
     </button>
   );
 }

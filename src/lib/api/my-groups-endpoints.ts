@@ -17,6 +17,7 @@ import type {
   CreatePlainGroupResponse,
   JoinPlainGroupResponse,
   LeavePlainGroupResponse,
+  SetGroupPostPolicyResponse,
 } from "@/lib/api/types";
 
 /**
@@ -78,4 +79,27 @@ export function createPlainGroup(
     method: "POST",
     body: input,
   });
+}
+
+/**
+ * POST /me/groups/:id/post-policy — CL-FN06 owner control: may
+ * ordinary members of this group set `visibility=public_all`
+ * (syndicate to the global feed)? Owner / manager / site-admin only
+ * (moderators may USE public_all but not manage the policy).
+ *
+ * Errors:
+ *   - bcc_unauthorized (401)
+ *   - bcc_not_found (404) — group not found OR secret group the
+ *     caller isn't a member of (existence never leaked)
+ *   - bcc_permission_denied (403) — not owner/manager/site-admin
+ *   - bcc_rate_limited (429) — 20/60s per user
+ */
+export function setGroupPostPolicy(
+  groupId: number,
+  publicAllMembers: boolean
+): Promise<SetGroupPostPolicyResponse> {
+  return bccFetchAsClient<SetGroupPostPolicyResponse>(
+    `me/groups/${groupId}/post-policy`,
+    { method: "POST", body: { public_all_members: publicAllMembers } }
+  );
 }

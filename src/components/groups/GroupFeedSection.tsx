@@ -33,6 +33,7 @@ import { memo, useCallback } from "react";
 import { Composer } from "@/components/composer/Composer";
 import { FeedItemCard } from "@/components/feed/FeedItemCard";
 import { GroupGatedNotice } from "@/components/groups/GroupGatedNotice";
+import { GroupPostPolicyToggle } from "@/components/groups/GroupPostPolicyToggle";
 import { useGroupFeed } from "@/hooks/useGroupFeed";
 import { humanizeCode } from "@/lib/api/errors";
 import type { FeedItem, GroupDetailResponse } from "@/lib/api/types";
@@ -67,11 +68,23 @@ export function GroupFeedSection({ group }: GroupFeedSectionProps) {
 
   return (
     <div className="flex flex-col gap-6">
+      {/* CL-FN06 leader control — server says this viewer may manage
+          the members-can-post-public policy (owner/manager/site-admin;
+          `public_all_members_enabled` carries its real value exactly
+          when this flag is true). Explicit === true so pre-CL-FN06
+          backends (field absent) never mount a control that would 404. */}
+      {group.can_manage_public_all_policy === true && (
+        <GroupPostPolicyToggle
+          groupId={group.id}
+          enabled={group.public_all_members_enabled === true}
+        />
+      )}
       {canInteract && (
         <Composer
           variant="inline"
           groupId={group.id}
           groupScopeLabel={`POST IN ${group.name.toUpperCase()}`}
+          canUsePublicAll={group.can_use_public_all}
         />
       )}
       {/* Non-member teaser hint (Phase 2): feed_visible is true but the
