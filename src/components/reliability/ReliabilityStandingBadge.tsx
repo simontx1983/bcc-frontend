@@ -57,7 +57,7 @@ export function ReliabilityStandingBadge({
       className={
         isAchievement
           ? "bcc-mono border border-phosphor/60 bg-phosphor/10 px-2 py-[3px] text-phosphor"
-          : "bcc-mono border border-cardstock/30 px-2 py-[3px] text-cardstock-deep"
+          : "bcc-mono border border-bcc-border px-2 py-[3px] text-bcc-text-secondary"
       }
     >
       {label.toUpperCase()}

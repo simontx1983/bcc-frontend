@@ -590,7 +590,7 @@ function ActionButton({
       </button>
       {showDescription && (
         <p
-          className="bcc-mono pl-1 leading-snug text-cardstock-deep/70"
+          className="bcc-mono pl-1 leading-snug text-bcc-text-secondary"
           style={{ fontSize: "10px", letterSpacing: "0.14em" }}
         >
           {description}
@@ -635,7 +635,7 @@ function buttonClassFor(
   if (isDisabled) {
     // Disabled state reads as quiet, not exclusionary. The
     // unlock_hint below the button carries the path forward.
-    return `${BASE_BUTTON_CLASS} ${sizeClass} border border-cardstock/20 text-cardstock-deep/60`;
+    return `${BASE_BUTTON_CLASS} ${sizeClass} border border-bcc-border text-bcc-text-muted`;
   }
   if (isCast) {
     // Already cast — action remains enabled (the click revokes).
@@ -652,16 +652,16 @@ function buttonClassFor(
       // surfacing stays via the N OF M label; the financial visual
       // is what was screaming. Phosphor border = "live, deliberate"
       // commitment without the capital-allocation read.
-      return `${BASE_BUTTON_CLASS} ${sizeClass} border border-phosphor/70 bg-cardstock-deep/5 text-cardstock hover:bg-cardstock-deep/15`;
+      return `${BASE_BUTTON_CLASS} ${sizeClass} border border-phosphor/70 bg-bcc-surface-hover text-bcc-text hover:bg-bcc-surface-active`;
     case "utility":
       // Report — least prominent. Functional moderation surface,
       // not a primary trust signal.
-      return `${BASE_BUTTON_CLASS} ${sizeClass} border border-cardstock/30 text-cardstock-deep hover:bg-cardstock-deep/10`;
+      return `${BASE_BUTTON_CLASS} ${sizeClass} border border-bcc-border text-bcc-text-secondary hover:bg-bcc-surface-hover`;
     case "positive":
     default:
       // Vouch — primary positive action. Always available to
       // eligible viewers.
-      return `${BASE_BUTTON_CLASS} ${sizeClass} border border-cardstock/40 bg-cardstock/5 text-cardstock hover:bg-cardstock/15`;
+      return `${BASE_BUTTON_CLASS} ${sizeClass} border border-bcc-border bg-bcc-surface-hover text-bcc-text hover:bg-bcc-surface-active`;
   }
 }
 

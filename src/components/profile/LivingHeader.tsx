@@ -97,7 +97,7 @@ export function LivingHeader({ living, progression, hideEmptyShiftFallback }: Li
           line is now the primary acknowledgment surface. */}
       <div className="flex flex-col justify-center gap-1">
         {todayLine !== "" && (
-          <p className="font-serif text-base italic text-cardstock-deep md:text-lg">
+          <p className="font-serif text-base italic text-bcc-text-secondary md:text-lg">
             {todayLine}
           </p>
         )}
@@ -118,13 +118,13 @@ export function LivingHeader({ living, progression, hideEmptyShiftFallback }: Li
           telling them what's next (admin-conferred, or top of ladder). */}
       {showProgression && progression !== undefined && terminal && (
         <div className="w-full sm:min-w-[260px] md:max-w-[320px]">
-          <div className="bcc-mono mb-1 flex items-baseline justify-between text-cardstock-deep">
+          <div className="bcc-mono mb-1 flex items-baseline justify-between text-bcc-text-secondary">
             <span>
-              <span className="text-cardstock">{progression.current_rank_label.toUpperCase()}</span>
+              <span className="text-bcc-text">{progression.current_rank_label.toUpperCase()}</span>
               {progression.next_rank_label !== null && (
                 <>
-                  <span className="mx-2 text-ink-ghost">→</span>
-                  <span className="text-ink-ghost">{progression.next_rank_label.toUpperCase()}</span>
+                  <span className="mx-2 text-bcc-text-muted">→</span>
+                  <span className="text-bcc-text-secondary">{progression.next_rank_label.toUpperCase()}</span>
                 </>
               )}
             </span>
@@ -132,7 +132,7 @@ export function LivingHeader({ living, progression, hideEmptyShiftFallback }: Li
           {/* Terminal status caption — quiet, intentional, civic. Falls
               back to a default when the server didn't ship a remaining
               label (defensive against contract softening). */}
-          <p className="bcc-mono text-ink-ghost">
+          <p className="bcc-mono text-bcc-text-secondary">
             {remainingLabel ?? (
               progression.next_rank === null
                 ? "Top of the auto-ladder."
@@ -143,12 +143,12 @@ export function LivingHeader({ living, progression, hideEmptyShiftFallback }: Li
       )}
       {showProgression && progression !== undefined && !terminal && (
         <div className="w-full sm:min-w-[260px] md:max-w-[320px]">
-          <div className="bcc-mono mb-1 flex items-baseline justify-between text-cardstock-deep">
+          <div className="bcc-mono mb-1 flex items-baseline justify-between text-bcc-text-secondary">
             <span>
-              <span className="text-cardstock">{progression.current_rank_label.toUpperCase()}</span>
+              <span className="text-bcc-text">{progression.current_rank_label.toUpperCase()}</span>
               {progression.next_rank_label !== null && (
                 <>
-                  <span className="mx-2 text-ink-ghost">→</span>
+                  <span className="mx-2 text-bcc-text-muted">→</span>
                   <span className="bcc-phosphor-text">{progression.next_rank_label.toUpperCase()}</span>
                 </>
               )}
@@ -177,7 +177,7 @@ export function LivingHeader({ living, progression, hideEmptyShiftFallback }: Li
             />
           </div>
           {remainingLabel !== null && (
-            <p className="bcc-mono mt-1 text-ink-ghost">{remainingLabel}</p>
+            <p className="bcc-mono mt-1 text-bcc-text-secondary">{remainingLabel}</p>
           )}
         </div>
       )}

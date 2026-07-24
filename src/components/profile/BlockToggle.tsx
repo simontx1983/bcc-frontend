@@ -84,7 +84,7 @@ export function BlockToggle({ profile }: BlockToggleProps) {
           "bcc-mono inline-flex items-center border-2 px-3 py-1.5 text-[11px] tracking-[0.18em] transition disabled:opacity-60 " +
           (blocking
             ? "border-safety/60 text-safety hover:border-safety hover:bg-safety/10"
-            : "border-cardstock-edge text-ink-soft hover:border-ink/50 hover:text-ink")
+            : "border-bcc-border text-bcc-text-secondary hover:border-bcc-border-strong hover:text-bcc-text")
         }
         aria-pressed={blocking}
       >

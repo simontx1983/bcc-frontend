@@ -48,7 +48,7 @@ export function ActivityPanel({
   if (query.isPending) {
     return (
       <div className="py-8">
-        <p className="bcc-mono text-cardstock-deep">Loading activity…</p>
+        <p className="bcc-mono text-bcc-text-secondary">Loading activity…</p>
       </div>
     );
   }
@@ -71,7 +71,7 @@ export function ActivityPanel({
         <button
           type="button"
           onClick={() => { void query.refetch(); }}
-          className="bcc-mono mt-3 text-cardstock-deep underline"
+          className="bcc-mono mt-3 text-bcc-text-secondary underline"
         >
           Try again
         </button>
@@ -115,14 +115,14 @@ export function ActivityPanel({
           type="button"
           onClick={() => { void query.fetchNextPage(); }}
           disabled={query.isFetchingNextPage}
-          className="bcc-stencil mx-auto mt-4 border border-cardstock-edge/40 px-6 py-2.5 text-cardstock disabled:opacity-50"
+          className="bcc-stencil mx-auto mt-4 border border-bcc-border px-6 py-2.5 text-bcc-text transition hover:border-bcc-border-strong disabled:opacity-50"
         >
           {query.isFetchingNextPage ? "Loading…" : "Load more"}
         </button>
       )}
 
       {!query.hasNextPage && items.length > 0 && (
-        <p className="bcc-mono mt-4 text-center text-cardstock-deep/60">
+        <p className="bcc-mono mt-4 text-center text-bcc-text-muted">
           End of the wall.
         </p>
       )}

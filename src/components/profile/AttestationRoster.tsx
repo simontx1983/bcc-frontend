@@ -161,8 +161,8 @@ export function AttestationRoster({
 
 function EmptyState({ body }: { body: string }) {
   return (
-    <div className="border border-dashed border-cardstock/20 px-6 py-8 text-center">
-      <p className="font-serif italic text-cardstock-deep">{body}</p>
+    <div className="border border-dashed border-bcc-border px-6 py-8 text-center">
+      <p className="font-serif italic text-bcc-text-secondary">{body}</p>
     </div>
   );
 }
@@ -195,7 +195,7 @@ function RosterRow({ item }: { item: AttestationRosterItem }) {
 
   return (
     <li
-      className={`flex items-start gap-3 border-b border-cardstock/15 py-3 last:border-b-0 ${rowToneClass}`}
+      className={`flex items-start gap-3 border-b border-bcc-border py-3 last:border-b-0 ${rowToneClass}`}
     >
       <Avatar
         avatarUrl={item.attestor.avatar_url}
@@ -206,10 +206,10 @@ function RosterRow({ item }: { item: AttestationRosterItem }) {
       />
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-          <span className="bcc-mono text-cardstock">
+          <span className="bcc-mono text-bcc-text">
             @{item.attestor.handle}
           </span>
-          <span className="font-serif text-cardstock-deep">
+          <span className="font-serif text-bcc-text-secondary">
             {item.attestor.display_name}
           </span>
           {reliabilityLabel !== null && (
@@ -218,12 +218,12 @@ function RosterRow({ item }: { item: AttestationRosterItem }) {
             </span>
           )}
           {isDormant && (
-            <span className="bcc-mono text-[10px] tracking-[0.18em] text-cardstock-deep">
+            <span className="bcc-mono text-[10px] tracking-[0.18em] text-bcc-text-secondary">
               INACTIVE
             </span>
           )}
         </div>
-        <div className="bcc-mono flex flex-wrap items-baseline gap-x-3 text-[11px] text-cardstock-deep">
+        <div className="bcc-mono flex flex-wrap items-baseline gap-x-3 text-[11px] text-bcc-text-secondary">
           <span>{isRevoked ? `REVOKED · ${kindLabel}` : kindLabel}</span>
           <span>·</span>
           <time dateTime={item.created_at}>
@@ -237,7 +237,7 @@ function RosterRow({ item }: { item: AttestationRosterItem }) {
           )}
         </div>
         {item.context_note !== null && item.context_note !== "" && (
-          <p className="mt-1 font-serif text-cardstock italic">
+          <p className="mt-1 font-serif text-bcc-text italic">
             &ldquo;{item.context_note}&rdquo;
           </p>
         )}
@@ -255,8 +255,8 @@ function RosterRow({ item }: { item: AttestationRosterItem }) {
 
 function RevokedSection({ revoked }: { revoked: AttestationRosterItem[] }) {
   return (
-    <details className="mt-4 border-t border-dashed border-cardstock/15 pt-3">
-      <summary className="bcc-mono cursor-pointer text-[11px] tracking-[0.18em] text-cardstock-deep hover:text-cardstock">
+    <details className="mt-4 border-t border-dashed border-bcc-border pt-3">
+      <summary className="bcc-mono cursor-pointer text-[11px] tracking-[0.18em] text-bcc-text-secondary hover:text-bcc-text">
         SHOW REVOKED ({revoked.length})
       </summary>
       <ul className="mt-2 flex flex-col">

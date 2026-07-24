@@ -174,10 +174,10 @@ function ReputationHeadline({
   if (score === undefined) {
     return (
       <div className="flex flex-col gap-1">
-        <span className="bcc-mono text-[10px] tracking-[0.2em] text-cardstock-deep">
+        <span className="bcc-mono text-[10px] tracking-[0.2em] text-bcc-text-secondary">
           REPUTATION
         </span>
-        <p className="font-serif text-cardstock-deep italic">
+        <p className="font-serif text-bcc-text-secondary italic">
           Will form as they participate.
         </p>
       </div>
@@ -189,18 +189,18 @@ function ReputationHeadline({
 
   return (
     <div className="flex flex-col gap-1">
-      <span className="bcc-mono text-[10px] tracking-[0.2em] text-cardstock-deep">
+      <span className="bcc-mono text-[10px] tracking-[0.2em] text-bcc-text-secondary">
         REPUTATION
       </span>
       <div className="flex items-baseline gap-3">
         <span
-          className="bcc-stencil text-cardstock leading-none"
+          className="bcc-stencil text-bcc-text leading-none"
           style={{ fontSize: "clamp(2rem, 4vw, 3rem)" }}
         >
           {score}
         </span>
         {phrase !== null && (
-          <span className="bcc-mono text-cardstock-deep">{phrase}</span>
+          <span className="bcc-mono text-bcc-text-secondary">{phrase}</span>
         )}
       </div>
     </div>
@@ -279,7 +279,7 @@ function SubtleSupplementalSignals({
   unresolvedClaimsCount: number;
 }) {
   return (
-    <div className="flex flex-wrap items-center gap-3 text-cardstock-deep">
+    <div className="flex flex-wrap items-center gap-3 text-bcc-text-secondary">
       {reputationVolatile && (
         <span className="bcc-mono">REPUTATION VOLATILE</span>
       )}
