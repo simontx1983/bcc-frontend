@@ -41,7 +41,7 @@ import { PageHero } from "@/components/layout/PageHero";
 import { AttestationActionCluster } from "@/components/profile/AttestationActionCluster";
 import { BlockToggle } from "@/components/profile/BlockToggle";
 import { ProfileTabs } from "@/components/profile/ProfileTabs";
-import { MemberReviewControl } from "@/components/review/MemberReviewControl";
+import { ReviewCallout } from "@/components/review/ReviewCallout";
 import { ShareButton } from "@/components/common/ShareButton";
 import { TourAutoStart } from "@/components/tour/TourAutoStart";
 import { authOptions } from "@/lib/auth";
@@ -51,6 +51,7 @@ import { getUser } from "@/lib/api/user-endpoints";
 import { ANON_SSR_REVALIDATE_SECONDS } from "@/lib/api/cache-policy";
 import { FOLLOW_COPY } from "@/lib/copy";
 import { formatJoinDate, presentationName } from "@/lib/format";
+import { isAllowed, unlockHint } from "@/lib/permissions";
 import {
   BccApiError,
   type MemberCounts,
@@ -161,6 +162,11 @@ export default async function MemberProfilePage({ params }: PageProps) {
   const isOwner =
     session !== null && session.user.handle === profile.handle;
 
+  // Owner "edit" affordances open the profile-editor TAB on this same
+  // page. Built from the viewed handle rather than /u/me so the owner
+  // doesn't take a redirect hop back to the profile they're already on.
+  const profileEditHref = `/u/${encodeURIComponent(profile.handle)}?tab=profile` as Route;
+
   // PR-11b — Setup tab RELIABILITY sub-tab embeds the §J.5 self-mirror.
   // Fetch is owner-only (the endpoint is Bearer-authed and refuses
   // third-party reads). Fire-and-forget on failure: a partial outage
@@ -232,7 +238,7 @@ export default async function MemberProfilePage({ params }: PageProps) {
             CTA which lives down in the hero action column. */}
         <div className="flex items-start justify-between gap-4">
           <h1
-            className="bcc-stencil text-cardstock leading-[0.92]"
+            className="bcc-stencil text-bcc-text leading-[0.92]"
             style={{ fontSize: "clamp(1.75rem, 5.5vw, 4.5rem)", wordBreak: "break-word" }}
           >
             {title}
@@ -255,7 +261,7 @@ export default async function MemberProfilePage({ params }: PageProps) {
         )}
         {titleFallbackUsed && profile.display_name.trim() !== "" && (
           <p
-            className="bcc-mono mt-2 text-cardstock-deep/60"
+            className="bcc-mono mt-2 text-bcc-text-secondary"
             style={{ fontSize: "10px", letterSpacing: "0.18em" }}
           >
             LISTED AS {profile.display_name}
@@ -282,7 +288,7 @@ export default async function MemberProfilePage({ params }: PageProps) {
                   dotted box, below the card+actions split. CountsStrip
                   grid-cols-6 spreads across the whole hero width. */}
               <div className="mb-3 flex items-center gap-3">
-                <span className="bcc-mono text-cardstock-deep">FILE 04</span>
+                <span className="bcc-mono text-bcc-text-secondary">FILE 04</span>
                 <span className="bcc-mono text-safety">{"//"} THE NUMBERS</span>
               </div>
               <CountsStrip counts={profile.counts} />
@@ -301,16 +307,16 @@ export default async function MemberProfilePage({ params }: PageProps) {
                   2026-05-14 layout request: REPUTATION kicker + stencil
                   score + standing/rank chips all centered horizontally
                   inside the cell at every breakpoint. */}
-              <div className="border border-cardstock-edge/60 bg-cardstock-deep/30 p-4">
+              <div className="border border-bcc-border bg-bcc-surface-raised p-4">
                 <div className="flex flex-col items-center gap-3 sm:flex-row sm:flex-wrap sm:items-baseline sm:justify-center sm:gap-x-4 sm:gap-y-2">
                   <div className="flex flex-col items-center">
                     <span
-                      className="bcc-mono text-cardstock-deep"
+                      className="bcc-mono text-bcc-text-secondary"
                       style={{ fontSize: "10px", letterSpacing: "0.24em" }}
                     >
                       REPUTATION
                     </span>
-                    <span className="bcc-stencil mt-1 text-4xl leading-none text-cardstock">
+                    <span className="bcc-stencil mt-1 text-4xl leading-none text-bcc-text">
                       {profile.reputation_score ?? profile.trust_score}
                     </span>
                   </div>
@@ -325,7 +331,7 @@ export default async function MemberProfilePage({ params }: PageProps) {
                     )}
                     {profile.rank_label !== "" && (
                       <span
-                        className="bcc-mono border border-cardstock-edge/60 px-2 py-1 text-cardstock"
+                        className="bcc-mono border border-bcc-border px-2 py-1 text-bcc-text"
                         style={{ fontSize: "10px", letterSpacing: "0.18em" }}
                       >
                         {profile.rank_label.toUpperCase()}
@@ -343,10 +349,25 @@ export default async function MemberProfilePage({ params }: PageProps) {
                 canReport={profile.permissions.can_report}
                 viewerAttestation={profile.viewer_attestation}
               />
-              {/* Slice 2 — direct person-review. UX gate only (signed-in,
-                  not self); the backend enforces eligibility. */}
+              {/* v1.49 — direct person-review via the shared
+                  ReviewCallout, fed from the member hero card's real
+                  server-resolved gates (can_review / viewer_has_reviewed
+                  / review_target_id). Ineligible viewers see the
+                  disabled CTA with the unlock hint instead of a 403;
+                  reviewers get the REMOVE branch. */}
               {session !== null && !isOwner && (
-                <MemberReviewControl userId={profile.user_id} displayName={title} />
+                <ReviewCallout
+                  target={{
+                    kind: "member",
+                    userId: profile.user_id,
+                    removePageId: profile.card.review_target_id,
+                  }}
+                  pageName={title}
+                  canReview={isAllowed(profile.card.permissions, "can_review")}
+                  unlockHint={unlockHint(profile.card.permissions, "can_review")}
+                  hasReviewed={profile.card.viewer_has_reviewed}
+                  viewerAuthed
+                />
               )}
               {/* §K1 block control — the quiet moderation affordance.
                   Self-hides when the viewer can't block (anonymous / self /
@@ -358,7 +379,7 @@ export default async function MemberProfilePage({ params }: PageProps) {
                 text={profile.bio}
                 label="BIO"
                 {...(isOwner
-                  ? { ownerEditHref: "/settings/identity" as Route }
+                  ? { ownerEditHref: profileEditHref }
                   : {})}
               />
               {/* Edit Profile — owner-only column exit. JOINED metadata
@@ -366,9 +387,9 @@ export default async function MemberProfilePage({ params }: PageProps) {
                   the column exits cleanly at BIO with just the CTA
                   for owners. */}
               {isOwner && (
-                <div className="flex justify-end border-t border-dashed border-cardstock/15 pt-4">
+                <div className="flex justify-end border-t border-dashed border-bcc-border pt-4">
                   <Link
-                    href="/settings/identity"
+                    href={profileEditHref}
                     className="bcc-btn bcc-btn-primary"
                   >
                     Edit Profile
@@ -402,7 +423,7 @@ export default async function MemberProfilePage({ params }: PageProps) {
         <SectionFrame fileNumber="NEW" label="JUST CLOCKED IN">
           <div className="bcc-panel px-5 py-6">
             <p
-              className="bcc-mono text-cardstock-deep"
+              className="bcc-mono text-bcc-text-secondary"
               style={{ fontSize: "10px", letterSpacing: "0.24em" }}
             >
               JOINED {formatJoinDate(profile.joined_at)} · {joinedAgeDays}D AGO
@@ -448,6 +469,15 @@ export default async function MemberProfilePage({ params }: PageProps) {
               {...(reliability !== undefined ? { reliability } : {})}
               isSignedIn={session !== null}
               viewerHandle={session?.user.handle ?? null}
+              receivedCount={profile.counts.reviews_received}
+              writtenCount={profile.counts.reviews_written}
+              // Owner-only Account tab needs the signed-in address for the
+              // change-email form. Forwarded only to the owner.
+              viewerEmail={
+                isOwner && typeof session?.user.email === "string"
+                  ? session.user.email
+                  : ""
+              }
             />
           </section>
 
@@ -456,9 +486,13 @@ export default async function MemberProfilePage({ params }: PageProps) {
               GroupsPanel (type === "local" rows), so a separate
               section was redundant.
 
-              FILE 06 // WALLETS moved into the new "My Profile" tab
-              (ProfilePanel) — first tab in the strip. The owner's
-              "+ ADD WALLET" affordance lives inside the panel header. */}
+              FILE 06 // WALLETS moved into the "My Profile" tab, which is
+              now the owner's real profile EDITOR (ProfileEditPanel) and is
+              owner-only — so wallets are no longer surfaced to visitors
+              here. Linked-wallet management lives on the owner's Account
+              tab (?tab=account). If verified wallets should be a PUBLIC
+              trust signal they need a real public surface; the old
+              read-only panel was never one. */}
         </>
       )}
     </main>
@@ -489,12 +523,12 @@ function FileRail({
   joinedLabel: string;
 }) {
   return (
-    <div className="border-b border-dashed border-cardstock/15">
+    <div className="border-b border-dashed border-bcc-border">
       <div className="mx-auto flex max-w-[1440px] flex-wrap items-center justify-between gap-4 px-4 py-3 sm:px-7">
-        <span className="bcc-mono inline-flex items-center gap-2 text-cardstock-deep">
+        <span className="bcc-mono inline-flex items-center gap-2 text-bcc-text-secondary">
           <span className="bcc-rail-dot" aria-hidden />
           <span>FLOOR &nbsp;//&nbsp; OPERATOR</span>
-          <span className="text-cardstock">@{handle.toUpperCase()}</span>
+          <span className="text-bcc-text">@{handle.toUpperCase()}</span>
           {/* Owner viewpoint tag — quietly confirms "this is your public
               view." Cheap insurance against the "did this save?" anxiety
               when an owner lands on their own profile. */}
@@ -502,7 +536,7 @@ function FileRail({
             <span className="text-phosphor">&nbsp;·&nbsp;YOU</span>
           )}
         </span>
-        <span className="bcc-mono inline-flex flex-wrap items-center gap-x-4 gap-y-1 text-cardstock/50">
+        <span className="bcc-mono inline-flex flex-wrap items-center gap-x-4 gap-y-1 text-bcc-text-muted">
           <span>JOINED&nbsp;{joinedLabel}</span>
           <span>FILE 0001&nbsp;//&nbsp;OPEN</span>
         </span>
@@ -534,9 +568,9 @@ function SectionFrame({
   return (
     <section className="mx-auto mt-16 max-w-[1440px] px-4 sm:px-7">
       <div className="mb-7 flex items-center gap-4">
-        <span className="bcc-mono text-cardstock-deep">FILE {fileNumber}</span>
+        <span className="bcc-mono text-bcc-text-secondary">FILE {fileNumber}</span>
         <span className="bcc-mono text-safety">{"//"} {label}</span>
-        <span aria-hidden className="h-px flex-1 bg-cardstock/15" />
+        <span aria-hidden className="h-px flex-1 bg-bcc-border" />
         {action !== undefined && action !== null && (
           <span className="shrink-0">{action}</span>
         )}
@@ -604,12 +638,12 @@ function CountsStrip({ counts }: { counts: MemberCounts }) {
           key={group.label}
           className={
             idx > 0
-              ? "lg:border-l lg:border-dashed lg:border-cardstock/15 lg:pl-6"
+              ? "lg:border-l lg:border-dashed lg:border-bcc-border lg:pl-6"
               : ""
           }
         >
           <p
-            className="bcc-mono mb-2 text-cardstock-deep"
+            className="bcc-mono mb-2 text-bcc-text-secondary"
             style={{ fontSize: "10px", letterSpacing: "0.24em" }}
           >
             {group.label}
@@ -644,7 +678,8 @@ function CountsStrip({ counts }: { counts: MemberCounts }) {
 // (rows with type === "local"), so the standalone strip was redundant
 // after the FILE 05 SectionFrame deletion.
 //
-// WalletsStrip + WalletRow moved to
-// `@/components/profile/panels/ProfilePanel` — they back the new "My
-// Profile" tab (first in the strip) instead of the FILE 06
-// SectionFrame.
+// WalletsStrip + WalletRow moved to the "My Profile" tab and were
+// removed along with the read-only ProfilePanel shadow UI. That tab is
+// now ProfileEditPanel (the owner's real editor); linked-wallet
+// management lives on /settings/account until it migrates to an owner
+// tab of its own.

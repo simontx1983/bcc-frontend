@@ -349,7 +349,7 @@ function SubTabNav({
     <div
       role="tablist"
       aria-label="Blog sections"
-      className="flex items-center gap-x-1 border-b border-cardstock/15"
+      className="flex items-center gap-x-1 border-b border-bcc-border"
     >
       {SUB_TABS.map((tab) => (
         <button
@@ -361,8 +361,8 @@ function SubTabNav({
           className={
             "bcc-mono shrink-0 border-b-2 px-4 py-2 transition " +
             (active === tab.key
-              ? "border-safety text-cardstock"
-              : "border-transparent text-cardstock-deep hover:text-cardstock")
+              ? "border-safety text-bcc-text"
+              : "border-transparent text-bcc-text-secondary hover:text-bcc-text")
           }
           style={{ fontSize: "12px", letterSpacing: "0.18em" }}
         >
@@ -425,7 +425,7 @@ function CreateSubTab({
       return (
         <div className="bcc-panel flex flex-col gap-3 p-6">
           <p
-            className="bcc-mono text-cardstock-deep"
+            className="bcc-mono text-bcc-text-secondary"
             style={{ fontSize: "10px", letterSpacing: "0.24em" }}
           >
             LOADING POST…

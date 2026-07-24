@@ -87,7 +87,7 @@ function SubTabStrip({
     <div
       role="tablist"
       aria-label="Backing direction"
-      className="flex gap-4 border-b border-cardstock/15"
+      className="flex gap-4 border-b border-bcc-border"
     >
       <SubTabButton
         label="RECEIVED"
@@ -120,8 +120,8 @@ function SubTabButton({
       onClick={onClick}
       className={`bcc-mono px-1 py-2 text-[11px] tracking-[0.2em] transition motion-reduce:transition-none ${
         isActive
-          ? "text-cardstock border-b-2 border-safety -mb-px"
-          : "text-cardstock-deep hover:text-cardstock"
+          ? "text-bcc-text border-b-2 border-safety -mb-px"
+          : "text-bcc-text-secondary hover:text-bcc-text"
       }`}
     >
       {label}

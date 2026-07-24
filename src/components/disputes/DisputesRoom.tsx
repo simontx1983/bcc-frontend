@@ -56,8 +56,8 @@ export function DisputesRoom() {
 
   return (
     <main className="mx-auto max-w-[1200px] px-7 pb-24 pt-12">
-      <div className="border-b border-dashed border-cardstock/15 pb-3">
-        <span className="bcc-mono inline-flex items-center gap-2 text-cardstock-deep">
+      <div className="border-b border-dashed border-bcc-border pb-3">
+        <span className="bcc-mono inline-flex items-center gap-2 text-bcc-text-secondary">
           <span className="bcc-rail-dot" aria-hidden />
           <span>FLOOR &nbsp;//&nbsp; DISPUTES</span>
         </span>
@@ -66,12 +66,12 @@ export function DisputesRoom() {
       <header className="mt-10" data-bcc-tour="disputes.panel">
         <p className="bcc-mono text-safety">DISPUTE ROOM</p>
         <h1
-          className="bcc-stencil mt-2 text-cardstock leading-[0.95]"
+          className="bcc-stencil mt-2 text-bcc-text leading-[0.95]"
           style={{ fontSize: "clamp(2.25rem, 5.5vw, 4.5rem)" }}
         >
           Cases on, cases out.
         </h1>
-        <p className="mt-3 max-w-2xl font-serif leading-relaxed text-cardstock-deep">
+        <p className="mt-3 max-w-2xl font-serif leading-relaxed text-bcc-text-secondary">
           Two queues live here. <strong>Panel duty</strong> is what the floor
           needs from you &mdash; downvotes other owners are challenging.{" "}
           <strong>My disputes</strong> is your own outbox &mdash; downvotes you
@@ -109,7 +109,7 @@ function TabBar({
     <div
       role="tablist"
       aria-label="Dispute room tabs"
-      className="mt-8 flex gap-6 border-b border-dashed border-cardstock/15"
+      className="mt-8 flex gap-6 border-b border-dashed border-bcc-border"
     >
       <TabButton
         active={tab === "panel"}
@@ -142,7 +142,7 @@ function TabButton({
       onClick={onClick}
       className="bcc-mono group relative -mb-px pb-3 pt-2 text-[12px] tracking-[0.2em] transition"
       style={{
-        color: active ? "var(--safety)" : "var(--cardstock-deep)",
+        color: active ? "var(--safety)" : "var(--bcc-text-secondary)",
       }}
     >
       {label}

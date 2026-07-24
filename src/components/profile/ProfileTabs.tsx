@@ -19,17 +19,29 @@
  * useUserDisputes), so the strip stays cheap to mount — no upfront
  * cost beyond the chip rendering.
  *
- * URL state is intentionally omitted in V1 — the deep-link contract
- * (?tab=disputes) is a Phase-5 follow-up once we're wiring the
- * settings page and need consistent query-state handling.
+ * `?tab=<key>` is the AUTHORITATIVE tab state: the active tab is seeded
+ * from the URL and every click syncs it back, so tabs are deep-linkable,
+ * shareable and refresh-safe. This is the foundation the settings-absorbs
+ * -into-profile migration needs — retired /settings/* URLs redirect to
+ * `/u/me?tab=<key>`.
+ *
+ * We sync with the native History API (`replaceState`), not
+ * `router.replace`, on purpose:
+ *   - `router.replace` would re-run the server component on every tab
+ *     click (a fresh `getUser` round-trip + panel flash).
+ *   - `replaceState` adds no history entry, so Back leaves the profile
+ *     instead of walking backwards through twelve tabs.
+ * Next 15 propagates History updates to `useSearchParams`.
  */
 
 import dynamic from "next/dynamic";
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
 import { Skeleton } from "@/components/ui/Skeleton";
 import type { MeReliabilityResponse, MemberLiving, MemberProfile, MemberProgression, MemberTabCount } from "@/lib/api/types";
+
+import { CardReviewsPanel } from "@/components/entity/panels/CardReviewsPanel";
 
 import { ActivityPanel } from "./panels/ActivityPanel";
 import { BackingPanel } from "./panels/BackingPanel";
@@ -37,7 +49,7 @@ import { ComingSoonPanel } from "./panels/ComingSoonPanel";
 import { DisputesPanel } from "./panels/DisputesPanel";
 import { GroupsPanel } from "./panels/GroupsPanel";
 import { PhotosPanel } from "./panels/PhotosPanel";
-import { ProfilePanel } from "./panels/ProfilePanel";
+import { ProfileEditPanel } from "./panels/ProfileEditPanel";
 import { ReviewsPanel } from "./panels/ReviewsPanel";
 import { SetupPanel } from "./panels/SetupPanel";
 import { WatchingPanel } from "./panels/WatchingPanel";
@@ -54,19 +66,79 @@ const BlogPanel = dynamic(
   }
 );
 
+// Owner-only editor panels (absorbed from /settings/*). Code-split per
+// tab so a public visitor to /u/alice never downloads any of this form
+// code, and an owner opening "Blocks" doesn't pull in the NFT picker.
+//
+// The options object is repeated at each call site on purpose: Next's
+// SWC transform requires `next/dynamic` options to be an inline object
+// literal, and rejects a shared constant
+// (https://nextjs.org/docs/messages/invalid-dynamic-options-type).
+const PrivacySettingsPanel = dynamic(
+  () => import("./panels/settings/PrivacySettingsPanel").then((m) => m.PrivacySettingsPanel),
+  { ssr: false, loading: () => <Skeleton className="h-40" /> }
+);
+const NotificationsSettingsPanel = dynamic(
+  () => import("./panels/settings/NotificationsSettingsPanel").then((m) => m.NotificationsSettingsPanel),
+  { ssr: false, loading: () => <Skeleton className="h-40" /> }
+);
+const MessagesSettingsPanel = dynamic(
+  () => import("./panels/settings/MessagesSettingsPanel").then((m) => m.MessagesSettingsPanel),
+  { ssr: false, loading: () => <Skeleton className="h-40" /> }
+);
+const CommunitiesSettingsPanel = dynamic(
+  () => import("./panels/settings/CommunitiesSettingsPanel").then((m) => m.CommunitiesSettingsPanel),
+  { ssr: false, loading: () => <Skeleton className="h-40" /> }
+);
+const ShowcaseSettingsPanel = dynamic(
+  () => import("./panels/settings/ShowcaseSettingsPanel").then((m) => m.ShowcaseSettingsPanel),
+  { ssr: false, loading: () => <Skeleton className="h-40" /> }
+);
+const BlocksSettingsPanel = dynamic(
+  () => import("./panels/settings/BlocksSettingsPanel").then((m) => m.BlocksSettingsPanel),
+  { ssr: false, loading: () => <Skeleton className="h-40" /> }
+);
+const AccountSettingsPanel = dynamic(
+  () => import("./panels/settings/AccountSettingsPanel").then((m) => m.AccountSettingsPanel),
+  { ssr: false, loading: () => <Skeleton className="h-40" /> }
+);
+
 /**
  * Local TabKey supersets MemberTabCount["key"] with frontend-only
  * tabs that aren't yet part of the §9 Phase-4 tab metadata contract
  * (e.g. "photos" — placeholder slot for the upcoming media gallery,
  * shown as ComingSoonPanel until the server ships counts for it).
- * When the server's `tabs` prop is passed it carries only the contract
- * keys; the FE-only tabs are appended from DEFAULT_TABS.
+ *
+ * Caveat: when a server `tabs` prop is passed it REPLACES the default
+ * list wholesale — FE-only tabs (photos/backing/setup/profile/blog)
+ * do not render in that mode. No caller passes `tabs` today
+ * (/u/[handle] uses DEFAULT_TABS + the receivedCount/writtenCount
+ * badge props); if Phase-4 metadata ever ships, append the FE-only
+ * tabs first. Count semantics are reconciled as of v1.49: the
+ * contract's `reviews` tab counts RECEIVED and `written` counts
+ * authored, matching the badge props.
  */
-type TabKey = MemberTabCount["key"] | "photos" | "backing" | "setup" | "profile" | "blog";
+type TabKey =
+  | MemberTabCount["key"]
+  | "photos"
+  | "backing"
+  | "setup"
+  | "profile"
+  | "blog"
+  | "written"
+  // Owner-only editor tabs, absorbed from the retired /settings/* routes.
+  | "account"
+  | "privacy"
+  | "notifications"
+  | "messages"
+  | "communities"
+  | "showcase"
+  | "blocks";
 
 const TAB_KEYS: ReadonlyArray<TabKey> = [
   "activity",
   "reviews",
+  "written",
   "watching",
   "disputes",
   "network",
@@ -76,6 +148,13 @@ const TAB_KEYS: ReadonlyArray<TabKey> = [
   "setup",
   "profile",
   "blog",
+  "account",
+  "privacy",
+  "notifications",
+  "messages",
+  "communities",
+  "showcase",
+  "blocks",
 ];
 
 function isTabKey(value: string | null | undefined): value is TabKey {
@@ -88,17 +167,25 @@ function isTabKey(value: string | null | undefined): value is TabKey {
  * whether or not counts are available.
  */
 const DEFAULT_TABS: ReadonlyArray<{ key: TabKey; label: string; soon?: boolean; ownerOnly?: boolean }> = [
-  // "My Profile" tab — identity-bound metadata (wallets, future:
-  // verifications etc). Sits first per the 2026-05-14 reorganization
-  // request. NOT the default active tab — visitors still land on
-  // Backing for the trust evaluation, owners on Activity.
-  { key: "profile",  label: "My Profile" },
+  // "My Profile" — the owner's profile EDITOR (avatar/cover, handle,
+  // profile fields + per-field visibility). Owner-only: the tab is
+  // literally "My Profile", and its predecessor wrongly showed personal
+  // Preference/Notifications/Account sub-tabs to visitors. Sits first
+  // per the 2026-05-14 reorganization request. NOT the default active
+  // tab — owners still land on Activity, visitors on Backing.
+  { key: "profile",  label: "My Profile", ownerOnly: true },
   // §J.6 — backing is the trust headline. Visitor's default active
   // tab so the "can I trust this operator?" question is the first
   // one answered by the panel content (even though Profile is the
   // first tab in the strip).
   { key: "backing",  label: "Backing" },
+  // v1.48 split: "Reviews" = reviews RECEIVED (filed on this member's
+  // self-page — public trust signal, mirrors entity cards); "Written"
+  // = reviews this member authored. The pre-v1.48 single tab showed
+  // authored under a "Reviews on file" header — misleading once
+  // member-target reviews existed.
   { key: "reviews",  label: "Reviews" },
+  { key: "written",  label: "Written" },
   { key: "activity", label: "Activity" },
   // §3.1 — bidirectional follow graph (followers + following).
   // Renamed from "Watching" because "Watching" leaned outgoing-only
@@ -121,6 +208,18 @@ const DEFAULT_TABS: ReadonlyArray<{ key: TabKey; label: string; soon?: boolean; 
   // Network tab hidden in V1 per the 2026-05-13 UX review — stub
   // ComingSoonPanel trains operators that tabs lie. Reinstate when
   // the §C2 watchers + vouch-graph data ships (Phase 5).
+  //
+  // ── Owner-only editors, absorbed from the retired /settings/* routes ──
+  // Grouped at the end so the content tabs (what a visitor came for) stay
+  // leftmost; a visitor sees none of these. Order mirrors the old
+  // SettingsNav so muscle memory survives the move.
+  { key: "privacy",       label: "Privacy",       ownerOnly: true },
+  { key: "notifications", label: "Notifications", ownerOnly: true },
+  { key: "messages",      label: "Messages",      ownerOnly: true },
+  { key: "communities",   label: "Communities",   ownerOnly: true },
+  { key: "showcase",      label: "Showcase",      ownerOnly: true },
+  { key: "account",       label: "Account",       ownerOnly: true },
+  { key: "blocks",        label: "Blocks",        ownerOnly: true },
 ];
 
 interface TabRow {
@@ -198,6 +297,23 @@ export interface ProfileTabsProps {
    * own blog" link when the viewer is signed in but not the owner.
    */
   viewerHandle?: string | null;
+  /**
+   * v1.49 count badges for the default-tabs path (the server `tabs`
+   * prop is still unused — see the TabKey caveat above). Fed from
+   * `profile.counts.reviews_received` / `reviews_written`; undefined
+   * hides the badge (pre-v1.49 payloads).
+   */
+  receivedCount?: number | undefined;
+  writtenCount?: number | undefined;
+  /**
+   * Signed-in operator's email, forwarded from the server session by the
+   * profile page. Only the owner-only Account tab uses it: AccountSection
+   * needs the current address for the change-email form, and the retired
+   * /settings/account page read it via getServerSession — which a client
+   * tab panel can't do. Empty for visitors (that tab doesn't render for
+   * them anyway).
+   */
+  viewerEmail?: string;
 }
 
 export function ProfileTabs({
@@ -213,12 +329,14 @@ export function ProfileTabs({
   reliability,
   isSignedIn = false,
   viewerHandle = null,
+  receivedCount,
+  writtenCount,
+  viewerEmail = "",
 }: ProfileTabsProps) {
-  // Deep-link support — external links (Floor composer escalation,
-  // "Open your blog →" affordances) target `?tab=<key>` so they land
-  // on the right panel without a second click. Only the initial value
-  // is sourced from the URL; subsequent tab clicks stay in React state
-  // (no history pollution).
+  // `?tab=<key>` drives the panel — external deep links (Floor composer
+  // escalation, "Open your blog →", and the retired /settings/* redirects)
+  // land on the right panel, and every click writes the key back so the
+  // URL always reflects what's on screen.
   const searchParams = useSearchParams();
   const urlTab = searchParams?.get("tab") ?? null;
 
@@ -230,6 +348,32 @@ export function ProfileTabs({
   const initialTab: TabKey = isTabKey(urlTab) ? urlTab : fallbackTab;
   const [active, setActive] = useState<TabKey>(initialTab);
 
+  // Tab we just wrote to the URL. Until the History update propagates
+  // back through useSearchParams we ignore the (still stale) URL, so a
+  // click can never be reverted by its own echo — and if propagation
+  // never lands, we degrade to "URL follows clicks" rather than fighting.
+  const pendingTab = useRef<TabKey | null>(null);
+
+  // Follow the URL when it genuinely changes underneath us (an in-page
+  // link to ?tab=…, or a deep link arriving while already mounted).
+  useEffect(() => {
+    if (!isTabKey(urlTab)) return;
+    if (pendingTab.current !== null) {
+      if (urlTab === pendingTab.current) pendingTab.current = null;
+      return;
+    }
+    if (urlTab !== active) setActive(urlTab);
+  }, [urlTab, active]);
+
+  const handleTabChange = useCallback((key: TabKey) => {
+    setActive(key);
+    if (typeof window === "undefined") return;
+    pendingTab.current = key;
+    const params = new URLSearchParams(window.location.search);
+    params.set("tab", key);
+    window.history.replaceState(null, "", `${window.location.pathname}?${params.toString()}`);
+  }, []);
+
   // PR-11b — Setup tab no longer auto-hides on a finished checklist.
   // The tab now holds three sub-tabs (Checklist / Standing /
   // Reliability) so it stays relevant for the operator's own
@@ -240,8 +384,31 @@ export function ProfileTabs({
     return true;
   });
 
-  const tabsToRender: TabRow[] = tabs ?? filteredDefaults.map((t) => ({ ...t }));
-  const activeTab = tabsToRender.find((t) => t.key === active);
+  // v1.49 — count badges on the review tabs (default-tabs path only;
+  // a server `tabs` prop carries its own counts).
+  const tabsToRender: TabRow[] = tabs ?? filteredDefaults.map((t) => {
+    if (t.key === "reviews" && receivedCount !== undefined) {
+      return { ...t, count: receivedCount };
+    }
+    if (t.key === "written" && writtenCount !== undefined) {
+      return { ...t, count: writtenCount };
+    }
+    return { ...t };
+  });
+
+  // Resolve the requested tab against what THIS VIEWER is allowed to see.
+  // The ownerOnly filter above only removes the button from the strip —
+  // the panel switch below keys off the active key, so without this a
+  // deep link like `?tab=profile` would still mount the owner's editor
+  // for a visitor (no server data leak, since every editor talks to
+  // session-scoped /me/* endpoints, but a signed-in non-owner would see
+  // THEIR OWN fields loaded under someone else's profile). Anything not
+  // in the rendered set falls back to this viewer's default tab.
+  const effectiveActive: TabKey = tabsToRender.some((t) => t.key === active)
+    ? active
+    : fallbackTab;
+
+  const activeTab = tabsToRender.find((t) => t.key === effectiveActive);
   const activeHidden = activeTab?.hidden === true;
 
   return (
@@ -255,7 +422,7 @@ export function ProfileTabs({
       <div
         role="tablist"
         aria-label="Member sections"
-        className="-mx-4 flex items-center gap-x-1 overflow-x-auto border-b border-cardstock/15 px-4 sm:mx-0 sm:flex-wrap sm:px-0"
+        className="-mx-4 flex items-center gap-x-1 overflow-x-auto border-b border-bcc-border px-4 sm:mx-0 sm:flex-wrap sm:px-0"
       >
         {tabsToRender.map((tab) => (
           <button
@@ -263,9 +430,9 @@ export function ProfileTabs({
             type="button"
             role="tab"
             id={`tab-${tab.key}`}
-            aria-selected={active === tab.key}
+            aria-selected={effectiveActive === tab.key}
             aria-controls={`tabpanel-${tab.key}`}
-            onClick={() => setActive(tab.key)}
+            onClick={() => handleTabChange(tab.key)}
             className="bcc-tab shrink-0"
           >
             {tab.label}
@@ -274,7 +441,7 @@ export function ProfileTabs({
             )}
             {tab.hidden === true && (
               <span
-                className="ml-2 inline-block border border-cardstock/30 px-1 text-[9px] tracking-[0.18em]"
+                className="ml-2 inline-block border border-bcc-border px-1 text-[9px] tracking-[0.18em]"
                 aria-label="Private"
               >
                 PRIVATE
@@ -282,7 +449,7 @@ export function ProfileTabs({
             )}
             {tab.soon === true && (
               <span
-                className="bcc-mono ml-2 text-cardstock-deep/60"
+                className="bcc-mono ml-2 text-bcc-text-secondary"
                 style={{ fontSize: "9px", letterSpacing: "0.18em" }}
                 aria-label="Coming soon"
               >
@@ -304,8 +471,8 @@ export function ProfileTabs({
           panel changes when the tab flips. */}
       <div
         role="tabpanel"
-        id={`tabpanel-${active}`}
-        aria-labelledby={`tab-${active}`}
+        id={`tabpanel-${effectiveActive}`}
+        aria-labelledby={`tab-${effectiveActive}`}
         aria-live="polite"
         className="mt-6"
       >
@@ -316,22 +483,29 @@ export function ProfileTabs({
           />
         ) : (
           <>
-            {active === "profile"  && (
-              <ProfilePanel profile={profile} isOwner={isOwner} />
+            {effectiveActive === "profile"  && (
+              <ProfileEditPanel profile={profile} />
             )}
-            {active === "backing"  && (
+            {effectiveActive === "backing"  && (
               <BackingPanel
                 handle={handle}
                 targetUserId={targetUserId}
                 reputationScore={reputationScore}
               />
             )}
-            {active === "reviews"  && <ReviewsPanel handle={handle} />}
-            {active === "disputes" && <DisputesPanel handle={handle} />}
-            {active === "watching" && (
+            {effectiveActive === "reviews"  && (
+              <CardReviewsPanel
+                kind="user_profile"
+                cardId={targetUserId}
+                cardName={displayName}
+              />
+            )}
+            {effectiveActive === "written"  && <ReviewsPanel handle={handle} />}
+            {effectiveActive === "disputes" && <DisputesPanel handle={handle} />}
+            {effectiveActive === "watching" && (
               <WatchingPanel handle={handle} displayName={displayName} />
             )}
-            {active === "activity" && (
+            {effectiveActive === "activity" && (
               <ActivityPanel
                 handle={handle}
                 isOwner={isOwner}
@@ -339,9 +513,9 @@ export function ProfileTabs({
                 {...(progression !== undefined ? { progression } : {})}
               />
             )}
-            {active === "photos"   && <PhotosPanel handle={handle} isOwner={isOwner} />}
-            {active === "groups"   && <GroupsPanel handle={handle} />}
-            {active === "blog" && (
+            {effectiveActive === "photos"   && <PhotosPanel handle={handle} isOwner={isOwner} />}
+            {effectiveActive === "groups"   && <GroupsPanel handle={handle} />}
+            {effectiveActive === "blog" && (
               <BlogPanel
                 handle={handle}
                 isOwner={isOwner}
@@ -349,12 +523,25 @@ export function ProfileTabs({
                 viewerHandle={viewerHandle}
               />
             )}
-            {active === "network"  && <ComingSoonPanel label="Network" hint="Members you're watching + vouch graph — Phase 5." />}
-            {active === "setup" && (
+            {effectiveActive === "network"  && <ComingSoonPanel label="Network" hint="Members you're watching + vouch graph — Phase 5." />}
+            {effectiveActive === "setup" && (
               <SetupPanel
                 profile={profile}
                 reliability={reliability}
               />
+            )}
+
+            {/* Owner-only editors absorbed from /settings/*. Reachable
+                only when effectiveActive resolved to them, which the
+                ownerOnly filter above already restricts to the owner. */}
+            {effectiveActive === "privacy"       && <PrivacySettingsPanel />}
+            {effectiveActive === "notifications" && <NotificationsSettingsPanel />}
+            {effectiveActive === "messages"      && <MessagesSettingsPanel />}
+            {effectiveActive === "communities"   && <CommunitiesSettingsPanel />}
+            {effectiveActive === "showcase"      && <ShowcaseSettingsPanel />}
+            {effectiveActive === "blocks"        && <BlocksSettingsPanel />}
+            {effectiveActive === "account"       && (
+              <AccountSettingsPanel currentEmail={viewerEmail} />
             )}
           </>
         )}

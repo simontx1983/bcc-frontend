@@ -17,16 +17,23 @@ import { useSession } from "next-auth/react";
 import { useMemo, Suspense } from "react";
 
 import { ConversationList } from "@/components/messages/ConversationList";
+import { QueuedMessagesList } from "@/components/messages/QueuedMessagesList";
 import { useConversations } from "@/hooks/useConversations";
+import { useQueuedMessages } from "@/hooks/useQueuedMessages";
 import { humanizeCode } from "@/lib/api/errors";
 
 const PER_PAGE = 20;
+
+type MessagesTab = "messages" | "queued";
 
 function MessagesPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const session = useSession();
   const isAuthed = session.status === "authenticated";
+
+  const activeTab: MessagesTab =
+    searchParams.get("tab") === "queued" ? "queued" : "messages";
 
   const urlPage = useMemo(() => {
     const raw = searchParams.get("page");
@@ -37,11 +44,19 @@ function MessagesPageContent() {
   const query = useConversations({
     page: urlPage,
     perPage: PER_PAGE,
-    enabled: isAuthed,
+    enabled: isAuthed && activeTab === "messages",
   });
 
+  const queuedQuery = useQueuedMessages({
+    page: urlPage,
+    perPage: PER_PAGE,
+    enabled: isAuthed && activeTab === "queued",
+  });
+
+  // Pagination is per-tab; switching tabs resets to page 1.
   const goToPage = (next: number) => {
     const params = new URLSearchParams();
+    if (activeTab === "queued") params.set("tab", "queued");
     if (next > 1) params.set("page", String(next));
     const qs = params.toString();
     router.replace((qs !== "" ? `/messages?${qs}` : "/messages") as Route, { scroll: false });
@@ -54,19 +69,19 @@ function MessagesPageContent() {
       <header className="mx-auto max-w-3xl px-2 sm:px-3 pt-12">
         <p className="bcc-mono text-safety">DIRECT</p>
         <h1
-          className="bcc-stencil mt-3 text-cardstock leading-[0.95]"
+          className="bcc-stencil mt-3 text-bcc-text leading-[0.95]"
           style={{ fontSize: "clamp(2rem, 5vw, 3.5rem)" }}
         >
           Messages
         </h1>
-        <p className="mt-4 max-w-2xl font-serif text-base leading-relaxed text-cardstock-deep">
+        <p className="mt-4 max-w-2xl font-serif text-base leading-relaxed text-bcc-text-secondary">
           Quiet conversations between operators. Click anyone&apos;s file
           to start a new thread.
         </p>
         <div className="mt-5">
           <Link
             href={"/messages/new" as Route}
-            className="bcc-mono inline-flex items-center gap-2 border-2 border-cardstock-edge px-3 py-1.5 text-[10px] tracking-[0.18em] text-cardstock transition hover:bg-cardstock hover:text-ink"
+            className="bcc-mono inline-flex items-center gap-2 border-2 border-bcc-border px-3 py-1.5 text-[10px] tracking-[0.18em] text-bcc-text transition hover:bg-bcc-surface-hover hover:border-bcc-border-strong"
           >
             + NEW MESSAGE
           </Link>
@@ -78,58 +93,153 @@ function MessagesPageContent() {
           <NotSignedIn />
         )}
 
-        {isAuthed && query.isPending && (
-          <p className="bcc-mono text-cardstock-deep">Loading conversations…</p>
-        )}
+        {isAuthed && <TabBar active={activeTab} />}
 
-        {isAuthed && query.isError && (
-          <div className="bcc-paper p-6">
-            <p role="alert" className="bcc-mono text-safety">
-              {/* §γ — copy is keyed on err.code; never render err.message. */}
-              {humanizeCode(
-                query.error,
-                {
-                  bcc_unauthorized:
-                    "Your session expired — sign in again to read your messages.",
-                  bcc_rate_limited:
-                    "Too many refreshes — give it a moment and try again.",
-                  bcc_unavailable:
-                    "Messages are temporarily unavailable. Try again shortly.",
-                },
-                "Couldn't load your inbox. Try again in a moment.",
-              )}
-            </p>
+        {isAuthed && activeTab === "messages" && (
+          <div className="mt-6">
+            {query.isPending && (
+              <p className="bcc-mono text-bcc-text-secondary">Loading conversations…</p>
+            )}
+
+            {query.isError && (
+              <div className="bcc-paper p-6">
+                <p role="alert" className="bcc-mono text-safety">
+                  {/* §γ — copy is keyed on err.code; never render err.message. */}
+                  {humanizeCode(
+                    query.error,
+                    {
+                      bcc_unauthorized:
+                        "Your session expired — sign in again to read your messages.",
+                      bcc_rate_limited:
+                        "Too many refreshes — give it a moment and try again.",
+                      bcc_unavailable:
+                        "Messages are temporarily unavailable. Try again shortly.",
+                    },
+                    "Couldn't load your inbox. Try again in a moment.",
+                  )}
+                </p>
+              </div>
+            )}
+
+            {query.isSuccess && query.data.items.length === 0 && <InboxEmpty />}
+
+            {query.isSuccess && query.data.items.length > 0 && (
+              <>
+                <ConversationList items={query.data.items} />
+                <Pagination
+                  page={query.data.pagination.page}
+                  totalPages={query.data.pagination.total_pages}
+                  onPage={goToPage}
+                />
+              </>
+            )}
           </div>
         )}
 
-        {isAuthed && query.isSuccess && query.data.items.length === 0 && (
-          <InboxEmpty />
-        )}
+        {isAuthed && activeTab === "queued" && (
+          <div className="mt-6">
+            {queuedQuery.isPending && (
+              <p className="bcc-mono text-bcc-text-secondary">Loading queued messages…</p>
+            )}
 
-        {isAuthed && query.isSuccess && query.data.items.length > 0 && (
-          <>
-            <ConversationList items={query.data.items} />
-            <Pagination
-              page={query.data.pagination.page}
-              totalPages={query.data.pagination.total_pages}
-              onPage={goToPage}
-            />
-          </>
+            {queuedQuery.isError && (
+              <div className="bcc-paper p-6">
+                <p role="alert" className="bcc-mono text-safety">
+                  {humanizeCode(
+                    queuedQuery.error,
+                    {
+                      bcc_unauthorized:
+                        "Your session expired — sign in again to see your queued messages.",
+                      bcc_rate_limited:
+                        "Too many refreshes — give it a moment and try again.",
+                      bcc_unavailable:
+                        "Queued messages are temporarily unavailable. Try again shortly.",
+                    },
+                    "Couldn't load your queued messages. Try again in a moment.",
+                  )}
+                </p>
+              </div>
+            )}
+
+            {queuedQuery.isSuccess && queuedQuery.data.items.length === 0 && <QueuedEmpty />}
+
+            {queuedQuery.isSuccess && queuedQuery.data.items.length > 0 && (
+              <>
+                <p className="bcc-mono mb-4 text-[11px] leading-relaxed tracking-[0.14em] text-bcc-text-muted">
+                  Messages you&apos;ve sent to validators that haven&apos;t been claimed
+                  yet. Each is delivered to the operator the moment they claim the page.
+                </p>
+                <QueuedMessagesList items={queuedQuery.data.items} />
+                <Pagination
+                  page={queuedQuery.data.pagination.page}
+                  totalPages={queuedQuery.data.pagination.total_pages}
+                  onPage={goToPage}
+                />
+              </>
+            )}
+          </div>
         )}
       </section>
     </main>
   );
 }
 
+function TabBar({ active }: { active: MessagesTab }) {
+  const base =
+    "bcc-mono border-b-2 px-1 pb-2 text-[11px] tracking-[0.18em] transition";
+  const on = "border-bcc-border-strong text-bcc-text";
+  const off = "border-transparent text-bcc-text-muted hover:text-bcc-text-secondary";
+  return (
+    <nav
+      className="flex items-center gap-6 border-b border-bcc-border"
+      aria-label="Message views"
+    >
+      <Link
+        href={"/messages" as Route}
+        aria-current={active === "messages" ? "page" : undefined}
+        className={`${base} ${active === "messages" ? on : off}`}
+      >
+        MESSAGES
+      </Link>
+      <Link
+        href={"/messages?tab=queued" as Route}
+        aria-current={active === "queued" ? "page" : undefined}
+        className={`${base} ${active === "queued" ? on : off}`}
+      >
+        QUEUED
+      </Link>
+    </nav>
+  );
+}
+
+function QueuedEmpty() {
+  return (
+    <div className="bcc-paper mx-auto max-w-2xl p-8 text-center">
+      <p className="bcc-mono mb-2 text-safety">NOTHING QUEUED</p>
+      <h2 className="bcc-stencil text-3xl text-ink">No messages waiting.</h2>
+      <p className="mt-3 font-serif italic leading-relaxed text-ink-soft">
+        When you message a validator that hasn&apos;t been claimed yet, it waits
+        here until a verified operator claims the page — then it&apos;s delivered.
+      </p>
+      <Link
+        href={"/validators" as Route}
+        className="bcc-mono mt-6 inline-flex items-center gap-2 border-2 border-ink/40 px-3 py-1.5 text-[10px] tracking-[0.18em] text-ink transition hover:bg-ink hover:text-cardstock"
+      >
+        BROWSE VALIDATORS
+      </Link>
+    </div>
+  );
+}
+
 function Rail() {
   return (
-    <div className="border-b border-dashed border-cardstock/15">
+    <div className="border-b border-dashed border-bcc-border">
       <div className="mx-auto flex max-w-[1560px] flex-wrap items-center justify-between gap-4 px-7 py-3">
-        <span className="bcc-mono inline-flex items-center gap-2 text-cardstock-deep">
+        <span className="bcc-mono inline-flex items-center gap-2 text-bcc-text-secondary">
           <span className="bcc-rail-dot" aria-hidden />
           <span>BCC &nbsp;//&nbsp; MESSAGES</span>
         </span>
-        <span className="bcc-mono text-cardstock/50">DIRECT &nbsp;//&nbsp; INBOX</span>
+        <span className="bcc-mono text-bcc-text-muted">DIRECT &nbsp;//&nbsp; INBOX</span>
       </div>
     </div>
   );
@@ -194,14 +304,14 @@ function Pagination({
   if (totalPages <= 1) return null;
   return (
     <nav
-      className="bcc-mono mt-8 flex items-center justify-between gap-3 text-[11px] tracking-[0.16em] text-cardstock-deep"
+      className="bcc-mono mt-8 flex items-center justify-between gap-3 text-[11px] tracking-[0.16em] text-bcc-text-secondary"
       aria-label="Pagination"
     >
       <button
         type="button"
         onClick={() => onPage(Math.max(1, page - 1))}
         disabled={page <= 1}
-        className="border-2 border-cardstock-edge px-3 py-1 transition hover:border-ink/50 hover:text-ink disabled:opacity-40"
+        className="border-2 border-bcc-border px-3 py-1 transition hover:border-bcc-border-strong hover:text-bcc-text disabled:opacity-40"
       >
         ← PREV
       </button>
@@ -212,7 +322,7 @@ function Pagination({
         type="button"
         onClick={() => onPage(Math.min(totalPages, page + 1))}
         disabled={page >= totalPages}
-        className="border-2 border-cardstock-edge px-3 py-1 transition hover:border-ink/50 hover:text-ink disabled:opacity-40"
+        className="border-2 border-bcc-border px-3 py-1 transition hover:border-bcc-border-strong hover:text-bcc-text disabled:opacity-40"
       >
         NEXT →
       </button>

@@ -1,14 +1,22 @@
 "use client";
 
 /**
- * CardReviewsPanel — entity-profile Reviews tab content.
+ * CardReviewsPanel — Reviews tab content for entity profiles AND
+ * member profiles (v1.48: kind `user_profile` reads a member's
+ * received reviews; `cardId` is then the raw user id, translated to
+ * the self-page server-side).
  *
- * Paginated list of reviews filed against the entity (server filters
+ * Paginated list of reviews filed against the target (server filters
  * by `votes.page_id`). Each row shows:
- *   - GRADE pill (A/B/C, safety / cardstock-deep / dispute color)
- *   - Author MemberRow (avatar + display_name + handle + rank chip)
+ *   - GRADE box (A/B/C — the shared .bcc-grade ink/weld stencil, same
+ *     element the profile ReviewsPanel uses)
+ *   - Author ref (avatar + display_name + safety-accented handle)
  *   - Review body
  *   - Posted-at relative label
+ *
+ * Tokens follow the paper-panel grammar (ink / weld / safety /
+ * ink-ghost) — NOT cardstock, which is reserved for cards/ per the
+ * color-token guard.
  *
  * Mirrors the user-side ReviewsPanel rendering but flips the framing —
  * here the page IS the subject, so each row leads with the author
@@ -26,12 +34,12 @@ import { useCardReviews } from "@/hooks/useCardTabs";
 import { humanizeCode } from "@/lib/api/errors";
 import type {
   CardReview,
-  EntityCardKind,
   MemberSummary,
+  ReviewTargetKind,
 } from "@/lib/api/types";
 
 interface CardReviewsPanelProps {
-  kind: EntityCardKind;
+  kind: ReviewTargetKind;
   cardId: number;
   cardName: string;
 }
@@ -118,10 +126,10 @@ export function CardReviewsPanel({ kind, cardId, cardName }: CardReviewsPanelPro
             <button
               type="button"
               onClick={() => setPage(page + 1)}
-              className="bcc-mono border border-ink/30 bg-cardstock px-4 py-2 text-ink"
+              className="bcc-mono text-safety hover:underline"
               style={{ fontSize: "10px", letterSpacing: "0.18em" }}
             >
-              LOAD MORE
+              LOAD MORE →
             </button>
           </div>
         )}
@@ -140,7 +148,7 @@ function Header({ cardName, total }: { cardName: string; total?: number }) {
         Reviews
       </h3>
       <span
-        className="bcc-mono text-cardstock-deep"
+        className="bcc-mono text-weld"
         style={{ fontSize: "10px", letterSpacing: "0.24em" }}
       >
         {total !== undefined ? `${total} ON FILE` : `OF ${cardName.toUpperCase()}`}
@@ -162,7 +170,7 @@ function ReviewRow({ review }: { review: CardReview }) {
           <div className="flex items-baseline justify-between gap-2">
             <AuthorRef author={review.author} />
             <span
-              className="bcc-mono shrink-0 text-ink-soft"
+              className="bcc-mono shrink-0 text-ink-ghost"
               style={{ fontSize: "10px", letterSpacing: "0.18em" }}
             >
               {review.posted_at_label}
@@ -180,19 +188,12 @@ function ReviewRow({ review }: { review: CardReview }) {
 }
 
 function GradePill({ grade }: { grade: "A" | "B" | "C" }) {
-  // A = trust signal (safety orange); B = neutral; C = caution.
-  const styles = {
-    A: "bg-safety text-cardstock",
-    B: "bg-ink/20 text-ink",
-    C: "bg-dispute text-cardstock",
-  }[grade];
-
+  // The shared .bcc-grade ink/weld stencil box — same element the
+  // profile ReviewsPanel renders, so grades read identically on
+  // member and entity surfaces. (The previous per-grade color pills
+  // were a panel-local invention that clashed with the site grammar.)
   return (
-    <span
-      className={`bcc-stencil shrink-0 flex h-9 w-9 items-center justify-center ${styles}`}
-      style={{ fontSize: "18px" }}
-      aria-label={`Grade ${grade}`}
-    >
+    <span className="bcc-grade shrink-0" aria-label={`Grade ${grade}`}>
       {grade}
     </span>
   );
@@ -209,7 +210,7 @@ function AuthorRef({ author }: { author: MemberSummary }) {
       className="group inline-flex min-w-0 items-center gap-2 hover:underline"
       aria-label={`Open ${author.display_name}'s profile`}
     >
-      <span className="relative inline-flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-full border border-ink/20 bg-cardstock-deep">
+      <span className="relative inline-flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-full border border-ink/20 bg-ink/10">
         {author.avatar_url !== "" ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -233,7 +234,7 @@ function AuthorRef({ author }: { author: MemberSummary }) {
           {author.display_name}
         </span>
         <span
-          className="bcc-mono block truncate text-ink-soft"
+          className="bcc-mono block truncate text-safety"
           style={{ fontSize: "9px", letterSpacing: "0.18em" }}
         >
           @{author.handle.toUpperCase()}

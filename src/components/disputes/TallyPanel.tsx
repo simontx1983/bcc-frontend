@@ -22,7 +22,7 @@ export function TallyPanel({
         className="border-2 border-ink/30 p-5"
         style={{ background: "var(--paper)" }}
       >
-        <p className="bcc-mono text-cardstock-deep">TALLY //</p>
+        <p className="bcc-mono text-ink-ghost">TALLY //</p>
         <p
           className="bcc-stencil mt-2 text-2xl text-ink"
           style={{ letterSpacing: "0.06em" }}
@@ -52,7 +52,7 @@ export function TallyPanel({
       style={{ background: "var(--paper)" }}
     >
       <div className="flex items-baseline justify-between">
-        <p className="bcc-mono text-cardstock-deep">TALLY //</p>
+        <p className="bcc-mono text-ink-ghost">TALLY //</p>
         <p className="bcc-mono text-ink">
           {voted}/{dispute.panel_size}
         </p>
@@ -99,7 +99,7 @@ export function TallyPanel({
         <TallyRow
           label="PENDING"
           count={pending}
-          colorVar="--cardstock-deep"
+          colorVar="--ink-ghost"
           dimmed
         />
       </ul>
@@ -123,7 +123,7 @@ function TallyRow({
       <span
         className="bcc-mono"
         style={{
-          color: dimmed ? "var(--cardstock-deep)" : `var(${colorVar})`,
+          color: dimmed ? "var(--ink-ghost)" : `var(${colorVar})`,
         }}
       >
         <span
@@ -131,7 +131,7 @@ function TallyRow({
           className="mr-2 inline-block h-2 w-2"
           style={{
             background: dimmed ? "transparent" : `var(${colorVar})`,
-            border: dimmed ? "1px dashed var(--cardstock-deep)" : "none",
+            border: dimmed ? "1px dashed var(--ink-ghost)" : "none",
           }}
         />
         {label}
@@ -139,7 +139,7 @@ function TallyRow({
       <span
         className="bcc-stencil text-2xl"
         style={{
-          color: dimmed ? "var(--cardstock-deep)" : "var(--ink)",
+          color: dimmed ? "var(--ink-ghost)" : "var(--ink)",
           fontVariantNumeric: "tabular-nums",
         }}
       >

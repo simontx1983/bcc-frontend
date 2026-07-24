@@ -38,6 +38,7 @@ import { CardWatchersPanel } from "@/components/entity/panels/CardWatchersPanel"
 import { LockedStreamPanel } from "@/components/entity/LockedStreamPanel";
 import { FileRail } from "@/components/layout/FileRail";
 import { PageHero } from "@/components/layout/PageHero";
+import { MessageValidatorButton } from "@/components/messages/MessageValidatorButton";
 import { AttestationActionCluster } from "@/components/profile/AttestationActionCluster";
 import { AttestationRoster } from "@/components/profile/AttestationRoster";
 import { ReputationSummaryPanel } from "@/components/profile/ReputationSummaryPanel";
@@ -151,7 +152,7 @@ export function EntityProfile({
             etc.) read verbatim per §A2 — no client-side kind→path map. */}
         <div className="flex items-start justify-between gap-4">
           <h1
-            className="bcc-stencil text-cardstock leading-[0.92]"
+            className="bcc-stencil text-bcc-text leading-[0.92]"
             style={{ fontSize: "clamp(1.75rem, 5.5vw, 4.5rem)", wordBreak: "break-word" }}
           >
             {card.name}
@@ -225,7 +226,7 @@ export function EntityProfile({
               {/* Social proof headline — server pre-renders the line. */}
               {card.social_proof?.headline !== undefined &&
                 card.social_proof.headline !== null && (
-                  <p className="bcc-mono text-sm text-cardstock-deep">
+                  <p className="bcc-mono text-sm text-bcc-text-secondary">
                     {card.social_proof.headline}
                   </p>
                 )}
@@ -240,6 +241,19 @@ export function EntityProfile({
                 viewerHasEndorsed={card.viewer_has_endorsed}
               />
 
+              {/* Validator surfaces only — project/creator pages have no
+                  operator-inbox / unclaimed-queue routing behind them.
+                  Visibility past this kind check is entirely the
+                  server's call (messaging.destination + can_message);
+                  we deliberately do NOT consult card.is_claimed here. */}
+              {card.card_kind === "validator" && (
+                <MessageValidatorButton
+                  pageId={card.id}
+                  permissions={card.permissions}
+                  messaging={card.messaging}
+                />
+              )}
+
               {card.is_claimed === false && card.claim_target !== null && (
                 <ClaimCallout
                   pageId={card.id}
@@ -250,7 +264,7 @@ export function EntityProfile({
               )}
 
               <ReviewCallout
-                pageId={card.id}
+                target={{ kind: "entity", pageId: card.id }}
                 pageName={card.name}
                 canReview={isAllowed(card.permissions, "can_review")}
                 unlockHint={unlockHint(card.permissions, "can_review")}
@@ -281,7 +295,7 @@ export function EntityProfile({
           belowHero={card.stats.length > 0 ? (
             <div>
               <div className="mb-3 flex items-center gap-3">
-                <span className="bcc-mono text-cardstock-deep">FILE 04</span>
+                <span className="bcc-mono text-bcc-text-secondary">FILE 04</span>
                 <span className="bcc-mono text-safety">{"//"} STATS</span>
               </div>
               <StatsStrip stats={card.stats} />
@@ -460,7 +474,7 @@ function OnchainSignalsBlock({ signals }: { signals: OnchainSignals }) {
         ))}
       </div>
       {signals.last_fetched_at !== null && (
-        <p className="bcc-mono mt-3 text-[10px] tracking-[0.18em] text-cardstock-deep">
+        <p className="bcc-mono mt-3 text-[10px] tracking-[0.18em] text-bcc-text-secondary">
           LAST SYNCED · {formatLastFetched(signals.last_fetched_at)}
         </p>
       )}

@@ -269,6 +269,31 @@ export interface CardPermissions {
    * treats absent as denied.
    */
   can_open_dispute?: CardPermissionEntry;
+  /**
+   * Validator-messaging gate — may the viewer open a DM about this
+   * page? Additive/optional during the backend rollout, exactly like
+   * `can_open_dispute`: consumers read it through `isAllowed()` /
+   * `unlockHint()` / `reasonCode()` so an absent key degrades to
+   * "action hidden".
+   *
+   * NOT the same field as `MemberPermissions.can_message` — that one
+   * belongs to the /members profile block and carries the two-field
+   * `MemberPermission` shape (no reason_code). This is the card
+   * view-model's gate and carries the full `CardPermissionEntry`.
+   *
+   * `reason_code` values and their required UI treatment:
+   *   - `null`                  → allowed; render the CTA
+   *   - `auth_required`         → visible-disabled, "Sign in…" hint
+   *   - `sender_chat_disabled`  → visible-disabled + server unlock_hint
+   *   - `friends_only`          → visible-disabled + server unlock_hint
+   *   - `not_applicable`        → hidden
+   *   - `self_action_blocked`   → hidden (viewer IS the operator)
+   *   - `messaging_unavailable` → hidden. DELIBERATELY identical for
+   *     "recipient has DMs off" and "mutually blocked". The payload is
+   *     an info-leak shield; the frontend MUST NOT try to distinguish
+   *     the two states or hint at which one applies.
+   */
+  can_message?: CardPermissionEntry;
 }
 
 /**
@@ -343,6 +368,48 @@ export interface CardClaimTarget {
 }
 
 /**
+ * Where a message about this page would actually go. Server-owned —
+ * the frontend renders the decision, it does not compute it.
+ *
+ *   `queue`       → page is unclaimed; the message is parked for the
+ *                   page's first verified operator.
+ *   `operator`    → page is claimed; the message goes to a real
+ *                   inbox. `operator` is non-null in THIS case only.
+ *   `unavailable` → messaging can't proceed. Deliberately collapses
+ *                   two distinct server states into one payload —
+ *                   render ONE generic line and never hint at which.
+ *   `none`        → no messaging affordance on this surface at all.
+ *
+ * Why this block exists at all: `is_claimed` cannot distinguish a
+ * never-claimed page from a previously-claimed one, so inferring claim
+ * lifecycle client-side is structurally wrong. The frontend MUST branch
+ * on `destination` and nothing else.
+ */
+export type CardMessagingDestination =
+  | "queue"
+  | "operator"
+  | "unavailable"
+  | "none";
+
+/** Identity of the verified operator a message would reach. */
+export interface CardMessagingOperator {
+  /** bcc_handle, no leading "@". */
+  handle: string;
+  /** Display name. */
+  name: string;
+}
+
+export interface CardMessaging {
+  destination: CardMessagingDestination;
+  /**
+   * Non-null ONLY when `destination === "operator"`. Consumers must
+   * null-check rather than assume — on every other destination the
+   * server withholds the identity on purpose.
+   */
+  operator: CardMessagingOperator | null;
+}
+
+/**
  * §K3 — one chain an operator runs on. Server returns a list of these
  * on `Card.chains` only when 2+ chains back the same page (the common
  * single-chain case is null). Drives <ChainTabs /> on the entity
@@ -353,8 +420,18 @@ export interface CardChain {
   slug: string;
   /** Display label e.g. "Cosmos Hub", "Osmosis". */
   name: string;
-  /** bech32 operator address (cosmosvaloper… on Cosmos chains). */
-  operator_address: string;
+  /**
+   * Derived, non-identifying signal: the server holds a verified on-chain
+   * operator identity for this chain.
+   *
+   * Replaced `operator_address` (2026-07-23). Validator rows are keyed to
+   * a wallet link and the operator address is matched against the
+   * claimant's verified wallet, so publishing it bound an on-chain
+   * address to a named member — and the UI rendered it truncated, which
+   * is a shortened wallet address by another name.
+   * See docs/wallet-privacy-policy.md.
+   */
+  operator_verified: boolean;
 }
 
 /**
@@ -466,10 +543,20 @@ export interface Card {
   /**
    * §D2 — true when the current viewer has already cast a review on
    * this page. Drives ReviewCallout's "WRITE A REVIEW" → "REMOVE
-   * YOUR REVIEW" CTA swap. Always false for anonymous viewers and
-   * for member cards (members are reviewed via different surface).
+   * YOUR REVIEW" CTA swap. Always false for anonymous viewers.
+   * v1.49: REAL on member cards too (a vote on the member's
+   * self-page) — the old "always false on member cards" rule is
+   * retired.
    */
   viewer_has_reviewed: boolean;
+  /**
+   * v1.49 — member cards only (absent on other kinds): the member's
+   * self-page id, i.e. the page their reviews live on. This is the
+   * `:id` passed to DELETE /me/reviews/:id to remove the viewer's
+   * review of this member. The client never derives ID_BASE itself
+   * (§L5). Optional during the v1.49 backend rollout.
+   */
+  review_target_id?: number;
   /**
    * §V1.5 — true when the current viewer has already endorsed this
    * page. Drives EndorseButton's "ENDORSE" → "REMOVE ENDORSEMENT"
@@ -501,6 +588,13 @@ export interface Card {
    */
   community_dossier: CardCommunityDossier | null;
   permissions: CardPermissions;
+  /**
+   * Server-owned messaging destination for this page. Optional during
+   * the backend rollout (same convention as `onchain_signals?` /
+   * `attestation_summary?`); absent is treated exactly like
+   * `destination: "none"` — no messaging affordance renders.
+   */
+  messaging?: CardMessaging;
   social_proof: CardSocialProof | null;
   links: {
     self: string;
@@ -1420,39 +1514,38 @@ export interface NftPieceAttribute {
 }
 
 /**
- * Co-owner row in `NftPiece.owners[]` (ERC-1155 only). Privacy-redacted
- * server-side: wallet-only, no `is_linked` / `user` enrichment — only
- * the dominant `owner` gets handle resolution.
+ * Co-owner row in `NftPiece.owners[]`.
+ *
+ * The server now always returns `owners: []`. Every field this type once
+ * carried — `wallet_address`, `address_short`, `balance` — was a wallet
+ * identifier or a holding bound to one, on an ANONYMOUS endpoint. Use
+ * the aggregate `owners_count` instead; it identifies nobody.
+ *
+ * Kept as an empty shape so `owners[]` stays a typed array rather than
+ * disappearing from the contract.
+ *
+ * See docs/wallet-privacy-policy.md.
  */
-export interface NftPieceCoOwner {
-  wallet_address: string;
-  /** §1.7 wallet pattern: `<first-6>…<last-4>`. */
-  address_short: string;
-  /** Actual SUM(balance) for ERC-1155; not used for ERC-721 / CW-721. */
-  balance: number;
-}
+export type NftPieceCoOwner = Record<string, never>;
 
 /**
- * Dominant holder for the NFT piece. `null` for ERC-721 / CW-721
- * cold-cache (no on-chain holder known yet). For ERC-1155, the
- * top-balance holder, ties broken by lowest wallet_address lex.
+ * Dominant holder for the NFT piece. `null` when no on-chain holder is
+ * known yet (cold-cache, freshly minted, indexer behind).
  *
- * `user` is non-null IFF `is_linked` is true — the wallet has a
- * BCC-linked user behind it. Frontend MUST NOT invent a user link
- * when `is_linked === false`.
+ * `is_linked` means "some BCC member holds this" — it names nobody and
+ * cannot be resolved back to a member.
+ *
+ * Removed 2026-07-23: `wallet_address`, `address_short`, `balance`, and
+ * the `user` block. The `user` block was the severe one — it resolved
+ * the holder's BCC identity from a PRIVATE wallet link and published a
+ * member↔holding join on an anonymous, enumerable endpoint. Verifying a
+ * wallet is not consent to broadcast what it holds; holdings are
+ * disclosed only through the explicit opt-in NFT showcase.
+ *
+ * See docs/wallet-privacy-policy.md.
  */
 export interface NftPieceOwner {
-  wallet_address: string;
-  /** §1.7 wallet pattern: `<first-6>…<last-4>`. */
-  address_short: string;
-  balance: number;
   is_linked: boolean;
-  user: {
-    id: number;
-    handle: string;
-    display_name: string;
-    avatar_url: string;
-  } | null;
 }
 
 /**
@@ -1903,6 +1996,16 @@ export interface CreatePlainGroupResponse {
   trust_min: 25 | 50 | 75 | null;
 }
 
+/**
+ * CL-FN06 — POST /me/groups/:id/post-policy success. Echoes the
+ * policy's post-write value (server truth; render this, don't assume
+ * the request landed as sent).
+ */
+export interface SetGroupPostPolicyResponse {
+  ok: true;
+  public_all_members_enabled: boolean;
+}
+
 // ─────────────────────────────────────────────────────────────────────
 // §4.7.2 — Profile Groups Tab (`GET /users/{slug}/groups`)
 //
@@ -2134,11 +2237,19 @@ export interface UserFollowsResponse {
 // ─────────────────────────────────────────────────────────────────────
 
 /**
- * The three entity-card kinds the new endpoints accept. `user_profile`
- * isn't here — /users/{handle}/reviews already serves that target.
+ * The three entity-card kinds the §Phase 2 tab endpoints accept.
  * Wire shape mirrors the §J.6 target_kind taxonomy.
  */
 export type EntityCardKind = "validator_card" | "project_card" | "creator_card";
+
+/**
+ * Target kinds `/entities/{kind}/{id}/reviews` accepts (v1.48).
+ * `user_profile` reads a member's RECEIVED reviews — its id is the RAW
+ * user id (the server translates to the member's self-page). Public,
+ * like entity reviews; `reviews_hidden` governs only the written list
+ * on /users/{handle}/reviews.
+ */
+export type ReviewTargetKind = EntityCardKind | "user_profile";
 
 /**
  * One row in `/entities/{kind}/{id}/reviews`. Author is the full
@@ -3283,11 +3394,30 @@ export interface MemberUxHelpers {
   show_helpers: boolean;
 }
 
-/** Wallet shape inside MemberProfile.wallets. */
+/**
+ * Wallet shape inside `MemberProfile.wallets`.
+ *
+ * OWN-ACCOUNT ONLY. The server returns `wallets: []` for every viewer
+ * who is not the profile owner — no address, no shortened address, no
+ * wallet-link id. If you are holding a populated `MemberWallet[]`, it is
+ * the signed-in user's own, and it must not be rendered on any surface a
+ * different user can see.
+ *
+ * Previously `address_short` was declared non-optional here, i.e. the
+ * type GUARANTEED a masked address to strangers — that was the contract
+ * bug behind the leak, not just an implementation slip.
+ *
+ * For "does this member have a verified wallet", use the non-identifying
+ * `MemberProfile.verifications.wallets_verified` count instead. Never
+ * derive it from `wallets.length` — that reads 0 for every visitor.
+ *
+ * See docs/wallet-privacy-policy.md.
+ */
 export interface MemberWallet {
   id: number;
-  /** Full address — own profile only; others' get `address_short` only. */
-  address?: string;
+  /** Full address. Own account only. */
+  address: string;
+  /** Masked address. STILL own-account-only — a masked address is a wallet identifier. */
   address_short: string;
   chain_slug: string;
   chain_name: string;
@@ -3311,6 +3441,13 @@ export interface MemberCounts {
   following: number;
   watching_size: number;
   reviews_written: number;
+  /**
+   * v1.49 — reviews RECEIVED: votes filed on the member's self-page
+   * (what the /u Reviews tab lists since the v1.48 split). Public by
+   * the 2026-07-22 decision — never zeroed by reviews_hidden.
+   * Optional during the v1.49 backend rollout.
+   */
+  reviews_received?: number;
   disputes_signed: number;
   solids_given: number;
   solids_received: number;
@@ -3955,11 +4092,17 @@ export interface MemberTabCount {
   key:
     | "watching"
     | "reviews"
+    | "written"
     | "activity"
     | "disputes"
     | "network"
     | "groups";
   label: string;
+  /**
+   * v1.49 split: key `reviews` counts reviews RECEIVED (matches the
+   * tab's content since v1.48; public — never hidden), key `written`
+   * counts reviews AUTHORED (reviews_hidden governed).
+   */
   count: number;
   /**
    * §K2: server marks a tab `hidden=true` for non-self viewers when the
@@ -3991,8 +4134,13 @@ export type Phase4MemberProfile = MemberProfile;
  * `ux_helpers`) are present when `is_self === true` and OMITTED ENTIRELY
  * (not null) on others' profiles. Optional in the type accordingly.
  *
- * `wallets[].address` is the same: present on own profile, omitted for
- * others' (privacy floor — only `address_short` leaks across users).
+ * `wallets` follows the same own-only rule, but ENFORCED BY EMPTINESS
+ * rather than by field omission: the array is fully populated on your own
+ * profile and `[]` on everyone else's. Nothing about another member's
+ * wallets crosses the boundary — not a masked address, not a link id.
+ * The old "privacy floor" (ship `address_short` to strangers) was itself
+ * the leak; a masked address is a wallet identifier.
+ * See docs/wallet-privacy-policy.md.
  */
 
 // ─────────────────────────────────────────────────────────────────────
@@ -4498,14 +4646,23 @@ export interface MemberProfile {
   };
   primary_local: { id: number; slug: string; name: string; number: number | null } | null;
   locals: MemberLocal[];
+  /**
+   * OWN ACCOUNT ONLY — `[]` for every viewer who is not the profile
+   * owner. Do not render this anywhere a different user can see, and do
+   * not use `.length` as a "has verified wallet" signal (use
+   * `verifications.wallets_verified`). See docs/wallet-privacy-policy.md.
+   */
   wallets: MemberWallet[];
   /**
    * Identity-verification status per `UserViewService::getProfile`.
    * `x_verified` / `github_verified` are true only when an active,
    * verified row exists in `bcc_trust_user_verifications`. The
    * `*_username` siblings carry the public handle for display.
-   * `wallets_verified` is the count of verified wallet links —
-   * per-wallet detail lives on the parallel `wallets` array.
+   * `wallets_verified` is the count of verified wallet links. It is
+   * repository-sourced and accurate for EVERY viewer — it is the only
+   * wallet signal permitted to cross a member boundary. Per-wallet
+   * detail lives on the parallel `wallets` array, which is own-account-
+   * only and empty for visitors, so never compute this from its length.
    *
    * Surfaced on `/me/progression` (own-file context) and the
    * §3.1 verified panel on /u/[handle].
@@ -5072,6 +5229,31 @@ export interface GroupDetailResponse {
   feed_visible: boolean;
   members_visible: boolean;
   /**
+   * CL-FN06 (§4.7 / v1.47+) — whether THIS viewer may set
+   * `visibility=public_all` when posting here (drives the composer's
+   * PUBLIC option). `false` for anon/non-members and members not
+   * authorized to syndicate; open groups allow any posting member.
+   * Optional: absent on pre-CL-FN06 backends (prod until it catches
+   * up) — treat absent as "no server gate" (keep the option enabled;
+   * the server was not enforcing on those backends either).
+   */
+  can_use_public_all?: boolean;
+  /**
+   * CL-FN06 — whether THIS viewer may change the group-wide
+   * ordinary-member syndication opt-in (owner / manager / site admin;
+   * moderators excluded — they can USE public_all but not manage the
+   * policy). Drives the owner toggle. Optional during rollout.
+   */
+  can_manage_public_all_policy?: boolean;
+  /**
+   * CL-FN06 — the group's ordinary-member syndication opt-in state.
+   * MINIMUM EXPOSURE: real value only when
+   * `can_manage_public_all_policy` is true; every other viewer sees
+   * `false` (raw config undisclosed — they rely on
+   * `can_use_public_all`). Toggled via POST /me/groups/:id/post-policy.
+   */
+  public_all_members_enabled?: boolean;
+  /**
    * Chain-tag slug. Same shape + source as `GroupDiscoveryItem.chain_tag`.
    * Null when the group has no chain binding.
    */
@@ -5320,6 +5502,38 @@ export interface ConversationListResponse {
   pagination: OffsetPagination;
 }
 
+/**
+ * GET /me/queued-messages (§4.19, v1.54) — the viewer's own PENDING
+ * messages queued to validators that have no verified operator yet.
+ * These are not conversations (there is no one to converse with), so
+ * they never appear in the inbox; when the validator is first claimed,
+ * the backlog delivers and each becomes a normal thread (leaving this
+ * list). Sender-visible only; delivered/suppressed rows are not shown.
+ */
+export interface QueuedMessageValidator {
+  page_id: number;
+  name: string;
+  /** peepso-page slug — links to `/v/{slug}`. */
+  slug: string;
+  avatar_url: string;
+}
+
+export interface QueuedMessageItem {
+  /** Queue row id. */
+  id: number;
+  validator: QueuedMessageValidator;
+  /** Plain-text preview of the viewer's own queued message. */
+  preview: string;
+  /** Always `"awaiting_first_verified_operator"` at V1. */
+  delivery_state: string;
+  created_at: string;
+}
+
+export interface QueuedMessagesResponse {
+  items: QueuedMessageItem[];
+  pagination: OffsetPagination;
+}
+
 /** Thread offset pagination — `total` is unbounded; walk via `has_more`. */
 export interface ThreadPagination {
   page: number;
@@ -5334,10 +5548,36 @@ export interface ConversationThreadResponse {
   pagination: ThreadPagination;
 }
 
-export interface StartConversationRequest {
+/**
+ * POST /me/conversations — address a member directly. The historical
+ * shape; still the only way to reach a person.
+ *
+ * The `page_id?: never` guard makes the union mutually exclusive at
+ * the type level, mirroring the server's rejection of a body carrying
+ * both keys.
+ */
+export interface StartConversationToRecipient {
   recipient_id: number;
+  page_id?: never;
   body: string;
 }
+
+/**
+ * POST /me/conversations — address a PAGE instead of a person. The
+ * server re-resolves the page to either a claimed operator's inbox or
+ * the unclaimed-page queue at send time, so the client never has to
+ * (and must not) resolve the operator itself.
+ */
+export interface StartConversationToPage {
+  page_id: number;
+  recipient_id?: never;
+  body: string;
+}
+
+/** Exactly one of `recipient_id` / `page_id` — never both. */
+export type StartConversationRequest =
+  | StartConversationToRecipient
+  | StartConversationToPage;
 
 export interface SendMessageRequest {
   body: string;
@@ -5348,6 +5588,29 @@ export interface SendMessageResponse {
   message_id: number;
   is_new_conversation: boolean;
 }
+
+/**
+ * POST /me/conversations response when the addressed page has no
+ * verified operator yet. There is NO conversation to navigate to —
+ * `conversation_id` is deliberately absent so a caller that blindly
+ * routes to `/messages/{id}` fails to type-check instead of shipping
+ * a dead link.
+ */
+export interface QueuedMessageResponse {
+  queued: true;
+  page_id: number;
+  /** ISO 8601 UTC with `Z` suffix (§1.7). */
+  accepted_at: string;
+  delivery_state: "awaiting_first_verified_operator";
+}
+
+/**
+ * Discriminate with `"queued" in response` (or `"conversation_id" in
+ * response`) — the two variants share no keys.
+ */
+export type StartConversationResponse =
+  | SendMessageResponse
+  | QueuedMessageResponse;
 
 export interface UnreadMessageCountResponse {
   count: number;

@@ -92,8 +92,8 @@ export function IdentitySettingsForm({ currentHandle }: IdentitySettingsFormProp
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         <label className="flex flex-col gap-1.5">
           <span className="bcc-mono text-bcc-text-secondary">Handle</span>
-          <div className="flex items-center border border-cardstock-edge bg-cardstock-deep/60 focus-within:border-blueprint focus-within:ring-1 focus-within:ring-blueprint">
-            <span className="bcc-mono pl-3 text-ink-soft">@</span>
+          <div className="flex items-center border border-bcc-input-border bg-bcc-input-bg focus-within:border-bcc-accent focus-within:ring-1 focus-within:ring-bcc-accent">
+            <span className="bcc-mono pl-3 text-bcc-text-muted">@</span>
             <input
               type="text"
               required
@@ -103,7 +103,7 @@ export function IdentitySettingsForm({ currentHandle }: IdentitySettingsFormProp
               pattern="[a-z0-9\-]{3,20}"
               value={draft}
               onChange={(event) => setDraft(event.target.value.toLowerCase())}
-              className="flex-1 bg-transparent px-2 py-2 font-serif text-ink outline-none"
+              className="flex-1 bg-transparent px-2 py-2 font-serif text-bcc-text outline-none"
             />
           </div>
           <span className={`bcc-mono ${isClientValid || trimmed === "" ? "text-bcc-text-secondary/70" : "text-safety"}`}>

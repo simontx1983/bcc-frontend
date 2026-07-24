@@ -74,6 +74,7 @@ import {
   type GroupPostVisibility,
   type ReviewGrade,
 } from "@/lib/api/types";
+import { CARD_REVIEWS_QUERY_KEY_ROOT } from "@/hooks/useCardTabs";
 import { FEED_QUERY_KEY_ROOT, HOT_FEED_QUERY_KEY } from "@/hooks/useFeed";
 import { HIGHLIGHTS_QUERY_KEY } from "@/hooks/useHighlights";
 import {
@@ -157,6 +158,15 @@ export interface ComposerProps {
    * the composer falls back to the bare placeholder.
    */
   groupScopeLabel?: string;
+  /**
+   * CL-FN06 — the group detail's `can_use_public_all`: may THIS viewer
+   * pick `visibility=public_all` here? `false` renders the PUBLIC
+   * option disabled with an explanatory tooltip (§N7 — gated actions
+   * stay visible). Absent/undefined = pre-CL-FN06 backend (no server
+   * gate) → option stays enabled, matching that backend's behavior.
+   * The server enforces authoritatively either way (403 reject).
+   */
+  canUsePublicAll?: boolean | undefined;
 }
 
 // ─────────────────────────────────────────────────────────────────────
@@ -183,6 +193,7 @@ export function Composer({
   viewerRankLabel,
   groupId,
   groupScopeLabel,
+  canUsePublicAll,
 }: ComposerProps) {
   // Review tab is only available when a target (entity page OR member) is
   // supplied. Fail closed.
@@ -214,6 +225,7 @@ export function Composer({
         viewerRankLabel={viewerRankLabel ?? ""}
         groupId={scopedGroupId}
         groupScopeLabel={groupScopeLabel}
+        canUsePublicAll={canUsePublicAll}
         startExpanded={startExpanded}
         hosted={hosted}
         onClose={onClose}
@@ -283,6 +295,8 @@ interface InlineStatusComposerProps {
   groupId: number | undefined;
   /** Optional kicker copy rendered above the placeholder when group-scoped. */
   groupScopeLabel: string | undefined;
+  /** See ComposerProps.canUsePublicAll (CL-FN06 visibility gate). */
+  canUsePublicAll: boolean | undefined;
   /** See ComposerProps.startExpanded. */
   startExpanded?: boolean | undefined;
   /** See ComposerProps.hosted. */
@@ -342,6 +356,7 @@ function InlineStatusComposer({
   viewerRankLabel,
   groupId,
   groupScopeLabel,
+  canUsePublicAll,
   startExpanded,
   hosted,
   onClose,
@@ -441,7 +456,7 @@ function InlineStatusComposer({
       >
         {groupScopeLabel !== undefined && groupScopeLabel !== "" && (
           <span
-            className="bcc-mono text-cardstock-deep/80"
+            className="bcc-mono text-bcc-text-secondary"
             style={{ fontSize: "9px", letterSpacing: "0.24em" }}
           >
             {groupScopeLabel}
@@ -747,24 +762,41 @@ function InlineStatusComposer({
                 <div className="grid gap-2 md:grid-cols-3">
                   {VISIBILITY_OPTIONS.map((opt) => {
                     const active = visibility === opt.key;
+                    // CL-FN06 — `public_all` is server-gated per viewer.
+                    // Only an explicit `false` disables (§N7: visible but
+                    // inert + tooltip); absent means a pre-CL-FN06 backend
+                    // with no gate, so the option stays live there.
+                    const gated =
+                      opt.key === "public_all" && canUsePublicAll === false;
                     return (
                       <button
                         key={opt.key}
                         type="button"
                         onClick={() => setVisibility(opt.key)}
+                        disabled={gated}
                         aria-pressed={active}
+                        title={
+                          gated
+                            ? "Only group leaders can post to the main feed from this group."
+                            : undefined
+                        }
                         className={
-                          "rounded-sm border px-3 py-3 text-left transition motion-reduce:transition-none " +
+                          "rounded-sm border px-3 py-3 text-left transition motion-reduce:transition-none disabled:cursor-not-allowed disabled:opacity-50 " +
                           (active
                             ? "border-[var(--bcc-accent)] bg-[var(--bcc-accent-subtle)]"
-                            : "border-[var(--bcc-border)] bg-[var(--bcc-surface-hover)] hover:border-[var(--bcc-border-strong)]")
+                            : "border-[var(--bcc-border)] bg-[var(--bcc-surface-hover)] " +
+                              (gated
+                                ? ""
+                                : "hover:border-[var(--bcc-border-strong)]"))
                         }
                       >
                         <span className="bcc-stencil block text-[12px] tracking-[0.2em] text-[var(--bcc-text)]">
                           {opt.label}
                         </span>
                         <span className="mt-1 block font-serif text-[13px] text-[var(--bcc-text-secondary)]">
-                          {opt.description}
+                          {gated
+                            ? "Only group leaders can post to the main feed from this group."
+                            : opt.description}
                         </span>
                       </button>
                     );
@@ -1018,7 +1050,7 @@ function ComposerTabs({ mode, onChange, reviewAvailable }: ComposerTabsProps) {
               "bcc-mono inline-flex flex-col items-start gap-0.5 border-2 px-3 py-1.5 text-[11px] tracking-[0.18em] transition " +
               (active
                 ? "border-ink bg-ink text-cardstock"
-                : "border-cardstock-edge bg-cardstock-deep/40 text-ink-soft hover:border-ink/50 hover:text-ink")
+                : "border-bcc-border bg-bcc-surface-hover text-bcc-text-secondary hover:border-bcc-border-strong hover:text-bcc-text")
             }
           >
             <span className="uppercase">{tab.label}</span>
@@ -1068,7 +1100,7 @@ function StatusForm({ onSubmitSuccess }: { onSubmitSuccess: (() => void) | undef
     ? "text-safety"
     : length > STATUS_POST_MAX_LENGTH - 50
       ? "text-warning"
-      : "text-cardstock-deep/70";
+      : "text-bcc-text-secondary";
 
   return (
     <form
@@ -1090,7 +1122,7 @@ function StatusForm({ onSubmitSuccess }: { onSubmitSuccess: (() => void) | undef
         rows={3}
         maxLength={STATUS_POST_MAX_LENGTH + 100}
         disabled={mutation.isPending}
-        className="bcc-mono min-h-[72px] w-full resize-y rounded-sm border border-cardstock-edge/30 bg-cardstock/30 px-3 py-2 text-ink placeholder:text-ink-soft/60 focus:border-blueprint focus:outline-none disabled:opacity-60"
+        className="bcc-mono min-h-[72px] w-full resize-y rounded-sm border border-bcc-input-border bg-bcc-input-bg px-3 py-2 text-bcc-text placeholder:text-bcc-text-placeholder focus:border-bcc-accent focus:outline-none focus:ring-1 focus:ring-bcc-accent disabled:opacity-60"
       />
 
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -1109,7 +1141,7 @@ function StatusForm({ onSubmitSuccess }: { onSubmitSuccess: (() => void) | undef
             "bcc-stencil rounded-sm px-5 py-2 text-[12px] tracking-[0.2em] transition " +
             (canSubmit
               ? "bg-ink text-cardstock hover:bg-blueprint"
-              : "cursor-not-allowed bg-cardstock-deep/40 text-ink-soft/60")
+              : "cursor-not-allowed bg-bcc-surface-active text-bcc-text-muted")
           }
         >
           {mutation.isPending ? "Posting…" : "POST TO THE FLOOR"}
@@ -1225,11 +1257,15 @@ function ReviewForm({
       void queryClient.invalidateQueries({ queryKey: HOT_FEED_QUERY_KEY });
       void queryClient.invalidateQueries({ queryKey: USER_ACTIVITY_QUERY_KEY_ROOT });
       void queryClient.invalidateQueries({ queryKey: HIGHLIGHTS_QUERY_KEY });
-      // Member reviews land on the target's self-page → refresh their
-      // "reviews on file" list so the new entry surfaces.
-      if (target.kind === "member") {
-        void queryClient.invalidateQueries({ queryKey: USER_REVIEWS_QUERY_KEY_ROOT });
-      }
+      // The target's received-reviews list (entity Reviews tab, or the
+      // member-profile Reviews tab since the v1.48 split) reads
+      // /entities/{kind}/{id}/reviews — refresh it so the new review
+      // surfaces without a manual reload.
+      void queryClient.invalidateQueries({ queryKey: CARD_REVIEWS_QUERY_KEY_ROOT });
+      // The author's written list (/users/:handle/reviews → the
+      // Written tab) includes entity- AND member-target reviews, so
+      // refresh it unconditionally.
+      void queryClient.invalidateQueries({ queryKey: USER_REVIEWS_QUERY_KEY_ROOT });
       onSubmitSuccess?.();
     } catch (err) {
       setError(humanizeReviewError(err));
@@ -1241,7 +1277,7 @@ function ReviewForm({
     ? "text-safety"
     : length > REVIEW_BODY_MAX_LENGTH - 200
       ? "text-warning"
-      : "text-cardstock-deep/70";
+      : "text-bcc-text-secondary";
 
   return (
     <form
@@ -1250,7 +1286,7 @@ function ReviewForm({
       aria-label={`Review of ${targetName}`}
     >
       <div>
-        <p className="bcc-mono text-[10px] tracking-[0.24em] text-cardstock-deep">
+        <p className="bcc-mono text-[10px] tracking-[0.24em] text-bcc-text-secondary">
           REVIEWING //
         </p>
         <h3 className="bcc-stencil mt-1 text-2xl text-bcc-text">{targetName}</h3>
@@ -1275,8 +1311,8 @@ function ReviewForm({
                 className={
                   "rounded-sm border px-3 py-3 text-left transition " +
                   (active
-                    ? "border-ink bg-cardstock"
-                    : "border-cardstock-edge/30 bg-cardstock/30 hover:border-cardstock-edge/60")
+                    ? "border-bcc-accent bg-bcc-surface-hover"
+                    : "border-bcc-border bg-bcc-surface-hover hover:border-bcc-border-strong")
                 }
                 style={active ? { boxShadow: `inset 0 -3px 0 ${opt.accent}` } : {}}
               >
@@ -1286,7 +1322,7 @@ function ReviewForm({
                 >
                   {opt.label}
                 </span>
-                <span className="mt-1 block font-serif text-[13px] text-ink-soft">
+                <span className="mt-1 block font-serif text-[13px] text-bcc-text-secondary">
                   {opt.description}
                 </span>
               </button>
@@ -1313,7 +1349,7 @@ function ReviewForm({
           rows={6}
           maxLength={REVIEW_BODY_MAX_LENGTH + 200}
           disabled={pending}
-          className="bcc-mono mt-1.5 min-h-[100px] w-full resize-y rounded-sm border border-cardstock-edge/30 bg-cardstock/30 px-3 py-2 text-ink placeholder:text-ink-soft/60 focus:border-blueprint focus:outline-none disabled:opacity-60 sm:min-h-[140px]"
+          className="bcc-mono mt-1.5 min-h-[100px] w-full resize-y rounded-sm border border-bcc-input-border bg-bcc-input-bg px-3 py-2 text-bcc-text placeholder:text-bcc-text-placeholder focus:border-bcc-accent focus:outline-none focus:ring-1 focus:ring-bcc-accent disabled:opacity-60 sm:min-h-[140px]"
         />
         <p className={`bcc-mono mt-1 text-[11px] ${counterTone}`}>
           {length} / {REVIEW_BODY_MAX_LENGTH}
@@ -1336,7 +1372,7 @@ function ReviewForm({
             "bcc-stencil rounded-sm px-5 py-2.5 text-[12px] tracking-[0.2em] transition " +
             (canSubmit
               ? "bg-ink text-cardstock hover:bg-blueprint"
-              : "cursor-not-allowed bg-cardstock-deep/40 text-ink-soft/60")
+              : "cursor-not-allowed bg-bcc-surface-active text-bcc-text-muted")
           }
         >
           {pending ? "POSTING REVIEW…" : "POST REVIEW"}

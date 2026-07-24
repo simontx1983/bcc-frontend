@@ -29,7 +29,7 @@ export function TagFeedView({ tag }: TagFeedViewProps) {
         <p className="bcc-mono text-safety" style={{ letterSpacing: "0.18em" }}>
           FLOOR {"//"} HASHTAG
         </p>
-        <h1 className="bcc-stencil mt-2 break-words text-cardstock text-3xl sm:text-4xl">
+        <h1 className="bcc-stencil mt-2 break-words text-bcc-text text-3xl sm:text-4xl">
           POSTS TAGGED #{tag}
         </h1>
       </header>
@@ -48,7 +48,7 @@ function TagFeedEmpty({ tag }: { tag: string }) {
   return (
     <div className="bcc-panel my-6 px-5 py-8 text-center">
       <p
-        className="bcc-mono text-cardstock-deep"
+        className="bcc-mono text-bcc-text-secondary"
         style={{ fontSize: "10px", letterSpacing: "0.24em" }}
       >
         NOTHING ON FILE

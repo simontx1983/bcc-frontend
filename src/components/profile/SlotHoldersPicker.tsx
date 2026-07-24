@@ -135,13 +135,13 @@ export function SlotHoldersPicker({
           }}
           aria-label="Close"
           disabled={releasingHolderId !== null || retryingCast}
-          className="bcc-mono absolute right-4 top-4 text-cardstock-deep transition hover:text-bcc-text disabled:cursor-not-allowed disabled:opacity-40"
+          className="bcc-mono absolute right-4 top-4 text-bcc-text-secondary transition hover:text-bcc-text disabled:cursor-not-allowed disabled:opacity-40"
         >
           ESC
         </button>
 
         <header className="mb-5 pr-12">
-          <p className="bcc-mono text-cardstock-deep">STANDING BEHIND //</p>
+          <p className="bcc-mono text-bcc-text-secondary">STANDING BEHIND //</p>
           <h3 className="bcc-stencil mt-1 text-2xl text-bcc-text">
             Your current commitments
           </h3>
@@ -154,7 +154,7 @@ export function SlotHoldersPicker({
         </header>
 
         {holders.length === 0 ? (
-          <p className="bcc-mono py-6 text-center text-cardstock-deep">
+          <p className="bcc-mono py-6 text-center text-bcc-text-secondary">
             No active commitments to show. Try again.
           </p>
         ) : (
@@ -184,7 +184,7 @@ export function SlotHoldersPicker({
 
         {/* Slot context — quiet, factual, not a score. */}
         {slotsTotal > 0 && (
-          <p className="bcc-mono mt-5 text-[11px] tracking-[0.14em] text-cardstock-deep">
+          <p className="bcc-mono mt-5 text-[11px] tracking-[0.14em] text-bcc-text-secondary">
             STAND BEHIND IS SCARCE &mdash; YOU HAVE {slotsTotal} ACTIVE SLOTS.
           </p>
         )}
@@ -218,7 +218,7 @@ function HolderRow({
 
   return (
     <li
-      className={`flex flex-col gap-1 border-b border-cardstock/15 py-4 last:border-b-0 ${
+      className={`flex flex-col gap-1 border-b border-bcc-border py-4 last:border-b-0 ${
         dimmed ? "opacity-60" : ""
       }`}
     >
@@ -228,20 +228,20 @@ function HolderRow({
             {holder.target_link !== "" ? (
               <a
                 href={holder.target_link}
-                className="bcc-mono text-cardstock hover:text-phosphor"
+                className="bcc-mono text-bcc-text hover:text-phosphor"
               >
                 {holder.target_label !== ""
                   ? holder.target_label
                   : "Unnamed target"}
               </a>
             ) : (
-              <span className="bcc-mono text-cardstock-deep italic">
+              <span className="bcc-mono text-bcc-text-secondary italic">
                 {holder.target_label !== ""
                   ? holder.target_label
                   : "Target unavailable"}
               </span>
             )}
-            <span className="bcc-mono text-[11px] tracking-[0.18em] text-cardstock-deep">
+            <span className="bcc-mono text-[11px] tracking-[0.18em] text-bcc-text-secondary">
               SINCE&nbsp;
               <time dateTime={holder.created_at}>
                 {formatRelativeTime(holder.created_at)}
@@ -249,7 +249,7 @@ function HolderRow({
             </span>
           </div>
           {holder.context_note !== null && holder.context_note !== "" && (
-            <p className="font-serif italic text-cardstock-deep">
+            <p className="font-serif italic text-bcc-text-secondary">
               &ldquo;{holder.context_note}&rdquo;
             </p>
           )}
@@ -260,7 +260,7 @@ function HolderRow({
           disabled={dimmed}
           aria-busy={isReleasing || isRetryingCast}
           aria-disabled={dimmed}
-          className="bcc-mono shrink-0 border border-cardstock/30 px-3 py-1 text-[11px] tracking-[0.18em] text-cardstock-deep transition hover:bg-cardstock-deep/10 hover:text-cardstock disabled:cursor-not-allowed"
+          className="bcc-mono shrink-0 border border-bcc-border px-3 py-1 text-[11px] tracking-[0.18em] text-bcc-text-secondary transition hover:bg-bcc-surface-hover hover:text-bcc-text disabled:cursor-not-allowed"
         >
           {isRetryingCast
             ? "ADDING…"

@@ -1,17 +1,14 @@
 /**
- * /settings/messages — direct-message preferences.
- *
- * Renders inside SettingsLayout (auth + persistent hero + nav).
- * MessagesPrefsForm is self-contained.
+ * MessagesSettingsPanel — owner-only "Messages" tab.
+ * Lifted from the retired /settings/messages page.
  */
 
 import { MessagesPrefsForm } from "@/components/settings/MessagesPrefsForm";
+import { SettingsSectionHeader } from "@/components/settings/SettingsSectionHeader";
 
-import { SettingsSectionHeader } from "../_components/SettingsSectionHeader";
-
-export default function MessagesSettingsPage() {
+export function MessagesSettingsPanel() {
   return (
-    <section className="mx-auto mt-10 max-w-3xl px-2 sm:px-3">
+    <section>
       <SettingsSectionHeader
         eyebrow="MESSAGES"
         title="Who can message you"

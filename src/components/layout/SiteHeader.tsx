@@ -288,7 +288,7 @@ const AVATAR_MENU = [
      invisibly (regressed once already when this menu replaced the
      old ViewerMenu — 2026-07-21 admin audit P1). */
   { label: "Moderation",    href: "/admin/moderation", icon: <ShieldCheck size={16} strokeWidth={1.8} /> },
-  { label: "Settings",      href: "/settings/profile",icon: <Settings size={16} strokeWidth={1.8} /> },
+  { label: "Settings",      href: "/u/me?tab=profile",icon: <Settings size={16} strokeWidth={1.8} /> },
   { label: "Sign Out",      href: "/api/auth/signout",icon: <LogOut size={16} strokeWidth={1.8} /> },
 ] as const;
 
@@ -550,7 +550,7 @@ export function SiteHeader() {
         {/* Settings — links to profile edit */}
         {viewerHandle && !isMobile && (
          <Link
-          href="/settings/profile"
+          href="/u/me?tab=profile"
           className={`bcc-btn-icon bcc-header-settings-btn${pathname.startsWith("/settings") ? " active" : ""}`}
           aria-label="Settings"
           title="Settings"

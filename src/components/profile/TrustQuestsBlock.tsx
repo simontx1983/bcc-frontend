@@ -23,7 +23,7 @@ export function TrustQuestsBlock({
 
   return (
     <div className="flex flex-col gap-6">
-      <p className="font-serif text-base leading-relaxed text-cardstock-deep max-w-prose">
+      <p className="font-serif text-base leading-relaxed text-bcc-text-secondary max-w-prose">
         Each of these one-time steps folds a little weight into your votes.
         Finished steps are already counted in the multiplier below — the rest
         are here whenever you get to them.
@@ -62,22 +62,22 @@ export function TrustQuestsBlock({
         {quests.items.map((quest) => (
           <li
             key={quest.slug}
-            className="grid grid-cols-[auto_1fr_auto] items-baseline gap-4 border-b border-dashed border-cardstock/15 py-3 last:border-b-0"
+            className="grid grid-cols-[auto_1fr_auto] items-baseline gap-4 border-b border-dashed border-bcc-border py-3 last:border-b-0"
           >
             <span
               aria-hidden
               className={
                 "bcc-mono text-lg leading-none " +
-                (quest.done ? "text-phosphor" : "text-ink-ghost")
+                (quest.done ? "text-phosphor" : "text-bcc-text-muted")
               }
             >
               {quest.done ? "✓" : "○"}
             </span>
             <span className="flex flex-col">
-              <span className="bcc-mono text-cardstock">
+              <span className="bcc-mono text-bcc-text">
                 {quest.label.toUpperCase()}
               </span>
-              <span className="font-serif text-sm text-cardstock-deep">
+              <span className="font-serif text-sm text-bcc-text-secondary">
                 {quest.hint}
               </span>
             </span>
@@ -85,7 +85,7 @@ export function TrustQuestsBlock({
               <span
                 className={
                   "bcc-mono whitespace-nowrap " +
-                  (quest.done ? "text-phosphor" : "text-cardstock-deep")
+                  (quest.done ? "text-phosphor" : "text-bcc-text-secondary")
                 }
               >
                 +{quest.weight_bonus.toFixed(2)}×

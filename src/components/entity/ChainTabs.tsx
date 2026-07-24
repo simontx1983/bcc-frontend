@@ -5,8 +5,10 @@
  *
  * Mounts when an operator runs validators on 2+ chains and has linked
  * each wallet to the same peepso-page. Renders a horizontal pill row
- * with one chip per chain showing the chain name + truncated operator
- * address.
+ * with one chip per chain showing the chain name + a verified marker.
+ *
+ * The chip used to show a truncated operator address; that was removed
+ * for privacy (see CardChain.operator_verified in lib/api/types.ts).
  *
  *   ┌──────── strict V1.5 scope ──────────────────────────────────────┐
  *   │ Visual only. The pills are NOT yet active state — they don't   │
@@ -43,7 +45,7 @@ export function ChainTabs({ chains }: ChainTabsProps) {
       className="bcc-panel mt-6 flex flex-col gap-3 p-5"
     >
       <header className="flex items-baseline justify-between gap-3">
-        <span className="bcc-mono text-[10px] tracking-[0.24em] text-cardstock-deep">
+        <span className="bcc-mono text-[10px] tracking-[0.24em] text-bcc-text-secondary">
           CROSS-CHAIN //
         </span>
         <span className="bcc-mono text-[10px] tracking-[0.18em] text-bcc-text-secondary/70">
@@ -74,22 +76,22 @@ function ChainPill({ chain }: { chain: CardChain }) {
       }}
     >
       <span className="text-ink">{chain.name.toUpperCase()}</span>
-      <span aria-hidden className="text-cardstock-edge">·</span>
-      <span className="text-ink-soft">
-        {truncateMiddle(chain.operator_address, 6, 6)}
-      </span>
+      {chain.operator_verified && (
+        <>
+          <span aria-hidden className="text-cardstock-edge">
+            ·
+          </span>
+          {/*
+            Was a truncated operator address. Removed 2026-07-23 — the
+            operator address is matched against the claimant's verified
+            wallet, so publishing it (truncated or not) bound an on-chain
+            address to a named member. The derived boolean carries the
+            same meaning the strip actually needs: this operator is
+            verified on this chain. See docs/wallet-privacy-policy.md.
+          */}
+          <span className="text-ink-soft">VERIFIED</span>
+        </>
+      )}
     </div>
   );
-}
-
-/**
- * Mid-ellipsis address truncation. `cosmosvaloper1abc…xyz`.
- * Falls through unchanged when the input is already shorter than
- * head + tail + ellipsis.
- */
-function truncateMiddle(value: string, head: number, tail: number): string {
-  if (value.length <= head + tail + 1) {
-    return value;
-  }
-  return `${value.slice(0, head)}…${value.slice(-tail)}`;
 }

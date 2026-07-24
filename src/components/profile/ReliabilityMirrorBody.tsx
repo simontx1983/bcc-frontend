@@ -90,24 +90,24 @@ function StandingBlock({ reliability }: { reliability: MeReliabilityResponse }) 
   return (
     <div className="flex flex-wrap items-start gap-x-12 gap-y-6">
       <div className="flex flex-col gap-3">
-        <span className="bcc-mono text-[10px] tracking-[0.2em] text-cardstock-deep">
+        <span className="bcc-mono text-[10px] tracking-[0.2em] text-bcc-text-secondary">
           STANDING
         </span>
         <ReliabilityStandingBadge standing={reliability.reliability_standing} />
       </div>
 
       <div className="flex flex-col gap-3">
-        <span className="bcc-mono text-[10px] tracking-[0.2em] text-cardstock-deep">
+        <span className="bcc-mono text-[10px] tracking-[0.2em] text-bcc-text-secondary">
           TREND
         </span>
         <TrendIndicator direction={reliability.trends.direction} />
       </div>
 
       <div className="flex flex-col gap-3">
-        <span className="bcc-mono text-[10px] tracking-[0.2em] text-cardstock-deep">
+        <span className="bcc-mono text-[10px] tracking-[0.2em] text-bcc-text-secondary">
           ATTESTATIONS CAST
         </span>
-        <span className="bcc-stencil text-3xl text-cardstock leading-none">
+        <span className="bcc-stencil text-3xl text-bcc-text leading-none">
           {reliability.since_attestation_count}
         </span>
       </div>
@@ -128,7 +128,7 @@ function TrendIndicator({ direction }: { direction: ReliabilityTrendDirection })
     steady: {
       glyph: "→",
       label: "Steady",
-      toneClass: "text-cardstock-deep",
+      toneClass: "text-bcc-text-secondary",
     },
     softening: {
       glyph: "↓",
@@ -158,10 +158,10 @@ function ExplainerBlock({
 }) {
   return (
     <div className="flex flex-col gap-3">
-      <p className="bcc-stencil text-3xl text-cardstock leading-tight">
+      <p className="bcc-stencil text-3xl text-bcc-text leading-tight">
         {explainer.headline}
       </p>
-      <p className="font-serif text-lg leading-relaxed text-cardstock-deep max-w-prose">
+      <p className="font-serif text-lg leading-relaxed text-bcc-text-secondary max-w-prose">
         {explainer.body}
       </p>
     </div>
@@ -176,23 +176,23 @@ function ShowUpBlock({ reliability }: { reliability: MeReliabilityResponse }) {
   const { slots_total, slots_used } = reliability.stand_behind_allocation;
   return (
     <div className="flex flex-col gap-4">
-      <p className="font-serif text-lg leading-relaxed text-cardstock">
+      <p className="font-serif text-lg leading-relaxed text-bcc-text">
         You&rsquo;re standing behind{" "}
-        <span className="bcc-stencil text-cardstock">{slots_used}</span>
+        <span className="bcc-stencil text-bcc-text">{slots_used}</span>
         {slots_total > 0 && (
           <>
             {" "}of{" "}
-            <span className="bcc-stencil text-cardstock">{slots_total}</span>
+            <span className="bcc-stencil text-bcc-text">{slots_total}</span>
           </>
         )}{" "}
         operators at your current tier.
       </p>
-      <p className="font-serif text-cardstock-deep">
+      <p className="font-serif text-bcc-text-secondary">
         Vouches are easy to give. Stand Behind is reserved for higher
         conviction — each one represents your reputation attached to
         someone else&rsquo;s work.
       </p>
-      <p className="font-serif text-cardstock-deep">
+      <p className="font-serif text-bcc-text-secondary">
         This isn&rsquo;t about liking someone, following the crowd, or
         rewarding popularity. It&rsquo;s about trust. Do they do what they
         say they&rsquo;ll do? Do they consistently show up? Are they who
@@ -212,22 +212,22 @@ function ShowUpBlock({ reliability }: { reliability: MeReliabilityResponse }) {
 function TeachingBlock() {
   return (
     <div className="flex flex-col gap-4">
-      <p className="font-serif text-lg leading-relaxed text-cardstock">
+      <p className="font-serif text-lg leading-relaxed text-bcc-text">
         {REPUTATION_VS_RELIABILITY.reputation_grows}
       </p>
-      <p className="font-serif text-lg leading-relaxed text-cardstock">
+      <p className="font-serif text-lg leading-relaxed text-bcc-text">
         {REPUTATION_VS_RELIABILITY.reliability_definition}
       </p>
-      <p className="font-serif text-cardstock-deep">
+      <p className="font-serif text-bcc-text-secondary">
         {REPUTATION_VS_RELIABILITY.both_grow_slowly}
       </p>
-      <p className="font-serif text-cardstock-deep">
-        <strong className="text-cardstock">
+      <p className="font-serif text-bcc-text-secondary">
+        <strong className="text-bcc-text">
           {ABSENCE_NOT_NEGATIVE.headline}
         </strong>{" "}
         {ABSENCE_NOT_NEGATIVE.body}
       </p>
-      <p className="font-serif text-cardstock-deep">
+      <p className="font-serif text-bcc-text-secondary">
         This page updates weekly. There is no real-time ticker because
         trust isn&rsquo;t useful at minute-by-minute resolution.
         Reputation can change quickly; reliability should not.

@@ -86,13 +86,13 @@ export default async function LocalsDirectoryPage({ searchParams }: PageProps) {
   return (
     <main className="min-h-screen pb-24">
       <section className="mx-auto max-w-6xl px-6 pt-12 sm:px-8">
-        <span className="bcc-mono text-[10px] tracking-[0.24em] text-cardstock-deep">
+        <span className="bcc-mono text-[10px] tracking-[0.24em] text-bcc-text-secondary">
           DIRECTORY · LOCALS
         </span>
-        <h1 className="bcc-stencil mt-2 text-5xl text-cardstock md:text-6xl">
+        <h1 className="bcc-stencil mt-2 text-5xl text-bcc-text md:text-6xl">
           Locals
         </h1>
-        <p className="mt-3 max-w-2xl font-serif text-lg text-cardstock-deep">
+        <p className="mt-3 max-w-2xl font-serif text-lg text-bcc-text-secondary">
           Per-chain rooms where members organize, hang, and bias their
           feeds. Pick your home Local from your settings; you can hold
           membership in many.
@@ -176,14 +176,14 @@ function LocalCard({ item }: { item: LocalItem }) {
   return (
     <Link
       href={href}
-      className="bcc-panel block px-5 py-4 transition hover:border-cardstock-edge"
+      className="bcc-panel block px-5 py-4 transition hover:border-bcc-border-strong"
     >
       <div className="flex items-baseline justify-between gap-3">
-        <span className="bcc-mono text-[10px] tracking-[0.18em] text-cardstock-deep">
+        <span className="bcc-mono text-[10px] tracking-[0.18em] text-bcc-text-secondary">
           {item.chain !== null ? item.chain.toUpperCase() : "GENERAL"}
         </span>
         {item.number !== null && (
-          <span className="bcc-mono text-[10px] tracking-[0.18em] text-cardstock-deep">
+          <span className="bcc-mono text-[10px] tracking-[0.18em] text-bcc-text-secondary">
             #{item.number}
           </span>
         )}
@@ -221,10 +221,10 @@ function ViewerBadge({ membership }: { membership: LocalItem["viewer_membership"
   }
   return (
     <span
-      className="bcc-mono rounded-sm px-2 py-0.5 text-[9px] tracking-[0.18em] text-ink"
+      className="bcc-mono rounded-sm px-2 py-0.5 text-[9px] tracking-[0.18em] text-bcc-text-secondary"
       style={{
-        background: "rgb(var(--ink-rgb) / 0.06)",
-        border: "1px solid rgb(var(--ink-rgb) / 0.16)",
+        background: "var(--bcc-surface-hover)",
+        border: "1px solid var(--bcc-border)",
       }}
     >
       MEMBER
@@ -276,15 +276,15 @@ function Pagination({
         <Link
           href={buildHref(page - 1)}
           rel="prev"
-          className="bcc-mono text-cardstock-deep hover:underline"
+          className="bcc-mono text-bcc-text-secondary hover:underline"
         >
           ← Previous
         </Link>
       ) : (
-        <span className="bcc-mono text-cardstock-deep/40">← Previous</span>
+        <span className="bcc-mono text-bcc-text-muted">← Previous</span>
       )}
 
-      <span className="bcc-mono text-[10px] text-cardstock-deep">
+      <span className="bcc-mono text-[10px] text-bcc-text-secondary">
         PAGE {page} / {total_pages}
       </span>
 
@@ -292,12 +292,12 @@ function Pagination({
         <Link
           href={buildHref(page + 1)}
           rel="next"
-          className="bcc-mono text-cardstock-deep hover:underline"
+          className="bcc-mono text-bcc-text-secondary hover:underline"
         >
           Next →
         </Link>
       ) : (
-        <span className="bcc-mono text-cardstock-deep/40">Next →</span>
+        <span className="bcc-mono text-bcc-text-muted">Next →</span>
       )}
     </nav>
   );

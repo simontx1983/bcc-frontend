@@ -13,16 +13,26 @@
  * status to delegate to Next's `notFound()`.
  */
 
-import { bccFetch } from "@/lib/api/client";
+import { bccFetch, bccFetchAsClient } from "@/lib/api/client";
 import type { Card, CardKind } from "@/lib/api/types";
 
 /**
- * GET /cards/:type/:id — full card view-model.
+ * The one place the /cards/:type/:id path is spelled. Both the
+ * server-side and the client-side fetchers below route through it so
+ * the route shape has a single definition.
  *
  * `idOrSlug` accepts either a numeric post id or a post_name slug for
  * validator/project/creator, and a bcc_handle for member. The path
- * component is encoded defensively even though the server's
- * route pattern restricts the character set.
+ * component is encoded defensively even though the server's route
+ * pattern restricts the character set.
+ */
+function cardEntityPath(type: CardKind, idOrSlug: string): string {
+  return `cards/${type}/${encodeURIComponent(idOrSlug)}`;
+}
+
+/**
+ * GET /cards/:type/:id — full card view-model. Server-side variant:
+ * takes an explicit token from `getServerSession()`.
  */
 export function getCardEntity(
   type: CardKind,
@@ -30,10 +40,30 @@ export function getCardEntity(
   token: string | null,
   opts?: { signal?: AbortSignal; revalidate?: number }
 ): Promise<Card> {
-  return bccFetch<Card>(`cards/${type}/${encodeURIComponent(idOrSlug)}`, {
+  return bccFetch<Card>(cardEntityPath(type, idOrSlug), {
     method: "GET",
     token,
     ...(opts?.signal !== undefined ? { signal: opts.signal } : {}),
     ...(opts?.revalidate !== undefined ? { revalidate: opts.revalidate } : {}),
+  });
+}
+
+/**
+ * GET /cards/:type/:id — browser-side sibling of `getCardEntity`.
+ *
+ * Same endpoint, same response shape; `bccFetchAsClient` sources the
+ * bearer from the NextAuth session (and silently refreshes it) instead
+ * of receiving one. Use from React Query hooks — see `useCardEntity`.
+ * There is no `revalidate` knob here: Next's fetch cache is a
+ * server-only concern, and client-side caching is React Query's job.
+ */
+export function getCardEntityAsClient(
+  type: CardKind,
+  idOrSlug: string,
+  opts?: { signal?: AbortSignal }
+): Promise<Card> {
+  return bccFetchAsClient<Card>(cardEntityPath(type, idOrSlug), {
+    method: "GET",
+    ...(opts?.signal !== undefined ? { signal: opts.signal } : {}),
   });
 }

@@ -88,7 +88,7 @@ export function EntityTabs({
       <div
         role="tablist"
         aria-label="Entity sections"
-        className="-mx-4 flex items-center gap-x-1 overflow-x-auto border-b border-cardstock/15 px-4 sm:mx-0 sm:flex-wrap sm:px-0"
+        className="-mx-4 flex items-center gap-x-1 overflow-x-auto border-b border-bcc-border px-4 sm:mx-0 sm:flex-wrap sm:px-0"
       >
         {tabs.map((tab) => (
           <button

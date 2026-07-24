@@ -169,10 +169,10 @@ export function MentionPopover({
       role="listbox"
       id={listboxId}
       aria-label="Mention suggestions"
-      className="flex flex-col rounded-sm border border-cardstock-edge/30 bg-cardstock/5"
+      className="flex flex-col rounded-sm border border-bcc-border bg-bcc-surface-raised"
     >
       {search.isLoading && (
-        <p className="bcc-mono px-3 py-3 text-[11px] text-cardstock-deep/70">
+        <p className="bcc-mono px-3 py-3 text-[11px] text-bcc-text-secondary">
           Searching…
         </p>
       )}
@@ -182,7 +182,7 @@ export function MentionPopover({
         </p>
       )}
       {isEmpty && (
-        <p className="bcc-mono px-3 py-3 text-[11px] text-cardstock-deep/70">
+        <p className="bcc-mono px-3 py-3 text-[11px] text-bcc-text-secondary">
           No matches for &ldquo;{query}&rdquo;.
         </p>
       )}
@@ -225,10 +225,10 @@ export function MentionPopover({
                     variant="rounded"
                   />
                   <span className="flex flex-col">
-                    <span className="text-[12px] text-cardstock">
+                    <span className="text-[12px] text-bcc-text">
                       {c.display_name}
                     </span>
-                    <span className="bcc-mono text-[10px] tracking-[0.06em] text-cardstock-deep/70">
+                    <span className="bcc-mono text-[10px] tracking-[0.06em] text-bcc-text-secondary">
                       @{c.handle}
                     </span>
                   </span>

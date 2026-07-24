@@ -106,7 +106,7 @@ export function StandingFileBody({ profile }: { profile: MemberProfile }) {
 
       {progression === undefined && (
         <SectionFrame fileNumber="04" label="UNAVAILABLE">
-          <p className="font-serif text-base text-cardstock-deep">
+          <p className="font-serif text-base text-bcc-text-secondary">
             We couldn&rsquo;t load your progression details. Try again
             in a moment, or check your{" "}
             <Link
@@ -186,10 +186,10 @@ function CurrentGradeBlock({
     <div className="flex flex-wrap items-center gap-6">
       <RankChip cardTier={cardTier} tierLabel={tierLabel} rankLabel={rankLabel} />
       <div className="flex flex-col">
-        <span className="bcc-mono text-[10px] tracking-[0.2em] text-cardstock-deep">
+        <span className="bcc-mono text-[10px] tracking-[0.2em] text-bcc-text-secondary">
           TRUST SCORE
         </span>
-        <span className="bcc-stencil text-3xl text-cardstock leading-none">
+        <span className="bcc-stencil text-3xl text-bcc-text leading-none">
           {trustScore}
         </span>
       </div>
@@ -208,8 +208,8 @@ function VerifiedIdentityBlock({ profile }: { profile: MemberProfile }) {
   const verifications = profile.verifications;
   const completeness = verifications.profile_completeness;
   const profileComplete = completeness >= PROFILE_COMPLETE_THRESHOLD;
-  const settingsRoute = "/settings/identity" as Route;
-  const profileEditRoute = "/settings/profile" as Route;
+  const settingsRoute = "/u/me?tab=profile" as Route;
+  const profileEditRoute = "/u/me?tab=profile" as Route;
   const localsRoute = "/locals" as Route;
 
   const rows: Array<{
@@ -270,7 +270,7 @@ function VerifiedIdentityBlock({ profile }: { profile: MemberProfile }) {
 
   return (
     <div className="flex flex-col gap-5">
-      <p className="font-serif text-base leading-relaxed text-cardstock-deep max-w-prose">
+      <p className="font-serif text-base leading-relaxed text-bcc-text-secondary max-w-prose">
         These are one-time signals. The floor reads each once — no
         recurring check, no expiry. Adding more strengthens your
         standing, but nothing here is on a schedule.
@@ -279,22 +279,22 @@ function VerifiedIdentityBlock({ profile }: { profile: MemberProfile }) {
         {rows.map((row) => (
           <li
             key={row.label}
-            className="grid grid-cols-[auto_1fr_auto] items-baseline gap-4 border-b border-dashed border-cardstock/15 py-3 last:border-b-0"
+            className="grid grid-cols-[auto_1fr_auto] items-baseline gap-4 border-b border-dashed border-bcc-border py-3 last:border-b-0"
           >
             <span
               aria-hidden
               className={
                 "bcc-mono text-lg leading-none " +
-                (row.connected ? "text-phosphor" : "text-ink-ghost")
+                (row.connected ? "text-phosphor" : "text-bcc-text-muted")
               }
             >
               {row.connected ? "✓" : "○"}
             </span>
             <span className="flex flex-col">
-              <span className="bcc-mono text-cardstock">
+              <span className="bcc-mono text-bcc-text">
                 {row.label.toUpperCase()}
               </span>
-              <span className="bcc-mono text-cardstock-deep">{row.detail}</span>
+              <span className="bcc-mono text-bcc-text-secondary">{row.detail}</span>
             </span>
             <Link
               href={row.href}
@@ -341,7 +341,7 @@ function OnTheFloorBlock({ profile }: { profile: MemberProfile }) {
 
   return (
     <div className="flex flex-col gap-5">
-      <p className="font-serif text-base leading-relaxed text-cardstock-deep max-w-prose">
+      <p className="font-serif text-base leading-relaxed text-bcc-text-secondary max-w-prose">
         Posts, reviews, and comments you write surface to other
         operators on the floor. Solids are lightweight community
         acknowledgements — they show where your work is being noticed,
@@ -354,7 +354,7 @@ function OnTheFloorBlock({ profile }: { profile: MemberProfile }) {
             key={stat.label}
             className="bcc-panel flex flex-col gap-2 p-4"
           >
-            <dt className="bcc-mono text-[10px] tracking-[0.2em] text-ink-soft">
+            <dt className="bcc-mono text-[10px] tracking-[0.2em] text-bcc-text-secondary">
               {stat.label.toUpperCase()}
             </dt>
             <dd className="bcc-stencil text-3xl text-bcc-text leading-none">
@@ -382,9 +382,9 @@ function OnTheFloorBlock({ profile }: { profile: MemberProfile }) {
 function NextRankBlock({ progression }: { progression: MemberProgression }) {
   if (progression.next_rank === null) {
     return (
-      <div className="border border-dashed border-safety/60 bg-cardstock-deep/60 p-6">
+      <div className="border border-dashed border-safety/60 bg-bcc-surface-hover p-6">
         <p className="bcc-mono text-safety">TERMINAL GRADE</p>
-        <p className="mt-3 font-serif text-lg text-cardstock">
+        <p className="mt-3 font-serif text-lg text-bcc-text">
           You&rsquo;re a{" "}
           <span className="bcc-stencil">
             {progression.current_rank_label.toUpperCase()}
@@ -398,18 +398,18 @@ function NextRankBlock({ progression }: { progression: MemberProgression }) {
 
   return (
     <div className="flex flex-col gap-4">
-      <p className="bcc-mono inline-flex items-baseline gap-3 text-cardstock-deep">
-        <span className="text-cardstock">
+      <p className="bcc-mono inline-flex items-baseline gap-3 text-bcc-text-secondary">
+        <span className="text-bcc-text">
           {progression.current_rank_label.toUpperCase()}
         </span>
-        <span className="text-ink-ghost">→</span>
+        <span className="text-bcc-text-muted">→</span>
         <span className="bcc-phosphor-text">
           {(progression.next_rank_label ?? progression.next_rank).toUpperCase()}
         </span>
       </p>
 
       {progression.next_rank_thresholds.length === 0 && (
-        <p className="font-serif text-base text-cardstock-deep">
+        <p className="font-serif text-base text-bcc-text-secondary">
           Threshold details unavailable right now.
         </p>
       )}
@@ -486,7 +486,7 @@ function RecentChangesBlock({
 }) {
   if (changes.length === 0) {
     return (
-      <p className="font-serif text-base text-cardstock-deep">
+      <p className="font-serif text-base text-bcc-text-secondary">
         No reputation moves on the books yet. Changes appear here when
         the floor adjusts your standing.
       </p>
@@ -503,18 +503,18 @@ function RecentChangesBlock({
           ? "text-phosphor"
           : change.delta < 0
             ? "text-weld"
-            : "text-cardstock-deep";
+            : "text-bcc-text-secondary";
         return (
           <li
             key={`${change.at}-${idx}`}
-            className="grid grid-cols-[auto_1fr_auto] items-baseline gap-4 border-b border-dashed border-cardstock/15 pb-3 last:border-b-0 last:pb-0"
+            className="grid grid-cols-[auto_1fr_auto] items-baseline gap-4 border-b border-dashed border-bcc-border pb-3 last:border-b-0 last:pb-0"
           >
             <span className={`bcc-stencil text-2xl leading-none ${toneClass}`}>
               {sign}
               {magnitude}
             </span>
-            <span className="font-serif text-cardstock">{change.reason}</span>
-            <span className="bcc-mono text-cardstock-deep">{change.at}</span>
+            <span className="font-serif text-bcc-text">{change.reason}</span>
+            <span className="bcc-mono text-bcc-text-secondary">{change.at}</span>
           </li>
         );
       })}

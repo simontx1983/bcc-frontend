@@ -23,7 +23,7 @@ export function CaseBody({
       <section>
         <SectionLabel n="01" label="THE REASON" />
         <blockquote
-          className="mt-4 border-l-[3px] pl-5 font-serif italic text-ink"
+          className="mt-4 border-l-[3px] pl-5 font-serif italic text-bcc-text"
           style={{
             borderColor: "var(--safety)",
             fontSize: "clamp(1rem, 1.8vw, 1.125rem)",
@@ -32,7 +32,7 @@ export function CaseBody({
         >
           &ldquo;{dispute.reason}&rdquo;
         </blockquote>
-        <p className="bcc-mono mt-3 text-ink-ghost">
+        <p className="bcc-mono mt-3 text-bcc-text-muted">
           DISPUTING {dispute.voter_name.toUpperCase()}&rsquo;S DOWNVOTE
         </p>
       </section>
@@ -56,14 +56,14 @@ export function CaseBody({
               EXHIBIT A
             </span>
             <span
-              className="bcc-mono flex flex-1 items-center break-all border border-l-0 border-ink/30 px-4 py-3 text-blueprint underline underline-offset-2"
+              className="bcc-mono flex flex-1 items-center break-all border border-l-0 border-bcc-border px-4 py-3 text-bcc-accent underline underline-offset-2"
               style={{ wordBreak: "break-all" }}
             >
               {dispute.evidence_url}
             </span>
           </a>
         ) : (
-          <p className="bcc-mono mt-4 text-ink-ghost">
+          <p className="bcc-mono mt-4 text-bcc-text-muted">
             NO EXHIBIT FILED
           </p>
         )}
@@ -71,7 +71,7 @@ export function CaseBody({
 
       <section>
         <SectionLabel n="03" label="CHAIN OF CUSTODY" />
-        <ol className="mt-4 flex flex-col gap-3 border-l-2 border-ink/40 pl-5">
+        <ol className="mt-4 flex flex-col gap-3 border-l-2 border-bcc-border pl-5">
           <CustodyEvent
             label="FILED"
             timestamp={dispute.created_at}
@@ -91,7 +91,7 @@ export function CaseBody({
           />
         </ol>
         {sealed && (
-          <p className="bcc-mono mt-4 text-cardstock-deep">
+          <p className="bcc-mono mt-4 text-bcc-text-secondary">
             * Reporter identity is sealed during deliberation. Decide on
             the merits of the reason and evidence alone.
           </p>
@@ -110,9 +110,9 @@ export function CaseBody({
 function SectionLabel({ n, label }: { n: string; label: string }) {
   return (
     <div className="flex items-center gap-3">
-      <span className="bcc-mono text-cardstock-deep">{n}</span>
+      <span className="bcc-mono text-bcc-text-secondary">{n}</span>
       <span className="bcc-mono text-safety">{"//"} {label}</span>
-      <span aria-hidden className="h-px flex-1 bg-ink/15" />
+      <span aria-hidden className="h-px flex-1 bg-bcc-border" />
     </div>
   );
 }
@@ -135,15 +135,15 @@ function CustodyEvent({
         className="absolute left-[-9px] top-[7px] h-[10px] w-[10px]"
         style={{
           background:
-            tone === "live" ? "var(--safety)" : "var(--cardstock-deep)",
+            tone === "live" ? "var(--safety)" : "var(--bcc-border-strong)",
           boxShadow:
             tone === "live"
               ? "0 0 0 3px rgb(var(--safety-rgb) / 0.18)"
               : "none",
         }}
       />
-      <p className="bcc-mono text-ink">{label}</p>
-      <p className="bcc-mono text-ink-ghost">
+      <p className="bcc-mono text-bcc-text">{label}</p>
+      <p className="bcc-mono text-bcc-text-muted">
         {timestamp !== null
           ? formatAbsoluteUTC(timestamp)
           : (statusFallback ?? "—")}

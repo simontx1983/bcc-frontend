@@ -88,10 +88,10 @@ function AnonFeed() {
   const query = useHotFeed();
   return (
     <div className="pt-2">
-      <div className="bcc-mono mb-3 flex items-center gap-3 text-cardstock-deep">
-        <span className="inline-block h-px w-8 bg-cardstock-edge/50" />
+      <div className="bcc-mono mb-3 flex items-center gap-3 text-bcc-text-secondary">
+        <span className="inline-block h-px w-8 bg-bcc-border" />
         <span>On the floor right now</span>
-        <span className="inline-block h-px flex-1 bg-cardstock-edge/50" />
+        <span className="inline-block h-px flex-1 bg-bcc-border" />
       </div>
       <FeedBody {...query} />
     </div>
@@ -191,8 +191,8 @@ export function FeedBody(props: FeedBodyProps) {
             className={SKELETON_CLASS + " h-40"}
           >
             <div className="flex h-full flex-col justify-between p-4">
-              <span className="block h-3 w-1/3 rounded-sm bg-cardstock-deep/30" />
-              <span className="block h-3 w-4/5 rounded-sm bg-cardstock-deep/20" />
+              <span className="block h-3 w-1/3 rounded-sm bg-bcc-surface-hover" />
+              <span className="block h-3 w-4/5 rounded-sm bg-bcc-surface-hover" />
             </div>
           </li>
         ))}
@@ -260,7 +260,7 @@ export function FeedBody(props: FeedBodyProps) {
       )}
 
       {!hasNextPage && items.length > 0 && (
-        <p className="bcc-mono mt-4 text-center text-cardstock-deep/60">
+        <p className="bcc-mono mt-4 text-center text-bcc-text-muted">
           End of the floor.
         </p>
       )}

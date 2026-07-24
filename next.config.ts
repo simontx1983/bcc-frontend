@@ -25,6 +25,34 @@ const nextConfig: NextConfig = {
       { protocol: "http", hostname: "blue-collar-crypto-custom.local", pathname: "/wp-content/**" },
     ],
   },
+  // The /settings/* route space is RETIRED. Every editor now lives on an
+  // owner-only tab of /u/[handle]; `/u/me` resolves to the signed-in
+  // operator's handle (and bounces anonymous visitors through login), so
+  // these targets don't need to know it.
+  //
+  // Kept at the routing layer rather than as redirecting pages: the hop
+  // then happens before anything renders, and the route group itself is
+  // gone. `permanent: true` (308) now that the migration is complete and
+  // the owner-tab keys are settled — these are the durable homes.
+  //
+  // Order matters: Next takes the first match, so the specific routes sit
+  // above the catch-all. The catch-all also covers paths that never
+  // existed but were linked in-app (/settings/connections, /settings/wallets).
+  async redirects() {
+    return [
+      { source: "/settings/profile", destination: "/u/me?tab=profile", permanent: true },
+      { source: "/settings/identity", destination: "/u/me?tab=profile", permanent: true },
+      { source: "/settings/account", destination: "/u/me?tab=account", permanent: true },
+      { source: "/settings/privacy", destination: "/u/me?tab=privacy", permanent: true },
+      { source: "/settings/notifications", destination: "/u/me?tab=notifications", permanent: true },
+      { source: "/settings/messages", destination: "/u/me?tab=messages", permanent: true },
+      { source: "/settings/communities", destination: "/u/me?tab=communities", permanent: true },
+      { source: "/settings/nft-showcase", destination: "/u/me?tab=showcase", permanent: true },
+      { source: "/settings/blocks", destination: "/u/me?tab=blocks", permanent: true },
+      { source: "/settings", destination: "/u/me?tab=profile", permanent: true },
+      { source: "/settings/:path*", destination: "/u/me?tab=profile", permanent: true },
+    ];
+  },
   // Pin the workspace root to this folder so Next does not walk up the
   // tree and pick the stray package-lock.json in the user's home dir.
   outputFileTracingRoot: path.join(__dirname),

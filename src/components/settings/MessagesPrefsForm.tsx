@@ -175,7 +175,7 @@ function ToggleRow({ label, blurb, checked, onChange, disabled = false }: Toggle
     >
       <input
         type="checkbox"
-        className="mt-1 h-5 w-5 cursor-pointer accent-ink"
+        className="mt-1 h-5 w-5 cursor-pointer accent-bcc-accent"
         checked={checked}
         disabled={disabled}
         onChange={(event) => onChange(event.target.checked)}

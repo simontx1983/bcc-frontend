@@ -31,7 +31,7 @@ export function MessagesBadge({ enabled }: MessagesBadgeProps) {
   return (
     <Link
       href={"/messages" as Route}
-      className="relative inline-flex h-9 w-9 items-center justify-center rounded-full text-cardstock transition hover:bg-cardstock-deep/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cardstock"
+      className="relative inline-flex h-9 w-9 items-center justify-center rounded-full text-bcc-text transition hover:bg-bcc-surface-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bcc-accent"
       aria-label={
         showBadge
           ? `Messages — ${count} unread`

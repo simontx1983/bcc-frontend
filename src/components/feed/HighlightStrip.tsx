@@ -117,10 +117,10 @@ export function HighlightStrip() {
       aria-label="Highlights"
       className="mx-auto mt-2 max-w-6xl px-6 sm:px-8"
     >
-      <div className="bcc-mono mb-3 flex items-center gap-3 text-cardstock-deep">
-        <span className="inline-block h-px w-8 bg-cardstock-edge/50" />
+      <div className="bcc-mono mb-3 flex items-center gap-3 text-bcc-text-secondary">
+        <span className="inline-block h-px w-8 bg-bcc-border" />
         <span>What to know</span>
-        <span className="inline-block h-px flex-1 bg-cardstock-edge/50" />
+        <span className="inline-block h-px flex-1 bg-bcc-border" />
       </div>
 
       <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">

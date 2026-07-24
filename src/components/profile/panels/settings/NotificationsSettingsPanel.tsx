@@ -1,18 +1,14 @@
 /**
- * /settings/notifications — bell + email digest + push.
- *
- * Renders inside SettingsLayout (auth + persistent hero + nav).
- * NotificationPrefsForm is self-contained: fetches its own state via
- * React Query, owns its own save flow.
+ * NotificationsSettingsPanel — owner-only "Notifications" tab.
+ * Lifted from the retired /settings/notifications page.
  */
 
 import { NotificationPrefsForm } from "@/components/settings/NotificationPrefsForm";
+import { SettingsSectionHeader } from "@/components/settings/SettingsSectionHeader";
 
-import { SettingsSectionHeader } from "../_components/SettingsSectionHeader";
-
-export default function NotificationSettingsPage() {
+export function NotificationsSettingsPanel() {
   return (
-    <section className="mx-auto mt-10 max-w-3xl px-2 sm:px-3">
+    <section>
       <SettingsSectionHeader
         eyebrow="NOTIFICATIONS"
         title="What reaches you"

@@ -36,12 +36,15 @@ import type {
 
 /**
  * Build a `?return_to=...` query suffix from the supplied path. Defaults
- * to /settings/identity (where the user initiated the flow). The path
- * is composed against `window.location.origin` so it always lands on
- * the active Next.js host — the backend rejects anything outside its
- * BCC_FRONTEND_ORIGIN allowlist.
+ * to /settings/account — the surface that actually hosts the OAuth
+ * Connections section, so the operator lands back where they started.
+ * (It previously defaulted to /settings/identity, a bare redirect to
+ * /settings/profile, which bounced connect flows onto the wrong page.)
+ * The path is composed against `window.location.origin` so it always
+ * lands on the active Next.js host — the backend rejects anything
+ * outside its BCC_FRONTEND_ORIGIN allowlist.
  */
-function returnToQuery(path: string = "/settings/identity"): string {
+function returnToQuery(path: string = "/u/me?tab=account"): string {
   const target = `${window.location.origin}${path}`;
   return `?return_to=${encodeURIComponent(target)}`;
 }

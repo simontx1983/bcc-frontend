@@ -34,11 +34,13 @@ const REVIEW_GRADE_LABELS: Record<string, { label: string; accent: string }> = {
   caution: { label: "CAUTION", accent: "var(--safety)" },
 };
 
-/** card_kind → entity-route prefix. Mirrors CardUrlMap on the server. */
+/** card_kind → entity-route prefix. Mirrors CardUrlMap on the server.
+ *  `member` (v1.48) is a reviewed member — links to their /u profile. */
 const REVIEW_KIND_PREFIX: Record<string, string> = {
   validator: "/v",
   project:   "/p",
   creator:   "/c",
+  member:    "/u",
 };
 
 export function ReviewBody({ body }: { body: Record<string, unknown> }) {
@@ -66,7 +68,7 @@ export function ReviewBody({ body }: { body: Record<string, unknown> }) {
             className="bcc-mono rounded-sm px-2 py-0.5 text-[10px] tracking-[0.18em]"
             style={{
               color:      tone.accent,
-              background: "rgb(var(--ink-rgb) / 0.04)",
+              background: "var(--bcc-surface-hover)",
               border:     `1px solid ${tone.accent}`,
             }}
           >

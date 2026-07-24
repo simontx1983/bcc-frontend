@@ -1,41 +1,37 @@
 /**
- * /settings/account — login credentials + linked accounts + delete.
+ * AccountSettingsPanel — owner-only "Account" tab on /u/[handle].
  *
- * Renders inside SettingsLayout (auth + persistent hero + nav).
- * Three sections: account credentials (email/password/delete), verified
- * connections (X / GitHub), and linked wallets.
+ * Lifted from the retired /settings/account page: same wired sections,
+ * same hooks. Only the page-level width wrapper is dropped, since the
+ * profile page already constrains the column.
+ *
+ * `currentEmail` is threaded from the server session via the profile
+ * page — the settings page read it with getServerSession, which a
+ * client-rendered tab panel can't do.
  */
-
-import { getServerSession } from "next-auth";
 
 import { AccountActivitySection } from "@/components/settings/AccountActivitySection";
 import { ConnectionsSection } from "@/components/settings/ConnectionsSection";
 import { SessionsRevokeSection } from "@/components/settings/SessionsRevokeSection";
+import { SettingsSectionHeader } from "@/components/settings/SettingsSectionHeader";
 import { WalletsSection } from "@/components/settings/WalletsSection";
 import { AccountSection } from "@/components/settings/profile/AccountSection";
-import { authOptions } from "@/lib/auth";
 
-import { SettingsSectionHeader } from "../_components/SettingsSectionHeader";
-
-export default async function AccountSettingsPage() {
-  const session = await getServerSession(authOptions);
-  const sessionEmail =
-    typeof session?.user.email === "string" ? session.user.email : "";
-
+export function AccountSettingsPanel({ currentEmail }: { currentEmail: string }) {
   return (
-    <>
-      <section className="mx-auto mt-10 max-w-3xl px-2 sm:px-3">
+    <section className="flex flex-col gap-10">
+      <section>
         <SettingsSectionHeader
           eyebrow="LOGIN"
           title="Email, password, deletion"
           blurb="Update how you sign in. Every change asks for your current password to confirm. Account deletion is permanent."
         />
         <div className="mt-4">
-          <AccountSection currentEmail={sessionEmail} />
+          <AccountSection currentEmail={currentEmail} />
         </div>
       </section>
 
-      <section className="mx-auto mt-10 max-w-3xl px-2 sm:px-3">
+      <section>
         <SettingsSectionHeader
           eyebrow="VERIFIED ACCOUNTS"
           title="Linked external accounts"
@@ -46,7 +42,7 @@ export default async function AccountSettingsPage() {
         </div>
       </section>
 
-      <section className="mx-auto mt-10 max-w-3xl px-2 sm:px-3">
+      <section>
         <SettingsSectionHeader
           eyebrow="WALLETS"
           title="Linked addresses"
@@ -57,7 +53,7 @@ export default async function AccountSettingsPage() {
         </div>
       </section>
 
-      <section className="mx-auto mt-10 max-w-3xl px-2 sm:px-3">
+      <section>
         <SettingsSectionHeader
           eyebrow="ACCOUNT ACTIVITY"
           title="Security events on this account"
@@ -68,7 +64,7 @@ export default async function AccountSettingsPage() {
         </div>
       </section>
 
-      <section className="mx-auto mt-10 mb-16 max-w-3xl px-2 sm:px-3">
+      <section>
         <SettingsSectionHeader
           eyebrow="SESSIONS"
           title="Sign out everywhere"
@@ -78,6 +74,6 @@ export default async function AccountSettingsPage() {
           <SessionsRevokeSection />
         </div>
       </section>
-    </>
+    </section>
   );
 }
