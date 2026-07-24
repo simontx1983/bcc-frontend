@@ -1,22 +1,16 @@
 /**
- * /settings/privacy — visibility + privacy flags.
- *
- * Two sections: profile-wide visibility (write `usr_profile_acc`,
- * post defaults, hide-bday-year) and the §K2 per-field hide toggles.
- * Both answer "what's hidden from others" so they share a page.
- *
- * Renders inside SettingsLayout (auth + persistent hero + nav).
+ * PrivacySettingsPanel — owner-only "Privacy" tab on /u/[handle].
+ * Lifted from the retired /settings/privacy page.
  */
 
 import { PrivacySettingsForm } from "@/components/settings/PrivacySettingsForm";
+import { SettingsSectionHeader } from "@/components/settings/SettingsSectionHeader";
 import { ProfilePrefsSection } from "@/components/settings/profile/ProfilePrefsSection";
 
-import { SettingsSectionHeader } from "@/components/settings/SettingsSectionHeader";
-
-export default function PrivacySettingsPage() {
+export function PrivacySettingsPanel() {
   return (
-    <>
-      <section className="mx-auto mt-10 max-w-3xl px-2 sm:px-3">
+    <section className="flex flex-col gap-10">
+      <section>
         <SettingsSectionHeader
           eyebrow="VISIBILITY"
           title="Who can see what"
@@ -27,7 +21,7 @@ export default function PrivacySettingsPage() {
         </div>
       </section>
 
-      <section className="mx-auto mt-10 max-w-3xl px-2 sm:px-3">
+      <section>
         <SettingsSectionHeader
           eyebrow="HIDE FROM PROFILE"
           title="Per-field privacy"
@@ -37,6 +31,6 @@ export default function PrivacySettingsPage() {
           <PrivacySettingsForm />
         </div>
       </section>
-    </>
+    </section>
   );
 }

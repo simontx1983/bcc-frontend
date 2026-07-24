@@ -44,7 +44,7 @@ import type {
  * lands on the active Next.js host — the backend rejects anything
  * outside its BCC_FRONTEND_ORIGIN allowlist.
  */
-function returnToQuery(path: string = "/settings/account"): string {
+function returnToQuery(path: string = "/u/me?tab=account"): string {
   const target = `${window.location.origin}${path}`;
   return `?return_to=${encodeURIComponent(target)}`;
 }

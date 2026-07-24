@@ -1,20 +1,18 @@
 /**
- * /settings/communities — NFT-gated holder communities (§4.7.1).
+ * CommunitiesSettingsPanel — owner-only "Communities" tab.
  *
- * Joined / eligible / opted-out buckets + an auto-join preference
- * toggle. Renders inside SettingsLayout (auth + persistent hero + nav).
- *
- * "Communities" is the user-facing name; the backend term is
- * "holder groups." See lib/api/types.ts for the shape rationale.
+ * Lifted from the retired /settings/communities page. NFT-gated holder
+ * communities (§4.7.1): joined / eligible / opted-out buckets plus the
+ * auto-join preference. Distinct from the public "Groups" tab, which
+ * lists the groups this member already belongs to.
  */
 
 import { CommunitiesList } from "@/components/settings/CommunitiesList";
-
 import { SettingsSectionHeader } from "@/components/settings/SettingsSectionHeader";
 
-export default function CommunitiesSettingsPage() {
+export function CommunitiesSettingsPanel() {
   return (
-    <section className="mx-auto mt-10 max-w-3xl px-2 sm:px-3">
+    <section>
       <SettingsSectionHeader
         eyebrow="COMMUNITIES"
         title="NFT-gated communities"

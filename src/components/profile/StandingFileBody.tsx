@@ -208,8 +208,8 @@ function VerifiedIdentityBlock({ profile }: { profile: MemberProfile }) {
   const verifications = profile.verifications;
   const completeness = verifications.profile_completeness;
   const profileComplete = completeness >= PROFILE_COMPLETE_THRESHOLD;
-  const settingsRoute = "/settings/profile" as Route;
-  const profileEditRoute = "/settings/profile" as Route;
+  const settingsRoute = "/u/me?tab=profile" as Route;
+  const profileEditRoute = "/u/me?tab=profile" as Route;
   const localsRoute = "/locals" as Route;
 
   const rows: Array<{
