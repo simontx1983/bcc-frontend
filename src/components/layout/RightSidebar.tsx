@@ -26,6 +26,7 @@ import { useTrendingHashtags } from "@/hooks/useTrendingHashtags";
 import { useSuggestedMembers } from "@/hooks/useSuggestedMembers";
 import { useWatching } from "@/hooks/useWatching";
 import { useWatchMutation, useUnwatchMutation } from "@/hooks/useWatch";
+import { FOLLOW_COPY } from "@/lib/copy";
 import type { SuggestedMember, WatchingFollowSource } from "@/lib/api/types";
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -299,7 +300,7 @@ function SuggestedWidget() {
                 aria-pressed={isFollowing}
                 onClick={() => handleToggle(member)}
               >
-                {isFollowing ? "Following" : "Follow"}
+                {isFollowing ? FOLLOW_COPY.state : FOLLOW_COPY.cta}
               </button>
             </div>
           );

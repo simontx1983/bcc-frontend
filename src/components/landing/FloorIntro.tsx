@@ -17,6 +17,7 @@
  * CSS/JS to build it from then).
  */
 
+import { X } from "lucide-react";
 import Link from "next/link";
 
 import { LandingCountUp } from "@/components/landing/LandingCountUp";
@@ -69,19 +70,19 @@ export function FloorIntro() {
 // ─────────────────────────────────────────────────────────────────────
 
 interface MarqueeItem {
-  mark: "✕" | "—";
+  mark: "x" | "em";
   body: string;
 }
 
 const MARQUEE_ITEMS: readonly MarqueeItem[] = [
-  { mark: "✕", body: "Bought rank — not available" },
-  { mark: "—", body: "Reputation you can't buy" },
-  { mark: "✕", body: "Sponsored grades — not available" },
-  { mark: "—", body: "Built in public" },
-  { mark: "✕", body: "Boosted accounts — not available" },
-  { mark: "✕", body: "Bot reviews — not available" },
-  { mark: "—", body: "The chain remembers" },
-  { mark: "✕", body: "Paid checkmarks — not available" },
+  { mark: "x", body: "Bought rank — not available" },
+  { mark: "em", body: "Reputation you can't buy" },
+  { mark: "x", body: "Sponsored grades — not available" },
+  { mark: "em", body: "Built in public" },
+  { mark: "x", body: "Boosted accounts — not available" },
+  { mark: "x", body: "Bot reviews — not available" },
+  { mark: "em", body: "The chain remembers" },
+  { mark: "x", body: "Paid checkmarks — not available" },
 ] as const;
 
 function Marquee() {
@@ -91,7 +92,9 @@ function Marquee() {
       <div className="bcc-ldg-marquee-track">
         {doubled.map((item, idx) => (
           <span key={idx}>
-            <span className={item.mark === "✕" ? "bcc-ldg-marquee-x" : "bcc-ldg-marquee-em"}>{item.mark}</span>
+            <span className={item.mark === "x" ? "bcc-ldg-marquee-x" : "bcc-ldg-marquee-em"}>
+              {item.mark === "x" ? <X size={12} strokeWidth={2.4} aria-hidden /> : "—"}
+            </span>
             {item.body}
           </span>
         ))}

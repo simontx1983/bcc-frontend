@@ -27,7 +27,6 @@
  * out so users know where to come back.
  */
 
-import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import {
@@ -138,25 +137,18 @@ export function NotificationsStep({
   const saving = updatePrefs.isPending;
 
   return (
-    <>
-      <section className="mx-auto max-w-3xl px-6 pt-12 sm:px-8">
-        <h1 className="bcc-stencil text-bcc-text text-5xl md:text-6xl">
-          Stay posted.
-        </h1>
-        <p className="mt-4 max-w-2xl font-serif text-xl text-bcc-text-secondary">
-          Pick how we&apos;ll keep you in the loop. You can change all of these
-          any time in{" "}
-          <Link
-            href="/u/me?tab=notifications"
-            className="underline-offset-4 hover:underline"
-          >
-            your Notifications tab
-          </Link>
-          .
-        </p>
-      </section>
+    <section className="bcc-onb-step">
+      <p className="bcc-onb-eyebrow">Before you go</p>
+      <h1 className="bcc-onb-disp">How should we reach you?</h1>
+      {/* No settings link here on purpose — onboarding funnels toward the
+          Floor; a deep link out to settings pulls a brand-new user away
+          from that path. The reassurance stays as plain text. */}
+      <p className="bcc-onb-lede">
+        Pick how we&rsquo;ll keep you posted. You can change all of these any time
+        in your settings.
+      </p>
 
-      <section className="mx-auto mt-10 flex max-w-3xl flex-col gap-4 px-6 sm:px-8">
+      <div style={{ marginTop: "clamp(24px, 4vw, 40px)", display: "flex", flexDirection: "column", gap: "14px" }}>
         {/* Bell rollup */}
         <WizardOptCard
           title="In-app bell"
@@ -176,13 +168,13 @@ export function NotificationsStep({
         />
 
         {/* Push (separate gesture-bound flow) */}
-        <div className="bcc-panel flex flex-col gap-3 px-5 py-4">
-          <div className="flex items-baseline justify-between gap-3">
+        <div className="bcc-onb-opt" style={{ cursor: "default", flexDirection: "column", alignItems: "stretch" }}>
+          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "16px" }}>
             <div>
-              <h3 className="bcc-stencil text-lg text-bcc-text">Browser push</h3>
-              <p className="bcc-mono mt-1 text-[11px] text-bcc-text-secondary">
-                Real-time pings for high-stakes events only — reviews,
-                endorsements, dispute outcomes, panelist invites. Off by default.
+              <h3>Browser push</h3>
+              <p>
+                Real-time pings for high-stakes events only — reviews, endorsements,
+                dispute outcomes, panelist invites. Off by default.
               </p>
             </div>
             {push.isSupported ? (
@@ -190,70 +182,41 @@ export function NotificationsStep({
                 type="button"
                 onClick={handlePushToggle}
                 disabled={pushBusy || !push.isReady || saving}
-                className={
-                  "bcc-stencil shrink-0 rounded-sm px-3 py-2 text-[10px] tracking-[0.2em] transition motion-reduce:transition-none " +
-                  (pushMasterOn
-                    ? "bg-bcc-surface-active text-bcc-text"
-                    : "bg-safety text-ink hover:bg-safety/90 disabled:cursor-wait disabled:opacity-60")
-                }
+                className={"bcc-onb-opt-toggle " + (pushMasterOn ? "is-on" : "is-off")}
               >
                 {pushBusy
-                  ? pushMasterOn
-                    ? "DISABLING…"
-                    : "ENABLING…"
-                  : pushMasterOn
-                    ? "ENABLED"
-                    : "ENABLE"}
+                  ? pushMasterOn ? "Disabling…" : "Enabling…"
+                  : pushMasterOn ? "Enabled" : "Enable"}
               </button>
             ) : (
-              <span className="bcc-mono shrink-0 text-[10px] text-bcc-text-secondary/70">
-                NOT SUPPORTED
-              </span>
+              <span className="bcc-onb-note">Not supported</span>
             )}
           </div>
           {pushMasterError !== null && (
-            <p role="alert" className="bcc-mono text-[11px] text-safety">
+            <p role="alert" className="bcc-onb-err" style={{ marginTop: "10px" }}>
               {pushMasterError}
             </p>
           )}
         </div>
-      </section>
+      </div>
 
-      <footer className="mx-auto mt-12 flex max-w-3xl items-center justify-between gap-4 px-6 sm:px-8">
-        <button
-          type="button"
-          onClick={onBack}
-          disabled={saving}
-          className="bcc-mono text-bcc-text-secondary underline-offset-4 hover:underline disabled:opacity-50"
-        >
+      <footer className="bcc-onb-foot">
+        <button type="button" className="bcc-onb-link" onClick={onBack} disabled={saving}>
           ← Back
         </button>
-
-        <div className="flex items-center gap-4">
+        <div className="bcc-onb-foot-end">
           {error !== null && (
-            <span role="alert" className="bcc-mono text-[11px] text-safety">
-              {error}
-            </span>
+            <span role="alert" className="bcc-onb-err">{error}</span>
           )}
-          <button
-            type="button"
-            onClick={onDone}
-            disabled={saving}
-            className="bcc-mono text-bcc-text-secondary underline-offset-4 hover:underline disabled:opacity-50"
-          >
+          <button type="button" className="bcc-onb-link" onClick={onDone} disabled={saving}>
             Skip
           </button>
-          <button
-            type="button"
-            onClick={handleContinue}
-            disabled={saving}
-            className="bcc-stencil flex items-center gap-3 bg-safety px-6 py-3 text-ink disabled:cursor-wait disabled:opacity-60"
-          >
+          <button type="button" className="bcc-onb-btn bcc-onb-btn-primary" onClick={handleContinue} disabled={saving}>
             {saving ? "Saving…" : "Continue"}
           </button>
         </div>
       </footer>
-    </>
+    </section>
   );
 }
 
@@ -274,24 +237,16 @@ function WizardOptCard({
   onChange: (value: boolean) => void;
 }) {
   return (
-    <label
-      className={
-        "bcc-panel flex cursor-pointer items-start justify-between gap-4 px-5 py-4 transition motion-reduce:transition-none " +
-        (disabled
-          ? "cursor-not-allowed opacity-60"
-          : "hover:border-bcc-border-strong")
-      }
-    >
-      <div className="flex flex-col gap-1">
-        <h3 className="bcc-stencil text-lg text-bcc-text">{title}</h3>
-        <p className="bcc-mono text-[11px] text-bcc-text-secondary">{subtitle}</p>
+    <label className="bcc-onb-opt" style={disabled ? { opacity: 0.6, cursor: "not-allowed" } : undefined}>
+      <div>
+        <h3>{title}</h3>
+        <p>{subtitle}</p>
       </div>
       <input
         type="checkbox"
         checked={checked}
         disabled={disabled}
         onChange={(e) => onChange(e.target.checked)}
-        className="mt-1 h-5 w-5 shrink-0 cursor-pointer"
       />
     </label>
   );

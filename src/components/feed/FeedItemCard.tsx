@@ -131,6 +131,7 @@ function FeedItemCardImpl({
     <article
       onClick={handleBodyClick}
       onMouseEnter={prefetchSelf}
+      data-bcc-tour="feed.item"
       className="bcc-panel relative flex cursor-pointer flex-col gap-3 p-3.5 pb-2.5 sm:p-4 sm:pb-3"
     >
       {/*

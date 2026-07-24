@@ -52,6 +52,7 @@ export function NewPostTrigger({ className, style, ariaLabel, title, children }:
         style={style}
         aria-label={ariaLabel}
         title={title}
+        data-bcc-tour="composer.trigger"
       >
         {children}
       </Link>
@@ -67,6 +68,7 @@ export function NewPostTrigger({ className, style, ariaLabel, title, children }:
         style={style}
         aria-label={ariaLabel}
         title={title}
+        data-bcc-tour="composer.trigger"
       >
         {children}
       </button>

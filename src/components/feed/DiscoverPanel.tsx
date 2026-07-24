@@ -201,7 +201,7 @@ function QuietOnTheFloorPanel({ terminal }: { terminal?: boolean }) {
         <p className="mt-2 font-serif text-bcc-text-secondary">
           {terminal === true
             ? "The floor's just opening up. Check back soon."
-            : "Keep tabs on a card or two to start your feed, or check back in a bit — new activity rolls in throughout the day."}
+            : "Watch a card or two to start your feed, or check back in a bit — new activity rolls in throughout the day."}
         </p>
       </div>
     </div>

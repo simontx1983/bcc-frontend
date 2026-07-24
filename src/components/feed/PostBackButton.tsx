@@ -27,6 +27,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { ChevronLeft } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 import { useIsMobile } from "@/hooks/useIsMobile";
@@ -136,20 +137,7 @@ export function PostBackButton() {
           color: "var(--bcc-text)",
         }}
       >
-        <svg
-          width="18"
-          height="18"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2.2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          className="shrink-0"
-          aria-hidden
-        >
-          <path d="M15 18l-6-6 6-6" />
-        </svg>
+        <ChevronLeft size={18} strokeWidth={2.2} className="shrink-0" aria-hidden />
         <span
           className={
             "bcc-mono overflow-hidden whitespace-nowrap text-[12px] tracking-[0.08em] motion-safe:transition-all motion-safe:duration-300 motion-safe:ease-out " +

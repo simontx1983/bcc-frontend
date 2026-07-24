@@ -1,23 +1,39 @@
 "use client";
 
+import {
+  BadgeCheck,
+  ChevronLeft,
+  Globe,
+  Home,
+  LayoutGrid,
+  MessageSquare,
+  Plus,
+  Scale,
+  Users,
+} from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
 
 import { NewPostTrigger } from "@/components/composer/NewPostTrigger";
+import { EyeIcon } from "@/components/feed/actionIcons";
 import { CopyrightMark } from "@/components/layout/CopyrightMark";
 import { LEGAL_ROUTES } from "@/lib/legal/config";
 
+// Icons backed by lucide-react (task 5) — Watching reuses the same
+// EyeIcon as the feed's "Following" tab (was independently redrawn
+// here before); Home/Directory/Communities match MobileNav's copies
+// (were byte-identical duplicates, now one import each).
 const PRIMARY_NAV = [
-  { label: "Home",        href: "/",           icon: <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden><path d="M3 9.5L10 3l7 6.5V17a1 1 0 01-1 1H4a1 1 0 01-1-1V9.5z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round"/><path d="M7.5 18v-5h5v5" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round"/></svg> },
-  { label: "Members",     href: "/members",     icon: <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden><circle cx="8" cy="7" r="3" stroke="currentColor" strokeWidth="1.6"/><path d="M2 17c0-3.314 2.686-5 6-5s6 1.686 6 5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/><circle cx="15" cy="7" r="2.5" stroke="currentColor" strokeWidth="1.4"/><path d="M17.5 16c0-2.5-1.5-4-3.5-4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/></svg> },
-  { label: "Directory",   href: "/directory",   icon: <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden><rect x="2" y="3" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.6"/><rect x="11" y="3" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.6"/><rect x="2" y="12" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.6"/><rect x="11" y="12" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.6"/></svg> },
-  { label: "Communities", href: "/communities", icon: <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden><circle cx="10" cy="10" r="7.5" stroke="currentColor" strokeWidth="1.6"/><ellipse cx="10" cy="10" rx="3.5" ry="7.5" stroke="currentColor" strokeWidth="1.6"/><path d="M2.5 10h15" stroke="currentColor" strokeWidth="1.6"/></svg> },
-  { label: "Messages",    href: "/messages",    icon: <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden><path d="M2 4a2 2 0 012-2h12a2 2 0 012 2v9a2 2 0 01-2 2H6l-4 3V4z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round"/></svg> },
-  { label: "Disputes",    href: "/disputes",    icon: <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden><path d="M10 2l2.2 5.5H18l-4.6 3.3 1.8 5.5L10 13l-5.2 3.3 1.8-5.5L2 7.5h5.8L10 2z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round"/></svg> },
-  { label: "Watching",    href: "/watching",    icon: <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden><path d="M1.5 10S4.5 4 10 4s8.5 6 8.5 6-3 6-8.5 6S1.5 10 1.5 10z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round"/><circle cx="10" cy="10" r="2.5" stroke="currentColor" strokeWidth="1.6"/></svg> },
-  { label: "Validators",  href: "/validators",  icon: <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden><path d="M10 2l2 4.5L17 7l-3.5 3.5.8 5L10 13l-4.3 2.5.8-5L3 7l5-.5L10 2z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round"/></svg> },
+  { label: "Home",        href: "/",           icon: <Home size={20} strokeWidth={1.7} aria-hidden /> },
+  { label: "Members",     href: "/members",     icon: <Users size={20} strokeWidth={1.7} aria-hidden /> },
+  { label: "Directory",   href: "/directory",   icon: <LayoutGrid size={20} strokeWidth={1.7} aria-hidden /> },
+  { label: "Communities", href: "/communities", icon: <Globe size={20} strokeWidth={1.7} aria-hidden /> },
+  { label: "Messages",    href: "/messages",    icon: <MessageSquare size={20} strokeWidth={1.7} aria-hidden /> },
+  { label: "Disputes",    href: "/disputes",    icon: <Scale size={20} strokeWidth={1.7} aria-hidden /> },
+  { label: "Watching",    href: "/watching",    icon: <EyeIcon size={20} /> },
+  { label: "Validators",  href: "/validators",  icon: <BadgeCheck size={20} strokeWidth={1.7} aria-hidden /> },
 ] as const;
 
 const QUICK_LINKS = [
@@ -35,12 +51,12 @@ const LEGAL_LINKS = [
 
 function ChevronIcon({ collapsed }: { collapsed: boolean }) {
   return (
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden
+    <ChevronLeft
+      size={16}
+      strokeWidth={1.8}
+      aria-hidden
       style={{ transition: "transform 200ms ease", transform: collapsed ? "rotate(180deg)" : "rotate(0deg)" }}
-    >
-      <path d="M10 12L6 8l4-4" stroke="currentColor" strokeWidth="1.6"
-        strokeLinecap="round" strokeLinejoin="round"/>
-    </svg>
+    />
   );
 }
 
@@ -72,15 +88,11 @@ export function LeftSidebar({ collapsed, onToggle }: LeftSidebarProps) {
           <NewPostTrigger className="bcc-btn-icon" ariaLabel="New Post" title="New Post"
             style={{ width: 36, height: 36, background: "var(--bcc-accent)", color: "var(--bcc-white)", borderRadius: "var(--bcc-radius-md)", margin: "0 auto", display: "flex" }}
           >
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>
-              <path d="M7 1v12M1 7h12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-            </svg>
+            <Plus size={14} strokeWidth={2.2} aria-hidden />
           </NewPostTrigger>
         ) : (
           <NewPostTrigger className="bcc-btn bcc-btn-primary" style={{ width: "100%", justifyContent: "center" }}>
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>
-              <path d="M7 1v12M1 7h12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-            </svg>
+            <Plus size={14} strokeWidth={2.2} aria-hidden />
             New Post
           </NewPostTrigger>
         )}
@@ -100,6 +112,7 @@ export function LeftSidebar({ collapsed, onToggle }: LeftSidebarProps) {
                 aria-current={isActive ? "page" : undefined}
                 title={collapsed ? item.label : undefined}
                 style={collapsed ? iconOnlyItem : undefined}
+                data-bcc-tour={item.href === "/watching" ? "nav.watching" : undefined}
               >
                 <span className="bcc-nav-item-icon">{item.icon}</span>
                 {!collapsed && item.label}

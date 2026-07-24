@@ -1,5 +1,6 @@
 "use client";
 
+import { Moon, Palette, Sun, User } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -114,10 +115,7 @@ export function MainOffcanvas({ open, onClose }: MainOffcanvasProps) {
               }}
             >
               {handle ? handle.slice(0, 2).toUpperCase() : (
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden>
-                  <circle cx="12" cy="8" r="4" stroke="currentColor" strokeWidth="1.6"/>
-                  <path d="M4 20c0-4 3.58-7 8-7s8 3 8 7" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
-                </svg>
+                <User size={22} strokeWidth={1.6} aria-hidden />
               )}
             </span>
 
@@ -140,13 +138,7 @@ export function MainOffcanvas({ open, onClose }: MainOffcanvasProps) {
               aria-label="Theme settings"
               aria-expanded={themeOpen}
             >
-              <svg width="15" height="15" viewBox="0 0 18 18" fill="none" aria-hidden>
-                <path d="M9 2a7 7 0 100 14c1.1 0 2-.9 2-2v-.5c0-.28.22-.5.5-.5H13a3 3 0 003-3A7 7 0 009 2z"
-                  stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/>
-                <circle cx="6"  cy="8"   r="1" fill="currentColor"/>
-                <circle cx="9"  cy="5.5" r="1" fill="currentColor"/>
-                <circle cx="12" cy="8"   r="1" fill="currentColor"/>
-              </svg>
+              <Palette size={15} strokeWidth={1.5} aria-hidden />
             </button>
           </div>
 
@@ -192,6 +184,10 @@ export function MainOffcanvas({ open, onClose }: MainOffcanvasProps) {
                       borderRadius: "var(--bcc-radius-full)",
                       border: "none",
                       cursor: "pointer",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: 6,
                       fontFamily: "var(--font-stencil), Impact, sans-serif",
                       fontWeight: 800,
                       fontSize: 11,
@@ -202,7 +198,8 @@ export function MainOffcanvas({ open, onClose }: MainOffcanvasProps) {
                       color: currentTheme === t ? "var(--bcc-white)" : "var(--bcc-text-secondary)",
                     }}
                   >
-                    {t === "light" ? "☀ Day" : "☾ Night"}
+                    {t === "light" ? <Sun size={13} strokeWidth={2} aria-hidden /> : <Moon size={13} strokeWidth={2} aria-hidden />}
+                    {t === "light" ? "Day" : "Night"}
                   </button>
                 ))}
               </div>

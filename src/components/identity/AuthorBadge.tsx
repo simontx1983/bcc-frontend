@@ -8,27 +8,21 @@
  * trailing element (timestamp). Used at feed, comment, and
  * notification surfaces so identity reads continuously across them.
  *
- * Critical §A2 boundaries (Phillip — these are why this component
- * does NOT compute a tier locally):
+ * Critical §A2 boundary (Phillip — this is why this component does NOT
+ * compute a tier locally): `RankChip` accepts `reputationTier` (the
+ * canonical 5-band signal) and `cardTier`/`tierLabel` — all server-
+ * resolved on the view-model. The frontend MUST NOT manufacture a
+ * reputation_tier → card_tier mapping itself; that's §A2/§J.6
+ * server-owned business logic (bcc-trust's `AuthorBadgeResolver` /
+ * `FeedHydrationPipeline::applyAuthorRankBadge` already compute and
+ * attach BOTH fields to every feed/comment author, unconditionally).
  *
- *   1. `RankChip` accepts `cardTier: CardTier` and `tierLabel: string |
- *      null` — both server-resolved on the view-model. The frontend
- *      MUST NOT manufacture a reputation_tier → card_tier mapping;
- *      that's §A2/§J.6 server-owned business logic.
- *
- *   2. `FeedAuthor` and `CommentAuthor` currently ship `rank_label`
- *      and `reputation_tier`, but NOT `card_tier` or `tier_label`.
- *      Until the backend extends those view-models, AuthorBadge
- *      renders the chip with `cardTier={null}` (neutral cardstock
- *      rail) and an empty `tierLabel` — the rank word still ships,
- *      just without the tier color accent.
- *
- *   3. When the BE extends those view-models, the consumer at
- *      FeedItemCard/CommentDrawer/NotificationRow can start passing
- *      `card_tier` + `tier_label` to AuthorBadge as an optional
- *      override and the chip will tint correctly. Until then the
- *      austere neutral chip is the correct compromise — no false
- *      tier signal, no §A2 violation.
+ * `reputation_tier` is passed straight through to `RankChip` as-is —
+ * fixed a live bug where it was received on `author` but never wired
+ * anywhere, so a risky-tier author's chip rendered the same neutral
+ * grey as a brand-new user with zero data (`card_tier` is null for
+ * both, by design — risky entities are hidden from card-collecting UI,
+ * but the identity chip here isn't a card face and should still warn).
  *
  * Memoized at the export boundary. Stable `author` references skip
  * re-renders in dense lists (notification dropdown, comment thread).
@@ -47,6 +41,7 @@ import { usePrefetchUser } from "@/hooks/useUser";
 import type {
   AuthorVouchPermission,
   CardTier,
+  ReputationTier,
   ViewerAttestation,
 } from "@/lib/api/types";
 
@@ -64,10 +59,15 @@ export interface AuthorBadgeAuthor {
   avatar_url?: string | undefined;
   rank_label?: string | null | undefined;
   /**
-   * Server-resolved card-tier slug. When present we tint the RankChip
-   * rail; when absent (or null = risky-tier) the rail falls back to
-   * neutral cardstock. Most view-models that ship rank_label also ship
-   * this; FeedAuthor/CommentAuthor currently don't.
+   * The canonical trust-band signal — drives RankChip's dot color
+   * directly (including the true risky-red state, which `card_tier`
+   * structurally cannot represent). Prefer this over `card_tier`.
+   */
+  reputation_tier?: ReputationTier | undefined;
+  /**
+   * Server-resolved card-tier slug. Legacy fallback for RankChip's dot
+   * (and still drives the Avatar ring tint); absent/null falls back to
+   * neutral cardstock there.
    */
   card_tier?: CardTier | undefined;
   /** Pre-rendered tier word ("Uncommon", "Rare", etc.). Server-owned. */
@@ -145,6 +145,8 @@ function AuthorBadgeImpl({
       : "";
   const cardTier: CardTier =
     author.card_tier === undefined ? null : author.card_tier;
+  const reputationTier: ReputationTier | null =
+    author.reputation_tier === undefined ? null : author.reputation_tier;
   const tierLabel: string | null =
     typeof author.tier_label === "string" && author.tier_label !== ""
       ? author.tier_label
@@ -233,6 +235,7 @@ function AuthorBadgeImpl({
     showRank && rankLabel !== "" ? (
       <RankChip
         cardTier={cardTier}
+        reputationTier={reputationTier}
         tierLabel={tierLabel}
         rankLabel={rankLabel}
         size="compact"
@@ -270,6 +273,7 @@ function AuthorBadgeImpl({
                 displayName={author.display_name}
                 avatarUrl={author.avatar_url}
                 cardTier={cardTier}
+                reputationTier={reputationTier}
                 tierLabel={tierLabel}
                 rankLabel={rankLabel}
                 isOperator={author.is_operator === true}

@@ -3,206 +3,181 @@
 /**
  * OnboardingWizard — the post-signup setup surface.
  *
- * Four steps, per the §B4 plan + §O1 dopamine moment + V2 Phase 2
- * retention slice:
+ * Redesigned onto the page-chrome token system (`bcc-onb-*`, matching the
+ * landing "LEDGER" direction) — the old workshop/cardstock palette is gone.
+ * Streamlined lineup (6 screens):
  *
- *   1. "chain"         — pick a home chain (skippable). Stores the choice
- *                        locally; persisted to wp_usermeta.bcc_home_chain
- *                        on the final POST /me/onboarding/complete call.
- *   2. "pulls"         — first-watch suggestions. Each Watch commits
- *                        immediately to the watchlist via POST
- *                        /me/watching/watch (real mutation; server's batch
- *                        aggregator decides when those become a feed
- *                        item per §C3). Internal variable name "pulls"
- *                        retained as a step label — the step still uses
- *                        the legacy onboarding-state vocabulary; only
- *                        the user-facing copy + API path changed.
- *   3. "notifications" — V2 Phase 2 retention slice. Surfaces the bell /
- *                        email digest / push opt-ins so users learn the
- *                        channel exists at signup, not by digging into
- *                        /settings/notifications later. Skippable — the
- *                        bell is on by default for everything; email
- *                        digest is off; push master is off until the user
- *                        explicitly enables it (browser permission gate).
- *                        Pairs with the server-side `bcc_welcome` bell
- *                        notification (NotificationDispatcher::onUserSignup)
- *                        which arrives within seconds of signup so a user
- *                        who turns the bell on sees something there.
- *   4. "dopamine"      — the §O1 send-off. Cards fly into a watchlist icon
- *                        (the visual still uses the 3-ring binder iconography
- *                        per pattern-registry) with rarity-tinted glow trails, a stat-pop
- *                        appears, the cream cardstock backdrop fades to
- *                        concrete floor. Mutation fires in parallel; once
- *                        both the animation has played its minimum hold
- *                        AND the server has flipped the onboarded flag,
- *                        we route the user to /.
- *                        `prefers-reduced-motion` users see a still
- *                        confirmation tile and route immediately after
- *                        the mutation settles.
+ *   1. "welcome"       — one-line framing + a 3-card preview of setup.
+ *                        Primary "Let's go"; "Skip setup" jumps straight to
+ *                        the send-off (which still fires /complete).
+ *   2. "identity"      — avatar · cover · bio. Skippable. Seeded from the
+ *                        server-fetched MemberProfile; media commits
+ *                        immediately, bio saves on Continue.
+ *   3. "trust"         — the constitutionally-locked "How the graph works"
+ *                        teaching (§J.7), restyled into 2 screens. Copy is
+ *                        verbatim; only the presentation changed.
+ *   4. "watching"      — first-watch suggestions. Each Watch commits to the
+ *                        watchlist immediately. The home-chain pick is folded
+ *                        in here as a "bias toward" chip row (persisted on
+ *                        the final /complete call).
+ *   5. "notifications" — bell / email digest / push opt-ins.
+ *   6. "dopamine"      — the §O1 send-off. Cards fly to a watchlist dock,
+ *                        the /complete mutation fires in parallel, then routes
+ *                        to /. Reduced-motion sees a still tile.
  *
- * Sticky 3-bullet explainer strip rides above steps 1 + 2 + 3 — no
- * separate welcome screen. Disappears for the dopamine step so the
- * full-bleed animation can take over.
- *
- * Per-card pending state during step 2: tracked in a local Set so
- * concurrent clicks on different cards work; the click-through is
- * gated when pending.
- *
- * Phase 3.3 split: this file keeps the step machine + the explainer
- * strip; the steps live in sibling modules (HomeChainStep /
- * FirstPullsStep / NotificationsStep / DopamineStep) and the pulled-
- * state machine lives in useWizardPulls.ts. Public export + props
- * are unchanged.
+ * The home-chain choice lives in wizard state (`homeChain`) and threads to
+ * the watching step's bias chips + the dopamine step's /complete call.
  */
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
-import { CollectionsStep } from "@/components/onboarding/CollectionsStep";
 import { DopamineStep } from "@/components/onboarding/DopamineStep";
 import { FirstPullsStep } from "@/components/onboarding/FirstPullsStep";
-import { HomeChainStep } from "@/components/onboarding/HomeChainStep";
+import { IdentityStep } from "@/components/onboarding/IdentityStep";
 import { NotificationsStep } from "@/components/onboarding/NotificationsStep";
 import { OnboardingTrustLayerSteps } from "@/components/onboarding/OnboardingTrustLayerSteps";
+import { WelcomeStep } from "@/components/onboarding/WelcomeStep";
 import { useWizardPulls } from "@/components/onboarding/useWizardPulls";
-import type { HomeChain } from "@/lib/api/types";
+import { clearOnboardingProgress, setOnboardingProgress } from "@/lib/onboarding/storage";
+import type { HomeChain, MemberProfile } from "@/lib/api/types";
 
 // ─────────────────────────────────────────────────────────────────────
 // Step machine
 // ─────────────────────────────────────────────────────────────────────
 
-type Step =
-  | "chain"
-  | "pulls"
-  | "collections"
+export type Step =
+  | "welcome"
+  | "identity"
   | "trust"
+  | "watching"
   | "notifications"
   | "dopamine";
 
-export interface OnboardingWizardProps {
-  handle: string;
+// Ordered for the progress bar. `dopamine` is the send-off — it reads as
+// "done", so the bar sits at 100% there.
+const STEP_ORDER: readonly Step[] = [
+  "welcome",
+  "identity",
+  "trust",
+  "watching",
+  "notifications",
+  "dopamine",
+];
+
+/** Type guard for a resume deep link's `?step=` query param — untrusted input. */
+export function isValidStep(value: string): value is Step {
+  return (STEP_ORDER as readonly string[]).includes(value);
 }
 
-export function OnboardingWizard({ handle }: OnboardingWizardProps) {
-  const [step, setStep] = useState<Step>("chain");
+const STEP_LABEL: Record<Step, string> = {
+  welcome:       "Welcome",
+  identity:      "Your identity",
+  trust:         "How the graph works",
+  watching:      "Start watching",
+  notifications: "Stay posted",
+  dopamine:      "You're on the floor",
+};
+
+export interface OnboardingWizardProps {
+  handle: string;
+  /** Server-fetched own profile — seeds the identity step's avatar/cover/bio. */
+  profile: MemberProfile;
+  /**
+   * Deep-link entry point for the "resume setup?" prompt (task 7) — start
+   * the machine here instead of "welcome". Omitted → normal fresh start.
+   */
+  initialStep?: Step;
+}
+
+export function OnboardingWizard({ handle, profile, initialStep }: OnboardingWizardProps) {
+  const [step, setStep] = useState<Step>(initialStep ?? "welcome");
   const [homeChain, setHomeChain] = useState<HomeChain | null>(null);
   const pulls = useWizardPulls();
 
-  const wizardLabel: Record<Step, string> = {
-    chain:         "Step 1 of 6 · Home Chain",
-    pulls:         "Step 2 of 6 · Start watching",
-    collections:   "Step 3 of 6 · Your collections",
-    trust:         "Step 4 of 6 · How the graph works",
-    notifications: "Step 5 of 6 · Stay Posted",
-    dopamine:      "Step 6 of 6 · Welcome",
-  };
+  // Step-progress persistence (task 7) — the local half of "resume
+  // setup?". Reaching the send-off screen means the wizard is done (either
+  // completed normally or via "Skip setup"), so that's the clear signal,
+  // not a step to persist as a resume point.
+  useEffect(() => {
+    if (step === "dopamine") {
+      clearOnboardingProgress();
+    } else {
+      setOnboardingProgress(step);
+    }
+  }, [step]);
+
+  const stepIndex = STEP_ORDER.indexOf(step);
+  const progressPct = Math.round((stepIndex / (STEP_ORDER.length - 1)) * 100);
 
   return (
-    <main className="min-h-screen pb-24">
-      <header className="bcc-rail">
+    <div className="bcc-onb-root">
+      {/* Ambient field — reused from the landing background treatment. */}
+      <div className="bcc-ldg-field" aria-hidden>
+        <div className="bcc-ldg-field-grid" />
+        <div className="bcc-ldg-field-glow bcc-ldg-field-g1" />
+        <div className="bcc-ldg-field-glow bcc-ldg-field-g2" />
+      </div>
+
+      <header className="bcc-onb-rail">
         <span>
-          <span className="bcc-rail-dot" />
-          BCC // Onboarding · {wizardLabel[step]}
+          <span className="bcc-onb-rail-dot" />
+          BCC // Onboarding · Step {Math.min(stepIndex + 1, STEP_ORDER.length)} of{" "}
+          {STEP_ORDER.length} · {STEP_LABEL[step]}
         </span>
-        <span className="bcc-mono text-bcc-text-secondary">@{handle}</span>
+        <span className="who">@{handle}</span>
       </header>
 
-      {/* ExplainerStrip is a brief "how the Floor works" header for
-          the early wizard steps. The trust step is its own thorough
-          explainer (4 cards), so the strip would be redundant there
-          — hide it. Dopamine is the full-bleed send-off — also hide. */}
-      {step !== "dopamine" && step !== "trust" && <ExplainerStrip />}
-
-      {step === "chain" && (
-        <HomeChainStep
-          selected={homeChain}
-          onSelect={setHomeChain}
-          onContinue={() => setStep("pulls")}
-        />
-      )}
-
-      {step === "pulls" && (
-        <FirstPullsStep
-          pulls={pulls}
-          onBack={() => setStep("chain")}
-          onDone={() => setStep("collections")}
-        />
-      )}
-
-      {step === "collections" && (
-        <CollectionsStep
-          onBack={() => setStep("pulls")}
-          onDone={() => setStep("trust")}
-        />
-      )}
-
-      {step === "trust" && (
-        <OnboardingTrustLayerSteps
-          onBack={() => setStep("collections")}
-          onDone={() => setStep("notifications")}
-        />
-      )}
-
-      {step === "notifications" && (
-        <NotificationsStep
-          onBack={() => setStep("trust")}
-          onDone={() => setStep("dopamine")}
-        />
-      )}
-
-      {step === "dopamine" && (
-        <DopamineStep
-          homeChain={homeChain}
-          pulledCards={pulls.snapshot()}
-        />
-      )}
-    </main>
-  );
-}
-
-// ─────────────────────────────────────────────────────────────────────
-// ExplainerStrip — 3-bullet "how the Floor works" sticky header.
-// Rides above steps 1 + 2 per §B4. Always visible (no familiarity
-// drop-off here — onboarding is the first encounter, by definition).
-// ─────────────────────────────────────────────────────────────────────
-
-function ExplainerStrip() {
-  return (
-    <div
-      className="sticky top-0 z-10 border-b border-cardstock-edge/30 bg-cardstock/95 backdrop-blur"
-      role="region"
-      aria-label="How the Floor works"
-    >
-      <div className="mx-auto flex max-w-6xl flex-col items-start gap-y-2 px-6 py-3 sm:px-8 md:flex-row md:flex-wrap md:items-center md:gap-x-8">
-        <ExplainerBullet n="1" title="Keep tabs">
-          Keep tabs on validators, projects, and creators you trust.
-        </ExplainerBullet>
-        <ExplainerBullet n="2" title="Earn rank">
-          Review, vouch, and post to climb from Apprentice up.
-        </ExplainerBullet>
-        <ExplainerBullet n="3" title="Link your wallet">
-          Connect a wallet to dispute, claim, and put your name on it.
-        </ExplainerBullet>
+      <div className="bcc-onb-progress" aria-hidden>
+        <div className="bcc-onb-progress-track">
+          <div className="bcc-onb-progress-fill" style={{ width: `${progressPct}%` }} />
+        </div>
       </div>
-    </div>
-  );
-}
 
-function ExplainerBullet({
-  n,
-  title,
-  children,
-}: {
-  n: string;
-  title: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <span className="flex items-baseline gap-2 text-sm">
-      <span className="bcc-mono shrink-0 rounded-sm bg-ink px-1.5 py-0.5 text-[10px] text-cardstock">
-        {n}
-      </span>
-      <span className="bcc-stencil text-ink">{title}</span>
-      <span className="font-serif text-ink-soft">— {children}</span>
-    </span>
+      <main className="bcc-onb-wrap">
+        {step === "welcome" && (
+          <WelcomeStep
+            handle={handle}
+            onStart={() => setStep("identity")}
+            onSkipAll={() => setStep("dopamine")}
+          />
+        )}
+
+        {step === "identity" && (
+          <IdentityStep
+            profile={profile}
+            onBack={() => setStep("welcome")}
+            onDone={() => setStep("trust")}
+          />
+        )}
+
+        {step === "trust" && (
+          <OnboardingTrustLayerSteps
+            onBack={() => setStep("identity")}
+            onDone={() => setStep("watching")}
+          />
+        )}
+
+        {step === "watching" && (
+          <FirstPullsStep
+            pulls={pulls}
+            homeChain={homeChain}
+            onSelectChain={setHomeChain}
+            onBack={() => setStep("trust")}
+            onDone={() => setStep("notifications")}
+          />
+        )}
+
+        {step === "notifications" && (
+          <NotificationsStep
+            onBack={() => setStep("watching")}
+            onDone={() => setStep("dopamine")}
+          />
+        )}
+
+        {step === "dopamine" && (
+          <DopamineStep homeChain={homeChain} pulledCards={pulls.snapshot()} />
+        )}
+      </main>
+    </div>
   );
 }
