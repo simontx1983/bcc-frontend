@@ -6,6 +6,12 @@
  * On success: invalidate the inbox roots + the unread-count badge so
  * a brand-new conversation surfaces in both surfaces immediately. The
  * caller typically follows up with `router.push('/messages/' + id)`.
+ *
+ * The response is a UNION: a queued send (unclaimed page, no operator
+ * yet) has no `conversation_id`, so callers must narrow on
+ * `"queued" in data` before routing anywhere. Invalidating the inbox
+ * roots on the queued branch too is harmless — the queued message
+ * simply isn't in any thread yet.
  */
 
 import {
@@ -17,21 +23,29 @@ import {
 import { startConversation } from "@/lib/api/messages-endpoints";
 import type {
   BccApiError,
-  SendMessageResponse,
   StartConversationRequest,
+  StartConversationResponse,
 } from "@/lib/api/types";
 import { BADGES_QUERY_KEY_ROOT } from "@/hooks/useBadges";
 import { CONVERSATIONS_QUERY_KEY_ROOT } from "@/hooks/useConversations";
 
 export function useStartConversationMutation(
   options: Omit<
-    UseMutationOptions<SendMessageResponse, BccApiError, StartConversationRequest>,
+    UseMutationOptions<
+      StartConversationResponse,
+      BccApiError,
+      StartConversationRequest
+    >,
     "mutationFn"
   > = {},
 ) {
   const queryClient = useQueryClient();
 
-  return useMutation<SendMessageResponse, BccApiError, StartConversationRequest>({
+  return useMutation<
+    StartConversationResponse,
+    BccApiError,
+    StartConversationRequest
+  >({
     mutationFn: (req) => startConversation(req),
     ...options,
     onSuccess: (...args) => {

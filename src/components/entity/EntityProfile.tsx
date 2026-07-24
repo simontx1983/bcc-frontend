@@ -38,6 +38,7 @@ import { CardWatchersPanel } from "@/components/entity/panels/CardWatchersPanel"
 import { LockedStreamPanel } from "@/components/entity/LockedStreamPanel";
 import { FileRail } from "@/components/layout/FileRail";
 import { PageHero } from "@/components/layout/PageHero";
+import { MessageValidatorButton } from "@/components/messages/MessageValidatorButton";
 import { AttestationActionCluster } from "@/components/profile/AttestationActionCluster";
 import { AttestationRoster } from "@/components/profile/AttestationRoster";
 import { ReputationSummaryPanel } from "@/components/profile/ReputationSummaryPanel";
@@ -239,6 +240,19 @@ export function EntityProfile({
                 viewerAttestation={card.viewer_attestation}
                 viewerHasEndorsed={card.viewer_has_endorsed}
               />
+
+              {/* Validator surfaces only — project/creator pages have no
+                  operator-inbox / unclaimed-queue routing behind them.
+                  Visibility past this kind check is entirely the
+                  server's call (messaging.destination + can_message);
+                  we deliberately do NOT consult card.is_claimed here. */}
+              {card.card_kind === "validator" && (
+                <MessageValidatorButton
+                  pageId={card.id}
+                  permissions={card.permissions}
+                  messaging={card.messaging}
+                />
+              )}
 
               {card.is_claimed === false && card.claim_target !== null && (
                 <ClaimCallout

@@ -8,6 +8,18 @@
  * server returns the conversation_id and we navigate to /messages/[id]
  * to land in the thread.
  *
+ * Deep-link mode: `?to_page=<id>&to_kind=validator` pins a validator
+ * page as the recipient and skips the member picker. The param is
+ * `to_page`, NOT `page` — `?page=N` is already the inbox pagination
+ * convention and reusing it here would collide.
+ *
+ * Pinned sends address the PAGE (`{page_id, body}`), never a resolved
+ * operator id. The server re-resolves the destination at send time, so
+ * a page claimed between render and submit still routes correctly. That
+ * also means the response is a union: a claimed page answers with a
+ * conversation to navigate to, an unclaimed one answers `queued: true`
+ * with NO conversation — navigating there would 404.
+ *
  * Group convos are intentionally not creatable here (per V1 scope —
  * we render existing groups read-only but don't expose the
  * multi-recipient picker). PeepSo's native UI still creates groups
@@ -16,11 +28,12 @@
 
 import type { Route } from "next";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 
 import { Avatar } from "@/components/identity/Avatar";
+import { useCardEntity } from "@/hooks/useCardEntity";
 import { useMembers } from "@/hooks/useMembers";
 import { useStartConversationMutation } from "@/hooks/useStartConversation";
 import { humanizeCode } from "@/lib/api/errors";
@@ -32,16 +45,56 @@ import {
 const SEARCH_DEBOUNCE_MS = 250;
 const PER_PAGE = 12;
 
-export default function NewMessagePage() {
+/** Shown after a send that parked in the unclaimed-page queue. */
+const QUEUED_CONFIRMATION =
+  "Message queued. It will be delivered when the validator is claimed by a verified operator.";
+
+function NewMessagePageContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const session = useSession();
   const isAuthed = session.status === "authenticated";
 
   const [recipient, setRecipient] = useState<Card | null>(null);
+  const [pinCleared, setPinCleared] = useState(false);
   const [searchInput, setSearchInput] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [body, setBody] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [queuedNotice, setQueuedNotice] = useState<string | null>(null);
+
+  // ── Deep-link pin ──────────────────────────────────────────────────
+  const pinnedPageId = useMemo(() => {
+    const raw = searchParams.get("to_page");
+    if (raw === null) return null;
+    const parsed = Number.parseInt(raw, 10);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+  }, [searchParams]);
+
+  // Only validator pages are addressable this way today. An unknown
+  // to_kind falls through to the ordinary member picker rather than
+  // guessing.
+  const wantsPin =
+    !pinCleared &&
+    pinnedPageId !== null &&
+    searchParams.get("to_kind") === "validator";
+
+  const pinnedQuery = useCardEntity(
+    "validator",
+    wantsPin && pinnedPageId !== null ? String(pinnedPageId) : null,
+    { enabled: isAuthed && wantsPin },
+  );
+
+  // Re-check `wantsPin` and the kind on the way out so a cleared pin
+  // can't resurrect from the React Query cache.
+  const pinnedCard =
+    wantsPin &&
+    pinnedQuery.data !== undefined &&
+    pinnedQuery.data.card_kind === "validator"
+      ? pinnedQuery.data
+      : null;
+
+  const activeRecipient = pinnedCard ?? recipient;
 
   // Debounce the search input → debouncedSearch.
   const debounceRef = useRef<number | null>(null);
@@ -63,11 +116,19 @@ export default function NewMessagePage() {
     page: 1,
     perPage: PER_PAGE,
     q: debouncedSearch,
-    enabled: isAuthed && recipient === null && debouncedSearch.length >= 2,
+    enabled: isAuthed && activeRecipient === null && debouncedSearch.length >= 2,
   });
 
   const mutation = useStartConversationMutation({
     onSuccess: (data) => {
+      // `queued` is a literal-true discriminant and the two response
+      // variants share no keys, so its presence IS the whole test. The
+      // queued branch has no conversation to open — stay put.
+      if ("queued" in data) {
+        setBody("");
+        setQueuedNotice(QUEUED_CONFIRMATION);
+        return;
+      }
       router.push(`/messages/${data.conversation_id}` as Route);
     },
     onError: (err) => {
@@ -79,6 +140,17 @@ export default function NewMessagePage() {
             bcc_rate_limited: "Too many new conversations — wait a moment and try again.",
             bcc_invalid_request: "Couldn't start the conversation. Check the recipient and message.",
             bcc_forbidden: "You can't message this person.",
+            bcc_queue_full:
+              "This validator's message queue is full. Try again later.",
+            bcc_queue_limit:
+              "You already have a message queued for this validator.",
+            // Deliberately generic: the server collapses "recipient has
+            // DMs off" and "mutually blocked" into one code as an
+            // info-leak shield. Do not split this copy.
+            bcc_messaging_unavailable:
+              "Messaging isn't available for this recipient.",
+            bcc_fraud_locked:
+              "Your account is temporarily restricted from sending messages.",
           },
           "Couldn't start the conversation.",
         ),
@@ -89,19 +161,54 @@ export default function NewMessagePage() {
   const trimmed = body.trim();
   const canSend = useMemo(
     () =>
-      recipient !== null &&
+      activeRecipient !== null &&
       trimmed !== "" &&
       body.length <= MESSAGE_BODY_MAX_LENGTH &&
       !mutation.isPending,
-    [recipient, trimmed, body.length, mutation.isPending],
+    [activeRecipient, trimmed, body.length, mutation.isPending],
   );
 
   const submit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!canSend || recipient === null) return;
+    if (!canSend) return;
     setError(null);
-    mutation.mutate({ recipient_id: recipient.id, body: trimmed });
+    setQueuedNotice(null);
+    // Pinned pages address the PAGE — the server re-resolves it to an
+    // operator inbox or the queue at send time. Never resolve it here.
+    if (pinnedCard !== null) {
+      mutation.mutate({ page_id: pinnedCard.id, body: trimmed });
+      return;
+    }
+    if (recipient !== null) {
+      mutation.mutate({ recipient_id: recipient.id, body: trimmed });
+    }
   };
+
+  const clearRecipient = () => {
+    if (pinnedCard !== null) {
+      setPinCleared(true);
+    }
+    setRecipient(null);
+    setSearchInput("");
+    setDebouncedSearch("");
+    setQueuedNotice(null);
+  };
+
+  // Server-owned composer notice: names the real destination before the
+  // viewer writes. Both branches read `messaging.destination` — never
+  // `is_claimed`, which can't tell never-claimed from previously-claimed.
+  const pinnedNotice = useMemo(() => {
+    if (pinnedCard === null) return null;
+    const destination = pinnedCard.messaging?.destination;
+    if (destination === "queue") {
+      return "This validator has not been claimed yet. Your message will be queued for its first verified operator.";
+    }
+    const operator = pinnedCard.messaging?.operator ?? null;
+    if (destination === "operator" && operator !== null) {
+      return `You're messaging @${operator.handle}, the verified operator of ${pinnedCard.name}.`;
+    }
+    return null;
+  }, [pinnedCard]);
 
   return (
     <main className="pb-24">
@@ -133,25 +240,49 @@ export default function NewMessagePage() {
               <span className="bcc-mono text-[10px] tracking-[0.24em] text-bcc-text-secondary">
                 TO
               </span>
-              {recipient !== null ? (
+              {wantsPin && pinnedQuery.isPending && (
+                <p className="bcc-mono text-[10px] tracking-[0.16em] text-cardstock-deep/50">
+                  Loading validator…
+                </p>
+              )}
+
+              {wantsPin && pinnedQuery.isError && (
+                <p role="alert" className="bcc-mono text-[11px] text-safety">
+                  {humanizeCode(
+                    pinnedQuery.error,
+                    {
+                      bcc_not_found: "That validator page no longer exists.",
+                      bcc_unauthorized:
+                        "Your session expired — sign in again to message this validator.",
+                    },
+                    "Couldn't load that validator. Pick a recipient instead.",
+                  )}
+                </p>
+              )}
+
+              {activeRecipient !== null ? (
                 <SelectedRecipient
-                  recipient={recipient}
-                  onClear={() => {
-                    setRecipient(null);
-                    setSearchInput("");
-                    setDebouncedSearch("");
-                  }}
+                  recipient={activeRecipient}
+                  onClear={clearRecipient}
                 />
               ) : (
-                <RecipientPicker
-                  searchInput={searchInput}
-                  onSearchChange={setSearchInput}
-                  query={memberQuery}
-                  onSelect={(m) => {
-                    setRecipient(m);
-                    setSearchInput("");
-                  }}
-                />
+                (!wantsPin || pinnedQuery.isError) && (
+                  <RecipientPicker
+                    searchInput={searchInput}
+                    onSearchChange={setSearchInput}
+                    query={memberQuery}
+                    onSelect={(m) => {
+                      setRecipient(m);
+                      setSearchInput("");
+                    }}
+                  />
+                )
+              )}
+
+              {pinnedNotice !== null && (
+                <p className="font-serif text-[13px] leading-relaxed text-cardstock-deep">
+                  {pinnedNotice}
+                </p>
               )}
             </div>
 
@@ -191,6 +322,12 @@ export default function NewMessagePage() {
               </p>
             )}
 
+            {queuedNotice !== null && (
+              <p role="status" className="bcc-mono text-[11px] text-cardstock">
+                {queuedNotice}
+              </p>
+            )}
+
             <div>
               <button
                 type="submit"
@@ -204,6 +341,16 @@ export default function NewMessagePage() {
         )}
       </section>
     </main>
+  );
+}
+
+// useSearchParams() opts the tree into client-side rendering, so the
+// Suspense boundary is mandatory (same arrangement as /messages).
+export default function NewMessagePage() {
+  return (
+    <Suspense>
+      <NewMessagePageContent />
+    </Suspense>
   );
 }
 

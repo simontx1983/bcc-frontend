@@ -13,6 +13,7 @@ import type {
   ConversationThreadResponse,
   SendMessageResponse,
   StartConversationRequest,
+  StartConversationResponse,
   UnreadMessageCountResponse,
 } from "@/lib/api/types";
 
@@ -41,11 +42,17 @@ export function listConversations(
  * guarantees idempotency: the response's `is_new_conversation`
  * surfaces which path ran (the frontend uses it to decide whether to
  * navigate to a new id or reuse the current view).
+ *
+ * The request addresses EITHER a member (`recipient_id`) or a page
+ * (`page_id`) — never both. When a `page_id` resolves to a page with
+ * no verified operator, the server parks the message and answers with
+ * the `QueuedMessageResponse` variant instead; callers must narrow the
+ * union before reaching for `conversation_id`.
  */
 export function startConversation(
   request: StartConversationRequest,
-): Promise<SendMessageResponse> {
-  return bccFetchAsClient<SendMessageResponse>("me/conversations", {
+): Promise<StartConversationResponse> {
+  return bccFetchAsClient<StartConversationResponse>("me/conversations", {
     method: "POST",
     body: request,
   });

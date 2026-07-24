@@ -257,6 +257,31 @@ export interface CardPermissions {
    * treats absent as denied.
    */
   can_open_dispute?: CardPermissionEntry;
+  /**
+   * Validator-messaging gate — may the viewer open a DM about this
+   * page? Additive/optional during the backend rollout, exactly like
+   * `can_open_dispute`: consumers read it through `isAllowed()` /
+   * `unlockHint()` / `reasonCode()` so an absent key degrades to
+   * "action hidden".
+   *
+   * NOT the same field as `MemberPermissions.can_message` — that one
+   * belongs to the /members profile block and carries the two-field
+   * `MemberPermission` shape (no reason_code). This is the card
+   * view-model's gate and carries the full `CardPermissionEntry`.
+   *
+   * `reason_code` values and their required UI treatment:
+   *   - `null`                  → allowed; render the CTA
+   *   - `auth_required`         → visible-disabled, "Sign in…" hint
+   *   - `sender_chat_disabled`  → visible-disabled + server unlock_hint
+   *   - `friends_only`          → visible-disabled + server unlock_hint
+   *   - `not_applicable`        → hidden
+   *   - `self_action_blocked`   → hidden (viewer IS the operator)
+   *   - `messaging_unavailable` → hidden. DELIBERATELY identical for
+   *     "recipient has DMs off" and "mutually blocked". The payload is
+   *     an info-leak shield; the frontend MUST NOT try to distinguish
+   *     the two states or hint at which one applies.
+   */
+  can_message?: CardPermissionEntry;
 }
 
 /**
@@ -328,6 +353,48 @@ export interface CardClaimTarget {
   entity_id: number;
   /** e.g. "cosmos", "osmosis", "ethereum". Drives the wallet picker. */
   chain_slug: string;
+}
+
+/**
+ * Where a message about this page would actually go. Server-owned —
+ * the frontend renders the decision, it does not compute it.
+ *
+ *   `queue`       → page is unclaimed; the message is parked for the
+ *                   page's first verified operator.
+ *   `operator`    → page is claimed; the message goes to a real
+ *                   inbox. `operator` is non-null in THIS case only.
+ *   `unavailable` → messaging can't proceed. Deliberately collapses
+ *                   two distinct server states into one payload —
+ *                   render ONE generic line and never hint at which.
+ *   `none`        → no messaging affordance on this surface at all.
+ *
+ * Why this block exists at all: `is_claimed` cannot distinguish a
+ * never-claimed page from a previously-claimed one, so inferring claim
+ * lifecycle client-side is structurally wrong. The frontend MUST branch
+ * on `destination` and nothing else.
+ */
+export type CardMessagingDestination =
+  | "queue"
+  | "operator"
+  | "unavailable"
+  | "none";
+
+/** Identity of the verified operator a message would reach. */
+export interface CardMessagingOperator {
+  /** bcc_handle, no leading "@". */
+  handle: string;
+  /** Display name. */
+  name: string;
+}
+
+export interface CardMessaging {
+  destination: CardMessagingDestination;
+  /**
+   * Non-null ONLY when `destination === "operator"`. Consumers must
+   * null-check rather than assume — on every other destination the
+   * server withholds the identity on purpose.
+   */
+  operator: CardMessagingOperator | null;
 }
 
 /**
@@ -509,6 +576,13 @@ export interface Card {
    */
   community_dossier: CardCommunityDossier | null;
   permissions: CardPermissions;
+  /**
+   * Server-owned messaging destination for this page. Optional during
+   * the backend rollout (same convention as `onchain_signals?` /
+   * `attestation_summary?`); absent is treated exactly like
+   * `destination: "none"` — no messaging affordance renders.
+   */
+  messaging?: CardMessaging;
   social_proof: CardSocialProof | null;
   links: {
     self: string;
@@ -5430,10 +5504,36 @@ export interface ConversationThreadResponse {
   pagination: ThreadPagination;
 }
 
-export interface StartConversationRequest {
+/**
+ * POST /me/conversations — address a member directly. The historical
+ * shape; still the only way to reach a person.
+ *
+ * The `page_id?: never` guard makes the union mutually exclusive at
+ * the type level, mirroring the server's rejection of a body carrying
+ * both keys.
+ */
+export interface StartConversationToRecipient {
   recipient_id: number;
+  page_id?: never;
   body: string;
 }
+
+/**
+ * POST /me/conversations — address a PAGE instead of a person. The
+ * server re-resolves the page to either a claimed operator's inbox or
+ * the unclaimed-page queue at send time, so the client never has to
+ * (and must not) resolve the operator itself.
+ */
+export interface StartConversationToPage {
+  page_id: number;
+  recipient_id?: never;
+  body: string;
+}
+
+/** Exactly one of `recipient_id` / `page_id` — never both. */
+export type StartConversationRequest =
+  | StartConversationToRecipient
+  | StartConversationToPage;
 
 export interface SendMessageRequest {
   body: string;
@@ -5444,6 +5544,29 @@ export interface SendMessageResponse {
   message_id: number;
   is_new_conversation: boolean;
 }
+
+/**
+ * POST /me/conversations response when the addressed page has no
+ * verified operator yet. There is NO conversation to navigate to —
+ * `conversation_id` is deliberately absent so a caller that blindly
+ * routes to `/messages/{id}` fails to type-check instead of shipping
+ * a dead link.
+ */
+export interface QueuedMessageResponse {
+  queued: true;
+  page_id: number;
+  /** ISO 8601 UTC with `Z` suffix (§1.7). */
+  accepted_at: string;
+  delivery_state: "awaiting_first_verified_operator";
+}
+
+/**
+ * Discriminate with `"queued" in response` (or `"conversation_id" in
+ * response`) — the two variants share no keys.
+ */
+export type StartConversationResponse =
+  | SendMessageResponse
+  | QueuedMessageResponse;
 
 export interface UnreadMessageCountResponse {
   count: number;
