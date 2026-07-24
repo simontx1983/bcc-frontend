@@ -48,7 +48,7 @@ const STATUS_OPTIONS: { value: ValidatorStatusFilter | null; label: string }[] =
 const SORT_OPTIONS: { value: DirectorySort; label: string }[] = [
   { value: "trust",        label: "Trust" },
   { value: "self_stake",   label: "Self stake" },
-  { value: "endorsements", label: "Endorsements" },
+  { value: "endorsements", label: "Vouches" },
   { value: "followers",    label: "Watchers" },
   { value: "newest",       label: "Newest" },
 ];

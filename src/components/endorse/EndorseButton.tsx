@@ -7,12 +7,12 @@
  * State machine (server-driven per §A2 — gates resolved into a
  * Permission shape inside CardViewService::resolvePagePermissions):
  *
- *   anonymous              → "ENDORSE" disabled, sign-in tooltip
- *   has endorsed           → "REMOVE ENDORSEMENT" enabled, confirm-and-revoke
+ *   anonymous              → "VOUCH" disabled, sign-in tooltip
+ *   has endorsed           → "REMOVE VOUCH" enabled, confirm-and-revoke
  *                            (gate intentionally NOT re-checked here —
  *                            removing your own work is always allowed)
- *   can endorse            → "ENDORSE" enabled, click-to-confirm-and-post
- *   gated (quest/age/etc.) → "ENDORSE" disabled, server-rendered hint
+ *   can endorse            → "VOUCH" enabled, click-to-confirm-and-post
+ *   gated (quest/age/etc.) → "VOUCH" disabled, server-rendered hint
  *
  * Endorsements carry no body in V1 — the click is the whole interaction.
  * (Adding a reason field is a V2 concern; the backend already accepts
@@ -78,14 +78,14 @@ export function EndorseButton({
   const handleRevoke = () => {
     if (!viewerAuthed) return;
     const ok = window.confirm(
-      `Remove your endorsement of ${pageName}? This drops the trust bonus you contributed.`,
+      `Remove your vouch for ${pageName}? This drops the trust bonus you contributed.`,
     );
     if (!ok) return;
     setErrorText(null);
     revoke.mutate({ page_id: pageId, context: "general" });
   };
 
-  // ── Authed + already endorsed → REMOVE ENDORSEMENT ─────────────────
+  // ── Authed + already endorsed → REMOVE VOUCH ────────────────────────
   if (viewerAuthed && hasEndorsed) {
     const removing = revoke.isPending;
     return (
@@ -95,7 +95,7 @@ export function EndorseButton({
           onClick={handleRevoke}
           disabled={removing}
           aria-disabled={removing}
-          title={`Remove your endorsement of ${pageName}.`}
+          title={`Remove your vouch for ${pageName}.`}
           className={
             "bcc-stencil mt-4 w-fit rounded-sm px-4 py-2 text-[11px] tracking-[0.2em] transition " +
             (removing
@@ -108,7 +108,7 @@ export function EndorseButton({
               : undefined
           }
         >
-          {removing ? "REMOVING…" : "REMOVE ENDORSEMENT"}
+          {removing ? "REMOVING…" : "REMOVE VOUCH"}
         </button>
         {errorText !== null && (
           <p role="alert" className="bcc-mono mt-2 text-[11px] text-safety">
@@ -119,13 +119,13 @@ export function EndorseButton({
     );
   }
 
-  // ── Default → ENDORSE (enabled or visible-disabled with hint) ──────
+  // ── Default → VOUCH (enabled or visible-disabled with hint) ────────
   const enabled = viewerAuthed && canEndorse;
   const tooltip = !viewerAuthed
-    ? "Sign in to endorse."
+    ? "Sign in to vouch."
     : !canEndorse
-      ? unlockHint ?? `You can't endorse ${pageName} right now.`
-      : `Endorse ${pageName}. Adds a long-term trust boost to their score — heavier than a Vouch, builds over time.`;
+      ? unlockHint ?? `You can't vouch for ${pageName} right now.`
+      : `Vouch for ${pageName}. Adds to their trust score.`;
 
   const pending = endorse.isPending;
 
@@ -149,7 +149,7 @@ export function EndorseButton({
             : undefined
         }
       >
-        {pending ? "ENDORSING…" : "ENDORSE"}
+        {pending ? "VOUCHING…" : "VOUCH"}
       </button>
       {errorText !== null && (
         <p role="alert" className="bcc-mono mt-2 text-[11px] text-safety">
@@ -176,16 +176,16 @@ function humanizeError(err: unknown): string {
     err,
     {
       bcc_unauthorized: "Sign in first.",
-      bcc_invalid_request: "We couldn't endorse this page right now.",
+      bcc_invalid_request: "We couldn't vouch for this page right now.",
       // cadence-pressure-guard:allow — unlock-requirement explanation on a denied action, not a schedule nudge
-      bcc_permission_denied: "You haven't unlocked endorsements yet.",
-      bcc_forbidden: "You can't endorse this page.",
-      bcc_endorse_self: "You can't endorse your own page.",
-      bcc_fraud_locked: "Your account is temporarily restricted from endorsing.",
-      bcc_conflict: "You've already endorsed this page. Refresh to see.",
-      bcc_not_found: "That endorsement no longer exists. Refresh to see.",
-      bcc_rate_limited: "Too many endorsements just now. Wait a moment.",
+      bcc_permission_denied: "You haven't unlocked vouching yet.",
+      bcc_forbidden: "You can't vouch for this page.",
+      bcc_endorse_self: "You can't vouch for your own page.",
+      bcc_fraud_locked: "Your account is temporarily restricted from vouching.",
+      bcc_conflict: "You've already vouched for this page. Refresh to see.",
+      bcc_not_found: "That vouch no longer exists. Refresh to see.",
+      bcc_rate_limited: "Too many vouches just now. Wait a moment.",
     },
-    "Couldn't endorse. Try again.",
+    "Couldn't vouch. Try again.",
   );
 }
