@@ -456,7 +456,7 @@ function InlineStatusComposer({
       >
         {groupScopeLabel !== undefined && groupScopeLabel !== "" && (
           <span
-            className="bcc-mono text-cardstock-deep/80"
+            className="bcc-mono text-bcc-text-secondary"
             style={{ fontSize: "9px", letterSpacing: "0.24em" }}
           >
             {groupScopeLabel}
@@ -1050,7 +1050,7 @@ function ComposerTabs({ mode, onChange, reviewAvailable }: ComposerTabsProps) {
               "bcc-mono inline-flex flex-col items-start gap-0.5 border-2 px-3 py-1.5 text-[11px] tracking-[0.18em] transition " +
               (active
                 ? "border-ink bg-ink text-cardstock"
-                : "border-cardstock-edge bg-cardstock-deep/40 text-ink-soft hover:border-ink/50 hover:text-ink")
+                : "border-bcc-border bg-bcc-surface-hover text-bcc-text-secondary hover:border-bcc-border-strong hover:text-bcc-text")
             }
           >
             <span className="uppercase">{tab.label}</span>
@@ -1100,7 +1100,7 @@ function StatusForm({ onSubmitSuccess }: { onSubmitSuccess: (() => void) | undef
     ? "text-safety"
     : length > STATUS_POST_MAX_LENGTH - 50
       ? "text-warning"
-      : "text-cardstock-deep/70";
+      : "text-bcc-text-secondary";
 
   return (
     <form
@@ -1122,7 +1122,7 @@ function StatusForm({ onSubmitSuccess }: { onSubmitSuccess: (() => void) | undef
         rows={3}
         maxLength={STATUS_POST_MAX_LENGTH + 100}
         disabled={mutation.isPending}
-        className="bcc-mono min-h-[72px] w-full resize-y rounded-sm border border-cardstock-edge/30 bg-cardstock/30 px-3 py-2 text-ink placeholder:text-ink-soft/60 focus:border-blueprint focus:outline-none disabled:opacity-60"
+        className="bcc-mono min-h-[72px] w-full resize-y rounded-sm border border-bcc-input-border bg-bcc-input-bg px-3 py-2 text-bcc-text placeholder:text-bcc-text-placeholder focus:border-bcc-accent focus:outline-none focus:ring-1 focus:ring-bcc-accent disabled:opacity-60"
       />
 
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -1141,7 +1141,7 @@ function StatusForm({ onSubmitSuccess }: { onSubmitSuccess: (() => void) | undef
             "bcc-stencil rounded-sm px-5 py-2 text-[12px] tracking-[0.2em] transition " +
             (canSubmit
               ? "bg-ink text-cardstock hover:bg-blueprint"
-              : "cursor-not-allowed bg-cardstock-deep/40 text-ink-soft/60")
+              : "cursor-not-allowed bg-bcc-surface-active text-bcc-text-muted")
           }
         >
           {mutation.isPending ? "Posting…" : "POST TO THE FLOOR"}
@@ -1277,7 +1277,7 @@ function ReviewForm({
     ? "text-safety"
     : length > REVIEW_BODY_MAX_LENGTH - 200
       ? "text-warning"
-      : "text-cardstock-deep/70";
+      : "text-bcc-text-secondary";
 
   return (
     <form
@@ -1286,7 +1286,7 @@ function ReviewForm({
       aria-label={`Review of ${targetName}`}
     >
       <div>
-        <p className="bcc-mono text-[10px] tracking-[0.24em] text-cardstock-deep">
+        <p className="bcc-mono text-[10px] tracking-[0.24em] text-bcc-text-secondary">
           REVIEWING //
         </p>
         <h3 className="bcc-stencil mt-1 text-2xl text-bcc-text">{targetName}</h3>
@@ -1311,8 +1311,8 @@ function ReviewForm({
                 className={
                   "rounded-sm border px-3 py-3 text-left transition " +
                   (active
-                    ? "border-ink bg-cardstock"
-                    : "border-cardstock-edge/30 bg-cardstock/30 hover:border-cardstock-edge/60")
+                    ? "border-bcc-accent bg-bcc-surface-hover"
+                    : "border-bcc-border bg-bcc-surface-hover hover:border-bcc-border-strong")
                 }
                 style={active ? { boxShadow: `inset 0 -3px 0 ${opt.accent}` } : {}}
               >
@@ -1322,7 +1322,7 @@ function ReviewForm({
                 >
                   {opt.label}
                 </span>
-                <span className="mt-1 block font-serif text-[13px] text-ink-soft">
+                <span className="mt-1 block font-serif text-[13px] text-bcc-text-secondary">
                   {opt.description}
                 </span>
               </button>
@@ -1349,7 +1349,7 @@ function ReviewForm({
           rows={6}
           maxLength={REVIEW_BODY_MAX_LENGTH + 200}
           disabled={pending}
-          className="bcc-mono mt-1.5 min-h-[100px] w-full resize-y rounded-sm border border-cardstock-edge/30 bg-cardstock/30 px-3 py-2 text-ink placeholder:text-ink-soft/60 focus:border-blueprint focus:outline-none disabled:opacity-60 sm:min-h-[140px]"
+          className="bcc-mono mt-1.5 min-h-[100px] w-full resize-y rounded-sm border border-bcc-input-border bg-bcc-input-bg px-3 py-2 text-bcc-text placeholder:text-bcc-text-placeholder focus:border-bcc-accent focus:outline-none focus:ring-1 focus:ring-bcc-accent disabled:opacity-60 sm:min-h-[140px]"
         />
         <p className={`bcc-mono mt-1 text-[11px] ${counterTone}`}>
           {length} / {REVIEW_BODY_MAX_LENGTH}
@@ -1372,7 +1372,7 @@ function ReviewForm({
             "bcc-stencil rounded-sm px-5 py-2.5 text-[12px] tracking-[0.2em] transition " +
             (canSubmit
               ? "bg-ink text-cardstock hover:bg-blueprint"
-              : "cursor-not-allowed bg-cardstock-deep/40 text-ink-soft/60")
+              : "cursor-not-allowed bg-bcc-surface-active text-bcc-text-muted")
           }
         >
           {pending ? "POSTING REVIEW…" : "POST REVIEW"}

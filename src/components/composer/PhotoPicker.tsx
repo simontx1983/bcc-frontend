@@ -56,10 +56,10 @@ export function PhotoPicker({
         photo upload via useSetPhotoAltMutation. Server applies the
         same 500-char cap and HTML stripping.
       */}
-      <label className="bcc-mono flex flex-col gap-1 text-[11px] text-cardstock/70">
+      <label className="bcc-mono flex flex-col gap-1 text-[11px] text-bcc-text-secondary">
         <span>
           Describe this photo{" "}
-          <span className="text-cardstock/40">(optional, helps screen readers)</span>
+          <span className="text-bcc-text-secondary">(optional, helps screen readers)</span>
         </span>
         <textarea
           id="composer-photo-alt"
@@ -69,7 +69,7 @@ export function PhotoPicker({
           maxLength={PHOTO_ALT_MAX_LENGTH}
           rows={2}
           disabled={disabled}
-          className="font-serif resize-y rounded-sm border border-cardstock-edge/40 bg-cardstock/5 px-2 py-1 text-[13px] leading-snug text-ink placeholder:text-ink/40 focus-visible:border-cardstock-edge focus-visible:outline-none disabled:opacity-50"
+          className="font-serif resize-y rounded-sm border border-bcc-input-border bg-bcc-input-bg px-2 py-1 text-[13px] leading-snug text-bcc-text placeholder:text-bcc-text-placeholder focus-visible:border-bcc-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-bcc-accent disabled:opacity-50"
           placeholder="e.g. Phillip standing under the BCC banner holding the demo board."
         />
         {/*
@@ -85,7 +85,7 @@ export function PhotoPicker({
           className={
             altText.length > PHOTO_ALT_MAX_LENGTH
               ? "text-safety"
-              : "text-cardstock/50"
+              : "text-bcc-text-secondary"
           }
         >
           {altText.length}/{PHOTO_ALT_MAX_LENGTH}
