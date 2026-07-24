@@ -52,18 +52,18 @@ export default function ConversationPage() {
       <header className="mx-auto max-w-3xl px-2 sm:px-3 pt-12">
         <Link
           href={"/messages" as Route}
-          className="bcc-mono text-[10px] tracking-[0.18em] text-cardstock-deep transition hover:text-cardstock"
+          className="bcc-mono text-[10px] tracking-[0.18em] text-bcc-text-secondary transition hover:text-bcc-text"
         >
           ← INBOX
         </Link>
         <h1
-          className="bcc-stencil mt-3 text-cardstock leading-[0.95]"
+          className="bcc-stencil mt-3 text-bcc-text leading-[0.95]"
           style={{ fontSize: "clamp(1.5rem, 4vw, 2.5rem)" }}
         >
           {query.isSuccess ? resolveTitle(query.data.conversation) : "Loading…"}
         </h1>
         {query.isSuccess && query.data.conversation.is_group && (
-          <p className="mt-2 bcc-mono text-[10px] tracking-[0.18em] text-cardstock-deep/70">
+          <p className="mt-2 bcc-mono text-[10px] tracking-[0.18em] text-bcc-text-muted">
             GROUP · {query.data.conversation.participants.length} PARTICIPANTS
           </p>
         )}
@@ -71,11 +71,11 @@ export default function ConversationPage() {
 
       <section className="mx-auto mt-8 max-w-3xl px-2 sm:px-3">
         {!isAuthed && session.status !== "loading" && (
-          <p className="bcc-mono text-cardstock-deep">Sign in to view this conversation.</p>
+          <p className="bcc-mono text-bcc-text-secondary">Sign in to view this conversation.</p>
         )}
 
         {isAuthed && query.isPending && (
-          <p className="bcc-mono text-cardstock-deep">Loading conversation…</p>
+          <p className="bcc-mono text-bcc-text-secondary">Loading conversation…</p>
         )}
 
         {isAuthed && query.isError && (query.error.code === "bcc_not_found"
@@ -115,13 +115,13 @@ export default function ConversationPage() {
 
 function Rail({ title }: { title: string }) {
   return (
-    <div className="border-b border-dashed border-cardstock/15">
+    <div className="border-b border-dashed border-bcc-border">
       <div className="mx-auto flex max-w-[1560px] flex-wrap items-center justify-between gap-4 px-7 py-3">
-        <span className="bcc-mono inline-flex items-center gap-2 text-cardstock-deep">
+        <span className="bcc-mono inline-flex items-center gap-2 text-bcc-text-secondary">
           <span className="bcc-rail-dot" aria-hidden />
           <span>BCC &nbsp;//&nbsp; MESSAGES</span>
         </span>
-        <span className="bcc-mono text-cardstock/50">{title}</span>
+        <span className="bcc-mono text-bcc-text-muted">{title}</span>
       </div>
     </div>
   );

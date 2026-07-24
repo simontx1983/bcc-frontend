@@ -296,13 +296,13 @@ export function ProfileHero({ profile, nav }: ProfileHeroProps) {
 
       {/* Reposition controls — appear when REPOSITION clicked */}
       {hasCover && reposMode && (
-        <div className="border-t border-cardstock-edge bg-cardstock-deep/30 px-6 py-4">
-          <span className="bcc-mono text-[10px] tracking-[0.18em] text-ink-soft">
+        <div className="border-t border-bcc-border bg-bcc-surface-hover px-6 py-4">
+          <span className="bcc-mono text-[10px] tracking-[0.18em] text-bcc-text-secondary">
             CROP POSITION
           </span>
           <div className="mt-3 flex flex-col gap-3">
             <label className="flex items-center gap-3">
-              <span className="bcc-mono w-20 text-[10px] text-ink-soft">
+              <span className="bcc-mono w-20 text-[10px] text-bcc-text-secondary">
                 Horizontal
               </span>
               <input
@@ -312,14 +312,14 @@ export function ProfileHero({ profile, nav }: ProfileHeroProps) {
                 value={posX}
                 disabled={busy}
                 onChange={(event) => setPosX(Number(event.target.value))}
-                className="flex-1 accent-ink"
+                className="flex-1 accent-bcc-accent"
               />
-              <span className="bcc-mono w-10 text-right text-[10px] text-ink-soft">
+              <span className="bcc-mono w-10 text-right text-[10px] text-bcc-text-secondary">
                 {posX}%
               </span>
             </label>
             <label className="flex items-center gap-3">
-              <span className="bcc-mono w-20 text-[10px] text-ink-soft">
+              <span className="bcc-mono w-20 text-[10px] text-bcc-text-secondary">
                 Vertical
               </span>
               <input
@@ -329,9 +329,9 @@ export function ProfileHero({ profile, nav }: ProfileHeroProps) {
                 value={posY}
                 disabled={busy}
                 onChange={(event) => setPosY(Number(event.target.value))}
-                className="flex-1 accent-ink"
+                className="flex-1 accent-bcc-accent"
               />
-              <span className="bcc-mono w-10 text-right text-[10px] text-ink-soft">
+              <span className="bcc-mono w-10 text-right text-[10px] text-bcc-text-secondary">
                 {posY}%
               </span>
             </label>

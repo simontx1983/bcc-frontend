@@ -266,7 +266,7 @@ export function NotificationPrefsForm() {
   return (
     <div className="bcc-panel flex flex-col gap-6 p-6">
       <section className="flex flex-col gap-2">
-        <span className="bcc-mono text-[10px] tracking-[0.24em] text-cardstock-deep">
+        <span className="bcc-mono text-[10px] tracking-[0.24em] text-bcc-text-secondary">
           NOTIFICATIONS · EMAIL DIGEST
         </span>
         <h2 className="bcc-stencil text-2xl text-bcc-text">Weekly email digest</h2>
@@ -283,10 +283,10 @@ export function NotificationPrefsForm() {
         />
       </section>
 
-      <hr className="border-cardstock-edge/30" />
+      <hr className="border-bcc-border-light" />
 
       <section className="flex flex-col gap-2">
-        <span className="bcc-mono text-[10px] tracking-[0.24em] text-cardstock-deep">
+        <span className="bcc-mono text-[10px] tracking-[0.24em] text-bcc-text-secondary">
           NOTIFICATIONS · BELL
         </span>
         <h2 className="bcc-stencil text-2xl text-bcc-text">In-app bell</h2>
@@ -314,10 +314,10 @@ export function NotificationPrefsForm() {
         </div>
       </section>
 
-      <hr className="border-cardstock-edge/30" />
+      <hr className="border-bcc-border-light" />
 
       <section className="flex flex-col gap-2">
-        <span className="bcc-mono text-[10px] tracking-[0.24em] text-cardstock-deep">
+        <span className="bcc-mono text-[10px] tracking-[0.24em] text-bcc-text-secondary">
           NOTIFICATIONS · PUSH
         </span>
         <h2 className="bcc-stencil text-2xl text-bcc-text">Browser push</h2>
@@ -420,7 +420,7 @@ export function NotificationPrefsForm() {
             "bcc-stencil rounded-sm px-5 py-2.5 text-[12px] tracking-[0.2em] transition motion-reduce:transition-none " +
             (dirty && !disabled
               ? "bg-ink text-cardstock hover:bg-blueprint"
-              : "cursor-not-allowed bg-cardstock-deep/40 text-ink-soft/60")
+              : "cursor-not-allowed bg-bcc-surface-active text-bcc-text-muted")
           }
         >
           {disabled ? "Saving…" : "SAVE PREFERENCES"}
@@ -453,16 +453,16 @@ function ToggleRow({
   return (
     <label
       className={
-        "flex cursor-pointer items-start justify-between gap-3 border border-cardstock-edge bg-cardstock-deep/40 px-4 py-3 transition motion-reduce:transition-none " +
+        "flex cursor-pointer items-start justify-between gap-3 border border-bcc-border bg-bcc-surface-hover px-4 py-3 transition motion-reduce:transition-none " +
         (disabled
           ? "cursor-not-allowed opacity-60"
-          : "hover:border-ink/40")
+          : "hover:border-bcc-border-strong")
       }
     >
       <span className="flex flex-col gap-0.5">
-        <span className="font-serif text-[14px] text-ink">{label}</span>
+        <span className="font-serif text-[14px] text-bcc-text">{label}</span>
         {blurb !== undefined && (
-          <span className="bcc-mono text-[10px] tracking-[0.04em] text-ink-soft">
+          <span className="bcc-mono text-[10px] tracking-[0.04em] text-bcc-text-secondary">
             {blurb}
           </span>
         )}

@@ -54,19 +54,19 @@ function MessagesPageContent() {
       <header className="mx-auto max-w-3xl px-2 sm:px-3 pt-12">
         <p className="bcc-mono text-safety">DIRECT</p>
         <h1
-          className="bcc-stencil mt-3 text-cardstock leading-[0.95]"
+          className="bcc-stencil mt-3 text-bcc-text leading-[0.95]"
           style={{ fontSize: "clamp(2rem, 5vw, 3.5rem)" }}
         >
           Messages
         </h1>
-        <p className="mt-4 max-w-2xl font-serif text-base leading-relaxed text-cardstock-deep">
+        <p className="mt-4 max-w-2xl font-serif text-base leading-relaxed text-bcc-text-secondary">
           Quiet conversations between operators. Click anyone&apos;s file
           to start a new thread.
         </p>
         <div className="mt-5">
           <Link
             href={"/messages/new" as Route}
-            className="bcc-mono inline-flex items-center gap-2 border-2 border-cardstock-edge px-3 py-1.5 text-[10px] tracking-[0.18em] text-cardstock transition hover:bg-cardstock hover:text-ink"
+            className="bcc-mono inline-flex items-center gap-2 border-2 border-bcc-border px-3 py-1.5 text-[10px] tracking-[0.18em] text-bcc-text transition hover:bg-bcc-surface-hover hover:border-bcc-border-strong"
           >
             + NEW MESSAGE
           </Link>
@@ -79,7 +79,7 @@ function MessagesPageContent() {
         )}
 
         {isAuthed && query.isPending && (
-          <p className="bcc-mono text-cardstock-deep">Loading conversations…</p>
+          <p className="bcc-mono text-bcc-text-secondary">Loading conversations…</p>
         )}
 
         {isAuthed && query.isError && (
@@ -123,13 +123,13 @@ function MessagesPageContent() {
 
 function Rail() {
   return (
-    <div className="border-b border-dashed border-cardstock/15">
+    <div className="border-b border-dashed border-bcc-border">
       <div className="mx-auto flex max-w-[1560px] flex-wrap items-center justify-between gap-4 px-7 py-3">
-        <span className="bcc-mono inline-flex items-center gap-2 text-cardstock-deep">
+        <span className="bcc-mono inline-flex items-center gap-2 text-bcc-text-secondary">
           <span className="bcc-rail-dot" aria-hidden />
           <span>BCC &nbsp;//&nbsp; MESSAGES</span>
         </span>
-        <span className="bcc-mono text-cardstock/50">DIRECT &nbsp;//&nbsp; INBOX</span>
+        <span className="bcc-mono text-bcc-text-muted">DIRECT &nbsp;//&nbsp; INBOX</span>
       </div>
     </div>
   );
@@ -194,14 +194,14 @@ function Pagination({
   if (totalPages <= 1) return null;
   return (
     <nav
-      className="bcc-mono mt-8 flex items-center justify-between gap-3 text-[11px] tracking-[0.16em] text-cardstock-deep"
+      className="bcc-mono mt-8 flex items-center justify-between gap-3 text-[11px] tracking-[0.16em] text-bcc-text-secondary"
       aria-label="Pagination"
     >
       <button
         type="button"
         onClick={() => onPage(Math.max(1, page - 1))}
         disabled={page <= 1}
-        className="border-2 border-cardstock-edge px-3 py-1 transition hover:border-ink/50 hover:text-ink disabled:opacity-40"
+        className="border-2 border-bcc-border px-3 py-1 transition hover:border-bcc-border-strong hover:text-bcc-text disabled:opacity-40"
       >
         ← PREV
       </button>
@@ -212,7 +212,7 @@ function Pagination({
         type="button"
         onClick={() => onPage(Math.min(totalPages, page + 1))}
         disabled={page >= totalPages}
-        className="border-2 border-cardstock-edge px-3 py-1 transition hover:border-ink/50 hover:text-ink disabled:opacity-40"
+        className="border-2 border-bcc-border px-3 py-1 transition hover:border-bcc-border-strong hover:text-bcc-text disabled:opacity-40"
       >
         NEXT →
       </button>

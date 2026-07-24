@@ -234,7 +234,7 @@ function CommunitiesSection({
           <p className="font-serif italic text-bcc-text-secondary">{emptyCopy}</p>
         </div>
       ) : (
-        <ul className="bcc-panel mt-4 divide-y divide-cardstock-edge/60">
+        <ul className="bcc-panel mt-4 divide-y divide-bcc-border">
           {items.map((item) => (
             <CommunityRow
               key={item.group_id}
@@ -272,12 +272,12 @@ function CommunityRow({ item, action }: CommunityRowProps) {
             height={36}
             loading="lazy"
             decoding="async"
-            className="h-9 w-9 shrink-0 rounded-full border border-cardstock-edge object-cover"
+            className="h-9 w-9 shrink-0 rounded-full border border-bcc-border object-cover"
           />
         ) : (
           <div
             aria-hidden
-            className="bcc-mono flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-cardstock-edge bg-cardstock-deep/40 text-[10px] text-bcc-text-soft"
+            className="bcc-mono flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-bcc-border bg-bcc-surface-hover text-[10px] text-bcc-text-secondary"
           >
             {collectionName.slice(0, 2).toUpperCase()}
           </div>
@@ -287,9 +287,9 @@ function CommunityRow({ item, action }: CommunityRowProps) {
           <p className="bcc-stencil truncate text-bcc-text">{item.name}</p>
           <p className="bcc-mono mt-0.5 flex flex-wrap items-center gap-2 truncate text-[11px] text-bcc-text-secondary">
             <span>{item.member_count.toLocaleString()} members</span>
-            <span aria-hidden className="text-cardstock-edge">·</span>
+            <span aria-hidden className="text-bcc-text-muted">·</span>
             <HeatBadge activity={item.activity} />
-            <span aria-hidden className="text-cardstock-edge">·</span>
+            <span aria-hidden className="text-bcc-text-muted">·</span>
             <VerificationBadge label={item.verification.label} />
           </p>
         </div>
@@ -391,15 +391,15 @@ function ToggleSwitch({ label, value, pending, onChange }: ToggleSwitchProps) {
       className={
         "relative inline-flex h-7 w-12 flex-shrink-0 items-center border-2 transition disabled:opacity-60 " +
         (value
-          ? "border-ink bg-ink"
-          : "border-cardstock-edge bg-cardstock-deep/40")
+          ? "border-bcc-accent-dark bg-bcc-accent-dark"
+          : "border-bcc-border bg-bcc-surface-hover")
       }
     >
       <span
         aria-hidden
         className={
           "block h-4 w-4 transition-transform " +
-          (value ? "translate-x-6 bg-cardstock" : "translate-x-1 bg-ink")
+          (value ? "translate-x-6 bg-bcc-text-inverse" : "translate-x-1 bg-bcc-text")
         }
       />
     </button>
