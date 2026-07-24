@@ -44,7 +44,7 @@ export function GifPicker({ config, onSelect, onClose }: GifPickerProps) {
     <div
       role="region"
       aria-label="GIF picker"
-      className="flex flex-col gap-2 rounded-sm border border-cardstock-edge/30 bg-cardstock/5 px-3 py-3"
+      className="flex flex-col gap-2 rounded-sm border border-bcc-border bg-bcc-surface-raised px-3 py-3"
     >
       <header className="flex items-center gap-2">
         <input
@@ -53,13 +53,13 @@ export function GifPicker({ config, onSelect, onClose }: GifPickerProps) {
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search GIFs…"
           aria-label="Search GIFs"
-          className="bcc-mono flex-1 rounded-sm border border-cardstock-edge/40 bg-transparent px-3 py-1.5 text-[12px] text-cardstock placeholder:text-cardstock-deep/50 focus:border-blueprint focus:outline-none"
+          className="bcc-mono flex-1 rounded-sm border border-bcc-input-border bg-bcc-input-bg px-3 py-1.5 text-[12px] text-bcc-text placeholder:text-bcc-text-placeholder focus:border-bcc-accent focus:outline-none focus:ring-1 focus:ring-bcc-accent"
         />
         <button
           type="button"
           onClick={onClose}
           aria-label="Close GIF picker"
-          className="bcc-mono shrink-0 px-2 text-[10px] tracking-[0.24em] text-cardstock-deep/70 hover:text-cardstock"
+          className="bcc-mono shrink-0 px-2 text-[10px] tracking-[0.24em] text-bcc-text-secondary hover:text-bcc-text"
         >
           CLOSE
         </button>
@@ -71,7 +71,7 @@ export function GifPicker({ config, onSelect, onClose }: GifPickerProps) {
           the page. */}
       <div className="max-h-[60vh] overflow-y-auto sm:max-h-[280px]">
         {search.isLoading && (
-          <p className="bcc-mono py-6 text-center text-[11px] text-cardstock-deep/70">
+          <p className="bcc-mono py-6 text-center text-[11px] text-bcc-text-secondary">
             Loading GIFs…
           </p>
         )}
@@ -81,7 +81,7 @@ export function GifPicker({ config, onSelect, onClose }: GifPickerProps) {
           </p>
         )}
         {isEmpty && (
-          <p className="bcc-mono py-6 text-center text-[11px] text-cardstock-deep/70">
+          <p className="bcc-mono py-6 text-center text-[11px] text-bcc-text-secondary">
             No GIFs match &ldquo;{query}&rdquo;.
           </p>
         )}
@@ -92,7 +92,7 @@ export function GifPicker({ config, onSelect, onClose }: GifPickerProps) {
                 <button
                   type="button"
                   onClick={() => onSelect(gif)}
-                  className="block w-full overflow-hidden rounded-sm border border-cardstock-edge/30 bg-ink/40 transition hover:border-blueprint focus:border-blueprint focus:outline-none"
+                  className="block w-full overflow-hidden rounded-sm border border-bcc-border bg-ink/40 transition hover:border-bcc-accent focus:border-bcc-accent focus:outline-none"
                   aria-label={gif.title !== "" ? gif.title : "Select GIF"}
                   title={gif.title}
                 >
@@ -115,7 +115,7 @@ export function GifPicker({ config, onSelect, onClose }: GifPickerProps) {
           rendered card stays clean (no per-post attribution clutter
           per Phase 1c product call). */}
       <footer className="flex items-center justify-end">
-        <span className="bcc-mono text-[9px] tracking-[0.18em] text-cardstock-deep/60">
+        <span className="bcc-mono text-[9px] tracking-[0.18em] text-bcc-text-secondary">
           POWERED BY GIPHY
         </span>
       </footer>
