@@ -86,17 +86,17 @@ function NftPieceDetailImpl({ piece, routeCreatorSlug }: NftPieceDetailProps) {
       <header className="mb-8">
         <Link
           href={backHref}
-          className="bcc-mono text-[10px] tracking-[0.18em] text-cardstock-deep transition hover:text-cardstock"
+          className="bcc-mono text-[10px] tracking-[0.18em] text-bcc-text-secondary transition hover:text-bcc-text"
         >
           ← {backLabel.toUpperCase()}
         </Link>
         <div className="mt-3 flex flex-wrap items-baseline gap-x-3 gap-y-1">
           {collection.name !== null && (
-            <span className="bcc-mono text-[11px] uppercase tracking-[0.16em] text-ink-soft/80">
+            <span className="bcc-mono text-[11px] uppercase tracking-[0.16em] text-bcc-text-secondary">
               {collection.name}
             </span>
           )}
-          <span className="bcc-mono text-[10px] text-ink-soft/60">
+          <span className="bcc-mono text-[10px] text-bcc-text-muted">
             #{piece.token_id}
           </span>
           {collection.is_verified && (
@@ -121,11 +121,11 @@ function NftPieceDetailImpl({ piece, routeCreatorSlug }: NftPieceDetailProps) {
 
         <div className="flex flex-col gap-6">
           <div>
-            <h1 className="bcc-stencil text-3xl text-ink lg:text-4xl">
+            <h1 className="bcc-stencil text-3xl text-bcc-text lg:text-4xl">
               {displayName}
             </h1>
             {piece.description !== null && (
-              <p className="mt-4 font-serif text-base leading-relaxed text-ink-soft">
+              <p className="mt-4 font-serif text-base leading-relaxed text-bcc-text-secondary">
                 {piece.description}
               </p>
             )}
@@ -244,7 +244,7 @@ function HeroImage({
         className="bcc-panel flex aspect-square w-full items-center justify-center bg-cardstock-deep/30"
         aria-label={alt}
       >
-        <span className="bcc-mono text-[11px] uppercase tracking-[0.18em] text-ink-soft/60">
+        <span className="bcc-mono text-[11px] uppercase tracking-[0.18em] text-bcc-text-secondary">
           No artwork
         </span>
       </div>
@@ -329,7 +329,7 @@ function OwnerBlock({
 }) {
   return (
     <div className="bcc-panel flex flex-col gap-3 px-4 py-3">
-      <span className="bcc-mono text-[10px] uppercase tracking-[0.18em] text-ink-soft/60">
+      <span className="bcc-mono text-[10px] uppercase tracking-[0.18em] text-bcc-text-muted">
         Owner
       </span>
       <span className="bcc-mono text-[12px] text-bcc-text">
@@ -364,12 +364,12 @@ function AttributeTile({ attr }: { attr: NftPieceAttribute }) {
 
 function SectionRule({ label }: { label: string }) {
   return (
-    <div className="bcc-mono mb-5 flex items-center gap-3 text-cardstock-deep">
-      <span className="inline-block h-px w-8 bg-cardstock-edge/50" />
+    <div className="bcc-mono mb-5 flex items-center gap-3 text-bcc-text-secondary">
+      <span className="inline-block h-px w-8 bg-bcc-border" />
       <span className="text-[10px] tracking-[0.24em]">
         {label.toUpperCase()}
       </span>
-      <span className="inline-block h-px flex-1 bg-cardstock-edge/50" />
+      <span className="inline-block h-px flex-1 bg-bcc-border" />
     </div>
   );
 }

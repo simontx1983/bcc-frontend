@@ -175,7 +175,7 @@ export function DopamineStep({
         <div className="bcc-panel flex h-14 w-14 items-center justify-center text-2xl">
           📒
         </div>
-        <span className="bcc-mono text-[10px] text-cardstock-deep">Watchlist</span>
+        <span className="bcc-mono text-[10px] text-bcc-text-secondary">Watchlist</span>
       </div>
 
       {/* Flying chips — only when motion is allowed. */}

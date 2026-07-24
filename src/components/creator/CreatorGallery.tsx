@@ -119,7 +119,7 @@ export function CreatorGallery({ slug, creatorName }: CreatorGalleryProps) {
             className={
               "bcc-stencil rounded-sm px-6 py-3 text-[12px] tracking-[0.2em] transition " +
               (query.isFetchingNextPage
-                ? "cursor-wait bg-cardstock-deep/40 text-ink-soft/60"
+                ? "cursor-wait bg-bcc-surface-active text-bcc-text-muted"
                 : "bg-ink text-cardstock hover:bg-ink-soft")
             }
           >
@@ -140,15 +140,15 @@ interface GalleryShellProps {
 function GalleryShell({ title, subtitle, children }: GalleryShellProps) {
   return (
     <section className="mx-auto mt-12 max-w-[1560px] px-7">
-      <div className="bcc-mono mb-4 flex items-center gap-3 text-cardstock-deep">
-        <span className="inline-block h-px w-8 bg-cardstock-edge/50" />
+      <div className="bcc-mono mb-4 flex items-center gap-3 text-bcc-text-secondary">
+        <span className="inline-block h-px w-8 bg-bcc-border" />
         <span>{title}</span>
         {subtitle !== undefined && (
-          <span className="bcc-mono text-[10px] tracking-[0.16em] text-ink-soft/70">
+          <span className="bcc-mono text-[10px] tracking-[0.16em] text-bcc-text-muted">
             · {subtitle}
           </span>
         )}
-        <span className="inline-block h-px flex-1 bg-cardstock-edge/50" />
+        <span className="inline-block h-px flex-1 bg-bcc-border" />
       </div>
       {children}
     </section>
@@ -174,7 +174,7 @@ function CollectionTile({ item }: CollectionTileProps) {
       >
         {item.image_url === null && (
           <div className="absolute inset-0 flex items-center justify-center">
-            <span className="bcc-mono text-[10px] tracking-[0.18em] text-ink-soft/60">
+            <span className="bcc-mono text-[10px] tracking-[0.18em] text-bcc-text-secondary">
               NO COVER
             </span>
           </div>

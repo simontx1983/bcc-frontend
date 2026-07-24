@@ -103,7 +103,7 @@ export function OnboardingWizard({ handle }: OnboardingWizardProps) {
           <span className="bcc-rail-dot" />
           BCC // Onboarding · {wizardLabel[step]}
         </span>
-        <span className="bcc-mono text-cardstock-deep">@{handle}</span>
+        <span className="bcc-mono text-bcc-text-secondary">@{handle}</span>
       </header>
 
       {/* ExplainerStrip is a brief "how the Floor works" header for

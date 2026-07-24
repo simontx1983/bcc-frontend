@@ -151,7 +151,7 @@ export function EntityProfile({
             etc.) read verbatim per §A2 — no client-side kind→path map. */}
         <div className="flex items-start justify-between gap-4">
           <h1
-            className="bcc-stencil text-cardstock leading-[0.92]"
+            className="bcc-stencil text-bcc-text leading-[0.92]"
             style={{ fontSize: "clamp(1.75rem, 5.5vw, 4.5rem)", wordBreak: "break-word" }}
           >
             {card.name}
@@ -225,7 +225,7 @@ export function EntityProfile({
               {/* Social proof headline — server pre-renders the line. */}
               {card.social_proof?.headline !== undefined &&
                 card.social_proof.headline !== null && (
-                  <p className="bcc-mono text-sm text-cardstock-deep">
+                  <p className="bcc-mono text-sm text-bcc-text-secondary">
                     {card.social_proof.headline}
                   </p>
                 )}
@@ -281,7 +281,7 @@ export function EntityProfile({
           belowHero={card.stats.length > 0 ? (
             <div>
               <div className="mb-3 flex items-center gap-3">
-                <span className="bcc-mono text-cardstock-deep">FILE 04</span>
+                <span className="bcc-mono text-bcc-text-secondary">FILE 04</span>
                 <span className="bcc-mono text-safety">{"//"} STATS</span>
               </div>
               <StatsStrip stats={card.stats} />
@@ -460,7 +460,7 @@ function OnchainSignalsBlock({ signals }: { signals: OnchainSignals }) {
         ))}
       </div>
       {signals.last_fetched_at !== null && (
-        <p className="bcc-mono mt-3 text-[10px] tracking-[0.18em] text-cardstock-deep">
+        <p className="bcc-mono mt-3 text-[10px] tracking-[0.18em] text-bcc-text-secondary">
           LAST SYNCED · {formatLastFetched(signals.last_fetched_at)}
         </p>
       )}

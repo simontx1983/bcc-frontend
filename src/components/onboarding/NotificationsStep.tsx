@@ -139,10 +139,10 @@ export function NotificationsStep({
   return (
     <>
       <section className="mx-auto max-w-3xl px-6 pt-12 sm:px-8">
-        <h1 className="bcc-stencil text-cardstock text-5xl md:text-6xl">
+        <h1 className="bcc-stencil text-bcc-text text-5xl md:text-6xl">
           Stay posted.
         </h1>
-        <p className="mt-4 max-w-2xl font-serif text-xl text-cardstock-deep">
+        <p className="mt-4 max-w-2xl font-serif text-xl text-bcc-text-secondary">
           Pick how we&apos;ll keep you in the loop. You can change all of these
           any time in{" "}
           <a
@@ -192,7 +192,7 @@ export function NotificationsStep({
                 className={
                   "bcc-stencil shrink-0 rounded-sm px-3 py-2 text-[10px] tracking-[0.2em] transition motion-reduce:transition-none " +
                   (pushMasterOn
-                    ? "bg-cardstock-deep/40 text-ink"
+                    ? "bg-bcc-surface-active text-bcc-text"
                     : "bg-safety text-ink hover:bg-safety/90 disabled:cursor-wait disabled:opacity-60")
                 }
               >
@@ -223,7 +223,7 @@ export function NotificationsStep({
           type="button"
           onClick={onBack}
           disabled={saving}
-          className="bcc-mono text-cardstock-deep underline-offset-4 hover:underline disabled:opacity-50"
+          className="bcc-mono text-bcc-text-secondary underline-offset-4 hover:underline disabled:opacity-50"
         >
           ← Back
         </button>
@@ -238,7 +238,7 @@ export function NotificationsStep({
             type="button"
             onClick={onDone}
             disabled={saving}
-            className="bcc-mono text-cardstock-deep underline-offset-4 hover:underline disabled:opacity-50"
+            className="bcc-mono text-bcc-text-secondary underline-offset-4 hover:underline disabled:opacity-50"
           >
             Skip
           </button>
@@ -278,7 +278,7 @@ function WizardOptCard({
         "bcc-panel flex cursor-pointer items-start justify-between gap-4 px-5 py-4 transition motion-reduce:transition-none " +
         (disabled
           ? "cursor-not-allowed opacity-60"
-          : "hover:border-cardstock-edge")
+          : "hover:border-bcc-border-strong")
       }
     >
       <div className="flex flex-col gap-1">

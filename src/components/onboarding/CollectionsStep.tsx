@@ -32,10 +32,10 @@ export function CollectionsStep({
   return (
     <>
       <section className="mx-auto max-w-3xl px-6 pt-12 sm:px-8">
-        <h1 className="bcc-stencil text-cardstock text-5xl md:text-6xl">
+        <h1 className="bcc-stencil text-bcc-text text-5xl md:text-6xl">
           Your collections, your call.
         </h1>
-        <p className="mt-4 max-w-2xl font-serif text-xl text-cardstock-deep">
+        <p className="mt-4 max-w-2xl font-serif text-xl text-bcc-text-secondary">
           {hasWallets
             ? "We read your linked wallets. Join the communities that are live, raise your hand for the ones that aren't, and flag anything that was airdropped junk."
             : "Link a wallet and BCC finds the NFT communities you already belong to."}
@@ -44,11 +44,11 @@ export function CollectionsStep({
 
       <section className="mx-auto mt-10 max-w-3xl px-6 sm:px-8">
         {hasWallets ? (
-          <div className="border border-cardstock-edge bg-cardstock-deep/20 p-4">
+          <div className="border border-bcc-border bg-bcc-surface-hover p-4">
             <CollectionStancePanel compact />
           </div>
         ) : (
-          <p className="font-serif italic text-cardstock-deep">
+          <p className="font-serif italic text-bcc-text-secondary">
             No wallet linked yet — you can do it any time in{" "}
             <a
               href="/settings/profile"
@@ -65,7 +65,7 @@ export function CollectionsStep({
         <button
           type="button"
           onClick={onBack}
-          className="bcc-mono text-cardstock-deep underline-offset-4 hover:underline"
+          className="bcc-mono text-bcc-text-secondary underline-offset-4 hover:underline"
         >
           ← Back
         </button>
@@ -74,7 +74,7 @@ export function CollectionsStep({
           <button
             type="button"
             onClick={onDone}
-            className="bcc-mono text-cardstock-deep underline-offset-4 hover:underline"
+            className="bcc-mono text-bcc-text-secondary underline-offset-4 hover:underline"
           >
             Skip
           </button>

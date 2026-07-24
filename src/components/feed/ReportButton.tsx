@@ -201,8 +201,8 @@ export function ReportModal({ targetKind, targetId, onClose }: ReportModalProps)
                     className={
                       "flex min-h-[44px] cursor-pointer items-start gap-3 border-2 px-3 py-2 transition " +
                       (checked
-                        ? "border-ink bg-ink/5"
-                        : "border-cardstock-edge hover:border-ink/40")
+                        ? "border-bcc-accent bg-bcc-surface-hover"
+                        : "border-bcc-border hover:border-bcc-border-strong")
                     }
                   >
                     <input
@@ -241,7 +241,7 @@ export function ReportModal({ targetKind, targetId, onClose }: ReportModalProps)
                     ? "What's wrong with this post?"
                     : "Add context if it helps."
                 }
-                className="bcc-mono w-full resize-y rounded-sm border border-cardstock-edge/60 bg-cardstock/30 px-3 py-2 text-ink placeholder:text-ink-soft/60 focus:border-blueprint focus:outline-none"
+                className="bcc-mono w-full resize-y rounded-sm border border-bcc-input-border bg-bcc-input-bg px-3 py-2 text-bcc-text placeholder:text-bcc-text-placeholder focus:border-bcc-accent focus:outline-none focus:ring-1 focus:ring-bcc-accent"
               />
               <span
                 className={
@@ -263,7 +263,7 @@ export function ReportModal({ targetKind, targetId, onClose }: ReportModalProps)
               <button
                 type="button"
                 onClick={onClose}
-                className="bcc-mono border-2 border-cardstock-edge px-4 py-2 text-[11px] tracking-[0.18em] text-bcc-text-secondary hover:border-ink/50 hover:text-bcc-text"
+                className="bcc-mono border-2 border-bcc-border px-4 py-2 text-[11px] tracking-[0.18em] text-bcc-text-secondary hover:border-bcc-border-strong hover:text-bcc-text"
               >
                 CANCEL
               </button>
@@ -275,7 +275,7 @@ export function ReportModal({ targetKind, targetId, onClose }: ReportModalProps)
                   "bcc-stencil rounded-sm px-5 py-2 text-[12px] tracking-[0.2em] transition " +
                   (canSubmit
                     ? "bg-ink text-cardstock hover:bg-blueprint"
-                    : "cursor-not-allowed bg-cardstock-deep/40 text-ink-soft/60")
+                    : "cursor-not-allowed bg-bcc-surface-active text-bcc-text-muted")
                 }
               >
                 {mutation.isPending ? "Sending…" : "SUBMIT REPORT"}
