@@ -52,7 +52,7 @@ export function ThreadView({ items, viewerId }: ThreadViewProps) {
   if (items.length === 0) {
     return (
       <div className="bcc-paper p-6 text-center">
-        <p className="bcc-mono text-cardstock-deep">No messages yet — say hi.</p>
+        <p className="bcc-mono text-ink-soft">No messages yet — say hi.</p>
       </div>
     );
   }
@@ -68,7 +68,7 @@ export function ThreadView({ items, viewerId }: ThreadViewProps) {
           return (
             <p
               key={msg.id}
-              className="bcc-mono mx-auto text-center text-[10px] tracking-[0.18em] text-cardstock-deep/60"
+              className="bcc-mono mx-auto text-center text-[10px] tracking-[0.18em] text-bcc-text-muted"
             >
               {stripHtml(msg.body)}
             </p>
@@ -112,7 +112,7 @@ function Bubble({ msg, isMine }: { msg: MessageItem; isMine: boolean }) {
         }
       >
         {!isMine && authorName !== "" && (
-          <span className="bcc-mono px-1 text-[10px] tracking-[0.16em] text-cardstock-deep/70">
+          <span className="bcc-mono px-1 text-[10px] tracking-[0.16em] text-bcc-text-muted">
             {authorName}
           </span>
         )}
@@ -121,14 +121,14 @@ function Bubble({ msg, isMine }: { msg: MessageItem; isMine: boolean }) {
             "rounded-lg px-3 py-2 text-sm whitespace-pre-wrap break-words " +
             (isMine
               ? "bg-cardstock text-ink"
-              : "bg-cardstock-deep/40 text-cardstock")
+              : "bg-bcc-surface-raised text-bcc-text")
           }
         >
           {stripHtml(msg.body)}
         </div>
         <time
           dateTime={msg.posted_at}
-          className="bcc-mono px-1 text-[9px] tracking-[0.16em] text-cardstock-deep/50"
+          className="bcc-mono px-1 text-[9px] tracking-[0.16em] text-bcc-text-muted"
           suppressHydrationWarning
         >
           {formatTime(msg.posted_at)}

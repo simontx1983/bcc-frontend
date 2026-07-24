@@ -156,7 +156,7 @@ export function OpenDisputeModal({
 
       {votesQuery.isSuccess && downvotes.length === 0 && (
         <div className="bcc-paper p-6 text-center">
-          <p className="bcc-mono mb-2 text-cardstock-deep">CLEAN SLATE</p>
+          <p className="bcc-mono mb-2 text-ink-ghost">CLEAN SLATE</p>
           <h4 className="bcc-stencil text-2xl text-ink">
             No downvotes to dispute.
           </h4>
@@ -174,7 +174,7 @@ export function OpenDisputeModal({
           className="flex flex-col gap-5"
         >
           <fieldset className="flex flex-col gap-2">
-            <legend className="bcc-mono mb-2 text-cardstock-deep">
+            <legend className="bcc-mono mb-2 text-bcc-text-secondary">
               PICK THE DOWNVOTE //
             </legend>
             <ul
@@ -196,7 +196,7 @@ export function OpenDisputeModal({
               ))}
             </ul>
             {disputableDownvotes.length === 0 && (
-              <p className="bcc-mono mt-1 text-cardstock-deep">
+              <p className="bcc-mono mt-1 text-bcc-text-secondary">
                 Every downvote on this page already has an active dispute.
               </p>
             )}
@@ -205,7 +205,7 @@ export function OpenDisputeModal({
           <div>
             <label
               htmlFor="dispute-reason"
-              className="bcc-mono mb-2 block text-cardstock-deep"
+              className="bcc-mono mb-2 block text-bcc-text-secondary"
             >
               YOUR REASON //
               <span className="ml-2 text-bcc-text-muted">
@@ -219,13 +219,13 @@ export function OpenDisputeModal({
               rows={5}
               maxLength={DISPUTE_REASON_MAX_LENGTH}
               placeholder="What's wrong with this downvote? Be specific — panelists need facts, not feelings."
-              className="bcc-panel w-full resize-y p-3 font-serif text-bcc-text"
+              className="bcc-panel w-full resize-y border-bcc-input-border bg-bcc-input-bg p-3 font-serif text-bcc-text outline-none placeholder:text-bcc-text-placeholder focus:border-bcc-accent focus:ring-1 focus:ring-bcc-accent"
             />
             <div className="bcc-mono mt-1 flex items-center justify-between text-[10px] tracking-[0.18em]">
               <span
                 className={
                   reasonTooShort
-                    ? "text-cardstock-deep"
+                    ? "text-bcc-text-muted"
                     : "text-bcc-text-secondary"
                 }
               >
@@ -239,7 +239,7 @@ export function OpenDisputeModal({
                     ? "text-safety"
                     : reasonLength > DISPUTE_REASON_MAX_LENGTH - 100
                       ? "text-weld"
-                      : "text-cardstock-deep"
+                      : "text-bcc-text-muted"
                 }
               >
                 {reasonLength}/{DISPUTE_REASON_MAX_LENGTH}
@@ -250,7 +250,7 @@ export function OpenDisputeModal({
           <div>
             <label
               htmlFor="dispute-evidence"
-              className="bcc-mono mb-2 block text-cardstock-deep"
+              className="bcc-mono mb-2 block text-bcc-text-secondary"
             >
               EVIDENCE URL //
               <span className="ml-2 text-bcc-text-muted">(optional)</span>
@@ -261,7 +261,7 @@ export function OpenDisputeModal({
               value={evidenceUrl}
               onChange={(e) => setEvidenceUrl(e.target.value)}
               placeholder="https://… link a tx, screenshot, or document panelists should see"
-              className="bcc-panel w-full p-3 font-serif text-bcc-text"
+              className="bcc-panel w-full border-bcc-input-border bg-bcc-input-bg p-3 font-serif text-bcc-text outline-none placeholder:text-bcc-text-placeholder focus:border-bcc-accent focus:ring-1 focus:ring-bcc-accent"
               maxLength={2083}
             />
           </div>
@@ -277,7 +277,7 @@ export function OpenDisputeModal({
               type="button"
               onClick={onClose}
               disabled={submit.isPending}
-              className="bcc-mono rounded-sm px-4 py-2 text-cardstock-deep hover:text-bcc-text disabled:cursor-not-allowed disabled:opacity-50"
+              className="bcc-mono rounded-sm px-4 py-2 text-bcc-text-secondary hover:text-bcc-text disabled:cursor-not-allowed disabled:opacity-50"
             >
               CANCEL
             </button>
@@ -289,7 +289,7 @@ export function OpenDisputeModal({
                 "bcc-stencil rounded-sm px-5 py-2.5 text-[12px] tracking-[0.2em] transition " +
                 (canSubmit
                   ? "bg-ink text-cardstock hover:bg-blueprint"
-                  : "cursor-not-allowed bg-cardstock-deep/40 text-ink-soft/60")
+                  : "cursor-not-allowed bg-bcc-surface-hover text-bcc-text-muted")
               }
             >
               {submit.isPending ? "FILING…" : "OPEN DISPUTE"}
@@ -337,7 +337,7 @@ function VoteOption({
     >
       <div className="flex items-baseline justify-between gap-3">
         <span className="bcc-stencil text-ink">{vote.voter_name}</span>
-        <span className="bcc-mono text-cardstock-deep">
+        <span className="bcc-mono text-ink-ghost">
           weight {vote.weight.toFixed(2)}
           {disabled && " · ALREADY DISPUTED"}
         </span>

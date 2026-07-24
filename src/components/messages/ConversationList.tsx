@@ -22,7 +22,7 @@ interface ConversationListProps {
 
 export function ConversationList({ items }: ConversationListProps) {
   return (
-    <ul className="flex flex-col divide-y divide-cardstock-edge/30 border-y border-cardstock-edge/30">
+    <ul className="flex flex-col divide-y divide-bcc-border border-y border-bcc-border">
       {items.map((conv) => (
         <ConversationRow key={conv.id} conv={conv} />
       ))}
@@ -52,8 +52,8 @@ const ConversationRow = memo(function ConversationRow({
         className={
           "flex items-center gap-3 px-3 py-3 transition " +
           (hasUnread
-            ? "bg-cardstock-deep/20 hover:bg-cardstock-deep/40"
-            : "hover:bg-cardstock-deep/30")
+            ? "bg-bcc-accent-subtle hover:bg-bcc-surface-active"
+            : "hover:bg-bcc-surface-hover")
         }
       >
         <Avatar
@@ -70,14 +70,14 @@ const ConversationRow = memo(function ConversationRow({
               className={
                 "truncate text-sm " +
                 (hasUnread
-                  ? "font-semibold text-cardstock"
-                  : "text-cardstock-deep")
+                  ? "font-semibold text-bcc-text"
+                  : "text-bcc-text-secondary")
               }
             >
               {title}
             </p>
             <span
-              className="bcc-mono shrink-0 text-[10px] tracking-[0.16em] text-cardstock-deep/70"
+              className="bcc-mono shrink-0 text-[10px] tracking-[0.16em] text-bcc-text-muted"
               suppressHydrationWarning
             >
               {formatRelative(conv.last_activity)}
@@ -87,8 +87,8 @@ const ConversationRow = memo(function ConversationRow({
             className={
               "truncate text-[13px] leading-snug " +
               (hasUnread
-                ? "text-cardstock-deep"
-                : "text-cardstock-deep/60")
+                ? "text-bcc-text-secondary"
+                : "text-bcc-text-muted")
             }
           >
             {previewLine(conv)}

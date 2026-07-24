@@ -250,7 +250,7 @@ function ProfilePrefsForm({ initial }: { initial: ProfilePrefs }) {
                 setDraft({ ...draft, hide_online: e.target.checked })
               }
               disabled={busy}
-              className="mt-1 accent-ink"
+              className="mt-1 accent-bcc-accent"
             />
             <span>
               <span className="bcc-mono block text-[11px] tracking-[0.14em] text-bcc-text">
@@ -270,7 +270,7 @@ function ProfilePrefsForm({ initial }: { initial: ProfilePrefs }) {
                 setDraft({ ...draft, hide_from_search: e.target.checked })
               }
               disabled={busy}
-              className="mt-1 accent-ink"
+              className="mt-1 accent-bcc-accent"
             />
             <span>
               <span className="bcc-mono block text-[11px] tracking-[0.14em] text-bcc-text">
@@ -294,7 +294,7 @@ function ProfilePrefsForm({ initial }: { initial: ProfilePrefs }) {
               setDraft({ ...draft, hide_birthday_year: e.target.checked })
             }
             disabled={busy}
-            className="mt-1 accent-ink"
+            className="mt-1 accent-bcc-accent"
           />
           <span>
             <span className="bcc-mono block text-[11px] tracking-[0.14em] text-bcc-text">
@@ -362,8 +362,8 @@ function RadioGroup<T extends string>({
           className={
             "flex cursor-pointer items-start gap-3 border-2 px-3 py-2 transition " +
             (value === opt.value
-              ? "border-blueprint bg-blueprint/15"
-              : "border-cardstock-edge hover:border-ink/40")
+              ? "border-bcc-accent bg-bcc-accent-subtle"
+              : "border-bcc-border hover:border-bcc-border-strong")
           }
         >
           <input
@@ -373,7 +373,7 @@ function RadioGroup<T extends string>({
             checked={value === opt.value}
             onChange={() => onChange(opt.value)}
             disabled={disabled}
-            className="mt-1 accent-ink"
+            className="mt-1 accent-bcc-accent"
           />
           <span>
             <span className="bcc-mono block text-[11px] tracking-[0.14em] text-bcc-text">

@@ -80,7 +80,7 @@ export function ConnectionsSection() {
   return (
     <div className="bcc-panel flex flex-col gap-4 p-6">
       <header className="flex flex-col gap-1">
-        <span className="bcc-mono text-[10px] tracking-[0.24em] text-cardstock-deep">
+        <span className="bcc-mono text-[10px] tracking-[0.24em] text-bcc-text-secondary">
           IDENTITY · CONNECTIONS
         </span>
         <h2 className="bcc-stencil text-2xl text-bcc-text">Verified accounts</h2>
@@ -187,8 +187,8 @@ function XConnectionCard() {
       errorText={errorText}
       renderConnectedDetail={(data) =>
         data.connected ? (
-          <div className="bcc-mono text-[11px] text-ink-soft">
-            Linked as <span className="text-ink">@{data.username}</span>
+          <div className="bcc-mono text-[11px] text-bcc-text-secondary">
+            Linked as <span className="text-bcc-text">@{data.username}</span>
             {data.verified_at !== null && (
               <> · since {formatShortDate(data.verified_at)}</>
             )}
@@ -247,9 +247,9 @@ function GitHubConnectionCard() {
       errorText={errorText}
       renderConnectedDetail={(data) =>
         data.connected ? (
-          <div className="bcc-mono text-[11px] text-ink-soft">
-            Linked as <span className="text-ink">@{data.username}</span>
-            <span className="ml-2 text-ink-soft/70">
+          <div className="bcc-mono text-[11px] text-bcc-text-secondary">
+            Linked as <span className="text-bcc-text">@{data.username}</span>
+            <span className="ml-2 text-bcc-text-muted">
               {data.repos} repos · {data.followers} followers · {data.orgs} orgs
             </span>
             {data.verified_at !== null && (
@@ -300,16 +300,16 @@ function ProviderCard<S extends XStatusResponse | GitHubStatusResponse>({
   const connected = status !== undefined && status.connected;
 
   return (
-    <div className="flex flex-col gap-3 border border-cardstock-edge bg-cardstock-deep/40 p-4">
+    <div className="flex flex-col gap-3 border border-bcc-border bg-bcc-surface-hover p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex flex-col gap-1">
-          <h3 className="bcc-stencil text-lg text-ink">{label}</h3>
-          <p className="font-serif text-[13px] text-ink-soft">{blurb}</p>
+          <h3 className="bcc-stencil text-lg text-bcc-text">{label}</h3>
+          <p className="font-serif text-[13px] text-bcc-text-secondary">{blurb}</p>
         </div>
 
         <div className="flex shrink-0 flex-col items-end gap-1">
           {isStatusLoading ? (
-            <span className="bcc-mono text-[11px] text-ink-soft/70">Checking…</span>
+            <span className="bcc-mono text-[11px] text-bcc-text-muted">Checking…</span>
           ) : isStatusError ? (
             <span className="bcc-mono text-[11px] text-safety">Status unavailable</span>
           ) : connected ? (
@@ -317,7 +317,7 @@ function ProviderCard<S extends XStatusResponse | GitHubStatusResponse>({
               type="button"
               onClick={onDisconnect}
               disabled={isDisconnecting}
-              className="bcc-mono border-2 border-cardstock-edge px-3 py-1.5 text-[11px] tracking-[0.18em] text-ink-soft hover:border-safety hover:text-safety disabled:opacity-50"
+              className="bcc-mono border-2 border-bcc-border px-3 py-1.5 text-[11px] tracking-[0.18em] text-bcc-text-secondary hover:border-safety hover:text-safety disabled:opacity-50"
             >
               {isDisconnecting ? "Disconnecting…" : "Disconnect"}
             </button>

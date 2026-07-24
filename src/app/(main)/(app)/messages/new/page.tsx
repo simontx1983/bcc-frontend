@@ -110,12 +110,12 @@ export default function NewMessagePage() {
       <header className="mx-auto max-w-3xl px-2 sm:px-3 pt-12">
         <Link
           href={"/messages" as Route}
-          className="bcc-mono text-[10px] tracking-[0.18em] text-cardstock-deep transition hover:text-cardstock"
+          className="bcc-mono text-[10px] tracking-[0.18em] text-bcc-text-secondary transition hover:text-bcc-text"
         >
           ← INBOX
         </Link>
         <h1
-          className="bcc-stencil mt-3 text-cardstock leading-[0.95]"
+          className="bcc-stencil mt-3 text-bcc-text leading-[0.95]"
           style={{ fontSize: "clamp(2rem, 5vw, 3.5rem)" }}
         >
           New message
@@ -124,13 +124,13 @@ export default function NewMessagePage() {
 
       <section className="mx-auto mt-10 max-w-3xl px-2 sm:px-3">
         {!isAuthed && session.status !== "loading" && (
-          <p className="bcc-mono text-cardstock-deep">Sign in to start a conversation.</p>
+          <p className="bcc-mono text-bcc-text-secondary">Sign in to start a conversation.</p>
         )}
 
         {isAuthed && (
           <form onSubmit={submit} className="flex flex-col gap-6">
             <div className="flex flex-col gap-2">
-              <span className="bcc-mono text-[10px] tracking-[0.24em] text-cardstock-deep">
+              <span className="bcc-mono text-[10px] tracking-[0.24em] text-bcc-text-secondary">
                 TO
               </span>
               {recipient !== null ? (
@@ -156,7 +156,7 @@ export default function NewMessagePage() {
             </div>
 
             <div className="flex flex-col gap-2">
-              <span className="bcc-mono text-[10px] tracking-[0.24em] text-cardstock-deep">
+              <span className="bcc-mono text-[10px] tracking-[0.24em] text-bcc-text-secondary">
                 MESSAGE
               </span>
               <textarea
@@ -168,7 +168,7 @@ export default function NewMessagePage() {
                 rows={5}
                 disabled={mutation.isPending}
                 placeholder="Write your first message…"
-                className="font-serif resize-y rounded-sm border border-cardstock-edge/40 bg-cardstock-deep/30 px-3 py-2 text-[14px] leading-snug text-cardstock placeholder:text-cardstock-deep/60 focus-visible:border-cardstock focus-visible:outline-none disabled:opacity-50"
+                className="font-serif resize-y rounded-sm border border-bcc-input-border bg-bcc-input-bg px-3 py-2 text-[14px] leading-snug text-bcc-text placeholder:text-bcc-text-placeholder focus-visible:border-bcc-accent focus-visible:outline-none disabled:opacity-50"
               />
               <span
                 id="new-message-counter"
@@ -178,7 +178,7 @@ export default function NewMessagePage() {
                   "bcc-mono text-[10px] tracking-[0.16em] " +
                   (body.length > MESSAGE_BODY_MAX_LENGTH
                     ? "text-safety"
-                    : "text-cardstock-deep/60")
+                    : "text-bcc-text-muted")
                 }
               >
                 {body.length}/{MESSAGE_BODY_MAX_LENGTH}
@@ -195,7 +195,7 @@ export default function NewMessagePage() {
               <button
                 type="submit"
                 disabled={!canSend}
-                className="bcc-mono inline-flex items-center gap-2 border-2 border-cardstock-edge px-3 py-1.5 text-[10px] tracking-[0.18em] text-cardstock transition hover:bg-cardstock hover:text-ink disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-cardstock"
+                className="bcc-mono inline-flex items-center gap-2 border-2 border-bcc-border px-3 py-1.5 text-[10px] tracking-[0.18em] text-bcc-text transition hover:bg-bcc-surface-hover hover:border-bcc-border-strong disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
               >
                 {mutation.isPending ? "SENDING…" : "SEND →"}
               </button>
@@ -209,13 +209,13 @@ export default function NewMessagePage() {
 
 function Rail() {
   return (
-    <div className="border-b border-dashed border-cardstock/15">
+    <div className="border-b border-dashed border-bcc-border">
       <div className="mx-auto flex max-w-[1560px] flex-wrap items-center justify-between gap-4 px-7 py-3">
-        <span className="bcc-mono inline-flex items-center gap-2 text-cardstock-deep">
+        <span className="bcc-mono inline-flex items-center gap-2 text-bcc-text-secondary">
           <span className="bcc-rail-dot" aria-hidden />
           <span>BCC &nbsp;//&nbsp; MESSAGES</span>
         </span>
-        <span className="bcc-mono text-cardstock/50">DIRECT &nbsp;//&nbsp; NEW</span>
+        <span className="bcc-mono text-bcc-text-muted">DIRECT &nbsp;//&nbsp; NEW</span>
       </div>
     </div>
   );
@@ -229,7 +229,7 @@ function SelectedRecipient({
   onClear: () => void;
 }) {
   return (
-    <div className="flex items-center gap-3 rounded-sm border border-cardstock-edge/40 bg-cardstock-deep/30 px-3 py-2">
+    <div className="flex items-center gap-3 rounded-sm border border-bcc-border bg-bcc-surface-hover px-3 py-2">
       <Avatar
         avatarUrl={recipient.crest.image_url}
         handle={recipient.handle}
@@ -238,17 +238,17 @@ function SelectedRecipient({
         variant="rounded"
       />
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm text-cardstock">
+        <p className="truncate text-sm text-bcc-text">
           {recipient.name !== "" ? recipient.name : recipient.handle}
         </p>
-        <p className="bcc-mono truncate text-[10px] tracking-[0.16em] text-cardstock-deep/70">
+        <p className="bcc-mono truncate text-[10px] tracking-[0.16em] text-bcc-text-muted">
           @{recipient.handle}
         </p>
       </div>
       <button
         type="button"
         onClick={onClear}
-        className="bcc-mono text-[10px] tracking-[0.18em] text-cardstock-deep/70 transition hover:text-cardstock"
+        className="bcc-mono text-[10px] tracking-[0.18em] text-bcc-text-muted transition hover:text-bcc-text"
       >
         CHANGE
       </button>
@@ -275,35 +275,35 @@ function RecipientPicker({
         onChange={(e) => onSearchChange(e.target.value)}
         placeholder="Search by handle or display name…"
         maxLength={64}
-        className="bcc-mono w-full rounded-sm border border-cardstock-edge bg-cardstock-deep/40 px-3 py-2 text-cardstock outline-none placeholder:text-cardstock-deep/60 focus:border-blueprint focus:ring-1 focus:ring-blueprint"
+        className="bcc-mono w-full rounded-sm border border-bcc-input-border bg-bcc-input-bg px-3 py-2 text-bcc-text outline-none placeholder:text-bcc-text-placeholder focus:border-bcc-accent focus:ring-1 focus:ring-bcc-accent"
       />
 
       {searchInput.length < 2 && (
-        <p className="bcc-mono text-[10px] tracking-[0.16em] text-cardstock-deep/50">
+        <p className="bcc-mono text-[10px] tracking-[0.16em] text-bcc-text-muted">
           Type at least 2 characters to search.
         </p>
       )}
 
       {searchInput.length >= 2 && query.isPending && (
-        <p className="bcc-mono text-[10px] tracking-[0.16em] text-cardstock-deep/50">
+        <p className="bcc-mono text-[10px] tracking-[0.16em] text-bcc-text-muted">
           Searching…
         </p>
       )}
 
       {searchInput.length >= 2 && query.isSuccess && query.data.items.length === 0 && (
-        <p className="bcc-mono text-[10px] tracking-[0.16em] text-cardstock-deep/50">
+        <p className="bcc-mono text-[10px] tracking-[0.16em] text-bcc-text-muted">
           No members match.
         </p>
       )}
 
       {searchInput.length >= 2 && query.isSuccess && query.data.items.length > 0 && (
-        <ul className="flex flex-col divide-y divide-cardstock-edge/30 rounded-sm border border-cardstock-edge/40">
+        <ul className="flex flex-col divide-y divide-bcc-border rounded-sm border border-bcc-border">
           {query.data.items.map((m) => (
             <li key={m.id}>
               <button
                 type="button"
                 onClick={() => onSelect(m)}
-                className="flex w-full items-center gap-3 px-3 py-2 text-left transition hover:bg-cardstock-deep/40"
+                className="flex w-full items-center gap-3 px-3 py-2 text-left transition hover:bg-bcc-surface-hover"
               >
                 <Avatar
                   avatarUrl={m.crest.image_url}
@@ -313,10 +313,10 @@ function RecipientPicker({
                   variant="rounded"
                 />
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm text-cardstock">
+                  <p className="truncate text-sm text-bcc-text">
                     {m.name !== "" ? m.name : m.handle}
                   </p>
-                  <p className="bcc-mono truncate text-[10px] tracking-[0.16em] text-cardstock-deep/70">
+                  <p className="bcc-mono truncate text-[10px] tracking-[0.16em] text-bcc-text-muted">
                     @{m.handle}
                   </p>
                 </div>

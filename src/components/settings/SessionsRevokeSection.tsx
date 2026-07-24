@@ -59,7 +59,7 @@ export function SessionsRevokeSection() {
         <button
           type="button"
           onClick={() => setShowConfirm(true)}
-          className="bcc-mono mt-3 border-2 border-bcc-border/50 px-4 py-2 text-[11px] tracking-[0.16em] text-bcc-text transition hover:bg-ink/10 motion-reduce:transition-none"
+          className="bcc-mono mt-3 border-2 border-bcc-border/50 px-4 py-2 text-[11px] tracking-[0.16em] text-bcc-text transition hover:bg-bcc-surface-hover motion-reduce:transition-none"
         >
           SIGN OUT ALL DEVICES…
         </button>
@@ -70,7 +70,7 @@ export function SessionsRevokeSection() {
   const isPending = mutation.isPending;
 
   return (
-    <section className="bcc-panel border-ink/40 p-5">
+    <section className="bcc-panel border-bcc-border-strong p-5">
       <h3 className="bcc-stencil text-lg text-bcc-text">Sign out of all devices</h3>
       <p className="mt-2 font-serif text-bcc-text-secondary">
         This signs you out everywhere you&rsquo;re currently logged in,
@@ -110,7 +110,7 @@ export function SessionsRevokeSection() {
             setShowConfirm(false);
             setServerError(null);
           }}
-          className="bcc-mono border border-bcc-border/30 px-4 py-2 text-[11px] tracking-[0.16em] text-bcc-text transition hover:bg-ink/10 disabled:opacity-50 motion-reduce:transition-none"
+          className="bcc-mono border border-bcc-border/30 px-4 py-2 text-[11px] tracking-[0.16em] text-bcc-text transition hover:bg-bcc-surface-hover disabled:opacity-50 motion-reduce:transition-none"
         >
           CANCEL
         </button>

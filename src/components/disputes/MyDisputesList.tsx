@@ -27,7 +27,7 @@ export function MyDisputesList() {
 
   if (query.isPending) {
     return (
-      <p className="bcc-mono text-cardstock-deep">Loading your disputes…</p>
+      <p className="bcc-mono text-bcc-text-secondary">Loading your disputes…</p>
     );
   }
 
@@ -92,7 +92,7 @@ function MyDisputeRow({ dispute }: { dispute: PanelDispute }) {
           </p>
 
           <div className="mt-4">
-            <p className="bcc-mono text-cardstock-deep">YOUR CASE //</p>
+            <p className="bcc-mono text-ink-ghost">YOUR CASE //</p>
             <p
               className="mt-1 font-serif text-ink"
               style={{ fontSize: "14px", lineHeight: 1.5 }}
@@ -103,7 +103,7 @@ function MyDisputeRow({ dispute }: { dispute: PanelDispute }) {
 
           {dispute.evidence_url !== "" && (
             <div className="mt-3">
-              <p className="bcc-mono text-cardstock-deep">EVIDENCE //</p>
+              <p className="bcc-mono text-ink-ghost">EVIDENCE //</p>
               <a
                 href={dispute.evidence_url}
                 target="_blank"
@@ -128,7 +128,7 @@ function MyDisputeRow({ dispute }: { dispute: PanelDispute }) {
           <StatusBadge status={dispute.status} />
           <Link
             href={`/disputes/${dispute.id}`}
-            className="bcc-mono text-cardstock-deep underline-offset-4 transition hover:text-safety hover:underline motion-reduce:transition-none"
+            className="bcc-mono text-ink-ghost underline-offset-4 transition hover:text-safety hover:underline motion-reduce:transition-none"
           >
             VIEW CASE &rarr;
           </Link>
@@ -190,13 +190,13 @@ const STATUS_CONFIG: Record<
   },
   timeout_no_quorum: {
     label: "TIMED OUT · NO QUORUM",
-    color: "var(--cardstock-deep)",
+    color: "var(--ink-ghost)",
     background: "rgb(var(--cardstock-ash-rgb) / 0.18)",
     borderColor: "rgb(var(--cardstock-ash-rgb) / 0.4)",
   },
   closed: {
     label: "CLOSED",
-    color: "var(--cardstock-deep)",
+    color: "var(--ink-ghost)",
     background: "rgb(var(--cardstock-ash-rgb) / 0.18)",
     borderColor: "rgb(var(--cardstock-ash-rgb) / 0.4)",
   },

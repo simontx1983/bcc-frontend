@@ -18,14 +18,14 @@ export function SettingsSectionHeader({
   blurb: string;
 }) {
   return (
-    <div className="border-l-2 border-blueprint pl-4">
-      <span className="bcc-mono text-[10px] tracking-[0.24em] text-blueprint">
+    <div className="border-l-2 border-bcc-accent pl-4">
+      <span className="bcc-mono text-[10px] tracking-[0.24em] text-bcc-accent">
         {eyebrow}
       </span>
-      <h2 className="bcc-stencil mt-1 text-2xl text-cardstock md:text-3xl">
+      <h2 className="bcc-stencil mt-1 text-2xl text-bcc-text md:text-3xl">
         {title}
       </h2>
-      <p className="bcc-mono mt-2 text-[11px] tracking-[0.14em] text-cardstock-deep">
+      <p className="bcc-mono mt-2 text-[11px] tracking-[0.14em] text-bcc-text-secondary">
         {blurb}
       </p>
     </div>

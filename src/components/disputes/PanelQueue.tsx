@@ -53,7 +53,7 @@ export function PanelDutyList() {
   return (
     <section>
       {query.isPending && (
-        <p className="bcc-mono text-cardstock-deep">Loading queue…</p>
+        <p className="bcc-mono text-bcc-text-secondary">Loading queue…</p>
       )}
 
       {query.isError && (
@@ -101,8 +101,8 @@ function Header({
 }) {
   return (
     <>
-      <div className="border-b border-dashed border-cardstock/15 pb-3">
-        <span className="bcc-mono inline-flex items-center gap-2 text-cardstock-deep">
+      <div className="border-b border-dashed border-bcc-border pb-3">
+        <span className="bcc-mono inline-flex items-center gap-2 text-bcc-text-secondary">
           <span className="bcc-rail-dot" aria-hidden />
           <span>FLOOR &nbsp;//&nbsp; PANEL DUTY</span>
         </span>
@@ -111,12 +111,12 @@ function Header({
       <header className="mt-10">
         <p className="bcc-mono text-safety">DELIBERATION ROOM</p>
         <h1
-          className="bcc-stencil mt-2 text-cardstock leading-[0.95]"
+          className="bcc-stencil mt-2 text-bcc-text leading-[0.95]"
           style={{ fontSize: "clamp(2.25rem, 5.5vw, 4.5rem)" }}
         >
           You&rsquo;ve been called.
         </h1>
-        <p className="mt-3 max-w-2xl font-serif leading-relaxed text-cardstock-deep">
+        <p className="mt-3 max-w-2xl font-serif leading-relaxed text-bcc-text-secondary">
           The floor needs your read on the disputes below. Each one is a
           downvote a page owner says is invalid. Read the reason, weigh
           the evidence, and vote. Tallies stay hidden until every
@@ -160,7 +160,7 @@ export function ParticipationStrip({
   return (
     <section
       aria-label="Your panel-vote credit progress"
-      className="mt-7 border-y border-dashed border-cardstock/15 py-5"
+      className="mt-7 border-y border-dashed border-bcc-border py-5"
     >
       <div className="grid gap-5 md:grid-cols-[1fr_1fr_auto]">
         <ParticipationMeter
@@ -186,17 +186,17 @@ export function ParticipationStrip({
           }
         />
         <div className="self-end">
-          <p className="bcc-mono text-cardstock-deep">ACCURACY BONUS //</p>
+          <p className="bcc-mono text-bcc-text-secondary">ACCURACY BONUS //</p>
           <p
             className="bcc-stencil mt-1 text-2xl"
             style={{
-              color: accuracyUnlocked ? "var(--verified)" : "var(--cardstock-deep)",
+              color: accuracyUnlocked ? "var(--verified)" : "var(--bcc-text-secondary)",
             }}
           >
             {accuracyUnlocked ? "UNLOCKED" : "LOCKED"}
           </p>
           <p
-            className="bcc-mono mt-1 text-cardstock-deep"
+            className="bcc-mono mt-1 text-bcc-text-secondary"
             style={{ fontSize: "10px", letterSpacing: "0.18em" }}
           >
             {accuracyUnlocked
@@ -227,8 +227,8 @@ function ParticipationMeter({
   return (
     <div>
       <div className="flex items-baseline justify-between gap-3">
-        <span className="bcc-mono text-cardstock-deep">{label} {"//"}</span>
-        <span className="bcc-mono text-cardstock">
+        <span className="bcc-mono text-bcc-text-secondary">{label} {"//"}</span>
+        <span className="bcc-mono text-bcc-text">
           {earned.toFixed(2)} / {cap.toFixed(2)} TRUST
         </span>
       </div>
@@ -238,14 +238,14 @@ function ParticipationMeter({
         aria-valuemax={100}
         aria-valuenow={Math.round(pct)}
         aria-label={`${label} trust earned: ${earned.toFixed(2)} of ${cap.toFixed(2)}`}
-        className="mt-2 h-1.5 overflow-hidden bg-cardstock/10"
+        className="mt-2 h-1.5 overflow-hidden bg-bcc-surface-hover"
       >
         <div
           className="h-full bg-safety transition-[width] duration-500"
           style={{ width: `${pct}%` }}
         />
       </div>
-      <p className="bcc-mono mt-1 text-cardstock-deep">{subtitle}</p>
+      <p className="bcc-mono mt-1 text-bcc-text-secondary">{subtitle}</p>
     </div>
   );
 }
@@ -283,7 +283,7 @@ function PanelRow({ dispute }: { dispute: PanelDispute }) {
 
           <div className="mt-4 grid gap-3">
             <div>
-              <p className="bcc-mono text-cardstock-deep">REPORTER&rsquo;S CASE //</p>
+              <p className="bcc-mono text-ink-ghost">REPORTER&rsquo;S CASE //</p>
               <p
                 className="mt-1 font-serif text-ink"
                 style={{ fontSize: "14px", lineHeight: 1.5 }}
@@ -294,7 +294,7 @@ function PanelRow({ dispute }: { dispute: PanelDispute }) {
 
             {dispute.evidence_url !== "" && (
               <div>
-                <p className="bcc-mono text-cardstock-deep">EVIDENCE //</p>
+                <p className="bcc-mono text-ink-ghost">EVIDENCE //</p>
                 <a
                   href={dispute.evidence_url}
                   target="_blank"

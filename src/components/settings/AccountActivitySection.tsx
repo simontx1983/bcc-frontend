@@ -82,13 +82,13 @@ export function AccountActivitySection() {
       {totalPages > 1 && (
         <nav
           aria-label="Activity pagination"
-          className="bcc-mono mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-dashed border-ink/20 pt-3 text-[10px] tracking-[0.18em] text-bcc-text-secondary"
+          className="bcc-mono mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-dashed border-bcc-border pt-3 text-[10px] tracking-[0.18em] text-bcc-text-secondary"
         >
           <button
             type="button"
             onClick={() => setPage((p) => Math.max(1, p - 1))}
             disabled={page <= 1}
-            className="border border-bcc-border/30 px-3 py-1 text-bcc-text transition hover:bg-ink/10 disabled:cursor-not-allowed disabled:opacity-30 motion-reduce:transition-none"
+            className="border border-bcc-border/30 px-3 py-1 text-bcc-text transition hover:bg-bcc-surface-hover disabled:cursor-not-allowed disabled:opacity-30 motion-reduce:transition-none"
           >
             ← NEWER
           </button>
@@ -99,7 +99,7 @@ export function AccountActivitySection() {
             type="button"
             onClick={() => setPage((p) => p + 1)}
             disabled={page >= totalPages}
-            className="border border-bcc-border/30 px-3 py-1 text-bcc-text transition hover:bg-ink/10 disabled:cursor-not-allowed disabled:opacity-30 motion-reduce:transition-none"
+            className="border border-bcc-border/30 px-3 py-1 text-bcc-text transition hover:bg-bcc-surface-hover disabled:cursor-not-allowed disabled:opacity-30 motion-reduce:transition-none"
           >
             OLDER →
           </button>
@@ -125,7 +125,7 @@ function ActivityRow({ item }: { item: AccountActivityItem }) {
   const ip = item.ip_masked;
 
   return (
-    <li className="flex flex-wrap items-baseline gap-x-3 gap-y-1 border-b border-cardstock/15 py-3 last:border-b-0">
+    <li className="flex flex-wrap items-baseline gap-x-3 gap-y-1 border-b border-bcc-border py-3 last:border-b-0">
       <span className="bcc-stencil text-bcc-text">{label}</span>
       <div className="bcc-mono flex flex-wrap items-baseline gap-x-2 text-[10px] tracking-[0.18em] text-bcc-text-secondary">
         <time dateTime={toIsoDateTime(item.created_at)}>

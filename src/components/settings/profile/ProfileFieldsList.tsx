@@ -61,7 +61,7 @@ export function ProfileFieldsList() {
 
   if (query.isLoading) {
     return (
-      <p className="bcc-mono py-4 text-[11px] text-cardstock-deep">Loading profile fields…</p>
+      <p className="bcc-mono py-4 text-[11px] text-bcc-text-secondary">Loading profile fields…</p>
     );
   }
   if (query.isError) {
@@ -75,7 +75,7 @@ export function ProfileFieldsList() {
   const data = query.data;
   if (data === undefined || data.fields.length === 0) {
     return (
-      <p className="bcc-mono py-4 text-[11px] text-cardstock-deep">
+      <p className="bcc-mono py-4 text-[11px] text-bcc-text-secondary">
         Your administrator hasn&apos;t configured any profile fields yet.
       </p>
     );
@@ -233,7 +233,7 @@ interface FieldInputProps {
 function FieldInput({ field, value, onChange, disabled }: FieldInputProps) {
   const id = `field-${field.key}`;
   const inputClass =
-    "w-full border border-cardstock-edge bg-cardstock-deep/60 px-3 py-2 font-serif text-ink outline-none focus:border-blueprint focus:ring-1 focus:ring-blueprint disabled:opacity-50";
+    "w-full border border-bcc-input-border bg-bcc-input-bg px-3 py-2 font-serif text-bcc-text outline-none focus:border-bcc-accent focus:ring-1 focus:ring-bcc-accent disabled:opacity-50";
 
   switch (field.type) {
     case "textarea":
@@ -354,8 +354,8 @@ function FieldInput({ field, value, onChange, disabled }: FieldInputProps) {
                 className={
                   "bcc-mono inline-flex cursor-pointer items-center gap-2 border-2 px-3 py-1 text-[11px] transition " +
                   (selected
-                    ? "border-blueprint bg-blueprint/15 text-bcc-text"
-                    : "border-cardstock-edge text-bcc-text-secondary hover:border-ink/50")
+                    ? "border-bcc-accent bg-bcc-accent-subtle text-bcc-text"
+                    : "border-bcc-border text-bcc-text-secondary hover:border-bcc-border-strong")
                 }
               >
                 <input
@@ -419,7 +419,7 @@ function VisibilityPicker({
         value={value}
         onChange={(e) => onChange(e.target.value as ProfileFieldVisibility)}
         disabled={disabled}
-        className="bcc-mono border border-cardstock-edge bg-cardstock-deep/60 px-2 py-1 text-[10px] tracking-[0.14em] text-ink outline-none focus:border-blueprint focus:ring-1 focus:ring-blueprint disabled:opacity-50"
+        className="bcc-mono border border-bcc-input-border bg-bcc-input-bg px-2 py-1 text-[10px] tracking-[0.14em] text-bcc-text outline-none focus:border-bcc-accent focus:ring-1 focus:ring-bcc-accent disabled:opacity-50"
         aria-label="Field visibility"
       >
         {VISIBILITY_OPTIONS.map((opt) => (

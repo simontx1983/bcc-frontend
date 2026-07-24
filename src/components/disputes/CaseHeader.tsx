@@ -31,7 +31,7 @@ export function CaseHeader({
 
       <div className="relative mt-3 flex flex-wrap items-end justify-between gap-x-8 gap-y-4">
         <h1
-          className="bcc-stencil leading-[0.85] text-ink"
+          className="bcc-stencil leading-[0.85] text-bcc-text"
           style={{
             fontSize: "clamp(4.5rem, 14vw, 11rem)",
             letterSpacing: "-0.01em",
@@ -46,12 +46,12 @@ export function CaseHeader({
       </div>
 
       <div
-        className="mt-6 border-t border-dashed border-ink/25 pt-5"
+        className="mt-6 border-t border-dashed border-bcc-border pt-5"
         aria-hidden={false}
       >
-        <p className="bcc-mono text-cardstock-deep">FILED AGAINST //</p>
+        <p className="bcc-mono text-bcc-text-secondary">FILED AGAINST //</p>
         <p
-          className="mt-2 font-serif italic text-ink"
+          className="mt-2 font-serif italic text-bcc-text"
           style={{
             fontSize: "clamp(1.25rem, 2.6vw, 1.75rem)",
             lineHeight: 1.35,
@@ -60,7 +60,7 @@ export function CaseHeader({
           &ldquo;{dispute.page_title || "Untitled page"}&rdquo;
         </p>
 
-        <p className="bcc-mono mt-4 text-ink-ghost">
+        <p className="bcc-mono mt-4 text-bcc-text-muted">
           {sealed ? (
             <>
               REPORTER SEALED &middot; FILED{" "}
@@ -123,9 +123,9 @@ const VERDICT_STAMP: Partial<
   dismissed: { label: "DISMISSED", color: "var(--safety)" },
   timeout_no_quorum: {
     label: "TIMED OUT",
-    color: "var(--cardstock-deep)",
+    color: "var(--bcc-text-muted)",
   },
-  closed: { label: "CLOSED", color: "var(--cardstock-deep)" },
+  closed: { label: "CLOSED", color: "var(--bcc-text-muted)" },
 };
 
 // ─────────────────────────────────────────────────────────────────────
@@ -155,7 +155,7 @@ const STATUS_CONFIG: Record<
 > = {
   reviewing: {
     label: "REVIEWING",
-    color: "var(--blueprint)",
+    color: "var(--bcc-info)",
     background: "rgb(var(--steel-blue-rgb) / 0.08)",
     borderColor: "rgb(var(--steel-blue-rgb) / 0.32)",
   },
@@ -179,14 +179,14 @@ const STATUS_CONFIG: Record<
   },
   timeout_no_quorum: {
     label: "TIMED OUT",
-    color: "var(--cardstock-deep)",
-    background: "rgb(var(--cardstock-ash-rgb) / 0.18)",
-    borderColor: "rgb(var(--cardstock-ash-rgb) / 0.4)",
+    color: "var(--bcc-text-secondary)",
+    background: "var(--bcc-surface-hover)",
+    borderColor: "var(--bcc-border)",
   },
   closed: {
     label: "CLOSED",
-    color: "var(--cardstock-deep)",
-    background: "rgb(var(--cardstock-ash-rgb) / 0.18)",
-    borderColor: "rgb(var(--cardstock-ash-rgb) / 0.4)",
+    color: "var(--bcc-text-secondary)",
+    background: "var(--bcc-surface-hover)",
+    borderColor: "var(--bcc-border)",
   },
 };

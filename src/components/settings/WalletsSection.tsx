@@ -77,7 +77,7 @@ export function WalletsSection() {
   return (
     <div className="bcc-panel flex flex-col gap-4 p-6">
       <header className="flex flex-col gap-1">
-        <span className="bcc-mono text-[10px] tracking-[0.24em] text-cardstock-deep">
+        <span className="bcc-mono text-[10px] tracking-[0.24em] text-bcc-text-secondary">
           IDENTITY · WALLETS
         </span>
         <h2 className="bcc-stencil text-2xl text-bcc-text">Linked wallets</h2>
@@ -205,20 +205,20 @@ function LinkWalletForm({ chainSelectRef }: LinkWalletFormProps) {
   }
 
   return (
-    <div className="flex flex-col gap-2 border border-cardstock-edge bg-cardstock-deep/30 p-4">
-      <span className="bcc-mono text-[10px] tracking-[0.24em] text-cardstock-deep">
+    <div className="flex flex-col gap-2 border border-bcc-border bg-bcc-surface-hover p-4">
+      <span className="bcc-mono text-[10px] tracking-[0.24em] text-bcc-text-secondary">
         LINK NEW WALLET
       </span>
 
       <div className="flex flex-wrap items-end gap-2">
         <label className="flex min-w-[200px] flex-1 flex-col gap-1.5">
-          <span className="bcc-mono text-[11px] text-ink-soft">Chain</span>
+          <span className="bcc-mono text-[11px] text-bcc-text-secondary">Chain</span>
           <select
             ref={chainSelectRef}
             value={chainSlug}
             onChange={(e) => setChainSlug(e.target.value)}
             disabled={pending}
-            className="border border-cardstock-edge bg-cardstock-deep/60 px-3 py-2 font-serif text-ink outline-none focus:border-blueprint focus:ring-1 focus:ring-blueprint disabled:opacity-50"
+            className="border border-bcc-input-border bg-bcc-input-bg px-3 py-2 font-serif text-bcc-text outline-none focus:border-bcc-accent focus:ring-1 focus:ring-bcc-accent disabled:opacity-50"
           >
             {GROUPED_CHAINS.map((group) => (
               <optgroup key={group.chainType} label={group.label}>
@@ -246,7 +246,7 @@ function LinkWalletForm({ chainSelectRef }: LinkWalletFormProps) {
 
       {selectedChain !== undefined && (
         <p
-          className="bcc-mono text-[10px] tracking-[0.18em] text-ink-soft"
+          className="bcc-mono text-[10px] tracking-[0.18em] text-bcc-text-secondary"
           aria-live="polite"
         >
           {walletHintFor(selectedChain.chainType)}
@@ -270,7 +270,7 @@ function LinkWalletForm({ chainSelectRef }: LinkWalletFormProps) {
           airdropped junk) right here rather than hoping they find the
           affordance later. */}
       {success !== null && (
-        <div className="mt-2 border-t border-dashed border-ink/20 pt-3">
+        <div className="mt-2 border-t border-dashed border-bcc-border pt-3">
           <CollectionStancePanel />
         </div>
       )}
@@ -488,7 +488,7 @@ function RecoveryEmailForm({
               autoComplete="one-time-code"
               placeholder="000000"
               disabled={verify.isPending}
-              className="bcc-mono w-[8rem] border border-cardstock-edge bg-cardstock-deep/60 px-3 py-2 tracking-[0.3em] text-ink outline-none focus:border-blueprint focus:ring-1 focus:ring-blueprint disabled:opacity-50"
+              className="bcc-mono w-[8rem] border border-bcc-input-border bg-bcc-input-bg px-3 py-2 tracking-[0.3em] text-bcc-text outline-none focus:border-bcc-accent focus:ring-1 focus:ring-bcc-accent disabled:opacity-50"
             />
           </label>
 
@@ -542,7 +542,7 @@ function RecoveryEmailForm({
                 placeholder="you@example.com"
                 autoComplete="email"
                 disabled={request.isPending}
-                className="border border-cardstock-edge bg-cardstock-deep/60 px-3 py-2 font-serif text-ink outline-none focus:border-blueprint focus:ring-1 focus:ring-blueprint disabled:opacity-50"
+                className="border border-bcc-input-border bg-bcc-input-bg px-3 py-2 font-serif text-bcc-text outline-none focus:border-bcc-accent focus:ring-1 focus:ring-bcc-accent disabled:opacity-50"
               />
             </label>
 
@@ -554,7 +554,7 @@ function RecoveryEmailForm({
                 value={walletKey}
                 onChange={(e) => setWalletKey(e.target.value)}
                 disabled={request.isPending}
-                className="border border-cardstock-edge bg-cardstock-deep/60 px-3 py-2 font-serif text-ink outline-none focus:border-blueprint focus:ring-1 focus:ring-blueprint disabled:opacity-50"
+                className="border border-bcc-input-border bg-bcc-input-bg px-3 py-2 font-serif text-bcc-text outline-none focus:border-bcc-accent focus:ring-1 focus:ring-bcc-accent disabled:opacity-50"
               >
                 {options.map((opt) => (
                   <option key={opt.key} value={opt.key}>
@@ -624,10 +624,10 @@ function WalletRow({
       : null;
 
   return (
-    <li className="flex flex-wrap items-start justify-between gap-3 border border-cardstock-edge bg-cardstock-deep/40 p-4">
+    <li className="flex flex-wrap items-start justify-between gap-3 border border-bcc-border bg-bcc-surface-hover p-4">
       <div className="flex min-w-0 flex-col gap-1">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="bcc-stencil text-sm uppercase text-ink">
+          <span className="bcc-stencil text-sm uppercase text-bcc-text">
             {wallet.chain_name || wallet.chain_slug}
           </span>
           {wallet.is_primary && (
@@ -645,11 +645,11 @@ function WalletRow({
           )}
         </div>
 
-        <code className="bcc-mono block max-w-full truncate text-[11px] text-ink-soft">
+        <code className="bcc-mono block max-w-full truncate text-[11px] text-bcc-text-secondary">
           {wallet.wallet_address}
         </code>
 
-        <div className="bcc-mono flex flex-wrap gap-3 text-[10px] text-ink-soft/70">
+        <div className="bcc-mono flex flex-wrap gap-3 text-[10px] text-bcc-text-muted">
           {wallet.created_at !== null && (
             <span>Linked {formatShortDate(wallet.created_at)}</span>
           )}
@@ -673,7 +673,7 @@ function WalletRow({
               type="button"
               onClick={onCancelConfirm}
               disabled={isUnlinking}
-              className="bcc-mono border-2 border-cardstock-edge px-3 py-1.5 text-[10px] tracking-[0.18em] text-ink-soft hover:border-ink/50 hover:text-ink disabled:opacity-50"
+              className="bcc-mono border-2 border-bcc-border px-3 py-1.5 text-[10px] tracking-[0.18em] text-bcc-text-secondary hover:border-bcc-border-strong hover:text-bcc-text disabled:opacity-50"
             >
               CANCEL
             </button>
@@ -690,7 +690,7 @@ function WalletRow({
           <button
             type="button"
             onClick={onAskConfirm}
-            className="bcc-mono border-2 border-cardstock-edge px-3 py-1.5 text-[11px] tracking-[0.18em] text-ink-soft hover:border-safety hover:text-safety"
+            className="bcc-mono border-2 border-bcc-border px-3 py-1.5 text-[11px] tracking-[0.18em] text-bcc-text-secondary hover:border-safety hover:text-safety"
           >
             Unlink
           </button>
@@ -706,9 +706,9 @@ function WalletRow({
 
 function EmptyState() {
   return (
-    <div className="flex flex-col gap-2 border border-dashed border-cardstock-edge bg-cardstock-deep/20 p-4">
-      <p className="bcc-mono text-[11px] text-ink-soft">No wallets linked yet.</p>
-      <p className="font-serif text-[13px] text-ink-soft">
+    <div className="flex flex-col gap-2 border border-dashed border-bcc-border bg-bcc-surface-hover p-4">
+      <p className="bcc-mono text-[11px] text-bcc-text-secondary">No wallets linked yet.</p>
+      <p className="font-serif text-[13px] text-bcc-text-secondary">
         Pick a chain above and sign a challenge with the matching wallet
         &mdash; MetaMask for EVM chains, Phantom for Solana, Keplr for
         Cosmos. Once verified, the wallet shows up here. You can also

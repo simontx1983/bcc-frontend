@@ -4,8 +4,8 @@
  * SettingsNav — integrated tab strip rendered inside the persistent
  * hero panel (see app/settings/layout.tsx).
  *
- * Underline-style active marker on the cream cardstock surface: blueprint
- * line under the active tab, dimmed-ink text on inactive tabs. Same
+ * Underline-style active marker on the panel surface: accent
+ * line under the active tab, secondary text on inactive tabs. Same
  * pattern that GitHub / LinkedIn profile pages use — the tabs feel like
  * part of the hero chrome rather than a separate nav strip.
  *
@@ -42,7 +42,7 @@ export function SettingsNav() {
 
   return (
     <nav
-      className="flex flex-wrap items-end gap-1 overflow-x-auto border-t border-cardstock-edge/60 px-4 md:px-6"
+      className="flex flex-wrap items-end gap-1 overflow-x-auto border-t border-bcc-border px-4 md:px-6"
       aria-label="Settings sections"
     >
       {TABS.map((tab) => {
@@ -56,8 +56,8 @@ export function SettingsNav() {
             className={
               "bcc-mono relative whitespace-nowrap px-3 py-3 text-[11px] uppercase tracking-[0.18em] transition " +
               (active
-                ? "text-ink after:absolute after:inset-x-0 after:bottom-0 after:h-[3px] after:bg-blueprint after:content-['']"
-                : "text-ink-soft hover:text-ink hover:after:absolute hover:after:inset-x-3 hover:after:bottom-0 hover:after:h-[2px] hover:after:bg-ink-soft/40 hover:after:content-['']")
+                ? "text-bcc-text after:absolute after:inset-x-0 after:bottom-0 after:h-[3px] after:bg-bcc-accent after:content-['']"
+                : "text-bcc-text-secondary hover:text-bcc-text hover:after:absolute hover:after:inset-x-3 hover:after:bottom-0 hover:after:h-[2px] hover:after:bg-bcc-border-strong hover:after:content-['']")
             }
           >
             {tab.label}
