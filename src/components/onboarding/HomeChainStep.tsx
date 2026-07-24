@@ -36,10 +36,10 @@ export function HomeChainStep({
   return (
     <>
       <section className="mx-auto max-w-6xl px-6 pt-12 sm:px-8">
-        <h1 className="bcc-stencil text-cardstock text-5xl md:text-6xl">
+        <h1 className="bcc-stencil text-bcc-text text-5xl md:text-6xl">
           Where do you spend most of your time?
         </h1>
-        <p className="mt-4 max-w-2xl font-serif text-xl text-cardstock-deep">
+        <p className="mt-4 max-w-2xl font-serif text-xl text-bcc-text-secondary">
           We&apos;ll bias your suggestions and your home Local toward this chain.
           Skip if you&apos;re chain-agnostic — you can change it later.
         </p>
@@ -59,7 +59,7 @@ export function HomeChainStep({
                   "bcc-panel flex flex-col items-start gap-1 px-4 py-4 text-left transition " +
                   (isSelected
                     ? "ring-2 ring-safety"
-                    : "hover:border-cardstock-edge")
+                    : "hover:border-bcc-border-strong")
                 }
               >
                 <span className="bcc-stencil text-lg text-bcc-text">{opt.label}</span>
@@ -77,7 +77,7 @@ export function HomeChainStep({
             onSelect(null);
             onContinue();
           }}
-          className="bcc-mono text-cardstock-deep underline-offset-4 hover:underline"
+          className="bcc-mono text-bcc-text-secondary underline-offset-4 hover:underline"
         >
           Skip — chain-agnostic
         </button>

@@ -52,7 +52,7 @@ export function WatchingGrid({ handle }: WatchingGridProps) {
           <span className="bcc-rail-dot" />
           BCC // Watching
         </span>
-        <span className="bcc-mono text-cardstock-deep">@{handle}</span>
+        <span className="bcc-mono text-bcc-text-secondary">@{handle}</span>
       </header>
 
       <WatchingHeader handle={handle} total={total} summary={summary.data} />
@@ -83,7 +83,7 @@ function WatchingGridBody({ result }: { result: ReturnType<typeof useWatching> }
   if (result.isPending) {
     return (
       <section className="mx-auto mt-12 flex max-w-6xl justify-center px-6 sm:px-8">
-        <p className="bcc-mono text-cardstock-deep">Loading your watchlist…</p>
+        <p className="bcc-mono text-bcc-text-secondary">Loading your watchlist…</p>
       </section>
     );
   }
@@ -108,7 +108,7 @@ function WatchingGridBody({ result }: { result: ReturnType<typeof useWatching> }
           onClick={() => {
             void result.refetch();
           }}
-          className="bcc-mono mt-3 text-cardstock-deep underline"
+          className="bcc-mono mt-3 text-bcc-text-secondary underline"
         >
           Try again
         </button>
@@ -181,12 +181,12 @@ function Pagination({ page, totalPages, onChange, isFetching }: PaginationProps)
         type="button"
         onClick={() => onChange(page - 1)}
         disabled={!canPrev}
-        className="bcc-stencil border border-cardstock-edge/40 px-4 py-2 text-cardstock disabled:opacity-40"
+        className="bcc-stencil border border-bcc-border px-4 py-2 text-bcc-text disabled:opacity-40"
       >
         ← Prev
       </button>
 
-      <span className="bcc-mono text-cardstock-deep">
+      <span className="bcc-mono text-bcc-text-secondary">
         Page {page} of {totalPages}
       </span>
 
@@ -194,7 +194,7 @@ function Pagination({ page, totalPages, onChange, isFetching }: PaginationProps)
         type="button"
         onClick={() => onChange(page + 1)}
         disabled={!canNext}
-        className="bcc-stencil border border-cardstock-edge/40 px-4 py-2 text-cardstock disabled:opacity-40"
+        className="bcc-stencil border border-bcc-border px-4 py-2 text-bcc-text disabled:opacity-40"
       >
         Next →
       </button>

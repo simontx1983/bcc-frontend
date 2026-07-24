@@ -29,14 +29,14 @@ export function FirstPullsStep({
   return (
     <>
       <section className="mx-auto max-w-6xl px-6 pt-12 sm:px-8">
-        <h1 className="bcc-stencil text-cardstock text-5xl md:text-6xl">
+        <h1 className="bcc-stencil text-bcc-text text-5xl md:text-6xl">
           Start watching.
         </h1>
-        <p className="mt-4 max-w-2xl font-serif text-xl text-cardstock-deep">
+        <p className="mt-4 max-w-2xl font-serif text-xl text-bcc-text-secondary">
           Pick the validators, projects, and creators you want to keep tabs on.
           Your watchlist + Floor feed start with the cards you pick here.
         </p>
-        <p className="bcc-mono mt-3 text-cardstock-deep/70">
+        <p className="bcc-mono mt-3 text-bcc-text-secondary">
           Skipping is fine — you can start watching any time.
         </p>
       </section>
@@ -48,7 +48,7 @@ export function FirstPullsStep({
           type="button"
           onClick={onBack}
           disabled={pulls.anyPending}
-          className="bcc-mono text-cardstock-deep underline-offset-4 hover:underline disabled:opacity-50"
+          className="bcc-mono text-bcc-text-secondary underline-offset-4 hover:underline disabled:opacity-50"
         >
           ← Back
         </button>
@@ -88,7 +88,7 @@ function SuggestionsBody({ result, pulls }: SuggestionsBodyProps) {
   if (result.isLoading) {
     return (
       <section className="mx-auto mt-12 flex max-w-6xl justify-center px-6 sm:px-8">
-        <p className="bcc-mono text-cardstock-deep">Loading suggestions…</p>
+        <p className="bcc-mono text-bcc-text-secondary">Loading suggestions…</p>
       </section>
     );
   }
@@ -113,7 +113,7 @@ function SuggestionsBody({ result, pulls }: SuggestionsBodyProps) {
           onClick={() => {
             void result.refetch();
           }}
-          className="bcc-mono mt-3 text-cardstock-deep underline"
+          className="bcc-mono mt-3 text-bcc-text-secondary underline"
         >
           Try again
         </button>
@@ -144,10 +144,10 @@ function SuggestionsBody({ result, pulls }: SuggestionsBodyProps) {
 
   return (
     <section className="mx-auto mt-12 max-w-6xl px-6 sm:px-8">
-      <div className="bcc-mono mb-6 flex items-center gap-3 text-cardstock-deep">
-        <span className="inline-block h-px w-8 bg-cardstock-edge/50" />
+      <div className="bcc-mono mb-6 flex items-center gap-3 text-bcc-text-secondary">
+        <span className="inline-block h-px w-8 bg-bcc-border" />
         <span>Curated for you</span>
-        <span className="inline-block h-px flex-1 bg-cardstock-edge/50" />
+        <span className="inline-block h-px flex-1 bg-bcc-border" />
       </div>
 
       <div className="flex flex-wrap justify-center gap-10 md:gap-12">
@@ -184,7 +184,7 @@ function CardWithError({ card, pulls }: { card: Card; pulls: WizardPullsApi }) {
         onPull={isPending ? PENDING_NOOP : pulls.toggle}
       />
       {isPending && (
-        <span className="bcc-mono text-cardstock-deep/70">{isPulled ? "Removing…" : "Saving…"}</span>
+        <span className="bcc-mono text-bcc-text-secondary">{isPulled ? "Removing…" : "Saving…"}</span>
       )}
       {error !== null && !isPending && (
         <span role="alert" className="bcc-mono max-w-[280px] text-center text-safety">

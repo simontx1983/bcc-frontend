@@ -45,7 +45,7 @@ export function ChainTabs({ chains }: ChainTabsProps) {
       className="bcc-panel mt-6 flex flex-col gap-3 p-5"
     >
       <header className="flex items-baseline justify-between gap-3">
-        <span className="bcc-mono text-[10px] tracking-[0.24em] text-cardstock-deep">
+        <span className="bcc-mono text-[10px] tracking-[0.24em] text-bcc-text-secondary">
           CROSS-CHAIN //
         </span>
         <span className="bcc-mono text-[10px] tracking-[0.18em] text-bcc-text-secondary/70">

@@ -42,20 +42,20 @@ export interface WatchingHeaderProps {
 export function WatchingHeader({ handle, total, summary }: WatchingHeaderProps) {
   return (
     <section className="mx-auto max-w-6xl px-6 pt-16 sm:px-8">
-      <p className="bcc-mono text-cardstock-deep/70">
+      <p className="bcc-mono text-bcc-text-secondary">
         @{handle} · watching
       </p>
 
-      <h1 className="bcc-stencil mt-2 text-cardstock text-5xl md:text-6xl">
+      <h1 className="bcc-stencil mt-2 text-bcc-text text-5xl md:text-6xl">
         Your watchlist
       </h1>
 
-      <p className="mt-4 max-w-2xl font-serif text-xl text-cardstock-deep">
+      <p className="mt-4 max-w-2xl font-serif text-xl text-bcc-text-secondary">
         Every card you&rsquo;re watching. Click through to view details, hover
         to remove.
       </p>
 
-      <div className="mt-10 grid gap-6 border-y border-cardstock-edge/30 py-6 md:grid-cols-3">
+      <div className="mt-10 grid gap-6 border-y border-bcc-border py-6 md:grid-cols-3">
         <Metric
           label="Collection size"
           value={total.toString()}
@@ -135,12 +135,12 @@ function TierDistribution({
 
   return (
     <div>
-      <p className="bcc-mono text-xs text-cardstock-deep/70">
+      <p className="bcc-mono text-xs text-bcc-text-secondary">
         Tier distribution
       </p>
 
       <div
-        className="mt-3 flex h-2 overflow-hidden rounded-sm bg-cardstock-deep/20"
+        className="mt-3 flex h-2 overflow-hidden rounded-sm bg-bcc-surface-hover"
         role="img"
         aria-label={visibleSlots
           .map(
@@ -161,7 +161,7 @@ function TierDistribution({
         ))}
       </div>
 
-      <ul className="bcc-mono mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-cardstock-deep/80">
+      <ul className="bcc-mono mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-bcc-text-secondary">
         {visibleSlots.map((tier) => (
           <li key={tier} className="flex items-center gap-1.5">
             <span
@@ -208,13 +208,13 @@ function MonthlyActivity({
 
   return (
     <div>
-      <p className="bcc-mono text-xs text-cardstock-deep/70">This month</p>
+      <p className="bcc-mono text-xs text-bcc-text-secondary">This month</p>
 
-      <ul className="mt-1 space-y-0.5 font-serif text-cardstock">
+      <ul className="mt-1 space-y-0.5 font-serif text-bcc-text">
         {activity.reviews > 0 && (
           <li className="bcc-stencil text-2xl">
             {activity.reviews}{" "}
-            <span className="bcc-mono text-xs text-cardstock-deep/70">
+            <span className="bcc-mono text-xs text-bcc-text-secondary">
               review{activity.reviews === 1 ? "" : "s"}
             </span>
           </li>
@@ -222,7 +222,7 @@ function MonthlyActivity({
         {activity.solids_received > 0 && (
           <li className="bcc-stencil text-2xl">
             {activity.solids_received}{" "}
-            <span className="bcc-mono text-xs text-cardstock-deep/70">
+            <span className="bcc-mono text-xs text-bcc-text-secondary">
               solid{activity.solids_received === 1 ? "" : "s"} received
             </span>
           </li>
@@ -230,13 +230,13 @@ function MonthlyActivity({
         {activity.disputes_signed > 0 && (
           <li className="bcc-stencil text-2xl">
             {activity.disputes_signed}{" "}
-            <span className="bcc-mono text-xs text-cardstock-deep/70">
+            <span className="bcc-mono text-xs text-bcc-text-secondary">
               dispute{activity.disputes_signed === 1 ? "" : "s"} signed
             </span>
           </li>
         )}
       </ul>
-      <p className="bcc-mono mt-1 text-[10px] text-cardstock-deep/60">
+      <p className="bcc-mono mt-1 text-[10px] text-bcc-text-secondary">
         rolling 30d
       </p>
     </div>
@@ -260,17 +260,17 @@ function Metric({
 }) {
   return (
     <div>
-      <p className="bcc-mono text-xs text-cardstock-deep/70">{label}</p>
+      <p className="bcc-mono text-xs text-bcc-text-secondary">{label}</p>
       <p
         className={
           stubbed
-            ? "bcc-stencil mt-1 text-2xl text-cardstock-deep/60"
-            : "bcc-stencil mt-1 text-3xl text-cardstock"
+            ? "bcc-stencil mt-1 text-2xl text-bcc-text-secondary"
+            : "bcc-stencil mt-1 text-3xl text-bcc-text"
         }
       >
         {value}
       </p>
-      <p className="bcc-mono mt-1 text-[10px] text-cardstock-deep/60">{hint}</p>
+      <p className="bcc-mono mt-1 text-[10px] text-bcc-text-secondary">{hint}</p>
     </div>
   );
 }

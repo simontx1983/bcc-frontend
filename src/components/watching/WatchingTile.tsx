@@ -93,7 +93,7 @@ export function WatchingTile({ item, isUnwatching = false }: WatchingTileProps) 
       </div>
 
       {/* Crest — hex with initials. Reuses globals.css .bcc-hex layers. */}
-      <div className="relative flex flex-1 items-center justify-center bg-cardstock-deep/30">
+      <div className="relative flex flex-1 items-center justify-center bg-bcc-surface-hover">
         <div className="bcc-hex h-[110px] w-[100px] drop-shadow-[0_4px_6px_rgb(var(--bcc-black-rgb)_/_0.4)]">
           <span aria-hidden className="bcc-hex-outer" />
           <span aria-hidden className="bcc-hex-mid" />

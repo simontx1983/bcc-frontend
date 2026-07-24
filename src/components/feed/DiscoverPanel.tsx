@@ -222,11 +222,11 @@ interface BlockSectionProps {
 
 function BlockSection({ label, viewAllHref, children }: BlockSectionProps) {
   return (
-    <section className="border-t border-cardstock-edge/40 px-5 py-4 first:border-t-0">
-      <header className="bcc-mono mb-3 flex items-center gap-3 text-cardstock-deep">
-        <span className="inline-block h-px w-6 bg-cardstock-edge/50" />
+    <section className="border-t border-bcc-border px-5 py-4 first:border-t-0">
+      <header className="bcc-mono mb-3 flex items-center gap-3 text-bcc-text-secondary">
+        <span className="inline-block h-px w-6 bg-bcc-border" />
         <span className="text-[10px] tracking-[0.2em]">{label}</span>
-        <span className="inline-block h-px flex-1 bg-cardstock-edge/50" />
+        <span className="inline-block h-px flex-1 bg-bcc-border" />
         {viewAllHref !== null && (
           <Link
             href={viewAllHref}
@@ -254,9 +254,9 @@ function LocalCard({ local }: { local: ColdStartLocal }) {
     <li>
       <Link
         href={`/locals/${local.slug}` as Route}
-        className="bcc-panel block px-3 py-3 transition hover:bg-cardstock-deep/5"
+        className="bcc-panel block px-3 py-3 transition hover:bg-bcc-surface-hover"
         style={{
-          borderLeft: `3px solid var(--chain-${local.chain_slug}, var(--cardstock-edge))`,
+          borderLeft: `3px solid var(--chain-${local.chain_slug}, var(--bcc-border))`,
         }}
       >
         <span className="bcc-stencil block truncate text-sm text-bcc-text">
@@ -285,7 +285,7 @@ function OperatorRow({ op }: { op: ColdStartOperator }) {
     <li>
       <Link
         href={op.link as Route}
-        className="flex items-center gap-3 border-b border-cardstock-edge/30 px-1 py-2.5 transition last:border-b-0 hover:bg-cardstock-deep/5"
+        className="flex items-center gap-3 border-b border-bcc-border px-1 py-2.5 transition last:border-b-0 hover:bg-bcc-surface-hover"
       >
         <Avatar
           avatarUrl={op.avatar_url === "" ? null : op.avatar_url}

@@ -101,7 +101,7 @@ export function OnboardingTrustLayerSteps({
           <button
             type="button"
             onClick={onBack}
-            className="bcc-mono text-cardstock-deep underline-offset-4 hover:underline"
+            className="bcc-mono text-bcc-text-secondary underline-offset-4 hover:underline"
           >
             ← Back to pulls
           </button>
@@ -119,7 +119,7 @@ function CardProgress({ current }: { current: TrustCard }) {
   const cards: TrustCard[] = ["what", "actions", "reputation", "first_vouch"];
   const idx = cards.indexOf(current) + 1;
   return (
-    <p className="bcc-mono text-[10px] tracking-[0.24em] text-cardstock-deep">
+    <p className="bcc-mono text-[10px] tracking-[0.24em] text-bcc-text-secondary">
       HOW THE GRAPH WORKS · {idx} OF {cards.length}
     </p>
   );
@@ -136,10 +136,10 @@ function CardOne({ onContinue }: { onContinue: () => void }) {
   return (
     <div className="flex flex-col gap-8">
       <header className="flex flex-col gap-3">
-        <h1 className="bcc-stencil text-cardstock text-4xl md:text-5xl">
+        <h1 className="bcc-stencil text-bcc-text text-4xl md:text-5xl">
           What this is.
         </h1>
-        <p className="font-serif text-cardstock-deep text-lg leading-relaxed">
+        <p className="font-serif text-bcc-text-secondary text-lg leading-relaxed">
           Blue Collar Crypto is an operator intelligence network.
           Operators back, dispute, or stay silent about other
           operators. The platform synthesizes those signals into a
@@ -174,10 +174,10 @@ function CardTwo({
   return (
     <div className="flex flex-col gap-8">
       <header className="flex flex-col gap-3">
-        <h1 className="bcc-stencil text-cardstock text-4xl md:text-5xl">
+        <h1 className="bcc-stencil text-bcc-text text-4xl md:text-5xl">
           Three things you can do.
         </h1>
-        <p className="font-serif text-cardstock-deep text-lg leading-relaxed">
+        <p className="font-serif text-bcc-text-secondary text-lg leading-relaxed">
           Three actions. Each has different cost, different weight,
           different meaning.
         </p>
@@ -219,10 +219,10 @@ function PrimitiveRow({
   body: string;
 }) {
   return (
-    <li className="flex flex-col gap-1 border-l-[3px] border-cardstock-edge/40 pl-4">
-      <span className="bcc-mono text-cardstock">{label}</span>
-      <span className="font-serif italic text-cardstock-deep">{tagline}</span>
-      <span className="font-serif text-cardstock-deep">{body}</span>
+    <li className="flex flex-col gap-1 border-l-[3px] border-bcc-border pl-4">
+      <span className="bcc-mono text-bcc-text">{label}</span>
+      <span className="font-serif italic text-bcc-text-secondary">{tagline}</span>
+      <span className="font-serif text-bcc-text-secondary">{body}</span>
     </li>
   );
 }
@@ -245,12 +245,12 @@ function CardThree({
   return (
     <div className="flex flex-col gap-8">
       <header className="flex flex-col gap-3">
-        <h1 className="bcc-stencil text-cardstock text-4xl md:text-5xl">
+        <h1 className="bcc-stencil text-bcc-text text-4xl md:text-5xl">
           How reputation works.
         </h1>
       </header>
 
-      <div className="flex flex-col gap-5 font-serif text-cardstock-deep text-lg leading-relaxed">
+      <div className="flex flex-col gap-5 font-serif text-bcc-text-secondary text-lg leading-relaxed">
         {/* The three sentences below + the absence-not-negative
             paragraph are imported from a shared constants module
             (lib/copy/trust-layer.ts) so the same teaching renders
@@ -258,11 +258,11 @@ function CardThree({
             between surfaces reopens the §2.9 failure mode; the lift
             prevents that without ceding the layout to a content CMS. */}
         <p>
-          Your <span className="font-semibold text-cardstock">reputation</span>{" "}
+          Your <span className="font-semibold text-bcc-text">reputation</span>{" "}
           grows from what others say about you.
         </p>
         <p>
-          Your <span className="font-semibold text-cardstock">reliability</span>{" "}
+          Your <span className="font-semibold text-bcc-text">reliability</span>{" "}
           is your own track record as a judge of others.
         </p>
         <p>{REPUTATION_VS_RELIABILITY.both_grow_slowly}</p>
@@ -274,7 +274,7 @@ function CardThree({
             which is why both the headline and body are imported
             constants, not inline strings. */}
         <p className="border-l-[3px] border-safety/60 pl-4 italic">
-          <span className="not-italic font-semibold text-cardstock">
+          <span className="not-italic font-semibold text-bcc-text">
             {ABSENCE_NOT_NEGATIVE.headline}
           </span>{" "}
           {ABSENCE_NOT_NEGATIVE.body}
@@ -307,12 +307,12 @@ function CardFour({
   return (
     <div className="flex flex-col gap-8">
       <header className="flex flex-col gap-3">
-        <h1 className="bcc-stencil text-cardstock text-4xl md:text-5xl">
+        <h1 className="bcc-stencil text-bcc-text text-4xl md:text-5xl">
           Cast your first vouch.
         </h1>
-        <p className="font-serif text-cardstock-deep text-lg leading-relaxed">
+        <p className="font-serif text-bcc-text-secondary text-lg leading-relaxed">
           Here&apos;s a sample operator. Tap{" "}
-          <span className="bcc-mono text-cardstock">VOUCH</span> below
+          <span className="bcc-mono text-bcc-text">VOUCH</span> below
           to try the action — the feeling is the lesson.
         </p>
       </header>
@@ -324,7 +324,7 @@ function CardFour({
         <button
           type="button"
           onClick={onContinue}
-          className="bcc-mono text-cardstock-deep underline-offset-4 hover:underline"
+          className="bcc-mono text-bcc-text-secondary underline-offset-4 hover:underline"
         >
           Skip — I&apos;ll vouch later
         </button>
@@ -346,25 +346,25 @@ function SampleReputationCard() {
   return (
     <div
       aria-hidden
-      className="border border-cardstock/20 bg-cardstock-deep/40 p-5"
+      className="border border-bcc-border bg-bcc-surface-hover p-5"
     >
       <div className="flex flex-col gap-1">
-        <span className="bcc-mono text-[10px] tracking-[0.2em] text-cardstock-deep">
+        <span className="bcc-mono text-[10px] tracking-[0.2em] text-bcc-text-secondary">
           REPUTATION
         </span>
         <div className="flex items-baseline gap-3">
           <span
-            className="bcc-stencil text-cardstock leading-none"
+            className="bcc-stencil text-bcc-text leading-none"
             style={{ fontSize: "clamp(1.75rem, 3vw, 2.25rem)" }}
           >
             72
           </span>
-          <span className="bcc-mono text-cardstock-deep">Well Regarded</span>
+          <span className="bcc-mono text-bcc-text-secondary">Well Regarded</span>
         </div>
       </div>
 
       <div className="mt-4 flex flex-col">
-        <span className="bcc-mono text-[10px] tracking-[0.2em] text-cardstock-deep">
+        <span className="bcc-mono text-[10px] tracking-[0.2em] text-bcc-text-secondary">
           BACKING
         </span>
         <ul className="mt-2 flex flex-col gap-2">
@@ -402,22 +402,22 @@ function SampleAttestorRow({
   standing: string;
 }) {
   return (
-    <li className="flex items-start gap-3 border-b border-cardstock/15 py-2 last:border-b-0">
+    <li className="flex items-start gap-3 border-b border-bcc-border py-2 last:border-b-0">
       <span
         aria-hidden
-        className="bcc-stencil flex h-8 w-8 shrink-0 items-center justify-center border border-cardstock/30 bg-cardstock-deep/60 text-sm text-cardstock"
+        className="bcc-stencil flex h-8 w-8 shrink-0 items-center justify-center border border-bcc-border bg-bcc-surface-hover text-sm text-bcc-text"
       >
         {handle.charAt(0).toUpperCase()}
       </span>
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         <div className="flex flex-wrap items-baseline gap-x-2">
-          <span className="bcc-mono text-cardstock">@{handle}</span>
-          <span className="font-serif text-cardstock-deep">{displayName}</span>
+          <span className="bcc-mono text-bcc-text">@{handle}</span>
+          <span className="font-serif text-bcc-text-secondary">{displayName}</span>
           <span className="bcc-mono text-[10px] tracking-[0.18em] text-phosphor">
             {standing}
           </span>
         </div>
-        <div className="bcc-mono text-[11px] text-cardstock-deep">
+        <div className="bcc-mono text-[11px] text-bcc-text-secondary">
           {kind} · {relativeTime}
         </div>
       </div>
@@ -433,18 +433,18 @@ function SampleAttestorRow({
 
 function SampleVouchTarget({ onVouch }: { onVouch: () => void }) {
   return (
-    <div className="border border-cardstock/20 bg-cardstock-deep/40 p-5">
+    <div className="border border-bcc-border bg-bcc-surface-hover p-5">
       <div className="flex items-start gap-4">
         <span
           aria-hidden
-          className="bcc-stencil flex h-14 w-14 shrink-0 items-center justify-center border border-cardstock/30 bg-cardstock-deep/60 text-xl text-cardstock"
+          className="bcc-stencil flex h-14 w-14 shrink-0 items-center justify-center border border-bcc-border bg-bcc-surface-hover text-xl text-bcc-text"
         >
           S
         </span>
         <div className="flex flex-col gap-1">
-          <span className="bcc-mono text-cardstock">@sample-operator</span>
-          <span className="font-serif text-cardstock-deep">Sample Operator</span>
-          <p className="mt-2 font-serif text-cardstock-deep italic">
+          <span className="bcc-mono text-bcc-text">@sample-operator</span>
+          <span className="font-serif text-bcc-text-secondary">Sample Operator</span>
+          <p className="mt-2 font-serif text-bcc-text-secondary italic">
             A placeholder card so you can feel the Vouch action before
             you encounter real operators.
           </p>
@@ -454,7 +454,7 @@ function SampleVouchTarget({ onVouch }: { onVouch: () => void }) {
         <button
           type="button"
           onClick={onVouch}
-          className="bcc-mono inline-flex items-center justify-center self-start border border-cardstock/40 bg-cardstock/5 px-4 py-2 text-sm tracking-[0.18em] text-cardstock transition hover:bg-cardstock/15"
+          className="bcc-mono inline-flex items-center justify-center self-start border border-bcc-border hover:border-bcc-border-strong bg-bcc-surface-hover px-4 py-2 text-sm tracking-[0.18em] text-bcc-text transition hover:bg-bcc-surface-active"
         >
           VOUCH
         </button>
@@ -486,7 +486,7 @@ function BackButton({ onClick }: { onClick: () => void }) {
     <button
       type="button"
       onClick={onClick}
-      className="bcc-mono text-cardstock-deep underline-offset-4 hover:underline"
+      className="bcc-mono text-bcc-text-secondary underline-offset-4 hover:underline"
     >
       ← Back
     </button>
