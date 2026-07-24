@@ -5490,6 +5490,38 @@ export interface ConversationListResponse {
   pagination: OffsetPagination;
 }
 
+/**
+ * GET /me/queued-messages (§4.19, v1.54) — the viewer's own PENDING
+ * messages queued to validators that have no verified operator yet.
+ * These are not conversations (there is no one to converse with), so
+ * they never appear in the inbox; when the validator is first claimed,
+ * the backlog delivers and each becomes a normal thread (leaving this
+ * list). Sender-visible only; delivered/suppressed rows are not shown.
+ */
+export interface QueuedMessageValidator {
+  page_id: number;
+  name: string;
+  /** peepso-page slug — links to `/v/{slug}`. */
+  slug: string;
+  avatar_url: string;
+}
+
+export interface QueuedMessageItem {
+  /** Queue row id. */
+  id: number;
+  validator: QueuedMessageValidator;
+  /** Plain-text preview of the viewer's own queued message. */
+  preview: string;
+  /** Always `"awaiting_first_verified_operator"` at V1. */
+  delivery_state: string;
+  created_at: string;
+}
+
+export interface QueuedMessagesResponse {
+  items: QueuedMessageItem[];
+  pagination: OffsetPagination;
+}
+
 /** Thread offset pagination — `total` is unbounded; walk via `has_more`. */
 export interface ThreadPagination {
   page: number;

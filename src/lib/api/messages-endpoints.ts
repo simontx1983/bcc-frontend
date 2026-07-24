@@ -11,6 +11,7 @@ import { bccFetchAsClient } from "@/lib/api/client";
 import type {
   ConversationListResponse,
   ConversationThreadResponse,
+  QueuedMessagesResponse,
   SendMessageResponse,
   StartConversationRequest,
   StartConversationResponse,
@@ -34,6 +35,24 @@ export function listConversations(
   const init: { method: "GET"; signal?: AbortSignal } = { method: "GET" };
   if (signal !== undefined) init.signal = signal;
   return bccFetchAsClient<ConversationListResponse>(path, init);
+}
+
+/**
+ * GET /me/queued-messages — the viewer's pending pre-claim validator
+ * messages (the "Queued" tab). See QueuedMessagesResponse.
+ */
+export function listQueuedMessages(
+  params: ListConversationsParams = {},
+  signal?: AbortSignal,
+): Promise<QueuedMessagesResponse> {
+  const search = new URLSearchParams();
+  if (params.page !== undefined) search.set("page", String(params.page));
+  if (params.perPage !== undefined) search.set("per_page", String(params.perPage));
+  const qs = search.toString();
+  const path = `me/queued-messages${qs !== "" ? `?${qs}` : ""}`;
+  const init: { method: "GET"; signal?: AbortSignal } = { method: "GET" };
+  if (signal !== undefined) init.signal = signal;
+  return bccFetchAsClient<QueuedMessagesResponse>(path, init);
 }
 
 /**
