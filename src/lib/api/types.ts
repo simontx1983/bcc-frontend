@@ -341,8 +341,18 @@ export interface CardChain {
   slug: string;
   /** Display label e.g. "Cosmos Hub", "Osmosis". */
   name: string;
-  /** bech32 operator address (cosmosvaloper… on Cosmos chains). */
-  operator_address: string;
+  /**
+   * Derived, non-identifying signal: the server holds a verified on-chain
+   * operator identity for this chain.
+   *
+   * Replaced `operator_address` (2026-07-23). Validator rows are keyed to
+   * a wallet link and the operator address is matched against the
+   * claimant's verified wallet, so publishing it bound an on-chain
+   * address to a named member — and the UI rendered it truncated, which
+   * is a shortened wallet address by another name.
+   * See docs/wallet-privacy-policy.md.
+   */
+  operator_verified: boolean;
 }
 
 /**
@@ -1418,39 +1428,38 @@ export interface NftPieceAttribute {
 }
 
 /**
- * Co-owner row in `NftPiece.owners[]` (ERC-1155 only). Privacy-redacted
- * server-side: wallet-only, no `is_linked` / `user` enrichment — only
- * the dominant `owner` gets handle resolution.
+ * Co-owner row in `NftPiece.owners[]`.
+ *
+ * The server now always returns `owners: []`. Every field this type once
+ * carried — `wallet_address`, `address_short`, `balance` — was a wallet
+ * identifier or a holding bound to one, on an ANONYMOUS endpoint. Use
+ * the aggregate `owners_count` instead; it identifies nobody.
+ *
+ * Kept as an empty shape so `owners[]` stays a typed array rather than
+ * disappearing from the contract.
+ *
+ * See docs/wallet-privacy-policy.md.
  */
-export interface NftPieceCoOwner {
-  wallet_address: string;
-  /** §1.7 wallet pattern: `<first-6>…<last-4>`. */
-  address_short: string;
-  /** Actual SUM(balance) for ERC-1155; not used for ERC-721 / CW-721. */
-  balance: number;
-}
+export type NftPieceCoOwner = Record<string, never>;
 
 /**
- * Dominant holder for the NFT piece. `null` for ERC-721 / CW-721
- * cold-cache (no on-chain holder known yet). For ERC-1155, the
- * top-balance holder, ties broken by lowest wallet_address lex.
+ * Dominant holder for the NFT piece. `null` when no on-chain holder is
+ * known yet (cold-cache, freshly minted, indexer behind).
  *
- * `user` is non-null IFF `is_linked` is true — the wallet has a
- * BCC-linked user behind it. Frontend MUST NOT invent a user link
- * when `is_linked === false`.
+ * `is_linked` means "some BCC member holds this" — it names nobody and
+ * cannot be resolved back to a member.
+ *
+ * Removed 2026-07-23: `wallet_address`, `address_short`, `balance`, and
+ * the `user` block. The `user` block was the severe one — it resolved
+ * the holder's BCC identity from a PRIVATE wallet link and published a
+ * member↔holding join on an anonymous, enumerable endpoint. Verifying a
+ * wallet is not consent to broadcast what it holds; holdings are
+ * disclosed only through the explicit opt-in NFT showcase.
+ *
+ * See docs/wallet-privacy-policy.md.
  */
 export interface NftPieceOwner {
-  wallet_address: string;
-  /** §1.7 wallet pattern: `<first-6>…<last-4>`. */
-  address_short: string;
-  balance: number;
   is_linked: boolean;
-  user: {
-    id: number;
-    handle: string;
-    display_name: string;
-    avatar_url: string;
-  } | null;
 }
 
 /**
@@ -3299,11 +3308,30 @@ export interface MemberUxHelpers {
   show_helpers: boolean;
 }
 
-/** Wallet shape inside MemberProfile.wallets. */
+/**
+ * Wallet shape inside `MemberProfile.wallets`.
+ *
+ * OWN-ACCOUNT ONLY. The server returns `wallets: []` for every viewer
+ * who is not the profile owner — no address, no shortened address, no
+ * wallet-link id. If you are holding a populated `MemberWallet[]`, it is
+ * the signed-in user's own, and it must not be rendered on any surface a
+ * different user can see.
+ *
+ * Previously `address_short` was declared non-optional here, i.e. the
+ * type GUARANTEED a masked address to strangers — that was the contract
+ * bug behind the leak, not just an implementation slip.
+ *
+ * For "does this member have a verified wallet", use the non-identifying
+ * `MemberProfile.verifications.wallets_verified` count instead. Never
+ * derive it from `wallets.length` — that reads 0 for every visitor.
+ *
+ * See docs/wallet-privacy-policy.md.
+ */
 export interface MemberWallet {
   id: number;
-  /** Full address — own profile only; others' get `address_short` only. */
-  address?: string;
+  /** Full address. Own account only. */
+  address: string;
+  /** Masked address. STILL own-account-only — a masked address is a wallet identifier. */
   address_short: string;
   chain_slug: string;
   chain_name: string;
@@ -4020,8 +4048,13 @@ export type Phase4MemberProfile = MemberProfile;
  * `ux_helpers`) are present when `is_self === true` and OMITTED ENTIRELY
  * (not null) on others' profiles. Optional in the type accordingly.
  *
- * `wallets[].address` is the same: present on own profile, omitted for
- * others' (privacy floor — only `address_short` leaks across users).
+ * `wallets` follows the same own-only rule, but ENFORCED BY EMPTINESS
+ * rather than by field omission: the array is fully populated on your own
+ * profile and `[]` on everyone else's. Nothing about another member's
+ * wallets crosses the boundary — not a masked address, not a link id.
+ * The old "privacy floor" (ship `address_short` to strangers) was itself
+ * the leak; a masked address is a wallet identifier.
+ * See docs/wallet-privacy-policy.md.
  */
 
 // ─────────────────────────────────────────────────────────────────────
@@ -4527,14 +4560,23 @@ export interface MemberProfile {
   };
   primary_local: { id: number; slug: string; name: string; number: number | null } | null;
   locals: MemberLocal[];
+  /**
+   * OWN ACCOUNT ONLY — `[]` for every viewer who is not the profile
+   * owner. Do not render this anywhere a different user can see, and do
+   * not use `.length` as a "has verified wallet" signal (use
+   * `verifications.wallets_verified`). See docs/wallet-privacy-policy.md.
+   */
   wallets: MemberWallet[];
   /**
    * Identity-verification status per `UserViewService::getProfile`.
    * `x_verified` / `github_verified` are true only when an active,
    * verified row exists in `bcc_trust_user_verifications`. The
    * `*_username` siblings carry the public handle for display.
-   * `wallets_verified` is the count of verified wallet links —
-   * per-wallet detail lives on the parallel `wallets` array.
+   * `wallets_verified` is the count of verified wallet links. It is
+   * repository-sourced and accurate for EVERY viewer — it is the only
+   * wallet signal permitted to cross a member boundary. Per-wallet
+   * detail lives on the parallel `wallets` array, which is own-account-
+   * only and empty for visitors, so never compute this from its length.
    *
    * Surfaced on `/me/progression` (own-file context) and the
    * §3.1 verified panel on /u/[handle].
