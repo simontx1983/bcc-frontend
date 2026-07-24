@@ -1,19 +1,14 @@
 /**
- * /settings/nft-showcase — host page for the Phase-2 NFT picker.
- *
- * Renders inside SettingsLayout (auth + persistent hero + nav). The
- * actual surface lives in the client component because it owns the
- * modal-open state and runs the React Query hooks for the saved
- * selections list. This page is a server-rendered shell.
+ * ShowcaseSettingsPanel — owner-only "Showcase" tab.
+ * Lifted from the retired /settings/nft-showcase page.
  */
 
 import { NftShowcaseSettings } from "@/components/onchain/NftShowcaseSettings";
-
 import { SettingsSectionHeader } from "@/components/settings/SettingsSectionHeader";
 
-export default function NftShowcaseSettingsPage() {
+export function ShowcaseSettingsPanel() {
   return (
-    <section className="mx-auto mt-10 max-w-3xl px-2 sm:px-3">
+    <section>
       <SettingsSectionHeader
         eyebrow="SHOWCASE"
         title="Your NFT showcase"

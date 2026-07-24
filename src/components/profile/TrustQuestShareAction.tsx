@@ -21,7 +21,7 @@ import { useState } from "react";
 
 import { useVerifyXShare } from "@/hooks/useOAuthConnections";
 
-const SETTINGS_IDENTITY = "/settings/profile" as Route;
+const SETTINGS_IDENTITY = "/u/me?tab=profile" as Route;
 const SHARE_TEXT = "Building trust on the floor at Blue Collar Crypto.";
 
 const linkClass =

@@ -462,7 +462,7 @@ function NftPickerEmpty() {
       </p>
       <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
         <Link
-          href="/settings/account"
+          href="/u/me?tab=account"
           className="bcc-stencil border-2 border-ink px-4 py-2 text-[11px] tracking-[0.2em] text-ink transition hover:bg-ink hover:text-cardstock motion-reduce:transition-none"
         >
           LINK A WALLET →

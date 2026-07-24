@@ -16,6 +16,8 @@
  * advances the wizard. Skip is always available.
  */
 
+import Link from "next/link";
+
 import { useMyWallets } from "@/hooks/useWallets";
 import { CollectionStancePanel } from "@/components/onchain/CollectionStancePanel";
 
@@ -49,13 +51,13 @@ export function CollectionsStep({
           </div>
         ) : (
           <p className="font-serif italic text-bcc-text-secondary">
-            No wallet linked yet — you can do it any time in{" "}
-            <a
-              href="/settings/profile"
+            No wallet linked yet — you can do it any time on{" "}
+            <Link
+              href="/u/me?tab=account"
               className="underline-offset-4 hover:underline"
             >
-              settings
-            </a>
+              your Account tab
+            </Link>
             , and your collections will show up right there.
           </p>
         )}

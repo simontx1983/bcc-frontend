@@ -27,6 +27,7 @@
  * out so users know where to come back.
  */
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import {
@@ -145,12 +146,12 @@ export function NotificationsStep({
         <p className="mt-4 max-w-2xl font-serif text-xl text-bcc-text-secondary">
           Pick how we&apos;ll keep you in the loop. You can change all of these
           any time in{" "}
-          <a
-            href="/settings/notifications"
+          <Link
+            href="/u/me?tab=notifications"
             className="underline-offset-4 hover:underline"
           >
-            settings
-          </a>
+            your Notifications tab
+          </Link>
           .
         </p>
       </section>

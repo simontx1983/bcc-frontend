@@ -1,18 +1,14 @@
 /**
- * /settings/blocks — §K1 Phase A blocked-users list.
- *
- * Renders inside SettingsLayout (auth + persistent hero + nav).
- * BlocksList fetches state via useMyBlocks and lets the user remove
- * blocks one by one.
+ * BlocksSettingsPanel — owner-only "Blocks" tab.
+ * Lifted from the retired /settings/blocks page (§K1 Phase A).
  */
 
 import { BlocksList } from "@/components/settings/BlocksList";
-
 import { SettingsSectionHeader } from "@/components/settings/SettingsSectionHeader";
 
-export default function BlocksSettingsPage() {
+export function BlocksSettingsPanel() {
   return (
-    <section className="mx-auto mt-10 max-w-3xl px-2 sm:px-3">
+    <section>
       <SettingsSectionHeader
         eyebrow="BLOCKS"
         title="Blocked users"
