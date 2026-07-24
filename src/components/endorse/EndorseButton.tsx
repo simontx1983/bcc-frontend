@@ -99,7 +99,7 @@ export function EndorseButton({
           className={
             "bcc-stencil mt-4 w-fit rounded-sm px-4 py-2 text-[11px] tracking-[0.2em] transition " +
             (removing
-              ? "cursor-wait bg-cardstock-deep/40 text-ink-soft/60"
+              ? "cursor-wait bg-bcc-surface-active text-bcc-text-muted"
               : "ring-1 ring-cardstock-edge bg-cardstock text-ink hover:bg-cardstock-deep")
           }
           style={
@@ -141,7 +141,7 @@ export function EndorseButton({
           "bcc-stencil mt-4 w-fit rounded-sm px-4 py-2 text-[11px] tracking-[0.2em] transition " +
           (enabled && !pending
             ? "bg-cardstock text-ink ring-1 ring-cardstock-edge hover:bg-cardstock-deep"
-            : "cursor-not-allowed bg-cardstock-deep/40 text-ink-soft/60")
+            : "cursor-not-allowed bg-bcc-surface-active text-bcc-text-muted")
         }
         style={
           enabled && !pending

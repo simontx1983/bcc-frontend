@@ -55,8 +55,8 @@ export function EndorsementsGivenView({ handle }: EndorsementsGivenViewProps) {
 
 function EmptyState() {
   return (
-    <div className="border border-dashed border-cardstock/20 px-6 py-8 text-center">
-      <p className="font-serif italic text-cardstock-deep">
+    <div className="border border-dashed border-bcc-border px-6 py-8 text-center">
+      <p className="font-serif italic text-bcc-text-secondary">
         Hasn&rsquo;t endorsed any pages yet. Endorsements show up here as they
         accumulate.
       </p>
@@ -76,22 +76,22 @@ function EndorsementRow({ item }: { item: UserEndorsementItem }) {
   const linkable = item.page_url !== "";
 
   return (
-    <li className="flex items-start gap-3 border-b border-cardstock/15 py-3 last:border-b-0">
+    <li className="flex items-start gap-3 border-b border-bcc-border py-3 last:border-b-0">
       <PageAvatar avatarUrl={item.avatar_url} title={item.page_title} />
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
           {linkable ? (
             <a
               href={item.page_url}
-              className="font-serif text-cardstock underline-offset-2 hover:underline"
+              className="font-serif text-bcc-text underline-offset-2 hover:underline"
             >
               {item.page_title}
             </a>
           ) : (
-            <span className="font-serif text-cardstock">{item.page_title}</span>
+            <span className="font-serif text-bcc-text">{item.page_title}</span>
           )}
         </div>
-        <div className="bcc-mono flex flex-wrap items-baseline gap-x-3 text-[11px] text-cardstock-deep">
+        <div className="bcc-mono flex flex-wrap items-baseline gap-x-3 text-[11px] text-bcc-text-secondary">
           <span>ENDORSED</span>
           {item.created_at !== null && item.created_at !== "" && (
             <>
@@ -103,7 +103,7 @@ function EndorsementRow({ item }: { item: UserEndorsementItem }) {
           )}
         </div>
         {hasReason && (
-          <p className="mt-1 font-serif text-cardstock italic">
+          <p className="mt-1 font-serif text-bcc-text italic">
             &ldquo;{item.reason}&rdquo;
           </p>
         )}
@@ -140,9 +140,9 @@ function PageAvatar({
     return (
       <div
         aria-hidden
-        className="flex h-10 w-10 shrink-0 items-center justify-center border border-cardstock/30 bg-cardstock-deep/10"
+        className="flex h-10 w-10 shrink-0 items-center justify-center border border-bcc-border bg-bcc-surface-hover"
       >
-        <span className="bcc-stencil text-base text-cardstock-deep">
+        <span className="bcc-stencil text-base text-bcc-text-secondary">
           {monogram}
         </span>
       </div>
@@ -158,7 +158,7 @@ function PageAvatar({
       height={40}
       loading="lazy"
       decoding="async"
-      className="h-10 w-10 shrink-0 border border-cardstock/30 object-cover"
+      className="h-10 w-10 shrink-0 border border-bcc-border object-cover"
     />
   );
 }

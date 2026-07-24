@@ -422,7 +422,7 @@ export function ProfileTabs({
       <div
         role="tablist"
         aria-label="Member sections"
-        className="-mx-4 flex items-center gap-x-1 overflow-x-auto border-b border-cardstock/15 px-4 sm:mx-0 sm:flex-wrap sm:px-0"
+        className="-mx-4 flex items-center gap-x-1 overflow-x-auto border-b border-bcc-border px-4 sm:mx-0 sm:flex-wrap sm:px-0"
       >
         {tabsToRender.map((tab) => (
           <button
@@ -441,7 +441,7 @@ export function ProfileTabs({
             )}
             {tab.hidden === true && (
               <span
-                className="ml-2 inline-block border border-cardstock/30 px-1 text-[9px] tracking-[0.18em]"
+                className="ml-2 inline-block border border-bcc-border px-1 text-[9px] tracking-[0.18em]"
                 aria-label="Private"
               >
                 PRIVATE
@@ -449,7 +449,7 @@ export function ProfileTabs({
             )}
             {tab.soon === true && (
               <span
-                className="bcc-mono ml-2 text-cardstock-deep/60"
+                className="bcc-mono ml-2 text-bcc-text-secondary"
                 style={{ fontSize: "9px", letterSpacing: "0.18em" }}
                 aria-label="Coming soon"
               >
