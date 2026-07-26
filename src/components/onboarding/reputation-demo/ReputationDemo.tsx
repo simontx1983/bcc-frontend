@@ -16,14 +16,17 @@
  * longer caption isn't fighting the timer — mouse leave / touch end
  * resumes it.
  *
- * Capped at 840px (narrower than the trust step's full 1080px content
- * wrap, which otherwise leaves this the only unconstrained-width section
- * on the screen) and bottom-aligned — the author card's height is fixed,
- * the post card's isn't, so lining up their bottom edges instead of their
- * tops keeps the pair looking anchored together at any caption length.
+ * Layout: the author card's height is fixed-ish, the post card's isn't
+ * (its caption height-morphs per combo) — putting them side by side never
+ * lines up cleanly at every caption length. So the card instead sits
+ * beside `description` (the screen's reputation/reliability teaching —
+ * short, roughly card-height prose), the two columns vertically centered
+ * against each other; the post card runs full-width underneath, "in
+ * action" on its own row. Width is the caller's call — this component
+ * fills its parent.
  */
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
 import { DemoAuthorCard } from "@/components/onboarding/reputation-demo/DemoAuthorCard";
 import { DemoPostCard } from "@/components/onboarding/reputation-demo/DemoPostCard";
@@ -32,7 +35,7 @@ import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
 
 const CYCLE_MS = 3800;
 
-export function ReputationDemo() {
+export function ReputationDemo({ description }: { description: ReactNode }) {
   const reducedMotion = usePrefersReducedMotion();
   const [index, setIndex] = useState(0);
   const [paused, setPaused] = useState(false);
@@ -48,12 +51,16 @@ export function ReputationDemo() {
   const combo = REPUTATION_DEMO_COMBOS[index % REPUTATION_DEMO_COMBOS.length] as ReputationDemoCombo;
 
   return (
-    <div className="flex max-w-[840px] flex-col gap-3 md:flex-row md:items-end md:gap-4">
-      <div className="min-w-0 md:w-[30%]">
-        <DemoAuthorCard combo={combo} reducedMotion={reducedMotion} />
+    <div className="flex w-full flex-col gap-4">
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:gap-6">
+        <div className="flex min-w-0 flex-1 flex-col justify-center gap-[18px]">
+          {description}
+        </div>
+        <div className="min-w-0 shrink-0 md:w-[240px]">
+          <DemoAuthorCard combo={combo} reducedMotion={reducedMotion} />
+        </div>
       </div>
       <div
-        className="min-w-0 md:w-[70%]"
         onMouseEnter={() => setPaused(true)}
         onMouseLeave={() => setPaused(false)}
         onTouchStart={() => setPaused(true)}

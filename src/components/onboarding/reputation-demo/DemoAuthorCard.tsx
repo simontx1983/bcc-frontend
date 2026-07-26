@@ -110,7 +110,7 @@ export function DemoAuthorCard({
           On-chain infrastructure, three years running. What you see below is earned, not bought.
         </p>
 
-        <div className="flex items-center gap-4 text-[13px]">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[13px]">
           <span className="text-[var(--bcc-text-secondary)]">
             <span className="font-semibold text-[var(--bcc-text)]">1.2K</span> Watching
           </span>
