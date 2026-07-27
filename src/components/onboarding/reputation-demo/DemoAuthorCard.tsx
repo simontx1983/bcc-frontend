@@ -17,9 +17,9 @@
  */
 
 import { useEffect, useState, type CSSProperties } from "react";
+import Image from "next/image";
 import { Sparkle } from "lucide-react";
 
-import { Avatar } from "@/components/identity/Avatar";
 import { RankChip } from "@/components/profile/RankChip";
 import type { ReputationDemoCombo } from "@/components/onboarding/reputation-demo/combos";
 
@@ -75,14 +75,37 @@ export function DemoAuthorCard({
 
   return (
     <div className="bcc-panel relative flex flex-col overflow-hidden p-0">
-      <div className="h-14 w-full border-b border-[var(--bcc-border)] bg-[var(--bcc-surface-active)]" aria-hidden />
+      {/* Fake "cover photo" — a real demo account has no actual upload, so
+          the real BCC wordmark stands in instead (same classes as
+          SiteHeader's own logo lockup), on a theme-aware white/dark plate
+          rather than the flat neutral band the real AuthorCard falls back
+          to. Purely decorative brand flavor; not a signal like the
+          RankChip below. */}
+      <div
+        className="flex h-14 w-full items-center justify-center border-b border-[var(--bcc-border)]"
+        style={{ background: "var(--bcc-bg)" }}
+        aria-hidden
+      >
+        <span className="bcc-brand-wordmark">
+          <span className="bcc-brand-top">Blue Collar</span>
+          <span className="bcc-brand-bottom">Crypto</span>
+        </span>
+      </div>
 
       <div className="flex flex-col gap-2.5 px-4 pb-4">
+        {/* Same reasoning as the cover — the real logo mark on a
+            theme-aware white/dark plate, instead of Avatar's usual
+            initials-on-neutral fallback. */}
         <span
-          className="-mt-7 inline-flex w-fit rounded-full"
-          style={{ boxShadow: "0 0 0 4px var(--bcc-surface)" }}
+          className="-mt-7 inline-flex h-16 w-16 items-center justify-center rounded-full"
+          style={{ background: "var(--bcc-bg)", boxShadow: "0 0 0 4px var(--bcc-surface)" }}
         >
-          <Avatar avatarUrl={null} handle="demo-operator" displayName="Demo Operator" size="lg" variant="rounded" />
+          <Image
+            src="/images/Blue_Collar_Crypto_Logo.png"
+            alt="Blue Collar Crypto"
+            width={40}
+            height={40}
+          />
         </span>
 
         <div className="flex min-w-0 flex-col">

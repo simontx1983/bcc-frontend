@@ -20,11 +20,11 @@
  */
 
 import { useLayoutEffect, useRef, useState } from "react";
+import Image from "next/image";
 
 import { ActionRailButton } from "@/components/feed/ActionRailButton";
 import { ReplyIcon, ShareIcon } from "@/components/feed/actionIcons";
 import { StokeFlame } from "@/components/feed/StokeFlame";
-import { Avatar } from "@/components/identity/Avatar";
 import { RankChip } from "@/components/profile/RankChip";
 import type { ReputationDemoCombo } from "@/components/onboarding/reputation-demo/combos";
 
@@ -60,7 +60,19 @@ export function DemoPostCard({
       }}
     >
       <header className="flex items-start gap-2.5">
-        <Avatar avatarUrl={null} handle="demo-operator" displayName="Demo Operator" size="sm" variant="rounded" />
+        {/* Same real-logo-on-theme-plate treatment as DemoAuthorCard —
+            no real avatar upload exists for this fake account. */}
+        <span
+          className="inline-flex h-7 w-7 flex-none items-center justify-center rounded-full"
+          style={{ background: "var(--bcc-bg)", border: "1px solid var(--bcc-border)" }}
+        >
+          <Image
+            src="/images/Blue_Collar_Crypto_Logo.png"
+            alt="Blue Collar Crypto"
+            width={18}
+            height={18}
+          />
+        </span>
         <div className="flex min-w-0 flex-col">
           <div className="flex min-w-0 items-center gap-1.5">
             <span className="bcc-stencil truncate text-[var(--bcc-text)]">Demo Operator</span>

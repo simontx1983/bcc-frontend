@@ -16,10 +16,10 @@
  *              §2.9 — the "absence is not a negative signal" teaching, the
  *              primary mitigation against "no vouch = bad" drift) + the
  *              live `<ReputationDemo />` (see reputation-demo/). The
- *              teaching text sits beside the demo author card (the two
+ *              teaching text sits beside the demo author card, the two
+ *              columns vertically centered against each other (they
  *              can't be forced to equal heights — content-driven prose
- *              vs. a fixed card — so they're vertically centered against
- *              each other instead); the demo post card runs full-width
+ *              vs. a fixed card); the demo post card runs full-width
  *              underneath. The whole screen — headline, demo, footer —
  *              shares one 680px cap (the post card's width) rather than
  *              the wizard's full 1080px wrap.
@@ -36,6 +36,7 @@
 
 import { useState } from "react";
 
+import { STEP_LABEL } from "@/components/onboarding/OnboardingWizard";
 import { ReputationDemo } from "@/components/onboarding/reputation-demo/ReputationDemo";
 import {
   ABSENCE_NOT_NEGATIVE,
@@ -58,7 +59,7 @@ export function OnboardingTrustLayerSteps({
 
   return (
     <section className="bcc-onb-step">
-      <p className="bcc-onb-eyebrow">How the graph works · {idx} of 2</p>
+      <p className="bcc-onb-eyebrow">{STEP_LABEL.trust} · {idx} of 2</p>
 
       {screen === "primer" ? (
         <PrimerScreen onBack={onBack} onContinue={() => setScreen("reputation")} />
@@ -129,9 +130,6 @@ function ReputationScreen({ onBack, onContinue }: { onBack: () => void; onContin
       <h1 className="bcc-onb-disp">How reputation works.</h1>
 
       <div style={{ marginTop: "clamp(24px, 4vw, 40px)" }}>
-        <p className="bcc-onb-field-label" style={{ marginBottom: "14px" }}>
-          See it in action
-        </p>
         <ReputationDemo
           description={
             <>

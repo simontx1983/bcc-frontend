@@ -69,10 +69,15 @@ export function isValidStep(value: string): value is Step {
   return (STEP_ORDER as readonly string[]).includes(value);
 }
 
-const STEP_LABEL: Record<Step, string> = {
+// Exported so step components can reuse the exact same label for their
+// own in-step eyebrow instead of hardcoding a second literal that can
+// drift out of sync (see OnboardingTrustLayerSteps.tsx) — "Learn the
+// graph" (was "How the graph works") is also now clearly distinct from
+// that step's own "How reputation works." headline.
+export const STEP_LABEL: Record<Step, string> = {
   welcome:       "Welcome",
   identity:      "Your identity",
-  trust:         "How the graph works",
+  trust:         "Learn the graph",
   watching:      "Start watching",
   notifications: "Stay posted",
   dopamine:      "You're on the floor",

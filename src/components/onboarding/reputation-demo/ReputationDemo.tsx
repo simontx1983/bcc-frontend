@@ -16,14 +16,14 @@
  * longer caption isn't fighting the timer — mouse leave / touch end
  * resumes it.
  *
- * Layout: the author card's height is fixed-ish, the post card's isn't
- * (its caption height-morphs per combo) — putting them side by side never
- * lines up cleanly at every caption length. So the card instead sits
- * beside `description` (the screen's reputation/reliability teaching —
- * short, roughly card-height prose), the two columns vertically centered
- * against each other; the post card runs full-width underneath, "in
- * action" on its own row. Width is the caller's call — this component
- * fills its parent.
+ * Layout: the author card sits beside `description` (the screen's
+ * reputation/reliability teaching — short, roughly card-height prose),
+ * the two columns vertically centered against each other (the "See it
+ * in action" label that used to sit above this row is gone now, so
+ * centering no longer reads as a stray gap under an orphaned label —
+ * it's just two blocks of different height, centered); the post card
+ * runs full-width underneath, "in action" on its own row. Width is the
+ * caller's call — this component fills its parent.
  */
 
 import { useEffect, useState, type ReactNode } from "react";

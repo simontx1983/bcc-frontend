@@ -1861,6 +1861,26 @@
   font-size: 11px;
   color: var(--bcc-text-muted);
   letter-spacing: 0.05em;
+  /* Blurred until the visitor actually scrolls to the end of the page
+     content — see MinimalShell.tsx's sentinel/IntersectionObserver.
+     Fixed positioning means this is otherwise always painted over
+     whatever's at the bottom of a long page. */
+  filter: blur(6px);
+  opacity: 0.55;
+  transition: filter 0.35s ease, opacity 0.35s ease;
+}
+.bcc-auth-footer.is-revealed {
+  filter: blur(0);
+  opacity: 1;
+}
+@media (prefers-reduced-motion: reduce) {
+  .bcc-auth-footer { transition: none; }
+}
+/* Zero-height marker placed where the footer would naturally sit in
+   flow if it weren't fixed — see MinimalShell.tsx. */
+.bcc-auth-footer-sentinel {
+  height: 1px;
+  width: 100%;
 }
 .bcc-auth-footer-links {
   display: flex;
@@ -3989,7 +4009,7 @@
 .bcc-onb-progress-fill { height: 100%; background: var(--bcc-accent); border-radius: var(--bcc-radius-full); transition: width 0.5s var(--bcc-onb-ease); }
 
 /* Step scaffold */
-.bcc-onb-step { padding-top: clamp(32px, 6vw, 72px); }
+.bcc-onb-step { padding-top: clamp(20px, 3vw, 40px); }
 .bcc-onb-eyebrow { display: inline-flex; align-items: center; gap: 10px; font-family: var(--font-mono), monospace; font-size: var(--bcc-font-size-overline); letter-spacing: 0.22em; text-transform: uppercase; color: var(--bcc-accent); margin: 0 0 18px; }
 .bcc-onb-eyebrow::before { content: ""; width: 22px; height: 1px; background: currentColor; opacity: 0.7; }
 .bcc-onb-disp { font-family: var(--font-stencil), Impact, sans-serif; font-weight: 800; letter-spacing: 0.02em; text-transform: uppercase; font-size: clamp(2.4rem, 6vw, 4.2rem); line-height: 0.94; margin: 0; color: var(--bcc-text); }
