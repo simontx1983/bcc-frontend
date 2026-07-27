@@ -152,7 +152,7 @@ export function NotificationsStep({
         {/* Bell rollup */}
         <WizardOptCard
           title="In-app bell"
-          subtitle="Reactions, reviews, endorsements, new watchers on your cards, rank-ups."
+          subtitle="Reactions, reviews, vouches, new watchers on your cards, rank-ups."
           checked={bellEnabled === true}
           disabled={prefsQuery.isLoading || saving}
           onChange={setBellEnabled}
@@ -173,7 +173,7 @@ export function NotificationsStep({
             <div>
               <h3>Browser push</h3>
               <p>
-                Real-time pings for high-stakes events only — reviews, endorsements,
+                Real-time pings for high-stakes events only — reviews, vouches,
                 dispute outcomes, panelist invites. Off by default.
               </p>
             </div>

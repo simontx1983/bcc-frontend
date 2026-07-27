@@ -13,7 +13,7 @@
  *   - Kind chips (validator / project / creator)
  *   - Tier chips (legendary / rare / uncommon / common)
  *   - Good-Standing-Only toggle (§G2) — restricts to tier ≥ neutral
- *   - Sort dropdown (trust / newest / endorsements / followers)
+ *   - Sort dropdown (trust / newest / vouches / followers)
  *   - Search box (debounced upstream)
  *
  * Deferred (per scope discipline §P): chain filter, self-bonded filter,
@@ -55,7 +55,7 @@ const TIER_OPTIONS: { value: DirectoryTier | null; label: string }[] = [
 
 const SORT_OPTIONS: { value: DirectorySort; label: string }[] = [
   { value: "trust",        label: "Trust" },
-  { value: "endorsements", label: "Endorsements" },
+  { value: "endorsements", label: "Vouches" },
   { value: "followers",    label: "Watchers" },
   { value: "newest",       label: "Newest" },
 ];

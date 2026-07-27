@@ -1379,7 +1379,6 @@ export type NotificationKind =
   | "bcc_review"
   | "bcc_card_watched"
   | "bcc_rank_up"
-  | "bcc_endorse"
   | "bcc_welcome"
   | "bcc_mention"
   | "bcc_local_post"
@@ -4883,7 +4882,6 @@ export type BellEventType =
   | "bcc_review"
   | "bcc_card_watched"
   | "bcc_rank_up"
-  | "bcc_endorse"
   | "bcc_welcome"
   | "bcc_mention"
   | "bcc_local_post"
@@ -4942,7 +4940,6 @@ export interface NotificationPrefsPatch {
  */
 export type PushEventType =
   | "review"
-  | "endorse"
   | "dispute_outcome"
   | "panelist_selected"
   | "mention"
