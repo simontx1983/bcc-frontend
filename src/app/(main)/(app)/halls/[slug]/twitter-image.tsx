@@ -1,7 +1,7 @@
 /**
- * /locals/[slug]/twitter-image — Twitter card image.
+ * /halls/[slug]/twitter-image — Twitter card image.
  *
- * Re-exports the generated local card from opengraph-image.tsx so the
+ * Re-exports the generated hall card from opengraph-image.tsx so the
  * `twitter:image` tag points at the identical branded PNG. Next's metadata
  * convention requires the size / contentType / alt exports on the
  * twitter-image module too, so we re-export them.

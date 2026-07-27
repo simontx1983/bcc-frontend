@@ -1,12 +1,12 @@
 /**
- * /locals — directory of Locals (per §E3 + §G1).
+ * /halls — directory of Halls (per §E3 + §G1).
  *
  * Server component. URL is the source of truth for the chain filter
  * and the page index — keeps Back/Forward + share-link working
  * without bolting on client-side router state.
  *
  * Filter UI: a strip of chain chips (All + the §B4 home-chain set).
- * Each chip links to `/locals?chain=…` so navigation is plain
+ * Each chip links to `/halls?chain=…` so navigation is plain
  * <Link> hops; no client state needed.
  *
  * Pagination: backend exposes offset pagination (per §1.5) — we
@@ -23,8 +23,8 @@ import Link from "next/link";
 import { authOptions } from "@/lib/auth";
 import { tokenFromSession } from "@/lib/api/client";
 import { humanizeCode } from "@/lib/api/errors";
-import { getLocals } from "@/lib/api/locals-endpoints";
-import type { LocalItem } from "@/lib/api/types";
+import { getHalls } from "@/lib/api/halls-endpoints";
+import type { HallItem } from "@/lib/api/types";
 
 interface PageProps {
   // Next 15 App Router: searchParams is async per the routes contract.
@@ -49,7 +49,7 @@ const CHAIN_FILTERS: ReadonlyArray<ChainFilter> = [
   { value: "solana",    label: "Solana" },
 ];
 
-export default async function LocalsDirectoryPage({ searchParams }: PageProps) {
+export default async function HallsDirectoryPage({ searchParams }: PageProps) {
   const params = await searchParams;
   const chain = typeof params.chain === "string" && params.chain !== "" ? params.chain : null;
   const page = clampPage(params.page);
@@ -63,7 +63,7 @@ export default async function LocalsDirectoryPage({ searchParams }: PageProps) {
   let result;
   let fetchError: string | null = null;
   try {
-    result = await getLocals(
+    result = await getHalls(
       { ...(chain !== null ? { chain } : {}), page, page_size: 24 },
       token
     );
@@ -74,9 +74,9 @@ export default async function LocalsDirectoryPage({ searchParams }: PageProps) {
       err,
       {
         bcc_rate_limited: "Loading too fast — give it a moment and try again.",
-        bcc_unavailable: "Locals are temporarily unavailable. Try again shortly.",
+        bcc_unavailable: "Halls are temporarily unavailable. Try again shortly.",
       },
-      "Couldn't load Locals. Try again in a moment.",
+      "Couldn't load Halls. Try again in a moment.",
     );
   }
 
@@ -87,14 +87,14 @@ export default async function LocalsDirectoryPage({ searchParams }: PageProps) {
     <main className="min-h-screen pb-24">
       <section className="mx-auto max-w-6xl px-6 pt-12 sm:px-8">
         <span className="bcc-mono text-[10px] tracking-[0.24em] text-bcc-text-secondary">
-          DIRECTORY · LOCALS
+          DIRECTORY · HALLS
         </span>
         <h1 className="bcc-stencil mt-2 text-5xl text-bcc-text md:text-6xl">
-          Locals
+          Halls
         </h1>
         <p className="mt-3 max-w-2xl font-serif text-lg text-bcc-text-secondary">
           Per-chain rooms where members organize, hang, and bias their
-          feeds. Pick your home Local from your settings; you can hold
+          feeds. Pick your home Hall from your settings; you can hold
           membership in many.
         </p>
       </section>
@@ -111,7 +111,7 @@ export default async function LocalsDirectoryPage({ searchParams }: PageProps) {
         ) : items.length === 0 ? (
           <EmptyState chain={chain} />
         ) : (
-          <LocalsGrid items={items} />
+          <HallsGrid items={items} />
         )}
       </section>
 
@@ -134,8 +134,8 @@ function ChainFilterStrip({ activeChain }: { activeChain: string | null }) {
       {CHAIN_FILTERS.map((filter) => {
         const isActive = filter.value === activeChain;
         const href = (filter.value === null
-          ? "/locals"
-          : `/locals?chain=${encodeURIComponent(filter.value)}`) as Route;
+          ? "/halls"
+          : `/halls?chain=${encodeURIComponent(filter.value)}`) as Route;
         return (
           <Link
             key={filter.label}
@@ -156,19 +156,19 @@ function ChainFilterStrip({ activeChain }: { activeChain: string | null }) {
   );
 }
 
-function LocalsGrid({ items }: { items: LocalItem[] }) {
+function HallsGrid({ items }: { items: HallItem[] }) {
   return (
     <ul className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
       {items.map((item) => (
         <li key={item.id}>
-          <LocalCard item={item} />
+          <HallCard item={item} />
         </li>
       ))}
     </ul>
   );
 }
 
-function LocalCard({ item }: { item: LocalItem }) {
+function HallCard({ item }: { item: HallItem }) {
   // Server-supplied path → typedRoutes-safe via Route cast (same pattern
   // as CardFactory's `links.self`).
   const href = item.links.self as Route;
@@ -182,11 +182,6 @@ function LocalCard({ item }: { item: LocalItem }) {
         <span className="bcc-mono text-[10px] tracking-[0.18em] text-bcc-text-secondary">
           {item.chain !== null ? item.chain.toUpperCase() : "GENERAL"}
         </span>
-        {item.number !== null && (
-          <span className="bcc-mono text-[10px] tracking-[0.18em] text-bcc-text-secondary">
-            #{item.number}
-          </span>
-        )}
       </div>
 
       <h2 className="bcc-stencil mt-2 text-xl text-bcc-text">{item.name}</h2>
@@ -201,7 +196,7 @@ function LocalCard({ item }: { item: LocalItem }) {
   );
 }
 
-function ViewerBadge({ membership }: { membership: LocalItem["viewer_membership"] }) {
+function ViewerBadge({ membership }: { membership: HallItem["viewer_membership"] }) {
   if (membership === null || !membership.is_member) {
     return null;
   }
@@ -235,16 +230,16 @@ function ViewerBadge({ membership }: { membership: LocalItem["viewer_membership"
 function EmptyState({ chain }: { chain: string | null }) {
   return (
     <div className="bcc-panel mx-auto max-w-xl p-8 text-center">
-      <p className="bcc-mono text-safety">NO LOCALS</p>
+      <p className="bcc-mono text-safety">NO HALLS</p>
       <h2 className="bcc-stencil mt-2 text-3xl text-bcc-text">
         {chain !== null
           ? `Nothing chartered on ${chain}.`
-          : "No Locals chartered yet."}
+          : "No Halls chartered yet."}
       </h2>
       <p className="mt-3 font-serif leading-relaxed text-bcc-text-secondary">
         {chain !== null
           ? "Try a different chain, or drop the filter and see what's already on the books."
-          : "Locals are how members of the same chain or scene cluster up. None on the books yet — first one's coming."}
+          : "Halls are how members of the same chain or scene cluster up. None on the books yet — first one's coming."}
       </p>
     </div>
   );
@@ -264,7 +259,7 @@ function Pagination({
     const parts: string[] = [];
     if (baseQuery !== "") parts.push(baseQuery);
     parts.push(`page=${target}`);
-    return `/locals?${parts.join("&")}` as Route;
+    return `/halls?${parts.join("&")}` as Route;
   };
 
   const hasPrev = page > 1;
