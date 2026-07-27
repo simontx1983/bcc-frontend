@@ -12,7 +12,7 @@
  *     aggressively, or to pre-warm on tab focus.
  *
  *   - 60s stale time matches HighlightStrip — the cold-start blocks
- *     are slow-moving (locals + recent operators + hot bucket) and a
+ *     are slow-moving (halls + recent operators + hot bucket) and a
  *     viewer flipping between tabs shouldn't hammer the endpoint.
  *
  *   - refetchOnWindowFocus is DISABLED. The surface is supposed to
