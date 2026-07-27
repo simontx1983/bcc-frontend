@@ -117,7 +117,7 @@ export interface HandleUpdateResponse {
 
 /**
  * §B4 wizard step 1 — the home-chain picker. Five at launch; the
- * server's allowlist is broader (mirrors LocalsService::CHAIN_KEYWORDS)
+ * server's allowlist is broader (mirrors HallsService::CHAIN_KEYWORDS)
  * so a settings-page change can hand the user one of the wider set
  * without a backend revision.
  */
@@ -300,19 +300,19 @@ export interface CardPermissions {
  * §4.4 member-card dossier block. Present (object) on `card_kind: "member"`
  * cards, `null` on validator/project/creator cards. Drives the BACK face
  * of a member CardFactory: the VERIFIED section, the ON THE FLOOR section,
- * the typed-role pills, the primary-local chip, and the cold-start
+ * the typed-role pills, the primary-hall chip, and the cold-start
  * "fresh account" fallback.
  *
  * The four sub-shapes are intentionally identical to the same-named
  * fields on `MemberSummary` (verifications / engagement /
- * owned_pages_by_type / primary_local) — the backend hydrates them from
+ * owned_pages_by_type / primary_hall) — the backend hydrates them from
  * the same source so the relocated dossier renderer reads either type.
  */
 export interface MemberDossier {
   verifications: MemberSummary["verifications"];
   engagement: MemberSummary["engagement"];
   owned_pages_by_type: MemberSummary["owned_pages_by_type"];
-  primary_local: MemberSummary["primary_local"];
+  primary_hall: MemberSummary["primary_hall"];
 }
 
 /**
@@ -321,7 +321,7 @@ export interface MemberDossier {
  * `member_dossier` convention. Drives the community CardFactory front
  * strip (gate / verification labels), the JOIN cell of the community
  * action bar, and the BACK face (COLLECTION stats for NFT groups,
- * THE FLOOR facts for locals/plain groups).
+ * THE FLOOR facts for halls/plain groups).
  *
  * The sub-shapes are intentionally identical to the same-named fields
  * on `GroupDiscoveryItem` / `GroupDetailResponse` — the backend
@@ -1381,7 +1381,7 @@ export type NotificationKind =
   | "bcc_rank_up"
   | "bcc_welcome"
   | "bcc_mention"
-  | "bcc_local_post"
+  | "bcc_hall_post"
   | "bcc_comment_received"
   | "bcc_attestation_vouch_received"
   | "bcc_attestation_stand_behind_received"
@@ -1640,73 +1640,71 @@ export interface NftPiece {
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// Locals (§E3) — PeepSo Groups projected through BCC's union-local lens.
+// Halls (§E3) — PeepSo Groups projected through BCC's union-hall lens.
 //
 // Single-graph rule (LOCKED): membership lives in PeepSo's
 // peepso_group_members ledger. The only per-user state BCC stores is
-// wp_usermeta.bcc_primary_local_group_id. The `viewer_membership`
+// wp_usermeta.bcc_primary_hall_group_id. The `viewer_membership`
 // block on each item is a server-side derivation (membership +
 // primary-flag) — not a client-side join.
 // ─────────────────────────────────────────────────────────────────────
 
 /**
- * Membership block on a LocalItem. `null` when the viewer is anonymous
+ * Membership block on a HallItem. `null` when the viewer is anonymous
  * (no session). Authenticated viewers always get a non-null block; the
  * `is_member` flag inside it is the actual membership state.
  */
-export interface LocalMembership {
+export interface HallMembership {
   is_member: boolean;
   is_primary: boolean;
   /** ISO 8601 UTC. Only populated when is_member is true. */
   joined_at: string | null;
 }
 
-export interface LocalItem {
+export interface HallItem {
   id: number;
   slug: string;
-  /** Server-rendered name, e.g. "Local 342 Cosmos Base Fan". */
+  /** Server-rendered name, e.g. "Cosmos Hall". */
   name: string;
-  /** Parsed from the name when present (e.g. 342); null otherwise. */
-  number: number | null;
   /** Parsed from the name (e.g. "cosmos"); null when no chain keyword detected. */
   chain: string | null;
   member_count: number;
-  viewer_membership: LocalMembership | null;
+  viewer_membership: HallMembership | null;
   links: {
     self: string;
   };
 }
 
 /**
- * Offset pagination — Locals is a directory, not a stream (per §1.5
+ * Offset pagination — Halls is a directory, not a stream (per §1.5
  * pagination contract; cursor pagination is reserved for the feed).
  */
-export interface LocalsPagination {
+export interface HallsPagination {
   page: number;
   page_size: number;
   total: number;
   total_pages: number;
 }
 
-export interface LocalsResponse {
-  items: LocalItem[];
-  pagination: LocalsPagination;
+export interface HallsResponse {
+  items: HallItem[];
+  pagination: HallsPagination;
 }
 
 /**
- * Detail response shape — same as a directory `LocalItem` so the
+ * Detail response shape — same as a directory `HallItem` so the
  * client can render either with one component. (Server alignment is
  * load-bearing per §A2; if the detail endpoint diverges, both surfaces
  * must move together.)
  */
-export type LocalDetailResponse = LocalItem;
+export type HallDetailResponse = HallItem;
 
 /**
- * POST /me/locals/:id/primary success shape. Carries the updated
+ * POST /me/halls/:id/primary success shape. Carries the updated
  * viewer_membership block so a single cache patch reflects the new
- * `is_primary` state on every Local card without a refetch.
+ * `is_primary` state on every Hall card without a refetch.
  */
-export interface SetPrimaryLocalResponse {
+export interface SetPrimaryHallResponse {
   ok: true;
   group_id: number;
   /** Always populated (server only succeeds when the viewer is a member). */
@@ -1718,21 +1716,21 @@ export interface SetPrimaryLocalResponse {
 }
 
 /**
- * DELETE /me/locals/primary success shape. Idempotent; clears the
+ * DELETE /me/halls/primary success shape. Idempotent; clears the
  * pointer regardless of whether one was set.
  */
-export interface ClearPrimaryLocalResponse {
+export interface ClearPrimaryHallResponse {
   ok: true;
   group_id: null;
 }
 
 /**
- * POST /me/locals/:id/membership success shape. Carries the updated
+ * POST /me/halls/:id/membership success shape. Carries the updated
  * viewer_membership block so the detail page can patch its local
- * state without refetching the whole Local. New joiners are never
+ * state without refetching the whole Hall. New joiners are never
  * primary by default (server returns `is_primary: false`).
  */
-export interface JoinLocalResponse {
+export interface JoinHallResponse {
   ok: true;
   group_id: number;
   viewer_membership: {
@@ -1743,11 +1741,11 @@ export interface JoinLocalResponse {
 }
 
 /**
- * DELETE /me/locals/:id/membership success shape. `primary_cleared`
- * is true when the user just left their own primary Local (the server
- * atomically clears `bcc_primary_local_group_id` in that case).
+ * DELETE /me/halls/:id/membership success shape. `primary_cleared`
+ * is true when the user just left their own primary Hall (the server
+ * atomically clears `bcc_primary_hall_group_id` in that case).
  */
-export interface LeaveLocalResponse {
+export interface LeaveHallResponse {
   ok: true;
   group_id: number;
   primary_cleared: boolean;
@@ -1789,7 +1787,7 @@ export interface GroupVerification {
  *
  * Present when the post is a wall post inside a PeepSo group; omitted
  * for non-group posts. `verification` is null for non-NFT-gated kinds
- * (system / user / local) and populated for NFT-gated holder groups.
+ * (system / user / hall) and populated for NFT-gated holder groups.
  *
  * `type` reuses the same union as `GroupDiscoveryItem.type` — same
  * server-side enum (`GroupType` on the backend), no parallel string
@@ -1910,7 +1908,7 @@ export interface JoinHolderGroupResponse {
 
 /**
  * POST /me/holder-groups/:id/leave success.
- * No `viewer_membership` block (unlike Locals) because holder groups
+ * No `viewer_membership` block (unlike Halls) because holder groups
  * have no primary-pointer concept — just join/leave with TTL'd opt-out.
  */
 export interface LeaveHolderGroupResponse {
@@ -1925,7 +1923,7 @@ export interface HolderGroupPreferences {
 
 /**
  * POST /me/groups/:id/join success (§4.7.3 plain group membership).
- * Residual case for non-NFT, non-Local PeepSo groups. Closed/secret
+ * Residual case for non-NFT, non-Hall PeepSo groups. Closed/secret
  * groups are rejected server-side with `bcc_permission_denied` —
  * surface `error.message` verbatim (it points at PeepSo's request
  * flow), never substitute a generic 403 string.
@@ -2009,7 +2007,7 @@ export interface SetGroupPostPolicyResponse {
 // §4.7.2 — Profile Groups Tab (`GET /users/{slug}/groups`)
 //
 // Cross-kind list of groups the target user is an active member of
-// (holder + local + user + system). Each row carries server-built
+// (holder + hall + user + system). Each row carries server-built
 // action URLs (varying by `type`) and viewer-aware `permissions` per
 // §A4 / §N7. V1 frontends may hardcode endpoint paths; V1.5 will
 // switch to following `actions[].url`.
@@ -2062,7 +2060,7 @@ export interface UserGroupItem {
   type: GroupDiscoveryType;
   /**
    * Server-authoritative display string for the `type` enum
-   * ("On-Chain Holders" / "Local" / "System" / "Group" by default;
+   * ("On-Chain Holders" / "Hall" / "System" / "Group" by default;
    * filterable via `bcc_group_type_label`). Frontend renders verbatim
    * per §A2 — no client-side enum→label mapping.
    */
@@ -2316,18 +2314,18 @@ export interface HolderGroupPreferencesUpdateResponse {
 // (verified DESC, heat_score DESC, member_count DESC). Closed groups
 // appear with name + member_count visible; their content stays private
 // at PeepSo's layer. `verification` is null for non-NFT-gated groups
-// (system/user/local kinds); when present, render `label` verbatim.
+// (system/user/hall kinds); when present, render `label` verbatim.
 // ─────────────────────────────────────────────────────────────────────
 
 /**
  * Group kind discriminator (matches GroupType enum on the backend).
  *
  *   - "nft"    — NFT-gated holder group (always carries verification block)
- *   - "local"  — chapter / chain Local (browse via /locals/[slug])
+ *   - "hall"   — chain Hall (browse via /halls/[slug])
  *   - "system" — system-managed group (membership-everyone or similar)
  *   - "user"   — user-created PeepSo group
  */
-export type GroupDiscoveryType = "nft" | "local" | "system" | "user";
+export type GroupDiscoveryType = "nft" | "hall" | "system" | "user";
 
 /**
  * Privacy level. `secret` is documented for completeness but the
@@ -2412,7 +2410,7 @@ export interface GroupDiscoveryItem {
    */
   image_url: string | null;
   /**
-   * Market-data block for NFT cards. Null for `local`/`system`/`user`
+   * Market-data block for NFT cards. Null for `hall`/`system`/`user`
    * kinds — there's no equivalent for those.
    */
   collection_stats: CollectionStats | null;
@@ -2421,7 +2419,7 @@ export interface GroupDiscoveryItem {
    * Chain-tag slug the group is bound to (e.g. "cosmos", "akash").
    * Resolved server-side from either `_bcc_gate_chain_id` (NFT holder
    * groups) or `_bcc_chain_tag` (user-created plain groups). Null when
-   * the group has no chain tag (Locals, legacy untagged groups).
+   * the group has no chain tag (Halls, legacy untagged groups).
    * Lookup label via `COMMUNITY_CHAIN_CATALOG.find(o => o.slug === tag)`.
    */
   chain_tag: string | null;
@@ -2445,7 +2443,7 @@ export interface GroupDiscoveryItem {
 }
 
 /**
- * Same offset shape as LocalsPagination (§1.5 contract). Kept as a
+ * Same offset shape as HallsPagination (§1.5 contract). Kept as a
  * distinct interface so a future contract change to one surface
  * doesn't silently move the other.
  */
@@ -3425,12 +3423,11 @@ export interface MemberWallet {
   verified_at: string;
 }
 
-/** Local membership entry inside MemberProfile.locals. */
-export interface MemberLocal {
+/** Hall membership entry inside MemberProfile.halls. */
+export interface MemberHall {
   id: number;
   slug: string;
   name: string;
-  number: number | null;
   is_primary: boolean;
 }
 
@@ -4643,8 +4640,8 @@ export interface MemberProfile {
     signature_line: string;
     is_editable: boolean;
   };
-  primary_local: { id: number; slug: string; name: string; number: number | null } | null;
-  locals: MemberLocal[];
+  primary_hall: { id: number; slug: string; name: string } | null;
+  halls: MemberHall[];
   /**
    * OWN ACCOUNT ONLY — `[]` for every viewer who is not the profile
    * owner. Do not render this anywhere a different user can see, and do
@@ -4884,7 +4881,7 @@ export type BellEventType =
   | "bcc_rank_up"
   | "bcc_welcome"
   | "bcc_mention"
-  | "bcc_local_post"
+  | "bcc_hall_post"
   | "bcc_comment_received"
   | "bcc_attestation_vouch_received"
   | "bcc_attestation_stand_behind_received"
@@ -4943,7 +4940,7 @@ export type PushEventType =
   | "dispute_outcome"
   | "panelist_selected"
   | "mention"
-  | "local_post"
+  | "hall_post"
   | "comment_received"
   | "attestation_vouch_received"
   | "attestation_stand_behind_received"
@@ -5008,13 +5005,13 @@ export interface MemberSummary {
    */
   followers_count: number;
   /**
-   * The user's primary Local — the row pointed to by their
-   * `bcc_primary_local_group_id` user_meta. Null when no primary set
-   * (or the pointer no longer resolves to an active Local). Same
-   * shape as `MemberProfile.primary_local`.
+   * The user's primary Hall — the row pointed to by their
+   * `bcc_primary_hall_group_id` user_meta. Null when no primary set
+   * (or the pointer no longer resolves to an active Hall). Same
+   * shape as `MemberProfile.primary_hall`.
    */
-  primary_local:
-    | { id: number; slug: string; name: string; number: number | null }
+  primary_hall:
+    | { id: number; slug: string; name: string }
     | null;
   /**
    * Count of PeepSo pages this user owns (`peepso_page_members`
@@ -5182,7 +5179,7 @@ export interface GroupDetailPermissions {
 
 /**
  * Viewer's membership block on the detail response. Cross-kind shape
- * — no `is_primary` (that's a Local-only concept on `LocalMembership`).
+ * — no `is_primary` (that's a Hall-only concept on `HallMembership`).
  *   - viewer anon                       → null
  *   - viewer authed, not active member  → {is_member: false, joined_at: null}
  *   - viewer authed, active member      → {is_member: true, joined_at: <iso>}
@@ -5216,7 +5213,7 @@ export interface GroupDetailResponse {
   /** NFT-cover URL when `type === "nft"`; null otherwise. */
   image_url: string | null;
   member_count: number;
-  /** On-chain badge for NFT groups; null for local/system/user. */
+  /** On-chain badge for NFT groups; null for hall/system/user. */
   verification: GroupVerification | null;
   activity: GroupActivity;
   /** Market-data block for NFT groups; null for non-NFT kinds. */
@@ -5648,8 +5645,8 @@ export interface BadgesResponse {
 // load-more, no analytics. DiscoverPanel.tsx encodes the locked phrases.
 // ────────────────────────────────────────────────────────────────────────
 
-export interface ColdStartLocal {
-  /** Slug for /locals/[slug] routing. */
+export interface ColdStartHall {
+  /** Slug for /halls/[slug] routing. */
   slug: string;
   /** Pre-rendered display name per §A2. */
   name: string;
@@ -5684,7 +5681,7 @@ export interface ColdStartOperator {
 
 export interface ColdStartResponse {
   /** 0-3 entries. */
-  locals: ColdStartLocal[];
+  halls: ColdStartHall[];
   /** 0-4 entries, recency-ordered server-side. NEVER trust/follower-ranked. */
   recent_operators: ColdStartOperator[];
   /** 0-2 entries from FeedRankingService::getHotFeed. Rendered as full FeedItemCards. */
