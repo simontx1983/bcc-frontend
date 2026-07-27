@@ -124,7 +124,7 @@ export function ActionBar({
               ? FOLLOW_COPY.tooltipActive
               : FOLLOW_COPY.tooltipIdle
             : unlockHint(card.permissions, "can_watch") ??
-              "Keep Tabs is unavailable for this card."
+              `${FOLLOW_COPY.cta} is unavailable for this card.`
         }
         onClick={(e) => {
           stop(e);

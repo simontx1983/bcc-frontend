@@ -14,6 +14,7 @@
  *   - network failure  → "Something went wrong, try again"
  */
 
+import { CheckCircle2 } from "lucide-react";
 import Link from "next/link";
 import { type FormEvent, useState } from "react";
 
@@ -58,9 +59,7 @@ export default function ForgotPasswordPage() {
         /* ── Success state ── */
         <div className="bcc-auth-success">
           <div className="bcc-auth-success-icon">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="20 6 9 17 4 12" />
-            </svg>
+            <CheckCircle2 size={20} strokeWidth={2.2} aria-hidden />
           </div>
           <p className="bcc-auth-success-title">Check your inbox</p>
           <p className="bcc-auth-success-body">

@@ -23,6 +23,7 @@
  * UX cost is identical regardless of provider.
  */
 
+import { ChevronDown } from "lucide-react";
 import { signIn } from "next-auth/react";
 import { useState } from "react";
 
@@ -158,9 +159,7 @@ export function WalletAuthButton(props: WalletAuthButtonProps) {
             ))}
           </select>
           <span className="bcc-auth-select-arrow" aria-hidden="true">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="6 9 12 15 18 9" />
-            </svg>
+            <ChevronDown size={12} strokeWidth={2.5} />
           </span>
         </div>
       </div>

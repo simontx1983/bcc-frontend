@@ -149,6 +149,18 @@ export interface OnboardingStatus {
   onboarded: boolean;
 }
 
+/**
+ * GET/POST /me/tours-seen — the durable, cross-device half of the tour
+ * "seen" store (the other half is localStorage; the effective set is
+ * their union). `seen` is an append-only list of tour ids the viewer has
+ * finished or skipped. Optional on the FE because the backend endpoint
+ * ships after the frontend — until then the client degrades to
+ * localStorage-only (see useToursSeen).
+ */
+export interface ToursSeenResponse {
+  seen: string[];
+}
+
 // ─────────────────────────────────────────────────────────────────────
 // Cards (§L5 polymorphic view-model)
 // ─────────────────────────────────────────────────────────────────────

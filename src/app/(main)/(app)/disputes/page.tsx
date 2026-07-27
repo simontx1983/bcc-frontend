@@ -16,6 +16,7 @@ import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 
 import { DisputesRoom } from "@/components/disputes/DisputesRoom";
+import { TourAutoStart } from "@/components/tour/TourAutoStart";
 import { authOptions } from "@/lib/auth";
 
 export default async function DisputesPage() {
@@ -24,5 +25,10 @@ export default async function DisputesPage() {
     redirect("/login?callbackUrl=/disputes");
   }
 
-  return <DisputesRoom />;
+  return (
+    <>
+      <TourAutoStart tourId="disputes" />
+      <DisputesRoom />
+    </>
+  );
 }

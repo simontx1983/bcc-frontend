@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { LeftSidebar } from "./LeftSidebar";
 import { RightRailOutlet } from "./RightRailOutlet";
 import { RightRailProvider } from "./RightRailContext";
+import { TourProvider } from "@/components/tour/TourProvider";
 import { useScrollRestoration } from "@/hooks/useScrollRestoration";
 
 interface AppShellProps {
@@ -76,6 +77,7 @@ export function AppShell({
   }, []);
 
   return (
+    <TourProvider>
     <RightRailProvider>
     <div className="bcc-app-shell">
       <div className="bcc-body">
@@ -116,5 +118,6 @@ export function AppShell({
       </div>
     </div>
     </RightRailProvider>
+    </TourProvider>
   );
 }

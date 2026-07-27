@@ -5,10 +5,26 @@
  * paths (see HANDOVER-comment-v2-polish.md Item 0); every caller now
  * imports from here instead of inlining its own <svg>.
  *
+ * Backed by `lucide-react` (task 5, icon standardization) except
+ * FlameIcon, which stays a bespoke hand-drawn glyph on purpose — Stoke
+ * is BCC's own mark, not a generic library icon. Every export keeps its
+ * original call signature (default sizes, className passthrough) so no
+ * consumer needed to change.
+ *
  * All icons take `stroke="currentColor"` so the caller owns color via
  * text color, except FlameIcon which fills/strokes by its own `color`/
  * `outline` props (Stoke's fill state isn't a text-color concept).
  */
+
+import {
+  Clock,
+  Eye,
+  Image as LucideImage,
+  MessageCircle,
+  Sparkles,
+  SquareArrowOutUpRight,
+  Zap,
+} from "lucide-react";
 
 export function FlameIcon({
   size,
@@ -44,57 +60,20 @@ export function FlameIcon({
 }
 
 export function ReplyIcon({ size = 17, className }: { size?: number; className?: string }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" aria-hidden className={className}>
-      <path
-        d="M2.5 3.5h11a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H7l-2.8 2.4a.5.5 0 0 1-.82-.38V11.5h-1a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1Z"
-        stroke="currentColor"
-        strokeWidth="1.3"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
+  return <MessageCircle size={size} className={className} aria-hidden strokeWidth={1.8} />;
 }
 
 export function ShareIcon({ size = 17, className }: { size?: number; className?: string }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" aria-hidden className={className}>
-      <path
-        d="M6.5 3.5h-2a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-2"
-        stroke="currentColor"
-        strokeWidth="1.3"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M7 9 12.5 3.5M9 3.5h3.5V7"
-        stroke="currentColor"
-        strokeWidth="1.3"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
+  return <SquareArrowOutUpRight size={size} className={className} aria-hidden strokeWidth={1.8} />;
 }
 
 export function ClockIcon({ size = 13, className }: { size?: number; className?: string }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" aria-hidden className={className}>
-      <circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="1.3" />
-      <path d="M8 4.8V8l2.4 1.4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
+  return <Clock size={size} className={className} aria-hidden strokeWidth={1.8} />;
 }
 
 /** Canonical photo-attach glyph — matches the post composer's original icon. */
 export function PhotoIcon({ size = 17, className }: { size?: number; className?: string }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" aria-hidden className={className}>
-      <rect x="1.5" y="2.5" width="13" height="11" rx="1.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
-      <circle cx="5.5" cy="6" r="1.25" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M1.5 11L5.5 8L8.5 10.5L11 8L14.5 11.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
+  return <LucideImage size={size} className={className} aria-hidden strokeWidth={1.8} />;
 }
 
 // ─────────────────────────────────────────────────────────────────────
@@ -104,42 +83,13 @@ export function PhotoIcon({ size = 17, className }: { size?: number; className?:
 // ─────────────────────────────────────────────────────────────────────
 
 export function SparklesIcon({ size = 15, className }: { size?: number; className?: string }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" aria-hidden className={className}>
-      <path
-        d="M8.4 1.6 9.3 5l3.4.9-3.4.9-.9 3.4-.9-3.4L4.1 5.9 7.5 5l.9-3.4Z"
-        fill="currentColor"
-      />
-      <path
-        d="M12.6 10.4 13 12l1.6.4L13 12.8l-.4 1.6-.4-1.6-1.6-.4 1.6-.4.4-1.6Z"
-        fill="currentColor"
-      />
-    </svg>
-  );
+  return <Sparkles size={size} className={className} aria-hidden strokeWidth={1.8} />;
 }
 
 export function EyeIcon({ size = 15, className }: { size?: number; className?: string }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" aria-hidden className={className}>
-      <path
-        d="M1 8s2.5-4.5 7-4.5S15 8 15 8s-2.5 4.5-7 4.5S1 8 1 8Z"
-        stroke="currentColor"
-        strokeWidth="1.3"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <circle cx="8" cy="8" r="2" stroke="currentColor" strokeWidth="1.3" />
-    </svg>
-  );
+  return <Eye size={size} className={className} aria-hidden strokeWidth={1.8} />;
 }
 
 export function BoltIcon({ size = 15, className }: { size?: number; className?: string }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" aria-hidden className={className}>
-      <path
-        d="M8.8 1.5 3 9h3.6L6.2 14.5 13 6.5H9.4L8.8 1.5Z"
-        fill="currentColor"
-      />
-    </svg>
-  );
+  return <Zap size={size} className={className} aria-hidden strokeWidth={1.8} />;
 }

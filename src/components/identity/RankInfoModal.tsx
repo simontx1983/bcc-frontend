@@ -168,7 +168,7 @@ export function RankInfoModal({
             <path d="M12 2l2.6 5.3 5.9.9-4.2 4.1 1 5.8L12 21l-5.3 2.8 1-5.8-4.2-4.1 5.9-.9L12 2z" />
           </svg>
           <p className="text-[11px] leading-snug text-[var(--bcc-text)]">
-            <span className="bcc-stencil tracking-wide text-[var(--bcc-accent)]">
+            <span className="bcc-stencil tracking-wide text-[var(--bcc-trust-foreman)]">
               FOREMAN
             </span>{" "}
             is a conferred role — panel &amp; adjudication leadership — not a rung

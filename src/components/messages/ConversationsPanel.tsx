@@ -20,6 +20,8 @@
  * drift apart.
  */
 
+import { MailOpen } from "lucide-react";
+
 import { ConversationList } from "@/components/messages/ConversationList";
 import { useConversations } from "@/hooks/useConversations";
 import { humanizeCode } from "@/lib/api/errors";
@@ -69,7 +71,9 @@ export function ConversationsPanel({ enabled, open, onNavigate }: ConversationsP
     // visual is unchanged.
     return (
       <div style={{ padding: "32px 20px", textAlign: "center" }}>
-        <div style={{ fontSize: 28, marginBottom: 10 }} aria-hidden>📭</div>
+        <div style={{ display: "flex", justifyContent: "center", marginBottom: 10, color: "var(--bcc-text-muted)" }} aria-hidden>
+          <MailOpen size={28} strokeWidth={1.6} />
+        </div>
         <p style={{ fontFamily: "var(--font-stencil), Impact, sans-serif", fontWeight: 800, fontSize: 15, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--bcc-text)", marginBottom: 8 }}>
           Quiet Inbox
         </p>

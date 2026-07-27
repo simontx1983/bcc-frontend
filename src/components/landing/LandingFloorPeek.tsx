@@ -17,6 +17,7 @@
 import Link from "next/link";
 import type { Route } from "next";
 
+import { FlameIcon, ReplyIcon } from "@/components/feed/actionIcons";
 import { deriveBodySummary, readString } from "@/components/feed/postBody";
 import { RankChip } from "@/components/profile/RankChip";
 import { useHotFeedPeek } from "@/hooks/useFeed";
@@ -69,8 +70,12 @@ function PeekCard({ item }: { item: FeedItem }) {
       </div>
       {body !== "" && <p className="bcc-ldg-pc-body">{body}</p>}
       <div className="bcc-ldg-pc-rail" aria-hidden>
-        <span className="stoke">🔥 Stoke {stokeCount}</span>
-        <span>💬 {item.comment_count}</span>
+        <span className="stoke">
+          <FlameIcon size={14} color="var(--bcc-secondary)" outline={false} /> Stoke {stokeCount}
+        </span>
+        <span>
+          <ReplyIcon size={14} /> {item.comment_count}
+        </span>
         <span>{formatRelativeTime(item.posted_at)}</span>
       </div>
     </Link>

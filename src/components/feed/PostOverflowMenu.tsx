@@ -8,6 +8,7 @@
  */
 
 import { useEffect, useRef, useState } from "react";
+import { MoreHorizontal } from "lucide-react";
 
 import { canReportFeedItem, ReportModal, resolveTargetId } from "@/components/feed/ReportButton";
 import { useCopyConfirm } from "@/hooks/useCopyConfirm";
@@ -51,7 +52,7 @@ export function PostOverflowMenu({ selfHref, item }: { selfHref: string; item?: 
         aria-expanded={open}
         className="bcc-mono inline-flex min-h-[20px] items-center px-1 text-[var(--bcc-text-secondary)] hover:text-[var(--bcc-text)]"
       >
-        ⋯
+        <MoreHorizontal size={15} strokeWidth={2} aria-hidden />
       </button>
       {open && (
         <div

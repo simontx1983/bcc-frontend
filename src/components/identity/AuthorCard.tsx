@@ -23,6 +23,7 @@ import { useUser } from "@/hooks/useUser";
 import type {
   AuthorVouchPermission,
   CardTier,
+  ReputationTier,
   ViewerAttestation,
 } from "@/lib/api/types";
 
@@ -31,6 +32,14 @@ export interface AuthorCardProps {
   displayName?: string | undefined;
   avatarUrl?: string | null | undefined;
   cardTier: CardTier;
+  /**
+   * The canonical trust-band signal, passed to RankChip in preference to
+   * `cardTier` (which can't represent risky — see RankChip's own doc
+   * comment). Falls back to the lazily-fetched profile's own
+   * `reputation_tier` when the caller doesn't have one yet (bare
+   * @mention hovercards), same pattern as `cardTier`/`tierLabel` below.
+   */
+  reputationTier?: ReputationTier | null | undefined;
   tierLabel: string | null;
   rankLabel: string;
   isOperator?: boolean | undefined;
@@ -53,6 +62,7 @@ export function AuthorCard({
   displayName,
   avatarUrl,
   cardTier,
+  reputationTier,
   tierLabel,
   rankLabel,
   isOperator,
@@ -80,6 +90,8 @@ export function AuthorCard({
         ? profile.display_name
         : `@${handle}`;
   const effectiveCardTier: CardTier = cardTier ?? profile?.card_tier ?? null;
+  const effectiveReputationTier: ReputationTier | null =
+    reputationTier ?? profile?.reputation_tier ?? null;
   const effectiveTierLabel = tierLabel ?? profile?.tier_label ?? null;
   const effectiveRankLabel = rankLabel !== "" ? rankLabel : profile?.rank_label ?? "";
   const effectiveIsOperator = isOperator === true;
@@ -139,6 +151,7 @@ export function AuthorCard({
             <span className="mt-1.5">
               <RankChip
                 cardTier={effectiveCardTier}
+                reputationTier={effectiveReputationTier}
                 tierLabel={effectiveTierLabel}
                 rankLabel={effectiveRankLabel}
                 size="compact"

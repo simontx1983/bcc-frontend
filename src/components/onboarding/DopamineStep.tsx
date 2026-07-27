@@ -34,6 +34,7 @@
  * physically-accurate flight from each rendered card.
  */
 
+import { BookMarked } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -131,19 +132,15 @@ export function DopamineStep({
 
   if (save.status === "error") {
     return (
-      <section className="mx-auto mt-16 max-w-xl px-6 sm:px-8">
-        <div className="bcc-panel p-6">
-          <h2 className="bcc-stencil text-2xl text-bcc-text">
+      <section className="bcc-onb-step" style={{ maxWidth: "36rem" }}>
+        <div className="bcc-onb-panel">
+          <h2 className="bcc-onb-disp" style={{ fontSize: "1.8rem" }}>
             Couldn&apos;t finish onboarding
           </h2>
-          <p className="mt-2 font-serif text-bcc-text-secondary">
+          <p className="bcc-onb-lede" style={{ marginTop: "10px", fontSize: "1rem" }}>
             {save.copy}
           </p>
-          <button
-            type="button"
-            onClick={runComplete}
-            className="bcc-mono mt-4 text-blueprint underline"
-          >
+          <button type="button" onClick={runComplete} className="bcc-onb-link" style={{ marginTop: "16px" }}>
             Try again
           </button>
         </div>
@@ -172,10 +169,10 @@ export function DopamineStep({
     >
       {/* Watchlist dock — the destination for the chips. */}
       <div className="absolute right-8 top-6 flex flex-col items-end gap-1">
-        <div className="bcc-panel flex h-14 w-14 items-center justify-center text-2xl">
-          📒
+        <div className="bcc-onb-panel flex h-14 w-14 items-center justify-center p-0 text-[var(--bcc-text)]">
+          <BookMarked size={24} strokeWidth={1.7} aria-hidden />
         </div>
-        <span className="bcc-mono text-[10px] text-bcc-text-secondary">Watchlist</span>
+        <span className="bcc-onb-note">Watchlist</span>
       </div>
 
       {/* Flying chips — only when motion is allowed. */}
@@ -192,14 +189,14 @@ export function DopamineStep({
         ))}
 
       <div className={reducedMotion ? "" : "bcc-onboarding-arrive"}>
-        <div className="bcc-panel px-8 py-6 text-center">
-          <p className="bcc-stencil text-3xl text-bcc-text md:text-4xl">
+        <div className="bcc-onb-panel px-8 py-6 text-center">
+          <p className="bcc-onb-disp" style={{ fontSize: "clamp(2rem, 5vw, 2.6rem)" }}>
             You&apos;re on the Floor.
           </p>
           {/* Rank label is server-rendered (§A2) — completion response
               echoes the user's current rank. Empty string = suppress
               the segment (server didn't have one to send). */}
-          <p className="bcc-mono mt-3 text-bcc-text-secondary">
+          <p className="bcc-onb-note" style={{ marginTop: "12px" }}>
             +{pulledCards.length} card{pulledCards.length === 1 ? "" : "s"}
             {save.status === "saved" && save.data.rank_label !== "" && (
               <>
@@ -208,12 +205,12 @@ export function DopamineStep({
             )}
             {homeChain !== null && (
               <>
-                {" · "}home: <span className="text-bcc-text">{homeChain}</span>
+                {" · "}home: <span style={{ color: "var(--bcc-text)" }}>{homeChain}</span>
               </>
             )}
           </p>
           {save.status === "saving" && (
-            <p className="bcc-mono mt-3 text-[10px] text-bcc-text-secondary/70">
+            <p className="bcc-onb-note" style={{ marginTop: "12px", opacity: 0.7 }}>
               Saving…
             </p>
           )}

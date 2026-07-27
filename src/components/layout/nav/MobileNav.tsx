@@ -1,5 +1,6 @@
 "use client";
 
+import { Globe, Home, LayoutGrid, Menu, Plus } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -61,25 +62,19 @@ export function MobileNav({ onMenuOpen }: MobileNavProps) {
     >
       {/* Home */}
       <Link href="/" style={itemStyle("/")}>
-        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden>
-          <path d="M3 9.5L10 3l7 6.5V17a1 1 0 01-1 1H4a1 1 0 01-1-1V9.5z"
-            stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round"
-            fill={isActive("/") ? "var(--bcc-accent)" : "none"}
-            fillOpacity={isActive("/") ? 0.15 : 0}
-          />
-          <path d="M7.5 18v-5h5v5" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round"/>
-        </svg>
+        <Home
+          size={20}
+          strokeWidth={1.7}
+          aria-hidden
+          fill={isActive("/") ? "var(--bcc-accent)" : "none"}
+          fillOpacity={isActive("/") ? 0.15 : 0}
+        />
         <span style={labelStyle}>Home</span>
       </Link>
 
       {/* Directory */}
       <Link href="/directory" style={itemStyle("/directory")}>
-        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden>
-          <rect x="2" y="3" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.6"/>
-          <rect x="11" y="3" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.6"/>
-          <rect x="2" y="12" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.6"/>
-          <rect x="11" y="12" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.6"/>
-        </svg>
+        <LayoutGrid size={20} strokeWidth={1.7} aria-hidden />
         <span style={labelStyle}>Directory</span>
       </Link>
 
@@ -103,27 +98,19 @@ export function MobileNav({ onMenuOpen }: MobileNavProps) {
             WebkitTapHighlightColor: "transparent",
           }}
         >
-          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden>
-            <path d="M10 3v14M3 10h14" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"/>
-          </svg>
+          <Plus size={20} strokeWidth={2.2} aria-hidden />
         </NewPostTrigger>
       </div>
 
       {/* Communities */}
       <Link href="/communities" style={itemStyle("/communities")}>
-        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden>
-          <circle cx="10" cy="10" r="7.5" stroke="currentColor" strokeWidth="1.6"/>
-          <ellipse cx="10" cy="10" rx="3.5" ry="7.5" stroke="currentColor" strokeWidth="1.6"/>
-          <path d="M2.5 10h15" stroke="currentColor" strokeWidth="1.6"/>
-        </svg>
+        <Globe size={20} strokeWidth={1.7} aria-hidden />
         <span style={labelStyle}>Communities</span>
       </Link>
 
       {/* Menu — opens offcanvas */}
       <button onClick={onMenuOpen} style={itemStyle("__menu__")} aria-label="Open menu">
-        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden>
-          <path d="M3 5h14M3 10h14M3 15h14" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
-        </svg>
+        <Menu size={20} strokeWidth={1.7} aria-hidden />
         <span style={labelStyle}>Menu</span>
       </button>
 
