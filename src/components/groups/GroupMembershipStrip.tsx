@@ -2,7 +2,7 @@
 
 /**
  * GroupMembershipStrip — the "your status here" panel on the §4.7.5
- * group-detail page. Cross-kind: works for nft / local / system / user
+ * group-detail page. Cross-kind: works for nft / hall / system / user
  * groups via the same kind-dispatched wrapper pattern that
  * `components/profile/panels/GroupsPanel.tsx` uses.
  *
@@ -13,7 +13,7 @@
  *   4. otherwise → no action surface
  *
  * On success → `router.refresh()` re-fetches the parent server component
- * (the page is SSR'd). This matches `LocalMembershipControls` and is
+ * (the page is SSR'd). This matches `HallMembershipControls` and is
  * simpler than React-Query cache surgery for an SSR'd parent.
  *
  * The frontend does NOT recompute eligibility — the server's
@@ -29,9 +29,9 @@ import {
   useLeaveHolderGroupMutation,
 } from "@/hooks/useHolderGroups";
 import {
-  useJoinLocalMutation,
-  useLeaveLocalMutation,
-} from "@/hooks/useLocalsPrimary";
+  useJoinHallMutation,
+  useLeaveHallMutation,
+} from "@/hooks/useHallsPrimary";
 import {
   useJoinPlainGroupMutation,
   useLeavePlainGroupMutation,
@@ -197,8 +197,8 @@ function JoinAction({ group, onActionStart, onActionError }: ActionDispatchProps
   switch (group.type) {
     case "nft":
       return <HolderJoinButton groupId={group.id} {...handlers} />;
-    case "local":
-      return <LocalJoinButton groupId={group.id} {...handlers} />;
+    case "hall":
+      return <HallJoinButton groupId={group.id} {...handlers} />;
     case "user":
     case "system":
       return <PlainJoinButton groupId={group.id} {...handlers} />;
@@ -210,8 +210,8 @@ function LeaveAction({ group, onActionStart, onActionError }: ActionDispatchProp
   switch (group.type) {
     case "nft":
       return <HolderLeaveButton groupId={group.id} {...handlers} />;
-    case "local":
-      return <LocalLeaveButton groupId={group.id} {...handlers} />;
+    case "hall":
+      return <HallLeaveButton groupId={group.id} {...handlers} />;
     case "user":
     case "system":
       return <PlainLeaveButton groupId={group.id} {...handlers} />;
@@ -404,9 +404,9 @@ function HolderLeaveButton({ groupId, onActionStart, onActionError }: ActionButt
   );
 }
 
-function LocalJoinButton({ groupId, onActionStart, onActionError }: ActionButtonProps) {
+function HallJoinButton({ groupId, onActionStart, onActionError }: ActionButtonProps) {
   const onSuccess = useRefreshOnSuccess();
-  const mutation = useJoinLocalMutation({ onSuccess, onError: onActionError });
+  const mutation = useJoinHallMutation({ onSuccess, onError: onActionError });
   const errorMessage = mutation.error
     ? humanizeMembershipError(mutation.error, "join")
     : null;
@@ -428,14 +428,14 @@ function LocalJoinButton({ groupId, onActionStart, onActionError }: ActionButton
   );
 }
 
-function LocalLeaveButton({ groupId, onActionStart, onActionError }: ActionButtonProps) {
+function HallLeaveButton({ groupId, onActionStart, onActionError }: ActionButtonProps) {
   const onSuccess = useRefreshOnSuccess();
-  const mutation = useLeaveLocalMutation({ onSuccess, onError: onActionError });
+  const mutation = useLeaveHallMutation({ onSuccess, onError: onActionError });
   const errorMessage = mutation.error
     ? humanizeMembershipError(mutation.error, "leave")
     : null;
   return (
-    <ActionRow primaryCopy="You're an active member of this Local.">
+    <ActionRow primaryCopy="You're an active member of this Hall.">
       <GroupActionButton
         groupId={groupId}
         label="LEAVE"
@@ -558,7 +558,7 @@ function RestingCopy() {
 
 // ──────────────────────────────────────────────────────────────────────
 // MembershipPill — GUEST / NOT A MEMBER / MEMBER (cross-kind, no
-// ★ PRIMARY because that's a Local-only concept).
+// ★ PRIMARY because that's a Hall-only concept).
 // ──────────────────────────────────────────────────────────────────────
 
 function MembershipPill({

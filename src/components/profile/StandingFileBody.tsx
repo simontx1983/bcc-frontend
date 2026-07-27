@@ -204,13 +204,13 @@ function CurrentGradeBlock({
 
 function VerifiedIdentityBlock({ profile }: { profile: MemberProfile }) {
   const walletCount = profile.wallets.length;
-  const localCount = profile.locals.length;
+  const hallCount = profile.halls.length;
   const verifications = profile.verifications;
   const completeness = verifications.profile_completeness;
   const profileComplete = completeness >= PROFILE_COMPLETE_THRESHOLD;
   const settingsRoute = "/u/me?tab=profile" as Route;
   const profileEditRoute = "/u/me?tab=profile" as Route;
-  const localsRoute = "/locals" as Route;
+  const hallsRoute = "/halls" as Route;
 
   const rows: Array<{
     label: string;
@@ -257,14 +257,14 @@ function VerifiedIdentityBlock({ profile }: { profile: MemberProfile }) {
       href: profileEditRoute,
     },
     {
-      label: "Local",
-      connected: localCount > 0,
+      label: "Hall",
+      connected: hallCount > 0,
       detail:
-        localCount === 0
+        hallCount === 0
           ? "Not joined"
-          : `${localCount} joined`,
-      ctaLabel: localCount > 0 ? "Manage →" : "Join →",
-      href: localsRoute,
+          : `${hallCount} joined`,
+      ctaLabel: hallCount > 0 ? "Manage →" : "Join →",
+      href: hallsRoute,
     },
   ];
 

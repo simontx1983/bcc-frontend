@@ -44,7 +44,7 @@ export function GroupActionButton({
         onClick={(e) => {
           // The /communities discovery card wraps each tile in a
           // surrounding link (PeepSo group page for plain groups,
-          // /locals/[slug] for Locals). Without this stop, clicking
+          // /halls/[slug] for Halls). Without this stop, clicking
           // JOIN would also navigate away from the discovery surface
           // mid-mutation. preventDefault for the same reason if any
           // ancestor anchor wraps via SSR.

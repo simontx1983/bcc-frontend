@@ -127,7 +127,7 @@ export function NotificationsPanel({
         // inbox-notify framing ("we'll notify you"). Replaced with
         // "Nothing on file." — the workshop/ledger vocabulary the
         // rest of the product uses (FILE 01-07 frames on profile,
-        // "on the books" on locals empty). Observational; no
+        // "on the books" on halls empty). Observational; no
         // promise; no system-speaking-at-you.
         <div className="bcc-mono px-4 py-6 text-center text-[11px] text-[var(--bcc-text-secondary)]">
           Nothing on file.

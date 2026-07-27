@@ -5,7 +5,7 @@
  *
  * Mounts inside FeedView's empty state branch. CIVIC MAP, NOT a
  * recommendation engine. The room is showing the operator that it's
- * still here and offering three paths forward — locals to join,
+ * still here and offering three paths forward — halls to join,
  * operators recently active, posts that have been happening.
  *
  * ─────────────────────────────────────────────────────────────────────
@@ -15,14 +15,14 @@
  *
  *   - "Quiet on the Floor"                       — kept from prior empty state
  *   - "The room's still here. Three places to start."  — civic, present-tense, no urgency
- *   - "LOCALS YOU MIGHT JOIN"                    — "might join" is suggestion, not CTA
+ *   - "HALLS YOU MIGHT JOIN"                     — "might join" is suggestion, not CTA
  *   - "RECENTLY ACTIVE OPERATORS"                — recency, not ranking
  *   - "WHAT'S BEEN HAPPENING"                    — past-tense, NOT "happening now" or "hot"
  *   - "VIEW MORE ON THE FLOOR →"                 — navigation, not "see more"
  *   - "The floor's just opening up. Check back soon."  — honest terminal state
  *
  * Equally locked: what each phrase MUST NOT become.
- *   - LOCALS YOU MIGHT JOIN     ✗ "RECOMMENDED" / "POPULAR" / "FOR YOU"
+ *   - HALLS YOU MIGHT JOIN      ✗ "RECOMMENDED" / "POPULAR" / "FOR YOU"
  *   - RECENTLY ACTIVE OPERATORS ✗ "TOP" / "TRUSTED" / "WORTH WATCHING" / "TO FOLLOW"
  *   - WHAT'S BEEN HAPPENING     ✗ "HOT" / "TRENDING" / "LIVE NOW"
  *
@@ -59,7 +59,7 @@ import { FeedItemCard } from "@/components/feed/FeedItemCard";
 import { RankChip } from "@/components/profile/RankChip";
 import { useColdStart } from "@/hooks/useColdStart";
 import type {
-  ColdStartLocal,
+  ColdStartHall,
   ColdStartOperator,
   ColdStartResponse,
 } from "@/lib/api/types";
@@ -85,7 +85,7 @@ function DiscoverPanelImpl({ enabled }: DiscoverPanelProps) {
   }
 
   const allEmpty =
-    data.locals.length === 0 &&
+    data.halls.length === 0 &&
     data.recent_operators.length === 0 &&
     data.hot_posts.length === 0;
 
@@ -106,14 +106,14 @@ function DiscoverPanelImpl({ enabled }: DiscoverPanelProps) {
           </p>
         </header>
 
-        {data.locals.length > 0 && (
+        {data.halls.length > 0 && (
           <BlockSection
-            label="LOCALS YOU MIGHT JOIN"
-            viewAllHref={"/locals" as Route}
+            label="HALLS YOU MIGHT JOIN"
+            viewAllHref={"/halls" as Route}
           >
             <ul className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-              {data.locals.map((local) => (
-                <LocalCard key={local.slug} local={local} />
+              {data.halls.map((hall) => (
+                <HallCard key={hall.slug} hall={hall} />
               ))}
             </ul>
           </BlockSection>
@@ -176,7 +176,7 @@ DiscoverPanel.displayName = "DiscoverPanel";
 
 function composeKicker(data: ColdStartResponse): string {
   const filled =
-    (data.locals.length > 0 ? 1 : 0) +
+    (data.halls.length > 0 ? 1 : 0) +
     (data.recent_operators.length > 0 ? 1 : 0) +
     (data.hot_posts.length > 0 ? 1 : 0);
   if (filled === 3) return "Three places to start.";
@@ -242,29 +242,29 @@ function BlockSection({ label, viewAllHref, children }: BlockSectionProps) {
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// LocalCard — mini-card for the Locals block. Click → /locals/[slug].
+// HallCard — mini-card for the Halls block. Click → /halls/[slug].
 //
 // Deliberately quiet — no chain glyph, no member-count chip styled as
 // a metric badge. Just name + chain + tally as plain text under a
 // thin chain-color accent on the left edge.
 // ─────────────────────────────────────────────────────────────────────
 
-function LocalCard({ local }: { local: ColdStartLocal }) {
+function HallCard({ hall }: { hall: ColdStartHall }) {
   return (
     <li>
       <Link
-        href={`/locals/${local.slug}` as Route}
+        href={`/halls/${hall.slug}` as Route}
         className="bcc-panel block px-3 py-3 transition hover:bg-bcc-surface-hover"
         style={{
-          borderLeft: `3px solid var(--chain-${local.chain_slug}, var(--bcc-border))`,
+          borderLeft: `3px solid var(--chain-${hall.chain_slug}, var(--bcc-border))`,
         }}
       >
         <span className="bcc-stencil block truncate text-sm text-bcc-text">
-          {local.name}
+          {hall.name}
         </span>
         <span className="bcc-mono mt-1 block text-[10px] tracking-[0.14em] text-bcc-text-secondary">
-          {local.chain_slug.toUpperCase()} · {local.member_count}{" "}
-          {local.member_count === 1 ? "member" : "members"}
+          {hall.chain_slug.toUpperCase()} · {hall.member_count}{" "}
+          {hall.member_count === 1 ? "member" : "members"}
         </span>
       </Link>
     </li>

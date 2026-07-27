@@ -35,7 +35,7 @@ import { useRouter } from "next/navigation";
 import { CardFactory } from "@/components/cards/CardFactory";
 import { humanizeMembershipError } from "@/components/groups/GroupMembershipStrip";
 import { useJoinHolderGroupMutation } from "@/hooks/useHolderGroups";
-import { useJoinLocalMutation } from "@/hooks/useLocalsPrimary";
+import { useJoinHallMutation } from "@/hooks/useHallsPrimary";
 import { useJoinPlainGroupMutation } from "@/hooks/useMyGroups";
 import type { Card } from "@/lib/api/types";
 
@@ -47,7 +47,7 @@ export function CommunityJoinCard({
   hideOpenAction?: boolean;
 }) {
   const router = useRouter();
-  // Optimistic membership for the plain/local paths only — see module
+  // Optimistic membership for the plain/hall paths only — see module
   // doc. Replaced by server truth when router.refresh() lands.
   const [optimisticJoined, setOptimisticJoined] = useState(false);
 
@@ -58,7 +58,7 @@ export function CommunityJoinCard({
     onSuccess: refresh,
     onError: clearOptimistic,
   });
-  const localJoin = useJoinLocalMutation({
+  const hallJoin = useJoinHallMutation({
     onSuccess: refresh,
     onError: clearOptimistic,
   });
@@ -77,18 +77,18 @@ export function CommunityJoinCard({
         return;
       }
       setOptimisticJoined(true);
-      if (dossier.type === "local") {
-        localJoin.mutate(joinCard.id);
+      if (dossier.type === "hall") {
+        hallJoin.mutate(joinCard.id);
       } else {
         plainJoin.mutate(joinCard.id);
       }
     },
-    [holderJoin, localJoin, plainJoin],
+    [holderJoin, hallJoin, plainJoin],
   );
 
   const joinPending =
-    holderJoin.isPending || localJoin.isPending || plainJoin.isPending;
-  const joinError = holderJoin.error ?? localJoin.error ?? plainJoin.error;
+    holderJoin.isPending || hallJoin.isPending || plainJoin.isPending;
+  const joinError = holderJoin.error ?? hallJoin.error ?? plainJoin.error;
 
   return (
     <div className="flex flex-col items-center gap-2">

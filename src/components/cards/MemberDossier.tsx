@@ -5,7 +5,7 @@
  * change is the source type: these renderers read the `MemberDossier`
  * block off a member `Card` instead of the slim `MemberSummary`). No
  * presentation logic changed — same VERIFIED / ON THE FLOOR sections,
- * same typed-role pills, same primary-local chip, same cold-start
+ * same typed-role pills, same primary-hall chip, same cold-start
  * fallback.
  *
  * CardFactory drops `<MemberDossierBack dossier={card.member_dossier} />`
@@ -37,14 +37,14 @@ export function MemberDossierBack({ dossier }: { dossier: MemberDossier }) {
     e.reviews_written > 0 ||
     e.disputes_signed > 0 ||
     typedRoles.length > 0 ||
-    dossier.primary_local !== null;
+    dossier.primary_hall !== null;
 
   return (
     <>
-      {/* Pills row — typed role badges + primary local pill. Compact;
+      {/* Pills row — typed role badges + primary hall pill. Compact;
           only renders the chips with content so a community member with
-          no owned pages and no primary local doesn't get an empty band. */}
-      {(typedRoles.length > 0 || dossier.primary_local !== null) && (
+          no owned pages and no primary hall doesn't get an empty band. */}
+      {(typedRoles.length > 0 || dossier.primary_hall !== null) && (
         <div className="mt-2 flex flex-wrap items-center gap-1">
           {typedRoles.map((role) => (
             <TypedRoleBadge
@@ -54,8 +54,8 @@ export function MemberDossierBack({ dossier }: { dossier: MemberDossier }) {
               label={role.label}
             />
           ))}
-          {dossier.primary_local !== null && (
-            <PrimaryLocalChip local={dossier.primary_local} />
+          {dossier.primary_hall !== null && (
+            <PrimaryHallChip hall={dossier.primary_hall} />
           )}
         </div>
       )}
@@ -175,7 +175,7 @@ export function Row({
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// Typed role badges + primary local pill — the back face's pills row.
+// Typed role badges + primary hall pill — the back face's pills row.
 // Same canonical type slugs and color palette the chip strip uses on
 // the directory filter (`--owned-type-*` CSS vars). Render order is
 // fixed (validator → project → nft → dao) so a heavy operator looks the
@@ -242,18 +242,17 @@ export function TypedRoleBadge({
   );
 }
 
-export function PrimaryLocalChip({
-  local,
+export function PrimaryHallChip({
+  hall,
 }: {
-  local: NonNullable<MemberDossier["primary_local"]>;
+  hall: NonNullable<MemberDossier["primary_hall"]>;
 }) {
   return (
     <span
       className="bcc-mono inline-flex items-center gap-1 border border-cardstock-edge/40 px-1.5 py-[2px] text-ink"
       style={{ fontSize: "9px", letterSpacing: "0.16em" }}
     >
-      {local.number !== null && <span className="text-safety">№{local.number}</span>}
-      <span className="truncate">{local.name.toUpperCase()}</span>
+      <span className="truncate">{hall.name.toUpperCase()}</span>
     </span>
   );
 }

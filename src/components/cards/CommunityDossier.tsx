@@ -10,7 +10,7 @@
  *     dl rows over the server's `*_display` strings (§A2 — rendered
  *     verbatim, no client-side number formatting), a "Requires N NFT"
  *     footer, and an external marketplace link.
- *   - Locals / plain groups → "THE FLOOR" header with Members /
+ *   - Halls / plain groups → "THE FLOOR" header with Members /
  *     Access / Chain rows. (The dossier carries no activity block on
  *     the wire today — the Activity row appears if the backend ever
  *     adds one.)
@@ -121,7 +121,7 @@ function CollectionBlock({ dossier }: { dossier: CardCommunityDossier }) {
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// Non-NFT register — locals and plain groups.
+// Non-NFT register — halls and plain groups.
 // ─────────────────────────────────────────────────────────────────────
 
 /**
