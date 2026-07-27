@@ -14,9 +14,12 @@
  *     than trapping the user.
  *   - `center: true` steps (or a missing target) render a centered card
  *     with no spotlight.
- *   - Keyboard: Esc = skip, →/Enter = next, ← = back. Reduced-motion drops
- *     all transitions. On narrow screens the popover docks to the bottom
- *     (CSS), so off-screen math never strands it.
+ *   - Keyboard: Esc = skip, → = next, ← = back. Enter advances only from a
+ *     non-interactive tour surface; on a focused button/checkbox it defers
+ *     to that control's native activation (no double-advance). Tab is trapped
+ *     within the popover (aria-modal). Reduced-motion drops all transitions.
+ *     On narrow screens the popover docks to the bottom (CSS), so off-screen
+ *     math never strands it.
  */
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
@@ -30,6 +33,19 @@ const TARGET_RETRY_MS = 120;
 const TARGET_GIVE_UP_MS = 1600;
 const POPOVER_GAP = 14;
 const VIEWPORT_MARGIN = 12;
+
+// An element that owns keyboard activation of its own (native buttons/links/
+// form fields, or anything wearing an interactive ARIA role). When Enter is
+// pressed while focus rests on one of these, we must NOT also advance the
+// tour from the window handler — the control's native activation is the sole
+// action (otherwise Enter on "Next" fires the button's onClick AND next()).
+const INTERACTIVE_SELECTOR =
+  'button, a[href], input, select, textarea, [role="button"], [role="link"], [role="checkbox"], [role="menuitem"], [contenteditable="true"]';
+
+// Candidate focusable controls inside the popover for the Tab focus-trap.
+// Filtered for actual reachability at keypress time (see collectFocusable).
+const FOCUSABLE_SELECTOR =
+  'button, a[href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
 
 interface Rect {
   top: number;
@@ -139,13 +155,101 @@ function TourLayerInner({ reduced }: { reduced: boolean }) {
     // a re-find loop when targetMissing flips.
   }, [stepDef, measure, reduced]);
 
-  // Keyboard controls.
+  // Keyboard controls + focus trap for the aria-modal dialog.
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") { e.preventDefault(); handleSkip(); }
-      else if (e.key === "ArrowRight" || e.key === "Enter") { e.preventDefault(); next(); }
-      else if (e.key === "ArrowLeft") { e.preventDefault(); if (!isFirst) back(); }
+    // Is `node` (or an ancestor) a control with its own keyboard activation?
+    const ownsActivation = (node: EventTarget | null): boolean =>
+      node instanceof Element && node.closest(INTERACTIVE_SELECTOR) !== null;
+
+    // Live list of reachable focusables inside the active popover. Computed
+    // at keypress time so conditionally-rendered controls (e.g. the "Back"
+    // button, absent on the first step) are always accurate. We gate on
+    // attributes + computed style rather than offsetParent/box size: the
+    // controls here hide by being removed from the DOM or by `display:none`,
+    // and an offsetParent/zero-size test is unreliable outside a real layout
+    // engine — computed display/visibility catches the real hidden cases.
+    const collectFocusable = (): HTMLElement[] => {
+      const root = popRef.current;
+      if (root === null) return [];
+      return Array.from(root.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)).filter((el) => {
+        if (el.hasAttribute("disabled")) return false;
+        if (el.hidden) return false;
+        if (el.getAttribute("aria-hidden") === "true") return false;
+        const cs = window.getComputedStyle(el);
+        if (cs.display === "none" || cs.visibility === "hidden") return false;
+        return true;
+      });
     };
+
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        handleSkip();
+        return;
+      }
+
+      if (e.key === "Tab") {
+        const root = popRef.current;
+        if (root === null) return;
+        const focusables = collectFocusable();
+        const activeEl = document.activeElement;
+        const withinPop = activeEl instanceof Node && root.contains(activeEl);
+
+        // No reachable control — keep focus pinned on the dialog container.
+        if (focusables.length === 0) {
+          e.preventDefault();
+          root.focus();
+          return;
+        }
+
+        const first = focusables[0];
+        const last = focusables[focusables.length - 1];
+        if (first === undefined || last === undefined) return;
+
+        // Focus escaped the modal — pull it back to the first control.
+        if (!withinPop) {
+          e.preventDefault();
+          first.focus();
+          return;
+        }
+
+        if (e.shiftKey) {
+          // Wrap backwards from the first control (or the container) to last.
+          if (activeEl === first || activeEl === root) {
+            e.preventDefault();
+            last.focus();
+          }
+        } else if (activeEl === last) {
+          // Wrap forwards from the last control to first.
+          e.preventDefault();
+          first.focus();
+        }
+        return;
+      }
+
+      if (e.key === "ArrowRight") {
+        e.preventDefault();
+        next();
+        return;
+      }
+
+      if (e.key === "Enter") {
+        // Let a focused interactive control's native activation be the ONLY
+        // action (avoids the double-advance when Enter lands on "Next").
+        // Advance only when focus is on a non-interactive tour surface
+        // (the popover container / centered card, tabIndex=-1).
+        if (ownsActivation(document.activeElement)) return;
+        e.preventDefault();
+        next();
+        return;
+      }
+
+      if (e.key === "ArrowLeft") {
+        e.preventDefault();
+        if (!isFirst) back();
+      }
+    };
+
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [next, back, handleSkip, isFirst]);
