@@ -2,7 +2,7 @@
  * /communities — cross-kind community discovery (§4.7.4).
  *
  * Server component. URL is the source of truth for filter + page index
- * (matches /locals pattern) so Back/Forward + share-link "just work"
+ * (matches /halls pattern) so Back/Forward + share-link "just work"
  * without bolting on client router state.
  *
  * Filter UI: a single binary chip strip — All / On-Chain Verified.
@@ -22,7 +22,7 @@
  * view-model (card_kind "community"), so the grid composes
  * CardFactory directly — same trading-card chassis as /directory and
  * /members. Click-through lives in the card's OPEN cell
- * (card.links.self → /communities/[slug] or /locals/[slug],
+ * (card.links.self → /communities/[slug] or /halls/[slug],
  * server-resolved); JOIN wiring lives in CommunityCardGrid.
  */
 

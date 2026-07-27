@@ -5,7 +5,7 @@
  * Extracted from the inline AboutBody that originally lived in
  * /communities/[slug]/about/page.tsx. Same JSX + helpers, just lifted
  * into a reusable panel component so the three community sub-routes
- * (and /groups/[slug] + /locals/[slug]) can all mount it inside the
+ * (and /groups/[slug] + /halls/[slug]) can all mount it inside the
  * unified GroupTabs.
  *
  * Server component. Pure presentation — no fetches, no state.

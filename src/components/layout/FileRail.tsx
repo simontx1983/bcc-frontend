@@ -21,7 +21,7 @@ export interface FileRailProps {
   /**
    * The kind label rendered after `FLOOR //`. Examples: `"OPERATOR"`
    * (member profiles), `"VALIDATOR"`, `"PROJECT"`, `"CREATOR"`,
-   * `"COMMUNITY"`, `"LOCAL"`. Caller passes UPPER-CASE; the rail
+   * `"COMMUNITY"`, `"HALL"`. Caller passes UPPER-CASE; the rail
    * doesn't transform.
    */
   kind: string;

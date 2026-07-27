@@ -18,7 +18,7 @@
  *   so SEO + deeplinks stay intact. Each community sub-route mounts the
  *   same shell with the right `initialTab`.
  *
- * Internal-state mode (/groups/[slug], /locals/[slug]):
+ * Internal-state mode (/groups/[slug], /halls/[slug]):
  *   Omit `urlBase` (or pass `urlSyncOn={false}`). Tab clicks update
  *   internal state only — no route navigation.
  */
@@ -49,7 +49,7 @@ export interface GroupTabsProps {
   /**
    * URL prefix for community sub-routes (e.g. `/communities/cosmos-hub`).
    * When set, clicking a tab pushes the canonical sub-URL. Omit on
-   * /groups/[slug] + /locals/[slug] for internal-state-only mode.
+   * /groups/[slug] + /halls/[slug] for internal-state-only mode.
    */
   urlBase?: string;
 }

@@ -5,7 +5,7 @@
  * navigation and renders the available fields. The contract today
  * returns the FLAT shape: identity (handle, display_name, avatar,
  * joined_at, tier_label, rank_label, is_in_good_standing, flags), bio
- * as plain string, locals/wallets, counts, plus the own-only blocks
+ * as plain string, halls/wallets, counts, plus the own-only blocks
  * (living, progression, feature_access, ux_helpers) when is_self.
  *
  * Auth: a null token is fine — the server returns a public view-model
@@ -18,7 +18,7 @@
  *
  * Layout: a top "FILE 0001" rail + a 2-column hero (identity left,
  * live shift right), then numbered section frames (FILE 02 BIO, 03
- * THE NUMBERS, 04 LOCALS, 05 WALLETS, 06 ON FILE) for vertical rhythm
+ * THE NUMBERS, 04 HALLS, 05 WALLETS, 06 ON FILE) for vertical rhythm
  * matching the SiteHeader rail vocabulary.
  *
  * Phase-4 surfaces — the rich profile (hero card, stats strip, shift-
@@ -211,7 +211,7 @@ export default async function MemberProfilePage({ params }: PageProps) {
     !isOwner &&
     repScore < 10 &&
     joinedAgeDays < 14 &&
-    profile.locals.length === 0 &&
+    profile.halls.length === 0 &&
     profile.wallets.length === 0 &&
     profile.bio.trim() === "";
 
@@ -435,7 +435,7 @@ export default async function MemberProfilePage({ params }: PageProps) {
               className="font-serif italic text-bcc-text-secondary mt-2"
               style={{ fontSize: "15px", lineHeight: 1.55, maxWidth: "60ch" }}
             >
-              No backing, no Locals linked, no wallets on file yet — the
+              No backing, no Halls linked, no wallets on file yet — the
               floor will fill in as they participate. Check back when
               they&apos;ve clocked a few shifts.
             </p>
@@ -481,9 +481,9 @@ export default async function MemberProfilePage({ params }: PageProps) {
             />
           </section>
 
-          {/* FILE 05 // LOCALS removed per the 2026-05-14
-              reorganization — local groups already render inside the
-              GroupsPanel (type === "local" rows), so a separate
+          {/* FILE 05 // HALLS removed per the 2026-05-14
+              reorganization — halls already render inside the
+              GroupsPanel (type === "hall" rows), so a separate
               section was redundant.
 
               FILE 06 // WALLETS moved into the "My Profile" tab, which is
@@ -674,8 +674,8 @@ function CountsStrip({ counts }: { counts: MemberCounts }) {
   );
 }
 
-// LocalsStrip removed — local groups now render inside GroupsPanel
-// (rows with type === "local"), so the standalone strip was redundant
+// HallsStrip removed — halls now render inside GroupsPanel
+// (rows with type === "hall"), so the standalone strip was redundant
 // after the FILE 05 SectionFrame deletion.
 //
 // WalletsStrip + WalletRow moved to the "My Profile" tab and were

@@ -2,8 +2,8 @@
  * group-card-data — map a §4.7.5 `GroupDetailResponse` view-model into the
  * shared `OgCardData` shape consumed by `renderOgCard`.
  *
- * Shared by the three group OG routes (/communities, /groups, /locals
- * /[slug]/opengraph-image.tsx) so community / group / local cards build
+ * Shared by the three group OG routes (/communities, /groups, /halls
+ * /[slug]/opengraph-image.tsx) so community / group / hall cards build
  * their card data identically — only the route-static kind context the
  * caller already knows differs, and that's derived from `group.type` here.
  *
@@ -39,15 +39,15 @@ const GROUP_CREST_COLOR = "#16b5e6";
 
 /**
  * Tasteful uppercase rail/kind label from the discovery `type` enum.
- * NFT holder groups read as "NFT COMMUNITY"; locals as "LOCAL"; system +
+ * NFT holder groups read as "NFT COMMUNITY"; halls as "CHAIN HALL"; system +
  * plain user groups both read as the generic "COMMUNITY".
  */
 function railLabelForType(type: GroupDetailResponse["type"]): string {
   switch (type) {
     case "nft":
       return "NFT COMMUNITY";
-    case "local":
-      return "LOCAL";
+    case "hall":
+      return "CHAIN HALL";
     case "system":
     case "user":
       return "COMMUNITY";

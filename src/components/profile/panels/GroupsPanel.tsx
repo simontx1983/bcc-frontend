@@ -3,7 +3,7 @@
 /**
  * GroupsPanel — §4.7.2 Profile Groups Tab.
  *
- * Cross-kind list (holder / Local / plain user / system) of all groups
+ * Cross-kind list (holder / Hall / plain user / system) of all groups
  * the target user is an active member of. Server-side privacy filter
  * drops secret groups for non-self viewers; closed groups always appear
  * with name + member_count visible.
@@ -18,7 +18,7 @@
  *
  * Action dispatch (V1 hardcoded paths, per contract §3.3 line 770):
  *   - type === "nft"             → useJoin/LeaveHolderGroupMutation
- *   - type === "local"           → useJoin/LeaveLocalMutation
+ *   - type === "hall"            → useJoin/LeaveHallMutation
  *   - type === "user" | "system" → useJoin/LeavePlainGroupMutation
  *
  * On success we invalidate `USER_GROUPS_QUERY_KEY_ROOT` so the panel
@@ -37,9 +37,9 @@ import {
   useLeaveHolderGroupMutation,
 } from "@/hooks/useHolderGroups";
 import {
-  useJoinLocalMutation,
-  useLeaveLocalMutation,
-} from "@/hooks/useLocalsPrimary";
+  useJoinHallMutation,
+  useLeaveHallMutation,
+} from "@/hooks/useHallsPrimary";
 import {
   useJoinPlainGroupMutation,
   useLeavePlainGroupMutation,
@@ -191,8 +191,8 @@ function JoinAction({ item }: { item: UserGroupItem }) {
   switch (item.type) {
     case "nft":
       return <HolderJoinButton groupId={item.group_id} />;
-    case "local":
-      return <LocalJoinButton groupId={item.group_id} />;
+    case "hall":
+      return <HallJoinButton groupId={item.group_id} />;
     case "user":
     case "system":
       return <PlainJoinButton groupId={item.group_id} />;
@@ -203,8 +203,8 @@ function LeaveAction({ item }: { item: UserGroupItem }) {
   switch (item.type) {
     case "nft":
       return <HolderLeaveButton groupId={item.group_id} />;
-    case "local":
-      return <LocalLeaveButton groupId={item.group_id} />;
+    case "hall":
+      return <HallLeaveButton groupId={item.group_id} />;
     case "user":
     case "system":
       return <PlainLeaveButton groupId={item.group_id} />;
@@ -279,9 +279,9 @@ function HolderLeaveButton({ groupId }: { groupId: number }) {
   );
 }
 
-function LocalJoinButton({ groupId }: { groupId: number }) {
+function HallJoinButton({ groupId }: { groupId: number }) {
   const onSuccess = useInvalidateUserGroups();
-  const mutation = useJoinLocalMutation({ onSuccess });
+  const mutation = useJoinHallMutation({ onSuccess });
   return (
     <GroupActionButton
       groupId={groupId}
@@ -297,9 +297,9 @@ function LocalJoinButton({ groupId }: { groupId: number }) {
   );
 }
 
-function LocalLeaveButton({ groupId }: { groupId: number }) {
+function HallLeaveButton({ groupId }: { groupId: number }) {
   const onSuccess = useInvalidateUserGroups();
-  const mutation = useLeaveLocalMutation({ onSuccess });
+  const mutation = useLeaveHallMutation({ onSuccess });
   return (
     <GroupActionButton
       groupId={groupId}
@@ -404,7 +404,7 @@ function GroupsEmpty() {
         className="font-serif italic text-ink-soft"
         style={{ fontSize: "16px", lineHeight: 1.5, maxWidth: "560px", marginTop: "10px" }}
       >
-        When this member joins a community &mdash; Local, holder group, or
+        When this member joins a community &mdash; Hall, holder group, or
         otherwise &mdash; it lands here as a record of where they show up.
       </p>
     </div>

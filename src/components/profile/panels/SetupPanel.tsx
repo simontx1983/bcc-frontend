@@ -4,7 +4,7 @@
  * SetupPanel — owner-only operator-file hub.
  *
  * Originally a single cold-start checklist (Write Bio / Link Wallet /
- * Join a Local). Restructured in PR-11b into a three-sub-tab hub, then
+ * Join a Hall). Restructured in PR-11b into a three-sub-tab hub, then
  * trimmed on 2026-05-14 to TWO sub-tabs after the Checklist was folded
  * into Standing:
  *

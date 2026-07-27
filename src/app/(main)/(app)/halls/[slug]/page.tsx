@@ -1,27 +1,27 @@
 /**
- * /locals/[slug] — single-Local detail page (per §E3).
+ * /halls/[slug] — single-Hall detail page (per §E3).
  *
- * Server component. A Local is a semantic wrapper around a PeepSo
+ * Server component. A Hall is a semantic wrapper around a PeepSo
  * group; the detail surface composes two parallel SSR fetches:
  *
- *   - GET /bcc/v1/locals/:slug   → LocalDetailResponse (existence gate;
- *                                  404 → notFound. Carries local-flavor
- *                                  chain + number + viewer_membership.)
+ *   - GET /bcc/v1/halls/:slug    → HallDetailResponse (existence gate;
+ *                                  404 → notFound. Carries hall-flavor
+ *                                  chain + viewer_membership.)
  *   - GET /bcc/v1/groups/:slug   → GroupDetailResponse (powers the
  *                                  unified shell; if it fails we
- *                                  degrade to a minimal local-only view
+ *                                  degrade to a minimal hall-only view
  *                                  so a transient group-read outage
  *                                  doesn't 500 the page.)
  *
  * Happy path: hand the GroupDetailResponse to `GroupDetailShell`
  * (the same unified FileRail + PageHero + GroupTabs grammar /groups and
- * /communities use). Inject `LocalMembershipControls` into the actions
- * slot — locals support set/clear primary semantics plain groups
+ * /communities use). Inject `HallMembershipControls` into the actions
+ * slot — halls support set/clear primary semantics plain groups
  * don't, so we keep their dedicated control surface here.
  *
  * Degraded path: group fetch failed (transient 5xx, slug mismatch
- * between local + group view-models, etc). Render a minimal local-only
- * header + the LocalMembershipControls + a feed-unavailable notice.
+ * between hall + group view-models, etc). Render a minimal hall-only
+ * header + the HallMembershipControls + a feed-unavailable notice.
  */
 
 import type { Metadata, Route } from "next";
@@ -30,12 +30,12 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { GroupDetailShell } from "@/components/groups/GroupDetailShell";
-import { LocalMembershipControls } from "@/components/locals/LocalMembershipControls";
+import { HallMembershipControls } from "@/components/halls/HallMembershipControls";
 import { authOptions } from "@/lib/auth";
 import { tokenFromSession } from "@/lib/api/client";
 import { getGroup } from "@/lib/api/groups-detail-endpoints";
 import { ANON_SSR_REVALIDATE_SECONDS } from "@/lib/api/cache-policy";
-import { getLocal } from "@/lib/api/locals-endpoints";
+import { getHall } from "@/lib/api/halls-endpoints";
 import { buildGroupMetadata } from "@/lib/og/group-metadata";
 import { BccApiError } from "@/lib/api/types";
 
@@ -44,9 +44,9 @@ interface PageProps {
 }
 
 /**
- * generateMetadata — OG / Twitter-card tags for a pasted /locals/[slug]
+ * generateMetadata — OG / Twitter-card tags for a pasted /halls/[slug]
  * link. Shared builder (anon public fetch, no manual og:image — the
- * opengraph-image.tsx convention route owns it). A Local is a wrapper over
+ * opengraph-image.tsx convention route owns it). A Hall is a wrapper over
  * the same group view-model, so the group fetch powers the preview copy.
  */
 export async function generateMetadata({
@@ -55,21 +55,21 @@ export async function generateMetadata({
   const { slug } = await params;
   return buildGroupMetadata({
     slug,
-    pathPrefix: "/locals",
-    kindLabel: "Local",
+    pathPrefix: "/halls",
+    kindLabel: "Hall",
   });
 }
 
-export default async function LocalDetailPage({ params }: PageProps) {
+export default async function HallDetailPage({ params }: PageProps) {
   const { slug } = await params;
 
   const session = await getServerSession(authOptions);
   const token = tokenFromSession(session);
 
   // Parallel SSR fetches — independent so a failed group read doesn't
-  // 500 the page when the local exists.
-  const [localResult, groupResult] = await Promise.allSettled([
-    getLocal(slug, token),
+  // 500 the page when the hall exists.
+  const [hallResult, groupResult] = await Promise.allSettled([
+    getHall(slug, token),
     getGroup(
       slug,
       token,
@@ -77,39 +77,39 @@ export default async function LocalDetailPage({ params }: PageProps) {
     ),
   ]);
 
-  if (localResult.status === "rejected") {
+  if (hallResult.status === "rejected") {
     if (
-      localResult.reason instanceof BccApiError
-      && localResult.reason.status === 404
+      hallResult.reason instanceof BccApiError
+      && hallResult.reason.status === 404
     ) {
       notFound();
     }
-    throw localResult.reason;
+    throw hallResult.reason;
   }
 
-  const local = localResult.value;
+  const hall = hallResult.value;
 
-  // Happy path — unified shell with LocalMembershipControls in actions.
+  // Happy path — unified shell with HallMembershipControls in actions.
   if (groupResult.status === "fulfilled") {
     return (
       <GroupDetailShell
         group={groupResult.value}
         initialTab="stream"
-        sharePath={`/locals/${encodeURIComponent(slug)}`}
-        backHref="/locals"
-        backLabel="Locals"
+        sharePath={`/halls/${encodeURIComponent(slug)}`}
+        backHref="/halls"
+        backLabel="Halls"
         actions={
           <div className="bcc-panel flex flex-col gap-4 p-6">
             <h2 className="bcc-stencil text-xl text-bcc-text">Your status here</h2>
             <p className="font-serif text-bcc-text-secondary">
-              Join a Local to vote in its stream and bias your Floor feed.
-              You can hold membership in many Locals at once; designate one as
+              Join a Hall to vote in its stream and bias your Floor feed.
+              You can hold membership in many Halls at once; designate one as
               your primary to show it on your card. Switch any time.
             </p>
             <div>
-              <LocalMembershipControls
-                groupId={local.id}
-                membership={local.viewer_membership}
+              <HallMembershipControls
+                groupId={hall.id}
+                membership={hall.viewer_membership}
               />
             </div>
           </div>
@@ -118,16 +118,16 @@ export default async function LocalDetailPage({ params }: PageProps) {
     );
   }
 
-  // Degraded path — group fetch failed. Show local data + controls,
+  // Degraded path — group fetch failed. Show hall data + controls,
   // suppress the feed.
   return (
     <main className="min-h-screen pb-24">
       <section className="mx-auto max-w-3xl px-2 pt-12 sm:px-3">
         <Link
-          href={"/locals" as Route}
+          href={"/halls" as Route}
           className="bcc-mono text-[10px] tracking-[0.18em] text-cardstock-deep hover:underline"
         >
-          ← LOCALS
+          ← HALLS
         </Link>
 
         <div className="mt-6">
@@ -135,18 +135,13 @@ export default async function LocalDetailPage({ params }: PageProps) {
             className="bcc-mono text-cardstock-deep"
             style={{ fontSize: "10px", letterSpacing: "0.24em" }}
           >
-            {local.chain !== null ? local.chain.toUpperCase() : "GENERAL"}
-            {local.number !== null && (
-              <>
-                {" · "}#{local.number}
-              </>
-            )}
+            {hall.chain !== null ? hall.chain.toUpperCase() : "GENERAL"}
           </span>
           <h1 className="bcc-stencil mt-2 text-4xl text-cardstock md:text-5xl">
-            {local.name}
+            {hall.name}
           </h1>
           <p className="bcc-mono mt-3 text-cardstock-deep">
-            {local.member_count} member{local.member_count === 1 ? "" : "s"}
+            {hall.member_count} member{hall.member_count === 1 ? "" : "s"}
           </p>
         </div>
       </section>
@@ -155,14 +150,14 @@ export default async function LocalDetailPage({ params }: PageProps) {
         <div className="bcc-panel flex flex-col gap-4 p-6">
           <h2 className="bcc-stencil text-xl text-bcc-text">Your status here</h2>
           <p className="font-serif text-bcc-text-secondary">
-            Join a Local to vote in its stream and bias your Floor feed.
-            You can hold membership in many Locals at once; designate one as
+            Join a Hall to vote in its stream and bias your Floor feed.
+            You can hold membership in many Halls at once; designate one as
             your primary to show it on your card. Switch any time.
           </p>
           <div>
-            <LocalMembershipControls
-              groupId={local.id}
-              membership={local.viewer_membership}
+            <HallMembershipControls
+              groupId={hall.id}
+              membership={hall.viewer_membership}
             />
           </div>
         </div>
@@ -174,7 +169,7 @@ export default async function LocalDetailPage({ params }: PageProps) {
           style={{ fontSize: "10px", letterSpacing: "0.18em" }}
         >
           <span className="inline-block h-px w-8 bg-cardstock-edge/50" />
-          <span>THE LOCAL FEED</span>
+          <span>THE HALL FEED</span>
           <span className="inline-block h-px flex-1 bg-cardstock-edge/50" />
         </div>
         <p

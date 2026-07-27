@@ -218,7 +218,7 @@ function GroupFeedBody({
 
 function emptyHeading(kind: GroupDetailResponse["type"]): string {
   switch (kind) {
-    case "local":
+    case "hall":
       return "Looking for its first shift.";
     case "nft":
       return "Empty room. Your call.";
@@ -231,8 +231,8 @@ function emptyHeading(kind: GroupDetailResponse["type"]): string {
 
 function emptyBody(kind: GroupDetailResponse["type"]): string {
   switch (kind) {
-    case "local":
-      return "Nobody's posted in this Local yet. The first post sets the tone — the rest of the chain sees it when they show up.";
+    case "hall":
+      return "Nobody's posted in this Hall yet. The first post sets the tone — the rest of the chain sees it when they show up.";
     case "nft":
       return "You hold the gating NFT and you're inside. So is anyone else who qualifies — but the room's quiet. First post sets the tone for the holders.";
     case "system":

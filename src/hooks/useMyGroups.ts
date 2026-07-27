@@ -6,7 +6,7 @@
  *   - useJoinPlainGroupMutation  — POST /me/groups/:id/join
  *   - useLeavePlainGroupMutation — POST /me/groups/:id/leave
  *
- * Mirrors the `useLocalsPrimary` pattern — no cache surgery, the
+ * Mirrors the `useHallsPrimary` pattern — no cache surgery, the
  * caller drives `router.refresh()` (or component-local re-render) on
  * success. There is no `GET /me/groups` list query in §4.7.3 to
  * invalidate; the discovery list at `/communities` is server-rendered

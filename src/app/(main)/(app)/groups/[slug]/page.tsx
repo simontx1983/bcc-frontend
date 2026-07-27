@@ -2,7 +2,7 @@
  * /groups/[slug] — single-group detail page.
  *
  * Thin server shell over `GroupDetailShell` (the unified FileRail +
- * PageHero + GroupTabs grammar shared with /communities and /locals).
+ * PageHero + GroupTabs grammar shared with /communities and /halls).
  *
  * Auth: anon allowed. When a session exists we forward the bearer so
  * the response carries populated `viewer_membership` + `permissions`

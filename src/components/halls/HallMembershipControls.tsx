@@ -1,9 +1,9 @@
 "use client";
 
 /**
- * LocalMembershipControls — unified membership UX for /locals/[slug].
+ * HallMembershipControls — unified membership UX for /halls/[slug].
  *
- * Replaces the old single-purpose PrimaryLocalToggle. One component
+ * Replaces the old single-purpose PrimaryHallToggle. One component
  * orchestrates four discrete viewer states with the §N7 visible-but-
  * disabled rules:
  *
@@ -31,24 +31,24 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import {
-  useClearPrimaryLocalMutation,
-  useJoinLocalMutation,
-  useLeaveLocalMutation,
-  useSetPrimaryLocalMutation,
-} from "@/hooks/useLocalsPrimary";
+  useClearPrimaryHallMutation,
+  useJoinHallMutation,
+  useLeaveHallMutation,
+  useSetPrimaryHallMutation,
+} from "@/hooks/useHallsPrimary";
 import { humanizeCode } from "@/lib/api/errors";
-import type { LocalItem } from "@/lib/api/types";
+import type { HallItem } from "@/lib/api/types";
 
-interface LocalMembershipControlsProps {
+interface HallMembershipControlsProps {
   groupId: number;
   /** Current viewer membership state (null when anonymous). */
-  membership: LocalItem["viewer_membership"];
+  membership: HallItem["viewer_membership"];
 }
 
-export function LocalMembershipControls({
+export function HallMembershipControls({
   groupId,
   membership,
-}: LocalMembershipControlsProps) {
+}: HallMembershipControlsProps) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
 
@@ -58,10 +58,10 @@ export function LocalMembershipControls({
   };
   const onError = (err: unknown) => setError(humanizeError(err));
 
-  const joinMut    = useJoinLocalMutation({ onSuccess, onError });
-  const leaveMut   = useLeaveLocalMutation({ onSuccess, onError });
-  const setPrimMut = useSetPrimaryLocalMutation({ onSuccess, onError });
-  const clearMut   = useClearPrimaryLocalMutation({ onSuccess, onError });
+  const joinMut    = useJoinHallMutation({ onSuccess, onError });
+  const leaveMut   = useLeaveHallMutation({ onSuccess, onError });
+  const setPrimMut = useSetPrimaryHallMutation({ onSuccess, onError });
+  const clearMut   = useClearPrimaryHallMutation({ onSuccess, onError });
 
   const isPending =
     joinMut.isPending ||
@@ -77,10 +77,10 @@ export function LocalMembershipControls({
       <ControlRow>
         <PrimaryButton
           disabled
-          tooltip="Sign in to join this Local."
+          tooltip="Sign in to join this Hall."
           onClick={() => undefined}
         >
-          JOIN LOCAL
+          JOIN HALL
         </PrimaryButton>
       </ControlRow>
     );
@@ -93,14 +93,14 @@ export function LocalMembershipControls({
         <ControlRow>
           <PrimaryButton
             disabled={isPending}
-            tooltip="Join this Local to participate."
+            tooltip="Join this Hall to participate."
             onClick={() => {
               setError(null);
               joinMut.mutate(groupId);
             }}
             pending={joinMut.isPending}
           >
-            JOIN LOCAL
+            JOIN HALL
           </PrimaryButton>
         </ControlRow>
         {error !== null && <ErrorLine message={error} />}
@@ -122,7 +122,7 @@ export function LocalMembershipControls({
     setError(null);
     if (state.isPrimary) {
       const ok = window.confirm(
-        "Leaving will also clear your primary Local. Continue?"
+        "Leaving will also clear your primary Hall. Continue?"
       );
       if (!ok) return;
     }
@@ -136,8 +136,8 @@ export function LocalMembershipControls({
           disabled={isPending}
           tooltip={
             state.isPrimary
-              ? "This is your primary Local. Click to clear."
-              : "Set this as your primary Local — it'll show on your card and bias your feed."
+              ? "This is your primary Hall. Click to clear."
+              : "Set this as your primary Hall — it'll show on your card and bias your feed."
           }
           onClick={handleSetClear}
           pending={setPrimMut.isPending || clearMut.isPending}
@@ -147,7 +147,7 @@ export function LocalMembershipControls({
         </PrimaryButton>
         <SecondaryButton
           disabled={isPending}
-          tooltip="Leave this Local. You can re-join any time."
+          tooltip="Leave this Hall. You can re-join any time."
           onClick={handleLeave}
           pending={leaveMut.isPending}
         >
@@ -249,7 +249,7 @@ type ResolvedState =
   | { kind: "non_member" }
   | { kind: "member"; isPrimary: boolean };
 
-function resolveState(membership: LocalItem["viewer_membership"]): ResolvedState {
+function resolveState(membership: HallItem["viewer_membership"]): ResolvedState {
   if (membership === null) {
     return { kind: "anon" };
   }
@@ -264,11 +264,11 @@ function humanizeError(err: unknown): string {
     err,
     {
       bcc_unauthorized: "Sign in first.",
-      bcc_forbidden: "This Local doesn't accept open membership.",
-      bcc_not_found: "This Local no longer exists.",
+      bcc_forbidden: "This Hall doesn't accept open membership.",
+      bcc_not_found: "This Hall no longer exists.",
       bcc_unavailable: "Membership service is down. Try again shortly.",
       bcc_rate_limited: "Slow down — try again in a minute.",
-      bcc_invalid_request: "Couldn't update your Local. Try again.",
+      bcc_invalid_request: "Couldn't update your Hall. Try again.",
     },
     "Something went wrong. Try again.",
   );

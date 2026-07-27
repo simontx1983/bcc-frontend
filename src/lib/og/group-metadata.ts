@@ -1,6 +1,6 @@
 /**
  * group-metadata — shared `generateMetadata` builder for the three
- * group-style routes (/communities, /groups, /locals). One source so
+ * group-style routes (/communities, /groups, /halls). One source so
  * title/description/canonical/card-type stay identical; only the route
  * prefix (for the canonical URL) differs per caller.
  *
@@ -18,7 +18,7 @@
  * gate; this builder only governs the shareable preview tags.
  *
  * The canonical is built from the ROUTE the user is on (`/communities` vs
- * `/groups` vs `/locals` + slug) — `GroupDetailResponse.links.self` points
+ * `/groups` vs `/halls` + slug) — `GroupDetailResponse.links.self` points
  * at a single fixed surface and would collapse all three routes onto one
  * canonical, so we use the route prefix the caller passes instead.
  */
@@ -31,9 +31,9 @@ import { ANON_SSR_REVALIDATE_SECONDS } from "@/lib/api/cache-policy";
 interface GroupMetadataInput {
   slug: string;
   /** Route prefix for the canonical URL, e.g. "/communities", "/groups",
-   *  "/locals". The share + canonical surface the viewer is actually on. */
+   *  "/halls". The share + canonical surface the viewer is actually on. */
   pathPrefix: string;
-  /** Title-case kind word for copy, e.g. "Community", "Group", "Local". */
+  /** Title-case kind word for copy, e.g. "Community", "Group", "Hall". */
   kindLabel: string;
 }
 

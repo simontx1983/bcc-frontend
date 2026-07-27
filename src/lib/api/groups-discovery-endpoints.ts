@@ -29,7 +29,7 @@ export interface GroupsDiscoveryQueryParams {
   /**
    * V1.6 — chain slug restricting to NFT-holder communities on that
    * chain (`cosmos`, `solana`, …). Filters via the group's
-   * `_bcc_gate_chain_id` post_meta, so user/system groups and Locals
+   * `_bcc_gate_chain_id` post_meta, so user/system groups and Halls
    * (no chain binding) drop out of chain-scoped results. Unknown
    * slugs return an empty list rather than 400.
    */

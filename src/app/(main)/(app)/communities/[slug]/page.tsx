@@ -2,7 +2,7 @@
  * /communities/[slug] — single-community detail page (§4.7.5).
  *
  * Server component. Cross-kind: works for plain user/system groups
- * AND for NFT holder groups + Locals on the same URL — all four kinds
+ * AND for NFT holder groups + Halls on the same URL — all four kinds
  * map onto the same `GET /bcc/v1/groups/{slug}` view-model.
  *
  * Thin shell over `GroupDetailShell`. Stream tab is the default for
