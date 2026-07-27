@@ -94,7 +94,7 @@ export function MemberDossierBack({ dossier }: { dossier: MemberDossier }) {
 
           <DossierSection label="ON THE FLOOR" topGap>
             <Row
-              label="ENDORSEMENTS"
+              label="VOUCHES"
               value={String(e.endorsements_received)}
               dim={e.endorsements_received === 0}
             />

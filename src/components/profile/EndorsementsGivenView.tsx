@@ -43,7 +43,7 @@ export function EndorsementsGivenView({ handle }: EndorsementsGivenViewProps) {
   }
 
   return (
-    <section aria-label="Pages this operator has endorsed" className="flex flex-col">
+    <section aria-label="Pages this operator has vouched for" className="flex flex-col">
       <ul className="flex flex-col">
         {items.map((item) => (
           <EndorsementRow key={item.id} item={item} />
@@ -57,7 +57,7 @@ function EmptyState() {
   return (
     <div className="border border-dashed border-bcc-border px-6 py-8 text-center">
       <p className="font-serif italic text-bcc-text-secondary">
-        Hasn&rsquo;t endorsed any pages yet. Endorsements show up here as they
+        Hasn&rsquo;t vouched for any pages yet. Vouches show up here as they
         accumulate.
       </p>
     </div>
@@ -92,7 +92,7 @@ function EndorsementRow({ item }: { item: UserEndorsementItem }) {
           )}
         </div>
         <div className="bcc-mono flex flex-wrap items-baseline gap-x-3 text-[11px] text-bcc-text-secondary">
-          <span>ENDORSED</span>
+          <span>VOUCHED</span>
           {item.created_at !== null && item.created_at !== "" && (
             <>
               <span>·</span>

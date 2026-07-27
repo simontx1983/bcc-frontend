@@ -70,11 +70,6 @@ const BELL_ROWS: ReadonlyArray<BellRow> = [
     blurb: "Someone reviewed a validator / project / creator page you own.",
   },
   {
-    key: "bcc_endorse",
-    label: "Endorsements on your pages",
-    blurb: "Someone endorsed a validator / project / creator page you own.",
-  },
-  {
     key: "bcc_card_watched",
     label: "Watchers on your card",
     blurb: "Someone is now keeping tabs on your card.",
@@ -133,11 +128,6 @@ const PUSH_ROWS: ReadonlyArray<PushRow> = [
     key: "review",
     label: "Reviews on your pages",
     blurb: "Someone reviewed a validator / project / creator page you own.",
-  },
-  {
-    key: "endorse",
-    label: "Endorsements on your pages",
-    blurb: "Someone endorsed a validator / project / creator page you own.",
   },
   {
     key: "dispute_outcome",
