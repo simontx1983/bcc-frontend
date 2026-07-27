@@ -43,12 +43,16 @@ export const PRIMARY_NAV: readonly NavLink[] = [
   { label: "The Floor",   href: "/",            match: null },
   { label: "Directory",   href: "/directory",   match: "/directory" },
   { label: "Communities", href: "/communities", match: "/communities" },
-  { label: "Halls",       href: "/halls",       match: "/halls" },
   { label: "Watching",    href: "/watching",    match: "/watching" },
 ] as const;
 
 /** Tier 2 — specialist destinations. Collapse behind OPS popover. */
 export const SPECIALIST_NAV: readonly NavLink[] = [
+  // Halls are a community sub-kind (discoverable via /communities); kept in
+  // the specialist tier to honor PRIMARY_NAV's 4-max (5th link crowds the
+  // action cluster at 1024px). Promote to PRIMARY_NAV if Halls warrant a
+  // daily-driver slot.
+  { label: "Halls",      href: "/halls",      match: "/halls" },
   { label: "Validators", href: "/validators", match: "/validators" },
   { label: "Disputes",   href: "/disputes",   match: "/disputes" },
   { label: "Members",    href: "/members",    match: "/members" },
