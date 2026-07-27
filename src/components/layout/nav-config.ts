@@ -43,6 +43,7 @@ export const PRIMARY_NAV: readonly NavLink[] = [
   { label: "The Floor",   href: "/",            match: null },
   { label: "Directory",   href: "/directory",   match: "/directory" },
   { label: "Communities", href: "/communities", match: "/communities" },
+  { label: "Halls",       href: "/halls",       match: "/halls" },
   { label: "Watching",    href: "/watching",    match: "/watching" },
 ] as const;
 
@@ -71,6 +72,7 @@ export function railLabelForPath(pathname: string): string {
   if (pathname.startsWith("/u/")) return "Member Profile";
   if (pathname.startsWith("/directory")) return "Directory";
   if (pathname.startsWith("/communities")) return "Communities";
+  if (pathname.startsWith("/halls")) return "Halls";
   if (pathname.startsWith("/watching")) return "Watching";
   if (pathname.startsWith("/validators")) return "Validators";
   if (pathname.startsWith("/disputes")) return "Disputes";
