@@ -70,7 +70,7 @@ export function BioBox({ text, label = "BIO", previewWords = 25, ownerEditHref }
   return (
     <aside className={wrapperClass}>
       <p
-        className="bcc-mono text-cardstock-deep"
+        className="bcc-mono text-bcc-text-secondary"
         style={{ fontSize: "10px", letterSpacing: "0.24em" }}
       >
         {label}
@@ -86,14 +86,14 @@ export function BioBox({ text, label = "BIO", previewWords = 25, ownerEditHref }
             NO BIO ON FILE — WRITE ONE →
           </Link>
         ) : (
-          <p className="font-serif italic mt-3 text-cardstock-deep/70">
+          <p className="font-serif italic mt-3 text-bcc-text-muted">
             No bio on file yet.
           </p>
         )
       ) : (
         <>
           <p
-            className="font-serif text-cardstock mt-3"
+            className="font-serif text-bcc-text mt-3"
             style={{ fontSize: "15px", lineHeight: 1.55 }}
           >
             {expanded ? trimmed : preview}

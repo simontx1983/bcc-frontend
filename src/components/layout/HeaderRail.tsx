@@ -46,7 +46,12 @@ export function HeaderRail({
     // components` — wrapping with a plain div sidesteps any
     // cascade-tie risk against Tailwind utilities.
     <div className="hidden sm:block">
-      <div className="bcc-rail">
+      {/* Scoped theme-aware text override: the shared `.bcc-rail` class
+          (globals.css) hard-codes a fixed cream color that vanishes on the
+          light-theme header. Overriding here — NOT in the class — keeps the
+          fix local to the header rail and leaves WatchingGrid's `.bcc-rail`
+          untouched (out of this slice). */}
+      <div className="bcc-rail text-bcc-text-secondary">
         <span className="inline-flex items-center">
           <span className="bcc-rail-dot" aria-hidden />
           BCC // {railLabel}
@@ -84,12 +89,19 @@ function ShiftBadge({ status }: { status: ShiftStatus }) {
     : status === "quiet" ? "ON SHIFT"
     : "OFF-SHIFT";
 
+  // on_duty KEEPS its safety fill + border (status identity); only the fixed
+  // cream FOREGROUND — invisible on the light-theme header — moves to the
+  // theme-aware text token. The safety wash is 18% over the theme-aware
+  // header, so `--bcc-text` (which always contrasts that header) is legible
+  // in both themes; verified against the actual pale-in-light / dark-in-dark
+  // background, not assumed. quiet/off migrate their cream border+text to the
+  // semantic border/secondary/muted tokens.
   const surface =
     status === "on_duty"
-      ? { background: "rgb(var(--safety-rgb) / 0.18)", border: "1px solid var(--safety)", color: "var(--cardstock)" }
+      ? { background: "rgb(var(--safety-rgb) / 0.18)", border: "1px solid var(--safety)", color: "var(--bcc-text)" }
     : status === "quiet"
-      ? { background: "transparent", border: "1px solid rgb(var(--cardstock-rgb) / 0.22)", color: "rgb(var(--cardstock-rgb) / 0.7)" }
-      : { background: "transparent", border: "1px solid rgb(var(--cardstock-rgb) / 0.10)", color: "rgb(var(--cardstock-rgb) / 0.32)" };
+      ? { background: "transparent", border: "1px solid var(--bcc-border)", color: "var(--bcc-text-secondary)" }
+      : { background: "transparent", border: "1px solid var(--bcc-border)", color: "var(--bcc-text-muted)" };
 
   return (
     <span
@@ -104,7 +116,7 @@ function ShiftBadge({ status }: { status: ShiftStatus }) {
         <span
           aria-hidden
           className="inline-block h-1.5 w-1.5 rounded-full"
-          style={{ background: "rgb(var(--cardstock-rgb) / 0.5)" }}
+          style={{ background: "var(--bcc-text-muted)" }}
         />
       )}
       {label}
