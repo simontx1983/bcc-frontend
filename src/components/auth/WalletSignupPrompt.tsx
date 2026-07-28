@@ -122,8 +122,8 @@ export function WalletSignupPrompt(props: WalletSignupPromptProps) {
         <div className="mt-6 flex flex-col gap-4">
           <label className="flex flex-col gap-1.5">
             <span className="bcc-mono text-bcc-text-secondary">Handle</span>
-            <div className="flex items-center border border-cardstock-edge bg-cardstock-deep/60 focus-within:border-blueprint focus-within:ring-1 focus-within:ring-blueprint">
-              <span className="bcc-mono pl-3 text-ink-soft">@</span>
+            <div className="flex items-center border border-bcc-input-border bg-bcc-input-bg focus-within:border-bcc-accent focus-within:ring-1 focus-within:ring-bcc-accent">
+              <span className="bcc-mono pl-3 text-bcc-text-secondary">@</span>
               <input
                 ref={handleInputRef}
                 type="text"
@@ -134,7 +134,7 @@ export function WalletSignupPrompt(props: WalletSignupPromptProps) {
                 pattern="[a-z0-9\-]{3,20}"
                 value={handle}
                 onChange={(e) => setHandle(e.target.value.toLowerCase())}
-                className="flex-1 bg-transparent px-2 py-2 font-serif text-ink outline-none"
+                className="flex-1 bg-transparent px-2 py-2 font-serif text-bcc-text outline-none"
               />
             </div>
             <span
@@ -153,7 +153,7 @@ export function WalletSignupPrompt(props: WalletSignupPromptProps) {
               maxLength={60}
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
-              className="border border-cardstock-edge bg-cardstock-deep/60 px-3 py-2 font-serif text-ink outline-none focus:border-blueprint focus:ring-1 focus:ring-blueprint"
+              className="border border-bcc-input-border bg-bcc-input-bg px-3 py-2 font-serif text-bcc-text outline-none focus:border-bcc-accent focus:ring-1 focus:ring-bcc-accent"
             />
           </label>
 
@@ -164,7 +164,7 @@ export function WalletSignupPrompt(props: WalletSignupPromptProps) {
               autoComplete="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="border border-cardstock-edge bg-cardstock-deep/60 px-3 py-2 font-serif text-ink outline-none focus:border-blueprint focus:ring-1 focus:ring-blueprint"
+              className="border border-bcc-input-border bg-bcc-input-bg px-3 py-2 font-serif text-bcc-text outline-none focus:border-bcc-accent focus:ring-1 focus:ring-bcc-accent"
             />
             <span className="bcc-mono text-bcc-text-secondary/70">
               Skipped? We mint a placeholder so password recovery still works if

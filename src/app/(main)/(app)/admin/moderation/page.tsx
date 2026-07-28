@@ -27,13 +27,13 @@ export default async function AdminModerationPage() {
   return (
     <main className="min-h-screen pb-24">
       <section className="mx-auto max-w-4xl px-6 pt-12 sm:px-8">
-        <span className="bcc-mono text-[10px] tracking-[0.24em] text-cardstock-deep">
+        <span className="bcc-mono text-[10px] tracking-[0.24em] text-bcc-text-secondary">
           ADMIN · MODERATION
         </span>
-        <h1 className="bcc-stencil mt-2 text-4xl text-cardstock md:text-5xl">
+        <h1 className="bcc-stencil mt-2 text-4xl text-bcc-text md:text-5xl">
           Reports queue
         </h1>
-        <p className="mt-3 font-serif text-cardstock-deep">
+        <p className="mt-3 font-serif text-bcc-text-secondary">
           Filed reports against feed posts. Hide takes the post off the
           Floor; Dismiss closes the report without action; Restore
           un-hides a previously-hidden post and closes the report.
