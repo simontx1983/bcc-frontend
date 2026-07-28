@@ -44,6 +44,7 @@
     "eslint": "^9.0.0",
     "eslint-config-next": "^15.0.0",
     "jsdom": "^29.1.1",
+    "knip": "^6.29.0",
     "postcss": "^8.4.49",
     "tailwindcss": "^3.4.15",
     "typescript": "^5.9.3",
