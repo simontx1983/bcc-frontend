@@ -41,7 +41,7 @@ export function CategoryPicker({ value, onChange, disabled = false }: CategoryPi
       disabled={disabled}
       aria-required="true"
     >
-      <legend className="bcc-mono text-[10px] tracking-[0.18em] text-cardstock-deep">
+      <legend className="bcc-mono text-[10px] tracking-[0.18em] text-bcc-text-secondary">
         CATEGORY <span className="text-safety">*</span>
       </legend>
       <div
@@ -63,7 +63,7 @@ export function CategoryPicker({ value, onChange, disabled = false }: CategoryPi
                 "bcc-mono shrink-0 border px-3 py-2 text-[11px] tracking-[0.18em] transition " +
                 (active
                   ? "border-safety bg-safety/10 text-safety"
-                  : "border-cardstock-edge/30 text-cardstock-deep hover:border-cardstock-edge hover:text-cardstock")
+                  : "border-bcc-border text-bcc-text-secondary hover:border-bcc-border-strong hover:text-bcc-text")
               }
             >
               {opt.label.toUpperCase()}

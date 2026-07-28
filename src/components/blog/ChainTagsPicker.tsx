@@ -64,7 +64,7 @@ export function ChainTagsPicker({ value, onChange, disabled = false }: ChainTags
 
   return (
     <div className="flex flex-col gap-2">
-      <span className="bcc-mono text-[10px] tracking-[0.18em] text-cardstock-deep">
+      <span className="bcc-mono text-[10px] tracking-[0.18em] text-bcc-text-secondary">
         CHAINS · {value.length}/{BLOG_CHAIN_TAGS_MAX}
       </span>
 
@@ -82,7 +82,7 @@ export function ChainTagsPicker({ value, onChange, disabled = false }: ChainTags
             return (
               <span
                 key={slug}
-                className="bcc-mono inline-flex items-center gap-2 border bg-cardstock-deep/10 px-2 py-1 text-[11px] tracking-[0.12em]"
+                className="bcc-mono inline-flex items-center gap-2 border border-bcc-border bg-bcc-surface-hover px-2 py-1 text-[11px] tracking-[0.12em] text-bcc-text"
                 style={style}
               >
                 {display.toUpperCase()}
@@ -91,7 +91,7 @@ export function ChainTagsPicker({ value, onChange, disabled = false }: ChainTags
                   aria-label={`Remove ${display}`}
                   onClick={() => remove(slug)}
                   disabled={disabled}
-                  className="text-ink-soft hover:text-safety"
+                  className="text-bcc-text-muted hover:text-safety"
                 >
                   ✕
                 </button>
@@ -103,7 +103,7 @@ export function ChainTagsPicker({ value, onChange, disabled = false }: ChainTags
 
       {/* Filter input + suggestions */}
       {!atCap && (
-        <div className="rounded-sm border border-cardstock-edge/30 bg-cardstock/40">
+        <div className="rounded-sm border border-bcc-input-border bg-bcc-input-bg">
           <input
             type="text"
             value={filter}
@@ -116,19 +116,19 @@ export function ChainTagsPicker({ value, onChange, disabled = false }: ChainTags
                   : "Search a chain (Bitcoin, Akash, …)"
             }
             disabled={disabled || query.isPending || query.isError}
-            className="bcc-mono w-full bg-transparent px-3 py-2 text-[12px] text-ink placeholder:text-ink-soft/60 focus:outline-none disabled:opacity-50"
+            className="bcc-mono w-full bg-transparent px-3 py-2 text-[12px] text-bcc-text placeholder:text-bcc-text-placeholder focus:outline-none disabled:opacity-50"
           />
           {filtered.length > 0 && (
-            <ul className="max-h-48 overflow-y-auto border-t border-cardstock-edge/20">
+            <ul className="max-h-48 overflow-y-auto border-t border-bcc-border">
               {filtered.map((opt) => (
                 <li key={opt.slug}>
                   <button
                     type="button"
                     onClick={() => pick(opt.slug)}
                     disabled={disabled}
-                    className="flex w-full items-center justify-between px-3 py-2 text-left hover:bg-cardstock-deep/15 disabled:opacity-50"
+                    className="flex w-full items-center justify-between px-3 py-2 text-left hover:bg-bcc-surface-hover disabled:opacity-50"
                   >
-                    <span className="bcc-mono text-[12px] text-ink">
+                    <span className="bcc-mono text-[12px] text-bcc-text">
                       {opt.name}
                     </span>
                     <span

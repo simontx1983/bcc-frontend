@@ -117,8 +117,8 @@ export function UserBlogList({ handle, onEdit }: UserBlogListProps) {
           onClick={() => { void query.fetchNextPage(); }}
           disabled={query.isFetchingNextPage}
           className={
-            "bcc-mono mx-auto rounded-sm border-2 border-cardstock-edge px-5 py-2 text-[11px] tracking-[0.18em] text-ink-soft transition disabled:opacity-60 " +
-            (query.isFetchingNextPage ? "" : "hover:border-ink hover:text-ink")
+            "bcc-mono mx-auto rounded-sm border-2 border-bcc-border px-5 py-2 text-[11px] tracking-[0.18em] text-bcc-text-secondary transition disabled:opacity-60 " +
+            (query.isFetchingNextPage ? "" : "hover:border-bcc-border-strong hover:text-bcc-text")
           }
         >
           {query.isFetchingNextPage ? "LOADING…" : "LOAD MORE"}
@@ -151,7 +151,7 @@ function BlogPostBody({ item, onEdit }: BlogPostBodyProps) {
   return (
     <article id={item.id} className="bcc-panel flex flex-col gap-5 px-6 py-6">
       {coverUrl !== null && (
-        <div className="relative -mx-6 -mt-6 mb-2 aspect-[16/9] overflow-hidden bg-cardstock/20">
+        <div className="relative -mx-6 -mt-6 mb-2 aspect-[16/9] overflow-hidden bg-bcc-surface-hover">
           <Image
             src={coverUrl}
             alt=""
@@ -163,7 +163,7 @@ function BlogPostBody({ item, onEdit }: BlogPostBodyProps) {
         </div>
       )}
 
-      <header className="flex flex-col gap-2 border-b border-cardstock-edge/40 pb-3">
+      <header className="flex flex-col gap-2 border-b border-bcc-border pb-3">
         <div className="flex flex-wrap items-center gap-2">
           {category !== null && (
             <span className="bcc-mono border border-safety/40 bg-safety/10 px-2 py-1 text-[10px] tracking-[0.18em] text-safety">
@@ -173,8 +173,8 @@ function BlogPostBody({ item, onEdit }: BlogPostBodyProps) {
           {chainTags.map((c) => (
             <span
               key={c.slug}
-              className="bcc-mono inline-flex items-center gap-1 border bg-cardstock-deep/10 px-2 py-1 text-[10px] tracking-[0.18em]"
-              style={c.color !== null ? { borderColor: c.color, color: c.color } : { borderColor: "var(--cardstock-edge)", color: "var(--ink-soft)" }}
+              className="bcc-mono inline-flex items-center gap-1 border border-bcc-border bg-bcc-surface-hover px-2 py-1 text-[10px] tracking-[0.18em] text-bcc-text"
+              style={c.color !== null ? { borderColor: c.color, color: c.color } : { borderColor: "var(--bcc-border)", color: "var(--bcc-text-secondary)" }}
             >
               {c.name.toUpperCase()}
             </span>
@@ -227,9 +227,9 @@ function BlogPostBody({ item, onEdit }: BlogPostBodyProps) {
       {sources.length > 0 && (
         <section
           aria-label="Sources"
-          className="border-t border-dashed border-cardstock-edge/40 pt-3"
+          className="border-t border-dashed border-bcc-border pt-3"
         >
-          <p className="bcc-mono mb-2 text-[10px] tracking-[0.18em] text-cardstock-deep">
+          <p className="bcc-mono mb-2 text-[10px] tracking-[0.18em] text-bcc-text-secondary">
             SOURCES
           </p>
           <ol className="flex flex-col gap-1 text-[12px] text-bcc-text-secondary">
@@ -245,7 +245,7 @@ function BlogPostBody({ item, onEdit }: BlogPostBodyProps) {
         </section>
       )}
 
-      <footer className="border-t border-dashed border-cardstock-edge/40 pt-3">
+      <footer className="border-t border-dashed border-bcc-border pt-3">
         <DisclosureFooter disclosure={disclosure} />
       </footer>
     </article>
@@ -271,7 +271,7 @@ function DisclosureFooter({ disclosure }: { disclosure: { tickers: string[]; not
   }
   return (
     <div className="flex flex-col gap-1">
-      <p className="bcc-mono text-[10px] tracking-[0.18em] text-cardstock-deep">
+      <p className="bcc-mono text-[10px] tracking-[0.18em] text-bcc-text-secondary">
         DISCLOSURE
       </p>
       {disclosure.tickers.length > 0 && (

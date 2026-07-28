@@ -77,12 +77,12 @@ export function BodyEditor({
     ? "text-safety"
     : len > BLOG_FULL_TEXT_MAX_LENGTH - 1000
       ? "text-warning"
-      : "text-ink-soft";
+      : "text-bcc-text-muted";
 
   return (
     <div className="flex flex-col gap-2">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <span className="bcc-mono text-[10px] tracking-[0.18em] text-cardstock-deep">
+        <span className="bcc-mono text-[10px] tracking-[0.18em] text-bcc-text-secondary">
           BODY · MARKDOWN <span className="text-safety">*</span>
         </span>
         <div role="tablist" aria-label="Editor mode" className="flex items-center gap-1">
@@ -99,7 +99,7 @@ export function BodyEditor({
                   "bcc-mono shrink-0 border px-2 py-1 text-[10px] tracking-[0.18em] transition " +
                   (active
                     ? "border-safety text-safety"
-                    : "border-transparent text-cardstock-deep hover:border-cardstock-edge/60 hover:text-cardstock")
+                    : "border-transparent text-bcc-text-secondary hover:border-bcc-border hover:text-bcc-text")
                 }
               >
                 {m.toUpperCase()}
@@ -140,18 +140,18 @@ export function BodyEditor({
             rows={20}
             maxLength={BLOG_FULL_TEXT_MAX_LENGTH + 1000}
             disabled={disabled}
-            className="bcc-mono w-full flex-1 resize-y rounded-sm border border-cardstock-edge/30 bg-cardstock/40 px-3 py-2 text-[13px] leading-relaxed text-ink placeholder:text-ink-soft/60 focus:border-blueprint focus:outline-none disabled:opacity-60"
+            className="bcc-mono w-full flex-1 resize-y rounded-sm border border-bcc-input-border bg-bcc-input-bg px-3 py-2 text-[13px] leading-relaxed text-bcc-text placeholder:text-bcc-text-placeholder focus:border-bcc-accent focus:ring-1 focus:ring-bcc-accent focus:outline-none disabled:opacity-60"
             style={{ minHeight: "320px" }}
           />
         )}
 
         {(mode === "preview" || mode === "both") && (
           <div
-            className="flex-1 overflow-y-auto rounded-sm border border-cardstock-edge/30 bg-cardstock-deep/20 px-4 py-3"
+            className="flex-1 overflow-y-auto rounded-sm border border-bcc-input-border bg-bcc-input-bg px-4 py-3"
             style={{ minHeight: "320px", maxHeight: mode === "preview" ? "70vh" : "auto" }}
           >
             {previewSrc.trim() === "" ? (
-              <p className="bcc-mono text-[11px] text-ink-soft">
+              <p className="bcc-mono text-[11px] text-bcc-text-muted">
                 Live preview renders here.
               </p>
             ) : (
@@ -162,10 +162,10 @@ export function BodyEditor({
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <span className="bcc-mono text-[10px] text-ink-soft">
+        <span className="bcc-mono text-[10px] text-bcc-text-secondary">
           {savedAt !== null ? `Auto-saved ${formatAgo(savedAt)}` : "Auto-save runs every 5s"}
         </span>
-        <span className="bcc-mono text-[10px] text-ink-soft">
+        <span className="bcc-mono text-[10px] text-bcc-text-secondary">
           {/*
             Read time + word count. Descriptive ("~4 min read · 920
             words"), never prescriptive — no "aim for", no "longer

@@ -95,13 +95,13 @@ export function CoverImageUpload({ value, onChange, disabled = false }: CoverIma
 
   return (
     <div className="flex flex-col gap-2">
-      <span className="bcc-mono text-[10px] tracking-[0.18em] text-cardstock-deep">
+      <span className="bcc-mono text-[10px] tracking-[0.18em] text-bcc-text-secondary">
         COVER IMAGE
       </span>
 
       {value !== null ? (
         <div className="flex flex-col gap-2">
-          <div className="relative aspect-[16/9] w-full overflow-hidden rounded-sm border border-cardstock-edge/30 bg-cardstock/20">
+          <div className="relative aspect-[16/9] w-full overflow-hidden rounded-sm border border-bcc-input-border bg-bcc-surface-hover">
             <Image
               src={value.url}
               alt="Cover image preview"
@@ -141,8 +141,8 @@ export function CoverImageUpload({ value, onChange, disabled = false }: CoverIma
           className={
             "flex aspect-[16/9] w-full cursor-pointer flex-col items-center justify-center gap-2 rounded-sm border-2 border-dashed transition " +
             (dragOver
-              ? "border-safety bg-cardstock/50"
-              : "border-cardstock-edge/30 bg-cardstock/30 hover:border-cardstock-edge")
+              ? "border-safety bg-bcc-surface-hover"
+              : "border-bcc-input-border bg-bcc-input-bg hover:border-bcc-border-strong")
           }
         >
           <input
@@ -160,11 +160,11 @@ export function CoverImageUpload({ value, onChange, disabled = false }: CoverIma
             className="hidden"
           />
           <span
-            className="bcc-mono text-[11px] tracking-[0.18em] text-cardstock-deep"
+            className="bcc-mono text-[11px] tracking-[0.18em] text-bcc-text-secondary"
           >
             {uploading ? "UPLOADING…" : "DROP A COVER OR CLICK TO PICK"}
           </span>
-          <span className="bcc-mono text-[10px] text-ink-soft">
+          <span className="bcc-mono text-[10px] text-bcc-text-muted">
             JPEG · PNG · WebP · GIF · up to 8 MB
           </span>
         </label>
