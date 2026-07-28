@@ -170,7 +170,7 @@ export const ProjectRow = memo(function ProjectRow({ row }: { row: ProjectSearch
   return (
     <Link
       href={toInternalHref(row.page_url)}
-      className="bcc-panel flex items-center gap-3 px-4 py-3 hover:bg-cardstock-deep motion-safe:transition motion-safe:duration-bcc-fast"
+      className="bcc-panel flex items-center gap-3 px-4 py-3 hover:bg-bcc-surface-hover motion-safe:transition motion-safe:duration-bcc-fast"
     >
       <Avatar src={row.avatar_url} name={row.page_name} shape="circle" />
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
@@ -182,7 +182,7 @@ export const ProjectRow = memo(function ProjectRow({ row }: { row: ProjectSearch
               boolean, distinct from email verification. */}
           {row.is_claim_verified && <VerifiedBadge />}
         </span>
-        <span className="bcc-mono truncate text-[10px] text-cardstock-deep">
+        <span className="bcc-mono truncate text-[10px] text-bcc-text-secondary">
           {[row.category, row.tier !== null ? `TIER · ${row.tier}` : null]
             .filter((s): s is string => s !== null && s !== "")
             .join(" · ")
@@ -198,14 +198,14 @@ export const UserRow = memo(function UserRow({ row }: { row: UserSearchResult })
   return (
     <Link
       href={toInternalHref(row.profile_url)}
-      className="bcc-panel flex items-center gap-3 px-4 py-3 hover:bg-cardstock-deep motion-safe:transition motion-safe:duration-bcc-fast"
+      className="bcc-panel flex items-center gap-3 px-4 py-3 hover:bg-bcc-surface-hover motion-safe:transition motion-safe:duration-bcc-fast"
     >
       <Avatar src={row.avatar_url} name={row.display_name || row.username} shape="circle" />
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         <span className="bcc-stencil truncate text-sm text-bcc-text">
           {row.display_name || row.username}
         </span>
-        <span className="bcc-mono truncate text-[10px] text-cardstock-deep">
+        <span className="bcc-mono truncate text-[10px] text-bcc-text-secondary">
           @{row.username}
         </span>
       </div>
@@ -217,12 +217,12 @@ export const GroupRow = memo(function GroupRow({ row }: { row: GroupSearchResult
   return (
     <Link
       href={toInternalHref(row.group_url)}
-      className="bcc-panel flex items-center gap-3 px-4 py-3 hover:bg-cardstock-deep motion-safe:transition motion-safe:duration-bcc-fast"
+      className="bcc-panel flex items-center gap-3 px-4 py-3 hover:bg-bcc-surface-hover motion-safe:transition motion-safe:duration-bcc-fast"
     >
       <Avatar src={row.avatar_url} name={row.name} shape="square" />
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         <span className="bcc-stencil truncate text-sm text-bcc-text">{row.name}</span>
-        <span className="bcc-mono truncate text-[10px] text-cardstock-deep">
+        <span className="bcc-mono truncate text-[10px] text-bcc-text-secondary">
           /{row.slug}
         </span>
         {row.description !== null && row.description !== "" && (
@@ -282,7 +282,7 @@ function Avatar({
   return (
     <span
       aria-hidden
-      className={`flex h-10 w-10 shrink-0 items-center justify-center bg-cardstock-deep text-sm font-bold text-blueprint ${radius}`}
+      className={`flex h-10 w-10 shrink-0 items-center justify-center bg-bcc-surface-active text-sm font-bold text-blueprint ${radius}`}
     >
       {initial}
     </span>
@@ -295,8 +295,8 @@ function TierBadge({ tier }: { tier: string }) {
       className="bcc-mono shrink-0 rounded-sm px-2 py-0.5 text-[9px] tracking-[0.18em]"
       style={{
         color: `var(--tier-${tier})`,
-        background: "rgb(var(--ink-rgb) / 0.04)",
-        border: "1px solid rgb(var(--ink-rgb) / 0.12)",
+        background: "var(--bcc-surface-hover)",
+        border: "1px solid var(--bcc-border)",
       }}
     >
       {tier.toUpperCase()}

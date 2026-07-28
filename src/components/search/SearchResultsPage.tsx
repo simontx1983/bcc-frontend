@@ -143,10 +143,10 @@ function ResultsView({ query }: { query: string }) {
 
   return (
     <section>
-      <header className="border-b border-dashed border-cardstock/15 pb-3">
-        <p className="bcc-mono text-cardstock-deep">
+      <header className="border-b border-dashed border-bcc-border pb-3">
+        <p className="bcc-mono text-bcc-text-secondary">
           RESULTS FOR &ldquo;
-          <span className="text-ink">{query}</span>
+          <span className="text-bcc-text">{query}</span>
           &rdquo;
         </p>
       </header>
@@ -241,7 +241,7 @@ function TabBar({ tab, setTab, counts, loading }: TabBarProps) {
     <nav
       role="tablist"
       aria-label="Search verticals"
-      className="mt-6 flex items-center gap-1 overflow-x-auto border-b border-cardstock-edge/30"
+      className="mt-6 flex items-center gap-1 overflow-x-auto border-b border-bcc-border"
     >
       {TABS.map(({ key, label }) => {
         const isActive = key === tab;
@@ -255,13 +255,13 @@ function TabBar({ tab, setTab, counts, loading }: TabBarProps) {
             onClick={() => setTab(key)}
             className={
               isActive
-                ? "bcc-stencil whitespace-nowrap border-b-2 border-safety px-2 py-2.5 text-[11px] text-cardstock sm:px-4 sm:text-sm motion-safe:transition-colors motion-safe:duration-bcc-fast"
-                : "bcc-stencil whitespace-nowrap border-b-2 border-transparent px-2 py-2.5 text-[11px] text-cardstock-deep/70 hover:text-cardstock sm:px-4 sm:text-sm motion-safe:transition-colors motion-safe:duration-bcc-fast"
+                ? "bcc-stencil whitespace-nowrap border-b-2 border-safety px-2 py-2.5 text-[11px] text-bcc-text sm:px-4 sm:text-sm motion-safe:transition-colors motion-safe:duration-bcc-fast"
+                : "bcc-stencil whitespace-nowrap border-b-2 border-transparent px-2 py-2.5 text-[11px] text-bcc-text-secondary hover:text-bcc-text sm:px-4 sm:text-sm motion-safe:transition-colors motion-safe:duration-bcc-fast"
             }
           >
             <span>{label}</span>
             {!loading && (
-              <span className="bcc-mono ml-2 inline-flex min-w-[1.25rem] items-center justify-center rounded-sm bg-cardstock-deep/40 px-1 text-[9px] text-ink-soft">
+              <span className="bcc-mono ml-2 inline-flex min-w-[1.25rem] items-center justify-center rounded-sm bg-bcc-surface-hover px-1 text-[9px] text-bcc-text-secondary">
                 {count}
               </span>
             )}
@@ -358,8 +358,8 @@ function TrendingLanding() {
 
   return (
     <section>
-      <header className="border-b border-dashed border-cardstock/15 pb-3">
-        <p className="bcc-mono text-cardstock-deep">TRENDING ON THE FLOOR</p>
+      <header className="border-b border-dashed border-bcc-border pb-3">
+        <p className="bcc-mono text-bcc-text-secondary">TRENDING ON THE FLOOR</p>
       </header>
       <div className="mt-6">
         <SearchResultsTab

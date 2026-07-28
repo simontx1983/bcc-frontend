@@ -113,7 +113,7 @@ export function GroupDetailShell({
         {showBreadcrumb && (
           <Link
             href={backHref as Route}
-            className="bcc-mono inline-block text-cardstock-deep hover:text-cardstock"
+            className="bcc-mono inline-block text-bcc-text-secondary hover:text-bcc-text"
             style={{ fontSize: "10px", letterSpacing: "0.18em" }}
           >
             ← {backLabel?.toUpperCase()}
@@ -133,7 +133,7 @@ export function GroupDetailShell({
           }
         >
           <h1
-            className="bcc-stencil text-cardstock leading-[0.92]"
+            className="bcc-stencil text-bcc-text leading-[0.92]"
             style={{ fontSize: "clamp(1.75rem, 5.5vw, 4.5rem)", wordBreak: "break-word" }}
           >
             {group.name}

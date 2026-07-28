@@ -56,7 +56,7 @@ export function ClaimCallout({
           WANTED · OPERATOR UNCLAIMED
         </span>
 
-        <p className="font-serif text-cardstock-deep">
+        <p className="font-serif text-bcc-text-secondary">
           The operator hasn&apos;t verified this page yet. If you control
           this validator&apos;s keys, you can claim it.
         </p>
@@ -75,7 +75,7 @@ export function ClaimCallout({
             "bcc-stencil w-fit rounded-sm px-5 py-2.5 text-[12px] tracking-[0.2em] transition " +
             (viewerAuthed
               ? "bg-ink text-cardstock hover:bg-blueprint"
-              : "cursor-not-allowed bg-cardstock-deep/40 text-ink-soft/60")
+              : "cursor-not-allowed bg-bcc-surface-active text-bcc-text-muted")
           }
         >
           CLAIM THIS PAGE →

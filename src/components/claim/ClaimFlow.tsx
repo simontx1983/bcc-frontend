@@ -199,19 +199,19 @@ function ExplanationStep({
 }) {
   return (
     <>
-      <h3 className="bcc-stencil text-2xl text-ink">
+      <h3 className="bcc-stencil text-2xl text-bcc-text">
         Are you the operator of {pageName}?
       </h3>
-      <p className="mt-3 font-serif text-ink-soft">
+      <p className="mt-3 font-serif text-bcc-text-secondary">
         Claiming a validator page proves you control its on-chain keys.
         It unlocks three things:
       </p>
-      <ul className="mt-3 space-y-2 font-serif text-ink-soft">
+      <ul className="mt-3 space-y-2 font-serif text-bcc-text-secondary">
         <li>· Edit the bio your delegators see when they visit your page.</li>
         <li>· Post announcements in your validator&apos;s stream.</li>
         <li>· Earn the operator badge on every post you write here.</li>
       </ul>
-      <p className="bcc-mono mt-4 text-[11px] text-cardstock-deep">
+      <p className="bcc-mono mt-4 text-[11px] text-bcc-text-secondary">
         Chain: {chainSlug.toUpperCase()} · Signature only — no transaction, no fees.
       </p>
       <ButtonRow>
@@ -241,10 +241,10 @@ function ConnectStep({
 }) {
   return (
     <>
-      <h3 className="bcc-stencil text-2xl text-ink">Connect Keplr</h3>
-      <p className="mt-3 font-serif text-ink-soft">
+      <h3 className="bcc-stencil text-2xl text-bcc-text">Connect Keplr</h3>
+      <p className="mt-3 font-serif text-bcc-text-secondary">
         Open Keplr and approve the connection request for{" "}
-        <span className="bcc-mono text-ink">{chainSlug.toUpperCase()}</span>.
+        <span className="bcc-mono text-bcc-text">{chainSlug.toUpperCase()}</span>.
         We&apos;ll read your wallet&apos;s public address — nothing else.
       </p>
       {error !== null && <ErrorLine message={error} />}
@@ -279,15 +279,15 @@ function SignatureStep({
 }) {
   return (
     <>
-      <h3 className="bcc-stencil text-2xl text-ink">Sign the challenge</h3>
-      <p className="mt-3 font-serif text-ink-soft">
+      <h3 className="bcc-stencil text-2xl text-bcc-text">Sign the challenge</h3>
+      <p className="mt-3 font-serif text-bcc-text-secondary">
         Keplr will pop up with a plain-English message. Signing it
         proves you control{" "}
-        <span className="bcc-mono break-all text-ink">{connection.address}</span>.
+        <span className="bcc-mono break-all text-bcc-text">{connection.address}</span>.
         We match this address against {pageName}&apos;s on-chain operator key —
         if they match, the page is yours.
       </p>
-      <p className="bcc-mono mt-4 text-[11px] text-cardstock-deep">
+      <p className="bcc-mono mt-4 text-[11px] text-bcc-text-secondary">
         Signing is free. No transaction is broadcast.
       </p>
       {error !== null && <ErrorLine message={error} />}
@@ -322,17 +322,17 @@ function ConfirmationStep({
       >
         ✓ VERIFIED
       </p>
-      <h3 className="bcc-stencil mt-2 text-3xl text-ink">
+      <h3 className="bcc-stencil mt-2 text-3xl text-bcc-text">
         {pageName} is yours.
       </h3>
-      <p className="mt-3 font-serif text-ink-soft">
+      <p className="mt-3 font-serif text-bcc-text-secondary">
         Your operator badge is live. The page&apos;s bio and stream
         unlocked the moment you signed.
       </p>
-      <p className="bcc-mono mt-4 text-[11px] text-cardstock-deep">
+      <p className="bcc-mono mt-4 text-[11px] text-bcc-text-secondary">
         What&apos;s next:
       </p>
-      <ul className="mt-2 space-y-1.5 font-serif text-ink-soft">
+      <ul className="mt-2 space-y-1.5 font-serif text-bcc-text-secondary">
         <li>· Write a bio that tells your delegators who you are.</li>
         <li>· Post your first announcement in the stream.</li>
         {handle !== null && <li>· Visit your profile at /u/{handle}.</li>}
@@ -374,7 +374,7 @@ function PrimaryButton({
       className={
         "bcc-stencil rounded-sm px-5 py-2.5 text-[12px] tracking-[0.2em] transition " +
         (disabled
-          ? "cursor-not-allowed bg-cardstock-deep/40 text-ink-soft/60"
+          ? "cursor-not-allowed bg-bcc-surface-active text-bcc-text-muted"
           : "bg-ink text-cardstock hover:bg-blueprint")
       }
     >
@@ -394,7 +394,7 @@ function SecondaryButton({
     <button
       type="button"
       onClick={onClick}
-      className="bcc-mono rounded-sm px-4 py-2 text-[10px] tracking-[0.18em] text-cardstock-deep hover:text-ink"
+      className="bcc-mono rounded-sm px-4 py-2 text-[10px] tracking-[0.18em] text-bcc-text-secondary hover:text-bcc-text"
     >
       {children}
     </button>

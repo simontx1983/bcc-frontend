@@ -35,7 +35,7 @@ export function FilterChipRow<T extends string | null>({
 }: FilterChipRowProps<T>) {
   return (
     <div className="flex flex-col gap-2">
-      <span className="bcc-mono text-[10px] tracking-[0.2em] text-cardstock-deep">
+      <span className="bcc-mono text-[10px] tracking-[0.2em] text-bcc-text-secondary">
         {label}
       </span>
       <div className="flex flex-wrap gap-2">
@@ -50,8 +50,8 @@ export function FilterChipRow<T extends string | null>({
               className={
                 "bcc-mono min-h-[36px] rounded-sm px-3 py-1.5 text-[10px] tracking-[0.18em] transition " +
                 (isActive
-                  ? "bg-ink text-cardstock"
-                  : "bg-cardstock text-ink ring-1 ring-cardstock-edge hover:bg-cardstock-deep")
+                  ? "bg-bcc-accent text-bcc-text-inverse"
+                  : "bg-bcc-surface-hover text-bcc-text ring-1 ring-bcc-border hover:bg-bcc-surface-active")
               }
             >
               {opt.label.toUpperCase()}
