@@ -257,7 +257,7 @@ export function GlobalSearch({
         placeholder={placeholder}
         className={
           inputClassName ??
-          "bcc-mono w-36 bg-cardstock px-3 py-1.5 text-[12px] text-ink placeholder:text-ink-soft/60 ring-1 ring-cardstock-edge focus:outline-none focus:ring-2 focus:ring-blueprint sm:w-48 md:w-64"
+          "bcc-mono w-36 bg-bcc-surface-raised px-3 py-1.5 text-[12px] text-bcc-text placeholder:text-bcc-text-placeholder ring-1 ring-bcc-input-border focus:outline-none focus:ring-2 focus:ring-blueprint sm:w-48 md:w-64"
         }
       />
 
@@ -266,7 +266,7 @@ export function GlobalSearch({
           id={`${inputId}-listbox`}
           role="listbox"
           className="bcc-panel absolute left-0 top-full z-30 mt-1 flex w-full min-w-[min(28rem,90vw)] flex-col gap-px overflow-hidden"
-          style={{ background: "rgb(var(--ink-rgb) / 0.06)" }}
+          style={{ background: "var(--bcc-surface-hover)" }}
         >
           {showPreSearch ? (
             <PreSearchSurface
@@ -285,11 +285,11 @@ export function GlobalSearch({
               }}
             />
           ) : search.isError ? (
-            <div className="bcc-mono bg-cardstock px-4 py-3 text-[11px] text-ink-soft">
+            <div className="bcc-mono bg-bcc-surface-raised px-4 py-3 text-[11px] text-bcc-text-secondary">
               Search is briefly unavailable. Try again in a moment.
             </div>
           ) : items.length === 0 ? (
-            <div className="bcc-mono bg-cardstock px-4 py-3 text-[11px] text-ink-soft">
+            <div className="bcc-mono bg-bcc-surface-raised px-4 py-3 text-[11px] text-bcc-text-secondary">
               {search.isFetching ? "Searching…" : `No matches for “${trimmed}”.`}
             </div>
           ) : (
@@ -314,7 +314,7 @@ export function GlobalSearch({
             <button
               type="button"
               onClick={() => submitFreeText(trimmed)}
-              className="bcc-mono bg-cardstock px-4 py-2.5 text-left text-[10px] tracking-[0.18em] text-blueprint hover:bg-cardstock-deep motion-safe:transition-colors motion-safe:duration-bcc-fast"
+              className="bcc-mono bg-bcc-surface-raised px-4 py-2.5 text-left text-[10px] tracking-[0.18em] text-blueprint hover:bg-bcc-surface-hover motion-safe:transition-colors motion-safe:duration-bcc-fast"
             >
               VIEW ALL RESULTS →
             </button>
@@ -354,7 +354,7 @@ function PreSearchSurface({
   return (
     <>
       {recents.length > 0 && (
-        <div className="bg-cardstock">
+        <div className="bg-bcc-surface-raised">
           <SectionHeader
             label="RECENT"
             action={
@@ -369,11 +369,11 @@ function PreSearchSurface({
           />
           <ul role="presentation" className="flex flex-col gap-px">
             {recents.map((q) => (
-              <li key={q} className="flex items-center bg-cardstock">
+              <li key={q} className="flex items-center bg-bcc-surface-raised">
                 <button
                   type="button"
                   onClick={() => onSelectRecent(q)}
-                  className="bcc-stencil flex-1 truncate px-4 py-2 text-left text-sm text-ink hover:bg-cardstock-deep motion-safe:transition-colors motion-safe:duration-bcc-fast"
+                  className="bcc-stencil flex-1 truncate px-4 py-2 text-left text-sm text-bcc-text hover:bg-bcc-surface-hover motion-safe:transition-colors motion-safe:duration-bcc-fast"
                 >
                   {q}
                 </button>
@@ -381,7 +381,7 @@ function PreSearchSurface({
                   type="button"
                   onClick={() => onRemoveRecent(q)}
                   aria-label={`Remove ${q} from recent searches`}
-                  className="bcc-mono px-3 py-2 text-[10px] text-ink-soft hover:text-safety motion-safe:transition-colors motion-safe:duration-bcc-fast"
+                  className="bcc-mono px-3 py-2 text-[10px] text-bcc-text-secondary hover:text-safety motion-safe:transition-colors motion-safe:duration-bcc-fast"
                 >
                   ✕
                 </button>
@@ -391,24 +391,24 @@ function PreSearchSurface({
         </div>
       )}
 
-      <div className="bg-cardstock">
+      <div className="bg-bcc-surface-raised">
         <SectionHeader label="TRENDING" />
         {trendingLoading ? (
-          <div className="bcc-mono px-4 py-2.5 text-[11px] text-ink-soft">
+          <div className="bcc-mono px-4 py-2.5 text-[11px] text-bcc-text-secondary">
             Loading trending…
           </div>
         ) : trendingItems.length === 0 ? (
-          <div className="bcc-mono px-4 py-2.5 text-[11px] text-ink-soft">
+          <div className="bcc-mono px-4 py-2.5 text-[11px] text-bcc-text-secondary">
             Nothing trending right now.
           </div>
         ) : (
           <ul role="presentation" className="flex flex-col gap-px">
             {trendingItems.map((row) => (
-              <li key={`trend-${row.page_id}`} className="bg-cardstock">
+              <li key={`trend-${row.page_id}`} className="bg-bcc-surface-raised">
                 <button
                   type="button"
                   onClick={() => onSelectTrending(row.page_name)}
-                  className="bcc-stencil w-full truncate px-4 py-2 text-left text-sm text-ink hover:bg-cardstock-deep motion-safe:transition-colors motion-safe:duration-bcc-fast"
+                  className="bcc-stencil w-full truncate px-4 py-2 text-left text-sm text-bcc-text hover:bg-bcc-surface-hover motion-safe:transition-colors motion-safe:duration-bcc-fast"
                 >
                   {row.page_name}
                 </button>
@@ -429,8 +429,8 @@ function SectionHeader({
   action?: React.ReactNode;
 }) {
   return (
-    <div className="flex items-center justify-between border-b border-cardstock-edge/30 bg-cardstock px-4 py-1.5">
-      <span className="bcc-mono text-[9px] tracking-[0.18em] text-ink-soft">
+    <div className="flex items-center justify-between border-b border-bcc-border bg-bcc-surface-raised px-4 py-1.5">
+      <span className="bcc-mono text-[9px] tracking-[0.18em] text-bcc-text-secondary">
         {label}
       </span>
       {action}
@@ -455,12 +455,12 @@ function SuggestionRow({ item, id, active, onActivate, onHover }: SuggestionRowP
         onMouseEnter={onHover}
         className={
           "flex w-full items-center justify-between gap-3 px-4 py-2.5 text-left motion-safe:transition motion-safe:duration-bcc-fast " +
-          (active ? "bg-cardstock-deep" : "bg-cardstock hover:bg-cardstock-deep")
+          (active ? "bg-bcc-surface-active" : "bg-bcc-surface-raised hover:bg-bcc-surface-hover")
         }
       >
         <span className="flex flex-col gap-0.5 overflow-hidden">
-          <span className="bcc-stencil truncate text-sm text-ink">{item.name}</span>
-          <span className="bcc-mono truncate text-[10px] text-cardstock-deep">
+          <span className="bcc-stencil truncate text-sm text-bcc-text">{item.name}</span>
+          <span className="bcc-mono truncate text-[10px] text-bcc-text-secondary">
             {item.card_kind.toUpperCase()} · @{item.handle}
           </span>
         </span>
@@ -475,8 +475,8 @@ function SuggestionRow({ item, id, active, onActivate, onHover }: SuggestionRowP
               className="bcc-mono shrink-0 rounded-sm px-2 py-0.5 text-[9px] tracking-[0.18em]"
               style={{
                 color: `var(--tier-${item.card_tier})`,
-                background: "rgb(var(--ink-rgb) / 0.04)",
-                border: "1px solid rgb(var(--ink-rgb) / 0.12)",
+                background: "var(--bcc-surface-hover)",
+                border: "1px solid var(--bcc-border)",
               }}
             >
               {item.tier_label.toUpperCase()}

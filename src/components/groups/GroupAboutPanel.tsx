@@ -41,7 +41,7 @@ export function GroupAboutPanel({ group }: { group: GroupDetailResponse }) {
           hero so a viewer who jumps tabs sees the same data primitives
           in both places. Trust + Chain cells render conditionally so
           untagged or non-trust groups don't display empty rows. */}
-      <dl className="grid gap-4 border-t border-cardstock-edge/40 pt-5 sm:grid-cols-3">
+      <dl className="grid gap-4 border-t border-bcc-border pt-5 sm:grid-cols-3">
         <MetaCell label="Privacy" value={privacyLabel(group)} />
         <MetaCell
           label="Members"
@@ -62,7 +62,7 @@ export function GroupAboutPanel({ group }: { group: GroupDetailResponse }) {
       </dl>
 
       {group.verification !== null && (
-        <div className="border-t border-cardstock-edge/40 pt-5">
+        <div className="border-t border-bcc-border pt-5">
           <span className="bcc-mono mb-2 block text-[10px] tracking-[0.24em] text-bcc-text-secondary">
             VERIFICATION
           </span>

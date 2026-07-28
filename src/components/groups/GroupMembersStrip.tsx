@@ -57,7 +57,7 @@ function GroupMembersBody({ group }: { group: GroupDetailResponse }) {
   if (query.isLoading) {
     return (
       <div className="py-6 text-center">
-        <p className="bcc-mono text-cardstock-deep">Loading roster…</p>
+        <p className="bcc-mono text-bcc-text-secondary">Loading roster…</p>
       </div>
     );
   }
@@ -82,7 +82,7 @@ function GroupMembersBody({ group }: { group: GroupDetailResponse }) {
           onClick={() => {
             void query.refetch();
           }}
-          className="bcc-mono mt-3 text-cardstock-deep underline"
+          className="bcc-mono mt-3 text-bcc-text-secondary underline"
         >
           Try again
         </button>
@@ -129,7 +129,7 @@ function GroupMembersBody({ group }: { group: GroupDetailResponse }) {
             }
           }}
           disabled={query.isFetchingNextPage}
-          className="bcc-stencil mx-auto border border-cardstock-edge/40 px-6 py-2.5 text-cardstock disabled:opacity-50"
+          className="bcc-stencil mx-auto border border-bcc-border px-6 py-2.5 text-bcc-text disabled:opacity-50"
         >
           {query.isFetchingNextPage ? "Loading…" : "Load more members"}
         </button>
@@ -139,7 +139,7 @@ function GroupMembersBody({ group }: { group: GroupDetailResponse }) {
         <button
           type="button"
           onClick={() => setExpanded(true)}
-          className="bcc-mono mx-auto text-cardstock-deep underline"
+          className="bcc-mono mx-auto text-bcc-text-secondary underline"
           style={{ fontSize: "11px", letterSpacing: "0.18em" }}
         >
           VIEW ALL {total.toLocaleString()} MEMBERS →
@@ -159,7 +159,7 @@ const MemberTile = memo(function MemberTile({ member }: { member: GroupMember })
   return (
     <Link
       href={`/u/${member.handle}` as Route}
-      className="group flex flex-col items-center gap-2 rounded-sm border border-cardstock-edge/30 bg-cardstock/5 p-3 transition motion-reduce:transition-none hover:border-cardstock-edge/70"
+      className="group flex flex-col items-center gap-2 rounded-sm border border-bcc-border bg-bcc-surface-hover p-3 transition motion-reduce:transition-none hover:border-bcc-border-strong"
     >
       {/*
         Sprint 1 Identity Grammar — consolidated to the shared <Avatar>.
@@ -179,14 +179,14 @@ const MemberTile = memo(function MemberTile({ member }: { member: GroupMember })
       />
       <div className="flex w-full min-w-0 flex-col items-center text-center">
         <span
-          className="bcc-stencil truncate text-cardstock"
+          className="bcc-stencil truncate text-bcc-text"
           style={{ fontSize: "13px", letterSpacing: "0.04em", maxWidth: "100%" }}
           title={member.display_name}
         >
           {member.display_name}
         </span>
         <span
-          className="bcc-mono truncate text-cardstock-deep"
+          className="bcc-mono truncate text-bcc-text-secondary"
           style={{ fontSize: "9px", letterSpacing: "0.14em", maxWidth: "100%" }}
           title={`@${member.handle}`}
         >

@@ -54,7 +54,7 @@ export function GroupActionButton({
         }}
         disabled={isPending}
         aria-describedby={errorMessage !== null ? errorId : undefined}
-        className="bcc-mono inline-flex items-center border-2 border-cardstock-edge px-3 py-1.5 text-[11px] tracking-[0.18em] text-ink-soft transition motion-reduce:transition-none hover:border-ink/50 hover:text-ink disabled:opacity-60"
+        className="bcc-mono inline-flex items-center border-2 border-bcc-border px-3 py-1.5 text-[11px] tracking-[0.18em] text-bcc-text-secondary transition motion-reduce:transition-none hover:border-bcc-border-strong hover:text-bcc-text disabled:opacity-60"
       >
         {isPending ? pendingLabel : label}
       </button>

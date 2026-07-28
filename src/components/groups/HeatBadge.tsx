@@ -19,7 +19,7 @@ import type { GroupActivity } from "@/lib/api/types";
 const COLOR_BY_HEAT: Record<GroupActivity["heat"], string> = {
   hot:  "text-safety",
   warm: "text-blueprint",
-  cold: "text-ink-soft",
+  cold: "text-bcc-text-secondary",
 };
 
 export function HeatBadge({ activity }: { activity: GroupActivity }) {
