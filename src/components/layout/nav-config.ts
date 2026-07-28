@@ -8,8 +8,10 @@
  * Tier rationale (2026-05-11 redesign):
  *
  *   PRIMARY — daily-driver destinations. Render inline at all sm+ sizes
- *             in the main nav strip. Keep this list at 4 max — the 5th
- *             primary link starts to crowd the action cluster at 1024px.
+ *             in the main nav strip. Currently 5 entries (Halls was
+ *             promoted here 2026-07-28 for discoverability, sitting right
+ *             after The Floor); watch the action-cluster spacing at
+ *             ~1024px and demote the lowest-frequency link if it crowds.
  *
  *   SPECIALIST — identity-load-bearing but lower-frequency. Collapse
  *                behind the OPS pop-row on desktop; appear under the
@@ -41,6 +43,7 @@ export interface NavLink {
 /** Tier 1 — daily-driver destinations. Render inline at sm+. */
 export const PRIMARY_NAV: readonly NavLink[] = [
   { label: "The Floor",   href: "/",            match: null },
+  { label: "Halls",       href: "/halls",       match: "/halls" },
   { label: "Directory",   href: "/directory",   match: "/directory" },
   { label: "Communities", href: "/communities", match: "/communities" },
   { label: "Watching",    href: "/watching",    match: "/watching" },
@@ -48,11 +51,6 @@ export const PRIMARY_NAV: readonly NavLink[] = [
 
 /** Tier 2 — specialist destinations. Collapse behind OPS popover. */
 export const SPECIALIST_NAV: readonly NavLink[] = [
-  // Halls are a community sub-kind (discoverable via /communities); kept in
-  // the specialist tier to honor PRIMARY_NAV's 4-max (5th link crowds the
-  // action cluster at 1024px). Promote to PRIMARY_NAV if Halls warrant a
-  // daily-driver slot.
-  { label: "Halls",      href: "/halls",      match: "/halls" },
   { label: "Validators", href: "/validators", match: "/validators" },
   { label: "Disputes",   href: "/disputes",   match: "/disputes" },
   { label: "Members",    href: "/members",    match: "/members" },
