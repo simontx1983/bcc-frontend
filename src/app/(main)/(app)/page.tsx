@@ -22,7 +22,6 @@ import { getServerSession } from "next-auth";
 
 import { Composer } from "@/components/composer/Composer";
 import { FeedView } from "@/components/feed/FeedView";
-import { HighlightStrip } from "@/components/feed/HighlightStrip";
 import { FloorBriefing } from "@/components/landing/FloorBriefing";
 import { ResumeOnboardingPrompt } from "@/components/onboarding/ResumeOnboardingPrompt";
 import { TourAutoStart } from "@/components/tour/TourAutoStart";
@@ -77,13 +76,6 @@ export default async function HomePage({ searchParams }: PageProps) {
 
       {isAuthenticated && (
         <>
-          {/* §O2 highlights — a dismissible 3-slot briefing (WATCH /
-              WORTH KNOWING / ON THE FLOOR) above the status line. Auth-
-              gated per the component contract (the endpoint is /me-scoped).
-              Self-collapsing: renders nothing while loading/on error/when
-              empty, so it never pushes the feed down without content. */}
-          <HighlightStrip />
-
           <FloorBriefing profile={viewerProfile} />
 
           {/* §D1 composer — auth-only inline status form. v1.5 quiet
