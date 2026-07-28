@@ -51,7 +51,7 @@ const TIER_OPTIONS: { value: DirectoryTier | null; label: string }[] = [
   { value: "trusted", label: "Trusted" },
   { value: "neutral", label: "Neutral" },
   { value: "caution", label: "Caution" },
-  // v1.56: filterable for the first time. The rarity slugs had no way to
+  // v1.57: filterable for the first time. The rarity slugs had no way to
   // express risky, so the one cohort an operator most needs to review was
   // the one the directory could not surface.
   { value: "risky",   label: "Risky" },

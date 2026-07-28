@@ -86,7 +86,7 @@ export function CardFrontFace({
           this was absolute-positioned over the action bar and would
           overlap the OPEN link. Now it's a flow element so the tier
           label sits cleanly under the actions, never overlapping. */}
-      {/* Always rendered for real cards — v1.56 removed the null guard that
+      {/* Always rendered for real cards — v1.57 removed the null guard that
           used to sit here. That guard fired for risky entities (whose
           card_tier was null by design), so the strip vanished on exactly
           the cards a viewer most needed a warning from. Community cards

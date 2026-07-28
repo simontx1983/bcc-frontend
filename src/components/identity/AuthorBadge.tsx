@@ -59,7 +59,7 @@ export interface AuthorBadgeAuthor {
   rank_label?: string | null | undefined;
   /**
    * The trust-band signal — drives RankChip's dot color and the Avatar
-   * ring tint. Required as of v1.56: it was optional with a card_tier
+   * ring tint. Required as of v1.57: it was optional with a card_tier
    * fallback, and that fallback could not represent `risky` at all.
    */
   reputation_tier: ReputationTier;
