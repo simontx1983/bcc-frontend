@@ -42,6 +42,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DiscoverPanel } from "@/components/feed/DiscoverPanel";
 import { FeedItemCard } from "@/components/feed/FeedItemCard";
 import { FeedTabs } from "@/components/feed/FeedTabs";
+import { HighlightStrip } from "@/components/feed/HighlightStrip";
 import { LoadFailure } from "@/components/ui/LoadFailure";
 import { SKELETON_CLASS } from "@/components/ui/Skeleton";
 import { Spinner } from "@/components/ui/Spinner";
@@ -77,7 +78,19 @@ export function FeedView({ isAuthenticated }: FeedViewProps) {
 
 function AuthedFeed({ scope }: { scope: FeedScope }) {
   const query = useFeed(scope);
-  return <FeedBody {...query} />;
+  return (
+    <>
+      {/* §O2 highlights — a curated top-3 digest of the signal stream
+          (WATCH / WORTH KNOWING / ON THE FLOOR). Lives at the head of the
+          Signals scope specifically: it's the personalized "what matters"
+          summary of the same events the Signals feed lists in full below.
+          Part of the scroll (not sticky) and self-collapsing (renders
+          nothing when empty), so it never reserves space without content.
+          Auth is satisfied by this being the authed branch. */}
+      {scope === "signals" && <HighlightStrip />}
+      <FeedBody {...query} />
+    </>
+  );
 }
 
 // ─────────────────────────────────────────────────────────────────────

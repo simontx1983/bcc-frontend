@@ -5,13 +5,7 @@
   "ignore": [
     // Live: registered at runtime via navigator.serviceWorker.register()
     // in src/lib/push/register.ts, so there's no static import for knip to see.
-    "public/sw.js",
-    // Orphaned by the feed-redesign WIP (c8daf27), NOT retired. The §O2
-    // Highlights feature is otherwise fully wired (backend + hooks + 4 live
-    // cache invalidations). Kept pending the reconnect-or-remove decision.
-    // Remove this line when that is resolved. See:
-    // https://github.com/simontx1983/bcc-frontend/issues/83
-    "src/components/feed/HighlightStrip.tsx"
+    "public/sw.js"
   ],
   // Used via `next lint`, which knip can't trace.
   "ignoreDependencies": [
