@@ -174,7 +174,7 @@ function ModalContent({ items, onSkip }: ModalContentProps) {
         </p>
       </header>
 
-      <ul className="bcc-panel divide-y divide-cardstock-edge/60">
+      <ul className="bcc-panel divide-y divide-bcc-border">
         {sorted.map((item) => (
           <EligibleRow key={item.group_id} item={item} />
         ))}
@@ -226,12 +226,12 @@ function EligibleRow({ item }: { item: HolderGroupItem }) {
             height={36}
             loading="lazy"
             decoding="async"
-            className="h-9 w-9 shrink-0 rounded-full border border-cardstock-edge object-cover"
+            className="h-9 w-9 shrink-0 rounded-full border border-bcc-border object-cover"
           />
         ) : (
           <div
             aria-hidden
-            className="bcc-mono flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-cardstock-edge bg-cardstock-deep/40 text-[10px] text-ink-soft"
+            className="bcc-mono flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-bcc-border bg-bcc-surface-hover text-[10px] text-bcc-text-secondary"
           >
             {collectionName.slice(0, 2).toUpperCase()}
           </div>
@@ -241,9 +241,9 @@ function EligibleRow({ item }: { item: HolderGroupItem }) {
           <p className="bcc-stencil truncate text-bcc-text">{item.name}</p>
           <p className="bcc-mono mt-0.5 flex flex-wrap items-center gap-2 truncate text-[11px] text-bcc-text-secondary">
             <span>{item.member_count.toLocaleString()} members</span>
-            <span aria-hidden className="text-cardstock-edge">·</span>
+            <span aria-hidden className="text-bcc-text-muted">·</span>
             <HeatBadge activity={item.activity} />
-            <span aria-hidden className="text-cardstock-edge">·</span>
+            <span aria-hidden className="text-bcc-text-muted">·</span>
             <VerificationBadge label={item.verification.label} />
           </p>
           {errorMessage !== null && (

@@ -385,7 +385,7 @@ export function ModerationQueue() {
             type="button"
             onClick={() => setPage((p) => Math.max(1, p - 1))}
             disabled={page <= 1}
-            className="border-2 border-cardstock-edge px-3 py-1 transition hover:border-ink/50 hover:text-bcc-text disabled:opacity-50"
+            className="border-2 border-bcc-border px-3 py-1 transition hover:border-bcc-border-strong hover:text-bcc-text disabled:opacity-50"
           >
             ← PREV
           </button>
@@ -396,7 +396,7 @@ export function ModerationQueue() {
             type="button"
             onClick={() => setPage((p) => p + 1)}
             disabled={page >= pagination.total_pages}
-            className="border-2 border-cardstock-edge px-3 py-1 transition hover:border-ink/50 hover:text-bcc-text disabled:opacity-50"
+            className="border-2 border-bcc-border px-3 py-1 transition hover:border-bcc-border-strong hover:text-bcc-text disabled:opacity-50"
           >
             NEXT →
           </button>
@@ -478,7 +478,7 @@ function FilterPanel({
         <div className="flex flex-col gap-2">
           <label
             htmlFor="bcc-mod-reporter"
-            className="bcc-mono text-[10px] tracking-[0.2em] text-cardstock-deep"
+            className="bcc-mono text-[10px] tracking-[0.2em] text-bcc-text-secondary"
           >
             REPORTER · / TO FOCUS
           </label>
@@ -489,14 +489,14 @@ function FilterPanel({
             value={handleDraft}
             onChange={(e) => onHandleDraftChange(e.target.value)}
             placeholder="Handle fragment…"
-            className="bcc-mono w-full bg-cardstock px-3 py-2 text-sm text-ink placeholder:text-ink-soft/60 focus:outline-none ring-1 ring-cardstock-edge focus:ring-2 focus:ring-blueprint"
+            className="bcc-mono w-full bg-bcc-input-bg px-3 py-2 text-sm text-bcc-text placeholder:text-bcc-text-placeholder focus:outline-none ring-1 ring-bcc-input-border focus:ring-2 focus:ring-bcc-accent"
           />
         </div>
 
         <div className="flex flex-col gap-2">
           <label
             htmlFor="bcc-mod-since"
-            className="bcc-mono text-[10px] tracking-[0.2em] text-cardstock-deep"
+            className="bcc-mono text-[10px] tracking-[0.2em] text-bcc-text-secondary"
           >
             SINCE
           </label>
@@ -505,14 +505,14 @@ function FilterPanel({
             type="date"
             value={sinceDraft}
             onChange={(e) => onSinceDraftChange(e.target.value)}
-            className="bcc-mono bg-cardstock px-3 py-2 text-sm text-ink ring-1 ring-cardstock-edge focus:outline-none focus:ring-2 focus:ring-blueprint"
+            className="bcc-mono bg-bcc-input-bg px-3 py-2 text-sm text-bcc-text ring-1 ring-bcc-input-border focus:outline-none focus:ring-2 focus:ring-bcc-accent"
           />
         </div>
 
         <div className="flex flex-col gap-2">
           <label
             htmlFor="bcc-mod-until"
-            className="bcc-mono text-[10px] tracking-[0.2em] text-cardstock-deep"
+            className="bcc-mono text-[10px] tracking-[0.2em] text-bcc-text-secondary"
           >
             UNTIL
           </label>
@@ -521,7 +521,7 @@ function FilterPanel({
             type="date"
             value={untilDraft}
             onChange={(e) => onUntilDraftChange(e.target.value)}
-            className="bcc-mono bg-cardstock px-3 py-2 text-sm text-ink ring-1 ring-cardstock-edge focus:outline-none focus:ring-2 focus:ring-blueprint"
+            className="bcc-mono bg-bcc-input-bg px-3 py-2 text-sm text-bcc-text ring-1 ring-bcc-input-border focus:outline-none focus:ring-2 focus:ring-bcc-accent"
           />
         </div>
       </div>
@@ -549,8 +549,8 @@ function StatusTabs({ value, onChange }: StatusTabsProps) {
             className={
               "bcc-mono inline-flex min-h-[36px] items-center border-2 px-3 py-1.5 text-[11px] tracking-[0.18em] transition " +
               (active
-                ? "border-ink bg-ink text-cardstock"
-                : "border-cardstock-edge bg-cardstock-deep/40 text-ink-soft hover:border-ink/50 hover:text-ink")
+                ? "border-bcc-accent bg-bcc-accent text-bcc-text-inverse"
+                : "border-bcc-border bg-bcc-surface-hover text-bcc-text-secondary hover:border-bcc-border-strong hover:text-bcc-text")
             }
           >
             {tab.label.toUpperCase()}
@@ -574,7 +574,7 @@ function KeyboardHint({ onOpenOverlay }: KeyboardHintProps) {
         className="inline-flex items-center gap-1.5 hover:text-bcc-text"
         aria-label="Open keyboard-shortcut help"
       >
-        <kbd className="border border-cardstock-edge px-1.5 py-0.5 text-[10px] not-italic">?</kbd>
+        <kbd className="border border-bcc-border px-1.5 py-0.5 text-[10px] not-italic">?</kbd>
         <span>shortcuts</span>
       </button>
     </div>
@@ -665,7 +665,7 @@ function ReportRow({
       <header className="flex flex-wrap items-baseline justify-between gap-3">
         <div className="flex flex-wrap items-baseline gap-2">
           <span
-            className="bcc-mono inline-flex items-center border-2 border-cardstock-edge px-2 py-0.5 text-[10px] tracking-[0.18em] text-bcc-text-secondary"
+            className="bcc-mono inline-flex items-center border-2 border-bcc-border px-2 py-0.5 text-[10px] tracking-[0.18em] text-bcc-text-secondary"
             data-status={item.status_label.toLowerCase()}
           >
             {item.status_label}
@@ -805,7 +805,7 @@ function ActionButton({ label, shortcut, tone, onClick, disabled }: ActionButton
         "bcc-mono inline-flex min-h-[36px] items-center gap-2 border-2 px-3 py-1.5 text-[11px] tracking-[0.18em] transition disabled:opacity-50 " +
         (tone === "primary"
           ? "border-ink bg-ink text-cardstock hover:bg-blueprint"
-          : "border-cardstock-edge text-bcc-text-secondary hover:border-ink/50 hover:text-bcc-text")
+          : "border-bcc-border text-bcc-text-secondary hover:border-bcc-border-strong hover:text-bcc-text")
       }
     >
       <span>{label.toUpperCase()}</span>
@@ -861,13 +861,13 @@ function ShortcutOverlay({ onClose }: ShortcutOverlayProps) {
             CLOSE
           </button>
         </header>
-        <ul className="flex flex-col divide-y divide-cardstock-edge/40">
+        <ul className="flex flex-col divide-y divide-bcc-border">
           {SHORTCUT_TABLE.map((row) => (
             <li
               key={row.keys}
               className="flex items-center justify-between gap-3 py-2"
             >
-              <kbd className="bcc-mono inline-flex min-w-[60px] justify-center rounded-sm border border-cardstock-edge bg-cardstock-deep/40 px-2 py-1 text-[11px] not-italic text-ink">
+              <kbd className="bcc-mono inline-flex min-w-[60px] justify-center rounded-sm border border-bcc-border bg-bcc-surface-hover px-2 py-1 text-[11px] not-italic text-bcc-text">
                 {row.keys}
               </kbd>
               <span className="font-serif text-bcc-text-secondary">{row.description}</span>

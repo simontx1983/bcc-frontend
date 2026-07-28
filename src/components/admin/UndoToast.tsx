@@ -198,7 +198,7 @@ export function UndoToast({ descriptor, onDismiss }: Props) {
       {!hasError && (
         <div
           aria-hidden
-          className="h-[2px] w-full overflow-hidden bg-cardstock-edge/30"
+          className="h-[2px] w-full overflow-hidden bg-bcc-border"
         >
           <div
             className="h-full bg-safety motion-safe:transition-[width] motion-safe:duration-[250ms] motion-safe:ease-linear"
