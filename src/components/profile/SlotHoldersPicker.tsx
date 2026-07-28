@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * SlotHoldersPicker — §J.1 Stand Behind bandwidth picker.
+ * SlotHoldersPicker — §J.1 Backing bandwidth picker.
  *
  * Surfaces only when a stand_behind cast returns
  * `bcc_attestation_bandwidth_exhausted` (409). Renders the operator's
@@ -18,7 +18,7 @@
  *
  * Concretely this means:
  *
- *   - **Reflective dialog tone.** Title is "Standing Behind" — not
+ *   - **Reflective dialog tone.** Title is "Backing" — not
  *     "Allocation," "Slots," or any portfolio-language framing. The
  *     body intro names the action as judgment ("if your assessment
  *     has changed"), not optimization ("free a slot for a better
@@ -37,7 +37,7 @@
  *     impact on the attestor).
  *   - **No prestige anxiety.** Copy never mentions "your tier,"
  *     "slot count," or numeric thresholds. The header says
- *     "Standing Behind," not "X of N slots used."
+ *     "Backing," not "X of N slots used."
  *
  * Mutation choreography:
  *
@@ -111,7 +111,7 @@ export function SlotHoldersPicker({
     <div
       role="dialog"
       aria-modal
-      aria-label="Standing Behind"
+      aria-label="Backing"
       className="fixed inset-0 z-50 flex items-end justify-center bg-ink/70 p-4 backdrop-blur-sm md:items-center"
       onClick={(e) => {
         // Backdrop click closes only when no mutation is in flight,
@@ -141,7 +141,7 @@ export function SlotHoldersPicker({
         </button>
 
         <header className="mb-5 pr-12">
-          <p className="bcc-mono text-bcc-text-secondary">STANDING BEHIND //</p>
+          <p className="bcc-mono text-bcc-text-secondary">BACKING //</p>
           <h3 className="bcc-stencil mt-1 text-2xl text-bcc-text">
             Your current commitments
           </h3>
@@ -185,7 +185,7 @@ export function SlotHoldersPicker({
         {/* Slot context — quiet, factual, not a score. */}
         {slotsTotal > 0 && (
           <p className="bcc-mono mt-5 text-[11px] tracking-[0.14em] text-bcc-text-secondary">
-            STAND BEHIND IS SCARCE &mdash; YOU HAVE {slotsTotal} ACTIVE SLOTS.
+            BACKING IS SCARCE &mdash; YOU HAVE {slotsTotal} ACTIVE SLOTS.
           </p>
         )}
       </div>

@@ -62,7 +62,7 @@ const BELL_ROWS: ReadonlyArray<BellRow> = [
   {
     key: "bcc_reaction",
     label: "Reactions on your posts",
-    blurb: "@somebody agreed with / vouched for / stood behind your post.",
+    blurb: "@somebody agreed with / vouched for / backed your post.",
   },
   {
     key: "bcc_review",
@@ -105,14 +105,16 @@ const BELL_ROWS: ReadonlyArray<BellRow> = [
     blurb: "Someone vouched for you — operator profile or one of your cards.",
   },
   {
+    // `key` is a persisted user-meta preference key — renaming it would
+    // silently reset every user's prefs. Label only. (contract v1.56)
     key: "bcc_attestation_stand_behind_received",
-    label: "Stand Behind received",
-    blurb: "Someone put a Stand Behind slot on your operator profile or one of your cards. High-conviction.",
+    label: "Backing received",
+    blurb: "Someone put a Backing slot on your operator profile or one of your cards. High-conviction.",
   },
   {
     key: "bcc_attestation_revoked",
     label: "Attestation revoked",
-    blurb: "Someone revoked a vouch or Stand Behind they had previously cast on you. Reads as a neutral state change.",
+    blurb: "Someone revoked a vouch or Backing they had previously cast on you. Reads as a neutral state change.",
   },
   {
     key: "bcc_attestation_reaffirmed",
@@ -160,9 +162,10 @@ const PUSH_ROWS: ReadonlyArray<PushRow> = [
     blurb: "Push when someone vouches for you. Per-attestor debounce coalesces rapid bursts.",
   },
   {
+    // Persisted push-preference key — label only, same as the bell row.
     key: "attestation_stand_behind_received",
-    label: "Stand Behind received",
-    blurb: "Push when someone Stand Behinds you — scarce, high-conviction signal.",
+    label: "Backing received",
+    blurb: "Push when someone backs you — scarce, high-conviction signal.",
   },
   {
     key: "attestation_revoked",

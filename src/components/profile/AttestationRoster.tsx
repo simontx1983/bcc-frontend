@@ -3,7 +3,7 @@
 /**
  * AttestationRoster — §J.6 attestation roster surface. THE primary
  * content of an entity card per the constitution: "who has vouched,
- * who is standing behind." Evidence of backing — NOT a leaderboard,
+ * who is backing." Evidence of backing — NOT a leaderboard,
  * NOT a prestige wall.
  *
  * Slice D status (2026-05-13): READ live. Endpoint
@@ -46,7 +46,7 @@
  *
  * §A2 server-rendering: every piece of attestor data comes from
  * the server-supplied view-model. The kind label ("VOUCHED" /
- * "STOOD BEHIND") and date formatting are presentation only.
+ * "BACKED") and date formatting are presentation only.
  *
  * §J.4.1 synthesis invisibility: weights (`weight_at_time`,
  * `decayed_weight`) are server-side only and do NOT appear in this
@@ -71,6 +71,7 @@ import type {
   AttestationRosterItem,
   AttestationTargetKind,
 } from "@/lib/api/types";
+import { ATTESTATION_COPY } from "@/lib/copy/trust-layer";
 import { formatRelativeTime } from "@/lib/format";
 
 interface AttestationRosterProps {
@@ -191,7 +192,8 @@ function RosterRow({ item }: { item: AttestationRosterItem }) {
       ? RELIABILITY_LABEL[item.attestor.reliability_standing] ?? null
       : null;
 
-  const kindLabel = item.kind === "vouch" ? "VOUCHED" : "STOOD BEHIND";
+  const kindLabel =
+    item.kind === "vouch" ? "VOUCHED" : ATTESTATION_COPY.backed_badge;
 
   return (
     <li

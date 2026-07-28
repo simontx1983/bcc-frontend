@@ -59,3 +59,55 @@ export const REPUTATION_VS_RELIABILITY = {
     "Your reliability grows from your own track record of judging others accurately over time.",
   both_grow_slowly: "Both grow slowly. Both are durable.",
 } as const;
+
+/**
+ * The §J.7 label table, as the frontend renders it (contract v1.56).
+ *
+ * These are LABELS, not editorial paragraphs — they're here for the same
+ * drift-prevention reason as the strings above. Before v1.56 the scarce
+ * primitive's label ("Stand Behind") was hardcoded across six components and
+ * the roster tab's label was hardcoded in two unrelated tab arrays, which is
+ * exactly how a rename ends up half-applied.
+ *
+ * **The wire name is `stand_behind` and always will be.** It is a stored `kind`
+ * enum value plus the root of four view-model field families, the notification
+ * type, and three persisted preference keys — renaming those would silently
+ * reset every user's notification prefs. Never map these labels back onto
+ * request payloads, permission keys, or query keys. Same divergence as
+ * `endorse` → "Vouch" (contract v1.50).
+ *
+ * Naming rule: `BACK` is reserved for the attestation and always renders
+ * either with its allocation (`BACK · 2 OF 5`) or as a card/profile primary
+ * action. Back-*navigation* is always `← BACK TO <destination>` — never a bare
+ * "Back". Both appear on `/u/[handle]`: the Photos album view renders
+ * `← BACK TO ALBUMS` in this same mono-caps register.
+ */
+export const ATTESTATION_COPY = {
+  /** Imperative button label, matching its sibling `VOUCH`. */
+  back_action: "BACK",
+  /** In-flight and settled cast state on the action button. */
+  backing_pending: "BACKING…",
+  backing_active: "BACKING",
+  /** Past-tense badge on a roster row, matching its sibling `VOUCHED`. */
+  backed_badge: "BACKED",
+  /** The mechanic as a noun, in sentence case. */
+  backing_noun: "Backing",
+  /**
+   * The roster of everyone attesting to an operator — vouches AND backings.
+   * It is the genus term over both positive primitives, so it must not be
+   * named after either one. "Roster" is unavailable: it is already the
+   * follow-graph tab label on the same tab strip.
+   */
+  supporters_tab: "Supporters",
+} as const;
+
+/** `BACK · 2 OF 5` when the allocation is known, bare `BACK` when it isn't. */
+export function formatBackLabel(
+  slotsUsed: number | undefined,
+  slotsTotal: number | undefined,
+): string {
+  if (slotsUsed === undefined || slotsTotal === undefined) {
+    return ATTESTATION_COPY.back_action;
+  }
+  return `${ATTESTATION_COPY.back_action} · ${slotsUsed} OF ${slotsTotal}`;
+}

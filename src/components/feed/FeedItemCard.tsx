@@ -15,7 +15,7 @@
  *
  * Future variants (deferred):
  *   - Embedded <CardFactory> when `attached_card` is present
- *   - Inline reaction rail (Solid / Vouch / Stand-behind buttons)
+ *   - Inline reaction rail (Solid / Vouch / Back buttons)
  */
 
 import { memo, useCallback, useMemo } from "react";

@@ -4271,7 +4271,7 @@ export interface AttestationRosterItem {
   attestor: AttestationRosterAttestor;
   /**
    * §J.3.2.1 marker — this attestation was a pre-consensus call
-   * (first stand-behind on the target, or in the early window).
+   * (first backing on the target, or in the early window).
    * Drives the subtle "EARLY READ" marker on the row. Independent
    * of whether the attestor carries the broader `early_read` badge.
    */
@@ -5670,9 +5670,13 @@ export interface ColdStartOperator {
   /**
    * Server-rendered past-tense action phrase. Vocabulary is locked
    * server-side to feed-kind verbs (REVIEWED, POSTED, WATCHED, VOUCHED,
-   * STOOD BEHIND, SIGNED, DROPPED, RELEASED) plus the terminal fallback
+   * DISPUTED, DROPPED, RELEASED) plus the terminal fallback
    * "Recently on the floor." Do NOT manipulate or compose this text
    * client-side.
+   *
+   * (This list previously read "STOOD BEHIND, SIGNED" — neither verb is
+   * in the allowlist. Corrected against FeedColdStartService's own
+   * docblock while renaming the Stand Behind label in v1.56.)
    */
   recent_action: string;
   /** Server-built `/u/{handle}` link. Safe to pass to <Link>. */

@@ -3,7 +3,7 @@
 /**
  * ReactionRail — Stoke, the single forge-fire reaction. X-"like" model.
  *
- * Replaces the v1.5 layered grammar (Solid/Stand-behind + Like/Love/
+ * Replaces the v1.5 layered grammar (Solid/Back + Like/Love/
  * Haha/Wow/Fire) entirely. Vouch is NOT here — it relocated to the
  * per-author byline toggle (AuthorVouchButton, rendered in AuthorBadge)
  * in the Phase γ cleanup and stays there.
