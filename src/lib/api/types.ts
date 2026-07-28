@@ -167,7 +167,7 @@ export interface ToursSeenResponse {
 
 export type CardKind = "validator" | "project" | "creator" | "member" | "community";
 export type ReputationTier = "elite" | "trusted" | "neutral" | "caution" | "risky";
-// CardTier RETIRED (contract v1.56). The collectible-rarity vocabulary is
+// CardTier RETIRED (contract v1.57). The collectible-rarity vocabulary is
 // gone; every tier surface speaks ReputationTier. See ReputationTierMap.php
 // for the full rationale — the short version is that `risky` had no rarity
 // slot, so the most safety-relevant state in the system rendered as nothing.
@@ -524,7 +524,7 @@ export interface Card {
    * Group-type kicker ("HOLDER COMMUNITY", "CHAIN HALL", …) — `community`
    * cards only.
    *
-   * Until v1.56 this rode on `tier_label`, overloading a trust field to
+   * Until v1.57 this rode on `tier_label`, overloading a trust field to
    * carry a category word. It rendered fine, but it meant one field name
    * denoted two unrelated things depending on card_kind, and the rarity
    * retirement would have silently taken the kicker with it.
@@ -683,7 +683,7 @@ export interface FeedAuthor {
   avatar_url?: string;
   rank_label?: string | null;
   /**
-   * REQUIRED as of v1.56. This was optional, and that was the bug: RankChip
+   * REQUIRED as of v1.57. This was optional, and that was the bug: RankChip
    * fell back to the retired `card_tier` when it was absent, and since
    * `risky` had no card_tier the dot silently rendered neutral grey. A
    * risky author was indistinguishable from a neutral one on every feed
@@ -813,7 +813,7 @@ export interface CommentAuthor {
   reputation_tier_label: string;
 
   /**
-   * Author's reputation tier — REQUIRED as of v1.56, for parity with
+   * Author's reputation tier — REQUIRED as of v1.57, for parity with
    * FeedAuthor and for the same reason: optional meant RankChip could not
    * render a risky commenter. Frontend uses it as an opaque value; the
    * tier→label mapping stays server-side.
@@ -1224,7 +1224,7 @@ export type DirectorySort =
 /**
  * Tier values the directory accepts.
  *
- * v1.56: all FIVE tiers, including `risky`. The old rarity-slug filter had
+ * v1.57: all FIVE tiers, including `risky`. The old rarity-slug filter had
  * no way to express risky, so the one cohort an operator most needs to
  * review was the one the directory could not surface.
  */
@@ -1295,7 +1295,7 @@ export interface SearchSuggestion {
   name: string;
   handle: string;
   card_kind: DirectoryKind;
-  /** Trust band — all five, risky included (v1.56). */
+  /** Trust band — all five, risky included (v1.57). */
   reputation_tier: ReputationTier;
   reputation_tier_label: string;
   trust_score: number | null;
@@ -5685,7 +5685,7 @@ export interface ColdStartOperator {
   display_name: string;
   /** May be empty when the user hasn't set an avatar. */
   avatar_url: string;
-  /** Trust band — all five, risky included (v1.56). */
+  /** Trust band — all five, risky included (v1.57). */
   reputation_tier: ReputationTier;
   /** Pre-rendered §A2 tier display ("Trusted", etc.). */
   reputation_tier_label: string;

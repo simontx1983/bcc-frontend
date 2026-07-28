@@ -58,7 +58,7 @@ const TIER_ROWS: TierRow[] = [
 
 const RANK_RUNGS = ["Apprentice", "Journeyman", "Master"];
 
-// cardTierToBand REMOVED (v1.56) — the modal receives a real reputation
+// cardTierToBand REMOVED (v1.57) — the modal receives a real reputation
 // tier now, so there is nothing to translate. It existed only to recover a
 // trust band from the retired rarity slug, and it could never recover
 // `risky`, because that slug did not exist.

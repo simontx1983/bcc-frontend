@@ -18,7 +18,7 @@
  *
  * Color source is `reputationTier` — the 5-band axis, risky-RED dot
  * included. The `cardTier` fallback that used to sit beside it was removed
- * in v1.56 along with the rarity vocabulary; see DOT_BY_REPUTATION_TIER.
+ * in v1.57 along with the rarity vocabulary; see DOT_BY_REPUTATION_TIER.
  */
 
 "use client";
@@ -36,7 +36,7 @@ interface RankChipProps {
    * The trust-band signal (`risky | caution | neutral | trusted | elite`),
    * already server-resolved.
    *
-   * REQUIRED as of v1.56. It was optional, with a `cardTier` fallback for
+   * REQUIRED as of v1.57. It was optional, with a `cardTier` fallback for
    * view-models that shipped no reputation_tier — and that fallback could
    * not express `risky` at all, so those surfaces rendered a risky member
    * as neutral grey. Making it required is what forces every caller to
@@ -96,7 +96,7 @@ interface RankChipProps {
 // of this user/page → gold = elite), not a scarcity palette. The colors
 // are the semantic --bcc-trust-* ramp (the rarity set is retired).
 //
-// Keyed directly by reputation_tier — the only tier axis as of v1.56.
+// Keyed directly by reputation_tier — the only tier axis as of v1.57.
 //
 // A `cardTier` fallback used to sit beside this for card-only view-models
 // that shipped no reputation_tier. It is gone: the rarity slugs it consumed

@@ -32,7 +32,7 @@
   --bcc-secondary-glow:  rgba(249, 138, 28, 0.25);
 
   /* The rarity palette (--bcc-tier-common/uncommon/rare/legendary) was
-     RETIRED in v1.56 along with the vocabulary it served. It had four
+     RETIRED in v1.57 along with the vocabulary it served. It had four
      values for a five-value axis, so `risky` had no color at all — and it
      rendered `caution` in neutral grey, desaturating a warning into
      nothing. Everything tier-colored now uses the ramp below. */
@@ -2684,7 +2684,7 @@
   /* Tier colors — aliases onto the trust ramp, keyed by REPUTATION tier so
      `var(--tier-${reputation_tier})` resolves at every call site. The four
      rarity aliases they replaced (--tier-common/uncommon/rare/legendary)
-     went out with the vocabulary in v1.56. */
+     went out with the vocabulary in v1.57. */
   --tier-risky:      var(--bcc-trust-risky);
   --tier-caution:    var(--bcc-trust-caution);
   --tier-neutral:    var(--bcc-trust-neutral);
