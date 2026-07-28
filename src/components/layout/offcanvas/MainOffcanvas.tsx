@@ -18,6 +18,7 @@ interface MainOffcanvasProps {
 
 const PRIMARY_NAV = [
   { label: "Home",        href: "/" },
+  { label: "Halls",       href: "/halls" },
   { label: "Members",     href: "/members" },
   { label: "Directory",   href: "/directory" },
   { label: "Communities", href: "/communities" },

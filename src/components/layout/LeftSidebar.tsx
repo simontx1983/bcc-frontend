@@ -5,6 +5,7 @@ import {
   ChevronLeft,
   Globe,
   Home,
+  Landmark,
   LayoutGrid,
   MessageSquare,
   Plus,
@@ -27,6 +28,7 @@ import { LEGAL_ROUTES } from "@/lib/legal/config";
 // (were byte-identical duplicates, now one import each).
 const PRIMARY_NAV = [
   { label: "Home",        href: "/",           icon: <Home size={20} strokeWidth={1.7} aria-hidden /> },
+  { label: "Halls",       href: "/halls",       icon: <Landmark size={20} strokeWidth={1.7} aria-hidden /> },
   { label: "Members",     href: "/members",     icon: <Users size={20} strokeWidth={1.7} aria-hidden /> },
   { label: "Directory",   href: "/directory",   icon: <LayoutGrid size={20} strokeWidth={1.7} aria-hidden /> },
   { label: "Communities", href: "/communities", icon: <Globe size={20} strokeWidth={1.7} aria-hidden /> },
