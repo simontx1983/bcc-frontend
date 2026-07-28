@@ -8,10 +8,10 @@
  * Tier rationale (2026-05-11 redesign):
  *
  *   PRIMARY — daily-driver destinations. Render inline at all sm+ sizes
- *             in the main nav strip. Currently 5 entries (Halls was
- *             promoted here 2026-07-28 for discoverability, sitting right
- *             after The Floor); watch the action-cluster spacing at
- *             ~1024px and demote the lowest-frequency link if it crowds.
+ *             in the main nav strip. 4 entries (the 5th crowds the action
+ *             cluster at ~1024px): Halls was promoted here 2026-07-28
+ *             (right after The Floor) for discoverability, and Watching
+ *             moved to SPECIALIST to keep the strip at 4.
  *
  *   SPECIALIST — identity-load-bearing but lower-frequency. Collapse
  *                behind the OPS pop-row on desktop; appear under the
@@ -46,11 +46,11 @@ export const PRIMARY_NAV: readonly NavLink[] = [
   { label: "Halls",       href: "/halls",       match: "/halls" },
   { label: "Directory",   href: "/directory",   match: "/directory" },
   { label: "Communities", href: "/communities", match: "/communities" },
-  { label: "Watching",    href: "/watching",    match: "/watching" },
 ] as const;
 
 /** Tier 2 — specialist destinations. Collapse behind OPS popover. */
 export const SPECIALIST_NAV: readonly NavLink[] = [
+  { label: "Watching",   href: "/watching",   match: "/watching" },
   { label: "Validators", href: "/validators", match: "/validators" },
   { label: "Disputes",   href: "/disputes",   match: "/disputes" },
   { label: "Members",    href: "/members",    match: "/members" },
