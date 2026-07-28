@@ -810,8 +810,8 @@ function CommentRow({
           display_name: comment.author.display_name,
           avatar_url: comment.author.avatar_url,
           rank_label: comment.author.rank_label,
-          card_tier: comment.author.card_tier,
-          tier_label: comment.author.tier_label,
+          reputation_tier: comment.author.reputation_tier,
+          reputation_tier_label: comment.author.reputation_tier_label,
           // Per-author Vouch toggle next to the commenter's name — same
           // vouch, same weight as the feed byline (authed-only; absent
           // fields → the toggle self-hides).

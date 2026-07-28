@@ -37,9 +37,8 @@ export function PostRightRail({ author, feedId }: RightRailData) {
           handle={author.handle}
           displayName={author.display_name}
           avatarUrl={author.avatar_url}
-          cardTier={author.card_tier ?? null}
-          reputationTier={author.reputation_tier ?? null}
-          tierLabel={author.tier_label ?? null}
+          reputationTier={author.reputation_tier}
+          tierLabel={author.reputation_tier_label}
           rankLabel={author.rank_label ?? ""}
           isOperator={author.is_operator}
           userId={userId}

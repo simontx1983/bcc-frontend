@@ -26,7 +26,7 @@ import { FloorBriefing } from "@/components/landing/FloorBriefing";
 import { ResumeOnboardingPrompt } from "@/components/onboarding/ResumeOnboardingPrompt";
 import { TourAutoStart } from "@/components/tour/TourAutoStart";
 import { getUser } from "@/lib/api/user-endpoints";
-import type { CardTier, MemberProfile } from "@/lib/api/types";
+import type { ReputationTier, MemberProfile } from "@/lib/api/types";
 import { authOptions } from "@/lib/auth";
 
 interface PageProps {
@@ -53,11 +53,13 @@ export default async function HomePage({ searchParams }: PageProps) {
 
   // §C1 identity-header fields for the Composer's collapsed-card avatar
   // + RankChip — the same derivation the old FloorBriefing IdentityRow used.
-  const cardTier: CardTier = viewerProfile?.card_tier ?? null;
-  const tierLabel: string | null =
-    typeof viewerProfile?.tier_label === "string" && viewerProfile.tier_label !== ""
-      ? viewerProfile.tier_label
-      : null;
+  // "neutral" is the not-yet-loaded placeholder, not a masking default —
+  // the server always sends a real band for a resolved viewer.
+  const reputationTier: ReputationTier = viewerProfile?.reputation_tier ?? "neutral";
+  const tierLabel: string =
+    typeof viewerProfile?.reputation_tier_label === "string" && viewerProfile.reputation_tier_label !== ""
+      ? viewerProfile.reputation_tier_label
+      : "Neutral";
   const rankLabel =
     typeof viewerProfile?.rank_label === "string" && viewerProfile.rank_label !== ""
       ? viewerProfile.rank_label
@@ -88,7 +90,7 @@ export default async function HomePage({ searchParams }: PageProps) {
             viewerAvatarUrl={viewerProfile?.avatar_url}
             viewerHandle={session.user.handle}
             viewerDisplayName={viewerProfile?.display_name ?? null}
-            viewerCardTier={cardTier}
+            viewerReputationTier={reputationTier}
             viewerTierLabel={tierLabel}
             viewerRankLabel={rankLabel}
             startExpanded={compose === "1"}

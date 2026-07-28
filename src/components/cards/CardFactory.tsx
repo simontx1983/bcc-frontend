@@ -4,19 +4,19 @@
  * CardFactory — polymorphic trading-card component (§N2).
  *
  * Renders any §L5 Card view-model regardless of `card_kind`. The
- * server returns presentation-ready fields (`card_tier`,
- * `tier_label`, `crest`, `stats`, `permissions`, `social_proof`);
+ * server returns presentation-ready fields (`reputation_tier`,
+ * `reputation_tier_label`, `crest`, `stats`, `permissions`, `social_proof`);
  * this component does ZERO derivation.
  *
  * Architectural rule (§A2): if a layout decision feels like it
  * needs to look at `trust_score` or `reputation_tier` directly,
- * it doesn't — read `card_tier` (the server already mapped it)
+ * it doesn't — read `reputation_tier` (the server already mapped it)
  * or `stats[]` (already formatted strings).
  *
  * What this component owns (presentation only):
  *   - 3D flip on click (front ↔ back face)
  *   - Hover-driven tilt, gated on prefers-reduced-motion
- *   - Foil shimmer overlay for `card_tier === 'legendary'` (§C1)
+ *   - Foil shimmer overlay for `reputation_tier === 'legendary'` (§C1)
  *   - Disabled action states with title-tooltip when `permissions.can_X`
  *     is false (§N7 visible-but-dimmed)
  *   - Click-to-flip vs. click-on-action delegation (event.stopPropagation

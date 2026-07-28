@@ -277,7 +277,7 @@ function MemberRow({ card }: { card: Card }) {
           displayName={card.name}
           size="md"
           variant="rounded"
-          tier={card.card_tier}
+          tier={card.reputation_tier}
         />
 
         <span className="min-w-0 flex-1">

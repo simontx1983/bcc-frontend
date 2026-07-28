@@ -23,7 +23,7 @@ import Link from "next/link";
 import { RankChip } from "@/components/profile/RankChip";
 import { TrustQuestShareAction } from "@/components/profile/TrustQuestShareAction";
 import { TrustQuestsBlock } from "@/components/profile/TrustQuestsBlock";
-import type { CardTier, MemberProfile, MemberProgression } from "@/lib/api/types";
+import type { ReputationTier, MemberProfile, MemberProgression } from "@/lib/api/types";
 
 // Threshold mirrors QuestValidator::COMPLETE_PROFILE_THRESHOLD (PHP).
 // Same number both sides — if you tune one, tune both.
@@ -36,8 +36,8 @@ export function StandingFileBody({ profile }: { profile: MemberProfile }) {
     <>
       <SectionFrame fileNumber="01" label="CURRENT GRADE">
         <CurrentGradeBlock
-          cardTier={profile.card_tier}
-          tierLabel={profile.tier_label}
+          reputationTier={profile.reputation_tier}
+          tierLabel={profile.reputation_tier_label}
           rankLabel={profile.rank_label}
           trustScore={profile.trust_score}
         />
@@ -172,19 +172,19 @@ function QuestNavLink({ href, label }: { href: Route; label: string }) {
 // ──────────────────────────────────────────────────────────────────────
 
 function CurrentGradeBlock({
-  cardTier,
+  reputationTier,
   tierLabel,
   rankLabel,
   trustScore,
 }: {
-  cardTier: CardTier;
-  tierLabel: string | null;
+  reputationTier: ReputationTier;
+  tierLabel: string;
   rankLabel: string;
   trustScore: number;
 }) {
   return (
     <div className="flex flex-wrap items-center gap-6">
-      <RankChip cardTier={cardTier} tierLabel={tierLabel} rankLabel={rankLabel} />
+      <RankChip reputationTier={reputationTier} tierLabel={tierLabel} rankLabel={rankLabel} />
       <div className="flex flex-col">
         <span className="bcc-mono text-[10px] tracking-[0.2em] text-bcc-text-secondary">
           TRUST SCORE

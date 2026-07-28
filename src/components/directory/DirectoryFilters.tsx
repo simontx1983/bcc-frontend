@@ -11,7 +11,7 @@
  *
  * V1 controls (per §G2 launch checklist):
  *   - Kind chips (validator / project / creator)
- *   - Tier chips (legendary / rare / uncommon / common)
+ *   - Tier chips (elite / trusted / neutral / caution / risky)
  *   - Good-Standing-Only toggle (§G2) — restricts to tier ≥ neutral
  *   - Sort dropdown (trust / newest / vouches / followers)
  *   - Search box (debounced upstream)
@@ -46,11 +46,15 @@ const KIND_OPTIONS: { value: DirectoryKind | null; label: string }[] = [
 ];
 
 const TIER_OPTIONS: { value: DirectoryTier | null; label: string }[] = [
-  { value: null,        label: "Any" },
-  { value: "legendary", label: "Legendary" },
-  { value: "rare",      label: "Rare" },
-  { value: "uncommon",  label: "Uncommon" },
-  { value: "common",    label: "Common" },
+  { value: null,      label: "Any" },
+  { value: "elite",   label: "Elite" },
+  { value: "trusted", label: "Trusted" },
+  { value: "neutral", label: "Neutral" },
+  { value: "caution", label: "Caution" },
+  // v1.56: filterable for the first time. The rarity slugs had no way to
+  // express risky, so the one cohort an operator most needs to review was
+  // the one the directory could not surface.
+  { value: "risky",   label: "Risky" },
 ];
 
 const SORT_OPTIONS: { value: DirectorySort; label: string }[] = [

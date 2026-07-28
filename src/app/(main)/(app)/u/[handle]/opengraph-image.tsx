@@ -20,7 +20,7 @@
  * identical to the pre-refactor member card.
  *
  * §A2 compliance: every value mapped in (display name, handle,
- * tier_label, rank_label, monogram_color, initials, reputation_score) is
+ * reputation_tier_label, rank_label, monogram_color, initials, reputation_score) is
  * a server-provided presentation field read verbatim. No client-side
  * trust math, no tier→color mapping. The only client-side derivations are
  * the shared presentation formatters (`presentationName`,
@@ -83,7 +83,7 @@ export default async function OpengraphImage({ params }: OgImageProps) {
       ? crest.initials
       : deriveInitials(profile.display_name, profile.handle) || "??";
 
-  const tierLabel = (profile.tier_label ?? "").trim();
+  const tierLabel = (profile.reputation_tier_label ?? "").trim();
   const rankLabel = profile.rank_label.trim();
   const reputation = profile.reputation_score ?? profile.trust_score;
 

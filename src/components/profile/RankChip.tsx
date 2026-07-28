@@ -16,10 +16,9 @@
  * `sr-only` prefix and exposed as a `title` tooltip. Sighted users see
  * the rank word; the tier comes through as the dot color.
  *
- * Canonical color source is `reputationTier` (the real 5-band axis,
- * including a true risky-RED dot). `cardTier` is a legacy fallback for
- * the handful of card-only view-models with no `reputation_tier` field —
- * see DOT_BY_REPUTATION_TIER / TIER_DOT below for the split rationale.
+ * Color source is `reputationTier` — the 5-band axis, risky-RED dot
+ * included. The `cardTier` fallback that used to sit beside it was removed
+ * in v1.56 along with the rarity vocabulary; see DOT_BY_REPUTATION_TIER.
  */
 
 "use client";
@@ -28,29 +27,24 @@ import { useState } from "react";
 import { Star } from "lucide-react";
 
 import { RankInfoModal } from "@/components/identity/RankInfoModal";
-import type { CardTier, ReputationTier } from "@/lib/api/types";
+import type { ReputationTier } from "@/lib/api/types";
 
 type RankChipSize = "default" | "compact" | "micro";
 
 interface RankChipProps {
   /**
-   * §C1 card-tier slug, or null for risky-tier users (no tier accent).
-   * Legacy fallback — only consulted when `reputationTier` is omitted.
-   * Card-only view-models (directory/search suggestion surfaces) have no
-   * `reputation_tier` field at all and still rely on this path.
+   * The trust-band signal (`risky | caution | neutral | trusted | elite`),
+   * already server-resolved.
+   *
+   * REQUIRED as of v1.56. It was optional, with a `cardTier` fallback for
+   * view-models that shipped no reputation_tier — and that fallback could
+   * not express `risky` at all, so those surfaces rendered a risky member
+   * as neutral grey. Making it required is what forces every caller to
+   * carry the real band.
    */
-  cardTier?: CardTier;
-  /**
-   * The canonical trust-band signal (`risky | caution | neutral | trusted
-   * | elite`), already server-resolved. Takes priority over `cardTier`
-   * when present (including explicitly `null` — "no tier data yet") since
-   * it's the only path that can render the true risky-red dot (`cardTier`
-   * is always `null` for risky by design — see TIER_DOT below). Prefer
-   * this prop for any new caller.
-   */
-  reputationTier?: ReputationTier | null;
-  /** Pre-rendered §A2 tier display string ("Uncommon", etc.) — used for sr-only + tooltip only. */
-  tierLabel: string | null;
+  reputationTier: ReputationTier;
+  /** Pre-rendered §A2 tier display string ("Trusted", etc.) — used for sr-only + tooltip only. */
+  tierLabel: string;
   /**
    * Pre-rendered rank display string ("Journeyman", etc.). When empty
    * the component renders nothing — caller doesn't need to guard.
@@ -100,13 +94,16 @@ interface RankChipProps {
 // NFT-rarity / collectible-scarcity reading ("we don't rank people").
 // This dot is a DIFFERENT signal: a trust/RISK band (red = be cautious
 // of this user/page → gold = elite), not a scarcity palette. The colors
-// are the semantic --bcc-trust-* ramp, never the --bcc-tier-* rarity set.
+// are the semantic --bcc-trust-* ramp (the rarity set is retired).
 //
-// Canonical: keyed directly by reputation_tier (the real 5-band axis).
-// Covers `risky`, which `cardTier` structurally cannot represent (the
-// server maps risky → card_tier:null so risky entities are hidden from
-// card-collecting UI — see ReputationTierMap::TIER_TO_CARD). Prefer this
-// map whenever the caller has a real `reputation_tier`.
+// Keyed directly by reputation_tier — the only tier axis as of v1.56.
+//
+// A `cardTier` fallback used to sit beside this for card-only view-models
+// that shipped no reputation_tier. It is gone: the rarity slugs it consumed
+// are retired, and it was structurally incapable of showing `risky` (the
+// server mapped risky → card_tier:null), so any surface that fell back to
+// it rendered the product's most safety-relevant state as neutral grey.
+// The server now emits reputation_tier on every author and card surface.
 const DOT_BY_REPUTATION_TIER: Record<ReputationTier, { color: string; glow: boolean }> = {
   risky:   { color: "var(--bcc-trust-risky)",   glow: true  },
   caution: { color: "var(--bcc-trust-caution)", glow: true  },
@@ -115,19 +112,6 @@ const DOT_BY_REPUTATION_TIER: Record<ReputationTier, { color: string; glow: bool
   elite:   { color: "var(--bcc-trust-elite)",   glow: true  },
 };
 
-// Legacy fallback — only consulted when the caller has no reputationTier
-// at all (card-only view-models: directory/search-suggestion surfaces).
-// Keyed by card_tier ⇆ reputation band: legendary=elite, rare=trusted,
-// uncommon=neutral, common=caution. `null`/absent → neutral grey, no glow.
-const TIER_DOT: Record<NonNullable<CardTier>, { color: string; glow: boolean }> = {
-  legendary: { color: "var(--bcc-trust-elite)",   glow: true  },
-  rare:      { color: "var(--bcc-trust-trusted)",  glow: true  },
-  uncommon:  { color: "var(--bcc-trust-neutral)",  glow: false },
-  common:    { color: "var(--bcc-trust-caution)",  glow: true  },
-};
-
-const NO_TIER_DOT = { color: "var(--bcc-trust-neutral)", glow: false };
-
 const SIZE_STYLES: Record<RankChipSize, { dot: number; gap: string; pad: string; font: string }> = {
   default: { dot: 7, gap: "gap-1.5", pad: "py-[3px] pl-1.5 pr-2.5", font: "text-[11px]" },
   compact: { dot: 6, gap: "gap-1.5", pad: "py-[2px] pl-1.5 pr-2",   font: "text-[10px]" },
@@ -135,7 +119,6 @@ const SIZE_STYLES: Record<RankChipSize, { dot: number; gap: string; pad: string;
 };
 
 export function RankChip({
-  cardTier,
   reputationTier,
   tierLabel,
   rankLabel,
@@ -152,17 +135,11 @@ export function RankChip({
   }
 
   const sizeStyles = SIZE_STYLES[size];
-  // Canonical path: a real reputationTier (even explicitly null) always
-  // wins over the legacy cardTier translation — see DOT_BY_REPUTATION_TIER
-  // doc comment above for why cardTier can't represent risky.
-  const dot =
-    reputationTier !== undefined
-      ? reputationTier !== null
-        ? DOT_BY_REPUTATION_TIER[reputationTier]
-        : NO_TIER_DOT
-      : cardTier !== undefined && cardTier !== null
-        ? TIER_DOT[cardTier]
-        : NO_TIER_DOT;
+  // One path, no fallback: reputationTier is required, so every chip
+  // resolves a real band. The old two-branch resolution existed only to
+  // cope with view-models that shipped no reputation_tier, and its
+  // fallback silently rendered them — risky included — as neutral grey.
+  const dot = DOT_BY_REPUTATION_TIER[reputationTier];
 
   const baseClass = [
     "bcc-mono inline-flex items-center rounded-full border bg-transparent text-[var(--bcc-text)] tracking-[0.18em]",
@@ -253,7 +230,7 @@ export function RankChip({
       {onOpenRankInfo === undefined && open && (
         <RankInfoModal
           handle={handle}
-          cardTier={cardTier ?? null}
+          reputationTier={reputationTier}
           tierLabel={tierLabel}
           rankLabel={rankLabel}
           onClose={() => setOpen(false)}

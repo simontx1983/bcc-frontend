@@ -12,7 +12,7 @@
  * What's surfaced:
  *   - kind band — color-coded per card_kind
  *   - mini hex crest using initials derived from card_handle
- *   - handle + card_tier_at_watch badge (server-canonical, snapshot at watch time)
+ *   - handle + reputation_tier_at_watch badge (server-canonical, snapshot at watch time)
  *   - relative watched_at (suppressed when is_legacy — those aren't
  *     real watch moments per the locked is_legacy contract)
  *   - unwatch button (DELETE /me/watching/:follow_id)
@@ -65,7 +65,7 @@ export function WatchingTile({ item, isUnwatching = false }: WatchingTileProps) 
   // a Sprint-1-deferred consolidation candidate — its hex crest +
   // kind-band framing is watching-specific chrome that would push scope
   // into the cosmetic layer. Promote to <Avatar variant="hex" size="xl"
-  // tier={card_tier_at_watch}> when the watchlist visual refresh lands.
+  // tier={reputation_tier_at_watch}> when the watchlist visual refresh lands.
   const initials = deriveInitials(null, item.card_handle) || "BC";
   const kindColor = KIND_COLORS[item.card_kind];
   const cardHref = item.links.card as Route;
@@ -112,12 +112,12 @@ export function WatchingTile({ item, isUnwatching = false }: WatchingTileProps) 
             className="bcc-mono text-[9px] tracking-[0.14em]"
             style={{
               color:
-                item.card_tier_at_watch !== null
-                  ? `var(--tier-${item.card_tier_at_watch})`
+                item.reputation_tier_at_watch !== null
+                  ? `var(--tier-${item.reputation_tier_at_watch})`
                   : "var(--ink-soft)",
             }}
           >
-            {item.tier_label_at_watch ?? "—"}
+            {item.reputation_tier_label_at_watch ?? "—"}
           </span>
           {!item.is_legacy && item.watched_at !== null && (
             <span className="bcc-mono text-[9px] text-ink-soft/70">

@@ -167,7 +167,10 @@ export interface ToursSeenResponse {
 
 export type CardKind = "validator" | "project" | "creator" | "member" | "community";
 export type ReputationTier = "elite" | "trusted" | "neutral" | "caution" | "risky";
-export type CardTier = "legendary" | "rare" | "uncommon" | "common" | null;
+// CardTier RETIRED (contract v1.56). The collectible-rarity vocabulary is
+// gone; every tier surface speaks ReputationTier. See ReputationTierMap.php
+// for the full rationale — the short version is that `risky` had no rarity
+// slot, so the most safety-relevant state in the system rendered as nothing.
 
 export type CardStatFormat =
   | "score"
@@ -197,7 +200,7 @@ export interface CardStat {
  * crest. `chain` resolves a chain color token; `tier` resolves a tier
  * color token; `solid` is a literal hex string in `background_value`.
  *
- * V1 emits only `tier` (member + entity cards both use card_tier).
+ * V1 emits only `tier` (member + entity cards share one vocabulary).
  * `chain` lights up alongside §K3 chain wiring in V1.5.
  */
 export type CardCrestBackgroundKind = "chain" | "tier" | "solid";
@@ -209,7 +212,7 @@ export interface CardCrest {
   /**
    * Slug or hex per `background_kind`:
    *   chain → chain slug ("cosmos", "osmosis", …)
-   *   tier  → card_tier slug ("legendary", "rare", …)
+   *   tier  → reputation_tier slug ("elite", "trusted", …)
    *   solid → "#rrggbb"
    */
   background_value: string;
@@ -511,8 +514,22 @@ export interface Card {
    */
   viewer_attestation?: ViewerAttestation;
   reputation_tier: ReputationTier;
-  card_tier: CardTier;
-  tier_label: string | null;
+  /**
+   * Null on `community` cards only — communities have no trust system, so
+   * the trust fields are shape-stable placeholders and the strip renders
+   * `kicker` instead. Every other card_kind always carries a real label.
+   */
+  reputation_tier_label: string | null;
+  /**
+   * Group-type kicker ("HOLDER COMMUNITY", "CHAIN HALL", …) — `community`
+   * cards only.
+   *
+   * Until v1.56 this rode on `tier_label`, overloading a trust field to
+   * carry a category word. It rendered fine, but it meant one field name
+   * denoted two unrelated things depending on card_kind, and the rarity
+   * retirement would have silently taken the kicker with it.
+   */
+  kicker?: string;
   rank_label: string | null;
   is_in_good_standing: boolean;
   flags: string[];
@@ -665,21 +682,22 @@ export interface FeedAuthor {
   display_name?: string;
   avatar_url?: string;
   rank_label?: string | null;
-  reputation_tier?: ReputationTier;
   /**
-   * Sprint 1 Identity Grammar — server-resolved §C1 card_tier slug
-   * for the rank chip's tint. Per §A2 the frontend MUST NOT derive
-   * this from reputation_tier; the server runs the mapping via
-   * ReputationTierMap so feed/comment/notification surfaces share
-   * one source of truth with the canonical /users/:handle payload.
+   * REQUIRED as of v1.56. This was optional, and that was the bug: RankChip
+   * fell back to the retired `card_tier` when it was absent, and since
+   * `risky` had no card_tier the dot silently rendered neutral grey. A
+   * risky author was indistinguishable from a neutral one on every feed
+   * surface. AuthorBadgeResolver now always emits it.
    */
-  card_tier?: CardTier;
+  reputation_tier: ReputationTier;
   /**
-   * Pre-rendered tier label ("Uncommon", "Rare", "Legendary"...).
-   * Server-owned per §A2; the frontend never templates from the
-   * card_tier slug.
+   * Pre-rendered tier label ("Neutral", "Trusted", "Elite"...).
+   * Server-owned per §A2; the frontend never templates from the slug.
+   * Resolved via ReputationTierMap so feed/comment/notification surfaces
+   * share one source of truth with the canonical /users/:handle payload.
    */
-  tier_label?: string | null;
+  reputation_tier_label: string;
+
   /**
    * §N8 operator badge — true when the author holds a verified
    * operator/creator claim on any entity. Drives the OPERATOR chip
@@ -789,19 +807,18 @@ export interface CommentAuthor {
    */
   rank_label?: string | null;
   /**
-   * Server-resolved §C1 card_tier slug. Drives the rank chip's
-   * tint on the comment row's AuthorBadge. Per §A2 the frontend
-   * MUST NOT derive this from reputation_tier.
+   * Pre-rendered tier word ("Neutral", "Trusted", "Elite"...). Drives the
+   * rank chip's tint on the comment row's AuthorBadge. Server-owned per §A2.
    */
-  card_tier?: CardTier;
-  /** Pre-rendered tier word ("Uncommon", "Rare"...). Server-owned. */
-  tier_label?: string | null;
+  reputation_tier_label: string;
+
   /**
-   * Author's reputation tier — surfaced for parity with FeedAuthor.
-   * Frontend uses it only as an opaque value; rank/card_tier
-   * mapping stays server-side.
+   * Author's reputation tier — REQUIRED as of v1.56, for parity with
+   * FeedAuthor and for the same reason: optional meant RankChip could not
+   * render a risky commenter. Frontend uses it as an opaque value; the
+   * tier→label mapping stays server-side.
    */
-  reputation_tier?: ReputationTier;
+  reputation_tier: ReputationTier;
   /**
    * Authed-only — the viewer's own vouch state on this commenter's
    * self-page, behind the byline Vouch toggle. Identical shape +
@@ -1068,7 +1085,7 @@ export interface TrendingHashtagsResponse {
 // Server-personalized recommender; rows render in server order (no
 // client-side ranking). `suggestion_reason` is a pre-rendered
 // presentation pair ({ code, label }) — the FE shows the label
-// verbatim, never derives copy from the code. `card_tier` / `tier_label`
+// verbatim, never derives copy from the code. `reputation_tier` / `reputation_tier_label`
 // / `rank_label` are the same server-owned identity-presentation fields
 // the directory cards carry. `is_in_good_standing` is a server verdict.
 // ─────────────────────────────────────────────────────────────────────
@@ -1083,8 +1100,8 @@ export interface SuggestedMember {
   handle: string;
   display_name: string;
   avatar_url: string;
-  card_tier: CardTier;
-  tier_label: string | null;
+  reputation_tier: ReputationTier;
+  reputation_tier_label: string;
   rank_label: string;
   is_in_good_standing: boolean;
   suggestion_reason: SuggestionReason | null;
@@ -1204,8 +1221,14 @@ export type DirectorySort =
   | "followers"
   | "self_stake";
 
-/** Tier values the directory accepts (matches §C1 card_tier; risky hidden). */
-export type DirectoryTier = "legendary" | "rare" | "uncommon" | "common";
+/**
+ * Tier values the directory accepts.
+ *
+ * v1.56: all FIVE tiers, including `risky`. The old rarity-slug filter had
+ * no way to express risky, so the one cohort an operator most needs to
+ * review was the one the directory could not surface.
+ */
+export type DirectoryTier = ReputationTier;
 
 /**
  * Validator on-chain status values selectable as a filter — the
@@ -1263,7 +1286,7 @@ export interface CardsListResponse {
 // Smaller than the full Card view-model — autocomplete needs name +
 // tier badge + click-through, not stats or permissions. Emitted by
 // /bcc/v1/cards/search, which wraps bcc-search and maps the flat
-// reputation-tier / category-slug response into card_tier / card_kind
+// reputation-tier / category-slug response into card_kind
 // per §A2.
 // ─────────────────────────────────────────────────────────────────────
 
@@ -1272,9 +1295,9 @@ export interface SearchSuggestion {
   name: string;
   handle: string;
   card_kind: DirectoryKind;
-  /** §C1 — null for risky tier (entity hidden from card UI). */
-  card_tier: CardTier;
-  tier_label: string | null;
+  /** Trust band — all five, risky included (v1.56). */
+  reputation_tier: ReputationTier;
+  reputation_tier_label: string;
   trust_score: number | null;
   is_verified: boolean;
   /** Verified operator/creator claim (§ verified-wins) — distinct from
@@ -2483,11 +2506,11 @@ export interface GroupsDiscoveryResponse {
  *   - is_resolved         true when page-backed (validator/project/creator)
  *   - is_legacy           true when no bcc_pull_meta sidecar (pre-V1 follow);
  *                         these MUST NOT be surfaced as recent watches
- *   - card_tier_at_watch  §C1 card_tier captured at watch time (snapshot).
+ *   - reputation_tier_at_watch  tier captured at watch time (snapshot).
  *                         Null for legacy follows OR when the followee was
  *                         risky-tier at watch time. Drives both the tile
  *                         color (`var(--tier-${...})`) and label.
- *   - tier_label_at_watch pre-rendered display string (§A2) — server picks
+ *   - reputation_tier_label_at_watch pre-rendered display string (§A2) — server picks
  *                         the label, frontend renders verbatim
  *   - watched_at          ISO 8601 UTC, or null when is_legacy
  */
@@ -2520,8 +2543,8 @@ export interface WatchingItem {
   card_handle: string;
   card_slug: string | null;
   page_id: number | null;
-  card_tier_at_watch: CardTier;
-  tier_label_at_watch: string | null;
+  reputation_tier_at_watch: ReputationTier | null;
+  reputation_tier_label_at_watch: string | null;
   batch_id: string | null;
   watched_at: string | null;
   is_legacy: boolean;
@@ -4618,8 +4641,8 @@ export interface MemberProfile {
    */
   viewer_attestation?: ViewerAttestation;
   reputation_tier: ReputationTier;
-  card_tier: CardTier;
-  tier_label: string | null;
+  reputation_tier_label: string;
+
   rank: string;
   rank_label: string;
   is_in_good_standing: boolean;
@@ -4978,14 +5001,15 @@ export interface MemberSummary {
   /** ISO 8601 UTC. */
   joined_at: string;
   /**
-   * §C1 card-tier slug. Mirrors the same field on the full `MemberProfile`
-   * (`/users/:handle`); surfaced here so list-shaped UIs can encode the
-   * tier as a color/border accent on the rank chip rather than rendering
-   * `tier_label` as a duplicate word. Null only for risky-tier users.
+   * Pre-rendered tier word. Mirrors the same field on the full
+   * `MemberProfile` (`/users/:handle`); the accompanying `reputation_tier`
+   * slug is what list-shaped UIs use for the color/border accent, so the
+   * word isn't rendered twice next to the rank chip.
+   *
+   * "Risky" / "Caution" / "Neutral" / "Trusted" / "Elite" — never null.
    */
-  card_tier: CardTier;
-  /** "Legendary" / "Rare" / "Uncommon" / "Common" / null (risky tier). */
-  tier_label: string | null;
+  reputation_tier_label: string;
+
   /** "Apprentice" / "Journeyman" / etc. — never null, falls back to "". */
   rank_label: string;
   is_in_good_standing: boolean;
@@ -5661,10 +5685,10 @@ export interface ColdStartOperator {
   display_name: string;
   /** May be empty when the user hasn't set an avatar. */
   avatar_url: string;
-  /** §C1 card-tier slug, or null for risky/non-tier users. */
-  card_tier: CardTier;
-  /** Pre-rendered §A2 tier display ("Uncommon", etc.). */
-  tier_label: string | null;
+  /** Trust band — all five, risky included (v1.56). */
+  reputation_tier: ReputationTier;
+  /** Pre-rendered §A2 tier display ("Trusted", etc.). */
+  reputation_tier_label: string;
   /** Pre-rendered §E2 rank ("Apprentice", "Journeyman", ...). May be empty. */
   rank_label: string;
   /**

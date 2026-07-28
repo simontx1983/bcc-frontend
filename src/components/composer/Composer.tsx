@@ -70,7 +70,7 @@ import {
   MENTIONS_PER_POST_MAX,
   REVIEW_BODY_MAX_LENGTH,
   STATUS_POST_MAX_LENGTH,
-  type CardTier,
+  type ReputationTier,
   type GroupPostVisibility,
   type ReviewGrade,
 } from "@/lib/api/types";
@@ -137,7 +137,7 @@ export interface ComposerProps {
    * IdentityRow used. Omitted entirely → header renders avatar +
    * name only, no RankChip.
    */
-  viewerCardTier?: CardTier | undefined;
+  viewerReputationTier?: ReputationTier | undefined;
   viewerTierLabel?: string | null | undefined;
   viewerRankLabel?: string | undefined;
   /**
@@ -188,7 +188,7 @@ export function Composer({
   viewerAvatarUrl,
   viewerHandle,
   viewerDisplayName,
-  viewerCardTier,
+  viewerReputationTier,
   viewerTierLabel,
   viewerRankLabel,
   groupId,
@@ -220,8 +220,8 @@ export function Composer({
         viewerAvatarUrl={viewerAvatarUrl}
         viewerHandle={viewerHandle}
         viewerDisplayName={viewerDisplayName ?? null}
-        viewerCardTier={viewerCardTier ?? null}
-        viewerTierLabel={viewerTierLabel ?? null}
+        viewerReputationTier={viewerReputationTier ?? "neutral"}
+        viewerTierLabel={viewerTierLabel ?? "Neutral"}
         viewerRankLabel={viewerRankLabel ?? ""}
         groupId={scopedGroupId}
         groupScopeLabel={groupScopeLabel}
@@ -280,7 +280,7 @@ interface InlineStatusComposerProps {
   viewerHandle: string | undefined;
   viewerDisplayName: string | null;
   /** §C1 card-tier slug for the identity header's Avatar tint + RankChip rail. */
-  viewerCardTier: CardTier;
+  viewerReputationTier: ReputationTier;
   /** Pre-rendered §A2 tier display string, sr-only/tooltip only on RankChip. */
   viewerTierLabel: string | null;
   /** Pre-rendered rank display string. Empty → RankChip omitted. */
@@ -351,7 +351,7 @@ function InlineStatusComposer({
   viewerAvatarUrl,
   viewerHandle,
   viewerDisplayName,
-  viewerCardTier,
+  viewerReputationTier,
   viewerTierLabel,
   viewerRankLabel,
   groupId,
@@ -484,7 +484,7 @@ function InlineStatusComposer({
                 displayName={viewerDisplayName}
                 size="md"
                 variant="rounded"
-                tier={viewerCardTier ?? undefined}
+                tier={viewerReputationTier ?? undefined}
                 // Accent glow ring, matching the header avatar and the
                 // sidebar's Newest Members / Suggested widgets.
                 ringColor="var(--bcc-accent)"
@@ -504,8 +504,8 @@ function InlineStatusComposer({
                   {!expanded && hasRank && (
                     <span className="hidden sm:inline-flex">
                       <RankChip
-                        cardTier={viewerCardTier ?? null}
-                        tierLabel={viewerTierLabel ?? null}
+                        reputationTier={viewerReputationTier ?? "neutral"}
+                        tierLabel={viewerTierLabel ?? "Neutral"}
                         rankLabel={viewerRankLabel}
                         size="micro"
                         className="self-start"
@@ -592,7 +592,7 @@ function InlineStatusComposer({
                     displayName={viewerDisplayName}
                     size="md"
                     variant="rounded"
-                    tier={viewerCardTier ?? undefined}
+                    tier={viewerReputationTier ?? undefined}
                     ringColor="var(--bcc-accent)"
                   />
                 </span>

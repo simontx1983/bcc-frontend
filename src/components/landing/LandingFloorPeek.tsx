@@ -60,8 +60,8 @@ function PeekCard({ item }: { item: FeedItem }) {
         </div>
         {item.author.rank_label !== undefined && item.author.rank_label !== null && item.author.rank_label !== "" && (
           <RankChip
-            cardTier={item.author.card_tier ?? null}
-            tierLabel={item.author.tier_label ?? null}
+            reputationTier={item.author.reputation_tier ?? null}
+            tierLabel={item.author.reputation_tier_label ?? null}
             rankLabel={item.author.rank_label}
             size="compact"
             className="bcc-ldg-pc-rank"

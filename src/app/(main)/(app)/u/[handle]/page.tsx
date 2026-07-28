@@ -4,7 +4,7 @@
  * Server component. Fetches GET /bcc/v1/users/:handle (§3.1) on every
  * navigation and renders the available fields. The contract today
  * returns the FLAT shape: identity (handle, display_name, avatar,
- * joined_at, tier_label, rank_label, is_in_good_standing, flags), bio
+ * joined_at, reputation_tier_label, rank_label, is_in_good_standing, flags), bio
  * as plain string, halls/wallets, counts, plus the own-only blocks
  * (living, progression, feature_access, ux_helpers) when is_self.
  *

@@ -24,11 +24,11 @@ import { useEffect, useRef } from "react";
 
 import { Dialog } from "@/components/ui/Dialog";
 import { useUser } from "@/hooks/useUser";
-import type { CardTier, ReputationTier } from "@/lib/api/types";
+import type { ReputationTier } from "@/lib/api/types";
 
 interface RankInfoModalProps {
   handle: string;
-  cardTier: CardTier;
+  reputationTier: ReputationTier;
   tierLabel: string | null;
   rankLabel: string;
   onClose: () => void;
@@ -47,6 +47,8 @@ interface TierRow {
 
 // Best → worst, left → right (elite/trusted lead, risky/caution trail).
 const TIER_ROWS: TierRow[] = [
+  // "Elite" — matches ReputationTierMap::TIER_LABEL (owner decision 2026-07-28).
+  // The client previously hardcoded a label that drifted from the server's.
   { key: "elite",   label: "Elite",   color: "var(--bcc-trust-elite)",   glow: true,  pulse: true,  blurb: "Top-tier trust — long track record, heavily vouched." },
   { key: "trusted", label: "Trusted", color: "var(--bcc-trust-trusted)", glow: true,  pulse: false, blurb: "Consistent good standing, backed by the community." },
   { key: "neutral", label: "Neutral", color: "var(--bcc-trust-neutral)", glow: false, pulse: false, blurb: "New or quiet — not enough signal yet." },
@@ -56,19 +58,14 @@ const TIER_ROWS: TierRow[] = [
 
 const RANK_RUNGS = ["Apprentice", "Journeyman", "Master"];
 
-function cardTierToBand(tier: CardTier): ReputationTier | null {
-  switch (tier) {
-    case "legendary": return "elite";
-    case "rare":      return "trusted";
-    case "uncommon":  return "neutral";
-    case "common":    return "caution";
-    default:          return null;
-  }
-}
+// cardTierToBand REMOVED (v1.56) — the modal receives a real reputation
+// tier now, so there is nothing to translate. It existed only to recover a
+// trust band from the retired rarity slug, and it could never recover
+// `risky`, because that slug did not exist.
 
 export function RankInfoModal({
   handle,
-  cardTier,
+  reputationTier,
   tierLabel,
   rankLabel,
   onClose,
@@ -76,7 +73,7 @@ export function RankInfoModal({
   const { data: profile } = useUser(handle, { enabled: true });
 
   const currentTier: ReputationTier | null =
-    profile?.reputation_tier ?? cardTierToBand(cardTier);
+    profile?.reputation_tier ?? reputationTier;
   const isSelf = profile?.is_self ?? false;
   const featureAccess = profile?.feature_access;
 
@@ -94,7 +91,7 @@ export function RankInfoModal({
     if (scroller === null || card === null) return;
     scroller.scrollLeft =
       card.offsetLeft - (scroller.clientWidth - card.clientWidth) / 2;
-    // Re-run once the profile lands (currentTier may shift from card_tier
+    // Re-run once the profile lands (currentTier may shift from reputation_tier
     // to the authoritative reputation_tier).
   }, [currentTier]);
 

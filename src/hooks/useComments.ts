@@ -163,6 +163,8 @@ export function useCreateCommentMutation(
           handle: "",
           display_name: "You",
           avatar_url: "",
+          reputation_tier: "neutral",
+          reputation_tier_label: "Neutral",
         },
         body:      req.body,
         // §3.3.12 — server hydrates `mentions[]` on the real response
