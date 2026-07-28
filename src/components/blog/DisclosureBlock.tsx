@@ -86,7 +86,7 @@ export function DisclosureBlock({ value, onChange, disabled = false }: Disclosur
         onClick={() => setExpanded((v) => !v)}
         disabled={disabled}
         aria-expanded={expanded}
-        className="bcc-mono inline-flex items-center gap-2 self-start text-[10px] tracking-[0.18em] text-cardstock-deep hover:text-cardstock"
+        className="bcc-mono inline-flex items-center gap-2 self-start text-[10px] tracking-[0.18em] text-bcc-text-secondary hover:text-bcc-text"
       >
         <span>{expanded ? "▾" : "▸"}</span>
         <span>
@@ -97,8 +97,8 @@ export function DisclosureBlock({ value, onChange, disabled = false }: Disclosur
       </button>
 
       {expanded && (
-        <div className="flex flex-col gap-3 rounded-sm border border-cardstock-edge/30 bg-cardstock/40 p-3">
-          <p className="font-serif text-sm text-ink-soft">
+        <div className="flex flex-col gap-3 rounded-sm border border-bcc-border bg-bcc-surface-hover p-3">
+          <p className="font-serif text-sm text-bcc-text-secondary">
             Tickers and a brief note disclosing any positions
             relevant to this post. Renders as a fixed footer aside.
             Leave both blank if you have nothing to disclose.
@@ -106,14 +106,14 @@ export function DisclosureBlock({ value, onChange, disabled = false }: Disclosur
 
           {/* Tickers */}
           <div className="flex flex-col gap-1">
-            <span className="bcc-mono text-[10px] tracking-[0.18em] text-cardstock-deep">
+            <span className="bcc-mono text-[10px] tracking-[0.18em] text-bcc-text-secondary">
               TICKERS · {tickers.length}/{BLOG_DISCLOSURE_TICKERS_MAX}
             </span>
-            <div className="flex flex-wrap items-center gap-2 rounded-sm border border-cardstock-edge/30 bg-cardstock/30 px-2 py-2">
+            <div className="flex flex-wrap items-center gap-2 rounded-sm border border-bcc-input-border bg-bcc-input-bg px-2 py-2">
               {tickers.map((t) => (
                 <span
                   key={t}
-                  className="bcc-mono inline-flex items-center gap-2 border border-cardstock-edge bg-cardstock-deep/10 px-2 py-1 text-[11px] tracking-[0.12em] text-ink"
+                  className="bcc-mono inline-flex items-center gap-2 border border-bcc-border bg-bcc-surface-hover px-2 py-1 text-[11px] tracking-[0.12em] text-bcc-text"
                 >
                   {t}
                   <button
@@ -121,7 +121,7 @@ export function DisclosureBlock({ value, onChange, disabled = false }: Disclosur
                     aria-label={`Remove ticker ${t}`}
                     onClick={() => removeTicker(t)}
                     disabled={disabled}
-                    className="text-ink-soft hover:text-safety"
+                    className="text-bcc-text-muted hover:text-safety"
                   >
                     ✕
                   </button>
@@ -157,14 +157,14 @@ export function DisclosureBlock({ value, onChange, disabled = false }: Disclosur
                     : "BTC, ETH, AKT…"
                 }
                 disabled={disabled || tickers.length >= BLOG_DISCLOSURE_TICKERS_MAX}
-                className="bcc-mono min-w-[8ch] flex-1 bg-transparent text-[12px] text-ink placeholder:text-ink-soft/60 focus:outline-none disabled:opacity-50"
+                className="bcc-mono min-w-[8ch] flex-1 bg-transparent text-[12px] text-bcc-text placeholder:text-bcc-text-placeholder focus:outline-none disabled:opacity-50"
               />
             </div>
           </div>
 
           {/* Note */}
           <label className="flex flex-col gap-1">
-            <span className="bcc-mono text-[10px] tracking-[0.18em] text-cardstock-deep">
+            <span className="bcc-mono text-[10px] tracking-[0.18em] text-bcc-text-secondary">
               NOTE · {note.length}/{BLOG_DISCLOSURE_NOTE_MAX}
             </span>
             <textarea
@@ -175,7 +175,7 @@ export function DisclosureBlock({ value, onChange, disabled = false }: Disclosur
               placeholder="Author holds positions in… / no conflicts to declare."
               rows={3}
               disabled={disabled}
-              className="bcc-mono w-full resize-y rounded-sm border border-cardstock-edge/30 bg-cardstock/30 px-3 py-2 text-[12px] text-ink placeholder:text-ink-soft/60 focus:border-blueprint focus:outline-none disabled:opacity-60"
+              className="bcc-mono w-full resize-y rounded-sm border border-bcc-input-border bg-bcc-input-bg px-3 py-2 text-[12px] text-bcc-text placeholder:text-bcc-text-placeholder focus:border-bcc-accent focus:ring-1 focus:ring-bcc-accent focus:outline-none disabled:opacity-60"
             />
           </label>
 

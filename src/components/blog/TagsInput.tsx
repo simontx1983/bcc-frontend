@@ -53,14 +53,14 @@ export function TagsInput({ value, onChange, disabled = false }: TagsInputProps)
 
   return (
     <div className="flex flex-col gap-1">
-      <span className="bcc-mono text-[10px] tracking-[0.18em] text-cardstock-deep">
+      <span className="bcc-mono text-[10px] tracking-[0.18em] text-bcc-text-secondary">
         TAGS · {value.length}/{BLOG_TAGS_MAX}
       </span>
-      <div className="flex flex-wrap items-center gap-2 rounded-sm border border-cardstock-edge/30 bg-cardstock/40 px-2 py-2">
+      <div className="flex flex-wrap items-center gap-2 rounded-sm border border-bcc-input-border bg-bcc-input-bg px-2 py-2">
         {value.map((tag) => (
           <span
             key={tag}
-            className="bcc-mono inline-flex items-center gap-2 border border-cardstock-edge bg-cardstock-deep/10 px-2 py-1 text-[11px] tracking-[0.12em] text-ink"
+            className="bcc-mono inline-flex items-center gap-2 border border-bcc-border bg-bcc-surface-hover px-2 py-1 text-[11px] tracking-[0.12em] text-bcc-text"
           >
             #{tag}
             <button
@@ -68,7 +68,7 @@ export function TagsInput({ value, onChange, disabled = false }: TagsInputProps)
               aria-label={`Remove tag ${tag}`}
               onClick={() => remove(tag)}
               disabled={disabled}
-              className="text-ink-soft hover:text-safety"
+              className="text-bcc-text-muted hover:text-safety"
             >
               ✕
             </button>
@@ -96,7 +96,7 @@ export function TagsInput({ value, onChange, disabled = false }: TagsInputProps)
           onBlur={() => commit(draft)}
           placeholder={atCap ? "Tag limit reached" : "Add a tag, then comma"}
           disabled={disabled || atCap}
-          className="bcc-mono min-w-[8ch] flex-1 bg-transparent text-[12px] text-ink placeholder:text-ink-soft/60 focus:outline-none disabled:opacity-50"
+          className="bcc-mono min-w-[8ch] flex-1 bg-transparent text-[12px] text-bcc-text placeholder:text-bcc-text-placeholder focus:outline-none disabled:opacity-50"
         />
       </div>
     </div>

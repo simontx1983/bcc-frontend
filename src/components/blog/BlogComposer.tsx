@@ -229,7 +229,7 @@ export function BlogComposer({
       <CoverImageUpload value={cover} onChange={setCover} disabled={submitting} />
 
       <label className="flex flex-col gap-1">
-        <span className="bcc-mono text-[10px] tracking-[0.18em] text-cardstock-deep">
+        <span className="bcc-mono text-[10px] tracking-[0.18em] text-bcc-text-secondary">
           EXCERPT <span className="text-safety">*</span> · Floor teaser ({BLOG_EXCERPT_MIN_LENGTH}–{BLOG_EXCERPT_MAX_LENGTH} chars)
         </span>
         <textarea
@@ -239,7 +239,7 @@ export function BlogComposer({
           rows={2}
           maxLength={BLOG_EXCERPT_MAX_LENGTH + 100}
           disabled={submitting}
-          className="bcc-mono w-full resize-y rounded-sm border border-cardstock-edge/30 bg-cardstock/40 px-3 py-2 text-[12px] text-ink placeholder:text-ink-soft/60 focus:border-blueprint focus:outline-none disabled:opacity-60"
+          className="bcc-mono w-full resize-y rounded-sm border border-bcc-input-border bg-bcc-input-bg px-3 py-2 text-[12px] text-bcc-text placeholder:text-bcc-text-placeholder focus:border-bcc-accent focus:ring-1 focus:ring-bcc-accent focus:outline-none disabled:opacity-60"
         />
         <span
           className={
@@ -248,7 +248,7 @@ export function BlogComposer({
               ? "text-safety"
               : excerpt.length > BLOG_EXCERPT_MAX_LENGTH - 50
                 ? "text-warning"
-                : "text-ink-soft")
+                : "text-bcc-text-muted")
           }
         >
           {excerpt.length} / {BLOG_EXCERPT_MAX_LENGTH}
@@ -270,7 +270,7 @@ export function BlogComposer({
       <DisclosureBlock value={disclosure} onChange={setDisclosure} disabled={submitting} />
       <SourcesField value={sources} onChange={setSources} disabled={submitting} />
 
-      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-dashed border-cardstock-edge/30 pt-4">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-dashed border-bcc-border pt-4">
         <StatusToggle value={status} onChange={setStatus} disabled={submitting} />
         <button
           type="submit"
@@ -280,7 +280,7 @@ export function BlogComposer({
             "bcc-stencil rounded-sm px-5 py-2 text-[12px] tracking-[0.2em] transition " +
             (canSubmit
               ? "bg-ink text-cardstock hover:bg-blueprint"
-              : "cursor-not-allowed bg-cardstock-deep/40 text-ink-soft/60")
+              : "cursor-not-allowed bg-bcc-surface-active text-bcc-text-muted")
           }
         >
           {submitting

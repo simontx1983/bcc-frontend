@@ -23,11 +23,11 @@ export function TitleInput({ value, onChange, disabled = false }: TitleInputProp
     ? "text-safety"
     : len > BLOG_TITLE_MAX_LENGTH - 20
       ? "text-warning"
-      : "text-ink-soft";
+      : "text-bcc-text-muted";
 
   return (
     <label className="flex flex-col gap-1">
-      <span className="bcc-mono text-[10px] tracking-[0.18em] text-cardstock-deep">
+      <span className="bcc-mono text-[10px] tracking-[0.18em] text-bcc-text-secondary">
         TITLE <span className="text-safety">*</span>
       </span>
       <input
@@ -37,7 +37,7 @@ export function TitleInput({ value, onChange, disabled = false }: TitleInputProp
         placeholder="What is this post about?"
         maxLength={BLOG_TITLE_MAX_LENGTH + 20}
         disabled={disabled}
-        className="bcc-stencil w-full rounded-sm border border-cardstock-edge/30 bg-cardstock/40 px-3 py-2 text-2xl text-ink placeholder:text-ink-soft/60 placeholder:font-serif placeholder:text-base focus:border-blueprint focus:outline-none disabled:opacity-60"
+        className="bcc-stencil w-full rounded-sm border border-bcc-input-border bg-bcc-input-bg px-3 py-2 text-2xl text-bcc-text placeholder:text-bcc-text-placeholder placeholder:font-serif placeholder:text-base focus:border-bcc-accent focus:ring-1 focus:ring-bcc-accent focus:outline-none disabled:opacity-60"
       />
       <span className={`bcc-mono self-end text-[10px] ${tone}`}>
         {len} / {BLOG_TITLE_MAX_LENGTH}

@@ -76,7 +76,7 @@ export function SourcesField({ value, onChange, disabled = false }: SourcesField
         onClick={() => setExpanded((e) => !e)}
         disabled={disabled}
         aria-expanded={expanded}
-        className="bcc-mono flex items-center gap-2 self-start text-[10px] tracking-[0.18em] text-cardstock-deep hover:text-ink"
+        className="bcc-mono flex items-center gap-2 self-start text-[10px] tracking-[0.18em] text-bcc-text-secondary hover:text-bcc-text"
       >
         <span>{expanded ? "▾" : "▸"}</span>
         {value.length > 0 ? (
@@ -87,9 +87,9 @@ export function SourcesField({ value, onChange, disabled = false }: SourcesField
       </button>
 
       {expanded && (
-        <div className="flex flex-col gap-2 rounded-sm border border-cardstock-edge/30 bg-cardstock/40 px-3 py-3">
+        <div className="flex flex-col gap-2 rounded-sm border border-bcc-border bg-bcc-surface-hover px-3 py-3">
           {value.length === 0 && (
-            <p className="bcc-mono text-[10px] text-ink-soft">
+            <p className="bcc-mono text-[10px] text-bcc-text-secondary">
               Numbered citations render at the post foot. URLs, paper
               titles, archived snapshots — any free-form reference.
             </p>
@@ -100,7 +100,7 @@ export function SourcesField({ value, onChange, disabled = false }: SourcesField
             const overCap = len > BLOG_SOURCE_LEN_MAX;
             return (
               <div key={idx} className="flex items-start gap-2">
-                <span className="bcc-mono mt-1 w-6 shrink-0 text-right text-[11px] tabular-nums text-ink-soft">
+                <span className="bcc-mono mt-1 w-6 shrink-0 text-right text-[11px] tabular-nums text-bcc-text-muted">
                   {idx + 1}.
                 </span>
                 <div className="flex-1">
@@ -112,12 +112,12 @@ export function SourcesField({ value, onChange, disabled = false }: SourcesField
                     maxLength={BLOG_SOURCE_LEN_MAX + 20}
                     disabled={disabled}
                     aria-label={`Source ${idx + 1}`}
-                    className="bcc-mono w-full bg-transparent text-[12px] text-ink placeholder:text-ink-soft/60 focus:outline-none disabled:opacity-50"
+                    className="bcc-mono w-full bg-transparent text-[12px] text-bcc-text placeholder:text-bcc-text-placeholder focus:outline-none disabled:opacity-50"
                   />
                   <span
                     className={
                       "bcc-mono block text-[10px] " +
-                      (overCap ? "text-safety" : "text-ink-soft/60")
+                      (overCap ? "text-safety" : "text-bcc-text-muted")
                     }
                   >
                     {len} / {BLOG_SOURCE_LEN_MAX}
@@ -129,7 +129,7 @@ export function SourcesField({ value, onChange, disabled = false }: SourcesField
                     aria-label={`Move source ${idx + 1} up`}
                     onClick={() => moveUp(idx)}
                     disabled={disabled || idx === 0}
-                    className="bcc-mono px-1 text-[12px] text-ink-soft hover:text-ink disabled:opacity-30"
+                    className="bcc-mono px-1 text-[12px] text-bcc-text-muted hover:text-bcc-text disabled:opacity-30"
                   >
                     ↑
                   </button>
@@ -138,7 +138,7 @@ export function SourcesField({ value, onChange, disabled = false }: SourcesField
                     aria-label={`Move source ${idx + 1} down`}
                     onClick={() => moveDown(idx)}
                     disabled={disabled || idx >= value.length - 1}
-                    className="bcc-mono px-1 text-[12px] text-ink-soft hover:text-ink disabled:opacity-30"
+                    className="bcc-mono px-1 text-[12px] text-bcc-text-muted hover:text-bcc-text disabled:opacity-30"
                   >
                     ↓
                   </button>
@@ -147,7 +147,7 @@ export function SourcesField({ value, onChange, disabled = false }: SourcesField
                     aria-label={`Remove source ${idx + 1}`}
                     onClick={() => removeAt(idx)}
                     disabled={disabled}
-                    className="bcc-mono px-1 text-[12px] text-ink-soft hover:text-safety"
+                    className="bcc-mono px-1 text-[12px] text-bcc-text-muted hover:text-safety"
                   >
                     ✕
                   </button>
@@ -160,7 +160,7 @@ export function SourcesField({ value, onChange, disabled = false }: SourcesField
             type="button"
             onClick={addEmpty}
             disabled={disabled || atCap}
-            className="bcc-mono self-start border border-dashed border-cardstock-edge/60 px-3 py-1 text-[10px] tracking-[0.18em] text-ink-soft hover:border-cardstock-edge hover:text-ink disabled:opacity-50"
+            className="bcc-mono self-start border border-dashed border-bcc-border px-3 py-1 text-[10px] tracking-[0.18em] text-bcc-text-secondary hover:border-bcc-border-strong hover:text-bcc-text disabled:opacity-50"
           >
             {atCap ? "SOURCE LIMIT REACHED" : "+ ADD SOURCE"}
           </button>
