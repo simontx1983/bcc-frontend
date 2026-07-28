@@ -212,8 +212,8 @@ export function EntityProfile({
               <ReputationSummaryPanel
                 reputationScore={card.reputation_score ?? card.trust_score}
                 reliabilityStanding={card.reliability_standing}
-                cardTier={card.card_tier}
-                tierLabel={card.tier_label}
+                reputationTier={card.reputation_tier}
+                tierLabel={card.reputation_tier_label ?? "Neutral"}
                 rankLabel={card.rank_label ?? ""}
                 isInGoodStanding={card.is_in_good_standing}
                 flags={card.flags}

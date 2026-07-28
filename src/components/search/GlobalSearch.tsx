@@ -470,16 +470,16 @@ function SuggestionRow({ item, id, active, onActivate, onHover }: SuggestionRowP
             render without the other. */}
         <span className="flex shrink-0 items-center gap-1.5">
           {item.is_claim_verified && <VerifiedBadge />}
-          {item.tier_label !== null && item.card_tier !== null && (
+          {item.reputation_tier_label !== null && item.reputation_tier !== null && (
             <span
               className="bcc-mono shrink-0 rounded-sm px-2 py-0.5 text-[9px] tracking-[0.18em]"
               style={{
-                color: `var(--tier-${item.card_tier})`,
+                color: `var(--tier-${item.reputation_tier})`,
                 background: "var(--bcc-surface-hover)",
                 border: "1px solid var(--bcc-border)",
               }}
             >
-              {item.tier_label.toUpperCase()}
+              {item.reputation_tier_label.toUpperCase()}
             </span>
           )}
         </span>

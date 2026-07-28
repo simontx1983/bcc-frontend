@@ -13,10 +13,10 @@
  *   - `pulledCount` + `snapshot()` track ONLY this wizard session's
  *     pulls. The §O1 dopamine moment is a celebration of what the
  *     user just did, not their lifetime collection. We can't derive
- *     the visual `card_tier` from a generic WatchingItem (which only
+ *     the visual `reputation_tier` from a generic WatchingItem (which only
  *     carries the raw reputation tier per §A4) — but every pull made
  *     during the wizard goes through a Card view-model that already
- *     carries the server-computed `card_tier`. Snapshot reads the
+ *     carries the server-computed `reputation_tier`. Snapshot reads the
  *     session map; pre-existing pulls don't appear (correct).
  *
  * Optimistic overlay: while a pull or unpull is IN FLIGHT, the
@@ -29,7 +29,7 @@ import { useMemo, useState } from "react";
 import { useWatching } from "@/hooks/useWatching";
 import { useWatchMutation, useUnwatchMutation } from "@/hooks/useWatch";
 import { humanizeCode } from "@/lib/api/errors";
-import type { Card, CardTier } from "@/lib/api/types";
+import type { Card, ReputationTier } from "@/lib/api/types";
 
 /**
  * §γ — pull/unpull failures render the returned string inline; copy is
@@ -56,8 +56,8 @@ export interface WizardPullsApi {
   pulledCount: number;
   /** True while ANY pull/unpull mutation is in flight. Gates wizard nav. */
   anyPending: boolean;
-  /** Session-only snapshot of pulled cards (id + card_tier) for the dopamine step. */
-  snapshot: () => ReadonlyArray<{ id: number; tier: CardTier }>;
+  /** Session-only snapshot of pulled cards (id + reputation_tier) for the dopamine step. */
+  snapshot: () => ReadonlyArray<{ id: number; tier: ReputationTier }>;
 }
 
 export function useWizardPulls(): WizardPullsApi {
@@ -72,11 +72,11 @@ export function useWizardPulls(): WizardPullsApi {
   const [pending, setPending] = useState<ReadonlySet<number>>(new Set());
   const [errors, setErrors] = useState<ReadonlyMap<number, string>>(new Map());
   // Session-only map of cards pulled during THIS wizard run. Value is
-  // the server-computed `card_tier` from the Card view-model, captured
+  // the server-computed `reputation_tier` from the Card view-model, captured
   // at successful pull time. Unpull during the same session removes
   // the entry. State (not ref) so consumers re-render when the count
   // changes.
-  const [sessionPulls, setSessionPulls] = useState<ReadonlyMap<number, CardTier>>(
+  const [sessionPulls, setSessionPulls] = useState<ReadonlyMap<number, ReputationTier>>(
     new Map()
   );
 
@@ -120,7 +120,7 @@ export function useWizardPulls(): WizardPullsApi {
     });
   };
 
-  const recordSessionPull = (cardId: number, tier: CardTier) => {
+  const recordSessionPull = (cardId: number, tier: ReputationTier) => {
     setSessionPulls((prev) => {
       const next = new Map(prev);
       next.set(cardId, tier);
@@ -154,7 +154,7 @@ export function useWizardPulls(): WizardPullsApi {
       pullMut.mutate(
         { target_kind: card.card_kind, target_id: card.id },
         {
-          onSuccess: () => recordSessionPull(card.id, card.card_tier),
+          onSuccess: () => recordSessionPull(card.id, card.reputation_tier),
           onError: (err) => setErrorFor(card.id, humanizePullError(err)),
           onSettled: () => setPendingFor(card.id, false),
         }
@@ -175,7 +175,7 @@ export function useWizardPulls(): WizardPullsApi {
     pulledCount: sessionPulls.size,
     anyPending: pending.size > 0,
     snapshot: () => {
-      const out: Array<{ id: number; tier: CardTier }> = [];
+      const out: Array<{ id: number; tier: ReputationTier }> = [];
       for (const [cardId, tier] of sessionPulls) {
         out.push({ id: cardId, tier });
       }

@@ -31,15 +31,15 @@
   --bcc-secondary-subtle:rgba(249, 138, 28, 0.08);
   --bcc-secondary-glow:  rgba(249, 138, 28, 0.25);
 
-  /* Card tier colors — data-driven, stable across themes */
-  --bcc-tier-common:     #6b6e72;
-  --bcc-tier-uncommon:   #247a3f;
-  --bcc-tier-rare:       #1d4fbb;
-  --bcc-tier-legendary:  #d9a400;
+  /* The rarity palette (--bcc-tier-common/uncommon/rare/legendary) was
+     RETIRED in v1.56 along with the vocabulary it served. It had four
+     values for a five-value axis, so `risky` had no color at all — and it
+     rendered `caution` in neutral grey, desaturating a warning into
+     nothing. Everything tier-colored now uses the ramp below. */
 
-  /* Trust-band dot colors (identity chip) — a semantic risk→trust ramp,
-     distinct in MEANING from the --bcc-tier-* rarity set above. Used by
-     RankChip's leading dot: risky=red, caution=amber, neutral=ash,
+  /* Trust-band colors — the semantic risk→trust ramp, and the ONLY tier
+     palette. Used by RankChip's leading dot, the card tier strip, avatar
+     rings and search rows: risky=red, caution=amber, neutral=ash,
      trusted=green, elite=gold. Stable across themes. */
   --bcc-trust-risky:     #c8472f;
   --bcc-trust-caution:   #f2ca1b;
@@ -68,7 +68,7 @@
   /* Floor accent colors — canonical source for the trading-card
      layer's --safety/--weld/--verified/--blueprint aliases below.
      Same hex values as before consolidation; this block is now the
-     single source of truth, following the --tier-* -> --bcc-tier-*
+     single source of truth, following the --tier-* -> --bcc-trust-*
      precedent. */
   --bcc-safety:          #f05a28;
   --bcc-weld:            #ffc01e;
@@ -1595,10 +1595,11 @@
   }
 
   /* Tier badges */
-  .bcc-tier-common    { background: rgba(107,110,114,0.12); color: var(--bcc-tier-common);    border: 1px solid rgba(107,110,114,0.3); }
-  .bcc-tier-uncommon  { background: rgba(36,122,63,0.12);   color: var(--bcc-tier-uncommon);  border: 1px solid rgba(36,122,63,0.3); }
-  .bcc-tier-rare      { background: rgba(29,79,187,0.12);   color: var(--bcc-tier-rare);      border: 1px solid rgba(29,79,187,0.3); }
-  .bcc-tier-legendary { background: rgba(217,164,0,0.12);   color: var(--bcc-tier-legendary); border: 1px solid rgba(217,164,0,0.3); }
+  .bcc-tier-risky   { background: rgba(200,71,47,0.12);   color: var(--bcc-trust-risky);   border: 1px solid rgba(200,71,47,0.3); }
+  .bcc-tier-caution { background: rgba(242,202,27,0.12);  color: var(--bcc-trust-caution); border: 1px solid rgba(242,202,27,0.3); }
+  .bcc-tier-neutral { background: rgba(107,110,114,0.12); color: var(--bcc-trust-neutral); border: 1px solid rgba(107,110,114,0.3); }
+  .bcc-tier-trusted { background: rgba(36,122,63,0.12);   color: var(--bcc-trust-trusted); border: 1px solid rgba(36,122,63,0.3); }
+  .bcc-tier-elite   { background: rgba(217,164,0,0.12);   color: var(--bcc-trust-elite);   border: 1px solid rgba(217,164,0,0.3); }
 }
 
 /* ========================================================================
@@ -2492,10 +2493,11 @@
     height: 3px;
     width: 100%;
   }
-  .bcc-op-card-tier-strip[data-tier="common"]    { background: var(--bcc-tier-common); }
-  .bcc-op-card-tier-strip[data-tier="uncommon"]  { background: var(--bcc-tier-uncommon); }
-  .bcc-op-card-tier-strip[data-tier="rare"]      { background: var(--bcc-tier-rare); }
-  .bcc-op-card-tier-strip[data-tier="legendary"] { background: var(--bcc-tier-legendary); }
+  .bcc-op-card-tier-strip[data-tier="risky"]   { background: var(--bcc-trust-risky); }
+  .bcc-op-card-tier-strip[data-tier="caution"] { background: var(--bcc-trust-caution); }
+  .bcc-op-card-tier-strip[data-tier="neutral"] { background: var(--bcc-trust-neutral); }
+  .bcc-op-card-tier-strip[data-tier="trusted"] { background: var(--bcc-trust-trusted); }
+  .bcc-op-card-tier-strip[data-tier="elite"]   { background: var(--bcc-trust-elite); }
 }
 
 /* ========================================================================
@@ -2639,7 +2641,7 @@
    smallest-diff resolution; its overflow:hidden would have flattened
    the preserve-3d flip anyway.
 
-   Tier tokens are MAPPED onto the redesign's --bcc-tier-* (identical
+   Tier tokens are MAPPED onto the --bcc-trust-* ramp (identical
    hex values) rather than duplicated.
    ======================================================================== */
 
@@ -2679,15 +2681,19 @@
   /* Community kind color — union-hall green (community trading cards). */
   --union:           #355e3b;
 
-  /* Card tiers — mapped onto the redesign's tokens (same hex values). */
-  --tier-common:     var(--bcc-tier-common);
-  --tier-uncommon:   var(--bcc-tier-uncommon);
-  --tier-rare:       var(--bcc-tier-rare);
-  --tier-legendary:  var(--bcc-tier-legendary);
+  /* Tier colors — aliases onto the trust ramp, keyed by REPUTATION tier so
+     `var(--tier-${reputation_tier})` resolves at every call site. The four
+     rarity aliases they replaced (--tier-common/uncommon/rare/legendary)
+     went out with the vocabulary in v1.56. */
+  --tier-risky:      var(--bcc-trust-risky);
+  --tier-caution:    var(--bcc-trust-caution);
+  --tier-neutral:    var(--bcc-trust-neutral);
+  --tier-trusted:    var(--bcc-trust-trusted);
+  --tier-elite:      var(--bcc-trust-elite);
 
   /* Owned-entity type hues (members directory chips + member dossier). */
   --owned-type-validator: #2c5990; /* steel blue — networks/infra */
-  --owned-type-project:   #d9a400; /* weld gold — matches --tier-legendary by design */
+  --owned-type-project:   #d9a400; /* weld gold — matches --tier-elite by design */
   --owned-type-nft:       #c52568; /* raspberry — creator energy */
   --owned-type-dao:       #6b4cb6; /* violet — governance/collective */
 
@@ -3344,7 +3350,7 @@
                                    concrete over the same window the
                                    chips fly.
      2. .bcc-onboarding-chip-*   — small abstract card chips sized +
-                                   tinted per card_tier, flying from
+                                   tinted per reputation_tier, flying from
                                    centre to the watchlist-icon corner.
                                    Stagger via the --bcc-onboarding-delay
                                    CSS var the wizard passes inline.
@@ -3392,7 +3398,7 @@
   border-radius: 4px;
   transform-origin: center;
   pointer-events: none;
-  --bcc-onboarding-tier: var(--tier-common);
+  --bcc-onboarding-tier: var(--tier-neutral);
   background: var(--bcc-onboarding-tier);
   box-shadow:
     0 0 0 1px rgba(15, 13, 9, 0.4),
@@ -3403,10 +3409,10 @@
   animation-delay: var(--bcc-onboarding-delay, 0ms);
 }
 
-.bcc-onboarding-chip-legendary { --bcc-onboarding-tier: var(--tier-legendary); }
-.bcc-onboarding-chip-rare      { --bcc-onboarding-tier: var(--tier-rare); }
-.bcc-onboarding-chip-uncommon  { --bcc-onboarding-tier: var(--tier-uncommon); }
-.bcc-onboarding-chip-common    { --bcc-onboarding-tier: var(--tier-common); }
+.bcc-onboarding-chip-elite     { --bcc-onboarding-tier: var(--tier-elite); }
+.bcc-onboarding-chip-trusted   { --bcc-onboarding-tier: var(--tier-trusted); }
+.bcc-onboarding-chip-caution   { --bcc-onboarding-tier: var(--tier-caution); }
+.bcc-onboarding-chip-risky     { --bcc-onboarding-tier: var(--tier-risky); }
 .bcc-onboarding-chip-neutral   { --bcc-onboarding-tier: var(--ink-ghost); }
 
 /* Flight path: bloom from centre, arc up-right toward the watchlist

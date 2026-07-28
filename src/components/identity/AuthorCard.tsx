@@ -22,7 +22,6 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { useUser } from "@/hooks/useUser";
 import type {
   AuthorVouchPermission,
-  CardTier,
   ReputationTier,
   ViewerAttestation,
 } from "@/lib/api/types";
@@ -31,16 +30,13 @@ export interface AuthorCardProps {
   handle: string;
   displayName?: string | undefined;
   avatarUrl?: string | null | undefined;
-  cardTier: CardTier;
   /**
-   * The canonical trust-band signal, passed to RankChip in preference to
-   * `cardTier` (which can't represent risky — see RankChip's own doc
-   * comment). Falls back to the lazily-fetched profile's own
-   * `reputation_tier` when the caller doesn't have one yet (bare
-   * @mention hovercards), same pattern as `cardTier`/`tierLabel` below.
+   * The trust-band signal, passed straight to RankChip. Optional only so
+   * bare @mention hovercards can fall back to the lazily-fetched profile;
+   * once resolved it is always a real band, never null.
    */
-  reputationTier?: ReputationTier | null | undefined;
-  tierLabel: string | null;
+  reputationTier?: ReputationTier | undefined;
+  tierLabel?: string | undefined;
   rankLabel: string;
   isOperator?: boolean | undefined;
   /** Member user id — Follow target + Vouch target. */
@@ -61,7 +57,6 @@ export function AuthorCard({
   handle,
   displayName,
   avatarUrl,
-  cardTier,
   reputationTier,
   tierLabel,
   rankLabel,
@@ -89,10 +84,13 @@ export function AuthorCard({
       : profile?.display_name !== undefined && profile.display_name !== ""
         ? profile.display_name
         : `@${handle}`;
-  const effectiveCardTier: CardTier = cardTier ?? profile?.card_tier ?? null;
-  const effectiveReputationTier: ReputationTier | null =
-    reputationTier ?? profile?.reputation_tier ?? null;
-  const effectiveTierLabel = tierLabel ?? profile?.tier_label ?? null;
+  // Falls back to `neutral` only while the lazily-fetched profile is in
+  // flight — never as a masking default for a missing field, which is how
+  // risky members used to render as grey.
+  const effectiveReputationTier: ReputationTier =
+    reputationTier ?? profile?.reputation_tier ?? "neutral";
+  const effectiveTierLabel: string =
+    tierLabel ?? profile?.reputation_tier_label ?? "Neutral";
   const effectiveRankLabel = rankLabel !== "" ? rankLabel : profile?.rank_label ?? "";
   const effectiveIsOperator = isOperator === true;
 
@@ -129,7 +127,7 @@ export function AuthorCard({
             displayName={nameText}
             size="lg"
             variant="rounded"
-            tier={effectiveCardTier === null ? undefined : effectiveCardTier}
+            tier={effectiveReputationTier}
             isOperator={effectiveIsOperator}
             asLink
             ringColor="var(--bcc-accent)"
@@ -150,7 +148,6 @@ export function AuthorCard({
           {effectiveRankLabel !== "" && (
             <span className="mt-1.5">
               <RankChip
-                cardTier={effectiveCardTier}
                 reputationTier={effectiveReputationTier}
                 tierLabel={effectiveTierLabel}
                 rankLabel={effectiveRankLabel}

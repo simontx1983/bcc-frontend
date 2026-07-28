@@ -48,7 +48,7 @@
 import { RankChip } from "@/components/profile/RankChip";
 import { ReliabilityStandingBadge } from "@/components/reliability/ReliabilityStandingBadge";
 import type {
-  CardTier,
+  ReputationTier,
   DivergenceState,
   ReliabilityStandingPublic,
 } from "@/lib/api/types";
@@ -65,9 +65,9 @@ interface ReputationSummaryPanelProps {
    */
   reliabilityStanding: ReliabilityStandingPublic | null | undefined;
   /** §C1 card-tier slug. Passed through to RankChip. */
-  cardTier: CardTier;
+  reputationTier: ReputationTier;
   /** §A2 server-rendered tier display string. Passed through to RankChip. */
-  tierLabel: string | null;
+  tierLabel: string;
   /** §A2 server-rendered rank display string. Passed through to RankChip. */
   rankLabel: string;
   /** §E1 good-standing flag. Drives the standing chip. */
@@ -124,7 +124,7 @@ export function ReputationSummaryPanel(props: ReputationSummaryPanelProps) {
       <div className="flex flex-wrap items-center gap-2">
         <StandingChip isInGoodStanding={props.isInGoodStanding} />
         <RankChip
-          cardTier={props.cardTier}
+          reputationTier={props.reputationTier}
           tierLabel={props.tierLabel}
           rankLabel={props.rankLabel}
         />

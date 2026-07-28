@@ -12,7 +12,7 @@ import { CommunitySignalsStrip } from "@/components/cards/CardCommunitySignals";
 import { OnchainSignalsStrip } from "@/components/cards/CardOnchainSignals";
 import { Crest } from "@/components/cards/Crest";
 import { ReliabilityStandingBadge } from "@/components/reliability/ReliabilityStandingBadge";
-import type { Card, CardStat, CardTier } from "@/lib/api/types";
+import type { Card, CardStat, ReputationTier } from "@/lib/api/types";
 
 export function CardFrontFace({
   card,
@@ -86,9 +86,15 @@ export function CardFrontFace({
           this was absolute-positioned over the action bar and would
           overlap the OPEN link. Now it's a flow element so the tier
           label sits cleanly under the actions, never overlapping. */}
-      {card.card_tier !== null && card.tier_label !== null && (
-        <TierStrip cardTier={card.card_tier} tierLabel={card.tier_label} />
-      )}
+      {/* Always rendered for real cards — v1.56 removed the null guard that
+          used to sit here. That guard fired for risky entities (whose
+          card_tier was null by design), so the strip vanished on exactly
+          the cards a viewer most needed a warning from. Community cards
+          have no trust axis and show their group-type kicker instead. */}
+      <TierStrip
+        reputationTier={card.reputation_tier}
+        tierLabel={card.kicker ?? card.reputation_tier_label ?? ""}
+      />
 
       {/* WANTED corner stamp — surfaces on validator cards whose
           operator hasn't claimed the profile yet. Lightweight visual
@@ -114,9 +120,9 @@ export function CardFrontFace({
         </span>
       )}
 
-      {/* Foil shimmer — legendary only. Sits above face content,
+      {/* Foil shimmer — top band only. Sits above face content,
           below the cards interactive layer (z-index 9). */}
-      {card.card_tier === "legendary" && (
+      {card.reputation_tier === "elite" && (
         <span aria-hidden className="bcc-foil-band pointer-events-none absolute inset-0 z-[9]" />
       )}
     </div>
@@ -218,14 +224,14 @@ function WantedCornerStamp() {
  * other content. The tier color drives both the text and a 3px
  * left-edge accent — same vocabulary as the §C1 tier palette.
  *
- * Skipped at the call site when `card_tier` is null (risky tier; §C1
+ * Skipped at the call site when `reputation_tier` is null (risky tier; §C1
  * hides those from the card UI entirely).
  */
 function TierStrip({
-  cardTier,
+  reputationTier,
   tierLabel,
 }: {
-  cardTier: Exclude<CardTier, null>;
+  reputationTier: ReputationTier;
   tierLabel: string;
 }) {
   return (
@@ -233,12 +239,12 @@ function TierStrip({
       className="relative z-10 flex items-center justify-center border-t border-cardstock-edge/40 px-3 py-2"
       style={{
         background: "rgb(var(--ink-rgb) / 0.05)",
-        borderLeft: `4px solid var(--tier-${cardTier})`,
+        borderLeft: `4px solid var(--tier-${reputationTier})`,
       }}
     >
       <span
         className="bcc-mono text-[10px] tracking-[0.24em]"
-        style={{ color: `var(--tier-${cardTier})` }}
+        style={{ color: `var(--tier-${reputationTier})` }}
       >
         {tierLabel.toUpperCase()}
       </span>

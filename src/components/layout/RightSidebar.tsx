@@ -96,9 +96,9 @@ function NewestMembersWidget() {
               handle={member.handle}
               displayName={member.name}
               size="md"
-              cardTier={member.card_tier}
+              reputationTier={member.reputation_tier}
               rankLabel={member.rank_label ?? ""}
-              tierLabel={member.tier_label}
+              tierLabel={member.reputation_tier_label ?? "Neutral"}
               vouchTargetId={member.id}
               ringColor="var(--bcc-accent)"
               asLink
@@ -267,9 +267,9 @@ function SuggestedWidget() {
                 handle={member.handle}
                 displayName={member.display_name}
                 size="md"
-                cardTier={member.card_tier}
+                reputationTier={member.reputation_tier}
                 rankLabel={member.rank_label}
-                tierLabel={member.tier_label}
+                tierLabel={member.reputation_tier_label ?? "Neutral"}
                 vouchTargetId={member.id}
                 ringColor="var(--bcc-accent)"
                 asLink

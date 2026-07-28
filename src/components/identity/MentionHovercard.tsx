@@ -52,8 +52,8 @@ export function MentionHovercard({
           handle={handle}
           displayName={displayName}
           userId={userId}
-          cardTier={null}
-          tierLabel={null}
+          reputationTier={undefined}
+          tierLabel={undefined}
           rankLabel=""
           enabled={open}
         />

@@ -4,7 +4,7 @@
  * touch the constitutionally-locked strings in `lib/copy/trust-layer.ts`.
  *
  * Tier labels follow bcc-trust's honest `ReputationTierMap::TIER_LABEL`
- * (elite displays as "Proven", not "Elite" — internal key stays `elite`
+ * (elite displays as "Elite"; the internal key is also `elite`
  * since that's what drives the `--bcc-trust-elite` gold everywhere else).
  *
  * Border color is null for the three middle bands on purpose — gold/
@@ -33,7 +33,7 @@ export const REPUTATION_DEMO_COMBOS: readonly ReputationDemoCombo[] = [
     id: "proven-master",
     rankLabel: "Master",
     reputationTier: "elite",
-    tierLabel: "Proven",
+    tierLabel: "Elite",
     isForeman: false,
     borderColor: "var(--bcc-trust-elite)",
     caption:

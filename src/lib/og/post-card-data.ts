@@ -27,7 +27,7 @@ export function postCardData(item: FeedItem): OgCardData {
   const kindLabel = POST_KIND_LABELS[item.post_kind] ?? item.post_kind.toUpperCase();
 
   const chips: OgCardData["chips"] = [];
-  const tierLabel = (item.author.tier_label ?? "").trim();
+  const tierLabel = (item.author.reputation_tier_label ?? "").trim();
   if (tierLabel !== "") chips.push({ text: tierLabel, accent: true });
   const rankLabel = item.author.rank_label;
   if (typeof rankLabel === "string" && rankLabel !== "") {

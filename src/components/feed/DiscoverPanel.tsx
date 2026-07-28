@@ -293,7 +293,7 @@ function OperatorRow({ op }: { op: ColdStartOperator }) {
           displayName={op.display_name}
           size="sm"
           variant="rounded"
-          tier={op.card_tier === null ? undefined : op.card_tier}
+          tier={op.reputation_tier === null ? undefined : op.reputation_tier}
         />
         <div className="flex min-w-0 flex-1 flex-col">
           <span className="bcc-stencil truncate text-sm text-bcc-text">
@@ -305,8 +305,8 @@ function OperatorRow({ op }: { op: ColdStartOperator }) {
         </div>
         {op.rank_label !== "" && (
           <RankChip
-            cardTier={op.card_tier}
-            tierLabel={op.tier_label}
+            reputationTier={op.reputation_tier}
+            tierLabel={op.reputation_tier_label}
             rankLabel={op.rank_label}
             size="compact"
             className="shrink-0"

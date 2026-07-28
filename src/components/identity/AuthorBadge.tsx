@@ -10,9 +10,9 @@
  *
  * Critical §A2 boundary (Phillip — this is why this component does NOT
  * compute a tier locally): `RankChip` accepts `reputationTier` (the
- * canonical 5-band signal) and `cardTier`/`tierLabel` — all server-
+ * canonical 5-band signal) and `reputationTier`/`tierLabel` — all server-
  * resolved on the view-model. The frontend MUST NOT manufacture a
- * reputation_tier → card_tier mapping itself; that's §A2/§J.6
+ * reputation_tier → reputation_tier mapping itself; that's §A2/§J.6
  * server-owned business logic (bcc-trust's `AuthorBadgeResolver` /
  * `FeedHydrationPipeline::applyAuthorRankBadge` already compute and
  * attach BOTH fields to every feed/comment author, unconditionally).
@@ -20,7 +20,7 @@
  * `reputation_tier` is passed straight through to `RankChip` as-is —
  * fixed a live bug where it was received on `author` but never wired
  * anywhere, so a risky-tier author's chip rendered the same neutral
- * grey as a brand-new user with zero data (`card_tier` is null for
+ * grey as a brand-new user with zero data (`reputation_tier` is null for
  * both, by design — risky entities are hidden from card-collecting UI,
  * but the identity chip here isn't a card face and should still warn).
  *
@@ -40,7 +40,6 @@ import { useHovercard } from "@/hooks/useHovercard";
 import { usePrefetchUser } from "@/hooks/useUser";
 import type {
   AuthorVouchPermission,
-  CardTier,
   ReputationTier,
   ViewerAttestation,
 } from "@/lib/api/types";
@@ -59,19 +58,13 @@ export interface AuthorBadgeAuthor {
   avatar_url?: string | undefined;
   rank_label?: string | null | undefined;
   /**
-   * The canonical trust-band signal — drives RankChip's dot color
-   * directly (including the true risky-red state, which `card_tier`
-   * structurally cannot represent). Prefer this over `card_tier`.
+   * The trust-band signal — drives RankChip's dot color and the Avatar
+   * ring tint. Required as of v1.56: it was optional with a card_tier
+   * fallback, and that fallback could not represent `risky` at all.
    */
-  reputation_tier?: ReputationTier | undefined;
-  /**
-   * Server-resolved card-tier slug. Legacy fallback for RankChip's dot
-   * (and still drives the Avatar ring tint); absent/null falls back to
-   * neutral cardstock there.
-   */
-  card_tier?: CardTier | undefined;
-  /** Pre-rendered tier word ("Uncommon", "Rare", etc.). Server-owned. */
-  tier_label?: string | null | undefined;
+  reputation_tier: ReputationTier;
+  /** Pre-rendered tier word ("Trusted", "Elite", etc.). Server-owned. */
+  reputation_tier_label: string;
   is_operator?: boolean | undefined;
   /**
    * Authed-only — the viewer's vouch state on this author, behind the
@@ -143,14 +136,8 @@ function AuthorBadgeImpl({
     typeof author.rank_label === "string" && author.rank_label !== ""
       ? author.rank_label
       : "";
-  const cardTier: CardTier =
-    author.card_tier === undefined ? null : author.card_tier;
-  const reputationTier: ReputationTier | null =
-    author.reputation_tier === undefined ? null : author.reputation_tier;
-  const tierLabel: string | null =
-    typeof author.tier_label === "string" && author.tier_label !== ""
-      ? author.tier_label
-      : null;
+  const reputationTier: ReputationTier = author.reputation_tier;
+  const tierLabel: string = author.reputation_tier_label;
 
   // Vouch toggle target — prefer the v1.5 `id`, fall back to the legacy
   // `user_id`. AuthorVouchButton self-hides when the author block carries
@@ -199,7 +186,7 @@ function AuthorBadgeImpl({
       displayName={author.display_name}
       size={avatarSize}
       variant="rounded"
-      tier={cardTier === null ? undefined : cardTier}
+      tier={reputationTier === null ? undefined : reputationTier}
       isOperator={author.is_operator === true}
       ringColor={avatarRingColor}
       asLink={asLink}
@@ -234,7 +221,6 @@ function AuthorBadgeImpl({
   const rank =
     showRank && rankLabel !== "" ? (
       <RankChip
-        cardTier={cardTier}
         reputationTier={reputationTier}
         tierLabel={tierLabel}
         rankLabel={rankLabel}
@@ -272,7 +258,6 @@ function AuthorBadgeImpl({
                 handle={author.handle}
                 displayName={author.display_name}
                 avatarUrl={author.avatar_url}
-                cardTier={cardTier}
                 reputationTier={reputationTier}
                 tierLabel={tierLabel}
                 rankLabel={rankLabel}
@@ -299,7 +284,7 @@ function AuthorBadgeImpl({
       {rankModalOpen && (
         <RankInfoModal
           handle={author.handle}
-          cardTier={cardTier}
+          reputationTier={reputationTier}
           tierLabel={tierLabel}
           rankLabel={rankLabel}
           onClose={() => setRankModalOpen(false)}

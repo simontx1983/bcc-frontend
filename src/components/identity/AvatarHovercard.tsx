@@ -24,7 +24,7 @@ import { useHovercard } from "@/hooks/useHovercard";
 import { usePrefetchUser } from "@/hooks/useUser";
 import type {
   AuthorVouchPermission,
-  CardTier,
+  ReputationTier,
   ViewerAttestation,
 } from "@/lib/api/types";
 
@@ -33,13 +33,13 @@ export interface AvatarHovercardProps {
   handle: string;
   displayName?: string | undefined;
   size: AvatarSize;
-  cardTier: CardTier;
+  reputationTier: ReputationTier;
   isOperator?: boolean | undefined;
   ringColor?: string | undefined;
   /** Whether the avatar links to `/u/{handle}`. Defaults to true. */
   asLink?: boolean | undefined;
   rankLabel: string;
-  tierLabel: string | null;
+  tierLabel: string;
   vouchTargetId: number;
   viewerAttestation?: ViewerAttestation | undefined;
   canVouch?: AuthorVouchPermission | undefined;
@@ -50,7 +50,7 @@ export function AvatarHovercard({
   handle,
   displayName,
   size,
-  cardTier,
+  reputationTier,
   isOperator,
   ringColor,
   asLink = true,
@@ -89,7 +89,7 @@ export function AvatarHovercard({
         displayName={displayName}
         size={size}
         variant="rounded"
-        tier={cardTier === null ? undefined : cardTier}
+        tier={reputationTier === null ? undefined : reputationTier}
         isOperator={isOperator}
         asLink={asLink}
         ringColor={ringColor}
@@ -102,7 +102,7 @@ export function AvatarHovercard({
           handle={handle}
           displayName={displayName}
           avatarUrl={avatarUrl}
-          cardTier={cardTier}
+          reputationTier={reputationTier}
           tierLabel={tierLabel}
           rankLabel={rankLabel}
           isOperator={isOperator}
@@ -119,7 +119,7 @@ export function AvatarHovercard({
       {rankModalOpen && (
         <RankInfoModal
           handle={handle}
-          cardTier={cardTier}
+          reputationTier={reputationTier}
           tierLabel={tierLabel}
           rankLabel={rankLabel}
           onClose={() => setRankModalOpen(false)}

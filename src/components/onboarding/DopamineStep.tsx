@@ -42,7 +42,7 @@ import { useCompleteOnboarding } from "@/hooks/useCompleteOnboarding";
 import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
 import { humanizeCode } from "@/lib/api/errors";
 import type {
-  CardTier,
+  ReputationTier,
   HomeChain,
   OnboardingCompleteResponse,
 } from "@/lib/api/types";
@@ -64,7 +64,7 @@ export function DopamineStep({
   pulledCards,
 }: {
   homeChain: HomeChain | null;
-  pulledCards: ReadonlyArray<{ id: number; tier: CardTier }>;
+  pulledCards: ReadonlyArray<{ id: number; tier: ReputationTier }>;
 }) {
   const router = useRouter();
   const { mutateAsync: completeAsync } = useCompleteOnboarding();
@@ -220,17 +220,17 @@ export function DopamineStep({
   );
 }
 
-function tierClassName(tier: CardTier): string {
+function tierClassName(tier: ReputationTier): string {
   // Tailwind/JIT can't see dynamic class joins, so the receiving
   // .bcc-onboarding-chip-{name} CSS rules must be statically present in
-  // globals.css. Same name set as §C1 (legendary/rare/uncommon/common,
-  // plus a "neutral" fallback for risky/null which the chip still
-  // renders since it represents *a pull happened*).
+  // globals.css. Same name set as the five trust bands — every one has a
+  // chip class now, including risky, which the retired rarity set could
+  // not express at all.
   switch (tier) {
-    case "legendary": return "legendary";
-    case "rare":      return "rare";
-    case "uncommon":  return "uncommon";
-    case "common":    return "common";
-    case null:        return "neutral";
+    case "elite":   return "elite";
+    case "trusted": return "trusted";
+    case "neutral": return "neutral";
+    case "caution": return "caution";
+    case "risky":   return "risky";
   }
 }

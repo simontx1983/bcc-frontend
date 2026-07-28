@@ -44,7 +44,7 @@ import type {
 } from "@/lib/api/types";
 
 const VALID_KINDS = new Set<DirectoryKind>(["validator", "project", "creator"]);
-const VALID_TIERS = new Set<DirectoryTier>(["legendary", "rare", "uncommon", "common"]);
+const VALID_TIERS = new Set<DirectoryTier>(["elite", "trusted", "neutral", "caution", "risky"]);
 const VALID_SORTS = new Set<DirectorySort>(["trust", "newest", "endorsements", "followers"]);
 const SEARCH_DEBOUNCE_MS = 300;
 

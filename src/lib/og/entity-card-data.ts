@@ -54,7 +54,7 @@ export function entityCardData(card: Card, railLabel: string): OgCardData {
       ? crest.initials
       : deriveInitials(card.name, card.handle) || "??";
 
-  const tierLabel = (card.tier_label ?? "").trim();
+  const tierLabel = (card.reputation_tier_label ?? "").trim();
   const reputation = card.reputation_score ?? card.trust_score;
 
   // Chip order: tier (accent) → REP (neutral) → optional on-chain status

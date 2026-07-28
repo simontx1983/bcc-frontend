@@ -8,14 +8,14 @@
  * table (that would be §A2 business-logic-on-FE).
  *
  * Tier prop note (load-bearing):
- *   `tier` is typed as `CardTier` (the server's pre-resolved card-tier
+ *   `tier` is typed as `ReputationTier` (the server's pre-resolved card-tier
  *   slug — "legendary" | "rare" | "uncommon" | "common" | null).
  *   It is intentionally NOT `ReputationTier`. The reputation→card-tier
  *   mapping is server-owned (§A2 / §J.6); surfaces whose view-model
  *   only carries `reputation_tier` should pass `undefined` for `tier`
  *   and accept a neutral cardstock border until the BE ships
- *   `card_tier` on that view-model. Confirmed:
- *     - MemberProfile, WatchingItem, MemberDirectoryRow ship card_tier
+ *   `reputation_tier` on that view-model. Confirmed:
+ *     - MemberProfile, WatchingItem, MemberDirectoryRow ship reputation_tier
  *     - FeedAuthor, CommentAuthor, NotificationActor do NOT (Sprint 1
  *       blocker — see frontend-implementer report)
  *
@@ -55,7 +55,7 @@ import type { Route } from "next";
 
 import { deriveInitials } from "@/lib/format/initials";
 import { isWpMediaUrl } from "@/lib/media";
-import type { CardTier } from "@/lib/api/types";
+import type { ReputationTier } from "@/lib/api/types";
 
 export type AvatarSize = "xs" | "sm" | "md" | "lg" | "xl";
 export type AvatarVariant = "rounded" | "hex";
@@ -71,7 +71,7 @@ export interface AvatarProps {
    * signal (e.g., FeedAuthor); falls back to neutral cardstock border.
    * `null` = server-resolved risky tier (no tint, by design).
    */
-  tier?: CardTier | undefined;
+  tier?: ReputationTier | undefined;
   /** §N8 operator dot — only renders on sm+ (xs is too small to host it). */
   isOperator?: boolean | undefined;
   /** When true, wraps the avatar in a `<Link>` to `/u/{handle}`. */
