@@ -39,6 +39,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
 import { Skeleton } from "@/components/ui/Skeleton";
+import { ATTESTATION_COPY } from "@/lib/copy/trust-layer";
 import type { MeReliabilityResponse, MemberLiving, MemberProfile, MemberProgression, MemberTabCount } from "@/lib/api/types";
 
 import { CardReviewsPanel } from "@/components/entity/panels/CardReviewsPanel";
@@ -178,7 +179,10 @@ const DEFAULT_TABS: ReadonlyArray<{ key: TabKey; label: string; soon?: boolean; 
   // tab so the "can I trust this operator?" question is the first
   // one answered by the panel content (even though Profile is the
   // first tab in the strip).
-  { key: "backing",  label: "Backing" },
+  // Label is the genus term over vouches AND backings (§J.6, contract
+  // v1.56) — deliberately NOT named after either primitive. The `key`
+  // stays `backing` so ?tab=backing deep links keep working.
+  { key: "backing",  label: ATTESTATION_COPY.supporters_tab },
   // v1.48 split: "Reviews" = reviews RECEIVED (filed on this member's
   // self-page — public trust signal, mirrors entity cards); "Written"
   // = reviews this member authored. The pre-v1.48 single tab showed

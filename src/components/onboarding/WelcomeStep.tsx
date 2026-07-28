@@ -27,7 +27,7 @@ const PREVIEW: readonly PreviewCard[] = [
   {
     n: "02",
     title: "How trust works here",
-    body: "Sixty seconds on how reputation is earned — vouch, stand behind, or dispute.",
+    body: "Sixty seconds on how reputation is earned — vouch, back, or dispute.",
   },
   {
     n: "03",

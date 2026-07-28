@@ -435,7 +435,7 @@ export default async function MemberProfilePage({ params }: PageProps) {
               className="font-serif italic text-bcc-text-secondary mt-2"
               style={{ fontSize: "15px", lineHeight: 1.55, maxWidth: "60ch" }}
             >
-              No backing, no Halls linked, no wallets on file yet — the
+              No supporters, no Halls linked, no wallets on file yet — the
               floor will fill in as they participate. Check back when
               they&apos;ve clocked a few shifts.
             </p>

@@ -29,6 +29,8 @@
 import { useState } from "react";
 import type { ReactNode } from "react";
 
+import { ATTESTATION_COPY } from "@/lib/copy/trust-layer";
+
 type EntityTabKey =
   | "backing"
   | "reviews"
@@ -66,7 +68,8 @@ export function EntityTabs({
   chainsPanel,
 }: EntityTabsProps) {
   const tabs: EntityTabDef[] = [
-    { key: "backing",  label: "Backing"  },
+    // See ProfileTabs — genus term, key stays `backing` for deep links.
+    { key: "backing",  label: ATTESTATION_COPY.supporters_tab },
     { key: "reviews",  label: "Reviews"  },
     { key: "activity", label: "Activity" },
     { key: "watchers", label: "Watchers" },

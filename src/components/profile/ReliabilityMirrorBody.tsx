@@ -169,7 +169,7 @@ function ExplainerBlock({
 }
 
 // ──────────────────────────────────────────────────────────────────────
-// ShowUpBlock — Stand Behind allocation as quiet context.
+// ShowUpBlock — Backing allocation as quiet context.
 // ──────────────────────────────────────────────────────────────────────
 
 function ShowUpBlock({ reliability }: { reliability: MeReliabilityResponse }) {
@@ -177,7 +177,7 @@ function ShowUpBlock({ reliability }: { reliability: MeReliabilityResponse }) {
   return (
     <div className="flex flex-col gap-4">
       <p className="font-serif text-lg leading-relaxed text-bcc-text">
-        You&rsquo;re standing behind{" "}
+        You&rsquo;re backing{" "}
         <span className="bcc-stencil text-bcc-text">{slots_used}</span>
         {slots_total > 0 && (
           <>
@@ -188,7 +188,7 @@ function ShowUpBlock({ reliability }: { reliability: MeReliabilityResponse }) {
         operators at your current tier.
       </p>
       <p className="font-serif text-bcc-text-secondary">
-        Vouches are easy to give. Stand Behind is reserved for higher
+        Vouches are easy to give. Backing is reserved for higher
         conviction — each one represents your reputation attached to
         someone else&rsquo;s work.
       </p>
@@ -196,7 +196,7 @@ function ShowUpBlock({ reliability }: { reliability: MeReliabilityResponse }) {
         This isn&rsquo;t about liking someone, following the crowd, or
         rewarding popularity. It&rsquo;s about trust. Do they do what they
         say they&rsquo;ll do? Do they consistently show up? Are they who
-        they claim to be? Stand Behind is meant for people whose actions
+        they claim to be? Backing is meant for people whose actions
         repeatedly match their words.
       </p>
     </div>

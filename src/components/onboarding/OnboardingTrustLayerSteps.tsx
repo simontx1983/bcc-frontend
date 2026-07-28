@@ -11,7 +11,7 @@
  * as TWO screens on the `bcc-onb-*` page-chrome namespace:
  *
  *   Screen A — "What this is" (product framing) + "Three things you can
- *              do" (Vouch / Stand Behind · 0 OF 5 / Dispute primitives).
+ *              do" (Vouch / Back · 0 OF 5 / Dispute primitives).
  *   Screen B — "How reputation works" (LOAD-BEARING per risk-assessment
  *              §2.9 — the "absence is not a negative signal" teaching, the
  *              primary mitigation against "no vouch = bad" drift) + the
@@ -92,10 +92,13 @@ function PrimerScreen({ onBack, onContinue }: { onBack: () => void; onContinue: 
         <div className="bcc-onb-prim">
           <div className="k">VOUCH</div>
           <p className="q">&ldquo;I think this operator is competent.&rdquo;</p>
-          <p className="d">Abundant — back as many as you want.</p>
+          {/* "back" was the generic verb here until contract v1.56 made it
+              the scarce primitive's name — reworded so Card 2 doesn't
+              describe Vouch using the other action's label (§J.7). */}
+          <p className="d">Abundant — vouch for as many as you want.</p>
         </div>
         <div className="bcc-onb-prim">
-          <div className="k">STAND BEHIND · 0 OF 5</div>
+          <div className="k">BACK · 0 OF 5</div>
           <p className="q">&ldquo;I&rsquo;m putting my reputation on this operator&rsquo;s work.&rdquo;</p>
           <p className="d">Scarce. You only have a few high-conviction slots; spend them deliberately.</p>
         </div>

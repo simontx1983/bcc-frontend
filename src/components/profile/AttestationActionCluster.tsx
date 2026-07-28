@@ -2,10 +2,10 @@
 
 /**
  * AttestationActionCluster — the three primary Layer-1 actions per
- * §J.6: Vouch / Stand Behind / Report. The load-bearing interaction
+ * §J.6: Vouch / Back / Report. The load-bearing interaction
  * surface for the Trust Attestation Layer.
  *
- * Vouch + Stand Behind toggle cast / revoke based on
+ * Vouch + Backing toggle cast / revoke based on
  * `viewer_attestation`. Report is the SOLE negative action here — it
  * opens the moderation modal (POST /report-user) on person surfaces.
  * Vote-disputes are a separate, owner-only mechanism that lives in the
@@ -18,7 +18,7 @@
  *   - #4: one action per primitive. No settings panel. No
  *     overloaded buttons.
  *   - #5: show what's scarce, hide what's abundant. Vouch has no
- *     counter. Stand Behind always shows allocation when known.
+ *     counter. Backing always shows allocation when known.
  *   - #7: negative signals visible BUT calibrated. Disabled states
  *     surface the unlock path as an inline subtitle, not a tooltip.
  *   - #8: the action label IS the explanation. The cluster does NOT
@@ -30,7 +30,7 @@
  * inline unlock_hint UNLESS it's structurally impossible
  * (`allowed: false, unlock_hint: null`), in which case it's hidden.
  *
- * §J.4.1 synthesis invisibility: no math surfaces. The Stand Behind
+ * §J.4.1 synthesis invisibility: no math surfaces. The Backing
  * allocation indicator ("2 OF 5") is intentional-scarcity surfacing
  * per heuristic #5 — not synthesis math. No weights, multipliers,
  * decay curves, or caps appear anywhere in the rendered output.
@@ -69,6 +69,7 @@ import {
   useRevokeAttestation,
 } from "@/hooks/useAttestations";
 import { humanizeCode } from "@/lib/api/errors";
+import { ATTESTATION_COPY, formatBackLabel } from "@/lib/copy/trust-layer";
 import type {
   AttestationCastRequest,
   AttestationTargetKind,
@@ -111,14 +112,14 @@ export interface AttestationActionClusterProps {
   canReport?: ActionPermission | undefined;
   /**
    * Has the viewer already cast an attestation on this target?
-   * Drives the cast-state copy ("VOUCHED" / "STANDING BEHIND")
+   * Drives the cast-state copy ("VOUCHED" / "BACKING")
    * AND the click-to-revoke branch.
    */
   viewerAttestation?: ViewerAttestation | undefined;
   /**
-   * Stand Behind allocation per §J.6: rendered as "N OF M".
+   * Backing allocation per §J.6: rendered as "N OF M".
    * Optional during Phase 1 rollout; absent → renders plain
-   * `STAND BEHIND` without the allocation indicator.
+   * `BACK` without the allocation indicator.
    */
   standBehindSlotsUsed?: number | undefined;
   standBehindSlotsTotal?: number | undefined;
@@ -203,7 +204,7 @@ export function AttestationActionCluster(props: AttestationActionClusterProps) {
         // this — don't double-surface.
         return;
       }
-      // Stand Behind hit the §J.1 bandwidth ceiling — open the
+      // Backing hit the §J.1 bandwidth ceiling — open the
       // picker instead of surfacing the raw error inline. The
       // server's slot_holders[] payload feeds the dialog directly.
       const isBandwidthExhausted =
@@ -324,7 +325,7 @@ export function AttestationActionCluster(props: AttestationActionClusterProps) {
     return null;
   }
 
-  // Stand Behind cast pending = vouch button stays interactive (they
+  // Backing cast pending = vouch button stays interactive (they
   // are independent kinds); same for revoke. Each tracks its own
   // kind by looking at the mutation variables.
   const isVouchPending =
@@ -344,11 +345,11 @@ export function AttestationActionCluster(props: AttestationActionClusterProps) {
       className="grid grid-cols-1 justify-items-start gap-2 sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]"
     >
       {/* §J trust-not-adversarial weighting (per 2026-05-13 UX review):
-          VOUCH + STAND BEHIND occupy the 2fr left column at peer prominence;
+          VOUCH + BACK occupy the 2fr left column at peer prominence;
           REPORT occupies the 1fr right column at quieter weight. The visual
           hierarchy reads "trust signals are the headline, the moderation
           path is the quiet right channel." Mobile collapses to a single
-          column with reading order: VOUCH → STAND BEHIND → REPORT — the
+          column with reading order: VOUCH → BACK → REPORT — the
           trust buttons stack above the moderation action so the hierarchy
           survives the reflow. */}
       {props.canVouch !== undefined && (
@@ -378,10 +379,10 @@ export function AttestationActionCluster(props: AttestationActionClusterProps) {
             isStandBehindPending
               ? isStandingBehind
                 ? "REVOKING…"
-                : "STANDING BEHIND…"
+                : ATTESTATION_COPY.backing_pending
               : isStandingBehind
-                ? "STANDING BEHIND"
-                : formatStandBehindLabel(
+                ? ATTESTATION_COPY.backing_active
+                : formatBackLabel(
                     props.standBehindSlotsUsed,
                     props.standBehindSlotsTotal,
                   )
@@ -469,22 +470,6 @@ function parseBandwidthExhaustedData(
     slots_total: slotsTotal,
     slots_used: slotsUsed,
   };
-}
-
-/**
- * Stand Behind label formatting. Phillip's note: scarcity should
- * feel "intentional, valuable, thoughtful — not gamified or
- * resource-meter-like." "N OF M" reads as deliberate allocation
- * rather than a numeric ratio meter.
- */
-function formatStandBehindLabel(
-  slotsUsed: number | undefined,
-  slotsTotal: number | undefined,
-): string {
-  if (slotsUsed === undefined || slotsTotal === undefined) {
-    return "STAND BEHIND";
-  }
-  return `STAND BEHIND · ${slotsUsed} OF ${slotsTotal}`;
 }
 
 type ActionTone = "positive" | "conviction" | "utility";
@@ -617,7 +602,7 @@ const BASE_BUTTON_CLASS =
   "bcc-mono inline-flex w-full items-center justify-center tracking-[0.18em] transition motion-safe:hover:tracking-[0.22em] motion-safe:hover:shadow-[3px_3px_0_0_var(--safety)] disabled:cursor-not-allowed disabled:motion-safe:hover:tracking-[0.18em] disabled:motion-safe:hover:shadow-none";
 
 /** Size drives padding + label-size weight per the §J trust-not-adversarial
- *  hierarchy: "primary" tones (vouch / stand behind) ship the larger box;
+ *  hierarchy: "primary" tones (vouch / back) ship the larger box;
  *  "secondary" tones (dispute / report) stay quieter and sit in the right
  *  column of the 2fr/1fr grid. */
 const SIZE_CLASS: Record<ActionSize, string> = {
@@ -644,7 +629,7 @@ function buttonClassFor(
   }
   switch (tone) {
     case "conviction":
-      // Stand Behind — strongest visual weight per heuristic #5, BUT
+      // Backing — strongest visual weight per heuristic #5, BUT
       // (Sprint 4 cohesion subtraction) without the safety-orange
       // tint. The crypto-native subconscious-reading audit flagged
       // safety-orange + "N OF M" allocation as pattern-matching to
@@ -689,7 +674,7 @@ function humanizeAttestationError(err: BccApiError): string {
       bcc_invalid_request: "We couldn't record that attestation.",
       bcc_attestation_self: "You can't attest on yourself.",
       bcc_attestation_bandwidth_exhausted:
-        "You're at your Stand Behind limit. Revoke one to free a slot.",
+        "You're at your Backing limit. Revoke one to free a slot.",
       bcc_attestation_fraud_blocked:
         "Your account is temporarily restricted from attesting.",
       bcc_attestation_revoked:
