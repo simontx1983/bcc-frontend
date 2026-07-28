@@ -33,6 +33,14 @@ jobs:
       - name: Lint
         run: npx next lint
 
+      # Dead-file guard — fails the build on any orphaned source file (a
+      # component/module nothing imports or renders). File-level only
+      # (mirrors the PHP dead-file-scan); unused *exports* are reported by
+      # a bare `npx knip` locally but not gated here. Config + ignores
+      # (e.g. the runtime-registered public/sw.js) live in knip.json.
+      - name: Dead-file guard (knip)
+        run: npx knip --include files
+
       - name: Unit tests
         run: npx vitest run
 
