@@ -1,55 +1,14 @@
 "use client";
 
-import {
-  BadgeCheck,
-  ChevronLeft,
-  Globe,
-  Home,
-  Landmark,
-  LayoutGrid,
-  MessageSquare,
-  Plus,
-  Scale,
-  Users,
-} from "lucide-react";
+import { ChevronLeft, Plus } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
 
 import { NewPostTrigger } from "@/components/composer/NewPostTrigger";
-import { EyeIcon } from "@/components/feed/actionIcons";
 import { CopyrightMark } from "@/components/layout/CopyrightMark";
-import { LEGAL_ROUTES } from "@/lib/legal/config";
-
-// Icons backed by lucide-react (task 5) — Watching reuses the same
-// EyeIcon as the feed's "Following" tab (was independently redrawn
-// here before); Home/Directory/Communities match MobileNav's copies
-// (were byte-identical duplicates, now one import each).
-const PRIMARY_NAV = [
-  { label: "Home",        href: "/",           icon: <Home size={20} strokeWidth={1.7} aria-hidden /> },
-  { label: "Halls",       href: "/halls",       icon: <Landmark size={20} strokeWidth={1.7} aria-hidden /> },
-  { label: "Members",     href: "/members",     icon: <Users size={20} strokeWidth={1.7} aria-hidden /> },
-  { label: "Directory",   href: "/directory",   icon: <LayoutGrid size={20} strokeWidth={1.7} aria-hidden /> },
-  { label: "Communities", href: "/communities", icon: <Globe size={20} strokeWidth={1.7} aria-hidden /> },
-  { label: "Messages",    href: "/messages",    icon: <MessageSquare size={20} strokeWidth={1.7} aria-hidden /> },
-  { label: "Disputes",    href: "/disputes",    icon: <Scale size={20} strokeWidth={1.7} aria-hidden /> },
-  { label: "Watching",    href: "/watching",    icon: <EyeIcon size={20} /> },
-  { label: "Validators",  href: "/validators",  icon: <BadgeCheck size={20} strokeWidth={1.7} aria-hidden /> },
-] as const;
-
-const QUICK_LINKS = [
-  { label: "My Progression", href: "/me/progression" },
-  { label: "My Reliability",  href: "/me/reliability"  },
-  { label: "Panel Duty",      href: "/panel"            },
-  { label: "Settings",        href: "/u/me?tab=profile" },
-] as const;
-
-const LEGAL_LINKS = [
-  { label: "Terms",   href: LEGAL_ROUTES.terms },
-  { label: "Privacy", href: LEGAL_ROUTES.privacy },
-  { label: "Cookies", href: LEGAL_ROUTES.cookies },
-] as const;
+import { LEGAL_LINKS, PRIMARY_NAV, QUICK_LINKS } from "@/components/layout/nav-items";
 
 function ChevronIcon({ collapsed }: { collapsed: boolean }) {
   return (

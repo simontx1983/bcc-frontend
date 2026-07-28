@@ -8,32 +8,13 @@ import { useSession, signOut } from "next-auth/react";
 import { useState, useEffect, useRef } from "react";
 
 import { CopyrightMark } from "@/components/layout/CopyrightMark";
-import { LEGAL_ROUTES } from "@/lib/legal/config";
+import { LEGAL_LINKS, PRIMARY_NAV, QUICK_LINKS } from "@/components/layout/nav-items";
 import { applyTheme, getStoredAccent, getStoredTheme, type Accent, type Theme } from "@/lib/theme";
 
 interface MainOffcanvasProps {
   open: boolean;
   onClose: () => void;
 }
-
-const PRIMARY_NAV = [
-  { label: "Home",        href: "/" },
-  { label: "Halls",       href: "/halls" },
-  { label: "Members",     href: "/members" },
-  { label: "Directory",   href: "/directory" },
-  { label: "Communities", href: "/communities" },
-  { label: "Messages",    href: "/messages" },
-  { label: "Disputes",    href: "/disputes" },
-  { label: "Watching",    href: "/watching" },
-  { label: "Validators",  href: "/validators" },
-] as const;
-
-const QUICK_LINKS = [
-  { label: "My Progression", href: "/me/progression" },
-  { label: "My Reliability",  href: "/me/reliability" },
-  { label: "Panel Duty",      href: "/panel" },
-  { label: "Settings",        href: "/u/me?tab=profile" },
-] as const;
 
 export function MainOffcanvas({ open, onClose }: MainOffcanvasProps) {
   const pathname = usePathname() ?? "/";
@@ -277,11 +258,7 @@ export function MainOffcanvas({ open, onClose }: MainOffcanvasProps) {
             <CopyrightMark />
           </div>
           <div style={{ padding: "4px 16px 8px", display: "flex", gap: 12, flexWrap: "wrap" }}>
-            {[
-              { label: "Terms",   href: LEGAL_ROUTES.terms },
-              { label: "Privacy", href: LEGAL_ROUTES.privacy },
-              { label: "Cookies", href: LEGAL_ROUTES.cookies },
-            ].map(item => (
+            {LEGAL_LINKS.map(item => (
               <Link
                 key={item.href}
                 href={item.href as Route}
