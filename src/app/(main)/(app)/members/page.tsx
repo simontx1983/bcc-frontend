@@ -22,7 +22,6 @@ import { CardGrid } from "@/components/cards/CardGrid";
 import { useMembers } from "@/hooks/useMembers";
 import { humanizeCode } from "@/lib/api/errors";
 import type {
-  MembersRankFilter,
   MembersTypeCounts,
   MembersTypeFilter,
   MembersVerifiedAxis,
@@ -45,12 +44,6 @@ const VALID_TYPE_FILTERS: readonly MembersTypeFilter[] = [
   "dao",
 ];
 
-const VALID_RANK_FILTERS: readonly MembersRankFilter[] = [
-  "foreman",
-  "journeyman",
-  "apprentice",
-];
-
 const VALID_VERIFIED_AXES: readonly MembersVerifiedAxis[] = [
   "x",
   "github",
@@ -61,13 +54,6 @@ function parseTypeFilter(raw: string | null): MembersTypeFilter | null {
   if (raw === null) return null;
   return (VALID_TYPE_FILTERS as readonly string[]).includes(raw)
     ? (raw as MembersTypeFilter)
-    : null;
-}
-
-function parseRankFilter(raw: string | null): MembersRankFilter | null {
-  if (raw === null) return null;
-  return (VALID_RANK_FILTERS as readonly string[]).includes(raw)
-    ? (raw as MembersRankFilter)
     : null;
 }
 
@@ -125,10 +111,6 @@ function MembersPageContent() {
     () => parseTypeFilter(searchParams.get("type")),
     [searchParams],
   );
-  const urlRank = useMemo(
-    () => parseRankFilter(searchParams.get("rank")),
-    [searchParams],
-  );
   const urlVerified = useMemo(
     () => parseVerifiedAxes(searchParams.get("verified")),
     [searchParams],
@@ -151,19 +133,17 @@ function MembersPageContent() {
         page: 1,
         q: localQ,
         type: urlType,
-        rank: urlRank,
         verified: urlVerified,
       });
     }, SEARCH_DEBOUNCE_MS);
     return () => window.clearTimeout(t);
-  }, [localQ, router, urlType, urlRank, urlVerified]);
+  }, [localQ, router, urlType, urlVerified]);
 
   const query = useMembers({
     page: urlPage,
     perPage: PER_PAGE,
     q: urlQ,
     type: urlType,
-    rank: urlRank,
     verified: urlVerified,
   });
 
@@ -172,7 +152,6 @@ function MembersPageContent() {
       page: next,
       q: urlQ,
       type: urlType,
-      rank: urlRank,
       verified: urlVerified,
     });
   };
@@ -185,17 +164,6 @@ function MembersPageContent() {
       page: 1,
       q: urlQ,
       type: next,
-      rank: urlRank,
-      verified: urlVerified,
-    });
-  };
-
-  const setRankFilter = (next: MembersRankFilter | null) => {
-    pushToUrl(router, {
-      page: 1,
-      q: urlQ,
-      type: urlType,
-      rank: next,
       verified: urlVerified,
     });
   };
@@ -208,18 +176,16 @@ function MembersPageContent() {
       page: 1,
       q: urlQ,
       type: urlType,
-      rank: urlRank,
       verified: next,
     });
   };
 
-  const hasRefinement = urlRank !== null || urlVerified.length > 0;
+  const hasRefinement = urlVerified.length > 0;
   const clearRefinement = () => {
     pushToUrl(router, {
       page: 1,
       q: urlQ,
       type: urlType,
-      rank: null,
       verified: [],
     });
   };
@@ -262,10 +228,8 @@ function MembersPageContent() {
           onSelect={setTypeFilter}
         />
         <RefineRow
-          activeRank={urlRank}
           activeVerified={urlVerified}
           hasRefinement={hasRefinement}
-          onSelectRank={setRankFilter}
           onToggleVerified={toggleVerifiedAxis}
           onClear={clearRefinement}
         />
@@ -331,7 +295,7 @@ function MembersPageContent() {
 // TypeFilterRow — "ALL / VALIDATORS / BUILDERS / NFT CREATORS / DAOS"
 // chip strip. Each filter chip lights up in its canonical type color
 // when active (mirrors the per-type body colors used on member cards),
-// matches the existing rank-chip pattern of "active = full fill".
+// matches the existing filter-chip pattern of "active = full fill".
 // State is held in the URL (?type=...); this component is stateless.
 // ──────────────────────────────────────────────────────────────────────
 
@@ -385,21 +349,15 @@ function TypeFilterRow({
 // ──────────────────────────────────────────────────────────────────────
 // RefineRow — secondary chip strip for filter axes that aren't a
 // kind-of-member (those live in TypeFilterRow above). The two axes
-// it carries today are EXPLICITLY-AWARDED rank (single-select) and
-// verifications (multi-select with AND semantics; "X verified AND
+// it carries today is verification state (multi-select). The rank
+// filter was removed in contract v1.36 — the server ignored it.
 // GitHub verified" narrows further).
 //
-// Layout intent: visually quiet — rank pills on one line, verification
+// Layout intent: visually quiet — verification
 // pills on a second line, both labelled. A "CLEAR" affordance only
 // renders while at least one refinement is active so the row stays
 // minimal at rest.
 // ──────────────────────────────────────────────────────────────────────
-
-const RANK_FILTER_LABEL: Record<MembersRankFilter, string> = {
-  foreman:    "FOREMAN",
-  journeyman: "JOURNEYMAN",
-  apprentice: "APPRENTICE",
-};
 
 const VERIFIED_AXIS_LABEL: Record<MembersVerifiedAxis, string> = {
   x:      "X VERIFIED",
@@ -408,7 +366,7 @@ const VERIFIED_AXIS_LABEL: Record<MembersVerifiedAxis, string> = {
 };
 
 // Active-state palette — neutral cardstock against the dark flow.
-// Rank uses a single shade since it's a single-select; verifications
+// Verifications
 // share the same shade so the AND-stack reads as one set of facts
 // about a single member rather than four competing signals.
 const REFINE_ACTIVE_STYLE = {
@@ -417,17 +375,13 @@ const REFINE_ACTIVE_STYLE = {
 };
 
 function RefineRow({
-  activeRank,
   activeVerified,
   hasRefinement,
-  onSelectRank,
   onToggleVerified,
   onClear,
 }: {
-  activeRank: MembersRankFilter | null;
   activeVerified: MembersVerifiedAxis[];
   hasRefinement: boolean;
-  onSelectRank: (next: MembersRankFilter | null) => void;
   onToggleVerified: (axis: MembersVerifiedAxis) => void;
   onClear: () => void;
 }) {
@@ -446,26 +400,6 @@ function RefineRow({
             CLEAR REFINEMENT
           </button>
         )}
-      </div>
-
-      <div className="flex flex-col gap-2">
-        <span className="bcc-mono text-[9px] tracking-[0.20em] text-bcc-text-muted">
-          RANK
-        </span>
-        <div className="flex flex-wrap gap-2">
-          {VALID_RANK_FILTERS.map((rank) => {
-            const isActive = activeRank === rank;
-            return (
-              <FilterChip
-                key={rank}
-                isActive={isActive}
-                onClick={() => onSelectRank(isActive ? null : rank)}
-                activeStyle={REFINE_ACTIVE_STYLE}
-                label={RANK_FILTER_LABEL[rank]}
-              />
-            );
-          })}
-        </div>
       </div>
 
       <div className="flex flex-col gap-2">
@@ -681,7 +615,7 @@ function Pagination({
 
 // ──────────────────────────────────────────────────────────────────────
 // RosterRefinementEmpty — fired when no member matches the active
-// rank / verifications combo (and no `?type=...` is set, since that
+// verifications combo (and no `?type=...` is set, since that
 // case is handled by RosterFilterEmpty above). Offers a single
 // "clear refinement" affordance — the refinement axes don't have
 // type_counts, so we can't suggest specific alternative chips the
@@ -696,8 +630,7 @@ function RosterRefinementEmpty({ onClear }: { onClear: () => void }) {
         Nobody matches that combination.
       </h2>
       <p className="mt-3 font-serif italic leading-relaxed text-ink-soft">
-        Try loosening a refinement — fewer verifications, or a different
-        rank.
+        Try loosening a refinement — fewer verifications.
       </p>
       <button
         type="button"
@@ -746,7 +679,6 @@ interface UrlState {
   page: number;
   q: string;
   type: MembersTypeFilter | null;
-  rank: MembersRankFilter | null;
   verified: MembersVerifiedAxis[];
 }
 
@@ -763,9 +695,6 @@ function pushToUrl(
   }
   if (state.type !== null) {
     params.set("type", state.type);
-  }
-  if (state.rank !== null) {
-    params.set("rank", state.rank);
   }
   if (state.verified.length > 0) {
     // Sorted CSV — matches the server's normaliseVerifiedAxes parser

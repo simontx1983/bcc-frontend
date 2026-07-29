@@ -47,12 +47,6 @@
   --bcc-trust-trusted:   #247a3f;
   --bcc-trust-elite:     #d9a400;
 
-  /* Foreman — a conferred role (panel/adjudication), not a rank rung or
-     trust tier. Permanent purple marker, distinct from both ramps above
-     so it never reads as "just another tier." Stable across themes. */
-  --bcc-trust-foreman:        #8b6bd6;
-  --bcc-trust-foreman-subtle: rgba(139, 107, 214, 0.10);
-
   /* Operator type badge colors */
   --bcc-type-validator:  #2c5990;
   --bcc-type-project:    #d9a400;

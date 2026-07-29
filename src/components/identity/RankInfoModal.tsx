@@ -3,8 +3,8 @@
 /**
  * RankInfoModal — the glassy explainer opened by clicking a RankChip.
  * Two axes, honestly named (see HANDOVER-frontend-card-redesign §4B):
- *   - RANK = capability (Apprentice → Journeyman → Master; Foreman is a
- *     conferred role, not a rung). The member's own rank is the focus.
+ *   - RANK = capability (Apprentice → Journeyman → Master). Master is the
+ *     top of the earned ladder. The member's own rank is the focus.
  *   - TRUST = a risk/quality band shown as the chip's colored dot
  *     (Risky → Elite). The dot is a safety signal, NOT a rarity palette.
  *
@@ -24,6 +24,7 @@ import { useEffect, useRef } from "react";
 
 import { Dialog } from "@/components/ui/Dialog";
 import { useUser } from "@/hooks/useUser";
+import { RANK_RUNGS } from "@/lib/identity/rank-ladder";
 import type { ReputationTier } from "@/lib/api/types";
 
 interface RankInfoModalProps {
@@ -56,7 +57,6 @@ const TIER_ROWS: TierRow[] = [
   { key: "risky",   label: "Risky",   color: "var(--bcc-trust-risky)",   glow: true,  pulse: true,  blurb: "Disputes or red flags — proceed carefully." },
 ];
 
-const RANK_RUNGS = ["Apprentice", "Journeyman", "Master"];
 
 // cardTierToBand REMOVED (v1.57) — the modal receives a real reputation
 // tier now, so there is nothing to translate. It existed only to recover a
@@ -119,7 +119,7 @@ export function RankInfoModal({
         )}
       </div>
 
-      {/* Rank ladder — capability + the Foreman callout. */}
+      {/* Rank ladder — the three earned rungs. */}
       <section className="flex flex-col gap-2">
         <h3 className="bcc-stencil text-[11px] tracking-[0.14em] text-[var(--bcc-text-secondary)]">
           RANK — WHAT THEY CAN DO
@@ -145,32 +145,6 @@ export function RankInfoModal({
               </div>
             );
           })}
-        </div>
-        {/* Foreman — highlighted so it doesn't read as a casual aside. */}
-        <div
-          className="flex items-start gap-2 rounded-lg px-2.5 py-2"
-          style={{
-            background: "var(--bcc-accent-subtle)",
-            border: "1px solid var(--bcc-accent)",
-          }}
-        >
-          <svg
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="var(--bcc-accent)"
-            className="mt-0.5 shrink-0"
-            aria-hidden
-          >
-            <path d="M12 2l2.6 5.3 5.9.9-4.2 4.1 1 5.8L12 21l-5.3 2.8 1-5.8-4.2-4.1 5.9-.9L12 2z" />
-          </svg>
-          <p className="text-[11px] leading-snug text-[var(--bcc-text)]">
-            <span className="bcc-stencil tracking-wide text-[var(--bcc-trust-foreman)]">
-              FOREMAN
-            </span>{" "}
-            is a conferred role — panel &amp; adjudication leadership — not a rung
-            on this ladder.
-          </p>
         </div>
       </section>
 

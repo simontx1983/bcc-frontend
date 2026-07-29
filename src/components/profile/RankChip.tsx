@@ -24,7 +24,6 @@
 "use client";
 
 import { useState } from "react";
-import { Star } from "lucide-react";
 
 import { RankInfoModal } from "@/components/identity/RankInfoModal";
 import type { ReputationTier } from "@/lib/api/types";
@@ -50,14 +49,6 @@ interface RankChipProps {
    * the component renders nothing — caller doesn't need to guard.
    */
   rankLabel: string;
-  /**
-   * Foreman is a conferred role, not a rank rung or trust tier (see
-   * docs/trust-rank redesign notes) — a permanent purple star marker +
-   * chip border layered on top of whatever rank/tier the member also
-   * carries. The star (not a plain dot) is deliberate — it needs to read
-   * as its own signal at a glance, not just another tier color.
-   */
-  isForeman?: boolean;
   /**
    * "default" — profile hero (11px text, 6px rail).
    * "compact" — directory rows / member cards (10px text, 4px rail).
@@ -122,7 +113,6 @@ export function RankChip({
   reputationTier,
   tierLabel,
   rankLabel,
-  isForeman = false,
   size = "default",
   className,
   handle,
@@ -142,8 +132,7 @@ export function RankChip({
   const dot = DOT_BY_REPUTATION_TIER[reputationTier];
 
   const baseClass = [
-    "bcc-mono inline-flex items-center rounded-full border bg-transparent text-[var(--bcc-text)] tracking-[0.18em]",
-    isForeman ? "border-[var(--bcc-trust-foreman)]" : "border-[var(--bcc-border)]",
+    "bcc-mono inline-flex items-center rounded-full border border-[var(--bcc-border)] bg-transparent text-[var(--bcc-text)] tracking-[0.18em]",
     sizeStyles.gap,
     sizeStyles.pad,
     sizeStyles.font,
@@ -169,20 +158,6 @@ export function RankChip({
         }}
       />
       {rankLabel.toUpperCase()}
-      {isForeman && (
-        <>
-          <span title="Foreman — conferred role" style={{ display: "inline-flex", flexShrink: 0 }}>
-            <Star
-              aria-hidden
-              size={sizeStyles.dot + 4}
-              fill="var(--bcc-trust-foreman)"
-              stroke="var(--bcc-trust-foreman)"
-              strokeWidth={1}
-            />
-          </span>
-          <span className="sr-only"> — Foreman, a conferred role</span>
-        </>
-      )}
     </>
   );
 
