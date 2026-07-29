@@ -3,8 +3,11 @@
 /**
  * RankInfoModal — the glassy explainer opened by clicking a RankChip.
  * Two axes, honestly named (see HANDOVER-frontend-card-redesign §4B):
- *   - RANK = capability (Apprentice → Journeyman → Master). Master is the
- *     top of the earned ladder. The member's own rank is the focus.
+ *   - RANK = tenure (Apprentice → Journeyman → Veteran). Veteran is the
+ *     top of the earned ladder. It climbs on activity and account age, so
+ *     it is NOT a capability or competence claim — renamed from "Master"
+ *     in contract v1.58 for exactly that reason. The member's own rank is
+ *     the focus.
  *   - TRUST = a risk/quality band shown as the chip's colored dot
  *     (Risky → Elite). The dot is a safety signal, NOT a rarity palette.
  *
@@ -122,7 +125,7 @@ export function RankInfoModal({
       {/* Rank ladder — the three earned rungs. */}
       <section className="flex flex-col gap-2">
         <h3 className="bcc-stencil text-[11px] tracking-[0.14em] text-[var(--bcc-text-secondary)]">
-          RANK — WHAT THEY CAN DO
+          RANK — TIME ON THE FLOOR
         </h3>
         <div className="flex flex-wrap items-center gap-1.5">
           {RANK_RUNGS.map((rung, i) => {
@@ -146,6 +149,16 @@ export function RankInfoModal({
             );
           })}
         </div>
+        {/*
+          The heading used to read "WHAT THEY CAN DO" and then name no
+          capability at all. Rank climbs on activity and account age, so it
+          is a tenure signal — saying so is what keeps it from being read as
+          a competence claim, which is the trust axis's job below.
+        */}
+        <p className="text-[11px] leading-snug text-[var(--bcc-text-secondary)]">
+          Earned by using the floor and sticking around — not a measure of
+          how good someone is. That&rsquo;s the trust tier below.
+        </p>
       </section>
 
       {/* Trust legend — horizontal carousel, current band centered. */}

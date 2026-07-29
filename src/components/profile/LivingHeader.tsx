@@ -60,7 +60,7 @@ export function LivingHeader({ living, progression, hideEmptyShiftFallback }: Li
   const todayLine = composeTodayLine(living.today, hideEmptyShiftFallback === true);
   const showProgression = progression !== undefined && progression !== null;
   // Terminal-state detection: user has no auto-promotion target ahead
-  // of them — i.e. they are at Master, the top of the earned ladder, so
+  // of them — i.e. they are at Veteran, the top of the earned ladder, so
   // there is no honest percentage to render.
   //
   // Phase γ retention pass (2026-05-13): the smoke test showed
