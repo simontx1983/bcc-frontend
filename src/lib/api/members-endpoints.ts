@@ -12,7 +12,6 @@
 
 import { bccFetchAsClient } from "@/lib/api/client";
 import type {
-  MembersRankFilter,
   MembersResponse,
   MembersTypeFilter,
   MembersVerifiedAxis,
@@ -28,13 +27,6 @@ export interface MembersQueryParams {
    * Maps to the §4.4 `type` query param. `null` means "no filter".
    */
   type?: MembersTypeFilter | null;
-  /**
-   * Restrict to users with the given EXPLICITLY-AWARDED rank
-   * (apprentice / journeyman / foreman). Auto-derived Apprentice
-   * fallbacks are NOT included — matches the server's
-   * UserRankRepository::getUserIdsWithRank docblock.
-   */
-  rank?: MembersRankFilter | null;
   /**
    * Restrict to users with all listed verifications active. AND
    * semantics — `["x", "github"]` means "X verified AND GitHub
@@ -59,9 +51,6 @@ export function getMembers(
   }
   if (params.type !== undefined && params.type !== null) {
     search.set("type", params.type);
-  }
-  if (params.rank !== undefined && params.rank !== null) {
-    search.set("rank", params.rank);
   }
   if (params.verified !== undefined && params.verified.length > 0) {
     // CSV form keeps the URL compact and matches the server-side

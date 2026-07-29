@@ -5110,13 +5110,12 @@ export interface MemberSummary {
  */
 export type MembersTypeFilter = "validator" | "project" | "nft" | "dao";
 
-/**
- * §4.4 `rank` filter — slug of an EXPLICITLY-AWARDED rank from
- * `bcc_user_ranks` (auto-derived Apprentice fallbacks are not
- * included; see UserRankRepository::getUserIdsWithRank docblock).
- * Mirror of `RankCatalog::RANK_*` slugs.
- */
-export type MembersRankFilter = "apprentice" | "journeyman" | "foreman";
+// MembersRankFilter REMOVED. The `rank` filter was retired server-side in
+// contract v1.36 along with the `bcc_user_ranks` table it queried; the
+// frontend kept sending an ignored `?rank=` param for 19 days, so all three
+// chips returned identical unfiltered lists while advertising a Foreman rank
+// nobody could hold and omitting Master, which people actually have.
+// Rank is auto-derived from the feature-access level and is not filterable.
 
 /**
  * §4.4 `verified[]` filter — one verification axis. Multi-select

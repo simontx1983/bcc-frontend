@@ -18,7 +18,6 @@ import { useQuery } from "@tanstack/react-query";
 import { getMembers } from "@/lib/api/members-endpoints";
 import type {
   BccApiError,
-  MembersRankFilter,
   MembersResponse,
   MembersTypeFilter,
   MembersVerifiedAxis,
@@ -35,9 +34,6 @@ export interface UseMembersOptions {
   /** `null` (or omitted) = no type filter. Otherwise restricts to users
    *  who own ≥1 page of the given canonical type. */
   type?: MembersTypeFilter | null;
-  /** `null` (or omitted) = no rank filter. Otherwise restricts to
-   *  users with that EXPLICITLY-AWARDED rank. */
-  rank?: MembersRankFilter | null;
   /** Verification axes to AND-filter against. Empty / undefined = no
    *  filter. The hook normalises (sort + dedupe) to keep the React
    *  Query key stable regardless of click order. */
@@ -50,7 +46,6 @@ export function useMembers(options: UseMembersOptions = {}) {
   const perPage = options.perPage ?? DEFAULT_PER_PAGE;
   const q = options.q ?? "";
   const type = options.type ?? null;
-  const rank = options.rank ?? null;
   // Sort + dedupe so the queryKey is order-independent — a user toggling
   // "GitHub" then "X" produces the same cache entry as "X" then "GitHub".
   const verified = Array.from(new Set(options.verified ?? [])).sort();
@@ -64,11 +59,10 @@ export function useMembers(options: UseMembersOptions = {}) {
       perPage,
       q,
       type,
-      rank,
       verifiedKey,
     ],
     queryFn: ({ signal }) =>
-      getMembers({ page, perPage, q, type, rank, verified }, signal),
+      getMembers({ page, perPage, q, type, verified }, signal),
     enabled,
     staleTime: 30_000,
   });

@@ -89,7 +89,7 @@ export function DemoPostCard({
             reputationTier={combo.reputationTier}
             tierLabel={combo.tierLabel}
             rankLabel={combo.rankLabel}
-            isForeman={combo.isForeman}
+            
             size="compact"
           />
         </span>
