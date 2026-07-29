@@ -10,6 +10,15 @@
  * Border color is null for the three middle bands on purpose — gold/
  * red borders stay rare and meaningful, mirroring the real feed's
  * eventual "only the extremes" rule (task 4, gated separately).
+ *
+ * `rankLabel` must always be a rung from `lib/identity/rank-ladder` — the
+ * top rung is **Veteran** (renamed from Master in contract v1.58, because
+ * level 3 tests tenure: 5 pulls + 3 votes + 30 days of account age).
+ * Captions must not imply a rank says anything about skill or
+ * trustworthiness; that is the trust axis's job. The `risky-veteran` combo
+ * is the load-bearing one — it exists to teach that the two axes are
+ * independent, and it only reads honestly because Veteran claims tenure
+ * rather than mastery. Guarded by components/identity/rank-ladder.test.ts.
  */
 
 import type { ReputationTier } from "@/lib/api/types";
@@ -29,13 +38,13 @@ export interface ReputationDemoCombo {
 
 export const REPUTATION_DEMO_COMBOS: readonly ReputationDemoCombo[] = [
   {
-    id: "proven-master",
-    rankLabel: "Master",
+    id: "proven-veteran",
+    rankLabel: "Veteran",
     reputationTier: "elite",
     tierLabel: "Elite",
     borderColor: "var(--bcc-trust-elite)",
     caption:
-      "The highest trust band on the floor. Years of consistent follow-through, backed by people who've actually worked with them — not a badge you can buy or rush.",
+      "The highest trust band on the floor — backed by people who've actually worked with them, not a badge you can buy or rush. The Veteran tag underneath is just time served; the gold is the part others had to give them.",
     stokeCount: 412,
     commentCount: 58,
     shareCount: 21,
@@ -53,13 +62,13 @@ export const REPUTATION_DEMO_COMBOS: readonly ReputationDemoCombo[] = [
     shareCount: 2,
   },
   {
-    id: "risky-master",
-    rankLabel: "Master",
+    id: "risky-veteran",
+    rankLabel: "Veteran",
     reputationTier: "risky",
     tierLabel: "Risky",
     borderColor: "var(--bcc-trust-risky)",
     caption:
-      "Rank and trust measure different things. This operator has put in the time and knows the platform inside out — but recent disputes and unresolved flags mean their trust score has slipped. Proceed carefully, regardless of experience.",
+      "Rank and trust measure different things. Rank is time and activity — this member has plenty of both. Trust is what other people say about them, and recent disputes have pulled theirs down. Long-standing is not the same as reliable.",
     stokeCount: 19,
     commentCount: 47,
     shareCount: 3,

@@ -384,13 +384,20 @@ function NextRankBlock({ progression }: { progression: MemberProgression }) {
     return (
       <div className="border border-dashed border-safety/60 bg-bcc-surface-hover p-6">
         <p className="bcc-mono text-safety">TERMINAL GRADE</p>
+        {/*
+          This used to promise "ranks beyond this come from explicit
+          recognition" — the retired conferred-Foreman premise (contract
+          v1.36). There is no rung above the top one and no conferral path.
+          Say what is true instead: the ladder ends, and standing is the
+          axis that keeps moving.
+        */}
         <p className="mt-3 font-serif text-lg text-bcc-text">
           You&rsquo;re a{" "}
           <span className="bcc-stencil">
             {progression.current_rank_label.toUpperCase()}
           </span>
-          . The auto-graded ladder tops out here — ranks beyond this
-          come from explicit recognition, not metric thresholds.
+          . That&rsquo;s the top of the ladder — it tracks time on the floor,
+          not standing. Your trust tier is the one that keeps moving.
         </p>
       </div>
     );

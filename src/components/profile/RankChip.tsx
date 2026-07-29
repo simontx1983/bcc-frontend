@@ -1,7 +1,7 @@
 /**
  * RankChip — the canonical "rank flavored by tier" identity chip.
  *
- * Renders the user's rank (`Apprentice`/`Journeyman`/`Master`) as the
+ * Renders the user's rank (`Apprentice`/`Journeyman`/`Veteran`) as the
  * single visible word on a transparent, card-like pill, preceded by a
  * small colored TRUST DOT for the §C1 reputation tier. The tier is not a
  * competing word — the dot carries it as color; the rank carries the
@@ -125,11 +125,28 @@ export function RankChip({
   }
 
   const sizeStyles = SIZE_STYLES[size];
-  // One path, no fallback: reputationTier is required, so every chip
-  // resolves a real band. The old two-branch resolution existed only to
-  // cope with view-models that shipped no reputation_tier, and its
+  // One path, no *substitute* band: reputationTier is required, so every
+  // chip resolves a real band. The old two-branch resolution existed only
+  // to cope with view-models that shipped no reputation_tier, and its
   // fallback silently rendered them — risky included — as neutral grey.
-  const dot = DOT_BY_REPUTATION_TIER[reputationTier];
+  //
+  // The lookup is nonetheless guarded, because TypeScript only polices our
+  // callers, not the wire: a tier the client doesn't know about (a server
+  // ahead of a deployed bundle) would otherwise be `undefined` here and
+  // throw on `dot.glow` below — taking out the whole feed row, not just
+  // the chip. On an unknown band we render the rank word with NO dot:
+  // showing no tier is honest, and defaulting to neutral grey is exactly
+  // the v1.57 defect (a risky member reading as safe). Never reintroduce a
+  // colored fallback here.
+  const dot: { color: string; glow: boolean } | undefined =
+    DOT_BY_REPUTATION_TIER[reputationTier];
+
+  // Both axes, same order as the chip reads. The `!== null` guards these
+  // replaced were dead — tierLabel is typed `string`, never null.
+  const tooltip =
+    dot !== undefined
+      ? `${rankLabel} rank · ${tierLabel} reputation tier`
+      : `${rankLabel} rank`;
 
   const baseClass = [
     "bcc-mono inline-flex items-center rounded-full border border-[var(--bcc-border)] bg-transparent text-[var(--bcc-text)] tracking-[0.18em]",
@@ -143,31 +160,38 @@ export function RankChip({
 
   const inner = (
     <>
-      {tierLabel !== null && (
-        <span className="sr-only">{tierLabel} reputation tier — </span>
+      {/*
+        Name BOTH axes for screen readers. The visible chip distinguishes
+        them by form — dot = tier, word = rank — which is invisible to a
+        reader; without this it announced only "<tier> reputation tier"
+        followed by a bare word, leaving the rank unlabelled. The dot is
+        aria-hidden because this text carries it.
+      */}
+      <span className="sr-only">
+        {rankLabel} rank
+        {dot !== undefined ? `, ${tierLabel} reputation tier` : ""} —{" "}
+      </span>
+      {dot !== undefined && (
+        <span
+          aria-hidden
+          style={{
+            width: sizeStyles.dot,
+            height: sizeStyles.dot,
+            borderRadius: "9999px",
+            background: dot.color,
+            flexShrink: 0,
+            boxShadow: dot.glow ? `0 0 5px ${dot.color}` : undefined,
+          }}
+        />
       )}
-      <span
-        aria-hidden
-        style={{
-          width: sizeStyles.dot,
-          height: sizeStyles.dot,
-          borderRadius: "9999px",
-          background: dot.color,
-          flexShrink: 0,
-          boxShadow: dot.glow ? `0 0 5px ${dot.color}` : undefined,
-        }}
-      />
-      {rankLabel.toUpperCase()}
+      <span aria-hidden>{rankLabel.toUpperCase()}</span>
     </>
   );
 
   // Inert display (directory rows, member cards) when no handle.
   if (handle === undefined) {
     return (
-      <span
-        className={baseClass}
-        title={tierLabel !== null ? `${tierLabel} reputation tier` : undefined}
-      >
+      <span className={baseClass} title={tooltip}>
         {inner}
       </span>
     );
@@ -191,11 +215,7 @@ export function RankChip({
         }}
         aria-haspopup="dialog"
         data-bcc-tour="rankchip.trigger"
-        title={
-          tierLabel !== null
-            ? `${tierLabel} reputation tier — what does this mean?`
-            : "Rank & trust — what does this mean?"
-        }
+        title={`${tooltip} — what does this mean?`}
         className={`${baseClass} cursor-pointer transition-colors hover:border-[var(--bcc-accent)] hover:text-[var(--bcc-accent)]`}
       >
         {inner}
