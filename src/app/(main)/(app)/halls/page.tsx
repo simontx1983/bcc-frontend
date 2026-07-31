@@ -186,6 +186,27 @@ function HallCard({ item }: { item: HallItem }) {
 
       <h2 className="bcc-stencil mt-2 text-xl text-bcc-text">{item.name}</h2>
 
+      {/*
+        Indexed chain content, shown alongside membership. A Hall with one
+        member reads as dead; "261 validators · 95 collections" reads as
+        somewhere worth opening — and that is true on day one, because the
+        on-chain indexers already populated it.
+      */}
+      {(item.validator_count > 0 || item.collection_count > 0) && (
+        <p className="bcc-mono mt-2 text-[10px] text-bcc-text-secondary">
+          {[
+            item.validator_count > 0
+              ? `${item.validator_count.toLocaleString()} validator${item.validator_count === 1 ? "" : "s"}`
+              : null,
+            item.collection_count > 0
+              ? `${item.collection_count.toLocaleString()} collection${item.collection_count === 1 ? "" : "s"}`
+              : null,
+          ]
+            .filter((part): part is string => part !== null)
+            .join(" · ")}
+        </p>
+      )}
+
       <div className="mt-3 flex items-center justify-between">
         <span className="bcc-mono text-[10px] text-bcc-text-secondary">
           {item.member_count} member{item.member_count === 1 ? "" : "s"}
