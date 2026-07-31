@@ -30,7 +30,10 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { GroupDetailShell } from "@/components/groups/GroupDetailShell";
-import { HallChainContent } from "@/components/halls/HallChainContent";
+import {
+  HallCollectionsPanel,
+  HallValidatorsPanel,
+} from "@/components/halls/HallChainContent";
 import { HallMembershipControls } from "@/components/halls/HallMembershipControls";
 import { authOptions } from "@/lib/auth";
 import { tokenFromSession } from "@/lib/api/client";
@@ -100,32 +103,46 @@ export default async function HallDetailPage({ params }: PageProps) {
         backHref="/halls"
         backLabel="Halls"
         actions={
-          <div className="flex flex-col gap-4">
-            <div className="bcc-panel flex flex-col gap-4 p-6">
-              <h2 className="bcc-stencil text-xl text-bcc-text">Your status here</h2>
-              <p className="font-serif text-bcc-text-secondary">
-                Join a Hall to vote in its stream and bias your Floor feed.
-                You can hold membership in many Halls at once; designate one as
-                your primary to show it on your card. Switch any time.
-              </p>
-              <div>
-                <HallMembershipControls
-                  groupId={hall.id}
-                  membership={hall.viewer_membership}
-                />
-              </div>
+          <div className="bcc-panel flex flex-col gap-4 p-6">
+            <h2 className="bcc-stencil text-xl text-bcc-text">Your status here</h2>
+            <p className="font-serif text-bcc-text-secondary">
+              Join a Hall to vote in its stream and bias your Floor feed.
+              You can hold membership in many Halls at once; designate one as
+              your primary to show it on your card. Switch any time.
+            </p>
+            <div>
+              <HallMembershipControls
+                groupId={hall.id}
+                membership={hall.viewer_membership}
+              />
             </div>
-
-            {/* The reason to be here before the room has anyone in it. */}
-            <HallChainContent
-              chain={hall.chain}
-              validators={hall.validators}
-              collections={hall.collections}
-              validatorCount={hall.validator_count}
-              collectionCount={hall.collection_count}
-            />
           </div>
         }
+        // Only pass a panel when there is something in it — GroupTabs
+        // hides the tab otherwise, so a chain with nothing indexed shows
+        // the usual three rather than two empty rooms.
+        {...(hall.collections.length > 0
+          ? {
+              collectionsPanel: (
+                <HallCollectionsPanel
+                  chain={hall.chain}
+                  collections={hall.collections}
+                  collectionCount={hall.collection_count}
+                />
+              ),
+            }
+          : {})}
+        {...(hall.validators.length > 0
+          ? {
+              validatorsPanel: (
+                <HallValidatorsPanel
+                  chain={hall.chain}
+                  validators={hall.validators}
+                  validatorCount={hall.validator_count}
+                />
+              ),
+            }
+          : {})}
       />
     );
   }
@@ -176,16 +193,20 @@ export default async function HallDetailPage({ params }: PageProps) {
       </section>
 
       {/*
-        The chain content does NOT depend on the group/feed read that
-        failed above, so it still renders — a degraded Hall is still worth
-        being in.
+        Degraded path: the group read failed, so there is no tab strip to
+        put these in. The chain content does NOT depend on that read, so
+        it still renders stacked — a Hall whose feed is down is still
+        worth being in. Each panel self-hides when its list is empty.
       */}
-      <section className="mx-auto mt-8 max-w-3xl px-2 sm:px-3">
-        <HallChainContent
+      <section className="mx-auto mt-8 flex max-w-3xl flex-col gap-4 px-2 sm:px-3">
+        <HallValidatorsPanel
           chain={hall.chain}
           validators={hall.validators}
-          collections={hall.collections}
           validatorCount={hall.validator_count}
+        />
+        <HallCollectionsPanel
+          chain={hall.chain}
+          collections={hall.collections}
           collectionCount={hall.collection_count}
         />
       </section>

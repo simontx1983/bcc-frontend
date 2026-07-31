@@ -1,17 +1,22 @@
 /**
- * Chain-scoped content preview for a Hall (§4.7).
+ * Chain-scoped content panels for a Hall (§4.7) — the Validators and
+ * NFT Collections tabs.
  *
- * WHY THIS EXISTS. Halls are BCC's answer to the reputation cold-start
+ * WHY THESE EXIST. Halls are BCC's answer to the reputation cold-start
  * problem: nobody arrives to "build decentralised reputation", but they
  * will arrive to see who secures a chain. A reputation graph cannot be
  * seeded — that is the product's premise — but validator and collection
  * data is ALREADY indexed, so a Hall can be worth entering with zero
- * members. Before this, every Hall rendered a chain badge, "1 member"
- * and an empty feed while 261 validators sat unshown behind it.
+ * members. Before this, every Hall showed a chain badge, "1 member" and
+ * an empty feed while 261 validators sat unshown behind it.
  *
  * Presentational only. The server ships a shaped, capped view-model
- * (6 per list, ordered by stake / holder count); this component decides
- * nothing about what qualifies — it formats and links out.
+ * (6 per list, ordered by stake / holder count); these components decide
+ * nothing about what qualifies — they format and link out.
+ *
+ * Each returns null when its list is empty, and the Hall page only passes
+ * a panel when it has rows — so a chain with nothing indexed shows three
+ * tabs rather than two empty rooms.
  */
 
 import Image from "next/image";
@@ -22,14 +27,6 @@ import type {
   HallCollectionPreview,
   HallValidatorPreview,
 } from "@/lib/api/types";
-
-interface HallChainContentProps {
-  chain: string | null;
-  validators: HallValidatorPreview[];
-  collections: HallCollectionPreview[];
-  validatorCount: number;
-  collectionCount: number;
-}
 
 /**
  * Compact stake display. `total_stake` arrives as a STRING because the
@@ -81,111 +78,144 @@ function Thumb({ src, label }: { src: string | null; label: string }) {
   );
 }
 
-function SectionHeading({ children }: { children: React.ReactNode }) {
-  return <h2 className="bcc-stencil text-xl text-bcc-text">{children}</h2>;
+function PanelHeader({
+  heading,
+  href,
+  linkLabel,
+}: {
+  heading: string;
+  href: string | null;
+  linkLabel: string;
+}) {
+  return (
+    <div className="flex items-baseline justify-between gap-3">
+      <h2 className="bcc-stencil text-xl text-bcc-text">{heading}</h2>
+      {href !== null && (
+        <Link
+          href={href as Route}
+          className="bcc-mono shrink-0 text-xs text-bcc-text-secondary hover:underline"
+        >
+          {linkLabel}
+        </Link>
+      )}
+    </div>
+  );
 }
 
-export function HallChainContent({
+export interface HallValidatorsPanelProps {
+  chain: string | null;
+  validators: HallValidatorPreview[];
+  /** Total on this chain, not the previewed count. */
+  validatorCount: number;
+}
+
+export function HallValidatorsPanel({
   chain,
   validators,
-  collections,
   validatorCount,
-  collectionCount,
-}: HallChainContentProps) {
-  // Nothing indexed for this chain (or no chain at all) — render nothing
-  // rather than an empty-state that draws attention to the absence.
-  if (validators.length === 0 && collections.length === 0) {
+}: HallValidatorsPanelProps) {
+  if (validators.length === 0) {
     return null;
   }
 
   const chainLabel = chain !== null ? chain.toUpperCase() : "THIS CHAIN";
 
   return (
-    <div className="flex flex-col gap-4">
-      {validators.length > 0 && (
-        <section className="bcc-panel flex flex-col gap-4 p-6">
-          <div className="flex items-baseline justify-between gap-3">
-            <SectionHeading>Who secures {chainLabel}</SectionHeading>
-            {chain !== null && (
-              <Link
-                href={`/validators?chain=${encodeURIComponent(chain)}` as Route}
-                className="bcc-mono shrink-0 text-xs text-bcc-text-secondary hover:underline"
-              >
-                All {validatorCount} →
-              </Link>
-            )}
-          </div>
+    <section className="bcc-panel flex flex-col gap-4 p-6">
+      <PanelHeader
+        heading={`Who secures ${chainLabel}`}
+        href={chain !== null ? `/validators?chain=${encodeURIComponent(chain)}` : null}
+        linkLabel={`All ${validatorCount.toLocaleString()} →`}
+      />
 
-          <ul className="flex flex-col gap-3">
-            {validators.map((validator) => {
-              const stake = formatStake(validator.total_stake);
-              return (
-                <li key={validator.id} className="flex items-center gap-3">
-                  <Thumb src={validator.logo_url} label={validator.moniker} />
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate font-serif text-bcc-text">
-                      {validator.moniker === "" ? "Unnamed validator" : validator.moniker}
-                    </span>
-                    <span className="bcc-mono block text-xs text-bcc-text-secondary">
-                      {[
-                        stake !== null ? `${stake} staked` : null,
-                        validator.delegator_count !== null
-                          ? `${validator.delegator_count.toLocaleString()} delegators`
-                          : null,
-                      ]
-                        .filter((part): part is string => part !== null)
-                        .join(" · ")}
-                    </span>
-                  </span>
-                  {validator.voting_power_rank !== null && (
-                    <span className="bcc-mono shrink-0 text-xs text-bcc-text-secondary">
-                      #{validator.voting_power_rank}
-                    </span>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-
-          <p className="font-serif text-sm text-bcc-text-secondary">
-            Ranked by stake, not by endorsement. Size is not the same as
-            trustworthiness — open a validator to see what people actually say.
-          </p>
-        </section>
-      )}
-
-      {collections.length > 0 && (
-        <section className="bcc-panel flex flex-col gap-4 p-6">
-          <div className="flex items-baseline justify-between gap-3">
-            <SectionHeading>Collections on {chainLabel}</SectionHeading>
-            <Link
-              href={"/cards" as Route}
-              className="bcc-mono shrink-0 text-xs text-bcc-text-secondary hover:underline"
-            >
-              All {collectionCount} →
-            </Link>
-          </div>
-
-          <ul className="flex flex-col gap-3">
-            {collections.map((collection) => (
-              <li key={collection.id} className="flex items-center gap-3">
-                <Thumb
-                  src={collection.image_url}
-                  label={collection.name ?? collection.contract_address}
-                />
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate font-serif text-bcc-text">
-                    {collection.name ?? "Unnamed collection"}
-                  </span>
-                  <span className="bcc-mono block truncate text-xs text-bcc-text-secondary">
-                    {collection.contract_address}
-                  </span>
+      <ul className="flex flex-col gap-3">
+        {validators.map((validator) => {
+          const stake = formatStake(validator.total_stake);
+          return (
+            <li key={validator.id} className="flex items-center gap-3">
+              <Thumb src={validator.logo_url} label={validator.moniker} />
+              <span className="min-w-0 flex-1">
+                <span className="block truncate font-serif text-bcc-text">
+                  {validator.moniker === "" ? "Unnamed validator" : validator.moniker}
                 </span>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-    </div>
+                <span className="bcc-mono block text-xs text-bcc-text-secondary">
+                  {[
+                    stake !== null ? `${stake} staked` : null,
+                    validator.delegator_count !== null
+                      ? `${validator.delegator_count.toLocaleString()} delegators`
+                      : null,
+                  ]
+                    .filter((part): part is string => part !== null)
+                    .join(" · ")}
+                </span>
+              </span>
+              {validator.voting_power_rank !== null && (
+                <span className="bcc-mono shrink-0 text-xs text-bcc-text-secondary">
+                  #{validator.voting_power_rank}
+                </span>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+
+      <p className="font-serif text-sm text-bcc-text-secondary">
+        Ranked by stake, not by endorsement. Size is not the same as
+        trustworthiness — open a validator to see what people actually say.
+      </p>
+    </section>
+  );
+}
+
+export interface HallCollectionsPanelProps {
+  chain: string | null;
+  collections: HallCollectionPreview[];
+  /** Total on this chain, not the previewed count. */
+  collectionCount: number;
+}
+
+export function HallCollectionsPanel({
+  chain,
+  collections,
+  collectionCount,
+}: HallCollectionsPanelProps) {
+  if (collections.length === 0) {
+    return null;
+  }
+
+  const chainLabel = chain !== null ? chain.toUpperCase() : "THIS CHAIN";
+
+  return (
+    <section className="bcc-panel flex flex-col gap-4 p-6">
+      <PanelHeader
+        heading={`Collections on ${chainLabel}`}
+        href="/cards"
+        linkLabel={`All ${collectionCount.toLocaleString()} →`}
+      />
+
+      <ul className="flex flex-col gap-3">
+        {collections.map((collection) => (
+          <li key={collection.id} className="flex items-center gap-3">
+            <Thumb
+              src={collection.image_url}
+              label={collection.name ?? collection.contract_address}
+            />
+            <span className="min-w-0 flex-1">
+              <span className="block truncate font-serif text-bcc-text">
+                {collection.name ?? "Unnamed collection"}
+              </span>
+              <span className="bcc-mono block truncate text-xs text-bcc-text-secondary">
+                {collection.contract_address}
+              </span>
+            </span>
+          </li>
+        ))}
+      </ul>
+
+      <p className="font-serif text-sm text-bcc-text-secondary">
+        Verified collections indexed on this chain. Verification means the
+        contract is confirmed — not that the project is endorsed.
+      </p>
+    </section>
   );
 }

@@ -7,10 +7,18 @@
  * orange active underline (`.bcc-tab` CSS oracle) so /u, /v, /communities
  * and /groups read as one product.
  *
- * Three tabs:
- *   Stream  — group feed (GroupFeedSection)
- *   Members — group roster (GroupMembersStrip)
- *   About   — group identity + meta (GroupAboutPanel)
+ * Tabs, in display order:
+ *   Stream          — group feed (GroupFeedSection)
+ *   About           — group identity + meta (GroupAboutPanel)
+ *   Members         — group roster (GroupMembersStrip)
+ *   NFT Collections — Halls only, optional
+ *   Validators      — Halls only, optional
+ *
+ * The last two are OPTIONAL and render only when their panel is passed.
+ * That keeps /groups and /communities on three tabs (they have no chain
+ * behind them) while a Hall gets five — and a Hall on a chain with
+ * nothing indexed correctly falls back to three rather than offering two
+ * empty rooms. Tab order is fixed here, not per-caller.
  *
  * URL-aware mode (community sub-routes):
  *   Pass `urlBase="/communities/{slug}"` and `urlSyncOn=true`. Clicking a
@@ -28,12 +36,19 @@ import { useRouter } from "next/navigation";
 import type { ReactNode } from "react";
 import type { Route } from "next";
 
-export type GroupTabKey = "stream" | "members" | "about";
+export type GroupTabKey =
+  | "stream"
+  | "about"
+  | "members"
+  | "collections"
+  | "validators";
 
 const TABS: ReadonlyArray<{ key: GroupTabKey; label: string; segment: string }> = [
-  { key: "stream",  label: "Stream",  segment: ""        },
-  { key: "members", label: "Members", segment: "members" },
-  { key: "about",   label: "About",   segment: "about"   },
+  { key: "stream",      label: "Stream",          segment: ""            },
+  { key: "about",       label: "About",           segment: "about"       },
+  { key: "members",     label: "Members",         segment: "members"     },
+  { key: "collections", label: "NFT Collections", segment: "collections" },
+  { key: "validators",  label: "Validators",      segment: "validators"  },
 ];
 
 export interface GroupTabsProps {
@@ -46,6 +61,10 @@ export interface GroupTabsProps {
   membersPanel: ReactNode;
   /** About panel — typically `<GroupAboutPanel>`. */
   aboutPanel: ReactNode;
+  /** NFT Collections panel — Halls only. Omit to hide the tab. */
+  collectionsPanel?: ReactNode;
+  /** Validators panel — Halls only. Omit to hide the tab. */
+  validatorsPanel?: ReactNode;
   /**
    * URL prefix for community sub-routes (e.g. `/communities/cosmos-hub`).
    * When set, clicking a tab pushes the canonical sub-URL. Omit on
@@ -59,10 +78,32 @@ export function GroupTabs({
   streamPanel,
   membersPanel,
   aboutPanel,
+  collectionsPanel,
+  validatorsPanel,
   urlBase,
 }: GroupTabsProps) {
   const router = useRouter();
-  const [active, setActive] = useState<GroupTabKey>(initialTab);
+
+  const panels: Record<GroupTabKey, ReactNode> = {
+    stream:      streamPanel,
+    about:       aboutPanel,
+    members:     membersPanel,
+    collections: collectionsPanel,
+    validators:  validatorsPanel,
+  };
+
+  // A tab exists only if its panel was supplied — /groups and
+  // /communities pass three and stay on three.
+  const visibleTabs = TABS.filter((tab) => panels[tab.key] !== undefined);
+
+  // Guard the mount tab: a caller could pass initialTab="validators" for a
+  // Hall whose chain has nothing indexed, which would render a tablist
+  // with nothing selected.
+  const safeInitial = visibleTabs.some((t) => t.key === initialTab)
+    ? initialTab
+    : (visibleTabs[0]?.key ?? "stream");
+
+  const [active, setActive] = useState<GroupTabKey>(safeInitial);
 
   const handleSelect = (key: GroupTabKey) => {
     setActive(key);
@@ -80,7 +121,7 @@ export function GroupTabs({
         aria-label="Group sections"
         className="-mx-4 flex items-center gap-x-1 overflow-x-auto border-b border-bcc-border px-4 sm:mx-0 sm:flex-wrap sm:px-0"
       >
-        {TABS.map((tab) => (
+        {visibleTabs.map((tab) => (
           <button
             key={tab.key}
             type="button"
@@ -103,9 +144,7 @@ export function GroupTabs({
         aria-live="polite"
         className="mt-6"
       >
-        {active === "stream"  && streamPanel}
-        {active === "members" && membersPanel}
-        {active === "about"   && aboutPanel}
+        {panels[active]}
       </div>
     </section>
   );
