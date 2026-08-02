@@ -1692,10 +1692,43 @@ export interface HallItem {
   /** Parsed from the name (e.g. "cosmos"); null when no chain keyword detected. */
   chain: string | null;
   member_count: number;
+  /**
+   * Indexed on-chain content for this Hall's chain. A Hall with one
+   * member reads as dead; "261 validators · 95 collections" reads as
+   * somewhere worth opening — and that is true on day one because the
+   * indexers already populated it. `0` when the Hall has no chain or
+   * nothing is indexed for it.
+   */
+  validator_count: number;
+  collection_count: number;
   viewer_membership: HallMembership | null;
   links: {
     self: string;
   };
+}
+
+/** One entry in a Hall's validator preview (§4.7). */
+export interface HallValidatorPreview {
+  id: number;
+  moniker: string;
+  logo_url: string | null;
+  /**
+   * String, not number — delegated stake exceeds float precision.
+   * Format for display; never do arithmetic on it client-side.
+   */
+  total_stake: string | null;
+  delegator_count: number | null;
+  uptime_30d: string | null;
+  voting_power_rank: number | null;
+  commission_rate: string | null;
+}
+
+/** One entry in a Hall's collection preview (§4.7). */
+export interface HallCollectionPreview {
+  id: number;
+  name: string | null;
+  image_url: string | null;
+  contract_address: string;
 }
 
 /**
@@ -1715,12 +1748,21 @@ export interface HallsResponse {
 }
 
 /**
- * Detail response shape — same as a directory `HallItem` so the
- * client can render either with one component. (Server alignment is
- * load-bearing per §A2; if the detail endpoint diverges, both surfaces
- * must move together.)
+ * Detail response — a SUPERSET of a directory `HallItem`: every list
+ * field, plus the chain-content previews the detail page renders above
+ * the feed. Anything typed `HallItem` still accepts a detail response,
+ * so shared renderers keep working.
+ *
+ * Both previews are capped server-side (6) and ordered by stake /
+ * holder count. They are a "worth a look" teaser, NOT a directory —
+ * link to `/validators?chain=` and `/cards` for the full lists rather
+ * than paginating here. Empty arrays (never null) when the Hall has no
+ * chain or nothing is indexed.
  */
-export type HallDetailResponse = HallItem;
+export interface HallDetailResponse extends HallItem {
+  validators: HallValidatorPreview[];
+  collections: HallCollectionPreview[];
+}
 
 /**
  * POST /me/halls/:id/primary success shape. Carries the updated

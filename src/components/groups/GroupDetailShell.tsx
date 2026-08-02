@@ -76,6 +76,13 @@ export interface GroupDetailShellProps {
    * derived from a single `links.self`. Omit to hide the Share button.
    */
   sharePath?: string;
+  /**
+   * Hall-only tab panels. Passing one adds its tab to the strip; omitting
+   * it leaves the strip at Stream / About / Members, which is what
+   * /groups and /communities want — they have no chain behind them.
+   */
+  collectionsPanel?: ReactNode;
+  validatorsPanel?: ReactNode;
 }
 
 export function GroupDetailShell({
@@ -86,6 +93,8 @@ export function GroupDetailShell({
   backHref,
   backLabel,
   sharePath,
+  collectionsPanel,
+  validatorsPanel,
 }: GroupDetailShellProps) {
   const actionCluster =
     actions !== undefined ? actions : <GroupMembershipStrip group={group} />;
@@ -182,6 +191,8 @@ export function GroupDetailShell({
           streamPanel={<GroupFeedSection group={group} />}
           membersPanel={<GroupMembersStrip group={group} />}
           aboutPanel={<GroupAboutPanel group={group} />}
+          {...(collectionsPanel !== undefined ? { collectionsPanel } : {})}
+          {...(validatorsPanel !== undefined ? { validatorsPanel } : {})}
         />
       </section>
     </main>

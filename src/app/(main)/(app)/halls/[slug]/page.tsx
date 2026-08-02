@@ -30,6 +30,10 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { GroupDetailShell } from "@/components/groups/GroupDetailShell";
+import {
+  HallCollectionsPanel,
+  HallValidatorsPanel,
+} from "@/components/halls/HallChainContent";
 import { HallMembershipControls } from "@/components/halls/HallMembershipControls";
 import { authOptions } from "@/lib/auth";
 import { tokenFromSession } from "@/lib/api/client";
@@ -114,6 +118,31 @@ export default async function HallDetailPage({ params }: PageProps) {
             </div>
           </div>
         }
+        // Only pass a panel when there is something in it — GroupTabs
+        // hides the tab otherwise, so a chain with nothing indexed shows
+        // the usual three rather than two empty rooms.
+        {...(hall.collections.length > 0
+          ? {
+              collectionsPanel: (
+                <HallCollectionsPanel
+                  chain={hall.chain}
+                  collections={hall.collections}
+                  collectionCount={hall.collection_count}
+                />
+              ),
+            }
+          : {})}
+        {...(hall.validators.length > 0
+          ? {
+              validatorsPanel: (
+                <HallValidatorsPanel
+                  chain={hall.chain}
+                  validators={hall.validators}
+                  validatorCount={hall.validator_count}
+                />
+              ),
+            }
+          : {})}
       />
     );
   }
@@ -161,6 +190,25 @@ export default async function HallDetailPage({ params }: PageProps) {
             />
           </div>
         </div>
+      </section>
+
+      {/*
+        Degraded path: the group read failed, so there is no tab strip to
+        put these in. The chain content does NOT depend on that read, so
+        it still renders stacked — a Hall whose feed is down is still
+        worth being in. Each panel self-hides when its list is empty.
+      */}
+      <section className="mx-auto mt-8 flex max-w-3xl flex-col gap-4 px-2 sm:px-3">
+        <HallValidatorsPanel
+          chain={hall.chain}
+          validators={hall.validators}
+          validatorCount={hall.validator_count}
+        />
+        <HallCollectionsPanel
+          chain={hall.chain}
+          collections={hall.collections}
+          collectionCount={hall.collection_count}
+        />
       </section>
 
       <section className="mx-auto mt-8 max-w-3xl px-2 sm:px-3">
