@@ -265,8 +265,20 @@ export function GlobalSearch({
         <div
           id={`${inputId}-listbox`}
           role="listbox"
-          className="bcc-panel absolute left-0 top-full z-30 mt-1 flex w-full min-w-[min(28rem,90vw)] flex-col gap-px overflow-hidden"
-          style={{ background: "var(--bcc-surface-hover)" }}
+          // Centered on the input (left-1/2 + -translate-x-1/2) rather than
+          // left-anchored — min-w-[28rem] can be wider than a narrow host
+          // container, and anchoring left let it overflow off to the
+          // right instead of growing symmetrically. Glassy frame (padding
+          // + blur) around the rows rather than making every row's own
+          // background translucent — a smaller, lower-risk change that
+          // still reads as frosted at the edges/gaps.
+          className="bcc-panel absolute left-1/2 top-full z-30 mt-1 flex w-full min-w-[min(28rem,90vw)] -translate-x-1/2 flex-col gap-px overflow-hidden p-1"
+          style={{
+            background: "var(--bcc-glass-bg-solid)",
+            backdropFilter: "blur(20px) saturate(160%)",
+            WebkitBackdropFilter: "blur(20px) saturate(160%)",
+            border: "1px solid var(--bcc-glass-border)",
+          }}
         >
           {showPreSearch ? (
             <PreSearchSurface
