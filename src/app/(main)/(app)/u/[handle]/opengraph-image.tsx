@@ -84,7 +84,9 @@ export default async function OpengraphImage({ params }: OgImageProps) {
       : deriveInitials(profile.display_name, profile.handle) || "??";
 
   const tierLabel = (profile.reputation_tier_label ?? "").trim();
-  const rankLabel = profile.rank_label.trim();
+  // Null since Phase 5 for New Members (and on data failure) — the rank
+  // chip simply self-hides below; the OG card never fabricates a state.
+  const rankLabel = (profile.rank_label ?? "").trim();
   const reputation = profile.reputation_score ?? profile.trust_score;
 
   // Chip order matches the pre-refactor member card: tier (accent) →

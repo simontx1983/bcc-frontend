@@ -2,7 +2,7 @@
  * LivingHeader — §O3 "the profile is alive."
  *
  * Renders the locked §2.4 LivingBlock plus, optionally, a rank-progress
- * bar from the §2.5 ProgressionBlock when one is supplied.
+ * slot from the §2.5 ProgressionBlock when one is supplied.
  *
  * What appears (left → right):
  *
@@ -12,11 +12,20 @@
  *      shift" line when nothing has happened today, AND a §O3.1
  *      comparison sub-line when the server populated one.
  *
- *   2. Rank progression — phosphor-fill bar with a "next rank" label.
- *      ONLY rendered when a `progression` prop is supplied (own-only
- *      profiles per §3.1). Server is the source of truth on the
- *      thresholds — this component computes one number: the percent
- *      width, derived from `current / required` of the leading metric.
+ *   2. Progression slot — own-only (§3.1). Branches on the Phase 5
+ *      §2.5 union:
+ *        ranked + next rung  → phosphor rank-score bar toward
+ *                              `next_threshold` (server numbers; the
+ *                              percent width is the only client math).
+ *        ranked, terminal    → rank label + quiet status caption (a
+ *                              saturated 100% bar reads as "done" and
+ *                              discourages the next action).
+ *        new_member          → compact §5.1 readiness checklist,
+ *                              neutral-imperative copy.
+ *        legacy/absent shape → the slot collapses entirely (C8 — an old
+ *                              backend's progression matches neither
+ *                              discriminant; render nothing, never
+ *                              fabricate).
  *
  * Server-supplied per §A2 — this component renders, never derives
  * scores or status. The percent number is presentation-only (CSS width)
@@ -25,22 +34,17 @@
  * Sprint 2 constitutional revision (2026-05-13): the streak column
  * (FlameMark + day counter + STREAK label + at-risk pulse) has been
  * removed. Streaks reward frequency and import behavioural-treadmill
- * psychology into a platform whose currency is durable judgment. The
- * "today" line + "Quiet shift. Floor's been still." fallback now
- * carry the room-acknowledges-the-operator signal on their own. The
- * `living.streak_days` and `living.streak_at_risk_today` fields stay
- * on the view-model (backward compatibility); the FE just stops
- * reading them. Backend cleanup of the streak computation is a
- * follow-up.
+ * psychology into a platform whose currency is durable judgment.
  */
 
-import type { MemberLiving, MemberProgression } from "@/lib/api/types";
+import type { MemberLiving, MemberProgression, MemberReadiness } from "@/lib/api/types";
 
 interface LivingHeaderProps {
   living: MemberLiving;
   /**
-   * Own-profile only. Renders the rank-progress bar in the right slot
-   * when supplied; the slot collapses when omitted (others' profiles).
+   * Own-profile only. Renders the progression slot when supplied; the
+   * slot collapses when omitted (others' profiles) or when the payload
+   * matches neither Phase 5 discriminant (old backend).
    */
   progression?: MemberProgression | undefined;
   /**
@@ -58,34 +62,37 @@ interface LivingHeaderProps {
 
 export function LivingHeader({ living, progression, hideEmptyShiftFallback }: LivingHeaderProps) {
   const todayLine = composeTodayLine(living.today, hideEmptyShiftFallback === true);
-  const showProgression = progression !== undefined && progression !== null;
-  // Terminal-state detection: user has no auto-promotion target ahead
-  // of them — i.e. they are at Veteran, the top of the earned ladder, so
-  // there is no honest percentage to render.
-  //
-  // Phase γ retention pass (2026-05-13): the smoke test showed
-  // "JOURNEYMAN · 100%" on the home FloorBriefing for new-default
-  // users, which reads as "max level reached" — discouraging the
-  // first action. When terminal, render the rank chip with a quiet
-  // status caption instead of a saturated bar.
+
+  // Phase 5 union narrowing — doubles as the old-backend guard: a
+  // legacy progression payload carries no member_state, matches neither
+  // arm, and the slot collapses.
+  const ranked =
+    progression !== undefined && progression.member_state === "ranked"
+      ? progression
+      : null;
+  const newMember =
+    progression !== undefined && progression.member_state === "new_member"
+      ? progression
+      : null;
+
+  // Terminal-state detection: no next rung ahead (top of the earned
+  // ladder) — there is no honest percentage to render.
   const terminal =
-    showProgression &&
-    progression !== undefined &&
-    (progression.next_rank === null ||
-      progression.next_rank_thresholds.length === 0);
-  const pct = showProgression && !terminal
-    ? leadingThresholdPercent(progression)
-    : 0;
-  const remainingLabel = showProgression
-    ? composeRemainingLabel(progression)
-    : null;
+    ranked !== null &&
+    (ranked.next_rank === null || ranked.next_threshold === null);
+  const pct =
+    ranked !== null && !terminal && ranked.next_threshold !== null
+      ? clampPct(ranked.rank_score, ranked.next_threshold)
+      : 0;
+
+  const hasRightSlot = ranked !== null || newMember !== null;
 
   return (
     <section
       aria-label="Member activity at a glance"
       className={
         "bcc-stage-reveal grid grid-cols-1 gap-4 " +
-        (showProgression ? "md:grid-cols-[1fr_auto] md:gap-8" : "")
+        (hasRightSlot ? "md:grid-cols-[1fr_auto] md:gap-8" : "")
       }
       style={{ ["--stagger" as string]: "120ms" }}
     >
@@ -107,48 +114,35 @@ export function LivingHeader({ living, progression, hideEmptyShiftFallback }: Li
         )}
       </div>
 
-      {/* Rank progress — phosphor bar with ribboned end-cap. Own only.
-          Terminal-state branch suppresses the progress bar entirely and
-          renders just the rank chip + status caption. Rationale: a 100%
-          bar next to a rank chip reads as "max level reached" — which
-          discourages new users from doing anything, since the cue tells
-          them they're already done. The terminal branch keeps the rank
-          visible and replaces the saturated bar with a status line
-          telling them what's next (admin-conferred, or top of ladder). */}
-      {showProgression && progression !== undefined && terminal && (
+      {/* Ranked, terminal — rank visible, no saturated bar (a 100% bar
+          reads as "max level reached" and discourages the next action). */}
+      {ranked !== null && terminal && (
         <div className="w-full sm:min-w-[260px] md:max-w-[320px]">
           <div className="bcc-mono mb-1 flex items-baseline justify-between text-bcc-text-secondary">
-            <span>
-              <span className="text-bcc-text">{progression.current_rank_label.toUpperCase()}</span>
-              {progression.next_rank_label !== null && (
-                <>
-                  <span className="mx-2 text-bcc-text-muted">→</span>
-                  <span className="text-bcc-text-secondary">{progression.next_rank_label.toUpperCase()}</span>
-                </>
-              )}
+            <span className="text-bcc-text">
+              {(ranked.rank_label ?? ranked.rank).toUpperCase()}
             </span>
           </div>
-          {/* Terminal status caption — quiet, intentional, civic. Falls
-              back to a default when the server didn't ship a remaining
-              label (defensive against contract softening). */}
           <p className="bcc-mono text-bcc-text-secondary">
-            {remainingLabel ?? (
-              progression.next_rank === null
-                ? "Top of the auto-ladder."
-                : "Auto-promotion ladder complete."
-            )}
+            Top of the earned ladder.
           </p>
         </div>
       )}
-      {showProgression && progression !== undefined && !terminal && (
+
+      {/* Ranked, next rung ahead — rank-score bar toward next_threshold. */}
+      {ranked !== null && !terminal && (
         <div className="w-full sm:min-w-[260px] md:max-w-[320px]">
           <div className="bcc-mono mb-1 flex items-baseline justify-between text-bcc-text-secondary">
             <span>
-              <span className="text-bcc-text">{progression.current_rank_label.toUpperCase()}</span>
-              {progression.next_rank_label !== null && (
+              <span className="text-bcc-text">
+                {(ranked.rank_label ?? ranked.rank).toUpperCase()}
+              </span>
+              {ranked.next_rank_label !== null && (
                 <>
                   <span className="mx-2 text-bcc-text-muted">→</span>
-                  <span className="bcc-phosphor-text">{progression.next_rank_label.toUpperCase()}</span>
+                  <span className="bcc-phosphor-text">
+                    {ranked.next_rank_label.toUpperCase()}
+                  </span>
                 </>
               )}
             </span>
@@ -175,9 +169,36 @@ export function LivingHeader({ living, progression, hideEmptyShiftFallback }: Li
               }}
             />
           </div>
-          {remainingLabel !== null && (
-            <p className="bcc-mono mt-1 text-bcc-text-secondary">{remainingLabel}</p>
-          )}
+          <p className="bcc-mono mt-1 text-bcc-text-secondary">
+            Rank score {ranked.rank_score} of {ranked.next_threshold}
+          </p>
+        </div>
+      )}
+
+      {/* New Member — compact readiness checklist (§5.1). Explicit
+          member_state only; copy is neutral-imperative per §2.7. */}
+      {newMember !== null && (
+        <div className="w-full sm:min-w-[260px] md:max-w-[320px]">
+          <div className="bcc-mono mb-1 text-bcc-text-secondary">
+            <span className="text-bcc-text">GETTING STARTED</span>
+          </div>
+          <ul className="flex flex-col gap-0.5">
+            {readinessRows(newMember.readiness).map((row) => (
+              <li key={row.label} className="bcc-mono flex items-baseline gap-2">
+                <span
+                  aria-hidden
+                  className={row.done ? "text-phosphor" : "text-bcc-text-muted"}
+                >
+                  {row.done ? "✓" : "○"}
+                </span>
+                <span
+                  className={row.done ? "text-bcc-text-secondary" : "text-bcc-text"}
+                >
+                  {row.label}
+                </span>
+              </li>
+            ))}
+          </ul>
         </div>
       )}
     </section>
@@ -224,27 +245,28 @@ function pluralize(n: number, one: string, many: string): string {
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// Progression helpers — pure presentation. The "leading threshold" is
-// the first metric in next_rank_thresholds; that's where the user is
-// closest to advancing. Percent is current / required clamped 0–100.
+// Progression helpers — pure presentation. Percent is
+// rank_score / next_threshold clamped 0–100; readiness rows map the
+// three §5.1 booleans to compact checklist lines (no timers, no
+// countdowns — the 24h confirmation detail lives on /me/progression).
 // ─────────────────────────────────────────────────────────────────────
 
-function leadingThresholdPercent(progression: MemberProgression): number {
-  const first = progression.next_rank_thresholds[0];
-  if (first === undefined || first.required <= 0) {
-    // No thresholds (top of ladder) — treat as 100%.
-    return 100;
-  }
-  const raw = (first.current / first.required) * 100;
-  return Math.max(0, Math.min(100, Math.round(raw)));
+function clampPct(current: number, target: number): number {
+  if (target <= 0) return 100;
+  return Math.max(0, Math.min(100, Math.round((current / target) * 100)));
 }
 
-function composeRemainingLabel(progression: MemberProgression): string | null {
-  const first = progression.next_rank_thresholds[0];
-  if (first === undefined) return null;
-  const remaining = Math.max(0, first.required - first.current);
-  if (remaining === 0) return "Threshold reached.";
-  return `${remaining} ${first.label.toLowerCase()} to go`;
+function readinessRows(
+  readiness: MemberReadiness,
+): Array<{ label: string; done: boolean }> {
+  return [
+    { label: "Set up your profile", done: readiness.profile_setup },
+    { label: "Verify your identity", done: readiness.verified_identity },
+    {
+      label: "Post or comment to get started",
+      done: readiness.qualifying_contribution,
+    },
+  ];
 }
 
 // FlameMark removed in Sprint 2 — the streak surface it served was

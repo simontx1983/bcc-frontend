@@ -17,6 +17,7 @@
 import { Avatar } from "@/components/identity/Avatar";
 import { AuthorVouchButton } from "@/components/identity/AuthorVouchButton";
 import { MemberFollowButton } from "@/components/identity/MemberFollowButton";
+import { NewMemberChip } from "@/components/identity/NewMemberChip";
 import { RankChip } from "@/components/profile/RankChip";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { useUser } from "@/hooks/useUser";
@@ -92,6 +93,12 @@ export function AuthorCard({
   const effectiveTierLabel: string =
     tierLabel ?? profile?.reputation_tier_label ?? "Neutral";
   const effectiveRankLabel = rankLabel !== "" ? rankLabel : profile?.rank_label ?? "";
+  // C8 chip rule: the NewMemberChip renders ONLY on the profile's
+  // explicit `new_member` state. No label + no profile (old backend,
+  // fetch pending/failed) → no chip at all — absence is never
+  // fabricated into a state.
+  const showNewMemberChip =
+    effectiveRankLabel === "" && profile?.member_state === "new_member";
   const effectiveIsOperator = isOperator === true;
 
   const bio = profile?.bio ?? "";
@@ -155,6 +162,11 @@ export function AuthorCard({
                 handle={handle}
                 {...(onOpenRankInfo !== undefined ? { onOpenRankInfo } : {})}
               />
+            </span>
+          )}
+          {showNewMemberChip && (
+            <span className="mt-1.5">
+              <NewMemberChip size="compact" />
             </span>
           )}
         </div>

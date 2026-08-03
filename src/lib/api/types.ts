@@ -138,11 +138,19 @@ export interface OnboardingCompleteResponse {
   /** Echoed back so the client can confirm what the server stored. */
   home_chain: HomeChain | null;
   /**
-   * Pre-rendered rank label (§E2 — e.g. "Apprentice", "Journeyman"). Empty
-   * string only if RankCatalog disagrees with RankService output, which
-   * shouldn't happen in V1 — treat empty as "don't render the line."
+   * The member's account state (Rank redesign Phase 5). A just-onboarded
+   * user is a New Member (`new_member`, rank_label null) — Apprentice is
+   * EARNED via the §5.2 readiness path, never granted by finishing the
+   * wizard. Optional: old backends omit it (C8 — absence means "no
+   * information", never "new member").
    */
-  rank_label: string;
+  member_state?: MemberState;
+  /**
+   * Pre-rendered rank label (§E2 — e.g. "Apprentice", "Journeyman").
+   * Null for New Members since the Phase 5 cutover (old backends sent a
+   * plain string). Null/empty → don't render the line.
+   */
+  rank_label: string | null;
 }
 
 export interface OnboardingStatus {
@@ -1102,7 +1110,8 @@ export interface SuggestedMember {
   avatar_url: string;
   reputation_tier: ReputationTier;
   reputation_tier_label: string;
-  rank_label: string;
+  /** Null for New Members (Phase 5) — omit the chip, render nothing. */
+  rank_label: string | null;
   is_in_good_standing: boolean;
   suggestion_reason: SuggestionReason | null;
 }
@@ -3266,6 +3275,51 @@ export interface WatchingSummaryResponse {
 }
 
 // ─────────────────────────────────────────────────────────────────────
+// Member state + rank catalog (§4.8 — Rank redesign Phase 5)
+//
+// Rank is EARNED: a member with a rank_state row is `ranked`; one
+// without is a `new_member` — an explicit account state, NOT an error
+// shape. C8 disambiguator: when `member_state` is ABSENT on a payload
+// (old backend, partial hydration, failure) the frontend renders
+// NOTHING rank-related — it never fabricates "New Member" from missing
+// data.
+// ─────────────────────────────────────────────────────────────────────
+
+export type MemberState = "new_member" | "ranked";
+
+/**
+ * One catalog rung from GET /bcc/v1/ranks. The server catalog is the
+ * ONLY rung source (plan invariant 33) — the frontend derives no
+ * thresholds, labels, or ladder ordering. Render `label`/`description`
+ * verbatim, order by `order`.
+ */
+export interface RankCatalogRank {
+  /** Wire slug (`apprentice` | `journeyman` | `veteran`). Opaque to the FE. */
+  key: string;
+  label: string;
+  description: string;
+  auto_assigned: boolean;
+  order: number;
+}
+
+/**
+ * Viewer block on GET /bcc/v1/ranks. All-null for anonymous viewers
+ * (distinct from a New Member, whose member_state is the explicit
+ * `new_member` string).
+ */
+export interface RankCatalogViewer {
+  member_state: MemberState | null;
+  rank: string | null;
+  rank_label: string | null;
+}
+
+/** GET /bcc/v1/ranks response — catalog + the viewer's member state. */
+export interface RankCatalogResponse {
+  ranks: RankCatalogRank[];
+  viewer: RankCatalogViewer;
+}
+
+// ─────────────────────────────────────────────────────────────────────
 // User view-model (§3.1) — GET /bcc/v1/users/:handle response.
 //
 // This is the FLAT, locked-contract shape the backend returns.
@@ -3311,21 +3365,9 @@ export interface MemberLiving {
    * shift" placeholder.
    */
   recent_impact: string | null;
-  /**
-   * §N11 progression toward next rank — visible always.
-   */
-  rank_progress: {
-    current_rank: string;
-    /**
-     * The rank key immediately after `current_rank`, or null when
-     * the user is at the top of the ladder.
-     */
-    next_rank: string | null;
-    /** 0-100 — percent toward the next rank. */
-    percent: number;
-    /** Pre-rendered remaining label e.g. "12 reviews to go". */
-    remaining_label: string;
-  };
+  // The §N11 rank-progress sub-object REMOVED (Rank redesign Phase 5).
+  // It had zero renderers on the FE and the backend no longer emits it —
+  // rank progression lives on the §2.5 progression block / GET /me/progression.
   /**
    * §O3.1 social comparison. Server pre-renders the headline; null
    * when the user is too new for a meaningful comparison or in the
@@ -3342,21 +3384,25 @@ export interface MemberLiving {
   } | null;
 }
 
-/** One §N11 quest: a one-time step that contributes to the vote-weight multiplier. */
+/**
+ * One quest: a one-time onboarding step / floor achievement (D-1: quests
+ * grant NO Rank, Trust, or voting power — the legacy `weight_bonus`
+ * field is gone from the wire and must not come back as copy either).
+ */
 export interface MemberQuestItem {
   slug: string;
   label: string;
   hint: string;
   done: boolean;
-  /** Vote-weight bonus this quest folds into the multiplier when done. */
-  weight_bonus: number;
   category: string;
 }
 
-/** §N11 quest progress: the checklist plus the earned vote-weight multiplier. */
+/**
+ * Quest progress: the checklist only. The legacy vote-weight
+ * `multiplier` is retired (D-1) — completing quests changes nothing
+ * about the member's power.
+ */
 export interface MemberQuestProgress {
-  /** Earned vote-weight multiplier (1.00–1.30) applied to the operator's votes at cast time. */
-  multiplier: number;
   completed_count: number;
   total_count: number;
   /** 0–100, `round(completed_count / total_count × 100)`. */
@@ -3365,48 +3411,117 @@ export interface MemberQuestProgress {
   items: MemberQuestItem[];
 }
 
-/** §2.5 ProgressionBlock — own profile only (omitted on others'). */
-export interface MemberProgression {
-  current_rank: string;
-  current_rank_label: string;
-  /** Null when at top of the auto-promotion ladder. */
-  next_rank: string | null;
-  next_rank_label: string | null;
-  /** Each metric: how the user is tracking toward `next_rank`. */
-  next_rank_thresholds: Array<{
-    metric: string;
-    label: string;
-    current: number;
-    required: number;
-  }>;
-  /** Most recent 5 reputation changes (sorted desc by `at`). */
-  trust_score_recent_changes: Array<{
-    delta: number;
-    reason: string;
-    /** ISO date `YYYY-MM-DD`. */
-    at: string;
-  }>;
+/**
+ * §5.1 New Member readiness — what stands between a New Member and the
+ * earned Apprentice rung. All verdicts are server-computed.
+ */
+export interface MemberReadiness {
+  profile_setup: boolean;
+  verified_identity: boolean;
+  qualifying_contribution: boolean;
   /**
-   * §N11 quest checklist + earned vote-weight multiplier. Own-only. Optional
-   * for deploy-skew tolerance (older backends omit it); the UI guards on it.
+   * UTC datetime the pending 24h Apprentice confirmation completes, or
+   * null when no confirmation is pending.
    */
-  quests?: MemberQuestProgress;
+  confirmation_due_at: string | null;
 }
 
-/** §2.6 FeatureAccessBlock — own profile only. Encodes §O5. */
-export interface MemberFeatureAccess {
-  level: number;
-  level_label: string;
-  next_level: number | null;
-  next_level_label: string | null;
-  next_level_thresholds: Array<{
-    metric: string;
-    label: string;
-    current: number;
-    required: number;
-  }>;
-  /** Each feature: {allowed, unlock_hint}. Keys are canonical contract names. */
-  features: Record<string, { allowed: boolean; unlock_hint: string | null }>;
+/** The five server-scored rank categories (§2.5). Keys are wire values. */
+export type RankCategoryKey =
+  | "contribution"
+  | "helping"
+  | "recognition"
+  | "outcomes"
+  | "time";
+
+/**
+ * §2.5 ProgressionBlock, `ranked` variant — the member holds a
+ * rank_state row. Everything here is backend-built by
+ * RankStateService::progressionFor; the frontend renders and derives
+ * NOTHING (plan invariant 33). Percent widths for bars are the only
+ * client-side arithmetic (presentation, not business logic).
+ */
+export interface MemberProgressionRanked {
+  member_state: "ranked";
+  rank: string;
+  rank_label: string | null;
+  /** Null at the top of the ladder. */
+  next_rank: string | null;
+  next_rank_label: string | null;
+  rank_score: number;
+  /** Score needed for `next_rank`; null when there is no next rung. */
+  next_threshold: number | null;
+  categories: Record<RankCategoryKey, { score: number; max: number }>;
+  diversity: {
+    contribution_types: number;
+    journeyman_required: number;
+    veteran_required: number;
+  };
+  recognizers: {
+    independent: number;
+    journeyman_required: number;
+    veteran_required: number;
+  };
+  outcomes: {
+    count: number;
+    types: number;
+    veteran_required: number;
+    veteran_types_required: number;
+  };
+  trust_windows: Record<
+    "journeyman" | "veteran",
+    { qualifying: number; required: number; window: number; min_tier: string }
+  >;
+  vesting: {
+    /** Vote-weight maturity factor in [floor, 1]. Server-computed. */
+    maturity: number;
+    days_elapsed: number;
+    span_days: number;
+  };
+  decay: { active: boolean; points: number };
+  /** Non-null only while a grace-period recovery window is open. */
+  recovery: { deadline: string } | null;
+  quests: MemberQuestProgress;
+}
+
+/** §2.5 ProgressionBlock, `new_member` variant — §5.1 readiness view. */
+export interface MemberProgressionNewMember {
+  member_state: "new_member";
+  rank: null;
+  rank_label: null;
+  readiness: MemberReadiness;
+}
+
+/**
+ * §2.5 ProgressionBlock — own profile only (omitted on others'). Same
+ * block as GET /me/progression. Discriminated on `member_state`; a
+ * runtime payload matching NEITHER discriminant is an old backend's
+ * legacy shape — treat it as absent (render nothing, never crash).
+ */
+export type MemberProgression =
+  | MemberProgressionRanked
+  | MemberProgressionNewMember;
+
+/** Why a capability class is unavailable. Branch on the code, not copy. */
+export type CapabilityReason = "new_member" | "below_neutral";
+
+/** One §2.6 capability verdict. Null reason iff allowed. */
+export interface MemberCapability {
+  allowed: boolean;
+  reason: CapabilityReason | null;
+}
+
+/**
+ * §2.6 CapabilitiesBlock — own profile only. Replaced the retired
+ * feature-access block at the Phase 5 atomic cutover. Answers "is
+ * this CLASS of write action available to the member" — target-level
+ * conditions (self-target, slot limits, fraud) still apply server-side
+ * at action time, so this is presentation gating only.
+ */
+export interface MemberCapabilities {
+  write_review: MemberCapability;
+  vouch: MemberCapability;
+  stand_behind: MemberCapability;
 }
 
 /** §2.7 UxHelpersBlock — single dual-label flag. Anonymous viewers always get true. */
@@ -3523,7 +3638,8 @@ export interface MemberPermission {
 
 /**
  * Permissions for what the viewer can do TO this user — distinct from
- * §O5 self-feature gates (those live in feature_access).
+ * the member's own action-class gates (those live in the §2.6
+ * `capabilities` block).
  */
 export interface MemberPermissions {
   can_follow: MemberPermission;
@@ -4149,7 +4265,7 @@ export type Phase4MemberProfile = MemberProfile;
 /**
  * §3.1 User view-model.
  *
- * Own-only blocks (`living`, `progression`, `feature_access`,
+ * Own-only blocks (`living`, `progression`, `capabilities`,
  * `ux_helpers`) are present when `is_self === true` and OMITTED ENTIRELY
  * (not null) on others' profiles. Optional in the type accordingly.
  *
@@ -4643,8 +4759,17 @@ export interface MemberProfile {
   reputation_tier: ReputationTier;
   reputation_tier_label: string;
 
-  rank: string;
-  rank_label: string;
+  /**
+   * Rank redesign Phase 5 — the C8 disambiguator. `ranked` → render the
+   * rank chip from `rank_label`; `new_member` → render the distinct
+   * NewMemberChip; ABSENT (old backend / data failure) → render no
+   * rank-related chip at all. Never fabricate "New Member" from absence.
+   */
+  member_state?: MemberState;
+  /** Earned rank slug. Null for New Members (Phase 5); non-null string on old backends. */
+  rank: string | null;
+  /** Pre-rendered rank label. Null for New Members (Phase 5). */
+  rank_label: string | null;
   is_in_good_standing: boolean;
   /** V1 catalogue: suspended, shadow_limited, hidden, under_review. */
   flags: string[];
@@ -4713,7 +4838,14 @@ export interface MemberProfile {
   // Own-only blocks — present iff `is_self === true`.
   living?: MemberLiving;
   progression?: MemberProgression;
-  feature_access?: MemberFeatureAccess;
+  /**
+   * §2.6 capabilities — replaced the feature-access block at the Phase 5
+   * atomic cutover. Optional-tolerant: old backends ship that legacy block
+   * instead (which the FE no longer reads); absence means "no gating
+   * info" — hide gating hints, do NOT render a denied state (the
+   * backend enforces at action time regardless).
+   */
+  capabilities?: MemberCapabilities;
   ux_helpers?: MemberUxHelpers;
   // ── Phase 4 rich-profile additions composed by MemberProfileComposer ──
   // These ship on every profile fetch (own + others) so the page can
@@ -5010,8 +5142,14 @@ export interface MemberSummary {
    */
   reputation_tier_label: string;
 
-  /** "Apprentice" / "Journeyman" / etc. — never null, falls back to "". */
-  rank_label: string;
+  /**
+   * Rank redesign Phase 5 — C8 disambiguator, same rule as
+   * `MemberProfile.member_state`. Optional: old backends omit it, and
+   * absence means "render no rank-related chip", never "new member".
+   */
+  member_state?: MemberState;
+  /** "Apprentice" / "Journeyman" / etc. — null for New Members (Phase 5). */
+  rank_label: string | null;
   is_in_good_standing: boolean;
   /** Moderation/account flags ("suspended", "fraud_review", etc.). */
   flags: string[];
@@ -5688,8 +5826,12 @@ export interface ColdStartOperator {
   reputation_tier: ReputationTier;
   /** Pre-rendered §A2 tier display ("Trusted", etc.). */
   reputation_tier_label: string;
-  /** Pre-rendered §E2 rank ("Apprentice", "Journeyman", ...). May be empty. */
-  rank_label: string;
+  /**
+   * Pre-rendered §E2 rank ("Apprentice", "Journeyman", ...). Null for
+   * New Members (Phase 5); may be empty on old backends. Either way:
+   * no chip.
+   */
+  rank_label: string | null;
   /**
    * Server-rendered past-tense action phrase. Vocabulary is locked
    * server-side to feed-kind verbs (REVIEWED, POSTED, WATCHED, VOUCHED,

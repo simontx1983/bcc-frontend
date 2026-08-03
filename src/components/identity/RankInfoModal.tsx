@@ -3,11 +3,11 @@
 /**
  * RankInfoModal — the glassy explainer opened by clicking a RankChip.
  * Two axes, honestly named (see HANDOVER-frontend-card-redesign §4B):
- *   - RANK = tenure (Apprentice → Journeyman → Veteran). Veteran is the
- *     top of the earned ladder. It climbs on activity and account age, so
- *     it is NOT a capability or competence claim — renamed from "Master"
- *     in contract v1.58 for exactly that reason. The member's own rank is
- *     the focus.
+ *   - RANK = the earned ladder (Apprentice → Journeyman → Veteran,
+ *     served by the §4.8 rank catalog). Since the Rank redesign Phase 5
+ *     it is earned through contribution — but it is still NOT the trust
+ *     axis, and a New Member simply holds no rung yet. ("Master" stays
+ *     RESERVED per contract v1.58.)
  *   - TRUST = a risk/quality band shown as the chip's colored dot
  *     (Risky → Elite). The dot is a safety signal, NOT a rarity palette.
  *
@@ -15,19 +15,24 @@
  * the member's CURRENT band sits in the middle (scroll both ways to see
  * better/worse). ~3 cards show on desktop, ~2 on mobile.
  *
- * Viewing someone else → header + ladder + legend. Viewing yourself →
- * plus your live progression, rendered verbatim from
- * `feature_access.next_level_thresholds` (§A2 — never templated from
- * slugs). The profile is fetched lazily (only while open) via the cached
- * `useUser`; if it 404s (legacy handle) the legend still renders from the
- * chip's own tier/rank.
+ * Rank redesign Phase 5: the ladder section renders from the server
+ * catalog (GET /bcc/v1/ranks via useRankCatalog) — the ONLY rung source
+ * (plan invariant 33). Loading → skeleton pills; error → the ladder
+ * section hides entirely. The modal is a public "what ranks mean"
+ * explainer; requirement detail lives on the owner's /me/progression
+ * surface only (the old feature-access threshold section is retired
+ * with the block itself).
+ *
+ * The profile is fetched lazily (only while open) via the cached
+ * `useUser`; if it 404s (legacy handle) the legend still renders from
+ * the chip's own tier/rank.
  */
 
 import { useEffect, useRef } from "react";
 
 import { Dialog } from "@/components/ui/Dialog";
+import { useRankCatalog } from "@/hooks/useRankCatalog";
 import { useUser } from "@/hooks/useUser";
-import { RANK_RUNGS } from "@/lib/identity/rank-ladder";
 import type { ReputationTier } from "@/lib/api/types";
 
 interface RankInfoModalProps {
@@ -74,16 +79,34 @@ export function RankInfoModal({
   onClose,
 }: RankInfoModalProps) {
   const { data: profile } = useUser(handle, { enabled: true });
+  const catalog = useRankCatalog();
 
   const currentTier: ReputationTier | null =
     profile?.reputation_tier ?? reputationTier;
   const isSelf = profile?.is_self ?? false;
-  const featureAccess = profile?.feature_access;
 
+  // Prefer the authoritative profile label once it lands; fall back to
+  // the chip's own label. Nullable since Phase 5 (New Members carry no
+  // rank) — normalized to "" for the comparisons below.
   const currentRank =
-    profile?.rank_label !== undefined && profile.rank_label !== ""
+    typeof profile?.rank_label === "string" && profile.rank_label !== ""
       ? profile.rank_label
       : rankLabel;
+  // The wire slug, when the profile has landed — a slug match beats a
+  // label comparison (labels are display strings the server may retune).
+  const currentRankKey =
+    typeof profile?.rank === "string" && profile.rank !== ""
+      ? profile.rank
+      : null;
+  // C8: "New member" only when the server SAYS new_member — an absent
+  // member_state (old backend / failed fetch) falls back to the neutral
+  // "Member", never to a fabricated state.
+  const headerLabel =
+    currentRank !== ""
+      ? currentRank
+      : profile?.member_state === "new_member"
+        ? "New member"
+        : "Member";
 
   // Center the current-tier card on open (scroll both directions from it).
   const scrollerRef = useRef<HTMLDivElement>(null);
@@ -113,7 +136,7 @@ export function RankInfoModal({
           {isSelf ? "YOUR STANDING" : "THIS MEMBER"}
         </span>
         <span className="bcc-stencil text-[22px] leading-none text-[var(--bcc-text)]">
-          {currentRank !== "" ? currentRank : "Member"}
+          {headerLabel}
         </span>
         {tierLabel !== null && (
           <span className="bcc-mono text-[11px] text-[var(--bcc-text-secondary)]">
@@ -122,44 +145,75 @@ export function RankInfoModal({
         )}
       </div>
 
-      {/* Rank ladder — the three earned rungs. */}
-      <section className="flex flex-col gap-2">
-        <h3 className="bcc-stencil text-[11px] tracking-[0.14em] text-[var(--bcc-text-secondary)]">
-          RANK — TIME ON THE FLOOR
-        </h3>
-        <div className="flex flex-wrap items-center gap-1.5">
-          {RANK_RUNGS.map((rung, i) => {
-            const active = rung.toLowerCase() === currentRank.toLowerCase();
-            return (
-              <div key={rung} className="flex items-center gap-1.5">
+      {/* Rank ladder — served by the rank catalog (§4.8), the only rung
+          source. Loading → skeleton pills; error → the whole section
+          hides (an explainer with no honest data explains nothing). */}
+      {(catalog.isLoading || catalog.data !== undefined) && (
+        <section className="flex flex-col gap-2">
+          <h3 className="bcc-stencil text-[11px] tracking-[0.14em] text-[var(--bcc-text-secondary)]">
+            RANK — EARNED ON THE FLOOR
+          </h3>
+          {catalog.isLoading && (
+            <div className="flex flex-wrap items-center gap-1.5" aria-hidden>
+              {[0, 1, 2].map((i) => (
                 <span
-                  className="bcc-mono rounded-full px-2.5 py-1 text-[10px] tracking-[0.12em]"
-                  style={{
-                    color: active ? "var(--bcc-accent)" : "var(--bcc-text-secondary)",
-                    background: active ? "var(--bcc-accent-subtle)" : "var(--bcc-surface-active)",
-                    border: active ? "1px solid var(--bcc-accent)" : "1px solid transparent",
-                  }}
-                >
-                  {rung.toUpperCase()}
-                </span>
-                {i < RANK_RUNGS.length - 1 && (
-                  <span className="text-[var(--bcc-text-muted)]">→</span>
-                )}
+                  key={i}
+                  className="h-[26px] w-[92px] animate-pulse rounded-full bg-[var(--bcc-surface-active)]"
+                />
+              ))}
+            </div>
+          )}
+          {catalog.data !== undefined && (
+            <>
+              <div className="flex flex-wrap items-center gap-1.5">
+                {catalog.data.ranks.map((rung, i) => {
+                  const active =
+                    currentRankKey !== null
+                      ? rung.key === currentRankKey
+                      : currentRank !== "" &&
+                        rung.label.toLowerCase() === currentRank.toLowerCase();
+                  return (
+                    <div key={rung.key} className="flex items-center gap-1.5">
+                      <span
+                        className="bcc-mono rounded-full px-2.5 py-1 text-[10px] tracking-[0.12em]"
+                        style={{
+                          color: active ? "var(--bcc-accent)" : "var(--bcc-text-secondary)",
+                          background: active ? "var(--bcc-accent-subtle)" : "var(--bcc-surface-active)",
+                          border: active ? "1px solid var(--bcc-accent)" : "1px solid transparent",
+                        }}
+                      >
+                        {rung.label.toUpperCase()}
+                      </span>
+                      {i < catalog.data.ranks.length - 1 && (
+                        <span className="text-[var(--bcc-text-muted)]">→</span>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
-            );
-          })}
-        </div>
-        {/*
-          The heading used to read "WHAT THEY CAN DO" and then name no
-          capability at all. Rank climbs on activity and account age, so it
-          is a tenure signal — saying so is what keeps it from being read as
-          a competence claim, which is the trust axis's job below.
-        */}
-        <p className="text-[11px] leading-snug text-[var(--bcc-text-secondary)]">
-          Earned by using the floor and sticking around — not a measure of
-          how good someone is. That&rsquo;s the trust tier below.
-        </p>
-      </section>
+              {/* Server-owned descriptions, verbatim per §A2 — the modal
+                  explains the ladder; it never invents requirement copy. */}
+              <ul className="flex flex-col gap-1">
+                {catalog.data.ranks.map((rung) => (
+                  <li
+                    key={rung.key}
+                    className="text-[11px] leading-snug text-[var(--bcc-text-secondary)]"
+                  >
+                    <span className="bcc-mono tracking-[0.1em] text-[var(--bcc-text)]">
+                      {rung.label.toUpperCase()}
+                    </span>{" "}
+                    — {rung.description}
+                  </li>
+                ))}
+              </ul>
+              <p className="text-[11px] leading-snug text-[var(--bcc-text-secondary)]">
+                Ranks are earned on the floor — not a measure of how far to
+                trust someone. That&rsquo;s the trust tier below.
+              </p>
+            </>
+          )}
+        </section>
+      )}
 
       {/* Trust legend — horizontal carousel, current band centered. */}
       <section className="flex flex-col gap-2">
@@ -234,40 +288,10 @@ export function RankInfoModal({
         </div>
       </section>
 
-      {/* Self progression — own profile only, verbatim from the contract. */}
-      {isSelf && featureAccess !== undefined && featureAccess.next_level_thresholds.length > 0 && (
-        <section className="flex flex-col gap-2 border-t border-[var(--bcc-border)] pt-4">
-          <h3 className="bcc-stencil text-[11px] tracking-[0.14em] text-[var(--bcc-text-secondary)]">
-            {featureAccess.next_level_label !== null
-              ? `TO REACH ${featureAccess.next_level_label.toUpperCase()}`
-              : "YOUR PROGRESS"}
-          </h3>
-          <ul className="flex flex-col gap-2.5">
-            {featureAccess.next_level_thresholds.map((t) => {
-              const pct =
-                t.required > 0
-                  ? Math.min(100, Math.round((t.current / t.required) * 100))
-                  : 100;
-              return (
-                <li key={t.metric} className="flex flex-col gap-1">
-                  <div className="flex items-baseline justify-between gap-2">
-                    <span className="text-[12px] text-[var(--bcc-text)]">{t.label}</span>
-                    <span className="bcc-mono text-[11px] text-[var(--bcc-text-secondary)]">
-                      {t.current}/{t.required}
-                    </span>
-                  </div>
-                  <div className="h-1.5 w-full overflow-hidden rounded-full bg-[var(--bcc-surface-active)]">
-                    <div
-                      className="h-full rounded-full"
-                      style={{ width: `${pct}%`, background: "var(--bcc-accent)" }}
-                    />
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        </section>
-      )}
+      {/* The old feature-access "TO REACH <LEVEL>" threshold section is
+          retired with the block itself (Phase 5). Requirement detail is
+          an owner-only concern and lives on /me/progression — this
+          modal stays a public explainer. */}
     </Dialog>
   );
 }

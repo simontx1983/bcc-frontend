@@ -303,7 +303,10 @@ function OperatorRow({ op }: { op: ColdStartOperator }) {
             {op.recent_action}
           </span>
         </div>
-        {op.rank_label !== "" && (
+        {/* Null (Phase 5 New Member / no data) or "" → no chip. This
+            surface ships no member_state, so absence of a label renders
+            nothing — never a fabricated state. */}
+        {typeof op.rank_label === "string" && op.rank_label !== "" && (
           <RankChip
             reputationTier={op.reputation_tier}
             tierLabel={op.reputation_tier_label}
