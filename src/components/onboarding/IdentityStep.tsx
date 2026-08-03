@@ -15,6 +15,7 @@ import Image from "next/image";
 import { useRef, useState } from "react";
 
 import { LandingReveal } from "@/components/landing/LandingReveal";
+import { isPeepSoPlaceholder } from "@/components/identity/Avatar";
 import {
   useDeleteAvatar,
   useUpdateBio,
@@ -22,6 +23,7 @@ import {
   useUploadCover,
 } from "@/hooks/useUpdateProfile";
 import { BccApiError, type MemberProfile } from "@/lib/api/types";
+import { deriveInitials } from "@/lib/format/initials";
 import { isWpMediaUrl } from "@/lib/media";
 
 const AVATAR_MAX_BYTES = 2 * 1024 * 1024;
@@ -60,11 +62,9 @@ export function IdentityStep({
   const [current, setCurrent] = useState<MemberProfile>(profile);
   const [bio, setBio] = useState(profile.bio);
   const [error, setError] = useState<string | null>(null);
-  // A brand-new account already has a DEFAULT PeepSo avatar URL, so
-  // `avatar_url !== ""` is true from the start — we can't tell a default
-  // apart from a real upload on the client. So "Remove" is gated on an
-  // in-session change instead: it only appears once the user has actually
-  // uploaded their own avatar here.
+  // "Remove" only appears once the user has actually uploaded their own
+  // avatar this session — a fresh account's default PeepSo placeholder
+  // isn't something to offer "removing".
   const [avatarChanged, setAvatarChanged] = useState(false);
 
   const avatarInputRef = useRef<HTMLInputElement | null>(null);
@@ -93,7 +93,7 @@ export function IdentityStep({
     uploadCover.isPending ||
     updateBio.isPending;
 
-  const hasAvatar = current.avatar_url !== "";
+  const hasAvatar = current.avatar_url !== "" && !isPeepSoPlaceholder(current.avatar_url);
   const hasCover = current.cover_photo_url !== null && current.cover_photo_url !== "";
 
   function pick(
@@ -185,7 +185,7 @@ export function IdentityStep({
             <img src={current.avatar_url} alt="Your avatar" />
           ) : (
             <span className="bcc-onb-id-avatar-empty">
-              {(current.display_name[0] ?? "?").toUpperCase()}
+              {deriveInitials(current.display_name, current.handle) || "?"}
             </span>
           )}
         </div>

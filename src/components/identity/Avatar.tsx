@@ -116,7 +116,10 @@ const PEEPSO_PLACEHOLDER_MARKERS = [
   "/assets/images/avatar/user-",
 ];
 
-function isPeepSoPlaceholder(url: string): boolean {
+/** Exported so callers that render an avatar outside this component (e.g. a
+ * fixed-size onboarding slot that can't use Avatar's own size table) can
+ * still apply the same "is this actually a photo?" check. */
+export function isPeepSoPlaceholder(url: string): boolean {
   return PEEPSO_PLACEHOLDER_MARKERS.some((marker) => url.includes(marker));
 }
 
