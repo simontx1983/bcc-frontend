@@ -73,10 +73,18 @@ export function LeftSidebar({ collapsed, onToggle }: LeftSidebarProps) {
                 aria-current={isActive ? "page" : undefined}
                 title={collapsed ? item.label : undefined}
                 style={collapsed ? iconOnlyItem : undefined}
-                data-bcc-tour={item.href === "/watching" ? "nav.watching" : undefined}
               >
-                <span className="bcc-nav-item-icon">{item.icon}</span>
-                {!collapsed && item.label}
+                {/* The tour target sits on this inner span, not the Link
+                    itself — .bcc-nav-item is a full-width flex row, so a
+                    selector on the Link spotlighted the whole row width
+                    instead of hugging the icon+label content. */}
+                <span
+                  data-bcc-tour={item.href === "/watching" ? "nav.watching" : undefined}
+                  style={{ display: "inline-flex", alignItems: "center", gap: 12 }}
+                >
+                  <span className="bcc-nav-item-icon">{item.icon}</span>
+                  {!collapsed && item.label}
+                </span>
               </Link>
             );
           })}

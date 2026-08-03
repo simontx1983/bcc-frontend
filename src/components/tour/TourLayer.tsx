@@ -33,6 +33,20 @@ const TARGET_RETRY_MS = 120;
 const TARGET_GIVE_UP_MS = 1600;
 const POPOVER_GAP = 14;
 const VIEWPORT_MARGIN = 12;
+// The ring's box-shadow (globals.css .bcc-tour-ring) has two hard-edged
+// layers (2px solid + 6px solid) plus a soft 22px-blur glow on top.
+// Nothing clips overflow (portalled to <body>, no overflow:hidden
+// ancestor), so a target near a screen edge silently pushed the ring
+// off-screen — that was the original clipping bug. But clamping far
+// enough to keep the ENTIRE soft blur on-screen (~26px) shrinks/warps
+// the rect for anything remotely close to an edge (e.g. a full-width
+// feed card), so the ring stops hugging the target's real border —
+// reads as "wrong" even though nothing is clipped anymore. Only the
+// two hard-edged layers actually read as a clipped "line" if cut; the
+// soft blur fading out past the edge is imperceptible, same as it
+// fading to transparent anywhere else. So the margin only needs to
+// cover the hard layers (2 + 6px), not the full glow.
+const SPOTLIGHT_VIEWPORT_MARGIN = 8;
 
 // An element that owns keyboard activation of its own (native buttons/links/
 // form fields, or anything wearing an interactive ARIA role). When Enter is
@@ -104,9 +118,10 @@ function TourLayerInner({ reduced }: { reduced: boolean }) {
   // Locate + track the target. Retries briefly for a late-mounting target;
   // auto-advances if it never appears.
   useEffect(() => {
+    stepDef?.beforeEnter?.();
     if (stepDef?.center === true || stepDef?.target === undefined) {
       setRect(null);
-      return undefined;
+      return () => stepDef?.afterLeave?.();
     }
     const selector = stepDef.target;
     let observer: ResizeObserver | null = null;
@@ -143,12 +158,19 @@ function TourLayerInner({ reduced }: { reduced: boolean }) {
     };
     window.addEventListener("scroll", onReflow, { passive: true, capture: true });
     window.addEventListener("resize", onReflow, { passive: true });
+    // A target can be found mid-slide (e.g. an offcanvas panel opened by
+    // beforeEnter transitioning in via `transform`) — ResizeObserver only
+    // fires on size change, not transform, so without this the ring can
+    // freeze at the mid-transition position instead of settling with it.
+    window.addEventListener("transitionend", onReflow, { passive: true, capture: true });
 
     return () => {
       if (retry !== undefined) window.clearTimeout(retry);
       if (observer !== null) observer.disconnect();
       window.removeEventListener("scroll", onReflow, { capture: true } as EventListenerOptions);
       window.removeEventListener("resize", onReflow);
+      window.removeEventListener("transitionend", onReflow, { capture: true } as EventListenerOptions);
+      stepDef?.afterLeave?.();
     };
     // Re-runs only when the step's target changes (per-step remount via key
     // resets targetMissing). isCenter/next intentionally excluded to avoid
@@ -272,6 +294,15 @@ function TourLayerInner({ reduced }: { reduced: boolean }) {
 
   const spotlightPad = padding;
   const holeRadius = 10;
+  const spotlightRect =
+    rect === null
+      ? null
+      : clampSpotlightRect(
+          rect.left - spotlightPad,
+          rect.top - spotlightPad,
+          rect.width + spotlightPad * 2,
+          rect.height + spotlightPad * 2,
+        );
 
   return (
     <div
@@ -282,7 +313,7 @@ function TourLayerInner({ reduced }: { reduced: boolean }) {
       style={reduced ? { transition: "none" } : undefined}
     >
       {/* Backdrop + spotlight. Center steps get a plain dim. */}
-      {isCenter || rect === null ? (
+      {isCenter || rect === null || spotlightRect === null ? (
         <div className="bcc-tour-scrim" onClick={handleSkip} />
       ) : (
         <>
@@ -291,10 +322,10 @@ function TourLayerInner({ reduced }: { reduced: boolean }) {
               <mask id="bcc-tour-hole">
                 <rect x="0" y="0" width="100%" height="100%" fill="white" />
                 <rect
-                  x={rect.left - spotlightPad}
-                  y={rect.top - spotlightPad}
-                  width={rect.width + spotlightPad * 2}
-                  height={rect.height + spotlightPad * 2}
+                  x={spotlightRect.left}
+                  y={spotlightRect.top}
+                  width={spotlightRect.width}
+                  height={spotlightRect.height}
                   rx={holeRadius}
                   fill="black"
                 />
@@ -306,10 +337,10 @@ function TourLayerInner({ reduced }: { reduced: boolean }) {
             aria-hidden
             className="bcc-tour-ring"
             style={{
-              top: rect.top - spotlightPad,
-              left: rect.left - spotlightPad,
-              width: rect.width + spotlightPad * 2,
-              height: rect.height + spotlightPad * 2,
+              top: spotlightRect.top,
+              left: spotlightRect.left,
+              width: spotlightRect.width,
+              height: spotlightRect.height,
               borderRadius: holeRadius,
             }}
           />
@@ -358,8 +389,36 @@ function TourLayerInner({ reduced }: { reduced: boolean }) {
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// Placement — pick a side with room, then clamp into the viewport.
+// Spotlight — clamp the highlight box (and its glow) into the viewport.
 // ─────────────────────────────────────────────────────────────────────
+
+// Shrinks/shifts the padded target rect so it (plus SPOTLIGHT_VIEWPORT_MARGIN
+// of breathing room for the ring's glow) never crosses a viewport edge —
+// the case that clips a side border off-screen when the target sits near
+// the left/right/top/bottom edge (e.g. an offcanvas row on a narrow phone).
+function clampSpotlightRect(x: number, y: number, w: number, h: number): Rect {
+  const vw = typeof window !== "undefined" ? window.innerWidth : 1024;
+  const vh = typeof window !== "undefined" ? window.innerHeight : 768;
+  const margin = SPOTLIGHT_VIEWPORT_MARGIN;
+
+  let left = x;
+  let top = y;
+  let width = w;
+  let height = h;
+
+  if (left < margin) {
+    width -= margin - left;
+    left = margin;
+  }
+  if (top < margin) {
+    height -= margin - top;
+    top = margin;
+  }
+  if (left + width > vw - margin) width = vw - margin - left;
+  if (top + height > vh - margin) height = vh - margin - top;
+
+  return { left, top, width: Math.max(width, 0), height: Math.max(height, 0) };
+}
 
 function computePopoverPosition(
   rect: Rect | null,
