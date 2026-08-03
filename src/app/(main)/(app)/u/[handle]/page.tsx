@@ -6,7 +6,7 @@
  * returns the FLAT shape: identity (handle, display_name, avatar,
  * joined_at, reputation_tier_label, rank_label, is_in_good_standing, flags), bio
  * as plain string, halls/wallets, counts, plus the own-only blocks
- * (living, progression, feature_access, ux_helpers) when is_self.
+ * (living, progression, capabilities, ux_helpers) when is_self.
  *
  * Auth: a null token is fine — the server returns a public view-model
  * for anonymous reads. When a session exists we forward the bearer so
@@ -36,6 +36,7 @@ import type { Route } from "next";
 import { notFound } from "next/navigation";
 
 import { CardFactory } from "@/components/cards/CardFactory";
+import { NewMemberChip } from "@/components/identity/NewMemberChip";
 import { BioBox } from "@/components/layout/BioBox";
 import { PageHero } from "@/components/layout/PageHero";
 import { AttestationActionCluster } from "@/components/profile/AttestationActionCluster";
@@ -329,14 +330,22 @@ export default async function MemberProfilePage({ params }: PageProps) {
                         GOOD STANDING
                       </span>
                     )}
-                    {profile.rank_label !== "" && (
-                      <span
-                        className="bcc-mono border border-bcc-border px-2 py-1 text-bcc-text"
-                        style={{ fontSize: "10px", letterSpacing: "0.18em" }}
-                      >
-                        {profile.rank_label.toUpperCase()}
-                      </span>
-                    )}
+                    {/* C8 chip rule (Rank redesign Phase 5): "ranked" +
+                        label → rank chip; explicit "new_member" → the
+                        distinct NewMemberChip; member_state ABSENT (old
+                        backend / data failure) → NOTHING. Absence is
+                        never fabricated into a state. */}
+                    {profile.member_state === "ranked" &&
+                      typeof profile.rank_label === "string" &&
+                      profile.rank_label !== "" && (
+                        <span
+                          className="bcc-mono border border-bcc-border px-2 py-1 text-bcc-text"
+                          style={{ fontSize: "10px", letterSpacing: "0.18em" }}
+                        >
+                          {profile.rank_label.toUpperCase()}
+                        </span>
+                      )}
+                    {profile.member_state === "new_member" && <NewMemberChip />}
                   </div>
                 </div>
               </div>

@@ -194,11 +194,14 @@ export function DopamineStep({
             You&apos;re on the Floor.
           </p>
           {/* Rank label is server-rendered (§A2) — completion response
-              echoes the user's current rank. Empty string = suppress
-              the segment (server didn't have one to send). */}
+              echoes the user's current rank. Null (Phase 5: a fresh
+              signup is a New Member with no rank yet) or empty →
+              suppress the segment; never fabricate a rank word. */}
           <p className="bcc-onb-note" style={{ marginTop: "12px" }}>
             +{pulledCards.length} card{pulledCards.length === 1 ? "" : "s"}
-            {save.status === "saved" && save.data.rank_label !== "" && (
+            {save.status === "saved" &&
+              typeof save.data.rank_label === "string" &&
+              save.data.rank_label !== "" && (
               <>
                 {" · "}{save.data.rank_label} rank
               </>

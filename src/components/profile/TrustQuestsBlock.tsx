@@ -1,12 +1,19 @@
 /**
- * TrustQuestsBlock — the §N11 quest checklist and the vote-weight multiplier
- * it earns, shown as FILE 06 on /me/progression (via StandingFileBody).
+ * TrustQuestsBlock — the quest checklist, shown as its own FILE section
+ * on /me/progression (via StandingFileBody).
+ *
+ * D-1 (Rank redesign): quests are onboarding guidance / floor
+ * achievements and grant NO Rank, Trust, or voting power. The legacy
+ * vote-weight multiplier and per-quest weight bonuses are gone from the
+ * wire and from this surface — never reintroduce "boosts your vote
+ * weight" copy here.
  *
  * All values are server-rendered; this component only formats and never
- * derives trust. Copy is descriptive per §2.7 — no prescriptive "complete
- * these" nudge. Per-quest actions (e.g. Share on X) are injected by the parent
- * through `renderAction` so this stays a pure, dependency-light presentational
- * component (kept in its own file so its test doesn't drag in the API layer).
+ * derives trust. Copy is descriptive per §2.7 — no prescriptive
+ * "complete these" nudge. Per-quest actions (e.g. Share on X) are
+ * injected by the parent through `renderAction` so this stays a pure,
+ * dependency-light presentational component (kept in its own file so
+ * its test doesn't drag in the API layer).
  */
 
 import type { MemberQuestItem, MemberQuestProgress } from "@/lib/api/types";
@@ -24,26 +31,23 @@ export function TrustQuestsBlock({
   return (
     <div className="flex flex-col gap-6">
       <p className="font-serif text-base leading-relaxed text-bcc-text-secondary max-w-prose">
-        Each of these one-time steps folds a little weight into your votes.
-        Finished steps are already counted in the multiplier below — the rest
-        are here whenever you get to them.
+        One-time steps for learning your way around the floor. They
+        don&rsquo;t move your rank or your trust tier — finished ones
+        stay on the books, the rest are here whenever you get to them.
       </p>
 
       <div className="bcc-panel flex flex-col gap-4 p-5">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div className="flex flex-col">
             <span className="bcc-mono text-[10px] tracking-[0.2em] text-bcc-text-secondary">
-              YOUR VOTE MULTIPLIER
+              STEPS COMPLETE
             </span>
             <span className="bcc-stencil text-4xl leading-none text-bcc-text">
-              {quests.multiplier.toFixed(2)}×
+              {quests.completed_count}
+              <span className="text-bcc-text-muted">/</span>
+              {quests.total_count}
             </span>
           </div>
-          <span className="bcc-mono text-bcc-text-secondary">
-            <span className="text-bcc-text">{quests.completed_count}</span>
-            <span className="mx-1 text-bcc-text-muted">/</span>
-            {quests.total_count} steps folded in
-          </span>
         </div>
         <div className="relative h-3 border border-cardstock/25 bg-concrete-hi">
           <div
@@ -82,14 +86,6 @@ export function TrustQuestsBlock({
               </span>
             </span>
             <span className="flex flex-col items-end gap-1">
-              <span
-                className={
-                  "bcc-mono whitespace-nowrap " +
-                  (quest.done ? "text-phosphor" : "text-bcc-text-secondary")
-                }
-              >
-                +{quest.weight_bonus.toFixed(2)}×
-              </span>
               {!quest.done && renderAction?.(quest)}
             </span>
           </li>

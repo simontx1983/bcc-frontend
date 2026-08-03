@@ -11,14 +11,16 @@
  * red borders stay rare and meaningful, mirroring the real feed's
  * eventual "only the extremes" rule (task 4, gated separately).
  *
- * `rankLabel` must always be a rung from `lib/identity/rank-ladder` — the
- * top rung is **Veteran** (renamed from Master in contract v1.58, because
- * level 3 tests tenure: 5 pulls + 3 votes + 30 days of account age).
- * Captions must not imply a rank says anything about skill or
- * trustworthiness; that is the trust axis's job. The `risky-veteran` combo
- * is the load-bearing one — it exists to teach that the two axes are
- * independent, and it only reads honestly because Veteran claims tenure
- * rather than mastery. Guarded by components/identity/rank-ladder.test.ts.
+ * `rankLabel` must always be a label the server catalog can emit
+ * (GET /bcc/v1/ranks — Apprentice / Journeyman / Veteran; the old
+ * client-side rung-list constant was deleted with the Rank redesign
+ * Phase 5, and the server catalog is the only rung source).
+ * The top rung is **Veteran**; "Master" stays RESERVED per contract
+ * v1.58 and "Foreman" stays retired per v1.36 — neither may reappear in
+ * demo fixtures. Captions must not imply a rank says anything about
+ * skill or trustworthiness; that is the trust axis's job. The
+ * `risky-veteran` combo is the load-bearing one — it exists to teach
+ * that the two axes are independent.
  */
 
 import type { ReputationTier } from "@/lib/api/types";

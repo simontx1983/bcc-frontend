@@ -268,7 +268,7 @@ function SuggestedWidget() {
                 displayName={member.display_name}
                 size="md"
                 reputationTier={member.reputation_tier}
-                rankLabel={member.rank_label}
+                rankLabel={member.rank_label ?? ""}
                 tierLabel={member.reputation_tier_label ?? "Neutral"}
                 vouchTargetId={member.id}
                 ringColor="var(--bcc-accent)"
