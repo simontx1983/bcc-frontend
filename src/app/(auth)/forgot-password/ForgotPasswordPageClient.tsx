@@ -1,0 +1,107 @@
+"use client";
+
+/**
+ * Forgot password page.
+ *
+ * Submits the email to /wp-json/bcc/v1/auth/forgot-password. The
+ * backend always responds ok=true regardless of whether the email
+ * matches an account (anti-enumeration); only real matches actually
+ * dispatch a reset email. UI shows the same "check your inbox"
+ * confirmation either way.
+ *
+ * Errors a caller can see:
+ *   - bcc_rate_limited → "Too many requests, try again later"
+ *   - network failure  → "Something went wrong, try again"
+ *
+ * An already-authenticated visitor never reaches this component — page.tsx
+ * (the server wrapper) redirects to / first.
+ */
+
+import { CheckCircle2 } from "lucide-react";
+import Link from "next/link";
+import { type FormEvent, useState } from "react";
+
+import { AuthCard } from "@/components/auth/AuthCard";
+import { requestPasswordReset } from "@/lib/api/auth-endpoints";
+import { BccApiError } from "@/lib/api/types";
+
+export function ForgotPasswordPageClient() {
+  const [email, setEmail] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [sent, setSent] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError(null);
+    setSubmitting(true);
+
+    try {
+      await requestPasswordReset(email);
+      setSent(true);
+    } catch (err) {
+      if (err instanceof BccApiError && err.code === "bcc_rate_limited") {
+        setError("Too many password-reset requests. Try again later.");
+      } else {
+        setError("Something went wrong. Please try again.");
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <AuthCard
+      heading="Reset password"
+      {...(!sent && { subheading: "Enter your email and we'll send you a reset link." })}
+      footer={
+        <Link href="/login">Back to sign in</Link>
+      }
+    >
+      {sent ? (
+        /* ── Success state ── */
+        <div className="bcc-auth-success">
+          <div className="bcc-auth-success-icon">
+            <CheckCircle2 size={20} strokeWidth={2.2} aria-hidden />
+          </div>
+          <p className="bcc-auth-success-title">Check your inbox</p>
+          <p className="bcc-auth-success-body">
+            If an account exists for <strong>{email}</strong>, you&apos;ll receive a password reset link shortly.
+          </p>
+        </div>
+      ) : (
+        /* ── Form state ── */
+        <form
+          onSubmit={(e) => { void handleSubmit(e); }}
+          style={{ display: "flex", flexDirection: "column", gap: "12px" }}
+        >
+          <div className="bcc-auth-field">
+            <label className="bcc-auth-label" htmlFor="email">Email address</label>
+            <input
+              id="email"
+              type="email"
+              required
+              autoComplete="email"
+              placeholder="you@example.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="bcc-auth-input"
+            />
+          </div>
+
+          {error !== null && (
+            <p role="alert" className="bcc-auth-error">{error}</p>
+          )}
+
+          <button
+            type="submit"
+            disabled={submitting}
+            className="bcc-auth-submit"
+          >
+            {submitting ? "Sending…" : "Send reset link"}
+          </button>
+        </form>
+      )}
+    </AuthCard>
+  );
+}
