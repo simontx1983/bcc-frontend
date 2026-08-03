@@ -12,24 +12,32 @@ import { MoreHorizontal } from "lucide-react";
 
 import { canReportFeedItem, ReportModal, resolveTargetId } from "@/components/feed/ReportButton";
 import { useCopyConfirm } from "@/hooks/useCopyConfirm";
+import { useDeletePostMutation } from "@/hooks/useDeletePost";
 import type { FeedItem } from "@/lib/api/types";
 
 export function PostOverflowMenu({ selfHref, item }: { selfHref: string; item?: FeedItem }) {
   const [open, setOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
   const { copied, copy } = useCopyConfirm();
   const containerRef = useRef<HTMLDivElement>(null);
   const canReport = item !== undefined && canReportFeedItem(item);
+  const canDelete = item !== undefined && item.permissions["can_delete"]?.allowed === true;
+  const deleteMutation = useDeletePostMutation();
 
   useEffect(() => {
     if (!open) return;
     const onDocClick = (e: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
         setOpen(false);
+        setConfirmingDelete(false);
       }
     };
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
+      if (e.key === "Escape") {
+        setOpen(false);
+        setConfirmingDelete(false);
+      }
     };
     window.addEventListener("click", onDocClick);
     window.addEventListener("keydown", onKeyDown);
@@ -45,7 +53,11 @@ export function PostOverflowMenu({ selfHref, item }: { selfHref: string; item?: 
         type="button"
         onClick={(e) => {
           e.stopPropagation();
-          setOpen((o) => !o);
+          setOpen((o) => {
+            const next = !o;
+            if (!next) setConfirmingDelete(false);
+            return next;
+          });
         }}
         aria-label="More actions"
         aria-haspopup="menu"
@@ -81,6 +93,32 @@ export function PostOverflowMenu({ selfHref, item }: { selfHref: string; item?: 
               className="bcc-mono block w-full rounded-lg px-2 py-1.5 text-left text-[11px] text-[var(--bcc-text-secondary)] hover:bg-[var(--bcc-surface-active)] hover:text-safety"
             >
               Report
+            </button>
+          )}
+          {canDelete && item !== undefined && (
+            <button
+              type="button"
+              role="menuitem"
+              disabled={deleteMutation.isPending}
+              onClick={() => {
+                if (!confirmingDelete) {
+                  setConfirmingDelete(true);
+                  return;
+                }
+                deleteMutation.mutate(item.id, {
+                  onSettled: () => {
+                    setOpen(false);
+                    setConfirmingDelete(false);
+                  },
+                });
+              }}
+              className="bcc-mono block w-full rounded-lg px-2 py-1.5 text-left text-[11px] text-safety hover:bg-[var(--bcc-surface-active)] disabled:opacity-50"
+            >
+              {deleteMutation.isPending
+                ? "Deleting…"
+                : confirmingDelete
+                ? "Confirm delete?"
+                : "Delete"}
             </button>
           )}
         </div>
