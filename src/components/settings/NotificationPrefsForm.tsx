@@ -79,6 +79,43 @@ const BELL_ROWS: ReadonlyArray<BellRow> = [
     label: "Rank progression",
     blurb: "You climbed to a new rank — a quieter audit-trail companion to the celebration toast.",
   },
+  // Rank Phase 8 rows. All state statements, never schedule nudges
+  // (§2.7); the progression page carries every actionable detail.
+  {
+    key: "bcc_rank_demoted",
+    label: "Rank demoted",
+    blurb: "Your rank moved down a rung — a plain statement of the new rank. Recovery detail lives on your progression page.",
+  },
+  {
+    key: "bcc_rank_recovery_started",
+    label: "Rank recovery started",
+    blurb: "A recovery grace window opened on your rank. States the deadline and that some privileges are paused until it closes.",
+  },
+  {
+    key: "bcc_rank_recovery_reminder",
+    label: "Recovery reminder",
+    blurb: "Deadline-framed marks while a recovery window is open — fires at 30 and 7 days remaining, at most twice per window.",
+  },
+  {
+    key: "bcc_rank_decay_warning",
+    label: "Inactivity decay",
+    blurb: "Inactivity started resting points off your rank score. At most one notice per 30-day stretch.",
+  },
+  {
+    key: "bcc_rank_finding_issued",
+    label: "Formal finding",
+    blurb: "A conduct finding was recorded on your account. The detail and the one-time review request live on your progression page.",
+  },
+  {
+    key: "bcc_rank_appeal_outcome",
+    label: "Appeal outcome",
+    blurb: "A review you requested on a finding reached its decision — upheld, reduced, or sent back for further review.",
+  },
+  {
+    key: "bcc_rank_finding_reversed",
+    label: "Finding reversed",
+    blurb: "A finding on your account was reversed. The score it held back is restored.",
+  },
   {
     key: "bcc_welcome",
     label: "Welcome notification",
@@ -120,6 +157,11 @@ const BELL_ROWS: ReadonlyArray<BellRow> = [
     key: "bcc_attestation_reaffirmed",
     label: "Attestation reaffirmed",
     blurb: "Someone reaffirmed an attestation on you — refresh signal that they still endorse you.",
+  },
+  {
+    key: "bcc_holder_community_live",
+    label: "Holder community live",
+    blurb: "A holders community you waitlisted went live and you qualify to join.",
   },
 ];
 
@@ -289,7 +331,12 @@ export function NotificationPrefsForm() {
               key={row.key}
               label={row.label}
               blurb={row.blurb}
-              checked={draft.bell[row.key]}
+              // `?? true` mirrors the server default (all bell events
+              // on) for keys an OLD backend doesn't send yet — keeps
+              // the checkbox controlled instead of undefined during
+              // deploy-window skew. Type-level the Record is complete,
+              // so this is runtime tolerance only.
+              checked={draft.bell[row.key] ?? true}
               disabled={disabled}
               onChange={(value) =>
                 setDraft({

@@ -66,7 +66,7 @@ const CUSTODY_DENY_COPY: Record<CommunityCustodyDenyReason, string> = {
   in_recovery: "Community changes are paused while your rank is in recovery.",
   cap_reached: "You own the maximum number of communities for your rank.",
   cooldown_active:
-    "You changed community ownership in the last 30 days — the cooldown has to pass first.",
+    "A community ownership change started your 30-day cooldown — it has to pass before you can create another.",
 };
 
 function isCustodyDenyReason(

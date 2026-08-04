@@ -14,7 +14,10 @@
  *                05 REQUIREMENTS (diversity · recognizers · outcomes ·
  *                   trust windows)
  *                06 VESTING & STANDING (maturity meter, decay, recovery)
- *                07 TRUST QUESTS
+ *                07 FINDINGS (§15 own-view, Phase 8 — only when the
+ *                   findings block is present AND non-empty; old
+ *                   backends omit it and the section never renders)
+ *                07/08 TRUST QUESTS (renumbered when FINDINGS shows)
  *   new_member → 04 GETTING STARTED (§5.1 readiness checklist)
  *   neither    → nothing extra. An old backend's legacy progression
  *                shape (or an absent block) matches neither
@@ -30,6 +33,7 @@
 import type { Route } from "next";
 import Link from "next/link";
 
+import { FindingsSection } from "@/components/profile/FindingsSection";
 import { NewMemberChip } from "@/components/identity/NewMemberChip";
 import { RankChip } from "@/components/profile/RankChip";
 import { TrustQuestShareAction } from "@/components/profile/TrustQuestShareAction";
@@ -95,7 +99,26 @@ export function StandingFileBody({ profile }: { profile: MemberProfile }) {
             <VestingStandingBlock progression={ranked} />
           </SectionFrame>
 
-          <SectionFrame fileNumber="07" label="TRUST QUESTS">
+          {/*
+            §15 findings (Phase 8) — own-view only by construction
+            (the findings block ships solely on the self-scoped
+            progression). Absent (old backend) or empty (clean file)
+            → no section, and TRUST QUESTS keeps its 07 slot.
+          */}
+          {ranked.findings !== undefined && ranked.findings.length > 0 && (
+            <SectionFrame fileNumber="07" label="FINDINGS">
+              <FindingsSection findings={ranked.findings} />
+            </SectionFrame>
+          )}
+
+          <SectionFrame
+            fileNumber={
+              ranked.findings !== undefined && ranked.findings.length > 0
+                ? "08"
+                : "07"
+            }
+            label="TRUST QUESTS"
+          >
             <TrustQuestsBlock
               quests={ranked.quests}
               renderAction={(quest) => {
@@ -674,14 +697,66 @@ function VestingStandingBlock({
           </p>
         )}
         {recovery !== null && (
-          <p className="bcc-mono text-bcc-text-secondary">
-            RECOVERY WINDOW OPEN — grace period runs until{" "}
-            <span className="text-bcc-text">{recovery.deadline}</span> (UTC).
-          </p>
+          <div className="border border-dashed border-safety/60 bg-bcc-surface-hover flex flex-col gap-2 p-4">
+            <p className="bcc-mono text-bcc-text-secondary">
+              RECOVERY WINDOW OPEN — grace period runs until{" "}
+              <span className="text-bcc-text">{recovery.deadline}</span> (UTC).
+            </p>
+            {/*
+              §14.2 Phase 8 detail — both fields optional so the old
+              prod backend's {deadline}-only shape renders exactly the
+              line above and nothing else.
+            */}
+            {recovery.paused_privileges !== undefined &&
+              recovery.paused_privileges.length > 0 && (
+                <div className="flex flex-col gap-1">
+                  <span className="bcc-mono text-[10px] tracking-[0.2em] text-bcc-text-secondary">
+                    PAUSED WHILE THE WINDOW IS OPEN
+                  </span>
+                  <ul className="flex flex-col">
+                    {recovery.paused_privileges.map((slug) => (
+                      <li
+                        key={slug}
+                        className="bcc-mono text-bcc-text-secondary"
+                      >
+                        <span aria-hidden className="text-bcc-text-muted">
+                          ○{" "}
+                        </span>
+                        {pausedPrivilegeLabel(slug)}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            {recovery.instructions !== undefined &&
+              recovery.instructions !== "" && (
+                <p className="font-serif text-base text-bcc-text">
+                  {recovery.instructions}
+                </p>
+              )}
+          </div>
         )}
       </div>
     </div>
   );
+}
+
+// §14.2 wire slugs → human labels. Presentation mapping only — WHICH
+// privileges pause is server-decided; unknown future slugs fall back
+// to a de-snake-cased rendering rather than disappearing.
+const PAUSED_PRIVILEGE_LABELS: Record<string, string> = {
+  vote_multiplier: "Vote weight boost",
+  ranked_hall_posting: "Ranked Hall posting",
+  community_custody: "Community ownership changes",
+  mentor_listing: "Mentor listing",
+};
+
+function pausedPrivilegeLabel(slug: string): string {
+  const mapped = PAUSED_PRIVILEGE_LABELS[slug];
+  if (mapped !== undefined) return mapped;
+  const words = slug.replace(/_/g, " ").trim();
+  if (words === "") return slug;
+  return words.charAt(0).toUpperCase() + words.slice(1);
 }
 
 // ──────────────────────────────────────────────────────────────────────
