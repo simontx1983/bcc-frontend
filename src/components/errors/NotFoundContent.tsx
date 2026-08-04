@@ -115,7 +115,7 @@ export function NotFoundContent() {
               className="mt-2 font-serif"
               style={{ fontSize: 15, lineHeight: 1.5, color: "var(--bcc-text-secondary)" }}
             >
-              Whatever you were looking for moved, never existed, or the link's just wrong.
+              Whatever you were looking for moved, never existed, or the link&rsquo;s just wrong.
               Happens on the Floor too.
             </p>
           </div>
