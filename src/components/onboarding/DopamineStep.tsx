@@ -230,7 +230,11 @@ function tierClassName(tier: ReputationTier): string {
   // chip class now, including risky, which the retired rarity set could
   // not express at all.
   switch (tier) {
-    case "elite":   return "elite";
+    // `elite` is the legacy wire name for the same band — both map to the
+    // one chip class so either value renders identically during the
+    // bcc-trust rename window.
+    case "proven":
+    case "elite":   return "proven";
     case "trusted": return "trusted";
     case "neutral": return "neutral";
     case "caution": return "caution";
