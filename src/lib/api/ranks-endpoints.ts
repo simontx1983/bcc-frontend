@@ -13,7 +13,10 @@
  */
 
 import { bccFetchAsClient } from "@/lib/api/client";
-import type { RankCatalogResponse } from "@/lib/api/types";
+import type {
+  FindingAppealResponse,
+  RankCatalogResponse,
+} from "@/lib/api/types";
 
 export function getRankCatalog(
   signal?: AbortSignal,
@@ -22,4 +25,24 @@ export function getRankCatalog(
     method: "GET",
     ...(signal !== undefined ? { signal } : {}),
   });
+}
+
+/**
+ * POST /me/findings/:id/appeal — the once-only §15.5 appeal request on
+ * an own-view misconduct finding (Rank Phase 8).
+ *
+ * Errors (typed BccApiError, branch on `code`):
+ *   - bcc_unauthorized — no session
+ *   - bcc_not_found    — not the caller's finding (or unknown id — the
+ *                        server 404s both identically, no existence leak)
+ *   - bcc_conflict     — appeal already requested or already decided
+ *   - bcc_rate_limited — request throttle
+ */
+export function requestFindingAppeal(
+  findingId: number,
+): Promise<FindingAppealResponse> {
+  return bccFetchAsClient<FindingAppealResponse>(
+    `me/findings/${findingId}/appeal`,
+    { method: "POST" },
+  );
 }

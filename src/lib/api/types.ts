@@ -1424,6 +1424,13 @@ export type NotificationKind =
   | "bcc_review"
   | "bcc_card_watched"
   | "bcc_rank_up"
+  | "bcc_rank_demoted"
+  | "bcc_rank_recovery_started"
+  | "bcc_rank_recovery_reminder"
+  | "bcc_rank_decay_warning"
+  | "bcc_rank_finding_issued"
+  | "bcc_rank_appeal_outcome"
+  | "bcc_rank_finding_reversed"
   | "bcc_welcome"
   | "bcc_mention"
   | "bcc_hall_post"
@@ -1431,7 +1438,8 @@ export type NotificationKind =
   | "bcc_attestation_vouch_received"
   | "bcc_attestation_stand_behind_received"
   | "bcc_attestation_revoked"
-  | "bcc_attestation_reaffirmed";
+  | "bcc_attestation_reaffirmed"
+  | "bcc_holder_community_live";
 
 export interface NotificationActor {
   id: number;
@@ -3589,6 +3597,54 @@ export type RankCategoryKey =
   | "outcomes"
   | "time";
 
+/** §15 finding severity ladder (Rank Phase 8). Wire values. */
+export type RankFindingSeverity = "minor" | "moderate" | "serious" | "severe";
+
+/**
+ * §15.5 appeal lifecycle. `""` = never appealed (the only state that
+ * still allows a request); everything else renders as plain state.
+ */
+export type RankFindingAppealStatus =
+  | ""
+  | "requested"
+  | "upheld"
+  | "reduced"
+  | "reversed"
+  | "remanded";
+
+/**
+ * §15 own-view misconduct finding (Rank Phase 8) — one row of the
+ * `findings` block on GET /me/progression. Backend-built by
+ * RankStateService::findingsBlock; active findings plus reversals
+ * from the last 30 days. OWN VIEW ONLY (§22.3) — never rendered on
+ * another member's profile.
+ */
+export interface RankFinding {
+  id: number;
+  /** Wire slug (snake_case), e.g. "coordinated_voting". Humanize for display only. */
+  type: string;
+  severity: RankFindingSeverity;
+  /** Points currently resting off the rank score. Server-computed. */
+  score_penalty: number;
+  /** Rank slug the member is capped at while the ceiling holds, or null. */
+  ceiling_rank: string | null;
+  /** UTC datetime the ceiling lifts; null when no ceiling. */
+  ceiling_expires_at: string | null;
+  /** UTC datetime the score penalty expires. */
+  penalty_expires_at: string;
+  appeal_status: RankFindingAppealStatus;
+  /** "reversed" rows are the §15.5 30-day own-view tail — render quiet. */
+  status: "active" | "reversed";
+  created_at: string;
+}
+
+/** POST /me/findings/{id}/appeal success payload (§15.5, once-only). */
+export interface FindingAppealResponse {
+  ok: true;
+  finding_id: number;
+  appeal_status: "requested";
+}
+
 /**
  * §2.5 ProgressionBlock, `ranked` variant — the member holds a
  * rank_state row. Everything here is backend-built by
@@ -3634,8 +3690,24 @@ export interface MemberProgressionRanked {
     span_days: number;
   };
   decay: { active: boolean; points: number };
-  /** Non-null only while a grace-period recovery window is open. */
-  recovery: { deadline: string } | null;
+  /**
+   * Non-null only while a grace-period recovery window is open.
+   * `paused_privileges` (§14.2 wire slugs — the frontend renders
+   * labels) and `instructions` shipped in Rank Phase 8; both stay
+   * optional so the old prod backend's `{deadline}`-only shape still
+   * parses — render only what's present.
+   */
+  recovery: {
+    deadline: string;
+    paused_privileges?: string[];
+    instructions?: string;
+  } | null;
+  /**
+   * §15 own-view findings (Rank Phase 8): active findings + reversals
+   * from the last 30 days. `[]` when clean; absent on old backends —
+   * both render nothing.
+   */
+  findings?: RankFinding[];
   quests: MemberQuestProgress;
 }
 
@@ -5146,6 +5218,13 @@ export type BellEventType =
   | "bcc_review"
   | "bcc_card_watched"
   | "bcc_rank_up"
+  | "bcc_rank_demoted"
+  | "bcc_rank_recovery_started"
+  | "bcc_rank_recovery_reminder"
+  | "bcc_rank_decay_warning"
+  | "bcc_rank_finding_issued"
+  | "bcc_rank_appeal_outcome"
+  | "bcc_rank_finding_reversed"
   | "bcc_welcome"
   | "bcc_mention"
   | "bcc_hall_post"
@@ -5153,7 +5232,8 @@ export type BellEventType =
   | "bcc_attestation_vouch_received"
   | "bcc_attestation_stand_behind_received"
   | "bcc_attestation_revoked"
-  | "bcc_attestation_reaffirmed";
+  | "bcc_attestation_reaffirmed"
+  | "bcc_holder_community_live";
 
 export interface NotificationPrefs {
   email_digest: boolean;
