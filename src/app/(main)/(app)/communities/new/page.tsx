@@ -40,13 +40,64 @@ import {
 import { useCreatePlainGroupMutation } from "@/hooks/useMyGroups";
 import { COMMUNITY_CHAIN_CATALOG } from "@/lib/communities/chain-catalog";
 import { humanizeCode } from "@/lib/api/errors";
-import type { CommunityPrivacy } from "@/lib/api/types";
+import {
+  BccApiError,
+  type CommunityCustodyDenyReason,
+  type CommunityPrivacy,
+} from "@/lib/api/types";
 
 const NAME_MIN = 3;
 const NAME_MAX = 100;
 const DESCRIPTION_MAX = 2000;
 
 const TRUST_THRESHOLDS: ReadonlyArray<25 | 50 | 75> = [25, 50, 75];
+
+/**
+ * Rank Phase 7 (§21.2) — plain-state copy per stable custody deny
+ * reason (`error.data.reason` on a 403 `bcc_forbidden`). §γ: keyed on
+ * the machine reason, never the server's message text. No nudges —
+ * each line describes the state, not a schedule.
+ */
+const CUSTODY_DENY_COPY: Record<CommunityCustodyDenyReason, string> = {
+  suspended: "Your account is suspended.",
+  new_member: "Reach Apprentice rank to create a community.",
+  below_neutral:
+    "Your standing must be Neutral or better to create a community.",
+  in_recovery: "Community changes are paused while your rank is in recovery.",
+  cap_reached: "You own the maximum number of communities for your rank.",
+  cooldown_active:
+    "You changed community ownership in the last 30 days — the cooldown has to pass first.",
+};
+
+function isCustodyDenyReason(
+  value: unknown,
+): value is CommunityCustodyDenyReason {
+  return typeof value === "string" && value in CUSTODY_DENY_COPY;
+}
+
+function humanizeCreateError(err: unknown): string {
+  // §21.2 — the custody gate 403 carries a stable `data.reason`.
+  // Branch on the machine reason first so the operator learns WHICH
+  // gate held; an unknown reason (future backend) falls through to
+  // the generic forbidden line.
+  if (err instanceof BccApiError && err.code === "bcc_forbidden") {
+    const reason = err.data?.["reason"];
+    if (isCustodyDenyReason(reason)) {
+      return CUSTODY_DENY_COPY[reason];
+    }
+    return "You can't create a community right now.";
+  }
+  return humanizeCode(
+    err,
+    {
+      bcc_unauthorized: "Sign in to create a community.",
+      bcc_rate_limited: "Slow down — too many attempts. Wait a minute.",
+      bcc_invalid_request: "Check the form — some details aren't valid.",
+      bcc_conflict: "A community with that name already exists.",
+    },
+    "Couldn't create the community. Try again.",
+  );
+}
 
 export default function CreateCommunityPage() {
   const router = useRouter();
@@ -110,19 +161,11 @@ export default function CreateCommunityPage() {
 
   // Server error (mutation.error) takes precedence over client-side
   // validation copy — once a submit hits the server, that's the
-  // authoritative state. §γ — copy is keyed on err.code; never render
-  // err.message.
+  // authoritative state. §γ — copy is keyed on err.code (and, for the
+  // Phase 7 custody gates, the stable machine `data.reason` of a
+  // `bcc_forbidden` 403); never render err.message.
   const errorMessage = mutation.error
-    ? humanizeCode(
-        mutation.error,
-        {
-          bcc_unauthorized: "Sign in to create a community.",
-          bcc_rate_limited: "Slow down — too many attempts. Wait a minute.",
-          bcc_invalid_request: "Check the form — some details aren't valid.",
-          bcc_conflict: "A community with that name already exists.",
-        },
-        "Couldn't create the community. Try again.",
-      )
+    ? humanizeCreateError(mutation.error)
     : clientError;
   const isSubmitting = mutation.isPending;
 

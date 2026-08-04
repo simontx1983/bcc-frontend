@@ -20,6 +20,8 @@ import {
   BccApiError,
   type GiphySearchResult,
   type GroupPostVisibility,
+  type HallFeedChannel,
+  type RankedFeedDenyReason,
 } from "@/lib/api/types";
 
 interface UseInlineComposerSubmitArgs {
@@ -31,6 +33,13 @@ interface UseInlineComposerSubmitArgs {
   groupId: number | undefined;
   /** §4.7.6 group-post visibility — only sent when groupId is present. */
   visibility: GroupPostVisibility;
+  /**
+   * §21.3 (v1.62) — Hall feed channel. `"ranked"` travels on the wire
+   * only when the composer is group-scoped; the server owns the
+   * Journeyman+/tier gate (403 `bcc_forbidden` + `data.reason`).
+   * `undefined`/"main" keeps the payload byte-identical to today.
+   */
+  hallFeed: HallFeedChannel | undefined;
   /**
    * §3.3.9 alt text — read at photo-success time so the chained §4.18
    * PATCH carries whatever the author had typed when the upload landed.
@@ -51,6 +60,7 @@ export interface InlineComposerSubmitPayload {
 export function useInlineComposerSubmit({
   groupId,
   visibility,
+  hallFeed,
   altText,
   onStatusSuccess,
   onPhotoSuccess,
@@ -101,6 +111,18 @@ export function useInlineComposerSubmit({
   // on /groups/[slug] without a manual refetch. `group_id` is
   // omitted from the payload entirely when undefined to keep the
   // wire body identical to today for non-group submits.
+  // §21.3 — the ranked channel marker rides only on group-scoped
+  // submits ("main" is spelled by omission; the endpoint wrappers drop
+  // anything that isn't the literal "ranked" anyway).
+  const groupScope =
+    groupId !== undefined
+      ? {
+          group_id: groupId,
+          visibility,
+          ...(hallFeed === "ranked" ? { hall_feed: hallFeed } : {}),
+        }
+      : {};
+
   const submit = ({
     trimmed,
     attachedFile,
@@ -110,18 +132,18 @@ export function useInlineComposerSubmit({
       gifMutation.mutate({
         url: selectedGif.url,
         caption: trimmed,
-        ...(groupId !== undefined ? { group_id: groupId, visibility } : {}),
+        ...groupScope,
       });
     } else if (attachedFile !== null) {
       photoMutation.mutate({
         file: attachedFile,
         caption: trimmed,
-        ...(groupId !== undefined ? { group_id: groupId, visibility } : {}),
+        ...groupScope,
       });
     } else {
       statusMutation.mutate({
         content: trimmed,
-        ...(groupId !== undefined ? { group_id: groupId, visibility } : {}),
+        ...groupScope,
       });
     }
   };
@@ -130,11 +152,40 @@ export function useInlineComposerSubmit({
 }
 
 /**
+ * §21.3 — ranked-channel deny copy, keyed on the stable machine
+ * `data.reason` of a `bcc_forbidden` 403 (§γ: never the message text).
+ * Plain state descriptions; no cadence pressure. Keyed on the contract
+ * union so a new server reason is a compile-time hole here.
+ */
+const RANKED_FEED_DENY_COPY: Record<RankedFeedDenyReason, string> = {
+  suspended: "Your account is suspended.",
+  new_member: "Reach Journeyman rank to post in the ranked feed.",
+  below_journeyman: "Reach Journeyman rank to post in the ranked feed.",
+  below_neutral:
+    "Your standing must be Neutral or better to post in the ranked feed.",
+  in_recovery:
+    "Ranked-feed posting is paused while your rank is in recovery.",
+};
+
+function isRankedFeedDenyReason(value: unknown): value is RankedFeedDenyReason {
+  return typeof value === "string" && value in RANKED_FEED_DENY_COPY;
+}
+
+/**
  * Map BCC API error codes to user-readable strings for the composer
  * surface. Exported so sibling composer forms can share the same
  * humanization.
  */
 export function humanizeError(err: unknown): string {
+  // §21.3 — a ranked-channel 403 carries a stable `data.reason`
+  // (RankedFeedDenyReason). Branch on the machine reason before the
+  // generic bcc_forbidden copy so the operator learns WHICH gate held.
+  if (err instanceof BccApiError && err.code === "bcc_forbidden") {
+    const reason = err.data?.["reason"];
+    if (isRankedFeedDenyReason(reason)) {
+      return RANKED_FEED_DENY_COPY[reason];
+    }
+  }
   // `bcc_too_many_mentions` carries a structured `data.max` we want to
   // surface in the copy, so it needs its own branch before falling into
   // the helper's static copy map.

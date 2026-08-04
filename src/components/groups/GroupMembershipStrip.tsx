@@ -24,6 +24,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { GroupActionButton } from "@/components/groups/GroupActionButton";
+import { GroupTransferOwnership } from "@/components/groups/GroupTransferOwnership";
 import {
   useJoinHolderGroupMutation,
   useLeaveHolderGroupMutation,
@@ -146,7 +147,22 @@ function MembershipBody({ group, onActionStart, onActionError }: MembershipBodyP
   // than a not-yet-joined nudge.
   const leaveHint = unlockHint(permissions, "can_leave");
   if (leaveHint !== null) {
-    return <UnlockHint hint={leaveHint} />;
+    // Rank Phase 7 (§21.2) — the handoff the hint alludes to. Only
+    // User-kind (member-created) communities transfer, and only the
+    // owner sees it. `owner_cannot_leave` is the server's own "viewer
+    // is the owner" signal (§A2) — no client-side role recomputation.
+    // Against a pre-Phase-7 backend the control still mounts (the
+    // reason code predates Phase 7); a submit there 404s into the
+    // generic error copy.
+    const isOwner =
+      group.type === "user" &&
+      reasonCode(permissions, "can_leave") === "owner_cannot_leave";
+    return (
+      <div className="flex flex-col">
+        <UnlockHint hint={leaveHint} />
+        {isOwner && <GroupTransferOwnership group={group} />}
+      </div>
+    );
   }
   // NFT holder group, authenticated non-member, server couldn't pre-confirm
   // ownership (the detail view-model never runs a live on-chain check at

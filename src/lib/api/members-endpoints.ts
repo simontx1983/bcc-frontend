@@ -33,6 +33,14 @@ export interface MembersQueryParams {
    * verified." Empty array (or undefined) means "no filter".
    */
   verified?: MembersVerifiedAxis[];
+  /**
+   * §21.4 (v1.62) — restrict to actively listed mentors (opt-in AND
+   * live eligibility). Rows returned under this filter carry
+   * `is_mentor: true`. Pre-Phase-7 backends IGNORE the param and
+   * return plain members with no `is_mentor` — callers with mentor
+   * semantics must gate on the per-row field, never on the filter.
+   */
+  mentors?: boolean;
 }
 
 export function getMembers(
@@ -57,6 +65,9 @@ export function getMembers(
     // normaliseVerifiedAxes parser. Sorted to keep query-key cache
     // identity stable regardless of the user's click order.
     search.set("verified", [...params.verified].sort().join(","));
+  }
+  if (params.mentors === true) {
+    search.set("mentors", "1");
   }
   const qs = search.toString();
   const path = `members${qs !== "" ? `?${qs}` : ""}`;

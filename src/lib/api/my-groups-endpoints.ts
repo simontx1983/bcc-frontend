@@ -18,6 +18,8 @@ import type {
   JoinPlainGroupResponse,
   LeavePlainGroupResponse,
   SetGroupPostPolicyResponse,
+  TransferCommunityRequest,
+  TransferCommunityResponse,
 } from "@/lib/api/types";
 
 /**
@@ -79,6 +81,37 @@ export function createPlainGroup(
     method: "POST",
     body: input,
   });
+}
+
+/**
+ * POST /me/groups/:id/transfer — Rank Phase 7 (§21.2, v1.62): hand a
+ * User-kind (member-created) community to another ACTIVE member. Both
+ * parties' 30-day custody cooldowns re-arm on success.
+ *
+ * Errors:
+ *   - bcc_unauthorized (401)
+ *   - bcc_not_found (404) — group missing, viewer not an active member,
+ *     or secret group (existence never leaked)
+ *   - bcc_forbidden (403) — viewer isn't the owner (no `data.reason`),
+ *     giver gate (`data.reason` ∈ TransferGiverDenyReason), or receiver
+ *     gate (`data.reason` ∈ TransferReceiverDenyReason)
+ *   - bcc_invalid_request (400) — non-User-kind group, self-transfer,
+ *     or receiver not already a member
+ *   - bcc_rate_limited (429) — 5/hour
+ *   - bcc_internal_error (500) — write failed; safe to retry
+ *
+ * NOT registered on pre-Phase-7 backends — a 404 there degrades to the
+ * generic error copy at the call site.
+ */
+export function transferGroupOwnership(
+  groupId: number,
+  toUserId: number
+): Promise<TransferCommunityResponse> {
+  const body: TransferCommunityRequest = { to_user_id: toUserId };
+  return bccFetchAsClient<TransferCommunityResponse>(
+    `me/groups/${groupId}/transfer`,
+    { method: "POST", body }
+  );
 }
 
 /**

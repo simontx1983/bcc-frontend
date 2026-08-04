@@ -18,6 +18,7 @@ import type {
   CreatePostResponse,
   CreateReviewArgs,
   GroupPostVisibility,
+  HallFeedChannel,
   UpdateBlogRequest,
 } from "@/lib/api/types";
 
@@ -163,6 +164,13 @@ export function createPhotoPost(
   if (request.visibility !== undefined) {
     fd.append("visibility", request.visibility);
   }
+  // §21.3 — ranked Hall channel. Only the literal "ranked" selects the
+  // second feed; "main" is spelled by omission (anything else collapses
+  // to main server-side anyway, but omitting keeps the wire identical
+  // to pre-Phase-7 for the default path).
+  if (request.hall_feed === "ranked") {
+    fd.append("hall_feed", request.hall_feed);
+  }
   return bccFetchAsClient<CreatePhotoPostResponse>("posts/photo", {
     method: "POST",
     body: fd,
@@ -192,6 +200,7 @@ export function createGifPost(
     caption?: string;
     group_id?: number;
     visibility?: GroupPostVisibility;
+    hall_feed?: HallFeedChannel;
   } = {
     url: request.url,
   };
@@ -205,6 +214,11 @@ export function createGifPost(
   // §4.7.6 — group-only visibility; server defaults to members_only.
   if (request.visibility !== undefined) {
     body.visibility = request.visibility;
+  }
+  // §21.3 — ranked Hall channel; "main" is spelled by omission (see
+  // createPhotoPost).
+  if (request.hall_feed === "ranked") {
+    body.hall_feed = request.hall_feed;
   }
   return bccFetchAsClient<CreateGifPostResponse>("posts/gif", {
     method: "POST",

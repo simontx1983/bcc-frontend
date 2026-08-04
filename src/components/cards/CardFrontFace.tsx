@@ -300,6 +300,24 @@ function Nameplate({ card }: { card: Card }) {
           <ReliabilityStandingBadge standing={card.reliability_standing} />
         </span>
       )}
+      {/* §21.4 (v1.62) — MENTOR chip. Emitted per-row by the server
+          ONLY for actively listed mentors; strict === true so absent
+          (every pre-Phase-7 backend, every non-mentor row) renders
+          nothing. Positive-only signal, same posture as reliability. */}
+      {card.is_mentor === true && (
+        <span
+          className="bcc-mono mt-1.5 inline-flex items-center rounded-sm px-1.5 py-[2px]"
+          style={{
+            fontSize: "9px",
+            letterSpacing: "0.2em",
+            color: "var(--verified)",
+            background: "rgb(var(--verified-rgb) / 0.10)",
+            border: "1px solid rgb(var(--verified-rgb) / 0.32)",
+          }}
+        >
+          MENTOR
+        </span>
+      )}
     </div>
   );
 }

@@ -29,6 +29,7 @@ import {
   STATUS_POST_MAX_LENGTH,
   type GiphySearchResult,
   type GroupPostVisibility,
+  type HallFeedChannel,
   type MentionSearchCandidate,
 } from "@/lib/api/types";
 
@@ -63,13 +64,20 @@ interface UseComposerStateArgs {
    * a member.
    */
   groupId: number | undefined;
+  /**
+   * §21.3 — Hall feed channel for group-scoped submits. `"ranked"`
+   * targets the Hall's second feed (server-gated); undefined/"main" is
+   * today's behavior. Threaded, not stateful — the channel is owned by
+   * the surface (URL param on the Hall page), not the composer.
+   */
+  hallFeed?: HallFeedChannel | undefined;
   /** Mount already expanded — used when the composer opens as an explicit action (e.g. inside a modal) rather than sitting idle in a feed. */
   initialExpanded?: boolean | undefined;
   /** Called after a discard or a successful submit. Modal call sites use this to close their wrapping Dialog; the homepage inline composer leaves it unset and just collapses back to the idle row. */
   onClose?: (() => void) | undefined;
 }
 
-export function useComposerState({ groupId, initialExpanded, onClose }: UseComposerStateArgs) {
+export function useComposerState({ groupId, hallFeed, initialExpanded, onClose }: UseComposerStateArgs) {
   const [expanded, setExpanded] = useState(initialExpanded ?? false);
   // Sprint 2 — civic prompt rotation in the collapsed composer.
   // 18s cadence; halts on hover/focus (promptPaused). Group composer
@@ -154,6 +162,7 @@ export function useComposerState({ groupId, initialExpanded, onClose }: UseCompo
   const { isPending, submit } = useInlineComposerSubmit({
     groupId,
     visibility,
+    hallFeed,
     altText,
     onStatusSuccess: () => {
       setContent("");

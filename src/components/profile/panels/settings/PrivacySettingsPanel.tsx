@@ -5,6 +5,7 @@
 
 import { PrivacySettingsForm } from "@/components/settings/PrivacySettingsForm";
 import { SettingsSectionHeader } from "@/components/settings/SettingsSectionHeader";
+import { MentorSettingsSection } from "@/components/settings/profile/MentorSettingsSection";
 import { ProfilePrefsSection } from "@/components/settings/profile/ProfilePrefsSection";
 
 export function PrivacySettingsPanel() {
@@ -19,6 +20,13 @@ export function PrivacySettingsPanel() {
         <div className="mt-4">
           <ProfilePrefsSection />
         </div>
+      </section>
+
+      {/* Rank Phase 7 (§21.4) — mentor-directory opt-in. Renders
+          nothing against a pre-Phase-7 backend (the prefs read carries
+          no mentor fields there). */}
+      <section>
+        <MentorSettingsSection />
       </section>
 
       <section>

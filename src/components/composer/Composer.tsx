@@ -70,6 +70,7 @@ import {
   MENTIONS_PER_POST_MAX,
   REVIEW_BODY_MAX_LENGTH,
   STATUS_POST_MAX_LENGTH,
+  type HallFeedChannel,
   type ReputationTier,
   type GroupPostVisibility,
   type ReviewGrade,
@@ -167,6 +168,14 @@ export interface ComposerProps {
    * The server enforces authoritatively either way (403 reject).
    */
   canUsePublicAll?: boolean | undefined;
+  /**
+   * §21.3 (v1.62) — Hall feed channel for group-scoped submits.
+   * `"ranked"` posts into the Hall's ranked feed (server-gated:
+   * Journeyman+ AND tier ≥ Neutral; 403 `bcc_forbidden` +
+   * `data.reason` otherwise). Omit / "main" = today's behavior.
+   * Only meaningful together with `groupId` on a Hall.
+   */
+  hallFeed?: HallFeedChannel | undefined;
 }
 
 // ─────────────────────────────────────────────────────────────────────
@@ -194,6 +203,7 @@ export function Composer({
   groupId,
   groupScopeLabel,
   canUsePublicAll,
+  hallFeed,
 }: ComposerProps) {
   // Review tab is only available when a target (entity page OR member) is
   // supplied. Fail closed.
@@ -226,6 +236,7 @@ export function Composer({
         groupId={scopedGroupId}
         groupScopeLabel={groupScopeLabel}
         canUsePublicAll={canUsePublicAll}
+        hallFeed={hallFeed}
         startExpanded={startExpanded}
         hosted={hosted}
         onClose={onClose}
@@ -297,6 +308,8 @@ interface InlineStatusComposerProps {
   groupScopeLabel: string | undefined;
   /** See ComposerProps.canUsePublicAll (CL-FN06 visibility gate). */
   canUsePublicAll: boolean | undefined;
+  /** See ComposerProps.hallFeed (§21.3 ranked Hall channel). */
+  hallFeed?: HallFeedChannel | undefined;
   /** See ComposerProps.startExpanded. */
   startExpanded?: boolean | undefined;
   /** See ComposerProps.hosted. */
@@ -357,6 +370,7 @@ function InlineStatusComposer({
   groupId,
   groupScopeLabel,
   canUsePublicAll,
+  hallFeed,
   startExpanded,
   hosted,
   onClose,
@@ -412,7 +426,7 @@ function InlineStatusComposer({
     hasGif,
     hasAttachment,
     placeholder,
-  } = useComposerState({ groupId, initialExpanded: startExpanded, onClose });
+  } = useComposerState({ groupId, hallFeed, initialExpanded: startExpanded, onClose });
 
   // Identity-header label for the collapsed card: display name, else
   // handle, else nothing (bare-mount call sites like ActivityPanel pass

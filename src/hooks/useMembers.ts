@@ -38,6 +38,8 @@ export interface UseMembersOptions {
    *  filter. The hook normalises (sort + dedupe) to keep the React
    *  Query key stable regardless of click order. */
   verified?: MembersVerifiedAxis[];
+  /** §21.4 — restrict to actively listed mentors (see MembersQueryParams). */
+  mentors?: boolean;
   enabled?: boolean;
 }
 
@@ -50,6 +52,7 @@ export function useMembers(options: UseMembersOptions = {}) {
   // "GitHub" then "X" produces the same cache entry as "X" then "GitHub".
   const verified = Array.from(new Set(options.verified ?? [])).sort();
   const verifiedKey = verified.join(",");
+  const mentors = options.mentors === true;
   const enabled = options.enabled ?? true;
 
   return useQuery<MembersResponse, BccApiError>({
@@ -60,9 +63,10 @@ export function useMembers(options: UseMembersOptions = {}) {
       q,
       type,
       verifiedKey,
+      mentors,
     ],
     queryFn: ({ signal }) =>
-      getMembers({ page, perPage, q, type, verified }, signal),
+      getMembers({ page, perPage, q, type, verified, mentors }, signal),
     enabled,
     staleTime: 30_000,
   });

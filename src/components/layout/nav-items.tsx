@@ -1,6 +1,7 @@
 import {
   BadgeCheck,
   Globe,
+  GraduationCap,
   Home,
   Landmark,
   LayoutGrid,
@@ -39,6 +40,7 @@ export const PRIMARY_NAV = [
   { label: "Disputes",    href: "/disputes",    icon: <Scale size={20} strokeWidth={1.7} aria-hidden /> },
   { label: "Watching",    href: "/watching",    icon: <EyeIcon size={20} /> },
   { label: "Validators",  href: "/validators",  icon: <BadgeCheck size={20} strokeWidth={1.7} aria-hidden /> },
+  { label: "Mentors",     href: "/mentors",     icon: <GraduationCap size={20} strokeWidth={1.7} aria-hidden /> },
 ] as const;
 
 /** Viewer-scoped shortcuts (authed only). */
