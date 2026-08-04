@@ -10,7 +10,7 @@ import {
   Users,
 } from "lucide-react";
 
-import { EyeIcon } from "@/components/feed/actionIcons";
+import { WatchIcon } from "@/components/icons/registry";
 import { LEGAL_ROUTES } from "@/lib/legal/config";
 
 /**
@@ -38,7 +38,7 @@ export const PRIMARY_NAV = [
   { label: "Communities", href: "/communities", icon: <Globe size={20} strokeWidth={1.7} aria-hidden /> },
   { label: "Messages",    href: "/messages",    icon: <MessageSquare size={20} strokeWidth={1.7} aria-hidden /> },
   { label: "Disputes",    href: "/disputes",    icon: <Scale size={20} strokeWidth={1.7} aria-hidden /> },
-  { label: "Watching",    href: "/watching",    icon: <EyeIcon size={20} /> },
+  { label: "Watching",    href: "/watching",    icon: <WatchIcon size={20} strokeWidth={1.7} aria-hidden /> },
   { label: "Validators",  href: "/validators",  icon: <BadgeCheck size={20} strokeWidth={1.7} aria-hidden /> },
   { label: "Mentors",     href: "/mentors",     icon: <GraduationCap size={20} strokeWidth={1.7} aria-hidden /> },
 ] as const;

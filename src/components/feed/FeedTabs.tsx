@@ -22,9 +22,10 @@
  * (§9 — do not rename). The label is the only thing that changed.
  */
 
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { type ComponentType, useEffect, useLayoutEffect, useRef, useState } from "react";
 
-import { BoltIcon, EyeIcon, SparklesIcon } from "@/components/feed/actionIcons";
+import { BoltIcon, SparklesIcon } from "@/components/feed/actionIcons";
+import { WatchIcon } from "@/components/icons/registry";
 import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
 import { FOLLOW_COPY } from "@/lib/copy";
 import type { FeedScope } from "@/lib/api/types";
@@ -34,9 +35,14 @@ interface FeedTabsProps {
   onChange: (scope: FeedScope) => void;
 }
 
-const TABS: ReadonlyArray<{ scope: FeedScope; label: string; Icon: typeof SparklesIcon }> = [
+// Widened from `typeof SparklesIcon` so the list can mix the hand-rolled
+// actionIcons wrappers with lucide components from the icon registry —
+// both accept the same `size`/`className` call signature.
+type TabIcon = ComponentType<{ size?: number; className?: string }>;
+
+const TABS: ReadonlyArray<{ scope: FeedScope; label: string; Icon: TabIcon }> = [
   { scope: "for_you",   label: "For You",         Icon: SparklesIcon },
-  { scope: "following", label: FOLLOW_COPY.state,  Icon: EyeIcon },
+  { scope: "following", label: FOLLOW_COPY.state,  Icon: WatchIcon },
   { scope: "signals",   label: "Signals",          Icon: BoltIcon },
 ];
 
