@@ -231,6 +231,20 @@ export const GroupRow = memo(function GroupRow({ row }: { row: GroupSearchResult
           </span>
         )}
       </div>
+      {/* Server-rendered kind kicker (v1.70) — verbatim per §A2, plain
+          secondary color (a community kind is not a trust tier, so no
+          tier token). Optional: absent on warm pre-v1.70 cache rows. */}
+      {row.kind_label !== undefined && row.kind_label !== "" && (
+        <span
+          className="bcc-mono shrink-0 rounded-sm px-2 py-0.5 text-[9px] tracking-[0.18em] text-bcc-text-secondary"
+          style={{
+            background: "var(--bcc-surface-hover)",
+            border: "1px solid var(--bcc-border)",
+          }}
+        >
+          {row.kind_label}
+        </span>
+      )}
     </Link>
   );
 });
