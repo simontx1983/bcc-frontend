@@ -164,7 +164,7 @@ export function DemoAuthorCard({
                 tabIndex={-1}
                 className="bcc-btn bcc-btn-sm bcc-btn-outline w-full whitespace-nowrap"
               >
-                Follow
+                Watch
               </button>
             </div>
             <span className="relative flex-1">

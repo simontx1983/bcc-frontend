@@ -19,6 +19,7 @@ import Link from "next/link";
 import { useSession } from "next-auth/react";
 
 import { AdCarousel } from "@/components/layout/AdCarousel";
+import { Avatar } from "@/components/identity/Avatar";
 import { AvatarHovercard } from "@/components/identity/AvatarHovercard";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { useMembers } from "@/hooks/useMembers";
@@ -258,50 +259,72 @@ function SuggestedWidget() {
         {members.map((member) => {
           const isFollowing = followMap.has(`member-${member.id}`);
           return (
-            <div
-              key={member.id}
-              style={{ display: "flex", alignItems: "center", gap: 10 }}
-            >
-              <AvatarHovercard
-                avatarUrl={member.avatar_url}
-                handle={member.handle}
-                displayName={member.display_name}
-                size="md"
-                reputationTier={member.reputation_tier}
-                rankLabel={member.rank_label ?? ""}
-                tierLabel={member.reputation_tier_label ?? "Neutral"}
-                vouchTargetId={member.id}
-                ringColor="var(--bcc-accent)"
-                asLink
-              />
-              <Link
-                href={`/u/${member.handle}`}
-                style={{ textDecoration: "none", flex: 1, minWidth: 0 }}
-              >
-                <span style={{ display: "block", minWidth: 0 }}>
-                  <span className="bcc-truncate" style={{ display: "block", fontSize: 13, lineHeight: 1.25, fontWeight: 600, color: "var(--bcc-text)" }}>
-                    {member.display_name}
+            <div key={member.id} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <AvatarHovercard
+                  avatarUrl={member.avatar_url}
+                  handle={member.handle}
+                  displayName={member.display_name}
+                  size="md"
+                  reputationTier={member.reputation_tier}
+                  rankLabel={member.rank_label ?? ""}
+                  tierLabel={member.reputation_tier_label ?? "Neutral"}
+                  vouchTargetId={member.id}
+                  ringColor="var(--bcc-accent)"
+                  asLink
+                />
+                <Link
+                  href={`/u/${member.handle}`}
+                  style={{ textDecoration: "none", flex: 1, minWidth: 0 }}
+                >
+                  <span style={{ display: "block", minWidth: 0 }}>
+                    <span className="bcc-truncate" style={{ display: "block", fontSize: 13, lineHeight: 1.25, fontWeight: 600, color: "var(--bcc-text)" }}>
+                      {member.display_name}
+                    </span>
+                    <span className="bcc-mono truncate text-[11px] leading-tight text-[var(--bcc-text-secondary)]" style={{ display: "block", marginTop: 1 }}>
+                      @{member.handle}
+                    </span>
                   </span>
-                  <span className="bcc-mono truncate text-[11px] leading-tight text-[var(--bcc-text-secondary)]" style={{ display: "block", marginTop: 1 }}>
-                    @{member.handle}
-                  </span>
-                  {member.suggestion_reason !== null && (
-                    <span className="bcc-mono bcc-text-muted" style={{ display: "block", fontSize: 11, marginTop: 2 }}>
-                      {member.suggestion_reason.label}
+                </Link>
+                <button
+                  type="button"
+                  className={`bcc-btn bcc-btn-sm ${isFollowing ? "bcc-btn-ghost" : "bcc-btn-outline"}`}
+                  style={{ flexShrink: 0, fontSize: 12, padding: "3px 10px" }}
+                  disabled={isMutating}
+                  aria-pressed={isFollowing}
+                  onClick={() => handleToggle(member)}
+                >
+                  {isFollowing ? FOLLOW_COPY.state : FOLLOW_COPY.cta}
+                </button>
+              </div>
+              {/* Social-proof line — sits below the avatar+name row (not
+                  squeezed into it, which used to push the name/handle
+                  upward off-center against the avatar). `avatars` is only
+                  ever present for the mutual_follows reason code. */}
+              {member.suggestion_reason !== null && (
+                <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                  {member.suggestion_reason.avatars !== undefined && (
+                    <span style={{ display: "flex" }}>
+                      {member.suggestion_reason.avatars.map((a, i) => (
+                        <span
+                          key={a.handle}
+                          style={{ marginLeft: i === 0 ? 0 : -6, position: "relative", zIndex: 10 - i }}
+                        >
+                          <Avatar
+                            avatarUrl={a.avatar_url}
+                            handle={a.handle}
+                            size="xs"
+                            className="ring-2 ring-[var(--bcc-surface)]"
+                          />
+                        </span>
+                      ))}
                     </span>
                   )}
+                  <span className="bcc-mono bcc-text-muted" style={{ display: "block", fontSize: 11 }}>
+                    {member.suggestion_reason.label}
+                  </span>
                 </span>
-              </Link>
-              <button
-                type="button"
-                className={`bcc-btn bcc-btn-sm ${isFollowing ? "bcc-btn-ghost" : "bcc-btn-outline"}`}
-                style={{ flexShrink: 0, fontSize: 12, padding: "3px 10px" }}
-                disabled={isMutating}
-                aria-pressed={isFollowing}
-                onClick={() => handleToggle(member)}
-              >
-                {isFollowing ? FOLLOW_COPY.state : FOLLOW_COPY.cta}
-              </button>
+              )}
             </div>
           );
         })}

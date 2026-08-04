@@ -1101,6 +1101,12 @@ export interface TrendingHashtagsResponse {
 export interface SuggestionReason {
   code: string;
   label: string;
+  /**
+   * Present only when `code === "mutual_follows"` — a small (≤3) sample
+   * of the mutual connections behind "Watched by N you watch", for the
+   * tiny overlapping-avatar strip. Absent for every other reason code.
+   */
+  avatars?: { handle: string; avatar_url: string }[];
 }
 
 export interface SuggestedMember {

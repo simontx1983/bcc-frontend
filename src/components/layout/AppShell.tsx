@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { LeftSidebar } from "./LeftSidebar";
 import { RightRailOutlet } from "./RightRailOutlet";
 import { RightRailProvider } from "./RightRailContext";
+import { AuthRedirectNotice } from "@/components/auth/AuthRedirectNotice";
 import { TourProvider } from "@/components/tour/TourProvider";
 import { useScrollRestoration } from "@/hooks/useScrollRestoration";
 
@@ -116,6 +117,7 @@ export function AppShell({
         )}
 
       </div>
+      <AuthRedirectNotice />
     </div>
     </RightRailProvider>
     </TourProvider>

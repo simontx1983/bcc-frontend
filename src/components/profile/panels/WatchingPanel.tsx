@@ -229,7 +229,7 @@ function FollowersList({
       onLoadMore={(next) => setOffset(next)}
       emptyKicker="NO WATCHERS"
       emptyHeading="Nobody is watching yet."
-      emptyHint={`${displayName} hasn't picked up watchers yet — the followers list grows when other members start tracking them.`}
+      emptyHint={`${displayName} hasn't picked up watchers yet — the watchers list grows when other members start tracking them.`}
       privateHeading={`${displayName} keeps their watchers private.`}
     />
   );
@@ -254,7 +254,7 @@ function FollowingList({
       onLoadMore={(next) => setOffset(next)}
       emptyKicker="NO ONE ON FILE"
       emptyHeading={`${displayName} isn't keeping tabs on anyone.`}
-      emptyHint="When this member follows somebody on the floor, that person shows up here."
+      emptyHint="When this member watches somebody on the floor, that person shows up here."
       privateHeading={`${displayName} keeps their watching list private.`}
     />
   );

@@ -16,14 +16,16 @@ export const POST_KIND_LABELS: Record<string, string> = {
   status:        "POSTED",
   photo:         "POSTED",
   gif:           "POSTED",
-  watch_batch:   "WATCHED",
-  page_claim:    "CLAIMED",
-  review:        "REVIEWED",
-  dispute:       "DISPUTED",
-  drop:          "DROPPED",
-  release:       "RELEASED",
-  signal:        "SIGNAL",
-  blog_excerpt:  "PUBLISHED",
+  watch_batch:    "WATCHED",
+  page_claim:     "CLAIMED",
+  review:         "REVIEWED",
+  // Real contract value (FeedItemNormalizer.php, bcc-core) — "dispute" is
+  // only a legacy string-key shim never actually written to a real row.
+  dispute_signed: "DISPUTED",
+  drop:           "DROPPED",
+  release:        "RELEASED",
+  signal:         "SIGNAL",
+  blog_excerpt:   "PUBLISHED",
 };
 
 // ─────────────────────────────────────────────────────────────────────
@@ -60,7 +62,7 @@ export function deriveBodySummary(item: FeedItem): string {
     return "";
   }
 
-  if (item.post_kind === "dispute") {
+  if (item.post_kind === "dispute_signed") {
     return readString(body, "reason") ?? "Signed a dispute.";
   }
 

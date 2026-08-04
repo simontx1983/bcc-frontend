@@ -34,12 +34,14 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 
+import { Avatar } from "@/components/identity/Avatar";
 import { ConversationsPanel } from "@/components/messages/ConversationsPanel";
 import { NotificationsPanel } from "@/components/notifications/NotificationsPanel";
 import { GlobalSearch } from "@/components/search/GlobalSearch";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useUnreadCount } from "@/hooks/useNotifications";
 import { useUnreadMessageCount } from "@/hooks/useUnreadMessageCount";
+import { useUser } from "@/hooks/useUser";
 import { applyTheme, getStoredAccent, getStoredTheme, type Accent, type Theme } from "@/lib/theme";
 
 // Code-split — the sign-out confirm only mounts behind the SIGN OUT
@@ -88,7 +90,14 @@ const CogIcon = () => <Settings size={18} aria-hidden strokeWidth={1.8} />;
 const PaletteIcon = () => <Palette size={18} aria-hidden strokeWidth={1.8} />;
 const ChatIcon = () => <MessageSquare size={18} aria-hidden strokeWidth={1.8} />;
 const BellIcon = () => <Bell size={18} aria-hidden strokeWidth={1.8} />;
-const ChevronDownIcon = () => <ChevronDown size={12} aria-hidden strokeWidth={2} />;
+const ChevronDownIcon = ({ open }: { open: boolean }) => (
+  <ChevronDown
+    size={12}
+    aria-hidden
+    strokeWidth={2}
+    style={{ transition: "transform 200ms ease", transform: open ? "rotate(180deg)" : "rotate(0deg)" }}
+  />
+);
 
 // ── Shared modal shell style ──────────────────────────────────────────────────
 
@@ -414,6 +423,9 @@ export function SiteHeader() {
   // no skeleton branch needed here.
   const { data: session } = useSession();
   const viewerHandle = session?.user?.handle ?? null;
+  // The session/JWT never carries an avatar_url — fetch the viewer's own
+  // profile for it, same seam MainOffcanvas's identity card uses.
+  const { data: viewerProfile } = useUser(viewerHandle ?? "", { enabled: viewerHandle !== null });
   const pathname   = usePathname() ?? "/";
   const router     = useRouter();
 
@@ -712,19 +724,16 @@ export function SiteHeader() {
                 the light-mode header (--bcc-surface-raised is nearly
                 indistinguishable from --bcc-header-bg there), matching
                 how it already reads in dark mode. */}
-            <span
-              className="bcc-avatar bcc-avatar-sm bcc-stencil"
-              style={{
-                fontSize: 12,
-                pointerEvents: "none",
-                background: "var(--bcc-surface-hover)",
-                border: "2px solid var(--bcc-accent)",
-                boxShadow: "0 0 0 3px var(--bcc-accent-subtle)",
-              }}
-            >
-              {viewerHandle.slice(0, 2).toUpperCase()}
+            <span style={{ pointerEvents: "none" }}>
+              <Avatar
+                avatarUrl={viewerProfile?.avatar_url}
+                handle={viewerHandle}
+                displayName={session?.user?.name}
+                size="sm"
+                ringColor="var(--bcc-accent)"
+              />
             </span>
-            <ChevronDownIcon />
+            <ChevronDownIcon open={avatarOpen} />
           </button>
         ) : (
           <div style={{ display: "flex", gap: 8 }}>

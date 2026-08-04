@@ -31,6 +31,15 @@ export interface TourStep {
   padding?: number;
   /** Render a centered card with a dimmed backdrop, no spotlight. */
   center?: boolean;
+  /**
+   * Called when this step becomes active — for a target that only exists
+   * on-screen once some other surface is opened (e.g. a mobile drawer).
+   * The engine itself stays feature-agnostic; this is where a step wires
+   * up whatever it needs before targeting runs.
+   */
+  beforeEnter?: () => void;
+  /** Called when leaving this step (change of step, skip, or unmount) — the counterpart to beforeEnter, e.g. to close a drawer it opened. */
+  afterLeave?: () => void;
 }
 
 export interface TourDefinition {

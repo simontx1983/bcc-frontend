@@ -50,6 +50,13 @@ export function NavigationProgress() {
       const anchor = (e.target as Element).closest("a[href]");
       if (!anchor) return;
 
+      // A modified click / non-primary button opens the link in a new tab
+      // (or downloads it) — the current tab never navigates, so it
+      // shouldn't show a loading state for a navigation that isn't
+      // happening here.
+      if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+      if (anchor.getAttribute("target") === "_blank" || anchor.hasAttribute("download")) return;
+
       const href = anchor.getAttribute("href") ?? "";
 
       // Only trigger for internal path links

@@ -128,5 +128,20 @@ export function LandingEmbers() {
 
   if (reduced) return null;
 
-  return <canvas ref={canvasRef} aria-hidden className="absolute inset-0 z-0 pointer-events-none" />;
+  return (
+    <canvas
+      ref={canvasRef}
+      aria-hidden
+      className="absolute inset-0 z-0 pointer-events-none"
+      // Belt-and-suspenders inline fallback — `<canvas>` is a replaced
+      // element, and in at least one host layout `inset-0` alone
+      // wasn't enough to override its intrinsic 300x150 default (all
+      // four insets were present in computed style, but width/height
+      // still resolved to the intrinsic size, not a stretched box —
+      // clustering every particle in the top-left corner). Explicit
+      // 100%/100% forces it regardless; a no-op anywhere `inset-0`
+      // was already resolving correctly on its own.
+      style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}
+    />
+  );
 }

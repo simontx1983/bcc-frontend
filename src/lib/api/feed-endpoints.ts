@@ -106,6 +106,18 @@ export function getFeedItemByIdAsClient(
   });
 }
 
+/**
+ * DELETE /feed/:id — delete a post. Own post for any signed-in viewer;
+ * any post for a site admin (server-enforced — see PostsService::
+ * deletePost; the `can_delete` permission on the item is UX sugar for
+ * showing the menu item, never the actual gate).
+ */
+export function deleteFeedItem(id: string): Promise<{ ok: true; feed_id: string }> {
+  return bccFetchAsClient<{ ok: true; feed_id: string }>(`feed/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+  });
+}
+
 // ─────────────────────────────────────────────────────────────────────
 
 function paramSearch(params: FeedQueryParams): URLSearchParams {

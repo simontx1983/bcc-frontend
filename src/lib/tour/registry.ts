@@ -10,7 +10,12 @@
  * these explain, they don't nudge.
  */
 
+import { setOffcanvasOpen } from "@/lib/offcanvas-store";
 import type { TourDefinition } from "@/lib/tour/types";
+
+// Matches the CSS breakpoint that swaps the desktop LeftSidebar for the
+// mobile offcanvas (globals.css .bcc-mobile-nav / .bcc-col-left rules).
+const MOBILE_BREAKPOINT_PX = 768;
 
 const HOME_FEED: TourDefinition = {
   id: "home-feed",
@@ -43,10 +48,25 @@ const HOME_FEED: TourDefinition = {
       placement: "bottom",
     },
     {
+      // On desktop this targets the LeftSidebar's Watching item directly.
+      // On mobile the same nav item only exists inside the offcanvas
+      // drawer, and only on-screen while it's open — force it open for
+      // this step (see lib/offcanvas-store.ts) and close it again on the
+      // way out. Harmless no-op on desktop, where the offcanvas panel is
+      // CSS-hidden regardless of this flag.
       target: '[data-bcc-tour="nav.watching"]',
       title: "Your watchlist lives here.",
       body: "Everyone you watch is one click away. Add or drop anyone, any time — it shapes what your Floor shows.",
       placement: "right",
+      // Bigger than the other steps' default (8px) — this target is now
+      // just the icon+label cluster (not a full-width row hugging a
+      // screen edge like the other steps have to worry about), so there's
+      // room to give it a more generous, deliberate-looking gap.
+      padding: 12,
+      beforeEnter: () => {
+        if (window.innerWidth < MOBILE_BREAKPOINT_PX) setOffcanvasOpen(true);
+      },
+      afterLeave: () => setOffcanvasOpen(false),
     },
   ],
 };

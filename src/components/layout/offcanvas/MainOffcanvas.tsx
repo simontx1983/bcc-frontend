@@ -7,8 +7,10 @@ import { usePathname } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
 import { useState, useEffect, useRef } from "react";
 
+import { Avatar } from "@/components/identity/Avatar";
 import { CopyrightMark } from "@/components/layout/CopyrightMark";
 import { LEGAL_LINKS, PRIMARY_NAV, QUICK_LINKS } from "@/components/layout/nav-items";
+import { useUser } from "@/hooks/useUser";
 import { applyTheme, getStoredAccent, getStoredTheme, type Accent, type Theme } from "@/lib/theme";
 
 interface MainOffcanvasProps {
@@ -20,6 +22,9 @@ export function MainOffcanvas({ open, onClose }: MainOffcanvasProps) {
   const pathname = usePathname() ?? "/";
   const { data: session } = useSession();
   const handle = session?.user?.handle ?? null;
+  // The session/JWT never carries an avatar_url — fetch the viewer's own
+  // profile for it, same seam AuthorCard's hover-card uses.
+  const { data: viewerProfile } = useUser(handle ?? "", { enabled: handle !== null });
 
   const [themeOpen, setThemeOpen] = useState(false);
   const [currentTheme, setCurrentTheme] = useState<Theme>("dark");
@@ -88,18 +93,26 @@ export function MainOffcanvas({ open, onClose }: MainOffcanvasProps) {
           <div className="bcc-offcanvas-identity-main">
 
             {/* Avatar */}
-            <span
-              className="bcc-avatar bcc-avatar-md bcc-stencil"
-              style={{
-                border: "2px solid var(--bcc-accent)",
-                boxShadow: "0 0 0 3px var(--bcc-accent-subtle)",
-                flexShrink: 0,
-              }}
-            >
-              {handle ? handle.slice(0, 2).toUpperCase() : (
+            {handle !== null ? (
+              <Avatar
+                avatarUrl={viewerProfile?.avatar_url}
+                handle={handle}
+                displayName={session?.user?.name}
+                size="md"
+                ringColor="var(--bcc-accent)"
+              />
+            ) : (
+              <span
+                className="bcc-avatar bcc-avatar-md bcc-stencil"
+                style={{
+                  border: "2px solid var(--bcc-accent)",
+                  boxShadow: "0 0 0 3px var(--bcc-accent-subtle)",
+                  flexShrink: 0,
+                }}
+              >
                 <User size={22} strokeWidth={1.6} aria-hidden />
-              )}
-            </span>
+              </span>
+            )}
 
             {/* Name + handle + badge */}
             <div className="bcc-offcanvas-identity-info">
@@ -123,9 +136,6 @@ export function MainOffcanvas({ open, onClose }: MainOffcanvasProps) {
               <Palette size={15} strokeWidth={1.5} aria-hidden />
             </button>
           </div>
-
-          {/* Divider — 75% centered */}
-          <div style={{ width: "75%", height: 1, background: "var(--bcc-border)", margin: "0 auto" }} />
 
           {/* Guest auth actions — sign-up/in prompt for anonymous viewers.
               Authed viewers see no stats strip here: the viewer's
@@ -225,7 +235,13 @@ export function MainOffcanvas({ open, onClose }: MainOffcanvasProps) {
                 className={`bcc-nav-item${isActive(item.href) ? " active" : ""}`}
                 aria-current={isActive(item.href) ? "page" : undefined}
               >
-                {item.label}
+                {/* Tour target sits on this inner span, not the Link —
+                    .bcc-nav-item is a full-width row, so a selector on
+                    the Link spotlighted the whole row instead of just
+                    hugging the label text. */}
+                <span data-bcc-tour={item.href === "/watching" ? "nav.watching" : undefined}>
+                  {item.label}
+                </span>
               </Link>
             ))}
           </nav>

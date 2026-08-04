@@ -21,6 +21,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { type FormEvent, useState, Suspense } from "react";
 
 import { AuthCard } from "@/components/auth/AuthCard";
+import { PasswordStrengthMeter } from "@/components/auth/PasswordStrengthMeter";
 import { confirmPasswordReset } from "@/lib/api/auth-endpoints";
 import { BccApiError } from "@/lib/api/types";
 
@@ -109,6 +110,7 @@ function ResetPasswordContent() {
             onChange={(e) => setPassword(e.target.value)}
             className="bcc-auth-input"
           />
+          <PasswordStrengthMeter password={password} />
         </div>
 
         <div className="bcc-auth-field">

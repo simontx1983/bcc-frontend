@@ -1,0 +1,240 @@
+"use client";
+
+/**
+ * Login page — email/handle + password → 2FA challenge → JWT → NextAuth
+ * session.
+ *
+ * The identifier/password form calls /auth/login directly (not via
+ * NextAuth's credentials provider). The backend accepts either an email
+ * address or a handle on the same field (shape-detected server-side) —
+ * one input, no client-side switch. On success the backend always returns
+ * a 2FA challenge; we redirect to /login/two-factor which completes the
+ * flow and bridges into NextAuth via the "bcc-verified" provider.
+ *
+ * Wallet login still goes through NextAuth's wallet provider unchanged.
+ *
+ * Redirect: after full sign-in, replace() to the `callbackUrl` query param
+ * (if present) or /onboarding. This URL is threaded through the 2FA page.
+ *
+ * An already-authenticated visitor never reaches this component — page.tsx
+ * (the server wrapper) redirects to / first.
+ */
+
+import { Eye, EyeOff } from "lucide-react";
+import type { Route } from "next";
+import { signIn } from "next-auth/react";
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
+import { type FormEvent, useState, Suspense } from "react";
+
+import { AuthCard, AuthDivider, SSOButton } from "@/components/auth/AuthCard";
+import { WalletAuthButton } from "@/components/auth/WalletAuthButton";
+import { WalletSignupPrompt } from "@/components/auth/WalletSignupPrompt";
+import { loginWithIdentifier } from "@/lib/api/auth-endpoints";
+import { BccApiError, type AuthTokenResponse } from "@/lib/api/types";
+import { safeCallbackPath } from "@/lib/auth/safe-callback";
+
+const ERROR_COPY: Record<string, string> = {
+  bcc_invalid_credentials:  "Invalid email/handle or password.",
+  bcc_invalid_request:      "Email/handle and password are required.",
+  bcc_rate_limited:         "Too many login attempts. Try again in a minute.",
+  bcc_invalid_state:        "This account is missing a handle. Contact support.",
+  bcc_unknown:              "Sign-in failed. Try again, or contact support if the issue persists.",
+  // Email verification gate — set by /auth/login when _bcc_email_verified = '0'.
+  bcc_email_not_verified:   "Please verify your email address before signing in.",
+};
+
+function LoginPageContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const callbackUrl = searchParams.get("callbackUrl");
+  // Only ever follow a same-origin internal path — blocks open-redirect phishing.
+  const safeCallback = safeCallbackPath(callbackUrl);
+
+  const [identifier, setIdentifier] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [walletSignupOpen, setWalletSignupOpen] = useState(false);
+  /** Set to the email address when the server blocks login with bcc_email_not_verified.
+   * Only set when `identifier` itself was an email — if the user typed a
+   * handle instead, we don't have their address to deep-link /verify-email
+   * with, so the shortcut link is omitted (the generic error still shows). */
+  const [notVerifiedEmail, setNotVerifiedEmail] = useState<string | null>(null);
+
+  function targetAfterLogin(): Route {
+    // Returning sign-in lands on the Floor, not /onboarding. The wizard is
+    // reached only right after signup (verify-email → complete-profile →
+    // /onboarding). Sending returning users to /onboarding made the page's
+    // server gate ("already onboarded? → /") flash the wizard before
+    // bouncing them home. A same-origin callbackUrl still wins when present.
+    return safeCallback ?? "/";
+  }
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError(null);
+    setNotVerifiedEmail(null);
+    setSubmitting(true);
+
+    try {
+      const resp = await loginWithIdentifier(identifier, password);
+
+      if ("status" in resp && resp.status === "2fa_required") {
+        const params = new URLSearchParams({ ct: resp.challenge_token });
+        if (safeCallback !== null) {
+          params.set("callbackUrl", safeCallback);
+        }
+        router.replace(`/login/two-factor?${params.toString()}` as Route);
+        return;
+      }
+
+      // Fallback: backend returned a JWT directly (future: 2FA disabled).
+      const jwtResp = resp as AuthTokenResponse;
+      const result = await signIn("bcc-verified", {
+        user_id:          String(jwtResp.user_id),
+        handle:           jwtResp.handle,
+        token:            jwtResp.token,
+        expires_in:       String(jwtResp.expires_in),
+        in_good_standing: String(jwtResp.in_good_standing),
+        redirect:         false,
+      });
+      if (result?.ok) {
+        router.replace(targetAfterLogin());
+      } else {
+        setError("Sign-in failed. Try again.");
+      }
+    } catch (err) {
+      const code = err instanceof BccApiError ? err.code : "bcc_unknown";
+      setError(ERROR_COPY[code] ?? "Sign-in failed. Try again.");
+      if (code === "bcc_email_not_verified") {
+        setNotVerifiedEmail(identifier.includes("@") ? identifier : null);
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <>
+      <AuthCard
+        heading="Welcome back"
+        subheading="Sign in to your account to continue."
+        footer={
+          <>
+            New to BCC?{" "}
+            <Link href="/signup">Create an account</Link>
+          </>
+        }
+      >
+        {/* SSO — returning login lands on the Floor; new SSO users still
+            reach onboarding via complete-profile's own redirect. */}
+        <SSOButton provider="google"  mode="login" callbackUrl={safeCallback ?? "/"} />
+        <SSOButton provider="twitter" mode="login" callbackUrl={safeCallback ?? "/"} />
+
+        <AuthDivider />
+
+        {/* Email + password form */}
+        <form
+          onSubmit={(e) => { void handleSubmit(e); }}
+          style={{ display: "flex", flexDirection: "column", gap: "12px" }}
+        >
+          <div className="bcc-auth-field">
+            <label className="bcc-auth-label" htmlFor="identifier">Email or handle</label>
+            <input
+              id="identifier"
+              type="text"
+              required
+              autoComplete="username"
+              placeholder="you@example.com or handle"
+              value={identifier}
+              onChange={(e) => setIdentifier(e.target.value)}
+              className="bcc-auth-input"
+            />
+          </div>
+
+          <div className="bcc-auth-field">
+            <label className="bcc-auth-label" htmlFor="password">Password</label>
+            <div className="bcc-auth-input-wrap">
+              <input
+                id="password"
+                type={showPassword ? "text" : "password"}
+                required
+                autoComplete="current-password"
+                placeholder="········"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="bcc-auth-input bcc-auth-input--has-icon"
+              />
+              <button
+                type="button"
+                className="bcc-auth-input-icon"
+                onClick={() => setShowPassword((v) => !v)}
+                aria-label={showPassword ? "Hide password" : "Show password"}
+              >
+                {showPassword ? (
+                  <EyeOff size={16} strokeWidth={2} aria-hidden />
+                ) : (
+                  <Eye size={16} strokeWidth={2} aria-hidden />
+                )}
+              </button>
+            </div>
+            <div className="bcc-auth-forgot">
+              <Link href="/forgot-password">Forgot password?</Link>
+            </div>
+          </div>
+
+          {error !== null && (
+            <p role="alert" className="bcc-auth-error">{error}</p>
+          )}
+
+          {notVerifiedEmail !== null && (
+            <p className="bcc-auth-hint">
+              <Link
+                href={`/verify-email?email=${encodeURIComponent(notVerifiedEmail)}`}
+              >
+                Verify your email →
+              </Link>
+            </p>
+          )}
+
+          <button
+            type="submit"
+            disabled={submitting}
+            className="bcc-auth-submit"
+          >
+            {submitting ? "Signing in…" : "Sign in"}
+          </button>
+        </form>
+
+        <AuthDivider />
+
+        {/* Wallet */}
+        <WalletAuthButton
+          mode="login"
+          onSuccess={() => { router.replace(targetAfterLogin()); }}
+          onWalletNotLinked={() => { setWalletSignupOpen(true); }}
+        />
+      </AuthCard>
+
+      {walletSignupOpen && (
+        <WalletSignupPrompt
+          onSuccess={() => {
+            setWalletSignupOpen(false);
+            router.replace(targetAfterLogin());
+          }}
+          onDismiss={() => { setWalletSignupOpen(false); }}
+        />
+      )}
+    </>
+  );
+}
+
+export function LoginPageClient() {
+  return (
+    <Suspense>
+      <LoginPageContent />
+    </Suspense>
+  );
+}
