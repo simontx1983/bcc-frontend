@@ -174,7 +174,7 @@ export function NotificationsStep({
               <h3>Browser push</h3>
               <p>
                 Real-time pings for high-stakes events only — reviews, vouches,
-                dispute outcomes, panelist invites. Off by default.
+                dispute outcomes. Off by default.
               </p>
             </div>
             {push.isSupported ? (

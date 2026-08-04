@@ -40,7 +40,6 @@ import {
 import { USER_DISPUTES_QUERY_KEY_ROOT } from "@/hooks/useUserActivity";
 import { humanizeCode } from "@/lib/api/errors";
 import {
-  DISPUTE_PANEL_SIZE,
   DISPUTE_REASON_MAX_LENGTH,
   DISPUTE_REASON_MIN_LENGTH,
   type DisputableVote,
@@ -125,8 +124,8 @@ export function OpenDisputeModal({
           {pageName}
         </h3>
         <p className="mt-2 max-w-prose font-serif text-bcc-text-secondary">
-          Flag a downvote you believe is invalid. {DISPUTE_PANEL_SIZE} panelists
-          will review the evidence and decide. Disputes are public and
+          Flag a downvote you believe is invalid. The community votes on
+          the evidence; a decision needs quorum. Disputes are public and
           permanent — file when you have grounds, not just disagreement.
         </p>
       </header>
@@ -218,7 +217,7 @@ export function OpenDisputeModal({
               onChange={(e) => setReason(e.target.value)}
               rows={5}
               maxLength={DISPUTE_REASON_MAX_LENGTH}
-              placeholder="What's wrong with this downvote? Be specific — panelists need facts, not feelings."
+              placeholder="What's wrong with this downvote? Be specific — voters need facts, not feelings."
               className="bcc-panel w-full resize-y border-bcc-input-border bg-bcc-input-bg p-3 font-serif text-bcc-text outline-none placeholder:text-bcc-text-placeholder focus:border-bcc-accent focus:ring-1 focus:ring-bcc-accent"
             />
             <div className="bcc-mono mt-1 flex items-center justify-between text-[10px] tracking-[0.18em]">
@@ -260,7 +259,7 @@ export function OpenDisputeModal({
               type="url"
               value={evidenceUrl}
               onChange={(e) => setEvidenceUrl(e.target.value)}
-              placeholder="https://… link a tx, screenshot, or document panelists should see"
+              placeholder="https://… link a tx, screenshot, or document voters should see"
               className="bcc-panel w-full border-bcc-input-border bg-bcc-input-bg p-3 font-serif text-bcc-text outline-none placeholder:text-bcc-text-placeholder focus:border-bcc-accent focus:ring-1 focus:ring-bcc-accent"
               maxLength={2083}
             />
@@ -365,8 +364,6 @@ function humanizeError(err: unknown): string {
       not_page_owner: "Only the page owner can open disputes.",
       upvote_not_disputable: "Only downvotes can be disputed.",
       already_disputed: "This vote already has an active dispute.",
-      insufficient_panelists:
-        "Not enough qualified panelists are online right now. Try again shortly.",
       dispute_limit_reached:
         "This page has hit its dispute limit. Wait for an existing dispute to resolve.",
       reporter_limit_reached:

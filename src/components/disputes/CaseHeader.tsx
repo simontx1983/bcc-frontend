@@ -2,32 +2,27 @@
  * CaseHeader — "CASE №147" wall, status pill, and the disputed page
  * quote underneath. Resolved disputes overlay a diagonal verdict stamp
  * across the case-no for unmistakable verdict legibility. Extracted
- * from DisputeDetail.tsx (Phase 3.3 god-component split); markup and
- * behavior unchanged. StatusPill + VerdictStamp ride along — they're
- * header-only vocabulary.
+ * from DisputeDetail.tsx (Phase 3.3 god-component split). Reporter-view
+ * only since the Rank Phase 6 panel retirement — the case resolves via
+ * an open community vote, so there is no panel kicker and no fixed
+ * panel-size denominator. StatusPill + VerdictStamp ride along —
+ * they're header-only vocabulary.
  */
 
-import type { DisputeStatus, PanelDispute } from "@/lib/api/types";
+import type { Dispute, DisputeStatus } from "@/lib/api/types";
 
 import { formatRelativeUTC } from "./caseFileFormat";
-import type { Source } from "./DisputeDetail";
 
 export function CaseHeader({
   dispute,
-  source,
-  sealed,
   resolved,
 }: {
-  dispute: PanelDispute;
-  source: Source;
-  sealed: boolean;
+  dispute: Dispute;
   resolved: boolean;
 }) {
   return (
     <header>
-      <p className="bcc-mono text-safety">
-        {source === "panel" ? "PANEL DUTY" : "YOUR FILED CASE"}
-      </p>
+      <p className="bcc-mono text-safety">YOUR FILED CASE</p>
 
       <div className="relative mt-3 flex flex-wrap items-end justify-between gap-x-8 gap-y-4">
         <h1
@@ -61,25 +56,15 @@ export function CaseHeader({
         </p>
 
         <p className="bcc-mono mt-4 text-bcc-text-muted">
-          {sealed ? (
+          {dispute.reporter_name !== null && dispute.reporter_name !== "" && (
             <>
-              REPORTER SEALED &middot; FILED{" "}
-              {formatRelativeUTC(dispute.created_at)} &middot; PANEL OF{" "}
-              {dispute.panel_size}
+              FILED BY {dispute.reporter_name.toUpperCase()} &middot;{" "}
             </>
-          ) : (
-            <>
-              {dispute.reporter_name !== "" && (
-                <>
-                  REPORTED BY {dispute.reporter_name.toUpperCase()} &middot;{" "}
-                </>
-              )}
-              FILED {formatRelativeUTC(dispute.created_at)} &middot; PANEL OF{" "}
-              {dispute.panel_size}
-              {dispute.resolved_at !== null && (
-                <> &middot; CLOSED {formatRelativeUTC(dispute.resolved_at)}</>
-              )}
-            </>
+          )}
+          FILED {formatRelativeUTC(dispute.created_at)} &middot; DECIDED BY
+          COMMUNITY VOTE
+          {dispute.resolved_at !== null && (
+            <> &middot; CLOSED {formatRelativeUTC(dispute.resolved_at)}</>
           )}
         </p>
       </div>
@@ -125,7 +110,6 @@ const VERDICT_STAMP: Partial<
     label: "TIMED OUT",
     color: "var(--bcc-text-secondary)",
   },
-  closed: { label: "CLOSED", color: "var(--bcc-text-secondary)" },
 };
 
 // ─────────────────────────────────────────────────────────────────────
@@ -154,7 +138,7 @@ const STATUS_CONFIG: Record<
   { label: string; color: string; background: string; borderColor: string }
 > = {
   reviewing: {
-    label: "REVIEWING",
+    label: "VOTE OPEN",
     color: "var(--bcc-text)",
     background: "var(--bcc-surface-hover)",
     borderColor: "var(--bcc-info)",
@@ -179,12 +163,6 @@ const STATUS_CONFIG: Record<
   },
   timeout_no_quorum: {
     label: "TIMED OUT",
-    color: "var(--bcc-text-secondary)",
-    background: "var(--bcc-surface-hover)",
-    borderColor: "var(--bcc-border)",
-  },
-  closed: {
-    label: "CLOSED",
     color: "var(--bcc-text-secondary)",
     background: "var(--bcc-surface-hover)",
     borderColor: "var(--bcc-border)",

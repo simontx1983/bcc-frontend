@@ -14,7 +14,7 @@
  * Consumers:
  *   - lib/api/oauth-endpoints.ts (X / GitHub OAuth)
  *   - lib/api/fingerprint-endpoints.ts (device fingerprint reporter)
- *   - future: juror panel, endorse UI, etc.
+ *   - future consumers as the bcc-trust/v1 surface grows
  */
 
 import { getSession, signOut } from "next-auth/react";

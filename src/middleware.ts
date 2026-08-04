@@ -44,7 +44,6 @@ export const config = {
     "/api/auth/signout",
     "/messages/:path*",
     "/me/:path*",
-    "/panel",
     "/settings/:path*",
     "/watching",
   ],

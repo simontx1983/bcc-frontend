@@ -10,8 +10,7 @@
  * attestations" — that was loose language. BCC reads chain data but
  * doesn't write to chain; disputes are pure reputation-engine records.
  * Copy here reflects the real mental model: a page owner opens a
- * dispute against a downvote → a panel of {DISPUTE_PANEL_SIZE}
- * reviews → verdict.
+ * dispute against a downvote → the community votes → verdict.
  *
  * Lazy-fetches via useUserDisputes on mount.
  */
@@ -181,7 +180,7 @@ function DisputesEmpty() {
         style={{ fontSize: "16px", lineHeight: 1.5, maxWidth: "560px", marginTop: "10px" }}
       >
         When a downvote on a page you own looks invalid, you open a
-        dispute &mdash; a panel of five reviews the case and decides.
+        dispute &mdash; the community votes on the case and decides.
         Filed disputes land here, open or resolved.
       </p>
     </div>

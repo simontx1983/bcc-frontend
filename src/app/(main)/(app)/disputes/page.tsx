@@ -1,15 +1,11 @@
 /**
- * /disputes — the unified §D5 dispute room.
+ * /disputes — the dispute room (open community voting, Rank Phase 6).
  *
- * Server-component shell wrapping the client <DisputesRoom>. Auth
- * gate mirrors /panel: unauthenticated viewers get redirected to
- * /login with /disputes as the callback. The actual tabs + queues
- * live in the client component because tab state is URL-synced and
- * the lists run live mutations (cast vote / refresh).
- *
- * /panel remains as a dedicated panelist-only surface — both routes
- * share the underlying React Query cache so a panel vote on one page
- * shows up immediately on the other.
+ * Server-component shell wrapping the client <DisputesRoom>.
+ * Unauthenticated viewers get redirected to /login with /disputes as
+ * the callback. The case list lives in the client component because
+ * it runs live queries against /disputes/mine; ballots are cast on the
+ * per-case detail surface (/disputes/[id]).
  */
 
 import { getServerSession } from "next-auth";

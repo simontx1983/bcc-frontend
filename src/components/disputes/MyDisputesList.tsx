@@ -3,24 +3,24 @@
 /**
  * MyDisputesList — page-owner view of the disputes they have filed.
  *
- * Companion to <PanelDutyList>. Where the panel list is the juror's
- * incoming queue, this is the reporter's outbox: every dispute the
- * viewer opened, in any state. Backend redactions don't apply here
- * (the reporter sees their own dispute fully) so tallies and verdicts
- * are live.
+ * The reporter's outbox: every dispute the viewer opened, in any state.
+ * Each case resolves via an open community vote (Rank Phase 6).
+ * C10: rows carry NO tallies at any status — a reviewing row is
+ * status-only, and the closed tally lives on the case detail's vote
+ * breakdown.
  *
  * Status legend (from the reporter's POV):
- *   - reviewing          → panel deliberating
- *   - accepted           → panel agreed; the downvote was struck
- *   - rejected           → panel disagreed; the downvote stands
- *   - timeout_no_quorum  → panel ran out of time; downvote stands
+ *   - reviewing          → community vote open
+ *   - accepted           → vote upheld the dispute; the downvote was struck
+ *   - rejected           → vote rejected the dispute; the downvote stands
+ *   - timeout_no_quorum  → vote expired inconclusive; downvote stands
  */
 
 import Link from "next/link";
 
 import { useMyDisputes } from "@/hooks/useDisputes";
 import { humanizeCode } from "@/lib/api/errors";
-import type { PanelDispute } from "@/lib/api/types";
+import type { Dispute } from "@/lib/api/types";
 
 export function MyDisputesList() {
   const query = useMyDisputes();
@@ -67,12 +67,12 @@ export function MyDisputesList() {
 
 // ─────────────────────────────────────────────────────────────────────
 // MyDisputeRow — single filed dispute. Status-driven styling: a live
-// case shows panel progress; a resolved case shows the verdict.
+// case reads "vote open" (status only — no running totals); a resolved
+// case shows the verdict.
 // ─────────────────────────────────────────────────────────────────────
 
-function MyDisputeRow({ dispute }: { dispute: PanelDispute }) {
+function MyDisputeRow({ dispute }: { dispute: Dispute }) {
   const reviewing = dispute.status === "reviewing";
-  const totalVoted = dispute.accepts + dispute.rejects;
 
   return (
     <article className="bcc-paper p-5">
@@ -117,7 +117,7 @@ function MyDisputeRow({ dispute }: { dispute: PanelDispute }) {
 
           <p className="bcc-mono mt-4 text-ink-ghost">
             FILED {formatRelativeUTC(dispute.created_at)}
-            {reviewing && ` · ${totalVoted} OF ${dispute.panel_size} PANELISTS VOTED`}
+            {reviewing && " · COMMUNITY VOTE OPEN"}
             {!reviewing && dispute.resolved_at !== null && (
               ` · CLOSED ${formatRelativeUTC(dispute.resolved_at)}`
             )}
@@ -144,7 +144,7 @@ function MyDisputeRow({ dispute }: { dispute: PanelDispute }) {
 // timeout is a wash (cardstock-deep), reviewing is in-flight.
 // ─────────────────────────────────────────────────────────────────────
 
-function StatusBadge({ status }: { status: PanelDispute["status"] }) {
+function StatusBadge({ status }: { status: Dispute["status"] }) {
   const config = STATUS_CONFIG[status];
   return (
     <span
@@ -161,11 +161,11 @@ function StatusBadge({ status }: { status: PanelDispute["status"] }) {
 }
 
 const STATUS_CONFIG: Record<
-  PanelDispute["status"],
+  Dispute["status"],
   { label: string; color: string; background: string; borderColor: string }
 > = {
   reviewing: {
-    label: "REVIEWING",
+    label: "VOTE OPEN",
     color: "var(--blueprint)",
     background: "rgb(var(--steel-blue-rgb) / 0.08)",
     borderColor: "rgb(var(--steel-blue-rgb) / 0.32)",
@@ -194,12 +194,6 @@ const STATUS_CONFIG: Record<
     background: "rgb(var(--cardstock-ash-rgb) / 0.18)",
     borderColor: "rgb(var(--cardstock-ash-rgb) / 0.4)",
   },
-  closed: {
-    label: "CLOSED",
-    color: "var(--ink-ghost)",
-    background: "rgb(var(--cardstock-ash-rgb) / 0.18)",
-    borderColor: "rgb(var(--cardstock-ash-rgb) / 0.4)",
-  },
 };
 
 // ─────────────────────────────────────────────────────────────────────
@@ -224,10 +218,10 @@ function MyDisputesEmpty() {
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// formatRelativeUTC — local copy of the helper from PanelQueue.tsx.
-// Stable in SSR (UTC) and tiny enough that exporting from the other
-// file would just create import drift between two surfaces that don't
-// otherwise depend on each other.
+// formatRelativeUTC — local copy of the case-file helper (see
+// caseFileFormat.ts). Stable in SSR (UTC) and tiny enough that
+// importing from the case-file module would just couple two surfaces
+// that don't otherwise depend on each other.
 // ─────────────────────────────────────────────────────────────────────
 
 function formatRelativeUTC(iso: string): string {

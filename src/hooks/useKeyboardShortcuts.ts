@@ -13,7 +13,7 @@
  *   call sites across the SPA (GlobalSearch, MentionPopover, modals,
  *   the SiteHeader avatar menu, etc.). Each handles Escape + arrow keys inline. This
  *   hook is the eleventh case waiting to happen — extracted now so
- *   any future shortcut surface (admin queue, panel duty, …) plugs in
+ *   any future shortcut surface (admin queue, dispute room, …) plugs in
  *   instead of forking another inline listener.
  *
  * Design:

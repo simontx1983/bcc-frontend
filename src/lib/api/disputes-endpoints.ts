@@ -1,5 +1,6 @@
 /**
- * Typed wrappers for the dispute-system endpoints (§D5 V1 Phase 5).
+ * Typed wrappers for the dispute-system endpoints (open community
+ * voting — Rank Phase 6, contract v1.60).
  *
  * Two flows live here:
  *
@@ -7,23 +8,27 @@
  *   ──────────────────────
  *   - GET  /bcc/v1/disputes/votes/:page_id  → list disputable votes
  *   - POST /bcc/v1/disputes                 → file a new dispute
+ *   - GET  /bcc/v1/disputes/mine            → disputes the viewer filed
  *
- *   PANEL flow (selected jurors)
- *   ────────────────────────────
- *   - GET  /bcc/v1/disputes/panel           → my pending queue
- *   - POST /bcc/v1/disputes/:id/vote        → cast accept / reject
+ *   COMMUNITY VOTE flow (eligible members)
+ *   ──────────────────────────────────────
+ *   - POST   /bcc/v1/disputes/:id/vote      → cast (or change) a ballot
+ *   - DELETE /bcc/v1/disputes/:id/vote      → withdraw the active ballot
+ *   - GET    /bcc/v1/disputes/:id/vote      → the viewer's C10-safe state
  *
  * The historical /users/:handle/disputes read endpoint is wrapped in
  * user-activity-endpoints.ts as `getUserDisputes` — it powers the
  * profile DisputesPanel and stays untouched here.
  *
- * All four routes require auth (Bearer JWT attached by bccFetchAsClient).
+ * All routes require auth (Bearer JWT attached by bccFetchAsClient).
  * Server-side eligibility:
  *   - OPEN: only the page owner; only downvotes; one active dispute per
  *     vote; per-page + per-reporter rate-limit; throttled 60s on submit.
- *   - PANEL: only assigned panelists for that dispute id.
+ *   - VOTE: Apprentice+ rank, Neutral+ trust standing, not a party to
+ *     the dispute, no fraud hard-block. All server-enforced — the UI
+ *     never precomputes eligibility; it maps the deny codes to copy.
  *
- * Common error codes the UI should map to copy:
+ * Error codes the UI should map to copy (submit flow):
  *   - bcc_unauthorized              → no session
  *   - dispute_subsystem_unhealthy   → backend constraint missing (503)
  *   - vote_not_found                → bad vote_id (404)
@@ -32,26 +37,32 @@
  *   - cannot_self_dispute           → defensive; same as above
  *   - upvote_not_disputable         → picker should disable upvotes
  *   - already_disputed              → vote already has an active dispute
- *   - insufficient_panelists        → community too small right now
  *   - dispute_limit_reached         → page hit its dispute cap
  *   - reporter_limit_reached        → user hit their reporter cap
  *   - vote_no_longer_active         → vote was removed mid-flow
  *   - db_transient                  → retry recommended
- *   - not_assigned                  → panelist tried to vote on a
- *                                     dispute they aren't on
- *   - already_voted                 → panelist already cast their vote
- *   - dispute_closed                → dispute resolved before vote landed
+ *   - rate_limited                  → 60s submit throttle
+ *
+ * Ballot flow (`bcc_dispute_vote_*`, from DisputeController::disputeVoteError):
+ *   - bcc_dispute_vote_forbidden        → 403; `data.reason` carries the
+ *     deny code: not_authenticated | suspended | rank_required |
+ *     tier_required | party_to_dispute | party_check_unavailable |
+ *     fraud_blocked
+ *   - bcc_dispute_vote_recast_exhausted → 409; change/withdraw budget spent
+ *   - bcc_dispute_vote_cooldown         → 429; 24h post-withdraw cooldown
+ *   - bcc_dispute_vote_not_found        → 404; dispute or ballot missing
+ *   - bcc_dispute_vote_closed           → 410; dispute resolved / poll closed
+ *   - rate_limited                      → 10s mutation throttle
  */
 
 import { bccFetchAsClient } from "@/lib/api/client";
 import type {
-  CastPanelVoteRequest,
-  CastPanelVoteResponse,
+  CastDisputeVoteRequest,
   DisputableVote,
-  MyParticipationStatus,
+  Dispute,
+  DisputeVoteViewerState,
   OpenDisputeRequest,
   OpenDisputeResponse,
-  PanelDispute,
 } from "@/lib/api/types";
 
 /**
@@ -75,9 +86,8 @@ export function getDisputableVotes(
 }
 
 /**
- * POST /bcc/v1/disputes — file a dispute against a downvote. Server
- * picks DISPUTE_PANEL_SIZE panelists atomically and queues per-panelist
- * notifications.
+ * POST /bcc/v1/disputes — file a dispute against a downvote. The server
+ * opens the community vote on the case and notifies the disputed voter.
  *
  * The 60s throttle is tracked server-side per user; clients SHOULD
  * disable the submit button during the in-flight request rather than
@@ -93,40 +103,32 @@ export function openDispute(
 }
 
 /**
- * GET /bcc/v1/disputes/panel — the viewer's panel queue. Empty array
- * when the viewer isn't currently selected for any panel. The server
- * pre-filters to disputes still in `reviewing` status; resolved rows
- * fall off the queue automatically.
+ * GET /bcc/v1/disputes/mine — disputes the viewer has filed (page-owner
+ * view). C10: rows carry NO tallies at any status — the closed tally
+ * lives exclusively on GET /disputes/{id}/vote.
  *
- * Note: vote tallies + reporter identity are intentionally hidden from
- * panelists during deliberation (per the controller's privacy contract).
- * The UI must not treat 0 accepts / empty reporter_name as ground truth.
+ * V1: returns the first page (default 20). When the user passes a real
+ * pagination story, swap this for the paginated form.
  */
-export function getPanelQueue(
-  signal?: AbortSignal,
-): Promise<PanelDispute[]> {
-  return bccFetchAsClient<PanelDispute[]>("disputes/panel", {
+export function getMyDisputes(signal?: AbortSignal): Promise<Dispute[]> {
+  return bccFetchAsClient<Dispute[]>("disputes/mine", {
     method: "GET",
     ...(signal !== undefined ? { signal } : {}),
   });
 }
 
 /**
- * POST /bcc/v1/disputes/:id/vote — cast a panel vote. The 10s throttle
- * is server-enforced; the response intentionally omits running tallies
- * (independent-deliberation rule). On success, refetch the panel queue
- * to update `my_decision` on the row.
- *
- * The response includes a `participation` block describing whether the
- * vote earned a §D5 credit and the post-vote daily/lifetime counts.
- * Safe to surface immediately — it's the panelist's own state, not a
- * leak of the dispute tally.
+ * POST /bcc/v1/disputes/:id/vote — cast a ballot, or change it when the
+ * viewer already has an active one (same-choice re-submit is an
+ * idempotent no-op). Returns the refreshed viewer state; while the vote
+ * is open that state carries the viewer's OWN ballot facts only — never
+ * running totals. 10s server throttle.
  */
-export function castPanelVote(
+export function castDisputeVote(
   disputeId: number,
-  request: CastPanelVoteRequest,
-): Promise<CastPanelVoteResponse> {
-  return bccFetchAsClient<CastPanelVoteResponse>(
+  request: CastDisputeVoteRequest,
+): Promise<DisputeVoteViewerState> {
+  return bccFetchAsClient<DisputeVoteViewerState>(
     `disputes/${disputeId}/vote`,
     {
       method: "POST",
@@ -136,38 +138,40 @@ export function castPanelVote(
 }
 
 /**
- * GET /bcc/v1/disputes/mine — disputes the viewer has filed (page-owner
- * view). Returns the same `formatDispute` shape as the panel queue, so
- * we reuse `PanelDispute` as the response type — note that `my_decision`
- * is always null on this endpoint (the reporter isn't a panelist on
- * their own dispute).
- *
- * V1: returns the first page (default 20). When the user passes a real
- * pagination story, swap this for the paginated form.
+ * DELETE /bcc/v1/disputes/:id/vote — withdraw the active ballot. The
+ * engine enforces a 24h cooldown before re-entry, and re-entry consumes
+ * recast budget. Returns the refreshed viewer state.
  */
-export function getMyDisputes(
-  signal?: AbortSignal,
-): Promise<PanelDispute[]> {
-  return bccFetchAsClient<PanelDispute[]>("disputes/mine", {
-    method: "GET",
-    ...(signal !== undefined ? { signal } : {}),
-  });
+export function withdrawDisputeVote(
+  disputeId: number,
+): Promise<DisputeVoteViewerState> {
+  return bccFetchAsClient<DisputeVoteViewerState>(
+    `disputes/${disputeId}/vote`,
+    {
+      method: "DELETE",
+    },
+  );
 }
 
 /**
- * GET /bcc/v1/disputes/participation/me — viewer's own §D5 participation
- * status. Drives the /panel header progress indicator. Caps come back
- * in the response so the frontend never has to mirror the backend
- * constants.
+ * GET /bcc/v1/disputes/:id/vote — the viewer's C10-safe vote state.
+ * Open: status + windows + own-ballot facts ONLY (no tallies). Closed:
+ * adds outcome + closed_at + the counted tally.
  *
- * Auth-only. The server returns zeros for users who have never been on
- * a panel, never throws.
+ * OLD-BACKEND TOLERANCE: production may still run the panel-era backend
+ * where this route 404s. Callers (useDisputeVote) must treat any error
+ * as "no viewer state" and render nothing — never fabricate ballot or
+ * tally data client-side.
  */
-export function getMyParticipation(
+export function getDisputeVote(
+  disputeId: number,
   signal?: AbortSignal,
-): Promise<MyParticipationStatus> {
-  return bccFetchAsClient<MyParticipationStatus>("disputes/participation/me", {
-    method: "GET",
-    ...(signal !== undefined ? { signal } : {}),
-  });
+): Promise<DisputeVoteViewerState> {
+  return bccFetchAsClient<DisputeVoteViewerState>(
+    `disputes/${disputeId}/vote`,
+    {
+      method: "GET",
+      ...(signal !== undefined ? { signal } : {}),
+    },
+  );
 }

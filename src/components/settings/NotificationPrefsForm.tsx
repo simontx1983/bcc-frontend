@@ -137,11 +137,6 @@ const PUSH_ROWS: ReadonlyArray<PushRow> = [
     blurb: "A dispute you reported reached a final adjudication.",
   },
   {
-    key: "panelist_selected",
-    label: "Panelist selection",
-    blurb: "You've been invited to vote on a new dispute panel.",
-  },
-  {
     key: "mention",
     label: "Mentions in posts and comments",
     blurb: "Push to your device when someone @-tags you. Rapid-fire mentions coalesce into one push.",
