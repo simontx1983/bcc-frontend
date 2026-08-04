@@ -7,10 +7,11 @@
  * that isn't a positive integer at the route boundary so the client
  * component can trust a numeric id.
  *
- * No new endpoint is consumed: the client component finds the row by id
- * inside the existing /disputes/panel and /disputes/mine query caches.
- * That keeps the data contract identical to the list surface and avoids
- * a second round-trip when the user navigates from the list.
+ * No detail endpoint is consumed: the client component finds the row by
+ * id inside the existing /disputes/mine query cache, and the community-
+ * vote aside reads GET /disputes/{id}/vote. That keeps the data contract
+ * identical to the list surface and avoids an extra round-trip when the
+ * user navigates from the list.
  */
 
 import { getServerSession } from "next-auth";

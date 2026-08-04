@@ -1,57 +1,58 @@
 "use client";
 
 /**
- * useDisputes — React Query hooks for the §D5 dispute system.
+ * useDisputes — React Query hooks for the dispute system (open
+ * community voting — Rank Phase 6).
  *
- * Two flows, four hooks:
+ * Two flows:
  *
  *   OPEN
  *     - useDisputableVotes(pageId)  — picker data for the OpenDisputeModal
  *     - useOpenDispute()            — POST /disputes mutation
+ *     - useMyDisputes()             — the reporter's filed-case list
  *
- *   PANEL
- *     - usePanelQueue()             — viewer's pending panel assignments
- *     - useCastPanelVote()          — POST /disputes/:id/vote mutation
+ *   COMMUNITY VOTE
+ *     - useDisputeVote(id)          — the viewer's C10-safe ballot state
+ *     - useCastDisputeVote()        — POST /disputes/:id/vote (cast/change)
+ *     - useWithdrawDisputeVote()    — DELETE /disputes/:id/vote
  *
- * Invalidation is left to callers (matches useReportContent's pattern).
- * The query-key roots are exported so callers can target them precisely:
- *
- *   - DISPUTABLE_VOTES_QUERY_KEY_ROOT — refresh after opening a dispute
- *   - PANEL_QUEUE_QUERY_KEY_ROOT      — refresh after casting a panel vote
- *   - USER_DISPUTES_QUERY_KEY_ROOT    — refresh user's profile dispute tab
- *     (re-exported from useUserActivity so callers can do all the
- *      invalidation in one place without juggling import paths)
+ * The ballot mutations invalidate the filed-case list and prime the
+ * per-dispute vote cache themselves (the server returns the fresh
+ * viewer state); additional side effects stay caller-owned via the
+ * standard mutation options. DISPUTABLE_VOTES_QUERY_KEY_ROOT is
+ * exported for the OpenDisputeModal's post-file invalidation; the
+ * mine/vote roots are module-local because this module owns all their
+ * invalidation.
  */
 
 import {
   useMutation,
   useQuery,
+  useQueryClient,
   type UseMutationOptions,
 } from "@tanstack/react-query";
 
 import {
-  castPanelVote,
+  castDisputeVote,
   getDisputableVotes,
+  getDisputeVote,
   getMyDisputes,
-  getMyParticipation,
-  getPanelQueue,
   openDispute,
+  withdrawDisputeVote,
 } from "@/lib/api/disputes-endpoints";
 import type {
   BccApiError,
-  CastPanelVoteRequest,
-  CastPanelVoteResponse,
+  CastDisputeVoteRequest,
   DisputableVote,
-  MyParticipationStatus,
+  Dispute,
+  DisputeVoteViewerState,
   OpenDisputeRequest,
   OpenDisputeResponse,
-  PanelDispute,
 } from "@/lib/api/types";
 
 export const DISPUTABLE_VOTES_QUERY_KEY_ROOT = ["disputes", "votes"] as const;
-export const PANEL_QUEUE_QUERY_KEY_ROOT = ["disputes", "panel"] as const;
-export const MY_DISPUTES_QUERY_KEY_ROOT = ["disputes", "mine"] as const;
-export const MY_PARTICIPATION_QUERY_KEY = ["disputes", "participation", "me"] as const;
+const MY_DISPUTES_QUERY_KEY_ROOT = ["disputes", "mine"] as const;
+const DISPUTE_VOTE_QUERY_KEY_ROOT = ["disputes", "vote"] as const;
 
 /**
  * GET /bcc/v1/disputes/votes/:page_id — feeds the OpenDisputeModal's
@@ -94,59 +95,15 @@ export function useOpenDispute(
 }
 
 /**
- * GET /bcc/v1/disputes/panel — the viewer's pending panel assignments.
- * Returns empty array when the viewer isn't on any active panel.
- *
- * Stable for 30s — the queue can move when the cron resolves a
- * stalled-quorum dispute; we don't want the panelist staring at a
- * stale row for long.
- */
-export function usePanelQueue() {
-  return useQuery<PanelDispute[], BccApiError>({
-    queryKey: [...PANEL_QUEUE_QUERY_KEY_ROOT],
-    queryFn: ({ signal }) => getPanelQueue(signal),
-    staleTime: 30_000,
-  });
-}
-
-/**
- * POST /bcc/v1/disputes/:id/vote — cast accept / reject. Caller drives
- * invalidation: invalidate PANEL_QUEUE_QUERY_KEY_ROOT to flip the row's
- * `my_decision` field. The server response intentionally hides tallies
- * to enforce independent deliberation; rely on the next queue fetch to
- * surface state changes.
- */
-export function useCastPanelVote(
-  options: Omit<
-    UseMutationOptions<
-      CastPanelVoteResponse,
-      BccApiError,
-      { disputeId: number; request: CastPanelVoteRequest }
-    >,
-    "mutationFn"
-  > = {},
-) {
-  return useMutation<
-    CastPanelVoteResponse,
-    BccApiError,
-    { disputeId: number; request: CastPanelVoteRequest }
-  >({
-    mutationFn: ({ disputeId, request }) => castPanelVote(disputeId, request),
-    ...options,
-  });
-}
-
-/**
  * GET /bcc/v1/disputes/mine — disputes the viewer filed as a page owner.
- * Returns the same `PanelDispute` shape as the panel queue endpoint, but
- * `my_decision` is always null (the reporter isn't a panelist on their
- * own dispute) and tallies are visible (no panelist privacy redaction).
+ * C10: rows never carry tallies; a reviewing row is status-only and the
+ * closed tally lives on the per-dispute vote state.
  *
- * Stable for 30s — same window as the panel queue. Resolution events
- * (cron-driven) will lag by up to 30s on this view.
+ * Stable for 30s. Resolution events (poll close / admin action) will
+ * lag by up to 30s on this view.
  */
 export function useMyDisputes() {
-  return useQuery<PanelDispute[], BccApiError>({
+  return useQuery<Dispute[], BccApiError>({
     queryKey: [...MY_DISPUTES_QUERY_KEY_ROOT],
     queryFn: ({ signal }) => getMyDisputes(signal),
     staleTime: 30_000,
@@ -154,19 +111,96 @@ export function useMyDisputes() {
 }
 
 /**
- * GET /bcc/v1/disputes/participation/me — viewer's own §D5 participation
- * status. Powers the /panel header indicator and any "X / Y trust
- * earned" stats. Caps come along inside the response so callers don't
- * mirror backend constants.
+ * GET /bcc/v1/disputes/:id/vote — the viewer's C10-safe ballot state.
  *
- * Stable for 30s — the queue page re-fetches on success of each
- * panel vote anyway, so a long staleTime is fine.
+ * OLD-BACKEND TOLERANCE: production may still run the panel-era backend
+ * where this route 404s. `retry: false` keeps that a single probe, and
+ * on any error `data` stays undefined — consumers render NOTHING for
+ * the ballot surface in that case (never fabricate viewer state).
+ *
+ * Stable for 15s — the state is per-viewer and cheap, but mutations
+ * prime the cache directly so a short window is enough.
  */
-export function useMyParticipation(options: { enabled?: boolean } = {}) {
-  return useQuery<MyParticipationStatus, BccApiError>({
-    queryKey: MY_PARTICIPATION_QUERY_KEY,
-    queryFn: ({ signal }) => getMyParticipation(signal),
-    enabled: options.enabled ?? true,
-    staleTime: 30_000,
+export function useDisputeVote(
+  disputeId: number,
+  options: { enabled?: boolean } = {},
+) {
+  const enabled = (options.enabled ?? true) && disputeId > 0;
+  return useQuery<DisputeVoteViewerState, BccApiError>({
+    queryKey: [...DISPUTE_VOTE_QUERY_KEY_ROOT, disputeId],
+    queryFn: ({ signal }) => getDisputeVote(disputeId, signal),
+    enabled,
+    retry: false,
+    staleTime: 15_000,
+  });
+}
+
+type BallotVariables = { disputeId: number; request: CastDisputeVoteRequest };
+
+/**
+ * POST /bcc/v1/disputes/:id/vote — cast, or change the active ballot.
+ *
+ * Built-in cache upkeep (this hook is the only invalidator of the
+ * filed-case list on the ballot path):
+ *   - primes the per-dispute vote cache with the returned viewer state
+ *   - invalidates MY_DISPUTES_QUERY_KEY_ROOT
+ * Caller-supplied onSuccess/onError run after the built-ins.
+ */
+export function useCastDisputeVote(
+  options: Omit<
+    UseMutationOptions<DisputeVoteViewerState, BccApiError, BallotVariables>,
+    "mutationFn"
+  > = {},
+) {
+  const queryClient = useQueryClient();
+  return useMutation<DisputeVoteViewerState, BccApiError, BallotVariables>({
+    mutationFn: ({ disputeId, request }) => castDisputeVote(disputeId, request),
+    ...options,
+    onSuccess: (state, variables, onMutateResult, context) => {
+      queryClient.setQueryData(
+        [...DISPUTE_VOTE_QUERY_KEY_ROOT, variables.disputeId],
+        state,
+      );
+      void queryClient.invalidateQueries({
+        queryKey: MY_DISPUTES_QUERY_KEY_ROOT,
+      });
+      options.onSuccess?.(state, variables, onMutateResult, context);
+    },
+  });
+}
+
+/**
+ * DELETE /bcc/v1/disputes/:id/vote — withdraw the active ballot (24h
+ * cooldown before re-entry; re-entry consumes recast budget). Same
+ * built-in cache upkeep as useCastDisputeVote.
+ */
+export function useWithdrawDisputeVote(
+  options: Omit<
+    UseMutationOptions<
+      DisputeVoteViewerState,
+      BccApiError,
+      { disputeId: number }
+    >,
+    "mutationFn"
+  > = {},
+) {
+  const queryClient = useQueryClient();
+  return useMutation<
+    DisputeVoteViewerState,
+    BccApiError,
+    { disputeId: number }
+  >({
+    mutationFn: ({ disputeId }) => withdrawDisputeVote(disputeId),
+    ...options,
+    onSuccess: (state, variables, onMutateResult, context) => {
+      queryClient.setQueryData(
+        [...DISPUTE_VOTE_QUERY_KEY_ROOT, variables.disputeId],
+        state,
+      );
+      void queryClient.invalidateQueries({
+        queryKey: MY_DISPUTES_QUERY_KEY_ROOT,
+      });
+      options.onSuccess?.(state, variables, onMutateResult, context);
+    },
   });
 }

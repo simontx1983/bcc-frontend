@@ -4008,21 +4008,20 @@ export interface UserDisputesResponse {
 export const DISPUTE_REASON_MIN_LENGTH = 20;
 export const DISPUTE_REASON_MAX_LENGTH = 1000;
 
-/** §D5 panel size — every dispute is decided by this many jurors. Mirrored from BCC_DISPUTES_PANEL_SIZE. */
-export const DISPUTE_PANEL_SIZE = 5;
-
 // ────────────────────────────────────────────────────────────────────────
-// Dispute system — V1 Phase 5 verify (§D5).
+// Dispute system — open community voting (Rank Phase 6, contract v1.60).
 //
 // Two flows:
 //   1. OPEN — page owner files a dispute against a downvote on their page
-//      (POST /bcc/v1/disputes). Server picks 3 panelists atomically.
-//   2. PANEL VOTE — panelist sees their pending queue (GET /disputes/panel)
-//      and casts accept/reject (POST /disputes/{id}/vote).
+//      (POST /bcc/v1/disputes). A community vote opens on the case.
+//   2. COMMUNITY VOTE — eligible members cast uphold / reject ballots
+//      (POST /disputes/{id}/vote), can change or withdraw them, and read
+//      their own C10-safe viewer state (GET /disputes/{id}/vote). Tallies
+//      stay sealed until the vote closes.
 //
 // Read flow (already wired): the user's profile "Disputes" tab reads from
-// /users/:handle/disputes, which reflects the bcc_trust_flags rows the
-// user has filed.
+// /users/:handle/disputes, which reflects the dispute rows the user has
+// filed.
 // ────────────────────────────────────────────────────────────────────────
 
 /**
@@ -4063,12 +4062,11 @@ export interface OpenDisputeRequest {
 
 /**
  * Response body for POST /bcc/v1/disputes. The server returns the
- * created dispute id, panel size, and a human-readable confirmation
- * message. We surface the message verbatim in the success toast.
+ * created dispute id and a human-readable confirmation message. We
+ * surface the message verbatim in the success toast.
  */
 export interface OpenDisputeResponse {
   dispute_id: number;
-  panelists: number;
   message: string;
 }
 
@@ -4076,161 +4074,120 @@ export interface OpenDisputeResponse {
  * Status enum for a dispute row, mirrored from the backend's
  * BCC\Trust\Disputes\Domain\DisputeStatus class.
  *
- *   - reviewing          → panel still deliberating
- *   - accepted           → panel agreed; the disputed downvote was struck
- *   - rejected           → panel disagreed; the downvote stands
+ *   - reviewing          → community vote open
+ *   - accepted           → the vote upheld the dispute; the disputed
+ *                          downvote was struck
+ *   - rejected           → the vote rejected the dispute; the downvote
+ *                          stands
  *   - dismissed          → admin force-resolved against the reporter
- *   - timeout_no_quorum  → TTL expired before quorum; downvote stands but
- *                          no reporter penalty (distinguished from rejected
- *                          on purpose)
- *   - closed             → PRESENTATION-ONLY mask. The server returns this
- *                          to panelists who haven't seen full deliberation
- *                          (per the controller's privacy contract), so the
- *                          tally can't be inferred from a status flip.
- *                          Never appears in the DB.
+ *   - timeout_no_quorum  → the vote expired inconclusive (quorum/majority
+ *                          never met); downvote stands but no reporter
+ *                          penalty (distinguished from rejected on purpose)
  */
 export type DisputeStatus =
   | "reviewing"
   | "accepted"
   | "rejected"
   | "dismissed"
-  | "timeout_no_quorum"
-  | "closed";
+  | "timeout_no_quorum";
 
 /**
- * One row in the /disputes/panel queue (panelist view) or /disputes/mine
- * list (reporter view). Both endpoints share the same shape via the
- * controller's formatDispute() helper. `my_decision` is non-null only on
- * the panel endpoint AND only after the panelist has voted on this row.
+ * One row in the /disputes/mine list (reporter view) — the controller's
+ * formatDispute() shape.
  *
- * Privacy contract from the controller: the server **hides** vote tallies
- * (`accepts` / `rejects`) and the reporter identity from panelists
- * during deliberation, to enforce independent decision-making. Treat
- * those fields as "may be 0/empty during reviewing"; render guarded UI.
+ * C10: NO tallies here at any status. While the community vote is open
+ * nothing may expose running totals, and the closed tally is served
+ * exclusively by GET /disputes/{id}/vote (the outcome is carried by
+ * `status`).
  */
-export interface PanelDispute {
-  /** Dispute id — passed to POST /disputes/{id}/vote. */
+export interface Dispute {
+  /** Dispute id — passed to /disputes/{id}/vote. */
   id: number;
   vote_id: number;
   page_id: number;
   page_title: string;
   voter_name: string;
-  /** Empty when hidden from the viewer (panelist during reviewing). */
-  reporter_name: string;
+  /** Reporter display name; null when the account no longer resolves. */
+  reporter_name: string | null;
   reason: string;
   /** Empty string when no evidence link was attached. */
   evidence_url: string;
   status: DisputeStatus;
-  accepts: number;
-  rejects: number;
-  panel_size: number;
-  /**
-   * The viewer's own decision. Only present on panel-queue rows; null
-   * until the viewer has voted. /disputes/mine never sets this.
-   */
-  my_decision: "accept" | "reject" | null;
   /** ISO 8601 UTC. */
   created_at: string;
-  /** ISO 8601 UTC. Null while still reviewing. */
+  /** ISO 8601 UTC. Null while the community vote is open. */
   resolved_at: string | null;
 }
 
+/** Ballot vocabulary for the community dispute vote. */
+export type DisputeVoteChoice = "uphold" | "reject";
+
 /**
- * Request body for POST /bcc/v1/disputes/{id}/vote. `note` is optional
- * panelist-only context for the audit log; never shown to other panelists.
+ * Request body for POST /bcc/v1/disputes/{id}/vote. Casting with an
+ * active ballot changes it (same-choice re-submit is an idempotent
+ * no-op); the recast budget and cooldown are engine-enforced.
  */
-export interface CastPanelVoteRequest {
-  decision: "accept" | "reject";
-  note?: string;
+export interface CastDisputeVoteRequest {
+  choice: DisputeVoteChoice;
 }
 
 /**
- * §D5 — participation skip codes. `null` when credited; otherwise a
- * stable string the frontend maps to copy. `service_unavailable` is
- * a frontend sentinel used when the controller's try/catch swallowed
- * an exception — the server will never set this string itself.
+ * Closed-vote outcome vocabulary (DisputeVoteService::OUTCOME_TO_VIEW):
+ * `upheld` → dispute accepted / downvote struck, `rejected` → downvote
+ * stands, `inconclusive` → quorum/majority never met (pairs with the
+ * `timeout_no_quorum` dispute status; no reporter penalty).
  */
-export type ParticipationSkipReason =
-  | "daily_cap"
-  | "total_cap"
-  | "suspended"
-  | "fraud_flag"
-  | "linked_users"
-  | "low_quality"
-  | "already_recorded"
-  | "service_unavailable";
+export type DisputeVoteOutcome = "upheld" | "rejected" | "inconclusive";
 
 /**
- * Inline participation block on the cast-vote response. Tells the
- * panelist whether their vote earned a participation credit (and if
- * not, why). Counts are POST-vote so the toast can render
- * "X / DAILY_CAP today" without a follow-up fetch.
+ * The viewer's OWN ballot facts — the only per-viewer data the server
+ * exposes while the vote is open (C10: no running totals, ever).
  */
-export interface PanelVoteParticipation {
-  credited: boolean;
-  /** Null when credited; non-null when skipped or unrecorded. */
-  reason: ParticipationSkipReason | null;
-  credited_today: number;
-  credited_lifetime: number;
+export interface DisputeVoteViewer {
+  /** Null when the viewer has no active ballot on this dispute. */
+  my_choice: DisputeVoteChoice | null;
+  /** §16.6 snapshot weight of the viewer's ballot; null when no ballot. */
+  my_effective_weight: number | null;
+  can_change: boolean;
+  can_withdraw: boolean;
 }
 
 /**
- * Response body for POST /bcc/v1/disputes/{id}/vote. The server deliberately
- * **omits** running tallies from this response (per the controller comment:
- * "panelists must not see running totals before all votes are in"). We
- * surface the confirmation message in a toast and trust the next /panel
- * fetch to refresh state.
- *
- * The `participation` block is the panelist's own credit status — it is
- * NOT a leak of the dispute's tally and is safe to surface immediately.
+ * §17.3 closed-only tally. Weighted — there is no fixed denominator;
+ * render weight_uphold against weight_reject.
  */
-export interface CastPanelVoteResponse {
-  message: string;
-  decision: "accept" | "reject";
-  participation: PanelVoteParticipation;
+export interface DisputeVoteTally {
+  counted_voters: number;
+  weight_uphold: number;
+  weight_reject: number;
 }
 
 /**
- * §D5 — viewer's own panel-vote participation totals. Returned by
- * GET /bcc/v1/disputes/participation/me. Powers the /panel header
- * progress indicator.
+ * Viewer state for the community dispute vote — the response body of
+ * GET / POST / DELETE /bcc/v1/disputes/{id}/vote (mutations return the
+ * refreshed state). Served `Cache-Control: private, no-store`.
  *
- * Two parallel views of the same data:
- *   - row counts (credited_today / credited_lifetime / correct_count)
- *     drive "X votes today" UI
- *   - earned trust (earned_today / earned_lifetime) drive
- *     "Y / Z trust points" UI
- *
- * Caps come along so the frontend never mirrors backend constants.
+ * While `status === "open"`: status + windows + the viewer's own ballot
+ * facts ONLY. `outcome`, `closed_at`, and `tally` appear exclusively
+ * after close.
  */
-export interface MyParticipationStatus {
-  /** Row count: credited panel votes in the trailing 24h window. */
-  credited_today: number;
-  /** Row count: credited panel votes lifetime. */
-  credited_lifetime: number;
-  /**
-   * Row count: credited rows whose decision matched the dispute's
-   * final outcome. Only counts disputes that resolved with a clear
-   * verdict — timeout disputes leave outcome_match NULL and don't
-   * contribute.
-   */
-  correct_count: number;
-  /** Trust points earned (clamped at caps.daily_trust) in last 24h. */
-  earned_today: number;
-  /** Trust points earned (clamped at caps.lifetime_trust) lifetime. */
-  earned_lifetime: number;
-  caps: {
-    /** Max trust points earnable per 24h window (1.0 today). */
-    daily_trust: number;
-    /** Max trust points earnable lifetime (10.0 today). */
-    lifetime_trust: number;
-    /** Credited-row floor before accuracy bonus kicks in (5 today). */
-    min_for_accuracy: number;
-    /** Per-credited-vote weight (0.01 today). */
-    base_weight: number;
-    /** Per-correct-vote weight added on top of base (0.02 today). */
-    accuracy_weight: number;
-  };
+export interface DisputeVoteViewerState {
+  dispute_id: number;
+  /** Poll status — "open" while ballots are being collected. */
+  status: "open" | "closed";
+  /** ISO 8601 UTC. */
+  opened_at: string;
+  /** ISO 8601 UTC — earliest instant the vote can close decisively. */
+  binding_earliest_at: string;
+  /** ISO 8601 UTC — the vote resolves inconclusive at this deadline. */
+  expires_at: string;
+  viewer: DisputeVoteViewer;
+  /** Closed-only. Null when the closure recorded no outcome. */
+  outcome?: DisputeVoteOutcome | null;
+  /** Closed-only. ISO 8601 UTC. */
+  closed_at?: string | null;
+  /** Closed-only. */
+  tally?: DisputeVoteTally;
 }
 
 /** Live-shift feed row — recent on-chain activity attributed to the member. */
@@ -5135,7 +5092,6 @@ export interface NotificationPrefsPatch {
 export type PushEventType =
   | "review"
   | "dispute_outcome"
-  | "panelist_selected"
   | "mention"
   | "hall_post"
   | "comment_received"

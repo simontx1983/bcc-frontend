@@ -1,9 +1,9 @@
 /**
  * formatRelativeUTC / formatAbsoluteUTC — case-file timestamp helpers.
- * The relative version is intentionally duplicated from PanelQueue/
- * MyDisputesList per the comment in MyDisputesList.tsx — exporting from
- * the other file would couple two surfaces that don't otherwise depend
- * on each other. Same UTC-stable semantics so SSR matches client.
+ * The relative version is intentionally duplicated in MyDisputesList
+ * per the comment there — exporting across surfaces would couple two
+ * modules that don't otherwise depend on each other. Same UTC-stable
+ * semantics so SSR matches client.
  *
  * Extracted from DisputeDetail.tsx (Phase 3.3 god-component split) so
  * the CaseHeader / CaseBody siblings can share them without importing

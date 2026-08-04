@@ -74,9 +74,9 @@ const DISPUTES: TourDefinition = {
   label: "Disputes",
   steps: [
     {
-      target: '[data-bcc-tour="disputes.panel"]',
+      target: '[data-bcc-tour="disputes.room"]',
       title: "Disputes get a fair hearing.",
-      body: "When an operator's work is contested, it comes here for panel review — evidence in, judgment out. Higher trust unlocks a seat on the panel.",
+      body: "When an operator's work is contested, the community votes on it — evidence in, weighted ballots in, judgment out. Tallies stay sealed until a vote closes.",
       placement: "auto",
     },
   ],

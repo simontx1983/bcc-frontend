@@ -103,9 +103,9 @@ export function CaseFileMissing({ id }: { id: number }) {
         className="mt-3 font-serif text-bcc-text-secondary"
         style={{ fontSize: "15px", lineHeight: 1.55 }}
       >
-        Either it never landed in your panel duty queue, you didn&rsquo;t
-        file it, or the dispute closed and rolled off your active list.
-        The detail surface only mirrors what your two queues already hold.
+        Either you didn&rsquo;t file it, or the case rolled off your
+        active list. This surface only mirrors the disputes you filed
+        yourself.
       </p>
     </div>
   );

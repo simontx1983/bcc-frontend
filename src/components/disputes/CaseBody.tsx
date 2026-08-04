@@ -3,21 +3,16 @@
  * link, chain of custody. All sections share the dashed-rule rhythm
  * of /u/[handle]'s SectionFrame so this surface reads as part of the
  * same file metaphor. Extracted from DisputeDetail.tsx (Phase 3.3
- * god-component split); markup and behavior unchanged. SectionLabel +
- * CustodyEvent ride along — they're body-only vocabulary.
+ * god-component split); reporter-view only since the Rank Phase 6
+ * panel retirement. SectionLabel + CustodyEvent ride along — they're
+ * body-only vocabulary.
  */
 
-import type { PanelDispute } from "@/lib/api/types";
+import type { Dispute } from "@/lib/api/types";
 
 import { formatAbsoluteUTC } from "./caseFileFormat";
 
-export function CaseBody({
-  dispute,
-  sealed,
-}: {
-  dispute: PanelDispute;
-  sealed: boolean;
-}) {
+export function CaseBody({ dispute }: { dispute: Dispute }) {
   return (
     <div className="flex flex-col gap-10">
       <section>
@@ -80,7 +75,7 @@ export function CaseBody({
           <CustodyEvent
             label={
               dispute.status === "reviewing"
-                ? "DELIBERATING"
+                ? "COMMUNITY VOTE OPEN"
                 : "RESOLVED"
             }
             timestamp={dispute.resolved_at ?? null}
@@ -90,12 +85,6 @@ export function CaseBody({
             tone={dispute.status === "reviewing" ? "live" : "active"}
           />
         </ol>
-        {sealed && (
-          <p className="bcc-mono mt-4 text-bcc-text-secondary">
-            * Reporter identity is sealed during deliberation. Decide on
-            the merits of the reason and evidence alone.
-          </p>
-        )}
       </section>
     </div>
   );

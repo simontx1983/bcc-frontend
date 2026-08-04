@@ -45,7 +45,6 @@ export const PRIMARY_NAV = [
 export const QUICK_LINKS = [
   { label: "My Progression", href: "/me/progression" },
   { label: "My Reliability",  href: "/me/reliability"  },
-  { label: "Panel Duty",      href: "/panel"            },
   { label: "Settings",        href: "/u/me?tab=profile" },
 ] as const;
 
