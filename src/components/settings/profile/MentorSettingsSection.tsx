@@ -112,7 +112,11 @@ function MentorToggle({ prefs }: { prefs: ProfilePrefs }) {
           type="button"
           role="switch"
           aria-checked={optedIn}
-          aria-label="List me as a mentor"
+          // Label-in-name (WCAG 2.5.3): the visible button text is the
+          // state ("OPTED IN"/"OPTED OUT"), so the accessible name must
+          // contain it — static stem matches the section heading, state
+          // is additionally carried by aria-checked.
+          aria-label={`Mentor listing — ${optedIn ? "opted in" : "opted out"}`}
           disabled={mutation.isPending}
           onClick={() => {
             mutation.reset();

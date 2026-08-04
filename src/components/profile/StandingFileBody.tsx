@@ -343,7 +343,9 @@ function VerifiedIdentityBlock({ profile }: { profile: MemberProfile }) {
               aria-hidden
               className={
                 "bcc-mono text-lg leading-none " +
-                (row.connected ? "text-phosphor" : "text-bcc-text-muted")
+                (row.connected
+                  ? "text-[var(--bcc-success)]"
+                  : "text-bcc-text-muted")
               }
             >
               {row.connected ? "✓" : "○"}
@@ -686,7 +688,7 @@ function VestingStandingBlock({
 
       <div className="flex flex-col gap-2">
         {decay.active ? (
-          <p className="bcc-mono text-weld">
+          <p className="bcc-mono text-[var(--bcc-warning)]">
             DECAY ACTIVE — {decay.points}{" "}
             {decay.points === 1 ? "point" : "points"} currently resting off
             your rank score.
@@ -824,7 +826,9 @@ function ReadinessBlock({ readiness }: { readiness: MemberReadiness }) {
               aria-hidden
               className={
                 "bcc-mono text-lg leading-none " +
-                (row.done ? "text-phosphor" : "text-bcc-text-muted")
+                (row.done
+                  ? "text-[var(--bcc-success)]"
+                  : "text-bcc-text-muted")
               }
             >
               {row.done ? "✓" : "○"}

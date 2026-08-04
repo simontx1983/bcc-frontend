@@ -21,7 +21,7 @@
  * math, no hydration drift.
  */
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { useRequestFindingAppealMutation } from "@/hooks/useFindingAppeal";
@@ -75,6 +75,18 @@ export function FindingsSection({ findings }: { findings: RankFinding[] }) {
     message: string;
   } | null>(null);
 
+  // A successful request unmounts the "Request review" button (the row
+  // flips to plain status text), which would drop keyboard focus to
+  // <body>. Track which finding just succeeded and move focus onto its
+  // replacement status line instead. Error paths keep role="alert".
+  const [focusId, setFocusId] = useState<number | null>(null);
+  const statusLineRef = useRef<HTMLSpanElement | null>(null);
+  useEffect(() => {
+    if (focusId !== null) {
+      statusLineRef.current?.focus();
+    }
+  }, [focusId]);
+
   const handleRequest = (finding: RankFinding) => {
     if (mutation.isPending) return;
     const ok = window.confirm("You can request one review per finding.");
@@ -83,6 +95,7 @@ export function FindingsSection({ findings }: { findings: RankFinding[] }) {
     mutation.mutate(finding.id, {
       onSuccess: () => {
         setRequestedIds((prev) => new Set(prev).add(finding.id));
+        setFocusId(finding.id);
         router.refresh();
       },
       onError: (err) => {
@@ -207,7 +220,13 @@ export function FindingsSection({ findings }: { findings: RankFinding[] }) {
                       </button>
                     ) : (
                       appealCopy !== undefined && (
-                        <span className="bcc-mono text-bcc-text-secondary">
+                        <span
+                          ref={
+                            finding.id === focusId ? statusLineRef : undefined
+                          }
+                          tabIndex={finding.id === focusId ? -1 : undefined}
+                          className="bcc-mono text-bcc-text-secondary focus:outline-none"
+                        >
                           {appealCopy}
                         </span>
                       )
