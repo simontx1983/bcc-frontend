@@ -47,19 +47,22 @@ export function OnchainSignalsStrip({ signals }: { signals: OnchainSignals }) {
 
   return (
     <div
-      className="relative z-10 flex items-center gap-2 overflow-hidden border-t border-cardstock-edge/40 px-3 py-1.5"
-      style={{ background: "rgb(var(--ink-rgb) / 0.03)" }}
+      className="relative z-[1] flex shrink-0 items-center gap-2 overflow-hidden border-t px-3 py-1.5"
+      style={{ borderColor: "var(--bcc-glass-border)" }}
     >
       <span
         aria-hidden
         className="bcc-rail-dot"
         style={
           signals.status === "jailed"
-            ? { background: "var(--safety)" }
+            ? { background: "var(--bcc-trust-risky)" }
             : undefined
         }
       />
-      <span className="bcc-mono whitespace-nowrap overflow-hidden text-ellipsis text-[9px] tracking-[0.18em] text-ink-soft">
+      <span
+        className="bcc-mono overflow-hidden text-ellipsis whitespace-nowrap text-[9px] tracking-[0.18em]"
+        style={{ color: "var(--bcc-text-secondary)" }}
+      >
         {segments.join(" · ")}
       </span>
     </div>
@@ -128,16 +131,31 @@ export function OnchainStatsList({ signals }: { signals: OnchainSignals }) {
 
   return (
     <>
-      <div className="bcc-mono mt-4 flex items-center gap-2 text-[9px] tracking-[0.24em] text-ink-soft">
-        <span className="inline-block h-px w-6 bg-cardstock-edge/50" />
+      <div
+        className="bcc-mono mt-4 flex items-center gap-2 text-[9px] tracking-[0.24em]"
+        style={{ color: "var(--bcc-text-muted)" }}
+      >
+        <span
+          className="inline-block h-px w-6"
+          style={{ background: "var(--bcc-glass-border)" }}
+        />
         <span>ON-CHAIN</span>
-        <span className="inline-block h-px flex-1 bg-cardstock-edge/50" />
+        <span
+          className="inline-block h-px flex-1"
+          style={{ background: "var(--bcc-glass-border)" }}
+        />
       </div>
-      <dl className="mt-2 space-y-2 text-sm">
+      {/* Units stay in 8.5px mono so the tabular figures beside them
+          remain comparable down the column. */}
+      <dl className="mt-2 space-y-2 text-sm" style={{ fontVariantNumeric: "tabular-nums" }}>
         {rows.map((row) => (
           <div key={row.key} className="flex justify-between gap-4">
-            <dt className="bcc-mono text-ink-soft">{row.label}</dt>
-            <dd className="font-serif text-ink">{row.value}</dd>
+            <dt className="bcc-mono text-[8.5px] tracking-[0.14em]" style={{ color: "var(--bcc-text-muted)" }}>
+              {row.label}
+            </dt>
+            <dd className="bcc-stencil text-[13px]" style={{ color: "var(--bcc-text)" }}>
+              {row.value}
+            </dd>
           </div>
         ))}
       </dl>

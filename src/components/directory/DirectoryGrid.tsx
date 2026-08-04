@@ -29,8 +29,6 @@
  */
 
 import type { UseInfiniteQueryResult, InfiniteData } from "@tanstack/react-query";
-import type { Route } from "next";
-import { useRouter } from "next/navigation";
 
 import { CardGrid } from "@/components/cards/CardGrid";
 import { SKELETON_CLASS } from "@/components/ui/Skeleton";
@@ -45,16 +43,6 @@ interface Props {
 }
 
 export function DirectoryGrid({ query }: Props) {
-  const router = useRouter();
-
-  const handleReview = (card: Card): void => {
-    // Server tells us where the review composer lives — never derive
-    // the URL on the client (§A2/§L5). Falls back to the card profile
-    // when the field isn't set (defensive; the server always emits it).
-    const href = card.links.review ?? card.links.self;
-    router.push(href as Route);
-  };
-
   if (query.isError) {
     return (
       <div className="bcc-panel mx-auto max-w-md p-6 text-center">
@@ -103,7 +91,7 @@ export function DirectoryGrid({ query }: Props) {
 
   return (
     <>
-      <CardGrid cards={items} onReview={handleReview} />
+      <CardGrid cards={items} />
 
       {query.hasNextPage && (
         <div className="mt-8 flex justify-center">

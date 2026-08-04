@@ -1,40 +1,100 @@
 /**
- * CardFrontFace — the front face of the §N2 trading card plus its
- * chrome sub-components (ChainBand, Portrait, Nameplate, StatsPanel,
- * TierStrip, WantedCornerStamp). Extracted from CardFactory.tsx
- * (Phase 3.3 god-component split); markup and behavior unchanged.
- * The flip/tilt wrapper (and the chainStyle derivation) stays in
- * CardFactory.tsx — this face is pure render over the §L5 view-model.
+ * CardFrontFace — the front face of the trading card, plus its chrome
+ * sub-components (CardHeader, Portrait, Nameplate, StatsPanel, the
+ * unclaimed ribbon).
+ *
+ * The card is one uniform, theme-aware surface. The KIND COLOUR appears
+ * in exactly three places on the whole card: the 3px top rule, the short
+ * wash falling from it (both in globals.css), and the kind word in this
+ * header row. Nothing else is tinted by kind — notably the portrait,
+ * which is card surface plus a halftone, never a coloured panel.
+ *
+ * Behaviour change worth knowing: the old band took the CHAIN colour
+ * whenever the crest was chain-keyed. The top rule always takes the
+ * KIND colour now. Chain is a qualifier in the header pill, not the
+ * card's identity.
  */
 
+import type { Route } from "next";
+import Link from "next/link";
+
 import { ActionBar, CommunityActionBar } from "@/components/cards/CardActionBar";
-import { CommunitySignalsStrip } from "@/components/cards/CardCommunitySignals";
 import { OnchainSignalsStrip } from "@/components/cards/CardOnchainSignals";
+import { CardStandingStrip } from "@/components/cards/CardStandingStrip";
 import { Crest } from "@/components/cards/Crest";
+import { RankChip } from "@/components/profile/RankChip";
 import { ReliabilityStandingBadge } from "@/components/reliability/ReliabilityStandingBadge";
-import type { Card, CardStat, ReputationTier } from "@/lib/api/types";
+import { FOLLOW_COPY } from "@/lib/copy";
+import type { Card, CardStat } from "@/lib/api/types";
+
+/**
+ * Audience counts live in the nameplate, not the stats grid — an audience
+ * measure is not a trust output. Filtering by key keeps the grid to real
+ * trust signals (Trust / Reviews / Vouches).
+ *
+ * `members` is in here for community cards: a community has no trust axis
+ * at all (see below), so its head-count is the closest thing it has to an
+ * audience number and belongs in the same slot every other kind uses.
+ */
+const AUDIENCE_STAT_KEYS = new Set(["followers", "watchers", "watching", "members"]);
+
+/**
+ * Split the server's stats into "the one that goes under the handle" and
+ * "the grid", and give member cards the Vouches column they were missing.
+ *
+ * The server ships member cards `trust · reviews_written · watchers` and
+ * entity cards `trust · followers · reviews · endorsements`, so once the
+ * audience count moves to the nameplate a member card was left with only
+ * two columns while an entity had three. The vouch count IS on the wire
+ * for members, just on a different block — `member_dossier.engagement.
+ * endorsements_received` — so this reads it into the missing column
+ * rather than inventing or recomputing anything.
+ */
+function splitStats(card: Card): {
+  audience: CardStat[];
+  grid: CardStat[];
+} {
+  const audience = card.stats.filter((s) => AUDIENCE_STAT_KEYS.has(s.key));
+  const grid = card.stats.filter((s) => !AUDIENCE_STAT_KEYS.has(s.key));
+
+  const engagement = card.member_dossier?.engagement;
+  if (
+    card.card_kind === "member" &&
+    engagement !== undefined &&
+    !grid.some((s) => s.key === "endorsements")
+  ) {
+    grid.push({
+      key: "endorsements",
+      label: "Vouches",
+      value: String(engagement.endorsements_received),
+      raw: engagement.endorsements_received,
+      format: "count",
+    });
+  }
+
+  return { audience, grid };
+}
 
 export function CardFrontFace({
   card,
+  kindColor,
   flipped,
+  onFlip,
   onPull,
-  onReview,
   isPulled,
-  hideOpenAction,
   canEditAvatar,
   onJoin,
   isJoined = false,
   joinPending = false,
 }: {
   card: Card;
-  /** Drives the ↻ FLIP affordance visibility (hidden once flipped). */
+  /** Resolved `var(--kind-*)` for this card's kind. */
+  kindColor: string;
   flipped: boolean;
+  onFlip: () => void;
   onPull?: ((card: Card) => void) | undefined;
-  onReview?: ((card: Card) => void) | undefined;
   isPulled: boolean;
-  hideOpenAction: boolean;
   canEditAvatar: boolean;
-  /** Community-card join wiring — see CardFactoryProps. */
   onJoin?: ((card: Card) => void) | undefined;
   isJoined?: boolean | undefined;
   joinPending?: boolean | undefined;
@@ -42,27 +102,41 @@ export function CardFrontFace({
   const isCommunity =
     card.card_kind === "community" && card.community_dossier != null;
 
+  const { audience: audienceStats, grid: gridStats } = splitStats(card);
+
   return (
     <div className="bcc-card-face">
-      <ChainBand card={card} />
+      {/* The card's single navigation target, covering the whole face
+          beneath the interactive rows. typedRoutes can't statically
+          prove a server-supplied path, so the cast is required — the
+          backend owns these URLs (§A4). */}
+      <Link
+        href={card.links.self as Route}
+        className="bcc-card-body-link"
+        aria-label={`Open ${card.name}`}
+      />
+
+      <CardHeader card={card} kindColor={kindColor} />
+
       {/* Community cards never surface the avatar-upload affordance —
           group art is managed by the group owner surface, not here. */}
       <Portrait card={card} canEditAvatar={isCommunity ? false : canEditAvatar} />
-      <Nameplate card={card} />
-      {/* On-chain validator signals strip — surfaces what the operator
-          actually does on-chain (uptime, commission, voting rank). Shown
-          for every validator card that has resolvable signals, claimed
-          or unclaimed, so the card communicates real-world data even
-          before a human owns the page. Null for non-validator kinds. */}
+
+      <Nameplate card={card} audienceStats={audienceStats} />
+
+      {/* On-chain validator signals — what the operator actually does on
+          chain, shown claimed or unclaimed so the card communicates real
+          data even before a human owns the page. Null for other kinds. */}
       {card.onchain_signals != null && (
         <OnchainSignalsStrip signals={card.onchain_signals} />
       )}
-      {/* Community signals strip — same chassis slot as the validator
-          strip (gate label + verification, server-resolved). */}
-      {card.community_dossier != null && (
-        <CommunitySignalsStrip dossier={card.community_dossier} />
-      )}
-      <StatsPanel stats={card.stats} />
+      {/* No community signals strip here. It said the gate and the
+          verification, which is exactly what the standing strip's T2 and
+          T4 rows now say — printing both put "Private" on the card twice.
+          The strip is the duplicate, so it goes. */}
+
+      <StatsPanel stats={gridStats} />
+
       {isCommunity && card.community_dossier != null ? (
         <CommunityActionBar
           card={card}
@@ -70,61 +144,17 @@ export function CardFrontFace({
           onJoin={onJoin}
           isJoined={isJoined}
           joinPending={joinPending}
-          hideOpenAction={hideOpenAction}
         />
       ) : (
-        <ActionBar
-          card={card}
-          onPull={onPull}
-          onReview={onReview}
-          isPulled={isPulled}
-          hideOpenAction={hideOpenAction}
-        />
+        <ActionBar card={card} onPull={onPull} isPulled={isPulled} />
       )}
 
-      {/* Tier strip — own row at the very bottom of the card. Earlier
-          this was absolute-positioned over the action bar and would
-          overlap the OPEN link. Now it's a flow element so the tier
-          label sits cleanly under the actions, never overlapping. */}
-      {/* Always rendered for real cards — v1.57 removed the null guard that
-          used to sit here. That guard fired for risky entities (whose
-          card_tier was null by design), so the strip vanished on exactly
-          the cards a viewer most needed a warning from. Community cards
-          have no trust axis and show their group-type kicker instead. */}
-      <TierStrip
-        reputationTier={card.reputation_tier}
-        tierLabel={card.kicker ?? card.reputation_tier_label ?? ""}
+      <CardStandingStrip
+        card={card}
+        kindColor={kindColor}
+        flipped={flipped}
+        onFlip={onFlip}
       />
-
-      {/* WANTED corner stamp — surfaces on validator cards whose
-          operator hasn't claimed the profile yet. Lightweight visual
-          affordance only; the full claim CTA + Keplr flow lives on
-          /v/[slug] via the existing ClaimCallout. */}
-      {!card.is_claimed && card.claim_target !== null && (
-        <WantedCornerStamp />
-      )}
-
-      {/* Card-flip affordance — without this micro-label viewers
-          don't realize the card flips. Per the 2026-05-14 UX review:
-          the back face carries bio + on-chain stats + social proof
-          and it was previously undiscoverable. Always-visible mono
-          label in the bottom-right corner; click anywhere on the
-          card still flips (this label is decorative). */}
-      {!flipped && (
-        <span
-          aria-hidden
-          className="bcc-mono pointer-events-none absolute bottom-1 right-2 z-20 select-none text-ink-soft"
-          style={{ fontSize: "9px", letterSpacing: "0.18em" }}
-        >
-          ↻ FLIP
-        </span>
-      )}
-
-      {/* Foil shimmer — top band only. Sits above face content,
-          below the cards interactive layer (z-index 9). */}
-      {card.reputation_tier === "elite" && (
-        <span aria-hidden className="bcc-foil-band pointer-events-none absolute inset-0 z-[9]" />
-      )}
     </div>
   );
 }
@@ -135,28 +165,115 @@ export function CardFrontFace({
 // import noise. Promote later if any one grows past ~80 lines.
 // ─────────────────────────────────────────────────────────────────────
 
-function ChainBand({ card }: { card: Card }) {
-  // §2.9: only `chain`-kind crests yield a chain band label. `tier`
-  // and `solid` fall back to the BCC mark — the entity's chain isn't
-  // expressed by those crest types.
-  const chainName =
-    card.crest.background_kind === "chain" && card.crest.background_value !== ""
-      ? card.crest.background_value.toUpperCase()
-      : "BCC";
+/**
+ * Chain slug for the header pill, or null.
+ *
+ * Validators carry it on the crest; communities carry it on the dossier.
+ * There is deliberately NO fallback: the old band printed a literal
+ * "BCC" whenever the crest wasn't chain-keyed, which put a meaningless
+ * word in the card's most prominent slot. Empty means empty.
+ */
+function chainSlug(card: Card): string | null {
+  if (card.card_kind === "community") {
+    const tag = card.community_dossier?.chain_tag ?? null;
+    return tag !== null && tag !== "" ? tag : null;
+  }
+  if (card.crest.background_kind === "chain" && card.crest.background_value !== "") {
+    return card.crest.background_value;
+  }
+  return null;
+}
+
+/**
+ * Header row — 46px. Kind word on the left, one optional element on the
+ * right, resolved by kind:
+ *
+ *   member    → rank chip
+ *   validator → chain pill, else nothing
+ *   project   → nothing (projects have no chain and no rank)
+ *   creator   → nothing
+ *   community → chain pill if chain_tag, else nothing
+ *
+ * The kind word is a closed set of five, so it can never overflow.
+ */
+function CardHeader({ card, kindColor }: { card: Card; kindColor: string }) {
+  const slug = chainSlug(card);
+  const showChainPill =
+    slug !== null && (card.card_kind === "validator" || card.card_kind === "community");
+  const showRank = card.card_kind === "member" && card.rank_label !== null;
 
   return (
-    <div
-      className="bcc-stencil relative z-10 flex h-14 items-center justify-between border-b-[3px] border-ink px-4 text-bcc-white"
-      style={{ background: "var(--bcc-chain-color, var(--chain-cosmos))" }}
-    >
-      <span className="text-2xl tracking-[0.06em]">{chainName}</span>
-      <span className="bcc-mono border border-bcc-white/60 px-2 py-0.5 text-[9px] tracking-[0.2em]">
-        {card.card_kind.toUpperCase()}
+    <div className="relative z-[1] flex h-[46px] shrink-0 items-center justify-between px-4">
+      <span
+        className="bcc-stencil"
+        style={{
+          fontSize: 20,
+          lineHeight: 1,
+          letterSpacing: "0.04em",
+          textTransform: "uppercase",
+          color: kindColor,
+        }}
+      >
+        {card.card_kind}
       </span>
+
+      {showRank ? (
+        <RankChip
+          reputationTier={card.reputation_tier}
+          tierLabel={card.reputation_tier_label ?? ""}
+          rankLabel={card.rank_label ?? ""}
+          size="card"
+        />
+      ) : showChainPill ? (
+        <ChainPill slug={slug} />
+      ) : null}
     </div>
   );
 }
 
+/**
+ * Chain pill — a plain FACT about the page, so it carries no dot.
+ *
+ * The dot rule, product-wide: a dot means the chip is telling you
+ * something about TRUST; no dot means it's stating a fact. Adding chain
+ * dots would make users learn five trust dots plus an open-ended set of
+ * chain dots.
+ *
+ * Weight 600 because mono at 9.5px with 0.17em tracking reads thin at
+ * the default weight.
+ */
+function ChainPill({ slug }: { slug: string }) {
+  const chain = `var(--chain-${slug})`;
+  return (
+    <span
+      className="bcc-mono"
+      style={{
+        fontSize: 9.5,
+        fontWeight: 600,
+        letterSpacing: "0.17em",
+        textTransform: "uppercase",
+        color: "var(--bcc-text-secondary)",
+        background: `color-mix(in srgb, ${chain} 17%, transparent)`,
+        border: `1px solid color-mix(in srgb, ${chain} 42%, transparent)`,
+        borderRadius: 9999,
+        padding: "2px 8px",
+      }}
+    >
+      {slug}
+    </span>
+  );
+}
+
+/**
+ * Portrait — the card's breathing room, and the flex: 1 child that
+ * absorbs whatever height the standing strip gives back when it
+ * collapses.
+ *
+ * Surface plus a halftone, nothing kind-coloured. There is no cover
+ * photo: `cover_photo_url` isn't on `Card` yet. The slot is built
+ * cover-ready but renders NOTHING until the field lands — deliberately
+ * not a placeholder gradient.
+ */
 function Portrait({
   card,
   canEditAvatar,
@@ -164,139 +281,164 @@ function Portrait({
   card: Card;
   canEditAvatar: boolean;
 }) {
+  const showRibbon = !card.is_claimed && card.claim_target !== null;
+
   return (
-    <div
-      className="relative z-10 flex items-center justify-center overflow-hidden"
-      style={{
-        background:
-          "radial-gradient(circle at 50% 35%, rgb(var(--bcc-white-rgb) / 0.15) 0%, transparent 60%), " +
-          "linear-gradient(180deg, var(--bcc-chain-color, var(--chain-cosmos)) 0%, color-mix(in srgb, var(--bcc-chain-color, var(--chain-cosmos)) 60%, var(--bcc-black)) 100%)",
-      }}
-    >
-      <Crest card={card} canEditAvatar={canEditAvatar} />
-      {/* Halftone overlay — purely decorative. */}
+    <div className="relative z-[1] flex min-h-0 flex-1 items-center justify-center overflow-hidden">
+      {/* Halftone — theme-aware via --card-dot, purely decorative. */}
       <span
         aria-hidden
         className="pointer-events-none absolute inset-0"
         style={{
-          backgroundImage: "radial-gradient(circle, rgb(var(--bcc-white-rgb) / 0.12) 1px, transparent 1.5px)",
+          backgroundImage:
+            "radial-gradient(circle, var(--card-dot) 1px, transparent 1.5px)",
           backgroundSize: "6px 6px",
-          mixBlendMode: "overlay",
         }}
       />
-      <span aria-hidden className="pointer-events-none absolute inset-3 border border-bcc-white/10" />
+      <Crest card={card} canEditAvatar={canEditAvatar} />
+      {showRibbon && <UnclaimedRibbon />}
     </div>
   );
 }
 
 /**
- * WantedCornerStamp — small diagonal stamp anchored to the top-right
- * corner of the card face. Surfaces only when the operator hasn't
- * claimed the validator yet. The full claim CTA + Keplr ADR-036 flow
- * lives on /v/[slug] via the existing ClaimCallout; this stamp is
- * purely a directory-listing affordance pointing the viewer there.
+ * UnclaimedRibbon — a true 45° corner ribbon, and a CHILD OF THE
+ * PORTRAIT so the portrait's own `overflow: hidden` clips it. Both ends
+ * bleed off-edge, so there's no raw terminal, and it can never reach the
+ * header at any card height. That's a structural constraint replacing
+ * what used to be a magic number.
  *
- * Decorative — non-interactive (the surrounding "Open" link handles
- * navigation). aria-hidden so screen readers don't read it as a CTA.
+ * The colour is pinned `--bcc-primary`, NOT `--bcc-accent`: the accent
+ * becomes orange when the viewer picks the secondary accent, which would
+ * put an orange ribbon on the orange project kind.
+ *
+ * Decorative — the claim CTA + wallet flow lives on the entity page.
  */
-function WantedCornerStamp() {
+function UnclaimedRibbon() {
   return (
     <span
       aria-hidden
-      className="bcc-mono pointer-events-none absolute left-1/2 top-1/2 z-20 select-none px-2 py-0.5 text-[9px] tracking-[0.2em] text-bcc-white"
+      className="bcc-mono pointer-events-none absolute select-none text-center"
       style={{
-        background: "var(--safety)",
-        transform: "translate(-50%, -50%) rotate(6deg)",
-        boxShadow: "0 1px 0 rgb(var(--bcc-black-rgb) / 0.2)",
+        top: 20,
+        right: -42,
+        width: 170,
+        transform: "rotate(45deg)",
+        background: "var(--bcc-primary)",
+        color: "var(--bcc-night)",
+        fontSize: 8.5,
+        fontWeight: 700,
+        letterSpacing: "0.22em",
+        padding: "5px 0",
       }}
     >
-      WANTED
+      UNCLAIMED
     </span>
   );
 }
 
 /**
- * TierStrip — colored tier label at the very bottom of the card face.
+ * Nameplate — name, handle and the audience count, read as ONE identity
+ * block (hence the 1px gap on the counts row, not a section break).
  *
- * Replaces an earlier absolute-positioned ribbon that floated over the
- * action bar's OPEN link. As a flow element it gets its own ~28px row
- * below the actions so the label is always readable and never overlaps
- * other content. The tier color drives both the text and a 3px
- * left-edge accent — same vocabulary as the §C1 tier palette.
+ * The audience LABEL is overridden client-side to FOLLOW_COPY.noun. The
+ * server still says "Followers" on entity cards and "Watchers" on member
+ * cards for what is the same PeepSo graph, and shipping both words on
+ * adjacent cards reads as two different features. `value` is still used
+ * verbatim per §A2 — only the word is normalised. The real fix is the
+ * server emitting one label; this stops the split until it does.
  *
- * Skipped at the call site when `reputation_tier` is null (risky tier; §C1
- * hides those from the card UI entirely).
+ * Community cards land here too, via their `members` count — they have
+ * no audience stat on the wire, and no trust axis to fill a grid with.
+ *
+ * `watching` is deliberately NOT shown beside it: that count lives on
+ * MemberProfile, not on `Card`, so there is no value to render. A zero
+ * would be a fabrication, not an empty state.
  */
-function TierStrip({
-  reputationTier,
-  tierLabel,
+function Nameplate({
+  card,
+  audienceStats,
 }: {
-  reputationTier: ReputationTier;
-  tierLabel: string;
+  card: Card;
+  audienceStats: CardStat[];
 }) {
-  return (
-    <div
-      className="relative z-10 flex items-center justify-center border-t border-cardstock-edge/40 px-3 py-2"
-      style={{
-        background: "rgb(var(--ink-rgb) / 0.05)",
-        borderLeft: `4px solid var(--tier-${reputationTier})`,
-      }}
-    >
-      <span
-        className="bcc-mono text-[10px] tracking-[0.24em]"
-        style={{ color: `var(--tier-${reputationTier})` }}
-      >
-        {tierLabel.toUpperCase()}
-      </span>
-    </div>
-  );
-}
+  // §3.1 + /members convention — handles containing `@` are PeepSo-default
+  // email-shaped (no real handle picked yet). Rendering "@user@domain.com"
+  // reads as broken UI, so the kicker is suppressed until they pick one.
+  const showHandle = !card.handle.includes("@");
 
-/**
- * Nameplate — front-face name + handle strip.
- *
- * Sits between the portrait and the stats panel. Without this, the
- * front of a card showed the hex monogram + chain only — you had to
- * flip the card to see whose card it was. The strip uses the same
- * cardstock-deep wash as the stats panel below it, which visually
- * reads them as one info module.
- *
- * Truncation: long display_name values (e.g. "Blue Collar Crypto
- * test 2222") wrap to 2 lines max, then ellipsize. Handle stays a
- * single line.
- */
-function Nameplate({ card }: { card: Card }) {
-  // §3.1 + /members convention — handles that contain `@` are
-  // PeepSo-default email-shaped (operator hasn't claimed a real
-  // handle yet). Rendering "@user@domain.com" reads as broken UI;
-  // we suppress the kicker entirely until they pick a handle.
-  const showHandleKicker = !card.handle.includes("@");
+  // `watchers` is normalised to the floor's word (the server still says
+  // "Followers" on entity cards for the same PeepSo graph). `members` and
+  // `watching` keep their own labels — a community head-count isn't a
+  // watcher count, and "Watching" is already the right word.
+  const labelFor = (stat: CardStat): string =>
+    stat.key === "followers" || stat.key === "watchers"
+      ? FOLLOW_COPY.noun
+      : stat.label;
+
   return (
-    <div className="relative z-10 flex flex-col items-center border-t border-cardstock-edge/40 bg-cardstock-deep/30 px-3 py-2.5 text-center">
+    <div className="relative z-[1] flex shrink-0 flex-col items-center px-3 pb-1 pt-3 text-center">
       <h3
-        className="bcc-stencil text-base leading-[1.1] text-ink"
-        style={{
-          display: "-webkit-box",
-          WebkitLineClamp: 2,
-          WebkitBoxOrient: "vertical",
-          overflow: "hidden",
-        }}
+        className="bcc-stencil w-full truncate"
+        style={{ fontSize: 17, lineHeight: 1.15, color: "var(--bcc-text)" }}
       >
         {card.name}
       </h3>
-      {showHandleKicker && (
-        <p className="bcc-mono mt-1 text-[10px] text-ink-soft">
+
+      {showHandle && (
+        <p
+          className="bcc-mono w-full truncate"
+          style={{ fontSize: 10, color: "var(--bcc-text-muted)" }}
+        >
           @{card.handle}
         </p>
       )}
+
+      {audienceStats.length > 0 && (
+        <p
+          className="flex items-baseline justify-center gap-1.5"
+          style={{ marginTop: 1, fontVariantNumeric: "tabular-nums" }}
+        >
+          {audienceStats.map((stat, i) => (
+            <span key={stat.key} className="flex items-baseline gap-1.5">
+              {/* Separator is a filled dot at ~60%, not a rule — the
+                  counts have to keep reading as one identity block. */}
+              {i > 0 && (
+                <span
+                  aria-hidden
+                  style={{
+                    width: 4,
+                    height: 4,
+                    borderRadius: 9999,
+                    alignSelf: "center",
+                    opacity: 0.6,
+                    background: "var(--bcc-text-muted)",
+                  }}
+                />
+              )}
+              <span
+                className="bcc-stencil"
+                style={{ fontSize: 12.5, color: "var(--bcc-text)" }}
+              >
+                {stat.value}
+              </span>
+              <span
+                className="bcc-mono"
+                style={{ fontSize: 8.5, letterSpacing: "0.12em", color: "var(--bcc-text-muted)" }}
+              >
+                {labelFor(stat)}
+              </span>
+            </span>
+          ))}
+        </p>
+      )}
+
       {/* §J.3.2 reliability standing — positive-only public badge,
-          server-resolved. Absent/null means the entity hasn't earned
-          one: render nothing at all (asymmetric-display rule — losing
-          the badge is never a stigma marker). Reuses the canonical
-          ReliabilityStandingBadge; the prop is a plain enum string so
-          the memoized card tree stays referentially stable. */}
+          server-resolved. Absent means the entity hasn't earned one:
+          render nothing (asymmetric-display rule — losing the badge is
+          never a stigma marker). */}
       {card.reliability_standing != null && (
-        <span className="mt-1.5">
+        <span className="mt-1">
           <ReliabilityStandingBadge standing={card.reliability_standing} />
         </span>
       )}
@@ -323,12 +465,12 @@ function Nameplate({ card }: { card: Card }) {
 }
 
 /**
- * Column-count map for the front-face stats grid. Cards that ship
- * fewer than three stats (community cards ship two: Members +
- * Posts 7d) previously rendered into a hard-coded grid-cols-3 and
- * left a dangling empty column — the map centers however many stats
- * actually arrived. Literal class strings (not template interpolation)
- * so Tailwind's static extractor sees them.
+ * Column-count map for the stats grid. Cards shipping fewer than three
+ * stats (community ships two: Members + Posts 7d; member cards ship
+ * Trust + Reviews once the watcher count moves to the nameplate) would
+ * otherwise render into a hard-coded 3-col grid and leave a dangling
+ * empty column. Literal class strings so Tailwind's static extractor
+ * sees them.
  */
 const STATS_COLS: Record<number, string> = {
   1: "grid-cols-1",
@@ -337,17 +479,39 @@ const STATS_COLS: Record<number, string> = {
 };
 
 function StatsPanel({ stats }: { stats: CardStat[] }) {
-  // Front-face stats panel shows up to three rows. The full list is
-  // on the back face. The server may return more than three; we slice
-  // for layout, never re-derive the values.
+  // The server may return more than three; we slice for layout and
+  // never re-derive the values (§A2 — `value` is used verbatim).
   const visible = stats.slice(0, 3);
+  if (visible.length === 0) return null;
   const cols = STATS_COLS[visible.length] ?? "grid-cols-3";
+
   return (
-    <div className={`relative z-10 grid ${cols} gap-2 border-t border-cardstock-edge/40 bg-cardstock-deep/30 px-4 py-3`}>
-      {visible.map((stat) => (
-        <div key={stat.key} className="flex flex-col items-center text-center">
-          <span className="bcc-mono text-[10px] text-ink-soft">{stat.label}</span>
-          <span className="bcc-stencil mt-1 text-2xl text-ink">{stat.value}</span>
+    <div
+      className={`relative z-[1] grid shrink-0 ${cols} border-t px-4 py-2.5`}
+      style={{ borderColor: "var(--bcc-glass-border)" }}
+    >
+      {visible.map((stat, i) => (
+        <div
+          key={stat.key}
+          className="flex flex-col items-center text-center"
+          style={{
+            fontVariantNumeric: "tabular-nums",
+            // Hairline gutters BETWEEN columns only.
+            borderLeft: i > 0 ? "1px solid var(--bcc-glass-border)" : undefined,
+          }}
+        >
+          <span
+            className="bcc-mono"
+            style={{ fontSize: 8.5, letterSpacing: "0.12em", color: "var(--bcc-text-muted)" }}
+          >
+            {stat.label}
+          </span>
+          <span
+            className="bcc-stencil"
+            style={{ fontSize: 20, lineHeight: 1.1, color: "var(--bcc-text)" }}
+          >
+            {stat.value}
+          </span>
         </div>
       ))}
     </div>

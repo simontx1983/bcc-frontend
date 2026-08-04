@@ -111,7 +111,7 @@ export function MemberDossierBack({ dossier }: { dossier: MemberDossier }) {
           </DossierSection>
         </>
       ) : (
-        <p className="bcc-mono mt-6 text-center text-[12px] italic leading-relaxed text-ink-soft">
+        <p className="bcc-mono mt-6 text-center text-[12px] italic leading-relaxed text-[var(--bcc-text-secondary)]">
           Nothing on file yet — fresh account.
         </p>
       )}
@@ -134,11 +134,11 @@ export function DossierSection({
 }) {
   return (
     <div className={topGap ? "mt-3" : "mt-2"}>
-      {/* Section labels render in full ink, not the muted cardstock-
-          deep tone — these are structural headers ("VERIFIED" / "ON
-          THE FLOOR"), not supplementary chrome. They need to read as
-          first-class sections against the cream panel. */}
-      <p className="bcc-mono text-[10px] tracking-[0.18em] text-ink">{label}</p>
+      {/* Section labels take full text colour, not the muted tone —
+          these are structural headers ("VERIFIED" / "ON THE FLOOR"),
+          not supplementary chrome, so they need to read as first-class
+          sections against the card surface. */}
+      <p className="bcc-mono text-[10px] tracking-[0.18em] text-[var(--bcc-text)]">{label}</p>
       <dl className="mt-1 space-y-0.5">{children}</dl>
     </div>
   );
@@ -158,14 +158,14 @@ export function Row({
       <dt
         className={
           "bcc-mono text-[10px] tracking-[0.16em] " +
-          (dim ? "text-ink-ghost" : "text-ink-soft")
+          (dim ? "text-[var(--bcc-text-muted)]" : "text-[var(--bcc-text-secondary)]")
         }
       >
         {label}
       </dt>
       <dd
         className={
-          "bcc-mono text-[11px] " + (dim ? "text-ink-ghost" : "text-ink")
+          "bcc-mono text-[11px] " + (dim ? "text-[var(--bcc-text-muted)]" : "text-[var(--bcc-text)]")
         }
       >
         {value}
@@ -249,7 +249,7 @@ export function PrimaryHallChip({
 }) {
   return (
     <span
-      className="bcc-mono inline-flex items-center gap-1 border border-cardstock-edge/40 px-1.5 py-[2px] text-ink"
+      className="bcc-mono inline-flex items-center gap-1 border border-[var(--bcc-glass-border)] px-1.5 py-[2px] text-[var(--bcc-text)]"
       style={{ fontSize: "9px", letterSpacing: "0.16em" }}
     >
       <span className="truncate">{hall.name.toUpperCase()}</span>

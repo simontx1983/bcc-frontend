@@ -1,56 +1,137 @@
 "use client";
 
 /**
- * ActionBar — the action band along the bottom of the card's front
- * face (Keep Tabs / Review / View profile). Extracted from
- * CardFactory.tsx (Phase 3.3 god-component split).
+ * CardActionBar — the two-pill action row along the bottom of the card's
+ * front face.
  *
- * Watch fallback (2026-07-23): like the Review button before it, the
- * Keep Tabs button was a SILENT NO-OP on every surface that didn't
- * wire `onPull` — which was every profile hero card (entity AND /u
- * member pages; only the directory grids wired it). When no `onPull`
- * override is supplied, the bar now composes the same primitives
- * CardGrid uses: the shared `useWatching` query (React Query dedupes
- * it against the grids' identical key, and it self-gates on session)
- * resolves the true watching state + follow_id, and the watch/unwatch
- * mutations toggle it. Hosts that pass `onPull` are untouched.
+ * Slot rule: slot 1 is always the RELATIONSHIP (Watch); slot 2 is the
+ * primary act that kind supports (Vouch for trust kinds, Join for
+ * communities — communities have no trust system, so a swapped-in Vouch
+ * would be meaningless there).
+ *
+ * Profile / Open / Review were removed from this bar. The card body is
+ * itself the link now, so Open and Profile were duplicating it; Review
+ * opens a composer and is not a peer action of Watch and Vouch.
+ *
+ * Layout is two `flex: 1` pills, deliberately NOT a breakpoint grid. The
+ * previous `grid-cols-1 sm:grid-cols-3` stacked three 44px buttons into
+ * 132px below 640px inside a fixed 440px `overflow: hidden` card, which
+ * clipped the bottom of the card off on every phone.
+ *
+ * The active→undo affordance (filled pill turning to a red outline and
+ * swapping its label) is pure CSS on .bcc-card-pill-on, so hover and
+ * keyboard focus behave identically without any React hover state.
+ *
+ * Watch fallback (2026-07-23): like Review before it, the Watch button was
+ * a SILENT NO-OP on every surface that didn't wire `onPull` — which was
+ * every profile hero card. When no `onPull` is supplied the bar composes
+ * the same primitives CardGrid uses: the shared `useWatching` query
+ * (React Query dedupes it against the grids' identical key, and it
+ * self-gates on session) resolves the true watching state + follow_id,
+ * and the watch/unwatch mutations toggle it. Hosts that pass `onPull` are
+ * untouched.
  */
 
-import type { Route } from "next";
-import Link from "next/link";
 import type { MouseEvent, ReactNode } from "react";
-import { useMemo } from "react";
-import { useRouter } from "next/navigation";
+import { useMemo, useState } from "react";
 
+import { WatchIcon, VouchIcon, JoinIcon } from "@/components/icons/registry";
+import { useCastAttestation, useRevokeAttestation } from "@/hooks/useAttestations";
 import { useWatchMutation, useUnwatchMutation } from "@/hooks/useWatch";
 import { useWatching } from "@/hooks/useWatching";
-import type { Card, CardCommunityDossier } from "@/lib/api/types";
+import type {
+  AttestationTargetKind,
+  Card,
+  CardCommunityDossier,
+  CardKind,
+} from "@/lib/api/types";
 import { FOLLOW_COPY } from "@/lib/copy";
 import { isAllowed, unlockHint } from "@/lib/permissions";
+
+/**
+ * Card kind → §J attestation target taxonomy.
+ *
+ * `member` maps to `user_profile`, and a member card's `id` IS the user
+ * id (CardViewService emits `'id' => $userId` on that branch), so the
+ * same field feeds both branches. `community` returns undefined — no
+ * trust axis, and the server marks `can_vouch` not-applicable there.
+ */
+function vouchTargetKind(kind: CardKind): AttestationTargetKind | undefined {
+  switch (kind) {
+    case "member":    return "user_profile";
+    case "validator": return "validator_card";
+    case "project":   return "project_card";
+    case "creator":   return "creator_card";
+    default:          return undefined;
+  }
+}
+
+/**
+ * One pill. `onLabel`/`undoLabel` are both rendered; CSS decides which is
+ * visible, so the undo wording appears on hover AND on keyboard focus.
+ */
+function ActionPill({
+  color,
+  active,
+  disabled,
+  title,
+  icon,
+  idleLabel,
+  onLabel,
+  undoLabel,
+  ariaLabel,
+  onClick,
+}: {
+  color: string;
+  active: boolean;
+  disabled: boolean;
+  title: string;
+  icon: ReactNode;
+  idleLabel: string;
+  onLabel: string;
+  undoLabel: string;
+  ariaLabel: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      title={title}
+      aria-label={ariaLabel}
+      aria-pressed={active}
+      onClick={(e: MouseEvent) => {
+        // The card body is a link; an action must never navigate it.
+        e.preventDefault();
+        e.stopPropagation();
+        onClick();
+      }}
+      className={`bcc-card-pill${active ? " bcc-card-pill-on" : ""}`}
+      style={{ ["--pill-color" as string]: color }}
+    >
+      {icon}
+      {active ? (
+        <>
+          <span className="bcc-pill-on-label">{onLabel}</span>
+          <span className="bcc-pill-undo">{undoLabel}</span>
+        </>
+      ) : (
+        <span>{idleLabel}</span>
+      )}
+    </button>
+  );
+}
 
 export function ActionBar({
   card,
   onPull,
-  onReview,
   isPulled,
-  hideOpenAction,
 }: {
   card: Card;
   onPull?: ((card: Card) => void) | undefined;
-  onReview?: ((card: Card) => void) | undefined;
   isPulled: boolean;
-  /** When true, the "View profile" cell is dropped from the action bar.
-   *  Used on the profile page itself — the link would loop back to the
-   *  same URL. Grid switches to 2-col when this is true. */
-  hideOpenAction?: boolean;
 }) {
-  // Action buttons sit on a thin band along the bottom of the front
-  // face. Per §N7 every gated action is ALWAYS visible — disabled
-  // (with a tooltip) when permissions deny. Hidden actions teach the
-  // user nothing.
-  const stop = (event: MouseEvent) => event.stopPropagation();
-
-  // ── Watch fallback (no onPull wired) ─────────────────────────────
+  // ── Watch ────────────────────────────────────────────────────────
   // Same follow-map semantics as CardGrid's buildFollowMap: a watching
   // row matches this card when kinds agree and (page_id ?? card_id)
   // equals card.id. The query self-gates on session, so anon viewers
@@ -71,10 +152,8 @@ export function ActionBar({
       ? { follow_id: hit.follow_id, source: hit.follow_source ?? "peepso" }
       : undefined;
   }, [watchFallbackActive, watchingQuery.data, card.card_kind, card.id]);
-  // Hosts that own optimistic state pass isPulled; the fallback derives
-  // it from the watching query (flips after the mutation's namespace
-  // invalidation refetches — same cadence the grids have).
   const effectivePulled = watchFallbackActive ? fallbackEntry !== undefined : isPulled;
+
   const handleWatchClick = () => {
     if (onPull !== undefined) {
       onPull(card);
@@ -88,104 +167,110 @@ export function ActionBar({
     }
   };
 
-  // The Open destination is a server-supplied path. With typedRoutes
-  // enabled we can't statically prove it's a valid app route, so we
-  // cast through `Route` — the WP backend is the authority on these
-  // URLs (per §A4).
-  const openHref = card.links.self as Route;
+  // ── Vouch ────────────────────────────────────────────────────────
+  // Server owns eligibility entirely (`can_vouch` + `viewer_attestation`);
+  // nothing here recomputes it. A failed mutation surfaces through the
+  // pill's own tooltip rather than an extra line of text — the card is a
+  // fixed 440px and has no room to grow one.
+  const [vouchError, setVouchError] = useState<string | null>(null);
+  const castVouch = useCastAttestation({
+    onSuccess: () => setVouchError(null),
+    onError: () => setVouchError("Couldn't update your vouch. Try again."),
+  });
+  const revokeVouch = useRevokeAttestation({
+    onSuccess: () => setVouchError(null),
+    onError: () => setVouchError("Couldn't update your vouch. Try again."),
+  });
 
-  // Default Review navigation — server-supplied `card.links.review`
-  // (`{entity-profile}?compose=review`) when present, otherwise the
-  // card's profile URL. Used when no `onReview` override is wired
-  // (most CardFactory call sites). The entity profile's
-  // ReviewCallout reads the query param on mount and auto-opens
-  // the composer. Without this fallback the Review button was a
-  // no-op on every surface except DirectoryGrid.
-  const router = useRouter();
-  const handleReviewClick = () => {
-    if (onReview !== undefined) {
-      onReview(card);
+  const targetKind = vouchTargetKind(card.card_kind);
+  const existingVouch = card.viewer_attestation?.vouch ?? null;
+  const hasVouched = existingVouch !== null;
+  const vouchPending = castVouch.isPending || revokeVouch.isPending;
+  const canVouch = isAllowed(card.permissions, "can_vouch");
+
+  const handleVouchClick = () => {
+    if (vouchPending || targetKind === undefined) return;
+    setVouchError(null);
+    if (existingVouch !== null) {
+      revokeVouch.mutate(existingVouch.id);
       return;
     }
-    const href = (card.links.review ?? card.links.self) as Route;
-    router.push(href);
+    castVouch.mutate({ kind: "vouch", target_kind: targetKind, target_id: card.id });
   };
 
-  const cols = hideOpenAction === true ? "sm:grid-cols-2" : "sm:grid-cols-3";
+  const watchAllowed = isAllowed(card.permissions, "can_watch");
 
   return (
-    <div className={`relative z-10 grid grid-cols-1 border-t border-cardstock-edge/40 bg-cardstock ${cols}`}>
-      <button
-        type="button"
-        disabled={!isAllowed(card.permissions, "can_watch")}
+    <div className="bcc-card-actions">
+      <ActionPill
+        color="var(--bcc-accent)"
+        active={effectivePulled}
+        disabled={!watchAllowed}
         title={
-          isAllowed(card.permissions, "can_watch")
+          watchAllowed
             ? effectivePulled
               ? FOLLOW_COPY.tooltipActive
               : FOLLOW_COPY.tooltipIdle
             : unlockHint(card.permissions, "can_watch") ??
               `${FOLLOW_COPY.cta} is unavailable for this card.`
         }
-        onClick={(e) => {
-          stop(e);
-          handleWatchClick();
-        }}
-        className="bcc-stencil flex h-11 items-center justify-center bg-ink text-cardstock transition-colors disabled:cursor-not-allowed"
-      >
-        {effectivePulled ? (
-          <>
-            {/* Active state — desktop variant; "Keeping Tabs ✓" overflows the
-                grid-cols-3 cell on <375px viewports, so we swap to the state
-                word "Watching ✓" below sm (matches the previous button width). */}
-            <span className="hidden sm:inline">{FOLLOW_COPY.ctaActiveDesktop}</span>
-            <span className="sm:hidden">{FOLLOW_COPY.ctaActiveMobile}</span>
-          </>
-        ) : (
-          FOLLOW_COPY.cta
-        )}
-      </button>
-
-      <button
-        type="button"
-        disabled={!isAllowed(card.permissions, "can_review")}
-        title={
-          isAllowed(card.permissions, "can_review")
-            ? "Write a review"
-            : unlockHint(card.permissions, "can_review") ??
-              "Reviews unlock at neutral reputation."
+        icon={<WatchIcon size={14} strokeWidth={1.9} aria-hidden />}
+        idleLabel="Watch"
+        onLabel="Watching"
+        undoLabel="Unwatch"
+        ariaLabel={
+          effectivePulled ? `Stop watching ${card.name}` : `Watch ${card.name}`
         }
-        onClick={(e) => {
-          stop(e);
-          handleReviewClick();
-        }}
-        className="bcc-stencil flex h-11 items-center justify-center border-l border-cardstock-edge/40 bg-cardstock text-ink transition-colors hover:bg-ink hover:text-cardstock disabled:opacity-40"
-      >
-        Review
-      </button>
+        onClick={handleWatchClick}
+      />
 
-      {/* The primary navigation affordance on the card — promoted to
-          safety-orange so it reads as the "do this next" action rather
-          than just one of three same-weight buttons. Hidden on the
-          profile page itself (hideOpenAction=true) since the link
-          would loop back to the same URL. */}
-      {hideOpenAction !== true && (
-        <Link
-          href={openHref}
-          onClick={stop}
-          title="View this profile"
-          aria-label={`View ${card.name}'s profile`}
-          className="bcc-stencil flex h-11 items-center justify-center border-l border-cardstock-edge/40 bg-safety text-center text-cardstock transition hover:bg-ink"
-        >
-          View profile
-        </Link>
+      {/* Vouch is absent on community cards entirely — the community bar
+          below renders Join in this slot instead. */}
+      {targetKind !== undefined && (
+        <ActionPill
+          color="var(--bcc-verified)"
+          active={hasVouched}
+          disabled={vouchPending || (!canVouch && !hasVouched)}
+          title={
+            vouchError ??
+            (canVouch || hasVouched
+              ? hasVouched
+                ? `You vouch for ${card.name}. Click to withdraw.`
+                : `Vouch for ${card.name} — back this operator.`
+              : unlockHint(card.permissions, "can_vouch") ??
+                "Vouching unlocks at neutral reputation.")
+          }
+          icon={<VouchIcon size={14} strokeWidth={1.9} aria-hidden />}
+          idleLabel="Vouch"
+          onLabel="Vouched"
+          // "Unvouch" is not a word — you WITHDRAW support. The asymmetry
+          // with "Unwatch" is deliberate: unwatching costs nothing, while
+          // pulling a vouch shows up in someone else's history.
+          undoLabel="Withdraw"
+          ariaLabel={
+            hasVouched
+              ? `Withdraw your vouch for ${card.name}`
+              : `Vouch for ${card.name}`
+          }
+          onClick={handleVouchClick}
+        />
       )}
     </div>
   );
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// CommunityActionBar — the community-card variant of the action band.
-// Two cells: JOIN (state machine over the server dossier) + OPEN.
+// CommunityActionBar — JOIN only.
+//
+// Communities are the one kind with NO relationship slot: the server
+// denies `can_watch` as `not_applicable` for them at every auth state
+// ("communities are joined via the group detail's own join flow, never
+// watched, so no `watch` action is emitted"), and `not_applicable` means
+// HIDDEN, not dimmed — a permanently dead 38% pill would be teaching the
+// viewer about an action that does not exist. They have no trust axis
+// either, so there's no Vouch to put there.
+//
+// Join therefore takes the full width on its own.
 // ─────────────────────────────────────────────────────────────────────
 
 /**
@@ -193,7 +278,7 @@ export function ActionBar({
  * (§A2 — the server already resolved membership/gating; nothing here
  * recomputes eligibility):
  *
- *   viewer_is_member (or optimistic isJoined) → MEMBER ✓   (no-op)
+ *   viewer_is_member (or optimistic isJoined) → MEMBER ✓   (inert)
  *   nft, not a member                         → CHECK & JOIN (onJoin)
  *   trust-gated non-member                    → JOIN (enabled — the
  *                                               server adjudicates the
@@ -202,10 +287,8 @@ export function ActionBar({
  *   closed non-trust                          → PRIVATE   (disabled)
  *   secret                                    → INVITE-ONLY (disabled)
  *
- * Pending state renders CHECKING… on the NFT path (a speculative
- * on-chain ownership check) and JOINING… everywhere else.
- *
- * Every click stops propagation so actions never flip the card.
+ * The dimmed states are explained by the standing strip's T2 barrier row,
+ * so the pill itself doesn't have to carry the reason.
  */
 export function CommunityActionBar({
   card,
@@ -213,104 +296,68 @@ export function CommunityActionBar({
   onJoin,
   isJoined,
   joinPending,
-  hideOpenAction,
 }: {
   card: Card;
   dossier: CardCommunityDossier;
   onJoin?: ((card: Card) => void) | undefined;
   isJoined: boolean;
   joinPending: boolean;
-  hideOpenAction?: boolean;
 }) {
-  const stop = (event: MouseEvent) => event.stopPropagation();
-  const openHref = card.links.self as Route;
-  const cols = hideOpenAction === true ? "" : " sm:grid-cols-2";
-
   const isMember = dossier.viewer_is_member || isJoined;
   const isNft = dossier.type === "nft";
+  const isPrivate =
+    !isNft && dossier.trust_min === null && dossier.privacy === "closed";
+  const isSecret = !isNft && dossier.privacy === "secret";
 
-  let joinCell: ReactNode;
+  let joinLabel: string;
+  let joinTitle: string;
+  let joinDisabled: boolean;
   if (isMember) {
-    joinCell = (
-      <button
-        type="button"
-        onClick={stop}
-        title="You're a member — manage membership on the community page."
-        className="bcc-stencil flex h-11 cursor-default items-center justify-center bg-ink text-cardstock"
-      >
-        MEMBER ✓
-      </button>
-    );
-  } else if (
-    dossier.type !== "nft" &&
-    dossier.trust_min === null &&
-    dossier.privacy === "closed"
-  ) {
-    joinCell = (
-      <button
-        type="button"
-        disabled
-        onClick={stop}
-        title="Request to join on the community page."
-        className="bcc-stencil flex h-11 items-center justify-center bg-cardstock text-ink opacity-40 disabled:cursor-not-allowed"
-      >
-        PRIVATE
-      </button>
-    );
-  } else if (dossier.type !== "nft" && dossier.privacy === "secret") {
-    joinCell = (
-      <button
-        type="button"
-        disabled
-        onClick={stop}
-        title="Members join by invitation."
-        className="bcc-stencil flex h-11 items-center justify-center bg-cardstock text-ink opacity-40 disabled:cursor-not-allowed"
-      >
-        INVITE-ONLY
-      </button>
-    );
+    joinLabel = "Member";
+    joinTitle = "You're a member — manage membership on the community page.";
+    joinDisabled = false;
+  } else if (isPrivate) {
+    joinLabel = "Private";
+    joinTitle = "Request to join on the community page.";
+    joinDisabled = true;
+  } else if (isSecret) {
+    joinLabel = "Invite-only";
+    joinTitle = "Members join by invitation.";
+    joinDisabled = true;
   } else {
-    // NFT (CHECK & JOIN), trust-gated, local, or open plain group —
-    // all enabled; the server owns the final yes/no when the join fires.
-    const idleLabel = isNft ? "CHECK & JOIN" : "JOIN";
-    const pendingLabel = isNft ? "CHECKING…" : "JOINING…";
-    joinCell = (
-      <button
-        type="button"
-        disabled={joinPending}
-        title={
-          isNft
-            ? "Verifies your linked wallet holds this collection, then joins."
-            : "Join this community."
-        }
-        onClick={(e) => {
-          stop(e);
-          if (onJoin !== undefined) onJoin(card);
-        }}
-        className="bcc-stencil flex h-11 items-center justify-center bg-ink text-cardstock transition-colors hover:bg-safety disabled:cursor-wait disabled:opacity-70"
-      >
-        {joinPending ? pendingLabel : idleLabel}
-      </button>
-    );
+    // Always just "Join", including the NFT holder-gate path. "Check &
+    // join" named a step the viewer never performs separately: the
+    // ownership check IS the join request, and the server adjudicates it
+    // either way. Splitting the two would be worse still — nobody would
+    // choose "check" when "join" is sitting next to it. A viewer whose
+    // wallet doesn't hold the collection gets the server's refusal, which
+    // is the same information the label was trying to pre-empt.
+    joinLabel = joinPending ? (isNft ? "Checking…" : "Joining…") : "Join";
+    joinTitle = isNft
+      ? "Verifies your linked wallet holds this collection, then joins."
+      : "Join this community.";
+    joinDisabled = joinPending;
   }
 
   return (
-    <div
-      className={`relative z-10 grid grid-cols-1 border-t border-cardstock-edge/40 bg-cardstock${cols}`}
-    >
-      {joinCell}
-
-      {hideOpenAction !== true && (
-        <Link
-          href={openHref}
-          onClick={stop}
-          title={`Open ${card.name}`}
-          aria-label={`Open ${card.name}`}
-          className="bcc-stencil flex h-11 items-center justify-center border-l border-cardstock-edge/40 bg-safety text-center text-cardstock transition hover:bg-ink"
-        >
-          Open
-        </Link>
-      )}
+    <div className="bcc-card-actions">
+      <ActionPill
+        color="var(--bcc-verified)"
+        active={isMember}
+        disabled={joinDisabled}
+        title={joinTitle}
+        icon={<JoinIcon size={14} strokeWidth={1.9} aria-hidden />}
+        idleLabel={joinLabel}
+        onLabel="Member"
+        // Leaving a community is a real decision made on the community
+        // page, not a hover-to-undo on a directory card.
+        undoLabel="Member"
+        ariaLabel={isMember ? `You are a member of ${card.name}` : `Join ${card.name}`}
+        onClick={() => {
+          if (isMember || joinDisabled) return;
+          if (onJoin !== undefined) onJoin(card);
+        }}
+      />
     </div>
   );
 }

@@ -14,13 +14,10 @@
  * or `stats[]` (already formatted strings).
  *
  * What this component owns (presentation only):
- *   - 3D flip on click (front ↔ back face)
- *   - Hover-driven tilt, gated on prefers-reduced-motion
- *   - Foil shimmer overlay for `reputation_tier === 'legendary'` (§C1)
- *   - Disabled action states with title-tooltip when `permissions.can_X`
- *     is false (§N7 visible-but-dimmed)
- *   - Click-to-flip vs. click-on-action delegation (event.stopPropagation
- *     on action buttons so they don't flip the card)
+ *   - Flip state, driven by the standing strip's flip chip
+ *   - Hover-driven tilt, gated on prefers-reduced-motion (opaque only)
+ *   - The per-kind frame colour handed down as `--card-kind`
+ *   - Surface selection: opaque + real rotation, or glass + cross-fade
  *
  * What it doesn't:
  *   - Mutations (Pull / Review / Dispute) — parent passes callbacks
@@ -36,7 +33,6 @@
 
 import {
   type CSSProperties,
-  type KeyboardEvent,
   type MouseEvent,
   useMemo,
   useRef,
@@ -49,29 +45,24 @@ import { CardFrontFace } from "@/components/cards/CardFrontFace";
 import type { Card, CardKind } from "@/lib/api/types";
 
 /**
- * Per-kind card chrome color. Drives the `--bcc-chain-color` CSS var
- * on the card root, which the ChainBand + Portrait gradient both
- * consume. So every validator card reads as the same hue regardless
- * of tier; every project as another; every creator as a third. Tier
- * info still surfaces on the bottom TierStrip — kind is the headline,
- * tier is the secondary qualifier.
+ * Per-kind frame colour. Drives `--card-kind` on the card root, which
+ * the face's 3px top rule and its 58px wash both consume, and which is
+ * passed down as the standing strip's identity dot.
  *
- * Member cards intentionally inherit the original crest-driven color
- * — a "member" card represents a person, not a category, so a single
- * member-wide color would erase the per-person identity the crest
- * carries today.
+ * EVERY kind is in this map, `member` included. It previously wasn't,
+ * so member cards fell through to the crest's tier colour — which is
+ * why every member card rendered green.
  *
- * Values are CSS variables defined in globals.css so the palette can
- * be tweaked centrally without touching this file. The choice:
- *   - validator → blueprint (deep navy — verified blockchain operator)
- *   - project   → safety    (orange — building / action)
- *   - creator   → kujira    (red — creative output / drop energy)
+ * The colour is now always the KIND, never the chain. A Cosmos-backed
+ * validator and an Osmosis-backed one are both validators first; chain
+ * is a qualifier and it lives in the header pill.
  */
-const KIND_TO_COLOR_VAR: Partial<Record<CardKind, string>> = {
-  validator: "var(--blueprint)",
-  project:   "var(--safety)",
-  creator:   "var(--chain-kujira)",
-  community: "var(--union)",
+const KIND_TO_COLOR_VAR: Record<CardKind, string> = {
+  member:    "var(--kind-member)",
+  validator: "var(--kind-validator)",
+  project:   "var(--kind-project)",
+  creator:   "var(--kind-creator)",
+  community: "var(--kind-community)",
 };
 
 export interface CardFactoryProps {
@@ -83,10 +74,6 @@ export interface CardFactoryProps {
    * facing label is centralized in lib/copy.ts (FOLLOW_COPY).
    */
   onPull?: ((card: Card) => void) | undefined;
-  /** Open the review composer. Disabled when permissions.can_review.allowed is false. */
-  onReview?: ((card: Card) => void) | undefined;
-  /** Override the default click-to-flip behavior on the card body. */
-  onCardClick?: ((card: Card) => void) | undefined;
   /**
    * When true, the CTA renders in muted state — indicates the card is
    * already in the viewer's watchlist OR (during onboarding) selected for
@@ -96,11 +83,15 @@ export interface CardFactoryProps {
    */
   isPulled?: boolean | undefined;
   /**
-   * When true, the "View profile" link in the action bar is hidden.
-   * Used on the profile page itself — the link would just route to the
-   * same URL, so it's dead clickbait. Other surfaces (feed cards, etc.)
-   * leave it visible. */
-  hideOpenAction?: boolean | undefined;
+   * Surface treatment. "opaque" (default) really rotates in 3D — used
+   * by the profile hero and the directory grids. "glass" cross-fades
+   * between the faces instead, because `backdrop-filter` flattens a 3D
+   * transform context and the two cannot coexist; the avatar hovercard
+   * is the only host where glass buys anything (it's the only one with
+   * content behind the card to refract) and also the only one where
+   * rotation isn't wanted.
+   */
+  surface?: "opaque" | "glass";
   /**
    * When true, the avatar inside the crest renders with an upload
    * overlay (hover hint "UPDATE AVATAR" + click opens file picker).
@@ -128,10 +119,8 @@ export interface CardFactoryProps {
 export function CardFactory({
   card,
   onPull,
-  onReview,
-  onCardClick,
   isPulled = false,
-  hideOpenAction = false,
+  surface = "opaque",
   canEditAvatar = false,
   onJoin,
   isJoined = false,
@@ -161,93 +150,51 @@ export function CardFactory({
     cardRef.current.style.setProperty("--bcc-ry", "0deg");
   };
 
-  const handleCardClick = () => {
-    if (onCardClick !== undefined) {
-      onCardClick(card);
-      return;
-    }
-    setFlipped((prev) => !prev);
-  };
+  const handleFlip = () => setFlipped((prev) => !prev);
 
-  const handleCardKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (event.key === "Enter" || event.key === " ") {
-      event.preventDefault();
-      handleCardClick();
-    }
-  };
+  const kindColor = KIND_TO_COLOR_VAR[card.card_kind];
+  const kindStyle = useMemo<CSSProperties>(
+    () => ({ ["--card-kind" as string]: kindColor }),
+    [kindColor],
+  );
 
-  // Per-kind card chrome color. Drives `--bcc-chain-color` which the
-  // ChainBand + Portrait gradient both consume, so every validator
-  // reads as the same color regardless of tier; tier information
-  // surfaces on the TierStrip at the bottom of the card. Falls back
-  // to the §2.9 crest background when the kind isn't in the map.
-  //
-  // Member cards inherit the original crest-driven color because
-  // they don't have a single per-kind identity in the same way
-  // (a "member" card is the person, not a category).
-  const chainStyle = useMemo<CSSProperties>(() => {
-    // Community cards with a chain-bound crest (NFT holder groups) keep
-    // their chain identity — a Cosmos Hub holders room reads as Cosmos,
-    // not as generic community-green. Non-chain community crests fall
-    // through to the union color in KIND_TO_COLOR_VAR.
-    if (
-      card.card_kind === "community" &&
-      card.crest.background_kind === "chain" &&
-      card.crest.background_value !== ""
-    ) {
-      return {
-        ["--bcc-chain-color" as string]: `var(--chain-${card.crest.background_value})`,
-      };
-    }
-
-    const kindColor = KIND_TO_COLOR_VAR[card.card_kind];
-    if (kindColor !== undefined) {
-      return { ["--bcc-chain-color" as string]: kindColor };
-    }
-
-    // Fallback: §2.9 crest background — chain | tier | solid.
-    const { background_kind, background_value } = card.crest;
-    if (background_value === "") return {};
-    if (background_kind === "chain") {
-      return { ["--bcc-chain-color" as string]: `var(--chain-${background_value})` };
-    }
-    if (background_kind === "tier") {
-      return { ["--bcc-chain-color" as string]: `var(--tier-${background_value})` };
-    }
-    if (background_kind === "solid") {
-      return { ["--bcc-chain-color" as string]: background_value };
-    }
-    return {};
-  }, [card.card_kind, card.crest.background_kind, card.crest.background_value]);
+  const isGlass = surface === "glass";
 
   return (
     <div className="bcc-card-stage">
+      {/*
+        The root is a plain container now, not a role="button". Two live
+        bugs die with that change: the flip chip had never actually been
+        a button (an aria-hidden <span> with no handler, its own comment
+        calling it "decorative"), and clicking the card body didn't flip
+        either. The body is a link and the chip is a real <button>, so
+        neither behaviour has anywhere left to live.
+      */}
       <div
         ref={cardRef}
-        role="button"
-        tabIndex={0}
-        aria-pressed={flipped}
-        aria-label={`${card.name} ${card.card_kind} card`}
-        onMouseMove={handleMouseMove}
-        onMouseLeave={handleMouseLeave}
-        onClick={handleCardClick}
-        onKeyDown={handleCardKeyDown}
-        className={`bcc-card ${flipped ? "is-flipped" : ""}`}
-        style={chainStyle}
+        onMouseMove={isGlass ? undefined : handleMouseMove}
+        onMouseLeave={isGlass ? undefined : handleMouseLeave}
+        className={`bcc-card${flipped ? " is-flipped" : ""}${isGlass ? " is-flat" : ""}`}
+        style={kindStyle}
       >
         <CardFrontFace
           card={card}
+          kindColor={kindColor}
           flipped={flipped}
+          onFlip={handleFlip}
           onPull={onPull}
-          onReview={onReview}
           isPulled={isPulled}
-          hideOpenAction={hideOpenAction}
           canEditAvatar={canEditAvatar}
           onJoin={onJoin}
           isJoined={isJoined}
           joinPending={joinPending}
         />
-        <CardBackFace card={card} />
+        <CardBackFace
+          card={card}
+          kindColor={kindColor}
+          flipped={flipped}
+          onFlip={handleFlip}
+        />
       </div>
     </div>
   );

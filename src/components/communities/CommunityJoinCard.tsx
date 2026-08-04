@@ -6,8 +6,7 @@
  * cards; consumed by:
  *
  *   - CommunityCardGrid (the /communities discovery grid)
- *   - GroupDetailShell's PageHero card slot (hideOpenAction — the
- *     OPEN cell would loop back to the page you're on)
+ *   - GroupDetailShell's PageHero card slot
  *
  * Join wiring:
  *   - All three join mutations are mounted unconditionally (Rules of
@@ -39,13 +38,7 @@ import { useJoinHallMutation } from "@/hooks/useHallsPrimary";
 import { useJoinPlainGroupMutation } from "@/hooks/useMyGroups";
 import type { Card } from "@/lib/api/types";
 
-export function CommunityJoinCard({
-  card,
-  hideOpenAction = false,
-}: {
-  card: Card;
-  hideOpenAction?: boolean;
-}) {
+export function CommunityJoinCard({ card }: { card: Card }) {
   const router = useRouter();
   // Optimistic membership for the plain/hall paths only — see module
   // doc. Replaced by server truth when router.refresh() lands.
@@ -97,7 +90,6 @@ export function CommunityJoinCard({
         onJoin={handleJoin}
         isJoined={optimisticJoined}
         joinPending={joinPending}
-        hideOpenAction={hideOpenAction}
       />
       {joinError !== null && (
         <p
