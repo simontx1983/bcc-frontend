@@ -22,14 +22,25 @@ import {
 
 import { getGroupFeed } from "@/lib/api/groups-detail-endpoints";
 import { bccFetchAsClient } from "@/lib/api/client";
-import type { BccApiError, FeedResponse } from "@/lib/api/types";
+import type { BccApiError, FeedResponse, HallFeedChannel } from "@/lib/api/types";
 
 const PAGE_SIZE = 20;
 
 /** Root key — exported so other code can invalidate the namespace. */
 export const GROUP_FEED_QUERY_KEY_ROOT = ["groups", "feed"] as const;
 
-export function useGroupFeed(groupId: number) {
+/**
+ * @param hallFeed §21.3 (v1.62) Hall feed channel. `"main"` (default)
+ *   returns the ordinary feed with ranked posts EXCLUDED; `"ranked"`
+ *   returns only ranked-channel posts (everyone may read). The param
+ *   is only meaningful on Halls — for other kinds "ranked" is simply
+ *   empty. "main" is spelled by omitting the query param so the wire
+ *   (and any pre-Phase-7 backend) stays byte-identical to today.
+ *   Channel rides in the queryKey AFTER groupId, so the existing
+ *   `[root, groupId]` prefix invalidation in useCreatePost covers
+ *   both channels.
+ */
+export function useGroupFeed(groupId: number, hallFeed: HallFeedChannel = "main") {
   return useInfiniteQuery<
     FeedResponse,
     BccApiError,
@@ -37,7 +48,7 @@ export function useGroupFeed(groupId: number) {
     QueryKey,
     string | null
   >({
-    queryKey: [...GROUP_FEED_QUERY_KEY_ROOT, groupId],
+    queryKey: [...GROUP_FEED_QUERY_KEY_ROOT, groupId, hallFeed],
     initialPageParam: null,
     queryFn: ({ pageParam, signal }) =>
       // Client-side path: route through `bccFetchAsClient` so the
@@ -46,7 +57,7 @@ export function useGroupFeed(groupId: number) {
       // path-building inline here rather than threading a token
       // through every consumer.
       bccFetchAsClient<FeedResponse>(
-        buildPath(groupId, pageParam, PAGE_SIZE),
+        buildPath(groupId, pageParam, PAGE_SIZE, hallFeed),
         { method: "GET", signal }
       ),
     getNextPageParam: (lastPage) =>
@@ -61,13 +72,22 @@ export function useGroupFeed(groupId: number) {
 // reuse the same wrapper without a duplicate path-builder.
 void getGroupFeed;
 
-function buildPath(groupId: number, cursor: string | null, limit: number): string {
+function buildPath(
+  groupId: number,
+  cursor: string | null,
+  limit: number,
+  hallFeed: HallFeedChannel
+): string {
   const search = new URLSearchParams();
   if (cursor !== null && cursor !== "") {
     search.set("cursor", cursor);
   }
   if (limit > 0) {
     search.set("limit", String(limit));
+  }
+  // §21.3 — only the literal "ranked" travels; main = param omitted.
+  if (hallFeed === "ranked") {
+    search.set("hall_feed", hallFeed);
   }
   const qs = search.toString();
   return qs === "" ? `groups/${groupId}/feed` : `groups/${groupId}/feed?${qs}`;

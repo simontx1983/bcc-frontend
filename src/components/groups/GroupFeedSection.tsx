@@ -28,6 +28,8 @@
  * item updates (matches the §S "memoize feed cards" rule).
  */
 
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import type { Route } from "next";
 import { memo, useCallback } from "react";
 
 import { Composer } from "@/components/composer/Composer";
@@ -36,7 +38,11 @@ import { GroupGatedNotice } from "@/components/groups/GroupGatedNotice";
 import { GroupPostPolicyToggle } from "@/components/groups/GroupPostPolicyToggle";
 import { useGroupFeed } from "@/hooks/useGroupFeed";
 import { humanizeCode } from "@/lib/api/errors";
-import type { FeedItem, GroupDetailResponse } from "@/lib/api/types";
+import type {
+  FeedItem,
+  GroupDetailResponse,
+  HallFeedChannel,
+} from "@/lib/api/types";
 import { unlockHint } from "@/lib/permissions";
 
 interface GroupFeedSectionProps {
@@ -44,6 +50,35 @@ interface GroupFeedSectionProps {
 }
 
 export function GroupFeedSection({ group }: GroupFeedSectionProps) {
+  // §21.3 (v1.62) — Hall feed channel, URL param as source of truth
+  // (`?feed=ranked`; anything else = main). Halls only; every other
+  // kind ignores the param and renders exactly as before. Reading is
+  // open to everyone — only POSTING into ranked is gated (server-side).
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+
+  const isHall = group.type === "hall";
+  const channel: HallFeedChannel =
+    isHall && searchParams.get("feed") === "ranked" ? "ranked" : "main";
+
+  const setChannel = useCallback(
+    (next: HallFeedChannel) => {
+      const params = new URLSearchParams(searchParams.toString());
+      if (next === "ranked") {
+        params.set("feed", "ranked");
+      } else {
+        params.delete("feed");
+      }
+      const qs = params.toString();
+      router.replace(
+        (qs === "" ? pathname : `${pathname}?${qs}`) as Route,
+        { scroll: false },
+      );
+    },
+    [searchParams, router, pathname],
+  );
+
   if (!group.feed_visible) {
     return (
       <GroupGatedNotice
@@ -79,13 +114,44 @@ export function GroupFeedSection({ group }: GroupFeedSectionProps) {
           enabled={group.public_all_members_enabled === true}
         />
       )}
+      {/* §21.3 — MAIN | RANKED channel toggle, Halls only. Everyone may
+          read both channels; posting into ranked is server-gated. */}
+      {isHall && (
+        <div
+          className="flex items-center gap-2"
+          role="group"
+          aria-label="Hall feed channel"
+        >
+          <ChannelChip
+            label="MAIN"
+            active={channel === "main"}
+            onClick={() => setChannel("main")}
+          />
+          <ChannelChip
+            label="RANKED"
+            active={channel === "ranked"}
+            onClick={() => setChannel("ranked")}
+          />
+        </div>
+      )}
       {canInteract && (
-        <Composer
-          variant="inline"
-          groupId={group.id}
-          groupScopeLabel={`POST IN ${group.name.toUpperCase()}`}
-          canUsePublicAll={group.can_use_public_all}
-        />
+        <div className="flex flex-col gap-2">
+          {/* §21.3 — static state note on the ranked composer. The
+              server owns the gate; we don't pre-compute the viewer's
+              rank here (the deny reason renders inline on submit). */}
+          {channel === "ranked" && (
+            <p className="bcc-mono text-[11px] tracking-[0.16em] text-bcc-text-secondary/70">
+              Ranked feed — Journeyman and above post here.
+            </p>
+          )}
+          <Composer
+            variant="inline"
+            groupId={group.id}
+            groupScopeLabel={`POST IN ${group.name.toUpperCase()}`}
+            canUsePublicAll={group.can_use_public_all}
+            hallFeed={channel}
+          />
+        </div>
       )}
       {/* Non-member teaser hint (Phase 2): feed_visible is true but the
           viewer can't write here. Client-authored affordance copy — not
@@ -102,8 +168,39 @@ export function GroupFeedSection({ group }: GroupFeedSectionProps) {
         groupId={group.id}
         canInteract={canInteract}
         groupKind={group.type}
+        channel={channel}
       />
     </div>
+  );
+}
+
+/**
+ * ChannelChip — one MAIN/RANKED toggle chip. Same "active = full fill"
+ * grammar as the directory filter chips; theme tokens only.
+ */
+function ChannelChip({
+  label,
+  active,
+  onClick,
+}: {
+  label: string;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={
+        "bcc-mono px-3 py-1.5 text-[10px] tracking-[0.18em] transition motion-reduce:transition-none " +
+        (active
+          ? "bg-bcc-text text-bcc-bg"
+          : "border border-bcc-border bg-bcc-surface-hover text-bcc-text-secondary hover:bg-bcc-surface-active")
+      }
+    >
+      {label}
+    </button>
   );
 }
 
@@ -111,12 +208,14 @@ function GroupFeedBody({
   groupId,
   canInteract,
   groupKind,
+  channel,
 }: {
   groupId: number;
   canInteract: boolean;
   groupKind: GroupDetailResponse["type"];
+  channel: HallFeedChannel;
 }) {
-  const query = useGroupFeed(groupId);
+  const query = useGroupFeed(groupId, channel);
 
   const handleLoadMore = useCallback(() => {
     if (!query.isFetchingNextPage) {
@@ -161,6 +260,23 @@ function GroupFeedBody({
   }
 
   const items = (query.data?.pages ?? []).flatMap((page) => page.items);
+
+  if (items.length === 0 && channel === "ranked") {
+    // §21.3 — ranked channel has its own empty copy: the founder-chair
+    // hall framing below assumes the whole Hall is quiet, which is
+    // wrong when only the ranked channel is. Plain state, no nudge.
+    return (
+      <div className="bcc-panel mx-auto p-6 text-center">
+        <h2 className="bcc-stencil text-2xl text-bcc-text">
+          Nothing on the ranked feed yet.
+        </h2>
+        <p className="mt-2 font-serif text-bcc-text-secondary">
+          Posts from Journeyman-and-above operators land here. Everyone can
+          read along.
+        </p>
+      </div>
+    );
+  }
 
   if (items.length === 0) {
     // Phase γ retention pass (2026-05-13): rather than the generic

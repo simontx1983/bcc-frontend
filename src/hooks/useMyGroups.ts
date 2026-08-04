@@ -19,13 +19,20 @@
  * generic 403 string.
  */
 
-import { useMutation, type UseMutationOptions } from "@tanstack/react-query";
+import {
+  useMutation,
+  useQueryClient,
+  type UseMutationOptions,
+} from "@tanstack/react-query";
 
+import { GROUP_MEMBERS_QUERY_KEY_ROOT } from "@/hooks/useGroupMembers";
+import { USER_GROUPS_QUERY_KEY_ROOT } from "@/hooks/useUserActivity";
 import {
   createPlainGroup,
   joinPlainGroup,
   leavePlainGroup,
   setGroupPostPolicy,
+  transferGroupOwnership,
 } from "@/lib/api/my-groups-endpoints";
 import type {
   BccApiError,
@@ -34,6 +41,7 @@ import type {
   JoinPlainGroupResponse,
   LeavePlainGroupResponse,
   SetGroupPostPolicyResponse,
+  TransferCommunityResponse,
 } from "@/lib/api/types";
 
 export function useJoinPlainGroupMutation(
@@ -77,6 +85,47 @@ export function useCreatePlainGroupMutation(
   return useMutation<CreatePlainGroupResponse, BccApiError, CreatePlainGroupRequest>({
     mutationFn: (request) => createPlainGroup(request),
     ...options,
+  });
+}
+
+/**
+ * Rank Phase 7 (§21.2) — `useTransferGroupOwnershipMutation`. Hands a
+ * User-kind community to another active member. On success we
+ * invalidate the group's roster (the OWNER role label moves) and every
+ * per-user groups panel (ownership is rendered there); the group
+ * detail page itself is SSR'd, so the caller drives `router.refresh()`
+ * — same division of labor as join/leave.
+ */
+export function useTransferGroupOwnershipMutation(
+  options: Omit<
+    UseMutationOptions<
+      TransferCommunityResponse,
+      BccApiError,
+      { groupId: number; toUserId: number }
+    >,
+    "mutationFn"
+  > = {}
+) {
+  const queryClient = useQueryClient();
+
+  return useMutation<
+    TransferCommunityResponse,
+    BccApiError,
+    { groupId: number; toUserId: number }
+  >({
+    mutationFn: ({ groupId, toUserId }) =>
+      transferGroupOwnership(groupId, toUserId),
+    ...options,
+    onSuccess: (...args) => {
+      const { groupId } = args[1];
+      void queryClient.invalidateQueries({
+        queryKey: [...GROUP_MEMBERS_QUERY_KEY_ROOT, groupId],
+      });
+      void queryClient.invalidateQueries({
+        queryKey: USER_GROUPS_QUERY_KEY_ROOT,
+      });
+      return options.onSuccess?.(...args);
+    },
   });
 }
 

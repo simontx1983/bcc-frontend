@@ -543,6 +543,13 @@ export interface Card {
   flags: string[];
   /** §N8 — true when an operator/creator has verified the page. */
   is_claimed: boolean;
+  /**
+   * §21.4 (v1.62) — present-and-true ONLY on member cards whose subject
+   * is an actively listed mentor (opt-in AND live eligibility) at read
+   * time. ABSENT otherwise — including on every card from a pre-Phase-7
+   * backend — so treat `undefined` as "not a mentor", never re-derive.
+   */
+  is_mentor?: boolean;
   /** §N8 — non-null when the page is unclaimed AND a claim target resolves. */
   claim_target: CardClaimTarget | null;
   /**
@@ -2084,6 +2091,95 @@ export interface SetGroupPostPolicyResponse {
 }
 
 // ─────────────────────────────────────────────────────────────────────
+// Rank Phase 7 (contract v1.62, §21.2–§21.4) — community custody,
+// ranked Hall feed, mentor listing. All additive: every new field is
+// optional so the FE stays correct against the pre-Phase-7 prod
+// backend (which never emits them).
+// ─────────────────────────────────────────────────────────────────────
+
+/**
+ * §21.2 — stable machine deny reason on a 403 `bcc_forbidden` from
+ * `POST /me/groups` (create) rides in `error.data.reason`. Copy is
+ * authored at the call site per §γ; unknown values must fall back to
+ * generic copy, never crash.
+ */
+export type CommunityCustodyDenyReason =
+  | "suspended"
+  | "new_member"
+  | "below_neutral"
+  | "in_recovery"
+  | "cap_reached"
+  | "cooldown_active";
+
+/**
+ * §21.2 — giver-side deny reasons on `POST /me/groups/{id}/transfer`
+ * (403 `bcc_forbidden`, `error.data.reason`). The giver chain checks
+ * suspension / New Member / recovery only — cap + cooldown never block
+ * GIVING a community away.
+ */
+export type TransferGiverDenyReason = "suspended" | "new_member" | "in_recovery";
+
+/**
+ * §21.2 — receiver-side deny reasons on the transfer route, prefixed
+ * `receiver_` on the wire so one 403 channel serves both parties.
+ */
+export type TransferReceiverDenyReason =
+  | "receiver_suspended"
+  | "receiver_new_member"
+  | "receiver_below_neutral"
+  | "receiver_in_recovery"
+  | "receiver_cap_reached"
+  | "receiver_cooldown_active";
+
+/** Request body for POST /me/groups/{id}/transfer. */
+export interface TransferCommunityRequest {
+  /** Must ALREADY be an active member of the group (consent proxy). */
+  to_user_id: number;
+}
+
+/** Success payload for POST /me/groups/{id}/transfer. */
+export interface TransferCommunityResponse {
+  ok: true;
+  group_id: number;
+  new_owner_id: number;
+}
+
+/**
+ * §21.3 — Hall feed channel selector. A Hall carries TWO feeds:
+ * `main` (any member posts; EXCLUDES ranked posts) and `ranked`
+ * (Journeyman+ AND tier ≥ Neutral post; everyone reads). Anything but
+ * the literal "ranked" collapses to "main" server-side, so omitting
+ * the param entirely is the canonical "main" spelling on the wire.
+ */
+export type HallFeedChannel = "main" | "ranked";
+
+/**
+ * §21.3 — deny reasons on a 403 `bcc_forbidden` when posting with
+ * `hall_feed: "ranked"` (`error.data.reason`). A ranked post targeting
+ * a non-Hall group is a 400 `bcc_invalid_request` instead (shape
+ * error, not a capability gate).
+ */
+export type RankedFeedDenyReason =
+  | "suspended"
+  | "new_member"
+  | "below_journeyman"
+  | "below_neutral"
+  | "in_recovery";
+
+/**
+ * §21.4 — mentor-listing eligibility deny reason on
+ * `GET /me/profile-prefs` (`mentor_eligibility_reason`). Null while
+ * eligible; the listing pauses LIVE when any condition fails — there
+ * is no materialized flag to un-stick.
+ */
+export type MentorEligibilityReason =
+  | "suspended"
+  | "new_member"
+  | "below_veteran"
+  | "below_trusted"
+  | "in_recovery";
+
+// ─────────────────────────────────────────────────────────────────────
 // §4.7.2 — Profile Groups Tab (`GET /users/{slug}/groups`)
 //
 // Cross-kind list of groups the target user is an active member of
@@ -2763,6 +2859,13 @@ export interface CreateStatusRequest {
    * defaults to `members_only` server-side when omitted.
    */
   visibility?: GroupPostVisibility;
+  /**
+   * §21.3 (v1.62) — Hall feed channel. Send `"ranked"` ONLY when
+   * `group_id` targets a Hall; the server 403s (`bcc_forbidden` +
+   * `RankedFeedDenyReason`) on capability failure and 400s on non-Hall
+   * targets. Omit for the main channel (canonical wire spelling).
+   */
+  hall_feed?: HallFeedChannel;
 }
 
 interface CreateReviewRequestBase {
@@ -3010,6 +3113,8 @@ export interface CreatePhotoPostRequest {
    * defaults to `members_only` server-side when omitted.
    */
   visibility?: GroupPostVisibility;
+  /** §21.3 (v1.62) — Hall feed channel; see CreateStatusRequest.hall_feed. */
+  hall_feed?: HallFeedChannel;
 }
 
 /**
@@ -3065,6 +3170,8 @@ export interface CreateGifPostRequest {
    * defaults to `members_only` server-side when omitted.
    */
   visibility?: GroupPostVisibility;
+  /** §21.3 (v1.62) — Hall feed channel; see CreateStatusRequest.hall_feed. */
+  hall_feed?: HallFeedChannel;
 }
 
 /**
