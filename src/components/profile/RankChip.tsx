@@ -216,7 +216,7 @@ export function RankChip({
         aria-haspopup="dialog"
         data-bcc-tour="rankchip.trigger"
         title={`${tooltip} — what does this mean?`}
-        className={`${baseClass} cursor-pointer transition-colors hover:border-[var(--bcc-accent)] hover:text-[var(--bcc-accent)]`}
+        className={`${baseClass} cursor-pointer transition-colors motion-reduce:transition-none hover:border-[var(--bcc-accent)] hover:text-[var(--bcc-accent)]`}
       >
         {inner}
       </button>

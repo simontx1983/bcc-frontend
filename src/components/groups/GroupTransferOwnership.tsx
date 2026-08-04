@@ -237,7 +237,10 @@ export function GroupTransferOwnership({ group }: GroupTransferOwnershipProps) {
         </div>
       )}
 
-      {errorMessage !== null && (
+      {/* Suppressed while the confirm dialog is open — the dialog renders
+          its own copy of this alert, and two live alerts with the same
+          text would double-announce. */}
+      {errorMessage !== null && !confirming && (
         <p role="alert" className="bcc-mono mt-3 text-[10px] tracking-[0.14em] text-safety">
           {errorMessage}
         </p>

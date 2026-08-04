@@ -269,6 +269,14 @@
   /* Scrollbar */
   --bcc-scrollbar-thumb: rgba(0,0,0,0.15);
   --bcc-scrollbar-track: transparent;
+
+  /* Status colors — darker variants so status text hits ≥4.5:1 on the
+     white light-theme surfaces (a11y). The base :root values above are
+     the dark-theme colors; both dark surface blocks below re-assert
+     them, mirroring how the surface tokens flip. */
+  --bcc-success:         #15803d;
+  --bcc-warning:         #b45309;
+  --bcc-danger:          #dc2626;
 }
 
 /* ── Dark mode surfaces ── */
@@ -320,6 +328,11 @@
     --bcc-shadow-md:       0 4px 12px rgba(0,0,0,0.50), 0 2px 4px rgba(0,0,0,0.30);
     --bcc-shadow-lg:       0 10px 30px rgba(0,0,0,0.60), 0 4px 8px rgba(0,0,0,0.40);
     --bcc-shadow-xl:       0 20px 60px rgba(0,0,0,0.70), 0 8px 16px rgba(0,0,0,0.50);
+
+    /* Status colors — dark-theme values (see light-block note above). */
+    --bcc-success:         #22c55e;
+    --bcc-warning:         #f59e0b;
+    --bcc-danger:          #ef4444;
   }
 }
 
@@ -370,6 +383,11 @@
   --bcc-shadow-md:       0 4px 12px rgba(0,0,0,0.50), 0 2px 4px rgba(0,0,0,0.30);
   --bcc-shadow-lg:       0 10px 30px rgba(0,0,0,0.60), 0 4px 8px rgba(0,0,0,0.40);
   --bcc-shadow-xl:       0 20px 60px rgba(0,0,0,0.70), 0 8px 16px rgba(0,0,0,0.50);
+
+  /* Status colors — dark-theme values (see light-block note above). */
+  --bcc-success:         #22c55e;
+  --bcc-warning:         #f59e0b;
+  --bcc-danger:          #ef4444;
 }
 
 /* ========================================================================

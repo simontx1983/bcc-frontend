@@ -172,7 +172,7 @@ function Pagination({
         type="button"
         onClick={() => onPage(Math.max(1, page - 1))}
         disabled={page <= 1}
-        className="border-2 border-bcc-border px-3 py-1 transition hover:border-bcc-border-strong hover:text-bcc-text disabled:opacity-40"
+        className="border-2 border-bcc-border px-3 py-1 transition motion-reduce:transition-none hover:border-bcc-border-strong hover:text-bcc-text disabled:opacity-40"
       >
         ← PREV
       </button>
@@ -183,7 +183,7 @@ function Pagination({
         type="button"
         onClick={() => onPage(Math.min(totalPages, page + 1))}
         disabled={page >= totalPages}
-        className="border-2 border-bcc-border px-3 py-1 transition hover:border-bcc-border-strong hover:text-bcc-text disabled:opacity-40"
+        className="border-2 border-bcc-border px-3 py-1 transition motion-reduce:transition-none hover:border-bcc-border-strong hover:text-bcc-text disabled:opacity-40"
       >
         NEXT →
       </button>
