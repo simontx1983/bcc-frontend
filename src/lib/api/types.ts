@@ -5008,6 +5008,14 @@ export interface MemberProfile {
      * Surfaced on /me/progression as the 4th VERIFIED IDENTITY row.
      */
     profile_completeness: number;
+    /**
+     * OWN VIEW ONLY — server verdict for the "profile complete" state
+     * (QuestValidator applies its own threshold; the client never
+     * mirrors the number). Absent for non-self viewers AND on old prod
+     * backends — treat absence as NOT complete (C8: never fabricate
+     * completeness from missing data).
+     */
+    profile_complete?: boolean;
   };
   counts: MemberCounts;
   privacy: MemberPrivacy;
