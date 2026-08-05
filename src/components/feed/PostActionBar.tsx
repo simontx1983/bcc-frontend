@@ -12,6 +12,7 @@
 
 import { ActionRailButton } from "@/components/feed/ActionRailButton";
 import { ClockIcon, ReplyIcon } from "@/components/feed/actionIcons";
+import { PostHelpfulButton } from "@/components/feed/HelpfulButton";
 import { ReactionRail } from "@/components/feed/ReactionRail";
 import { ShareButton } from "@/components/feed/ShareButton";
 import { formatRelativeTime } from "@/lib/format";
@@ -62,6 +63,12 @@ export function PostActionBar({
         selfHref={item.links.self}
         {...(shareTitle !== undefined ? { shareTitle } : {})}
       />
+      {/* Divider — the "Mark helpful" endorsement is a different class of
+          action from the cosmetic Stoke/Comment/Share cluster to its left,
+          so it sits behind a thin rule to read as its own thing, not
+          another reaction. */}
+      <span aria-hidden className="mx-1 h-4 w-px self-center bg-[var(--bcc-border)]" />
+      <PostHelpfulButton item={item} canInteract={canInteract} />
       {timestamp !== undefined && (
         <time
           dateTime={timestamp}
