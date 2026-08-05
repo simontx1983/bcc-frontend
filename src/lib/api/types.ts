@@ -1934,6 +1934,24 @@ export interface GroupBlock {
   id: number;
   type: GroupDiscoveryType;
   verification: GroupVerification | null;
+  /**
+   * Display name of the group (contract v1.67). Present ONLY when the
+   * viewer may know the group exists — a non-secret group, or one the
+   * viewer is a member of. For a secret group a non-member/anon viewer
+   * receives just `{id,type,verification}` (no `name`/`link`), so this
+   * is additive-optional and the attribution line is suppressed when
+   * absent (§S privacy: the server decides visibility, not the client).
+   */
+  name?: string;
+  /**
+   * Server-built relative route to the group (contract v1.67):
+   * `/halls/{slug}` for halls, else `/groups/{slug}`. Rendered VERBATIM
+   * — the block carries no slug, so the frontend never constructs this
+   * URL itself. Paired with `name` (see visibility note above); may be
+   * absent even when `name` is present, in which case the attribution
+   * renders as plain text rather than a broken link.
+   */
+  link?: string;
 }
 
 /**
