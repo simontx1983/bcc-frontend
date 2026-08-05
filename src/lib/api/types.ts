@@ -1353,20 +1353,43 @@ export interface CardsListResponse {
 // per §A2.
 // ─────────────────────────────────────────────────────────────────────
 
+/**
+ * Kinds a suggestion row can carry (v1.70): the three page kinds plus
+ * `community` + `member`. Deliberately a SEPARATE union from
+ * `DirectoryKind` — the /directory surface (VALID_KINDS, filter chips,
+ * useDirectory) must keep rejecting community/member, so widening
+ * DirectoryKind would let an invalid `kind` reach `GET /cards`.
+ */
+export type SuggestionKind = DirectoryKind | "community" | "member";
+
 export interface SearchSuggestion {
   id: number;
   name: string;
   handle: string;
-  card_kind: DirectoryKind;
-  /** Trust band — all five, risky included (v1.57). */
+  card_kind: SuggestionKind;
+  /** Trust band — all five, risky included (v1.57). `"neutral"` on
+   *  community rows is the §3.2.4 shape-stable placeholder, a pure
+   *  color key — never rendered as a trust claim (the null label below
+   *  suppresses the chip). Member rows carry their REAL tier. */
   reputation_tier: ReputationTier;
-  reputation_tier_label: string;
+  /** Null ONLY on community rows (no trust system) — the null is what
+   *  suppresses the tier chip. Members/pages always carry the label. */
+  reputation_tier_label: string | null;
   trust_score: number | null;
-  is_verified: boolean;
+  /** Owner-email verification — present on page-kind rows ONLY (v1.70).
+   *  OMITTED (not false) on member rows: /search/users doesn't provide
+   *  the authoritative email signal and no bounded batch reader exists,
+   *  so omission means unavailable, not unverified. Omitted on
+   *  community rows: no owner-email meaning on this surface. */
+  is_verified?: boolean;
   /** Verified operator/creator claim (§ verified-wins) — distinct from
-   *  the email-verified `is_verified` flag. Drives the VerifiedBadge. */
+   *  the email-verified `is_verified` flag. Drives the VerifiedBadge.
+   *  Constant false on member/community rows (§3.2 — not
+   *  on-chain-claimable). */
   is_claim_verified: boolean;
-  /** Pre-built headless route (`/v/:slug`, `/p/:slug`, `/c/:slug`). */
+  /** Pre-built headless route (`/v/:slug`, `/p/:slug`, `/c/:slug`;
+   *  v1.70 adds `/halls/:slug` | `/communities/:slug` | `/u/:handle`),
+   *  server-validated as a relative internal path. */
   href: string;
 }
 
@@ -1432,13 +1455,27 @@ export interface UserSearchResponse {
   meta: { count: number; query: string };
 }
 
+/**
+ * Public community-kind vocabulary (§3.2.4) as emitted by the groups
+ * vertical (v1.70) — resolved server-side from `_bcc_group_kind` meta.
+ */
+export type GroupKind = "hall" | "nft" | "validator" | "system" | "user";
+
 export interface GroupSearchResult {
   id: number;
   name: string;
   slug: string;
   description: string | null;
   avatar_url: string | null;
+  /** Relative in-app route (v1.70): `/halls/{slug}` for halls, else
+   *  `/communities/{slug}`. Never an absolute WP URL. */
   group_url: string;
+  /** Optional for cache-skew tolerance: a warm pre-v1.70 server cache
+   *  entry may lack these for up to its 45s TTL after deploy. */
+  kind?: GroupKind;
+  /** Server-rendered §A2 kicker (e.g. "CHAIN HALL") — render verbatim,
+   *  never map `kind` → words client-side. */
+  kind_label?: string;
 }
 
 export interface GroupSearchResponse {

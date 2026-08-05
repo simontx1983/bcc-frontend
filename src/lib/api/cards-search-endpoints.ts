@@ -18,17 +18,20 @@ import {
   bccSearchFetchAsClient,
 } from "@/lib/api/client";
 import type {
-  DirectoryKind,
   GroupSearchResponse,
   ProjectSearchResponse,
   SearchSuggestionsResponse,
+  SuggestionKind,
   TrendingResponse,
   UserSearchResponse,
 } from "@/lib/api/types";
 
 export interface SearchSuggestionsParams {
   q: string;
-  kind?: DirectoryKind;
+  /** Scope filter (v1.70): page kinds query the projects vertical;
+   *  `member` / `community` query exactly one vertical server-side.
+   *  Omitted = All (server merges pages + communities + members). */
+  kind?: SuggestionKind;
 }
 
 export function getSearchSuggestions(

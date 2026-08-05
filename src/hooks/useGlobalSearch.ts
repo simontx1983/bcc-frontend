@@ -23,12 +23,15 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 
 import { getSearchSuggestions } from "@/lib/api/cards-search-endpoints";
-import type { SearchSuggestionsResponse } from "@/lib/api/types";
+import type {
+  SearchSuggestionsResponse,
+  SuggestionKind,
+} from "@/lib/api/types";
 
 const DEBOUNCE_MS = 200;
 const MIN_LENGTH = 2;
 
-export function useGlobalSearch(rawQuery: string) {
+export function useGlobalSearch(rawQuery: string, kind?: SuggestionKind) {
   // Debounced mirror of the input. Drives the React Query key, so the
   // network only fires after typing settles.
   const [debounced, setDebounced] = useState<string>("");
@@ -44,8 +47,14 @@ export function useGlobalSearch(rawQuery: string) {
   }, [rawQuery]);
 
   return useQuery<SearchSuggestionsResponse>({
-    queryKey: ["search", "suggestions", debounced],
-    queryFn: ({ signal }) => getSearchSuggestions({ q: debounced }, signal),
+    // Scope is part of the cache key: "cosmos" under Members and
+    // "cosmos" under All are different result sets.
+    queryKey: ["search", "suggestions", debounced, kind ?? "all"],
+    queryFn: ({ signal }) =>
+      getSearchSuggestions(
+        kind === undefined ? { q: debounced } : { q: debounced, kind },
+        signal,
+      ),
     enabled: debounced.length >= MIN_LENGTH,
     staleTime: 15_000,
     // Keep showing the prior list while a new query is in flight —

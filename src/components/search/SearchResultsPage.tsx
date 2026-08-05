@@ -233,7 +233,9 @@ const TABS: ReadonlyArray<{ key: TabKey; label: string }> = [
   { key: "all", label: "All" },
   { key: "projects", label: "Projects" },
   { key: "users", label: "Users" },
-  { key: "groups", label: "Groups" },
+  // Label follows the product vocabulary (Communities, v1.70); the KEY
+  // stays "groups" so existing ?tab=groups deep links keep resolving.
+  { key: "groups", label: "Communities" },
 ];
 
 function TabBar({ tab, setTab, counts, loading }: TabBarProps) {
