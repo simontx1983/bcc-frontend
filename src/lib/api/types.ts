@@ -1944,8 +1944,8 @@ export interface GroupBlock {
    */
   name?: string;
   /**
-   * Server-built relative route to the group (contract v1.67):
-   * `/halls/{slug}` for halls, else `/groups/{slug}`. Rendered VERBATIM
+   * Server-built relative route to the group (contract v1.68):
+   * `/halls/{slug}` for halls, else `/communities/{slug}`. Rendered VERBATIM
    * — the block carries no slug, so the frontend never constructs this
    * URL itself. Paired with `name` (see visibility note above); may be
    * absent even when `name` is present, in which case the attribution
