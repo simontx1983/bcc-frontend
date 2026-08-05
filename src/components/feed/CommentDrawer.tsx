@@ -62,6 +62,7 @@ import { isWpMediaUrl } from "@/lib/media";
 import { buildCommentTree, findNode, type CommentNode } from "@/lib/comments/thread";
 import { ActionRailButton } from "@/components/feed/ActionRailButton";
 import { ClockIcon, PhotoIcon, ReplyIcon, ShareIcon } from "@/components/feed/actionIcons";
+import { CommentHelpfulButton } from "@/components/feed/HelpfulButton";
 import { CommentGifPicker } from "@/components/feed/CommentGifPicker";
 import { StokeFlame } from "@/components/feed/StokeFlame";
 import { Dialog } from "@/components/ui/Dialog";
@@ -930,6 +931,12 @@ function CommentActionRail({
         title="Share — coming soon"
         ariaLabel="Share — coming soon"
       />
+      {/* "Mark helpful" — a distinct endorsement, set apart from the
+          cosmetic Stoke/Reply/Share cluster by a thin divider (same
+          grammar as the feed action bar). Enabled on the same authed +
+          member gate as Stoke. */}
+      <span aria-hidden className="mx-0.5 h-3.5 w-px self-center bg-[var(--bcc-border)]" />
+      <CommentHelpfulButton feedId={feedId} comment={comment} canInteract={canStoke} />
       <time
         dateTime={timestamp}
         title={timestamp}

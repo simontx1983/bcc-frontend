@@ -873,6 +873,19 @@ export interface Comment {
   stoke_count?: number;
   viewer_has_stoked?: boolean;
   /**
+   * §9.2 "Mark helpful" endorsement state on this comment — a deliberate,
+   * credibility-gated mark that feeds the author's Rank helping category.
+   * Distinct from `stoke_count`/`viewer_has_stoked` (cosmetic like): a
+   * different action with a different meaning. Both optional during the
+   * rollout window — the comment view-model does not hydrate them yet
+   * (backend follow-up), so absent → the Helpful control renders a neutral
+   * unmarked state and learns the truth from the POST/DELETE response.
+   * `viewer_has_marked` drives the control's active fill; `helpful_count`
+   * the count beside it (hidden at 0).
+   */
+  helpful_count?: number;
+  viewer_has_marked?: boolean;
+  /**
    * Attached media (§3.5, v1.41) — one photo XOR gif per comment.
    * Additive-optional: absent on text-only comments (and pre-1.2.26
    * backends), so a stale frontend renders the comment unchanged.
@@ -969,6 +982,21 @@ export interface CommentStokeResponse {
 }
 
 /**
+ * Response for `POST`/`DELETE /feed/:id/helpful` and
+ * `POST`/`DELETE /comments/:id/helpful` (§9.2) — the deliberate
+ * "Mark helpful" endorsement pair, identical for all four verbs. NOT a
+ * reaction envelope: a Helpful mark is a distinct, credibility-gated
+ * signal feeding the content author's Rank helping category, kept apart
+ * from cosmetic Stoke/reactions on purpose. Patched onto the matching
+ * feed item / comment row (or held as the live truth on a stale backend
+ * that doesn't yet hydrate the pair on its view-models).
+ */
+export interface HelpfulMarkResponse {
+  helpful_count: number;
+  viewer_has_marked: boolean;
+}
+
+/**
  * Polymorphic feed item. The `body` shape varies per `post_kind` —
  * left as `Record<string, unknown>` here so the renderer can branch
  * on kind without locking every variant's shape.
@@ -1045,6 +1073,19 @@ export interface FeedItem {
   author: FeedAuthor;
   body: Record<string, unknown>;
   reactions: FeedReactions;
+  /**
+   * §9.2 "Mark helpful" endorsement state on this post — a deliberate,
+   * credibility-gated mark that feeds the author's Rank helping category.
+   * Deliberately NOT part of `reactions`: a Helpful mark is an endorsement
+   * of usefulness, not a cosmetic Stoke/reaction, and the two must not be
+   * conflated. Both optional during the rollout window — the feed
+   * view-model does not hydrate them yet (backend follow-up), so absent →
+   * the Helpful control renders a neutral unmarked state and learns the
+   * truth from the POST/DELETE response. `viewer_has_marked` drives the
+   * control's active fill; `helpful_count` the count beside it (hidden at 0).
+   */
+  helpful_count?: number;
+  viewer_has_marked?: boolean;
   /**
    * v1.5 — number of visible (non-trashed) comments on the post at
    * response-time. Server-computed via batched COUNT(*) GROUP BY.
