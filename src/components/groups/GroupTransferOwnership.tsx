@@ -42,11 +42,17 @@ import {
 
 // ──────────────────────────────────────────────────────────────────────
 // §γ deny copy — keyed on the stable machine `data.reason` of a 403
-// `bcc_forbidden` (giver reasons bare, receiver reasons prefixed
-// `receiver_`), never on message text. Receiver lines use "They …"
-// phrasing so the owner understands the transfer TARGET is the blocker,
-// not their own account. Plain state descriptions; no nudges.
+// `bcc_forbidden` (giver reasons bare, receiver reason prefixed
+// `receiver_`), never on message text. Custody hardening collapsed the
+// six receiver reasons into a single opaque `receiver_ineligible`: the
+// server no longer discloses WHY the target is ineligible (privacy),
+// so the copy is one generic receiver line. Plain state descriptions;
+// no nudges.
 // ──────────────────────────────────────────────────────────────────────
+
+// Single generic receiver line, reused by the old-backend fallback
+// below so an unrecognized `receiver_*` reason never leaks a raw code.
+const RECEIVER_INELIGIBLE_COPY = "This member can't receive a community right now.";
 
 const TRANSFER_DENY_COPY: Record<
   TransferGiverDenyReason | TransferReceiverDenyReason,
@@ -57,12 +63,7 @@ const TRANSFER_DENY_COPY: Record<
   new_member: "Reach Apprentice rank to transfer a community.",
   in_recovery: "Community actions are paused while your rank is in recovery.",
   // Receiver-side (TransferReceiverDenyReason)
-  receiver_suspended: "Their account is suspended.",
-  receiver_new_member: "They need to be at least an Apprentice to receive a community.",
-  receiver_below_neutral: "Their standing must be Neutral or better to receive a community.",
-  receiver_in_recovery: "Their community actions are paused while their rank is in recovery.",
-  receiver_cap_reached: "They already own the maximum number of communities for their rank.",
-  receiver_cooldown_active: "They're inside the 30-day community cooldown.",
+  receiver_ineligible: RECEIVER_INELIGIBLE_COPY,
 };
 
 function isTransferDenyReason(
@@ -77,6 +78,13 @@ function humanizeTransferError(err: unknown): string {
     if (isTransferDenyReason(reason)) {
       return TRANSFER_DENY_COPY[reason];
     }
+    // Old-backend tolerance: a pre-hardening server still emits the
+    // specific `receiver_suspended` / `receiver_cap_reached` / … reasons.
+    // Any receiver-shaped reason we don't recognize collapses to the
+    // generic receiver line rather than leaking a raw code or crashing.
+    if (typeof reason === "string" && reason.startsWith("receiver_")) {
+      return RECEIVER_INELIGIBLE_COPY;
+    }
     return "This community can't be transferred right now.";
   }
   return humanizeCode(
@@ -86,6 +94,11 @@ function humanizeTransferError(err: unknown): string {
       bcc_not_found: "This community can't be transferred right now.",
       bcc_invalid_request:
         "The new owner must already be a member of this community.",
+      // 409 under lock contention (custody hardening) — a concurrent
+      // custody change touched one of the parties mid-transfer. Transient:
+      // the mutation button stays enabled so the owner can retry.
+      bcc_conflict:
+        "Something changed at the same time — please try again.",
       bcc_rate_limited:
         "Too many transfer attempts — wait an hour and try again.",
       bcc_internal_error:

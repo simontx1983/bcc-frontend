@@ -93,7 +93,10 @@ function humanizeCreateError(err: unknown): string {
       bcc_unauthorized: "Sign in to create a community.",
       bcc_rate_limited: "Slow down — too many attempts. Wait a minute.",
       bcc_invalid_request: "Check the form — some details aren't valid.",
-      bcc_conflict: "A community with that name already exists.",
+      // 409 under lock contention (custody hardening) — a concurrent
+      // custody change collided with this create. Transient, not a
+      // permanent denial: the submit button stays enabled to retry.
+      bcc_conflict: "Something changed at the same time — please try again.",
     },
     "Couldn't create the community. Try again.",
   );

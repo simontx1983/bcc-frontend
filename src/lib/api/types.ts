@@ -2128,16 +2128,15 @@ export type CommunityCustodyDenyReason =
 export type TransferGiverDenyReason = "suspended" | "new_member" | "in_recovery";
 
 /**
- * §21.2 — receiver-side deny reasons on the transfer route, prefixed
- * `receiver_` on the wire so one 403 channel serves both parties.
+ * §21.2 — receiver-side deny reason on the transfer route (403
+ * `bcc_forbidden`, `error.data.reason`). Custody hardening collapsed
+ * the former six-way receiver breakdown into ONE opaque reason: the
+ * server no longer discloses WHY a target member is ineligible (a
+ * privacy property — the owner shouldn't learn the receiver's rank,
+ * standing, recovery, or cap state). Still prefixed `receiver_` so one
+ * 403 channel serves both parties.
  */
-export type TransferReceiverDenyReason =
-  | "receiver_suspended"
-  | "receiver_new_member"
-  | "receiver_below_neutral"
-  | "receiver_in_recovery"
-  | "receiver_cap_reached"
-  | "receiver_cooldown_active";
+export type TransferReceiverDenyReason = "receiver_ineligible";
 
 /** Request body for POST /me/groups/{id}/transfer. */
 export interface TransferCommunityRequest {
