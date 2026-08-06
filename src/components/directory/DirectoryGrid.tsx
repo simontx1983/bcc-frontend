@@ -31,7 +31,7 @@
 import type { UseInfiniteQueryResult, InfiniteData } from "@tanstack/react-query";
 
 import { CardGrid } from "@/components/cards/CardGrid";
-import { SKELETON_CLASS } from "@/components/ui/Skeleton";
+import { CardGridSkeleton } from "@/components/cards/CardGridSkeleton";
 import type {
   BccApiError,
   Card,
@@ -54,20 +54,7 @@ export function DirectoryGrid({ query }: Props) {
   }
 
   if (query.isLoading) {
-    return (
-      <ul
-        aria-label="Loading directory results"
-        className="grid justify-center gap-6 [grid-template-columns:repeat(auto-fit,316px)]"
-      >
-        {Array.from({ length: 8 }).map((_, idx) => (
-          <li
-            key={idx}
-            aria-hidden
-            className={SKELETON_CLASS + " h-[460px]"}
-          />
-        ))}
-      </ul>
-    );
+    return <CardGridSkeleton ariaLabel="Loading directory results" />;
   }
 
   // Flatten pages into a single Card[]. Each page is an independent

@@ -164,7 +164,13 @@ export function useAlbumPhotos(handle: string, albumId: number | null) {
   });
 }
 
-const FOLLOWS_DEFAULT_LIMIT = 24;
+/**
+ * Page size for both follow-graph hooks below. Exported because
+ * offset-paged callers (the /watching "Watchers" tab) have to derive
+ * `offset` and `total_pages` from it — a second literal would silently
+ * drift.
+ */
+export const FOLLOWS_DEFAULT_LIMIT = 24;
 
 /**
  * Lazy-load the §3.1 Watching tab "Being Watched" sub-tab — users

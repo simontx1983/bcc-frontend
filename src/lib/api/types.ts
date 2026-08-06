@@ -2811,11 +2811,17 @@ export interface GroupsDiscoveryResponse {
 /**
  * WatchingItem — a single row in /me/watching.
  *
- * Identifier-only by design (§C2): no name/trust/tier/crest fields
- * here. To render a full card, fetch the view-model via
- * `actions.view.href` (`GET /cards/:kind/:id`). The watchlist page
- * renders slim tiles directly from these fields to avoid N+1
- * lookups; full cards are loaded on click-through.
+ * Identifier-only by default (§C2): no name/trust/tier/crest fields
+ * here. To render a full card, either fetch the view-model via
+ * `actions.view.href` (`GET /cards/:kind/:id`) or ask the list
+ * endpoint to hydrate inline.
+ *
+ * v1.76 opt-in hydration: `GET /me/watching?include=cards` attaches a
+ * fully-built `card` view-model to each row so a card surface renders
+ * from one request instead of N+1 lookups. The default (no `include`)
+ * stays identifier-only — the cheap read the CardGrid follow-map and
+ * the watch CTAs rely on. Hydrated pages cap at `page_size=24`
+ * server-side.
  *
  * Field semantics (locked, see WatchingService::buildItem doc):
  *   - card_handle         always set (bcc_handle)
@@ -2866,6 +2872,19 @@ export interface WatchingItem {
   batch_id: string | null;
   watched_at: string | null;
   is_legacy: boolean;
+  /**
+   * v1.76 inline card view-model — present only when the request asked
+   * for `include=cards`.
+   *
+   *   absent  → hydration was not requested (default identifier-only read)
+   *   null    → hydration WAS requested but the target can't be built
+   *             (deleted page, kind/id mismatch, unclaimed placeholder)
+   *   Card    → renderable view-model, identical to /cards and /members rows
+   *
+   * `null` is the only availability discriminator for a card surface —
+   * `is_resolved` means "page-backed", which is a different question.
+   */
+  card?: Card | null;
   links: {
     /** Frontend route for the card detail page. */
     card: string;

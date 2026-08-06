@@ -215,9 +215,9 @@ function AvatarImpl({
   // Hex variant composes the canonical `.bcc-hex` triple-layer from
   // globals.css:293-307. The clip-path is owned by `.bcc-hex-outer/mid/inner`
   // and clips descendants — so an `<img>` placed inside `.bcc-hex-inner`
-  // is automatically clipped to the hex shape. Mirrors WatchingTile.tsx's
-  // composition (initials as z-[2] sibling); only difference is the
-  // image branch puts the `<img>` inside the inner layer for clipping.
+  // is automatically clipped to the hex shape. Initials ride as a z-[2]
+  // sibling of the three layers; the image branch instead puts the
+  // `<img>` inside the inner layer so the clip applies.
   const inner =
     variant === "hex" ? (
       <span

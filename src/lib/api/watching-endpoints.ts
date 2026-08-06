@@ -30,6 +30,13 @@ export interface WatchingQueryParams {
   page?: number;
   /** Items per page. Server caps at 50; default 20. */
   page_size?: number;
+  /**
+   * v1.76 opt-in hydration. `"cards"` attaches a full `Card` view-model
+   * to each row as `WatchingItem.card` (null when the target can't be
+   * built). Hydrated mode is heavier, so the server caps `page_size` at
+   * 24 — ask for more and you get 24.
+   */
+  include?: "cards";
 }
 
 /**
@@ -48,6 +55,9 @@ export function getWatching(
   }
   if (params.page_size !== undefined) {
     search.set("page_size", String(params.page_size));
+  }
+  if (params.include !== undefined) {
+    search.set("include", params.include);
   }
   const qs = search.toString();
   const path = qs === "" ? "me/watching" : `me/watching?${qs}`;
