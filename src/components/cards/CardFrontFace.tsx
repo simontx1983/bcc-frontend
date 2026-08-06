@@ -203,7 +203,13 @@ function CardHeader({ card, kindColor }: { card: Card; kindColor: string }) {
   const showRank = card.card_kind === "member" && card.rank_label !== null;
 
   return (
-    <div className="relative z-[1] flex h-[46px] shrink-0 items-center justify-between px-4">
+    // `relative` WITHOUT a z-index — see the .bcc-card-body-link z-order
+    // comment in globals.css. A z-index here creates a stacking context
+    // that traps every descendant beneath the z-5 nav overlay, which is
+    // what silently killed the RankChip's hover tooltip. Positioned-but-
+    // z-auto still paints above the face's ::before kind wash (tree
+    // order), which is all the old z-[1] was buying.
+    <div className="relative flex h-[46px] shrink-0 items-center justify-between px-4">
       <span
         className="bcc-stencil"
         style={{
@@ -223,6 +229,10 @@ function CardHeader({ card, kindColor }: { card: Card; kindColor: string }) {
           tierLabel={card.reputation_tier_label ?? ""}
           rankLabel={card.rank_label ?? ""}
           size="card"
+          // Above the z-5 nav overlay so the chip receives hover and its
+          // title tooltip actually shows (interactive/hover affordances
+          // live at 10+ per the globals.css z-order comment).
+          className="relative z-[10]"
         />
       ) : showChainPill ? (
         <ChainPill slug={slug} />
@@ -284,7 +294,12 @@ function Portrait({
   const showRibbon = !card.is_claimed && card.claim_target !== null;
 
   return (
-    <div className="relative z-[1] flex min-h-0 flex-1 items-center justify-center overflow-hidden">
+    // `relative` WITHOUT a z-index — a z-index here creates a stacking
+    // context that flattens the Crest's z-[10]/z-[11] upload + REMOVE
+    // buttons to this wrapper's level, trapping them (unclickable)
+    // beneath the z-5 .bcc-card-body-link nav overlay. See the z-order
+    // comment in globals.css.
+    <div className="relative flex min-h-0 flex-1 items-center justify-center overflow-hidden">
       {/* Halftone — theme-aware via --card-dot, purely decorative. */}
       <span
         aria-hidden

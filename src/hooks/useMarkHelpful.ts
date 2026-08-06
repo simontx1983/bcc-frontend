@@ -39,6 +39,7 @@ import {
   type SetMutationContext,
 } from "@/hooks/useFeedCache";
 import { FEED_ITEM_QUERY_KEY, FEED_QUERY_KEY_ROOT } from "@/hooks/useFeed";
+import { GROUP_FEED_QUERY_KEY_ROOT } from "@/hooks/useGroupFeed";
 import {
   commentsQueryKey,
   restoreCommentsSnapshot,
@@ -86,27 +87,35 @@ interface PostHelpfulVars {
   hasMarked: boolean;
 }
 
-/** Patch the post's mark pair everywhere it's cached (feed pages + detail). */
+/**
+ * Patch the post's mark pair everywhere it's cached: the main feed
+ * pages, the group/Hall stream pages (`["groups","feed"]` — same
+ * FeedResponse envelope, see useGroupFeed) and the single-post detail.
+ * Skipping the group namespace was the bug that left a helpful mark
+ * cast inside a community stream visually inert until a refetch.
+ */
 function patchFeedHelpful(
   queryClient: QueryClient,
   feedId: string,
   update: (item: FeedItem) => HelpfulFields,
 ): void {
-  queryClient.setQueriesData<InfiniteData<FeedResponse>>(
-    { queryKey: FEED_QUERY_KEY_ROOT },
-    (old) => {
-      if (old === undefined) return old;
-      return {
-        ...old,
-        pages: old.pages.map((page) => ({
-          ...page,
-          items: page.items.map((item) =>
-            item.id === feedId ? { ...item, ...update(item) } : item,
-          ),
-        })),
-      };
-    },
-  );
+  for (const root of [FEED_QUERY_KEY_ROOT, GROUP_FEED_QUERY_KEY_ROOT] as const) {
+    queryClient.setQueriesData<InfiniteData<FeedResponse>>(
+      { queryKey: root },
+      (old) => {
+        if (old === undefined) return old;
+        return {
+          ...old,
+          pages: old.pages.map((page) => ({
+            ...page,
+            items: page.items.map((item) =>
+              item.id === feedId ? { ...item, ...update(item) } : item,
+            ),
+          })),
+        };
+      },
+    );
+  }
 
   queryClient.setQueryData<FeedItem>(FEED_ITEM_QUERY_KEY(feedId), (old) =>
     old === undefined ? old : { ...old, ...update(old) },
@@ -122,6 +131,7 @@ export function useMarkHelpful() {
 
     onMutate: async ({ feedId, hasMarked }) => {
       await queryClient.cancelQueries({ queryKey: FEED_QUERY_KEY_ROOT });
+      await queryClient.cancelQueries({ queryKey: GROUP_FEED_QUERY_KEY_ROOT });
       await queryClient.cancelQueries({ queryKey: FEED_ITEM_QUERY_KEY(feedId) });
       const context = snapshotFeed(queryClient, feedId);
       patchFeedHelpful(queryClient, feedId, (item) =>

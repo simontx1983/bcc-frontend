@@ -182,7 +182,11 @@ export function Crest({
             onClick={handleOpenPicker}
             aria-label="Update avatar"
             disabled={activeUpload.isPending || pageDelete.isPending}
-            className="group absolute inset-0 z-[4] cursor-pointer rounded-full border-0 bg-transparent p-0 outline-none focus-visible:ring-2 focus-visible:ring-[var(--bcc-accent)] disabled:cursor-wait"
+            // z-[10]: above the card's z-5 .bcc-card-body-link nav overlay
+            // (interactive affordances live at 10+ — see globals.css). The
+            // old z-[4] only worked while the Portrait wrapper's own
+            // stacking context existed, which also made it unclickable.
+            className="group absolute inset-0 z-[10] cursor-pointer rounded-full border-0 bg-transparent p-0 outline-none focus-visible:ring-2 focus-visible:ring-[var(--bcc-accent)] disabled:cursor-wait"
           >
             {/* Hover/focus label — solid strip pinned to the BOTTOM of
                 the circle so the text always reads cleanly regardless of
@@ -220,7 +224,9 @@ export function Crest({
           onClick={handleRemove}
           aria-label="Remove page image"
           disabled={pageDelete.isPending || activeUpload.isPending}
-          className="bcc-mono absolute right-0 top-1 z-[5] cursor-pointer rounded-full px-2 py-0.5 opacity-0 backdrop-blur transition-opacity focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--bcc-accent)] disabled:cursor-wait group-hover:opacity-100"
+          // z-[11]: one above the UPDATE circle so REMOVE stays clickable
+          // where the two overlap, and above the z-5 nav overlay.
+          className="bcc-mono absolute right-0 top-1 z-[11] cursor-pointer rounded-full px-2 py-0.5 opacity-0 backdrop-blur transition-opacity focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--bcc-accent)] disabled:cursor-wait group-hover:opacity-100"
           style={{
             fontSize: "8.5px",
             letterSpacing: "0.14em",
