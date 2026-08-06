@@ -1,6 +1,7 @@
 /**
- * HallChainProfile — chain-identity hero + "About this chain" section for a
- * Hall detail page (contract v1.73, strictly additive).
+ * HallChainProfile — chain-identity + "About this chain" block for a Hall.
+ * Lives inside the Hall's About tab (below the group's own About content);
+ * the degraded no-tabs path renders it stacked (contract v1.73, additive).
  *
  * COMMUNITY / identity, NOT financial. `chain_profile` carries no price,
  * market-cap, or supply data and none is derived here — this renders the

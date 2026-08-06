@@ -83,6 +83,14 @@ export interface GroupDetailShellProps {
    */
   collectionsPanel?: ReactNode;
   validatorsPanel?: ReactNode;
+  /**
+   * Optional content appended INSIDE the About tab, below GroupAboutPanel.
+   * Halls pass their chain-identity + "About this chain" block here so all
+   * chain material lives in one place (the About tab) rather than a top-of-
+   * page hero. Omit on /groups + /communities — the About tab stays exactly
+   * as before (no wrapper, byte-identical output).
+   */
+  aboutSupplement?: ReactNode;
 }
 
 export function GroupDetailShell({
@@ -95,6 +103,7 @@ export function GroupDetailShell({
   sharePath,
   collectionsPanel,
   validatorsPanel,
+  aboutSupplement,
 }: GroupDetailShellProps) {
   const actionCluster =
     actions !== undefined ? actions : <GroupMembershipStrip group={group} />;
@@ -190,7 +199,19 @@ export function GroupDetailShell({
           {...(urlBase !== undefined ? { urlBase } : {})}
           streamPanel={<GroupFeedSection group={group} />}
           membersPanel={<GroupMembersStrip group={group} />}
-          aboutPanel={<GroupAboutPanel group={group} />}
+          aboutPanel={
+            // Halls append their chain block below the group's own About
+            // content; other kinds render GroupAboutPanel alone (unwrapped,
+            // so their output is unchanged).
+            aboutSupplement !== undefined ? (
+              <div className="flex flex-col gap-6">
+                <GroupAboutPanel group={group} />
+                {aboutSupplement}
+              </div>
+            ) : (
+              <GroupAboutPanel group={group} />
+            )
+          }
           {...(collectionsPanel !== undefined ? { collectionsPanel } : {})}
           {...(validatorsPanel !== undefined ? { validatorsPanel } : {})}
         />

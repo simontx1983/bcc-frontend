@@ -97,60 +97,66 @@ export default async function HallDetailPage({ params }: PageProps) {
   // Happy path — unified shell with HallMembershipControls in actions.
   if (groupResult.status === "fulfilled") {
     return (
-      <>
-        {/* Chain identity hero (contract v1.73, additive). Renders nothing
-            when the Hall has no chain_profile, so chainless Halls + old
-            backends look exactly like before. */}
-        <HallChainProfile chainProfile={hall.chain_profile} />
-        <GroupDetailShell
-          group={groupResult.value}
-          initialTab="stream"
-          sharePath={`/halls/${encodeURIComponent(slug)}`}
-          backHref="/halls"
-          backLabel="Halls"
-          actions={
-            <div className="bcc-panel flex flex-col gap-4 p-6">
-              <h2 className="bcc-stencil text-xl text-bcc-text">Your status here</h2>
-              <p className="font-serif text-bcc-text-secondary">
-                Join a Hall to vote in its stream and bias your Floor feed.
-                You can hold membership in many Halls at once; designate one as
-                your primary to show it on your card. Switch any time.
-              </p>
-              <div>
-                <HallMembershipControls
-                  groupId={hall.id}
-                  membership={hall.viewer_membership}
-                />
-              </div>
+      <GroupDetailShell
+        group={groupResult.value}
+        initialTab="stream"
+        sharePath={`/halls/${encodeURIComponent(slug)}`}
+        backHref="/halls"
+        backLabel="Halls"
+        // Chain identity + "About this chain" block (contract v1.73,
+        // additive) now lives INSIDE the About tab rather than a top-of-
+        // page hero. Self-hides when the Hall has no chain_profile, so
+        // chainless Halls + old backends look exactly as before. The empty
+        // containerClassName lets it fill the About panel column (the 1440
+        // gutter is already applied by the shell).
+        aboutSupplement={
+          <HallChainProfile
+            chainProfile={hall.chain_profile}
+            containerClassName=""
+          />
+        }
+        actions={
+          <div className="bcc-panel flex flex-col gap-4 p-6">
+            <h2 className="bcc-stencil text-xl text-bcc-text">Your status here</h2>
+            <p className="font-serif text-bcc-text-secondary">
+              Join a Hall to vote in its stream and bias your Floor feed.
+              You can hold membership in many Halls at once; designate one as
+              your primary to show it on your card. Switch any time.
+            </p>
+            <div>
+              <HallMembershipControls
+                groupId={hall.id}
+                membership={hall.viewer_membership}
+              />
             </div>
-          }
-          // Only pass a panel when there is something in it — GroupTabs
-          // hides the tab otherwise, so a chain with nothing indexed shows
-          // the usual three rather than two empty rooms.
-          {...(hall.collections.length > 0
-            ? {
-                collectionsPanel: (
-                  <HallCollectionsPanel
-                    chain={hall.chain}
-                    collections={hall.collections}
-                    collectionCount={hall.collection_count}
-                  />
-                ),
-              }
-            : {})}
-          {...(hall.validators.length > 0
-            ? {
-                validatorsPanel: (
-                  <HallValidatorsPanel
-                    chain={hall.chain}
-                    validators={hall.validators}
-                    validatorCount={hall.validator_count}
-                  />
-                ),
-              }
-            : {})}
-        />
-      </>
+          </div>
+        }
+        // Only pass a panel when there is something in it — GroupTabs
+        // hides the tab otherwise, so a chain with nothing indexed shows
+        // the usual three rather than two empty rooms.
+        {...(hall.collections.length > 0
+          ? {
+              collectionsPanel: (
+                <HallCollectionsPanel
+                  chain={hall.chain}
+                  collections={hall.collections}
+                  collectionCount={hall.collection_count}
+                />
+              ),
+            }
+          : {})}
+        {...(hall.validators.length > 0
+          ? {
+              validatorsPanel: (
+                <HallValidatorsPanel
+                  chain={hall.chain}
+                  validators={hall.validators}
+                  validatorCount={hall.validator_count}
+                />
+              ),
+            }
+          : {})}
+      />
     );
   }
 
