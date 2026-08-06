@@ -422,14 +422,19 @@ async function tryRefresh(currentToken: string): Promise<string | null> {
 // =====================================================================
 
 // =====================================================================
-// bcc-search raw-response variant
+// bcc-search variant (shape-tolerant)
 // =====================================================================
 // bcc-search endpoints (e.g. /bcc/v1/search/users, /bcc/v1/search/groups,
-// /bcc/v1/search?trending=1) predate the §L5 envelope and return raw
-// shapes like `{ results, meta }` plus legacy WP error bodies of the form
-// `{ code, message, data: { status } }`. Passing those through bccFetch
-// would throw `bcc_invalid_envelope` even on a 200, so this sibling
-// helper exists for that specific surface.
+// /bcc/v1/search?trending=1) were BUILT to return raw shapes like
+// `{ results, meta }` plus legacy WP error bodies — but WIRE REALITY is
+// that bcc-trust's Envelope has wrapped every /bcc/v1/* response since
+// 2026-05 (success → { data, _meta }, errors → { error: { code,
+// message, status } }). This helper reading the raw shape only meant
+// every consumer (the /search verticals + both trending surfaces)
+// silently rendered empty — fixed 2026-08-05 by making it
+// SHAPE-TOLERANT: it unwraps the envelope when present and passes raw
+// bodies through, so it keeps working if the server-side wrapping ever
+// changes. Contract §4.9's "raw shape" notes are corrected to match.
 //
 // Behaviour parity with bccFetchAsClient:
 //   - Same Bearer-attach (token sent so viewer-aware ranking signals
@@ -443,10 +448,9 @@ async function tryRefresh(currentToken: string): Promise<string | null> {
 //   - Silent JWT refresh on 401 (bcc-search endpoints are public; a 401
 //     here would mean an unrelated proxy/WAF failure, not an expired
 //     bearer, so retry-then-signOut is the wrong response).
-//   - Envelope unwrap (the whole reason for this helper).
 //
-// If a future bcc-search endpoint adopts the §L5 envelope, migrate its
-// caller back to bccFetchAsClient and shrink this helper's footprint.
+// Follow-up option: with the envelope now acknowledged, this helper
+// could collapse into bccFetch semantics minus the refresh path.
 // =====================================================================
 export async function bccSearchFetchAsClient<T>(
   path: string,
@@ -508,11 +512,21 @@ export async function bccSearchFetchAsClient<T>(
   }
 
   if (!response.ok) {
-    // Legacy WP error shape: { code, message, data: { status } }.
-    // Map to BccApiError so UI code branches on `err.code` uniformly.
-    // `responseBody` stays null — the legacy shape isn't an ApiErrorBody
-    // and BccApiError.data wouldn't survive the cast anyway; the
-    // meaningful info already lives in code/message/status above.
+    // Wire reality: the Envelope maps bcc-search's legacy WP errors to
+    // { error: { code, message, status, data? } } — surface the REAL
+    // code (bcc_rate_limited, bcc_upstream_unavailable, …) so §1.4.2
+    // retryability semantics work again.
+    if (isErrorEnvelope(parsed)) {
+      throw new BccApiError(
+        parsed.error.code,
+        parsed.error.message,
+        parsed.error.status,
+        parsed,
+        requestId
+      );
+    }
+    // Tolerance: raw legacy WP error { code, message, data: { status } }
+    // — survives any future server-side envelope exemption.
     const legacy = isLegacyWpError(parsed) ? parsed : null;
     throw new BccApiError(
       legacy !== null ? legacy.code : "bcc_search_unavailable",
@@ -525,6 +539,13 @@ export async function bccSearchFetchAsClient<T>(
     );
   }
 
+  // Success: accept BOTH shapes.
+  //   Enveloped (wire reality):  { data: { results, … }, _meta }
+  //   Raw (as originally built): { results, … }
+  // Unambiguous — no bcc-search raw payload has a top-level `data` key.
+  if (isSuccessEnvelope<T>(parsed)) {
+    return parsed.data;
+  }
   return parsed as T;
 }
 

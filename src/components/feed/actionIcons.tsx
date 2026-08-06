@@ -18,6 +18,7 @@
 
 import {
   Clock,
+  HandHelping,
   Image as LucideImage,
   MessageCircle,
   Sparkles,
@@ -60,6 +61,35 @@ export function FlameIcon({
 
 export function ReplyIcon({ size = 17, className }: { size?: number; className?: string }) {
   return <MessageCircle size={size} className={className} aria-hidden strokeWidth={1.8} />;
+}
+
+/**
+ * "Mark helpful" glyph — a hand offering help, deliberately NOT a heart or
+ * thumb (this is an endorsement of usefulness, not a like). Bolder stroke +
+ * a `fill` pass when the viewer has marked, so the active state reads as
+ * "filled" against the outline rest state — the same fill-vs-outline
+ * grammar Stoke's flame uses, but on its own distinct icon.
+ */
+export function HelpfulIcon({
+  size = 16,
+  active = false,
+  className,
+}: {
+  size?: number;
+  /** true = viewer has marked helpful (filled + bolder); false = outline. */
+  active?: boolean;
+  className?: string;
+}) {
+  return (
+    <HandHelping
+      size={size}
+      className={className}
+      aria-hidden
+      strokeWidth={active ? 2.1 : 1.8}
+      fill={active ? "currentColor" : "none"}
+      fillOpacity={active ? 0.16 : 0}
+    />
+  );
 }
 
 export function ShareIcon({ size = 17, className }: { size?: number; className?: string }) {

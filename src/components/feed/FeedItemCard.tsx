@@ -20,6 +20,7 @@
 
 import { memo, useCallback, useMemo } from "react";
 import type { Route } from "next";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import {
@@ -69,6 +70,19 @@ function FeedItemCardImpl({
   // Group block (§3.3 v1.5): only on posts authored inside a PeepSo
   // group, and `verification` is null for non-NFT kinds.
   const groupVerification = item.group?.verification ?? null;
+
+  // Group attribution ("Posted in {name} →"). Contract v1.67: the group
+  // block optionally carries `name` + `link` ONLY when the viewer may
+  // know the group exists (non-secret, or member). For a secret group a
+  // non-member/anon viewer gets just `{id,type,verification}`, so a
+  // missing `name` (secret-hidden, old backend, or non-group post) means
+  // NO attribution line. `link` is a server-built relative route rendered
+  // verbatim — the block has no slug, so we never build the URL from
+  // `id`/`type`; when `link` is absent we fall back to plain text rather
+  // than a broken link. Derived purely from `item` (the memo() key), so
+  // no new hook is introduced.
+  const groupName = item.group?.name;
+  const groupLink = item.group?.link;
 
   // Server-provided link — same `Route` cast pattern as CardFactory for
   // typedRoutes. Used by Share + the overflow menu's copy-link; the
@@ -153,6 +167,33 @@ function FeedItemCardImpl({
           trailing={trailing}
         />
       </header>
+
+      {/*
+        Group attribution — a full-width secondary line between the byline
+        and the body (kept out of the crowded right-aligned `trailing`
+        cluster). The group NAME is the meaningful link text; the "→" is
+        decorative (aria-hidden). Matches the sibling "on {pageName}"
+        attribution idiom in FeedPostBody. When `link` is absent we render
+        the name as plain text — never a broken href.
+      */}
+      {groupName && (
+        <p className="bcc-mono text-[11px] text-[var(--bcc-text-secondary)]">
+          Posted in{" "}
+          {groupLink ? (
+            <>
+              <Link
+                href={groupLink as Route}
+                className="hover:text-[var(--bcc-text)] hover:underline"
+              >
+                {groupName}
+              </Link>
+              <span aria-hidden="true"> →</span>
+            </>
+          ) : (
+            groupName
+          )}
+        </p>
+      )}
 
       <div className="flex flex-col gap-3">
         {isReview && <ReviewBody body={item.body} />}

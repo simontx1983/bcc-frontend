@@ -891,6 +891,19 @@ export interface Comment {
   stoke_count?: number;
   viewer_has_stoked?: boolean;
   /**
+   * §9.2 "Mark helpful" endorsement state on this comment — a deliberate,
+   * credibility-gated mark that feeds the author's Rank helping category.
+   * Distinct from `stoke_count`/`viewer_has_stoked` (cosmetic like): a
+   * different action with a different meaning. Both optional during the
+   * rollout window — the comment view-model does not hydrate them yet
+   * (backend follow-up), so absent → the Helpful control renders a neutral
+   * unmarked state and learns the truth from the POST/DELETE response.
+   * `viewer_has_marked` drives the control's active fill; `helpful_count`
+   * the count beside it (hidden at 0).
+   */
+  helpful_count?: number;
+  viewer_has_marked?: boolean;
+  /**
    * Attached media (§3.5, v1.41) — one photo XOR gif per comment.
    * Additive-optional: absent on text-only comments (and pre-1.2.26
    * backends), so a stale frontend renders the comment unchanged.
@@ -987,6 +1000,21 @@ export interface CommentStokeResponse {
 }
 
 /**
+ * Response for `POST`/`DELETE /feed/:id/helpful` and
+ * `POST`/`DELETE /comments/:id/helpful` (§9.2) — the deliberate
+ * "Mark helpful" endorsement pair, identical for all four verbs. NOT a
+ * reaction envelope: a Helpful mark is a distinct, credibility-gated
+ * signal feeding the content author's Rank helping category, kept apart
+ * from cosmetic Stoke/reactions on purpose. Patched onto the matching
+ * feed item / comment row (or held as the live truth on a stale backend
+ * that doesn't yet hydrate the pair on its view-models).
+ */
+export interface HelpfulMarkResponse {
+  helpful_count: number;
+  viewer_has_marked: boolean;
+}
+
+/**
  * Polymorphic feed item. The `body` shape varies per `post_kind` —
  * left as `Record<string, unknown>` here so the renderer can branch
  * on kind without locking every variant's shape.
@@ -1063,6 +1091,19 @@ export interface FeedItem {
   author: FeedAuthor;
   body: Record<string, unknown>;
   reactions: FeedReactions;
+  /**
+   * §9.2 "Mark helpful" endorsement state on this post — a deliberate,
+   * credibility-gated mark that feeds the author's Rank helping category.
+   * Deliberately NOT part of `reactions`: a Helpful mark is an endorsement
+   * of usefulness, not a cosmetic Stoke/reaction, and the two must not be
+   * conflated. Both optional during the rollout window — the feed
+   * view-model does not hydrate them yet (backend follow-up), so absent →
+   * the Helpful control renders a neutral unmarked state and learns the
+   * truth from the POST/DELETE response. `viewer_has_marked` drives the
+   * control's active fill; `helpful_count` the count beside it (hidden at 0).
+   */
+  helpful_count?: number;
+  viewer_has_marked?: boolean;
   /**
    * v1.5 — number of visible (non-trashed) comments on the post at
    * response-time. Server-computed via batched COUNT(*) GROUP BY.
@@ -1330,20 +1371,43 @@ export interface CardsListResponse {
 // per §A2.
 // ─────────────────────────────────────────────────────────────────────
 
+/**
+ * Kinds a suggestion row can carry (v1.70): the three page kinds plus
+ * `community` + `member`. Deliberately a SEPARATE union from
+ * `DirectoryKind` — the /directory surface (VALID_KINDS, filter chips,
+ * useDirectory) must keep rejecting community/member, so widening
+ * DirectoryKind would let an invalid `kind` reach `GET /cards`.
+ */
+export type SuggestionKind = DirectoryKind | "community" | "member";
+
 export interface SearchSuggestion {
   id: number;
   name: string;
   handle: string;
-  card_kind: DirectoryKind;
-  /** Trust band — all five, risky included (v1.57). */
+  card_kind: SuggestionKind;
+  /** Trust band — all five, risky included (v1.57). `"neutral"` on
+   *  community rows is the §3.2.4 shape-stable placeholder, a pure
+   *  color key — never rendered as a trust claim (the null label below
+   *  suppresses the chip). Member rows carry their REAL tier. */
   reputation_tier: ReputationTier;
-  reputation_tier_label: string;
+  /** Null ONLY on community rows (no trust system) — the null is what
+   *  suppresses the tier chip. Members/pages always carry the label. */
+  reputation_tier_label: string | null;
   trust_score: number | null;
-  is_verified: boolean;
+  /** Owner-email verification — present on page-kind rows ONLY (v1.70).
+   *  OMITTED (not false) on member rows: /search/users doesn't provide
+   *  the authoritative email signal and no bounded batch reader exists,
+   *  so omission means unavailable, not unverified. Omitted on
+   *  community rows: no owner-email meaning on this surface. */
+  is_verified?: boolean;
   /** Verified operator/creator claim (§ verified-wins) — distinct from
-   *  the email-verified `is_verified` flag. Drives the VerifiedBadge. */
+   *  the email-verified `is_verified` flag. Drives the VerifiedBadge.
+   *  Constant false on member/community rows (§3.2 — not
+   *  on-chain-claimable). */
   is_claim_verified: boolean;
-  /** Pre-built headless route (`/v/:slug`, `/p/:slug`, `/c/:slug`). */
+  /** Pre-built headless route (`/v/:slug`, `/p/:slug`, `/c/:slug`;
+   *  v1.70 adds `/halls/:slug` | `/communities/:slug` | `/u/:handle`),
+   *  server-validated as a relative internal path. */
   href: string;
 }
 
@@ -1352,12 +1416,16 @@ export interface SearchSuggestionsResponse {
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// Multi-vertical search (/bcc/v1/search/* — raw bcc-search responses)
+// Multi-vertical search (/bcc/v1/search/* — bcc-search vertical rows)
 //
-// These endpoints predate the §L5 envelope and return raw `{ results,
-// meta }` shapes. The frontend reaches them via `bccSearchFetchAsClient`
-// (not the envelope-strict `bccFetch`). Used by the /search results
-// page and the GlobalSearch dropdown's pre-search trending surface.
+// These endpoints were built to return raw `{ results, meta }` shapes,
+// but the wire has carried them §L5-ENVELOPED ({ data: { results, … },
+// _meta }) since 2026-05 — bcc-trust's Envelope wraps every /bcc/v1
+// route. The frontend reaches them via `bccSearchFetchAsClient`, which
+// is SHAPE-TOLERANT (unwraps the envelope when present, passes raw
+// through — fixed 2026-08-05). The interfaces below describe the INNER
+// payload either way. Used by the /search results page and the
+// GlobalSearch dropdown's pre-search trending surface.
 //
 // Each vertical has its own row shape:
 //   - Project rows mirror what bcc-search's SearchController returns
@@ -1409,13 +1477,27 @@ export interface UserSearchResponse {
   meta: { count: number; query: string };
 }
 
+/**
+ * Public community-kind vocabulary (§3.2.4) as emitted by the groups
+ * vertical (v1.70) — resolved server-side from `_bcc_group_kind` meta.
+ */
+export type GroupKind = "hall" | "nft" | "validator" | "system" | "user";
+
 export interface GroupSearchResult {
   id: number;
   name: string;
   slug: string;
   description: string | null;
   avatar_url: string | null;
+  /** Relative in-app route (v1.70): `/halls/{slug}` for halls, else
+   *  `/communities/{slug}`. Never an absolute WP URL. */
   group_url: string;
+  /** Optional for cache-skew tolerance: a warm pre-v1.70 server cache
+   *  entry may lack these for up to its 45s TTL after deploy. */
+  kind?: GroupKind;
+  /** Server-rendered §A2 kicker (e.g. "CHAIN HALL") — render verbatim,
+   *  never map `kind` → words client-side. */
+  kind_label?: string;
 }
 
 export interface GroupSearchResponse {
@@ -1737,7 +1819,9 @@ export interface HallItem {
   slug: string;
   /** Server-rendered name, e.g. "Cosmos Hall". */
   name: string;
-  /** Parsed from the name (e.g. "cosmos"); null when no chain keyword detected. */
+  /** Chain slug (e.g. "cosmos"); null when the group carries no chain tag.
+   *  Resolved server-side from the `_bcc_chain_tag` group meta via
+   *  ChainRepository — NOT parsed from the display name. */
   chain: string | null;
   member_count: number;
   /**
@@ -1796,6 +1880,38 @@ export interface HallsResponse {
 }
 
 /**
+ * Operator-authored chain identity for a Hall (contract v1.73, additive).
+ *
+ * This is a COMMUNITY / identity block, never financial: there is no price,
+ * market-cap, or supply data here and none may be derived client-side. Every
+ * content-authored field is nullable until an operator fills it in, and the
+ * whole block is `null` for a chainless Hall. Older backends omit the key
+ * entirely, so it is OPTIONAL on the response — treat `undefined` and `null`
+ * identically (render nothing new).
+ *
+ * `color` is an operator-set hex accent, already sanitized server-side; the
+ * frontend still revalidates it before use and only ever applies it as an
+ * inline `style` value — never injected into a `<style>` block or innerHTML.
+ * `description` is plain text (server `sanitize_textarea_field`) — render as
+ * text, never as HTML.
+ */
+export interface ChainProfile {
+  slug: string;
+  name: string;
+  /** Native token symbol (e.g. "ATOM"); null until set. */
+  native_token: string | null;
+  /** One of "cosmos" | "evm" | "solana" | "thorchain" | "polkadot" | "near". */
+  chain_type: string;
+  explorer_url: string | null;
+  /** Operator-uploaded icon media; null until set. */
+  icon_url: string | null;
+  /** Operator-set hex accent; null until set. Validate before rendering. */
+  color: string | null;
+  /** Operator-authored "About this chain" plain-text prose; null/empty until set. */
+  description: string | null;
+}
+
+/**
  * Detail response — a SUPERSET of a directory `HallItem`: every list
  * field, plus the chain-content previews the detail page renders above
  * the feed. Anything typed `HallItem` still accepts a detail response,
@@ -1810,6 +1926,12 @@ export interface HallsResponse {
 export interface HallDetailResponse extends HallItem {
   validators: HallValidatorPreview[];
   collections: HallCollectionPreview[];
+  /**
+   * Operator-authored chain identity (contract v1.73). OPTIONAL + nullable:
+   * `undefined` on old backends that predate the block, `null` for a
+   * chainless Hall. Additive — the page renders nothing new when absent.
+   */
+  chain_profile?: ChainProfile | null;
 }
 
 /**
@@ -1911,6 +2033,24 @@ export interface GroupBlock {
   id: number;
   type: GroupDiscoveryType;
   verification: GroupVerification | null;
+  /**
+   * Display name of the group (contract v1.67). Present ONLY when the
+   * viewer may know the group exists — a non-secret group, or one the
+   * viewer is a member of. For a secret group a non-member/anon viewer
+   * receives just `{id,type,verification}` (no `name`/`link`), so this
+   * is additive-optional and the attribution line is suppressed when
+   * absent (§S privacy: the server decides visibility, not the client).
+   */
+  name?: string;
+  /**
+   * Server-built relative route to the group (contract v1.68):
+   * `/halls/{slug}` for halls, else `/communities/{slug}`. Rendered VERBATIM
+   * — the block carries no slug, so the frontend never constructs this
+   * URL itself. Paired with `name` (see visibility note above); may be
+   * absent even when `name` is present, in which case the attribution
+   * renders as plain text rather than a broken link.
+   */
+  link?: string;
 }
 
 /**
@@ -2146,16 +2286,15 @@ export type CommunityCustodyDenyReason =
 export type TransferGiverDenyReason = "suspended" | "new_member" | "in_recovery";
 
 /**
- * §21.2 — receiver-side deny reasons on the transfer route, prefixed
- * `receiver_` on the wire so one 403 channel serves both parties.
+ * §21.2 — receiver-side deny reason on the transfer route (403
+ * `bcc_forbidden`, `error.data.reason`). Custody hardening collapsed
+ * the former six-way receiver breakdown into ONE opaque reason: the
+ * server no longer discloses WHY a target member is ineligible (a
+ * privacy property — the owner shouldn't learn the receiver's rank,
+ * standing, recovery, or cap state). Still prefixed `receiver_` so one
+ * 403 channel serves both parties.
  */
-export type TransferReceiverDenyReason =
-  | "receiver_suspended"
-  | "receiver_new_member"
-  | "receiver_below_neutral"
-  | "receiver_in_recovery"
-  | "receiver_cap_reached"
-  | "receiver_cooldown_active";
+export type TransferReceiverDenyReason = "receiver_ineligible";
 
 /** Request body for POST /me/groups/{id}/transfer. */
 export interface TransferCommunityRequest {
@@ -5026,6 +5165,14 @@ export interface MemberProfile {
      * Surfaced on /me/progression as the 4th VERIFIED IDENTITY row.
      */
     profile_completeness: number;
+    /**
+     * OWN VIEW ONLY — server verdict for the "profile complete" state
+     * (QuestValidator applies its own threshold; the client never
+     * mirrors the number). Absent for non-self viewers AND on old prod
+     * backends — treat absence as NOT complete (C8: never fabricate
+     * completeness from missing data).
+     */
+    profile_complete?: boolean;
   };
   counts: MemberCounts;
   privacy: MemberPrivacy;

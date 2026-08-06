@@ -47,10 +47,6 @@ import type {
   ReputationTier,
 } from "@/lib/api/types";
 
-// Threshold mirrors QuestValidator::COMPLETE_PROFILE_THRESHOLD (PHP).
-// Same number both sides — if you tune one, tune both.
-const PROFILE_COMPLETE_THRESHOLD = 80;
-
 export function StandingFileBody({ profile }: { profile: MemberProfile }) {
   const progression = profile.progression;
   // Discriminant narrowing doubles as the old-backend guard: a legacy
@@ -265,7 +261,10 @@ function VerifiedIdentityBlock({ profile }: { profile: MemberProfile }) {
   const hallCount = profile.halls.length;
   const verifications = profile.verifications;
   const completeness = verifications.profile_completeness;
-  const profileComplete = completeness >= PROFILE_COMPLETE_THRESHOLD;
+  // Server verdict (own-view field). Absent — non-self viewer or old
+  // backend — reads as NOT complete: the "Complete →" CTA shows, same
+  // as prod today. Never fabricate completeness from missing data.
+  const profileComplete = verifications.profile_complete === true;
   const settingsRoute = "/u/me?tab=profile" as Route;
   const profileEditRoute = "/u/me?tab=profile" as Route;
   const hallsRoute = "/halls" as Route;

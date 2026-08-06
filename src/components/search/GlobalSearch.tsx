@@ -12,19 +12,24 @@
  *   - Focus on an empty input → "Pre-search" surface: most recent
  *     searches (localStorage) above the current trending list.
  *   - 2+ chars → dropdown of up to 12 results, ranked by bcc-search.
- *     Each row links to the entity profile (`/v/:slug`, `/p/:slug`,
- *     `/c/:slug`). Server pre-built the route per §A2.
+ *     Each row links to its entity (`/v/:slug`, `/p/:slug`, `/c/:slug`,
+ *     and since v1.70 `/halls/:slug` / `/communities/:slug` /
+ *     `/u/:handle`). Server pre-built + validated the route per §A2.
+ *   - Scope <select> (v1.70): All · Validators · Projects · Creators ·
+ *     Members · Communities — maps to the endpoint's `kind` param. A
+ *     scoped keystroke queries exactly one vertical server-side.
  *   - Keyboard: ↓/↑ moves focus, Enter activates, Esc closes,
  *     outside-click closes (mirrors the SiteHeader avatar menu).
  *   - The footer link shuttles the user to `/search?q=…` (the
  *     multi-vertical results page) when they want more than the
  *     auto-complete preview.
  *
- * Single-vertical scope (deliberate):
+ * Single-REQUEST scope (deliberate):
  *   The dropdown talks only to `/bcc/v1/cards/search` (the §A2 cards
  *   wrapper). It does NOT fan out to /search/users + /search/groups on
- *   every keystroke — the multi-vertical UX lives on the /search
- *   results page so a single keystroke costs one request, not three.
+ *   every keystroke — since v1.70 the SERVER merges those verticals
+ *   into the All-scope response (≤3 communities + ≤3 members appended
+ *   after pages), so one keystroke still costs one request.
  *
  * Why not server-render the dropdown:
  *   The whole component is interaction state — input value, dropdown
@@ -53,10 +58,39 @@ import { useTrendingSearches } from "@/hooks/useTrendingSearches";
 import type {
   ProjectSearchResult,
   SearchSuggestion,
+  SuggestionKind,
 } from "@/lib/api/types";
 import { toInternalHref } from "@/lib/internal-route";
 
 const MAX_TRENDING_IN_DROPDOWN = 5;
+
+/**
+ * Scope options for the dropdown's <select>. `undefined` = All (no
+ * `kind` param — the server merges pages + communities + members).
+ */
+const SCOPE_OPTIONS: ReadonlyArray<{
+  value: SuggestionKind | "all";
+  label: string;
+}> = [
+  { value: "all", label: "All" },
+  { value: "validator", label: "Validators" },
+  { value: "project", label: "Projects" },
+  { value: "creator", label: "Creators" },
+  { value: "member", label: "Members" },
+  { value: "community", label: "Communities" },
+];
+
+/**
+ * Type-qualified row identity — `${card_kind}:${id}`. Numeric ids are
+ * only unique WITHIN a kind (member 123, community 17 and page 17 can
+ * coexist in one merged list), so anything that needs row identity —
+ * the React key, the highlight-reset signature — must use this, never
+ * the bare id. The colon separator is the documented contract choice
+ * for this surface (deliberate divergence from the `${kind}-${id}`
+ * dash idiom single-kind grids use).
+ */
+const suggestionKey = (suggestion: SearchSuggestion): string =>
+  `${suggestion.card_kind}:${suggestion.id}`;
 
 interface GlobalSearchProps {
   /** Extra classes appended to the positioning container (`relative`). */
@@ -89,11 +123,12 @@ export function GlobalSearch({
   const [query, setQuery] = useState<string>("");
   const [open, setOpen] = useState<boolean>(false);
   const [activeIndex, setActiveIndex] = useState<number>(-1);
+  const [scope, setScope] = useState<SuggestionKind | undefined>(undefined);
 
   const containerRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
 
-  const search = useGlobalSearch(query);
+  const search = useGlobalSearch(query, scope);
   const items: SearchSuggestion[] = search.data?.items ?? [];
 
   const recents = useRecentSearches();
@@ -134,11 +169,17 @@ export function GlobalSearch({
     };
   }, [open]);
 
-  // Reset the active index whenever the result list shifts so an
-  // out-of-bounds index doesn't render an invisible focus state.
+  // Reset the active index whenever the result list's IDENTITY shifts —
+  // not just its length. Under keepPreviousData a background refetch
+  // can return a same-length list for the same query (15s re-rank,
+  // window refocus); a length-keyed reset left the highlight silently
+  // pointing at a different row — since v1.70 possibly a different
+  // KIND — and Enter navigated there. The signature is order-sensitive
+  // and type-qualified, so any content change resets the highlight.
+  const itemsSignature = items.map(suggestionKey).join("|");
   useEffect(() => {
     setActiveIndex(-1);
-  }, [items.length, query]);
+  }, [itemsSignature, query]);
 
   // "/" (plus ⌘K/Ctrl+K, preserving the SiteHeader's historical
   // binding) focuses the input from anywhere on the page. Opt-in via
@@ -231,11 +272,35 @@ export function GlobalSearch({
     <div
       ref={containerRef}
       role="search"
-      className={className ? `relative ${className}` : "relative"}
+      className={
+        className
+          ? `relative flex items-center gap-1 ${className}`
+          : "relative flex items-center gap-1"
+      }
     >
       <label htmlFor={inputId} className="sr-only">
         Search BCC
       </label>
+      {/* Scope select (v1.70) — native <select> for free keyboard/AT
+          semantics. Sits inside the search landmark, left of the input.
+          Changing scope refires the query (scope is in the hook's query
+          key) and the identity-signature effect resets the highlight. */}
+      <select
+        aria-label="Search scope"
+        value={scope ?? "all"}
+        onChange={(e) => {
+          const v = e.target.value;
+          setScope(v === "all" ? undefined : (v as SuggestionKind));
+          setOpen(true);
+        }}
+        className="bcc-mono shrink-0 rounded-sm border border-bcc-border bg-bcc-surface-raised px-1 py-1 text-[10px] text-bcc-text-secondary focus:outline-none focus:ring-1 focus:ring-blueprint"
+      >
+        {SCOPE_OPTIONS.map((opt) => (
+          <option key={opt.value} value={opt.value}>
+            {opt.label}
+          </option>
+        ))}
+      </select>
       <input
         ref={inputRef}
         id={inputId}
@@ -308,7 +373,7 @@ export function GlobalSearch({
             <ul role="presentation" className="flex flex-col gap-px">
               {items.map((item, idx) => (
                 <SuggestionRow
-                  key={`${item.card_kind}-${item.id}`}
+                  key={suggestionKey(item)}
                   item={item}
                   id={`${inputId}-opt-${idx}`}
                   active={idx === activeIndex}
@@ -473,7 +538,10 @@ function SuggestionRow({ item, id, active, onActivate, onHover }: SuggestionRowP
         <span className="flex flex-col gap-0.5 overflow-hidden">
           <span className="bcc-stencil truncate text-sm text-bcc-text">{item.name}</span>
           <span className="bcc-mono truncate text-[10px] text-bcc-text-secondary">
-            {item.card_kind.toUpperCase()} · @{item.handle}
+            {/* Communities use the /slug idiom (a group has no
+                @-handle); members + pages keep @handle. */}
+            {item.card_kind.toUpperCase()} ·{" "}
+            {item.card_kind === "community" ? `/${item.handle}` : `@${item.handle}`}
           </span>
         </span>
 

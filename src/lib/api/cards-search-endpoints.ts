@@ -18,17 +18,20 @@ import {
   bccSearchFetchAsClient,
 } from "@/lib/api/client";
 import type {
-  DirectoryKind,
   GroupSearchResponse,
   ProjectSearchResponse,
   SearchSuggestionsResponse,
+  SuggestionKind,
   TrendingResponse,
   UserSearchResponse,
 } from "@/lib/api/types";
 
 export interface SearchSuggestionsParams {
   q: string;
-  kind?: DirectoryKind;
+  /** Scope filter (v1.70): page kinds query the projects vertical;
+   *  `member` / `community` query exactly one vertical server-side.
+   *  Omitted = All (server merges pages + communities + members). */
+  kind?: SuggestionKind;
 }
 
 export function getSearchSuggestions(
@@ -50,12 +53,13 @@ export function getSearchSuggestions(
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// Multi-vertical search (bcc-search direct — raw response shape).
+// Multi-vertical search (bcc-search direct — shape-tolerant client).
 //
-// These talk to bcc-search endpoints that predate the §L5 envelope, so
-// they go through `bccSearchFetchAsClient` (NOT the envelope-strict
-// bccFetch path). The trade-off is documented in client.ts: bcc-search
-// is contract-stable but returns `{ results, meta }` instead of
+// These talk to bcc-search endpoints through `bccSearchFetchAsClient`,
+// which unwraps the §L5 envelope the wire actually carries (and
+// tolerates the raw legacy shape — see client.ts, fixed 2026-08-05).
+// Callers receive the INNER payload: bcc-search
+// is contract-stable and yields `{ results, meta }` instead of
 // `{ data, _meta }`. The /search results page and the GlobalSearch
 // dropdown's pre-search trending surface consume these.
 // ─────────────────────────────────────────────────────────────────────

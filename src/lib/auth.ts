@@ -35,6 +35,7 @@ import GoogleProvider from "next-auth/providers/google";
 import TwitterProvider from "next-auth/providers/twitter";
 
 import { clientEnv, serverEnv } from "@/lib/env";
+import { publicDisplayNameOrEmpty } from "@/lib/format";
 import type { ApiSuccess, AuthTokenResponse } from "@/lib/api/types";
 import type { OAuthHandleRequiredResponse } from "@/lib/api/auth-endpoints";
 
@@ -347,7 +348,7 @@ export const authOptions: NextAuthOptions = {
           provider:     account.provider,
           provider_id:  account.providerAccountId,
           email:        user.email ?? "",
-          display_name: user.name  ?? "",
+          display_name: publicDisplayNameOrEmpty(user.name),
         });
 
         if ("status" in result && result.status === "handle_required") {
@@ -373,7 +374,7 @@ export const authOptions: NextAuthOptions = {
             provider:     account.provider,
             provider_id:  account.providerAccountId,
             email:        user.email ?? "",
-            display_name: user.name  ?? "",
+            display_name: publicDisplayNameOrEmpty(user.name),
           });
           if (!("status" in result)) {
             token.id              = String(result.user_id);

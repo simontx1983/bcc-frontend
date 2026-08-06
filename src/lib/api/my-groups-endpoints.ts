@@ -70,6 +70,8 @@ export function leavePlainGroup(
  *   - bcc_unauthorized (401) — anonymous caller
  *   - bcc_invalid_request (400) — name too short / too long / description
  *     exceeds 2000 chars. Render `message` verbatim per §A2.
+ *   - bcc_conflict (409) — lock contention with a concurrent custody
+ *     change (custody hardening). Transient; safe to retry.
  *   - bcc_rate_limited (429) — 5/hour per user
  *   - bcc_internal_error (500) — PeepSo unavailable / wp_insert_post
  *     failed; safe to retry after a moment
@@ -94,9 +96,13 @@ export function createPlainGroup(
  *     or secret group (existence never leaked)
  *   - bcc_forbidden (403) — viewer isn't the owner (no `data.reason`),
  *     giver gate (`data.reason` ∈ TransferGiverDenyReason), or receiver
- *     gate (`data.reason` ∈ TransferReceiverDenyReason)
+ *     gate (`data.reason` === "receiver_ineligible" — custody hardening
+ *     collapsed the six receiver reasons into one opaque reason so the
+ *     server never discloses WHY the target is ineligible)
  *   - bcc_invalid_request (400) — non-User-kind group, self-transfer,
  *     or receiver not already a member
+ *   - bcc_conflict (409) — lock contention with a concurrent custody
+ *     change (custody hardening). Transient; safe to retry.
  *   - bcc_rate_limited (429) — 5/hour
  *   - bcc_internal_error (500) — write failed; safe to retry
  *
