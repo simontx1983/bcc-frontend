@@ -104,23 +104,29 @@ export function patchFeedItem(
   feedId: string,
   update: (item: FeedItem) => FeedReactions
 ): void {
-  queryClient.setQueriesData<InfiniteData<FeedResponse>>(
-    { queryKey: FEED_QUERY_KEY_ROOT },
-    (oldData) => {
-      if (oldData === undefined) return oldData;
-      return {
-        ...oldData,
-        pages: oldData.pages.map((page) => ({
-          ...page,
-          items: page.items.map((item) =>
-            item.id === feedId
-              ? { ...item, reactions: update(item) }
-              : item
-          ),
-        })),
-      };
-    }
-  );
+  // Both page namespaces — same roots snapshotFeed captures. Before
+  // 2026-08-06 only the main feed was patched, so a Stoke inside a
+  // community stream recorded server-side but stayed visually inert
+  // until refetch (the gap the helpful-mark patch fixed first).
+  for (const root of FEED_PAGE_ROOTS) {
+    queryClient.setQueriesData<InfiniteData<FeedResponse>>(
+      { queryKey: root },
+      (oldData) => {
+        if (oldData === undefined) return oldData;
+        return {
+          ...oldData,
+          pages: oldData.pages.map((page) => ({
+            ...page,
+            items: page.items.map((item) =>
+              item.id === feedId
+                ? { ...item, reactions: update(item) }
+                : item
+            ),
+          })),
+        };
+      }
+    );
+  }
 
   queryClient.setQueryData<FeedItem>(FEED_ITEM_QUERY_KEY(feedId), (old) =>
     old === undefined ? old : { ...old, reactions: update(old) }

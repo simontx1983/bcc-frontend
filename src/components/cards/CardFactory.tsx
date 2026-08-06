@@ -114,6 +114,15 @@ export interface CardFactoryProps {
   isJoined?: boolean | undefined;
   /** Community cards only — renders JOINING…/CHECKING… in the JOIN cell. */
   joinPending?: boolean | undefined;
+  /**
+   * When true, the front face's full-bleed navigation overlay to
+   * `card.links.self` is omitted. Pass on surfaces where that link is
+   * wrong: the profile/group hero (it would loop back to the page the
+   * viewer is already on — the pre-redesign `hideOpenAction` contract)
+   * and the onboarding wizard (a body mis-click would exit the flow
+   * mid-wizard). Flip and action cells are unaffected.
+   */
+  suppressBodyLink?: boolean | undefined;
 }
 
 export function CardFactory({
@@ -125,6 +134,7 @@ export function CardFactory({
   onJoin,
   isJoined = false,
   joinPending = false,
+  suppressBodyLink = false,
 }: CardFactoryProps) {
   const [flipped, setFlipped] = useState(false);
   const cardRef = useRef<HTMLDivElement | null>(null);
@@ -188,6 +198,7 @@ export function CardFactory({
           onJoin={onJoin}
           isJoined={isJoined}
           joinPending={joinPending}
+          suppressBodyLink={suppressBodyLink}
         />
         <CardBackFace
           card={card}

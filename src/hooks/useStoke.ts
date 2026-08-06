@@ -27,6 +27,7 @@ import {
   type SetMutationContext,
 } from "@/hooks/useFeedCache";
 import { FEED_ITEM_QUERY_KEY, FEED_QUERY_KEY_ROOT } from "@/hooks/useFeed";
+import { GROUP_FEED_QUERY_KEY_ROOT } from "@/hooks/useGroupFeed";
 import type { BccApiError, FeedReactions, FeedItem } from "@/lib/api/types";
 
 export function useStokeMutation() {
@@ -37,6 +38,7 @@ export function useStokeMutation() {
 
     onMutate: async (feedId) => {
       await queryClient.cancelQueries({ queryKey: FEED_QUERY_KEY_ROOT });
+      await queryClient.cancelQueries({ queryKey: GROUP_FEED_QUERY_KEY_ROOT });
       await queryClient.cancelQueries({ queryKey: FEED_ITEM_QUERY_KEY(feedId) });
       const context = snapshotFeed(queryClient, feedId);
       patchFeedItem(queryClient, feedId, (item) => applyOptimisticStoke(item));
@@ -61,6 +63,7 @@ export function useUnstokeMutation() {
 
     onMutate: async (feedId) => {
       await queryClient.cancelQueries({ queryKey: FEED_QUERY_KEY_ROOT });
+      await queryClient.cancelQueries({ queryKey: GROUP_FEED_QUERY_KEY_ROOT });
       await queryClient.cancelQueries({ queryKey: FEED_ITEM_QUERY_KEY(feedId) });
       const context = snapshotFeed(queryClient, feedId);
       patchFeedItem(queryClient, feedId, (item) => applyOptimisticUnstoke(item));
