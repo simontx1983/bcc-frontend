@@ -1801,7 +1801,9 @@ export interface HallItem {
   slug: string;
   /** Server-rendered name, e.g. "Cosmos Hall". */
   name: string;
-  /** Parsed from the name (e.g. "cosmos"); null when no chain keyword detected. */
+  /** Chain slug (e.g. "cosmos"); null when the group carries no chain tag.
+   *  Resolved server-side from the `_bcc_chain_tag` group meta via
+   *  ChainRepository — NOT parsed from the display name. */
   chain: string | null;
   member_count: number;
   /**
@@ -1860,6 +1862,38 @@ export interface HallsResponse {
 }
 
 /**
+ * Operator-authored chain identity for a Hall (contract v1.73, additive).
+ *
+ * This is a COMMUNITY / identity block, never financial: there is no price,
+ * market-cap, or supply data here and none may be derived client-side. Every
+ * content-authored field is nullable until an operator fills it in, and the
+ * whole block is `null` for a chainless Hall. Older backends omit the key
+ * entirely, so it is OPTIONAL on the response — treat `undefined` and `null`
+ * identically (render nothing new).
+ *
+ * `color` is an operator-set hex accent, already sanitized server-side; the
+ * frontend still revalidates it before use and only ever applies it as an
+ * inline `style` value — never injected into a `<style>` block or innerHTML.
+ * `description` is plain text (server `sanitize_textarea_field`) — render as
+ * text, never as HTML.
+ */
+export interface ChainProfile {
+  slug: string;
+  name: string;
+  /** Native token symbol (e.g. "ATOM"); null until set. */
+  native_token: string | null;
+  /** One of "cosmos" | "evm" | "solana" | "thorchain" | "polkadot" | "near". */
+  chain_type: string;
+  explorer_url: string | null;
+  /** Operator-uploaded icon media; null until set. */
+  icon_url: string | null;
+  /** Operator-set hex accent; null until set. Validate before rendering. */
+  color: string | null;
+  /** Operator-authored "About this chain" plain-text prose; null/empty until set. */
+  description: string | null;
+}
+
+/**
  * Detail response — a SUPERSET of a directory `HallItem`: every list
  * field, plus the chain-content previews the detail page renders above
  * the feed. Anything typed `HallItem` still accepts a detail response,
@@ -1874,6 +1908,12 @@ export interface HallsResponse {
 export interface HallDetailResponse extends HallItem {
   validators: HallValidatorPreview[];
   collections: HallCollectionPreview[];
+  /**
+   * Operator-authored chain identity (contract v1.73). OPTIONAL + nullable:
+   * `undefined` on old backends that predate the block, `null` for a
+   * chainless Hall. Additive — the page renders nothing new when absent.
+   */
+  chain_profile?: ChainProfile | null;
 }
 
 /**
