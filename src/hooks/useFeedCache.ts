@@ -28,7 +28,16 @@
 import type { InfiniteData, QueryClient } from "@tanstack/react-query";
 
 import { FEED_ITEM_QUERY_KEY, FEED_QUERY_KEY_ROOT } from "@/hooks/useFeed";
+import { GROUP_FEED_QUERY_KEY_ROOT } from "@/hooks/useGroupFeed";
 import type { FeedItem, FeedReactions, FeedResponse } from "@/lib/api/types";
+
+/**
+ * Every infinite-query namespace that carries FeedResponse pages. The
+ * group/Hall streams (`["groups","feed"]`, useGroupFeed) mirror the main
+ * feed envelope exactly, so any snapshot that skips them leaves a
+ * group-stream patch un-rolled-back on error.
+ */
+const FEED_PAGE_ROOTS = [FEED_QUERY_KEY_ROOT, GROUP_FEED_QUERY_KEY_ROOT] as const;
 
 export interface SetMutationContext {
   /** Snapshot of every feed page we touched, keyed by query key (JSON). */
@@ -42,24 +51,27 @@ export interface SetMutationContext {
 }
 
 /**
- * Snapshot every place the target item lives — feed pages AND the
- * single-post detail cache — so an optimistic patch is fully restorable
- * on error. Replaces the former `snapshotMatchingPages` (feed-only),
- * which left the detail view un-rolled-back.
+ * Snapshot every place the target item lives — feed pages (main AND
+ * group-stream namespaces) plus the single-post detail cache — so an
+ * optimistic patch is fully restorable on error. Replaces the former
+ * `snapshotMatchingPages` (feed-only), which left the detail view
+ * un-rolled-back; the group namespace joined 2026-08-06 alongside the
+ * helpful-mark group-stream patch.
  */
 export function snapshotFeed(
   queryClient: QueryClient,
   feedId: string
 ): SetMutationContext {
-  const queries = queryClient.getQueriesData<InfiniteData<FeedResponse>>({
-    queryKey: FEED_QUERY_KEY_ROOT,
-  });
-
   const snapshots: SetMutationContext["snapshots"] = [];
-  for (const [key, data] of queries) {
-    if (data === undefined) continue;
-    if (containsFeedId(data, feedId)) {
-      snapshots.push({ queryKey: key, data });
+  for (const root of FEED_PAGE_ROOTS) {
+    const queries = queryClient.getQueriesData<InfiniteData<FeedResponse>>({
+      queryKey: root,
+    });
+    for (const [key, data] of queries) {
+      if (data === undefined) continue;
+      if (containsFeedId(data, feedId)) {
+        snapshots.push({ queryKey: key, data });
+      }
     }
   }
 

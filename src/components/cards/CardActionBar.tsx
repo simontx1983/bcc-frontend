@@ -172,27 +172,58 @@ export function ActionBar({
   // nothing here recomputes it. A failed mutation surfaces through the
   // pill's own tooltip rather than an extra line of text — the card is a
   // fixed 440px and has no room to grow one.
+  //
+  // Local success state: the `card` prop is a SNAPSHOT — React Query
+  // page data on the grids, plain RSC props on the profile hero and the
+  // /communities-style server grids. Invalidation (useAttestations)
+  // refetches the query-backed surfaces eventually, but nothing can
+  // refresh an RSC-supplied card, and even a grid refetch lands a beat
+  // after the click. So the pill's pressed state flips locally the
+  // moment the mutation SUCCEEDS (not optimistically on click — the
+  // server still adjudicates), and the id captured from the response
+  // keeps withdraw working before any refetch arrives. Server truth
+  // wins again on the next fetched card.
   const [vouchError, setVouchError] = useState<string | null>(null);
+  const [localVouch, setLocalVouch] = useState<
+    { active: true; id: number } | { active: false } | null
+  >(null);
   const castVouch = useCastAttestation({
-    onSuccess: () => setVouchError(null),
+    onSuccess: (data) => {
+      setVouchError(null);
+      // status 'existing' returns the pre-existing row — same end state.
+      setLocalVouch({ active: true, id: data.id });
+    },
     onError: () => setVouchError("Couldn't update your vouch. Try again."),
   });
   const revokeVouch = useRevokeAttestation({
-    onSuccess: () => setVouchError(null),
+    onSuccess: () => {
+      setVouchError(null);
+      setLocalVouch({ active: false });
+    },
     onError: () => setVouchError("Couldn't update your vouch. Try again."),
   });
 
   const targetKind = vouchTargetKind(card.card_kind);
-  const existingVouch = card.viewer_attestation?.vouch ?? null;
-  const hasVouched = existingVouch !== null;
+  const serverVouch = card.viewer_attestation?.vouch ?? null;
+  // Local mutation result beats the card snapshot; the snapshot beats
+  // nothing. A refetched card that already agrees makes the override a
+  // no-op.
+  const hasVouched =
+    localVouch !== null ? localVouch.active : serverVouch !== null;
+  const activeVouchId =
+    localVouch !== null
+      ? localVouch.active
+        ? localVouch.id
+        : null
+      : (serverVouch?.id ?? null);
   const vouchPending = castVouch.isPending || revokeVouch.isPending;
   const canVouch = isAllowed(card.permissions, "can_vouch");
 
   const handleVouchClick = () => {
     if (vouchPending || targetKind === undefined) return;
     setVouchError(null);
-    if (existingVouch !== null) {
-      revokeVouch.mutate(existingVouch.id);
+    if (activeVouchId !== null) {
+      revokeVouch.mutate(activeVouchId);
       return;
     }
     castVouch.mutate({ kind: "vouch", target_kind: targetKind, target_id: card.id });

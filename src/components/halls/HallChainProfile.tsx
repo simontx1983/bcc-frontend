@@ -22,6 +22,7 @@
 
 import Image from "next/image";
 
+import { isWpMediaUrl } from "@/lib/media";
 import type { ChainProfile } from "@/lib/api/types";
 
 /**
@@ -85,7 +86,12 @@ export function HallChainProfile({
 
   const accent = safeAccentColor(chainProfile.color);
   const explorer = safeExternalUrl(chainProfile.explorer_url);
-  const iconUrl = chainProfile.icon_url;
+  // Empty string counts as "no icon" (same hasImage idiom as Crest) so a
+  // blank value can never reach an <img>/next-image src.
+  const iconUrl =
+    chainProfile.icon_url !== null && chainProfile.icon_url !== ""
+      ? chainProfile.icon_url
+      : null;
   const nativeToken =
     chainProfile.native_token !== null && chainProfile.native_token !== ""
       ? chainProfile.native_token
@@ -103,13 +109,30 @@ export function HallChainProfile({
       >
         <div className="flex items-center gap-4">
           {iconUrl !== null ? (
-            <Image
-              src={iconUrl}
-              alt=""
-              width={56}
-              height={56}
-              className="h-14 w-14 shrink-0 rounded-md object-cover"
-            />
+            // Mixed-host gate (same branch as Crest / ProfileHero): only
+            // WP-origin media goes through next/image — any other host
+            // (chain icons can live on arbitrary CDNs/IPFS) is outside
+            // the next/image allowlist and would 400 at /_next/image.
+            isWpMediaUrl(iconUrl) ? (
+              <Image
+                src={iconUrl}
+                alt=""
+                width={56}
+                height={56}
+                className="h-14 w-14 shrink-0 rounded-md object-cover"
+              />
+            ) : (
+              // eslint-disable-next-line @next/next/no-img-element -- non-WP host — outside the next/image allowlist; see lib/media.ts
+              <img
+                src={iconUrl}
+                alt=""
+                width={56}
+                height={56}
+                loading="lazy"
+                decoding="async"
+                className="h-14 w-14 shrink-0 rounded-md object-cover"
+              />
+            )
           ) : (
             <span
               aria-hidden="true"

@@ -3196,9 +3196,16 @@
      face, so it would have covered only the name block. Making the
      anchor a direct child of the face sidesteps that entirely.
 
-     Z-order is load-bearing: passive face content sits at 1, this
-     overlay at 5, and the action pills / flip chip / avatar-upload
-     affordance at 10+ so they stay clickable above it. */
+     Z-order is load-bearing: passive face content sits at 1 (or
+     positioned z-auto), this overlay at 5, and every interactive or
+     hover affordance at 10+ so it stays clickable above it — the
+     action pills + standing strip (z-10, below), the Crest's avatar
+     UPDATE (z-10) / REMOVE (z-11) buttons and the header RankChip
+     (z-10, CardFrontFace). The affordances' wrappers (the header row
+     and the Portrait in CardFrontFace) must stay z-index-FREE: any
+     z-index there creates a stacking context that flattens the 10+
+     children to the wrapper's own level and quietly buries them under
+     this overlay again. */
   .bcc-card-body-link {
     position: absolute;
     inset: 0;

@@ -50,13 +50,29 @@ import type {
  * Query roots that may carry stale `viewer_attestation` /
  * `attestation_summary` / `permissions` data post-mutation. Card
  * endorsement uses the same broad-invalidate pattern.
+ *
+ * Every card-bearing React Query surface must be on this list, or its
+ * Vouch pill silently never reflects the mutation: `["directory"]`
+ * (useDirectory — /directory + /validators grids), `["members"]`
+ * (useMembers — /members grid) and `["watching"]` (useWatching — the
+ * watchlist tiles AND CardActionBar's own watch-fallback query) were
+ * exactly that gap. The /communities and /halls grids are server
+ * components with no query root to invalidate — the pill's local
+ * optimistic state in CardActionBar covers those (and the RSC-supplied
+ * profile-hero card).
+ *
+ * Exported for the regression test that pins the card-surface roots —
+ * not intended as a public API.
  */
-const QUERY_ROOTS_TO_INVALIDATE = [
+export const QUERY_ROOTS_TO_INVALIDATE = [
   ["card"],
   ["cards-list"],
   ["member"],
   ["user-profile"],
   ["attestation-roster"],
+  ["directory"],
+  ["members"],
+  ["watching"],
 ] as const;
 
 function invalidateAll(queryClient: ReturnType<typeof useQueryClient>): void {

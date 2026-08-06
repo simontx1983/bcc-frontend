@@ -6,13 +6,15 @@
  * into the header row, every element of that strip had become a
  * duplicate of something already on the card.
  *
- * FIVE TIERS, FIRST MATCH WINS:
+ * LADDER, FIRST MATCH WINS:
  *
- *   T1 Alarm    Something is wrong with this page
- *   T2 Barrier  Something stands between you and this page
- *   T3 Network  Who you already know here (per-viewer)
- *   T4 Identity What this thing is — the resting state
- *   T5 Empty    Nothing true to say → row omitted, portrait grows
+ *   T1   Alarm     Something is wrong with this page
+ *   T1.5 Tier warn Entity reputation tier when it WARNS (risky/caution)
+ *   T2   Barrier   Something stands between you and this page
+ *   T3   Network   Who you already know here (per-viewer)
+ *   T4   Identity  What this thing is — the resting state
+ *   T4.5 Tier fact Entity reputation tier as a plain fact (fallback)
+ *   T5   Empty     Nothing true to say → row omitted, portrait grows
  *
  * The client picks the first non-empty row and never derives values.
  * An absent wire block means SKIP THAT ROW — never a placeholder and
@@ -33,7 +35,7 @@
  * broken in the meantime.
  */
 
-import type { Card } from "@/lib/api/types";
+import type { Card, ReputationTier } from "@/lib/api/types";
 import { FlipIcon } from "@/components/icons/registry";
 
 type StandingTone = "alarm" | "barrier" | "identity";
@@ -74,6 +76,63 @@ function resolveAlarm(card: Card): StandingRow | null {
     return { tone: "alarm", text: `${n} open ${n === 1 ? "dispute" : "disputes"}` };
   }
   return null;
+}
+
+/**
+ * Reputation-tier rung — entity cards only (contract §3.2:
+ * `reputation_tier_label` is populated on entity cards precisely so a
+ * surface can warn). Member cards already carry the tier as the
+ * RankChip dot in the header row — printing it again here is the
+ * duplication this strip exists to remove — and community cards ship
+ * `reputation_tier_label: null` (no trust axis), so both fall out on
+ * the same guard. The label renders VERBATIM (§A2); the client never
+ * templates tier words.
+ *
+ * The rung splits across two ladder positions by severity:
+ *   - risky / caution → T1.5, right after the true alarms: a warning
+ *     tier outranks barriers and identity, but never a live alarm —
+ *     "Suspended" is strictly more specific than "Caution". Rendered
+ *     with the alarm treatment (filled row, no dot: the whole row is
+ *     the signal).
+ *   - every other tier → T4.5, the final fallback: a plain fact,
+ *     stated only when nothing above resolves, as an identity row
+ *     whose DOT carries the --bcc-trust-* band colour (same "colour
+ *     the mark, not the text" rule the RankChip follows).
+ */
+const TIER_WARNS: ReadonlySet<ReputationTier> = new Set(["risky", "caution"]);
+
+/** Tier band → dot token for the T4.5 fact row. Unknown band (a server
+ *  ahead of this bundle) → no entry → no rung: showing no tier is
+ *  honest; defaulting a colour is the v1.57 defect. */
+const TIER_FACT_DOT: Partial<Record<ReputationTier, string>> = {
+  neutral: "var(--bcc-trust-neutral)",
+  trusted: "var(--bcc-trust-trusted)",
+  proven: "var(--bcc-trust-proven)",
+  // Legacy wire value, same band, same colour — see ReputationTier.
+  elite: "var(--bcc-trust-proven)",
+};
+
+/** Shared guard: the server's tier label on a non-member card, or null. */
+function entityTierLabel(card: Card): string | null {
+  if (card.card_kind === "member") return null;
+  const label = card.reputation_tier_label;
+  return label !== null && label !== "" ? label : null;
+}
+
+/** T1.5 — the tier when it warns. */
+function resolveTierWarning(card: Card): StandingRow | null {
+  const label = entityTierLabel(card);
+  if (label === null || !TIER_WARNS.has(card.reputation_tier)) return null;
+  return { tone: "alarm", text: label };
+}
+
+/** T4.5 — the tier as a plain fact, when nothing above resolved. */
+function resolveTierFact(card: Card): StandingRow | null {
+  const label = entityTierLabel(card);
+  if (label === null || TIER_WARNS.has(card.reputation_tier)) return null;
+  const dotColor = TIER_FACT_DOT[card.reputation_tier];
+  if (dotColor === undefined) return null;
+  return { tone: "identity", text: label, dotColor };
 }
 
 /**
@@ -188,9 +247,11 @@ export function CardStandingStrip({
 }) {
   const row =
     resolveAlarm(card) ??
+    resolveTierWarning(card) ??
     resolveBarrier(card) ??
     resolveNetwork(card) ??
-    resolveIdentity(card, kindColor);
+    resolveIdentity(card, kindColor) ??
+    resolveTierFact(card);
 
   return (
     <div className="bcc-card-standing">
