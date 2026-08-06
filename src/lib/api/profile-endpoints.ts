@@ -20,6 +20,13 @@ import type { MemberProfile } from "@/lib/api/types";
 
 export interface PatchProfileBody {
   bio?: string;
+  /**
+   * Public display name (1–60 chars). Server rejects email-shaped
+   * ('@') and internal-login-shaped ('u_') values with 422
+   * `bcc_invalid_request` — mirror the check client-side via
+   * `publicDisplayNameOrEmpty` before submitting.
+   */
+  display_name?: string;
 }
 
 export function patchProfile(body: PatchProfileBody): Promise<MemberProfile> {
