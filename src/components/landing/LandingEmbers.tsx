@@ -92,10 +92,12 @@ export function LandingEmbers() {
 
     const loop = () => {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      // color-token-guard:allow — canvas 2D fillStyle needs a resolved
-      // string; this is a defensive fallback for the rare case the
-      // --bcc-secondary custom-property read comes back empty (e.g. a
-      // paint before styles are attached), not a chosen color.
+      // Canvas 2D fillStyle needs a resolved string; this is a defensive
+      // fallback for the rare case the --bcc-secondary custom-property read
+      // comes back empty (e.g. a paint before styles are attached), not a
+      // chosen color. Marker sits on the line directly above the hex — the
+      // guard only looks at the violating line and the one before it.
+      // color-token-guard:allow — defensive fallback for an empty token read
       const color = getComputedStyle(document.documentElement).getPropertyValue("--bcc-secondary").trim() || "#f98a1c";
       ctx.fillStyle = color;
       for (let i = particles.length - 1; i >= 0; i--) {

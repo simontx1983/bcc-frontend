@@ -14,130 +14,261 @@ These have caused Vercel build failures or runtime crashes before — treat as h
 - Never import `next-auth/react` in a server component file — "React Context is unavailable in Server Components"
 - `SessionProvider` lives in `src/app/providers.tsx` only
 
-## Design system
+## Visual language
 
-### Color rule (NOT machine-enforced — this one is on you)
+> **Canonical reference: [docs/frontend-doctrine.md §5](docs/frontend-doctrine.md).**
+> That section was reconstructed in August 2026 from a full audit of the shipped
+> frontend and is the authority. What follows is the condensed operational
+> version — when the two disagree, the doctrine is right and this needs updating.
 
-> **2026-08-04:** this section used to say the rule was enforced by
-> `.claude/hooks/color-token-check.sh` and that a violating save was auto-blocked.
-> That hook does not exist in this repo — it has never been committed, and the only
-> hook present is `.claude/hooks/stop-typecheck.sh`. Assume **nothing** below is
-> caught automatically.
+**Precedence.** The doctrine, the shared `--bcc-*` tokens in `src/app/globals.css`,
+and the established reusable components are authoritative for future work. The
+current implemented frontend is the evidence those rules were derived from. When
+the docs don't cover a situation, inspect nearby representative screens and
+repeated shared patterns before introducing anything new. **An isolated
+implementation does not override the doctrine or establish a new convention.**
 
-Every color must resolve to a `--bcc-*` custom property from `src/app/globals.css`.
-Never hardcode a **literal** color value — a raw hex (`#f05a28`), an `rgb()`/`hsl()`
-literal, or a named Tailwind palette class (`text-red-500`, `bg-white`, `border-yellow-400`).
-Referencing a token is always fine, including inline: `style={{ color: "var(--bcc-accent)" }}`
-and Tailwind arbitrary values `text-[var(--bcc-accent)]` are normal and expected,
-especially for dynamic/conditional colors. What's banned is the literal standing in
-for a token — not the inline `style` prop itself. A hardcoded hex never flips with
-light/dark; that's why it looks broken in the other theme.
+This is a preservation-and-extension brief, not a redesign licence. Don't
+restyle shipped surfaces to match the docs, and don't change behavior, routes,
+contracts, copy or terminology in the name of visual consistency.
 
-**Page chrome** (headers, backgrounds, titles, buttons, nav, borders, body text) uses
-only:
-- `--bcc-primary` / `--bcc-secondary` — the two brand colors (matching the logo: blue + orange)
-- `--bcc-accent` / `--bcc-accent-subtle` — whichever brand color the user selected via
-  the theme switcher; use for anything tracking that choice (active states, highlights,
-  CTAs, selected tabs) — never a hardcoded primary/secondary
-- `--bcc-bg` / `--bcc-surface` / `--bcc-border` / `--bcc-border-light` — backgrounds, dividers
-- `--bcc-text` / `--bcc-text-secondary` / `--bcc-text-muted` / `--bcc-text-inverse` — text scale
+### The look, in one paragraph
 
-All of these flip correctly with `[data-theme]` light/dark.
+Flat, bordered, dense and micro-typographic. Separation comes from 1px and dashed
+lines, not elevation — there are ~16 `shadow-*` utilities in the entire app.
+Corners are tight (`rounded-sm` / `rounded-full`). Type does the heavy lifting:
+uppercase wide-tracked mono labels, stencil headings and controls, serif prose.
 
-**Do NOT use `--bcc-safety` / `--bcc-weld` / `--bcc-blueprint` in page chrome.** These
-are the old "cardstock paper" aesthetic, not brand colors, and they leak into
-headers/backgrounds/titles where they don't belong.
+### Typography — three faces, three jobs
 
-**The trading-card carve-out is GONE (2026-08-04).** This rule used to exempt
-`src/components/cards/`, because the card was a cream cardstock object with its own
-fixed palette. The card is now a brand-native, theme-aware component built on
-`--bcc-*` plus the card tokens below, so there is no longer anywhere in the app that
-gets to use the cardstock palette. `--bcc-verified` remains legitimate anywhere as
-the semantic "verified" green (the Vouch pill, verification dots) — it just isn't an
-aesthetic.
+| Face | Class | Role |
+|---|---|---|
+| Mono (JetBrains Mono) | `bcc-mono` | Labels, eyebrows, meta, counts, timestamps, handles, chips — the most-used class in the app |
+| Stencil (Big Shoulders Stencil) | `bcc-stencil` | Headings, `h1`–`h3`, buttons, nav rows, tabs, widget heads |
+| Serif (Fraunces) | `font-serif` | Prose: post bodies, bios, descriptions, inputs. The `<body>` default |
 
-**Already-tokenized semantic colors** — use these, don't invent new hardcoded ones:
-`--bcc-trust-{risky,caution,neutral,trusted,proven}` (trust band — drives the RankChip
-dot AND its pill tint; `--bcc-trust-elite` is a legacy alias for `proven` kept only
-until bcc-trust ships the rename), `--bcc-type-{validator,project,nft,dao}` (operator
-type badges), `--bcc-stoke-ash` (Stoke ember), `--bcc-{success,warning,danger,info}`
-(status).
+Never introduce a sans-serif stack — there effectively isn't one, and it reads as
+foreign immediately. The rhythm is mono eyebrow → stencil heading → serif body.
 
-The rarity palette (`--bcc-tier-{common,uncommon,rare,legendary}`) was **retired in
-v1.57** along with the vocabulary it served — it had four values for a five-value axis,
-so `risky` had no color at all. Everything tier-colored uses the trust ramp.
+**The signature micro-label:** `bcc-mono text-[10px] tracking-[0.18em]`
+(also `text-[11px]`, and `0.16 / 0.2 / 0.24em`), uppercase. Canonical:
+[`FilterChipRow`](src/components/ui/FilterChipRow.tsx).
 
-**Trading-card tokens** (`src/components/cards/` only): `--kind-{member,validator,
-project,creator,community}` is the card's frame color — data, not chrome, so it does
-NOT flip with theme. `--card-{surface,border,dot,lift,shadow}` are the theme-aware card
-surface. Note these do not carry the `--bcc-` prefix, which is a deliberate exception
-the card redesign introduced; don't extend the pattern elsewhere without deciding to.
+### Two surface families — the binding rule
 
-Need a color that isn't a token yet? Add a new `--bcc-*` token in `globals.css` — same
-pattern as the ones above; never hardcode it in the component. Genuine exceptions (e.g.
-Satori OG-image code in `src/lib/og/`, which can't read CSS vars) carry an inline
-`color-token-guard:allow — <reason>` marker on the same or preceding line.
+**Both are intentional and current. Neither is legacy, and neither is limited to
+trading-card faces.**
 
-**Nothing here is machine-checked.** The workshop aesthetic *classes* (`text-safety`,
-`text-cardstock`, `text-ink`, `bg-paper`, …) are still used ~1800× across the current
-chrome as the "blue-collar workshop" design language, so no regex could police them
-without flagging the whole UI anyway. Keeping that look out of page chrome is on you.
-Pulling the cardstock aesthetic out is a deliberate redesign, not a lint fix.
+| Family | Surfaces | Text scale | Borders |
+|---|---|---|---|
+| **A. Theme-aware app surfaces** | `.bcc-panel`, `bg-bcc-surface*`, `bg-bcc-input-bg`, page bg | `text-bcc-text`, `-secondary`, `-muted`, `-placeholder` | `border-bcc-border`, `-light`, `-strong` |
+| **B. Fixed cream/ink paper** | `.bcc-paper` (+ `.bcc-paper-head`), `bg-cardstock*`, `bg-paper`, solid `bg-ink` | `text-ink`, `-soft`, `-ghost`; `text-cardstock` on ink | `border-cardstock-edge`, `border-cardstock`, `border-ink/…` |
 
-**Dark-mode gotcha — the single most repeated bug in this repo.** Any FIXED color on a
-THEME surface is a latent dark-mode bug. It stays put while the surface flips, so it
-reads fine in one theme and is invisible in the other. This has now bitten at least
-three ways:
-- `text-ink` (`#0f0d09`) / `text-ink-soft` on `bcc-panel` / `bg-bcc-surface`
-- the same classes on the card once the card stopped being cardstock
-- `crest.monogram_color` — a **server-supplied** fixed hex, picked against cream paper,
-  rendering avatar initials near-black on a dark card
+> **The text palette must match its surface family.** Fixed ink on a fixed cream
+> surface is correct. Fixed ink on a *theme* surface is the single most repeated
+> bug in this repo — it reads fine in one theme and is invisible in the other.
+> Theme text on a fixed cream surface is the same bug in reverse.
+>
+> Before picking a text color, name the surface you're painting on.
 
-Use the theme text scale (`text-bcc-text`, `text-bcc-text-secondary`, `text-bcc-text-muted`).
-A fixed hex is only safe on a surface that is itself fixed in both themes.
+Family B is the "worksite paper" object: empty states, record sheets, bio blocks,
+stream boxes, cover/avatar editors — things meant to read as a printed artifact
+sitting on the app rather than as part of it.
 
-**Color the mark, not the word.** Where a chip/row carries a semantic color (trust tier,
-verification, a barrier), the DOT, border and fill take the hue and the TEXT stays neutral
-(`--bcc-text` / `--bcc-text-secondary`). Tinting the text makes each element's legibility
-depend on where its own hue happens to sit against the surface — Proven violet went murky
-on a dark card exactly this way. Applies to `RankChip` and `CardStandingStrip`.
+### Color
 
-### Other
-- Glass effect uses the blur-layer sibling pattern — never add `backdrop-filter` to an element whose children also need `backdrop-filter`
-- **`backdrop-filter` flattens a 3D transform context.** A rotating element and a glass surface cannot coexist — pick one per host (the trading card ships opaque + real rotation on the profile/directory, glass + cross-fade on the hovercard)
+- Every color resolves to a token in `src/app/globals.css`. Never a raw hex,
+  `rgb()`/`hsl()` literal, or named Tailwind palette class (`text-red-500`,
+  `bg-white`) — those don't flip with theme. Referencing a token inline is fine
+  and normal: `style={{ color: "var(--bcc-accent)" }}`, `text-[var(--bcc-accent)]`.
+- `--bcc-accent*` follows the viewer's `[data-accent]` choice — use it for active
+  tabs, current nav rows, selected chips, primary CTAs, links. Never hardcode
+  `--bcc-primary`/`--bcc-secondary` where the accent belongs.
+- **`text-safety` is the established eyebrow and inline-alert color** on both
+  surface families. `--weld` and `--blueprint` are likewise part of the shipped
+  vocabulary. Use them where a nearby screen already does.
+- Semantic ramps are data, not decoration — don't invent parallels:
+  `--bcc-trust-{risky,caution,neutral,trusted,proven}` (the only tier palette;
+  `-elite` is a legacy alias for `proven`), `--kind-*` (card frame),
+  `--bcc-type-{validator,project,nft,dao}`, `--bcc-{success,warning,danger,info}`,
+  `--bcc-stoke-ash`.
+- **Color the mark, not the word.** Where a chip/row carries a semantic hue, the
+  dot, border and fill take the hue and the text stays neutral. Tinting the text
+  makes legibility depend on where that hue lands against the surface — Proven
+  violet went murky on a dark card exactly this way. Applies to `RankChip` and
+  `CardStandingStrip`. Tier color is never the only signal; a label carries it too.
+- The rarity palette (`--bcc-tier-{common,uncommon,rare,legendary}`) was retired
+  in v1.57 with the vocabulary it served. Everything tier-colored uses the trust ramp.
+- Need a color that isn't a token? Add a `--bcc-*` token, then reference it.
+  Genuine exceptions (Satori OG code in `src/lib/og/`, which can't read CSS vars)
+  carry an inline `color-token-guard:allow — <reason>` marker.
+
+> A `color-token-check.sh` PostToolUse hook lives in the umbrella repo's
+> `.claude/hooks/` and blocks literal colors on save. It does **not** police the
+> workshop alias classes (`text-safety`, `text-ink`, `bg-cardstock`, …) — those
+> are the app-wide design language. Surface-family discipline is on you.
+
+### Structure, spacing, radii, shadows
+
+- 1px borders are the primary divider; `border-dashed` is a real motif (see
+  [`PageHero`](src/components/layout/PageHero.tsx), whose hero frame is a dashed box).
+- Radii: `rounded-sm` (2px) and `rounded-full` are the working scale. Larger radii
+  appear only on a few deliberately soft objects. Don't round things to "modernize".
+- **Shadows are close to absent.** If you're reaching for one to separate two
+  elements, use a border. `.bcc-paper` and the trading card carry their own
+  because they're physical objects.
+- Spacing rhythm actually in use: `gap-2`/`gap-3` (then `gap-1`/`1.5` tight,
+  `gap-4`/`gap-6` between blocks); `px-3 py-1.5` chips, `px-4 py-2` standard;
+  `p-5`/`p-6` panels, `p-8` centered empty states; `mt-1/2/3` within a block,
+  `mt-4/6` between; `pb-24` on wide pages to clear the mobile nav.
+- **Don't reach for `rounded-bcc-*` or `shadow-bcc-*`** — those Tailwind aliases
+  have zero consumers. Same for the several zero-consumer `.bcc-*` classes listed
+  in doctrine §5.13.4. Dead CSS is not the standard.
+
+### Layout
+
+- Three-column app shell; fixed viewport height, `body` scroll locked, each
+  column scrolls independently. Center column caps reading width at 680px.
+- **`.bcc-page-wide`** is the sanctioned escape hatch for grid pages
+  (`/members`, `/directory`, `/communities`, `/validators`, `/mentors`,
+  `/watching`); the page then owns its cap — `max-w-[1560px]` grids,
+  `max-w-[1440px]` hero pages, with `px-4 sm:px-7`.
+- [`PageHero`](src/components/layout/PageHero.tsx) is the hero grammar for every
+  profile-style and group-style page. Compose it; don't hand-roll a parallel hero.
+- Layering, established: MobileNav 200 · header 200 CSS / 300 in `SiteHeader` ·
+  offcanvas scrim 390 / panel 400 · hovercard 500 · `Dialog` 550 · tour 4000.
+
+### Interaction states
+
+- **Hover** is small and cheap: background → `bcc-surface-hover`/`-active`, text
+  `-secondary` → `text-bcc-text`, border → `border-bcc-border-strong`, or
+  `hover:underline` on links. Not a transform, not a shadow bloom.
+- **Active/selected** uses the accent (`bg-bcc-accent` + `text-bcc-text-inverse`
+  chips; accent text + accent underline tabs; `bcc-accent-subtle` + accent bar nav).
+  Always pair with the matching ARIA (`aria-current`, `aria-selected`, `aria-pressed`).
+- **Disabled** is `disabled:opacity-50` + `cursor: not-allowed`. The product
+  pattern is visible-but-disabled with an explanatory tooltip, never hidden.
+- **Focus is global.** `globals.css` sets `:focus-visible { outline: 2px solid
+  var(--bcc-accent); outline-offset: 2px }` in the base layer, so every
+  interactive element gets a keyboard ring for free. **Don't add per-component
+  `focus-visible:` ring utilities as a matter of course** — only when the element
+  genuinely needs different treatment (e.g. the ring is clipped by an
+  `overflow: hidden` ancestor), and say why.
+- **Touch targets (contextual):** ~**44×44px** for primary navigation, dialog
+  controls, form controls, important actions and standalone icon buttons.
+  **36px is the sanctioned compact exception** for established dense repeated
+  controls — filter chips, tag chips, pager chips (`min-h-[36px]`, canonically
+  `FilterChipRow`). Don't generalize 36px to ordinary or primary buttons.
+
+### Motion
+
+- Short, mostly color/background: `--bcc-transition-fast` 120ms, `-base` 200ms,
+  `-slow` 360ms.
+- **Reduced motion needs both layers where relevant.** `globals.css` carries a
+  global `@media (prefers-reduced-motion: reduce)` that flattens durations —
+  that covers decoration. Anything *structural* (slide-in sheet, fly-in,
+  cross-fade, autoplaying loop) must also branch via `usePrefersReducedMotion()`
+  or `motion-safe:`, and the fallback must be a **static state, never a shorter
+  animation**. `Dialog` and `Skeleton` are the reference implementations.
+- Animate `transform`/`opacity` only — never `box-shadow`, `filter` or layout
+  properties per frame.
+- Glass uses the **blur-layer sibling pattern** — never add `backdrop-filter` to
+  an element whose children also need it. **`backdrop-filter` flattens a 3D
+  transform context**: a rotating element and a glass surface can't share a host
+  (the trading card ships opaque + real rotation on profile/directory, glass +
+  cross-fade on the hovercard).
+
+### Empty / loading / error
+
+Every list, feed and grid defines all three. Reuse these shapes:
+
+- **Empty** — the canonical centered sheet:
+  `bcc-paper mx-auto max-w-2xl p-8 text-center` → `bcc-mono text-safety` eyebrow
+  → `bcc-stencil text-3xl text-ink` heading → `font-serif italic text-ink-soft`
+  body → a recovery action. Guidance copy plus a way out; never a blank panel,
+  never a bare "0 results".
+- **Loading** — [`SKELETON_CLASS` / `Skeleton`](src/components/ui/Skeleton.tsx),
+  shaped by the caller so nothing shifts on arrival. Skeletons, not a spinner on
+  a blank page; [`Spinner`](src/components/ui/Spinner.tsx) is inline/in-button only.
+- **Error** — [`LoadFailure`](src/components/ui/LoadFailure.tsx): glyph,
+  plain-language `role="alert"` message, real Retry. Inline field errors are
+  `bcc-mono text-[11px] text-safety` with `role="alert"`.
+
+### Display contexts are not app chrome
+
+`bcc-ldg-*` (landing), `bcc-onb-*` (onboarding wizard) and `bcc-tour-*`
+(coachmarks) are full-bleed display surfaces with their own grammar — and they
+are where the `--bcc-font-size-*` / `--bcc-space-*` / `--bcc-display-btn-*`
+scales are actually consumed. Don't import that grammar into app chrome, or
+app-chrome density rules into them. Extend each on its own terms.
+
+### Reuse before invention
+
+1. **Open the nearest existing screen/component and match it** — structure, type
+   roles, surface family, spacing, states. Required step, not a courtesy.
+2. Check the shared primitives and extend rather than fork:
+   [`Dialog`](src/components/ui/Dialog.tsx) (focus trap, ESC, focus return,
+   scroll lock, body portal, bottom-sheet on phones / centered `md+`),
+   `Skeleton` / `Spinner` / `LoadFailure`, `FilterChipRow`, `PagerNav`,
+   `Lightbox`, `VerifiedBadge`, `PageHero`; and the classes `.bcc-panel`,
+   `.bcc-paper` / `.bcc-paper-head`, `.bcc-widget`, `.bcc-btn` (+ `-primary` /
+   `-outline` / `-ghost` / `-icon` / `-sm` / `-lg`), `.bcc-tab`, `.bcc-nav-item`,
+   `.bcc-mono`, `.bcc-stencil`, `.bcc-avatar-*`, `.bcc-rank-chip`,
+   `.bcc-header-modal`.
+3. Introduce a new variant only when none fits — and say so in your summary:
+   what you looked at, why it didn't fit.
+
+### Restraint
+
+No new design system, component library, CSS framework or icon set
+(`lucide-react` + local SVG is what ships). No invented colors, faces, radii,
+shadows, gradients or interaction patterns. No redesigning shipped surfaces to
+match the docs. Visual guidance never outranks functional requirements, the REST
+contract, accessibility, or established product terminology — if matching a
+pattern would break one of those, the other side wins; raise it.
+
+### Other mechanics
+
 - Font variables: `--font-stencil`, `--font-serif`, `--font-mono`, `--font-script`
-- Theme: light/dark via `[data-theme]` on `<html>`, accent via `[data-accent="primary"|"secondary"]`
+- Theme: light/dark via `[data-theme]` on `<html>`, accent via
+  `[data-accent="primary"|"secondary"]`. **localStorage (`bcc-theme` /
+  `bcc-accent`) is the source of truth** — mount-time sync reads
+  `getStoredTheme()`/`getStoredAccent()`, never the current DOM attribute.
+- Verify visual work in **both themes × both accents** (four combinations).
 
 ## Responsiveness (hard rule)
 
-> **Reconstructed 2026-08-04.** This section was added 2026-07-21 but only ever existed
-> in the local, untracked copy of this file, so it was lost when the file was. The text
-> below is rebuilt from the memory record of it — the substance is right, the original
-> wording is gone.
-
-A component that reads fine at 1440px but breaks or misleads at 375px **is not done**.
+A component that reads fine at 1440px but breaks or misleads at 375px **is not
+done.** Desktop and mobile must stay visually consistent — same type roles, same
+surface families, same vocabulary, not a separate mobile style.
 
 - **Breakpoints:** Tailwind defaults. Primary target **375px**; hard floor **360px**.
-- **Flag, don't silently ship.** If a layout decision has a real small-screen tradeoff,
-  either resolve it with a genuinely responsive default, or surface it — an
-  `AskUserQuestion` mid-build, or called out explicitly in the summary. Never ship a
-  desktop-only choice quietly.
-- **Playwright is sanctioned for this, by exception.** The standing rule is not to use
-  the Playwright MCP (it burns tokens and leaves artifacts) — but checking a real mobile
-  viewport is a legitimate reason to ask for it via `AskUserQuestion`, using the local
-  test-account login.
+- **`sm:` and `md:` are the working prefixes** in components (`lg:` occasionally
+  for grid splits). The shell's desktop collapse lives in `globals.css` media
+  queries, not in utilities: ≤1279px left sidebar → 64px icon rail + right
+  sidebar hidden; ≤767px (and ≤900px landscape) both sidebars hidden and the
+  center column pads for the mobile nav; ≤599px the header drops its search
+  track. Don't duplicate that logic in a component.
+- **Never fix a small-screen layout with a breakpoint when structure will do it.**
+  The card's action bar stacked three buttons to 132px inside a fixed 440px card
+  under 640px, clipping the card — the fix was flex pills, not another breakpoint.
+  Wrapping, flex pills, and `min-w-0` + `truncate` are the established tools.
+- **Flag, don't silently ship.** If a layout decision has a real small-screen
+  tradeoff, either resolve it with a genuinely responsive default, or surface it —
+  an `AskUserQuestion` mid-build, or called out explicitly in the summary. Never
+  ship a desktop-only choice quietly.
+- **Playwright is sanctioned for this, by exception.** The standing rule is not to
+  use the Playwright MCP (it burns tokens and leaves artifacts) — but checking a
+  real mobile viewport is a legitimate reason to ask for it via
+  `AskUserQuestion`, using the local test-account login.
 
 **Mobile check-list** — run against anything you touch:
 1. Horizontal overflow, especially inside fixed-size or `overflow: hidden` containers
 2. App-shell collapse (sidebar → offcanvas) still reaches every destination
 3. Type/element scale — does it shrink, or just clip?
-4. Touch targets are actually tappable (~44px), not hover-only affordances
+4. Touch targets are actually tappable per the contextual rule above
 5. `next/image` `sizes` matches the real rendered width
 6. Narrow-width states: long names, long handles, big numbers, empty states
-
-**Never fix a small-screen layout with a breakpoint when structure will do it.** The
-card's action bar stacked three buttons to 132px inside a fixed 440px card under 640px,
-clipping the card — the fix was flex pills, not another breakpoint.
 
 ## Git
 - Commit messages: `type(scope): description`, imperative mood, no trailing period — optional em-dash for extra detail

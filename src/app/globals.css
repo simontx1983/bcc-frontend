@@ -113,8 +113,12 @@
   --bcc-flag-rgb:        214 54 56;
   /* NB: safety/verified rgb triplets live in the workshop layer below as
      --safety-rgb / --verified-rgb (the aesthetic namespace), NOT here — the
-     color-token guard reserves the --bcc-safety/-verified names for the
-     brand layer it polices out of page chrome. */
+     color-token guard reserves the --bcc-safety/-verified spelling for the
+     brand layer and for src/components/cards/, which consumes it directly.
+     That is a NAMESPACE rule, not a ban on the colors: app code reaches for
+     the aesthetic alias (text-safety, var(--safety)), and these colors are
+     part of page chrome — text-safety is the established micro-eyebrow and
+     inline-alert color. See docs/frontend-doctrine.md §5.3-5.4. */
 
   /* Fixed black/white + a fixed near-black surface (equals the dark-theme
      bg value, but pinned regardless of theme where a surface is meant to
