@@ -2,10 +2,14 @@
  * RankChip — the canonical "rank flavored by tier" identity chip.
  *
  * Renders the user's rank (`Apprentice`/`Journeyman`/`Veteran`) as the
- * single visible word on a transparent, card-like pill, preceded by a
- * small colored TRUST DOT for the §C1 reputation tier. The tier is not a
- * competing word — the dot carries it as color; the rank carries the
- * meaning. Dot first, then rank.
+ * single visible word on a tier-tinted pill, preceded by a small colored
+ * TRUST DOT for the §C1 reputation tier. The tier is not a competing
+ * word — the dot carries it as color; the rank carries the meaning. Dot
+ * first, then rank.
+ *
+ * The pill fill, the border and the dot all take the tier hue; the rank
+ * word stays NEUTRAL (--bcc-text) at every size. See .bcc-rank-chip in
+ * globals.css for why that's a rule rather than a preference.
  *
  * Visual hierarchy (load-bearing):
  *   - rank = primary → uppercase word, dominant in the chip
@@ -23,12 +27,12 @@
 
 "use client";
 
-import { useState } from "react";
+import { type CSSProperties, useState } from "react";
 
 import { RankInfoModal } from "@/components/identity/RankInfoModal";
 import type { ReputationTier } from "@/lib/api/types";
 
-type RankChipSize = "default" | "compact" | "micro";
+type RankChipSize = "default" | "compact" | "micro" | "card";
 
 interface RankChipProps {
   /**
@@ -50,11 +54,13 @@ interface RankChipProps {
    */
   rankLabel: string;
   /**
-   * "default" — profile hero (11px text, 6px rail).
-   * "compact" — directory rows / member cards (10px text, 4px rail).
+   * "default" — profile hero (11px text, 7px dot).
+   * "compact" — directory rows / member cards (10px text, 6px dot).
    * "micro" — composer identity header, sized to sit beside a name
-   * line without exceeding the avatar's height (9px text, 3px rail).
-   * All sizes keep the rail proportionally smaller than the rank word.
+   * line without exceeding the avatar's height (9px text, 5px dot).
+   * "card" — the trading card's header right slot (9.5px text, 7px dot,
+   * wider tracking). Sized against the kind word it sits opposite.
+   * All sizes keep the dot proportionally smaller than the rank word.
    */
   size?: RankChipSize;
   className?: string;
@@ -100,13 +106,21 @@ const DOT_BY_REPUTATION_TIER: Record<ReputationTier, { color: string; glow: bool
   caution: { color: "var(--bcc-trust-caution)", glow: true  },
   neutral: { color: "var(--bcc-trust-neutral)", glow: false },
   trusted: { color: "var(--bcc-trust-trusted)", glow: true  },
-  elite:   { color: "var(--bcc-trust-elite)",   glow: true  },
+  proven:  { color: "var(--bcc-trust-proven)",  glow: true  },
+  // Legacy wire value, same band, same colour — see ReputationTier.
+  elite:   { color: "var(--bcc-trust-proven)",  glow: true  },
 };
 
-const SIZE_STYLES: Record<RankChipSize, { dot: number; gap: string; pad: string; font: string }> = {
-  default: { dot: 7, gap: "gap-1.5", pad: "py-[3px] pl-1.5 pr-2.5", font: "text-[11px]" },
-  compact: { dot: 6, gap: "gap-1.5", pad: "py-[2px] pl-1.5 pr-2",   font: "text-[10px]" },
-  micro:   { dot: 5, gap: "gap-1",   pad: "py-0 pl-1 pr-1.5",        font: "text-[9px]"  },
+// Mono at these sizes with wide tracking reads thin at the default weight,
+// so every size carries font-semibold.
+const SIZE_STYLES: Record<
+  RankChipSize,
+  { dot: number; gap: string; pad: string; font: string; tracking: string }
+> = {
+  default: { dot: 7, gap: "gap-1.5", pad: "py-[3px] pl-1.5 pr-2.5", font: "text-[11px]",   tracking: "tracking-[0.18em]" },
+  compact: { dot: 6, gap: "gap-1.5", pad: "py-[2px] pl-1.5 pr-2",   font: "text-[10px]",   tracking: "tracking-[0.18em]" },
+  micro:   { dot: 5, gap: "gap-1",   pad: "py-0 pl-1 pr-1.5",       font: "text-[9px]",    tracking: "tracking-[0.18em]" },
+  card:    { dot: 7, gap: "gap-1.5", pad: "py-[2px] pl-1.5 pr-2",   font: "text-[9.5px]",  tracking: "tracking-[0.17em]" },
 };
 
 export function RankChip({
@@ -149,14 +163,23 @@ export function RankChip({
       : `${rankLabel} rank`;
 
   const baseClass = [
-    "bcc-mono inline-flex items-center rounded-full border border-[var(--bcc-border)] bg-transparent text-[var(--bcc-text)] tracking-[0.18em]",
+    "bcc-rank-chip bcc-mono inline-flex items-center rounded-full font-semibold",
+    dot === undefined ? "bcc-rank-chip-untiered" : "",
     sizeStyles.gap,
     sizeStyles.pad,
     sizeStyles.font,
+    sizeStyles.tracking,
     className ?? "",
   ]
     .filter(Boolean)
     .join(" ");
+
+  // The tier hue drives the pill fill, the border and the dot. Handed to
+  // CSS as a custom property (see .bcc-rank-chip in globals.css) rather
+  // than written as an inline border/background, so the :hover rule can
+  // still take effect.
+  const tierStyle =
+    dot !== undefined ? ({ ["--chip-tier" as string]: dot.color } as CSSProperties) : undefined;
 
   const inner = (
     <>
@@ -191,7 +214,7 @@ export function RankChip({
   // Inert display (directory rows, member cards) when no handle.
   if (handle === undefined) {
     return (
-      <span className={baseClass} title={tooltip}>
+      <span className={baseClass} style={tierStyle} title={tooltip}>
         {inner}
       </span>
     );
@@ -216,7 +239,12 @@ export function RankChip({
         aria-haspopup="dialog"
         data-bcc-tour="rankchip.trigger"
         title={`${tooltip} — what does this mean?`}
-        className={`${baseClass} cursor-pointer transition-colors motion-reduce:transition-none hover:border-[var(--bcc-accent)] hover:text-[var(--bcc-accent)]`}
+        style={tierStyle}
+        // Hover/focus styling lives in .bcc-rank-chip (globals.css) so it can
+        // intensify the TIER tint instead of swapping to accent — the inline
+        // tier style would beat any hover class on specificity. The
+        // motion-reduce guard is kept from the Phase 9 a11y sweep.
+        className={`${baseClass} cursor-pointer transition-colors motion-reduce:transition-none`}
       >
         {inner}
       </button>

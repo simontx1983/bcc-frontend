@@ -40,18 +40,49 @@
   /* Trust-band colors — the semantic risk→trust ramp, and the ONLY tier
      palette. Used by RankChip's leading dot, the card tier strip, avatar
      rings and search rows: risky=red, caution=amber, neutral=ash,
-     trusted=green, elite=gold. Stable across themes. */
+     trusted=green, proven=violet. Stable across themes.
+
+     PROVEN was "elite gold" (#d9a400). Gold sat ~12° from caution amber
+     (#f2ca1b), which put the ramp's BEST outcome and its WARNING state
+     next to each other as near-neighbours. Violet is used nowhere else
+     in the trust or kind system: ~115° from trusted green, ~209° from
+     caution. Platinum was tried first and rejected — it collided with
+     neutral ash.
+
+     The one adjacency to watch is --bcc-type-dao (#6b4cb6) on the
+     owned-page chips: duller, and on a different surface. If `dao` is
+     ever promoted to a real card kind, move IT, not Proven. */
   --bcc-trust-risky:     #c8472f;
   --bcc-trust-caution:   #f2ca1b;
   --bcc-trust-neutral:   #6b6e72;
   --bcc-trust-trusted:   #247a3f;
-  --bcc-trust-elite:     #d9a400;
+  --bcc-trust-proven:    #8b5cf6;
+  /* Legacy alias — `elite` is still the value on the wire until bcc-trust
+     ships the rename. Pointing it at Proven means every existing consumer
+     picks up violet without a flag-day cutover. Delete once the backend
+     emits `proven` and nothing reads this name. */
+  --bcc-trust-elite:     var(--bcc-trust-proven);
 
   /* Operator type badge colors */
   --bcc-type-validator:  #2c5990;
   --bcc-type-project:    #d9a400;
   --bcc-type-nft:        #c52568;
   --bcc-type-dao:        #6b4cb6;
+
+  /* Kind frame colors — the trading card's 3px top rule and the short
+     wash falling from it. These are DATA (what kind of thing this card
+     is), not chrome, so they do not flip with theme.
+
+     --kind-member is steel on purpose: member is the baseline every
+     other kind is a role on top of. The remaining vibrant hues were
+     teal (too close to --bcc-primary on the claim ribbon) and violet
+     (reserved for the Proven trust tier). #14b8a6 teal is the drawn
+     alternative if this is ever reopened. */
+  --kind-member:         #8a97a6;
+  --kind-validator:      #2f8fc9;
+  --kind-project:        #f7742e;
+  --kind-creator:        #e0417d;
+  --kind-community:      #4caf63;
 
   /* Status colors */
   --bcc-success:         #22c55e;
@@ -252,6 +283,19 @@
   --bcc-glass-bg-frosted:rgba(255,255,255,0.10);
   --bcc-glass-border:    rgba(0,0,0,0.08);
 
+  /* Trading-card surface. The card sits ABOVE the page, so in dark theme
+     it takes --bcc-surface-raised rather than --bcc-surface — the latter
+     is only marginally lighter than --bcc-bg and the card reads as a hole
+     punched in the page instead of an object on top of it. */
+  --card-surface:        #ffffff;
+  --card-dot:            rgba(0,0,0,0.07);
+  --card-lift:           rgba(255,255,255,0.70);
+  --card-shadow:         0 18px 40px -20px rgba(0,0,0,0.38), 0 3px 10px -4px rgba(0,0,0,0.16);
+  /* A white card on a white page needs a stronger edge than --bcc-border
+     (#e5e7eb) to read as an object at all. Dark mode doesn't: its surface
+     already separates from the page, so it keeps the standard border. */
+  --card-border:         var(--bcc-border-strong);
+
   /* Header specific */
   --bcc-header-bg:       rgba(248,249,250,0.80);
   --bcc-header-border:   rgba(0,0,0,0.10);
@@ -310,6 +354,13 @@
     --bcc-glass-bg-frosted:rgba(22,27,34,0.1);
     --bcc-glass-border:    rgba(255,255,255,0.08);
 
+    /* See the light-theme block for why this is surface-raised, not surface. */
+    --card-surface:        #1c2128;
+    --card-dot:            rgba(255,255,255,0.10);
+    --card-lift:           rgba(255,255,255,0.06);
+    --card-shadow:         0 22px 48px -24px rgba(0,0,0,0.72), 0 6px 16px -8px rgba(0,0,0,0.50);
+    --card-border:         var(--bcc-border);
+
     --bcc-header-bg:       rgba(13,17,23,0.55);
     --bcc-header-border:   rgba(255,255,255,0.06);
 
@@ -364,6 +415,13 @@
   --bcc-glass-bg-solid:  rgba(22,27,34,0.82);
   --bcc-glass-bg-frosted:rgba(22,27,34,0.10);
   --bcc-glass-border:    rgba(255,255,255,0.08);
+
+  /* See the light-theme block for why this is surface-raised, not surface. */
+  --card-surface:        #1c2128;
+  --card-dot:            rgba(255,255,255,0.10);
+  --card-lift:           rgba(255,255,255,0.06);
+  --card-shadow:         0 22px 48px -24px rgba(0,0,0,0.72), 0 6px 16px -8px rgba(0,0,0,0.50);
+  --card-border:         var(--bcc-border);
 
   --bcc-header-bg:       rgba(13,17,23,0.55);
   --bcc-header-border:   rgba(255,255,255,0.06);
@@ -1611,7 +1669,33 @@
   .bcc-tier-caution { background: rgba(242,202,27,0.12);  color: var(--bcc-trust-caution); border: 1px solid rgba(242,202,27,0.3); }
   .bcc-tier-neutral { background: rgba(107,110,114,0.12); color: var(--bcc-trust-neutral); border: 1px solid rgba(107,110,114,0.3); }
   .bcc-tier-trusted { background: rgba(36,122,63,0.12);   color: var(--bcc-trust-trusted); border: 1px solid rgba(36,122,63,0.3); }
-  .bcc-tier-elite   { background: rgba(217,164,0,0.12);   color: var(--bcc-trust-elite);   border: 1px solid rgba(217,164,0,0.3); }
+  .bcc-tier-proven  { background: color-mix(in srgb, var(--bcc-trust-proven) 12%, transparent); color: var(--bcc-trust-proven); border: 1px solid color-mix(in srgb, var(--bcc-trust-proven) 30%, transparent); }
+
+  /* Rank chip — the pill, border and dot carry the tier colour; the RANK
+     WORD IS ALWAYS NEUTRAL. That is a rule, not a preference: tinting the
+     text made each chip's legibility depend on where its own hue happened
+     to land, and Proven violet went murky on a dark card surface.
+
+     The tier hue arrives as the --chip-tier custom property set by
+     RankChip. It lives in CSS rather than an inline style specifically so
+     :hover can still win — an inline style would beat any hover class on
+     specificity and silently kill the interaction. */
+  .bcc-rank-chip {
+    --chip-tier: var(--bcc-trust-neutral);
+    border: 1.5px solid color-mix(in srgb, var(--chip-tier) 62%, transparent);
+    background: color-mix(in srgb, var(--chip-tier) 15%, transparent);
+    color: var(--bcc-text);
+  }
+  /* Unknown band (a server ahead of a deployed bundle): no dot, no tint.
+     Showing no tier is honest; defaulting to a colour is not. */
+  .bcc-rank-chip-untiered {
+    border-color: var(--bcc-border);
+    background: transparent;
+  }
+  button.bcc-rank-chip:hover {
+    border-color: color-mix(in srgb, var(--chip-tier) 92%, transparent);
+    background: color-mix(in srgb, var(--chip-tier) 26%, transparent);
+  }
 }
 
 /* ========================================================================
@@ -2509,7 +2593,7 @@
   .bcc-op-card-tier-strip[data-tier="caution"] { background: var(--bcc-trust-caution); }
   .bcc-op-card-tier-strip[data-tier="neutral"] { background: var(--bcc-trust-neutral); }
   .bcc-op-card-tier-strip[data-tier="trusted"] { background: var(--bcc-trust-trusted); }
-  .bcc-op-card-tier-strip[data-tier="elite"]   { background: var(--bcc-trust-elite); }
+  .bcc-op-card-tier-strip[data-tier="proven"]  { background: var(--bcc-trust-proven); }
 }
 
 /* ========================================================================
@@ -2701,6 +2785,8 @@
   --tier-caution:    var(--bcc-trust-caution);
   --tier-neutral:    var(--bcc-trust-neutral);
   --tier-trusted:    var(--bcc-trust-trusted);
+  --tier-proven:     var(--bcc-trust-proven);
+  /* Legacy alias — see --bcc-trust-elite above. */
   --tier-elite:      var(--bcc-trust-elite);
 
   /* Owned-entity type hues (members directory chips + member dossier). */
@@ -2850,48 +2936,278 @@
     }
   }
 
-  /* Card faces — positioned absolutely, backface hidden. The aged
-     cardstock texture (multiply blends + noise) lives on the .bcc-card-face
-     ::before/::after so it applies to both front and back faces. */
+  /* Card faces — positioned absolutely, backface hidden. Theme-aware
+     brand surface: the kind colour appears in exactly three places on
+     the whole card (this 3px top rule, the short wash falling from it,
+     and the kind word in the header row). Nothing else is tinted by
+     kind. The aged-cardstock texture (multiply blends + noise) that
+     used to live on ::before/::after is retired with the cardstock
+     face itself.
+
+     Column flex is load-bearing, not cosmetic: the portrait is the
+     `flex: 1` child, so when the standing strip has nothing true to
+     say and collapses to just the flip chip, the portrait absorbs the
+     freed height instead of leaving a gap. */
   .bcc-card-face {
     position: absolute;
     inset: 0;
+    display: flex;
+    flex-direction: column;
     backface-visibility: hidden;
     -webkit-backface-visibility: hidden;
-    border-radius: 14px;
+    border-radius: 16px;
     overflow: hidden;
-    background: var(--cardstock);
-    color: var(--ink);
-    box-shadow:
-      0 1px 0 rgba(255, 255, 255, 0.7) inset,
-      0 -1px 0 rgba(0, 0, 0, 0.2) inset,
-      0 30px 60px -20px rgba(0, 0, 0, 0.7),
-      0 10px 25px -5px rgba(0, 0, 0, 0.5);
+    border: 1px solid var(--card-border);
+    border-top: 3px solid var(--card-kind, var(--kind-member));
+    background: var(--card-surface);
+    color: var(--bcc-text);
+    box-shadow: inset 0 1px 0 var(--card-lift), var(--card-shadow);
   }
+  /* Kind wash — light falling from the top rule. 58px, deliberately:
+     at ~132px it stops reading as light from the rule and starts
+     reading as a pale wash of the colour itself. Iterated twice. */
   .bcc-card-face::before {
     content: '';
     position: absolute;
-    inset: 0;
-    background-image:
-      radial-gradient(circle at 20% 15%, rgba(176, 152, 119, 0.22), transparent 40%),
-      radial-gradient(circle at 85% 80%, rgba(176, 152, 119, 0.28), transparent 50%),
-      radial-gradient(circle at 60% 30%, rgba(42, 37, 28, 0.08), transparent 30%);
+    left: 0;
+    right: 0;
+    top: 0;
+    height: 58px;
+    z-index: 0;
     pointer-events: none;
-    mix-blend-mode: multiply;
-    z-index: 1;
-  }
-  .bcc-card-face::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='1.3' numOctaves='2' stitchTiles='stitch'/></filter><rect width='200' height='200' filter='url(%23n)' opacity='0.45'/></svg>");
-    mix-blend-mode: multiply;
-    opacity: 0.18;
-    pointer-events: none;
-    z-index: 2;
+    background: linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--card-kind, var(--kind-member)) 11%, transparent) 0%,
+      transparent 100%
+    );
   }
   .bcc-card-back {
     transform: rotateY(180deg);
+  }
+
+  /* Only the face you're looking at may be clicked.
+     `backface-visibility: hidden` hides the away-facing face VISUALLY, but
+     it is not inherited — so that face's CHILDREN (the body-link overlay,
+     the action pills) stay hit-testable and sit in front of the face you
+     can actually see. That's what made the back face's flip chip feel
+     like it had a tiny, luck-of-the-draw hitbox: the front face's
+     full-bleed link overlay was swallowing almost every pointer event
+     over it. Gating pointer-events on flip state fixes it outright
+     instead of relying on backface hit-testing behaviour. */
+  .bcc-card:not(.is-flipped) .bcc-card-back {
+    pointer-events: none;
+  }
+  .bcc-card.is-flipped .bcc-card-face:not(.bcc-card-back) {
+    pointer-events: none;
+  }
+
+  /* Glass context (avatar hovercard only). backdrop-filter FLATTENS a
+     3D transform context, so a rotating card and a glass surface can
+     never coexist — the two are split by host instead of fought over:
+     the profile hero and directory grids stay opaque and really
+     rotate; the hovercard goes glass and cross-fades. That costs
+     nothing, because the hero and grid have no content behind the card
+     to refract, and the hovercard is the one place rotation isn't
+     wanted anyway. */
+  .bcc-card.is-flat {
+    transform-style: flat;
+    transform: none;
+    transition: none;
+  }
+  .bcc-card.is-flat .bcc-card-face {
+    backface-visibility: visible;
+    -webkit-backface-visibility: visible;
+    background: var(--bcc-glass-bg);
+    -webkit-backdrop-filter: blur(var(--bcc-glass-blur-heavy)) saturate(1.25);
+    backdrop-filter: blur(var(--bcc-glass-blur-heavy)) saturate(1.25);
+    transition: opacity 0.28s ease;
+  }
+  .bcc-card.is-flat .bcc-card-back {
+    transform: none;
+    opacity: 0;
+  }
+  .bcc-card.is-flat.is-flipped .bcc-card-face {
+    opacity: 0;
+  }
+  .bcc-card.is-flat.is-flipped .bcc-card-back {
+    opacity: 1;
+  }
+
+  /* Card action bar — two flex pills, never a breakpoint grid. The old
+     `grid-cols-1 sm:grid-cols-3` stacked three 44px buttons to 132px
+     under 640px inside a fixed 440px overflow:hidden card, which simply
+     cut the bottom off the card. Flex pills fix that structurally
+     rather than by adding another breakpoint. */
+  .bcc-card-actions {
+    position: relative;
+    z-index: 10;
+    display: flex;
+    gap: 8px;
+    padding: 10px 12px;
+  }
+  .bcc-card-pill {
+    flex: 1;
+    min-width: 0;
+    height: 34px;
+    border-radius: 9999px;
+    border: 1.5px solid var(--pill-color, var(--bcc-accent));
+    background: transparent;
+    color: var(--pill-color, var(--bcc-accent));
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    font-family: var(--font-mono), ui-monospace, monospace;
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  }
+  .bcc-card-pill-on {
+    background: var(--pill-color, var(--bcc-accent));
+    color: var(--bcc-text-inverse);
+  }
+  /* Hover/focus on an ACTIVE pill IS the undo affordance — it turns to a
+     red outline and swaps its own label. Both labels are rendered and
+     toggled here rather than tracked as React hover state, so keyboard
+     focus gets the identical treatment for free. */
+  .bcc-card-pill .bcc-pill-undo {
+    display: none;
+  }
+  .bcc-card-pill-on:not(:disabled):hover,
+  .bcc-card-pill-on:not(:disabled):focus-visible {
+    background: transparent;
+    border-color: var(--bcc-trust-risky);
+    color: var(--bcc-trust-risky);
+  }
+  .bcc-card-pill-on:not(:disabled):hover .bcc-pill-on-label,
+  .bcc-card-pill-on:not(:disabled):focus-visible .bcc-pill-on-label {
+    display: none;
+  }
+  .bcc-card-pill-on:not(:disabled):hover .bcc-pill-undo,
+  .bcc-card-pill-on:not(:disabled):focus-visible .bcc-pill-undo {
+    display: inline;
+  }
+  /* Gated actions stay VISIBLE at 38%, never hidden — a hidden affordance
+     teaches the viewer nothing about what they'd unlock. */
+  .bcc-card-pill:disabled {
+    opacity: 0.38;
+    cursor: not-allowed;
+  }
+
+  /* Standing strip — the card's last row. Holds at most ONE resolved
+     ladder row plus the flip chip. When nothing on the ladder is true,
+     the row is omitted entirely and the portrait (the flex: 1 child)
+     absorbs the height: no gap, no filler, no invented text. */
+  .bcc-card-standing {
+    position: relative;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 12px 10px;
+  }
+  .bcc-card-standing-row {
+    flex: 1;
+    min-width: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 24px;
+    padding: 0 9px;
+    border-radius: 9999px;
+    font-family: var(--font-mono), ui-monospace, monospace;
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+  }
+  .bcc-card-standing-row > .bcc-card-standing-text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  /* T1 Alarm — something is WRONG here. Filled ground, no dot: at this
+     tier the whole row is the signal, so a dot would be redundant.
+     --bcc-night rather than --bcc-text-inverse because the amber ground
+     is theme-fixed, and text-inverse would go white on it in light mode. */
+  .bcc-card-standing-row[data-tone="alarm"] {
+    background: var(--bcc-trust-caution);
+    color: var(--bcc-night);
+  }
+  /* T2 Barrier / T4 Identity — the DOT carries the colour, the WORD stays
+     ash. Same rule the rank chip follows: colour the mark, not the text,
+     so legibility never depends on where a given hue happens to sit
+     against the surface. */
+  .bcc-card-standing-row[data-tone="barrier"] {
+    background: color-mix(in srgb, var(--bcc-safety) 14%, transparent);
+    color: var(--bcc-text-secondary);
+  }
+  .bcc-card-standing-row[data-tone="identity"] {
+    background: color-mix(in srgb, var(--bcc-text) 6%, transparent);
+    color: var(--bcc-text-secondary);
+  }
+  .bcc-card-standing-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 9999px;
+    flex: none;
+  }
+  /* The flip chip is the strip's last FLEX CHILD, not an absolutely
+     positioned overlay — the layout reserves its space instead of the
+     copy having to dodge it. It is a real <button>, so Enter/Space work
+     without any extra key handling. */
+  .bcc-card-flip-chip {
+    margin-left: auto;
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    height: 24px;
+    padding: 0 9px;
+    border-radius: 9999px;
+    border: 1px solid var(--bcc-border);
+    background: transparent;
+    color: var(--bcc-text-secondary);
+    font-family: var(--font-mono), ui-monospace, monospace;
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: color 0.15s ease, border-color 0.15s ease;
+  }
+  .bcc-card-flip-chip:hover,
+  .bcc-card-flip-chip:focus-visible {
+    border-color: var(--bcc-accent);
+    color: var(--bcc-accent);
+  }
+
+  /* Card body link — the card BODY is the navigation target, via ONE
+     real anchor overlaying the whole face. No interactive element is
+     nested inside another, so the action pills keep their own clicks.
+
+     This is an overlay rather than the usual `::after` on the name,
+     because a stretched-link pseudo-element resolves against its
+     nearest POSITIONED ancestor — which here is the nameplate, not the
+     face, so it would have covered only the name block. Making the
+     anchor a direct child of the face sidesteps that entirely.
+
+     Z-order is load-bearing: passive face content sits at 1, this
+     overlay at 5, and the action pills / flip chip / avatar-upload
+     affordance at 10+ so they stay clickable above it. */
+  .bcc-card-body-link {
+    position: absolute;
+    inset: 0;
+    z-index: 5;
+    border-radius: 16px;
+  }
+  .bcc-card-body-link:focus-visible {
+    outline: 2px solid var(--bcc-accent);
+    outline-offset: -3px;
   }
 
   /* bcc-hex — hexagonal crest shape used for monogram badges.
@@ -3421,7 +3737,7 @@
   animation-delay: var(--bcc-onboarding-delay, 0ms);
 }
 
-.bcc-onboarding-chip-elite     { --bcc-onboarding-tier: var(--tier-elite); }
+.bcc-onboarding-chip-proven    { --bcc-onboarding-tier: var(--tier-proven); }
 .bcc-onboarding-chip-trusted   { --bcc-onboarding-tier: var(--tier-trusted); }
 .bcc-onboarding-chip-caution   { --bcc-onboarding-tier: var(--tier-caution); }
 .bcc-onboarding-chip-risky     { --bcc-onboarding-tier: var(--tier-risky); }
@@ -3950,10 +4266,14 @@
 .bcc-ldg-pc-id { min-width: 0; }
 .bcc-ldg-pc-nm { font-family: var(--font-stencil), Impact, sans-serif; font-size: 1.2rem; text-transform: uppercase; line-height: 1; letter-spacing: 0.01em; }
 .bcc-ldg-pc-hd { font-family: var(--font-mono), monospace; font-size: 10.5px; color: var(--bcc-text-secondary); letter-spacing: 0.04em; margin-top: 3px; }
+/* Layout only. This block used to restate the chip's own font, border,
+   colour and padding — and because it is UNLAYERED it outranked
+   @layer components, so this one RankChip silently opted out of the
+   shared styling (and, later, of the tier tint entirely). Positioning is
+   all the host should own here. */
 .bcc-ldg-pc-rank {
-  margin-left: auto; display: inline-flex; align-items: center; gap: 6px; flex: none;
-  font-family: var(--font-mono), monospace; font-size: 9px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--bcc-text-secondary);
-  border: 1px solid var(--bcc-border); border-radius: var(--bcc-radius-full); padding: 4px 8px;
+  margin-left: auto;
+  flex: none;
 }
 .bcc-ldg-pc-rank i { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
 .bcc-ldg-pc-body { font-family: var(--font-serif), Georgia, serif; font-size: 0.96rem; line-height: 1.5; color: var(--bcc-text); margin: 0; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; line-clamp: 3; -webkit-box-orient: vertical; }

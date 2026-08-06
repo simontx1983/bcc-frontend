@@ -174,7 +174,25 @@ export interface ToursSeenResponse {
 // ─────────────────────────────────────────────────────────────────────
 
 export type CardKind = "validator" | "project" | "creator" | "member" | "community";
-export type ReputationTier = "elite" | "trusted" | "neutral" | "caution" | "risky";
+/**
+ * The five-band trust axis.
+ *
+ * `proven` is the current name for the top band; `elite` is the LEGACY
+ * wire value and is retained only until bcc-trust ships the rename.
+ * Both are accepted and both render violet, so the two repos can deploy
+ * independently instead of needing a flag day — the same dual-accept
+ * pattern §J.11 used for `reputation_score` / `trust_score`.
+ *
+ * Drop `elite` once the backend emits `proven` everywhere (including the
+ * directory's `tier` query param).
+ */
+export type ReputationTier =
+  | "proven"
+  | "elite"
+  | "trusted"
+  | "neutral"
+  | "caution"
+  | "risky";
 // CardTier RETIRED (contract v1.57). The collectible-rarity vocabulary is
 // gone; every tier surface speaks ReputationTier. See ReputationTierMap.php
 // for the full rationale — the short version is that `risky` had no rarity
@@ -5504,6 +5522,13 @@ export interface MemberSummary {
    * naming on the full profile.
    */
   followers_count: number;
+  /**
+   * Watching count (the active side of the same `peepso_follower`
+   * graph) — how many accounts this member watches. Same naming logic
+   * as `followers_count`: the wire keeps the graph's word, the frontend
+   * renders the floor's term.
+   */
+  following_count: number;
   /**
    * The user's primary Hall — the row pointed to by their
    * `bcc_primary_hall_group_id` user_meta. Null when no primary set

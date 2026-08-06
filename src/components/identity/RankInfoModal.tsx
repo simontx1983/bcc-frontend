@@ -54,11 +54,11 @@ interface TierRow {
   blurb: string;
 }
 
-// Best → worst, left → right (elite/trusted lead, risky/caution trail).
+// Best → worst, left → right (proven/trusted lead, risky/caution trail).
 const TIER_ROWS: TierRow[] = [
-  // "Elite" — matches ReputationTierMap::TIER_LABEL (owner decision 2026-07-28).
-  // The client previously hardcoded a label that drifted from the server's.
-  { key: "elite",   label: "Elite",   color: "var(--bcc-trust-elite)",   glow: true,  pulse: true,  blurb: "Top-tier trust — long track record, heavily vouched." },
+  // Key stays `elite` (the wire value) while the label reads "Proven".
+  // Both flip together once bcc-trust ships the rename.
+  { key: "elite",   label: "Proven",  color: "var(--bcc-trust-proven)",  glow: true,  pulse: true,  blurb: "Top-tier trust — long track record, heavily vouched." },
   { key: "trusted", label: "Trusted", color: "var(--bcc-trust-trusted)", glow: true,  pulse: false, blurb: "Consistent good standing, backed by the community." },
   { key: "neutral", label: "Neutral", color: "var(--bcc-trust-neutral)", glow: false, pulse: false, blurb: "New or quiet — not enough signal yet." },
   { key: "caution", label: "Caution", color: "var(--bcc-trust-caution)", glow: true,  pulse: false, blurb: "Some unresolved signals — verify before you trust." },

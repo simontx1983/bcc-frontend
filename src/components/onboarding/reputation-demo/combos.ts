@@ -3,11 +3,11 @@
  * demo cycles through. New content, written for this demo — does NOT
  * touch the constitutionally-locked strings in `lib/copy/trust-layer.ts`.
  *
- * Tier labels follow bcc-trust's honest `ReputationTierMap::TIER_LABEL`
- * (elite displays as "Elite"; the internal key is also `elite`
- * since that's what drives the `--bcc-trust-elite` gold everywhere else).
+ * Tier labels follow bcc-trust's honest `ReputationTierMap::TIER_LABEL`,
+ * except that the top band now DISPLAYS as "Proven" while its key stays
+ * `elite` — the wire value until bcc-trust ships the rename.
  *
- * Border color is null for the three middle bands on purpose — gold/
+ * Border color is null for the three middle bands on purpose — violet/
  * red borders stay rare and meaningful, mirroring the real feed's
  * eventual "only the extremes" rule (task 4, gated separately).
  *
@@ -43,10 +43,10 @@ export const REPUTATION_DEMO_COMBOS: readonly ReputationDemoCombo[] = [
     id: "proven-veteran",
     rankLabel: "Veteran",
     reputationTier: "elite",
-    tierLabel: "Elite",
-    borderColor: "var(--bcc-trust-elite)",
+    tierLabel: "Proven",
+    borderColor: "var(--bcc-trust-proven)",
     caption:
-      "The highest trust band on the floor — backed by people who've actually worked with them, not a badge you can buy or rush. The Veteran tag underneath is just time served; the gold is the part others had to give them.",
+      "The highest trust band on the floor — backed by people who've actually worked with them, not a badge you can buy or rush. The Veteran tag underneath is just time served; the violet is the part others had to give them.",
     stokeCount: 412,
     commentCount: 58,
     shareCount: 21,

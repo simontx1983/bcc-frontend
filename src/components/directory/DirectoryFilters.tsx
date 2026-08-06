@@ -47,7 +47,10 @@ const KIND_OPTIONS: { value: DirectoryKind | null; label: string }[] = [
 
 const TIER_OPTIONS: { value: DirectoryTier | null; label: string }[] = [
   { value: null,      label: "Any" },
-  { value: "elite",   label: "Elite" },
+  // Label renamed ahead of the wire value: the `tier` query param is
+  // still `elite` server-side, so changing it here would silently break
+  // the filter. Flip the value once bcc-trust accepts `proven`.
+  { value: "elite",   label: "Proven" },
   { value: "trusted", label: "Trusted" },
   { value: "neutral", label: "Neutral" },
   { value: "caution", label: "Caution" },

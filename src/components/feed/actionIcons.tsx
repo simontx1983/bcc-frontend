@@ -18,7 +18,6 @@
 
 import {
   Clock,
-  Eye,
   HandHelping,
   Image as LucideImage,
   MessageCircle,
@@ -114,10 +113,6 @@ export function PhotoIcon({ size = 17, className }: { size?: number; className?:
 
 export function SparklesIcon({ size = 15, className }: { size?: number; className?: string }) {
   return <Sparkles size={size} className={className} aria-hidden strokeWidth={1.8} />;
-}
-
-export function EyeIcon({ size = 15, className }: { size?: number; className?: string }) {
-  return <Eye size={size} className={className} aria-hidden strokeWidth={1.8} />;
 }
 
 export function BoltIcon({ size = 15, className }: { size?: number; className?: string }) {

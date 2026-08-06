@@ -42,7 +42,7 @@ export function CommunityDossierBack({
       )}
 
       {dossier.viewer_is_member && (
-        <p className="bcc-mono mt-auto pt-3 text-center text-[10px] tracking-[0.2em] text-verified">
+        <p className="bcc-mono mt-auto pt-3 text-center text-[10px] tracking-[0.2em] text-[var(--bcc-verified)]">
           YOU&rsquo;RE A MEMBER HERE
         </p>
       )}
@@ -79,13 +79,18 @@ function CollectionBlock({ dossier }: { dossier: CardCommunityDossier }) {
   return (
     <>
       <div className="mt-2 flex items-center justify-between gap-2">
-        <p className="bcc-mono text-[10px] tracking-[0.18em] text-blueprint">
+        <p className="bcc-mono text-[10px] tracking-[0.18em] text-[var(--bcc-accent)]">
           COLLECTION
         </p>
         {stats.token_standard !== null && (
           <span
-            className="bcc-mono border border-cardstock-edge/40 px-1.5 py-[2px] text-ink-soft"
-            style={{ fontSize: "9px", letterSpacing: "0.16em" }}
+            className="bcc-mono rounded-full border px-1.5 py-[2px]"
+            style={{
+              fontSize: "9px",
+              letterSpacing: "0.16em",
+              borderColor: "var(--bcc-glass-border)",
+              color: "var(--bcc-text-secondary)",
+            }}
           >
             {stats.token_standard}
           </span>
@@ -96,11 +101,20 @@ function CollectionBlock({ dossier }: { dossier: CardCommunityDossier }) {
         {rows.map((row) => (
           <Row key={row.key} label={row.label} value={row.value} />
         ))}
+        {/* See FloorBlock — the standing strip is first-match-wins, so a
+            gated collection shows its barrier row and never reaches the
+            identity row carrying this. */}
+        {dossier.verification !== null && (
+          <Row label="VERIFIED" value={dossier.verification.label} />
+        )}
       </dl>
 
       <div className="mt-3 flex flex-col gap-1">
         {stats.min_balance_display !== null && (
-          <p className="bcc-mono text-[10px] tracking-[0.16em] text-ink-soft">
+          <p
+            className="bcc-mono text-[10px] tracking-[0.16em]"
+            style={{ color: "var(--bcc-text-secondary)" }}
+          >
             Requires {stats.min_balance_display}
           </p>
         )}
@@ -110,7 +124,7 @@ function CollectionBlock({ dossier }: { dossier: CardCommunityDossier }) {
             target="_blank"
             rel="noopener noreferrer"
             onClick={stop}
-            className="bcc-mono text-[10px] tracking-[0.16em] text-blueprint underline-offset-2 hover:underline"
+            className="bcc-mono text-[10px] tracking-[0.16em] text-[var(--bcc-accent)] underline-offset-2 hover:underline"
           >
             View on {stats.marketplace.label} ↗
           </a>
@@ -148,6 +162,14 @@ function FloorBlock({ dossier }: { dossier: CardCommunityDossier }) {
       <Row label="MEMBERS" value={dossier.member_count.toLocaleString()} />
       <Row label="ACCESS" value={accessLabel(dossier)} />
       {chainLabel !== null && <Row label="CHAIN" value={chainLabel} />}
+      {/* Verification has to live here as well as on the standing strip.
+          The strip is first-match-wins, so a GATED community shows its
+          barrier row ("Requires 1 NFT") and never reaches the identity
+          row — which meant on-chain verification was invisible on
+          exactly the communities where it matters most. */}
+      {dossier.verification !== null && (
+        <Row label="VERIFIED" value={dossier.verification.label} />
+      )}
     </DossierSection>
   );
 }

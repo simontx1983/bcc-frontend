@@ -172,7 +172,7 @@ export function GroupDetailShell({
             the JOIN cell benignly duplicates GroupMembershipStrip in
             the actions slot — both fire the same server mutations. */}
         <PageHero
-          card={<CommunityJoinCard card={group.card} hideOpenAction />}
+          card={<CommunityJoinCard card={group.card} />}
           actions={
             <div
               className="bcc-stage-reveal flex flex-col gap-3"
