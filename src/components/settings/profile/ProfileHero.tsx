@@ -26,11 +26,15 @@ import { isWpMediaUrl } from "@/lib/media";
 import {
   useDeleteAvatar,
   useDeleteCover,
+  useUpdateBio,
   useUpdateCoverPosition,
   useUploadAvatar,
   useUploadCover,
 } from "@/hooks/useUpdateProfile";
 import { BccApiError, type MemberProfile } from "@/lib/api/types";
+import { publicDisplayNameOrEmpty } from "@/lib/format";
+
+const DISPLAY_NAME_MAX = 60;
 
 const AVATAR_MAX_BYTES = 2 * 1024 * 1024;
 const COVER_MAX_BYTES = 5 * 1024 * 1024;
@@ -91,6 +95,40 @@ export function ProfileHero({ profile, nav }: ProfileHeroProps) {
   const onMutationError = (err: BccApiError | Error) => {
     setSavedAt(null);
     setServerError(humanizeError(err));
+  };
+
+  const [nameEditing, setNameEditing] = useState(false);
+  const [nameDraft, setNameDraft] = useState(profile.display_name);
+  const [nameError, setNameError] = useState<string | null>(null);
+
+  const nameMutation = useUpdateBio({
+    onSuccess: () => {
+      setNameEditing(false);
+      setNameError(null);
+      onMutationSuccess();
+    },
+    onError: (err: BccApiError | Error) => {
+      setNameError(humanizeError(err));
+    },
+  });
+
+  const saveDisplayName = () => {
+    const candidate = nameDraft.trim();
+    if (candidate === profile.display_name) {
+      setNameEditing(false);
+      return;
+    }
+    // Client mirror of the server hygiene gate — saves the round-trip;
+    // the server 422 remains the authority.
+    if (candidate.length === 0 || candidate.length > DISPLAY_NAME_MAX) {
+      setNameError(`Display name must be 1–${DISPLAY_NAME_MAX} characters.`);
+      return;
+    }
+    if (publicDisplayNameOrEmpty(candidate) === "") {
+      setNameError('Display names can\'t contain "@" or start with "u_".');
+      return;
+    }
+    nameMutation.mutate({ display_name: candidate });
   };
 
   const uploadCover = useUploadCover({ onSuccess: onMutationSuccess, onError: onMutationError });
@@ -352,9 +390,68 @@ export function ProfileHero({ profile, nav }: ProfileHeroProps) {
       {/* Identity caption + status messages */}
       <div className="flex flex-wrap items-end justify-between gap-3 px-6 pb-4 pt-16 md:px-8 md:pt-20">
         <div>
-          <h2 className="bcc-stencil text-2xl text-bcc-text md:text-3xl">
-            {profile.display_name}
-          </h2>
+          {nameEditing ? (
+            <form
+              className="flex items-center gap-2"
+              onSubmit={(e) => {
+                e.preventDefault();
+                saveDisplayName();
+              }}
+            >
+              <label htmlFor="bcc-display-name" className="sr-only">
+                Display name
+              </label>
+              <input
+                id="bcc-display-name"
+                type="text"
+                value={nameDraft}
+                maxLength={DISPLAY_NAME_MAX}
+                autoFocus
+                onChange={(e) => {
+                  setNameDraft(e.target.value);
+                  setNameError(null);
+                }}
+                className="bcc-stencil w-64 bg-bcc-surface-raised px-2 py-1 text-2xl text-bcc-text ring-1 ring-bcc-input-border focus:outline-none focus:ring-2 focus:ring-blueprint md:text-3xl"
+              />
+              <button
+                type="submit"
+                disabled={nameMutation.isPending}
+                className="bcc-stencil bg-ink px-3 py-1.5 text-[11px] text-cardstock transition disabled:opacity-50"
+              >
+                {nameMutation.isPending ? "SAVING…" : "SAVE"}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setNameEditing(false);
+                  setNameError(null);
+                }}
+                className="bcc-mono px-2 py-1.5 text-[11px] text-bcc-text-secondary hover:text-bcc-text"
+              >
+                CANCEL
+              </button>
+            </form>
+          ) : (
+            <h2 className="bcc-stencil flex items-center gap-2 text-2xl text-bcc-text md:text-3xl">
+              {profile.display_name}
+              <button
+                type="button"
+                aria-label="Edit display name"
+                onClick={() => {
+                  setNameDraft(profile.display_name);
+                  setNameEditing(true);
+                }}
+                className="bcc-mono text-[10px] tracking-[0.18em] text-blueprint hover:underline"
+              >
+                EDIT
+              </button>
+            </h2>
+          )}
+          {nameError !== null && (
+            <p role="alert" className="bcc-mono mt-1 text-[11px] text-safety">
+              {nameError}
+            </p>
+          )}
           <p className="bcc-mono mt-1 text-[11px] tracking-[0.16em] text-bcc-text-secondary">
             @{profile.handle}
           </p>

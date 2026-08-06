@@ -140,6 +140,23 @@ export function formatJoinDate(iso: string): string {
  *   2. Otherwise the handle uppercased (the operator's chosen identity).
  *   3. Otherwise a defensive `OPERATOR` fallback for missing data.
  */
+/**
+ * Client-side mirror of the server's display-name hygiene gate
+ * (AuthSupport::sanitizePublicDisplayName, owner-directed 2026-08-06).
+ * Returns "" for values that must never render publicly — email-shaped
+ * ('@') or internal-login-shaped ('u_' §B3 prefix) — so callers fall
+ * back (OAuth sends "" → server uses the handle; forms show a local
+ * validation error before the server's 422). The SERVER gate is the
+ * authority; this only saves a round-trip.
+ */
+export function publicDisplayNameOrEmpty(name: string | null | undefined): string {
+  const trimmed = (name ?? "").trim();
+  if (trimmed === "" || trimmed.includes("@") || trimmed.startsWith("u_")) {
+    return "";
+  }
+  return trimmed;
+}
+
 export function presentationName(
   identity: { display_name: string; handle: string },
 ): string {
