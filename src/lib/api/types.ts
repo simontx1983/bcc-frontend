@@ -1398,12 +1398,16 @@ export interface SearchSuggestionsResponse {
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// Multi-vertical search (/bcc/v1/search/* — raw bcc-search responses)
+// Multi-vertical search (/bcc/v1/search/* — bcc-search vertical rows)
 //
-// These endpoints predate the §L5 envelope and return raw `{ results,
-// meta }` shapes. The frontend reaches them via `bccSearchFetchAsClient`
-// (not the envelope-strict `bccFetch`). Used by the /search results
-// page and the GlobalSearch dropdown's pre-search trending surface.
+// These endpoints were built to return raw `{ results, meta }` shapes,
+// but the wire has carried them §L5-ENVELOPED ({ data: { results, … },
+// _meta }) since 2026-05 — bcc-trust's Envelope wraps every /bcc/v1
+// route. The frontend reaches them via `bccSearchFetchAsClient`, which
+// is SHAPE-TOLERANT (unwraps the envelope when present, passes raw
+// through — fixed 2026-08-05). The interfaces below describe the INNER
+// payload either way. Used by the /search results page and the
+// GlobalSearch dropdown's pre-search trending surface.
 //
 // Each vertical has its own row shape:
 //   - Project rows mirror what bcc-search's SearchController returns
