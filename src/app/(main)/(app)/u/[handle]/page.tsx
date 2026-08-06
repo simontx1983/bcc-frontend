@@ -277,7 +277,7 @@ export default async function MemberProfilePage({ params }: PageProps) {
       <section className="mt-8">
         <PageHero
           card={
-            <CardFactory card={profile.card} canEditAvatar={isOwner} />
+            <CardFactory card={profile.card} canEditAvatar={isOwner} suppressBodyLink />
           }
           belowHero={
             <div>

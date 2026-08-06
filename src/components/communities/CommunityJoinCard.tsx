@@ -38,7 +38,16 @@ import { useJoinHallMutation } from "@/hooks/useHallsPrimary";
 import { useJoinPlainGroupMutation } from "@/hooks/useMyGroups";
 import type { Card } from "@/lib/api/types";
 
-export function CommunityJoinCard({ card }: { card: Card }) {
+export function CommunityJoinCard({
+  card,
+  suppressBodyLink = false,
+}: {
+  card: Card;
+  /** Pass true when hosted on the group's own detail page — the card's
+   *  body overlay would loop back to the page the viewer is on. The
+   *  /communities grid keeps the default (link wanted there). */
+  suppressBodyLink?: boolean | undefined;
+}) {
   const router = useRouter();
   // Optimistic membership for the plain/hall paths only — see module
   // doc. Replaced by server truth when router.refresh() lands.
@@ -90,6 +99,7 @@ export function CommunityJoinCard({ card }: { card: Card }) {
         onJoin={handleJoin}
         isJoined={optimisticJoined}
         joinPending={joinPending}
+        suppressBodyLink={suppressBodyLink}
       />
       {joinError !== null && (
         <p

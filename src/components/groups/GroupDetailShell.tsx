@@ -177,11 +177,12 @@ export function GroupDetailShell({
       <section className="mt-8">
         {/* CardFactory community card in the hero slot — the same §L5
             trading card the /communities grid renders, with live JOIN
-            wiring. OPEN is hidden (it would loop back to this page);
-            the JOIN cell benignly duplicates GroupMembershipStrip in
-            the actions slot — both fire the same server mutations. */}
+            wiring. The body nav overlay is suppressed (it would loop
+            back to this page); the JOIN cell benignly duplicates
+            GroupMembershipStrip in the actions slot — both fire the
+            same server mutations. */}
         <PageHero
-          card={<CommunityJoinCard card={group.card} />}
+          card={<CommunityJoinCard card={group.card} suppressBodyLink />}
           actions={
             <div
               className="bcc-stage-reveal flex flex-col gap-3"

@@ -196,6 +196,9 @@ function CardWithError({ card, pulls }: { card: Card; pulls: WizardPullsApi }) {
       <CardFactory
         card={card}
         isPulled={isPulled}
+        // A body mis-click must not navigate away mid-wizard — the
+        // card is a selection tile here, not a nav target.
+        suppressBodyLink
         // Omit onPull while pending so the click is a no-op; passing
         // `undefined` explicitly violates exactOptionalPropertyTypes.
         {...(isPending ? {} : { onPull: pulls.toggle })}

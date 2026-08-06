@@ -86,6 +86,7 @@ export function CardFrontFace({
   onJoin,
   isJoined = false,
   joinPending = false,
+  suppressBodyLink = false,
 }: {
   card: Card;
   /** Resolved `var(--kind-*)` for this card's kind. */
@@ -98,6 +99,8 @@ export function CardFrontFace({
   onJoin?: ((card: Card) => void) | undefined;
   isJoined?: boolean | undefined;
   joinPending?: boolean | undefined;
+  /** See CardFactoryProps — omits the body nav overlay on self/wizard surfaces. */
+  suppressBodyLink?: boolean | undefined;
 }) {
   const isCommunity =
     card.card_kind === "community" && card.community_dossier != null;
@@ -109,12 +112,16 @@ export function CardFrontFace({
       {/* The card's single navigation target, covering the whole face
           beneath the interactive rows. typedRoutes can't statically
           prove a server-supplied path, so the cast is required — the
-          backend owns these URLs (§A4). */}
-      <Link
-        href={card.links.self as Route}
-        className="bcc-card-body-link"
-        aria-label={`Open ${card.name}`}
-      />
+          backend owns these URLs (§A4). Omitted when the host surface
+          IS the card's own page (hero) or must not navigate away
+          (onboarding wizard) — see suppressBodyLink. */}
+      {!suppressBodyLink && (
+        <Link
+          href={card.links.self as Route}
+          className="bcc-card-body-link"
+          aria-label={`Open ${card.name}`}
+        />
+      )}
 
       <CardHeader card={card} kindColor={kindColor} />
 
