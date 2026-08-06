@@ -132,7 +132,11 @@ export function WatchingTabs({ handle }: WatchingTabsProps) {
   };
 
   return (
-    <main className="min-h-screen pb-24">
+    // bcc-page-wide opts out of .bcc-col-center's 680px reading-width cap
+    // (globals.css). Without it the card grid is squeezed to a single 316px
+    // column, since 680 minus this container's padding falls just short of
+    // two. Same opt-out /members, /directory and /validators use.
+    <main className="bcc-page-wide min-h-screen pb-24">
       <header className="bcc-rail">
         <span>
           <span className="bcc-rail-dot" />
@@ -141,7 +145,9 @@ export function WatchingTabs({ handle }: WatchingTabsProps) {
         <span className="bcc-mono text-bcc-text-secondary">@{handle}</span>
       </header>
 
-      <div className="mx-auto max-w-6xl px-6 sm:px-8">
+      {/* Width and padding match /members so both roster surfaces lay out
+          on the same track and fit the same number of cards per row. */}
+      <div className="mx-auto max-w-[1560px] px-4 sm:px-7">
         <header className="pt-16">
           <p className="bcc-mono text-bcc-text-secondary">
             @{handle} · {FOLLOW_COPY.stateLower}
@@ -156,13 +162,13 @@ export function WatchingTabs({ handle }: WatchingTabsProps) {
 
         {/* Mobile overflow armor from ProfileTabs: bleed to the viewport
             edge and scroll horizontally under sm rather than shrinking
-            the tabs below readable width. The bleed is -mx-6/px-6 rather
-            than ProfileTabs' -mx-4/px-4 to cancel THIS container's px-6;
-            a mismatched bleed leaves the rule inset from the edge. */}
+            the tabs below readable width. The bleed must cancel THIS
+            container's padding exactly (-mx-4/px-4 against px-4), or the
+            rule sits inset from the edge. */}
         <div
           role="tablist"
           aria-label="Watching sections"
-          className="-mx-6 mt-10 flex items-center gap-x-1 overflow-x-auto border-b border-bcc-border px-6 sm:mx-0 sm:px-0"
+          className="-mx-4 mt-10 flex items-center gap-x-1 overflow-x-auto border-b border-bcc-border px-4 sm:mx-0 sm:px-0"
         >
           {TABS.map((entry) => (
             <button
