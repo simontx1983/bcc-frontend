@@ -1,10 +1,13 @@
 "use client";
 
 /**
- * WatchingHeader — §N9 identity-snapshot header.
+ * WatchingHeader — §N9 identity-snapshot metrics.
  *
- * Renders the three slots that make the watchlist a portrait, not a
- * list:
+ * Metrics-only since the /watching two-tab rebuild: the page title,
+ * kicker and subtitle now live in <WatchingTabs> (they describe the
+ * whole surface, not the Watching tab), and the outer layout container
+ * is the shell's. What's left is the three-slot metric strip that makes
+ * the watchlist a portrait, not a list:
  *   - Collection size
  *   - Tier distribution (stacked bar + legend)
  *   - Monthly activity (rolling 30 days)
@@ -28,7 +31,6 @@ import type {
 } from "@/lib/api/types";
 
 export interface WatchingHeaderProps {
-  handle: string;
   /** Total watchlist size (from WatchingResponse.pagination.total). */
   total: number;
   /**
@@ -39,22 +41,9 @@ export interface WatchingHeaderProps {
   summary?: WatchingSummaryResponse | undefined;
 }
 
-export function WatchingHeader({ handle, total, summary }: WatchingHeaderProps) {
+export function WatchingHeader({ total, summary }: WatchingHeaderProps) {
   return (
-    <section className="mx-auto max-w-6xl px-6 pt-16 sm:px-8">
-      <p className="bcc-mono text-bcc-text-secondary">
-        @{handle} · watching
-      </p>
-
-      <h1 className="bcc-stencil mt-2 text-bcc-text text-5xl md:text-6xl">
-        Your watchlist
-      </h1>
-
-      <p className="mt-4 max-w-2xl font-serif text-xl text-bcc-text-secondary">
-        Every card you&rsquo;re watching. Click through to view details, hover
-        to remove.
-      </p>
-
+    <section>
       <div className="mt-10 grid gap-6 border-y border-bcc-border py-6 md:grid-cols-3">
         <Metric
           label="Collection size"

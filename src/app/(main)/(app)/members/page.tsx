@@ -19,6 +19,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, Suspense } from "react";
 
 import { CardGrid } from "@/components/cards/CardGrid";
+import { PagerNav } from "@/components/ui/PagerNav";
 import { useMembers } from "@/hooks/useMembers";
 import { humanizeCode } from "@/lib/api/errors";
 import type {
@@ -279,10 +280,10 @@ function MembersPageContent() {
               {urlQ !== "" && ` MATCHING "${urlQ.toUpperCase()}"`}
             </p>
             <CardGrid cards={query.data.items} />
-            <Pagination
+            <PagerNav
               page={query.data.pagination.page}
               totalPages={query.data.pagination.total_pages}
-              onPage={goToPage}
+              onPageChange={goToPage}
             />
           </>
         )}
@@ -560,51 +561,6 @@ function Rail() {
         <span className="bcc-mono text-bcc-text-muted">FILE INDEX &nbsp;//&nbsp; ALL OPERATORS</span>
       </div>
     </div>
-  );
-}
-
-// ──────────────────────────────────────────────────────────────────────
-// Pagination — Prev/Next chips with a "page X of Y" readout in between.
-// Disabled chips render flat-disabled instead of being hidden so the
-// layout doesn't shift when the user lands on the first or last page.
-// ──────────────────────────────────────────────────────────────────────
-
-function Pagination({
-  page,
-  totalPages,
-  onPage,
-}: {
-  page: number;
-  totalPages: number;
-  onPage: (next: number) => void;
-}) {
-  if (totalPages <= 1) return null;
-
-  return (
-    <nav
-      className="bcc-mono mt-8 flex items-center justify-between gap-3 text-[11px] tracking-[0.16em] text-bcc-text-secondary"
-      aria-label="Pagination"
-    >
-      <button
-        type="button"
-        onClick={() => onPage(Math.max(1, page - 1))}
-        disabled={page <= 1}
-        className="border-2 border-bcc-border px-3 py-1 transition hover:border-bcc-border-strong hover:text-bcc-text disabled:opacity-40"
-      >
-        ← PREV
-      </button>
-      <span>
-        PAGE {page} / {totalPages}
-      </span>
-      <button
-        type="button"
-        onClick={() => onPage(Math.min(totalPages, page + 1))}
-        disabled={page >= totalPages}
-        className="border-2 border-bcc-border px-3 py-1 transition hover:border-bcc-border-strong hover:text-bcc-text disabled:opacity-40"
-      >
-        NEXT →
-      </button>
-    </nav>
   );
 }
 
