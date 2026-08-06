@@ -79,7 +79,13 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "var(--bcc-night)",
+  // <meta name="theme-color"> content is parsed as a CSS <color> with no
+  // element to resolve against, so var() never resolves and the browser
+  // drops the tag — the app shipped no theme color at all. Must be the
+  // literal value of --bcc-night, which is a fixed brand constant that
+  // never flips with theme, so it cannot drift.
+  // color-token-guard:allow — meta content can't resolve a CSS variable
+  themeColor: "#0d1117",
   width: "device-width",
   initialScale: 1,
 };

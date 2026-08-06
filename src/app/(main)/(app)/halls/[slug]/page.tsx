@@ -167,22 +167,22 @@ export default async function HallDetailPage({ params }: PageProps) {
       <section className="mx-auto max-w-3xl px-2 pt-12 sm:px-3">
         <Link
           href={"/halls" as Route}
-          className="bcc-mono text-[10px] tracking-[0.18em] text-cardstock-deep hover:underline"
+          className="bcc-mono text-[10px] tracking-[0.18em] text-bcc-text-secondary hover:underline"
         >
           ← HALLS
         </Link>
 
         <div className="mt-6">
           <span
-            className="bcc-mono text-cardstock-deep"
+            className="bcc-mono text-bcc-text-secondary"
             style={{ fontSize: "10px", letterSpacing: "0.24em" }}
           >
             {hall.chain !== null ? hall.chain.toUpperCase() : "GENERAL"}
           </span>
-          <h1 className="bcc-stencil mt-2 text-4xl text-cardstock md:text-5xl">
+          <h1 className="bcc-stencil mt-2 text-4xl text-bcc-text md:text-5xl">
             {hall.name}
           </h1>
-          <p className="bcc-mono mt-3 text-cardstock-deep">
+          <p className="bcc-mono mt-3 text-bcc-text-secondary">
             {hall.member_count} member{hall.member_count === 1 ? "" : "s"}
           </p>
         </div>
@@ -236,12 +236,12 @@ export default async function HallDetailPage({ params }: PageProps) {
 
       <section className="mx-auto mt-8 max-w-3xl px-2 sm:px-3">
         <div
-          className="bcc-mono mb-4 flex items-center gap-3 text-cardstock-deep"
+          className="bcc-mono mb-4 flex items-center gap-3 text-bcc-text-secondary"
           style={{ fontSize: "10px", letterSpacing: "0.18em" }}
         >
-          <span className="inline-block h-px w-8 bg-cardstock-edge/50" />
+          <span className="inline-block h-px w-8 bg-bcc-border" />
           <span>THE HALL FEED</span>
-          <span className="inline-block h-px flex-1 bg-cardstock-edge/50" />
+          <span className="inline-block h-px flex-1 bg-bcc-border" />
         </div>
         <p
           role="status"
