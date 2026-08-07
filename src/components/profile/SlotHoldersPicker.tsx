@@ -53,9 +53,15 @@
  *      the new cast state via its normal viewer_attestation prop
  *      flow — no toast, no celebration, no flicker.
  *
+ * Shell: the shared `Dialog` primitive, which supplies the portal,
+ * z-[550] layering, focus trap, focus return, scroll lock and
+ * ESC-to-close. The dismiss guard below is the only local behavior —
+ * everything else is deliberately not reimplemented here.
+ *
  * @see SLOT_HOLDERS_PICKER_INVARIANTS in docs/trust-attestation-layer.md
  */
 
+import { Dialog } from "@/components/ui/Dialog";
 import { humanizeCode } from "@/lib/api/errors";
 import type { BccApiError, SlotHolder } from "@/lib/api/types";
 import { formatRelativeTime } from "@/lib/format";
@@ -107,89 +113,73 @@ export function SlotHoldersPicker({
 
   const errorText = error !== null ? humanizeReleaseError(error) : null;
 
+  // Dismissal is gated while a release or retry-cast is in flight, so a slow
+  // network can't strand the picker mid-flow. The guard lives on `onClose`,
+  // which is the single funnel for all three dismissal paths (ESC, backdrop,
+  // close button) — the same pattern OpenDisputeModal uses for its in-flight
+  // submit. `closeDisabled` additionally makes the state legible on the one
+  // path that has a visible control, so the button doesn't look operable
+  // while it is inert.
+  const mutationInFlight = releasingHolderId !== null || retryingCast;
+
   return (
-    <div
-      role="dialog"
-      aria-modal
-      aria-label="Backing"
-      className="fixed inset-0 z-50 flex items-end justify-center bg-ink/70 p-4 backdrop-blur-sm md:items-center"
-      onClick={(e) => {
-        // Backdrop click closes only when no mutation is in flight,
-        // so a slow network can't strand the picker mid-flow.
-        if (
-          e.target === e.currentTarget &&
-          releasingHolderId === null &&
-          !retryingCast
-        ) {
+    <Dialog
+      title="Backing"
+      onClose={() => {
+        if (!mutationInFlight) {
           onDismiss();
         }
       }}
+      closeDisabled={mutationInFlight}
+      panelClassName="max-w-xl"
     >
-      <div className="bcc-panel relative w-full max-w-xl p-6 md:p-8">
-        <button
-          type="button"
-          onClick={() => {
-            if (releasingHolderId === null && !retryingCast) {
-              onDismiss();
-            }
-          }}
-          aria-label="Close"
-          disabled={releasingHolderId !== null || retryingCast}
-          className="bcc-mono absolute right-4 top-4 text-bcc-text-secondary transition hover:text-bcc-text disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          ESC
-        </button>
+      <header className="mb-5 pr-12">
+        <p className="bcc-mono text-bcc-text-secondary">BACKING //</p>
+        <h3 className="bcc-stencil mt-1 text-2xl text-bcc-text">
+          Your current commitments
+        </h3>
+        <p className="mt-3 max-w-prose font-serif text-bcc-text-secondary">
+          Each row is a public commitment to that operator&rsquo;s work.
+          Release any that no longer reflects your current assessment to
+          make room for a new one. Releasing has no reputation cost &mdash;
+          changing your mind is part of staying honest.
+        </p>
+      </header>
 
-        <header className="mb-5 pr-12">
-          <p className="bcc-mono text-bcc-text-secondary">BACKING //</p>
-          <h3 className="bcc-stencil mt-1 text-2xl text-bcc-text">
-            Your current commitments
-          </h3>
-          <p className="mt-3 max-w-prose font-serif text-bcc-text-secondary">
-            Each row is a public commitment to that operator&rsquo;s work.
-            Release any that no longer reflects your current assessment to
-            make room for a new one. Releasing has no reputation cost &mdash;
-            changing your mind is part of staying honest.
-          </p>
-        </header>
+      {holders.length === 0 ? (
+        <p className="bcc-mono py-6 text-center text-bcc-text-secondary">
+          No active commitments to show. Try again.
+        </p>
+      ) : (
+        <ul className="flex flex-col">
+          {holders.map((holder) => (
+            <HolderRow
+              key={holder.id}
+              holder={holder}
+              isReleasing={releasingHolderId === holder.id}
+              isRetryingCast={retryingCast && releasingHolderId === holder.id}
+              disabled={
+                (releasingHolderId !== null && releasingHolderId !== holder.id) ||
+                (retryingCast && releasingHolderId !== holder.id)
+              }
+              errorText={
+                errorText !== null && releasingHolderId === holder.id
+                  ? errorText
+                  : null
+              }
+              onRelease={() => void onRelease(holder.id)}
+            />
+          ))}
+        </ul>
+      )}
 
-        {holders.length === 0 ? (
-          <p className="bcc-mono py-6 text-center text-bcc-text-secondary">
-            No active commitments to show. Try again.
-          </p>
-        ) : (
-          <ul className="flex flex-col">
-            {holders.map((holder) => (
-              <HolderRow
-                key={holder.id}
-                holder={holder}
-                isReleasing={releasingHolderId === holder.id}
-                isRetryingCast={
-                  retryingCast && releasingHolderId === holder.id
-                }
-                disabled={
-                  (releasingHolderId !== null && releasingHolderId !== holder.id) ||
-                  (retryingCast && releasingHolderId !== holder.id)
-                }
-                errorText={
-                  errorText !== null && releasingHolderId === holder.id
-                    ? errorText
-                    : null
-                }
-                onRelease={() => void onRelease(holder.id)}
-              />
-            ))}
-          </ul>
-        )}
-
-        {/* Slot context — quiet, factual, not a score. */}
-        {slotsTotal > 0 && (
-          <p className="bcc-mono mt-5 text-[11px] tracking-[0.14em] text-bcc-text-secondary">
-            BACKING IS SCARCE &mdash; YOU HAVE {slotsTotal} ACTIVE SLOTS.
-          </p>
-        )}
-      </div>
-    </div>
+      {/* Slot context — quiet, factual, not a score. */}
+      {slotsTotal > 0 && (
+        <p className="bcc-mono mt-5 text-[11px] tracking-[0.14em] text-bcc-text-secondary">
+          BACKING IS SCARCE &mdash; YOU HAVE {slotsTotal} ACTIVE SLOTS.
+        </p>
+      )}
+    </Dialog>
   );
 }
 
