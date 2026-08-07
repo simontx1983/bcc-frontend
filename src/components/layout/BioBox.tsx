@@ -70,7 +70,7 @@ export function BioBox({ text, label = "BIO", previewWords = 25, ownerEditHref }
   return (
     <aside className={wrapperClass}>
       <p
-        className="bcc-mono text-bcc-text-secondary"
+        className="bcc-mono text-bcc-text"
         style={{ fontSize: "10px", letterSpacing: "0.24em" }}
       >
         {label}
