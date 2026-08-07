@@ -107,7 +107,7 @@ function DisputesPanelStatic({ disputes }: { disputes: MemberDispute[] }) {
           {disputes.map((dispute) => (
             <li
               key={dispute.id}
-              className="grid grid-cols-[auto_1fr_auto] items-start gap-4 border-b border-dashed border-ink/22 px-5 py-4 last:border-b-0"
+              className="grid grid-cols-[auto_1fr_auto] items-start gap-4 border-b border-dashed border-ink/20 px-5 py-4 last:border-b-0"
             >
               <span className="bcc-pill mt-1" data-status={dispute.status}>
                 {dispute.status_label}
