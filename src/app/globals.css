@@ -267,11 +267,16 @@
   --bcc-surface-active:  #eef0f3;
 
   --bcc-border:          #e5e7eb;
+  /* Triplet companion — required for `border-bcc-border/30` to emit CSS at
+     all (see the note by --ink-rgb). Must flip with the theme, so it is
+     re-declared in both dark blocks alongside its hex. */
+  --bcc-border-rgb:      229 231 235;
   --bcc-border-light:    #f0f1f3;
   --bcc-border-strong:   #d1d5db;
 
   --bcc-text:            #111827;
   --bcc-text-secondary:  #4b5563;
+  --bcc-text-secondary-rgb: 75 85 99;
   --bcc-text-muted:      #9ca3af;
   --bcc-text-placeholder:#b3b8c3;
   --bcc-text-inverse:    #ffffff;
@@ -343,11 +348,13 @@
     --bcc-surface-active:  #282e37;
 
     --bcc-border:          #30363d;
+    --bcc-border-rgb:      48 54 61;
     --bcc-border-light:    #21262d;
     --bcc-border-strong:   #484f58;
 
     --bcc-text:            #e6edf3;
     --bcc-text-secondary:  #8b949e;
+    --bcc-text-secondary-rgb: 139 148 158;
     --bcc-text-muted:      #484f58;
     --bcc-text-placeholder:#3d444d;
     --bcc-text-inverse:    #0d1117;
@@ -405,11 +412,13 @@
   --bcc-surface-active:  #282e37;
 
   --bcc-border:          #30363d;
+  --bcc-border-rgb:      48 54 61;
   --bcc-border-light:    #21262d;
   --bcc-border-strong:   #484f58;
 
   --bcc-text:            #e6edf3;
   --bcc-text-secondary:  #8b949e;
+  --bcc-text-secondary-rgb: 139 148 158;
   --bcc-text-muted:      #484f58;
   --bcc-text-placeholder:#3d444d;
   --bcc-text-inverse:    #0d1117;
@@ -2801,7 +2810,9 @@
 
   /* Paper variants + live/verified greens. */
   --paper:           #f7efd9;
+  --paper-rgb:       247 239 217;
   --paper-warm:      #f2e6c8;
+  --paper-warm-rgb:  242 230 200;
   --ink-ghost:       #6b6355;
   --phosphor:        #7dff9a;
   --verified:        var(--bcc-verified);
@@ -2809,12 +2820,26 @@
   /* RGB triplets for the cardstock/ink/phosphor aesthetic — same channels
      as the hex above, for translucent tints: rgb(var(--ink-rgb) / 0.18).
      --safety-rgb / --verified-rgb sit here (aesthetic namespace) so
-     translucent safety/verified tints don't trip the brand-layer guard. */
+     translucent safety/verified tints don't trip the brand-layer guard.
+
+     These are ALSO what makes Tailwind's `/opacity` modifier work. A theme
+     entry declared as a bare `var(--x)` string cannot carry an alpha value,
+     so Tailwind emits NO RULE AT ALL for `bg-ink/70` — the class silently
+     does nothing. Every alias that needs an alpha modifier must therefore
+     have a triplet here and be declared in tailwind.config.ts as
+     `rgb(var(--x-rgb) / <alpha-value>)`. Adding a new colour? Add its
+     triplet too, or `/opacity` on it will fail silently. */
   --ink-rgb:         15 13 9;
+  --ink-soft-rgb:    42 37 28;
+  --ink-ghost-rgb:   107 99 85;
   --cardstock-rgb:   239 229 207;
+  --cardstock-deep-rgb: 217 201 163;
+  --cardstock-edge-rgb: 176 152 119;
   --phosphor-rgb:    125 255 154;
   --safety-rgb:      240 90 40;
   --verified-rgb:    44 157 102;
+  --weld-rgb:        255 192 30;
+  --blueprint-rgb:   15 30 60;
 
   /* Additional cardstock/paper tints used at alpha on card + dispute-panel
      surfaces (each backs 2+ call sites; values unchanged from the literals
