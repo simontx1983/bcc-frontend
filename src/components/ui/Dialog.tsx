@@ -29,6 +29,20 @@ type DialogProps = {
   title: string;
   /** Called on ESC, backdrop click, or the corner ESC button. */
   onClose: () => void;
+  /**
+   * Natively disable the corner close button — for callers with an
+   * in-flight mutation that must not be abandoned by a stray click
+   * (SlotHoldersPicker while a release/retry is pending). Off by default.
+   *
+   * Only the button is affected: ESC and backdrop click still call
+   * `onClose`, because whether those are safe is the caller's judgement,
+   * not Dialog's. Callers that need them held guard `onClose` itself.
+   *
+   * `disabled` is the native attribute, so the browser both blocks the
+   * click and reports the state to assistive tech, and FOCUSABLE's
+   * `button:not([disabled])` drops it from the focus trap for free.
+   */
+  closeDisabled?: boolean;
   children: React.ReactNode;
   /**
    * Layout overrides for the inner panel so each surface keeps its own
@@ -94,6 +108,7 @@ const FOCUSABLE =
 export function Dialog({
   title,
   onClose,
+  closeDisabled = false,
   children,
   panelClassName = "max-w-2xl",
   animateIn = false,
@@ -231,7 +246,8 @@ export function Dialog({
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="absolute right-3 top-3 inline-flex h-8 w-8 items-center justify-center rounded-full text-[var(--bcc-text-secondary)] transition-colors hover:text-[var(--bcc-text)]"
+            disabled={closeDisabled}
+            className="absolute right-3 top-3 inline-flex h-8 w-8 items-center justify-center rounded-full text-[var(--bcc-text-secondary)] transition-colors hover:text-[var(--bcc-text)] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:text-[var(--bcc-text-secondary)]"
             style={{
               background: "var(--bcc-glass-bg)",
               backdropFilter: "blur(var(--bcc-glass-blur))",
