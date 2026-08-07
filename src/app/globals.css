@@ -2843,15 +2843,24 @@
      network, right shift+clock) using `space-between` + flex-wrap so
      the mid zone gracefully drops out on narrow widths and the right
      cluster stays cohesive. Gap shrinks at mid widths so the
-     PANEL-DUTY chip doesn't push the clock off the line. */
+     PANEL-DUTY chip doesn't push the clock off the line.
+
+     Retheme 2026-08-06: the border and text were fixed cardstock
+     literals, but this rail's only consumer (/watching) renders it on
+     the theme-aware page background — cream-on-white in light theme.
+     Now on the theme scale, matching the sibling rails on /members,
+     /directory and /u. Geometry is deliberately untouched: the 32px
+     gutter still differs from the page bodies' px-4 sm:px-7 and is
+     left for the rail-unification pass. See docs/frontend-doctrine.md
+     §5.3 (surface families) and §5.7 (layout). */
   .bcc-rail {
     display: flex;
     justify-content: space-between;
     align-items: center;
     gap: 16px;
     padding: 12px 32px;
-    border-bottom: 1px dashed rgba(239, 229, 207, 0.22);
-    color: rgba(239, 229, 207, 0.7);
+    border-bottom: 1px dashed var(--bcc-border);
+    color: var(--bcc-text-secondary);
     font-family: var(--font-mono), ui-monospace, monospace;
     font-size: 11px;
     letter-spacing: 0.12em;
@@ -3439,7 +3448,10 @@
     max-width: 60ch;
   }
   .bcc-footer-acquire-line {
-    font-family: var(--font-fraunces), Georgia, serif;
+    /* --font-fraunces was never defined; next/font registers the face as
+       --font-serif (layout.tsx), which is the form the other 20 serif
+       declarations in this file use. */
+    font-family: var(--font-serif), Georgia, serif;
     font-size: 17px;
     color: var(--cardstock);
     line-height: 1.4;

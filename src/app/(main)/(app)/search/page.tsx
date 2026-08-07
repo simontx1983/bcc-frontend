@@ -40,8 +40,8 @@ export default async function SearchPage({ searchParams }: PageProps) {
 
   return (
     <main className="mx-auto max-w-[1200px] px-7 pb-24 pt-12">
-      <div className="border-b border-dashed border-cardstock/15 pb-3">
-        <span className="bcc-mono inline-flex items-center gap-2 text-cardstock-deep">
+      <div className="border-b border-dashed border-bcc-border pb-3">
+        <span className="bcc-mono inline-flex items-center gap-2 text-bcc-text-secondary">
           <span className="bcc-rail-dot" aria-hidden />
           <span>FLOOR &nbsp;//&nbsp; SEARCH</span>
         </span>
@@ -50,12 +50,12 @@ export default async function SearchPage({ searchParams }: PageProps) {
       <header className="mt-10">
         <p className="bcc-mono text-safety">SEARCH</p>
         <h1
-          className="bcc-stencil mt-2 text-cardstock leading-[0.95]"
+          className="bcc-stencil mt-2 text-bcc-text leading-[0.95]"
           style={{ fontSize: "clamp(2.25rem, 5.5vw, 4.5rem)" }}
         >
           {query.trim() !== "" ? "What you came for." : "Pick a thread."}
         </h1>
-        <p className="mt-3 max-w-2xl font-serif leading-relaxed text-cardstock-deep">
+        <p className="mt-3 max-w-2xl font-serif leading-relaxed text-bcc-text-secondary">
           Three verticals from one box — <strong>projects</strong>,{" "}
           <strong>users</strong>, and <strong>communities</strong>. Type into
           the bar up top, or jump in via a trending thread below.

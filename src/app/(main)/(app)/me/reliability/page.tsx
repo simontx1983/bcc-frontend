@@ -38,12 +38,12 @@ export default async function ReliabilityPage() {
       <header className="mx-auto max-w-[1560px] px-4 sm:px-7 pt-12">
         <p className="bcc-mono text-safety">YOUR MIRROR</p>
         <h1
-          className="bcc-stencil mt-3 text-cardstock leading-[0.95]"
+          className="bcc-stencil mt-3 text-bcc-text leading-[0.95]"
           style={{ fontSize: "clamp(2.5rem, 6.5vw, 5.5rem)" }}
         >
           Reliability.
         </h1>
-        <p className="mt-4 max-w-2xl font-serif text-lg leading-relaxed text-cardstock-deep">
+        <p className="mt-4 max-w-2xl font-serif text-lg leading-relaxed text-bcc-text-secondary">
           How the floor reads your track record as a judge of other
           operators. Not how others read you — that&rsquo;s your
           reputation. This is the inverse: when you back someone,
@@ -60,14 +60,14 @@ export default async function ReliabilityPage() {
 
 function FileRail({ handle }: { handle: string }) {
   return (
-    <div className="border-b border-dashed border-cardstock/15">
+    <div className="border-b border-dashed border-bcc-border">
       <div className="mx-auto flex max-w-[1560px] flex-wrap items-center justify-between gap-4 px-7 py-3">
-        <span className="bcc-mono inline-flex items-center gap-2 text-cardstock-deep">
+        <span className="bcc-mono inline-flex items-center gap-2 text-bcc-text-secondary">
           <span className="bcc-rail-dot" aria-hidden />
           <span>OPERATOR &nbsp;//&nbsp; RELIABILITY</span>
-          <span className="text-cardstock">@{handle.toUpperCase()}</span>
+          <span className="text-bcc-text">@{handle.toUpperCase()}</span>
         </span>
-        <span className="bcc-mono text-cardstock/50">
+        <span className="bcc-mono text-bcc-text-secondary">
           FILE 0003 &nbsp;//&nbsp; YOUR MIRROR
         </span>
       </div>
