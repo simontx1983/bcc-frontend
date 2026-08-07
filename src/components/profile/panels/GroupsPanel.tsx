@@ -104,7 +104,7 @@ export function GroupsPanel({ handle }: GroupsPanelProps) {
           {items.map((item) => (
             <li
               key={item.group_id}
-              className="border-b border-dashed border-ink/22 px-5 py-4 last:border-b-0"
+              className="border-b border-dashed border-ink/20 px-5 py-4 last:border-b-0"
             >
               <GroupRow item={item} />
             </li>

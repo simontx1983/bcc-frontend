@@ -122,7 +122,7 @@ function ReviewsPanelStatic({ reviews }: { reviews: MemberReview[] }) {
           {visible.map((review) => (
             <li
               key={review.id}
-              className="grid grid-cols-[62px_1fr] gap-4 border-b border-dashed border-ink/22 px-5 py-4 last:border-b-0"
+              className="grid grid-cols-[62px_1fr] gap-4 border-b border-dashed border-ink/20 px-5 py-4 last:border-b-0"
             >
               <span className="bcc-grade">{review.grade}</span>
               <div>
@@ -167,7 +167,7 @@ function ReviewsPanelStatic({ reviews }: { reviews: MemberReview[] }) {
             </li>
           ))}
           {showCap && (
-            <li className="border-t border-dashed border-ink/22 px-5 py-3 text-center">
+            <li className="border-t border-dashed border-ink/20 px-5 py-3 text-center">
               <button
                 type="button"
                 onClick={() => setExpanded(true)}
