@@ -73,13 +73,16 @@ const config: Config = {
         "bcc-surface-active":   "var(--bcc-surface-active)",
 
         // ── Borders ────────────────────────────────────────────────────────
-        "bcc-border":           "var(--bcc-border)",
+        // `<alpha-value>` form: required for `/opacity` modifiers to emit CSS
+        // (see the note by --ink-rgb in globals.css). Their triplets flip with
+        // the theme, declared in all three theme blocks.
+        "bcc-border":           "rgb(var(--bcc-border-rgb) / <alpha-value>)",
         "bcc-border-light":     "var(--bcc-border-light)",
         "bcc-border-strong":    "var(--bcc-border-strong)",
 
         // ── Text ───────────────────────────────────────────────────────────
         "bcc-text":             "var(--bcc-text)",
-        "bcc-text-secondary":   "var(--bcc-text-secondary)",
+        "bcc-text-secondary":   "rgb(var(--bcc-text-secondary-rgb) / <alpha-value>)",
         "bcc-text-muted":       "var(--bcc-text-muted)",
         "bcc-text-placeholder": "var(--bcc-text-placeholder)",
         "bcc-text-inverse":     "var(--bcc-text-inverse)",
@@ -123,29 +126,34 @@ const config: Config = {
         // PageHero, profile panels etc. compile to nothing without these.
         // The CSS variables live in the "TRADING-CARD + WORKSHOP LAYER —
         // RESTORED" block at the bottom of globals.css.
+        // These use the `rgb(var(--x-rgb) / <alpha-value>)` form so opacity
+        // modifiers (`bg-ink/70`, `border-cardstock-edge/40`) actually emit a
+        // rule. Declared as a bare `var(--x)` string, Tailwind silently emits
+        // NOTHING for the modifier — see the note by --ink-rgb in globals.css.
+        // Every alias below has a matching triplet there; keep them in step.
         cardstock: {
-          DEFAULT: "var(--cardstock)",        // #efe5cf
-          deep:    "var(--cardstock-deep)",   // #d9c9a3
-          edge:    "var(--cardstock-edge)",   // #b09877
+          DEFAULT: "rgb(var(--cardstock-rgb) / <alpha-value>)",       // #efe5cf
+          deep:    "rgb(var(--cardstock-deep-rgb) / <alpha-value>)",  // #d9c9a3
+          edge:    "rgb(var(--cardstock-edge-rgb) / <alpha-value>)",  // #b09877
         },
         paper: {
-          DEFAULT: "var(--paper)",       // #f7efd9
-          warm:    "var(--paper-warm)",  // #f2e6c8
+          DEFAULT: "rgb(var(--paper-rgb) / <alpha-value>)",       // #f7efd9
+          warm:    "rgb(var(--paper-warm-rgb) / <alpha-value>)",  // #f2e6c8
         },
         ink: {
-          DEFAULT: "var(--ink)",         // #0f0d09
-          soft:    "var(--ink-soft)",    // #2a251c
-          ghost:   "var(--ink-ghost)",   // #6b6355 — muted secondary text
+          DEFAULT: "rgb(var(--ink-rgb) / <alpha-value>)",        // #0f0d09
+          soft:    "rgb(var(--ink-soft-rgb) / <alpha-value>)",   // #2a251c
+          ghost:   "rgb(var(--ink-ghost-rgb) / <alpha-value>)",  // #6b6355 — muted secondary text
         },
-        phosphor: "var(--phosphor)",     // #7dff9a — "live" green
-        verified: "var(--verified)",     // #2c9d66 — good-standing green
+        phosphor: "rgb(var(--phosphor-rgb) / <alpha-value>)",  // #7dff9a — "live" green
+        verified: "rgb(var(--verified-rgb) / <alpha-value>)",  // #2c9d66 — good-standing green
         concrete: {
           DEFAULT: "var(--concrete)",     // #14110d
           hi:      "var(--concrete-hi)",  // #1d1913
         },
-        blueprint: "var(--blueprint)", // #0f1e3c
-        safety:    "var(--safety)",    // #f05a28 — caution-tape orange
-        weld:      "var(--weld)",      // #ffc01e — arc-weld yellow
+        blueprint: "rgb(var(--blueprint-rgb) / <alpha-value>)", // #0f1e3c
+        safety:    "rgb(var(--safety-rgb) / <alpha-value>)",    // #f05a28 — caution-tape orange
+        weld:      "rgb(var(--weld-rgb) / <alpha-value>)",      // #ffc01e — arc-weld yellow
         chain: {
           cosmos:    "var(--chain-cosmos)",    // #1a0f3e
           osmosis:   "var(--chain-osmosis)",   // #c73f86
