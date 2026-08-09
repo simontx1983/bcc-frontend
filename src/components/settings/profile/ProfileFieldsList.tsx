@@ -28,7 +28,7 @@ import {
   type ProfileFieldVisibility,
 } from "@/lib/api/profile-fields-endpoints";
 import { LoadFailure } from "@/components/ui/LoadFailure";
-import { isTerminalReadFailure } from "@/lib/api/errors";
+import { isNonRetryableFixedReadFailure } from "@/lib/api/errors";
 import { BccApiError } from "@/lib/api/types";
 
 const VISIBILITY_OPTIONS: ReadonlyArray<{
@@ -62,7 +62,7 @@ function humanizeError(err: BccApiError | Error): string {
 // carries write-side codes that can reach this read. `useProfileFields()`
 // takes no arguments — its queryFn is `({ signal }) => getProfileFields(signal)`
 // — so a retry re-issues a byte-identical GET and the terminal codes
-// cannot resolve. See isTerminalReadFailure for the full rationale.
+// cannot resolve. See isNonRetryableFixedReadFailure for the full rationale.
 
 export function ProfileFieldsList() {
   const query = useProfileFields();
@@ -78,7 +78,7 @@ export function ProfileFieldsList() {
         message={humanizeError(query.error)}
         // Conditional spread rather than `onRetry={undefined}` —
         // `exactOptionalPropertyTypes` rejects the latter.
-        {...(isTerminalReadFailure(query.error)
+        {...(isNonRetryableFixedReadFailure(query.error)
           ? {}
           : { onRetry: () => void query.refetch() })}
       />

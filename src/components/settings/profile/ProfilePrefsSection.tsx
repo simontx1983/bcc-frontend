@@ -24,7 +24,7 @@ import type {
   PostVisibility,
 } from "@/lib/api/profile-prefs-endpoints";
 import { LoadFailure } from "@/components/ui/LoadFailure";
-import { isTerminalReadFailure } from "@/lib/api/errors";
+import { isNonRetryableFixedReadFailure } from "@/lib/api/errors";
 import { BccApiError } from "@/lib/api/types";
 
 const ERROR_COPY: Record<string, string> = {
@@ -129,7 +129,7 @@ export function ProfilePrefsSection() {
         // identical GET — the terminal codes cannot resolve. Conditional
         // spread because `exactOptionalPropertyTypes` rejects
         // `onRetry={undefined}`.
-        {...(isTerminalReadFailure(query.error)
+        {...(isNonRetryableFixedReadFailure(query.error)
           ? {}
           : { onRetry: () => void query.refetch() })}
       />
