@@ -17,6 +17,7 @@
  * toggle would silently no-op there, which is worse than absence).
  */
 
+import { LoadFailure } from "@/components/ui/LoadFailure";
 import { useProfilePrefs, useUpdateProfilePrefs } from "@/hooks/useProfilePrefs";
 import type { ProfilePrefs } from "@/lib/api/profile-prefs-endpoints";
 import { BccApiError, type MentorEligibilityReason } from "@/lib/api/types";
@@ -53,9 +54,10 @@ export function MentorSettingsSection() {
   }
   if (query.isError || query.data === undefined) {
     return (
-      <p role="alert" className="bcc-mono py-4 text-[11px] text-safety">
-        Could not load mentor settings.
-      </p>
+      <LoadFailure
+        message="Could not load mentor settings."
+        onRetry={() => void query.refetch()}
+      />
     );
   }
   // Pre-Phase-7 backend — the field doesn't exist, so neither does the

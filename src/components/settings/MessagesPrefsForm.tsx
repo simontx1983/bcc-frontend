@@ -22,6 +22,8 @@ import {
   useMessagesPrefs,
   useUpdateMessagesPrefs,
 } from "@/hooks/useMessagesPrefs";
+import { LoadFailure } from "@/components/ui/LoadFailure";
+import { isTerminalReadFailure } from "@/lib/api/errors";
 import { BccApiError } from "@/lib/api/types";
 
 const ERROR_COPY: Record<string, string> = {
@@ -71,21 +73,34 @@ export function MessagesPrefsForm() {
     });
   }, [query.data]);
 
-  if (query.isLoading || draft === null) {
+  // Error is checked BEFORE loading on purpose. `draft` is seeded from
+  // `query.data`, so it stays null whenever the read failed — which made
+  // the old loading guard (`isLoading || draft === null`) swallow the
+  // error branch entirely and leave "Loading messages preferences…" on
+  // screen forever. Order matters here; don't flip it back.
+  if (query.isError) {
     return (
       <div className="bcc-panel p-6">
-        <p className="bcc-mono text-bcc-text-secondary">Loading messages preferences…</p>
+        <LoadFailure
+          // Keeps the "what failed" prefix — `humanize` alone returns the
+          // bare reason, which reads as orphaned without it.
+          message={`Couldn't load messages preferences: ${humanize(query.error)}`}
+          // `useMessagesPrefs()` takes no arguments, so a retry re-issues
+          // an identical GET — the terminal codes cannot resolve.
+          // Conditional spread because `exactOptionalPropertyTypes`
+          // rejects `onRetry={undefined}`.
+          {...(isTerminalReadFailure(query.error)
+            ? {}
+            : { onRetry: () => void query.refetch() })}
+        />
       </div>
     );
   }
 
-  if (query.isError) {
+  if (query.isLoading || draft === null) {
     return (
       <div className="bcc-panel p-6">
-        <p role="alert" className="bcc-mono text-safety">
-          Couldn&apos;t load messages preferences:{" "}
-          {humanize(query.error)}
-        </p>
+        <p className="bcc-mono text-bcc-text-secondary">Loading messages preferences…</p>
       </div>
     );
   }

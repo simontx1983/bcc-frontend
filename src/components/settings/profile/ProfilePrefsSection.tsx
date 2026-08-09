@@ -23,6 +23,8 @@ import type {
   ProfileVisibility,
   PostVisibility,
 } from "@/lib/api/profile-prefs-endpoints";
+import { LoadFailure } from "@/components/ui/LoadFailure";
+import { isTerminalReadFailure } from "@/lib/api/errors";
 import { BccApiError } from "@/lib/api/types";
 
 const ERROR_COPY: Record<string, string> = {
@@ -117,11 +119,20 @@ export function ProfilePrefsSection() {
   }
   if (query.isError || query.data === undefined) {
     return (
-      <p role="alert" className="bcc-mono py-4 text-[11px] text-safety">
-        {query.error !== null && query.error !== undefined
-          ? humanizeError(query.error)
-          : "Could not load preferences."}
-      </p>
+      <LoadFailure
+        message={
+          query.error !== null && query.error !== undefined
+            ? humanizeError(query.error)
+            : "Could not load preferences."
+        }
+        // `useProfilePrefs()` takes no arguments, so a retry re-issues an
+        // identical GET — the terminal codes cannot resolve. Conditional
+        // spread because `exactOptionalPropertyTypes` rejects
+        // `onRetry={undefined}`.
+        {...(isTerminalReadFailure(query.error)
+          ? {}
+          : { onRetry: () => void query.refetch() })}
+      />
     );
   }
 

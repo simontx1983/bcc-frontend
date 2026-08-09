@@ -30,6 +30,7 @@ import {
   useMyHolderGroups,
   useUpdateHolderGroupPreferences,
 } from "@/hooks/useHolderGroups";
+import { LoadFailure } from "@/components/ui/LoadFailure";
 import { GroupActionButton } from "@/components/groups/GroupActionButton";
 import { HeatBadge } from "@/components/groups/HeatBadge";
 import { VerificationBadge } from "@/components/groups/VerificationBadge";
@@ -67,9 +68,9 @@ export function CommunitiesList() {
   if (listQuery.isError) {
     return (
       <div className="bcc-panel p-6">
-        <p role="alert" className="bcc-mono text-safety">
-          {/* §γ — copy is keyed on err.code; never render err.message. */}
-          {humanizeCode(
+        <LoadFailure
+          /* §γ — copy is keyed on err.code; never render err.message. */
+          message={humanizeCode(
             listQuery.error,
             {
               bcc_unauthorized: "Sign in to see your communities.",
@@ -78,7 +79,10 @@ export function CommunitiesList() {
             },
             "Couldn't load communities. Try again in a moment.",
           )}
-        </p>
+          // The list query only — `updateMutation`'s error is a write
+          // failure and keeps its own inline message further down.
+          onRetry={() => void listQuery.refetch()}
+        />
       </div>
     );
   }

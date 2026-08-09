@@ -27,6 +27,8 @@ import {
   type ProfileField,
   type ProfileFieldVisibility,
 } from "@/lib/api/profile-fields-endpoints";
+import { LoadFailure } from "@/components/ui/LoadFailure";
+import { isTerminalReadFailure } from "@/lib/api/errors";
 import { BccApiError } from "@/lib/api/types";
 
 const VISIBILITY_OPTIONS: ReadonlyArray<{
@@ -56,6 +58,12 @@ function humanizeError(err: BccApiError | Error): string {
   return "Something went wrong. Try again.";
 }
 
+// `ERROR_COPY` above is shared with the two field mutations, so it also
+// carries write-side codes that can reach this read. `useProfileFields()`
+// takes no arguments — its queryFn is `({ signal }) => getProfileFields(signal)`
+// — so a retry re-issues a byte-identical GET and the terminal codes
+// cannot resolve. See isTerminalReadFailure for the full rationale.
+
 export function ProfileFieldsList() {
   const query = useProfileFields();
 
@@ -66,9 +74,14 @@ export function ProfileFieldsList() {
   }
   if (query.isError) {
     return (
-      <p role="alert" className="bcc-mono py-4 text-[11px] text-safety">
-        {humanizeError(query.error)}
-      </p>
+      <LoadFailure
+        message={humanizeError(query.error)}
+        // Conditional spread rather than `onRetry={undefined}` —
+        // `exactOptionalPropertyTypes` rejects the latter.
+        {...(isTerminalReadFailure(query.error)
+          ? {}
+          : { onRetry: () => void query.refetch() })}
+      />
     );
   }
 

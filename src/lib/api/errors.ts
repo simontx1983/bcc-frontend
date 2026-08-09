@@ -43,6 +43,39 @@ export function isCode(err: unknown, code: string): boolean {
 }
 
 /**
+ * Codes for which re-issuing an *identical* read cannot succeed, so a
+ * failure state must not offer a Retry control. A button that fails the
+ * same way on every press is worse than no button.
+ *
+ *   - `bcc_forbidden` (403) — permission boundary; unchanged by repetition.
+ *   - `bcc_not_found` (404) — the resource is gone.
+ *   - `bcc_invalid_request` (400) — the request itself is rejected, so an
+ *     identical retry repeats the same failure.
+ *
+ * Deliberately NOT here:
+ *
+ *   - `bcc_unauthorized` (401) — authentication can recover externally
+ *     (a session refreshed in another tab), after which the same request
+ *     genuinely succeeds.
+ *   - `bcc_rate_limited`, `bcc_unavailable`, `bcc_internal_error`,
+ *     `bcc_peepso_unavailable` — transient by definition.
+ *
+ * **Only valid for reads whose request cannot change between attempts.**
+ * If a call site can repair or vary the request — different page, edited
+ * filters, corrected input — `bcc_invalid_request` may be recoverable
+ * there and this predicate is the wrong tool; branch explicitly instead.
+ */
+const TERMINAL_READ_CODES: ReadonlySet<string> = new Set([
+  "bcc_forbidden",
+  "bcc_not_found",
+  "bcc_invalid_request",
+]);
+
+export function isTerminalReadFailure(err: unknown): boolean {
+  return err instanceof BccApiError && TERMINAL_READ_CODES.has(err.code);
+}
+
+/**
  * Map a BccApiError onto call-site-owned copy without ever leaking the
  * server's `error.message` through to the UI.
  *
