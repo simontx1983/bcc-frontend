@@ -26,6 +26,7 @@ import Image from "next/image";
 
 import { useUserBlog } from "@/hooks/useUserBlog";
 import { formatRelativeTime } from "@/lib/format";
+import { LoadFailure } from "@/components/ui/LoadFailure";
 import { humanizeCode } from "@/lib/api/errors";
 import type { FeedItem } from "@/lib/api/types";
 
@@ -65,27 +66,33 @@ export function UserBlogList({ handle, onEdit }: UserBlogListProps) {
     );
   }
 
-  if (query.isError) {
+  // §γ — copy is keyed on err.code; never render err.message.
+  const failureCopy = humanizeCode(
+    query.error,
+    {
+      bcc_unauthorized: "Sign in to read these posts.",
+      bcc_rate_limited: "Loading too fast — give it a moment and try again.",
+      bcc_unavailable: "Posts are temporarily unavailable. Try again shortly.",
+    },
+    "Couldn't load posts. Try again in a moment.",
+  );
+
+  const pages = query.data?.pages ?? [];
+  const totalCount = pages.reduce((sum, p) => sum + p.items.length, 0);
+
+  // Full-panel failure ONLY when there is nothing on screen to lose.
+  // An infinite query goes to `status: "error"` when *any* page fetch
+  // fails, including a "load more" — and it keeps the pages it already
+  // has. Returning the panel unconditionally therefore wiped a fully
+  // read list because the user tapped LOAD MORE on a flaky connection.
+  // A failed later page is handled inline at the bottom of the list.
+  if (query.isError && totalCount === 0) {
     return (
       <div className="bcc-panel p-6">
-        <p role="alert" className="bcc-mono text-safety">
-          {/* §γ — copy is keyed on err.code; never render err.message. */}
-          {humanizeCode(
-            query.error,
-            {
-              bcc_unauthorized: "Sign in to read these posts.",
-              bcc_rate_limited: "Loading too fast — give it a moment and try again.",
-              bcc_unavailable: "Posts are temporarily unavailable. Try again shortly.",
-            },
-            "Couldn't load posts. Try again in a moment.",
-          )}
-        </p>
+        <LoadFailure message={failureCopy} onRetry={() => void query.refetch()} />
       </div>
     );
   }
-
-  const pages = query.data.pages;
-  const totalCount = pages.reduce((sum, p) => sum + p.items.length, 0);
 
   if (totalCount === 0) {
     return (
@@ -111,18 +118,35 @@ export function UserBlogList({ handle, onEdit }: UserBlogListProps) {
         </Fragment>
       ))}
 
-      {query.hasNextPage && (
-        <button
-          type="button"
-          onClick={() => { void query.fetchNextPage(); }}
-          disabled={query.isFetchingNextPage}
-          className={
-            "bcc-mono mx-auto rounded-sm border-2 border-bcc-border px-5 py-2 text-[11px] tracking-[0.18em] text-bcc-text-secondary transition disabled:opacity-60 " +
-            (query.isFetchingNextPage ? "" : "hover:border-bcc-border-strong hover:text-bcc-text")
-          }
-        >
-          {query.isFetchingNextPage ? "LOADING…" : "LOAD MORE"}
-        </button>
+      {/* A failed LOAD MORE reports itself here, beneath the posts that
+          did load, rather than replacing them. Retrying resumes from the
+          page that failed instead of refetching the whole list. */}
+      {query.isError ? (
+        <p role="alert" className="bcc-mono text-center text-[11px] text-safety">
+          {failureCopy}{" "}
+          <button
+            type="button"
+            onClick={() => { void query.fetchNextPage(); }}
+            disabled={query.isFetchingNextPage}
+            className="underline underline-offset-4 disabled:opacity-60"
+          >
+            {query.isFetchingNextPage ? "Loading…" : "Try again"}
+          </button>
+        </p>
+      ) : (
+        query.hasNextPage && (
+          <button
+            type="button"
+            onClick={() => { void query.fetchNextPage(); }}
+            disabled={query.isFetchingNextPage}
+            className={
+              "bcc-mono mx-auto rounded-sm border-2 border-bcc-border px-5 py-2 text-[11px] tracking-[0.18em] text-bcc-text-secondary transition disabled:opacity-60 " +
+              (query.isFetchingNextPage ? "" : "hover:border-bcc-border-strong hover:text-bcc-text")
+            }
+          >
+            {query.isFetchingNextPage ? "LOADING…" : "LOAD MORE"}
+          </button>
+        )
       )}
     </div>
   );
