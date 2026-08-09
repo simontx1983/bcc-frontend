@@ -38,6 +38,7 @@ import {
   useOpenDispute,
 } from "@/hooks/useDisputes";
 import { USER_DISPUTES_QUERY_KEY_ROOT } from "@/hooks/useUserActivity";
+import { LoadFailure } from "@/components/ui/LoadFailure";
 import { humanizeCode } from "@/lib/api/errors";
 import {
   DISPUTE_REASON_MAX_LENGTH,
@@ -138,9 +139,10 @@ export function OpenDisputeModal({
 
       {votesQuery.isError && (
         <div className="bcc-paper p-6">
-          <p role="alert" className="bcc-mono text-safety">
-            {/* §γ — copy is keyed on err.code; never render err.message. */}
-            {humanizeCode(
+          <LoadFailure
+            surface="paper"
+            /* §γ — copy is keyed on err.code; never render err.message. */
+            message={humanizeCode(
               votesQuery.error,
               {
                 bcc_unauthorized: "Sign in to see these votes.",
@@ -149,7 +151,8 @@ export function OpenDisputeModal({
               },
               "Couldn't load votes for this page. Try again in a moment.",
             )}
-          </p>
+            onRetry={() => void votesQuery.refetch()}
+          />
         </div>
       )}
 

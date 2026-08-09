@@ -16,6 +16,7 @@
  */
 
 import { useUserDisputes } from "@/hooks/useUserActivity";
+import { LoadFailure } from "@/components/ui/LoadFailure";
 import { humanizeCode } from "@/lib/api/errors";
 import type { MemberDispute } from "@/lib/api/types";
 
@@ -42,9 +43,10 @@ export function DisputesPanel({ handle }: DisputesPanelProps) {
       <article className="bcc-paper">
         <Header />
         <div className="px-8 py-12">
-          <p role="alert" className="bcc-mono text-safety">
-            {/* §γ — copy is keyed on err.code; never render err.message. */}
-            {humanizeCode(
+          <LoadFailure
+            surface="paper"
+            /* §γ — copy is keyed on err.code; never render err.message. */
+            message={humanizeCode(
               query.error,
               {
                 bcc_unauthorized: "Sign in to read disputes.",
@@ -53,7 +55,8 @@ export function DisputesPanel({ handle }: DisputesPanelProps) {
               },
               "Couldn't load disputes. Try again in a moment.",
             )}
-          </p>
+            onRetry={() => void query.refetch()}
+          />
         </div>
       </article>
     );

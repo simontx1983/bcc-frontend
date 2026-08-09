@@ -48,6 +48,7 @@ import {
   USER_GROUPS_QUERY_KEY_ROOT,
   useUserGroups,
 } from "@/hooks/useUserActivity";
+import { LoadFailure } from "@/components/ui/LoadFailure";
 import { humanizeCode } from "@/lib/api/errors";
 import type { UserGroupItem } from "@/lib/api/types";
 import { isAllowed, unlockHint } from "@/lib/permissions";
@@ -75,9 +76,10 @@ export function GroupsPanel({ handle }: GroupsPanelProps) {
       <article className="bcc-paper">
         <Header />
         <div className="px-8 py-12">
-          <p role="alert" className="bcc-mono text-safety">
-            {/* §γ — copy is keyed on err.code; never render err.message. */}
-            {humanizeCode(
+          <LoadFailure
+            surface="paper"
+            /* §γ — copy is keyed on err.code; never render err.message. */
+            message={humanizeCode(
               query.error,
               {
                 bcc_unauthorized: "Sign in to see groups.",
@@ -86,7 +88,8 @@ export function GroupsPanel({ handle }: GroupsPanelProps) {
               },
               "Couldn't load groups. Try again in a moment.",
             )}
-          </p>
+            onRetry={() => void query.refetch()}
+          />
         </div>
       </article>
     );
