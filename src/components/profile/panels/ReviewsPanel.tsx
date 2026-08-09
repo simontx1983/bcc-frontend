@@ -17,6 +17,7 @@
 import { useState } from "react";
 
 import { useUserReviews } from "@/hooks/useUserActivity";
+import { LoadFailure } from "@/components/ui/LoadFailure";
 import { humanizeCode } from "@/lib/api/errors";
 import type { MemberReview } from "@/lib/api/types";
 
@@ -49,9 +50,10 @@ export function ReviewsPanel({ handle }: ReviewsPanelProps) {
       <article className="bcc-paper">
         <Header />
         <div className="px-8 py-12">
-          <p role="alert" className="bcc-mono text-safety">
-            {/* §γ — copy is keyed on err.code; never render err.message. */}
-            {humanizeCode(
+          <LoadFailure
+            surface="paper"
+            /* §γ — copy is keyed on err.code; never render err.message. */
+            message={humanizeCode(
               query.error,
               {
                 bcc_unauthorized: "Sign in to read reviews.",
@@ -60,7 +62,8 @@ export function ReviewsPanel({ handle }: ReviewsPanelProps) {
               },
               "Couldn't load reviews. Try again in a moment.",
             )}
-          </p>
+            onRetry={() => void query.refetch()}
+          />
         </div>
       </article>
     );

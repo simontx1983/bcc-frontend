@@ -19,6 +19,7 @@
 import Link from "next/link";
 
 import { useMyDisputes } from "@/hooks/useDisputes";
+import { LoadFailure } from "@/components/ui/LoadFailure";
 import { humanizeCode } from "@/lib/api/errors";
 import type { Dispute } from "@/lib/api/types";
 
@@ -34,9 +35,10 @@ export function MyDisputesList() {
   if (query.isError) {
     return (
       <div className="bcc-paper p-6">
-        <p role="alert" className="bcc-mono text-safety">
-          {/* §γ — copy is keyed on err.code; never render err.message. */}
-          {humanizeCode(
+        <LoadFailure
+          surface="paper"
+          /* §γ — copy is keyed on err.code; never render err.message. */
+          message={humanizeCode(
             query.error,
             {
               bcc_unauthorized: "Sign in to see your filed disputes.",
@@ -45,7 +47,8 @@ export function MyDisputesList() {
             },
             "Couldn't load your filed disputes. Try again in a moment.",
           )}
-        </p>
+          onRetry={() => void query.refetch()}
+        />
       </div>
     );
   }
