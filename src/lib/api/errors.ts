@@ -6,11 +6,13 @@
  * server's English copy is free to change, but the code surface is part
  * of the public contract (§L5 of `docs/api-contract-v1.md`).
  *
- * This module is two functions. There is no central copy registry —
- * each call site owns its own copy map because UX copy evolves per
- * surface (settings vs composer vs auth). What we centralize is the
- * branching primitive (`isCode`) and the safe code→copy lookup
- * (`humanizeCode`) that REFUSES to fall back to `err.message`.
+ * This module is three small predicates/helpers. There is no central
+ * copy registry — each call site owns its own copy map because UX copy
+ * evolves per surface (settings vs composer vs auth). What we centralize
+ * is the branching primitive (`isCode`), the safe code→copy lookup
+ * (`humanizeCode`) that REFUSES to fall back to `err.message`, and one
+ * narrowly-scoped retryability predicate
+ * (`isNonRetryableFixedReadFailure`).
  *
  * The safety property: every UI string returned by `humanizeCode` is
  * either authored at the call site or the explicit `defaultCopy`
@@ -40,6 +42,45 @@ import { BccApiError } from "@/lib/api/types";
  */
 export function isCode(err: unknown, code: string): boolean {
   return err instanceof BccApiError && err.code === code;
+}
+
+/**
+ * Codes for which re-issuing an *identical* read cannot succeed, so a
+ * failure state must not offer a Retry control. A button that fails the
+ * same way on every press is worse than no button.
+ *
+ * **"Fixed" is load-bearing in the name.** This is only correct for a
+ * read whose request cannot vary between attempts — no page argument,
+ * no filters, no user input. `bcc_invalid_request` is terminal *because*
+ * the identical request will be rejected identically; give the caller a
+ * way to change the request and it stops being terminal.
+ *
+ *   - `bcc_forbidden` (403) — permission boundary; unchanged by repetition.
+ *   - `bcc_not_found` (404) — the resource is gone.
+ *   - `bcc_invalid_request` (400) — the request itself is rejected, so an
+ *     identical retry repeats the same failure.
+ *
+ * Deliberately NOT here:
+ *
+ *   - `bcc_unauthorized` (401) — authentication can recover externally
+ *     (a session refreshed in another tab), after which the same request
+ *     genuinely succeeds.
+ *   - `bcc_rate_limited`, `bcc_unavailable`, `bcc_internal_error`,
+ *     `bcc_peepso_unavailable` — transient by definition.
+ *
+ * **Only valid for reads whose request cannot change between attempts.**
+ * If a call site can repair or vary the request — different page, edited
+ * filters, corrected input — `bcc_invalid_request` may be recoverable
+ * there and this predicate is the wrong tool; branch explicitly instead.
+ */
+const NON_RETRYABLE_FIXED_READ_CODES: ReadonlySet<string> = new Set([
+  "bcc_forbidden",
+  "bcc_not_found",
+  "bcc_invalid_request",
+]);
+
+export function isNonRetryableFixedReadFailure(err: unknown): boolean {
+  return err instanceof BccApiError && NON_RETRYABLE_FIXED_READ_CODES.has(err.code);
 }
 
 /**

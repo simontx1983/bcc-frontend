@@ -15,6 +15,7 @@
 
 import { useEffect, useState } from "react";
 
+import { LoadFailure } from "@/components/ui/LoadFailure";
 import { useMyPrivacy, useUpdateMyPrivacy } from "@/hooks/useMyPrivacy";
 import { humanizeCode } from "@/lib/api/errors";
 import type { MyPrivacySettings } from "@/lib/api/types";
@@ -96,7 +97,7 @@ const SECTIONS: ToggleSection[] = [
 ];
 
 export function PrivacySettingsForm() {
-  const { data, isPending, isError, error } = useMyPrivacy();
+  const { data, isPending, isError, error, refetch } = useMyPrivacy();
   const mutation = useUpdateMyPrivacy();
 
   // Pending-key + last-result tracking so the row can show a tiny
@@ -134,9 +135,9 @@ export function PrivacySettingsForm() {
   if (isError) {
     return (
       <div className="bcc-panel p-6">
-        <p role="alert" className="bcc-mono text-safety">
-          {/* §γ — copy is keyed on err.code; never render err.message. */}
-          {humanizeCode(
+        <LoadFailure
+          /* §γ — copy is keyed on err.code; never render err.message. */
+          message={humanizeCode(
             error,
             {
               bcc_unauthorized: "Sign in to manage your privacy settings.",
@@ -145,7 +146,8 @@ export function PrivacySettingsForm() {
             },
             "Couldn't load privacy settings. Try again in a moment.",
           )}
-        </p>
+          onRetry={() => void refetch()}
+        />
       </div>
     );
   }

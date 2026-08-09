@@ -12,6 +12,7 @@
 import { useState } from "react";
 
 import { Avatar } from "@/components/identity/Avatar";
+import { LoadFailure } from "@/components/ui/LoadFailure";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { useMyBlocks, useUnblockUser } from "@/hooks/useBlocks";
 import { humanizeCode } from "@/lib/api/errors";
@@ -33,9 +34,9 @@ export function BlocksList() {
   if (query.isError) {
     return (
       <div className="bcc-panel p-6">
-        <p role="alert" className="bcc-mono text-safety">
-          {/* §γ — copy is keyed on err.code; never render err.message. */}
-          {humanizeCode(
+        <LoadFailure
+          /* §γ — copy is keyed on err.code; never render err.message. */
+          message={humanizeCode(
             query.error,
             {
               bcc_unauthorized: "Sign in to manage your blocks.",
@@ -44,7 +45,8 @@ export function BlocksList() {
             },
             "Couldn't load your blocks. Try again in a moment.",
           )}
-        </p>
+          onRetry={() => void query.refetch()}
+        />
       </div>
     );
   }
