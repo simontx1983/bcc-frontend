@@ -27,16 +27,20 @@
  * (so three total in the worst case). It's the honest cost of doing
  * wallet-as-credential auth without a session-bridging shortcut.
  *
- * Accessibility:
- *   - role="dialog" + aria-modal + aria-labelledby on the title.
- *   - Initial focus moves to the handle input on open.
- *   - Escape and backdrop click both dismiss.
- *   - Body scroll locked while open so background content doesn't
- *     scroll behind a captured-pointer modal.
+ * Accessibility: supplied by the shared `Dialog` primitive —
+ * role="dialog" + aria-modal, portal, canonical z-band, focus trap,
+ * focus entry and return, body scroll lock, and Escape + backdrop
+ * dismissal. (The scroll lock this comment used to promise was never
+ * actually implemented; Dialog now delivers it.)
+ *
+ * Initial focus still lands on the handle input: `bare` means Dialog
+ * renders no corner close button, so that input remains the panel's
+ * first focusable and Dialog's focus-on-open picks it.
  */
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useState } from "react";
 
+import { Dialog } from "@/components/ui/Dialog";
 import { WalletAuthButton } from "@/components/auth/WalletAuthButton";
 import { checkHandleLocal, formatHandleHint } from "@/lib/auth/handleValidation";
 
@@ -50,9 +54,6 @@ export interface WalletSignupPromptProps {
 }
 
 export function WalletSignupPrompt(props: WalletSignupPromptProps) {
-  const titleId = useId();
-  const handleInputRef = useRef<HTMLInputElement | null>(null);
-
   const [handle, setHandle] = useState(props.initialHandle ?? "");
   const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
@@ -61,139 +62,101 @@ export function WalletSignupPrompt(props: WalletSignupPromptProps) {
   const handleValid = handleErrorKind === null && handle.length >= 3;
   const handleHint = formatHandleHint(handle, handleErrorKind);
 
-  // Initial focus on the handle input. Project convention is no body
-  // scroll lock — the other modals in this codebase (Composer,
-  // ClaimFlow, OpenDisputeModal, EligibleCommunitiesModal, ReportButton)
-  // all skip the lock. Match that until we decide to change the
-  // project-wide standard.
-  useEffect(() => {
-    handleInputRef.current?.focus();
-  }, []);
-
-  // Escape to dismiss. Pin onDismiss in a ref so the listener can bind
-  // once at mount with `[]` deps — without this, the parent passing an
-  // inline arrow makes `props` a new identity every render, churning
-  // the listener on every keystroke. Ref pattern keeps the listener
-  // stable while still calling the latest callback.
-  const dismissRef = useRef(props.onDismiss);
-  dismissRef.current = props.onDismiss;
-  useEffect(() => {
-    function onKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        dismissRef.current();
-      }
-    }
-    window.addEventListener("keydown", onKeyDown);
-    return () => {
-      window.removeEventListener("keydown", onKeyDown);
-    };
-  }, []);
-
   return (
-    <div
-      role="presentation"
-      onClick={(event) => {
-        // Backdrop click dismisses; clicks inside the panel are caught
-        // by the inner stopPropagation below so this only fires on the
-        // backdrop itself.
-        if (event.target === event.currentTarget) {
-          props.onDismiss();
-        }
-      }}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-ink/60 px-4 py-10"
+    // `bare` so the existing bcc-panel shell, its p-8 padding and the
+    // absence of a corner close control all survive untouched — and so
+    // the handle input stays the first focusable. The backdrop keeps its
+    // original 60% tint with no blur; Dialog's default would add both a
+    // heavier tint and backdrop-blur-sm that this surface never had.
+    <Dialog
+      title="Create an account for this wallet"
+      onClose={props.onDismiss}
+      center
+      bare
+      backdropClassName="bg-ink/60"
+      panelClassName="bcc-panel max-w-md p-8"
     >
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-        onClick={(event) => {
-          event.stopPropagation();
-        }}
-        className="bcc-panel w-full max-w-md p-8"
-      >
-        <h2 id={titleId} className="bcc-stencil text-2xl text-bcc-text">
-          Create an account for this wallet
-        </h2>
-        <p className="mt-2 font-serif text-bcc-text-secondary">
-          No BCC account is linked to that wallet yet. Pick a handle and we&apos;ll
-          mint one — your wallet stays the credential.
-        </p>
+      <h2 className="bcc-stencil text-2xl text-bcc-text">
+        Create an account for this wallet
+      </h2>
+      <p className="mt-2 font-serif text-bcc-text-secondary">
+        No BCC account is linked to that wallet yet. Pick a handle and we&apos;ll
+        mint one — your wallet stays the credential.
+      </p>
 
-        <div className="mt-6 flex flex-col gap-4">
-          <label className="flex flex-col gap-1.5">
-            <span className="bcc-mono text-bcc-text-secondary">Handle</span>
-            <div className="flex items-center border border-bcc-input-border bg-bcc-input-bg focus-within:border-bcc-accent focus-within:ring-1 focus-within:ring-bcc-accent">
-              <span className="bcc-mono pl-3 text-bcc-text-secondary">@</span>
-              <input
-                ref={handleInputRef}
-                type="text"
-                required
-                minLength={3}
-                maxLength={20}
-                autoComplete="username"
-                pattern="[a-z0-9\-]{3,20}"
-                value={handle}
-                onChange={(e) => setHandle(e.target.value.toLowerCase())}
-                className="flex-1 bg-transparent px-2 py-2 font-serif text-bcc-text outline-none"
-              />
-            </div>
-            <span
-              className={`bcc-mono ${handleValid ? "text-bcc-text-secondary/70" : "text-safety"}`}
-              role={handleValid ? undefined : "alert"}
-              aria-live="polite"
-            >
-              {handleHint}
-            </span>
-          </label>
-
-          <label className="flex flex-col gap-1.5">
-            <span className="bcc-mono text-bcc-text-secondary">Display name (optional)</span>
+      <div className="mt-6 flex flex-col gap-4">
+        <label className="flex flex-col gap-1.5">
+          <span className="bcc-mono text-bcc-text-secondary">Handle</span>
+          <div className="flex items-center border border-bcc-input-border bg-bcc-input-bg focus-within:border-bcc-accent focus-within:ring-1 focus-within:ring-bcc-accent">
+            <span className="bcc-mono pl-3 text-bcc-text-secondary">@</span>
             <input
               type="text"
-              maxLength={60}
-              value={displayName}
-              onChange={(e) => setDisplayName(e.target.value)}
-              className="border border-bcc-input-border bg-bcc-input-bg px-3 py-2 font-serif text-bcc-text outline-none focus:border-bcc-accent focus:ring-1 focus:ring-bcc-accent"
+              required
+              minLength={3}
+              maxLength={20}
+              autoComplete="username"
+              pattern="[a-z0-9\-]{3,20}"
+              value={handle}
+              onChange={(e) => setHandle(e.target.value.toLowerCase())}
+              className="flex-1 bg-transparent px-2 py-2 font-serif text-bcc-text outline-none"
             />
-          </label>
-
-          <label className="flex flex-col gap-1.5">
-            <span className="bcc-mono text-bcc-text-secondary">Email (optional)</span>
-            <input
-              type="email"
-              autoComplete="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="border border-bcc-input-border bg-bcc-input-bg px-3 py-2 font-serif text-bcc-text outline-none focus:border-bcc-accent focus:ring-1 focus:ring-bcc-accent"
-            />
-            <span className="bcc-mono text-bcc-text-secondary/70">
-              Skipped? We mint a placeholder so password recovery still works if
-              you add one later.
-            </span>
-          </label>
-
-          {/* WalletAuthButton owns the chain selector + the sign-and-post
-              cycle. Disabled until the handle clears local validation —
-              don't burn a Keplr signature on a request the server will
-              reject anyway. */}
-          <WalletAuthButton
-            mode="signup"
-            handle={handle}
-            disabled={!handleValid}
-            {...(displayName.trim() !== "" ? { displayName } : {})}
-            {...(email.trim() !== "" ? { email } : {})}
-            onSuccess={props.onSuccess}
-          />
-
-          <button
-            type="button"
-            onClick={props.onDismiss}
-            className="bcc-mono py-2 text-bcc-text-secondary underline"
+          </div>
+          <span
+            className={`bcc-mono ${handleValid ? "text-bcc-text-secondary/70" : "text-safety"}`}
+            role={handleValid ? undefined : "alert"}
+            aria-live="polite"
           >
-            Cancel
-          </button>
-        </div>
+            {handleHint}
+          </span>
+        </label>
+
+        <label className="flex flex-col gap-1.5">
+          <span className="bcc-mono text-bcc-text-secondary">Display name (optional)</span>
+          <input
+            type="text"
+            maxLength={60}
+            value={displayName}
+            onChange={(e) => setDisplayName(e.target.value)}
+            className="border border-bcc-input-border bg-bcc-input-bg px-3 py-2 font-serif text-bcc-text outline-none focus:border-bcc-accent focus:ring-1 focus:ring-bcc-accent"
+          />
+        </label>
+
+        <label className="flex flex-col gap-1.5">
+          <span className="bcc-mono text-bcc-text-secondary">Email (optional)</span>
+          <input
+            type="email"
+            autoComplete="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="border border-bcc-input-border bg-bcc-input-bg px-3 py-2 font-serif text-bcc-text outline-none focus:border-bcc-accent focus:ring-1 focus:ring-bcc-accent"
+          />
+          <span className="bcc-mono text-bcc-text-secondary/70">
+            Skipped? We mint a placeholder so password recovery still works if
+            you add one later.
+          </span>
+        </label>
+
+        {/* WalletAuthButton owns the chain selector + the sign-and-post
+            cycle. Disabled until the handle clears local validation —
+            don't burn a Keplr signature on a request the server will
+            reject anyway. */}
+        <WalletAuthButton
+          mode="signup"
+          handle={handle}
+          disabled={!handleValid}
+          {...(displayName.trim() !== "" ? { displayName } : {})}
+          {...(email.trim() !== "" ? { email } : {})}
+          onSuccess={props.onSuccess}
+        />
+
+        <button
+          type="button"
+          onClick={props.onDismiss}
+          className="bcc-mono py-2 text-bcc-text-secondary underline"
+        >
+          Cancel
+        </button>
       </div>
-    </div>
+    </Dialog>
   );
 }

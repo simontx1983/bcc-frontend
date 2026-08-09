@@ -40,6 +40,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import type { Route } from "next";
 
+import { Dialog } from "@/components/ui/Dialog";
 import { FilterChipRow } from "@/components/ui/FilterChipRow";
 import { UndoToast, type UndoToastDescriptor } from "@/components/admin/UndoToast";
 import {
@@ -238,14 +239,12 @@ export function ModerationQueue() {
         description: "Open shortcut help",
         run: () => setShortcutsOpen(true),
       },
-      {
-        key: "Escape",
-        description: "Close shortcut help",
-        run: () => {
-          if (shortcutsOpen) setShortcutsOpen(false);
-        },
-        when: () => shortcutsOpen,
-      },
+      // No Escape entry: the shortcut sheet is a Dialog now, and Dialog
+      // owns Escape while it is open. The old registration was gated on
+      // `when: () => shortcutsOpen`, so it could only ever fire in that
+      // exact state — and "Escape" matches none of the other registered
+      // keys, so dropping it cannot let the event fall through to some
+      // other action. SHORTCUT_TABLE still lists Esc; it still works.
       {
         key: "code:Slash",
         label: "/",
@@ -839,46 +838,47 @@ const SHORTCUT_TABLE: Array<{ keys: string; description: string }> = [
 
 function ShortcutOverlay({ onClose }: ShortcutOverlayProps) {
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-label="Keyboard shortcuts"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-ink/70 p-4"
-      onClick={onClose}
+    // `bare` keeps the existing panel and CLOSE control byte-for-byte;
+    // Dialog contributes the portal, focus trap, Escape, scroll lock and
+    // the canonical z-band (this sheet used to render at z-50, beneath
+    // the site header). The backdrop is pinned to the original bg-ink/70
+    // with no blur — Dialog's default would add backdrop-blur-sm.
+    <Dialog
+      title="Keyboard shortcuts"
+      onClose={onClose}
+      center
+      bare
+      backdropClassName="bg-ink/70"
+      panelClassName="bcc-panel flex max-w-md flex-col gap-4 p-6"
     >
-      <div
-        className="bcc-panel relative flex w-full max-w-md flex-col gap-4 p-6"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <header className="flex items-baseline justify-between gap-3">
-          <h2 className="bcc-stencil text-2xl text-bcc-text">Keyboard shortcuts</h2>
-          <button
-            type="button"
-            onClick={onClose}
-            className="bcc-mono text-[10px] tracking-[0.18em] text-bcc-text-secondary hover:text-bcc-text"
-            aria-label="Close shortcut sheet"
+      <header className="flex items-baseline justify-between gap-3">
+        <h2 className="bcc-stencil text-2xl text-bcc-text">Keyboard shortcuts</h2>
+        <button
+          type="button"
+          onClick={onClose}
+          className="bcc-mono text-[10px] tracking-[0.18em] text-bcc-text-secondary hover:text-bcc-text"
+          aria-label="Close shortcut sheet"
+        >
+          CLOSE
+        </button>
+      </header>
+      <ul className="flex flex-col divide-y divide-bcc-border">
+        {SHORTCUT_TABLE.map((row) => (
+          <li
+            key={row.keys}
+            className="flex items-center justify-between gap-3 py-2"
           >
-            CLOSE
-          </button>
-        </header>
-        <ul className="flex flex-col divide-y divide-bcc-border">
-          {SHORTCUT_TABLE.map((row) => (
-            <li
-              key={row.keys}
-              className="flex items-center justify-between gap-3 py-2"
-            >
-              <kbd className="bcc-mono inline-flex min-w-[60px] justify-center rounded-sm border border-bcc-border bg-bcc-surface-hover px-2 py-1 text-[11px] not-italic text-bcc-text">
-                {row.keys}
-              </kbd>
-              <span className="font-serif text-bcc-text-secondary">{row.description}</span>
-            </li>
-          ))}
-        </ul>
-        <p className="bcc-mono text-[10px] tracking-[0.18em] text-bcc-text-secondary/70">
-          Letter shortcuts are suppressed while typing in inputs.
-        </p>
-      </div>
-    </div>
+            <kbd className="bcc-mono inline-flex min-w-[60px] justify-center rounded-sm border border-bcc-border bg-bcc-surface-hover px-2 py-1 text-[11px] not-italic text-bcc-text">
+              {row.keys}
+            </kbd>
+            <span className="font-serif text-bcc-text-secondary">{row.description}</span>
+          </li>
+        ))}
+      </ul>
+      <p className="bcc-mono text-[10px] tracking-[0.18em] text-bcc-text-secondary/70">
+        Letter shortcuts are suppressed while typing in inputs.
+      </p>
+    </Dialog>
   );
 }
 
