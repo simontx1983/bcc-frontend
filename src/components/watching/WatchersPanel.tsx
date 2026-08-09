@@ -35,6 +35,7 @@ import { CardGrid } from "@/components/cards/CardGrid";
 import { CardGridSkeleton } from "@/components/cards/CardGridSkeleton";
 import { PagerNav } from "@/components/ui/PagerNav";
 import { FOLLOWS_DEFAULT_LIMIT, useUserFollowers } from "@/hooks/useUserActivity";
+import { LoadFailure } from "@/components/ui/LoadFailure";
 import { humanizeCode } from "@/lib/api/errors";
 import type { UserFollowsResponse } from "@/lib/api/types";
 
@@ -95,26 +96,32 @@ export function WatchersPanel({
     }
   }, [query.isSuccess, total, items.length, page, onPageChange]);
 
-  if (query.isError) {
+  // §γ — copy is keyed on err.code; never render err.message.
+  const failureCopy = humanizeCode(
+    query.error,
+    {
+      bcc_unauthorized: "Sign in to see your watchers.",
+      bcc_rate_limited: "Loading too fast — give it a moment and try again.",
+      bcc_unavailable: "Your watchers are temporarily unavailable. Try again shortly.",
+    },
+    "Couldn't load your watchers. Try again in a moment.",
+  );
+
+  const pagination = query.data?.pagination ?? lastPagination;
+
+  // Full-panel failure only on a FIRST load, where there is no pager to
+  // preserve. Each page is its own query key, so a failed page N>1 has no
+  // `data` — but `lastPagination` still holds the last good page, and this
+  // branch used to return before reaching it. That stranded the operator:
+  // the grid, the pager and the way back to page N-1 all disappeared
+  // together. Below, a failed page change keeps the pager mounted.
+  if (query.isError && pagination === undefined) {
     return (
       <section className="mt-12">
-        <p role="alert" className="bcc-mono text-safety">
-          {/* §γ — copy is keyed on err.code; never render err.message. */}
-          {humanizeCode(
-            query.error,
-            {
-              bcc_unauthorized: "Sign in to see your watchers.",
-              bcc_rate_limited: "Loading too fast — give it a moment and try again.",
-              bcc_unavailable: "Your watchers are temporarily unavailable. Try again shortly.",
-            },
-            "Couldn't load your watchers. Try again in a moment.",
-          )}
-        </p>
+        <LoadFailure message={failureCopy} onRetry={() => void query.refetch()} />
       </section>
     );
   }
-
-  const pagination = query.data?.pagination ?? lastPagination;
 
   // First load — nothing successful to frame the skeleton with yet, so
   // no pager. (On a *page change* `lastPagination` is populated and we
@@ -125,8 +132,8 @@ export function WatchersPanel({
 
   // Terminal empty state only once the query has settled — during a page
   // transition `items` is empty simply because the next page is in
-  // flight.
-  if (!query.isPending && items.length === 0) {
+  // flight. A failed page is NOT empty; it is handled beside the pager.
+  if (!query.isPending && !query.isError && items.length === 0) {
     return (
       <section className="mt-12">
         <div className="bcc-panel mx-auto max-w-xl p-8 text-center">
@@ -146,7 +153,11 @@ export function WatchersPanel({
 
   return (
     <div className="mt-10">
-      {query.isPending ? (
+      {query.isError ? (
+        // Only the grid is swapped — the pager below stays mounted, so
+        // PREV is still there to get back to a page that works.
+        <LoadFailure message={failureCopy} onRetry={() => void query.refetch()} />
+      ) : query.isPending ? (
         <CardGridSkeleton ariaLabel="Loading your watchers" />
       ) : (
         <CardGrid cards={items} />
