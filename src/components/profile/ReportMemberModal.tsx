@@ -16,14 +16,17 @@
  *      we render as a friendly terminal "ALREADY ON FILE" state rather
  *      than an error.
  *
- * No portal: renders inline as a fixed-position overlay. ESC +
- * backdrop-click both close. Auto-closes ~1.4s after the thank-you
- * state. Reduced-motion safe (no animation here; transitions are
- * motion-gated globally).
+ * Shell: the shared `Dialog` primitive in `bare` mode — it supplies the
+ * portal, role/aria-modal, canonical z-band, focus trap, focus entry and
+ * return, scroll lock, Escape and backdrop dismissal, while this module
+ * keeps its own panel surface, padding and CLOSE control unchanged.
+ * Auto-closes ~1.4s after the thank-you state. Reduced-motion safe (no
+ * animation here; transitions are motion-gated globally).
  */
 
 import { useEffect, useState } from "react";
 
+import { Dialog } from "@/components/ui/Dialog";
 import { useReportUser } from "@/hooks/useReportUser";
 import { humanizeCode } from "@/lib/api/errors";
 import {
@@ -77,15 +80,6 @@ export function ReportMemberModal({ reportedUserId, onClose }: ReportMemberModal
     },
   });
 
-  // ESC closes.
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [onClose]);
-
   // Auto-close after the thank-you state.
   useEffect(() => {
     if (submittedState === null) return;
@@ -116,146 +110,134 @@ export function ReportMemberModal({ reportedUserId, onClose }: ReportMemberModal
   };
 
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="bcc-report-member-modal-title"
-      className="fixed inset-0 z-[110] flex items-center justify-center px-4"
+    // `bare` keeps this modal's own panel + CLOSE control exactly as they
+    // were; Dialog contributes only the backdrop and the modal behaviour.
+    // Backdrop tint is pinned to the original bg-ink/70 with no blur —
+    // Dialog's default adds backdrop-blur-sm, which this surface never had.
+    <Dialog
+      title="Report this member"
+      onClose={onClose}
+      center
+      bare
+      backdropClassName="bg-ink/70"
+      panelClassName="bcc-panel flex max-h-[90vh] max-w-md flex-col overflow-y-auto p-4 sm:p-6"
     >
-      {/* Backdrop */}
-      <button
-        type="button"
-        aria-label="Close report dialog"
-        onClick={onClose}
-        className="absolute inset-0 bg-ink/70"
-      />
-
-      <div className="bcc-panel relative z-10 flex max-h-[90vh] w-full max-w-md flex-col overflow-y-auto p-4 sm:p-6">
-        {submittedState !== null ? (
-          <div className="flex flex-col items-center gap-2 py-4 text-center">
-            <h2
-              id="bcc-report-member-modal-title"
-              className="bcc-stencil text-2xl text-bcc-text"
-            >
-              Thank you.
+      {submittedState !== null ? (
+        <div className="flex flex-col items-center gap-2 py-4 text-center">
+          <h2 className="bcc-stencil text-2xl text-bcc-text">Thank you.</h2>
+          <p className="bcc-mono text-[11px] tracking-[0.18em] text-bcc-text-secondary">
+            {submittedState === "existing" ? "ALREADY ON FILE" : "REPORT SUBMITTED"}
+          </p>
+        </div>
+      ) : (
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          <header className="flex items-baseline justify-between gap-3">
+            <h2 className="bcc-stencil text-xl text-bcc-text">
+              Report this member
             </h2>
-            <p className="bcc-mono text-[11px] tracking-[0.18em] text-bcc-text-secondary">
-              {submittedState === "existing" ? "ALREADY ON FILE" : "REPORT SUBMITTED"}
+            <button
+              type="button"
+              onClick={onClose}
+              className="bcc-mono text-[10px] tracking-[0.18em] text-bcc-text-secondary hover:text-bcc-text"
+            >
+              CLOSE
+            </button>
+          </header>
+
+          <fieldset className="flex flex-col gap-2">
+            <legend className="bcc-mono mb-1 text-[10px] tracking-[0.24em] text-bcc-text-secondary">
+              REASON
+            </legend>
+            {REASONS.map((opt) => {
+              const checked = reason === opt.code;
+              return (
+                <label
+                  key={opt.code}
+                  className={
+                    "flex min-h-[44px] cursor-pointer items-start gap-3 border-2 px-3 py-2 transition " +
+                    (checked
+                      ? "border-bcc-accent bg-bcc-surface-hover"
+                      : "border-bcc-border hover:border-bcc-border-strong")
+                  }
+                >
+                  <input
+                    type="radio"
+                    name="bcc-report-member-reason"
+                    value={opt.code}
+                    checked={checked}
+                    onChange={() => setReason(opt.code)}
+                    className="mt-1"
+                  />
+                  <div className="flex flex-col gap-0.5">
+                    <span className="font-serif text-bcc-text">{opt.label}</span>
+                    <span className="bcc-mono text-[10px] text-bcc-text-secondary">
+                      {opt.blurb}
+                    </span>
+                  </div>
+                </label>
+              );
+            })}
+          </fieldset>
+
+          <label className="flex flex-col gap-1">
+            <span className="bcc-mono text-[10px] tracking-[0.18em] text-bcc-text-secondary">
+              DESCRIPTION {detailRequired ? "(required)" : "(optional)"}
+            </span>
+            <textarea
+              value={detail}
+              onChange={(e) => {
+                setDetail(e.target.value);
+                if (errorText !== null) setErrorText(null);
+              }}
+              rows={3}
+              maxLength={USER_REPORT_DETAIL_MAX_LENGTH + 100}
+              placeholder={
+                detailRequired
+                  ? "What did this member do?"
+                  : "Add context if it helps."
+              }
+              className="bcc-mono w-full resize-y rounded-sm border border-bcc-input-border bg-bcc-input-bg px-3 py-2 text-bcc-text placeholder:text-bcc-text-placeholder focus:border-bcc-accent focus:outline-none focus:ring-1 focus:ring-bcc-accent"
+            />
+            <span
+              className={
+                "bcc-mono text-[10px] " + (overCap ? "text-safety" : "text-bcc-text-secondary")
+              }
+            >
+              {detail.length} / {USER_REPORT_DETAIL_MAX_LENGTH}
+            </span>
+          </label>
+
+          {errorText !== null && (
+            <p role="alert" className="bcc-mono text-[11px] text-safety">
+              {errorText}
             </p>
+          )}
+
+          <div className="flex flex-wrap items-center justify-end gap-3">
+            <button
+              type="button"
+              onClick={onClose}
+              className="bcc-mono border-2 border-bcc-border px-4 py-2 text-[11px] tracking-[0.18em] text-bcc-text-secondary hover:border-bcc-border-strong hover:text-bcc-text"
+            >
+              CANCEL
+            </button>
+            <button
+              type="submit"
+              disabled={!canSubmit}
+              aria-disabled={!canSubmit}
+              className={
+                "bcc-stencil rounded-sm px-5 py-2 text-[12px] tracking-[0.2em] transition " +
+                (canSubmit
+                  ? "bg-ink text-cardstock hover:bg-blueprint"
+                  : "cursor-not-allowed bg-bcc-surface-active text-bcc-text-muted")
+              }
+            >
+              {mutation.isPending ? "Sending…" : "SUBMIT REPORT"}
+            </button>
           </div>
-        ) : (
-          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-            <header className="flex items-baseline justify-between gap-3">
-              <h2
-                id="bcc-report-member-modal-title"
-                className="bcc-stencil text-xl text-bcc-text"
-              >
-                Report this member
-              </h2>
-              <button
-                type="button"
-                onClick={onClose}
-                className="bcc-mono text-[10px] tracking-[0.18em] text-bcc-text-secondary hover:text-bcc-text"
-              >
-                CLOSE
-              </button>
-            </header>
-
-            <fieldset className="flex flex-col gap-2">
-              <legend className="bcc-mono mb-1 text-[10px] tracking-[0.24em] text-bcc-text-secondary">
-                REASON
-              </legend>
-              {REASONS.map((opt) => {
-                const checked = reason === opt.code;
-                return (
-                  <label
-                    key={opt.code}
-                    className={
-                      "flex min-h-[44px] cursor-pointer items-start gap-3 border-2 px-3 py-2 transition " +
-                      (checked
-                        ? "border-bcc-accent bg-bcc-surface-hover"
-                        : "border-bcc-border hover:border-bcc-border-strong")
-                    }
-                  >
-                    <input
-                      type="radio"
-                      name="bcc-report-member-reason"
-                      value={opt.code}
-                      checked={checked}
-                      onChange={() => setReason(opt.code)}
-                      className="mt-1"
-                    />
-                    <div className="flex flex-col gap-0.5">
-                      <span className="font-serif text-bcc-text">{opt.label}</span>
-                      <span className="bcc-mono text-[10px] text-bcc-text-secondary">
-                        {opt.blurb}
-                      </span>
-                    </div>
-                  </label>
-                );
-              })}
-            </fieldset>
-
-            <label className="flex flex-col gap-1">
-              <span className="bcc-mono text-[10px] tracking-[0.18em] text-bcc-text-secondary">
-                DESCRIPTION {detailRequired ? "(required)" : "(optional)"}
-              </span>
-              <textarea
-                value={detail}
-                onChange={(e) => {
-                  setDetail(e.target.value);
-                  if (errorText !== null) setErrorText(null);
-                }}
-                rows={3}
-                maxLength={USER_REPORT_DETAIL_MAX_LENGTH + 100}
-                placeholder={
-                  detailRequired
-                    ? "What did this member do?"
-                    : "Add context if it helps."
-                }
-                className="bcc-mono w-full resize-y rounded-sm border border-bcc-input-border bg-bcc-input-bg px-3 py-2 text-bcc-text placeholder:text-bcc-text-placeholder focus:border-bcc-accent focus:outline-none focus:ring-1 focus:ring-bcc-accent"
-              />
-              <span
-                className={
-                  "bcc-mono text-[10px] " + (overCap ? "text-safety" : "text-bcc-text-secondary")
-                }
-              >
-                {detail.length} / {USER_REPORT_DETAIL_MAX_LENGTH}
-              </span>
-            </label>
-
-            {errorText !== null && (
-              <p role="alert" className="bcc-mono text-[11px] text-safety">
-                {errorText}
-              </p>
-            )}
-
-            <div className="flex flex-wrap items-center justify-end gap-3">
-              <button
-                type="button"
-                onClick={onClose}
-                className="bcc-mono border-2 border-bcc-border px-4 py-2 text-[11px] tracking-[0.18em] text-bcc-text-secondary hover:border-bcc-border-strong hover:text-bcc-text"
-              >
-                CANCEL
-              </button>
-              <button
-                type="submit"
-                disabled={!canSubmit}
-                aria-disabled={!canSubmit}
-                className={
-                  "bcc-stencil rounded-sm px-5 py-2 text-[12px] tracking-[0.2em] transition " +
-                  (canSubmit
-                    ? "bg-ink text-cardstock hover:bg-blueprint"
-                    : "cursor-not-allowed bg-bcc-surface-active text-bcc-text-muted")
-                }
-              >
-                {mutation.isPending ? "Sending…" : "SUBMIT REPORT"}
-              </button>
-            </div>
-          </form>
-        )}
-      </div>
-    </div>
+      </form>
+    )}
+    </Dialog>
   );
 }
 

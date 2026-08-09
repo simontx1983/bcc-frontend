@@ -2494,19 +2494,17 @@
 
 /* ─── SIGN OUT MODAL ─────────────────────────────────────────────────────── */
 
-.bcc-signout-scrim {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.55);
-  z-index: 390;
-}
+/* `.bcc-signout-scrim` used to live here. SignOutModal now composes the
+   shared Dialog primitive, whose backdrop replaces it — reproduced
+   exactly as `bg-bcc-black/55` (rgba(0,0,0,0.55), no blur). */
 
+/* Appearance only. Placement — position/top/left/transform/z-index — was
+   removed when SignOutModal moved onto Dialog: the primitive centers the
+   panel in its own flex backdrop, and a `position: fixed` here would
+   break that. Applied via Dialog's `panelClassName` under `bare`, so the
+   radius, border and clipping below are unchanged from the hand-rolled
+   version. */
 .bcc-signout-modal {
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  z-index: 400;
   width: 100%;
   max-width: 360px;
   border-radius: var(--bcc-radius-xl);
