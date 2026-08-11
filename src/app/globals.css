@@ -1042,7 +1042,7 @@
   .bcc-offcanvas-identity-handle {
     font-family: var(--font-mono), monospace;
     font-size: 11px;
-    color: var(--bcc-text-muted);
+    color: var(--bcc-text-secondary);
     letter-spacing: 0.04em;
     margin-top: 1px;
   }
@@ -1053,7 +1053,7 @@
     border-radius: var(--bcc-radius-md);
     border: 1px solid var(--bcc-border);
     background: transparent;
-    color: var(--bcc-text-muted);
+    color: var(--bcc-text-secondary);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1176,7 +1176,7 @@
     font-size: 10px;
     letter-spacing: 0.18em;
     text-transform: uppercase;
-    color: var(--bcc-text-muted);
+    color: var(--bcc-text-secondary);
     padding: 16px 24px 6px;
   }
 
@@ -1756,7 +1756,7 @@
   .bcc-tab-count {
     font-family: var(--font-mono), monospace;
     font-size: 10px;
-    color: var(--bcc-text-muted);
+    color: var(--bcc-text-secondary);
     font-weight: 400;
     letter-spacing: 0.04em;
   }
@@ -1969,7 +1969,7 @@
   padding: 12px 16px;
   font-family: var(--font-mono), monospace;
   font-size: 11px;
-  color: var(--bcc-text-muted);
+  color: var(--bcc-text-secondary);
   letter-spacing: 0.05em;
   /* Blurred until the visitor actually scrolls to the end of the page
      content — see MinimalShell.tsx's sentinel/IntersectionObserver.
@@ -2091,7 +2091,7 @@
   border-radius: var(--bcc-radius-md);
   border: 1px solid var(--bcc-border);
   background: transparent;
-  color: var(--bcc-text-muted);
+  color: var(--bcc-text-secondary);
   cursor: pointer;
   transition: color 150ms ease, background 150ms ease, border-color 150ms ease;
 }
@@ -2132,7 +2132,7 @@
 .bcc-auth-subheading {
   font-family: var(--font-serif), serif;
   font-size: 14px;
-  color: var(--bcc-text-muted);
+  color: var(--bcc-text-secondary);
   margin: 6px 0 0;
   line-height: 1.5;
 }
@@ -2150,7 +2150,7 @@
   text-align: center;
   font-family: var(--font-serif), serif;
   font-size: 13px;
-  color: var(--bcc-text-muted);
+  color: var(--bcc-text-secondary);
 }
 .bcc-auth-card-footer a {
   color: var(--bcc-accent);
@@ -2225,7 +2225,7 @@
   font-family: var(--font-mono), monospace;
   font-size: 11px;
   letter-spacing: 0.06em;
-  color: var(--bcc-text-muted);
+  color: var(--bcc-text-secondary);
   text-transform: uppercase;
 }
 
@@ -2260,7 +2260,7 @@
   box-shadow: 0 0 0 3px var(--bcc-accent-subtle);
 }
 .bcc-auth-input::placeholder {
-  color: var(--bcc-text-muted);
+  color: var(--bcc-text-secondary);
   opacity: 0.5;
 }
 
@@ -2314,7 +2314,7 @@
   font-family: var(--font-mono), monospace;
   font-size: 11px;
   letter-spacing: 0.03em;
-  color: var(--bcc-text-muted);
+  color: var(--bcc-text-secondary);
   text-decoration: none;
   transition: color 150ms ease;
 }
@@ -2352,7 +2352,7 @@
 .bcc-auth-success-body {
   font-family: var(--font-serif), serif;
   font-size: 13px;
-  color: var(--bcc-text-muted);
+  color: var(--bcc-text-secondary);
   line-height: 1.5;
   max-width: 300px;
 }
@@ -2370,7 +2370,7 @@
   padding: 0 8px 0 12px;
   font-family: var(--font-mono), monospace;
   font-size: 13px;
-  color: var(--bcc-text-muted);
+  color: var(--bcc-text-secondary);
   user-select: none;
 }
 .bcc-auth-handle-input {
@@ -2384,7 +2384,7 @@
 .bcc-auth-hint {
   font-family: var(--font-mono), monospace;
   font-size: 11px;
-  color: var(--bcc-text-muted);
+  color: var(--bcc-text-secondary);
   margin-top: 4px;
 }
 .bcc-auth-hint--error {
@@ -2472,7 +2472,7 @@
   border: none;
   padding: 4px;
   cursor: pointer;
-  color: var(--bcc-text-muted);
+  color: var(--bcc-text-secondary);
   display: flex;
   align-items: center;
   transition: color 150ms ease;
@@ -4131,7 +4131,7 @@
 }
 .bcc-ldg-marquee-track span {
   font-family: var(--font-mono), monospace; font-size: 11px; letter-spacing: 0.16em;
-  color: var(--bcc-text-muted); text-transform: uppercase;
+  color: var(--bcc-text-secondary); text-transform: uppercase;
   display: inline-flex; gap: 10px; align-items: center;
 }
 /* Specificity must beat `.bcc-ldg-marquee-track span` above (class+tag) —
@@ -4206,7 +4206,7 @@
 .bcc-ldg-stats { display: flex; gap: 22px; margin-top: 34px; flex-wrap: wrap; }
 .bcc-ldg-stats > div { font-family: var(--font-mono), monospace; }
 .bcc-ldg-stats .n { font-family: var(--font-stencil), Impact, sans-serif; font-size: 2.1rem; color: var(--bcc-text); line-height: 1; letter-spacing: 0.02em; }
-.bcc-ldg-stats .k { font-size: 9.5px; letter-spacing: 0.16em; color: var(--bcc-text-muted); text-transform: uppercase; margin-top: 6px; }
+.bcc-ldg-stats .k { font-size: 9.5px; letter-spacing: 0.16em; color: var(--bcc-text-secondary); text-transform: uppercase; margin-top: 6px; }
 
 /* the live ledger */
 .bcc-ldg-ledger {
@@ -4243,7 +4243,7 @@
 .bcc-ldg-row-l1 { font-family: var(--font-mono), monospace; font-size: 12px; color: var(--bcc-text); letter-spacing: 0.02em; }
 .bcc-ldg-row-l1 .h { color: var(--bcc-accent); }
 .bcc-ldg-row-l1 .v { color: var(--bcc-text-secondary); }
-.bcc-ldg-row-l2 { font-family: var(--font-mono), monospace; font-size: 9.5px; letter-spacing: 0.13em; text-transform: uppercase; color: var(--bcc-text-muted); margin-top: 3px; }
+.bcc-ldg-row-l2 { font-family: var(--font-mono), monospace; font-size: 9.5px; letter-spacing: 0.13em; text-transform: uppercase; color: var(--bcc-text-secondary); margin-top: 3px; }
 .bcc-ldg-tag { font-family: var(--font-mono), monospace; font-size: 9px; letter-spacing: 0.1em; padding: 2px 7px; border-radius: var(--bcc-radius-full); border: 1px solid currentColor; margin-left: 6px; }
 @keyframes bcc-ldg-rise { from { transform: translateY(0); } to { transform: translateY(-50%); } }
 
@@ -4280,7 +4280,7 @@
   transform: scaleY(0); transform-origin: top; transition: transform 0.4s var(--bcc-ldg-ease);
 }
 .bcc-ldg-step:hover::before { transform: scaleY(1); }
-.bcc-ldg-step .s { font-family: var(--font-mono), monospace; font-size: 9.5px; letter-spacing: 0.16em; color: var(--bcc-text-muted); text-transform: uppercase; }
+.bcc-ldg-step .s { font-family: var(--font-mono), monospace; font-size: 9.5px; letter-spacing: 0.16em; color: var(--bcc-text-secondary); text-transform: uppercase; }
 .bcc-ldg-step h4 { font-family: var(--font-stencil), Impact, sans-serif; font-size: 1.5rem; text-transform: uppercase; margin: 8px 0 8px; line-height: 1; }
 .bcc-ldg-step p { font-size: 0.86rem; color: var(--bcc-text-secondary); margin: 0; line-height: 1.45; }
 .bcc-ldg-step .arrow { color: var(--bcc-accent); }
@@ -4340,7 +4340,7 @@
 .bcc-ldg-closing h2 { font-family: var(--font-stencil), Impact, sans-serif; font-size: clamp(2.8rem, 8vw, 6rem); text-transform: uppercase; line-height: 0.88; margin: 0 0 6px; }
 .bcc-ldg-closing p { color: var(--bcc-text-secondary); max-width: 44ch; margin: 18px auto 0; }
 .bcc-ldg-closing .bcc-ldg-cta { justify-content: center; }
-.bcc-ldg-signed { display: block; margin-top: 46px; font-family: var(--font-script), var(--font-serif), serif; font-style: italic; color: var(--bcc-text-muted); transform: rotate(-2deg); font-size: 1.15rem; }
+.bcc-ldg-signed { display: block; margin-top: 46px; font-family: var(--font-script), var(--font-serif), serif; font-style: italic; color: var(--bcc-text-secondary); transform: rotate(-2deg); font-size: 1.15rem; }
 
 @media (prefers-reduced-motion: reduce) {
   .bcc-ldg-root *,
@@ -4401,7 +4401,7 @@
 .bcc-onb-lede b { color: var(--bcc-text); font-weight: 600; }
 .bcc-onb-lede a { color: var(--bcc-accent); text-decoration: none; }
 .bcc-onb-lede a:hover { text-decoration: underline; }
-.bcc-onb-note { font-family: var(--font-mono), monospace; font-size: var(--bcc-font-size-caption); letter-spacing: 0.04em; color: var(--bcc-text-muted); margin: 14px 0 0; }
+.bcc-onb-note { font-family: var(--font-mono), monospace; font-size: var(--bcc-font-size-caption); letter-spacing: 0.04em; color: var(--bcc-text-secondary); margin: 14px 0 0; }
 
 /* Surfaces */
 .bcc-onb-panel { border: 1px solid var(--bcc-border); border-radius: var(--bcc-radius-lg); background: var(--bcc-surface-raised); padding: clamp(18px, 3vw, 28px); }
@@ -4459,7 +4459,7 @@
   display: flex; align-items: center; justify-content: center;
 }
 .bcc-onb-id-cover img { width: 100%; height: 100%; object-fit: cover; }
-.bcc-onb-id-cover-empty { font-family: var(--font-mono), monospace; font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--bcc-text-muted); }
+.bcc-onb-id-cover-empty { font-family: var(--font-mono), monospace; font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--bcc-text-secondary); }
 .bcc-onb-id-avatar {
   position: relative; width: 96px; height: 96px; border-radius: var(--bcc-radius-full);
   overflow: hidden; border: 3px solid var(--bcc-surface); background: var(--bcc-surface-hover);
@@ -4467,7 +4467,7 @@
   display: flex; align-items: center; justify-content: center;
 }
 .bcc-onb-id-avatar img { width: 100%; height: 100%; object-fit: cover; }
-.bcc-onb-id-avatar-empty { font-family: var(--font-stencil), Impact, sans-serif; font-size: 2rem; color: var(--bcc-text-muted); }
+.bcc-onb-id-avatar-empty { font-family: var(--font-stencil), Impact, sans-serif; font-size: 2rem; color: var(--bcc-text-secondary); }
 .bcc-onb-id-media-btn {
   position: absolute; font-family: var(--font-mono), monospace; font-size: 9px; letter-spacing: 0.14em;
   text-transform: uppercase; padding: 6px 10px; border-radius: var(--bcc-radius-sm);
@@ -4572,7 +4572,7 @@
 .bcc-tour-pop-nav { display: flex; align-items: center; gap: 8px; }
 .bcc-tour-pop-skip { font-family: var(--font-mono), monospace; font-size: 11px; letter-spacing: 0.06em; background: none; border: none; color: var(--bcc-text-muted); cursor: pointer; padding: 6px 2px; }
 .bcc-tour-pop-skip:hover { color: var(--bcc-text-secondary); text-decoration: underline; text-underline-offset: 3px; }
-.bcc-tour-pop-dsa { display: flex; align-items: center; gap: 7px; margin-top: 12px; font-family: var(--font-mono), monospace; font-size: 10.5px; letter-spacing: 0.04em; color: var(--bcc-text-muted); cursor: pointer; }
+.bcc-tour-pop-dsa { display: flex; align-items: center; gap: 7px; margin-top: 12px; font-family: var(--font-mono), monospace; font-size: 10.5px; letter-spacing: 0.04em; color: var(--bcc-text-secondary); cursor: pointer; }
 .bcc-tour-pop-dsa input { width: 14px; height: 14px; accent-color: var(--bcc-accent); cursor: pointer; }
 .bcc-tour-pop.is-center .bcc-tour-pop-dsa { justify-content: center; }
 
