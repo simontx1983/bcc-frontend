@@ -20,6 +20,7 @@ import type { Route } from "next";
 import { CardGrid } from "@/components/cards/CardGrid";
 import { Avatar } from "@/components/identity/Avatar";
 import { useCardWatchers } from "@/hooks/useCardTabs";
+import { LoadFailure } from "@/components/ui/LoadFailure";
 import { humanizeCode } from "@/lib/api/errors";
 import type {
   Card,
@@ -91,6 +92,7 @@ export function CardWatchersPanel({
           setSeenOffset(nextSeen);
         }}
         onLoadMore={(next) => setOffset(next)}
+        onRetry={() => void query.refetch()}
       />
     </article>
   );
@@ -116,31 +118,41 @@ interface BodyProps {
   isClaimed: boolean;
   onAccumulate: (next: Card[], seen: number) => void;
   onLoadMore: (nextOffset: number) => void;
+  /** Refetches THIS panel's watchers query at the current offset. Kept as
+   *  a narrow callback rather than widening `query` to the full result,
+   *  so the child cannot reach any other query. */
+  onRetry: () => void;
 }
 
 function Body(props: BodyProps) {
   const { query, offset, accumulated, seenOffset, view, cardName, isClaimed } = props;
 
-  if (query.isError && query.error !== null) {
+  const failed = query.isError && query.error !== null;
+  // §γ — copy is keyed on err.code; never render err.message.
+  const failureCopy = humanizeCode(
+    query.error,
+    {
+      bcc_unauthorized: "Sign in to see watchers.",
+      bcc_rate_limited: "Loading too fast — give it a moment and try again.",
+      bcc_unavailable: "Watchers are temporarily unavailable. Try again shortly.",
+    },
+    "Couldn't load watchers. Try again in a moment.",
+  );
+
+  // Whole-body failure ONLY with nothing accumulated. A failed LOAD MORE
+  // keeps the watchers already read — that case is handled at the foot of
+  // the list, below, so the roster and its view toggle survive.
+  if (failed && accumulated.length === 0) {
     return (
-      <div className="px-8 py-12">
-        <p role="alert" className="bcc-mono text-safety">
-          {/* §γ — copy is keyed on err.code; never render err.message. */}
-          {humanizeCode(
-            query.error,
-            {
-              bcc_unauthorized: "Sign in to see watchers.",
-              bcc_rate_limited: "Loading too fast — give it a moment and try again.",
-              bcc_unavailable: "Watchers are temporarily unavailable. Try again shortly.",
-            },
-            "Couldn't load watchers. Try again in a moment.",
-          )}
-        </p>
-      </div>
+      <LoadFailure
+        surface="paper"
+        message={failureCopy}
+        onRetry={props.onRetry}
+      />
     );
   }
 
-  if (query.isPending) {
+  if (query.isPending && accumulated.length === 0) {
     return (
       <div className="px-8 py-12">
         <p className="bcc-mono text-ink-soft">Loading watchers…</p>
@@ -149,16 +161,18 @@ function Body(props: BodyProps) {
   }
 
   const page = query.data;
-  if (page === undefined) {
+  if (page === undefined && accumulated.length === 0) {
     return null;
   }
 
-  if (seenOffset !== offset) {
+  // `seenOffset` stays authoritative: a failed offset never records
+  // itself, so a retry appends exactly that offset — no duplicate, no skip.
+  if (page !== undefined && seenOffset !== offset) {
     const next = offset === 0 ? page.items : [...accumulated, ...page.items];
     props.onAccumulate(next, offset);
   }
 
-  if (accumulated.length === 0) {
+  if (!failed && accumulated.length === 0) {
     return (
       <EmptyState
         kicker="NO WATCHERS"
@@ -172,8 +186,9 @@ function Body(props: BodyProps) {
     );
   }
 
-  const hasMore = page.pagination.has_more;
-  const nextOffset = page.pagination.offset + page.items.length;
+  const hasMore = page !== undefined && page.pagination.has_more;
+  const nextOffset =
+    page !== undefined ? page.pagination.offset + page.items.length : offset;
 
   return (
     <div className="px-5 py-5">
@@ -181,7 +196,7 @@ function Body(props: BodyProps) {
         className="bcc-mono mb-3 text-ink-soft"
         style={{ fontSize: "10px", letterSpacing: "0.24em" }}
       >
-        {page.pagination.total} ON FILE
+        {page?.pagination.total ?? accumulated.length} ON FILE
       </p>
 
       {view === "grid" ? (
@@ -194,17 +209,28 @@ function Body(props: BodyProps) {
         </ul>
       )}
 
-      {hasMore && (
-        <div className="mt-6 text-center">
-          <button
-            type="button"
-            onClick={() => props.onLoadMore(nextOffset)}
-            className="bcc-mono border border-ink/30 bg-cardstock px-4 py-2 text-ink"
-            style={{ fontSize: "10px", letterSpacing: "0.18em" }}
-          >
-            LOAD MORE
-          </button>
-        </div>
+      {/* Cursor safety: LOAD MORE is withdrawn while this offset is
+          failing — advancing would skip the offset that failed. Retry
+          refetches that same offset; paging resumes once it succeeds. */}
+      {failed ? (
+        <LoadFailure
+          surface="paper"
+          message={failureCopy}
+          onRetry={props.onRetry}
+        />
+      ) : (
+        hasMore && (
+          <div className="mt-6 text-center">
+            <button
+              type="button"
+              onClick={() => props.onLoadMore(nextOffset)}
+              className="bcc-mono border border-ink/30 bg-cardstock px-4 py-2 text-ink"
+              style={{ fontSize: "10px", letterSpacing: "0.18em" }}
+            >
+              LOAD MORE
+            </button>
+          </div>
+        )
       )}
     </div>
   );

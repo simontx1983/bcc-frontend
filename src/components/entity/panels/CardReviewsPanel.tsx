@@ -31,6 +31,7 @@ import Link from "next/link";
 import type { Route } from "next";
 
 import { useCardReviews } from "@/hooks/useCardTabs";
+import { LoadFailure } from "@/components/ui/LoadFailure";
 import { humanizeCode } from "@/lib/api/errors";
 import type {
   CardReview,
@@ -53,29 +54,35 @@ export function CardReviewsPanel({ kind, cardId, cardName }: CardReviewsPanelPro
   const [accumulated, setAccumulated] = useState<CardReview[]>([]);
   const [seenPage, setSeenPage] = useState<number | null>(null);
 
-  if (query.isError) {
+  // §γ — copy is keyed on err.code; never render err.message.
+  const failureCopy = humanizeCode(
+    query.error,
+    {
+      bcc_unauthorized: "Sign in to read reviews.",
+      bcc_rate_limited: "Loading too fast — give it a moment and try again.",
+      bcc_unavailable: "Reviews are temporarily unavailable. Try again shortly.",
+    },
+    "Couldn't load reviews. Try again in a moment.",
+  );
+
+  // Whole-panel failure ONLY when nothing has accumulated. A failed LOAD
+  // MORE keeps `accumulated` in state, and returning here would throw the
+  // already-read reviews away; that case is handled at the foot of the
+  // list instead.
+  if (query.isError && accumulated.length === 0) {
     return (
       <article className="bcc-paper">
         <Header cardName={cardName} />
-        <div className="px-8 py-12">
-          <p role="alert" className="bcc-mono text-safety">
-            {/* §γ — copy is keyed on err.code; never render err.message. */}
-            {humanizeCode(
-              query.error,
-              {
-                bcc_unauthorized: "Sign in to read reviews.",
-                bcc_rate_limited: "Loading too fast — give it a moment and try again.",
-                bcc_unavailable: "Reviews are temporarily unavailable. Try again shortly.",
-              },
-              "Couldn't load reviews. Try again in a moment.",
-            )}
-          </p>
-        </div>
+        <LoadFailure
+          surface="paper"
+          message={failureCopy}
+          onRetry={() => void query.refetch()}
+        />
       </article>
     );
   }
 
-  if (query.isPending) {
+  if (query.isPending && accumulated.length === 0) {
     return (
       <article className="bcc-paper">
         <Header cardName={cardName} />
@@ -87,7 +94,9 @@ export function CardReviewsPanel({ kind, cardId, cardName }: CardReviewsPanelPro
   }
 
   const data = query.data;
-  if (seenPage !== page) {
+  // `seenPage` stays authoritative: a failed page never records itself, so
+  // a later retry appends exactly that page — no duplicate, no skip.
+  if (data !== undefined && seenPage !== page) {
     if (page === 1) {
       setAccumulated(data.items);
     } else {
@@ -96,7 +105,7 @@ export function CardReviewsPanel({ kind, cardId, cardName }: CardReviewsPanelPro
     setSeenPage(page);
   }
 
-  if (accumulated.length === 0) {
+  if (!query.isError && accumulated.length === 0) {
     return (
       <article className="bcc-paper">
         <Header cardName={cardName} />
@@ -109,11 +118,12 @@ export function CardReviewsPanel({ kind, cardId, cardName }: CardReviewsPanelPro
     );
   }
 
-  const hasMore = data.pagination.page < data.pagination.total_pages;
+  const hasMore =
+    data !== undefined && data.pagination.page < data.pagination.total_pages;
 
   return (
     <article className="bcc-paper">
-      <Header cardName={cardName} total={data.pagination.total} />
+      <Header cardName={cardName} {...(data !== undefined ? { total: data.pagination.total } : {})} />
       <div className="px-5 py-5">
         <ul className="divide-y divide-ink/10 border-y border-ink/10">
           {accumulated.map((review) => (
@@ -121,17 +131,29 @@ export function CardReviewsPanel({ kind, cardId, cardName }: CardReviewsPanelPro
           ))}
         </ul>
 
-        {hasMore && (
-          <div className="mt-6 text-center">
-            <button
-              type="button"
-              onClick={() => setPage(page + 1)}
-              className="bcc-mono text-safety hover:underline"
-              style={{ fontSize: "10px", letterSpacing: "0.18em" }}
-            >
-              LOAD MORE →
-            </button>
-          </div>
+        {/* Cursor safety: while the current page is failing, LOAD MORE is
+            withdrawn — advancing would skip past the page that failed.
+            Retry refetches that same page, and ordinary paging returns
+            once it succeeds. */}
+        {query.isError ? (
+          <LoadFailure
+            surface="paper"
+            message={failureCopy}
+            onRetry={() => void query.refetch()}
+          />
+        ) : (
+          hasMore && (
+            <div className="mt-6 text-center">
+              <button
+                type="button"
+                onClick={() => setPage(page + 1)}
+                className="bcc-mono text-safety hover:underline"
+                style={{ fontSize: "10px", letterSpacing: "0.18em" }}
+              >
+                LOAD MORE →
+              </button>
+            </div>
+          )
         )}
       </div>
     </article>
