@@ -35,6 +35,7 @@ import type { Route } from "next";
 import { CardGrid } from "@/components/cards/CardGrid";
 import { Avatar } from "@/components/identity/Avatar";
 import { useUserFollowers, useUserFollowing } from "@/hooks/useUserActivity";
+import { LoadFailure } from "@/components/ui/LoadFailure";
 import { humanizeCode } from "@/lib/api/errors";
 import type { BccApiError, Card, UserFollowsResponse } from "@/lib/api/types";
 
@@ -227,6 +228,7 @@ function FollowersList({
       offset={offset}
       view={view}
       onLoadMore={(next) => setOffset(next)}
+      onRetry={() => void query.refetch()}
       emptyKicker="NO WATCHERS"
       emptyHeading="Nobody is watching yet."
       emptyHint={`${displayName} hasn't picked up watchers yet — the watchers list grows when other members start tracking them.`}
@@ -252,6 +254,7 @@ function FollowingList({
       offset={offset}
       view={view}
       onLoadMore={(next) => setOffset(next)}
+      onRetry={() => void query.refetch()}
       emptyKicker="NO ONE ON FILE"
       emptyHeading={`${displayName} isn't keeping tabs on anyone.`}
       emptyHint="When this member watches somebody on the floor, that person shows up here."
@@ -275,6 +278,10 @@ interface RosterListProps {
   offset: number;
   view: RosterView;
   onLoadMore: (nextOffset: number) => void;
+  /** Refetches THIS roster's own query at the current offset. A narrow
+   *  callback rather than the full query result, so followers and
+   *  following cannot reach — or refetch — each other. */
+  onRetry: () => void;
   emptyKicker: string;
   emptyHeading: string;
   emptyHint: string;
@@ -304,26 +311,32 @@ function RosterList(props: RosterListProps) {
     );
   }
 
-  if (query.isError && queryError !== null) {
+  const failed = query.isError && queryError !== null;
+  // §γ — copy is keyed on err.code; never render err.message.
+  const failureCopy = humanizeCode(
+    queryError,
+    {
+      bcc_unauthorized: "Sign in to see this list.",
+      bcc_rate_limited: "Loading too fast — give it a moment and try again.",
+      bcc_unavailable: "This list is temporarily unavailable. Try again shortly.",
+    },
+    "Couldn't load this list. Try again in a moment.",
+  );
+
+  // Whole-body failure ONLY with nothing accumulated. A failed LOAD MORE
+  // keeps the members already read; that case is handled at the foot of
+  // the list below.
+  if (failed && accumulated.length === 0) {
     return (
-      <div className="px-8 py-12">
-        <p role="alert" className="bcc-mono text-safety">
-          {/* §γ — copy is keyed on err.code; never render err.message. */}
-          {humanizeCode(
-            queryError,
-            {
-              bcc_unauthorized: "Sign in to see this list.",
-              bcc_rate_limited: "Loading too fast — give it a moment and try again.",
-              bcc_unavailable: "This list is temporarily unavailable. Try again shortly.",
-            },
-            "Couldn't load this list. Try again in a moment.",
-          )}
-        </p>
-      </div>
+      <LoadFailure
+        surface="paper"
+        message={failureCopy}
+        onRetry={props.onRetry}
+      />
     );
   }
 
-  if (query.isPending) {
+  if (query.isPending && accumulated.length === 0) {
     return (
       <div className="px-8 py-12">
         <p className="bcc-mono text-ink-soft">Loading…</p>
@@ -332,14 +345,16 @@ function RosterList(props: RosterListProps) {
   }
 
   const page = query.data;
-  if (page === undefined) {
+  if (page === undefined && accumulated.length === 0) {
     return null;
   }
 
   // Append-on-paginate: capture each page's items once and accumulate.
   // Cheaper than a useEffect for an interactive Load More that drives
   // the offset deterministically.
-  if (seenOffset !== offset) {
+  // `seenOffset` stays authoritative: a failed offset never records
+  // itself, so a retry appends exactly that offset — no duplicate, no skip.
+  if (page !== undefined && seenOffset !== offset) {
     if (offset === 0) {
       setAccumulated(page.items);
     } else {
@@ -348,7 +363,7 @@ function RosterList(props: RosterListProps) {
     setSeenOffset(offset);
   }
 
-  if (accumulated.length === 0) {
+  if (!failed && accumulated.length === 0) {
     return (
       <EmptyState
         kicker={props.emptyKicker}
@@ -358,8 +373,9 @@ function RosterList(props: RosterListProps) {
     );
   }
 
-  const hasMore = page.pagination.has_more;
-  const nextOffset = page.pagination.offset + page.items.length;
+  const hasMore = page !== undefined && page.pagination.has_more;
+  const nextOffset =
+    page !== undefined ? page.pagination.offset + page.items.length : offset;
 
   return (
     <div className="px-5 py-5">
@@ -367,7 +383,7 @@ function RosterList(props: RosterListProps) {
         className="bcc-mono mb-3 text-ink-soft"
         style={{ fontSize: "10px", letterSpacing: "0.24em" }}
       >
-        {page.pagination.total} ON FILE
+        {page?.pagination.total ?? accumulated.length} ON FILE
       </p>
 
       {props.view === "grid" ? (
@@ -385,17 +401,28 @@ function RosterList(props: RosterListProps) {
         </ul>
       )}
 
-      {hasMore && (
-        <div className="mt-6 text-center">
-          <button
-            type="button"
-            onClick={() => props.onLoadMore(nextOffset)}
-            className="bcc-mono border border-ink/30 bg-cardstock px-4 py-2 text-ink"
-            style={{ fontSize: "10px", letterSpacing: "0.18em" }}
-          >
-            LOAD MORE
-          </button>
-        </div>
+      {/* Cursor safety: LOAD MORE is withdrawn while this offset is
+          failing — advancing would skip the offset that failed. Retry
+          refetches that same offset; paging resumes once it succeeds. */}
+      {failed ? (
+        <LoadFailure
+          surface="paper"
+          message={failureCopy}
+          onRetry={props.onRetry}
+        />
+      ) : (
+        hasMore && (
+          <div className="mt-6 text-center">
+            <button
+              type="button"
+              onClick={() => props.onLoadMore(nextOffset)}
+              className="bcc-mono border border-ink/30 bg-cardstock px-4 py-2 text-ink"
+              style={{ fontSize: "10px", letterSpacing: "0.18em" }}
+            >
+              LOAD MORE
+            </button>
+          </div>
+        )
       )}
     </div>
   );
