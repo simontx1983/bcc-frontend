@@ -14,12 +14,13 @@ import type { Route } from "next";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { useMemo, Suspense } from "react";
+import { useEffect, useMemo, useState, Suspense } from "react";
 
 import { ConversationList } from "@/components/messages/ConversationList";
 import { QueuedMessagesList } from "@/components/messages/QueuedMessagesList";
 import { useConversations } from "@/hooks/useConversations";
 import { useQueuedMessages } from "@/hooks/useQueuedMessages";
+import { LoadFailure } from "@/components/ui/LoadFailure";
 import { humanizeCode } from "@/lib/api/errors";
 
 const PER_PAGE = 20;
@@ -52,6 +53,23 @@ function MessagesPageContent() {
     perPage: PER_PAGE,
     enabled: isAuthed && activeTab === "queued",
   });
+
+  // Two independent retention slots — the tabs are separate queries and
+  // their failures must not affect one another. Each holds its own last
+  // good pagination so a failed page keeps that tab's pager, leaving PREV
+  // available instead of stranding the user on a dead page.
+  const [lastInboxPages, setLastInboxPages] = useState<number | undefined>(undefined);
+  const [lastQueuedPages, setLastQueuedPages] = useState<number | undefined>(undefined);
+  useEffect(() => {
+    if (query.data !== undefined) {
+      setLastInboxPages(query.data.pagination.total_pages);
+    }
+  }, [query.data]);
+  useEffect(() => {
+    if (queuedQuery.data !== undefined) {
+      setLastQueuedPages(queuedQuery.data.pagination.total_pages);
+    }
+  }, [queuedQuery.data]);
 
   // Pagination is per-tab; switching tabs resets to page 1.
   const goToPage = (next: number) => {
@@ -102,23 +120,35 @@ function MessagesPageContent() {
             )}
 
             {query.isError && (
-              <div className="bcc-paper p-6">
-                <p role="alert" className="bcc-mono text-safety">
-                  {/* §γ — copy is keyed on err.code; never render err.message. */}
-                  {humanizeCode(
-                    query.error,
-                    {
-                      bcc_unauthorized:
-                        "Your session expired — sign in again to read your messages.",
-                      bcc_rate_limited:
-                        "Too many refreshes — give it a moment and try again.",
-                      bcc_unavailable:
-                        "Messages are temporarily unavailable. Try again shortly.",
-                    },
-                    "Couldn't load your inbox. Try again in a moment.",
-                  )}
-                </p>
-              </div>
+              <>
+                <div className="bcc-paper p-6">
+                  <LoadFailure
+                    surface="paper"
+                    /* §γ — copy is keyed on err.code; never render err.message. */
+                    message={humanizeCode(
+                      query.error,
+                      {
+                        bcc_unauthorized:
+                          "Your session expired — sign in again to read your messages.",
+                        bcc_rate_limited:
+                          "Too many refreshes — give it a moment and try again.",
+                        bcc_unavailable:
+                          "Messages are temporarily unavailable. Try again shortly.",
+                      },
+                      "Couldn't load your inbox. Try again in a moment.",
+                    )}
+                    onRetry={() => void query.refetch()}
+                  />
+                </div>
+
+                {lastInboxPages !== undefined && (
+                  <Pagination
+                    page={urlPage}
+                    totalPages={lastInboxPages}
+                    onPage={goToPage}
+                  />
+                )}
+              </>
             )}
 
             {query.isSuccess && query.data.items.length === 0 && <InboxEmpty />}
@@ -143,22 +173,35 @@ function MessagesPageContent() {
             )}
 
             {queuedQuery.isError && (
-              <div className="bcc-paper p-6">
-                <p role="alert" className="bcc-mono text-safety">
-                  {humanizeCode(
-                    queuedQuery.error,
-                    {
-                      bcc_unauthorized:
-                        "Your session expired — sign in again to see your queued messages.",
-                      bcc_rate_limited:
-                        "Too many refreshes — give it a moment and try again.",
-                      bcc_unavailable:
-                        "Queued messages are temporarily unavailable. Try again shortly.",
-                    },
-                    "Couldn't load your queued messages. Try again in a moment.",
-                  )}
-                </p>
-              </div>
+              <>
+                <div className="bcc-paper p-6">
+                  <LoadFailure
+                    surface="paper"
+                    /* §γ — copy is keyed on err.code; never render err.message. */
+                    message={humanizeCode(
+                      queuedQuery.error,
+                      {
+                        bcc_unauthorized:
+                          "Your session expired — sign in again to see your queued messages.",
+                        bcc_rate_limited:
+                          "Too many refreshes — give it a moment and try again.",
+                        bcc_unavailable:
+                          "Queued messages are temporarily unavailable. Try again shortly.",
+                      },
+                      "Couldn't load your queued messages. Try again in a moment.",
+                    )}
+                    onRetry={() => void queuedQuery.refetch()}
+                  />
+                </div>
+
+                {lastQueuedPages !== undefined && (
+                  <Pagination
+                    page={urlPage}
+                    totalPages={lastQueuedPages}
+                    onPage={goToPage}
+                  />
+                )}
+              </>
             )}
 
             {queuedQuery.isSuccess && queuedQuery.data.items.length === 0 && <QueuedEmpty />}

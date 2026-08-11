@@ -21,8 +21,10 @@ import { useEffect, useMemo, useRef, useState, Suspense } from "react";
 import { CardGrid } from "@/components/cards/CardGrid";
 import { PagerNav } from "@/components/ui/PagerNav";
 import { useMembers } from "@/hooks/useMembers";
+import { LoadFailure } from "@/components/ui/LoadFailure";
 import { humanizeCode } from "@/lib/api/errors";
 import type {
+  MembersResponse,
   MembersTypeCounts,
   MembersTypeFilter,
   MembersVerifiedAxis,
@@ -148,6 +150,19 @@ function MembersPageContent() {
     verified: urlVerified,
   });
 
+  // Last good pagination, held locally so a failed page keeps its pager.
+  // Not solved with `placeholderData` on the hook: `useMembers` is shared
+  // with other surfaces, and changing its caching semantics would reach
+  // past this page. Same reasoning as WatchersPanel.
+  const [lastPagination, setLastPagination] = useState<
+    MembersResponse["pagination"] | undefined
+  >(undefined);
+  useEffect(() => {
+    if (query.data !== undefined) {
+      setLastPagination(query.data.pagination);
+    }
+  }, [query.data]);
+
   const goToPage = (next: number) => {
     pushToUrl(router, {
       page: next,
@@ -242,20 +257,38 @@ function MembersPageContent() {
         )}
 
         {query.isError && (
-          <div className="bcc-paper p-6">
-            <p role="alert" className="bcc-mono text-safety">
-              {/* §γ — copy is keyed on err.code; never render err.message. */}
-              {humanizeCode(
-                query.error,
-                {
-                  bcc_unauthorized: "Sign in to browse the roster.",
-                  bcc_rate_limited: "Loading too fast — give it a moment and try again.",
-                  bcc_unavailable: "The roster is temporarily unavailable. Try again shortly.",
-                },
-                "Couldn't load the roster. Try again in a moment.",
-              )}
-            </p>
-          </div>
+          <>
+            <div className="bcc-paper p-6">
+              <LoadFailure
+                surface="paper"
+                /* §γ — copy is keyed on err.code; never render err.message. */
+                message={humanizeCode(
+                  query.error,
+                  {
+                    bcc_unauthorized: "Sign in to browse the roster.",
+                    bcc_rate_limited: "Loading too fast — give it a moment and try again.",
+                    bcc_unavailable: "The roster is temporarily unavailable. Try again shortly.",
+                  },
+                  "Couldn't load the roster. Try again in a moment.",
+                )}
+                onRetry={() => void query.refetch()}
+              />
+            </div>
+
+            {/* A failed page must not strand the operator. `page` is in the
+                query key and the hook has no placeholderData, so a failed
+                page N carries no data and this pager would otherwise unmount
+                — taking PREV with it and leaving the URL as the only way
+                back. Rendered at the requested page against the last good
+                total, so PREV steps to a page that worked. */}
+            {lastPagination !== undefined && (
+              <PagerNav
+                page={urlPage}
+                totalPages={lastPagination.total_pages}
+                onPageChange={goToPage}
+              />
+            )}
+          </>
         )}
 
         {query.isSuccess &&
