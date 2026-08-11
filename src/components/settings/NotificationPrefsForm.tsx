@@ -32,7 +32,8 @@ import {
   useUpdateNotificationPrefs,
 } from "@/hooks/useNotificationPrefs";
 import { usePushSubscription } from "@/hooks/usePushSubscription";
-import { humanizeCode } from "@/lib/api/errors";
+import { LoadFailure } from "@/components/ui/LoadFailure";
+import { humanizeCode, isNonRetryableFixedReadFailure } from "@/lib/api/errors";
 import type {
   BellEventType,
   NotificationPrefs,
@@ -258,20 +259,36 @@ export function NotificationPrefsForm() {
     mutation.mutate(patch);
   };
 
+  // Error is checked BEFORE loading on purpose. `draft` is seeded from
+  // `query.data`, so it stays null whenever the read failed — which made
+  // the old loading guard (`isLoading || draft === null`) swallow the
+  // error branch below it entirely and leave "Loading your preferences…"
+  // on screen forever. Order matters here; don't flip it back. Same
+  // correction as MessagesPrefsForm.
+  if (query.isError) {
+    return (
+      <div className="bcc-panel p-6">
+        <LoadFailure
+          // Keeps the "what failed" prefix — the humanizer returns the
+          // bare reason, which reads as orphaned without it.
+          message={`Couldn't load your notification preferences: ${humanizeReadError(query.error)}`}
+          // `useNotificationPrefs()` takes no request parameters, so a
+          // retry re-issues an identical GET — the terminal codes cannot
+          // resolve. Conditional spread because `exactOptionalPropertyTypes`
+          // rejects `onRetry={undefined}`.
+          {...(isNonRetryableFixedReadFailure(query.error)
+            ? {}
+            : { onRetry: () => void query.refetch() })}
+        />
+      </div>
+    );
+  }
+
   if (query.isLoading || draft === null) {
     return (
       <div className="bcc-panel p-6">
         <p className="bcc-mono text-[11px] text-bcc-text-secondary/70">
           Loading your preferences…
-        </p>
-      </div>
-    );
-  }
-  if (query.isError) {
-    return (
-      <div className="bcc-panel p-6">
-        <p role="alert" className="bcc-mono text-[11px] text-safety">
-          Couldn&apos;t load your notification preferences. Refresh and try again.
         </p>
       </div>
     );
@@ -578,6 +595,25 @@ function humanizeError(err: unknown): string {
       bcc_rate_limited: "Saving too fast — try again in a moment.",
     },
     "Couldn't save these preferences. Try again.",
+  );
+}
+
+// Read-failure copy is deliberately separate from the save copy above:
+// `humanizeError` says "couldn't save", which is simply untrue when the
+// initial GET failed. Returns the bare reason; the call site supplies
+// the "Couldn't load your notification preferences: " prefix.
+function humanizeReadError(err: unknown): string {
+  // §γ — keyed on err.code; unmapped codes fall back to generic copy,
+  // never the server's raw err.message.
+  return humanizeCode(
+    err,
+    {
+      bcc_unauthorized: "Sign in required.",
+      bcc_rate_limited: "Loading too fast — give it a moment.",
+      bcc_unavailable: "The server is temporarily unavailable.",
+      bcc_internal_error: "Server error.",
+    },
+    "Something went wrong.",
   );
 }
 
