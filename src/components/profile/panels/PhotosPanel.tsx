@@ -31,6 +31,7 @@ import { useState } from "react";
 import { isWpMediaUrl } from "@/lib/media";
 
 import { useAlbumPhotos, useUserActivity, useUserAlbums } from "@/hooks/useUserActivity";
+import { LoadFailure } from "@/components/ui/LoadFailure";
 import { humanizeCode } from "@/lib/api/errors";
 import { SKELETON_CLASS } from "@/components/ui/Skeleton";
 import type { AlbumPhoto, FeedItem, PhotoBody, UserAlbum } from "@/lib/api/types";
@@ -183,6 +184,46 @@ function SubTabStrip({
 function AllPhotos({ handle, isOwner }: { handle: string; isOwner: boolean }) {
   const query = useUserActivity(handle);
 
+  // §γ — copy is keyed on err.code; never render err.message.
+  const failureCopy = humanizeCode(
+    query.error,
+    {
+      bcc_unauthorized: "Sign in to see photos.",
+      bcc_rate_limited: "Loading too fast — give it a moment and try again.",
+      bcc_unavailable: "Photos are temporarily unavailable. Try again shortly.",
+    },
+    "Couldn't load photos. Try again in a moment.",
+  );
+
+  // Two different failures need two different recoveries, so they are
+  // discriminated with React Query's own infinite-query flags rather
+  // than a blanket `isError` (which is true for both):
+  //
+  //   isLoadingError       — the FIRST fetch failed; there is nothing to
+  //                          keep, and the fix is refetch().
+  //   isFetchNextPageError — a LOAD MORE failed; `data.pages` still holds
+  //                          every page already fetched, and the fix is
+  //                          fetchNextPage() to resume that same cursor.
+  //                          refetch() here would discard and re-request
+  //                          every loaded page.
+  //   isRefetchError       — a REFRESH of the already-loaded pages failed.
+  //                          Reachable: this key is invalidated by the
+  //                          composer, comment and create-post mutations
+  //                          and by useSetPhotoAlt, and refetchOnMount /
+  //                          refetchOnReconnect are both on by default.
+  //                          Pages are retained, so the fix is refetch()
+  //                          — NOT fetchNextPage(), which would append a
+  //                          page instead of refreshing.
+  if (query.isLoadingError) {
+    return (
+      <LoadFailure
+        surface="paper"
+        message={failureCopy}
+        onRetry={() => void query.refetch()}
+      />
+    );
+  }
+
   if (query.isPending) {
     return (
       <div className="px-5 py-5">
@@ -199,29 +240,12 @@ function AllPhotos({ handle, isOwner }: { handle: string; isOwner: boolean }) {
     );
   }
 
-  if (query.isError) {
-    return (
-      <div className="px-8 py-12">
-        <p role="alert" className="bcc-mono text-safety">
-          {/* §γ — copy is keyed on err.code; never render err.message. */}
-          {humanizeCode(
-            query.error,
-            {
-              bcc_unauthorized: "Sign in to see photos.",
-              bcc_rate_limited: "Loading too fast — give it a moment and try again.",
-              bcc_unavailable: "Photos are temporarily unavailable. Try again shortly.",
-            },
-            "Couldn't load photos. Try again in a moment.",
-          )}
-        </p>
-      </div>
-    );
-  }
-
   const allItems = query.data.pages.flatMap((page) => page.items);
   const photoItems = allItems.filter(isPhotoItem);
 
-  if (photoItems.length === 0) {
+  // Empty stays success-only: neither a failed next page nor a failed
+  // refresh is an empty album.
+  if (photoItems.length === 0 && !query.isError) {
     return <AllPhotosEmpty isOwner={isOwner} />;
   }
 
@@ -236,18 +260,43 @@ function AllPhotos({ handle, isOwner }: { handle: string; isOwner: boolean }) {
         ))}
       </ul>
 
-      {query.hasNextPage && (
-        <div className="mt-6 text-center">
-          <button
-            type="button"
-            onClick={() => { void query.fetchNextPage(); }}
-            disabled={query.isFetchingNextPage}
-            className="bcc-mono border border-ink/30 bg-cardstock px-4 py-2 text-ink disabled:cursor-not-allowed disabled:opacity-60"
-            style={{ fontSize: "10px", letterSpacing: "0.18em" }}
-          >
-            {query.isFetchingNextPage ? "LOADING…" : "LOAD MORE"}
-          </button>
-        </div>
+      {/* A failed REFRESH is not a failed cursor. The retained pages and
+          the cursor derived from the last of them are still coherent, so
+          advancing cannot skip anything — LOAD MORE deliberately stays
+          available here, and the recovery control refetches. */}
+      {query.isRefetchError && (
+        <LoadFailure
+          surface="paper"
+          message={failureCopy}
+          onRetry={() => void query.refetch()}
+        />
+      )}
+
+      {/* Cursor safety: while the NEXT cursor is failed, LOAD MORE is
+          withdrawn so it cannot advance past — and skip — the page that
+          failed. Retry resumes that same cursor via fetchNextPage();
+          ordinary paging returns once the query is progressing again and
+          there is still a next page. */}
+      {query.isFetchNextPageError ? (
+        <LoadFailure
+          surface="paper"
+          message={failureCopy}
+          onRetry={() => void query.fetchNextPage()}
+        />
+      ) : (
+        query.hasNextPage && (
+          <div className="mt-6 text-center">
+            <button
+              type="button"
+              onClick={() => { void query.fetchNextPage(); }}
+              disabled={query.isFetchingNextPage}
+              className="bcc-mono border border-ink/30 bg-cardstock px-4 py-2 text-ink disabled:cursor-not-allowed disabled:opacity-60"
+              style={{ fontSize: "10px", letterSpacing: "0.18em" }}
+            >
+              {query.isFetchingNextPage ? "LOADING…" : "LOAD MORE"}
+            </button>
+          </div>
+        )
       )}
     </div>
   );
@@ -385,27 +434,32 @@ function AlbumsGrid({
     );
   }
 
-  if (query.isError) {
+  // Unpaged, but NOT first-load-only: refetchOnMount and
+  // refetchOnReconnect are both on by default, so a remount with stale
+  // data (sub-tab switch, >30s) can fail with the grid already loaded.
+  // Whole-panel failure therefore only when nothing was ever loaded.
+  if (query.isError && query.data === undefined) {
     return (
-      <div className="px-8 py-12">
-        <p role="alert" className="bcc-mono text-safety">
-          {/* §γ — copy is keyed on err.code; never render err.message. */}
-          {humanizeCode(
-            query.error,
-            {
-              bcc_unauthorized: "Sign in to see albums.",
-              bcc_rate_limited: "Loading too fast — give it a moment and try again.",
-              bcc_unavailable: "Albums are temporarily unavailable. Try again shortly.",
-            },
-            "Couldn't load albums. Try again in a moment.",
-          )}
-        </p>
-      </div>
+      <LoadFailure
+        surface="paper"
+        /* §γ — copy is keyed on err.code; never render err.message. */
+        message={humanizeCode(
+          query.error,
+          {
+            bcc_unauthorized: "Sign in to see albums.",
+            bcc_rate_limited: "Loading too fast — give it a moment and try again.",
+            bcc_unavailable: "Albums are temporarily unavailable. Try again shortly.",
+          },
+          "Couldn't load albums. Try again in a moment.",
+        )}
+        onRetry={() => void query.refetch()}
+      />
     );
   }
 
-  const albums = query.data.items;
-  if (albums.length === 0) {
+  const albums = query.data?.items ?? [];
+  // Empty stays success-only — a failed refresh is not an empty shelf.
+  if (albums.length === 0 && !query.isError) {
     return <AlbumsEmpty handle={handle} isOwner={isOwner} />;
   }
 
@@ -419,6 +473,24 @@ function AlbumsGrid({
           <AlbumTile key={album.id} album={album} onOpen={onOpen} />
         ))}
       </ul>
+
+      {/* A failed refresh keeps the loaded shelf and localises the
+          recovery beneath it. */}
+      {query.isError && (
+        <LoadFailure
+          surface="paper"
+          message={humanizeCode(
+            query.error,
+            {
+              bcc_unauthorized: "Sign in to see albums.",
+              bcc_rate_limited: "Loading too fast — give it a moment and try again.",
+              bcc_unavailable: "Albums are temporarily unavailable. Try again shortly.",
+            },
+            "Couldn't load albums. Try again in a moment.",
+          )}
+          onRetry={() => void query.refetch()}
+        />
+      )}
     </div>
   );
 }
@@ -518,22 +590,34 @@ function AlbumDetail({
         <p className="bcc-mono mt-6 text-ink-soft">Loading photos…</p>
       )}
 
+      {/* Keyed on albumId, so switching albums changes the key and no
+          failure or data can bleed across selections. The header and back
+          navigation render above and are unaffected either way.
+
+          Not first-load-only: refetchOnMount / refetchOnReconnect are on
+          by default, so a remount with stale data can fail with photos
+          already loaded. The recovery is localised below the grid in that
+          case, and the loaded photos stay on screen. */}
       {query.isError && (
-        <p role="alert" className="bcc-mono mt-6 text-safety">
-          {/* §γ — copy is keyed on err.code; never render err.message. */}
-          {humanizeCode(
-            query.error,
-            {
-              bcc_unauthorized: "Sign in to see photos.",
-              bcc_rate_limited: "Loading too fast — give it a moment and try again.",
-              bcc_unavailable: "Photos are temporarily unavailable. Try again shortly.",
-            },
-            "Couldn't load photos. Try again in a moment.",
-          )}
-        </p>
+        <div className="mt-6">
+          <LoadFailure
+            surface="paper"
+            /* §γ — copy is keyed on err.code; never render err.message. */
+            message={humanizeCode(
+              query.error,
+              {
+                bcc_unauthorized: "Sign in to see photos.",
+                bcc_rate_limited: "Loading too fast — give it a moment and try again.",
+                bcc_unavailable: "Photos are temporarily unavailable. Try again shortly.",
+              },
+              "Couldn't load photos. Try again in a moment.",
+            )}
+            onRetry={() => void query.refetch()}
+          />
+        </div>
       )}
 
-      {query.isSuccess && query.data.items.length === 0 && (
+      {query.data !== undefined && query.data.items.length === 0 && !query.isError && (
         <p
           className="bcc-mono mt-6 text-ink-soft"
           style={{ fontSize: "11px", letterSpacing: "0.18em" }}
@@ -542,7 +626,7 @@ function AlbumDetail({
         </p>
       )}
 
-      {query.isSuccess && query.data.items.length > 0 && (
+      {query.data !== undefined && query.data.items.length > 0 && (
         <ul
           className="mt-6 grid gap-2"
           style={{ gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))" }}
