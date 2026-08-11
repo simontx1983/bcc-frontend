@@ -20,12 +20,14 @@
  */
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useMemo, Suspense } from "react";
+import { useEffect, useMemo, useState, Suspense } from "react";
 
 import { CardGrid } from "@/components/cards/CardGrid";
 import { PagerNav } from "@/components/ui/PagerNav";
 import { useMembers } from "@/hooks/useMembers";
+import { LoadFailure } from "@/components/ui/LoadFailure";
 import { humanizeCode } from "@/lib/api/errors";
+import type { MembersResponse } from "@/lib/api/types";
 
 const PER_PAGE = 24;
 
@@ -44,6 +46,19 @@ function MentorsPageContent() {
     perPage: PER_PAGE,
     mentors: true,
   });
+
+  // Last good pagination, held locally so a failed page keeps its pager.
+  // Not solved with `placeholderData` on the hook: `useMembers` is shared
+  // with /members and other surfaces, so changing its caching semantics
+  // would reach past this page. Same reasoning as WatchersPanel.
+  const [lastPagination, setLastPagination] = useState<
+    MembersResponse["pagination"] | undefined
+  >(undefined);
+  useEffect(() => {
+    if (query.data !== undefined) {
+      setLastPagination(query.data.pagination);
+    }
+  }, [query.data]);
 
   const goToPage = (next: number) => {
     router.replace(next > 1 ? `/mentors?page=${next}` : "/mentors", {
@@ -83,22 +98,37 @@ function MentorsPageContent() {
         )}
 
         {query.isError && (
-          <div className="bcc-paper p-6">
-            <p role="alert" className="bcc-mono text-safety">
-              {/* §γ — copy is keyed on err.code; never render err.message. */}
-              {humanizeCode(
-                query.error,
-                {
-                  bcc_unauthorized: "Sign in to browse mentors.",
-                  bcc_rate_limited:
-                    "Loading too fast — give it a moment and try again.",
-                  bcc_unavailable:
-                    "The mentor list is temporarily unavailable. Try again shortly.",
-                },
-                "Couldn't load the mentor list. Try again in a moment.",
-              )}
-            </p>
-          </div>
+          <>
+            <div className="bcc-paper p-6">
+              <LoadFailure
+                surface="paper"
+                /* §γ — copy is keyed on err.code; never render err.message. */
+                message={humanizeCode(
+                  query.error,
+                  {
+                    bcc_unauthorized: "Sign in to browse mentors.",
+                    bcc_rate_limited:
+                      "Loading too fast — give it a moment and try again.",
+                    bcc_unavailable:
+                      "The mentor list is temporarily unavailable. Try again shortly.",
+                  },
+                  "Couldn't load the mentor list. Try again in a moment.",
+                )}
+                onRetry={() => void query.refetch()}
+              />
+            </div>
+
+            {/* A failed page must not strand the operator — see /members.
+                Rendered at the requested page against the last good total,
+                so PREV steps back to a page that worked. */}
+            {lastPagination !== undefined && (
+              <PagerNav
+                page={urlPage}
+                totalPages={lastPagination.total_pages}
+                onPageChange={goToPage}
+              />
+            )}
+          </>
         )}
 
         {query.isSuccess && mentorCards.length === 0 && <MentorsEmpty />}
