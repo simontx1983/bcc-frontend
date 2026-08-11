@@ -85,18 +85,43 @@ function blogPost(id: string) {
   };
 }
 
-describe("UserBlogList — initial load failure", () => {
+/**
+ * Batch C closure — the three infinite-query failure states.
+ *
+ * C1b split "first load" from "everything else", which was right as far
+ * as it went but left a bare `isError` covering both a failed REFRESH and
+ * a failed LOAD MORE. Retry always advanced the cursor, and LOAD MORE was
+ * withdrawn even when the cursor had never failed. TanStack keeps these
+ * distinct — `isLoadingError = isError && !hasData`, and for an infinite
+ * query `isRefetchError` is narrowed by `&& !isFetchNextPageError &&
+ * !isFetchPreviousPageError` — so the three are mutually exclusive and
+ * the fixtures below set exactly one of them.
+ */
+const blogState = (over: Record<string, unknown> = {}) => ({
+  isPending: false,
+  isError: false,
+  isLoadingError: false,
+  isRefetchError: false,
+  isFetchNextPageError: false,
+  isFetching: false,
+  isFetchingNextPage: false,
+  error: null,
+  data: undefined,
+  hasNextPage: false,
+  fetchNextPage,
+  refetch: refetch.blog,
+  ...over,
+});
+
+const onePage = { pages: [{ items: [blogPost("a"), blogPost("b")] }] };
+
+describe("UserBlogList — initial failure (isLoadingError)", () => {
   beforeEach(() => {
-    state.blog = {
-      isPending: false,
+    state.blog = blogState({
       isError: true,
+      isLoadingError: true,
       error: err("bcc_unavailable"),
-      data: undefined,
-      hasNextPage: false,
-      isFetchingNextPage: false,
-      fetchNextPage,
-      refetch: refetch.blog,
-    };
+    });
   });
 
   it("shows the full failure panel with a Retry", () => {
@@ -107,11 +132,16 @@ describe("UserBlogList — initial load failure", () => {
     expect(screen.getByRole("button", { name: /retry/i })).toBeInTheDocument();
   });
 
-  it("Retry refetches the whole query", () => {
+  it("Retry refetches — and never advances the cursor", () => {
     render(<UserBlogList handle="ada" />);
     fireEvent.click(screen.getByRole("button", { name: /retry/i }));
     expect(refetch.blog).toHaveBeenCalledTimes(1);
     expect(fetchNextPage).not.toHaveBeenCalled();
+  });
+
+  it("invents no LOAD MORE — there is no retained cursor", () => {
+    render(<UserBlogList handle="ada" />);
+    expect(screen.queryByRole("button", { name: /load more/i })).not.toBeInTheDocument();
   });
 
   it("never renders the raw server message (§γ)", () => {
@@ -120,44 +150,159 @@ describe("UserBlogList — initial load failure", () => {
   });
 });
 
-describe("UserBlogList — LOAD MORE failure keeps the loaded posts", () => {
+describe("UserBlogList — refresh failure (isRefetchError)", () => {
   beforeEach(() => {
-    // page 1 succeeded, the next page failed — React Query reports
-    // `isError` while `data` still holds page 1.
-    state.blog = {
-      isPending: false,
+    state.blog = blogState({
       isError: true,
+      isRefetchError: true,
       error: err("bcc_rate_limited"),
-      data: { pages: [{ items: [blogPost("a"), blogPost("b")] }] },
+      data: onePage,
       hasNextPage: true,
-      isFetchingNextPage: false,
-      fetchNextPage,
-      refetch: refetch.blog,
-    };
+    });
   });
 
-  it("still renders the posts that did load", () => {
+  it("keeps every loaded post on screen", () => {
     render(<UserBlogList handle="ada" />);
     expect(screen.getAllByRole("article")).toHaveLength(2);
   });
 
-  it("reports the failure inline rather than replacing the list", () => {
+  it("reports the failure inline, beneath the posts", () => {
     render(<UserBlogList handle="ada" />);
     expect(screen.getByRole("alert")).toHaveTextContent(/loading too fast/i);
-    // the full-panel treatment (LoadFailure's Retry) must NOT appear
-    expect(screen.queryByRole("button", { name: /^retry$/i })).not.toBeInTheDocument();
   });
 
-  it("its Try again resumes the failed page, not a whole-list refetch", () => {
+  it("Retry re-runs the refresh — and never advances the cursor", () => {
     render(<UserBlogList handle="ada" />);
-    fireEvent.click(screen.getByRole("button", { name: /try again/i }));
+    fireEvent.click(screen.getByRole("button", { name: /retry/i }));
+    expect(refetch.blog).toHaveBeenCalledTimes(1);
+    expect(fetchNextPage).not.toHaveBeenCalled();
+  });
+
+  it("KEEPS LOAD MORE — the retained last page still holds a safe cursor", () => {
+    render(<UserBlogList handle="ada" />);
+    expect(screen.getByRole("button", { name: /load more/i })).toBeInTheDocument();
+  });
+
+  it("withholds LOAD MORE when the retained page has no next cursor", () => {
+    state.blog = blogState({
+      isError: true,
+      isRefetchError: true,
+      error: err("bcc_rate_limited"),
+      data: onePage,
+      hasNextPage: false,
+    });
+    render(<UserBlogList handle="ada" />);
+    expect(screen.queryByRole("button", { name: /load more/i })).not.toBeInTheDocument();
+  });
+
+  it("never renders the raw server message (§γ)", () => {
+    render(<UserBlogList handle="ada" />);
+    expect(screen.getByRole("alert")).not.toHaveTextContent(/raw server text/i);
+  });
+});
+
+describe("UserBlogList — next-page failure (isFetchNextPageError)", () => {
+  beforeEach(() => {
+    state.blog = blogState({
+      isError: true,
+      isFetchNextPageError: true,
+      error: err("bcc_rate_limited"),
+      data: onePage,
+      hasNextPage: true,
+    });
+  });
+
+  it("keeps every loaded post on screen", () => {
+    render(<UserBlogList handle="ada" />);
+    expect(screen.getAllByRole("article")).toHaveLength(2);
+  });
+
+  it("Retry resumes the failed cursor — and never refetches the list", () => {
+    render(<UserBlogList handle="ada" />);
+    fireEvent.click(screen.getByRole("button", { name: /retry/i }));
     expect(fetchNextPage).toHaveBeenCalledTimes(1);
     expect(refetch.blog).not.toHaveBeenCalled();
   });
 
-  it("hides the normal LOAD MORE button while the failure is showing", () => {
+  it("WITHDRAWS LOAD MORE so the failed cursor cannot be skipped", () => {
     render(<UserBlogList handle="ada" />);
     expect(screen.queryByRole("button", { name: /load more/i })).not.toBeInTheDocument();
+  });
+
+  it("never renders the raw server message (§γ)", () => {
+    render(<UserBlogList handle="ada" />);
+    expect(screen.getByRole("alert")).not.toHaveTextContent(/raw server text/i);
+  });
+});
+
+describe("UserBlogList — retained state survives pending and recovery", () => {
+  it("a pending next page does not blank the retained posts", () => {
+    state.blog = blogState({
+      data: onePage,
+      hasNextPage: true,
+      isFetchingNextPage: true,
+      isFetching: true,
+    });
+    render(<UserBlogList handle="ada" />);
+
+    expect(screen.getAllByRole("article")).toHaveLength(2);
+    expect(screen.getByRole("button", { name: /loading/i })).toBeInTheDocument();
+  });
+
+  it("a pending refresh does not blank the retained posts", () => {
+    state.blog = blogState({ data: onePage, hasNextPage: true, isFetching: true });
+    render(<UserBlogList handle="ada" />);
+
+    expect(screen.getAllByRole("article")).toHaveLength(2);
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("recovery appends once — no duplicated and no skipped posts", () => {
+    state.blog = blogState({
+      isError: true,
+      isFetchNextPageError: true,
+      error: err("bcc_rate_limited"),
+      data: onePage,
+      hasNextPage: true,
+    });
+    const { rerender } = render(<UserBlogList handle="ada" />);
+    expect(screen.getAllByRole("article")).toHaveLength(2);
+
+    // The retried cursor lands: page 2 joins page 1, nothing repeats.
+    state.blog = blogState({
+      data: { pages: [{ items: [blogPost("a"), blogPost("b")] }, { items: [blogPost("c")] }] },
+      hasNextPage: false,
+    });
+    rerender(<UserBlogList handle="ada" />);
+
+    const titles = screen.getAllByRole("article").map((a) => a.textContent ?? "");
+    expect(titles).toHaveLength(3);
+    expect(new Set(titles).size).toBe(3);
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("the empty state never appears during a failure", () => {
+    // Zero posts loaded AND the refresh failed: "No blog posts yet." would
+    // be a lie dressed as a terminal state.
+    state.blog = blogState({
+      isError: true,
+      isRefetchError: true,
+      error: err("bcc_unavailable"),
+      data: { pages: [{ items: [] }] },
+      hasNextPage: false,
+    });
+    render(<UserBlogList handle="ada" />);
+
+    expect(screen.queryByText(/no blog posts yet/i)).not.toBeInTheDocument();
+    expect(screen.getByRole("alert")).toBeInTheDocument();
+  });
+
+  it("the empty state still appears on a clean, genuinely empty read", () => {
+    state.blog = blogState({ data: { pages: [{ items: [] }] } });
+    render(<UserBlogList handle="ada" />);
+
+    expect(screen.getByText(/no blog posts yet/i)).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 });
 

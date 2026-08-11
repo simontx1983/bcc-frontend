@@ -80,13 +80,27 @@ export function UserBlogList({ handle, onEdit }: UserBlogListProps) {
   const pages = query.data?.pages ?? [];
   const totalCount = pages.reduce((sum, p) => sum + p.items.length, 0);
 
-  // Full-panel failure ONLY when there is nothing on screen to lose.
-  // An infinite query goes to `status: "error"` when *any* page fetch
-  // fails, including a "load more" — and it keeps the pages it already
-  // has. Returning the panel unconditionally therefore wiped a fully
-  // read list because the user tapped LOAD MORE on a flaky connection.
-  // A failed later page is handled inline at the bottom of the list.
-  if (query.isError && totalCount === 0) {
+  // Three distinct failure states, mutually exclusive by construction.
+  // TanStack computes `isLoadingError = isError && !hasData`, and for an
+  // infinite query narrows `isRefetchError` to
+  // `isError && hasData && !isFetchNextPageError && !isFetchPreviousPageError`.
+  // Collapsing them into a bare `isError` — as this file used to — makes
+  // Retry dishonest: a failed *refresh* would be retried by advancing the
+  // cursor, and LOAD MORE would be withdrawn for a cursor that never
+  // failed. Same split as PhotosPanel.
+  //
+  //   isLoadingError       — the FIRST fetch failed; nothing is retained,
+  //                          so the whole panel is the failure. Retry
+  //                          re-issues the initial read via refetch().
+  //   isRefetchError       — a REFRESH of already-loaded pages failed.
+  //                          Posts stay on screen; LOAD MORE stays too,
+  //                          because the retained last page's next cursor
+  //                          is untouched by a failed refresh.
+  //   isFetchNextPageError — a LOAD MORE failed. Posts stay; ordinary
+  //                          LOAD MORE is withdrawn so the failed cursor
+  //                          cannot be skipped, and Retry resumes at that
+  //                          same cursor via fetchNextPage().
+  if (query.isLoadingError) {
     return (
       <div className="bcc-panel p-6">
         <LoadFailure message={failureCopy} onRetry={() => void query.refetch()} />
@@ -94,7 +108,10 @@ export function UserBlogList({ handle, onEdit }: UserBlogListProps) {
     );
   }
 
-  if (totalCount === 0) {
+  // Success-only empty state. A failed refresh of an empty list must
+  // report the failure, not claim "nothing here" — so this is gated on
+  // there being no error at all, not merely on `isLoadingError`.
+  if (totalCount === 0 && !query.isError) {
     return (
       <div className="bcc-panel p-6">
         <p className="bcc-mono text-bcc-text-secondary">
@@ -118,21 +135,19 @@ export function UserBlogList({ handle, onEdit }: UserBlogListProps) {
         </Fragment>
       ))}
 
-      {/* A failed LOAD MORE reports itself here, beneath the posts that
-          did load, rather than replacing them. Retrying resumes from the
-          page that failed instead of refetching the whole list. */}
-      {query.isError ? (
-        <p role="alert" className="bcc-mono text-center text-[11px] text-safety">
-          {failureCopy}{" "}
-          <button
-            type="button"
-            onClick={() => { void query.fetchNextPage(); }}
-            disabled={query.isFetchingNextPage}
-            className="underline underline-offset-4 disabled:opacity-60"
-          >
-            {query.isFetchingNextPage ? "Loading…" : "Try again"}
-          </button>
-        </p>
+      {/* A failed REFRESH reports itself beneath the posts that did load,
+          rather than replacing them. Retry re-runs the refresh; LOAD MORE
+          below stays available because the retained last page still holds
+          a safe next cursor. */}
+      {query.isRefetchError && (
+        <LoadFailure message={failureCopy} onRetry={() => void query.refetch()} />
+      )}
+
+      {/* A failed LOAD MORE takes the place of the LOAD MORE control, so
+          the cursor that failed cannot be skipped past. Retry resumes at
+          that same cursor instead of refetching the whole list. */}
+      {query.isFetchNextPageError ? (
+        <LoadFailure message={failureCopy} onRetry={() => void query.fetchNextPage()} />
       ) : (
         query.hasNextPage && (
           <button
