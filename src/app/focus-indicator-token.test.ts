@@ -208,8 +208,16 @@ describe("adjacent tokens and rules are untouched", () => {
     expect(defs).toEqual(["var(--bcc-primary)", "var(--bcc-secondary)"]);
   });
 
-  it("no --bcc-accent-indicator is introduced — that token belongs to the tab slice", () => {
-    expect(NCSS).not.toContain("--bcc-accent-indicator");
+  it("--bcc-accent-indicator is a SEPARATE token, not an alias of the ring", () => {
+    // E1c introduced it for selected-tab geometry. The two currently hold
+    // the same hex — unavoidable, since both must clear 3:1 against the
+    // same backgrounds — but neither may be defined in terms of the
+    // other, so either can move independently later.
+    expect(NCSS).not.toContain("--bcc-accent-indicator: var(--bcc-focus-ring)");
+    expect(NCSS).not.toContain("--bcc-focus-ring: var(--bcc-accent-indicator)");
+    // The ring must never be used for selected-state geometry, or the two
+    // signals collapse back into one.
+    expect(NCSS).not.toMatch(/border[^;]*var\(--bcc-focus-ring\)/);
   });
 
   it("brand values are unchanged", () => {
