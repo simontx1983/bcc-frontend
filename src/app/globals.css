@@ -244,6 +244,9 @@
   /* Keyboard focus only; never readable text. Mid-tones also pass against
      fixed cream paper/cardstock in both themes. */
   --bcc-focus-ring:      #1081a3;
+  /* Selected-state geometry only; never readable text. Separate from the
+     focus ring so the two can diverge, even though they currently match. */
+  --bcc-accent-indicator: #1081a3;
 }
 
 [data-accent="secondary"] {
@@ -253,6 +256,7 @@
   --bcc-accent-subtle:   var(--bcc-secondary-subtle);
   --bcc-accent-glow:     var(--bcc-secondary-glow);
   --bcc-focus-ring:      #b95e05;
+  --bcc-accent-indicator: #b95e05;
 }
 
 /* ── Light mode surfaces ── */
@@ -1738,8 +1742,11 @@
     font-size: 13px;
     letter-spacing: 0.08em;
     text-transform: uppercase;
-    color: var(--bcc-text-muted);
-    border-bottom: 2px solid transparent;
+    color: var(--bcc-text-secondary);
+    /* 3px on EVERY tab, transparent until selected. Widening only the
+       selected tab would make it 1px taller and misalign the row —
+       measured. */
+    border-bottom: 3px solid transparent;
     cursor: pointer;
     background: transparent;
     border-top: none;
@@ -1750,12 +1757,25 @@
                 border-color var(--bcc-transition-fast);
   }
   .bcc-tab:hover {
-    color: var(--bcc-text-secondary);
+    color: var(--bcc-text);
   }
+  /* The strip is a scroll container (overflow-x:auto forces overflow-y to
+     auto), and a tab sits flush against its top edge — so the global
+     ring's +2px offset is clipped on both horizontal edges. Inset it
+     instead. -4px, not the -3px used by .bcc-card-body-link: at -3px the
+     ring's bottom stroke lands flush against the 3px indicator and the
+     two read as one band; -4px leaves a 1px gap so focus and selection
+     stay separately legible. Offset ONLY — colour, width, style and
+     radius still come from the global rule. */
+  .bcc-tab:focus-visible {
+    outline-offset: -4px;
+  }
+  /* `.active` is a compatibility selector — every current consumer drives
+     this from aria-selected. */
   .bcc-tab[aria-selected="true"],
   .bcc-tab.active {
-    color: var(--bcc-accent);
-    border-bottom-color: var(--bcc-accent);
+    color: var(--bcc-text);
+    border-bottom-color: var(--bcc-accent-indicator);
   }
   .bcc-tab-count {
     font-family: var(--font-mono), monospace;
@@ -1764,10 +1784,10 @@
     font-weight: 400;
     letter-spacing: 0.04em;
   }
-  .bcc-tab.active .bcc-tab-count {
-    color: var(--bcc-accent);
-    opacity: 0.7;
-  }
+  /* The count stays opaque --bcc-text-secondary in every state. A prior
+     rule tinted it accent at opacity 0.7 for `.bcc-tab.active`, which no
+     consumer applies — it was dead, and at 0.7 it would not have cleared
+     4.5:1 anyway. Removed rather than ported. */
 }
 
 /* ========================================================================
