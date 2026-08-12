@@ -289,6 +289,13 @@
   --bcc-text-placeholder:#b3b8c3;
   --bcc-text-inverse:    #ffffff;
 
+  /* Readable brand text — the wordmark's two-tone as TEXT, at 4.5:1.
+     Theme-scoped, never accent-scoped: the cyan/orange pairing is the
+     brand, so an orange accent must not turn both words orange. Text
+     only — never focus rings, borders, indicators, fills or shadows. */
+  --bcc-brand-text-cyan:   #1080a3;
+  --bcc-brand-text-orange: #b95e05;
+
   /* Stoke's "ash" outline stroke — only used when heat_stage hasn't
      shipped yet (no real heat signal to grade by). A warm-tinted muted
      tone, not flat UI grey, so the cold flame still reads as "ember,"
@@ -368,6 +375,11 @@
     --bcc-text-inverse:    #0d1117;
     --bcc-stoke-ash:       #6f6358;
 
+    /* Readable brand text — see the light scope. The bright brand values
+       already clear 4.5:1 on dark surfaces, so they carry over as-is. */
+    --bcc-brand-text-cyan:   #16b5e6;
+    --bcc-brand-text-orange: #f98a1c;
+
     --bcc-glass-bg:        rgba(22,27,34,0.62);
     --bcc-glass-bg-solid:  rgba(22,27,34,0.82);
     --bcc-glass-bg-frosted:rgba(22,27,34,0.1);
@@ -431,6 +443,10 @@
   --bcc-text-placeholder:#3d444d;
   --bcc-text-inverse:    #0d1117;
   --bcc-stoke-ash:       #6f6358;
+
+  /* Readable brand text — see the light scope. */
+  --bcc-brand-text-cyan:   #16b5e6;
+  --bcc-brand-text-orange: #f98a1c;
 
   --bcc-glass-bg:        rgba(22,27,34,0.62);
   --bcc-glass-bg-solid:  rgba(22,27,34,0.82);
@@ -2042,7 +2058,7 @@
   font-family: var(--font-mono), monospace;
   font-size: 11px;
   letter-spacing: 0.06em;
-  color: var(--bcc-text-muted);
+  color: var(--bcc-text-secondary);
 }
 .bcc-copyright-lg {
   font-size: 13px;
@@ -2053,14 +2069,19 @@
 .bcc-copyright-crypto {
   transition: color 150ms ease;
 }
+/* The year rises to --bcc-text, not secondary: the resting state IS
+   secondary now, so leaving it there would make hover a visual no-op. */
 .bcc-copyright:hover .bcc-copyright-year {
-  color: var(--bcc-text-secondary);
+  color: var(--bcc-text);
 }
+/* Fixed cyan/orange, deliberately NOT accent-aware — the pairing is the
+   wordmark. Under an orange accent both words would otherwise collapse
+   to orange and the two-tone would disappear. */
 .bcc-copyright:hover .bcc-copyright-collar {
-  color: var(--bcc-primary);
+  color: var(--bcc-brand-text-cyan);
 }
 .bcc-copyright:hover .bcc-copyright-crypto {
-  color: var(--bcc-secondary);
+  color: var(--bcc-brand-text-orange);
 }
 
 /* Mobile: stack copyright above the legal links instead of cramming

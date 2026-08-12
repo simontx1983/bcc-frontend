@@ -327,10 +327,13 @@ describe("all four live consumers still use the shared class", () => {
 });
 
 describe("neighbouring contracts are untouched", () => {
-  it("copyright rules are byte-identical", () => {
-    expect(NCSS).toContain(".bcc-copyright:hover .bcc-copyright-year {\n  color: var(--bcc-text-secondary);\n}");
-    expect(NCSS).toContain(".bcc-copyright:hover .bcc-copyright-collar {\n  color: var(--bcc-primary);\n}");
-    expect(NCSS).toContain(".bcc-copyright:hover .bcc-copyright-crypto {\n  color: var(--bcc-secondary);\n}");
+  it("copyright is not touched by tab work", () => {
+    // E1d moved the copyright ladder onto theme-scoped brand-text tokens;
+    // its byte-identity pins now live in copyright-brand-contrast.test.ts.
+    // What matters HERE is only that tab work never reaches it: the
+    // copyright must not borrow the tab's indicator token.
+    expect(NCSS).not.toMatch(/\.bcc-copyright[^{]*\{[^}]*--bcc-accent-indicator/);
+    expect(NCSS).toContain(".bcc-copyright:hover .bcc-copyright-collar {\n  color: var(--bcc-brand-text-cyan);\n}");
   });
 
   it("SubTabNav is a lookalike this batch does not touch", () => {
