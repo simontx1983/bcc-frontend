@@ -126,23 +126,18 @@ const E1B_LADDER = [
 ] as const;
 
 /**
- * Still deferred after E1b, and NOT for the same reason as before —
- * both are blocked on accent, which is scoped by `data-accent` only and
- * never by theme, so it is the same hex in both (2.39:1 for
- * `--bcc-primary` and 2.42:1 for `--bcc-secondary` on a light page).
+ * Two selectors were once deferred here because they were blocked on
+ * accent. Both have since shipped and left this file's scope:
  *
- *   `.bcc-copyright` — its collar/crypto hover children go to
- *                      `--bcc-primary` / `--bcc-secondary`. Migrating
- *                      only the resting and year rungs would leave
- *                      hover-triggered text inaccessible in light.
+ *   `.bcc-tab`       — E1c, via `--bcc-accent-indicator`.
+ *                      See `tab-state-contrast.test.ts`.
+ *   `.bcc-copyright` — E1d, via the theme-scoped
+ *                      `--bcc-brand-text-cyan` / `-orange`.
+ *                      See `copyright-brand-contrast.test.ts`.
  *
- * `.bcc-tab` was also deferred here, for the same accent reason. E1c
- * resolved it with `--bcc-accent-indicator` and moved the whole ladder,
- * so it has left this file's scope — see `tab-state-contrast.test.ts`.
- * `.bcc-copyright` still waits on the E1d brand-text decision, and its
- * rules must stay byte-identical until then — asserted below.
+ * Nothing remains blocked on accent, so the muted set is now only the
+ * genuinely-exempt decoratives, the honest utility, and the dead rules.
  */
-const DEFERRED_ON_ACCENT = [".bcc-copyright"] as const;
 
 /** `aria-hidden` icons whose meaning is carried by a labelled sibling. */
 const DECORATIVE = [".bcc-search-icon", ".bcc-auth-select-arrow"] as const;
@@ -159,10 +154,11 @@ const ZERO_CONSUMER = [
 const UTILITY = ".bcc-text-muted";
 
 /**
- * After E1b the muted set was 10; E1c took `.bcc-tab` out, leaving 9.
- * Only `.bcc-copyright` still waits on an accent decision (E1d).
+ * 13 -> 10 (E1b) -> 9 (E1c) -> 8 (E1d). What is left is exempt by
+ * nature, not deferred: decorative icons, the honest utility, and the
+ * five zero-consumer rules.
  */
-const STILL_MUTED = [...DEFERRED_ON_ACCENT, ...DECORATIVE, ...ZERO_CONSUMER, UTILITY];
+const STILL_MUTED = [...DECORATIVE, ...ZERO_CONSUMER, UTILITY];
 
 describe("E1 — the 24 approved selectors moved to --bcc-text-secondary", () => {
   const secondary = declarationsByToken("secondary");
@@ -187,18 +183,12 @@ describe("E1 — the 24 approved selectors moved to --bcc-text-secondary", () =>
 describe("E1 — every exclusion is still muted", () => {
   const muted = declarationsByToken("muted");
 
-  it("the muted set is EXACTLY the 9 remaining excluded selectors", () => {
+  it("the muted set is EXACTLY the 8 remaining excluded selectors", () => {
     // The strongest assertion in this file: it fails both when an
     // excluded selector is migrated and when a new muted text rule is
     // introduced anywhere in the stylesheet.
     expect([...muted].sort()).toEqual([...STILL_MUTED].sort());
   });
-
-  for (const sel of DEFERRED_ON_ACCENT) {
-    it(`${sel} keeps its muted resting state — blocked on E1d accent`, () => {
-      expect(muted).toContain(sel);
-    });
-  }
 
   for (const sel of DECORATIVE) {
     it(`${sel} stays muted — decorative`, () => {
@@ -212,22 +202,6 @@ describe("E1 — every exclusion is still muted", () => {
     // Its correctly-named sibling already exists for the consumer to move to.
     expect(CSS).toContain(".bcc-text-secondary { color: var(--bcc-text-secondary); }");
   });
-});
-
-describe("E1d — hover feedback on the accent-blocked selector is untouched", () => {
-  // If E1/E1b had flattened these, the resting colour would equal the
-  // hover colour and the affordance would silently vanish. Pin both
-  // halves until E1c resolves accent.
-  const HOVER_RULES = [".bcc-copyright:hover .bcc-copyright-year"] as const;
-
-  for (const rule of HOVER_RULES) {
-    it(`${rule} still resolves to secondary`, () => {
-      const idx = CSS.indexOf(rule);
-      expect(idx).toBeGreaterThan(-1);
-      const body = CSS.slice(idx, CSS.indexOf("}", idx));
-      expect(body).toContain("var(--bcc-text-secondary)");
-    });
-  }
 });
 
 describe("E1b — the three ladder selectors rest on secondary", () => {
@@ -304,43 +278,6 @@ describe("E1b — each ladder selector moves to primary text on hover", () => {
     const container = declarationsByToken("secondary");
     expect(container).toContain(".bcc-auth-footer");
     expect(container).toContain(".bcc-auth-footer a");
-  });
-});
-
-describe("E1d — .bcc-copyright rules are byte-identical", () => {
-  // Blocked on the brand-text decision. Pinned verbatim so no partial
-  // migration can slip in: moving only the resting and year rungs would
-  // leave the collar/crypto hover text inaccessible in light.
-  // Newline-normalised once: the file is authored CRLF, and pinning
-  // literal \r\n in every expectation makes them unreadable.
-  const NCSS = CSS.replace(/\r\n/g, "\n");
-
-  const PINNED: ReadonlyArray<readonly [string, string]> = [
-    // `.bcc-tab`'s four pins moved to tab-state-contrast.test.ts when E1c
-    // migrated the ladder. Only `.bcc-copyright` is still frozen here.
-    [".bcc-copyright:hover year", ".bcc-copyright:hover .bcc-copyright-year {\n  color: var(--bcc-text-secondary);\n}"],
-    [".bcc-copyright:hover collar", ".bcc-copyright:hover .bcc-copyright-collar {\n  color: var(--bcc-primary);\n}"],
-    [".bcc-copyright:hover crypto", ".bcc-copyright:hover .bcc-copyright-crypto {\n  color: var(--bcc-secondary);\n}"],
-  ];
-
-  for (const [label, rule] of PINNED) {
-    it(`${label} — byte-identical`, () => {
-      expect(NCSS).toContain(rule);
-    });
-  }
-
-  it(".bcc-copyright still rests on muted — no partial migration", () => {
-    expect(declarationsByToken("muted")).toContain(".bcc-copyright");
-  });
-
-  it("accent is still theme-independent, which is why both are blocked", () => {
-    // Scoped by data-accent only, never by a theme selector — so the
-    // same hex paints on a white page and a near-black one.
-    expect(CSS).toContain("--bcc-accent:          var(--bcc-primary)");
-    expect(CSS).toContain("--bcc-accent:          var(--bcc-secondary)");
-    const media = CSS.slice(CSS.indexOf("@media (prefers-color-scheme: dark)"));
-    const firstBlock = media.slice(0, media.indexOf("\n  }"));
-    expect(firstBlock).not.toContain("--bcc-accent:");
   });
 });
 
