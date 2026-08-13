@@ -221,7 +221,7 @@ function UnresolvedStrip({ items }: { items: WatchingItem[] }) {
 
   return (
     <section className="mt-10">
-      <h2 className="bcc-mono text-[10px] tracking-[0.24em] text-bcc-text-muted">
+      <h2 className="bcc-mono text-[10px] tracking-[0.24em] text-bcc-text-secondary">
         Not available as cards
       </h2>
       <ul className="mt-3 divide-y divide-bcc-border-light border-y border-bcc-border-light">
@@ -251,7 +251,7 @@ function UnresolvedRow({ item }: { item: WatchingItem }) {
         @{item.card_handle}
       </Link>
 
-      <span className="bcc-mono shrink-0 truncate text-[10px] tracking-[0.18em] text-bcc-text-muted">
+      <span className="bcc-mono shrink-0 truncate text-[10px] tracking-[0.18em] text-bcc-text-secondary">
         {item.card_kind.toUpperCase()}
       </span>
 

@@ -190,7 +190,7 @@ export function AuthorCard({
             {bio}
           </p>
         ) : (
-          <p className="font-serif text-[13px] italic leading-snug text-[var(--bcc-text-muted)]">
+          <p className="font-serif text-[13px] italic leading-snug text-[var(--bcc-text-secondary)]">
             {emptyBioLine(handle)}
           </p>
         )}

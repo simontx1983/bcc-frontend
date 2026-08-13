@@ -132,7 +132,7 @@ export function RankInfoModal({
     >
       {/* Header — the member's rank is the focus. */}
       <div className="flex flex-col gap-0.5 pr-8">
-        <span className="bcc-mono text-[10px] tracking-[0.24em] text-[var(--bcc-text-muted)]">
+        <span className="bcc-mono text-[10px] tracking-[0.24em] text-[var(--bcc-text-secondary)]">
           {isSelf ? "YOUR STANDING" : "THIS MEMBER"}
         </span>
         <span className="bcc-stencil text-[22px] leading-none text-[var(--bcc-text)]">
@@ -185,7 +185,7 @@ export function RankInfoModal({
                         {rung.label.toUpperCase()}
                       </span>
                       {i < catalog.data.ranks.length - 1 && (
-                        <span className="text-[var(--bcc-text-muted)]">→</span>
+                        <span className="text-[var(--bcc-text-secondary)]">→</span>
                       )}
                     </div>
                   );

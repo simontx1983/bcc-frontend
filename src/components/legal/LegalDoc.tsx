@@ -47,7 +47,7 @@ export function LegalDoc({
           {intro}
         </p>
         <p
-          className="bcc-mono mt-4 text-[var(--bcc-text-muted)]"
+          className="bcc-mono mt-4 text-[var(--bcc-text-secondary)]"
           style={{ fontSize: "11px", letterSpacing: "0.14em" }}
         >
           Effective {LEGAL.effectiveDate} · {LEGAL.brand} is operated by {LEGAL.entity}.
@@ -66,7 +66,7 @@ export function LegalDoc({
 
       <footer className="mt-10">
         <p
-          className="bcc-mono text-[var(--bcc-text-muted)]"
+          className="bcc-mono text-[var(--bcc-text-secondary)]"
           style={{ fontSize: "11px", letterSpacing: "0.14em" }}
         >
           QUESTIONS

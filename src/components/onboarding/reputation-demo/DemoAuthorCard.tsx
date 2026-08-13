@@ -129,7 +129,7 @@ export function DemoAuthorCard({
           </span>
         </div>
 
-        <p className="font-serif text-[13px] italic leading-snug text-[var(--bcc-text-muted)]">
+        <p className="font-serif text-[13px] italic leading-snug text-[var(--bcc-text-secondary)]">
           On-chain infrastructure, three years running. What you see below is earned, not bought.
         </p>
 

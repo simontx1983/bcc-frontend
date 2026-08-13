@@ -93,7 +93,7 @@ export function IdentitySettingsForm({ currentHandle }: IdentitySettingsFormProp
         <label className="flex flex-col gap-1.5">
           <span className="bcc-mono text-bcc-text-secondary">Handle</span>
           <div className="flex items-center border border-bcc-input-border bg-bcc-input-bg focus-within:border-bcc-accent focus-within:ring-1 focus-within:ring-bcc-accent">
-            <span className="bcc-mono pl-3 text-bcc-text-muted">@</span>
+            <span className="bcc-mono pl-3 text-bcc-text-secondary">@</span>
             <input
               type="text"
               required
