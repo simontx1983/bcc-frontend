@@ -122,7 +122,7 @@ export function ActivityPanel({
       )}
 
       {!query.hasNextPage && items.length > 0 && (
-        <p className="bcc-mono mt-4 text-center text-bcc-text-muted">
+        <p className="bcc-mono mt-4 text-center text-bcc-text-secondary">
           End of the wall.
         </p>
       )}

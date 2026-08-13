@@ -33,6 +33,7 @@
 import type { Route } from "next";
 import Link from "next/link";
 
+import { StatusTick } from "@/components/profile/StatusTick";
 import { FindingsSection } from "@/components/profile/FindingsSection";
 import { NewMemberChip } from "@/components/identity/NewMemberChip";
 import { RankChip } from "@/components/profile/RankChip";
@@ -338,17 +339,7 @@ function VerifiedIdentityBlock({ profile }: { profile: MemberProfile }) {
             key={row.label}
             className="grid grid-cols-[auto_1fr_auto] items-baseline gap-4 border-b border-dashed border-bcc-border py-3 last:border-b-0"
           >
-            <span
-              aria-hidden
-              className={
-                "bcc-mono text-lg leading-none " +
-                (row.connected
-                  ? "text-[var(--bcc-success)]"
-                  : "text-bcc-text-muted")
-              }
-            >
-              {row.connected ? "✓" : "○"}
-            </span>
+            <StatusTick done={row.connected} />
             <span className="flex flex-col">
               <span className="bcc-mono text-bcc-text">
                 {row.label.toUpperCase()}
@@ -511,7 +502,7 @@ function RankProgressBlock({
         <div className="flex flex-col gap-3">
           <p className="bcc-mono inline-flex items-baseline gap-3 text-bcc-text-secondary">
             <span className="text-bcc-text">{currentLabel.toUpperCase()}</span>
-            <span className="text-bcc-text-muted">→</span>
+            <span className="text-bcc-text-secondary">→</span>
             <span className="bcc-phosphor-text">
               {(nextLabel ?? "").toUpperCase()}
             </span>
@@ -522,7 +513,7 @@ function RankProgressBlock({
                 <span className="bcc-mono text-bcc-text">RANK SCORE</span>
                 <span className="bcc-mono text-bcc-text-secondary">
                   <span className="text-bcc-text">{progression.rank_score}</span>
-                  <span className="mx-1 text-bcc-text-muted">/</span>
+                  <span className="mx-1 text-bcc-text-secondary">/</span>
                   {progression.next_threshold}
                 </span>
               </div>
@@ -551,7 +542,7 @@ function RankProgressBlock({
                 </span>
                 <span className="bcc-mono text-bcc-text-secondary">
                   <span className="text-bcc-text">{cat.score}</span>
-                  <span className="mx-1 text-bcc-text-muted">/</span>
+                  <span className="mx-1 text-bcc-text-secondary">/</span>
                   {cat.max}
                 </span>
               </div>
@@ -621,7 +612,7 @@ function RequirementsBlock({
               </span>
               <span className="bcc-mono text-bcc-text-secondary">{row.value}</span>
             </span>
-            <span className="bcc-mono text-bcc-text-muted">{row.requirement}</span>
+            <span className="bcc-mono text-bcc-text-secondary">{row.requirement}</span>
           </li>
         ))}
       </ul>
@@ -636,12 +627,12 @@ function RequirementsBlock({
                 </span>
                 <span className="bcc-mono text-bcc-text-secondary">
                   <span className="text-bcc-text">{w.qualifying}</span>
-                  <span className="mx-1 text-bcc-text-muted">/</span>
+                  <span className="mx-1 text-bcc-text-secondary">/</span>
                   {w.required} days
                 </span>
               </div>
               <ProgressBar pct={clampPct(w.qualifying, w.required)} />
-              <p className="bcc-mono text-bcc-text-muted">
+              <p className="bcc-mono text-bcc-text-secondary">
                 Days at {w.min_tier.toUpperCase()}+ within the last {w.window}{" "}
                 days
               </p>
@@ -674,12 +665,12 @@ function VestingStandingBlock({
           <span className="bcc-mono text-bcc-text">VOTE-WEIGHT MATURITY</span>
           <span className="bcc-mono text-bcc-text-secondary">
             <span className="text-bcc-text">{maturityPct}%</span>
-            <span className="mx-2 text-bcc-text-muted">·</span>
+            <span aria-hidden className="mx-2 text-bcc-text-muted">·</span>
             {vesting.days_elapsed}/{vesting.span_days} days vested
           </span>
         </div>
         <ProgressBar pct={maturityPct} />
-        <p className="bcc-mono text-bcc-text-muted">
+        <p className="bcc-mono text-bcc-text-secondary">
           Vesting runs on its own clock from the day Apprentice was earned
           — nothing to do here.
         </p>
@@ -821,17 +812,7 @@ function ReadinessBlock({ readiness }: { readiness: MemberReadiness }) {
             key={row.label}
             className="grid grid-cols-[auto_1fr_auto] items-baseline gap-4 border-b border-dashed border-bcc-border py-3 last:border-b-0"
           >
-            <span
-              aria-hidden
-              className={
-                "bcc-mono text-lg leading-none " +
-                (row.done
-                  ? "text-[var(--bcc-success)]"
-                  : "text-bcc-text-muted")
-              }
-            >
-              {row.done ? "✓" : "○"}
-            </span>
+            <StatusTick done={row.done} />
             <span className="flex flex-col">
               <span className="bcc-mono text-bcc-text">
                 {row.label.toUpperCase()}

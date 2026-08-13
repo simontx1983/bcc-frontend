@@ -133,7 +133,7 @@ export function OnchainStatsList({ signals }: { signals: OnchainSignals }) {
     <>
       <div
         className="bcc-mono mt-4 flex items-center gap-2 text-[9px] tracking-[0.24em]"
-        style={{ color: "var(--bcc-text-muted)" }}
+        style={{ color: "var(--bcc-text-secondary)" }}
       >
         <span
           className="inline-block h-px w-6"
@@ -150,7 +150,7 @@ export function OnchainStatsList({ signals }: { signals: OnchainSignals }) {
       <dl className="mt-2 space-y-2 text-sm" style={{ fontVariantNumeric: "tabular-nums" }}>
         {rows.map((row) => (
           <div key={row.key} className="flex justify-between gap-4">
-            <dt className="bcc-mono text-[8.5px] tracking-[0.14em]" style={{ color: "var(--bcc-text-muted)" }}>
+            <dt className="bcc-mono text-[8.5px] tracking-[0.14em]" style={{ color: "var(--bcc-text-secondary)" }}>
               {row.label}
             </dt>
             <dd className="bcc-stencil text-[13px]" style={{ color: "var(--bcc-text)" }}>

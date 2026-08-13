@@ -37,6 +37,7 @@
  * psychology into a platform whose currency is durable judgment.
  */
 
+import { StatusTick } from "@/components/profile/StatusTick";
 import type { MemberLiving, MemberProgression, MemberReadiness } from "@/lib/api/types";
 
 interface LivingHeaderProps {
@@ -139,7 +140,7 @@ export function LivingHeader({ living, progression, hideEmptyShiftFallback }: Li
               </span>
               {ranked.next_rank_label !== null && (
                 <>
-                  <span className="mx-2 text-bcc-text-muted">→</span>
+                  <span className="mx-2 text-bcc-text-secondary">→</span>
                   <span className="bcc-phosphor-text">
                     {ranked.next_rank_label.toUpperCase()}
                   </span>
@@ -185,12 +186,7 @@ export function LivingHeader({ living, progression, hideEmptyShiftFallback }: Li
           <ul className="flex flex-col gap-0.5">
             {readinessRows(newMember.readiness).map((row) => (
               <li key={row.label} className="bcc-mono flex items-baseline gap-2">
-                <span
-                  aria-hidden
-                  className={row.done ? "text-phosphor" : "text-bcc-text-muted"}
-                >
-                  {row.done ? "✓" : "○"}
-                </span>
+                <StatusTick done={row.done} sizeClass="" />
                 <span
                   className={row.done ? "text-bcc-text-secondary" : "text-bcc-text"}
                 >

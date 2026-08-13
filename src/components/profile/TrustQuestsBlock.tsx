@@ -16,6 +16,7 @@
  * its test doesn't drag in the API layer).
  */
 
+import { StatusTick } from "@/components/profile/StatusTick";
 import type { MemberQuestItem, MemberQuestProgress } from "@/lib/api/types";
 
 export function TrustQuestsBlock({
@@ -44,7 +45,7 @@ export function TrustQuestsBlock({
             </span>
             <span className="bcc-stencil text-4xl leading-none text-bcc-text">
               {quests.completed_count}
-              <span className="text-bcc-text-muted">/</span>
+              <span className="text-bcc-text-secondary">/</span>
               {quests.total_count}
             </span>
           </div>
@@ -68,15 +69,7 @@ export function TrustQuestsBlock({
             key={quest.slug}
             className="grid grid-cols-[auto_1fr_auto] items-baseline gap-4 border-b border-dashed border-bcc-border py-3 last:border-b-0"
           >
-            <span
-              aria-hidden
-              className={
-                "bcc-mono text-lg leading-none " +
-                (quest.done ? "text-phosphor" : "text-bcc-text-muted")
-              }
-            >
-              {quest.done ? "✓" : "○"}
-            </span>
+            <StatusTick done={quest.done} />
             <span className="flex flex-col">
               <span className="bcc-mono text-bcc-text">
                 {quest.label.toUpperCase()}

@@ -541,7 +541,7 @@ function FileRail({
             <span className="text-phosphor">&nbsp;·&nbsp;YOU</span>
           )}
         </span>
-        <span className="bcc-mono inline-flex flex-wrap items-center gap-x-4 gap-y-1 text-bcc-text-muted">
+        <span className="bcc-mono inline-flex flex-wrap items-center gap-x-4 gap-y-1 text-bcc-text-secondary">
           <span>JOINED&nbsp;{joinedLabel}</span>
           <span>FILE 0001&nbsp;//&nbsp;OPEN</span>
         </span>
