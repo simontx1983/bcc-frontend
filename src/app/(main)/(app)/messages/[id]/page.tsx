@@ -13,6 +13,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 
+import { RouteRail } from "@/components/layout/RouteRail";
 import { MessageComposer } from "@/components/messages/MessageComposer";
 import { ThreadView } from "@/components/messages/ThreadView";
 import { useConversation } from "@/hooks/useConversation";
@@ -37,7 +38,7 @@ export default function ConversationPage() {
   if (!validId) {
     return (
       <main className="pb-24">
-        <Rail title="UNKNOWN" />
+        <RouteRail kicker={"BCC \u00a0//\u00a0 MESSAGES"} label="UNKNOWN" />
         <section className="mx-auto mt-10 max-w-3xl px-2 sm:px-3">
           <NotFound />
         </section>
@@ -47,7 +48,7 @@ export default function ConversationPage() {
 
   return (
     <main className="pb-24">
-      <Rail title={resolveRailTitle(query)} />
+      <RouteRail kicker={"BCC \u00a0//\u00a0 MESSAGES"} label={resolveRailTitle(query)} />
 
       <header className="mx-auto max-w-3xl px-2 sm:px-3 pt-12">
         <Link
@@ -63,7 +64,7 @@ export default function ConversationPage() {
           {query.isSuccess ? resolveTitle(query.data.conversation) : "Loading…"}
         </h1>
         {query.isSuccess && query.data.conversation.is_group && (
-          <p className="mt-2 bcc-mono text-[10px] tracking-[0.18em] text-bcc-text-muted">
+          <p className="mt-2 bcc-mono text-[10px] tracking-[0.18em] text-bcc-text-secondary">
             GROUP · {query.data.conversation.participants.length} PARTICIPANTS
           </p>
         )}
@@ -110,20 +111,6 @@ export default function ConversationPage() {
         )}
       </section>
     </main>
-  );
-}
-
-function Rail({ title }: { title: string }) {
-  return (
-    <div className="border-b border-dashed border-bcc-border">
-      <div className="mx-auto flex max-w-[1560px] flex-wrap items-center justify-between gap-4 px-7 py-3">
-        <span className="bcc-mono inline-flex items-center gap-2 text-bcc-text-secondary">
-          <span className="bcc-rail-dot" aria-hidden />
-          <span>BCC &nbsp;//&nbsp; MESSAGES</span>
-        </span>
-        <span className="bcc-mono text-bcc-text-muted">{title}</span>
-      </div>
-    </div>
   );
 }
 

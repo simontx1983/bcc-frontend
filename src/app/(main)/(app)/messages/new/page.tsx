@@ -32,6 +32,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 
+import { RouteRail } from "@/components/layout/RouteRail";
 import { Avatar } from "@/components/identity/Avatar";
 import { useCardEntity } from "@/hooks/useCardEntity";
 import { useMembers } from "@/hooks/useMembers";
@@ -212,7 +213,7 @@ function NewMessagePageContent() {
 
   return (
     <main className="pb-24">
-      <Rail />
+      <RouteRail kicker={"BCC \u00a0//\u00a0 MESSAGES"} label={"DIRECT \u00a0//\u00a0 NEW"} />
 
       <header className="mx-auto max-w-3xl px-2 sm:px-3 pt-12">
         <Link
@@ -309,7 +310,7 @@ function NewMessagePageContent() {
                   "bcc-mono text-[10px] tracking-[0.16em] " +
                   (body.length > MESSAGE_BODY_MAX_LENGTH
                     ? "text-safety"
-                    : "text-bcc-text-muted")
+                    : "text-bcc-text-secondary")
                 }
               >
                 {body.length}/{MESSAGE_BODY_MAX_LENGTH}
@@ -354,20 +355,6 @@ export default function NewMessagePage() {
   );
 }
 
-function Rail() {
-  return (
-    <div className="border-b border-dashed border-bcc-border">
-      <div className="mx-auto flex max-w-[1560px] flex-wrap items-center justify-between gap-4 px-7 py-3">
-        <span className="bcc-mono inline-flex items-center gap-2 text-bcc-text-secondary">
-          <span className="bcc-rail-dot" aria-hidden />
-          <span>BCC &nbsp;//&nbsp; MESSAGES</span>
-        </span>
-        <span className="bcc-mono text-bcc-text-muted">DIRECT &nbsp;//&nbsp; NEW</span>
-      </div>
-    </div>
-  );
-}
-
 function SelectedRecipient({
   recipient,
   onClear,
@@ -388,7 +375,7 @@ function SelectedRecipient({
         <p className="truncate text-sm text-bcc-text">
           {recipient.name !== "" ? recipient.name : recipient.handle}
         </p>
-        <p className="bcc-mono truncate text-[10px] tracking-[0.16em] text-bcc-text-muted">
+        <p className="bcc-mono truncate text-[10px] tracking-[0.16em] text-bcc-text-secondary">
           @{recipient.handle}
         </p>
       </div>
@@ -463,7 +450,7 @@ function RecipientPicker({
                   <p className="truncate text-sm text-bcc-text">
                     {m.name !== "" ? m.name : m.handle}
                   </p>
-                  <p className="bcc-mono truncate text-[10px] tracking-[0.16em] text-bcc-text-muted">
+                  <p className="bcc-mono truncate text-[10px] tracking-[0.16em] text-bcc-text-secondary">
                     @{m.handle}
                   </p>
                 </div>
