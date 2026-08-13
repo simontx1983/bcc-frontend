@@ -144,7 +144,6 @@ export function LeftSidebar({ collapsed, onToggle }: LeftSidebarProps) {
             gap: 8,
             padding: collapsed ? "0" : "8px 10px",
             borderRadius: "var(--bcc-radius-md)",
-            color: "var(--bcc-text-muted)",
             height: 36,
           }}
         >

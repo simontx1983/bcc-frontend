@@ -320,7 +320,7 @@ function SuggestedWidget() {
                       ))}
                     </span>
                   )}
-                  <span className="bcc-mono bcc-text-muted" style={{ display: "block", fontSize: 11 }}>
+                  <span className="bcc-mono bcc-text-secondary" style={{ display: "block", fontSize: 11 }}>
                     {member.suggestion_reason.label}
                   </span>
                 </span>

@@ -176,7 +176,7 @@ export function WalletAuthButton(props: WalletAuthButtonProps) {
       {selectedChain !== undefined && (
         <p
           className="bcc-mono"
-          style={{ textAlign: "center", fontSize: 10, letterSpacing: "0.18em", color: "var(--bcc-text-muted)" }}
+          style={{ textAlign: "center", fontSize: 10, letterSpacing: "0.18em", color: "var(--bcc-text-secondary)" }}
           aria-live="polite"
         >
           {walletHintFor(selectedChain.chainType)}

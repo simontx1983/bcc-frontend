@@ -86,7 +86,7 @@ export function BioBox({ text, label = "BIO", previewWords = 25, ownerEditHref }
             NO BIO ON FILE — WRITE ONE →
           </Link>
         ) : (
-          <p className="font-serif italic mt-3 text-bcc-text-muted">
+          <p className="font-serif italic mt-3 text-bcc-text-secondary">
             No bio on file yet.
           </p>
         )

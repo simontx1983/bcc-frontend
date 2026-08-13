@@ -57,7 +57,7 @@ export default function CookiesPage() {
                 {["Name", "Type", "Purpose", "Category"].map((h) => (
                   <th
                     key={h}
-                    className="bcc-mono py-2 pr-4 text-[var(--bcc-text-muted)]"
+                    className="bcc-mono py-2 pr-4 text-[var(--bcc-text-secondary)]"
                     style={{ fontSize: "10px", letterSpacing: "0.16em", verticalAlign: "bottom" }}
                   >
                     {h.toUpperCase()}

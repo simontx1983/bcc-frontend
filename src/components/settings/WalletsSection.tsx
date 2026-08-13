@@ -649,7 +649,7 @@ function WalletRow({
           {wallet.wallet_address}
         </code>
 
-        <div className="bcc-mono flex flex-wrap gap-3 text-[10px] text-bcc-text-muted">
+        <div className="bcc-mono flex flex-wrap gap-3 text-[10px] text-bcc-text-secondary">
           {wallet.created_at !== null && (
             <span>Linked {formatShortDate(wallet.created_at)}</span>
           )}

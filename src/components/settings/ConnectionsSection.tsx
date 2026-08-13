@@ -249,7 +249,7 @@ function GitHubConnectionCard() {
         data.connected ? (
           <div className="bcc-mono text-[11px] text-bcc-text-secondary">
             Linked as <span className="text-bcc-text">@{data.username}</span>
-            <span className="ml-2 text-bcc-text-muted">
+            <span className="ml-2 text-bcc-text-secondary">
               {data.repos} repos · {data.followers} followers · {data.orgs} orgs
             </span>
             {data.verified_at !== null && (
@@ -309,7 +309,7 @@ function ProviderCard<S extends XStatusResponse | GitHubStatusResponse>({
 
         <div className="flex shrink-0 flex-col items-end gap-1">
           {isStatusLoading ? (
-            <span className="bcc-mono text-[11px] text-bcc-text-muted">Checking…</span>
+            <span className="bcc-mono text-[11px] text-bcc-text-secondary">Checking…</span>
           ) : isStatusError ? (
             <span className="bcc-mono text-[11px] text-safety">Status unavailable</span>
           ) : connected ? (
