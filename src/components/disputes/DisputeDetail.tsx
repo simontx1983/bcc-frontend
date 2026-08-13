@@ -248,7 +248,7 @@ function BallotCard({
         </p>
       )}
 
-      <p className="bcc-mono mt-5 border-t border-dashed border-bcc-border pt-4 text-bcc-text-muted">
+      <p className="bcc-mono mt-5 border-t border-dashed border-bcc-border pt-4 text-bcc-text-secondary">
         TALLIES STAY SEALED UNTIL THE VOTE CLOSES &middot; RESOLVES BY{" "}
         {formatAbsoluteUTC(state.expires_at)}
       </p>

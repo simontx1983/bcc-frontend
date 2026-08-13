@@ -30,6 +30,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { counterToneClass } from "@/lib/counter-tone";
 import { Dialog } from "@/components/ui/Dialog";
 
 import {
@@ -210,7 +211,7 @@ export function OpenDisputeModal({
               className="bcc-mono mb-2 block text-bcc-text-secondary"
             >
               YOUR REASON //
-              <span className="ml-2 text-bcc-text-muted">
+              <span className="ml-2 text-bcc-text-secondary">
                 ({DISPUTE_REASON_MIN_LENGTH}–{DISPUTE_REASON_MAX_LENGTH} chars)
               </span>
             </label>
@@ -227,7 +228,7 @@ export function OpenDisputeModal({
               <span
                 className={
                   reasonTooShort
-                    ? "text-bcc-text-muted"
+                    ? "text-bcc-text"
                     : "text-bcc-text-secondary"
                 }
               >
@@ -237,11 +238,17 @@ export function OpenDisputeModal({
               </span>
               <span
                 className={
+                  // `reasonTooLong` tests the UNTRIMMED length while the
+                  // counter displays the trimmed one, so it stays an outer
+                  // guard rather than being folded into the helper — passing
+                  // the trimmed value would quietly move the top rung.
                   reasonTooLong
                     ? "text-safety"
-                    : reasonLength > DISPUTE_REASON_MAX_LENGTH - 100
-                      ? "text-weld"
-                      : "text-bcc-text-muted"
+                    : counterToneClass(
+                        reasonLength,
+                        DISPUTE_REASON_MAX_LENGTH,
+                        DISPUTE_REASON_MAX_LENGTH - 100,
+                      )
                 }
               >
                 {reasonLength}/{DISPUTE_REASON_MAX_LENGTH}
@@ -255,7 +262,7 @@ export function OpenDisputeModal({
               className="bcc-mono mb-2 block text-bcc-text-secondary"
             >
               EVIDENCE URL //
-              <span className="ml-2 text-bcc-text-muted">(optional)</span>
+              <span className="ml-2 text-bcc-text-secondary">(optional)</span>
             </label>
             <input
               id="dispute-evidence"

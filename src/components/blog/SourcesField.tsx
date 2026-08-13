@@ -100,7 +100,7 @@ export function SourcesField({ value, onChange, disabled = false }: SourcesField
             const len = entry.length;
             return (
               <div key={idx} className="flex items-start gap-2">
-                <span className="bcc-mono mt-1 w-6 shrink-0 text-right text-[11px] tabular-nums text-bcc-text-muted">
+                <span className="bcc-mono mt-1 w-6 shrink-0 text-right text-[11px] tabular-nums text-bcc-text-secondary">
                   {idx + 1}.
                 </span>
                 <div className="flex-1">
@@ -129,7 +129,7 @@ export function SourcesField({ value, onChange, disabled = false }: SourcesField
                     aria-label={`Move source ${idx + 1} up`}
                     onClick={() => moveUp(idx)}
                     disabled={disabled || idx === 0}
-                    className="bcc-mono px-1 text-[12px] text-bcc-text-muted hover:text-bcc-text disabled:opacity-30"
+                    className="bcc-mono px-1 text-[12px] text-bcc-text-secondary hover:text-bcc-text disabled:opacity-30"
                   >
                     ↑
                   </button>
@@ -138,7 +138,7 @@ export function SourcesField({ value, onChange, disabled = false }: SourcesField
                     aria-label={`Move source ${idx + 1} down`}
                     onClick={() => moveDown(idx)}
                     disabled={disabled || idx >= value.length - 1}
-                    className="bcc-mono px-1 text-[12px] text-bcc-text-muted hover:text-bcc-text disabled:opacity-30"
+                    className="bcc-mono px-1 text-[12px] text-bcc-text-secondary hover:text-bcc-text disabled:opacity-30"
                   >
                     ↓
                   </button>
@@ -147,7 +147,7 @@ export function SourcesField({ value, onChange, disabled = false }: SourcesField
                     aria-label={`Remove source ${idx + 1}`}
                     onClick={() => removeAt(idx)}
                     disabled={disabled}
-                    className="bcc-mono px-1 text-[12px] text-bcc-text-muted hover:text-safety"
+                    className="bcc-mono px-1 text-[12px] text-bcc-text-secondary hover:text-safety"
                   >
                     ✕
                   </button>

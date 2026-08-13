@@ -91,7 +91,7 @@ export function ChainTagsPicker({ value, onChange, disabled = false }: ChainTags
                   aria-label={`Remove ${display}`}
                   onClick={() => remove(slug)}
                   disabled={disabled}
-                  className="text-bcc-text-muted hover:text-safety"
+                  className="text-bcc-text-secondary hover:text-safety"
                 >
                   ✕
                 </button>

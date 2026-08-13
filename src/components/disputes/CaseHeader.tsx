@@ -55,7 +55,7 @@ export function CaseHeader({
           &ldquo;{dispute.page_title || "Untitled page"}&rdquo;
         </p>
 
-        <p className="bcc-mono mt-4 text-bcc-text-muted">
+        <p className="bcc-mono mt-4 text-bcc-text-secondary">
           {dispute.reporter_name !== null && dispute.reporter_name !== "" && (
             <>
               FILED BY {dispute.reporter_name.toUpperCase()} &middot;{" "}

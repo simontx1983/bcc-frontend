@@ -27,7 +27,7 @@ export function CaseBody({ dispute }: { dispute: Dispute }) {
         >
           &ldquo;{dispute.reason}&rdquo;
         </blockquote>
-        <p className="bcc-mono mt-3 text-bcc-text-muted">
+        <p className="bcc-mono mt-3 text-bcc-text-secondary">
           DISPUTING {dispute.voter_name.toUpperCase()}&rsquo;S DOWNVOTE
         </p>
       </section>
@@ -58,7 +58,7 @@ export function CaseBody({ dispute }: { dispute: Dispute }) {
             </span>
           </a>
         ) : (
-          <p className="bcc-mono mt-4 text-bcc-text-muted">
+          <p className="bcc-mono mt-4 text-bcc-text-secondary">
             NO EXHIBIT FILED
           </p>
         )}
@@ -132,7 +132,7 @@ function CustodyEvent({
         }}
       />
       <p className="bcc-mono text-bcc-text">{label}</p>
-      <p className="bcc-mono text-bcc-text-muted">
+      <p className="bcc-mono text-bcc-text-secondary">
         {timestamp !== null
           ? formatAbsoluteUTC(timestamp)
           : (statusFallback ?? "—")}
