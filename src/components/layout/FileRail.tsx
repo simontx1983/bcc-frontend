@@ -84,7 +84,7 @@ export function FileRail({
             <span className="text-verified">&nbsp;·&nbsp;YOU</span>
           )}
         </span>
-        <span className="bcc-mono inline-flex flex-wrap items-center gap-x-4 gap-y-1 text-bcc-text-muted">
+        <span className="bcc-mono inline-flex flex-wrap items-center gap-x-4 gap-y-1 text-bcc-text-secondary">
           {joinedLabel !== null && joinedLabel !== undefined && joinedLabel !== "" && (
             <span>JOINED&nbsp;{joinedLabel}</span>
           )}

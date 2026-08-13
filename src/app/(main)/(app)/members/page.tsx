@@ -18,6 +18,7 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, Suspense } from "react";
 
+import { RouteRail } from "@/components/layout/RouteRail";
 import { CardGrid } from "@/components/cards/CardGrid";
 import { PagerNav } from "@/components/ui/PagerNav";
 import { useMembers } from "@/hooks/useMembers";
@@ -208,7 +209,7 @@ function MembersPageContent() {
 
   return (
     <main className="bcc-page-wide pb-24">
-      <Rail />
+      <RouteRail kicker={"FLOOR \u00a0//\u00a0 MEMBERS"} label={"FILE INDEX \u00a0//\u00a0 ALL OPERATORS"} />
 
       <header className="mx-auto max-w-[1560px] px-4 sm:px-7 pt-12">
         <p className="bcc-mono text-safety">THE ROSTER</p>
@@ -437,7 +438,7 @@ function RefineRow({
       </div>
 
       <div className="flex flex-col gap-2">
-        <span className="bcc-mono text-[9px] tracking-[0.20em] text-bcc-text-muted">
+        <span className="bcc-mono text-[9px] tracking-[0.20em] text-bcc-text-secondary">
           VERIFICATIONS
         </span>
         <div className="flex flex-wrap gap-2">
@@ -582,20 +583,6 @@ function FilterChip({
 // ──────────────────────────────────────────────────────────────────────
 // Rail — top status strip mirroring /directory's vocabulary.
 // ──────────────────────────────────────────────────────────────────────
-
-function Rail() {
-  return (
-    <div className="border-b border-dashed border-bcc-border">
-      <div className="mx-auto flex max-w-[1560px] flex-wrap items-center justify-between gap-4 px-7 py-3">
-        <span className="bcc-mono inline-flex items-center gap-2 text-bcc-text-secondary">
-          <span className="bcc-rail-dot" aria-hidden />
-          <span>FLOOR &nbsp;//&nbsp; MEMBERS</span>
-        </span>
-        <span className="bcc-mono text-bcc-text-muted">FILE INDEX &nbsp;//&nbsp; ALL OPERATORS</span>
-      </div>
-    </div>
-  );
-}
 
 // ──────────────────────────────────────────────────────────────────────
 // Empty state — different copy when the user has searched vs. when the

@@ -16,6 +16,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useEffect, useMemo, useState, Suspense } from "react";
 
+import { RouteRail } from "@/components/layout/RouteRail";
 import { ConversationList } from "@/components/messages/ConversationList";
 import { QueuedMessagesList } from "@/components/messages/QueuedMessagesList";
 import { useConversations } from "@/hooks/useConversations";
@@ -82,7 +83,7 @@ function MessagesPageContent() {
 
   return (
     <main className="pb-24">
-      <Rail />
+      <RouteRail kicker={"BCC \u00a0//\u00a0 MESSAGES"} label={"DIRECT \u00a0//\u00a0 INBOX"} />
 
       <header className="mx-auto max-w-3xl px-2 sm:px-3 pt-12">
         <p className="bcc-mono text-safety">DIRECT</p>
@@ -208,7 +209,7 @@ function MessagesPageContent() {
 
             {queuedQuery.isSuccess && queuedQuery.data.items.length > 0 && (
               <>
-                <p className="bcc-mono mb-4 text-[11px] leading-relaxed tracking-[0.14em] text-bcc-text-muted">
+                <p className="bcc-mono mb-4 text-[11px] leading-relaxed tracking-[0.14em] text-bcc-text-secondary">
                   Messages you&apos;ve sent to validators that haven&apos;t been claimed
                   yet. Each is delivered to the operator the moment they claim the page.
                 </p>
@@ -231,7 +232,7 @@ function TabBar({ active }: { active: MessagesTab }) {
   const base =
     "bcc-mono border-b-2 px-1 pb-2 text-[11px] tracking-[0.18em] transition";
   const on = "border-bcc-border-strong text-bcc-text";
-  const off = "border-transparent text-bcc-text-muted hover:text-bcc-text-secondary";
+  const off = "border-transparent text-bcc-text-secondary hover:text-bcc-text";
   return (
     <nav
       className="flex items-center gap-6 border-b border-bcc-border"
@@ -270,20 +271,6 @@ function QueuedEmpty() {
       >
         BROWSE VALIDATORS
       </Link>
-    </div>
-  );
-}
-
-function Rail() {
-  return (
-    <div className="border-b border-dashed border-bcc-border">
-      <div className="mx-auto flex max-w-[1560px] flex-wrap items-center justify-between gap-4 px-7 py-3">
-        <span className="bcc-mono inline-flex items-center gap-2 text-bcc-text-secondary">
-          <span className="bcc-rail-dot" aria-hidden />
-          <span>BCC &nbsp;//&nbsp; MESSAGES</span>
-        </span>
-        <span className="bcc-mono text-bcc-text-muted">DIRECT &nbsp;//&nbsp; INBOX</span>
-      </div>
     </div>
   );
 }

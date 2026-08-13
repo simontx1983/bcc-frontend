@@ -34,6 +34,7 @@ import type { Route } from "next";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, Suspense } from "react";
 
+import { RouteRail } from "@/components/layout/RouteRail";
 import { DirectoryFilters } from "@/components/directory/DirectoryFilters";
 import { DirectoryGrid } from "@/components/directory/DirectoryGrid";
 import { useDirectory, type DirectoryFilters as Filters } from "@/hooks/useDirectory";
@@ -117,7 +118,7 @@ function DirectoryPageContent() {
 
   return (
     <main className="bcc-page-wide pb-24">
-      <DirectoryRail />
+      <RouteRail kicker={"FLOOR \u00a0//\u00a0 DIRECTORY"} label={"FILE INDEX \u00a0//\u00a0 ALL OPERATORS"} />
 
       <header className="mx-auto max-w-[1560px] px-4 sm:px-7 pt-12">
         <p className="bcc-mono text-safety">FIND YOUR FLOOR</p>
@@ -155,22 +156,6 @@ function DirectoryPageContent() {
 // the "we're flipping through a file index" metaphor.
 // ──────────────────────────────────────────────────────────────────────
 
-function DirectoryRail() {
-  return (
-    <div className="border-b border-dashed border-bcc-border">
-      <div className="mx-auto flex max-w-[1560px] flex-wrap items-center justify-between gap-4 px-7 py-3">
-        <span className="bcc-mono inline-flex items-center gap-2 text-bcc-text-secondary">
-          <span className="bcc-rail-dot" aria-hidden />
-          <span>FLOOR &nbsp;//&nbsp; DIRECTORY</span>
-        </span>
-        <span className="bcc-mono text-bcc-text-muted">
-          FILE INDEX &nbsp;//&nbsp; ALL OPERATORS
-        </span>
-      </div>
-    </div>
-  );
-}
-
 // ──────────────────────────────────────────────────────────────────────
 // ActiveFiltersStrip — surfaces what's currently applied above the
 // grid. When nothing is filtered shows "SHOWING ALL"; otherwise renders
@@ -201,7 +186,7 @@ function ActiveFiltersStrip({
         <span className="bcc-mono text-bcc-text-secondary">FILTER //</span>
 
         {!hasAny && (
-          <span className="bcc-mono text-bcc-text-muted">SHOWING ALL</span>
+          <span className="bcc-mono text-bcc-text-secondary">SHOWING ALL</span>
         )}
 
         {filters.kind !== null && (

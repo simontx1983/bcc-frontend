@@ -24,6 +24,7 @@ import type { Route } from "next";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, Suspense } from "react";
 
+import { RouteRail } from "@/components/layout/RouteRail";
 import { ValidatorFilters } from "@/components/directory/ValidatorFilters";
 import { DirectoryGrid } from "@/components/directory/DirectoryGrid";
 import { useDirectory, type DirectoryFilters as Filters } from "@/hooks/useDirectory";
@@ -103,7 +104,7 @@ function ValidatorsPageContent() {
 
   return (
     <main className="bcc-page-wide pb-24">
-      <ValidatorsRail />
+      <RouteRail kicker={"FLOOR \u00a0//\u00a0 VALIDATORS"} label={"FILE INDEX \u00a0//\u00a0 STAKING OPERATORS"} />
 
       <header className="mx-auto max-w-[1560px] px-4 sm:px-7 pt-12">
         <p className="bcc-mono text-safety">KNOW YOUR VALIDATOR</p>
@@ -148,22 +149,6 @@ function ValidatorsPageContent() {
 // SiteHeader rail and the /directory FileRail.
 // ──────────────────────────────────────────────────────────────────────
 
-function ValidatorsRail() {
-  return (
-    <div className="border-b border-dashed border-bcc-border">
-      <div className="mx-auto flex max-w-[1560px] flex-wrap items-center justify-between gap-4 px-7 py-3">
-        <span className="bcc-mono inline-flex items-center gap-2 text-bcc-text-secondary">
-          <span className="bcc-rail-dot" aria-hidden />
-          <span>FLOOR &nbsp;//&nbsp; VALIDATORS</span>
-        </span>
-        <span className="bcc-mono text-bcc-text-muted">
-          FILE INDEX &nbsp;//&nbsp; STAKING OPERATORS
-        </span>
-      </div>
-    </div>
-  );
-}
-
 // ──────────────────────────────────────────────────────────────────────
 // ActiveFiltersStrip — surfaces what's currently applied above the grid.
 // `kind` is omitted (always validator here, so it isn't a removable
@@ -199,7 +184,7 @@ function ActiveFiltersStrip({
 
         <div className="flex min-w-0 flex-1 items-center gap-3 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {!hasAny && (
-            <span className="bcc-mono shrink-0 text-bcc-text-muted">SHOWING ALL</span>
+            <span className="bcc-mono shrink-0 text-bcc-text-secondary">SHOWING ALL</span>
           )}
 
           {filters.chain !== null && (
