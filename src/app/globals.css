@@ -293,8 +293,8 @@
      Theme-scoped, never accent-scoped: the cyan/orange pairing is the
      brand, so an orange accent must not turn both words orange. Text
      only — never focus rings, borders, indicators, fills or shadows. */
-  --bcc-brand-text-cyan:   #1080a3;
-  --bcc-brand-text-orange: #b95e05;
+  --bcc-brand-text-cyan:   #0f799a;
+  --bcc-brand-text-orange: #ae5905;
 
   /* Stoke's "ash" outline stroke — only used when heat_stage hasn't
      shipped yet (no real heat signal to grade by). A warm-tinted muted
@@ -323,6 +323,12 @@
   /* Header specific */
   --bcc-header-bg:       rgba(248,249,250,0.80);
   --bcc-header-border:   rgba(0,0,0,0.10);
+  /* Opaque form of --bcc-header-bg. The header is glass over independently
+     scrolling content, so on mobile arbitrary imagery passes beneath the
+     wordmark and its backdrop is unbounded. This backs the lockup so the
+     backdrop is deterministic. Same rgb as the tint above — matching the
+     PAGE colour instead would show as a patch in light theme. */
+  --bcc-header-plate:    #f8f9fa;
 
   /* Sidebar specific */
   --bcc-sidebar-bg:      #ffffff;
@@ -394,6 +400,8 @@
 
     --bcc-header-bg:       rgba(13,17,23,0.55);
     --bcc-header-border:   rgba(255,255,255,0.06);
+    /* Opaque form of --bcc-header-bg — see the light scope. */
+    --bcc-header-plate:    #0d1117;
 
     --bcc-sidebar-bg:      #161b22;
     --bcc-sidebar-border:  #30363d;
@@ -462,6 +470,8 @@
 
   --bcc-header-bg:       rgba(13,17,23,0.55);
   --bcc-header-border:   rgba(255,255,255,0.06);
+  /* Opaque form of --bcc-header-bg — see the light scope. */
+  --bcc-header-plate:    #0d1117;
 
   --bcc-sidebar-bg:      #161b22;
   --bcc-sidebar-border:  #30363d;
@@ -863,13 +873,25 @@
     flex-direction: column;
     line-height: 1;
   }
+  /* Header only. The header is glass over independently scrolling content,
+     and on mobile the centre column spans x=0, so arbitrary imagery passes
+     directly beneath the wordmark — measured 2.67:1 over a dark image in
+     light and 1.75:1 over a bright one in dark. An opaque plate behind the
+     whole lockup makes that backdrop deterministic; no colour value can.
+     Scoped through .bcc-header so the other four consumers, which sit on
+     ordinary page background, are untouched. */
+  .bcc-header .bcc-brand-wordmark {
+    background: var(--bcc-header-plate);
+    padding: 2px 6px;
+    border-radius: var(--bcc-radius-sm);
+  }
   .bcc-brand-top {
     font-family: var(--font-stencil), Impact, sans-serif;
     font-weight: 900;
     font-size: 16px;
     letter-spacing: 0.14em;
     text-transform: uppercase;
-    color: var(--bcc-primary);
+    color: var(--bcc-brand-text-cyan);
   }
   .bcc-brand-bottom {
     font-family: var(--font-stencil), Impact, sans-serif;
@@ -877,7 +899,7 @@
     font-size: 16px;
     letter-spacing: 0.14em;
     text-transform: uppercase;
-    color: var(--bcc-secondary);
+    color: var(--bcc-brand-text-orange);
   }
 
   /* bcc-search — centered search bar in header */

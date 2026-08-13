@@ -110,7 +110,7 @@ function rule(selector: string): string {
   return NCSS.slice(i, NCSS.indexOf("}", i));
 }
 
-const LIGHT = { cyan: "#1080a3", orange: "#b95e05" } as const;
+const LIGHT = { cyan: "#0f799a", orange: "#ae5905" } as const;
 const DARK = { cyan: "#16b5e6", orange: "#f98a1c" } as const;
 
 // ── token definitions ─────────────────────────────────────────────────
@@ -294,23 +294,124 @@ describe("brand-text tokens are readable text only", () => {
 
 // ── nothing else moved ────────────────────────────────────────────────
 
-describe("the header wordmark is byte-identical — the separate follow-up", () => {
-  // .bcc-brand-top / -bottom carry the SAME light-theme failure (2.39:1
-  // and 2.42:1) on permanent 16px text across every page, which is a
-  // bigger problem than this decorative hover. Deliberately fenced out of
-  // E1d for clean review; it is the immediate next slice and can consume
-  // these exact tokens.
-  it(".bcc-brand-top still uses the raw brand constant", () => {
-    expect(rule(".bcc-brand-top {")).toContain("color: var(--bcc-primary);");
+/**
+ * E1e — the header wordmark, which E1d deferred.
+ *
+ * `.bcc-brand-top` / `-bottom` carried the same light-theme failure (2.39:1
+ * and 2.42:1) on permanent 16px text across every page. The fix could not be
+ * a bare token swap: the header is glass over independently scrolling
+ * content, and on mobile (`.bcc-col-left` is `display:none` below 768px) the
+ * centre column spans from x=0, so arbitrary imagery passes directly beneath
+ * the wordmark. Measured with hostile backdrops forced under the header:
+ * 2.67:1 over a dark image in light theme, 1.75:1 over a bright one in dark.
+ *
+ * An unbounded backdrop cannot be fixed by choosing a colour — the two themes
+ * fail in opposite directions. An opaque plate behind the lockup makes it
+ * deterministic instead, scoped to the header so the other four consumers are
+ * untouched.
+ *
+ * The plate is `--bcc-header-plate`, the OPAQUE FORM OF THE HEADER TINT, not
+ * `--bcc-bg`. In dark those coincide; in light they do not — the header
+ * composites to rgb(249,250,251) while the page is rgb(255,255,255), and that
+ * 6/5/4 channel delta reads as a white sticker behind the wordmark. Matching
+ * the header instead costs a little contrast (the tint is darker than white),
+ * which is why the light brand-text values were darkened to clear 4.7:1 on it.
+ */
+describe("E1e — the header wordmark uses the brand-text tokens", () => {
+  it(".bcc-brand-top uses brand-text cyan", () => {
+    expect(rule(".bcc-brand-top {")).toContain("color: var(--bcc-brand-text-cyan);");
+    expect(rule(".bcc-brand-top {")).not.toContain("var(--bcc-primary)");
   });
 
-  it(".bcc-brand-bottom still uses the raw brand constant", () => {
-    expect(rule(".bcc-brand-bottom {")).toContain("color: var(--bcc-secondary);");
+  it(".bcc-brand-bottom uses brand-text orange", () => {
+    expect(rule(".bcc-brand-bottom {")).toContain("color: var(--bcc-brand-text-orange);");
+    expect(rule(".bcc-brand-bottom {")).not.toContain("var(--bcc-secondary)");
   });
 
-  it("neither has been switched to a brand-text token yet", () => {
-    expect(rule(".bcc-brand-top {")).not.toContain("brand-text");
-    expect(rule(".bcc-brand-bottom {")).not.toContain("brand-text");
+  it("only the colour changed — typography is untouched", () => {
+    for (const sel of [".bcc-brand-top {", ".bcc-brand-bottom {"]) {
+      const r = rule(sel);
+      expect(r).toContain("font-family: var(--font-stencil), Impact, sans-serif;");
+      expect(r).toContain("font-weight: 900;");
+      expect(r).toContain("font-size: 16px;");
+      expect(r).toContain("letter-spacing: 0.14em;");
+      expect(r).toContain("text-transform: uppercase;");
+    }
+  });
+
+  it("16px/900 is below the large-text threshold, so 4.5:1 applies", () => {
+    // 18.66px bold / 24px regular is the large-text bar. This is neither,
+    // so the wordmark answers to 4.5:1 and not 3:1.
+    expect(rule(".bcc-brand-top {")).toContain("font-size: 16px;");
+  });
+});
+
+describe("E1e — the plate", () => {
+  it("is defined once per theme scope as the opaque header tint", () => {
+    const all = [...NCSS.matchAll(/--bcc-header-plate:\s*([^;]+);/g)].map((m) => m[1]?.trim());
+    expect(all).toEqual(["#f8f9fa", "#0d1117", "#0d1117"]);
+  });
+
+  it("matches the rgb channels of --bcc-header-bg in every scope", () => {
+    // This is the property that keeps it invisible. If someone retunes the
+    // header tint without retuning the plate, the plate becomes a sticker.
+    const tints = [...NCSS.matchAll(/--bcc-header-bg:\s*rgba\(([^)]+)\)/g)].map((m) =>
+      (m[1] ?? "").split(",").slice(0, 3).map((n) => Number(n.trim())),
+    );
+    const plates = [...NCSS.matchAll(/--bcc-header-plate:\s*#([0-9a-f]{6})/gi)].map((m) =>
+      [0, 2, 4].map((i) => parseInt((m[1] ?? "").slice(i, i + 2), 16)),
+    );
+    expect(plates).toHaveLength(tints.length);
+    for (const [i, plate] of plates.entries()) expect(plate).toEqual(tints[i]);
+  });
+
+  it("is scoped to the header — the other four consumers get no plate", () => {
+    expect(NCSS).toContain(".bcc-header .bcc-brand-wordmark {");
+    // The shared wrapper rule must not itself gain a background.
+    const shared = rule(".bcc-brand-wordmark {");
+    expect(shared).not.toContain("background");
+    expect(shared).not.toContain("padding");
+    expect(shared).not.toContain("border-radius");
+  });
+
+  it("carries no border, shadow or blur — measurements did not justify them", () => {
+    const r = rule(".bcc-header .bcc-brand-wordmark {");
+    expect(r).toContain("background: var(--bcc-header-plate);");
+    expect(r).toContain("padding: 2px 6px;");
+    expect(r).toContain("border-radius: var(--bcc-radius-sm);");
+    for (const prop of ["border:", "box-shadow", "backdrop-filter", "filter:", "opacity"]) {
+      expect(r).not.toContain(prop);
+    }
+  });
+});
+
+describe("E1e — wordmark contrast on the plate", () => {
+  const PLATE = { light: hex("#f8f9fa"), dark: hex("#0d1117") } as const;
+  const HEADER_MIN = 4.7; // tighter than 4.5 so rounding cannot drop it below
+
+  it(`light cyan clears ${HEADER_MIN}:1 on the plate`, () => {
+    expect(ratio(hex(LIGHT.cyan), PLATE.light)).toBeGreaterThanOrEqual(HEADER_MIN);
+  });
+
+  it(`light orange clears ${HEADER_MIN}:1 on the plate`, () => {
+    expect(ratio(hex(LIGHT.orange), PLATE.light)).toBeGreaterThanOrEqual(HEADER_MIN);
+  });
+
+  it("dark cyan and orange clear 4.5:1 on the plate", () => {
+    expect(ratio(hex(DARK.cyan), PLATE.dark)).toBeGreaterThanOrEqual(4.5);
+    expect(ratio(hex(DARK.orange), PLATE.dark)).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it("the plate is what makes this deterministic — raw tokens on glass would not pass", () => {
+    // Header glass composited over a dark image in light theme. Documents
+    // why the plate exists rather than a darker colour.
+    // header tint #f8f9fa at 0.80 over a black image, alpha-composited
+    const overDarkImage: RGB = [
+      Math.round(0xf8 * 0.8),
+      Math.round(0xf9 * 0.8),
+      Math.round(0xfa * 0.8),
+    ];
+    expect(ratio(hex(LIGHT.cyan), overDarkImage)).toBeLessThan(4.5);
   });
 });
 
