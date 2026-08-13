@@ -70,7 +70,7 @@ export function CardBackFace({
             {showHandle && (
               <span
                 className="bcc-mono truncate"
-                style={{ fontSize: 9, color: "var(--bcc-text-muted)" }}
+                style={{ fontSize: 9, color: "var(--bcc-text-secondary)" }}
               >
                 @{card.handle}
               </span>
@@ -118,7 +118,7 @@ export function CardBackFace({
               {card.social_proof?.headline != null && (
                 <p
                   className="bcc-mono mt-3"
-                  style={{ fontSize: 9.5, letterSpacing: "0.14em", color: "var(--bcc-text-muted)" }}
+                  style={{ fontSize: 9.5, letterSpacing: "0.14em", color: "var(--bcc-text-secondary)" }}
                 >
                   {card.social_proof.headline}
                 </p>

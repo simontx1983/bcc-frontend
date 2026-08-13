@@ -174,7 +174,7 @@ export function FindingsSection({ findings }: { findings: RankFinding[] }) {
                   {humanizeSlug(finding.type).toUpperCase()}
                 </span>
                 {finding.created_at !== "" && (
-                  <span className="bcc-mono text-bcc-text-muted">
+                  <span className="bcc-mono text-bcc-text-secondary">
                     On file {finding.created_at} (UTC)
                   </span>
                 )}

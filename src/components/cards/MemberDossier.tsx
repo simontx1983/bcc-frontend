@@ -158,14 +158,14 @@ export function Row({
       <dt
         className={
           "bcc-mono text-[10px] tracking-[0.16em] " +
-          (dim ? "text-[var(--bcc-text-muted)]" : "text-[var(--bcc-text-secondary)]")
+          (dim ? "text-[var(--bcc-text-secondary)]" : "text-[var(--bcc-text)]")
         }
       >
         {label}
       </dt>
       <dd
         className={
-          "bcc-mono text-[11px] " + (dim ? "text-[var(--bcc-text-muted)]" : "text-[var(--bcc-text)]")
+          "bcc-mono text-[11px] " + (dim ? "text-[var(--bcc-text-secondary)]" : "text-[var(--bcc-text)]")
         }
       >
         {value}

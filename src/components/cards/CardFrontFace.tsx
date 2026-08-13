@@ -410,7 +410,7 @@ function Nameplate({
       {showHandle && (
         <p
           className="bcc-mono w-full truncate"
-          style={{ fontSize: 10, color: "var(--bcc-text-muted)" }}
+          style={{ fontSize: 10, color: "var(--bcc-text-secondary)" }}
         >
           @{card.handle}
         </p>
@@ -446,7 +446,7 @@ function Nameplate({
               </span>
               <span
                 className="bcc-mono"
-                style={{ fontSize: 8.5, letterSpacing: "0.12em", color: "var(--bcc-text-muted)" }}
+                style={{ fontSize: 8.5, letterSpacing: "0.12em", color: "var(--bcc-text-secondary)" }}
               >
                 {labelFor(stat)}
               </span>
@@ -524,7 +524,7 @@ function StatsPanel({ stats }: { stats: CardStat[] }) {
         >
           <span
             className="bcc-mono"
-            style={{ fontSize: 8.5, letterSpacing: "0.12em", color: "var(--bcc-text-muted)" }}
+            style={{ fontSize: 8.5, letterSpacing: "0.12em", color: "var(--bcc-text-secondary)" }}
           >
             {stat.label}
           </span>
