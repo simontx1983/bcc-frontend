@@ -144,7 +144,7 @@ function GalleryShell({ title, subtitle, children }: GalleryShellProps) {
         <span className="inline-block h-px w-8 bg-bcc-border" />
         <span>{title}</span>
         {subtitle !== undefined && (
-          <span className="bcc-mono text-[10px] tracking-[0.16em] text-bcc-text-muted">
+          <span className="bcc-mono text-[10px] tracking-[0.16em] text-bcc-text-secondary">
             · {subtitle}
           </span>
         )}

@@ -54,7 +54,7 @@ export function VoteResultBreakdown({
         {outcomeConfig.label}
       </p>
 
-      <p className="bcc-mono mt-3 text-bcc-text-muted">
+      <p className="bcc-mono mt-3 text-bcc-text-secondary">
         {counted_voters} {counted_voters === 1 ? "VOTER" : "VOTERS"} COUNTED
         {state.closed_at !== null && state.closed_at !== undefined && (
           <> &middot; CLOSED {formatAbsoluteUTC(state.closed_at)}</>
@@ -92,12 +92,12 @@ export function VoteResultBreakdown({
               REJECT {weight_reject.toFixed(2)}
             </span>
           </div>
-          <p className="bcc-mono mt-1 text-bcc-text-muted">
+          <p className="bcc-mono mt-1 text-bcc-text-secondary">
             WEIGHTED BALLOTS — NO FIXED DENOMINATOR
           </p>
         </div>
       ) : (
-        <p className="bcc-mono mt-5 text-bcc-text-muted">
+        <p className="bcc-mono mt-5 text-bcc-text-secondary">
           NO WEIGHTED BALLOTS WERE COUNTED.
         </p>
       )}

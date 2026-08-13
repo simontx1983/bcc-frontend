@@ -96,7 +96,7 @@ function NftPieceDetailImpl({ piece, routeCreatorSlug }: NftPieceDetailProps) {
               {collection.name}
             </span>
           )}
-          <span className="bcc-mono text-[10px] text-bcc-text-muted">
+          <span className="bcc-mono text-[10px] text-bcc-text-secondary">
             #{piece.token_id}
           </span>
           {collection.is_verified && (
@@ -329,7 +329,7 @@ function OwnerBlock({
 }) {
   return (
     <div className="bcc-panel flex flex-col gap-3 px-4 py-3">
-      <span className="bcc-mono text-[10px] uppercase tracking-[0.18em] text-bcc-text-muted">
+      <span className="bcc-mono text-[10px] uppercase tracking-[0.18em] text-bcc-text-secondary">
         Owner
       </span>
       <span className="bcc-mono text-[12px] text-bcc-text">

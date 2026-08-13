@@ -148,7 +148,7 @@ export function BodyEditor({
             style={{ minHeight: "320px", maxHeight: mode === "preview" ? "70vh" : "auto" }}
           >
             {previewSrc.trim() === "" ? (
-              <p className="bcc-mono text-[11px] text-bcc-text-muted">
+              <p className="bcc-mono text-[11px] text-bcc-text-secondary">
                 Live preview renders here.
               </p>
             ) : (

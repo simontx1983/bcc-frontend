@@ -164,7 +164,7 @@ export function CoverImageUpload({ value, onChange, disabled = false }: CoverIma
           >
             {uploading ? "UPLOADING…" : "DROP A COVER OR CLICK TO PICK"}
           </span>
-          <span className="bcc-mono text-[10px] text-bcc-text-muted">
+          <span className="bcc-mono text-[10px] text-bcc-text-secondary">
             JPEG · PNG · WebP · GIF · up to 8 MB
           </span>
         </label>
