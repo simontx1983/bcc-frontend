@@ -46,13 +46,13 @@ export function CommentGifPicker({ config, onSelect, onClose }: CommentGifPicker
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search GIFs…"
           aria-label="Search GIFs"
-          className="bcc-mono flex-1 rounded-lg border border-[var(--bcc-border)] bg-transparent px-3 py-1.5 text-[12px] text-[var(--bcc-text)] placeholder:text-[var(--bcc-text-muted)] focus:border-[var(--bcc-accent)] focus:outline-none"
+          className="bcc-mono flex-1 rounded-lg border border-[var(--bcc-border)] bg-transparent px-3 py-1.5 text-[12px] text-[var(--bcc-text)] placeholder:text-[var(--bcc-text-placeholder)] focus:border-[var(--bcc-accent)] focus:outline-none"
         />
         <button
           type="button"
           onClick={onClose}
           aria-label="Close GIF picker"
-          className="bcc-mono shrink-0 px-2 text-[10px] tracking-[0.24em] text-[var(--bcc-text-muted)] hover:text-[var(--bcc-text)]"
+          className="bcc-mono shrink-0 px-2 text-[10px] tracking-[0.24em] text-[var(--bcc-text-secondary)] hover:text-[var(--bcc-text)]"
         >
           CLOSE
         </button>
@@ -63,7 +63,7 @@ export function CommentGifPicker({ config, onSelect, onClose }: CommentGifPicker
           aspect ratio. */}
       <div className="max-h-[50vh] overflow-y-auto sm:max-h-[240px]">
         {search.isLoading && (
-          <p className="bcc-mono py-6 text-center text-[11px] text-[var(--bcc-text-muted)]">
+          <p className="bcc-mono py-6 text-center text-[11px] text-[var(--bcc-text-secondary)]">
             Loading GIFs…
           </p>
         )}
@@ -73,7 +73,7 @@ export function CommentGifPicker({ config, onSelect, onClose }: CommentGifPicker
           </p>
         )}
         {isEmpty && (
-          <p className="bcc-mono py-6 text-center text-[11px] text-[var(--bcc-text-muted)]">
+          <p className="bcc-mono py-6 text-center text-[11px] text-[var(--bcc-text-secondary)]">
             No GIFs match &ldquo;{query}&rdquo;.
           </p>
         )}
@@ -105,7 +105,7 @@ export function CommentGifPicker({ config, onSelect, onClose }: CommentGifPicker
 
       {/* Giphy attribution (Giphy TOS) — lives inside the picker only. */}
       <footer className="flex items-center justify-end">
-        <span className="bcc-mono text-[9px] tracking-[0.18em] text-[var(--bcc-text-muted)]">
+        <span className="bcc-mono text-[9px] tracking-[0.18em] text-[var(--bcc-text-secondary)]">
           POWERED BY GIPHY
         </span>
       </footer>

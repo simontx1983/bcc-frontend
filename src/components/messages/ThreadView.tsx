@@ -112,7 +112,7 @@ function Bubble({ msg, isMine }: { msg: MessageItem; isMine: boolean }) {
         }
       >
         {!isMine && authorName !== "" && (
-          <span className="bcc-mono px-1 text-[10px] tracking-[0.16em] text-bcc-text-muted">
+          <span className="bcc-mono px-1 text-[10px] tracking-[0.16em] text-bcc-text-secondary">
             {authorName}
           </span>
         )}
@@ -128,7 +128,7 @@ function Bubble({ msg, isMine }: { msg: MessageItem; isMine: boolean }) {
         </div>
         <time
           dateTime={msg.posted_at}
-          className="bcc-mono px-1 text-[9px] tracking-[0.16em] text-bcc-text-muted"
+          className="bcc-mono px-1 text-[9px] tracking-[0.16em] text-bcc-text-secondary"
           suppressHydrationWarning
         >
           {formatTime(msg.posted_at)}

@@ -273,7 +273,7 @@ export function FeedBody(props: FeedBodyProps) {
       )}
 
       {!hasNextPage && items.length > 0 && (
-        <p className="bcc-mono mt-4 text-center text-bcc-text-muted">
+        <p className="bcc-mono mt-4 text-center text-bcc-text-secondary">
           End of the floor.
         </p>
       )}

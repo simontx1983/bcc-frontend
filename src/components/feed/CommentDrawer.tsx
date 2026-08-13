@@ -57,6 +57,7 @@ import Image from "next/image";
 import Link from "next/link";
 import type { Route } from "next";
 
+import { counterToneClass } from "@/lib/counter-tone";
 import { AuthorBadge } from "@/components/identity/AuthorBadge";
 import { isWpMediaUrl } from "@/lib/media";
 import { buildCommentTree, findNode, type CommentNode } from "@/lib/comments/thread";
@@ -369,7 +370,7 @@ export function CommentDrawer({
             onClearReply={clearReply}
           />
         ) : (
-          <p className="bcc-mono mt-4 text-[11px] text-[var(--bcc-text-muted)]">
+          <p className="bcc-mono mt-4 text-[11px] text-[var(--bcc-text-secondary)]">
             <Link href={"/login" as Route} className="text-[var(--bcc-text)] hover:underline">
               Sign in
             </Link>{" "}
@@ -631,7 +632,7 @@ function DrillHeader({
         Back
       </button>
       {unavailable ? (
-        <p className="bcc-mono text-[11px] text-[var(--bcc-text-muted)]">
+        <p className="bcc-mono text-[11px] text-[var(--bcc-text-secondary)]">
           This part of the thread isn&apos;t loaded anymore.
         </p>
       ) : (
@@ -641,7 +642,7 @@ function DrillHeader({
           className="flex items-center gap-2 text-left"
         >
           <HiddenThreadLines />
-          <span className="bcc-mono text-[11px] text-[var(--bcc-text-muted)] hover:text-[var(--bcc-text-secondary)]">
+          <span className="bcc-mono text-[11px] text-[var(--bcc-text-secondary)] hover:text-[var(--bcc-text)]">
             Earlier in this thread
           </span>
         </button>
@@ -845,7 +846,7 @@ function CommentRow({
       <time
         dateTime={comment.posted_at}
         title={comment.posted_at}
-        className="bcc-mono inline-flex items-center gap-1 pl-[40px] text-[10px] text-[var(--bcc-text-muted)] sm:hidden"
+        className="bcc-mono inline-flex items-center gap-1 pl-[40px] text-[10px] text-[var(--bcc-text-secondary)] sm:hidden"
       >
         <ClockIcon size={12} />
         {formatRelativeTime(comment.posted_at)}
@@ -940,7 +941,7 @@ function CommentActionRail({
       <time
         dateTime={timestamp}
         title={timestamp}
-        className="bcc-mono hidden items-center gap-1 pl-1 text-[10px] text-[var(--bcc-text-muted)] sm:inline-flex"
+        className="bcc-mono hidden items-center gap-1 pl-1 text-[10px] text-[var(--bcc-text-secondary)] sm:inline-flex"
       >
         <ClockIcon size={12} />
         {formatRelativeTime(timestamp)}
@@ -959,7 +960,7 @@ function CommentActionRail({
           }}
           aria-label={collapsed ? "Expand replies" : "Collapse replies"}
           title={collapsed ? "Expand replies" : "Collapse replies"}
-          className="inline-flex h-4 w-4 items-center justify-center rounded-full text-[var(--bcc-text-muted)] hover:bg-[var(--bcc-surface-active)] hover:text-[var(--bcc-text-secondary)]"
+          className="inline-flex h-4 w-4 items-center justify-center rounded-full text-[var(--bcc-text-secondary)] hover:bg-[var(--bcc-surface-active)] hover:text-[var(--bcc-text)]"
         >
           <CollapseToggleIcon collapsed={collapsed} />
         </button>
@@ -1164,7 +1165,7 @@ function CommentOverflowMenu({
         aria-label="More actions"
         aria-haspopup="menu"
         aria-expanded={open}
-        className="bcc-mono inline-flex min-h-[32px] items-center px-1 text-[var(--bcc-text-muted)] hover:text-[var(--bcc-text)]"
+        className="bcc-mono inline-flex min-h-[32px] items-center px-1 text-[var(--bcc-text-secondary)] hover:text-[var(--bcc-text)]"
       >
         <MoreHorizontal size={16} strokeWidth={2} aria-hidden />
       </button>
@@ -1453,7 +1454,7 @@ function CommentComposer({
               }}
               aria-label="Cancel reply"
               title="Cancel reply"
-              className="bcc-mono inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] leading-none text-[var(--bcc-text-muted)] hover:bg-[var(--bcc-surface-hover)] hover:text-[var(--bcc-text)]"
+              className="bcc-mono inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] leading-none text-[var(--bcc-text-secondary)] hover:bg-[var(--bcc-surface-hover)] hover:text-[var(--bcc-text)]"
             >
               ×
             </button>
@@ -1482,7 +1483,7 @@ function CommentComposer({
               maxLength={COMMENT_MAX_LENGTH * 2 /* soft over-type buffer; canSubmit gates submit */}
               placeholder={replyTarget !== null ? `Reply to @${replyTarget.handle}…` : "Write a comment…"}
               className={
-                "w-full flex-1 resize-none bg-transparent text-[14px] leading-snug text-[var(--bcc-text)] placeholder:text-[var(--bcc-text-muted)] focus:outline-none" +
+                "w-full flex-1 resize-none bg-transparent text-[14px] leading-snug text-[var(--bcc-text)] placeholder:text-[var(--bcc-text-placeholder)] focus:outline-none" +
                 (showCollapsedPreview ? " invisible" : "")
               }
             />
@@ -1601,7 +1602,12 @@ function CommentComposer({
                   </MediaIconButton>
                 )}
 
-                <p className="bcc-mono ml-1 min-w-0 truncate text-[10px] text-[var(--bcc-text-muted)]">
+                <p
+                  className={
+                    "bcc-mono ml-1 min-w-0 truncate text-[10px] " +
+                    counterToneClass(trimmed.length, COMMENT_MAX_LENGTH)
+                  }
+                >
                   {trimmed.length}/{COMMENT_MAX_LENGTH}
                 </p>
               </div>

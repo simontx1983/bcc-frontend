@@ -43,6 +43,7 @@ import {
   type BlogCategory,
   type BlogDisclosure,
 } from "@/lib/api/types";
+import { counterToneClass } from "@/lib/counter-tone";
 import { createBlog, updateBlog } from "@/lib/api/posts-endpoints";
 import { humanizeCode } from "@/lib/api/errors";
 import { USER_BLOG_QUERY_KEY_ROOT } from "@/hooks/useUserBlog";
@@ -129,7 +130,6 @@ export function BlogComposer({
 
   const excerptTrimmed = excerpt.trim();
   const excerptUnderMin = excerptTrimmed.length > 0 && excerptTrimmed.length < BLOG_EXCERPT_MIN_LENGTH;
-  const excerptOverMax  = excerpt.length > BLOG_EXCERPT_MAX_LENGTH;
 
   const canSubmit =
     !submitting &&
@@ -244,11 +244,15 @@ export function BlogComposer({
         <span
           className={
             "bcc-mono self-end text-[10px] " +
-            (excerptOverMax || excerptUnderMin
+            // underMin is this caller's own error condition, layered over the
+            // shared ladder rather than pushed into it.
+            (excerptUnderMin
               ? "text-safety"
-              : excerpt.length > BLOG_EXCERPT_MAX_LENGTH - 50
-                ? "text-warning"
-                : "text-bcc-text-muted")
+              : counterToneClass(
+                  excerpt.length,
+                  BLOG_EXCERPT_MAX_LENGTH,
+                  BLOG_EXCERPT_MAX_LENGTH - 50,
+                ))
           }
         >
           {excerpt.length} / {BLOG_EXCERPT_MAX_LENGTH}

@@ -55,7 +55,7 @@ export function QueuedMessagesList({ items }: { items: QueuedMessageItem[] }) {
                   </span>
                 )}
                 <time
-                  className="bcc-mono shrink-0 text-[10px] tracking-[0.16em] text-bcc-text-muted"
+                  className="bcc-mono shrink-0 text-[10px] tracking-[0.16em] text-bcc-text-secondary"
                   dateTime={item.created_at}
                 >
                   {formatDate(item.created_at)}

@@ -50,6 +50,7 @@
 import { useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 
+import { counterToneClass } from "@/lib/counter-tone";
 import { useCreatePostMutation } from "@/hooks/useCreatePost";
 import { PhotoIcon } from "@/components/feed/actionIcons";
 import { Avatar } from "@/components/identity/Avatar";
@@ -389,7 +390,6 @@ function InlineStatusComposer({
     error,
     setError,
     length,
-    overCap,
     canSubmit,
     isPending,
     visibility,
@@ -694,7 +694,7 @@ function InlineStatusComposer({
               // overflowing content), which left a permanent sliver at
               // the card's bottom edge when collapsed. A child's margin
               // is ordinary overflowing content and collapses cleanly.
-              className="mt-2 w-full resize-none bg-transparent font-serif text-base text-[var(--bcc-text)] placeholder:text-[var(--bcc-text-muted)] focus:outline-none disabled:opacity-60"
+              className="mt-2 w-full resize-none bg-transparent font-serif text-base text-[var(--bcc-text)] placeholder:text-[var(--bcc-text-placeholder)] focus:outline-none disabled:opacity-60"
             />
 
             {/*
@@ -770,7 +770,7 @@ function InlineStatusComposer({
             */}
             {groupId !== undefined && (
               <fieldset className="flex flex-col gap-2">
-                <legend className="bcc-mono text-[10px] tracking-[0.18em] text-[var(--bcc-text-muted)]">
+                <legend className="bcc-mono text-[10px] tracking-[0.18em] text-[var(--bcc-text-secondary)]">
                   VISIBILITY
                 </legend>
                 <div className="grid gap-2 md:grid-cols-3">
@@ -894,11 +894,11 @@ function InlineStatusComposer({
                 <span
                   className={
                     "bcc-mono min-w-0 truncate text-[11px] " +
-                    (overCap
-                      ? "text-safety"
-                      : length > STATUS_POST_MAX_LENGTH - 50
-                        ? "text-warning"
-                        : "text-[var(--bcc-text-muted)]")
+                    counterToneClass(
+                      length,
+                      STATUS_POST_MAX_LENGTH,
+                      STATUS_POST_MAX_LENGTH - 50,
+                    )
                   }
                 >
                   {length} / {STATUS_POST_MAX_LENGTH}
@@ -1110,11 +1110,11 @@ function StatusForm({ onSubmitSuccess }: { onSubmitSuccess: (() => void) | undef
     mutation.mutate({ content: trimmed });
   };
 
-  const counterTone = overCap
-    ? "text-safety"
-    : length > STATUS_POST_MAX_LENGTH - 50
-      ? "text-warning"
-      : "text-bcc-text-secondary";
+  const counterTone = counterToneClass(
+    length,
+    STATUS_POST_MAX_LENGTH,
+    STATUS_POST_MAX_LENGTH - 50,
+  );
 
   return (
     <form
@@ -1287,11 +1287,11 @@ function ReviewForm({
     }
   };
 
-  const counterTone = overCap
-    ? "text-safety"
-    : length > REVIEW_BODY_MAX_LENGTH - 200
-      ? "text-warning"
-      : "text-bcc-text-secondary";
+  const counterTone = counterToneClass(
+    length,
+    REVIEW_BODY_MAX_LENGTH,
+    REVIEW_BODY_MAX_LENGTH - 200,
+  );
 
   return (
     <form
