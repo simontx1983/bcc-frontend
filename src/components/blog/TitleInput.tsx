@@ -8,6 +8,7 @@
  * other field counters in the composer.
  */
 
+import { counterToneClass } from "@/lib/counter-tone";
 import { BLOG_TITLE_MAX_LENGTH } from "@/lib/api/types";
 
 export interface TitleInputProps {
@@ -18,12 +19,7 @@ export interface TitleInputProps {
 
 export function TitleInput({ value, onChange, disabled = false }: TitleInputProps) {
   const len = value.length;
-  const overCap = len > BLOG_TITLE_MAX_LENGTH;
-  const tone = overCap
-    ? "text-safety"
-    : len > BLOG_TITLE_MAX_LENGTH - 20
-      ? "text-warning"
-      : "text-bcc-text-muted";
+  const tone = counterToneClass(len, BLOG_TITLE_MAX_LENGTH, BLOG_TITLE_MAX_LENGTH - 20);
 
   return (
     <label className="flex flex-col gap-1">

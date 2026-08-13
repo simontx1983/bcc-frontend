@@ -73,7 +73,7 @@ export function PostActionBar({
         <time
           dateTime={timestamp}
           title={absoluteTitle}
-          className="bcc-mono inline-flex items-center gap-1 pl-1 text-[11px] text-[var(--bcc-text-muted)]"
+          className="bcc-mono inline-flex items-center gap-1 pl-1 text-[11px] text-[var(--bcc-text-secondary)]"
         >
           <ClockIcon />
           {formatRelativeTime(timestamp)}

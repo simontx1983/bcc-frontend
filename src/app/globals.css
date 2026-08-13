@@ -286,7 +286,13 @@
   --bcc-text-secondary:  #4b5563;
   --bcc-text-secondary-rgb: 75 85 99;
   --bcc-text-muted:      #9ca3af;
-  --bcc-text-placeholder:#b3b8c3;
+  --bcc-text-placeholder:#5f626a;
+  /* DEFERRED — header search only. Retains the pre-repair value so the
+     header keeps its exact computed appearance. It is NOT an approved
+     general token: .bcc-search-input sits on --bcc-glass-bg-frosted with a
+     backdrop-filter, so its backdrop is unbounded and no value can be
+     verified. Isolated here so it cannot block the 21 bounded consumers. */
+  --bcc-search-placeholder:#b3b8c3;
   --bcc-text-inverse:    #ffffff;
 
   /* Readable brand text — the wordmark's two-tone as TEXT, at 4.5:1.
@@ -377,7 +383,8 @@
     --bcc-text-secondary:  #8b949e;
     --bcc-text-secondary-rgb: 139 148 158;
     --bcc-text-muted:      #484f58;
-    --bcc-text-placeholder:#3d444d;
+    --bcc-text-placeholder:#82878f;
+    --bcc-search-placeholder:#3d444d;
     --bcc-text-inverse:    #0d1117;
     --bcc-stoke-ash:       #6f6358;
 
@@ -448,7 +455,8 @@
   --bcc-text-secondary:  #8b949e;
   --bcc-text-secondary-rgb: 139 148 158;
   --bcc-text-muted:      #484f58;
-  --bcc-text-placeholder:#3d444d;
+  --bcc-text-placeholder:#82878f;
+  --bcc-search-placeholder:#3d444d;
   --bcc-text-inverse:    #0d1117;
   --bcc-stoke-ash:       #6f6358;
 
@@ -928,7 +936,8 @@
                 box-shadow var(--bcc-transition-fast);
   }
   .bcc-search-input::placeholder {
-    color: var(--bcc-text-placeholder);
+    /* Deferred: unbounded frosted-glass backdrop — see --bcc-search-placeholder. */
+    color: var(--bcc-search-placeholder);
   }
   .bcc-search-input:focus {
     background: var(--bcc-input-bg-focus);

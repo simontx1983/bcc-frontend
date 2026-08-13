@@ -29,6 +29,7 @@
 
 import { useState } from "react";
 
+import { counterToneClass } from "@/lib/counter-tone";
 import { BLOG_SOURCE_LEN_MAX, BLOG_SOURCES_MAX } from "@/lib/api/types";
 
 export interface SourcesFieldProps {
@@ -97,7 +98,6 @@ export function SourcesField({ value, onChange, disabled = false }: SourcesField
 
           {value.map((entry, idx) => {
             const len = entry.length;
-            const overCap = len > BLOG_SOURCE_LEN_MAX;
             return (
               <div key={idx} className="flex items-start gap-2">
                 <span className="bcc-mono mt-1 w-6 shrink-0 text-right text-[11px] tabular-nums text-bcc-text-muted">
@@ -117,7 +117,7 @@ export function SourcesField({ value, onChange, disabled = false }: SourcesField
                   <span
                     className={
                       "bcc-mono block text-[10px] " +
-                      (overCap ? "text-safety" : "text-bcc-text-muted")
+                      counterToneClass(len, BLOG_SOURCE_LEN_MAX)
                     }
                   >
                     {len} / {BLOG_SOURCE_LEN_MAX}

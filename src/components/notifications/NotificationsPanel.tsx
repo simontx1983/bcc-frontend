@@ -206,7 +206,7 @@ function NotificationRow({ item, onActivate }: NotificationRowProps) {
             {item.message}
           </span>
           {item.created_at !== "" && (
-            <span className="bcc-mono text-[10px] tracking-[0.12em] text-[var(--bcc-text-muted)]">
+            <span className="bcc-mono text-[10px] tracking-[0.12em] text-[var(--bcc-text-secondary)]">
               {formatRelativeTime(item.created_at)}
             </span>
           )}

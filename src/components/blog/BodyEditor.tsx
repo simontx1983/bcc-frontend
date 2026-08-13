@@ -23,6 +23,7 @@
 
 import { useEffect, useState } from "react";
 
+import { counterToneClass } from "@/lib/counter-tone";
 import { BLOG_FULL_TEXT_MAX_LENGTH } from "@/lib/api/types";
 
 import { BlogMarkdownRenderer } from "./markdown/BlogMarkdownRenderer";
@@ -73,11 +74,7 @@ export function BodyEditor({
 
   const len = value.length;
   const overCap = len > BLOG_FULL_TEXT_MAX_LENGTH;
-  const tone = overCap
-    ? "text-safety"
-    : len > BLOG_FULL_TEXT_MAX_LENGTH - 1000
-      ? "text-warning"
-      : "text-bcc-text-muted";
+  const tone = counterToneClass(len, BLOG_FULL_TEXT_MAX_LENGTH, BLOG_FULL_TEXT_MAX_LENGTH - 1000);
 
   return (
     <div className="flex flex-col gap-2">

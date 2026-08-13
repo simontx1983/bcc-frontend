@@ -11,6 +11,7 @@
 
 import { useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 
+import { counterToneClass } from "@/lib/counter-tone";
 import { useReplyInConversationMutation } from "@/hooks/useReplyInConversation";
 import { humanizeCode } from "@/lib/api/errors";
 import { MESSAGE_BODY_MAX_LENGTH } from "@/lib/api/types";
@@ -87,11 +88,7 @@ export function MessageComposer({ conversationId }: MessageComposerProps) {
           id="message-composer-counter"
           aria-live="polite"
           hidden={body.length < MESSAGE_BODY_MAX_LENGTH - 200}
-          className={
-            body.length > MESSAGE_BODY_MAX_LENGTH
-              ? "text-safety"
-              : "text-bcc-text-muted"
-          }
+          className={counterToneClass(body.length, MESSAGE_BODY_MAX_LENGTH)}
         >
           {body.length}/{MESSAGE_BODY_MAX_LENGTH}
         </span>
@@ -104,7 +101,7 @@ export function MessageComposer({ conversationId }: MessageComposerProps) {
       )}
 
       <div className="flex items-center justify-between">
-        <span className="bcc-mono text-[10px] tracking-[0.16em] text-bcc-text-muted">
+        <span className="bcc-mono text-[10px] tracking-[0.16em] text-bcc-text-secondary">
           ENTER TO SEND · SHIFT + ENTER FOR NEWLINE
         </span>
         <button
