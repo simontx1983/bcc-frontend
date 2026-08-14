@@ -11,7 +11,6 @@ import { bccFetchAsClient } from "@/lib/api/client";
 import type {
   NotificationsListResponse,
   NotificationsMarkReadResponse,
-  NotificationsUnreadCountResponse,
 } from "@/lib/api/types";
 
 export interface NotificationsListParams {
@@ -38,18 +37,6 @@ export function getNotifications(
     method: "GET",
     ...(signal !== undefined ? { signal } : {}),
   });
-}
-
-export function getUnreadCount(
-  signal?: AbortSignal
-): Promise<NotificationsUnreadCountResponse> {
-  return bccFetchAsClient<NotificationsUnreadCountResponse>(
-    "me/notifications/unread-count",
-    {
-      method: "GET",
-      ...(signal !== undefined ? { signal } : {}),
-    }
-  );
 }
 
 /**

@@ -35,13 +35,11 @@ import {
 
 import {
   castAttestation,
-  reaffirmAttestation,
   revokeAttestation,
 } from "@/lib/api/attestations-endpoints";
 import type {
   AttestationCastRequest,
   AttestationCastResponse,
-  AttestationReaffirmResponse,
   AttestationRevokeResponse,
   BccApiError,
 } from "@/lib/api/types";
@@ -134,30 +132,6 @@ export function useRevokeAttestation(
 
   return useMutation<AttestationRevokeResponse, BccApiError, number>({
     mutationFn: (attestationId) => revokeAttestation(attestationId),
-    onSuccess: (data, attestationId) => {
-      invalidateAll(queryClient);
-      callerOnSuccess?.(data, attestationId);
-    },
-    ...rest,
-  });
-}
-
-export function useReaffirmAttestation(
-  options: Omit<
-    UseMutationOptions<AttestationReaffirmResponse, BccApiError, number>,
-    "mutationFn" | "onSuccess"
-  > & {
-    onSuccess?: (
-      data: AttestationReaffirmResponse,
-      attestationId: number,
-    ) => void;
-  } = {},
-) {
-  const queryClient = useQueryClient();
-  const { onSuccess: callerOnSuccess, ...rest } = options;
-
-  return useMutation<AttestationReaffirmResponse, BccApiError, number>({
-    mutationFn: (attestationId) => reaffirmAttestation(attestationId),
     onSuccess: (data, attestationId) => {
       invalidateAll(queryClient);
       callerOnSuccess?.(data, attestationId);

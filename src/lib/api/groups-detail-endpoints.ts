@@ -1,14 +1,17 @@
 /**
- * Typed wrappers for the §4.7.5 / §4.7.6 / §4.7.7 group-detail endpoints.
+ * Typed wrappers for the §4.7.5 / §4.7.6 group-detail endpoints.
  *
  *   - GET /bcc/v1/groups/{slug}             → GroupDetailResponse
  *   - GET /bcc/v1/groups/{id}/feed          → FeedResponse  (cursor-paginated)
- *   - GET /bcc/v1/groups/{id}/members       → GroupMembersResponse (offset)
  *
- * All three are server-safe (use `bccFetch` directly with an explicit
- * token) so the `/groups/[slug]` server component can fetch during SSR.
- * The companion React Query hooks call them through the same wrappers
- * so the wire path matches in dev tools.
+ * The §4.7.7 members roster has no wrapper here: `useGroupMembers` calls
+ * `bccFetchAsClient` directly, and the unused wrapper was removed rather
+ * than left as a second way to reach the same endpoint.
+ *
+ * Both are server-safe (use `bccFetch` directly with an explicit token)
+ * so the `/groups/[slug]` server component can fetch during SSR. The
+ * companion React Query hooks call them through the same wrappers so the
+ * wire path matches in dev tools.
  *
  * Privacy errors land as typed `BccApiError`:
  *   - 404 `bcc_not_found`        — missing slug OR secret + non-member
@@ -26,7 +29,6 @@ import { bccFetch } from "@/lib/api/client";
 import type {
   FeedResponse,
   GroupDetailResponse,
-  GroupMembersResponse,
 } from "@/lib/api/types";
 
 /**
@@ -83,44 +85,6 @@ export function getGroupFeed(
     : `groups/${groupId}/feed?${qs}`;
 
   return bccFetch<FeedResponse>(path, {
-    method: "GET",
-    token,
-    ...(signal !== undefined ? { signal } : {}),
-  });
-}
-
-/**
- * GET /groups/{id}/members — paginated roster.
- *
- * Offset-based pagination (per §4.7.7); roster is stable-ordered by
- * (role_rank, joined_at DESC). Server caps `limit` at 100; defaults to
- * 24 when unset.
- *
- * Privacy error envelope mirrors `getGroupFeed`: 403 with the server's
- * "Join the group to see its roster." copy when a non-member queries a
- * closed roster. The detail-page renderer should NOT call this when
- * `group.members_visible === false`.
- */
-export function getGroupMembers(
-  groupId: number,
-  offset: number,
-  limit: number,
-  token: string | null,
-  signal?: AbortSignal
-): Promise<GroupMembersResponse> {
-  const search = new URLSearchParams();
-  if (offset > 0) {
-    search.set("offset", String(offset));
-  }
-  if (limit > 0) {
-    search.set("limit", String(limit));
-  }
-  const qs = search.toString();
-  const path = qs === ""
-    ? `groups/${groupId}/members`
-    : `groups/${groupId}/members?${qs}`;
-
-  return bccFetch<GroupMembersResponse>(path, {
     method: "GET",
     token,
     ...(signal !== undefined ? { signal } : {}),
