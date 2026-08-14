@@ -15,7 +15,6 @@ import type {
   SendMessageResponse,
   StartConversationRequest,
   StartConversationResponse,
-  UnreadMessageCountResponse,
 } from "@/lib/api/types";
 
 export interface ListConversationsParams {
@@ -111,18 +110,4 @@ export function replyInConversation(
     method: "POST",
     body: { body },
   });
-}
-
-export function markConversationRead(id: number): Promise<{ ok: true }> {
-  return bccFetchAsClient<{ ok: true }>(`me/conversations/${id}/read`, {
-    method: "POST",
-  });
-}
-
-export function getUnreadMessageCount(
-  signal?: AbortSignal,
-): Promise<UnreadMessageCountResponse> {
-  const init: { method: "GET"; signal?: AbortSignal } = { method: "GET" };
-  if (signal !== undefined) init.signal = signal;
-  return bccFetchAsClient<UnreadMessageCountResponse>("me/messages/unread-count", init);
 }

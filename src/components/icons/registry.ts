@@ -34,8 +34,4 @@ export {
   DoorOpen as JoinIcon,
   /** Flip — turn the object over. */
   RotateCcw as FlipIcon,
-  /** Views — RESERVED. Not in use yet; freed by moving Watching to Binoculars. */
-  Eye as ViewsIcon,
-  /** Vouched-by, list rows only — a completed fact, never an offer. */
-  BadgeCheck as VouchedByIcon,
 } from "lucide-react";

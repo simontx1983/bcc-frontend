@@ -52,12 +52,3 @@ export function registerPushSubscription(
     },
   );
 }
-
-export function revokePushSubscription(
-  id: number,
-): Promise<{ ok: true }> {
-  return bccFetchAsClient<{ ok: true }>(
-    `me/push-subscriptions/${id}`,
-    { method: "DELETE" },
-  );
-}

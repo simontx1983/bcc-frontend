@@ -15,7 +15,9 @@
  *   - remark-gfm for tables / strikethrough / autolinks / footnotes
  *   - the three crypto-aware remark plugins (mentions, entity refs,
  *     auto-links)
- *   - rehype-pretty-code + Shiki for syntax-highlighted code blocks
+ *   - a module-level Shiki singleton for syntax-highlighted code blocks,
+ *     applied in the `pre` override rather than as a rehype plugin (see
+ *     the note above the component for why a plugin cannot work here)
  *   - `disallowedElements` + `unwrapDisallowed` for XSS safety (no
  *     `<script>`, `<iframe>`, `<object>`, `<embed>`, `<style>`; no
  *     `rehype-raw`, so HTML in markdown is escaped, not rendered)

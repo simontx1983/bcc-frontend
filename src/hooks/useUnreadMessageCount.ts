@@ -20,8 +20,6 @@
 import { useBadges } from "@/hooks/useBadges";
 import type { BccApiError, UnreadMessageCountResponse } from "@/lib/api/types";
 
-export const UNREAD_MESSAGE_COUNT_QUERY_KEY = ["messages", "unread-count"] as const;
-
 export interface UseUnreadMessageCountOptions {
   /**
    * Retained for source-compat with the previous hook signature.

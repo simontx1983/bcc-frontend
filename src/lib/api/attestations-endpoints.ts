@@ -26,7 +26,6 @@ import type {
   AttestationCastRequest,
   AttestationCastResponse,
   AttestationKind,
-  AttestationReaffirmResponse,
   AttestationRevokeResponse,
   AttestationRosterResponse,
   AttestationTargetKind,
@@ -92,23 +91,6 @@ export function revokeAttestation(
   return bccFetchAsClient<AttestationRevokeResponse>(
     `me/attestations/${attestationId}`,
     { method: "DELETE" },
-  );
-}
-
-/**
- * POST /me/attestations/:id/reaffirm — refresh decay baseline.
- *
- * Errors:
- *   - bcc_not_found             (404) — id doesn't exist
- *   - bcc_forbidden             (403) — not your attestation
- *   - bcc_attestation_revoked   (409) — cannot reaffirm a revoked row
- */
-export function reaffirmAttestation(
-  attestationId: number,
-): Promise<AttestationReaffirmResponse> {
-  return bccFetchAsClient<AttestationReaffirmResponse>(
-    `me/attestations/${attestationId}/reaffirm`,
-    { method: "POST" },
   );
 }
 

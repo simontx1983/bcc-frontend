@@ -3257,9 +3257,6 @@ export type CreatePostResponse =
 // Photo posts (v1.5 — multipart, separate endpoint per §4.14)
 // ─────────────────────────────────────────────────────────────────────
 
-/** Caption cap on photo posts — same shape as status (500 chars). */
-export const PHOTO_CAPTION_MAX_LENGTH = STATUS_POST_MAX_LENGTH;
-
 /**
  * Alt-text cap on photo posts (§3.3.9 / §4.18). Mirrors
  * `PhotoAltRepository::ALT_TEXT_MAX_LENGTH` and the
@@ -3333,9 +3330,6 @@ export interface PhotoBody {
 // ─────────────────────────────────────────────────────────────────────
 // GIF posts (v1.5 — JSON, separate endpoint per §4.15)
 // ─────────────────────────────────────────────────────────────────────
-
-/** Caption cap on GIF posts — same shape as status / photo. */
-export const GIF_CAPTION_MAX_LENGTH = STATUS_POST_MAX_LENGTH;
 
 /**
  * JSON request body for POST /posts/gif. Server requires the URL to
@@ -4911,15 +4905,6 @@ export interface AttestationRevokeResponse {
   /** ISO 8601 UTC. */
   revoked_at: string | null;
   attestor_summary: AttestorSummarySelf;
-}
-
-/** §J.2.1 reaffirm response. */
-export interface AttestationReaffirmResponse {
-  id: number;
-  /** ISO 8601 UTC. */
-  reaffirmed_at: string | null;
-  /** New decay baseline (always weight_at_time for V1). */
-  decay_reset_to: number;
 }
 
 /**
