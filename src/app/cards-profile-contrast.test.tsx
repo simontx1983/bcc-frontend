@@ -252,11 +252,22 @@ describe("E3 — readable profile prose", () => {
   }
 
   it("the deferred /u/[handle] rail is closed", () => {
-    const src = read(HANDLE);
-    expect(src).toContain(
+    // The rail markup this originally pinned has MOVED: /u/[handle] now
+    // renders the shared `components/layout/FileRail` instead of a private
+    // copy, so the metadata span lives there. The contract is unchanged —
+    // that span is secondary-toned and neither file carries muted — it is
+    // just asserted at the rail's new home. See file-rail-reuse.test.tsx.
+    const page = read(HANDLE);
+    const rail = read("src/components/layout/FileRail.tsx");
+
+    expect(page).toContain('import { FileRail } from "@/components/layout/FileRail";');
+    expect(page).not.toMatch(/(?:function|const)\s+FileRail\b/);
+
+    expect(rail).toContain(
       '<span className="bcc-mono inline-flex flex-wrap items-center gap-x-4 gap-y-1 text-bcc-text-secondary">',
     );
-    expect(MUTED.test(src)).toBe(false);
+    expect(MUTED.test(page)).toBe(false);
+    expect(MUTED.test(rail)).toBe(false);
   });
 });
 
