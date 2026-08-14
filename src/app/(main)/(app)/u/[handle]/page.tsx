@@ -38,6 +38,7 @@ import { notFound } from "next/navigation";
 import { CardFactory } from "@/components/cards/CardFactory";
 import { NewMemberChip } from "@/components/identity/NewMemberChip";
 import { BioBox } from "@/components/layout/BioBox";
+import { FileRail } from "@/components/layout/FileRail";
 import { PageHero } from "@/components/layout/PageHero";
 import { AttestationActionCluster } from "@/components/profile/AttestationActionCluster";
 import { BlockToggle } from "@/components/profile/BlockToggle";
@@ -218,8 +219,11 @@ export default async function MemberProfilePage({ params }: PageProps) {
 
   return (
     <main className="pb-24">
+      {/* JOINED rides the rail as reference data, not as a neighbour to
+          a column-exit CTA — per the 2026-05-14 UX review. */}
       <FileRail
-        handle={profile.handle}
+        kind="OPERATOR"
+        subject={`@${profile.handle.toUpperCase()}`}
         isOwner={isOwner}
         joinedLabel={formatJoinDate(profile.joined_at)}
       />
@@ -508,47 +512,6 @@ export default async function MemberProfilePage({ params }: PageProps) {
 // `@/components/profile/panels/SetupPanel` per the 2026-05-14
 // reorganization — it now backs the owner-only "Setup" tab instead of
 // the FILE 00 SectionFrame above the strip.
-
-// ──────────────────────────────────────────────────────────────────────
-// FileRail — top status strip, mirrors the SiteHeader rail vocabulary.
-// Anchors the page in the "operator file" metaphor; everything below
-// reads as numbered sections of that file.
-// ──────────────────────────────────────────────────────────────────────
-
-function FileRail({
-  handle,
-  isOwner,
-  joinedLabel,
-}: {
-  handle: string;
-  isOwner: boolean;
-  /** Pre-formatted joined-date label (e.g. "MAY 2026"). Surfaced as
-   *  rail metadata per the 2026-05-14 UX review — JOINED is reference
-   *  data, not a column-exit CTA neighbor. */
-  joinedLabel: string;
-}) {
-  return (
-    <div className="border-b border-dashed border-bcc-border">
-      <div className="mx-auto flex max-w-[1440px] flex-wrap items-center justify-between gap-4 px-4 py-3 sm:px-7">
-        <span className="bcc-mono inline-flex items-center gap-2 text-bcc-text-secondary">
-          <span className="bcc-rail-dot" aria-hidden />
-          <span>FLOOR &nbsp;//&nbsp; OPERATOR</span>
-          <span className="text-bcc-text">@{handle.toUpperCase()}</span>
-          {/* Owner viewpoint tag — quietly confirms "this is your public
-              view." Cheap insurance against the "did this save?" anxiety
-              when an owner lands on their own profile. */}
-          {isOwner && (
-            <span className="text-phosphor">&nbsp;·&nbsp;YOU</span>
-          )}
-        </span>
-        <span className="bcc-mono inline-flex flex-wrap items-center gap-x-4 gap-y-1 text-bcc-text-secondary">
-          <span>JOINED&nbsp;{joinedLabel}</span>
-          <span>FILE 0001&nbsp;//&nbsp;OPEN</span>
-        </span>
-      </div>
-    </div>
-  );
-}
 
 // ──────────────────────────────────────────────────────────────────────
 // SectionFrame — numbered section wrapper. Section title kicker on a
