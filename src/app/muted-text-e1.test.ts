@@ -142,8 +142,18 @@ const E1B_LADDER = [
 /** `aria-hidden` icons whose meaning is carried by a labelled sibling. */
 const DECORATIVE = [".bcc-search-icon", ".bcc-auth-select-arrow"] as const;
 
-/** Zero-consumer rules — must stay byte-identical. */
-const ZERO_CONSUMER = [
+/**
+ * Zero-consumer rules that E1 pinned as byte-identical and the dead-CSS
+ * cleanup subsequently DELETED.
+ *
+ * E1 kept them because remediating a rule nothing renders is wasted work,
+ * and said so: "they belong to the separate dead-CSS investigation." That
+ * investigation ran, proved them unreferenced repo-wide, and removed them.
+ * The assertion therefore inverts — from "still declares muted, unedited"
+ * to "is absent" — which is a strictly stronger claim, not a weaker one:
+ * the rule can no longer drift because it no longer exists.
+ */
+const DELETED_ZERO_CONSUMER = [
   ".bcc-sso-soon",
   ".bcc-post-handle",
   ".bcc-post-time",
@@ -154,11 +164,16 @@ const ZERO_CONSUMER = [
 const UTILITY = ".bcc-text-muted";
 
 /**
- * 13 -> 10 (E1b) -> 9 (E1c) -> 8 (E1d). What is left is exempt by
- * nature, not deferred: decorative icons, the honest utility, and the
- * five zero-consumer rules.
+ * 13 -> 10 (E1b) -> 9 (E1c) -> 8 (E1d) -> 3 (dead-CSS cleanup).
+ *
+ * The drop from 8 to 3 is not a migration: the five zero-consumer rules
+ * were deleted outright, so they can no longer be members of any set. What
+ * remains is exempt by nature — two decorative icons and the honest
+ * utility. `.bcc-text-muted` is deliberately kept: a class named "muted"
+ * documenting a valid style for genuinely muted content is a design-system
+ * invariant, and the defect was always misuse, never its existence.
  */
-const STILL_MUTED = [...DECORATIVE, ...ZERO_CONSUMER, UTILITY];
+const STILL_MUTED = [...DECORATIVE, UTILITY];
 
 describe("E1 — the 24 approved selectors moved to --bcc-text-secondary", () => {
   const secondary = declarationsByToken("secondary");
@@ -183,7 +198,7 @@ describe("E1 — the 24 approved selectors moved to --bcc-text-secondary", () =>
 describe("E1 — every exclusion is still muted", () => {
   const muted = declarationsByToken("muted");
 
-  it("the muted set is EXACTLY the 8 remaining excluded selectors", () => {
+  it("the muted set is EXACTLY the 3 remaining excluded selectors", () => {
     // The strongest assertion in this file: it fails both when an
     // excluded selector is migrated and when a new muted text rule is
     // introduced anywhere in the stylesheet.
@@ -281,14 +296,24 @@ describe("E1b — each ladder selector moves to primary text on hover", () => {
   });
 });
 
-describe("E1 — zero-consumer rules are byte-identical", () => {
-  for (const sel of ZERO_CONSUMER) {
-    it(`${sel} still declares muted, unedited`, () => {
-      const idx = CSS.indexOf(`${sel} `);
-      expect(idx).toBeGreaterThan(-1);
-      expect(declarationsByToken("muted")).toContain(sel);
+describe("E1 — the zero-consumer rules were deleted by the dead-CSS cleanup", () => {
+  for (const sel of DELETED_ZERO_CONSUMER) {
+    it(`${sel} is absent from the stylesheet`, () => {
+      // Absence, asserted on the selector token rather than a substring, so
+      // a longer name that merely starts the same cannot satisfy it.
+      const token = new RegExp(`(?<![-\\w])${sel.replace(".", "\\.")}(?![-\\w])`);
+      expect(token.test(CSS), `${sel} came back`).toBe(false);
+      expect(declarationsByToken("muted")).not.toContain(sel);
     });
   }
+
+  it("all five are gone, and none was silently migrated instead of deleted", () => {
+    // A migration would move the selector into the secondary set. Deletion
+    // removes it from both. This distinguishes the two outcomes.
+    const secondary = declarationsByToken("secondary");
+    for (const sel of DELETED_ZERO_CONSUMER) expect(secondary).not.toContain(sel);
+    expect(DELETED_ZERO_CONSUMER).toHaveLength(5);
+  });
 });
 
 describe("E1 — no token definition changed", () => {

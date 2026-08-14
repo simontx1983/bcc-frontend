@@ -1141,13 +1141,7 @@
     gap: 10px;
   }
 
-  .bcc-offcanvas-guest-block {
-    padding: 16px 12px;
-    display: flex;
-    gap: 8px;
-    border-bottom: 1px solid var(--bcc-border);
-    flex-shrink: 0;
-  }
+
 }
 
 /* ========================================================================
@@ -1211,19 +1205,7 @@
   .bcc-nav-item.active .bcc-nav-item-icon {
     opacity: 1;
   }
-  .bcc-nav-badge {
-    margin-left: auto;
-    background: var(--bcc-accent);
-    color: var(--bcc-text-inverse);
-    font-family: var(--font-mono), monospace;
-    font-size: 10px;
-    font-weight: 700;
-    padding: 2px 7px;
-    border-radius: var(--bcc-radius-full);
-    letter-spacing: 0;
-    min-width: 20px;
-    text-align: center;
-  }
+
 
   /* bcc-nav-section — label above a group of nav items */
   .bcc-nav-section {
@@ -1332,15 +1314,8 @@
     opacity: 1;
   }
 
-  /* Danger */
-  .bcc-btn-danger {
-    background: var(--bcc-danger);
-    color: #fff;
-  }
-  .bcc-btn-danger:hover {
-    background: #dc2626;
-    opacity: 1;
-  }
+
+
 
   /* Icon button — square, icon only */
   .bcc-btn-icon {
@@ -1413,11 +1388,7 @@
     font-size: 11px;
     border-radius: var(--bcc-radius-sm);
   }
-  .bcc-btn-lg {
-    padding: 12px 24px;
-    font-size: 15px;
-    border-radius: var(--bcc-radius-lg);
-  }
+
 }
 
 /* ========================================================================
@@ -1426,53 +1397,11 @@
 
 @layer components {
 
-  /* NOTE: the redesign's generic `.bcc-card` surface rule was removed
-     here — nothing in src/ used it (surfaces use .bcc-panel /
-     .bcc-card-interactive), and the class name belongs to the 316x440
-     3D trading card (see TRADING-CARD + WORKSHOP LAYER — RESTORED at
-     the bottom of this file). Its `overflow: hidden` would also have
-     flattened the preserve-3d flip. */
 
-  /* bcc-card-interactive — card with cursor glow radiance effect.
-     The glow follows the mouse via --mouse-x / --mouse-y CSS vars
-     set by a JS handler (useCardGlow hook). */
-  .bcc-card-interactive {
-    background: var(--bcc-surface);
-    border: 1px solid var(--bcc-border);
-    border-radius: var(--bcc-radius-lg);
-    box-shadow: var(--bcc-shadow-sm);
-    transition: box-shadow var(--bcc-transition-base),
-                border-color var(--bcc-transition-base);
-    overflow: hidden;
-    position: relative;
-    cursor: pointer;
-  }
-  .bcc-card-interactive::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    border-radius: inherit;
-    background: radial-gradient(
-      400px circle at var(--mouse-x, 50%) var(--mouse-y, 50%),
-      var(--card-glow, var(--bcc-accent-glow)),
-      transparent 60%
-    );
-    opacity: 0;
-    transition: opacity var(--bcc-transition-base);
-    pointer-events: none;
-    z-index: 0;
-  }
-  .bcc-card-interactive:hover::before {
-    opacity: 1;
-  }
-  .bcc-card-interactive:hover {
-    border-color: var(--bcc-border-strong);
-    box-shadow: var(--bcc-shadow-md);
-  }
-  .bcc-card-interactive > * {
-    position: relative;
-    z-index: 1;
-  }
+
+
+
+
 
   /* bcc-panel — content section panel (feed post, info box, etc.) */
   .bcc-panel {
@@ -1484,14 +1413,7 @@
                 border-color var(--bcc-transition-slow);
   }
 
-  /* bcc-glass — frosted glass panel */
-  .bcc-glass {
-    background: var(--bcc-glass-bg);
-    backdrop-filter: blur(var(--bcc-glass-blur));
-    -webkit-backdrop-filter: blur(var(--bcc-glass-blur));
-    border: 1px solid var(--bcc-glass-border);
-    border-radius: var(--bcc-radius-lg);
-  }
+
 }
 
 /* ========================================================================
@@ -1500,106 +1422,22 @@
 
 @layer components {
 
-  /* bcc-feed — the center column feed wrapper */
-  .bcc-feed {
-    display: flex;
-    flex-direction: column;
-    padding: 0;
-  }
 
-  /* bcc-feed-divider — thin line between feed items */
-  .bcc-feed-divider {
-    height: 1px;
-    background: var(--bcc-border-light);
-    margin: 0;
-  }
 
-  /* bcc-post — a single feed post */
-  .bcc-post {
-    display: flex;
-    gap: 12px;
-    padding: 16px;
-    border-bottom: 1px solid var(--bcc-border-light);
-    background: var(--bcc-surface);
-    transition: background var(--bcc-transition-fast);
-    cursor: pointer;
-  }
-  .bcc-post:hover {
-    background: var(--bcc-surface-hover);
-  }
-  .bcc-post-avatar {
-    flex-shrink: 0;
-    width: 44px;
-    height: 44px;
-    border-radius: 50%;
-    overflow: hidden;
-    background: var(--bcc-surface-raised);
-  }
-  .bcc-post-body {
-    flex: 1;
-    min-width: 0;
-  }
-  .bcc-post-header {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    flex-wrap: wrap;
-    margin-bottom: 4px;
-  }
-  .bcc-post-name {
-    font-family: var(--font-stencil), Impact, sans-serif;
-    font-weight: 800;
-    font-size: 14px;
-    letter-spacing: 0.04em;
-    color: var(--bcc-text);
-    text-transform: uppercase;
-  }
-  .bcc-post-handle {
-    font-family: var(--font-mono), monospace;
-    font-size: 12px;
-    color: var(--bcc-text-muted);
-    letter-spacing: 0.04em;
-  }
-  .bcc-post-time {
-    font-family: var(--font-mono), monospace;
-    font-size: 11px;
-    color: var(--bcc-text-muted);
-    margin-left: auto;
-    white-space: nowrap;
-  }
-  .bcc-post-content {
-    font-family: var(--font-serif), Georgia, serif;
-    font-size: 15px;
-    line-height: 1.6;
-    color: var(--bcc-text);
-    margin-bottom: 12px;
-    word-break: break-word;
-  }
-  .bcc-post-actions {
-    display: flex;
-    gap: 0;
-    margin: 0 -8px;
-  }
-  .bcc-post-action {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 6px 8px;
-    border-radius: var(--bcc-radius-md);
-    color: var(--bcc-text-muted);
-    font-family: var(--font-mono), monospace;
-    font-size: 12px;
-    letter-spacing: 0.04em;
-    cursor: pointer;
-    background: transparent;
-    border: none;
-    transition: color var(--bcc-transition-fast),
-                background var(--bcc-transition-fast);
-  }
-  .bcc-post-action:hover {
-    background: var(--bcc-accent-subtle);
-    color: var(--bcc-accent);
-  }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 }
 
 /* ========================================================================
@@ -1607,40 +1445,10 @@
    ======================================================================== */
 
 @layer components {
-  .bcc-composer {
-    display: flex;
-    gap: 12px;
-    padding: 16px;
-    border-bottom: 1px solid var(--bcc-border);
-    background: var(--bcc-surface);
-  }
-  .bcc-composer-input {
-    flex: 1;
-    min-height: 44px;
-    max-height: 200px;
-    resize: none;
-    background: var(--bcc-input-bg);
-    border: 1px solid var(--bcc-input-border);
-    border-radius: var(--bcc-radius-lg);
-    padding: 10px 14px;
-    color: var(--bcc-text);
-    font-family: var(--font-serif), Georgia, serif;
-    font-size: 15px;
-    line-height: 1.5;
-    outline: none;
-    transition: border-color var(--bcc-transition-fast),
-                box-shadow var(--bcc-transition-fast),
-                background var(--bcc-transition-fast);
-    overflow-y: auto;
-  }
-  .bcc-composer-input::placeholder {
-    color: var(--bcc-text-placeholder);
-  }
-  .bcc-composer-input:focus {
-    background: var(--bcc-input-bg-focus);
-    border-color: var(--bcc-accent);
-    box-shadow: 0 0 0 3px var(--bcc-accent-subtle);
-  }
+
+
+
+
 }
 
 /* ========================================================================
@@ -1661,28 +1469,14 @@
     color: var(--bcc-text-secondary);
     text-transform: uppercase;
   }
-  .bcc-avatar-sm  { width: 28px; height: 28px; font-size: 11px; }
-  .bcc-avatar-md  { width: 36px; height: 36px; font-size: 14px; }
-  .bcc-avatar-lg  { width: 56px; height: 56px; font-size: 18px; }
-  .bcc-avatar-xl  { width: 80px; height: 80px; font-size: 24px; }
-  .bcc-avatar-2xl { width: 120px; height: 120px; font-size: 36px; }
 
-  /* Online dot */
-  .bcc-avatar-wrap {
-    position: relative;
-    display: inline-block;
-    flex-shrink: 0;
-  }
-  .bcc-avatar-dot {
-    position: absolute;
-    bottom: 1px;
-    right: 1px;
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
-    background: var(--bcc-success);
-    border: 2px solid var(--bcc-surface);
-  }
+  .bcc-avatar-md  { width: 36px; height: 36px; font-size: 14px; }
+
+
+
+
+
+
 }
 
 /* ========================================================================
@@ -1691,53 +1485,18 @@
 
 @layer components {
 
-  /* bcc-badge — small label chip */
-  .bcc-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    padding: 2px 8px;
-    border-radius: var(--bcc-radius-full);
-    font-family: var(--font-mono), monospace;
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    white-space: nowrap;
-    line-height: 1.6;
-  }
-  .bcc-badge-accent {
-    background: var(--bcc-accent-subtle);
-    color: var(--bcc-accent);
-    border: 1px solid color-mix(in srgb, var(--bcc-accent) 25%, transparent);
-  }
-  .bcc-badge-success {
-    background: rgba(34, 197, 94, 0.12);
-    color: var(--bcc-success);
-    border: 1px solid rgba(34, 197, 94, 0.25);
-  }
-  .bcc-badge-warning {
-    background: rgba(245, 158, 11, 0.12);
-    color: var(--bcc-warning);
-    border: 1px solid rgba(245, 158, 11, 0.25);
-  }
-  .bcc-badge-danger {
-    background: rgba(239, 68, 68, 0.12);
-    color: var(--bcc-danger);
-    border: 1px solid rgba(239, 68, 68, 0.25);
-  }
-  .bcc-badge-neutral {
-    background: var(--bcc-surface-raised);
-    color: var(--bcc-text-secondary);
-    border: 1px solid var(--bcc-border);
-  }
 
-  /* Tier badges */
-  .bcc-tier-risky   { background: rgba(200,71,47,0.12);   color: var(--bcc-trust-risky);   border: 1px solid rgba(200,71,47,0.3); }
-  .bcc-tier-caution { background: rgba(242,202,27,0.12);  color: var(--bcc-trust-caution); border: 1px solid rgba(242,202,27,0.3); }
-  .bcc-tier-neutral { background: rgba(107,110,114,0.12); color: var(--bcc-trust-neutral); border: 1px solid rgba(107,110,114,0.3); }
-  .bcc-tier-trusted { background: rgba(36,122,63,0.12);   color: var(--bcc-trust-trusted); border: 1px solid rgba(36,122,63,0.3); }
-  .bcc-tier-proven  { background: color-mix(in srgb, var(--bcc-trust-proven) 12%, transparent); color: var(--bcc-trust-proven); border: 1px solid color-mix(in srgb, var(--bcc-trust-proven) 30%, transparent); }
+
+
+
+
+
+
+
+
+
+
+
 
   /* Rank chip — the pill, border and dot carry the tier colour; the RANK
      WORD IS ALWAYS NEUTRAL. That is a rule, not a preference: tinting the
@@ -1771,13 +1530,8 @@
    ======================================================================== */
 
 @layer components {
-  .bcc-tabs {
-    display: flex;
-    border-bottom: 1px solid var(--bcc-border);
-    overflow-x: auto;
-    scrollbar-width: none;
-  }
-  .bcc-tabs::-webkit-scrollbar { display: none; }
+
+
 
   .bcc-tab {
     display: inline-flex;
@@ -1842,46 +1596,13 @@
    ======================================================================== */
 
 @layer components {
-  .bcc-input {
-    width: 100%;
-    height: 40px;
-    padding: 0 14px;
-    background: var(--bcc-input-bg);
-    border: 1px solid var(--bcc-input-border);
-    border-radius: var(--bcc-radius-md);
-    color: var(--bcc-text);
-    font-family: var(--font-serif), Georgia, serif;
-    font-size: 14px;
-    outline: none;
-    transition: background var(--bcc-transition-fast),
-                border-color var(--bcc-transition-fast),
-                box-shadow var(--bcc-transition-fast);
-  }
-  .bcc-input::placeholder {
-    color: var(--bcc-text-placeholder);
-  }
-  .bcc-input:focus {
-    background: var(--bcc-input-bg-focus);
-    border-color: var(--bcc-accent);
-    box-shadow: 0 0 0 3px var(--bcc-accent-subtle);
-  }
 
-  .bcc-label {
-    display: block;
-    font-family: var(--font-mono), monospace;
-    font-size: 11px;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: var(--bcc-text-secondary);
-    margin-bottom: 6px;
-  }
 
-  .bcc-field {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    margin-bottom: 16px;
-  }
+
+
+
+
+
 }
 
 /* ========================================================================
@@ -1984,10 +1705,8 @@
     font-size: 12px;
     letter-spacing: 0.08em;
   }
-  .bcc-script {
-    font-family: var(--font-script), cursive;
-  }
-  .bcc-text-accent    { color: var(--bcc-accent); }
+
+
   .bcc-text-muted     { color: var(--bcc-text-muted); }
   .bcc-text-secondary { color: var(--bcc-text-secondary); }
   .bcc-truncate {
@@ -1995,11 +1714,7 @@
     text-overflow: ellipsis;
     white-space: nowrap;
   }
-  .bcc-divider {
-    height: 1px;
-    background: var(--bcc-border-light);
-    margin: 16px 0;
-  }
+
 }
 
 /* ========================================================================
@@ -2273,16 +1988,7 @@
   flex: 1;
   text-align: left;
 }
-.bcc-sso-soon {
-  font-size: 9px;
-  font-family: var(--font-mono), monospace;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--bcc-text-muted);
-  border: 1px solid var(--bcc-border);
-  border-radius: 4px;
-  padding: 2px 5px;
-}
+
 
 /* ─── DIVIDER ─────────────────────────────────────────────────────────────── */
 
@@ -2508,31 +2214,10 @@
   background: var(--bcc-surface);
   color: var(--bcc-text-primary);
 }
-.bcc-auth-chain-opt {
-  padding: 6px 14px;
-  border-radius: var(--bcc-radius-md);
-  border: 1px solid var(--bcc-border-strong);
-  background: transparent;
-  color: var(--bcc-text-muted);
-  font-family: var(--font-mono), monospace;
-  font-size: 11px;
-  letter-spacing: 0.04em;
-  cursor: pointer;
-  transition: all 150ms ease;
-}
-.bcc-auth-chain-opt:hover:not(:disabled) {
-  border-color: var(--bcc-accent);
-  color: var(--bcc-accent);
-}
-.bcc-auth-chain-opt--active {
-  border-color: var(--bcc-accent);
-  background: var(--bcc-accent-subtle);
-  color: var(--bcc-accent);
-}
-.bcc-auth-chain-opt:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
+
+
+
+
 .bcc-auth-input-wrap {
   position: relative;
   display: flex;
@@ -2636,51 +2321,18 @@
    ======================================================================== */
 
 @layer components {
-  .bcc-op-card {
-    background: var(--bcc-surface);
-    border: 1px solid var(--bcc-border);
-    border-radius: var(--bcc-radius-lg);
-    overflow: hidden;
-    transition: box-shadow var(--bcc-transition-base),
-                border-color var(--bcc-transition-base);
-    position: relative;
-    cursor: pointer;
-  }
-  .bcc-op-card:hover {
-    box-shadow: var(--bcc-shadow-lg);
-    border-color: var(--bcc-border-strong);
-  }
-  /* Cursor glow on operator cards */
-  .bcc-op-card::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    border-radius: inherit;
-    background: radial-gradient(
-      350px circle at var(--mouse-x, 50%) var(--mouse-y, 50%),
-      var(--card-glow, var(--bcc-accent-glow)),
-      transparent 65%
-    );
-    opacity: 0;
-    transition: opacity var(--bcc-transition-base);
-    pointer-events: none;
-    z-index: 0;
-  }
-  .bcc-op-card:hover::before {
-    opacity: 1;
-  }
-  .bcc-op-card > * { position: relative; z-index: 1; }
 
-  /* Tier accent strip at top of card */
-  .bcc-op-card-tier-strip {
-    height: 3px;
-    width: 100%;
-  }
-  .bcc-op-card-tier-strip[data-tier="risky"]   { background: var(--bcc-trust-risky); }
-  .bcc-op-card-tier-strip[data-tier="caution"] { background: var(--bcc-trust-caution); }
-  .bcc-op-card-tier-strip[data-tier="neutral"] { background: var(--bcc-trust-neutral); }
-  .bcc-op-card-tier-strip[data-tier="trusted"] { background: var(--bcc-trust-trusted); }
-  .bcc-op-card-tier-strip[data-tier="proven"]  { background: var(--bcc-trust-proven); }
+
+
+
+
+
+
+
+
+
+
+
 }
 
 /* ========================================================================
@@ -2819,7 +2471,8 @@
 
    .bcc-card name collision: the redesign also defined a generic
    .bcc-card surface, but nothing in src/ used it (components use
-   .bcc-panel / .bcc-card-interactive). The unused redesign rule was
+   .bcc-panel; .bcc-card-interactive was itself later removed as dead
+   CSS). The unused redesign rule was
    deleted and the trading-card .bcc-card keeps its original name —
    smallest-diff resolution; its overflow:hidden would have flattened
    the preserve-3d flip anyway.
@@ -2980,21 +2633,7 @@
     animation: bcc-pulse 2.4s infinite;
   }
 
-  /* bcc-foil-band — diagonal foil shimmer for legendary cards. Apply
-     to the card body, not the page. */
-  .bcc-foil-band {
-    background: linear-gradient(
-      120deg,
-      transparent 30%,
-      rgba(255, 255, 255, 0.18) 45%,
-      rgba(255, 255, 255, 0.42) 50%,
-      rgba(255, 255, 255, 0.18) 55%,
-      transparent 70%
-    );
-    background-size: 200% 200%;
-    animation: bcc-foil 6s linear infinite;
-    mix-blend-mode: overlay;
-  }
+
 
   /* bcc-caution-tape — the diagonal yellow/black warning stripe. */
   .bcc-caution-tape {
@@ -3465,239 +3104,42 @@
     animation-delay: var(--stagger, 0ms);
   }
 
-  /* bcc-nav-link — single nav item.
-     Redesigned 2026-05-11: active and focus states no longer share
-     the safety-orange treatment. Active uses a SOLID 4px block
-     underline (visually heavier — it's a destination state). Focus
-     uses a DOTTED outline (transient — keyboard movement). On
-     keyboard tab through the row the user can now tell at a glance
-     where they ARE vs. where they MIGHT GO. */
-  .bcc-nav-link {
-    font-family: var(--font-stencil), Impact, sans-serif;
-    font-weight: 800;
-    font-size: 14px;
-    letter-spacing: 0.18em;
-    text-transform: uppercase;
-    color: rgba(239, 229, 207, 0.6);
-    padding: 10px 14px;
-    border-bottom: 4px solid transparent;
-    cursor: pointer;
-    transition: color 0.2s, border-color 0.2s;
-    white-space: nowrap;
-    text-decoration: none;
-    background: transparent;
-    /* Resets for the OpsMenu trigger which renders this class on a
-       <button>. Without these the browser's default button chrome
-       (rounded corners, inset border, padding fudge) breaks the
-       inline alignment with sibling <a> tags. */
-    border-top: none;
-    border-left: none;
-    border-right: none;
-    font: inherit;
-    font-family: var(--font-stencil), Impact, sans-serif;
-  }
-  .bcc-nav-link:hover {
-    color: var(--cardstock);
-  }
-  .bcc-nav-link[aria-current="page"] {
-    color: var(--cardstock);
-    border-bottom-color: var(--safety);
-  }
-  .bcc-nav-link:focus-visible {
-    outline: 2px dotted var(--cardstock);
-    outline-offset: 3px;
-  }
+
+
+
+
   /* Honor prefers-reduced-motion: drop transition so the underline
      swap is instantaneous for users who've asked for less motion. */
-  @media (prefers-reduced-motion: reduce) {
-    .bcc-nav-link {
-      transition: none;
-    }
-  }
 
 
-  /* bcc-site-footer — wrapper. Concrete background continues the
-     workshop register from the header; pads off main content with a
-     dashed top rule on its first zoned child. */
-  .bcc-site-footer {
-    background: var(--concrete);
-    color: rgba(239, 229, 207, 0.7);
-    margin-top: 80px;
-    border-top: 1px dashed rgba(239, 229, 207, 0.2);
-  }
 
-  /* bcc-footer-acquire — anon-only acquisition strip. Light touch:
-     one mono caption, one prose line, two CTAs. Hidden when the
-     viewer is authed (SiteFooter doesn't render the wrapper at all). */
-  .bcc-footer-acquire {
-    max-width: 1560px;
-    margin: 0 auto;
-    padding: 32px 28px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 20px 32px;
-    border-bottom: 1px dashed rgba(239, 229, 207, 0.12);
-  }
-  .bcc-footer-acquire-text {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    max-width: 60ch;
-  }
-  .bcc-footer-acquire-line {
-    /* --font-fraunces was never defined; next/font registers the face as
-       --font-serif (layout.tsx), which is the form the other 20 serif
-       declarations in this file use. */
-    font-family: var(--font-serif), Georgia, serif;
-    font-size: 17px;
-    color: var(--cardstock);
-    line-height: 1.4;
-  }
-  .bcc-footer-acquire-actions {
-    display: inline-flex;
-    align-items: center;
-    gap: 10px;
-    flex-wrap: wrap;
-  }
 
-  /* bcc-footer-grid — three-column zoned index. Each column has a
-     mono caps label and stencil link rows. Auto-fits at narrow widths
-     so the columns gracefully wrap to a single column on mobile. */
-  .bcc-footer-grid {
-    max-width: 1560px;
-    margin: 0 auto;
-    padding: 48px 28px 32px;
-    display: grid;
-    grid-template-columns: repeat(3, minmax(180px, 1fr));
-    gap: 32px 48px;
-  }
-  @media (max-width: 720px) {
-    .bcc-footer-grid {
-      grid-template-columns: 1fr;
-      gap: 28px;
-      padding: 32px 24px 24px;
-    }
-  }
-  .bcc-footer-col {
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
-  }
-  .bcc-footer-col-label {
-    font-family: var(--font-mono), monospace;
-    font-size: 10px;
-    letter-spacing: 0.28em;
-    text-transform: uppercase;
-    color: var(--safety);
-    padding-bottom: 6px;
-    border-bottom: 1px dashed rgba(239, 229, 207, 0.18);
-  }
-  .bcc-footer-col-list {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    list-style: none;
-    padding: 0;
-    margin: 0;
-  }
-  .bcc-footer-col-link {
-    color: rgba(239, 229, 207, 0.65);
-    font-family: var(--font-stencil), Impact, sans-serif;
-    font-weight: 800;
-    font-size: 14px;
-    letter-spacing: 0.16em;
-    text-transform: uppercase;
-    text-decoration: none;
-    transition: color 0.15s;
-    display: inline-block;
-    padding: 2px 0;
-  }
-  .bcc-footer-col-link:hover {
-    color: var(--cardstock);
-  }
-  .bcc-footer-col-link:focus-visible {
-    outline: 2px dotted var(--cardstock);
-    outline-offset: 3px;
-  }
 
-  /* bcc-footer — system-status meta row at the bottom. Dashed top
-     rule separates it from the zoned index above. Holds the
-     operational dot, copyright, optional good-standing stamp, and
-     the env-sourced build label. */
-  .bcc-footer {
-    max-width: 1560px;
-    margin: 0 auto;
-    padding: 20px 28px 32px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    border-top: 1px dashed rgba(239, 229, 207, 0.2);
-    font-family: var(--font-mono), monospace;
-    font-size: 10px;
-    letter-spacing: 0.18em;
-    text-transform: uppercase;
-    color: rgba(239, 229, 207, 0.45);
-    gap: 16px;
-    flex-wrap: wrap;
-  }
-  .bcc-footer-meta-cluster {
-    display: inline-flex;
-    align-items: center;
-    gap: 14px;
-    flex-wrap: wrap;
-  }
-  /* bcc-footer-status — operational indicator with a quiet
-     verified-green dot. Static today; will swap to a useSystemHealth
-     reading when that hook lands (see SiteFooter.tsx FooterStatusDot
-     comment for the upgrade path). */
-  .bcc-footer-status {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-  }
-  .bcc-footer-status-dot {
-    display: inline-block;
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-    background: var(--verified);
-    box-shadow: 0 0 6px rgba(44, 157, 102, 0.55);
-  }
-  /* bcc-footer-stamp — contextual "Member in Good Standing" mark.
-     The -1.5° tilt is the warehouse character. Only rendered when
-     authed + viewerInGoodStanding === true (see SiteFooter.tsx). */
-  .bcc-footer-stamp {
-    border: 1px solid var(--verified);
-    color: var(--verified);
-    padding: 4px 8px;
-    letter-spacing: 0.22em;
-    transform: rotate(-1.5deg);
-  }
-  .bcc-footer a {
-    color: inherit;
-    text-decoration: none;
-    transition: color 0.15s;
-  }
-  .bcc-footer a:hover {
-    color: var(--cardstock);
-  }
-  .bcc-footer a:focus-visible {
-    outline: 2px dotted var(--cardstock);
-    outline-offset: 2px;
-  }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
   /* Honor prefers-reduced-motion across the footer transitions. */
-  @media (prefers-reduced-motion: reduce) {
-    .bcc-footer-col-link,
-    .bcc-footer a {
-      transition: none;
-    }
-    .bcc-footer-status-dot {
-      box-shadow: none;
-    }
-  }
+
 }
 
 /* ========================================================================
@@ -3713,51 +3155,11 @@
    ======================================================================== */
 
 @layer components {
-  /* bcc-dropcap — apply to the first <p> of an editorial standfirst.
-     Floats the leading character (::first-letter) at ~4 lines of body
-     height in stencil + safety-orange so the body opening reads as a
-     deliberate lede, not a stray paragraph. */
-  .bcc-dropcap::first-letter {
-    float: left;
-    font-family: var(--font-stencil), Impact, sans-serif;
-    font-weight: 800;
-    font-size: 4.5em;
-    line-height: 0.85;
-    margin-right: 0.12em;
-    margin-top: 0.06em;
-    color: var(--safety);
-    text-transform: uppercase;
-    letter-spacing: 0;
-  }
 
-  /* bcc-marquee — outer clip + edge mask. Wraps a single
-     .bcc-marquee-track that contains the items rendered TWICE so a
-     translateX(-50%) loop is seamless. Dashed rules above + below echo
-     the rest of BCC's rail vocabulary; the soft mask hides items as
-     they enter / leave the strip. */
-  .bcc-marquee {
-    display: flex;
-    overflow: hidden;
-    user-select: none;
-    -webkit-mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent);
-    mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent);
-    border-top: 1px dashed rgba(239, 229, 207, 0.25);
-    border-bottom: 1px dashed rgba(239, 229, 207, 0.25);
-    padding: 14px 0;
-  }
-  .bcc-marquee-track {
-    display: flex;
-    flex-shrink: 0;
-    align-items: center;
-    gap: 3rem;
-    padding-right: 3rem;
-    animation: bcc-marquee-scroll 60s linear infinite;
-    will-change: transform;
-  }
-  .bcc-marquee:hover .bcc-marquee-track,
-  .bcc-marquee:focus-within .bcc-marquee-track {
-    animation-play-state: paused;
-  }
+
+
+
+
 }
 
 
@@ -4161,12 +3563,7 @@
   line-height: 1.55;
   overflow-x: hidden;
 }
-.bcc-ldg-mono {
-  font-family: var(--font-mono), monospace;
-  font-size: 11px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-}
+
 .bcc-ldg-disp {
   font-family: var(--font-stencil), Impact, sans-serif;
   font-weight: 400;
@@ -4495,8 +3892,8 @@
 .bcc-onb-btn:disabled { cursor: wait; opacity: 0.6; }
 .bcc-onb-btn-primary { background: var(--bcc-accent); color: var(--bcc-text-inverse); box-shadow: 0 6px 22px var(--bcc-accent-glow); }
 .bcc-onb-btn-primary:not(:disabled):hover { box-shadow: 0 10px 34px var(--bcc-accent-glow); transform: translateY(-2px); }
-.bcc-onb-btn-ghost { border-color: var(--bcc-border); color: var(--bcc-text); background: var(--bcc-surface-raised); }
-.bcc-onb-btn-ghost:not(:disabled):hover { border-color: var(--bcc-accent); color: var(--bcc-accent); transform: translateY(-2px); }
+
+
 .bcc-onb-link { font-family: var(--font-mono), monospace; font-size: 12px; letter-spacing: 0.08em; color: var(--bcc-text-secondary); background: none; border: none; cursor: pointer; text-decoration: none; padding: 4px 2px; }
 .bcc-onb-link:not(:disabled):hover { color: var(--bcc-text); text-decoration: underline; text-underline-offset: 4px; }
 .bcc-onb-link:disabled { opacity: 0.5; cursor: default; }
@@ -4526,7 +3923,7 @@
 .bcc-onb-prim .k { font-family: var(--font-mono), monospace; font-size: 12px; letter-spacing: 0.14em; color: var(--bcc-text); }
 .bcc-onb-prim .q { font-family: var(--font-serif), Georgia, serif; font-style: italic; color: var(--bcc-text-secondary); margin: 4px 0 2px; }
 .bcc-onb-prim .d { font-family: var(--font-serif), Georgia, serif; color: var(--bcc-text-secondary); margin: 0; }
-.bcc-onb-prim-accent { border-left-color: var(--bcc-accent); }
+
 
 /* Identity step */
 .bcc-onb-id-cover {

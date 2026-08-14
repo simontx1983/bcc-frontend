@@ -497,7 +497,9 @@ describe("E2 — secondary clears AA on the surfaces these routes render on", ()
     });
   }
 
-  it("E2 changed no CSS — globals.css still holds exactly E1's eight exclusions", () => {
-    expect([...CSS.matchAll(/var\(--bcc-text-muted\)/g)]).toHaveLength(8);
+  it("E2 changed no CSS — globals.css holds exactly E1's remaining exclusions", () => {
+    // 8 -> 3 because the dead-CSS cleanup DELETED the five zero-consumer
+    // rules E1 had pinned. No E2 site changed; the denominator did.
+    expect([...CSS.matchAll(/var\(--bcc-text-muted\)/g)]).toHaveLength(3);
   });
 });
