@@ -94,10 +94,18 @@
      layer's --safety/--weld/--verified/--blueprint aliases below.
      Same hex values as before consolidation; this block is now the
      single source of truth, following the --tier-* -> --bcc-trust-*
-     precedent. */
+     precedent.
+
+     --bcc-verified is the ONE of these that is theme-scoped. The value
+     here is the LIGHT-theme value; dark restores #2c9d66 in the paired
+     block after the aesthetic :root (search "verified green is
+     theme-scoped"). It must move in lockstep with --verified-rgb or the
+     Tailwind utilities drift to a different green than the CSS variable.
+     --safety, --weld and --blueprint remain theme-blind and are NOT
+     touched by that work. */
   --bcc-safety:          #f05a28;
   --bcc-weld:            #ffc01e;
-  --bcc-verified:        #2c9d66;
+  --bcc-verified:        #20794e;
   --bcc-blueprint:       #0f1e3c;
 
   /* RGB triplets — companions to the brand/status colors above, for
@@ -2564,7 +2572,11 @@
   --cardstock-edge-rgb: 176 152 119;
   --phosphor-rgb:    125 255 154;
   --safety-rgb:      240 90 40;
-  --verified-rgb:    44 157 102;
+  /* LIGHT-theme channels. Must stay pixel-identical to --bcc-verified or
+     `text-verified` (Tailwind, via this triplet) and `var(--verified)`
+     (CSS, via the hex) render two different greens. Dark restores
+     44 157 102 in the paired block below. */
+  --verified-rgb:    32 121 78;
   --weld-rgb:        255 192 30;
   --blueprint-rgb:   15 30 60;
 
@@ -2587,6 +2599,45 @@
   --sky-bright-rgb:  44 179 225;
   --amber-deep:      #e59e40;
   --amber-deep-rgb:  229 158 64;
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+   The verified green is theme-scoped — and BOTH representations move
+   together.
+
+   #2c9d66 measured 3.43:1 on a light page background at 12px .bcc-mono,
+   and 3.01–3.14:1 once composited on its own 8–12% chip tint. Dark theme
+   already cleared 4.5:1 everywhere (5.52 / 5.04 / 4.72), so only light
+   needed to move: #20794e reads 5.38:1 on white and 4.71:1 on the tint.
+
+   Text and background pull the SAME direction in each theme, which is
+   why one green still serves both jobs and no text/indicator split was
+   needed: --bcc-text-inverse flips with the theme, so a darker green in
+   light improves both "green text on the page" and "inverse text on a
+   green chip", and the reverse holds in dark.
+
+   WHY THESE OVERRIDES LIVE HERE, NOT IN THE THEME BLOCKS ABOVE:
+   --verified-rgb belongs to the aesthetic namespace, whose :root closes
+   just above this comment — AFTER the [data-theme="light"] / dark blocks
+   near the top of the file. Equal specificity, later wins, so a dark
+   value placed up there would be silently clobbered by that :root. These
+   blocks come after it and therefore actually apply.
+
+   Untouched on purpose: --safety, --weld, --phosphor and --blueprint
+   remain theme-blind, and the three verified→phosphor gradient bars are
+   explicitly deferred to the phosphor decision.
+   ───────────────────────────────────────────────────────────────────── */
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bcc-verified:  #2c9d66;
+    --verified-rgb:  44 157 102;
+  }
+}
+
+[data-theme="dark"] {
+  --bcc-verified:  #2c9d66;
+  --verified-rgb:  44 157 102;
 }
 
 @layer components {

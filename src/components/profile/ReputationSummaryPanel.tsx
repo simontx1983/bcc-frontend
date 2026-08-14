@@ -216,8 +216,10 @@ function ReputationHeadline({
 
 function StandingChip({ isInGoodStanding }: { isInGoodStanding: boolean }) {
   if (isInGoodStanding) {
+    // text-inverse, not a fixed white: the chip's green is theme-scoped, so
+    // the foreground must flip with it or one theme loses the contrast.
     return (
-      <span className="bcc-mono bg-verified px-2 py-[3px] text-bcc-white">
+      <span className="bcc-mono bg-verified px-2 py-[3px] text-[var(--bcc-text-inverse)]">
         ✓ GOOD STANDING
       </span>
     );

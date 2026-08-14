@@ -175,7 +175,10 @@ function StanceRow({ item }: { item: CollectionStancePanelItem }) {
           joined ? (
             <span
               className="bcc-stencil px-3 py-1.5 text-[11px] tracking-[0.16em]"
-              style={{ background: "var(--verified)", color: "var(--cardstock)" }}
+              /* text-inverse, not fixed cardstock: the green is theme-scoped,
+                 so the foreground has to flip with it. Cardstock is a
+                 fixed-cream token and held this at 2.74:1 in both themes. */
+              style={{ background: "var(--verified)", color: "var(--bcc-text-inverse)" }}
             >
               ✓ JOINED
             </span>

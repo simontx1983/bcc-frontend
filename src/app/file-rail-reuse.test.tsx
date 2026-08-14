@@ -17,29 +17,25 @@
  * asserts verified ownership) and far more readable: **3.43:1 light /
  * 5.52:1 dark**.
  *
- * ## ⚠ Light theme is improved, NOT yet compliant — read this before
- * ## calling the chip done
+ * ## The light-theme shortfall this slice left behind has since been closed
  *
- * `.bcc-mono` is **12px**, so the chip is normal-size text and owes 4.5:1.
- * At 3.43:1 light it does not clear that bar. This slice takes the chip from
- * catastrophic to merely short, and makes the shortfall uniform instead of
- * route-specific.
+ * As shipped, this change took the chip from 1.26:1 to **3.43:1** in light —
+ * a large improvement, but short of the 4.5:1 that 12px `.bcc-mono` owes.
+ * That residue was pre-existing and shared: `--bcc-verified` was a single
+ * unscoped `:root` value, so all eight `FileRail` routes rendered the chip at
+ * 3.43. Consolidating did not cause it; it made it uniform, and therefore
+ * repairable in one edit.
  *
- * That residue is **pre-existing and shared**: `--bcc-verified` is defined
- * once in `:root`, unscoped, so all seven existing `FileRail` routes already
- * render the chip at 3.43:1. This change inherits that defect rather than
- * introducing it — and having one failing value in one component is what
- * makes it fixable in a single later edit, which two divergent copies never
- * were.
+ * That edit has now landed. `--bcc-verified` is theme-scoped — `#20794e`
+ * light (**5.38:1**), `#2c9d66` dark (5.52:1) — with `--verified-rgb` moved
+ * in lockstep so the Tailwind utilities cannot drift from the CSS variable.
+ * See `verified-theme-scope.test.ts` for the full matrix and the reasoning
+ * behind keeping one token rather than splitting text from indicator.
  *
- * The fix is a light-theme-scoped value (the `--bcc-accent-indicator` and
- * `--bcc-search-placeholder` precedents), and it is deliberately NOT done
- * here: `var(--verified)` has 41 uses across the stylesheet, so re-toning the
- * token is a colour decision with its own blast radius, not housekeeping.
- *
- * Note the assertions below do not pin the light value *below* 4.5 — a guard
- * that fails when someone fixes the colour is a guard that punishes the fix.
- * They pin the improvement over phosphor and the dark-theme pass.
+ * The assertions below never pinned the light value *below* 4.5 — a guard
+ * that fails when someone fixes the colour punishes the fix. What they did
+ * pin was that the token was unscoped, and that assertion fired the moment
+ * the scoping landed. That is the guard working, not breaking.
  */
 
 import { readFileSync } from "node:fs";
@@ -240,34 +236,42 @@ describe("the owner chip's colour", () => {
   const LIGHT_BG = "#ffffff";
   const DARK_BG = "#0d1117";
 
+  // ── UPDATED: the deferral this block described has since been closed.
+  //
+  // When this guard landed, --bcc-verified was a single unscoped #2c9d66 and
+  // the chip measured 3.43:1 in light — better than phosphor's 1.26, short of
+  // 4.5. The two assertions recording that state were replaced rather than
+  // deleted: they did their job by failing the moment the token was scoped.
+  // Full detail lives in verified-theme-scope.test.ts.
+  const LIGHT_VERIFIED = "#20794e";
+  const DARK_VERIFIED = "#2c9d66";
+
   it("the tokens resolve to the values measured here", () => {
-    expect(token("bcc-verified")).toEqual(["#2c9d66"]);
+    expect(token("bcc-verified")).toEqual([LIGHT_VERIFIED, DARK_VERIFIED, DARK_VERIFIED]);
     expect(token("phosphor")).toEqual(["#7dff9a"]);
     expect(token("bcc-bg")).toEqual([LIGHT_BG, DARK_BG, DARK_BG]);
   });
 
   it("clears 4.5:1 in dark theme", () => {
-    expect(ratio("#2c9d66", DARK_BG)).toBeGreaterThanOrEqual(4.5);
+    expect(ratio(DARK_VERIFIED, DARK_BG)).toBeGreaterThanOrEqual(4.5);
   });
 
-  it("is a large improvement on phosphor in light theme", () => {
-    const before = ratio("#7dff9a", LIGHT_BG); // 1.26
-    const after = ratio("#2c9d66", LIGHT_BG); // 3.43
+  it("now clears 4.5:1 in LIGHT theme too — the deferral is closed", () => {
+    const before = ratio("#7dff9a", LIGHT_BG); // phosphor, 1.26
+    const after = ratio(LIGHT_VERIFIED, LIGHT_BG); // 5.38
     expect(before).toBeLessThan(1.5);
-    expect(after).toBeGreaterThan(before * 2.5);
-    expect(after).toBeGreaterThanOrEqual(3.0); // clears the non-text / large-text bar
+    expect(after).toBeGreaterThanOrEqual(4.5);
   });
 
-  it("the chip is normal-size text, which is why 3:1 is not the finish line", () => {
+  it("the chip is normal-size text, which is why 4.5:1 was the bar", () => {
     // .bcc-mono is 12px — recorded so a later reader does not mistake the
     // 3:1 pass above for compliance.
     expect(CSS_SRC).toMatch(/\.bcc-mono\s*\{[^}]*font-size:\s*12px/);
   });
 
-  it("--bcc-verified is still unscoped, so any fix must add theme scopes", () => {
-    // One definition = both themes share it. The eventual repair adds a
-    // light-theme value; this records why a single edit is not enough.
-    expect(token("bcc-verified")).toHaveLength(1);
+  it("--bcc-verified is theme-scoped, and its triplet moves with it", () => {
+    expect(token("bcc-verified")).toHaveLength(3);
+    expect(token("verified-rgb")).toEqual(["32 121 78", "44 157 102", "44 157 102"]);
   });
 
   it("phosphor is untouched for its other consumers", () => {
