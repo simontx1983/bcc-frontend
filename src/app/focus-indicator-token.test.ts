@@ -232,8 +232,6 @@ describe("component focus overrides remain byte-identical", () => {
   const PINNED: ReadonlyArray<readonly [string, string]> = [
     ["card-body-link inset ring", ".bcc-card-body-link:focus-visible {\n    outline: 2px solid var(--bcc-accent);\n    outline-offset: -3px;\n  }"],
     ["card-flip-chip", ".bcc-card-flip-chip:focus-visible {\n    border-color: var(--bcc-accent);\n    color: var(--bcc-accent);\n  }"],
-    ["nav-link dotted (0 consumers)", ".bcc-nav-link:focus-visible {\n    outline: 2px dotted var(--cardstock);\n    outline-offset: 3px;\n  }"],
-    ["footer-col-link dotted (0 consumers)", ".bcc-footer-col-link:focus-visible {\n    outline: 2px dotted var(--cardstock);\n    outline-offset: 3px;\n  }"],
   ];
 
   for (const [label, rule] of PINNED) {
@@ -241,9 +239,22 @@ describe("component focus overrides remain byte-identical", () => {
       expect(NCSS).toContain(rule);
     });
   }
+
+  /**
+   * These two were pinned here as "(0 consumers)" — annotated dead even
+   * then. The dead-CSS cleanup deleted them, so the pin inverts to an
+   * absence check. The focus contract for live components above is
+   * untouched.
+   */
+  for (const sel of [".bcc-nav-link", ".bcc-footer-col-link"]) {
+    it(`${sel} was deleted as dead CSS — its focus rule is absent`, () => {
+      const token = new RegExp(`(?<![-\\w])${sel.replace(".", "\\.")}(?![-\\w])`);
+      expect(token.test(NCSS), `${sel} came back`).toBe(false);
+    });
+  }
 });
 
-describe("the four input families still suppress the ring — unresolved, not regressed", () => {
+describe("the surviving input families still suppress the ring — unresolved, not regressed", () => {
   // These carry `outline: none` on their BASE rule in a later cascade
   // layer (`.bcc-auth-input` is unlayered entirely), which beats the
   // @layer base global ring. Their replacement is a 2.39:1 border plus a
@@ -252,12 +263,24 @@ describe("the four input families still suppress the ring — unresolved, not re
   // This slice deliberately does NOT fix them: each needs its own
   // decision about what an accessible input focus state looks like.
   // Pinned so a later edit cannot quietly change them here.
-  for (const cls of [".bcc-search-input", ".bcc-composer-input", ".bcc-input", ".bcc-auth-input"]) {
+  //
+  // Two of the original four — `.bcc-composer-input` and `.bcc-input` —
+  // had zero consumers and were removed by the dead-CSS cleanup. The
+  // defect they represented did not shrink: it never applied to anything
+  // rendered. The two that DO render are still pinned, unchanged.
+  for (const cls of [".bcc-search-input", ".bcc-auth-input"]) {
     it(`${cls}:focus still uses the subtle glow`, () => {
       const i = NCSS.indexOf(`${cls}:focus`);
       expect(i).toBeGreaterThan(-1);
       const rule = NCSS.slice(i, NCSS.indexOf("}", i));
       expect(rule).toContain("box-shadow: 0 0 0 3px var(--bcc-accent-subtle)");
+    });
+  }
+
+  for (const cls of [".bcc-composer-input", ".bcc-input"]) {
+    it(`${cls} was deleted as dead CSS — absent, not silently fixed`, () => {
+      const token = new RegExp(`(?<![-\\w])${cls.replace(".", "\\.")}(?![-\\w])`);
+      expect(token.test(NCSS), `${cls} came back`).toBe(false);
     });
   }
 
