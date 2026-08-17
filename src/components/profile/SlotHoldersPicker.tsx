@@ -218,7 +218,11 @@ function HolderRow({
             {holder.target_link !== "" ? (
               <a
                 href={holder.target_link}
-                className="bcc-mono text-bcc-text hover:text-phosphor"
+                // Hover is an underline, not a colour swap: the resting state
+                // is already `text-bcc-text`, so a neutral hover colour would
+                // collapse into it, and a semantic green would imply a state
+                // this link does not carry.
+                className="bcc-mono text-bcc-text hover:underline"
               >
                 {holder.target_label !== ""
                   ? holder.target_label

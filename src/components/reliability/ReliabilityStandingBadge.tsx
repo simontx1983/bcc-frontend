@@ -39,10 +39,14 @@ export const RELIABILITY_LABEL: Record<ReliabilityStandingPublic, string> = {
 /**
  * Render-time treatment is asymmetric across the enum: the two
  * earned standings (`highly_reliable`, `consistent`) get the
- * phosphor-tinted achievement chip; `newly_active` gets a neutral
- * cardstock-edged chip because it's the start of the curve, not a
- * downgrade. Matches the original treatment that lived inside
- * `ReputationSummaryPanel`.
+ * verified-tinted achievement chip; `newly_active` gets a neutral
+ * chip because it's the start of the curve, not a downgrade. Matches
+ * the original treatment that lived inside `ReputationSummaryPanel`.
+ *
+ * The achievement chip moved off `--phosphor` (2026-08-14): phosphor
+ * measured 1.26:1 on a light surface and was never a text colour.
+ * `AttestationRoster` renders the same enum and now applies the same
+ * split — keep the two in step.
  */
 export function ReliabilityStandingBadge({
   standing,
@@ -56,7 +60,7 @@ export function ReliabilityStandingBadge({
     <span
       className={
         isAchievement
-          ? "bcc-mono border border-phosphor/60 bg-phosphor/10 px-2 py-[3px] text-phosphor"
+          ? "bcc-mono border border-verified/60 px-2 py-[3px] text-verified"
           : "bcc-mono border border-bcc-border px-2 py-[3px] text-bcc-text-secondary"
       }
     >

@@ -142,7 +142,6 @@ function AuthorVouchButtonImpl({
   const pillStyle = hasVouched
     ? {
         color: "var(--verified)",
-        background: "rgb(var(--verified-rgb) / 0.12)",
         border: "1px solid rgb(var(--verified-rgb) / 0.45)",
       }
     : {

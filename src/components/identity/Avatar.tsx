@@ -39,7 +39,7 @@
  *     → raw <img loading="lazy"> — see isWpMediaUrl() in lib/media.ts
  *   - Empty/null avatarUrl → initials monogram via deriveInitials()
  *   - tier !== undefined/null → tinted ring/border via CSS var
- *   - isOperator (sm+) → tiny phosphor dot bottom-right
+ *   - isOperator (sm+) → OperatorMark glyph on a fixed plate, bottom-right
  *   - asLink → wraps in a Next <Link> to /u/{handle}
  *   - Any transition is gated by `motion-safe:` Tailwind variants
  *
@@ -53,6 +53,7 @@ import Image from "next/image";
 import Link from "next/link";
 import type { Route } from "next";
 
+import { OperatorMark } from "@/components/identity/OperatorMark";
 import { deriveInitials } from "@/lib/format/initials";
 import { isWpMediaUrl } from "@/lib/media";
 import type { ReputationTier } from "@/lib/api/types";
@@ -123,12 +124,18 @@ export function isPeepSoPlaceholder(url: string): boolean {
   return PEEPSO_PLACEHOLDER_MARKERS.some((marker) => url.includes(marker));
 }
 
+/**
+ * `operatorPx` sizes the OperatorMark glyph, not the old dot. A glyph needs
+ * more room than a 6px disc to stay legible, so these are larger than the dot
+ * values they replace; the plate adds ~4px on top. `xs` stays 0 — the rule is
+ * still "no indicator below sm."
+ */
 const SIZE_TABLE: Record<AvatarSize, SizeSpec> = {
   xs: { px: 20,  fontClass: "bcc-mono text-[9px] tracking-tight",  operatorPx: 0 },
-  sm: { px: 28,  fontClass: "bcc-stencil text-[11px]",              operatorPx: 6 },
-  md: { px: 36,  fontClass: "bcc-stencil text-[14px]",              operatorPx: 8 },
-  lg: { px: 64,  fontClass: "bcc-stencil text-[22px]",              operatorPx: 10 },
-  xl: { px: 140, fontClass: "bcc-stencil text-[44px]",              operatorPx: 14 },
+  sm: { px: 28,  fontClass: "bcc-stencil text-[11px]",              operatorPx: 9 },
+  md: { px: 36,  fontClass: "bcc-stencil text-[14px]",              operatorPx: 11 },
+  lg: { px: 64,  fontClass: "bcc-stencil text-[22px]",              operatorPx: 15 },
+  xl: { px: 140, fontClass: "bcc-stencil text-[44px]",              operatorPx: 20 },
 };
 
 function AvatarImpl({
@@ -286,20 +293,19 @@ function AvatarImpl({
 
   // Operator dot (sm+). Positioned bottom-right via absolute; relies
   // on the wrapper being `relative`. xs hides it — there's no room.
+  // The shared OperatorMark glyph, not a bare dot. A colour-only indicator
+  // was the single place on the avatar where meaning rode on hue alone — and
+  // the hue it rode on (phosphor over its cardstock ring) measured 1.01:1.
+  // The `plate` variant carries its own fixed ink-on-cardstock backing, so
+  // contrast is deterministic over arbitrary avatar imagery in both themes.
   const operatorDot =
     isOperator === true && size !== "xs" ? (
-      <span
-        aria-label="Verified operator"
-        title="Verified operator/creator on at least one entity."
-        className="absolute rounded-full"
-        style={{
-          right: 0,
-          bottom: 0,
-          width: spec.operatorPx,
-          height: spec.operatorPx,
-          background: "var(--phosphor)",
-          boxShadow: "0 0 0 2px var(--cardstock)",
-        }}
+      <OperatorMark
+        px={spec.operatorPx}
+        variant="plate"
+        label="Verified operator/creator on at least one entity."
+        className="absolute"
+        style={{ right: 0, bottom: 0 }}
       />
     ) : null;
 

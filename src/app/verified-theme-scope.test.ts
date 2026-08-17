@@ -226,17 +226,26 @@ describe("verified as a solid background — inverse text on top", () => {
 // ─────────────────────────────────────────────────────────────────────────
 
 /**
- * Translucent verified borders are accepted as DECORATIVE — but only where
- * the border is accompanied by BOTH the verified tint and readable verified
- * text, so the component stays identifiable without it. Every such site is
- * named here. A new translucent verified border that becomes the only state
- * cue is NOT covered by this ruling, and the count assertion below is what
- * forces it back to review.
+ * Translucent verified borders are accepted as DECORATIVE, because each one
+ * sits on a chip whose own **readable verified label** identifies it. The
+ * border adds shape, not meaning.
+ *
+ * ## Updated: the tint half of this rationale is gone
+ *
+ * These chips originally paired the border with a verified background tint.
+ * That tint was removed (2026-08-14, phosphor-confinement slice): a verified
+ * fill under verified text lifts the background toward the text and costs
+ * ~0.9 of contrast, landing at **4.45:1 on `--bcc-surface`** and **4.16:1 on
+ * `--card-surface`** in dark theme. The same text reads 5.04–5.52 directly on
+ * those surfaces, so the decoration was the only thing failing the criterion.
+ *
+ * The borders stay and stay decorative — the label still identifies the chip.
+ * A new translucent verified border that becomes the ONLY cue is not covered
+ * by this ruling, and the count assertion below forces it back to review.
  */
 const DECORATIVE_BORDER_SITES: ReadonlyArray<readonly [string, string]> = [
   ["src/app/(main)/(app)/halls/page.tsx", "0.32"],
   ["src/components/cards/CardFrontFace.tsx", "0.32"],
-  ["src/components/celebration/CelebrationToast.tsx", "0.45"],
   ["src/components/disputes/CaseHeader.tsx", "0.32"],
   ["src/components/disputes/MyDisputesList.tsx", "0.32"],
   ["src/components/groups/GroupMembershipStrip.tsx", "0.32"],
@@ -244,18 +253,43 @@ const DECORATIVE_BORDER_SITES: ReadonlyArray<readonly [string, string]> = [
   ["src/components/identity/AuthorVouchButton.tsx", "0.45"],
 ];
 
+/**
+ * The one bordered verified surface that is NOT a text chip: an `aria-hidden`
+ * circle holding an icon. It keeps its tint precisely because there is no
+ * readable verified text to composite over — a decorative background with no
+ * text is out of scope for the no-tint rule.
+ */
+const ICON_ONLY_TINTED = "src/components/celebration/CelebrationToast.tsx";
+
 describe("translucent verified borders — decorative, and enumerated", () => {
-  it("the ruling covers exactly the eight audited sites", () => {
-    expect(DECORATIVE_BORDER_SITES).toHaveLength(8);
+  it("the ruling covers the seven text chips plus one icon-only surface", () => {
+    expect(DECORATIVE_BORDER_SITES).toHaveLength(7);
+    expect(DECORATIVE_BORDER_SITES.map(([p]) => p)).not.toContain(ICON_ONLY_TINTED);
+  });
+
+  it("the icon-only surface keeps its tint, and holds no readable verified text", () => {
+    const src = read(ICON_ONLY_TINTED);
+    expect(src).toContain("rgb(var(--verified-rgb) / 0.12)"); // tint retained
+    expect(src).toContain("rgb(var(--verified-rgb) / 0.45)"); // border retained
+    // The verified colour in here paints an SVG stroke inside an aria-hidden
+    // wrapper — an icon, not text. If that ever becomes a text node, the
+    // no-tint rule starts applying and this assertion should be revisited.
+    expect(src).toContain("aria-hidden");
+    expect(src).toContain('style={{ color: "var(--verified)" }}');
+    expect(src).toContain("<svg");
   });
 
   for (const [file, alpha] of DECORATIVE_BORDER_SITES) {
-    it(`${file.split("/").pop()} pairs its border with a tint AND readable text`, () => {
+    it(`${file.split("/").pop()} keeps its border beside a readable verified label`, () => {
       const src = read(file);
       expect(src, "border alpha changed").toContain(`rgb(var(--verified-rgb) / ${alpha})`);
-      // the two companions that make the border non-load-bearing
-      expect(src).toMatch(/rgb\(var\(--verified-rgb\) \/ 0\.(08|10|12)\)/);
-      expect(src).toMatch(/color:\s*"?var\(--verified\)/);
+      // The label is what identifies the chip, so the border may be decorative.
+      expect(src).toMatch(/text-verified\b|color:\s*"?var\(--verified\)/);
+      // And that label must NOT be sitting on a verified fill.
+      expect(
+        src,
+        `${file} re-grew a verified tint under verified text`,
+      ).not.toMatch(/bg-verified\/\d|background:\s*"?rgb\(var\(--verified-rgb\) \/ 0?\.\d+\)/);
     });
   }
 

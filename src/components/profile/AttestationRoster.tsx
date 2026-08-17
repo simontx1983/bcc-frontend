@@ -192,6 +192,11 @@ function RosterRow({ item }: { item: AttestationRosterItem }) {
       ? RELIABILITY_LABEL[item.attestor.reliability_standing] ?? null
       : null;
 
+  /** Same split ReliabilityStandingBadge uses — see its comment for why. */
+  const isEarnedStanding =
+    item.attestor.reliability_standing === "highly_reliable" ||
+    item.attestor.reliability_standing === "consistent";
+
   const kindLabel =
     item.kind === "vouch" ? "VOUCHED" : ATTESTATION_COPY.backed_badge;
 
@@ -215,7 +220,17 @@ function RosterRow({ item }: { item: AttestationRosterItem }) {
             {item.attestor.display_name}
           </span>
           {reliabilityLabel !== null && (
-            <span className="bcc-mono text-[10px] tracking-[0.18em] text-phosphor">
+            // Asymmetric on purpose, matching ReliabilityStandingBadge: the
+            // two EARNED standings read as achievements, while `newly_active`
+            // is the start of the curve, not a downgrade — and not an
+            // achievement. Painting all three the same colour (as the old
+            // phosphor treatment did) promoted "NEWLY ACTIVE" to a status it
+            // has not earned.
+            <span
+              className={`bcc-mono text-[10px] tracking-[0.18em] ${
+                isEarnedStanding ? "text-verified" : "text-bcc-text-secondary"
+              }`}
+            >
               {reliabilityLabel.toUpperCase()}
             </span>
           )}
@@ -234,7 +249,9 @@ function RosterRow({ item }: { item: AttestationRosterItem }) {
           {item.is_pre_consensus_pick && !isRevoked && (
             <>
               <span>·</span>
-              <span className="text-phosphor">EARLY READ</span>
+              {/* An earned fact about THIS attestation — they called it before
+                  consensus did. That is a verification, not a "live" state. */}
+              <span className="text-verified">EARLY READ</span>
             </>
           )}
         </div>

@@ -475,7 +475,6 @@ function Nameplate({
             fontSize: "9px",
             letterSpacing: "0.2em",
             color: "var(--verified)",
-            background: "rgb(var(--verified-rgb) / 0.10)",
             border: "1px solid rgb(var(--verified-rgb) / 0.32)",
           }}
         >

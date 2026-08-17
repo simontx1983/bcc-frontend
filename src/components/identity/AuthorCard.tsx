@@ -18,6 +18,7 @@ import { Avatar } from "@/components/identity/Avatar";
 import { AuthorVouchButton } from "@/components/identity/AuthorVouchButton";
 import { MemberFollowButton } from "@/components/identity/MemberFollowButton";
 import { NewMemberChip } from "@/components/identity/NewMemberChip";
+import { OperatorMark } from "@/components/identity/OperatorMark";
 import { RankChip } from "@/components/profile/RankChip";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { useUser } from "@/hooks/useUser";
@@ -253,21 +254,6 @@ function Count({ value, label }: { value: number; label: string }) {
   return (
     <span className="text-[var(--bcc-text-secondary)]">
       <span className="font-semibold text-[var(--bcc-text)]">{formatCompact(value)}</span> {label}
-    </span>
-  );
-}
-
-function OperatorMark() {
-  return (
-    <span
-      title="Operator"
-      aria-label="Operator"
-      className="inline-flex shrink-0 items-center text-[var(--bcc-accent)]"
-    >
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-        <path d="M12 2l2.6 1.9 3.2-.1 1 3 2.6 1.8-1 3 1 3-2.6 1.8-1 3-3.2-.1L12 22l-2.6-1.9-3.2.1-1-3L2.6 15.4l1-3-1-3 2.6-1.8 1-3 3.2.1L12 2z" />
-        <path d="M10.6 14.6l-2-2-1.1 1.1 3.1 3.1 5.3-5.3-1.1-1.1-4.2 4.2z" fill="var(--bcc-surface)" />
-      </svg>
     </span>
   );
 }
