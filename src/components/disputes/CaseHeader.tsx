@@ -135,7 +135,9 @@ function StatusPill({ status }: { status: DisputeStatus }) {
 
 const STATUS_CONFIG: Record<
   DisputeStatus,
-  { label: string; color: string; background: string; borderColor: string }
+  // `background` is optional: the `accepted` tone deliberately has none, so
+  // its verified label is not composited over a verified tint.
+  { label: string; color: string; background?: string; borderColor: string }
 > = {
   reviewing: {
     label: "VOTE OPEN",
@@ -146,7 +148,6 @@ const STATUS_CONFIG: Record<
   accepted: {
     label: "ACCEPTED",
     color: "var(--verified)",
-    background: "rgb(var(--verified-rgb) / 0.08)",
     borderColor: "rgb(var(--verified-rgb) / 0.32)",
   },
   rejected: {

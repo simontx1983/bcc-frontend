@@ -634,7 +634,6 @@ function MembershipPill({
         fontSize: "10px",
         letterSpacing: "0.18em",
         color: "var(--verified)",
-        background: "rgb(var(--verified-rgb) / 0.10)",
         border: "1px solid rgb(var(--verified-rgb) / 0.32)",
       }}
     >

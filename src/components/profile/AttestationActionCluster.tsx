@@ -503,7 +503,10 @@ function ActionButton({
   isPending: boolean;
 }) {
   // Cast confirmation flash — when isCast flips from false → true the
-  // button briefly pulses phosphor. The label flip alone is a quiet
+  // button briefly pulses. (It is an opacity pulse, not a colour one; the
+  // comment used to say "pulses phosphor", which was never true and is
+  // doubly wrong now that the cast state is verified.) The label flip
+  // alone is a quiet
   // change; the pulse gives the cast moment a confirmation beat so the
   // user feels "yes, that landed." Respects prefers-reduced-motion via
   // the global motion-gate in globals.css.
@@ -624,8 +627,14 @@ function buttonClassFor(
   }
   if (isCast) {
     // Already cast — action remains enabled (the click revokes).
-    // Phosphor tint signals completion.
-    return `${BASE_BUTTON_CLASS} ${sizeClass} border border-phosphor/60 bg-phosphor/10 text-phosphor hover:bg-phosphor/15`;
+    // Verified border + verified label signal completion: the attestation
+    // now exists, which is a verified fact rather than a "live" one.
+    //
+    // No verified fill behind that label. A verified tint under verified text
+    // lifts the background toward the text and costs ~0.9 of contrast — on a
+    // dark card it lands at 4.16:1. The hover feedback is a neutral surface
+    // wash, which changes the background without closing that gap.
+    return `${BASE_BUTTON_CLASS} ${sizeClass} border border-verified/60 text-verified hover:bg-bcc-surface-hover`;
   }
   switch (tone) {
     case "conviction":
@@ -635,9 +644,18 @@ function buttonClassFor(
       // safety-orange + "N OF M" allocation as pattern-matching to
       // staking / locked-capital UX. The intentional-scarcity
       // surfacing stays via the N OF M label; the financial visual
-      // is what was screaming. Phosphor border = "live, deliberate"
-      // commitment without the capital-allocation read.
-      return `${BASE_BUTTON_CLASS} ${sizeClass} border border-phosphor/70 bg-bcc-surface-hover text-bcc-text hover:bg-bcc-surface-active`;
+      // is what was screaming.
+      //
+      // The border was `phosphor/70`, borrowing a colour that now means
+      // something specific elsewhere. Its accompanying text is neutral
+      // (`text-bcc-text`), so the border follows that same token: weight
+      // comes from a full-strength neutral edge, not from a hue. NOTE the
+      // absence of an alpha modifier — `bcc-text` is declared as a bare
+      // `var()`, so `border-bcc-text/70` would emit no rule at all.
+      //
+      // This stays distinct from the cast state above, which is verified
+      // border + verified tint + verified text.
+      return `${BASE_BUTTON_CLASS} ${sizeClass} border border-bcc-text bg-bcc-surface-hover text-bcc-text hover:bg-bcc-surface-active`;
     case "utility":
       // Report — least prominent. Functional moderation surface,
       // not a primary trust signal.

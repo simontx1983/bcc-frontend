@@ -226,8 +226,10 @@ function ViewerBadge({ membership }: { membership: HallItem["viewer_membership"]
       <span
         className="bcc-mono rounded-sm px-2 py-0.5 text-[9px] tracking-[0.18em]"
         style={{
+          // No verified tint behind verified text — the tint is decorative,
+          // and on a dark surface it lifts the background enough to drag this
+          // text under 4.5:1. The border carries the chip shape instead.
           color: "var(--verified)",
-          background: "rgb(var(--verified-rgb) / 0.10)",
           border: "1px solid rgb(var(--verified-rgb) / 0.32)",
         }}
       >

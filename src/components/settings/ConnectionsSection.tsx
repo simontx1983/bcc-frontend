@@ -116,8 +116,12 @@ function CallbackBannerView({
       role="status"
       className={
         "flex items-start justify-between gap-3 border-2 px-4 py-3 " +
+        // The success banner drops its verified tint: its message text
+        // inherits `color: var(--verified)` from this container, so the tint
+        // was sitting directly under readable verified text. The safety
+        // branch is untouched — different token, separate decision.
         (banner.outcome === "success"
-          ? "border-verified/50 bg-verified/5"
+          ? "border-verified/50"
           : "border-safety/50 bg-safety/5")
       }
       style={banner.outcome === "success" ? { color: "var(--verified)" } : undefined}

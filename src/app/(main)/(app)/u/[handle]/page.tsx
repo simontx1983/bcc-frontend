@@ -324,7 +324,7 @@ export default async function MemberProfilePage({ params }: PageProps) {
                   <div className="flex flex-wrap items-center justify-center gap-2">
                     {profile.is_in_good_standing && (
                       <span
-                        className="bcc-mono border border-verified/60 bg-verified/10 px-2 py-1 text-verified"
+                        className="bcc-mono border border-verified/60 px-2 py-1 text-verified"
                         style={{ fontSize: "10px", letterSpacing: "0.18em" }}
                       >
                         GOOD STANDING

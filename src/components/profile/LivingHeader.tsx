@@ -108,8 +108,11 @@ export function LivingHeader({ living, progression, hideEmptyShiftFallback }: Li
             {todayLine}
           </p>
         )}
+        {/* §O3.1 social comparison ("Top 5% this week"). A statistic, not a
+            trust state — nothing here is earned, verified or live, so it
+            takes primary text rather than a semantic colour. */}
         {living.comparison !== null && (
-          <p className="bcc-mono text-[11px] tracking-[0.18em] text-phosphor">
+          <p className="bcc-mono text-[11px] tracking-[0.18em] text-bcc-text">
             {living.comparison.headline.toUpperCase()}
           </p>
         )}
@@ -140,14 +143,17 @@ export function LivingHeader({ living, progression, hideEmptyShiftFallback }: Li
               </span>
               {ranked.next_rank_label !== null && (
                 <>
+                  {/* The arrow carries "next"; the colour does not need to.
+                      Secondary keeps current > next in the hierarchy. */}
                   <span className="mx-2 text-bcc-text-secondary">→</span>
-                  <span className="bcc-phosphor-text">
+                  <span className="text-bcc-text-secondary">
                     {ranked.next_rank_label.toUpperCase()}
                   </span>
                 </>
               )}
             </span>
-            <span className="bcc-phosphor-text">{pct}%</span>
+            {/* A value readout, so primary text. */}
+            <span className="text-bcc-text">{pct}%</span>
           </div>
           <div className="relative h-3 border border-cardstock/25 bg-concrete-hi">
             {/* Phosphor fill */}

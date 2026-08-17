@@ -159,7 +159,6 @@ function AuthorBadgeImpl({
         className="bcc-mono shrink-0 rounded px-1.5 py-0.5 text-[10px] tracking-[0.18em]"
         style={{
           color:      "var(--verified)",
-          background: "rgb(var(--verified-rgb) / 0.10)",
           border:     "1px solid rgb(var(--verified-rgb) / 0.40)",
         }}
         title="Verified operator/creator on at least one entity."

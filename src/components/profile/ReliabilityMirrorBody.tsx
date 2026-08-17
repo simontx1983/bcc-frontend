@@ -123,7 +123,9 @@ function TrendIndicator({ direction }: { direction: ReliabilityTrendDirection })
     improving: {
       glyph: "↑",
       label: "Improving",
-      toneClass: "text-phosphor",
+      // A direction of travel, not an earned standing — success, not
+      // verified. The glyph and label already carry the meaning.
+      toneClass: "text-bcc-success",
     },
     steady: {
       glyph: "→",

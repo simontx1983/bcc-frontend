@@ -270,8 +270,10 @@ describe("closure — E2's six exclusions survive", () => {
   const E2: ReadonlyArray<readonly [string, number, string]> = [
     [`${APP}/communities/page.tsx`, 467, "← Previous, no prev page"],
     [`${APP}/communities/page.tsx`, 483, "Next →, no next page"],
-    [`${APP}/halls/page.tsx`, 300, "← Previous, no prev page"],
-    [`${APP}/halls/page.tsx`, 316, "Next →, no next page"],
+    // 300/316 before the phosphor-confinement slice removed a verified tint
+    // and added its rationale comment three lines above these (net +2).
+    [`${APP}/halls/page.tsx`, 302, "← Previous, no prev page"],
+    [`${APP}/halls/page.tsx`, 318, "Next →, no next page"],
     [`${APP}/directory/page.tsx`, 252, "aria-hidden ✕ chip"],
     [`${APP}/validators/page.tsx`, 239, "aria-hidden ✕ chip"],
   ];

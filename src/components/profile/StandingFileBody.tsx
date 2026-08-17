@@ -502,8 +502,9 @@ function RankProgressBlock({
         <div className="flex flex-col gap-3">
           <p className="bcc-mono inline-flex items-baseline gap-3 text-bcc-text-secondary">
             <span className="text-bcc-text">{currentLabel.toUpperCase()}</span>
+            {/* The arrow carries "next"; the colour does not need to. */}
             <span className="text-bcc-text-secondary">→</span>
-            <span className="bcc-phosphor-text">
+            <span className="text-bcc-text-secondary">
               {(nextLabel ?? "").toUpperCase()}
             </span>
           </p>

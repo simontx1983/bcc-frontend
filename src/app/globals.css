@@ -1358,13 +1358,17 @@
     background: rgb(var(--safety-rgb) / 0.12);
     opacity: 1;
   }
+  /* No verified fill behind the verified label. The tint was decorative and
+     was the only thing dragging this text under 4.5:1 on dark surfaces
+     (4.45 on --bcc-surface, 4.16 on --card-surface); the label reads
+     5.04–5.52 directly on those surfaces. Hover uses a neutral wash so the
+     affordance survives without re-introducing the problem. */
   .bcc-btn-vouch-on {
     color: var(--verified);
-    background: rgb(var(--verified-rgb) / 0.12);
     border: 1.5px solid rgb(var(--verified-rgb) / 0.5);
   }
   .bcc-btn-vouch-on:hover {
-    background: rgb(var(--verified-rgb) / 0.2);
+    background: var(--bcc-surface-hover);
     opacity: 1;
   }
 
@@ -3099,14 +3103,13 @@
   }
 
 
-  /* bcc-phosphor-text — the green "live" / on-chain readout style.
-     Used in the live-shift column and progress-bar fills. */
-  .bcc-phosphor-text {
-    color: var(--phosphor);
-    text-shadow: 0 0 4px rgba(125, 255, 154, 0.5);
-  }
-
-  /* bcc-phosphor-dot — the pulsing green "LIVE" indicator. */
+  /* `.bcc-phosphor-text` and `.bcc-phosphor-dot` were removed 2026-08-14.
+     Both painted readable text or a state cue in `--phosphor`, which measures
+     1.26:1 on a light surface — it was never a text colour. Their consumers
+     moved to the semantic token that actually owned each meaning (verified /
+     success / primary / secondary). `--phosphor` itself is retained, confined
+     to fixed-dark indicator and decorative work: the three progress-bar
+     gradients and their glows, where it reads 13.86:1 on `--concrete-hi`. */
 
   /* bcc-grade — the boxed letter-grade badge used on review listings. */
   .bcc-grade {
