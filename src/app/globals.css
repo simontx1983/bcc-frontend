@@ -3139,7 +3139,11 @@
     display: inline-block;
   }
   .bcc-pill[data-status="open"]      { background: var(--weld);          color: var(--ink); }
-  .bcc-pill[data-status="resolved"]  { background: var(--verified);      color: #fff; }
+  /* Inverse text, not a literal #fff: --bcc-verified is theme-scoped, so a
+     fixed white read 3.43:1 on the dark green. --bcc-text-inverse flips with
+     the theme and clears 4.5:1 on both. (--weld and --cardstock-deep below
+     are theme-blind, so their fixed --ink foregrounds are correct as-is.) */
+  .bcc-pill[data-status="resolved"]  { background: var(--verified);      color: var(--bcc-text-inverse); }
   .bcc-pill[data-status="dismissed"] { background: var(--cardstock-deep); color: var(--ink-soft); }
 
   /* bcc-stage-reveal — staggered fade-in for the hero block on first
