@@ -334,22 +334,294 @@ describe("verified text is never composited over a verified tint", () => {
     expect(hover).not.toMatch(/--verified-rgb/);
   });
 
-  it("repo-wide: the only surviving verified tint is the icon-only toast", () => {
-    const tinted = FILES.filter((f) =>
-      /bg-verified\/\d|background:\s*"?rgb\(var\(--verified-rgb\) \/ 0?\.\d+\)/.test(f.code),
-    ).map((f) => f.path);
-    expect(tinted).toEqual(["components/celebration/CelebrationToast.tsx"]);
-    // …and that one holds an aria-hidden icon, not text.
+  it("verified text clears 4.5:1 on every bare surface it can land on", () => {
+    const [vLight, vDark] = [decls("bcc-verified")[0] ?? "", decls("bcc-verified")[1] ?? ""];
+    expect(ratio(vLight, "#ffffff")).toBeGreaterThanOrEqual(4.5);
+    for (const dark of ["#0d1117", "#161b22", "#1c2128"]) {
+      expect(ratio(vDark, dark), `failed on ${dark}`).toBeGreaterThanOrEqual(4.5);
+    }
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────
+// 4c. Verified-tint detection, hardened
+// ─────────────────────────────────────────────────────────────────────────
+
+/**
+ * The first version of this guard matched only `background: rgb(…)` and
+ * `bg-verified/N`. It therefore scanned half the room: a gradient-form tint
+ * — `radial-gradient(…, rgb(var(--verified-rgb) / 0.28), transparent)` — sailed
+ * straight past it. That is the same failure mode this programme kept finding
+ * in its own tooling, so the detector is now spelled out and self-tested.
+ *
+ * A "verified tint" is any BACKGROUND-ish declaration that references the
+ * verified colour at alpha < 1, in any of these shapes:
+ *
+ *   background / background-color / background-image   (CSS, kebab)
+ *   background / backgroundColor / backgroundImage     (JSX, camel)
+ *   bg-verified/N                                      (Tailwind)
+ *   plain rgb(var(--verified-rgb) / .N)
+ *   linear-gradient(…) / radial-gradient(…) containing the above
+ *   hardcoded channels (44 157 102 / 32 121 78), comma or space separated
+ *
+ * Full-alpha verified backgrounds are NOT tints — they are solid fills
+ * carrying inverse text, and are governed separately above.
+ */
+
+/** Any spelling of the verified colour, including the hardcoded channels. */
+const VERIFIED_REF =
+  String.raw`--bcc-verified|--verified-rgb|--verified\b|44[ ,]+157[ ,]+102|32[ ,]+121[ ,]+78`;
+
+/** An alpha < 1, in `rgb(x / .28)`, `rgba(…, 0.28)` or Tailwind `/28` form. */
+const ALPHA = String.raw`\/\s*0?\.\d+|,\s*0?\.\d+\s*\)|\/\d{1,3}\b`;
+
+/**
+ * Reading a declaration's value needs a scanner, not one regex. Two earlier
+ * drafts each scanned half the room and the fixtures below caught both:
+ *
+ *   1. requiring a closing quote — matched nothing in `globals.css`, where
+ *      values are bare and `;`-terminated;
+ *   2. stopping the value at a newline — missed
+ *      `.bcc-celebration-sweep`, whose `linear-gradient(...)` spans six lines
+ *      with the verified channels on line four.
+ *
+ * So: quoted values are read to their closing quote (JSX), bare values to
+ * their `;` (CSS, newlines included).
+ */
+const DECL_START =
+  /(?:background(?:-color|-image)?|backgroundColor|backgroundImage)\s*:\s*/g;
+const TW_TINT = /\bbg-verified\/\d{1,3}\b/g;
+
+interface TintHit {
+  path: string;
+  snippet: string;
+}
+
+/** Read one declaration's value starting at `i`. */
+function readValue(code: string, i: number): string {
+  const q = code[i];
+  if (q === '"' || q === "'" || q === "`") {
+    const end = code.indexOf(q, i + 1);
+    return end === -1 ? code.slice(i, i + 400) : code.slice(i, end + 1);
+  }
+  const semi = code.indexOf(";", i);
+  // Bare values run to the semicolon — across newlines, which is the whole
+  // point. Bounded so a missing semicolon cannot swallow the file.
+  return semi === -1 || semi - i > 800 ? code.slice(i, i + 800) : code.slice(i, semi);
+}
+
+function findVerifiedTints(path: string, code: string): TintHit[] {
+  const out: TintHit[] = [];
+  const vref = new RegExp(VERIFIED_REF);
+  const alpha = new RegExp(ALPHA);
+
+  for (const m of code.matchAll(TW_TINT)) {
+    out.push({ path, snippet: m[0] });
+  }
+  for (const m of code.matchAll(DECL_START)) {
+    const value = readValue(code, (m.index ?? 0) + m[0].length);
+    if (!vref.test(value) || !alpha.test(value)) continue; // absent, or solid
+    out.push({ path, snippet: value.replace(/\s+/g, " ").trim().slice(0, 90) });
+  }
+  return out;
+}
+
+describe("the tint detector itself is not scanning half the room", () => {
+  const MUST_FLAG: ReadonlyArray<readonly [string, string]> = [
+    ["plain rgb tint", `background: "rgb(var(--verified-rgb) / 0.12)",`],
+    ["kebab css tint", `background: rgb(var(--verified-rgb) / 0.08);`],
+    ["background-color", `background-color: rgb(var(--verified-rgb) / 0.10);`],
+    ["background-image", `background-image: linear-gradient(90deg, rgb(var(--verified-rgb) / 0.2), transparent);`],
+    ["camelCase backgroundImage", `backgroundImage: "radial-gradient(circle, rgb(var(--verified-rgb) / 0.3), transparent)",`],
+    ["radial gradient", `background: radial-gradient(ellipse 70% 60% at 50% 100%, rgb(var(--verified-rgb) / 0.28), transparent);`],
+    ["linear gradient", `background: linear-gradient(90deg, rgb(var(--verified-rgb) / 0.4), transparent);`],
+    ["tailwind class", `className="bg-verified/10 text-verified"`],
+    ["tailwind 3-digit", `className="bg-verified/5"`],
+    ["hardcoded dark channels", `background: rgba(44, 157, 102, 0.15);`],
+    ["hardcoded light channels", `background: rgb(32 121 78 / 0.2);`],
+    [
+      "MULTI-LINE gradient — the shape that slipped past the first two drafts",
+      `background: linear-gradient(\n  100deg,\n  transparent 35%,\n  rgba(44, 157, 102, 0.18) 50%,\n  transparent 65%\n);`,
+    ],
+  ];
+
+  for (const [label, sample] of MUST_FLAG) {
+    it(`flags: ${label}`, () => {
+      expect(findVerifiedTints("fixture", sample)).toHaveLength(1);
+    });
+  }
+
+  const MUST_NOT_FLAG: ReadonlyArray<readonly [string, string]> = [
+    ["solid verified background", `background: "var(--verified)",`],
+    ["solid tailwind bg", `className="bg-verified px-2 text-[var(--bcc-text-inverse)]"`],
+    ["full-alpha gradient (the progress fill)", `background: "linear-gradient(90deg, var(--verified), var(--phosphor))",`],
+    ["verified TEXT, not a background", `className="text-verified"`],
+    ["verified BORDER, not a background", `border: "1px solid rgb(var(--verified-rgb) / 0.32)",`],
+    ["a safety tint — different token, out of scope", `background: rgb(var(--safety-rgb) / 0.08);`],
+    ["a weld tint — out of scope", `background: rgb(var(--weld-rgb) / 0.10);`],
+  ];
+
+  for (const [label, sample] of MUST_NOT_FLAG) {
+    it(`ignores: ${label}`, () => {
+      expect(findVerifiedTints("fixture", sample)).toEqual([]);
+    });
+  }
+});
+
+describe("verified tints repo-wide — exactly two, both decorative", () => {
+  const hits = FILES.flatMap((f) => findVerifiedTints(f.path, f.code));
+
+  it("the scan examined a real corpus", () => {
+    expect(FILES.length).toBeGreaterThan(400);
+  });
+
+  it("exactly the two approved decorative exceptions, and nothing else", () => {
+    const paths = [...new Set(hits.map((h) => h.path))].sort();
+    expect(paths, `unexpected verified tints:\n${hits.map((h) => `${h.path} :: ${h.snippet}`).join("\n")}`)
+      .toEqual([
+        "app/globals.css", // .bcc-rep-demo-bloom
+        "components/celebration/CelebrationToast.tsx",
+      ]);
+  });
+
+  /**
+   * Two approved OWNERS, three declarations. `CelebrationToast` owns two of
+   * them — the inline circle tint and its `.bcc-celebration-sweep` backdrop,
+   * which lives in `globals.css`. Counting by file would have hidden that, so
+   * the exceptions are pinned by owning rule.
+   */
+  it("globals.css holds exactly the two approved decorative rules", () => {
+    const bloom = /\.bcc-rep-demo-bloom\s*\{[^}]*\}/.exec(CSS)?.[0] ?? "";
+    expect(bloom).toContain("radial-gradient");
+    expect(bloom).toContain("--verified-rgb");
+    expect(bloom).toContain("pointer-events: none");
+    expect(bloom).toMatch(/animation:\s*bcc-rep-demo-bloom/);
+
+    // TWO blocks, not one: the base rule and a `prefers-reduced-motion`
+    // variant that swaps the sweeping band for a gentle static fade. Both
+    // carry the tint, so both must be collected or the second reads as stray.
+    const sweepBlocks = [
+      ...CSS.matchAll(/\.bcc-celebration-sweep\s*\{[\s\S]*?\n\s*\}/g),
+    ].map((m) => m[0]);
+    expect(sweepBlocks).toHaveLength(2);
+    const sweep = sweepBlocks.join("\n");
+    expect(sweep).toContain("pointer-events: none");
+    expect(sweep).toMatch(/position:\s*fixed/);
+    expect(sweep).toMatch(/animation:\s*none\s*!important/); // the reduced-motion half
+
+    // Exactly three tint declarations in the file, and every one of them must
+    // fall inside one of those two rules. A tint anywhere else fails here.
+    // Snippets are whitespace-normalised, so normalise the rule bodies too
+    // before containment — otherwise a multi-line gradient never matches its
+    // own rule and the assertion fails for the wrong reason.
+    const flat = (s: string) => s.replace(/\s+/g, " ");
+    const [flatBloom, flatSweep] = [flat(bloom), flat(sweep)];
+
+    const cssHits = findVerifiedTints("app/globals.css", CSS);
+    expect(cssHits).toHaveLength(3);
+    for (const h of cssHits) {
+      const probe = h.snippet.slice(0, 40);
+      expect(
+        flatBloom.includes(probe) || flatSweep.includes(probe),
+        `stray verified tint outside the approved rules: ${h.snippet}`,
+      ).toBe(true);
+    }
+  });
+
+  it("the bloom's consumer is aria-hidden and renders no verified text", () => {
+    const consumer = read("src/components/onboarding/reputation-demo/DemoAuthorCard.tsx");
+    expect(consumer).toMatch(/aria-hidden[\s\S]{0,120}bcc-rep-demo-bloom/);
+    // Its verified colour paints Sparkle icons, never a text node.
+    expect(consumer).not.toContain("text-verified");
+    expect(consumer).toContain("<Sparkle");
+  });
+
+  it("the sweep is an aria-hidden full-viewport backdrop of the same toast", () => {
+    const toast = read("src/components/celebration/CelebrationToast.tsx");
+    expect(toast).toMatch(/aria-hidden[^>]*className="bcc-celebration-sweep|bcc-celebration-sweep/);
+    expect(toast).toContain("aria-hidden");
+    // Sole consumer — if another surface adopts it, this fails and asks why.
+    const users = FILES.filter((f) => /bcc-celebration-sweep/.test(f.code)).map((f) => f.path);
+    expect(users).toEqual([
+      "app/globals.css",
+      "components/celebration/CelebrationToast.tsx",
+    ]);
+  });
+
+  it("the toast's tint wraps an aria-hidden icon, never text", () => {
     const toast = read("src/components/celebration/CelebrationToast.tsx");
     expect(toast).toContain("aria-hidden");
     expect(toast).toContain("<svg");
+    expect(toast).not.toContain("text-verified");
+    // Its verified colour is on the svg, not on a text node.
+    expect(toast).toMatch(/<svg[\s\S]{0,300}color: "var\(--verified\)"/);
+    expect(findVerifiedTints("toast", toast)).toHaveLength(1);
   });
 
-  it("verified text clears 4.5:1 on every bare surface it can land on", () => {
+  /**
+   * The hardened detector found this one, and it is why the slice touches a
+   * second file. `.bcc-pill[data-status="resolved"]` painted a literal `#fff`
+   * on the solid verified fill — 5.38:1 in light but **3.43:1 in dark**, since
+   * `--bcc-verified` is theme-scoped and a fixed white is not.
+   *
+   * It is the third instance of the same defect: the verified slice fixed
+   * `text-bcc-white` and `var(--cardstock)`, but a raw hex slipped both greps.
+   */
+  it("the resolved pill is solid verified with INVERSE text", () => {
+    const rule = /\.bcc-pill\[data-status="resolved"\][^}]*\}/.exec(CSS)?.[0] ?? "";
+    expect(rule, "resolved pill rule not found").not.toBe("");
+    expect(rule).toContain("background: var(--verified)");
+    expect(rule).toContain("color: var(--bcc-text-inverse)");
+  });
+
+  it("the resolved pill clears 4.5:1 in both themes", () => {
     const [vLight, vDark] = [decls("bcc-verified")[0] ?? "", decls("bcc-verified")[1] ?? ""];
-    expect(ratio(vLight, "#ffffff")).toBeGreaterThanOrEqual(4.5); // bg + surface, light
-    for (const dark of ["#0d1117", "#161b22", "#1c2128"]) {
-      expect(ratio(vDark, dark), `failed on ${dark}`).toBeGreaterThanOrEqual(4.5);
+    const [invLight, invDark] = [decls("bcc-text-inverse")[0] ?? "", decls("bcc-text-inverse")[1] ?? ""];
+    expect(ratio(invLight, vLight)).toBeGreaterThanOrEqual(4.5);
+    expect(ratio(invDark, vDark)).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it("no hardcoded white or cardstock foreground returns to that rule", () => {
+    const rule = /\.bcc-pill\[data-status="resolved"\][^}]*\}/.exec(CSS)?.[0] ?? "";
+    expect(rule).not.toMatch(/color:\s*#fff\b|color:\s*#ffffff\b|color:\s*white\b/i);
+    expect(rule).not.toContain("var(--cardstock)");
+    expect(rule).not.toContain("var(--bcc-white)");
+    // The sibling pills are theme-blind tokens, so their fixed --ink
+    // foregrounds are correct and must not be "fixed" by mistake.
+    const open = /\.bcc-pill\[data-status="open"\][^}]*\}/.exec(CSS)?.[0] ?? "";
+    expect(open).toContain("color: var(--ink)");
+  });
+
+  it("a solid verified background is NOT misclassified as a prohibited tint", () => {
+    // Full-alpha fills are governed by the inverse-text rule above, not by the
+    // no-tint rule. If the detector ever starts flagging them, every solid
+    // chip becomes a false positive and the guard gets disabled out of noise.
+    expect(findVerifiedTints("f", `.x { background: var(--verified); color: var(--bcc-text-inverse); }`)).toEqual([]);
+    expect(findVerifiedTints("f", `className="bg-verified text-[var(--bcc-text-inverse)]"`)).toEqual([]);
+    expect(findVerifiedTints("f", `background: "var(--verified)",`)).toEqual([]);
+    // …and the real rule is likewise clean under the detector.
+    const rule = /\.bcc-pill\[data-status="resolved"\][^}]*\}/.exec(CSS)?.[0] ?? "";
+    expect(findVerifiedTints("resolved-pill", rule)).toEqual([]);
+  });
+
+  it("no verified tint sits in a file that renders readable verified text", () => {
+    // The set-equality above already forbids new tints; this states the
+    // underlying contract directly, so the reason survives a refactor.
+    const offenders = FILES.filter((f) => {
+      if (findVerifiedTints(f.path, f.code).length === 0) return false;
+      return /text-verified\b/.test(f.code);
+    }).map((f) => f.path);
+    expect(offenders, "readable verified text over a verified tint").toEqual([]);
+  });
+});
+
+describe("closing the loop on section 4b", () => {
+  it("the eleven text chips are still tint-free under the hardened detector", () => {
+    for (const file of VERIFIED_TEXT_CHIPS) {
+      const code = read(file)
+        .replace(/\/\*[\s\S]*?\*\//g, "")
+        .replace(/(?<!:)\/\/.*$/gm, "");
+      expect(findVerifiedTints(file, code), `${file} re-grew a tint`).toEqual([]);
     }
   });
 });
