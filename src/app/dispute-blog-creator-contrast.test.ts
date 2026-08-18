@@ -30,7 +30,7 @@
  *
  * Its counter was an eighth ladder using `text-weld` (`#ffc01e`,
  * unscoped, **1.49:1** on a light input) as its middle rung. It adopts
- * the shared helper, which replaces that rung with `text-warning`
+ * the shared helper, which replaces that rung with `text-bcc-warning`
  * (4.56 / 8.05). `reasonTooLong` stays an outer guard because it tests
  * the UNTRIMMED length while the counter displays the trimmed one —
  * folding it in would have moved the top rung.
@@ -248,7 +248,10 @@ describe("E5 — the eighth counter adopts the shared helper", () => {
 describe("counterToneClass still behaves as E4 pinned it", () => {
   it("rungs unchanged", () => {
     expect(counterToneClass(101, 100, 90)).toBe("text-safety");
-    expect(counterToneClass(95, 100, 90)).toBe("text-warning");
+        // Was "text-warning" until 2026-08-18. That class named no Tailwind key
+    // and compiled to nothing, so this rung was invisible; see
+    // warning-utility-emission.test.ts.
+    expect(counterToneClass(95, 100, 90)).toBe("text-bcc-warning");
     expect(counterToneClass(10, 100, 90)).toBe("text-bcc-text-secondary");
   });
 });

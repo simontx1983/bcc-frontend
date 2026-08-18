@@ -186,7 +186,10 @@ describe("counterToneClass — the shared ladder", () => {
     expect(counterToneClass(101, 100, 90)).toBe("text-safety");
   });
   it("warns only when a threshold is given", () => {
-    expect(counterToneClass(95, 100, 90)).toBe("text-warning");
+        // Was "text-warning" until 2026-08-18. That class named no Tailwind key
+    // and compiled to nothing, so this rung was invisible; see
+    // warning-utility-emission.test.ts.
+    expect(counterToneClass(95, 100, 90)).toBe("text-bcc-warning");
     expect(counterToneClass(95, 100)).toBe("text-bcc-text-secondary");
   });
   it("rests on secondary, never muted", () => {
@@ -194,7 +197,7 @@ describe("counterToneClass — the shared ladder", () => {
     expect(counterToneClass(0, 100)).toBe("text-bcc-text-secondary");
   });
   it("boundaries are exclusive — at the limit is not over it", () => {
-    expect(counterToneClass(100, 100, 90)).toBe("text-warning");
+    expect(counterToneClass(100, 100, 90)).toBe("text-bcc-warning");
     expect(counterToneClass(90, 100, 90)).toBe("text-bcc-text-secondary");
   });
   it("leaves the safety rung alone — separately scoped, still failing", () => {
@@ -230,8 +233,10 @@ describe("E4 — every counter caller adopted the helper", () => {
 
   it("no hand-rolled ladder survives in any caller", () => {
     for (const [file] of CALLERS) {
+      // Either spelling: a hand-rolled ladder written with the NEW class
+      // would otherwise slip past this negative assertion.
       expect(read(file), `${file} still hand-rolls the ladder`).not.toMatch(
-        /\?\s*"text-safety"\s*\n?\s*:\s*.*\?\s*\n?\s*"text-warning"/,
+        /\?\s*"text-safety"\s*\n?\s*:\s*.*\?\s*\n?\s*"text-(bcc-)?warning"/,
       );
     }
   });
@@ -242,6 +247,7 @@ describe("E4 — every counter caller adopted the helper", () => {
     const calls = [...read(COMPOSER).matchAll(/counterToneClass\(/g)];
     expect(calls.length).toBeGreaterThanOrEqual(3);
     expect(read(COMPOSER)).not.toContain('? "text-warning"');
+    expect(read(COMPOSER)).not.toContain('? "text-bcc-warning"');
   });
 });
 
