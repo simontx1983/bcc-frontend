@@ -42,7 +42,7 @@ export function StatusToggle({ value, onChange, disabled = false }: StatusToggle
             className={
               "bcc-mono px-3 py-1.5 text-[11px] tracking-[0.18em] transition " +
               (active
-                ? "bg-bcc-accent text-bcc-text-inverse"
+                ? "bg-bcc-accent text-bcc-on-accent"
                 : "text-bcc-text-secondary hover:text-bcc-text")
             }
           >
