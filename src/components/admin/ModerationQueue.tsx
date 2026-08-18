@@ -548,7 +548,7 @@ function StatusTabs({ value, onChange }: StatusTabsProps) {
             className={
               "bcc-mono inline-flex min-h-[36px] items-center border-2 px-3 py-1.5 text-[11px] tracking-[0.18em] transition " +
               (active
-                ? "border-bcc-accent bg-bcc-accent text-bcc-text-inverse"
+                ? "border-bcc-accent bg-bcc-accent text-bcc-on-accent"
                 : "border-bcc-border bg-bcc-surface-hover text-bcc-text-secondary hover:border-bcc-border-strong hover:text-bcc-text")
             }
           >

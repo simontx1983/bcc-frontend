@@ -50,7 +50,7 @@ export function FilterChipRow<T extends string | null>({
               className={
                 "bcc-mono min-h-[36px] rounded-sm px-3 py-1.5 text-[10px] tracking-[0.18em] transition " +
                 (isActive
-                  ? "bg-bcc-accent text-bcc-text-inverse"
+                  ? "bg-bcc-accent text-bcc-on-accent"
                   : "bg-bcc-surface-hover text-bcc-text ring-1 ring-bcc-border hover:bg-bcc-surface-active")
               }
             >

@@ -86,6 +86,10 @@ const config: Config = {
         "bcc-text-muted":       "var(--bcc-text-muted)",
         "bcc-text-placeholder": "var(--bcc-text-placeholder)",
         "bcc-text-inverse":     "var(--bcc-text-inverse)",
+        // Foreground for text/icons on a FILLED ACCENT ground. Theme-blind,
+        // because the accent grounds are. NOT interchangeable with
+        // bcc-text-inverse, which goes white in light theme and fails there.
+        "bcc-on-accent":        "var(--bcc-on-accent)",
 
         // ── Glass ──────────────────────────────────────────────────────────
         "bcc-glass-bg":         "var(--bcc-glass-bg)",
