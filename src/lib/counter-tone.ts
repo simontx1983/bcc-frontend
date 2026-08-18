@@ -17,12 +17,19 @@
  * The rungs:
  *
  *   over the limit   → `text-safety`
- *   near the limit   → `text-warning`      (only when `warnAt` is given)
+ *   near the limit   → `text-bcc-warning`  (only when `warnAt` is given)
  *   otherwise        → `text-bcc-text-secondary`
+ *
+ * ⚠ The middle rung is `text-bcc-warning`, NOT `text-warning`. There is no
+ * bare `warning` key in the Tailwind theme — only `bcc-warning` — so
+ * `text-warning` compiles to nothing at all. It emitted zero rules, which
+ * meant the "near the limit" state silently inherited its colour and this
+ * ladder had two visible rungs instead of three. Verified against a build:
+ * `.text-warning` produced 0 rules while `.text-bcc-warning` produced 1.
  *
  * The bottom rung was `--bcc-text-muted`, which measures 2.54:1 light and
  * 2.28:1 dark — failing AA as text. `--bcc-text-secondary` clears it at
- * 7.56 / 6.15, and stays distinguishable from `text-warning` (5.02 light,
+ * 7.56 / 6.15, and stays distinguishable from `text-bcc-warning` (5.02 light,
  * 8.81 dark) by both hue and lightness.
  *
  * ⚠ The top rung is deliberately untouched. `--bcc-safety` is a single
@@ -39,6 +46,6 @@
  */
 export function counterToneClass(value: number, max: number, warnAt?: number): string {
   if (value > max) return "text-safety";
-  if (warnAt !== undefined && value > warnAt) return "text-warning";
+  if (warnAt !== undefined && value > warnAt) return "text-bcc-warning";
   return "text-bcc-text-secondary";
 }
