@@ -7,9 +7,9 @@
  *
  * ## Why weld is NOT theme-scoped, and never should be
  *
- * Eight of its ten consumers sit on fixed-dark grounds and already pass at
+ * Nine of its eleven consumers sit on fixed-dark grounds and already pass at
  * 9.87–11.84. Theme-scoping would have to darken weld for light theme — but
- * those eight grounds do not flip, so the darkened value would land ON the
+ * those nine grounds do not flip, so the darkened value would land ON the
  * black bar and break them. Measured: `--bcc-warning` light (`#b45309`), the
  * nearest existing darkened amber, reads **3.87:1 on `--ink`** where weld
  * reads 11.84. A theme-scoped weld fails in exactly the same way.
@@ -81,7 +81,7 @@ const MIGRATED = [
   "src/components/onchain/NftPickerModal.tsx",
 ] as const;
 
-/** The eight that stay — all on fixed-dark grounds, all already passing. */
+/** The nine that stay — all on fixed-dark grounds, all already passing. */
 const FIXED_DARK_WELD = [
   ["src/app/globals.css", ".bcc-caution-tape gradient"],
   ["src/app/globals.css", ".bcc-grade"],
@@ -111,10 +111,10 @@ describe("weld confinement — preconditions", () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────
-// 2. Exactly two migrated, exactly eight remaining
+// 2. Exactly two migrated, exactly nine remaining
 // ─────────────────────────────────────────────────────────────────────────
 
-describe("the consumer split is exactly 2 migrated / 8 remaining", () => {
+describe("the consumer split is exactly 2 migrated / 9 remaining", () => {
   it("neither migrated file references weld any more", () => {
     for (const f of MIGRATED) {
       expect(read(f), `${f} still uses weld`).not.toMatch(
@@ -123,8 +123,8 @@ describe("the consumer split is exactly 2 migrated / 8 remaining", () => {
     }
   });
 
-  it("repo-wide, weld survives in exactly the nine known declarations", () => {
-    // Nine textual sites across eight consumers: globals.css holds three
+  it("repo-wide, weld survives in exactly the nine known sites", () => {
+    // Nine textual sites across seven files: globals.css holds three
     // (tape gradient, .bcc-grade, the open pill) and the five component
     // eyebrows plus CaseBody make up the rest.
     const hits = FILES.flatMap((f) =>
@@ -135,7 +135,7 @@ describe("the consumer split is exactly 2 migrated / 8 remaining", () => {
     expect(files).toEqual([...new Set(FIXED_DARK_WELD.map(([p]) => p.replace("src/", "")))].sort());
   });
 
-  it("every surviving consumer is one of the eight audited fixed-dark sites", () => {
+  it("every surviving consumer is one of the nine audited fixed-dark sites", () => {
     for (const [file] of FIXED_DARK_WELD) {
       expect(read(file)).toMatch(/text-weld|bg-weld|border-weld|var\(--weld\)/);
     }
