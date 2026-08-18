@@ -83,7 +83,7 @@ export function TrustQuestShareAction({
         {verify.isPending ? "Checking…" : "I've shared — verify"}
       </button>
       {verify.error !== null && (
-        <span className="bcc-mono text-[10px] text-weld">
+        <span className="bcc-mono text-[10px] text-bcc-warning">
           {verify.error.code === "share_not_found"
             ? "No matching tweet found yet."
             : verify.error.code === "bcc_rate_limited"

@@ -320,9 +320,20 @@ safety-orange rule beneath). Use them together rather than rebuilding a sheet.
   state, and the established color for inline validation/error text. It is part
   of the current vocabulary on both surface families — not a card-only color.
 - **Blueprint / weld / cardstock** are likewise part of the shipped vocabulary
-  (`bg-blueprint` for dark inset blocks, `--weld` for caution-tape and warning
-  accents). Use them where a nearby screen already does; don't scatter them into
-  surfaces that read as plain app chrome.
+  (`bg-blueprint` for dark inset blocks, `--weld` for caution tape and the
+  hi-vis labels on ink-backed paper chrome). Use them where a nearby screen
+  already does; don't scatter them into surfaces that read as plain app chrome.
+- **`--weld` is fixed-dark only — it is not a warning colour.** It is chosen
+  *because* its backdrop is black: **11.84:1** on `--ink`, but **1.64:1** on
+  white. Its home is caution tape, stencil stamps, grade badges and the
+  kickers on `.bcc-paper-head`. Warning states use `--bcc-warning`, which is
+  theme-scoped (5.02 light / 8.81 dark).
+
+  Theme-scoping weld is not an option, and the arithmetic is worth keeping:
+  any value dark enough for light theme lands **on** the black bar and breaks
+  the consumers that currently pass — `--bcc-warning` light (`#b45309`), the
+  nearest darkened amber, reads **3.87:1 on `--ink`** where weld reads 11.84.
+  Both directions lose, so the token stays theme-blind and confined instead.
 - **Semantic ramps are data, not decoration** — don't invent parallels:
   - `--bcc-trust-{risky,caution,neutral,trusted,proven}` — the trust band. The
     *only* tier palette. (`-elite` is a legacy alias for `proven`.)
