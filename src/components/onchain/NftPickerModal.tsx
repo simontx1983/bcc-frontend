@@ -166,7 +166,7 @@ export function NftPickerModal({ onClose }: NftPickerModalProps) {
             <>
               {picker.data.truncated && (
                 <p
-                  className="bcc-mono mb-4 border border-weld/60 bg-weld/10 px-3 py-2 text-ink"
+                  className="bcc-mono mb-4 border border-bcc-warning px-3 py-2 text-bcc-text"
                   style={{ fontSize: "10px", letterSpacing: "0.18em" }}
                 >
                   PARTIAL LIST &middot; SOME WALLETS WERE TRUNCATED FOR THIS

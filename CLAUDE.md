@@ -87,6 +87,11 @@ sitting on the app rather than as part of it.
 - **`text-safety` is the established eyebrow and inline-alert color** on both
   surface families. `--weld` and `--blueprint` are likewise part of the shipped
   vocabulary. Use them where a nearby screen already does.
+- **`--weld` is fixed-dark only, and is not a warning colour.** 11.84:1 on
+  `--ink`, 1.64:1 on white — it belongs on caution tape, stencil stamps, grade
+  badges and `.bcc-paper-head` kickers. Warning states use `--bcc-warning`
+  (theme-scoped). Note the utility is `text-bcc-warning`: there is no bare
+  `warning` key, so `text-warning` compiles to nothing.
 - Semantic ramps are data, not decoration — don't invent parallels:
   `--bcc-trust-{risky,caution,neutral,trusted,proven}` (the only tier palette;
   `-elite` is a legacy alias for `proven`), `--kind-*` (card frame),
