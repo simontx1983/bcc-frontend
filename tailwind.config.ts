@@ -112,11 +112,6 @@ const config: Config = {
         "bcc-danger":           "var(--bcc-danger)",
         "bcc-info":             "var(--bcc-info)",
 
-        // ── Card tiers (data-driven, stable across themes) ─────────────────
-        "bcc-tier-common":      "var(--bcc-tier-common)",
-        "bcc-tier-uncommon":    "var(--bcc-tier-uncommon)",
-        "bcc-tier-rare":        "var(--bcc-tier-rare)",
-        "bcc-tier-legendary":   "var(--bcc-tier-legendary)",
 
         // ── Operator type badges ───────────────────────────────────────────
         "bcc-type-validator":   "var(--bcc-type-validator)",
@@ -163,14 +158,6 @@ const config: Config = {
           osmosis:   "var(--chain-osmosis)",   // #c73f86
           injective: "var(--chain-injective)", // #0a72ff
           kujira:    "var(--chain-kujira)",    // #e62c3f
-        },
-        // Card tiers — server returns card_tier; we just paint it.
-        // --tier-* map onto the redesign's --bcc-tier-* tokens.
-        tier: {
-          common:    "var(--tier-common)",    // #6b6e72
-          uncommon:  "var(--tier-uncommon)",  // #247a3f
-          rare:      "var(--tier-rare)",      // #1d4fbb
-          legendary: "var(--tier-legendary)", // #d9a400
         },
       },
 
