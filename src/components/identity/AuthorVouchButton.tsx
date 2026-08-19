@@ -137,17 +137,31 @@ function AuthorVouchButtonImpl({
       ? "VOUCHED"
       : "VOUCH";
 
-  // Cast state reads as a filled "verified" pill; the un-cast state is a
-  // quiet outline that invites the action without shouting in a dense row.
+  // Same semantic as the card variant in `.bcc-btn-vouch[-on]`, at byline
+  // scale (1px border instead of 1.5px — the card's 1.5px exists only to
+  // height-match the Follow pill, which the byline has no peer for).
+  //
+  // Un-cast is NEUTRAL, not safety-orange: vouch invites, it does not
+  // warn (owner ruling 2026-08-17). Cast is verified text on an opaque
+  // plate with a full-strength verified border — no translucent fill, so
+  // the label's contrast cannot drift with whatever sits behind it.
+  //
+  // NOTE: this branch is currently unreachable. `size` defaults to
+  // "byline", but the only mount — AuthorCard.tsx:225 — hardcodes
+  // size="card", and AuthorBadge routes its vouch data through
+  // AuthorHoverPanel → AuthorCard rather than rendering this directly.
+  // Repaired rather than deleted so the two variants cannot diverge again
+  // if a byline mount lands later; the deletion is a separate call.
   const pillStyle = hasVouched
     ? {
         color: "var(--verified)",
-        border: "1px solid rgb(var(--verified-rgb) / 0.45)",
+        background: "var(--bcc-surface)",
+        border: "1px solid var(--verified)",
       }
     : {
-        color: "var(--safety)",
-        background: "transparent",
-        border: "1px solid var(--safety)",
+        color: "var(--bcc-text)",
+        background: "var(--bcc-surface-hover)",
+        border: "1px solid var(--bcc-border)",
       };
 
   const isCard = size === "card";
