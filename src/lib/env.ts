@@ -36,24 +36,21 @@ export const clientEnv = Object.freeze({
  * Server-only env. Throws when accessed in the browser bundle —
  * Next.js can usually catch this at build time, but the runtime
  * guard catches the rest.
- */
-/*
- * NEXTAUTH_URL is deliberately NOT exposed here.
  *
- * It had a `required()` getter that nothing ever called, so it read as a
- * guarantee while enforcing nothing. NextAuth v4 reads the variable from
- * `process.env` itself, and the only other consumer — `appOrigin()` in
- * lib/app-origin.ts — must NOT throw on absence: it falls through to the
- * Vercel system variables. A throwing accessor is the wrong shape for
- * both callers, so there is no accessor.
+ * NextAuth's own variables — NEXTAUTH_URL and NEXTAUTH_SECRET — are
+ * deliberately NOT exposed here. Both had `required()` getters that
+ * nothing ever called, so they read as guarantees while enforcing
+ * nothing. NextAuth v4 reads both from `process.env` itself and fails on
+ * its own terms; and the only other consumer, `appOrigin()` in
+ * lib/app-origin.ts, must NOT throw when NEXTAUTH_URL is absent — it
+ * falls through to the Vercel system variables. A throwing accessor was
+ * the wrong shape for every caller, so there is no accessor.
+ *
+ * What remains below is the set of secrets THIS app forwards or verifies
+ * itself, where a missing value is our bug to surface rather than a
+ * dependency's.
  */
 export const serverEnv = Object.freeze({
-  get NEXTAUTH_SECRET(): string {
-    if (typeof window !== "undefined") {
-      throw new Error("[bcc-frontend] serverEnv accessed in client code");
-    }
-    return required("NEXTAUTH_SECRET", process.env["NEXTAUTH_SECRET"]);
-  },
   /**
    * Shared secret forwarded as `X-Bcc-Internal` to the WP
    * /bcc/v1/internal/* endpoints. Must match `BCC_INTERNAL_CRON_SECRET`
