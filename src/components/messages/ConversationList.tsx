@@ -98,7 +98,7 @@ const ConversationRow = memo(function ConversationRow({
         {hasUnread && (
           <span
             aria-label={`${conv.unread_count} unread`}
-            className="bcc-mono inline-flex h-6 min-w-6 shrink-0 items-center justify-center rounded-full bg-safety px-1.5 text-[10px] font-semibold leading-none text-cardstock"
+            className="bcc-mono inline-flex h-6 min-w-6 shrink-0 items-center justify-center rounded-full bg-safety px-1.5 text-[10px] font-semibold leading-none text-bcc-on-accent"
           >
             {conv.unread_count}
           </span>

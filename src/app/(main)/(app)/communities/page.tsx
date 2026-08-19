@@ -270,7 +270,12 @@ function CreateCommunityCta({ isAnon }: { isAnon: boolean }) {
   return (
     <Link
       href={"/communities/new" as Route}
-      className="bcc-stencil inline-flex shrink-0 items-center gap-2 rounded-sm bg-safety px-5 py-3 text-sm tracking-[0.12em] text-cardstock transition hover:bg-ink"
+      // Same two-ground pairing as the submit button on /communities/new,
+      // and deliberately identical to it — this CTA and that one are the
+      // same affordance. Rest: dark on solid safety (5.59:1). Hover: the
+      // ground becomes fixed --ink, so the foreground becomes cardstock
+      // (15.51:1) — the pairing already used by the bg-ink pills below.
+      className="bcc-stencil inline-flex shrink-0 items-center gap-2 rounded-sm bg-safety px-5 py-3 text-sm tracking-[0.12em] text-bcc-on-accent transition hover:bg-ink hover:text-cardstock"
     >
       <span aria-hidden>＋</span>
       Create community
