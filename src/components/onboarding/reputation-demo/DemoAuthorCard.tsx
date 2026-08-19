@@ -168,15 +168,12 @@ export function DemoAuthorCard({
               </button>
             </div>
             <span className="relative flex-1">
-              <button
-                type="button"
-                onClick={handleVouchClick}
-                aria-pressed={vouched}
-                className={"bcc-btn bcc-btn-sm w-full " + (vouched ? "bcc-btn-vouch-on" : "bcc-btn-vouch")}
-              >
-                {vouched ? "Vouched" : "Vouch"}
-              </button>
-
+              {/* Decoration first, control second. The confirm ring is a
+                  BACKDROP: it renders before the button and sits at z-0
+                  (see .bcc-rep-demo-bloom), and the button carries
+                  `relative` so its label is composited last. The ring is
+                  also a border rather than a fill, so even if this order
+                  were lost the label could not end up over a tint. */}
               {bloomKey > 0 && (
                 <span
                   key={`bloom-${bloomKey}`}
@@ -184,6 +181,15 @@ export function DemoAuthorCard({
                   className={reducedMotion ? "" : "bcc-rep-demo-bloom"}
                 />
               )}
+
+              <button
+                type="button"
+                onClick={handleVouchClick}
+                aria-pressed={vouched}
+                className={"bcc-btn bcc-btn-sm relative w-full " + (vouched ? "bcc-btn-vouch-on" : "bcc-btn-vouch")}
+              >
+                {vouched ? "Vouched" : "Vouch"}
+              </button>
 
               {!reducedMotion &&
                 bloomKey > 0 &&

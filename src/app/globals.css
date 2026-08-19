@@ -3519,10 +3519,12 @@
    .bcc-rep-demo-swap    — snappier cousin of .bcc-onboarding-arrive (this
                             one repeats every ~3.5-4s on a timer, so the
                             full 1500ms arrive-and-lift would feel sluggish).
-   .bcc-rep-demo-bloom   — a soft radial pulse confined to the Vouch
-                            button's own bounding box (parent needs
-                            position:relative) — NOT a full-viewport sweep
-                            like .bcc-celebration-sweep.
+   .bcc-rep-demo-bloom   — a confirm ring that fires from the Vouch
+                            button's own edge and expands just past it
+                            (parent needs position:relative) — NOT a
+                            full-viewport sweep like
+                            .bcc-celebration-sweep, and NOT a fill: see the
+                            rule below for why it stopped being one.
    .bcc-rep-demo-vouch-sparkle — small star particles fanned outward from
                             the button on the same click (mirrors
                             StokeFlame's particle-burst mechanics: caller
@@ -3546,16 +3548,44 @@
 .bcc-rep-demo-bloom {
   position: absolute;
   inset: 0;
+  /* Behind the button, never over it. DemoAuthorCard renders this span
+     BEFORE the button and gives the button `relative`, so the label is the
+     last thing composited in this corner of the card. */
+  z-index: 0;
   pointer-events: none;
-  border-radius: inherit;
-  background: radial-gradient(ellipse 70% 60% at 50% 100%, rgb(var(--verified-rgb) / 0.28), transparent 70%);
+  /* Traces the pill it fires from. (`inherit` used to resolve to 0 here —
+     the wrapper span carries no radius of its own.) */
+  border-radius: var(--bcc-radius-sm);
+  /* A RING, not a fill.
+
+     This was an inset:0 layer washed with verified at 0.28 alpha (a radial
+     ellipse rising from the bottom edge), i.e. a tint covering the button
+     face — and therefore the button's own label — for the whole 900ms.
+     Measured against the --verified label: 3.60:1 light, 3.38:1 dark, where
+     the same label reads 5.38 / 5.04 on the bare panel.
+
+     The old value is deliberately NOT quoted verbatim here: the tint guard
+     in phosphor-confinement.test.ts scans this file with comments intact,
+     so a commented-out declaration would keep registering as a live one.
+
+     Re-layering alone would not have fixed it: .bcc-btn-vouch and
+     .bcc-btn-vouch-on are transparent-faced, so a tint parked behind the
+     button still composites under the glyphs. A border cannot: it is drawn
+     at the box edge, where no text lives. The burst therefore expands as an
+     outline instead of swelling as a wash — same token, same 900ms ease-out,
+     same reduced-motion skip, and the sparkle fan is untouched.
+
+     The scale ceiling is deliberate: 1.16 on a ~26px-tall pill puts the ring
+     ~2px past each edge, well inside the 6px gap to the tooltip below, so it
+     cannot tint neighbouring text either. */
+  border: 1.5px solid var(--verified);
   animation: bcc-rep-demo-bloom 900ms ease-out forwards;
 }
 
 @keyframes bcc-rep-demo-bloom {
-  0%   { opacity: 0; }
-  25%  { opacity: 1; }
-  100% { opacity: 0; }
+  0%   { opacity: 0; transform: scale(1); }
+  25%  { opacity: 1; transform: scale(1.03); }
+  100% { opacity: 0; transform: scale(1.16); }
 }
 
 .bcc-rep-demo-vouch-sparkle {
