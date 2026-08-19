@@ -19,6 +19,10 @@ const nextConfig: NextConfig = {
   // so dangerouslyAllowSVG stays off.
   images: {
     remotePatterns: [
+      // cms.* is the WP origin after the domain cutover; the bare apex is
+      // retained because media rows written before the cutover still carry
+      // it, and because it stays valid for as long as WP answers on both.
+      { protocol: "https", hostname: "cms.bluecollarcrypto.io", pathname: "/wp-content/**" },
       { protocol: "https", hostname: "bluecollarcrypto.io", pathname: "/wp-content/**" },
       { protocol: "https", hostname: "stage.bluecollarcrypto.io", pathname: "/wp-content/**" },
       { protocol: "https", hostname: "blue-collar-crypto-custom.local", pathname: "/wp-content/**" },

@@ -16,6 +16,9 @@ import { clientEnv } from "@/lib/env";
 
 const WP_MEDIA_HOSTS: ReadonlySet<string> = new Set(
   [
+    // cms.* is the WP origin after the domain cutover; the bare apex stays
+    // listed because media rows written before it still carry that host.
+    "cms.bluecollarcrypto.io",
     "bluecollarcrypto.io",
     "stage.bluecollarcrypto.io",
     // Local-by-Flywheel dev origin; also covered dynamically via
