@@ -353,12 +353,157 @@ describe("verified text is never composited over a verified tint", () => {
     expect(hover).toContain("background: var(--bcc-surface-raised)");
   });
 
-  it("verified text clears 4.5:1 on every bare surface it can land on", () => {
-    const [vLight, vDark] = [decls("bcc-verified")[0] ?? "", decls("bcc-verified")[1] ?? ""];
-    expect(ratio(vLight, "#ffffff")).toBeGreaterThanOrEqual(4.5);
-    for (const dark of ["#0d1117", "#161b22", "#1c2128"]) {
-      expect(ratio(vDark, dark), `failed on ${dark}`).toBeGreaterThanOrEqual(4.5);
+  /**
+   * The dark grounds verified TEXT can land on, each paired with the token
+   * that owns it.
+   *
+   * This list used to be three bare hexes, and it stopped covering the room
+   * the moment a later slice made `--bcc-surface-hover` (`#21262d`) a hover
+   * ground for verified labels — `.bcc-btn-vouch-on:hover` and
+   * `AttestationActionCluster`'s `hover:bg-bcc-surface-hover`. A hole in a
+   * guard's SURFACE list is invisible: every assertion still passes, on
+   * fewer grounds. So the surface is enumerated here, each entry is
+   * cross-checked against its declaration in `globals.css`, and the
+   * shortfall below is declared rather than trimmed away.
+   */
+  const DARK_GROUNDS: ReadonlyArray<readonly [string, string]> = [
+    ["bcc-bg", "#0d1117"],
+    ["bcc-surface", "#161b22"],
+    ["bcc-surface-raised", "#1c2128"],
+    ["bcc-surface-hover", "#21262d"],
+  ];
+
+  /**
+   * `--bcc-surface-hover` is covered but does NOT pass: verified text
+   * measures **4.44:1** on `#21262d`, 0.06 short of AA. The assertion below
+   * is the FULL 4.5 bar — no threshold is lowered anywhere, and verified is
+   * NOT re-valued — and the case is marked as currently failing.
+   *
+   * ## Why the marker is keyed to a CONSUMER, not to the ratio
+   *
+   * The first draft of this keyed the expected-failure on the token ratio and
+   * claimed the Vouch slice would flip it. That was wrong. `ratio(verified
+   * dark, #21262d)` is a property of two token values; the Vouch slice moved
+   * `.bcc-btn-vouch-on:hover` to `--bcc-surface-raised` (4.72, passing) and
+   * the ratio stayed 4.44 — so the marker would have sat green-as-expected
+   * forever, describing an immortal condition. An expected-failure test
+   * attached to something that can never change is not a test.
+   *
+   * So the gate is now the last real consumer: `AttestationActionCluster`
+   * still hovers verified text onto `--bcc-surface-hover`. While that pairing
+   * exists the shortfall is reachable and the marker is honest. Repair that
+   * consumer — move the hover ground, or stop using verified text on it — and
+   * `stillHasSurfaceHoverConsumer()` goes false, the entry drops out of
+   * `AWAITING_VOUCH_SLICE`, and the full assertion runs for real.
+   *
+   * The test below this one proves that inversion rather than asserting it.
+   */
+  const VERIFIED_ON_SURFACE_HOVER_CONSUMER =
+    "src/components/profile/AttestationActionCluster.tsx";
+
+  /** True while some component still puts verified TEXT on `--bcc-surface-hover`. */
+  function stillHasSurfaceHoverConsumer(src = read(VERIFIED_ON_SURFACE_HOVER_CONSUMER)): boolean {
+    return /text-verified[^"`']*hover:bg-bcc-surface-hover|hover:bg-bcc-surface-hover[^"`']*text-verified/.test(
+      src,
+    );
+  }
+
+  const AWAITING_VOUCH_SLICE: readonly string[] = stillHasSurfaceHoverConsumer()
+    ? ["bcc-surface-hover"]
+    : [];
+
+  /**
+   * Entries whose hex is NOT what `globals.css` declares for that token in
+   * both dark blocks. A surface list that drifts from the stylesheet is the
+   * same failure as a surface list with a hole: it measures something the
+   * product does not render.
+   */
+  const groundsOffStylesheet = (grounds: ReadonlyArray<readonly [string, string]>): string[] =>
+    grounds
+      .filter(([token, hex]) => decls(token).filter((v) => v === hex).length !== 2)
+      .map(([token, hex]) => `--${token}=${hex}`);
+
+  it("the ground list carries the real token values, both dark blocks agreeing", () => {
+    expect(DARK_GROUNDS.length).toBeGreaterThanOrEqual(4);
+    for (const [token] of DARK_GROUNDS) {
+      expect(decls(token).length, `--${token} is not declared at all`).toBeGreaterThan(0);
     }
+    expect(groundsOffStylesheet(DARK_GROUNDS)).toEqual([]);
+  });
+
+  it("that cross-check is not passing for free", () => {
+    // Mutation controls: one hex off by a single channel, and one token that
+    // does not exist. Both must be rejected, or the check above is decoration.
+    expect(groundsOffStylesheet([["bcc-surface-hover", "#21262e"]])).toEqual([
+      "--bcc-surface-hover=#21262e",
+    ]);
+    expect(groundsOffStylesheet([["bcc-surface-nope", "#21262d"]])).toEqual([
+      "--bcc-surface-nope=#21262d",
+    ]);
+    // A light value is not a dark ground either, even though it is declared.
+    expect(groundsOffStylesheet([["bcc-surface-hover", "#f3f4f6"]])).toEqual([
+      "--bcc-surface-hover=#f3f4f6",
+    ]);
+    // And the real entry passes, so the control is discriminating.
+    expect(groundsOffStylesheet([["bcc-surface-hover", "#21262d"]])).toEqual([]);
+  });
+
+  it("verified text clears 4.5:1 on the light ground", () => {
+    const vLight = decls("bcc-verified")[0] ?? "";
+    expect(ratio(vLight, "#ffffff")).toBeGreaterThanOrEqual(4.5);
+  });
+
+  /**
+   * The forcing function, proven both directions. If this ever passes
+   * vacuously the KNOWN GAP marker above becomes a decorative gravestone:
+   * permanently "expected to fail", attached to a condition nobody can clear.
+   */
+  it("the KNOWN GAP marker is gated on a real consumer, and flips when it is repaired", () => {
+    const real = read(VERIFIED_ON_SURFACE_HOVER_CONSUMER);
+    expect(real.length).toBeGreaterThan(2_000); // scan surface, not an empty read
+
+    // 1. The gate is currently held open by a live pairing.
+    expect(stillHasSurfaceHoverConsumer(real)).toBe(true);
+    expect(AWAITING_VOUCH_SLICE).toContain("bcc-surface-hover");
+
+    // 2. Repair that consumer — the only edit is the hover ground — and the
+    //    gate closes, which promotes the KNOWN GAP entry to a real assertion.
+    const repaired = real.replace(/hover:bg-bcc-surface-hover/g, "hover:bg-bcc-surface-raised");
+    expect(repaired).not.toBe(real); // substitution actually happened
+    expect(stillHasSurfaceHoverConsumer(repaired)).toBe(false);
+
+    // 3. And it is the CONSUMER that moves the gate, not the ratio: the token
+    //    pair is immortal at 4.44, which is exactly why keying on it failed.
+    const vDark = decls("bcc-verified")[1] ?? "";
+    expect(ratio(vDark, "#21262d")).toBeLessThan(4.5);
+    expect(ratio(vDark, "#1c2128")).toBeGreaterThanOrEqual(4.5); // where the repair lands
+
+    // 4. Must-not-flag: an unrelated hover ground does not hold the gate open.
+    expect(stillHasSurfaceHoverConsumer('className="text-verified hover:bg-bcc-surface-active"')).toBe(
+      false,
+    );
+  });
+
+  for (const [token, hex] of DARK_GROUNDS) {
+    const assertAA = () => {
+      const vDark = decls("bcc-verified")[1] ?? "";
+      expect(ratio(vDark, hex), `verified text on --${token} (${hex})`).toBeGreaterThanOrEqual(4.5);
+    };
+    if (AWAITING_VOUCH_SLICE.includes(token)) {
+      it.fails(`KNOWN GAP — verified text is still under 4.5:1 on --${token} (${hex})`, assertAA);
+    } else {
+      it(`verified text clears 4.5:1 on --${token} (${hex})`, assertAA);
+    }
+  }
+
+  it("--bcc-surface-hover is a ground verified TEXT actually lands on", () => {
+    // If nothing pairs verified text with that background the entry above is
+    // theoretical, and a theoretical known-gap is just noise. At least one
+    // real pairing must exist for the gap to be worth carrying.
+    const pairings = FILES.filter(
+      (f) => /text-verified\b/.test(f.code) && /hover:bg-bcc-surface-hover\b/.test(f.code),
+    ).map((f) => f.path);
+    expect(pairings.length, "no verified-text-on-surface-hover pairing found").toBeGreaterThan(0);
   });
 });
 
@@ -498,24 +643,25 @@ describe("verified tints repo-wide — exactly two, both decorative", () => {
     const paths = [...new Set(hits.map((h) => h.path))].sort();
     expect(paths, `unexpected verified tints:\n${hits.map((h) => `${h.path} :: ${h.snippet}`).join("\n")}`)
       .toEqual([
-        "app/globals.css", // .bcc-rep-demo-bloom
+        "app/globals.css", // .bcc-celebration-sweep (both halves)
         "components/celebration/CelebrationToast.tsx",
       ]);
   });
 
   /**
-   * Two approved OWNERS, three declarations. `CelebrationToast` owns two of
-   * them — the inline circle tint and its `.bcc-celebration-sweep` backdrop,
-   * which lives in `globals.css`. Counting by file would have hidden that, so
-   * the exceptions are pinned by owning rule.
+   * ONE approved tint owner in `globals.css` now, with two declarations:
+   * `CelebrationToast`'s `.bcc-celebration-sweep` backdrop and its
+   * reduced-motion variant. Counting by file would hide that, so the
+   * exceptions are pinned by owning rule.
+   *
+   * `.bcc-rep-demo-bloom` was the second owner until this slice. It was an
+   * `inset: 0` verified wash over the demo Vouch button — i.e. over the
+   * button's own label, at 3.60:1 light / 3.38:1 dark for the full 900ms.
+   * It is now a border ring that expands past the pill edge, carries no
+   * fill, and therefore leaves the tint census entirely. See
+   * `rep-demo-bloom-layering.test.ts` for that rule's own coverage.
    */
-  it("globals.css holds exactly the two approved decorative rules", () => {
-    const bloom = /\.bcc-rep-demo-bloom\s*\{[^}]*\}/.exec(CSS)?.[0] ?? "";
-    expect(bloom).toContain("radial-gradient");
-    expect(bloom).toContain("--verified-rgb");
-    expect(bloom).toContain("pointer-events: none");
-    expect(bloom).toMatch(/animation:\s*bcc-rep-demo-bloom/);
-
+  it("globals.css holds exactly one approved decorative tint rule", () => {
     // TWO blocks, not one: the base rule and a `prefers-reduced-motion`
     // variant that swaps the sweeping band for a gentle static fade. Both
     // carry the tint, so both must be collected or the second reads as stray.
@@ -528,21 +674,22 @@ describe("verified tints repo-wide — exactly two, both decorative", () => {
     expect(sweep).toMatch(/position:\s*fixed/);
     expect(sweep).toMatch(/animation:\s*none\s*!important/); // the reduced-motion half
 
-    // Exactly three tint declarations in the file, and every one of them must
-    // fall inside one of those two rules. A tint anywhere else fails here.
-    // Snippets are whitespace-normalised, so normalise the rule bodies too
-    // before containment — otherwise a multi-line gradient never matches its
-    // own rule and the assertion fails for the wrong reason.
+    // Exactly two tint declarations in the file — was three, until the demo
+    // bloom stopped being a fill — and both must fall inside that one rule. A
+    // tint anywhere else fails here. Snippets are whitespace-normalised, so
+    // normalise the rule body too before containment — otherwise a multi-line
+    // gradient never matches its own rule and the assertion fails for the
+    // wrong reason.
     const flat = (s: string) => s.replace(/\s+/g, " ");
-    const [flatBloom, flatSweep] = [flat(bloom), flat(sweep)];
+    const flatSweep = flat(sweep);
 
     const cssHits = findVerifiedTints("app/globals.css", CSS);
-    expect(cssHits).toHaveLength(3);
+    expect(cssHits).toHaveLength(2);
     for (const h of cssHits) {
       const probe = h.snippet.slice(0, 40);
       expect(
-        flatBloom.includes(probe) || flatSweep.includes(probe),
-        `stray verified tint outside the approved rules: ${h.snippet}`,
+        flatSweep.includes(probe),
+        `stray verified tint outside the approved rule: ${h.snippet}`,
       ).toBe(true);
     }
   });

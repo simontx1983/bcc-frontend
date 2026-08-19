@@ -206,7 +206,7 @@ function AuthorVouchButtonImpl({
         {errorText !== null && (
           <span
             role="status"
-            className="bcc-mono text-[10px] leading-snug text-[color:var(--danger)]"
+            className="bcc-mono text-[10px] leading-snug text-[var(--bcc-danger)]"
           >
             {errorText}
           </span>
@@ -221,7 +221,7 @@ function AuthorVouchButtonImpl({
       {errorText !== null && (
         <span
           role="status"
-          className="bcc-mono text-[10px] leading-snug text-[color:var(--danger)]"
+          className="bcc-mono text-[10px] leading-snug text-[var(--bcc-danger)]"
         >
           {errorText}
         </span>
