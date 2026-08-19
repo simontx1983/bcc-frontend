@@ -236,10 +236,16 @@ const PROFILE_HERO = "src/components/settings/profile/ProfileHero.tsx";
  * push `text-bcc-on-accent` into them. Their own contrast is owned and proven
  * by `profile-hero-badge-contrast.test.ts` (15.51 rest, image-independent);
  * nothing here re-litigates it.
+ *
+ * Re-pointed a second time by the avatar-clip fix (P1), which added
+ * `inline-flex min-h-[36px] items-center justify-center` to the AVATAR badge
+ * — a touch-target change, not a colour one. Every safety/ink/cardstock token
+ * in both strings is byte-identical to the line above; the box metrics are
+ * the only difference, and `profile-hero-avatar-clip.test.tsx` owns them.
  */
 const PROFILE_HERO_OVERLAYS = [
   "bcc-mono border border-cardstock border-l-[3px] border-l-safety bg-ink px-3 py-1.5 text-[10px] tracking-[0.18em] text-cardstock transition hover:bg-ink-soft disabled:cursor-wait disabled:text-cardstock/70",
-  "bcc-mono border border-cardstock border-l-2 border-l-safety bg-ink px-2 py-1 text-[9px] tracking-[0.16em] text-cardstock transition hover:bg-ink-soft disabled:cursor-wait disabled:text-cardstock/70",
+  "bcc-mono inline-flex min-h-[36px] items-center justify-center border border-cardstock border-l-2 border-l-safety bg-ink px-2 py-1 text-[9px] tracking-[0.16em] text-cardstock transition hover:bg-ink-soft disabled:cursor-wait disabled:text-cardstock/70",
 ] as const;
 
 const ALL_FILES = [
