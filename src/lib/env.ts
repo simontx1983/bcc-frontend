@@ -37,13 +37,17 @@ export const clientEnv = Object.freeze({
  * Next.js can usually catch this at build time, but the runtime
  * guard catches the rest.
  */
+/*
+ * NEXTAUTH_URL is deliberately NOT exposed here.
+ *
+ * It had a `required()` getter that nothing ever called, so it read as a
+ * guarantee while enforcing nothing. NextAuth v4 reads the variable from
+ * `process.env` itself, and the only other consumer — `appOrigin()` in
+ * lib/app-origin.ts — must NOT throw on absence: it falls through to the
+ * Vercel system variables. A throwing accessor is the wrong shape for
+ * both callers, so there is no accessor.
+ */
 export const serverEnv = Object.freeze({
-  get NEXTAUTH_URL(): string {
-    if (typeof window !== "undefined") {
-      throw new Error("[bcc-frontend] serverEnv accessed in client code");
-    }
-    return required("NEXTAUTH_URL", process.env["NEXTAUTH_URL"]);
-  },
   get NEXTAUTH_SECRET(): string {
     if (typeof window !== "undefined") {
       throw new Error("[bcc-frontend] serverEnv accessed in client code");
