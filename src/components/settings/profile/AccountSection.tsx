@@ -362,7 +362,7 @@ function DeleteAccountCard() {
             <button
               type="submit"
               disabled={!canSubmit}
-              className="bcc-stencil bg-safety px-4 py-2 text-cardstock transition disabled:opacity-50"
+              className="bcc-stencil bg-safety px-4 py-2 text-bcc-on-accent transition disabled:opacity-50"
             >
               {mutation.isPending ? "Deleting…" : "Delete forever"}
             </button>

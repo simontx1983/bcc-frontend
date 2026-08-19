@@ -388,7 +388,17 @@ export default function CreateCommunityPage() {
                 name.trim().length < NAME_MIN ||
                 chain === ""
               }
-              className="bcc-stencil inline-flex items-center gap-2 rounded-sm bg-safety px-5 py-3 text-sm tracking-[0.12em] text-cardstock transition hover:bg-ink disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:bg-safety"
+              // Two grounds, two foregrounds. At rest the ground is solid
+              // safety (a LIGHT orange) so the text must be dark:
+              // text-bcc-on-accent -> 5.59:1. On hover the ground flips to
+              // fixed --ink, where that same near-black would be 1.03:1, so
+              // the foreground has to flip with it — hover:text-cardstock ->
+              // 15.51:1, matching how every other bg-ink control on the
+              // communities pages is painted. The disabled variants pin BOTH
+              // halves back to the resting pair, because disabled:hover:bg-
+              // safety already pins the ground and a lone hover:text-cardstock
+              // would otherwise land cream on orange again.
+              className="bcc-stencil inline-flex items-center gap-2 rounded-sm bg-safety px-5 py-3 text-sm tracking-[0.12em] text-bcc-on-accent transition hover:bg-ink hover:text-cardstock disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:bg-safety disabled:hover:text-bcc-on-accent"
             >
               {isSubmitting ? "Creating…" : "Create community"}
             </button>
