@@ -224,7 +224,19 @@ export function ProfileHero({ profile, nav }: ProfileHeroProps) {
           </div>
         )}
 
-        {/* Hover overlay — cover edit affordances */}
+        {/* Hover overlay — cover edit affordances.
+
+            Every button in here (and in the avatar overlay below) is driven
+            off the same `busy` flag, so they all enter the disabled state
+            together. They used to do it with `disabled:opacity-50`, which
+            dims the plate and the label by the same factor and therefore
+            collapses the contrast between them: the ink siblings fell to
+            3.16:1 / 3.97:1 and the safety badges to 1.70:1 / 1.85:1. That
+            state is not decorative — it renders "UPLOADING…" / "REMOVING…",
+            i.e. it is the only place the operator is told what is happening.
+            The whole row now dims the TEXT only (`disabled:text-cardstock/70`,
+            floor 6.25:1) and signals unavailability with `disabled:cursor-wait`,
+            so the plate — and the status copy on it — survives. */}
         <div className="absolute inset-0 flex items-end justify-end gap-2 bg-ink/0 p-3 opacity-0 transition-all group-hover/cover:bg-ink/35 group-hover/cover:opacity-100 focus-within:bg-ink/35 focus-within:opacity-100">
           <input
             ref={coverInputRef}
@@ -238,7 +250,7 @@ export function ProfileHero({ profile, nav }: ProfileHeroProps) {
             type="button"
             disabled={busy}
             onClick={() => coverInputRef.current?.click()}
-            className="bcc-mono border border-cardstock bg-ink/80 px-3 py-1.5 text-[10px] tracking-[0.18em] text-cardstock backdrop-blur transition hover:bg-ink disabled:opacity-50"
+            className="bcc-mono border border-cardstock bg-ink/80 px-3 py-1.5 text-[10px] tracking-[0.18em] text-cardstock backdrop-blur transition hover:bg-ink disabled:cursor-wait disabled:text-cardstock/70"
           >
             {uploadCover.isPending ? "UPLOADING…" : hasCover ? "CHANGE COVER" : "ADD COVER"}
           </button>
@@ -248,15 +260,29 @@ export function ProfileHero({ profile, nav }: ProfileHeroProps) {
                 type="button"
                 disabled={busy}
                 onClick={() => setReposMode((v) => !v)}
-                className="bcc-mono border border-cardstock bg-ink/80 px-3 py-1.5 text-[10px] tracking-[0.18em] text-cardstock backdrop-blur transition hover:bg-ink disabled:opacity-50"
+                className="bcc-mono border border-cardstock bg-ink/80 px-3 py-1.5 text-[10px] tracking-[0.18em] text-cardstock backdrop-blur transition hover:bg-ink disabled:cursor-wait disabled:text-cardstock/70"
               >
                 {reposMode ? "DONE" : "REPOSITION"}
               </button>
+              {/* Destructive action — same opaque ink plate as its two
+                  siblings, marked by a safety stripe on the leading edge
+                  rather than a safety FILL. `bg-safety/80` + `text-cardstock`
+                  measured 2.63:1 over a white cover and cannot be rescued at
+                  any alpha: safety's luminance (0.26) sits between ink (0.004)
+                  and cardstock (0.79), so alpha only slides the plate along
+                  that axis and the ceiling is 2.71:1 at full opacity. Opaque
+                  ink cancels the image term entirely — 15.51:1 regardless of
+                  what the operator uploaded. Safety survives as a mark only
+                  (§5.4 "color the mark, not the word"); the ink plate and the
+                  cardstock hairline carry the boundary between them, so the
+                  stripe is decorative and never load-bearing. `backdrop-blur`
+                  went with the alpha — it composites nothing behind an opaque
+                  plate. */}
               <button
                 type="button"
                 disabled={busy}
                 onClick={() => removeCover.mutate()}
-                className="bcc-mono border border-safety/70 bg-safety/80 px-3 py-1.5 text-[10px] tracking-[0.18em] text-cardstock backdrop-blur transition hover:bg-safety disabled:opacity-50"
+                className="bcc-mono border border-cardstock border-l-[3px] border-l-safety bg-ink px-3 py-1.5 text-[10px] tracking-[0.18em] text-cardstock transition hover:bg-ink-soft disabled:cursor-wait disabled:text-cardstock/70"
               >
                 {removeCover.isPending ? "REMOVING…" : "REMOVE"}
               </button>
@@ -313,16 +339,21 @@ export function ProfileHero({ profile, nav }: ProfileHeroProps) {
                 type="button"
                 disabled={busy}
                 onClick={() => avatarInputRef.current?.click()}
-                className="bcc-mono border border-cardstock bg-ink/85 px-2 py-1 text-[9px] tracking-[0.16em] text-cardstock backdrop-blur transition hover:bg-ink disabled:opacity-50"
+                className="bcc-mono border border-cardstock bg-ink/85 px-2 py-1 text-[9px] tracking-[0.16em] text-cardstock backdrop-blur transition hover:bg-ink disabled:cursor-wait disabled:text-cardstock/70"
               >
                 {uploadAvatar.isPending ? "UPLOADING…" : "CHANGE"}
               </button>
+              {/* Same opaque-ink treatment as the cover REMOVE, at the
+                  avatar's tighter metrics. `bg-safety/85` measured 2.89:1
+                  over a white avatar; opaque ink reads 15.51:1 over any
+                  upload. 2px stripe rather than 3px so the mark stays
+                  proportional on a ~60px-wide badge. */}
               {hasAvatar && (
                 <button
                   type="button"
                   disabled={busy}
                   onClick={() => removeAvatar.mutate()}
-                  className="bcc-mono border border-safety/70 bg-safety/85 px-2 py-1 text-[9px] tracking-[0.16em] text-cardstock backdrop-blur transition hover:bg-safety disabled:opacity-50"
+                  className="bcc-mono border border-cardstock border-l-2 border-l-safety bg-ink px-2 py-1 text-[9px] tracking-[0.16em] text-cardstock transition hover:bg-ink-soft disabled:cursor-wait disabled:text-cardstock/70"
                 >
                   {removeAvatar.isPending ? "REMOVING…" : "REMOVE"}
                 </button>
