@@ -1368,30 +1368,66 @@
     opacity: 1;
   }
 
-  /* Vouch — mirrors .bcc-btn-outline's geometry (1.5px border + subtle
-     hover fill) in the vouch safety/verified colors, so the card's Vouch
-     pill sits as an exact-height peer beside the Follow pill. Un-cast =
-     safety-orange outline; cast = verified-green filled. */
+  /* Vouch — mirrors .bcc-btn-outline's geometry (1.5px border + a hover
+     fill step) so the card's Vouch pill stays an exact-height peer beside
+     the Follow pill. That geometry is the only thing this rule borrows.
+     Guarded by src/app/vouch-semantic-neutral.test.ts.
+
+     SEMANTIC (owner ruling, 2026-08-17): vouch is not a safety semantic.
+     Un-cast is NEUTRAL — an invitation, not a warning; cast is VERIFIED.
+     Safety orange is a warning MARK, not a translucent container for
+     readable light text, and every safety spelling is gone from both
+     states here and from the byline variant in AuthorVouchButton.tsx.
+
+     OPAQUE BY REQUIREMENT, not by taste. All four AuthorCard mounts —
+     the byline hover panel, the two RightSidebar hovercards, the
+     @mention hovercard and PostRightRail — sit on --bcc-glass-bg-solid
+     (82%) over ARBITRARY page content. Three of them portal to
+     document.body at position:fixed, so the backdrop is unbounded and no
+     translucent fill can be verified. The transparent predecessor
+     measured 2.28–3.39 (un-cast rest), 2.03–2.93 (un-cast hover) and
+     2.86–5.38 (cast rest) depending only on what happened to be behind
+     the portal. Every fill below is an opaque hex in both themes, so the
+     numbers are backdrop-invariant:
+
+       un-cast rest   text/fill  16.12 light · 12.88 dark
+       un-cast hover  text/fill  15.54 light · 11.57 dark
+       cast rest      text/fill   5.38 light ·  5.04 dark
+       cast hover     text/fill   5.11 light ·  4.72 dark
+
+     BORDERS. The cast border is full-strength verified, not the old
+     0.5 alpha: its fill equals the panel's on the matching theme, so the
+     border is the component's only boundary and must clear 1.4.11 — it
+     reads 5.38/5.11 light and 5.04/4.72 dark against its own fill. The
+     un-cast border is --bcc-border and reads 1.13–1.25, deliberately
+     decorative: the chip is identified by its own "VOUCH" label and by
+     the Follow pill beside it, exactly as the canonical neutral Vouch in
+     AttestationActionCluster (border-bcc-border bg-bcc-surface-hover
+     text-bcc-text hover:bg-bcc-surface-active) already ships it. */
   .bcc-btn-vouch {
-    background: transparent;
-    color: var(--safety);
-    border: 1.5px solid var(--safety);
+    background: var(--bcc-surface-hover);
+    color: var(--bcc-text);
+    border: 1.5px solid var(--bcc-border);
   }
   .bcc-btn-vouch:hover {
-    background: rgb(var(--safety-rgb) / 0.12);
+    background: var(--bcc-surface-active);
     opacity: 1;
   }
-  /* No verified fill behind the verified label. The tint was decorative and
-     was the only thing dragging this text under 4.5:1 on dark surfaces
-     (4.45 on --bcc-surface, 4.16 on --card-surface); the label reads
-     5.04–5.52 directly on those surfaces. Hover uses a neutral wash so the
-     affordance survives without re-introducing the problem. */
+  /* Still no verified TINT behind the verified label — the 2026-08-14
+     ruling stands (a verified fill under verified text costs ~0.9 and
+     landed at 4.45 on --bcc-surface, 4.16 on --card-surface in dark).
+     What changed is that "no tint" is not the same as "no fill": these
+     are opaque neutral plates, which is what makes the label's 5.04–5.38
+     independent of the portal's backdrop. Hover lifts one elevation step
+     (surface → surface-raised: darker in light, lighter in dark) and
+     stays above 4.5 in both themes. */
   .bcc-btn-vouch-on {
+    background: var(--bcc-surface);
     color: var(--verified);
-    border: 1.5px solid rgb(var(--verified-rgb) / 0.5);
+    border: 1.5px solid var(--verified);
   }
   .bcc-btn-vouch-on:hover {
-    background: var(--bcc-surface-hover);
+    background: var(--bcc-surface-raised);
     opacity: 1;
   }
 

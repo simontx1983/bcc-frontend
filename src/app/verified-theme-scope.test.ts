@@ -242,6 +242,17 @@ describe("verified as a solid background — inverse text on top", () => {
  * The borders stay and stay decorative — the label still identifies the chip.
  * A new translucent verified border that becomes the ONLY cue is not covered
  * by this ruling, and the count assertion below forces it back to review.
+ *
+ * ## 2026-08-17 — one site left the list, seven → six
+ *
+ * `AuthorVouchButton.tsx` (`0.45`) is gone, and it left by graduating, not by
+ * regressing. The vouch-semantic slice gave the cast state an opaque plate,
+ * and on the matching theme that plate is the same colour as the panel behind
+ * it — which makes the border the component's ONLY boundary, i.e. exactly the
+ * "becomes the ONLY cue" case this docblock says the ruling does not cover.
+ * So it went to full-strength `var(--verified)`: 5.38/5.11 light and
+ * 5.04/4.72 dark against its own fill, comfortably load-bearing. It is now
+ * asserted in `vouch-semantic-neutral.test.ts` instead.
  */
 const DECORATIVE_BORDER_SITES: ReadonlyArray<readonly [string, string]> = [
   ["src/app/(main)/(app)/halls/page.tsx", "0.32"],
@@ -250,7 +261,6 @@ const DECORATIVE_BORDER_SITES: ReadonlyArray<readonly [string, string]> = [
   ["src/components/disputes/MyDisputesList.tsx", "0.32"],
   ["src/components/groups/GroupMembershipStrip.tsx", "0.32"],
   ["src/components/identity/AuthorBadge.tsx", "0.40"],
-  ["src/components/identity/AuthorVouchButton.tsx", "0.45"],
 ];
 
 /**
@@ -262,9 +272,22 @@ const DECORATIVE_BORDER_SITES: ReadonlyArray<readonly [string, string]> = [
 const ICON_ONLY_TINTED = "src/components/celebration/CelebrationToast.tsx";
 
 describe("translucent verified borders — decorative, and enumerated", () => {
-  it("the ruling covers the seven text chips plus one icon-only surface", () => {
-    expect(DECORATIVE_BORDER_SITES).toHaveLength(7);
+  it("the ruling covers the six text chips plus one icon-only surface", () => {
+    expect(DECORATIVE_BORDER_SITES).toHaveLength(6);
     expect(DECORATIVE_BORDER_SITES.map(([p]) => p)).not.toContain(ICON_ONLY_TINTED);
+  });
+
+  it("the graduated site really did leave for a load-bearing border", () => {
+    const path = "src/components/identity/AuthorVouchButton.tsx";
+    expect(DECORATIVE_BORDER_SITES.map(([p]) => p)).not.toContain(path);
+    const src = read(path);
+    // No alpha border of any strength survived the move.
+    expect(src).not.toMatch(/rgb\(var\(--verified-rgb\)\s*\/\s*0?\.\d+\)/);
+    expect(src).toContain('border: "1px solid var(--verified)"');
+    // Full-strength verified clears 3:1 on the plate it now sits on, in
+    // both themes — which is why it is out of the decorative ruling.
+    expect(ratio(LIGHT_HEX, LIGHT_BG)).toBeGreaterThanOrEqual(3);
+    expect(ratio(DARK_HEX, DARK_SURFACE)).toBeGreaterThanOrEqual(3);
   });
 
   it("the icon-only surface keeps its tint, and holds no readable verified text", () => {

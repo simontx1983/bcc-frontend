@@ -325,13 +325,32 @@ describe("verified text is never composited over a verified tint", () => {
     });
   }
 
-  it("the shared vouch-on button lost its fill too, and hovers neutral", () => {
+  /**
+   * NARROWED 2026-08-17 (vouch-semantic slice). This originally asserted
+   * the vouch-on rule carried NO `background:` at all. That was a proxy
+   * for the thing actually being ruled on — no verified TINT under
+   * verified text — and the proxy became wrong: all four AuthorCard
+   * mounts sit on a portaled `--bcc-glass-bg-solid` panel over arbitrary
+   * page content, so a transparent button inherits an unbounded backdrop
+   * and its label measured anywhere from 2.86 to 5.38. The fix was an
+   * OPAQUE NEUTRAL plate, which is a background but not a tint.
+   *
+   * So this now asserts the ruling itself: verified text, never over a
+   * verified fill of any alpha. The opacity requirement and the
+   * per-backdrop numbers live in vouch-semantic-neutral.test.ts.
+   */
+  it("the shared vouch-on button carries no verified fill of any alpha", () => {
     const rule = /\.bcc-btn-vouch-on\s*\{[^}]*\}/.exec(CSS)?.[0] ?? "";
+    expect(rule).not.toBe("");
     expect(rule).toContain("color: var(--verified)");
-    expect(rule).not.toMatch(/background:/);
+    expect(findVerifiedTints("globals.css", rule)).toEqual([]);
     const hover = /\.bcc-btn-vouch-on:hover\s*\{[^}]*\}/.exec(CSS)?.[0] ?? "";
-    expect(hover).toContain("background: var(--bcc-surface-hover)");
-    expect(hover).not.toMatch(/--verified-rgb/);
+    expect(hover).not.toBe("");
+    expect(findVerifiedTints("globals.css", hover)).toEqual([]);
+    // Both fills are opaque theme tokens, never `transparent` and never
+    // an alpha wash — see vouch-semantic-neutral.test.ts for the proof.
+    expect(rule).toContain("background: var(--bcc-surface)");
+    expect(hover).toContain("background: var(--bcc-surface-raised)");
   });
 
   it("verified text clears 4.5:1 on every bare surface it can land on", () => {
