@@ -190,107 +190,133 @@ export function ProfileHero({ profile, nav }: ProfileHeroProps) {
 
   return (
     <section className="bcc-panel overflow-hidden">
-      {/* Cover banner */}
-      <div
-        className="group/cover relative h-40 w-full overflow-hidden bg-cardstock-deep md:h-56"
-        style={{ aspectRatio: "3 / 1" }}
-      >
-        {hasCover && isWpMediaUrl(profile.cover_photo_url ?? "") ? (
-          // Above-fold hero — `priority` skips lazy-loading so the
-          // banner doesn't pop in after the panel paints.
-          <Image
-            src={profile.cover_photo_url ?? ""}
-            alt=""
-            fill
-            priority
-            sizes="100vw"
-            className="object-cover"
-            style={{ objectPosition: `${posX}% ${posY}%` }}
-          />
-        ) : hasCover ? (
-          // eslint-disable-next-line @next/next/no-img-element -- non-WP host — outside the next/image allowlist; see lib/media.ts
-          <img
-            src={profile.cover_photo_url ?? ""}
-            alt=""
-            decoding="async"
-            className="h-full w-full object-cover"
-            style={{ objectPosition: `${posX}% ${posY}%` }}
-          />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-cardstock-deep to-cardstock-edge">
-            <span className="bcc-mono text-[10px] tracking-[0.2em] text-ink-soft">
-              NO COVER PHOTO
-            </span>
-          </div>
-        )}
+      {/* Cover REGION — the avatar's positioning context, and the reason
+          this wrapper exists at all.
 
-        {/* Hover overlay — cover edit affordances.
+          The avatar hangs 48px BELOW the cover's bottom edge (`-bottom-12`,
+          with the caption row's `pt-16` reserving the landing space). It
+          used to be a child of the cover box, which is `overflow-hidden` so
+          the uploaded photo stays inside its frame — so the browser
+          amputated the avatar at the cover's bottom edge. Measured with
+          scroll pinned at 0 and the overlay revealed through the
+          component's own `:hover` / `:focus-within` (never Playwright's
+          `hover()`, which scrolls), the avatar's REMOVE control had 0 of
+          24.39px visible at 360/375 and 6 of 24.39px (24.6%) at
+          768/1024/1280, and `elementFromPoint` returned the caption row
+          rather than the button at 0 of 9 sampled points (3 of 9 at md).
 
-            Every button in here (and in the avatar overlay below) is driven
-            off the same `busy` flag, so they all enter the disabled state
-            together. They used to do it with `disabled:opacity-50`, which
-            dims the plate and the label by the same factor and therefore
-            collapses the contrast between them: the ink siblings fell to
-            3.16:1 / 3.97:1 and the safety badges to 1.70:1 / 1.85:1. That
-            state is not decorative — it renders "UPLOADING…" / "REMOVING…",
-            i.e. it is the only place the operator is told what is happening.
-            The whole row now dims the TEXT only (`disabled:text-cardstock/70`,
-            floor 6.25:1) and signals unavailability with `disabled:cursor-wait`,
-            so the plate — and the status copy on it — survives. */}
-        <div className="absolute inset-0 flex items-end justify-end gap-2 bg-ink/0 p-3 opacity-0 transition-all group-hover/cover:bg-ink/35 group-hover/cover:opacity-100 focus-within:bg-ink/35 focus-within:opacity-100">
-          <input
-            ref={coverInputRef}
-            type="file"
-            accept={ACCEPT_IMAGES}
-            onChange={handleCoverChange}
-            disabled={busy}
-            className="hidden"
-          />
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => coverInputRef.current?.click()}
-            className="bcc-mono border border-cardstock bg-ink/80 px-3 py-1.5 text-[10px] tracking-[0.18em] text-cardstock backdrop-blur transition hover:bg-ink disabled:cursor-wait disabled:text-cardstock/70"
-          >
-            {uploadCover.isPending ? "UPLOADING…" : hasCover ? "CHANGE COVER" : "ADD COVER"}
-          </button>
-          {hasCover && (
-            <>
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() => setReposMode((v) => !v)}
-                className="bcc-mono border border-cardstock bg-ink/80 px-3 py-1.5 text-[10px] tracking-[0.18em] text-cardstock backdrop-blur transition hover:bg-ink disabled:cursor-wait disabled:text-cardstock/70"
-              >
-                {reposMode ? "DONE" : "REPOSITION"}
-              </button>
-              {/* Destructive action — same opaque ink plate as its two
-                  siblings, marked by a safety stripe on the leading edge
-                  rather than a safety FILL. `bg-safety/80` + `text-cardstock`
-                  measured 2.63:1 over a white cover and cannot be rescued at
-                  any alpha: safety's luminance (0.26) sits between ink (0.004)
-                  and cardstock (0.79), so alpha only slides the plate along
-                  that axis and the ceiling is 2.71:1 at full opacity. Opaque
-                  ink cancels the image term entirely — 15.51:1 regardless of
-                  what the operator uploaded. Safety survives as a mark only
-                  (§5.4 "color the mark, not the word"); the ink plate and the
-                  cardstock hairline carry the boundary between them, so the
-                  stripe is decorative and never load-bearing. `backdrop-blur`
-                  went with the alpha — it composites nothing behind an opaque
-                  plate. */}
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() => removeCover.mutate()}
-                className="bcc-mono border border-cardstock border-l-[3px] border-l-safety bg-ink px-3 py-1.5 text-[10px] tracking-[0.18em] text-cardstock transition hover:bg-ink-soft disabled:cursor-wait disabled:text-cardstock/70"
-              >
-                {removeCover.isPending ? "REMOVING…" : "REMOVE"}
-              </button>
-            </>
+          This wrapper is deliberately NOT a clipping box: it gives the
+          avatar a containing block with the same geometry the cover box
+          had (its only in-flow child is the cover, so `-bottom-12` still
+          resolves to exactly 48px below the cover's bottom edge — the
+          avatar does not move), while leaving the cover's own
+          `overflow-hidden` in place to keep the photo in its frame.
+          Do NOT add `overflow-hidden` here; see profile-hero-avatar-clip.test.tsx. */}
+      <div className="relative">
+        {/* Cover banner */}
+        <div
+          className="group/cover relative h-40 w-full overflow-hidden bg-cardstock-deep md:h-56"
+          style={{ aspectRatio: "3 / 1" }}
+        >
+          {hasCover && isWpMediaUrl(profile.cover_photo_url ?? "") ? (
+            // Above-fold hero — `priority` skips lazy-loading so the
+            // banner doesn't pop in after the panel paints.
+            <Image
+              src={profile.cover_photo_url ?? ""}
+              alt=""
+              fill
+              priority
+              sizes="100vw"
+              className="object-cover"
+              style={{ objectPosition: `${posX}% ${posY}%` }}
+            />
+          ) : hasCover ? (
+            // eslint-disable-next-line @next/next/no-img-element -- non-WP host — outside the next/image allowlist; see lib/media.ts
+            <img
+              src={profile.cover_photo_url ?? ""}
+              alt=""
+              decoding="async"
+              className="h-full w-full object-cover"
+              style={{ objectPosition: `${posX}% ${posY}%` }}
+            />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-cardstock-deep to-cardstock-edge">
+              <span className="bcc-mono text-[10px] tracking-[0.2em] text-ink-soft">
+                NO COVER PHOTO
+              </span>
+            </div>
           )}
+
+          {/* Hover overlay — cover edit affordances.
+
+              Every button in here (and in the avatar overlay below) is driven
+              off the same `busy` flag, so they all enter the disabled state
+              together. They used to do it with `disabled:opacity-50`, which
+              dims the plate and the label by the same factor and therefore
+              collapses the contrast between them: the ink siblings fell to
+              3.16:1 / 3.97:1 and the safety badges to 1.70:1 / 1.85:1. That
+              state is not decorative — it renders "UPLOADING…" / "REMOVING…",
+              i.e. it is the only place the operator is told what is happening.
+              The whole row now dims the TEXT only (`disabled:text-cardstock/70`,
+              floor 6.25:1) and signals unavailability with `disabled:cursor-wait`,
+              so the plate — and the status copy on it — survives. */}
+          <div className="absolute inset-0 flex items-end justify-end gap-2 bg-ink/0 p-3 opacity-0 transition-all group-hover/cover:bg-ink/35 group-hover/cover:opacity-100 focus-within:bg-ink/35 focus-within:opacity-100">
+            <input
+              ref={coverInputRef}
+              type="file"
+              accept={ACCEPT_IMAGES}
+              onChange={handleCoverChange}
+              disabled={busy}
+              className="hidden"
+            />
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => coverInputRef.current?.click()}
+              className="bcc-mono border border-cardstock bg-ink/80 px-3 py-1.5 text-[10px] tracking-[0.18em] text-cardstock backdrop-blur transition hover:bg-ink disabled:cursor-wait disabled:text-cardstock/70"
+            >
+              {uploadCover.isPending ? "UPLOADING…" : hasCover ? "CHANGE COVER" : "ADD COVER"}
+            </button>
+            {hasCover && (
+              <>
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => setReposMode((v) => !v)}
+                  className="bcc-mono border border-cardstock bg-ink/80 px-3 py-1.5 text-[10px] tracking-[0.18em] text-cardstock backdrop-blur transition hover:bg-ink disabled:cursor-wait disabled:text-cardstock/70"
+                >
+                  {reposMode ? "DONE" : "REPOSITION"}
+                </button>
+                {/* Destructive action — same opaque ink plate as its two
+                    siblings, marked by a safety stripe on the leading edge
+                    rather than a safety FILL. `bg-safety/80` + `text-cardstock`
+                    measured 2.63:1 over a white cover and cannot be rescued at
+                    any alpha: safety's luminance (0.26) sits between ink (0.004)
+                    and cardstock (0.79), so alpha only slides the plate along
+                    that axis and the ceiling is 2.71:1 at full opacity. Opaque
+                    ink cancels the image term entirely — 15.51:1 regardless of
+                    what the operator uploaded. Safety survives as a mark only
+                    (§5.4 "color the mark, not the word"); the ink plate and the
+                    cardstock hairline carry the boundary between them, so the
+                    stripe is decorative and never load-bearing. `backdrop-blur`
+                    went with the alpha — it composites nothing behind an opaque
+                    plate. */}
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => removeCover.mutate()}
+                  className="bcc-mono border border-cardstock border-l-[3px] border-l-safety bg-ink px-3 py-1.5 text-[10px] tracking-[0.18em] text-cardstock transition hover:bg-ink-soft disabled:cursor-wait disabled:text-cardstock/70"
+                >
+                  {removeCover.isPending ? "REMOVING…" : "REMOVE"}
+                </button>
+              </>
+            )}
+          </div>
         </div>
 
         {/* Avatar overlay — sits half-over the cover, half-over the panel.
+            SIBLING of the cover box, not a child of it: the bottom half
+            lands outside the cover's frame, and the cover box clips.
             Sprint-1-deferred consolidation candidate: this is the
             own-avatar EDITOR surface (cover frame + hover CHANGE/REMOVE
             overlay), not a plain identity render. Consolidating into the
@@ -339,7 +365,7 @@ export function ProfileHero({ profile, nav }: ProfileHeroProps) {
                 type="button"
                 disabled={busy}
                 onClick={() => avatarInputRef.current?.click()}
-                className="bcc-mono border border-cardstock bg-ink/85 px-2 py-1 text-[9px] tracking-[0.16em] text-cardstock backdrop-blur transition hover:bg-ink disabled:cursor-wait disabled:text-cardstock/70"
+                className="bcc-mono inline-flex min-h-[36px] items-center justify-center border border-cardstock bg-ink/85 px-2 py-1 text-[9px] tracking-[0.16em] text-cardstock backdrop-blur transition hover:bg-ink disabled:cursor-wait disabled:text-cardstock/70"
               >
                 {uploadAvatar.isPending ? "UPLOADING…" : "CHANGE"}
               </button>
@@ -347,13 +373,22 @@ export function ProfileHero({ profile, nav }: ProfileHeroProps) {
                   avatar's tighter metrics. `bg-safety/85` measured 2.89:1
                   over a white avatar; opaque ink reads 15.51:1 over any
                   upload. 2px stripe rather than 3px so the mark stays
-                  proportional on a ~60px-wide badge. */}
+                  proportional on a ~60px-wide badge.
+
+                  `min-h-[36px]` on this pair is doctrine §5.9's sanctioned
+                  compact minimum (canonically `FilterChipRow`), not the
+                  44px figure: two 44px controls plus the 4px gap need 92px
+                  and the avatar's content box is 88px at base, so 44 does
+                  not physically fit without resizing the avatar. They
+                  measured 24.39px tall before. `inline-flex items-center`
+                  keeps the 9px label optically centred in the taller box
+                  instead of pinned to its top edge. */}
               {hasAvatar && (
                 <button
                   type="button"
                   disabled={busy}
                   onClick={() => removeAvatar.mutate()}
-                  className="bcc-mono border border-cardstock border-l-2 border-l-safety bg-ink px-2 py-1 text-[9px] tracking-[0.16em] text-cardstock transition hover:bg-ink-soft disabled:cursor-wait disabled:text-cardstock/70"
+                  className="bcc-mono inline-flex min-h-[36px] items-center justify-center border border-cardstock border-l-2 border-l-safety bg-ink px-2 py-1 text-[9px] tracking-[0.16em] text-cardstock transition hover:bg-ink-soft disabled:cursor-wait disabled:text-cardstock/70"
                 >
                   {removeAvatar.isPending ? "REMOVING…" : "REMOVE"}
                 </button>
@@ -363,9 +398,20 @@ export function ProfileHero({ profile, nav }: ProfileHeroProps) {
         </div>
       </div>
 
-      {/* Reposition controls — appear when REPOSITION clicked */}
+      {/* Reposition controls — appear when REPOSITION clicked.
+
+          `pt-16 md:pt-20` mirrors the caption row below for the same
+          reason: with the avatar no longer amputated at the cover's
+          bottom edge, its lower 48px land on whatever follows the cover,
+          and in reposition mode that is this panel. Measured before the
+          clip fix, the avatar's box already overlapped this panel by 48px
+          and the "CROP POSITION" eyebrow by 96×13px — the collision was
+          latent, and only invisible because the overlapping half of the
+          avatar was being clipped away. Top clearance rather than left:
+          left padding wide enough to clear a 96px avatar leaves ~75px of
+          slider at 375px. */}
       {hasCover && reposMode && (
-        <div className="border-t border-bcc-border bg-bcc-surface-hover px-6 py-4">
+        <div className="border-t border-bcc-border bg-bcc-surface-hover px-6 pb-4 pt-16 md:pt-20">
           <span className="bcc-mono text-[10px] tracking-[0.18em] text-bcc-text-secondary">
             CROP POSITION
           </span>
