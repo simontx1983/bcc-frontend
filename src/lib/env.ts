@@ -25,10 +25,61 @@ function stripTrailingSlash(url: string): string {
   return url.replace(/\/$/, "");
 }
 
+/**
+ * The API base must point at the WordPress host — never the Vercel apex, and
+ * never staging from a production build.
+ *
+ * Three hosts, and only one of them serves WordPress:
+ *
+ *   bluecollarcrypto.io        this frontend (Vercel)     403 on /wp-json
+ *   cms.bluecollarcrypto.io    WordPress                  <- the correct base
+ *   stage.bluecollarcrypto.io  staging WordPress
+ *
+ * The apex case is the subtle one. The apex answers 200 for pages, so a
+ * misconfigured deploy builds, ships and looks alive — and fails only at
+ * request time, on every data fetch at once. Pointing production at staging is
+ * louder but worse: it serves staging data to real users under the real domain.
+ *
+ * Neither mistake is expressible as a type, and both have exactly one moment
+ * where they are cheap to catch: here, where the value is read, once.
+ *
+ * localhost and *.local are deliberately untouched — Local-by-Flywheel dev
+ * points this at a .local host and must keep working.
+ *
+ * @see docs/hosting.md in the umbrella repo
+ */
+function assertWordPressHost(url: string): string {
+  let host: string;
+  try {
+    host = new URL(url).host;
+  } catch {
+    throw new Error(`[bcc-frontend] NEXT_PUBLIC_BCC_API_URL is not a valid URL: ${url}`);
+  }
+
+  if (host === "bluecollarcrypto.io" || host === "www.bluecollarcrypto.io") {
+    throw new Error(
+      `[bcc-frontend] NEXT_PUBLIC_BCC_API_URL points at the apex (${host}), ` +
+        "which is this frontend, not WordPress — it returns 403 on /wp-json. " +
+        "Use https://cms.bluecollarcrypto.io."
+    );
+  }
+
+  if (process.env["VERCEL_ENV"] === "production" && host.startsWith("stage.")) {
+    throw new Error(
+      `[bcc-frontend] production build points NEXT_PUBLIC_BCC_API_URL at staging (${host}). ` +
+        "Use https://cms.bluecollarcrypto.io."
+    );
+  }
+
+  return url;
+}
+
 export const clientEnv = Object.freeze({
   /** Backend base URL (no trailing slash). REST namespace lives at /wp-json/bcc/v1/*. */
   BCC_API_URL: stripTrailingSlash(
-    required("NEXT_PUBLIC_BCC_API_URL", process.env["NEXT_PUBLIC_BCC_API_URL"])
+    assertWordPressHost(
+      required("NEXT_PUBLIC_BCC_API_URL", process.env["NEXT_PUBLIC_BCC_API_URL"])
+    )
   ),
 });
 
