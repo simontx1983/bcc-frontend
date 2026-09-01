@@ -42,6 +42,12 @@ import type { Route } from "next";
 
 import { ReliabilityMirrorBody } from "@/components/profile/ReliabilityMirrorBody";
 import { StandingFileBody } from "@/components/profile/StandingFileBody";
+import {
+  SubTabNav,
+  subTabId,
+  subTabPanelId,
+  type SubTabDef,
+} from "@/components/profile/SubTabNav";
 import type {
   MemberProfile,
   MeReliabilityResponse,
@@ -60,12 +66,10 @@ export interface SetupPanelProps {
 
 type SubTabKey = "standing" | "reliability";
 
-interface SubTabDef {
-  key: SubTabKey;
-  label: string;
-}
+/** Id namespace for this panel's sub-strip. */
+const ID_BASE = "setup";
 
-const SUB_TABS: ReadonlyArray<SubTabDef> = [
+const SUB_TABS: ReadonlyArray<SubTabDef<SubTabKey>> = [
   { key: "standing",    label: "Standing" },
   { key: "reliability", label: "Reliability" },
 ];
@@ -75,63 +79,34 @@ export function SetupPanel(props: SetupPanelProps) {
 
   return (
     <div className="flex flex-col gap-4">
-      <SubTabNav active={active} onSelect={setActive} />
+      <SubTabNav
+        tabs={SUB_TABS}
+        active={active}
+        onSelect={setActive}
+        ariaLabel="Standing sections"
+        idBase={ID_BASE}
+      />
 
-      {active === "standing" && (
-        <StandingFileBody profile={props.profile} />
-      )}
-      {active === "reliability" && (
-        props.reliability !== undefined ? (
-          <ReliabilityMirrorBody reliability={props.reliability} />
-        ) : (
-          <ReliabilityUnavailable />
-        )
-      )}
+      <div
+        role="tabpanel"
+        id={subTabPanelId(ID_BASE, active)}
+        aria-labelledby={subTabId(ID_BASE, active)}
+      >
+        {active === "standing" && (
+          <StandingFileBody profile={props.profile} />
+        )}
+        {active === "reliability" && (
+          props.reliability !== undefined ? (
+            <ReliabilityMirrorBody reliability={props.reliability} />
+          ) : (
+            <ReliabilityUnavailable />
+          )
+        )}
+      </div>
     </div>
   );
 }
 
-// ──────────────────────────────────────────────────────────────────────
-// SubTabNav — visually subordinate to the parent ProfileTabs strip but
-// uses the same cardstock-on-dark palette so the contrast reads right
-// against the page backdrop. Active sub-tab gets the safety-orange
-// underline matching `.bcc-tab[aria-selected="true"]`.
-// ──────────────────────────────────────────────────────────────────────
-
-function SubTabNav({
-  active,
-  onSelect,
-}: {
-  active: SubTabKey;
-  onSelect: (key: SubTabKey) => void;
-}) {
-  return (
-    <div
-      role="tablist"
-      aria-label="Setup sections"
-      className="flex items-center gap-x-1 border-b border-bcc-border"
-    >
-      {SUB_TABS.map((tab) => (
-        <button
-          key={tab.key}
-          type="button"
-          role="tab"
-          aria-selected={active === tab.key}
-          onClick={() => onSelect(tab.key)}
-          className={
-            "bcc-mono shrink-0 border-b-2 px-4 py-2 transition " +
-            (active === tab.key
-              ? "border-safety text-bcc-text"
-              : "border-transparent text-bcc-text-secondary hover:text-bcc-text")
-          }
-          style={{ fontSize: "12px", letterSpacing: "0.18em" }}
-        >
-          {tab.label.toUpperCase()}
-        </button>
-      ))}
-    </div>
-  );
-}
 
 // ──────────────────────────────────────────────────────────────────────
 // ReliabilityUnavailable — soft fallback when the parent fetch failed.

@@ -50,6 +50,15 @@ import { authOptions } from "@/lib/auth";
 import { tokenFromSession } from "@/lib/api/client";
 import { getMeReliability } from "@/lib/api/me-reliability-endpoints";
 import { getUser } from "@/lib/api/user-endpoints";
+import {
+  getAttestationRosterAnon,
+  PROFILE_ROSTER_PARAMS,
+} from "@/lib/api/attestations-endpoints";
+import type { RosterSeed } from "@/hooks/useAttestationRoster";
+import { appOrigin } from "@/lib/app-origin";
+import { REVIEW_TAB_COPY } from "@/lib/copy/trust-layer";
+import { isIndexableEnvironment, isIndexableProfile } from "@/lib/seo/indexing";
+import { buildPersonGraph, serializeJsonLd } from "@/lib/seo/person-jsonld";
 import { ANON_SSR_REVALIDATE_SECONDS } from "@/lib/api/cache-policy";
 import { FOLLOW_COPY } from "@/lib/copy";
 import { formatJoinDate, presentationName } from "@/lib/format";
@@ -121,10 +130,24 @@ export async function generateMetadata({
   // convention routes generate the branded card and Next emits the
   // og:image / twitter:image tags automatically. The generated card is a
   // wide 1200×630 PNG, so the twitter card type is summary_large_image.
+
+  // Two independent reasons to stay out of the index, both fail-closed.
+  //
+  // The environment gate keeps staging, previews and local out. The profile
+  // gate keeps moderated accounts out, and reads ONLY the explicit moderation
+  // flags — never is_in_good_standing, which is derived from reputation tier
+  // and would de-index legitimate new members for being new.
+  //
+  // The reason is never stated in the markup: that a profile is under review
+  // is not public information.
+  const indexable =
+    isIndexableEnvironment() && isIndexableProfile(profile.flags);
+
   return {
     title,
     description,
     alternates: { canonical },
+    ...(indexable ? {} : { robots: { index: false, follow: false } }),
     openGraph: {
       title,
       description,
@@ -183,6 +206,40 @@ export default async function MemberProfilePage({ params }: PageProps) {
     }
   }
 
+  // Crawlable default public tab.
+  //
+  // A visitor lands on Supporters (ProfileTabs fallbackTab), but every panel
+  // fetches client-side, so a crawler previously saw the hero plus an empty
+  // skeleton. Read the first page here and seed React Query with it.
+  //
+  // ANONYMOUS ONLY, two reasons. The read itself is token-less so the shared
+  // 60s Data-Cache entry can be served to everyone without leaking one
+  // viewer response to another; and we only hand it to viewers who are
+  // themselves anonymous, so nobody is shown a cache-shared payload in place
+  // of their own. Authed viewers keep the existing client fetch.
+  //
+  // Failure is non-fatal by design: the roster is decoration on a page whose
+  // subject is the operator. A roster outage must not 500 the profile, so the
+  // seed simply stays undefined and the panel fetches as it always did.
+  let rosterSeed: RosterSeed | undefined;
+  if (session === null) {
+    try {
+      const fetchedAt = Date.now();
+      const data = await getAttestationRosterAnon(
+        "user_profile",
+        profile.user_id,
+        PROFILE_ROSTER_PARAMS,
+        ANON_SSR_REVALIDATE_SECONDS,
+      );
+      // The real read time, not now: initialData alone would restart the
+      // hook 30s staleTime on the client and let a cached-60s payload look
+      // permanently fresh.
+      rosterSeed = { data, updatedAt: fetchedAt };
+    } catch {
+      rosterSeed = undefined;
+    }
+  }
+
   // Email-shaped handles (PeepSo default before the operator picks a
   // real one) read as broken UI when rendered with the `@` kicker —
   // suppress until they pick a handle. Same rule the card uses now.
@@ -217,8 +274,39 @@ export default async function MemberProfilePage({ params }: PageProps) {
     profile.wallets.length === 0 &&
     profile.bio.trim() === "";
 
+  // Structured data, gated by the SAME two conditions as the robots tag —
+  // emitting a Person graph for a hidden or suspended profile would hand a
+  // crawler exactly what the noindex is there to withhold.
+  const canonicalUrl = new URL(
+    `/u/${encodeURIComponent(profile.handle)}`,
+    appOrigin(),
+  ).toString();
+  const jsonLd =
+    isIndexableEnvironment() && isIndexableProfile(profile.flags)
+      ? serializeJsonLd(
+          buildPersonGraph({
+            name: title,
+            handle: profile.handle,
+            bio: profile.bio,
+            canonicalUrl,
+            ...(profile.avatar_url !== null && profile.avatar_url !== undefined
+              ? { imageUrl: new URL(profile.avatar_url, appOrigin()).toString() }
+              : {}),
+          }),
+        )
+      : null;
+
   return (
     <main className="pb-24">
+      {jsonLd !== null && (
+        // Pre-escaped by serializeJsonLd: every <, >, & and line separator
+        // is already a \uXXXX sequence, so no literal closing script tag
+        // can survive from a display name or bio.
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: jsonLd }}
+        />
+      )}
       {/* JOINED rides the rail as reference data, not as a neighbour to
           a column-exit CTA — per the 2026-05-14 UX review. */}
       <FileRail
@@ -281,7 +369,20 @@ export default async function MemberProfilePage({ params }: PageProps) {
       <section className="mt-8">
         <PageHero
           card={
-            <CardFactory card={profile.card} canEditAvatar={isOwner} suppressBodyLink />
+            /* messagePermissions is what turns on the Message row, and this
+               is the only surface that passes it. Withheld for anonymous
+               viewers (a sign-in prompt on a card is noise) and on your own
+               profile (self-messaging is meaningless) so those cases render
+               nothing at all, per the state table. Everything else — allowed,
+               or denied-with-a-reason — is decided by the server flag. */
+            <CardFactory
+              card={profile.card}
+              canEditAvatar={isOwner}
+              suppressBodyLink
+              {...(session !== null && !isOwner
+                ? { messagePermissions: profile.permissions }
+                : {})}
+            />
           }
           belowHero={
             <div>
@@ -480,6 +581,7 @@ export default async function MemberProfilePage({ params }: PageProps) {
               viewerHandle={session?.user.handle ?? null}
               receivedCount={profile.counts.reviews_received}
               writtenCount={profile.counts.reviews_written}
+              {...(rosterSeed !== undefined ? { rosterSeed } : {})}
               // Owner-only Account tab needs the signed-in address for the
               // change-email form. Forwarded only to the owner.
               viewerEmail={
@@ -584,7 +686,10 @@ function CountsStrip({ counts }: { counts: MemberCounts }) {
     {
       label: "TRUST WORK",
       cells: [
-        { label: "REVIEWS WRITTEN", value: counts.reviews_written },
+        // Same const the "Reviews Written" tab reads, so the tile and the tab
+        // cannot drift apart. Wording unchanged — the overflow was a layout
+        // fault, fixed in the grid below rather than by shortening the label.
+        { label: REVIEW_TAB_COPY.written.toUpperCase(), value: counts.reviews_written },
         { label: "DISPUTES SIGNED", value: counts.disputes_signed },
       ],
     },
@@ -595,21 +700,49 @@ function CountsStrip({ counts }: { counts: MemberCounts }) {
       ],
     },
   ];
-  // Column proportions track each group's cell count so cells stay
-  // visually even — without this the single-cell LIBRARY / RECOGNITION
-  // groups would render 2-3× wider than peer cells (see the 2026-05-13
-  // UX review note that first tuned this).
+  // TWO groups per row, not four.
+  //
+  // This hero renders inside the 680px centre column, so the strip has
+  // ~574px at EVERY width from 768px up — 1024px and 1440px measure
+  // identically. Four groups never fit in that, and the measurements say so
+  // plainly: the six tiles need >=92px each to keep their longest single
+  // WORD on one line (WATCHERS/WATCHING at 60px of text plus 32px of panel
+  // padding), and RECOGNITION needs 93px for its kicker. Four across costs
+  // 6x92 + 24px inner gaps + 72px outer gaps + 72px of pl-6 = ~720px. There
+  // is no fraction that makes 720px fit in 574px, which is why tuning them
+  // only moved the problem around.
+  //
+  // Two columns give each group ~275px:
+  //   SOCIAL      275 -> two 131px tiles      WATCHERS one line
+  //   LIBRARY     251 -> one 251px tile       BLOG POSTS one line
+  //   TRUST WORK  275 -> two 131px tiles      REVIEWS / WRITTEN, at its space
+  //   RECOGNITION 251 -> one 251px tile       kicker one line, label one line
+  //
+  // So every single word stays whole, and the only wrapping left happens at
+  // a real space. Reading order stays left-to-right, top-to-bottom.
   return (
-    <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[2fr_1fr_2fr_1fr] lg:items-stretch lg:gap-6">
+    <div className="flex flex-col gap-4 sm:grid sm:grid-cols-2 sm:items-stretch sm:gap-6">
       {groups.map((group, idx) => (
         <div
           key={group.label}
+          // min-w-0 stops a long label forcing its track wider than its share
+          // and pushing the row past the page.
+          //
+          // The dashed rule belongs to the RIGHT column only. With four groups
+          // in one row every group after the first took one; in two columns
+          // that would draw a rule down the left edge of a row-opening group.
           className={
-            idx > 0
-              ? "lg:border-l lg:border-dashed lg:border-bcc-border lg:pl-6"
-              : ""
+            "min-w-0 " +
+            (idx % 2 === 1
+              ? "sm:border-l sm:border-dashed sm:border-bcc-border sm:pl-6"
+              : "")
           }
         >
+          {/* No overflow-wrap override here. RECOGNITION is a single
+              unbreakable word, and the previous four-across layout left it
+              65px — so it either pinned its own column (min-width:auto) or
+              split as RECOGNI/TION. Two columns give it 251px, which is what
+              a word needs to simply fit. */}
           <p
             className="bcc-mono mb-2 text-bcc-text-secondary"
             style={{ fontSize: "10px", letterSpacing: "0.24em" }}
@@ -625,12 +758,17 @@ function CountsStrip({ counts }: { counts: MemberCounts }) {
             {group.cells.map((cell) => (
               <div
                 key={cell.label}
-                className="bcc-panel px-2 py-3 text-center sm:px-4 sm:py-5"
+                // A shared min-height keeps the row even at EVERY width, not
+                // just the tuned one: below lg a two-line label would
+                // otherwise make its tile taller than its one-line sibling.
+                // Two lines is the intended maximum; nothing truncates,
+                // because a clipped count label is worse than a wrapped one.
+                className="bcc-panel flex min-h-[104px] min-w-0 flex-col items-center justify-center px-2 py-3 text-center sm:min-h-[124px] sm:px-4 sm:py-5"
               >
                 <p className="bcc-stencil text-3xl text-bcc-text sm:text-4xl">
                   {cell.value}
                 </p>
-                <p className="bcc-mono mt-1 text-[10px] text-bcc-text-secondary sm:text-[11px]">
+                <p className="bcc-mono mt-1 min-w-0 text-[10px] text-bcc-text-secondary sm:text-[11px]">
                   {cell.label}
                 </p>
               </div>

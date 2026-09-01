@@ -5,12 +5,15 @@
  *
  * Two sub-tabs over the PeepSo follow graph:
  *
- *   BEING WATCHED — followers (people who follow this member). Maps
- *                   to PeepSo's `/profile/{handle}/followers/` view.
+ *   WATCHERS — followers (people who follow this member). Maps to
+ *              PeepSo's `/profile/{handle}/followers/` view.
  *
- *   KEEPING TABS  — following (people this member follows). Maps to
- *                   PeepSo's `/profile/{handle}/followers/following`
- *                   view.
+ *   WATCHING — following (people this member follows). Maps to
+ *              PeepSo's `/profile/{handle}/followers/following` view.
+ *
+ * Labels were "Being Watched" / "Keeping Tabs" until the profile IA pass;
+ * the direction is unchanged, only the wording. Strings live in
+ * ROSTER_TAB_COPY so the tab and its documentation cannot drift.
  *
  * Rows render in a compact list shape (avatar + name + handle + rank
  * chip) — same member `Card` payload the /members directory uses, just
@@ -35,6 +38,7 @@ import type { Route } from "next";
 import { CardGrid } from "@/components/cards/CardGrid";
 import { Avatar } from "@/components/identity/Avatar";
 import { useUserFollowers, useUserFollowing } from "@/hooks/useUserActivity";
+import { ROSTER_TAB_COPY } from "@/lib/copy/trust-layer";
 import { LoadFailure } from "@/components/ui/LoadFailure";
 import { humanizeCode } from "@/lib/api/errors";
 import type { BccApiError, Card, UserFollowsResponse } from "@/lib/api/types";
@@ -65,8 +69,12 @@ function readStoredView(): RosterView {
 }
 
 const SUB_TABS: ReadonlyArray<{ key: WatchingSubTab; label: string }> = [
-  { key: "followers", label: "Being Watched" },
-  { key: "following", label: "Keeping Tabs" },
+  // "Being Watched" / "Keeping Tabs" made the reader work out which
+  // direction each meant. Direction is unchanged and verified against the
+  // hooks these render: `followers` → useUserFollowers (people watching this
+  // operator), `following` → useUserFollowing (people this operator watches).
+  { key: "followers", label: ROSTER_TAB_COPY.followers },
+  { key: "following", label: ROSTER_TAB_COPY.following },
 ];
 
 export function WatchingPanel({ handle, displayName }: WatchingPanelProps) {

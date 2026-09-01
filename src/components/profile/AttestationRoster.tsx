@@ -66,6 +66,8 @@
 
 import { Avatar } from "@/components/identity/Avatar";
 import { RELIABILITY_LABEL } from "@/components/reliability/ReliabilityStandingBadge";
+import { PROFILE_ROSTER_PARAMS } from "@/lib/api/attestations-endpoints";
+import type { RosterSeed } from "@/hooks/useAttestationRoster";
 import { useAttestationRoster } from "@/hooks/useAttestationRoster";
 import type {
   AttestationRosterItem,
@@ -95,6 +97,12 @@ interface AttestationRosterProps {
    * not a void. The page passes target-specific copy.
    */
   emptyState: { body: string };
+  /**
+   * Anonymous server-rendered first page, seeded into React Query so a
+   * crawler sees real rows instead of the empty state. Anonymous viewers
+   * only — see the profile page for why.
+   */
+  seed?: RosterSeed | undefined;
 }
 
 export function AttestationRoster({
@@ -102,6 +110,7 @@ export function AttestationRoster({
   targetKind,
   targetId,
   emptyState,
+  seed,
 }: AttestationRosterProps) {
   // Hook fires only when items are NOT explicitly provided AND we
   // have a target. include_revoked=true so the "SHOW REVOKED" toggle
@@ -110,7 +119,8 @@ export function AttestationRoster({
   const { data } = useAttestationRoster(
     shouldFetch ? targetKind : undefined,
     shouldFetch ? targetId : undefined,
-    { include_revoked: true },
+    PROFILE_ROSTER_PARAMS,
+    seed,
   );
 
   const effectiveItems: AttestationRosterItem[] | undefined =

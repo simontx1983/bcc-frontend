@@ -339,12 +339,32 @@ describe("neighbouring contracts are untouched", () => {
   it("SubTabNav is a lookalike this batch does not touch", () => {
     // It reimplements the ladder in TSX with border-safety. Divergent by
     // design here; converging it would mean editing TSX.
-    const src = readFileSync(resolve(process.cwd(), "src/components/profile/panels/SetupPanel.tsx"), "utf-8");
+    //
+    // The markup moved: SetupPanel and BlogPanel each carried a private copy
+    // of this strip, and the profile IA pass extracted the pair into one
+    // shared component. The contract asserted here is unchanged, so the
+    // assertions just follow it to its new home.
+    const src = readFileSync(resolve(process.cwd(), "src/components/profile/SubTabNav.tsx"), "utf-8");
     expect(src).toContain("border-safety text-bcc-text");
     // It references `.bcc-tab` in a comment explaining what it mirrors,
     // but must not actually apply the class — otherwise it would silently
     // inherit this batch's rules.
     expect(src).not.toMatch(/className=\{?\s*["'`][^"'`]*\bbcc-tab\b/);
+  });
+
+  it("the extracted SubTabNav left no private copies behind", () => {
+    // The extraction is only a de-duplication if the originals are gone.
+    // A reintroduced local copy would drift from the shared ladder above
+    // and, worse, would miss its keyboard model.
+    for (const panel of ["SetupPanel", "BlogPanel"]) {
+      const src = readFileSync(
+        resolve(process.cwd(), `src/components/profile/panels/${panel}.tsx`),
+        "utf-8",
+      );
+      expect(src, `${panel} redeclares SubTabNav`).not.toMatch(
+        /^function SubTabNav\b/m,
+      );
+    }
   });
 
   it("--bcc-accent itself is unchanged", () => {

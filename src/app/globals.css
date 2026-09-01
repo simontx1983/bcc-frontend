@@ -2910,6 +2910,33 @@
     gap: 8px;
     padding: 10px 12px;
   }
+  /* Second action row, for the profile card's Message affordance.
+     Opt-in: only /u/[handle] passes the permission that renders it, so every
+     grid card keeps the two-pill geometry above, byte-identical.
+
+     Wrap + a 100% basis rather than a third pill in the same row. Three
+     across gives ~89px per pill inside the 316px card, and at 10.5px with
+     0.14em tracking, a 14px icon and a 6px gap, "WATCHING"/"WITHDRAW" would
+     not fit — the note above already records that a three-across layout cut
+     the bottom off the card on every phone. The card cannot grow (fixed
+     440px, overflow:hidden), so this row's ~42px comes out of the portrait,
+     which is the flex:1 child and absorbs it. */
+  .bcc-card-actions-stacked {
+    flex-wrap: wrap;
+  }
+  .bcc-card-actions-stacked .bcc-card-pill-message {
+    flex: 0 0 100%;
+  }
+  /* The anchor variant needs the decoration reset a <button> gets for free. */
+  a.bcc-card-pill-message {
+    text-decoration: none;
+  }
+  /* aria-disabled, not [disabled] — the control stays focusable so its
+     aria-describedby explanation is reachable by keyboard. Reproduce the
+     disabled affordance without removing it from the tab order. */
+  .bcc-card-pill-message[aria-disabled="true"] {
+    cursor: not-allowed;
+  }
   .bcc-card-pill {
     flex: 1;
     min-width: 0;

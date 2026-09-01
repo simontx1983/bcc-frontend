@@ -44,6 +44,10 @@ import {
   BlogComposer,
   type BlogComposerInitialValues,
 } from "@/components/blog/BlogComposer";
+import {
+  SubTabNav,
+  type SubTabDef,
+} from "@/components/profile/SubTabNav";
 import { UserBlogList } from "@/components/blog/UserBlogList";
 import type { CoverImageValue } from "@/components/blog/CoverImageUpload";
 import type { BlogStatus } from "@/components/blog/StatusToggle";
@@ -60,12 +64,10 @@ import type {
 
 type SubTabKey = "view" | "create";
 
-interface SubTabDef {
-  key: SubTabKey;
-  label: string;
-}
+/** Id namespace for this panel sub-strip. */
+const ID_BASE = "blog";
 
-const SUB_TABS: ReadonlyArray<SubTabDef> = [
+const SUB_TABS: ReadonlyArray<SubTabDef<SubTabKey>> = [
   { key: "view",   label: "View" },
   { key: "create", label: "Create" },
 ];
@@ -147,6 +149,9 @@ export function BlogPanel({
   return (
     <div className="flex flex-col gap-6">
       <SubTabNav
+        tabs={SUB_TABS}
+        ariaLabel="Blog sections"
+        idBase={ID_BASE}
         active={active}
         onSelect={(next) => {
           router.push(blogUrl(handle, { create: next === "create" }), {
@@ -331,46 +336,6 @@ function readCover(body: Record<string, unknown>): CoverImageValue | null {
   // CoverImageValue contract without round-tripping the actual pixel
   // dims through the wire.
   return { attachment_id: id, url, width: 0, height: 0 };
-}
-
-// ──────────────────────────────────────────────────────────────────────
-// SubTabNav — mirrors the Setup tab's cardstock-on-dark sub-strip so
-// the two operator-facing surfaces share visual vocabulary.
-// ──────────────────────────────────────────────────────────────────────
-
-function SubTabNav({
-  active,
-  onSelect,
-}: {
-  active: SubTabKey;
-  onSelect: (key: SubTabKey) => void;
-}) {
-  return (
-    <div
-      role="tablist"
-      aria-label="Blog sections"
-      className="flex items-center gap-x-1 border-b border-bcc-border"
-    >
-      {SUB_TABS.map((tab) => (
-        <button
-          key={tab.key}
-          type="button"
-          role="tab"
-          aria-selected={active === tab.key}
-          onClick={() => onSelect(tab.key)}
-          className={
-            "bcc-mono shrink-0 border-b-2 px-4 py-2 transition " +
-            (active === tab.key
-              ? "border-safety text-bcc-text"
-              : "border-transparent text-bcc-text-secondary hover:text-bcc-text")
-          }
-          style={{ fontSize: "12px", letterSpacing: "0.18em" }}
-        >
-          {tab.label.toUpperCase()}
-        </button>
-      ))}
-    </div>
-  );
 }
 
 // ──────────────────────────────────────────────────────────────────────

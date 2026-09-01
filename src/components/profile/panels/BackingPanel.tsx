@@ -27,6 +27,7 @@
 import { useState } from "react";
 
 import { AttestationRoster } from "@/components/profile/AttestationRoster";
+import type { RosterSeed } from "@/hooks/useAttestationRoster";
 import { EndorsementsGivenView } from "@/components/profile/EndorsementsGivenView";
 
 type SubTab = "received" | "given";
@@ -39,9 +40,12 @@ export interface BackingPanelProps {
   /** Reputation score (resolved on the profile) — drives the
    *  Received empty-state copy branch. */
   reputationScore: number;
+  /** Anonymous SSR seed for the Received roster. */
+  rosterSeed?: RosterSeed | undefined;
 }
 
 export function BackingPanel({
+  rosterSeed,
   handle,
   targetUserId,
   reputationScore,
@@ -62,6 +66,7 @@ export function BackingPanel({
             targetKind="user_profile"
             targetId={targetUserId}
             emptyState={{ body: receivedEmpty }}
+            seed={rosterSeed}
           />
         )}
         {sub === "given" && <EndorsementsGivenView handle={handle} />}
