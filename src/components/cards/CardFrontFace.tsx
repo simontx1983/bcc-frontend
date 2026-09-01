@@ -87,6 +87,7 @@ export function CardFrontFace({
   isJoined = false,
   joinPending = false,
   suppressBodyLink = false,
+  messagePermissions,
 }: {
   card: Card;
   /** Resolved `var(--kind-*)` for this card's kind. */
@@ -101,6 +102,8 @@ export function CardFrontFace({
   joinPending?: boolean | undefined;
   /** See CardFactoryProps — omits the body nav overlay on self/wizard surfaces. */
   suppressBodyLink?: boolean | undefined;
+  /** Forwarded to ActionBar. Set only by /u/[handle]. */
+  messagePermissions?: unknown;
 }) {
   const isCommunity =
     card.card_kind === "community" && card.community_dossier != null;
@@ -153,7 +156,12 @@ export function CardFrontFace({
           joinPending={joinPending}
         />
       ) : (
-        <ActionBar card={card} onPull={onPull} isPulled={isPulled} />
+        <ActionBar
+          card={card}
+          onPull={onPull}
+          isPulled={isPulled}
+          messagePermissions={messagePermissions}
+        />
       )}
 
       <CardStandingStrip

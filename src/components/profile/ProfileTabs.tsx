@@ -35,11 +35,19 @@
  */
 
 import dynamic from "next/dynamic";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
 import { Skeleton } from "@/components/ui/Skeleton";
-import { ATTESTATION_COPY } from "@/lib/copy/trust-layer";
+import type { RosterSeed } from "@/hooks/useAttestationRoster";
+import { useRovingTabs } from "@/hooks/useRovingTabs";
+import { ATTESTATION_COPY, REVIEW_TAB_COPY } from "@/lib/copy/trust-layer";
+import {
+  SubTabNav,
+  subTabId,
+  subTabPanelId,
+  type SubTabDef,
+} from "@/components/profile/SubTabNav";
 import type { MeReliabilityResponse, MemberLiving, MemberProfile, MemberProgression, MemberTabCount } from "@/lib/api/types";
 
 import { CardReviewsPanel } from "@/components/entity/panels/CardReviewsPanel";
@@ -163,9 +171,63 @@ function isTabKey(value: string | null | undefined): value is TabKey {
 }
 
 /**
+ * The eight owner-only settings sections, grouped under the "My Profile"
+ * parent tab.
+ *
+ * Before this, an owner saw EIGHTEEN tabs in one horizontally-scrolling
+ * strip with these scattered through it — "My Profile" at position 1 and
+ * the rest at 11-18, interleaved with the public content tabs. Grouping
+ * takes the owner's strip to eleven and makes it read as "what visitors
+ * see, plus my own stuff."
+ *
+ * `profile` is both the parent key and its first child. That is deliberate:
+ * it keeps `?tab=profile` meaning exactly what it always meant, and it is
+ * why the parent needs no key of its own.
+ *
+ * URL contract: the query keeps carrying the LEAF key. `?tab=account` stays
+ * `?tab=account` — no second query parameter is introduced. Eight permanent
+ * 308 redirects in next.config.ts and the Settings quick-link in
+ * nav-items.tsx point at these, and all of them keep working untouched.
+ */
+const MY_PROFILE_CHILDREN: ReadonlyArray<SubTabDef<TabKey>> = [
+  { key: "profile",       label: "Profile" },
+  { key: "privacy",       label: "Privacy" },
+  { key: "notifications", label: "Notifications" },
+  { key: "messages",      label: "Messages" },
+  { key: "communities",   label: "Communities" },
+  { key: "showcase",      label: "Showcase" },
+  { key: "account",       label: "Account" },
+  { key: "blocks",        label: "Blocks" },
+];
+
+/** Parent tab that owns "My Profile". */
+const MY_PROFILE_PARENT: TabKey = "profile";
+
+/** Id namespace for the settings sub-strip and its panel. One per page. */
+const SETTINGS_ID_BASE = "profile-settings";
+
+/**
+ * Child key → parent key. Only the seven non-`profile` children need an
+ * entry; `profile` IS the parent, so it resolves to itself by fallback.
+ */
+const PARENT_OF: Partial<Record<TabKey, TabKey>> = Object.fromEntries(
+  MY_PROFILE_CHILDREN
+    .filter((child) => child.key !== MY_PROFILE_PARENT)
+    .map((child) => [child.key, MY_PROFILE_PARENT]),
+);
+
+/** The parent a given leaf renders under. Non-grouped tabs own themselves. */
+function parentOf(key: TabKey): TabKey {
+  return PARENT_OF[key] ?? key;
+}
+
+/**
  * Default tab list — used when no Phase-4 `tabs` metadata is passed.
  * Order matches the Phase-4 contract so the layout stays stable
  * whether or not counts are available.
+ *
+ * This is the PARENT strip: the seven grouped children are not listed here,
+ * they live in MY_PROFILE_CHILDREN above.
  */
 const DEFAULT_TABS: ReadonlyArray<{ key: TabKey; label: string; soon?: boolean; ownerOnly?: boolean }> = [
   // "My Profile" — the owner's profile EDITOR (avatar/cover, handle,
@@ -175,6 +237,13 @@ const DEFAULT_TABS: ReadonlyArray<{ key: TabKey; label: string; soon?: boolean; 
   // per the 2026-05-14 reorganization request. NOT the default active
   // tab — owners still land on Activity, visitors on Backing.
   { key: "profile",  label: "My Profile", ownerOnly: true },
+  // Owner-only operator-file hub — Standing + Reliability sub-tabs. Renamed
+  // from "Setup", which read as onboarding/configuration while the tab
+  // actually holds the operator's standing record and deliberately outlived
+  // cold-start. Key stays `setup`, so ?tab=setup keeps resolving.
+  // Promoted to second so both owner-only tabs sit together at the head of
+  // the strip, ahead of the public content a visitor came for.
+  { key: "setup",    label: "My Standing", ownerOnly: true },
   // §J.6 — backing is the trust headline. Visitor's default active
   // tab so the "can I trust this operator?" question is the first
   // one answered by the panel content (even though Profile is the
@@ -188,8 +257,13 @@ const DEFAULT_TABS: ReadonlyArray<{ key: TabKey; label: string; soon?: boolean; 
   // = reviews this member authored. The pre-v1.48 single tab showed
   // authored under a "Reviews on file" header — misleading once
   // member-target reviews existed.
-  { key: "reviews",  label: "Reviews" },
-  { key: "written",  label: "Written" },
+  // Both labels name the noun. "Reviews" / "Written" made the reader infer
+  // that "Written" meant reviews — and the panels already say it in full
+  // (ReviewsPanel's own header renders "Reviews written", and the counts
+  // strip on this page says REVIEWS WRITTEN). Three surfaces, one wording.
+  // Keys unchanged, so ?tab=reviews and ?tab=written keep working.
+  { key: "reviews",  label: REVIEW_TAB_COPY.received },
+  { key: "written",  label: REVIEW_TAB_COPY.written },
   { key: "activity", label: "Activity" },
   // §3.1 — bidirectional follow graph (followers + following).
   // Renamed from "Watching" because "Watching" leaned outgoing-only
@@ -204,26 +278,12 @@ const DEFAULT_TABS: ReadonlyArray<{ key: TabKey; label: string; soon?: boolean; 
   // panel so navigation stays in-place. The panel itself holds two
   // sub-tabs (VIEW · CREATE).
   { key: "blog",     label: "Blog" },
-  // Owner-only operator-file hub — Standing + Reliability sub-tabs.
-  // The checklist (bio / wallet / local) was folded into Standing →
-  // VERIFIED IDENTITY rows on 2026-05-14, so this tab stays relevant
-  // throughout the operator's lifetime, not just cold-start.
-  { key: "setup",    label: "Setup", ownerOnly: true },
   // Network tab hidden in V1 per the 2026-05-13 UX review — stub
   // ComingSoonPanel trains operators that tabs lie. Reinstate when
   // the §C2 watchers + vouch-graph data ships (Phase 5).
   //
-  // ── Owner-only editors, absorbed from the retired /settings/* routes ──
-  // Grouped at the end so the content tabs (what a visitor came for) stay
-  // leftmost; a visitor sees none of these. Order mirrors the old
-  // SettingsNav so muscle memory survives the move.
-  { key: "privacy",       label: "Privacy",       ownerOnly: true },
-  { key: "notifications", label: "Notifications", ownerOnly: true },
-  { key: "messages",      label: "Messages",      ownerOnly: true },
-  { key: "communities",   label: "Communities",   ownerOnly: true },
-  { key: "showcase",      label: "Showcase",      ownerOnly: true },
-  { key: "account",       label: "Account",       ownerOnly: true },
-  { key: "blocks",        label: "Blocks",        ownerOnly: true },
+  // The owner-only editors absorbed from the retired /settings/* routes are
+  // NOT listed here any more — they are children of "My Profile" above.
 ];
 
 interface TabRow {
@@ -269,6 +329,13 @@ export interface ProfileTabsProps {
    * the cold-start phrasing).
    */
   reputationScore: number;
+  /**
+   * Anonymous server-rendered first page of the Supporters roster, seeded
+   * into React Query so a crawler gets real content instead of an empty
+   * skeleton. Undefined for authed viewers and whenever the server read
+   * failed — the panel then fetches client-side exactly as before.
+   */
+  rosterSeed?: RosterSeed | undefined;
   /**
    * Own-profile-only LIVE SHIFT data — passed through to the Activity
    * panel so the LivingHeader renders at the top for the owner.
@@ -327,6 +394,7 @@ export function ProfileTabs({
   tabs,
   targetUserId,
   reputationScore,
+  rosterSeed,
   living,
   progression,
   profile,
@@ -400,20 +468,49 @@ export function ProfileTabs({
     return { ...t };
   });
 
-  // Resolve the requested tab against what THIS VIEWER is allowed to see.
-  // The ownerOnly filter above only removes the button from the strip —
-  // the panel switch below keys off the active key, so without this a
-  // deep link like `?tab=profile` would still mount the owner's editor
-  // for a visitor (no server data leak, since every editor talks to
-  // session-scoped /me/* endpoints, but a signed-in non-owner would see
-  // THEIR OWN fields loaded under someone else's profile). Anything not
-  // in the rendered set falls back to this viewer's default tab.
-  const effectiveActive: TabKey = tabsToRender.some((t) => t.key === active)
-    ? active
-    : fallbackTab;
+  // The seven grouped children are no longer buttons in the parent strip, so
+  // membership can't be decided by the strip alone any more — without this a
+  // perfectly valid `?tab=account` would fall through to the default tab and
+  // silently break eight shipped redirects.
+  //
+  // Gating the set on `isOwner` is what preserves the original security
+  // property: for a signed-in NON-owner the set is empty, so `?tab=account`
+  // still falls back rather than mounting the owner's editor under someone
+  // else's profile. (No server data leak either way — every editor talks to
+  // session-scoped /me/* endpoints — but a visitor would otherwise see THEIR
+  // OWN fields loaded under a stranger's handle.)
+  const ownerChildKeys: ReadonlySet<TabKey> = useMemo(
+    () =>
+      isOwner
+        ? new Set(MY_PROFILE_CHILDREN.map((child) => child.key))
+        : new Set<TabKey>(),
+    [isOwner],
+  );
+
+  const effectiveActive: TabKey =
+    tabsToRender.some((t) => t.key === active) || ownerChildKeys.has(active)
+      ? active
+      : fallbackTab;
+
+  // Which PARENT tab lights up. A child leaf (`account`) selects its parent
+  // (`profile`) in the top strip while the sub-strip selects the leaf.
+  const activeParent: TabKey = parentOf(effectiveActive);
+  const showSettingsSubTabs = isOwner && activeParent === MY_PROFILE_PARENT;
 
   const activeTab = tabsToRender.find((t) => t.key === effectiveActive);
   const activeHidden = activeTab?.hidden === true;
+
+  // Manual activation on the parent strip too — same reasoning as the sub
+  // strip: these panels are lazy and network-backed, and arrowing must not
+  // rewrite the `?tab=` query on every keypress.
+  const parentKeys = useMemo(
+    () => tabsToRender.map((t) => t.key),
+    [tabsToRender],
+  );
+  const { setRef: setParentRef, onKeyDown: onParentKeyDown } = useRovingTabs(
+    parentKeys,
+    handleTabChange,
+  );
 
   return (
     <section className="bcc-stage-reveal" style={{ ["--stagger" as string]: "560ms" }}>
@@ -428,15 +525,26 @@ export function ProfileTabs({
         aria-label="Member sections"
         className="-mx-4 flex items-center gap-x-1 overflow-x-auto border-b border-bcc-border px-4 sm:mx-0 sm:flex-wrap sm:px-0"
       >
-        {tabsToRender.map((tab) => (
+        {tabsToRender.map((tab, index) => (
           <button
             key={tab.key}
+            ref={setParentRef(tab.key)}
             type="button"
             role="tab"
             id={`tab-${tab.key}`}
-            aria-selected={effectiveActive === tab.key}
-            aria-controls={`tabpanel-${tab.key}`}
+            // Selection follows the PARENT, so "My Profile" stays lit while
+            // any of its eight children is the active leaf.
+            aria-selected={activeParent === tab.key}
+            // Only the selected tab's panel is in the DOM — pointing
+            // aria-controls at an unrendered id would be invalid, and
+            // mounting every owner editor to satisfy it would defeat the
+            // ssr:false code-splitting and the privacy boundary.
+            {...(activeParent === tab.key
+              ? { "aria-controls": `tabpanel-${tab.key}` }
+              : {})}
+            tabIndex={activeParent === tab.key ? 0 : -1}
             onClick={() => handleTabChange(tab.key)}
+            onKeyDown={(e) => onParentKeyDown(e, index)}
             className="bcc-tab shrink-0"
           >
             {tab.label}
@@ -475,11 +583,34 @@ export function ProfileTabs({
           panel changes when the tab flips. */}
       <div
         role="tabpanel"
-        id={`tabpanel-${effectiveActive}`}
-        aria-labelledby={`tab-${effectiveActive}`}
+        id={`tabpanel-${activeParent}`}
+        aria-labelledby={`tab-${activeParent}`}
         aria-live="polite"
         className="mt-6"
       >
+        {/* My Profile's panel CONTAINS a nested tablist — the eight settings
+            sections. Nesting a tabpanel inside a tabpanel is valid, and it
+            keeps the URL on the leaf key (?tab=account) with no second query
+            parameter. */}
+        {showSettingsSubTabs && (
+          <SubTabNav
+            tabs={MY_PROFILE_CHILDREN}
+            active={effectiveActive}
+            onSelect={handleTabChange}
+            ariaLabel="My Profile sections"
+            idBase={SETTINGS_ID_BASE}
+          />
+        )}
+        <div
+          {...(showSettingsSubTabs
+            ? {
+                role: "tabpanel",
+                id: subTabPanelId(SETTINGS_ID_BASE, effectiveActive),
+                "aria-labelledby": subTabId(SETTINGS_ID_BASE, effectiveActive),
+                className: "mt-6",
+              }
+            : {})}
+        >
         {activeHidden && activeTab !== undefined ? (
           <ComingSoonPanel
             label={activeTab.label}
@@ -495,6 +626,7 @@ export function ProfileTabs({
                 handle={handle}
                 targetUserId={targetUserId}
                 reputationScore={reputationScore}
+                rosterSeed={rosterSeed}
               />
             )}
             {effectiveActive === "reviews"  && (
@@ -549,6 +681,7 @@ export function ProfileTabs({
             )}
           </>
         )}
+        </div>
       </div>
     </section>
   );

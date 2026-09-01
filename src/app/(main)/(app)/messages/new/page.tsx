@@ -8,10 +8,22 @@
  * server returns the conversation_id and we navigate to /messages/[id]
  * to land in the thread.
  *
- * Deep-link mode: `?to_page=<id>&to_kind=validator` pins a validator
- * page as the recipient and skips the member picker. The param is
- * `to_page`, NOT `page` — `?page=N` is already the inbox pagination
- * convention and reusing it here would collide.
+ * Deep-link mode, two flavours, both skipping the member picker:
+ *
+ *   ?to_page=<id>&to_kind=validator  pins a validator PAGE
+ *   ?to_user=<id>                    pins a MEMBER (the profile card's
+ *                                    Message action)
+ *
+ * The param is `to_page`, NOT `page` — `?page=N` is already the inbox
+ * pagination convention and reusing it here would collide. `to_user` takes
+ * a member card id, which IS the user id.
+ *
+ * Both ids go through `readPositiveIntParam`, which validates the WHOLE
+ * string. A prefix parse would accept "1e9" as 1.
+ *
+ * Neither URL is authorization. The server re-runs the messaging policy on
+ * every POST, so a hand-typed pin reaches the composer and is refused at
+ * send — exactly as an un-pinned send would be.
  *
  * Pinned sends address the PAGE (`{page_id, body}`), never a resolved
  * operator id. The server re-resolves the destination at send time, so
@@ -50,6 +62,33 @@ const PER_PAGE = 12;
 const QUEUED_CONFIRMATION =
   "Message queued. It will be delivered when the validator is claimed by a verified operator.";
 
+/**
+ * Strict, whole-string id validation for the deep-link params.
+ *
+ * Number.parseInt is NOT usable here: parseInt("1e9", 10) === 1, so a
+ * prefix-parse silently accepts "1e9", "12abc" and "+12" as ids. Validate
+ * the entire string first, then convert.
+ *
+ * getAll, not get: URLSearchParams.get returns only the FIRST value, so a
+ * repeated ?to_user=1&to_user=2 would quietly resolve to user 1. An
+ * ambiguous request is rejected rather than guessed.
+ */
+function readPositiveIntParam(
+  searchParams: ReturnType<typeof useSearchParams>,
+  name: string,
+): number | null {
+  const all = searchParams.getAll(name);
+  if (all.length !== 1) return null;
+
+  const raw = all[0];
+  if (raw === undefined) return null;
+  // No sign, no decimal point, no exponent, no leading zero, no spaces.
+  if (!/^[1-9][0-9]*$/.test(raw)) return null;
+
+  const id = Number(raw);
+  return Number.isSafeInteger(id) && id > 0 ? id : null;
+}
+
 function NewMessagePageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -65,12 +104,16 @@ function NewMessagePageContent() {
   const [queuedNotice, setQueuedNotice] = useState<string | null>(null);
 
   // ── Deep-link pin ──────────────────────────────────────────────────
-  const pinnedPageId = useMemo(() => {
-    const raw = searchParams.get("to_page");
-    if (raw === null) return null;
-    const parsed = Number.parseInt(raw, 10);
-    return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
-  }, [searchParams]);
+  const pinnedPageId = useMemo(
+    () => readPositiveIntParam(searchParams, "to_page"),
+    [searchParams],
+  );
+
+  // Member pin. A member card id IS the user id, so no extra lookup.
+  const pinnedUserId = useMemo(
+    () => readPositiveIntParam(searchParams, "to_user"),
+    [searchParams],
+  );
 
   // Only validator pages are addressable this way today. An unknown
   // to_kind falls through to the ordinary member picker rather than
@@ -95,7 +138,26 @@ function NewMessagePageContent() {
       ? pinnedQuery.data
       : null;
 
-  const activeRecipient = pinnedCard ?? recipient;
+  // Member pin — same shape as the validator pin above, different kind and
+  // a different send branch. useCardEntity is already generic over CardKind.
+  const wantsUserPin = !pinCleared && pinnedUserId !== null;
+
+  const pinnedUserQuery = useCardEntity(
+    "member",
+    wantsUserPin && pinnedUserId !== null ? String(pinnedUserId) : null,
+    { enabled: isAuthed && wantsUserPin },
+  );
+
+  // Re-check kind on the way out so a cleared pin cannot resurrect from the
+  // React Query cache as the wrong card type.
+  const pinnedUserCard =
+    wantsUserPin &&
+    pinnedUserQuery.data !== undefined &&
+    pinnedUserQuery.data.card_kind === "member"
+      ? pinnedUserQuery.data
+      : null;
+
+  const activeRecipient = pinnedCard ?? pinnedUserCard ?? recipient;
 
   // Debounce the search input → debouncedSearch.
   const debounceRef = useRef<number | null>(null);
@@ -180,13 +242,18 @@ function NewMessagePageContent() {
       mutation.mutate({ page_id: pinnedCard.id, body: trimmed });
       return;
     }
-    if (recipient !== null) {
-      mutation.mutate({ recipient_id: recipient.id, body: trimmed });
+    // A pinned MEMBER addresses the person, not a page — the existing
+    // recipient_id branch, unchanged. The URL is an entry point only:
+    // MessagesService re-runs the full policy on POST, so a hand-typed
+    // ?to_user= reaches the composer and is refused at send.
+    const person = pinnedUserCard ?? recipient;
+    if (person !== null) {
+      mutation.mutate({ recipient_id: person.id, body: trimmed });
     }
   };
 
   const clearRecipient = () => {
-    if (pinnedCard !== null) {
+    if (pinnedCard !== null || pinnedUserCard !== null) {
       setPinCleared(true);
     }
     setRecipient(null);

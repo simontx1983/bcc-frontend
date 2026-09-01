@@ -32,10 +32,17 @@
  * untouched.
  */
 
+import type { Route } from "next";
+import Link from "next/link";
 import type { MouseEvent, ReactNode } from "react";
 import { useMemo, useState } from "react";
 
-import { WatchIcon, VouchIcon, JoinIcon } from "@/components/icons/registry";
+import {
+  WatchIcon,
+  VouchIcon,
+  JoinIcon,
+  MessageIcon,
+} from "@/components/icons/registry";
 import { useCastAttestation, useRevokeAttestation } from "@/hooks/useAttestations";
 import { useWatchMutation, useUnwatchMutation } from "@/hooks/useWatch";
 import { useWatching } from "@/hooks/useWatching";
@@ -122,14 +129,106 @@ function ActionPill({
   );
 }
 
+/**
+ * Message — a second, full-width action row, rendered ONLY when the host
+ * surface hands down a live permission.
+ *
+ * The member card view-model deliberately does not carry one: CardViewService
+ * returns `not_applicable` for `can_message` on member cards, with the note
+ * that "members are messaged through the DM surface itself (the profile
+ * view-model carries the live gate)". Rather than overturn that on a hot path
+ * — every 50-card grid would need a policy evaluation per card — the one
+ * surface that already holds the answer passes it in. /u/[handle] does;
+ * grids, directories, search and watching lists do not, so their cards are
+ * byte-identical to before.
+ *
+ * Navigation, not a toggle, so this is an anchor rather than an ActionPill
+ * (which is a <button> with aria-pressed and undo-label swapping). Safe: the
+ * card's body link is a SIBLING absolute <Link>, not a wrapper, and on the
+ * profile the host passes `suppressBodyLink` so there is no body link at all.
+ * No anchor ever nests inside another.
+ */
+function MessagePill({
+  permissions,
+  recipientId,
+  recipientName,
+}: {
+  permissions: unknown;
+  recipientId: number;
+  recipientName: string;
+}) {
+  const allowed = isAllowed(permissions, "can_message");
+  const hint = unlockHint(permissions, "can_message");
+  const hintId = `card-message-hint-${recipientId}`;
+
+  // Denied with no explanation to offer — say nothing rather than show a
+  // dead control the operator cannot act on.
+  if (!allowed && (hint === null || hint === "")) {
+    return null;
+  }
+
+  if (!allowed) {
+    return (
+      <>
+        <button
+          type="button"
+          // aria-disabled, NOT the disabled attribute: a disabled button is
+          // skipped by the tab order, which would make the explanation below
+          // unreachable by keyboard. This stays focusable and announced.
+          aria-disabled="true"
+          aria-describedby={hintId}
+          // Narrowing doesn't carry across the two guards above; the early
+          // return already proved this is a non-empty string.
+          title={hint ?? undefined}
+          onClick={(e: MouseEvent) => {
+            e.preventDefault();
+            e.stopPropagation();
+          }}
+          className="bcc-card-pill bcc-card-pill-message"
+          style={{ ["--pill-color" as string]: "var(--bcc-accent)", opacity: 0.55 }}
+        >
+          <MessageIcon size={14} strokeWidth={1.9} aria-hidden />
+          <span>Message</span>
+        </button>
+        <span id={hintId} className="sr-only">
+          {hint}
+        </span>
+      </>
+    );
+  }
+
+  return (
+    <Link
+      href={`/messages/new?to_user=${recipientId}` as Route}
+      aria-label={`Message ${recipientName}`}
+      // The card body is a link on grid surfaces; an action must never
+      // navigate it. Harmless where suppressBodyLink is set.
+      onClick={(e: MouseEvent) => e.stopPropagation()}
+      className="bcc-card-pill bcc-card-pill-message"
+      style={{ ["--pill-color" as string]: "var(--bcc-accent)" }}
+    >
+      <MessageIcon size={14} strokeWidth={1.9} aria-hidden />
+      <span>Message</span>
+    </Link>
+  );
+}
+
 export function ActionBar({
   card,
   onPull,
   isPulled,
+  messagePermissions,
 }: {
   card: Card;
   onPull?: ((card: Card) => void) | undefined;
   isPulled: boolean;
+  /**
+   * The member profile's `permissions` block, passed only by /u/[handle].
+   * `unknown` deliberately — read through isAllowed/unlockHint, which are
+   * the defensive accessors the doctrine requires. Absent everywhere else,
+   * which is what keeps grid cards unchanged.
+   */
+  messagePermissions?: unknown;
 }) {
   // ── Watch ────────────────────────────────────────────────────────
   // Same follow-map semantics as CardGrid's buildFollowMap: a watching
@@ -231,8 +330,17 @@ export function ActionBar({
 
   const watchAllowed = isAllowed(card.permissions, "can_watch");
 
+  // A member card's `id` IS the user id (CardViewService emits
+  // 'id' => $userId on that branch), so the recipient needs no extra lookup.
+  const showMessage =
+    messagePermissions !== undefined && card.card_kind === "member";
+
   return (
-    <div className="bcc-card-actions">
+    <div
+      className={
+        showMessage ? "bcc-card-actions bcc-card-actions-stacked" : "bcc-card-actions"
+      }
+    >
       <ActionPill
         color="var(--bcc-accent)"
         active={effectivePulled}
@@ -284,6 +392,19 @@ export function ActionBar({
               : `Vouch for ${card.name}`
           }
           onClick={handleVouchClick}
+        />
+      )}
+
+      {/* Second row. NOT a third pill across: CardActionBar's own history
+          records that a three-across layout stacked to 132px under 640px
+          inside a fixed 440px overflow:hidden card and cut the card's bottom
+          off on every phone. The portrait (flex:1) absorbs this row's height
+          instead. */}
+      {showMessage && (
+        <MessagePill
+          permissions={messagePermissions}
+          recipientId={card.id}
+          recipientName={card.name}
         />
       )}
     </div>

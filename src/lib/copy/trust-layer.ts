@@ -101,6 +101,42 @@ export const ATTESTATION_COPY = {
   supporters_tab: "Supporters",
 } as const;
 
+/**
+ * The two review tabs on a member profile, and the counts-strip tile that
+ * mirrors one of them.
+ *
+ * Lifted here because the same words appear on three surfaces of one page —
+ * the tab strip, the CountsStrip tile, and ReviewsPanel's own header — and
+ * the pre-v1.48 labels ("Reviews" / "Written") had already drifted from the
+ * panel's full wording. One const, no drift.
+ *
+ * `received` vs `written` is the v1.48 split: reviews filed ON this member
+ * (public trust signal) vs reviews this member AUTHORED. Both keep their
+ * original TabKey (`reviews`, `written`), so every deep link survives.
+ */
+export const REVIEW_TAB_COPY = {
+  /** Reviews filed on this member. */
+  received: "Reviews Received",
+  /** Reviews this member authored. Uppercased at the tile in CountsStrip. */
+  written: "Reviews Written",
+} as const;
+
+/**
+ * The two directions of the follow graph, on the Roster tab's sub-strip.
+ *
+ * Replaces "Being Watched" / "Keeping Tabs", which required the reader to
+ * work out which direction each meant. Direction verified against the hooks
+ * they render: the `followers` sub-tab calls useUserFollowers (people
+ * watching this operator) and `following` calls useUserFollowing (people
+ * this operator watches). Keys unchanged.
+ */
+export const ROSTER_TAB_COPY = {
+  /** People who watch this operator — useUserFollowers. */
+  followers: "Watchers",
+  /** People this operator watches — useUserFollowing. */
+  following: "Watching",
+} as const;
+
 /** `BACK · 2 OF 5` when the allocation is known, bare `BACK` when it isn't. */
 export function formatBackLabel(
   slotsUsed: number | undefined,

@@ -37,10 +37,25 @@ import type {
 
 const STALE_TIME_MS = 30_000;
 
+/**
+ * Server-rendered first page, handed down from a server component.
+ *
+ * updatedAt is not optional and not decorative. initialData alone tells
+ * React Query the data is fresh AS OF NOW, so the 30s staleTime restarts on
+ * the client and the seed can go stale without a refetch. Passing the real
+ * server fetch time makes staleness measured from when the data was
+ * actually read, which is the whole point of seeding.
+ */
+export interface RosterSeed {
+  data: AttestationRosterResponse;
+  updatedAt: number;
+}
+
 export function useAttestationRoster(
   targetKind: AttestationTargetKind | undefined,
   targetId: number | undefined,
   params: AttestationRosterParams = {},
+  seed?: RosterSeed,
 ): {
   data: AttestationRosterResponse | undefined;
   isLoading: boolean;
@@ -62,6 +77,9 @@ export function useAttestationRoster(
     },
     enabled,
     staleTime: STALE_TIME_MS,
+    ...(seed !== undefined
+      ? { initialData: seed.data, initialDataUpdatedAt: seed.updatedAt }
+      : {}),
   });
 
   return {

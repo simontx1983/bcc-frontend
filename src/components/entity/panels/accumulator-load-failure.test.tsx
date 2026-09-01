@@ -318,7 +318,9 @@ describe("WatchingPanel — followers / following independence", () => {
 
     // switch to the "following" roster. These sub-tabs carry role="tab",
     // which overrides the implicit button role.
-    fireEvent.click(screen.getByRole("tab", { name: /keeping tabs/i }));
+    // Label renamed "Keeping Tabs" -> "Watching" in the profile IA pass.
+    // Direction is unchanged: this sub-tab still reads useUserFollowing.
+    fireEvent.click(screen.getByRole("tab", { name: /watching/i }));
 
     fireEvent.click(screen.getByRole("button", { name: /retry/i }));
     expect(refetch.following).toHaveBeenCalledTimes(1);

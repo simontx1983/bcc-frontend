@@ -14,10 +14,25 @@
  * Anonymous visitors bounce through login and come back to the same tab.
  */
 
+import type { Metadata } from "next";
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 
 import { authOptions } from "@/lib/auth";
+
+/**
+ * Kept out of the index here rather than in robots.txt, because robots.txt
+ * matches by PREFIX: a `Disallow: /u/me` rule would also block `/u/mega`,
+ * `/u/melissa` and every other handle starting with "me". The `$` end-anchor
+ * is a non-standard extension, so a crawler that ignores it would silently
+ * under-block instead. Page metadata has none of that ambiguity.
+ *
+ * This route is a redirect either way — to the owner's profile, or to login —
+ * so there is nothing here worth indexing.
+ */
+export const metadata: Metadata = {
+  robots: { index: false, follow: false },
+};
 
 interface PageProps {
   searchParams: Promise<Record<string, string | string[] | undefined>>;

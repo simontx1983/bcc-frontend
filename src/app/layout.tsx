@@ -14,6 +14,7 @@ import { Preloader } from "@/components/preloader/Preloader";
 import { NavigationProgress } from "@/components/preloader/NavigationProgress";
 import { authOptions } from "@/lib/auth";
 import { appOrigin } from "@/lib/app-origin";
+import { isIndexableEnvironment } from "@/lib/seo/indexing";
 import "./globals.css";
 
 const stencil = Big_Shoulders_Stencil({
@@ -49,6 +50,23 @@ export const metadata: Metadata = {
   metadataBase: new URL(appOrigin()),
   title: "Blue Collar Crypto",
   description: "The Floor — trust, identity, and reputation for crypto operators.",
+  // Site-wide de-indexing for every deployment that is not the real
+  // production host: staging, previews, *.vercel.app project URLs, local,
+  // and anything with a missing or unresolvable origin.
+  //
+  // This is the ONLY de-indexing signal in this scope — no X-Robots-Tag
+  // header is added (that would need next.config.ts headers or a widened
+  // auth middleware, both out of bounds). That is also why robots.ts leaves
+  // non-production CRAWLABLE: a crawler blocked by robots.txt would never
+  // fetch the page and never see this tag.
+  //
+  // Next merges metadata down the route tree, so a child route can override
+  // this. Nothing does today — no other file in the app exports a `robots`
+  // key except /u/me and /u/[handle], and both only ever tighten it to
+  // noindex, never to index:true.
+  ...(isIndexableEnvironment()
+    ? {}
+    : { robots: { index: false, follow: false } }),
 };
 
 export const viewport: Viewport = {

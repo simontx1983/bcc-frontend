@@ -123,6 +123,18 @@ export interface CardFactoryProps {
    * mid-wizard). Flip and action cells are unaffected.
    */
   suppressBodyLink?: boolean | undefined;
+  /**
+   * The member profile permissions block, forwarded to the action bar so
+   * it can render a Message affordance.
+   *
+   * Set by /u/[handle] ONLY. The member CARD view-model deliberately does
+   * not carry a message permission (CardViewService returns
+   * not_applicable there, noting that the profile view-model holds the
+   * live gate), and resolving one per card would cost a policy evaluation
+   * for every tile in a 50-card grid. Absent everywhere else, which is
+   * what keeps directory, search and watching cards unchanged.
+   */
+  messagePermissions?: unknown;
 }
 
 export function CardFactory({
@@ -135,6 +147,7 @@ export function CardFactory({
   isJoined = false,
   joinPending = false,
   suppressBodyLink = false,
+  messagePermissions,
 }: CardFactoryProps) {
   const [flipped, setFlipped] = useState(false);
   const cardRef = useRef<HTMLDivElement | null>(null);
@@ -199,6 +212,7 @@ export function CardFactory({
           isJoined={isJoined}
           joinPending={joinPending}
           suppressBodyLink={suppressBodyLink}
+          messagePermissions={messagePermissions}
         />
         <CardBackFace
           card={card}

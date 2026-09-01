@@ -21,7 +21,7 @@
  *   - bcc_internal_error                     (500)
  */
 
-import { bccFetchAsClient } from "@/lib/api/client";
+import { bccFetch, bccFetchAsClient } from "@/lib/api/client";
 import type {
   AttestationCastRequest,
   AttestationCastResponse,
@@ -107,30 +107,71 @@ export function revokeAttestation(
  * carries no `weight_at_time` / `decayed_weight` per-row. Sorting
  * happens server-side; the FE renders the order it receives.
  */
+/**
+ * The params the profile Supporters roster reads with.
+ *
+ * Shared so the SSR seed and the client hook produce the SAME React Query
+ * key. React Query hashes keys structurally, so what matters is that these
+ * two callers agree on the VALUE — one const is how that stays true.
+ */
+export const PROFILE_ROSTER_PARAMS: AttestationRosterParams = {
+  include_revoked: true,
+};
+
+/**
+ * Shared path builder so the SSR seed and the client hook can never ask
+ * for different rows under the same React Query key.
+ */
+function rosterPath(
+  targetKind: AttestationTargetKind,
+  targetId: number,
+  params: AttestationRosterParams,
+): string {
+  const search = new URLSearchParams();
+  if (params.kind !== undefined) search.set("kind", params.kind);
+  if (params.sort !== undefined) search.set("sort", params.sort);
+  if (params.include_revoked === true) search.set("include_revoked", "1");
+  if (params.page !== undefined) search.set("page", String(params.page));
+  if (params.per_page !== undefined) search.set("per_page", String(params.per_page));
+  const query = search.toString();
+  return `entities/${targetKind}/${targetId}/attestations${query !== "" ? `?${query}` : ""}`;
+}
+
+/**
+ * ANONYMOUS server-side read, for the crawlable default profile tab.
+ *
+ * Deliberately token-less. The §J.4 row carries no per-viewer state, so the
+ * anonymous payload is the same shape a signed-in viewer would get — which
+ * is exactly why it is safe to put in a SHARED Data Cache entry and serve
+ * to every crawler and logged-out visitor. Passing a token here would
+ * cache one viewer's response for everyone, so there is no token parameter
+ * to get wrong.
+ *
+ * Seeded into React Query as initialData on the server; the client hook
+ * takes over from there. Callers MUST pass the same params object the hook
+ * uses, or the query keys diverge and the seed is silently ignored.
+ */
+export function getAttestationRosterAnon(
+  targetKind: AttestationTargetKind,
+  targetId: number,
+  params: AttestationRosterParams = {},
+  revalidate?: number,
+): Promise<AttestationRosterResponse> {
+  return bccFetch<AttestationRosterResponse>(
+    rosterPath(targetKind, targetId, params),
+    revalidate !== undefined
+      ? { method: "GET", revalidate }
+      : { method: "GET" },
+  );
+}
+
 export function getAttestationRoster(
   targetKind: AttestationTargetKind,
   targetId: number,
   params: AttestationRosterParams = {},
   signal?: AbortSignal,
 ): Promise<AttestationRosterResponse> {
-  const search = new URLSearchParams();
-  if (params.kind !== undefined) {
-    search.set("kind", params.kind);
-  }
-  if (params.sort !== undefined) {
-    search.set("sort", params.sort);
-  }
-  if (params.include_revoked === true) {
-    search.set("include_revoked", "1");
-  }
-  if (params.page !== undefined) {
-    search.set("page", String(params.page));
-  }
-  if (params.per_page !== undefined) {
-    search.set("per_page", String(params.per_page));
-  }
-  const query = search.toString();
-  const path = `entities/${targetKind}/${targetId}/attestations${query !== "" ? `?${query}` : ""}`;
+  const path = rosterPath(targetKind, targetId, params);
 
   return bccFetchAsClient<AttestationRosterResponse>(
     path,

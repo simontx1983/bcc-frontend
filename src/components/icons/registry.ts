@@ -34,4 +34,6 @@ export {
   DoorOpen as JoinIcon,
   /** Flip — turn the object over. */
   RotateCcw as FlipIcon,
+  /** Message — matches the Messages nav row, so the two read as one place. */
+  MessageSquare as MessageIcon,
 } from "lucide-react";
