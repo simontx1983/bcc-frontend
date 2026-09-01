@@ -15,6 +15,8 @@
  */
 
 import { useState } from "react";
+import { SettingsSaveStatus } from "@/components/settings/SettingsSaveStatus";
+import { useDirtyRegistration } from "@/hooks/useDirtyRegistration";
 
 import {
   useChangeAccountEmail,
@@ -65,6 +67,11 @@ export function AccountSection({ currentEmail }: AccountSectionProps) {
 
 function ChangeEmailCard({ currentEmail }: { currentEmail: string }) {
   const [email, setEmail] = useState(currentEmail);
+  // `currentEmail` is a server-component prop and does not update when the
+  // change succeeds, so it cannot serve as the baseline — comparing against
+  // it would leave the form permanently dirty after a successful save. This
+  // records what the server confirmed.
+  const [confirmedEmail, setConfirmedEmail] = useState(currentEmail);
   const [currentPassword, setCurrentPassword] = useState("");
   const [savedAt, setSavedAt] = useState<number | null>(null);
   const [serverError, setServerError] = useState<string | null>(null);
@@ -74,6 +81,7 @@ function ChangeEmailCard({ currentEmail }: { currentEmail: string }) {
       setSavedAt(Date.now());
       setServerError(null);
       setCurrentPassword("");
+      setConfirmedEmail(email);
     },
     onError: (err) => {
       setSavedAt(null);
@@ -81,8 +89,17 @@ function ChangeEmailCard({ currentEmail }: { currentEmail: string }) {
     },
   });
 
-  const dirty = email.trim() !== currentEmail.trim();
+  const dirty = email.trim() !== confirmedEmail.trim();
   const canSubmit = dirty && email.trim() !== "" && currentPassword !== "" && !mutation.isPending;
+
+  // A typed-but-unsubmitted password is lost work too, so it counts — but
+  // only as a boolean. The value never leaves this component.
+  useDirtyRegistration({
+    id: "account.email",
+    label: "your email address",
+    isDirty: dirty || currentPassword !== "",
+    isSaving: mutation.isPending,
+  });
 
   return (
     <section className="bcc-panel p-5">
@@ -126,7 +143,6 @@ function ChangeEmailCard({ currentEmail }: { currentEmail: string }) {
         <SaveRow
           serverError={serverError}
           savedAt={savedAt}
-          savedMessage="Email updated."
           busy={mutation.isPending}
           canSubmit={canSubmit}
           label="Save email"
@@ -159,6 +175,15 @@ function ChangePasswordCard() {
       setSavedAt(null);
       setServerError(humanizeError(err));
     },
+  });
+
+  // Boolean only — no password value is ever handed to the dirty registry.
+  useDirtyRegistration({
+    id: "account.password",
+    label: "your password",
+    isDirty:
+      currentPassword !== "" || newPassword !== "" || confirmPassword !== "",
+    isSaving: mutation.isPending,
   });
 
   const matches = newPassword === confirmPassword;
@@ -237,7 +262,6 @@ function ChangePasswordCard() {
         <SaveRow
           serverError={serverError}
           savedAt={savedAt}
-          savedMessage="Password updated."
           busy={mutation.isPending}
           canSubmit={canSubmit}
           label="Save password"
@@ -394,30 +418,30 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 function SaveRow({
   serverError,
   savedAt,
-  savedMessage,
   busy,
   canSubmit,
   label,
 }: {
   serverError: string | null;
   savedAt: number | null;
-  savedMessage: string;
   busy: boolean;
   canSubmit: boolean;
   label: string;
 }) {
   return (
     <div className="flex items-center justify-between gap-3 pt-1">
-      <div className="bcc-mono min-h-[1rem] text-[10px]">
-        {serverError !== null && (
-          <span role="alert" className="text-safety">{serverError}</span>
-        )}
-        {savedAt !== null && serverError === null && (
-          <span role="status" style={{ color: "var(--verified)" }}>
-            {savedMessage}
-          </span>
-        )}
-      </div>
+      <SettingsSaveStatus
+        status={
+          serverError !== null
+            ? "error"
+            : savedAt !== null
+              ? "saved"
+              : busy
+                ? "saving"
+                : "idle"
+        }
+        errorMessage={serverError ?? undefined}
+      />
       <button
         type="submit"
         disabled={!canSubmit}

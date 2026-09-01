@@ -33,6 +33,8 @@ import {
 } from "@/hooks/useNotificationPrefs";
 import { usePushSubscription } from "@/hooks/usePushSubscription";
 import { LoadFailure } from "@/components/ui/LoadFailure";
+import { SettingsSaveStatus, saveStatusFrom } from "@/components/settings/SettingsSaveStatus";
+import { useDirtyRegistration } from "@/hooks/useDirtyRegistration";
 import { humanizeCode, isNonRetryableFixedReadFailure } from "@/lib/api/errors";
 import type {
   BellEventType,
@@ -265,6 +267,19 @@ export function NotificationPrefsForm() {
   // error branch below it entirely and leave "Loading your preferences…"
   // on screen forever. Order matters here; don't flip it back. Same
   // correction as MessagesPrefsForm.
+  // Registered above the error/loading early-returns: a hook after them
+  // would run on the loaded render but not the loading one, which React
+  // rejects as a changed hook count. While the query is unresolved `dirty`
+  // is false anyway, so hydration cannot raise a false warning.
+  // Reuses the existing `dirty` memo. Push enable/disable are separate
+  // immediate mutations, not part of the Save draft, so they are not
+  // registered here.
+  useDirtyRegistration({
+    id: "notifications.prefs",
+    label: "your notification settings",
+    isDirty: dirty,
+    isSaving: mutation.isPending,
+  });
   if (query.isError) {
     return (
       <div className="bcc-panel p-6">
@@ -293,6 +308,7 @@ export function NotificationPrefsForm() {
       </div>
     );
   }
+
 
   const disabled = mutation.isPending;
   const pushBusy = push.enable.isPending || push.disable.isPending;
@@ -454,14 +470,16 @@ export function NotificationPrefsForm() {
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="bcc-mono text-[11px] text-bcc-text-secondary/70">
-          {savedAt !== null && (
-            <span style={{ color: "var(--verified)" }}>Saved.</span>
-          )}
-          {error !== null && (
-            <span role="alert" className="text-safety">
-              {error}
-            </span>
-          )}
+          <SettingsSaveStatus
+            status={
+              error !== null
+                ? "error"
+                : savedAt !== null
+                  ? "saved"
+                  : saveStatusFrom(mutation)
+            }
+            errorMessage={error ?? undefined}
+          />
         </div>
         <button
           type="button"

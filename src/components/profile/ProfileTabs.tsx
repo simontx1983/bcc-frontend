@@ -41,6 +41,10 @@ import { useSearchParams } from "next/navigation";
 import { Skeleton } from "@/components/ui/Skeleton";
 import type { RosterSeed } from "@/hooks/useAttestationRoster";
 import { useRovingTabs } from "@/hooks/useRovingTabs";
+import {
+  SettingsDirtyProvider,
+  useSettingsDirtyGuard,
+} from "@/components/settings/SettingsDirtyProvider";
 import { ATTESTATION_COPY, REVIEW_TAB_COPY } from "@/lib/copy/trust-layer";
 import {
   SubTabNav,
@@ -446,6 +450,13 @@ export function ProfileTabs({
     window.history.replaceState(null, "", `${window.location.pathname}?${params.toString()}`);
   }, []);
 
+  // Everything that can change tabs goes through requestNavigation instead
+  // of handleTabChange. handleTabChange stays the RAW move and is called
+  // only by the guard — the choke point is what makes this one wrapper
+  // enough to cover clicks, Enter and Space on both strips.
+  const dirtyGuard = useSettingsDirtyGuard(handleTabChange);
+  const { requestNavigation } = dirtyGuard;
+
   // PR-11b — Setup tab no longer auto-hides on a finished checklist.
   // The tab now holds three sub-tabs (Checklist / Standing /
   // Reliability) so it stays relevant for the operator's own
@@ -509,11 +520,15 @@ export function ProfileTabs({
   );
   const { setRef: setParentRef, onKeyDown: onParentKeyDown } = useRovingTabs(
     parentKeys,
-    handleTabChange,
+    requestNavigation,
   );
 
   return (
     <section className="bcc-stage-reveal" style={{ ["--stagger" as string]: "560ms" }}>
+      {/* The provider only carries the registry down to the settings forms;
+          the guard state itself lives in this component because the strips
+          above need requestNavigation. */}
+      <SettingsDirtyProvider registry={dirtyGuard.registry}>
       {/* Tab strip on the concrete background. Blog is a sibling link
           (separate route per §D6) — sits at the right end so it reads
           as "and there's also a blog over here."
@@ -543,7 +558,7 @@ export function ProfileTabs({
               ? { "aria-controls": `tabpanel-${tab.key}` }
               : {})}
             tabIndex={activeParent === tab.key ? 0 : -1}
-            onClick={() => handleTabChange(tab.key)}
+            onClick={() => requestNavigation(tab.key)}
             onKeyDown={(e) => onParentKeyDown(e, index)}
             className="bcc-tab shrink-0"
           >
@@ -596,7 +611,7 @@ export function ProfileTabs({
           <SubTabNav
             tabs={MY_PROFILE_CHILDREN}
             active={effectiveActive}
-            onSelect={handleTabChange}
+            onSelect={requestNavigation}
             ariaLabel="My Profile sections"
             idBase={SETTINGS_ID_BASE}
           />
@@ -683,6 +698,11 @@ export function ProfileTabs({
         )}
         </div>
       </div>
+
+      {/* Inside the provider so <Dialog>’s focus return lands on the tab
+          that triggered it. */}
+      {dirtyGuard.dialog}
+      </SettingsDirtyProvider>
     </section>
   );
 }

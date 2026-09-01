@@ -18,6 +18,7 @@
  */
 
 import Image from "next/image";
+import { useDirtyRegistration } from "@/hooks/useDirtyRegistration";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 
@@ -83,6 +84,13 @@ export function ProfileHero({ profile, nav }: ProfileHeroProps) {
   const [reposMode, setReposMode] = useState(false);
   const [posX, setPosX] = useState(profile.cover_photo_position.x);
   const [posY, setPosY] = useState(profile.cover_photo_position.y);
+  // The last coordinates the server confirmed. `profile` is a server-component
+  // prop refreshed asynchronously by router.refresh(), so comparing the draft
+  // against it would read as dirty for the whole refresh window after a save.
+  const [savedPos, setSavedPos] = useState({
+    x: profile.cover_photo_position.x,
+    y: profile.cover_photo_position.y,
+  });
 
   const coverInputRef = useRef<HTMLInputElement | null>(null);
   const avatarInputRef = useRef<HTMLInputElement | null>(null);
@@ -99,10 +107,18 @@ export function ProfileHero({ profile, nav }: ProfileHeroProps) {
 
   const [nameEditing, setNameEditing] = useState(false);
   const [nameDraft, setNameDraft] = useState(profile.display_name);
+  // The last name the server confirmed. Same reason as savedPos below:
+  // `profile` is a server-component prop refreshed asynchronously by
+  // router.refresh(), and onSuccess does not reset nameDraft — so a user who
+  // saves and then re-opens the editor before the refresh lands would be
+  // told they have unsaved changes without having touched anything.
+  const [savedName, setSavedName] = useState(profile.display_name);
   const [nameError, setNameError] = useState<string | null>(null);
 
   const nameMutation = useUpdateBio({
-    onSuccess: () => {
+    onSuccess: (data) => {
+      // The server-confirmed value, not the submitted one.
+      setSavedName(data.display_name);
       setNameEditing(false);
       setNameError(null);
       onMutationSuccess();
@@ -134,7 +150,8 @@ export function ProfileHero({ profile, nav }: ProfileHeroProps) {
   const uploadCover = useUploadCover({ onSuccess: onMutationSuccess, onError: onMutationError });
   const removeCover = useDeleteCover({ onSuccess: onMutationSuccess, onError: onMutationError });
   const positionMutation = useUpdateCoverPosition({
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
+      setSavedPos({ x: variables.x, y: variables.y });
       onMutationSuccess();
       setReposMode(false);
     },
@@ -142,6 +159,22 @@ export function ProfileHero({ profile, nav }: ProfileHeroProps) {
   });
   const uploadAvatar = useUploadAvatar({ onSuccess: onMutationSuccess, onError: onMutationError });
   const removeAvatar = useDeleteAvatar({ onSuccess: onMutationSuccess, onError: onMutationError });
+
+  // Two independent surfaces on this one component. Both are gated on their
+  // editing mode: opening the editor or entering reposition mode is not
+  // itself a change, so neither warns until a value actually differs.
+  useDirtyRegistration({
+    id: "profile.displayName",
+    label: "your display name",
+    isDirty: nameEditing && nameDraft.trim() !== savedName.trim(),
+    isSaving: nameMutation.isPending,
+  });
+  useDirtyRegistration({
+    id: "profile.coverPosition",
+    label: "your cover photo position",
+    isDirty: reposMode && (posX !== savedPos.x || posY !== savedPos.y),
+    isSaving: positionMutation.isPending,
+  });
 
   const busy =
     uploadCover.isPending ||
