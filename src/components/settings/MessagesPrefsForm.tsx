@@ -23,6 +23,8 @@ import {
   useUpdateMessagesPrefs,
 } from "@/hooks/useMessagesPrefs";
 import { LoadFailure } from "@/components/ui/LoadFailure";
+import { SettingsSaveStatus, saveStatusFrom } from "@/components/settings/SettingsSaveStatus";
+import { useDirtyRegistration } from "@/hooks/useDirtyRegistration";
 import { isNonRetryableFixedReadFailure } from "@/lib/api/errors";
 import { BccApiError } from "@/lib/api/types";
 
@@ -78,6 +80,23 @@ export function MessagesPrefsForm() {
   // the old loading guard (`isLoading || draft === null`) swallow the
   // error branch entirely and leave "Loading messages preferences…" on
   // screen forever. Order matters here; don't flip it back.
+  // Above BOTH early returns (isError and isLoading): a hook after either
+  // would run on the loaded render but not the failed/loading one, which
+  // React rejects as a changed hook count.
+  // Registered before the loading early-return so hook order stays stable.
+  // While the query is still resolving there is no baseline, so nothing can
+  // be dirty — that is what keeps hydration from raising a false warning.
+  const dirty =
+    draft !== null &&
+    query.data !== undefined &&
+    (draft.chat_enabled !== query.data.chat_enabled ||
+      draft.chat_friends_only !== query.data.chat_friends_only);
+  useDirtyRegistration({
+    id: "messages.prefs",
+    label: "your message settings",
+    isDirty: dirty,
+    isSaving: mutation.isPending,
+  });
   if (query.isError) {
     return (
       <div className="bcc-panel p-6">
@@ -97,6 +116,7 @@ export function MessagesPrefsForm() {
     );
   }
 
+
   if (query.isLoading || draft === null) {
     return (
       <div className="bcc-panel p-6">
@@ -105,10 +125,7 @@ export function MessagesPrefsForm() {
     );
   }
 
-  const isUnchanged =
-    query.data !== undefined &&
-    draft.chat_enabled === query.data.chat_enabled &&
-    draft.chat_friends_only === query.data.chat_friends_only;
+  const isUnchanged = !dirty;
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -147,20 +164,16 @@ export function MessagesPrefsForm() {
       </div>
 
       <div className="flex items-center justify-end gap-4">
-        {serverError !== null && (
-          <span role="alert" className="bcc-mono text-safety">
-            {serverError}
-          </span>
-        )}
-        {savedAt !== null && serverError === null && (
-          <span
-            role="status"
-            className="bcc-mono"
-            style={{ color: "var(--verified)" }}
-          >
-            Saved.
-          </span>
-        )}
+        <SettingsSaveStatus
+          status={
+            serverError !== null
+              ? "error"
+              : savedAt !== null
+                ? "saved"
+                : saveStatusFrom(mutation)
+          }
+          errorMessage={serverError ?? undefined}
+        />
         <button
           type="submit"
           disabled={isUnchanged || mutation.isPending}

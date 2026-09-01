@@ -24,6 +24,7 @@
  */
 
 import { useRouter } from "next/navigation";
+import { useDirtyRegistration } from "@/hooks/useDirtyRegistration";
 import { type FormEvent, useEffect, useState } from "react";
 
 import { useUpdateHandle } from "@/hooks/useUpdateHandle";
@@ -86,6 +87,18 @@ export function IdentitySettingsForm({ currentHandle }: IdentitySettingsFormProp
   }
 
   const cooldown = useCooldown(confirmed?.next_change_at ?? null);
+
+  // NOT `isUnchanged`. That compares against the `currentHandle` prop, which
+  // lags behind a successful save until router.refresh() lands — so reusing
+  // it would report dirty for the whole refresh window after saving. The
+  // server-confirmed handle is the real baseline the moment it exists.
+  const savedHandle = (confirmed?.handle ?? currentHandle).toLowerCase();
+  useDirtyRegistration({
+    id: "profile.handle",
+    label: "your handle",
+    isDirty: trimmed !== savedHandle,
+    isSaving: mutation.isPending,
+  });
 
   return (
     <div className="bcc-panel p-6">

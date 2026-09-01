@@ -24,6 +24,8 @@ import type {
   PostVisibility,
 } from "@/lib/api/profile-prefs-endpoints";
 import { LoadFailure } from "@/components/ui/LoadFailure";
+import { SettingsSaveStatus, saveStatusFrom } from "@/components/settings/SettingsSaveStatus";
+import { useDirtyRegistration } from "@/hooks/useDirtyRegistration";
 import { isNonRetryableFixedReadFailure } from "@/lib/api/errors";
 import { BccApiError } from "@/lib/api/types";
 
@@ -200,6 +202,17 @@ function ProfilePrefsForm({ initial }: { initial: ProfilePrefs }) {
 
   const busy = mutation.isPending;
 
+  // Reuses the existing `dirty` memo rather than recomputing it. The memo
+  // compares the draft against `initial`, which the cache replaces on a
+  // successful save (setQueryData primes it from the mutation response), so
+  // a save goes clean in the same render — no refetch window to warn during.
+  useDirtyRegistration({
+    id: "privacy.prefs",
+    label: "your privacy preferences",
+    isDirty: dirty,
+    isSaving: mutation.isPending,
+  });
+
   return (
     <div className="flex flex-col gap-6">
       <section className="bcc-panel p-5">
@@ -320,14 +333,16 @@ function ProfilePrefsForm({ initial }: { initial: ProfilePrefs }) {
 
       <div className="flex items-center justify-between gap-3">
         <div className="bcc-mono min-h-[1rem] text-[11px]">
-          {serverError !== null && (
-            <span role="alert" className="text-safety">{serverError}</span>
-          )}
-          {savedAt !== null && serverError === null && (
-            <span role="status" style={{ color: "var(--verified)" }}>
-              Preferences saved.
-            </span>
-          )}
+          <SettingsSaveStatus
+            status={
+              serverError !== null
+                ? "error"
+                : savedAt !== null
+                  ? "saved"
+                  : saveStatusFrom(mutation)
+            }
+            errorMessage={serverError ?? undefined}
+          />
         </div>
         <button
           type="button"

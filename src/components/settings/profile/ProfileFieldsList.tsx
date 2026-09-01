@@ -28,6 +28,8 @@ import {
   type ProfileFieldVisibility,
 } from "@/lib/api/profile-fields-endpoints";
 import { LoadFailure } from "@/components/ui/LoadFailure";
+import { SettingsSaveStatus } from "@/components/settings/SettingsSaveStatus";
+import { useDirtyRegistration } from "@/hooks/useDirtyRegistration";
 import { isNonRetryableFixedReadFailure } from "@/lib/api/errors";
 import { BccApiError } from "@/lib/api/types";
 
@@ -166,6 +168,16 @@ function ProfileFieldRow({ field }: { field: ProfileField }) {
 
   const busy = valueMutation.isPending || visibilityMutation.isPending;
 
+  // One registration per field row — each row saves independently, so the
+  // dialog can name exactly which field is unsaved. Reuses the row’s own
+  // dirty computations rather than duplicating the comparison.
+  useDirtyRegistration({
+    id: `profile.field.${field.key}`,
+    label: `your ${field.label.toLowerCase()}`,
+    isDirty: valueDirty || visibilityDirty,
+    isSaving: busy,
+  });
+
   function handleSave() {
     setServerError(null);
     setSavedAt(null);
@@ -210,14 +222,18 @@ function ProfileFieldRow({ field }: { field: ProfileField }) {
 
       <div className="mt-3 flex items-center justify-between gap-3">
         <div className="bcc-mono min-h-[1rem] text-[10px]">
-          {serverError !== null && (
-            <span role="alert" className="text-safety">{serverError}</span>
-          )}
-          {savedAt !== null && serverError === null && (
-            <span role="status" style={{ color: "var(--verified)" }}>
-              Saved.
-            </span>
-          )}
+          <SettingsSaveStatus
+            status={
+              serverError !== null
+                ? "error"
+                : savedAt !== null
+                  ? "saved"
+                  : busy
+                    ? "saving"
+                    : "idle"
+            }
+            errorMessage={serverError ?? undefined}
+          />
         </div>
         <button
           type="button"
