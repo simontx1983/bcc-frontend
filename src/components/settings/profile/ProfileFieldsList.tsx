@@ -19,10 +19,12 @@
 import { useEffect, useMemo, useState } from "react";
 
 import {
+  profileFieldValuesEqual,
   useProfileFields,
   useUpdateProfileFieldValue,
   useUpdateProfileFieldVisibility,
 } from "@/hooks/useProfileFields";
+import { rowSaveOutcome } from "@/components/settings/profile/field-save-outcome";
 import {
   type ProfileField,
   type ProfileFieldVisibility,
@@ -129,39 +131,29 @@ function ProfileFieldRow({ field }: { field: ProfileField }) {
   const [draftVisibility, setDraftVisibility] = useState<ProfileFieldVisibility>(
     field.visibility,
   );
-  const [savedAt, setSavedAt] = useState<number | null>(null);
-  const [serverError, setServerError] = useState<string | null>(null);
+  // Which halves the CURRENT attempt asked for. React Query keeps the
+  // previous attempt's isSuccess/isError, so without this a retry of the
+  // failed half would read the other half's stale success. Reset on every
+  // save; see field-save-outcome.ts.
+  const [requested, setRequested] = useState({ value: false, visibility: false });
 
-  // When the cache is updated by another row's mutation (or refetch),
-  // sync the draft to the new authoritative value.
+  // Two effects, one per property, deliberately NOT one effect keyed on
+  // both. Sharing an effect meant a successful VALUE merge also reset
+  // draftVisibility — silently throwing away the visibility the user had
+  // just chosen whenever that half failed, and flipping the row clean so
+  // there was nothing left to retry.
   useEffect(() => {
     setDraftValue(field.value);
+  }, [field.value]);
+  useEffect(() => {
     setDraftVisibility(field.visibility);
-  }, [field.value, field.visibility]);
+  }, [field.visibility]);
 
-  const valueMutation = useUpdateProfileFieldValue({
-    onSuccess: () => {
-      setSavedAt(Date.now());
-      setServerError(null);
-    },
-    onError: (err) => {
-      setSavedAt(null);
-      setServerError(humanizeError(err));
-    },
-  });
-  const visibilityMutation = useUpdateProfileFieldVisibility({
-    onSuccess: () => {
-      setSavedAt(Date.now());
-      setServerError(null);
-    },
-    onError: (err) => {
-      setSavedAt(null);
-      setServerError(humanizeError(err));
-    },
-  });
+  const valueMutation = useUpdateProfileFieldValue();
+  const visibilityMutation = useUpdateProfileFieldVisibility();
 
   const valueDirty = useMemo(
-    () => !valuesEqual(draftValue, field.value),
+    () => !profileFieldValuesEqual(draftValue, field.value),
     [draftValue, field.value],
   );
   const visibilityDirty = draftVisibility !== field.visibility;
@@ -178,13 +170,27 @@ function ProfileFieldRow({ field }: { field: ProfileField }) {
     isSaving: busy,
   });
 
+  const outcome = rowSaveOutcome({
+    requestedValue: requested.value,
+    requestedVisibility: requested.visibility,
+    value: valueMutation,
+    visibility: visibilityMutation,
+  });
+
   function handleSave() {
-    setServerError(null);
-    setSavedAt(null);
-    if (valueDirty) {
+    // Snapshot what this attempt covers BEFORE firing, and reset the
+    // mutations so a previous attempt's terminal state can't be read as
+    // this one's result.
+    const wantValue = valueDirty;
+    const wantVisibility = visibilityDirty;
+    if (!wantValue && !wantVisibility) return;
+    valueMutation.reset();
+    visibilityMutation.reset();
+    setRequested({ value: wantValue, visibility: wantVisibility });
+    if (wantValue) {
       valueMutation.mutate({ key: field.key, value: draftValue });
     }
-    if (visibilityDirty) {
+    if (wantVisibility) {
       visibilityMutation.mutate({ key: field.key, visibility: draftVisibility });
     }
   }
@@ -197,18 +203,28 @@ function ProfileFieldRow({ field }: { field: ProfileField }) {
           className="bcc-mono text-[11px] tracking-[0.16em] text-bcc-text"
         >
           {field.label.toUpperCase()}
-          {field.required && <span className="ml-1 text-safety">*</span>}
+          {/* The bare coloured asterisk carried this in colour alone, and
+              nothing told assistive tech the field was required. */}
+          {field.required && (
+            <span className="ml-2 text-safety">Required</span>
+          )}
         </label>
         <VisibilityPicker
           value={draftVisibility}
           onChange={setDraftVisibility}
           disabled={field.visibility_locked || busy}
           locked={field.visibility_locked}
+          fieldLabel={field.label}
         />
       </div>
 
       {field.help_text !== null && (
-        <p className="bcc-mono mt-1 text-[10px] text-bcc-text-secondary">{field.help_text}</p>
+        <p
+          id={`field-${field.key}-help`}
+          className="bcc-mono mt-1 text-[10px] text-bcc-text-secondary"
+        >
+          {field.help_text}
+        </p>
       )}
 
       <div className="mt-3">
@@ -222,18 +238,18 @@ function ProfileFieldRow({ field }: { field: ProfileField }) {
 
       <div className="mt-3 flex items-center justify-between gap-3">
         <div className="bcc-mono min-h-[1rem] text-[10px]">
-          <SettingsSaveStatus
-            status={
-              serverError !== null
-                ? "error"
-                : savedAt !== null
-                  ? "saved"
-                  : busy
-                    ? "saving"
-                    : "idle"
-            }
-            errorMessage={serverError ?? undefined}
-          />
+          {/* Progress and success ride the shared polite region. A failure
+              is an alert instead, and `status` is never "error" here, so
+              the polite region renders empty and one outcome is never
+              announced by two regions. The partial-failure wording does
+              not fit SettingsSaveStatus's "Couldn't save — {reason}"
+              template, which is the other reason it lives out here. */}
+          <SettingsSaveStatus status={outcome.status} />
+          {outcome.errorMessage !== null && (
+            <p role="alert" className="mt-1 text-safety">
+              {outcome.errorMessage}
+            </p>
+          )}
         </div>
         <button
           type="button"
@@ -261,6 +277,15 @@ interface FieldInputProps {
 
 function FieldInput({ field, value, onChange, disabled }: FieldInputProps) {
   const id = `field-${field.key}`;
+  // Help text used to be a loose sibling paragraph — visible, but never
+  // announced with the control it explains. `required` was an unlabelled
+  // coloured asterisk. Both are spread onto every branch below so no
+  // control type can quietly miss them. Conditional spread rather than
+  // `undefined` values, for exactOptionalPropertyTypes.
+  const a11y = {
+    ...(field.help_text !== null ? { "aria-describedby": `${id}-help` } : {}),
+    ...(field.required ? { "aria-required": true } : {}),
+  } as const;
   const inputClass =
     "w-full border border-bcc-input-border bg-bcc-input-bg px-3 py-2 font-serif text-bcc-text outline-none focus:border-bcc-accent focus:ring-1 focus:ring-bcc-accent disabled:opacity-50";
 
@@ -269,6 +294,7 @@ function FieldInput({ field, value, onChange, disabled }: FieldInputProps) {
       return (
         <textarea
           id={id}
+          {...a11y}
           value={typeof value === "string" ? value : ""}
           onChange={(e) => onChange(e.target.value)}
           disabled={disabled}
@@ -282,6 +308,7 @@ function FieldInput({ field, value, onChange, disabled }: FieldInputProps) {
       return (
         <input
           id={id}
+          {...a11y}
           type="date"
           value={typeof value === "string" ? value : ""}
           onChange={(e) => onChange(e.target.value)}
@@ -294,6 +321,7 @@ function FieldInput({ field, value, onChange, disabled }: FieldInputProps) {
       return (
         <input
           id={id}
+          {...a11y}
           type="url"
           value={typeof value === "string" ? value : ""}
           onChange={(e) => onChange(e.target.value)}
@@ -308,6 +336,7 @@ function FieldInput({ field, value, onChange, disabled }: FieldInputProps) {
       return (
         <input
           id={id}
+          {...a11y}
           type="email"
           value={typeof value === "string" ? value : ""}
           onChange={(e) => onChange(e.target.value)}
@@ -324,6 +353,7 @@ function FieldInput({ field, value, onChange, disabled }: FieldInputProps) {
       return (
         <select
           id={id}
+          {...a11y}
           value={stringValue}
           onChange={(e) => onChange(e.target.value)}
           disabled={disabled}
@@ -408,6 +438,7 @@ function FieldInput({ field, value, onChange, disabled }: FieldInputProps) {
       return (
         <input
           id={id}
+          {...a11y}
           type="text"
           value={typeof value === "string" ? value : ""}
           onChange={(e) => onChange(e.target.value)}
@@ -428,11 +459,14 @@ function VisibilityPicker({
   onChange,
   disabled,
   locked,
+  fieldLabel,
 }: {
   value: ProfileFieldVisibility;
   onChange: (v: ProfileFieldVisibility) => void;
   disabled: boolean;
   locked: boolean;
+  /** Makes the accessible name unique per row — see the aria-label below. */
+  fieldLabel: string;
 }) {
   return (
     <div className="flex items-center gap-2">
@@ -444,12 +478,15 @@ function VisibilityPicker({
           LOCKED
         </span>
       )}
+      {/* Every row used to announce the identical "Field visibility", so a
+          screen-reader user heard the same name N times with no way to tell
+          which field they were changing. */}
       <select
         value={value}
         onChange={(e) => onChange(e.target.value as ProfileFieldVisibility)}
         disabled={disabled}
         className="bcc-mono border border-bcc-input-border bg-bcc-input-bg px-2 py-1 text-[10px] tracking-[0.14em] text-bcc-text outline-none focus:border-bcc-accent focus:ring-1 focus:ring-bcc-accent disabled:opacity-50"
-        aria-label="Field visibility"
+        aria-label={`Who can see ${fieldLabel}`}
       >
         {VISIBILITY_OPTIONS.map((opt) => (
           <option key={opt.value} value={opt.value}>
@@ -461,20 +498,8 @@ function VisibilityPicker({
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────
-// Helpers
-// ─────────────────────────────────────────────────────────────────────
-
-function valuesEqual(
-  a: string | string[],
-  b: string | string[],
-): boolean {
-  if (typeof a === "string" && typeof b === "string") return a === b;
-  if (Array.isArray(a) && Array.isArray(b)) {
-    if (a.length !== b.length) return false;
-    const sortedA = [...a].sort();
-    const sortedB = [...b].sort();
-    return sortedA.every((v, i) => v === sortedB[i]);
-  }
-  return false;
-}
+// Value comparison lives with the cache merge that also needs it —
+// `profileFieldValuesEqual` in hooks/useProfileFields.ts. Keeping a second
+// copy here would let the row's dirty check and the cache's change check
+// drift apart, which is exactly the kind of disagreement that produced the
+// clobbering bug the merge fix addresses.

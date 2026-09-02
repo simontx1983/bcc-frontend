@@ -661,16 +661,36 @@ describe("confirmed baselines, asserted at the source", () => {
     // router.refresh(), and onSuccess does not reset nameDraft. Comparing
     // against the prop meant re-opening the editor after a save reported
     // dirty with nothing changed.
+    //
+    // The profile-tab slice replaced the separate `savedName` / `savedPos`
+    // baselines with one field-owned `confirmed` record. The invariant is
+    // unchanged and still asserted here — only the name of the baseline
+    // moved. The negative assertion is the load-bearing half.
     const src = hero();
-    expect(src).toContain("nameDraft.trim() !== savedName.trim()");
+    expect(src).toContain("nameDraft.trim() !== confirmed.display_name.trim()");
     expect(src).not.toContain("nameDraft.trim() !== profile.display_name.trim()");
-    expect(src).toContain("setSavedName(data.display_name)");
+    expect(src).toContain('confirmField("display_name", data.display_name)');
   });
 
   it("cover position compares against the confirmed saved coordinates", () => {
     const src = hero();
-    expect(src).toContain("posX !== savedPos.x || posY !== savedPos.y");
-    expect(src).toContain("setSavedPos({ x: variables.x, y: variables.y })");
+    expect(src).toContain("posX !== confirmed.cover_photo_position.x");
+    expect(src).toContain("posY !== confirmed.cover_photo_position.y");
+    expect(src).not.toContain("posX !== profile.cover_photo_position.x");
+    expect(src).toContain('confirmField("cover_photo_position"');
+  });
+
+  it("no mutation writes the whole confirmed record from its response", () => {
+    // Every /me/profile mutation returns a FULL MemberProfile, each a
+    // snapshot taken when that request ran. The display-name mutation is
+    // not gated by `busy` and can overlap a media upload, so writing the
+    // whole object would let either response's stale copy of the other
+    // field win purely on arrival order.
+    const src = hero();
+    expect(src).not.toMatch(/setConfirmed\(data\)/);
+    // The only unconditional whole-record writes are the initial seed and
+    // the identity-change reset.
+    expect([...src.matchAll(/setConfirmed\(/g)]).toHaveLength(2);
   });
 
   it("the email card compares against the confirmed email, not the prop", () => {

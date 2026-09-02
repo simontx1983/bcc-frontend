@@ -47,7 +47,7 @@
  * lives in the header table above.
  */
 
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 // Transitive module-load requirement only: the typed API client reads
@@ -112,22 +112,42 @@ interface Hero {
   caption: Element;
 }
 
-/** Locate every node the invariants talk about. Throws if any is missing. */
+/**
+ * Locate every node the invariants talk about. Throws if any is missing.
+ *
+ * The boxes are found by `data-bcc-hero`, not by the `group/cover` and
+ * `group/avatar` class markers they used to carry. Those markers existed
+ * only to scope `group-hover:` reveals on the photo-editor overlays, and
+ * the profile-tab slice deleted those overlays — the controls were
+ * `opacity-0` until hover, so they were invisible and unreachable on touch.
+ * A structural invariant should not be pinned to a styling utility that a
+ * redesign can legitimately drop.
+ *
+ * The buttons likewise moved OUT of the avatar and cover boxes into a
+ * persistent control row, which is the whole point of that change. They are
+ * still read here because the touch-target floor below is theirs.
+ */
 function readHero(root: ParentNode): Hero {
   const section = root.querySelector("section.bcc-panel");
-  const coverBox = root.querySelector('[class~="group/cover"]');
-  const avatarWrap = root.querySelector('[class~="group/avatar"]');
+  const coverBox = root.querySelector('[data-bcc-hero="cover"]');
+  const avatarWrap = root.querySelector('[data-bcc-hero="avatar"]');
   if (section === null) throw new Error("no section.bcc-panel");
-  if (coverBox === null) throw new Error("no group/cover box");
-  if (avatarWrap === null) throw new Error("no group/avatar wrapper");
+  if (coverBox === null) throw new Error("no cover box");
+  if (avatarWrap === null) throw new Error("no avatar wrapper");
   const avatarFrame = avatarWrap.firstElementChild;
   if (avatarFrame === null) throw new Error("avatar wrapper has no frame child");
-  const avatarButtons = Array.from(avatarWrap.querySelectorAll("button"));
-  const avatarRemove = avatarButtons.find((b) => b.textContent?.trim() === "REMOVE");
-  if (avatarRemove === undefined) throw new Error("no avatar REMOVE button");
-  const coverOverlay = coverBox.querySelector(":scope > div.absolute");
-  const coverButtons =
-    coverOverlay === null ? [] : Array.from(coverOverlay.querySelectorAll("button"));
+
+  // The controls now live behind one labelled menu trigger, so they must
+  // be OPENED before they exist in the DOM. That is the point of the
+  // change: nothing is revealed by hover, and nothing sits over the
+  // images this file is about.
+  const menu = root.querySelector('[role="menu"]');
+  const controls = menu === null ? [] : Array.from(menu.querySelectorAll('[role="menuitem"]'));
+  const text = (b: Element) => b.textContent?.trim() ?? "";
+  const avatarButtons = controls.filter((b) => /profile photo$/.test(text(b)));
+  const avatarRemove = avatarButtons.find((b) => text(b) === "Remove profile photo");
+  if (avatarRemove === undefined) throw new Error("no Remove profile photo item");
+  const coverButtons = controls.filter((b) => /cover photo$/.test(text(b)));
   const caption = Array.from(section.children).find((c) =>
     /(?:^|\s)pt-\d/.test(classOf(c)),
   );
@@ -186,7 +206,18 @@ function clipRegressions(root: ParentNode): string[] {
   return out;
 }
 
-const renderHero = () => render(<ProfileHero profile={PROFILE} />).container;
+const renderHero = () => {
+  const c = render(<ProfileHero profile={PROFILE} />).container;
+  // Open the photo menu in the LIVE tree. The mutation controls below
+  // clone the container and mutate the clone; a detached clone cannot
+  // re-render React, so the menu has to already be open before cloning.
+  const trigger = Array.from(c.querySelectorAll("button")).find((b) =>
+    (b.textContent ?? "").includes("Edit photos"),
+  );
+  if (trigger === undefined) throw new Error("no Edit photos trigger");
+  fireEvent.click(trigger);
+  return c;
+};
 
 // ─────────────────────────────────────────────────────────────────────────
 // 0. Preconditions — a guard that scans nothing passes everything
@@ -205,9 +236,9 @@ describe("preconditions — the scan surface is real", () => {
     expect(h.avatarWrap).not.toBeNull();
     expect(h.avatarFrame).not.toBeNull();
     expect(h.caption).not.toBeNull();
-    expect(h.avatarButtons).toHaveLength(2); // CHANGE + REMOVE
-    expect(h.coverButtons).toHaveLength(3); // CHANGE COVER + REPOSITION + REMOVE
-    expect(h.avatarRemove.textContent?.trim()).toBe("REMOVE");
+    expect(h.avatarButtons).toHaveLength(2); // Change + Remove profile photo
+    expect(h.coverButtons).toHaveLength(3); // Change + Reposition + Remove cover photo
+    expect(h.avatarRemove.textContent?.trim()).toBe("Remove profile photo");
   });
 
   it("walks a non-empty ancestor chain from the avatar up to the panel", () => {
@@ -350,7 +381,7 @@ describe("geometry contract", () => {
     // 0px of eyebrow overlap after.
     const c = renderHero();
     const h = readHero(c);
-    const reposition = h.coverButtons.find((b) => b.textContent?.trim() === "REPOSITION");
+    const reposition = h.coverButtons.find((b) => b.textContent?.trim() === "Reposition cover photo");
     expect(reposition, "REPOSITION button").toBeDefined();
     fireEvent.click(reposition as Element);
 
@@ -368,41 +399,51 @@ describe("geometry contract", () => {
 // 4. Touch target — doctrine §5.9's sanctioned compact minimum
 // ─────────────────────────────────────────────────────────────────────────
 
-describe("the avatar overlay controls are tappable", () => {
-  // 36px, not 44px: two 44px controls plus the 4px `gap-1` need 92px and
-  // the avatar's content box is 88px at base, so 44 cannot fit without
-  // resizing the avatar. `min-h-[36px]` is the project's own compact
-  // minimum, canonically FilterChipRow (src/components/ui/FilterChipRow.tsx).
+describe("the photo controls are tappable", () => {
+  // The old pair of chips lived INSIDE the 88px avatar frame, which is why
+  // they were pinned to the project's compact 36px minimum rather than 44:
+  // two 44px controls plus a 4px gap need 92px and did not fit. That
+  // constraint is gone — the controls are menu rows in normal flow now, so
+  // nothing is squeezed by the avatar's box.
   const MIN = "min-h-[36px]";
 
-  it("both overlay buttons carry the compact minimum", () => {
-    const h = readHero(renderHero());
-    expect(h.avatarButtons).toHaveLength(2);
-    for (const b of h.avatarButtons) expect(classOf(b), b.textContent ?? "").toContain(MIN);
+  it("the always-visible trigger carries the compact minimum", () => {
+    const c = renderHero();
+    const trigger = Array.from(c.querySelectorAll("button")).find((b) =>
+      (b.textContent ?? "").includes("Edit photos"),
+    );
+    expect(trigger).toBeDefined();
+    expect(classOf(trigger as Element)).toContain(MIN);
   });
 
-  it("they centre their label rather than pinning it to the top edge", () => {
+  it("menu rows are full-width with real vertical padding, not tight chips", () => {
     for (const b of readHero(renderHero()).avatarButtons) {
-      expect(classOf(b)).toContain("inline-flex");
-      expect(classOf(b)).toContain("items-center");
+      expect(classOf(b), b.textContent ?? "").toContain("w-full");
+      expect(classOf(b), b.textContent ?? "").toMatch(/py-2/);
     }
   });
 
-  it("36px × 2 plus the gap still fits the base avatar's 88px content box", () => {
-    const frameOuter = 96; // h-24
-    const border = 4 * 2; // border-4
-    const gap = 4; // gap-1
-    expect(36 * 2 + gap).toBeLessThanOrEqual(frameOuter - border);
-    expect(44 * 2 + gap).toBeGreaterThan(frameOuter - border); // why not 44
+  it("the avatar frame no longer has to host any control", () => {
+    const h = readHero(renderHero());
+    expect(h.avatarWrap.querySelectorAll("button")).toHaveLength(0);
   });
 
-  it("the REMOVE control is reachable by its accessible name", () => {
+  it("both Remove controls are reachable by their accessible names", () => {
+    // They are no longer INSIDE the avatar/cover boxes — that was the
+    // clipping defect's precondition. They now live in a menu, and their
+    // names distinguish which image they act on (the old pair both read
+    // "REMOVE", so the accessible name alone did not say what was about
+    // to be deleted).
     const c = renderHero();
     const h = readHero(c);
-    expect(within(h.avatarWrap as HTMLElement).getByRole("button", { name: "REMOVE" })).toBe(
-      h.avatarRemove,
-    );
-    expect(screen.getAllByRole("button", { name: "REMOVE" })).toHaveLength(2); // cover + avatar
+    const menu = c.querySelector('[role="menu"]');
+    expect(menu).not.toBeNull();
+    expect(
+      within(menu as HTMLElement).getByRole("menuitem", { name: "Remove profile photo" }),
+    ).toBe(h.avatarRemove);
+    expect(
+      within(menu as HTMLElement).getByRole("menuitem", { name: "Remove cover photo" }),
+    ).toBeDefined();
   });
 });
 
@@ -457,7 +498,7 @@ describe("mutation controls", () => {
       renderHero(),
       (clone) => [readHero(clone).avatarWrap],
       (el) => {
-        const cover = (el.getRootNode() as ParentNode).querySelector('[class~="group/cover"]');
+        const cover = (el.getRootNode() as ParentNode).querySelector('[data-bcc-hero="cover"]');
         (cover as Element).appendChild(el);
       },
       1,

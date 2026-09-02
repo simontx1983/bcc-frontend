@@ -324,7 +324,11 @@ describe("E6 — the 17 migrations", () => {
     ["DemoAuthorCard empty bio", "src/components/onboarding/reputation-demo/DemoAuthorCard.tsx", "italic leading-snug text-[var(--bcc-text-secondary)]"],
     ["Connections repo counts", "src/components/settings/ConnectionsSection.tsx", '<span className="ml-2 text-bcc-text-secondary">'],
     ["Connections checking", "src/components/settings/ConnectionsSection.tsx", 'text-bcc-text-secondary">Checking…</span>'],
-    ["Identity @ prefix", "src/components/settings/IdentitySettingsForm.tsx", 'className="bcc-mono pl-3 text-bcc-text-secondary">@</span>'],
+    // Was the handle input's "@" prefix in IdentitySettingsForm. Handle
+    // editing is temporarily disabled and that form was replaced by the
+    // read-only HandleSection, which carries the same muted role on the
+    // profile-URL stem beside the full-strength handle.
+    ["Handle URL stem", "src/components/settings/HandleSection.tsx", 'className="bcc-mono text-bcc-text-secondary">'],
     ["Wallets metadata row", "src/components/settings/WalletsSection.tsx", "gap-3 text-[10px] text-bcc-text-secondary"],
     ["Watching heading", "src/components/watching/WatchingCardsPanel.tsx", 'tracking-[0.24em] text-bcc-text-secondary">'],
     ["Watching kind label", "src/components/watching/WatchingCardsPanel.tsx", 'tracking-[0.18em] text-bcc-text-secondary'],
