@@ -9,7 +9,6 @@
 
 import { bccFetch, bccFetchAsClient } from "@/lib/api/client";
 import type {
-  HandleUpdateResponse,
   OnboardingCompleteRequest,
   OnboardingCompleteResponse,
   OnboardingStatus,
@@ -44,29 +43,6 @@ export function completeOnboarding(
     method: "POST",
     body,
     signal,
-  });
-}
-
-/**
- * PATCH /me/handle — change the viewer's bcc_handle.
- *
- * Server enforces the §B6 rules (uniqueness, character set, reserved
- * list) and the 7-day cooldown. Errors come back as typed
- * BccApiError codes:
- *
- *   - bcc_unauthorized     → no session
- *   - bcc_invalid_handle   → fails the §B6 character/length rules
- *   - bcc_handle_reserved  → on the reserved list
- *   - bcc_conflict         → already taken (case-insensitive)
- *   - bcc_rate_limited     → cooldown active; Retry-After header set
- *
- * On success: server returns the new handle + ISO 8601 next_change_at
- * (or null when the rename was a no-op against the current value).
- */
-export function updateHandle(handle: string): Promise<HandleUpdateResponse> {
-  return bccFetchAsClient<HandleUpdateResponse>("me/handle", {
-    method: "PATCH",
-    body: { handle },
   });
 }
 

@@ -239,14 +239,24 @@ const PROFILE_HERO = "src/components/settings/profile/ProfileHero.tsx";
  *
  * Re-pointed a second time by the avatar-clip fix (P1), which added
  * `inline-flex min-h-[36px] items-center justify-center` to the AVATAR badge
- * — a touch-target change, not a colour one. Every safety/ink/cardstock token
- * in both strings is byte-identical to the line above; the box metrics are
- * the only difference, and `profile-hero-avatar-clip.test.tsx` owns them.
+ * — a touch-target change, not a colour one.
+ *
+ * **Retired by the profile-tab UX slice.** Those two badges no longer exist:
+ * the hover overlays they lived in were deleted, because they were
+ * `opacity-0` until hover and therefore invisible and undiscoverable on
+ * touch. The controls now sit on `bg-bcc-surface` in the caption row.
+ *
+ * A string pin is the wrong instrument once the strings are gone, and
+ * re-pointing it a third time would only set up a fourth. What this slice
+ * actually needs to know about ProfileHero is a property, not a literal:
+ * the file must contain **no safety ground at all**, so there is nothing
+ * here for a solid-safety foreground sweep to touch and no justification
+ * for `text-bcc-on-accent` to appear. That is asserted directly below and
+ * cannot go stale. Safety's remaining use there — a leading-edge border
+ * mark on the destructive controls — is owned by
+ * `profile-hero-photo-controls.test.ts`.
  */
-const PROFILE_HERO_OVERLAYS = [
-  "bcc-mono border border-cardstock border-l-[3px] border-l-safety bg-ink px-3 py-1.5 text-[10px] tracking-[0.18em] text-cardstock transition hover:bg-ink-soft disabled:cursor-wait disabled:text-cardstock/70",
-  "bcc-mono inline-flex min-h-[36px] items-center justify-center border border-cardstock border-l-2 border-l-safety bg-ink px-2 py-1 text-[9px] tracking-[0.16em] text-cardstock transition hover:bg-ink-soft disabled:cursor-wait disabled:text-cardstock/70",
-] as const;
+const PROFILE_HERO_SAFETY_GROUND = /(?:^|\s)bg-safety(?:\/\d+)?(?![\w-])/;
 
 const ALL_FILES = [
   ...new Set([...SITES.map((s) => s.file), ...HOVER_ONLY.map(([f]) => f), PROFILE_HERO]),
@@ -363,9 +373,11 @@ describe("solid-safety foreground — preconditions", () => {
     for (const [file, exact] of HOVER_ONLY) {
       expect(classStrings(SRC[file] ?? ""), `${file} lost its hover-only string`).toContain(exact);
     }
-    for (const exact of PROFILE_HERO_OVERLAYS) {
-      expect(classStrings(SRC[PROFILE_HERO] ?? "")).toContain(exact);
-    }
+    // ProfileHero is pinned by property now, not by literal — see the
+    // PROFILE_HERO_SAFETY_GROUND note. It must still be a real, non-empty
+    // file, or "no safety ground" would be true of nothing.
+    expect((SRC[PROFILE_HERO] ?? "").length).toBeGreaterThan(8_000);
+    expect(classStrings(SRC[PROFILE_HERO] ?? "").length).toBeGreaterThan(10);
   });
 
   it("the whole tree holds exactly four solid bg-safety sites and no more", () => {
@@ -866,15 +878,11 @@ describe("what this slice deliberately did NOT touch", () => {
     expect(shapes[4]).toContain("text-safety");
   });
 
-  it("the two ProfileHero badges are untouched by THIS slice", () => {
-    for (const exact of PROFILE_HERO_OVERLAYS) {
-      expect(classStrings(SRC[PROFILE_HERO] ?? "")).toContain(exact);
-    }
-    // This slice's fix must not leak into them. Their foreground is cardstock
-    // on an opaque ink plate, which is correct there — `text-bcc-on-accent` is
-    // for a SOLID SAFETY ground, and after the ProfileHero slice there is no
-    // longer a safety ground in that file to justify it.
+  it("ProfileHero holds no safety ground for this slice to touch", () => {
+    // `text-bcc-on-accent` is for a SOLID SAFETY ground. There is no safety
+    // ground in that file, so nothing there can justify it.
     expect(SRC[PROFILE_HERO]).not.toContain("text-bcc-on-accent");
+    expect(PROFILE_HERO_SAFETY_GROUND.test(SRC[PROFILE_HERO] ?? "")).toBe(false);
     /**
      * The pre-fix shape must not come back: no translucent safety fill, and no
      * light text on one. Scanned over EXTRACTED CLASS STRINGS, never raw source
@@ -884,27 +892,32 @@ describe("what this slice deliberately did NOT touch", () => {
      * bloom slice, whose comment quoting an old declaration tripped the tint
      * detector and turned the suite green on a rule with no fill.
      */
-    const heroClasses = classStrings(SRC[PROFILE_HERO] ?? "");
+    // Template literals too: the destructive control's classes are built as
+    // `${BTN} …`, and a double-quote-only extractor would silently report
+    // zero safety usage on the one control that has it.
+    const heroClasses = [
+      ...classStrings(SRC[PROFILE_HERO] ?? ""),
+      ...[...(SRC[PROFILE_HERO] ?? "").matchAll(/`([^`\\\n]*)`/g)].map((m) => m[1] ?? ""),
+    ];
     expect(heroClasses.length, "no class strings extracted from ProfileHero").toBeGreaterThan(4);
     const heroSafety = heroClasses
       .flatMap((c) => [...c.matchAll(/[\w[\]-]*-safety(?:\/\d+)?(?![-\w])/g)].map((m) => m[0]))
       .sort();
     /**
-     * Enumerated, not permitted. Two of these are the badges' leading-edge
-     * stripes. The other two are pre-existing `role="alert"` validation
-     * messages at lines 482 and 492, unchanged since 89e0480 — genuine warning
-     * semantics on a theme-aware surface, which makes them rows in the
-     * theme-aware migration (they measure 3.39 in light and want
-     * `text-bcc-warning`). They are neither this slice's nor the ProfileHero
-     * slice's to move, so they are listed here rather than waved through by a
-     * loose matcher.
+     * Enumerated, not permitted.
+     *
+     * `text-safety` is the pre-existing display-name validation `role="alert"`,
+     * unchanged since 89e0480 — genuine warning semantics on a theme-aware
+     * surface, so it is a row in the theme-aware migration (3.39 in light,
+     * wants `text-bcc-warning`). Not this slice's to move. The second
+     * `text-safety` went with the bespoke `serverError` line the profile-tab
+     * slice replaced with `SettingsSaveStatus`.
      */
-    expect(heroSafety).toEqual([
-      "border-l-safety",
-      "border-l-safety",
-      "text-safety",
-      "text-safety",
-    ]);
+    // The destructive leading-edge mark moved out with the controls: it
+    // now lives on the ActionMenu's destructive item, and
+    // profile-hero-photo-controls.test.ts owns it there. ProfileHero
+    // itself carries no safety utility other than the alert below.
+    expect(heroSafety).toEqual(["text-safety"]);
     // No FILL of any alpha, which is the thing the ProfileHero slice removed.
     expect(heroSafety.filter((c) => c.startsWith("bg-safety"))).toEqual([]);
   });

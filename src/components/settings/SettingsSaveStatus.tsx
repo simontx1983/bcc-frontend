@@ -52,12 +52,33 @@ export interface SettingsSaveStatusProps {
   /** Shown after the generic failure line when the server explained itself. */
   errorMessage?: string | undefined;
   className?: string | undefined;
+  /**
+   * Subject-specific wording, for a surface where one status stands in
+   * for several operations and "Saved" alone would not say what saved.
+   * ProfileHero's photo menu uses this to distinguish the profile photo
+   * from the cover.
+   *
+   * Overriding the strings rather than forking the component keeps one
+   * announcement model: progress and success through the single polite
+   * region, failure through `role="alert"` with the polite region
+   * rendering nothing, so an outcome is never announced twice.
+   */
+  savingLabel?: string | undefined;
+  savedLabel?: string | undefined;
+  /** Replaces "Couldn't save" entirely; `errorMessage` is then ignored. */
+  errorLabel?: string | undefined;
+  /** Widen the reserved slot when the custom strings are longer. */
+  minWidthClass?: string | undefined;
 }
 
 export function SettingsSaveStatus({
   status,
   errorMessage,
   className,
+  savingLabel,
+  savedLabel,
+  errorLabel,
+  minWidthClass,
 }: SettingsSaveStatusProps) {
   // Success fades; everything else is driven straight from the prop.
   const [savedVisible, setSavedVisible] = useState(false);
@@ -75,32 +96,41 @@ export function SettingsSaveStatus({
   const effective: SaveStatus =
     status === "saved" && !savedVisible ? "idle" : status;
 
+  const savingText = savingLabel ?? "Saving…";
+  const savedText = savedLabel ?? "Saved";
+
   return (
     <span
-      className={`bcc-mono inline-flex min-h-[18px] min-w-[104px] items-center text-[10px] tracking-[0.16em] ${className ?? ""}`}
+      className={`bcc-mono inline-flex min-h-[18px] ${minWidthClass ?? "min-w-[104px]"} items-center text-[10px] tracking-[0.16em] ${className ?? ""}`}
     >
       {/* Polite region for progress + success only. Rendering nothing during
           an error keeps this from double-announcing alongside the alert. */}
       <span role="status" aria-live="polite" className="sr-only">
-        {effective === "saving" ? "Saving…" : effective === "saved" ? "Saved" : ""}
+        {effective === "saving" ? savingText : effective === "saved" ? savedText : ""}
       </span>
 
       {effective === "saving" && (
         <span aria-hidden className="text-bcc-text-secondary">
-          Saving…
+          {savingText}
         </span>
       )}
 
       {effective === "saved" && (
         <span aria-hidden className="text-bcc-success">
-          Saved
+          {savedText}
         </span>
       )}
 
       {effective === "error" && (
         <span role="alert" className="text-safety">
-          Couldn&apos;t save
-          {errorMessage !== undefined && errorMessage !== "" ? ` — ${errorMessage}` : ""}
+          {errorLabel ?? (
+            <>
+              Couldn&apos;t save
+              {errorMessage !== undefined && errorMessage !== ""
+                ? ` — ${errorMessage}`
+                : ""}
+            </>
+          )}
         </span>
       )}
     </span>

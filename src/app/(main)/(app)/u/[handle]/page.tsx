@@ -191,6 +191,10 @@ export default async function MemberProfilePage({ params }: PageProps) {
   // page. Built from the viewed handle rather than /u/me so the owner
   // doesn't take a redirect hop back to the profile they're already on.
   const profileEditHref = `/u/${encodeURIComponent(profile.handle)}?tab=profile` as Route;
+  // BioBox's empty state says "WRITE ONE →", so it must land ON the bio
+  // field rather than at the top of a tab that has four sections. BioEditor
+  // consumes `focus=bio` once and strips it from the URL.
+  const bioEditHref = `${profileEditHref}&focus=bio` as Route;
 
   // PR-11b — Setup tab RELIABILITY sub-tab embeds the §J.5 self-mirror.
   // Fetch is owner-only (the endpoint is Bearer-authed and refuses
@@ -489,7 +493,7 @@ export default async function MemberProfilePage({ params }: PageProps) {
                 text={profile.bio}
                 label="BIO"
                 {...(isOwner
-                  ? { ownerEditHref: profileEditHref }
+                  ? { ownerEditHref: bioEditHref }
                   : {})}
               />
               {/* Edit Profile — owner-only column exit. JOINED metadata
