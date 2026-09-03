@@ -20,7 +20,11 @@
  */
 
 import { useQueryClient } from "@tanstack/react-query";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { LoadFailure } from "@/components/ui/LoadFailure";
+import { useCopyConfirm } from "@/hooks/useCopyConfirm";
 
 import {
   useRequestRecoveryEmail,
@@ -45,6 +49,45 @@ export function WalletsSection() {
   const [confirmingId, setConfirmingId] = useState<number | null>(null);
   const [errorText, setErrorText] = useState<string | null>(null);
 
+  // One ref per row's Unlink trigger. Cancelling the dialog must return
+  // focus to the exact wallet the user opened it from, not merely "a"
+  // wallet — with several rows the difference is the whole point.
+  const unlinkTriggerRefs = useRef<Map<number, HTMLButtonElement | null>>(new Map());
+  // Stable landing spot when the triggering row is gone (a successful
+  // unlink unmounts its own button).
+  const listRegionRef = useRef<HTMLDivElement | null>(null);
+  const [focusAfterUnlink, setFocusAfterUnlink] = useState(false);
+
+  // Copy feedback is owned by the SECTION, not by each row.
+  //
+  // With a per-row useCopyConfirm every row had its own polite region and
+  // its own 1400ms timer, so copying wallet A and then wallet B inside
+  // that window left TWO populated status regions saying "Address copied"
+  // — a screen reader would hear the stale one alongside the new. One
+  // piece of state means the previous outcome is structurally replaced
+  // rather than merely expected to expire.
+  const { copied, copy } = useCopyConfirm();
+  const [copyOutcome, setCopyOutcome] = useState<
+    { walletId: number; ok: boolean } | null
+  >(null);
+
+  // `copied` falls back to false when the shared timer lapses; drop the
+  // subject with it so the region empties instead of stranding a label.
+  useEffect(() => {
+    if (!copied && copyOutcome?.ok === true) setCopyOutcome(null);
+  }, [copied, copyOutcome]);
+
+  async function copyAddress(walletId: number, address: string) {
+    const ok = await copy(address);
+    setCopyOutcome({ walletId, ok });
+  }
+
+  useEffect(() => {
+    if (!focusAfterUnlink) return;
+    listRegionRef.current?.focus();
+    setFocusAfterUnlink(false);
+  }, [focusAfterUnlink]);
+
   // The recovery banner's "or link another wallet" secondary action focuses
   // the existing link form's chain <select> so the user lands on the right
   // control without a separate page or duplicate form.
@@ -61,11 +104,30 @@ export function WalletsSection() {
     onSuccess: () => {
       setConfirmingId(null);
       setErrorText(null);
+      // Drop any copy status: it names a wallet that is about to vanish.
+      setCopyOutcome(null);
+      // The row that owned the trigger has gone; hand focus to the list
+      // region rather than letting it fall to <body>.
+      setFocusAfterUnlink(true);
     },
+    // Deliberately does NOT close the dialog: a failure keeps the user in
+    // the decision they made, with the reason and a retry in place.
     onError: (err) => {
       setErrorText(humanizeError(err));
     },
   });
+
+  function closeConfirm() {
+    const id = confirmingId;
+    setConfirmingId(null);
+    setErrorText(null);
+    if (id !== null) unlinkTriggerRefs.current.get(id)?.focus();
+  }
+
+  const confirmingWallet =
+    confirmingId === null
+      ? undefined
+      : wallets.data?.items.find((w) => w.id === confirmingId);
 
   const verifiedWallets =
     wallets.data?.items.filter((w) => w.verified) ?? [];
@@ -76,18 +138,6 @@ export function WalletsSection() {
 
   return (
     <div className="bcc-panel flex flex-col gap-4 p-6">
-      <header className="flex flex-col gap-1">
-        <span className="bcc-mono text-[10px] tracking-[0.24em] text-bcc-text-secondary">
-          IDENTITY · WALLETS
-        </span>
-        <h2 className="bcc-stencil text-2xl text-bcc-text">Linked wallets</h2>
-        <p className="font-serif text-sm text-bcc-text-secondary">
-          Wallets you&apos;ve verified by signing a challenge. Each one
-          unlocks on-chain credentials on your profile and lets you sign
-          disputes.
-        </p>
-      </header>
-
       {showRecoveryBanner && (
         <RecoveryEmailPanel
           verifiedWalletCount={verifiedWalletCount}
@@ -100,36 +150,103 @@ export function WalletsSection() {
 
       {wallets.isLoading ? (
         <p className="bcc-mono text-[11px] text-bcc-text-secondary/70">Checking…</p>
-      ) : wallets.isError ? (
-        <p role="alert" className="bcc-mono text-[11px] text-safety">
-          Couldn&apos;t load your wallets. Refresh and try again.
-        </p>
+      ) : wallets.isError && (wallets.data?.items.length ?? 0) === 0 ? (
+        /* Was a dead-end sentence telling the user to refresh the whole
+           page, which would have thrown away every other unsaved form on
+           this tab. The query is an ordinary useQuery, so Try again just
+           re-runs it in place. A failure must never fall through to the
+           empty state below. */
+        <LoadFailure
+          message="We couldn't load your wallets."
+          onRetry={() => void wallets.refetch()}
+          retryLabel="Try again"
+        />
       ) : wallets.data === undefined || wallets.data.items.length === 0 ? (
         <EmptyState />
       ) : (
-        <ul className="flex flex-col gap-2">
-          {wallets.data.items.map((wallet) => (
-            <WalletRow
-              key={wallet.id}
-              wallet={wallet}
-              isConfirming={confirmingId === wallet.id}
-              isUnlinking={unlink.isPending && unlink.variables === wallet.id}
-              onAskConfirm={() => {
-                setErrorText(null);
-                setConfirmingId(wallet.id);
-              }}
-              onCancelConfirm={() => setConfirmingId(null)}
-              onConfirmUnlink={() => {
-                setErrorText(null);
-                unlink.mutate(wallet.id);
-              }}
-            />
-          ))}
-        </ul>
+        <div ref={listRegionRef} tabIndex={-1} className="outline-none">
+          {/* A background refetch failed but we still hold rows. Keep them
+              and offer a retry rather than blanking real data. */}
+          {wallets.isError && (
+            <div
+              role="status"
+              className="mb-2 flex flex-wrap items-center justify-between gap-2 border-l-2 border-safety bg-bcc-surface-hover px-3 py-2"
+            >
+              <span className="bcc-mono text-[10px] tracking-[0.16em] text-bcc-text-secondary">
+                Couldn&apos;t refresh. Showing the wallets we last loaded.
+              </span>
+              <button
+                type="button"
+                onClick={() => void wallets.refetch()}
+                className="bcc-mono border border-bcc-border px-2 py-1 text-[10px] tracking-[0.16em] text-bcc-text transition hover:bg-bcc-surface"
+              >
+                Try again
+              </button>
+            </div>
+          )}
+
+          <ul className="flex flex-col gap-2">
+            {wallets.data.items.map((wallet) => (
+              <WalletRow
+                key={wallet.id}
+                wallet={wallet}
+                registerTrigger={(el) => {
+                  unlinkTriggerRefs.current.set(wallet.id, el);
+                }}
+                onCopy={() => void copyAddress(wallet.id, wallet.wallet_address)}
+                onAskConfirm={() => {
+                  setErrorText(null);
+                  setConfirmingId(wallet.id);
+                }}
+              />
+            ))}
+          </ul>
+        </div>
       )}
 
-      {errorText !== null && (
-        <p role="alert" className="bcc-mono text-[11px] text-safety">
+      {/* THE one copy announcement for the whole section. Naming the chain
+          keeps the full address out of the announcement while still telling
+          a screen-reader user which row acted. */}
+      <p
+        role="status"
+        className="bcc-mono min-h-[1rem] text-[10px] text-bcc-text-secondary"
+      >
+        {copyOutcome === null
+          ? ""
+          : (() => {
+              const w = wallets.data?.items.find((x) => x.id === copyOutcome.walletId);
+              const label = w?.chain_name || w?.chain_slug || "Wallet";
+              return copyOutcome.ok
+                ? `${label} address copied`
+                : `Couldn't copy the ${label} address.`;
+            })()}
+      </p>
+
+      {/* Unlink confirmation. The inline row swap this replaces unmounted
+          its own trigger, dropping focus to <body>, and had no trap, no
+          Escape and no double-submit guard. ConfirmDialog supplies all
+          four. Naming the chain rather than the address keeps the
+          announcement from reading out a full wallet address. */}
+      {confirmingWallet !== undefined && (
+        <ConfirmDialog
+          title="Unlink this wallet?"
+          body={`${confirmingWallet.chain_name || confirmingWallet.chain_slug} will no longer be linked to your account. On-chain credentials it unlocked stop showing on your profile, and you won't be able to sign disputes with it. You can link it again later.`}
+          confirmLabel="Unlink wallet"
+          cancelLabel="Keep wallet"
+          retryLabel="Try again"
+          errorMessage={errorText}
+          pending={unlink.isPending}
+          onConfirm={() => {
+            setErrorText(null);
+            unlink.mutate(confirmingWallet.id);
+          }}
+          onCancel={closeConfirm}
+        />
+      )}
+
+      {/* Failures raised outside the dialog (none today) still surface. */}
+      {errorText !== null && confirmingWallet === undefined && (
+        <p role="alert" className="bcc-mono text-[11px] text-bcc-danger">
           {errorText}
         </p>
       )}
@@ -603,21 +720,15 @@ function RecoveryEmailForm({
 
 interface WalletRowProps {
   wallet: LinkedWallet;
-  isConfirming: boolean;
-  isUnlinking: boolean;
+  /** Lets the section restore focus to THIS row's trigger after a cancel. */
+  registerTrigger: (el: HTMLButtonElement | null) => void;
+  /** Copy outcome is announced once, by the section. */
+  onCopy: () => void;
   onAskConfirm: () => void;
-  onCancelConfirm: () => void;
-  onConfirmUnlink: () => void;
 }
 
-function WalletRow({
-  wallet,
-  isConfirming,
-  isUnlinking,
-  onAskConfirm,
-  onCancelConfirm,
-  onConfirmUnlink,
-}: WalletRowProps) {
+function WalletRow({ wallet, registerTrigger, onCopy, onAskConfirm }: WalletRowProps) {
+  const chainLabel = wallet.chain_name || wallet.chain_slug;
   const explorerHref =
     wallet.explorer_url !== ""
       ? `${wallet.explorer_url.replace(/\/$/, "")}/address/${wallet.wallet_address}`
@@ -666,36 +777,31 @@ function WalletRow({
         </div>
       </div>
 
-      <div className="flex shrink-0 items-center gap-2">
-        {isConfirming ? (
-          <>
-            <button
-              type="button"
-              onClick={onCancelConfirm}
-              disabled={isUnlinking}
-              className="bcc-mono border-2 border-bcc-border px-3 py-1.5 text-[10px] tracking-[0.18em] text-bcc-text-secondary hover:border-bcc-border-strong hover:text-bcc-text disabled:opacity-50"
-            >
-              CANCEL
-            </button>
-            <button
-              type="button"
-              onClick={onConfirmUnlink}
-              disabled={isUnlinking}
-              className="bcc-mono border-2 border-safety px-3 py-1.5 text-[10px] tracking-[0.18em] text-safety hover:bg-safety hover:text-cardstock disabled:opacity-50"
-            >
-              {isUnlinking ? "UNLINKING…" : "CONFIRM UNLINK"}
-            </button>
-          </>
-        ) : (
-          <button
-            type="button"
-            onClick={onAskConfirm}
-            className="bcc-mono border-2 border-bcc-border px-3 py-1.5 text-[11px] tracking-[0.18em] text-bcc-text-secondary hover:border-safety hover:text-safety"
-          >
-            Unlink
-          </button>
-        )}
+      <div className="flex shrink-0 flex-wrap items-center gap-2">
+        {/* The visible address stays truncated so a 40+ character string
+            cannot blow out a 360px row, but the clipboard gets the WHOLE
+            address — a shortened address nobody can copy is its own dead
+            end. The accessible name names the chain so several rows are
+            distinguishable. */}
+        <button
+          type="button"
+          onClick={onCopy}
+          aria-label={`Copy ${chainLabel} wallet address`}
+          className="bcc-mono border-2 border-bcc-border px-3 py-1.5 text-[11px] tracking-[0.18em] text-bcc-text-secondary transition hover:border-bcc-border-strong hover:text-bcc-text"
+        >
+          Copy
+        </button>
+        <button
+          type="button"
+          ref={registerTrigger}
+          onClick={onAskConfirm}
+          className="bcc-mono border-2 border-bcc-border px-3 py-1.5 text-[11px] tracking-[0.18em] text-bcc-text-secondary transition hover:border-safety hover:text-safety"
+        >
+          Unlink
+        </button>
       </div>
+
+
     </li>
   );
 }

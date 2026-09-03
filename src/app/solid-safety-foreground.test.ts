@@ -187,7 +187,12 @@ const SITES: readonly Site[] = [
     focusable: false,
   },
   {
-    file: "src/components/settings/profile/AccountSection.tsx",
+    // Re-pointed by the account-tab slice. This is the SAME button with
+    // the SAME class string — the delete-account submit — extracted out
+    // of AccountSection.tsx into its own Danger Zone component so an
+    // irreversible action stops sharing the routine cards' rhythm.
+    // Nothing about its colour treatment changed; only the file did.
+    file: "src/components/settings/profile/DeleteAccountCard.tsx",
     anchor: "bcc-stencil bg-safety px-4 py-2",
     keep: ["bcc-stencil", "px-4", "py-2", "transition", "disabled:opacity-50"],
     hasDisabled: true,
@@ -195,7 +200,16 @@ const SITES: readonly Site[] = [
   },
 ] as const;
 
-/** hover-only `bg-safety` — resting ground is NOT safety. Frozen verbatim. */
+/**
+ * hover-only `bg-safety` — resting ground is NOT safety. Frozen verbatim.
+ *
+ * Was six entries. The account-tab slice removed WalletsSection's inline
+ * "CONFIRM UNLINK" button: the wallet-unlink confirmation moved to the
+ * shared ConfirmDialog, whose destructive control uses `border-safety/70`
+ * + `text-safety` + `hover:bg-safety/10` — a TINT, not the solid
+ * hover-fill this list tracks. So the site is gone rather than moved, and
+ * there is nothing left to pin for it.
+ */
 const HOVER_ONLY: readonly (readonly [string, string])[] = [
   [
     "src/app/(main)/(app)/communities/page.tsx",
@@ -212,10 +226,6 @@ const HOVER_ONLY: readonly (readonly [string, string])[] = [
   [
     "src/components/composer/PhotoPicker.tsx",
     "bcc-mono absolute -right-1.5 -top-1.5 inline-flex h-5 w-5 items-center justify-center rounded-full border border-cardstock-edge/60 bg-ink text-[10px] leading-none text-cardstock hover:bg-safety hover:text-cardstock",
-  ],
-  [
-    "src/components/settings/WalletsSection.tsx",
-    "bcc-mono border-2 border-safety px-3 py-1.5 text-[10px] tracking-[0.18em] text-safety hover:bg-safety hover:text-cardstock disabled:opacity-50",
   ],
 ] as const;
 
@@ -369,7 +379,7 @@ describe("solid-safety foreground — preconditions", () => {
   });
 
   it("the pinned-unchanged surface is NON-ZERO too", () => {
-    expect(HOVER_ONLY).toHaveLength(5);
+    expect(HOVER_ONLY).toHaveLength(4);
     for (const [file, exact] of HOVER_ONLY) {
       expect(classStrings(SRC[file] ?? ""), `${file} lost its hover-only string`).toContain(exact);
     }
@@ -545,7 +555,7 @@ const MEASURED: Record<string, Measured> = {
     disabledHover: null,
     ringVsParent: null,
   },
-  "src/components/settings/profile/AccountSection.tsx": {
+  "src/components/settings/profile/DeleteAccountCard.tsx": {
     rest: { light: 5.59, dark: 5.59 },
     hover: null,
     focus: { light: 5.59, dark: 5.59 },
@@ -854,8 +864,8 @@ describe("mutation control", () => {
 // ──────────────────────────────────────────────────────────────────────────
 
 describe("what this slice deliberately did NOT touch", () => {
-  it("there are exactly five hover-only bg-safety sites, all frozen verbatim", () => {
-    expect(HOVER_ONLY).toHaveLength(5);
+  it("there are exactly four hover-only bg-safety sites, all frozen verbatim", () => {
+    expect(HOVER_ONLY).toHaveLength(4);
     for (const [file, exact] of HOVER_ONLY) {
       const src = SRC[file] ?? "";
       expect(classStrings(src), `${file}: hover-only string moved`).toContain(exact);
@@ -867,15 +877,18 @@ describe("what this slice deliberately did NOT touch", () => {
     }
   });
 
-  it("the five are genuinely distinct shapes, not five copies of one", () => {
+  it("the four are genuinely distinct shapes, not four copies of one", () => {
     // Composer's chip is the odd one out: theme-aware surface, theme-aware
     // text. A uniform "must contain text-cardstock" pin would have been a
     // lie about it, so each is frozen as itself.
+    //
+    // The former shapes[4] — WalletsSection's inline CONFIRM UNLINK — was
+    // dropped with the entry itself when that confirmation moved to
+    // ConfirmDialog. The first four indices are unchanged.
     const shapes = HOVER_ONLY.map(([, s]) => s);
-    expect(new Set(shapes).size).toBe(5);
+    expect(new Set(shapes).size).toBe(4);
     expect(shapes[2]).toContain("text-[var(--bcc-text)]");
     expect(shapes[2]).not.toContain("text-cardstock");
-    expect(shapes[4]).toContain("text-safety");
   });
 
   it("ProfileHero holds no safety ground for this slice to touch", () => {

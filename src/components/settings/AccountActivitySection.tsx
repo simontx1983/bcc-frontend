@@ -21,9 +21,19 @@
 
 import { useState } from "react";
 
+import { LoadFailure } from "@/components/ui/LoadFailure";
 import { useAccountActivity } from "@/hooks/useAccount";
 import type { AccountActivityItem } from "@/lib/api/types";
 import { formatRelativeTime } from "@/lib/format";
+
+/**
+ * The load-failure line is deliberately explicit that a failure is not
+ * evidence of absence. This surface exists so someone who just received a
+ * security email can confirm it against the record; "no events" when the
+ * request actually failed is the one answer that must never appear.
+ */
+const LOAD_FAILURE_COPY =
+  "We couldn't load your security activity. This does not mean nothing happened — try again.";
 
 /**
  * Stable-code → user-facing label map. Mirrors the AccountSecurityMailer
@@ -48,7 +58,7 @@ const ACCOUNT_ACTIVITY_LABELS: Record<string, string> = {
 
 export function AccountActivitySection() {
   const [page, setPage] = useState(1);
-  const { data, isPending } = useAccountActivity(page);
+  const { data, isPending, isError, refetch } = useAccountActivity(page);
 
   // Initial-fetch flicker guard: rendering EmptyState during the first
   // round trip would briefly tell a user with N events that they have
@@ -56,6 +66,9 @@ export function AccountActivitySection() {
   // verifying an email alert in real time. `placeholderData:
   // keepPreviousData` already prevents the flicker on subsequent
   // pages; this guard handles only the cold-start case.
+  //
+  // Still no spinner, deliberately. The fix below is an ERROR branch,
+  // which is a different thing from a loading state.
   if (isPending) {
     return null;
   }
@@ -63,6 +76,43 @@ export function AccountActivitySection() {
   const items = data?.items ?? [];
   const totalPages = data?.total_pages ?? 0;
   const total = data?.total ?? 0;
+
+  // THE correction. Previously any failure fell through to EmptyState,
+  // so a failed request told the user "No security events recorded yet"
+  // — a false statement on the one surface where a false negative is
+  // most costly. Only a request that actually succeeded may claim the
+  // record is empty; a failure with nothing to show is blocking.
+  if (isError && items.length === 0) {
+    // …but blocking must not mean TRAPPED. `keepPreviousData` backs a
+    // PENDING query only: once page 2 errors, its status is `error` and
+    // `data` reverts to undefined, so page 1's rows — and the pagination
+    // that got the user here — both disappear. Retry only ever retries
+    // the page that failed, leaving no route back. Deeper pages keep an
+    // explicit way home.
+    return (
+      <div className="flex flex-col gap-3">
+        <LoadFailure
+          message={LOAD_FAILURE_COPY}
+          onRetry={() => void refetch()}
+          retryLabel="Try again"
+        />
+        {page > 1 && (
+          <nav
+            aria-label="Activity pagination"
+            className="bcc-mono flex justify-start text-[10px] tracking-[0.18em]"
+          >
+            <button
+              type="button"
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              className="border border-bcc-border/30 px-3 py-1 text-bcc-text transition hover:bg-bcc-surface-hover motion-reduce:transition-none"
+            >
+              ← NEWER
+            </button>
+          </nav>
+        )}
+      </div>
+    );
+  }
 
   if (items.length === 0 && page === 1) {
     return <EmptyState />;
@@ -73,6 +123,31 @@ export function AccountActivitySection() {
       aria-label="Account security activity"
       className="bcc-panel p-5"
     >
+      {/* A background refetch failed but we still hold known rows (page
+          paging keeps them via keepPreviousData). Replacing real security
+          history with a blocking screen would be its own kind of lie, so
+          the rows stay and the retry rides above them. `role="status"`
+          rather than alert: nothing was lost, and LoadFailure's alert
+          above never renders at the same time, so only one live region
+          is ever populated. */}
+      {isError && (
+        <div
+          role="status"
+          className="mb-3 flex flex-wrap items-center justify-between gap-2 border-l-2 border-safety bg-bcc-surface-hover px-3 py-2"
+        >
+          <span className="bcc-mono text-[10px] tracking-[0.16em] text-bcc-text-secondary">
+            Couldn&apos;t refresh. Showing the last events we loaded.
+          </span>
+          <button
+            type="button"
+            onClick={() => void refetch()}
+            className="bcc-mono border border-bcc-border px-2 py-1 text-[10px] tracking-[0.16em] text-bcc-text transition hover:bg-bcc-surface"
+          >
+            Try again
+          </button>
+        </div>
+      )}
+
       <ul className="flex flex-col">
         {items.map((item) => (
           <ActivityRow key={item.id} item={item} />

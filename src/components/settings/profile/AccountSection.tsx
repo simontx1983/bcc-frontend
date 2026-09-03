@@ -1,27 +1,29 @@
 "use client";
 
 /**
- * AccountSection — the Account sub-tab on /settings/profile.
+ * AccountSection — the SIGN-IN section of the Account sub-tab.
  *
- * Three sub-cards, each requiring the user's current password:
+ * Two sub-cards, each requiring the user's current password:
  *   1. Change email
  *   2. Change password
- *   3. Delete account (gated by PeepSo's site_registration_allowdelete
- *      option — the server returns 403 when disabled, and we surface
- *      that as a polite "contact admin" message)
  *
- * Handle changes still live on /settings/identity (different surface,
- * different auth flow) — we link there from the top.
+ * Account deletion used to be a third sibling here. It now lives alone
+ * in the Danger Zone (`DeleteAccountCard`) so an irreversible action no
+ * longer shares the visual rhythm of a routine save.
+ *
+ * Helper and validation text is associated with its inputs through
+ * `aria-describedby`. IDs are minted with `useId` because a card can in
+ * principle be rendered more than once, and duplicate IDs would silently
+ * mis-associate the descriptions.
  */
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import { SettingsSaveStatus } from "@/components/settings/SettingsSaveStatus";
 import { useDirtyRegistration } from "@/hooks/useDirtyRegistration";
 
 import {
   useChangeAccountEmail,
   useChangeAccountPassword,
-  useDeleteAccount,
 } from "@/hooks/useAccount";
 import { BccApiError } from "@/lib/api/types";
 
@@ -56,7 +58,6 @@ export function AccountSection({ currentEmail }: AccountSectionProps) {
     <div className="flex flex-col gap-6">
       <ChangeEmailCard currentEmail={currentEmail} />
       <ChangePasswordCard />
-      <DeleteAccountCard />
     </div>
   );
 }
@@ -66,6 +67,8 @@ export function AccountSection({ currentEmail }: AccountSectionProps) {
 // ─────────────────────────────────────────────────────────────────────
 
 function ChangeEmailCard({ currentEmail }: { currentEmail: string }) {
+  const uid = useId();
+  const helpId = `${uid}-email-help`;
   const [email, setEmail] = useState(currentEmail);
   // `currentEmail` is a server-component prop and does not update when the
   // change succeeds, so it cannot serve as the baseline — comparing against
@@ -104,7 +107,7 @@ function ChangeEmailCard({ currentEmail }: { currentEmail: string }) {
   return (
     <section className="bcc-panel p-5">
       <h3 className="bcc-stencil text-lg text-bcc-text">Change email</h3>
-      <p className="bcc-mono mt-1 text-[10px] text-bcc-text-secondary">
+      <p id={helpId} className="bcc-mono mt-1 text-[10px] text-bcc-text-secondary">
         We&apos;ll need your current password to confirm.
       </p>
 
@@ -124,6 +127,7 @@ function ChangeEmailCard({ currentEmail }: { currentEmail: string }) {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             disabled={mutation.isPending}
+            aria-describedby={helpId}
             required
             className={fieldClass}
           />
@@ -134,6 +138,7 @@ function ChangeEmailCard({ currentEmail }: { currentEmail: string }) {
             value={currentPassword}
             onChange={(e) => setCurrentPassword(e.target.value)}
             disabled={mutation.isPending}
+            aria-describedby={helpId}
             autoComplete="current-password"
             required
             className={fieldClass}
@@ -157,6 +162,10 @@ function ChangeEmailCard({ currentEmail }: { currentEmail: string }) {
 // ─────────────────────────────────────────────────────────────────────
 
 function ChangePasswordCard() {
+  const uid = useId();
+  const helpId = `${uid}-pw-help`;
+  const lengthId = `${uid}-pw-length`;
+  const matchId = `${uid}-pw-match`;
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -188,6 +197,8 @@ function ChangePasswordCard() {
 
   const matches = newPassword === confirmPassword;
   const longEnough = newPassword.length >= 10;
+  const showLengthError = newPassword !== "" && !longEnough;
+  const showMatchError = confirmPassword !== "" && !matches;
   const canSubmit =
     currentPassword !== "" &&
     longEnough &&
@@ -197,7 +208,7 @@ function ChangePasswordCard() {
   return (
     <section className="bcc-panel p-5">
       <h3 className="bcc-stencil text-lg text-bcc-text">Change password</h3>
-      <p className="bcc-mono mt-1 text-[10px] text-bcc-text-secondary">
+      <p id={helpId} className="bcc-mono mt-1 text-[10px] text-bcc-text-secondary">
         At least 10 characters. We&apos;ll re-establish your session afterwards.
       </p>
 
@@ -220,6 +231,7 @@ function ChangePasswordCard() {
             value={currentPassword}
             onChange={(e) => setCurrentPassword(e.target.value)}
             disabled={mutation.isPending}
+            aria-describedby={helpId}
             autoComplete="current-password"
             required
             className={fieldClass}
@@ -231,6 +243,8 @@ function ChangePasswordCard() {
             value={newPassword}
             onChange={(e) => setNewPassword(e.target.value)}
             disabled={mutation.isPending}
+            aria-describedby={showLengthError ? `${helpId} ${lengthId}` : helpId}
+            aria-invalid={showLengthError}
             autoComplete="new-password"
             minLength={10}
             required
@@ -243,6 +257,8 @@ function ChangePasswordCard() {
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
             disabled={mutation.isPending}
+            aria-describedby={showMatchError ? matchId : undefined}
+            aria-invalid={showMatchError}
             autoComplete="new-password"
             minLength={10}
             required
@@ -250,13 +266,15 @@ function ChangePasswordCard() {
           />
         </Field>
 
-        {newPassword !== "" && !longEnough && (
-          <p className="bcc-mono text-[10px] text-safety">
+        {showLengthError && (
+          <p id={lengthId} className="bcc-mono text-[10px] text-safety">
             Password must be at least 10 characters.
           </p>
         )}
-        {confirmPassword !== "" && !matches && (
-          <p className="bcc-mono text-[10px] text-safety">Passwords don&apos;t match.</p>
+        {showMatchError && (
+          <p id={matchId} className="bcc-mono text-[10px] text-safety">
+            Passwords don&apos;t match.
+          </p>
         )}
 
         <SaveRow
@@ -266,132 +284,6 @@ function ChangePasswordCard() {
           canSubmit={canSubmit}
           label="Save password"
         />
-      </form>
-    </section>
-  );
-}
-
-// ─────────────────────────────────────────────────────────────────────
-// Delete
-// ─────────────────────────────────────────────────────────────────────
-
-function DeleteAccountCard() {
-  const [showConfirm, setShowConfirm] = useState(false);
-  const [currentPassword, setCurrentPassword] = useState("");
-  const [confirmText, setConfirmText] = useState("");
-  const [serverError, setServerError] = useState<string | null>(null);
-
-  const mutation = useDeleteAccount({
-    onSuccess: (data) => {
-      // Server has already torn down the auth cookie. Hard-navigate.
-      window.location.href = data.logout_url || "/";
-    },
-    onError: (err) => {
-      setServerError(humanizeError(err));
-    },
-  });
-
-  const canSubmit =
-    currentPassword !== "" &&
-    confirmText === "DELETE" &&
-    !mutation.isPending;
-
-  if (!showConfirm) {
-    return (
-      <section className="bcc-panel p-5">
-        <h3 className="bcc-stencil text-lg text-safety">Delete account</h3>
-        <p className="bcc-mono mt-1 text-[10px] text-bcc-text-secondary">
-          Permanent. Most of your data is removed; some references in
-          others&apos; inboxes and friend lists may persist.
-        </p>
-        <button
-          type="button"
-          onClick={() => setShowConfirm(true)}
-          className="bcc-mono mt-3 border-2 border-safety/70 px-4 py-2 text-[11px] tracking-[0.16em] text-safety transition hover:bg-safety/10"
-        >
-          DELETE MY ACCOUNT…
-        </button>
-      </section>
-    );
-  }
-
-  return (
-    <section className="bcc-panel border-safety/40 p-5">
-      <h3 className="bcc-stencil text-lg text-safety">Delete account</h3>
-      <p className="bcc-mono mt-1 text-[10px] text-bcc-text-secondary">
-        This is permanent. To confirm, type <code className="bcc-mono text-bcc-text">DELETE</code> below
-        and enter your current password.
-      </p>
-
-      <form
-        className="mt-3 flex flex-col gap-3"
-        onSubmit={(e) => {
-          e.preventDefault();
-          if (!canSubmit) return;
-          setServerError(null);
-          mutation.mutate({
-            current_password: currentPassword,
-            confirm: "DELETE",
-          });
-        }}
-      >
-        <Field label="Type DELETE to confirm">
-          <input
-            type="text"
-            value={confirmText}
-            onChange={(e) => setConfirmText(e.target.value)}
-            disabled={mutation.isPending}
-            autoComplete="off"
-            autoCorrect="off"
-            autoCapitalize="characters"
-            spellCheck={false}
-            // eslint-disable-next-line jsx-a11y/no-autofocus
-            autoFocus
-            required
-            className={fieldClass}
-          />
-        </Field>
-        <Field label="Current password">
-          <input
-            type="password"
-            value={currentPassword}
-            onChange={(e) => setCurrentPassword(e.target.value)}
-            disabled={mutation.isPending}
-            autoComplete="current-password"
-            required
-            className={fieldClass}
-          />
-        </Field>
-
-        <div className="flex items-center justify-between gap-3 pt-1">
-          <div className="bcc-mono min-h-[1rem] text-[10px]">
-            {serverError !== null && (
-              <span role="alert" className="text-safety">{serverError}</span>
-            )}
-          </div>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => {
-                setShowConfirm(false);
-                setCurrentPassword("");
-                setConfirmText("");
-                setServerError(null);
-              }}
-              disabled={mutation.isPending}
-              className="bcc-mono px-3 py-2 text-[11px] tracking-[0.14em] text-bcc-text-secondary hover:text-bcc-text"
-            >
-              CANCEL
-            </button>
-            <button
-              type="submit"
-              disabled={!canSubmit}
-              className="bcc-stencil bg-safety px-4 py-2 text-bcc-on-accent transition disabled:opacity-50"
-            >
-              {mutation.isPending ? "Deleting…" : "Delete forever"}
-            </button>
-          </div>
-        </div>
       </form>
     </section>
   );

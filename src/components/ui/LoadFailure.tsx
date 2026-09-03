@@ -122,6 +122,7 @@ export function LoadFailure({
   message,
   onRetry,
   surface = "theme",
+  retryLabel = "Retry",
 }: {
   message: string;
   /** Omit when retrying cannot help — no button is rendered at all. */
@@ -129,6 +130,17 @@ export function LoadFailure({
   /** Palette family of the surface this renders on. Defaults to the
    *  theme-aware app palette, so existing callers are unaffected. */
   surface?: Surface;
+  /**
+   * Action wording. Defaults to "Retry", which is what every existing
+   * caller renders and continues to render — this is additive only.
+   *
+   * The Account tab's security-activity and wallet failures ask for
+   * "Try again" specifically: both sit beside inline background-refetch
+   * banners that already use that phrasing, and having the blocking and
+   * non-blocking recovery paths on one surface disagree about what the
+   * action is called reads as two different mechanisms.
+   */
+  retryLabel?: string;
 }) {
   const tokens = LOAD_FAILURE_TOKENS[surface];
 
@@ -141,7 +153,7 @@ export function LoadFailure({
       {onRetry !== undefined && (
         <button type="button" onClick={onRetry} className={tokens.button}>
           <RefreshIcon />
-          Retry
+          {retryLabel}
         </button>
       )}
     </div>

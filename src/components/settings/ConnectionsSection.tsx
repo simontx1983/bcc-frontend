@@ -79,17 +79,6 @@ export function ConnectionsSection() {
 
   return (
     <div className="bcc-panel flex flex-col gap-4 p-6">
-      <header className="flex flex-col gap-1">
-        <span className="bcc-mono text-[10px] tracking-[0.24em] text-bcc-text-secondary">
-          IDENTITY · CONNECTIONS
-        </span>
-        <h2 className="bcc-stencil text-2xl text-bcc-text">Verified accounts</h2>
-        <p className="font-serif text-sm text-bcc-text-secondary">
-          Connect your X and GitHub to strengthen your identity. Each
-          connection shows on your profile and feeds into your trust score.
-        </p>
-      </header>
-
       {banner !== null && (
         <CallbackBannerView banner={banner} onDismiss={() => setBanner(null)} />
       )}
@@ -176,6 +165,7 @@ function XConnectionCard() {
       status={status.data}
       isStatusLoading={status.isLoading}
       isStatusError={status.isError}
+      onRetryStatus={() => void status.refetch()}
       connectLabel="Connect X"
       connectingLabel="Opening X…"
       onConnect={() => {
@@ -236,6 +226,7 @@ function GitHubConnectionCard() {
       status={status.data}
       isStatusLoading={status.isLoading}
       isStatusError={status.isError}
+      onRetryStatus={() => void status.refetch()}
       connectLabel="Connect GitHub"
       connectingLabel="Opening GitHub…"
       onConnect={() => {
@@ -276,6 +267,8 @@ interface ProviderCardProps<S extends XStatusResponse | GitHubStatusResponse> {
   status: S | undefined;
   isStatusLoading: boolean;
   isStatusError: boolean;
+  /** Re-runs the status query in place. Never a page reload. */
+  onRetryStatus: () => void;
   connectLabel: string;
   connectingLabel: string;
   onConnect: () => void;
@@ -292,6 +285,7 @@ function ProviderCard<S extends XStatusResponse | GitHubStatusResponse>({
   status,
   isStatusLoading,
   isStatusError,
+  onRetryStatus,
   connectLabel,
   connectingLabel,
   onConnect,
@@ -315,7 +309,27 @@ function ProviderCard<S extends XStatusResponse | GitHubStatusResponse>({
           {isStatusLoading ? (
             <span className="bcc-mono text-[11px] text-bcc-text-secondary">Checking…</span>
           ) : isStatusError ? (
-            <span className="bcc-mono text-[11px] text-safety">Status unavailable</span>
+            /* The state is genuinely unknown, so neither Connect nor
+               Disconnect may be offered — showing either would assert a
+               connection state we could not read. The card stays, says so
+               plainly, and gives the user a way forward. Previously this
+               replaced the only control with dead-end text. */
+            <div className="flex flex-col items-end gap-1">
+              {/* --bcc-warning, not --bcc-danger: this is an UNKNOWN state,
+                  not a destructive one, and the provider card sits on the
+                  tinted bg-bcc-surface-hover where danger measures only
+                  4.39 light / 4.04 dark. Warning measures 4.56 / 7.09. */}
+              <span className="bcc-mono text-[11px] text-bcc-warning">
+                We couldn&apos;t check this connection.
+              </span>
+              <button
+                type="button"
+                onClick={onRetryStatus}
+                className="bcc-mono border border-bcc-border px-2 py-1 text-[10px] tracking-[0.16em] text-bcc-text transition hover:bg-bcc-surface"
+              >
+                Try again
+              </button>
+            </div>
           ) : connected ? (
             <button
               type="button"
@@ -338,7 +352,7 @@ function ProviderCard<S extends XStatusResponse | GitHubStatusResponse>({
         </div>
       </div>
 
-      {status !== undefined && renderConnectedDetail(status)}
+      {!isStatusError && status !== undefined && renderConnectedDetail(status)}
 
       {errorText !== null && (
         <p role="alert" className="bcc-mono text-[11px] text-safety">
