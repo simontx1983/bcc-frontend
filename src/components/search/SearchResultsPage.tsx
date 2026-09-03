@@ -37,6 +37,7 @@ import { useSearchGroups } from "@/hooks/useSearchGroups";
 import { useSearchProjects } from "@/hooks/useSearchProjects";
 import { useSearchUsers } from "@/hooks/useSearchUsers";
 import { useTrendingSearches } from "@/hooks/useTrendingSearches";
+import { TabRail } from "@/components/ui/TabRail";
 import type {
   GroupSearchResult,
   ProjectSearchResult,
@@ -240,10 +241,13 @@ const TABS: ReadonlyArray<{ key: TabKey; label: string }> = [
 
 function TabBar({ tab, setTab, counts, loading }: TabBarProps) {
   return (
+    <TabRail activeKey={tab}>
     <nav
       role="tablist"
       aria-label="Search verticals"
-      className="mt-6 flex items-center gap-1 overflow-x-auto border-b border-bcc-border"
+      // Scrolls below `sm`, wraps from `sm` up so every vertical stays
+      // visible without a horizontal scroll. Matches the other tab strips.
+      className="mt-6 flex items-center gap-1 overflow-x-auto border-b border-bcc-border sm:flex-wrap"
     >
       {TABS.map(({ key, label }) => {
         const isActive = key === tab;
@@ -271,6 +275,7 @@ function TabBar({ tab, setTab, counts, loading }: TabBarProps) {
         );
       })}
     </nav>
+    </TabRail>
   );
 }
 

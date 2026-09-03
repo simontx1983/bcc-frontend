@@ -30,6 +30,7 @@ import { useState } from "react";
 import type { ReactNode } from "react";
 
 import { ATTESTATION_COPY } from "@/lib/copy/trust-layer";
+import { TabRail } from "@/components/ui/TabRail";
 
 type EntityTabKey =
   | "backing"
@@ -88,6 +89,12 @@ export function EntityTabs({
       {/* Strip — mirrors ProfileTabs exactly (same .bcc-tab class).
           Horizontal scroll on phones so the row never compresses below
           a readable width. */}
+      {/* Six tabs that scroll below `sm`. The active tab cannot ARRIVE
+          off-screen here — `active` is seeded to the first key and there is no
+          initialTab prop or URL read — but the rail still hides three of six
+          on a phone with nothing to say so. The fade is the point; the reveal
+          costs nothing and keeps the behaviour uniform across strips. */}
+      <TabRail activeKey={active}>
       <div
         role="tablist"
         aria-label="Entity sections"
@@ -108,6 +115,7 @@ export function EntityTabs({
           </button>
         ))}
       </div>
+      </TabRail>
 
       <div
         role="tabpanel"

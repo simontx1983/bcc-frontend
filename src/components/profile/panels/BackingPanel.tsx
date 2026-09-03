@@ -93,7 +93,13 @@ function SubTabStrip({
     <div
       role="tablist"
       aria-label="Support direction"
-      className="flex gap-4 border-b border-bcc-border"
+      /* `flex-wrap`: two short labels, but with neither a wrap nor a scroll
+         this row had no way to fail safely — at 200% text or with a longer
+         translation it would simply push past the viewport and take the page
+         into horizontal overflow. Wrapping is the correct strategy for a
+         two-item control: no rail, no fade, and at ordinary widths the layout
+         is byte-identical because there is nothing to wrap. */
+      className="flex flex-wrap gap-4 border-b border-bcc-border"
     >
       <SubTabButton
         label="RECEIVED"

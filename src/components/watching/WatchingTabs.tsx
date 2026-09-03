@@ -57,6 +57,7 @@ import {
 import { useUserFollowers } from "@/hooks/useUserActivity";
 import { useWatching } from "@/hooks/useWatching";
 import { FOLLOW_COPY } from "@/lib/copy";
+import { TabRail } from "@/components/ui/TabRail";
 
 const VALID_TABS = ["watching", "watchers"] as const;
 type TabKey = (typeof VALID_TABS)[number];
@@ -165,10 +166,13 @@ export function WatchingTabs({ handle }: WatchingTabsProps) {
             the tabs below readable width. The bleed must cancel THIS
             container's padding exactly (-mx-4/px-4 against px-4), or the
             rule sits inset from the edge. */}
+        <TabRail activeKey={tab}>
         <div
           role="tablist"
           aria-label="Watching sections"
-          className="-mx-4 mt-10 flex items-center gap-x-1 overflow-x-auto border-b border-bcc-border px-4 sm:mx-0 sm:px-0"
+          // Scrolls below `sm` (see the bleed note above), wraps from `sm` up
+          // so no tab is hidden past the right edge on a normal viewport.
+          className="-mx-4 mt-10 flex items-center gap-x-1 overflow-x-auto border-b border-bcc-border px-4 sm:mx-0 sm:flex-wrap sm:px-0"
         >
           {TABS.map((entry) => (
             <button
@@ -188,6 +192,7 @@ export function WatchingTabs({ handle }: WatchingTabsProps) {
             </button>
           ))}
         </div>
+        </TabRail>
 
         <div
           role="tabpanel"

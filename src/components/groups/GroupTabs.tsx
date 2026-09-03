@@ -36,6 +36,8 @@ import { useRouter } from "next/navigation";
 import type { ReactNode } from "react";
 import type { Route } from "next";
 
+import { TabRail } from "@/components/ui/TabRail";
+
 export type GroupTabKey =
   | "stream"
   | "about"
@@ -116,6 +118,13 @@ export function GroupTabs({
 
   return (
     <section className="bcc-stage-reveal" style={{ ["--stagger" as string]: "440ms" }}>
+      {/* The real deep-link case outside the profile. `/communities/[slug]/about`
+          and `/members` mount this shell with initialTab set, and in urlBase
+          mode a tab click navigates to a sibling ROUTE — so every tab change is
+          a fresh mount whose active tab is 2nd or 3rd of five. On a phone that
+          tab could be past the right edge on arrival, which is exactly the
+          failure this work exists to remove. */}
+      <TabRail activeKey={active}>
       <div
         role="tablist"
         aria-label="Group sections"
@@ -136,6 +145,7 @@ export function GroupTabs({
           </button>
         ))}
       </div>
+      </TabRail>
 
       <div
         role="tabpanel"

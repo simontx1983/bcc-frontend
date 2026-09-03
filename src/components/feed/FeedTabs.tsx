@@ -65,7 +65,9 @@ export function FeedTabs({ active, onChange }: FeedTabsProps) {
   const navRef = useRef<HTMLElement>(null);
   const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const [collapsed, setCollapsedState] = useState(false);
-  const [thumbRect, setThumbRect] = useState<{ left: number; width: number } | null>(null);
+  const [thumbRect, setThumbRect] = useState<
+    { left: number; width: number; top: number; height: number } | null
+  >(null);
   // A tap-to-peek override, separate from the scroll-driven `collapsed`
   // state: while scrolled down deep, tapping the circle shows the bar as a
   // dismissible overlay — ANY subsequent scroll (even 1px) or a click
@@ -167,7 +169,10 @@ export function FeedTabs({ active, onChange }: FeedTabsProps) {
     if (!expanded) return;
     const el = tabRefs.current[activeIndex];
     if (el === null || el === undefined) return;
-    setThumbRect({ left: el.offsetLeft, width: el.offsetWidth });
+    setThumbRect({
+      left: el.offsetLeft, width: el.offsetWidth,
+      top: el.offsetTop, height: el.offsetHeight,
+    });
   }, [activeIndex, expanded]);
 
   // Re-measure on resize (column width changes at breakpoints).
@@ -178,7 +183,10 @@ export function FeedTabs({ active, onChange }: FeedTabsProps) {
     const observer = new ResizeObserver(() => {
       const el = tabRefs.current[activeIndex];
       if (el !== null && el !== undefined) {
-        setThumbRect({ left: el.offsetLeft, width: el.offsetWidth });
+        setThumbRect({
+          left: el.offsetLeft, width: el.offsetWidth,
+          top: el.offsetTop, height: el.offsetHeight,
+        });
       }
     });
     observer.observe(nav);
@@ -211,7 +219,14 @@ export function FeedTabs({ active, onChange }: FeedTabsProps) {
           ref={navRef}
           role="tablist"
           aria-label="Feed scope"
-          className="relative flex items-stretch gap-0.5 rounded-full p-1"
+          /* `flex-wrap`: with neither a wrap nor a scroll this pill had no
+             safe failure mode — measured at 360px/200% text it already
+             overflowed its own box by a pixel, and a longer translation would
+             push the page sideways. Wrapping had to wait on the thumb below:
+             it tracked only offsetLeft/offsetWidth and was pinned vertically by
+             `inset-y-1`, so a wrapped second-row tab would have been underlined
+             on the FIRST row at the right x. It now tracks top/height too. */
+          className="relative flex flex-wrap items-stretch gap-0.5 rounded-full p-1"
           style={{ background: "var(--bcc-surface-raised)", border: "1px solid var(--bcc-border)" }}
         >
           {/* Sliding thumb behind the active tab — geometry is measured
@@ -221,12 +236,13 @@ export function FeedTabs({ active, onChange }: FeedTabsProps) {
             <span
               aria-hidden
               className={
-                "absolute inset-y-1 left-0 rounded-full " +
-                (reducedMotion ? "" : "motion-safe:transition-[transform,width] motion-safe:duration-[250ms] motion-safe:ease-out")
+                "absolute left-0 top-0 rounded-full " +
+                (reducedMotion ? "" : "motion-safe:transition-[transform,width,height] motion-safe:duration-[250ms] motion-safe:ease-out")
               }
               style={{
                 width: thumbRect.width,
-                transform: `translateX(${thumbRect.left}px)`,
+                height: thumbRect.height,
+                transform: `translate(${thumbRect.left}px, ${thumbRect.top}px)`,
                 background: "var(--bcc-accent)",
                 boxShadow: "0 2px 10px var(--bcc-accent-glow)",
               }}

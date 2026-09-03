@@ -43,6 +43,7 @@
 import { useId, useMemo } from "react";
 
 import { useRovingTabs } from "@/hooks/useRovingTabs";
+import { TabRail, type TabRailSurface } from "@/components/ui/TabRail";
 
 export interface SubTabDef<K extends string> {
   key: K;
@@ -63,6 +64,12 @@ export interface SubTabNavProps<K extends string> {
    * need to reference the ids).
    */
   idBase?: string;
+  /**
+   * Palette family behind the rail, for the mobile edge fade. Defaults to the
+   * theme-aware app surfaces; a strip on the fixed cream paper family must
+   * say so, or the gradient fades to the wrong colour.
+   */
+  surface?: TabRailSurface;
 }
 
 export function subTabId(idBase: string, key: string): string {
@@ -79,6 +86,7 @@ export function SubTabNav<K extends string>({
   onSelect,
   ariaLabel,
   idBase,
+  surface = "theme",
 }: SubTabNavProps<K>) {
   // useId keeps two instances on one page from colliding. Callers that pass
   // their own idBase win, so they can reference the ids from their panel.
@@ -91,13 +99,30 @@ export function SubTabNav<K extends string>({
   const keys = useMemo(() => tabs.map((t) => t.key), [tabs]);
   const { setRef, onKeyDown } = useRovingTabs(keys, onSelect);
   return (
+    // TabRail supplies the two things a scrollable rail needs below `sm` and
+    // did not have: the selected tab is scrolled into view on mount and on
+    // every selection change (useRovingTabs only follows FOCUS, so a deep
+    // link left the active tab off-screen), and an edge fade shows the rail
+    // continues. Above `sm` the row wraps, nothing overflows, and both go
+    // quiet on their own.
+    <TabRail activeKey={active} surface={surface}>
     <div
       role="tablist"
       aria-label={ariaLabel}
-      // Horizontal scroll rather than wrapping keeps every label readable at
-      // 360px; -mx-4/px-4 lets the row bleed to the edges so it reads as
-      // swipeable instead of clipped.
-      className="-mx-4 flex items-center gap-x-1 overflow-x-auto border-b border-bcc-border px-4 sm:mx-0 sm:px-0"
+      // Below `sm`, horizontal scroll keeps every label readable at 360px;
+      // -mx-4/px-4 lets the row bleed to the edges so it reads as swipeable
+      // rather than clipped.
+      //
+      // From `sm` up it WRAPS, so every tab is visible without scrolling.
+      // That half was missing and the omission hid whole sections: the
+      // settings strip is eight tabs, so "Account" (7th) sat past the right
+      // edge on a normal laptop with no scrollbar rendered to hint at it —
+      // reported as "I can't find Account settings". `overflow-x-auto` goes
+      // inert once the row wraps, so the mobile behaviour is unchanged.
+      //
+      // Matches the parent strip in ProfileTabs and the EntityTabs /
+      // GroupTabs strips, which already paired the two.
+      className="-mx-4 flex items-center gap-x-1 overflow-x-auto border-b border-bcc-border px-4 sm:mx-0 sm:flex-wrap sm:px-0"
     >
       {tabs.map((tab, index) => {
         const selected = tab.key === active;
@@ -129,5 +154,6 @@ export function SubTabNav<K extends string>({
         );
       })}
     </div>
+    </TabRail>
   );
 }

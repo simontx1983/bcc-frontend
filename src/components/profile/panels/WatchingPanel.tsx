@@ -185,6 +185,11 @@ function SubTabStrip({
     <div
       role="tablist"
       aria-label="Watching sections"
+      /* Already wraps at every width — two short labels never overflow, so
+         this strip needs no rail affordances and gets none. Noted because it
+         is on the fixed cream PAPER family (bcc-paper / border-ink/15): if it
+         ever gains enough tabs to scroll, it must pass surface="paper" or the
+         fade will resolve to a theme colour and smear grey over cream. */
       className="flex flex-wrap gap-x-6 gap-y-2 border-b border-ink/15 px-5 py-2"
     >
       {SUB_TABS.map((tab) => {
