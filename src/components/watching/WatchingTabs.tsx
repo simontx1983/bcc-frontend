@@ -168,7 +168,9 @@ export function WatchingTabs({ handle }: WatchingTabsProps) {
         <div
           role="tablist"
           aria-label="Watching sections"
-          className="-mx-4 mt-10 flex items-center gap-x-1 overflow-x-auto border-b border-bcc-border px-4 sm:mx-0 sm:px-0"
+          // Scrolls below `sm` (see the bleed note above), wraps from `sm` up
+          // so no tab is hidden past the right edge on a normal viewport.
+          className="-mx-4 mt-10 flex items-center gap-x-1 overflow-x-auto border-b border-bcc-border px-4 sm:mx-0 sm:flex-wrap sm:px-0"
         >
           {TABS.map((entry) => (
             <button

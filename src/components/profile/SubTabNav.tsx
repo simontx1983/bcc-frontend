@@ -94,10 +94,20 @@ export function SubTabNav<K extends string>({
     <div
       role="tablist"
       aria-label={ariaLabel}
-      // Horizontal scroll rather than wrapping keeps every label readable at
-      // 360px; -mx-4/px-4 lets the row bleed to the edges so it reads as
-      // swipeable instead of clipped.
-      className="-mx-4 flex items-center gap-x-1 overflow-x-auto border-b border-bcc-border px-4 sm:mx-0 sm:px-0"
+      // Below `sm`, horizontal scroll keeps every label readable at 360px;
+      // -mx-4/px-4 lets the row bleed to the edges so it reads as swipeable
+      // rather than clipped.
+      //
+      // From `sm` up it WRAPS, so every tab is visible without scrolling.
+      // That half was missing and the omission hid whole sections: the
+      // settings strip is eight tabs, so "Account" (7th) sat past the right
+      // edge on a normal laptop with no scrollbar rendered to hint at it —
+      // reported as "I can't find Account settings". `overflow-x-auto` goes
+      // inert once the row wraps, so the mobile behaviour is unchanged.
+      //
+      // Matches the parent strip in ProfileTabs and the EntityTabs /
+      // GroupTabs strips, which already paired the two.
+      className="-mx-4 flex items-center gap-x-1 overflow-x-auto border-b border-bcc-border px-4 sm:mx-0 sm:flex-wrap sm:px-0"
     >
       {tabs.map((tab, index) => {
         const selected = tab.key === active;
