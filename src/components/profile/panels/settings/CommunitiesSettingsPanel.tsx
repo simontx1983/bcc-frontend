@@ -14,7 +14,7 @@ export function CommunitiesSettingsPanel() {
   return (
     <section>
       <SettingsSectionHeader
-        eyebrow="COMMUNITIES"
+        eyebrow="COMMUNITY ACCESS"
         title="NFT-gated communities"
         blurb="Communities you can unlock by holding the right NFT. Eligibility re-checks at join time, so an empty wallet can't slip through."
       />

@@ -167,19 +167,58 @@ describe("the parent strip", () => {
 });
 
 describe("deep links are preserved", () => {
-  it.each(SETTINGS_KEYS)("?tab=%s selects My Profile and its child", (key) => {
+  /**
+   * UPDATED for the settings regrouping. The eight leaves used to sit in one
+   * flat strip; they now sit under five groups, two of which open a second
+   * row. The URL contract is unchanged — every key below is still the key
+   * that appears in `?tab=`, which is exactly what this table asserts.
+   *
+   * Stricter than the version it replaces: it now pins WHICH group each leaf
+   * resolves to, and requires that a single-destination group render no
+   * child strip at all.
+   */
+  const LEAF_TO_GROUP: Record<string, { group: string; hasChildStrip: boolean }> = {
+    profile:       { group: "profile",       hasChildStrip: true  },
+    showcase:      { group: "profile",       hasChildStrip: true  },
+    account:       { group: "account",       hasChildStrip: false },
+    privacy:       { group: "privacy",       hasChildStrip: true  },
+    messages:      { group: "privacy",       hasChildStrip: true  },
+    blocks:        { group: "privacy",       hasChildStrip: true  },
+    notifications: { group: "notifications", hasChildStrip: false },
+    communities:   { group: "communities",   hasChildStrip: false },
+  };
+
+  it.each(SETTINGS_KEYS)("?tab=%s selects My Profile, its group and its leaf", (key) => {
     renderTabs({ isOwner: true, tab: key });
+    const { group, hasChildStrip } = LEAF_TO_GROUP[key]!;
 
     const parent = parentTabs().find((t) => t.firstChild?.textContent?.trim() === "My Profile");
     expect(parent, "My Profile tab missing").toBeDefined();
     expect(parent).toHaveAttribute("aria-selected", "true");
 
-    const sub = screen.getByRole("tablist", { name: "My Profile sections" });
-    const selected = within(sub).getAllByRole("tab").filter(
+    // The GROUP strip is always present, with exactly one group selected.
+    const groups = screen.getByRole("tablist", { name: "My Profile settings" });
+    const selectedGroups = within(groups).getAllByRole("tab").filter(
       (t) => t.getAttribute("aria-selected") === "true",
     );
-    expect(selected).toHaveLength(1);
-    expect(selected[0]?.id).toBe(`profile-settings-tab-${key}`);
+    expect(selectedGroups).toHaveLength(1);
+    expect(selectedGroups[0]?.id).toBe(`profile-settings-group-tab-${group}`);
+
+    // The CHILD strip exists only where the group holds a real choice.
+    const childStrips = screen.queryAllByRole("tablist").filter(
+      (l) => (l.getAttribute("aria-label") ?? "").endsWith(" sections") &&
+             l.getAttribute("aria-label") !== "Member sections",
+    );
+    if (hasChildStrip) {
+      expect(childStrips, `${key} should open a child strip`).toHaveLength(1);
+      const selected = within(childStrips[0]!).getAllByRole("tab").filter(
+        (t) => t.getAttribute("aria-selected") === "true",
+      );
+      expect(selected).toHaveLength(1);
+      expect(selected[0]?.id).toBe(`profile-settings-tab-${key}`);
+    } else {
+      expect(childStrips, `${key} is a destination and must render no child strip`).toHaveLength(0);
+    }
   });
 
   it("?tab=setup still resolves after the My Standing rename", () => {
@@ -297,9 +336,12 @@ describe("keyboard — MANUAL activation", () => {
     expect(document.activeElement).toBe(first);
   });
 
-  it("applies the same model to the settings sub-strip", () => {
+  it("applies the same model to the settings GROUP strip", () => {
+    // Renamed target only: the settings sub-strip is now two strips, and the
+    // group strip is the one that occupies the old position. The keyboard
+    // assertions themselves are unchanged.
     renderTabs({ isOwner: true, tab: "profile" });
-    const sub = screen.getByRole("tablist", { name: "My Profile sections" });
+    const sub = screen.getByRole("tablist", { name: "My Profile settings" });
     const subTabs = within(sub).getAllByRole("tab");
 
     fireEvent.keyDown(subTabs[0]!, { key: "ArrowLeft" });
