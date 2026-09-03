@@ -11,18 +11,27 @@
  * hard-navigates to `/` — by the time the user lands they're
  * signed out everywhere with email confirmation in their inbox.
  *
- * Inline-confirm idiom mirrors `DeleteAccountCard` at
- * `AccountSection.tsx:252` — collapsed button → expanded confirm —
- * but without the password re-verify gate because sign-out-everywhere
- * is reversible-by-re-login. The destructive blast radius is the
- * user's own sessions; reversal cost is one sign-in form.
+ * Confirmation is the shared `ConfirmDialog`. The inline expand-in-place
+ * confirm it replaces had three gaps the dialog closes for free: focus
+ * never moved into the confirmation, so a keyboard user was left on a
+ * button that had just been re-rendered; there was no focus trap or
+ * Escape; and the only double-submit guard was `mutation.isPending`,
+ * which lags a render — the same hole that was measured firing `mutate`
+ * twice during the PR #160 hardening pass.
+ *
+ * Still NO password gate, deliberately: sign-out-everywhere is
+ * reversible by signing in again. The destructive blast radius is the
+ * user's own sessions; reversal cost is one sign-in form. The frontend
+ * also cannot reauthenticate anyone, and pretending otherwise with a
+ * password field would be theatre.
  *
  * Anti-pressure-mechanic posture: this is a security utility, not a
  * social signal. Equal-weight copy, no scarcity framing, no badges.
  */
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useLogoutEverywhere } from "@/hooks/useAccount";
 import { BccApiError } from "@/lib/api/types";
 
@@ -32,6 +41,7 @@ const ERROR_COPY: Record<string, string> = {
 };
 
 function humanizeError(err: BccApiError | Error): string {
+  // §γ — keyed on err.code; never the server's raw err.message.
   if (err instanceof BccApiError) {
     return ERROR_COPY[err.code] ?? "Couldn't sign out everywhere. Try again.";
   }
@@ -39,82 +49,70 @@ function humanizeError(err: BccApiError | Error): string {
 }
 
 export function SessionsRevokeSection() {
-  const [showConfirm, setShowConfirm] = useState(false);
+  const [confirming, setConfirming] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const [restoreFocus, setRestoreFocus] = useState(false);
 
   const mutation = useLogoutEverywhere();
 
-  if (!showConfirm) {
-    return (
-      <section className="bcc-panel p-5">
-        <h3 className="bcc-stencil text-lg text-bcc-text">Sign out of all devices</h3>
-        <p className="bcc-mono mt-1 text-[10px] tracking-[0.18em] text-bcc-text-secondary">
-          IF YOU SUSPECT A STOLEN SESSION
-        </p>
-        <p className="mt-2 font-serif text-bcc-text-secondary">
-          Invalidate every active sign-in on your account. You&rsquo;ll need
-          to sign back in on every device, including this one. A confirmation
-          email goes to your account address either way.
-        </p>
-        <button
-          type="button"
-          onClick={() => setShowConfirm(true)}
-          className="bcc-mono mt-3 border-2 border-bcc-border/50 px-4 py-2 text-[11px] tracking-[0.16em] text-bcc-text transition hover:bg-bcc-surface-hover motion-reduce:transition-none"
-        >
-          SIGN OUT ALL DEVICES…
-        </button>
-      </section>
-    );
-  }
-
-  const isPending = mutation.isPending;
+  // Cancel and Escape both land here; the trigger is still mounted, so
+  // focus goes back exactly where it came from.
+  useEffect(() => {
+    if (!restoreFocus) return;
+    triggerRef.current?.focus();
+    setRestoreFocus(false);
+  }, [restoreFocus]);
 
   return (
-    <section className="bcc-panel border-bcc-border-strong p-5">
+    <section className="bcc-panel p-5">
       <h3 className="bcc-stencil text-lg text-bcc-text">Sign out of all devices</h3>
+      <p className="bcc-mono mt-1 text-[10px] tracking-[0.18em] text-bcc-text-secondary">
+        IF YOU SUSPECT A STOLEN SESSION
+      </p>
       <p className="mt-2 font-serif text-bcc-text-secondary">
-        This signs you out everywhere you&rsquo;re currently logged in,
-        including this device. The next request from any of them will be
-        rejected. You can sign back in normally.
+        Invalidate every active sign-in on your account. You&rsquo;ll need
+        to sign back in on every device, including this one. A confirmation
+        email goes to your account address either way.
       </p>
 
-      {serverError !== null && (
-        <p
-          role="alert"
-          className="bcc-mono mt-3 border-l-2 border-safety pl-3 text-[11px] tracking-[0.16em] text-safety"
-        >
-          {serverError}
-        </p>
-      )}
+      <button
+        type="button"
+        ref={triggerRef}
+        onClick={() => {
+          setServerError(null);
+          setConfirming(true);
+        }}
+        className="bcc-mono mt-3 border-2 border-bcc-border/50 px-4 py-2 text-[11px] tracking-[0.16em] text-bcc-text transition hover:bg-bcc-surface-hover motion-reduce:transition-none"
+      >
+        Sign out everywhere…
+      </button>
 
-      <div className="mt-4 flex flex-wrap gap-3">
-        <button
-          type="button"
-          disabled={isPending}
-          onClick={() => {
+      {confirming && (
+        <ConfirmDialog
+          title="Sign out everywhere?"
+          body="This signs you out on every device, including this one. You can sign back in normally."
+          confirmLabel="Sign out everywhere"
+          cancelLabel="Stay signed in"
+          retryLabel="Try again"
+          errorMessage={serverError}
+          pending={mutation.isPending}
+          onConfirm={() => {
             setServerError(null);
             mutation.mutate(undefined, {
-              onError: (err) => {
-                setServerError(humanizeError(err));
-              },
+              // Success is not handled here on purpose: the hook already
+              // signs out and navigates away, so there is no surviving
+              // component to update.
+              onError: (err) => setServerError(humanizeError(err)),
             });
           }}
-          className="bcc-mono border-2 border-safety/70 px-4 py-2 text-[11px] tracking-[0.16em] text-safety transition hover:bg-safety/10 disabled:cursor-wait disabled:opacity-60 motion-reduce:transition-none"
-        >
-          {isPending ? "SIGNING OUT…" : "CONFIRM: SIGN OUT EVERYWHERE"}
-        </button>
-        <button
-          type="button"
-          disabled={isPending}
-          onClick={() => {
-            setShowConfirm(false);
+          onCancel={() => {
+            setConfirming(false);
             setServerError(null);
+            setRestoreFocus(true);
           }}
-          className="bcc-mono border border-bcc-border/30 px-4 py-2 text-[11px] tracking-[0.16em] text-bcc-text transition hover:bg-bcc-surface-hover disabled:opacity-50 motion-reduce:transition-none"
-        >
-          CANCEL
-        </button>
-      </div>
+        />
+      )}
     </section>
   );
 }

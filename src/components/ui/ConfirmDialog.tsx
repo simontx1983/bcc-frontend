@@ -108,7 +108,7 @@ export function ConfirmDialog({
       <p className="font-serif text-base text-bcc-text">{body}</p>
 
       {failed && (
-        <p role="alert" className="bcc-mono text-[11px] text-safety">
+        <p role="alert" className="bcc-mono text-[11px] text-bcc-danger">
           {errorMessage}
         </p>
       )}
@@ -118,7 +118,13 @@ export function ConfirmDialog({
           type="button"
           onClick={handleCancel}
           disabled={pending}
-          className="bcc-btn bcc-btn-outline bcc-btn-sm disabled:opacity-50"
+          /* `text-bcc-text` overrides bcc-btn-outline's --bcc-accent, which
+             measures 2.39:1 on the light dialog panel. In a destructive
+             confirmation the SAFE escape route must be the readable one;
+             the accent colour is doing no semantic work here. Scoped to
+             this dialog rather than the shared .bcc-btn-outline class,
+             which eight unrelated call sites depend on. */
+          className="bcc-btn bcc-btn-outline bcc-btn-sm text-bcc-text disabled:opacity-50"
         >
           {cancelLabel}
         </button>
@@ -126,7 +132,7 @@ export function ConfirmDialog({
           type="button"
           onClick={handleConfirm}
           disabled={pending}
-          className="bcc-btn bcc-btn-sm border-2 border-safety/70 text-safety transition hover:bg-safety/10 disabled:cursor-wait disabled:opacity-50"
+          className="bcc-btn bcc-btn-sm border-2 border-safety/70 text-bcc-danger transition hover:bg-safety/10 disabled:cursor-wait disabled:opacity-50"
         >
           {pending ? "Working…" : failed ? (retryLabel ?? confirmLabel) : confirmLabel}
         </button>
