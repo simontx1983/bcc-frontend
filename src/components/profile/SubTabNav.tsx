@@ -43,6 +43,7 @@
 import { useId, useMemo } from "react";
 
 import { useRovingTabs } from "@/hooks/useRovingTabs";
+import { TabRail, type TabRailSurface } from "@/components/ui/TabRail";
 
 export interface SubTabDef<K extends string> {
   key: K;
@@ -63,6 +64,12 @@ export interface SubTabNavProps<K extends string> {
    * need to reference the ids).
    */
   idBase?: string;
+  /**
+   * Palette family behind the rail, for the mobile edge fade. Defaults to the
+   * theme-aware app surfaces; a strip on the fixed cream paper family must
+   * say so, or the gradient fades to the wrong colour.
+   */
+  surface?: TabRailSurface;
 }
 
 export function subTabId(idBase: string, key: string): string {
@@ -79,6 +86,7 @@ export function SubTabNav<K extends string>({
   onSelect,
   ariaLabel,
   idBase,
+  surface = "theme",
 }: SubTabNavProps<K>) {
   // useId keeps two instances on one page from colliding. Callers that pass
   // their own idBase win, so they can reference the ids from their panel.
@@ -91,6 +99,13 @@ export function SubTabNav<K extends string>({
   const keys = useMemo(() => tabs.map((t) => t.key), [tabs]);
   const { setRef, onKeyDown } = useRovingTabs(keys, onSelect);
   return (
+    // TabRail supplies the two things a scrollable rail needs below `sm` and
+    // did not have: the selected tab is scrolled into view on mount and on
+    // every selection change (useRovingTabs only follows FOCUS, so a deep
+    // link left the active tab off-screen), and an edge fade shows the rail
+    // continues. Above `sm` the row wraps, nothing overflows, and both go
+    // quiet on their own.
+    <TabRail activeKey={active} surface={surface}>
     <div
       role="tablist"
       aria-label={ariaLabel}
@@ -139,5 +154,6 @@ export function SubTabNav<K extends string>({
         );
       })}
     </div>
+    </TabRail>
   );
 }

@@ -39,6 +39,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
 import { Skeleton } from "@/components/ui/Skeleton";
+import { TabRail } from "@/components/ui/TabRail";
 import type { RosterSeed } from "@/hooks/useAttestationRoster";
 import { useRovingTabs } from "@/hooks/useRovingTabs";
 import {
@@ -535,6 +536,11 @@ export function ProfileTabs({
           On phones (< sm) we drop wrap + add horizontal scroll so the
           6 + Blog tabs don't shrink below readable width — swiping the
           row beats stacking them on top of each other. */}
+      {/* Eleven tabs for an owner — the widest rail in the app, and the one
+          most likely to hide its selected tab on arrival. TabRail scrolls the
+          active tab into view on mount and on every selection change, which
+          useRovingTabs does not do because it follows focus, not selection. */}
+      <TabRail activeKey={activeParent}>
       <div
         role="tablist"
         aria-label="Member sections"
@@ -586,6 +592,7 @@ export function ProfileTabs({
           </button>
         ))}
       </div>
+      </TabRail>
 
       {/* Active-tab → panel relationship — the dashed rule integrates
           with the tab strip's bottom border (the strip itself draws the

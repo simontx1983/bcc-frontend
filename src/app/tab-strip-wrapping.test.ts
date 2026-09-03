@@ -38,16 +38,31 @@ import { describe, expect, it } from "vitest";
 
 const read = (p: string) => readFileSync(resolve(process.cwd(), p), "utf-8");
 
-/** Every source file declaring a tablist, found rather than hardcoded. */
+/**
+ * Every source file DECLARING a tablist, found rather than hardcoded.
+ *
+ * `git grep` finds the string, which is not the same thing: `TabRail.tsx`
+ * contains `querySelector('[role="tablist"]')` — it looks a tablist up, it
+ * does not render one. A reference is preceded by `[` (an attribute
+ * selector); a JSX declaration is not. Without that discriminator the guard
+ * demanded a className from a file that has no tablist to give one, and
+ * failed on a file it was never meant to police.
+ */
 function tablistFiles(): string[] {
-  const out = execFileSync("git", ["grep", "-l", 'role="tablist"', "--", "src"], {
+  // `--untracked`: git grep searches only TRACKED files by default, so a
+  // newly added strip was invisible to this guard until the moment it was
+  // committed — precisely when the author most needs to be told. Verified:
+  // an unwrapped scrolling tablist in an uncommitted file passed cleanly
+  // before this flag was added.
+  const out = execFileSync("git", ["grep", "-l", "--untracked", 'role="tablist"', "--", "src"], {
     encoding: "utf-8",
     cwd: process.cwd(),
   });
   return out
     .split(/\r?\n/)
     .map((s) => s.trim())
-    .filter((s) => s !== "" && !s.includes(".test."));
+    .filter((s) => s !== "" && !s.includes(".test."))
+    .filter((f) => /(^|[^[])role="tablist"/.test(read(f)));
 }
 
 /**
@@ -66,9 +81,10 @@ function tablistClassNames(src: string): string[] {
     .replace(/\/\*[\s\S]*?\*\//g, "")
     .replace(/^[ \t]*\/\/.*$/gm, "");
   const found: string[] = [];
-  const re = /role="tablist"([\s\S]{0,400}?)className=(?:"([^"]*)"|\{`([^`]*)`\})/g;
+  // `[^[]` excludes `[role="tablist"]` attribute selectors — see tablistFiles.
+  const re = /(^|[^[])role="tablist"([\s\S]{0,400}?)className=(?:"([^"]*)"|\{`([^`]*)`\})/g;
   let m: RegExpExecArray | null;
-  while ((m = re.exec(clean)) !== null) found.push(m[2] ?? m[3] ?? "");
+  while ((m = re.exec(clean)) !== null) found.push(m[3] ?? m[4] ?? "");
   return found;
 }
 
@@ -144,6 +160,128 @@ describe("every scrolling tab strip also wraps", () => {
       const cls = tablistClassNames(read(f))[0] ?? "";
       expect(cls, `${f} lost its mobile scroll`).toMatch(/overflow-x-auto/);
       expect(cls, `${f} lost its edge bleed`).toMatch(/-mx-4/);
+    }
+  });
+});
+
+/**
+ * Mode switchers are not destination navigation and are out of scope: they
+ * change what a control is doing, not where you are. Listed explicitly rather
+ * than pattern-matched so adding one is a deliberate act.
+ */
+const MODE_SWITCHERS = new Set([
+  "src/components/composer/Composer.tsx",
+  "src/components/blog/BodyEditor.tsx",
+  "src/components/admin/ModerationQueue.tsx",
+]);
+
+describe("every destination tablist has a strategy", () => {
+  /**
+   * The gap this closes: the earlier guard only asked "if it scrolls, does it
+   * wrap / have a rail". A strip with NEITHER passed silently — no wrap, no
+   * scroll, so a long label simply pushes the row past the viewport and takes
+   * the page into horizontal overflow. `FeedTabs` was measurably in that state
+   * (scrollWidth 297 against clientWidth 296 at 360px/200% text) and
+   * `BackingPanel` was one translation away from it.
+   *
+   * Every destination tablist must therefore declare one of two strategies:
+   *   WRAP   — `flex-wrap` (or `sm:flex-wrap` paired with a scroll below it)
+   *   SCROLL — `overflow-x-auto` AND `sm:flex-wrap` AND a `TabRail`
+   */
+  it("no destination tablist has neither wrap nor scroll", () => {
+    const offenders: string[] = [];
+    for (const file of tablistFiles()) {
+      if (MODE_SWITCHERS.has(file)) continue;
+      for (const cls of tablistClassNames(read(file))) {
+        const wraps = /(^|\s)(sm:)?flex-wrap\b/.test(cls);
+        const scrolls = /overflow-x-(auto|scroll)/.test(cls);
+        if (!wraps && !scrolls) offenders.push(`${file}: ${cls}`);
+      }
+    }
+    expect(
+      offenders,
+      `destination tablist with no wrap and no scroll — a long label pushes the page sideways:\n  ${offenders.join("\n  ")}`,
+    ).toHaveLength(0);
+  });
+
+  it("the two controls fixed here declare a wrap", () => {
+    for (const f of [
+      "src/components/feed/FeedTabs.tsx",
+      "src/components/profile/panels/BackingPanel.tsx",
+    ]) {
+      const classes = tablistClassNames(read(f));
+      expect(classes.length, `${f} no longer declares a tablist`).toBeGreaterThan(0);
+      expect(
+        classes.some((c) => /(^|\s)flex-wrap\b/.test(c)),
+        `${f} lost its wrap — it has no scroll strategy either`,
+      ).toBe(true);
+    }
+  });
+
+  it("FeedTabs' sliding thumb tracks BOTH axes, so wrapping is safe", () => {
+    // Wrapping was blocked on this: the thumb read only offsetLeft/offsetWidth
+    // and was pinned by `inset-y-1`, so a wrapped second-row tab would have
+    // been underlined on the first row at the right x.
+    const src = read("src/components/feed/FeedTabs.tsx");
+    expect(src).toMatch(/offsetTop/);
+    expect(src).toMatch(/offsetHeight/);
+    expect(src).toMatch(/translate\(\$\{thumbRect\.left\}px, \$\{thumbRect\.top\}px\)/);
+    expect(src, "thumb still vertically pinned").not.toMatch(/absolute inset-y-1/);
+  });
+});
+
+describe("every scrolling navigation strip has a rail", () => {
+  /**
+   * A strip that scrolls can hide tabs, and a hidden tab needs two things:
+   * something on screen saying the rail continues, and the selected tab
+   * scrolled into view. `TabRail` supplies both. Wrapping alone is not enough
+   * below `sm`, where the strips deliberately still scroll.
+   *
+   * The first pass wired four strips and missed two. `GroupTabs` was the
+   * costly miss: `/communities/[slug]/about` and `/members` mount it with
+   * `initialTab` set, and in urlBase mode a tab click navigates to a sibling
+   * ROUTE — so every tab change is a fresh mount whose active tab is 2nd or
+   * 3rd of five, exactly the arrive-off-screen case.
+   */
+  it("no tablist scrolls without a TabRail around it", () => {
+    const offenders: string[] = [];
+    for (const file of tablistFiles()) {
+      const src = read(file);
+      const scrolls = tablistClassNames(src).some((c) => /overflow-x-(auto|scroll)/.test(c));
+      if (scrolls && !src.includes("TabRail")) offenders.push(file);
+    }
+    expect(
+      offenders,
+      `scrolling strip with no rail — its tabs can hide with no way to know:\n  ${offenders.join("\n  ")}`,
+    ).toHaveLength(0);
+  });
+
+  it("names the six wired strips explicitly", () => {
+    // The generic rule above would pass if a file stopped scrolling; this
+    // pins the actual coverage so a silent regression is visible.
+    for (const f of [
+      "src/components/profile/SubTabNav.tsx",
+      "src/components/profile/ProfileTabs.tsx",
+      "src/components/watching/WatchingTabs.tsx",
+      "src/components/search/SearchResultsPage.tsx",
+      "src/components/entity/EntityTabs.tsx",
+      "src/components/groups/GroupTabs.tsx",
+    ]) {
+      expect(read(f), `${f} lost its TabRail`).toContain("<TabRail");
+    }
+  });
+
+  it("strips that WRAP at every width correctly have no rail", () => {
+    // Not an oversight: these never overflow, so a rail would add a wrapper
+    // and two dead nodes for nothing.
+    for (const f of [
+      "src/components/profile/panels/WatchingPanel.tsx",
+      "src/components/profile/panels/PhotosPanel.tsx",
+    ]) {
+      const src = read(f);
+      const classes = tablistClassNames(src);
+      expect(classes.some((c) => /(^|\s)flex-wrap/.test(c)), `${f} no longer wraps`).toBe(true);
+      expect(classes.some((c) => /overflow-x-(auto|scroll)/.test(c)), `${f} now scrolls`).toBe(false);
     }
   });
 });

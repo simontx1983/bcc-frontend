@@ -37,6 +37,7 @@ import { useSearchGroups } from "@/hooks/useSearchGroups";
 import { useSearchProjects } from "@/hooks/useSearchProjects";
 import { useSearchUsers } from "@/hooks/useSearchUsers";
 import { useTrendingSearches } from "@/hooks/useTrendingSearches";
+import { TabRail } from "@/components/ui/TabRail";
 import type {
   GroupSearchResult,
   ProjectSearchResult,
@@ -240,6 +241,7 @@ const TABS: ReadonlyArray<{ key: TabKey; label: string }> = [
 
 function TabBar({ tab, setTab, counts, loading }: TabBarProps) {
   return (
+    <TabRail activeKey={tab}>
     <nav
       role="tablist"
       aria-label="Search verticals"
@@ -273,6 +275,7 @@ function TabBar({ tab, setTab, counts, loading }: TabBarProps) {
         );
       })}
     </nav>
+    </TabRail>
   );
 }
 
