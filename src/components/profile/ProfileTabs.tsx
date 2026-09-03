@@ -194,26 +194,88 @@ function isTabKey(value: string | null | undefined): value is TabKey {
  * 308 redirects in next.config.ts and the Settings quick-link in
  * nav-items.tsx point at these, and all of them keep working untouched.
  */
-const MY_PROFILE_CHILDREN: ReadonlyArray<SubTabDef<TabKey>> = [
-  { key: "profile",       label: "Profile" },
-  { key: "privacy",       label: "Privacy" },
-  { key: "notifications", label: "Notifications" },
-  { key: "messages",      label: "Messages" },
-  { key: "communities",   label: "Communities" },
-  { key: "showcase",      label: "Showcase" },
-  { key: "account",       label: "Account" },
-  { key: "blocks",        label: "Blocks" },
+/**
+ * The five settings GROUPS, in display order, and the leaves each owns.
+ *
+ * The flat row of eight this replaces put Account seventh, past the right
+ * edge of an ordinary laptop, and mixed three different kinds of setting in
+ * one line. Grouping is by what a person came to do, not by how the feature
+ * is built:
+ *
+ *   Profile          public identity — what a stranger sees
+ *   Account          credentials and the danger zone; promoted to second
+ *   Privacy & Safety who can see you, message you, and who you have blocked
+ *   Notifications    how you are told, a different question from who may
+ *   Community Access eligibility and unlocking through verified holdings
+ *
+ * A group with ONE leaf renders no child strip — it is simply a destination.
+ * Only Profile and Privacy & Safety open a second row.
+ *
+ * URL contract, unchanged: the query carries the LEAF key and nothing else.
+ * `?tab=account` is still `?tab=account`; no group name ever appears in a
+ * URL, so the eight permanent 308 redirects in next.config.ts and every
+ * hardcoded `/u/me?tab=…` link keep resolving exactly as before. Group keys
+ * below deliberately reuse their default leaf's key so there is no second
+ * namespace to keep in sync.
+ */
+interface SettingsGroup {
+  /** Never appears in a URL. Equals the group's default leaf key. */
+  key: TabKey;
+  label: string;
+  /** Leaves in display order. The first is the group's default destination. */
+  children: ReadonlyArray<SubTabDef<TabKey>>;
+}
+
+const SETTINGS_GROUPS: ReadonlyArray<SettingsGroup> = [
+  {
+    key: "profile",
+    label: "Profile",
+    children: [
+      // "Details" rather than "Profile" — a Profile > Profile stutter reads
+      // as a mistake. The KEY stays `profile`.
+      { key: "profile",  label: "Details" },
+      { key: "showcase", label: "Showcase" },
+    ],
+  },
+  { key: "account",       label: "Account",          children: [{ key: "account",       label: "Account" }] },
+  {
+    key: "privacy",
+    label: "Privacy & Safety",
+    children: [
+      { key: "privacy",  label: "Privacy" },
+      { key: "messages", label: "Messages" },
+      // "Blocked accounts" says what the list holds; "Blocks" did not.
+      { key: "blocks",   label: "Blocked accounts" },
+    ],
+  },
+  { key: "notifications", label: "Notifications",    children: [{ key: "notifications", label: "Notifications" }] },
+  // The panel manages eligibility for NFT-gated communities, which is a
+  // different job from the profile's list of communities you already belong
+  // to. Naming them apart stops one word meaning two things.
+  { key: "communities",   label: "Community Access", children: [{ key: "communities",   label: "Community Access" }] },
 ];
+
+/** Every settings leaf, flattened, in display order. */
+const MY_PROFILE_CHILDREN: ReadonlyArray<SubTabDef<TabKey>> = SETTINGS_GROUPS.flatMap(
+  (g) => g.children,
+);
+
+/** The group strip itself, as SubTabNav wants it. */
+const SETTINGS_GROUP_TABS: ReadonlyArray<SubTabDef<TabKey>> = SETTINGS_GROUPS.map(
+  ({ key, label }) => ({ key, label }),
+);
 
 /** Parent tab that owns "My Profile". */
 const MY_PROFILE_PARENT: TabKey = "profile";
 
-/** Id namespace for the settings sub-strip and its panel. One per page. */
+/** Id namespace for the settings CHILD strip and its panel. One per page. */
 const SETTINGS_ID_BASE = "profile-settings";
+/** Separate namespace for the GROUP strip, so the two cannot mint equal ids. */
+const SETTINGS_GROUP_ID_BASE = "profile-settings-group";
 
 /**
- * Child key → parent key. Only the seven non-`profile` children need an
- * entry; `profile` IS the parent, so it resolves to itself by fallback.
+ * Child key → parent key. Only the non-`profile` children need an entry;
+ * `profile` IS the parent, so it resolves to itself by fallback.
  */
 const PARENT_OF: Partial<Record<TabKey, TabKey>> = Object.fromEntries(
   MY_PROFILE_CHILDREN
@@ -224,6 +286,34 @@ const PARENT_OF: Partial<Record<TabKey, TabKey>> = Object.fromEntries(
 /** The parent a given leaf renders under. Non-grouped tabs own themselves. */
 function parentOf(key: TabKey): TabKey {
   return PARENT_OF[key] ?? key;
+}
+
+/**
+ * Leaf key → its settings group. Built from the one manifest above, so a
+ * leaf cannot belong to two groups or to none: adding a leaf to
+ * SETTINGS_GROUPS is the only way to make it reachable at all.
+ */
+const GROUP_OF_LEAF: Partial<Record<TabKey, TabKey>> = Object.fromEntries(
+  SETTINGS_GROUPS.flatMap((g) => g.children.map((c) => [c.key, g.key])),
+);
+
+/** The settings group a leaf belongs to, or undefined if it is not a leaf. */
+function settingsGroupOf(key: TabKey): TabKey | undefined {
+  return GROUP_OF_LEAF[key];
+}
+
+/** Where activating a group should take you: its first child. */
+function defaultLeafOfGroup(groupKey: TabKey): TabKey {
+  const group = SETTINGS_GROUPS.find((g) => g.key === groupKey);
+  return group?.children[0]?.key ?? groupKey;
+}
+
+/** The children to show under a group — empty when the group is a destination. */
+function childrenOfGroup(groupKey: TabKey): ReadonlyArray<SubTabDef<TabKey>> {
+  const group = SETTINGS_GROUPS.find((g) => g.key === groupKey);
+  // One child is a destination, not a choice: rendering a one-item strip
+  // would add a row that can never do anything.
+  return group !== undefined && group.children.length > 1 ? group.children : [];
 }
 
 /**
@@ -509,6 +599,15 @@ export function ProfileTabs({
   const activeParent: TabKey = parentOf(effectiveActive);
   const showSettingsSubTabs = isOwner && activeParent === MY_PROFILE_PARENT;
 
+  // Which settings group the active leaf sits in, and what hangs off it.
+  // Derived from the leaf every render — never stored — so Back, Forward, a
+  // refresh and a pasted deep link all resolve the same way.
+  const activeSettingsGroup: TabKey =
+    settingsGroupOf(effectiveActive) ?? MY_PROFILE_PARENT;
+  const settingsChildren = childrenOfGroup(activeSettingsGroup);
+  const activeSettingsGroupLabel =
+    SETTINGS_GROUPS.find((g) => g.key === activeSettingsGroup)?.label ?? "Settings";
+
   const activeTab = tabsToRender.find((t) => t.key === effectiveActive);
   const activeHidden = activeTab?.hidden === true;
 
@@ -615,20 +714,69 @@ export function ProfileTabs({
             keeps the URL on the leaf key (?tab=account) with no second query
             parameter. */}
         {showSettingsSubTabs && (
-          <SubTabNav
-            tabs={MY_PROFILE_CHILDREN}
-            active={effectiveActive}
-            onSelect={requestNavigation}
-            ariaLabel="My Profile sections"
-            idBase={SETTINGS_ID_BASE}
-          />
+          <>
+            {/* GROUP strip — five destinations. Selecting one navigates to
+                its default leaf, so the URL still carries a leaf key and the
+                move goes through the same dirty guard as any other tab. */}
+            <SubTabNav
+              tabs={SETTINGS_GROUP_TABS}
+              active={activeSettingsGroup}
+              onSelect={(groupKey) => {
+                // Re-selecting the ACTIVE group is a no-op, deliberately, and
+                // it must not even REQUEST navigation. Two reasons:
+                //
+                //   - it would reset the child. On Showcase, clicking Profile
+                //     would have jumped back to Details, throwing away the
+                //     operator's position inside the group they are already in.
+                //   - it would ask the dirty guard to warn about a move that is
+                //     not happening, so an unsaved form would raise a dialog for
+                //     clicking the tab it is already on.
+                //
+                // The same guard covers a direct destination: clicking ACCOUNT
+                // while on Account adds no history entry and remounts nothing.
+                if (groupKey === activeSettingsGroup) return;
+                requestNavigation(defaultLeafOfGroup(groupKey));
+              }}
+              ariaLabel="My Profile settings"
+              idBase={SETTINGS_GROUP_ID_BASE}
+              // Only the innermost strip controls the panel. With a child
+              // strip present the child owns that relationship, so the group
+              // tab claims nothing; as a destination the group tab IS the
+              // control and points at the real panel id.
+              controlsPanelId={
+                settingsChildren.length > 0
+                  ? null
+                  : subTabPanelId(SETTINGS_ID_BASE, effectiveActive)
+              }
+            />
+            {/* CHILD strip — only for groups that hold a real choice. Account,
+                Notifications and Community Access are destinations and get no
+                second row. */}
+            {settingsChildren.length > 0 && (
+              <div className="mt-3">
+                <SubTabNav
+                  tabs={settingsChildren}
+                  active={effectiveActive}
+                  onSelect={requestNavigation}
+                  ariaLabel={`${activeSettingsGroupLabel} sections`}
+                  idBase={SETTINGS_ID_BASE}
+                />
+              </div>
+            )}
+          </>
         )}
         <div
           {...(showSettingsSubTabs
             ? {
                 role: "tabpanel",
+                // The panel is labelled by whichever strip actually holds the
+                // active leaf: the child strip when the group has one, the
+                // group strip when the group IS the destination.
                 id: subTabPanelId(SETTINGS_ID_BASE, effectiveActive),
-                "aria-labelledby": subTabId(SETTINGS_ID_BASE, effectiveActive),
+                "aria-labelledby":
+                  settingsChildren.length > 0
+                    ? subTabId(SETTINGS_ID_BASE, effectiveActive)
+                    : subTabId(SETTINGS_GROUP_ID_BASE, activeSettingsGroup),
                 className: "mt-6",
               }
             : {})}

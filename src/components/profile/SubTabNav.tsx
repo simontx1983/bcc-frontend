@@ -70,6 +70,22 @@ export interface SubTabNavProps<K extends string> {
    * say so, or the gradient fades to the wrong colour.
    */
   surface?: TabRailSurface;
+  /**
+   * What the SELECTED tab controls, when it is not this strip's own panel.
+   *
+   * Two strips can sit above one panel. In the settings hierarchy the group
+   * strip is a level above the child strip, and only the innermost strip
+   * directly controls the panel — so the group strip passes the child's panel
+   * id when it IS the innermost (a destination with no children), and `null`
+   * when a child strip mediates. Left undefined, the strip points at its own
+   * `subTabPanelId(idBase, key)`, which is right for every single-strip
+   * caller and is what they all still get.
+   *
+   * Without this the group strip emitted `aria-controls` for a panel id that
+   * nothing rendered — a dangling reference that assistive tech follows to
+   * nowhere.
+   */
+  controlsPanelId?: string | null;
 }
 
 export function subTabId(idBase: string, key: string): string {
@@ -87,6 +103,7 @@ export function SubTabNav<K extends string>({
   ariaLabel,
   idBase,
   surface = "theme",
+  controlsPanelId,
 }: SubTabNavProps<K>) {
   // useId keeps two instances on one page from colliding. Callers that pass
   // their own idBase win, so they can reference the ids from their panel.
@@ -134,8 +151,8 @@ export function SubTabNav<K extends string>({
             role="tab"
             id={subTabId(base, tab.key)}
             aria-selected={selected}
-            {...(selected
-              ? { "aria-controls": subTabPanelId(base, tab.key) }
+            {...(selected && controlsPanelId !== null
+              ? { "aria-controls": controlsPanelId ?? subTabPanelId(base, tab.key) }
               : {})}
             // Roving: exactly one tab stop for the whole strip.
             tabIndex={selected ? 0 : -1}
