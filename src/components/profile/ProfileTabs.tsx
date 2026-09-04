@@ -1,19 +1,22 @@
 "use client";
 
 /**
- * ProfileTabs — the bottom-of-profile tab strip with the active panel.
+ * ProfileTabs — the bottom-of-profile navigation with the active panel.
  *
- * Tabs: Watching · Reviews · Activity · Disputes · Groups · Network.
- * The Blog entry sits beside the tab strip as a Link (it's a separate
- * route per §D6, not a panel).
+ * Five groups for an owner, four for a visitor:
+ *
+ *   My Profile (owner-only) · Reputation · Network · Activity · Content
+ *
+ * Each group opens a strip of its own leaves; the leaf is what the URL
+ * carries. See PROFILE_GROUPS below for the manifest and the URL contract.
  *
  * Decoupled from Phase4MemberProfile per the V1.5 refactor: the
  * component now takes `handle` + `displayName` directly so a §3.1
  * profile page can mount it without supplying the full speculative
- * super-shape. When `tabs` (Phase-4 metadata) is supplied, per-tab
- * count badges + PRIVATE chips render in the strip; when it's
- * omitted, the default 5-tab list renders with no count badges and
- * the panels' own hidden-state handle privacy.
+ * super-shape. When `tabs` (Phase-4 metadata) is supplied it decorates the
+ * matching LEAVES with count badges and PRIVATE chips; when it's omitted,
+ * the review counts come from `receivedCount`/`writtenCount` and the panels'
+ * own hidden-state handles privacy.
  *
  * Each panel lazy-fetches via handle on activation (useUserReviews /
  * useUserDisputes), so the strip stays cheap to mount — no upfront
@@ -46,7 +49,7 @@ import {
   SettingsDirtyProvider,
   useSettingsDirtyGuard,
 } from "@/components/settings/SettingsDirtyProvider";
-import { ATTESTATION_COPY, REVIEW_TAB_COPY } from "@/lib/copy/trust-layer";
+import { ATTESTATION_COPY, REVIEW_TAB_COPY, ROSTER_TAB_COPY } from "@/lib/copy/trust-layer";
 import {
   SubTabNav,
   subTabId,
@@ -140,6 +143,14 @@ type TabKey =
   | "profile"
   | "blog"
   | "written"
+  // Flattened out of a panel's own sub-tab state by the profile regrouping.
+  // Neither had a URL before: they were local `useState` inside SetupPanel and
+  // WatchingPanel, so they could not be linked to and a refresh lost them.
+  // Their SIBLINGS keep the legacy keys (`setup` = Standing, `watching` =
+  // Watchers), which is what makes the two new keys additive rather than a
+  // renumbering of the existing contract.
+  | "reliability"
+  | "following"
   // Owner-only editor tabs, absorbed from the retired /settings/* routes.
   | "account"
   | "privacy"
@@ -160,6 +171,8 @@ const TAB_KEYS: ReadonlyArray<TabKey> = [
   "photos",
   "backing",
   "setup",
+  "reliability",
+  "following",
   "profile",
   "blog",
   "account",
@@ -274,21 +287,6 @@ const SETTINGS_ID_BASE = "profile-settings";
 const SETTINGS_GROUP_ID_BASE = "profile-settings-group";
 
 /**
- * Child key → parent key. Only the non-`profile` children need an entry;
- * `profile` IS the parent, so it resolves to itself by fallback.
- */
-const PARENT_OF: Partial<Record<TabKey, TabKey>> = Object.fromEntries(
-  MY_PROFILE_CHILDREN
-    .filter((child) => child.key !== MY_PROFILE_PARENT)
-    .map((child) => [child.key, MY_PROFILE_PARENT]),
-);
-
-/** The parent a given leaf renders under. Non-grouped tabs own themselves. */
-function parentOf(key: TabKey): TabKey {
-  return PARENT_OF[key] ?? key;
-}
-
-/**
  * Leaf key → its settings group. Built from the one manifest above, so a
  * leaf cannot belong to two groups or to none: adding a leaf to
  * SETTINGS_GROUPS is the only way to make it reachable at all.
@@ -317,82 +315,200 @@ function childrenOfGroup(groupKey: TabKey): ReadonlyArray<SubTabDef<TabKey>> {
 }
 
 /**
- * Default tab list — used when no Phase-4 `tabs` metadata is passed.
- * Order matches the Phase-4 contract so the layout stays stable
- * whether or not counts are available.
+ * PROFILE_GROUPS — the five top-level destinations on a profile.
  *
- * This is the PARENT strip: the seven grouped children are not listed here,
- * they live in MY_PROFILE_CHILDREN above.
+ * The strip this replaces held ELEVEN tabs for an owner and nine for a
+ * visitor, in one row, ordered by the history of when each shipped rather
+ * than by what anyone came to do. Eleven is past the point where a strip can
+ * be read at a glance: the operator scans it instead, and on a laptop the
+ * right-hand entries sat off-screen entirely — the same failure that hid
+ * Account inside settings.
+ *
+ * Grouping is by the QUESTION being asked, not by which endpoint answers it:
+ *
+ *   My Profile   my own settings — owner-only, the one group a visitor
+ *                never sees, which is why a visitor's strip is four
+ *   Reputation   can this operator be trusted, and on what evidence
+ *   Network      who they are connected to, in both directions
+ *   Activity     what they are doing right now
+ *   Content      what they have published
+ *
+ * Two of these hold sections that were previously LOCKED INSIDE a panel's
+ * local state — Reliability inside SetupPanel and Watching inside
+ * WatchingPanel. Flattening them into leaves is what pays for the smaller
+ * strip: the total number of destinations goes UP (they are addressable and
+ * linkable now), while the number of things in the top row goes down.
+ *
+ * ## URL contract — additive only
+ *
+ * The query still carries the LEAF key and nothing else. No group name ever
+ * appears in a URL, so `?tab=account`, `?tab=blog`, `?tab=backing` and the
+ * eleven redirects in next.config.ts resolve exactly as before. Two keys are
+ * NEW (`reliability`, `following`); none is renamed, removed or repointed.
+ *
+ * The two legacy keys that could have been repointed deliberately were not:
+ *
+ *   `?tab=setup`     → Standing   (SetupPanel's own default sub-tab)
+ *   `?tab=watching`  → Watchers   (WatchingPanel's own default sub-tab)
+ *
+ * so both links land on precisely the content they already landed on.
+ *
+ * ## Group keys live in their own namespace
+ *
+ * A group key is NOT a `TabKey`. It never reaches a URL, and giving it a
+ * separate type is what makes that structural rather than a convention that
+ * has to be remembered: `?tab=reputation` cannot resolve, because
+ * `"reputation"` is not a member of TabKey at all.
+ *
+ * `activity` is the single overlap, and it is not an exception to the rule —
+ * that group holds exactly one leaf whose key IS `activity`, so the URL value
+ * is the leaf's, not the group's. `PROFILE_GROUP_KEYS_ARE_NOT_LEAVES` in the
+ * tests states the invariant precisely.
+ *
+ * The Network group is keyed `network` internally. That is a group key, so it
+ * is unreachable as a URL: `network` is a dormant §9 contract key with no tab,
+ * no leaf and no panel, and this change does not make `?tab=network` work.
  */
-const DEFAULT_TABS: ReadonlyArray<{ key: TabKey; label: string; soon?: boolean; ownerOnly?: boolean }> = [
-  // "My Profile" — the owner's profile EDITOR (avatar/cover, handle,
-  // profile fields + per-field visibility). Owner-only: the tab is
-  // literally "My Profile", and its predecessor wrongly showed personal
-  // Preference/Notifications/Account sub-tabs to visitors. Sits first
-  // per the 2026-05-14 reorganization request. NOT the default active
-  // tab — owners still land on Activity, visitors on Backing.
-  { key: "profile",  label: "My Profile", ownerOnly: true },
-  // Owner-only operator-file hub — Standing + Reliability sub-tabs. Renamed
-  // from "Setup", which read as onboarding/configuration while the tab
-  // actually holds the operator's standing record and deliberately outlived
-  // cold-start. Key stays `setup`, so ?tab=setup keeps resolving.
-  // Promoted to second so both owner-only tabs sit together at the head of
-  // the strip, ahead of the public content a visitor came for.
-  { key: "setup",    label: "My Standing", ownerOnly: true },
-  // §J.6 — backing is the trust headline. Visitor's default active
-  // tab so the "can I trust this operator?" question is the first
-  // one answered by the panel content (even though Profile is the
-  // first tab in the strip).
-  // Label is the genus term over vouches AND backings (§J.6, contract
-  // v1.56) — deliberately NOT named after either primitive. The `key`
-  // stays `backing` so ?tab=backing deep links keep working.
-  { key: "backing",  label: ATTESTATION_COPY.supporters_tab },
-  // v1.48 split: "Reviews" = reviews RECEIVED (filed on this member's
-  // self-page — public trust signal, mirrors entity cards); "Written"
-  // = reviews this member authored. The pre-v1.48 single tab showed
-  // authored under a "Reviews on file" header — misleading once
-  // member-target reviews existed.
-  // Both labels name the noun. "Reviews" / "Written" made the reader infer
-  // that "Written" meant reviews — and the panels already say it in full
-  // (ReviewsPanel's own header renders "Reviews written", and the counts
-  // strip on this page says REVIEWS WRITTEN). Three surfaces, one wording.
-  // Keys unchanged, so ?tab=reviews and ?tab=written keep working.
-  { key: "reviews",  label: REVIEW_TAB_COPY.received },
-  { key: "written",  label: REVIEW_TAB_COPY.written },
-  { key: "activity", label: "Activity" },
-  // §3.1 — bidirectional follow graph (followers + following).
-  // Renamed from "Watching" because "Watching" leaned outgoing-only
-  // and undersold the "Being Watched" sub-tab. "Roster" reads as
-  // direction-neutral: a list of people in your orbit.
-  { key: "watching", label: "Roster" },
-  { key: "photos",   label: "Photos" },
-  { key: "disputes", label: "Disputes" },
-  { key: "groups",   label: "Groups" },
-  // Blog — long-form output as an inline tab. The previous standalone
-  // /u/{handle}/blog route was retired on 2026-05-14 in favor of this
-  // panel so navigation stays in-place. The panel itself holds two
-  // sub-tabs (VIEW · CREATE).
-  { key: "blog",     label: "Blog" },
-  // Network tab hidden in V1 per the 2026-05-13 UX review — stub
-  // ComingSoonPanel trains operators that tabs lie. Reinstate when
-  // the §C2 watchers + vouch-graph data ships (Phase 5).
-  //
-  // The owner-only editors absorbed from the retired /settings/* routes are
-  // NOT listed here any more — they are children of "My Profile" above.
+type ProfileGroupKey =
+  | "my-profile"
+  | "reputation"
+  | "network"
+  | "activity"
+  | "content";
+
+interface ProfileLeaf extends SubTabDef<TabKey> {
+  /** Hidden from visitors, and unreachable by URL for them. */
+  ownerOnly?: boolean;
+}
+
+interface ProfileGroup {
+  /** Own namespace — never a TabKey, so it can never appear in `?tab=`. */
+  key: ProfileGroupKey;
+  label: string;
+  ownerOnly?: boolean;
+  /** Leaves in display order; the first VISIBLE one is the destination. */
+  children: ReadonlyArray<ProfileLeaf>;
+}
+
+const PROFILE_GROUPS: ReadonlyArray<ProfileGroup> = [
+  {
+    // The owner's own settings. Its children are not leaves of a plain strip —
+    // this group opens SETTINGS_GROUPS, which has its own second level. The
+    // settings manifest is REUSED, never forked.
+    key: "my-profile",
+    label: "My Profile",
+    ownerOnly: true,
+    children: MY_PROFILE_CHILDREN,
+  },
+  {
+    key: "reputation",
+    label: "Reputation",
+    children: [
+      // The owner's own record comes FIRST, and is what an owner lands on when
+      // they open Reputation — "how am I doing" is the question they came with.
+      // A visitor never sees these two, so their first visible leaf is Reviews
+      // Received and the ordering below is unaffected.
+      { key: "setup",       label: "Standing",    ownerOnly: true },
+      { key: "reliability", label: "Reliability", ownerOnly: true },
+      // v1.48 split: `reviews` = reviews RECEIVED (filed on this member),
+      // `written` = reviews this member authored. Both labels name the noun,
+      // matching the counts strip above and the panels' own headers.
+      { key: "reviews",  label: REVIEW_TAB_COPY.received },
+      { key: "written",  label: REVIEW_TAB_COPY.written },
+      // Disputes is evidence about an operator in the same way a review is, so
+      // a reader weighing trust gets them side by side rather than in a
+      // category of its own.
+      { key: "disputes", label: "Disputes" },
+    ],
+  },
+  {
+    key: "network",
+    label: "Network",
+    children: [
+      // Supporters is who stands behind this operator — a relationship, which
+      // is what this group is about. §J.6: the label is the genus term over
+      // vouches AND backings (contract v1.56), deliberately not named after
+      // either primitive. The `backing` key is unchanged.
+      { key: "backing",   label: ATTESTATION_COPY.supporters_tab },
+      // Direction is load-bearing and was previously buried inside one panel's
+      // local state: `watching` → useUserFollowers (people watching this
+      // operator), `following` → useUserFollowing (people this operator
+      // watches). The key/label crossover is deliberate — `?tab=watching`
+      // already opened the Watchers sub-tab, so it still does.
+      { key: "watching",  label: ROSTER_TAB_COPY.followers },
+      { key: "following", label: ROSTER_TAB_COPY.following },
+      // Label only. The `groups` KEY is unchanged, so `?tab=groups` and every
+      // existing link keep resolving; "Communities" is what the product calls
+      // them everywhere else, and "Groups" beside "Network" read as a second
+      // kind of grouping rather than as the halls a member belongs to.
+      { key: "groups",    label: "Communities" },
+    ],
+  },
+  // One leaf, so no second row: Activity is a destination, not a choice.
+  { key: "activity", label: "Activity", children: [{ key: "activity", label: "Activity" }] },
+  {
+    key: "content",
+    label: "Content",
+    children: [
+      { key: "blog",   label: "Blog" },
+      { key: "photos", label: "Photos" },
+    ],
+  },
 ];
 
-interface TabRow {
-  key: TabKey;
-  label: string;
-  /** Phase-4 only. When undefined, the count badge is hidden. */
-  count?: number;
-  /** Phase-4 only. When true, the PRIVATE chip renders + the panel
-   *  short-circuits to ComingSoonPanel without a network call. */
-  hidden?: boolean;
-  /** Frontend-only flag for tabs whose data hasn't shipped yet
-   *  (Phase 6 stubs). Surfaces a quiet "(soon)" suffix so operators
-   *  don't waste a click discovering the panel is a ComingSoonPanel. */
-  soon?: boolean;
+/** Id namespace for the profile-group CHILD strip. Distinct from the two
+ *  settings namespaces and from the parent strip's `tab-<key>`, so three
+ *  strips can be on screen without minting an equal id. */
+const PROFILE_LEAF_ID_BASE = "profile-leaf";
+
+/**
+ * Leaf key → its profile group. Built from the one manifest, so a leaf cannot
+ * belong to two groups or to none: adding it to PROFILE_GROUPS is the only
+ * way to make it reachable at all.
+ */
+const PROFILE_GROUP_OF_LEAF: Partial<Record<TabKey, ProfileGroupKey>> =
+  Object.fromEntries(PROFILE_GROUPS.flatMap((g) => g.children.map((c) => [c.key, g.key])));
+
+/**
+ * The group a leaf belongs to. Total over valid leaves by construction — the
+ * caller only ever passes `effectiveActive`, which `validLeafKeys` has already
+ * proved is a leaf — but a group key must still be returned, never a TabKey,
+ * so the fallback names the group that owns the viewer's default destination.
+ */
+function profileGroupOf(leaf: TabKey, isOwner: boolean): ProfileGroupKey {
+  return PROFILE_GROUP_OF_LEAF[leaf] ?? (isOwner ? "activity" : "network");
+}
+
+/** Groups this viewer may see. Only My Profile is owner-only. */
+function visibleGroups(isOwner: boolean): ReadonlyArray<ProfileGroup> {
+  return PROFILE_GROUPS.filter((g) => g.ownerOnly !== true || isOwner);
+}
+
+/** Leaves of a group this viewer may see. */
+function visibleLeaves(
+  group: ProfileGroup,
+  isOwner: boolean,
+): ReadonlyArray<ProfileLeaf> {
+  return group.children.filter((c) => c.ownerOnly !== true || isOwner);
+}
+
+/**
+ * Where activating a group takes you: its first VISIBLE leaf.
+ *
+ * Filtering by viewer is what makes one ordering serve both. Reputation lists
+ * Standing and Reliability first, so an owner opening it lands on Standing;
+ * for a visitor those two are not visible at all, so the same rule lands them
+ * on Reviews Received. There is no second table of per-viewer defaults to keep
+ * in sync, and a visitor can never be sent to a leaf they cannot open.
+ */
+function defaultLeafOfProfileGroup(
+  groupKey: ProfileGroupKey,
+  isOwner: boolean,
+  fallback: TabKey,
+): TabKey {
+  const group = PROFILE_GROUPS.find((g) => g.key === groupKey);
+  if (group === undefined) return fallback;
+  return visibleLeaves(group, isOwner)[0]?.key ?? fallback;
 }
 
 export interface ProfileTabsProps {
@@ -548,79 +664,134 @@ export function ProfileTabs({
   const dirtyGuard = useSettingsDirtyGuard(handleTabChange);
   const { requestNavigation } = dirtyGuard;
 
-  // PR-11b — Setup tab no longer auto-hides on a finished checklist.
-  // The tab now holds three sub-tabs (Checklist / Standing /
-  // Reliability) so it stays relevant for the operator's own
-  // navigation even after the cold-start items are done.
-  // Filter tabs by ownership only.
-  const filteredDefaults = DEFAULT_TABS.filter((t) => {
-    if (t.ownerOnly === true && !isOwner) return false;
-    return true;
-  });
+  // The five (or four) top-level groups this viewer sees.
+  const groups = useMemo(() => visibleGroups(isOwner), [isOwner]);
 
-  // v1.49 — count badges on the review tabs (default-tabs path only;
-  // a server `tabs` prop carries its own counts).
-  const tabsToRender: TabRow[] = tabs ?? filteredDefaults.map((t) => {
-    if (t.key === "reviews" && receivedCount !== undefined) {
-      return { ...t, count: receivedCount };
+  /**
+   * Per-leaf metadata: the count badge and the §K2 PRIVATE chip.
+   *
+   * `tabs` used to REPLACE the top-level strip wholesale, which no caller ever
+   * did and which could not survive this change: the strip now holds groups,
+   * not leaves, so a list of leaves is no longer the same kind of thing. It is
+   * now an OVERLAY keyed by leaf, which is what the payload always described
+   * (a count and a hidden flag per section) and is where the badges have to
+   * land anyway now that the review tabs are children.
+   */
+  const leafMeta = useMemo(() => {
+    const m = new Map<TabKey, { count?: number; hidden?: boolean }>();
+    if (receivedCount !== undefined) m.set("reviews", { count: receivedCount });
+    if (writtenCount !== undefined) m.set("written", { count: writtenCount });
+    for (const t of tabs ?? []) {
+      m.set(t.key, { count: t.count, hidden: t.hidden });
     }
-    if (t.key === "written" && writtenCount !== undefined) {
-      return { ...t, count: writtenCount };
-    }
-    return { ...t };
-  });
+    return m;
+  }, [tabs, receivedCount, writtenCount]);
 
-  // The seven grouped children are no longer buttons in the parent strip, so
-  // membership can't be decided by the strip alone any more — without this a
-  // perfectly valid `?tab=account` would fall through to the default tab and
-  // silently break eight shipped redirects.
-  //
-  // Gating the set on `isOwner` is what preserves the original security
-  // property: for a signed-in NON-owner the set is empty, so `?tab=account`
-  // still falls back rather than mounting the owner's editor under someone
-  // else's profile. (No server data leak either way — every editor talks to
-  // session-scoped /me/* endpoints — but a visitor would otherwise see THEIR
-  // OWN fields loaded under a stranger's handle.)
-  const ownerChildKeys: ReadonlySet<TabKey> = useMemo(
+  /** A manifest leaf decorated with its metadata, ready for a strip. */
+  const decorate = useCallback(
+    (leaf: ProfileLeaf): SubTabDef<TabKey> => {
+      const meta = leafMeta.get(leaf.key);
+      return {
+        key: leaf.key,
+        label: leaf.label,
+        ...(meta?.count !== undefined ? { count: meta.count } : {}),
+        ...(meta?.hidden === true ? { hidden: true } : {}),
+      };
+    },
+    [leafMeta],
+  );
+
+  /**
+   * Every leaf this viewer may open. Membership can't be read off the top
+   * strip any more — it holds groups — so without this a perfectly valid
+   * `?tab=account` would fall through to the default tab and silently break
+   * eleven shipped redirects.
+   *
+   * Gating on `isOwner` is what preserves the security property: for a
+   * signed-in NON-owner the owner-only group and the two owner-only leaves are
+   * absent, so `?tab=account` and `?tab=reliability` fall back rather than
+   * mounting the owner's own editor under a stranger's handle. (No server data
+   * leak either way — every editor talks to session-scoped /me/* endpoints —
+   * but a visitor would otherwise see THEIR OWN fields under someone else's
+   * profile.)
+   */
+  const validLeafKeys: ReadonlySet<TabKey> = useMemo(
     () =>
-      isOwner
-        ? new Set(MY_PROFILE_CHILDREN.map((child) => child.key))
-        : new Set<TabKey>(),
+      new Set(
+        visibleGroups(isOwner).flatMap((g) =>
+          visibleLeaves(g, isOwner).map((c) => c.key),
+        ),
+      ),
     [isOwner],
   );
 
-  const effectiveActive: TabKey =
-    tabsToRender.some((t) => t.key === active) || ownerChildKeys.has(active)
-      ? active
-      : fallbackTab;
+  const effectiveActive: TabKey = validLeafKeys.has(active) ? active : fallbackTab;
 
-  // Which PARENT tab lights up. A child leaf (`account`) selects its parent
-  // (`profile`) in the top strip while the sub-strip selects the leaf.
-  const activeParent: TabKey = parentOf(effectiveActive);
-  const showSettingsSubTabs = isOwner && activeParent === MY_PROFILE_PARENT;
+  // Which top-level tab lights up. A leaf (`account`, `following`) selects its
+  // GROUP up top while the sub-strip selects the leaf itself. Derived from the
+  // leaf every render — never stored — so Back, Forward, a refresh and a
+  // pasted deep link all resolve identically.
+  const activeGroupKey: ProfileGroupKey = profileGroupOf(effectiveActive, isOwner);
+  const activeGroup = groups.find((g) => g.key === activeGroupKey);
+  const isSettingsGroup = isOwner && activeGroupKey === "my-profile";
+
+  /**
+   * The group's own child strip. My Profile is excluded because its second
+   * level is SETTINGS_GROUPS, not leaves — it gets the two settings strips
+   * below instead. A one-leaf group renders no strip: a row that can only
+   * select what is already selected is furniture, not navigation.
+   */
+  const groupLeaves: ReadonlyArray<SubTabDef<TabKey>> = useMemo(() => {
+    if (activeGroup === undefined || isSettingsGroup) return [];
+    const leaves = visibleLeaves(activeGroup, isOwner);
+    return leaves.length > 1 ? leaves.map(decorate) : [];
+  }, [activeGroup, isSettingsGroup, isOwner, decorate]);
 
   // Which settings group the active leaf sits in, and what hangs off it.
-  // Derived from the leaf every render — never stored — so Back, Forward, a
-  // refresh and a pasted deep link all resolve the same way.
   const activeSettingsGroup: TabKey =
     settingsGroupOf(effectiveActive) ?? MY_PROFILE_PARENT;
   const settingsChildren = childrenOfGroup(activeSettingsGroup);
   const activeSettingsGroupLabel =
     SETTINGS_GROUPS.find((g) => g.key === activeSettingsGroup)?.label ?? "Settings";
 
-  const activeTab = tabsToRender.find((t) => t.key === effectiveActive);
-  const activeHidden = activeTab?.hidden === true;
+  const activeLeaf = activeGroup?.children.find((c) => c.key === effectiveActive);
+  const activeHidden = leafMeta.get(effectiveActive)?.hidden === true;
 
-  // Manual activation on the parent strip too — same reasoning as the sub
-  // strip: these panels are lazy and network-backed, and arrowing must not
-  // rewrite the `?tab=` query on every keypress.
-  const parentKeys = useMemo(
-    () => tabsToRender.map((t) => t.key),
-    [tabsToRender],
+  /**
+   * Activating a GROUP means going to its default leaf — except when it is
+   * already the active group, which must be a true no-op rather than a move.
+   *
+   * Both halves matter. Navigating would throw away the operator's position
+   * inside the group they are already in (clicking Network while reading
+   * Communities would jump back to Supporters), and merely REQUESTING the
+   * navigation would ask the dirty guard to warn about a move that is not
+   * happening — so an unsaved form would raise a dialog for clicking the tab
+   * it is already on.
+   */
+  const activateGroup = useCallback(
+    (groupKey: ProfileGroupKey) => {
+      if (groupKey === activeGroupKey) return;
+      requestNavigation(defaultLeafOfProfileGroup(groupKey, isOwner, fallbackTab));
+    },
+    [activeGroupKey, isOwner, requestNavigation, fallbackTab],
   );
+
+  /** Same no-op rule one level down, for the settings group strip. */
+  const activateSettingsGroup = useCallback(
+    (groupKey: TabKey) => {
+      if (groupKey === activeSettingsGroup) return;
+      requestNavigation(defaultLeafOfGroup(groupKey));
+    },
+    [activeSettingsGroup, requestNavigation],
+  );
+
+  // Manual activation on the top strip too — same reasoning as the sub
+  // strips: these panels are lazy and network-backed, and arrowing must not
+  // rewrite the `?tab=` query on every keypress.
+  const groupKeys = useMemo(() => groups.map((g) => g.key), [groups]);
   const { setRef: setParentRef, onKeyDown: onParentKeyDown } = useRovingTabs(
-    parentKeys,
-    requestNavigation,
+    groupKeys,
+    activateGroup,
   );
 
   return (
@@ -629,65 +800,45 @@ export function ProfileTabs({
           the guard state itself lives in this component because the strips
           above need requestNavigation. */}
       <SettingsDirtyProvider registry={dirtyGuard.registry}>
-      {/* Tab strip on the concrete background. Blog is a sibling link
-          (separate route per §D6) — sits at the right end so it reads
-          as "and there's also a blog over here."
-          On phones (< sm) we drop wrap + add horizontal scroll so the
-          6 + Blog tabs don't shrink below readable width — swiping the
-          row beats stacking them on top of each other. */}
-      {/* Eleven tabs for an owner — the widest rail in the app, and the one
-          most likely to hide its selected tab on arrival. TabRail scrolls the
-          active tab into view on mount and on every selection change, which
-          useRovingTabs does not do because it follows focus, not selection. */}
-      <TabRail activeKey={activeParent}>
+      {/* The top strip carries GROUPS — five for an owner, four for a
+          visitor. No counts and no chips up here: a count on "Reputation"
+          would have to aggregate four different quantities into one number
+          that answers no question. Counts belong beside the leaf they count,
+          which is where they now render.
+          Below `sm` the row scrolls rather than shrinking below readable
+          width; from `sm` up it wraps so nothing hides past the right edge.
+          TabRail scrolls the selected group into view on mount and on every
+          selection change — useRovingTabs follows FOCUS, not selection, so a
+          deep link would otherwise land with its tab off-screen. */}
+      <TabRail activeKey={activeGroupKey}>
       <div
         role="tablist"
         aria-label="Member sections"
         className="-mx-4 flex items-center gap-x-1 overflow-x-auto border-b border-bcc-border px-4 sm:mx-0 sm:flex-wrap sm:px-0"
       >
-        {tabsToRender.map((tab, index) => (
+        {groups.map((group, index) => (
           <button
-            key={tab.key}
-            ref={setParentRef(tab.key)}
+            key={group.key}
+            ref={setParentRef(group.key)}
             type="button"
             role="tab"
-            id={`tab-${tab.key}`}
-            // Selection follows the PARENT, so "My Profile" stays lit while
-            // any of its eight children is the active leaf.
-            aria-selected={activeParent === tab.key}
-            // Only the selected tab's panel is in the DOM — pointing
+            id={`tab-${group.key}`}
+            // Selection follows the GROUP, so "Network" stays lit while any
+            // of its three leaves is the active one.
+            aria-selected={activeGroupKey === group.key}
+            // Only the selected group's panel is in the DOM — pointing
             // aria-controls at an unrendered id would be invalid, and
-            // mounting every owner editor to satisfy it would defeat the
+            // mounting every panel to satisfy it would defeat the
             // ssr:false code-splitting and the privacy boundary.
-            {...(activeParent === tab.key
-              ? { "aria-controls": `tabpanel-${tab.key}` }
+            {...(activeGroupKey === group.key
+              ? { "aria-controls": `tabpanel-${group.key}` }
               : {})}
-            tabIndex={activeParent === tab.key ? 0 : -1}
-            onClick={() => requestNavigation(tab.key)}
+            tabIndex={activeGroupKey === group.key ? 0 : -1}
+            onClick={() => activateGroup(group.key)}
             onKeyDown={(e) => onParentKeyDown(e, index)}
             className="bcc-tab shrink-0"
           >
-            {tab.label}
-            {tab.count !== undefined && (
-              <span className="bcc-tab-count">{tab.count}</span>
-            )}
-            {tab.hidden === true && (
-              <span
-                className="ml-2 inline-block border border-bcc-border px-1 text-[9px] tracking-[0.18em]"
-                aria-label="Private"
-              >
-                PRIVATE
-              </span>
-            )}
-            {tab.soon === true && (
-              <span
-                className="bcc-mono ml-2 text-bcc-text-secondary"
-                style={{ fontSize: "9px", letterSpacing: "0.18em" }}
-                aria-label="Coming soon"
-              >
-                (SOON)
-              </span>
-            )}
+            {group.label}
           </button>
         ))}
       </div>
@@ -704,39 +855,24 @@ export function ProfileTabs({
           panel changes when the tab flips. */}
       <div
         role="tabpanel"
-        id={`tabpanel-${activeParent}`}
-        aria-labelledby={`tab-${activeParent}`}
+        id={`tabpanel-${activeGroupKey}`}
+        aria-labelledby={`tab-${activeGroupKey}`}
         aria-live="polite"
         className="mt-6"
       >
-        {/* My Profile's panel CONTAINS a nested tablist — the eight settings
-            sections. Nesting a tabpanel inside a tabpanel is valid, and it
-            keeps the URL on the leaf key (?tab=account) with no second query
-            parameter. */}
-        {showSettingsSubTabs && (
+        {/* A group's panel CONTAINS its own tablist. Nesting a tabpanel inside
+            a tabpanel is valid, and it keeps the URL on the leaf key
+            (?tab=account) with no second query parameter. */}
+        {isSettingsGroup ? (
           <>
-            {/* GROUP strip — five destinations. Selecting one navigates to
-                its default leaf, so the URL still carries a leaf key and the
-                move goes through the same dirty guard as any other tab. */}
+            {/* SETTINGS GROUP strip — five destinations. Selecting one
+                navigates to its default leaf, so the URL still carries a leaf
+                key and the move goes through the same dirty guard as any
+                other tab. */}
             <SubTabNav
               tabs={SETTINGS_GROUP_TABS}
               active={activeSettingsGroup}
-              onSelect={(groupKey) => {
-                // Re-selecting the ACTIVE group is a no-op, deliberately, and
-                // it must not even REQUEST navigation. Two reasons:
-                //
-                //   - it would reset the child. On Showcase, clicking Profile
-                //     would have jumped back to Details, throwing away the
-                //     operator's position inside the group they are already in.
-                //   - it would ask the dirty guard to warn about a move that is
-                //     not happening, so an unsaved form would raise a dialog for
-                //     clicking the tab it is already on.
-                //
-                // The same guard covers a direct destination: clicking ACCOUNT
-                // while on Account adds no history entry and remounts nothing.
-                if (groupKey === activeSettingsGroup) return;
-                requestNavigation(defaultLeafOfGroup(groupKey));
-              }}
+              onSelect={activateSettingsGroup}
               ariaLabel="My Profile settings"
               idBase={SETTINGS_GROUP_ID_BASE}
               // Only the innermost strip controls the panel. With a child
@@ -749,9 +885,9 @@ export function ProfileTabs({
                   : subTabPanelId(SETTINGS_ID_BASE, effectiveActive)
               }
             />
-            {/* CHILD strip — only for groups that hold a real choice. Account,
-                Notifications and Community Access are destinations and get no
-                second row. */}
+            {/* SETTINGS CHILD strip — only for groups that hold a real choice.
+                Account, Notifications and Community Access are destinations
+                and get no second row. */}
             {settingsChildren.length > 0 && (
               <div className="mt-3">
                 <SubTabNav
@@ -764,9 +900,21 @@ export function ProfileTabs({
               </div>
             )}
           </>
+        ) : (
+          // LEAF strip for every other group that holds more than one leaf.
+          // Activity has exactly one and renders no strip at all.
+          groupLeaves.length > 0 && (
+            <SubTabNav
+              tabs={groupLeaves}
+              active={effectiveActive}
+              onSelect={requestNavigation}
+              ariaLabel={`${activeGroup?.label ?? "Member"} sections`}
+              idBase={PROFILE_LEAF_ID_BASE}
+            />
+          )
         )}
         <div
-          {...(showSettingsSubTabs
+          {...(isSettingsGroup
             ? {
                 role: "tabpanel",
                 // The panel is labelled by whichever strip actually holds the
@@ -779,12 +927,22 @@ export function ProfileTabs({
                     : subTabId(SETTINGS_GROUP_ID_BASE, activeSettingsGroup),
                 className: "mt-6",
               }
-            : {})}
+            : groupLeaves.length > 0
+              ? {
+                  role: "tabpanel",
+                  id: subTabPanelId(PROFILE_LEAF_ID_BASE, effectiveActive),
+                  "aria-labelledby": subTabId(PROFILE_LEAF_ID_BASE, effectiveActive),
+                  className: "mt-6",
+                }
+              // A one-leaf group has no inner strip, so the OUTER tabpanel
+              // above is already the panel. A second tabpanel here would be
+              // labelled by nothing.
+              : {})}
         >
-        {activeHidden && activeTab !== undefined ? (
+        {activeHidden && activeLeaf !== undefined ? (
           <ComingSoonPanel
-            label={activeTab.label}
-            hint={`${displayName} has hidden their ${activeTab.label.toLowerCase()}.`}
+            label={activeLeaf.label}
+            hint={`${displayName} has hidden their ${activeLeaf.label.toLowerCase()}.`}
           />
         ) : (
           <>
@@ -808,8 +966,22 @@ export function ProfileTabs({
             )}
             {effectiveActive === "written"  && <ReviewsPanel handle={handle} />}
             {effectiveActive === "disputes" && <DisputesPanel handle={handle} />}
+            {/* Two leaves, one component, one direction each. `watching` is
+                Watchers because that is the sub-tab `?tab=watching` already
+                opened; `following` is the direction that had no URL before. */}
             {effectiveActive === "watching" && (
-              <WatchingPanel handle={handle} displayName={displayName} />
+              <WatchingPanel
+                handle={handle}
+                displayName={displayName}
+                direction="followers"
+              />
+            )}
+            {effectiveActive === "following" && (
+              <WatchingPanel
+                handle={handle}
+                displayName={displayName}
+                direction="following"
+              />
             )}
             {effectiveActive === "activity" && (
               <ActivityPanel
@@ -829,11 +1001,24 @@ export function ProfileTabs({
                 viewerHandle={viewerHandle}
               />
             )}
-            {effectiveActive === "network"  && <ComingSoonPanel label="Network" hint="Members you're watching + vouch graph — Phase 5." />}
+            {/* Standing and Reliability were sub-tabs of one panel; each is
+                now its own leaf, so each has a URL and survives a refresh.
+                (The dormant `network` contract key kept a ComingSoonPanel
+                branch here that nothing could ever reach — `network` is in no
+                strip and no manifest. Removed rather than left to imply
+                `?tab=network` does something next to a "Network" group.) */}
             {effectiveActive === "setup" && (
               <SetupPanel
                 profile={profile}
                 reliability={reliability}
+                section="standing"
+              />
+            )}
+            {effectiveActive === "reliability" && (
+              <SetupPanel
+                profile={profile}
+                reliability={reliability}
+                section="reliability"
               />
             )}
 

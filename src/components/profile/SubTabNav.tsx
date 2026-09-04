@@ -48,6 +48,22 @@ import { TabRail, type TabRailSurface } from "@/components/ui/TabRail";
 export interface SubTabDef<K extends string> {
   key: K;
   label: string;
+  /**
+   * Count badge, rendered after the label. Optional because most strips have
+   * nothing to count; omit rather than pass 0, which would print a badge.
+   *
+   * This lives here because the profile regrouping moved the review tabs out
+   * of the parent strip and into a child strip. The badge is the same
+   * `.bcc-tab-count` the parent strip renders — the number had to keep its
+   * place beside the label, not be dropped on the way down a level.
+   */
+  count?: number;
+  /**
+   * §K2 — the owner has hidden this surface from visitors. Renders the PRIVATE
+   * chip; the caller is responsible for showing a placeholder instead of the
+   * real panel.
+   */
+  hidden?: boolean;
 }
 
 export interface SubTabNavProps<K extends string> {
@@ -167,6 +183,17 @@ export function SubTabNav<K extends string>({
             style={{ fontSize: "12px", letterSpacing: "0.18em" }}
           >
             {tab.label.toUpperCase()}
+            {tab.count !== undefined && (
+              <span className="bcc-tab-count ml-2">{tab.count}</span>
+            )}
+            {tab.hidden === true && (
+              <span
+                className="ml-2 inline-block border border-bcc-border px-1 text-[9px] tracking-[0.18em]"
+                aria-label="Private"
+              >
+                PRIVATE
+              </span>
+            )}
           </button>
         );
       })}

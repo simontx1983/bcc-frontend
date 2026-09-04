@@ -124,11 +124,24 @@ function renderTabs(opts: { isOwner: boolean; tab?: string | null }) {
 }
 
 const groupStrip = () => screen.getByRole("tablist", { name: "My Profile settings" });
+/**
+ * The SETTINGS child strip, identified by the id namespace its tabs are minted
+ * under rather than by its accessible name.
+ *
+ * It used to be found by "any tablist whose name ends in ' sections' that is
+ * not 'Member sections'". That stopped being unique the moment the profile
+ * regrouping gave every content group a leaf strip of its own: a VISITOR on
+ * the default tab now has a "Reputation sections" strip, so the old selector
+ * reported a settings strip for a viewer who has no settings at all — and the
+ * owner-only assertions below passed or failed on the wrong element. The id
+ * base is the real discriminator and cannot collide.
+ */
 const childStrips = () =>
-  screen.queryAllByRole("tablist").filter((l) => {
-    const n = l.getAttribute("aria-label") ?? "";
-    return n.endsWith(" sections") && n !== "Member sections";
-  });
+  screen.queryAllByRole("tablist").filter((l) =>
+    within(l)
+      .queryAllByRole("tab")
+      .some((t) => t.id.startsWith("profile-settings-tab-")),
+  );
 const selectedIn = (list: HTMLElement) =>
   within(list).getAllByRole("tab").filter((t) => t.getAttribute("aria-selected") === "true");
 const labels = (list: HTMLElement) =>

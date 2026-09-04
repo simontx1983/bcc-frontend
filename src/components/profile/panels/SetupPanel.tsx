@@ -16,7 +16,20 @@
  * so a single sub-tab can answer "where am I in setup?" alongside the
  * rest of the operator's standing.
  *
- * Sub-tabs EMBED the full page content rather than linking out. The
+ * ## The sub-tab strip moved out
+ *
+ * The profile regrouping (11 top-level tabs → 5) FLATTENED those two
+ * sections into first-class leaves of the Reputation group, so the strip
+ * that used to live in this file is now the group's own child strip and
+ * this component renders ONE section, chosen by `section`.
+ *
+ * That is what makes them addressable: `?tab=setup` is Standing (exactly
+ * where that link already landed, since `standing` was this panel's
+ * default) and `?tab=reliability` is Reliability, which previously had no
+ * URL at all — it was reachable only by clicking, and a refresh threw the
+ * operator back to Standing.
+ *
+ * Sections EMBED the full page content rather than linking out. The
  * standalone routes still exist for §J.7 deeplinks + footer
  * navigation; the embedded versions are identical content, sharing
  * the same body components (StandingFileBody / ReliabilityMirrorBody)
@@ -36,25 +49,21 @@
  * Owner-only — ProfileTabs gates the parent tab on isOwner.
  */
 
-import { useState } from "react";
 import Link from "next/link";
 import type { Route } from "next";
 
 import { ReliabilityMirrorBody } from "@/components/profile/ReliabilityMirrorBody";
 import { StandingFileBody } from "@/components/profile/StandingFileBody";
-import {
-  SubTabNav,
-  subTabId,
-  subTabPanelId,
-  type SubTabDef,
-} from "@/components/profile/SubTabNav";
 import type {
   MemberProfile,
   MeReliabilityResponse,
 } from "@/lib/api/types";
 
+/** The two sections this panel can render. One is on screen at a time. */
+export type SetupSection = "standing" | "reliability";
+
 export interface SetupPanelProps {
-  /** Full operator profile — drives the STANDING sub-tab body. */
+  /** Full operator profile — drives the STANDING body. */
   profile: MemberProfile;
   /**
    * Self-mirror payload. Owner-only; undefined when the parent
@@ -62,48 +71,18 @@ export interface SetupPanelProps {
    * in practice since the parent tab is owner-gated).
    */
   reliability: MeReliabilityResponse | undefined;
+  /** Which section to render. Selection lives in the URL, not here. */
+  section: SetupSection;
 }
 
-type SubTabKey = "standing" | "reliability";
-
-/** Id namespace for this panel's sub-strip. */
-const ID_BASE = "setup";
-
-const SUB_TABS: ReadonlyArray<SubTabDef<SubTabKey>> = [
-  { key: "standing",    label: "Standing" },
-  { key: "reliability", label: "Reliability" },
-];
-
-export function SetupPanel(props: SetupPanelProps) {
-  const [active, setActive] = useState<SubTabKey>("standing");
-
-  return (
-    <div className="flex flex-col gap-4">
-      <SubTabNav
-        tabs={SUB_TABS}
-        active={active}
-        onSelect={setActive}
-        ariaLabel="Standing sections"
-        idBase={ID_BASE}
-      />
-
-      <div
-        role="tabpanel"
-        id={subTabPanelId(ID_BASE, active)}
-        aria-labelledby={subTabId(ID_BASE, active)}
-      >
-        {active === "standing" && (
-          <StandingFileBody profile={props.profile} />
-        )}
-        {active === "reliability" && (
-          props.reliability !== undefined ? (
-            <ReliabilityMirrorBody reliability={props.reliability} />
-          ) : (
-            <ReliabilityUnavailable />
-          )
-        )}
-      </div>
-    </div>
+export function SetupPanel({ profile, reliability, section }: SetupPanelProps) {
+  if (section === "standing") {
+    return <StandingFileBody profile={profile} />;
+  }
+  return reliability !== undefined ? (
+    <ReliabilityMirrorBody reliability={reliability} />
+  ) : (
+    <ReliabilityUnavailable />
   );
 }
 

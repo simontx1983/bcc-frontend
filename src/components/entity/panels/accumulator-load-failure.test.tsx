@@ -297,8 +297,12 @@ describe("CardWatchersPanel — accumulated watchers", () => {
 // ── WatchingPanel: two independent rosters + the privacy branch ───────
 
 describe("WatchingPanel — followers / following independence", () => {
-  const ui = () => (
-    <WatchingPanel handle="ada" displayName="Ada" />
+  // The two directions used to be sub-tabs of one panel, reached by clicking.
+  // The profile regrouping made each a leaf with its own URL, so the panel is
+  // now handed the direction. The property under test is unchanged: each
+  // roster retries its OWN query and never the sibling's.
+  const ui = (direction: "followers" | "following" = "followers") => (
+    <WatchingPanel handle="ada" displayName="Ada" direction={direction} />
   );
 
   it("a followers failure does not refetch following", () => {
@@ -314,13 +318,7 @@ describe("WatchingPanel — followers / following independence", () => {
   it("a following failure does not refetch followers", () => {
     state.followers[0] = offsetOk([card(1)], "followers", 0, false);
     state.following[0] = failed("bcc_rate_limited", "following");
-    render(ui());
-
-    // switch to the "following" roster. These sub-tabs carry role="tab",
-    // which overrides the implicit button role.
-    // Label renamed "Keeping Tabs" -> "Watching" in the profile IA pass.
-    // Direction is unchanged: this sub-tab still reads useUserFollowing.
-    fireEvent.click(screen.getByRole("tab", { name: /watching/i }));
+    render(ui("following"));
 
     fireEvent.click(screen.getByRole("button", { name: /retry/i }));
     expect(refetch.following).toHaveBeenCalledTimes(1);
@@ -354,7 +352,9 @@ describe("WatchingPanel — followers cursor failure and recovery", () => {
   // implementation; the bidirectional isolation tests above cover the
   // part that genuinely differs — that each instance retries its own
   // query and never the sibling's.
-  const ui = () => <WatchingPanel handle="ada" displayName="Ada" />;
+  const ui = () => (
+    <WatchingPanel handle="ada" displayName="Ada" direction="followers" />
+  );
 
   it("keeps members, withdraws LOAD MORE, retries the failed offset, then appends once", () => {
     state.followers[0] = offsetOk([card(1), card(2)], "followers", 0, true);
@@ -479,10 +479,10 @@ describe("a pending later page never blanks accumulated content", () => {
   it("WatchingPanel's roster keeps its members while the next offset is in flight", () => {
     state.followers[0] = offsetOk([card(1), card(2)], "followers", 0, true);
     state.following[0] = offsetOk([], "following", 0, false);
-    const { rerender } = render(<WatchingPanel handle="ada" displayName="Ada" />);
+    const { rerender } = render(<WatchingPanel handle="ada" displayName="Ada" direction="followers" />);
 
     fireEvent.click(screen.getByRole("button", { name: /load more/i }));
-    rerender(<WatchingPanel handle="ada" displayName="Ada" />);
+    rerender(<WatchingPanel handle="ada" displayName="Ada" direction="followers" />);
 
     expect(rowsNamed("Card 1")).toHaveLength(1);
     expect(rowsNamed("Card 2")).toHaveLength(1);

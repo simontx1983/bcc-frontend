@@ -274,12 +274,21 @@ describe("every scrolling navigation strip has a rail", () => {
   it("strips that WRAP at every width correctly have no rail", () => {
     // Not an oversight: these never overflow, so a rail would add a wrapper
     // and two dead nodes for nothing.
+    //
+    // WatchingPanel used to be listed here. Its strip is GONE — the profile
+    // regrouping lifted both directions into leaves of the Network group — so
+    // asserting anything about a tablist it no longer has would be asserting
+    // about nothing.
     for (const f of [
-      "src/components/profile/panels/WatchingPanel.tsx",
       "src/components/profile/panels/PhotosPanel.tsx",
     ]) {
       const src = read(f);
       const classes = tablistClassNames(src);
+      // A file that LOSES its tablist would otherwise pass both assertions
+      // below vacuously — `[].some()` is false, which reads as "does not
+      // scroll" rather than "has no strip". That is exactly how this check
+      // could go quiet, so the emptiness is caught first.
+      expect(classes.length, `${f} has no tablist at all — this list is stale`).toBeGreaterThan(0);
       expect(classes.some((c) => /(^|\s)flex-wrap/.test(c)), `${f} no longer wraps`).toBe(true);
       expect(classes.some((c) => /overflow-x-(auto|scroll)/.test(c)), `${f} now scrolls`).toBe(false);
     }
@@ -311,5 +320,42 @@ describe("mutation controls", () => {
       (c) => /overflow-x-(auto|scroll)/.test(c) && !/flex-wrap/.test(c),
     );
     expect(offenders).toHaveLength(0);
+  });
+
+  it("W3: a strip with NEITHER wrap nor scroll is caught", () => {
+    // The other half of the rule: a row that cannot wrap and cannot scroll
+    // pushes the page sideways instead of hiding a tab.
+    const neither = `<div role="tablist" aria-label="New" className="flex items-center gap-2 border-b">`;
+    const offenders = tablistClassNames(neither).filter(
+      (c) => !/(^|\s)(sm:)?flex-wrap\b/.test(c) && !/overflow-x-(auto|scroll)/.test(c),
+    );
+    expect(offenders).toHaveLength(1);
+  });
+
+  it("W4: the WRAP list cannot pass on a file that lost its tablist", () => {
+    // This is the failure mode the WatchingPanel removal exposed: with the
+    // strip gone, `[].some()` is false, which the scroll assertion reads as
+    // "does not scroll" and the guard goes quiet. The emptiness check must
+    // fire FIRST.
+    const gutted = read("src/components/profile/panels/PhotosPanel.tsx").replace(
+      /role="tablist"/g,
+      'data-was-tablist="1"',
+    );
+    expect(gutted, "mutation did not apply").not.toContain('role="tablist"');
+    const classes = tablistClassNames(gutted);
+    expect(classes, "the guard would have had nothing to look at").toHaveLength(0);
+    // …and that is exactly what the emptiness assertion in the WRAP list
+    // rejects, so the stale entry surfaces instead of passing silently.
+    expect(() => {
+      expect(classes.length, "stale").toBeGreaterThan(0);
+    }).toThrow();
+  });
+
+  it("W5: an attribute SELECTOR is still not mistaken for a declaration", () => {
+    // TabRail looks a tablist up; it does not render one. Confusing the two
+    // made the guard demand a className from a file that has none.
+    const lookup = `const el = wrap.querySelector('[role="tablist"]');`;
+    expect(tablistClassNames(lookup)).toHaveLength(0);
+    expect(/(^|[^[])role="tablist"/.test(lookup)).toBe(false);
   });
 });

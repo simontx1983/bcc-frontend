@@ -94,6 +94,15 @@ function parentLabels(): string[] {
   return parentTabs().map((t) => (t.firstChild?.textContent ?? "").trim());
 }
 
+/** Any strip whose tabs are minted under a settings id namespace. */
+function settingsStrips(): HTMLElement[] {
+  return screen.queryAllByRole("tablist").filter((l) =>
+    within(l)
+      .queryAllByRole("tab")
+      .some((t) => t.id.startsWith("profile-settings")),
+  );
+}
+
 const SETTINGS_KEYS = [
   "profile",
   "privacy",
@@ -130,39 +139,58 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe("the parent strip", () => {
-  it("gives an owner eleven tabs, not eighteen", () => {
+  it("gives an owner FIVE groups, not eleven tabs", () => {
     renderTabs({ isOwner: true });
-    expect(parentTabs()).toHaveLength(11);
+    expect(parentTabs()).toHaveLength(5);
+    expect(parentLabels()).toEqual([
+      "My Profile",
+      "Reputation",
+      "Network",
+      "Activity",
+      "Content",
+    ]);
   });
 
-  it("hides both owner-only tabs from a visitor", () => {
+  it("gives a visitor FOUR — My Profile is the only owner-only group", () => {
     renderTabs({ isOwner: false });
-    const labels = parentLabels();
-    expect(labels).not.toContain("My Profile");
-    expect(labels).not.toContain("My Standing");
-    expect(parentTabs()).toHaveLength(9);
+    expect(parentTabs()).toHaveLength(4);
+    expect(parentLabels()).toEqual(["Reputation", "Network", "Activity", "Content"]);
   });
 
-  it("does not list the grouped children as top-level tabs", () => {
+  it("does not list any LEAF as a top-level tab", () => {
     renderTabs({ isOwner: true });
     const labels = parentLabels();
-    for (const orphan of ["Privacy", "Notifications", "Communities", "Showcase", "Account", "Blocks"]) {
-      expect(labels, `${orphan} should be a child, not a parent tab`).not.toContain(orphan);
+    for (const leaf of [
+      // settings leaves
+      "Privacy", "Notifications", "Communities", "Showcase", "Account", "Blocks", "Details",
+      // content/reputation/network leaves
+      "Supporters", "Reviews Received", "Reviews Written", "Disputes",
+      "Standing", "Reliability", "Watchers", "Watching", "Groups", "Photos", "Blog",
+    ]) {
+      expect(labels, `${leaf} should be a leaf, not a group`).not.toContain(leaf);
     }
   });
 
-  it("carries the final labels", () => {
+  it("retires the wording the groups replaced", () => {
     renderTabs({ isOwner: true });
     const labels = parentLabels();
-    expect(labels).toContain("Reviews Received");
-    expect(labels).toContain("Reviews Written");
-    expect(labels).toContain("My Standing");
-    // Unchanged, deliberately.
-    expect(labels).toContain("Supporters");
-    expect(labels).toContain("Roster");
-    // Retired wording must be gone.
+    // "My Standing" was a top-level tab; it is now the `setup` leaf, labelled
+    // "Standing", inside Reputation.
+    expect(labels).not.toContain("My Standing");
+    // "Roster" named a tab holding two directions; the directions are leaves
+    // now and the group is "Network".
+    expect(labels).not.toContain("Roster");
     expect(labels).not.toContain("Setup");
-    expect(labels).not.toContain("Written");
+  });
+
+  it("carries NO count badge or chip on a group", () => {
+    // A count on "Reputation" would have to add four unlike quantities into
+    // one number that answers nothing. Counts belong beside their leaf.
+    renderTabs({ isOwner: true });
+    for (const tab of parentTabs()) {
+      expect(tab.querySelector(".bcc-tab-count"), "a group grew a count").toBeNull();
+      expect(tab.textContent).not.toMatch(/PRIVATE/);
+    }
   });
 });
 
@@ -221,16 +249,18 @@ describe("deep links are preserved", () => {
     }
   });
 
-  it("?tab=setup still resolves after the My Standing rename", () => {
+  it("?tab=setup still resolves — now as Standing under Reputation", () => {
     renderTabs({ isOwner: true, tab: "setup" });
-    const tab = parentTabs().find((t) => t.firstChild?.textContent?.trim() === "My Standing");
+    const tab = parentTabs().find((t) => t.firstChild?.textContent?.trim() === "Reputation");
     expect(tab).toHaveAttribute("aria-selected", "true");
     expect(screen.getByTestId("panel-setup")).toBeInTheDocument();
   });
 
   it("shows no settings sub-strip on a public tab", () => {
     renderTabs({ isOwner: true, tab: "activity" });
-    expect(screen.queryByRole("tablist", { name: "My Profile sections" })).toBeNull();
+    // By id namespace, not by accessible name: "My Profile sections" is a
+    // name no strip has ever had, so querying for it could never fail.
+    expect(settingsStrips(), "a settings strip rendered").toHaveLength(0);
   });
 });
 
@@ -239,7 +269,9 @@ describe("ownership still gates the editors", () => {
     renderTabs({ isOwner: false, tab: key });
 
     // No sub-strip, no owner editor, and the visitor default is selected.
-    expect(screen.queryByRole("tablist", { name: "My Profile sections" })).toBeNull();
+    // By id namespace, not by accessible name: "My Profile sections" is a
+    // name no strip has ever had, so querying for it could never fail.
+    expect(settingsStrips(), "a settings strip rendered").toHaveLength(0);
     expect(screen.queryByTestId("panel-profile")).toBeNull();
     expect(screen.getByTestId("panel-backing")).toBeInTheDocument();
   });
@@ -302,19 +334,23 @@ describe("keyboard — MANUAL activation", () => {
     expect(window.location.search).not.toContain("tab=");
   });
 
-  it("Enter activates the focused tab", () => {
+  it("Enter activates the focused group, landing on its FIRST leaf", () => {
     renderTabs({ isOwner: true, tab: "activity" });
-    const tabs = parentTabs();
-    const groups = tabs.find((t) => t.firstChild?.textContent?.trim() === "Groups")!;
-    fireEvent.keyDown(groups, { key: "Enter" });
-    expect(screen.getByTestId("panel-groups")).toBeInTheDocument();
+    const network = parentTabs().find((t) => t.firstChild?.textContent?.trim() === "Network")!;
+    fireEvent.keyDown(network, { key: "Enter" });
+    // Network's first leaf is Supporters. Activating a group must land on the
+    // first leaf, never on an arbitrary member of it.
+    expect(screen.getByTestId("panel-backing")).toBeInTheDocument();
+    expect(window.location.search).toContain("tab=backing");
   });
 
-  it("Space activates the focused tab", () => {
+  it("Space activates the focused group", () => {
     renderTabs({ isOwner: true, tab: "activity" });
-    const photos = parentTabs().find((t) => t.firstChild?.textContent?.trim() === "Photos")!;
-    fireEvent.keyDown(photos, { key: " " });
-    expect(screen.getByTestId("panel-photos")).toBeInTheDocument();
+    const reputation = parentTabs().find((t) => t.firstChild?.textContent?.trim() === "Reputation")!;
+    fireEvent.keyDown(reputation, { key: " " });
+    // Owner-first ordering: Reputation opens on the owner's own Standing.
+    expect(screen.getByTestId("panel-setup")).toBeInTheDocument();
+    expect(window.location.search).toContain("tab=setup");
   });
 
   it("wraps at both ends and honours Home / End", () => {
