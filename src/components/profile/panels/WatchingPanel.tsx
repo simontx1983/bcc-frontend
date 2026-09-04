@@ -1,19 +1,32 @@
 "use client";
 
 /**
- * WatchingPanel — §3.1 Watching tab.
+ * WatchingPanel — one direction of the PeepSo follow graph.
  *
- * Two sub-tabs over the PeepSo follow graph:
+ *   WATCHERS  (`direction="followers"`) — people who follow this member.
+ *             Maps to PeepSo's `/profile/{handle}/followers/` view.
  *
- *   WATCHERS — followers (people who follow this member). Maps to
- *              PeepSo's `/profile/{handle}/followers/` view.
- *
- *   WATCHING — following (people this member follows). Maps to
- *              PeepSo's `/profile/{handle}/followers/following` view.
+ *   WATCHING  (`direction="following"`) — people this member follows.
+ *             Maps to `/profile/{handle}/followers/following`.
  *
  * Labels were "Being Watched" / "Keeping Tabs" until the profile IA pass;
  * the direction is unchanged, only the wording. Strings live in
  * ROSTER_TAB_COPY so the tab and its documentation cannot drift.
+ *
+ * ## The sub-tab strip moved out
+ *
+ * Both directions used to be sub-tabs of a single "Roster" tab, selected by
+ * local state. The profile regrouping (11 top-level tabs → 5) FLATTENED them
+ * into first-class leaves of the Network group, so the strip lives one level
+ * up and this component renders the one direction it is handed.
+ *
+ * `?tab=watching` is Watchers — exactly where that link already landed, since
+ * `followers` was this panel's default sub-tab. `?tab=following` is new: the
+ * outgoing direction previously had no URL at all, so it could not be linked
+ * to and a refresh dropped the reader back on Watchers.
+ *
+ * The header now names the direction rather than saying "Roster", so the
+ * panel agrees with the navigation entry that opened it.
  *
  * Rows render in a compact list shape (avatar + name + handle + rank
  * chip) — same member `Card` payload the /members directory uses, just
@@ -43,12 +56,15 @@ import { LoadFailure } from "@/components/ui/LoadFailure";
 import { humanizeCode } from "@/lib/api/errors";
 import type { BccApiError, Card, UserFollowsResponse } from "@/lib/api/types";
 
+/** Which side of the follow graph this panel renders. */
+export type RosterDirection = "followers" | "following";
+
 interface WatchingPanelProps {
   handle: string;
   displayName: string;
+  direction: RosterDirection;
 }
 
-type WatchingSubTab = "followers" | "following";
 type RosterView = "list" | "grid";
 
 const VIEW_STORAGE_KEY = "bcc:roster-view";
@@ -68,17 +84,18 @@ function readStoredView(): RosterView {
   return raw === "grid" ? "grid" : "list";
 }
 
-const SUB_TABS: ReadonlyArray<{ key: WatchingSubTab; label: string }> = [
-  // "Being Watched" / "Keeping Tabs" made the reader work out which
-  // direction each meant. Direction is unchanged and verified against the
-  // hooks these render: `followers` → useUserFollowers (people watching this
-  // operator), `following` → useUserFollowing (people this operator watches).
-  { key: "followers", label: ROSTER_TAB_COPY.followers },
-  { key: "following", label: ROSTER_TAB_COPY.following },
-];
+/**
+ * Direction → heading. "Being Watched" / "Keeping Tabs" made the reader work
+ * out which direction each meant. Direction is unchanged and verified against
+ * the hooks below: `followers` → useUserFollowers (people watching this
+ * operator), `following` → useUserFollowing (people this operator watches).
+ */
+const DIRECTION_HEADING: Record<RosterDirection, string> = {
+  followers: ROSTER_TAB_COPY.followers,
+  following: ROSTER_TAB_COPY.following,
+};
 
-export function WatchingPanel({ handle, displayName }: WatchingPanelProps) {
-  const [active, setActive] = useState<WatchingSubTab>("followers");
+export function WatchingPanel({ handle, displayName, direction }: WatchingPanelProps) {
   // Start with the default ("list") to keep SSR + first-render
   // deterministic; rehydrate from localStorage on mount. The toggle
   // applies to both sub-tabs so a viewer who prefers cards keeps
@@ -99,21 +116,25 @@ export function WatchingPanel({ handle, displayName }: WatchingPanelProps) {
           className="bcc-stencil"
           style={{ fontSize: "16px", letterSpacing: "0.18em" }}
         >
-          Roster
+          {DIRECTION_HEADING[direction]}
         </h3>
         <ViewToggle view={view} onChange={setView} />
       </header>
 
-      <SubTabStrip active={active} onChange={setActive} />
-
-      <div role="tabpanel" id={`watching-subpanel-${active}`}>
-        {active === "followers" && (
-          <FollowersList handle={handle} displayName={displayName} view={view} />
-        )}
-        {active === "following" && (
-          <FollowingList handle={handle} displayName={displayName} view={view} />
-        )}
-      </div>
+      {/* `key={handle}` remounts the list when the profile identity changes.
+          Without it the offset and the accumulated rows survive the move:
+          /u/ada paged to 4 rows, then /u/bo rendered ADA's four, and because
+          `seenOffset` still equalled `offset` the new profile's page was
+          never appended. Same element type in the same slot, so React reuses
+          the instance — switching DIRECTION already remounted, because
+          FollowersList and FollowingList are different types, but changing
+          handle never did. Pre-existing; the flattening did not cause it and
+          does not excuse it. */}
+      {direction === "followers" ? (
+        <FollowersList key={handle} handle={handle} displayName={displayName} view={view} />
+      ) : (
+        <FollowingList key={handle} handle={handle} displayName={displayName} view={view} />
+      )}
     </article>
   );
 }
@@ -164,55 +185,6 @@ function ViewToggle({
               {opt.label.toUpperCase()}
             </button>
           </span>
-        );
-      })}
-    </div>
-  );
-}
-
-// ──────────────────────────────────────────────────────────────────────
-// SubTabStrip — mirrors PhotosPanel's strip.
-// ──────────────────────────────────────────────────────────────────────
-
-function SubTabStrip({
-  active,
-  onChange,
-}: {
-  active: WatchingSubTab;
-  onChange: (key: WatchingSubTab) => void;
-}) {
-  return (
-    <div
-      role="tablist"
-      aria-label="Watching sections"
-      /* Already wraps at every width — two short labels never overflow, so
-         this strip needs no rail affordances and gets none. Noted because it
-         is on the fixed cream PAPER family (bcc-paper / border-ink/15): if it
-         ever gains enough tabs to scroll, it must pass surface="paper" or the
-         fade will resolve to a theme colour and smear grey over cream. */
-      className="flex flex-wrap gap-x-6 gap-y-2 border-b border-ink/15 px-5 py-2"
-    >
-      {SUB_TABS.map((tab) => {
-        const isActive = active === tab.key;
-        return (
-          <button
-            key={tab.key}
-            type="button"
-            role="tab"
-            id={`watching-subtab-${tab.key}`}
-            aria-selected={isActive}
-            aria-controls={`watching-subpanel-${tab.key}`}
-            onClick={() => onChange(tab.key)}
-            className={
-              "bcc-mono pb-1 transition-colors border-b-2 " +
-              (isActive
-                ? "text-ink border-safety"
-                : "text-ink-soft border-transparent hover:text-ink")
-            }
-            style={{ fontSize: "11px", letterSpacing: "0.18em" }}
-          >
-            {tab.label.toUpperCase()}
-          </button>
         );
       })}
     </div>

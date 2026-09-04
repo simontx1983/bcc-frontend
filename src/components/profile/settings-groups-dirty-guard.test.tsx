@@ -108,11 +108,15 @@ function renderAt(tab: string) {
 }
 
 const groupStrip = () => screen.getByRole("tablist", { name: "My Profile settings" });
+/** The settings child strip, found by its id namespace — "any tablist whose
+ *  name ends in ' sections'" stopped being unique once every content group
+ *  gained a leaf strip of its own. */
 const childStrip = () =>
-  screen.getAllByRole("tablist").find((l) => {
-    const n = l.getAttribute("aria-label") ?? "";
-    return n.endsWith(" sections") && n !== "Member sections";
-  })!;
+  screen.getAllByRole("tablist").find((l) =>
+    within(l)
+      .queryAllByRole("tab")
+      .some((t) => t.id.startsWith("profile-settings-tab-")),
+  )!;
 const parentStrip = () => screen.getByRole("tablist", { name: "Member sections" });
 const dialog = () => screen.queryByRole("dialog");
 
@@ -271,11 +275,14 @@ describe("mutation control", () => {
     );
     expect(screen.getByTestId("panel-activity")).toBeInTheDocument();
 
+    // Disputes is a LEAF of the Reputation group now, not a top-level tab.
+    // Clicking the group goes to its first visible leaf, which for an owner
+    // is Standing (`setup`).
     const groups = within(parentStrip()).getAllByRole("tab");
-    const disputes = groups.find((t) => (t.firstChild?.textContent ?? "").trim() === "Disputes")!;
-    fireEvent.click(disputes);
+    const reputation = groups.find((t) => (t.firstChild?.textContent ?? "").trim() === "Reputation")!;
+    fireEvent.click(reputation);
 
     expect(screen.queryByRole("dialog"), "a clean form must not warn").toBeNull();
-    expect(window.location.search).toContain("tab=disputes");
+    expect(window.location.search).toContain("tab=setup");
   });
 });

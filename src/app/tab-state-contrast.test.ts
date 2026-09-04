@@ -326,6 +326,25 @@ describe("all four live consumers still use the shared class", () => {
   });
 });
 
+/**
+ * Every whitespace-separated class token in every `className="…"` /
+ * `className={"…"}` literal in a source file.
+ *
+ * Substring matching cannot answer "does this file apply class X": CSS class
+ * names share prefixes, and `-` is a regex word boundary, so `\bbcc-tab\b`
+ * reports a hit on `bcc-tab-count`, `bcc-tabs`, and anything else that starts
+ * the same way. Tokenising is exact.
+ */
+function classTokensIn(src: string): string[] {
+  const tokens: string[] = [];
+  for (const m of src.matchAll(/className=\{?\s*["'`]([^"'`]*)["'`]/g)) {
+    for (const t of (m[1] ?? "").split(/\s+/)) {
+      if (t !== "") tokens.push(t);
+    }
+  }
+  return tokens;
+}
+
 describe("neighbouring contracts are untouched", () => {
   it("copyright is not touched by tab work", () => {
     // E1d moved the copyright ladder onto theme-scoped brand-text tokens;
@@ -349,7 +368,24 @@ describe("neighbouring contracts are untouched", () => {
     // It references `.bcc-tab` in a comment explaining what it mirrors,
     // but must not actually apply the class — otherwise it would silently
     // inherit this batch's rules.
-    expect(src).not.toMatch(/className=\{?\s*["'`][^"'`]*\bbcc-tab\b/);
+    //
+    // Matched as a whole CLASS TOKEN, not as a substring. `\bbcc-tab\b` also
+    // fired on `bcc-tab-count`, because a hyphen is a word boundary — and
+    // `.bcc-tab-count` is a different rule (the count badge's mono/secondary
+    // typography) that this component reuses on purpose, so that the number
+    // beside a leaf label looks like the number beside a group label instead
+    // of a second, drifting copy of it.
+    expect(classTokensIn(src)).not.toContain("bcc-tab");
+  });
+
+  it("that lookalike check still CATCHES a real .bcc-tab (mutation control)", () => {
+    // Tightening the match must not have loosened it into uselessness.
+    const src = readFileSync(resolve(process.cwd(), "src/components/profile/SubTabNav.tsx"), "utf-8");
+    const mutated = src.replace('className="bcc-tab-count ml-2"', 'className="bcc-tab ml-2"');
+    expect(mutated, "mutation did not apply").not.toBe(src);
+    expect(classTokensIn(mutated)).toContain("bcc-tab");
+    // …while the real class it does use is still not mistaken for it.
+    expect(classTokensIn(src)).toContain("bcc-tab-count");
   });
 
   it("the extracted SubTabNav left no private copies behind", () => {
