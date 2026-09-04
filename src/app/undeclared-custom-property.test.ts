@@ -21,17 +21,19 @@
  * caller-supplied properties (`--card-kind`, `--pill-color`, `--stagger`,
  * `--bcc-onboarding-delay`) are consumed.
  *
- * ## Scope, and the one thing knowingly outside it
+ * ## Scope
  *
- * The strict invariant is asserted over `.ts`/`.tsx` (the component
- * layer). `globals.css` currently has a sibling instance of exactly this
- * bug — nine `var(--bcc-text-primary)` references in the auth/onboarding
- * rules, where the declared token is `--bcc-text` — which belongs to its
- * own slice, not this one. Rather than pin that count (a test that
- * asserts a defect stays broken is worse than no test), the CSS side is
- * guarded for *new kinds* only: any undeclared property other than the
- * one known name fails immediately, and fixing the known one does not
- * break anything here.
+ * The strict invariant is asserted over BOTH `.ts`/`.tsx` (the component
+ * layer) and the stylesheets, with no exemptions.
+ *
+ * It was not always. `globals.css` carried a sibling instance of exactly
+ * this bug — nine `var(--bcc-text-primary)` references in the auth and
+ * onboarding rules, where the declared token is `--bcc-text` — and the CSS
+ * side was deliberately guarded for *new kinds* only, excluding that one
+ * name so that fixing it could not break this test. The onboarding
+ * foundations slice fixed it, so the exemption is gone and the stylesheet
+ * side now fails on any undeclared property at all. A mutation control
+ * below proves the removal is real rather than cosmetic.
  */
 
 import { readdirSync, readFileSync } from "node:fs";
@@ -217,14 +219,25 @@ describe("every var() in the component layer resolves", () => {
     ).toEqual([]);
   });
 
-  it("no NEW kind of undeclared property appears in the stylesheets", () => {
-    // `--bcc-text-primary` is a known, separately-owned instance of this same
-    // bug (see the header). Excluding it by NAME rather than by count means
-    // fixing it cannot break this test, while any new name fails at once.
-    const KNOWN_CSS_GAP = "--bcc-text-primary";
-    const hits = undeclared(FILES.filter((f) => !f.isCode), DECLARED)
-      .filter((h) => h.name !== KNOWN_CSS_GAP);
+  it("no undeclared property appears in the stylesheets — no exemptions", () => {
+    // The `--bcc-text-primary` exemption is GONE. Those nine auth/onboarding
+    // references were repaired in the onboarding-foundations slice, so the
+    // stylesheet side now holds the same unconditional invariant as the
+    // component side above. Nothing is filtered out here any more.
+    const hits = undeclared(FILES.filter((f) => !f.isCode), DECLARED);
     expect(hits.map((h) => `${h.name} @ ${h.site}`)).toEqual([]);
+  });
+
+  it("MUTATION CONTROL — reintroducing the old name fails this guard", () => {
+    // Proves the exemption's removal is real: with the name put back, the
+    // detector reports it. Runs against a copy, never the file on disk.
+    const reintroduced = CSS.replace("color: var(--bcc-text);", "color: var(--bcc-text-primary);");
+    expect(reintroduced).not.toBe(CSS);
+    const hits = undeclared(
+      [{ path: "app/globals.css", code: reintroduced, isCode: false }],
+      DECLARED,
+    );
+    expect(hits.map((h) => h.name)).toContain("--bcc-text-primary");
   });
 });
 

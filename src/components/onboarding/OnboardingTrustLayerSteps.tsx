@@ -34,8 +34,6 @@
  * footer's Continue button is the only way forward on this screen.
  */
 
-import { useState } from "react";
-
 import { STEP_LABEL } from "@/components/onboarding/OnboardingWizard";
 import { ReputationDemo } from "@/components/onboarding/reputation-demo/ReputationDemo";
 import {
@@ -43,28 +41,44 @@ import {
   REPUTATION_VS_RELIABILITY,
 } from "@/lib/copy/trust-layer";
 
-type Screen = "primer" | "reputation";
+type Screen = 1 | 2;
 
 interface OnboardingTrustLayerStepsProps {
   onBack: () => void;
   onDone: () => void;
+  /**
+   * Which of this step's TWO inner screens to show (1 or 2).
+   *
+   * CONTROLLED, deliberately. This used to hold the screen in local state,
+   * which had two consequences: the wizard's rail said "Step 3 of 6" on
+   * both screens (so Continue looked like it had done nothing and the bar
+   * stalled), and history knew about one screen where the visitor saw two —
+   * browser Back from "How reputation works." skipped past "What this is."
+   * to the identity step. Hoisting it lets the wizard own both the readout
+   * and the history entry.
+   */
+  screen?: number;
+  /** Request a move to another inner screen. The wizard turns this into a
+   *  history entry, exactly as it does for a top-level step. */
+  onScreenChange?: (index: number) => void;
 }
 
 export function OnboardingTrustLayerSteps({
   onBack,
   onDone,
+  screen = 1,
+  onScreenChange,
 }: OnboardingTrustLayerStepsProps) {
-  const [screen, setScreen] = useState<Screen>("primer");
-  const idx = screen === "primer" ? 1 : 2;
+  const idx: Screen = screen === 2 ? 2 : 1;
 
   return (
     <section className="bcc-onb-step">
       <p className="bcc-onb-eyebrow">{STEP_LABEL.trust} · {idx} of 2</p>
 
-      {screen === "primer" ? (
-        <PrimerScreen onBack={onBack} onContinue={() => setScreen("reputation")} />
+      {idx === 1 ? (
+        <PrimerScreen onBack={onBack} onContinue={() => onScreenChange?.(2)} />
       ) : (
-        <ReputationScreen onBack={() => setScreen("primer")} onContinue={onDone} />
+        <ReputationScreen onBack={() => onScreenChange?.(1)} onContinue={onDone} />
       )}
     </section>
   );

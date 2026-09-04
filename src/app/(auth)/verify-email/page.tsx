@@ -26,6 +26,7 @@ import {
   Suspense,
   useCallback,
   useEffect,
+  useRef,
   useState,
 } from "react";
 
@@ -62,6 +63,14 @@ function VerifyEmailContent() {
   const [signingIn, setSigningIn]       = useState(false);
   const [resending, setResending]       = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
+  /** Positive confirmation that a resend actually succeeded. Separate from
+   *  `error` so a send failure and a wrong-code failure never overwrite
+   *  each other's message. */
+  const [resendNotice, setResendNotice] = useState<string | null>(null);
+  /** Synchronous duplicate-activation guard. `resending` alone is state:
+   *  two clicks in the same tick both read the pre-update value and both
+   *  fire, because the disabled attribute only lands on the next render. */
+  const resendInFlight = useRef(false);
 
   async function autoSignIn(tokenResp: AuthTokenResponse) {
     setSigningIn(true);
@@ -143,19 +152,44 @@ function VerifyEmailContent() {
   }
 
   // ── Resend handler ─────────────────────────────────────────────
+  //
+  // This used to swallow every failure and start the same 60s cooldown as a
+  // success, so a network drop or a server rate-limit rendered EXACTLY like
+  // a sent email: "Sending…" → "Resend in 60s". The visitor then waited for
+  // a message that was never dispatched.
+  //
+  // The old justification — "anti-enumeration, only throws on network error"
+  // — did not hold: the client's own contract says this call throws on
+  // network error OR rate-limit (3/hour per IP). Neither is an enumeration
+  // concern, and both are things the visitor needs to know.
+  //
+  // /forgot-password already gets this right; this now matches it. The
+  // anti-enumeration property is preserved where it actually lives — the
+  // SUCCESS copy still says "if an account exists", so a successful response
+  // continues to reveal nothing about whether the address is registered.
   async function handleResend() {
-    if (resendCooldown > 0 || resending || email === "") return;
+    if (resendCooldown > 0 || resending || email === "" || resendInFlight.current) return;
+    resendInFlight.current = true;
     setResending(true);
     setError(null);
+    setResendNotice(null);
     try {
       await resendVerification(email);
       setCode("");
+      setResendNotice("If an account exists for that address, a new code is on its way.");
+      // Cooldown only on a real success — a failed attempt must not lock the
+      // visitor out of retrying for a minute.
       setResendCooldown(60);
-    } catch {
-      // resendVerification is anti-enumeration — only throws on network error.
-      // Silently ignore: the cooldown still fires so the user isn't spammed.
-      setResendCooldown(60);
+    } catch (err) {
+      // §γ — copy keyed on err.code, never err.message.
+      const code = err instanceof BccApiError ? err.code : "";
+      setError(
+        code === "bcc_rate_limited"
+          ? "Too many code requests. Wait a few minutes, then try again."
+          : "Couldn't send a new code just now. Check your connection and try again.",
+      );
     } finally {
+      resendInFlight.current = false;
       setResending(false);
     }
   }
@@ -313,6 +347,12 @@ function VerifyEmailContent() {
         >
           {resendLabel}
         </button>
+        {/* Only rendered after the server actually accepted the resend. */}
+        {resendNotice !== null && (
+          <p role="status" className="bcc-auth-hint" style={{ marginTop: "8px" }}>
+            {resendNotice}
+          </p>
+        )}
       </div>
     </AuthCard>
   );

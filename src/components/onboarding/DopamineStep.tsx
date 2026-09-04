@@ -41,6 +41,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useCompleteOnboarding } from "@/hooks/useCompleteOnboarding";
 import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
 import { humanizeCode } from "@/lib/api/errors";
+import { clearOnboardingProgress } from "@/lib/onboarding/storage";
 import type {
   ReputationTier,
   HomeChain,
@@ -72,12 +73,26 @@ export function DopamineStep({
   const [save, setSave] = useState<SaveState>({ status: "saving" });
   const [holdElapsed, setHoldElapsed] = useState(false);
 
+  // Guards against a second /complete going out while one is still in
+  // flight — a double-tap on "Try again", or a rapid Enter-repeat on the
+  // focused button. The server is idempotent, but a duplicate still doubles
+  // the audit-log noise and can land the two responses out of order.
+  const inFlightRef = useRef(false);
+
   const runComplete = useCallback(() => {
+    if (inFlightRef.current) return;
+    inFlightRef.current = true;
     setSave({ status: "saving" });
     completeAsync({
       ...(homeChain !== null ? { home_chain: homeChain } : {}),
     })
-      .then((data) => setSave({ status: "saved", data }))
+      .then((data) => {
+        // Only NOW is the resume point safe to drop. Clearing it on entry
+        // to this screen (as the wizard used to) meant a failed /complete
+        // left the visitor un-onboarded AND unable to resume.
+        clearOnboardingProgress();
+        setSave({ status: "saved", data });
+      })
       .catch((err: unknown) => {
         // Phase γ: copy is owned here, keyed on err.code — never
         // err.message (humanizeCode refuses the fallback by design).
@@ -94,8 +109,27 @@ export function DopamineStep({
             "Couldn't save your setup. Check your connection and try again."
           ),
         });
+      })
+      .finally(() => {
+        inFlightRef.current = false;
       });
   }, [completeAsync, homeChain]);
+
+  /**
+   * The escape hatch. Guarded so a double-tap cannot issue two navigations
+   * — router.replace twice is harmless in Next today, but "harmless today"
+   * is not a property to rely on for the one control a stuck visitor uses.
+   *
+   * It deliberately does NOT fire /complete and does NOT clear the resume
+   * point: the account genuinely is not onboarded, and the "resume setup?"
+   * prompt on the Floor is what brings them back.
+   */
+  const leftRef = useRef(false);
+  const leaveForFloor = useCallback(() => {
+    if (leftRef.current) return;
+    leftRef.current = true;
+    router.replace("/");
+  }, [router]);
 
   // Fire the mutation once on mount. The ref-guarded call protects
   // against React 19 strict-mode double-invoke; the server's complete
@@ -134,15 +168,43 @@ export function DopamineStep({
     return (
       <section className="bcc-onb-step" style={{ maxWidth: "36rem" }}>
         <div className="bcc-onb-panel">
-          <h2 className="bcc-onb-disp" style={{ fontSize: "1.8rem" }}>
+          {/*
+            h1, not h2: this replaces the whole screen, and the wizard moves
+            focus to the step's heading. An h2 here left the screen with no
+            h1 at all and skipped a level.
+          */}
+          <h1 className="bcc-onb-disp" style={{ fontSize: "1.8rem" }}>
             Couldn&apos;t finish onboarding
-          </h2>
-          <p className="bcc-onb-lede" style={{ marginTop: "10px", fontSize: "1rem" }}>
+          </h1>
+          <p role="alert" className="bcc-onb-lede" style={{ marginTop: "10px", fontSize: "1rem" }}>
             {save.copy}
           </p>
-          <button type="button" onClick={runComplete} className="bcc-onb-link" style={{ marginTop: "16px" }}>
-            Try again
-          </button>
+          {/*
+            The escape. Before this existed, a persistent /complete failure
+            was a hard stop: one "Try again" button, no navigation anywhere
+            in MinimalShell, and the resume point already cleared.
+
+            It deliberately does NOT mark onboarding complete — the account
+            is genuinely not onboarded, so claiming otherwise would be a
+            lie the server would contradict. The resume point survives (see
+            the success handler above), so the "resume setup?" prompt on the
+            Floor can bring them back.
+          */}
+          <div className="bcc-onb-foot" style={{ marginTop: "20px" }}>
+            <button type="button" onClick={runComplete} className="bcc-onb-btn bcc-onb-btn-primary">
+              Try again
+            </button>
+            <button
+              type="button"
+              onClick={leaveForFloor}
+              className="bcc-onb-link"
+            >
+              Continue to the Floor →
+            </button>
+          </div>
+          <p className="bcc-onb-note" style={{ marginTop: "12px" }}>
+            Your setup isn&rsquo;t saved yet. You can finish it any time from the Floor.
+          </p>
         </div>
       </section>
     );

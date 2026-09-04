@@ -1795,7 +1795,10 @@
    ======================================================================== */
 
 .bcc-minimal-shell {
+  /* See .bcc-onb-root — dvh with a vh fallback, so the fixed auth footer
+     doesn't overlap a field while the software keyboard is open. */
   min-height: 100vh;
+  min-height: 100dvh;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
@@ -1958,7 +1961,7 @@
   transition: color 150ms ease, background 150ms ease, border-color 150ms ease;
 }
 .bcc-auth-theme-toggle:hover {
-  color: var(--bcc-text-primary);
+  color: var(--bcc-text);
   background: var(--bcc-glass-bg-frosted);
   border-color: var(--bcc-border-strong);
 }
@@ -1987,7 +1990,7 @@
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: var(--bcc-text-primary);
+  color: var(--bcc-text);
   line-height: 1.2;
   margin: 0;
 }
@@ -2035,7 +2038,7 @@
   border-radius: var(--bcc-radius-md);
   border: 1px solid var(--bcc-border-strong);
   background: transparent;
-  color: var(--bcc-text-primary);
+  color: var(--bcc-text);
   font-family: var(--font-mono), monospace;
   font-size: 12px;
   letter-spacing: 0.03em;
@@ -2102,7 +2105,7 @@
   border-radius: var(--bcc-radius-md);
   border: 1px solid var(--bcc-border-strong);
   background: var(--bcc-glass-bg-frosted);
-  color: var(--bcc-text-primary);
+  color: var(--bcc-text);
   font-family: var(--font-serif), serif;
   font-size: 14px;
   outline: none;
@@ -2111,6 +2114,22 @@
 .bcc-auth-input:focus {
   border-color: var(--bcc-accent);
   box-shadow: 0 0 0 3px var(--bcc-accent-subtle);
+}
+/* Keyboard focus has to be VISIBLE, and here it was not.
+   `.bcc-auth-input` sets `outline: none`, which ties the global
+   `:focus-visible` rule on specificity and wins on order — so the only
+   remaining indicator was the 3px `--bcc-accent-subtle` glow above, an 8%
+   tint that does not read as focus on either theme. Every login, signup,
+   OTP and password field on the site is this class.
+
+   This restores the GLOBAL ring token rather than inventing a
+   component-specific treatment (see CLAUDE.md — focus is global). The
+   accent border and glow stay as the decorative half; the outline is the
+   part that actually communicates focus. Scoped to :focus-visible, so
+   mouse clicks are unchanged. */
+.bcc-auth-input:focus-visible {
+  outline: 2px solid var(--bcc-focus-ring);
+  outline-offset: 2px;
 }
 .bcc-auth-input::placeholder {
   color: var(--bcc-text-secondary);
@@ -2200,7 +2219,7 @@
   font-weight: 700;
   letter-spacing: 0.05em;
   text-transform: uppercase;
-  color: var(--bcc-text-primary);
+  color: var(--bcc-text);
 }
 .bcc-auth-success-body {
   font-family: var(--font-serif), serif;
@@ -2252,7 +2271,7 @@
 
 .bcc-auth-submit--outline {
   background: transparent;
-  color: var(--bcc-text-primary);
+  color: var(--bcc-text);
   border: 1px solid var(--bcc-border-strong);
 }
 .bcc-auth-submit--outline:hover:not(:disabled) {
@@ -2283,7 +2302,7 @@
 }
 .bcc-auth-select option {
   background: var(--bcc-surface);
-  color: var(--bcc-text-primary);
+  color: var(--bcc-text);
 }
 
 
@@ -2310,7 +2329,7 @@
   transition: color 150ms ease;
 }
 .bcc-auth-input-icon:hover {
-  color: var(--bcc-text-primary);
+  color: var(--bcc-text);
 }
 
 /* Mobile adjustments */
@@ -2369,7 +2388,7 @@
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: var(--bcc-text-primary);
+  color: var(--bcc-text);
   margin: 0;
 }
 
@@ -3814,7 +3833,14 @@
 .bcc-ldg-btn-ghost:hover { border-color: var(--bcc-accent); color: var(--bcc-accent); transform: translateY(-2px); }
 
 /* reveal on scroll — LandingReveal toggles .is-visible */
-.bcc-ldg-reveal { opacity: 0; transform: translateY(22px); transition: opacity 0.7s var(--bcc-ldg-ease), transform 0.7s var(--bcc-ldg-ease); }
+/* Readable is the baseline; hidden is the ARMED state.
+   The hide used to be unconditional, so server-rendered copy shipped at
+   opacity 0 and stayed invisible if hydration or IntersectionObserver
+   never delivered. LandingReveal now sets data-bcc-reveal="armed" only
+   once JS has taken responsibility for revealing — so no-JS, failed
+   hydration and missing IntersectionObserver all render normally. */
+.bcc-ldg-reveal { transition: opacity 0.7s var(--bcc-ldg-ease), transform 0.7s var(--bcc-ldg-ease); }
+.bcc-ldg-reveal[data-bcc-reveal="armed"] { opacity: 0; transform: translateY(22px); }
 .bcc-ldg-reveal.is-visible { opacity: 1; transform: none; }
 
 /* ============ HERO — LEDGER ============ */
@@ -3997,7 +4023,10 @@
     animation-iteration-count: 1 !important;
     transition-duration: 0.001ms !important;
   }
-  .bcc-ldg-reveal { opacity: 1; transform: none; }
+  /* Defensive: LandingReveal never arms under reduced motion, but if the
+     preference is toggled mid-session the attribute must not outlive it. */
+  .bcc-ldg-reveal,
+  .bcc-ldg-reveal[data-bcc-reveal="armed"] { opacity: 1; transform: none; }
   .bcc-ldg-strike::after { transform: scaleX(1); }
 }
 
@@ -4015,7 +4044,12 @@
 .bcc-onb-root {
   --bcc-onb-ease: cubic-bezier(0.2, 0.9, 0.25, 1);
   position: relative;
+  /* 100vh then 100dvh — the app shell's own idiom. `vh` alone ignores
+     mobile browser chrome and the software keyboard, so a focused bio or
+     OTP field could sit under the fixed legal footer. The `vh` line stays
+     as the fallback for engines without `dvh`. */
   min-height: 100vh;
+  min-height: 100dvh;
   color: var(--bcc-text);
   background: var(--bcc-bg);
   overflow-x: hidden;
@@ -4043,7 +4077,12 @@
 .bcc-onb-step { padding-top: clamp(20px, 3vw, 40px); }
 .bcc-onb-eyebrow { display: inline-flex; align-items: center; gap: 10px; font-family: var(--font-mono), monospace; font-size: var(--bcc-font-size-overline); letter-spacing: 0.22em; text-transform: uppercase; color: var(--bcc-accent); margin: 0 0 18px; }
 .bcc-onb-eyebrow::before { content: ""; width: 22px; height: 1px; background: currentColor; opacity: 0.7; }
-.bcc-onb-disp { font-family: var(--font-stencil), Impact, sans-serif; font-weight: 800; letter-spacing: 0.02em; text-transform: uppercase; font-size: clamp(2.4rem, 6vw, 4.2rem); line-height: 0.94; margin: 0; color: var(--bcc-text); }
+/* `overflow-wrap: anywhere` + `min-width: 0` are the overflow PREVENTION
+   half of the mobile work. `.bcc-onb-root` sets `overflow-x: hidden`,
+   which only conceals overflow — a long unbroken word, a long Hall name,
+   or a translated string ~30% longer would be clipped rather than wrapped,
+   silently. Wrapping keeps the text readable at 320px and at 200% zoom. */
+.bcc-onb-disp { font-family: var(--font-stencil), Impact, sans-serif; font-weight: 800; letter-spacing: 0.02em; text-transform: uppercase; font-size: clamp(2.4rem, 6vw, 4.2rem); line-height: 0.94; margin: 0; color: var(--bcc-text); overflow-wrap: anywhere; min-width: 0; }
 .bcc-onb-lede { font-family: var(--font-serif), Georgia, serif; font-size: var(--bcc-font-size-body-lg); line-height: var(--bcc-line-height-relaxed); color: var(--bcc-text-secondary); max-width: 46ch; margin: 20px 0 0; }
 .bcc-onb-lede b { color: var(--bcc-text); font-weight: 600; }
 .bcc-onb-lede a { color: var(--bcc-accent); text-decoration: none; }
@@ -4068,7 +4107,13 @@
 .bcc-onb-btn-primary:not(:disabled):hover { box-shadow: 0 10px 34px var(--bcc-accent-glow); transform: translateY(-2px); }
 
 
-.bcc-onb-link { font-family: var(--font-mono), monospace; font-size: 12px; letter-spacing: 0.08em; color: var(--bcc-text-secondary); background: none; border: none; cursor: pointer; text-decoration: none; padding: 4px 2px; }
+/* Back / Skip / Try-again. Measured at 27px tall before this change —
+   over the WCAG 2.5.8 AA floor of 24px, but under the project's 36px
+   sanctioned compact minimum, with 2px of horizontal slop. These are the
+   two controls a confused visitor reaches for, so they get the compact
+   minimum as a real box rather than a text-sized hit area.
+   `inline-flex` + `min-height` keeps the label visually identical. */
+.bcc-onb-link { font-family: var(--font-mono), monospace; font-size: 12px; letter-spacing: 0.08em; color: var(--bcc-text-secondary); background: none; border: none; cursor: pointer; text-decoration: none; padding: 8px 10px; min-height: 36px; display: inline-flex; align-items: center; }
 .bcc-onb-link:not(:disabled):hover { color: var(--bcc-text); text-decoration: underline; text-underline-offset: 4px; }
 .bcc-onb-link:disabled { opacity: 0.5; cursor: default; }
 
@@ -4078,6 +4123,9 @@
   font-family: var(--font-mono), monospace; font-size: 12px; letter-spacing: 0.04em;
   padding: 9px 16px; border-radius: var(--bcc-radius-full); border: 1px solid var(--bcc-border);
   background: var(--bcc-surface); color: var(--bcc-text-secondary); cursor: pointer;
+  /* Repeated compact chips — the sanctioned 36px exception, same bar
+     FilterChipRow holds. Was ~30px. */
+  min-height: 36px; display: inline-flex; align-items: center;
   transition: border-color 0.18s, color 0.18s, background 0.18s, transform 0.18s var(--bcc-onb-ease);
 }
 .bcc-onb-chip:hover { border-color: var(--bcc-border-strong); color: var(--bcc-text); transform: translateY(-1px); }
@@ -4087,7 +4135,7 @@
 .bcc-onb-preview { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: clamp(28px, 5vw, 44px); }
 .bcc-onb-pv { border: 1px solid var(--bcc-border); border-radius: var(--bcc-radius-lg); background: var(--bcc-surface-raised); padding: 20px; }
 .bcc-onb-pv .n { font-family: var(--font-stencil), Impact, sans-serif; font-size: 1.6rem; color: var(--bcc-accent); line-height: 1; }
-.bcc-onb-pv h3 { font-family: var(--font-stencil), Impact, sans-serif; font-size: 1.15rem; text-transform: uppercase; letter-spacing: 0.01em; margin: 10px 0 6px; line-height: 1; color: var(--bcc-text); }
+.bcc-onb-pv h2 { font-family: var(--font-stencil), Impact, sans-serif; font-size: 1.15rem; text-transform: uppercase; letter-spacing: 0.01em; margin: 10px 0 6px; line-height: 1; color: var(--bcc-text); }
 .bcc-onb-pv p { font-size: 0.9rem; color: var(--bcc-text-secondary); margin: 0; line-height: 1.45; }
 @media (max-width: 760px) { .bcc-onb-preview { grid-template-columns: 1fr; } }
 
@@ -4132,17 +4180,17 @@
 .bcc-onb-textarea:focus { outline: none; border-color: var(--bcc-input-border-focus); box-shadow: 0 0 0 3px var(--bcc-accent-subtle); }
 .bcc-onb-textarea::placeholder { color: var(--bcc-text-placeholder); opacity: 1; }
 .bcc-onb-err { font-family: var(--font-mono), monospace; font-size: 11px; color: var(--bcc-danger); }
-.bcc-onb-mini-btn { font-family: var(--font-mono), monospace; font-size: 11px; letter-spacing: 0.06em; padding: 7px 14px; border-radius: var(--bcc-radius-full); border: 1px solid var(--bcc-border); background: var(--bcc-surface); color: var(--bcc-text-secondary); cursor: pointer; transition: border-color 0.18s, color 0.18s; }
+.bcc-onb-mini-btn { font-family: var(--font-mono), monospace; font-size: 11px; letter-spacing: 0.06em; padding: 7px 14px; border-radius: var(--bcc-radius-full); border: 1px solid var(--bcc-border); background: var(--bcc-surface); color: var(--bcc-text-secondary); cursor: pointer; min-height: 36px; display: inline-flex; align-items: center; transition: border-color 0.18s, color 0.18s; }
 .bcc-onb-mini-btn:hover:not(:disabled) { border-color: var(--bcc-accent); color: var(--bcc-accent); }
 .bcc-onb-mini-btn:disabled { opacity: 0.5; cursor: wait; }
 
 /* Notification opt cards */
 .bcc-onb-opt { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; border: 1px solid var(--bcc-border); border-radius: var(--bcc-radius-lg); background: var(--bcc-surface-raised); padding: 18px 20px; cursor: pointer; transition: border-color 0.18s; }
 .bcc-onb-opt:hover { border-color: var(--bcc-border-strong); }
-.bcc-onb-opt h3 { font-family: var(--font-stencil), Impact, sans-serif; font-size: 1.1rem; text-transform: uppercase; letter-spacing: 0.01em; margin: 0 0 6px; color: var(--bcc-text); }
+.bcc-onb-opt h2 { font-family: var(--font-stencil), Impact, sans-serif; font-size: 1.1rem; text-transform: uppercase; letter-spacing: 0.01em; margin: 0 0 6px; color: var(--bcc-text); }
 .bcc-onb-opt p { font-family: var(--font-mono), monospace; font-size: 11px; line-height: 1.5; color: var(--bcc-text-secondary); margin: 0; }
 .bcc-onb-opt input[type="checkbox"] { width: 20px; height: 20px; flex: none; margin-top: 2px; accent-color: var(--bcc-accent); cursor: pointer; }
-.bcc-onb-opt-toggle { font-family: var(--font-stencil), Impact, sans-serif; text-transform: uppercase; letter-spacing: 0.14em; font-size: 10px; padding: 8px 12px; border-radius: var(--bcc-radius-sm); border: none; cursor: pointer; flex: none; transition: background 0.18s, opacity 0.2s; }
+.bcc-onb-opt-toggle { font-family: var(--font-stencil), Impact, sans-serif; text-transform: uppercase; letter-spacing: 0.14em; font-size: 10px; padding: 8px 12px; min-height: 36px; display: inline-flex; align-items: center; justify-content: center; border-radius: var(--bcc-radius-sm); border: none; cursor: pointer; flex: none; transition: background 0.18s, opacity 0.2s; }
 .bcc-onb-opt-toggle.is-on { background: var(--bcc-surface-active); color: var(--bcc-text); }
 .bcc-onb-opt-toggle.is-off { background: var(--bcc-accent); color: var(--bcc-on-accent); }
 .bcc-onb-opt-toggle:disabled { opacity: 0.6; cursor: wait; }
@@ -4160,7 +4208,7 @@
   .bcc-onb-preview { gap: 10px; margin-top: 22px; }
   .bcc-onb-pv { padding: 15px; }
   .bcc-onb-pv .n { font-size: 1.3rem; }
-  .bcc-onb-pv h3 { font-size: 1rem; margin: 8px 0 5px; }
+  .bcc-onb-pv h2 { font-size: 1rem; margin: 8px 0 5px; }
   .bcc-onb-foot { margin-top: 26px; }
   .bcc-onb-btn { padding: 10px 20px; }
   .bcc-onb-id-cover { height: 120px; }

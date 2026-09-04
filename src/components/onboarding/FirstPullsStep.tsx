@@ -87,7 +87,14 @@ export function FirstPullsStep({
       <SuggestionsBody result={suggestions} pulls={pulls} />
 
       <footer className="bcc-onb-foot">
-        <button type="button" className="bcc-onb-link" disabled={pulls.anyPending} onClick={onBack}>
+        {/*
+          Back is NEVER gated on an in-flight pull. It used to be, which
+          meant a single hung watch request froze both directions and left
+          the visitor with no way out of the step. Going back does not
+          cancel or roll back a pull that the server already accepted — the
+          watchlist is server-owned and the mutation settles on its own.
+        */}
+        <button type="button" className="bcc-onb-link" onClick={onBack}>
           ← Back
         </button>
         {/* Gate Done while any pull is in flight — otherwise the /complete
@@ -192,17 +199,39 @@ function CardWithError({ card, pulls }: { card: Card; pulls: WizardPullsApi }) {
   const error = pulls.errorFor(card.id);
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "8px" }}>
-      <CardFactory
-        card={card}
-        isPulled={isPulled}
-        // A body mis-click must not navigate away mid-wizard — the
-        // card is a selection tile here, not a nav target.
-        suppressBodyLink
-        // Omit onPull while pending so the click is a no-op; passing
-        // `undefined` explicitly violates exactOptionalPropertyTypes.
-        {...(isPending ? {} : { onPull: pulls.toggle })}
-      />
+    /*
+      The two width declarations here are load-bearing, not cosmetic.
+
+      Below 380px `.bcc-card` becomes `width: 100%; height: auto;
+      aspect-ratio: 316/440`, and it sits inside `.bcc-card-stage`, which
+      declares only `perspective` — no width. The card's own in-flow
+      descendant `.bcc-card-face` is `position: absolute`, so it
+      contributes no intrinsic width either. That left the percentage with
+      nothing to resolve against: measured in a real browser at 375px (the
+      project's documented primary target), every suggestion card computed
+      to 0 × 0 and the entire grid occupied no space at all.
+
+      Fixing it takes BOTH:
+        1. this wrapper needs a definite width — `min()` keeps it inside
+           the 296px cap the narrow rule sets, without exceeding its column;
+        2. an explicit `width: 100%` on the card's block-level ancestor.
+           `align-items: center` makes flex children shrink-to-fit, so the
+           stage would otherwise still collapse even though its parent now
+           has a width. An explicit width beats the shrink-to-fit default.
+    */
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "8px", width: "min(316px, 100%)" }}>
+      <div style={{ width: "100%" }}>
+        <CardFactory
+          card={card}
+          isPulled={isPulled}
+          // A body mis-click must not navigate away mid-wizard — the
+          // card is a selection tile here, not a nav target.
+          suppressBodyLink
+          // Omit onPull while pending so the click is a no-op; passing
+          // `undefined` explicitly violates exactOptionalPropertyTypes.
+          {...(isPending ? {} : { onPull: pulls.toggle })}
+        />
+      </div>
       {isPending && (
         <span className="bcc-onb-note">{isPulled ? "Removing…" : "Saving…"}</span>
       )}
