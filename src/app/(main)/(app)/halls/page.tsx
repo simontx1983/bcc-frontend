@@ -92,10 +92,16 @@ export default async function HallsDirectoryPage({ searchParams }: PageProps) {
         <h1 className="bcc-stencil mt-2 text-5xl text-bcc-text md:text-6xl">
           Halls
         </h1>
+        {/*
+          Was: "Pick your home Hall from your settings." There is no
+          /settings screen, and no settings surface sets a primary Hall
+          either — the control lives on each Hall's own page, next to Join.
+          The copy now points at the affordance that actually exists.
+        */}
         <p className="mt-3 max-w-2xl font-serif text-lg text-bcc-text-secondary">
           Per-chain rooms where members organize, hang, and bias their
-          feeds. Pick your home Hall from your settings; you can hold
-          membership in many.
+          feeds. Open a Hall to join it, and set one as your primary from
+          that Hall&rsquo;s page; you can hold membership in many.
         </p>
       </section>
 

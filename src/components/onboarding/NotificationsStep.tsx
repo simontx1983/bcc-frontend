@@ -7,8 +7,8 @@
  *
  * The user has just pulled cards and chosen a home chain. This step
  * surfaces the bell / email digest / push opt-ins so they LEARN the
- * notification channels exist at signup, not by digging into
- * /settings/notifications later.
+ * notification channels exist at signup, not by digging into the
+ * profile's Notifications tab (/u/me?tab=notifications) later.
  *
  * Server-side defaults (`NotificationPrefs::DEFAULTS`) are already
  * sane — bell on for everything, email digest off, push master off.
@@ -23,8 +23,9 @@
  * surfaced here (kept under "More options" via the settings link) —
  * the wizard isn't a kitchen-sink toggle list.
  *
- * Skip is always available. The settings page is linked on the way
- * out so users know where to come back.
+ * Skip is always available. There is deliberately no link OUT of the
+ * wizard; the copy names where these settings live instead, so a
+ * brand-new visitor isn't pulled off the path to the Floor.
  */
 
 import { useEffect, useState } from "react";
@@ -140,12 +141,15 @@ export function NotificationsStep({
     <section className="bcc-onb-step">
       <p className="bcc-onb-eyebrow">Before you go</p>
       <h1 className="bcc-onb-disp">How should we reach you?</h1>
-      {/* No settings link here on purpose — onboarding funnels toward the
-          Floor; a deep link out to settings pulls a brand-new user away
-          from that path. The reassurance stays as plain text. */}
+      {/* Still no LINK here on purpose — onboarding funnels toward the
+          Floor, and a deep link out mid-wizard pulls a brand-new user off
+          that path. What changed is the DESTINATION: this used to say
+          "in your settings", and there is no /settings screen — settings
+          live as owner-only tabs on the profile. The words now name the
+          real place (/u/me?tab=notifications) without navigating there. */}
       <p className="bcc-onb-lede">
         Pick how we&rsquo;ll keep you posted. You can change all of these any time
-        in your settings.
+        on your profile, under Notifications.
       </p>
 
       <div style={{ marginTop: "clamp(24px, 4vw, 40px)", display: "flex", flexDirection: "column", gap: "14px" }}>
@@ -171,7 +175,7 @@ export function NotificationsStep({
         <div className="bcc-onb-opt" style={{ cursor: "default", flexDirection: "column", alignItems: "stretch" }}>
           <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "16px" }}>
             <div>
-              <h3>Browser push</h3>
+              <h2>Browser push</h2>
               <p>
                 Real-time pings for high-stakes events only — reviews, vouches,
                 dispute outcomes. Off by default.
@@ -239,7 +243,7 @@ function WizardOptCard({
   return (
     <label className="bcc-onb-opt" style={disabled ? { opacity: 0.6, cursor: "not-allowed" } : undefined}>
       <div>
-        <h3>{title}</h3>
+        <h2>{title}</h2>
         <p>{subtitle}</p>
       </div>
       <input

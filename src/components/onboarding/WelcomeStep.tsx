@@ -66,7 +66,7 @@ export function WelcomeStep({
         {PREVIEW.map((card, i) => (
           <LandingReveal key={card.n} delayMs={i * 80} className="bcc-onb-pv">
             <div className="n">{card.n}</div>
-            <h3>{card.title}</h3>
+            <h2>{card.title}</h2>
             <p>{card.body}</p>
           </LandingReveal>
         ))}

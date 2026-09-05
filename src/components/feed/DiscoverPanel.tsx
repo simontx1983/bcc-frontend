@@ -43,8 +43,15 @@
  *   - loading → render the original "Quiet on the Floor" fallback
  *     (silent on the cold-start blocks; no skeleton — the surface is
  *     supplementary).
- *   - error   → same fallback. A failed cold-start call shouldn't
- *     block the empty state.
+ *   - error with no prior data → LoadFailure with a real retry. This used
+ *     to render the same "Quiet on the Floor" panel as a successful empty
+ *     response, which stated as fact that nothing was happening when the
+ *     request had simply failed. On a cold-start platform that is exactly
+ *     the difference between "new" and "broken", so the two states are now
+ *     distinguishable.
+ *   - error WITH prior data (background refetch failed) → keep rendering
+ *     the content already loaded; throwing it away is worse than a stale
+ *     panel.
  *   - all three blocks empty → "The floor's just opening up.
  *     Check back soon." terminal copy.
  */
@@ -57,6 +64,7 @@ import Link from "next/link";
 import { Avatar } from "@/components/identity/Avatar";
 import { FeedItemCard } from "@/components/feed/FeedItemCard";
 import { RankChip } from "@/components/profile/RankChip";
+import { LoadFailure } from "@/components/ui/LoadFailure";
 import { useColdStart } from "@/hooks/useColdStart";
 import type {
   ColdStartHall,
@@ -72,11 +80,32 @@ interface DiscoverPanelProps {
 function DiscoverPanelImpl({ enabled }: DiscoverPanelProps) {
   const query = useColdStart({ enabled });
 
-  // Silent failure / loading. The empty state stays civic on its own
-  // ("Quiet on the Floor") regardless of whether the cold-start
-  // blocks load.
-  if (!enabled || query.isLoading || query.isError) {
+  // Loading keeps its deliberate quiet treatment — the surface is
+  // supplementary and a skeleton here would shout.
+  if (!enabled || query.isLoading) {
     return <QuietOnTheFloorPanel />;
+  }
+
+  // A FAILED request is not a confirmed empty floor. Rendering the same
+  // "Quiet on the Floor" panel for both told the visitor there was nothing
+  // here when in truth we never found out — and on a cold-start platform
+  // that is the difference between "new" and "broken".
+  //
+  // `query.data` may still hold a previously-loaded page (React Query keeps
+  // the last success on a background refetch failure). When it does, keep
+  // showing it and surface the failure quietly rather than throwing content
+  // away.
+  if (query.isError && query.data === undefined) {
+    return (
+      <div className="py-12">
+        <div className="bcc-panel mx-auto max-w-md px-6">
+          <LoadFailure
+            message="Couldn't load what's happening on the Floor."
+            onRetry={() => { void query.refetch(); }}
+          />
+        </div>
+      </div>
+    );
   }
 
   const data = query.data;

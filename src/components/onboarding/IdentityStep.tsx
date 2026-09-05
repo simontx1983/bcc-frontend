@@ -234,11 +234,21 @@ export function IdentityStep({
       </div>
 
       <footer className="bcc-onb-foot">
-        <button type="button" className="bcc-onb-link" disabled={busy} onClick={onBack}>
+        {/*
+          Back and Skip are NEVER gated on `busy`. A hung avatar or cover
+          upload used to freeze every control on the step, leaving no way
+          out. Media commits server-side on its own; navigating away does
+          not cancel an upload the server already accepted, and Skip
+          deliberately abandons only the UNSAVED bio draft.
+
+          Continue stays gated — that one submits, and double-submitting a
+          bio is a real duplicate write.
+        */}
+        <button type="button" className="bcc-onb-link" onClick={onBack}>
           ← Back
         </button>
         <div className="bcc-onb-foot-end">
-          <button type="button" className="bcc-onb-link" disabled={busy} onClick={onDone}>
+          <button type="button" className="bcc-onb-link" onClick={onDone}>
             Skip
           </button>
           <button type="button" className="bcc-onb-btn bcc-onb-btn-primary" disabled={busy} onClick={handleContinue}>

@@ -23,7 +23,7 @@ import type { Route } from "next";
 import { signIn } from "next-auth/react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { type FormEvent, Suspense, useCallback, useEffect, useState } from "react";
+import { type FormEvent, Suspense, useCallback, useEffect, useRef, useState } from "react";
 
 import { AuthCard } from "@/components/auth/AuthCard";
 import { resend2faCode, verify2fa } from "@/lib/api/auth-endpoints";
@@ -31,7 +31,12 @@ import { BccApiError } from "@/lib/api/types";
 import { safeCallbackPath } from "@/lib/auth/safe-callback";
 
 const ERROR_COPY: Record<string, string> = {
-  bcc_invalid_2fa_code:  "Incorrect or expired code. Check your email and try again.",
+  // The backend separates these two, so the copy does too. `..._code` means
+  // the code was wrong while the challenge is STILL VALID — hedging with
+  // "or expired" sent people off to resend a code that was fine, and left
+  // them unsure which of two different things had gone wrong. Expiry has
+  // its own code below, and its own terminal screen.
+  bcc_invalid_2fa_code:  "That code doesn't match. Check your email and try again.",
   bcc_invalid_2fa_token: "This session has expired. Please sign in again.",
   bcc_invalid_request:   "Something went wrong. Please sign in again.",
   bcc_rate_limited:      "Too many attempts. Wait a moment and try again.",
@@ -52,6 +57,13 @@ function TwoFactorContent() {
   const [signingIn, setSigningIn]           = useState(false);
   const [resending, setResending]           = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
+  /** Positive confirmation that a resend actually succeeded — kept apart
+   *  from `error` so a delivery failure and a wrong-code failure never
+   *  overwrite one another. */
+  const [resendNotice, setResendNotice]     = useState<string | null>(null);
+  /** Synchronous duplicate-activation guard — see the note in
+   *  /verify-email; `resending` state alone loses a same-tick double tap. */
+  const resendInFlight = useRef(false);
   const [sessionExpired, setSessionExpired] = useState(ct === "");
 
   function targetAfterLogin(): Route {
@@ -108,17 +120,39 @@ function TwoFactorContent() {
   }
 
   // ── Resend handler ─────────────────────────────────────────────
+  //
+  // Was a silent swallow that started the same 60s cooldown on failure as
+  // on success, so a rate-limit (3/min here) or a network drop looked
+  // exactly like a delivered code. Same fix as /verify-email: the cooldown
+  // is a consequence of a SENT code, never of a failed attempt.
   const handleResend = useCallback(async () => {
-    if (resendCooldown > 0 || resending || ct === "") return;
+    if (resendCooldown > 0 || resending || ct === "" || resendInFlight.current) return;
+    resendInFlight.current = true;
     setResending(true);
     setError(null);
+    setResendNotice(null);
     try {
       await resend2faCode(ct);
       setCode("");
+      setResendNotice("A new code is on its way.");
       setResendCooldown(60);
-    } catch {
-      setResendCooldown(60);
+    } catch (err) {
+      // §γ — copy keyed on err.code, never err.message.
+      const code = err instanceof BccApiError ? err.code : "";
+      if (code === "bcc_invalid_2fa_token") {
+        // The challenge itself died; resending cannot help. Route to the
+        // terminal state that already exists rather than offering a retry
+        // that can only fail.
+        setSessionExpired(true);
+        return;
+      }
+      setError(
+        code === "bcc_rate_limited"
+          ? "Too many code requests. Wait a minute, then try again."
+          : "Couldn't send a new code just now. Check your connection and try again.",
+      );
     } finally {
+      resendInFlight.current = false;
       setResending(false);
     }
   }, [ct, resending, resendCooldown]);
@@ -228,6 +262,12 @@ function TwoFactorContent() {
         >
           {resendLabel}
         </button>
+        {/* Only rendered after the server actually accepted the resend. */}
+        {resendNotice !== null && (
+          <p role="status" className="bcc-auth-hint" style={{ textAlign: "center" }}>
+            {resendNotice}
+          </p>
+        )}
         <p className="bcc-auth-hint" style={{ textAlign: "center" }}>
           Wrong account?{" "}
           <Link href="/login">Sign in with a different account</Link>
