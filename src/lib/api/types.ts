@@ -2131,8 +2131,33 @@ export interface CollectionStancePanelItem {
   viewer_stance: "waitlist" | "spam" | null;
 }
 
+/**
+ * Why an empty `items` array is not self-explanatory.
+ *
+ * The panel used to return `items` alone. When the backend could not read a
+ * wallet's holdings it sent `items: []`, and this UI rendered that as a
+ * verdict — "No collections detected in your linked wallets yet." A provider
+ * outage was shown to the user as a fact about their wallet.
+ *
+ *   complete    every source finished; an empty list is TRUSTWORTHY
+ *   partial     at least one source did not finish; ABSENCE PROVES NOTHING
+ *   unavailable nothing finished; no determination was possible
+ *
+ * Only `complete` licenses "you hold nothing".
+ *
+ * ⚠ OPTIONAL ON PURPOSE, and not nullable. It is absent only when an older
+ * backend is still deployed, which makes either deployment order safe; `null`
+ * is not a member of the vocabulary because a nullable status would bring
+ * back the very ambiguity the field exists to remove.
+ *
+ * Pinned byte-for-byte against the backend in
+ * `src/lib/api/__contracts__/collection-stance-panel.contract.json`.
+ */
+export type CollectionHoldingsStatus = "complete" | "partial" | "unavailable";
+
 export interface CollectionStancePanelResponse {
   items: CollectionStancePanelItem[];
+  holdings_status?: CollectionHoldingsStatus;
 }
 
 /** POST /me/collection-stances body + success echo. */
