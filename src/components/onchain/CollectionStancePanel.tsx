@@ -63,16 +63,52 @@ export function CollectionStancePanel({ compact = false }: CollectionStancePanel
   }
 
   const items = panel.data.items;
+  const holdingsStatus = panel.data.holdings_status;
+
+  // An empty list is only a fact about the member's wallets when the server
+  // says every source finished. Before `holdings_status` existed this branch
+  // rendered "No collections detected" for an unreadable provider too —
+  // telling someone they own nothing because we could not look.
+  //
+  // `undefined` keeps the legacy wording on purpose: it means an older
+  // backend is still deployed, so either deployment order is safe.
   if (items.length === 0) {
+    if (holdingsStatus === "unavailable") {
+      return (
+        <p className="font-serif italic text-ink-soft">
+          Collection holdings are temporarily unavailable. Please try again later.
+        </p>
+      );
+    }
+
+    if (holdingsStatus === "partial") {
+      return (
+        <p className="font-serif italic text-ink-soft">
+          We couldn&rsquo;t finish checking all of your linked wallets. Try again later.
+        </p>
+      );
+    }
+
     return (
       <p className="font-serif italic text-ink-soft">
-        No collections detected in your linked wallets yet.
+        {holdingsStatus === "complete"
+          ? "No verified collections were detected in your linked wallets."
+          : "No collections detected in your linked wallets yet."}
       </p>
     );
   }
 
   return (
     <div className="flex flex-col gap-3">
+      {/* Positive rows are always shown, even when a source failed: what is
+          here was proven. The notice says only that the list may be short —
+          never which wallet, which chain, or what went wrong. */}
+      {holdingsStatus === "partial" && (
+        <p role="status" className="font-serif italic text-ink-soft">
+          Some linked wallets could not be fully checked.
+        </p>
+      )}
+
       {!compact && (
         <header>
           <p className="bcc-mono text-safety">YOUR COLLECTIONS //</p>
