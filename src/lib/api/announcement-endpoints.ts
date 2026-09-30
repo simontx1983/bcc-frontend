@@ -10,8 +10,8 @@
  * Deliberately NOT here:
  *   - any fallback endpoint, retry-against-a-different-path, or local
  *     stub. A missing backend must read as missing.
- *   - the `/rotator` route. That is F2 (the announcement bar) and is
- *     out of scope for F1.
+ *   - any fallback endpoint, retry-against-a-different-path, or local
+ *     stub (restated: a missing backend must read as missing).
  *
  * Same idiom as `comment-endpoints.ts`: thin typed glue over the shared
  * client, no envelope hand-parsing, cursor threading left to the hooks.
@@ -244,5 +244,29 @@ export function removeAnnouncementComment(
   return bccFetchAsClient<{ comment_id: string }>(
     `announcements/${encodeURIComponent(announcementId)}/comments/${encodeURIComponent(commentId)}`,
     { method: "DELETE" },
+  );
+}
+
+/** How many announcements the bar may ever show (contract §4.32.4). */
+export const ROTATOR_MAX_ITEMS = 5;
+
+/**
+ * GET /validators/:pageId/announcements/rotator — the bounded set the
+ * announcement bar shows.
+ *
+ * Distinct from the list route on purpose. The server owns both the
+ * bound and the order: pinned first when one exists, then newest first.
+ * The client re-sorts nothing and reconstructs no links — it renders
+ * what it was handed, in the order it was handed.
+ *
+ * Reuses the list envelope rather than inventing a second shape; the
+ * response is bounded, so `pagination` is inert here and never read.
+ */
+export function getAnnouncementRotator(
+  pageId: number,
+): Promise<AnnouncementListResponse> {
+  return bccFetchAsClient<AnnouncementListResponse>(
+    `${announcementsRoot(pageId)}/rotator`,
+    { method: "GET" },
   );
 }

@@ -31,6 +31,7 @@ import {
   createAnnouncement,
   createAnnouncementComment,
   getAnnouncementAsClient,
+  getAnnouncementRotator,
   listAnnouncementComments,
   listAnnouncements,
   removeAnnouncementComment,
@@ -71,6 +72,37 @@ export function announcementDetailQueryKey(announcementId: string): QueryKey {
 
 export function announcementCommentsQueryKey(announcementId: string): QueryKey {
   return ["announcement-comments", announcementId];
+}
+
+export function announcementRotatorQueryKey(pageId: number): QueryKey {
+  return ["announcements", pageId, "rotator"];
+}
+
+/**
+ * The bounded set behind the announcement bar.
+ *
+ * `enabled` MUST be driven by the presence of the server capability
+ * block. With it false nothing is requested at all — which is what keeps
+ * a backend that has never heard of announcements from being asked.
+ *
+ * A failure here must never take the validator profile down with it:
+ * the bar is supplementary, so the caller renders a compact failure and
+ * the rest of the page carries on. Retry is left to the viewer rather
+ * than a background loop, so a missing backend does not turn into a
+ * stream of 404s behind every profile view.
+ */
+export function useAnnouncementRotator(
+  pageId: number,
+  options: { enabled?: boolean } = {},
+) {
+  const enabled = options.enabled ?? true;
+  return useQuery<AnnouncementListResponse, BccApiError>({
+    queryKey: announcementRotatorQueryKey(pageId),
+    enabled: enabled && pageId > 0,
+    queryFn: () => getAnnouncementRotator(pageId),
+    staleTime: 60_000,
+    retry: false,
+  });
 }
 
 /**
