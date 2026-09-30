@@ -658,6 +658,18 @@ export interface Card {
    * transition.
    */
   actions?: Record<string, CardAction>;
+  /**
+   * §4.32 validator announcements. **Presence of this block is the
+   * feature gate** — no client flag, no environment variable.
+   *
+   * Absent on every backend shipping today (the feature is bcc-trust
+   * A2/A3/A5, unstarted), so the Announcements tab, the composer and the
+   * detail route all render nothing. That is the designed state, not a
+   * degraded one: same additive-optional convention as `messaging?` /
+   * `onchain_signals?`, and the reason this slice is safe to ship ahead
+   * of its backend.
+   */
+  announcements?: AnnouncementsBlock | null;
 }
 
 /**
@@ -6294,4 +6306,163 @@ export interface AccountActivityResponse {
 /** POST /auth/logout-everywhere success body. */
 export interface LogoutEverywhereResponse {
   ok: true;
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Validator announcements — api-contract-v1.md §4.32 (PLANNED)
+//
+// ⚠ NO BACKEND EXISTS YET. These types mirror the contract locked in
+// umbrella PR #165; they are the consumer half of a contract-first
+// slice. Every surface that consumes them is gated on a server-supplied
+// capability block (`Card.announcements`), which today's backend never
+// sends — so the whole feature renders nothing in production until
+// bcc-trust A2/A3/A5 ship. That absence IS the gate; there is no client
+// flag, no environment toggle and no fallback endpoint.
+//
+// The frontend half of a view-model has no automated guard (only PHP
+// routes are checked against the contract doc), so any drift here must
+// be caught in review. See frontend-doctrine §2.5.
+// ─────────────────────────────────────────────────────────────────────
+
+/**
+ * Announcement lifecycle as the wire reports it.
+ *
+ * `blocked` is the non-public state reconciler arm C moves a row into
+ * when a forced `publish` has no valid publication-authorization
+ * marker (§4.32.1). It is owner-visible only, never public.
+ */
+export type AnnouncementStatus = "draft" | "scheduled" | "published" | "blocked";
+
+/** Composer intent. Distinct from AnnouncementStatus: this is a REQUEST verb. */
+export type AnnouncementPublishMode = "draft" | "publish" | "schedule";
+
+/** §4.32.4 — `?state=` on the list route. */
+export type AnnouncementListState = "active" | "archived";
+
+/**
+ * The per-validator capability block. **Presence of the parent
+ * `Card.announcements` is the feature gate** — when it is absent or
+ * null the announcement surfaces render nothing at all.
+ *
+ * Every entry is a §2.1 CardPermissionEntry so `isAllowed()` works
+ * uniformly. Owner controls MUST be driven from these and nothing else:
+ * never from page authorship, PeepSo membership, or client state.
+ */
+export interface AnnouncementCapabilities {
+  can_create: CardPermissionEntry;
+  can_edit: CardPermissionEntry;
+  can_pin: CardPermissionEntry;
+  can_archive: CardPermissionEntry;
+  can_manage_comments: CardPermissionEntry;
+  can_comment: CardPermissionEntry;
+}
+
+/**
+ * Additive-optional block on the validator Card view-model.
+ *
+ * Absent on every backend shipping today. A pre-A2 backend omits it and
+ * the frontend hides the Announcements tab, the composer and the detail
+ * route — which is the designed behaviour, not a degraded one.
+ */
+export interface AnnouncementsBlock {
+  capabilities: AnnouncementCapabilities;
+}
+
+/** §4.32.3 — one announcement as list/detail report it. */
+export interface Announcement {
+  /** Opaque, form `ann_<int>`. */
+  id: string;
+  title: string;
+  /**
+   * Operator-written summary. **Required and first-class** — it is
+   * never derived from the body, and it is the only text the feed card,
+   * the rotator and the OG image may use.
+   */
+  summary: string;
+  /** ISO-8601 UTC. Formatted client-side for the viewer's locale. */
+  published_at: string | null;
+  /** ISO-8601 UTC. Surface on detail only when materially later than published_at. */
+  updated_at: string | null;
+  is_pinned: boolean;
+  is_archived: boolean;
+  /** ISO-8601 UTC; non-null iff is_archived. */
+  archived_at: string | null;
+  comment_count: number;
+  comments_enabled: boolean;
+  links: { self: string };
+}
+
+/** Detail adds the Markdown body and the viewer's capability view. */
+export interface AnnouncementDetail extends Announcement {
+  /** Markdown SOURCE. Never HTML. Rendered through BlogMarkdownRenderer. */
+  body: string;
+  status: AnnouncementStatus;
+  capabilities: AnnouncementCapabilities;
+}
+
+/** §1.5 cursor envelope. */
+export interface AnnouncementListResponse {
+  items: Announcement[];
+  pagination: { next_cursor: string | null; has_more: boolean };
+}
+
+export interface CreateAnnouncementRequest {
+  title: string;
+  summary: string;
+  body: string;
+  mode: AnnouncementPublishMode;
+  /** ISO-8601 UTC. Required iff mode === "schedule"; must be strictly future. */
+  publish_at?: string;
+  comments_enabled: boolean;
+}
+
+export interface UpdateAnnouncementRequest {
+  title?: string;
+  summary?: string;
+  body?: string;
+  comments_enabled?: boolean;
+}
+
+/** Who removed a comment. Drives which server-authored label is shown. */
+export type AnnouncementCommentRemovalActor = "author" | "validator";
+
+/**
+ * One row in the canonical chronological discussion.
+ *
+ * "Thread" throughout this feature means the flat chronological
+ * discussion — v1 has NO nested replies, so there is no `parent_id`.
+ *
+ * A removed comment is NOT dropped: it stays in position as a
+ * tombstone carrying only `id`, `is_removed`, `removed_at` and a
+ * server-authored `label`. It must never carry body, author, avatar,
+ * user id, actor type or removal reason.
+ */
+export type AnnouncementComment =
+  | {
+      id: string;
+      is_removed: false;
+      body: string;
+      author: { id: number; handle: string; display_name: string; avatar_url: string | null };
+      posted_at: string;
+      permissions: { can_remove: CardPermissionEntry };
+    }
+  | {
+      id: string;
+      is_removed: true;
+      removed_at: string;
+      /** Server-authored. The client never composes removal copy. */
+      label: string;
+    };
+
+export interface AnnouncementCommentsResponse {
+  items: AnnouncementComment[];
+  pagination: { next_cursor: string | null; has_more: boolean };
+  /** False once the announcement is archived, or when the operator disabled comments. */
+  can_comment: CardPermissionEntry;
+}
+
+export interface CreateAnnouncementCommentRequest {
+  announcementId: string;
+  /** Plain text. 1–2000 chars after normalization. Never Markdown-rendered. */
+  body: string;
 }

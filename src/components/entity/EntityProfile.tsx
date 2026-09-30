@@ -32,6 +32,7 @@ import { ChainTabs } from "@/components/entity/ChainTabs";
 import { ClaimCallout } from "@/components/claim/ClaimCallout";
 import { DisputeCallout } from "@/components/disputes/DisputeCallout";
 import { EndorseButton } from "@/components/endorse/EndorseButton";
+import { AnnouncementsPanel } from "@/components/announcements/AnnouncementsPanel";
 import { EntityTabs } from "@/components/entity/EntityTabs";
 import { CardReviewsPanel } from "@/components/entity/panels/CardReviewsPanel";
 import { CardWatchersPanel } from "@/components/entity/panels/CardWatchersPanel";
@@ -322,6 +323,19 @@ export function EntityProfile({
                 kind={entityCardKind}
                 cardId={card.id}
                 cardName={card.name}
+              />
+            ) : null
+          }
+          /* §4.32 — the capability block IS the gate. Absent (every
+             backend shipping today) → null → the tab does not render and
+             nothing fetches. Never gated on a client flag or on whether
+             the viewer looks like an owner. */
+          announcementsPanel={
+            card.announcements != null ? (
+              <AnnouncementsPanel
+                pageId={card.id}
+                validatorName={card.name}
+                capabilities={card.announcements.capabilities}
               />
             ) : null
           }
