@@ -25,6 +25,7 @@ import type {
   AnnouncementCommentsResponse,
   AnnouncementDetail,
   AnnouncementListResponse,
+  OwnerAnnouncementListItem,
   CardPermissionEntry,
 } from "@/lib/api/types";
 
@@ -177,6 +178,37 @@ export const VALIDATOR_TOMBSTONE: AnnouncementComment = {
   removed_at: "2026-09-29T09:00:00Z",
   label: "Comment removed by validator",
 };
+
+// ── Owner list rows ─────────────────────────────────────────────────
+// The server attaches per-announcement capabilities only for a viewer
+// who may manage. These cover the three shapes the panel must survive.
+
+/** Pinnable: a live, published announcement the operator owns. */
+export const PINNABLE_ITEM: OwnerAnnouncementListItem = {
+  ...PUBLISHED_ANNOUNCEMENT,
+  capabilities: OWNER_ANNOUNCEMENT_CAPABILITIES,
+};
+
+/**
+ * Same validator, same operator, **not** pinnable — the server said no
+ * for this row. This is the case a page-level gate could not express.
+ */
+export const UNPINNABLE_ITEM: OwnerAnnouncementListItem = {
+  ...SECOND_ANNOUNCEMENT,
+  capabilities: {
+    ...OWNER_ANNOUNCEMENT_CAPABILITIES,
+    can_pin: deny("announcement_not_published"),
+  },
+};
+
+/** A row the server sent with no capability block at all. Must fail closed. */
+export const ITEM_WITHOUT_CAPABILITIES: Announcement = { ...SECOND_ANNOUNCEMENT };
+
+/** A row whose capability block is malformed. Must also fail closed. */
+export const ITEM_WITH_MALFORMED_CAPABILITIES = {
+  ...SECOND_ANNOUNCEMENT,
+  capabilities: { can_pin: { allowed: "yes" } },
+} as unknown as Announcement;
 
 export function announcementListResponse(
   items: Announcement[],

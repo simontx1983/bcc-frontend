@@ -6431,7 +6431,32 @@ export interface Announcement {
   comment_count: number;
   comments_enabled: boolean;
   links: { self: string };
+  /**
+   * Per-announcement capabilities, attached by the server **only** for a
+   * viewer who may manage this validator. Absent for public readers.
+   *
+   * 🔒 This is the ONLY authority for a mutation against this row. The
+   * validator-page `can_manage` decides whether the management surface
+   * opens; it never decides whether THIS announcement may be pinned,
+   * edited or archived. An archived, draft or scheduled row does not
+   * inherit permission from the page.
+   *
+   * Optional on purpose: absence must fail closed, and `isAllowed()`
+   * collapses a missing or malformed block to `false`.
+   */
+  capabilities?: AnnouncementCapabilities;
 }
+
+/**
+ * A list row the server attached capabilities to — i.e. one returned by
+ * an owner-scoped read.
+ *
+ * Named so a call site can say it requires the capability-bearing shape
+ * rather than hoping the optional field happens to be there.
+ */
+export type OwnerAnnouncementListItem = Announcement & {
+  capabilities: AnnouncementCapabilities;
+};
 
 /** Detail adds the Markdown body and the viewer's capability view. */
 export interface AnnouncementDetail extends Announcement {

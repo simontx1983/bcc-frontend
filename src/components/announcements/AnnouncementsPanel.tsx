@@ -7,17 +7,30 @@
  * public records — they keep their permalink and their discussion — so
  * they are listed, not hidden; they are simply out of the active flow.
  *
- * Owner controls (compose, pin, archive) render **only** from the
- * server-supplied capability block passed in as `capabilities`. This
- * component never infers authority from page authorship, membership,
- * session presence or any client state, and it has no environment flag.
- * If the server did not grant it, the control does not exist.
+ * Two capability scopes meet here, and conflating them is the bug this
+ * component is shaped to avoid:
+ *
+ *   • `capabilities` (validator-page scope) decides whether the compose
+ *     button exists and whether the management surface opens at all.
+ *   • each row's OWN `announcement.capabilities` decides whether that
+ *     announcement may be pinned, edited or archived.
+ *
+ * A page-level `can_manage: true` therefore opens the surface but
+ * authorizes nothing on any particular row — an archived, draft or
+ * scheduled announcement does not inherit permission from the page.
+ * Per-row gating lives in {@link AnnouncementOwnerActions}.
+ *
+ * This component never infers authority from page authorship,
+ * membership, session presence or any client state, and it has no
+ * environment flag. If the server did not grant it, the control does
+ * not exist.
  */
 
 import { useState } from "react";
 
 import { AnnouncementComposer } from "@/components/announcements/AnnouncementComposer";
 import { AnnouncementListItem } from "@/components/announcements/AnnouncementListItem";
+import { AnnouncementOwnerActions } from "@/components/announcements/AnnouncementOwnerActions";
 import { LoadFailure } from "@/components/ui/LoadFailure";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { humanizeCode } from "@/lib/api/errors";
@@ -48,8 +61,9 @@ export function AnnouncementsPanel({
   const pin = useSetAnnouncementPin(pageId);
 
   const canCreate = isAllowed(capabilities, "can_create");
-  // Page-scope operator affordance. The per-announcement pin gate lives
-  // on the detail response; this only decides whether the control exists.
+  // Page scope: opens the management surface. Says nothing about whether
+  // any given announcement may be mutated — each row carries its own
+  // capability, and AnnouncementOwnerActions reads that one.
   const canManage = isAllowed(capabilities, "can_manage");
 
   const failureCopy = humanizeCode(
@@ -123,18 +137,17 @@ export function AnnouncementsPanel({
                 <AnnouncementListItem
                   announcement={item}
                   actions={
+                    /* `can_manage` opens the management surface and
+                       nothing more. Whether THIS row may be pinned is
+                       decided inside, from the row's own capability. */
                     canManage ? (
-                      <button
-                        type="button"
-                        onClick={() =>
-                          pin.mutate({ announcementId: item.id, pinned: !item.is_pinned })
+                      <AnnouncementOwnerActions
+                        announcement={item}
+                        pending={pin.isPending}
+                        onPin={(announcementId, pinned) =>
+                          pin.mutate({ announcementId, pinned })
                         }
-                        disabled={pin.isPending}
-                        className="bcc-mono rounded-sm border border-cardstock-edge px-3 py-2 text-ink disabled:opacity-50"
-                        style={{ minHeight: "44px", fontSize: "11px" }}
-                      >
-                        {item.is_pinned ? "UNPIN" : "PIN"}
-                      </button>
+                      />
                     ) : null
                   }
                 />

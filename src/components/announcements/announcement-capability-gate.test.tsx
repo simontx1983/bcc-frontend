@@ -155,7 +155,7 @@ describe("owner controls come only from the capability block", () => {
     expect(screen.queryByTestId("announcement-compose")).toBeNull();
   });
 
-  it("hides pin controls when can_pin is denied", async () => {
+  it("hides the management surface entirely when can_manage is denied", async () => {
     renderPanel(VISITOR_CAPABILITIES);
     await waitFor(() => {
       expect(screen.getByText("Upgrade to v18 complete")).toBeInTheDocument();
@@ -163,12 +163,20 @@ describe("owner controls come only from the capability block", () => {
     expect(screen.queryByRole("button", { name: /UNPIN|^PIN$/ })).toBeNull();
   });
 
-  it("shows the pin control when can_pin is granted", async () => {
+  /**
+   * `can_manage` opens the surface — that is ALL it does. Whether the
+   * control is actionable comes from the row's own capability, which
+   * this fixture does not carry, so it renders disabled.
+   *
+   * The per-row dimension is covered in announcement-mutation-scope.
+   */
+  it("opens the management surface on can_manage, but does not authorize the row", async () => {
     renderPanel(OWNER_CAPABILITIES);
     await waitFor(() => {
       // PUBLISHED_ANNOUNCEMENT is pinned, so the control reads UNPIN.
-      expect(screen.getByRole("button", { name: "UNPIN" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /UNPIN/ })).toBeInTheDocument();
     });
+    expect(screen.getByRole("button", { name: /UNPIN/ })).toBeDisabled();
   });
 });
 
