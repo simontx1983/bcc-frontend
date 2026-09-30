@@ -20,6 +20,7 @@
 import type {
   Announcement,
   AnnouncementCapabilities,
+  AnnouncementFeatureCapabilities,
   AnnouncementComment,
   AnnouncementCommentsResponse,
   AnnouncementDetail,
@@ -33,9 +34,27 @@ function deny(reason: string, hint: string | null = null): CardPermissionEntry {
   return { allowed: false, unlock_hint: hint, reason_code: reason };
 }
 
-/** What the resolved operator sees. */
-export const OWNER_CAPABILITIES: AnnouncementCapabilities = {
+// ── Validator-page scope ────────────────────────────────────────────
+// Feature visibility, create, and operator management. Note what is
+// NOT here: `can_comment`. These fixtures are typed, so adding it would
+// be a compile error — which is the point.
+
+/** The resolved operator's page-scope capabilities. */
+export const OWNER_CAPABILITIES: AnnouncementFeatureCapabilities = {
   can_create: ALLOW,
+  can_manage: ALLOW,
+};
+
+/** A signed-in non-owner: sees the feature, may do nothing to it. */
+export const VISITOR_CAPABILITIES: AnnouncementFeatureCapabilities = {
+  can_create: deny("not_claimer"),
+  can_manage: deny("not_claimer"),
+};
+
+// ── Single-announcement scope ───────────────────────────────────────
+
+/** Operator's capabilities ON one live announcement. */
+export const OWNER_ANNOUNCEMENT_CAPABILITIES: AnnouncementCapabilities = {
   can_edit: ALLOW,
   can_pin: ALLOW,
   can_archive: ALLOW,
@@ -43,9 +62,8 @@ export const OWNER_CAPABILITIES: AnnouncementCapabilities = {
   can_comment: ALLOW,
 };
 
-/** What a signed-in non-owner sees: may comment, may do nothing else. */
-export const VISITOR_CAPABILITIES: AnnouncementCapabilities = {
-  can_create: deny("not_claimer"),
+/** A signed-in member on a live, comment-enabled announcement. */
+export const VISITOR_ANNOUNCEMENT_CAPABILITIES: AnnouncementCapabilities = {
   can_edit: deny("not_claimer"),
   can_pin: deny("not_claimer"),
   can_archive: deny("not_claimer"),
@@ -54,11 +72,10 @@ export const VISITOR_CAPABILITIES: AnnouncementCapabilities = {
 };
 
 /**
- * An archived announcement's capabilities: the operator keeps moderation
- * (so removed comments stay manageable) but loses edit, pin and comment.
+ * An archived announcement: the operator keeps moderation (so removed
+ * comments stay recoverable) but loses edit, pin and comment.
  */
 export const ARCHIVED_OWNER_CAPABILITIES: AnnouncementCapabilities = {
-  can_create: ALLOW,
   can_edit: deny("announcement_archived"),
   can_pin: deny("announcement_archived"),
   can_archive: deny("already_archived"),
@@ -114,14 +131,14 @@ export const EDITED_ANNOUNCEMENT_DETAIL: AnnouncementDetail = {
   updated_at: "2026-09-30T11:00:00Z",
   body: "## What changed\n\nThe validator now runs v18.\n\n- No missed blocks\n- No downtime",
   status: "published",
-  capabilities: OWNER_CAPABILITIES,
+  capabilities: OWNER_ANNOUNCEMENT_CAPABILITIES,
 };
 
 export const PUBLISHED_ANNOUNCEMENT_DETAIL: AnnouncementDetail = {
   ...PUBLISHED_ANNOUNCEMENT,
   body: "## What changed\n\nThe validator now runs v18.",
   status: "published",
-  capabilities: VISITOR_CAPABILITIES,
+  capabilities: VISITOR_ANNOUNCEMENT_CAPABILITIES,
 };
 
 export const ARCHIVED_ANNOUNCEMENT_DETAIL: AnnouncementDetail = {

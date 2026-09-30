@@ -27,12 +27,12 @@ import {
   useCreateAnnouncement,
   useSetAnnouncementPin,
 } from "@/hooks/useAnnouncements";
-import type { Announcement, AnnouncementCapabilities } from "@/lib/api/types";
+import type { Announcement, AnnouncementFeatureCapabilities } from "@/lib/api/types";
 
 interface AnnouncementsPanelProps {
   pageId: number;
   validatorName: string;
-  capabilities: AnnouncementCapabilities;
+  capabilities: AnnouncementFeatureCapabilities;
 }
 
 export function AnnouncementsPanel({
@@ -48,7 +48,9 @@ export function AnnouncementsPanel({
   const pin = useSetAnnouncementPin(pageId);
 
   const canCreate = isAllowed(capabilities, "can_create");
-  const canPin = isAllowed(capabilities, "can_pin");
+  // Page-scope operator affordance. The per-announcement pin gate lives
+  // on the detail response; this only decides whether the control exists.
+  const canManage = isAllowed(capabilities, "can_manage");
 
   const failureCopy = humanizeCode(
     active.error,
@@ -121,7 +123,7 @@ export function AnnouncementsPanel({
                 <AnnouncementListItem
                   announcement={item}
                   actions={
-                    canPin ? (
+                    canManage ? (
                       <button
                         type="button"
                         onClick={() =>

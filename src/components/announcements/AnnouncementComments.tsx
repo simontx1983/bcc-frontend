@@ -38,6 +38,45 @@ import type { AnnouncementComment } from "@/lib/api/types";
 /** Contract bound (§4.32.7). Mirrored for UX; the server re-checks. */
 export const ANNOUNCEMENT_COMMENT_MAX = 2000;
 
+/**
+ * Why the composer is absent, in the viewer's words.
+ *
+ * Keyed on the server's `reason_code`, never inferred. The final
+ * fallback is deliberately generic: an unrecognised reason must still
+ * close the composer and say *something*, because silently rendering
+ * nothing reads as a broken page, and guessing at the reason risks
+ * telling the viewer something untrue about their own account.
+ *
+ * `auth_required` is handled ahead of the map because the client knows
+ * its own session state and can offer the more useful instruction.
+ */
+export function deniedCopy(
+  viewerAuthed: boolean,
+  reason: string | null,
+  hint: string | null,
+): string {
+  if (!viewerAuthed || reason === "auth_required") {
+    return "Sign in to join this discussion.";
+  }
+  switch (reason) {
+    case "comments_disabled":
+      return "The validator turned comments off for this announcement.";
+    case "announcement_archived":
+      return "This announcement is archived — the discussion is read-only.";
+    case "announcement_unavailable":
+      return "This announcement isn't open for comment.";
+    case "suspended":
+      return "Your account is suspended, so you can't comment right now.";
+    case "fraud_locked":
+      return "Your account is temporarily restricted, so you can't comment right now.";
+    case "feature_disabled":
+      return "Announcement discussions are unavailable right now.";
+    default:
+      // An unlock hint is server-authored, so prefer it when present.
+      return hint ?? "Comments are closed on this announcement.";
+  }
+}
+
 interface AnnouncementCommentsProps {
   announcementId: string;
   /** Viewer is signed in. Anonymous viewers read but never see a composer. */
@@ -87,8 +126,28 @@ export function AnnouncementComments({
 
   const pages = query.data.pages;
   const items: AnnouncementComment[] = pages.flatMap((page) => page.items);
-  // The gate travels with the LAST page so an archive that happened
-  // mid-scroll is reflected, not the stale value page 1 was built with.
+
+  // ── The comment gate ───────────────────────────────────────────────
+  //
+  // 🔒 This gate is ANNOUNCEMENT-SPECIFIC. It comes from the
+  // `/announcements/:id/comments` response for THIS announcement — never
+  // from the validator Card. A page-level "may comment" would authorize
+  // commenting on every announcement, including archived ones and ones
+  // whose operator switched comments off; `AnnouncementFeatureCapabilities`
+  // deliberately has no `can_comment` field so that cannot be wired up
+  // by accident.
+  //
+  // The server resolves it from authentication, member standing,
+  // fraud/suspension state, `comments_enabled`, published-and-due state,
+  // archived state and the feature switch. The client re-derives none of
+  // that — it reads one boolean and renders the reason.
+  //
+  // Taken from the LAST page so an archive that happened mid-scroll is
+  // reflected, rather than the stale value page 1 was built with.
+  //
+  // Absence FAILS CLOSED: a missing `can_comment`, a missing entry, or a
+  // non-`true` value all collapse to false in `isAllowed`, so a backend
+  // that omits the field gets a read-only discussion, never an open one.
   const gate = pages[pages.length - 1]?.can_comment;
   const canComment = viewerAuthed && isAllowed({ can_comment: gate }, "can_comment");
   const gateReason = reasonCode({ can_comment: gate }, "can_comment");
@@ -247,11 +306,7 @@ export function AnnouncementComments({
           style={{ fontSize: "15px" }}
           data-testid="announcement-comment-disabled"
         >
-          {!viewerAuthed
-            ? "Sign in to join this discussion."
-            : gateReason === "announcement_archived"
-              ? "This announcement is archived — the discussion is read-only."
-              : (gateHint ?? "Comments are closed on this announcement.")}
+          {deniedCopy(viewerAuthed, gateReason, gateHint)}
         </p>
       )}
     </section>

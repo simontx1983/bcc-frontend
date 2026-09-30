@@ -6340,22 +6340,63 @@ export type AnnouncementPublishMode = "draft" | "publish" | "schedule";
 export type AnnouncementListState = "active" | "archived";
 
 /**
- * The per-validator capability block. **Presence of the parent
- * `Card.announcements` is the feature gate** — when it is absent or
- * null the announcement surfaces render nothing at all.
+ * **Validator-page scope.** What this viewer may do on the validator as
+ * a whole: see the feature at all, start an announcement, and open the
+ * operator management affordances.
+ *
+ * 🔒 **`can_comment` is deliberately NOT here, and must never be added.**
+ * Commenting is decided per announcement — one may be archived, another
+ * may have comments switched off, a third may not be published or due
+ * yet. A page-level "may comment" would authorize commenting on *every*
+ * announcement, including ones that are closed. The comment gate lives
+ * on {@link AnnouncementCapabilities}, which is only ever supplied by an
+ * announcement-scoped response.
  *
  * Every entry is a §2.1 CardPermissionEntry so `isAllowed()` works
  * uniformly. Owner controls MUST be driven from these and nothing else:
  * never from page authorship, PeepSo membership, or client state.
  */
-export interface AnnouncementCapabilities {
+export interface AnnouncementFeatureCapabilities {
+  /** May start a new announcement on this validator. */
   can_create: CardPermissionEntry;
+  /** May open operator management UI (pin / archive / edit affordances). */
+  can_manage: CardPermissionEntry;
+}
+
+/**
+ * **Single-announcement scope.** Supplied only by announcement-scoped
+ * responses — the detail view-model and the comments page. Never by the
+ * validator Card.
+ *
+ * `can_comment` here is the ONLY comment gate the UI may read. The
+ * server resolves it from every condition that bears on this one
+ * announcement: authentication, member standing, fraud/suspension state,
+ * `comments_enabled`, published-and-due state, archived state, and the
+ * feature switch. The client re-derives none of that.
+ */
+export interface AnnouncementCapabilities {
   can_edit: CardPermissionEntry;
   can_pin: CardPermissionEntry;
   can_archive: CardPermissionEntry;
   can_manage_comments: CardPermissionEntry;
   can_comment: CardPermissionEntry;
 }
+
+/**
+ * Why `can_comment` came back `allowed: false`.
+ *
+ * The client branches copy on these; it never infers the reason itself.
+ * An unrecognised or absent reason falls back to a generic closed
+ * message — absence always fails closed, it never opens the composer.
+ */
+export type AnnouncementCommentDeniedReason =
+  | "auth_required"
+  | "comments_disabled"
+  | "announcement_archived"
+  | "announcement_unavailable"
+  | "suspended"
+  | "fraud_locked"
+  | "feature_disabled";
 
 /**
  * Additive-optional block on the validator Card view-model.
@@ -6365,7 +6406,7 @@ export interface AnnouncementCapabilities {
  * route — which is the designed behaviour, not a degraded one.
  */
 export interface AnnouncementsBlock {
-  capabilities: AnnouncementCapabilities;
+  capabilities: AnnouncementFeatureCapabilities;
 }
 
 /** §4.32.3 — one announcement as list/detail report it. */
