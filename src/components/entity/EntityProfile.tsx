@@ -32,6 +32,7 @@ import { ChainTabs } from "@/components/entity/ChainTabs";
 import { ClaimCallout } from "@/components/claim/ClaimCallout";
 import { DisputeCallout } from "@/components/disputes/DisputeCallout";
 import { EndorseButton } from "@/components/endorse/EndorseButton";
+import { AnnouncementBar } from "@/components/announcements/AnnouncementBar";
 import { AnnouncementsPanel } from "@/components/announcements/AnnouncementsPanel";
 import { EntityTabs } from "@/components/entity/EntityTabs";
 import { CardReviewsPanel } from "@/components/entity/panels/CardReviewsPanel";
@@ -304,6 +305,13 @@ export function EntityProfile({
           ) : null}
         />
       </section>
+
+      {/* ── Announcement bar — above the tabs, below the hero ─────
+          Gated on the same capability block as the tab: absent (every
+          backend today) → renders nothing and fetches nothing. */}
+      {card.announcements != null && (
+        <AnnouncementBar pageId={card.id} featureEnabled />
+      )}
 
       {/* ── EntityTabs — replaces the old linear section stack ────── */}
       <section className="mx-auto mt-16 max-w-[1440px] px-4 sm:px-7">

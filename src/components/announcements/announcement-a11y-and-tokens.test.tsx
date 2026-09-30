@@ -108,6 +108,7 @@ describe("the source scan actually sees the components", () => {
   it("finds every announcement component", () => {
     const names = sourceFiles().map((f) => f.name).sort();
     expect(names).toEqual([
+      "AnnouncementBar.tsx",
       "AnnouncementComments.tsx",
       "AnnouncementComposer.tsx",
       "AnnouncementDetailView.tsx",
