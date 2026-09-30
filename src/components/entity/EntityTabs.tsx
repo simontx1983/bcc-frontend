@@ -35,6 +35,7 @@ import { TabRail } from "@/components/ui/TabRail";
 type EntityTabKey =
   | "backing"
   | "reviews"
+  | "announcements"
   | "activity"
   | "watchers"
   | "onchain"
@@ -54,6 +55,15 @@ export interface EntityTabsProps {
   activityPanel: ReactNode;
   /** Always-on Watchers panel content. */
   watchersPanel: ReactNode;
+  /**
+   * Optional Announcements panel — when null, the tab is hidden.
+   *
+   * §4.32. The caller passes null unless the server sent the
+   * announcements capability block, so on every backend shipping today
+   * this tab does not exist. Same null-hides-the-tab contract as the
+   * On-chain and Chains panels below.
+   */
+  announcementsPanel?: ReactNode | null;
   /** Optional On-chain panel — when null, the tab is hidden. */
   onchainPanel?: ReactNode | null;
   /** Optional Chains panel — when null, the tab is hidden. */
@@ -65,6 +75,7 @@ export function EntityTabs({
   reviewsPanel,
   activityPanel,
   watchersPanel,
+  announcementsPanel,
   onchainPanel,
   chainsPanel,
 }: EntityTabsProps) {
@@ -72,9 +83,16 @@ export function EntityTabs({
     // See ProfileTabs — genus term, key stays `backing` for deep links.
     { key: "backing",  label: ATTESTATION_COPY.supporters_tab },
     { key: "reviews",  label: "Reviews"  },
+  ];
+  // Announcements sits directly after Reviews — operator's own voice
+  // next to what others said about them, both ahead of raw activity.
+  if (announcementsPanel !== undefined && announcementsPanel !== null) {
+    tabs.push({ key: "announcements", label: "Announcements" });
+  }
+  tabs.push(
     { key: "activity", label: "Activity" },
     { key: "watchers", label: "Watchers" },
-  ];
+  );
   if (onchainPanel !== undefined && onchainPanel !== null) {
     tabs.push({ key: "onchain", label: "On-chain" });
   }
@@ -126,6 +144,7 @@ export function EntityTabs({
       >
         {active === "backing"  && backingPanel}
         {active === "reviews"  && reviewsPanel}
+        {active === "announcements" && announcementsPanel !== undefined && announcementsPanel !== null && announcementsPanel}
         {active === "activity" && activityPanel}
         {active === "watchers" && watchersPanel}
         {active === "onchain"  && onchainPanel !== undefined && onchainPanel !== null && onchainPanel}
