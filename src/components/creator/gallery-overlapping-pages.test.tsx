@@ -155,9 +155,22 @@ describe("CreatorGallery — consecutive pages share a collection", () => {
 
   it("keeps the server order, first occurrence winning", () => {
     // The order is a RANKING (volume desc), so the earlier page owns the
-    // position. Last-occurrence-wins would drop the repeated row down.
+    // position and a repeat must not drag the row down the list.
+    //
+    // The fixture matters: with pages [1,2] / [2,3] the repeated record
+    // is already adjacent to where last-occurrence-wins would move it,
+    // so BOTH policies render [1,2,3] and this assertion proves nothing
+    // — it passed a "last occurrence wins" mutation unchanged. Repeating
+    // the FIRST row of page 1 at the head of page 2 separates them:
+    //
+    //   first occurrence wins → [1, 2, 3, 4]
+    //   last occurrence wins  → [2, 3, 1, 4]
+    state.gallery = inf([
+      page([1, 2, 3], 1, 4, true),
+      page([1, 4], 2, 4, false),
+    ]);
     render(ui());
-    expect(renderedIds()).toEqual([1, 2, 3]);
+    expect(renderedIds()).toEqual([1, 2, 3, 4]);
   });
 
   it("emits no duplicate-key warning", () => {
@@ -226,18 +239,40 @@ describe("CreatorGallery — the page param still comes from the server", () => 
 // ─────────────────────────────────────────────────────────────────────
 
 describe("CreatorGallery — record identity", () => {
-  it("treats one id as one record even across chain slugs", () => {
-    // `id` is the collections table's PRIMARY KEY and
-    // UNIQUE KEY uq_chain_contract (chain_id, contract_address) makes it
-    // 1:1 with a (chain, contract) pair — so the same id cannot be two
-    // different collections, whatever the tile's composite React key
-    // suggests. If that ever stops holding, this is where it shows.
+  it("collapses a repeated id", () => {
+    // `id` is the collections table's PRIMARY KEY, so the same id twice is
+    // the same collection twice however the pages arrived.
     state.gallery = inf([
       { ...page([1], 1, 2, true), items: [tile(1, "ethereum")] },
-      { ...page([1], 2, 2, false), items: [tile(1, "solana")] },
+      { ...page([1], 2, 2, false), items: [tile(1, "ethereum")] },
     ]);
     render(ui());
     expect(renderedIds()).toEqual([1]);
+    expect(keyWarnings).toEqual([]);
+  });
+
+  it("keeps one contract deployed on two chains as TWO collections", () => {
+    // The identity is the primary key, not the contract address, and the
+    // difference is observable: `UNIQUE KEY uq_chain_contract (chain_id,
+    // contract_address)` is unique per (chain, contract), so the SAME
+    // contract address on two chains is two rows with two ids and two
+    // tiles. De-duplicating by contract would silently merge them.
+    //
+    // Without this case the identity is untestable — the fixture helper
+    // derives contract_address from the id, so id and contract agree and
+    // a "dedupe by contract_address" mutation passed unnoticed.
+    state.gallery = inf([
+      {
+        ...page([10], 1, 2, true),
+        items: [{ ...tile(10, "ethereum"), contract_address: "0xdeadbeef" }],
+      },
+      {
+        ...page([11], 2, 2, false),
+        items: [{ ...tile(11, "solana"), contract_address: "0xdeadbeef" }],
+      },
+    ]);
+    render(ui());
+    expect(renderedIds()).toEqual([10, 11]);
     expect(keyWarnings).toEqual([]);
   });
 
