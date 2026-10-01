@@ -576,11 +576,23 @@ describe("anonymous → authenticated", () => {
     expect(reload).not.toHaveBeenCalled();
   });
 
-  it("keeps the onboarding and tour keys written at sign-in time", async () => {
-    // purgeViewerState() would wipe these at the exact moment they start
-    // being written, restarting the tour for someone who just signed in.
+  it("STILL clears a previous viewer's storage residue on arrival", async () => {
+    // `localStorage` survives document loads, so A's keys can be on this
+    // device even though this tab never saw A: A's purge may have returned
+    // "partial", or no teardown ran at all because the session JWT simply
+    // aged out. The next person signing in would otherwise get A's search
+    // history rendered verbatim into their dropdown.
+    //
+    // This is deliberately the inverse of what an earlier version of this
+    // test asserted. Those keys are classified viewer-scoped precisely so
+    // they do NOT carry across people, and nothing writes them before a
+    // session exists: /onboarding redirects unauthenticated visitors
+    // (app/(auth)/onboarding/page.tsx), so the wizard can only run once
+    // the arrival has already happened.
+    window.localStorage.setItem("bcc-recent-searches", '["viewer-a-secret"]');
     window.localStorage.setItem("bcc-onboarding-progress", "step-3");
-    window.localStorage.setItem("bcc-tour-progress", "2");
+    window.localStorage.setItem("bcc.blog.draft.viewer-a", "unpublished");
+    window.localStorage.setItem("bcc-theme", "dark");
     Object.defineProperty(window, "location", {
       value: { reload: vi.fn(), href: "http://localhost/", assign: vi.fn() },
       writable: true,
@@ -594,10 +606,15 @@ describe("anonymous → authenticated", () => {
     view.rerender(tree(qc));
 
     await waitFor(() => {
-      expect(screen.getByTestId("private")).toBeInTheDocument();
+      expect(window.localStorage.getItem("bcc-recent-searches")).toBeNull();
     });
-    expect(window.localStorage.getItem("bcc-onboarding-progress")).toBe("step-3");
-    expect(window.localStorage.getItem("bcc-tour-progress")).toBe("2");
+    expect(window.localStorage.getItem("bcc-onboarding-progress")).toBeNull();
+    expect(window.localStorage.getItem("bcc.blog.draft.viewer-a")).toBeNull();
+    // Device preference kept, and the app is still usable: arrival purges
+    // state, only DEPARTURE closes the gate.
+    expect(window.localStorage.getItem("bcc-theme")).toBe("dark");
+    expect(screen.getByTestId("private")).toBeInTheDocument();
+    expect(screen.queryByText(/^signing out/i)).toBeNull();
   });
 
   it("STILL tears down when one account replaces another", async () => {
@@ -636,5 +653,63 @@ describe("anonymous → authenticated", () => {
       expect(reload).toHaveBeenCalledTimes(1);
     });
     expect(screen.queryByTestId("private")).toBeNull();
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────
+// A retried teardown must not RENDER the previous attempt's panel
+// ─────────────────────────────────────────────────────────────────────
+
+describe("the recovery panel during a retry", () => {
+  it("disappears from the SCREEN, not just from module state", async () => {
+    // Clearing `failedTeardown` without notifying the gate left the stale
+    // panel — with the earlier attempt's cleanup claims — on screen for
+    // the whole retry, because useSyncExternalStore only re-reads its
+    // snapshot when the subscription fires. Asserting module state would
+    // have passed while the UI stayed wrong.
+    signOut.mockImplementation(async () => {
+      throw new Error("502");
+    });
+    revokePushForSessionEnd.mockResolvedValue("unsubscribe-failed" as never);
+    mount(qc);
+    await endSession("user");
+    await waitFor(() => {
+      expect(screen.getByText(/almost signed out/i)).toBeInTheDocument();
+    });
+
+    // Second attempt, which blocks until we let it finish.
+    let release: (() => void) | undefined;
+    signOut.mockImplementation(
+      () =>
+        new Promise<undefined>((r) => {
+          release = () => r(undefined);
+        }),
+    );
+    revokePushForSessionEnd.mockResolvedValue("revoked" as never);
+    void endSession("user");
+
+    await waitFor(() => {
+      expect(screen.queryByText(/almost signed out/i)).toBeNull();
+    });
+    expect(screen.getByText(/^signing out/i)).toBeInTheDocument();
+    release?.();
+  });
+
+  it("shows a pending state so the control cannot be clicked into silence", async () => {
+    // The control fetches a csrf token with a 3s bound, on exactly the
+    // wedged host that produced this panel.
+    vi.stubGlobal("fetch", vi.fn(() => new Promise(() => {})));
+    signOut.mockImplementation(async () => {
+      throw new Error("502");
+    });
+    mount(qc);
+    await endSession("user");
+    const button = await waitFor(() =>
+      screen.getByRole("button", { name: /finish signing out/i }),
+    );
+    fireEvent.click(button);
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /finishing/i })).toBeDisabled();
+    });
   });
 });

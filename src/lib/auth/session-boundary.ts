@@ -286,6 +286,37 @@ function purgeStorageOnly(): StoragePurgeOutcome {
   }
 }
 
+/**
+ * Viewer ARRIVAL: drop a previous viewer's residue WITHOUT closing the
+ * render gate.
+ *
+ * Anonymous -> authenticated has no previous viewer on screen, so the gate
+ * must not close (it never reopens, and every sign-in flips the session in
+ * place). But `localStorage` SURVIVES document loads, so a previous
+ * viewer's keys can still be on this device even though this tab never saw
+ * them:
+ *
+ *   - their sign-out's purge returned "partial" (storage access threw);
+ *   - a teardown ran before the bridge had registered, so `handlers` was
+ *     null and nothing was purged at all;
+ *   - they never signed out — the session JWT simply aged past `maxAge`,
+ *     or the browser clears cookies on exit.
+ *
+ * In each case the next person signs in and `bcc-recent-searches` is
+ * rendered verbatim into their search dropdown, `bcc:fp_reported:<id>`
+ * still names the previous user id, and the blog drafts are still theirs.
+ * So arrival purges state; only DEPARTURE closes the gate.
+ */
+export function purgeArrivingViewerState(): StoragePurgeOutcome {
+  viewerEpoch += 1;
+  try {
+    handlers?.purgeQueryCache();
+  } catch {
+    // Must not stop the storage purge below.
+  }
+  return purgeStorageOnly();
+}
+
 export function purgeViewerState(): StoragePurgeOutcome {
   // Self-contained: the cross-tab path calls this on its own, with no
   // teardown around it.
@@ -382,8 +413,14 @@ async function runTeardown(
 
   // A previous FAILED teardown's panel must not be what the viewer sees
   // while this one runs: its storagePurge / pushCleanup claims describe
-  // the earlier attempt, not this one.
-  failedTeardown = null;
+  // the earlier attempt, not this one. The notify is load-bearing — the
+  // gate reads this through `useSyncExternalStore`, which only re-reads
+  // its snapshot when the subscription fires, so clearing the variable
+  // alone left the stale panel on screen for the whole retry.
+  if (failedTeardown !== null) {
+    failedTeardown = null;
+    notifyGate();
+  }
 
   // 0. Hide private content IMMEDIATELY, before any await. Unmounting the
   //    subtree is what actually stops the previous viewer's data being

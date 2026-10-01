@@ -25,6 +25,7 @@ import { useEffect, useRef } from "react";
 
 import {
   isEndingSession,
+  purgeArrivingViewerState,
   purgeViewerState,
   registerSessionTeardown,
 } from "@/lib/auth/session-boundary";
@@ -105,15 +106,21 @@ export function SessionBoundaryBridge() {
     // closes the render gate and NOTHING reopens it — the gate is designed
     // to be terminal, since a successful teardown ends in a document load.
     //
-    // Every sign-in in this app flips the session IN PLACE
-    // (`signIn(..., { redirect: false })` at six call sites, each followed
-    // by a client-side push), so `status` goes unauthenticated ->
-    // authenticated with no document load. Purging here would latch the
+    // Every CREDENTIALS sign-in in this app flips the session IN PLACE:
+    // `signIn(..., { redirect: false })` at six call sites, each followed
+    // by a client-side `router.replace`, so `status` goes unauthenticated
+    // -> authenticated with no document load. (The OAuth buttons in
+    // AuthCard use the default `redirect: true` and so do reload — but
+    // they are the exception, not the rule.) Purging here would latch the
     // gate shut and leave the viewer on the "Signing out…" placeholder
     // immediately after a successful login, with only a manual browser
     // reload to escape. It would also wipe `bcc-onboarding-progress` and
     // the tour keys at the exact moment they start being written.
     if (previous === null) {
+      // Not nothing, though: localStorage survives document loads, so a
+      // previous viewer's keys can still be on this device even if this
+      // tab never saw them. Purge the state, leave the gate open.
+      purgeArrivingViewerState();
       return;
     }
 

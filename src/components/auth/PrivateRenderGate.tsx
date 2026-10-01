@@ -37,9 +37,10 @@
  * to nobody.
  */
 
-import { useSyncExternalStore, type ReactNode } from "react";
+import { useState, useSyncExternalStore, type ReactNode } from "react";
 
 import { forceSignOutNavigation } from "@/lib/auth/force-signout";
+import type { SessionTeardownResult } from "@/lib/auth/session-boundary";
 import {
   failedTeardownResult,
   isPrivateRenderBlocked,
@@ -68,7 +69,27 @@ export function PrivateRenderGate({ children }: { children: ReactNode }) {
   }
 
   if (failed !== null) {
-    return (
+    return <RecoveryPanel failed={failed} />;
+  }
+
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      className="flex min-h-screen items-center justify-center p-8 text-center"
+    >
+      <p className="bcc-mono text-bcc-text-secondary">Signing out…</p>
+    </div>
+  );
+}
+
+function RecoveryPanel({ failed }: { failed: SessionTeardownResult }) {
+  // The control fetches a CSRF token before it can POST, and that fetch is
+  // bounded at 3s. Without a pending state the viewer clicks into silence
+  // for those 3s on exactly the wedged host that produced this panel.
+  const [finishing, setFinishing] = useState(false);
+
+  return (
       <div className="flex min-h-screen items-center justify-center p-8">
         <div className="bcc-panel w-[min(460px,100%)] p-6 text-center">
           <h1 className="bcc-stencil text-lg text-bcc-text">
@@ -92,30 +113,22 @@ export function PrivateRenderGate({ children }: { children: ReactNode }) {
           </p>
           <button
             type="button"
+            disabled={finishing}
             onClick={() => {
               // A real form POST to next-auth's sign-out route. A GET there
               // signs nothing out — middleware.ts redirects it to our
               // styled page and next-auth's GET only renders a
               // confirmation — so the previous version of this button was
               // cosmetic while telling the viewer they were done.
+              setFinishing(true);
               void forceSignOutNavigation();
             }}
             className="bcc-auth-submit mt-5 w-full"
           >
-            Finish signing out
+            {finishing ? "Finishing…" : "Finish signing out"}
           </button>
         </div>
       </div>
     );
   }
 
-  return (
-    <div
-      role="status"
-      aria-live="polite"
-      className="flex min-h-screen items-center justify-center p-8 text-center"
-    >
-      <p className="bcc-mono text-bcc-text-secondary">Signing out…</p>
-    </div>
-  );
-}

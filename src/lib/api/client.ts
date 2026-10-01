@@ -317,10 +317,11 @@ export async function bccFetchAsClient<T>(
       void endSession("expired", { notice: "standing" });
       effectiveToken = null;
     } else {
-      // standing-refused or indeterminate: the session stays. Drop the
-      // token for THIS request rather than retrying a protected call
-      // with a bearer the server has already refused — the endpoint's
-      // own 401/403 is the honest answer to surface.
+      // indeterminate ONLY — standing-refused is handled above and ends
+      // the session. The session stays; drop the token for THIS request
+      // rather than retrying a protected call with a bearer the server
+      // has already refused, because the endpoint's own 401/403 is the
+      // honest answer to surface.
       effectiveToken = null;
     }
   }
@@ -351,7 +352,14 @@ export async function bccFetchAsClient<T>(
 
     // Reactive 401: the server rejected a bearer NextAuth still believed
     // in. One refresh attempt, then classify.
-    const tokenToRefresh = effectiveToken ?? (refreshAttempted ? null : sessionToken);
+    // At most ONE refresh per call, and that is the whole invariant: the
+    // earlier form only guarded the `?? sessionToken` fallback, so after a
+    // SUCCESSFUL pre-emptive refresh `effectiveToken` was the new token
+    // and this refreshed a second time in the same call. With `retry: 1`
+    // on queries that is up to four /auth/refresh POSTs for one read.
+    // A bearer minted and then immediately refused is detected on the
+    // next call instead, which takes the reactive path and gets its turn.
+    const tokenToRefresh = refreshAttempted ? null : effectiveToken;
     if (tokenToRefresh !== null) {
       const refreshed = await tryRefresh(tokenToRefresh);
       if (refreshed.kind === "refreshed") {

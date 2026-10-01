@@ -9,8 +9,17 @@ export async function middleware(request: NextRequest) {
   // withAuth skips its own /api/auth/* routes internally, so we handle
   // this redirect manually before any auth check.
   // POST requests (the actual sign-out mechanism) pass through untouched.
-  if (pathname === "/api/auth/signout" && request.method === "GET") {
-    return NextResponse.redirect(new URL("/signout", request.url));
+  if (pathname === "/api/auth/signout") {
+    if (request.method === "GET") {
+      return NextResponse.redirect(new URL("/signout", request.url));
+    }
+    // The POST is the mechanism that clears the cookie, so it must never
+    // be gated. Falling through used to hit the `!token` redirect below
+    // whenever `getToken()` returned null — an expired or undecodable
+    // session JWT whose cookie is still present — which 307'd the
+    // sign-out to /login and left the cookie in place. That is precisely
+    // the state the last-resort control exists for.
+    return NextResponse.next();
   }
 
   const token = await getToken({ req: request });

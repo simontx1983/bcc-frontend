@@ -37,9 +37,26 @@
 /** Where the fallback lands. Our own page; it retries `endSession`. */
 const FALLBACK_PATH = "/signout";
 
+/**
+ * How long to wait for a CSRF token before giving up on the POST.
+ *
+ * Load-bearing. The panel that offers this control exists because the
+ * sign-out POST timed out or failed, and `/api/auth/csrf` is the SAME
+ * route handler on the SAME host. If that host is wedged, this fetch hangs
+ * too — and a hanging fetch never rejects, so without a bound the `catch`
+ * below is unreachable and the button is silently dead. That is the exact
+ * failure this module was written to remove, one layer out.
+ */
+const CSRF_TIMEOUT_MS = 3_000;
+
 export async function forceSignOutNavigation(): Promise<void> {
   try {
-    const resp = await fetch("/api/auth/csrf", { credentials: "include" });
+    const resp = await fetch("/api/auth/csrf", {
+      credentials: "include",
+      // Rejects with a TimeoutError, which the catch turns into the
+      // fallback navigation.
+      signal: AbortSignal.timeout(CSRF_TIMEOUT_MS),
+    });
     const body = (await resp.json()) as { csrfToken?: unknown };
     const csrfToken =
       typeof body.csrfToken === "string" && body.csrfToken !== ""
@@ -66,6 +83,15 @@ export async function forceSignOutNavigation(): Promise<void> {
     document.body.appendChild(form);
     form.submit();
   } catch {
+    // `/signout` runs its own teardown, so navigating there is a retry
+    // with a fresh document. But that page sits inside the render gate and
+    // can therefore BE the page showing this control — in which case
+    // assigning the same path is a no-op loop. Reload instead: same fresh
+    // document, same fresh teardown, no dead click.
+    if (window.location.pathname === FALLBACK_PATH) {
+      window.location.reload();
+      return;
+    }
     window.location.assign(FALLBACK_PATH);
   }
 }

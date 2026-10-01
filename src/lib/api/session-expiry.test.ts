@@ -498,3 +498,30 @@ describe("a call spends at most ONE refresh attempt", () => {
     expect(refreshCalls).toHaveLength(1);
   });
 });
+
+describe("one refresh attempt even when the pre-emptive one SUCCEEDED", () => {
+  it("does not refresh again after a successful pre-emptive mint", async () => {
+    // The earlier flag only guarded the `?? sessionToken` fallback, so a
+    // successful pre-emptive refresh left effectiveToken set and this
+    // refreshed a second time in the same call. With retry: 1 on queries
+    // that is up to four /auth/refresh POSTs for one read.
+    getSession.mockResolvedValue(expiredSession());
+    let refreshes = 0;
+    const f = routeFetch({
+      refresh: () => {
+        refreshes += 1;
+        return json(
+          { data: { token: "fresh-token", expires_in: 3600 }, _meta: { version: "v1" } },
+          200,
+        );
+      },
+      // The brand-new bearer is refused too.
+      protectedCall: () => unauthorized(),
+    });
+    vi.stubGlobal("fetch", f);
+
+    await bccFetchAsClient("me/thing").catch(() => undefined);
+
+    expect(refreshes).toBe(1);
+  });
+});
