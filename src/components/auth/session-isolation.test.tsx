@@ -207,8 +207,10 @@ describe("a viewer change arriving from another tab", () => {
       </QueryClientProvider>,
     );
 
-    await Promise.resolve();
+    // Long enough for the effect to have run if it were going to.
+    await new Promise((r) => setTimeout(r, 50));
     expect(qc.getQueryData(A_PROFILE)).toBeDefined();
+    expect(qc.getQueryCache().getAll().length).toBeGreaterThan(0);
   });
 
   it("does not purge while the session is still resolving", async () => {
@@ -220,8 +222,9 @@ describe("a viewer change arriving from another tab", () => {
         <SessionBoundaryBridge />
       </QueryClientProvider>,
     );
-    await Promise.resolve();
+    await new Promise((r) => setTimeout(r, 50));
     expect(qc.getQueryData(A_PROFILE)).toBeDefined();
+    expect(qc.getQueryCache().getAll().length).toBeGreaterThan(0);
   });
 });
 
