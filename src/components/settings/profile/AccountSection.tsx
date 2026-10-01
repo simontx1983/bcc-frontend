@@ -17,7 +17,7 @@
  * mis-associate the descriptions.
  */
 
-import { useId, useState } from "react";
+import { useId, useRef, useState } from "react";
 import { SettingsSaveStatus } from "@/components/settings/SettingsSaveStatus";
 import { useDirtyRegistration } from "@/hooks/useDirtyRegistration";
 
@@ -91,7 +91,14 @@ function humanizePasswordError(err: BccApiError | Error): string {
     err.status < 500 &&
     ERROR_COPY[err.code] !== undefined;
   if (!definite) {
-    return "We couldn't confirm whether the change went through. Check your email for a password-change notice, and try signing in with your new password before changing it again.";
+    // Leads with the instruction the viewer can always act on. The email
+    // is a HEDGE, not the tiebreaker it was first written as: the mailer
+    // runs at MyAccountEndpoint.php:250, AFTER revokeAllForUser, the token
+    // mint and the audit write — so a fatal in exactly the post-commit
+    // steps this branch was widened to cover leaves the password rotated
+    // and no email sent. Someone told to check their email, finding
+    // nothing, would conclude the change had not landed.
+    return "We couldn't confirm whether the change went through. Try signing in with your new password before changing it again — you may also receive a password-change notice by email.";
   }
   return humanizeError(err);
 }
@@ -222,6 +229,14 @@ function ChangePasswordCard() {
   // from both success and failure, because it is BOTH: the credential is
   // already rotated, and the session is not recoverable from here.
   const [sessionLost, setSessionLost] = useState(false);
+  // `canSubmit` is derived during render, so two submits in the same
+  // commit interval both pass it. That matters here more than anywhere
+  // else in the app: the fields are cleared only in onSuccess, so the
+  // second submit sends the IDENTICAL body — the first commits, and the
+  // second is rejected against the now-old current_password with a mapped
+  // 422, which is classified `definite` and renders "Check the values and
+  // try again." for a password that has already rotated.
+  const submitting = useRef(false);
 
   const mutation = useChangeAccountPassword({
     onSuccess: (outcome) => {
@@ -254,6 +269,14 @@ function ChangePasswordCard() {
       setSavedAt(null);
       setSessionLost(false);
       setServerError(humanizePasswordError(err));
+    },
+    onSettled: () => {
+      submitting.current = false;
+      // Drop the plaintext credentials `mutate()` parked in the
+      // MutationCache as `variables`. gcTime alone cannot collect them
+      // while this component is still observing the mutation, which on
+      // the success path is the whole time the settings page is mounted.
+      mutation.reset();
     },
   });
 
@@ -323,7 +346,8 @@ function ChangePasswordCard() {
         className="mt-3 flex flex-col gap-3"
         onSubmit={(e) => {
           e.preventDefault();
-          if (!canSubmit) return;
+          if (!canSubmit || submitting.current) return;
+          submitting.current = true;
           setServerError(null);
           setSavedAt(null);
           mutation.mutate({

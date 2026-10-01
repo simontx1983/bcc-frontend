@@ -16,7 +16,10 @@
  * cookie is gone, so the caller should redirect to logout_url.
  */
 
-import { endSession } from "@/lib/auth/session-boundary";
+import {
+  endSession,
+  setPendingAuthNotice,
+} from "@/lib/auth/session-boundary";
 import { updateSessionBearer } from "@/lib/auth/session-update";
 import {
   keepPreviousData,
@@ -90,6 +93,19 @@ export function useChangeAccountPassword(
       // must never be surfaced as "the change failed", because retrying
       // with the old current_password would now be rejected and the
       // viewer would conclude something worse had gone wrong.
+
+      // Park the explanation HERE, on the fact, not in onSuccess after the
+      // session write. Every outstanding bearer is revoked as of the line
+      // above, so from this instant any authed request carries a dead
+      // token — and the badges query polls on a timer and refetches on
+      // window focus. Its 401 refreshes a revoked token, gets "rejected",
+      // and ends the session with the GENERIC slug. Parking after the
+      // three session-write round trips left that whole window able to
+      // announce a definitely-changed password as "your session ended".
+      // Idempotent, and AccountSection clears it if the session turns out
+      // to have been restored.
+      setPendingAuthNotice("password-changed");
+
       const sessionRestored = await updateSessionBearer({
         token: res.token,
         expiresIn: res.expires_in,
@@ -97,6 +113,12 @@ export function useChangeAccountPassword(
 
       return { passwordChanged: true, sessionRestored };
     },
+    // `mutate()` stores its `variables` on the Mutation in the
+    // MutationCache, so BOTH plaintext passwords stay reachable from
+    // `queryClient.getMutationCache()` for as long as an observer is
+    // subscribed — on the success path, the whole time the settings page
+    // is mounted. gcTime 0 lets them go as soon as nothing is observing.
+    gcTime: 0,
     ...options,
   });
 }

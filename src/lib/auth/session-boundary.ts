@@ -519,15 +519,19 @@ function withTimeout<T>(work: Promise<T>, ms: number, onTimeout: T): Promise<T> 
 function landingUrl(
   opts: SessionEndOptions | undefined,
   pushCleanup: PushCleanupOutcome,
-): string {
+): { url: string; usedParked: boolean } {
   const base = opts?.callbackUrl ?? "/";
   // Precedence: a parked notice outranks everything, because the surface
   // that parked it knew why the session was doomed; then an explicit
   // notice; then the push caveat on its own.
-  // CONSUME the parked notice: it describes one known-doomed session, and
-  // leaving it set let it mislabel a later, unrelated teardown.
+  // READ the parked notice; do not consume it here. `landingUrl` composes
+  // a URL — it does not deliver one. Clearing it at composition time
+  // destroyed the explanation whenever the URL was never reached: a
+  // sign-out that timed out or rejected, or a parked slug that lost to a
+  // more specific reason and was therefore never emitted at all. The
+  // caller clears it only after a navigation actually happened, and only
+  // if this was the slug that went out.
   const parked = pendingNotice;
-  pendingNotice = null;
 
   // It outranks only the GENERIC slug. Overriding unconditionally was
   // wrong: if the account is later suspended, `endSession` is called with
@@ -555,8 +559,10 @@ function landingUrl(
     params.push("authNoticePush=1");
   }
 
+  const usedParked = primary !== null && primary === parked;
+
   if (params.length === 0) {
-    return base;
+    return { url: base, usedParked };
   }
 
   // Composed rather than concatenated. A naive `?`/`&` join put the whole
@@ -568,7 +574,10 @@ function landingUrl(
   const hash = hashRest.length > 0 ? `#${hashRest.join("#")}` : "";
   const path = beforeHash ?? "";
   const joiner = path.includes("?") ? "&" : "?";
-  return `${path}${joiner}${params.join("&")}${hash}`;
+  return {
+    url: `${path}${joiner}${params.join("&")}${hash}`,
+    usedParked,
+  };
 }
 
 /**
@@ -665,7 +674,7 @@ async function runTeardown(
   let signOutTimedOut = false;
   let signOutError: unknown;
   if (current !== null) {
-    const target = landingUrl(opts, pushCleanup);
+    const { url: target, usedParked } = landingUrl(opts, pushCleanup);
     const TIMED_OUT = Symbol("signout-timeout");
     try {
       const outcome = await withTimeout<unknown>(
@@ -680,6 +689,14 @@ async function runTeardown(
       }
     } catch (err) {
       signOutError = err;
+    }
+    // Consume the parked notice only once it has actually been DELIVERED:
+    // a navigation happened, and this was the slug that went out. A
+    // teardown that timed out or rejected never reached the URL, so the
+    // explanation is still owed to the viewer and must survive for the
+    // retry.
+    if (signedOut && usedParked) {
+      pendingNotice = null;
     }
   }
 

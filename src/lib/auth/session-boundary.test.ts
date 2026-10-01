@@ -703,3 +703,56 @@ describe("landing URL composition", () => {
     ]);
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────
+// A parked notice must survive a teardown that never navigated
+// ─────────────────────────────────────────────────────────────────────
+
+describe("parked notice delivery", () => {
+  it("is NOT consumed when the sign-out failed, so a retry still carries it", async () => {
+    // `landingUrl` cleared it when the URL was COMPOSED, not when it was
+    // delivered. A failed or timed-out sign-out never reaches that URL,
+    // so the explanation was destroyed by the attempt that failed to use
+    // it — and the recovery panel's own control posts a literal "/" and
+    // never consults landingUrl at all.
+    registerSessionTeardown(
+      handlers({
+        signOut: async () => {
+          throw new Error("502");
+        },
+      }),
+    );
+    setPendingAuthNotice("password-changed");
+    await endSession("expired", { notice: "signed-out" });
+
+    signOutTargets.length = 0;
+    registerSessionTeardown(handlers({}));
+    await endSession("user");
+    expect(signOutTargets).toEqual(["/?authNotice=password-changed"]);
+  });
+
+  it("is NOT consumed when it lost to a more specific reason", async () => {
+    // It was never emitted, so it is still owed to the viewer.
+    registerSessionTeardown(handlers({}));
+    setPendingAuthNotice("password-changed");
+    await endSession("expired", { notice: "standing" });
+    expect(signOutTargets).toEqual(["/?authNotice=standing"]);
+
+    signOutTargets.length = 0;
+    registerSessionTeardown(handlers({}));
+    await endSession("user");
+    expect(signOutTargets).toEqual(["/?authNotice=password-changed"]);
+  });
+
+  it("IS consumed once it has actually been delivered", async () => {
+    registerSessionTeardown(handlers({}));
+    setPendingAuthNotice("password-changed");
+    await endSession("user");
+    expect(signOutTargets).toEqual(["/?authNotice=password-changed"]);
+
+    signOutTargets.length = 0;
+    registerSessionTeardown(handlers({}));
+    await endSession("expired", { notice: "signed-out" });
+    expect(signOutTargets).toEqual(["/?authNotice=signed-out"]);
+  });
+});

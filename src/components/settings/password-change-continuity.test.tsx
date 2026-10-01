@@ -10,7 +10,7 @@
  * the panel said "Saved" — under copy promising the opposite.
  */
 
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -53,11 +53,17 @@ const SERVER_OK = {
 
 function mount() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return render(
+  render(
     <QueryClientProvider client={qc}>
       <AccountSection currentEmail="a@example.test" />
     </QueryClientProvider>,
   );
+  return qc;
+}
+
+/** Same, but hands back the client so the mutation cache can be inspected. */
+function mountWithClient() {
+  return mount();
 }
 
 /**
@@ -331,16 +337,19 @@ describe("parking the accurate notice", () => {
     expect(setPendingAuthNotice).toHaveBeenCalledWith("password-changed");
   });
 
-  it("parks nothing when the session WAS restored", async () => {
+  it("CLEARS it again when the session turns out to be restored", async () => {
+    // It is parked on the committed fact first, because the revocation
+    // window opens before we know whether the session survived. If it
+    // did, the park is withdrawn — so the LAST word is null, not the
+    // absence of a park.
     patchAccountPassword.mockResolvedValue(SERVER_OK);
     updateSessionBearer.mockResolvedValue(true);
     mount();
     submitPasswordChange();
 
     await waitFor(() => {
-      expect(updateSessionBearer).toHaveBeenCalled();
+      expect(setPendingAuthNotice).toHaveBeenLastCalledWith(null);
     });
-    expect(setPendingAuthNotice).not.toHaveBeenCalledWith("password-changed");
   });
 });
 
@@ -363,7 +372,16 @@ describe("an indeterminate outcome is not called a failure", () => {
     });
     const copy = screen.getByRole("alert").textContent ?? "";
     expect(copy).toMatch(/couldn't confirm whether the change went through/i);
-    expect(copy).toMatch(/check your email/i);
+    // The actionable instruction must LEAD. The email cannot be the
+    // tiebreaker: the mailer runs after the post-commit steps this branch
+    // exists to cover, so a fatal there rotates the password and sends
+    // nothing, and "check your email" would then read as "it failed".
+    expect(copy).toMatch(/try signing in with your new password/i);
+    const emailAt = copy.search(/email/i);
+    const signInAt = copy.search(/try signing in/i);
+    expect(signInAt).toBeGreaterThanOrEqual(0);
+    expect(emailAt).toBeGreaterThan(signInAt);
+    expect(copy).toMatch(/may also receive/i);
     expect(copy).not.toMatch(/^Something went wrong\. Try again\.$/);
   });
 
@@ -453,5 +471,124 @@ describe("definite-ness, not a list of codes", () => {
     const copy = screen.getByRole("alert").textContent ?? "";
     expect(copy).not.toMatch(/couldn't confirm/i);
     expect(copy).not.toMatch(/was changed/i);
+  });
+});
+
+describe("parking happens on the FACT, not on the recovery attempt", () => {
+  it("parks as soon as the PATCH resolves, before the session write finishes", async () => {
+    // The password — and the revocation of every outstanding bearer — is
+    // committed the instant patchAccountPassword resolves. Parking in
+    // onSuccess means the notice is not set until all three session-write
+    // round trips have completed, and that window is actively occupied:
+    // the badges query polls and refetches on focus, its 401 refreshes a
+    // revoked token, gets "rejected", and ends the session with the
+    // GENERIC slug — so a definitely-changed password is announced as
+    // "your session ended".
+    patchAccountPassword.mockResolvedValue(SERVER_OK);
+    let releaseUpdate: ((v: boolean) => void) | undefined;
+    updateSessionBearer.mockImplementation(
+      () =>
+        new Promise<boolean>((r) => {
+          releaseUpdate = r;
+        }),
+    );
+
+    mount();
+    submitPasswordChange();
+
+    // The session write has not finished yet.
+    await waitFor(() => {
+      expect(updateSessionBearer).toHaveBeenCalled();
+    });
+    expect(setPendingAuthNotice).toHaveBeenCalledWith("password-changed");
+
+    releaseUpdate?.(true);
+  });
+
+  it("still clears it when the session turns out to be restored", async () => {
+    patchAccountPassword.mockResolvedValue(SERVER_OK);
+    updateSessionBearer.mockResolvedValue(true);
+    mount();
+    submitPasswordChange();
+    await waitFor(() => {
+      expect(setPendingAuthNotice).toHaveBeenCalledWith(null);
+    });
+  });
+});
+
+describe("a double submit cannot relabel a committed change", () => {
+  it("sends the PATCH once, so the second cannot report a validation failure", async () => {
+    // `canSubmit` guards on `!mutation.isPending`, which is a
+    // render-derived value: two submits in the same commit interval both
+    // pass. Fields clear only in onSuccess, so #2 sends the identical
+    // body — #1 commits, #2 hits the now-old current_password and gets a
+    // mapped 422, which is `definite` and renders "Check the values and
+    // try again." for a password that has already rotated.
+    // Both events must arrive BEFORE React re-renders the disabled
+    // button — that is the real-world shape (two Enter presses in one
+    // frame) and the only thing `canSubmit` cannot see, since it is
+    // derived during render. RTL's fireEvent wraps each call in its own
+    // act(), which flushes in between, so the two native clicks go
+    // inside ONE act() block instead.
+    let releasePatch: ((v: unknown) => void) | undefined;
+    patchAccountPassword.mockImplementationOnce(
+      () =>
+        new Promise((r) => {
+          releasePatch = r;
+        }),
+    );
+    updateSessionBearer.mockResolvedValue(true);
+
+    mount();
+    const card = screen
+      .getByRole("heading", { name: /change password/i })
+      .closest("section");
+    if (card === null) {
+      throw new Error("password card not found");
+    }
+    const inputs = [...card.querySelectorAll('input[type="password"]')];
+    fireEvent.change(inputs[0] as Element, { target: { value: "old-password" } });
+    fireEvent.change(inputs[1] as Element, { target: { value: "a-new-password-10" } });
+    fireEvent.change(inputs[2] as Element, { target: { value: "a-new-password-10" } });
+    const button = [...card.querySelectorAll("button")].find((b) =>
+      /save password/i.test(b.textContent ?? ""),
+    );
+    if (button === undefined) {
+      throw new Error("save button not found");
+    }
+
+    await act(async () => {
+      button.click();
+      button.click();
+    });
+
+    expect(patchAccountPassword).toHaveBeenCalledTimes(1);
+
+    releasePatch?.(SERVER_OK);
+    await waitFor(() => {
+      expect(updateSessionBearer).toHaveBeenCalled();
+    });
+    expect(screen.queryByText(/check the values and try again/i)).toBeNull();
+  });
+
+  it("does not retain the plaintext passwords after the change", async () => {
+    // mutate() stores `variables` on the Mutation in the MutationCache,
+    // and on the success path nothing reset it, so both plaintext
+    // credentials stayed reachable for as long as the page was mounted.
+    patchAccountPassword.mockResolvedValue(SERVER_OK);
+    updateSessionBearer.mockResolvedValue(true);
+    const qc = mountWithClient();
+    submitPasswordChange();
+
+    await waitFor(() => {
+      expect(updateSessionBearer).toHaveBeenCalled();
+    });
+    await waitFor(() => {
+      const held = JSON.stringify(
+        qc.getMutationCache().getAll().map((m) => m.state.variables ?? null),
+      );
+      expect(held).not.toContain("old-password");
+      expect(held).not.toContain("a-new-password-10");
+    });
   });
 });

@@ -98,7 +98,14 @@ function AuthRedirectNoticeInner() {
     next.delete("authNotice");
     next.delete("authNoticePush");
     const qs = next.toString();
-    router.replace((qs === "" ? pathname : `${pathname}?${qs}`) as Route);
+    // Re-attach the fragment. `usePathname()` carries none, and
+    // session-boundary deliberately emits "/path?authNotice=x#frag" so the
+    // params stay readable — dropping the hash here would undo the other
+    // half of that fix.
+    const hash = window.location.hash;
+    router.replace(
+      `${pathname}${qs === "" ? "" : `?${qs}`}${hash}` as Route,
+    );
     // Only ever runs once per real navigation-with-param — pathname/router
     // are stable refs here, source is read once into `message` above.
     // eslint-disable-next-line react-hooks/exhaustive-deps

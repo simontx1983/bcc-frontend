@@ -49,6 +49,10 @@ function stubFetch(opts: {
    * echoes; the follow-up GET sees nothing.
    */
   sessionClearedAfterWrite?: boolean;
+  /** Make the CONFIRMING GET fail in a way that proves nothing. */
+  confirmStatus?: number;
+  confirmBody?: string;
+  confirmThrows?: boolean;
 }): Call[] {
   const calls: Call[] = [];
   let stored: unknown;
@@ -92,6 +96,14 @@ function stubFetch(opts: {
         );
       }
       // GET: whatever cookie actually survived.
+      if (opts.confirmThrows === true) {
+        throw new TypeError("Failed to fetch");
+      }
+      if (opts.confirmStatus !== undefined || opts.confirmBody !== undefined) {
+        return new Response(opts.confirmBody ?? "", {
+          status: opts.confirmStatus ?? 200,
+        });
+      }
       return new Response(
         JSON.stringify(stored === undefined ? {} : { bccToken: stored }),
         { status: 200 },
@@ -336,5 +348,93 @@ describe("a 200 that echoed our token but DELETED the session", () => {
     // POST then a confirming GET.
     expect(sessionCalls).toHaveLength(2);
     expect((sessionCalls[1]?.init?.method ?? "GET").toUpperCase()).toBe("GET");
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────
+// A confirm that could not be PERFORMED proves nothing
+// ─────────────────────────────────────────────────────────────────────
+
+describe("when the confirming GET itself fails", () => {
+  // The POST already returned 200 WITH our token echoed back, which means
+  // next-auth reached `response.body = updatedSession` AND `jwt.encode`
+  // succeeded — the browser holds a valid cookie carrying the new bearer.
+  // The session is healthy. Reporting it lost is not a cosmetic mislabel:
+  // the UI then offers only "Sign in again", which tears down the healthy
+  // session, so the false report makes itself true.
+  //
+  // This is the doctrine `client.ts`'s own `errorCode()` already applies:
+  // a body we cannot read is never treated as a session-ending signal.
+
+  it("a 502 with an HTML body does not disprove the merge", async () => {
+    stubFetch({ confirmStatus: 502, confirmBody: "<html>bad gateway</html>" });
+    await expect(updateSessionBearer(UPDATE)).resolves.toBe(true);
+  });
+
+  it("a 200 with a non-JSON body does not disprove the merge", async () => {
+    stubFetch({ confirmStatus: 200, confirmBody: "<html>interstitial</html>" });
+    await expect(updateSessionBearer(UPDATE)).resolves.toBe(true);
+  });
+
+  it("a transport failure on the confirm does not disprove the merge", async () => {
+    stubFetch({ confirmThrows: true });
+    await expect(updateSessionBearer(UPDATE)).resolves.toBe(true);
+  });
+
+  it("a 429 on the confirm does not disprove the merge", async () => {
+    stubFetch({ confirmStatus: 429, confirmBody: '{"error":"slow down"}' });
+    await expect(updateSessionBearer(UPDATE)).resolves.toBe(true);
+  });
+
+  it("but a READABLE session lacking our token still disproves it", async () => {
+    // The target case: next-auth threw after assigning the body, so the
+    // POST echoed while the cookie was cleaned. The GET then answers
+    // 200 {} — readable, and without our token.
+    stubFetch({ sessionClearedAfterWrite: true });
+    await expect(updateSessionBearer(UPDATE)).resolves.toBe(false);
+  });
+
+  it("and a readable session carrying a DIFFERENT token still disproves it", async () => {
+    stubFetch({ confirmStatus: 200, confirmBody: '{"bccToken":"someone-elses"}' });
+    await expect(updateSessionBearer(UPDATE)).resolves.toBe(false);
+  });
+});
+
+describe("every leg is bounded", () => {
+  it("a hanging confirm does not strand an already-successful change", async () => {
+    // The csrf and POST hangs predate this; the confirm is the only one
+    // that can hang AFTER the password changed and the session was
+    // successfully restored. `mutationFn` awaits this, so a hang leaves
+    // the form disabled and "Saving…" forever with no recovery.
+    vi.useFakeTimers();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: unknown, init?: RequestInit) => {
+        const url = String(input);
+        if (url.includes("/api/auth/csrf")) {
+          return new Response(JSON.stringify({ csrfToken: "c" }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+        const method = (init?.method ?? "GET").toUpperCase();
+        if (method === "POST") {
+          return new Response(JSON.stringify({ bccToken: UPDATE.token }), {
+            status: 200,
+          });
+        }
+        // The confirm hangs until aborted.
+        return new Promise<Response>((_res, rej) => {
+          init?.signal?.addEventListener("abort", () =>
+            rej(new DOMException("timeout", "TimeoutError")),
+          );
+        });
+      }),
+    );
+    const p = updateSessionBearer(UPDATE);
+    await vi.advanceTimersByTimeAsync(5_000);
+    // The echo already proved the merge, so a timed-out confirm keeps it.
+    await expect(p).resolves.toBe(true);
+    vi.useRealTimers();
   });
 });

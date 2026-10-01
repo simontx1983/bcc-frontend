@@ -264,3 +264,20 @@ describe("scrubbing", () => {
     });
   });
 });
+
+describe("the scrub preserves the fragment", () => {
+  it("keeps #section, which the URL composition went out of its way to emit", async () => {
+    // session-boundary now deliberately emits "/dash?authNotice=x#section"
+    // so the params stay readable. Replacing with pathname + query alone
+    // discarded the hash — the composition half of that fix undone by the
+    // scrub half.
+    window.location.hash = "#section";
+    search = new URLSearchParams("authNotice=standing");
+    render(<MainLayout>{<p>landing</p>}</MainLayout>);
+    await waitFor(() => {
+      expect(replace).toHaveBeenCalled();
+    });
+    expect(String(replace.mock.calls[0]?.[0] ?? "")).toContain("#section");
+    window.location.hash = "";
+  });
+});

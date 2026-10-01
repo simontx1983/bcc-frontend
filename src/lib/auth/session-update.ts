@@ -49,6 +49,17 @@ export interface SessionBearerUpdate {
  *          the write could not be completed, in which case the caller
  *          must NOT claim the session was restored.
  */
+/**
+ * Per-leg bound for all three round trips.
+ *
+ * `useAccount`'s `mutationFn` awaits this, so an unbounded hang leaves
+ * `mutation.isPending` true forever: the submit button reads "Saving…",
+ * every field stays disabled, and no recovery exists. The confirm leg is
+ * the sharpest case — it is the only one that can hang AFTER the password
+ * has changed and the session has in fact been restored.
+ */
+const FETCH_TIMEOUT_MS = 2_000;
+
 export async function updateSessionBearer(
   update: SessionBearerUpdate,
 ): Promise<boolean> {
@@ -70,7 +81,10 @@ export async function updateSessionBearer(
   }
 
   try {
-    const csrfResp = await fetch("/api/auth/csrf", { credentials: "include" });
+    const csrfResp = await fetch("/api/auth/csrf", {
+      credentials: "include",
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+    });
     const csrfBody = (await csrfResp.json().catch(() => null)) as
       | { csrfToken?: unknown }
       | null;
@@ -86,6 +100,7 @@ export async function updateSessionBearer(
       method: "POST",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
       body: JSON.stringify({
         csrfToken,
         data: {
@@ -142,14 +157,38 @@ export async function updateSessionBearer(
     // request, so a GET re-reads whatever cookie actually survived. This
     // is the same endpoint `useSession()` reads, so it exposes nothing the
     // client does not already hold.
-    const check = await fetch("/api/auth/session", {
-      credentials: "include",
-      cache: "no-store",
-    });
-    const live = (await check.json().catch(() => null)) as
-      | { bccToken?: unknown }
-      | null;
-    return live?.bccToken === update.token;
+    // ...but ONLY a readable session that lacks our token may disprove it.
+    //
+    // A confirm that could not be PERFORMED proves nothing. Folding a
+    // 502, an HTML interstitial, a rate-limited edge, or a transport
+    // failure into "the session is gone" reported a HEALTHY session as
+    // lost — and that is not a cosmetic mislabel, because the only
+    // control then offered tears the session down, so the false report
+    // made itself true. This is the doctrine `errorCode()` in
+    // lib/api/client already applies: a body we cannot read is never a
+    // session-ending signal.
+    let check: Response;
+    try {
+      check = await fetch("/api/auth/session", {
+        credentials: "include",
+        cache: "no-store",
+        signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+      });
+    } catch {
+      return true;
+    }
+    if (!check.ok) {
+      return true;
+    }
+    const live: unknown = await check.json().catch(() => undefined);
+    if (typeof live !== "object" || live === null) {
+      return true;
+    }
+    // The target case survives this: when next-auth throws after
+    // assigning the body it cleans the cookie, so this GET reaches
+    // `if (!sessionToken) return response` and answers a readable
+    // `200 {}` — an object, without our token.
+    return (live as { bccToken?: unknown }).bccToken === update.token;
   } catch {
     // Network failure, abort, or a non-JSON csrf response.
     return false;
