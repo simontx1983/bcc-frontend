@@ -283,6 +283,15 @@ let pendingNotice: AuthNoticeSlug | null = null;
  * to clear it. It outranks the `notice` passed to `endSession`, because
  * whoever parked it knew something the generic 401 path cannot.
  */
+/**
+ * Read the parked notice without consuming it. `force-signout` needs it
+ * because its navigation is a document load, which destroys this module
+ * state — so the slug has to travel in the URL instead.
+ */
+export function pendingAuthNotice(): AuthNoticeSlug | null {
+  return pendingNotice;
+}
+
 export function setPendingAuthNotice(slug: AuthNoticeSlug | null): void {
   pendingNotice = slug;
 }

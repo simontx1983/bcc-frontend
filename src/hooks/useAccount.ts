@@ -111,6 +111,15 @@ export function useChangeAccountPassword(
         expiresIn: res.expires_in,
       });
 
+      // Withdraw it where it was parked, not in a caller's onSuccess.
+      // `useChangeAccountPassword` ends with `...options`, so any caller
+      // supplying its own onSuccess would otherwise inherit a
+      // permanently parked "password-changed" and have their next
+      // ordinary sign-out labelled with it.
+      if (sessionRestored) {
+        setPendingAuthNotice(null);
+      }
+
       return { passwordChanged: true, sessionRestored };
     },
     // `mutate()` stores its `variables` on the Mutation in the

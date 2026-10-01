@@ -401,12 +401,53 @@ describe("when the confirming GET itself fails", () => {
 });
 
 describe("every leg is bounded", () => {
-  it("a hanging confirm does not strand an already-successful change", async () => {
-    // The csrf and POST hangs predate this; the confirm is the only one
-    // that can hang AFTER the password changed and the session was
-    // successfully restored. `mutationFn` awaits this, so a hang leaves
-    // the form disabled and "Saving…" forever with no recovery.
-    vi.useFakeTimers();
+  // NOTE on method: `AbortSignal.timeout` is NOT driven by vitest's fake
+  // timers in this environment — probed directly, a signal created under
+  // fake timers never fires when they advance. So these assert the BUDGET
+  // each leg is given, which is deterministic, and the behaviour when a
+  // leg rejects is covered separately above. An earlier version of this
+  // test simulated a hang and passed for a reason unrelated to the
+  // property; a mutation control caught the sibling case.
+  it("gives the write legs 6s and the confirm 2s", async () => {
+    const budgets: number[] = [];
+    const real = AbortSignal.timeout.bind(AbortSignal);
+    vi.spyOn(AbortSignal, "timeout").mockImplementation((ms: number) => {
+      budgets.push(ms);
+      return real(ms);
+    });
+    stubFetch({});
+    await updateSessionBearer(UPDATE);
+    // csrf, POST, confirm — in that order.
+    expect(budgets).toEqual([6_000, 6_000, 2_000]);
+  });
+
+  it("never gives a write leg less than this app allows for the same route", async () => {
+    // force-signout bounds /api/auth/csrf at 3s. A leg whose failure is
+    // reported as "session lost" must not be tighter than that — and it
+    // is also the session write on the hot refresh path, where a
+    // premature false leaves bccTokenExpiresAt in the past so every
+    // later read re-enters the pre-emptive refresh until the 30/60s
+    // throttle turns into 429s and the client renders as signed out.
+    const budgets: number[] = [];
+    const real = AbortSignal.timeout.bind(AbortSignal);
+    vi.spyOn(AbortSignal, "timeout").mockImplementation((ms: number) => {
+      budgets.push(ms);
+      return real(ms);
+    });
+    stubFetch({});
+    await updateSessionBearer(UPDATE);
+    expect(Math.min(budgets[0] ?? 0, budgets[1] ?? 0)).toBeGreaterThan(3_000);
+  });
+});
+
+describe("a POST that could not be PERFORMED is also indeterminate", () => {
+  it("falls through to the confirm instead of reporting a loss", async () => {
+    // The doctrine was applied to the confirm leg but not the POST leg. A
+    // transport failure or abort on the POST is equally indeterminate —
+    // the server may well have merged — and the GET can settle it
+    // authoritatively, because the browser has already applied any
+    // Set-Cookie. Returning false here reported a restored session as
+    // lost, and the only control then offered destroys it.
     vi.stubGlobal(
       "fetch",
       vi.fn(async (input: unknown, init?: RequestInit) => {
@@ -417,24 +458,45 @@ describe("every leg is bounded", () => {
             headers: { "Content-Type": "application/json" },
           });
         }
-        const method = (init?.method ?? "GET").toUpperCase();
-        if (method === "POST") {
-          return new Response(JSON.stringify({ bccToken: UPDATE.token }), {
-            status: 200,
-          });
+        if ((init?.method ?? "GET").toUpperCase() === "POST") {
+          throw new DOMException("timeout", "TimeoutError");
         }
-        // The confirm hangs until aborted.
-        return new Promise<Response>((_res, rej) => {
-          init?.signal?.addEventListener("abort", () =>
-            rej(new DOMException("timeout", "TimeoutError")),
-          );
+        // The cookie says the merge happened.
+        return new Response(JSON.stringify({ bccToken: UPDATE.token }), {
+          status: 200,
         });
       }),
     );
-    const p = updateSessionBearer(UPDATE);
-    await vi.advanceTimersByTimeAsync(5_000);
-    // The echo already proved the merge, so a timed-out confirm keeps it.
-    await expect(p).resolves.toBe(true);
-    vi.useRealTimers();
+    await expect(updateSessionBearer(UPDATE)).resolves.toBe(true);
+  });
+
+  it("still treats a non-2xx POST as a real verdict", async () => {
+    // next-auth answers 400 on a CSRF failure. That IS a verdict and must
+    // not be softened.
+    stubFetch({ sessionStatus: 400, sessionBody: "{}" });
+    await expect(updateSessionBearer(UPDATE)).resolves.toBe(false);
+  });
+});
+
+describe("the echo check and the confirm are both load-bearing", () => {
+  it("a 200 that echoed NOTHING is false even when the confirm cannot run", async () => {
+    // This is the combination that makes the echo check matter. A 200
+    // with no echoed token is a received RESPONSE saying next-auth
+    // dropped the write — a definite verdict. If the confirm then cannot
+    // be performed, "a confirm proves nothing" must not promote that
+    // refusal to a success.
+    //
+    // A mutation control found this gap: removing the echo check left the
+    // suite green, because every other test had a workable confirm.
+    stubFetch({ sessionBody: "{}", confirmThrows: true });
+    await expect(updateSessionBearer(UPDATE)).resolves.toBe(false);
+  });
+
+  it("a 200 echoing a DIFFERENT token is false even when the confirm cannot run", async () => {
+    stubFetch({
+      sessionBody: JSON.stringify({ bccToken: "someone-elses" }),
+      confirmThrows: true,
+    });
+    await expect(updateSessionBearer(UPDATE)).resolves.toBe(false);
   });
 });

@@ -26,10 +26,7 @@ import {
   useChangeAccountPassword,
 } from "@/hooks/useAccount";
 import { BccApiError } from "@/lib/api/types";
-import {
-  endSession,
-  setPendingAuthNotice,
-} from "@/lib/auth/session-boundary";
+import { endSession } from "@/lib/auth/session-boundary";
 
 const ERROR_COPY: Record<string, string> = {
   bcc_invalid_request:    "Check the values and try again.",
@@ -247,23 +244,16 @@ function ChangePasswordCard() {
       if (outcome.sessionRestored) {
         setSavedAt(Date.now());
         setSessionLost(false);
-        setPendingAuthNotice(null);
         return;
       }
       // Do NOT show the ordinary "Saved" affordance: it would imply the
       // viewer can carry on, and their next authed read will 401.
       setSavedAt(null);
       setSessionLost(true);
-      // Park the explanation for a teardown this component will not
-      // trigger. The session still holds the REVOKED bearer, so the next
-      // authed poll 401s and ends it — the badges query alone polls every
-      // 30-60s while visible and refetches on window focus. That path
-      // passes `notice: "signed-out"`, which would tell the viewer their
-      // session ended and say nothing about the password having changed;
-      // someone who then tries their OLD password concludes the change
-      // failed. Parked, the accurate notice wins whichever path gets
-      // there first.
-      setPendingAuthNotice("password-changed");
+      // The notice is parked and withdrawn in useChangeAccountPassword,
+      // atomically with the facts it describes. It is deliberately NOT
+      // duplicated here: two call sites for one invariant is how they
+      // drift.
     },
     onError: (err) => {
       setSavedAt(null);

@@ -50,15 +50,37 @@ export interface SessionBearerUpdate {
  *          must NOT claim the session was restored.
  */
 /**
- * Per-leg bound for all three round trips.
+ * Bound for the two WRITE legs: the csrf read and the session POST.
  *
  * `useAccount`'s `mutationFn` awaits this, so an unbounded hang leaves
  * `mutation.isPending` true forever: the submit button reads "Saving…",
- * every field stays disabled, and no recovery exists. The confirm leg is
- * the sharpest case — it is the only one that can hang AFTER the password
- * has changed and the session has in fact been restored.
+ * every field stays disabled, and no recovery exists.
+ *
+ * These legs get the generous budget deliberately. A false return from
+ * them is shown to the viewer as "we couldn't keep this device signed in"
+ * — and this function is ALSO the session write on the hot refresh path
+ * (`tryRefresh` in lib/api/client), where the return value is ignored but
+ * the side effect is not: only a successful write advances
+ * `bccTokenExpiresAt`, and `sessionExpired` is computed from nothing
+ * else. So a write that gives up too early leaves that timestamp in the
+ * past, every subsequent read re-enters the pre-emptive refresh, the
+ * 30/60s per-user throttle on POST /auth/refresh turns into 429s, and the
+ * client drops the bearer and renders as if signed out while the session
+ * is still live.
+ *
+ * 6s matches `SIGN_OUT_TIMEOUT_MS`, and is more than the 3s
+ * `lib/auth/force-signout` already allows on this very csrf route — the
+ * earlier 2s was tighter than the app's own precedent for the same
+ * request.
  */
-const FETCH_TIMEOUT_MS = 2_000;
+const WRITE_TIMEOUT_MS = 6_000;
+
+/**
+ * The confirm leg gets a tighter budget because it sits on the
+ * already-succeeded side: the echo has proved the merge, so giving up
+ * early costs nothing. A timeout here keeps the merge.
+ */
+const CONFIRM_TIMEOUT_MS = 2_000;
 
 export async function updateSessionBearer(
   update: SessionBearerUpdate,
@@ -83,7 +105,7 @@ export async function updateSessionBearer(
   try {
     const csrfResp = await fetch("/api/auth/csrf", {
       credentials: "include",
-      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+      signal: AbortSignal.timeout(WRITE_TIMEOUT_MS),
     });
     const csrfBody = (await csrfResp.json().catch(() => null)) as
       | { csrfToken?: unknown }
@@ -96,67 +118,58 @@ export async function updateSessionBearer(
       return false;
     }
 
-    const resp = await fetch("/api/auth/session", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-      body: JSON.stringify({
-        csrfToken,
-        data: {
-          bccToken: update.token,
-          bccTokenExpiresAt: Date.now() + update.expiresIn * 1000,
-        },
-      }),
-    });
+    // The POST and its echo live in their own try, and a TRANSPORT
+    // failure here is indeterminate in exactly the way the confirm leg
+    // already handles: the server may well have merged, and the browser
+    // has applied any Set-Cookie, so the GET below can settle it
+    // authoritatively. Returning false on a dropped connection discarded
+    // that evidence and reported a restored session as lost.
+    //
+    // A RESPONSE, by contrast, is a verdict. next-auth answers 400 on a
+    // CSRF failure, and a 200 whose body does not echo our token means it
+    // dropped the write — both are definite.
+    let refuted = false;
+    try {
+      const resp = await fetch("/api/auth/session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        signal: AbortSignal.timeout(WRITE_TIMEOUT_MS),
+        body: JSON.stringify({
+          csrfToken,
+          data: {
+            bccToken: update.token,
+            bccTokenExpiresAt: Date.now() + update.expiresIn * 1000,
+          },
+        }),
+      });
+      if (!resp.ok) {
+        refuted = true;
+      } else {
+        // A 200 is necessary but NOT sufficient, and `resp.ok` alone was
+        // a real defect. In next-auth 4.24.14 core/routes/session.js,
+        // `if (!sessionToken) return response` answers 200 with no body
+        // when there is no cookie, and the JWT-strategy catch logs
+        // JWT_SESSION_ERROR and pushes sessionStore.clean() — maxAge 0,
+        // i.e. it DELETES the session — also without setting a status,
+        // which next/utils.js defaults to 200.
+        //
+        // The success path sets `response.body = updatedSession`, and
+        // this app's session callback copies bccToken onto it, so a real
+        // merge echoes the token back. Compared, never logged.
+        const merged = (await resp.json().catch(() => null)) as
+          | { bccToken?: unknown }
+          | null;
+        refuted = merged?.bccToken !== update.token;
+      }
+    } catch {
+      // No response at all. Not a verdict either way.
+    }
 
-    // A non-2xx means the merge did not happen — including a CSRF
-    // failure, which next-auth answers with 400.
-    if (!resp.ok) {
+    if (refuted) {
       return false;
     }
 
-    // A 200 is necessary but NOT sufficient, and `resp.ok` alone was a
-    // real defect. Verified in next-auth 4.24.14:
-    //
-    //   core/routes/session.js:43   `if (!sessionToken) return response` —
-    //                               no cookie, nothing written.
-    //   core/routes/session.js:88   the JWT-strategy catch: it logs
-    //                               JWT_SESSION_ERROR and pushes
-    //                               sessionStore.clean(), whose cookies
-    //                               carry maxAge 0 (core/lib/cookie.js:169)
-    //                               — so it DELETES the session.
-    //   next/utils.js:55            `status = res.status ?? 200`.
-    //
-    // Neither path sets a status, so both answer **200 with no body**. The
-    // second is the dangerous one: the session is gone, yet the caller
-    // would be told the bearer was adopted, show "Saved", and leave this
-    // device rendering the previous viewer's private payloads until some
-    // later poll 401s.
-    //
-    // The success path sets `response.body = updatedSession`, and this
-    // app's `session` callback copies `bccToken` onto it (lib/auth.ts), so
-    // the merged token echoed back is the one unambiguous success signal.
-    // Compared, never logged.
-    const merged = (await resp.json().catch(() => null)) as
-      | { bccToken?: unknown }
-      | null;
-    if (merged?.bccToken !== update.token) {
-      return false;
-    }
-
-    // Even a positive echo is not conclusive. In core/routes/session.js the
-    // body is assigned at :72, BEFORE `jwt.encode` at :73 — and the catch
-    // at :86 pushes `sessionStore.clean()` without resetting the body. So a
-    // throw in encode, chunk, or an `events.session` handler produces
-    // status 200, the merged session WITH our token echoed back, and
-    // Set-Cookie headers that EXPIRE the session. Trusting the echo there
-    // reports success for a session that no longer exists.
-    //
-    // The browser applies those Set-Cookie headers before this next
-    // request, so a GET re-reads whatever cookie actually survived. This
-    // is the same endpoint `useSession()` reads, so it exposes nothing the
-    // client does not already hold.
     // ...but ONLY a readable session that lacks our token may disprove it.
     //
     // A confirm that could not be PERFORMED proves nothing. Folding a
@@ -172,7 +185,7 @@ export async function updateSessionBearer(
       check = await fetch("/api/auth/session", {
         credentials: "include",
         cache: "no-store",
-        signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+        signal: AbortSignal.timeout(CONFIRM_TIMEOUT_MS),
       });
     } catch {
       return true;
