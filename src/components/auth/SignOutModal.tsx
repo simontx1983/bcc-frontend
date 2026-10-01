@@ -55,8 +55,18 @@ interface SignOutModalProps {
 type Phase =
   | { kind: "idle" }
   | { kind: "pending" }
-  /** Local state cleared, but the server was not reachable. */
-  | { kind: "incomplete"; pushWarning: boolean };
+  /**
+   * The server was not reachable (or did not answer inside the budget).
+   * Private content is already hidden — the render gate closed before any
+   * of this — but the session may still exist server-side.
+   */
+  | {
+      kind: "incomplete";
+      pushWarning: boolean;
+      /** False when browser storage could not be fully purged. */
+      storageCleared: boolean;
+      timedOut: boolean;
+    };
 
 export function SignOutModal({ onClose }: SignOutModalProps) {
   const [phase, setPhase] = useState<Phase>({ kind: "idle" });
@@ -76,11 +86,19 @@ export function SignOutModal({ onClose }: SignOutModalProps) {
       setPhase({
         kind: "incomplete",
         pushWarning: pushCleanupNeedsWarning(result.pushCleanup),
+        storageCleared: result.storagePurge === "cleared",
+        timedOut: result.signOutTimedOut,
       });
     } catch {
-      // endSession does not throw, but a caller must never be able to
-      // strand the UI on "Signing out…" because something unexpected did.
-      setPhase({ kind: "incomplete", pushWarning: false });
+      // endSession does not throw, and the sign-out step is bounded — but
+      // a caller must never be strandable on "Signing out…" because
+      // something unexpected did.
+      setPhase({
+        kind: "incomplete",
+        pushWarning: false,
+        storageCleared: false,
+        timedOut: false,
+      });
     }
   }
 
@@ -98,9 +116,18 @@ export function SignOutModal({ onClose }: SignOutModalProps) {
         <div className="bcc-signout-content">
           <h2 className="bcc-signout-title">Almost signed out</h2>
           <p role="alert" className="bcc-signout-body">
-            Your private data has been cleared from this browser, but we
-            couldn&rsquo;t reach the server to finish signing out. Reload to
-            try again.
+            {/* Says only what is true. The render gate has hidden private
+                content either way, but DELETION cannot be promised when a
+                storage access throws — private mode and blocked site data
+                both do that — so the claim is conditional on the purge
+                result rather than asserted. */}
+            {phase.storageCleared
+              ? "Private data on this device has been hidden and cleared"
+              : "Private data on this device has been hidden, though some of it could not be deleted"}
+            {phase.timedOut
+              ? ", but the server didn’t respond in time to finish signing out."
+              : ", but we couldn’t reach the server to finish signing out."}{" "}
+            Use the button below to finish.
             {phase.pushWarning
               ? " Push notifications may also still be enabled on this device."
               : ""}
@@ -108,11 +135,17 @@ export function SignOutModal({ onClose }: SignOutModalProps) {
           <div className="bcc-signout-actions">
             <button
               type="button"
-              onClick={() => { window.location.assign("/"); }}
+              onClick={() => {
+                // A full navigation to NextAuth's own sign-out route. A
+                // bare reload of the current page would re-render it with
+                // the session cookie still in place; this completes the
+                // sign-out server-side without needing our fetch to work.
+                window.location.assign("/api/auth/signout");
+              }}
               className="bcc-auth-submit"
               style={{ flex: 1 }}
             >
-              Reload
+              Finish signing out
             </button>
             <button
               type="button"

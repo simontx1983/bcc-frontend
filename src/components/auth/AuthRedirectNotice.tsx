@@ -11,6 +11,14 @@
  *
  * Mounted once in AppShell so it fires regardless of which app page the
  * guard's redirect target happens to be (currently always "/").
+ *
+ * It is also the vehicle for carrying a sign-out explanation ACROSS the
+ * teardown navigation. A boundary that ends in a document load destroys
+ * any in-page message, so `endSession` appends an `authNotice` slug to the
+ * callbackUrl and this component renders the matching canned copy once,
+ * then scrubs the param. Bounded by the same 7s auto-dismiss as the rest,
+ * and non-sensitive by construction: a slug indexes copy held here, so no
+ * viewer data and no failure detail travel in the URL.
  */
 
 import type { Route } from "next";
@@ -20,6 +28,15 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 const AUTO_DISMISS_MS = 7000;
 
 const COPY: Record<string, string> = {
+  // Carried through the sign-out navigation by lib/auth/session-boundary.
+  // Slugs only — the copy lives here, so nothing about the viewer or the
+  // failure crosses the URL.
+  "signed-out":
+    "Your session ended, so you've been signed out. Sign in again to pick up where you left off.",
+  standing:
+    "You've been signed out because your account is under review. Sign in again to see the details.",
+  "push-cleanup":
+    "You're signed out. We couldn't switch off push notifications on this device, so you may still receive some — turn them off in your browser settings if you're sharing it.",
   login: "You're already signed in — no need to log in again.",
   signup: "You're already a member and signed in — no need to sign up again.",
   "forgot-password":

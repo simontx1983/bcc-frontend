@@ -52,7 +52,9 @@ function result(over: Partial<SessionTeardownResult> = {}): SessionTeardownResul
   return {
     reason: "user",
     localStateCleared: true,
+    storagePurge: "cleared",
     signedOut: true,
+    signOutTimedOut: false,
     pushCleanup: "revoked",
     ...over,
   };
@@ -105,14 +107,14 @@ describe("SignOutModal", () => {
 
     await waitFor(() => {
       expect(
-        screen.queryByRole("button", { name: /signing out/i }),
+        screen.queryByRole("button", { name: /^signing out/i }),
       ).toBeNull();
     });
     // And it says something true about the state the viewer is in.
     expect(screen.getByRole("alert").textContent).toMatch(
-      /cleared from this browser/i,
+      /hidden and cleared/i,
     );
-    expect(screen.getByRole("button", { name: /reload/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /finish signing out/i })).toBeInTheDocument();
   });
 
   it("confirms private data is cleared even when the server was unreachable", async () => {
@@ -124,7 +126,7 @@ describe("SignOutModal", () => {
     });
     const copy = screen.getByRole("alert").textContent ?? "";
     expect(copy).toMatch(/couldn[’']t reach the server/i);
-    expect(copy).toMatch(/cleared/i);
+    expect(copy).toMatch(/hidden and cleared/i);
   });
 
   it("warns about push when the browser refused to unsubscribe", async () => {
@@ -158,7 +160,7 @@ describe("SignOutModal", () => {
     fireEvent.click(screen.getByRole("button", { name: /^sign out$/i }));
     await waitFor(() => {
       expect(
-        screen.queryByRole("button", { name: /signing out/i }),
+        screen.queryByRole("button", { name: /^signing out/i }),
       ).toBeNull();
     });
     expect(screen.getByRole("alert")).toBeInTheDocument();
@@ -181,7 +183,7 @@ describe("SignOutModal", () => {
 
     release?.(result({ signedOut: false }));
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: /reload/i })).toBeEnabled();
+      expect(screen.getByRole("button", { name: /finish signing out/i })).toBeEnabled();
     });
   });
 });
@@ -215,5 +217,61 @@ describe("the notifications page stops rendering a private list when signed out"
     sessionState.status = "loading";
     render(<NotificationsPageBody />);
     expect(notificationsPanel).not.toHaveBeenCalled();
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────
+// The copy says only what is true
+// ─────────────────────────────────────────────────────────────────────
+
+describe("SignOutModal — honest cleanup claims", () => {
+  it("does NOT promise deletion when storage could not be fully purged", async () => {
+    endSession.mockResolvedValue(
+      result({ signedOut: false, storagePurge: "partial" }),
+    );
+    render(<SignOutModal onClose={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: /^sign out$/i }));
+    await waitFor(() => {
+      expect(screen.getByRole("alert")).toBeInTheDocument();
+    });
+    const copy = screen.getByRole("alert").textContent ?? "";
+    // Hidden is still claimed — the render gate guarantees that much.
+    expect(copy).toMatch(/hidden/i);
+    // Deletion is not.
+    expect(copy).toMatch(/could not be deleted/i);
+    expect(copy).not.toMatch(/hidden and cleared/i);
+  });
+
+  it("distinguishes a TIMED-OUT sign-out from an unreachable server", async () => {
+    endSession.mockResolvedValue(
+      result({ signedOut: false, signOutTimedOut: true }),
+    );
+    render(<SignOutModal onClose={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: /^sign out$/i }));
+    await waitFor(() => {
+      expect(screen.getByRole("alert")).toBeInTheDocument();
+    });
+    expect(screen.getByRole("alert").textContent).toMatch(
+      /didn[\u2019']t respond in time/i,
+    );
+  });
+
+  it("offers a recovery that actually ends the session server-side", async () => {
+    // A bare reload of the current page would re-render it with the session
+    // cookie still in place. NextAuth's own sign-out route completes it
+    // without needing our fetch to work.
+    endSession.mockResolvedValue(result({ signedOut: false }));
+    const assign = vi.fn();
+    Object.defineProperty(window, "location", {
+      value: { assign, href: "http://localhost/" },
+      writable: true,
+    });
+    render(<SignOutModal onClose={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: /^sign out$/i }));
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /finish signing out/i })).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByRole("button", { name: /finish signing out/i }));
+    expect(assign).toHaveBeenCalledWith("/api/auth/signout");
   });
 });

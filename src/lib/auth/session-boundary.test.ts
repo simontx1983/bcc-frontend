@@ -10,16 +10,22 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   PUSH_CLEANUP_TIMEOUT_MS,
+  SIGN_OUT_TIMEOUT_MS,
   __resetSessionBoundaryForTests,
   currentViewerEpoch,
   endSession,
   isEndingSession,
+  isPrivateRenderBlocked,
   isStaleEpoch,
   purgeViewerState,
   registerSessionTeardown,
+  subscribePrivateRenderGate,
   type PushCleanupOutcome,
   type SessionTeardownHandlers,
 } from "@/lib/auth/session-boundary";
+
+/** Where signOut was asked to land. */
+let signOutTargets: string[] = [];
 
 /** Records the order steps ran in — ordering IS the security property. */
 let order: string[] = [];
@@ -33,13 +39,15 @@ function handlers(
     },
     purgeViewerStorage: () => {
       order.push("purgeViewerStorage");
+      return "cleared" as const;
     },
     revokePush: async () => {
       order.push("revokePush");
       return "revoked" as PushCleanupOutcome;
     },
-    signOut: async () => {
+    signOut: async (callbackUrl: string) => {
       order.push("signOut");
+      signOutTargets.push(callbackUrl);
     },
     ...over,
   };
@@ -47,6 +55,7 @@ function handlers(
 
 beforeEach(() => {
   order = [];
+  signOutTargets = [];
   __resetSessionBoundaryForTests();
   vi.useRealTimers();
 });
@@ -87,6 +96,8 @@ describe("teardown order", () => {
       reason: "user",
       localStateCleared: true,
       signedOut: true,
+      signOutTimedOut: false,
+      storagePurge: "cleared",
       pushCleanup: "revoked",
     });
   });
@@ -342,5 +353,184 @@ describe("registration", () => {
     unregister();
     await endSession("user");
     expect(order).toEqual([]);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────
+// The render gate — what actually hides the departing viewer's data
+// ─────────────────────────────────────────────────────────────────────
+
+describe("the private-render gate", () => {
+  it("closes SYNCHRONOUSLY, before any await in the teardown", () => {
+    registerSessionTeardown(
+      handlers({
+        // If the gate only closed after this resolved, private content
+        // would stay rendered for the whole push budget.
+        revokePush: () => new Promise<PushCleanupOutcome>(() => {}),
+      }),
+    );
+    expect(isPrivateRenderBlocked()).toBe(false);
+    void endSession("user");
+    // No await: the gate must already be shut.
+    expect(isPrivateRenderBlocked()).toBe(true);
+  });
+
+  it("notifies subscribers so React can unmount the subtree", () => {
+    registerSessionTeardown(handlers());
+    const seen: boolean[] = [];
+    const unsubscribe = subscribePrivateRenderGate(() => {
+      seen.push(isPrivateRenderBlocked());
+    });
+    void endSession("user");
+    unsubscribe();
+    expect(seen).toContain(true);
+  });
+
+  it("closes on a cross-tab purge too, not just a full teardown", () => {
+    registerSessionTeardown(handlers());
+    purgeViewerState();
+    expect(isPrivateRenderBlocked()).toBe(true);
+  });
+
+  it("closes even when nothing is registered", () => {
+    // A teardown with no provider still must not leave private content up.
+    void endSession("expired");
+    expect(isPrivateRenderBlocked()).toBe(true);
+  });
+
+  it("survives a subscriber that throws", () => {
+    registerSessionTeardown(handlers());
+    const good: boolean[] = [];
+    subscribePrivateRenderGate(() => {
+      throw new Error("bad subscriber");
+    });
+    subscribePrivateRenderGate(() => {
+      good.push(true);
+    });
+    expect(() => purgeViewerState()).not.toThrow();
+    expect(good).toEqual([true]);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────
+// The sign-out step is bounded too
+// ─────────────────────────────────────────────────────────────────────
+
+describe("a STALLED sign-out", () => {
+  it("gives up at the budget instead of hanging forever", async () => {
+    vi.useFakeTimers();
+    registerSessionTeardown(
+      handlers({
+        // A wedged /api/auth/signout — next-auth awaits a fetch with no
+        // timeout of its own, so this used to pend indefinitely and strand
+        // the UI on "Signing out…".
+        signOut: () => new Promise<void>(() => {}),
+      }),
+    );
+    const promise = endSession("user");
+    await vi.advanceTimersByTimeAsync(SIGN_OUT_TIMEOUT_MS + 100);
+    const result = await promise;
+
+    expect(result.signOutTimedOut).toBe(true);
+    expect(result.signedOut).toBe(false);
+    // And the important half: private content is hidden regardless.
+    expect(result.localStateCleared).toBe(true);
+    expect(isPrivateRenderBlocked()).toBe(true);
+  });
+
+  it("does not report a timeout when sign-out merely fails", async () => {
+    registerSessionTeardown(
+      handlers({
+        signOut: async () => {
+          throw new Error("502");
+        },
+      }),
+    );
+    const result = await endSession("user");
+    expect(result.signedOut).toBe(false);
+    expect(result.signOutTimedOut).toBe(false);
+    expect(result.signOutError).toBeInstanceOf(Error);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────
+// Carrying an explanation through the navigation
+// ─────────────────────────────────────────────────────────────────────
+
+describe("the landing URL", () => {
+  it("defaults to / with no notice", async () => {
+    registerSessionTeardown(handlers());
+    await endSession("user");
+    expect(signOutTargets).toEqual(["/"]);
+  });
+
+  it("carries an explicit notice slug", async () => {
+    registerSessionTeardown(handlers());
+    await endSession("expired", { notice: "standing" });
+    expect(signOutTargets).toEqual(["/?authNotice=standing"]);
+  });
+
+  it("honours a custom callbackUrl", async () => {
+    registerSessionTeardown(handlers());
+    await endSession("user", { callbackUrl: "/login" });
+    expect(signOutTargets).toEqual(["/login"]);
+  });
+
+  it("joins with & when the callbackUrl already has a query", async () => {
+    registerSessionTeardown(handlers());
+    await endSession("user", { callbackUrl: "/login?next=%2Ffeed", notice: "standing" });
+    expect(signOutTargets).toEqual(["/login?next=%2Ffeed&authNotice=standing"]);
+  });
+
+  it("surfaces a push warning through the navigation when nothing else would", async () => {
+    // The warning cannot live in the modal: a successful sign-out navigates
+    // and destroys it. A slug is the only thing that survives.
+    registerSessionTeardown(
+      handlers({ revokePush: async () => "unsubscribe-failed" }),
+    );
+    await endSession("user");
+    expect(signOutTargets).toEqual(["/?authNotice=push-cleanup"]);
+  });
+
+  it("does NOT add a push slug when cleanup succeeded", async () => {
+    registerSessionTeardown(handlers({ revokePush: async () => "revoked" }));
+    await endSession("user");
+    expect(signOutTargets).toEqual(["/"]);
+  });
+
+  it("prefers an explicit notice over the push warning", async () => {
+    registerSessionTeardown(
+      handlers({ revokePush: async () => "timed-out" }),
+    );
+    await endSession("expired", { notice: "standing" });
+    expect(signOutTargets).toEqual(["/?authNotice=standing"]);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────
+// Storage outcome is reported, not assumed
+// ─────────────────────────────────────────────────────────────────────
+
+describe("the storage purge outcome reaches the caller", () => {
+  it("reports partial when storage could not be fully cleared", async () => {
+    registerSessionTeardown(
+      handlers({ purgeViewerStorage: () => "partial" }),
+    );
+    const result = await endSession("user");
+    expect(result.storagePurge).toBe("partial");
+  });
+
+  it("reports partial when the purge throws outright", async () => {
+    registerSessionTeardown(
+      handlers({
+        purgeViewerStorage: () => {
+          throw new Error("SecurityError");
+        },
+      }),
+    );
+    const result = await endSession("user");
+    expect(result.storagePurge).toBe("partial");
+    // Still signed out — storage trouble cannot block the teardown.
+    expect(result.signedOut).toBe(true);
   });
 });

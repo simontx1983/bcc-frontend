@@ -295,7 +295,14 @@ export async function bccFetchAsClient<T>(
     } else if (refreshed.kind === "rejected") {
       // Proven dead. End the session once (single-flight) and send the
       // request anonymously so the caller still gets a real answer.
-      void endSession("expired");
+      void endSession("expired", { notice: "signed-out" });
+      effectiveToken = null;
+    } else if (refreshed.kind === "standing-refused") {
+      // The account is suspended. The backend refuses to refresh
+      // precisely so the viewer is pushed through sign-out and re-login,
+      // where the suspension is surfaced — so honour that, carrying a
+      // slug that explains it after the navigation.
+      void endSession("expired", { notice: "standing" });
       effectiveToken = null;
     } else {
       // standing-refused or indeterminate: the session stays. Drop the
@@ -346,12 +353,14 @@ export async function bccFetchAsClient<T>(
         return retried;
       }
       if (refreshed.kind === "rejected") {
-        // The only branch that ends a session. Single-flight, so a burst
-        // of simultaneous 401s produces exactly one teardown.
-        void endSession("expired");
+        // Single-flight, so a burst of simultaneous 401s produces exactly
+        // one teardown.
+        void endSession("expired", { notice: "signed-out" });
+      } else if (refreshed.kind === "standing-refused") {
+        void endSession("expired", { notice: "standing" });
       }
-      // standing-refused / indeterminate: session retained, and we do
-      // NOT retry with the rejected token. The original 401 propagates.
+      // indeterminate: session retained, and we do NOT retry with the
+      // refused token. The original 401 propagates.
     }
     throw err;
   }
@@ -415,6 +424,21 @@ export type RefreshResult =
    */
   | { kind: "indeterminate" };
 
+/**
+ * Read `error.code` out of a BCC error envelope, or null when the body is
+ * missing, not JSON, or shaped differently. A body we cannot read is never
+ * treated as a session-ending signal.
+ */
+async function errorCode(r: Response): Promise<string | null> {
+  try {
+    const body = (await r.json()) as { error?: { code?: unknown } } | null;
+    const code = body?.error?.code;
+    return typeof code === "string" ? code : null;
+  } catch {
+    return null;
+  }
+}
+
 async function tryRefresh(currentToken: string): Promise<RefreshResult> {
   let r: Response;
   try {
@@ -437,11 +461,25 @@ async function tryRefresh(currentToken: string): Promise<RefreshResult> {
     //   403 bcc_forbidden     — "Account is not in good standing."
     //   429 bcc_rate_limited  — too many refresh attempts
     //   5xx / anything else   — server trouble
-    if (r.status === 403) {
-      return { kind: "standing-refused" };
-    }
     if (r.status === 401) {
       return { kind: "rejected" };
+    }
+    if (r.status === 403) {
+      // Only the VERIFIED standing refusal ends a session. The backend
+      // documents that intent at SessionController.php:180-182:
+      //
+      //   "Mid-session compromise mitigation: a user flagged suspended can
+      //    no longer refresh, forcing them through the canonical signOut →
+      //    re-login path where the suspension is surfaced."
+      //
+      // An arbitrary 403 — a proxy, a WAF, a future unrelated refusal —
+      // must NOT be read as a session event, so the error code is
+      // required rather than the status alone.
+      const code = await errorCode(r);
+      if (code === "bcc_forbidden") {
+        return { kind: "standing-refused" };
+      }
+      return { kind: "indeterminate" };
     }
     return { kind: "indeterminate" };
   }
@@ -532,10 +570,12 @@ export async function resolveAuthFailure(
     return refreshed.token;
   }
   if (refreshed.kind === "rejected") {
-    void endSession("expired");
+    void endSession("expired", { notice: "signed-out" });
+  } else if (refreshed.kind === "standing-refused") {
+    void endSession("expired", { notice: "standing" });
   }
-  // standing-refused / indeterminate: session retained on purpose, and
-  // the caller must not reuse the refused token.
+  // indeterminate: session retained on purpose. Either way the caller
+  // must not reuse the refused token.
   return null;
 }
 

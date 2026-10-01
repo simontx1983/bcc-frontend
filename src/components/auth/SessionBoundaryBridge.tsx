@@ -1,23 +1,20 @@
 "use client";
 
 /**
- * SessionBoundaryBridge — wires `lib/auth/session-boundary` to the
- * things only the provider tree can reach.
+ * SessionBoundaryBridge — wires `lib/auth/session-boundary` to the things
+ * only the provider tree can reach.
  *
  * This component exists so the low-level API client never has to import
  * the application providers. `lib/api/client` imports `endSession` from a
  * dependency-free module; this bridge supplies that module with the
  * `QueryClient`, browser storage and NextAuth `signOut` at mount. The
- * alternative — `client.ts` importing `app/providers` — would be an
- * import cycle (providers → hooks → client → providers) and would pull
- * React into every fetching module.
+ * alternative — `client.ts` importing `app/providers` — would be an import
+ * cycle (providers → hooks → client → providers) and would pull React into
+ * every fetching module.
  *
  * It also owns the CROSS-TAB half of the problem. NextAuth broadcasts
- * session changes between tabs, so `useSession` here observes a sign-out
- * or an account switch that happened in a different tab. When it does,
- * this tab purges its own view of the previous viewer — but deliberately
- * does NOT call `signOut` again: the other tab already did, and a second
- * call would race it.
+ * session changes between tabs, so `useSession` here observes a sign-out or
+ * an account switch that happened in a different tab.
  *
  * Renders nothing.
  */
@@ -63,15 +60,19 @@ export function SessionBoundaryBridge() {
         void queryClient.cancelQueries().catch(() => {
           // Cancellation rejections are the expected outcome here.
         });
+        // By now the render gate has already unmounted every private
+        // surface, so there is no observer left for this to notify — which
+        // is exactly why `clear()` is sufficient here and was not before.
         queryClient.clear();
       },
       purgeViewerStorage: clearViewerStorage,
       revokePush: revokePushForSessionEnd,
-      // `redirect: true` is the point: the document load re-runs the RSC
-      // tree, so server-computed owner gating (`isOwner` on /u/[handle])
-      // is recomputed instead of lingering from the authed render.
-      signOut: async () => {
-        await signOut({ redirect: true, callbackUrl: "/" });
+      // `redirect: true` is load-bearing: the document load re-runs the
+      // RSC tree, so server-computed owner gating (`isOwner` and the
+      // owner's email on /u/[handle]) is recomputed rather than lingering
+      // from the authed render.
+      signOut: async (callbackUrl: string) => {
+        await signOut({ redirect: true, callbackUrl });
       },
     });
   }, [queryClient]);
@@ -90,13 +91,29 @@ export function SessionBoundaryBridge() {
       return;
     }
 
-    // The viewer changed under us. Either another tab signed out (viewer
-    // → null) or a different account took over (viewer → other id).
-    // A teardown already in progress in THIS tab is doing the same work,
-    // so don't double-purge mid-flight.
+    const previous = shownViewer.current;
     shownViewer.current = viewer;
-    if (!isEndingSession()) {
-      purgeViewerState();
+
+    // A teardown already running in THIS tab is doing the same work.
+    if (isEndingSession()) {
+      return;
+    }
+
+    // The viewer changed under us, from another tab. Hide private content
+    // and drop this tab's cached copy of it immediately.
+    purgeViewerState();
+
+    // Clearing a cache does not touch what the SERVER already rendered.
+    // `/u/[handle]` computes `isOwner` from `getServerSession` and passes
+    // the owner's email into the change-email form, so viewer A's email
+    // and owner controls are still in this tab's RSC output. Only a
+    // document load re-runs that tree for whoever is here now.
+    //
+    // Deliberately NOT calling signOut: the other tab already did, and a
+    // second call would race it. A reload is both sufficient and honest —
+    // it re-derives everything from whatever cookie now exists.
+    if (previous !== null) {
+      window.location.reload();
     }
   }, [session?.user?.id, status]);
 

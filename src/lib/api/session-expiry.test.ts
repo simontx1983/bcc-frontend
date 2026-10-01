@@ -32,8 +32,8 @@ vi.mock("next-auth/react", () => ({
 const endSession = vi.fn();
 let epoch = 0;
 vi.mock("@/lib/auth/session-boundary", () => ({
-  endSession: (reason: string) => {
-    endSession(reason);
+  endSession: (reason: string, opts?: unknown) => {
+    endSession(reason, opts);
     return Promise.resolve({});
   },
   currentViewerEpoch: () => epoch,
@@ -124,7 +124,7 @@ describe("a definitive rejection ends the session", () => {
     );
 
     await expect(bccFetchAsClient("me/thing")).rejects.toBeInstanceOf(BccApiError);
-    expect(endSession).toHaveBeenCalledWith("expired");
+    expect(endSession).toHaveBeenCalledWith("expired", { notice: "signed-out" });
   });
 });
 
@@ -186,8 +186,12 @@ describe("a transient refresh failure RETAINS the session", () => {
   });
 });
 
-describe("a standing refusal is not an expiry", () => {
-  it("403 not-in-good-standing retains the session so the reason stays visible", async () => {
+describe("a VERIFIED standing refusal ends the session", () => {
+  it("403 bcc_forbidden signs the viewer out, carrying an explanatory slug", async () => {
+    // The backend refuses to refresh a suspended account precisely so the
+    // viewer is pushed through sign-out and re-login, where the suspension
+    // is surfaced (SessionController.php:180-182). Honour that, and carry
+    // a notice slug so the explanation survives the navigation.
     getSession.mockResolvedValue(liveSession());
     vi.stubGlobal(
       "fetch",
@@ -197,6 +201,67 @@ describe("a standing refusal is not an expiry", () => {
             { error: { code: "bcc_forbidden", message: "Account is not in good standing.", status: 403 } },
             403,
           ),
+        protectedCall: () => unauthorized(),
+      }),
+    );
+    await expect(bccFetchAsClient("me/thing")).rejects.toBeInstanceOf(BccApiError);
+    expect(endSession).toHaveBeenCalledWith("expired", { notice: "standing" });
+  });
+
+  it("does NOT reuse the refused token on the protected request", async () => {
+    getSession.mockResolvedValue(expiredSession());
+    const seen: (string | null)[] = [];
+    vi.stubGlobal(
+      "fetch",
+      routeFetch({
+        refresh: () => json({ error: { code: "bcc_forbidden" } }, 403),
+        protectedCall: (auth) => {
+          seen.push(auth);
+          return json({ data: { ok: true }, _meta: { version: "v1" } }, 200);
+        },
+      }),
+    );
+    await bccFetchAsClient("me/thing").catch(() => undefined);
+    expect(seen).toEqual([null]);
+  });
+});
+
+describe("an ARBITRARY 403 is not a session event", () => {
+  it("a 403 with a different code retains the session", async () => {
+    // A proxy, a WAF, or some future unrelated refusal. Only the verified
+    // standing-refusal code may end a session.
+    getSession.mockResolvedValue(liveSession());
+    vi.stubGlobal(
+      "fetch",
+      routeFetch({
+        refresh: () =>
+          json({ error: { code: "bcc_rate_limited", status: 403 } }, 403),
+        protectedCall: () => unauthorized(),
+      }),
+    );
+    await expect(bccFetchAsClient("me/thing")).rejects.toBeInstanceOf(BccApiError);
+    expect(endSession).not.toHaveBeenCalled();
+  });
+
+  it("a 403 with no parseable body retains the session", async () => {
+    getSession.mockResolvedValue(liveSession());
+    vi.stubGlobal(
+      "fetch",
+      routeFetch({
+        refresh: () => new Response("<html>Forbidden</html>", { status: 403 }),
+        protectedCall: () => unauthorized(),
+      }),
+    );
+    await expect(bccFetchAsClient("me/thing")).rejects.toBeInstanceOf(BccApiError);
+    expect(endSession).not.toHaveBeenCalled();
+  });
+
+  it("a 403 with an empty JSON object retains the session", async () => {
+    getSession.mockResolvedValue(liveSession());
+    vi.stubGlobal(
+      "fetch",
+      routeFetch({
+        refresh: () => json({}, 403),
         protectedCall: () => unauthorized(),
       }),
     );
@@ -245,7 +310,7 @@ describe("a refused token is never reused on a protected request", () => {
     await bccFetchAsClient("me/thing").catch(() => undefined);
     expect(seen).toEqual([null]);
     expect(seen).not.toContain(`Bearer ${LIVE_TOKEN}`);
-    expect(endSession).toHaveBeenCalledWith("expired");
+    expect(endSession).toHaveBeenCalledWith("expired", { notice: "signed-out" });
   });
 
   it("pre-emptive refresh rate-limited → still no bearer, and session retained", async () => {

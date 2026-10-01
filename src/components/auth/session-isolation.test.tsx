@@ -14,8 +14,8 @@
  * not about which functions were called.
  */
 
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, render, waitFor } from "@testing-library/react";
+import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 interface SignOutOpts {
@@ -44,10 +44,12 @@ vi.mock("@/lib/push/revoke", () => ({
   rememberPushSubscriptionId: vi.fn(),
 }));
 
+import { PrivateRenderGate } from "@/components/auth/PrivateRenderGate";
 import { SessionBoundaryBridge } from "@/components/auth/SessionBoundaryBridge";
 import {
   __resetSessionBoundaryForTests,
   endSession,
+  purgeViewerState,
 } from "@/lib/auth/session-boundary";
 
 /** Stand-ins for the real viewer-private entries, same key shapes. */
@@ -67,12 +69,29 @@ function seedViewerACache(qc: QueryClient) {
   qc.setQueryData(A_NOTIFS, { pages: [{ items: [{ id: 9 }] }] });
 }
 
-function mount(qc: QueryClient) {
-  return render(
+/** Reads the cache the way production surfaces do: a subscribed observer. */
+function PrivateReadout() {
+  const { data } = useQuery<{ secret: string }>({
+    queryKey: A_PROFILE,
+    queryFn: () => new Promise(() => {}) as Promise<{ secret: string }>,
+    enabled: false,
+  });
+  return <div data-testid="private">{data?.secret ?? "(none)"}</div>;
+}
+
+function tree(qc: QueryClient) {
+  return (
     <QueryClientProvider client={qc}>
       <SessionBoundaryBridge />
-    </QueryClientProvider>,
+      <PrivateRenderGate>
+        <PrivateReadout />
+      </PrivateRenderGate>
+    </QueryClientProvider>
   );
+}
+
+function mount(qc: QueryClient) {
+  return render(tree(qc));
 }
 
 let qc: QueryClient;
@@ -161,15 +180,19 @@ describe("a viewer change arriving from another tab", () => {
     // NextAuth broadcasts the other tab's sign-out into this one.
     sessionState.data = null;
     sessionState.status = "unauthenticated";
-    view.rerender(
-      <QueryClientProvider client={qc}>
-        <SessionBoundaryBridge />
-      </QueryClientProvider>,
-    );
+    view.rerender(tree(qc));
 
+    // Assert the property that matters, not the entry count. The gate's
+    // close notification does not unmount SYNCHRONOUSLY, so clear() can run
+    // while an observer is still mounted and that observer immediately
+    // re-creates an EMPTY entry for its key. No payload survives, which is
+    // the guarantee; "zero entries" is not.
     await waitFor(() => {
-      expect(qc.getQueryCache().getAll()).toHaveLength(0);
+      expect(screen.queryByTestId("private")).toBeNull();
     });
+    for (const q of qc.getQueryCache().getAll()) {
+      expect(JSON.stringify(q.state.data ?? null)).not.toContain("VIEWER-A");
+    }
     // The other tab already signed out; this one must not race it.
     expect(signOut).not.toHaveBeenCalled();
   });
@@ -179,11 +202,7 @@ describe("a viewer change arriving from another tab", () => {
     seedViewerACache(qc);
 
     sessionState.data = { user: { id: "b" } };
-    view.rerender(
-      <QueryClientProvider client={qc}>
-        <SessionBoundaryBridge />
-      </QueryClientProvider>,
-    );
+    view.rerender(tree(qc));
 
     await waitFor(() => {
       expect(qc.getQueryData(A_PROFILE)).toBeUndefined();
@@ -201,11 +220,7 @@ describe("a viewer change arriving from another tab", () => {
 
     sessionState.data = { user: { id: "a" } };
     sessionState.status = "authenticated";
-    view.rerender(
-      <QueryClientProvider client={qc}>
-        <SessionBoundaryBridge />
-      </QueryClientProvider>,
-    );
+    view.rerender(tree(qc));
 
     // Long enough for the effect to have run if it were going to.
     await new Promise((r) => setTimeout(r, 50));
@@ -217,11 +232,7 @@ describe("a viewer change arriving from another tab", () => {
     sessionState.status = "loading";
     const view = mount(qc);
     seedViewerACache(qc);
-    view.rerender(
-      <QueryClientProvider client={qc}>
-        <SessionBoundaryBridge />
-      </QueryClientProvider>,
-    );
+    view.rerender(tree(qc));
     await new Promise((r) => setTimeout(r, 50));
     expect(qc.getQueryData(A_PROFILE)).toBeDefined();
     expect(qc.getQueryCache().getAll().length).toBeGreaterThan(0);
@@ -258,5 +269,97 @@ describe("in-flight private requests", () => {
 
     expect(qc.getQueryData(["me", "slow-private"])).toBeUndefined();
     expect(qc.getQueryCache().getAll()).toHaveLength(0);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────
+// The render gate is what actually hides the data
+// ─────────────────────────────────────────────────────────────────────
+
+describe("the render gate removes private surfaces from the DOM", () => {
+  it("unmounts the private subtree on a full teardown", async () => {
+    mount(qc);
+    qc.setQueryData(A_PROFILE, { secret: "VIEWER-A-PRIVATE-PAYLOAD" });
+    await waitFor(() => {
+      expect(screen.getByTestId("private").textContent).toContain("VIEWER-A");
+    });
+
+    await endSession("user");
+
+    // Unmounted, not merely re-rendered empty: clearing the cache alone
+    // leaves a mounted observer holding its last result.
+    await waitFor(() => {
+      expect(screen.queryByTestId("private")).toBeNull();
+    });
+    expect(screen.getByText(/signing out/i)).toBeInTheDocument();
+  });
+
+  it("unmounts it on a cross-tab purge too", async () => {
+    mount(qc);
+    qc.setQueryData(A_PROFILE, { secret: "VIEWER-A-PRIVATE-PAYLOAD" });
+    await waitFor(() => {
+      expect(screen.getByTestId("private").textContent).toContain("VIEWER-A");
+    });
+
+    purgeViewerState();
+
+    await waitFor(() => {
+      expect(screen.queryByTestId("private")).toBeNull();
+    });
+  });
+
+  it("no cache entry retains the previous viewer's payload afterwards", async () => {
+    mount(qc);
+    seedViewerACache(qc);
+    await endSession("user");
+    await waitFor(() => {
+      expect(screen.queryByTestId("private")).toBeNull();
+    });
+    for (const q of qc.getQueryCache().getAll()) {
+      expect(JSON.stringify(q.state.data ?? null)).not.toContain("viewer-a");
+      expect(JSON.stringify(q.state.data ?? null)).not.toContain("0xaaa");
+    }
+  });
+});
+
+describe("a viewer-ID change reloads server-rendered state", () => {
+  it("reloads when a DIFFERENT account takes over, because RSC output is not cached data", async () => {
+    // /u/[handle] computes isOwner server-side and passes the owner's email
+    // into the change-email form. Clearing a query cache cannot touch that;
+    // only a document load re-runs the tree for whoever is here now.
+    const reload = vi.fn();
+    Object.defineProperty(window, "location", {
+      value: { reload, href: "http://localhost/", assign: vi.fn() },
+      writable: true,
+    });
+
+    const view = mount(qc);
+    seedViewerACache(qc);
+
+    sessionState.data = { user: { id: "b" } };
+    view.rerender(tree(qc));
+
+    await waitFor(() => {
+      expect(reload).toHaveBeenCalledTimes(1);
+    });
+    expect(signOut).not.toHaveBeenCalled();
+  });
+
+  it("does not reload on the FIRST session resolution", async () => {
+    const reload = vi.fn();
+    Object.defineProperty(window, "location", {
+      value: { reload, href: "http://localhost/", assign: vi.fn() },
+      writable: true,
+    });
+    sessionState.data = null;
+    sessionState.status = "loading";
+    const view = mount(qc);
+
+    sessionState.data = { user: { id: "a" } };
+    sessionState.status = "authenticated";
+    view.rerender(tree(qc));
+
+    await new Promise((r) => setTimeout(r, 50));
+    expect(reload).not.toHaveBeenCalled();
   });
 });
