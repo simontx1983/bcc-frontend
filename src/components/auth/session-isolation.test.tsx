@@ -15,7 +15,7 @@
  */
 
 import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 interface SignOutOpts {
@@ -107,6 +107,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  vi.useRealTimers();
   cleanup();
   __resetSessionBoundaryForTests();
   vi.restoreAllMocks();
@@ -742,13 +743,23 @@ describe("the recovery control stays usable", () => {
     const button = await waitFor(() =>
       screen.getByRole("button", { name: /finish signing out/i }),
     );
+    // Installed BEFORE the click, so the re-enable timer is a fake one
+    // this test can advance. Installing them afterwards leaves the
+    // already-scheduled real timer untouched.
+    vi.useFakeTimers();
     fireEvent.click(button);
 
-    await waitFor(() => {
-      expect(
-        screen.getByRole("button", { name: /finish signing out/i }),
-      ).not.toBeDisabled();
+    // The window closes with the document still here, which is what a
+    // dead host looks like — so the control comes back. (That it stays
+    // disabled DURING the window is pinned separately.)
+    // Inside act(): the timer's setFinishing(false) is a React state
+    // update, and advancing outside act leaves it unflushed.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(20_000);
     });
+    expect(
+      screen.getByRole("button", { name: /finish signing out/i }),
+    ).not.toBeDisabled();
   });
 });
 
@@ -825,6 +836,34 @@ describe("what arrival purges", () => {
     expect(qc.getQueryData(["public", "thing"])).toEqual({ ok: true });
   });
 
+  it("INVALIDATES the anonymous cache, so it is not served to the new viewer", async () => {
+    // Keeping the entries is right; keeping them FRESH is not. The cache
+    // is not viewer-partitioned — ["card-entity","user",handle],
+    // ["user",handle], the feed keys — and those view-models carry
+    // viewer_has_endorsed / viewer_is_member / the whole can_* block,
+    // documented as "always false for anonymous viewers". With
+    // staleTime 60s on card entities (5 min on ["user",handle]), a
+    // viewer who signs in and returns to the page they bounced off is
+    // served the ANONYMOUS payload: the card offers ENDORSE to someone
+    // who has already endorsed, and hides controls they are entitled to.
+    //
+    // invalidateQueries marks stale and refetches only ACTIVE queries. It
+    // never calls query.cancel(), so the arriving viewer's in-flight
+    // first reads survive — which is the property dropping the purge was
+    // meant to buy.
+    qc.setQueryData(["card-entity", "user", "alice"], { viewer_has_endorsed: false });
+    arrive();
+    await waitFor(() => {
+      expect(
+        qc.getQueryState(["card-entity", "user", "alice"])?.isInvalidated,
+      ).toBe(true);
+    });
+    // Still present, not dropped.
+    expect(qc.getQueryData(["card-entity", "user", "alice"])).toEqual({
+      viewer_has_endorsed: false,
+    });
+  });
+
   it("DEPARTURE still clears everything, draft and push id included", async () => {
     window.localStorage.setItem("bcc.blog.draft.a", "half-written post");
     window.localStorage.setItem("bcc-push-subscription-id", "55");
@@ -834,5 +873,47 @@ describe("what arrival purges", () => {
     expect(window.localStorage.getItem("bcc.blog.draft.a")).toBeNull();
     expect(window.localStorage.getItem("bcc-push-subscription-id")).toBeNull();
     expect(window.localStorage.getItem("bcc-theme")).toBe("dark");
+  });
+});
+
+describe("the recovery control's pending state", () => {
+  it("stays disabled while a submitted navigation is in flight", async () => {
+    // `form.submit()` only INITIATES a navigation and returns
+    // synchronously, so forceSignOutNavigation resolves on the next
+    // microtask — long before the POST round-trips. Re-enabling on that
+    // promise therefore fired on the success path too, and each further
+    // click appends another form and re-submits, which in a browser
+    // cancels and restarts the pending navigation.
+    const submit = vi.fn();
+    const realCreate = document.createElement.bind(document);
+    vi.spyOn(document, "createElement").mockImplementation((tag: string) => {
+      const el = realCreate(tag) as HTMLElement;
+      if (tag === "form") {
+        (el as HTMLFormElement).submit = submit as unknown as () => void;
+      }
+      return el;
+    });
+    vi.stubGlobal("fetch", vi.fn(async () =>
+      new Response(JSON.stringify({ csrfToken: "c" }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    ));
+    signOut.mockImplementation(async () => {
+      throw new Error("502");
+    });
+    mount(qc);
+    await endSession("user");
+    const button = await waitFor(() =>
+      screen.getByRole("button", { name: /finish signing out/i }),
+    );
+    fireEvent.click(button);
+
+    await waitFor(() => {
+      expect(submit).toHaveBeenCalledTimes(1);
+    });
+    // The navigation is under way; the control must not invite a click
+    // that would restart it.
+    expect(screen.getByRole("button", { name: /finishing/i })).toBeDisabled();
   });
 });

@@ -46,6 +46,9 @@ function handlers(
       order.push("purgeArrivalStorage");
       return "cleared" as const;
     },
+    invalidateQueryCache: () => {
+      order.push("invalidateQueryCache");
+    },
     revokePush: async () => {
       order.push("revokePush");
       return "revoked" as PushCleanupOutcome;

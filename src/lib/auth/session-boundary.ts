@@ -151,6 +151,12 @@ export interface SessionTeardownHandlers {
    */
   purgeArrivalStorage: () => StoragePurgeOutcome;
   /**
+   * Mark every cached entry stale WITHOUT cancelling in-flight work.
+   * Arrival only: the entries are anonymous reads, so they need not be
+   * dropped, but they must not be served to an authenticated viewer.
+   */
+  invalidateQueryCache: () => void;
+  /**
    * Cancel in-flight queries and drop every cached entry. Must not throw.
    * Called AFTER the render gate has closed, so the observers it would
    * have notified are already gone.
@@ -315,9 +321,11 @@ function purgeStorageOnly(): StoragePurgeOutcome {
  *     or the browser clears cookies on exit.
  *
  * In each case the next person signs in and `bcc-recent-searches` is
- * rendered verbatim into their search dropdown, `bcc:fp_reported:<id>`
- * still names the previous user id, and the blog drafts are still theirs.
- * So arrival purges state; only DEPARTURE closes the gate.
+ * rendered verbatim into their search dropdown, and the tour/onboarding
+ * keys suppress or mis-position what they should be shown. Those are the
+ * keys arrival clears; see `ARRIVAL_SCOPED_STORAGE_KEYS` for what it
+ * deliberately leaves alone and why. Arrival purges state; only
+ * DEPARTURE closes the gate.
  */
 export function purgeArrivingViewerState(): StoragePurgeOutcome {
   // Storage only, and only the arrival subset.
@@ -328,10 +336,29 @@ export function purgeArrivingViewerState(): StoragePurgeOutcome {
   // `bccFetchAsClient` exempts from the staleness check anyway. Bumping it
   // could only strand the ARRIVING viewer's own first read.
   //
-  // No cache purge either: `purgeQueryCache` cancels in-flight queries,
-  // and at login that aborts the new viewer's first reads at the moment
-  // their surfaces mount. The cache holds anonymous reads only, so there
-  // is nothing of anyone's to drop.
+  // Not a cache PURGE either: `purgeQueryCache` cancels in-flight
+  // queries, and at login that aborts the new viewer's first reads at the
+  // moment their surfaces mount.
+  //
+  // But keeping those entries FRESH is wrong. The cache is not
+  // viewer-partitioned — `["card-entity", kind, id]`, `["user", handle]`,
+  // the feed keys — and the view-models in it carry `viewer_is_member`,
+  // `viewer_has_endorsed`, `viewer_attestation` and the whole `can_*`
+  // block, which the contract documents as "always false for anonymous
+  // viewers". With a 60s staleTime on card entities and five minutes on
+  // `["user", handle]`, a viewer who bounces off a page to sign in and
+  // comes straight back is served the ANONYMOUS payload: offered ENDORSE
+  // when they have already endorsed, and denied controls they hold.
+  //
+  // So: invalidate, do not cancel. `invalidateQueries` marks every entry
+  // stale and refetches only ACTIVE queries; it never calls
+  // `query.cancel()`, so the arriving viewer's in-flight first reads are
+  // untouched.
+  try {
+    handlers?.invalidateQueryCache();
+  } catch {
+    // Must not stop the storage purge below.
+  }
   try {
     return handlers?.purgeArrivalStorage() ?? "partial";
   } catch {

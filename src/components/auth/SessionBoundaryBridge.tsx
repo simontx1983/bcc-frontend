@@ -71,6 +71,14 @@ export function SessionBoundaryBridge() {
       },
       purgeViewerStorage: clearViewerStorage,
       purgeArrivalStorage: clearCrossViewerStorage,
+      invalidateQueryCache: () => {
+        // Invalidate, never cancel — see purgeArrivingViewerState. The
+        // promise is not awaited and refetch failures surface through the
+        // ordinary query error paths.
+        void queryClient.invalidateQueries().catch(() => {
+          // Refetch failures are the queries' own business.
+        });
+      },
       revokePush: revokePushForSessionEnd,
       // `redirect: true` is load-bearing: the document load re-runs the
       // RSC tree, so server-computed owner gating (`isOwner` and the

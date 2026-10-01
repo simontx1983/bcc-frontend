@@ -83,6 +83,13 @@ export function PrivateRenderGate({ children }: { children: ReactNode }) {
   );
 }
 
+/**
+ * How long a submitted sign-out gets to replace this document before the
+ * control is offered again. Comfortably longer than the 3s CSRF bound
+ * inside `forceSignOutNavigation`, so a working navigation always wins.
+ */
+const RE_ENABLE_AFTER_MS = 8_000;
+
 function RecoveryPanel({ failed }: { failed: SessionTeardownResult }) {
   // The control fetches a CSRF token before it can POST, and that fetch is
   // bounded at 3s. Without a pending state the viewer clicks into silence
@@ -121,14 +128,24 @@ function RecoveryPanel({ failed }: { failed: SessionTeardownResult }) {
               // confirmation — so the previous version of this button was
               // cosmetic while telling the viewer they were done.
               setFinishing(true);
-              // Give the control back if nothing navigated. A real
-              // navigation tears this document down, so the re-enable
-              // never runs in the success case; on a dead host — which is
-              // why this panel is on screen — it is the difference
-              // between a retryable button and a permanently disabled
-              // "Finishing…" with no other way out of a terminal gate.
+              // Give the control back only if nothing actually
+              // navigated — but not on the promise, which was the
+              // previous mistake. `form.submit()` merely INITIATES a
+              // navigation and returns synchronously, so the promise
+              // settles a microtask later, long before the POST
+              // round-trips: re-enabling there fired on the success path
+              // too, and a second click appends another form and
+              // re-submits, which in a browser cancels and restarts the
+              // navigation already under way.
+              //
+              // A live navigation replaces this document well inside the
+              // window below; a dead one does not, and has to give the
+              // control back rather than leave a terminal gate with no
+              // way forward.
               void forceSignOutNavigation().finally(() => {
-                setFinishing(false);
+                window.setTimeout(() => {
+                  setFinishing(false);
+                }, RE_ENABLE_AFTER_MS);
               });
             }}
             className="bcc-auth-submit mt-5 w-full"

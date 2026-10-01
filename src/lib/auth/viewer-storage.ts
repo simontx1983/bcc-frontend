@@ -105,6 +105,13 @@ export const DEVICE_SCOPED_STORAGE_KEYS: readonly string[] = [
  *                             Retaining even a foreign id is harmless —
  *                             DELETE /me/push-subscriptions/{id} is
  *                             ownership-checked and the 403 is swallowed.
+ *
+ * One accepted cost: `bcc-onboarding-progress` is local-only (there is no
+ * server mirror yet), so clearing it on arrival loses the RETURNING
+ * viewer's resume point irrecoverably. `bcc-tour-seen` does not have that
+ * problem — it mirrors `bcc_tours_seen` user-meta and repopulates. The
+ * trade is deliberate: keeping either would mis-position onboarding for a
+ * newcomer, which is the thing arrival exists to prevent.
  */
 const ARRIVAL_SCOPED_STORAGE_KEYS: readonly string[] = [
   // Rendered verbatim to whoever is next, in the search dropdown's
@@ -128,14 +135,6 @@ function isViewerScoped(key: string): boolean {
 }
 
 /**
- * Remove every viewer-scoped key from BOTH stores, leaving device
- * preferences alone.
- *
- * @returns `"cleared"` when the purge completed, `"partial"` when any
- *          access threw — in which case the caller must not claim the data
- *          is gone.
- */
-/**
  * Arrival sweep: only what would be shown to a newcomer.
  * See ARRIVAL_SCOPED_STORAGE_KEYS for what is deliberately left alone.
  */
@@ -143,6 +142,14 @@ export function clearCrossViewerStorage(): StoragePurgeOutcome {
   return sweep((key) => ARRIVAL_SCOPED_STORAGE_KEYS.includes(key));
 }
 
+/**
+ * Remove every viewer-scoped key from BOTH stores, leaving device
+ * preferences alone.
+ *
+ * @returns `"cleared"` when the purge completed, `"partial"` when any
+ *          access threw — in which case the caller must not claim the data
+ *          is gone.
+ */
 export function clearViewerStorage(): StoragePurgeOutcome {
   return sweep(isViewerScoped);
 }
