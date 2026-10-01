@@ -50,7 +50,19 @@ export function SessionBoundaryBridge() {
         // fetches via the AbortSignal every endpoint wrapper forwards, so
         // the responses never arrive to be written anywhere. Clearing
         // first would detach the queries and leave their fetches running.
-        void queryClient.cancelQueries();
+        //
+        // The abort itself is synchronous — cancelQueries calls
+        // `query.cancel()` on each match inside a notify batch before it
+        // returns — so the ordering holds even though we do not await the
+        // promise it hands back.
+        //
+        // That promise MUST be caught: cancellation rejects every
+        // in-flight query promise (TanStack's `{revert: true}` signal),
+        // and an uncaught one surfaces as an unhandled rejection in the
+        // browser during an ordinary sign-out.
+        void queryClient.cancelQueries().catch(() => {
+          // Cancellation rejections are the expected outcome here.
+        });
         queryClient.clear();
       },
       purgeViewerStorage: clearViewerStorage,

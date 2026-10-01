@@ -152,12 +152,21 @@ export function purgeViewerState(): void {
   }
 }
 
+/**
+ * Resolve with `onTimeout` if `work` has not settled within `ms`.
+ *
+ * A rejection is RE-THROWN rather than folded into `onTimeout`: "the
+ * browser refused to unsubscribe" and "cleanup never finished" are
+ * different facts, and collapsing them would make the outcome union a
+ * lie. The caller's catch turns the rejection into
+ * `"unsubscribe-failed"`.
+ */
 function withTimeout<T>(
   work: Promise<T>,
   ms: number,
   onTimeout: T,
 ): Promise<T> {
-  return new Promise<T>((resolve) => {
+  return new Promise<T>((resolve, reject) => {
     let settled = false;
     const timer = setTimeout(() => {
       if (!settled) {
@@ -173,13 +182,11 @@ function withTimeout<T>(
           resolve(value);
         }
       },
-      () => {
+      (err: unknown) => {
         if (!settled) {
           settled = true;
           clearTimeout(timer);
-          // A rejection is reported by the caller's own catch; this
-          // resolver only needs to stop the race from hanging.
-          resolve(onTimeout);
+          reject(err instanceof Error ? err : new Error(String(err)));
         }
       },
     );
