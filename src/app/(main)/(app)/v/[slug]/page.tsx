@@ -24,6 +24,11 @@ import { authOptions } from "@/lib/auth";
 import { tokenFromSession } from "@/lib/api/client";
 import { getCardEntity } from "@/lib/api/card-endpoints";
 import { ANON_SSR_REVALIDATE_SECONDS } from "@/lib/api/cache-policy";
+import {
+  getAttestationRosterAnon,
+  PROFILE_ROSTER_PARAMS,
+} from "@/lib/api/attestations-endpoints";
+import type { RosterSeed } from "@/hooks/useAttestationRoster";
 import { buildEntityMetadata } from "@/lib/og/entity-metadata";
 import { BccApiError } from "@/lib/api/types";
 
@@ -68,6 +73,40 @@ export default async function ValidatorProfilePage({ params }: PageProps) {
     throw err;
   }
 
+  // A visitor lands on Backing (EntityTabs' default), but the roster fetches
+  // client-side and renders its empty-state copy while `data` is undefined —
+  // so a validator WITH attestations said "No attestations on file yet" for
+  // the whole round-trip, and that is what crawlers saw. Read the first page
+  // here and seed React Query with it.
+  //
+  // ANONYMOUS ONLY, two reasons, same as /u/[handle]. The read is token-less
+  // so the shared 60s Data-Cache entry can be served to everyone without
+  // leaking one viewer's response to another; and we hand it only to viewers
+  // who are themselves anonymous, so nobody is shown a cache-shared payload
+  // in place of their own.
+  //
+  // Failure is non-fatal by design: the roster is one tab on a page whose
+  // subject is the validator. A roster outage must not 500 the page, so the
+  // seed stays undefined and the panel fetches as it always did.
+  let rosterSeed: RosterSeed | undefined;
+  if (session === null) {
+    try {
+      const fetchedAt = Date.now();
+      const data = await getAttestationRosterAnon(
+        "validator_card",
+        card.id,
+        PROFILE_ROSTER_PARAMS,
+        ANON_SSR_REVALIDATE_SECONDS,
+      );
+      // The real read time, not now: initialData alone would restart the
+      // hook's 30s staleTime on the client and let a payload cached for 60s
+      // look permanently fresh.
+      rosterSeed = { data, updatedAt: fetchedAt };
+    } catch {
+      rosterSeed = undefined;
+    }
+  }
+
   return (
     <EntityProfile
       card={card}
@@ -79,6 +118,7 @@ export default async function ValidatorProfilePage({ params }: PageProps) {
           "their stream will show up here.",
       }}
       viewerAuthed={session !== null}
+      {...(rosterSeed !== undefined ? { rosterSeed } : {})}
     />
   );
 }
