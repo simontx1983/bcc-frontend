@@ -4,7 +4,9 @@ import { Moon, Palette, Sun, User } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useSession, signOut } from "next-auth/react";
+import { useSession } from "next-auth/react";
+
+import { endSession } from "@/lib/auth/session-boundary";
 import { useState, useEffect, useRef } from "react";
 
 import { Avatar } from "@/components/identity/Avatar";
@@ -291,7 +293,7 @@ export function MainOffcanvas({ open, onClose }: MainOffcanvasProps) {
             <>
               <div className="bcc-nav-divider" />
               <button
-                onClick={() => { onClose(); signOut({ callbackUrl: "/login" }); }}
+                onClick={() => { onClose(); void endSession("user"); }}
                 style={{
                   display: "flex",
                   alignItems: "center",

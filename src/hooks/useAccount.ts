@@ -16,13 +16,13 @@
  * cookie is gone, so the caller should redirect to logout_url.
  */
 
+import { endSession } from "@/lib/auth/session-boundary";
 import {
   keepPreviousData,
   useMutation,
   useQuery,
   type UseMutationOptions,
 } from "@tanstack/react-query";
-import { signOut } from "next-auth/react";
 
 import {
   deleteAccount,
@@ -114,7 +114,10 @@ export function useLogoutEverywhere() {
   return useMutation<LogoutEverywhereResponse, BccApiError | Error, void>({
     mutationFn: () => logoutEverywhere(),
     onSuccess: () => {
-      void signOut({ callbackUrl: "/" });
+      // Through the boundary: "sign out everywhere" is exactly the case
+      // where leaving this device's cached private data behind would be
+      // worst, and the bearer is already dead server-side.
+      void endSession("user");
     },
   });
 }

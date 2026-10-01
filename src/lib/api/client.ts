@@ -220,7 +220,13 @@ function isSuccessEnvelope<T>(value: unknown): value is ApiSuccess<T> {
 // (or `bccFetch` with an explicit token) — see helpers below.
 // =====================================================================
 
-import { getSession, signOut } from "next-auth/react";
+import { getSession } from "next-auth/react";
+
+import {
+  currentViewerEpoch,
+  endSession,
+  isStaleEpoch,
+} from "@/lib/auth/session-boundary";
 
 /**
  * Session-aware fetch for client components. Reads the BCC token
@@ -230,14 +236,20 @@ import { getSession, signOut } from "next-auth/react";
  * routes that work for anon users (e.g. /feed/hot). Anon endpoints
  * that DO require auth return 401 with a typed BccApiError.
  *
- * Token-expiry handling: when a request that DID carry a Bearer token
- * comes back 401, the server has rejected the JWT (expired, revoked,
- * bad signature — the bcc-trust BearerAuth middleware translates all
- * of these to `bcc_unauthorized` to avoid leaking which check failed).
- * We clear the now-dead NextAuth session via `signOut({redirect:false})`
- * so subsequent calls don't keep retrying with the bad token. The
- * caller still sees the BccApiError thrown, so route-level error
- * boundaries can redirect to /login as needed.
+ * Token-expiry handling: a 401 on a request that carried a Bearer token
+ * means the server rejected that JWT, but it does NOT by itself mean the
+ * session is over. We ask `POST /auth/refresh` and let IT decide:
+ *
+ *   refreshed        → swap token, retry once, carry on.
+ *   rejected (401)   → proven dead; end the session (single-flight).
+ *   standing-refused → the account is not in good standing. Session
+ *                      KEPT: signing out would hide the explanation.
+ *   indeterminate    → 429 / 5xx / offline. Session KEPT; the original
+ *                      401 propagates so the UI shows a real error.
+ *
+ * A 401 on a request that carried NO token is an endpoint-specific
+ * denial and never touches the session. And a protected request is never
+ * retried with a token the server has already refused.
  */
 export async function bccFetchAsClient<T>(
   path: string,
@@ -267,45 +279,96 @@ export async function bccFetchAsClient<T>(
     typeof session.bccTokenExpiresAt === "number" &&
     Date.now() >= session.bccTokenExpiresAt;
 
+  // Captured BEFORE the request fires. If the boundary moves while this
+  // is in flight, the response belongs to a viewer who is no longer
+  // here and must not be handed back — see isStaleEpoch below.
+  const epochAtDispatch = currentViewerEpoch();
+
   let effectiveToken = sessionToken;
   if (sessionExpired && sessionToken !== null) {
-    // Pre-emptive refresh: NextAuth says the bearer is dead. Try to
-    // mint a fresh one BEFORE the fetch. If refresh succeeds, the
-    // SPA never sees a 401; if it fails, signOut and let the call
-    // proceed anonymously (the caller will surface whatever the
-    // endpoint returns — typically bcc_unauthorized).
+    // Pre-emptive refresh: NextAuth says the bearer is past its expiry.
+    // Try to mint a fresh one BEFORE the fetch, so the SPA never sees a
+    // 401 in the common case.
     const refreshed = await tryRefresh(sessionToken);
-    if (refreshed === null) {
-      await signOut({ redirect: false });
+    if (refreshed.kind === "refreshed") {
+      effectiveToken = refreshed.token;
+    } else if (refreshed.kind === "rejected") {
+      // Proven dead. End the session once (single-flight) and send the
+      // request anonymously so the caller still gets a real answer.
+      void endSession("expired");
       effectiveToken = null;
     } else {
-      effectiveToken = refreshed;
+      // standing-refused or indeterminate: the session stays. Drop the
+      // token for THIS request rather than retrying a protected call
+      // with a bearer the server has already refused — the endpoint's
+      // own 401/403 is the honest answer to surface.
+      effectiveToken = null;
     }
   }
 
   try {
-    return await bccFetch<T>(path, {
+    const result = await bccFetch<T>(path, {
       ...options,
       token: effectiveToken,
     });
+    // A response to a request made with the PREVIOUS viewer's bearer
+    // must not reach the caller, however late it arrives. React Query's
+    // cancellation handles most of these; this is the backstop for the
+    // ones that resolve before the abort lands.
+    if (effectiveToken !== null && isStaleEpoch(epochAtDispatch)) {
+      throw new StaleViewerError(path);
+    }
+    return result;
   } catch (err) {
-    if (!(err instanceof BccApiError) || err.status !== 401 || !hadSessionToken) {
+    if (err instanceof StaleViewerError) {
       throw err;
     }
-    // Reactive 401: server rejected our bearer, but NextAuth didn't
-    // know it was dead yet. Attempt one refresh-then-retry before
-    // signOut. We only do this once — if the retry ALSO 401s, the
-    // refresh-then-retry path won't fire again because the retry
-    // path uses bccFetch directly (no recursion into bccFetchAsClient).
+    if (!(err instanceof BccApiError) || err.status !== 401 || !hadSessionToken) {
+      // Not an auth failure, or the request was anonymous to begin with.
+      // An anonymous 401 is an endpoint-specific denial, never a reason
+      // to tear down a session that may not even exist.
+      throw err;
+    }
+
+    // Reactive 401: the server rejected a bearer NextAuth still believed
+    // in. One refresh attempt, then classify.
     const tokenToRefresh = effectiveToken ?? sessionToken;
     if (tokenToRefresh !== null) {
       const refreshed = await tryRefresh(tokenToRefresh);
-      if (refreshed !== null) {
-        return await bccFetch<T>(path, { ...options, token: refreshed });
+      if (refreshed.kind === "refreshed") {
+        const retried = await bccFetch<T>(path, {
+          ...options,
+          token: refreshed.token,
+        });
+        if (isStaleEpoch(epochAtDispatch)) {
+          throw new StaleViewerError(path);
+        }
+        return retried;
       }
+      if (refreshed.kind === "rejected") {
+        // The only branch that ends a session. Single-flight, so a burst
+        // of simultaneous 401s produces exactly one teardown.
+        void endSession("expired");
+      }
+      // standing-refused / indeterminate: session retained, and we do
+      // NOT retry with the rejected token. The original 401 propagates.
     }
-    await signOut({ redirect: false });
     throw err;
+  }
+}
+
+/**
+ * Thrown when a response arrives for a request issued by a viewer who
+ * has since been torn down. Callers should discard it; React Query
+ * treats it as an ordinary rejection, and the query is already gone
+ * from the cache by then.
+ */
+export class StaleViewerError extends Error {
+  public readonly path: string;
+  constructor(path: string) {
+    super(`[bcc] discarded a response for a previous viewer: ${path}`);
+    this.name = "StaleViewerError";
+    this.path = path;
   }
 }
 
@@ -321,23 +384,68 @@ export async function bccFetchAsClient<T>(
  *     uses the new token; subsequent calls would just re-refresh.
  *   - Returns the new token string.
  *
- * On any failure: returns null. The caller treats null the same as
- * a hard auth failure (signOut + propagate the original 401).
+ * Returns a discriminated `RefreshResult` rather than `string | null`,
+ * because the caller's decision differs per failure: only a definitive
+ * server rejection may end a session. Collapsing 429/5xx/offline into
+ * the same `null` is what used to log people out over a flaky network.
  *
  * Uses a raw `fetch` directly (NOT bccFetch) so this can be called
  * from inside bccFetchAsClient's 401 handler without recursion risk.
  * Tolerates any response shape that has data.token + data.expires_in.
  */
-async function tryRefresh(currentToken: string): Promise<string | null> {
+export type RefreshResult =
+  /** A fresh bearer. Swap to it and carry on. */
+  | { kind: "refreshed"; token: string }
+  /**
+   * The SERVER says this bearer cannot be refreshed — past the grace
+   * window, or revoked by a password change / "sign out everywhere".
+   * This is the only outcome that may end a session.
+   */
+  | { kind: "rejected" }
+  /**
+   * The account is no longer in good standing. A real state change, but
+   * NOT an expired session: signing the viewer out would hide the very
+   * explanation they need. Keep the session; surface the error.
+   */
+  | { kind: "standing-refused" }
+  /**
+   * We do not know. Rate limited, 5xx, offline, aborted, or a malformed
+   * body. Keep the session and let the caller surface the original
+   * error — a flaky network must never look like a logout.
+   */
+  | { kind: "indeterminate" };
+
+async function tryRefresh(currentToken: string): Promise<RefreshResult> {
+  let r: Response;
   try {
-    const r = await fetch(`${clientEnv.BCC_API_URL}/wp-json/bcc/v1/auth/refresh`, {
+    r = await fetch(`${clientEnv.BCC_API_URL}/wp-json/bcc/v1/auth/refresh`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${currentToken}`,
         Accept: "application/json",
       },
     });
-    if (!r.ok) return null;
+  } catch {
+    // Network failure / abort — no information about the token at all.
+    return { kind: "indeterminate" };
+  }
+
+  if (!r.ok) {
+    // Classify from the real codes POST /auth/refresh returns
+    // (SessionController.php:154-192):
+    //   401 bcc_unauthorized  — "Token cannot be refreshed."  → rejected
+    //   403 bcc_forbidden     — "Account is not in good standing."
+    //   429 bcc_rate_limited  — too many refresh attempts
+    //   5xx / anything else   — server trouble
+    if (r.status === 403) {
+      return { kind: "standing-refused" };
+    }
+    if (r.status === 401) {
+      return { kind: "rejected" };
+    }
+    return { kind: "indeterminate" };
+  }
+  try {
     const body = (await r.json().catch(() => null)) as
       | { data?: { token?: unknown; expires_in?: unknown } }
       | null;
@@ -349,7 +457,11 @@ async function tryRefresh(currentToken: string): Promise<string | null> {
       typeof body?.data?.expires_in === "number" && body.data.expires_in > 0
         ? body.data.expires_in
         : null;
-    if (newToken === null || expiresIn === null) return null;
+    if (newToken === null || expiresIn === null) {
+      // 200 with an unusable body — server trouble, not a verdict
+      // on the token. Do not end the session over it.
+      return { kind: "indeterminate" };
+    }
 
     const newExpiresAt = Date.now() + expiresIn * 1000;
 
@@ -397,10 +509,34 @@ async function tryRefresh(currentToken: string): Promise<string | null> {
       // the cost is one extra refresh round-trip on the next call.
     }
 
-    return newToken;
+    return { kind: "refreshed", token: newToken };
   } catch {
-    return null;
+    return { kind: "indeterminate" };
   }
+}
+
+/**
+ * Shared auth-failure classifier for the OTHER client in this app
+ * (`bcc-trust-client`), so the two cannot drift apart on the one decision
+ * that matters: when a 401 ends a session.
+ *
+ * Returns a fresh bearer to retry with, or `null` meaning "do not retry".
+ * A `null` does NOT imply the session ended — only a definitive server
+ * rejection does that, and this function has already handled it.
+ */
+export async function resolveAuthFailure(
+  token: string,
+): Promise<string | null> {
+  const refreshed = await tryRefresh(token);
+  if (refreshed.kind === "refreshed") {
+    return refreshed.token;
+  }
+  if (refreshed.kind === "rejected") {
+    void endSession("expired");
+  }
+  // standing-refused / indeterminate: session retained on purpose, and
+  // the caller must not reuse the refused token.
+  return null;
 }
 
 // =====================================================================
