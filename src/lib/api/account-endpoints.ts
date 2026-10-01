@@ -44,8 +44,26 @@ export interface PatchAccountPasswordBody {
   password: string;
 }
 
+/**
+ * The server does NOT just acknowledge. `wp_set_password` destroys every
+ * WP session token and `JwtToken::revokeAllForUser` bumps the per-user
+ * token version, invalidating every outstanding bearer INCLUDING the
+ * caller's — so it mints a replacement for the current session and
+ * returns it here. docs/api-contract-v1.md:4439: "bearer clients must
+ * swap to it."
+ *
+ * This interface used to stop at `{ ok: true }`, so the replacement was
+ * parsed away and discarded. The held token could not even be refreshed
+ * (`decodeForRefresh` shares the revoked check), so the next authed call
+ * 401'd and the viewer was signed out moments after being told "Saved".
+ */
 export interface PatchAccountPasswordResponse {
   ok: true;
+  /** Replacement bearer for THIS session. A live credential — never log or store it. */
+  token: string;
+  /** Seconds until the replacement expires (JwtToken::TTL_SECONDS). */
+  expires_in: number;
+  token_type: "Bearer";
 }
 
 export interface DeleteAccountBody {

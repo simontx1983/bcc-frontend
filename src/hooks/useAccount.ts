@@ -17,6 +17,7 @@
  */
 
 import { endSession } from "@/lib/auth/session-boundary";
+import { updateSessionBearer } from "@/lib/auth/session-update";
 import {
   keepPreviousData,
   useMutation,
@@ -57,14 +58,45 @@ export function useChangeAccountEmail(
   });
 }
 
+/**
+ * Outcome of a password change. TWO independent facts, deliberately not
+ * collapsed into one:
+ *
+ *   passwordChanged  — the server accepted it. Once true it is permanent;
+ *                      the old password no longer works, whatever else
+ *                      happens afterwards.
+ *   sessionRestored  — the replacement bearer landed in the NextAuth
+ *                      session, so the viewer stays signed in.
+ *
+ * Reporting the second as if it implied the first (or vice versa) is the
+ * defect being fixed: the UI used to say "Saved" and then start 401-ing.
+ */
+export interface ChangePasswordOutcome {
+  passwordChanged: true;
+  sessionRestored: boolean;
+}
+
 export function useChangeAccountPassword(
   options: Omit<
-    UseMutationOptions<PatchAccountPasswordResponse, BccApiError | Error, PatchAccountPasswordBody>,
+    UseMutationOptions<ChangePasswordOutcome, BccApiError | Error, PatchAccountPasswordBody>,
     "mutationFn"
   > = {},
 ) {
-  return useMutation<PatchAccountPasswordResponse, BccApiError | Error, PatchAccountPasswordBody>({
-    mutationFn: (body) => patchAccountPassword(body),
+  return useMutation<ChangePasswordOutcome, BccApiError | Error, PatchAccountPasswordBody>({
+    mutationFn: async (body) => {
+      const res: PatchAccountPasswordResponse = await patchAccountPassword(body);
+
+      // Past this line the password HAS changed. A failure from here on
+      // must never be surfaced as "the change failed", because retrying
+      // with the old current_password would now be rejected and the
+      // viewer would conclude something worse had gone wrong.
+      const sessionRestored = await updateSessionBearer({
+        token: res.token,
+        expiresIn: res.expires_in,
+      });
+
+      return { passwordChanged: true, sessionRestored };
+    },
     ...options,
   });
 }

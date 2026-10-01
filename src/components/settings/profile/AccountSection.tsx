@@ -171,17 +171,30 @@ function ChangePasswordCard() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [savedAt, setSavedAt] = useState<number | null>(null);
   const [serverError, setServerError] = useState<string | null>(null);
+  // "The password changed but we could not keep you signed in." Distinct
+  // from both success and failure, because it is BOTH: the credential is
+  // already rotated, and the session is not recoverable from here.
+  const [sessionLost, setSessionLost] = useState(false);
 
   const mutation = useChangeAccountPassword({
-    onSuccess: () => {
-      setSavedAt(Date.now());
+    onSuccess: (outcome) => {
       setServerError(null);
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
+      if (outcome.sessionRestored) {
+        setSavedAt(Date.now());
+        setSessionLost(false);
+        return;
+      }
+      // Do NOT show the ordinary "Saved" affordance: it would imply the
+      // viewer can carry on, and their next authed read will 401.
+      setSavedAt(null);
+      setSessionLost(true);
     },
     onError: (err) => {
       setSavedAt(null);
+      setSessionLost(false);
       setServerError(humanizeError(err));
     },
   });
@@ -205,11 +218,36 @@ function ChangePasswordCard() {
     matches &&
     !mutation.isPending;
 
+  if (sessionLost) {
+    return (
+      <section className="bcc-panel p-5">
+        <h3 className="bcc-stencil text-lg text-bcc-text">Password changed</h3>
+        <p role="alert" className="bcc-mono mt-2 text-[11px] text-bcc-text-secondary">
+          Your password was changed successfully. We couldn&apos;t keep this
+          device signed in, so you&apos;ll need to sign in again with your new
+          password.
+        </p>
+        {/* No password fields and no retry: the change already succeeded,
+            and offering the form again would invite a second submission
+            whose current_password is now the OLD one — which would fail
+            and read as "the change did not work". A sign-in link is the
+            only honest next step. */}
+        <a
+          href="/login"
+          className="bcc-auth-submit mt-4 inline-flex items-center justify-center"
+        >
+          Sign in again
+        </a>
+      </section>
+    );
+  }
+
   return (
     <section className="bcc-panel p-5">
       <h3 className="bcc-stencil text-lg text-bcc-text">Change password</h3>
       <p id={helpId} className="bcc-mono mt-1 text-[10px] text-bcc-text-secondary">
-        At least 10 characters. We&apos;ll re-establish your session afterwards.
+        At least 10 characters. Every other signed-in device is signed out;
+        this one stays signed in.
       </p>
 
       <form
