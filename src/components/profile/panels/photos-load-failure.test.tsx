@@ -209,7 +209,14 @@ describe("AllPhotos — failed LOAD MORE", () => {
     });
     render(<PhotosPanel handle="ada" />);
     expect(screen.getByRole("alert")).toBeInTheDocument();
-    expect(screen.queryByText(/no photos/i)).not.toBeInTheDocument();
+    // "No photos yet." is the TERMINAL claim — the wall has none. That is
+    // what a failure must never assert, and it is what this pins.
+    //
+    // It no longer forbids the word "photos" outright: with pages still
+    // unfetched the panel now says "No photos in the posts loaded so
+    // far", which is the honest reading of a filtered grid over an
+    // unfinished stream and is not the success-only state.
+    expect(screen.queryByText(/no photos yet/i)).not.toBeInTheDocument();
   });
 });
 
@@ -436,7 +443,9 @@ describe("AllPhotos — failed REFRESH of loaded pages", () => {
     });
     render(<PhotosPanel handle="ada" />);
     expect(screen.getByRole("alert")).toBeInTheDocument();
-    expect(screen.queryByText(/no photos/i)).not.toBeInTheDocument();
+    // Same narrowing as the failed-LOAD-MORE case above: the terminal
+    // claim stays forbidden; the "loaded so far" reading does not.
+    expect(screen.queryByText(/no photos yet/i)).not.toBeInTheDocument();
   });
 
   it("recovery restores the grid without duplicating or erasing photos", () => {

@@ -14,12 +14,15 @@
  *
  * States:
  *   - loading-initial → skeleton row
- *   - error           → silent panel ("couldn't load")
+ *   - first-load error → shared LoadFailure with a real Retry
  *   - empty (creator has no indexed collections yet)
  *                     → "Coming soon" panel referencing the SWR hint
  *   - empty + stale   → "Pulling from-chain… check back shortly"
  *   - has-data        → grid + (if stale) a soft "Refreshing…" badge
  *                       + Load more button when has_more
+ *   - has-data + a later failure
+ *                     → the grid STAYS, with a LoadFailure whose retry
+ *                       matches the failure (see the branch comment)
  *
  * The empty + stale path is the dominant first-time experience for
  * a creator whose page just got claimed: the server's first read
@@ -28,6 +31,7 @@
  */
 
 import { useCreatorGallery } from "@/hooks/useCreatorGallery";
+import { LoadFailure } from "@/components/ui/LoadFailure";
 import { SKELETON_CLASS } from "@/components/ui/Skeleton";
 import type { CreatorGalleryItem } from "@/lib/api/types";
 
@@ -40,14 +44,31 @@ interface CreatorGalleryProps {
 export function CreatorGallery({ slug, creatorName }: CreatorGalleryProps) {
   const query = useCreatorGallery({ slug });
 
-  if (query.isError) {
+  const failureCopy =
+    "Couldn't load this creator's gallery right now. Try again in a moment.";
+
+  // Which failure this is decides what survives and what Retry must call.
+  // A blanket `isError` is true for all three, and this component used to
+  // branch on it BEFORE reading `data.pages` — so one failed LOAD MORE
+  // replaced the whole loaded grid with a dead-end panel that had no
+  // retry control at all, leaving a page reload as the only recovery.
+  //
+  //   isLoadingError       — the FIRST fetch failed; nothing to keep,
+  //                          recovery is refetch().
+  //   isFetchNextPageError — a LOAD MORE failed; `data.pages` still holds
+  //                          every page fetched, recovery is
+  //                          fetchNextPage() on the SAME page param.
+  //   isRefetchError       — a refresh of the loaded pages failed. Reachable
+  //                          without any user action: useCreatorGallery
+  //                          overrides the app-wide refetchOnWindowFocus
+  //                          to true, so returning to the tab past the 60s
+  //                          staleTime refetches every loaded page.
+  //
+  // Mirrors PhotosPanel and UserBlogList, which already discriminate.
+  if (query.isLoadingError) {
     return (
       <GalleryShell title="The Gallery">
-        <div className="bcc-panel mx-auto max-w-md p-6 text-center">
-          <p className="font-serif text-sm text-bcc-text-secondary">
-            Couldn&rsquo;t load this creator&rsquo;s gallery right now. Try again in a moment.
-          </p>
-        </div>
+        <LoadFailure message={failureCopy} onRetry={() => void query.refetch()} />
       </GalleryShell>
     );
   }
@@ -76,7 +97,9 @@ export function CreatorGallery({ slug, creatorName }: CreatorGalleryProps) {
   const isStale = pages[0]?.is_stale ?? false;
   const totalCount = pages[0]?.pagination.total ?? 0;
 
-  if (items.length === 0) {
+  // Empty stays success-only: neither a failed next page nor a failed
+  // refresh means this creator has nothing indexed.
+  if (items.length === 0 && !query.isError) {
     return (
       <GalleryShell title="The Gallery">
         <div className="bcc-panel mx-auto max-w-lg p-8 text-center">
@@ -110,22 +133,39 @@ export function CreatorGallery({ slug, creatorName }: CreatorGalleryProps) {
         ))}
       </ul>
 
-      {query.hasNextPage && (
-        <div className="mt-6 flex justify-center">
-          <button
-            type="button"
-            onClick={() => void query.fetchNextPage()}
-            disabled={query.isFetchingNextPage}
-            className={
-              "bcc-stencil rounded-sm px-6 py-3 text-[12px] tracking-[0.2em] transition " +
-              (query.isFetchingNextPage
-                ? "cursor-wait bg-bcc-surface-active text-bcc-text-muted"
-                : "bg-ink text-cardstock hover:bg-ink-soft")
-            }
-          >
-            {query.isFetchingNextPage ? "LOADING…" : "LOAD MORE"}
-          </button>
-        </div>
+      {/* A failed REFRESH is not a failed cursor. The retained pages and
+          the page param derived from the last of them are still coherent,
+          so advancing cannot skip anything — LOAD MORE deliberately stays
+          available below, and this control refetches. */}
+      {query.isRefetchError && (
+        <LoadFailure message={failureCopy} onRetry={() => void query.refetch()} />
+      )}
+
+      {/* Cursor safety: while the NEXT page is failed, LOAD MORE is
+          withdrawn so it cannot advance past — and skip — the page that
+          failed. Retry re-requests that same page param via
+          fetchNextPage(); ordinary paging returns once the query is
+          progressing again and there is still a next page. */}
+      {query.isFetchNextPageError ? (
+        <LoadFailure message={failureCopy} onRetry={() => void query.fetchNextPage()} />
+      ) : (
+        query.hasNextPage && (
+          <div className="mt-6 flex justify-center">
+            <button
+              type="button"
+              onClick={() => void query.fetchNextPage()}
+              disabled={query.isFetchingNextPage}
+              className={
+                "bcc-stencil rounded-sm px-6 py-3 text-[12px] tracking-[0.2em] transition " +
+                (query.isFetchingNextPage
+                  ? "cursor-wait bg-bcc-surface-active text-bcc-text-muted"
+                  : "bg-ink text-cardstock hover:bg-ink-soft")
+              }
+            >
+              {query.isFetchingNextPage ? "LOADING…" : "LOAD MORE"}
+            </button>
+          </div>
+        )
       )}
     </GalleryShell>
   );
