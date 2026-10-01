@@ -142,7 +142,11 @@ export interface SessionEndOptions {
 }
 
 /** The slugs this module may emit. Keep in sync with AuthRedirectNotice. */
-export type AuthNoticeSlug = "signed-out" | "standing" | "push-cleanup";
+export type AuthNoticeSlug =
+  | "signed-out"
+  | "standing"
+  | "push-cleanup"
+  | "password-changed";
 
 export interface SessionTeardownHandlers {
   /**
@@ -253,6 +257,34 @@ export function registerSessionRecheck(fn: () => void): () => void {
 
 export function requestSessionRecheck(): void {
   recheck?.();
+}
+
+/**
+ * A notice parked by the surface that knows WHY the session is about to
+ * end, for a teardown it does not itself trigger.
+ *
+ * Needed because a session can be in a known-doomed state for a while
+ * before anything tears it down. After a password change whose session
+ * update failed, the NextAuth session still holds the REVOKED bearer, so
+ * the next authed poll 401s — the badges query alone polls every 30–60s
+ * while visible, and refetches on window focus. That poll's teardown
+ * passes `notice: "signed-out"`, which would replace the accurate "your
+ * password changed, use the new one" with a generic "your session ended"
+ * — and a viewer who then tries their OLD password has every reason to
+ * believe the change failed.
+ *
+ * Parking the notice makes the explanation independent of which code path
+ * happens to win the race, since teardown is single-flight.
+ */
+let pendingNotice: AuthNoticeSlug | null = null;
+
+/**
+ * Park the notice a later, involuntary teardown should carry. Pass `null`
+ * to clear it. It outranks the `notice` passed to `endSession`, because
+ * whoever parked it knew something the generic 401 path cannot.
+ */
+export function setPendingAuthNotice(slug: AuthNoticeSlug | null): void {
+  pendingNotice = slug;
 }
 
 /**
@@ -489,15 +521,32 @@ function landingUrl(
   pushCleanup: PushCleanupOutcome,
 ): string {
   const base = opts?.callbackUrl ?? "/";
-  // An explicit notice wins; otherwise surface the push caveat, which is
-  // the only thing the viewer could not otherwise discover.
-  const slug: AuthNoticeSlug | null =
-    opts?.notice ?? (pushCleanupNeedsWarning(pushCleanup) ? "push-cleanup" : null);
-  if (slug === null) {
+  // Precedence: a parked notice outranks everything, because the surface
+  // that parked it knew why the session was doomed; then an explicit
+  // notice; then the push caveat on its own.
+  const primary: AuthNoticeSlug | null =
+    pendingNotice ??
+    opts?.notice ??
+    (pushCleanupNeedsWarning(pushCleanup) ? "push-cleanup" : null);
+
+  const params: string[] = [];
+  if (primary !== null) {
+    params.push(`authNotice=${primary}`);
+  }
+  // The push caveat used to be DROPPED whenever any explicit notice was
+  // given, because both competed for the single slug. It is the one thing
+  // the viewer cannot discover for themselves — their old account may
+  // keep receiving notifications on a shared device — so it now rides
+  // along as its own flag instead of losing the race.
+  if (primary !== "push-cleanup" && pushCleanupNeedsWarning(pushCleanup)) {
+    params.push("authNoticePush=1");
+  }
+
+  if (params.length === 0) {
     return base;
   }
   const joiner = base.includes("?") ? "&" : "?";
-  return `${base}${joiner}authNotice=${slug}`;
+  return `${base}${joiner}${params.join("&")}`;
 }
 
 /**
@@ -642,5 +691,6 @@ export function __resetSessionBoundaryForTests(): void {
   failedTeardown = null;
   sessionUnknown = false;
   recheck = null;
+  pendingNotice = null;
   gateListeners.clear();
 }

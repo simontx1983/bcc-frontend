@@ -26,7 +26,10 @@ import {
   useChangeAccountPassword,
 } from "@/hooks/useAccount";
 import { BccApiError } from "@/lib/api/types";
-import { endSession } from "@/lib/auth/session-boundary";
+import {
+  endSession,
+  setPendingAuthNotice,
+} from "@/lib/auth/session-boundary";
 
 const ERROR_COPY: Record<string, string> = {
   bcc_invalid_request:    "Check the values and try again.",
@@ -48,6 +51,34 @@ function humanizeError(err: BccApiError | Error): string {
     return ERROR_COPY[err.code] ?? "Something went wrong. Try again.";
   }
   return "Something went wrong. Try again.";
+}
+
+/**
+ * Password-change errors specifically, because this is the one mutation
+ * where "it failed" may be WRONG.
+ *
+ * Everything after `patchAccountPassword` resolves is already fenced off
+ * from the failure path. A throw FROM it is the remaining ambiguity: the
+ * server commits the rotation and sends the notification email before the
+ * response is written, so a dropped connection, or a 200 whose body is not
+ * our envelope (a CDN interstitial, a PHP notice prefixed to the JSON),
+ * reaches us as an error with the credential ALREADY CHANGED.
+ *
+ * Saying "try again" there invites a resubmission whose `current_password`
+ * is now the old one. That is rejected, and the viewer reasonably concludes
+ * the change never worked — while every other device has been signed out.
+ * So these cases say what is known and point at the email, which has
+ * already been sent and is a reliable tiebreaker.
+ */
+function humanizePasswordError(err: BccApiError | Error): string {
+  const indeterminate =
+    !(err instanceof BccApiError) ||
+    err.code === "bcc_invalid_response" ||
+    err.code === "bcc_invalid_envelope";
+  if (indeterminate) {
+    return "We couldn't confirm whether the change went through. Check your email for a password-change notice, and try signing in with your new password before changing it again.";
+  }
+  return humanizeError(err);
 }
 
 interface AccountSectionProps {
@@ -186,17 +217,28 @@ function ChangePasswordCard() {
       if (outcome.sessionRestored) {
         setSavedAt(Date.now());
         setSessionLost(false);
+        setPendingAuthNotice(null);
         return;
       }
       // Do NOT show the ordinary "Saved" affordance: it would imply the
       // viewer can carry on, and their next authed read will 401.
       setSavedAt(null);
       setSessionLost(true);
+      // Park the explanation for a teardown this component will not
+      // trigger. The session still holds the REVOKED bearer, so the next
+      // authed poll 401s and ends it — the badges query alone polls every
+      // 30-60s while visible and refetches on window focus. That path
+      // passes `notice: "signed-out"`, which would tell the viewer their
+      // session ended and say nothing about the password having changed;
+      // someone who then tries their OLD password concludes the change
+      // failed. Parked, the accurate notice wins whichever path gets
+      // there first.
+      setPendingAuthNotice("password-changed");
     },
     onError: (err) => {
       setSavedAt(null);
       setSessionLost(false);
-      setServerError(humanizeError(err));
+      setServerError(humanizePasswordError(err));
     },
   });
 

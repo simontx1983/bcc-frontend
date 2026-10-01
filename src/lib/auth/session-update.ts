@@ -95,11 +95,38 @@ export async function updateSessionBearer(
       }),
     });
 
-    // A non-2xx means the merge did not happen. Note that a 200 is
-    // necessary but not sufficient — NextAuth answers 200 for a write it
-    // silently dropped — which is exactly why the csrfToken and the
-    // `data:` wrapper above are not optional.
-    return resp.ok;
+    // A non-2xx means the merge did not happen — including a CSRF
+    // failure, which next-auth answers with 400.
+    if (!resp.ok) {
+      return false;
+    }
+
+    // A 200 is necessary but NOT sufficient, and `resp.ok` alone was a
+    // real defect. Verified in next-auth 4.24.14:
+    //
+    //   core/routes/session.js:43   `if (!sessionToken) return response` —
+    //                               no cookie, nothing written.
+    //   core/routes/session.js:88   the JWT-strategy catch: it logs
+    //                               JWT_SESSION_ERROR and pushes
+    //                               sessionStore.clean(), whose cookies
+    //                               carry maxAge 0 (core/lib/cookie.js:169)
+    //                               — so it DELETES the session.
+    //   next/utils.js:55            `status = res.status ?? 200`.
+    //
+    // Neither path sets a status, so both answer **200 with no body**. The
+    // second is the dangerous one: the session is gone, yet the caller
+    // would be told the bearer was adopted, show "Saved", and leave this
+    // device rendering the previous viewer's private payloads until some
+    // later poll 401s.
+    //
+    // The success path sets `response.body = updatedSession`, and this
+    // app's `session` callback copies `bccToken` onto it (lib/auth.ts), so
+    // the merged token echoed back is the one unambiguous success signal.
+    // Compared, never logged.
+    const merged = (await resp.json().catch(() => null)) as
+      | { bccToken?: unknown }
+      | null;
+    return merged?.bccToken === update.token;
   } catch {
     // Network failure, abort, or a non-JSON csrf response.
     return false;

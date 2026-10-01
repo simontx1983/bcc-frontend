@@ -33,6 +33,15 @@ function stubFetch(opts: {
   csrfStatus?: number;
   sessionStatus?: number;
   csrfThrows?: boolean;
+  /**
+   * Raw body for the session POST. Omitted means the REAL success shape:
+   * next-auth sets `response.body = updatedSession`, and this app's
+   * session callback copies bccToken onto it, so a genuine merge echoes
+   * the token back. Pass "{}" to model either of next-auth's silent
+   * no-op paths (absent cookie, or the JWT catch that also DELETES the
+   * session) — both of which answer 200 with no body.
+   */
+  sessionBody?: string;
 }): Call[] {
   const calls: Call[] = [];
   vi.stubGlobal(
@@ -49,7 +58,23 @@ function stubFetch(opts: {
           headers: { "Content-Type": "application/json" },
         });
       }
-      return new Response("{}", { status: opts.sessionStatus ?? 200 });
+      if (opts.sessionBody !== undefined) {
+        return new Response(opts.sessionBody, {
+          status: opts.sessionStatus ?? 200,
+        });
+      }
+      // Echo the merged bearer back, as a real successful write does.
+      const sent = JSON.parse(String(init?.body ?? "{}")) as {
+        data?: { bccToken?: unknown };
+      };
+      return new Response(
+        JSON.stringify({
+          user: { name: "fixture" },
+          expires: new Date(Date.now() + 86_400_000).toISOString(),
+          bccToken: sent.data?.bccToken,
+        }),
+        { status: opts.sessionStatus ?? 200 },
+      );
     }),
   );
   return calls;
@@ -219,5 +244,54 @@ describe("the token is validated by TYPE, not just by value", () => {
     });
     const post = calls.find((c) => c.url.includes("/api/auth/session"));
     expect(post).toBeUndefined();
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────
+// A 200 is NOT sufficient — next-auth answers 200 for writes it dropped
+// ─────────────────────────────────────────────────────────────────────
+
+describe("a 200 that did not actually merge", () => {
+  it("is reported as FAILURE when the body carries no merged bearer", async () => {
+    // next-auth core/routes/session.js:43 — no session cookie, so it
+    // returns the response untouched: 200, no body. Trusting `resp.ok`
+    // here told the UI "Saved" while nothing had changed.
+    stubFetch({ sessionBody: "{}" });
+    await expect(updateSessionBearer(UPDATE)).resolves.toBe(false);
+  });
+
+  it("is reported as FAILURE on the JWT-error path, which DELETES the session", async () => {
+    // core/routes/session.js:88 — the catch logs JWT_SESSION_ERROR and
+    // pushes sessionStore.clean(), whose cookies carry maxAge 0. Still
+    // 200. This is the dangerous one: reporting success would leave the
+    // device rendering private data with no session at all.
+    stubFetch({ sessionBody: "" });
+    await expect(updateSessionBearer(UPDATE)).resolves.toBe(false);
+  });
+
+  it("is reported as FAILURE when the echoed bearer is a DIFFERENT token", async () => {
+    stubFetch({ sessionBody: JSON.stringify({ bccToken: "some-other-jwt" }) });
+    await expect(updateSessionBearer(UPDATE)).resolves.toBe(false);
+  });
+
+  it("is reported as FAILURE when the body is not JSON at all", async () => {
+    stubFetch({ sessionBody: "<html>gateway timeout</html>" });
+    await expect(updateSessionBearer(UPDATE)).resolves.toBe(false);
+  });
+
+  it("does not log the replacement bearer while checking it", async () => {
+    const spy = vi.spyOn(console, "log").mockImplementation(() => {});
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    stubFetch({});
+    await updateSessionBearer(UPDATE);
+    for (const s of [spy, warn, error]) {
+      for (const call of s.mock.calls) {
+        expect(JSON.stringify(call)).not.toContain(UPDATE.token);
+      }
+    }
+    spy.mockRestore();
+    warn.mockRestore();
+    error.mockRestore();
   });
 });

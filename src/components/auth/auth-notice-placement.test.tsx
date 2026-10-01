@@ -28,6 +28,22 @@ vi.mock("next/navigation", () => ({
   useSearchParams: () => search,
 }));
 
+// jsdom has no IntersectionObserver, and MinimalShell (the (auth) shell)
+// uses one. Stubbed rather than mocking the shell away, so the test keeps
+// rendering the REAL layout.
+class NoopIntersectionObserver {
+  observe(): void {}
+  unobserve(): void {}
+  disconnect(): void {}
+  takeRecords(): [] {
+    return [];
+  }
+  readonly root = null;
+  readonly rootMargin = "";
+  readonly thresholds: readonly number[] = [];
+}
+vi.stubGlobal("IntersectionObserver", NoopIntersectionObserver);
+
 beforeEach(() => {
   replace.mockClear();
   search = new URLSearchParams();
@@ -137,5 +153,82 @@ describe("prototype keys are not copy", () => {
       render(<MainLayout>{<p>landing</p>}</MainLayout>),
     ).not.toThrow();
     expect(screen.queryByRole("status")).toBeNull();
+  });
+});
+
+// (auth) is a LANDING TARGET too, not just somewhere people navigate
+// ─────────────────────────────────────────────────────────────────────
+
+describe("the (auth) group", () => {
+  it("renders the notice, because endSession can land on /login", async () => {
+    // `endSession({ callbackUrl: "/login" })` — the password-change
+    // recovery path — lands in (auth), which is a SIBLING of (main), so
+    // the (main) mount cannot cover it. Without this the explanation
+    // renders nowhere and the param is not even scrubbed.
+    search = new URLSearchParams("authNotice=password-changed");
+    const { default: AuthLayout } = await import("@/app/(auth)/layout");
+    render(<AuthLayout>{<p>sign-in form</p>}</AuthLayout>);
+
+    await waitFor(() => {
+      expect(screen.getByText(/your password was changed/i)).toBeInTheDocument();
+    });
+    expect(screen.getByText("sign-in form")).toBeInTheDocument();
+  });
+});
+
+describe("the password-changed slug", () => {
+  it("says the change LANDED and to use the new password", async () => {
+    search = new URLSearchParams("authNotice=password-changed");
+    render(<MainLayout>{<p>landing</p>}</MainLayout>);
+    await waitFor(() => {
+      expect(screen.getByRole("status")).toBeInTheDocument();
+    });
+    const copy = screen.getByRole("status").textContent ?? "";
+    // Both facts, because either alone misleads: without the first they
+    // may retry the old password; without the second they may try to
+    // change it again with a current_password that no longer works.
+    expect(copy).toMatch(/password was changed/i);
+    expect(copy).toMatch(/new password/i);
+    expect(copy).not.toMatch(/session ended/i);
+  });
+});
+
+describe("the push caveat rider", () => {
+  it("accompanies another reason instead of replacing it", async () => {
+    search = new URLSearchParams("authNotice=password-changed&authNoticePush=1");
+    render(<MainLayout>{<p>landing</p>}</MainLayout>);
+    await waitFor(() => {
+      expect(screen.getByRole("status")).toBeInTheDocument();
+    });
+    const copy = screen.getByRole("status").textContent ?? "";
+    expect(copy).toMatch(/password was changed/i);
+    expect(copy).toMatch(/switch off push notifications/i);
+  });
+
+  it("renders alone when it is the only thing to say", async () => {
+    search = new URLSearchParams("authNoticePush=1");
+    render(<MainLayout>{<p>landing</p>}</MainLayout>);
+    await waitFor(() => {
+      expect(
+        screen.getByText(/switch off push notifications/i),
+      ).toBeInTheDocument();
+    });
+  });
+
+  it("is scrubbed from the URL even without a primary slug", async () => {
+    search = new URLSearchParams("authNoticePush=1");
+    render(<MainLayout>{<p>landing</p>}</MainLayout>);
+    await waitFor(() => {
+      expect(replace).toHaveBeenCalledWith("/");
+    });
+  });
+
+  it("stays silent when the flag is absent", async () => {
+    search = new URLSearchParams("authNotice=standing");
+    render(<MainLayout>{<p>landing</p>}</MainLayout>);
+    await waitFor(() => {
+      expect(screen.getByRole("status")).toBeInTheDocument();
+    });
+    expect(screen.getByRole("status").textContent).not.toMatch(/push/i);
   });
 });

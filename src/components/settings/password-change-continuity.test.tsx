@@ -28,9 +28,11 @@ const updateSessionBearer = vi.fn<
   (u: { token: string; expiresIn: number }) => Promise<boolean>
 >();
 const endSession = vi.fn<(reason: string, opts?: unknown) => Promise<unknown>>();
+const setPendingAuthNotice = vi.fn<(slug: string | null) => void>();
 vi.mock("@/lib/auth/session-boundary", async (importOriginal) => ({
   ...(await importOriginal<typeof SessionBoundaryModule>()),
   endSession: (reason: string, opts?: unknown) => endSession(reason, opts),
+  setPendingAuthNotice: (slug: string | null) => setPendingAuthNotice(slug),
 }));
 vi.mock("@/lib/auth/session-update", () => ({
   updateSessionBearer: (u: { token: string; expiresIn: number }) =>
@@ -106,6 +108,7 @@ beforeEach(() => {
   updateSessionBearer.mockReset();
   endSession.mockReset();
   endSession.mockResolvedValue({});
+  setPendingAuthNotice.mockReset();
 });
 
 afterEach(() => {
@@ -300,5 +303,101 @@ describe("the bearer is not leaked", () => {
         expect(JSON.stringify(call)).not.toContain(SERVER_OK.token);
       }
     }
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────
+// The explanation must survive a teardown this component did not start
+// ─────────────────────────────────────────────────────────────────────
+
+describe("parking the accurate notice", () => {
+  it("parks password-changed as soon as the session is known to be lost", async () => {
+    // The session still holds the REVOKED bearer, so the next authed poll
+    // 401s and ends it — the badges query alone polls every 30-60s while
+    // visible. That path passes notice "signed-out", which says nothing
+    // about the password having changed; a viewer who then tries their OLD
+    // password concludes the change failed. Teardown is single-flight, so
+    // parking is what makes the accurate copy independent of the race.
+    patchAccountPassword.mockResolvedValue(SERVER_OK);
+    updateSessionBearer.mockResolvedValue(false);
+    mount();
+    submitPasswordChange();
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("heading", { name: /password changed/i }),
+      ).toBeInTheDocument();
+    });
+    expect(setPendingAuthNotice).toHaveBeenCalledWith("password-changed");
+  });
+
+  it("parks nothing when the session WAS restored", async () => {
+    patchAccountPassword.mockResolvedValue(SERVER_OK);
+    updateSessionBearer.mockResolvedValue(true);
+    mount();
+    submitPasswordChange();
+
+    await waitFor(() => {
+      expect(updateSessionBearer).toHaveBeenCalled();
+    });
+    expect(setPendingAuthNotice).not.toHaveBeenCalledWith("password-changed");
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────
+// A throw FROM the PATCH may still be post-commit
+// ─────────────────────────────────────────────────────────────────────
+
+describe("an indeterminate outcome is not called a failure", () => {
+  it("does not say 'try again' when the request itself threw", async () => {
+    // The server commits the rotation and sends the notification email
+    // before the response is written, so a dropped connection reaches us
+    // as an error with the credential ALREADY changed. "Try again" invites
+    // a resubmission whose current_password is now the old one.
+    patchAccountPassword.mockRejectedValue(new TypeError("Failed to fetch"));
+    mount();
+    submitPasswordChange();
+
+    await waitFor(() => {
+      expect(screen.getByRole("alert")).toBeInTheDocument();
+    });
+    const copy = screen.getByRole("alert").textContent ?? "";
+    expect(copy).toMatch(/couldn't confirm whether the change went through/i);
+    expect(copy).toMatch(/check your email/i);
+    expect(copy).not.toMatch(/^Something went wrong\. Try again\.$/);
+  });
+
+  it("treats an unparseable 200 body the same way", async () => {
+    const { BccApiError } = await import("@/lib/api/types");
+    patchAccountPassword.mockRejectedValue(
+      new BccApiError("bcc_invalid_response", "bad body", 200, null),
+    );
+    mount();
+    submitPasswordChange();
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(/couldn't confirm whether the change went through/i),
+      ).toBeInTheDocument();
+    });
+  });
+
+  it("still reports a DEFINITE rejection plainly", async () => {
+    // A wrong current_password is unambiguous: nothing was committed, and
+    // retrying is exactly the right advice.
+    const { BccApiError } = await import("@/lib/api/types");
+    patchAccountPassword.mockRejectedValue(
+      new BccApiError("bcc_invalid_request", "nope", 400, null),
+    );
+    mount();
+    submitPasswordChange();
+
+    await waitFor(() => {
+      expect(screen.getByRole("alert")).toBeInTheDocument();
+    });
+    const copy = screen.getByRole("alert").textContent ?? "";
+    expect(copy).not.toMatch(/couldn't confirm/i);
+    // And it must not claim the password changed.
+    expect(copy).not.toMatch(/was changed/i);
   });
 });

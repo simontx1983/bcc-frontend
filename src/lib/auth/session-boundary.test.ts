@@ -20,6 +20,7 @@ import {
   purgeViewerState,
   failedTeardownResult,
   registerSessionTeardown,
+  setPendingAuthNotice,
   subscribePrivateRenderGate,
   type PushCleanupOutcome,
   type SessionTeardownHandlers,
@@ -511,12 +512,66 @@ describe("the landing URL", () => {
     expect(signOutTargets).toEqual(["/"]);
   });
 
-  it("prefers an explicit notice over the push warning", async () => {
+  it("carries the push caveat ALONGSIDE an explicit notice", async () => {
+    // These used to compete for the single `authNotice` slug, so an
+    // explicit notice silently dropped the push warning — the one thing
+    // the viewer cannot discover for themselves.
     registerSessionTeardown(
       handlers({ revokePush: async () => "timed-out" }),
     );
     await endSession("expired", { notice: "standing" });
+    expect(signOutTargets).toEqual([
+      "/?authNotice=standing&authNoticePush=1",
+    ]);
+  });
+
+  it("does not add the rider when the push slug IS the notice", async () => {
+    registerSessionTeardown(
+      handlers({ revokePush: async () => "timed-out" }),
+    );
+    await endSession("expired");
+    expect(signOutTargets).toEqual(["/?authNotice=push-cleanup"]);
+  });
+
+  it("adds no rider when push cleanup succeeded", async () => {
+    registerSessionTeardown(
+      handlers({ revokePush: async () => "revoked" }),
+    );
+    await endSession("expired", { notice: "standing" });
     expect(signOutTargets).toEqual(["/?authNotice=standing"]);
+  });
+
+  it("a PARKED notice outranks the explicit one", async () => {
+    // The surface that parked it knew why the session was doomed; the
+    // generic 401 path does not.
+    registerSessionTeardown(handlers({}));
+    setPendingAuthNotice("password-changed");
+    await endSession("expired", { notice: "signed-out" });
+    expect(signOutTargets).toEqual(["/?authNotice=password-changed"]);
+  });
+
+  it("a parked notice still lets the push caveat ride along", async () => {
+    registerSessionTeardown(
+      handlers({ revokePush: async () => "unsubscribe-failed" }),
+    );
+    setPendingAuthNotice("password-changed");
+    await endSession("expired", { notice: "signed-out" });
+    expect(signOutTargets).toEqual([
+      "/?authNotice=password-changed&authNoticePush=1",
+    ]);
+  });
+
+  it("appends to a callbackUrl that already has a query", async () => {
+    registerSessionTeardown(
+      handlers({ revokePush: async () => "timed-out" }),
+    );
+    await endSession("user", {
+      notice: "standing",
+      callbackUrl: "/login?next=%2Fsettings",
+    });
+    expect(signOutTargets).toEqual([
+      "/login?next=%2Fsettings&authNotice=standing&authNoticePush=1",
+    ]);
   });
 });
 
