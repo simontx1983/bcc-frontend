@@ -220,11 +220,12 @@ function Body(props: BodyProps) {
         />
       ) : (
         hasMore && (
-          <div className="mt-6 text-center">
+          <div className="mt-6 flex justify-center">
+            {/* 44px minimum — px-4 py-2 at 10px left this ~30px tall. */}
             <button
               type="button"
               onClick={() => props.onLoadMore(nextOffset)}
-              className="bcc-mono border border-ink/30 bg-cardstock px-4 py-2 text-ink"
+              className="bcc-mono inline-flex min-h-[44px] items-center justify-center border border-ink/30 bg-cardstock px-4 text-ink"
               style={{ fontSize: "10px", letterSpacing: "0.18em" }}
             >
               LOAD MORE
@@ -252,7 +253,11 @@ function ViewToggle({
     <div
       role="group"
       aria-label="Watcher view"
-      className="bcc-mono flex items-center gap-1"
+      // `-my-3` cancels the 12px vertical padding `.bcc-paper-head` applies,
+      // so two 44x44 controls fit the strip at its existing height instead of
+      // growing it from ~43px to ~68px. The buttons stay inside the header's
+      // border box — they fill it exactly.
+      className="bcc-mono -my-3 flex items-center gap-1"
       style={{ fontSize: "10px", letterSpacing: "0.18em" }}
     >
       {options.map((opt, i) => {
@@ -269,7 +274,7 @@ function ViewToggle({
               onClick={() => onChange(opt.key)}
               aria-pressed={active}
               className={
-                "transition-colors " +
+                "inline-flex min-h-[44px] min-w-[44px] items-center justify-center transition-colors " +
                 (active ? "text-safety" : "text-cardstock-deep hover:text-cardstock")
               }
             >

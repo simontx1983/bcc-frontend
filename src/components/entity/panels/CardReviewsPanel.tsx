@@ -143,11 +143,14 @@ export function CardReviewsPanel({ kind, cardId, cardName }: CardReviewsPanelPro
           />
         ) : (
           hasMore && (
-            <div className="mt-6 text-center">
+            <div className="mt-6 flex justify-center">
+              {/* 44px minimum: this is the panel's only pagination control,
+                  and at 10px with no padding it was a ~13px-tall tap target.
+                  The label keeps its type scale — only the hit area grows. */}
               <button
                 type="button"
                 onClick={() => setPage(page + 1)}
-                className="bcc-mono text-safety hover:underline"
+                className="bcc-mono inline-flex min-h-[44px] items-center justify-center px-4 text-safety hover:underline"
                 style={{ fontSize: "10px", letterSpacing: "0.18em" }}
               >
                 LOAD MORE →
