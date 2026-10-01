@@ -213,10 +213,31 @@ describe("CardWatchersPanel — consecutive pages share a watcher", () => {
   });
 
   it("reports the server total, not the de-duplicated row count", () => {
-    // `total` is the server's count of the whole collection. Overlap shrinks
-    // what is RENDERED; it must not rewrite what the server said is on file.
+    // `total` is the server count for the WHOLE collection. Overlap shrinks
+    // what is rendered; it must not rewrite what the server said is on file.
+    //
+    // The two numbers are deliberately far apart. With the first fixture here
+    // the total (3) happened to equal the surviving row count (3), so this
+    // assertion passed even when the component was mutated to report
+    // `watchers.length` — it proved nothing. 30 on file, 3 rendered.
+    cardState.watchers = inf(
+      [
+        {
+          items: [card(1), card(2)],
+          pagination: { offset: 0, limit: 2, total: 30, has_more: true },
+        },
+        {
+          items: [card(2), card(3)],
+          pagination: { offset: 2, limit: 2, total: 30, has_more: false },
+        },
+      ],
+      "watchers",
+      false,
+    );
     render(ui());
-    expect(screen.getByText(/3 ON FILE/)).toBeInTheDocument();
+    expect(renderedIds(/Card (\d+)/)).toHaveLength(3);
+    expect(screen.getByText(/30 ON FILE/)).toBeInTheDocument();
+    expect(screen.queryByText(/^3 ON FILE/)).toBeNull();
   });
 });
 
