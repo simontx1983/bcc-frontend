@@ -27,12 +27,18 @@ vi.mock("@/lib/api/account-endpoints", async (importOriginal) => ({
 const updateSessionBearer = vi.fn<
   (u: { token: string; expiresIn: number }) => Promise<boolean>
 >();
+const endSession = vi.fn<(reason: string, opts?: unknown) => Promise<unknown>>();
+vi.mock("@/lib/auth/session-boundary", async (importOriginal) => ({
+  ...(await importOriginal<typeof SessionBoundaryModule>()),
+  endSession: (reason: string, opts?: unknown) => endSession(reason, opts),
+}));
 vi.mock("@/lib/auth/session-update", () => ({
   updateSessionBearer: (u: { token: string; expiresIn: number }) =>
     updateSessionBearer(u),
 }));
 
 import type * as AccountEndpointsModule from "@/lib/api/account-endpoints";
+import type * as SessionBoundaryModule from "@/lib/auth/session-boundary";
 import { AccountSection } from "@/components/settings/profile/AccountSection";
 
 /** What the server really returns. */
@@ -98,6 +104,8 @@ beforeAll(() => {
 beforeEach(() => {
   patchAccountPassword.mockReset();
   updateSessionBearer.mockReset();
+  endSession.mockReset();
+  endSession.mockResolvedValue({});
 });
 
 afterEach(() => {
@@ -152,18 +160,39 @@ describe("a FAILED session update is not reported as success", () => {
     expect(alert).toMatch(/sign in again/i);
   });
 
-  it("offers sign-in recovery", async () => {
+  it("offers sign-in recovery that actually reaches the login form", async () => {
+    // A plain <a href="/login"> was a DEAD END: login/page.tsx redirects any
+    // visitor holding a NextAuth session to /?authNotice=login, and in this
+    // state the cookie is still present — only the bearer is dead — so the
+    // link bounced straight back to the feed. Going through the session
+    // boundary ends the session first, which both reaches /login and clears
+    // this device's cached private data after a credential rotation.
     patchAccountPassword.mockResolvedValue(SERVER_OK);
     updateSessionBearer.mockResolvedValue(false);
     mount();
     submitPasswordChange();
 
     await waitFor(() => {
-      expect(screen.getByRole("link", { name: /sign in again/i })).toHaveAttribute(
-        "href",
-        "/login",
-      );
+      expect(
+        screen.getByRole("button", { name: /sign in again/i }),
+      ).toBeInTheDocument();
     });
+    fireEvent.click(screen.getByRole("button", { name: /sign in again/i }));
+    expect(endSession).toHaveBeenCalledWith("user", { callbackUrl: "/login" });
+  });
+
+  it("the recovery is NOT a bare link to /login", async () => {
+    patchAccountPassword.mockResolvedValue(SERVER_OK);
+    updateSessionBearer.mockResolvedValue(false);
+    mount();
+    submitPasswordChange();
+    await waitFor(() => {
+      expect(screen.getByText(/password changed/i)).toBeInTheDocument();
+    });
+    const link = screen
+      .queryAllByRole("link")
+      .find((a) => /sign in again/i.test(a.textContent ?? ""));
+    expect(link, "a plain link here would bounce off the /login guard").toBeUndefined();
   });
 
   it("does NOT re-offer the password form — a second submit would use the dead old password", async () => {

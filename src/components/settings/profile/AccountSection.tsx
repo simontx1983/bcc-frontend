@@ -26,6 +26,7 @@ import {
   useChangeAccountPassword,
 } from "@/hooks/useAccount";
 import { BccApiError } from "@/lib/api/types";
+import { endSession } from "@/lib/auth/session-boundary";
 
 const ERROR_COPY: Record<string, string> = {
   bcc_invalid_request:    "Check the values and try again.",
@@ -230,14 +231,25 @@ function ChangePasswordCard() {
         {/* No password fields and no retry: the change already succeeded,
             and offering the form again would invite a second submission
             whose current_password is now the OLD one — which would fail
-            and read as "the change did not work". A sign-in link is the
-            only honest next step. */}
-        <a
-          href="/login"
+            and read as "the change did not work".
+            
+            This is a BUTTON that ends the session, not a link to /login.
+            A plain link was a dead end: login/page.tsx redirects any
+            visitor holding a NextAuth session to /?authNotice=login, and
+            in this state the cookie is still present — only the bearer is
+            dead — so "Sign in again" bounced straight back to the feed.
+            Going through the session boundary also clears this device's
+            cached private data, which is the right thing to do after a
+            credential rotation. */}
+        <button
+          type="button"
+          onClick={() => {
+            void endSession("user", { callbackUrl: "/login" });
+          }}
           className="bcc-auth-submit mt-4 inline-flex items-center justify-center"
         >
           Sign in again
-        </a>
+        </button>
       </section>
     );
   }

@@ -52,7 +52,20 @@ export interface SessionBearerUpdate {
 export async function updateSessionBearer(
   update: SessionBearerUpdate,
 ): Promise<boolean> {
-  if (update.token === "" || !Number.isFinite(update.expiresIn) || update.expiresIn <= 0) {
+  // Validated by TYPE, not just by value. `token` is typed `string`, but
+  // the value comes from JSON at runtime — a backend that stopped
+  // returning it would make this `undefined`, which `=== ""` does not
+  // catch. JSON.stringify would then omit `bccToken` from the payload
+  // while `bccTokenExpiresAt` still merged (lib/auth.ts applies the two
+  // fields in independent `if`s), leaving the session holding the REVOKED
+  // old bearer stamped with a fresh 7-day expiry — which also suppresses
+  // the pre-emptive refresh, since that compares against that timestamp.
+  // `resp.ok` would be true and the UI would say "Saved": exactly the
+  // defect this file exists to prevent.
+  if (typeof update.token !== "string" || update.token === "") {
+    return false;
+  }
+  if (!Number.isFinite(update.expiresIn) || update.expiresIn <= 0) {
     return false;
   }
 

@@ -178,3 +178,46 @@ describe("the bearer is not leaked", () => {
     expect(dump).not.toContain(UPDATE.token);
   });
 });
+
+describe("the token is validated by TYPE, not just by value", () => {
+  it("refuses a missing token even though the type says string", async () => {
+    // The value comes from JSON at runtime. A backend that stopped
+    // returning `token` would make this `undefined`, which `=== ""` does
+    // not catch — and JSON.stringify would then omit bccToken while
+    // bccTokenExpiresAt still merged (lib/auth.ts applies the two fields in
+    // independent `if`s), leaving the session holding the REVOKED old
+    // bearer stamped with a FRESH 7-day expiry. That also suppresses the
+    // pre-emptive refresh, and resp.ok would be true, so the UI would say
+    // "Saved": exactly the defect this module exists to prevent.
+    const calls = stubFetch({});
+    await expect(
+      updateSessionBearer({
+        token: undefined as unknown as string,
+        expiresIn: 604800,
+      }),
+    ).resolves.toBe(false);
+    expect(calls, "must not even attempt the write").toHaveLength(0);
+  });
+
+  it("refuses a non-string token", async () => {
+    const calls = stubFetch({});
+    for (const bad of [null, 42, {}, []] as unknown[]) {
+      await expect(
+        updateSessionBearer({ token: bad as string, expiresIn: 604800 }),
+      ).resolves.toBe(false);
+    }
+    expect(calls).toHaveLength(0);
+  });
+
+  it("never sends a payload that would stamp an expiry without a token", async () => {
+    // The shape that caused the damage: no bccToken, but a fresh
+    // bccTokenExpiresAt. It must never reach the wire.
+    const calls = stubFetch({});
+    await updateSessionBearer({
+      token: undefined as unknown as string,
+      expiresIn: 604800,
+    });
+    const post = calls.find((c) => c.url.includes("/api/auth/session"));
+    expect(post).toBeUndefined();
+  });
+});
