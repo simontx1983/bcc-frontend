@@ -43,8 +43,10 @@
 import { useState } from "react";
 
 import { Dialog } from "@/components/ui/Dialog";
-import { endSession } from "@/lib/auth/session-boundary";
-import { pushCleanupNeedsWarning } from "@/lib/push/revoke";
+import {
+  endSession,
+  pushCleanupNeedsWarning,
+} from "@/lib/auth/session-boundary";
 
 interface SignOutModalProps {
   onClose: () => void;

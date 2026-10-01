@@ -18,14 +18,20 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, render, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const signOut = vi.fn(async () => undefined);
+interface SignOutOpts {
+  redirect?: boolean;
+  callbackUrl?: string;
+}
+const signOut = vi.fn<(opts?: SignOutOpts) => Promise<undefined>>(
+  async () => undefined,
+);
 const sessionState = vi.hoisted(() => ({
   data: null as { user?: { id?: string } } | null,
   status: "loading" as "loading" | "authenticated" | "unauthenticated",
 }));
 
 vi.mock("next-auth/react", () => ({
-  signOut: (...args: unknown[]) => signOut(...(args as [])),
+  signOut: (opts?: SignOutOpts) => signOut(opts),
   useSession: () => ({ data: sessionState.data, status: sessionState.status }),
   getSession: async () => sessionState.data,
 }));

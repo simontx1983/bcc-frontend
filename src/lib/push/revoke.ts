@@ -123,14 +123,3 @@ export async function revokePushForSessionEnd(): Promise<PushCleanupOutcome> {
 
   return serverRowDeleted ? "revoked" : "unsubscribed-locally";
 }
-
-/**
- * True when the outcome leaves the device possibly still receiving the
- * previous account's notifications — i.e. when we must NOT claim the
- * cleanup worked.
- */
-export function pushCleanupNeedsWarning(
-  outcome: PushCleanupOutcome,
-): boolean {
-  return outcome === "unsubscribe-failed" || outcome === "timed-out";
-}

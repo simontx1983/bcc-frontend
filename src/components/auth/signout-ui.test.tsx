@@ -13,14 +13,20 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
+import type * as SessionBoundaryModule from "@/lib/auth/session-boundary";
 import type { SessionTeardownResult } from "@/lib/auth/session-boundary";
 
 vi.mock("@/lib/env", () => ({
   clientEnv: { BCC_API_URL: "https://wp.example" },
 }));
 
-const endSession = vi.fn<[string], Promise<SessionTeardownResult>>();
-vi.mock("@/lib/auth/session-boundary", () => ({
+const endSession =
+  vi.fn<(reason: string) => Promise<SessionTeardownResult>>();
+vi.mock("@/lib/auth/session-boundary", async (importOriginal) => ({
+  // Only endSession is faked. pushCleanupNeedsWarning is a pure
+  // predicate and the real one is what the copy decision must be
+  // tested against.
+  ...(await importOriginal<typeof SessionBoundaryModule>()),
   endSession: (reason: string) => endSession(reason),
 }));
 

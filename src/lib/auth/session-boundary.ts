@@ -60,6 +60,24 @@ export type PushCleanupOutcome =
   /** Nothing was subscribed, so nothing to do. */
   | "not-subscribed";
 
+/**
+ * True when the outcome leaves this device possibly still receiving the
+ * previous account's notifications — i.e. when the UI must NOT claim the
+ * cleanup worked.
+ *
+ * Lives here rather than beside the push code on purpose: it is a pure
+ * predicate over the union above, and `SignOutModal` needs it. Importing
+ * it from `lib/push/revoke` would pull `push-endpoints` → `api/client` →
+ * `lib/env` into a presentational modal, which is both a pointless
+ * dependency and enough to break any test that renders the modal without
+ * stubbing the environment.
+ */
+export function pushCleanupNeedsWarning(
+  outcome: PushCleanupOutcome,
+): boolean {
+  return outcome === "unsubscribe-failed" || outcome === "timed-out";
+}
+
 export interface SessionTeardownResult {
   reason: SessionEndReason;
   /** Cache cancelled+cleared and viewer-scoped storage purged. */
