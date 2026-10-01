@@ -174,6 +174,16 @@ let viewerEpoch = 0;
 
 /** Render-gate state. `true` means: show no private content. */
 let privateRenderBlocked = false;
+/**
+ * Set when a teardown has SETTLED without signing out.
+ *
+ * The gate unmounts the entire application subtree — including the
+ * SignOutModal that used to display this — so the gate has to own the
+ * failure message and the recovery control. Browser-verified: with the
+ * modal gated away, a stalled sign-out showed a neutral placeholder
+ * forever and offered nothing.
+ */
+let failedTeardown: SessionTeardownResult | null = null;
 const gateListeners = new Set<() => void>();
 
 /**
@@ -208,6 +218,14 @@ export function isPrivateRenderBlocked(): boolean {
   return privateRenderBlocked;
 }
 
+/**
+ * The result of a teardown that finished WITHOUT signing out, or null.
+ * Drives the gate's recovery panel.
+ */
+export function failedTeardownResult(): SessionTeardownResult | null {
+  return failedTeardown;
+}
+
 /** For `useSyncExternalStore`. */
 export function subscribePrivateRenderGate(onChange: () => void): () => void {
   gateListeners.add(onChange);
@@ -221,11 +239,7 @@ export function subscribePrivateRenderGate(onChange: () => void): () => void {
  * unmounted before any await — no mounted observer survives to render a
  * stale result, and no active query survives to be refetched.
  */
-function blockPrivateRender(): void {
-  if (privateRenderBlocked) {
-    return;
-  }
-  privateRenderBlocked = true;
+function notifyGate(): void {
   for (const listener of [...gateListeners]) {
     try {
       listener();
@@ -233,6 +247,14 @@ function blockPrivateRender(): void {
       // One bad subscriber must not stop the others, or the teardown.
     }
   }
+}
+
+function blockPrivateRender(): void {
+  if (privateRenderBlocked) {
+    return;
+  }
+  privateRenderBlocked = true;
+  notifyGate();
 }
 
 /**
@@ -396,7 +418,7 @@ async function runTeardown(
     }
   }
 
-  return {
+  const result: SessionTeardownResult = {
     reason,
     localStateCleared,
     storagePurge,
@@ -405,6 +427,16 @@ async function runTeardown(
     ...(signOutError !== undefined ? { signOutError } : {}),
     pushCleanup,
   };
+
+  // A successful sign-out navigates, so nothing needs to render. A failed
+  // or timed-out one leaves the viewer on the gate placeholder, which is
+  // now the only thing that can offer them a way out.
+  if (!signedOut) {
+    failedTeardown = result;
+    notifyGate();
+  }
+
+  return result;
 }
 
 /** Test seam — drops the registration and resets all module state. */
@@ -413,5 +445,6 @@ export function __resetSessionBoundaryForTests(): void {
   inFlight = null;
   viewerEpoch = 0;
   privateRenderBlocked = false;
+  failedTeardown = null;
   gateListeners.clear();
 }

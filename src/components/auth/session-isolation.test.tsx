@@ -15,7 +15,7 @@
  */
 
 import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 interface SignOutOpts {
@@ -361,5 +361,120 @@ describe("a viewer-ID change reloads server-rendered state", () => {
 
     await new Promise((r) => setTimeout(r, 50));
     expect(reload).not.toHaveBeenCalled();
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────
+// The gate owns the recovery UI, because it unmounts the modal
+// ─────────────────────────────────────────────────────────────────────
+
+describe("the gate's recovery panel", () => {
+  it("shows a neutral placeholder while the teardown is in flight", async () => {
+    let release: (() => void) | undefined;
+    signOut.mockImplementation(
+      () =>
+        new Promise<undefined>((r) => {
+          release = () => r(undefined);
+        }),
+    );
+    mount(qc);
+    seedViewerACache(qc);
+    void endSession("user");
+
+    await waitFor(() => {
+      expect(screen.getByText(/signing out/i)).toBeInTheDocument();
+    });
+    // Not the recovery panel yet — nothing has failed.
+    expect(screen.queryByText(/almost signed out/i)).toBeNull();
+    release?.();
+  });
+
+  it("offers recovery when the teardown settles WITHOUT signing out", async () => {
+    // The gate unmounts SignOutModal, which used to carry this. Browser-
+    // verified: with the modal gated away, a stalled sign-out showed a
+    // placeholder forever and offered nothing.
+    signOut.mockImplementation(async () => {
+      throw new Error("502");
+    });
+    mount(qc);
+    seedViewerACache(qc);
+    await endSession("user");
+
+    await waitFor(() => {
+      expect(screen.getByText(/almost signed out/i)).toBeInTheDocument();
+    });
+    expect(
+      screen.getByRole("button", { name: /finish signing out/i }),
+    ).toBeInTheDocument();
+    // And private content is still gone.
+    expect(screen.queryByTestId("private")).toBeNull();
+  });
+
+  it("the recovery control completes the sign-out server-side", async () => {
+    const assign = vi.fn();
+    Object.defineProperty(window, "location", {
+      value: { assign, reload: vi.fn(), href: "http://localhost/" },
+      writable: true,
+    });
+    signOut.mockImplementation(async () => {
+      throw new Error("502");
+    });
+    mount(qc);
+    await endSession("user");
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /finish signing out/i })).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByRole("button", { name: /finish signing out/i }));
+    // A bare reload would re-render with the cookie still in place.
+    expect(assign).toHaveBeenCalledWith("/api/auth/signout");
+  });
+
+  it("does not promise deletion when the storage purge was partial", async () => {
+    signOut.mockImplementation(async () => {
+      throw new Error("502");
+    });
+    // Make the purge fail: Storage.prototype, because jsdom's Storage is
+    // Proxy-backed and an instance spy becomes a stored entry instead.
+    vi.spyOn(Storage.prototype, "removeItem").mockImplementation(() => {
+      throw new Error("SecurityError");
+    });
+    window.localStorage.setItem("bcc-recent-searches", "x");
+
+    mount(qc);
+    await endSession("user");
+    await waitFor(() => {
+      expect(screen.getByRole("alert")).toBeInTheDocument();
+    });
+    const copy = screen.getByRole("alert").textContent ?? "";
+    expect(copy).toMatch(/hidden/i);
+    expect(copy).toMatch(/could not be deleted/i);
+    expect(copy).not.toMatch(/hidden and cleared/i);
+  });
+
+  it("surfaces a push warning in the recovery panel", async () => {
+    signOut.mockImplementation(async () => {
+      throw new Error("502");
+    });
+    revokePushForSessionEnd.mockResolvedValue("unsubscribe-failed" as never);
+    mount(qc);
+    await endSession("user");
+    await waitFor(() => {
+      expect(screen.getByRole("alert").textContent).toMatch(
+        /push notifications may also still be enabled/i,
+      );
+    });
+  });
+
+  it("stays silent about push when cleanup succeeded", async () => {
+    signOut.mockImplementation(async () => {
+      throw new Error("502");
+    });
+    revokePushForSessionEnd.mockResolvedValue("revoked" as never);
+    mount(qc);
+    await endSession("user");
+    await waitFor(() => {
+      expect(screen.getByRole("alert")).toBeInTheDocument();
+    });
+    expect(screen.getByRole("alert").textContent).not.toMatch(/push/i);
   });
 });
