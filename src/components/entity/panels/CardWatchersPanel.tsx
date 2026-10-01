@@ -11,6 +11,13 @@
  * graph anchor — see CardWatchersService). The panel renders a
  * tab-specific empty state in that case: "Claim this {kind} to anchor
  * watchers."
+ *
+ * Pagination is `useInfiniteQuery`. The previous version accumulated rows in
+ * this component while `Body` decided during ITS render that a new page had
+ * arrived — so the child set parent state mid-render and React warned
+ * "Cannot update a component (`CardWatchersPanel`) while rendering a
+ * different component (`Body`)". The page list lives in TanStack now, and
+ * `Body` only reads it.
  */
 
 import { useEffect, useState } from "react";
@@ -20,13 +27,10 @@ import type { Route } from "next";
 import { CardGrid } from "@/components/cards/CardGrid";
 import { Avatar } from "@/components/identity/Avatar";
 import { useCardWatchers } from "@/hooks/useCardTabs";
+import { dedupeById } from "@/lib/pagination";
 import { LoadFailure } from "@/components/ui/LoadFailure";
 import { humanizeCode } from "@/lib/api/errors";
-import type {
-  Card,
-  CardWatchersResponse,
-  EntityCardKind,
-} from "@/lib/api/types";
+import type { Card, EntityCardKind } from "@/lib/api/types";
 
 interface CardWatchersPanelProps {
   kind: EntityCardKind;
@@ -62,10 +66,34 @@ export function CardWatchersPanel({
     window.localStorage.setItem(VIEW_STORAGE_KEY, view);
   }, [view]);
 
-  const [offset, setOffset] = useState(0);
-  const query = useCardWatchers(kind, cardId, offset);
-  const [accumulated, setAccumulated] = useState<Card[]>([]);
-  const [seenOffset, setSeenOffset] = useState<number | null>(null);
+  const query = useCardWatchers(kind, cardId);
+
+  // Pages in fetch order; TanStack appends only on success, so a failed LOAD
+  // MORE leaves this exactly as it was.
+  //
+  // De-duplicated because offset pagination addresses a moving list: someone
+  // gaining a watcher between offset 0 and offset 24 shifts the window and
+  // repeats a row. The cursor is still driven by the server offset, not by
+  // this count — see lib/pagination.
+  const watchers: Card[] = dedupeById(
+    query.data?.pages.flatMap((p) => p.items) ?? [],
+  );
+  const lastPage = query.data?.pages[query.data.pages.length - 1];
+
+  /**
+   * Retry the request that FAILED, not the ones that succeeded. `refetch()`
+   * on an infinite query re-runs the pages already cached — after a failed
+   * LOAD MORE that is every page except the one that failed. So a first-page
+   * failure retries with `refetch`, and a failed next page with
+   * `fetchNextPage`, which asks for the same offset again.
+   */
+  const retry = () => {
+    if (watchers.length === 0) {
+      void query.refetch();
+    } else {
+      void query.fetchNextPage();
+    }
+  };
 
   return (
     <article className="bcc-paper">
@@ -80,19 +108,18 @@ export function CardWatchersPanel({
       </header>
 
       <Body
-        query={query}
-        offset={offset}
-        accumulated={accumulated}
-        seenOffset={seenOffset}
+        isPending={query.isPending}
+        isError={query.isError}
+        error={query.error}
+        watchers={watchers}
+        total={lastPage?.pagination.total}
+        hasMore={query.hasNextPage}
+        isFetchingMore={query.isFetchingNextPage}
         view={view}
         cardName={cardName}
         isClaimed={isClaimed}
-        onAccumulate={(items, nextSeen) => {
-          setAccumulated(items);
-          setSeenOffset(nextSeen);
-        }}
-        onLoadMore={(next) => setOffset(next)}
-        onRetry={() => void query.refetch()}
+        onLoadMore={() => void query.fetchNextPage()}
+        onRetry={retry}
       />
     </article>
   );
@@ -104,33 +131,30 @@ export function CardWatchersPanel({
 // ──────────────────────────────────────────────────────────────────────
 
 interface BodyProps {
-  query: {
-    isPending: boolean;
-    isError: boolean;
-    error: { message: string } | null;
-    data: CardWatchersResponse | undefined;
-  };
-  offset: number;
-  accumulated: Card[];
-  seenOffset: number | null;
+  isPending: boolean;
+  isError: boolean;
+  error: { message: string } | null;
+  /** Already-flattened pages. Body READS this; it never produces it. */
+  watchers: Card[];
+  total: number | undefined;
+  hasMore: boolean;
+  isFetchingMore: boolean;
   view: RosterView;
   cardName: string;
   isClaimed: boolean;
-  onAccumulate: (next: Card[], seen: number) => void;
-  onLoadMore: (nextOffset: number) => void;
-  /** Refetches THIS panel's watchers query at the current offset. Kept as
-   *  a narrow callback rather than widening `query` to the full result,
-   *  so the child cannot reach any other query. */
+  /** Narrow callbacks rather than the whole query result, so the child
+   *  cannot reach any other query — and, now, cannot write any state. */
+  onLoadMore: () => void;
   onRetry: () => void;
 }
 
 function Body(props: BodyProps) {
-  const { query, offset, accumulated, seenOffset, view, cardName, isClaimed } = props;
+  const { watchers, view, cardName, isClaimed } = props;
 
-  const failed = query.isError && query.error !== null;
+  const failed = props.isError && props.error !== null;
   // §γ — copy is keyed on err.code; never render err.message.
   const failureCopy = humanizeCode(
-    query.error,
+    props.error,
     {
       bcc_unauthorized: "Sign in to see watchers.",
       bcc_rate_limited: "Loading too fast — give it a moment and try again.",
@@ -139,10 +163,10 @@ function Body(props: BodyProps) {
     "Couldn't load watchers. Try again in a moment.",
   );
 
-  // Whole-body failure ONLY with nothing accumulated. A failed LOAD MORE
-  // keeps the watchers already read — that case is handled at the foot of
-  // the list, below, so the roster and its view toggle survive.
-  if (failed && accumulated.length === 0) {
+  // Whole-body failure ONLY with nothing loaded. A failed LOAD MORE keeps
+  // the watchers already read — that case is handled at the foot of the
+  // list, below, so the roster and its view toggle survive.
+  if (failed && watchers.length === 0) {
     return (
       <LoadFailure
         surface="paper"
@@ -152,7 +176,7 @@ function Body(props: BodyProps) {
     );
   }
 
-  if (query.isPending && accumulated.length === 0) {
+  if (props.isPending && watchers.length === 0) {
     return (
       <div className="px-8 py-12">
         <p className="bcc-mono text-ink-soft">Loading watchers…</p>
@@ -160,19 +184,7 @@ function Body(props: BodyProps) {
     );
   }
 
-  const page = query.data;
-  if (page === undefined && accumulated.length === 0) {
-    return null;
-  }
-
-  // `seenOffset` stays authoritative: a failed offset never records
-  // itself, so a retry appends exactly that offset — no duplicate, no skip.
-  if (page !== undefined && seenOffset !== offset) {
-    const next = offset === 0 ? page.items : [...accumulated, ...page.items];
-    props.onAccumulate(next, offset);
-  }
-
-  if (!failed && accumulated.length === 0) {
+  if (!failed && watchers.length === 0) {
     return (
       <EmptyState
         kicker="NO WATCHERS"
@@ -186,24 +198,20 @@ function Body(props: BodyProps) {
     );
   }
 
-  const hasMore = page !== undefined && page.pagination.has_more;
-  const nextOffset =
-    page !== undefined ? page.pagination.offset + page.items.length : offset;
-
   return (
     <div className="px-5 py-5">
       <p
         className="bcc-mono mb-3 text-ink-soft"
         style={{ fontSize: "10px", letterSpacing: "0.24em" }}
       >
-        {page?.pagination.total ?? accumulated.length} ON FILE
+        {props.total ?? watchers.length} ON FILE
       </p>
 
       {view === "grid" ? (
-        <CardGrid cards={accumulated} />
+        <CardGrid cards={watchers} />
       ) : (
         <ul className="divide-y divide-ink/10 border-y border-ink/10">
-          {accumulated.map((card) => (
+          {watchers.map((card) => (
             <MemberRow key={card.id} card={card} />
           ))}
         </ul>
@@ -219,13 +227,14 @@ function Body(props: BodyProps) {
           onRetry={props.onRetry}
         />
       ) : (
-        hasMore && (
+        props.hasMore && (
           <div className="mt-6 flex justify-center">
             {/* 44px minimum — px-4 py-2 at 10px left this ~30px tall. */}
             <button
               type="button"
-              onClick={() => props.onLoadMore(nextOffset)}
-              className="bcc-mono inline-flex min-h-[44px] items-center justify-center border border-ink/30 bg-cardstock px-4 text-ink"
+              onClick={props.onLoadMore}
+              disabled={props.isFetchingMore}
+              className="bcc-mono inline-flex min-h-[44px] items-center justify-center border border-ink/30 bg-cardstock px-4 text-ink disabled:opacity-50"
               style={{ fontSize: "10px", letterSpacing: "0.18em" }}
             >
               LOAD MORE
