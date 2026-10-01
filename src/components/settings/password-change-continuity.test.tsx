@@ -401,3 +401,57 @@ describe("an indeterminate outcome is not called a failure", () => {
     expect(copy).not.toMatch(/was changed/i);
   });
 });
+
+describe("definite-ness, not a list of codes", () => {
+  it("treats a post-commit 500 as indeterminate", async () => {
+    // wp_set_password commits first and the controller has no catch, so a
+    // fatal in token revocation / the audit write / the mailer returns
+    // WordPress's own fatal response. For a JSON request that is VALID
+    // JSON of the wrong shape, so the client throws bcc_unexpected_status
+    // — which is unmapped, so the old copy was "Something went wrong. Try
+    // again." for a password that had already changed.
+    const { BccApiError } = await import("@/lib/api/types");
+    patchAccountPassword.mockRejectedValue(
+      new BccApiError("bcc_unexpected_status", "Unexpected 500", 500, null),
+    );
+    mount();
+    submitPasswordChange();
+    await waitFor(() => {
+      expect(
+        screen.getByText(/couldn't confirm whether the change went through/i),
+      ).toBeInTheDocument();
+    });
+  });
+
+  it("treats a MAPPED 500 as indeterminate too", async () => {
+    // bcc_internal_error is mapped, to the equally definite "Server
+    // error. Try again." — a 5xx on this route is never definite.
+    const { BccApiError } = await import("@/lib/api/types");
+    patchAccountPassword.mockRejectedValue(
+      new BccApiError("bcc_internal_error", "boom", 500, null),
+    );
+    mount();
+    submitPasswordChange();
+    await waitFor(() => {
+      expect(
+        screen.getByText(/couldn't confirm whether the change went through/i),
+      ).toBeInTheDocument();
+    });
+  });
+
+  it("still treats a mapped 4xx as a DEFINITE failure", async () => {
+    // Pre-commit: the rate limiter runs before the password is verified.
+    const { BccApiError } = await import("@/lib/api/types");
+    patchAccountPassword.mockRejectedValue(
+      new BccApiError("bcc_rate_limited", "slow down", 429, null),
+    );
+    mount();
+    submitPasswordChange();
+    await waitFor(() => {
+      expect(screen.getByRole("alert")).toBeInTheDocument();
+    });
+    const copy = screen.getByRole("alert").textContent ?? "";
+    expect(copy).not.toMatch(/couldn't confirm/i);
+    expect(copy).not.toMatch(/was changed/i);
+  });
+});

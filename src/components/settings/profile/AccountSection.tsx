@@ -71,11 +71,26 @@ function humanizeError(err: BccApiError | Error): string {
  * already been sent and is a reliable tiebreaker.
  */
 function humanizePasswordError(err: BccApiError | Error): string {
-  const indeterminate =
-    !(err instanceof BccApiError) ||
-    err.code === "bcc_invalid_response" ||
-    err.code === "bcc_invalid_envelope";
-  if (indeterminate) {
+  // The predicate is DEFINITE-ness, not a list of indeterminate codes.
+  // Listing codes was too narrow: `wp_set_password` commits first
+  // (MyAccountEndpoint.php:223) and the controller has no catch, so a
+  // fatal in any later step — token revocation, the audit write, the
+  // notification mail — returns WordPress's own fatal response. For a
+  // JSON request that is VALID JSON of the wrong shape, so the client
+  // throws `bcc_unexpected_status` rather than `bcc_invalid_response`,
+  // and that code is unmapped, so the copy was "Something went wrong.
+  // Try again." for a password that had already changed. `bcc_internal_error`
+  // is mapped, to the equally definite "Server error. Try again."
+  //
+  // Every pre-commit rejection on this route answers with a 4xx envelope
+  // carrying a mapped code — 429 rate limit (checked before the password
+  // is verified), 401, 422 — so nothing definite becomes indeterminate.
+  const definite =
+    err instanceof BccApiError &&
+    err.status >= 400 &&
+    err.status < 500 &&
+    ERROR_COPY[err.code] !== undefined;
+  if (!definite) {
     return "We couldn't confirm whether the change went through. Check your email for a password-change notice, and try signing in with your new password before changing it again.";
   }
   return humanizeError(err);

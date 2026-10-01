@@ -42,12 +42,21 @@ function stubFetch(opts: {
    * session) — both of which answer 200 with no body.
    */
   sessionBody?: string;
+  /**
+   * Model next-auth having DELETED the session despite a 200 that echoed
+   * our token — the `jwt.encode`-throws path, where the body was already
+   * assigned before the catch pushed maxAge-0 cookies. The POST still
+   * echoes; the follow-up GET sees nothing.
+   */
+  sessionClearedAfterWrite?: boolean;
 }): Call[] {
   const calls: Call[] = [];
+  let stored: unknown;
   vi.stubGlobal(
     "fetch",
     vi.fn(async (input: unknown, init?: RequestInit) => {
       const url = String(input);
+      const method = (init?.method ?? "GET").toUpperCase();
       calls.push({ url, ...(init !== undefined ? { init } : {}) });
       if (url.includes("/api/auth/csrf")) {
         if (opts.csrfThrows === true) {
@@ -58,22 +67,34 @@ function stubFetch(opts: {
           headers: { "Content-Type": "application/json" },
         });
       }
-      if (opts.sessionBody !== undefined) {
+      if (opts.sessionBody !== undefined && method === "POST") {
         return new Response(opts.sessionBody, {
           status: opts.sessionStatus ?? 200,
         });
       }
-      // Echo the merged bearer back, as a real successful write does.
-      const sent = JSON.parse(String(init?.body ?? "{}")) as {
-        data?: { bccToken?: unknown };
-      };
+      if (method === "POST") {
+        // Echo the merged bearer back, as a real successful write does,
+        // and remember it so the confirming GET can read it back — which
+        // is how the browser behaves once the Set-Cookie has applied.
+        const sent = JSON.parse(String(init?.body ?? "{}")) as {
+          data?: { bccToken?: unknown };
+        };
+        if (opts.sessionClearedAfterWrite !== true) {
+          stored = sent.data?.bccToken;
+        }
+        return new Response(
+          JSON.stringify({
+            user: { name: "fixture" },
+            expires: new Date(Date.now() + 86_400_000).toISOString(),
+            bccToken: sent.data?.bccToken,
+          }),
+          { status: opts.sessionStatus ?? 200 },
+        );
+      }
+      // GET: whatever cookie actually survived.
       return new Response(
-        JSON.stringify({
-          user: { name: "fixture" },
-          expires: new Date(Date.now() + 86_400_000).toISOString(),
-          bccToken: sent.data?.bccToken,
-        }),
-        { status: opts.sessionStatus ?? 200 },
+        JSON.stringify(stored === undefined ? {} : { bccToken: stored }),
+        { status: 200 },
       );
     }),
   );
@@ -293,5 +314,27 @@ describe("a 200 that did not actually merge", () => {
     spy.mockRestore();
     warn.mockRestore();
     error.mockRestore();
+  });
+});
+
+describe("a 200 that echoed our token but DELETED the session", () => {
+  it("is reported as FAILURE", async () => {
+    // core/routes/session.js assigns response.body at :72, BEFORE
+    // jwt.encode at :73, and the catch at :86 pushes sessionStore.clean()
+    // (maxAge 0) without resetting the body. So the wire response is 200,
+    // our token echoed back, and Set-Cookie headers that expire the
+    // session. Trusting the echo alone reported success for a session
+    // that no longer existed — verbatim the case this file exists for.
+    stubFetch({ sessionClearedAfterWrite: true });
+    await expect(updateSessionBearer(UPDATE)).resolves.toBe(false);
+  });
+
+  it("confirms against the live session, not just the echo", async () => {
+    const calls = stubFetch({});
+    await expect(updateSessionBearer(UPDATE)).resolves.toBe(true);
+    const sessionCalls = calls.filter((c) => c.url.includes("/api/auth/session"));
+    // POST then a confirming GET.
+    expect(sessionCalls).toHaveLength(2);
+    expect((sessionCalls[1]?.init?.method ?? "GET").toUpperCase()).toBe("GET");
   });
 });

@@ -232,3 +232,35 @@ describe("the push caveat rider", () => {
     expect(screen.getByRole("status").textContent).not.toMatch(/push/i);
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────
+// The scrub must not eat the page's own params
+// ─────────────────────────────────────────────────────────────────────
+
+describe("scrubbing", () => {
+  it("removes only our params and keeps the rest", async () => {
+    // Replacing with `pathname` alone dropped the whole query string,
+    // which became load-bearing once this component was mounted on the
+    // (auth) group: /login?callbackUrl=…, /reset-password?token=…,
+    // /signup/complete-profile?pt=…&email=… all carry params.
+    search = new URLSearchParams(
+      "callbackUrl=%2Fsettings&authNotice=standing&authNoticePush=1",
+    );
+    render(<MainLayout>{<p>landing</p>}</MainLayout>);
+    await waitFor(() => {
+      expect(replace).toHaveBeenCalled();
+    });
+    const target = String(replace.mock.calls[0]?.[0] ?? "");
+    expect(target).toContain("callbackUrl=%2Fsettings");
+    expect(target).not.toContain("authNotice");
+    expect(target).not.toContain("authNoticePush");
+  });
+
+  it("drops the query entirely when our params were the only ones", async () => {
+    search = new URLSearchParams("authNotice=standing");
+    render(<MainLayout>{<p>landing</p>}</MainLayout>);
+    await waitFor(() => {
+      expect(replace).toHaveBeenCalledWith("/");
+    });
+  });
+});

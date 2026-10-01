@@ -89,8 +89,16 @@ function AuthRedirectNoticeInner() {
   // persistent state of the page.
   useEffect(() => {
     if (source === null && !pushCaveat) return;
-    // `pathname` carries no query, so this drops both params at once.
-    router.replace(pathname as Route);
+    // Delete only OUR params. Replacing with `pathname` alone dropped the
+    // whole query string, which became load-bearing once this component
+    // was mounted on the (auth) group: /login?callbackUrl=…,
+    // /reset-password?token=…, /signup/complete-profile?pt=…&email=… and
+    // /auth-error?error=… all carry params a scrub must not eat.
+    const next = new URLSearchParams(searchParams.toString());
+    next.delete("authNotice");
+    next.delete("authNoticePush");
+    const qs = next.toString();
+    router.replace((qs === "" ? pathname : `${pathname}?${qs}`) as Route);
     // Only ever runs once per real navigation-with-param — pathname/router
     // are stable refs here, source is read once into `message` above.
     // eslint-disable-next-line react-hooks/exhaustive-deps

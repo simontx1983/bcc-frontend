@@ -642,3 +642,64 @@ describe("a retried teardown", () => {
     expect(failedTeardownResult()).toBeNull();
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────
+// A parked notice is a one-shot, and it loses to a MORE specific reason
+// ─────────────────────────────────────────────────────────────────────
+
+describe("parked notice precedence", () => {
+  it("loses to a more specific reason, so a suspension is not mislabelled", async () => {
+    // Overriding unconditionally was wrong: if the account is later
+    // suspended, endSession is called with "standing", and a parked
+    // "password-changed" would tell the viewer to sign in with their new
+    // password while never mentioning the review — they would use the
+    // correct password and hit a wall with no explanation.
+    registerSessionTeardown(handlers({}));
+    setPendingAuthNotice("password-changed");
+    await endSession("expired", { notice: "standing" });
+    expect(signOutTargets).toEqual(["/?authNotice=standing"]);
+  });
+
+  it("still overrides the GENERIC slug", async () => {
+    registerSessionTeardown(handlers({}));
+    setPendingAuthNotice("password-changed");
+    await endSession("expired", { notice: "signed-out" });
+    expect(signOutTargets).toEqual(["/?authNotice=password-changed"]);
+  });
+
+  it("is CONSUMED, so it cannot mislabel a later unrelated teardown", async () => {
+    registerSessionTeardown(handlers({}));
+    setPendingAuthNotice("password-changed");
+    await endSession("expired", { notice: "signed-out" });
+    expect(signOutTargets).toEqual(["/?authNotice=password-changed"]);
+
+    signOutTargets.length = 0;
+    registerSessionTeardown(handlers({}));
+    await endSession("expired", { notice: "signed-out" });
+    expect(signOutTargets).toEqual(["/?authNotice=signed-out"]);
+  });
+});
+
+describe("landing URL composition", () => {
+  it("keeps the query BEFORE a fragment, so the params are readable", async () => {
+    // A naive `?`/`&` join put the whole query inside the fragment, where
+    // useSearchParams() never sees it.
+    registerSessionTeardown(handlers({}));
+    await endSession("user", {
+      notice: "standing",
+      callbackUrl: "/dash#section",
+    });
+    expect(signOutTargets).toEqual(["/dash?authNotice=standing#section"]);
+  });
+
+  it("appends to an existing query and still preserves the fragment", async () => {
+    registerSessionTeardown(handlers({}));
+    await endSession("user", {
+      notice: "standing",
+      callbackUrl: "/login?next=%2Fsettings#top",
+    });
+    expect(signOutTargets).toEqual([
+      "/login?next=%2Fsettings&authNotice=standing#top",
+    ]);
+  });
+});

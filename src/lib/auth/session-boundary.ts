@@ -524,8 +524,21 @@ function landingUrl(
   // Precedence: a parked notice outranks everything, because the surface
   // that parked it knew why the session was doomed; then an explicit
   // notice; then the push caveat on its own.
+  // CONSUME the parked notice: it describes one known-doomed session, and
+  // leaving it set let it mislabel a later, unrelated teardown.
+  const parked = pendingNotice;
+  pendingNotice = null;
+
+  // It outranks only the GENERIC slug. Overriding unconditionally was
+  // wrong: if the account is later suspended, `endSession` is called with
+  // "standing", and a parked "password-changed" would tell the viewer to
+  // sign in with their new password while never mentioning the review —
+  // they would use the correct password and hit a wall with no
+  // explanation. A more specific reason always wins over a parked one.
   const primary: AuthNoticeSlug | null =
-    pendingNotice ??
+    (opts?.notice === undefined || opts.notice === "signed-out"
+      ? parked
+      : null) ??
     opts?.notice ??
     (pushCleanupNeedsWarning(pushCleanup) ? "push-cleanup" : null);
 
@@ -545,8 +558,17 @@ function landingUrl(
   if (params.length === 0) {
     return base;
   }
-  const joiner = base.includes("?") ? "&" : "?";
-  return `${base}${joiner}${params.join("&")}`;
+
+  // Composed rather than concatenated. A naive `?`/`&` join put the whole
+  // query INSIDE a fragment for a callbackUrl like "/dash#section", so
+  // `useSearchParams()` never saw it and the explanation rendered
+  // nowhere. Unreachable with today's only non-default callbackUrl (the
+  // literal "/login"), but the next caller would have inherited it.
+  const [beforeHash, ...hashRest] = base.split("#");
+  const hash = hashRest.length > 0 ? `#${hashRest.join("#")}` : "";
+  const path = beforeHash ?? "";
+  const joiner = path.includes("?") ? "&" : "?";
+  return `${path}${joiner}${params.join("&")}${hash}`;
 }
 
 /**

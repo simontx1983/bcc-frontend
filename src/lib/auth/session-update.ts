@@ -126,7 +126,30 @@ export async function updateSessionBearer(
     const merged = (await resp.json().catch(() => null)) as
       | { bccToken?: unknown }
       | null;
-    return merged?.bccToken === update.token;
+    if (merged?.bccToken !== update.token) {
+      return false;
+    }
+
+    // Even a positive echo is not conclusive. In core/routes/session.js the
+    // body is assigned at :72, BEFORE `jwt.encode` at :73 — and the catch
+    // at :86 pushes `sessionStore.clean()` without resetting the body. So a
+    // throw in encode, chunk, or an `events.session` handler produces
+    // status 200, the merged session WITH our token echoed back, and
+    // Set-Cookie headers that EXPIRE the session. Trusting the echo there
+    // reports success for a session that no longer exists.
+    //
+    // The browser applies those Set-Cookie headers before this next
+    // request, so a GET re-reads whatever cookie actually survived. This
+    // is the same endpoint `useSession()` reads, so it exposes nothing the
+    // client does not already hold.
+    const check = await fetch("/api/auth/session", {
+      credentials: "include",
+      cache: "no-store",
+    });
+    const live = (await check.json().catch(() => null)) as
+      | { bccToken?: unknown }
+      | null;
+    return live?.bccToken === update.token;
   } catch {
     // Network failure, abort, or a non-JSON csrf response.
     return false;
