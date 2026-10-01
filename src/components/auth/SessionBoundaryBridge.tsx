@@ -99,8 +99,26 @@ export function SessionBoundaryBridge() {
       return;
     }
 
-    // The viewer changed under us, from another tab. Hide private content
-    // and drop this tab's cached copy of it immediately.
+    // ANONYMOUS -> AUTHENTICATED is not a viewer change that needs hiding:
+    // there is no previous viewer whose data could be on screen. It must
+    // be skipped rather than merely tolerated, because `purgeViewerState`
+    // closes the render gate and NOTHING reopens it — the gate is designed
+    // to be terminal, since a successful teardown ends in a document load.
+    //
+    // Every sign-in in this app flips the session IN PLACE
+    // (`signIn(..., { redirect: false })` at six call sites, each followed
+    // by a client-side push), so `status` goes unauthenticated ->
+    // authenticated with no document load. Purging here would latch the
+    // gate shut and leave the viewer on the "Signing out…" placeholder
+    // immediately after a successful login, with only a manual browser
+    // reload to escape. It would also wipe `bcc-onboarding-progress` and
+    // the tour keys at the exact moment they start being written.
+    if (previous === null) {
+      return;
+    }
+
+    // A real viewer change, from another tab. Hide private content and
+    // drop this tab's cached copy of it immediately.
     purgeViewerState();
 
     // Clearing a cache does not touch what the SERVER already rendered.
@@ -112,9 +130,7 @@ export function SessionBoundaryBridge() {
     // Deliberately NOT calling signOut: the other tab already did, and a
     // second call would race it. A reload is both sufficient and honest —
     // it re-derives everything from whatever cookie now exists.
-    if (previous !== null) {
-      window.location.reload();
-    }
+    window.location.reload();
   }, [session?.user?.id, status]);
 
   return null;

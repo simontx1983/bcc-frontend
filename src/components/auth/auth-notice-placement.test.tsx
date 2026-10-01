@@ -102,3 +102,40 @@ describe("authNotice placement", () => {
     expect(src).not.toMatch(/AuthRedirectNotice/);
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────
+// A slug is attacker-supplied text, not a key into an object literal
+// ─────────────────────────────────────────────────────────────────────
+
+describe("prototype keys are not copy", () => {
+  it("renders nothing for ?authNotice=__proto__ instead of crashing", () => {
+    // COPY["__proto__"] resolves to Object.prototype, and React throws
+    // "Objects are not valid as a React child" on it. There is no segment
+    // error boundary, so the whole page was replaced by the global error
+    // UI. Moving this component into the shared (main) layout put it on
+    // the ANONYMOUS site root too, making /?authNotice=__proto__ a
+    // one-click reflected crash of the public landing page.
+    search = new URLSearchParams("authNotice=__proto__");
+    expect(() =>
+      render(<MainLayout>{<p>landing</p>}</MainLayout>),
+    ).not.toThrow();
+    expect(screen.getByText("landing")).toBeInTheDocument();
+    expect(screen.queryByRole("status")).toBeNull();
+  });
+
+  it("renders nothing for ?authNotice=constructor", () => {
+    search = new URLSearchParams("authNotice=constructor");
+    expect(() =>
+      render(<MainLayout>{<p>landing</p>}</MainLayout>),
+    ).not.toThrow();
+    expect(screen.queryByRole("status")).toBeNull();
+  });
+
+  it("renders nothing for ?authNotice=toString", () => {
+    search = new URLSearchParams("authNotice=toString");
+    expect(() =>
+      render(<MainLayout>{<p>landing</p>}</MainLayout>),
+    ).not.toThrow();
+    expect(screen.queryByRole("status")).toBeNull();
+  });
+});

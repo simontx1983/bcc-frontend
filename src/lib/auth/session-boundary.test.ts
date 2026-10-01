@@ -18,6 +18,7 @@ import {
   isPrivateRenderBlocked,
   isStaleEpoch,
   purgeViewerState,
+  failedTeardownResult,
   registerSessionTeardown,
   subscribePrivateRenderGate,
   type PushCleanupOutcome,
@@ -86,9 +87,14 @@ describe("teardown order", () => {
   it("runs every step on a normal sign-out", async () => {
     registerSessionTeardown(handlers());
     const result = await endSession("user");
+    // The cache purge runs FIRST, in the same synchronous step as the
+    // render gate. It used to sit after the push await, which left up to
+    // PUSH_CLEANUP_TIMEOUT_MS during which the viewer epoch had not moved
+    // and in-flight requests carrying the departing viewer's bearer could
+    // still resolve into the cache.
     expect(order).toEqual([
-      "revokePush",
       "purgeQueryCache",
+      "revokePush",
       "purgeViewerStorage",
       "signOut",
     ]);
@@ -532,5 +538,45 @@ describe("the storage purge outcome reaches the caller", () => {
     expect(result.storagePurge).toBe("partial");
     // Still signed out — storage trouble cannot block the teardown.
     expect(result.signedOut).toBe(true);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────
+// A retried teardown must not wear the previous attempt's result
+// ─────────────────────────────────────────────────────────────────────
+
+describe("a retried teardown", () => {
+  it("clears the previous failure before running", async () => {
+    // `inFlight` was reset in a finally, but `failedTeardown` was not, so
+    // a second endSession ran while the gate still displayed the FIRST
+    // failure's panel — including its stale storagePurge and pushCleanup
+    // claims, which describe an attempt that is no longer happening.
+    registerSessionTeardown(
+      handlers({
+        signOut: async () => {
+          throw new Error("502");
+        },
+        revokePush: async () => "unsubscribe-failed",
+      }),
+    );
+    await endSession("user");
+    expect(failedTeardownResult()).not.toBeNull();
+    expect(failedTeardownResult()?.pushCleanup).toBe("unsubscribe-failed");
+
+    // Second attempt: push now succeeds and sign-out works.
+    let seenDuringRun: ReturnType<typeof failedTeardownResult> = null;
+    registerSessionTeardown(
+      handlers({
+        revokePush: async () => "revoked",
+        signOut: async () => {
+          seenDuringRun = failedTeardownResult();
+        },
+      }),
+    );
+    await endSession("user");
+
+    // While the retry was running, no stale panel was on offer.
+    expect(seenDuringRun).toBeNull();
+    expect(failedTeardownResult()).toBeNull();
   });
 });

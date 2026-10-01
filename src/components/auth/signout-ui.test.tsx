@@ -257,21 +257,45 @@ describe("SignOutModal — honest cleanup claims", () => {
   });
 
   it("offers a recovery that actually ends the session server-side", async () => {
-    // A bare reload of the current page would re-render it with the session
-    // cookie still in place. NextAuth's own sign-out route completes it
-    // without needing our fetch to work.
+    // It used to navigate (GET) to /api/auth/signout. That signs nothing
+    // out: middleware.ts redirects a GET there to our styled page, and
+    // next-auth's GET handler only renders a confirmation. The POST is
+    // the mechanism, so the control has to submit one.
     endSession.mockResolvedValue(result({ signedOut: false }));
     const assign = vi.fn();
     Object.defineProperty(window, "location", {
       value: { assign, href: "http://localhost/" },
       writable: true,
     });
+    const submit = vi.fn();
+    const realCreate = document.createElement.bind(document);
+    vi.spyOn(document, "createElement").mockImplementation((tag: string) => {
+      const el = realCreate(tag) as HTMLElement;
+      if (tag === "form") {
+        (el as HTMLFormElement).submit = submit;
+      }
+      return el;
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        new Response(JSON.stringify({ csrfToken: "csrf-xyz" }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      ),
+    );
+
     render(<SignOutModal onClose={vi.fn()} />);
     fireEvent.click(screen.getByRole("button", { name: /^sign out$/i }));
     await waitFor(() => {
       expect(screen.getByRole("button", { name: /finish signing out/i })).toBeInTheDocument();
     });
     fireEvent.click(screen.getByRole("button", { name: /finish signing out/i }));
-    expect(assign).toHaveBeenCalledWith("/api/auth/signout");
+
+    await waitFor(() => {
+      expect(submit).toHaveBeenCalled();
+    });
+    expect(assign).not.toHaveBeenCalledWith("/api/auth/signout");
   });
 });

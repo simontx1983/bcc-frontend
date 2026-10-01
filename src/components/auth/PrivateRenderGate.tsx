@@ -39,6 +39,7 @@
 
 import { useSyncExternalStore, type ReactNode } from "react";
 
+import { forceSignOutNavigation } from "@/lib/auth/force-signout";
 import {
   failedTeardownResult,
   isPrivateRenderBlocked,
@@ -92,11 +93,12 @@ export function PrivateRenderGate({ children }: { children: ReactNode }) {
           <button
             type="button"
             onClick={() => {
-              // NextAuth's own sign-out route, as a full navigation. Reloading
-              // the current page would re-render it with the session cookie
-              // still in place; this completes the sign-out server-side
-              // without needing our fetch to work.
-              window.location.assign("/api/auth/signout");
+              // A real form POST to next-auth's sign-out route. A GET there
+              // signs nothing out — middleware.ts redirects it to our
+              // styled page and next-auth's GET only renders a
+              // confirmation — so the previous version of this button was
+              // cosmetic while telling the viewer they were done.
+              void forceSignOutNavigation();
             }}
             className="bcc-auth-submit mt-5 w-full"
           >

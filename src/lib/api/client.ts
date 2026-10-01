@@ -242,10 +242,16 @@ import {
  *
  *   refreshed        → swap token, retry once, carry on.
  *   rejected (401)   → proven dead; end the session (single-flight).
- *   standing-refused → the account is not in good standing. Session
- *                      KEPT: signing out would hide the explanation.
- *   indeterminate    → 429 / 5xx / offline. Session KEPT; the original
- *                      401 propagates so the UI shows a real error.
+ *   standing-refused → a 403 carrying the VERIFIED `bcc_forbidden` code.
+ *                      The backend refuses the refresh precisely to push
+ *                      the viewer through sign-out and re-login, where the
+ *                      suspension is surfaced — so the session ENDS, with
+ *                      an `authNotice=standing` slug carrying the
+ *                      explanation across the navigation. An arbitrary 403
+ *                      is `indeterminate`, never this.
+ *   indeterminate    → 429 / 5xx / offline / a 403 without that code.
+ *                      Session KEPT; the original 401 propagates so the UI
+ *                      shows a real error.
  *
  * A 401 on a request that carried NO token is an endpoint-specific
  * denial and never touches the session. And a protected request is never
@@ -285,7 +291,13 @@ export async function bccFetchAsClient<T>(
   const epochAtDispatch = currentViewerEpoch();
 
   let effectiveToken = sessionToken;
+  // Whether this call has already spent its one refresh attempt. Without
+  // it the reactive path below fell back to `sessionToken` — the token the
+  // refresh endpoint had just refused — and asked again, doubling the load
+  // on a rate-limited endpoint and able to turn one 429 into two.
+  let refreshAttempted = false;
   if (sessionExpired && sessionToken !== null) {
+    refreshAttempted = true;
     // Pre-emptive refresh: NextAuth says the bearer is past its expiry.
     // Try to mint a fresh one BEFORE the fetch, so the SPA never sees a
     // 401 in the common case.
@@ -339,7 +351,7 @@ export async function bccFetchAsClient<T>(
 
     // Reactive 401: the server rejected a bearer NextAuth still believed
     // in. One refresh attempt, then classify.
-    const tokenToRefresh = effectiveToken ?? sessionToken;
+    const tokenToRefresh = effectiveToken ?? (refreshAttempted ? null : sessionToken);
     if (tokenToRefresh !== null) {
       const refreshed = await tryRefresh(tokenToRefresh);
       if (refreshed.kind === "refreshed") {
@@ -408,13 +420,19 @@ export type RefreshResult =
   /**
    * The SERVER says this bearer cannot be refreshed — past the grace
    * window, or revoked by a password change / "sign out everywhere".
-   * This is the only outcome that may end a session.
    */
   | { kind: "rejected" }
   /**
-   * The account is no longer in good standing. A real state change, but
-   * NOT an expired session: signing the viewer out would hide the very
-   * explanation they need. Keep the session; surface the error.
+   * A 403 whose body carried the VERIFIED `bcc_forbidden` code: the
+   * account is no longer in good standing.
+   *
+   * This DOES end the session, matching the backend's documented policy —
+   * it refuses the refresh so the viewer is pushed through sign-out and
+   * re-login, which is where the suspension is explained. The
+   * `authNotice=standing` slug carries that explanation across the
+   * navigation, so ending the session no longer hides it.
+   *
+   * An unrecognised 403 must NOT land here; it is `indeterminate`.
    */
   | { kind: "standing-refused" }
   /**

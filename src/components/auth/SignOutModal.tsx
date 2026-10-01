@@ -43,6 +43,7 @@
 import { useState } from "react";
 
 import { Dialog } from "@/components/ui/Dialog";
+import { forceSignOutNavigation } from "@/lib/auth/force-signout";
 import {
   endSession,
   pushCleanupNeedsWarning,
@@ -140,7 +141,7 @@ export function SignOutModal({ onClose }: SignOutModalProps) {
                 // bare reload of the current page would re-render it with
                 // the session cookie still in place; this completes the
                 // sign-out server-side without needing our fetch to work.
-                window.location.assign("/api/auth/signout");
+                void forceSignOutNavigation();
               }}
               className="bcc-auth-submit"
               style={{ flex: 1 }}

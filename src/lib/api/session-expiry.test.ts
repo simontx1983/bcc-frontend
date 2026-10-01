@@ -452,3 +452,49 @@ describe("the PRE-EMPTIVE path classifies the same way", () => {
     expect(endSession).not.toHaveBeenCalled();
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────
+// One refresh attempt per call, even across the two paths
+// ─────────────────────────────────────────────────────────────────────
+
+describe("a call spends at most ONE refresh attempt", () => {
+  it("does not ask again with the token the refresh endpoint just refused", async () => {
+    // The reactive path fell back to `sessionToken` when the pre-emptive
+    // refresh had set effectiveToken to null. That is the token /auth/refresh
+    // had already refused, so the same bearer was sent twice to a
+    // rate-limited endpoint — able to turn one 429 into two.
+    getSession.mockResolvedValue(expiredSession());
+    const f = routeFetch({
+      refresh: () => json({ error: { code: "bcc_rate_limited" } }, 429),
+      protectedCall: () => unauthorized(),
+    });
+    vi.stubGlobal("fetch", f);
+
+    await bccFetchAsClient("me/thing").catch(() => undefined);
+
+    const refreshCalls = f.mock.calls.filter((c) =>
+      String(c[0]).includes("/auth/refresh"),
+    );
+    expect(refreshCalls).toHaveLength(1);
+    // And the session survives a 429, as before.
+    expect(endSession).not.toHaveBeenCalled();
+  });
+
+  it("still refreshes once on the reactive path when no pre-emptive attempt ran", async () => {
+    // Guards the fix from over-reaching: an unexpired bearer that gets a
+    // 401 must still get its one attempt.
+    getSession.mockResolvedValue(liveSession());
+    const f = routeFetch({
+      refresh: () => json({ error: { code: "bcc_rate_limited" } }, 429),
+      protectedCall: () => unauthorized(),
+    });
+    vi.stubGlobal("fetch", f);
+
+    await bccFetchAsClient("me/thing").catch(() => undefined);
+
+    const refreshCalls = f.mock.calls.filter((c) =>
+      String(c[0]).includes("/auth/refresh"),
+    );
+    expect(refreshCalls).toHaveLength(1);
+  });
+});

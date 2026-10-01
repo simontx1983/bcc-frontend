@@ -268,7 +268,27 @@ function blockPrivateRender(): void {
  * does: clearing the cache alone leaves mounted observers rendering the
  * previous viewer's payload.
  */
+/**
+ * The storage half on its own. Split out because `runTeardown` has
+ * already closed the gate and dropped the cache by the time it gets here,
+ * and calling the whole of `purgeViewerState` again purged the query
+ * cache a second time.
+ *
+ * Returns `"partial"` when anything throws, or when no handlers are
+ * registered at all — in which case nothing was cleared and the UI must
+ * not claim otherwise.
+ */
+function purgeStorageOnly(): StoragePurgeOutcome {
+  try {
+    return handlers?.purgeViewerStorage() ?? "partial";
+  } catch {
+    return "partial";
+  }
+}
+
 export function purgeViewerState(): StoragePurgeOutcome {
+  // Self-contained: the cross-tab path calls this on its own, with no
+  // teardown around it.
   blockPrivateRender();
   viewerEpoch += 1;
   try {
@@ -276,11 +296,7 @@ export function purgeViewerState(): StoragePurgeOutcome {
   } catch {
     // A purge that throws must not stop the storage purge below.
   }
-  try {
-    return handlers?.purgeViewerStorage() ?? "partial";
-  } catch {
-    return "partial";
-  }
+  return purgeStorageOnly();
 }
 
 /**
@@ -364,10 +380,33 @@ async function runTeardown(
 ): Promise<SessionTeardownResult> {
   const current = handlers;
 
+  // A previous FAILED teardown's panel must not be what the viewer sees
+  // while this one runs: its storagePurge / pushCleanup claims describe
+  // the earlier attempt, not this one.
+  failedTeardown = null;
+
   // 0. Hide private content IMMEDIATELY, before any await. Unmounting the
   //    subtree is what actually stops the previous viewer's data being
   //    rendered; the cache APIs do not.
   blockPrivateRender();
+
+  // 0b. Invalidate viewer A's in-flight work in the SAME synchronous step.
+  //     This used to live after the push await, which left a window of up
+  //     to PUSH_CLEANUP_TIMEOUT_MS where `isStaleEpoch` was still false
+  //     and `cancelQueries` had not run — so a response to a request
+  //     issued with A's bearer was handed back to its caller and written
+  //     into the cache. The gate stopped it being RENDERED, but the
+  //     epoch backstop in lib/api/client is advertised as covering
+  //     exactly this, and for those two seconds it did not.
+  //
+  //     Safe to do before push cleanup: that path uses the low-level
+  //     `bccFetch` with an explicit token and never consults the epoch.
+  viewerEpoch += 1;
+  try {
+    handlers?.purgeQueryCache();
+  } catch {
+    // A cache purge that throws must not stop the rest of the teardown.
+  }
 
   // 1. Push next, because the server's DELETE is authenticated and
   //    ownership-checked — once the cookie is gone it can only 401.
@@ -390,7 +429,7 @@ async function runTeardown(
   let localStateCleared = false;
   let storagePurge: StoragePurgeOutcome = "partial";
   if (current !== null) {
-    storagePurge = purgeViewerState();
+    storagePurge = purgeStorageOnly();
     localStateCleared = true;
   }
 

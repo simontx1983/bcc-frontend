@@ -50,7 +50,16 @@ function AuthRedirectNoticeInner() {
   const source = searchParams.get("authNotice");
 
   const [message] = useState<string | null>(() =>
-    source !== null ? (COPY[source] ?? null) : null,
+    // `Object.hasOwn`, not a bare index: `COPY["__proto__"]` resolves to
+    // Object.prototype, which React then throws on ("Objects are not
+    // valid as a React child"), and `?authNotice=constructor` /
+    // `=toString` resolve to functions. There is no segment error
+    // boundary, so that replaced the whole page with the global error UI.
+    // Harmless-looking before this PR; now that the notice is mounted in
+    // the shared (main) layout it also covers the ANONYMOUS site root,
+    // which made `/?authNotice=__proto__` a one-click reflected crash of
+    // the SEO landing page.
+    source !== null && Object.hasOwn(COPY, source) ? COPY[source]! : null,
   );
   const [dismissed, setDismissed] = useState(false);
 

@@ -410,12 +410,34 @@ describe("the gate's recovery panel", () => {
     expect(screen.queryByTestId("private")).toBeNull();
   });
 
-  it("the recovery control completes the sign-out server-side", async () => {
+  it("the recovery control POSTs, because a GET signs nothing out", async () => {
+    // It used to `assign("/api/auth/signout")`. That is a GET, and
+    // middleware.ts redirects a GET there to our styled /signout page
+    // while next-auth's own GET handler only renders a confirmation —
+    // so the cookie survived and the document load reopened the gate.
     const assign = vi.fn();
     Object.defineProperty(window, "location", {
       value: { assign, reload: vi.fn(), href: "http://localhost/" },
       writable: true,
     });
+    const submit = vi.fn();
+    const realCreate = document.createElement.bind(document);
+    vi.spyOn(document, "createElement").mockImplementation((tag: string) => {
+      const el = realCreate(tag) as HTMLElement;
+      if (tag === "form") {
+        (el as HTMLFormElement).submit = submit;
+      }
+      return el;
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        new Response(JSON.stringify({ csrfToken: "csrf-abc" }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      ),
+    );
     signOut.mockImplementation(async () => {
       throw new Error("502");
     });
@@ -425,8 +447,46 @@ describe("the gate's recovery panel", () => {
       expect(screen.getByRole("button", { name: /finish signing out/i })).toBeInTheDocument();
     });
     fireEvent.click(screen.getByRole("button", { name: /finish signing out/i }));
-    // A bare reload would re-render with the cookie still in place.
-    expect(assign).toHaveBeenCalledWith("/api/auth/signout");
+
+    await waitFor(() => {
+      expect(submit).toHaveBeenCalled();
+    });
+    const form = (document.createElement as unknown as ReturnType<typeof vi.fn>).mock
+      .results.map((r) => r.value as HTMLElement)
+      .find((el) => el.tagName === "FORM") as HTMLFormElement;
+    expect(form.method.toUpperCase()).toBe("POST");
+    expect(form.action).toContain("/api/auth/signout");
+    const fields = [...form.querySelectorAll("input")].map((i) => [i.name, i.value]);
+    expect(fields).toEqual(
+      expect.arrayContaining([["csrfToken", "csrf-abc"]]),
+    );
+    // And it is NOT the old cosmetic GET.
+    expect(assign).not.toHaveBeenCalledWith("/api/auth/signout");
+  });
+
+  it("falls back to a real page when no csrf token can be minted", async () => {
+    const assign = vi.fn();
+    Object.defineProperty(window, "location", {
+      value: { assign, reload: vi.fn(), href: "http://localhost/" },
+      writable: true,
+    });
+    vi.stubGlobal("fetch", vi.fn(async () => {
+      throw new TypeError("Failed to fetch");
+    }));
+    signOut.mockImplementation(async () => {
+      throw new Error("502");
+    });
+    mount(qc);
+    await endSession("user");
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /finish signing out/i })).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByRole("button", { name: /finish signing out/i }));
+    // /signout is ours and retries the teardown: a weaker guarantee, but
+    // a real control rather than a dead end.
+    await waitFor(() => {
+      expect(assign).toHaveBeenCalledWith("/signout");
+    });
   });
 
   it("does not promise deletion when the storage purge was partial", async () => {
@@ -476,5 +536,105 @@ describe("the gate's recovery panel", () => {
       expect(screen.getByRole("alert")).toBeInTheDocument();
     });
     expect(screen.getByRole("alert").textContent).not.toMatch(/push/i);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────
+// Signing IN must not trip the boundary
+// ─────────────────────────────────────────────────────────────────────
+
+describe("anonymous → authenticated", () => {
+  it("does NOT close the gate, because the gate never reopens", async () => {
+    // Every sign-in in this app flips the session in place
+    // (`signIn(..., { redirect: false })`), so there is no document load
+    // to reset module state. Purging here latched the gate shut and left
+    // the viewer staring at "Signing out…" immediately after a successful
+    // login, escapable only by a manual browser reload.
+    const reload = vi.fn();
+    Object.defineProperty(window, "location", {
+      value: { reload, href: "http://localhost/", assign: vi.fn() },
+      writable: true,
+    });
+
+    sessionState.data = null;
+    sessionState.status = "unauthenticated";
+    const view = mount(qc);
+    await waitFor(() => {
+      expect(screen.getByTestId("private")).toBeInTheDocument();
+    });
+
+    // ...then sign in, in place.
+    sessionState.data = { user: { id: "a" } };
+    sessionState.status = "authenticated";
+    view.rerender(tree(qc));
+
+    // The app must still be usable.
+    await waitFor(() => {
+      expect(screen.getByTestId("private")).toBeInTheDocument();
+    });
+    expect(screen.queryByText(/^signing out/i)).toBeNull();
+    expect(reload).not.toHaveBeenCalled();
+  });
+
+  it("keeps the onboarding and tour keys written at sign-in time", async () => {
+    // purgeViewerState() would wipe these at the exact moment they start
+    // being written, restarting the tour for someone who just signed in.
+    window.localStorage.setItem("bcc-onboarding-progress", "step-3");
+    window.localStorage.setItem("bcc-tour-progress", "2");
+    Object.defineProperty(window, "location", {
+      value: { reload: vi.fn(), href: "http://localhost/", assign: vi.fn() },
+      writable: true,
+    });
+
+    sessionState.data = null;
+    sessionState.status = "unauthenticated";
+    const view = mount(qc);
+    sessionState.data = { user: { id: "a" } };
+    sessionState.status = "authenticated";
+    view.rerender(tree(qc));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("private")).toBeInTheDocument();
+    });
+    expect(window.localStorage.getItem("bcc-onboarding-progress")).toBe("step-3");
+    expect(window.localStorage.getItem("bcc-tour-progress")).toBe("2");
+  });
+
+  it("STILL tears down when one account replaces another", async () => {
+    // The guard must be "no previous viewer", not "any change".
+    const reload = vi.fn();
+    Object.defineProperty(window, "location", {
+      value: { reload, href: "http://localhost/", assign: vi.fn() },
+      writable: true,
+    });
+    const view = mount(qc);
+    seedViewerACache(qc);
+
+    sessionState.data = { user: { id: "b" } };
+    view.rerender(tree(qc));
+
+    await waitFor(() => {
+      expect(reload).toHaveBeenCalledTimes(1);
+    });
+    expect(screen.queryByTestId("private")).toBeNull();
+  });
+
+  it("tears down when an authenticated viewer becomes anonymous", async () => {
+    const reload = vi.fn();
+    Object.defineProperty(window, "location", {
+      value: { reload, href: "http://localhost/", assign: vi.fn() },
+      writable: true,
+    });
+    const view = mount(qc);
+    seedViewerACache(qc);
+
+    sessionState.data = null;
+    sessionState.status = "unauthenticated";
+    view.rerender(tree(qc));
+
+    await waitFor(() => {
+      expect(reload).toHaveBeenCalledTimes(1);
+    });
+    expect(screen.queryByTestId("private")).toBeNull();
   });
 });
