@@ -408,3 +408,47 @@ describe("late responses cannot reach the caller", () => {
     await expect(bccFetchAsClient("me/thing")).resolves.toBeDefined();
   });
 });
+
+describe("the PRE-EMPTIVE path classifies the same way", () => {
+  // These exercise the branch taken when NextAuth already believes the
+  // bearer is past expiry, so the refresh happens BEFORE the request. A
+  // mutation run found this path untested for the notice slug.
+  it("a verified standing refusal ends the session with the standing notice", async () => {
+    getSession.mockResolvedValue(expiredSession());
+    vi.stubGlobal(
+      "fetch",
+      routeFetch({
+        refresh: () => json({ error: { code: "bcc_forbidden" } }, 403),
+        protectedCall: () => json({ data: { ok: true }, _meta: { version: "v1" } }, 200),
+      }),
+    );
+    await bccFetchAsClient("me/thing").catch(() => undefined);
+    expect(endSession).toHaveBeenCalledWith("expired", { notice: "standing" });
+  });
+
+  it("a definitive rejection ends the session with the signed-out notice", async () => {
+    getSession.mockResolvedValue(expiredSession());
+    vi.stubGlobal(
+      "fetch",
+      routeFetch({
+        refresh: () => unauthorized(),
+        protectedCall: () => json({ data: { ok: true }, _meta: { version: "v1" } }, 200),
+      }),
+    );
+    await bccFetchAsClient("me/thing").catch(() => undefined);
+    expect(endSession).toHaveBeenCalledWith("expired", { notice: "signed-out" });
+  });
+
+  it("an arbitrary 403 on the pre-emptive path retains the session", async () => {
+    getSession.mockResolvedValue(expiredSession());
+    vi.stubGlobal(
+      "fetch",
+      routeFetch({
+        refresh: () => json({ error: { code: "bcc_rate_limited" } }, 403),
+        protectedCall: () => json({ data: { ok: true }, _meta: { version: "v1" } }, 200),
+      }),
+    );
+    await bccFetchAsClient("me/thing").catch(() => undefined);
+    expect(endSession).not.toHaveBeenCalled();
+  });
+});
