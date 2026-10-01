@@ -591,7 +591,7 @@ describe("anonymous → authenticated", () => {
     // the arrival has already happened.
     window.localStorage.setItem("bcc-recent-searches", '["viewer-a-secret"]');
     window.localStorage.setItem("bcc-onboarding-progress", "step-3");
-    window.localStorage.setItem("bcc.blog.draft.viewer-a", "unpublished");
+
     window.localStorage.setItem("bcc-theme", "dark");
     Object.defineProperty(window, "location", {
       value: { reload: vi.fn(), href: "http://localhost/", assign: vi.fn() },
@@ -609,7 +609,8 @@ describe("anonymous → authenticated", () => {
       expect(window.localStorage.getItem("bcc-recent-searches")).toBeNull();
     });
     expect(window.localStorage.getItem("bcc-onboarding-progress")).toBeNull();
-    expect(window.localStorage.getItem("bcc.blog.draft.viewer-a")).toBeNull();
+    // The id-scoped draft is NOT an arrival concern: see
+    // ARRIVAL_SCOPED_STORAGE_KEYS. Covered in "what arrival purges".
     // Device preference kept, and the app is still usable: arrival purges
     // state, only DEPARTURE closes the gate.
     expect(window.localStorage.getItem("bcc-theme")).toBe("dark");
@@ -711,5 +712,127 @@ describe("the recovery panel during a retry", () => {
     await waitFor(() => {
       expect(screen.getByRole("button", { name: /finishing/i })).toBeDisabled();
     });
+  });
+});
+
+describe("the recovery control stays usable", () => {
+  it("re-enables when the navigation never happens", async () => {
+    // The pending state was never reset. On a dead host — which is WHY
+    // this panel is on screen — the csrf fetch aborts at 3s, the fallback
+    // assigns /signout, and if that request also never completes the
+    // document stays put showing a disabled "Finishing…" with no other
+    // control. The gate is terminal, so the only way out was a manual
+    // browser reload, after which the gate reopens with the session
+    // cookie still live for someone who was just told they were signing
+    // out. A real navigation supersedes the re-enable; a dead one has to
+    // give the control back.
+    Object.defineProperty(window, "location", {
+      value: { assign: vi.fn(), reload: vi.fn(), href: "http://localhost/", pathname: "/" },
+      writable: true,
+    });
+    vi.stubGlobal("fetch", vi.fn(async () => {
+      throw new TypeError("Failed to fetch");
+    }));
+    signOut.mockImplementation(async () => {
+      throw new Error("502");
+    });
+    mount(qc);
+    await endSession("user");
+
+    const button = await waitFor(() =>
+      screen.getByRole("button", { name: /finish signing out/i }),
+    );
+    fireEvent.click(button);
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: /finish signing out/i }),
+      ).not.toBeDisabled();
+    });
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────
+// Arrival removes what would be SHOWN to a newcomer — and nothing else
+// ─────────────────────────────────────────────────────────────────────
+
+describe("what arrival purges", () => {
+  function arrive() {
+    Object.defineProperty(window, "location", {
+      value: { reload: vi.fn(), href: "http://localhost/", assign: vi.fn() },
+      writable: true,
+    });
+    sessionState.data = null;
+    sessionState.status = "unauthenticated";
+    const view = mount(qc);
+    sessionState.data = { user: { id: "a" } };
+    sessionState.status = "authenticated";
+    view.rerender(tree(qc));
+    return view;
+  }
+
+  it("clears the keys that get RENDERED to whoever is next", async () => {
+    window.localStorage.setItem("bcc-recent-searches", '["acme payroll leak"]');
+    window.localStorage.setItem("bcc-onboarding-progress", "step-3");
+    window.sessionStorage.setItem("bcc-tour-progress", "2");
+    arrive();
+    await waitFor(() => {
+      expect(window.localStorage.getItem("bcc-recent-searches")).toBeNull();
+    });
+    expect(window.localStorage.getItem("bcc-onboarding-progress")).toBeNull();
+    expect(window.sessionStorage.getItem("bcc-tour-progress")).toBeNull();
+  });
+
+  it("KEEPS the returning viewer's own id-scoped blog draft", async () => {
+    // bcc.blog.draft.<handle> is restored by the composer on mount, and
+    // it is already partitioned by id — another viewer's composer only
+    // ever reads their own key. Purging it on arrival destroyed an
+    // unpublished post belonging to the person who just signed back in,
+    // and bought nothing.
+    window.localStorage.setItem("bcc.blog.draft.a", "half-written post");
+    window.localStorage.setItem("bcc-recent-searches", '["x"]');
+    arrive();
+    await waitFor(() => {
+      expect(window.localStorage.getItem("bcc-recent-searches")).toBeNull();
+    });
+    expect(window.localStorage.getItem("bcc.blog.draft.a")).toBe("half-written post");
+  });
+
+  it("KEEPS the push subscription row id, so sign-out can still revoke it", async () => {
+    // Deleting it orphaned a live server row: the browser subscription
+    // survives, so the toggle still reads ON and nothing re-stores the
+    // id, and the next sign-out degrades from "revoked" to
+    // "unsubscribed-locally". Keeping even a FOREIGN id is harmless —
+    // the DELETE is ownership-checked and a 403 is already swallowed.
+    window.localStorage.setItem("bcc-push-subscription-id", "55");
+    window.localStorage.setItem("bcc-recent-searches", '["x"]');
+    arrive();
+    await waitFor(() => {
+      expect(window.localStorage.getItem("bcc-recent-searches")).toBeNull();
+    });
+    expect(window.localStorage.getItem("bcc-push-subscription-id")).toBe("55");
+  });
+
+  it("does not cancel or clear the query cache at login", async () => {
+    // This tab never had a viewer, so the cache holds anonymous reads
+    // only — nobody's private data. Cancelling at login aborts the
+    // ARRIVING viewer's own first reads.
+    qc.setQueryData(["public", "thing"], { ok: true });
+    arrive();
+    await waitFor(() => {
+      expect(screen.getByTestId("private")).toBeInTheDocument();
+    });
+    expect(qc.getQueryData(["public", "thing"])).toEqual({ ok: true });
+  });
+
+  it("DEPARTURE still clears everything, draft and push id included", async () => {
+    window.localStorage.setItem("bcc.blog.draft.a", "half-written post");
+    window.localStorage.setItem("bcc-push-subscription-id", "55");
+    window.localStorage.setItem("bcc-theme", "dark");
+    mount(qc);
+    await endSession("user");
+    expect(window.localStorage.getItem("bcc.blog.draft.a")).toBeNull();
+    expect(window.localStorage.getItem("bcc-push-subscription-id")).toBeNull();
+    expect(window.localStorage.getItem("bcc-theme")).toBe("dark");
   });
 });

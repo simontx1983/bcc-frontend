@@ -29,7 +29,10 @@ import {
   purgeViewerState,
   registerSessionTeardown,
 } from "@/lib/auth/session-boundary";
-import { clearViewerStorage } from "@/lib/auth/viewer-storage";
+import {
+  clearCrossViewerStorage,
+  clearViewerStorage,
+} from "@/lib/auth/viewer-storage";
 import { revokePushForSessionEnd } from "@/lib/push/revoke";
 
 export function SessionBoundaryBridge() {
@@ -67,6 +70,7 @@ export function SessionBoundaryBridge() {
         queryClient.clear();
       },
       purgeViewerStorage: clearViewerStorage,
+      purgeArrivalStorage: clearCrossViewerStorage,
       revokePush: revokePushForSessionEnd,
       // `redirect: true` is load-bearing: the document load re-runs the
       // RSC tree, so server-computed owner gating (`isOwner` and the

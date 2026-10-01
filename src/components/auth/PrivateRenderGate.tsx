@@ -121,7 +121,15 @@ function RecoveryPanel({ failed }: { failed: SessionTeardownResult }) {
               // confirmation — so the previous version of this button was
               // cosmetic while telling the viewer they were done.
               setFinishing(true);
-              void forceSignOutNavigation();
+              // Give the control back if nothing navigated. A real
+              // navigation tears this document down, so the re-enable
+              // never runs in the success case; on a dead host — which is
+              // why this panel is on screen — it is the difference
+              // between a retryable button and a permanently disabled
+              // "Finishing…" with no other way out of a terminal gate.
+              void forceSignOutNavigation().finally(() => {
+                setFinishing(false);
+              });
             }}
             className="bcc-auth-submit mt-5 w-full"
           >

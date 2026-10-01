@@ -42,6 +42,10 @@ function handlers(
       order.push("purgeViewerStorage");
       return "cleared" as const;
     },
+    purgeArrivalStorage: () => {
+      order.push("purgeArrivalStorage");
+      return "cleared" as const;
+    },
     revokePush: async () => {
       order.push("revokePush");
       return "revoked" as PushCleanupOutcome;

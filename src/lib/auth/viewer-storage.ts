@@ -77,6 +77,49 @@ export const DEVICE_SCOPED_STORAGE_KEYS: readonly string[] = [
   "bcc:roster-view",
 ];
 
+/**
+ * The subset cleared on viewer ARRIVAL, as opposed to departure.
+ *
+ * Arrival and departure are not the same question. Departure is "this
+ * person is leaving, remove their traces", so it clears everything below.
+ * Arrival is "someone new may be at this device, remove what would be
+ * SHOWN to them" — and that is a strictly smaller set, because on arrival
+ * the person may equally well be the SAME viewer coming back, whose own
+ * state must survive.
+ *
+ * Excluded from arrival, deliberately:
+ *
+ *   bcc.blog.draft.<handle>   already partitioned by id, and the owner's
+ *                             composer restores it on mount. Clearing it
+ *                             destroyed an unpublished post belonging to
+ *                             whoever just signed back in, and protected
+ *                             nobody: another viewer's composer only ever
+ *                             reads their own key.
+ *   bcc:fp_reported:<userId>  also id-partitioned. Still cleared on
+ *                             departure, which is where it belongs.
+ *   bcc-push-subscription-id  clearing it ORPHANS a live server row: the
+ *                             browser subscription survives, so the
+ *                             toggle still reads ON and nothing re-stores
+ *                             the id, and the next sign-out degrades from
+ *                             "revoked" to "unsubscribed-locally".
+ *                             Retaining even a foreign id is harmless —
+ *                             DELETE /me/push-subscriptions/{id} is
+ *                             ownership-checked and the 403 is swallowed.
+ */
+const ARRIVAL_SCOPED_STORAGE_KEYS: readonly string[] = [
+  // Rendered verbatim to whoever is next, in the search dropdown's
+  // RECENT section. The clearest cross-person disclosure of the set.
+  "bcc-recent-searches",
+  // Keeping any of these suppresses or mis-positions onboarding for the
+  // next person on the device.
+  "bcc-tour-seen",
+  "bcc-tour-progress",
+  "bcc-tour-dismissed",
+  "bcc-onboarding-progress",
+  "bcc-onboarding-resume-dismissed",
+  "bcc.communities.dismissed",
+];
+
 function isViewerScoped(key: string): boolean {
   return (
     VIEWER_SCOPED_STORAGE_KEYS.includes(key) ||
@@ -92,7 +135,19 @@ function isViewerScoped(key: string): boolean {
  *          access threw — in which case the caller must not claim the data
  *          is gone.
  */
+/**
+ * Arrival sweep: only what would be shown to a newcomer.
+ * See ARRIVAL_SCOPED_STORAGE_KEYS for what is deliberately left alone.
+ */
+export function clearCrossViewerStorage(): StoragePurgeOutcome {
+  return sweep((key) => ARRIVAL_SCOPED_STORAGE_KEYS.includes(key));
+}
+
 export function clearViewerStorage(): StoragePurgeOutcome {
+  return sweep(isViewerScoped);
+}
+
+function sweep(matches: (key: string) => boolean): StoragePurgeOutcome {
   if (typeof window === "undefined") {
     return "cleared";
   }
@@ -112,7 +167,7 @@ export function clearViewerStorage(): StoragePurgeOutcome {
       continue;
     }
     for (const key of keys) {
-      if (!isViewerScoped(key)) {
+      if (!matches(key)) {
         continue;
       }
       try {
@@ -124,7 +179,7 @@ export function clearViewerStorage(): StoragePurgeOutcome {
     // A key we were told to remove but that is still present — a quota or
     // policy quirk — is also an incomplete purge.
     for (const key of keys) {
-      if (!isViewerScoped(key)) {
+      if (!matches(key)) {
         continue;
       }
       try {

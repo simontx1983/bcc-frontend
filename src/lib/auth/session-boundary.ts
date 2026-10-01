@@ -53,9 +53,16 @@
  * A's bearer can be in flight when the boundary runs and resolve
  * afterwards. `cancelQueries` aborts the ones React Query owns, but a
  * resolved-then-awaited promise can still hand A's payload back to a
- * caller. So every authenticated read captures `currentViewerEpoch()`
- * before it fires and checks `isStaleEpoch()` after; a response from a
- * previous epoch is discarded rather than returned.
+ * caller. So `bccFetchAsClient` captures `currentViewerEpoch()` before it
+ * fires and checks `isStaleEpoch()` after; a response from a previous
+ * epoch is discarded rather than returned.
+ *
+ * That is NOT every authenticated read, and this comment used to claim it
+ * was. `bccSearchFetchAsClient` and `bccTrustFetch` also attach the bearer
+ * and never consult the epoch. The gap costs nothing today because every
+ * gate-closing path ends in a navigation or a reload, which discards the
+ * document before such a response could be rendered — but it is a
+ * property of those paths, not a guarantee this module enforces.
  */
 
 /** Why the session is ending. */
@@ -138,6 +145,11 @@ export interface SessionEndOptions {
 export type AuthNoticeSlug = "signed-out" | "standing" | "push-cleanup";
 
 export interface SessionTeardownHandlers {
+  /**
+   * Clear only the keys a NEWCOMER would be shown. Used on viewer
+   * arrival, where the person may equally be the same viewer returning.
+   */
+  purgeArrivalStorage: () => StoragePurgeOutcome;
   /**
    * Cancel in-flight queries and drop every cached entry. Must not throw.
    * Called AFTER the render gate has closed, so the observers it would
@@ -308,13 +320,23 @@ function purgeStorageOnly(): StoragePurgeOutcome {
  * So arrival purges state; only DEPARTURE closes the gate.
  */
 export function purgeArrivingViewerState(): StoragePurgeOutcome {
-  viewerEpoch += 1;
+  // Storage only, and only the arrival subset.
+  //
+  // No epoch bump: the epoch exists to invalidate a DEPARTING viewer's
+  // authenticated in-flight requests, and on arrival this tab never had a
+  // viewer — every request in flight was anonymous, which
+  // `bccFetchAsClient` exempts from the staleness check anyway. Bumping it
+  // could only strand the ARRIVING viewer's own first read.
+  //
+  // No cache purge either: `purgeQueryCache` cancels in-flight queries,
+  // and at login that aborts the new viewer's first reads at the moment
+  // their surfaces mount. The cache holds anonymous reads only, so there
+  // is nothing of anyone's to drop.
   try {
-    handlers?.purgeQueryCache();
+    return handlers?.purgeArrivalStorage() ?? "partial";
   } catch {
-    // Must not stop the storage purge below.
+    return "partial";
   }
-  return purgeStorageOnly();
 }
 
 export function purgeViewerState(): StoragePurgeOutcome {
