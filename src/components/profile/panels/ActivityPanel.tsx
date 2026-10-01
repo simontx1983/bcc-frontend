@@ -79,12 +79,19 @@ export function ActivityPanel({
   //                          of refreshing.
   //
   // Mirrors PhotosPanel and UserBlogList, which already discriminate.
+  //
+  // The recovery control keeps LoadFailure's shared "Retry" wording
+  // rather than the "Try again" this panel used to render inline. The
+  // Account slice is the one documented exception to that default — it
+  // sits beside background-refetch banners that already say "Try again"
+  // — and a closed-inventory test pins the exception to those two files.
+  // Nothing here sits beside such a banner, so there is no reason to
+  // widen it.
   if (query.isLoadingError) {
     return (
       <div className="py-8">
         <LoadFailure
           message={failureCopy}
-          retryLabel="Try again"
           onRetry={() => void query.refetch()}
         />
       </div>
@@ -138,7 +145,6 @@ export function ActivityPanel({
       {query.isRefetchError && (
         <LoadFailure
           message={failureCopy}
-          retryLabel="Try again"
           onRetry={() => void query.refetch()}
         />
       )}
@@ -150,7 +156,6 @@ export function ActivityPanel({
       {query.isFetchNextPageError ? (
         <LoadFailure
           message={failureCopy}
-          retryLabel="Try again"
           onRetry={() => void query.fetchNextPage()}
         />
       ) : (

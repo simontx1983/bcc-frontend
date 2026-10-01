@@ -211,7 +211,7 @@ describe("ActivityPanel — a later failure keeps the wall", () => {
   it("retries a failed next page with fetchNextPage, not refetch", () => {
     state.activity = inf("activity", [feedPage([1, 2])], "next");
     render(wall());
-    fireEvent.click(screen.getByRole("button", { name: /try again/i }));
+    fireEvent.click(screen.getByRole("button", { name: /retry/i }));
     expect(fetchNextPage.activity).toHaveBeenCalledTimes(1);
     expect(refetch.activity).not.toHaveBeenCalled();
   });
@@ -219,7 +219,7 @@ describe("ActivityPanel — a later failure keeps the wall", () => {
   it("retries a failed refresh with refetch, not fetchNextPage", () => {
     state.activity = inf("activity", [feedPage([1, 2])], "refetch");
     render(wall());
-    fireEvent.click(screen.getByRole("button", { name: /try again/i }));
+    fireEvent.click(screen.getByRole("button", { name: /retry/i }));
     expect(refetch.activity).toHaveBeenCalledTimes(1);
     expect(fetchNextPage.activity).not.toHaveBeenCalled();
   });
@@ -228,7 +228,7 @@ describe("ActivityPanel — a later failure keeps the wall", () => {
     state.activity = firstLoadFailed("activity");
     render(wall());
     expect(screen.queryAllByTestId("wall-row")).toHaveLength(0);
-    fireEvent.click(screen.getByRole("button", { name: /try again/i }));
+    fireEvent.click(screen.getByRole("button", { name: /retry/i }));
     expect(refetch.activity).toHaveBeenCalledTimes(1);
     expect(fetchNextPage.activity).not.toHaveBeenCalled();
   });
