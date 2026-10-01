@@ -32,6 +32,7 @@ import Link from "next/link";
 import type { Route } from "next";
 
 import { useCardReviews } from "@/hooks/useCardTabs";
+import { dedupeById } from "@/lib/pagination";
 import { LoadFailure } from "@/components/ui/LoadFailure";
 import { humanizeCode } from "@/lib/api/errors";
 import type {
@@ -51,7 +52,14 @@ export function CardReviewsPanel({ kind, cardId, cardName }: CardReviewsPanelPro
 
   // Pages in fetch order; TanStack appends only on success, so a failed
   // LOAD MORE leaves this exactly as it was.
-  const reviews: CardReview[] = query.data?.pages.flatMap((p) => p.items) ?? [];
+  //
+  // De-duplicated because page-number pagination addresses a moving list: a
+  // review filed between page 1 and page 2 shifts the window and repeats a
+  // row. The cursor is still driven by the server pagination block, not by
+  // this count — see lib/pagination.
+  const reviews: CardReview[] = dedupeById(
+    query.data?.pages.flatMap((p) => p.items) ?? [],
+  );
   const lastPage = query.data?.pages[query.data.pages.length - 1];
 
   /**

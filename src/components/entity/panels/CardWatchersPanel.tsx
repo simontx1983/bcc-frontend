@@ -27,6 +27,7 @@ import type { Route } from "next";
 import { CardGrid } from "@/components/cards/CardGrid";
 import { Avatar } from "@/components/identity/Avatar";
 import { useCardWatchers } from "@/hooks/useCardTabs";
+import { dedupeById } from "@/lib/pagination";
 import { LoadFailure } from "@/components/ui/LoadFailure";
 import { humanizeCode } from "@/lib/api/errors";
 import type { Card, EntityCardKind } from "@/lib/api/types";
@@ -69,7 +70,14 @@ export function CardWatchersPanel({
 
   // Pages in fetch order; TanStack appends only on success, so a failed LOAD
   // MORE leaves this exactly as it was.
-  const watchers: Card[] = query.data?.pages.flatMap((p) => p.items) ?? [];
+  //
+  // De-duplicated because offset pagination addresses a moving list: someone
+  // gaining a watcher between offset 0 and offset 24 shifts the window and
+  // repeats a row. The cursor is still driven by the server offset, not by
+  // this count — see lib/pagination.
+  const watchers: Card[] = dedupeById(
+    query.data?.pages.flatMap((p) => p.items) ?? [],
+  );
   const lastPage = query.data?.pages[query.data.pages.length - 1];
 
   /**
