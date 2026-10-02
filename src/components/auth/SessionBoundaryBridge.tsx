@@ -38,6 +38,12 @@ import { revokePushForSessionEnd } from "@/lib/push/revoke";
 /** Bound for the confirming read that decides whether a null session is real. */
 const SESSION_CONFIRM_TIMEOUT_MS = 3_000;
 
+/** How many times to ask before giving up on an unreadable answer. */
+const SESSION_CONFIRM_ATTEMPTS = 3;
+
+/** Gap between attempts. */
+const SESSION_CONFIRM_RETRY_MS = 5_000;
+
 export function SessionBoundaryBridge() {
   const queryClient = useQueryClient();
   const { data: session, status } = useSession();
@@ -46,6 +52,10 @@ export function SessionBoundaryBridge() {
   // means "not established yet" so the first resolution is not mistaken
   // for a viewer change.
   const shownViewer = useRef<string | null | undefined>(undefined);
+  /** True while a null session is being confirmed. */
+  const confirming = useRef(false);
+  /** The most recent viewer the effect saw, readable from the confirm loop. */
+  const latestViewer = useRef<string | null>(null);
 
   useEffect(() => {
     return registerSessionTeardown({
@@ -79,12 +89,27 @@ export function SessionBoundaryBridge() {
         // anonymous reads, and keeping them lets the pre-login payload
         // render for a round trip on remount — or indefinitely if the
         // refetch then errors, since query-core keeps `data` on error.
-        // `type: "inactive"` alone would be wrong: it means "no
-        // observers", NOT "not fetching", so it drops — and therefore
-        // cancels — a read that is in flight without a subscriber yet.
-        // Only idle entries are safe to remove.
+        // Three conditions, each load-bearing:
+        //
+        //  - nothing observing. `getObserversCount() === 0`, not
+        //    `!isActive()`: the latter is `observers.some(o => enabled !==
+        //    false)`, so it also matches a MOUNTED query whose observers
+        //    are all disabled, which does not need dropping.
+        //  - idle. A query can have no observers and still be fetching —
+        //    a prefetch — and removing it cancels that read.
+        //  - no `initialData`. Removing one of those is WORSE than
+        //    invalidating it: query-core's getDefaultState stamps
+        //    `dataUpdatedAt` with Date.now() when initialData is present
+        //    and no initialDataUpdatedAt is given, so the REBUILT entry is
+        //    fresh for its whole staleTime and will not refetch on mount.
+        //    `useFeedItem` seeds from an SSR read carrying the ANONYMOUS
+        //    view-model, with a 60s staleTime. Invalidation sticks to the
+        //    surviving entry and forces the refetch instead.
         queryClient.removeQueries({
-          predicate: (q) => !q.isActive() && q.state.fetchStatus === "idle",
+          predicate: (q) =>
+            q.getObserversCount() === 0 &&
+            q.state.fetchStatus === "idle" &&
+            q.options.initialData === undefined,
         });
         // Mark the rest stale. This cancels only an active query that
         // ALREADY has data (a stale anonymous refetch); the arriving
@@ -110,6 +135,7 @@ export function SessionBoundaryBridge() {
       return;
     }
     const viewer = session?.user?.id ?? null;
+    latestViewer.current = viewer;
 
     if (shownViewer.current === undefined) {
       shownViewer.current = viewer;
@@ -119,11 +145,21 @@ export function SessionBoundaryBridge() {
       return;
     }
 
+    // Read, but do NOT commit yet. An unconfirmed null used to be written
+    // here, which meant any session change arriving during the confirm
+    // window was compared against `null` and so looked like an ARRIVAL:
+    // A -> null -> B took the arrival path, leaving A's server-rendered
+    // email and owner controls on screen for B with no gate close and no
+    // reload, and A -> null -> A ran the arrival sweep on a viewer who
+    // never left, destroying their local-only onboarding progress. The
+    // cross-tab broadcast makes both a few-hundred-ms event.
+    //
+    // So the recorded viewer advances only on a VERDICT.
     const previous = shownViewer.current;
-    shownViewer.current = viewer;
 
     // A teardown already running in THIS tab is doing the same work.
     if (isEndingSession()) {
+      shownViewer.current = viewer;
       return;
     }
 
@@ -147,6 +183,7 @@ export function SessionBoundaryBridge() {
       // Not nothing, though: localStorage survives document loads, so a
       // previous viewer's keys can still be on this device even if this
       // tab never saw them. Purge the state, leave the gate open.
+      shownViewer.current = viewer;
       purgeArrivingViewerState();
       return;
     }
@@ -182,37 +219,79 @@ export function SessionBoundaryBridge() {
     // in, minus the draft. Everywhere else this codebase refuses to end a
     // session on an unreadable answer; this was the one place that did.
     if (viewer !== null) {
+      shownViewer.current = viewer;
       depart();
       return;
     }
 
+    // One confirm at a time. Without this an effect re-run could launch a
+    // second while the first is still open.
+    if (confirming.current) {
+      return;
+    }
+    confirming.current = true;
+
     void (async () => {
-      let gone = false;
-      try {
-        const r = await fetch("/api/auth/session", {
-          credentials: "include",
-          cache: "no-store",
-          signal: AbortSignal.timeout(SESSION_CONFIRM_TIMEOUT_MS),
-        });
-        if (r.ok) {
+      /** One attempt. True only for a readable, empty session body. */
+      const askOnce = async (): Promise<boolean> => {
+        try {
+          const r = await fetch("/api/auth/session", {
+            credentials: "include",
+            cache: "no-store",
+            signal: AbortSignal.timeout(SESSION_CONFIRM_TIMEOUT_MS),
+          });
+          if (!r.ok) {
+            return false;
+          }
           const body: unknown = await r.json().catch(() => undefined);
           // next-auth answers a READABLE `{}` when there is no session
           // cookie. That is the only shape that proves departure.
-          gone =
+          return (
             typeof body === "object" &&
             body !== null &&
-            Object.keys(body).length === 0;
+            Object.keys(body).length === 0
+          );
+        } catch {
+          // Indeterminate. Not a verdict.
+          return false;
         }
-      } catch {
-        // Indeterminate. Not a verdict.
+      };
+
+      // Retry a bounded number of times. One inconclusive answer used to
+      // end the matter for the life of the document: next-auth never sets
+      // `loading` back to true on a refetch, so neither effect dep changes
+      // again while the session keeps reading null, and nothing else will
+      // tear the session down — after a real sign-out `getSession()` is
+      // null, so reads go out anonymously and the client deliberately
+      // refuses to end a session on an anonymous 401. A single blip could
+      // therefore leave the previous viewer's server-rendered content on
+      // screen indefinitely.
+      //
+      // Bounded rather than endless because the cost of giving up is
+      // contained: the next navigation is a document load, which
+      // re-derives everything from whatever cookie now exists.
+      for (let attempt = 0; attempt < SESSION_CONFIRM_ATTEMPTS; attempt += 1) {
+        if (attempt > 0) {
+          await new Promise((r) => {
+            window.setTimeout(r, SESSION_CONFIRM_RETRY_MS);
+          });
+        }
+        // Stop if the session came back, or if a newer verdict has already
+        // been acted on. Either way this question is no longer live.
+        if (latestViewer.current !== null || shownViewer.current !== previous) {
+          break;
+        }
+        if (await askOnce()) {
+          confirming.current = false;
+          if (shownViewer.current !== previous) {
+            return;
+          }
+          shownViewer.current = null;
+          depart();
+          return;
+        }
       }
-      if (!gone) {
-        // Put the transition back, so a REAL departure arriving later is
-        // still acted on rather than swallowed by this inconclusive one.
-        shownViewer.current = previous;
-        return;
-      }
-      depart();
+      confirming.current = false;
     })();
   }, [session?.user?.id, status]);
 

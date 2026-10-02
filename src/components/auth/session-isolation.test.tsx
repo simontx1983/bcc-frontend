@@ -1042,3 +1042,299 @@ describe("a session that reads as null without being gone", () => {
     expect(reload).not.toHaveBeenCalled();
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────
+// A session change DURING the confirm must not be measured against null
+// ─────────────────────────────────────────────────────────────────────
+
+describe("a session change while the confirm is in flight", () => {
+  /** A confirm that hangs until released. */
+  function deferredConfirm() {
+    let release: ((r: Response) => void) | undefined;
+    const pending = new Promise<Response>((r) => {
+      release = r;
+    });
+    vi.stubGlobal("fetch", vi.fn(() => pending));
+    return {
+      release: (body: string, status = 200) =>
+        release?.(new Response(body, { status })),
+    };
+  }
+
+  it("A → null → B still DEPARTS, instead of taking the arrival path", async () => {
+    // Committing the unconfirmed null meant the next change was compared
+    // against null, so B looked like an arrival: no gate close, no reload,
+    // no epoch bump. A's SERVER-RENDERED output — their email in the
+    // change-email form, their owner controls — stayed on screen for B,
+    // which the bridge's own comment says only a document load can clear.
+    // The cross-tab broadcast makes this a few-hundred-ms event, and the
+    // confirm window is up to 3s on the wedged host it exists for.
+    const reload = vi.fn();
+    Object.defineProperty(window, "location", {
+      value: { reload, href: "http://localhost/", assign: vi.fn(), pathname: "/" },
+      writable: true,
+    });
+    deferredConfirm();
+
+    const view = mount(qc);
+    seedViewerACache(qc);
+
+    sessionState.data = null;
+    sessionState.status = "unauthenticated";
+    view.rerender(tree(qc));
+    await new Promise((r) => setTimeout(r, 10));
+
+    // B arrives before the confirm settles.
+    sessionState.data = { user: { id: "b" } };
+    sessionState.status = "authenticated";
+    view.rerender(tree(qc));
+
+    await waitFor(() => {
+      expect(reload).toHaveBeenCalledTimes(1);
+    });
+    expect(screen.queryByTestId("private")).toBeNull();
+  });
+
+  it("A → null → A does not run the arrival purge on a viewer who stayed", async () => {
+    // Same window. `bcc-onboarding-progress` is local-only with no server
+    // mirror, so the arrival sweep destroys it irrecoverably — for someone
+    // who never left, after a network blip.
+    const reload = vi.fn();
+    Object.defineProperty(window, "location", {
+      value: { reload, href: "http://localhost/", assign: vi.fn(), pathname: "/" },
+      writable: true,
+    });
+    const { release } = deferredConfirm();
+    window.localStorage.setItem("bcc-recent-searches", '["acme payroll"]');
+    window.localStorage.setItem("bcc-onboarding-progress", "step-3");
+
+    const view = mount(qc);
+    sessionState.data = null;
+    sessionState.status = "unauthenticated";
+    view.rerender(tree(qc));
+    await new Promise((r) => setTimeout(r, 10));
+
+    sessionState.data = { user: { id: "a" } };
+    sessionState.status = "authenticated";
+    view.rerender(tree(qc));
+    await new Promise((r) => setTimeout(r, 10));
+
+    release("<html/>", 502);
+    await new Promise((r) => setTimeout(r, 20));
+
+    expect(window.localStorage.getItem("bcc-recent-searches")).toBe('["acme payroll"]');
+    expect(window.localStorage.getItem("bcc-onboarding-progress")).toBe("step-3");
+    expect(reload).not.toHaveBeenCalled();
+  });
+
+  it("a stale confirm cannot depart after the viewer has moved on", async () => {
+    // The confirm resolving "gone" must not act if the recorded viewer is
+    // no longer the one it was launched for.
+    const reload = vi.fn();
+    Object.defineProperty(window, "location", {
+      value: { reload, href: "http://localhost/", assign: vi.fn(), pathname: "/" },
+      writable: true,
+    });
+    const { release } = deferredConfirm();
+
+    const view = mount(qc);
+    sessionState.data = null;
+    sessionState.status = "unauthenticated";
+    view.rerender(tree(qc));
+    await new Promise((r) => setTimeout(r, 10));
+
+    // B takes over and is handled on its own terms.
+    sessionState.data = { user: { id: "b" } };
+    sessionState.status = "authenticated";
+    view.rerender(tree(qc));
+    await waitFor(() => {
+      expect(reload).toHaveBeenCalledTimes(1);
+    });
+
+    // The old confirm now says A was gone. It must not fire a second one.
+    release("{}", 200);
+    await new Promise((r) => setTimeout(r, 20));
+    expect(reload).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("an inconclusive confirm is retried, not abandoned", () => {
+  it("departs once a later attempt confirms the session is gone", async () => {
+    // next-auth never sets `loading` back to true on a refetch, so once
+    // the session reads null neither effect dep changes again — the effect
+    // never re-runs and nothing would attempt a second confirm. And there
+    // is no backstop: after a real sign-out `getSession()` is null, so
+    // bccFetchAsClient sends anonymously and client.ts deliberately
+    // refuses to end a session on an anonymous 401. One failed confirm
+    // therefore left the previous viewer's server-rendered content on
+    // screen for the life of the document.
+    vi.useFakeTimers();
+    const reload = vi.fn();
+    Object.defineProperty(window, "location", {
+      value: { reload, href: "http://localhost/", assign: vi.fn(), pathname: "/" },
+      writable: true,
+    });
+    const fetchMock = vi.fn(async () => new Response("<html/>", { status: 502 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const view = mount(qc);
+    sessionState.data = null;
+    sessionState.status = "unauthenticated";
+    view.rerender(tree(qc));
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(100);
+    });
+    expect(reload).not.toHaveBeenCalled();
+
+    // The endpoint recovers.
+    fetchMock.mockImplementation(async () => new Response("{}", { status: 200 }));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(12_000);
+    });
+    expect(reload).toHaveBeenCalledTimes(1);
+    vi.useRealTimers();
+  });
+
+  it("stops ASKING once the session reads as present again", async () => {
+    // A blip that resolves: the retries must stop. Asserting on the fetch
+    // count, not on reload — if a confirm genuinely reads "no cookie",
+    // departing is correct even if useSession later reports a user, since
+    // that client state would be the stale one. What must not happen is
+    // asking again about a session that has come back.
+    vi.useFakeTimers();
+    const reload = vi.fn();
+    Object.defineProperty(window, "location", {
+      value: { reload, href: "http://localhost/", assign: vi.fn(), pathname: "/" },
+      writable: true,
+    });
+    const fetchMock = vi.fn(async () => new Response("<html/>", { status: 502 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const view = mount(qc);
+    sessionState.data = null;
+    sessionState.status = "unauthenticated";
+    view.rerender(tree(qc));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(100);
+    });
+    const afterFirst = fetchMock.mock.calls.length;
+    expect(afterFirst).toBeGreaterThan(0);
+
+    // The session comes back.
+    sessionState.data = { user: { id: "a" } };
+    sessionState.status = "authenticated";
+    view.rerender(tree(qc));
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(20_000);
+    });
+    expect(fetchMock.mock.calls.length).toBe(afterFirst);
+    expect(reload).not.toHaveBeenCalled();
+    vi.useRealTimers();
+  });
+});
+
+describe("entries seeded from initialData", () => {
+  it("are invalidated, not removed — removing makes them FRESH again", async () => {
+    // query-core's getDefaultState sets dataUpdatedAt to Date.now() when
+    // initialData is present and no initialDataUpdatedAt is given, and
+    // isInvalidated false. So a REBUILT entry is fresh for its whole
+    // staleTime and will not refetch on mount — strictly worse than the
+    // invalidated entry it replaced. useFeedItem passes initialData with
+    // staleTime 60_000 and no initialDataUpdatedAt, and the SSR seed
+    // carries the ANONYMOUS view-model.
+    function Seeded() {
+      const { data } = useQuery<{ who: string }>({
+        queryKey: ["seeded", "x"],
+        queryFn: async () => ({ who: "authed" }),
+        initialData: { who: "anonymous" },
+        staleTime: 60_000,
+      });
+      return <span data-testid="seeded">{data.who}</span>;
+    }
+
+    Object.defineProperty(window, "location", {
+      value: { reload: vi.fn(), href: "http://localhost/", assign: vi.fn(), pathname: "/" },
+      writable: true,
+    });
+
+    sessionState.data = null;
+    sessionState.status = "unauthenticated";
+    const view = render(
+      <QueryClientProvider client={qc}>
+        <SessionBoundaryBridge />
+        <Seeded />
+      </QueryClientProvider>,
+    );
+    await waitFor(() => {
+      expect(screen.getByTestId("seeded")).toBeInTheDocument();
+    });
+
+    // The surface unmounts (navigation), leaving the entry inactive.
+    view.rerender(
+      <QueryClientProvider client={qc}>
+        <SessionBoundaryBridge />
+      </QueryClientProvider>,
+    );
+
+    // Sign in, in place.
+    sessionState.data = { user: { id: "a" } };
+    sessionState.status = "authenticated";
+    view.rerender(
+      <QueryClientProvider client={qc}>
+        <SessionBoundaryBridge />
+      </QueryClientProvider>,
+    );
+
+    await waitFor(() => {
+      expect(qc.getQueryState(["seeded", "x"])?.isInvalidated).toBe(true);
+    });
+    // Kept, so the invalidation survives to force a refetch on remount.
+    expect(qc.getQueryData(["seeded", "x"])).toEqual({ who: "anonymous" });
+  });
+});
+
+describe("overlapping confirms", () => {
+  it("never runs two at once", async () => {
+    // Defensive rather than hot: with the session reading null, neither
+    // effect dep changes again (next-auth does not set `loading` back to
+    // true on a refetch), so a second entry is hard to reach. The one
+    // shape that does reach it is a status round-trip through "loading"
+    // while the viewer stays null — and two concurrent confirms could
+    // produce two departures, so the guard is worth keeping and worth
+    // pinning.
+    const reload = vi.fn();
+    Object.defineProperty(window, "location", {
+      value: { reload, href: "http://localhost/", assign: vi.fn(), pathname: "/" },
+      writable: true,
+    });
+    let release: ((r: Response) => void) | undefined;
+    const pending = new Promise<Response>((r) => {
+      release = r;
+    });
+    const fetchMock = vi.fn(() => pending);
+    vi.stubGlobal("fetch", fetchMock);
+
+    const view = mount(qc);
+    sessionState.data = null;
+    sessionState.status = "unauthenticated";
+    view.rerender(tree(qc));
+    await new Promise((r) => setTimeout(r, 10));
+    expect(fetchMock.mock.calls.length).toBe(1);
+
+    // Status round-trips while the viewer stays null.
+    sessionState.status = "loading";
+    view.rerender(tree(qc));
+    sessionState.status = "unauthenticated";
+    view.rerender(tree(qc));
+    await new Promise((r) => setTimeout(r, 10));
+
+    // Still exactly one confirm in flight.
+    expect(fetchMock.mock.calls.length).toBe(1);
+    release?.(new Response("{}", { status: 200 }));
+    await waitFor(() => {
+      expect(reload).toHaveBeenCalledTimes(1);
+    });
+  });
+});
