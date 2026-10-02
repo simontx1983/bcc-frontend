@@ -64,6 +64,18 @@ export function SessionBoundaryBridge() {
   const disposed = useRef(false);
   /** The current effect run's confirm, for the gate's Retry control. */
   const recheckRef = useRef<(() => void) | null>(null);
+  /**
+   * The viewer whose STORED values a teardown should clear.
+   *
+   * Deliberately not `shownViewer`: that ref advances on the line before
+   * `depart()` runs — to the ARRIVING viewer on an account switch, and to
+   * `null` on a confirmed sign-out — so purging by it would clear the wrong
+   * scope, and on the commonest path (another tab signed out) would clear no
+   * viewer's scope at all, leaving the departed viewer's search history,
+   * onboarding position and draft on the device. This one is set only when a
+   * viewer is ESTABLISHED, never by a departure verdict.
+   */
+  const purgeScope = useRef<string | null>(null);
 
   useEffect(() => {
     return registerSessionTeardown({
@@ -90,7 +102,11 @@ export function SessionBoundaryBridge() {
         // is exactly why `clear()` is sufficient here and was not before.
         queryClient.clear();
       },
-      purgeViewerStorage: clearViewerStorage,
+      // The DEPARTING viewer, read at purge time rather than captured: the
+      // teardown can be triggered from anywhere (the sign-out control, a
+      // 401 in the API client, another tab's broadcast) long after this
+      // effect ran.
+      purgeViewerStorage: () => clearViewerStorage(purgeScope.current),
       purgeArrivalStorage: clearCrossViewerStorage,
       invalidateQueryCache: () => {
         // Drop what nothing is observing: those entries hold only
@@ -161,6 +177,7 @@ export function SessionBoundaryBridge() {
       // previous owner's email and controls are still server-rendered on
       // the page. Confirm before committing if that changes.
       shownViewer.current = viewer;
+      if (viewer !== null) purgeScope.current = viewer;
       return;
     }
     if (shownViewer.current === viewer) {
@@ -199,13 +216,15 @@ export function SessionBoundaryBridge() {
     // they are the exception, not the rule.) Purging here would latch the
     // gate shut and leave the viewer on the "Signing out…" placeholder
     // immediately after a successful login, with only a manual browser
-    // reload to escape. It would also wipe `bcc-onboarding-progress` and
-    // the tour keys at the exact moment they start being written.
+    // reload to escape. It would also wipe this viewer's own onboarding
+    // progress and tour keys at the exact moment they start being written.
     if (previous === null) {
-      // Not nothing, though: localStorage survives document loads, so a
-      // previous viewer's keys can still be on this device even if this
-      // tab never saw them. Purge the state, leave the gate open.
+      // Not nothing, though: localStorage survives document loads, so
+      // values written by an older, UNSCOPED version can still be on this
+      // device even if this tab never saw them. Remove those — they belong
+      // to nobody we can name — and leave the gate open.
       shownViewer.current = viewer;
+      if (viewer !== null) purgeScope.current = viewer;
       purgeArrivingViewerState();
       return;
     }

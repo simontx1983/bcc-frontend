@@ -19,8 +19,9 @@
  */
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
+import { useViewerScope } from "@/hooks/useViewerScope";
 import { getToursSeen, markTourSeen } from "@/lib/api/tours-endpoints";
 import type { ToursSeenResponse } from "@/lib/api/types";
 import { addLocalSeen, getLocalSeen } from "@/lib/tour/storage";
@@ -34,9 +35,20 @@ export interface ToursSeenApi {
 
 export function useToursSeen(): ToursSeenApi {
   const queryClient = useQueryClient();
+  const scope = useViewerScope();
 
-  // Local layer — seeded once from localStorage, bumped on markSeen.
-  const [localSeen, setLocalSeen] = useState<ReadonlySet<string>>(() => new Set(getLocalSeen()));
+  // Local layer — seeded from localStorage and bumped on markSeen. The
+  // seed is an effect keyed on the scope, not a lazy initial state: at
+  // mount we often do not yet know who the viewer is, and the set is read
+  // back per viewer, so it has to be re-seeded when that resolves or
+  // changes. A viewer who signs in gets THEIR seen-set, never the
+  // previous occupant's.
+  const [localSeen, setLocalSeen] = useState<ReadonlySet<string>>(
+    () => new Set<string>(),
+  );
+  useEffect(() => {
+    setLocalSeen(new Set(getLocalSeen(scope)));
+  }, [scope]);
 
   // Server layer — degrade to empty on any error (endpoint may not exist
   // yet). No retries or focus refetch: this is a low-stakes preference set.
@@ -71,7 +83,10 @@ export function useToursSeen(): ToursSeenApi {
   const markSeen = useCallback(
     (tourId: string) => {
       if (localSeen.has(tourId)) return;
-      addLocalSeen(tourId);
+      // With an unknown scope the local write is dropped (see
+      // lib/auth/viewer-scope) — the server POST below still records it,
+      // so the tour is remembered durably even then.
+      addLocalSeen(scope, tourId);
       setLocalSeen((prev) => {
         const next = new Set(prev);
         next.add(tourId);
@@ -79,7 +94,7 @@ export function useToursSeen(): ToursSeenApi {
       });
       markMutation.mutate(tourId);
     },
-    [localSeen, markMutation],
+    [localSeen, markMutation, scope],
   );
 
   return { hasSeen, markSeen };
