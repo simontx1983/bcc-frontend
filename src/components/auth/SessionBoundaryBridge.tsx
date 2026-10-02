@@ -58,6 +58,8 @@ export function SessionBoundaryBridge() {
   const latestViewer = useRef<string | null>(null);
   /** Removes the re-arm listeners, if any are registered. */
   const rearmCleanup = useRef<(() => void) | null>(null);
+  /** Set on unmount: an in-flight confirm cannot be aborted, so it checks this. */
+  const disposed = useRef(false);
 
   useEffect(() => {
     return registerSessionTeardown({
@@ -285,101 +287,165 @@ export function SessionBoundaryBridge() {
       }
       confirming.current = true;
       void (async () => {
-      /** One attempt. True only for a readable, empty session body. */
-      const askOnce = async (): Promise<boolean> => {
-        try {
-          const r = await fetch("/api/auth/session", {
-            credentials: "include",
-            cache: "no-store",
-            signal: AbortSignal.timeout(SESSION_CONFIRM_TIMEOUT_MS),
-          });
-          if (!r.ok) {
-            return false;
+        /** One attempt. True only for a readable, empty session body. */
+        /**
+         * One attempt, THREE outcomes. Collapsing these into a boolean was a
+         * defect: a readable body proving the session is ALIVE went into the
+         * same bucket as an unreadable answer, so nothing consumed it and
+         * the loop re-armed forever. That mattered because next-auth's
+         * `_getSession` early-returns while its cached session is null, so
+         * `useSession` can never recover by itself and neither effect dep
+         * can change again — leaving a permanent, focus-keyed poll against a
+         * session this code had already read and knew was fine.
+         */
+        const askOnce = async (): Promise<
+          | { kind: "gone" }
+          | { kind: "present"; viewer: string | null }
+          | { kind: "unreadable" }
+        > => {
+          try {
+            const r = await fetch("/api/auth/session", {
+              credentials: "include",
+              cache: "no-store",
+              signal: AbortSignal.timeout(SESSION_CONFIRM_TIMEOUT_MS),
+            });
+            if (!r.ok) {
+              return { kind: "unreadable" };
+            }
+            const body: unknown = await r.json().catch(() => undefined);
+            if (typeof body !== "object" || body === null) {
+              return { kind: "unreadable" };
+            }
+            // next-auth answers a READABLE `{}` when there is no session
+            // cookie. That is the only shape that proves departure.
+            if (Object.keys(body).length === 0) {
+              return { kind: "gone" };
+            }
+            const id = (body as { user?: { id?: unknown } }).user?.id;
+            return {
+              kind: "present",
+              viewer: typeof id === "string" ? id : null,
+            };
+          } catch {
+            return { kind: "unreadable" };
           }
-          const body: unknown = await r.json().catch(() => undefined);
-          // next-auth answers a READABLE `{}` when there is no session
-          // cookie. That is the only shape that proves departure.
-          return (
-            typeof body === "object" &&
-            body !== null &&
-            Object.keys(body).length === 0
-          );
-        } catch {
-          // Indeterminate. Not a verdict.
-          return false;
-        }
-      };
+        };
 
-      // Retry a bounded number of times. One inconclusive answer used to
-      // end the matter for the life of the document: next-auth never sets
-      // `loading` back to true on a refetch, so neither effect dep changes
-      // again while the session keeps reading null, and nothing else will
-      // tear the session down — after a real sign-out `getSession()` is
-      // null, so reads go out anonymously and the client deliberately
-      // refuses to end a session on an anonymous 401. A single blip could
-      // therefore leave the previous viewer's server-rendered content on
-      // screen indefinitely.
-      //
-      // Bounded rather than endless because the cost of giving up is
-      // contained, though less neatly than it first looks:
-      //
-      // Bounded rather than endless, with an honest residual: until a
-      // verdict arrives, a departed viewer's server-rendered content can
-      // still be shown. A forward navigation usually re-reads the cookie,
-      // but not for an href that was `router.prefetch`ed — reused for
-      // `staleTimes.static`, 300s by default, with no server request, and
-      // `FeedItemCard` FULL-prefetches the permalink on hover then pushes
-      // that same href on click. Back/forward does not re-read either:
-      // Next restores those segments from the client Router Cache.
-      //
-      // That residual is accepted rather than closed, because the only
-      // tool that would close it is the one described at the give-up
-      // branch below, and its failure mode is worse than the exposure.
+        // Retry a bounded number of times. One inconclusive answer used to
+        // end the matter for the life of the document: next-auth never sets
+        // `loading` back to true on a refetch, so neither effect dep changes
+        // again while the session keeps reading null, and nothing else will
+        // tear the session down — after a real sign-out `getSession()` is
+        // null, so reads go out anonymously and the client deliberately
+        // refuses to end a session on an anonymous 401. A single blip could
+        // therefore leave the previous viewer's server-rendered content on
+        // screen indefinitely.
+        //
+        // Bounded rather than endless because the cost of giving up is
+        // contained, though less neatly than it first looks:
+        //
+        // Bounded rather than endless, with an honest residual: until a
+        // verdict arrives, a departed viewer's server-rendered content can
+        // still be shown. A forward navigation usually re-reads the cookie,
+        // but not for an href that was `router.prefetch`ed — reused for
+        // `staleTimes.static`, 300s by default, with no server request, and
+        // `FeedItemCard` FULL-prefetches the permalink on hover then pushes
+        // that same href on click. Back/forward does not re-read either:
+        // Next restores those segments from the client Router Cache.
+        //
+        // That residual is accepted rather than closed, because the only
+        // tool that would close it is the one described at the give-up
+        // branch below, and its failure mode is worse than the exposure.
 
-      for (let attempt = 0; attempt < SESSION_CONFIRM_ATTEMPTS; attempt += 1) {
-        if (attempt > 0) {
-          await new Promise((r) => {
-            window.setTimeout(r, SESSION_CONFIRM_RETRY_MS);
-          });
-        }
-        // Stop if the session came back, or if a newer verdict has already
-        // been acted on. Either way this question is no longer live.
-        if (latestViewer.current !== null || shownViewer.current !== previous) {
-          break;
-        }
-        if (await askOnce()) {
-          confirming.current = false;
-          if (shownViewer.current !== previous) {
+        for (let attempt = 0; attempt < SESSION_CONFIRM_ATTEMPTS; attempt += 1) {
+          if (attempt > 0) {
+            await new Promise((r) => {
+              window.setTimeout(r, SESSION_CONFIRM_RETRY_MS);
+            });
+          }
+          // Stop if the session came back, or if a newer verdict has already
+          // been acted on. Either way this question is no longer live.
+          if (
+            latestViewer.current !== null ||
+            shownViewer.current !== previous ||
+            // Nothing may act after unmount: the in-flight loop cannot be
+            // aborted, so it checks here and stops before it can re-arm.
+            disposed.current
+          ) {
+            break;
+          }
+          const answer = await askOnce();
+
+          if (answer.kind === "gone") {
+            confirming.current = false;
+            // `isEndingSession()` is re-checked HERE rather than in the
+            // loop condition, because this is the line that acts. A
+            // user-initiated focus can start this loop at any moment and it
+            // runs for up to ~16s; departing underneath a teardown reloads
+            // the current URL and discards the callbackUrl and notice slug
+            // it was carrying.
+            if (shownViewer.current !== previous || isEndingSession()) {
+              return;
+            }
+            shownViewer.current = null;
+            depart();
             return;
           }
-          shownViewer.current = null;
-          depart();
-          return;
-        }
-      }
-      confirming.current = false;
 
-      // Attempts exhausted without a verdict. Deliberately INERT: we never
-      // proved the session is gone, and this module's rule is that an
-      // unreadable answer is never a reason to destroy anything.
-      //
-      // `router.refresh()` was tried here and reverted. It would have
-      // closed the stale-render residuals below, but Next falls back to a
-      // HARD `location.replace` whenever the RSC response is not a 200
-      // flight response (fetch-server-response.js: "If the fetch was not
-      // 200, we also handle it like a mpa navigation"). This path is
-      // reached precisely when the same Next origin failed three session
-      // reads — /api/auth/session is served by Next and in steady state
-      // touches no backend — so the refresh would have been safe only when
-      // it was unnecessary, and a full document load, destroying the
-      // unpublished draft this loop exists to protect, exactly when it was
-      // not.
-      //
-      // So instead of acting on no evidence, wait for the conditions to
-      // change and ask again. `rearm` below listens for `online` and a
-      // refocus; a readable answer then goes through the ordinary
-      // confirmed-departure path.
-      rearm();
+          if (answer.kind === "present") {
+            // The endpoint answered and there IS a session. That settles the
+            // question either way, so do NOT re-arm.
+            confirming.current = false;
+            if (shownViewer.current !== previous || isEndingSession()) {
+              return;
+            }
+            if (answer.viewer !== null && answer.viewer !== previous) {
+              // A verdict we read ourselves: someone else is here now. The
+              // cross-tab broadcast usually delivers this first, but acting
+              // on our own evidence does not depend on that.
+              shownViewer.current = answer.viewer;
+              depart();
+            }
+            // Same viewer, or no id to compare: the session is alive, there
+            // is nothing to hide, and `useSession` being stuck at null is
+            // its own business.
+            return;
+          }
+        }
+        confirming.current = false;
+
+        // Attempts exhausted without a verdict. Deliberately INERT: we never
+        // proved the session is gone, and this module's rule is that an
+        // unreadable answer is never a reason to destroy anything.
+        //
+        // `router.refresh()` was tried here and reverted. It would have
+        // closed the stale-render residuals below, but Next falls back to a
+        // HARD `location.replace` whenever the RSC response is not a 200
+        // flight response (fetch-server-response.js: "If the fetch was not
+        // 200, we also handle it like a mpa navigation"). This path is
+        // reached precisely when the same Next origin failed three session
+        // reads — /api/auth/session is served by Next and in steady state
+        // touches no backend — so the refresh would have been safe only when
+        // it was unnecessary, and a full document load, destroying the
+        // unpublished draft this loop exists to protect, exactly when it was
+        // not.
+        //
+        // So instead of acting on no evidence, wait for the conditions to
+        // change and ask again. `rearm` below listens for `online` and a
+        // refocus; a readable answer then settles it either way.
+        //
+        // ⚠ Recovery is NOT assured, and this is the residual to be honest
+        // about. All three signals are TRANSITIONS, so a viewer who leaves
+        // one tab open, focused, foregrounded and already online gets no
+        // re-check at all. Nothing else carries it: next-auth's focus
+        // refetch early-returns while its cached session is null, its poll
+        // is off and gated on a truthy session, and the API client
+        // deliberately ignores an anonymous 401. Until a signal fires, a
+        // departed viewer's already-rendered content stays on screen —
+        // see the residual note above. Closing that needs a decision
+        // (timed re-checks, a `pageshow` listener, or an explicit accept),
+        // not another mechanism bolted on here.
+        rearm();
       })();
     };
 
@@ -389,6 +455,7 @@ export function SessionBoundaryBridge() {
   // Never leave listeners behind on unmount.
   useEffect(
     () => () => {
+      disposed.current = true;
       rearmCleanup.current?.();
     },
     [],

@@ -1562,3 +1562,208 @@ describe("the re-arm respects a teardown already in flight", () => {
     expect(reload).not.toHaveBeenCalled();
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────
+// A readable session body is EVIDENCE, not another unreadable answer
+// ─────────────────────────────────────────────────────────────────────
+
+describe("what a readable session body settles", () => {
+  it("stops asking once the endpoint reports a LIVE session", async () => {
+    // `askOnce` returned true only for `{}` and false for everything
+    // else, so "the origin answered and the session is alive" went into
+    // the same bucket as "unreadable". Nothing consumed that evidence, so
+    // the loop exhausted and re-armed — and next-auth's _getSession
+    // early-returns while its cached session is null, so useSession can
+    // never recover on its own and neither effect dep can change again.
+    // The result was a permanent, focus-keyed poll against a session the
+    // bridge had already read and knew was fine.
+    vi.useFakeTimers();
+    Object.defineProperty(window, "location", {
+      value: { reload: vi.fn(), assign: vi.fn(), href: "http://localhost/", pathname: "/" },
+      writable: true,
+    });
+    const fetchMock = vi.fn(async () => new Response("<html/>", { status: 502 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const view = mount(qc);
+    sessionState.data = null;
+    sessionState.status = "unauthenticated";
+    view.rerender(tree(qc));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(30_000);
+    });
+
+    // The origin recovers; the cookie is intact, so it answers with a
+    // real session.
+    fetchMock.mockImplementation(async () =>
+      new Response(JSON.stringify({ user: { id: "a" }, expires: "2099-01-01" }), {
+        status: 200,
+      }),
+    );
+    await act(async () => {
+      window.dispatchEvent(new Event("focus"));
+      await vi.advanceTimersByTimeAsync(100);
+    });
+    const afterRecovery = fetchMock.mock.calls.length;
+
+    // Settled: no further asking on later signals.
+    await act(async () => {
+      window.dispatchEvent(new Event("focus"));
+      window.dispatchEvent(new Event("online"));
+      await vi.advanceTimersByTimeAsync(30_000);
+    });
+    expect(fetchMock.mock.calls.length).toBe(afterRecovery);
+    vi.useRealTimers();
+  });
+
+  it("DEPARTS when the readable body names a different viewer", async () => {
+    // The same missing distinction threw away a verdict it had just read.
+    // Today the cross-tab broadcast usually covers A to B; this makes the
+    // bridge able to act on its own evidence.
+    const reload = vi.fn();
+    Object.defineProperty(window, "location", {
+      value: { reload, assign: vi.fn(), href: "http://localhost/", pathname: "/" },
+      writable: true,
+    });
+    vi.stubGlobal("fetch", vi.fn(async () =>
+      new Response(JSON.stringify({ user: { id: "b" }, expires: "2099-01-01" }), {
+        status: 200,
+      }),
+    ));
+
+    const view = mount(qc);
+    seedViewerACache(qc);
+    sessionState.data = null;
+    sessionState.status = "unauthenticated";
+    view.rerender(tree(qc));
+
+    await waitFor(() => {
+      expect(reload).toHaveBeenCalledTimes(1);
+    });
+    expect(screen.queryByTestId("private")).toBeNull();
+  });
+
+  it("keeps treating an unreadable answer as no evidence", async () => {
+    // Guard against over-reaching: a 502 must still not settle anything.
+    vi.useFakeTimers();
+    const reload = vi.fn();
+    Object.defineProperty(window, "location", {
+      value: { reload, assign: vi.fn(), href: "http://localhost/", pathname: "/" },
+      writable: true,
+    });
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("<html/>", { status: 502 })));
+    window.localStorage.setItem("bcc.blog.draft.a", "half-written post");
+
+    const view = mount(qc);
+    sessionState.data = null;
+    sessionState.status = "unauthenticated";
+    view.rerender(tree(qc));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(30_000);
+    });
+
+    expect(reload).not.toHaveBeenCalled();
+    expect(window.localStorage.getItem("bcc.blog.draft.a")).toBe("half-written post");
+    vi.useRealTimers();
+  });
+});
+
+describe("the confirm loop respects a teardown mid-flight", () => {
+  it("does not depart underneath a running teardown", async () => {
+    // retry() checks isEndingSession() before starting, but the loop then
+    // runs for up to ~16s — and a user-initiated focus can now start it at
+    // an arbitrary moment. A departure underneath a teardown reloads the
+    // current URL, discarding the callbackUrl and notice slug it carries.
+    //
+    // Fake timers are essential: the later attempts are 5s apart, so a
+    // test that waits milliseconds never reaches the branch under test.
+    // An earlier version of this test did exactly that and passed
+    // regardless — a mutation control caught it.
+    vi.useFakeTimers();
+    const reload = vi.fn();
+    Object.defineProperty(window, "location", {
+      value: { reload, assign: vi.fn(), href: "http://localhost/", pathname: "/" },
+      writable: true,
+    });
+    let answer = 0;
+    vi.stubGlobal("fetch", vi.fn(async () => {
+      answer += 1;
+      // Attempt 0 unreadable; every later one says "gone".
+      return answer === 1
+        ? new Response("<html/>", { status: 502 })
+        : new Response("{}", { status: 200 });
+    }));
+
+    const view = mount(qc);
+    sessionState.data = null;
+    sessionState.status = "unauthenticated";
+    view.rerender(tree(qc));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(50);
+    });
+
+    // A teardown starts: signOut hangs, so it stays in flight until its
+    // own 6s budget expires.
+    signOut.mockImplementation(() => new Promise<undefined>(() => {}));
+    void endSession("user", { callbackUrl: "/login", notice: "signed-out" });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(50);
+    });
+    expect(isEndingSession()).toBe(true);
+
+    // Advance past the loop's next attempt (5s) but not past signOut's
+    // 6s budget, so the teardown is provably still running when the
+    // confirm reads "gone".
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5_200);
+    });
+    expect(isEndingSession()).toBe(true);
+    expect(reload).not.toHaveBeenCalled();
+    vi.useRealTimers();
+  });
+});
+
+describe("an unmounted bridge stops working entirely", () => {
+  it("does not read or reload after unmount, even mid-confirm", async () => {
+    // The unmount cleanup removes the listeners that exist at that moment,
+    // but cannot abort an in-flight confirm — which would otherwise finish,
+    // re-arm, and let a later event reach purgeViewerState and a reload
+    // from an unmounted instance's frozen refs. Harmless in production
+    // (Providers lives in the root layout and the bridge sits outside the
+    // gate), live in dev Fast Refresh and in tests.
+    //
+    // Fake timers again: the next attempt is 5s out.
+    vi.useFakeTimers();
+    const reload = vi.fn();
+    Object.defineProperty(window, "location", {
+      value: { reload, assign: vi.fn(), href: "http://localhost/", pathname: "/" },
+      writable: true,
+    });
+    const fetchMock = vi.fn(async () => new Response("<html/>", { status: 502 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const view = mount(qc);
+    sessionState.data = null;
+    sessionState.status = "unauthenticated";
+    view.rerender(tree(qc));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(50);
+    });
+
+    view.unmount();
+    const before = fetchMock.mock.calls.length;
+    // From here the endpoint would say "gone" if anything asked.
+    fetchMock.mockImplementation(async () => new Response("{}", { status: 200 }));
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(30_000);
+      window.dispatchEvent(new Event("online"));
+      window.dispatchEvent(new Event("focus"));
+      await vi.advanceTimersByTimeAsync(1_000);
+    });
+
+    expect(fetchMock.mock.calls.length).toBe(before);
+    expect(reload).not.toHaveBeenCalled();
+    vi.useRealTimers();
+  });
+});
