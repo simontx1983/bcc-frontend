@@ -399,7 +399,8 @@ describe("when the confirming GET itself fails", () => {
     await expect(updateSessionBearer(UPDATE)).resolves.toBe(false);
   });
 
-  // A DIFFERENT non-empty token no longer disproves it: see "a concurrent
+  // A DIFFERENT non-empty token no longer disproves it ONCE THE ECHO has
+  // proved our write landed: see "a concurrent
   // session write is not a loss". `updateSessionBearer` is also the
   // session write inside tryRefresh, so another write can legitimately
   // replace the bearer between our POST and this read — and the session
@@ -564,8 +565,9 @@ describe("a concurrent session write is not a loss", () => {
     // asking. Reporting "we couldn't keep this device signed in" there
     // offers only endSession, on a perfectly good session.
     //
-    // Only an ABSENT or empty bearer refutes: that is next-auth's
-    // cookie-cleaned shape.
+    // With the echo present, only an ABSENT or empty bearer refutes: that
+    // is next-auth's cookie-cleaned shape. Without it, a different bearer
+    // refutes too — see the lost-POST-response group.
     stubFetch({
       confirmStatus: 200,
       confirmBody: JSON.stringify({ bccToken: "a-concurrent-refresh-token" }),

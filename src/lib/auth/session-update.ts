@@ -183,7 +183,11 @@ export async function updateSessionBearer(
       return false;
     }
 
-    // ...but ONLY a readable session with NO bearer may disprove it.
+    // ...but only a READABLE session may disprove it, and what counts as
+    // disproof depends on the echo: an absent or empty bearer always, a
+    // DIFFERENT bearer when nothing proved our write landed. The verdict
+    // block below is the authority; this line used to state the earlier,
+    // absolute rule and would have misled the next change.
     //
     // A confirm that could not be PERFORMED proves nothing. Folding a
     // 502, an HTML interstitial, a rate-limited edge, or a transport
@@ -241,6 +245,22 @@ export async function updateSessionBearer(
       //
       // Same doctrine as the fall-back below: defer to what was actually
       // proved.
+      //
+      // Two irreducible residuals, both accepted:
+      //
+      //  - a FALSE NEGATIVE if our write landed, its response was lost AND
+      //    a concurrent refresh then replaced the bearer. The cost is the
+      //    viewer-driven "Sign in again" button, not an automatic
+      //    teardown — far cheaper than the wrong "Saved" this replaces,
+      //    which reached a dead session with no concurrency at all.
+      //  - a FALSE POSITIVE, pre-existing: revocation is a per-user
+      //    counter, so a refresh that minted its token just BEFORE the
+      //    bump and whose session write lands after our echo leaves a
+      //    different, already-revoked bearer on a session we accept. No
+      //    client-side signal distinguishes it — an expiry comparison
+      //    would not, since that write is the later one. Recorded because
+      //    `echoed` is now the sole licence for accepting a foreign
+      //    bearer.
       if (typeof liveToken === "string" && liveToken !== "") {
         return echoed;
       }
