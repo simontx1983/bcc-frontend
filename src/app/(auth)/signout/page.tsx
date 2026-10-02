@@ -1,10 +1,10 @@
 "use client";
 
-import { signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { AuthCard } from "@/components/auth/AuthCard";
+import { endSession } from "@/lib/auth/session-boundary";
 
 export default function SignoutPage() {
   const router = useRouter();
@@ -12,7 +12,16 @@ export default function SignoutPage() {
 
   async function handleSignOut() {
     setPending(true);
-    await signOut({ callbackUrl: "/" });
+    // Routed through the session boundary so this page clears the query
+    // cache, viewer-scoped storage and this device's push subscription
+    // like every other sign-out, instead of only dropping the cookie.
+    const result = await endSession("user");
+    if (!result.signedOut) {
+      // Local private state is already cleared (the teardown does that
+      // before signing out). Re-enable the button rather than leaving it
+      // stuck on "Signing out…".
+      setPending(false);
+    }
   }
 
   return (

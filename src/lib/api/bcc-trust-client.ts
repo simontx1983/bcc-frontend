@@ -17,7 +17,9 @@
  *   - future consumers as the bcc-trust/v1 surface grows
  */
 
-import { getSession, signOut } from "next-auth/react";
+import { getSession } from "next-auth/react";
+
+import { resolveAuthFailure } from "@/lib/api/client";
 
 import { clientEnv } from "@/lib/env";
 import { BccApiError } from "@/lib/api/types";
@@ -59,21 +61,26 @@ export async function bccTrustFetch<T>(
   const session = await getSession();
   const token = session?.bccToken ?? null;
 
-  // Mirror bccFetchAsClient's stale-token short-circuit so a session
-  // NextAuth knows is dead doesn't keep fanning out 401s.
+  // Mirror bccFetchAsClient's stale-token handling. This used to call
+  // signOut() outright whenever NextAuth believed the bearer was past
+  // its expiry — ignoring the backend's 24h refresh grace, so a viewer
+  // mid-session was logged out for a token the server would still have
+  // renewed. Now the refresh endpoint decides, via the shared
+  // classifier, and only a definitive rejection ends the session.
   const sessionExpired =
     session !== null &&
     typeof session.bccTokenExpiresAt === "number" &&
     Date.now() >= session.bccTokenExpiresAt;
-  if (sessionExpired) {
-    await signOut({ redirect: false });
+  let effectiveToken = token;
+  if (sessionExpired && token !== null && token !== "") {
+    effectiveToken = await resolveAuthFailure(token);
   }
 
   const headers: Record<string, string> = {
     Accept: "application/json",
   };
-  if (token !== null && token !== "") {
-    headers["Authorization"] = `Bearer ${token}`;
+  if (effectiveToken !== null && effectiveToken !== "") {
+    headers["Authorization"] = `Bearer ${effectiveToken}`;
   }
   if (options.body !== undefined) {
     headers["Content-Type"] = "application/json";
@@ -121,8 +128,13 @@ export async function bccTrustFetch<T>(
       typeof body.message === "string" && body.message !== ""
         ? body.message
         : `Unexpected ${response.status} from ${path}`;
-    if (response.status === 401 && token !== null && token !== "") {
-      await signOut({ redirect: false });
+    // A 401 on a request that carried a bearer is not proof the session
+    // is over: it may be an endpoint-specific denial, a rate limit, or a
+    // transient server fault. Ask the refresh endpoint and let the shared
+    // classifier decide; it ends the session only on a definitive
+    // rejection, and never hands back the refused token.
+    if (response.status === 401 && effectiveToken !== null && effectiveToken !== "") {
+      await resolveAuthFailure(effectiveToken);
     }
     throw new BccApiError(code, message, response.status, null);
   }
