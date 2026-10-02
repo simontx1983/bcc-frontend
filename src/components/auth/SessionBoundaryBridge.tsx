@@ -25,6 +25,8 @@ import { useEffect, useRef } from "react";
 
 import {
   isEndingSession,
+  registerSessionRecheck,
+  setSessionUnknown,
   purgeArrivingViewerState,
   purgeViewerState,
   registerSessionTeardown,
@@ -60,6 +62,8 @@ export function SessionBoundaryBridge() {
   const rearmCleanup = useRef<(() => void) | null>(null);
   /** Set on unmount: an in-flight confirm cannot be aborted, so it checks this. */
   const disposed = useRef(false);
+  /** The current effect run's confirm, for the gate's Retry control. */
+  const recheckRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     return registerSessionTeardown({
@@ -406,9 +410,10 @@ export function SessionBoundaryBridge() {
               shownViewer.current = answer.viewer;
               depart();
             }
-            // Same viewer, or no id to compare: the session is alive, there
-            // is nothing to hide, and `useSession` being stuck at null is
-            // its own business.
+            // Same viewer, or no id to compare: the session is alive, so
+            // reopen. `useSession` being stuck at null is its own business
+            // — this module has read the truth directly.
+            setSessionUnknown(false);
             return;
           }
         }
@@ -445,12 +450,32 @@ export function SessionBoundaryBridge() {
         // see the residual note above. Closing that needs a decision
         // (timed re-checks, a `pageshow` listener, or an explicit accept),
         // not another mechanism bolted on here.
+        // Hide the private subtree, WITHOUT unmounting it, until a
+        // readable answer settles this. The subtree keeps rendering, so a
+        // half-written post, a selected photo and its alt text all
+        // survive — none of which storage could return.
+        setSessionUnknown(true);
         rearm();
       })();
     };
 
+    // Publish for the gate's Retry control. Re-published on every effect
+    // run so the closure always carries the current `previous`.
+    recheckRef.current = runConfirm;
+
     runConfirm();
   }, [session?.user?.id, status]);
+
+  // The gate's Retry control asks through here. `runConfirm` closes over
+  // the effect run's `previous`, so the effect publishes it on a ref and
+  // this registration forwards to whatever is current.
+  useEffect(
+    () =>
+      registerSessionRecheck(() => {
+        recheckRef.current?.();
+      }),
+    [],
+  );
 
   // Never leave listeners behind on unmount.
   useEffect(

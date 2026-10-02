@@ -43,6 +43,8 @@ import { forceSignOutNavigation } from "@/lib/auth/force-signout";
 import type { SessionTeardownResult } from "@/lib/auth/session-boundary";
 import {
   failedTeardownResult,
+  isSessionUnknown,
+  requestSessionRecheck,
   isPrivateRenderBlocked,
   pushCleanupNeedsWarning,
   subscribePrivateRenderGate,
@@ -63,9 +65,42 @@ export function PrivateRenderGate({ children }: { children: ReactNode }) {
     failedTeardownResult,
     nullSnapshot,
   );
+  const unknown = useSyncExternalStore(
+    subscribePrivateRenderGate,
+    isSessionUnknown,
+    falseSnapshot,
+  );
 
   if (!blocked) {
-    return <>{children}</>;
+    // The wrapper is ALWAYS rendered, even when nothing is hidden.
+    //
+    // That is load-bearing, not tidiness: swapping `<>{children}</>` for
+    // `<Shield>{children}</Shield>` changes the element type at this
+    // position, so React unmounts and remounts the whole subtree — which
+    // is exactly the destruction this state exists to avoid. Keeping one
+    // element and toggling its attributes keeps every child mounted, so
+    // component state, File handles and blob URLs all survive, including
+    // anything typed while hidden.
+    //
+    // `display: contents` when idle so the wrapper generates no box and
+    // cannot affect layout; `display: none` when hiding so nothing is
+    // painted at all — not merely transparent or off-screen, which would
+    // still be readable over a shoulder or in a screenshot. `aria-hidden`
+    // removes it from the accessibility tree and `inert` stops focus,
+    // pointer and keyboard reaching it, so a hidden compose box cannot be
+    // typed into or submitted by a stray Enter.
+    return (
+      <>
+        <div
+          {...(unknown ? { "data-private-shield": "true", inert: true } : {})}
+          aria-hidden={unknown ? "true" : undefined}
+          style={{ display: unknown ? "none" : "contents" }}
+        >
+          {children}
+        </div>
+        {unknown ? <SessionUnknownPanel /> : null}
+      </>
+    );
   }
 
   if (failed !== null) {
@@ -82,6 +117,64 @@ export function PrivateRenderGate({ children }: { children: ReactNode }) {
     </div>
   );
 }
+
+/**
+ * Hides the private subtree without unmounting it, and says why.
+ *
+ * `display: none` rather than opacity or off-screen positioning: nothing
+ * of it is painted, so nothing is readable over a shoulder or by a
+ * screenshot. `aria-hidden` takes it out of the accessibility tree, and
+ * `inert` stops focus, clicks and keyboard reaching it — so a hidden
+ * compose box cannot be typed into or submitted by a stray Enter.
+ *
+ * The children keep rendering into that container, so their state, their
+ * File handles and their blob URLs all survive, and anything typed while
+ * hidden is still there when it reopens.
+ */
+function SessionUnknownPanel() {
+  const [checking, setChecking] = useState(false);
+
+  return (
+    <>
+      <div className="flex min-h-screen items-center justify-center p-8">
+        <div className="bcc-panel w-[min(460px,100%)] p-6 text-center">
+          <h1 className="bcc-stencil text-lg text-bcc-text">
+            Can’t confirm you’re still signed in
+          </h1>
+          <p role="alert" className="mt-3 font-serif text-sm text-bcc-text-secondary">
+            We couldn’t reach the server to check, so this page is hidden
+            until we can. Nothing you were writing has been lost — it is
+            still here, and it comes back when the check succeeds.
+          </p>
+          <button
+            type="button"
+            disabled={checking}
+            onClick={() => {
+              setChecking(true);
+              requestSessionRecheck();
+              // Re-enable regardless of outcome: a successful check
+              // unmounts this panel, and a failed one has to be
+              // retryable.
+              window.setTimeout(() => {
+                setChecking(false);
+              }, RECHECK_SETTLE_MS);
+            }}
+            className="bcc-auth-submit mt-5 w-full"
+          >
+            {checking ? "Checking…" : "Retry"}
+          </button>
+        </div>
+      </div>
+    </>
+  );
+}
+
+/**
+ * How long the Retry control stays disabled. Comfortably longer than one
+ * confirm attempt (3s) so a single press maps to one attempt, and short
+ * enough that a viewer is never stuck waiting on a dead host.
+ */
+const RECHECK_SETTLE_MS = 4_000;
 
 /**
  * How long a submitted sign-out gets to replace this document before the

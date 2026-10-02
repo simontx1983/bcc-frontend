@@ -205,6 +205,57 @@ let failedTeardown: SessionTeardownResult | null = null;
 const gateListeners = new Set<() => void>();
 
 /**
+ * "We cannot tell whether this viewer is still here."
+ *
+ * Distinct from `privateRenderBlocked`, and deliberately so. That one is
+ * TERMINAL and unmounts the subtree, which is right for a departure: the
+ * viewer is leaving, and a document load follows. This one is RECOVERABLE
+ * and must NOT unmount, because the only thing we actually know is that a
+ * read failed — and unmounting would destroy work that cannot be
+ * recovered from storage: `useComposerState` holds `attachedFile: File`, a
+ * blob `previewUrl` and per-photo alt text; reply boxes and the blog
+ * editor hold in-progress text.
+ *
+ * So the gate hides and disables in place while this is true, and reopens
+ * when a readable response confirms the same viewer is still here.
+ */
+let sessionUnknown = false;
+
+/** Whether private content must be hidden pending a readable answer. */
+export function isSessionUnknown(): boolean {
+  return sessionUnknown;
+}
+
+/** Set by the bridge: true when confirms are exhausted, false once settled. */
+export function setSessionUnknown(next: boolean): void {
+  if (sessionUnknown === next) {
+    return;
+  }
+  sessionUnknown = next;
+  notifyGate();
+}
+
+/**
+ * How the gate's Retry control asks the bridge to confirm again. The
+ * bridge owns the confirm (it has the viewer refs and the single-flight
+ * guard); the gate only needs to ask.
+ */
+let recheck: (() => void) | null = null;
+
+export function registerSessionRecheck(fn: () => void): () => void {
+  recheck = fn;
+  return () => {
+    if (recheck === fn) {
+      recheck = null;
+    }
+  };
+}
+
+export function requestSessionRecheck(): void {
+  recheck?.();
+}
+
+/**
  * Called once by the provider tree. Returns an unregister fn so a remount
  * (or a test) cannot leave a stale closure installed.
  */
@@ -268,6 +319,10 @@ function notifyGate(): void {
 }
 
 function blockPrivateRender(): void {
+  // A verdict supersedes "unknown": the departure gate owns the screen
+  // from here, and it unmounts, which is correct once we know the viewer
+  // is leaving.
+  sessionUnknown = false;
   if (privateRenderBlocked) {
     return;
   }
@@ -585,5 +640,7 @@ export function __resetSessionBoundaryForTests(): void {
   viewerEpoch = 0;
   privateRenderBlocked = false;
   failedTeardown = null;
+  sessionUnknown = false;
+  recheck = null;
   gateListeners.clear();
 }
