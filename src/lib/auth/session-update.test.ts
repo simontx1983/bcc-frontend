@@ -53,6 +53,8 @@ function stubFetch(opts: {
   confirmStatus?: number;
   confirmBody?: string;
   confirmThrows?: boolean;
+  /** Make the POST itself fail with no response at all. */
+  postThrows?: boolean;
 }): Call[] {
   const calls: Call[] = [];
   let stored: unknown;
@@ -75,6 +77,9 @@ function stubFetch(opts: {
         return new Response(opts.sessionBody, {
           status: opts.sessionStatus ?? 200,
         });
+      }
+      if (method === "POST" && opts.postThrows === true) {
+        throw new TypeError("Failed to fetch");
       }
       if (method === "POST") {
         // Echo the merged bearer back, as a real successful write does,
@@ -498,5 +503,53 @@ describe("the echo check and the confirm are both load-bearing", () => {
       confirmThrows: true,
     });
     await expect(updateSessionBearer(UPDATE)).resolves.toBe(false);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────
+// No echo AND no confirm is no evidence — not a success
+// ─────────────────────────────────────────────────────────────────────
+
+describe("an indeterminate POST with an unperformable confirm", () => {
+  // Letting a thrown POST fall through to the confirm was right, but the
+  // confirm's "cannot be performed" branches returned true — and that
+  // true was only ever licensed by a POSITIVE ECHO having already proved
+  // the merge. Reaching them with no echo at all promotes zero evidence
+  // into "the session was restored", which then shows "Saved" AND
+  // withdraws the parked notice, so the viewer is later told only that
+  // their session ended. On an aborted fetch the browser discards the
+  // response including Set-Cookie, so there is genuinely nothing.
+
+  it("is a FAILURE when both the POST and the confirm fail", async () => {
+    stubFetch({ postThrows: true, confirmThrows: true });
+    await expect(updateSessionBearer(UPDATE)).resolves.toBe(false);
+  });
+
+  it("is a FAILURE when the POST fails and the confirm is a 502", async () => {
+    stubFetch({ postThrows: true, confirmStatus: 502, confirmBody: "<html/>" });
+    await expect(updateSessionBearer(UPDATE)).resolves.toBe(false);
+  });
+
+  it("is a FAILURE when the POST fails and the confirm is unreadable", async () => {
+    stubFetch({ postThrows: true, confirmStatus: 200, confirmBody: "<html/>" });
+    await expect(updateSessionBearer(UPDATE)).resolves.toBe(false);
+  });
+
+  it("is a SUCCESS when the POST fails but the confirm proves the merge", async () => {
+    // The whole reason the fall-through exists: the cookie, not the
+    // response, is authoritative.
+    stubFetch({
+      postThrows: true,
+      confirmStatus: 200,
+      confirmBody: JSON.stringify({ bccToken: UPDATE.token }),
+    });
+    await expect(updateSessionBearer(UPDATE)).resolves.toBe(true);
+  });
+
+  it("still succeeds when the ECHO proved it and the confirm cannot run", async () => {
+    // Control: this is the case the `return true` branches were written
+    // for, and it must not regress.
+    stubFetch({ confirmThrows: true });
+    await expect(updateSessionBearer(UPDATE)).resolves.toBe(true);
   });
 });

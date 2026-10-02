@@ -106,10 +106,17 @@ export async function forceSignOutNavigation(): Promise<void> {
     // can therefore BE the page showing this control — in which case
     // assigning the same path is a no-op loop. Reload instead: same fresh
     // document, same fresh teardown, no dead click.
-    if (window.location.pathname === FALLBACK_PATH) {
+    // Compare the full target, not just the path. Reloading is only the
+    // right move when assigning would be a no-op; if a notice is parked,
+    // `/signout?authNotice=...` is a REAL navigation from a bare
+    // `/signout`, and reloading instead would destroy the module state
+    // holding that notice before the next teardown could read it.
+    const target = landingWithNotice(FALLBACK_PATH);
+    const here = `${window.location.pathname}${window.location.search}`;
+    if (target === here) {
       window.location.reload();
       return;
     }
-    window.location.assign(landingWithNotice(FALLBACK_PATH));
+    window.location.assign(target);
   }
 }

@@ -129,6 +129,12 @@ export async function updateSessionBearer(
     // CSRF failure, and a 200 whose body does not echo our token means it
     // dropped the write — both are definite.
     let refuted = false;
+    // Whether the POST's own response PROVED the merge. Load-bearing:
+    // the confirm's "cannot be performed" branches below mean "nothing
+    // disproved it", which is only a success if something had already
+    // proved it. Without this they turned no evidence at all into
+    // "restored".
+    let echoed = false;
     try {
       const resp = await fetch("/api/auth/session", {
         method: "POST",
@@ -160,7 +166,11 @@ export async function updateSessionBearer(
         const merged = (await resp.json().catch(() => null)) as
           | { bccToken?: unknown }
           | null;
-        refuted = merged?.bccToken !== update.token;
+        if (merged?.bccToken === update.token) {
+          echoed = true;
+        } else {
+          refuted = true;
+        }
       }
     } catch {
       // No response at all. Not a verdict either way.
@@ -188,14 +198,14 @@ export async function updateSessionBearer(
         signal: AbortSignal.timeout(CONFIRM_TIMEOUT_MS),
       });
     } catch {
-      return true;
+      return echoed;
     }
     if (!check.ok) {
-      return true;
+      return echoed;
     }
     const live: unknown = await check.json().catch(() => undefined);
     if (typeof live !== "object" || live === null) {
-      return true;
+      return echoed;
     }
     // The target case survives this: when next-auth throws after
     // assigning the body it cleans the cookie, so this GET reaches
