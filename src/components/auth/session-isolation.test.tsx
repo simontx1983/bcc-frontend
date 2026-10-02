@@ -30,6 +30,11 @@ const sessionState = vi.hoisted(() => ({
   status: "loading" as "loading" | "authenticated" | "unauthenticated",
 }));
 
+const routerRefresh = vi.fn();
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ refresh: routerRefresh }),
+}));
+
 vi.mock("next-auth/react", () => ({
   signOut: (opts?: SignOutOpts) => signOut(opts),
   useSession: () => ({ data: sessionState.data, status: sessionState.status }),
@@ -108,6 +113,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.useRealTimers();
+  routerRefresh.mockClear();
   cleanup();
   __resetSessionBoundaryForTests();
   vi.restoreAllMocks();
@@ -1336,5 +1342,92 @@ describe("overlapping confirms", () => {
     await waitFor(() => {
       expect(reload).toHaveBeenCalledTimes(1);
     });
+  });
+});
+
+describe("giving up on the confirm", () => {
+  it("re-reads the RSC tree instead of leaving the old render in place", async () => {
+    // Exhausting the attempts means we do not KNOW whether the session is
+    // gone, so purging and reloading would be wrong. But leaving the
+    // server-rendered tree untouched has three ways of showing a departed
+    // viewer's private content again:
+    //
+    //   - the viewer simply stays on the page;
+    //   - Back/forward restores page segments from the client Router Cache
+    //     with no server request;
+    //   - a forward click on an href FeedItemCard FULL-prefetched on hover
+    //     is reused for staleTimes.static (300s by default) with no server
+    //     request either.
+    //
+    // `router.refresh()` closes all three: it invalidates the Router Cache
+    // and re-fetches this route's RSC against whatever cookie now exists.
+    // Harmless if the session was fine — it re-renders identically — and
+    // React state survives a soft refresh, so an open draft is not lost.
+    vi.useFakeTimers();
+    const reload = vi.fn();
+    Object.defineProperty(window, "location", {
+      value: { reload, href: "http://localhost/", assign: vi.fn(), pathname: "/" },
+      writable: true,
+    });
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("<html/>", { status: 502 })));
+
+    const view = mount(qc);
+    sessionState.data = null;
+    sessionState.status = "unauthenticated";
+    view.rerender(tree(qc));
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(30_000);
+    });
+
+    expect(routerRefresh).toHaveBeenCalledTimes(1);
+    // Still no destruction: we never proved departure.
+    expect(reload).not.toHaveBeenCalled();
+    vi.useRealTimers();
+  });
+
+  it("does not refresh when the confirm proved the departure", async () => {
+    // That path reloads, which supersedes a refresh.
+    const reload = vi.fn();
+    Object.defineProperty(window, "location", {
+      value: { reload, href: "http://localhost/", assign: vi.fn(), pathname: "/" },
+      writable: true,
+    });
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("{}", { status: 200 })));
+
+    const view = mount(qc);
+    sessionState.data = null;
+    sessionState.status = "unauthenticated";
+    view.rerender(tree(qc));
+
+    await waitFor(() => {
+      expect(reload).toHaveBeenCalledTimes(1);
+    });
+    expect(routerRefresh).not.toHaveBeenCalled();
+  });
+
+  it("does not refresh when the session came back", async () => {
+    vi.useFakeTimers();
+    Object.defineProperty(window, "location", {
+      value: { reload: vi.fn(), href: "http://localhost/", assign: vi.fn(), pathname: "/" },
+      writable: true,
+    });
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("<html/>", { status: 502 })));
+
+    const view = mount(qc);
+    sessionState.data = null;
+    sessionState.status = "unauthenticated";
+    view.rerender(tree(qc));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(100);
+    });
+    sessionState.data = { user: { id: "a" } };
+    sessionState.status = "authenticated";
+    view.rerender(tree(qc));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(30_000);
+    });
+    expect(routerRefresh).not.toHaveBeenCalled();
+    vi.useRealTimers();
   });
 });

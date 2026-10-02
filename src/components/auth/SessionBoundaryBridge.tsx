@@ -21,6 +21,7 @@
 
 import { useQueryClient } from "@tanstack/react-query";
 import { useSession, signOut } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import { useEffect, useRef } from "react";
 
 import {
@@ -51,6 +52,7 @@ export function SessionBoundaryBridge() {
   // The viewer this tab currently believes it is showing. `undefined`
   // means "not established yet" so the first resolution is not mistaken
   // for a viewer change.
+  const router = useRouter();
   const shownViewer = useRef<string | null | undefined>(undefined);
   /** True while a null session is being confirmed. */
   const confirming = useRef(false);
@@ -284,15 +286,20 @@ export function SessionBoundaryBridge() {
       // Bounded rather than endless because the cost of giving up is
       // contained, though less neatly than it first looks:
       //
-      //  - a later FORWARD navigation re-renders the RSC tree against
-      //    whatever cookie now exists. Not because it is a document load —
-      //    an App Router client navigation is not one — but because the
-      //    server re-reads the cookie either way.
-      //  - back/forward does NOT. Next restores those page segments from
-      //    the client Router Cache with no server request, so a departed
-      //    viewer's server-rendered content can come back on a Back press
-      //    after the attempts are exhausted. That is the residual exposure
-      //    of giving up, and it is why the attempt count is not 1.
+      //  - a later FORWARD navigation usually re-renders the RSC tree
+      //    against whatever cookie now exists. Not because it is a
+      //    document load — an App Router client navigation is not one —
+      //    but because the server re-reads the cookie. "Usually": an href
+      //    that was `router.prefetch`ed is reused for
+      //    `staleTimes.static` (300s by default) with NO server request,
+      //    and `FeedItemCard` FULL-prefetches the permalink on hover then
+      //    pushes the same href on click.
+      //  - back/forward does not re-read either: Next restores those page
+      //    segments from the client Router Cache with no server request.
+      //
+      //    Both of those, plus simply staying on the page, are why the
+      //    give-up path below calls `router.refresh()` rather than
+      //    trusting the next navigation.
       //  - another tab can RESOLVE it, but does not re-arm this loop: a
       //    cross-tab broadcast takes next-auth's `storageEvent` path, which
       //    re-reads the session even when its cached value is null — so a
@@ -321,6 +328,27 @@ export function SessionBoundaryBridge() {
         }
       }
       confirming.current = false;
+
+      // Attempts exhausted without a verdict. Purging and reloading would
+      // be wrong — we never proved the session is gone — but leaving the
+      // server-rendered tree alone is not neutral either: it can show a
+      // departed viewer's private content again if they stay put, press
+      // Back (page segments come from the client Router Cache with no
+      // server request), or click an href `FeedItemCard` FULL-prefetched
+      // on hover, which is reused for `staleTimes.static` (300s by
+      // default) with no server request either.
+      //
+      // `router.refresh()` closes all three: it invalidates the Router
+      // Cache and re-fetches this route's RSC against whatever cookie now
+      // exists. Harmless if the session was in fact fine — it re-renders
+      // identically — and React state survives a soft refresh, so an open
+      // draft is not lost.
+      //
+      // Only on the give-up path: the confirmed-departure branch above
+      // reloads, which supersedes this.
+      if (latestViewer.current === null && shownViewer.current === previous) {
+        router.refresh();
+      }
     })();
   }, [session?.user?.id, status]);
 
