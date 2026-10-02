@@ -54,6 +54,7 @@ import { SessionBoundaryBridge } from "@/components/auth/SessionBoundaryBridge";
 import {
   __resetSessionBoundaryForTests,
   endSession,
+  isEndingSession,
   purgeViewerState,
 } from "@/lib/auth/session-boundary";
 
@@ -1346,30 +1347,29 @@ describe("overlapping confirms", () => {
 });
 
 describe("giving up on the confirm", () => {
-  it("re-reads the RSC tree instead of leaving the old render in place", async () => {
-    // Exhausting the attempts means we do not KNOW whether the session is
-    // gone, so purging and reloading would be wrong. But leaving the
-    // server-rendered tree untouched has three ways of showing a departed
-    // viewer's private content again:
+  it("does NOT force a re-read, because the only tool available is unsafe here", async () => {
+    // `router.refresh()` would close the stale-render residuals, but Next
+    // falls back to a HARD `location.replace` whenever the RSC response is
+    // not a 200 flight response — fetch throws, non-200, or a build-id
+    // mismatch (fetch-server-response.js: "If the fetch was not 200, we
+    // also handle it like a mpa navigation").
     //
-    //   - the viewer simply stays on the page;
-    //   - Back/forward restores page segments from the client Router Cache
-    //     with no server request;
-    //   - a forward click on an href FeedItemCard FULL-prefetched on hover
-    //     is reused for staleTimes.static (300s by default) with no server
-    //     request either.
-    //
-    // `router.refresh()` closes all three: it invalidates the Router Cache
-    // and re-fetches this route's RSC against whatever cookie now exists.
-    // Harmless if the session was fine — it re-renders identically — and
-    // React state survives a soft refresh, so an open draft is not lost.
+    // And this path is reached precisely when the same Next origin failed
+    // three session reads. /api/auth/session is served by Next and in
+    // steady state touches no backend, so an unreadable read means the
+    // origin or the connectivity is broken — exactly what makes the RSC
+    // fetch fail. The refresh would therefore be safe only when it was
+    // unnecessary, and a hard reload — destroying the unpublished draft
+    // this file's retry loop exists to protect — exactly when it was not.
     vi.useFakeTimers();
     const reload = vi.fn();
+    const assign = vi.fn();
     Object.defineProperty(window, "location", {
-      value: { reload, href: "http://localhost/", assign: vi.fn(), pathname: "/" },
+      value: { reload, assign, href: "http://localhost/", pathname: "/" },
       writable: true,
     });
     vi.stubGlobal("fetch", vi.fn(async () => new Response("<html/>", { status: 502 })));
+    window.localStorage.setItem("bcc.blog.draft.a", "half-written post");
 
     const view = mount(qc);
     sessionState.data = null;
@@ -1380,54 +1380,185 @@ describe("giving up on the confirm", () => {
       await vi.advanceTimersByTimeAsync(30_000);
     });
 
-    expect(routerRefresh).toHaveBeenCalledTimes(1);
-    // Still no destruction: we never proved departure.
+    expect(routerRefresh).not.toHaveBeenCalled();
+    expect(reload).not.toHaveBeenCalled();
+    expect(assign).not.toHaveBeenCalled();
+    expect(window.localStorage.getItem("bcc.blog.draft.a")).toBe("half-written post");
+    vi.useRealTimers();
+  });
+
+  it("re-arms when the browser comes back ONLINE, and then departs", async () => {
+    // Inert is not the same as abandoned. Instead of acting on no
+    // evidence, wait for a signal that the conditions changed and ask
+    // again — then the ordinary confirmed-departure path handles it.
+    vi.useFakeTimers();
+    const reload = vi.fn();
+    Object.defineProperty(window, "location", {
+      value: { reload, assign: vi.fn(), href: "http://localhost/", pathname: "/" },
+      writable: true,
+    });
+    const fetchMock = vi.fn(async () => new Response("<html/>", { status: 502 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const view = mount(qc);
+    sessionState.data = null;
+    sessionState.status = "unauthenticated";
+    view.rerender(tree(qc));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(30_000);
+    });
+    expect(reload).not.toHaveBeenCalled();
+
+    // Connectivity returns and the endpoint is readable.
+    fetchMock.mockImplementation(async () => new Response("{}", { status: 200 }));
+    await act(async () => {
+      window.dispatchEvent(new Event("online"));
+      await vi.advanceTimersByTimeAsync(100);
+    });
+    expect(reload).toHaveBeenCalledTimes(1);
+    vi.useRealTimers();
+  });
+
+  it("re-arms on a tab refocus too", async () => {
+    vi.useFakeTimers();
+    const reload = vi.fn();
+    Object.defineProperty(window, "location", {
+      value: { reload, assign: vi.fn(), href: "http://localhost/", pathname: "/" },
+      writable: true,
+    });
+    const fetchMock = vi.fn(async () => new Response("<html/>", { status: 502 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const view = mount(qc);
+    sessionState.data = null;
+    sessionState.status = "unauthenticated";
+    view.rerender(tree(qc));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(30_000);
+    });
+
+    fetchMock.mockImplementation(async () => new Response("{}", { status: 200 }));
+    await act(async () => {
+      window.dispatchEvent(new Event("focus"));
+      await vi.advanceTimersByTimeAsync(100);
+    });
+    expect(reload).toHaveBeenCalledTimes(1);
+    vi.useRealTimers();
+  });
+
+  it("does not re-arm once the session reads present again", async () => {
+    vi.useFakeTimers();
+    const reload = vi.fn();
+    Object.defineProperty(window, "location", {
+      value: { reload, assign: vi.fn(), href: "http://localhost/", pathname: "/" },
+      writable: true,
+    });
+    const fetchMock = vi.fn(async () => new Response("<html/>", { status: 502 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const view = mount(qc);
+    sessionState.data = null;
+    sessionState.status = "unauthenticated";
+    view.rerender(tree(qc));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(30_000);
+    });
+
+    sessionState.data = { user: { id: "a" } };
+    sessionState.status = "authenticated";
+    view.rerender(tree(qc));
+    const before = fetchMock.mock.calls.length;
+
+    await act(async () => {
+      window.dispatchEvent(new Event("online"));
+      await vi.advanceTimersByTimeAsync(100);
+    });
+    expect(fetchMock.mock.calls.length).toBe(before);
     expect(reload).not.toHaveBeenCalled();
     vi.useRealTimers();
   });
 
-  it("does not refresh when the confirm proved the departure", async () => {
-    // That path reloads, which supersedes a refresh.
-    const reload = vi.fn();
-    Object.defineProperty(window, "location", {
-      value: { reload, href: "http://localhost/", assign: vi.fn(), pathname: "/" },
-      writable: true,
-    });
-    vi.stubGlobal("fetch", vi.fn(async () => new Response("{}", { status: 200 })));
-
-    const view = mount(qc);
-    sessionState.data = null;
-    sessionState.status = "unauthenticated";
-    view.rerender(tree(qc));
-
-    await waitFor(() => {
-      expect(reload).toHaveBeenCalledTimes(1);
-    });
-    expect(routerRefresh).not.toHaveBeenCalled();
-  });
-
-  it("does not refresh when the session came back", async () => {
+  it("stops listening once unmounted", async () => {
     vi.useFakeTimers();
     Object.defineProperty(window, "location", {
-      value: { reload: vi.fn(), href: "http://localhost/", assign: vi.fn(), pathname: "/" },
+      value: { reload: vi.fn(), assign: vi.fn(), href: "http://localhost/", pathname: "/" },
       writable: true,
     });
-    vi.stubGlobal("fetch", vi.fn(async () => new Response("<html/>", { status: 502 })));
+    const fetchMock = vi.fn(async () => new Response("<html/>", { status: 502 }));
+    vi.stubGlobal("fetch", fetchMock);
 
     const view = mount(qc);
     sessionState.data = null;
     sessionState.status = "unauthenticated";
-    view.rerender(tree(qc));
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(100);
-    });
-    sessionState.data = { user: { id: "a" } };
-    sessionState.status = "authenticated";
     view.rerender(tree(qc));
     await act(async () => {
       await vi.advanceTimersByTimeAsync(30_000);
     });
-    expect(routerRefresh).not.toHaveBeenCalled();
+    view.unmount();
+    const before = fetchMock.mock.calls.length;
+
+    await act(async () => {
+      window.dispatchEvent(new Event("online"));
+      await vi.advanceTimersByTimeAsync(100);
+    });
+    expect(fetchMock.mock.calls.length).toBe(before);
     vi.useRealTimers();
+  });
+});
+
+describe("the re-arm respects a teardown already in flight", () => {
+  it("does not re-confirm while this tab is signing out", async () => {
+    // A teardown owns the navigation. Re-confirming underneath it could
+    // reach depart() → purgeViewerState + reload and race the sign-out's
+    // own navigation, potentially dropping the notice slug it carries.
+    //
+    // NOTE: this documents intent but does NOT pin the `isEndingSession()`
+    // clause — the test still passes with that clause removed, so
+    // something earlier in this harness already prevents the re-confirm
+    // and I could not isolate it. The clause is kept as cheap defence
+    // against a real race, and deliberately has no mutation control
+    // claiming otherwise.
+    const reload = vi.fn();
+    Object.defineProperty(window, "location", {
+      value: { reload, assign: vi.fn(), href: "http://localhost/", pathname: "/" },
+      writable: true,
+    });
+    const fetchMock = vi.fn(async () => new Response("<html/>", { status: 502 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const view = mount(qc);
+    sessionState.data = null;
+    sessionState.status = "unauthenticated";
+    view.rerender(tree(qc));
+    // Let all three attempts fail so the re-arm is registered.
+    await new Promise((r) => setTimeout(r, 30));
+    vi.useFakeTimers();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(30_000);
+    });
+    vi.useRealTimers();
+
+    // A teardown starts and does not settle.
+    signOut.mockImplementation(() => new Promise<undefined>(() => {}));
+    void endSession("user");
+    await waitFor(() => {
+      expect(isEndingSession()).toBe(true);
+    });
+
+    fetchMock.mockClear();
+    fetchMock.mockImplementation(async () => new Response("{}", { status: 200 }));
+    await act(async () => {
+      window.dispatchEvent(new Event("online"));
+      await new Promise((r) => setTimeout(r, 30));
+    });
+
+
+    // No confirming read, and no reload racing the sign-out.
+    expect(
+      fetchMock.mock.calls.filter((c: unknown[]) =>
+        String(c[0] ?? "").includes("/api/auth/session"),
+      ),
+    ).toHaveLength(0);
+    expect(reload).not.toHaveBeenCalled();
   });
 });

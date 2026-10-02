@@ -21,7 +21,6 @@
 
 import { useQueryClient } from "@tanstack/react-query";
 import { useSession, signOut } from "next-auth/react";
-import { useRouter } from "next/navigation";
 import { useEffect, useRef } from "react";
 
 import {
@@ -52,12 +51,13 @@ export function SessionBoundaryBridge() {
   // The viewer this tab currently believes it is showing. `undefined`
   // means "not established yet" so the first resolution is not mistaken
   // for a viewer change.
-  const router = useRouter();
   const shownViewer = useRef<string | null | undefined>(undefined);
   /** True while a null session is being confirmed. */
   const confirming = useRef(false);
   /** The most recent viewer the effect saw, readable from the confirm loop. */
   const latestViewer = useRef<string | null>(null);
+  /** Removes the re-arm listeners, if any are registered. */
+  const rearmCleanup = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     return registerSessionTeardown({
@@ -240,14 +240,51 @@ export function SessionBoundaryBridge() {
       return;
     }
 
-    // One confirm at a time. Without this an effect re-run could launch a
-    // second while the first is still open.
-    if (confirming.current) {
-      return;
-    }
-    confirming.current = true;
+    // Re-ask once the conditions that broke the confirm may have changed.
+    // One-shot per signal, and self-removing, so a flapping connection
+    // cannot stack listeners. `confirming` still guards overlap, and the
+    // guards inside the loop stop it acting on a question that is no
+    // longer live.
+    const rearm = (): void => {
+      const retry = (): void => {
+        cleanup();
+        if (
+          latestViewer.current !== null ||
+          shownViewer.current !== previous ||
+          // Defensive: a teardown owns the navigation, and re-confirming
+          // underneath it could race the sign-out. Not covered by a
+          // mutation control — see the test note.
+          isEndingSession()
+        ) {
+          return;
+        }
+        runConfirm();
+      };
+      const cleanup = (): void => {
+        window.removeEventListener("online", retry);
+        window.removeEventListener("focus", retry);
+        document.removeEventListener("visibilitychange", onVisible);
+        rearmCleanup.current = null;
+      };
+      const onVisible = (): void => {
+        if (document.visibilityState === "visible") {
+          retry();
+        }
+      };
+      // Replace any previous registration rather than adding to it.
+      rearmCleanup.current?.();
+      window.addEventListener("online", retry);
+      window.addEventListener("focus", retry);
+      document.addEventListener("visibilitychange", onVisible);
+      rearmCleanup.current = cleanup;
+    };
 
-    void (async () => {
+    const runConfirm = (): void => {
+      if (confirming.current) {
+        return;
+      }
+      confirming.current = true;
+      void (async () => {
       /** One attempt. True only for a readable, empty session body. */
       const askOnce = async (): Promise<boolean> => {
         try {
@@ -286,26 +323,19 @@ export function SessionBoundaryBridge() {
       // Bounded rather than endless because the cost of giving up is
       // contained, though less neatly than it first looks:
       //
-      //  - a later FORWARD navigation usually re-renders the RSC tree
-      //    against whatever cookie now exists. Not because it is a
-      //    document load — an App Router client navigation is not one —
-      //    but because the server re-reads the cookie. "Usually": an href
-      //    that was `router.prefetch`ed is reused for
-      //    `staleTimes.static` (300s by default) with NO server request,
-      //    and `FeedItemCard` FULL-prefetches the permalink on hover then
-      //    pushes the same href on click.
-      //  - back/forward does not re-read either: Next restores those page
-      //    segments from the client Router Cache with no server request.
+      // Bounded rather than endless, with an honest residual: until a
+      // verdict arrives, a departed viewer's server-rendered content can
+      // still be shown. A forward navigation usually re-reads the cookie,
+      // but not for an href that was `router.prefetch`ed — reused for
+      // `staleTimes.static`, 300s by default, with no server request, and
+      // `FeedItemCard` FULL-prefetches the permalink on hover then pushes
+      // that same href on click. Back/forward does not re-read either:
+      // Next restores those segments from the client Router Cache.
       //
-      //    Both of those, plus simply staying on the page, are why the
-      //    give-up path below calls `router.refresh()` rather than
-      //    trusting the next navigation.
-      //  - another tab can RESOLVE it, but does not re-arm this loop: a
-      //    cross-tab broadcast takes next-auth's `storageEvent` path, which
-      //    re-reads the session even when its cached value is null — so a
-      //    session that comes back, or a different viewer, re-enters this
-      //    effect. A re-read that is null AGAIN changes neither dep, so
-      //    nothing restarts the confirm.
+      // That residual is accepted rather than closed, because the only
+      // tool that would close it is the one described at the give-up
+      // branch below, and its failure mode is worse than the exposure.
+
       for (let attempt = 0; attempt < SESSION_CONFIRM_ATTEMPTS; attempt += 1) {
         if (attempt > 0) {
           await new Promise((r) => {
@@ -329,28 +359,40 @@ export function SessionBoundaryBridge() {
       }
       confirming.current = false;
 
-      // Attempts exhausted without a verdict. Purging and reloading would
-      // be wrong — we never proved the session is gone — but leaving the
-      // server-rendered tree alone is not neutral either: it can show a
-      // departed viewer's private content again if they stay put, press
-      // Back (page segments come from the client Router Cache with no
-      // server request), or click an href `FeedItemCard` FULL-prefetched
-      // on hover, which is reused for `staleTimes.static` (300s by
-      // default) with no server request either.
+      // Attempts exhausted without a verdict. Deliberately INERT: we never
+      // proved the session is gone, and this module's rule is that an
+      // unreadable answer is never a reason to destroy anything.
       //
-      // `router.refresh()` closes all three: it invalidates the Router
-      // Cache and re-fetches this route's RSC against whatever cookie now
-      // exists. Harmless if the session was in fact fine — it re-renders
-      // identically — and React state survives a soft refresh, so an open
-      // draft is not lost.
+      // `router.refresh()` was tried here and reverted. It would have
+      // closed the stale-render residuals below, but Next falls back to a
+      // HARD `location.replace` whenever the RSC response is not a 200
+      // flight response (fetch-server-response.js: "If the fetch was not
+      // 200, we also handle it like a mpa navigation"). This path is
+      // reached precisely when the same Next origin failed three session
+      // reads — /api/auth/session is served by Next and in steady state
+      // touches no backend — so the refresh would have been safe only when
+      // it was unnecessary, and a full document load, destroying the
+      // unpublished draft this loop exists to protect, exactly when it was
+      // not.
       //
-      // Only on the give-up path: the confirmed-departure branch above
-      // reloads, which supersedes this.
-      if (latestViewer.current === null && shownViewer.current === previous) {
-        router.refresh();
-      }
-    })();
+      // So instead of acting on no evidence, wait for the conditions to
+      // change and ask again. `rearm` below listens for `online` and a
+      // refocus; a readable answer then goes through the ordinary
+      // confirmed-departure path.
+      rearm();
+      })();
+    };
+
+    runConfirm();
   }, [session?.user?.id, status]);
+
+  // Never leave listeners behind on unmount.
+  useEffect(
+    () => () => {
+      rearmCleanup.current?.();
+    },
+    [],
+  );
 
   return null;
 }
