@@ -256,11 +256,18 @@ export async function updateSessionBearer(
       //  - a FALSE POSITIVE, pre-existing: revocation is a per-user
       //    counter, so a refresh that minted its token just BEFORE the
       //    bump and whose session write lands after our echo leaves a
-      //    different, already-revoked bearer on a session we accept. No
-      //    client-side signal distinguishes it — an expiry comparison
-      //    would not, since that write is the later one. Recorded because
-      //    `echoed` is now the sole licence for accepting a foreign
-      //    bearer.
+      //    different, already-revoked bearer on a session we accept.
+      //    Recorded because `echoed` is now the sole licence for accepting
+      //    a foreign bearer.
+      //
+      //    No signal here distinguishes it reliably. The only candidate is
+      //    `bccTokenExpiresAt`, and it orders WRITERS rather than validity:
+      //    it is stamped `Date.now() + expiresIn` by whichever client built
+      //    the write, not when that write lands, and both endpoints report
+      //    the same TTL. (An earlier version of this note claimed an expiry
+      //    comparison could not help "since that write is the later one" —
+      //    that reasoning was backwards, because a refresh minted before
+      //    the bump stamps an EARLIER value even if it lands later.)
       if (typeof liveToken === "string" && liveToken !== "") {
         return echoed;
       }
