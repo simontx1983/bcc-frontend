@@ -282,13 +282,23 @@ export function SessionBoundaryBridge() {
       // screen indefinitely.
       //
       // Bounded rather than endless because the cost of giving up is
-      // contained: any later navigation re-renders the RSC tree against
-      // whatever cookie now exists. (Not because it is a document load —
-      // an App Router client navigation is not one. The operative point is
-      // that the server re-reads the cookie either way.) Another tab also
-      // re-arms this: a cross-tab broadcast takes next-auth's
-      // `storageEvent` path, which re-reads the session even when its
-      // cached value is null.
+      // contained, though less neatly than it first looks:
+      //
+      //  - a later FORWARD navigation re-renders the RSC tree against
+      //    whatever cookie now exists. Not because it is a document load —
+      //    an App Router client navigation is not one — but because the
+      //    server re-reads the cookie either way.
+      //  - back/forward does NOT. Next restores those page segments from
+      //    the client Router Cache with no server request, so a departed
+      //    viewer's server-rendered content can come back on a Back press
+      //    after the attempts are exhausted. That is the residual exposure
+      //    of giving up, and it is why the attempt count is not 1.
+      //  - another tab can RESOLVE it, but does not re-arm this loop: a
+      //    cross-tab broadcast takes next-auth's `storageEvent` path, which
+      //    re-reads the session even when its cached value is null — so a
+      //    session that comes back, or a different viewer, re-enters this
+      //    effect. A re-read that is null AGAIN changes neither dep, so
+      //    nothing restarts the confirm.
       for (let attempt = 0; attempt < SESSION_CONFIRM_ATTEMPTS; attempt += 1) {
         if (attempt > 0) {
           await new Promise((r) => {
