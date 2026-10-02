@@ -350,10 +350,24 @@ export function purgeArrivingViewerState(): StoragePurgeOutcome {
   // comes straight back is served the ANONYMOUS payload: offered ENDORSE
   // when they have already endorsed, and denied controls they hold.
   //
-  // So: invalidate, do not cancel. `invalidateQueries` marks every entry
-  // stale and refetches only ACTIVE queries; it never calls
-  // `query.cancel()`, so the arriving viewer's in-flight first reads are
-  // untouched.
+  // So: invalidate rather than purge, and drop the inactive entries
+  // outright.
+  //
+  // Precisely what that does, because the earlier wording here was wrong
+  // and a wrong mechanism in a comment is how the next change breaks:
+  // `invalidateQueries` marks every entry stale and refetches the ACTIVE
+  // ones, and `refetchQueries` defaults `cancelRefetch: true`, so it DOES
+  // cancel — but only an active query that already has `data`, i.e. a
+  // stale anonymous refetch worth restarting. The arriving viewer's first
+  // read has `data === undefined` and is continued, not aborted, which is
+  // the property this relies on.
+  //
+  // Invalidating alone still left the anonymous payload renderable:
+  // inactive entries keep their data, so on remount the component gets it
+  // with `isFetching: true` for one round trip — and if that refetch
+  // errors, query-core keeps the old data and the anonymous view-model
+  // stays. Inactive entries hold nothing of the ARRIVING viewer's, so
+  // removing them is free.
   try {
     handlers?.invalidateQueryCache();
   } catch {

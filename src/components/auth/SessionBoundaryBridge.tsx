@@ -35,6 +35,9 @@ import {
 } from "@/lib/auth/viewer-storage";
 import { revokePushForSessionEnd } from "@/lib/push/revoke";
 
+/** Bound for the confirming read that decides whether a null session is real. */
+const SESSION_CONFIRM_TIMEOUT_MS = 3_000;
+
 export function SessionBoundaryBridge() {
   const queryClient = useQueryClient();
   const { data: session, status } = useSession();
@@ -72,9 +75,21 @@ export function SessionBoundaryBridge() {
       purgeViewerStorage: clearViewerStorage,
       purgeArrivalStorage: clearCrossViewerStorage,
       invalidateQueryCache: () => {
-        // Invalidate, never cancel — see purgeArrivingViewerState. The
-        // promise is not awaited and refetch failures surface through the
-        // ordinary query error paths.
+        // Drop what nothing is observing: those entries hold only
+        // anonymous reads, and keeping them lets the pre-login payload
+        // render for a round trip on remount — or indefinitely if the
+        // refetch then errors, since query-core keeps `data` on error.
+        // `type: "inactive"` alone would be wrong: it means "no
+        // observers", NOT "not fetching", so it drops — and therefore
+        // cancels — a read that is in flight without a subscriber yet.
+        // Only idle entries are safe to remove.
+        queryClient.removeQueries({
+          predicate: (q) => !q.isActive() && q.state.fetchStatus === "idle",
+        });
+        // Mark the rest stale. This cancels only an active query that
+        // ALREADY has data (a stale anonymous refetch); the arriving
+        // viewer's first read has `data === undefined` and is continued.
+        // See purgeArrivingViewerState for why that distinction matters.
         void queryClient.invalidateQueries().catch(() => {
           // Refetch failures are the queries' own business.
         });
@@ -136,10 +151,8 @@ export function SessionBoundaryBridge() {
       return;
     }
 
-    // A real viewer change, from another tab. Hide private content and
-    // drop this tab's cached copy of it immediately.
-    purgeViewerState();
-
+    // Hide private content, drop this tab's cached copy, and reload.
+    //
     // Clearing a cache does not touch what the SERVER already rendered.
     // `/u/[handle]` computes `isOwner` from `getServerSession` and passes
     // the owner's email into the change-email form, so viewer A's email
@@ -149,7 +162,58 @@ export function SessionBoundaryBridge() {
     // Deliberately NOT calling signOut: the other tab already did, and a
     // second call would race it. A reload is both sufficient and honest —
     // it re-derives everything from whatever cookie now exists.
-    window.location.reload();
+    const depart = () => {
+      purgeViewerState();
+      window.location.reload();
+    };
+
+    // A viewer id that READ as a different person is a verdict, so act on
+    // it. `null` is not: next-auth's `fetchData` returns null on ANY
+    // error — transport failure, a 502, a rate-limited edge, a non-JSON
+    // body — and SessionProvider then stores null, so `status` becomes
+    // "unauthenticated" for an ordinary network blip. SessionProvider
+    // also keeps next-auth's default refetch-on-focus (the `false` in
+    // providers.tsx is on the QueryClient), so a tab refocus during a
+    // blip lands here.
+    //
+    // Acting on that destroyed the viewer's unpublished blog draft
+    // irrecoverably, orphaned a live server push row, and reloaded a
+    // session whose cookie was never touched — so they came back signed
+    // in, minus the draft. Everywhere else this codebase refuses to end a
+    // session on an unreadable answer; this was the one place that did.
+    if (viewer !== null) {
+      depart();
+      return;
+    }
+
+    void (async () => {
+      let gone = false;
+      try {
+        const r = await fetch("/api/auth/session", {
+          credentials: "include",
+          cache: "no-store",
+          signal: AbortSignal.timeout(SESSION_CONFIRM_TIMEOUT_MS),
+        });
+        if (r.ok) {
+          const body: unknown = await r.json().catch(() => undefined);
+          // next-auth answers a READABLE `{}` when there is no session
+          // cookie. That is the only shape that proves departure.
+          gone =
+            typeof body === "object" &&
+            body !== null &&
+            Object.keys(body).length === 0;
+        }
+      } catch {
+        // Indeterminate. Not a verdict.
+      }
+      if (!gone) {
+        // Put the transition back, so a REAL departure arriving later is
+        // still acted on rather than swallowed by this inconclusive one.
+        shownViewer.current = previous;
+        return;
+      }
+      depart();
+    })();
   }, [session?.user?.id, status]);
 
   return null;

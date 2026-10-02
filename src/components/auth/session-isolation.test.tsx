@@ -175,6 +175,11 @@ describe("viewer A → viewer B in one tab", () => {
 
 describe("a viewer change arriving from another tab", () => {
   it("purges this tab's cache when the session goes to null elsewhere", async () => {
+    // The endpoint must CONFIRM the departure: a readable `200 {}` is
+    // next-auth's answer when there is no session cookie. Without this
+    // stub the bridge rightly treats null as inconclusive, because a
+    // failed fetch produces the same null.
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("{}", { status: 200 })));
     const view = mount(qc);
     seedViewerACache(qc);
 
@@ -639,6 +644,8 @@ describe("anonymous → authenticated", () => {
   });
 
   it("tears down when an authenticated viewer becomes anonymous", async () => {
+    // Confirmed departure — see the null-without-being-gone group.
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("{}", { status: 200 })));
     const reload = vi.fn();
     Object.defineProperty(window, "location", {
       value: { reload, href: "http://localhost/", assign: vi.fn() },
@@ -824,44 +831,45 @@ describe("what arrival purges", () => {
     expect(window.localStorage.getItem("bcc-push-subscription-id")).toBe("55");
   });
 
-  it("does not cancel or clear the query cache at login", async () => {
-    // This tab never had a viewer, so the cache holds anonymous reads
-    // only — nobody's private data. Cancelling at login aborts the
-    // ARRIVING viewer's own first reads.
-    qc.setQueryData(["public", "thing"], { ok: true });
-    arrive();
-    await waitFor(() => {
-      expect(screen.getByTestId("private")).toBeInTheDocument();
-    });
-    expect(qc.getQueryData(["public", "thing"])).toEqual({ ok: true });
-  });
-
-  it("INVALIDATES the anonymous cache, so it is not served to the new viewer", async () => {
-    // Keeping the entries is right; keeping them FRESH is not. The cache
-    // is not viewer-partitioned — ["card-entity","user",handle],
-    // ["user",handle], the feed keys — and those view-models carry
-    // viewer_has_endorsed / viewer_is_member / the whole can_* block,
-    // documented as "always false for anonymous viewers". With
-    // staleTime 60s on card entities (5 min on ["user",handle]), a
-    // viewer who signs in and returns to the page they bounced off is
-    // served the ANONYMOUS payload: the card offers ENDORSE to someone
-    // who has already endorsed, and hides controls they are entitled to.
-    //
-    // invalidateQueries marks stale and refetches only ACTIVE queries. It
-    // never calls query.cancel(), so the arriving viewer's in-flight
-    // first reads survive — which is the property dropping the purge was
-    // meant to buy.
+  it("REMOVES the anonymous entries nothing is observing", async () => {
+    // Invalidating alone left their data in place, so a remount rendered
+    // the pre-login payload for a round trip — and indefinitely if the
+    // refetch then errored, since query-core keeps `data` on error.
+    // Nothing is observing them and they hold only anonymous reads, so
+    // dropping them is free and leaves nothing stale to serve.
     qc.setQueryData(["card-entity", "user", "alice"], { viewer_has_endorsed: false });
     arrive();
     await waitFor(() => {
-      expect(
-        qc.getQueryState(["card-entity", "user", "alice"])?.isInvalidated,
-      ).toBe(true);
+      expect(qc.getQueryData(["card-entity", "user", "alice"])).toBeUndefined();
     });
-    // Still present, not dropped.
-    expect(qc.getQueryData(["card-entity", "user", "alice"])).toEqual({
-      viewer_has_endorsed: false,
+  });
+
+  it("does NOT abort the arriving viewer's own in-flight first read", async () => {
+    // This is the property that made a full purge wrong: purgeQueryCache
+    // cancels, and at login that aborts the new viewer's first reads as
+    // their surfaces mount. `invalidateQueries` cancels only an ACTIVE
+    // query that already has data; a first read has `data === undefined`
+    // and is continued.
+    const key = ["arriving", "first-read"];
+    let settled = false;
+    void qc
+      .fetchQuery({
+        queryKey: key,
+        queryFn: () => new Promise<{ ok: boolean }>(() => {}),
+      })
+      .catch(() => {
+        settled = true;
+      });
+    await waitFor(() => {
+      expect(qc.getQueryState(key)?.fetchStatus).toBe("fetching");
     });
+
+    arrive();
+    await new Promise((r) => setTimeout(r, 50));
+
+    // Still in flight: not cancelled, not rejected.
+    expect(settled).toBe(false);
+    expect(qc.getQueryState(key)?.fetchStatus).toBe("fetching");
   });
 
   it("DEPARTURE still clears everything, draft and push id included", async () => {
@@ -915,5 +923,122 @@ describe("the recovery control's pending state", () => {
     // The navigation is under way; the control must not invite a click
     // that would restart it.
     expect(screen.getByRole("button", { name: /finishing/i })).toBeDisabled();
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────
+// A FAILED session fetch is not a sign-out
+// ─────────────────────────────────────────────────────────────────────
+
+describe("a session that reads as null without being gone", () => {
+  // next-auth's fetchData returns null on ANY error — transport failure,
+  // a 502, a rate-limited edge, a non-JSON body — and SessionProvider
+  // then setSession(null), so `status` becomes "unauthenticated". That is
+  // indistinguishable from a real cross-tab sign-out. And SessionProvider
+  // keeps next-auth's default refetchOnWindowFocus (the `false` in
+  // providers.tsx is on the QueryClient), so an ordinary tab refocus
+  // during a blip reaches this path.
+  //
+  // Treating it as a departure destroyed the viewer's unpublished blog
+  // draft irrecoverably (local-only, no server mirror), orphaned a live
+  // server push row, and force-reloaded a session whose cookie was never
+  // touched — so they came back signed in, minus the draft.
+  //
+  // Everywhere else this codebase refuses to end a session on an
+  // unreadable answer: tryRefresh classifies 429/5xx/network as
+  // indeterminate, and session-update says "a body we cannot read is
+  // never a session-ending signal". This was the one place that did.
+
+  function goNull(view: ReturnType<typeof mount>) {
+    sessionState.data = null;
+    sessionState.status = "unauthenticated";
+    view.rerender(tree(qc));
+  }
+
+  it("does NOT purge when the session endpoint cannot be read", async () => {
+    const reload = vi.fn();
+    Object.defineProperty(window, "location", {
+      value: { reload, href: "http://localhost/", assign: vi.fn(), pathname: "/" },
+      writable: true,
+    });
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("<html/>", { status: 502 })));
+    window.localStorage.setItem("bcc.blog.draft.a", "half-written post");
+    window.localStorage.setItem("bcc-push-subscription-id", "55");
+
+    const view = mount(qc);
+    goNull(view);
+
+    await new Promise((r) => setTimeout(r, 50));
+    expect(window.localStorage.getItem("bcc.blog.draft.a")).toBe("half-written post");
+    expect(window.localStorage.getItem("bcc-push-subscription-id")).toBe("55");
+    expect(reload).not.toHaveBeenCalled();
+  });
+
+  it("does NOT purge when the session fetch throws", async () => {
+    const reload = vi.fn();
+    Object.defineProperty(window, "location", {
+      value: { reload, href: "http://localhost/", assign: vi.fn(), pathname: "/" },
+      writable: true,
+    });
+    vi.stubGlobal("fetch", vi.fn(async () => {
+      throw new TypeError("Failed to fetch");
+    }));
+    window.localStorage.setItem("bcc.blog.draft.a", "half-written post");
+
+    const view = mount(qc);
+    goNull(view);
+
+    await new Promise((r) => setTimeout(r, 50));
+    expect(window.localStorage.getItem("bcc.blog.draft.a")).toBe("half-written post");
+    expect(reload).not.toHaveBeenCalled();
+  });
+
+  it("DOES purge when the endpoint confirms the session is gone", async () => {
+    // next-auth answers a readable `200 {}` when there is no session
+    // cookie. That is a verdict.
+    const reload = vi.fn();
+    Object.defineProperty(window, "location", {
+      value: { reload, href: "http://localhost/", assign: vi.fn(), pathname: "/" },
+      writable: true,
+    });
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("{}", { status: 200 })));
+    window.localStorage.setItem("bcc.blog.draft.a", "half-written post");
+
+    const view = mount(qc);
+    seedViewerACache(qc);
+    goNull(view);
+
+    await waitFor(() => {
+      expect(reload).toHaveBeenCalledTimes(1);
+    });
+    expect(window.localStorage.getItem("bcc.blog.draft.a")).toBeNull();
+  });
+
+  it("does not mistake the SAME viewer coming back for a new arrival", async () => {
+    // After an inconclusive null the recorded viewer has to be put back.
+    // Otherwise the next read of the SAME person looks like an arrival
+    // (previous === null), and the arrival sweep deletes their recent
+    // searches, tour position and onboarding progress — for a viewer who
+    // never left, after nothing worse than a network blip.
+    const reload = vi.fn();
+    Object.defineProperty(window, "location", {
+      value: { reload, href: "http://localhost/", assign: vi.fn(), pathname: "/" },
+      writable: true,
+    });
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("<html/>", { status: 502 })));
+    window.localStorage.setItem("bcc-recent-searches", '["acme payroll"]');
+
+    const view = mount(qc);
+    goNull(view);
+    await new Promise((r) => setTimeout(r, 50));
+
+    // The session re-reads as the same person.
+    sessionState.data = { user: { id: "a" } };
+    sessionState.status = "authenticated";
+    view.rerender(tree(qc));
+    await new Promise((r) => setTimeout(r, 50));
+
+    expect(window.localStorage.getItem("bcc-recent-searches")).toBe('["acme payroll"]');
+    expect(reload).not.toHaveBeenCalled();
   });
 });

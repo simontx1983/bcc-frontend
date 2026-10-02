@@ -85,10 +85,20 @@ export function PrivateRenderGate({ children }: { children: ReactNode }) {
 
 /**
  * How long a submitted sign-out gets to replace this document before the
- * control is offered again. Comfortably longer than the 3s CSRF bound
- * inside `forceSignOutNavigation`, so a working navigation always wins.
+ * control is offered again.
+ *
+ * Measured against the right bound, which the earlier comment was not:
+ * the timer is scheduled INSIDE `.finally`, so the CSRF leg has already
+ * settled and its 3s is irrelevant. What this has to outlast is the
+ * sign-out POST — and the reason this panel is on screen at all is that
+ * `SIGN_OUT_TIMEOUT_MS` (6s) was exhausted, so that is the floor.
+ *
+ * It is a window, not a guarantee: a host that answers after this still
+ * gets the control re-offered, and a re-click restarts the navigation
+ * already under way. Trading a rare restart against a permanently dead
+ * escape hatch, which is what no timer at all produced.
  */
-const RE_ENABLE_AFTER_MS = 8_000;
+const RE_ENABLE_AFTER_MS = 20_000;
 
 function RecoveryPanel({ failed }: { failed: SessionTeardownResult }) {
   // The control fetches a CSRF token before it can POST, and that fetch is
@@ -138,7 +148,7 @@ function RecoveryPanel({ failed }: { failed: SessionTeardownResult }) {
               // re-submits, which in a browser cancels and restarts the
               // navigation already under way.
               //
-              // A live navigation replaces this document well inside the
+              // A live navigation replaces this document inside the
               // window below; a dead one does not, and has to give the
               // control back rather than leave a terminal gate with no
               // way forward.
