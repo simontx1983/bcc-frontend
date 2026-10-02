@@ -138,6 +138,20 @@ export function SessionBoundaryBridge() {
     latestViewer.current = viewer;
 
     if (shownViewer.current === undefined) {
+      // The first value is committed unconditionally, `null` included,
+      // WITHOUT the confirm the departure path insists on. That is sound
+      // only because `providers.tsx` passes `session={…}` from
+      // `getServerSession`: next-auth then treats the session as already
+      // present and its mount-time `_getSession()` short-circuits without
+      // a client fetch, so this value comes from the same server read that
+      // produced the SSR output and a mount-time blip cannot desynchronise
+      // them.
+      //
+      // ⚠ If that prop is ever dropped so SessionProvider fetches its own
+      // session, a failed first fetch would record `null` here and the
+      // next arrival would take the no-gate-close branch below while the
+      // previous owner's email and controls are still server-rendered on
+      // the page. Confirm before committing if that changes.
       shownViewer.current = viewer;
       return;
     }
@@ -268,8 +282,13 @@ export function SessionBoundaryBridge() {
       // screen indefinitely.
       //
       // Bounded rather than endless because the cost of giving up is
-      // contained: the next navigation is a document load, which
-      // re-derives everything from whatever cookie now exists.
+      // contained: any later navigation re-renders the RSC tree against
+      // whatever cookie now exists. (Not because it is a document load —
+      // an App Router client navigation is not one. The operative point is
+      // that the server re-reads the cookie either way.) Another tab also
+      // re-arms this: a cross-tab broadcast takes next-auth's
+      // `storageEvent` path, which re-reads the session even when its
+      // cached value is null.
       for (let attempt = 0; attempt < SESSION_CONFIRM_ATTEMPTS; attempt += 1) {
         if (attempt > 0) {
           await new Promise((r) => {
