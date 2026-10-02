@@ -6,17 +6,22 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { forceSignOutNavigation } from "@/lib/auth/force-signout";
+import {
+  __resetSessionBoundaryForTests,
+  setPendingAuthNotice,
+} from "@/lib/auth/session-boundary";
 
 let submit: ReturnType<typeof vi.fn>;
 let assign: ReturnType<typeof vi.fn>;
 let reload: ReturnType<typeof vi.fn>;
 
 beforeEach(() => {
+  __resetSessionBoundaryForTests();
   submit = vi.fn();
   assign = vi.fn();
   reload = vi.fn();
   Object.defineProperty(window, "location", {
-    value: { assign, reload, href: "http://localhost/", pathname: "/" },
+    value: { assign, reload, href: "http://localhost/", pathname: "/", search: "" },
     writable: true,
   });
   const realCreate = document.createElement.bind(document);
@@ -96,7 +101,13 @@ describe("forceSignOutNavigation", () => {
     // /signout sits inside the render gate, so it can BE the page showing
     // this control; assigning the same path there is a no-op.
     Object.defineProperty(window, "location", {
-      value: { assign, reload, href: "http://localhost/signout", pathname: "/signout" },
+      value: {
+        assign,
+        reload,
+        href: "http://localhost/signout",
+        pathname: "/signout",
+        search: "",
+      },
       writable: true,
     });
     vi.stubGlobal("fetch", vi.fn(async () => {
@@ -124,4 +135,73 @@ describe("forceSignOutNavigation", () => {
     await forceSignOutNavigation();
     expect(assign).not.toHaveBeenCalledWith("/api/auth/signout");
   });
+});
+
+describe("the parked notice reaches the landing page", () => {
+  it("carries it in the POST callbackUrl", async () => {
+    // Preserving the notice across a failed teardown is pointless if
+    // nothing collects it. The gate's only control is this function, and
+    // it posted a hard-coded "/" — so a viewer whose sign-out failed and
+    // who then used the recovery button landed with no explanation at
+    // all, which is the outcome the parked notice exists to prevent.
+    setPendingAuthNotice("password-changed");
+    vi.stubGlobal("fetch", csrfOk());
+    await forceSignOutNavigation();
+
+    const form = (document.createElement as unknown as ReturnType<typeof vi.fn>).mock
+      .results.map((r) => r.value as HTMLElement)
+      .find((el) => el.tagName === "FORM") as HTMLFormElement;
+    const fields = [...form.querySelectorAll("input")].map((i) => [i.name, i.value]);
+    expect(fields).toEqual(
+      expect.arrayContaining([["callbackUrl", "/?authNotice=password-changed"]]),
+    );
+  });
+
+  it("carries it on the fallback navigation too", async () => {
+    // The fallback is a document load, which destroys the module state
+    // holding the notice — so it has to travel in the URL.
+    setPendingAuthNotice("password-changed");
+    vi.stubGlobal("fetch", vi.fn(async () => {
+      throw new TypeError("Failed to fetch");
+    }));
+    await forceSignOutNavigation();
+    expect(assign).toHaveBeenCalledWith("/signout?authNotice=password-changed");
+  });
+
+  it("posts a plain / when nothing is parked", async () => {
+    vi.stubGlobal("fetch", csrfOk());
+    await forceSignOutNavigation();
+    const form = (document.createElement as unknown as ReturnType<typeof vi.fn>).mock
+      .results.map((r) => r.value as HTMLElement)
+      .find((el) => el.tagName === "FORM") as HTMLFormElement;
+    const fields = [...form.querySelectorAll("input")].map((i) => [i.name, i.value]);
+    expect(fields).toEqual(expect.arrayContaining([["callbackUrl", "/"]]));
+  });
+});
+
+describe("the fallback on /signout itself", () => {
+  it("navigates (carrying the notice) rather than reloading it away", async () => {
+    // `reload()` is a document load, so it destroys the module state
+    // holding the parked notice — and the current URL need not carry it.
+    // Assigning /signout?authNotice=... from a bare /signout IS a real
+    // navigation, so the no-op-loop guard does not apply.
+    Object.defineProperty(window, "location", {
+      value: {
+        assign,
+        reload,
+        href: "http://localhost/signout",
+        pathname: "/signout",
+        search: "",
+      },
+      writable: true,
+    });
+    setPendingAuthNotice("password-changed");
+    vi.stubGlobal("fetch", vi.fn(async () => {
+      throw new TypeError("Failed to fetch");
+    }));
+    await forceSignOutNavigation();
+    expect(reload).not.toHaveBeenCalled();
+    expect(assign).toHaveBeenCalledWith("/signout?authNotice=password-changed");
+  });
+
 });
