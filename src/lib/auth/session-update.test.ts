@@ -399,10 +399,11 @@ describe("when the confirming GET itself fails", () => {
     await expect(updateSessionBearer(UPDATE)).resolves.toBe(false);
   });
 
-  it("and a readable session carrying a DIFFERENT token still disproves it", async () => {
-    stubFetch({ confirmStatus: 200, confirmBody: '{"bccToken":"someone-elses"}' });
-    await expect(updateSessionBearer(UPDATE)).resolves.toBe(false);
-  });
+  // A DIFFERENT non-empty token no longer disproves it: see "a concurrent
+  // session write is not a loss". `updateSessionBearer` is also the
+  // session write inside tryRefresh, so another write can legitimately
+  // replace the bearer between our POST and this read — and the session
+  // is live, which is what the caller is asking.
 });
 
 describe("every leg is bounded", () => {
@@ -551,5 +552,72 @@ describe("an indeterminate POST with an unperformable confirm", () => {
     // for, and it must not regress.
     stubFetch({ confirmThrows: true });
     await expect(updateSessionBearer(UPDATE)).resolves.toBe(true);
+  });
+});
+
+describe("a concurrent session write is not a loss", () => {
+  it("accepts a live session carrying a DIFFERENT non-empty bearer", async () => {
+    // `updateSessionBearer` is also the session write inside tryRefresh,
+    // so a pre-emptive refresh can land between our POST and our confirm
+    // and replace the bearer. The confirm then reads a token that is not
+    // ours — but the session is LIVE, which is the question the caller is
+    // asking. Reporting "we couldn't keep this device signed in" there
+    // offers only endSession, on a perfectly good session.
+    //
+    // Only an ABSENT or empty bearer refutes: that is next-auth's
+    // cookie-cleaned shape.
+    stubFetch({
+      confirmStatus: 200,
+      confirmBody: JSON.stringify({ bccToken: "a-concurrent-refresh-token" }),
+    });
+    await expect(updateSessionBearer(UPDATE)).resolves.toBe(true);
+  });
+
+  it("still refutes a readable session with no bearer at all", async () => {
+    stubFetch({ confirmStatus: 200, confirmBody: "{}" });
+    await expect(updateSessionBearer(UPDATE)).resolves.toBe(false);
+  });
+
+  it("still refutes an empty-string bearer", async () => {
+    stubFetch({ confirmStatus: 200, confirmBody: JSON.stringify({ bccToken: "" }) });
+    await expect(updateSessionBearer(UPDATE)).resolves.toBe(false);
+  });
+});
+
+describe("the confirm is retried once before falling back to the echo", () => {
+  it("asks twice when the first attempt cannot be performed", async () => {
+    // `echoed` proves the merge happened at POST time, not that the
+    // session is live now: next-auth assigns the response body BEFORE
+    // jwt.encode, and its catch cleans the cookie — so a 200 that echoes
+    // our token can be the very response that deleted the session. One
+    // retry narrows the window where that coincides with an unperformable
+    // confirm.
+    let confirms = 0;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: unknown, init?: RequestInit) => {
+        const url = String(input);
+        if (url.includes("/api/auth/csrf")) {
+          return new Response(JSON.stringify({ csrfToken: "c" }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+        if ((init?.method ?? "GET").toUpperCase() === "POST") {
+          return new Response(JSON.stringify({ bccToken: UPDATE.token }), {
+            status: 200,
+          });
+        }
+        confirms += 1;
+        if (confirms === 1) {
+          return new Response("<html/>", { status: 502 });
+        }
+        return new Response("{}", { status: 200 });
+      }),
+    );
+    // The second attempt reads a cookie-cleaned session, so the echo must
+    // NOT be allowed to stand.
+    await expect(updateSessionBearer(UPDATE)).resolves.toBe(false);
+    expect(confirms).toBe(2);
   });
 });

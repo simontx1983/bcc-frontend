@@ -82,6 +82,9 @@ const WRITE_TIMEOUT_MS = 6_000;
  */
 const CONFIRM_TIMEOUT_MS = 2_000;
 
+/** Attempts before the echo is allowed to stand on its own. */
+const CONFIRM_ATTEMPTS = 2;
+
 export async function updateSessionBearer(
   update: SessionBearerUpdate,
 ): Promise<boolean> {
@@ -180,7 +183,7 @@ export async function updateSessionBearer(
       return false;
     }
 
-    // ...but ONLY a readable session that lacks our token may disprove it.
+    // ...but ONLY a readable session with NO bearer may disprove it.
     //
     // A confirm that could not be PERFORMED proves nothing. Folding a
     // 502, an HTML interstitial, a rate-limited edge, or a transport
@@ -190,28 +193,51 @@ export async function updateSessionBearer(
     // made itself true. This is the doctrine `errorCode()` in
     // lib/api/client already applies: a body we cannot read is never a
     // session-ending signal.
-    let check: Response;
-    try {
-      check = await fetch("/api/auth/session", {
-        credentials: "include",
-        cache: "no-store",
-        signal: AbortSignal.timeout(CONFIRM_TIMEOUT_MS),
-      });
-    } catch {
-      return echoed;
+    //
+    // Asked TWICE before giving up, because `echoed` is weaker than it
+    // looks: next-auth assigns the response body BEFORE `jwt.encode`, and
+    // its catch cleans the cookie, so a 200 echoing our token can be the
+    // very response that deleted the session. One retry narrows the window
+    // where that coincides with an unperformable confirm; it does not
+    // close it, and the fall-back to `echoed` is a deliberate choice of
+    // the less damaging error.
+    const askConfirm = async (): Promise<boolean | null> => {
+      let check: Response;
+      try {
+        check = await fetch("/api/auth/session", {
+          credentials: "include",
+          cache: "no-store",
+          signal: AbortSignal.timeout(CONFIRM_TIMEOUT_MS),
+        });
+      } catch {
+        return null;
+      }
+      if (!check.ok) {
+        return null;
+      }
+      const live: unknown = await check.json().catch(() => undefined);
+      if (typeof live !== "object" || live === null) {
+        return null;
+      }
+      // A DIFFERENT non-empty bearer is a live session, not a lost one:
+      // `updateSessionBearer` is also the session write inside
+      // `tryRefresh`, so a concurrent pre-emptive refresh can replace the
+      // token between our POST and this read. The question the caller is
+      // asking is whether this device can carry on, and it can.
+      //
+      // An absent or empty bearer is next-auth's cookie-cleaned shape, and
+      // the only thing that refutes the merge.
+      const liveToken = (live as { bccToken?: unknown }).bccToken;
+      return typeof liveToken === "string" && liveToken !== "";
+    };
+
+    for (let attempt = 0; attempt < CONFIRM_ATTEMPTS; attempt += 1) {
+      const answer = await askConfirm();
+      if (answer !== null) {
+        return answer;
+      }
     }
-    if (!check.ok) {
-      return echoed;
-    }
-    const live: unknown = await check.json().catch(() => undefined);
-    if (typeof live !== "object" || live === null) {
-      return echoed;
-    }
-    // The target case survives this: when next-auth throws after
-    // assigning the body it cleans the cookie, so this GET reaches
-    // `if (!sessionToken) return response` and answers a readable
-    // `200 {}` — an object, without our token.
-    return (live as { bccToken?: unknown }).bccToken === update.token;
+    return echoed;
   } catch {
     // Network failure, abort, or a non-JSON csrf response.
     return false;
