@@ -621,3 +621,46 @@ describe("the confirm is retried once before falling back to the echo", () => {
     expect(confirms).toBe(2);
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────
+// A surviving PRE-CHANGE session is not a restored one
+// ─────────────────────────────────────────────────────────────────────
+
+describe("a lost POST response with the old session still in the cookie", () => {
+  it("is a FAILURE, not a success", async () => {
+    // The widened "any non-empty bearer is live" rule was right for a
+    // concurrent tryRefresh write and wrong here. If the POST's response
+    // never arrives, the browser never applies its Set-Cookie, so the
+    // cookie still holds the PRE-CHANGE session — whose bearer the
+    // password change has just revoked server-side. That reads back as a
+    // perfectly good 200 with a non-empty bccToken.
+    //
+    // Accepting it showed "Saved" and withdrew the parked notice, and the
+    // next authed read then 401s into a generic "your session ended" —
+    // the exact mislabel this module exists to prevent.
+    //
+    // This is a re-pointed version of a test an earlier round deleted. The
+    // assertion it made ("a different token disproves the merge") looked
+    // wrong once the concurrent-write case was understood, but it was also
+    // protecting THIS property, which nothing else covered.
+    stubFetch({
+      postThrows: true,
+      confirmStatus: 200,
+      confirmBody: JSON.stringify({
+        user: { name: "fixture" },
+        bccToken: "the-old-revoked-bearer",
+      }),
+    });
+    await expect(updateSessionBearer(UPDATE)).resolves.toBe(false);
+  });
+
+  it("but a different bearer IS accepted once our write provably landed", async () => {
+    // Echo proves ours landed, so a different bearer afterwards really is
+    // a concurrent write — which is the case the widening was for.
+    stubFetch({
+      confirmStatus: 200,
+      confirmBody: JSON.stringify({ bccToken: "a-concurrent-refresh-token" }),
+    });
+    await expect(updateSessionBearer(UPDATE)).resolves.toBe(true);
+  });
+});

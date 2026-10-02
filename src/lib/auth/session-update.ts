@@ -219,16 +219,35 @@ export async function updateSessionBearer(
       if (typeof live !== "object" || live === null) {
         return null;
       }
-      // A DIFFERENT non-empty bearer is a live session, not a lost one:
-      // `updateSessionBearer` is also the session write inside
-      // `tryRefresh`, so a concurrent pre-emptive refresh can replace the
-      // token between our POST and this read. The question the caller is
-      // asking is whether this device can carry on, and it can.
-      //
-      // An absent or empty bearer is next-auth's cookie-cleaned shape, and
-      // the only thing that refutes the merge.
       const liveToken = (live as { bccToken?: unknown }).bccToken;
-      return typeof liveToken === "string" && liveToken !== "";
+
+      // Our own token coming back is the unambiguous success.
+      if (liveToken === update.token) {
+        return true;
+      }
+
+      // A DIFFERENT non-empty bearer is ambiguous, and only the echo can
+      // settle it:
+      //
+      //  - if our write LANDED, this is a concurrent one replacing it.
+      //    `updateSessionBearer` is also the session write inside
+      //    `tryRefresh`, so a pre-emptive refresh can do exactly that, and
+      //    the device can carry on.
+      //  - if our write never landed — a dropped POST response, so the
+      //    browser never applied its Set-Cookie — this is the PRE-CHANGE
+      //    session, whose bearer the password change has just revoked
+      //    server-side. Reading that as success shows "Saved" and then
+      //    signs the viewer out under the generic slug a moment later.
+      //
+      // Same doctrine as the fall-back below: defer to what was actually
+      // proved.
+      if (typeof liveToken === "string" && liveToken !== "") {
+        return echoed;
+      }
+
+      // Absent or empty: next-auth's cookie-cleaned shape, and the thing
+      // the confirm exists to detect.
+      return false;
     };
 
     for (let attempt = 0; attempt < CONFIRM_ATTEMPTS; attempt += 1) {
