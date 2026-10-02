@@ -40,6 +40,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { useCompleteOnboarding } from "@/hooks/useCompleteOnboarding";
 import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
+import { useViewerScope } from "@/hooks/useViewerScope";
 import { humanizeCode } from "@/lib/api/errors";
 import { clearOnboardingProgress } from "@/lib/onboarding/storage";
 import type {
@@ -70,6 +71,7 @@ export function DopamineStep({
   const router = useRouter();
   const { mutateAsync: completeAsync } = useCompleteOnboarding();
   const reducedMotion = usePrefersReducedMotion();
+  const scope = useViewerScope();
   const [save, setSave] = useState<SaveState>({ status: "saving" });
   const [holdElapsed, setHoldElapsed] = useState(false);
 
@@ -90,7 +92,7 @@ export function DopamineStep({
         // Only NOW is the resume point safe to drop. Clearing it on entry
         // to this screen (as the wizard used to) meant a failed /complete
         // left the visitor un-onboarded AND unable to resume.
-        clearOnboardingProgress();
+        clearOnboardingProgress(scope);
         setSave({ status: "saved", data });
       })
       .catch((err: unknown) => {
@@ -113,7 +115,7 @@ export function DopamineStep({
       .finally(() => {
         inFlightRef.current = false;
       });
-  }, [completeAsync, homeChain]);
+  }, [completeAsync, homeChain, scope]);
 
   /**
    * The escape hatch. Guarded so a double-tap cannot issue two navigations

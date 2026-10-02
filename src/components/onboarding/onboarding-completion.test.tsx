@@ -28,6 +28,12 @@ vi.mock("@/hooks/usePrefersReducedMotion", () => ({
   usePrefersReducedMotion: () => reducedMotion,
 }));
 
+// The resume point is viewer-scoped, so the send-off screen needs a session.
+// One fixed viewer; PROGRESS_KEY below is that viewer's key.
+vi.mock("next-auth/react", () => ({
+  useSession: () => ({ data: { user: { id: "4242" } }, status: "authenticated" }),
+}));
+
 /** One controllable /complete call per test. */
 interface Deferred {
   promise: Promise<unknown>;
@@ -56,7 +62,8 @@ vi.mock("@/hooks/useCompleteOnboarding", () => ({
 
 const { DopamineStep } = await import("@/components/onboarding/DopamineStep");
 const { BccApiError } = await import("@/lib/api/types");
-const PROGRESS_KEY = "bcc-onboarding-progress";
+/** Viewer-scoped: the wizard writes `base::<viewer id>`. */
+const PROGRESS_KEY = "bcc-onboarding-progress::4242";
 
 const btn = (name: RegExp) => screen.getByRole("button", { name }) as HTMLButtonElement;
 const queryBtn = (name: RegExp) => screen.queryByRole("button", { name });

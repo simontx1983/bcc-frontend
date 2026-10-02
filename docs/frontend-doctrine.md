@@ -180,6 +180,75 @@ half, say so loudly in the PR body.
 - **Server state lives in React Query; never mirror it into `useState`.**
   Local state is for ephemeral UI only (open/closed, draft text, hover).
 
+### 3a. Browser storage belongs to a VIEWER, not to the browser
+
+`localStorage` and `sessionStorage` outlive a session. Anything written under a
+shared key is read back and **displayed** to whoever uses the browser next:
+one person's recent searches appearing in another's search dropdown, a tour
+position suppressing someone else's onboarding, an unpublished blog body
+restored into a different writer's composer.
+
+So every per-person key is scoped by viewer id through
+[`lib/auth/viewer-scope`](../src/lib/auth/viewer-scope.ts):
+
+```ts
+const scope = useViewerScope();              // hooks/useViewerScope.ts
+const key = scopedKey("bcc-recent-searches", scope);   // base::<viewer id>
+if (key === null) return;                    // viewer not known — do nothing
+```
+
+Rules, each of which has a test and a mutation control behind it:
+
+- **Pass the scope in; never read a module global.** Each call site then shows
+  whose data it touches.
+- **`null` means "we do not know who this is yet"** (session loading, or
+  authenticated with no usable id). Reads return the default and writes are
+  dropped. Never fall back to the bare key and never guess: both hand one
+  person's data to another.
+- **`ANON_SCOPE` is a real scope** for a signed-out visitor, so anonymous use
+  stays out of every account's bucket. It is shared by *all* anonymous use of
+  the browser — the one place where two people can still see each other's
+  values, and it is not fixable by a key name.
+- **Seed from storage in an effect keyed on the scope, not at mount.** At mount
+  the scope is usually still unknown, so a `useState` initialiser or a `[]`
+  effect reads nothing — and worse, before scoping it read the *previous*
+  viewer's value. `useToursSeen`, `useRecentSearches`, `TourProvider`,
+  `ResumeOnboardingPrompt`, `EligibleCommunitiesModal` and `BlogComposer` all
+  do this, and each has a mutation control proving the mount-only version
+  fails.
+- **Device preferences are NOT viewer data.** `bcc-theme`, `bcc-accent`,
+  `bcc-sidebar-collapsed`, `bcc:roster-view` stay unscoped and survive
+  sign-out. Wiping them makes sign-out feel like a factory reset.
+
+⚠ **What scoping is and is not.** It prevents **cross-account display** — the
+app never reads one viewer's value while another is signed in. It is **not** a
+privacy guarantee and not a security boundary: every scope is plainly readable
+in devtools, or by any script already running on the origin, whatever the key
+is called. Describe it that way in copy and in review.
+
+**Migration.** Values written under the old unscoped names are **deleted, never
+adopted** — renaming `bcc-recent-searches` into the scope of whoever signs in
+next would hand one person's history to another, which is the defect being
+removed. The purge (`purgeLegacyUnscopedKeys`) runs once per document from
+`useViewerScope`, so it also covers a **document-load arrival** such as an
+OAuth round trip, which the in-place session-change path in
+`SessionBoundaryBridge` never sees. It runs for anonymous visitors too: legacy
+values identify nobody, so there is nothing to wait for. The costs, stated
+rather than buried: a tour position and an onboarding resume point are lost
+once per browser, and so is a legacy `bcc.blog.draft.<handle>` autosave — the
+most expensive item, kept out of the migration because a handle is renameable
+and reclaimable and the old key collapsed to `…draft.anon` whenever the session
+had not resolved.
+
+**Sign-out cleanup.** `clearViewerStorage(scope)` removes the **departing**
+viewer's values and leaves other scopes alone — another account's data on a
+shared browser is not ours to delete. Viewer **arrival** no longer deletes
+anyone's state; it only runs the legacy migration, because scoping already
+stops one viewer's value being read by another. Both inventories live in
+[`lib/auth/viewer-storage`](../src/lib/auth/viewer-storage.ts) and are pinned
+by a derived guard that scans every `setItem` and `scopedKey(…)` site in
+`src/`: **a new `bcc*` key that is not classified fails that test.**
+
 ---
 
 ## 4. Components

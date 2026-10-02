@@ -223,6 +223,42 @@ describe("a viewer change arriving from another tab", () => {
     expect(signOut).not.toHaveBeenCalled();
   });
 
+  it("clears the DEPARTING viewer's stored values, not the arriving one's", async () => {
+    // The viewer this tab is showing is A. Storage is keyed per viewer, so
+    // the purge has to name A — and the obvious source for that name is
+    // wrong: the bridge advances its "shown viewer" to B (or to null on a
+    // confirmed sign-out) on the line before the teardown runs, so purging
+    // by it clears B's scope and leaves A's search history, onboarding
+    // position and unpublished draft sitting on the device.
+    window.localStorage.setItem("bcc-recent-searches::a", '["acme payroll"]');
+    window.localStorage.setItem("bcc-recent-searches::b", '["theirs"]');
+    const view = mount(qc);
+
+    sessionState.data = { user: { id: "b" } };
+    view.rerender(tree(qc));
+
+    await waitFor(() => {
+      expect(window.localStorage.getItem("bcc-recent-searches::a")).toBeNull();
+    });
+    expect(window.localStorage.getItem("bcc-recent-searches::b")).toBe('["theirs"]');
+  });
+
+  it("clears the departing viewer's values on a CONFIRMED sign-out elsewhere", async () => {
+    // The same defect, on the commonest path: here the shown viewer becomes
+    // `null` before the teardown, which would purge no viewer's scope at all.
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("{}", { status: 200 })));
+    window.localStorage.setItem("bcc-recent-searches::a", '["acme payroll"]');
+    const view = mount(qc);
+
+    sessionState.data = null;
+    sessionState.status = "unauthenticated";
+    view.rerender(tree(qc));
+
+    await waitFor(() => {
+      expect(window.localStorage.getItem("bcc-recent-searches::a")).toBeNull();
+    });
+  });
+
   it("does NOT purge on the first session resolution", async () => {
     // loading → authenticated is not a viewer change; purging there
     // would throw away a legitimately warm cache on every mount.
@@ -622,8 +658,8 @@ describe("anonymous → authenticated", () => {
       expect(window.localStorage.getItem("bcc-recent-searches")).toBeNull();
     });
     expect(window.localStorage.getItem("bcc-onboarding-progress")).toBeNull();
-    // The id-scoped draft is NOT an arrival concern: see
-    // ARRIVAL_SCOPED_STORAGE_KEYS. Covered in "what arrival purges".
+    // A viewer-scoped draft is NOT an arrival concern — nothing reads
+    // across scopes. Covered in "what arrival purges".
     // Device preference kept, and the app is still usable: arrival purges
     // state, only DEPARTURE closes the gate.
     expect(window.localStorage.getItem("bcc-theme")).toBe("dark");
@@ -808,19 +844,25 @@ describe("what arrival purges", () => {
     expect(window.sessionStorage.getItem("bcc-tour-progress")).toBeNull();
   });
 
-  it("KEEPS the returning viewer's own id-scoped blog draft", async () => {
-    // bcc.blog.draft.<handle> is restored by the composer on mount, and
-    // it is already partitioned by id — another viewer's composer only
-    // ever reads their own key. Purging it on arrival destroyed an
-    // unpublished post belonging to the person who just signed back in,
-    // and bought nothing.
-    window.localStorage.setItem("bcc.blog.draft.a", "half-written post");
+  it("KEEPS the returning viewer's own scoped blog draft, drops the legacy one", async () => {
+    // The scoped key belongs to one viewer and the composer restores it on
+    // mount, so purging it on arrival destroyed an unpublished post
+    // belonging to the person who had just signed back in, and bought
+    // nothing — another viewer's composer never reads this key.
+    //
+    // The LEGACY `bcc.blog.draft.<handle>` form is different and is
+    // deleted: a handle is renameable and reclaimable, and the old key
+    // collapsed to `…draft.anon` whenever the session had not resolved, so
+    // it cannot be attributed to a viewer. See LEGACY_UNSCOPED_PREFIXES.
+    window.localStorage.setItem("bcc.blog.draft::a", "half-written post");
+    window.localStorage.setItem("bcc.blog.draft.a", "legacy body");
     window.localStorage.setItem("bcc-recent-searches", '["x"]');
     arrive();
     await waitFor(() => {
       expect(window.localStorage.getItem("bcc-recent-searches")).toBeNull();
     });
-    expect(window.localStorage.getItem("bcc.blog.draft.a")).toBe("half-written post");
+    expect(window.localStorage.getItem("bcc.blog.draft::a")).toBe("half-written post");
+    expect(window.localStorage.getItem("bcc.blog.draft.a")).toBeNull();
   });
 
   it("KEEPS the push subscription row id, so sign-out can still revoke it", async () => {
@@ -880,12 +922,12 @@ describe("what arrival purges", () => {
   });
 
   it("DEPARTURE still clears everything, draft and push id included", async () => {
-    window.localStorage.setItem("bcc.blog.draft.a", "half-written post");
+    window.localStorage.setItem("bcc.blog.draft::a", "half-written post");
     window.localStorage.setItem("bcc-push-subscription-id", "55");
     window.localStorage.setItem("bcc-theme", "dark");
     mount(qc);
     await endSession("user");
-    expect(window.localStorage.getItem("bcc.blog.draft.a")).toBeNull();
+    expect(window.localStorage.getItem("bcc.blog.draft::a")).toBeNull();
     expect(window.localStorage.getItem("bcc-push-subscription-id")).toBeNull();
     expect(window.localStorage.getItem("bcc-theme")).toBe("dark");
   });
@@ -969,14 +1011,14 @@ describe("a session that reads as null without being gone", () => {
       writable: true,
     });
     vi.stubGlobal("fetch", vi.fn(async () => new Response("<html/>", { status: 502 })));
-    window.localStorage.setItem("bcc.blog.draft.a", "half-written post");
+    window.localStorage.setItem("bcc.blog.draft::a", "half-written post");
     window.localStorage.setItem("bcc-push-subscription-id", "55");
 
     const view = mount(qc);
     goNull(view);
 
     await new Promise((r) => setTimeout(r, 50));
-    expect(window.localStorage.getItem("bcc.blog.draft.a")).toBe("half-written post");
+    expect(window.localStorage.getItem("bcc.blog.draft::a")).toBe("half-written post");
     expect(window.localStorage.getItem("bcc-push-subscription-id")).toBe("55");
     expect(reload).not.toHaveBeenCalled();
   });
@@ -990,13 +1032,13 @@ describe("a session that reads as null without being gone", () => {
     vi.stubGlobal("fetch", vi.fn(async () => {
       throw new TypeError("Failed to fetch");
     }));
-    window.localStorage.setItem("bcc.blog.draft.a", "half-written post");
+    window.localStorage.setItem("bcc.blog.draft::a", "half-written post");
 
     const view = mount(qc);
     goNull(view);
 
     await new Promise((r) => setTimeout(r, 50));
-    expect(window.localStorage.getItem("bcc.blog.draft.a")).toBe("half-written post");
+    expect(window.localStorage.getItem("bcc.blog.draft::a")).toBe("half-written post");
     expect(reload).not.toHaveBeenCalled();
   });
 
@@ -1009,7 +1051,7 @@ describe("a session that reads as null without being gone", () => {
       writable: true,
     });
     vi.stubGlobal("fetch", vi.fn(async () => new Response("{}", { status: 200 })));
-    window.localStorage.setItem("bcc.blog.draft.a", "half-written post");
+    window.localStorage.setItem("bcc.blog.draft::a", "half-written post");
 
     const view = mount(qc);
     seedViewerACache(qc);
@@ -1018,7 +1060,7 @@ describe("a session that reads as null without being gone", () => {
     await waitFor(() => {
       expect(reload).toHaveBeenCalledTimes(1);
     });
-    expect(window.localStorage.getItem("bcc.blog.draft.a")).toBeNull();
+    expect(window.localStorage.getItem("bcc.blog.draft::a")).toBeNull();
   });
 
   it("does not mistake the SAME viewer coming back for a new arrival", async () => {
@@ -1369,7 +1411,7 @@ describe("giving up on the confirm", () => {
       writable: true,
     });
     vi.stubGlobal("fetch", vi.fn(async () => new Response("<html/>", { status: 502 })));
-    window.localStorage.setItem("bcc.blog.draft.a", "half-written post");
+    window.localStorage.setItem("bcc.blog.draft::a", "half-written post");
 
     const view = mount(qc);
     sessionState.data = null;
@@ -1383,7 +1425,7 @@ describe("giving up on the confirm", () => {
     expect(routerRefresh).not.toHaveBeenCalled();
     expect(reload).not.toHaveBeenCalled();
     expect(assign).not.toHaveBeenCalled();
-    expect(window.localStorage.getItem("bcc.blog.draft.a")).toBe("half-written post");
+    expect(window.localStorage.getItem("bcc.blog.draft::a")).toBe("half-written post");
     vi.useRealTimers();
   });
 
@@ -1631,6 +1673,8 @@ describe("what a readable session body settles", () => {
       }),
     ));
 
+    window.localStorage.setItem("bcc-recent-searches::a", '["acme payroll"]');
+    window.localStorage.setItem("bcc-recent-searches::b", '["theirs"]');
     const view = mount(qc);
     seedViewerACache(qc);
     sessionState.data = null;
@@ -1641,6 +1685,10 @@ describe("what a readable session body settles", () => {
       expect(reload).toHaveBeenCalledTimes(1);
     });
     expect(screen.queryByTestId("private")).toBeNull();
+    // And it clears A's stored values, not B's: the verdict names the
+    // ARRIVING viewer, so a purge keyed on it would delete the wrong scope.
+    expect(window.localStorage.getItem("bcc-recent-searches::a")).toBeNull();
+    expect(window.localStorage.getItem("bcc-recent-searches::b")).toBe('["theirs"]');
   });
 
   it("keeps treating an unreadable answer as no evidence", async () => {
@@ -1652,7 +1700,7 @@ describe("what a readable session body settles", () => {
       writable: true,
     });
     vi.stubGlobal("fetch", vi.fn(async () => new Response("<html/>", { status: 502 })));
-    window.localStorage.setItem("bcc.blog.draft.a", "half-written post");
+    window.localStorage.setItem("bcc.blog.draft::a", "half-written post");
 
     const view = mount(qc);
     sessionState.data = null;
@@ -1663,7 +1711,7 @@ describe("what a readable session body settles", () => {
     });
 
     expect(reload).not.toHaveBeenCalled();
-    expect(window.localStorage.getItem("bcc.blog.draft.a")).toBe("half-written post");
+    expect(window.localStorage.getItem("bcc.blog.draft::a")).toBe("half-written post");
     vi.useRealTimers();
   });
 });
