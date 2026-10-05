@@ -20,6 +20,7 @@ import Link from "next/link";
 import type { Route } from "next";
 
 import { Dialog } from "@/components/ui/Dialog";
+import { useViewerScope } from "@/hooks/useViewerScope";
 import {
   clearOnboardingProgress,
   dismissResume,
@@ -31,21 +32,32 @@ export function ResumeOnboardingPrompt() {
   // null = not yet checked (SSR + first client tick) or not eligible.
   const [resumeStep, setResumeStep] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
+  const scope = useViewerScope();
 
+  // Keyed on the scope: an unfinished setup belongs to one account, so the
+  // prompt must not offer A's half-filled wizard to B, and must appear for
+  // whoever is actually signed in once that is known.
   useEffect(() => {
-    if (isResumeDismissed()) return;
-    const progress = getOnboardingProgress();
+    if (scope === null) return;
+    if (isResumeDismissed(scope)) {
+      setResumeStep(null);
+      return;
+    }
+    const progress = getOnboardingProgress(scope);
     // "welcome" alone isn't real progress — nothing was actually filled
     // in yet, so there's nothing meaningful to resume.
-    if (progress === null || progress.step === "welcome") return;
+    if (progress === null || progress.step === "welcome") {
+      setResumeStep(null);
+      return;
+    }
     setResumeStep(progress.step);
-  }, []);
+  }, [scope]);
 
   if (resumeStep === null) return null;
 
   const handleSkip = () => {
-    dismissResume();
-    clearOnboardingProgress();
+    dismissResume(scope);
+    clearOnboardingProgress(scope);
     setModalOpen(false);
     setResumeStep(null);
   };

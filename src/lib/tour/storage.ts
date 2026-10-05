@@ -19,7 +19,20 @@
  *
  * Every accessor is SSR-safe (typeof window guard) and defensive against
  * private-mode / quota errors (try/catch → sane fallback).
+ *
+ * ## Viewer scope
+ *
+ * Every key is scoped by viewer, and the scope is passed in rather than
+ * read from a module global, so each call site shows whose tour state it
+ * touches. A `null` scope means "we do not know who this is yet": reads
+ * return the default and writes are dropped, because the alternative is
+ * either reading another account's position or misfiling this one's.
+ *
+ * Scoping prevents one viewer's tour state being shown to another. It is
+ * not a privacy boundary — see `lib/auth/viewer-scope`.
  */
+
+import { scopedKey, type ViewerScope } from "@/lib/auth/viewer-scope";
 
 const SEEN_KEY = "bcc-tour-seen";
 const PROGRESS_KEY = "bcc-tour-progress";
@@ -32,10 +45,12 @@ export interface TourProgress {
 
 // ── seen (localStorage) ──────────────────────────────────────────────
 
-export function getLocalSeen(): string[] {
+export function getLocalSeen(scope: ViewerScope): string[] {
   if (typeof window === "undefined") return [];
+  const key = scopedKey(SEEN_KEY, scope);
+  if (key === null) return [];
   try {
-    const raw = window.localStorage.getItem(SEEN_KEY);
+    const raw = window.localStorage.getItem(key);
     if (raw === null) return [];
     const parsed: unknown = JSON.parse(raw);
     return Array.isArray(parsed) ? parsed.filter((x): x is string => typeof x === "string") : [];
@@ -44,22 +59,26 @@ export function getLocalSeen(): string[] {
   }
 }
 
-export function addLocalSeen(id: string): void {
+export function addLocalSeen(scope: ViewerScope, id: string): void {
   if (typeof window === "undefined") return;
+  const key = scopedKey(SEEN_KEY, scope);
+  if (key === null) return;
   try {
-    const current = new Set(getLocalSeen());
+    const current = new Set(getLocalSeen(scope));
     if (current.has(id)) return;
     current.add(id);
-    window.localStorage.setItem(SEEN_KEY, JSON.stringify([...current]));
+    window.localStorage.setItem(key, JSON.stringify([...current]));
   } catch {
     // Ignore — worst case the tour can re-show; harmless.
   }
 }
 
-export function clearLocalSeen(): void {
+export function clearLocalSeen(scope: ViewerScope): void {
   if (typeof window === "undefined") return;
+  const key = scopedKey(SEEN_KEY, scope);
+  if (key === null) return;
   try {
-    window.localStorage.removeItem(SEEN_KEY);
+    window.localStorage.removeItem(key);
   } catch {
     // ignore
   }
@@ -67,10 +86,12 @@ export function clearLocalSeen(): void {
 
 // ── progress (sessionStorage) ────────────────────────────────────────
 
-export function getProgress(): TourProgress | null {
+export function getProgress(scope: ViewerScope): TourProgress | null {
   if (typeof window === "undefined") return null;
+  const key = scopedKey(PROGRESS_KEY, scope);
+  if (key === null) return null;
   try {
-    const raw = window.sessionStorage.getItem(PROGRESS_KEY);
+    const raw = window.sessionStorage.getItem(key);
     if (raw === null) return null;
     const parsed: unknown = JSON.parse(raw);
     if (
@@ -87,19 +108,23 @@ export function getProgress(): TourProgress | null {
   }
 }
 
-export function setProgress(progress: TourProgress): void {
+export function setProgress(scope: ViewerScope, progress: TourProgress): void {
   if (typeof window === "undefined") return;
+  const key = scopedKey(PROGRESS_KEY, scope);
+  if (key === null) return;
   try {
-    window.sessionStorage.setItem(PROGRESS_KEY, JSON.stringify(progress));
+    window.sessionStorage.setItem(key, JSON.stringify(progress));
   } catch {
     // ignore
   }
 }
 
-export function clearProgress(): void {
+export function clearProgress(scope: ViewerScope): void {
   if (typeof window === "undefined") return;
+  const key = scopedKey(PROGRESS_KEY, scope);
+  if (key === null) return;
   try {
-    window.sessionStorage.removeItem(PROGRESS_KEY);
+    window.sessionStorage.removeItem(key);
   } catch {
     // ignore
   }
@@ -110,10 +135,12 @@ export function clearProgress(): void {
 // rest of this browser session, then eligible to auto-start again next
 // session. Distinct from the permanent, cross-device "seen" set.
 
-export function isSessionDismissed(id: string): boolean {
+export function isSessionDismissed(scope: ViewerScope, id: string): boolean {
   if (typeof window === "undefined") return false;
+  const key = scopedKey(DISMISSED_KEY, scope);
+  if (key === null) return false;
   try {
-    const raw = window.sessionStorage.getItem(DISMISSED_KEY);
+    const raw = window.sessionStorage.getItem(key);
     if (raw === null) return false;
     const parsed: unknown = JSON.parse(raw);
     return Array.isArray(parsed) && parsed.includes(id);
@@ -122,17 +149,19 @@ export function isSessionDismissed(id: string): boolean {
   }
 }
 
-export function addSessionDismissed(id: string): void {
+export function addSessionDismissed(scope: ViewerScope, id: string): void {
   if (typeof window === "undefined") return;
+  const key = scopedKey(DISMISSED_KEY, scope);
+  if (key === null) return;
   try {
-    const raw = window.sessionStorage.getItem(DISMISSED_KEY);
+    const raw = window.sessionStorage.getItem(key);
     const current = new Set<string>(
       raw !== null && Array.isArray(JSON.parse(raw) as unknown)
         ? (JSON.parse(raw) as string[])
         : [],
     );
     current.add(id);
-    window.sessionStorage.setItem(DISMISSED_KEY, JSON.stringify([...current]));
+    window.sessionStorage.setItem(key, JSON.stringify([...current]));
   } catch {
     // ignore
   }
