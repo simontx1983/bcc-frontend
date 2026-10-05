@@ -46,7 +46,13 @@ export function useToursSeen(): ToursSeenApi {
   const [localSeen, setLocalSeen] = useState<ReadonlySet<string>>(
     () => new Set<string>(),
   );
+  //
+  // An UNAVAILABLE scope (a session blip) is not an empty seen-set: wiping
+  // it there would make `hasSeen` false mid-session and re-arm tours the
+  // viewer has already finished. Hold what is loaded until identity is
+  // known again.
   useEffect(() => {
+    if (scope === null) return;
     setLocalSeen(new Set(getLocalSeen(scope)));
   }, [scope]);
 

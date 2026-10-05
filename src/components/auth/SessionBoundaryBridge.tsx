@@ -32,6 +32,12 @@ import {
   registerSessionTeardown,
 } from "@/lib/auth/session-boundary";
 import {
+  clearSessionProof,
+  markProvenAnonymous,
+  markProvenViewer,
+  noteEstablishedViewer,
+} from "@/lib/auth/session-identity";
+import {
   clearCrossViewerStorage,
   clearViewerStorage,
 } from "@/lib/auth/viewer-storage";
@@ -160,6 +166,14 @@ export function SessionBoundaryBridge() {
     }
     const viewer = session?.user?.id ?? null;
     latestViewer.current = viewer;
+    if (viewer !== null) {
+      // Recorded for the STORAGE scope, not for this module: once a viewer
+      // has been on screen, a later unexplained "unauthenticated" must not
+      // be read as anonymity. It is noted here — the earliest point a
+      // viewer is known — because an effect that marked doubt later left a
+      // one-commit window in which the scope still answered ANON.
+      noteEstablishedViewer(viewer);
+    }
 
     if (shownViewer.current === undefined) {
       // The first value is committed unconditionally, `null` included,
@@ -264,6 +278,15 @@ export function SessionBoundaryBridge() {
       depart();
       return;
     }
+
+    // A new, unconfirmed null: whatever an earlier confirm proved has
+    // expired. Without this a SECOND blip would keep filing into the scope
+    // the FIRST confirm proved, long after that proof stopped being
+    // current. The storage scope now resolves to "unavailable" — not
+    // anonymous — for the whole confirm window, which is the point: hiding
+    // the viewer's work takes the slower, surer signal (the give-up below),
+    // but filing it cannot afford to wait ~16s.
+    clearSessionProof();
 
     // Re-ask once the conditions that broke the confirm may have changed.
     // One-shot per signal, and self-removing, so a flapping connection
@@ -411,6 +434,9 @@ export function SessionBoundaryBridge() {
               return;
             }
             shownViewer.current = null;
+            // Proved: nobody is signed in. Anonymous behaviour resumes
+            // from here — a readable `{}` is the only shape that earns it.
+            markProvenAnonymous();
             depart();
             return;
           }
@@ -428,7 +454,18 @@ export function SessionBoundaryBridge() {
               // on our own evidence does not depend on that.
               shownViewer.current = answer.viewer;
               depart();
+            } else if (answer.viewer !== null) {
+              // The SAME viewer, named by a readable response. Restore their
+              // storage scope here and now: `useSession()` stays stuck at
+              // null until next-auth happens to re-read, and the scope must
+              // not wait on that — nor on the broadcast a later request
+              // would post.
+              markProvenViewer(answer.viewer);
             }
+            // An alive session with NO id to compare is deliberately left
+            // in doubt: the gate reopens (the session is alive) but storage
+            // keeps returning defaults rather than guessing a scope.
+            //
             // Same viewer, or no id to compare: the session is alive, so
             // reopen. `useSession` being stuck at null is its own business
             // — this module has read the truth directly.

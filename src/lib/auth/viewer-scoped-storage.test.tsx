@@ -41,6 +41,10 @@ vi.mock("@/hooks/usePrefersReducedMotion", () => ({
   usePrefersReducedMotion: () => true,
 }));
 
+import {
+  __resetSessionIdentityForTests,
+  noteEstablishedViewer,
+} from "@/lib/auth/session-identity";
 import { ResumeOnboardingPrompt } from "@/components/onboarding/ResumeOnboardingPrompt";
 import { useRecentSearches } from "@/hooks/useRecentSearches";
 import { useToursSeen } from "@/hooks/useToursSeen";
@@ -111,6 +115,7 @@ beforeEach(() => {
   window.localStorage.clear();
   window.sessionStorage.clear();
   __resetViewerScopePurgeForTests();
+  __resetSessionIdentityForTests();
   stillLoading();
 });
 
@@ -302,6 +307,23 @@ describe("state seeded from storage follows the scope, not the mount", () => {
     expect(screen.getByTestId("seen")).toHaveTextContent("no");
     signedIn("a");
     view.rerender(seenTree());
+    expect(screen.getByTestId("seen")).toHaveTextContent("yes");
+  });
+
+  it("holds the seen-set through a blip rather than emptying it", () => {
+    // An unavailable scope is not an empty seen-set. Wiping it here would
+    // make `hasSeen` false mid-session and re-arm a tour the viewer has
+    // already finished — and the tour would then be offered against a
+    // scope nothing can name.
+    addLocalSeen("a", "home-feed");
+    signedIn("a");
+    const view = render(seenTree());
+    expect(screen.getByTestId("seen")).toHaveTextContent("yes");
+
+    noteEstablishedViewer("a");
+    signedOut();
+    view.rerender(seenTree());
+
     expect(screen.getByTestId("seen")).toHaveTextContent("yes");
   });
 

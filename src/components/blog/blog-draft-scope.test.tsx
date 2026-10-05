@@ -43,6 +43,10 @@ vi.mock("@/hooks/useBlogChainOptions", () => ({
 }));
 
 import { BlogComposer } from "@/components/blog/BlogComposer";
+import {
+  __resetSessionIdentityForTests,
+  noteEstablishedViewer,
+} from "@/lib/auth/session-identity";
 
 const DRAFT = (scope: string) => `bcc.blog.draft::${scope}`;
 
@@ -67,6 +71,7 @@ const bodyField = () =>
 beforeEach(() => {
   window.localStorage.clear();
   window.sessionStorage.clear();
+  __resetSessionIdentityForTests();
   sessionState.data = null;
   sessionState.status = "loading";
   qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -75,6 +80,7 @@ beforeEach(() => {
 afterEach(() => {
   vi.useRealTimers();
   cleanup();
+  __resetSessionIdentityForTests();
 });
 
 describe("the draft autosave is keyed to the viewer", () => {
@@ -129,6 +135,64 @@ describe("the draft autosave is keyed to the viewer", () => {
     signedIn("4242");
     view.rerender(tree());
     expect(bodyField()).toHaveValue("mine, half written");
+  });
+
+  it("stops the 5s autosave TIMER when identity goes unavailable mid-write", () => {
+    // The delayed-timer case. A session blip makes the scope unavailable
+    // while an interval is already running; the body must not be flushed
+    // to the shared anonymous key, and must not be flushed to the viewer's
+    // key either, since nothing can currently say they are still here.
+    vi.useFakeTimers();
+    signedIn("4242");
+    const view = render(tree());
+    fireEvent.change(bodyField(), { target: { value: "first pass" } });
+    act(() => {
+      vi.advanceTimersByTime(6000);
+    });
+    expect(window.localStorage.getItem(DRAFT("4242"))).toBe("first pass");
+
+    // The blip: a viewer HAS been established, and the session now reads
+    // null with nothing proved.
+    noteEstablishedViewer("4242");
+    sessionState.data = null;
+    sessionState.status = "unauthenticated";
+    view.rerender(tree());
+    fireEvent.change(bodyField(), { target: { value: "first pass, then more" } });
+    act(() => {
+      vi.advanceTimersByTime(30000);
+    });
+
+    const keys = Object.keys(window.localStorage).filter((k) =>
+      k.startsWith("bcc.blog.draft"),
+    );
+    expect(keys).toEqual([DRAFT("4242")]);
+    // The earlier value is untouched — not overwritten, not deleted.
+    expect(window.localStorage.getItem(DRAFT("4242"))).toBe("first pass");
+    // And the text is still on screen: nothing was destroyed, it simply
+    // was not filed anywhere while the viewer could not be named.
+    expect(bodyField()).toHaveValue("first pass, then more");
+  });
+
+  it("resumes autosaving into the viewer's own key once identity returns", () => {
+    vi.useFakeTimers();
+    signedIn("4242");
+    const view = render(tree());
+    noteEstablishedViewer("4242");
+    sessionState.data = null;
+    sessionState.status = "unauthenticated";
+    view.rerender(tree());
+    fireEvent.change(bodyField(), { target: { value: "written during the blip" } });
+    act(() => {
+      vi.advanceTimersByTime(10000);
+    });
+    expect(window.localStorage.getItem(DRAFT("4242"))).toBeNull();
+
+    signedIn("4242");
+    view.rerender(tree());
+    act(() => {
+      vi.advanceTimersByTime(6000);
+    });
+    expect(window.localStorage.getItem(DRAFT("4242"))).toBe("written during the blip");
   });
 
   it("does not overwrite what the writer has already typed", () => {

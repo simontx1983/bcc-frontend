@@ -74,7 +74,13 @@ export function useRecentSearches(): UseRecentSearchesResult {
   // matches the first client render (empty list), then rehydrate. Re-runs
   // when the scope resolves or changes, so a sign-in swaps one viewer's
   // recents for the other's rather than carrying them across.
+  //
+  // An UNAVAILABLE scope is not a viewer change: during a session blip the
+  // scope goes null for up to ~16s, and reading "nobody's" storage there
+  // would blank the dropdown mid-session. Keep what is already loaded —
+  // it belongs to the viewer who is still, as far as anything knows, here.
   useEffect(() => {
+    if (scope === null) return;
     setRecent(readFromStorage(scope));
   }, [scope]);
 
