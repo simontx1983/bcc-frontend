@@ -227,6 +227,7 @@ import {
   endSession,
   isStaleEpoch,
 } from "@/lib/auth/session-boundary";
+import { updateSessionBearer } from "@/lib/auth/session-update";
 
 /**
  * Session-aware fetch for client components. Reads the BCC token
@@ -527,51 +528,16 @@ async function tryRefresh(currentToken: string): Promise<RefreshResult> {
       return { kind: "indeterminate" };
     }
 
-    const newExpiresAt = Date.now() + expiresIn * 1000;
-
     // Persist into the NextAuth session so the next getSession() call
     // returns the fresh token instead of repeating the refresh dance.
+    // The write itself (csrf + `data:` wrapper) lives in
+    // lib/auth/session-update, shared with the password-change flow.
     //
-    // NextAuth 4.x session-write contract (load-bearing):
-    //   1. Body MUST include csrfToken read from GET /api/auth/csrf,
-    //      otherwise the POST silently no-ops at status 200.
-    //   2. The payload to merge into the JWT MUST be wrapped under
-    //      `data:` — NextAuth unwraps that and passes it as `session`
-    //      to the jwt callback when trigger === 'update'.
-    //      (See bcc-frontend/src/lib/auth.ts jwt callback for the
-    //      receiving side.)
-    //
-    // Both gotchas were empirically verified 2026-05-13: omitting either
-    // one returns 200 but session.bccToken stays unchanged on the next
-    // getSession call. With both, the new token + expiry land in the
-    // session within one request cycle.
-    //
-    // Failure here is non-fatal: the immediate retry still uses the
-    // fresh token, and subsequent calls would just re-refresh. The
-    // session-update is the optimization that avoids that re-refresh.
-    try {
-      const csrfResp = await fetch("/api/auth/csrf", { credentials: "include" });
-      const csrfBody = (await csrfResp.json().catch(() => null)) as
-        | { csrfToken?: unknown }
-        | null;
-      const csrfToken =
-        typeof csrfBody?.csrfToken === "string" ? csrfBody.csrfToken : null;
-      if (csrfToken !== null) {
-        await fetch("/api/auth/session", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({
-            csrfToken,
-            data: { bccToken: newToken, bccTokenExpiresAt: newExpiresAt },
-          }),
-        });
-      }
-    } catch {
-      // Session-update failure is non-fatal — the immediate retry
-      // still works because the caller has the fresh token in hand;
-      // the cost is one extra refresh round-trip on the next call.
-    }
+    // Failure here is non-fatal FOR A REFRESH: the immediate retry still
+    // works because the caller holds the fresh token, and the cost is one
+    // extra refresh round-trip on the next call. The password-change
+    // caller treats the same failure very differently — see that flow.
+    await updateSessionBearer({ token: newToken, expiresIn });
 
     return { kind: "refreshed", token: newToken };
   } catch {

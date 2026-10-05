@@ -34,8 +34,11 @@
  * finish it".
  */
 
+import { pendingAuthNotice } from "@/lib/auth/session-boundary";
+
 /** Where the fallback lands. Our own page; it retries `endSession`. */
 const FALLBACK_PATH = "/signout";
+
 
 /**
  * How long to wait for a CSRF token before giving up on the POST.
@@ -48,6 +51,16 @@ const FALLBACK_PATH = "/signout";
  * failure this module was written to remove, one layer out.
  */
 const CSRF_TIMEOUT_MS = 3_000;
+
+/**
+ * Append the parked `authNotice` slug, if any, to a landing path. Both
+ * `/` and `/signout` sit under layouts that mount `AuthRedirectNotice`,
+ * so either will render it.
+ */
+function landingWithNotice(base: string): string {
+  const slug = pendingAuthNotice();
+  return slug === null ? base : `${base}?authNotice=${slug}`;
+}
 
 export async function forceSignOutNavigation(): Promise<void> {
   try {
@@ -69,10 +82,15 @@ export async function forceSignOutNavigation(): Promise<void> {
     const form = document.createElement("form");
     form.method = "POST";
     form.action = "/api/auth/signout";
-    // `callbackUrl` is a literal: nothing viewer-supplied reaches here.
+    // `callbackUrl` is built only from literals and a closed slug union,
+    // so nothing viewer-supplied reaches here. The slug matters: this
+    // control is the gate's only way out, and a teardown that failed
+    // deliberately KEPT its parked notice for the retry — but the retry
+    // is a document load, which destroys that module state, so the only
+    // way the explanation survives is in the URL.
     for (const [name, value] of [
       ["csrfToken", csrfToken],
-      ["callbackUrl", "/"],
+      ["callbackUrl", landingWithNotice("/")],
     ] as const) {
       const input = document.createElement("input");
       input.type = "hidden";
@@ -88,10 +106,17 @@ export async function forceSignOutNavigation(): Promise<void> {
     // can therefore BE the page showing this control — in which case
     // assigning the same path is a no-op loop. Reload instead: same fresh
     // document, same fresh teardown, no dead click.
-    if (window.location.pathname === FALLBACK_PATH) {
+    // Compare the full target, not just the path. Reloading is only the
+    // right move when assigning would be a no-op; if a notice is parked,
+    // `/signout?authNotice=...` is a REAL navigation from a bare
+    // `/signout`, and reloading instead would destroy the module state
+    // holding that notice before the next teardown could read it.
+    const target = landingWithNotice(FALLBACK_PATH);
+    const here = `${window.location.pathname}${window.location.search}`;
+    if (target === here) {
       window.location.reload();
       return;
     }
-    window.location.assign(FALLBACK_PATH);
+    window.location.assign(target);
   }
 }

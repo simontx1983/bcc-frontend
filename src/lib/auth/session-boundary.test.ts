@@ -20,6 +20,7 @@ import {
   purgeViewerState,
   failedTeardownResult,
   registerSessionTeardown,
+  setPendingAuthNotice,
   subscribePrivateRenderGate,
   type PushCleanupOutcome,
   type SessionTeardownHandlers,
@@ -511,12 +512,66 @@ describe("the landing URL", () => {
     expect(signOutTargets).toEqual(["/"]);
   });
 
-  it("prefers an explicit notice over the push warning", async () => {
+  it("carries the push caveat ALONGSIDE an explicit notice", async () => {
+    // These used to compete for the single `authNotice` slug, so an
+    // explicit notice silently dropped the push warning — the one thing
+    // the viewer cannot discover for themselves.
     registerSessionTeardown(
       handlers({ revokePush: async () => "timed-out" }),
     );
     await endSession("expired", { notice: "standing" });
+    expect(signOutTargets).toEqual([
+      "/?authNotice=standing&authNoticePush=1",
+    ]);
+  });
+
+  it("does not add the rider when the push slug IS the notice", async () => {
+    registerSessionTeardown(
+      handlers({ revokePush: async () => "timed-out" }),
+    );
+    await endSession("expired");
+    expect(signOutTargets).toEqual(["/?authNotice=push-cleanup"]);
+  });
+
+  it("adds no rider when push cleanup succeeded", async () => {
+    registerSessionTeardown(
+      handlers({ revokePush: async () => "revoked" }),
+    );
+    await endSession("expired", { notice: "standing" });
     expect(signOutTargets).toEqual(["/?authNotice=standing"]);
+  });
+
+  it("a PARKED notice outranks the explicit one", async () => {
+    // The surface that parked it knew why the session was doomed; the
+    // generic 401 path does not.
+    registerSessionTeardown(handlers({}));
+    setPendingAuthNotice("password-changed");
+    await endSession("expired", { notice: "signed-out" });
+    expect(signOutTargets).toEqual(["/?authNotice=password-changed"]);
+  });
+
+  it("a parked notice still lets the push caveat ride along", async () => {
+    registerSessionTeardown(
+      handlers({ revokePush: async () => "unsubscribe-failed" }),
+    );
+    setPendingAuthNotice("password-changed");
+    await endSession("expired", { notice: "signed-out" });
+    expect(signOutTargets).toEqual([
+      "/?authNotice=password-changed&authNoticePush=1",
+    ]);
+  });
+
+  it("appends to a callbackUrl that already has a query", async () => {
+    registerSessionTeardown(
+      handlers({ revokePush: async () => "timed-out" }),
+    );
+    await endSession("user", {
+      notice: "standing",
+      callbackUrl: "/login?next=%2Fsettings",
+    });
+    expect(signOutTargets).toEqual([
+      "/login?next=%2Fsettings&authNotice=standing&authNoticePush=1",
+    ]);
   });
 });
 
@@ -585,5 +640,119 @@ describe("a retried teardown", () => {
     // While the retry was running, no stale panel was on offer.
     expect(seenDuringRun).toBeNull();
     expect(failedTeardownResult()).toBeNull();
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────
+// A parked notice is a one-shot, and it loses to a MORE specific reason
+// ─────────────────────────────────────────────────────────────────────
+
+describe("parked notice precedence", () => {
+  it("loses to a more specific reason, so a suspension is not mislabelled", async () => {
+    // Overriding unconditionally was wrong: if the account is later
+    // suspended, endSession is called with "standing", and a parked
+    // "password-changed" would tell the viewer to sign in with their new
+    // password while never mentioning the review — they would use the
+    // correct password and hit a wall with no explanation.
+    registerSessionTeardown(handlers({}));
+    setPendingAuthNotice("password-changed");
+    await endSession("expired", { notice: "standing" });
+    expect(signOutTargets).toEqual(["/?authNotice=standing"]);
+  });
+
+  it("still overrides the GENERIC slug", async () => {
+    registerSessionTeardown(handlers({}));
+    setPendingAuthNotice("password-changed");
+    await endSession("expired", { notice: "signed-out" });
+    expect(signOutTargets).toEqual(["/?authNotice=password-changed"]);
+  });
+
+  it("is CONSUMED, so it cannot mislabel a later unrelated teardown", async () => {
+    registerSessionTeardown(handlers({}));
+    setPendingAuthNotice("password-changed");
+    await endSession("expired", { notice: "signed-out" });
+    expect(signOutTargets).toEqual(["/?authNotice=password-changed"]);
+
+    signOutTargets.length = 0;
+    registerSessionTeardown(handlers({}));
+    await endSession("expired", { notice: "signed-out" });
+    expect(signOutTargets).toEqual(["/?authNotice=signed-out"]);
+  });
+});
+
+describe("landing URL composition", () => {
+  it("keeps the query BEFORE a fragment, so the params are readable", async () => {
+    // A naive `?`/`&` join put the whole query inside the fragment, where
+    // useSearchParams() never sees it.
+    registerSessionTeardown(handlers({}));
+    await endSession("user", {
+      notice: "standing",
+      callbackUrl: "/dash#section",
+    });
+    expect(signOutTargets).toEqual(["/dash?authNotice=standing#section"]);
+  });
+
+  it("appends to an existing query and still preserves the fragment", async () => {
+    registerSessionTeardown(handlers({}));
+    await endSession("user", {
+      notice: "standing",
+      callbackUrl: "/login?next=%2Fsettings#top",
+    });
+    expect(signOutTargets).toEqual([
+      "/login?next=%2Fsettings&authNotice=standing#top",
+    ]);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────
+// A parked notice must survive a teardown that never navigated
+// ─────────────────────────────────────────────────────────────────────
+
+describe("parked notice delivery", () => {
+  it("is NOT consumed when the sign-out failed, so a retry still carries it", async () => {
+    // `landingUrl` cleared it when the URL was COMPOSED, not when it was
+    // delivered. A failed or timed-out sign-out never reaches that URL,
+    // so the explanation was destroyed by the attempt that failed to use
+    // it — and the recovery panel's own control posts a literal "/" and
+    // never consults landingUrl at all.
+    registerSessionTeardown(
+      handlers({
+        signOut: async () => {
+          throw new Error("502");
+        },
+      }),
+    );
+    setPendingAuthNotice("password-changed");
+    await endSession("expired", { notice: "signed-out" });
+
+    signOutTargets.length = 0;
+    registerSessionTeardown(handlers({}));
+    await endSession("user");
+    expect(signOutTargets).toEqual(["/?authNotice=password-changed"]);
+  });
+
+  it("is NOT consumed when it lost to a more specific reason", async () => {
+    // It was never emitted, so it is still owed to the viewer.
+    registerSessionTeardown(handlers({}));
+    setPendingAuthNotice("password-changed");
+    await endSession("expired", { notice: "standing" });
+    expect(signOutTargets).toEqual(["/?authNotice=standing"]);
+
+    signOutTargets.length = 0;
+    registerSessionTeardown(handlers({}));
+    await endSession("user");
+    expect(signOutTargets).toEqual(["/?authNotice=password-changed"]);
+  });
+
+  it("IS consumed once it has actually been delivered", async () => {
+    registerSessionTeardown(handlers({}));
+    setPendingAuthNotice("password-changed");
+    await endSession("user");
+    expect(signOutTargets).toEqual(["/?authNotice=password-changed"]);
+
+    signOutTargets.length = 0;
+    registerSessionTeardown(handlers({}));
+    await endSession("expired", { notice: "signed-out" });
+    expect(signOutTargets).toEqual(["/?authNotice=signed-out"]);
   });
 });

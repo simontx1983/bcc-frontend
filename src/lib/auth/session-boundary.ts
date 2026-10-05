@@ -142,7 +142,11 @@ export interface SessionEndOptions {
 }
 
 /** The slugs this module may emit. Keep in sync with AuthRedirectNotice. */
-export type AuthNoticeSlug = "signed-out" | "standing" | "push-cleanup";
+export type AuthNoticeSlug =
+  | "signed-out"
+  | "standing"
+  | "push-cleanup"
+  | "password-changed";
 
 export interface SessionTeardownHandlers {
   /**
@@ -253,6 +257,43 @@ export function registerSessionRecheck(fn: () => void): () => void {
 
 export function requestSessionRecheck(): void {
   recheck?.();
+}
+
+/**
+ * A notice parked by the surface that knows WHY the session is about to
+ * end, for a teardown it does not itself trigger.
+ *
+ * Needed because a session can be in a known-doomed state for a while
+ * before anything tears it down. After a password change whose session
+ * update failed, the NextAuth session still holds the REVOKED bearer, so
+ * the next authed poll 401s — the badges query alone polls every 30–60s
+ * while visible, and refetches on window focus. That poll's teardown
+ * passes `notice: "signed-out"`, which would replace the accurate "your
+ * password changed, use the new one" with a generic "your session ended"
+ * — and a viewer who then tries their OLD password has every reason to
+ * believe the change failed.
+ *
+ * Parking the notice makes the explanation independent of which code path
+ * happens to win the race, since teardown is single-flight.
+ */
+let pendingNotice: AuthNoticeSlug | null = null;
+
+/**
+ * Park the notice a later, involuntary teardown should carry. Pass `null`
+ * to clear it. It outranks the `notice` passed to `endSession`, because
+ * whoever parked it knew something the generic 401 path cannot.
+ */
+/**
+ * Read the parked notice without consuming it. `force-signout` needs it
+ * because its navigation is a document load, which destroys this module
+ * state — so the slug has to travel in the URL instead.
+ */
+export function pendingAuthNotice(): AuthNoticeSlug | null {
+  return pendingNotice;
+}
+
+export function setPendingAuthNotice(slug: AuthNoticeSlug | null): void {
+  pendingNotice = slug;
 }
 
 /**
@@ -487,17 +528,65 @@ function withTimeout<T>(work: Promise<T>, ms: number, onTimeout: T): Promise<T> 
 function landingUrl(
   opts: SessionEndOptions | undefined,
   pushCleanup: PushCleanupOutcome,
-): string {
+): { url: string; usedParked: boolean } {
   const base = opts?.callbackUrl ?? "/";
-  // An explicit notice wins; otherwise surface the push caveat, which is
-  // the only thing the viewer could not otherwise discover.
-  const slug: AuthNoticeSlug | null =
-    opts?.notice ?? (pushCleanupNeedsWarning(pushCleanup) ? "push-cleanup" : null);
-  if (slug === null) {
-    return base;
+  // Precedence: a parked notice outranks everything, because the surface
+  // that parked it knew why the session was doomed; then an explicit
+  // notice; then the push caveat on its own.
+  // READ the parked notice; do not consume it here. `landingUrl` composes
+  // a URL — it does not deliver one. Clearing it at composition time
+  // destroyed the explanation whenever the URL was never reached: a
+  // sign-out that timed out or rejected, or a parked slug that lost to a
+  // more specific reason and was therefore never emitted at all. The
+  // caller clears it only after a navigation actually happened, and only
+  // if this was the slug that went out.
+  const parked = pendingNotice;
+
+  // It outranks only the GENERIC slug. Overriding unconditionally was
+  // wrong: if the account is later suspended, `endSession` is called with
+  // "standing", and a parked "password-changed" would tell the viewer to
+  // sign in with their new password while never mentioning the review —
+  // they would use the correct password and hit a wall with no
+  // explanation. A more specific reason always wins over a parked one.
+  const primary: AuthNoticeSlug | null =
+    (opts?.notice === undefined || opts.notice === "signed-out"
+      ? parked
+      : null) ??
+    opts?.notice ??
+    (pushCleanupNeedsWarning(pushCleanup) ? "push-cleanup" : null);
+
+  const params: string[] = [];
+  if (primary !== null) {
+    params.push(`authNotice=${primary}`);
   }
-  const joiner = base.includes("?") ? "&" : "?";
-  return `${base}${joiner}authNotice=${slug}`;
+  // The push caveat used to be DROPPED whenever any explicit notice was
+  // given, because both competed for the single slug. It is the one thing
+  // the viewer cannot discover for themselves — their old account may
+  // keep receiving notifications on a shared device — so it now rides
+  // along as its own flag instead of losing the race.
+  if (primary !== "push-cleanup" && pushCleanupNeedsWarning(pushCleanup)) {
+    params.push("authNoticePush=1");
+  }
+
+  const usedParked = primary !== null && primary === parked;
+
+  if (params.length === 0) {
+    return { url: base, usedParked };
+  }
+
+  // Composed rather than concatenated. A naive `?`/`&` join put the whole
+  // query INSIDE a fragment for a callbackUrl like "/dash#section", so
+  // `useSearchParams()` never saw it and the explanation rendered
+  // nowhere. Unreachable with today's only non-default callbackUrl (the
+  // literal "/login"), but the next caller would have inherited it.
+  const [beforeHash, ...hashRest] = base.split("#");
+  const hash = hashRest.length > 0 ? `#${hashRest.join("#")}` : "";
+  const path = beforeHash ?? "";
+  const joiner = path.includes("?") ? "&" : "?";
+  return {
+    url: `${path}${joiner}${params.join("&")}${hash}`,
+    usedParked,
+  };
 }
 
 /**
@@ -594,7 +683,7 @@ async function runTeardown(
   let signOutTimedOut = false;
   let signOutError: unknown;
   if (current !== null) {
-    const target = landingUrl(opts, pushCleanup);
+    const { url: target, usedParked } = landingUrl(opts, pushCleanup);
     const TIMED_OUT = Symbol("signout-timeout");
     try {
       const outcome = await withTimeout<unknown>(
@@ -609,6 +698,14 @@ async function runTeardown(
       }
     } catch (err) {
       signOutError = err;
+    }
+    // Consume the parked notice only once it has actually been DELIVERED:
+    // a navigation happened, and this was the slug that went out. A
+    // teardown that timed out or rejected never reached the URL, so the
+    // explanation is still owed to the viewer and must survive for the
+    // retry.
+    if (signedOut && usedParked) {
+      pendingNotice = null;
     }
   }
 
@@ -642,5 +739,6 @@ export function __resetSessionBoundaryForTests(): void {
   failedTeardown = null;
   sessionUnknown = false;
   recheck = null;
+  pendingNotice = null;
   gateListeners.clear();
 }
