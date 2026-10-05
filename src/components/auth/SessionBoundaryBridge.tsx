@@ -43,6 +43,39 @@ import {
 } from "@/lib/auth/viewer-storage";
 import { revokePushForSessionEnd } from "@/lib/push/revoke";
 
+/**
+ * next-auth's cross-tab notice: `localStorage["nextauth.message"]` plus the
+ * window `storage` event (client/_utils.js `BroadcastChannel`). Every
+ * `getSession()`, `signIn` and `signOut` posts one, and other tabs receive
+ * it.
+ *
+ * ⚠ Why this tab has to read the event itself. On receiving it, next-auth
+ * re-reads the session — but `fetchData` maps a readable `{}` to `null`
+ * exactly as it maps a transport error (client/_utils.js:62,
+ * `Object.keys(data).length > 0 ? data : null`), and assigning `null` over
+ * an existing `null` is a no-op React bails out of. So when another tab
+ * signs out while this tab's `useSession()` is ALREADY null — which is
+ * where a recovered-but-unhealed session sits — the library performs a new
+ * read, receives the proof of departure, and discards it. No session event
+ * reaches this component, and no effect dependency changes. The broadcast
+ * itself is the only notice, which is why it is subscribed to directly.
+ */
+function isSessionBroadcast(event: StorageEvent): boolean {
+  if (event.key !== "nextauth.message") {
+    return false;
+  }
+  try {
+    const message: unknown = JSON.parse(event.newValue ?? "{}");
+    return (
+      typeof message === "object" &&
+      message !== null &&
+      (message as { event?: unknown }).event === "session"
+    );
+  } catch {
+    return false;
+  }
+}
+
 /** Bound for the confirming read that decides whether a null session is real. */
 const SESSION_CONFIRM_TIMEOUT_MS = 3_000;
 
@@ -293,6 +326,13 @@ export function SessionBoundaryBridge() {
     // cannot stack listeners. `confirming` still guards overlap, and the
     // guards inside the loop stop it acting on a question that is no
     // longer live.
+    //
+    // The four signals are everything this tab can learn WITHOUT polling:
+    // coming back online, regaining focus, becoming visible, and
+    // next-auth's own cross-tab broadcast. The broadcast matters most in
+    // the case the others cannot reach — a tab that never loses focus. See
+    // `isSessionBroadcast` for why that event is the only notice this tab
+    // gets when another tab signs out while `useSession()` is already null.
     const rearm = (): void => {
       const retry = (): void => {
         cleanup();
@@ -306,11 +346,18 @@ export function SessionBoundaryBridge() {
         ) {
           return;
         }
+        // Something happened that may have changed the session, so an
+        // EARLIER confirm's proof is no longer current. Dropping it here
+        // means the storage scope goes unavailable for the duration of the
+        // re-check instead of staying authenticated on stale evidence —
+        // and it is restored the moment a confirm names the viewer again.
+        clearSessionProof();
         runConfirm();
       };
       const cleanup = (): void => {
         window.removeEventListener("online", retry);
         window.removeEventListener("focus", retry);
+        window.removeEventListener("storage", onBroadcast);
         document.removeEventListener("visibilitychange", onVisible);
         rearmCleanup.current = null;
       };
@@ -319,10 +366,16 @@ export function SessionBoundaryBridge() {
           retry();
         }
       };
+      const onBroadcast = (event: StorageEvent): void => {
+        if (isSessionBroadcast(event)) {
+          retry();
+        }
+      };
       // Replace any previous registration rather than adding to it.
       rearmCleanup.current?.();
       window.addEventListener("online", retry);
       window.addEventListener("focus", retry);
+      window.addEventListener("storage", onBroadcast);
       document.addEventListener("visibilitychange", onVisible);
       rearmCleanup.current = cleanup;
     };
@@ -442,8 +495,9 @@ export function SessionBoundaryBridge() {
           }
 
           if (answer.kind === "present") {
-            // The endpoint answered and there IS a session. That settles the
-            // question either way, so do NOT re-arm.
+            // The endpoint answered and there IS a session, so this
+            // question is answered — but see the re-arm at the end of this
+            // branch: being answered is not the same as being over.
             confirming.current = false;
             if (shownViewer.current !== previous || isEndingSession()) {
               return;
@@ -470,6 +524,26 @@ export function SessionBoundaryBridge() {
             // reopen. `useSession` being stuck at null is its own business
             // — this module has read the truth directly.
             setSessionUnknown(false);
+
+            // ⚠ And KEEP WATCHING while it stays stuck. next-auth's
+            // `_getSession` early-returns for every trigger but "storage"
+            // while its cached session is null, so after this recovery the
+            // session object can remain null indefinitely. In that state
+            // nothing else observes a LATER loss: a second null produces no
+            // dependency change, so this effect never re-runs, and the
+            // proof above would go on holding the gate open and the storage
+            // scope authenticated on evidence from minutes ago. Re-arming
+            // puts the four signals back on watch — including the
+            // cross-tab broadcast, which is the only one a continuously
+            // focused tab ever receives.
+            //
+            // It is NOT a poll: nothing fires on a timer, and a healed
+            // session object disarms it, because `retry()` returns early
+            // once `latestViewer` is non-null. The cost while stuck is one
+            // session read per signal.
+            if (latestViewer.current === null && !disposed.current) {
+              rearm();
+            }
             return;
           }
         }

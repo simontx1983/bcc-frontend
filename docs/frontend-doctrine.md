@@ -240,6 +240,28 @@ most expensive item, kept out of the migration because a handle is renameable
 and reclaimable and the old key collapsed to `…draft.anon` whenever the session
 had not resolved.
 
+**What the scope does when identity is in doubt.** `status` alone cannot be
+trusted: next-auth reports `"unauthenticated"` for a transport error exactly
+as it does for a real sign-out, so a blip used to file a signed-in viewer's
+writes under the SHARED anonymous scope. The scope therefore combines
+`status` with what a direct read has proved
+([`lib/auth/session-identity`](../src/lib/auth/session-identity.ts)): while a
+viewer has been established and nothing is proved, the scope is **`null`** —
+neither namespace is read or written — and a confirm that names the viewer
+restores it immediately, without waiting for next-auth to re-read. A proof
+is evidence from a moment: it is dropped whenever a signal suggests the
+session may have changed, and re-established from a fresh read.
+
+⚠ **The boundary, stated plainly.** A tab learns about a session change from
+four events: `online`, `focus`, `visibilitychange` and next-auth's cross-tab
+broadcast. A cookie that stops being valid with none of those — edited in
+devtools, or expiring in a focused, online, single-tab, idle session —
+produces no notice. **That is not a missed event; no event exists.** It is
+bounded by the next authed request (401), the next focus, or any sibling
+tab's activity. Catching it otherwise would mean polling the session
+endpoint forever to detect something only the device's own operator can
+cause, and that is deliberately not done.
+
 **Sign-out cleanup.** `clearViewerStorage(scope)` removes the **departing**
 viewer's values and leaves other scopes alone — another account's data on a
 shared browser is not ours to delete. Viewer **arrival** no longer deletes

@@ -322,6 +322,163 @@ describe("a proof expires", () => {
   });
 });
 
+describe("a second loss after a recovery, in one continuously focused tab", () => {
+  /**
+   * next-auth's cross-tab notice. On receiving it the library re-reads the
+   * session — and then throws the answer away: `fetchData` maps a readable
+   * `{}` to `null` exactly as it maps a 502
+   * (`Object.keys(data).length > 0 ? data : null`), and assigning `null`
+   * over an existing `null` is a no-op React bails out of. So in a tab
+   * whose `useSession()` is already null, a real sign-out elsewhere
+   * produces NO session event and NO dependency change. The broadcast is
+   * the only notice this tab gets, which is why the bridge reads it.
+   */
+  function broadcast() {
+    window.dispatchEvent(
+      new StorageEvent("storage", {
+        key: "nextauth.message",
+        newValue: JSON.stringify({
+          event: "session",
+          data: { trigger: "getSession" },
+        }),
+      }),
+    );
+  }
+
+  /** Blip → the confirm names viewer a → recovered, session object stuck. */
+  async function recoverThenHold(
+    view: ReturnType<typeof render>,
+    fetchMock: ReturnType<typeof unreadable>,
+  ) {
+    await blip(view);
+    // The origin comes back within the confirm's own attempts.
+    fetchMock.mockImplementation(async () => sessionFor("a"));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(30_000);
+    });
+    // Recovered on the bridge's own evidence; next-auth is still null, so
+    // nothing but a signal can reveal a later loss.
+    expect(scope()).toBe("a");
+    expect(sessionState.status).toBe("unauthenticated");
+  }
+
+  it("departs when a broadcast reveals the session is now gone", async () => {
+    // The case: one tab, never unfocused. The earlier proof must not keep
+    // the gate open or the scope authenticated once a new loss is
+    // observable.
+    vi.useFakeTimers();
+    const { reload } = stubLocation();
+    const fetchMock = unreadable();
+    vi.stubGlobal("fetch", fetchMock);
+    window.localStorage.setItem("bcc-recent-searches::a", '["acme payroll"]');
+
+    const view = render(tree());
+    await recoverThenHold(view, fetchMock);
+
+    // Another tab signs out. The cookie is gone, so the endpoint now
+    // answers a readable {} — the proof of departure.
+    fetchMock.mockImplementation(async () => new Response("{}", { status: 200 }));
+    await act(async () => {
+      broadcast();
+      await vi.advanceTimersByTimeAsync(1_000);
+    });
+
+    expect(reload).toHaveBeenCalledTimes(1);
+    expect(scope()).toBe(ANON_SCOPE);
+    expect(window.localStorage.getItem("bcc-recent-searches::a")).toBeNull();
+  });
+
+  it("drops the stale proof while re-checking, without navigating", async () => {
+    // A signal says something changed but the reads are unreadable again.
+    // The scope must not stay authenticated on the old proof, and nothing
+    // may navigate on no evidence.
+    vi.useFakeTimers();
+    const { reload } = stubLocation();
+    const fetchMock = unreadable();
+    vi.stubGlobal("fetch", fetchMock);
+    window.localStorage.setItem("bcc-recent-searches::a", '["acme payroll"]');
+
+    const view = render(tree());
+    await recoverThenHold(view, fetchMock);
+
+    fetchMock.mockImplementation(unreadable());
+    await act(async () => {
+      broadcast();
+      await Promise.resolve();
+    });
+
+    // Immediately on the signal: the proof is gone, so storage is neither
+    // read nor written under any scope.
+    expect(scope()).toBe("(unavailable)");
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(30_000);
+    });
+    expect(scope()).toBe("(unavailable)");
+    expect(reload).not.toHaveBeenCalled();
+    // Nothing was destroyed: the viewer's own keys are untouched.
+    expect(window.localStorage.getItem("bcc-recent-searches::a")).toBe(
+      '["acme payroll"]',
+    );
+  });
+
+  it("recovers again when the re-check names the same viewer", async () => {
+    vi.useFakeTimers();
+    const { reload } = stubLocation();
+    const fetchMock = unreadable();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const view = render(tree());
+    await recoverThenHold(view, fetchMock);
+
+    await act(async () => {
+      broadcast();
+      await vi.advanceTimersByTimeAsync(1_000);
+    });
+
+    expect(scope()).toBe("a");
+    expect(reload).not.toHaveBeenCalled();
+  });
+
+  it("ignores storage events that are not next-auth's session notice", async () => {
+    vi.useFakeTimers();
+    stubLocation();
+    const fetchMock = unreadable();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const view = render(tree());
+    await recoverThenHold(view, fetchMock);
+    const reads = fetchMock.mock.calls.length;
+
+    await act(async () => {
+      // A plain preference write.
+      window.dispatchEvent(
+        new StorageEvent("storage", { key: "bcc-theme", newValue: "dark" }),
+      );
+      // ⚠ The one that matters: ANOTHER key carrying a payload shaped
+      // exactly like next-auth's notice. Only the key distinguishes them,
+      // and anything else on this origin may write JSON of any shape.
+      window.dispatchEvent(
+        new StorageEvent("storage", {
+          key: "some-other-app",
+          newValue: JSON.stringify({ event: "session", data: { trigger: "x" } }),
+        }),
+      );
+      // Malformed JSON under the right key.
+      window.dispatchEvent(
+        new StorageEvent("storage", {
+          key: "nextauth.message",
+          newValue: "not json",
+        }),
+      );
+      await vi.advanceTimersByTimeAsync(1_000);
+    });
+
+    expect(fetchMock.mock.calls.length).toBe(reads);
+    expect(scope()).toBe("a");
+  });
+});
+
 describe("confirmed sign-out — anonymous behaviour resumes", () => {
   it("takes the anonymous scope once a readable {} proves nobody is signed in", async () => {
     vi.useFakeTimers();

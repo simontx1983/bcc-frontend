@@ -1610,7 +1610,7 @@ describe("the re-arm respects a teardown already in flight", () => {
 // ─────────────────────────────────────────────────────────────────────
 
 describe("what a readable session body settles", () => {
-  it("stops asking once the endpoint reports a LIVE session", async () => {
+  it("CONSUMES a live answer: no retry loop, and the gate reopens", async () => {
     // `askOnce` returned true only for `{}` and false for everything
     // else, so "the origin answered and the session is alive" went into
     // the same bucket as "unreadable". Nothing consumed that evidence, so
@@ -1619,6 +1619,14 @@ describe("what a readable session body settles", () => {
     // never recover on its own and neither effect dep can change again.
     // The result was a permanent, focus-keyed poll against a session the
     // bridge had already read and knew was fine.
+    //
+    // ⚠ What changed (2026-10-05): the evidence is still consumed, but the
+    // question is no longer treated as CLOSED while the session object
+    // stays null. A recovery now re-arms the signal listeners, because
+    // nothing else can observe a LATER loss in that state — see "a second
+    // loss after a recovery" below. So the property pinned here is that
+    // the retry LOOP stops (no further reads without a new signal), not
+    // that the bridge stops listening.
     vi.useFakeTimers();
     Object.defineProperty(window, "location", {
       value: { reload: vi.fn(), assign: vi.fn(), href: "http://localhost/", pathname: "/" },
@@ -1648,13 +1656,58 @@ describe("what a readable session body settles", () => {
     });
     const afterRecovery = fetchMock.mock.calls.length;
 
-    // Settled: no further asking on later signals.
+    // The loop itself is over: time alone produces no further reads, and
+    // the gate is open again.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(60_000);
+    });
+    expect(fetchMock.mock.calls.length).toBe(afterRecovery);
+    expect(screen.getByTestId("private")).toBeInTheDocument();
+    vi.useRealTimers();
+  });
+
+  it("stops asking once the SESSION OBJECT itself has recovered", async () => {
+    // The disarm. Once `useSession()` reports the viewer again, ordinary
+    // dependency changes carry every later transition, so the signal
+    // listeners must go quiet — otherwise every focus would cost a read
+    // for the rest of the document's life.
+    vi.useFakeTimers();
+    Object.defineProperty(window, "location", {
+      value: { reload: vi.fn(), assign: vi.fn(), href: "http://localhost/", pathname: "/" },
+      writable: true,
+    });
+    const fetchMock = vi.fn(async () => new Response("<html/>", { status: 502 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const view = mount(qc);
+    sessionState.data = null;
+    sessionState.status = "unauthenticated";
+    view.rerender(tree(qc));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(30_000);
+    });
+
+    // The session object comes back by itself.
+    sessionState.data = { user: { id: "a" } };
+    sessionState.status = "authenticated";
+    view.rerender(tree(qc));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(100);
+    });
+    const afterHeal = fetchMock.mock.calls.length;
+
     await act(async () => {
       window.dispatchEvent(new Event("focus"));
       window.dispatchEvent(new Event("online"));
+      window.dispatchEvent(
+        new StorageEvent("storage", {
+          key: "nextauth.message",
+          newValue: JSON.stringify({ event: "session", data: { trigger: "getSession" } }),
+        }),
+      );
       await vi.advanceTimersByTimeAsync(30_000);
     });
-    expect(fetchMock.mock.calls.length).toBe(afterRecovery);
+    expect(fetchMock.mock.calls.length).toBe(afterHeal);
     vi.useRealTimers();
   });
 

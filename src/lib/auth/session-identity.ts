@@ -54,6 +54,36 @@
  * is FILED and take effect immediately. Different questions, different
  * costs, different signals; collapsing them is what left the hole.
  *
+ * ## What a proof is worth, and the boundary of this design
+ *
+ * A proof is evidence from a moment, not a standing fact. The bridge
+ * therefore drops it (`clearSessionProof`) whenever anything suggests the
+ * session may have changed, and re-establishes it from a fresh read. After
+ * a recovery in which `useSession()` stays null, the bridge keeps the four
+ * signals on watch for exactly this reason.
+ *
+ * Those four signals — `online`, `focus`, `visibilitychange`, and
+ * next-auth's cross-tab broadcast — are everything a tab can learn without
+ * polling. The honest boundary is what remains outside them:
+ *
+ *   A session cookie that stops being valid with NO accompanying event —
+ *   edited in devtools, dropped by a profile-wide cookie purge, or simply
+ *   expiring in a tab that is focused, online, visible, has no sibling tab,
+ *   and makes no request — produces no notice of any kind. Nothing is
+ *   missed in that case, because there is nothing to miss: no observation
+ *   occurred. The app is not wrong about the session; it has not been told.
+ *
+ * That is a deliberate limit, not an oversight, and it is bounded: the next
+ * authed request re-reads the cookie through `getSession()` and a protected
+ * endpoint answers 401, the next focus or tab switch re-confirms, and a
+ * sibling tab's activity broadcasts. Closing it completely would mean
+ * polling `/api/auth/session` on a timer to catch arbitrary silent cookie
+ * edits, which costs every viewer a request per interval forever to detect
+ * something only a device's own operator can cause. It is not done.
+ *
+ * ⚠ Do not describe this as a missed event in a comment, a commit or a
+ * report. Call it what it is: no event exists.
+ *
  * ## No reset for the teardown path
  *
  * `session-boundary` has no imports at all — that is what lets the
