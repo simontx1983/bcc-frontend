@@ -35,6 +35,8 @@
  * a live credential for the full token TTL.
  */
 
+import { bearerFailsConsistencyCheck } from "@/lib/auth/bearer-claims";
+
 export interface SessionBearerUpdate {
   /** The replacement JWT from the server. Never logged or persisted. */
   token: string;
@@ -260,15 +262,36 @@ export async function updateSessionBearer(
       //    Recorded because `echoed` is now the sole licence for accepting
       //    a foreign bearer.
       //
-      //    No signal here distinguishes it reliably. The only candidate is
-      //    `bccTokenExpiresAt`, and it orders WRITERS rather than validity:
-      //    it is stamped `Date.now() + expiresIn` by whichever client built
-      //    the write, not when that write lands, and both endpoints report
-      //    the same TTL. (An earlier version of this note claimed an expiry
-      //    comparison could not help "since that write is the later one" —
-      //    that reasoning was backwards, because a refresh minted before
-      //    the bump stamps an EARLIER value even if it lands later.)
+      //    `bccTokenExpiresAt` cannot settle it: it orders WRITERS rather
+      //    than validity — stamped `Date.now() + expiresIn` by whichever
+      //    client built the write, not when that write lands, and both
+      //    endpoints report the same TTL. (An earlier version of this note
+      //    claimed an expiry comparison could not help "since that write is
+      //    the later one" — that reasoning was backwards, because a refresh
+      //    minted before the bump stamps an EARLIER value even if it lands
+      //    later.)
+      //
+      //    ⭐ The bearer itself does settle it, in one direction. Every BCC
+      //    token carries `tv`, the per-user revocation counter, in its
+      //    payload (`JwtToken::encode`), and the server hands us the token
+      //    it minted AFTER bumping that counter. So a foreign bearer whose
+      //    `tv` is LOWER than ours was minted before the bump and is
+      //    already dead (`decode` → `jwt_revoked`, and `decodeForRefresh`
+      //    shares the gate, so it cannot be refreshed either).
+      //
+      //    ⚠ The check is a CONSISTENCY TEST, never authentication. The
+      //    payload is unverified, so it may only ever REFUSE: it vetoes the
+      //    echo, and the echo remains the only thing that can accept a
+      //    foreign bearer. Unreadable, malformed, out-of-range or
+      //    subject-mismatched claims count as a veto too — see
+      //    `lib/auth/bearer-claims`. The cost of a false veto is one
+      //    unnecessary "sign in again"; the cost of a false accept is a
+      //    viewer told "Saved" onto a dead session, which is the defect
+      //    this closes.
       if (typeof liveToken === "string" && liveToken !== "") {
+        if (bearerFailsConsistencyCheck(liveToken, update.token)) {
+          return false;
+        }
         return echoed;
       }
 

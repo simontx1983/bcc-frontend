@@ -277,23 +277,67 @@ export function requestSessionRecheck(): void {
  * happens to win the race, since teardown is single-flight.
  */
 let pendingNotice: AuthNoticeSlug | null = null;
+let pendingNoticeExpiresAt = 0;
+
+/**
+ * How long a parked notice stays valid when it was parked with a deadline.
+ *
+ * Needed because the password-change flow cannot always tell whether its
+ * session write landed (see `session-update`'s residual A). Withdrawing the
+ * notice on an ambiguous success labelled the teardown that followed
+ * seconds later as a generic "your session ended", and a viewer told that
+ * after changing their password may well try the OLD one and conclude the
+ * change failed.
+ *
+ * So the notice survives an ambiguous outcome — but only for a bounded
+ * window, or an unrelated sign-out an hour later would claim the password
+ * had just changed. Two minutes is chosen against the thing it has to
+ * outlast: a dead bearer is discovered by the next authed read, and the
+ * badges query polls every 30–60s while the tab is visible and refetches on
+ * focus, so the teardown it needs to label lands inside this window with
+ * room to spare.
+ *
+ * ⚠ This cannot mislabel a more specific reason: `landingUrl` lets a parked
+ * slug outrank ONLY the generic `signed-out`. A suspension still says
+ * suspension.
+ */
+export const PENDING_NOTICE_TTL_MS = 120_000;
+
+/**
+ * Read the parked notice without consuming it, and only while it is still
+ * valid. `force-signout` needs it because its navigation is a document
+ * load, which destroys this module state — so the slug has to travel in
+ * the URL instead.
+ */
+export function pendingAuthNotice(): AuthNoticeSlug | null {
+  if (pendingNotice === null) {
+    return null;
+  }
+  if (pendingNoticeExpiresAt !== 0 && Date.now() >= pendingNoticeExpiresAt) {
+    pendingNotice = null;
+    pendingNoticeExpiresAt = 0;
+    return null;
+  }
+  return pendingNotice;
+}
 
 /**
  * Park the notice a later, involuntary teardown should carry. Pass `null`
  * to clear it. It outranks the `notice` passed to `endSession`, because
  * whoever parked it knew something the generic 401 path cannot.
+ *
+ * `ttlMs` bounds how long it stays valid. Omit it for an indefinite park
+ * (the pre-existing behaviour, used where the caller will clear it
+ * itself); pass `PENDING_NOTICE_TTL_MS` when the caller may never learn
+ * whether the notice is still wanted.
  */
-/**
- * Read the parked notice without consuming it. `force-signout` needs it
- * because its navigation is a document load, which destroys this module
- * state — so the slug has to travel in the URL instead.
- */
-export function pendingAuthNotice(): AuthNoticeSlug | null {
-  return pendingNotice;
-}
-
-export function setPendingAuthNotice(slug: AuthNoticeSlug | null): void {
+export function setPendingAuthNotice(
+  slug: AuthNoticeSlug | null,
+  ttlMs?: number,
+): void {
   pendingNotice = slug;
+  pendingNoticeExpiresAt =
+    slug !== null && ttlMs !== undefined && ttlMs > 0 ? Date.now() + ttlMs : 0;
 }
 
 /**
@@ -711,6 +755,7 @@ async function runTeardown(
     // retry.
     if (signedOut && usedParked) {
       pendingNotice = null;
+      pendingNoticeExpiresAt = 0;
     }
   }
 
@@ -745,5 +790,6 @@ export function __resetSessionBoundaryForTests(): void {
   sessionUnknown = false;
   recheck = null;
   pendingNotice = null;
+  pendingNoticeExpiresAt = 0;
   gateListeners.clear();
 }
