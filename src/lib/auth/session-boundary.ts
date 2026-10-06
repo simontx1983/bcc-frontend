@@ -416,15 +416,20 @@ function purgeStorageOnly(): StoragePurgeOutcome {
  *   - they never signed out — the session JWT simply aged past `maxAge`,
  *     or the browser clears cookies on exit.
  *
- * In each case the next person signs in and `bcc-recent-searches` is
- * rendered verbatim into their search dropdown, and the tour/onboarding
- * keys suppress or mis-position what they should be shown. Those are the
- * keys arrival clears; see `ARRIVAL_SCOPED_STORAGE_KEYS` for what it
- * deliberately leaves alone and why. Arrival purges state; only
- * DEPARTURE closes the gate.
+ * What arrival does about that has CHANGED, and the old reason no longer
+ * applies: those keys used to be shared, so whatever the previous viewer
+ * left was read back and shown to whoever arrived — their search history
+ * verbatim in the dropdown, their tour and onboarding position suppressing
+ * or mis-placing someone else's. Keys are now scoped per viewer
+ * (`lib/auth/viewer-scope`), so an arriving viewer structurally cannot
+ * reach another's value, and arrival no longer deletes anybody's state. It
+ * runs the LEGACY migration only: values written under the old unscoped
+ * names identify nobody, so they are removed rather than adopted. See
+ * `clearCrossViewerStorage`. Arrival purges state; only DEPARTURE closes
+ * the gate.
  */
 export function purgeArrivingViewerState(): StoragePurgeOutcome {
-  // Storage only, and only the arrival subset.
+  // Storage only, and only the legacy unscoped values.
   //
   // No epoch bump: the epoch exists to invalidate a DEPARTING viewer's
   // authenticated in-flight requests, and on arrival this tab never had a

@@ -16,12 +16,12 @@
  *     or `GET /posts/{id}` (cold load / draft) and passes the result
  *     down. Drafts are reachable only via the GET path.
  *
- * Auto-save: BodyEditor writes the body string to
- * `bcc.blog.draft.{userId}` every 5s. On mount, BlogComposer
- * restores the localStorage draft if one exists AND no
- * initialValues were supplied (a draft restore should never clobber
- * an explicit edit hydration). On successful submit, the
- * localStorage key is cleared.
+ * Auto-save: BodyEditor writes the body string to the viewer-scoped
+ * `bcc.blog.draft::{viewer id}` every 5s. BlogComposer restores that
+ * draft once the viewer is known, if one exists AND no initialValues
+ * were supplied (a draft restore should never clobber an explicit edit
+ * hydration) AND nothing has been typed yet. On successful submit, the
+ * key is cleared.
  *
  * Disclosure normalization: empty `{tickers: [], note: ''}` is sent
  * as `null` (server rejects empty struct as bcc_invalid_request).
@@ -32,9 +32,8 @@
  * call site, never derived from err.message).
  */
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useSession } from "next-auth/react";
 import { useQueryClient } from "@tanstack/react-query";
 
 import {
@@ -46,6 +45,8 @@ import {
 import { counterToneClass } from "@/lib/counter-tone";
 import { createBlog, updateBlog } from "@/lib/api/posts-endpoints";
 import { humanizeCode } from "@/lib/api/errors";
+import { useViewerScope } from "@/hooks/useViewerScope";
+import { scopedKey } from "@/lib/auth/viewer-scope";
 import { USER_BLOG_QUERY_KEY_ROOT } from "@/hooks/useUserBlog";
 
 import { BodyEditor } from "./BodyEditor";
@@ -78,6 +79,9 @@ export interface BlogComposerProps {
   initialValues?: BlogComposerInitialValues;
 }
 
+/** Scoped per viewer at runtime: `bcc.blog.draft::<viewer id>`. */
+const DRAFT_KEY_BASE = "bcc.blog.draft";
+
 const COMPOSER_COPY: Record<string, string> = {
   bcc_unauthorized:   "Sign in to publish.",
   bcc_forbidden:      "You don't have permission to edit this post.",
@@ -93,10 +97,16 @@ export function BlogComposer({
   initialValues,
 }: BlogComposerProps) {
   const router = useRouter();
-  const session = useSession();
   const queryClient = useQueryClient();
-  const userId = session.data?.user.handle ?? "anon";
-  const autosaveKey = `bcc.blog.draft.${userId}`;
+  // The draft body is scoped to the VIEWER, not to their handle. The old
+  // `bcc.blog.draft.${handle ?? "anon"}` key had two defects: the fallback
+  // meant two different people writing while their sessions resolved both
+  // used `…draft.anon`, so one could have the other's body restored into
+  // their composer; and a handle can be renamed and reclaimed, so it does
+  // not durably name an owner. A null key means "we do not know who this
+  // is yet" — nothing is read and nothing is written until we do.
+  const scope = useViewerScope();
+  const autosaveKey = scopedKey(DRAFT_KEY_BASE, scope);
 
   const [title,     setTitle]     = useState(initialValues?.title ?? "");
   const [excerpt,   setExcerpt]   = useState(initialValues?.excerpt ?? "");
@@ -112,9 +122,22 @@ export function BlogComposer({
   const [submitting, setSubmitting] = useState(false);
   const [error,      setError]      = useState<string | null>(null);
 
-  // Restore auto-saved draft on mount when no initialValues supplied.
+  /**
+   * Restore the auto-saved draft once, when no initialValues were supplied.
+   *
+   * Keyed on `autosaveKey` rather than on mount, because at mount the
+   * session is often still loading and the key is null — a mount-only read
+   * would find nothing and silently drop the writer's saved body. The latch
+   * keeps it to one restore per composer, and the `body !== ""` check means
+   * a restore arriving after someone has started typing never overwrites
+   * what they are in the middle of writing.
+   */
+  const restoredRef = useRef(false);
   useEffect(() => {
-    if (initialValues !== undefined) return;
+    if (restoredRef.current) return;
+    if (initialValues !== undefined || autosaveKey === null) return;
+    restoredRef.current = true;
+    if (body !== "") return;
     try {
       const saved = window.localStorage.getItem(autosaveKey);
       if (saved !== null && saved !== "") {
@@ -123,10 +146,10 @@ export function BlogComposer({
     } catch {
       // localStorage unavailable — silent.
     }
-    // Intentionally one-shot: do NOT re-run when autosaveKey identity
-    // changes mid-session.
+    // `initialValues` and `body` are read, not tracked: this is deliberately
+    // one restore, decided by the key.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [autosaveKey]);
 
   const excerptTrimmed = excerpt.trim();
   const excerptUnderMin = excerptTrimmed.length > 0 && excerptTrimmed.length < BLOG_EXCERPT_MIN_LENGTH;
@@ -194,7 +217,7 @@ export function BlogComposer({
 
       // Clear the auto-saved draft on success.
       try {
-        window.localStorage.removeItem(autosaveKey);
+        if (autosaveKey !== null) window.localStorage.removeItem(autosaveKey);
       } catch {
         /* silent */
       }
@@ -265,7 +288,10 @@ export function BlogComposer({
       <BodyEditor
         value={body}
         onChange={setBody}
-        autosaveKey={autosaveKey}
+        // Omitted entirely, not passed as undefined: BodyEditor treats a
+        // missing key as "do not autosave", which is what an unresolved
+        // viewer means.
+        {...(autosaveKey !== null ? { autosaveKey } : {})}
         disabled={submitting}
       />
 

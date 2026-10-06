@@ -41,6 +41,16 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: hoisted.pushMock, replace: vi.fn(), prefetch: vi.fn() }),
 }));
 
+// Tour storage is viewer-scoped, so the engine needs a viewer. This suite is
+// about keyboard behaviour, not about who is signed in — one fixed viewer,
+// and the storage helpers below are keyed to the same one.
+// The literal is repeated inside the factory on purpose: vi.mock factories
+// run before this module's own const bindings are initialised.
+const VIEWER = "4242";
+vi.mock("next-auth/react", () => ({
+  useSession: () => ({ data: { user: { id: "4242" } }, status: "authenticated" }),
+}));
+
 vi.mock("@/lib/api/tours-endpoints", () => ({
   getToursSeen: (...args: unknown[]) => hoisted.getToursSeen(...(args as [])),
   markTourSeen: (id: string) => hoisted.markTourSeen(id),
@@ -52,7 +62,7 @@ const TOUR_ID = "home-feed";
 const TOTAL = 5;
 
 function renderTourAtStep(step: number) {
-  setProgress({ tourId: TOUR_ID, step });
+  setProgress(VIEWER, { tourId: TOUR_ID, step });
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={client}>
@@ -103,8 +113,8 @@ describe("TourLayer keyboard accessibility", () => {
     hoisted.markTourSeen.mockClear();
     window.localStorage.clear();
     window.sessionStorage.clear();
-    clearLocalSeen();
-    clearProgress();
+    clearLocalSeen(VIEWER);
+    clearProgress(VIEWER);
   });
 
   afterEach(() => {
@@ -218,7 +228,7 @@ describe("TourLayer keyboard accessibility", () => {
     cleanup();
     hoisted.markTourSeen.mockClear();
     window.localStorage.clear();
-    clearLocalSeen();
+    clearLocalSeen(VIEWER);
 
     // Finish (Done on the last step).
     await startTourAtStep(TOTAL - 1);

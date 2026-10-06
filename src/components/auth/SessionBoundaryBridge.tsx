@@ -32,10 +32,49 @@ import {
   registerSessionTeardown,
 } from "@/lib/auth/session-boundary";
 import {
+  clearSessionProof,
+  markProvenAnonymous,
+  markProvenViewer,
+  noteEstablishedViewer,
+} from "@/lib/auth/session-identity";
+import {
   clearCrossViewerStorage,
   clearViewerStorage,
 } from "@/lib/auth/viewer-storage";
 import { revokePushForSessionEnd } from "@/lib/push/revoke";
+
+/**
+ * next-auth's cross-tab notice: `localStorage["nextauth.message"]` plus the
+ * window `storage` event (client/_utils.js `BroadcastChannel`). Every
+ * `getSession()`, `signIn` and `signOut` posts one, and other tabs receive
+ * it.
+ *
+ * ⚠ Why this tab has to read the event itself. On receiving it, next-auth
+ * re-reads the session — but `fetchData` maps a readable `{}` to `null`
+ * exactly as it maps a transport error (client/_utils.js:62,
+ * `Object.keys(data).length > 0 ? data : null`), and assigning `null` over
+ * an existing `null` is a no-op React bails out of. So when another tab
+ * signs out while this tab's `useSession()` is ALREADY null — which is
+ * where a recovered-but-unhealed session sits — the library performs a new
+ * read, receives the proof of departure, and discards it. No session event
+ * reaches this component, and no effect dependency changes. The broadcast
+ * itself is the only notice, which is why it is subscribed to directly.
+ */
+function isSessionBroadcast(event: StorageEvent): boolean {
+  if (event.key !== "nextauth.message") {
+    return false;
+  }
+  try {
+    const message: unknown = JSON.parse(event.newValue ?? "{}");
+    return (
+      typeof message === "object" &&
+      message !== null &&
+      (message as { event?: unknown }).event === "session"
+    );
+  } catch {
+    return false;
+  }
+}
 
 /** Bound for the confirming read that decides whether a null session is real. */
 const SESSION_CONFIRM_TIMEOUT_MS = 3_000;
@@ -64,6 +103,18 @@ export function SessionBoundaryBridge() {
   const disposed = useRef(false);
   /** The current effect run's confirm, for the gate's Retry control. */
   const recheckRef = useRef<(() => void) | null>(null);
+  /**
+   * The viewer whose STORED values a teardown should clear.
+   *
+   * Deliberately not `shownViewer`: that ref advances on the line before
+   * `depart()` runs — to the ARRIVING viewer on an account switch, and to
+   * `null` on a confirmed sign-out — so purging by it would clear the wrong
+   * scope, and on the commonest path (another tab signed out) would clear no
+   * viewer's scope at all, leaving the departed viewer's search history,
+   * onboarding position and draft on the device. This one is set only when a
+   * viewer is ESTABLISHED, never by a departure verdict.
+   */
+  const purgeScope = useRef<string | null>(null);
 
   useEffect(() => {
     return registerSessionTeardown({
@@ -90,7 +141,11 @@ export function SessionBoundaryBridge() {
         // is exactly why `clear()` is sufficient here and was not before.
         queryClient.clear();
       },
-      purgeViewerStorage: clearViewerStorage,
+      // The DEPARTING viewer, read at purge time rather than captured: the
+      // teardown can be triggered from anywhere (the sign-out control, a
+      // 401 in the API client, another tab's broadcast) long after this
+      // effect ran.
+      purgeViewerStorage: () => clearViewerStorage(purgeScope.current),
       purgeArrivalStorage: clearCrossViewerStorage,
       invalidateQueryCache: () => {
         // Drop what nothing is observing: those entries hold only
@@ -144,6 +199,14 @@ export function SessionBoundaryBridge() {
     }
     const viewer = session?.user?.id ?? null;
     latestViewer.current = viewer;
+    if (viewer !== null) {
+      // Recorded for the STORAGE scope, not for this module: once a viewer
+      // has been on screen, a later unexplained "unauthenticated" must not
+      // be read as anonymity. It is noted here — the earliest point a
+      // viewer is known — because an effect that marked doubt later left a
+      // one-commit window in which the scope still answered ANON.
+      noteEstablishedViewer(viewer);
+    }
 
     if (shownViewer.current === undefined) {
       // The first value is committed unconditionally, `null` included,
@@ -161,6 +224,7 @@ export function SessionBoundaryBridge() {
       // previous owner's email and controls are still server-rendered on
       // the page. Confirm before committing if that changes.
       shownViewer.current = viewer;
+      if (viewer !== null) purgeScope.current = viewer;
       return;
     }
     if (shownViewer.current === viewer) {
@@ -199,13 +263,15 @@ export function SessionBoundaryBridge() {
     // they are the exception, not the rule.) Purging here would latch the
     // gate shut and leave the viewer on the "Signing out…" placeholder
     // immediately after a successful login, with only a manual browser
-    // reload to escape. It would also wipe `bcc-onboarding-progress` and
-    // the tour keys at the exact moment they start being written.
+    // reload to escape. It would also wipe this viewer's own onboarding
+    // progress and tour keys at the exact moment they start being written.
     if (previous === null) {
-      // Not nothing, though: localStorage survives document loads, so a
-      // previous viewer's keys can still be on this device even if this
-      // tab never saw them. Purge the state, leave the gate open.
+      // Not nothing, though: localStorage survives document loads, so
+      // values written by an older, UNSCOPED version can still be on this
+      // device even if this tab never saw them. Remove those — they belong
+      // to nobody we can name — and leave the gate open.
       shownViewer.current = viewer;
+      if (viewer !== null) purgeScope.current = viewer;
       purgeArrivingViewerState();
       return;
     }
@@ -246,11 +312,27 @@ export function SessionBoundaryBridge() {
       return;
     }
 
+    // A new, unconfirmed null: whatever an earlier confirm proved has
+    // expired. Without this a SECOND blip would keep filing into the scope
+    // the FIRST confirm proved, long after that proof stopped being
+    // current. The storage scope now resolves to "unavailable" — not
+    // anonymous — for the whole confirm window, which is the point: hiding
+    // the viewer's work takes the slower, surer signal (the give-up below),
+    // but filing it cannot afford to wait ~16s.
+    clearSessionProof();
+
     // Re-ask once the conditions that broke the confirm may have changed.
     // One-shot per signal, and self-removing, so a flapping connection
     // cannot stack listeners. `confirming` still guards overlap, and the
     // guards inside the loop stop it acting on a question that is no
     // longer live.
+    //
+    // The four signals are everything this tab can learn WITHOUT polling:
+    // coming back online, regaining focus, becoming visible, and
+    // next-auth's own cross-tab broadcast. The broadcast matters most in
+    // the case the others cannot reach — a tab that never loses focus. See
+    // `isSessionBroadcast` for why that event is the only notice this tab
+    // gets when another tab signs out while `useSession()` is already null.
     const rearm = (): void => {
       const retry = (): void => {
         cleanup();
@@ -264,11 +346,18 @@ export function SessionBoundaryBridge() {
         ) {
           return;
         }
+        // Something happened that may have changed the session, so an
+        // EARLIER confirm's proof is no longer current. Dropping it here
+        // means the storage scope goes unavailable for the duration of the
+        // re-check instead of staying authenticated on stale evidence —
+        // and it is restored the moment a confirm names the viewer again.
+        clearSessionProof();
         runConfirm();
       };
       const cleanup = (): void => {
         window.removeEventListener("online", retry);
         window.removeEventListener("focus", retry);
+        window.removeEventListener("storage", onBroadcast);
         document.removeEventListener("visibilitychange", onVisible);
         rearmCleanup.current = null;
       };
@@ -277,10 +366,16 @@ export function SessionBoundaryBridge() {
           retry();
         }
       };
+      const onBroadcast = (event: StorageEvent): void => {
+        if (isSessionBroadcast(event)) {
+          retry();
+        }
+      };
       // Replace any previous registration rather than adding to it.
       rearmCleanup.current?.();
       window.addEventListener("online", retry);
       window.addEventListener("focus", retry);
+      window.addEventListener("storage", onBroadcast);
       document.addEventListener("visibilitychange", onVisible);
       rearmCleanup.current = cleanup;
     };
@@ -392,13 +487,17 @@ export function SessionBoundaryBridge() {
               return;
             }
             shownViewer.current = null;
+            // Proved: nobody is signed in. Anonymous behaviour resumes
+            // from here — a readable `{}` is the only shape that earns it.
+            markProvenAnonymous();
             depart();
             return;
           }
 
           if (answer.kind === "present") {
-            // The endpoint answered and there IS a session. That settles the
-            // question either way, so do NOT re-arm.
+            // The endpoint answered and there IS a session, so this
+            // question is answered — but see the re-arm at the end of this
+            // branch: being answered is not the same as being over.
             confirming.current = false;
             if (shownViewer.current !== previous || isEndingSession()) {
               return;
@@ -409,11 +508,42 @@ export function SessionBoundaryBridge() {
               // on our own evidence does not depend on that.
               shownViewer.current = answer.viewer;
               depart();
+            } else if (answer.viewer !== null) {
+              // The SAME viewer, named by a readable response. Restore their
+              // storage scope here and now: `useSession()` stays stuck at
+              // null until next-auth happens to re-read, and the scope must
+              // not wait on that — nor on the broadcast a later request
+              // would post.
+              markProvenViewer(answer.viewer);
             }
+            // An alive session with NO id to compare is deliberately left
+            // in doubt: the gate reopens (the session is alive) but storage
+            // keeps returning defaults rather than guessing a scope.
+            //
             // Same viewer, or no id to compare: the session is alive, so
             // reopen. `useSession` being stuck at null is its own business
             // — this module has read the truth directly.
             setSessionUnknown(false);
+
+            // ⚠ And KEEP WATCHING while it stays stuck. next-auth's
+            // `_getSession` early-returns for every trigger but "storage"
+            // while its cached session is null, so after this recovery the
+            // session object can remain null indefinitely. In that state
+            // nothing else observes a LATER loss: a second null produces no
+            // dependency change, so this effect never re-runs, and the
+            // proof above would go on holding the gate open and the storage
+            // scope authenticated on evidence from minutes ago. Re-arming
+            // puts the four signals back on watch — including the
+            // cross-tab broadcast, which is the only one a continuously
+            // focused tab ever receives.
+            //
+            // It is NOT a poll: nothing fires on a timer, and a healed
+            // session object disarms it, because `retry()` returns early
+            // once `latestViewer` is non-null. The cost while stuck is one
+            // session read per signal.
+            if (latestViewer.current === null && !disposed.current) {
+              rearm();
+            }
             return;
           }
         }

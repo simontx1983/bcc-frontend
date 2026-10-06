@@ -14,6 +14,8 @@
  * as the tour store.
  */
 
+import { scopedKey, type ViewerScope } from "@/lib/auth/viewer-scope";
+
 const PROGRESS_KEY = "bcc-onboarding-progress";
 const RESUME_DISMISSED_KEY = "bcc-onboarding-resume-dismissed";
 
@@ -22,10 +24,14 @@ export interface OnboardingProgress {
   updatedAt: number;
 }
 
-export function getOnboardingProgress(): OnboardingProgress | null {
+export function getOnboardingProgress(
+  scope: ViewerScope,
+): OnboardingProgress | null {
   if (typeof window === "undefined") return null;
+  const key = scopedKey(PROGRESS_KEY, scope);
+  if (key === null) return null;
   try {
-    const raw = window.localStorage.getItem(PROGRESS_KEY);
+    const raw = window.localStorage.getItem(key);
     if (raw === null) return null;
     const parsed: unknown = JSON.parse(raw);
     if (
@@ -42,20 +48,24 @@ export function getOnboardingProgress(): OnboardingProgress | null {
   }
 }
 
-export function setOnboardingProgress(step: string): void {
+export function setOnboardingProgress(scope: ViewerScope, step: string): void {
   if (typeof window === "undefined") return;
+  const key = scopedKey(PROGRESS_KEY, scope);
+  if (key === null) return;
   try {
     const progress: OnboardingProgress = { step, updatedAt: Date.now() };
-    window.localStorage.setItem(PROGRESS_KEY, JSON.stringify(progress));
+    window.localStorage.setItem(key, JSON.stringify(progress));
   } catch {
     // Ignore — worst case resume isn't offered; harmless.
   }
 }
 
-export function clearOnboardingProgress(): void {
+export function clearOnboardingProgress(scope: ViewerScope): void {
   if (typeof window === "undefined") return;
+  const key = scopedKey(PROGRESS_KEY, scope);
+  if (key === null) return;
   try {
-    window.localStorage.removeItem(PROGRESS_KEY);
+    window.localStorage.removeItem(key);
   } catch {
     // ignore
   }
@@ -66,19 +76,23 @@ export function clearOnboardingProgress(): void {
 // snooze (unlike the tour system's session-dismiss) — the visitor said
 // they don't want to finish, so the floating icon shouldn't return.
 
-export function isResumeDismissed(): boolean {
+export function isResumeDismissed(scope: ViewerScope): boolean {
   if (typeof window === "undefined") return false;
+  const key = scopedKey(RESUME_DISMISSED_KEY, scope);
+  if (key === null) return false;
   try {
-    return window.localStorage.getItem(RESUME_DISMISSED_KEY) === "1";
+    return window.localStorage.getItem(key) === "1";
   } catch {
     return false;
   }
 }
 
-export function dismissResume(): void {
+export function dismissResume(scope: ViewerScope): void {
   if (typeof window === "undefined") return;
+  const key = scopedKey(RESUME_DISMISSED_KEY, scope);
+  if (key === null) return;
   try {
-    window.localStorage.setItem(RESUME_DISMISSED_KEY, "1");
+    window.localStorage.setItem(key, "1");
   } catch {
     // ignore
   }
