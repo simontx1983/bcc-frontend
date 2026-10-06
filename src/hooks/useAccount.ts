@@ -18,6 +18,7 @@
 
 import {
   endSession,
+  PENDING_NOTICE_TTL_MS,
   setPendingAuthNotice,
 } from "@/lib/auth/session-boundary";
 import { updateSessionBearer } from "@/lib/auth/session-update";
@@ -102,23 +103,42 @@ export function useChangeAccountPassword(
       // and ends the session with the GENERIC slug. Parking after the
       // three session-write round trips left that whole window able to
       // announce a definitely-changed password as "your session ended".
-      // Idempotent, and AccountSection clears it if the session turns out
-      // to have been restored.
-      setPendingAuthNotice("password-changed");
+      // Idempotent.
+      //
+      // Parked WITH A DEADLINE, which is what makes the withdrawal below
+      // safe to narrow. The confirm cannot always tell whether its write
+      // landed, so "restored" can be wrong — and withdrawing on a wrong
+      // "restored" meant the teardown seconds later said "your session
+      // ended", after which a viewer may try their OLD password and
+      // conclude the change failed. The notice now outlives an ambiguous
+      // outcome for `PENDING_NOTICE_TTL_MS`, long enough to label the
+      // teardown a dead bearer causes (next authed read; badges poll
+      // 30–60s while visible) and short enough that an unrelated sign-out
+      // later is not blamed on the password change.
+      setPendingAuthNotice("password-changed", PENDING_NOTICE_TTL_MS);
 
       const sessionRestored = await updateSessionBearer({
         token: res.token,
         expiresIn: res.expires_in,
       });
 
-      // Withdraw it where it was parked, not in a caller's onSuccess.
-      // `useChangeAccountPassword` ends with `...options`, so any caller
-      // supplying its own onSuccess would otherwise inherit a
-      // permanently parked "password-changed" and have their next
-      // ordinary sign-out labelled with it.
-      if (sessionRestored) {
-        setPendingAuthNotice(null);
-      }
+      // NOT withdrawn on success any more, and that is the fix.
+      //
+      // `sessionRestored === true` includes the case where a DIFFERENT
+      // bearer was found and only the echo licensed accepting it — which
+      // is precisely the outcome that can be wrong (session-update's
+      // residual A). Withdrawing there threw away the explanation seconds
+      // before the dead bearer tore the session down, leaving the viewer
+      // with a generic "your session ended" after changing their password,
+      // and no reason to believe the change had worked.
+      //
+      // The deadline above retires the notice instead. Nothing here has to
+      // guess whether the write landed, and the accepted cost is narrow: a
+      // deliberate sign-out within PENDING_NOTICE_TTL_MS of a password
+      // change carries "use your new password", which is true and
+      // actionable even though a plain sign-out notice would have done.
+      // A more specific reason — a suspension, say — still wins outright;
+      // `landingUrl` lets a parked slug outrank only the generic slug.
 
       return { passwordChanged: true, sessionRestored };
     },

@@ -28,11 +28,13 @@ const updateSessionBearer = vi.fn<
   (u: { token: string; expiresIn: number }) => Promise<boolean>
 >();
 const endSession = vi.fn<(reason: string, opts?: unknown) => Promise<unknown>>();
-const setPendingAuthNotice = vi.fn<(slug: string | null) => void>();
+const setPendingAuthNotice = vi.fn<(slug: string | null, ttlMs?: number) => void>();
 vi.mock("@/lib/auth/session-boundary", async (importOriginal) => ({
   ...(await importOriginal<typeof SessionBoundaryModule>()),
   endSession: (reason: string, opts?: unknown) => endSession(reason, opts),
-  setPendingAuthNotice: (slug: string | null) => setPendingAuthNotice(slug),
+  setPendingAuthNotice: (slug: string | null, ttlMs?: number) =>
+    setPendingAuthNotice(slug, ttlMs),
+  PENDING_NOTICE_TTL_MS: 120_000,
 }));
 vi.mock("@/lib/auth/session-update", () => ({
   updateSessionBearer: (u: { token: string; expiresIn: number }) =>
@@ -334,22 +336,39 @@ describe("parking the accurate notice", () => {
         screen.getByRole("heading", { name: /password changed/i }),
       ).toBeInTheDocument();
     });
-    expect(setPendingAuthNotice).toHaveBeenCalledWith("password-changed");
+    expect(setPendingAuthNotice).toHaveBeenCalledWith(
+      "password-changed",
+      expect.any(Number),
+    );
   });
 
-  it("CLEARS it again when the session turns out to be restored", async () => {
-    // It is parked on the committed fact first, because the revocation
-    // window opens before we know whether the session survived. If it
-    // did, the park is withdrawn — so the LAST word is null, not the
-    // absence of a park.
+  it("parks it with a DEADLINE and does not withdraw it on success", async () => {
+    // ⚠ Changed deliberately 2026-10-06. This test previously asserted the
+    // park was withdrawn when the session came back restored. That was
+    // wrong for the case that matters: "restored" includes the outcome
+    // where a DIFFERENT bearer was found and only the echo licensed
+    // accepting it — which can be a dead pre-revocation token. Withdrawing
+    // there threw the explanation away seconds before that bearer tore the
+    // session down, leaving a generic "your session ended" after a
+    // password change, and a viewer with every reason to try their OLD
+    // password.
+    //
+    // The deadline retires it instead, so nothing has to guess whether the
+    // write landed. A parked slug outranks only the GENERIC one, so a
+    // suspension in that window still reads as a suspension.
     patchAccountPassword.mockResolvedValue(SERVER_OK);
     updateSessionBearer.mockResolvedValue(true);
     mount();
     submitPasswordChange();
 
     await waitFor(() => {
-      expect(setPendingAuthNotice).toHaveBeenLastCalledWith(null);
+      expect(updateSessionBearer).toHaveBeenCalled();
     });
+    expect(setPendingAuthNotice).toHaveBeenCalledWith(
+      "password-changed",
+      expect.any(Number),
+    );
+    expect(setPendingAuthNotice).not.toHaveBeenCalledWith(null);
   });
 });
 
@@ -500,19 +519,31 @@ describe("parking happens on the FACT, not on the recovery attempt", () => {
     await waitFor(() => {
       expect(updateSessionBearer).toHaveBeenCalled();
     });
-    expect(setPendingAuthNotice).toHaveBeenCalledWith("password-changed");
+    expect(setPendingAuthNotice).toHaveBeenCalledWith(
+      "password-changed",
+      expect.any(Number),
+    );
 
     releaseUpdate?.(true);
   });
 
-  it("still clears it when the session turns out to be restored", async () => {
+  it("keeps it parked after a reported restoration, bounded by its deadline", async () => {
+    // Same deliberate change as above: the notice is no longer withdrawn
+    // on a reported success, because that report can be wrong. What is
+    // asserted instead is that it was parked WITH a bound, so it cannot
+    // outlive its usefulness.
     patchAccountPassword.mockResolvedValue(SERVER_OK);
     updateSessionBearer.mockResolvedValue(true);
     mount();
     submitPasswordChange();
     await waitFor(() => {
-      expect(setPendingAuthNotice).toHaveBeenCalledWith(null);
+      expect(updateSessionBearer).toHaveBeenCalled();
     });
+    const parked = setPendingAuthNotice.mock.calls.find(
+      ([slug]) => slug === "password-changed",
+    );
+    expect(parked?.[1]).toBeGreaterThan(0);
+    expect(setPendingAuthNotice).not.toHaveBeenCalledWith(null);
   });
 });
 

@@ -21,7 +21,33 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { updateSessionBearer } from "@/lib/auth/session-update";
 
-const UPDATE = { token: "replacement-jwt", expiresIn: 604800 };
+/**
+ * Build a BCC-shaped bearer. The signature is a placeholder: nothing in
+ * the frontend verifies it, and the consistency check deliberately reads
+ * the payload only (see `lib/auth/bearer-claims`).
+ */
+function bearer(claims: Record<string, unknown>): string {
+  const seg = (o: unknown): string =>
+    btoa(JSON.stringify(o)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  return `${seg({ alg: "HS256", typ: "JWT" })}.${seg(claims)}.sig`;
+}
+
+// ⚠ Each fixture needs a distinct `jti`, exactly as the server emits
+// (`wp_generate_uuid4()`). Without it two tokens with the same claims
+// serialise to the SAME string, and a "different bearer" fixture silently
+// becomes our own token — which takes the unambiguous-success branch and
+// never reaches the consistency check. A test caught that.
+
+/** What the password change minted: the counter already bumped to 7. */
+const MINTED = bearer({ sub: "4242", user_id: 4242, tv: 7, handle: "viewer-a", jti: "minted" });
+/** A refresh that minted AFTER the bump — same counter, so still live. */
+const CONCURRENT = bearer({ sub: "4242", user_id: 4242, tv: 7, handle: "viewer-a", jti: "concurrent" });
+/** A refresh that minted BEFORE the bump — already revoked server-side. */
+const STALE_PRE_BUMP = bearer({ sub: "4242", user_id: 4242, tv: 6, handle: "viewer-a", jti: "stale" });
+/** Someone else's bearer entirely. */
+const OTHER_SUBJECT = bearer({ sub: "9001", user_id: 9001, tv: 9, handle: "viewer-b", jti: "other" });
+
+const UPDATE = { token: MINTED, expiresIn: 604800 };
 
 interface Call {
   url: string;
@@ -570,13 +596,72 @@ describe("a concurrent session write is not a loss", () => {
     // refutes too — see the lost-POST-response group.
     stubFetch({
       confirmStatus: 200,
-      confirmBody: JSON.stringify({ bccToken: "a-concurrent-refresh-token" }),
+      confirmBody: JSON.stringify({ bccToken: CONCURRENT }),
     });
     await expect(updateSessionBearer(UPDATE)).resolves.toBe(true);
   });
 
   it("still refutes a readable session with no bearer at all", async () => {
     stubFetch({ confirmStatus: 200, confirmBody: "{}" });
+    await expect(updateSessionBearer(UPDATE)).resolves.toBe(false);
+  });
+
+  // ── the token-version consistency check ────────────────────────────
+  //
+  // The echo remains the only thing that can ACCEPT a foreign bearer.
+  // These cases are the veto: positive reasons to refuse, each of which
+  // must beat the echo. A refusal costs one "sign in again"; a wrong
+  // acceptance tells someone "Saved" onto a dead session.
+
+  it("REFUSES a bearer minted before the revocation bump, echo or not", async () => {
+    // Residual A made concrete: a refresh minted at tv=6 is already dead
+    // the instant the password change bumped the counter to 7, so a
+    // session carrying it is not a restored session however it got there.
+    stubFetch({
+      confirmStatus: 200,
+      confirmBody: JSON.stringify({ bccToken: STALE_PRE_BUMP }),
+    });
+    await expect(updateSessionBearer(UPDATE)).resolves.toBe(false);
+  });
+
+  it("REFUSES a bearer naming a different subject", async () => {
+    stubFetch({
+      confirmStatus: 200,
+      confirmBody: JSON.stringify({ bccToken: OTHER_SUBJECT }),
+    });
+    await expect(updateSessionBearer(UPDATE)).resolves.toBe(false);
+  });
+
+  it("REFUSES when the claims cannot be read at all", async () => {
+    // ⚠ The decode is a consistency check, never authentication, so an
+    // unreadable payload may not be waved through on the echo. Malformed
+    // must behave exactly like mismatched.
+    for (const opaque of ["not-a-jwt", "a.b.c", "", "x.e30.y"]) {
+      stubFetch({
+        confirmStatus: 200,
+        confirmBody: JSON.stringify({ bccToken: opaque }),
+      });
+      await expect(updateSessionBearer(UPDATE)).resolves.toBe(false);
+    }
+  });
+
+  it("accepts a HIGHER token version — a later rotation, still this viewer", async () => {
+    const laterRotation = bearer({ sub: "4242", user_id: 4242, tv: 8, jti: "later" });
+    stubFetch({
+      confirmStatus: 200,
+      confirmBody: JSON.stringify({ bccToken: laterRotation }),
+    });
+    await expect(updateSessionBearer(UPDATE)).resolves.toBe(true);
+  });
+
+  it("does not let the check manufacture success without the echo", async () => {
+    // A consistency-clean foreign bearer is still only acceptable because
+    // the ECHO proved our write landed. With no echo, it refutes.
+    stubFetch({
+      sessionBody: "{}",
+      confirmStatus: 200,
+      confirmBody: JSON.stringify({ bccToken: CONCURRENT }),
+    });
     await expect(updateSessionBearer(UPDATE)).resolves.toBe(false);
   });
 
@@ -650,7 +735,7 @@ describe("a lost POST response with the old session still in the cookie", () => 
       confirmStatus: 200,
       confirmBody: JSON.stringify({
         user: { name: "fixture" },
-        bccToken: "the-old-revoked-bearer",
+        bccToken: CONCURRENT,
       }),
     });
     await expect(updateSessionBearer(UPDATE)).resolves.toBe(false);
@@ -661,7 +746,7 @@ describe("a lost POST response with the old session still in the cookie", () => 
     // a concurrent write — which is the case the widening was for.
     stubFetch({
       confirmStatus: 200,
-      confirmBody: JSON.stringify({ bccToken: "a-concurrent-refresh-token" }),
+      confirmBody: JSON.stringify({ bccToken: CONCURRENT }),
     });
     await expect(updateSessionBearer(UPDATE)).resolves.toBe(true);
   });
