@@ -135,29 +135,45 @@ export const LEGACY_UNSCOPED_KEYS: readonly string[] = [
  * Legacy key FAMILIES whose names were not knowable up front, because the
  * old scheme appended something to them.
  *
- * `bcc.blog.draft.<handle>` held an unpublished post body keyed by the
- * author's handle — nearly scoped, but with two defects this change
- * removes: the handle fell back to the literal `anon` whenever the session
- * had not resolved yet, so one person's draft body could be restored into
- * another person's composer; and a handle is renameable and reclaimable,
- * so the key does not durably name its owner.
+ * ## Empty on purpose — unpublished writing is PRESERVED, not deleted
  *
- * ⚠ These are DELETED, and that loses an autosaved draft body that was
- * mid-write when the browser last ran the old code. A draft is worth more
- * than a tour position, so this is the most expensive thing the migration
- * discards — but the alternatives are worse: renaming `…draft.anon` into a
- * scope hands one person's writing to another, and renaming
- * `…draft.<handle>` is only as trustworthy as the handle, which can have
- * changed hands since. The composer's unsaved state is unaffected; this is
- * the 5-second autosave BACKUP, and only a draft abandoned before the
- * upgrade is affected.
+ * `bcc.blog.draft.<handle>` holds an unpublished post body keyed by the
+ * author's handle. It is not dependably owned: the handle fell back to the
+ * literal `anon` whenever the session had not resolved yet, so one value
+ * could be written by several people, and a handle is renameable
+ * (`PATCH /me/handle`, 7-day cooldown) and reclaimable, so `…draft.alice`
+ * may not have been written by today's "alice".
  *
- * The scoped replacement (`bcc.blog.draft::<id>`) does not match this
- * prefix: the separator differs at the 15th character (`::` vs `.`).
+ * An earlier revision therefore DELETED these keys. That was the wrong
+ * trade: the defect being fixed is automatic adoption and display, and
+ * **after viewer scoping nothing in the app reads a legacy draft key at
+ * all** — the composer resolves `bcc.blog.draft::<viewer id>` and nothing
+ * else. Leaving the value in place is therefore ACCESS-NEUTRAL: it stays
+ * exactly where it already was, no reader routes anyone to it, and the
+ * sign-out sweep still clears the prefix, so its lifetime is unchanged.
+ * Deleting it destroyed someone's writing to buy nothing.
+ *
+ * The rules that keep that true:
+ *
+ *   - **no automatic reading, adoption or display.** No code path may read
+ *     a `bcc.blog.draft.` key. The composer's own tests pin that it
+ *     restores only the scoped form.
+ *   - **manual recovery requires establishing ownership.** The value names
+ *     no dependable owner, so returning it to a person is an
+ *     out-of-band act that has to start by establishing who wrote it.
+ *     There is deliberately no UI for it: a "recover a pre-update draft"
+ *     button would show unattributable writing to whoever is signed in,
+ *     which is the cross-account display defect behind one click.
+ *   - ⚠ **this is not protection from inspection.** The value sits in
+ *     plain `localStorage`. Anyone with devtools on that browser profile,
+ *     or any script already running on the origin, can read it — exactly
+ *     as before. Preserving it does not make it private; it only stops the
+ *     app from destroying it. See the ⚠ at the top of this file.
+ *
+ * The scoped replacement (`bcc.blog.draft::<id>`) would not match such a
+ * prefix anyway: the separator differs at the 15th character (`::` vs `.`).
  */
-export const LEGACY_UNSCOPED_PREFIXES: readonly string[] = [
-  "bcc.blog.draft.",
-];
+export const LEGACY_UNSCOPED_PREFIXES: readonly string[] = [];
 
 /**
  * Remove every legacy unscoped value from both stores.

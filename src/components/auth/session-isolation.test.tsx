@@ -844,16 +844,19 @@ describe("what arrival purges", () => {
     expect(window.sessionStorage.getItem("bcc-tour-progress")).toBeNull();
   });
 
-  it("KEEPS the returning viewer's own scoped blog draft, drops the legacy one", async () => {
+  it("KEEPS the returning viewer's own scoped blog draft, and the legacy one too", async () => {
     // The scoped key belongs to one viewer and the composer restores it on
     // mount, so purging it on arrival destroyed an unpublished post
     // belonging to the person who had just signed back in, and bought
     // nothing — another viewer's composer never reads this key.
     //
-    // The LEGACY `bcc.blog.draft.<handle>` form is different and is
-    // deleted: a handle is renameable and reclaimable, and the old key
-    // collapsed to `…draft.anon` whenever the session had not resolved, so
-    // it cannot be attributed to a viewer. See LEGACY_UNSCOPED_PREFIXES.
+    // ⚠ The LEGACY `bcc.blog.draft.<handle>` form is preserved too, as of
+    // 2026-10-06. It cannot be attributed to a viewer — a handle is
+    // renameable and reclaimable, and the old key collapsed to
+    // `…draft.anon` whenever the session had not resolved — so it is never
+    // adopted or displayed. But nothing reads it either, so deleting it
+    // destroyed unpublished writing for no gain. See
+    // LEGACY_UNSCOPED_PREFIXES.
     window.localStorage.setItem("bcc.blog.draft::a", "half-written post");
     window.localStorage.setItem("bcc.blog.draft.a", "legacy body");
     window.localStorage.setItem("bcc-recent-searches", '["x"]');
@@ -862,7 +865,7 @@ describe("what arrival purges", () => {
       expect(window.localStorage.getItem("bcc-recent-searches")).toBeNull();
     });
     expect(window.localStorage.getItem("bcc.blog.draft::a")).toBe("half-written post");
-    expect(window.localStorage.getItem("bcc.blog.draft.a")).toBeNull();
+    expect(window.localStorage.getItem("bcc.blog.draft.a")).toBe("legacy body");
   });
 
   it("KEEPS the push subscription row id, so sign-out can still revoke it", async () => {
