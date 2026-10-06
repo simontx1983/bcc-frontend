@@ -229,11 +229,34 @@ describe("clearCrossViewerStorage (viewer arrival)", () => {
   it("deletes the legacy unscoped values an older version wrote", () => {
     window.localStorage.setItem("bcc-recent-searches", '["acme payroll leak"]');
     window.sessionStorage.setItem("bcc.communities.dismissed", "1");
-    window.localStorage.setItem("bcc.blog.draft.anon", "half a post");
     expect(clearCrossViewerStorage()).toBe("cleared");
     expect(window.localStorage.getItem("bcc-recent-searches")).toBeNull();
     expect(window.sessionStorage.getItem("bcc.communities.dismissed")).toBeNull();
-    expect(window.localStorage.getItem("bcc.blog.draft.anon")).toBeNull();
+  });
+
+  it("PRESERVES a legacy unpublished draft rather than destroying it", () => {
+    // ⚠ Changed deliberately 2026-10-06. The arrival sweep used to delete
+    // `bcc.blog.draft.<handle>` too. Nothing in the app reads that key any
+    // more — the composer resolves `bcc.blog.draft::<viewer id>` and
+    // nothing else — so deleting it destroyed someone's unpublished
+    // writing to buy nothing. Leaving it is access-neutral: it stays where
+    // it already was, no reader routes anyone to it, and sign-out still
+    // clears the prefix, so its lifetime is unchanged.
+    window.localStorage.setItem("bcc.blog.draft.viewer-a", "HALF A POST");
+    window.localStorage.setItem("bcc.blog.draft.anon", "WRITTEN BEFORE THE UPGRADE");
+    expect(clearCrossViewerStorage()).toBe("cleared");
+    expect(window.localStorage.getItem("bcc.blog.draft.viewer-a")).toBe("HALF A POST");
+    expect(window.localStorage.getItem("bcc.blog.draft.anon")).toBe(
+      "WRITTEN BEFORE THE UPGRADE",
+    );
+  });
+
+  it("still clears a legacy draft on DEPARTURE, so its lifetime is unchanged", () => {
+    // Preservation is not an extension: sign-out removes it exactly as it
+    // did before, via VIEWER_SCOPED_STORAGE_PREFIXES.
+    window.localStorage.setItem("bcc.blog.draft.viewer-a", "HALF A POST");
+    expect(clearViewerStorage(LEAVING)).toBe("cleared");
+    expect(window.localStorage.getItem("bcc.blog.draft.viewer-a")).toBeNull();
   });
 
   it("keeps the ARRIVING viewer's own scoped state", () => {

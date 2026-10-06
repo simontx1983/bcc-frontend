@@ -374,13 +374,31 @@ describe("legacy unscoped values are deleted, never adopted", () => {
     // compare against. The purge therefore hangs off the hook's mount, not
     // off a transition.
     window.localStorage.setItem("bcc-recent-searches", '["previous viewer"]');
-    window.localStorage.setItem("bcc.blog.draft.anon", "half a post");
     window.sessionStorage.setItem("bcc.communities.dismissed", "1");
     signedIn("a");
     render(<ScopeReadout />);
     expect(window.localStorage.getItem("bcc-recent-searches")).toBeNull();
-    expect(window.localStorage.getItem("bcc.blog.draft.anon")).toBeNull();
     expect(window.sessionStorage.getItem("bcc.communities.dismissed")).toBeNull();
+  });
+
+  it("PRESERVES an unpublished legacy draft, and never reads it", () => {
+    // ⚠ Changed deliberately 2026-10-06. Unpublished writing is no longer
+    // destroyed by the migration: nothing in the app reads a legacy draft
+    // key, so leaving it is access-neutral. What must stay true is that no
+    // scope — not the arriving viewer's, not the anonymous one — ever
+    // ADOPTS it.
+    window.localStorage.setItem("bcc.blog.draft.viewer-a", "HALF A POST");
+    window.localStorage.setItem("bcc.blog.draft.anon", "WRITTEN BEFORE THE UPGRADE");
+    signedIn("a");
+    render(<ScopeReadout />);
+    expect(window.localStorage.getItem("bcc.blog.draft.viewer-a")).toBe("HALF A POST");
+    expect(window.localStorage.getItem("bcc.blog.draft.anon")).toBe(
+      "WRITTEN BEFORE THE UPGRADE",
+    );
+    // Not copied anywhere under a scope.
+    expect(
+      Object.keys(window.localStorage).filter((k) => k.startsWith("bcc.blog.draft::")),
+    ).toEqual([]);
   });
 
   it("purges for an anonymous visitor too", () => {
