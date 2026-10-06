@@ -310,6 +310,18 @@ export const PENDING_NOTICE_TTL_MS = 120_000;
  * the URL instead.
  */
 export function pendingAuthNotice(): AuthNoticeSlug | null {
+  return livePendingNotice();
+}
+
+/**
+ * The parked slug, or null once its deadline has passed.
+ *
+ * ⚠ EVERY read goes through here. An earlier version of the deadline
+ * checked it in `pendingAuthNotice()` only, which `force-signout` calls —
+ * while `landingUrl` read the raw variable and so composed URLs from an
+ * expired slug. A mutation control survived because of it.
+ */
+function livePendingNotice(): AuthNoticeSlug | null {
   if (pendingNotice === null) {
     return null;
   }
@@ -589,7 +601,7 @@ function landingUrl(
   // more specific reason and was therefore never emitted at all. The
   // caller clears it only after a navigation actually happened, and only
   // if this was the slug that went out.
-  const parked = pendingNotice;
+  const parked = livePendingNotice();
 
   // It outranks only the GENERIC slug. Overriding unconditionally was
   // wrong: if the account is later suspended, `endSession` is called with
