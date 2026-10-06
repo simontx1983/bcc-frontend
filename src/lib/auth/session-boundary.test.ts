@@ -17,6 +17,7 @@ import {
   isEndingSession,
   isPrivateRenderBlocked,
   isStaleEpoch,
+  pendingAuthNotice,
   purgeViewerState,
   failedTeardownResult,
   registerSessionTeardown,
@@ -677,6 +678,65 @@ describe("parked notice precedence", () => {
     registerSessionTeardown(handlers({}));
     await endSession("expired", { notice: "signed-out" });
     expect(signOutTargets).toEqual(["/?authNotice=signed-out"]);
+  });
+});
+
+describe("a parked notice with a deadline", () => {
+  // The password-change flow cannot always tell whether its session write
+  // landed, so it no longer withdraws the notice on a reported success —
+  // it parks it with a deadline instead. These pin the deadline itself,
+  // which the flow's own tests cannot: they mock this module out.
+
+  it("is delivered while it is still valid", async () => {
+    registerSessionTeardown(handlers({}));
+    setPendingAuthNotice("password-changed", 120_000);
+    expect(pendingAuthNotice()).toBe("password-changed");
+    await endSession("expired", { notice: "signed-out" });
+    expect(signOutTargets).toEqual(["/?authNotice=password-changed"]);
+  });
+
+  it("is gone once the deadline passes", () => {
+    vi.useFakeTimers();
+    setPendingAuthNotice("password-changed", 120_000);
+    vi.advanceTimersByTime(119_999);
+    expect(pendingAuthNotice()).toBe("password-changed");
+    vi.advanceTimersByTime(2);
+    expect(pendingAuthNotice()).toBeNull();
+    vi.useRealTimers();
+  });
+
+  it("is not COMPOSED into a URL once expired either", async () => {
+    // ⚠ The deadline has to be honoured by every read. Checking it only in
+    // `pendingAuthNotice()` left `landingUrl` reading the raw slug, so an
+    // expired notice still reached the URL — a mutation control survived
+    // on exactly that, and this is the test that kills it.
+    vi.useFakeTimers();
+    registerSessionTeardown(handlers({}));
+    setPendingAuthNotice("password-changed", 120_000);
+    vi.advanceTimersByTime(120_001);
+    await endSession("expired", { notice: "signed-out" });
+    expect(signOutTargets).toEqual(["/?authNotice=signed-out"]);
+    vi.useRealTimers();
+  });
+
+  it("never expires when parked WITHOUT a deadline", () => {
+    vi.useFakeTimers();
+    setPendingAuthNotice("password-changed");
+    vi.advanceTimersByTime(86_400_000);
+    expect(pendingAuthNotice()).toBe("password-changed");
+    vi.useRealTimers();
+  });
+
+  it("clears the deadline along with the slug", () => {
+    vi.useFakeTimers();
+    setPendingAuthNotice("password-changed", 1_000);
+    setPendingAuthNotice(null);
+    expect(pendingAuthNotice()).toBeNull();
+    // A later indefinite park must not inherit the old deadline.
+    setPendingAuthNotice("standing");
+    vi.advanceTimersByTime(60_000);
+    expect(pendingAuthNotice()).toBe("standing");
+    vi.useRealTimers();
   });
 });
 

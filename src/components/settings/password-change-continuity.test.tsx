@@ -368,7 +368,14 @@ describe("parking the accurate notice", () => {
       "password-changed",
       expect.any(Number),
     );
-    expect(setPendingAuthNotice).not.toHaveBeenCalledWith(null);
+    // ⚠ Not `toHaveBeenCalledWith(null)`: the mock records TWO arguments
+    // (slug, ttlMs), so an exact-arguments matcher never matches a
+    // `setPendingAuthNotice(null)` call and the assertion passed either
+    // way. A mutation control that re-added the withdrawal survived on
+    // precisely that. Check the recorded slugs instead.
+    expect(
+      setPendingAuthNotice.mock.calls.some(([slug]) => slug === null),
+    ).toBe(false);
   });
 });
 
@@ -543,7 +550,14 @@ describe("parking happens on the FACT, not on the recovery attempt", () => {
       ([slug]) => slug === "password-changed",
     );
     expect(parked?.[1]).toBeGreaterThan(0);
-    expect(setPendingAuthNotice).not.toHaveBeenCalledWith(null);
+    // ⚠ Not `toHaveBeenCalledWith(null)`: the mock records TWO arguments
+    // (slug, ttlMs), so an exact-arguments matcher never matches a
+    // `setPendingAuthNotice(null)` call and the assertion passed either
+    // way. A mutation control that re-added the withdrawal survived on
+    // precisely that. Check the recorded slugs instead.
+    expect(
+      setPendingAuthNotice.mock.calls.some(([slug]) => slug === null),
+    ).toBe(false);
   });
 });
 
