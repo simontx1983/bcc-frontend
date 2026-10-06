@@ -17,12 +17,17 @@
  */
 
 import {
+  endSession,
+  PENDING_NOTICE_TTL_MS,
+  setPendingAuthNotice,
+} from "@/lib/auth/session-boundary";
+import { updateSessionBearer } from "@/lib/auth/session-update";
+import {
   keepPreviousData,
   useMutation,
   useQuery,
   type UseMutationOptions,
 } from "@tanstack/react-query";
-import { signOut } from "next-auth/react";
 
 import {
   deleteAccount,
@@ -57,14 +62,92 @@ export function useChangeAccountEmail(
   });
 }
 
+/**
+ * Outcome of a password change. TWO independent facts, deliberately not
+ * collapsed into one:
+ *
+ *   passwordChanged  — the server accepted it. Once true it is permanent;
+ *                      the old password no longer works, whatever else
+ *                      happens afterwards.
+ *   sessionRestored  — the replacement bearer landed in the NextAuth
+ *                      session, so the viewer stays signed in.
+ *
+ * Reporting the second as if it implied the first (or vice versa) is the
+ * defect being fixed: the UI used to say "Saved" and then start 401-ing.
+ */
+export interface ChangePasswordOutcome {
+  passwordChanged: true;
+  sessionRestored: boolean;
+}
+
 export function useChangeAccountPassword(
   options: Omit<
-    UseMutationOptions<PatchAccountPasswordResponse, BccApiError | Error, PatchAccountPasswordBody>,
+    UseMutationOptions<ChangePasswordOutcome, BccApiError | Error, PatchAccountPasswordBody>,
     "mutationFn"
   > = {},
 ) {
-  return useMutation<PatchAccountPasswordResponse, BccApiError | Error, PatchAccountPasswordBody>({
-    mutationFn: (body) => patchAccountPassword(body),
+  return useMutation<ChangePasswordOutcome, BccApiError | Error, PatchAccountPasswordBody>({
+    mutationFn: async (body) => {
+      const res: PatchAccountPasswordResponse = await patchAccountPassword(body);
+
+      // Past this line the password HAS changed. A failure from here on
+      // must never be surfaced as "the change failed", because retrying
+      // with the old current_password would now be rejected and the
+      // viewer would conclude something worse had gone wrong.
+
+      // Park the explanation HERE, on the fact, not in onSuccess after the
+      // session write. Every outstanding bearer is revoked as of the line
+      // above, so from this instant any authed request carries a dead
+      // token — and the badges query polls on a timer and refetches on
+      // window focus. Its 401 refreshes a revoked token, gets "rejected",
+      // and ends the session with the GENERIC slug. Parking after the
+      // three session-write round trips left that whole window able to
+      // announce a definitely-changed password as "your session ended".
+      // Idempotent.
+      //
+      // Parked WITH A DEADLINE, which is what makes the withdrawal below
+      // safe to narrow. The confirm cannot always tell whether its write
+      // landed, so "restored" can be wrong — and withdrawing on a wrong
+      // "restored" meant the teardown seconds later said "your session
+      // ended", after which a viewer may try their OLD password and
+      // conclude the change failed. The notice now outlives an ambiguous
+      // outcome for `PENDING_NOTICE_TTL_MS`, long enough to label the
+      // teardown a dead bearer causes (next authed read; badges poll
+      // 30–60s while visible) and short enough that an unrelated sign-out
+      // later is not blamed on the password change.
+      setPendingAuthNotice("password-changed", PENDING_NOTICE_TTL_MS);
+
+      const sessionRestored = await updateSessionBearer({
+        token: res.token,
+        expiresIn: res.expires_in,
+      });
+
+      // NOT withdrawn on success any more, and that is the fix.
+      //
+      // `sessionRestored === true` includes the case where a DIFFERENT
+      // bearer was found and only the echo licensed accepting it — which
+      // is precisely the outcome that can be wrong (session-update's
+      // residual A). Withdrawing there threw away the explanation seconds
+      // before the dead bearer tore the session down, leaving the viewer
+      // with a generic "your session ended" after changing their password,
+      // and no reason to believe the change had worked.
+      //
+      // The deadline above retires the notice instead. Nothing here has to
+      // guess whether the write landed, and the accepted cost is narrow: a
+      // deliberate sign-out within PENDING_NOTICE_TTL_MS of a password
+      // change carries "use your new password", which is true and
+      // actionable even though a plain sign-out notice would have done.
+      // A more specific reason — a suspension, say — still wins outright;
+      // `landingUrl` lets a parked slug outrank only the generic slug.
+
+      return { passwordChanged: true, sessionRestored };
+    },
+    // `mutate()` stores its `variables` on the Mutation in the
+    // MutationCache, so BOTH plaintext passwords stay reachable from
+    // `queryClient.getMutationCache()` for as long as an observer is
+    // subscribed — on the success path, the whole time the settings page
+    // is mounted. gcTime 0 lets them go as soon as nothing is observing.
+    gcTime: 0,
     ...options,
   });
 }
@@ -114,7 +197,10 @@ export function useLogoutEverywhere() {
   return useMutation<LogoutEverywhereResponse, BccApiError | Error, void>({
     mutationFn: () => logoutEverywhere(),
     onSuccess: () => {
-      void signOut({ callbackUrl: "/" });
+      // Through the boundary: "sign out everywhere" is exactly the case
+      // where leaving this device's cached private data behind would be
+      // worst, and the bearer is already dead server-side.
+      void endSession("user");
     },
   });
 }

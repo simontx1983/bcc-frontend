@@ -33,6 +33,7 @@ import {
   type RegisterPushSubscriptionResponse,
 } from "@/lib/api/push-endpoints";
 import { patchNotificationPrefs } from "@/lib/api/notification-prefs-endpoints";
+import { rememberPushSubscriptionId } from "@/lib/push/revoke";
 import {
   getCurrentBrowserSubscription,
   isPushSupported,
@@ -97,8 +98,15 @@ export function usePushSubscription(): UsePushSubscriptionResult {
       const payload = subscriptionToPayload(sub, userAgent);
       return registerPushSubscription(payload);
     },
-    onSuccess: () => {
+    onSuccess: (registered) => {
       setBrowserSubscribed(true);
+      // Park the server row id so the session boundary can DELETE it on
+      // sign-out. That call is authenticated and ownership-checked, so it
+      // can only run while the session is still alive — and it needs the
+      // id, which is returned here and nowhere else. Without this, push
+      // cleanup degrades to a browser-side unsubscribe and the row
+      // survives until the push service 410s it.
+      rememberPushSubscriptionId(registered.id);
       // Optimistic local update — server flipped push_master = true as
       // a side effect. Avoid invalidate-then-refetch because the prefs
       // form re-seeds its draft on every query.data change, which would

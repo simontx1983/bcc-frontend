@@ -7,6 +7,8 @@ import { SessionProvider } from "next-auth/react";
 import dynamic from "next/dynamic";
 import { useState, type ReactNode } from "react";
 
+import { PrivateRenderGate } from "@/components/auth/PrivateRenderGate";
+import { SessionBoundaryBridge } from "@/components/auth/SessionBoundaryBridge";
 import { FingerprintReporter } from "@/components/system/FingerprintReporter";
 import { BadgesProvider } from "@/hooks/useBadges";
 
@@ -31,6 +33,13 @@ const EligibleCommunitiesModal = dynamic(
  *   would cause data leaks across requests).
  * - SessionProvider exposes useSession() everywhere; reads NEXT_AUTH
  *   cookies to know who's logged in.
+ * - SessionBoundaryBridge hands the QueryClient, browser storage and
+ *   signOut to `lib/auth/session-boundary`, which is what lets the API
+ *   client tear down a session without importing this file.
+ * - PrivateRenderGate unmounts the whole app subtree while a teardown is
+ *   in progress. Clearing the query cache does NOT reset mounted
+ *   observers, so unmounting is what actually hides the departing
+ *   viewer's data.
  *
  * Default React Query config:
  *   - staleTime: 30s — view-models from the BCC API are cheap to
@@ -71,12 +80,23 @@ export function Providers({
   return (
     <SessionProvider session={session}>
       <QueryClientProvider client={queryClient}>
-        <BadgesProvider>
-          {children}
-          <FingerprintReporter />
-          <EligibleCommunitiesModal />
-          <ReactQueryDevtools initialIsOpen={false} />
-        </BadgesProvider>
+        {/* Must sit INSIDE both providers: it needs the QueryClient and
+            the session. Registers the session-boundary teardown so the
+            low-level API client can end a session without importing this
+            module. */}
+        <SessionBoundaryBridge />
+        {/* Everything private sits INSIDE the gate. When a teardown starts
+            the gate swaps this subtree for a neutral placeholder, which
+            unmounts every observer — the only thing that reliably stops
+            the previous viewer's data being rendered. */}
+        <PrivateRenderGate>
+          <BadgesProvider>
+            {children}
+            <FingerprintReporter />
+            <EligibleCommunitiesModal />
+            <ReactQueryDevtools initialIsOpen={false} />
+          </BadgesProvider>
+        </PrivateRenderGate>
       </QueryClientProvider>
     </SessionProvider>
   );

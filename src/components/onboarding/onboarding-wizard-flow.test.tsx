@@ -26,6 +26,12 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ replace: replaceSpy, push: vi.fn(), refresh: vi.fn() }),
 }));
 
+// Step progress is viewer-scoped, so the wizard needs a session. This suite is
+// about the step machine, not about who is signed in.
+vi.mock("next-auth/react", () => ({
+  useSession: () => ({ data: { user: { id: "4242" } }, status: "authenticated" }),
+}));
+
 // ── Mutation spies. The "navigating writes nothing" assertions read THESE,
 //    not the absence of a button — a control can be removed while the write
 //    survives somewhere else.
