@@ -79,12 +79,13 @@ export function getTagFeed(
 export function getFeedItemById(
   id: string,
   token: string | null,
-  signal?: AbortSignal
+  opts?: { signal?: AbortSignal; revalidate?: number }
 ): Promise<FeedItem> {
   return bccFetch<FeedItem>(`feed/${encodeURIComponent(id)}`, {
     method: "GET",
     token,
-    ...(signal !== undefined ? { signal } : {}),
+    ...(opts?.signal !== undefined ? { signal: opts.signal } : {}),
+    ...(opts?.revalidate !== undefined ? { revalidate: opts.revalidate } : {}),
   });
 }
 
