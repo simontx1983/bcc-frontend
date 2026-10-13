@@ -39,11 +39,27 @@
  * and both go in one transition: refresh fetches, reset clears the error
  * so the fresh tree can mount. A Retry that cannot re-attempt is the
  * same lie as a Retry on a 403 — see `LoadFailure`'s docblock.
+ *
+ * ## Why re-entry is latched rather than the button disabled
+ *
+ * `useTransition`'s `isPending` marks the refresh in flight, but it does
+ * not prevent a second press on its own: measured against a recording API
+ * stub, three rapid presses of Retry produced FOUR upstream reads where
+ * one press produces two. `isPending` only reads true once the transition
+ * has been committed, so presses inside that window are still accepted —
+ * the same propagation window `PagerNav` latches around. A ref, read and
+ * written inside the one event, has no window.
+ *
+ * Disabling the button would fix that and introduce a worse bug — the
+ * browser blurs a disabled element, so disabling the control the viewer
+ * just pressed drops focus to `<body>`. That is the same defect
+ * `PagerNav`'s chips had. So the button stays focusable and the handler
+ * is inert while a refresh is already running.
  */
 
 import * as Sentry from "@sentry/nextjs";
 import { useRouter } from "next/navigation";
-import { startTransition, useCallback, useEffect } from "react";
+import { useCallback, useEffect, useRef, useTransition } from "react";
 
 import { ProfileUnavailable } from "@/components/errors/ProfileUnavailable";
 
@@ -55,6 +71,15 @@ export default function ProfileError({
   reset: () => void;
 }) {
   const router = useRouter();
+  const [isRetrying, startRetry] = useTransition();
+
+  // One attempt per failure. Cleared when a NEW error arrives, which is
+  // what makes a second attempt possible after a retry that also failed —
+  // the clear is load-bearing, not hygiene.
+  const attempted = useRef(false);
+  useEffect(() => {
+    attempted.current = false;
+  }, [error]);
 
   useEffect(() => {
     // Same reporting posture as app/global-error.tsx — the detail goes to
@@ -63,11 +88,15 @@ export default function ProfileError({
   }, [error]);
 
   const retry = useCallback(() => {
-    startTransition(() => {
+    if (attempted.current) return;
+    attempted.current = true;
+    startRetry(() => {
       router.refresh();
       reset();
     });
-  }, [router, reset]);
+  }, [startRetry, router, reset]);
 
-  return <ProfileUnavailable reason="temporary" onRetry={retry} />;
+  return (
+    <ProfileUnavailable reason="temporary" onRetry={retry} isBusy={isRetrying} />
+  );
 }

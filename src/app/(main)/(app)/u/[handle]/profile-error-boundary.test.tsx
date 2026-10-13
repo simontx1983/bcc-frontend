@@ -80,6 +80,49 @@ describe("the boundary's Retry", () => {
     const nav = ui.getByRole("navigation", { name: /where to go instead/i });
     expect(within(nav).getAllByRole("link").length).toBeGreaterThan(0);
   });
+
+  it("does not re-attempt while a retry is already running", () => {
+    // Measured against a recording API stub: three rapid presses produced
+    // FOUR upstream reads where one press produces two. `isPending` marks
+    // the transition but does not block a second press by itself.
+    const { ui, reset } = renderBoundary();
+    const btn = ui.getByRole("button", { name: /retry/i });
+
+    btn.click();
+    btn.click();
+    btn.click();
+
+    expect(refresh).toHaveBeenCalledTimes(1);
+    expect(reset).toHaveBeenCalledTimes(1);
+  });
+
+  it("allows a fresh attempt once a NEW failure arrives", () => {
+    // The clear is load-bearing: a retry that also fails must be
+    // retryable. Without it, one press per mount and then nothing.
+    const reset = vi.fn();
+    const first = Object.assign(new Error("first"), { digest: "d1" });
+    const view = render(<ProfileError error={first} reset={reset} />);
+
+    view.container.querySelector("button")?.click();
+    expect(refresh).toHaveBeenCalledTimes(1);
+
+    const second = Object.assign(new Error("second"), { digest: "d2" });
+    view.rerender(<ProfileError error={second} reset={reset} />);
+    view.container.querySelector("button")?.click();
+
+    expect(refresh).toHaveBeenCalledTimes(2);
+  });
+
+  it("keeps the retry control focusable rather than disabling it", () => {
+    // Disabling the control the viewer just pressed would drop focus to
+    // <body> — the same defect PagerNav's chips had.
+    const { ui } = renderBoundary();
+    const btn = ui.getByRole("button", { name: /retry/i });
+    btn.focus();
+    btn.click();
+    expect(btn).not.toBeDisabled();
+    expect(document.activeElement).toBe(btn);
+  });
 });
 
 describe("the boundary's reporting and copy", () => {

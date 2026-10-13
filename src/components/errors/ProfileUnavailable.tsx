@@ -71,6 +71,7 @@ const COPY: Record<ProfileUnavailableReason, string> = {
 export function ProfileUnavailable({
   reason,
   onRetry,
+  isBusy = false,
 }: {
   reason: ProfileUnavailableReason;
   /**
@@ -78,11 +79,21 @@ export function ProfileUnavailable({
    * is ignored on purpose — see the docblock.
    */
   onRetry?: (() => void) | undefined;
+  /**
+   * A retry already in flight. Reported through `aria-busy` on the
+   * wrapper rather than by disabling the control: the browser blurs a
+   * disabled element, so disabling the button the viewer just pressed
+   * would drop focus to `<body>`. The caller keeps the control inert.
+   */
+  isBusy?: boolean;
 }) {
   const canRetry = reason === "temporary" && onRetry !== undefined;
 
   return (
-    <section className="mx-auto max-w-xl px-4 py-10 text-center">
+    <section
+      className="mx-auto max-w-xl px-4 py-10 text-center"
+      aria-busy={isBusy || undefined}
+    >
       <LoadFailure
         message={COPY[reason]}
         {...(canRetry ? { onRetry } : {})}
