@@ -40,6 +40,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { useCompleteOnboarding } from "@/hooks/useCompleteOnboarding";
 import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
+import { useViewerScope } from "@/hooks/useViewerScope";
 import { humanizeCode } from "@/lib/api/errors";
 import { clearOnboardingProgress } from "@/lib/onboarding/storage";
 import type {
@@ -70,6 +71,7 @@ export function DopamineStep({
   const router = useRouter();
   const { mutateAsync: completeAsync } = useCompleteOnboarding();
   const reducedMotion = usePrefersReducedMotion();
+  const scope = useViewerScope();
   const [save, setSave] = useState<SaveState>({ status: "saving" });
   const [holdElapsed, setHoldElapsed] = useState(false);
 
@@ -90,7 +92,13 @@ export function DopamineStep({
         // Only NOW is the resume point safe to drop. Clearing it on entry
         // to this screen (as the wizard used to) meant a failed /complete
         // left the visitor un-onboarded AND unable to resume.
-        clearOnboardingProgress();
+        //
+        // This is a DEFERRED callback, so the scope may have gone
+        // unavailable between submit and response (a session blip). The
+        // clear is dropped then — we cannot name the key — so the effect
+        // below retries it once identity is known, or the viewer would be
+        // offered "finish setting up?" after finishing.
+        clearOnboardingProgress(scope);
         setSave({ status: "saved", data });
       })
       .catch((err: unknown) => {
@@ -113,7 +121,15 @@ export function DopamineStep({
       .finally(() => {
         inFlightRef.current = false;
       });
-  }, [completeAsync, homeChain]);
+  }, [completeAsync, homeChain, scope]);
+
+  // The deferred clear above can arrive while identity is unavailable, in
+  // which case nothing was removed. Idempotent, and keyed on the scope, so
+  // it lands as soon as the viewer is known again.
+  useEffect(() => {
+    if (save.status !== "saved" || scope === null) return;
+    clearOnboardingProgress(scope);
+  }, [save.status, scope]);
 
   /**
    * The escape hatch. Guarded so a double-tap cannot issue two navigations
