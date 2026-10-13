@@ -22,6 +22,7 @@ import { QueuedMessagesList } from "@/components/messages/QueuedMessagesList";
 import { useConversations } from "@/hooks/useConversations";
 import { useQueuedMessages } from "@/hooks/useQueuedMessages";
 import { LoadFailure } from "@/components/ui/LoadFailure";
+import { PagerNav } from "@/components/ui/PagerNav";
 import { humanizeCode, isPermissionDenial } from "@/lib/api/errors";
 
 const PER_PAGE = 20;
@@ -192,10 +193,10 @@ function MessagesPageContent() {
                 </div>
 
                 {lastInboxPages !== undefined && (
-                  <Pagination
+                  <PagerNav
                     page={urlPage}
                     totalPages={lastInboxPages}
-                    onPage={goToPage}
+                    onPageChange={goToPage}
                   />
                 )}
               </>
@@ -206,10 +207,11 @@ function MessagesPageContent() {
             {query.isSuccess && query.data.items.length > 0 && (
               <>
                 <ConversationList items={query.data.items} />
-                <Pagination
+                <PagerNav
                   page={query.data.pagination.page}
                   totalPages={query.data.pagination.total_pages}
-                  onPage={goToPage}
+                  onPageChange={goToPage}
+                  isBusy={query.isFetching}
                 />
               </>
             )}
@@ -235,10 +237,10 @@ function MessagesPageContent() {
                 </div>
 
                 {lastQueuedPages !== undefined && (
-                  <Pagination
+                  <PagerNav
                     page={urlPage}
                     totalPages={lastQueuedPages}
-                    onPage={goToPage}
+                    onPageChange={goToPage}
                   />
                 )}
               </>
@@ -253,10 +255,11 @@ function MessagesPageContent() {
                   yet. Each is delivered to the operator the moment they claim the page.
                 </p>
                 <QueuedMessagesList items={queuedQuery.data.items} />
-                <Pagination
+                <PagerNav
                   page={queuedQuery.data.pagination.page}
                   totalPages={queuedQuery.data.pagination.total_pages}
-                  onPage={goToPage}
+                  onPageChange={goToPage}
+                  isBusy={queuedQuery.isFetching}
                 />
               </>
             )}
@@ -361,42 +364,5 @@ function InboxEmpty() {
   );
 }
 
-function Pagination({
-  page,
-  totalPages,
-  onPage,
-}: {
-  page: number;
-  totalPages: number;
-  onPage: (next: number) => void;
-}) {
-  if (totalPages <= 1) return null;
-  return (
-    <nav
-      className="bcc-mono mt-8 flex items-center justify-between gap-3 text-[11px] tracking-[0.16em] text-bcc-text-secondary"
-      aria-label="Pagination"
-    >
-      <button
-        type="button"
-        onClick={() => onPage(Math.max(1, page - 1))}
-        disabled={page <= 1}
-        className="border-2 border-bcc-border px-3 py-1 transition hover:border-bcc-border-strong hover:text-bcc-text disabled:opacity-40"
-      >
-        ← PREV
-      </button>
-      <span>
-        PAGE {page} / {totalPages}
-      </span>
-      <button
-        type="button"
-        onClick={() => onPage(Math.min(totalPages, page + 1))}
-        disabled={page >= totalPages}
-        className="border-2 border-bcc-border px-3 py-1 transition hover:border-bcc-border-strong hover:text-bcc-text disabled:opacity-40"
-      >
-        NEXT →
-      </button>
-    </nav>
-  );
-}
 
 export default function MessagesPage() { return <Suspense><MessagesPageContent /></Suspense>; }
