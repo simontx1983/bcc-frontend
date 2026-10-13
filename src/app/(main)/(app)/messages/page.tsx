@@ -132,6 +132,14 @@ function MessagesPageContent() {
         : "Couldn't load your queued messages. Try again in a moment.",
     ) + laterPageHint(queuedQuery.error);
 
+  // One page count per tab: the live response when there is one, the last
+  // good one otherwise. Feeding a single pager from this is what lets that
+  // pager live outside the state branches and so keep its identity — and
+  // the viewer's focus — across a page change.
+  const inboxTotalPages = query.data?.pagination.total_pages ?? lastInboxPages;
+  const queuedTotalPages =
+    queuedQuery.data?.pagination.total_pages ?? lastQueuedPages;
+
   // Pagination is per-tab; switching tabs resets to page 1.
   const goToPage = (next: number) => {
     const params = new URLSearchParams();
@@ -192,28 +200,35 @@ function MessagesPageContent() {
                   />
                 </div>
 
-                {lastInboxPages !== undefined && (
-                  <PagerNav
-                    page={urlPage}
-                    totalPages={lastInboxPages}
-                    onPageChange={goToPage}
-                  />
-                )}
               </>
             )}
 
             {query.isSuccess && query.data.items.length === 0 && <InboxEmpty />}
 
             {query.isSuccess && query.data.items.length > 0 && (
-              <>
-                <ConversationList items={query.data.items} />
-                <PagerNav
-                  page={query.data.pagination.page}
-                  totalPages={query.data.pagination.total_pages}
-                  onPageChange={goToPage}
-                  isBusy={query.isFetching}
-                />
-              </>
+              <ConversationList items={query.data.items} />
+            )}
+
+            {/* ONE pager, rendered OUTSIDE every state branch.
+                Previously there were two — one inside the error branch and
+                one inside the success branch — so a page change flipped
+                which branch was live and React unmounted the chip the
+                viewer had just activated, mounting a different instance in
+                the other branch. A remounted element cannot hold focus, so
+                the keyboard user lost their place even though the chips
+                themselves were never disabled. Measured: focus landed on
+                `<body>` here while /watching, which renders its pager
+                outside its branches, kept it.
+
+                `page` reads from the URL rather than the response so the
+                chip's identity does not depend on which state is showing. */}
+            {inboxTotalPages !== undefined && (
+              <PagerNav
+                page={urlPage}
+                totalPages={inboxTotalPages}
+                onPageChange={goToPage}
+                isBusy={query.isFetching}
+              />
             )}
           </div>
         )}
@@ -236,13 +251,6 @@ function MessagesPageContent() {
                   />
                 </div>
 
-                {lastQueuedPages !== undefined && (
-                  <PagerNav
-                    page={urlPage}
-                    totalPages={lastQueuedPages}
-                    onPageChange={goToPage}
-                  />
-                )}
               </>
             )}
 
@@ -255,13 +263,17 @@ function MessagesPageContent() {
                   yet. Each is delivered to the operator the moment they claim the page.
                 </p>
                 <QueuedMessagesList items={queuedQuery.data.items} />
-                <PagerNav
-                  page={queuedQuery.data.pagination.page}
-                  totalPages={queuedQuery.data.pagination.total_pages}
-                  onPageChange={goToPage}
-                  isBusy={queuedQuery.isFetching}
-                />
               </>
+            )}
+
+            {/* One pager, outside the branches — see the inbox tab. */}
+            {queuedTotalPages !== undefined && (
+              <PagerNav
+                page={urlPage}
+                totalPages={queuedTotalPages}
+                onPageChange={goToPage}
+                isBusy={queuedQuery.isFetching}
+              />
             )}
           </div>
         )}

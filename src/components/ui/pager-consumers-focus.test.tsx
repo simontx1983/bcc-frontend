@@ -30,6 +30,8 @@ const fetchNextPage = vi.fn();
 const state = vi.hoisted(() => ({
   watching: null as unknown,
   list: null as unknown,
+  inbox: null as unknown,
+  page: 1,
 }));
 
 vi.mock("@/hooks/useWatching", () => ({
@@ -44,9 +46,36 @@ vi.mock("@/hooks/useNotifications", () => ({
   useMarkReadMutation: () => ({ mutate: vi.fn(), isPending: false }),
 }));
 
+const replace = vi.fn();
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ push: vi.fn() }),
+  useRouter: () => ({ push: vi.fn(), replace }),
+  useSearchParams: () =>
+    new URLSearchParams(state.page > 1 ? "page=" + state.page : ""),
 }));
+
+vi.mock("next-auth/react", () => ({
+  useSession: () => ({ status: "authenticated", data: { user: { id: 1 } } }),
+}));
+
+vi.mock("@/hooks/useConversations", () => ({
+  useConversations: () => state.inbox,
+  CONVERSATIONS_QUERY_KEY_ROOT: ["conversations"],
+}));
+vi.mock("@/hooks/useQueuedMessages", () => ({
+  useQueuedMessages: () => ({
+    isPending: true, isError: false, isSuccess: false, isFetching: false,
+    error: null, data: undefined, refetch: vi.fn(),
+  }),
+}));
+vi.mock("@/components/messages/ConversationList", () => ({
+  ConversationList: ({ items }: { items: unknown[] }) => (
+    <div data-testid="inbox-rows">{items.length} rows</div>
+  ),
+}));
+vi.mock("@/components/messages/QueuedMessagesList", () => ({
+  QueuedMessagesList: () => null,
+}));
+vi.mock("@/components/layout/RouteRail", () => ({ RouteRail: () => null }));
 
 vi.mock("@/components/cards/CardGrid", () => ({
   CardGrid: ({ cards }: { cards: unknown[] }) => <div>{cards.length} cards</div>,
@@ -56,6 +85,7 @@ vi.mock("@/components/watching/WatchingHeader", () => ({
   WatchingHeader: () => null,
 }));
 
+import MessagesPage from "@/app/(main)/(app)/messages/page";
 import { NotificationsPanel } from "@/components/notifications/NotificationsPanel";
 import { WatchingCardsPanel } from "@/components/watching/WatchingCardsPanel";
 
@@ -90,6 +120,8 @@ const note = (id: number) => ({
 beforeEach(() => {
   onPageChange.mockClear();
   fetchNextPage.mockClear();
+  replace.mockClear();
+  state.page = 1;
 
   state.watching = {
     isPending: false,
@@ -166,6 +198,91 @@ describe("the watchlist Cards tab", () => {
   // `watching-cards-pagination-failure.test.tsx`, on the branch that keeps
   // the pager mounted through a failure. This branch does not carry that
   // change, so asserting it here would be testing someone else's fix.
+});
+
+describe("the inbox renders ONE pager, outside its state branches", () => {
+  // A consumer can undo the primitive's fix without touching it. /messages
+  // rendered a pager inside its error branch AND another inside its success
+  // branch, so a page change flipped which branch was live, React unmounted
+  // the chip the viewer had just activated and mounted a different instance
+  // elsewhere. A remounted element cannot hold focus — measured as focus
+  // landing on `<body>` here while /watching, whose pager sits outside its
+  // branches, kept it.
+  it("keeps one pager across a success -> error transition", () => {
+    const okInbox = {
+      isPending: false,
+      isError: false,
+      isSuccess: true,
+      isFetching: false,
+      error: null,
+      refetch: vi.fn(),
+      data: {
+        items: [{ id: 1, peer: { id: 1, handle: "m1" } }],
+        pagination: { page: 1, per_page: 20, total: 40, total_pages: 4 },
+      },
+    };
+    state.inbox = okInbox;
+    state.page = 1;
+
+    const view = render(<MessagesPage />);
+    expect(screen.getAllByRole("navigation", { name: /pagination/i })).toHaveLength(1);
+
+    state.inbox = {
+      isPending: false,
+      isError: true,
+      isSuccess: false,
+      isFetching: false,
+      error: null,
+      refetch: vi.fn(),
+      data: undefined,
+    };
+    state.page = 2;
+    view.rerender(<MessagesPage />);
+
+    // Still exactly one — not one per branch, and not zero.
+    expect(screen.getAllByRole("navigation", { name: /pagination/i })).toHaveLength(1);
+  });
+
+  it("keeps focus on NEXT across a page change", () => {
+    state.inbox = {
+      isPending: false,
+      isError: false,
+      isSuccess: true,
+      isFetching: false,
+      error: null,
+      refetch: vi.fn(),
+      data: {
+        items: [{ id: 1, peer: { id: 1, handle: "m1" } }],
+        pagination: { page: 1, per_page: 20, total: 40, total_pages: 4 },
+      },
+    };
+    state.page = 1;
+
+    const view = render(<MessagesPage />);
+    const nav = screen.getByRole("navigation", { name: /pagination/i });
+    const btn = within(nav).getByRole("button", { name: /NEXT/i });
+    btn.focus();
+    fireEvent.click(btn);
+
+    // The response lands and the page advances.
+    state.inbox = {
+      isPending: false,
+      isError: false,
+      isSuccess: true,
+      isFetching: false,
+      error: null,
+      refetch: vi.fn(),
+      data: {
+        items: [{ id: 2, peer: { id: 2, handle: "m2" } }],
+        pagination: { page: 2, per_page: 20, total: 40, total_pages: 4 },
+      },
+    };
+    state.page = 2;
+    view.rerender(<MessagesPage />);
+
+    expect(document.activeElement).toBe(btn);
+    expect(btn).not.toBeDisabled();
+  });
 });
 
 describe("the notifications LOAD MORE", () => {
