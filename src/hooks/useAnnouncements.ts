@@ -40,6 +40,8 @@ import {
 } from "@/lib/api/announcement-endpoints";
 // BccApiError is referenced only in generic positions here, so it comes
 // in as a type — the runtime class is never constructed in this module.
+import { useViewerScope } from "@/hooks/useViewerScope";
+import type { ViewerScope } from "@/lib/auth/viewer-scope";
 import type { BccApiError } from "@/lib/api/types";
 import type {
   AnnouncementCommentsResponse,
@@ -53,27 +55,97 @@ import type {
 const PAGE_SIZE = 20;
 const COMMENT_PAGE_SIZE = 20;
 
-/** Prefix key for everything scoped to one validator page. */
+/**
+ * ## Which announcement caches are viewer-scoped, and which are not
+ *
+ * The gate/cancel/clear chain in `lib/auth/session-boundary` is still the
+ * primary protection and is unchanged: `PrivateRenderGate` unmounts the
+ * private subtree first, and only then does the bridge `cancelQueries()`
+ * and `clear()`. Scoped keys **supplement** that; they do not replace it.
+ * What they add is a second, structural guarantee that does not depend on
+ * teardown ordering — two viewers simply never address the same entry.
+ *
+ * VIEWER-DEPENDENT, therefore scoped:
+ *
+ *   - the **list**, because `Announcement.capabilities` is optional and
+ *     "attached for a viewer who may manage, absent for public readers";
+ *   - the **detail**, because it carries `status` — and `draft`,
+ *     `scheduled` and `blocked` are owner-visible only — plus a required
+ *     capability block; and
+ *   - the **comments page**, because `can_comment` is resolved per viewer
+ *     from authentication, standing, fraud state and the rest.
+ *
+ * VIEWER-INDEPENDENT, therefore deliberately left public:
+ *
+ *   - the **rotator**. §4.32.11 supplies capabilities "only by
+ *     announcement-scoped responses: the detail view-model, the comments
+ *     page, and rows in an owner-scoped list" — the rotator is none of
+ *     those — and §4.32.1 means every row it can return is already
+ *     published, due and public. It is byte-identical for every viewer,
+ *     so scoping it would only fragment a cache that is safe to share and
+ *     would delay the public billboard behind session resolution.
+ *
+ * ⚠ If the server ever attaches a capability block to rotator rows, that
+ * decision moves the rotator into the scoped set. The reason it is public
+ * is a contract property, not a convenience.
+ *
+ * ## The scope value
+ *
+ * `useViewerScope()` — the viewer's id, `ANON_SCOPE` for a resolved
+ * signed-out visitor, or `null` when identity is UNAVAILABLE. A `null`
+ * scope never reads or writes: it must not fall back to the anonymous
+ * namespace (the measured cross-account display defect the released stack
+ * exists to close) and it must not issue an owner-bearing query.
+ */
+
+/**
+ * Prefix key for everything under one validator page, across ALL scopes.
+ *
+ * Invalidation target, never a read key. Being scope-blind is the point:
+ * a mutation should mark every viewer's view of this page stale, not only
+ * the acting viewer's.
+ */
 export function announcementsQueryKey(pageId: number): QueryKey {
   return ["announcements", pageId];
 }
 
-/** Exact list key — `state` is a cache dimension, so Active and Archived never collide. */
+/**
+ * Exact list key. `state` is a cache dimension so Active and Archived
+ * never collide, and `scope` is one so two viewers never collide.
+ */
 export function announcementsListQueryKey(
   pageId: number,
   state: AnnouncementListState,
+  scope: ViewerScope,
 ): QueryKey {
-  return ["announcements", pageId, "list", state];
+  return ["announcements", pageId, "list", state, scope];
 }
 
-export function announcementDetailQueryKey(announcementId: string): QueryKey {
+/** Scope-blind prefix for one announcement — invalidation only. */
+export function announcementDetailKeyRoot(announcementId: string): QueryKey {
   return ["announcement", announcementId];
 }
 
-export function announcementCommentsQueryKey(announcementId: string): QueryKey {
+export function announcementDetailQueryKey(
+  announcementId: string,
+  scope: ViewerScope,
+): QueryKey {
+  return ["announcement", announcementId, scope];
+}
+
+/** Scope-blind prefix for one discussion — invalidation only. */
+export function announcementCommentsKeyRoot(announcementId: string): QueryKey {
   return ["announcement-comments", announcementId];
 }
 
+export function announcementCommentsQueryKey(
+  announcementId: string,
+  scope: ViewerScope,
+): QueryKey {
+  return ["announcement-comments", announcementId, scope];
+}
+
+/** Public — see the note above on why the rotator is NOT scoped. */
 export function announcementRotatorQueryKey(pageId: number): QueryKey {
   return ["announcements", pageId, "rotator"];
 }
@@ -118,6 +190,8 @@ export function useAnnouncements(
 ) {
   const state = options.state ?? "active";
   const enabled = options.enabled ?? true;
+  // Viewer-dependent: list rows may carry a capability block.
+  const scope = useViewerScope();
 
   return useInfiniteQuery<
     AnnouncementListResponse,
@@ -126,8 +200,12 @@ export function useAnnouncements(
     QueryKey,
     string | null
   >({
-    queryKey: announcementsListQueryKey(pageId, state),
-    enabled: enabled && pageId > 0,
+    queryKey: announcementsListQueryKey(pageId, state, scope),
+    // `scope === null` is identity UNAVAILABLE. Nothing is requested and
+    // nothing is read: falling back to the anonymous namespace is the
+    // defect the released stack closed, and issuing a capability-bearing
+    // read before we know whose it is is the one this closes.
+    enabled: enabled && pageId > 0 && scope !== null,
     initialPageParam: null,
     queryFn: ({ pageParam }) =>
       listAnnouncements({
@@ -149,9 +227,13 @@ export function useAnnouncement(
   options: { enabled?: boolean } = {},
 ) {
   const enabled = options.enabled ?? true;
+  // Viewer-dependent: `status` exposes owner-only states (draft,
+  // scheduled, blocked) and the capability block is required here.
+  const scope = useViewerScope();
   return useQuery<AnnouncementDetail, BccApiError>({
-    queryKey: announcementDetailQueryKey(announcementId),
-    enabled: enabled && announcementId !== "" && pageId > 0,
+    queryKey: announcementDetailQueryKey(announcementId, scope),
+    enabled:
+      enabled && announcementId !== "" && pageId > 0 && scope !== null,
     queryFn: () => getAnnouncementAsClient(pageId, announcementId),
     staleTime: 30_000,
   });
@@ -169,6 +251,9 @@ export function useAnnouncementComments(
   options: { enabled?: boolean } = {},
 ) {
   const enabled = options.enabled ?? true;
+  // Viewer-dependent: `can_comment` travels on this response and is
+  // resolved per viewer from auth, standing, fraud state and the rest.
+  const scope = useViewerScope();
   return useInfiniteQuery<
     AnnouncementCommentsResponse,
     BccApiError,
@@ -176,8 +261,8 @@ export function useAnnouncementComments(
     QueryKey,
     string | null
   >({
-    queryKey: announcementCommentsQueryKey(announcementId),
-    enabled: enabled && announcementId !== "",
+    queryKey: announcementCommentsQueryKey(announcementId, scope),
+    enabled: enabled && announcementId !== "" && scope !== null,
     initialPageParam: null,
     queryFn: ({ pageParam }) =>
       listAnnouncementComments({
@@ -211,10 +296,24 @@ export function useCreateAnnouncement(pageId: number) {
 
 export function useUpdateAnnouncement(pageId: number, announcementId: string) {
   const queryClient = useQueryClient();
+  const scope = useViewerScope();
   return useMutation<AnnouncementDetail, BccApiError, UpdateAnnouncementRequest>({
     mutationFn: (request) => updateAnnouncement(pageId, announcementId, request),
     onSuccess: (detail) => {
-      queryClient.setQueryData(announcementDetailQueryKey(announcementId), detail);
+      // Write only into a KNOWN scope. With identity unavailable we
+      // cannot say whose view this payload is, so we invalidate rather
+      // than file it under a guess.
+      if (scope !== null) {
+        queryClient.setQueryData(
+          announcementDetailQueryKey(announcementId, scope),
+          detail,
+        );
+      }
+      // Scope-BLIND roots: every viewer's cached view of this row and
+      // this page is now stale, not only the acting viewer's.
+      void queryClient.invalidateQueries({
+        queryKey: announcementDetailKeyRoot(announcementId),
+      });
       void queryClient.invalidateQueries({ queryKey: announcementsQueryKey(pageId) });
     },
   });
@@ -228,10 +327,25 @@ export function useUpdateAnnouncement(pageId: number, announcementId: string) {
  */
 export function useArchiveAnnouncement(pageId: number, announcementId: string) {
   const queryClient = useQueryClient();
+  const scope = useViewerScope();
   return useMutation<AnnouncementDetail, BccApiError, void>({
     mutationFn: () => archiveAnnouncement(pageId, announcementId),
     onSuccess: (detail) => {
-      queryClient.setQueryData(announcementDetailQueryKey(announcementId), detail);
+      if (scope !== null) {
+        queryClient.setQueryData(
+          announcementDetailQueryKey(announcementId, scope),
+          detail,
+        );
+      }
+      void queryClient.invalidateQueries({
+        queryKey: announcementDetailKeyRoot(announcementId),
+      });
+      // Archiving also closes the discussion to new comments, so every
+      // viewer's `can_comment` is stale — and that gate travels on the
+      // comments response, not on the announcement.
+      void queryClient.invalidateQueries({
+        queryKey: announcementCommentsKeyRoot(announcementId),
+      });
       void queryClient.invalidateQueries({ queryKey: announcementsQueryKey(pageId) });
     },
   });
@@ -253,7 +367,7 @@ export function useSetAnnouncementPin(pageId: number) {
     onSuccess: (_data, variables) => {
       void queryClient.invalidateQueries({ queryKey: announcementsQueryKey(pageId) });
       void queryClient.invalidateQueries({
-        queryKey: announcementDetailQueryKey(variables.announcementId),
+        queryKey: announcementDetailKeyRoot(variables.announcementId),
       });
     },
   });
@@ -265,7 +379,7 @@ export function useCreateAnnouncementComment(announcementId: string) {
     mutationFn: ({ body }) => createAnnouncementComment({ announcementId, body }),
     onSuccess: () => {
       void queryClient.invalidateQueries({
-        queryKey: announcementCommentsQueryKey(announcementId),
+        queryKey: announcementCommentsKeyRoot(announcementId),
       });
     },
   });
@@ -286,7 +400,7 @@ export function useRemoveAnnouncementComment(announcementId: string) {
       removeAnnouncementComment({ announcementId, commentId }),
     onSuccess: () => {
       void queryClient.invalidateQueries({
-        queryKey: announcementCommentsQueryKey(announcementId),
+        queryKey: announcementCommentsKeyRoot(announcementId),
       });
     },
   });

@@ -15,6 +15,20 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+// The announcement hooks resolve the viewer's storage scope through
+// `useViewerScope`, which reads `useSession()` — so these suites now need
+// a session in context or next-auth throws "must be wrapped in a
+// <SessionProvider />". One fixed signed-in viewer keeps every scoped
+// query key stable; none of these cases is about who is signed in.
+vi.mock("next-auth/react", () => ({
+  useSession: () => ({
+    data: { user: { id: "9001", handle: "fixture-a" } },
+    status: "authenticated",
+  }),
+  getSession: async () => ({ user: { id: "9001", handle: "fixture-a" } }),
+  signOut: vi.fn(async () => undefined),
+}));
+
 vi.mock("@/lib/env", () => ({
   clientEnv: { BCC_API_URL: "https://wp.example" },
 }));

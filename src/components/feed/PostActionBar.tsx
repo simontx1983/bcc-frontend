@@ -32,7 +32,18 @@ export function PostActionBar({
 }: {
   item: FeedItem;
   canInteract?: boolean;
-  commentCount: number;
+  /**
+   * Omit (or pass `undefined`) when the count is UNKNOWN — which is what
+   * §4.32.15 produces for an announcement, whose feed projection emits no
+   * count rather than the structurally-wrong activity count. The control
+   * still renders; only the figure is withheld. Do not substitute 0: the
+   * rendered result is identical, but 0 asserts "nobody replied".
+   *
+   * `| undefined` is explicit because `exactOptionalPropertyTypes` is on:
+   * callers pass the field straight through, so the type has to admit the
+   * omission rather than force every call site into a conditional spread.
+   */
+  commentCount?: number | undefined;
   onComment: () => void;
   commentTitle?: string;
   shareTitle?: string;

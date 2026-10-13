@@ -68,8 +68,11 @@ vi.mock("@/lib/push/revoke", () => ({
 }));
 
 const listAnnouncements = vi.fn();
+const getAnnouncementRotator = vi.fn();
 vi.mock("@/lib/api/announcement-endpoints", () => ({
   listAnnouncements: (...a: unknown[]) => listAnnouncements(...a),
+  getAnnouncementRotator: (...a: unknown[]) => getAnnouncementRotator(...a),
+  ROTATOR_MAX_ITEMS: 5,
   createAnnouncement: vi.fn(),
   updateAnnouncement: vi.fn(),
   archiveAnnouncement: vi.fn(),
@@ -88,12 +91,16 @@ import {
   setSessionUnknown,
 } from "@/lib/auth/session-boundary";
 import { AnnouncementsPanel } from "@/components/announcements/AnnouncementsPanel";
+import { useViewerScope } from "@/hooks/useViewerScope";
 // The REAL key factories, so this test cannot drift from production keys.
 import {
   announcementCommentsQueryKey,
   announcementDetailQueryKey,
   announcementRotatorQueryKey,
   announcementsListQueryKey,
+  announcementsQueryKey,
+  useAnnouncementRotator,
+  useAnnouncements,
 } from "@/hooks/useAnnouncements";
 import {
   OWNER_CAPABILITIES,
@@ -106,15 +113,18 @@ const PAGE_ID = 1842;
 /** A string that must never reach a second viewer's screen. */
 const OWNER_SECRET = "UNPUBLISHED-DRAFT-ONLY-THE-OPERATOR-MAY-SEE";
 
+/** Viewer A's storage scope — their id, as `useViewerScope` resolves it. */
+const SCOPE_A = "viewer-a";
+
 /**
  * Seeds the cache the way an operator's own session would leave it:
  * owner-scoped drafts and row capabilities under the production keys.
  */
-function seedOwnerCache(qc: QueryClient) {
+function seedOwnerCache(qc: QueryClient, scope: string = SCOPE_A) {
   // The list is an INFINITE query, so the seeded shape must be
   // InfiniteData — a bare page object makes `getNextPageParam` throw on
   // the observer's first `createResult`, which is how this was caught.
-  qc.setQueryData(announcementsListQueryKey(PAGE_ID, "active"), {
+  qc.setQueryData(announcementsListQueryKey(PAGE_ID, "active", scope), {
     pages: [
       {
         items: [{ ...PUBLISHED_ANNOUNCEMENT, title: OWNER_SECRET }],
@@ -123,17 +133,21 @@ function seedOwnerCache(qc: QueryClient) {
     ],
     pageParams: [null],
   });
+  // ⚠ The rotator is deliberately UNSCOPED, so it is seeded with PUBLIC
+  // content only. Nothing owner-private may ever be filed here — that is
+  // the condition on which sharing it is safe.
   qc.setQueryData(announcementRotatorQueryKey(PAGE_ID), {
-    items: [{ ...PUBLISHED_ANNOUNCEMENT, summary: OWNER_SECRET }],
+    items: [PUBLISHED_ANNOUNCEMENT],
+    pagination: { next_cursor: null, has_more: false },
   });
-  qc.setQueryData(announcementDetailQueryKey("ann_4471"), {
+  qc.setQueryData(announcementDetailQueryKey("ann_4471", scope), {
     ...PUBLISHED_ANNOUNCEMENT,
     body: OWNER_SECRET,
     status: "draft",
     capabilities: { can_edit: { allowed: true } },
   });
   // Comments are an infinite query too.
-  qc.setQueryData(announcementCommentsQueryKey("ann_4471"), {
+  qc.setQueryData(announcementCommentsQueryKey("ann_4471", scope), {
     pages: [
       {
         items: [],
@@ -177,6 +191,10 @@ beforeEach(() => {
   window.localStorage.clear();
   sessionState.data = { user: { id: "viewer-a" } };
   sessionState.status = "authenticated";
+  getAnnouncementRotator.mockResolvedValue({
+    items: [PUBLISHED_ANNOUNCEMENT],
+    pagination: { next_cursor: null, has_more: false },
+  });
   listAnnouncements.mockImplementation((params: unknown) => {
     const state = (params as { state?: string }).state;
     return Promise.resolve(
@@ -271,6 +289,55 @@ describe("session uncertainty hides owner material without destroying it", () =>
     await new Promise((r) => setTimeout(r, 50));
 
     expect(listAnnouncements.mock.calls.length).toBe(before);
+  });
+});
+
+describe("the rotator is the ONE announcement cache left shared", () => {
+  it("carries no scope dimension in its key", () => {
+    // §4.32.11 supplies capabilities "only by announcement-scoped
+    // responses: the detail view-model, the comments page, and rows in an
+    // owner-scoped list" — the rotator is none of those — and §4.32.1
+    // means every row it can return is already published, due and public.
+    // So it is byte-identical for every viewer.
+    expect(announcementRotatorQueryKey(PAGE_ID)).toEqual([
+      "announcements",
+      PAGE_ID,
+      "rotator",
+    ]);
+  });
+
+  it("sits under the page prefix, so a mutation still refreshes the bar", () => {
+    const prefix = announcementsQueryKey(PAGE_ID);
+    expect(announcementRotatorQueryKey(PAGE_ID).slice(0, prefix.length)).toEqual(
+      prefix,
+    );
+  });
+
+  it("STILL fetches while identity is unavailable, so the public billboard is not delayed", async () => {
+    // The half that proves the gating is BOUNDED rather than blanket. If
+    // the rotator were scoped too, an anonymous reader would see no
+    // announcements until their session resolved — for no privacy gain,
+    // because there is nothing viewer-specific in the response.
+    sessionState.status = "loading";
+    sessionState.data = null;
+
+    function RotatorProbe() {
+      const scope = useViewerScope();
+      useAnnouncementRotator(PAGE_ID, { enabled: true });
+      useAnnouncements(PAGE_ID, { state: "active" });
+      return <span data-testid="rp">{String(scope)}</span>;
+    }
+
+    render(
+      <QueryClientProvider client={qc}>
+        <RotatorProbe />
+      </QueryClientProvider>,
+    );
+
+    await waitFor(() => expect(getAnnouncementRotator).toHaveBeenCalled());
+    // ...while the viewer-dependent list is withheld.
+    expect(listAnnouncements).not.toHaveBeenCalled();
+    expect(screen.getByTestId("rp").textContent).toBe("null");
   });
 });
 

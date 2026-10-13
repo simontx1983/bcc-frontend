@@ -1122,8 +1122,29 @@ export interface FeedItem {
    * The feed card surfaces this as a chip; clicking the chip
    * lazy-mounts <CommentDrawer /> which fetches the actual list
    * via §4.13.
+   *
+   * ⚠ OPTIONAL, because §4.32.15 has the feed projection **omit** it for
+   * the `announcement` kind. Announcement comments live in their own
+   * comment type rather than as activity comments, while this field is
+   * hydrated from the ACTIVITY comment count — which for an announcement
+   * is structurally zero and known to be wrong. The contract's rule is
+   * "source the count from the actual announcement discussion, or emit no
+   * count at all; never emit the activity count", and until the comment
+   * integration exists the projection emits nothing.
+   *
+   * So an absent value means UNKNOWN, not zero. Callers must pass it
+   * through as `undefined` rather than coercing it with `?? 0`: the
+   * rendered output is the same (the count slot hides at 0 too), but a
+   * fabricated 0 reads as "nobody replied" to anything that later decides
+   * to show a figure, and that is exactly the wrong claim on a notice
+   * with a live discussion.
+   *
+   * ⚠⚠ This is the `FeedItem` field only. `Announcement.comment_count`
+   * (§4.32.3) is REQUIRED on the list, rotator and detail responses and
+   * is sourced from the announcement's own discussion — correct, and it
+   * stays. The two share a name and have different origins.
    */
-  comment_count: number;
+  comment_count?: number;
   permissions: Record<string, FeedItemPermission>;
   links: {
     self: string;
