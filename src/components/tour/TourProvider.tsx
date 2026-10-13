@@ -17,10 +17,11 @@
 
 import { usePathname, useRouter } from "next/navigation";
 import type { Route } from "next";
-import { createContext, useCallback, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { TourLayer } from "@/components/tour/TourLayer";
 import { useToursSeen } from "@/hooks/useToursSeen";
+import { useViewerScope } from "@/hooks/useViewerScope";
 import { tourRegistry } from "@/lib/tour/registry";
 import { addSessionDismissed, clearLocalSeen, clearProgress, getProgress, setProgress } from "@/lib/tour/storage";
 import type { TourDefinition, TourStep } from "@/lib/tour/types";
@@ -64,25 +65,32 @@ export function TourProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const { hasSeen, markSeen } = useToursSeen();
+  const scope = useViewerScope();
 
   const [active, setActive] = useState<ActiveTour | null>(null);
 
   // Resume an in-flight tour after a cross-page navigation (progress was
-  // written to sessionStorage before the route changed). Runs once. Also
+  // written to sessionStorage before the route changed). Runs once per
+  // document, but not until we know whose progress to read — so the effect
+  // is keyed on the scope and latches, rather than running at mount when
+  // the scope is still unknown and the read would find nothing. Also
   // honours ?bcc_reset_tours=1 — a dev/testing escape hatch (mirrors the
   // old WP `bcc_reset` tools) that clears the local seen-set + progress so
   // first-visit tours fire again.
+  const resumedRef = useRef(false);
   useEffect(() => {
+    if (scope === null || resumedRef.current) return;
+    resumedRef.current = true;
     if (typeof window !== "undefined" && window.location.search.includes("bcc_reset_tours")) {
-      clearLocalSeen();
-      clearProgress();
+      clearLocalSeen(scope);
+      clearProgress(scope);
       return;
     }
-    const saved = getProgress();
+    const saved = getProgress(scope);
     if (saved !== null && tourRegistry[saved.tourId] !== undefined) {
       setActive({ tourId: saved.tourId, step: saved.step });
     }
-  }, []);
+  }, [scope]);
 
   const definition = active !== null ? tourRegistry[active.tourId] ?? null : null;
   const stepIndex = active?.step ?? 0;
@@ -92,16 +100,16 @@ export function TourProvider({ children }: { children: React.ReactNode }) {
 
   const close = useCallback(() => {
     setActive(null);
-    clearProgress();
-  }, []);
+    clearProgress(scope);
+  }, [scope]);
 
   const start = useCallback((tourId: string) => {
     const def = tourRegistry[tourId];
     if (def === undefined || def.steps.length === 0) return;
     const next: ActiveTour = { tourId, step: 0 };
     setActive(next);
-    setProgress(next);
-  }, []);
+    setProgress(scope, next);
+  }, [scope]);
 
   const goTo = useCallback(
     (index: number) => {
@@ -111,11 +119,11 @@ export function TourProvider({ children }: { children: React.ReactNode }) {
         if (def === undefined) return prev;
         const clamped = Math.max(0, Math.min(index, def.steps.length - 1));
         const next = { ...prev, step: clamped };
-        setProgress(next);
+        setProgress(scope, next);
         return next;
       });
     },
-    [],
+    [scope],
   );
 
   const finish = useCallback(() => {
@@ -129,9 +137,9 @@ export function TourProvider({ children }: { children: React.ReactNode }) {
   }, [active, markSeen, close]);
 
   const dismissForSession = useCallback(() => {
-    if (active !== null) addSessionDismissed(active.tourId);
+    if (active !== null) addSessionDismissed(scope, active.tourId);
     close();
-  }, [active, close]);
+  }, [active, close, scope]);
 
   const next = useCallback(() => {
     if (active === null || definition === null) return;

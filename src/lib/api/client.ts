@@ -220,7 +220,14 @@ function isSuccessEnvelope<T>(value: unknown): value is ApiSuccess<T> {
 // (or `bccFetch` with an explicit token) — see helpers below.
 // =====================================================================
 
-import { getSession, signOut } from "next-auth/react";
+import { getSession } from "next-auth/react";
+
+import {
+  currentViewerEpoch,
+  endSession,
+  isStaleEpoch,
+} from "@/lib/auth/session-boundary";
+import { updateSessionBearer } from "@/lib/auth/session-update";
 
 /**
  * Session-aware fetch for client components. Reads the BCC token
@@ -230,14 +237,26 @@ import { getSession, signOut } from "next-auth/react";
  * routes that work for anon users (e.g. /feed/hot). Anon endpoints
  * that DO require auth return 401 with a typed BccApiError.
  *
- * Token-expiry handling: when a request that DID carry a Bearer token
- * comes back 401, the server has rejected the JWT (expired, revoked,
- * bad signature — the bcc-trust BearerAuth middleware translates all
- * of these to `bcc_unauthorized` to avoid leaking which check failed).
- * We clear the now-dead NextAuth session via `signOut({redirect:false})`
- * so subsequent calls don't keep retrying with the bad token. The
- * caller still sees the BccApiError thrown, so route-level error
- * boundaries can redirect to /login as needed.
+ * Token-expiry handling: a 401 on a request that carried a Bearer token
+ * means the server rejected that JWT, but it does NOT by itself mean the
+ * session is over. We ask `POST /auth/refresh` and let IT decide:
+ *
+ *   refreshed        → swap token, retry once, carry on.
+ *   rejected (401)   → proven dead; end the session (single-flight).
+ *   standing-refused → a 403 carrying the VERIFIED `bcc_forbidden` code.
+ *                      The backend refuses the refresh precisely to push
+ *                      the viewer through sign-out and re-login, where the
+ *                      suspension is surfaced — so the session ENDS, with
+ *                      an `authNotice=standing` slug carrying the
+ *                      explanation across the navigation. An arbitrary 403
+ *                      is `indeterminate`, never this.
+ *   indeterminate    → 429 / 5xx / offline / a 403 without that code.
+ *                      Session KEPT; the original 401 propagates so the UI
+ *                      shows a real error.
+ *
+ * A 401 on a request that carried NO token is an endpoint-specific
+ * denial and never touches the session. And a protected request is never
+ * retried with a token the server has already refused.
  */
 export async function bccFetchAsClient<T>(
   path: string,
@@ -267,45 +286,119 @@ export async function bccFetchAsClient<T>(
     typeof session.bccTokenExpiresAt === "number" &&
     Date.now() >= session.bccTokenExpiresAt;
 
+  // Captured BEFORE the request fires. If the boundary moves while this
+  // is in flight, the response belongs to a viewer who is no longer
+  // here and must not be handed back — see isStaleEpoch below.
+  const epochAtDispatch = currentViewerEpoch();
+
   let effectiveToken = sessionToken;
+  // Whether this call has already spent its one refresh attempt. Without
+  // it the reactive path below fell back to `sessionToken` — the token the
+  // refresh endpoint had just refused — and asked again, doubling the load
+  // on a rate-limited endpoint and able to turn one 429 into two.
+  let refreshAttempted = false;
   if (sessionExpired && sessionToken !== null) {
-    // Pre-emptive refresh: NextAuth says the bearer is dead. Try to
-    // mint a fresh one BEFORE the fetch. If refresh succeeds, the
-    // SPA never sees a 401; if it fails, signOut and let the call
-    // proceed anonymously (the caller will surface whatever the
-    // endpoint returns — typically bcc_unauthorized).
+    refreshAttempted = true;
+    // Pre-emptive refresh: NextAuth says the bearer is past its expiry.
+    // Try to mint a fresh one BEFORE the fetch, so the SPA never sees a
+    // 401 in the common case.
     const refreshed = await tryRefresh(sessionToken);
-    if (refreshed === null) {
-      await signOut({ redirect: false });
+    if (refreshed.kind === "refreshed") {
+      effectiveToken = refreshed.token;
+    } else if (refreshed.kind === "rejected") {
+      // Proven dead. End the session once (single-flight) and send the
+      // request anonymously so the caller still gets a real answer.
+      void endSession("expired", { notice: "signed-out" });
+      effectiveToken = null;
+    } else if (refreshed.kind === "standing-refused") {
+      // The account is suspended. The backend refuses to refresh
+      // precisely so the viewer is pushed through sign-out and re-login,
+      // where the suspension is surfaced — so honour that, carrying a
+      // slug that explains it after the navigation.
+      void endSession("expired", { notice: "standing" });
       effectiveToken = null;
     } else {
-      effectiveToken = refreshed;
+      // indeterminate ONLY — standing-refused is handled above and ends
+      // the session. The session stays; drop the token for THIS request
+      // rather than retrying a protected call with a bearer the server
+      // has already refused, because the endpoint's own 401/403 is the
+      // honest answer to surface.
+      effectiveToken = null;
     }
   }
 
   try {
-    return await bccFetch<T>(path, {
+    const result = await bccFetch<T>(path, {
       ...options,
       token: effectiveToken,
     });
+    // A response to a request made with the PREVIOUS viewer's bearer
+    // must not reach the caller, however late it arrives. React Query's
+    // cancellation handles most of these; this is the backstop for the
+    // ones that resolve before the abort lands.
+    if (effectiveToken !== null && isStaleEpoch(epochAtDispatch)) {
+      throw new StaleViewerError(path);
+    }
+    return result;
   } catch (err) {
-    if (!(err instanceof BccApiError) || err.status !== 401 || !hadSessionToken) {
+    if (err instanceof StaleViewerError) {
       throw err;
     }
-    // Reactive 401: server rejected our bearer, but NextAuth didn't
-    // know it was dead yet. Attempt one refresh-then-retry before
-    // signOut. We only do this once — if the retry ALSO 401s, the
-    // refresh-then-retry path won't fire again because the retry
-    // path uses bccFetch directly (no recursion into bccFetchAsClient).
-    const tokenToRefresh = effectiveToken ?? sessionToken;
+    if (!(err instanceof BccApiError) || err.status !== 401 || !hadSessionToken) {
+      // Not an auth failure, or the request was anonymous to begin with.
+      // An anonymous 401 is an endpoint-specific denial, never a reason
+      // to tear down a session that may not even exist.
+      throw err;
+    }
+
+    // Reactive 401: the server rejected a bearer NextAuth still believed
+    // in. One refresh attempt, then classify.
+    // At most ONE refresh per call, and that is the whole invariant: the
+    // earlier form only guarded the `?? sessionToken` fallback, so after a
+    // SUCCESSFUL pre-emptive refresh `effectiveToken` was the new token
+    // and this refreshed a second time in the same call. With `retry: 1`
+    // on queries that is up to four /auth/refresh POSTs for one read.
+    // A bearer minted and then immediately refused is detected on the
+    // next call instead, which takes the reactive path and gets its turn.
+    const tokenToRefresh = refreshAttempted ? null : effectiveToken;
     if (tokenToRefresh !== null) {
       const refreshed = await tryRefresh(tokenToRefresh);
-      if (refreshed !== null) {
-        return await bccFetch<T>(path, { ...options, token: refreshed });
+      if (refreshed.kind === "refreshed") {
+        const retried = await bccFetch<T>(path, {
+          ...options,
+          token: refreshed.token,
+        });
+        if (isStaleEpoch(epochAtDispatch)) {
+          throw new StaleViewerError(path);
+        }
+        return retried;
       }
+      if (refreshed.kind === "rejected") {
+        // Single-flight, so a burst of simultaneous 401s produces exactly
+        // one teardown.
+        void endSession("expired", { notice: "signed-out" });
+      } else if (refreshed.kind === "standing-refused") {
+        void endSession("expired", { notice: "standing" });
+      }
+      // indeterminate: session retained, and we do NOT retry with the
+      // refused token. The original 401 propagates.
     }
-    await signOut({ redirect: false });
     throw err;
+  }
+}
+
+/**
+ * Thrown when a response arrives for a request issued by a viewer who
+ * has since been torn down. Callers should discard it; React Query
+ * treats it as an ordinary rejection, and the query is already gone
+ * from the cache by then.
+ */
+export class StaleViewerError extends Error {
+  public readonly path: string;
+  constructor(path: string) {
+    super(`[bcc] discarded a response for a previous viewer: ${path}`);
+    this.name = "StaleViewerError";
+    this.path = path;
   }
 }
 
@@ -321,23 +414,103 @@ export async function bccFetchAsClient<T>(
  *     uses the new token; subsequent calls would just re-refresh.
  *   - Returns the new token string.
  *
- * On any failure: returns null. The caller treats null the same as
- * a hard auth failure (signOut + propagate the original 401).
+ * Returns a discriminated `RefreshResult` rather than `string | null`,
+ * because the caller's decision differs per failure: only a definitive
+ * server rejection may end a session. Collapsing 429/5xx/offline into
+ * the same `null` is what used to log people out over a flaky network.
  *
  * Uses a raw `fetch` directly (NOT bccFetch) so this can be called
  * from inside bccFetchAsClient's 401 handler without recursion risk.
  * Tolerates any response shape that has data.token + data.expires_in.
  */
-async function tryRefresh(currentToken: string): Promise<string | null> {
+export type RefreshResult =
+  /** A fresh bearer. Swap to it and carry on. */
+  | { kind: "refreshed"; token: string }
+  /**
+   * The SERVER says this bearer cannot be refreshed — past the grace
+   * window, or revoked by a password change / "sign out everywhere".
+   */
+  | { kind: "rejected" }
+  /**
+   * A 403 whose body carried the VERIFIED `bcc_forbidden` code: the
+   * account is no longer in good standing.
+   *
+   * This DOES end the session, matching the backend's documented policy —
+   * it refuses the refresh so the viewer is pushed through sign-out and
+   * re-login, which is where the suspension is explained. The
+   * `authNotice=standing` slug carries that explanation across the
+   * navigation, so ending the session no longer hides it.
+   *
+   * An unrecognised 403 must NOT land here; it is `indeterminate`.
+   */
+  | { kind: "standing-refused" }
+  /**
+   * We do not know. Rate limited, 5xx, offline, aborted, or a malformed
+   * body. Keep the session and let the caller surface the original
+   * error — a flaky network must never look like a logout.
+   */
+  | { kind: "indeterminate" };
+
+/**
+ * Read `error.code` out of a BCC error envelope, or null when the body is
+ * missing, not JSON, or shaped differently. A body we cannot read is never
+ * treated as a session-ending signal.
+ */
+async function errorCode(r: Response): Promise<string | null> {
   try {
-    const r = await fetch(`${clientEnv.BCC_API_URL}/wp-json/bcc/v1/auth/refresh`, {
+    const body = (await r.json()) as { error?: { code?: unknown } } | null;
+    const code = body?.error?.code;
+    return typeof code === "string" ? code : null;
+  } catch {
+    return null;
+  }
+}
+
+async function tryRefresh(currentToken: string): Promise<RefreshResult> {
+  let r: Response;
+  try {
+    r = await fetch(`${clientEnv.BCC_API_URL}/wp-json/bcc/v1/auth/refresh`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${currentToken}`,
         Accept: "application/json",
       },
     });
-    if (!r.ok) return null;
+  } catch {
+    // Network failure / abort — no information about the token at all.
+    return { kind: "indeterminate" };
+  }
+
+  if (!r.ok) {
+    // Classify from the real codes POST /auth/refresh returns
+    // (SessionController.php:154-192):
+    //   401 bcc_unauthorized  — "Token cannot be refreshed."  → rejected
+    //   403 bcc_forbidden     — "Account is not in good standing."
+    //   429 bcc_rate_limited  — too many refresh attempts
+    //   5xx / anything else   — server trouble
+    if (r.status === 401) {
+      return { kind: "rejected" };
+    }
+    if (r.status === 403) {
+      // Only the VERIFIED standing refusal ends a session. The backend
+      // documents that intent at SessionController.php:180-182:
+      //
+      //   "Mid-session compromise mitigation: a user flagged suspended can
+      //    no longer refresh, forcing them through the canonical signOut →
+      //    re-login path where the suspension is surfaced."
+      //
+      // An arbitrary 403 — a proxy, a WAF, a future unrelated refusal —
+      // must NOT be read as a session event, so the error code is
+      // required rather than the status alone.
+      const code = await errorCode(r);
+      if (code === "bcc_forbidden") {
+        return { kind: "standing-refused" };
+      }
+      return { kind: "indeterminate" };
+    }
+    return { kind: "indeterminate" };
+  }
+  try {
     const body = (await r.json().catch(() => null)) as
       | { data?: { token?: unknown; expires_in?: unknown } }
       | null;
@@ -349,58 +522,53 @@ async function tryRefresh(currentToken: string): Promise<string | null> {
       typeof body?.data?.expires_in === "number" && body.data.expires_in > 0
         ? body.data.expires_in
         : null;
-    if (newToken === null || expiresIn === null) return null;
-
-    const newExpiresAt = Date.now() + expiresIn * 1000;
+    if (newToken === null || expiresIn === null) {
+      // 200 with an unusable body — server trouble, not a verdict
+      // on the token. Do not end the session over it.
+      return { kind: "indeterminate" };
+    }
 
     // Persist into the NextAuth session so the next getSession() call
     // returns the fresh token instead of repeating the refresh dance.
+    // The write itself (csrf + `data:` wrapper) lives in
+    // lib/auth/session-update, shared with the password-change flow.
     //
-    // NextAuth 4.x session-write contract (load-bearing):
-    //   1. Body MUST include csrfToken read from GET /api/auth/csrf,
-    //      otherwise the POST silently no-ops at status 200.
-    //   2. The payload to merge into the JWT MUST be wrapped under
-    //      `data:` — NextAuth unwraps that and passes it as `session`
-    //      to the jwt callback when trigger === 'update'.
-    //      (See bcc-frontend/src/lib/auth.ts jwt callback for the
-    //      receiving side.)
-    //
-    // Both gotchas were empirically verified 2026-05-13: omitting either
-    // one returns 200 but session.bccToken stays unchanged on the next
-    // getSession call. With both, the new token + expiry land in the
-    // session within one request cycle.
-    //
-    // Failure here is non-fatal: the immediate retry still uses the
-    // fresh token, and subsequent calls would just re-refresh. The
-    // session-update is the optimization that avoids that re-refresh.
-    try {
-      const csrfResp = await fetch("/api/auth/csrf", { credentials: "include" });
-      const csrfBody = (await csrfResp.json().catch(() => null)) as
-        | { csrfToken?: unknown }
-        | null;
-      const csrfToken =
-        typeof csrfBody?.csrfToken === "string" ? csrfBody.csrfToken : null;
-      if (csrfToken !== null) {
-        await fetch("/api/auth/session", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({
-            csrfToken,
-            data: { bccToken: newToken, bccTokenExpiresAt: newExpiresAt },
-          }),
-        });
-      }
-    } catch {
-      // Session-update failure is non-fatal — the immediate retry
-      // still works because the caller has the fresh token in hand;
-      // the cost is one extra refresh round-trip on the next call.
-    }
+    // Failure here is non-fatal FOR A REFRESH: the immediate retry still
+    // works because the caller holds the fresh token, and the cost is one
+    // extra refresh round-trip on the next call. The password-change
+    // caller treats the same failure very differently — see that flow.
+    await updateSessionBearer({ token: newToken, expiresIn });
 
-    return newToken;
+    return { kind: "refreshed", token: newToken };
   } catch {
-    return null;
+    return { kind: "indeterminate" };
   }
+}
+
+/**
+ * Shared auth-failure classifier for the OTHER client in this app
+ * (`bcc-trust-client`), so the two cannot drift apart on the one decision
+ * that matters: when a 401 ends a session.
+ *
+ * Returns a fresh bearer to retry with, or `null` meaning "do not retry".
+ * A `null` does NOT imply the session ended — only a definitive server
+ * rejection does that, and this function has already handled it.
+ */
+export async function resolveAuthFailure(
+  token: string,
+): Promise<string | null> {
+  const refreshed = await tryRefresh(token);
+  if (refreshed.kind === "refreshed") {
+    return refreshed.token;
+  }
+  if (refreshed.kind === "rejected") {
+    void endSession("expired", { notice: "signed-out" });
+  } else if (refreshed.kind === "standing-refused") {
+    void endSession("expired", { notice: "standing" });
+  }
+  // indeterminate: session retained on purpose. Either way the caller
+  // must not reuse the refused token.
+  return null;
 }
 
 // =====================================================================

@@ -28,6 +28,17 @@ vi.mock("@/hooks/usePrefersReducedMotion", () => ({
   usePrefersReducedMotion: () => reducedMotion,
 }));
 
+// The resume point is viewer-scoped, so the send-off screen needs a session.
+// Mutable, because one case needs the scope to go UNAVAILABLE between
+// submit and response. PROGRESS_KEY below is this viewer's key.
+const sessionState = vi.hoisted(() => ({
+  data: { user: { id: "4242" } } as { user?: { id?: string } } | null,
+  status: "authenticated" as "loading" | "authenticated" | "unauthenticated",
+}));
+vi.mock("next-auth/react", () => ({
+  useSession: () => ({ data: sessionState.data, status: sessionState.status }),
+}));
+
 /** One controllable /complete call per test. */
 interface Deferred {
   promise: Promise<unknown>;
@@ -56,7 +67,11 @@ vi.mock("@/hooks/useCompleteOnboarding", () => ({
 
 const { DopamineStep } = await import("@/components/onboarding/DopamineStep");
 const { BccApiError } = await import("@/lib/api/types");
-const PROGRESS_KEY = "bcc-onboarding-progress";
+const { __resetSessionIdentityForTests, noteEstablishedViewer } = await import(
+  "@/lib/auth/session-identity"
+);
+/** Viewer-scoped: the wizard writes `base::<viewer id>`. */
+const PROGRESS_KEY = "bcc-onboarding-progress::4242";
 
 const btn = (name: RegExp) => screen.getByRole("button", { name }) as HTMLButtonElement;
 const queryBtn = (name: RegExp) => screen.queryByRole("button", { name });
@@ -86,6 +101,9 @@ beforeEach(() => {
   vi.clearAllMocks();
   pending = [];
   reducedMotion = true;
+  sessionState.data = { user: { id: "4242" } };
+  sessionState.status = "authenticated";
+  __resetSessionIdentityForTests();
   window.localStorage.clear();
   // A visitor who got as far as the notifications step.
   window.localStorage.setItem(
@@ -207,6 +225,36 @@ describe("success", () => {
 
     pending.shift()?.resolve({ completed: true, home_chain: null, rank_label: null });
 
+    await waitFor(() => {
+      expect(window.localStorage.getItem(PROGRESS_KEY)).toBeNull();
+    });
+  });
+
+  it("clears the resume point once identity returns, when the scope was unavailable", async () => {
+    // The deferred-callback case. `clearOnboardingProgress` runs inside the
+    // mutation's `.then`, which can land during a session blip — the scope
+    // is unavailable, so there is no key to remove and the clear is
+    // dropped. Left there, the viewer finishes setup and is then offered
+    // "finish setting up?" on the Floor.
+    // The scope must be unavailable when /complete is SUBMITTED: the
+    // `.then` closes over the scope it was created with, so a blip that
+    // starts after submit is already covered. This is the case that is not.
+    noteEstablishedViewer("4242");
+    sessionState.data = null;
+    sessionState.status = "unauthenticated";
+    const view = renderSendOff();
+
+    pending.shift()?.resolve({ completed: true, home_chain: null, rank_label: null });
+    await waitFor(() => {
+      expect(screen.queryByText(/finish onboarding/i)).toBeNull();
+    });
+    // Nothing was removed: the key could not be named.
+    expect(window.localStorage.getItem(PROGRESS_KEY)).not.toBeNull();
+
+    // Identity returns; the retry lands.
+    sessionState.data = { user: { id: "4242" } };
+    sessionState.status = "authenticated";
+    view.rerender(<DopamineStep homeChain={null} pulledCards={[]} />);
     await waitFor(() => {
       expect(window.localStorage.getItem(PROGRESS_KEY)).toBeNull();
     });
