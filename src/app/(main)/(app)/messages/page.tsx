@@ -22,7 +22,7 @@ import { QueuedMessagesList } from "@/components/messages/QueuedMessagesList";
 import { useConversations } from "@/hooks/useConversations";
 import { useQueuedMessages } from "@/hooks/useQueuedMessages";
 import { LoadFailure } from "@/components/ui/LoadFailure";
-import { humanizeCode } from "@/lib/api/errors";
+import { humanizeCode, isPermissionDenial } from "@/lib/api/errors";
 
 const PER_PAGE = 20;
 
@@ -71,6 +71,65 @@ function MessagesPageContent() {
       setLastQueuedPages(queuedQuery.data.pagination.total_pages);
     }
   }, [queuedQuery.data]);
+
+  // §γ — copy is keyed on err.code; never render err.message.
+  //
+  // The default line is split by WHICH page failed. On page 1 there is
+  // nothing loaded and "couldn't load your inbox" is the whole truth. On
+  // page N>1 it is not: the inbox loaded fine, one page of it did not, and
+  // the pager below is still mounted so PREV goes back to a page that
+  // worked. Saying "couldn't load your inbox" there reads as "your
+  // messages are gone".
+  //
+  // Only the default is split. A coded failure is about the READ, not
+  // about which page it was for, so those lines are unchanged.
+  //
+  // The page fact is appended to WHATEVER copy the code map chose, not
+  // folded into the default only — a `bcc_unavailable` on page 4 needs
+  // the distinction just as much as an unmapped one does.
+  //
+  // Suppressed on a permission denial, where it would be false: a denied
+  // inbox is denied on every page, so PREV goes nowhere better.
+  const laterPageHint = (err: unknown): string =>
+    urlPage > 1 && !isPermissionDenial(err)
+      ? " PREV goes back to the last page that loaded."
+      : "";
+
+  const inboxFailureCopy =
+    humanizeCode(
+      query.error,
+      {
+        bcc_unauthorized:
+          "Your session expired — sign in again to read your messages.",
+        bcc_rate_limited:
+          "Too many refreshes — give it a moment and try again.",
+        bcc_unavailable:
+          "Messages are temporarily unavailable. Try again shortly.",
+        bcc_permission_denied: "You can’t read this inbox.",
+        bcc_forbidden: "You can’t read this inbox.",
+      },
+      urlPage > 1
+        ? "Couldn’t load page " + urlPage + " of your inbox."
+        : "Couldn't load your inbox. Try again in a moment.",
+    ) + laterPageHint(query.error);
+
+  const queuedFailureCopy =
+    humanizeCode(
+      queuedQuery.error,
+      {
+        bcc_unauthorized:
+          "Your session expired — sign in again to see your queued messages.",
+        bcc_rate_limited:
+          "Too many refreshes — give it a moment and try again.",
+        bcc_unavailable:
+          "Queued messages are temporarily unavailable. Try again shortly.",
+        bcc_permission_denied: "You can’t read these queued messages.",
+        bcc_forbidden: "You can’t read these queued messages.",
+      },
+      urlPage > 1
+        ? "Couldn’t load page " + urlPage + " of your queued messages."
+        : "Couldn't load your queued messages. Try again in a moment.",
+    ) + laterPageHint(queuedQuery.error);
 
   // Pagination is per-tab; switching tabs resets to page 1.
   const goToPage = (next: number) => {
@@ -125,20 +184,10 @@ function MessagesPageContent() {
                 <div className="bcc-paper p-6">
                   <LoadFailure
                     surface="paper"
-                    /* §γ — copy is keyed on err.code; never render err.message. */
-                    message={humanizeCode(
-                      query.error,
-                      {
-                        bcc_unauthorized:
-                          "Your session expired — sign in again to read your messages.",
-                        bcc_rate_limited:
-                          "Too many refreshes — give it a moment and try again.",
-                        bcc_unavailable:
-                          "Messages are temporarily unavailable. Try again shortly.",
-                      },
-                      "Couldn't load your inbox. Try again in a moment.",
-                    )}
-                    onRetry={() => void query.refetch()}
+                    message={inboxFailureCopy}
+                    {...(isPermissionDenial(query.error)
+                      ? {}
+                      : { onRetry: () => void query.refetch() })}
                   />
                 </div>
 
@@ -178,20 +227,10 @@ function MessagesPageContent() {
                 <div className="bcc-paper p-6">
                   <LoadFailure
                     surface="paper"
-                    /* §γ — copy is keyed on err.code; never render err.message. */
-                    message={humanizeCode(
-                      queuedQuery.error,
-                      {
-                        bcc_unauthorized:
-                          "Your session expired — sign in again to see your queued messages.",
-                        bcc_rate_limited:
-                          "Too many refreshes — give it a moment and try again.",
-                        bcc_unavailable:
-                          "Queued messages are temporarily unavailable. Try again shortly.",
-                      },
-                      "Couldn't load your queued messages. Try again in a moment.",
-                    )}
-                    onRetry={() => void queuedQuery.refetch()}
+                    message={queuedFailureCopy}
+                    {...(isPermissionDenial(queuedQuery.error)
+                      ? {}
+                      : { onRetry: () => void queuedQuery.refetch() })}
                   />
                 </div>
 
