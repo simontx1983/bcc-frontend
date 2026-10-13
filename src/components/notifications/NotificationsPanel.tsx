@@ -33,6 +33,8 @@ import {
   useNotifications,
   useUnreadCount,
 } from "@/hooks/useNotifications";
+import { LoadFailure } from "@/components/ui/LoadFailure";
+import { humanizeCode, isPermissionDenial } from "@/lib/api/errors";
 import type { NotificationItem } from "@/lib/api/types";
 import { formatRelativeTime } from "@/lib/format";
 
@@ -65,6 +67,26 @@ export function NotificationsPanel({
 
   const unreadCount = unread.data?.unread_count ?? 0;
   const items: NotificationItem[] = (list.data?.pages ?? []).flatMap((p) => p.items);
+
+  // §γ — copy is keyed on err.code; never render err.message. The
+  // previous single hardcoded line is kept as the default, so the
+  // common case reads exactly as it did.
+  const failureCopy = humanizeCode(
+    list.error,
+    {
+      bcc_unauthorized: "Sign in to read your notifications.",
+      bcc_rate_limited: "Loading too fast — give it a moment and try again.",
+      bcc_unavailable: "Notifications are temporarily unavailable. Try again shortly.",
+      bcc_permission_denied: "You can’t read these notifications.",
+      bcc_forbidden: "You can’t read these notifications.",
+    },
+    "Couldn’t load notifications. Try again in a moment.",
+  );
+
+  // A permission boundary does not move when the cursor does, so pressing
+  // Retry against one can only fail the same way. Omitting `onRetry`
+  // renders no button at all rather than an inert one.
+  const retryIsHonest = !isPermissionDenial(list.error);
 
   const handleItemClick = (item: NotificationItem) => {
     if (!item.read) {
@@ -113,15 +135,21 @@ export function NotificationsPanel({
         </div>
       )}
 
-      {list.isError ? (
-        <div className="bcc-mono px-4 py-3 text-[11px] text-[var(--bcc-text-secondary)]">
-          Couldn’t load notifications. Try again in a moment.
+      {/* A FIRST load that failed has nothing to keep, so the whole body
+          is the failure. The two post-load failures are handled beside the
+          rows below, where the rows survive. */}
+      {list.isLoadingError ? (
+        <div className="px-2 py-2">
+          <LoadFailure
+            message={failureCopy}
+            {...(retryIsHonest ? { onRetry: () => void list.refetch() } : {})}
+          />
         </div>
       ) : list.isLoading ? (
         <div className="bcc-mono px-4 py-3 text-[11px] text-[var(--bcc-text-secondary)]">
           Loading…
         </div>
-      ) : items.length === 0 ? (
+      ) : items.length === 0 && !list.isError ? (
         // Sprint 5 empty-state hygiene: "No notifications yet. We'll
         // let you know when something happens." was the SaaS-dashboard
         // inbox-notify framing ("we'll notify you"). Replaced with
@@ -141,17 +169,47 @@ export function NotificationsPanel({
               onActivate={() => handleItemClick(item)}
             />
           ))}
-          {list.hasNextPage && (
+          {/* A failed REFRESH is not a failed cursor: the retained pages
+              and the cursor taken from the last of them are still
+              coherent, so LOAD MORE deliberately stays available below
+              and this control refetches. Reachable here in normal use —
+              `markRead` and `markAllRead` both invalidate this key, and
+              the app-wide `retry: 1` means two consecutive failures
+              surface it. */}
+          {list.isRefetchError && (
             <li>
-              <button
-                type="button"
-                onClick={() => void list.fetchNextPage()}
-                disabled={list.isFetchingNextPage}
-                className="bcc-mono w-full px-4 py-2.5 text-center text-[10px] tracking-[0.18em] text-[var(--bcc-accent)] hover:bg-[var(--bcc-surface-hover)] disabled:cursor-wait"
-              >
-                {list.isFetchingNextPage ? "LOADING…" : "LOAD MORE"}
-              </button>
+              <LoadFailure
+                message={failureCopy}
+                {...(retryIsHonest ? { onRetry: () => void list.refetch() } : {})}
+              />
             </li>
+          )}
+
+          {/* Cursor safety: while the NEXT cursor is failed, LOAD MORE is
+              WITHDRAWN so it cannot advance past — and so silently skip —
+              the page that failed. Retry resumes that same cursor with
+              `fetchNextPage()`; it must never be `refetch()`, which would
+              re-request every page already loaded. */}
+          {list.isFetchNextPageError ? (
+            <li>
+              <LoadFailure
+                message={failureCopy}
+                {...(retryIsHonest ? { onRetry: () => void list.fetchNextPage() } : {})}
+              />
+            </li>
+          ) : (
+            list.hasNextPage && (
+              <li>
+                <button
+                  type="button"
+                  onClick={() => void list.fetchNextPage()}
+                  disabled={list.isFetchingNextPage}
+                  className="bcc-mono w-full px-4 py-2.5 text-center text-[10px] tracking-[0.18em] text-[var(--bcc-accent)] hover:bg-[var(--bcc-surface-hover)] disabled:cursor-wait"
+                >
+                  {list.isFetchingNextPage ? "LOADING…" : "LOAD MORE"}
+                </button>
+              </li>
+            )
           )}
         </ul>
       )}
