@@ -12,6 +12,7 @@
  * here are `text-ink*` and never the theme-aware `text-bcc-*`.
  */
 
+import { Pin } from "lucide-react";
 import Link from "next/link";
 import type { Route } from "next";
 
@@ -45,11 +46,19 @@ export function AnnouncementListItem({
       data-testid="announcement-row"
     >
       <div className="mb-2 flex flex-wrap items-center gap-2">
+        {/*
+          `text-safety` on paper measured 2.95:1, under 4.5:1.
+          `text-ink` is the paper family's own and measures 16.92:1; the
+          icon keeps the state from being carried by colour alone, and
+          matches the same marker now shown in the bar.
+        */}
         {is_pinned && !is_archived && (
           <span
-            className="bcc-mono text-safety"
+            className="bcc-mono inline-flex items-center gap-1 text-ink"
             style={{ fontSize: "10px", letterSpacing: "0.24em" }}
+            data-testid="announcement-row-pinned"
           >
+            <Pin size={11} strokeWidth={2} aria-hidden />
             PINNED
           </span>
         )}
@@ -64,8 +73,16 @@ export function AnnouncementListItem({
         )}
       </div>
 
-      <h4 className="bcc-stencil text-ink" style={{ fontSize: "22px", lineHeight: 1.1 }}>
-        <Link href={links.self as Route} className="hover:underline">
+      {/*
+        `text-ink` on the heading was never reaching the text: the colour
+        is set on the inner <a>, which carried no class and so inherited
+        the global theme link colour. Measured theme primary on paper =
+        2.08:1, under the 3:1 bar for 22px/800 text. `text-ink` on the
+        link itself measures 16.92:1 — the surface's own token, which the
+        rest of this file already uses.
+      */}
+      <h4 className="bcc-stencil" style={{ fontSize: "22px", lineHeight: 1.1 }}>
+        <Link href={links.self as Route} className="text-ink hover:underline">
           {title}
         </Link>
       </h4>
@@ -102,9 +119,12 @@ export function AnnouncementListItem({
         <span className="bcc-mono text-ink-ghost" style={{ fontSize: "11px" }}>
           {comment_count === 1 ? "1 comment" : `${comment_count} comments`}
         </span>
+        {/* Same crossing as PINNED above: 2.95:1 on paper. `text-ink`
+            measures 16.92:1 and the underline-on-hover still marks it as
+            the way through. */}
         <Link
           href={links.self as Route}
-          className="bcc-mono text-safety hover:underline"
+          className="bcc-mono text-ink underline-offset-2 hover:underline"
           style={{ fontSize: "11px", letterSpacing: "0.12em" }}
         >
           READ MORE
