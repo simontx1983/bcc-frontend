@@ -276,9 +276,9 @@ const album = (id: number) => ({
 
 // Render helpers
 const watchers = () =>
-  render(<CardWatchersPanel kind="validator" cardId={7} cardName="Node" isClaimed />);
+  render(<CardWatchersPanel kind="validator_card" cardId={7} cardName="Node" isClaimed />);
 const reviews = () =>
-  render(<CardReviewsPanel kind="validator" cardId={7} cardName="Node" />);
+  render(<CardReviewsPanel kind="validator_card" cardId={7} cardName="Node" />);
 const wall = () => render(<ActivityPanel handle="welder" />);
 const photos = () => render(<PhotosPanel handle="welder" />);
 const gallery = () => render(<CreatorGallery slug="welder" creatorName="Welder" />);
