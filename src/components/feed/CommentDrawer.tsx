@@ -78,7 +78,7 @@ import {
 import { useCommentStoke } from "@/hooks/useCommentStoke";
 import { useGiphyIntegration } from "@/hooks/useGiphyIntegration";
 import { uploadBlogCoverImage } from "@/lib/api/blog-endpoints";
-import { humanizeCode } from "@/lib/api/errors";
+import { humanizeCode, isPermissionDenial } from "@/lib/api/errors";
 import { formatRelativeTime } from "@/lib/format";
 import { renderTextWithMentions } from "@/lib/format/mentions";
 import type {
@@ -259,9 +259,40 @@ export function CommentDrawer({
     );
   }
 
-  if (query.isError) {
-    const code = query.error?.code ?? "";
-    if (code === "bcc_forbidden") {
+  // §γ — copy is keyed on err.code; never render err.message.
+  //
+  // `bcc_forbidden` keeps its established group-gate wording. The other two
+  // denial codes do NOT inherit it: a blocked viewer is not someone who
+  // needs to join a group, and telling them to join would be a guess about
+  // why they were refused.
+  const deniedCopy = "You can’t read this thread.";
+  const failureCopy = humanizeCode(
+    query.error,
+    {
+      bcc_rate_limited: "Loading too fast — give it a moment and try again.",
+      bcc_unavailable: "Comments are temporarily unavailable. Try again shortly.",
+      bcc_permission_denied: deniedCopy,
+      bcc_blocked: deniedCopy,
+    },
+    "Couldn't load comments.",
+  );
+
+  const denied = isPermissionDenial(query.error);
+  const refetchProps = denied ? {} : { onRetry: () => void query.refetch() };
+  const nextPageProps = denied
+    ? {}
+    : { onRetry: () => void query.fetchNextPage() };
+
+  // ⚠ ONLY a FIRST-load failure may return early here.
+  //
+  // This is the whole point of the change. The old branch was a blanket
+  // `query.isError`, and it sat ABOVE the main return — which is where
+  // <CommentComposer> is mounted. So a failed refresh or a failed LOAD MORE
+  // unmounted the composer and **destroyed a reply the viewer had typed**,
+  // with no way to get the text back. A first-load failure is safe to
+  // return from: the composer has never mounted, so there is no draft yet.
+  if (query.isLoadingError) {
+    if (query.error?.code === "bcc_forbidden") {
       return (
         <div className={"bcc-mono " + dividerPad + "text-[11px] text-[var(--bcc-text-secondary)]"}>
           Join the group to see this thread.
@@ -270,13 +301,16 @@ export function CommentDrawer({
     }
     return (
       <div className={divider}>
-        <LoadFailure
-          message="Couldn't load comments."
-          onRetry={() => void query.refetch()}
-        />
+        <LoadFailure message={failureCopy} {...refetchProps} />
       </div>
     );
   }
+
+  // A denied re-read of a thread already on screen withdraws the THREAD,
+  // per the agreed same-resource withdrawal policy — but deliberately not
+  // the composer below it. The draft is the viewer's own unsent input, not
+  // part of the resource the server withdrew, so it stays.
+  const threadWithdrawn = denied && query.isRefetchError;
 
   const items: Comment[] = (query.data?.pages ?? []).flatMap((p) => p.items);
   const hasMore = query.hasNextPage === true;
@@ -302,8 +336,15 @@ export function CommentDrawer({
           rather than an instant content swap. overflow-hidden clips the
           translateX during the ~200ms animation so it can't cause a
           transient horizontal scrollbar. */}
+      {threadWithdrawn && (
+        <div className="bcc-mono text-[11px] text-[var(--bcc-text-secondary)]">
+          {deniedCopy}
+        </div>
+      )}
+
       <div
         key={focusId ?? "root"}
+        hidden={threadWithdrawn}
         className={"overflow-hidden " + (slideDir === "in" ? "bcc-thread-slide-in" : "bcc-thread-slide-out")}
       >
         {/* Drill-down header — back out of a followed thread, with the
@@ -340,8 +381,25 @@ export function CommentDrawer({
 
         {/* Load-more pages the flat list (root view only — a drilled subtree
             renders from the already-loaded set). */}
-        {!isDrilled &&
+        {/* A failed REFRESH keeps the thread and localises the recovery.
+            Rendered INSIDE the drawer rather than replacing it, so the
+            composer below stays mounted with whatever is typed in it. */}
+        {query.isRefetchError && !denied && (
+          <div className="mt-3">
+            <LoadFailure message={failureCopy} {...refetchProps} />
+          </div>
+        )}
+
+        {/* Cursor safety: while the NEXT page is failed, LOAD MORE is
+            withdrawn so it cannot advance past the page that failed. */}
+        {query.isFetchNextPageError ? (
+          <div className="mt-3">
+            <LoadFailure message={failureCopy} {...nextPageProps} />
+          </div>
+        ) : (
+          !isDrilled &&
           hasMore &&
+          !denied &&
           (query.isFetchingNextPage ? (
             <div className="mt-3 flex py-1 text-[var(--bcc-accent)]">
               <Spinner size={18} />
@@ -354,7 +412,8 @@ export function CommentDrawer({
             >
               LOAD MORE →
             </button>
-          ))}
+          ))
+        )}
       </div>
 
       {/* Non-member group teaser (canInteract=false): suppress both the

@@ -116,6 +116,12 @@ export function WatchingCardsPanel({
         bcc_unavailable: "Your watchlist is temporarily unavailable. Try again shortly.",
         bcc_permission_denied: "You can’t read this watchlist.",
         bcc_forbidden: "You can’t read this watchlist.",
+        // `bcc_blocked` is the third member of PERMISSION_DENIAL_CODES, so
+        // the Retry control is already withheld for it — but without this
+        // line the copy fell through to the default, which ends in "Try
+        // again in a moment". A blocked viewer was told to retry beside no
+        // control to retry with.
+        bcc_blocked: "You can’t read this watchlist.",
       },
       laterPage
         ? "Couldn’t load page " + page + " of your watchlist."
