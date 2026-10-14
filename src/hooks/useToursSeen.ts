@@ -19,14 +19,32 @@
  */
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useSession } from "next-auth/react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { useViewerScope } from "@/hooks/useViewerScope";
 import { getToursSeen, markTourSeen } from "@/lib/api/tours-endpoints";
 import type { ToursSeenResponse } from "@/lib/api/types";
+import type { ViewerScope } from "@/lib/auth/viewer-scope";
 import { addLocalSeen, getLocalSeen } from "@/lib/tour/storage";
 
-const TOURS_SEEN_KEY = ["me", "tours-seen"] as const;
+/**
+ * Viewer-scoped, because the server layer is a `/me/*` response.
+ *
+ * The LOCAL layer has always been scoped — `getLocalSeen(scope)` reads one
+ * viewer's set and nobody else's. The server layer was not: it cached under
+ * a single constant key, so one viewer's durable seen-set shared a cache
+ * entry with the next viewer's and with an anonymous visitor's. The
+ * gate/cancel/clear chain in `lib/auth/session-boundary` empties that on a
+ * confirmed teardown, and still does — this makes the two layers agree on
+ * whose data they hold instead of relying on teardown ordering.
+ *
+ * `null` (identity unavailable) is a distinct namespace from `ANON_SCOPE`,
+ * and the query is disabled there anyway.
+ */
+function toursSeenKey(scope: ViewerScope) {
+  return ["me", "tours-seen", scope] as const;
+}
 
 export interface ToursSeenApi {
   hasSeen: (tourId: string) => boolean;
@@ -58,8 +76,27 @@ export function useToursSeen(): ToursSeenApi {
 
   // Server layer — degrade to empty on any error (endpoint may not exist
   // yet). No retries or focus refetch: this is a low-stakes preference set.
+  //
+  // ⚠ GATED on an authenticated session. `GET /me/tours-seen` is
+  // Bearer-authed, so for an anonymous visitor it can only ever 401 —
+  // and this hook lives in TourProvider, which is mounted on every page.
+  // Measured before this change: one guaranteed-401 request on EVERY
+  // public page view, anonymous or not, which was 1 of the 3–6 API
+  // requests those pages make. Nothing was gained by it: an anonymous
+  // viewer has no server-side record to read, and the local layer below
+  // already answers `hasSeen` for them.
+  //
+  // This matches the idiom the rest of the always-mounted chrome already
+  // uses — `useBadges` gates on `status === "authenticated"` and
+  // `useSuggestedMembers` takes `enabled: isAuthed`. This hook was the
+  // only one of them without a gate.
+  //
+  // `scope !== null` is the second half: with identity unavailable we do
+  // not know whose set this would be, so it must not be read or filed.
+  const sessionStatus = useSession().status;
   const serverQuery = useQuery<ToursSeenResponse>({
-    queryKey: TOURS_SEEN_KEY,
+    queryKey: toursSeenKey(scope),
+    enabled: sessionStatus === "authenticated" && scope !== null,
     queryFn: ({ signal }) => getToursSeen(signal),
     staleTime: 30 * 60_000,
     retry: false,
@@ -75,7 +112,12 @@ export function useToursSeen(): ToursSeenApi {
     mutationFn: (tourId) => markTourSeen(tourId),
     onSuccess: (data) => {
       // Adopt the server's authoritative set when it answers.
-      queryClient.setQueryData<ToursSeenResponse>(TOURS_SEEN_KEY, data);
+      // Into THIS viewer's namespace. With identity unavailable we cannot
+      // say whose set it is, so the local layer (already written
+      // synchronously by `markSeen`) carries it alone.
+      if (scope !== null) {
+        queryClient.setQueryData<ToursSeenResponse>(toursSeenKey(scope), data);
+      }
     },
     // Swallow errors — localStorage already recorded the "seen", so the
     // tour won't replay on this device regardless of the server outcome.
