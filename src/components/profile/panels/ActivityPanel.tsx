@@ -25,17 +25,17 @@
 import { Composer } from "@/components/composer/Composer";
 import { FeedItemCard } from "@/components/feed/FeedItemCard";
 import { LivingHeader } from "@/components/profile/LivingHeader";
-import { useUserActivity } from "@/hooks/useUserActivity";
+import { USER_ACTIVITY_QUERY_KEY_ROOT, useUserActivity } from "@/hooks/useUserActivity";
 import { LoadFailure } from "@/components/ui/LoadFailure";
 import { humanizeCode, isPermissionDenial } from "@/lib/api/errors";
+import {
+  shouldWithdrawOnDenial,
+  useDenialGate,
+  useReportDenial,
+} from "@/lib/api/resource-denial";
 import type { MemberLiving, MemberProgression } from "@/lib/api/types";
 
-export function ActivityPanel({
-  handle,
-  isOwner = false,
-  living,
-  progression,
-}: {
+interface ActivityPanelProps {
   handle: string;
   isOwner?: boolean;
   /** Own-profile-only "today's impact" + streak data. Renders at the
@@ -43,8 +43,45 @@ export function ActivityPanel({
    *  ships these on is_self; pass undefined for visitor views. */
   living?: MemberLiving | undefined;
   progression?: MemberProgression | undefined;
-}) {
+}
+
+/** Shown once the server has withdrawn permission to read this wall. */
+const WALL_WITHDRAWN_COPY = "You can’t view this wall.";
+
+/**
+ * The denial gate. Owns no query, so latching it unmounts the panel below
+ * — which is what makes removing the cache entry safe. See
+ * `lib/api/resource-denial`.
+ */
+export function ActivityPanel(props: ActivityPanelProps) {
+  const gate = useDenialGate([...USER_ACTIVITY_QUERY_KEY_ROOT, props.handle]);
+
+  if (gate.withdrawn) {
+    return (
+      <div className="py-8">
+        <LoadFailure message={WALL_WITHDRAWN_COPY} />
+      </div>
+    );
+  }
+
+  return <ActivityPanelData {...props} onDenied={gate.withdraw} />;
+}
+
+function ActivityPanelData({
+  handle,
+  isOwner = false,
+  living,
+  progression,
+  onDenied,
+}: ActivityPanelProps & { onDenied: () => void }) {
   const query = useUserActivity(handle);
+
+  // A denied REFRESH of the rows already on screen withdraws them. A denied
+  // next page does not — it says nothing about the pages already served.
+  useReportDenial(
+    shouldWithdrawOnDenial(query.error, query.isRefetchError, query.data !== undefined),
+    onDenied,
+  );
 
   // §γ — copy is keyed on err.code; never render err.message.
   const failureCopy = humanizeCode(

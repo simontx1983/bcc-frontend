@@ -46,6 +46,14 @@ import { BccApiError } from "@/lib/api/types";
 const fetchNextPage = vi.fn();
 const refetch = vi.fn();
 
+/** Spy for the gate's cache removal, so the withdrawal is asserted, not assumed. */
+const removeQueries = vi.hoisted(() => vi.fn());
+
+vi.mock("@tanstack/react-query", async (importOriginal) => ({
+  ...(await importOriginal<typeof ReactQueryModule>()),
+  useQueryClient: () => ({ removeQueries }),
+}));
+
 const state = vi.hoisted(() => ({
   watchers: null as unknown,
   reviews: null as unknown,
@@ -56,15 +64,21 @@ const state = vi.hoisted(() => ({
 }));
 
 vi.mock("@/hooks/useCardTabs", () => ({
+  CARD_REVIEWS_QUERY_KEY_ROOT: ["entities", "reviews"],
+  CARD_WATCHERS_QUERY_KEY_ROOT: ["entities", "watchers"],
   useCardWatchers: () => state.watchers,
   useCardReviews: () => state.reviews,
 }));
 vi.mock("@/hooks/useUserActivity", () => ({
+  USER_ACTIVITY_QUERY_KEY_ROOT: ["users", "activity"],
+  USER_ALBUMS_QUERY_KEY_ROOT: ["users", "albums"],
+  ALBUM_PHOTOS_QUERY_KEY_ROOT: ["users", "album-photos"],
   useUserActivity: () => state.activity,
   useUserAlbums: () => state.albums,
   useAlbumPhotos: () => state.albumPhotos,
 }));
 vi.mock("@/hooks/useCreatorGallery", () => ({
+  creatorGalleryQueryKey: (slug: string, sort?: string) => ["creator-gallery", slug, sort ?? "total_volume"],
   useCreatorGallery: () => state.gallery,
 }));
 vi.mock("@/lib/env", () => ({
@@ -93,6 +107,7 @@ import { CardWatchersPanel } from "@/components/entity/panels/CardWatchersPanel"
 import { CreatorGallery } from "@/components/creator/CreatorGallery";
 import { ActivityPanel } from "@/components/profile/panels/ActivityPanel";
 import { PhotosPanel } from "@/components/profile/panels/PhotosPanel";
+import type * as ReactQueryModule from "@tanstack/react-query";
 
 beforeAll(() => {
   window.matchMedia = ((q: string) => ({
@@ -119,6 +134,7 @@ beforeEach(() => {
   state.gallery = null;
   fetchNextPage.mockClear();
   refetch.mockClear();
+  removeQueries.mockClear();
 });
 
 afterEach(() => {
@@ -389,15 +405,21 @@ describe("ActivityPanel", () => {
   });
 
   describe("a failed REFRESH with the wall loaded", () => {
-    it.each(DENIAL_CODES)("%s keeps the rows, drops Retry AND LOAD MORE", (code) => {
+    it.each(DENIAL_CODES)("%s WITHDRAWS the rows and drops the cache entry", (code) => {
+      // The operator's policy: the server's latest authoritative answer is
+      // "you may not read this", so the app stops displaying it. The rows
+      // go, not just the controls.
       state.activity = inf([feedPage([1, 2])], "refetch", code);
       wall();
-      expect(screen.getAllByTestId("wall-row")).toHaveLength(2);
+      expect(screen.queryAllByTestId("wall-row")).toHaveLength(0);
       expect(retryBtn()).toBeNull();
-      // The judgment call: a refresh failure normally KEEPS paging, because
-      // the cursor is still coherent. A denial is different — the boundary
-      // covers the whole wall, so the next page would be refused too.
       expect(loadMoreBtn()).toBeNull();
+      expect(screen.getByRole("alert").textContent).toMatch(/can’t view this wall/i);
+      // Exact, so a root-prefixed sibling is never caught by a partial match.
+      expect(removeQueries).toHaveBeenCalledWith({
+        queryKey: ["users", "activity", "welder"],
+        exact: true,
+      });
     });
 
     it("a temporary refresh failure keeps BOTH, and Retry refetches", () => {
@@ -447,11 +469,16 @@ describe("PhotosPanel ▸ AllPhotos", () => {
     expect(refetch).toHaveBeenCalledTimes(1);
   });
 
-  it.each(DENIAL_CODES)("%s keeps loaded photos, drops Retry and LOAD MORE", (code) => {
+  it.each(DENIAL_CODES)("%s WITHDRAWS the photos and drops the cache entry", (code) => {
     state.activity = inf([photoPage([1, 2])], "refetch", code);
     photos();
     expect(retryBtn()).toBeNull();
     expect(loadMoreBtn()).toBeNull();
+    expect(screen.getByRole("alert").textContent).toMatch(/can’t see this member’s photos/i);
+    expect(removeQueries).toHaveBeenCalledWith({
+      queryKey: ["users", "activity", "welder"],
+      exact: true,
+    });
   });
 
   it("a temporary next-page failure resumes that cursor", () => {
@@ -485,12 +512,17 @@ describe("PhotosPanel ▸ AlbumsGrid (unpaged)", () => {
     expect(fetchNextPage).not.toHaveBeenCalled();
   });
 
-  it.each(DENIAL_CODES)("%s keeps the loaded shelf but offers no Retry", (code) => {
+  it.each(DENIAL_CODES)("%s WITHDRAWS the loaded shelf and drops the cache entry", (code) => {
+    // Unpaged: any denied read here IS a read of this same resource.
     state.albums = fixed({ items: [album(1), album(2)] }, code);
     photos();
     openAlbums();
-    expect(screen.getByRole("button", { name: /open album Album 1/i })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /open album Album 1/i })).toBeNull();
     expect(retryBtn()).toBeNull();
+    expect(removeQueries).toHaveBeenCalledWith({
+      queryKey: ["users", "albums", "welder"],
+      exact: true,
+    });
   });
 });
 
@@ -549,12 +581,17 @@ describe("CreatorGallery", () => {
     expect(refetch).toHaveBeenCalledTimes(1);
   });
 
-  it.each(DENIAL_CODES)("%s keeps the tiles, drops Retry and LOAD MORE", (code) => {
+  it.each(DENIAL_CODES)("%s WITHDRAWS the tiles and drops the cache entry", (code) => {
     state.gallery = inf([galleryPage([1, 2])], "refetch", code);
     gallery();
-    expect(screen.getAllByRole("listitem")).toHaveLength(2);
+    expect(screen.queryAllByRole("listitem")).toHaveLength(0);
     expect(retryBtn()).toBeNull();
     expect(loadMoreBtn()).toBeNull();
+    expect(screen.getByRole("alert").textContent).toMatch(/can’t view this creator’s gallery/i);
+    expect(removeQueries).toHaveBeenCalledWith({
+      queryKey: ["creator-gallery", "welder", "total_volume"],
+      exact: true,
+    });
   });
 
   it("a temporary next-page failure resumes the same page param", () => {
@@ -563,6 +600,122 @@ describe("CreatorGallery", () => {
     fireEvent.click(retryBtn() as HTMLElement);
     expect(fetchNextPage).toHaveBeenCalledTimes(1);
     expect(refetch).not.toHaveBeenCalled();
+  });
+});
+
+// ═════════════════════════════════════════════════════════════════════
+// The withdrawal policy — scope, loop safety, recovery
+// ═════════════════════════════════════════════════════════════════════
+
+describe("withdrawal is scoped to a denied read of the SAME resource", () => {
+  it("a denied NEXT PAGE keeps the earlier pages and removes nothing", () => {
+    // A refusal of page 2 is not a statement about page 1: those rows were
+    // served under their own authorised 200.
+    state.activity = inf([feedPage([1, 2])], "next", "bcc_forbidden");
+    wall();
+    expect(screen.getAllByTestId("wall-row")).toHaveLength(2);
+    expect(removeQueries).not.toHaveBeenCalled();
+  });
+
+  it("a TRANSIENT refresh failure keeps the rows and removes nothing", () => {
+    // The server never said no, so there is nothing to honour.
+    state.activity = inf([feedPage([1, 2])], "refetch", "bcc_unavailable");
+    wall();
+    expect(screen.getAllByTestId("wall-row")).toHaveLength(2);
+    expect(retryBtn()).not.toBeNull();
+    expect(removeQueries).not.toHaveBeenCalled();
+  });
+
+  it.each(TEMPORARY_CODES)("%s on a refresh never withdraws", (code) => {
+    state.activity = inf([feedPage([1, 2])], "refetch", code);
+    wall();
+    expect(screen.getAllByTestId("wall-row")).toHaveLength(2);
+    expect(removeQueries).not.toHaveBeenCalled();
+  });
+
+  it("a denied FIRST load removes nothing — there is no payload to withdraw", () => {
+    state.activity = inf([], "first", "bcc_forbidden");
+    wall();
+    expect(removeQueries).not.toHaveBeenCalled();
+  });
+
+  it("removes ONLY that resource, with exact:true", () => {
+    // A partial match would also catch ["users","activity",<someone else>]
+    // and every other key sharing the root.
+    state.activity = inf([feedPage([1])], "refetch", "bcc_forbidden");
+    wall();
+    expect(removeQueries).toHaveBeenCalledTimes(1);
+    expect(removeQueries).toHaveBeenCalledWith({
+      queryKey: ["users", "activity", "welder"],
+      exact: true,
+    });
+  });
+});
+
+describe("withdrawal cannot loop", () => {
+  it("removes the entry exactly once, not once per render", () => {
+    // removeQueries on a key that still has a mounted observer makes
+    // TanStack re-create the entry and refetch — denied again, removed
+    // again. The gate must unmount the query owner first and latch.
+    state.activity = inf([feedPage([1, 2])], "refetch", "bcc_forbidden");
+    const view = wall();
+    view.rerender(<ActivityPanel handle="welder" />);
+    view.rerender(<ActivityPanel handle="welder" />);
+    expect(removeQueries).toHaveBeenCalledTimes(1);
+  });
+
+  it("stops consulting the query once withdrawn", () => {
+    // The data component is unmounted, so nothing re-subscribes: no
+    // refetch and no further page requests can be issued.
+    state.activity = inf([feedPage([1, 2])], "refetch", "bcc_forbidden");
+    const view = wall();
+    refetch.mockClear();
+    fetchNextPage.mockClear();
+    view.rerender(<ActivityPanel handle="welder" />);
+    expect(refetch).not.toHaveBeenCalled();
+    expect(fetchNextPage).not.toHaveBeenCalled();
+  });
+
+  it("signs nobody out and deletes no drafts", () => {
+    // The only state the policy drops is this one query's payload.
+    const store: Record<string, string> = { "bcc.blog.draft::welder": "unsent" };
+    const spy = vi
+      .spyOn(Storage.prototype, "removeItem")
+      .mockImplementation((k: string) => { delete store[k]; });
+    state.activity = inf([feedPage([1, 2])], "refetch", "bcc_forbidden");
+    wall();
+    expect(spy).not.toHaveBeenCalled();
+    expect(store["bcc.blog.draft::welder"]).toBe("unsent");
+    spy.mockRestore();
+  });
+});
+
+describe("recovery — permission restored", () => {
+  it("a remount after restoration performs a fresh authorised fetch", () => {
+    state.activity = inf([feedPage([1, 2])], "refetch", "bcc_forbidden");
+    const view = wall();
+    expect(screen.queryAllByTestId("wall-row")).toHaveLength(0);
+
+    // The viewer navigates away and back; permission has been restored.
+    view.unmount();
+    state.activity = healthy([feedPage([1, 2, 3])]);
+    wall();
+
+    // An ordinary successful render — the latch did not survive the mount.
+    expect(screen.getAllByTestId("wall-row")).toHaveLength(3);
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("a DIFFERENT resource is not treated as denied", () => {
+    // The latch is keyed on the resource, so another member's wall renders
+    // normally even though this one was just refused.
+    state.activity = inf([feedPage([1])], "refetch", "bcc_forbidden");
+    const view = render(<ActivityPanel handle="welder" />);
+    expect(screen.queryAllByTestId("wall-row")).toHaveLength(0);
+
+    state.activity = healthy([feedPage([7, 8])]);
+    view.rerender(<ActivityPanel handle="someone-else" />);
+    expect(screen.getAllByTestId("wall-row")).toHaveLength(2);
   });
 });
 

@@ -43,12 +43,25 @@ const state = vi.hoisted(() => ({
   gallery: null as unknown,
 }));
 
+// The panels now sit behind a denial gate that reads the QueryClient to drop
+// a withdrawn resource's cache entry. These tests drive the data hooks
+// directly, so a stub is enough — the removal itself is asserted in
+// `ui/panel-denial-retry.test.tsx` and measured in the browser.
+vi.mock("@tanstack/react-query", async (importOriginal) => ({
+  ...(await importOriginal<typeof ReactQueryModule>()),
+  useQueryClient: () => ({ removeQueries: () => {} }),
+}));
+
 vi.mock("@/hooks/useUserActivity", () => ({
+  USER_ACTIVITY_QUERY_KEY_ROOT: ["users", "activity"],
+  USER_ALBUMS_QUERY_KEY_ROOT: ["users", "albums"],
+  ALBUM_PHOTOS_QUERY_KEY_ROOT: ["users", "album-photos"],
   useUserActivity: () => state.activity,
   useUserAlbums: () => ({ isPending: true, isError: false, data: undefined }),
   useAlbumPhotos: () => ({ isPending: true, isError: false, data: undefined }),
 }));
 vi.mock("@/hooks/useCreatorGallery", () => ({
+  creatorGalleryQueryKey: (slug: string, sort?: string) => ["creator-gallery", slug, sort ?? "total_volume"],
   useCreatorGallery: () => state.gallery,
 }));
 vi.mock("@/lib/env", () => ({
@@ -65,6 +78,7 @@ vi.mock("@/components/feed/FeedItemCard", () => ({
 import { ActivityPanel } from "@/components/profile/panels/ActivityPanel";
 import { PhotosPanel } from "@/components/profile/panels/PhotosPanel";
 import { CreatorGallery } from "@/components/creator/CreatorGallery";
+import type * as ReactQueryModule from "@tanstack/react-query";
 
 beforeAll(() => {
   window.matchMedia = ((q: string) => ({

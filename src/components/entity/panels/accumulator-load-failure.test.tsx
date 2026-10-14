@@ -51,11 +51,25 @@ const cardState = vi.hoisted(() => ({
 /** Unknown offset = request in flight (WatchingPanel hooks only). */
 const PENDING = { isPending: true, isError: false, error: null, data: undefined };
 
+// The panels now sit behind a denial gate that reads the QueryClient to drop
+// a withdrawn resource's cache entry. These tests drive the data hooks
+// directly, so a stub is enough — the removal itself is asserted in
+// `ui/panel-denial-retry.test.tsx` and measured in the browser.
+vi.mock("@tanstack/react-query", async (importOriginal) => ({
+  ...(await importOriginal<typeof ReactQueryModule>()),
+  useQueryClient: () => ({ removeQueries: () => {} }),
+}));
+
 vi.mock("@/hooks/useCardTabs", () => ({
+  CARD_REVIEWS_QUERY_KEY_ROOT: ["entities", "reviews"],
+  CARD_WATCHERS_QUERY_KEY_ROOT: ["entities", "watchers"],
   useCardReviews: () => cardState.reviews ?? PENDING,
   useCardWatchers: () => cardState.watchers ?? PENDING,
 }));
 vi.mock("@/hooks/useUserActivity", () => ({
+  USER_ACTIVITY_QUERY_KEY_ROOT: ["users", "activity"],
+  USER_ALBUMS_QUERY_KEY_ROOT: ["users", "albums"],
+  ALBUM_PHOTOS_QUERY_KEY_ROOT: ["users", "album-photos"],
   useUserFollowers: (_h: unknown, offset = 0) => state.followers[offset] ?? PENDING,
   useUserFollowing: (_h: unknown, offset = 0) => state.following[offset] ?? PENDING,
 }));
@@ -71,6 +85,7 @@ vi.mock("@/components/identity/Avatar", () => ({ Avatar: () => null }));
 import { CardReviewsPanel } from "@/components/entity/panels/CardReviewsPanel";
 import { CardWatchersPanel } from "@/components/entity/panels/CardWatchersPanel";
 import { WatchingPanel } from "@/components/profile/panels/WatchingPanel";
+import type * as ReactQueryModule from "@tanstack/react-query";
 
 beforeAll(() => {
   window.matchMedia = ((q: string) => ({

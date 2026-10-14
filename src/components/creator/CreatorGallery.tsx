@@ -30,8 +30,13 @@
  * page-load lights up the grid.
  */
 
-import { useCreatorGallery } from "@/hooks/useCreatorGallery";
+import { creatorGalleryQueryKey, useCreatorGallery } from "@/hooks/useCreatorGallery";
 import { isPermissionDenial } from "@/lib/api/errors";
+import {
+  shouldWithdrawOnDenial,
+  useDenialGate,
+  useReportDenial,
+} from "@/lib/api/resource-denial";
 import { LoadFailure } from "@/components/ui/LoadFailure";
 import { SKELETON_CLASS } from "@/components/ui/Skeleton";
 import { dedupeById } from "@/lib/pagination";
@@ -43,8 +48,43 @@ interface CreatorGalleryProps {
   creatorName: string;
 }
 
+/** Shown once the server has withdrawn permission to read this gallery. */
+const WITHDRAWN_COPY = "You can’t view this creator’s gallery.";
+
+/**
+ * The denial gate. It owns no query, so latching it unmounts the component
+ * below — which is what makes removing the cache entry safe. See
+ * `lib/api/resource-denial` for why the order matters.
+ */
 export function CreatorGallery({ slug, creatorName }: CreatorGalleryProps) {
+  const gate = useDenialGate(creatorGalleryQueryKey(slug));
+
+  if (gate.withdrawn) {
+    return (
+      <GalleryShell title="The Gallery">
+        <LoadFailure message={WITHDRAWN_COPY} />
+      </GalleryShell>
+    );
+  }
+
+  return (
+    <CreatorGalleryData slug={slug} creatorName={creatorName} onDenied={gate.withdraw} />
+  );
+}
+
+function CreatorGalleryData({
+  slug,
+  creatorName,
+  onDenied,
+}: CreatorGalleryProps & { onDenied: () => void }) {
   const query = useCreatorGallery({ slug });
+
+  // A denied REFRESH of the pages already on screen withdraws them. A
+  // denied next page does not — it says nothing about page 1.
+  useReportDenial(
+    shouldWithdrawOnDenial(query.error, query.isRefetchError, query.data !== undefined),
+    onDenied,
+  );
 
   // A permission boundary does not move when the page param does, so a
   // Retry against one can only fail the same way. Omitting `onRetry`

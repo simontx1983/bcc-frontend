@@ -26,7 +26,12 @@ import type { Route } from "next";
 
 import { CardGrid } from "@/components/cards/CardGrid";
 import { Avatar } from "@/components/identity/Avatar";
-import { useCardWatchers } from "@/hooks/useCardTabs";
+import { CARD_WATCHERS_QUERY_KEY_ROOT, useCardWatchers } from "@/hooks/useCardTabs";
+import {
+  shouldWithdrawOnDenial,
+  useDenialGate,
+  useReportDenial,
+} from "@/lib/api/resource-denial";
 import { dedupeById } from "@/lib/pagination";
 import { LoadFailure } from "@/components/ui/LoadFailure";
 import { humanizeCode, isPermissionDenial } from "@/lib/api/errors";
@@ -51,12 +56,40 @@ function readStoredView(): RosterView {
   return raw === "grid" ? "grid" : "list";
 }
 
-export function CardWatchersPanel({
+/** Shown once the server has withdrawn permission to read this roster. */
+const WATCHERS_WITHDRAWN_COPY = "You can’t see who is watching this card.";
+
+/**
+ * The denial gate. Owns no query, so latching it unmounts the panel below
+ * — which is what makes removing the cache entry safe. See
+ * `lib/api/resource-denial`.
+ */
+export function CardWatchersPanel(props: CardWatchersPanelProps) {
+  const gate = useDenialGate([...CARD_WATCHERS_QUERY_KEY_ROOT, props.kind, props.cardId]);
+
+  if (gate.withdrawn) {
+    return (
+      <article className="bcc-paper">
+        <header className="bcc-paper-head">
+          <h3 className="bcc-stencil" style={{ fontSize: "16px", letterSpacing: "0.18em" }}>
+            Watchers
+          </h3>
+        </header>
+        <LoadFailure surface="paper" message={WATCHERS_WITHDRAWN_COPY} />
+      </article>
+    );
+  }
+
+  return <CardWatchersPanelData {...props} onDenied={gate.withdraw} />;
+}
+
+function CardWatchersPanelData({
   kind,
   cardId,
   cardName,
   isClaimed,
-}: CardWatchersPanelProps) {
+  onDenied,
+}: CardWatchersPanelProps & { onDenied: () => void }) {
   const [view, setView] = useState<RosterView>("list");
   useEffect(() => {
     setView(readStoredView());
@@ -67,6 +100,13 @@ export function CardWatchersPanel({
   }, [view]);
 
   const query = useCardWatchers(kind, cardId);
+
+  // A denied REFRESH of the roster already on screen withdraws it. A denied
+  // next offset does not — it says nothing about the rows already served.
+  useReportDenial(
+    shouldWithdrawOnDenial(query.error, query.isRefetchError, query.data !== undefined),
+    onDenied,
+  );
 
   // Pages in fetch order; TanStack appends only on success, so a failed LOAD
   // MORE leaves this exactly as it was.

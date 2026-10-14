@@ -30,9 +30,26 @@ import { useState } from "react";
 
 import { isWpMediaUrl } from "@/lib/media";
 
-import { useAlbumPhotos, useUserActivity, useUserAlbums } from "@/hooks/useUserActivity";
+import {
+  ALBUM_PHOTOS_QUERY_KEY_ROOT,
+  USER_ACTIVITY_QUERY_KEY_ROOT,
+  USER_ALBUMS_QUERY_KEY_ROOT,
+  useAlbumPhotos,
+  useUserActivity,
+  useUserAlbums,
+} from "@/hooks/useUserActivity";
 import { LoadFailure } from "@/components/ui/LoadFailure";
 import { humanizeCode, isPermissionDenial } from "@/lib/api/errors";
+import {
+  shouldWithdrawOnDenial,
+  useDenialGate,
+  useReportDenial,
+} from "@/lib/api/resource-denial";
+
+/** Shown once the server has withdrawn permission to read these. */
+const PHOTOS_WITHDRAWN_COPY = "You can’t see this member’s photos.";
+const ALBUMS_WITHDRAWN_COPY = "You can’t see this member’s albums.";
+const ALBUM_WITHDRAWN_COPY = "You can’t see this album.";
 import { SKELETON_CLASS } from "@/components/ui/Skeleton";
 import type { AlbumPhoto, FeedItem, PhotoBody, UserAlbum } from "@/lib/api/types";
 import { clientEnv } from "@/lib/env";
@@ -181,8 +198,36 @@ function SubTabStrip({
 // filtered for post_kind === "photo".
 // ──────────────────────────────────────────────────────────────────────
 
+/**
+ * The denial gates. Each owns no query, so latching one unmounts the
+ * component below it — which is what makes removing that cache entry safe.
+ * See `lib/api/resource-denial`.
+ */
 function AllPhotos({ handle, isOwner }: { handle: string; isOwner: boolean }) {
+  const gate = useDenialGate([...USER_ACTIVITY_QUERY_KEY_ROOT, handle]);
+  if (gate.withdrawn) {
+    return <LoadFailure surface="paper" message={PHOTOS_WITHDRAWN_COPY} />;
+  }
+  return <AllPhotosData handle={handle} isOwner={isOwner} onDenied={gate.withdraw} />;
+}
+
+function AllPhotosData({
+  handle,
+  isOwner,
+  onDenied,
+}: {
+  handle: string;
+  isOwner: boolean;
+  onDenied: () => void;
+}) {
   const query = useUserActivity(handle);
+
+  // A denied REFRESH of the photos already on screen withdraws them. A
+  // denied next page does not — it says nothing about the pages served.
+  useReportDenial(
+    shouldWithdrawOnDenial(query.error, query.isRefetchError, query.data !== undefined),
+    onDenied,
+  );
 
   // §γ — copy is keyed on err.code; never render err.message.
   const failureCopy = humanizeCode(
@@ -466,16 +511,37 @@ function Albums({ handle, isOwner }: { handle: string; isOwner: boolean }) {
   return <AlbumsGrid handle={handle} isOwner={isOwner} onOpen={setSelected} />;
 }
 
-function AlbumsGrid({
-  handle,
-  isOwner,
-  onOpen,
-}: {
+function AlbumsGrid(props: {
   handle: string;
   isOwner: boolean;
   onOpen: (album: UserAlbum) => void;
 }) {
+  const gate = useDenialGate([...USER_ALBUMS_QUERY_KEY_ROOT, props.handle]);
+  if (gate.withdrawn) {
+    return <LoadFailure surface="paper" message={ALBUMS_WITHDRAWN_COPY} />;
+  }
+  return <AlbumsGridData {...props} onDenied={gate.withdraw} />;
+}
+
+function AlbumsGridData({
+  handle,
+  isOwner,
+  onOpen,
+  onDenied,
+}: {
+  handle: string;
+  isOwner: boolean;
+  onOpen: (album: UserAlbum) => void;
+  onDenied: () => void;
+}) {
   const query = useUserAlbums(handle);
+
+  // UNPAGED, so every failed read is a read of this same resource — there
+  // is no next page whose refusal could be mistaken for this one.
+  useReportDenial(
+    shouldWithdrawOnDenial(query.error, true, query.data !== undefined),
+    onDenied,
+  );
 
   if (query.isPending) {
     return (
@@ -622,16 +688,49 @@ function AlbumTile({
 // activity post.
 // ──────────────────────────────────────────────────────────────────────
 
-function AlbumDetail({
-  handle,
-  album,
-  onBack,
-}: {
+function AlbumDetail(props: {
   handle: string;
   album: UserAlbum;
   onBack: () => void;
 }) {
+  // Keyed on the album, so opening a DIFFERENT album resets the latch: one
+  // refused album says nothing about the next.
+  const gate = useDenialGate([
+    ...ALBUM_PHOTOS_QUERY_KEY_ROOT,
+    props.handle,
+    props.album.id,
+  ]);
+  if (gate.withdrawn) {
+    return (
+      <div className="px-5 py-5">
+        <AlbumDetailHeader album={props.album} onBack={props.onBack} />
+        <div className="mt-6">
+          <LoadFailure surface="paper" message={ALBUM_WITHDRAWN_COPY} />
+        </div>
+      </div>
+    );
+  }
+  return <AlbumDetailData {...props} onDenied={gate.withdraw} />;
+}
+
+function AlbumDetailData({
+  handle,
+  album,
+  onBack,
+  onDenied,
+}: {
+  handle: string;
+  album: UserAlbum;
+  onBack: () => void;
+  onDenied: () => void;
+}) {
   const query = useAlbumPhotos(handle, album.id);
+
+  // UNPAGED, so every failed read is a read of this same album.
+  useReportDenial(
+    shouldWithdrawOnDenial(query.error, true, query.data !== undefined),
+    onDenied,
+  );
 
   return (
     <div className="px-5 py-5">

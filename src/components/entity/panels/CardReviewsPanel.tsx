@@ -31,7 +31,12 @@
 import Link from "next/link";
 import type { Route } from "next";
 
-import { useCardReviews } from "@/hooks/useCardTabs";
+import { CARD_REVIEWS_QUERY_KEY_ROOT, useCardReviews } from "@/hooks/useCardTabs";
+import {
+  shouldWithdrawOnDenial,
+  useDenialGate,
+  useReportDenial,
+} from "@/lib/api/resource-denial";
 import { dedupeById } from "@/lib/pagination";
 import { LoadFailure } from "@/components/ui/LoadFailure";
 import { humanizeCode, isPermissionDenial } from "@/lib/api/errors";
@@ -47,8 +52,43 @@ interface CardReviewsPanelProps {
   cardName: string;
 }
 
-export function CardReviewsPanel({ kind, cardId, cardName }: CardReviewsPanelProps) {
+/** Shown once the server has withdrawn permission to read these reviews. */
+const REVIEWS_WITHDRAWN_COPY = "You can’t read reviews of this card.";
+
+/**
+ * The denial gate. Owns no query, so latching it unmounts the panel below
+ * — which is what makes removing the cache entry safe. See
+ * `lib/api/resource-denial`.
+ */
+export function CardReviewsPanel(props: CardReviewsPanelProps) {
+  const gate = useDenialGate([...CARD_REVIEWS_QUERY_KEY_ROOT, props.kind, props.cardId]);
+
+  if (gate.withdrawn) {
+    return (
+      <article className="bcc-paper">
+        <Header cardName={props.cardName} />
+        <LoadFailure surface="paper" message={REVIEWS_WITHDRAWN_COPY} />
+      </article>
+    );
+  }
+
+  return <CardReviewsPanelData {...props} onDenied={gate.withdraw} />;
+}
+
+function CardReviewsPanelData({
+  kind,
+  cardId,
+  cardName,
+  onDenied,
+}: CardReviewsPanelProps & { onDenied: () => void }) {
   const query = useCardReviews(kind, cardId);
+
+  // A denied REFRESH of the reviews already on screen withdraws them. A
+  // denied next page does not — it says nothing about page 1.
+  useReportDenial(
+    shouldWithdrawOnDenial(query.error, query.isRefetchError, query.data !== undefined),
+    onDenied,
+  );
 
   // Pages in fetch order; TanStack appends only on success, so a failed
   // LOAD MORE leaves this exactly as it was.
