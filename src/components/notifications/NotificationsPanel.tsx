@@ -200,11 +200,28 @@ export function NotificationsPanel({
           ) : (
             list.hasNextPage && (
               <li>
+                {/* Not `disabled` while fetching: a disabled element is
+                    removed from the tab order and the browser blurs it, so
+                    disabling the button the viewer just pressed drops focus
+                    to <body>. Measured: after activating LOAD MORE,
+                    `document.activeElement` was `<body>` and a keyboard
+                    user had to tab in from the top of the document to
+                    reach it again — at the BOTTOM of a list that had just
+                    grown. Focusable + `aria-disabled` + an inert handler
+                    keeps focus where the viewer put it. Same reasoning,
+                    same shape, as PagerNav's chips. */}
                 <button
                   type="button"
-                  onClick={() => void list.fetchNextPage()}
-                  disabled={list.isFetchingNextPage}
-                  className="bcc-mono w-full px-4 py-2.5 text-center text-[10px] tracking-[0.18em] text-[var(--bcc-accent)] hover:bg-[var(--bcc-surface-hover)] disabled:cursor-wait"
+                  onClick={() => {
+                    if (list.isFetchingNextPage) return;
+                    void list.fetchNextPage();
+                  }}
+                  aria-disabled={list.isFetchingNextPage || undefined}
+                  aria-busy={list.isFetchingNextPage || undefined}
+                  className={
+                    "bcc-mono w-full px-4 py-2.5 text-center text-[10px] tracking-[0.18em] text-[var(--bcc-accent)] hover:bg-[var(--bcc-surface-hover)]" +
+                    (list.isFetchingNextPage ? " cursor-wait" : "")
+                  }
                 >
                   {list.isFetchingNextPage ? "LOADING…" : "LOAD MORE"}
                 </button>
