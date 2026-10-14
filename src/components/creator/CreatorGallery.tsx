@@ -14,12 +14,15 @@
  *
  * States:
  *   - loading-initial → skeleton row
- *   - error           → silent panel ("couldn't load")
+ *   - first-load error → shared LoadFailure with a real Retry
  *   - empty (creator has no indexed collections yet)
  *                     → "Coming soon" panel referencing the SWR hint
  *   - empty + stale   → "Pulling from-chain… check back shortly"
  *   - has-data        → grid + (if stale) a soft "Refreshing…" badge
  *                       + Load more button when has_more
+ *   - has-data + a later failure
+ *                     → the grid STAYS, with a LoadFailure whose retry
+ *                       matches the failure (see the branch comment)
  *
  * The empty + stale path is the dominant first-time experience for
  * a creator whose page just got claimed: the server's first read
@@ -27,8 +30,16 @@
  * page-load lights up the grid.
  */
 
-import { useCreatorGallery } from "@/hooks/useCreatorGallery";
+import { creatorGalleryQueryKey, useCreatorGallery } from "@/hooks/useCreatorGallery";
+import { isPermissionDenial } from "@/lib/api/errors";
+import {
+  shouldWithdrawOnDenial,
+  useDenialGate,
+  useReportDenial,
+} from "@/lib/api/resource-denial";
+import { LoadFailure } from "@/components/ui/LoadFailure";
 import { SKELETON_CLASS } from "@/components/ui/Skeleton";
+import { dedupeById } from "@/lib/pagination";
 import type { CreatorGalleryItem } from "@/lib/api/types";
 
 interface CreatorGalleryProps {
@@ -37,17 +48,86 @@ interface CreatorGalleryProps {
   creatorName: string;
 }
 
-export function CreatorGallery({ slug, creatorName }: CreatorGalleryProps) {
-  const query = useCreatorGallery({ slug });
+/** Shown once the server has withdrawn permission to read this gallery. */
+const WITHDRAWN_COPY = "You can’t view this creator’s gallery.";
 
-  if (query.isError) {
+/**
+ * The denial gate. It owns no query, so latching it unmounts the component
+ * below — which is what makes removing the cache entry safe. See
+ * `lib/api/resource-denial` for why the order matters.
+ */
+export function CreatorGallery({ slug, creatorName }: CreatorGalleryProps) {
+  const gate = useDenialGate(creatorGalleryQueryKey(slug));
+
+  if (gate.withdrawn) {
     return (
       <GalleryShell title="The Gallery">
-        <div className="bcc-panel mx-auto max-w-md p-6 text-center">
-          <p className="font-serif text-sm text-bcc-text-secondary">
-            Couldn&rsquo;t load this creator&rsquo;s gallery right now. Try again in a moment.
-          </p>
-        </div>
+        <LoadFailure message={WITHDRAWN_COPY} />
+      </GalleryShell>
+    );
+  }
+
+  return (
+    <CreatorGalleryData slug={slug} creatorName={creatorName} onDenied={gate.withdraw} />
+  );
+}
+
+function CreatorGalleryData({
+  slug,
+  creatorName,
+  onDenied,
+}: CreatorGalleryProps & { onDenied: () => void }) {
+  const query = useCreatorGallery({ slug });
+
+  // A denied REFRESH of the pages already on screen withdraws them. A
+  // denied next page does not — it says nothing about page 1.
+  useReportDenial(
+    shouldWithdrawOnDenial(query.error, query.isRefetchError, query.data !== undefined),
+    onDenied,
+  );
+
+  // A permission boundary does not move when the page param does, so a
+  // Retry against one can only fail the same way. Omitting `onRetry`
+  // renders no button at all rather than an inert one — the rule #183
+  // shipped.
+  const denied = isPermissionDenial(query.error);
+
+  // Unlike the sibling panels this component carries no `humanizeCode`
+  // map — it renders one fixed sentence. That sentence ends in "Try again
+  // in a moment", which becomes a lie the moment the control is withheld,
+  // so the denial case needs its own wording rather than just a missing
+  // button.
+  const failureCopy = denied
+    ? "You can’t view this creator’s gallery."
+    : "Couldn't load this creator's gallery right now. Try again in a moment.";
+
+  const refetchProps = denied ? {} : { onRetry: () => void query.refetch() };
+  const nextPageProps = denied
+    ? {}
+    : { onRetry: () => void query.fetchNextPage() };
+
+  // Which failure this is decides what survives and what Retry must call.
+  // A blanket `isError` is true for all three, and this component used to
+  // branch on it BEFORE reading `data.pages` — so one failed LOAD MORE
+  // replaced the whole loaded grid with a dead-end panel that had no
+  // retry control at all, leaving a page reload as the only recovery.
+  //
+  //   isLoadingError       — the FIRST fetch failed; nothing to keep,
+  //                          recovery is refetch().
+  //   isFetchNextPageError — a LOAD MORE failed; `data.pages` still holds
+  //                          every page fetched, recovery is
+  //                          fetchNextPage() on the SAME page param.
+  //   isRefetchError       — a refresh of the loaded pages failed. Reachable
+  //                          without any user action: useCreatorGallery
+  //                          overrides the app-wide refetchOnWindowFocus
+  //                          to true, so returning to the tab past the 60s
+  //                          staleTime refetches every loaded page.
+  //
+  // Mirrors PhotosPanel and UserBlogList, which already discriminate.
+  if (query.isLoadingError) {
+    return (
+      <GalleryShell title="The Gallery">
+        <LoadFailure message={failureCopy} {...refetchProps} />
       </GalleryShell>
     );
   }
@@ -72,11 +152,45 @@ export function CreatorGallery({ slug, creatorName }: CreatorGalleryProps) {
   }
 
   const pages = query.data?.pages ?? [];
-  const items: CreatorGalleryItem[] = pages.flatMap((p) => p.items);
+
+  // This gallery is `page`/`OFFSET` paginated over a MOVING table, so
+  // consecutive pages can legitimately return the same collection. Two
+  // mechanisms, neither hypothetical:
+  //
+  //   1. The gallery triggers writes to the table it is paging over. A
+  //      stale row makes the endpoint dispatch an async refresh, and
+  //      responses are `public, max-age=30` — so page 1 and page 2 can
+  //      come from either side of that refresh. A row inserted before
+  //      the current offset shifts every later page down by one.
+  //   2. `CollectionRepository::getForProject` orders by the sort column
+  //      alone, with no unique tiebreak, and the indexer's job is to fill
+  //      those columns — so a row can change rank between two requests.
+  //
+  // Both tiles key on the record, so an overlap used to render the
+  // collection twice and React warned about duplicate keys (measured:
+  // rows=4 [1,2,2,3], distinct=3, 1 warning).
+  //
+  // `useInfiniteQuery` does not close this: it owns the page LIST, not
+  // the records inside it. First occurrence wins, so the earlier page
+  // keeps the position the server gave it.
+  //
+  // `id` is the right identity here and not a guess: the table declares
+  // `PRIMARY KEY (id)` with `UNIQUE KEY uq_chain_contract (chain_id,
+  // contract_address)`, so one id is exactly one (chain, contract). The
+  // composite React key below stays consistent with that — it can never
+  // split one record across two keys, nor merge two records into one.
+  const items: CreatorGalleryItem[] = dedupeById(pages.flatMap((p) => p.items));
+
   const isStale = pages[0]?.is_stale ?? false;
+
+  // The SERVER's count of the whole collection, deliberately not the
+  // rendered row count. Overlap shrinks what is rendered; it must not
+  // rewrite what the server said is on file.
   const totalCount = pages[0]?.pagination.total ?? 0;
 
-  if (items.length === 0) {
+  // Empty stays success-only: neither a failed next page nor a failed
+  // refresh means this creator has nothing indexed.
+  if (items.length === 0 && !query.isError) {
     return (
       <GalleryShell title="The Gallery">
         <div className="bcc-panel mx-auto max-w-lg p-8 text-center">
@@ -110,22 +224,40 @@ export function CreatorGallery({ slug, creatorName }: CreatorGalleryProps) {
         ))}
       </ul>
 
-      {query.hasNextPage && (
-        <div className="mt-6 flex justify-center">
-          <button
-            type="button"
-            onClick={() => void query.fetchNextPage()}
-            disabled={query.isFetchingNextPage}
-            className={
-              "bcc-stencil rounded-sm px-6 py-3 text-[12px] tracking-[0.2em] transition " +
-              (query.isFetchingNextPage
-                ? "cursor-wait bg-bcc-surface-active text-bcc-text-muted"
-                : "bg-ink text-cardstock hover:bg-ink-soft")
-            }
-          >
-            {query.isFetchingNextPage ? "LOADING…" : "LOAD MORE"}
-          </button>
-        </div>
+      {/* A failed REFRESH is not a failed cursor. The retained pages and
+          the page param derived from the last of them are still coherent,
+          so advancing cannot skip anything — LOAD MORE deliberately stays
+          available below, and this control refetches. */}
+      {query.isRefetchError && (
+        <LoadFailure message={failureCopy} {...refetchProps} />
+      )}
+
+      {/* Cursor safety: while the NEXT page is failed, LOAD MORE is
+          withdrawn so it cannot advance past — and skip — the page that
+          failed. Retry re-requests that same page param via
+          fetchNextPage(); ordinary paging returns once the query is
+          progressing again and there is still a next page. */}
+      {query.isFetchNextPageError ? (
+        <LoadFailure message={failureCopy} {...nextPageProps} />
+      ) : (
+        query.hasNextPage &&
+        !denied && (
+          <div className="mt-6 flex justify-center">
+            <button
+              type="button"
+              onClick={() => void query.fetchNextPage()}
+              disabled={query.isFetchingNextPage}
+              className={
+                "bcc-stencil rounded-sm px-6 py-3 text-[12px] tracking-[0.2em] transition " +
+                (query.isFetchingNextPage
+                  ? "cursor-wait bg-bcc-surface-active text-bcc-text-muted"
+                  : "bg-ink text-cardstock hover:bg-ink-soft")
+              }
+            >
+              {query.isFetchingNextPage ? "LOADING…" : "LOAD MORE"}
+            </button>
+          </div>
+        )
       )}
     </GalleryShell>
   );

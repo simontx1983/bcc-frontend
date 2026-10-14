@@ -22,17 +22,24 @@
  * here the page IS the subject, so each row leads with the author
  * rather than the subject.
  *
- * Pagination: page+perPage (per backend); FE accumulates pages on
- * "LOAD MORE" so the list grows in-place rather than replacing.
+ * Pagination: `useInfiniteQuery` (page+perPage per backend). TanStack owns
+ * the page list, so "LOAD MORE" is one `fetchNextPage()` and there is no
+ * local accumulator to keep in step with the query — see useCardTabs for why
+ * the previous hand-rolled version was replaced.
  */
 
-import { useState } from "react";
 import Link from "next/link";
 import type { Route } from "next";
 
-import { useCardReviews } from "@/hooks/useCardTabs";
+import { CARD_REVIEWS_QUERY_KEY_ROOT, useCardReviews } from "@/hooks/useCardTabs";
+import {
+  shouldWithdrawOnDenial,
+  useDenialGate,
+  useReportDenial,
+} from "@/lib/api/resource-denial";
+import { dedupeById } from "@/lib/pagination";
 import { LoadFailure } from "@/components/ui/LoadFailure";
-import { humanizeCode } from "@/lib/api/errors";
+import { humanizeCode, isPermissionDenial } from "@/lib/api/errors";
 import type {
   CardReview,
   MemberSummary,
@@ -45,14 +52,72 @@ interface CardReviewsPanelProps {
   cardName: string;
 }
 
-export function CardReviewsPanel({ kind, cardId, cardName }: CardReviewsPanelProps) {
-  const [page, setPage] = useState(1);
-  const query = useCardReviews(kind, cardId, page);
+/** Shown once the server has withdrawn permission to read these reviews. */
+const REVIEWS_WITHDRAWN_COPY = "You can’t read reviews of this card.";
 
-  // Accumulator pattern: each Load More appends; pagination keys on
-  // `page` so React Query treats each page as its own cache entry.
-  const [accumulated, setAccumulated] = useState<CardReview[]>([]);
-  const [seenPage, setSeenPage] = useState<number | null>(null);
+/**
+ * The denial gate. Owns no query, so latching it unmounts the panel below
+ * — which is what makes removing the cache entry safe. See
+ * `lib/api/resource-denial`.
+ */
+export function CardReviewsPanel(props: CardReviewsPanelProps) {
+  const gate = useDenialGate([...CARD_REVIEWS_QUERY_KEY_ROOT, props.kind, props.cardId]);
+
+  if (gate.withdrawn) {
+    return (
+      <article className="bcc-paper">
+        <Header cardName={props.cardName} />
+        <LoadFailure surface="paper" message={REVIEWS_WITHDRAWN_COPY} />
+      </article>
+    );
+  }
+
+  return <CardReviewsPanelData {...props} onDenied={gate.withdraw} />;
+}
+
+function CardReviewsPanelData({
+  kind,
+  cardId,
+  cardName,
+  onDenied,
+}: CardReviewsPanelProps & { onDenied: () => void }) {
+  const query = useCardReviews(kind, cardId);
+
+  // A denied REFRESH of the reviews already on screen withdraws them. A
+  // denied next page does not — it says nothing about page 1.
+  useReportDenial(
+    shouldWithdrawOnDenial(query.error, query.isRefetchError, query.data !== undefined),
+    onDenied,
+  );
+
+  // Pages in fetch order; TanStack appends only on success, so a failed
+  // LOAD MORE leaves this exactly as it was.
+  //
+  // De-duplicated because page-number pagination addresses a moving list: a
+  // review filed between page 1 and page 2 shifts the window and repeats a
+  // row. The cursor is still driven by the server pagination block, not by
+  // this count — see lib/pagination.
+  const reviews: CardReview[] = dedupeById(
+    query.data?.pages.flatMap((p) => p.items) ?? [],
+  );
+  const lastPage = query.data?.pages[query.data.pages.length - 1];
+
+  /**
+   * Retry the request that FAILED, not the ones that succeeded.
+   *
+   * `refetch()` on an infinite query re-runs the pages already in the cache —
+   * which, after a failed LOAD MORE, is every page EXCEPT the one that
+   * failed. So the first-page failure retries with `refetch`, and a failed
+   * next page retries with `fetchNextPage`, which asks for the same page
+   * param again. This is what keeps a failure from skipping a page.
+   */
+  const retry = () => {
+    if (reviews.length === 0) {
+      void query.refetch();
+    } else {
+      void query.fetchNextPage();
+    }
+  };
 
   // §γ — copy is keyed on err.code; never render err.message.
   const failureCopy = humanizeCode(
@@ -61,28 +126,38 @@ export function CardReviewsPanel({ kind, cardId, cardName }: CardReviewsPanelPro
       bcc_unauthorized: "Sign in to read reviews.",
       bcc_rate_limited: "Loading too fast — give it a moment and try again.",
       bcc_unavailable: "Reviews are temporarily unavailable. Try again shortly.",
+      // The denial codes get their own line because the default ends in
+      // "Try again in a moment" — advice this panel then refuses to offer,
+      // since the Retry control is withheld below.
+      bcc_forbidden: "You can’t read reviews of this card.",
+      bcc_permission_denied: "You can’t read reviews of this card.",
+      bcc_blocked: "You can’t read reviews of this card.",
     },
     "Couldn't load reviews. Try again in a moment.",
   );
 
-  // Whole-panel failure ONLY when nothing has accumulated. A failed LOAD
-  // MORE keeps `accumulated` in state, and returning here would throw the
+  // A permission boundary does not move when the page does, so a Retry
+  // against one can only fail the same way. Omitting `onRetry` renders no
+  // button at all rather than an inert one — the rule #183 shipped.
+  //
+  // Spread at BOTH failure branches, which share the one `retry` dispatcher
+  // above: a denial must withdraw the control in either position.
+  const retryProps = isPermissionDenial(query.error) ? {} : { onRetry: retry };
+
+  // Whole-panel failure ONLY when nothing has loaded. A failed LOAD MORE
+  // keeps the pages already fetched, and returning here would throw the
   // already-read reviews away; that case is handled at the foot of the
   // list instead.
-  if (query.isError && accumulated.length === 0) {
+  if (query.isError && reviews.length === 0) {
     return (
       <article className="bcc-paper">
         <Header cardName={cardName} />
-        <LoadFailure
-          surface="paper"
-          message={failureCopy}
-          onRetry={() => void query.refetch()}
-        />
+        <LoadFailure surface="paper" message={failureCopy} {...retryProps} />
       </article>
     );
   }
 
-  if (query.isPending && accumulated.length === 0) {
+  if (query.isPending && reviews.length === 0) {
     return (
       <article className="bcc-paper">
         <Header cardName={cardName} />
@@ -93,19 +168,7 @@ export function CardReviewsPanel({ kind, cardId, cardName }: CardReviewsPanelPro
     );
   }
 
-  const data = query.data;
-  // `seenPage` stays authoritative: a failed page never records itself, so
-  // a later retry appends exactly that page — no duplicate, no skip.
-  if (data !== undefined && seenPage !== page) {
-    if (page === 1) {
-      setAccumulated(data.items);
-    } else {
-      setAccumulated((prev) => [...prev, ...data.items]);
-    }
-    setSeenPage(page);
-  }
-
-  if (!query.isError && accumulated.length === 0) {
+  if (!query.isError && reviews.length === 0) {
     return (
       <article className="bcc-paper">
         <Header cardName={cardName} />
@@ -118,15 +181,15 @@ export function CardReviewsPanel({ kind, cardId, cardName }: CardReviewsPanelPro
     );
   }
 
-  const hasMore =
-    data !== undefined && data.pagination.page < data.pagination.total_pages;
-
   return (
     <article className="bcc-paper">
-      <Header cardName={cardName} {...(data !== undefined ? { total: data.pagination.total } : {})} />
+      <Header
+        cardName={cardName}
+        {...(lastPage !== undefined ? { total: lastPage.pagination.total } : {})}
+      />
       <div className="px-5 py-5">
         <ul className="divide-y divide-ink/10 border-y border-ink/10">
-          {accumulated.map((review) => (
+          {reviews.map((review) => (
             <ReviewRow key={review.id} review={review} />
           ))}
         </ul>
@@ -136,18 +199,18 @@ export function CardReviewsPanel({ kind, cardId, cardName }: CardReviewsPanelPro
             Retry refetches that same page, and ordinary paging returns
             once it succeeds. */}
         {query.isError ? (
-          <LoadFailure
-            surface="paper"
-            message={failureCopy}
-            onRetry={() => void query.refetch()}
-          />
+          <LoadFailure surface="paper" message={failureCopy} {...retryProps} />
         ) : (
-          hasMore && (
-            <div className="mt-6 text-center">
+          query.hasNextPage && (
+            <div className="mt-6 flex justify-center">
+              {/* 44px minimum: this is the panel's only pagination control,
+                  and at 10px with no padding it was a ~13px-tall tap target.
+                  The label keeps its type scale — only the hit area grows. */}
               <button
                 type="button"
-                onClick={() => setPage(page + 1)}
-                className="bcc-mono text-safety hover:underline"
+                onClick={() => void query.fetchNextPage()}
+                disabled={query.isFetchingNextPage}
+                className="bcc-mono inline-flex min-h-[44px] items-center justify-center px-4 text-safety hover:underline disabled:opacity-50"
                 style={{ fontSize: "10px", letterSpacing: "0.18em" }}
               >
                 LOAD MORE →

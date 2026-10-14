@@ -31,6 +31,20 @@ interface UseCreatorGalleryOptions {
   sort?: CreatorGallerySort;
 }
 
+/**
+ * The cache key for one creator's gallery.
+ *
+ * Exported because the denial gate has to remove this exact entry, and a
+ * second hand-written copy of the key would drift the moment the default
+ * sort changed — removing nothing while the panel believed it had.
+ */
+export function creatorGalleryQueryKey(
+  slug: string,
+  sort?: CreatorGallerySort,
+): QueryKey {
+  return ["creator-gallery", slug, sort ?? "total_volume"];
+}
+
 export function useCreatorGallery({ slug, sort }: UseCreatorGalleryOptions) {
   return useInfiniteQuery<
     CreatorGalleryResponse,
@@ -39,7 +53,7 @@ export function useCreatorGallery({ slug, sort }: UseCreatorGalleryOptions) {
     QueryKey,
     number
   >({
-    queryKey: ["creator-gallery", slug, sort ?? "total_volume"],
+    queryKey: creatorGalleryQueryKey(slug, sort),
     initialPageParam: 1,
     queryFn: ({ pageParam, signal }) =>
       getCreatorGallery(

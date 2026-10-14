@@ -43,6 +43,7 @@ import { AttestationActionCluster } from "@/components/profile/AttestationAction
 import { AttestationRoster } from "@/components/profile/AttestationRoster";
 import { ReputationSummaryPanel } from "@/components/profile/ReputationSummaryPanel";
 import { ReviewCallout } from "@/components/review/ReviewCallout";
+import type { RosterSeed } from "@/hooks/useAttestationRoster";
 import type {
   AttestationTargetKind,
   Card,
@@ -113,6 +114,18 @@ export interface EntityProfileProps {
    * the session and passes a bool across the RSC boundary.
    */
   viewerAuthed: boolean;
+  /**
+   * Anonymous server-rendered first page of the attestation roster, seeded
+   * into React Query so the Backing tab — the landing tab — renders real
+   * rows instead of its empty state during the client round-trip.
+   *
+   * ANONYMOUS VIEWERS ONLY. The read is token-less so the 60s Data-Cache
+   * entry is shared, and the route hands it only to viewers who are
+   * themselves anonymous, so no one is served a cache-shared payload in
+   * place of their own. Authed viewers keep the client fetch. Omitted
+   * entirely → the roster behaves exactly as it did before.
+   */
+  rosterSeed?: RosterSeed | undefined;
 }
 
 export function EntityProfile({
@@ -120,6 +133,7 @@ export function EntityProfile({
   kindLabel,
   streamEmptyState,
   viewerAuthed,
+  rosterSeed,
 }: EntityProfileProps) {
   const targetKind     = cardKindToAttestationTargetKind(card.card_kind);
   const entityCardKind = cardKindToEntityCardKind(card.card_kind);
@@ -314,6 +328,7 @@ export function EntityProfile({
               emptyState={{
                 body: "No attestations on file yet. Be the first to vouch.",
               }}
+              seed={rosterSeed}
             />
           }
           reviewsPanel={
