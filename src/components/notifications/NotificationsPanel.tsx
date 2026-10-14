@@ -81,6 +81,9 @@ export function NotificationsPanel({
       bcc_unavailable: "Notifications are temporarily unavailable. Try again shortly.",
       bcc_permission_denied: "You can’t read these notifications.",
       bcc_forbidden: "You can’t read these notifications.",
+      // Third denial code: the control was already withheld for it, but the
+      // copy fell through to a default ending in "Try again in a moment".
+      bcc_blocked: "You can’t read these notifications.",
     },
     "Couldn’t load notifications. Try again in a moment.",
   );

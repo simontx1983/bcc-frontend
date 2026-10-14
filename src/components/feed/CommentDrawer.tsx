@@ -71,6 +71,7 @@ import { LoadFailure } from "@/components/ui/LoadFailure";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { Spinner } from "@/components/ui/Spinner";
 import {
+  commentsListQueryKey,
   useComments,
   useCreateCommentMutation,
   useDeleteCommentMutation,
@@ -78,7 +79,12 @@ import {
 import { useCommentStoke } from "@/hooks/useCommentStoke";
 import { useGiphyIntegration } from "@/hooks/useGiphyIntegration";
 import { uploadBlogCoverImage } from "@/lib/api/blog-endpoints";
-import { humanizeCode } from "@/lib/api/errors";
+import { humanizeCode, isPermissionDenial } from "@/lib/api/errors";
+import {
+  shouldWithdrawOnDenial,
+  useDenialGate,
+  useReportDenial,
+} from "@/lib/api/resource-denial";
 import { formatRelativeTime } from "@/lib/format";
 import { renderTextWithMentions } from "@/lib/format/mentions";
 import type {
@@ -166,6 +172,30 @@ interface CommentDrawerProps {
   topDivider?: boolean;
 }
 
+/** Shown once the server has withdrawn permission to read this thread. */
+const THREAD_WITHDRAWN_COPY = "You can’t read this thread.";
+
+/**
+ * The drawer shell: the denial gate, and the composer.
+ *
+ * ## Why the composer lives HERE and the query lives one level down
+ *
+ * The withdrawal policy wants two things that pull against each other: the
+ * denied thread must stop being displayed AND its cache entry must go, but
+ * removing a cache entry whose observer is still mounted makes TanStack
+ * re-create it and refetch — denied again, removed again, a loop. The only
+ * safe order is unmount the query owner first, then remove.
+ *
+ * Unmounting the query owner used to mean unmounting the composer with it,
+ * which is exactly the defect this whole change exists to fix: it destroyed
+ * a reply the viewer had typed. So the composer is a SIBLING of the query
+ * owner, not a descendant. The gate can unmount <CommentThread> freely and
+ * the draft never moves, because <CommentComposer> is not inside it.
+ *
+ * `sort` and `replyTarget` are lifted here for the same reason: `sort` is
+ * part of the query key the gate removes, and `replyTarget` has to outlive
+ * the thread so a reply-in-progress survives a withdrawal.
+ */
 export function CommentDrawer({
   feedId,
   isOpen,
@@ -178,12 +208,134 @@ export function CommentDrawer({
 
   // §C15 sort — `relevant` is the server default (lean stoke×recency).
   const [sort, setSort] = useState<CommentSort>("relevant");
+  const [replyTarget, setReplyTarget] = useState<ReplyTarget | null>(null);
+  const clearReply = useCallback(() => setReplyTarget(null), []);
+
+  const gate = useDenialGate(commentsListQueryKey(feedId, sort));
+
+  // Reopening should land on a clean reply state.
+  useEffect(() => {
+    if (!isOpen) setReplyTarget(null);
+  }, [isOpen]);
+
+  /**
+   * ⚠ A withdrawal keeps the draft but must DROP the reply target, because
+   * the two have different owners.
+   *
+   * `draft` is the viewer's own unsent text, held inside
+   * <CommentComposer>'s own state — nothing the server gave us.
+   * `replyTarget` is the opposite: `{parentId, handle, displayName}` lifted
+   * off a comment in the thread the server has just refused to show.
+   * Keeping it would leave "Replying to @handle" on screen — an author
+   * handle derived from denied content — and would attach that `parent_id`
+   * to the next submit, threading a reply into a conversation the viewer
+   * may no longer read.
+   *
+   * Done HERE, in the same call that withdraws, rather than in an effect
+   * keyed on `withdrawn`. An effect was the first attempt and a mutation
+   * exposed it as untestable: with `[gate.withdrawn]` as its only
+   * dependency, dropping the guard was behaviourally identical, so no test
+   * could tell the two apart. Clearing where the decision is made has one
+   * code path and one meaning.
+   *
+   * Clearing does not disturb the draft: the target is a PROP to the
+   * composer, not its state, and the composer's reply effect returns early
+   * on null so nothing is refocused or scrolled.
+   */
+  const withdrawAndDropReplyContext = useCallback(() => {
+    setReplyTarget(null);
+    gate.withdraw();
+  }, [gate]);
+
+  if (!isOpen) return null;
+
+  const dividerPad = topDivider ? "mt-2 border-t border-[var(--bcc-border)] pt-2 " : "";
+
+  return (
+    <>
+      {gate.withdrawn ? (
+        <div className={"bcc-mono " + dividerPad + "text-[11px] text-[var(--bcc-text-secondary)]"}>
+          {THREAD_WITHDRAWN_COPY}
+        </div>
+      ) : (
+        <CommentThread
+          feedId={feedId}
+          isOpen={isOpen}
+          canInteract={canInteract}
+          topDivider={topDivider}
+          isAuthed={isAuthed}
+          sort={sort}
+          onSortChange={setSort}
+          onReplyTarget={setReplyTarget}
+          onDenied={withdrawAndDropReplyContext}
+        />
+      )}
+
+      {/* Non-member group teaser (canInteract=false): suppress both the
+          composer AND the anonymous sign-in prompt. The "join to
+          interact" affordance lives once on GroupFeedSection. */}
+      {canInteract &&
+        (isAuthed ? (
+          <CommentComposer
+            feedId={feedId}
+            autoFocus={focusComposer}
+            replyTarget={replyTarget}
+            onClearReply={clearReply}
+          />
+        ) : (
+          <p className="bcc-mono mt-4 text-[11px] text-[var(--bcc-text-secondary)]">
+            <Link href={"/login" as Route} className="text-[var(--bcc-text)] hover:underline">
+              Sign in
+            </Link>{" "}
+            to comment.
+          </p>
+        ))}
+    </>
+  );
+}
+
+interface CommentThreadProps {
+  feedId: string;
+  isOpen: boolean;
+  canInteract: boolean;
+  topDivider: boolean;
+  isAuthed: boolean;
+  sort: CommentSort;
+  onSortChange: (s: CommentSort) => void;
+  /** Setter only: the VALUE is read by the composer, which is the gate's
+   *  other child, not a descendant of this component. */
+  onReplyTarget: (t: ReplyTarget | null) => void;
+  onDenied: () => void;
+}
+
+function CommentThread({
+  feedId,
+  isOpen,
+  canInteract,
+  topDivider,
+  isAuthed,
+  sort,
+  onSortChange,
+  onReplyTarget,
+  onDenied,
+}: CommentThreadProps) {
   const query = useComments(feedId, { enabled: isOpen, sort });
+
+  // A denied re-read of a thread already on screen is reported UP to the
+  // gate, which unmounts this component and only then removes the cache
+  // entry. The composer is the gate's OTHER child, so the draft is
+  // untouched by that unmount.
+  //
+  // Sits here, beside the query, because this component early-returns for
+  // the collapsed and loading states and a hook may not follow a return.
+  useReportDenial(
+    shouldWithdrawOnDenial(query.error, query.isRefetchError, query.data !== undefined),
+    onDenied,
+  );
 
   // Slice 2 — drill-down stack (ids of the pivots we've followed into) and
   // the active reply target. Both are drawer-scoped local UI state (§A2).
   const [focusStack, setFocusStack] = useState<string[]>([]);
-  const [replyTarget, setReplyTarget] = useState<ReplyTarget | null>(null);
 
   // Drill transition — which direction the view just switched, so the
   // (re-keyed, re-mounted) content block picks up the matching slide-in
@@ -215,14 +367,16 @@ export function CommentDrawer({
       });
     }
   }, []);
-  const startReply = useCallback((comment: Comment) => {
-    setReplyTarget({
-      parentId: comment.id,
-      handle: comment.author.handle,
-      displayName: comment.author.display_name,
-    });
-  }, []);
-  const clearReply = useCallback(() => setReplyTarget(null), []);
+  const startReply = useCallback(
+    (comment: Comment) => {
+      onReplyTarget({
+        parentId: comment.id,
+        handle: comment.author.handle,
+        displayName: comment.author.display_name,
+      });
+    },
+    [onReplyTarget],
+  );
 
   // The drawer stays mounted (returns null) when collapsed, so reset the
   // drill + reply state on close — reopening should land on the top of the
@@ -230,7 +384,6 @@ export function CommentDrawer({
   useEffect(() => {
     if (!isOpen) {
       setFocusStack([]);
-      setReplyTarget(null);
       scrollStack.current = [];
     }
   }, [isOpen]);
@@ -259,9 +412,40 @@ export function CommentDrawer({
     );
   }
 
-  if (query.isError) {
-    const code = query.error?.code ?? "";
-    if (code === "bcc_forbidden") {
+  // §γ — copy is keyed on err.code; never render err.message.
+  //
+  // `bcc_forbidden` keeps its established group-gate wording. The other two
+  // denial codes do NOT inherit it: a blocked viewer is not someone who
+  // needs to join a group, and telling them to join would be a guess about
+  // why they were refused.
+  const deniedCopy = "You can’t read this thread.";
+  const failureCopy = humanizeCode(
+    query.error,
+    {
+      bcc_rate_limited: "Loading too fast — give it a moment and try again.",
+      bcc_unavailable: "Comments are temporarily unavailable. Try again shortly.",
+      bcc_permission_denied: deniedCopy,
+      bcc_blocked: deniedCopy,
+    },
+    "Couldn't load comments.",
+  );
+
+  const denied = isPermissionDenial(query.error);
+  const refetchProps = denied ? {} : { onRetry: () => void query.refetch() };
+  const nextPageProps = denied
+    ? {}
+    : { onRetry: () => void query.fetchNextPage() };
+
+  // ⚠ ONLY a FIRST-load failure may return early here.
+  //
+  // This is the whole point of the change. The old branch was a blanket
+  // `query.isError`, and it sat ABOVE the main return — which is where
+  // <CommentComposer> is mounted. So a failed refresh or a failed LOAD MORE
+  // unmounted the composer and **destroyed a reply the viewer had typed**,
+  // with no way to get the text back. A first-load failure is safe to
+  // return from: the composer has never mounted, so there is no draft yet.
+  if (query.isLoadingError) {
+    if (query.error?.code === "bcc_forbidden") {
       return (
         <div className={"bcc-mono " + dividerPad + "text-[11px] text-[var(--bcc-text-secondary)]"}>
           Join the group to see this thread.
@@ -270,13 +454,11 @@ export function CommentDrawer({
     }
     return (
       <div className={divider}>
-        <LoadFailure
-          message="Couldn't load comments."
-          onRetry={() => void query.refetch()}
-        />
+        <LoadFailure message={failureCopy} {...refetchProps} />
       </div>
     );
   }
+
 
   const items: Comment[] = (query.data?.pages ?? []).flatMap((p) => p.items);
   const hasMore = query.hasNextPage === true;
@@ -315,7 +497,7 @@ export function CommentDrawer({
           /* Filter row (§C15) — Relevant (default) / Top / New, all live.
              Relevant + Top sort on the comment stoke_count; the server owns
              the ordering (§A2). Hidden inside a drilled thread. */
-          items.length > 0 && <CommentFilterRow sort={sort} onSortChange={setSort} />
+          items.length > 0 && <CommentFilterRow sort={sort} onSortChange={onSortChange} />
         )}
 
         {/* Sprint 5 empty-state hygiene: the "No comments yet." line was
@@ -340,8 +522,25 @@ export function CommentDrawer({
 
         {/* Load-more pages the flat list (root view only — a drilled subtree
             renders from the already-loaded set). */}
-        {!isDrilled &&
+        {/* A failed REFRESH keeps the thread and localises the recovery.
+            Rendered INSIDE the drawer rather than replacing it, so the
+            composer below stays mounted with whatever is typed in it. */}
+        {query.isRefetchError && !denied && (
+          <div className="mt-3">
+            <LoadFailure message={failureCopy} {...refetchProps} />
+          </div>
+        )}
+
+        {/* Cursor safety: while the NEXT page is failed, LOAD MORE is
+            withdrawn so it cannot advance past the page that failed. */}
+        {query.isFetchNextPageError ? (
+          <div className="mt-3">
+            <LoadFailure message={failureCopy} {...nextPageProps} />
+          </div>
+        ) : (
+          !isDrilled &&
           hasMore &&
+          !denied &&
           (query.isFetchingNextPage ? (
             <div className="mt-3 flex py-1 text-[var(--bcc-accent)]">
               <Spinner size={18} />
@@ -354,29 +553,10 @@ export function CommentDrawer({
             >
               LOAD MORE →
             </button>
-          ))}
+          ))
+        )}
       </div>
 
-      {/* Non-member group teaser (canInteract=false): suppress both the
-          composer AND the anonymous sign-in prompt. The "join to
-          interact" affordance lives once on GroupFeedSection — repeating
-          a write prompt per card here would be redundant noise. */}
-      {canInteract &&
-        (isAuthed ? (
-          <CommentComposer
-            feedId={feedId}
-            autoFocus={focusComposer}
-            replyTarget={replyTarget}
-            onClearReply={clearReply}
-          />
-        ) : (
-          <p className="bcc-mono mt-4 text-[11px] text-[var(--bcc-text-secondary)]">
-            <Link href={"/login" as Route} className="text-[var(--bcc-text)] hover:underline">
-              Sign in
-            </Link>{" "}
-            to comment.
-          </p>
-        ))}
     </div>
   );
 }

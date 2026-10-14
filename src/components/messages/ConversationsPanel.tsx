@@ -49,6 +49,8 @@ export function ConversationsPanel({ enabled, open, onNavigate }: ConversationsP
       bcc_unauthorized: "Sign in to read your messages.",
       bcc_permission_denied: "You can’t read this inbox.",
       bcc_forbidden: "You can’t read this inbox.",
+      // Third denial code: control already withheld, copy was not.
+      bcc_blocked: "You can’t read this inbox.",
     },
     "Couldn’t load your inbox. Try again in a moment.",
   );

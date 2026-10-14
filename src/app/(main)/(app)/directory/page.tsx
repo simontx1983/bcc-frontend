@@ -36,8 +36,8 @@ import { useEffect, useMemo, useRef, useState, Suspense } from "react";
 
 import { RouteRail } from "@/components/layout/RouteRail";
 import { DirectoryFilters } from "@/components/directory/DirectoryFilters";
-import { DirectoryGrid } from "@/components/directory/DirectoryGrid";
-import { useDirectory, type DirectoryFilters as Filters } from "@/hooks/useDirectory";
+import { DirectoryResults } from "@/components/directory/DirectoryResults";
+import type { DirectoryFilters as Filters } from "@/hooks/useDirectory";
 import type {
   DirectoryKind,
   DirectorySort,
@@ -114,7 +114,6 @@ function DirectoryPageContent() {
   // Drive the query off the URL-derived filters (not the local state)
   // so a typing user doesn't burn API calls per keystroke. The local
   // state is just for input responsiveness.
-  const query = useDirectory(filtersFromUrl);
 
   return (
     <main className="bcc-page-wide pb-24">
@@ -143,7 +142,7 @@ function DirectoryPageContent() {
         </aside>
 
         <section>
-          <DirectoryGrid query={query} />
+          <DirectoryResults filters={filtersFromUrl} />
         </section>
       </div>
     </main>

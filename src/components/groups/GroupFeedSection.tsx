@@ -36,8 +36,14 @@ import { Composer } from "@/components/composer/Composer";
 import { FeedItemCard } from "@/components/feed/FeedItemCard";
 import { GroupGatedNotice } from "@/components/groups/GroupGatedNotice";
 import { GroupPostPolicyToggle } from "@/components/groups/GroupPostPolicyToggle";
-import { useGroupFeed } from "@/hooks/useGroupFeed";
-import { humanizeCode } from "@/lib/api/errors";
+import { GROUP_FEED_QUERY_KEY_ROOT, useGroupFeed } from "@/hooks/useGroupFeed";
+import { humanizeCode, isPermissionDenial } from "@/lib/api/errors";
+import {
+  shouldWithdrawOnDenial,
+  useDenialGate,
+  useReportDenial,
+} from "@/lib/api/resource-denial";
+import { LoadFailure } from "@/components/ui/LoadFailure";
 import type {
   FeedItem,
   GroupDetailResponse,
@@ -204,18 +210,58 @@ function ChannelChip({
   );
 }
 
-function GroupFeedBody({
-  groupId,
-  canInteract,
-  groupKind,
-  channel,
-}: {
+/** Shown once the server has withdrawn permission to read this feed. */
+const FEED_WITHDRAWN_COPY = "You can’t read this group’s feed.";
+
+interface GroupFeedBodyProps {
   groupId: number;
   canInteract: boolean;
   groupKind: GroupDetailResponse["type"];
   channel: HallFeedChannel;
-}) {
+}
+
+/**
+ * The denial gate. Owns no query, so latching it unmounts the body below —
+ * which is what makes removing the cache entry safe. See
+ * `lib/api/resource-denial`.
+ *
+ * The in-context <Composer> is a sibling in the PARENT component, not a
+ * child of this gate, so a withdrawn feed never destroys a group post the
+ * viewer was typing. Checked, not assumed.
+ */
+function GroupFeedBody(props: GroupFeedBodyProps) {
+  const gate = useDenialGate([
+    ...GROUP_FEED_QUERY_KEY_ROOT,
+    props.groupId,
+    props.channel,
+  ]);
+
+  if (gate.withdrawn) {
+    return (
+      <div className="py-8">
+        <LoadFailure message={FEED_WITHDRAWN_COPY} />
+      </div>
+    );
+  }
+
+  return <GroupFeedBodyData {...props} onDenied={gate.withdraw} />;
+}
+
+function GroupFeedBodyData({
+  groupId,
+  canInteract,
+  groupKind,
+  channel,
+  onDenied,
+}: GroupFeedBodyProps & { onDenied: () => void }) {
   const query = useGroupFeed(groupId, channel);
+
+  // A denied REFRESH of the posts already on screen withdraws them. A
+  // denied next page does not — it says nothing about the pages served.
+  useReportDenial(
+    shouldWithdrawOnDenial(query.error, query.isRefetchError, query.data !== undefined),
+    onDenied,
+  );
 
   const handleLoadMore = useCallback(() => {
     if (!query.isFetchingNextPage) {
@@ -231,37 +277,46 @@ function GroupFeedBody({
     );
   }
 
-  if (query.isError) {
+  // §γ — copy is keyed on err.code; never render err.message.
+  const failureCopy = humanizeCode(
+    query.error,
+    {
+      bcc_unauthorized: "Sign in to read this group's feed.",
+      bcc_rate_limited: "Loading too fast — give it a moment and try again.",
+      bcc_unavailable: "This group's feed is temporarily unavailable. Try again shortly.",
+      // All three denial codes, or the copy falls through to a default
+      // ending in "Try again in a moment" — advice this component then
+      // refuses to offer, since the control is withheld.
+      bcc_forbidden: FEED_WITHDRAWN_COPY,
+      bcc_permission_denied: FEED_WITHDRAWN_COPY,
+      bcc_blocked: FEED_WITHDRAWN_COPY,
+    },
+    "Couldn't load this group's feed. Try again in a moment.",
+  );
+
+  const denied = isPermissionDenial(query.error);
+  const refetchProps = denied ? {} : { onRetry: () => void query.refetch() };
+  const nextPageProps = denied
+    ? {}
+    : { onRetry: () => void query.fetchNextPage() };
+
+  // ONLY a first-load failure may replace the feed. A blanket `isError` was
+  // true for all three failures and returned here BEFORE reading
+  // `data.pages`, so one failed LOAD MORE discarded a feed that had loaded
+  // fine. The other two are handled at the foot of the list.
+  if (query.isLoadingError) {
     return (
       <div className="py-8">
-        <p role="alert" className="bcc-mono text-safety">
-          {/* §γ — copy is keyed on err.code; never render err.message. */}
-          {humanizeCode(
-            query.error,
-            {
-              bcc_unauthorized: "Sign in to read this group's feed.",
-              bcc_rate_limited: "Loading too fast — give it a moment and try again.",
-              bcc_unavailable: "This group's feed is temporarily unavailable. Try again shortly.",
-            },
-            "Couldn't load this group's feed. Try again in a moment.",
-          )}
-        </p>
-        <button
-          type="button"
-          onClick={() => {
-            void query.refetch();
-          }}
-          className="bcc-mono mt-3 text-bcc-text-secondary underline"
-        >
-          Try again
-        </button>
+        <LoadFailure message={failureCopy} {...refetchProps} />
       </div>
     );
   }
 
   const items = (query.data?.pages ?? []).flatMap((page) => page.items);
 
-  if (items.length === 0 && channel === "ranked") {
+  // An empty claim is about the SERVER having no posts; a failed read
+  // does not support it, so it is withheld while in error.
+  if (items.length === 0 && !query.isError && channel === "ranked") {
     // §21.3 — ranked channel has its own empty copy: the founder-chair
     // hall framing below assumes the whole Hall is quiet, which is
     // wrong when only the ranked channel is. Plain state, no nudge.
@@ -278,7 +333,7 @@ function GroupFeedBody({
     );
   }
 
-  if (items.length === 0) {
+  if (items.length === 0 && !query.isError) {
     // Phase γ retention pass (2026-05-13): rather than the generic
     // "Quiet inside" copy, surface a founder-chair frame when the
     // viewer is a member who can post — turns the empty room from
@@ -305,18 +360,31 @@ function GroupFeedBody({
         <GroupFeedItem key={item.id} item={item} canInteract={canInteract} />
       ))}
 
-      {query.hasNextPage && (
-        <button
-          type="button"
-          onClick={handleLoadMore}
-          disabled={query.isFetchingNextPage}
-          className="bcc-stencil mx-auto mt-4 border border-bcc-border px-6 py-2.5 text-bcc-text disabled:opacity-50"
-        >
-          {query.isFetchingNextPage ? "Loading…" : "Load more"}
-        </button>
+      {/* A failed REFRESH keeps the posts and localises the recovery; the
+          cursor is still coherent so paging stays open. */}
+      {query.isRefetchError && <LoadFailure message={failureCopy} {...refetchProps} />}
+
+      {/* Cursor safety: while the NEXT page is failed, LOAD MORE is
+          withdrawn so it cannot advance past the page that failed. */}
+      {query.isFetchNextPageError ? (
+        <LoadFailure message={failureCopy} {...nextPageProps} />
+      ) : (
+        query.hasNextPage &&
+        !denied && (
+          <button
+            type="button"
+            onClick={handleLoadMore}
+            disabled={query.isFetchingNextPage}
+            className="bcc-stencil mx-auto mt-4 border border-bcc-border px-6 py-2.5 text-bcc-text disabled:opacity-50"
+          >
+            {query.isFetchingNextPage ? "Loading…" : "Load more"}
+          </button>
+        )
       )}
 
-      {!query.hasNextPage && items.length > 0 && (
+      {/* "End of the feed" is a claim about the SERVER having no more
+          posts. A failed next page means we do not know that. */}
+      {!query.hasNextPage && !query.isFetchNextPageError && items.length > 0 && (
         <p className="bcc-mono mt-4 text-center text-bcc-text-secondary">
           End of the feed.
         </p>
