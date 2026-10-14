@@ -40,6 +40,13 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: hoisted.pushMock, replace: vi.fn(), prefetch: vi.fn() }),
 }));
 
+// Recent searches are viewer-scoped, so the dropdown needs a session. These
+// cases are about row identity and keyboard navigation, not about who is
+// signed in — one fixed signed-out visitor keeps the recents scope stable.
+vi.mock("next-auth/react", () => ({
+  useSession: () => ({ data: null, status: "unauthenticated" }),
+}));
+
 vi.mock("@/lib/api/cards-search-endpoints", () => ({
   getSearchSuggestions: (...args: unknown[]) =>
     hoisted.getSearchSuggestions(...(args as [])),

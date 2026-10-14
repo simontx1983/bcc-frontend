@@ -122,11 +122,61 @@ export const PROFILE_ROSTER_PARAMS: AttestationRosterParams = {
  * Shared path builder so the SSR seed and the client hook can never ask
  * for different rows under the same React Query key.
  */
+/**
+ * Thrown instead of building a roster path around an unusable id.
+ *
+ * `MemberProfile.user_id` is typed `number`, but it arrives as JSON at
+ * runtime — so an absent or renamed field is `undefined` to this code with
+ * no type error anywhere. Interpolating that produced a real, observed
+ * request to `entities/user_profile/undefined/attestations`: a guaranteed
+ * 404 that also cached under that key in the shared anonymous Data Cache.
+ *
+ * Refusing before the fetch is the fix rather than tolerating the 404,
+ * because the caller already treats a roster failure as non-fatal (the
+ * roster is decoration on a page whose subject is the operator), so the
+ * page degrades identically — minus the wasted request and the poisoned
+ * cache entry.
+ */
+export class InvalidAttestationTargetError extends Error {
+  constructor(
+    readonly targetKind: string,
+    readonly targetId: unknown,
+  ) {
+    super(
+      `[bcc-frontend] refusing an attestation roster read for ` +
+        `${targetKind}: target id is not a positive integer`,
+    );
+    this.name = "InvalidAttestationTargetError";
+  }
+}
+
+/**
+ * A usable `target_id`: a positive, safe, whole number.
+ *
+ * Rejects `undefined`, `null`, `NaN`, `Infinity`, `0`, negatives,
+ * fractions and anything non-numeric — every one of which would otherwise
+ * be stringified straight into the path.
+ */
+export function isUsableTargetId(value: unknown): value is number {
+  return (
+    typeof value === "number" &&
+    Number.isSafeInteger(value) &&
+    value > 0
+  );
+}
+
 function rosterPath(
   targetKind: AttestationTargetKind,
   targetId: number,
   params: AttestationRosterParams,
 ): string {
+  // Last-resort invariant. The two exported entry points reject before
+  // reaching here, so this only fires for a future caller that builds a
+  // path directly — in which case failing loudly beats a `undefined` in
+  // the URL.
+  if (!isUsableTargetId(targetId)) {
+    throw new InvalidAttestationTargetError(targetKind, targetId);
+  }
   const search = new URLSearchParams();
   if (params.kind !== undefined) search.set("kind", params.kind);
   if (params.sort !== undefined) search.set("sort", params.sort);
@@ -157,6 +207,14 @@ export function getAttestationRosterAnon(
   params: AttestationRosterParams = {},
   revalidate?: number,
 ): Promise<AttestationRosterResponse> {
+  // Rejects rather than throwing synchronously: these are
+  // Promise-returning functions, and a caller using `.catch()` instead of
+  // `try/await` would otherwise get an uncaught synchronous throw.
+  if (!isUsableTargetId(targetId)) {
+    return Promise.reject(
+      new InvalidAttestationTargetError(targetKind, targetId),
+    );
+  }
   return bccFetch<AttestationRosterResponse>(
     rosterPath(targetKind, targetId, params),
     revalidate !== undefined
@@ -171,6 +229,11 @@ export function getAttestationRoster(
   params: AttestationRosterParams = {},
   signal?: AbortSignal,
 ): Promise<AttestationRosterResponse> {
+  if (!isUsableTargetId(targetId)) {
+    return Promise.reject(
+      new InvalidAttestationTargetError(targetKind, targetId),
+    );
+  }
   const path = rosterPath(targetKind, targetId, params);
 
   return bccFetchAsClient<AttestationRosterResponse>(

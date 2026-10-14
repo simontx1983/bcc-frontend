@@ -21,6 +21,7 @@
 import { useEffect, useRef } from "react";
 
 import { useTour } from "@/components/tour/useTour";
+import { useViewerScope } from "@/hooks/useViewerScope";
 import { firstVisibleMatch } from "@/lib/tour/dom";
 import { tourRegistry } from "@/lib/tour/registry";
 import { isSessionDismissed } from "@/lib/tour/storage";
@@ -30,6 +31,7 @@ const READY_GIVE_UP_MS = 4000;
 
 export function useAutoStartTour(tourId: string, enabled = true): void {
   const { start, hasSeen, definition } = useTour();
+  const scope = useViewerScope();
   const firedRef = useRef(false);
 
   const tourRunning = definition !== null;
@@ -37,10 +39,14 @@ export function useAutoStartTour(tourId: string, enabled = true): void {
   useEffect(() => {
     if (!enabled || firedRef.current) return undefined;
     if (tourRunning) return undefined;
+    // Wait until we know whose dismissals to read. Starting a tour against
+    // an unknown scope would read nobody's dismissal set and so replay a
+    // tour this viewer already waved away.
+    if (scope === null) return undefined;
     const def = tourRegistry[tourId];
     if (def === undefined) return undefined;
     // Permanently seen (local ∪ server) OR dismissed for this session.
-    if (hasSeen(tourId) || isSessionDismissed(tourId)) return undefined;
+    if (hasSeen(tourId) || isSessionDismissed(scope, tourId)) return undefined;
 
     const first = def.steps[0];
     // Center-only first step needs nothing in the DOM — fire immediately.
@@ -69,5 +75,5 @@ export function useAutoStartTour(tourId: string, enabled = true): void {
     return () => {
       if (poll !== undefined) window.clearTimeout(poll);
     };
-  }, [tourId, enabled, tourRunning, hasSeen, start]);
+  }, [tourId, enabled, tourRunning, hasSeen, start, scope]);
 }
