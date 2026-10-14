@@ -12,9 +12,11 @@
  * responsive at native typing speed on long posts.
  *
  * Auto-save: the body string is persisted to localStorage every 5
- * seconds under `bcc.blog.draft.{userId}`. The composer is the
- * canonical reader of that key; this component just writes it. On a
- * successful submit the composer clears the key.
+ * seconds under the viewer-scoped `bcc.blog.draft::{viewer id}`. The
+ * composer is the canonical reader of that key; this component just
+ * writes it. On a successful submit the composer clears the key. No key
+ * means the viewer is not known yet, and nothing is written — an
+ * unpublished body must never land somewhere another viewer reads.
  *
  * Excerpt is a separate field on the composer, NOT in this editor.
  * The excerpt textarea is small + bounded; the body is the unbounded
@@ -34,8 +36,9 @@ export interface BodyEditorProps {
   value: string;
   onChange: (next: string) => void;
   /**
-   * localStorage key for auto-save. The composer derives this from
-   * the signed-in user's id; the editor doesn't compute it.
+   * localStorage key for auto-save. The composer derives this from the
+   * signed-in viewer's scope; the editor doesn't compute it. Omitted when
+   * the viewer is unknown, which means "do not autosave".
    */
   autosaveKey?: string;
   disabled?: boolean;

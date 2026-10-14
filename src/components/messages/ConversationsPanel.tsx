@@ -24,7 +24,8 @@ import { MailOpen } from "lucide-react";
 
 import { ConversationList } from "@/components/messages/ConversationList";
 import { useConversations } from "@/hooks/useConversations";
-import { humanizeCode } from "@/lib/api/errors";
+import { LoadFailure } from "@/components/ui/LoadFailure";
+import { humanizeCode, isPermissionDenial } from "@/lib/api/errors";
 
 interface ConversationsPanelProps {
   /** False for anon — the query short-circuits without firing. */
@@ -41,16 +42,32 @@ export function ConversationsPanel({ enabled, open, onNavigate }: ConversationsP
   // entry (queryKey ["conversations", 1, 20]).
   const query = useConversations({ page: 1, enabled: enabled && open });
 
-  if (query.isError) {
+  // §γ — copy is keyed on err.code; never render err.message.
+  const failureCopy = humanizeCode(
+    query.error,
+    {
+      bcc_unauthorized: "Sign in to read your messages.",
+      bcc_permission_denied: "You can’t read this inbox.",
+      bcc_forbidden: "You can’t read this inbox.",
+    },
+    "Couldn’t load your inbox. Try again in a moment.",
+  );
+
+  // A FIRST load that failed has nothing to keep. A failed REFRESH does:
+  // this preview shares one cache entry with /messages page 1
+  // (`["conversations", 1, 20]`), so by the time a refresh of it fails the
+  // rows are already here, and the old blanket `isError` replaced them
+  // with the error line — emptying a preview whose contents were sitting
+  // in the cache. The retained rows are reported beneath instead.
+  if (query.isLoadingError) {
     return (
-      <div className="bcc-mono px-4 py-3 text-[11px] text-[var(--bcc-text-secondary)]">
-        {humanizeCode(
-          query.error,
-          {
-            bcc_unauthorized: "Sign in to read your messages.",
-          },
-          "Couldn’t load your inbox. Try again in a moment.",
-        )}
+      <div className="px-2 py-2">
+        <LoadFailure
+          message={failureCopy}
+          {...(isPermissionDenial(query.error)
+            ? {}
+            : { onRetry: () => void query.refetch() })}
+        />
       </div>
     );
   }
@@ -65,7 +82,9 @@ export function ConversationsPanel({ enabled, open, onNavigate }: ConversationsP
 
   const items = query.data.items;
 
-  if (items.length === 0) {
+  // A failed refresh is not a quiet inbox. "No conversations yet" is a
+  // claim about the server, and a failed read does not support it.
+  if (items.length === 0 && !query.isError) {
     // The old MessagesModal stub's copy, now rendered only when the
     // inbox is ACTUALLY empty. Inline styles kept verbatim so the
     // visual is unchanged.
@@ -98,6 +117,18 @@ export function ConversationsPanel({ enabled, open, onNavigate }: ConversationsP
       }}
     >
       <ConversationList items={items} />
+
+      {/* A failed refresh, reported BENEATH the rows it could not
+          replace. The rows stay readable; the viewer is told they may be
+          stale rather than being shown an empty inbox. */}
+      {query.isError && (
+        <LoadFailure
+          message={failureCopy}
+          {...(isPermissionDenial(query.error)
+            ? {}
+            : { onRetry: () => void query.refetch() })}
+        />
+      )}
     </div>
   );
 }

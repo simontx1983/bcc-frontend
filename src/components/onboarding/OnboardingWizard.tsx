@@ -55,6 +55,7 @@ import { NotificationsStep } from "@/components/onboarding/NotificationsStep";
 import { OnboardingTrustLayerSteps } from "@/components/onboarding/OnboardingTrustLayerSteps";
 import { WelcomeStep } from "@/components/onboarding/WelcomeStep";
 import { useWizardPulls } from "@/components/onboarding/useWizardPulls";
+import { useViewerScope } from "@/hooks/useViewerScope";
 import { setOnboardingProgress } from "@/lib/onboarding/storage";
 import type { HomeChain, MemberProfile } from "@/lib/api/types";
 
@@ -171,6 +172,7 @@ export function OnboardingWizard({ handle, profile, initialStep }: OnboardingWiz
   const [trustScreen, setTrustScreen] = useState(1);
   const [homeChain, setHomeChain] = useState<HomeChain | null>(null);
   const pulls = useWizardPulls();
+  const scope = useViewerScope();
 
   const mainRef = useRef<HTMLElement | null>(null);
   // Skip the focus/announce effect on first mount — landing on a fresh
@@ -281,11 +283,14 @@ export function OnboardingWizard({ handle, profile, initialStep }: OnboardingWiz
   // It used to, which meant a /complete failure stranded the visitor with a
   // cleared resume point AND an un-onboarded account. DopamineStep clears it
   // once the server has actually confirmed completion.
+  // Keyed on the scope as well as the step: the write is dropped while we
+  // do not know the viewer, so once that resolves the current step has to
+  // be recorded even though the step itself did not change.
   useEffect(() => {
     if (step !== "dopamine") {
-      setOnboardingProgress(step);
+      setOnboardingProgress(scope, step);
     }
-  }, [step]);
+  }, [step, scope]);
 
   // Move focus to the new screen's heading so keyboard and screen-reader
   // users are taken to the content they just asked for. The <h1> is made
