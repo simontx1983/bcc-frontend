@@ -36,7 +36,9 @@ import {
 import { HeatBadge } from "@/components/groups/HeatBadge";
 import { VerificationBadge } from "@/components/groups/VerificationBadge";
 import { Dialog } from "@/components/ui/Dialog";
+import { useViewerScope } from "@/hooks/useViewerScope";
 import { humanizeCode } from "@/lib/api/errors";
+import { scopedKey, type ViewerScope } from "@/lib/auth/viewer-scope";
 import type { GroupActivity, HolderGroupItem } from "@/lib/api/types";
 
 const SESSION_DISMISS_KEY = "bcc.communities.dismissed";
@@ -56,10 +58,15 @@ function sortByHeat(items: HolderGroupItem[]): HolderGroupItem[] {
   });
 }
 
-function readDismissed(): boolean {
+function readDismissed(scope: ViewerScope): boolean {
   if (typeof window === "undefined") return true;
+  const key = scopedKey(SESSION_DISMISS_KEY, scope);
+  // Scope unknown — treat it as dismissed. The modal is suppressed for a
+  // tick rather than opened against a viewer we cannot record a dismissal
+  // for, which would re-open it on every navigation.
+  if (key === null) return true;
   try {
-    return window.sessionStorage.getItem(SESSION_DISMISS_KEY) === "1";
+    return window.sessionStorage.getItem(key) === "1";
   } catch {
     // sessionStorage can throw in private-browsing edge cases — bias
     // toward showing the modal once and letting the user dismiss it
@@ -68,10 +75,12 @@ function readDismissed(): boolean {
   }
 }
 
-function writeDismissed(): void {
+function writeDismissed(scope: ViewerScope): void {
   if (typeof window === "undefined") return;
+  const key = scopedKey(SESSION_DISMISS_KEY, scope);
+  if (key === null) return;
   try {
-    window.sessionStorage.setItem(SESSION_DISMISS_KEY, "1");
+    window.sessionStorage.setItem(key, "1");
   } catch {
     // Non-fatal — worst case, user sees the modal again next page nav.
   }
@@ -85,16 +94,20 @@ function writeDismissed(): void {
  */
 export function EligibleCommunitiesModal() {
   const { status } = useSession();
+  const scope = useViewerScope();
   const [dismissed, setDismissed] = useState<boolean>(true);
+  // Keyed on the scope rather than running once: the dismissal is one
+  // viewer's, so a second account signing in on this browser must be asked
+  // again instead of inheriting the first one's "not now".
   useEffect(() => {
-    setDismissed(readDismissed());
-  }, []);
+    setDismissed(readDismissed(scope));
+  }, [scope]);
 
   if (status !== "authenticated") return null;
   if (dismissed) return null;
 
   const handleDismiss = () => {
-    writeDismissed();
+    writeDismissed(scope);
     setDismissed(true);
   };
 
