@@ -78,7 +78,7 @@ export const DIRECTORY_QUERY_KEY_ROOT = ["directory"] as const;
  * includes the filter signature so different filter combos cache
  * independently and React Query doesn't bleed pages across changes.
  */
-function buildQueryKey(filters: DirectoryFilters): QueryKey {
+export function directoryQueryKey(filters: DirectoryFilters): QueryKey {
   return [
     ...DIRECTORY_QUERY_KEY_ROOT,
     filters.kind ?? "all",
@@ -100,7 +100,7 @@ export function useDirectory(filters: DirectoryFilters) {
     QueryKey,
     number
   >({
-    queryKey: buildQueryKey(filters),
+    queryKey: directoryQueryKey(filters),
     initialPageParam: 1,
     queryFn: ({ pageParam, signal }) =>
       getCardsList(buildParams(filters, pageParam), signal),

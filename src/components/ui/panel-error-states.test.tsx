@@ -298,12 +298,16 @@ describe("CommentDrawer keeps a typed reply across a failure", () => {
     expect(refetch).not.toHaveBeenCalled();
   });
 
-  it("a FIRST-load failure may still replace the drawer", () => {
-    // Safe: the composer has never mounted, so there is no draft to lose.
+  it("a FIRST-load failure replaces the THREAD but keeps the composer", () => {
+    // Changed deliberately when the composer was lifted out of the query
+    // owner: it is now a sibling of the thread, so it survives every read
+    // failure including the first. That is strictly better — the write
+    // endpoint is a different permission from the read, and someone who
+    // cannot load a thread can still have something to say.
     state.comments = inf([], "first", "bcc_unavailable");
     drawer();
-    expect(screen.queryByRole("textbox")).toBeNull();
     expect(retryBtn()).not.toBeNull();
+    expect(screen.queryByRole("textbox")).not.toBeNull();
   });
 
   it("keeps the established group-gate wording on a first-load bcc_forbidden", () => {
@@ -481,6 +485,78 @@ describe("GroupMembersStrip", () => {
     state.groupMembers = inf([{ items: [], pagination: { total: 0, offset: 0, limit: 20, has_more: false } }], "refetch", "bcc_unavailable");
     roster();
     expect(screen.queryByText(/empty roster/i)).toBeNull();
+  });
+});
+
+// ═════════════════════════════════════════════════════════════════════
+// 4b. The gate now reaches the PROP-RECEIVING consumers too
+// ═════════════════════════════════════════════════════════════════════
+
+describe("withdrawal reaches FeedBody and DirectoryGrid via their owners", () => {
+  /**
+   * Neither component holds a query key, so neither can remove its own
+   * cache entry — but that is a placement constraint, not an exemption.
+   * The key lives wherever the hook is called, so the gate went there:
+   * AuthedFeed / AnonFeed / TagFeedView for the feed, and a new
+   * <DirectoryResults> for the two directory pages (both of which read
+   * nothing from the query but the grid — verified, zero `query.` refs).
+   *
+   * These cases pin the two things that make that placement correct: the
+   * key is the one the hook actually uses, and the hook call is INSIDE the
+   * gated child so unmount-then-remove is safe.
+   */
+  it("DirectoryResults removes the hook's own key, filter signature included", async () => {
+    const { directoryQueryKey } = await import("@/hooks/useDirectory");
+    const filters = {
+      kind: "validator", tier: null, sort: "trust", q: "",
+      goodStandingOnly: false, chain: null, status: null, minSelfStake: null,
+    } as never;
+    // The gate is handed exactly what the hook builds, so a filter change
+    // is a different resource and cannot inherit a previous refusal.
+    expect(directoryQueryKey(filters)).toEqual([
+      "directory", "validator", "all", "trust", "", "any", "any-chain",
+      "any-status", "any-stake",
+    ]);
+  });
+
+  it("the feed gates key on the same roots the hooks use", async () => {
+    const { FEED_QUERY_KEY_ROOT, HOT_FEED_QUERY_KEY } = await import("@/hooks/useFeed");
+    expect([...FEED_QUERY_KEY_ROOT, "signals"]).toEqual(["feed", "signals"]);
+    expect([...HOT_FEED_QUERY_KEY]).toEqual(["feed", "hot"]);
+    expect([...FEED_QUERY_KEY_ROOT, "tag", "welding"]).toEqual(["feed", "tag", "welding"]);
+  });
+
+  it("the query owner is inside the gated child, not beside it", async () => {
+    // The loop-safety property, asserted structurally: if a page still
+    // called the hook itself, latching the gate could not unmount the
+    // observer and the removal would refetch into the same denial.
+    const fs = await import("node:fs/promises");
+    for (const f of [
+      "src/app/(main)/(app)/directory/page.tsx",
+      "src/app/(main)/(app)/validators/page.tsx",
+    ]) {
+      const src = await fs.readFile(f, "utf8");
+      expect(src, f + " still owns the query").not.toContain("useDirectory(");
+      expect(src).toContain("<DirectoryResults");
+    }
+    const feed = await fs.readFile("src/components/feed/FeedView.tsx", "utf8");
+    // Each owner is split: the gate calls useDenialGate, the child the hook.
+    expect(feed).toContain("useDenialGate([...FEED_QUERY_KEY_ROOT, scope])");
+    expect(feed).toContain("useDenialGate(HOT_FEED_QUERY_KEY)");
+  });
+
+  it("CommentDrawer's composer is a SIBLING of the query owner", async () => {
+    // The whole reason the draft survives an unmount. If <CommentComposer>
+    // were inside <CommentThread>, the gate would destroy it.
+    const fs = await import("node:fs/promises");
+    const src = await fs.readFile("src/components/feed/CommentDrawer.tsx", "utf8");
+    const threadStart = src.indexOf("function CommentThread(");
+    const composerUse = src.indexOf("<CommentComposer");
+    expect(composerUse).toBeGreaterThan(-1);
+    expect(threadStart).toBeGreaterThan(-1);
+    // The composer is rendered BEFORE CommentThread is even declared, i.e.
+    // in the parent shell above it.
+    expect(composerUse).toBeLessThan(threadStart);
   });
 });
 

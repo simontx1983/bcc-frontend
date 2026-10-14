@@ -46,8 +46,18 @@ import { HighlightStrip } from "@/components/feed/HighlightStrip";
 import { LoadFailure } from "@/components/ui/LoadFailure";
 import { SKELETON_CLASS } from "@/components/ui/Skeleton";
 import { Spinner } from "@/components/ui/Spinner";
-import { useFeed, useHotFeed } from "@/hooks/useFeed";
+import {
+  FEED_QUERY_KEY_ROOT,
+  HOT_FEED_QUERY_KEY,
+  useFeed,
+  useHotFeed,
+} from "@/hooks/useFeed";
 import { humanizeCode, isPermissionDenial } from "@/lib/api/errors";
+import {
+  shouldWithdrawOnDenial,
+  useDenialGate,
+  useReportDenial,
+} from "@/lib/api/resource-denial";
 import type { FeedItem, FeedScope } from "@/lib/api/types";
 
 export interface FeedViewProps {
@@ -76,8 +86,38 @@ export function FeedView({ isAuthenticated }: FeedViewProps) {
 // each scope has its own queryKey, so React Query handles the cache.
 // ─────────────────────────────────────────────────────────────────────
 
+/** Shown once the server has withdrawn permission to read a feed. */
+const FEED_WITHDRAWN_COPY = "You can’t read this feed.";
+
+/**
+ * The denial gates for the three feed owners.
+ *
+ * <FeedBody> receives the query as PROPS, so it has no query key and cannot
+ * host the gate itself. That is a placement constraint, not an exemption:
+ * the key exists one level up, in whichever component calls the hook. So
+ * the gate goes there, and the hook call stays inside the gated child —
+ * which is what makes unmount-then-remove safe.
+ */
 function AuthedFeed({ scope }: { scope: FeedScope }) {
+  const gate = useDenialGate([...FEED_QUERY_KEY_ROOT, scope]);
+  if (gate.withdrawn) {
+    return <LoadFailure message={FEED_WITHDRAWN_COPY} />;
+  }
+  return <AuthedFeedData scope={scope} onDenied={gate.withdraw} />;
+}
+
+function AuthedFeedData({
+  scope,
+  onDenied,
+}: {
+  scope: FeedScope;
+  onDenied: () => void;
+}) {
   const query = useFeed(scope);
+  useReportDenial(
+    shouldWithdrawOnDenial(query.error, query.isRefetchError, query.data !== undefined),
+    onDenied,
+  );
   return (
     <>
       {/* §O2 highlights — a curated top-3 digest of the signal stream
@@ -98,7 +138,19 @@ function AuthedFeed({ scope }: { scope: FeedScope }) {
 // ─────────────────────────────────────────────────────────────────────
 
 function AnonFeed() {
+  const gate = useDenialGate(HOT_FEED_QUERY_KEY);
+  if (gate.withdrawn) {
+    return <LoadFailure message={FEED_WITHDRAWN_COPY} />;
+  }
+  return <AnonFeedData onDenied={gate.withdraw} />;
+}
+
+function AnonFeedData({ onDenied }: { onDenied: () => void }) {
   const query = useHotFeed();
+  useReportDenial(
+    shouldWithdrawOnDenial(query.error, query.isRefetchError, query.data !== undefined),
+    onDenied,
+  );
   return (
     <div className="pt-2">
       <div className="bcc-mono mb-3 flex items-center gap-3 text-bcc-text-secondary">
