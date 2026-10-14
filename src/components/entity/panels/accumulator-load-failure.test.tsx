@@ -1,20 +1,21 @@
 /**
- * C2-accumulators — accumulated paper panels keep what they already read.
+ * Paginated paper panels keep what they already read.
  *
- * All three hold their pages in a `useState` accumulator, and all three
- * returned their error branch *above* that accumulator — so a failed LOAD
- * MORE threw away a fully-read list even though the items were still in
- * state. Same defect class as C1b/C2-routes, three more times.
+ * All three returned their error branch *above* the rows they already held —
+ * so a failed LOAD MORE threw away a fully-read list even though the items
+ * were still there. Same defect class as C1b/C2-routes, three more times.
  *
- * Two behaviours are load-bearing beyond "show a Retry":
+ * The two entity panels now page with `useInfiniteQuery` (WatchingPanel still
+ * accumulates in local state, and is unchanged here). The behaviours below
+ * are the contract either implementation has to meet, which is why this file
+ * survived the rewrite with its assertions intact:
  *
  *   • **Cursor safety.** While the current page/offset is failing, the
  *     ordinary LOAD MORE is withdrawn — advancing would skip the page
- *     that failed. Retry refetches that same page, and paging resumes
+ *     that failed. Retry re-requests that same page, and paging resumes
  *     once it succeeds.
- *   • **seenPage / seenOffset stays authoritative.** A failed page never
- *     records itself, so a successful retry appends exactly that page:
- *     no duplicate rows, no skipped cursor.
+ *   • **A failed page never advances the cursor.** A successful retry
+ *     appends exactly that page: no duplicate rows, no skipped cursor.
  *
  * `WatchingPanel`'s `bcc_permission_denied` privacy branch is explicitly
  * NOT a failure state and must keep its private EmptyState with no Retry.
@@ -26,25 +27,33 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vite
 import { BccApiError } from "@/lib/api/types";
 
 const refetch = { reviews: vi.fn(), watchers: vi.fn(), followers: vi.fn(), following: vi.fn() };
+/** `fetchNextPage` is how an infinite query re-requests the page that failed. */
+const fetchNext = { reviews: vi.fn(), watchers: vi.fn() };
 
 // Keyed by the page/offset the component asks for — the real hooks put
 // it in the query key, so serving stale page-1 data for page 2 would be
 // an unfaithful mock (and would fake a duplicate append).
 const state = vi.hoisted(() => ({
-  reviews: {} as Record<number, unknown>,
-  watchers: {} as Record<number, unknown>,
   followers: {} as Record<number, unknown>,
   following: {} as Record<number, unknown>,
 }));
 
-/** Unknown page/offset = request in flight. */
+/**
+ * The two card hooks are infinite queries now, so the mock serves ONE result
+ * object holding the page list — the real hook does the same. Each test moves
+ * it from state to state the way TanStack would.
+ */
+const cardState = vi.hoisted(() => ({
+  reviews: undefined as unknown,
+  watchers: undefined as unknown,
+}));
+
+/** Unknown offset = request in flight (WatchingPanel hooks only). */
 const PENDING = { isPending: true, isError: false, error: null, data: undefined };
 
 vi.mock("@/hooks/useCardTabs", () => ({
-  useCardReviews: (_k: unknown, _i: unknown, page = 1) =>
-    state.reviews[page] ?? PENDING,
-  useCardWatchers: (_k: unknown, _i: unknown, offset = 0) =>
-    state.watchers[offset] ?? PENDING,
+  useCardReviews: () => cardState.reviews ?? PENDING,
+  useCardWatchers: () => cardState.watchers ?? PENDING,
 }));
 vi.mock("@/hooks/useUserActivity", () => ({
   useUserFollowers: (_h: unknown, offset = 0) => state.followers[offset] ?? PENDING,
@@ -83,8 +92,9 @@ beforeEach(() => {
   // into grid view, where there are no list rows to assert on.
   window.localStorage.clear();
   for (const spy of Object.values(refetch)) spy.mockClear();
-  state.reviews = {};
-  state.watchers = {};
+  for (const spy of Object.values(fetchNext)) spy.mockClear();
+  cardState.reviews = undefined;
+  cardState.watchers = undefined;
   state.followers = {};
   state.following = {};
 });
@@ -137,9 +147,36 @@ const card = (id: number) => ({
   crest: { image_url: null },
 });
 
-const reviewsOk = (items: unknown[], page: number, totalPages: number) => ({
-  ...base("reviews"),
-  data: { items, pagination: { page, per_page: 10, total: 40, total_pages: totalPages } },
+// ── infinite-query shapes for the two entity panels ───────────────────
+const rPage = (items: unknown[], page: number, totalPages: number) => ({
+  items,
+  pagination: { page, per_page: 10, total: 40, total_pages: totalPages },
+});
+const wPage = (items: unknown[], offset: number, hasMore: boolean) => ({
+  items,
+  pagination: { offset, limit: 24, total: 50, has_more: hasMore },
+});
+const infOk = (pages: unknown[], key: "reviews" | "watchers", hasNextPage: boolean) => ({
+  isPending: false as const,
+  isError: false as const,
+  error: null,
+  data: { pages },
+  hasNextPage,
+  isFetchingNextPage: false,
+  fetchNextPage: fetchNext[key],
+  refetch: refetch[key],
+});
+/** Pages already read survive; the page that failed is simply not appended. */
+const infFailed = (
+  code: string,
+  pages: unknown[],
+  key: "reviews" | "watchers",
+  hasNextPage: boolean,
+) => ({
+  ...infOk(pages, key, hasNextPage),
+  isError: true as const,
+  error: apiErr(code),
+  ...(pages.length === 0 ? { data: undefined } : {}),
 });
 const offsetOk = (items: unknown[], key: keyof typeof refetch, offset: number, hasMore: boolean) => ({
   ...base(key),
@@ -152,7 +189,7 @@ describe("CardReviewsPanel — accumulated reviews", () => {
   const ui = () => <CardReviewsPanel kind="validator_card" cardId={1} cardName="Ada" />;
 
   it("first-load failure renders the paper failure with a Retry", () => {
-    state.reviews[1] = failed("bcc_unavailable", "reviews");
+    cardState.reviews = infFailed("bcc_unavailable", [], "reviews", false);
     render(ui());
 
     const alert = screen.getByRole("alert");
@@ -163,14 +200,14 @@ describe("CardReviewsPanel — accumulated reviews", () => {
   });
 
   it("first-load failure shows no empty state and no invented content", () => {
-    state.reviews[1] = failed("bcc_unavailable", "reviews");
+    cardState.reviews = infFailed("bcc_unavailable", [], "reviews", false);
     render(ui());
     expect(screen.queryByText(/no reviews of ada yet/i)).not.toBeInTheDocument();
     expect(screen.queryByRole("listitem")).not.toBeInTheDocument();
   });
 
   it("Retry refetches only the reviews query", () => {
-    state.reviews[1] = failed("bcc_rate_limited", "reviews");
+    cardState.reviews = infFailed("bcc_rate_limited", [], "reviews", false);
     render(ui());
     fireEvent.click(screen.getByRole("button", { name: /retry/i }));
 
@@ -181,15 +218,22 @@ describe("CardReviewsPanel — accumulated reviews", () => {
   });
 
   it("a failed LOAD MORE keeps the reviews already read", () => {
-    state.reviews[1] = reviewsOk([review(1), review(2)], 1, 3);
+    cardState.reviews = infOk([rPage([review(1), review(2)], 1, 3)], "reviews", true);
     const { rerender } = render(ui());
     expect(screen.getAllByRole("listitem")).toHaveLength(2);
 
     fireEvent.click(screen.getByRole("button", { name: /load more/i }));
-    state.reviews[2] = failed("bcc_unavailable", "reviews");
+    expect(fetchNext.reviews).toHaveBeenCalledTimes(1);
+    // page 2 failed: the page list is untouched, so page 1 is still here
+    cardState.reviews = infFailed(
+      "bcc_unavailable",
+      [rPage([review(1), review(2)], 1, 3)],
+      "reviews",
+      true,
+    );
     rerender(ui());
 
-    // accumulated rows survive…
+    // rows already read survive…
     expect(screen.getAllByRole("listitem")).toHaveLength(2);
     // …and the failure is the recovery UI at the foot of the list
     expect(screen.getByRole("alert")).toHaveTextContent(
@@ -198,11 +242,16 @@ describe("CardReviewsPanel — accumulated reviews", () => {
   });
 
   it("cursor safety: LOAD MORE is withdrawn while the page is failing", () => {
-    state.reviews[1] = reviewsOk([review(1)], 1, 3);
+    cardState.reviews = infOk([rPage([review(1)], 1, 3)], "reviews", true);
     const { rerender } = render(ui());
     fireEvent.click(screen.getByRole("button", { name: /load more/i }));
 
-    state.reviews[2] = failed("bcc_unavailable", "reviews");
+    cardState.reviews = infFailed(
+      "bcc_unavailable",
+      [rPage([review(1)], 1, 3)],
+      "reviews",
+      true,
+    );
     rerender(ui());
 
     expect(screen.queryByRole("button", { name: /load more/i })).not.toBeInTheDocument();
@@ -210,16 +259,30 @@ describe("CardReviewsPanel — accumulated reviews", () => {
   });
 
   it("a successful retry appends the failed page exactly once", () => {
-    state.reviews[1] = reviewsOk([review(1), review(2)], 1, 2);
+    cardState.reviews = infOk([rPage([review(1), review(2)], 1, 2)], "reviews", true);
     const { rerender } = render(ui());
     fireEvent.click(screen.getByRole("button", { name: /load more/i }));
 
-    state.reviews[2] = failed("bcc_unavailable", "reviews");
+    cardState.reviews = infFailed(
+      "bcc_unavailable",
+      [rPage([review(1), review(2)], 1, 2)],
+      "reviews",
+      true,
+    );
     rerender(ui());
     expect(screen.getAllByRole("listitem")).toHaveLength(2);
 
-    // page 2 now succeeds — seenPage never recorded it, so it appends once
-    state.reviews[2] = reviewsOk([review(3), review(4)], 2, 2);
+    // Retry re-requests the page that FAILED, not the ones that succeeded.
+    fireEvent.click(screen.getByRole("button", { name: /retry/i }));
+    expect(fetchNext.reviews).toHaveBeenCalled();
+    expect(refetch.reviews).not.toHaveBeenCalled();
+
+    // page 2 now succeeds — it was never appended before, so it lands once
+    cardState.reviews = infOk(
+      [rPage([review(1), review(2)], 1, 2), rPage([review(3), review(4)], 2, 2)],
+      "reviews",
+      false,
+    );
     rerender(ui());
 
     const ids = screen.getAllByRole("listitem");
@@ -236,7 +299,7 @@ describe("CardWatchersPanel — accumulated watchers", () => {
   );
 
   it("first-load failure renders the paper failure with a Retry", () => {
-    state.watchers[0] = failed("bcc_unavailable", "watchers");
+    cardState.watchers = infFailed("bcc_unavailable", [], "watchers", false);
     render(ui());
     const alert = screen.getByRole("alert");
     expect(alert).toHaveTextContent(/watchers are temporarily unavailable/i);
@@ -245,13 +308,13 @@ describe("CardWatchersPanel — accumulated watchers", () => {
   });
 
   it("first-load failure shows no empty state", () => {
-    state.watchers[0] = failed("bcc_unavailable", "watchers");
+    cardState.watchers = infFailed("bcc_unavailable", [], "watchers", false);
     render(ui());
     expect(screen.queryByText(/no one is watching/i)).not.toBeInTheDocument();
   });
 
   it("Retry refetches only the watchers query", () => {
-    state.watchers[0] = failed("bcc_rate_limited", "watchers");
+    cardState.watchers = infFailed("bcc_rate_limited", [], "watchers", false);
     render(ui());
     fireEvent.click(screen.getByRole("button", { name: /retry/i }));
 
@@ -262,12 +325,17 @@ describe("CardWatchersPanel — accumulated watchers", () => {
   });
 
   it("a failed LOAD MORE keeps the roster AND the view toggle usable", () => {
-    state.watchers[0] = offsetOk([card(1), card(2)], "watchers", 0, true);
+    cardState.watchers = infOk([wPage([card(1), card(2)], 0, true)], "watchers", true);
     const { rerender } = render(ui());
     expect(screen.getAllByRole("listitem").length).toBeGreaterThan(0);
 
     fireEvent.click(screen.getByRole("button", { name: /load more/i }));
-    state.watchers[2] = failed("bcc_unavailable", "watchers");
+    cardState.watchers = infFailed(
+      "bcc_unavailable",
+      [wPage([card(1), card(2)], 0, true)],
+      "watchers",
+      true,
+    );
     rerender(ui());
 
     // roster survives
@@ -282,11 +350,16 @@ describe("CardWatchersPanel — accumulated watchers", () => {
   });
 
   it("cursor safety: LOAD MORE is withdrawn while the offset is failing", () => {
-    state.watchers[0] = offsetOk([card(1)], "watchers", 0, true);
+    cardState.watchers = infOk([wPage([card(1)], 0, true)], "watchers", true);
     const { rerender } = render(ui());
     fireEvent.click(screen.getByRole("button", { name: /load more/i }));
 
-    state.watchers[1] = failed("bcc_unavailable", "watchers");
+    cardState.watchers = infFailed(
+      "bcc_unavailable",
+      [wPage([card(1)], 0, true)],
+      "watchers",
+      true,
+    );
     rerender(ui());
 
     expect(screen.queryByRole("button", { name: /load more/i })).not.toBeInTheDocument();
@@ -417,18 +490,30 @@ describe("CardWatchersPanel — recovery after a failed offset", () => {
   );
 
   it("appends the failed offset once and leaves the view toggle working after recovery", () => {
-    state.watchers[0] = offsetOk([card(1), card(2)], "watchers", 0, true);
+    cardState.watchers = infOk([wPage([card(1), card(2)], 0, true)], "watchers", true);
     const { rerender } = render(ui());
 
     fireEvent.click(screen.getByRole("button", { name: /load more/i }));
-    state.watchers[2] = failed("bcc_unavailable", "watchers");
+    cardState.watchers = infFailed(
+      "bcc_unavailable",
+      [wPage([card(1), card(2)], 0, true)],
+      "watchers",
+      true,
+    );
     rerender(ui());
     expect(screen.getByRole("alert")).toBeInTheDocument();
 
-    // recover at the same offset
+    // Recover at the SAME offset. With rows already read, Retry re-requests
+    // the failed page via fetchNextPage; refetch would re-run the pages that
+    // succeeded and skip the one that did not.
     fireEvent.click(screen.getByRole("button", { name: /retry/i }));
-    expect(refetch.watchers).toHaveBeenCalledTimes(1);
-    state.watchers[2] = offsetOk([card(3), card(4)], "watchers", 2, false);
+    expect(fetchNext.watchers).toHaveBeenCalled();
+    expect(refetch.watchers).not.toHaveBeenCalled();
+    cardState.watchers = infOk(
+      [wPage([card(1), card(2)], 0, true), wPage([card(3), card(4)], 2, false)],
+      "watchers",
+      false,
+    );
     rerender(ui());
 
     // no duplicate, no skipped watcher
@@ -447,13 +532,17 @@ describe("CardWatchersPanel — recovery after a failed offset", () => {
 
 describe("a pending later page never blanks accumulated content", () => {
   it("CardReviewsPanel keeps its reviews while the next page is in flight", () => {
-    state.reviews[1] = reviewsOk([review(1), review(2)], 1, 3);
+    cardState.reviews = infOk([rPage([review(1), review(2)], 1, 3)], "reviews", true);
     const { rerender } = render(
       <CardReviewsPanel kind="validator_card" cardId={1} cardName="Ada" />,
     );
 
-    // page 2 is unmocked => PENDING
+    // page 2 in flight: isFetchingNextPage true, page list unchanged
     fireEvent.click(screen.getByRole("button", { name: /load more/i }));
+    cardState.reviews = {
+      ...infOk([rPage([review(1), review(2)], 1, 3)], "reviews", true),
+      isFetchingNextPage: true,
+    };
     rerender(<CardReviewsPanel kind="validator_card" cardId={1} cardName="Ada" />);
 
     expect(screen.getAllByRole("listitem")).toHaveLength(2);
@@ -461,12 +550,16 @@ describe("a pending later page never blanks accumulated content", () => {
   });
 
   it("CardWatchersPanel keeps its roster while the next offset is in flight", () => {
-    state.watchers[0] = offsetOk([card(1), card(2)], "watchers", 0, true);
+    cardState.watchers = infOk([wPage([card(1), card(2)], 0, true)], "watchers", true);
     const { rerender } = render(
       <CardWatchersPanel kind="validator_card" cardId={1} cardName="Ada" isClaimed />,
     );
 
     fireEvent.click(screen.getByRole("button", { name: /load more/i }));
+    cardState.watchers = {
+      ...infOk([wPage([card(1), card(2)], 0, true)], "watchers", true),
+      isFetchingNextPage: true,
+    };
     rerender(
       <CardWatchersPanel kind="validator_card" cardId={1} cardName="Ada" isClaimed />,
     );

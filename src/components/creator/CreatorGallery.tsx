@@ -29,6 +29,7 @@
 
 import { useCreatorGallery } from "@/hooks/useCreatorGallery";
 import { SKELETON_CLASS } from "@/components/ui/Skeleton";
+import { dedupeById } from "@/lib/pagination";
 import type { CreatorGalleryItem } from "@/lib/api/types";
 
 interface CreatorGalleryProps {
@@ -72,8 +73,40 @@ export function CreatorGallery({ slug, creatorName }: CreatorGalleryProps) {
   }
 
   const pages = query.data?.pages ?? [];
-  const items: CreatorGalleryItem[] = pages.flatMap((p) => p.items);
+
+  // This gallery is `page`/`OFFSET` paginated over a MOVING table, so
+  // consecutive pages can legitimately return the same collection. Two
+  // mechanisms, neither hypothetical:
+  //
+  //   1. The gallery triggers writes to the table it is paging over. A
+  //      stale row makes the endpoint dispatch an async refresh, and
+  //      responses are `public, max-age=30` — so page 1 and page 2 can
+  //      come from either side of that refresh. A row inserted before
+  //      the current offset shifts every later page down by one.
+  //   2. `CollectionRepository::getForProject` orders by the sort column
+  //      alone, with no unique tiebreak, and the indexer's job is to fill
+  //      those columns — so a row can change rank between two requests.
+  //
+  // Both tiles key on the record, so an overlap used to render the
+  // collection twice and React warned about duplicate keys (measured:
+  // rows=4 [1,2,2,3], distinct=3, 1 warning).
+  //
+  // `useInfiniteQuery` does not close this: it owns the page LIST, not
+  // the records inside it. First occurrence wins, so the earlier page
+  // keeps the position the server gave it.
+  //
+  // `id` is the right identity here and not a guess: the table declares
+  // `PRIMARY KEY (id)` with `UNIQUE KEY uq_chain_contract (chain_id,
+  // contract_address)`, so one id is exactly one (chain, contract). The
+  // composite React key below stays consistent with that — it can never
+  // split one record across two keys, nor merge two records into one.
+  const items: CreatorGalleryItem[] = dedupeById(pages.flatMap((p) => p.items));
+
   const isStale = pages[0]?.is_stale ?? false;
+
+  // The SERVER's count of the whole collection, deliberately not the
+  // rendered row count. Overlap shrinks what is rendered; it must not
+  // rewrite what the server said is on file.
   const totalCount = pages[0]?.pagination.total ?? 0;
 
   if (items.length === 0) {
