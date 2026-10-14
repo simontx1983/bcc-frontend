@@ -12,9 +12,17 @@
  * for anonymous reads. When a session exists we forward the bearer so
  * own-only blocks resolve (§3.1).
  *
- * 404: backend returns `bcc_not_found` (status 404) when the handle is
- * unknown; we map that to Next's `notFound()`. Other failures bubble
- * as a 500 — let the framework show its error UI.
+ * Read failures are split three ways, because they are three different
+ * things to the viewer:
+ *
+ *   404 `bcc_not_found`         -> Next's `notFound()` (unchanged)
+ *   403 `bcc_permission_denied` -> the denied state, rendered here, NO retry
+ *   anything else               -> rethrow to `error.tsx` in this segment,
+ *                                  which offers a retry
+ *
+ * The split lives here and not in the boundary because Next replaces a
+ * server error's message and status before `error.tsx` receives it, so
+ * this is the last point at which the three are distinguishable.
  *
  * Layout: a top "FILE 0001" rail + a 2-column hero (identity left,
  * live shift right), then numbered section frames (FILE 02 BIO, 03
@@ -34,6 +42,8 @@ import { getServerSession } from "next-auth";
 import Link from "next/link";
 import type { Route } from "next";
 import { notFound } from "next/navigation";
+
+import { ProfileUnavailable } from "@/components/errors/ProfileUnavailable";
 
 import { CardFactory } from "@/components/cards/CardFactory";
 import { NewMemberChip } from "@/components/identity/NewMemberChip";
@@ -181,6 +191,20 @@ export default async function MemberProfilePage({ params }: PageProps) {
     if (err instanceof BccApiError && err.status === 404) {
       notFound();
     }
+    // A 403 is a DECISION, not an outage, and it is the only other status
+    // this route documents (`bcc_permission_denied`, contract §4.4). It is
+    // classified here rather than in `error.tsx` because Next strips a
+    // server error's message and status before the client boundary sees
+    // it — so this is the last place the difference is still knowable.
+    //
+    // Rendering instead of throwing is what keeps the distinction alive in
+    // production: the denied state gets no retry control, because a 403
+    // cannot be retried into a 200.
+    if (err instanceof BccApiError && err.status === 403) {
+      return <ProfileUnavailable reason="denied" />;
+    }
+    // Anything else — 5xx, a transport failure, a status we have no
+    // reading of — goes to the segment boundary, which offers a retry.
     throw err;
   }
 

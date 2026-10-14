@@ -17,7 +17,20 @@
  * #f7efd9 — 1.03:1 in dark theme. The head mirrors SiteHeader's
  * NotifModal (the panel's other host): a bordered strip on the same
  * theme surface, so head and body read as one panel.
+ *
+ * ## Why `enabled` is session-derived rather than a literal
+ *
+ * This used to pass `enabled` as a hard-coded `true`, and neither
+ * `useUnreadCount` nor `useNotifications` consults the session. The
+ * page's only auth check was the server-side `getServerSession` redirect,
+ * which never re-runs — so signing out while this page was open left a
+ * private notification list rendered indefinitely, with nothing to
+ * invalidate it. `/messages` has always gated on `isAuthed`; this page
+ * was the outlier. The session boundary now also clears the cache, but
+ * this surface should be correct on its own rather than rely on that.
  */
+
+import { useSession } from "next-auth/react";
 
 import { NotificationsPanel } from "@/components/notifications/NotificationsPanel";
 
@@ -26,6 +39,9 @@ const NOOP = () => {
 };
 
 export function NotificationsPageBody() {
+  const { status } = useSession();
+  const isAuthed = status === "authenticated";
+
   return (
     <section className="mx-auto mt-10 max-w-[720px] px-4 sm:px-7">
       <article className="bcc-panel overflow-hidden p-0">
@@ -38,12 +54,18 @@ export function NotificationsPageBody() {
           </h1>
         </header>
         <div className="px-3 py-3">
-          <NotificationsPanel
-            enabled
-            open
-            showTitle={false}
-            onNavigate={NOOP}
-          />
+          {isAuthed ? (
+            <NotificationsPanel
+              enabled
+              open
+              showTitle={false}
+              onNavigate={NOOP}
+            />
+          ) : (
+            <p className="bcc-mono py-6 text-center text-bcc-text-secondary">
+              Sign in to see your notifications.
+            </p>
+          )}
         </div>
       </article>
     </section>

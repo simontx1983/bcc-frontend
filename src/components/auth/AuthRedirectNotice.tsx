@@ -11,6 +11,14 @@
  *
  * Mounted once in AppShell so it fires regardless of which app page the
  * guard's redirect target happens to be (currently always "/").
+ *
+ * It is also the vehicle for carrying a sign-out explanation ACROSS the
+ * teardown navigation. A boundary that ends in a document load destroys
+ * any in-page message, so `endSession` appends an `authNotice` slug to the
+ * callbackUrl and this component renders the matching canned copy once,
+ * then scrubs the param. Bounded by the same 7s auto-dismiss as the rest,
+ * and non-sensitive by construction: a slug indexes copy held here, so no
+ * viewer data and no failure detail travel in the URL.
  */
 
 import type { Route } from "next";
@@ -20,29 +28,84 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 const AUTO_DISMISS_MS = 7000;
 
 const COPY: Record<string, string> = {
+  // Carried through the sign-out navigation by lib/auth/session-boundary.
+  // Slugs only — the copy lives here, so nothing about the viewer or the
+  // failure crosses the URL.
+  "signed-out":
+    "Your session ended, so you've been signed out. Sign in again to pick up where you left off.",
+  standing:
+    "You've been signed out because your account is under review. Sign in again to see the details.",
+  "push-cleanup":
+    "You're signed out. We couldn't switch off push notifications on this device, so you may still receive some — turn them off in your browser settings if you're sharing it.",
+  // After a password change whose session update failed. The viewer's next
+  // move depends on knowing the change DID land, so this must not be
+  // replaced by the generic "signed-out" copy when an involuntary teardown
+  // wins the race (see setPendingAuthNotice in lib/auth/session-boundary).
+  "password-changed":
+    "Your password was changed. We couldn't keep this device signed in, so sign in again using your NEW password.",
   login: "You're already signed in — no need to log in again.",
   signup: "You're already a member and signed in — no need to sign up again.",
   "forgot-password":
     "You're already signed in, so there's nothing to reset. Sign out first if you meant to change your password.",
 };
 
+/**
+ * Appended to whatever reason the viewer is given. Says only what is true:
+ * the unsubscribe was attempted and refused, so the previous account may
+ * still be reachable on this device.
+ */
+const PUSH_CAVEAT =
+  " We also couldn't switch off push notifications on this device, so you may still receive some — turn them off in your browser settings if you're sharing it.";
+
 function AuthRedirectNoticeInner() {
   const router = useRouter();
   const pathname = usePathname() ?? "/";
   const searchParams = useSearchParams();
   const source = searchParams.get("authNotice");
+  // A separate flag rather than a slug of its own: the push caveat has to
+  // be able to accompany ANY reason, and while both competed for the
+  // single `authNotice` slug an explicit notice silently dropped it.
+  const pushCaveat = searchParams.get("authNoticePush") === "1";
 
-  const [message] = useState<string | null>(() =>
-    source !== null ? (COPY[source] ?? null) : null,
-  );
+  const [message] = useState<string | null>(() => {
+    // `Object.hasOwn`, not a bare index: `COPY["__proto__"]` resolves to
+    // Object.prototype, which React then throws on ("Objects are not
+    // valid as a React child"), and `?authNotice=constructor` /
+    // `=toString` resolve to functions. There is no segment error
+    // boundary, so that replaced the whole page with the global error UI
+    // — and this component is mounted in the shared layouts, which
+    // includes the ANONYMOUS site root.
+    const base =
+      source !== null && Object.hasOwn(COPY, source) ? COPY[source]! : null;
+    if (!pushCaveat) {
+      return base;
+    }
+    return base === null ? PUSH_CAVEAT.trim() : `${base}${PUSH_CAVEAT}`;
+  });
   const [dismissed, setDismissed] = useState(false);
 
   // Scrub the param off the URL on mount so a refresh doesn't re-trigger
   // this — the notice is a one-time "here's why you landed here", not a
   // persistent state of the page.
   useEffect(() => {
-    if (source === null) return;
-    router.replace(pathname as Route);
+    if (source === null && !pushCaveat) return;
+    // Delete only OUR params. Replacing with `pathname` alone dropped the
+    // whole query string, which became load-bearing once this component
+    // was mounted on the (auth) group: /login?callbackUrl=…,
+    // /reset-password?token=…, /signup/complete-profile?pt=…&email=… and
+    // /auth-error?error=… all carry params a scrub must not eat.
+    const next = new URLSearchParams(searchParams.toString());
+    next.delete("authNotice");
+    next.delete("authNoticePush");
+    const qs = next.toString();
+    // Re-attach the fragment. `usePathname()` carries none, and
+    // session-boundary deliberately emits "/path?authNotice=x#frag" so the
+    // params stay readable — dropping the hash here would undo the other
+    // half of that fix.
+    const hash = window.location.hash;
+    router.replace(
+      `${pathname}${qs === "" ? "" : `?${qs}`}${hash}` as Route,
+    );
     // Only ever runs once per real navigation-with-param — pathname/router
     // are stable refs here, source is read once into `message` above.
     // eslint-disable-next-line react-hooks/exhaustive-deps

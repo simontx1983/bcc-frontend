@@ -13,7 +13,7 @@
  * notification-prefs-endpoints.ts), not a separate route here.
  */
 
-import { bccFetchAsClient } from "@/lib/api/client";
+import { bccFetch, bccFetchAsClient } from "@/lib/api/client";
 
 export interface VapidPublicKeyResponse {
   public_key: string;
@@ -51,4 +51,25 @@ export function registerPushSubscription(
       body: payload,
     },
   );
+}
+
+/**
+ * Delete one server-side push-subscription row.
+ *
+ * Takes an EXPLICIT token and goes through the low-level `bccFetch`
+ * rather than `bccFetchAsClient`, because its only caller is the session
+ * teardown: routing it through the session-aware client would let a 401
+ * here re-enter the expiry handler and start a second teardown.
+ *
+ * The server is idempotent (a missing row is a 200) and ownership-checked
+ * (someone else's row is a 403), so a rejection here is safe to swallow.
+ */
+export function deletePushSubscription(
+  id: number,
+  token: string,
+): Promise<{ ok: true }> {
+  return bccFetch<{ ok: true }>(`me/push-subscriptions/${id}`, {
+    method: "DELETE",
+    token,
+  });
 }
