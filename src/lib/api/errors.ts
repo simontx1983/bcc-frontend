@@ -6,13 +6,14 @@
  * server's English copy is free to change, but the code surface is part
  * of the public contract (§L5 of `docs/api-contract-v1.md`).
  *
- * This module is three small predicates/helpers. There is no central
+ * This module is four small predicates/helpers. There is no central
  * copy registry — each call site owns its own copy map because UX copy
  * evolves per surface (settings vs composer vs auth). What we centralize
  * is the branching primitive (`isCode`), the safe code→copy lookup
  * (`humanizeCode`) that REFUSES to fall back to `err.message`, and one
- * narrowly-scoped retryability predicate
- * (`isNonRetryableFixedReadFailure`).
+ * two retryability predicates — `isPermissionDenial` (valid for any
+ * read, paged included) and the narrower
+ * `isNonRetryableFixedReadFailure` (fixed reads only).
  *
  * The safety property: every UI string returned by `humanizeCode` is
  * either authored at the call site or the explicit `defaultCopy`
@@ -73,8 +74,50 @@ export function isCode(err: unknown, code: string): boolean {
  * filters, corrected input — `bcc_invalid_request` may be recoverable
  * there and this predicate is the wrong tool; branch explicitly instead.
  */
-const NON_RETRYABLE_FIXED_READ_CODES: ReadonlySet<string> = new Set([
+/**
+ * A PERMISSION boundary: "you may not read this", as distinct from
+ * "this read did not complete".
+ *
+ * Correct for **any** read, paged or fixed, which is what makes it the
+ * right tool where `isNonRetryableFixedReadFailure` is the wrong one. A
+ * permission boundary does not move when the request's page, cursor or
+ * filters change, so repetition cannot cross it. The codes that predicate
+ * adds — `bcc_not_found` and `bcc_invalid_request` — are NOT terminal on
+ * a paged read: a stale `?page=200` answers 404 or 400 and PREV repairs
+ * it, so treating those as permanent on a pager would hide the way back.
+ *
+ * The three codes are the permission members of the contract's own
+ * non-retryable client-error class (§1.4.2: "No — the request is wrong;
+ * show UX, do not retry"), which lists `bcc_invalid_request`,
+ * `bcc_permission_denied`, `bcc_blocked` and `bcc_forbidden`:
+ *
+ *   - `bcc_forbidden` (403)         — authenticated, not the owner (§1.4)
+ *   - `bcc_permission_denied` (403) — authenticated, gate not met (§1.4)
+ *   - `bcc_blocked` (403)           — blocked by the subject
+ *
+ * ⚠ Only `bcc_forbidden` was previously listed anywhere, so a
+ * `bcc_permission_denied` or `bcc_blocked` read offered a Retry that
+ * could never succeed. `NON_RETRYABLE_FIXED_READ_CODES` below is now
+ * composed from this set so the two cannot drift apart again.
+ *
+ * This is the predicate form of the branch `WatchingPanel` already makes
+ * by hand (`queryError.code === "bcc_permission_denied"` → render the
+ * private empty state, no Retry). That call site keeps its bespoke
+ * branch because it maps denial onto a *domain* meaning (privacy);
+ * callers that only need "is a Retry honest here" use this.
+ */
+const PERMISSION_DENIAL_CODES: ReadonlySet<string> = new Set([
   "bcc_forbidden",
+  "bcc_permission_denied",
+  "bcc_blocked",
+]);
+
+export function isPermissionDenial(err: unknown): boolean {
+  return err instanceof BccApiError && PERMISSION_DENIAL_CODES.has(err.code);
+}
+
+const NON_RETRYABLE_FIXED_READ_CODES: ReadonlySet<string> = new Set([
+  ...PERMISSION_DENIAL_CODES,
   "bcc_not_found",
   "bcc_invalid_request",
 ]);
