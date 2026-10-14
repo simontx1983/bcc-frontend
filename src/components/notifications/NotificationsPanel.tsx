@@ -24,6 +24,8 @@
  * surfaces drift apart again.
  */
 
+import { useEffect, useRef } from "react";
+
 import type { Route } from "next";
 import { useRouter } from "next/navigation";
 
@@ -87,6 +89,22 @@ export function NotificationsPanel({
   // Retry against one can only fail the same way. Omitting `onRetry`
   // renders no button at all rather than an inert one.
   const retryIsHonest = !isPermissionDenial(list.error);
+
+  const loadMoreRef = useRef<HTMLButtonElement | null>(null);
+  const endRef = useRef<HTMLParagraphElement | null>(null);
+  /** Did LOAD MORE hold focus at the moment it was activated? */
+  const heldFocus = useRef(false);
+
+  // When the control the viewer was standing on disappears because the
+  // list ended, put them somewhere. ONLY when it held focus: a mouse user
+  // scrolling elsewhere must not have the page yanked out from under them,
+  // and this never fires on a first render that simply has no next page.
+  useEffect(() => {
+    if (list.hasNextPage) return;
+    if (!heldFocus.current) return;
+    heldFocus.current = false;
+    endRef.current?.focus();
+  }, [list.hasNextPage]);
 
   const handleItemClick = (item: NotificationItem) => {
     if (!item.read) {
@@ -212,8 +230,16 @@ export function NotificationsPanel({
                     same shape, as PagerNav's chips. */}
                 <button
                   type="button"
+                  ref={loadMoreRef}
                   onClick={() => {
                     if (list.isFetchingNextPage) return;
+                    // Recorded HERE, not in an effect: by the time an
+                    // effect runs the button may already be gone and
+                    // `document.activeElement` already `<body>`, so the
+                    // one fact we need would be unrecoverable.
+                    heldFocus.current =
+                      loadMoreRef.current !== null &&
+                      document.activeElement === loadMoreRef.current;
                     void list.fetchNextPage();
                   }}
                   aria-disabled={list.isFetchingNextPage || undefined}
@@ -227,6 +253,28 @@ export function NotificationsPanel({
                 </button>
               </li>
             )
+          )}
+
+          {/* Where focus lands when LOAD MORE legitimately disappears.
+              Measured: activating it on the last page removed the focused
+              element, and focus fell to `<body>` — at the BOTTOM of a list
+              that had just grown, so a keyboard user had to tab in from
+              the top of the document to get anywhere.
+
+              Deliberately NOT a live region. This panel has none, and the
+              reading happens because focus MOVES here, which is one
+              announcement rather than two. */}
+          {!list.hasNextPage && !list.isError && (
+            <li>
+              <p
+                ref={endRef}
+                tabIndex={-1}
+                data-testid="notifications-end-of-list"
+                className="bcc-mono px-4 py-2.5 text-center text-[10px] tracking-[0.18em] text-[var(--bcc-text-secondary)]"
+              >
+                End of the list.
+              </p>
+            </li>
           )}
         </ul>
       )}
