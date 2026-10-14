@@ -39,7 +39,19 @@ const state = vi.hoisted(() => ({
 vi.mock("@/lib/env", () => ({
   clientEnv: { BCC_API_URL: "http://localhost/wp-json/bcc/v1" },
 }));
+// The panels now sit behind a denial gate that reads the QueryClient to drop
+// a withdrawn resource's cache entry. These tests drive the data hooks
+// directly, so a stub is enough — the removal itself is asserted in
+// `ui/panel-denial-retry.test.tsx` and measured in the browser.
+vi.mock("@tanstack/react-query", async (importOriginal) => ({
+  ...(await importOriginal<typeof ReactQueryModule>()),
+  useQueryClient: () => ({ removeQueries: () => {} }),
+}));
+
 vi.mock("@/hooks/useUserActivity", () => ({
+  USER_ACTIVITY_QUERY_KEY_ROOT: ["users", "activity"],
+  USER_ALBUMS_QUERY_KEY_ROOT: ["users", "albums"],
+  ALBUM_PHOTOS_QUERY_KEY_ROOT: ["users", "album-photos"],
   useUserActivity: () => state.activity,
   useUserAlbums: () => state.albums,
   useAlbumPhotos: (_h: unknown, albumId: number | null) =>
@@ -54,6 +66,7 @@ vi.mock("@/hooks/useUserActivity", () => ({
 }));
 
 import { PhotosPanel } from "@/components/profile/panels/PhotosPanel";
+import type * as ReactQueryModule from "@tanstack/react-query";
 
 beforeAll(() => {
   window.matchMedia = ((q: string) => ({

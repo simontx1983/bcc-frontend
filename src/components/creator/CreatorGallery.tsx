@@ -30,7 +30,13 @@
  * page-load lights up the grid.
  */
 
-import { useCreatorGallery } from "@/hooks/useCreatorGallery";
+import { creatorGalleryQueryKey, useCreatorGallery } from "@/hooks/useCreatorGallery";
+import { isPermissionDenial } from "@/lib/api/errors";
+import {
+  shouldWithdrawOnDenial,
+  useDenialGate,
+  useReportDenial,
+} from "@/lib/api/resource-denial";
 import { LoadFailure } from "@/components/ui/LoadFailure";
 import { SKELETON_CLASS } from "@/components/ui/Skeleton";
 import { dedupeById } from "@/lib/pagination";
@@ -42,11 +48,63 @@ interface CreatorGalleryProps {
   creatorName: string;
 }
 
+/** Shown once the server has withdrawn permission to read this gallery. */
+const WITHDRAWN_COPY = "You can’t view this creator’s gallery.";
+
+/**
+ * The denial gate. It owns no query, so latching it unmounts the component
+ * below — which is what makes removing the cache entry safe. See
+ * `lib/api/resource-denial` for why the order matters.
+ */
 export function CreatorGallery({ slug, creatorName }: CreatorGalleryProps) {
+  const gate = useDenialGate(creatorGalleryQueryKey(slug));
+
+  if (gate.withdrawn) {
+    return (
+      <GalleryShell title="The Gallery">
+        <LoadFailure message={WITHDRAWN_COPY} />
+      </GalleryShell>
+    );
+  }
+
+  return (
+    <CreatorGalleryData slug={slug} creatorName={creatorName} onDenied={gate.withdraw} />
+  );
+}
+
+function CreatorGalleryData({
+  slug,
+  creatorName,
+  onDenied,
+}: CreatorGalleryProps & { onDenied: () => void }) {
   const query = useCreatorGallery({ slug });
 
-  const failureCopy =
-    "Couldn't load this creator's gallery right now. Try again in a moment.";
+  // A denied REFRESH of the pages already on screen withdraws them. A
+  // denied next page does not — it says nothing about page 1.
+  useReportDenial(
+    shouldWithdrawOnDenial(query.error, query.isRefetchError, query.data !== undefined),
+    onDenied,
+  );
+
+  // A permission boundary does not move when the page param does, so a
+  // Retry against one can only fail the same way. Omitting `onRetry`
+  // renders no button at all rather than an inert one — the rule #183
+  // shipped.
+  const denied = isPermissionDenial(query.error);
+
+  // Unlike the sibling panels this component carries no `humanizeCode`
+  // map — it renders one fixed sentence. That sentence ends in "Try again
+  // in a moment", which becomes a lie the moment the control is withheld,
+  // so the denial case needs its own wording rather than just a missing
+  // button.
+  const failureCopy = denied
+    ? "You can’t view this creator’s gallery."
+    : "Couldn't load this creator's gallery right now. Try again in a moment.";
+
+  const refetchProps = denied ? {} : { onRetry: () => void query.refetch() };
+  const nextPageProps = denied
+    ? {}
+    : { onRetry: () => void query.fetchNextPage() };
 
   // Which failure this is decides what survives and what Retry must call.
   // A blanket `isError` is true for all three, and this component used to
@@ -69,7 +127,7 @@ export function CreatorGallery({ slug, creatorName }: CreatorGalleryProps) {
   if (query.isLoadingError) {
     return (
       <GalleryShell title="The Gallery">
-        <LoadFailure message={failureCopy} onRetry={() => void query.refetch()} />
+        <LoadFailure message={failureCopy} {...refetchProps} />
       </GalleryShell>
     );
   }
@@ -171,7 +229,7 @@ export function CreatorGallery({ slug, creatorName }: CreatorGalleryProps) {
           so advancing cannot skip anything — LOAD MORE deliberately stays
           available below, and this control refetches. */}
       {query.isRefetchError && (
-        <LoadFailure message={failureCopy} onRetry={() => void query.refetch()} />
+        <LoadFailure message={failureCopy} {...refetchProps} />
       )}
 
       {/* Cursor safety: while the NEXT page is failed, LOAD MORE is
@@ -180,9 +238,10 @@ export function CreatorGallery({ slug, creatorName }: CreatorGalleryProps) {
           fetchNextPage(); ordinary paging returns once the query is
           progressing again and there is still a next page. */}
       {query.isFetchNextPageError ? (
-        <LoadFailure message={failureCopy} onRetry={() => void query.fetchNextPage()} />
+        <LoadFailure message={failureCopy} {...nextPageProps} />
       ) : (
-        query.hasNextPage && (
+        query.hasNextPage &&
+        !denied && (
           <div className="mt-6 flex justify-center">
             <button
               type="button"

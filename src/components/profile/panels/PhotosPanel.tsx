@@ -30,9 +30,26 @@ import { useState } from "react";
 
 import { isWpMediaUrl } from "@/lib/media";
 
-import { useAlbumPhotos, useUserActivity, useUserAlbums } from "@/hooks/useUserActivity";
+import {
+  ALBUM_PHOTOS_QUERY_KEY_ROOT,
+  USER_ACTIVITY_QUERY_KEY_ROOT,
+  USER_ALBUMS_QUERY_KEY_ROOT,
+  useAlbumPhotos,
+  useUserActivity,
+  useUserAlbums,
+} from "@/hooks/useUserActivity";
 import { LoadFailure } from "@/components/ui/LoadFailure";
-import { humanizeCode } from "@/lib/api/errors";
+import { humanizeCode, isPermissionDenial } from "@/lib/api/errors";
+import {
+  shouldWithdrawOnDenial,
+  useDenialGate,
+  useReportDenial,
+} from "@/lib/api/resource-denial";
+
+/** Shown once the server has withdrawn permission to read these. */
+const PHOTOS_WITHDRAWN_COPY = "You can’t see this member’s photos.";
+const ALBUMS_WITHDRAWN_COPY = "You can’t see this member’s albums.";
+const ALBUM_WITHDRAWN_COPY = "You can’t see this album.";
 import { SKELETON_CLASS } from "@/components/ui/Skeleton";
 import type { AlbumPhoto, FeedItem, PhotoBody, UserAlbum } from "@/lib/api/types";
 import { clientEnv } from "@/lib/env";
@@ -181,8 +198,36 @@ function SubTabStrip({
 // filtered for post_kind === "photo".
 // ──────────────────────────────────────────────────────────────────────
 
+/**
+ * The denial gates. Each owns no query, so latching one unmounts the
+ * component below it — which is what makes removing that cache entry safe.
+ * See `lib/api/resource-denial`.
+ */
 function AllPhotos({ handle, isOwner }: { handle: string; isOwner: boolean }) {
+  const gate = useDenialGate([...USER_ACTIVITY_QUERY_KEY_ROOT, handle]);
+  if (gate.withdrawn) {
+    return <LoadFailure surface="paper" message={PHOTOS_WITHDRAWN_COPY} />;
+  }
+  return <AllPhotosData handle={handle} isOwner={isOwner} onDenied={gate.withdraw} />;
+}
+
+function AllPhotosData({
+  handle,
+  isOwner,
+  onDenied,
+}: {
+  handle: string;
+  isOwner: boolean;
+  onDenied: () => void;
+}) {
   const query = useUserActivity(handle);
+
+  // A denied REFRESH of the photos already on screen withdraws them. A
+  // denied next page does not — it says nothing about the pages served.
+  useReportDenial(
+    shouldWithdrawOnDenial(query.error, query.isRefetchError, query.data !== undefined),
+    onDenied,
+  );
 
   // §γ — copy is keyed on err.code; never render err.message.
   const failureCopy = humanizeCode(
@@ -191,9 +236,25 @@ function AllPhotos({ handle, isOwner }: { handle: string; isOwner: boolean }) {
       bcc_unauthorized: "Sign in to see photos.",
       bcc_rate_limited: "Loading too fast — give it a moment and try again.",
       bcc_unavailable: "Photos are temporarily unavailable. Try again shortly.",
+      // The denial codes get their own line because the default ends in
+      // "Try again in a moment" — advice withheld along with the control.
+      bcc_forbidden: "You can’t see this member’s photos.",
+      bcc_permission_denied: "You can’t see this member’s photos.",
+      bcc_blocked: "You can’t see this member’s photos.",
     },
     "Couldn't load photos. Try again in a moment.",
   );
+
+  // A permission boundary does not move when the cursor does, so a Retry
+  // against one can only fail the same way — omit `onRetry` and no button
+  // renders. Two shapes because the branches recover differently:
+  // first-load and refresh call `refetch()`, a failed next page calls
+  // `fetchNextPage()` to re-request the SAME cursor.
+  const denied = isPermissionDenial(query.error);
+  const refetchProps = denied ? {} : { onRetry: () => void query.refetch() };
+  const nextPageProps = denied
+    ? {}
+    : { onRetry: () => void query.fetchNextPage() };
 
   // Two different failures need two different recoveries, so they are
   // discriminated with React Query's own infinite-query flags rather
@@ -216,11 +277,7 @@ function AllPhotos({ handle, isOwner }: { handle: string; isOwner: boolean }) {
   //                          page instead of refreshing.
   if (query.isLoadingError) {
     return (
-      <LoadFailure
-        surface="paper"
-        message={failureCopy}
-        onRetry={() => void query.refetch()}
-      />
+      <LoadFailure surface="paper" message={failureCopy} {...refetchProps} />
     );
   }
 
@@ -277,13 +334,12 @@ function AllPhotos({ handle, isOwner }: { handle: string; isOwner: boolean }) {
       {/* A failed REFRESH is not a failed cursor. The retained pages and
           the cursor derived from the last of them are still coherent, so
           advancing cannot skip anything — LOAD MORE deliberately stays
-          available here, and the recovery control refetches. */}
+          available here, and the recovery control refetches.
+          EXCEPT on a denial: a permission boundary covers the whole set,
+          not one cursor, so the next page would be refused too and LOAD
+          MORE is withdrawn there as well — see the paging branch below. */}
       {query.isRefetchError && (
-        <LoadFailure
-          surface="paper"
-          message={failureCopy}
-          onRetry={() => void query.refetch()}
-        />
+        <LoadFailure surface="paper" message={failureCopy} {...refetchProps} />
       )}
 
       {/* Cursor safety: while the NEXT cursor is failed, LOAD MORE is
@@ -292,13 +348,10 @@ function AllPhotos({ handle, isOwner }: { handle: string; isOwner: boolean }) {
           ordinary paging returns once the query is progressing again and
           there is still a next page. */}
       {query.isFetchNextPageError ? (
-        <LoadFailure
-          surface="paper"
-          message={failureCopy}
-          onRetry={() => void query.fetchNextPage()}
-        />
+        <LoadFailure surface="paper" message={failureCopy} {...nextPageProps} />
       ) : (
-        query.hasNextPage && (
+        query.hasNextPage &&
+        !denied && (
           <div className="mt-6 text-center">
             <button
               type="button"
@@ -458,16 +511,37 @@ function Albums({ handle, isOwner }: { handle: string; isOwner: boolean }) {
   return <AlbumsGrid handle={handle} isOwner={isOwner} onOpen={setSelected} />;
 }
 
-function AlbumsGrid({
-  handle,
-  isOwner,
-  onOpen,
-}: {
+function AlbumsGrid(props: {
   handle: string;
   isOwner: boolean;
   onOpen: (album: UserAlbum) => void;
 }) {
+  const gate = useDenialGate([...USER_ALBUMS_QUERY_KEY_ROOT, props.handle]);
+  if (gate.withdrawn) {
+    return <LoadFailure surface="paper" message={ALBUMS_WITHDRAWN_COPY} />;
+  }
+  return <AlbumsGridData {...props} onDenied={gate.withdraw} />;
+}
+
+function AlbumsGridData({
+  handle,
+  isOwner,
+  onOpen,
+  onDenied,
+}: {
+  handle: string;
+  isOwner: boolean;
+  onOpen: (album: UserAlbum) => void;
+  onDenied: () => void;
+}) {
   const query = useUserAlbums(handle);
+
+  // UNPAGED, so every failed read is a read of this same resource — there
+  // is no next page whose refusal could be mistaken for this one.
+  useReportDenial(
+    shouldWithdrawOnDenial(query.error, true, query.data !== undefined),
+    onDenied,
+  );
 
   if (query.isPending) {
     return (
@@ -477,26 +551,38 @@ function AlbumsGrid({
     );
   }
 
+  // §γ — copy is keyed on err.code; never render err.message.
+  //
+  // Hoisted: this map was inlined IDENTICALLY at both failure branches
+  // below, so the denial codes would have had to be added twice and could
+  // drift apart. One definition, used by both.
+  const failureCopy = humanizeCode(
+    query.error,
+    {
+      bcc_unauthorized: "Sign in to see albums.",
+      bcc_rate_limited: "Loading too fast — give it a moment and try again.",
+      bcc_unavailable: "Albums are temporarily unavailable. Try again shortly.",
+      bcc_forbidden: "You can’t see this member’s albums.",
+      bcc_permission_denied: "You can’t see this member’s albums.",
+      bcc_blocked: "You can’t see this member’s albums.",
+    },
+    "Couldn't load albums. Try again in a moment.",
+  );
+
+  // This read is UNPAGED, so there is no cursor to resume — recovery is
+  // always `refetch()`. A denial still withholds the control: omitting
+  // `onRetry` renders no button rather than an inert one.
+  const retryProps = isPermissionDenial(query.error)
+    ? {}
+    : { onRetry: () => void query.refetch() };
+
   // Unpaged, but NOT first-load-only: refetchOnMount and
   // refetchOnReconnect are both on by default, so a remount with stale
   // data (sub-tab switch, >30s) can fail with the grid already loaded.
   // Whole-panel failure therefore only when nothing was ever loaded.
   if (query.isError && query.data === undefined) {
     return (
-      <LoadFailure
-        surface="paper"
-        /* §γ — copy is keyed on err.code; never render err.message. */
-        message={humanizeCode(
-          query.error,
-          {
-            bcc_unauthorized: "Sign in to see albums.",
-            bcc_rate_limited: "Loading too fast — give it a moment and try again.",
-            bcc_unavailable: "Albums are temporarily unavailable. Try again shortly.",
-          },
-          "Couldn't load albums. Try again in a moment.",
-        )}
-        onRetry={() => void query.refetch()}
-      />
+      <LoadFailure surface="paper" message={failureCopy} {...retryProps} />
     );
   }
 
@@ -520,19 +606,7 @@ function AlbumsGrid({
       {/* A failed refresh keeps the loaded shelf and localises the
           recovery beneath it. */}
       {query.isError && (
-        <LoadFailure
-          surface="paper"
-          message={humanizeCode(
-            query.error,
-            {
-              bcc_unauthorized: "Sign in to see albums.",
-              bcc_rate_limited: "Loading too fast — give it a moment and try again.",
-              bcc_unavailable: "Albums are temporarily unavailable. Try again shortly.",
-            },
-            "Couldn't load albums. Try again in a moment.",
-          )}
-          onRetry={() => void query.refetch()}
-        />
+        <LoadFailure surface="paper" message={failureCopy} {...retryProps} />
       )}
     </div>
   );
@@ -614,16 +688,49 @@ function AlbumTile({
 // activity post.
 // ──────────────────────────────────────────────────────────────────────
 
-function AlbumDetail({
-  handle,
-  album,
-  onBack,
-}: {
+function AlbumDetail(props: {
   handle: string;
   album: UserAlbum;
   onBack: () => void;
 }) {
+  // Keyed on the album, so opening a DIFFERENT album resets the latch: one
+  // refused album says nothing about the next.
+  const gate = useDenialGate([
+    ...ALBUM_PHOTOS_QUERY_KEY_ROOT,
+    props.handle,
+    props.album.id,
+  ]);
+  if (gate.withdrawn) {
+    return (
+      <div className="px-5 py-5">
+        <AlbumDetailHeader album={props.album} onBack={props.onBack} />
+        <div className="mt-6">
+          <LoadFailure surface="paper" message={ALBUM_WITHDRAWN_COPY} />
+        </div>
+      </div>
+    );
+  }
+  return <AlbumDetailData {...props} onDenied={gate.withdraw} />;
+}
+
+function AlbumDetailData({
+  handle,
+  album,
+  onBack,
+  onDenied,
+}: {
+  handle: string;
+  album: UserAlbum;
+  onBack: () => void;
+  onDenied: () => void;
+}) {
   const query = useAlbumPhotos(handle, album.id);
+
+  // UNPAGED, so every failed read is a read of this same album.
+  useReportDenial(
+    shouldWithdrawOnDenial(query.error, true, query.data !== undefined),
+    onDenied,
+  );
 
   return (
     <div className="px-5 py-5">
@@ -652,10 +759,19 @@ function AlbumDetail({
                 bcc_unauthorized: "Sign in to see photos.",
                 bcc_rate_limited: "Loading too fast — give it a moment and try again.",
                 bcc_unavailable: "Photos are temporarily unavailable. Try again shortly.",
+                bcc_forbidden: "You can’t see this album.",
+                bcc_permission_denied: "You can’t see this album.",
+                bcc_blocked: "You can’t see this album.",
               },
               "Couldn't load photos. Try again in a moment.",
             )}
-            onRetry={() => void query.refetch()}
+            /* Unpaged: recovery is always refetch(). A denial withholds it
+               entirely — no button rather than an inert one. Album-level
+               denial is the reachable case here: the shelf can be readable
+               while one album is not. */
+            {...(isPermissionDenial(query.error)
+              ? {}
+              : { onRetry: () => void query.refetch() })}
           />
         </div>
       )}

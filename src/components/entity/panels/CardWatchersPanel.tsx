@@ -26,10 +26,15 @@ import type { Route } from "next";
 
 import { CardGrid } from "@/components/cards/CardGrid";
 import { Avatar } from "@/components/identity/Avatar";
-import { useCardWatchers } from "@/hooks/useCardTabs";
+import { CARD_WATCHERS_QUERY_KEY_ROOT, useCardWatchers } from "@/hooks/useCardTabs";
+import {
+  shouldWithdrawOnDenial,
+  useDenialGate,
+  useReportDenial,
+} from "@/lib/api/resource-denial";
 import { dedupeById } from "@/lib/pagination";
 import { LoadFailure } from "@/components/ui/LoadFailure";
-import { humanizeCode } from "@/lib/api/errors";
+import { humanizeCode, isPermissionDenial } from "@/lib/api/errors";
 import type { Card, EntityCardKind } from "@/lib/api/types";
 
 interface CardWatchersPanelProps {
@@ -51,12 +56,40 @@ function readStoredView(): RosterView {
   return raw === "grid" ? "grid" : "list";
 }
 
-export function CardWatchersPanel({
+/** Shown once the server has withdrawn permission to read this roster. */
+const WATCHERS_WITHDRAWN_COPY = "You can’t see who is watching this card.";
+
+/**
+ * The denial gate. Owns no query, so latching it unmounts the panel below
+ * — which is what makes removing the cache entry safe. See
+ * `lib/api/resource-denial`.
+ */
+export function CardWatchersPanel(props: CardWatchersPanelProps) {
+  const gate = useDenialGate([...CARD_WATCHERS_QUERY_KEY_ROOT, props.kind, props.cardId]);
+
+  if (gate.withdrawn) {
+    return (
+      <article className="bcc-paper">
+        <header className="bcc-paper-head">
+          <h3 className="bcc-stencil" style={{ fontSize: "16px", letterSpacing: "0.18em" }}>
+            Watchers
+          </h3>
+        </header>
+        <LoadFailure surface="paper" message={WATCHERS_WITHDRAWN_COPY} />
+      </article>
+    );
+  }
+
+  return <CardWatchersPanelData {...props} onDenied={gate.withdraw} />;
+}
+
+function CardWatchersPanelData({
   kind,
   cardId,
   cardName,
   isClaimed,
-}: CardWatchersPanelProps) {
+  onDenied,
+}: CardWatchersPanelProps & { onDenied: () => void }) {
   const [view, setView] = useState<RosterView>("list");
   useEffect(() => {
     setView(readStoredView());
@@ -67,6 +100,13 @@ export function CardWatchersPanel({
   }, [view]);
 
   const query = useCardWatchers(kind, cardId);
+
+  // A denied REFRESH of the roster already on screen withdraws it. A denied
+  // next offset does not — it says nothing about the rows already served.
+  useReportDenial(
+    shouldWithdrawOnDenial(query.error, query.isRefetchError, query.data !== undefined),
+    onDenied,
+  );
 
   // Pages in fetch order; TanStack appends only on success, so a failed LOAD
   // MORE leaves this exactly as it was.
@@ -153,15 +193,34 @@ function Body(props: BodyProps) {
 
   const failed = props.isError && props.error !== null;
   // §γ — copy is keyed on err.code; never render err.message.
+  //
+  // The three denial codes get their own line because the default ends in
+  // "Try again in a moment" — advice this panel then refuses to offer, since
+  // the Retry control is withheld below. Saying "try again" beside no control
+  // is worse than saying nothing.
   const failureCopy = humanizeCode(
     props.error,
     {
       bcc_unauthorized: "Sign in to see watchers.",
       bcc_rate_limited: "Loading too fast — give it a moment and try again.",
       bcc_unavailable: "Watchers are temporarily unavailable. Try again shortly.",
+      bcc_forbidden: "You can’t see who is watching this card.",
+      bcc_permission_denied: "You can’t see who is watching this card.",
+      bcc_blocked: "You can’t see who is watching this card.",
     },
     "Couldn't load watchers. Try again in a moment.",
   );
+
+  // A permission boundary does not move when the offset does, so a Retry
+  // against one can only fail the same way. Omitting `onRetry` renders no
+  // button at all rather than an inert one — the rule #183 shipped.
+  //
+  // Spread at BOTH failure branches: the whole-body one and the
+  // foot-of-list one share a single dispatcher, so a denial must withdraw
+  // the control in either position, not just the first reached.
+  const retryProps = isPermissionDenial(props.error)
+    ? {}
+    : { onRetry: props.onRetry };
 
   // Whole-body failure ONLY with nothing loaded. A failed LOAD MORE keeps
   // the watchers already read — that case is handled at the foot of the
@@ -171,7 +230,7 @@ function Body(props: BodyProps) {
       <LoadFailure
         surface="paper"
         message={failureCopy}
-        onRetry={props.onRetry}
+        {...retryProps}
       />
     );
   }
@@ -224,7 +283,7 @@ function Body(props: BodyProps) {
         <LoadFailure
           surface="paper"
           message={failureCopy}
-          onRetry={props.onRetry}
+          {...retryProps}
         />
       ) : (
         props.hasMore && (

@@ -25,17 +25,17 @@
 import { Composer } from "@/components/composer/Composer";
 import { FeedItemCard } from "@/components/feed/FeedItemCard";
 import { LivingHeader } from "@/components/profile/LivingHeader";
-import { useUserActivity } from "@/hooks/useUserActivity";
+import { USER_ACTIVITY_QUERY_KEY_ROOT, useUserActivity } from "@/hooks/useUserActivity";
 import { LoadFailure } from "@/components/ui/LoadFailure";
-import { humanizeCode } from "@/lib/api/errors";
+import { humanizeCode, isPermissionDenial } from "@/lib/api/errors";
+import {
+  shouldWithdrawOnDenial,
+  useDenialGate,
+  useReportDenial,
+} from "@/lib/api/resource-denial";
 import type { MemberLiving, MemberProgression } from "@/lib/api/types";
 
-export function ActivityPanel({
-  handle,
-  isOwner = false,
-  living,
-  progression,
-}: {
+interface ActivityPanelProps {
   handle: string;
   isOwner?: boolean;
   /** Own-profile-only "today's impact" + streak data. Renders at the
@@ -43,8 +43,45 @@ export function ActivityPanel({
    *  ships these on is_self; pass undefined for visitor views. */
   living?: MemberLiving | undefined;
   progression?: MemberProgression | undefined;
-}) {
+}
+
+/** Shown once the server has withdrawn permission to read this wall. */
+const WALL_WITHDRAWN_COPY = "You can’t view this wall.";
+
+/**
+ * The denial gate. Owns no query, so latching it unmounts the panel below
+ * — which is what makes removing the cache entry safe. See
+ * `lib/api/resource-denial`.
+ */
+export function ActivityPanel(props: ActivityPanelProps) {
+  const gate = useDenialGate([...USER_ACTIVITY_QUERY_KEY_ROOT, props.handle]);
+
+  if (gate.withdrawn) {
+    return (
+      <div className="py-8">
+        <LoadFailure message={WALL_WITHDRAWN_COPY} />
+      </div>
+    );
+  }
+
+  return <ActivityPanelData {...props} onDenied={gate.withdraw} />;
+}
+
+function ActivityPanelData({
+  handle,
+  isOwner = false,
+  living,
+  progression,
+  onDenied,
+}: ActivityPanelProps & { onDenied: () => void }) {
   const query = useUserActivity(handle);
+
+  // A denied REFRESH of the rows already on screen withdraws them. A denied
+  // next page does not — it says nothing about the pages already served.
+  useReportDenial(
+    shouldWithdrawOnDenial(query.error, query.isRefetchError, query.data !== undefined),
+    onDenied,
+  );
 
   // §γ — copy is keyed on err.code; never render err.message.
   const failureCopy = humanizeCode(
@@ -53,9 +90,29 @@ export function ActivityPanel({
       bcc_unauthorized: "Sign in to view this wall.",
       bcc_rate_limited: "Loading too fast — give it a moment and try again.",
       bcc_unavailable: "This wall is temporarily unavailable. Try again shortly.",
+      // The denial codes get their own line because the default ends in
+      // "Try again in a moment" — advice this panel then refuses to offer,
+      // since every Retry control is withheld on a denial.
+      bcc_forbidden: "You can’t view this wall.",
+      bcc_permission_denied: "You can’t view this wall.",
+      bcc_blocked: "You can’t view this wall.",
     },
     "Couldn't load this wall. Try again in a moment.",
   );
+
+  // A permission boundary does not move when the cursor does, so a Retry
+  // against one can only fail the same way. Omitting `onRetry` renders no
+  // button at all rather than an inert one — the rule #183 shipped.
+  //
+  // Both shapes are needed because the three branches recover differently:
+  // a first-load and a failed refresh call `refetch()`, a failed next page
+  // calls `fetchNextPage()` to re-request the SAME cursor. The denial check
+  // is the only thing they share.
+  const denied = isPermissionDenial(query.error);
+  const refetchProps = denied ? {} : { onRetry: () => void query.refetch() };
+  const nextPageProps = denied
+    ? {}
+    : { onRetry: () => void query.fetchNextPage() };
 
   // Which failure this is decides both what survives on screen and what
   // the recovery control must call. A blanket `isError` is true for all
@@ -90,10 +147,7 @@ export function ActivityPanel({
   if (query.isLoadingError) {
     return (
       <div className="py-8">
-        <LoadFailure
-          message={failureCopy}
-          onRetry={() => void query.refetch()}
-        />
+        <LoadFailure message={failureCopy} {...refetchProps} />
       </div>
     );
   }
@@ -141,12 +195,12 @@ export function ActivityPanel({
       {/* A failed REFRESH is not a failed cursor. The retained pages and
           the cursor derived from the last of them are still coherent, so
           advancing cannot skip anything — LOAD MORE deliberately stays
-          available below, and this control refetches. */}
+          available below, and this control refetches.
+          EXCEPT on a denial: a permission boundary covers the whole wall,
+          not one cursor, so the next page would be refused too. LOAD MORE
+          is withdrawn there as well — see the paging branch below. */}
       {query.isRefetchError && (
-        <LoadFailure
-          message={failureCopy}
-          onRetry={() => void query.refetch()}
-        />
+        <LoadFailure message={failureCopy} {...refetchProps} />
       )}
 
       {/* Cursor safety: while the NEXT cursor is failed, LOAD MORE is
@@ -154,12 +208,10 @@ export function ActivityPanel({
           failed. Retry resumes that same cursor via fetchNextPage();
           ordinary paging returns once the query is progressing again. */}
       {query.isFetchNextPageError ? (
-        <LoadFailure
-          message={failureCopy}
-          onRetry={() => void query.fetchNextPage()}
-        />
+        <LoadFailure message={failureCopy} {...nextPageProps} />
       ) : (
-        query.hasNextPage && (
+        query.hasNextPage &&
+        !denied && (
           <button
             type="button"
             onClick={() => { void query.fetchNextPage(); }}

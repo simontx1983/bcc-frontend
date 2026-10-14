@@ -41,7 +41,18 @@ const cardState = vi.hoisted(() => ({
 const fetchNext = { reviews: vi.fn(), watchers: vi.fn() };
 const refetch = { reviews: vi.fn(), watchers: vi.fn() };
 
+// The panels now sit behind a denial gate that reads the QueryClient to drop
+// a withdrawn resource's cache entry. These tests drive the data hooks
+// directly, so a stub is enough — the removal itself is asserted in
+// `ui/panel-denial-retry.test.tsx` and measured in the browser.
+vi.mock("@tanstack/react-query", async (importOriginal) => ({
+  ...(await importOriginal<typeof ReactQueryModule>()),
+  useQueryClient: () => ({ removeQueries: () => {} }),
+}));
+
 vi.mock("@/hooks/useCardTabs", () => ({
+  CARD_REVIEWS_QUERY_KEY_ROOT: ["entities", "reviews"],
+  CARD_WATCHERS_QUERY_KEY_ROOT: ["entities", "watchers"],
   useCardReviews: () => cardState.reviews,
   useCardWatchers: () => cardState.watchers,
 }));
@@ -54,6 +65,7 @@ vi.mock("@/components/identity/Avatar", () => ({ Avatar: () => null }));
 
 import { CardReviewsPanel } from "@/components/entity/panels/CardReviewsPanel";
 import { CardWatchersPanel } from "@/components/entity/panels/CardWatchersPanel";
+import type * as ReactQueryModule from "@tanstack/react-query";
 
 /** React logs duplicate-key violations through console.error. */
 let keyWarnings: string[] = [];
