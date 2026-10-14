@@ -31,6 +31,7 @@
  */
 
 import { useCreatorGallery } from "@/hooks/useCreatorGallery";
+import { isPermissionDenial } from "@/lib/api/errors";
 import { LoadFailure } from "@/components/ui/LoadFailure";
 import { SKELETON_CLASS } from "@/components/ui/Skeleton";
 import { dedupeById } from "@/lib/pagination";
@@ -45,8 +46,25 @@ interface CreatorGalleryProps {
 export function CreatorGallery({ slug, creatorName }: CreatorGalleryProps) {
   const query = useCreatorGallery({ slug });
 
-  const failureCopy =
-    "Couldn't load this creator's gallery right now. Try again in a moment.";
+  // A permission boundary does not move when the page param does, so a
+  // Retry against one can only fail the same way. Omitting `onRetry`
+  // renders no button at all rather than an inert one — the rule #183
+  // shipped.
+  const denied = isPermissionDenial(query.error);
+
+  // Unlike the sibling panels this component carries no `humanizeCode`
+  // map — it renders one fixed sentence. That sentence ends in "Try again
+  // in a moment", which becomes a lie the moment the control is withheld,
+  // so the denial case needs its own wording rather than just a missing
+  // button.
+  const failureCopy = denied
+    ? "You can’t view this creator’s gallery."
+    : "Couldn't load this creator's gallery right now. Try again in a moment.";
+
+  const refetchProps = denied ? {} : { onRetry: () => void query.refetch() };
+  const nextPageProps = denied
+    ? {}
+    : { onRetry: () => void query.fetchNextPage() };
 
   // Which failure this is decides what survives and what Retry must call.
   // A blanket `isError` is true for all three, and this component used to
@@ -69,7 +87,7 @@ export function CreatorGallery({ slug, creatorName }: CreatorGalleryProps) {
   if (query.isLoadingError) {
     return (
       <GalleryShell title="The Gallery">
-        <LoadFailure message={failureCopy} onRetry={() => void query.refetch()} />
+        <LoadFailure message={failureCopy} {...refetchProps} />
       </GalleryShell>
     );
   }
@@ -171,7 +189,7 @@ export function CreatorGallery({ slug, creatorName }: CreatorGalleryProps) {
           so advancing cannot skip anything — LOAD MORE deliberately stays
           available below, and this control refetches. */}
       {query.isRefetchError && (
-        <LoadFailure message={failureCopy} onRetry={() => void query.refetch()} />
+        <LoadFailure message={failureCopy} {...refetchProps} />
       )}
 
       {/* Cursor safety: while the NEXT page is failed, LOAD MORE is
@@ -180,9 +198,10 @@ export function CreatorGallery({ slug, creatorName }: CreatorGalleryProps) {
           fetchNextPage(); ordinary paging returns once the query is
           progressing again and there is still a next page. */}
       {query.isFetchNextPageError ? (
-        <LoadFailure message={failureCopy} onRetry={() => void query.fetchNextPage()} />
+        <LoadFailure message={failureCopy} {...nextPageProps} />
       ) : (
-        query.hasNextPage && (
+        query.hasNextPage &&
+        !denied && (
           <div className="mt-6 flex justify-center">
             <button
               type="button"

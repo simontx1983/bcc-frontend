@@ -34,7 +34,7 @@ import type { Route } from "next";
 import { useCardReviews } from "@/hooks/useCardTabs";
 import { dedupeById } from "@/lib/pagination";
 import { LoadFailure } from "@/components/ui/LoadFailure";
-import { humanizeCode } from "@/lib/api/errors";
+import { humanizeCode, isPermissionDenial } from "@/lib/api/errors";
 import type {
   CardReview,
   MemberSummary,
@@ -86,9 +86,23 @@ export function CardReviewsPanel({ kind, cardId, cardName }: CardReviewsPanelPro
       bcc_unauthorized: "Sign in to read reviews.",
       bcc_rate_limited: "Loading too fast — give it a moment and try again.",
       bcc_unavailable: "Reviews are temporarily unavailable. Try again shortly.",
+      // The denial codes get their own line because the default ends in
+      // "Try again in a moment" — advice this panel then refuses to offer,
+      // since the Retry control is withheld below.
+      bcc_forbidden: "You can’t read reviews of this card.",
+      bcc_permission_denied: "You can’t read reviews of this card.",
+      bcc_blocked: "You can’t read reviews of this card.",
     },
     "Couldn't load reviews. Try again in a moment.",
   );
+
+  // A permission boundary does not move when the page does, so a Retry
+  // against one can only fail the same way. Omitting `onRetry` renders no
+  // button at all rather than an inert one — the rule #183 shipped.
+  //
+  // Spread at BOTH failure branches, which share the one `retry` dispatcher
+  // above: a denial must withdraw the control in either position.
+  const retryProps = isPermissionDenial(query.error) ? {} : { onRetry: retry };
 
   // Whole-panel failure ONLY when nothing has loaded. A failed LOAD MORE
   // keeps the pages already fetched, and returning here would throw the
@@ -98,7 +112,7 @@ export function CardReviewsPanel({ kind, cardId, cardName }: CardReviewsPanelPro
     return (
       <article className="bcc-paper">
         <Header cardName={cardName} />
-        <LoadFailure surface="paper" message={failureCopy} onRetry={retry} />
+        <LoadFailure surface="paper" message={failureCopy} {...retryProps} />
       </article>
     );
   }
@@ -145,7 +159,7 @@ export function CardReviewsPanel({ kind, cardId, cardName }: CardReviewsPanelPro
             Retry refetches that same page, and ordinary paging returns
             once it succeeds. */}
         {query.isError ? (
-          <LoadFailure surface="paper" message={failureCopy} onRetry={retry} />
+          <LoadFailure surface="paper" message={failureCopy} {...retryProps} />
         ) : (
           query.hasNextPage && (
             <div className="mt-6 flex justify-center">

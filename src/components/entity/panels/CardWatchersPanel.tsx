@@ -29,7 +29,7 @@ import { Avatar } from "@/components/identity/Avatar";
 import { useCardWatchers } from "@/hooks/useCardTabs";
 import { dedupeById } from "@/lib/pagination";
 import { LoadFailure } from "@/components/ui/LoadFailure";
-import { humanizeCode } from "@/lib/api/errors";
+import { humanizeCode, isPermissionDenial } from "@/lib/api/errors";
 import type { Card, EntityCardKind } from "@/lib/api/types";
 
 interface CardWatchersPanelProps {
@@ -153,15 +153,34 @@ function Body(props: BodyProps) {
 
   const failed = props.isError && props.error !== null;
   // §γ — copy is keyed on err.code; never render err.message.
+  //
+  // The three denial codes get their own line because the default ends in
+  // "Try again in a moment" — advice this panel then refuses to offer, since
+  // the Retry control is withheld below. Saying "try again" beside no control
+  // is worse than saying nothing.
   const failureCopy = humanizeCode(
     props.error,
     {
       bcc_unauthorized: "Sign in to see watchers.",
       bcc_rate_limited: "Loading too fast — give it a moment and try again.",
       bcc_unavailable: "Watchers are temporarily unavailable. Try again shortly.",
+      bcc_forbidden: "You can’t see who is watching this card.",
+      bcc_permission_denied: "You can’t see who is watching this card.",
+      bcc_blocked: "You can’t see who is watching this card.",
     },
     "Couldn't load watchers. Try again in a moment.",
   );
+
+  // A permission boundary does not move when the offset does, so a Retry
+  // against one can only fail the same way. Omitting `onRetry` renders no
+  // button at all rather than an inert one — the rule #183 shipped.
+  //
+  // Spread at BOTH failure branches: the whole-body one and the
+  // foot-of-list one share a single dispatcher, so a denial must withdraw
+  // the control in either position, not just the first reached.
+  const retryProps = isPermissionDenial(props.error)
+    ? {}
+    : { onRetry: props.onRetry };
 
   // Whole-body failure ONLY with nothing loaded. A failed LOAD MORE keeps
   // the watchers already read — that case is handled at the foot of the
@@ -171,7 +190,7 @@ function Body(props: BodyProps) {
       <LoadFailure
         surface="paper"
         message={failureCopy}
-        onRetry={props.onRetry}
+        {...retryProps}
       />
     );
   }
@@ -224,7 +243,7 @@ function Body(props: BodyProps) {
         <LoadFailure
           surface="paper"
           message={failureCopy}
-          onRetry={props.onRetry}
+          {...retryProps}
         />
       ) : (
         props.hasMore && (
