@@ -37,8 +37,25 @@
  *
  * `router.refresh()` is what re-runs the server render. Both are needed
  * and both go in one transition: refresh fetches, reset clears the error
- * so the fresh tree can mount. A Retry that cannot re-attempt is the
+ * so the fresh tree can mount. A recovery that cannot re-attempt is the
  * same lie as a Retry on a 403 — see `LoadFailure`'s docblock.
+ *
+ * ## ⚠ This is NOT guaranteed to be a soft refresh
+ *
+ * `router.refresh()` is soft when the RSC transport is healthy. It is not
+ * when it is not. Measured against a recording API stub with the RSC
+ * transport aborted, pressing the control produced ONE HARD DOCUMENT
+ * LOAD: a `window`-scoped sentinel, which has the same lifetime as React
+ * state, was destroyed. `localStorage` (including `bcc.blog.draft.*`) and
+ * `sessionStorage` survived, and no storage sweep ran.
+ *
+ * The realistic production trigger is build-id skew from a redeploy
+ * mid-session, which on this repo happens on every merge to main.
+ *
+ * Nothing here may claim the refresh preserves drafts or in-memory work.
+ * The control is therefore labelled a RELOAD and carries a warning the
+ * viewer reads BEFORE pressing it, with the exit links beside it as the
+ * option that costs nothing.
  *
  * ## Why re-entry is latched rather than the button disabled
  *

@@ -68,7 +68,7 @@ describe("a confirmed denial", () => {
     const onRetry = vi.fn();
     const ui = renderReason("denied", onRetry);
 
-    expect(ui.queryByRole("button", { name: /retry|try again/i })).toBeNull();
+    expect(ui.queryByRole("button", { name: /reload this page/i })).toBeNull();
     // Not merely disabled — absent. A disabled Retry still tells the
     // viewer retrying is the shape of the answer.
     expect(ui.queryAllByRole("button")).toHaveLength(0);
@@ -105,7 +105,7 @@ describe("a temporary failure", () => {
     const onRetry = vi.fn();
     const ui = renderReason("temporary", onRetry);
 
-    const retry = ui.getByRole("button", { name: /retry/i });
+    const retry = ui.getByRole("button", { name: /reload this page/i });
     retry.click();
     expect(onRetry).toHaveBeenCalledTimes(1);
   });
@@ -129,6 +129,70 @@ describe("a temporary failure", () => {
     const ui = renderReason("temporary", vi.fn());
     const nav = ui.getByRole("navigation", { name: /where to go instead/i });
     expect(within(nav).getAllByRole("link").length).toBeGreaterThan(0);
+  });
+});
+
+describe("the recovery is named a RELOAD, and warns before it is pressed", () => {
+  // Measured with the RSC transport aborted: pressing it produced ONE
+  // HARD DOCUMENT LOAD and a `window`-scoped sentinel was destroyed. The
+  // control cannot know in advance which it will be, so it must not
+  // promise the gentler one.
+  it("does not call itself a retry", () => {
+    const ui = renderReason("temporary", vi.fn());
+    expect(ui.queryByRole("button", { name: /^retry$/i })).toBeNull();
+    expect(ui.getByRole("button", { name: /reload this page/i })).toBeTruthy();
+  });
+
+  it("shows the warning BEFORE activation, not after", () => {
+    const onRetry = vi.fn();
+    const ui = renderReason("temporary", onRetry);
+    const warning = ui.getByTestId("profile-reload-warning");
+    expect(warning.textContent ?? "").toMatch(/discard anything you haven.t saved/i);
+    // Present without anyone having pressed anything.
+    expect(onRetry).not.toHaveBeenCalled();
+  });
+
+  it("ties the warning to the control for assistive technology", () => {
+    const ui = renderReason("temporary", vi.fn());
+    const btn = ui.getByRole("button", { name: /reload this page/i });
+    const described = btn.getAttribute("aria-describedby");
+    expect(described).not.toBeNull();
+    expect(ui.getByTestId("profile-reload-warning").id).toBe(described);
+  });
+
+  it("offers no reload — and no warning — on a confirmed denial", () => {
+    const ui = renderReason("denied", vi.fn());
+    expect(ui.queryByRole("button", { name: /reload this page/i })).toBeNull();
+    expect(ui.queryByTestId("profile-reload-warning")).toBeNull();
+  });
+
+  it("keeps the no-cost exit beside the reload", () => {
+    // Leaving cannot discard work the reload might, so it must stay
+    // reachable next to the action that can.
+    const ui = renderReason("temporary", vi.fn());
+    const nav = ui.getByRole("navigation", { name: /where to go instead/i });
+    expect(within(nav).getAllByRole("link").length).toBeGreaterThan(0);
+  });
+
+  it("is reachable and operable from the keyboard", () => {
+    const onRetry = vi.fn();
+    const ui = renderReason("temporary", onRetry);
+    const btn = ui.getByRole("button", { name: /reload this page/i });
+    btn.focus();
+    expect(document.activeElement).toBe(btn);
+    expect(btn).not.toBeDisabled();
+    btn.click();
+    expect(onRetry).toHaveBeenCalledTimes(1);
+  });
+
+  it("reports busy without disabling, so focus is never taken away", () => {
+    const { container } = render(
+      <ProfileUnavailable reason="temporary" onRetry={vi.fn()} isBusy />,
+    );
+    const ui = within(container);
+    const btn = ui.getByRole("button", { name: /reload this page/i });
+    expect(btn).not.toBeDisabled();
+    expect(btn).toHaveAttribute("aria-busy", "true");
   });
 });
 

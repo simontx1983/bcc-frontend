@@ -66,7 +66,7 @@ describe("the boundary's Retry", () => {
   it("re-runs the server render, not just the client subtree", () => {
     const { ui, reset } = renderBoundary();
 
-    ui.getByRole("button", { name: /retry/i }).click();
+    ui.getByRole("button", { name: /reload this page/i }).click();
 
     // The half that actually re-requests.
     expect(refresh).toHaveBeenCalledTimes(1);
@@ -76,7 +76,7 @@ describe("the boundary's Retry", () => {
 
   it("offers exactly one retry control and a real exit", () => {
     const { ui } = renderBoundary();
-    expect(ui.getAllByRole("button", { name: /retry/i })).toHaveLength(1);
+    expect(ui.getAllByRole("button", { name: /reload this page/i })).toHaveLength(1);
     const nav = ui.getByRole("navigation", { name: /where to go instead/i });
     expect(within(nav).getAllByRole("link").length).toBeGreaterThan(0);
   });
@@ -86,7 +86,7 @@ describe("the boundary's Retry", () => {
     // FOUR upstream reads where one press produces two. `isPending` marks
     // the transition but does not block a second press by itself.
     const { ui, reset } = renderBoundary();
-    const btn = ui.getByRole("button", { name: /retry/i });
+    const btn = ui.getByRole("button", { name: /reload this page/i });
 
     btn.click();
     btn.click();
@@ -117,7 +117,7 @@ describe("the boundary's Retry", () => {
     // Disabling the control the viewer just pressed would drop focus to
     // <body> — the same defect PagerNav's chips had.
     const { ui } = renderBoundary();
-    const btn = ui.getByRole("button", { name: /retry/i });
+    const btn = ui.getByRole("button", { name: /reload this page/i });
     btn.focus();
     btn.click();
     expect(btn).not.toBeDisabled();
