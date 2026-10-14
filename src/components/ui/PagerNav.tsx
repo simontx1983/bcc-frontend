@@ -75,8 +75,26 @@ export interface PagerNavProps {
   hasNext?: boolean;
 }
 
+/**
+ * Geometry matches the sanctioned compact chip, not the primary-control
+ * size. `bcc-frontend/CLAUDE.md` names this control directly:
+ *
+ *   "36px is the sanctioned compact exception for established dense
+ *    repeated controls — filter chips, tag chips, pager chips
+ *    (`min-h-[36px]`, canonically `FilterChipRow`)."
+ *
+ * These chips carried no `min-h` and `py-1`, which with 11px text lands at
+ * 30px — measured at exactly 86x30 on /watching and /messages at 375px.
+ * `min-h-[36px]` plus the canonical `py-1.5` brings them onto the house
+ * size. `inline-flex items-center` is what makes the min-height center the
+ * label rather than just grow the box, same as `ModerationQueue`'s chips.
+ *
+ * Both chips share one class string on purpose: they must stay the same
+ * height as each other, or the row shifts when one becomes unavailable —
+ * which is the reason unavailable chips are kept in the layout at all.
+ */
 const CHIP_CLASS =
-  "border-2 border-bcc-border px-3 py-1 transition motion-reduce:transition-none hover:border-bcc-border-strong hover:text-bcc-text";
+  "bcc-mono inline-flex min-h-[36px] items-center border-2 border-bcc-border px-3 py-1.5 transition motion-reduce:transition-none hover:border-bcc-border-strong hover:text-bcc-text";
 
 /** Matches the previous `disabled:opacity-40`, now keyed on availability. */
 const CHIP_UNAVAILABLE = " opacity-40";
