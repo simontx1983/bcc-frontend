@@ -243,22 +243,36 @@ function AllPhotos({ handle, isOwner }: { handle: string; isOwner: boolean }) {
   const allItems = query.data.pages.flatMap((page) => page.items);
   const photoItems = allItems.filter(isPhotoItem);
 
-  // Empty stays success-only: neither a failed next page nor a failed
-  // refresh is an empty album.
-  if (photoItems.length === 0 && !query.isError) {
+  // This grid filters a GENERAL activity stream — 20 mixed posts per page —
+  // so "no photos rendered" and "this wall has no photos" are different
+  // claims. A member whose most recent 20 posts are all text used to get
+  // the terminal "No photos yet." with no LOAD MORE at all, which left
+  // their photos one unreachable page away (measured: page 1 with 0
+  // photos and has_more:true → LOAD MORE offered=false, 1 request made).
+  //
+  // So the terminal state is now reserved for an exhausted, clean stream.
+  // While pages remain, the grid falls through to the main render, which
+  // says only what is true — none in what is loaded so far — and keeps a
+  // MANUAL LOAD MORE. Nothing auto-advances: on a quiet wall that would
+  // fan out to a request per page with nothing to show for it.
+  if (photoItems.length === 0 && !query.isError && !query.hasNextPage) {
     return <AllPhotosEmpty isOwner={isOwner} />;
   }
 
   return (
     <div className="px-5 py-5">
-      <ul
-        className="grid gap-2"
-        style={{ gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))" }}
-      >
-        {photoItems.map((item) => (
-          <PhotoTile key={item.id} item={item} />
-        ))}
-      </ul>
+      {photoItems.length === 0 ? (
+        <AllPhotosEmpty isOwner={isOwner} moreToLoad={query.hasNextPage} />
+      ) : (
+        <ul
+          className="grid gap-2"
+          style={{ gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))" }}
+        >
+          {photoItems.map((item) => (
+            <PhotoTile key={item.id} item={item} />
+          ))}
+        </ul>
+      )}
 
       {/* A failed REFRESH is not a failed cursor. The retained pages and
           the cursor derived from the last of them are still coherent, so
@@ -358,28 +372,57 @@ function PhotoTile({
   );
 }
 
-function AllPhotosEmpty({ isOwner }: { isOwner: boolean }) {
+/**
+ * Two readings of "no tiles", and they are not interchangeable.
+ *
+ * `moreToLoad` is the honest one for a filtered stream: pages remain, so
+ * all we know is that none of the posts loaded SO FAR were photos. It
+ * never claims the wall is photo-less, and it never carries the owner
+ * nudge — suggesting someone post their first photo while their photos
+ * may be sitting one page down is the wrong thing to say.
+ *
+ * The default is the terminal one, reached only when the stream is
+ * exhausted and clean: the wall really has no photos.
+ */
+function AllPhotosEmpty({
+  isOwner,
+  moreToLoad = false,
+}: {
+  isOwner: boolean;
+  /** Pages remain unfetched, so "no photos" is not yet a claim we can make. */
+  moreToLoad?: boolean;
+}) {
   return (
-    <div className="px-8 py-12">
+    // Inline (no outer padding) when it sits inside the grid wrapper with
+    // a LOAD MORE under it; the full plate when it is the whole panel.
+    <div className={moreToLoad ? "pb-1" : "px-8 py-12"}>
       <p
         className="bcc-mono mb-3 text-safety"
         style={{ fontSize: "10px", letterSpacing: "0.24em" }}
       >
-        NOTHING ON FILE
+        {moreToLoad ? "NONE LOADED YET" : "NOTHING ON FILE"}
       </p>
       <h4
         className="bcc-stencil text-ink"
         style={{ fontSize: "26px", letterSpacing: "0.02em", lineHeight: 1.05 }}
       >
-        No photos yet.
+        {moreToLoad
+          ? "No photos in the posts loaded so far."
+          : "No photos yet."}
       </h4>
       <p
         className="font-serif italic text-ink-soft"
         style={{ fontSize: "16px", lineHeight: 1.5, maxWidth: "560px", marginTop: "10px" }}
       >
-        Photos posted to the floor land here as a contact sheet —
-        thumbnails, click-through to the source post, newest first.
-        {isOwner ? " Drop one from the floor composer to start." : ""}
+        {moreToLoad ? (
+          "This wall has more posts to load. Any photos among them land here as a contact sheet — thumbnails, click-through to the source post, newest first."
+        ) : (
+          <>
+            Photos posted to the floor land here as a contact sheet —
+            thumbnails, click-through to the source post, newest first.
+            {isOwner ? " Drop one from the floor composer to start." : ""}
+          </>
+        )}
       </p>
     </div>
   );
