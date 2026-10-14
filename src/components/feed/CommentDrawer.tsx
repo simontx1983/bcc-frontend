@@ -218,6 +218,35 @@ export function CommentDrawer({
     if (!isOpen) setReplyTarget(null);
   }, [isOpen]);
 
+  /**
+   * ⚠ A withdrawal keeps the draft but must DROP the reply target, because
+   * the two have different owners.
+   *
+   * `draft` is the viewer's own unsent text, held inside
+   * <CommentComposer>'s own state — nothing the server gave us.
+   * `replyTarget` is the opposite: `{parentId, handle, displayName}` lifted
+   * off a comment in the thread the server has just refused to show.
+   * Keeping it would leave "Replying to @handle" on screen — an author
+   * handle derived from denied content — and would attach that `parent_id`
+   * to the next submit, threading a reply into a conversation the viewer
+   * may no longer read.
+   *
+   * Done HERE, in the same call that withdraws, rather than in an effect
+   * keyed on `withdrawn`. An effect was the first attempt and a mutation
+   * exposed it as untestable: with `[gate.withdrawn]` as its only
+   * dependency, dropping the guard was behaviourally identical, so no test
+   * could tell the two apart. Clearing where the decision is made has one
+   * code path and one meaning.
+   *
+   * Clearing does not disturb the draft: the target is a PROP to the
+   * composer, not its state, and the composer's reply effect returns early
+   * on null so nothing is refocused or scrolled.
+   */
+  const withdrawAndDropReplyContext = useCallback(() => {
+    setReplyTarget(null);
+    gate.withdraw();
+  }, [gate]);
+
   if (!isOpen) return null;
 
   const dividerPad = topDivider ? "mt-2 border-t border-[var(--bcc-border)] pt-2 " : "";
@@ -238,7 +267,7 @@ export function CommentDrawer({
           sort={sort}
           onSortChange={setSort}
           onReplyTarget={setReplyTarget}
-          onDenied={gate.withdraw}
+          onDenied={withdrawAndDropReplyContext}
         />
       )}
 

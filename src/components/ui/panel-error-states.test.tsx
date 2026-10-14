@@ -185,6 +185,10 @@ const group = {
 } as never;
 
 beforeEach(() => {
+  // jsdom implements neither of these; the reply effect calls scrollIntoView.
+  if (!("scrollIntoView" in Element.prototype)) {
+    (Element.prototype as unknown as Record<string, unknown>)["scrollIntoView"] = () => {};
+  }
   // usePrefersReducedMotion calls matchMedia in an effect; jsdom has none.
   window.matchMedia = ((q: string) => ({
     matches: false, media: q, onchange: null,
@@ -330,6 +334,118 @@ describe("CommentDrawer keeps a typed reply across a failure", () => {
     state.comments = inf([], "first", "bcc_unavailable");
     drawer();
     expect(document.body.textContent ?? "").not.toMatch(/RAW SERVER TEXT/);
+  });
+});
+
+// ═════════════════════════════════════════════════════════════════════
+// 1b. A withdrawal keeps the viewer's OWN input and nothing else
+// ═════════════════════════════════════════════════════════════════════
+
+describe("withdrawal preserves only the viewer's unsent draft", () => {
+  /**
+   * The draft and the reply target look alike — both sit in the composer —
+   * but they have different owners, and only one of them is the viewer's.
+   *
+   *   draft        the viewer's own unsent text, held in <CommentComposer>'s
+   *                own state. Nothing the server gave us. Must survive.
+   *   replyTarget  {parentId, handle, displayName} lifted OFF a comment in
+   *                the thread the server just refused to show. Resource-
+   *                derived, so it must go — it renders the author's handle
+   *                ("Replying to @a1") and would attach that parent_id to
+   *                the next submit.
+   */
+  function reply() {
+    // Pick Reply on the first row so a target exists. The control's
+    // accessible name carries the author: "Reply to A1".
+    const btn = screen.getAllByRole("button", { name: /^reply to /i })[0];
+    fireEvent.click(btn as HTMLElement);
+  }
+
+  it.each(DENIAL_CODES)("%s clears the reply target but keeps the draft", (code) => {
+    const view = drawer();
+    reply();
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "my own words" } });
+    expect(screen.getByText(/replying to/i)).toBeTruthy();
+
+    state.comments = inf([commentPage([1, 2])], "refetch", code);
+    view.rerender(withClient(<CommentDrawer feedId="f1" isOpen />));
+
+    // The viewer's own text survives.
+    expect((screen.getByRole("textbox") as HTMLTextAreaElement).value).toBe("my own words");
+    // The resource-derived context does not.
+    expect(screen.queryByText(/replying to/i)).toBeNull();
+    expect(document.body.textContent ?? "").not.toMatch(/@a1/);
+  });
+
+  it("a TRANSIENT failure keeps the reply target — nothing was denied", () => {
+    const view = drawer();
+    reply();
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "still replying" } });
+
+    state.comments = inf([commentPage([1, 2])], "refetch", "bcc_unavailable");
+    view.rerender(withClient(<CommentDrawer feedId="f1" isOpen />));
+
+    expect(screen.getByText(/replying to/i)).toBeTruthy();
+    expect((screen.getByRole("textbox") as HTMLTextAreaElement).value).toBe("still replying");
+  });
+
+  it.each(DENIAL_CODES)("%s leaves no thread text or author detail on screen", (code) => {
+    const view = drawer();
+    state.comments = inf([commentPage([1, 2])], "refetch", code);
+    view.rerender(withClient(<CommentDrawer feedId="f1" isOpen />));
+    const shown = screen.getByText(/can’t read this thread/i);
+    expect(shown).toBeTruthy();
+    // No quoted body, no handle, no display name from the denied resource.
+    const text = document.body.textContent ?? "";
+    expect(text).not.toMatch(/comment body/i);
+    expect(text).not.toMatch(/@a1|@a2/);
+    expect(text).not.toMatch(/A1|A2/);
+  });
+});
+
+// ═════════════════════════════════════════════════════════════════════
+// 1c. The composer's visibility traces to WRITE permission only
+// ═════════════════════════════════════════════════════════════════════
+
+describe("composer visibility never depends on the read", () => {
+  /**
+   * The contract has no comment-write capability to consult: `can_reply`
+   * was removed on 2026-06-11 ("never emitted with real values, never
+   * read" — src/lib/api/types.ts). The surviving gates are `isAuthed` and
+   * `canInteract`, and `canInteract` is a SERVER fact from a different
+   * query (`group.viewer_membership.is_member` in GroupFeedSection). The
+   * backend's POST remains the authority.
+   *
+   * What these pin is the structural property: no read state appears in the
+   * composer's condition, so a denied or failing read can neither hide the
+   * composer nor reveal it.
+   */
+  it("shows the composer on a denied read, because writing is a separate permission", () => {
+    state.comments = inf([commentPage([1, 2])], "refetch", "bcc_forbidden");
+    drawer();
+    expect(screen.queryByRole("textbox")).not.toBeNull();
+  });
+
+  it("shows the composer on a first-load failure for the same reason", () => {
+    state.comments = inf([], "first", "bcc_unavailable");
+    drawer();
+    expect(screen.queryByRole("textbox")).not.toBeNull();
+  });
+
+  it("hides the composer when the WRITE gate says no, regardless of a healthy read", () => {
+    // canInteract=false is the group non-member case — a server membership
+    // fact, not an inference from the comment read.
+    state.comments = healthy([commentPage([1, 2])]);
+    render(withClient(<CommentDrawer feedId="f1" isOpen canInteract={false} />));
+    expect(screen.queryByRole("textbox")).toBeNull();
+    // And it does not substitute a sign-in prompt either.
+    expect(screen.queryByText(/sign in to comment/i)).toBeNull();
+  });
+
+  it("keeps the write gate authoritative even while the read is denied", () => {
+    state.comments = inf([commentPage([1, 2])], "refetch", "bcc_blocked");
+    render(withClient(<CommentDrawer feedId="f1" isOpen canInteract={false} />));
+    expect(screen.queryByRole("textbox")).toBeNull();
   });
 });
 
