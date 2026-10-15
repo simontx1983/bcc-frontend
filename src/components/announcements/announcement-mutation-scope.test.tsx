@@ -102,7 +102,14 @@ afterEach(() => {
  * about row-level gating, and now they test it through the real path.
  */
 function renderPanel(items: Announcement[], pageCaps = OWNER_CAPABILITIES) {
-  const publicRows = items.map(({ capabilities: _dropped, ...row }) => row as Announcement);
+  // Strip capabilities explicitly rather than destructuring them into an
+  // unused binding — the lint config rejects the throwaway name, and the
+  // deletion is the point of the line anyway.
+  const publicRows: Announcement[] = items.map((row) => {
+    const copy: Record<string, unknown> = { ...row };
+    delete copy["capabilities"];
+    return copy as unknown as Announcement;
+  });
   const ownerRows = items.filter(
     (row): row is OwnerAnnouncementListItem =>
       (row as OwnerAnnouncementListItem).capabilities !== undefined,
