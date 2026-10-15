@@ -172,7 +172,7 @@ describe("scheduling is future-only", () => {
     expect(screen.getByRole("button", { name: "SCHEDULE" })).toBeDisabled();
   });
 
-  it("accepts a future date and sends it as UTC ISO", () => {
+  it("accepts a future date and sends it in the route's UTC wire format", () => {
     renderComposer();
     fill({ title: "T", summary: "S", body: "B" });
     fireEvent.click(screen.getByRole("radio", { name: "Schedule for later" }));
@@ -193,8 +193,44 @@ describe("scheduling is future-only", () => {
 
     const sent = onSubmit.mock.calls[0]?.[0] as { mode: string; publish_at?: string };
     expect(sent.mode).toBe("schedule");
-    expect(sent.publish_at).toMatch(/Z$/);
-    expect(Date.parse(sent.publish_at ?? "")).toBeGreaterThan(Date.now());
+
+    // ⚠ This asserted `/Z$/` — it pinned ISO-8601, which the route refuses
+    // outright, so the composer's Schedule mode could never have worked.
+    // The wire format is `Y-m-d H:i:s`: a space, no `T`, no `Z`, no
+    // fractional seconds. Measured against the real backend, the ISO form
+    // comes back 400 and this form comes back 200.
+    expect(sent.publish_at).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/);
+    expect(sent.publish_at).not.toContain("T");
+    expect(sent.publish_at).not.toContain("Z");
+
+    // Still a strictly future UTC instant. Parsed by appending the zone
+    // the string deliberately omits — reading it back without one would
+    // be interpreted as LOCAL time and drift by the viewer's offset,
+    // which is the trap the component itself avoids by never re-parsing.
+    expect(Date.parse(`${sent.publish_at}Z`)).toBeGreaterThan(Date.now());
+  });
+
+  it("converts the operator's local wall-clock to the UTC instant they picked", () => {
+    renderComposer();
+    fill({ title: "T", summary: "S", body: "B" });
+    fireEvent.click(screen.getByRole("radio", { name: "Schedule for later" }));
+
+    const future = new Date(Date.now() + 3 * 60 * 60 * 1000);
+    const pad = (n: number) => String(n).padStart(2, "0");
+    const local =
+      `${future.getFullYear()}-${pad(future.getMonth() + 1)}-${pad(future.getDate())}` +
+      `T${pad(future.getHours())}:${pad(future.getMinutes())}`;
+    fireEvent.change(screen.getByLabelText("PUBLICATION TIME"), {
+      target: { value: local },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "SCHEDULE" }));
+
+    const sent = onSubmit.mock.calls[0]?.[0] as { publish_at?: string };
+    // The INSTANT must survive the reformat, not just the shape: the
+    // field is wall-clock in the viewer's zone, and what goes on the wire
+    // is that same moment expressed in UTC.
+    const expected = new Date(local).toISOString().slice(0, 19).replace("T", " ");
+    expect(sent.publish_at).toBe(expected);
   });
 });
 
