@@ -22,7 +22,8 @@ import { QueuedMessagesList } from "@/components/messages/QueuedMessagesList";
 import { useConversations } from "@/hooks/useConversations";
 import { useQueuedMessages } from "@/hooks/useQueuedMessages";
 import { LoadFailure } from "@/components/ui/LoadFailure";
-import { humanizeCode } from "@/lib/api/errors";
+import { PagerNav } from "@/components/ui/PagerNav";
+import { humanizeCode, isPermissionDenial } from "@/lib/api/errors";
 
 const PER_PAGE = 20;
 
@@ -71,6 +72,73 @@ function MessagesPageContent() {
       setLastQueuedPages(queuedQuery.data.pagination.total_pages);
     }
   }, [queuedQuery.data]);
+
+  // §γ — copy is keyed on err.code; never render err.message.
+  //
+  // The default line is split by WHICH page failed. On page 1 there is
+  // nothing loaded and "couldn't load your inbox" is the whole truth. On
+  // page N>1 it is not: the inbox loaded fine, one page of it did not, and
+  // the pager below is still mounted so PREV goes back to a page that
+  // worked. Saying "couldn't load your inbox" there reads as "your
+  // messages are gone".
+  //
+  // Only the default is split. A coded failure is about the READ, not
+  // about which page it was for, so those lines are unchanged.
+  //
+  // The page fact is appended to WHATEVER copy the code map chose, not
+  // folded into the default only — a `bcc_unavailable` on page 4 needs
+  // the distinction just as much as an unmapped one does.
+  //
+  // Suppressed on a permission denial, where it would be false: a denied
+  // inbox is denied on every page, so PREV goes nowhere better.
+  const laterPageHint = (err: unknown): string =>
+    urlPage > 1 && !isPermissionDenial(err)
+      ? " PREV goes back to the last page that loaded."
+      : "";
+
+  const inboxFailureCopy =
+    humanizeCode(
+      query.error,
+      {
+        bcc_unauthorized:
+          "Your session expired — sign in again to read your messages.",
+        bcc_rate_limited:
+          "Too many refreshes — give it a moment and try again.",
+        bcc_unavailable:
+          "Messages are temporarily unavailable. Try again shortly.",
+        bcc_permission_denied: "You can’t read this inbox.",
+        bcc_forbidden: "You can’t read this inbox.",
+      },
+      urlPage > 1
+        ? "Couldn’t load page " + urlPage + " of your inbox."
+        : "Couldn't load your inbox. Try again in a moment.",
+    ) + laterPageHint(query.error);
+
+  const queuedFailureCopy =
+    humanizeCode(
+      queuedQuery.error,
+      {
+        bcc_unauthorized:
+          "Your session expired — sign in again to see your queued messages.",
+        bcc_rate_limited:
+          "Too many refreshes — give it a moment and try again.",
+        bcc_unavailable:
+          "Queued messages are temporarily unavailable. Try again shortly.",
+        bcc_permission_denied: "You can’t read these queued messages.",
+        bcc_forbidden: "You can’t read these queued messages.",
+      },
+      urlPage > 1
+        ? "Couldn’t load page " + urlPage + " of your queued messages."
+        : "Couldn't load your queued messages. Try again in a moment.",
+    ) + laterPageHint(queuedQuery.error);
+
+  // One page count per tab: the live response when there is one, the last
+  // good one otherwise. Feeding a single pager from this is what lets that
+  // pager live outside the state branches and so keep its identity — and
+  // the viewer's focus — across a page change.
+  const inboxTotalPages = query.data?.pagination.total_pages ?? lastInboxPages;
+  const queuedTotalPages =
+    queuedQuery.data?.pagination.total_pages ?? lastQueuedPages;
 
   // Pagination is per-tab; switching tabs resets to page 1.
   const goToPage = (next: number) => {
@@ -125,44 +193,42 @@ function MessagesPageContent() {
                 <div className="bcc-paper p-6">
                   <LoadFailure
                     surface="paper"
-                    /* §γ — copy is keyed on err.code; never render err.message. */
-                    message={humanizeCode(
-                      query.error,
-                      {
-                        bcc_unauthorized:
-                          "Your session expired — sign in again to read your messages.",
-                        bcc_rate_limited:
-                          "Too many refreshes — give it a moment and try again.",
-                        bcc_unavailable:
-                          "Messages are temporarily unavailable. Try again shortly.",
-                      },
-                      "Couldn't load your inbox. Try again in a moment.",
-                    )}
-                    onRetry={() => void query.refetch()}
+                    message={inboxFailureCopy}
+                    {...(isPermissionDenial(query.error)
+                      ? {}
+                      : { onRetry: () => void query.refetch() })}
                   />
                 </div>
 
-                {lastInboxPages !== undefined && (
-                  <Pagination
-                    page={urlPage}
-                    totalPages={lastInboxPages}
-                    onPage={goToPage}
-                  />
-                )}
               </>
             )}
 
             {query.isSuccess && query.data.items.length === 0 && <InboxEmpty />}
 
             {query.isSuccess && query.data.items.length > 0 && (
-              <>
-                <ConversationList items={query.data.items} />
-                <Pagination
-                  page={query.data.pagination.page}
-                  totalPages={query.data.pagination.total_pages}
-                  onPage={goToPage}
-                />
-              </>
+              <ConversationList items={query.data.items} />
+            )}
+
+            {/* ONE pager, rendered OUTSIDE every state branch.
+                Previously there were two — one inside the error branch and
+                one inside the success branch — so a page change flipped
+                which branch was live and React unmounted the chip the
+                viewer had just activated, mounting a different instance in
+                the other branch. A remounted element cannot hold focus, so
+                the keyboard user lost their place even though the chips
+                themselves were never disabled. Measured: focus landed on
+                `<body>` here while /watching, which renders its pager
+                outside its branches, kept it.
+
+                `page` reads from the URL rather than the response so the
+                chip's identity does not depend on which state is showing. */}
+            {inboxTotalPages !== undefined && (
+              <PagerNav
+                page={urlPage}
+                totalPages={inboxTotalPages}
+                onPageChange={goToPage}
+                isBusy={query.isFetching}
+              />
             )}
           </div>
         )}
@@ -178,30 +244,13 @@ function MessagesPageContent() {
                 <div className="bcc-paper p-6">
                   <LoadFailure
                     surface="paper"
-                    /* §γ — copy is keyed on err.code; never render err.message. */
-                    message={humanizeCode(
-                      queuedQuery.error,
-                      {
-                        bcc_unauthorized:
-                          "Your session expired — sign in again to see your queued messages.",
-                        bcc_rate_limited:
-                          "Too many refreshes — give it a moment and try again.",
-                        bcc_unavailable:
-                          "Queued messages are temporarily unavailable. Try again shortly.",
-                      },
-                      "Couldn't load your queued messages. Try again in a moment.",
-                    )}
-                    onRetry={() => void queuedQuery.refetch()}
+                    message={queuedFailureCopy}
+                    {...(isPermissionDenial(queuedQuery.error)
+                      ? {}
+                      : { onRetry: () => void queuedQuery.refetch() })}
                   />
                 </div>
 
-                {lastQueuedPages !== undefined && (
-                  <Pagination
-                    page={urlPage}
-                    totalPages={lastQueuedPages}
-                    onPage={goToPage}
-                  />
-                )}
               </>
             )}
 
@@ -214,12 +263,17 @@ function MessagesPageContent() {
                   yet. Each is delivered to the operator the moment they claim the page.
                 </p>
                 <QueuedMessagesList items={queuedQuery.data.items} />
-                <Pagination
-                  page={queuedQuery.data.pagination.page}
-                  totalPages={queuedQuery.data.pagination.total_pages}
-                  onPage={goToPage}
-                />
               </>
+            )}
+
+            {/* One pager, outside the branches — see the inbox tab. */}
+            {queuedTotalPages !== undefined && (
+              <PagerNav
+                page={urlPage}
+                totalPages={queuedTotalPages}
+                onPageChange={goToPage}
+                isBusy={queuedQuery.isFetching}
+              />
             )}
           </div>
         )}
@@ -322,42 +376,5 @@ function InboxEmpty() {
   );
 }
 
-function Pagination({
-  page,
-  totalPages,
-  onPage,
-}: {
-  page: number;
-  totalPages: number;
-  onPage: (next: number) => void;
-}) {
-  if (totalPages <= 1) return null;
-  return (
-    <nav
-      className="bcc-mono mt-8 flex items-center justify-between gap-3 text-[11px] tracking-[0.16em] text-bcc-text-secondary"
-      aria-label="Pagination"
-    >
-      <button
-        type="button"
-        onClick={() => onPage(Math.max(1, page - 1))}
-        disabled={page <= 1}
-        className="border-2 border-bcc-border px-3 py-1 transition hover:border-bcc-border-strong hover:text-bcc-text disabled:opacity-40"
-      >
-        ← PREV
-      </button>
-      <span>
-        PAGE {page} / {totalPages}
-      </span>
-      <button
-        type="button"
-        onClick={() => onPage(Math.min(totalPages, page + 1))}
-        disabled={page >= totalPages}
-        className="border-2 border-bcc-border px-3 py-1 transition hover:border-bcc-border-strong hover:text-bcc-text disabled:opacity-40"
-      >
-        NEXT →
-      </button>
-    </nav>
-  );
-}
 
 export default function MessagesPage() { return <Suspense><MessagesPageContent /></Suspense>; }

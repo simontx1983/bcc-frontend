@@ -26,8 +26,8 @@ import { useEffect, useMemo, useRef, useState, Suspense } from "react";
 
 import { RouteRail } from "@/components/layout/RouteRail";
 import { ValidatorFilters } from "@/components/directory/ValidatorFilters";
-import { DirectoryGrid } from "@/components/directory/DirectoryGrid";
-import { useDirectory, type DirectoryFilters as Filters } from "@/hooks/useDirectory";
+import { DirectoryResults } from "@/components/directory/DirectoryResults";
+import type { DirectoryFilters as Filters } from "@/hooks/useDirectory";
 import type {
   DirectorySort,
   ValidatorStatusFilter,
@@ -100,7 +100,6 @@ function ValidatorsPageContent() {
 
   // Drive the query off URL-derived filters so a typing user doesn't burn
   // API calls per keystroke. `kind` is always "validator" here.
-  const query = useDirectory(filtersFromUrl);
 
   return (
     <main className="bcc-page-wide pb-24">
@@ -137,7 +136,7 @@ function ValidatorsPageContent() {
         </aside>
 
         <section>
-          <DirectoryGrid query={query} />
+          <DirectoryResults filters={filtersFromUrl} />
         </section>
       </div>
     </main>

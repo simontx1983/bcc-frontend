@@ -16,6 +16,7 @@ import { PostDetail } from "@/components/feed/PostDetail";
 import { PostRailRegistrar } from "@/components/feed/PostRailRegistrar";
 import { authOptions } from "@/lib/auth";
 import { tokenFromSession } from "@/lib/api/client";
+import { ANON_SSR_REVALIDATE_SECONDS } from "@/lib/api/cache-policy";
 import { getFeedItemById } from "@/lib/api/feed-endpoints";
 import { buildPostMetadata } from "@/lib/og/post-metadata";
 import { BccApiError } from "@/lib/api/types";
@@ -38,7 +39,22 @@ export default async function PostPage({ params, searchParams }: PageProps) {
 
   let item;
   try {
-    item = await getFeedItemById(id, token);
+    // Anon visitors share a 60s Data-Cache entry for the public
+    // view-model; an authed read stays uncached because a cached entry
+    // is SHARED and a personalized response must never go in one. Same
+    // conditional the profile page uses.
+    //
+    // ⚠ Without this, the metadata read's own cache never helps an
+    // ANONYMOUS viewer: both calls are token-less, Next memoizes them
+    // into one fetch per render, and the memoized one is this uncached
+    // call — so an anonymous viewer re-read the post on every load.
+    item = await getFeedItemById(
+      id,
+      token,
+      token === null
+        ? { revalidate: ANON_SSR_REVALIDATE_SECONDS }
+        : undefined,
+    );
   } catch (err) {
     if (err instanceof BccApiError && err.status === 404) {
       notFound();

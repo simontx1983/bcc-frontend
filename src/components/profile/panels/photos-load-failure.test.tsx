@@ -39,7 +39,19 @@ const state = vi.hoisted(() => ({
 vi.mock("@/lib/env", () => ({
   clientEnv: { BCC_API_URL: "http://localhost/wp-json/bcc/v1" },
 }));
+// The panels now sit behind a denial gate that reads the QueryClient to drop
+// a withdrawn resource's cache entry. These tests drive the data hooks
+// directly, so a stub is enough — the removal itself is asserted in
+// `ui/panel-denial-retry.test.tsx` and measured in the browser.
+vi.mock("@tanstack/react-query", async (importOriginal) => ({
+  ...(await importOriginal<typeof ReactQueryModule>()),
+  useQueryClient: () => ({ removeQueries: () => {} }),
+}));
+
 vi.mock("@/hooks/useUserActivity", () => ({
+  USER_ACTIVITY_QUERY_KEY_ROOT: ["users", "activity"],
+  USER_ALBUMS_QUERY_KEY_ROOT: ["users", "albums"],
+  ALBUM_PHOTOS_QUERY_KEY_ROOT: ["users", "album-photos"],
   useUserActivity: () => state.activity,
   useUserAlbums: () => state.albums,
   useAlbumPhotos: (_h: unknown, albumId: number | null) =>
@@ -54,6 +66,7 @@ vi.mock("@/hooks/useUserActivity", () => ({
 }));
 
 import { PhotosPanel } from "@/components/profile/panels/PhotosPanel";
+import type * as ReactQueryModule from "@tanstack/react-query";
 
 beforeAll(() => {
   window.matchMedia = ((q: string) => ({
@@ -209,7 +222,14 @@ describe("AllPhotos — failed LOAD MORE", () => {
     });
     render(<PhotosPanel handle="ada" />);
     expect(screen.getByRole("alert")).toBeInTheDocument();
-    expect(screen.queryByText(/no photos/i)).not.toBeInTheDocument();
+    // "No photos yet." is the TERMINAL claim — the wall has none. That is
+    // what a failure must never assert, and it is what this pins.
+    //
+    // It no longer forbids the word "photos" outright: with pages still
+    // unfetched the panel now says "No photos in the posts loaded so
+    // far", which is the honest reading of a filtered grid over an
+    // unfinished stream and is not the success-only state.
+    expect(screen.queryByText(/no photos yet/i)).not.toBeInTheDocument();
   });
 });
 
@@ -436,7 +456,9 @@ describe("AllPhotos — failed REFRESH of loaded pages", () => {
     });
     render(<PhotosPanel handle="ada" />);
     expect(screen.getByRole("alert")).toBeInTheDocument();
-    expect(screen.queryByText(/no photos/i)).not.toBeInTheDocument();
+    // Same narrowing as the failed-LOAD-MORE case above: the terminal
+    // claim stays forbidden; the "loaded so far" reading does not.
+    expect(screen.queryByText(/no photos yet/i)).not.toBeInTheDocument();
   });
 
   it("recovery restores the grid without duplicating or erasing photos", () => {

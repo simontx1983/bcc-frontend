@@ -13,15 +13,41 @@
  */
 
 import { FeedBody } from "@/components/feed/FeedView";
-import { useTagFeed } from "@/hooks/useFeed";
+import { FEED_QUERY_KEY_ROOT, useTagFeed } from "@/hooks/useFeed";
+import { LoadFailure } from "@/components/ui/LoadFailure";
+import {
+  shouldWithdrawOnDenial,
+  useDenialGate,
+  useReportDenial,
+} from "@/lib/api/resource-denial";
 
 export interface TagFeedViewProps {
   /** Hashtag without the leading "#" — the route strips it. */
   tag: string;
 }
 
+/**
+ * The tag feed's denial gate. <FeedBody> takes the query as props and so
+ * has no key; the key lives here, where the hook is called.
+ */
 export function TagFeedView({ tag }: TagFeedViewProps) {
+  const gate = useDenialGate([...FEED_QUERY_KEY_ROOT, "tag", tag]);
+  if (gate.withdrawn) {
+    return (
+      <section className="mx-auto w-full max-w-3xl px-6 py-10">
+        <LoadFailure message={"You’re not allowed to read this tag feed."} />
+      </section>
+    );
+  }
+  return <TagFeedViewData tag={tag} onDenied={gate.withdraw} />;
+}
+
+function TagFeedViewData({ tag, onDenied }: { tag: string; onDenied: () => void }) {
   const query = useTagFeed(tag);
+  useReportDenial(
+    shouldWithdrawOnDenial(query.error, query.isRefetchError, query.data !== undefined),
+    onDenied,
+  );
 
   return (
     <section className="mx-auto w-full max-w-3xl px-6">
