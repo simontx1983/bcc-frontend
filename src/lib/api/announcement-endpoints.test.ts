@@ -147,17 +147,36 @@ describe("create — the mode → status translation", () => {
   });
 });
 
+/**
+ * ⚠ These two asserted the direction in the HTTP VERB — POST to pin,
+ * DELETE to unpin, no body. The route is registered `CREATABLE` only and
+ * takes `pinned` as a REQUIRED boolean argument, so the old shape was
+ * refused in both directions: the unpin had no verb to answer it, and the
+ * pin came back `400 Missing parameter(s): pinned`. Measured, not
+ * inferred, against bcc-trust on a disposable stack.
+ *
+ * The tests agreed with the client and both disagreed with the server —
+ * the same shape as the prefixed-path-id defect above. A mocked client
+ * can only ever confirm what the caller chose to send.
+ */
 describe("pin is one call, not two", () => {
-  it("pins with POST", async () => {
+  it("pins with POST and the direction in the body", async () => {
     await endpoints.setAnnouncementPin(1842, "ann_1", true);
     expect(lastPath(bccFetchAsClient)).toBe("validators/1842/announcements/ann_1/pin");
     expect(lastOptions(bccFetchAsClient).method).toBe("POST");
+    expect(lastOptions(bccFetchAsClient).body).toEqual({ pinned: true });
   });
 
-  it("unpins with DELETE on the same path", async () => {
+  it("unpins with the SAME verb and path, flipping only the body", async () => {
     await endpoints.setAnnouncementPin(1842, "ann_1", false);
     expect(lastPath(bccFetchAsClient)).toBe("validators/1842/announcements/ann_1/pin");
-    expect(lastOptions(bccFetchAsClient).method).toBe("DELETE");
+    expect(lastOptions(bccFetchAsClient).method).toBe("POST");
+    expect(lastOptions(bccFetchAsClient).body).toEqual({ pinned: false });
+  });
+
+  it("never sends DELETE — the route has no such verb", async () => {
+    await endpoints.setAnnouncementPin(1842, "ann_1", false);
+    expect(lastOptions(bccFetchAsClient).method).not.toBe("DELETE");
   });
 });
 
