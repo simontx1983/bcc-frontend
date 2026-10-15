@@ -150,13 +150,13 @@ describe("create — the mode → status translation", () => {
 describe("pin is one call, not two", () => {
   it("pins with POST", async () => {
     await endpoints.setAnnouncementPin(1842, "ann_1", true);
-    expect(lastPath(bccFetchAsClient)).toBe("validators/1842/announcements/ann_1/pin");
+    expect(lastPath(bccFetchAsClient)).toBe("validators/1842/announcements/1/pin");
     expect(lastOptions(bccFetchAsClient).method).toBe("POST");
   });
 
   it("unpins with DELETE on the same path", async () => {
     await endpoints.setAnnouncementPin(1842, "ann_1", false);
-    expect(lastPath(bccFetchAsClient)).toBe("validators/1842/announcements/ann_1/pin");
+    expect(lastPath(bccFetchAsClient)).toBe("validators/1842/announcements/1/pin");
     expect(lastOptions(bccFetchAsClient).method).toBe("DELETE");
   });
 });
@@ -164,7 +164,7 @@ describe("pin is one call, not two", () => {
 describe("archive", () => {
   it("POSTs to the archive sub-path", async () => {
     await endpoints.archiveAnnouncement(1842, "ann_1");
-    expect(lastPath(bccFetchAsClient)).toBe("validators/1842/announcements/ann_1/archive");
+    expect(lastPath(bccFetchAsClient)).toBe("validators/1842/announcements/1/archive");
     expect(lastOptions(bccFetchAsClient).method).toBe("POST");
   });
 });
@@ -186,7 +186,7 @@ describe("detail read", () => {
 describe("comments", () => {
   it("is keyed on the announcement, not the validator page", async () => {
     await endpoints.listAnnouncementComments({ announcementId: "ann_1" });
-    expect(lastPath(bccFetchAsClient)).toBe("announcements/ann_1/comments");
+    expect(lastPath(bccFetchAsClient)).toBe("announcements/1/comments");
   });
 
   it("sends only a body — v1 comments are flat, so no parent_id", async () => {
@@ -204,8 +204,79 @@ describe("comments", () => {
       announcementId: "ann_1",
       commentId: "acmt_9",
     });
-    expect(lastPath(bccFetchAsClient)).toBe("announcements/ann_1/comments/acmt_9");
+    expect(lastPath(bccFetchAsClient)).toBe("announcements/1/comments/9");
     expect(lastOptions(bccFetchAsClient).method).toBe("DELETE");
+  });
+});
+
+/**
+ * The routes take BARE NUMERIC ids; the wire hands callers prefixed
+ * view-model ids (`ann_36`, `acmt_21`). Sending the prefixed form produces a
+ * URL that matches no route and returns a flat 404 that reads exactly like
+ * "this announcement does not exist".
+ *
+ * These cases exist because the suite could not previously see that: every
+ * path assertion above was written against the prefixed form, so the tests
+ * agreed with the client and both were wrong. It took pointing the frontend
+ * at a real backend — `/announcements/ann_36/comments` → 404, the whole
+ * discussion replaced by "Couldn't load this discussion" — to show it.
+ */
+describe("path ids are bare numerics, never the prefixed view-model form", () => {
+  it("strips `ann_` on every validator-scoped route", async () => {
+    await endpoints.updateAnnouncement(1842, "ann_36", { title: "t" });
+    expect(lastPath(bccFetchAsClient)).toBe("validators/1842/announcements/36");
+
+    await endpoints.archiveAnnouncement(1842, "ann_36");
+    expect(lastPath(bccFetchAsClient)).toBe("validators/1842/announcements/36/archive");
+
+    await endpoints.setAnnouncementPin(1842, "ann_36", true);
+    expect(lastPath(bccFetchAsClient)).toBe("validators/1842/announcements/36/pin");
+
+    await endpoints.getAnnouncementAsClient(1842, "ann_36");
+    expect(lastPath(bccFetchAsClient)).toBe("validators/1842/announcements/36");
+  });
+
+  it("strips `ann_` and `acmt_` on every comment route", async () => {
+    await endpoints.listAnnouncementComments({ announcementId: "ann_36" });
+    expect(lastPath(bccFetchAsClient)).toBe("announcements/36/comments");
+
+    await endpoints.createAnnouncementComment({ announcementId: "ann_36", body: "x" });
+    expect(lastPath(bccFetchAsClient)).toBe("announcements/36/comments");
+
+    await endpoints.removeAnnouncementComment({
+      announcementId: "ann_36",
+      commentId: "acmt_21",
+    });
+    expect(lastPath(bccFetchAsClient)).toBe("announcements/36/comments/21");
+  });
+
+  it("accepts an already-bare id unchanged", async () => {
+    // The detail PAGE hands the raw route segment, which is already bare.
+    // That is why the detail route was the one surface that worked.
+    await endpoints.listAnnouncementComments({ announcementId: "36" });
+    expect(lastPath(bccFetchAsClient)).toBe("announcements/36/comments");
+  });
+
+  it("refuses an id that is not numeric once stripped, instead of requesting a URL that cannot work", async () => {
+    // Silently sending garbage is what produced a 404 indistinguishable from
+    // a missing announcement. A typed refusal is the honest answer.
+    await expect(
+      endpoints.listAnnouncementComments({ announcementId: "ann_not-a-number" }),
+    ).rejects.toMatchObject({ code: "bcc_invalid_request" });
+
+    await expect(
+      endpoints.removeAnnouncementComment({
+        announcementId: "ann_36",
+        commentId: "acmt_",
+      }),
+    ).rejects.toMatchObject({ code: "bcc_invalid_request" });
+  });
+
+  it("does not strip a prefix out of the middle of an id", async () => {
+    // Only a LEADING prefix is a view-model artifact.
+    await expect(
+      endpoints.listAnnouncementComments({ announcementId: "36_ann_7" }),
+    ).rejects.toMatchObject({ code: "bcc_invalid_request" });
   });
 });
 
