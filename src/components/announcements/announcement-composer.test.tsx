@@ -210,6 +210,52 @@ describe("scheduling is future-only", () => {
     expect(Date.parse(`${sent.publish_at}Z`)).toBeGreaterThan(Date.now());
   });
 
+  /**
+   * The guard that `blocked` applies is computed during RENDER, against
+   * `Date.now()` at that moment, and React does not re-render on a timer.
+   * So an operator who picks a time a minute out and then spends longer
+   * than that writing would submit against a stale pass.
+   *
+   * The server refuses it correctly and cannot say why: its
+   * `publish_at_not_future` and `backdating_not_allowed` reason codes are
+   * declared in the contract but have NO producer, so the refusal arrives
+   * as a bare `bcc_invalid_request` and the composer could only fall back
+   * to naming every field. Catching it here is what lets the operator be
+   * told it was the time.
+   */
+  it("refuses a schedule whose instant went past while the form was open", () => {
+    vi.useFakeTimers();
+    try {
+      renderComposer();
+      fill({ title: "T", summary: "S", body: "B" });
+      fireEvent.click(screen.getByRole("radio", { name: "Schedule for later" }));
+
+      // Two minutes out, entered as local wall-clock.
+      const future = new Date(Date.now() + 2 * 60 * 1000);
+      const pad = (n: number) => String(n).padStart(2, "0");
+      const local =
+        `${future.getFullYear()}-${pad(future.getMonth() + 1)}-${pad(future.getDate())}` +
+        `T${pad(future.getHours())}:${pad(future.getMinutes())}`;
+      fireEvent.change(screen.getByLabelText("PUBLICATION TIME"), {
+        target: { value: local },
+      });
+      expect(screen.getByRole("button", { name: "SCHEDULE" })).toBeEnabled();
+
+      // The operator keeps typing for five minutes. No re-render happens,
+      // so the button is still enabled and `blocked` is still stale.
+      vi.advanceTimersByTime(5 * 60 * 1000);
+      fireEvent.click(screen.getByRole("button", { name: "SCHEDULE" }));
+
+      // Nothing is sent, and the operator is told WHICH field is wrong.
+      expect(onSubmit).not.toHaveBeenCalled();
+      expect(
+        screen.getByText(/Pick a time in the future/),
+      ).toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("converts the operator's local wall-clock to the UTC instant they picked", () => {
     renderComposer();
     fill({ title: "T", summary: "S", body: "B" });
