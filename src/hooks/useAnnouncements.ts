@@ -33,6 +33,7 @@ import {
   getAnnouncementAsClient,
   listAnnouncementComments,
   listAnnouncements,
+  listOwnerAnnouncements,
   removeAnnouncementComment,
   setAnnouncementPin,
   updateAnnouncement,
@@ -47,6 +48,8 @@ import type {
   AnnouncementDetail,
   AnnouncementListResponse,
   AnnouncementListState,
+  AnnouncementStatus,
+  OwnerAnnouncementListResponse,
   CreateAnnouncementRequest,
   UpdateAnnouncementRequest,
 } from "@/lib/api/types";
@@ -121,6 +124,26 @@ export function announcementsListQueryKey(
   return ["announcements", pageId, "list", state, scope];
 }
 
+/**
+ * Exact OWNER-list key.
+ *
+ * Deliberately sits under the same `["announcements", pageId]` prefix as
+ * the public list, so every existing mutation invalidation already covers
+ * it: a pin, archive, edit or create marks the operator's management view
+ * stale without any of those mutations learning that this surface exists.
+ *
+ * `status` is a cache dimension because the route's four buckets are four
+ * different reads, and `scope` is one because the rows carry the viewer's
+ * own capabilities — two operators must never share an entry.
+ */
+export function ownerAnnouncementsListQueryKey(
+  pageId: number,
+  status: AnnouncementStatus,
+  scope: ViewerScope,
+): QueryKey {
+  return ["announcements", pageId, "owner", status, scope];
+}
+
 /** Scope-blind prefix for one announcement — invalidation only. */
 export function announcementDetailKeyRoot(announcementId: string): QueryKey {
   return ["announcement", announcementId];
@@ -179,6 +202,50 @@ export function useAnnouncements(
       listAnnouncements({
         pageId,
         state,
+        cursor: pageParam ?? undefined,
+        limit: PAGE_SIZE,
+      }),
+    getNextPageParam: (lastPage) => lastPage.pagination.next_cursor ?? undefined,
+    staleTime: 30_000,
+    placeholderData: keepPreviousData,
+  });
+}
+
+/**
+ * The OWNER-scoped list for one lifecycle bucket — the only list that
+ * carries per-row capabilities.
+ *
+ * ⚠ `enabled` MUST be driven by the page-scope `can_manage` the server
+ * advertised on the Card. This route answers `403 not_claimer` to anyone
+ * who is not the resolved operator, including anonymous viewers, so
+ * calling it speculatively would mean a guaranteed 403 on every ordinary
+ * visitor's validator page. The capability block is the gate here exactly
+ * as it is for the feature as a whole.
+ */
+export function useOwnerAnnouncements(
+  pageId: number,
+  options: { status: AnnouncementStatus; enabled?: boolean },
+) {
+  const { status } = options;
+  const enabled = options.enabled ?? true;
+  // Rows carry the VIEWER's capabilities, so the scope is part of the key
+  // for the same reason it is on every other capability-bearing read.
+  const scope = useViewerScope();
+
+  return useInfiniteQuery<
+    OwnerAnnouncementListResponse,
+    BccApiError,
+    InfiniteData<OwnerAnnouncementListResponse>,
+    QueryKey,
+    string | null
+  >({
+    queryKey: ownerAnnouncementsListQueryKey(pageId, status, scope),
+    enabled: enabled && pageId > 0 && scope !== null,
+    initialPageParam: null,
+    queryFn: ({ pageParam }) =>
+      listOwnerAnnouncements({
+        pageId,
+        status,
         cursor: pageParam ?? undefined,
         limit: PAGE_SIZE,
       }),

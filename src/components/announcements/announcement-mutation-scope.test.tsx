@@ -16,7 +16,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { Announcement } from "@/lib/api/types";
+import type { Announcement, OwnerAnnouncementListItem } from "@/lib/api/types";
 
 // The announcement hooks resolve the viewer's storage scope through
 // `useViewerScope`, which reads `useSession()` — so these suites now need
@@ -37,9 +37,11 @@ vi.mock("@/lib/env", () => ({
 }));
 
 const listAnnouncements = vi.fn();
+const listOwnerAnnouncements = vi.fn();
 const setAnnouncementPin = vi.fn();
 vi.mock("@/lib/api/announcement-endpoints", () => ({
   listAnnouncements: (...a: unknown[]) => listAnnouncements(...a),
+  listOwnerAnnouncements: (...a: unknown[]) => listOwnerAnnouncements(...a),
   setAnnouncementPin: (...a: unknown[]) => setAnnouncementPin(...a),
   createAnnouncement: vi.fn(),
   updateAnnouncement: vi.fn(),
@@ -64,6 +66,7 @@ const {
   ITEM_WITHOUT_CAPABILITIES,
   ITEM_WITH_MALFORMED_CAPABILITIES,
   announcementListResponse,
+  ownerAnnouncementListResponse,
 } = await import("@/lib/announcements/fixtures");
 
 let client: QueryClient;
@@ -81,15 +84,37 @@ afterEach(() => {
   client.clear();
 });
 
-/** Render the panel with a chosen set of ACTIVE rows. */
+/**
+ * Render the panel with a chosen set of ACTIVE rows.
+ *
+ * ⚠ The rows are split across the two surfaces the way the real backend
+ * splits them, which this harness previously did not. Capabilities were
+ * handed to the panel on the PUBLIC list — a shape no backend produces:
+ * the public list strips capabilities for every viewer, operator
+ * included, enforced by two distinct producers. Every case below passed
+ * against that fiction, which is exactly why the panel shipped reading
+ * capabilities off public rows and rendering a permanently disabled PIN
+ * on every one of them.
+ *
+ * So: the public list gets the rows WITHOUT capabilities, and any row
+ * that carries them is also served from the owner list, which is where
+ * they really come from. The assertions are unchanged — they were always
+ * about row-level gating, and now they test it through the real path.
+ */
 function renderPanel(items: Announcement[], pageCaps = OWNER_CAPABILITIES) {
+  const publicRows = items.map(({ capabilities: _dropped, ...row }) => row as Announcement);
+  const ownerRows = items.filter(
+    (row): row is OwnerAnnouncementListItem =>
+      (row as OwnerAnnouncementListItem).capabilities !== undefined,
+  );
   listAnnouncements.mockImplementation((params: unknown) =>
     Promise.resolve(
       (params as { state?: string }).state === "archived"
         ? announcementListResponse([])
-        : announcementListResponse(items),
+        : announcementListResponse(publicRows),
     ),
   );
+  listOwnerAnnouncements.mockResolvedValue(ownerAnnouncementListResponse(ownerRows));
   return render(
     <QueryClientProvider client={client}>
       <AnnouncementsPanel
@@ -105,21 +130,53 @@ const pinButton = (id: string) => screen.getByTestId(`announcement-pin-${id}`);
 
 // 1 ─────────────────────────────────────────────────────────────────
 describe("page can_manage does not authorize a row", () => {
-  it("leaves pin disabled when the row carries no capability at all", async () => {
+  /**
+   * These two asserted a DISABLED control for a row with no capability.
+   * That was the right instinct under the old sourcing, where the only
+   * possible reading of "no capability" was "denied" — but it is now the
+   * wrong rendering, and the reason matters.
+   *
+   * A row the owner list has not covered is a row the client has been
+   * told NOTHING about. Rendering a disabled button captioned "This
+   * announcement can't be pinned right now" states a permission decision
+   * that no server ever made, on a row the operator can usually pin
+   * perfectly well from its detail page. Absence is the honest rendering,
+   * and it is the same rule the panels follow for a Retry they cannot
+   * honestly offer.
+   *
+   * What must NOT change is the safety property: no capability still
+   * means no mutation. That is asserted below, through the component's
+   * own guard rather than through a button that is no longer drawn.
+   */
+  it("renders no pin control at all when the row carries no capability", async () => {
     renderPanel([ITEM_WITHOUT_CAPABILITIES]);
     await waitFor(() => {
-      expect(pinButton(ITEM_WITHOUT_CAPABILITIES.id)).toBeInTheDocument();
+      expect(screen.getByText(ITEM_WITHOUT_CAPABILITIES.title)).toBeInTheDocument();
     });
-    expect(pinButton(ITEM_WITHOUT_CAPABILITIES.id)).toBeDisabled();
+    expect(
+      screen.queryByTestId(`announcement-pin-${ITEM_WITHOUT_CAPABILITIES.id}`),
+    ).toBeNull();
+    // And no invented denial copy either.
+    expect(screen.queryByText(/can't be pinned right now/i)).toBeNull();
   });
 
-  it("does not mutate when that disabled control is clicked anyway", async () => {
-    renderPanel([ITEM_WITHOUT_CAPABILITIES]);
-    await waitFor(() => {
-      expect(pinButton(ITEM_WITHOUT_CAPABILITIES.id)).toBeInTheDocument();
-    });
-    fireEvent.click(pinButton(ITEM_WITHOUT_CAPABILITIES.id));
-    expect(setAnnouncementPin).not.toHaveBeenCalled();
+  it("still refuses to mutate if such a control is reached anyway", () => {
+    // The control is not drawn, so this exercises the guard directly —
+    // which is the layer that actually holds. `AnnouncementOwnerActions`
+    // re-checks the capability inside its own handler precisely because
+    // button state is presentation and can be stale or bypassed.
+    const onPin = vi.fn();
+    render(
+      <AnnouncementOwnerActions
+        announcement={ITEM_WITHOUT_CAPABILITIES}
+        onPin={onPin}
+        pending={false}
+      />,
+    );
+    const btn = screen.getByTestId(`announcement-pin-${ITEM_WITHOUT_CAPABILITIES.id}`);
+    expect(btn).toBeDisabled();
+    fireEvent.click(btn);
+    expect(onPin).not.toHaveBeenCalled();
   });
 });
 

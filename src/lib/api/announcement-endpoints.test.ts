@@ -209,6 +209,65 @@ describe("comments", () => {
   });
 });
 
+/**
+ * The owner list is the ONLY capability-bearing list. The public list
+ * carries none for anybody, operator included, so a management control
+ * cannot be driven from it — which is the entire reason this wrapper
+ * exists.
+ */
+describe("owner list", () => {
+  it("builds the me/-prefixed validator-scoped path", async () => {
+    await endpoints.listOwnerAnnouncements({ pageId: 1842, status: "published" });
+    expect(lastPath(bccFetchAsClient)).toBe(
+      "me/validators/1842/announcements?status=published",
+    );
+  });
+
+  it("sends status on every call — omitting it is NOT 'everything'", async () => {
+    // The server's default is the unpublished set, so a caller that wants
+    // published rows has to say so. The wrapper requires it at the type
+    // level; this pins that it actually reaches the wire.
+    for (const status of ["draft", "scheduled", "blocked", "published"] as const) {
+      await endpoints.listOwnerAnnouncements({ pageId: 7, status });
+      expect(lastPath(bccFetchAsClient)).toContain(`status=${status}`);
+    }
+  });
+
+  it("threads cursor and limit", async () => {
+    await endpoints.listOwnerAnnouncements({
+      pageId: 7,
+      status: "published",
+      cursor: "ann_owner:abc",
+      limit: 20,
+    });
+    const path = lastPath(bccFetchAsClient);
+    expect(path).toContain("status=published");
+    expect(path).toContain("limit=20");
+    expect(path).toContain(`cursor=${encodeURIComponent("ann_owner:abc")}`);
+  });
+
+  it("omits an empty cursor rather than sending cursor=", async () => {
+    await endpoints.listOwnerAnnouncements({ pageId: 7, status: "published", cursor: "" });
+    expect(lastPath(bccFetchAsClient)).not.toContain("cursor");
+  });
+
+  it("goes through the browser client, so the viewer's bearer is attached", async () => {
+    await endpoints.listOwnerAnnouncements({ pageId: 7, status: "published" });
+    expect(bccFetchAsClient).toHaveBeenCalled();
+    // Never the server-side client: this read is viewer-specific and must
+    // not land in a shared Data Cache entry.
+    expect(bccFetch).not.toHaveBeenCalled();
+    expect(lastOptions(bccFetchAsClient).method).toBe("GET");
+  });
+
+  it("does not swallow the 403 a non-operator gets", async () => {
+    bccFetchAsClient.mockRejectedValueOnce(new Error("bcc_forbidden"));
+    await expect(
+      endpoints.listOwnerAnnouncements({ pageId: 7, status: "published" }),
+    ).rejects.toThrow("bcc_forbidden");
+  });
+});
+
 describe("no fallback endpoints exist", () => {
   /**
    * A missing backend must read as missing. If a wrapper ever gained a
