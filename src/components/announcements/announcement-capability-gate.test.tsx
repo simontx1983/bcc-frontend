@@ -13,7 +13,7 @@
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 // The announcement hooks resolve the viewer's storage scope through
 // `useViewerScope`, which reads `useSession()` — so these suites now need
@@ -58,6 +58,26 @@ const {
 } = await import("@/lib/announcements/fixtures");
 
 let client: QueryClient;
+
+beforeAll(() => {
+  // These cases render the real <EntityTabs>, which since the roving-tab
+  // work wraps its strip in <TabRail>. TabRail and useRovingTabs both read
+  // matchMedia, and the rail reveals the selected tab by scrolling —
+  // jsdom implements none of the three. Same stub the entity strip's own
+  // keyboard suite installs.
+  window.matchMedia = ((q: string) => ({
+    matches: false,
+    media: q,
+    onchange: null,
+    addEventListener: () => {},
+    removeEventListener: () => {},
+    addListener: () => {},
+    removeListener: () => {},
+    dispatchEvent: () => false,
+  })) as unknown as typeof window.matchMedia;
+  Element.prototype.scrollIntoView = () => {};
+  Element.prototype.scrollTo = () => {};
+});
 
 beforeEach(() => {
   vi.clearAllMocks();

@@ -24,6 +24,8 @@
  * surfaces drift apart again.
  */
 
+import { useEffect, useRef } from "react";
+
 import type { Route } from "next";
 import { useRouter } from "next/navigation";
 
@@ -33,6 +35,8 @@ import {
   useNotifications,
   useUnreadCount,
 } from "@/hooks/useNotifications";
+import { LoadFailure } from "@/components/ui/LoadFailure";
+import { humanizeCode, isPermissionDenial } from "@/lib/api/errors";
 import type { NotificationItem } from "@/lib/api/types";
 import { formatRelativeTime } from "@/lib/format";
 
@@ -65,6 +69,45 @@ export function NotificationsPanel({
 
   const unreadCount = unread.data?.unread_count ?? 0;
   const items: NotificationItem[] = (list.data?.pages ?? []).flatMap((p) => p.items);
+
+  // §γ — copy is keyed on err.code; never render err.message. The
+  // previous single hardcoded line is kept as the default, so the
+  // common case reads exactly as it did.
+  const failureCopy = humanizeCode(
+    list.error,
+    {
+      bcc_unauthorized: "Sign in to read your notifications.",
+      bcc_rate_limited: "Loading too fast — give it a moment and try again.",
+      bcc_unavailable: "Notifications are temporarily unavailable. Try again shortly.",
+      bcc_permission_denied: "You can’t read these notifications.",
+      bcc_forbidden: "You can’t read these notifications.",
+      // Third denial code: the control was already withheld for it, but the
+      // copy fell through to a default ending in "Try again in a moment".
+      bcc_blocked: "You can’t read these notifications.",
+    },
+    "Couldn’t load notifications. Try again in a moment.",
+  );
+
+  // A permission boundary does not move when the cursor does, so pressing
+  // Retry against one can only fail the same way. Omitting `onRetry`
+  // renders no button at all rather than an inert one.
+  const retryIsHonest = !isPermissionDenial(list.error);
+
+  const loadMoreRef = useRef<HTMLButtonElement | null>(null);
+  const endRef = useRef<HTMLParagraphElement | null>(null);
+  /** Did LOAD MORE hold focus at the moment it was activated? */
+  const heldFocus = useRef(false);
+
+  // When the control the viewer was standing on disappears because the
+  // list ended, put them somewhere. ONLY when it held focus: a mouse user
+  // scrolling elsewhere must not have the page yanked out from under them,
+  // and this never fires on a first render that simply has no next page.
+  useEffect(() => {
+    if (list.hasNextPage) return;
+    if (!heldFocus.current) return;
+    heldFocus.current = false;
+    endRef.current?.focus();
+  }, [list.hasNextPage]);
 
   const handleItemClick = (item: NotificationItem) => {
     if (!item.read) {
@@ -113,15 +156,21 @@ export function NotificationsPanel({
         </div>
       )}
 
-      {list.isError ? (
-        <div className="bcc-mono px-4 py-3 text-[11px] text-[var(--bcc-text-secondary)]">
-          Couldn’t load notifications. Try again in a moment.
+      {/* A FIRST load that failed has nothing to keep, so the whole body
+          is the failure. The two post-load failures are handled beside the
+          rows below, where the rows survive. */}
+      {list.isLoadingError ? (
+        <div className="px-2 py-2">
+          <LoadFailure
+            message={failureCopy}
+            {...(retryIsHonest ? { onRetry: () => void list.refetch() } : {})}
+          />
         </div>
       ) : list.isLoading ? (
         <div className="bcc-mono px-4 py-3 text-[11px] text-[var(--bcc-text-secondary)]">
           Loading…
         </div>
-      ) : items.length === 0 ? (
+      ) : items.length === 0 && !list.isError ? (
         // Sprint 5 empty-state hygiene: "No notifications yet. We'll
         // let you know when something happens." was the SaaS-dashboard
         // inbox-notify framing ("we'll notify you"). Replaced with
@@ -141,16 +190,93 @@ export function NotificationsPanel({
               onActivate={() => handleItemClick(item)}
             />
           ))}
-          {list.hasNextPage && (
+          {/* A failed REFRESH is not a failed cursor: the retained pages
+              and the cursor taken from the last of them are still
+              coherent, so LOAD MORE deliberately stays available below
+              and this control refetches. Reachable here in normal use —
+              `markRead` and `markAllRead` both invalidate this key, and
+              the app-wide `retry: 1` means two consecutive failures
+              surface it. */}
+          {list.isRefetchError && (
             <li>
-              <button
-                type="button"
-                onClick={() => void list.fetchNextPage()}
-                disabled={list.isFetchingNextPage}
-                className="bcc-mono w-full px-4 py-2.5 text-center text-[10px] tracking-[0.18em] text-[var(--bcc-accent)] hover:bg-[var(--bcc-surface-hover)] disabled:cursor-wait"
+              <LoadFailure
+                message={failureCopy}
+                {...(retryIsHonest ? { onRetry: () => void list.refetch() } : {})}
+              />
+            </li>
+          )}
+
+          {/* Cursor safety: while the NEXT cursor is failed, LOAD MORE is
+              WITHDRAWN so it cannot advance past — and so silently skip —
+              the page that failed. Retry resumes that same cursor with
+              `fetchNextPage()`; it must never be `refetch()`, which would
+              re-request every page already loaded. */}
+          {list.isFetchNextPageError ? (
+            <li>
+              <LoadFailure
+                message={failureCopy}
+                {...(retryIsHonest ? { onRetry: () => void list.fetchNextPage() } : {})}
+              />
+            </li>
+          ) : (
+            list.hasNextPage && (
+              <li>
+                {/* Not `disabled` while fetching: a disabled element is
+                    removed from the tab order and the browser blurs it, so
+                    disabling the button the viewer just pressed drops focus
+                    to <body>. Measured: after activating LOAD MORE,
+                    `document.activeElement` was `<body>` and a keyboard
+                    user had to tab in from the top of the document to
+                    reach it again — at the BOTTOM of a list that had just
+                    grown. Focusable + `aria-disabled` + an inert handler
+                    keeps focus where the viewer put it. Same reasoning,
+                    same shape, as PagerNav's chips. */}
+                <button
+                  type="button"
+                  ref={loadMoreRef}
+                  onClick={() => {
+                    if (list.isFetchingNextPage) return;
+                    // Recorded HERE, not in an effect: by the time an
+                    // effect runs the button may already be gone and
+                    // `document.activeElement` already `<body>`, so the
+                    // one fact we need would be unrecoverable.
+                    heldFocus.current =
+                      loadMoreRef.current !== null &&
+                      document.activeElement === loadMoreRef.current;
+                    void list.fetchNextPage();
+                  }}
+                  aria-disabled={list.isFetchingNextPage || undefined}
+                  aria-busy={list.isFetchingNextPage || undefined}
+                  className={
+                    "bcc-mono w-full px-4 py-2.5 text-center text-[10px] tracking-[0.18em] text-[var(--bcc-accent)] hover:bg-[var(--bcc-surface-hover)]" +
+                    (list.isFetchingNextPage ? " cursor-wait" : "")
+                  }
+                >
+                  {list.isFetchingNextPage ? "LOADING…" : "LOAD MORE"}
+                </button>
+              </li>
+            )
+          )}
+
+          {/* Where focus lands when LOAD MORE legitimately disappears.
+              Measured: activating it on the last page removed the focused
+              element, and focus fell to `<body>` — at the BOTTOM of a list
+              that had just grown, so a keyboard user had to tab in from
+              the top of the document to get anywhere.
+
+              Deliberately NOT a live region. This panel has none, and the
+              reading happens because focus MOVES here, which is one
+              announcement rather than two. */}
+          {!list.hasNextPage && !list.isError && (
+            <li>
+              <p
+                ref={endRef}
+                tabIndex={-1}
+                data-testid="notifications-end-of-list"
+                className="bcc-mono px-4 py-2.5 text-center text-[10px] tracking-[0.18em] text-[var(--bcc-text-secondary)]"
               >
-                {list.isFetchingNextPage ? "LOADING…" : "LOAD MORE"}
-              </button>
+                End of the list.
+              </p>
             </li>
           )}
         </ul>

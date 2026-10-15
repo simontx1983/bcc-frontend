@@ -20,7 +20,7 @@ import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 // The announcement hooks resolve the viewer's storage scope through
@@ -273,9 +273,27 @@ describe("rendered accessibility", () => {
       />,
     );
     const tab = screen.getByRole("tab", { name: "Announcements" });
-    expect(tab).toHaveAttribute("aria-selected");
-    expect(tab).toHaveAttribute("aria-controls");
-    expect(screen.getByRole("tabpanel")).toHaveAttribute("aria-live", "polite");
+
+    // `active` seeds to the first key, so Announcements starts unselected.
+    expect(tab).toHaveAttribute("aria-selected", "false");
+
+    // `aria-controls` is present ONLY on the selected tab, because only the
+    // selected tab's panel is in the DOM. This assertion used to read
+    // `toHaveAttribute("aria-controls")` unconditionally, which passed on the
+    // older strip where every tab carried it — and every unselected one
+    // therefore pointed at an id that did not exist. The strip fixed that
+    // dangling reference; asserting the attribute on an unselected tab would
+    // now be asserting the defect back into place.
+    expect(tab).not.toHaveAttribute("aria-controls");
+
+    fireEvent.click(tab);
+
+    expect(tab).toHaveAttribute("aria-selected", "true");
+    expect(tab).toHaveAttribute("aria-controls", "entity-tabpanel-announcements");
+
+    const panel = screen.getByRole("tabpanel");
+    expect(panel).toHaveAttribute("id", "entity-tabpanel-announcements");
+    expect(panel).toHaveAttribute("aria-live", "polite");
   });
 
   it("labels the comment composer for screen readers", async () => {
