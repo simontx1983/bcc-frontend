@@ -217,8 +217,12 @@ describe("a failed REFRESH keeps the list", () => {
       });
     });
 
+    // The retained row is synchronous — `keepPreviousData` means it never
+    // left the DOM. The FAILURE beside it is not: the error state lands on a
+    // later flush, so asserting it directly is a race that passes on a fast
+    // machine and fails under CI load. It did exactly that.
+    await waitFor(() => expect(retryBtn()).not.toBeNull());
     expect(screen.getByText(PUBLISHED_ANNOUNCEMENT.title)).toBeInTheDocument();
-    expect(retryBtn()).not.toBeNull();
   });
 });
 
