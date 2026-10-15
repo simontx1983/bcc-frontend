@@ -80,6 +80,9 @@ export function AnnouncementComposer({
   const [publishAtLocal, setPublishAtLocal] = useState("");
   const [commentsEnabled, setCommentsEnabled] = useState(true);
   const [touched, setTouched] = useState(false);
+  // Set when a submit is refused because the chosen instant went past
+  // while the form was open. See handleSubmit.
+  const [staleSchedule, setStaleSchedule] = useState(false);
 
   const trimmedTitle = title.trim();
   const trimmedSummary = summary.trim();
@@ -111,6 +114,10 @@ export function AnnouncementComposer({
     trimmedBody.length > ANNOUNCEMENT_BODY_MAX ||
     scheduleNeedsFutureDate;
 
+  // The time is the problem either because it was already past when the
+  // form rendered, or because it went past while the operator was typing.
+  const showFutureDateError = touched && (scheduleNeedsFutureDate || staleSchedule);
+
   const failureCopy = humanizeCode(
     error,
     {
@@ -126,6 +133,29 @@ export function AnnouncementComposer({
     event.preventDefault();
     setTouched(true);
     if (blocked || pending) return;
+
+    /**
+     * Re-check the instant AT SUBMIT, not only at render.
+     *
+     * `blocked` is computed during render and compares against
+     * `Date.now()` at that moment. React does not re-render on a timer,
+     * so an operator who picks a time a minute out and then spends two
+     * minutes writing the body submits against a STALE pass: the guard
+     * said future when it was rendered, and the instant is past by the
+     * time it is sent.
+     *
+     * The server refuses it correctly — and cannot say why. Its
+     * `publish_at_not_future` and `backdating_not_allowed` reason codes
+     * are declared in the contract but have no producer, so the refusal
+     * arrives as a bare `bcc_invalid_request` and the composer can only
+     * fall back to naming every field. Catching it here is what lets the
+     * operator be told it was the TIME.
+     */
+    if (mode === "schedule" && (!publishAtValid || publishAtDate.getTime() <= Date.now())) {
+      setStaleSchedule(true);
+      return;
+    }
+    setStaleSchedule(false);
 
     const request: CreateAnnouncementRequest = {
       title: trimmedTitle,
@@ -239,14 +269,14 @@ export function AnnouncementComposer({
               id={dateId}
               type="datetime-local"
               value={publishAtLocal}
-              onChange={(e) => setPublishAtLocal(e.target.value)}
+              onChange={(e) => { setPublishAtLocal(e.target.value); setStaleSchedule(false); }}
               disabled={pending}
               aria-describedby={`${dateId}-help`}
-              aria-invalid={touched && scheduleNeedsFutureDate}
+              aria-invalid={showFutureDateError}
               className="rounded-sm border border-bcc-border bg-bcc-input-bg px-3 py-2 text-bcc-text disabled:opacity-50"
             />
             <p id={`${dateId}-help`} className="text-bcc-text-secondary" style={{ fontSize: "12px" }}>
-              {touched && scheduleNeedsFutureDate
+              {showFutureDateError
                 ? "Pick a time in the future — announcements can't be backdated."
                 : "Shown in your local time; stored and compared in UTC."}
             </p>
