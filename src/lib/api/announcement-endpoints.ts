@@ -256,11 +256,26 @@ export async function archiveAnnouncement(
 }
 
 /**
- * POST | DELETE /validators/:pageId/announcements/:id/pin.
+ * POST /validators/:pageId/announcements/:id/pin.
  *
  * One pinned announcement per validator — pinning a second atomically
  * unpins the first server-side, so the client never has to sequence two
  * calls (and cannot leave two pinned if the second fails).
+ *
+ * ⚠ The direction travels in the BODY, as a required boolean, not in the
+ * HTTP verb. This previously sent POST to pin and DELETE to unpin with no
+ * body, which is wrong in both directions: the route is registered
+ * `WP_REST_Server::CREATABLE` only — there is no DELETE verb to answer an
+ * unpin — and a POST without `pinned` is refused outright. Measured
+ * against the real backend:
+ *
+ *     POST …/39/pin  (no body)        → 400 Missing parameter(s): pinned
+ *     POST …/39/pin  {"pinned": true} → 200
+ *
+ * It went unnoticed because the only control that calls this was never
+ * reachable: row capabilities were read from a list that cannot carry
+ * them, so every pin button rendered permanently disabled. Correcting
+ * that sourcing is what exposed the write underneath it.
  */
 export async function setAnnouncementPin(
   pageId: number,
@@ -268,8 +283,10 @@ export async function setAnnouncementPin(
   pinned: boolean,
 ): Promise<Announcement> {
   return bccFetchAsClient<Announcement>(
+    // Both corrections apply: the BARE NUMERIC id from this branch, and
+    // the direction-in-the-body from F1. Either alone still fails.
     `${announcementsRoot(pageId)}/${pathId(announcementId, "announcement")}/pin`,
-    { method: pinned ? "POST" : "DELETE" },
+    { method: "POST", body: { pinned } },
   );
 }
 
