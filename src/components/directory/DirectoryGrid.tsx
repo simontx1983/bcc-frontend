@@ -32,6 +32,8 @@ import type { UseInfiniteQueryResult, InfiniteData } from "@tanstack/react-query
 
 import { CardGrid } from "@/components/cards/CardGrid";
 import { CardGridSkeleton } from "@/components/cards/CardGridSkeleton";
+import { humanizeCode, isPermissionDenial } from "@/lib/api/errors";
+import { LoadFailure } from "@/components/ui/LoadFailure";
 import type {
   BccApiError,
   Card,
@@ -43,12 +45,41 @@ interface Props {
 }
 
 export function DirectoryGrid({ query }: Props) {
-  if (query.isError) {
+  // §γ — copy is keyed on err.code; never render err.message. This
+  // component previously rendered ONE hardcoded sentence for every failure,
+  // so a denial and a rate limit read identically and neither was keyed on
+  // the code at all.
+  const failureCopy = humanizeCode(
+    query.error,
+    {
+      bcc_unauthorized: "Sign in to browse the directory.",
+      bcc_rate_limited: "Loading too fast — give it a moment and try again.",
+      bcc_unavailable: "The directory is temporarily unavailable. Try again shortly.",
+      bcc_forbidden: "You can’t browse the directory.",
+      bcc_permission_denied: "You can’t browse the directory.",
+      bcc_blocked: "You can’t browse the directory.",
+    },
+    "The directory hit a snag. Try a different filter or refresh in a moment.",
+  );
+
+  // This component is handed the query rather than owning it, so it has no
+  // query KEY and cannot host the withdrawal gate — see the note on
+  // `DirectoryGrid` in the PR. Retry is still withheld on a denial, which
+  // is the half that does not need the key.
+  const denied = isPermissionDenial(query.error);
+  const refetchProps = denied ? {} : { onRetry: () => void query.refetch() };
+  const nextPageProps = denied
+    ? {}
+    : { onRetry: () => void query.fetchNextPage() };
+
+  // ONLY a first-load failure may replace the grid. A blanket `isError` was
+  // true for all three failures and returned here BEFORE reading
+  // `data.pages`, so one failed LOAD MORE threw away results that had
+  // loaded fine — and the filter controls above it were the only way back.
+  if (query.isLoadingError) {
     return (
       <div className="bcc-panel mx-auto max-w-md p-6 text-center">
-        <p className="font-serif text-sm text-bcc-text-secondary">
-          The directory hit a snag. Try a different filter or refresh in a moment.
-        </p>
+        <LoadFailure message={failureCopy} {...refetchProps} />
       </div>
     );
   }
@@ -61,7 +92,10 @@ export function DirectoryGrid({ query }: Props) {
   // CardsListResponse — concat in order.
   const items: Card[] = (query.data?.pages ?? []).flatMap((p) => p.items);
 
-  if (items.length === 0) {
+  // "Filter’s too tight" is a claim about the SERVER having no matches.
+  // A failed read does not support it — telling someone to loosen a
+  // filter when the request actually failed sends them the wrong way.
+  if (items.length === 0 && !query.isError) {
     return (
       <div className="bcc-panel mx-auto max-w-md p-8 text-center">
         <p className="bcc-mono text-safety">NO MATCHES</p>
@@ -80,7 +114,22 @@ export function DirectoryGrid({ query }: Props) {
     <>
       <CardGrid cards={items} />
 
-      {query.hasNextPage && (
+      {/* A failed REFRESH keeps the grid and localises the recovery. */}
+      {query.isRefetchError && (
+        <div className="mt-8">
+          <LoadFailure message={failureCopy} {...refetchProps} />
+        </div>
+      )}
+
+      {/* Cursor safety: while the NEXT page is failed, LOAD MORE is
+          withdrawn so it cannot advance past the page that failed. */}
+      {query.isFetchNextPageError ? (
+        <div className="mt-8">
+          <LoadFailure message={failureCopy} {...nextPageProps} />
+        </div>
+      ) : (
+        query.hasNextPage &&
+        !denied && (
         <div className="mt-8 flex justify-center">
           <button
             type="button"
@@ -96,6 +145,7 @@ export function DirectoryGrid({ query }: Props) {
             {query.isFetchingNextPage ? "LOADING…" : "LOAD MORE"}
           </button>
         </div>
+        )
       )}
     </>
   );

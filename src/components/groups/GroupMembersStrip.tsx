@@ -27,8 +27,14 @@ import type { Route } from "next";
 
 import { Avatar } from "@/components/identity/Avatar";
 import { GroupGatedNotice } from "@/components/groups/GroupGatedNotice";
-import { useGroupMembers } from "@/hooks/useGroupMembers";
-import { humanizeCode } from "@/lib/api/errors";
+import { GROUP_MEMBERS_QUERY_KEY_ROOT, useGroupMembers } from "@/hooks/useGroupMembers";
+import { humanizeCode, isPermissionDenial } from "@/lib/api/errors";
+import {
+  shouldWithdrawOnDenial,
+  useDenialGate,
+  useReportDenial,
+} from "@/lib/api/resource-denial";
+import { LoadFailure } from "@/components/ui/LoadFailure";
 import type { GroupDetailResponse, GroupMember } from "@/lib/api/types";
 
 const PREVIEW_COUNT = 8;
@@ -47,12 +53,47 @@ export function GroupMembersStrip({ group }: GroupMembersStripProps) {
     return <GroupGatedNotice hint={null} variant="roster" />;
   }
 
-  return <GroupMembersBody group={group} />;
+  return <GroupMembersGate group={group} />;
 }
 
-function GroupMembersBody({ group }: { group: GroupDetailResponse }) {
+/** Shown once the server has withdrawn permission to read this roster. */
+const ROSTER_WITHDRAWN_COPY = "You can’t see this group’s roster.";
+
+/**
+ * The denial gate. Owns no query, so latching it unmounts the body below —
+ * which is what makes removing the cache entry safe. See
+ * `lib/api/resource-denial`.
+ */
+function GroupMembersGate({ group }: { group: GroupDetailResponse }) {
+  const gate = useDenialGate([...GROUP_MEMBERS_QUERY_KEY_ROOT, group.id]);
+
+  if (gate.withdrawn) {
+    return (
+      <div className="py-6">
+        <LoadFailure message={ROSTER_WITHDRAWN_COPY} />
+      </div>
+    );
+  }
+
+  return <GroupMembersBody group={group} onDenied={gate.withdraw} />;
+}
+
+function GroupMembersBody({
+  group,
+  onDenied,
+}: {
+  group: GroupDetailResponse;
+  onDenied: () => void;
+}) {
   const [expanded, setExpanded] = useState(false);
   const query = useGroupMembers(group.id);
+
+  // A denied REFRESH of the roster already on screen withdraws it. A denied
+  // next page does not — it says nothing about the rows already served.
+  useReportDenial(
+    shouldWithdrawOnDenial(query.error, query.isRefetchError, query.data !== undefined),
+    onDenied,
+  );
 
   if (query.isLoading) {
     return (
@@ -62,37 +103,49 @@ function GroupMembersBody({ group }: { group: GroupDetailResponse }) {
     );
   }
 
-  if (query.isError) {
+  // §γ — copy is keyed on err.code; never render err.message.
+  const failureCopy = humanizeCode(
+    query.error,
+    {
+      bcc_unauthorized: "Sign in to see this roster.",
+      bcc_rate_limited: "Loading too fast — give it a moment and try again.",
+      bcc_unavailable: "The roster is temporarily unavailable. Try again shortly.",
+      // All three denial codes, or the copy falls through to a default
+      // ending in "Try again in a moment" — advice withheld with the control.
+      bcc_forbidden: "You can’t see this group’s roster.",
+      bcc_permission_denied: "You can’t see this group’s roster.",
+      bcc_blocked: "You can’t see this group’s roster.",
+    },
+    "Couldn't load the roster. Try again in a moment.",
+  );
+
+  // A permission boundary does not move when the page does, so a Retry
+  // against one can only fail the same way: omit `onRetry` and no button
+  // renders at all rather than an inert one.
+  const denied = isPermissionDenial(query.error);
+  const refetchProps = denied ? {} : { onRetry: () => void query.refetch() };
+  const nextPageProps = denied
+    ? {}
+    : { onRetry: () => void query.fetchNextPage() };
+
+  // ONLY a first-load failure may replace the strip. A blanket `isError`
+  // was true for all three failures and returned here BEFORE reading
+  // `data.pages`, so one failed LOAD MORE threw away a roster that had
+  // loaded fine. The other two are handled at the foot of the list.
+  if (query.isLoadingError) {
     return (
       <div className="py-6">
-        <p role="alert" className="bcc-mono text-safety">
-          {/* §γ — copy is keyed on err.code; never render err.message. */}
-          {humanizeCode(
-            query.error,
-            {
-              bcc_unauthorized: "Sign in to see this roster.",
-              bcc_rate_limited: "Loading too fast — give it a moment and try again.",
-              bcc_unavailable: "The roster is temporarily unavailable. Try again shortly.",
-            },
-            "Couldn't load the roster. Try again in a moment.",
-          )}
-        </p>
-        <button
-          type="button"
-          onClick={() => {
-            void query.refetch();
-          }}
-          className="bcc-mono mt-3 text-bcc-text-secondary underline"
-        >
-          Try again
-        </button>
+        <LoadFailure message={failureCopy} {...refetchProps} />
       </div>
     );
   }
 
   const items = (query.data?.pages ?? []).flatMap((page) => page.items);
 
-  if (items.length === 0) {
+  // "Empty roster" is a claim about the SERVER having no members. A failed
+  // read does not support it, so the claim is withheld while in error —
+  // the same rule the released panels follow.
+  if (items.length === 0 && !query.isError) {
     return (
       <div className="bcc-panel mx-auto p-6 text-center">
         <h2 className="bcc-stencil text-2xl text-bcc-text">Empty roster</h2>
@@ -120,19 +173,32 @@ function GroupMembersBody({ group }: { group: GroupDetailResponse }) {
         ))}
       </ul>
 
-      {expanded && query.hasNextPage && (
-        <button
-          type="button"
-          onClick={() => {
-            if (!query.isFetchingNextPage) {
-              void query.fetchNextPage();
-            }
-          }}
-          disabled={query.isFetchingNextPage}
-          className="bcc-stencil mx-auto border border-bcc-border px-6 py-2.5 text-bcc-text disabled:opacity-50"
-        >
-          {query.isFetchingNextPage ? "Loading…" : "Load more members"}
-        </button>
+      {/* A failed REFRESH keeps the roster and localises the recovery
+          beneath it; the cursor is still coherent so paging stays open. */}
+      {query.isRefetchError && <LoadFailure message={failureCopy} {...refetchProps} />}
+
+      {/* Cursor safety: while the NEXT page is failed, LOAD MORE is
+          withdrawn so it cannot advance past — and skip — the page that
+          failed. Retry re-requests that same page. */}
+      {query.isFetchNextPageError ? (
+        <LoadFailure message={failureCopy} {...nextPageProps} />
+      ) : (
+        expanded &&
+        query.hasNextPage &&
+        !denied && (
+          <button
+            type="button"
+            onClick={() => {
+              if (!query.isFetchingNextPage) {
+                void query.fetchNextPage();
+              }
+            }}
+            disabled={query.isFetchingNextPage}
+            className="bcc-stencil mx-auto border border-bcc-border px-6 py-2.5 text-bcc-text disabled:opacity-50"
+          >
+            {query.isFetchingNextPage ? "Loading…" : "Load more members"}
+          </button>
+        )
       )}
 
       {hasMoreToShow && (

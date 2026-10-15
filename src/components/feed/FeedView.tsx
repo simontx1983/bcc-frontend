@@ -46,8 +46,18 @@ import { HighlightStrip } from "@/components/feed/HighlightStrip";
 import { LoadFailure } from "@/components/ui/LoadFailure";
 import { SKELETON_CLASS } from "@/components/ui/Skeleton";
 import { Spinner } from "@/components/ui/Spinner";
-import { useFeed, useHotFeed } from "@/hooks/useFeed";
-import { humanizeCode } from "@/lib/api/errors";
+import {
+  FEED_QUERY_KEY_ROOT,
+  HOT_FEED_QUERY_KEY,
+  useFeed,
+  useHotFeed,
+} from "@/hooks/useFeed";
+import { humanizeCode, isPermissionDenial } from "@/lib/api/errors";
+import {
+  shouldWithdrawOnDenial,
+  useDenialGate,
+  useReportDenial,
+} from "@/lib/api/resource-denial";
 import type { FeedItem, FeedScope } from "@/lib/api/types";
 
 export interface FeedViewProps {
@@ -76,8 +86,38 @@ export function FeedView({ isAuthenticated }: FeedViewProps) {
 // each scope has its own queryKey, so React Query handles the cache.
 // ─────────────────────────────────────────────────────────────────────
 
+/** Shown once the server has withdrawn permission to read a feed. */
+const FEED_WITHDRAWN_COPY = "You can’t read this feed.";
+
+/**
+ * The denial gates for the three feed owners.
+ *
+ * <FeedBody> receives the query as PROPS, so it has no query key and cannot
+ * host the gate itself. That is a placement constraint, not an exemption:
+ * the key exists one level up, in whichever component calls the hook. So
+ * the gate goes there, and the hook call stays inside the gated child —
+ * which is what makes unmount-then-remove safe.
+ */
 function AuthedFeed({ scope }: { scope: FeedScope }) {
+  const gate = useDenialGate([...FEED_QUERY_KEY_ROOT, scope]);
+  if (gate.withdrawn) {
+    return <LoadFailure message={FEED_WITHDRAWN_COPY} />;
+  }
+  return <AuthedFeedData scope={scope} onDenied={gate.withdraw} />;
+}
+
+function AuthedFeedData({
+  scope,
+  onDenied,
+}: {
+  scope: FeedScope;
+  onDenied: () => void;
+}) {
   const query = useFeed(scope);
+  useReportDenial(
+    shouldWithdrawOnDenial(query.error, query.isRefetchError, query.data !== undefined),
+    onDenied,
+  );
   return (
     <>
       {/* §O2 highlights — a curated top-3 digest of the signal stream
@@ -98,7 +138,19 @@ function AuthedFeed({ scope }: { scope: FeedScope }) {
 // ─────────────────────────────────────────────────────────────────────
 
 function AnonFeed() {
+  const gate = useDenialGate(HOT_FEED_QUERY_KEY);
+  if (gate.withdrawn) {
+    return <LoadFailure message={FEED_WITHDRAWN_COPY} />;
+  }
+  return <AnonFeedData onDenied={gate.withdraw} />;
+}
+
+function AnonFeedData({ onDenied }: { onDenied: () => void }) {
   const query = useHotFeed();
+  useReportDenial(
+    shouldWithdrawOnDenial(query.error, query.isRefetchError, query.data !== undefined),
+    onDenied,
+  );
   return (
     <div className="pt-2">
       <div className="bcc-mono mb-3 flex items-center gap-3 text-bcc-text-secondary">
@@ -121,6 +173,16 @@ export interface FeedBodyProps {
   data: { pages: { items: FeedItem[] }[] } | undefined;
   isLoading: boolean;
   isError: boolean;
+  /**
+   * The three-way split. Optional because this interface is also the
+   * contract for hand-built props in tests; every production caller
+   * spreads the whole query (`<FeedBody {...query} />`), so they arrive
+   * for free. Absent means "treat it as a first load", which is the old
+   * behaviour and the safe default.
+   */
+  isLoadingError?: boolean;
+  isRefetchError?: boolean;
+  isFetchNextPageError?: boolean;
   error: Error | null;
   isFetchingNextPage: boolean;
   hasNextPage: boolean;
@@ -135,7 +197,16 @@ export interface FeedBodyProps {
 }
 
 export function FeedBody(props: FeedBodyProps) {
-  const { data, isLoading, isError, error, isFetchingNextPage, hasNextPage, fetchNextPage, refetch, emptyState } = props;
+  const {
+    data, isLoading, isError, error, isFetchingNextPage, hasNextPage,
+    fetchNextPage, refetch, emptyState,
+  } = props;
+
+  // Absent flags fall back to the old all-or-nothing behaviour rather than
+  // silently retaining content a caller never told us about.
+  const isLoadingError = props.isLoadingError ?? isError;
+  const isRefetchError = props.isRefetchError ?? false;
+  const isFetchNextPageError = props.isFetchNextPageError ?? false;
 
   // Sentinel for IntersectionObserver auto-load. Sits just above the
   // "Load more" button so it scrolls into view (with the 400px root
@@ -213,25 +284,40 @@ export function FeedBody(props: FeedBodyProps) {
     );
   }
 
-  if (isError) {
-    return (
-      <LoadFailure
-        // §γ — copy is keyed on err.code; never render err.message.
-        message={humanizeCode(
-          error,
-          {
-            bcc_unauthorized: "Sign in to see your feed.",
-            bcc_rate_limited: "Loading too fast — give it a moment and try again.",
-            bcc_unavailable: "The feed is temporarily unavailable. Try again shortly.",
-          },
-          "Couldn't load the feed. Try again in a moment.",
-        )}
-        onRetry={refetch}
-      />
-    );
+  // §γ — copy is keyed on err.code; never render err.message.
+  const failureCopy = humanizeCode(
+    error,
+    {
+      bcc_unauthorized: "Sign in to see your feed.",
+      bcc_rate_limited: "Loading too fast — give it a moment and try again.",
+      bcc_unavailable: "The feed is temporarily unavailable. Try again shortly.",
+      // All three denial codes, or the copy falls through to a default
+      // ending in "Try again in a moment" — advice withheld with the
+      // control.
+      bcc_forbidden: "You can’t read this feed.",
+      bcc_permission_denied: "You can’t read this feed.",
+      bcc_blocked: "You can’t read this feed.",
+    },
+    "Couldn't load the feed. Try again in a moment.",
+  );
+
+  const denied = isPermissionDenial(error);
+  const refetchProps = denied ? {} : { onRetry: refetch };
+  const nextPageProps = denied ? {} : { onRetry: () => fetchNextPage() };
+
+  // ONLY a first-load failure may replace the feed. A blanket `isError` was
+  // true for all three failures and returned here BEFORE reading
+  // `data.pages`, so one failed auto-load — which the IntersectionObserver
+  // fires without any user action — replaced a scrolled feed with an error
+  // panel. The other two are handled at the foot of the list.
+  if (isLoadingError) {
+    return <LoadFailure message={failureCopy} {...refetchProps} />;
   }
 
-  if (items.length === 0) {
+  // An empty feed is a claim about the SERVER having nothing. A failed read
+  // does not support it, and DiscoverPanel's cold-start copy is actively
+  // wrong there — it tells someone the room is quiet when the request failed.
+  if (items.length === 0 && !isError) {
     // §F5 / Sprint 3 — cold-start bridge surface. DiscoverPanel mounts
     // ONLY here (parent gates on items.length === 0). It is NOT a
     // default feed for inactive users; it's a one-shot map showing the
@@ -251,7 +337,25 @@ export function FeedBody(props: FeedBodyProps) {
         <FeedRow key={item.id} item={item} />
       ))}
 
-      {hasNextPage && (
+      {/* A failed REFRESH keeps the feed and localises the recovery; the
+          cursor is still coherent so paging stays open. */}
+      {isRefetchError && (
+        <div className="mt-4">
+          <LoadFailure message={failureCopy} {...refetchProps} />
+        </div>
+      )}
+
+      {/* Cursor safety: while the NEXT page is failed, both the sentinel
+          and the button are withdrawn. The sentinel matters most — leaving
+          it mounted would let the IntersectionObserver re-fire the same
+          failing page on every scroll, with no user action at all. */}
+      {isFetchNextPageError && (
+        <div className="mt-4">
+          <LoadFailure message={failureCopy} {...nextPageProps} />
+        </div>
+      )}
+
+      {hasNextPage && !isFetchNextPageError && !denied && (
         <>
           {/* Sentinel for the IntersectionObserver. h-px keeps it
               effectively invisible but still observable. */}
@@ -272,7 +376,9 @@ export function FeedBody(props: FeedBodyProps) {
         </>
       )}
 
-      {!hasNextPage && items.length > 0 && (
+      {/* "End of the floor" is a claim about the SERVER having no more
+          posts. A failed next page means we do not know that. */}
+      {!hasNextPage && !isFetchNextPageError && items.length > 0 && (
         <p className="bcc-mono mt-4 text-center text-bcc-text-secondary">
           End of the floor.
         </p>

@@ -28,10 +28,11 @@ import { useEffect, useState } from "react";
 import { CardGrid } from "@/components/cards/CardGrid";
 import { CardGridSkeleton } from "@/components/cards/CardGridSkeleton";
 import { PagerNav } from "@/components/ui/PagerNav";
+import { LoadFailure } from "@/components/ui/LoadFailure";
 import { WatchingHeader } from "@/components/watching/WatchingHeader";
 import { useUnwatchMutation } from "@/hooks/useWatch";
 import { useWatching, useWatchingSummary } from "@/hooks/useWatching";
-import { humanizeCode } from "@/lib/api/errors";
+import { humanizeCode, isPermissionDenial } from "@/lib/api/errors";
 import type { Card, WatchingItem, WatchingPagination } from "@/lib/api/types";
 
 /**
@@ -96,35 +97,61 @@ export function WatchingCardsPanel({
     }
   }, [watching.isSuccess, serverTotalPages, items.length, page, onPageChange]);
 
-  if (watching.isError) {
+  const pagination = watching.data?.pagination ?? lastPagination;
+
+  // §γ — copy is keyed on err.code; never render err.message.
+  //
+  // The default names the PAGE once one has succeeded, because "couldn't
+  // load your watchlist" on page 4 reads as "your watchlist is gone" when
+  // in fact it loaded and one page of it did not. Appended to whatever the
+  // code map chose, so a coded failure keeps the distinction too, and
+  // suppressed on a denial where PREV goes nowhere better.
+  const laterPage = pagination !== undefined && page > 1;
+  const failureCopy =
+    humanizeCode(
+      watching.error,
+      {
+        bcc_unauthorized: "Sign in to see your watchlist.",
+        bcc_rate_limited: "Loading too fast — give it a moment and try again.",
+        bcc_unavailable: "Your watchlist is temporarily unavailable. Try again shortly.",
+        bcc_permission_denied: "You can’t read this watchlist.",
+        bcc_forbidden: "You can’t read this watchlist.",
+        // `bcc_blocked` is the third member of PERMISSION_DENIAL_CODES, so
+        // the Retry control is already withheld for it — but without this
+        // line the copy fell through to the default, which ends in "Try
+        // again in a moment". A blocked viewer was told to retry beside no
+        // control to retry with.
+        bcc_blocked: "You can’t read this watchlist.",
+      },
+      laterPage
+        ? "Couldn’t load page " + page + " of your watchlist."
+        : "Couldn't load your watchlist. Try again in a moment.",
+    ) +
+    (laterPage && !isPermissionDenial(watching.error)
+      ? " PREV goes back to the last page that loaded."
+      : "");
+
+  // A permission boundary does not move when the page does, so a Retry
+  // against one can only fail the same way. Omitting `onRetry` renders no
+  // button at all rather than an inert one.
+  const retryProps = isPermissionDenial(watching.error)
+    ? {}
+    : { onRetry: () => void watching.refetch() };
+
+  // Full-panel failure ONLY on a first load, where there is no pager to
+  // preserve. Each page is its own query key, so a failed page N>1 has no
+  // `data` — but `lastPagination` still holds the last good page, and this
+  // branch used to return before reaching it. That stranded the operator:
+  // the grid, the metric strip, the pager and the way back to page N-1 all
+  // disappeared together, leaving the URL as the only exit. Mirrors the
+  // split `WatchersPanel` (the sibling tab) and /members already make.
+  if (watching.isError && pagination === undefined) {
     return (
       <section className="mt-12">
-        <p role="alert" className="bcc-mono text-safety">
-          {/* §γ — copy is keyed on err.code; never render err.message. */}
-          {humanizeCode(
-            watching.error,
-            {
-              bcc_unauthorized: "Sign in to see your watchlist.",
-              bcc_rate_limited: "Loading too fast — give it a moment and try again.",
-              bcc_unavailable: "Your watchlist is temporarily unavailable. Try again shortly.",
-            },
-            "Couldn't load your watchlist. Try again in a moment.",
-          )}
-        </p>
-        <button
-          type="button"
-          onClick={() => {
-            void watching.refetch();
-          }}
-          className="bcc-mono mt-3 text-bcc-text-secondary underline"
-        >
-          Try again
-        </button>
+        <LoadFailure message={failureCopy} {...retryProps} />
       </section>
     );
   }
-
-  const pagination = watching.data?.pagination ?? lastPagination;
 
   // First load — nothing successful to frame the skeleton with yet, so
   // no header and no pager. (On a *page change* `lastPagination` is
@@ -142,7 +169,9 @@ export function WatchingCardsPanel({
   // Terminal empty state only once the query has settled — during a page
   // transition `items` is empty simply because the next page is in
   // flight.
-  if (!watching.isPending && items.length === 0) {
+  // A failed page is NOT an empty watchlist — it is handled beside the
+  // pager below. Mirrors WatchersPanel's `!query.isError` guard.
+  if (!watching.isPending && !watching.isError && items.length === 0) {
     return (
       <section className="mt-12">
         <div className="bcc-panel mx-auto max-w-xl p-8 text-center">
@@ -191,7 +220,11 @@ export function WatchingCardsPanel({
             CTA on a card can render idle even though this very list is
             the proof it's watched. Cosmetic only — the toggle still
             writes correctly, and a refetch restores the label. */}
-        {watching.isPending ? (
+        {watching.isError ? (
+          // Only the grid swaps — the pager below stays mounted, so PREV is
+          // still there to get back to a page that works.
+          <LoadFailure message={failureCopy} {...retryProps} />
+        ) : watching.isPending ? (
           <CardGridSkeleton ariaLabel="Loading your watchlist" />
         ) : (
           <CardGrid cards={cards} />

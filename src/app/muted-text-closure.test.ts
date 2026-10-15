@@ -277,8 +277,12 @@ describe("closure — E2's six exclusions survive", () => {
     // and added its rationale comment three lines above these (net +2).
     [`${APP}/halls/page.tsx`, 308, "← Previous, no prev page"],
     [`${APP}/halls/page.tsx`, 324, "Next →, no next page"],
-    [`${APP}/directory/page.tsx`, 252, "aria-hidden ✕ chip"],
-    [`${APP}/validators/page.tsx`, 239, "aria-hidden ✕ chip"],
+    // 252 → 251 and 239 → 238: both pages lost their `const query =
+    // useDirectory(...)` line when the directory's denial gate moved the
+    // hook call down into <DirectoryResults>. The exclusion itself is
+    // unchanged; only its line moved (net −1 each).
+    [`${APP}/directory/page.tsx`, 251, "aria-hidden ✕ chip"],
+    [`${APP}/validators/page.tsx`, 238, "aria-hidden ✕ chip"],
   ];
   for (const [file, line, why] of E2) {
     it(`${file.split("/").pop()}:${line} — ${why}`, () => {

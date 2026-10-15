@@ -12,6 +12,7 @@
 
 import type { Metadata } from "next";
 
+import { ANON_SSR_REVALIDATE_SECONDS } from "@/lib/api/cache-policy";
 import { getFeedItemById } from "@/lib/api/feed-endpoints";
 import { POST_KIND_LABELS, deriveBodySummary } from "@/components/feed/postBody";
 import { presentationName } from "@/lib/format";
@@ -20,7 +21,24 @@ import type { FeedItem } from "@/lib/api/types";
 export async function buildPostMetadata(id: string): Promise<Metadata> {
   let item: FeedItem;
   try {
-    item = await getFeedItemById(id, null);
+    // Always anon here — metadata has no session — so this is safe to put
+    // in the SHARED Data Cache and serve to every crawler and viewer. Same
+    // argument, same constant, as the profile page's metadata read.
+    //
+    // ⚠ Without the `revalidate` this fetch was never cached at all, and
+    // both post-detail routes go through here. Measured against a
+    // recording API stub, two loads of one post:
+    //
+    //   anonymous   2 loads -> 2 upstream reads (should be 1)
+    //   authed      2 loads -> 4 upstream reads (1 anon + 1 authed each)
+    //   viewer B    right after A read the same post -> 2 more
+    //
+    // The anon leg is byte-identical for everyone, so every one of those
+    // repeats was avoidable. The authed leg stays uncached on purpose —
+    // a personalized response must never be shared.
+    item = await getFeedItemById(id, null, {
+      revalidate: ANON_SSR_REVALIDATE_SECONDS,
+    });
   } catch {
     return { title: "Post not found · Blue Collar Crypto" };
   }
