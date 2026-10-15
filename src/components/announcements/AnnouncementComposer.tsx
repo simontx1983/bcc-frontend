@@ -42,12 +42,23 @@ interface AnnouncementComposerProps {
  * `datetime-local` yields wall-clock text with no zone. Interpreting it
  * in the viewer's own zone and sending UTC is the only reading that
  * matches what the operator saw in the field.
+ *
+ * ⚠ The wire format is `Y-m-d H:i:s` — a space, no `T`, no `Z`, no
+ * fractional seconds. This sent `toISOString()`, which the route refuses
+ * outright, so the composer's Schedule mode could never succeed. Measured
+ * against the real backend:
+ *
+ *     publish_at: "2026-10-17T19:58:51.114956Z"  → 400 bcc_invalid_request
+ *       "publish_at must be a strictly future UTC instant formatted Y-m-d H:i:s."
+ *     publish_at: "2026-10-17 19:58:51"          → 200, state "future"
+ *
+ * The instant is unchanged — only the rendering. `toISOString()` is still
+ * what converts the viewer's local wall-clock to UTC; the slice and swap
+ * are what the route accepts.
  */
-function localInputToUtcIso(value: string): string | null {
-  if (value === "") return null;
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return null;
-  return parsed.toISOString();
+function toUtcWireInstant(instant: Date): string {
+  // "2026-10-17T19:58:51.114Z" → "2026-10-17 19:58:51"
+  return instant.toISOString().slice(0, 19).replace("T", " ");
 }
 
 export function AnnouncementComposer({
@@ -73,13 +84,23 @@ export function AnnouncementComposer({
   const trimmedTitle = title.trim();
   const trimmedSummary = summary.trim();
   const trimmedBody = body.trim();
-  const publishAtIso = localInputToUtcIso(publishAtLocal);
+  // Parsed ONCE. The future-check used to re-parse the formatter's own
+  // output, which is a trap now that the wire format is space-separated:
+  // `Date.parse("2026-10-17 19:58:51")` is read as LOCAL time by V8, so
+  // the check would drift by the viewer's UTC offset and let a past
+  // instant through west of Greenwich. Holding the Date avoids the
+  // round-trip entirely.
+  const publishAtDate = publishAtLocal === "" ? null : new Date(publishAtLocal);
+  const publishAtValid =
+    publishAtDate !== null && !Number.isNaN(publishAtDate.getTime());
+  const publishAtWire = publishAtValid ? toUtcWireInstant(publishAtDate) : null;
 
   // Summary is validated on its own so a missing summary can never be
   // masked by a title or body problem — it is a first-class field.
   const summaryMissing = trimmedSummary === "";
   const scheduleNeedsFutureDate =
-    mode === "schedule" && (publishAtIso === null || Date.parse(publishAtIso) <= Date.now());
+    mode === "schedule" &&
+    (!publishAtValid || publishAtDate.getTime() <= Date.now());
 
   const blocked =
     trimmedTitle === "" ||
@@ -113,8 +134,8 @@ export function AnnouncementComposer({
       mode,
       comments_enabled: commentsEnabled,
     };
-    if (mode === "schedule" && publishAtIso !== null) {
-      request.publish_at = publishAtIso;
+    if (mode === "schedule" && publishAtWire !== null) {
+      request.publish_at = publishAtWire;
     }
     void onSubmit(request);
   }
