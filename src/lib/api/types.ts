@@ -6493,6 +6493,19 @@ export interface AnnouncementListResponse {
   pagination: { next_cursor: string | null; has_more: boolean };
 }
 
+/**
+ * The owner-scoped list's envelope. Same cursor shape, but every row is
+ * capability-bearing — which is the whole reason the surface exists.
+ *
+ * ⚠ Its cursor is minted by a DIFFERENT surface (`ann_owner`) than the
+ * public list's (`ann_active`), and the server refuses a cursor across
+ * surfaces. They are not interchangeable; never thread one into the other.
+ */
+export interface OwnerAnnouncementListResponse {
+  items: OwnerAnnouncementListItem[];
+  pagination: { next_cursor: string | null; has_more: boolean };
+}
+
 export interface CreateAnnouncementRequest {
   title: string;
   summary: string;

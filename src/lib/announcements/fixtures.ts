@@ -26,6 +26,7 @@ import type {
   AnnouncementDetail,
   AnnouncementListResponse,
   OwnerAnnouncementListItem,
+  OwnerAnnouncementListResponse,
   CardPermissionEntry,
 } from "@/lib/api/types";
 
@@ -214,6 +215,22 @@ export function announcementListResponse(
   items: Announcement[],
   nextCursor: string | null = null,
 ): AnnouncementListResponse {
+  return {
+    items,
+    pagination: { next_cursor: nextCursor, has_more: nextCursor !== null },
+  };
+}
+
+/**
+ * The OWNER list's envelope. Same cursor shape as the public one, but its
+ * rows are capability-bearing — which is the only reason the surface
+ * exists, so the type is the capability-bearing one rather than
+ * `Announcement[]`.
+ */
+export function ownerAnnouncementListResponse(
+  items: OwnerAnnouncementListItem[],
+  nextCursor: string | null = null,
+): OwnerAnnouncementListResponse {
   return {
     items,
     pagination: { next_cursor: nextCursor, has_more: nextCursor !== null },

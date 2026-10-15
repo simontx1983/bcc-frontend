@@ -68,10 +68,15 @@ import { useViewerScope } from "@/hooks/useViewerScope";
 import {
   announcementsListQueryKey,
   useAnnouncements,
+  useOwnerAnnouncements,
   useSetAnnouncementPin,
   useCreateAnnouncement,
 } from "@/hooks/useAnnouncements";
-import type { Announcement, AnnouncementFeatureCapabilities } from "@/lib/api/types";
+import type {
+  Announcement,
+  AnnouncementCapabilities,
+  AnnouncementFeatureCapabilities,
+} from "@/lib/api/types";
 
 interface AnnouncementsPanelProps {
   pageId: number;
@@ -218,6 +223,44 @@ function ActiveSectionData({
   const query = useAnnouncements(pageId, { state: "active" });
   const pin = useSetAnnouncementPin(pageId);
 
+  /**
+   * Where the management controls get their authority.
+   *
+   * The rows on screen come from the PUBLIC list, and the public list
+   * carries no capabilities for anyone — operator included, by design and
+   * enforced with two distinct producers. So the rows that are displayed
+   * can never, on their own, say whether this operator may pin them. That
+   * is not a bug in the public list; it is the public/owner split working.
+   *
+   * The owner list is the only capability-bearing list, so it is fetched
+   * ALONGSIDE and used purely as a lookup. The public list stays the
+   * display source on purpose:
+   *
+   *   - it orders pinned-first, which is the page's contract and what the
+   *     billboard above shows; the owner list orders by newest effective
+   *     date, so rendering from it would give the operator a different
+   *     order from every other viewer
+   *   - its cursor is minted by a different surface and the server refuses
+   *     one across surfaces, so the two pagers cannot be threaded together
+   *
+   * Only `published` is requested: those are the rows the active list
+   * shows. Drafts, scheduled and blocked rows live on the owner's own
+   * surface and are not displayed here.
+   */
+  const ownerRows = useOwnerAnnouncements(pageId, {
+    status: "published",
+    // Gated on the page-scope capability. This route 403s anyone who is
+    // not the resolved operator, so asking speculatively would mean a
+    // guaranteed 403 on every ordinary visitor's validator page.
+    enabled: canManage,
+  });
+
+  const capabilitiesById = new Map<string, AnnouncementCapabilities>(
+    (ownerRows.data?.pages ?? [])
+      .flatMap((page) => page.items)
+      .map((row) => [row.id, row.capabilities]),
+  );
+
   // A denied REFRESH of the list already on screen withdraws it. A denied
   // next page does not — it says nothing about the rows already served
   // under their own authorised 200.
@@ -299,12 +342,25 @@ function ActiveSectionData({
             <AnnouncementListItem
               announcement={item}
               actions={
-                /* `can_manage` opens the management surface and
-                   nothing more. Whether THIS row may be pinned is
-                   decided inside, from the row's own capability. */
-                canManage ? (
+                /* `can_manage` opens the management surface and nothing
+                   more. Whether THIS row may be pinned is decided inside,
+                   from the row's own capability — which is merged in from
+                   the owner list, because the public row has none.
+
+                   A row the owner list has not covered yet (it paginates
+                   independently of this one) gets NO control rather than
+                   a disabled one. An inert button that says "can't be
+                   pinned right now" would be stating a permission
+                   decision the client has not actually been told, and the
+                   operator can pin that row perfectly well from its
+                   detail page. Absence is the honest rendering; the same
+                   reasoning the panels use for omitting a Retry. */
+                canManage && capabilitiesById.has(item.id) ? (
                   <AnnouncementOwnerActions
-                    announcement={item}
+                    announcement={{
+                      ...item,
+                      capabilities: capabilitiesById.get(item.id)!,
+                    }}
                     pending={pin.isPending}
                     onPin={(announcementId, pinned) =>
                       pin.mutate({ announcementId, pinned })

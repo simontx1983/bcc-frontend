@@ -24,6 +24,8 @@ import type {
   AnnouncementDetail,
   AnnouncementListResponse,
   AnnouncementListState,
+  AnnouncementStatus,
+  OwnerAnnouncementListResponse,
   CreateAnnouncementCommentRequest,
   CreateAnnouncementRequest,
   UpdateAnnouncementRequest,
@@ -42,6 +44,57 @@ export interface ListAnnouncementsParams {
 }
 
 /** GET /validators/:pageId/announcements — cursor page of active or archived. */
+export interface ListOwnerAnnouncementsParams {
+  pageId: number;
+  /**
+   * Which lifecycle bucket. The route's enum is
+   * `draft | scheduled | blocked | published`, and omitting it is NOT the
+   * same as asking for everything — the server's default is the
+   * unpublished set. So this wrapper requires it: a caller that wants
+   * published rows has to say so.
+   */
+  status: AnnouncementStatus;
+  cursor?: string | undefined;
+  limit?: number | undefined;
+}
+
+/**
+ * GET /me/validators/:pageId/announcements — the OWNER-scoped list.
+ *
+ * ⚠ This is the only list that carries per-row `capabilities`. The public
+ * list deliberately carries none, for any viewer including the operator —
+ * §4.32 enforces that with two distinct producers rather than a flag, and
+ * an operator's public list is byte-identical to an anonymous one. So a
+ * management control cannot be driven from the public list at all; it has
+ * to come from here (or from detail, one row at a time).
+ *
+ * `published` was added to the route's enum by bcc-trust #341 precisely so
+ * this surface could exist. Before that the enum was unpublished-only, and
+ * a published announcement's row capabilities were reachable *nowhere* in
+ * list form.
+ *
+ * ⚠ Operator-only: a non-operator gets `403 not_claimer`, and an anonymous
+ * viewer gets 403 as well. Never call it speculatively — gate on the
+ * page-scope `can_manage` the Card advertises.
+ */
+export async function listOwnerAnnouncements(
+  params: ListOwnerAnnouncementsParams,
+): Promise<OwnerAnnouncementListResponse> {
+  const { pageId, status, cursor, limit } = params;
+  const search = new URLSearchParams();
+  search.set("status", status);
+  if (limit !== undefined) {
+    search.set("limit", String(limit));
+  }
+  if (cursor !== undefined && cursor !== "") {
+    search.set("cursor", cursor);
+  }
+  return bccFetchAsClient<OwnerAnnouncementListResponse>(
+    `me/${announcementsRoot(pageId)}?${search.toString()}`,
+    { method: "GET" },
+  );
+}
+
 export function listAnnouncements(
   params: ListAnnouncementsParams,
 ): Promise<AnnouncementListResponse> {
