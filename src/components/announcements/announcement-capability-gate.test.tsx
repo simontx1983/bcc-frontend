@@ -34,8 +34,10 @@ vi.mock("@/lib/env", () => ({
 }));
 
 const listAnnouncements = vi.fn();
+const listOwnerAnnouncements = vi.fn();
 vi.mock("@/lib/api/announcement-endpoints", () => ({
   listAnnouncements: (...a: unknown[]) => listAnnouncements(...a),
+  listOwnerAnnouncements: (...a: unknown[]) => listOwnerAnnouncements(...a),
   createAnnouncement: vi.fn(),
   updateAnnouncement: vi.fn(),
   archiveAnnouncement: vi.fn(),
@@ -81,6 +83,10 @@ beforeAll(() => {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  listOwnerAnnouncements.mockResolvedValue({
+    items: [],
+    pagination: { next_cursor: null, has_more: false },
+  });
   client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
@@ -198,19 +204,30 @@ describe("owner controls come only from the capability block", () => {
   });
 
   /**
-   * `can_manage` opens the surface — that is ALL it does. Whether the
-   * control is actionable comes from the row's own capability, which
-   * this fixture does not carry, so it renders disabled.
+   * `can_manage` opens the surface — that is ALL it does. It authorizes
+   * nothing on any row.
    *
-   * The per-row dimension is covered in announcement-mutation-scope.
+   * This used to assert a DISABLED row control. That followed from the
+   * old sourcing, where capabilities were read off the public list and
+   * "absent" could only mean "denied". The public list carries none for
+   * anybody, so under the real contract that reading was always wrong:
+   * the row control now comes from the owner list, and a row the owner
+   * list has not covered gets no control rather than a fabricated denial.
+   *
+   * The property under test is unchanged and still the important one —
+   * the page capability opens the surface and stops there. The per-row
+   * dimension is covered in announcement-mutation-scope.
    */
-  it("opens the management surface on can_manage, but does not authorize the row", async () => {
+  it("opens the management surface on can_manage, but authorizes no row", async () => {
     renderPanel(OWNER_CAPABILITIES);
     await waitFor(() => {
-      // PUBLISHED_ANNOUNCEMENT is pinned, so the control reads UNPIN.
-      expect(screen.getByRole("button", { name: /UNPIN/ })).toBeInTheDocument();
+      // Surface open: the page-scope control exists.
+      expect(screen.getByTestId("announcement-compose")).toBeInTheDocument();
     });
-    expect(screen.getByRole("button", { name: /UNPIN/ })).toBeDisabled();
+    // Row untouched by it: the owner list returned nothing for this row,
+    // so no pin control is drawn and no denial is invented.
+    expect(screen.queryByRole("button", { name: /UNPIN/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /^PIN/ })).toBeNull();
   });
 });
 
