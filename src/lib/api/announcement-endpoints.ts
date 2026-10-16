@@ -210,12 +210,13 @@ export function updateAnnouncement(
  * `PATCH {status}` answers 400 "Nothing to change", leaving the row a
  * draft. So a draft reaches `published` through here or not at all.
  *
- * ⚠ There is no `can_publish` capability: the string appears nowhere in
- * the backend, so the capability block has no entry for it and a Publish
- * control cannot be gated on one. It is inferred from the row's `status`
- * plus `can_edit`. That is workable, and it does mean the server cannot
- * withhold publish without a client change — the one property the
- * capability model exists to provide. Recorded rather than worked around.
+ * ⚠ The route itself is gated: it re-resolves operator authority per
+ * request rather than trusting the token, so a revoked operator gets
+ * `403 not_claimer` on the same bearer that worked a moment earlier.
+ * What the capability block was missing is only the FIELD a client reads
+ * to decide whether to draw the control — `can_publish`, added by
+ * bcc-trust #343. A client that ignores it is refused by the route, not
+ * admitted by it.
  *
  * Scheduled rows do not need this: the backend's own guard promotes them
  * at their due time. It exists for a draft, and for publishing a
