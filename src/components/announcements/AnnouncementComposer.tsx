@@ -36,6 +36,19 @@ interface AnnouncementComposerProps {
   onSubmit: (request: CreateAnnouncementRequest) => Promise<unknown>;
   pending: boolean;
   error: unknown;
+  /**
+   * Whether a saved draft can be found again.
+   *
+   * Offering "Save as draft" with nothing able to list drafts put the
+   * operator's work out of their own reach — the server stored it, and
+   * the product had no route back to it. The mode is therefore gated on
+   * the surface that retrieves it existing, rather than on the server
+   * accepting the write, which it always did.
+   *
+   * Defaults to false: a caller that has not said it can reopen drafts
+   * is assumed not to be able to.
+   */
+  canReopenDrafts?: boolean;
 }
 
 /**
@@ -66,12 +79,14 @@ export function AnnouncementComposer({
   onSubmit,
   pending,
   error,
+  canReopenDrafts = false,
 }: AnnouncementComposerProps) {
   const titleId = useId();
   const summaryId = useId();
   const bodyId = useId();
   const dateId = useId();
   const commentsId = useId();
+  const draftUnavailableId = useId();
 
   const [title, setTitle] = useState("");
   const [summary, setSummary] = useState("");
@@ -112,7 +127,11 @@ export function AnnouncementComposer({
     trimmedTitle.length > ANNOUNCEMENT_TITLE_MAX ||
     trimmedSummary.length > ANNOUNCEMENT_SUMMARY_MAX ||
     trimmedBody.length > ANNOUNCEMENT_BODY_MAX ||
-    scheduleNeedsFutureDate;
+    scheduleNeedsFutureDate ||
+    // The radio is disabled, which is presentation. This is the gate: a
+    // stale render or a devtools click must not be able to save a draft
+    // that nothing can retrieve.
+    (mode === "draft" && !canReopenDrafts);
 
   // The time is the problem either because it was already past when the
   // form rendered, or because it went past while the operator was typing.
@@ -241,23 +260,56 @@ export function AnnouncementComposer({
           <legend className="bcc-mono text-bcc-text-secondary" style={{ fontSize: "11px" }}>
             WHEN
           </legend>
-          {(["draft", "publish", "schedule"] as const).map((value) => (
-            <label key={value} className="flex items-center gap-2 text-bcc-text">
-              <input
-                type="radio"
-                name="announcement-mode"
-                value={value}
-                checked={mode === value}
-                onChange={() => setMode(value)}
-                disabled={pending}
-              />
-              <span>
-                {value === "draft" && "Save as draft"}
-                {value === "publish" && "Publish now"}
-                {value === "schedule" && "Schedule for later"}
-              </span>
-            </label>
-          ))}
+          {(["draft", "publish", "schedule"] as const).map((value) => {
+            const unavailable = value === "draft" && !canReopenDrafts;
+            return (
+              <label
+                key={value}
+                className={
+                  "flex items-center gap-2 " +
+                  (unavailable ? "text-bcc-text-secondary" : "text-bcc-text")
+                }
+              >
+                <input
+                  type="radio"
+                  name="announcement-mode"
+                  value={value}
+                  checked={mode === value}
+                  onChange={() => setMode(value)}
+                  disabled={pending || unavailable}
+                  aria-describedby={unavailable ? draftUnavailableId : undefined}
+                />
+                <span>
+                  {value === "draft" && "Save as draft"}
+                  {value === "publish" && "Publish now"}
+                  {value === "schedule" && "Schedule for later"}
+                </span>
+              </label>
+            );
+          })}
+          {!canReopenDrafts && (
+            /*
+              The server stores a draft perfectly well — the row is created,
+              and `GET /me/validators/:pageId/announcements?status=draft`
+              returns it. What was missing was any surface that asks for it,
+              so a saved draft had no route back and the composer simply
+              closed, giving the operator no way to tell a save from a
+              silent failure.
+              Nothing typed is discarded by this: title, summary and body
+              are independent of the mode, so switching to Publish or
+              Schedule keeps every word.
+            */
+            <p
+              id={draftUnavailableId}
+              className="text-bcc-text-secondary"
+              style={{ fontSize: "12px" }}
+              data-testid="announcement-draft-unavailable"
+            >
+              Drafts can’t be reopened yet, so saving one would put this out of
+              your reach. Publish now or schedule it instead — what you’ve
+              written is kept either way.
+            </p>
+          )}
         </fieldset>
 
         {mode === "schedule" && (
