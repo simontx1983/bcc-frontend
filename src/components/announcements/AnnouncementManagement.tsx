@@ -34,12 +34,17 @@
  * undeletable today and the UI says so rather than offering an action
  * that loses them.
  *
- * ⚠ **Publish has no server capability to gate on.** There is no
- * `can_publish` entry anywhere in the backend, so the control is
- * inferred from the row's `status` plus `can_edit`. The consequence is
- * recorded rather than hidden: the server cannot withhold publish
- * without a client change, which is the property the capability model
- * exists to give.
+ * ⚠ **Publish is gated by the route, not by this control.** The publish
+ * endpoint re-resolves operator authority on every request rather than
+ * trusting the token — proven here by revoking authority mid-session and
+ * watching the same bearer get `403 not_claimer` with the draft
+ * unchanged, then restored and succeeding. A client ignoring the
+ * capability is refused by the route, not admitted by it.
+ *
+ * What was missing was only the response FIELD for deciding whether to
+ * DRAW the control, which bcc-trust PR 343 adds as `can_publish`. Until
+ * that is deployed the control falls back to an inference; see
+ * {@link ManagementRow}. The capability is not the authorization.
  */
 
 import { useState } from "react";
@@ -48,7 +53,7 @@ import { AnnouncementComposer } from "@/components/announcements/AnnouncementCom
 import { LoadFailure } from "@/components/ui/LoadFailure";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { humanizeCode, isPermissionDenial } from "@/lib/api/errors";
-import { isAllowed } from "@/lib/permissions";
+import { isAllowed, reasonCode } from "@/lib/permissions";
 import { formatAbsoluteDateTime } from "@/lib/format";
 import {
   useAnnouncement,
@@ -88,6 +93,27 @@ function isoToLocalInput(iso: string | null): string | undefined {
     `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}` +
     `T${p(d.getHours())}:${p(d.getMinutes())}`
   );
+}
+
+/**
+ * Why a publish control is inert, in the operator's words.
+ *
+ * The two codes below are new with `can_publish` (contract v1.81). The
+ * reason inventory is closed and the control falls back to generic copy
+ * on anything unrecognised, so a new code arriving without a string here
+ * would render a disabled button that says nothing.
+ */
+function publishDeniedCopy(reason: string | null): string {
+  switch (reason) {
+    case "announcement_already_published":
+      return "This is already published.";
+    case "announcement_archived":
+      return "Archived announcements can't be published.";
+    case "not_claimer":
+      return "You're not the verified operator of this validator.";
+    default:
+      return "This announcement can't be published right now.";
+  }
 }
 
 interface AnnouncementManagementProps {
@@ -251,8 +277,36 @@ function ManagementRow({
   // The row's OWN capability, as the server reported it. A page-level yes
   // authorises nothing here.
   const canEdit = isAllowed(row.capabilities, "can_edit");
-  // ⚠ No `can_publish` exists server-side; inferred from status + can_edit.
-  const canPublish = canEdit;
+
+  /**
+   * Publish permission, preferring the server's own answer.
+   *
+   * `can_publish` is being added by bcc-trust PR 343 and is not on every
+   * deployed backend yet. `isAllowed` fails closed on a missing key, so
+   * reading it unconditionally would hide Publish entirely against a
+   * backend that has not shipped it. So: use the key when the server
+   * SENT one — including when it denies — and fall back to the older
+   * inference only when the key is absent.
+   *
+   * ⚠ The fallback is wrong in a way that does not bite here and would
+   * elsewhere: `can_edit` and `can_publish` diverge on exactly the two
+   * states that matter — a published row is editable and NOT
+   * publishable, an archived row is neither. This surface lists only
+   * drafts and scheduled rows, where both are allowed, which is the only
+   * reason inferring was ever safe. Delete the fallback once PR 343 is
+   * deployed; do not copy it to a surface that shows published rows.
+   */
+  const publishEntry = (row.capabilities as unknown as Record<string, unknown>)[
+    "can_publish"
+  ];
+  const serverSentCanPublish =
+    typeof publishEntry === "object" && publishEntry !== null;
+  const canPublish = serverSentCanPublish
+    ? isAllowed(row.capabilities, "can_publish")
+    : canEdit;
+  const publishDeniedReason = serverSentCanPublish
+    ? reasonCode(row.capabilities, "can_publish")
+    : null;
 
   const actionError = update.error ?? publish.error;
 
@@ -308,6 +362,7 @@ function ManagementRow({
           disabled={!canPublish || publish.isPending || update.isPending}
           className="bcc-mono rounded-sm border border-cardstock-edge px-3 py-2 text-ink disabled:cursor-not-allowed disabled:opacity-50"
           style={{ minHeight: "44px", fontSize: "11px" }}
+          title={canPublish ? undefined : publishDeniedCopy(publishDeniedReason)}
           data-testid={`announcement-publish-${row.id}`}
         >
           {publish.isPending ? "PUBLISHING…" : kind === "scheduled" ? "PUBLISH NOW" : "PUBLISH"}
