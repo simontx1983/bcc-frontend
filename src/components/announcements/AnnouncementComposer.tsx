@@ -24,6 +24,7 @@ import { humanizeCode } from "@/lib/api/errors";
 import type {
   AnnouncementPublishMode,
   CreateAnnouncementRequest,
+  UpdateAnnouncementRequest,
 } from "@/lib/api/types";
 
 /** Contract bounds (§4.32.3). Mirrored for UX; the server re-checks all three. */
@@ -33,9 +34,46 @@ export const ANNOUNCEMENT_BODY_MAX = 20_000;
 
 interface AnnouncementComposerProps {
   onClose: () => void;
-  onSubmit: (request: CreateAnnouncementRequest) => Promise<unknown>;
+  onSubmit: (
+    request: CreateAnnouncementRequest | UpdateAnnouncementRequest,
+  ) => Promise<unknown>;
   pending: boolean;
   error: unknown;
+  /**
+   * Whether a saved draft can be found again.
+   *
+   * Offering "Save as draft" with nothing able to list drafts put the
+   * operator's work out of their own reach — the server stored it, and
+   * the product had no route back to it. The mode is therefore gated on
+   * the surface that retrieves it existing, rather than on the server
+   * accepting the write, which it always did.
+   *
+   * Defaults to false: a caller that has not said it can reopen drafts
+   * is assumed not to be able to.
+   */
+  canReopenDrafts?: boolean;
+  /**
+   * What this composer is doing.
+   *
+   *   create          a new announcement; the WHEN choice applies
+   *   edit-draft      an existing draft; PATCH refuses `status`, so there
+   *                   is no WHEN choice — publishing is a separate action
+   *   edit-scheduled  an existing scheduled row; only the publication
+   *                   time is editable, which is the re-schedule
+   *
+   * The two edit variants exist so this form's validation, character
+   * budgets and a11y wiring are not duplicated into a second dialog.
+   */
+  variant?: "create" | "edit-draft" | "edit-scheduled";
+  /** Existing values, for the edit variants. */
+  initial?: {
+    title: string;
+    summary: string;
+    body: string;
+    commentsEnabled: boolean;
+    /** Local wall-clock, `YYYY-MM-DDTHH:mm`, for edit-scheduled. */
+    publishAtLocal?: string;
+  };
 }
 
 /**
@@ -66,19 +104,33 @@ export function AnnouncementComposer({
   onSubmit,
   pending,
   error,
+  canReopenDrafts = false,
+  variant = "create",
+  initial,
 }: AnnouncementComposerProps) {
+  const isEdit = variant !== "create";
+  const dialogTitle =
+    variant === "edit-draft"
+      ? "Edit draft"
+      : variant === "edit-scheduled"
+        ? "Edit scheduled announcement"
+        : "New announcement";
   const titleId = useId();
   const summaryId = useId();
   const bodyId = useId();
   const dateId = useId();
   const commentsId = useId();
+  const draftUnavailableId = useId();
 
-  const [title, setTitle] = useState("");
-  const [summary, setSummary] = useState("");
-  const [body, setBody] = useState("");
-  const [mode, setMode] = useState<AnnouncementPublishMode>("publish");
-  const [publishAtLocal, setPublishAtLocal] = useState("");
-  const [commentsEnabled, setCommentsEnabled] = useState(true);
+  const [title, setTitle] = useState(initial?.title ?? "");
+  const [summary, setSummary] = useState(initial?.summary ?? "");
+  const [body, setBody] = useState(initial?.body ?? "");
+  // `edit-scheduled` is a re-schedule, so it behaves as schedule mode.
+  const [mode, setMode] = useState<AnnouncementPublishMode>(
+    variant === "edit-scheduled" ? "schedule" : "publish",
+  );
+  const [publishAtLocal, setPublishAtLocal] = useState(initial?.publishAtLocal ?? "");
+  const [commentsEnabled, setCommentsEnabled] = useState(initial?.commentsEnabled ?? true);
   const [touched, setTouched] = useState(false);
   // Set when a submit is refused because the chosen instant went past
   // while the form was open. See handleSubmit.
@@ -112,7 +164,11 @@ export function AnnouncementComposer({
     trimmedTitle.length > ANNOUNCEMENT_TITLE_MAX ||
     trimmedSummary.length > ANNOUNCEMENT_SUMMARY_MAX ||
     trimmedBody.length > ANNOUNCEMENT_BODY_MAX ||
-    scheduleNeedsFutureDate;
+    scheduleNeedsFutureDate ||
+    // The radio is disabled, which is presentation. This is the gate: a
+    // stale render or a devtools click must not be able to save a draft
+    // that nothing can retrieve.
+    (mode === "draft" && !canReopenDrafts);
 
   // The time is the problem either because it was already past when the
   // form rendered, or because it went past while the operator was typing.
@@ -157,6 +213,27 @@ export function AnnouncementComposer({
     }
     setStaleSchedule(false);
 
+    if (isEdit) {
+      /*
+        PATCH takes title, summary, body, comments_enabled and — on a
+        still-scheduled row — publish_at. It REFUSES `status`: sending it
+        answers 400 "Nothing to change" and leaves the row where it was.
+        So an edit never carries the mode, and publishing is its own
+        action.
+      */
+      const update: UpdateAnnouncementRequest = {
+        title: trimmedTitle,
+        summary: trimmedSummary,
+        body: trimmedBody,
+        comments_enabled: commentsEnabled,
+      };
+      if (variant === "edit-scheduled" && publishAtWire !== null) {
+        update.publish_at = publishAtWire;
+      }
+      void onSubmit(update);
+      return;
+    }
+
     const request: CreateAnnouncementRequest = {
       title: trimmedTitle,
       summary: trimmedSummary,
@@ -172,14 +249,14 @@ export function AnnouncementComposer({
 
   return (
     <Dialog
-      title="New announcement"
+      title={dialogTitle}
       onClose={onClose}
       closeDisabled={pending}
       panelClassName="max-w-2xl max-h-[92vh] overflow-y-auto"
     >
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         <h2 className="bcc-stencil text-bcc-text" style={{ fontSize: "24px" }}>
-          New announcement
+          {dialogTitle}
         </h2>
 
         <div className="flex flex-col gap-1">
@@ -237,28 +314,63 @@ export function AnnouncementComposer({
           />
         </div>
 
+        {variant === "create" && (
         <fieldset className="flex flex-col gap-2">
           <legend className="bcc-mono text-bcc-text-secondary" style={{ fontSize: "11px" }}>
             WHEN
           </legend>
-          {(["draft", "publish", "schedule"] as const).map((value) => (
-            <label key={value} className="flex items-center gap-2 text-bcc-text">
-              <input
-                type="radio"
-                name="announcement-mode"
-                value={value}
-                checked={mode === value}
-                onChange={() => setMode(value)}
-                disabled={pending}
-              />
-              <span>
-                {value === "draft" && "Save as draft"}
-                {value === "publish" && "Publish now"}
-                {value === "schedule" && "Schedule for later"}
-              </span>
-            </label>
-          ))}
+          {(["draft", "publish", "schedule"] as const).map((value) => {
+            const unavailable = value === "draft" && !canReopenDrafts;
+            return (
+              <label
+                key={value}
+                className={
+                  "flex items-center gap-2 " +
+                  (unavailable ? "text-bcc-text-secondary" : "text-bcc-text")
+                }
+              >
+                <input
+                  type="radio"
+                  name="announcement-mode"
+                  value={value}
+                  checked={mode === value}
+                  onChange={() => setMode(value)}
+                  disabled={pending || unavailable}
+                  aria-describedby={unavailable ? draftUnavailableId : undefined}
+                />
+                <span>
+                  {value === "draft" && "Save as draft"}
+                  {value === "publish" && "Publish now"}
+                  {value === "schedule" && "Schedule for later"}
+                </span>
+              </label>
+            );
+          })}
+          {!canReopenDrafts && (
+            /*
+              The server stores a draft perfectly well — the row is created,
+              and `GET /me/validators/:pageId/announcements?status=draft`
+              returns it. What was missing was any surface that asks for it,
+              so a saved draft had no route back and the composer simply
+              closed, giving the operator no way to tell a save from a
+              silent failure.
+              Nothing typed is discarded by this: title, summary and body
+              are independent of the mode, so switching to Publish or
+              Schedule keeps every word.
+            */
+            <p
+              id={draftUnavailableId}
+              className="text-bcc-text-secondary"
+              style={{ fontSize: "12px" }}
+              data-testid="announcement-draft-unavailable"
+            >
+              Drafts can’t be reopened yet, so saving one would put this out of
+              your reach. Publish now or schedule it instead — what you’ve
+              written is kept either way.
+            </p>
+          )}
         </fieldset>
+        )}
 
         {mode === "schedule" && (
           <div className="flex flex-col gap-1">
@@ -317,9 +429,12 @@ export function AnnouncementComposer({
             style={{ minHeight: "44px", fontSize: "12px" }}
           >
             {pending ? <Spinner size={16} /> : null}
-            {mode === "draft" && "SAVE DRAFT"}
-            {mode === "publish" && "PUBLISH"}
-            {mode === "schedule" && "SCHEDULE"}
+            {/* An edit SAVES; it never transitions the row. Labelling it
+                PUBLISH would promise something PATCH refuses to do. */}
+            {isEdit && (variant === "edit-scheduled" ? "SAVE CHANGES" : "SAVE DRAFT")}
+            {!isEdit && mode === "draft" && "SAVE DRAFT"}
+            {!isEdit && mode === "publish" && "PUBLISH"}
+            {!isEdit && mode === "schedule" && "SCHEDULE"}
           </button>
         </div>
       </form>

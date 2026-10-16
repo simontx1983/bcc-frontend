@@ -6521,6 +6521,16 @@ export interface UpdateAnnouncementRequest {
   summary?: string;
   body?: string;
   comments_enabled?: boolean;
+  /**
+   * Re-schedule, in the route's `Y-m-d H:i:s` UTC format — NOT ISO-8601,
+   * the same trap as on create.
+   *
+   * ⚠ Accepted only while the row is still `scheduled`: the route answers
+   * `409 bcc_conflict` ("Only a scheduled announcement can be
+   * re-scheduled.") on a published one. Gate the control on status, not
+   * on the operator's page-level capability.
+   */
+  publish_at?: string;
 }
 
 /** Who removed a comment. Drives which server-authored label is shown. */

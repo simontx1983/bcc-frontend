@@ -203,6 +203,39 @@ export function updateAnnouncement(
 }
 
 /**
+ * POST /validators/:pageId/announcements/:id/publish.
+ *
+ * The ONLY route that transitions an existing row. `status` is declared
+ * on the create route alone, and the editable route refuses it —
+ * `PATCH {status}` answers 400 "Nothing to change", leaving the row a
+ * draft. So a draft reaches `published` through here or not at all.
+ *
+ * ⚠ There is no `can_publish` capability: the string appears nowhere in
+ * the backend, so the capability block has no entry for it and a Publish
+ * control cannot be gated on one. It is inferred from the row's `status`
+ * plus `can_edit`. That is workable, and it does mean the server cannot
+ * withhold publish without a client change — the one property the
+ * capability model exists to provide. Recorded rather than worked around.
+ *
+ * Scheduled rows do not need this: the backend's own guard promotes them
+ * at their due time. It exists for a draft, and for publishing a
+ * scheduled row EARLY.
+ */
+export async function publishAnnouncement(
+  pageId: number,
+  announcementId: string,
+): Promise<Announcement> {
+  return bccFetchAsClient<Announcement>(
+    // Bare numeric id: the route matches `\d+` and the wire hands callers
+    // the prefixed `ann_<n>` view-model form. The general fix for this
+    // across every path lives on the billboard branch as `pathId()`; this
+    // call reconciles to it when the branches meet.
+    `${announcementsRoot(pageId)}/${String(announcementId).replace(/^ann_/, "")}/publish`,
+    { method: "POST" },
+  );
+}
+
+/**
  * POST /validators/:pageId/announcements/:id/archive — one-way in v1.
  *
  * Archiving is NOT deletion: the permalink, the original publication

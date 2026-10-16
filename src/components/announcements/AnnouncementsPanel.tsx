@@ -54,6 +54,7 @@ import { useState } from "react";
 
 import { AnnouncementComposer } from "@/components/announcements/AnnouncementComposer";
 import { AnnouncementListItem } from "@/components/announcements/AnnouncementListItem";
+import { AnnouncementManagement } from "@/components/announcements/AnnouncementManagement";
 import { AnnouncementOwnerActions } from "@/components/announcements/AnnouncementOwnerActions";
 import { LoadFailure } from "@/components/ui/LoadFailure";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -74,6 +75,7 @@ import {
 } from "@/hooks/useAnnouncements";
 import type {
   Announcement,
+  CreateAnnouncementRequest,
   AnnouncementCapabilities,
   AnnouncementFeatureCapabilities,
 } from "@/lib/api/types";
@@ -155,6 +157,11 @@ export function AnnouncementsPanel({
         />
       </article>
 
+      {/* Operator-only. Mounted on the page-scope capability; the
+          queries are gated on it too, because the route 403s anyone who
+          is not the resolved operator. */}
+      <AnnouncementManagement pageId={pageId} canManage={canManage} />
+
       <ArchivedSection pageId={pageId} />
 
       {/* Outside both gates. A withdrawal takes the list down; it must not
@@ -164,8 +171,14 @@ export function AnnouncementsPanel({
           onClose={() => setComposerOpen(false)}
           pending={create.isPending}
           error={create.error}
+          /* The drafts surface below retrieves them, so saving one no
+             longer puts it out of the operator's reach. */
+          canReopenDrafts={canManage}
           onSubmit={async (request) => {
-            await create.mutateAsync(request);
+            // This composer is mounted in `create` variant, so the payload
+            // is always a create request; the prop is widened only so the
+            // same form can serve the edit variants elsewhere.
+            await create.mutateAsync(request as CreateAnnouncementRequest);
             setComposerOpen(false);
           }}
         />

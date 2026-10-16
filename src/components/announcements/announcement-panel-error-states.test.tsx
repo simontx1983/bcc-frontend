@@ -44,8 +44,11 @@ vi.mock("@/lib/env", () => ({
 }));
 
 const listAnnouncements = vi.fn();
+const listOwnerAnnouncements = vi.fn();
 vi.mock("@/lib/api/announcement-endpoints", () => ({
   listAnnouncements: (...a: unknown[]) => listAnnouncements(...a),
+  listOwnerAnnouncements: (...a: unknown[]) => listOwnerAnnouncements(...a),
+  publishAnnouncement: vi.fn(),
   createAnnouncement: vi.fn(),
   updateAnnouncement: vi.fn(),
   archiveAnnouncement: vi.fn(),
@@ -77,7 +80,12 @@ const SCOPE = "9001";
 const err = (code: string, status = 403) =>
   new BccApiError(code, "RAW SERVER TEXT", status, null);
 
-const retryBtn = () => screen.queryByRole("button", { name: /^retry$/i });
+const retryBtn = () => {
+  // Excludes the drafts surface, which owns its own recovery.
+  const mgmt = screen.queryByTestId("announcement-management");
+  const all = screen.queryAllByRole("button", { name: /^retry$/i });
+  return all.find((b) => mgmt === null || !mgmt.contains(b)) ?? null;
+};
 const loadMoreBtn = () => screen.queryByRole("button", { name: /load more/i });
 
 /** Calls the mock saw for one list state. */
@@ -105,6 +113,11 @@ beforeAll(() => {
 
 beforeEach(() => {
   listAnnouncements.mockReset();
+  listOwnerAnnouncements.mockReset();
+  listOwnerAnnouncements.mockResolvedValue({
+    items: [],
+    pagination: { next_cursor: null, has_more: false },
+  });
   client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
