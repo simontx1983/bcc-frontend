@@ -16,7 +16,10 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 // Type-only: erased at compile time, so it is safe above the vi.mock calls.
-import type { CreateAnnouncementRequest } from "@/lib/api/types";
+import type {
+  CreateAnnouncementRequest,
+  UpdateAnnouncementRequest,
+} from "@/lib/api/types";
 
 vi.mock("@/lib/env", () => ({
   clientEnv: { BCC_API_URL: "https://wp.example" },
@@ -26,7 +29,7 @@ const { AnnouncementComposer } = await import(
   "@/components/announcements/AnnouncementComposer"
 );
 
-type SubmitMock = ReturnType<typeof vi.fn<(request: CreateAnnouncementRequest) => Promise<unknown>>>;
+type SubmitMock = ReturnType<typeof vi.fn<(request: CreateAnnouncementRequest | UpdateAnnouncementRequest) => Promise<unknown>>>;
 
 let onSubmit: SubmitMock;
 let onClose: () => void;
@@ -46,7 +49,7 @@ beforeAll(() => {
 });
 
 beforeEach(() => {
-  onSubmit = vi.fn<(request: CreateAnnouncementRequest) => Promise<unknown>>(
+  onSubmit = vi.fn<(request: CreateAnnouncementRequest | UpdateAnnouncementRequest) => Promise<unknown>>(
     async () => undefined,
   );
   onClose = () => {};

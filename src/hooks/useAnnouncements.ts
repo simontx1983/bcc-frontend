@@ -34,6 +34,7 @@ import {
   listAnnouncementComments,
   listAnnouncements,
   listOwnerAnnouncements,
+  publishAnnouncement,
   removeAnnouncementComment,
   setAnnouncementPin,
   updateAnnouncement,
@@ -399,6 +400,31 @@ export function useSetAnnouncementPin(pageId: number) {
   return useMutation<unknown, BccApiError, { announcementId: string; pinned: boolean }>({
     mutationFn: ({ announcementId, pinned }) =>
       setAnnouncementPin(pageId, announcementId, pinned),
+    onSuccess: (_data, variables) => {
+      void queryClient.invalidateQueries({ queryKey: announcementsQueryKey(pageId) });
+      void queryClient.invalidateQueries({
+        queryKey: announcementDetailKeyRoot(variables.announcementId),
+      });
+    },
+  });
+}
+
+/**
+ * Publish an existing draft, or publish a scheduled row early.
+ *
+ * ⚠ There is no `can_publish` capability to gate this on — the backend
+ * has no such entry — so callers infer it from the row's `status` plus
+ * `can_edit`. See {@link publishAnnouncement}.
+ *
+ * Invalidation is the scope-blind page prefix, which covers the public
+ * lists AND every owner bucket: publishing moves a row OUT of `draft`
+ * and INTO the active list, so both sides of that move must be refetched
+ * or the draft lingers on screen after it has gone.
+ */
+export function usePublishAnnouncement(pageId: number) {
+  const queryClient = useQueryClient();
+  return useMutation<unknown, BccApiError, { announcementId: string }>({
+    mutationFn: ({ announcementId }) => publishAnnouncement(pageId, announcementId),
     onSuccess: (_data, variables) => {
       void queryClient.invalidateQueries({ queryKey: announcementsQueryKey(pageId) });
       void queryClient.invalidateQueries({

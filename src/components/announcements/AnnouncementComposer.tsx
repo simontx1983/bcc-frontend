@@ -24,6 +24,7 @@ import { humanizeCode } from "@/lib/api/errors";
 import type {
   AnnouncementPublishMode,
   CreateAnnouncementRequest,
+  UpdateAnnouncementRequest,
 } from "@/lib/api/types";
 
 /** Contract bounds (§4.32.3). Mirrored for UX; the server re-checks all three. */
@@ -33,7 +34,9 @@ export const ANNOUNCEMENT_BODY_MAX = 20_000;
 
 interface AnnouncementComposerProps {
   onClose: () => void;
-  onSubmit: (request: CreateAnnouncementRequest) => Promise<unknown>;
+  onSubmit: (
+    request: CreateAnnouncementRequest | UpdateAnnouncementRequest,
+  ) => Promise<unknown>;
   pending: boolean;
   error: unknown;
   /**
@@ -49,6 +52,28 @@ interface AnnouncementComposerProps {
    * is assumed not to be able to.
    */
   canReopenDrafts?: boolean;
+  /**
+   * What this composer is doing.
+   *
+   *   create          a new announcement; the WHEN choice applies
+   *   edit-draft      an existing draft; PATCH refuses `status`, so there
+   *                   is no WHEN choice — publishing is a separate action
+   *   edit-scheduled  an existing scheduled row; only the publication
+   *                   time is editable, which is the re-schedule
+   *
+   * The two edit variants exist so this form's validation, character
+   * budgets and a11y wiring are not duplicated into a second dialog.
+   */
+  variant?: "create" | "edit-draft" | "edit-scheduled";
+  /** Existing values, for the edit variants. */
+  initial?: {
+    title: string;
+    summary: string;
+    body: string;
+    commentsEnabled: boolean;
+    /** Local wall-clock, `YYYY-MM-DDTHH:mm`, for edit-scheduled. */
+    publishAtLocal?: string;
+  };
 }
 
 /**
@@ -80,7 +105,16 @@ export function AnnouncementComposer({
   pending,
   error,
   canReopenDrafts = false,
+  variant = "create",
+  initial,
 }: AnnouncementComposerProps) {
+  const isEdit = variant !== "create";
+  const dialogTitle =
+    variant === "edit-draft"
+      ? "Edit draft"
+      : variant === "edit-scheduled"
+        ? "Edit scheduled announcement"
+        : "New announcement";
   const titleId = useId();
   const summaryId = useId();
   const bodyId = useId();
@@ -88,12 +122,15 @@ export function AnnouncementComposer({
   const commentsId = useId();
   const draftUnavailableId = useId();
 
-  const [title, setTitle] = useState("");
-  const [summary, setSummary] = useState("");
-  const [body, setBody] = useState("");
-  const [mode, setMode] = useState<AnnouncementPublishMode>("publish");
-  const [publishAtLocal, setPublishAtLocal] = useState("");
-  const [commentsEnabled, setCommentsEnabled] = useState(true);
+  const [title, setTitle] = useState(initial?.title ?? "");
+  const [summary, setSummary] = useState(initial?.summary ?? "");
+  const [body, setBody] = useState(initial?.body ?? "");
+  // `edit-scheduled` is a re-schedule, so it behaves as schedule mode.
+  const [mode, setMode] = useState<AnnouncementPublishMode>(
+    variant === "edit-scheduled" ? "schedule" : "publish",
+  );
+  const [publishAtLocal, setPublishAtLocal] = useState(initial?.publishAtLocal ?? "");
+  const [commentsEnabled, setCommentsEnabled] = useState(initial?.commentsEnabled ?? true);
   const [touched, setTouched] = useState(false);
   // Set when a submit is refused because the chosen instant went past
   // while the form was open. See handleSubmit.
@@ -176,6 +213,27 @@ export function AnnouncementComposer({
     }
     setStaleSchedule(false);
 
+    if (isEdit) {
+      /*
+        PATCH takes title, summary, body, comments_enabled and — on a
+        still-scheduled row — publish_at. It REFUSES `status`: sending it
+        answers 400 "Nothing to change" and leaves the row where it was.
+        So an edit never carries the mode, and publishing is its own
+        action.
+      */
+      const update: UpdateAnnouncementRequest = {
+        title: trimmedTitle,
+        summary: trimmedSummary,
+        body: trimmedBody,
+        comments_enabled: commentsEnabled,
+      };
+      if (variant === "edit-scheduled" && publishAtWire !== null) {
+        update.publish_at = publishAtWire;
+      }
+      void onSubmit(update);
+      return;
+    }
+
     const request: CreateAnnouncementRequest = {
       title: trimmedTitle,
       summary: trimmedSummary,
@@ -191,14 +249,14 @@ export function AnnouncementComposer({
 
   return (
     <Dialog
-      title="New announcement"
+      title={dialogTitle}
       onClose={onClose}
       closeDisabled={pending}
       panelClassName="max-w-2xl max-h-[92vh] overflow-y-auto"
     >
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         <h2 className="bcc-stencil text-bcc-text" style={{ fontSize: "24px" }}>
-          New announcement
+          {dialogTitle}
         </h2>
 
         <div className="flex flex-col gap-1">
@@ -256,6 +314,7 @@ export function AnnouncementComposer({
           />
         </div>
 
+        {variant === "create" && (
         <fieldset className="flex flex-col gap-2">
           <legend className="bcc-mono text-bcc-text-secondary" style={{ fontSize: "11px" }}>
             WHEN
@@ -311,6 +370,7 @@ export function AnnouncementComposer({
             </p>
           )}
         </fieldset>
+        )}
 
         {mode === "schedule" && (
           <div className="flex flex-col gap-1">
@@ -369,9 +429,12 @@ export function AnnouncementComposer({
             style={{ minHeight: "44px", fontSize: "12px" }}
           >
             {pending ? <Spinner size={16} /> : null}
-            {mode === "draft" && "SAVE DRAFT"}
-            {mode === "publish" && "PUBLISH"}
-            {mode === "schedule" && "SCHEDULE"}
+            {/* An edit SAVES; it never transitions the row. Labelling it
+                PUBLISH would promise something PATCH refuses to do. */}
+            {isEdit && (variant === "edit-scheduled" ? "SAVE CHANGES" : "SAVE DRAFT")}
+            {!isEdit && mode === "draft" && "SAVE DRAFT"}
+            {!isEdit && mode === "publish" && "PUBLISH"}
+            {!isEdit && mode === "schedule" && "SCHEDULE"}
           </button>
         </div>
       </form>
