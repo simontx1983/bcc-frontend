@@ -246,6 +246,98 @@ describe("publishing a draft", () => {
   });
 });
 
+/**
+ * `can_publish` (bcc-trust #343, contract v1.81) is the server's own
+ * answer about publishing. It is not on every deployed backend yet, and
+ * `isAllowed` fails closed on a missing key, so reading it
+ * unconditionally would hide Publish against a backend that has not
+ * shipped it.
+ *
+ * The rule: the server's answer wins whenever it sent one — including a
+ * denial — and the older inference applies only in its absence.
+ */
+describe("publish permission prefers the server's own answer", () => {
+  it("honours can_publish when the server sends it", async () => {
+    serve([
+      ownerRow("ann_7", "Allowed by the server", {
+        capabilities: {
+          ...OWNER_ANNOUNCEMENT_CAPABILITIES,
+          can_edit: ALLOW,
+          can_publish: ALLOW,
+        },
+      } as Partial<OwnerAnnouncementListItem>),
+    ]);
+    mount();
+    await waitFor(() => expect(screen.getByText("Allowed by the server")).toBeInTheDocument());
+    expect(screen.getByTestId("announcement-publish-ann_7")).toBeEnabled();
+  });
+
+  it("honours a can_publish DENIAL even where can_edit allows", async () => {
+    // The two diverge on exactly the states that matter: a published row
+    // is editable and not publishable. Inferring would draw Publish on it.
+    serve([
+      ownerRow("ann_8", "Editable but not publishable", {
+        capabilities: {
+          ...OWNER_ANNOUNCEMENT_CAPABILITIES,
+          can_edit: ALLOW,
+          can_publish: DENY("announcement_already_published"),
+        },
+      } as Partial<OwnerAnnouncementListItem>),
+    ]);
+    mount();
+    await waitFor(() =>
+      expect(screen.getByText("Editable but not publishable")).toBeInTheDocument(),
+    );
+
+    const btn = screen.getByTestId("announcement-publish-ann_8");
+    expect(btn).toBeDisabled();
+    // A new reason code must not arrive as a disabled control with no copy.
+    expect(btn).toHaveAttribute("title", "This is already published.");
+    fireEvent.click(btn);
+    expect(publishAnnouncement).not.toHaveBeenCalled();
+  });
+
+  it("carries copy for every reason code the new capability can send", async () => {
+    for (const [code, copy] of [
+      ["announcement_already_published", "This is already published."],
+      ["announcement_archived", "Archived announcements can't be published."],
+      ["not_claimer", "You're not the verified operator of this validator."],
+    ] as const) {
+      cleanup();
+      client.clear();
+      serve([
+        ownerRow(`ann_${code}`, `Row ${code}`, {
+          capabilities: {
+            ...OWNER_ANNOUNCEMENT_CAPABILITIES,
+            can_edit: ALLOW,
+            can_publish: DENY(code),
+          },
+        } as Partial<OwnerAnnouncementListItem>),
+      ]);
+      mount();
+      await waitFor(() => expect(screen.getByText(`Row ${code}`)).toBeInTheDocument());
+      expect(screen.getByTestId(`announcement-publish-ann_${code}`)).toHaveAttribute(
+        "title",
+        copy,
+      );
+    }
+  });
+
+  it("falls back to the older inference only when the key is ABSENT", async () => {
+    // A backend without #343 must still be able to publish a draft.
+    const caps = { ...OWNER_ANNOUNCEMENT_CAPABILITIES, can_edit: ALLOW } as Record<string, unknown>;
+    delete caps["can_publish"];
+    serve([
+      ownerRow("ann_6", "Older backend", {
+        capabilities: caps,
+      } as unknown as Partial<OwnerAnnouncementListItem>),
+    ]);
+    mount();
+    await waitFor(() => expect(screen.getByText("Older backend")).toBeInTheDocument());
+    expect(screen.getByTestId("announcement-publish-ann_6")).toBeEnabled();
+  });
+});
+
 describe("reopening and editing", () => {
   it("opens a draft prefilled with what was written", async () => {
     serve([ownerRow("ann_3", "Half-written notice")]);
