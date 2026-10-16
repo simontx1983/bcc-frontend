@@ -262,11 +262,7 @@ export async function publishAnnouncement(
   announcementId: string,
 ): Promise<Announcement> {
   return bccFetchAsClient<Announcement>(
-    // Bare numeric id: the route matches `\d+` and the wire hands callers
-    // the prefixed `ann_<n>` view-model form. The general fix for this
-    // across every path lives on the billboard branch as `pathId()`; this
-    // call reconciles to it when the branches meet.
-    `${announcementsRoot(pageId)}/${String(announcementId).replace(/^ann_/, "")}/publish`,
+    `${announcementsRoot(pageId)}/${pathId(announcementId, "announcement")}/publish`,
     { method: "POST" },
   );
 }
