@@ -129,11 +129,16 @@ afterEach(() => {
 });
 
 /** Drafts and scheduled answered per `status`, as the route does. */
-function serve(drafts: OwnerAnnouncementListItem[], scheduled: OwnerAnnouncementListItem[] = []) {
+function serve(
+  drafts: OwnerAnnouncementListItem[],
+  scheduled: OwnerAnnouncementListItem[] = [],
+  blocked: OwnerAnnouncementListItem[] = [],
+) {
   listOwnerAnnouncements.mockImplementation((params: unknown) => {
     const status = (params as { status?: string }).status;
     if (status === "draft") return Promise.resolve(page(drafts));
     if (status === "scheduled") return Promise.resolve(page(scheduled));
+    if (status === "blocked") return Promise.resolve(page(blocked));
     return Promise.resolve(page([]));
   });
 }
@@ -157,7 +162,7 @@ describe("operator-only, enforced on the query as well as the render", () => {
     expect(screen.queryByText("Private draft")).toBeNull();
   });
 
-  it("asks only for the two unpublished buckets", async () => {
+  it("asks for all three unpublished buckets", async () => {
     serve([ownerRow("ann_1", "D")], [ownerRow("ann_2", "S")]);
     mount();
 
@@ -165,7 +170,9 @@ describe("operator-only, enforced on the query as well as the render", () => {
     const statuses = listOwnerAnnouncements.mock.calls.map(
       (c) => (c[0] as { status: string }).status,
     );
-    expect(new Set(statuses)).toEqual(new Set(["draft", "scheduled"]));
+    // Blocked is the third: a vetoed scheduled row leaves `scheduled`
+    // and never arrives under `draft`, so asking for only two loses it.
+    expect(new Set(statuses)).toEqual(new Set(["draft", "scheduled", "blocked"]));
   });
 });
 
@@ -256,6 +263,59 @@ describe("publishing a draft", () => {
  * The rule: the server's answer wins whenever it sent one — including a
  * denial — and the older inference applies only in its absence.
  */
+/**
+ * A scheduled announcement that arm C vetoed at its due time.
+ *
+ * The row LEAVES `?status=scheduled` and does NOT arrive under
+ * `?status=draft` — it is stored `post_status=draft` carrying arm C's
+ * marker, and the owner list's per-status predicates keep the two apart.
+ * A surface asking for only draft+scheduled therefore loses it in
+ * silence, which is the disappearance this whole surface exists to
+ * remove, through a third door.
+ */
+describe("a withheld announcement is visible, not silently gone", () => {
+  const blockedRow = () =>
+    ownerRow("ann_b", "Withheld at publication", {
+      status: "blocked",
+    } as Partial<OwnerAnnouncementListItem>);
+
+  it("shows it even though it is in neither draft nor scheduled", async () => {
+    serve([], [], [blockedRow()]);
+    mount();
+    await waitFor(() =>
+      expect(screen.getByText("Withheld at publication")).toBeInTheDocument(),
+    );
+    expect(screen.getByTestId("announcement-status-ann_b")).toHaveTextContent("WITHHELD");
+    // Not the empty state: the operator has something here.
+    expect(screen.queryByText(/Nothing unpublished/)).toBeNull();
+  });
+
+  it("says what happened and what to do, without inventing WHY", async () => {
+    serve([], [], [blockedRow()]);
+    mount();
+    const note = await screen.findByTestId("announcement-blocked-note-ann_b");
+
+    expect(note).toHaveTextContent(/wasn.t published at its scheduled time/i);
+    expect(note).toHaveTextContent(/publish it now/i);
+    // The server sends `status: "blocked"` and nothing else — no reason,
+    // no timestamp. Naming a cause it never sent would be guessing at the
+    // operator's own history, and the guesses differ in blame.
+    for (const invented of [/authority/i, /claim/i, /lapsed/i, /revoked/i, /your fault/i]) {
+      expect(note.textContent ?? "").not.toMatch(invented);
+    }
+  });
+
+  it("offers publish, which is arm C's recovery path", async () => {
+    serve([], [], [blockedRow()]);
+    mount();
+    await waitFor(() =>
+      expect(screen.getByText("Withheld at publication")).toBeInTheDocument(),
+    );
+    fireEvent.click(screen.getByTestId("announcement-publish-ann_b"));
+    await waitFor(() => expect(publishAnnouncement).toHaveBeenCalledTimes(1));
+  });
+});
+
 describe("publish permission prefers the server's own answer", () => {
   it("honours can_publish when the server sends it", async () => {
     serve([

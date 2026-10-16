@@ -116,6 +116,8 @@ function publishDeniedCopy(reason: string | null): string {
   }
 }
 
+type RowKind = "draft" | "scheduled" | "blocked";
+
 interface AnnouncementManagementProps {
   pageId: number;
   /** The page-scope capability. Mount only when this is allowed. */
@@ -131,13 +133,33 @@ export function AnnouncementManagement({
     status: "scheduled",
     enabled: canManage,
   });
+  /*
+    Blocked rows are requested too, and they are the easiest to miss.
+
+    When arm C vetoes a scheduled announcement at its due time — because
+    the operator's claim had lapsed at that moment — the row LEAVES
+    `?status=scheduled` and does NOT arrive under `?status=draft`. It is
+    stored `post_status=draft` carrying arm C's marker, and the owner
+    list's per-status predicates keep the two apart deliberately.
+
+    So a surface asking only for draft+scheduled loses the row entirely,
+    silently: the operator scheduled something, it never went out, and it
+    is nowhere. That is the same disappearance this whole surface exists
+    to remove, reached through a third door. Measured on a real backend,
+    not inferred.
+  */
+  const blocked = useOwnerAnnouncements(pageId, {
+    status: "blocked",
+    enabled: canManage,
+  });
 
   if (!canManage) return null;
 
   const draftRows = (drafts.data?.pages ?? []).flatMap((p) => p.items);
   const scheduledRows = (scheduled.data?.pages ?? []).flatMap((p) => p.items);
+  const blockedRows = (blocked.data?.pages ?? []).flatMap((p) => p.items);
 
-  const loading = drafts.isPending || scheduled.isPending;
+  const loading = drafts.isPending || scheduled.isPending || blocked.isPending;
   // Either bucket failing on FIRST load is worth surfacing; a failure
   // here means the operator cannot reach their own unpublished work, and
   // silently showing "nothing" would be the stranding again.
@@ -145,7 +167,9 @@ export function AnnouncementManagement({
     ? drafts.error
     : scheduled.isLoadingError
       ? scheduled.error
-      : null;
+      : blocked.isLoadingError
+        ? blocked.error
+        : null;
 
   if (loading) {
     return (
@@ -173,6 +197,7 @@ export function AnnouncementManagement({
                   onRetry: () => {
                     void drafts.refetch();
                     void scheduled.refetch();
+                    void blocked.refetch();
                   },
                 })}
           />
@@ -184,7 +209,8 @@ export function AnnouncementManagement({
   // Nothing unpublished and nothing failed — say so rather than render an
   // empty frame. The claim is safe here precisely because neither read
   // errored.
-  const empty = draftRows.length === 0 && scheduledRows.length === 0;
+  const empty =
+    draftRows.length === 0 && scheduledRows.length === 0 && blockedRows.length === 0;
 
   return (
     <article className="bcc-paper" data-testid="announcement-management">
@@ -209,19 +235,27 @@ export function AnnouncementManagement({
               <ManagementRow pageId={pageId} row={row} kind="scheduled" />
             </li>
           ))}
+          {blockedRows.map((row) => (
+            <li key={row.id}>
+              <ManagementRow pageId={pageId} row={row} kind="blocked" />
+            </li>
+          ))}
         </ul>
       )}
 
       {/* A refresh that failed after rows were already on screen keeps the
           rows and localises the recovery, same rule as the panels. */}
-      {(drafts.isRefetchError || scheduled.isRefetchError) && (
+      {(drafts.isRefetchError || scheduled.isRefetchError || blocked.isRefetchError) && (
         <div className="px-5 sm:px-8">
           <LoadFailure
             surface="paper"
-            message={managementFailureCopy(drafts.error ?? scheduled.error)}
+            message={managementFailureCopy(
+              drafts.error ?? scheduled.error ?? blocked.error,
+            )}
             onRetry={() => {
               void drafts.refetch();
               void scheduled.refetch();
+              void blocked.refetch();
             }}
           />
         </div>
@@ -254,7 +288,7 @@ function ManagementRow({
 }: {
   pageId: number;
   row: OwnerAnnouncementListItem;
-  kind: "draft" | "scheduled";
+  kind: RowKind;
 }) {
   const [editing, setEditing] = useState(false);
   const update = useUpdateAnnouncement(pageId, row.id);
@@ -318,7 +352,7 @@ function ManagementRow({
           style={{ fontSize: "10px", letterSpacing: "0.24em" }}
           data-testid={`announcement-status-${row.id}`}
         >
-          {kind === "draft" ? "DRAFT" : "SCHEDULED"}
+          {kind === "draft" ? "DRAFT" : kind === "scheduled" ? "SCHEDULED" : "WITHHELD"}
         </span>
         {kind === "scheduled" && row.published_at !== null && (
           <time
@@ -331,6 +365,31 @@ function ManagementRow({
           </time>
         )}
       </div>
+
+      {kind === "blocked" && (
+        /*
+          What is said here is bounded by what the server sends. The
+          owner view-model carries `status: "blocked"` and nothing else
+          about the block: no reason, no timestamp. The meta holds
+          `_bcc_announcement_blocked_reason = authority_lost`, and it
+          does not reach the wire — verified against the payload, which
+          has no such key.
+
+          So this says WHAT happened and what to do, and does not
+          invent WHY. Naming a cause the server never sent would be
+          guessing at the operator's own history, and the plausible
+          guesses differ in blame: a lapsed claim is not the operator's
+          doing, and implying otherwise would be worse than silence.
+        */
+        <p
+          className="font-serif italic text-ink-soft"
+          style={{ fontSize: "13px" }}
+          data-testid={`announcement-blocked-note-${row.id}`}
+        >
+          This wasn’t published at its scheduled time and was held back.
+          You can publish it now.
+        </p>
+      )}
 
       <h4 className="bcc-stencil text-ink" style={{ fontSize: "17px", lineHeight: 1.15 }}>
         {row.title}
@@ -365,7 +424,11 @@ function ManagementRow({
           title={canPublish ? undefined : publishDeniedCopy(publishDeniedReason)}
           data-testid={`announcement-publish-${row.id}`}
         >
-          {publish.isPending ? "PUBLISHING…" : kind === "scheduled" ? "PUBLISH NOW" : "PUBLISH"}
+          {publish.isPending
+            ? "PUBLISHING…"
+            : kind === "scheduled"
+              ? "PUBLISH NOW"
+              : "PUBLISH"}
         </button>
       </div>
 
