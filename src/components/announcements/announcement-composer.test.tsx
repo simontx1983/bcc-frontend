@@ -16,7 +16,10 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 // Type-only: erased at compile time, so it is safe above the vi.mock calls.
-import type { CreateAnnouncementRequest } from "@/lib/api/types";
+import type {
+  CreateAnnouncementRequest,
+  UpdateAnnouncementRequest,
+} from "@/lib/api/types";
 
 vi.mock("@/lib/env", () => ({
   clientEnv: { BCC_API_URL: "https://wp.example" },
@@ -26,7 +29,7 @@ const { AnnouncementComposer } = await import(
   "@/components/announcements/AnnouncementComposer"
 );
 
-type SubmitMock = ReturnType<typeof vi.fn<(request: CreateAnnouncementRequest) => Promise<unknown>>>;
+type SubmitMock = ReturnType<typeof vi.fn<(request: CreateAnnouncementRequest | UpdateAnnouncementRequest) => Promise<unknown>>>;
 
 let onSubmit: SubmitMock;
 let onClose: () => void;
@@ -46,7 +49,7 @@ beforeAll(() => {
 });
 
 beforeEach(() => {
-  onSubmit = vi.fn<(request: CreateAnnouncementRequest) => Promise<unknown>>(
+  onSubmit = vi.fn<(request: CreateAnnouncementRequest | UpdateAnnouncementRequest) => Promise<unknown>>(
     async () => undefined,
   );
   onClose = () => {};
@@ -54,13 +57,18 @@ beforeEach(() => {
 
 afterEach(cleanup);
 
-function renderComposer(pending = false, error: unknown = null) {
+function renderComposer(
+  pending = false,
+  error: unknown = null,
+  canReopenDrafts = true,
+) {
   return render(
     <AnnouncementComposer
       onClose={onClose}
       onSubmit={onSubmit}
       pending={pending}
       error={error}
+      canReopenDrafts={canReopenDrafts}
     />,
   );
 }
@@ -127,8 +135,68 @@ describe("publication modes", () => {
     expect(screen.getByRole("button", { name: "PUBLISH" })).toBeInTheDocument();
   });
 
+  /**
+   * The stranding, and the shape of the mitigation.
+   *
+   * The server stores a draft perfectly well — the row is created and
+   * `GET /me/validators/:pageId/announcements?status=draft` returns it.
+   * What was missing was any surface that ASKS for it, so a saved draft
+   * had no route back, and the composer simply closed: the operator could
+   * not tell a save from a silent failure.
+   *
+   * So the mode is gated on retrieval existing, not on the server
+   * accepting the write — which it always did.
+   */
+  describe("draft mode is gated on being able to reopen a draft", () => {
+    it("disables the option and says why when nothing can reopen drafts", () => {
+      renderComposer(false, null, false);
+      const draft = screen.getByRole("radio", { name: "Save as draft" });
+      expect(draft).toBeDisabled();
+      expect(screen.getByTestId("announcement-draft-unavailable")).toHaveTextContent(
+        /Drafts can.t be reopened yet/,
+      );
+    });
+
+    it("describes the unavailable option to assistive tech, not just visually", () => {
+      renderComposer(false, null, false);
+      const draft = screen.getByRole("radio", { name: "Save as draft" });
+      const describedBy = draft.getAttribute("aria-describedby");
+      expect(describedBy).toBeTruthy();
+      expect(document.getElementById(describedBy ?? "")).toHaveTextContent(
+        /Publish now or schedule it instead/,
+      );
+    });
+
+    it("keeps every word already typed when the operator switches mode", () => {
+      renderComposer(false, null, false);
+      fill({ title: "Kept title", summary: "Kept summary", body: "Kept body" });
+      fireEvent.click(screen.getByRole("radio", { name: "Publish now" }));
+      // Nothing is discarded by the gate: the text fields are independent
+      // of the mode, which is what makes this a safe mitigation rather
+      // than one that costs the operator their work.
+      expect(screen.getByLabelText("TITLE")).toHaveValue("Kept title");
+      expect(screen.getByLabelText("SUMMARY (REQUIRED)")).toHaveValue("Kept summary");
+      expect(screen.getByLabelText("BODY (MARKDOWN)")).toHaveValue("Kept body");
+    });
+
+    it("never reports a save it did not make", () => {
+      renderComposer(false, null, false);
+      fill({ title: "T", summary: "S", body: "B" });
+      // Publish now is selected by default, so the only draft-shaped
+      // submit is one forced past the disabled radio.
+      expect(screen.queryByRole("button", { name: "SAVE DRAFT" })).toBeNull();
+      expect(onSubmit).not.toHaveBeenCalled();
+    });
+
+    it("offers the option normally once drafts can be reopened", () => {
+      renderComposer(false, null, true);
+      expect(screen.getByRole("radio", { name: "Save as draft" })).toBeEnabled();
+      expect(screen.queryByTestId("announcement-draft-unavailable")).toBeNull();
+    });
+  });
+
   it("sends mode=draft with no publish_at", () => {
-    renderComposer();
+    renderComposer(false, null, true);
     fill({ title: "T", summary: "S", body: "B" });
     fireEvent.click(screen.getByRole("radio", { name: "Save as draft" }));
     fireEvent.click(screen.getByRole("button", { name: "SAVE DRAFT" }));
