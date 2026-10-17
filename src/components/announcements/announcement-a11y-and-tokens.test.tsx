@@ -129,6 +129,7 @@ describe("the source scan actually sees the components", () => {
       "AnnouncementListItem.tsx",
       "AnnouncementManagement.tsx",
       "AnnouncementOwnerActions.tsx",
+      "AnnouncementReportControl.tsx",
       "AnnouncementsPanel.tsx",
     ]);
   });

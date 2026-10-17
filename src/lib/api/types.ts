@@ -4317,7 +4317,21 @@ export type ContentReportReason =
   | "misinformation"
   | "other";
 
-export type ContentReportTargetKind = "feed_item";
+/**
+ * What a content report may target.
+ *
+ * `announcement` targets the NOTICE ITSELF, not its feed projection. The
+ * client sends the notice's own id and nothing else — no page id, no
+ * author id, no activity id — and the server resolves the page from
+ * `post_parent` and reads the author itself.
+ *
+ * ⚠ `target_id` is a BODY field, so §4.32.4's "path identifiers are bare
+ * numeric, view-model identifiers are prefixed" rule is necessary but not
+ * sufficient here: a prefixed id is never a path segment, yet it could
+ * still be sent as a value. It must not be. The bare numeric form is the
+ * only accepted one — see {@link announcementTargetId}.
+ */
+export type ContentReportTargetKind = "feed_item" | "announcement";
 
 /** Optional comment cap. Mirrors ContentReportService::COMMENT_MAX_LENGTH. */
 export const CONTENT_REPORT_COMMENT_MAX_LENGTH = 500;
@@ -6401,6 +6415,27 @@ export interface AnnouncementCapabilities {
   can_archive: CardPermissionEntry;
   can_manage_comments: CardPermissionEntry;
   can_comment: CardPermissionEntry;
+  /**
+   * May report THIS announcement's content.
+   *
+   * **Optional on purpose.** The server does not emit it until bcc-trust
+   * #345 ships, and an absent capability must fail CLOSED — the control is
+   * never rendered on a guess, and never on a client-side inference about
+   * who authored the notice.
+   *
+   * Two denials are worth knowing about, though the client branches on
+   * neither:
+   *   • `own_content` — the operator's own rows. This is why the control
+   *     correctly disappears from the owner surface, which is the one
+   *     place `can_report` used to be `allowed: true` for everybody.
+   *   • `announcement_archived` is deliberately ABSENT from the denial
+   *     inventory: archival closes authoring, not challenge, so an
+   *     archived notice stays reportable.
+   *
+   * The gate reads `allowed` only, never `reason_code`, so new denial
+   * reasons can be added server-side without a frontend change.
+   */
+  can_report?: CardPermissionEntry;
 }
 
 /**
