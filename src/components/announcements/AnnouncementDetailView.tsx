@@ -14,6 +14,7 @@
 
 import { BlogMarkdownRenderer } from "@/components/blog/markdown/BlogMarkdownRenderer";
 import { AnnouncementComments } from "@/components/announcements/AnnouncementComments";
+import { AnnouncementReportControl } from "@/components/announcements/AnnouncementReportControl";
 import { formatAbsoluteDateTime, formatShortDate } from "@/lib/format";
 import type { AnnouncementDetail } from "@/lib/api/types";
 
@@ -56,6 +57,7 @@ export function AnnouncementDetailView({
     is_archived,
     archived_at,
     is_pinned,
+    capabilities,
   } = announcement;
 
   const showUpdated = isMateriallyUpdated(published_at, updated_at);
@@ -145,6 +147,19 @@ export function AnnouncementDetailView({
             raw HTML (no rehype-raw) and scheme-filters every URL, so an
             operator typing markup gets literal text, never execution. */}
         <BlogMarkdownRenderer body={body} />
+      </div>
+
+      {/* Reporting lives here, below the content it concerns and above the
+          discussion — deliberately NOT beside a reaction, because there are
+          none on this surface and a report is not one. The control renders
+          itself away unless the server said this viewer may report this
+          notice; an archived notice stays reportable, since archival closes
+          authoring, not challenge. */}
+      <div className="flex justify-end px-5 pb-6 sm:px-8">
+        <AnnouncementReportControl
+          announcement={{ id, title, capabilities }}
+          surface="panel"
+        />
       </div>
 
       <AnnouncementComments announcementId={id} viewerAuthed={viewerAuthed} />

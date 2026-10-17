@@ -56,6 +56,7 @@ import { AnnouncementComposer } from "@/components/announcements/AnnouncementCom
 import { AnnouncementListItem } from "@/components/announcements/AnnouncementListItem";
 import { AnnouncementManagement } from "@/components/announcements/AnnouncementManagement";
 import { AnnouncementOwnerActions } from "@/components/announcements/AnnouncementOwnerActions";
+import { AnnouncementReportControl } from "@/components/announcements/AnnouncementReportControl";
 import { LoadFailure } from "@/components/ui/LoadFailure";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { humanizeCode, isPermissionDenial } from "@/lib/api/errors";
@@ -350,40 +351,68 @@ function ActiveSectionData({
   return (
     <>
       <ul className="flex flex-col">
-        {items.map((item) => (
-          <li key={item.id}>
-            <AnnouncementListItem
-              announcement={item}
-              actions={
-                /* `can_manage` opens the management surface and nothing
-                   more. Whether THIS row may be pinned is decided inside,
-                   from the row's own capability — which is merged in from
-                   the owner list, because the public row has none.
+        {items.map((item) => {
+          /* The row on screen came from the PUBLIC list, which carries no
+             capabilities for anyone. Anything authority-bearing has to come
+             from the owner-list lookup, and `undefined` here means "not
+             told", never "allowed". */
+          const rowCaps = capabilitiesById.get(item.id);
 
-                   A row the owner list has not covered yet (it paginates
-                   independently of this one) gets NO control rather than
-                   a disabled one. An inert button that says "can't be
-                   pinned right now" would be stating a permission
-                   decision the client has not actually been told, and the
-                   operator can pin that row perfectly well from its
-                   detail page. Absence is the honest rendering; the same
-                   reasoning the panels use for omitting a Retry. */
-                canManage && capabilitiesById.has(item.id) ? (
-                  <AnnouncementOwnerActions
-                    announcement={{
-                      ...item,
-                      capabilities: capabilitiesById.get(item.id)!,
-                    }}
-                    pending={pin.isPending}
-                    onPin={(announcementId, pinned) =>
-                      pin.mutate({ announcementId, pinned })
-                    }
-                  />
-                ) : null
-              }
-            />
-          </li>
-        ))}
+          /* `can_manage` opens the management surface and nothing more.
+             Whether THIS row may be pinned is decided inside, from the
+             row's own capability — which is merged in from the owner list,
+             because the public row has none.
+
+             A row the owner list has not covered yet (it paginates
+             independently of this one) gets NO control rather than a
+             disabled one. An inert button that says "can't be pinned right
+             now" would be stating a permission decision the client has not
+             actually been told, and the operator can pin that row perfectly
+             well from its detail page. Absence is the honest rendering; the
+             same reasoning the panels use for omitting a Retry. */
+          const ownerActions =
+            canManage && rowCaps !== undefined ? (
+              <AnnouncementOwnerActions
+                announcement={{ ...item, capabilities: rowCaps }}
+                pending={pin.isPending}
+                onPin={(announcementId, pinned) =>
+                  pin.mutate({ announcementId, pinned })
+                }
+              />
+            ) : null;
+
+          /* Reporting follows exactly the same rule, and for the same
+             reason: offered only on a row the server actually attached an
+             ALLOWED `can_report` to. A public row has no capability block,
+             so it offers nothing and the viewer uses READ MORE — we neither
+             guess the permission nor spend one detail request per row to
+             discover it. In practice this means the operator does not see
+             REPORT on their own notices (`own_content`), which is the
+             correct disappearance rather than a missing feature. */
+          const reportAction =
+            rowCaps !== undefined ? (
+              <AnnouncementReportControl
+                announcement={{ id: item.id, title: item.title, capabilities: rowCaps }}
+                surface="paper"
+              />
+            ) : null;
+
+          return (
+            <li key={item.id}>
+              <AnnouncementListItem
+                announcement={item}
+                actions={
+                  ownerActions === null && reportAction === null ? null : (
+                    <>
+                      {ownerActions}
+                      {reportAction}
+                    </>
+                  )
+                }
+              />
+            </li>
+          );
+        })}
       </ul>
 
       {/* A failed REFRESH keeps the list and localises the recovery
