@@ -89,7 +89,10 @@ function FeedItemCardImpl({
   // permalink page `/post/[id]` is the hard-nav / SEO source of truth.
   const selfHref = item.links.self as Route;
 
-  const commentCount = item.comment_count ?? 0;
+  // Passed through UNCOERCED: an absent count means unknown (§4.32.15
+  // omits it for an announcement), and `?? 0` would assert "nobody
+  // replied". The count slot hides either way.
+  const commentCount = item.comment_count;
 
   // Whole-card click soft-navigates to the post permalink (Reddit/Twitter
   // style — real URL change, native Back restores the feed's scroll from

@@ -658,6 +658,18 @@ export interface Card {
    * transition.
    */
   actions?: Record<string, CardAction>;
+  /**
+   * §4.32 validator announcements. **Presence of this block is the
+   * feature gate** — no client flag, no environment variable.
+   *
+   * Absent on every backend shipping today (the feature is bcc-trust
+   * A2/A3/A5, unstarted), so the Announcements tab, the composer and the
+   * detail route all render nothing. That is the designed state, not a
+   * degraded one: same additive-optional convention as `messaging?` /
+   * `onchain_signals?`, and the reason this slice is safe to ship ahead
+   * of its backend.
+   */
+  announcements?: AnnouncementsBlock | null;
 }
 
 /**
@@ -1110,8 +1122,29 @@ export interface FeedItem {
    * The feed card surfaces this as a chip; clicking the chip
    * lazy-mounts <CommentDrawer /> which fetches the actual list
    * via §4.13.
+   *
+   * ⚠ OPTIONAL, because §4.32.15 has the feed projection **omit** it for
+   * the `announcement` kind. Announcement comments live in their own
+   * comment type rather than as activity comments, while this field is
+   * hydrated from the ACTIVITY comment count — which for an announcement
+   * is structurally zero and known to be wrong. The contract's rule is
+   * "source the count from the actual announcement discussion, or emit no
+   * count at all; never emit the activity count", and until the comment
+   * integration exists the projection emits nothing.
+   *
+   * So an absent value means UNKNOWN, not zero. Callers must pass it
+   * through as `undefined` rather than coercing it with `?? 0`: the
+   * rendered output is the same (the count slot hides at 0 too), but a
+   * fabricated 0 reads as "nobody replied" to anything that later decides
+   * to show a figure, and that is exactly the wrong claim on a notice
+   * with a live discussion.
+   *
+   * ⚠⚠ This is the `FeedItem` field only. `Announcement.comment_count`
+   * (§4.32.3) is REQUIRED on the list, rotator and detail responses and
+   * is sourced from the announcement's own discussion — correct, and it
+   * stays. The two share a name and have different origins.
    */
-  comment_count: number;
+  comment_count?: number;
   permissions: Record<string, FeedItemPermission>;
   links: {
     self: string;
@@ -4284,7 +4317,21 @@ export type ContentReportReason =
   | "misinformation"
   | "other";
 
-export type ContentReportTargetKind = "feed_item";
+/**
+ * What a content report may target.
+ *
+ * `announcement` targets the NOTICE ITSELF, not its feed projection. The
+ * client sends the notice's own id and nothing else — no page id, no
+ * author id, no activity id — and the server resolves the page from
+ * `post_parent` and reads the author itself.
+ *
+ * ⚠ `target_id` is a BODY field, so §4.32.4's "path identifiers are bare
+ * numeric, view-model identifiers are prefixed" rule is necessary but not
+ * sufficient here: a prefixed id is never a path segment, yet it could
+ * still be sent as a value. It must not be. The bare numeric form is the
+ * only accepted one — see {@link announcementTargetId}.
+ */
+export type ContentReportTargetKind = "feed_item" | "announcement";
 
 /** Optional comment cap. Mirrors ContentReportService::COMMENT_MAX_LENGTH. */
 export const CONTENT_REPORT_COMMENT_MAX_LENGTH = 500;
@@ -6294,4 +6341,273 @@ export interface AccountActivityResponse {
 /** POST /auth/logout-everywhere success body. */
 export interface LogoutEverywhereResponse {
   ok: true;
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Validator announcements — api-contract-v1.md §4.32 (PLANNED)
+//
+// ⚠ NO BACKEND EXISTS YET. These types mirror the contract locked in
+// umbrella PR #165; they are the consumer half of a contract-first
+// slice. Every surface that consumes them is gated on a server-supplied
+// capability block (`Card.announcements`), which today's backend never
+// sends — so the whole feature renders nothing in production until
+// bcc-trust A2/A3/A5 ship. That absence IS the gate; there is no client
+// flag, no environment toggle and no fallback endpoint.
+//
+// The frontend half of a view-model has no automated guard (only PHP
+// routes are checked against the contract doc), so any drift here must
+// be caught in review. See frontend-doctrine §2.5.
+// ─────────────────────────────────────────────────────────────────────
+
+/**
+ * Announcement lifecycle as the wire reports it.
+ *
+ * `blocked` is the non-public state reconciler arm C moves a row into
+ * when a forced `publish` has no valid publication-authorization
+ * marker (§4.32.1). It is owner-visible only, never public.
+ */
+export type AnnouncementStatus = "draft" | "scheduled" | "published" | "blocked";
+
+/** Composer intent. Distinct from AnnouncementStatus: this is a REQUEST verb. */
+export type AnnouncementPublishMode = "draft" | "publish" | "schedule";
+
+/** §4.32.4 — `?state=` on the list route. */
+export type AnnouncementListState = "active" | "archived";
+
+/**
+ * **Validator-page scope.** What this viewer may do on the validator as
+ * a whole: see the feature at all, start an announcement, and open the
+ * operator management affordances.
+ *
+ * 🔒 **`can_comment` is deliberately NOT here, and must never be added.**
+ * Commenting is decided per announcement — one may be archived, another
+ * may have comments switched off, a third may not be published or due
+ * yet. A page-level "may comment" would authorize commenting on *every*
+ * announcement, including ones that are closed. The comment gate lives
+ * on {@link AnnouncementCapabilities}, which is only ever supplied by an
+ * announcement-scoped response.
+ *
+ * Every entry is a §2.1 CardPermissionEntry so `isAllowed()` works
+ * uniformly. Owner controls MUST be driven from these and nothing else:
+ * never from page authorship, PeepSo membership, or client state.
+ */
+export interface AnnouncementFeatureCapabilities {
+  /** May start a new announcement on this validator. */
+  can_create: CardPermissionEntry;
+  /** May open operator management UI (pin / archive / edit affordances). */
+  can_manage: CardPermissionEntry;
+}
+
+/**
+ * **Single-announcement scope.** Supplied only by announcement-scoped
+ * responses — the detail view-model and the comments page. Never by the
+ * validator Card.
+ *
+ * `can_comment` here is the ONLY comment gate the UI may read. The
+ * server resolves it from every condition that bears on this one
+ * announcement: authentication, member standing, fraud/suspension state,
+ * `comments_enabled`, published-and-due state, archived state, and the
+ * feature switch. The client re-derives none of that.
+ */
+export interface AnnouncementCapabilities {
+  can_edit: CardPermissionEntry;
+  can_pin: CardPermissionEntry;
+  can_archive: CardPermissionEntry;
+  can_manage_comments: CardPermissionEntry;
+  can_comment: CardPermissionEntry;
+  /**
+   * May report THIS announcement's content.
+   *
+   * **Optional on purpose.** The server does not emit it until bcc-trust
+   * #345 ships, and an absent capability must fail CLOSED — the control is
+   * never rendered on a guess, and never on a client-side inference about
+   * who authored the notice.
+   *
+   * Two denials are worth knowing about, though the client branches on
+   * neither:
+   *   • `own_content` — the operator's own rows. This is why the control
+   *     correctly disappears from the owner surface, which is the one
+   *     place `can_report` used to be `allowed: true` for everybody.
+   *   • `announcement_archived` is deliberately ABSENT from the denial
+   *     inventory: archival closes authoring, not challenge, so an
+   *     archived notice stays reportable.
+   *
+   * The gate reads `allowed` only, never `reason_code`, so new denial
+   * reasons can be added server-side without a frontend change.
+   */
+  can_report?: CardPermissionEntry;
+}
+
+/**
+ * Why `can_comment` came back `allowed: false`.
+ *
+ * The client branches copy on these; it never infers the reason itself.
+ * An unrecognised or absent reason falls back to a generic closed
+ * message — absence always fails closed, it never opens the composer.
+ */
+export type AnnouncementCommentDeniedReason =
+  | "auth_required"
+  | "comments_disabled"
+  | "announcement_archived"
+  | "announcement_unavailable"
+  | "suspended"
+  | "fraud_locked"
+  | "feature_disabled";
+
+/**
+ * Additive-optional block on the validator Card view-model.
+ *
+ * Absent on every backend shipping today. A pre-A2 backend omits it and
+ * the frontend hides the Announcements tab, the composer and the detail
+ * route — which is the designed behaviour, not a degraded one.
+ */
+export interface AnnouncementsBlock {
+  capabilities: AnnouncementFeatureCapabilities;
+}
+
+/** §4.32.3 — one announcement as list/detail report it. */
+export interface Announcement {
+  /** Opaque, form `ann_<int>`. */
+  id: string;
+  title: string;
+  /**
+   * Operator-written summary. **Required and first-class** — it is
+   * never derived from the body, and it is the only text the feed card,
+   * the rotator and the OG image may use.
+   */
+  summary: string;
+  /** ISO-8601 UTC. Formatted client-side for the viewer's locale. */
+  published_at: string | null;
+  /** ISO-8601 UTC. Surface on detail only when materially later than published_at. */
+  updated_at: string | null;
+  is_pinned: boolean;
+  is_archived: boolean;
+  /** ISO-8601 UTC; non-null iff is_archived. */
+  archived_at: string | null;
+  comment_count: number;
+  comments_enabled: boolean;
+  links: { self: string };
+  /**
+   * Per-announcement capabilities, attached by the server **only** for a
+   * viewer who may manage this validator. Absent for public readers.
+   *
+   * 🔒 This is the ONLY authority for a mutation against this row. The
+   * validator-page `can_manage` decides whether the management surface
+   * opens; it never decides whether THIS announcement may be pinned,
+   * edited or archived. An archived, draft or scheduled row does not
+   * inherit permission from the page.
+   *
+   * Optional on purpose: absence must fail closed, and `isAllowed()`
+   * collapses a missing or malformed block to `false`.
+   */
+  capabilities?: AnnouncementCapabilities;
+}
+
+/**
+ * A list row the server attached capabilities to — i.e. one returned by
+ * an owner-scoped read.
+ *
+ * Named so a call site can say it requires the capability-bearing shape
+ * rather than hoping the optional field happens to be there.
+ */
+export type OwnerAnnouncementListItem = Announcement & {
+  capabilities: AnnouncementCapabilities;
+};
+
+/** Detail adds the Markdown body and the viewer's capability view. */
+export interface AnnouncementDetail extends Announcement {
+  /** Markdown SOURCE. Never HTML. Rendered through BlogMarkdownRenderer. */
+  body: string;
+  status: AnnouncementStatus;
+  capabilities: AnnouncementCapabilities;
+}
+
+/** §1.5 cursor envelope. */
+export interface AnnouncementListResponse {
+  items: Announcement[];
+  pagination: { next_cursor: string | null; has_more: boolean };
+}
+
+/**
+ * The owner-scoped list's envelope. Same cursor shape, but every row is
+ * capability-bearing — which is the whole reason the surface exists.
+ *
+ * ⚠ Its cursor is minted by a DIFFERENT surface (`ann_owner`) than the
+ * public list's (`ann_active`), and the server refuses a cursor across
+ * surfaces. They are not interchangeable; never thread one into the other.
+ */
+export interface OwnerAnnouncementListResponse {
+  items: OwnerAnnouncementListItem[];
+  pagination: { next_cursor: string | null; has_more: boolean };
+}
+
+export interface CreateAnnouncementRequest {
+  title: string;
+  summary: string;
+  body: string;
+  mode: AnnouncementPublishMode;
+  /** ISO-8601 UTC. Required iff mode === "schedule"; must be strictly future. */
+  publish_at?: string;
+  comments_enabled: boolean;
+}
+
+export interface UpdateAnnouncementRequest {
+  title?: string;
+  summary?: string;
+  body?: string;
+  comments_enabled?: boolean;
+  /**
+   * Re-schedule, in the route's `Y-m-d H:i:s` UTC format — NOT ISO-8601,
+   * the same trap as on create.
+   *
+   * ⚠ Accepted only while the row is still `scheduled`: the route answers
+   * `409 bcc_conflict` ("Only a scheduled announcement can be
+   * re-scheduled.") on a published one. Gate the control on status, not
+   * on the operator's page-level capability.
+   */
+  publish_at?: string;
+}
+
+/** Who removed a comment. Drives which server-authored label is shown. */
+export type AnnouncementCommentRemovalActor = "author" | "validator";
+
+/**
+ * One row in the canonical chronological discussion.
+ *
+ * "Thread" throughout this feature means the flat chronological
+ * discussion — v1 has NO nested replies, so there is no `parent_id`.
+ *
+ * A removed comment is NOT dropped: it stays in position as a
+ * tombstone carrying only `id`, `is_removed`, `removed_at` and a
+ * server-authored `label`. It must never carry body, author, avatar,
+ * user id, actor type or removal reason.
+ */
+export type AnnouncementComment =
+  | {
+      id: string;
+      is_removed: false;
+      body: string;
+      author: { id: number; handle: string; display_name: string; avatar_url: string | null };
+      posted_at: string;
+      permissions: { can_remove: CardPermissionEntry };
+    }
+  | {
+      id: string;
+      is_removed: true;
+      removed_at: string;
+      /** Server-authored. The client never composes removal copy. */
+      label: string;
+    };
+
+export interface AnnouncementCommentsResponse {
+  items: AnnouncementComment[];
+  pagination: { next_cursor: string | null; has_more: boolean };
+  /** False once the announcement is archived, or when the operator disabled comments. */
+  can_comment: CardPermissionEntry;
+}
+
+export interface CreateAnnouncementCommentRequest {
+  announcementId: string;
+  /** Plain text. 1–2000 chars after normalization. Never Markdown-rendered. */
+  body: string;
 }
