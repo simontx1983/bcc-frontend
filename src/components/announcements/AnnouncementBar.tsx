@@ -30,6 +30,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { ChevronLeft, ChevronRight, Pause, Pin, Play } from "lucide-react";
 import Link from "next/link";
 import type { Route } from "next";
 
@@ -176,7 +177,7 @@ export function AnnouncementBar({ pageId, featureEnabled }: AnnouncementBarProps
       "Couldn't load announcements.",
     );
     return (
-      <section aria-label="Announcements" className="mx-auto mt-8 max-w-3xl px-4 sm:px-0">
+      <section aria-label="Announcements" className="mx-auto mt-8 max-w-[1440px] px-4 sm:px-7">
         <LoadFailure message={copy} onRetry={() => void query.refetch()} />
       </section>
     );
@@ -184,7 +185,7 @@ export function AnnouncementBar({ pageId, featureEnabled }: AnnouncementBarProps
 
   if (query.isPending) {
     return (
-      <section aria-label="Announcements" className="mx-auto mt-8 max-w-3xl px-4 sm:px-0">
+      <section aria-label="Announcements" className="mx-auto mt-8 max-w-[1440px] px-4 sm:px-7">
         <Skeleton className="h-28 w-full" />
       </section>
     );
@@ -201,7 +202,7 @@ export function AnnouncementBar({ pageId, featureEnabled }: AnnouncementBarProps
   return (
     <section
       aria-label="Announcements"
-      className="mx-auto mt-8 max-w-3xl px-4 sm:px-0"
+      className="mx-auto mt-8 max-w-[1440px] px-4 sm:px-7"
       data-testid="announcement-bar"
       onMouseEnter={() => setInteracting(true)}
       onMouseLeave={() => setInteracting(false)}
@@ -260,7 +261,7 @@ export function AnnouncementBar({ pageId, featureEnabled }: AnnouncementBarProps
             label="Previous announcement"
             onClick={() => goTo(index - 1, true)}
           >
-            ‹
+            <ChevronLeft size={16} strokeWidth={2} />
           </BarButton>
 
           <BarButton
@@ -274,11 +275,23 @@ export function AnnouncementBar({ pageId, featureEnabled }: AnnouncementBarProps
             }}
             pressed={paused}
           >
-            {paused ? "▶" : "❚❚"}
+            {paused ? <Play size={16} strokeWidth={2} /> : <Pause size={16} strokeWidth={2} />}
           </BarButton>
 
+          {/* Position, for the eyes. The live region above already carries
+              this fact for assistive technology, so this node is
+              aria-hidden — it adds no second announcement. */}
+          <span
+            aria-hidden
+            className="bcc-mono tabular-nums px-1 text-bcc-text-secondary"
+            style={{ fontSize: "11px", letterSpacing: "0.1em" }}
+            data-testid="announcement-bar-position"
+          >
+            {index + 1} / {total}
+          </span>
+
           <BarButton label="Next announcement" onClick={() => goTo(index + 1, true)}>
-            ›
+            <ChevronRight size={16} strokeWidth={2} />
           </BarButton>
         </div>
       )}
@@ -292,15 +305,77 @@ export function AnnouncementBar({ pageId, featureEnabled }: AnnouncementBarProps
  * own page, which this links to with the server's own href.
  */
 function AnnouncementSlide({ announcement }: { announcement: Announcement }) {
-  const { title, summary, published_at, links } = announcement;
+  const { title, summary, published_at, links, is_pinned } = announcement;
   return (
-    <div className="px-5 py-5 sm:px-8" data-testid="announcement-slide">
+    // `max-w-3xl` caps the TEXT measure, left-aligned (no `mx-auto`), so the
+    // card can span the page container without a 300-character summary
+    // running the full 1440px. The card's left edge aligns with the hero and
+    // the tabs; the reading measure is the one the bar already had.
+    <div className="max-w-3xl px-5 py-5 sm:px-8" data-testid="announcement-slide">
+      <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1">
+        {/*
+          Was `text-safety` on this white surface: 3.39:1
+          measured, under the 4.5:1 small-text bar. `text-bcc-text-secondary`
+          is the same surface family and measures 7.56:1.
+        */}
+        <p
+          className="bcc-mono text-bcc-text-secondary"
+          style={{ fontSize: "10px", letterSpacing: "0.24em" }}
+        >
+          ANNOUNCEMENT
+        </p>
+        {/*
+          The bar is the billboard, and it was the one surface that did not
+          say an announcement is pinned — the tab already does. The icon
+          sits beside the word, so the state is never carried by colour
+          alone. Server ordering is untouched: this reports the flag on
+          whichever row the server put first, it does not reorder anything.
+        */}
+        {is_pinned && (
+          <span
+            className="bcc-mono inline-flex items-center gap-1 text-bcc-text"
+            style={{ fontSize: "10px", letterSpacing: "0.24em" }}
+            data-testid="announcement-bar-pinned"
+          >
+            <Pin size={11} strokeWidth={2} aria-hidden />
+            PINNED
+          </span>
+        )}
+      </div>
+
+      {/*
+        WHO IS SPEAKING. The billboard carried a category ("ANNOUNCEMENT")
+        but no issuer, and on a validator page that distinction carries
+        weight: the same page also hosts platform-authored judgements about
+        the operator — trust tier, jailed status, disputes. Without this a
+        visitor cannot tell whether the notice is the operator speaking or
+        BCC speaking ABOUT the operator, and the second is the one a
+        sceptical visitor cares about. The page title sits far above in
+        different typography and does not attach to this card.
+
+        Two constraints on this string, both deliberate:
+
+          1. It does NOT imply BCC endorsement. It attributes authorship and
+             says nothing about whether BCC agrees with, reviewed or vouches
+             for the content.
+          2. It is NOT an identity-verification claim. The frontend verifies
+             nothing here — the server decides who may publish
+             (resolveVerifiedOperatorForPage → RESOLVED). This asserts a
+             SOURCE CATEGORY, not a verified identity.
+
+        Rendered as plain secondary text rather than a badge or pill on
+        purpose: chip styling reads as a verification marker, which is
+        exactly the second thing this must not become. Do not upgrade it
+        into a trust signal without a separate decision.
+      */}
       <p
-        className="bcc-mono mb-2 text-safety"
-        style={{ fontSize: "10px", letterSpacing: "0.24em" }}
+        className="bcc-mono text-bcc-text-secondary"
+        style={{ fontSize: "11px", marginBottom: "6px" }}
+        data-testid="announcement-bar-source"
       >
-        ANNOUNCEMENT
+        Update from the validator operator.
       </p>
+
       <h3 className="bcc-stencil text-bcc-text" style={{ fontSize: "20px", lineHeight: 1.15 }}>
         {title}
       </h3>

@@ -18,6 +18,7 @@
  */
 
 import { bccFetch, bccFetchAsClient } from "@/lib/api/client";
+import { BccApiError } from "@/lib/api/types";
 import type {
   Announcement,
   AnnouncementCommentsResponse,
@@ -34,6 +35,41 @@ import type {
 /** Shared path root so a contract change lands in exactly one place. */
 function announcementsRoot(pageId: number): string {
   return `validators/${encodeURIComponent(String(pageId))}/announcements`;
+}
+
+/**
+ * Announcement and comment ids on the WIRE are prefixed view-model values —
+ * `ann_36`, `acmt_21`. The ROUTES take bare numerics (`\d+`). Interpolating
+ * the prefixed form produces a URL that matches no route and comes back as a
+ * flat 404, which reads exactly like "this announcement does not exist".
+ *
+ * That is not hypothetical: every surface that built a path from a payload
+ * id — the whole comment thread, comment create and remove, and the owner
+ * pin/archive/edit actions — requested `/announcements/ann_36/comments` and
+ * got a 404, while the detail route happened to work because the page hands
+ * it the raw route segment instead of a payload value. Mocked endpoint tests
+ * could not see it: they assert on the arguments, and the arguments were
+ * right. Only the real backend has an opinion about the URL.
+ *
+ * So the strip lives HERE, at the single layer that owns URL construction,
+ * rather than at each of the eight call sites.
+ *
+ * A value that is not numeric after stripping is a contract violation, not
+ * something to paper over with a request that cannot succeed: it throws
+ * rather than sending a URL we know is wrong.
+ */
+function pathId(id: string | number, kind: "announcement" | "comment"): string {
+  const raw = String(id).trim();
+  const bare = raw.replace(/^(?:ann_|acmt_)/, "");
+  if (!/^\d+$/.test(bare)) {
+    throw new BccApiError(
+      "bcc_invalid_request",
+      `Unusable ${kind} id: ${raw}`,
+      400,
+      null,
+    );
+  }
+  return bare;
 }
 
 export interface ListAnnouncementsParams {
@@ -128,24 +164,24 @@ export function listAnnouncements(
  * Never cached: the response carries a viewer-specific capability block,
  * so a shared cache entry could hand one viewer another's owner controls.
  */
-export function getAnnouncement(
+export async function getAnnouncement(
   pageId: number,
   announcementId: string,
   token: string | null,
 ): Promise<AnnouncementDetail> {
   return bccFetch<AnnouncementDetail>(
-    `${announcementsRoot(pageId)}/${encodeURIComponent(announcementId)}`,
+    `${announcementsRoot(pageId)}/${pathId(announcementId, "announcement")}`,
     { method: "GET", token },
   );
 }
 
 /** Browser twin of {@link getAnnouncement}. */
-export function getAnnouncementAsClient(
+export async function getAnnouncementAsClient(
   pageId: number,
   announcementId: string,
 ): Promise<AnnouncementDetail> {
   return bccFetchAsClient<AnnouncementDetail>(
-    `${announcementsRoot(pageId)}/${encodeURIComponent(announcementId)}`,
+    `${announcementsRoot(pageId)}/${pathId(announcementId, "announcement")}`,
     { method: "GET" },
   );
 }
@@ -191,13 +227,13 @@ export function createAnnouncement(
 }
 
 /** PATCH /validators/:pageId/announcements/:id — edit. 409 once archived. */
-export function updateAnnouncement(
+export async function updateAnnouncement(
   pageId: number,
   announcementId: string,
   request: UpdateAnnouncementRequest,
 ): Promise<AnnouncementDetail> {
   return bccFetchAsClient<AnnouncementDetail>(
-    `${announcementsRoot(pageId)}/${encodeURIComponent(announcementId)}`,
+    `${announcementsRoot(pageId)}/${pathId(announcementId, "announcement")}`,
     { method: "PATCH", body: request },
   );
 }
@@ -227,11 +263,7 @@ export async function publishAnnouncement(
   announcementId: string,
 ): Promise<Announcement> {
   return bccFetchAsClient<Announcement>(
-    // Bare numeric id: the route matches `\d+` and the wire hands callers
-    // the prefixed `ann_<n>` view-model form. The general fix for this
-    // across every path lives on the billboard branch as `pathId()`; this
-    // call reconciles to it when the branches meet.
-    `${announcementsRoot(pageId)}/${String(announcementId).replace(/^ann_/, "")}/publish`,
+    `${announcementsRoot(pageId)}/${pathId(announcementId, "announcement")}/publish`,
     { method: "POST" },
   );
 }
@@ -243,12 +275,12 @@ export async function publishAnnouncement(
  * date and the whole discussion survive. It unpins, withdraws the feed
  * activity, and cannot be undone.
  */
-export function archiveAnnouncement(
+export async function archiveAnnouncement(
   pageId: number,
   announcementId: string,
 ): Promise<AnnouncementDetail> {
   return bccFetchAsClient<AnnouncementDetail>(
-    `${announcementsRoot(pageId)}/${encodeURIComponent(announcementId)}/archive`,
+    `${announcementsRoot(pageId)}/${pathId(announcementId, "announcement")}/archive`,
     { method: "POST" },
   );
 }
@@ -275,13 +307,15 @@ export function archiveAnnouncement(
  * them, so every pin button rendered permanently disabled. Correcting
  * that sourcing is what exposed the write underneath it.
  */
-export function setAnnouncementPin(
+export async function setAnnouncementPin(
   pageId: number,
   announcementId: string,
   pinned: boolean,
 ): Promise<Announcement> {
   return bccFetchAsClient<Announcement>(
-    `${announcementsRoot(pageId)}/${encodeURIComponent(announcementId)}/pin`,
+    // Both corrections apply: the BARE NUMERIC id from this branch, and
+    // the direction-in-the-body from F1. Either alone still fails.
+    `${announcementsRoot(pageId)}/${pathId(announcementId, "announcement")}/pin`,
     { method: "POST", body: { pinned } },
   );
 }
@@ -297,7 +331,7 @@ export interface ListAnnouncementCommentsParams {
  * discussion, **oldest first** and flat. v1 has no nested replies, so
  * there is no `parent` parameter.
  */
-export function listAnnouncementComments(
+export async function listAnnouncementComments(
   params: ListAnnouncementCommentsParams,
 ): Promise<AnnouncementCommentsResponse> {
   const { announcementId, cursor, limit } = params;
@@ -310,17 +344,17 @@ export function listAnnouncementComments(
   }
   const qs = search.toString();
   return bccFetchAsClient<AnnouncementCommentsResponse>(
-    `announcements/${encodeURIComponent(announcementId)}/comments${qs ? `?${qs}` : ""}`,
+    `announcements/${pathId(announcementId, "announcement")}/comments${qs ? `?${qs}` : ""}`,
     { method: "GET" },
   );
 }
 
 /** POST /announcements/:id/comments — plain text only; no Markdown, no replies. */
-export function createAnnouncementComment(
+export async function createAnnouncementComment(
   request: CreateAnnouncementCommentRequest,
 ): Promise<{ comment: AnnouncementCommentsResponse["items"][number] }> {
   return bccFetchAsClient<{ comment: AnnouncementCommentsResponse["items"][number] }>(
-    `announcements/${encodeURIComponent(request.announcementId)}/comments`,
+    `announcements/${pathId(request.announcementId, "announcement")}/comments`,
     { method: "POST", body: { body: request.body } },
   );
 }
@@ -339,12 +373,12 @@ export interface RemoveAnnouncementCommentParams {
  * actor. An operator removing their OWN comment is recorded as an
  * author removal, so the client cannot predict the label either.
  */
-export function removeAnnouncementComment(
+export async function removeAnnouncementComment(
   params: RemoveAnnouncementCommentParams,
 ): Promise<{ comment_id: string }> {
   const { announcementId, commentId } = params;
   return bccFetchAsClient<{ comment_id: string }>(
-    `announcements/${encodeURIComponent(announcementId)}/comments/${encodeURIComponent(commentId)}`,
+    `announcements/${pathId(announcementId, "announcement")}/comments/${pathId(commentId, "comment")}`,
     { method: "DELETE" },
   );
 }
