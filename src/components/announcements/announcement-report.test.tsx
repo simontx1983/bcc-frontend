@@ -210,6 +210,84 @@ describe("the gate reads `allowed` and nothing else", () => {
     expect(canReportAnnouncement({ id: "ann_1", title: "t" })).toBe(false);
   });
 
+  /**
+   * §N7 / contract §5.1 — the discriminator is the HINT, not the reason.
+   *
+   * Six of the seven denials carry `unlock_hint: null` and must hide;
+   * `auth_required` carries sign-in copy and must render visible-disabled.
+   * "Render nothing on every denial" is right 6/7 times, which is exactly
+   * why it reads as safe — so the one case that teaches gets its own
+   * assertions, including that the hint is VISIBLE and not sr-only.
+   */
+  describe("§N7 visible-gate rule", () => {
+    const anonDenial = {
+      allowed: false,
+      unlock_hint: "Sign in to report this announcement.",
+      reason_code: "auth_required",
+    };
+
+    it("auth_required renders a DISABLED control carrying the hint", () => {
+      renderControl({ ...REPORTABLE, capabilities: caps(anonDenial) });
+      const btn = screen.getByTestId("announcement-report-denied");
+      expect((btn as HTMLButtonElement).disabled).toBe(true);
+      expect(screen.getByText("Sign in to report this announcement.")).toBeTruthy();
+      // Not the live trigger — it cannot open the modal.
+      expect(trigger()).toBeNull();
+    });
+
+    it("the hint is VISIBLE, not sr-only", () => {
+      renderControl({ ...REPORTABLE, capabilities: caps(anonDenial) });
+      const hint = screen.getByText("Sign in to report this announcement.");
+      expect(hint.className).not.toContain("sr-only");
+    });
+
+    it("the hint is the server's string, never invented here", () => {
+      renderControl({
+        ...REPORTABLE,
+        capabilities: caps({ ...anonDenial, unlock_hint: "Server copy, verbatim." }),
+      });
+      expect(screen.getByText("Server copy, verbatim.")).toBeTruthy();
+    });
+
+    it("a denial with a NULL hint stays hidden — the structurally-impossible carve-out", () => {
+      renderControl({ ...REPORTABLE, capabilities: caps(denied("own_content")) });
+      expect(screen.queryByTestId("announcement-report-denied")).toBeNull();
+      expect(trigger()).toBeNull();
+    });
+
+    it("keys on the hint, NOT the reason code: an unknown reason WITH a hint still shows", () => {
+      renderControl({
+        ...REPORTABLE,
+        capabilities: caps({
+          allowed: false,
+          unlock_hint: "Something you can act on.",
+          reason_code: "a_reason_invented_later",
+        }),
+      });
+      expect(screen.getByTestId("announcement-report-denied")).toBeTruthy();
+    });
+
+    it("an empty-string hint counts as no hint", () => {
+      renderControl({
+        ...REPORTABLE,
+        capabilities: caps({ allowed: false, unlock_hint: "", reason_code: "auth_required" }),
+      });
+      expect(screen.queryByTestId("announcement-report-denied")).toBeNull();
+    });
+
+    it("a capability-free row shows no disabled control either", () => {
+      renderControl({ id: "ann_3731", title: "Upgrade to v18 complete" });
+      expect(screen.queryByTestId("announcement-report-denied")).toBeNull();
+      expect(trigger()).toBeNull();
+    });
+
+    it("the disabled control files nothing", () => {
+      renderControl({ ...REPORTABLE, capabilities: caps(anonDenial) });
+      fireEvent.click(screen.getByTestId("announcement-report-denied"));
+      expect(createContentReport).not.toHaveBeenCalled();
+    });
+  });
+
   it("ARCHIVED stays reportable — archival closes authoring, not challenge", () => {
     renderControl({
       ...REPORTABLE,

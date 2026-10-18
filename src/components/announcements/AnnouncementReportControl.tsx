@@ -21,6 +21,7 @@
 import { useState } from "react";
 
 import { ReportModal } from "@/components/feed/ReportButton";
+import { unlockHint } from "@/lib/permissions";
 import type { AnnouncementCapabilities } from "@/lib/api/types";
 
 /**
@@ -96,15 +97,66 @@ export function AnnouncementReportControl({
 }: AnnouncementReportControlProps) {
   const [open, setOpen] = useState(false);
 
-  // After the hook, so the hook order is stable whether or not the viewer
-  // may report.
-  if (!canReportAnnouncement(announcement)) return null;
-
-  const targetId = announcementTargetId(announcement.id);
   const tone =
     surface === "paper"
       ? "border-cardstock-edge text-ink"
       : "border-bcc-border text-bcc-text";
+  const hintTone = surface === "paper" ? "text-ink-ghost" : "text-bcc-text-secondary";
+
+  // After the hook, so the hook order is stable whether or not the viewer
+  // may report.
+  if (!canReportAnnouncement(announcement)) {
+    /**
+     * §N7 / contract §5.1: "Frontend never hides gated actions a viewer
+     * could eventually unlock; it renders them disabled with the hint.
+     * Exception: structurally impossible actions have `allowed: false,
+     * unlock_hint: null` — frontend hides those."
+     *
+     * ⚠ The discriminator is the HINT, not the reason code. That is the
+     * whole rule, and it is why there is no reason-code branching here:
+     * a denial the viewer can act on arrives with copy, and one they
+     * cannot arrives with null. Of the seven denials this capability can
+     * return, exactly one (`auth_required`) carries a hint — so six hide
+     * and one teaches, without this component knowing any of their names.
+     * A reason added server-side later needs no change here.
+     *
+     * Precedents, all keyed the same way: `can_watch` on your own card
+     * (null → hidden), `can_open_dispute` for a non-owner (null → hidden),
+     * and `can_message`, whose table spells its `auth_required` out as
+     * "visible-disabled, sign-in copy".
+     */
+    const hint = unlockHint(announcement.capabilities, "can_report");
+    if (hint === null) return null;
+
+    const hintId = `report-denied-${announcement.id}`;
+    return (
+      <div className="flex flex-col items-end gap-1">
+        <button
+          type="button"
+          disabled
+          aria-describedby={hintId}
+          aria-label={`Report ${announcement.title}`}
+          className={`bcc-mono rounded-sm border px-3 py-2 ${tone} disabled:cursor-not-allowed disabled:opacity-50`}
+          style={{ minHeight: "44px", fontSize: "11px" }}
+          data-testid="announcement-report-denied"
+        >
+          REPORT
+        </button>
+        {/* Rendered as ordinary visible text rather than sr-only: a
+            disabled button is out of the tab order and widely skipped, so
+            a description hung off it can go unheard. Adjacent copy is
+            announced in reading order either way — and §5.1's reason for
+            the rule is that "visible gates teach the system", which a gate
+            nobody can reach does not do. Server-authored; never invented
+            here. */}
+        <span id={hintId} className={`bcc-mono ${hintTone}`} style={{ fontSize: "11px" }}>
+          {hint}
+        </span>
+      </div>
+    );
+  }
+
+  const targetId = announcementTargetId(announcement.id);
 
   return (
     <>
