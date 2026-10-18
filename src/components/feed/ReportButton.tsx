@@ -66,6 +66,16 @@ export function resolveTargetId(item: FeedItem): number {
 interface ReportModalProps {
   targetKind: ContentReportTargetKind;
   targetId: number;
+  /**
+   * The noun this modal names in its heading — "post", "announcement".
+   *
+   * Defaults to "post" so every existing feed call site renders byte-identically
+   * and needs no change. The reason taxonomy, the comment rule and the
+   * submit path are shared verbatim across kinds; only the noun differs,
+   * because telling someone they are reporting a "post" when they clicked
+   * Report on an announcement is a small lie the modal does not need to tell.
+   */
+  subjectLabel?: string;
   onClose: () => void;
 }
 
@@ -86,7 +96,12 @@ const REASONS: ReasonOption[] = [
   { code: "other",           label: "Other",           blurb: "Tell us what happened in the comment.",         requiresComment: true  },
 ];
 
-export function ReportModal({ targetKind, targetId, onClose }: ReportModalProps) {
+export function ReportModal({
+  targetKind,
+  targetId,
+  subjectLabel = "post",
+  onClose,
+}: ReportModalProps) {
   const [reason, setReason] = useState<ContentReportReason | null>(null);
   const [comment, setComment] = useState("");
   const [errorText, setErrorText] = useState<string | null>(null);
@@ -141,7 +156,7 @@ export function ReportModal({ targetKind, targetId, onClose }: ReportModalProps)
     // textarea + buttons stay reachable via inner scroll instead of
     // spilling off-screen.
     <Dialog
-      title="Report this post"
+      title={`Report this ${subjectLabel}`}
       onClose={onClose}
       center
       bare
@@ -161,7 +176,7 @@ export function ReportModal({ targetKind, targetId, onClose }: ReportModalProps)
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <header className="flex items-baseline justify-between gap-3">
             <h2 className="bcc-stencil text-xl text-bcc-text">
-              Report this post
+              Report this {subjectLabel}
             </h2>
             <button
               type="button"
