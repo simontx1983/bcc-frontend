@@ -31,6 +31,7 @@ import {
   createAnnouncement,
   createAnnouncementComment,
   getAnnouncementAsClient,
+  getAnnouncementRotator,
   listAnnouncementComments,
   listAnnouncements,
   listOwnerAnnouncements,
@@ -80,8 +81,7 @@ const COMMENT_PAGE_SIZE = 20;
  *
  * VIEWER-INDEPENDENT, therefore deliberately left public:
  *
- *   - the **rotator** (which arrives with the stacked
- *     announcement-bar slice). §4.32.11 supplies capabilities "only by
+ *   - the **rotator**. §4.32.11 supplies capabilities "only by
  *     announcement-scoped responses: the detail view-model, the comments
  *     page, and rows in an owner-scoped list" — the rotator is none of
  *     those — and §4.32.1 means every row it can return is already
@@ -167,6 +167,38 @@ export function announcementCommentsQueryKey(
   scope: ViewerScope,
 ): QueryKey {
   return ["announcement-comments", announcementId, scope];
+}
+
+/** Public — see the note above on why the rotator is NOT scoped. */
+export function announcementRotatorQueryKey(pageId: number): QueryKey {
+  return ["announcements", pageId, "rotator"];
+}
+
+/**
+ * The bounded set behind the announcement bar.
+ *
+ * `enabled` MUST be driven by the presence of the server capability
+ * block. With it false nothing is requested at all — which is what keeps
+ * a backend that has never heard of announcements from being asked.
+ *
+ * A failure here must never take the validator profile down with it:
+ * the bar is supplementary, so the caller renders a compact failure and
+ * the rest of the page carries on. Retry is left to the viewer rather
+ * than a background loop, so a missing backend does not turn into a
+ * stream of 404s behind every profile view.
+ */
+export function useAnnouncementRotator(
+  pageId: number,
+  options: { enabled?: boolean } = {},
+) {
+  const enabled = options.enabled ?? true;
+  return useQuery<AnnouncementListResponse, BccApiError>({
+    queryKey: announcementRotatorQueryKey(pageId),
+    enabled: enabled && pageId > 0,
+    queryFn: () => getAnnouncementRotator(pageId),
+    staleTime: 60_000,
+    retry: false,
+  });
 }
 
 /**
