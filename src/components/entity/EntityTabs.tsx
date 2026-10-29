@@ -36,6 +36,7 @@ import { TabRail } from "@/components/ui/TabRail";
 type EntityTabKey =
   | "backing"
   | "reviews"
+  | "announcements"
   | "activity"
   | "watchers"
   | "onchain"
@@ -55,6 +56,15 @@ export interface EntityTabsProps {
   activityPanel: ReactNode;
   /** Always-on Watchers panel content. */
   watchersPanel: ReactNode;
+  /**
+   * Optional Announcements panel — when null, the tab is hidden.
+   *
+   * §4.32. The caller passes null unless the server sent the
+   * announcements capability block, so on every backend shipping today
+   * this tab does not exist. Same null-hides-the-tab contract as the
+   * On-chain and Chains panels below.
+   */
+  announcementsPanel?: ReactNode | null;
   /** Optional On-chain panel — when null, the tab is hidden. */
   onchainPanel?: ReactNode | null;
   /** Optional Chains panel — when null, the tab is hidden. */
@@ -66,27 +76,44 @@ export function EntityTabs({
   reviewsPanel,
   activityPanel,
   watchersPanel,
+  announcementsPanel,
   onchainPanel,
   chainsPanel,
 }: EntityTabsProps) {
+  const hasAnnouncements =
+    announcementsPanel !== undefined && announcementsPanel !== null;
   const hasOnchain = onchainPanel !== undefined && onchainPanel !== null;
   const hasChains  = chainsPanel  !== undefined && chainsPanel  !== null;
 
   // Memoized because `tabKeys` below feeds useRovingTabs, whose onKeyDown is
   // itself memoized on the key list — rebuilding the array every render would
   // rebuild the handler every render for no reason.
+  //
+  // Every optional tab is gated on a derived BOOLEAN, never on the panel node
+  // itself. A ReactNode's identity changes on each parent render, so listing
+  // one in the dependency array would rebuild the array — and the roving-tab
+  // handler with it — exactly as often as not memoizing at all. That is why
+  // `announcements` joined this list as `hasAnnouncements` rather than as the
+  // pre-memo `if (announcementsPanel !== null) tabs.push(...)` it replaces.
   const tabs: EntityTabDef[] = useMemo(() => {
     const list: EntityTabDef[] = [
       // See ProfileTabs — genus term, key stays `backing` for deep links.
       { key: "backing",  label: ATTESTATION_COPY.supporters_tab },
       { key: "reviews",  label: "Reviews"  },
+      // Announcements sits directly after Reviews — the operator's own voice
+      // next to what others said about them, both ahead of raw activity.
+      // Spread, not pushed, because it belongs MID-array; onchain and chains
+      // are appended and stay pushes.
+      ...(hasAnnouncements
+        ? [{ key: "announcements" as const, label: "Announcements" }]
+        : []),
       { key: "activity", label: "Activity" },
       { key: "watchers", label: "Watchers" },
     ];
     if (hasOnchain) list.push({ key: "onchain", label: "On-chain" });
     if (hasChains)  list.push({ key: "chains",  label: "Chains"  });
     return list;
-  }, [hasOnchain, hasChains]);
+  }, [hasAnnouncements, hasOnchain, hasChains]);
 
   const [active, setActive] = useState<EntityTabKey>("backing");
 
@@ -106,11 +133,13 @@ export function EntityTabs({
       {/* Strip — mirrors ProfileTabs exactly (same .bcc-tab class).
           Horizontal scroll on phones so the row never compresses below
           a readable width. */}
-      {/* Six tabs that scroll below `sm`. The active tab cannot ARRIVE
-          off-screen here — `active` is seeded to the first key and there is no
-          initialTab prop or URL read — but the rail still hides three of six
-          on a phone with nothing to say so. The fade is the point; the reveal
-          costs nothing and keeps the behaviour uniform across strips. */}
+      {/* Four always-on tabs plus up to three optional ones (announcements,
+          onchain, chains) — so four to seven, scrolling below `sm`. The active
+          tab cannot ARRIVE off-screen here — `active` is seeded to the first
+          key and there is no initialTab prop or URL read — but the rail still
+          hides the tail of a full strip on a phone with nothing to say so. The
+          fade is the point; the reveal costs nothing and keeps the behaviour
+          uniform across strips. */}
       <TabRail activeKey={active}>
       <div
         role="tablist"
@@ -126,9 +155,11 @@ export function EntityTabs({
             id={`entity-tab-${tab.key}`}
             aria-selected={active === tab.key}
             // Only the selected tab's panel is in the DOM. Every tab used to
-            // carry `aria-controls`, so five of six pointed at an id that did
-            // not exist — a dangling reference. Same resolution ProfileTabs
-            // uses: the attribute is present only where its target is.
+            // carry `aria-controls`, so all but the selected one pointed at an
+            // id that did not exist — a dangling reference. Same resolution
+            // ProfileTabs uses: the attribute is present only where its
+            // target is. (Phrased without a count so adding a tab, as
+            // announcements did, cannot make it stale.)
             {...(active === tab.key
               ? { "aria-controls": `entity-tabpanel-${tab.key}` }
               : {})}
@@ -152,6 +183,7 @@ export function EntityTabs({
       >
         {active === "backing"  && backingPanel}
         {active === "reviews"  && reviewsPanel}
+        {active === "announcements" && announcementsPanel !== undefined && announcementsPanel !== null && announcementsPanel}
         {active === "activity" && activityPanel}
         {active === "watchers" && watchersPanel}
         {active === "onchain"  && onchainPanel !== undefined && onchainPanel !== null && onchainPanel}

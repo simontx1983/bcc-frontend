@@ -13,6 +13,7 @@
 import { ActionRailButton } from "@/components/feed/ActionRailButton";
 import { ClockIcon, ReplyIcon } from "@/components/feed/actionIcons";
 import { PostHelpfulButton } from "@/components/feed/HelpfulButton";
+import { hasEngagementControls } from "@/components/feed/postBody";
 import { ReactionRail } from "@/components/feed/ReactionRail";
 import { ShareButton } from "@/components/feed/ShareButton";
 import { formatRelativeTime } from "@/lib/format";
@@ -31,7 +32,18 @@ export function PostActionBar({
 }: {
   item: FeedItem;
   canInteract?: boolean;
-  commentCount: number;
+  /**
+   * Omit (or pass `undefined`) when the count is UNKNOWN — which is what
+   * §4.32.15 produces for an announcement, whose feed projection emits no
+   * count rather than the structurally-wrong activity count. The control
+   * still renders; only the figure is withheld. Do not substitute 0: the
+   * rendered result is identical, but 0 asserts "nobody replied".
+   *
+   * `| undefined` is explicit because `exactOptionalPropertyTypes` is on:
+   * callers pass the field straight through, so the type has to admit the
+   * omission rather than force every call site into a conditional spread.
+   */
+  commentCount?: number | undefined;
   onComment: () => void;
   commentTitle?: string;
   shareTitle?: string;
@@ -48,9 +60,17 @@ export function PostActionBar({
    */
   topBorder?: boolean;
 }) {
+  // Contract §4.32.15. Keyed on the item's own kind and on NOTHING else —
+  // never on whether the payload happens to carry `reactions`,
+  // `helpful_count`, `viewer_has_marked` or the stoke fields, because the
+  // point is to hold when a legacy or malformed payload carries them
+  // populated. See `KINDS_WITHOUT_ENGAGEMENT` for why a reaction grammar
+  // cannot express this and why the server half is not sufficient alone.
+  const showEngagement = hasEngagementControls(item.post_kind);
+
   return (
     <footer className={"flex items-center gap-1" + (topBorder ? " border-t border-[var(--bcc-border)] pt-2" : "")}>
-      <ReactionRail item={item} canInteract={canInteract} />
+      {showEngagement && <ReactionRail item={item} canInteract={canInteract} />}
       <ActionRailButton
         icon={<ReplyIcon />}
         label="Comment"
@@ -66,9 +86,14 @@ export function PostActionBar({
       {/* Divider — the "Mark helpful" endorsement is a different class of
           action from the cosmetic Stoke/Comment/Share cluster to its left,
           so it sits behind a thin rule to read as its own thing, not
-          another reaction. */}
-      <span aria-hidden className="mx-1 h-4 w-px self-center bg-[var(--bcc-border)]" />
-      <PostHelpfulButton item={item} canInteract={canInteract} />
+          another reaction. It goes with the control: a kind that shows no
+          Helpful button must not render an orphaned rule either. */}
+      {showEngagement && (
+        <>
+          <span aria-hidden className="mx-1 h-4 w-px self-center bg-[var(--bcc-border)]" />
+          <PostHelpfulButton item={item} canInteract={canInteract} />
+        </>
+      )}
       {timestamp !== undefined && (
         <time
           dateTime={timestamp}

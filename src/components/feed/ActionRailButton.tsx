@@ -29,8 +29,14 @@ export function ActionRailButton({
 }: {
   icon: ReactNode;
   label: string;
-  /** Omit to hide the count slot entirely; 0 still hides it. */
-  count?: number;
+  /**
+   * Omit to hide the count slot entirely; 0 still hides it.
+   *
+   * `| undefined` is explicit under `exactOptionalPropertyTypes` so a
+   * caller may pass an UNKNOWN count straight through rather than
+   * coercing it to 0 — see `PostActionBar.commentCount`.
+   */
+  count?: number | undefined;
   /** Literal Tailwind hover class, e.g. "hover:text-[var(--bcc-info)]". */
   hoverClassName: string;
   onClick?: () => void;

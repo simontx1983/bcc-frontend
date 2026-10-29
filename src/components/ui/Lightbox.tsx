@@ -70,7 +70,7 @@ export function Lightbox({
 
   const caption = readString(item.body, "caption");
   const mentions = readMentions(item.body);
-  const commentCount = item.comment_count ?? 0;
+  const commentCount = item.comment_count;
   const shareTitle = `${item.author.display_name ?? item.author.handle} on Blue Collar Crypto`;
 
   // Same jump-to-composer behavior on both surfaces — there's only ever

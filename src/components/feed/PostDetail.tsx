@@ -120,7 +120,7 @@ export function PostDetail({
       <PostActionBar
         item={item}
         canInteract={canInteract}
-        commentCount={item.comment_count ?? 0}
+        commentCount={item.comment_count}
         onComment={() => {
           // Comments are always open below on the detail page — jump the
           // viewer to the composer rather than navigating anywhere.
