@@ -86,6 +86,12 @@ const COSMOS_CHAIN_IDS: Record<string, string> = {
   injective: "injective-1",
   juno:      "juno-1",
   thorchain: "thorchain-1",
+  // Read from each chain's own node_info on 2026-11-04, not from memory.
+  // Kujira is absent until a node answers: its seeded endpoints returned 502.
+  akash:          "akashnet-2",
+  cryptoorgchain: "crypto-org-chain-mainnet-1",
+  jackal:         "jackal-1",
+  dungeon:        "dungeon-1",
 };
 
 export function isCosmosChain(slug: string): boolean {

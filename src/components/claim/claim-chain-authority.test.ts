@@ -36,6 +36,7 @@ function fn(src: string, name: string): string {
 }
 
 const CLAIM_FLOW = "src/components/claim/ClaimFlow.tsx";
+const CLAIM_SUPPORT = "src/lib/wallet/claim-support.ts";
 const DASHBOARD = "src/app/(main)/(app)/me/validator-pages/page.tsx";
 
 /** Strip comments so prose can never satisfy a code assertion. */
@@ -50,7 +51,7 @@ describe("validator claim — chain authority", () => {
   });
 
   it("allows exactly the chain types whose operator authority the backend can prove", () => {
-    const src = code(read(CLAIM_FLOW));
+    const src = code(read(CLAIM_SUPPORT));
 
     // cosmos: bech32 bytes. polkadot: the stash account.
     expect(src).toContain('"cosmos"');
@@ -69,7 +70,7 @@ describe("validator claim — chain authority", () => {
 
   it("explains WHY Solana is unavailable, so it is not 'fixed' by adding Phantom", () => {
     // Prose assertion on purpose — the reason is the safeguard here.
-    const prose = read(CLAIM_FLOW);
+    const prose = read(CLAIM_FLOW) + read(CLAIM_SUPPORT);
 
     expect(prose).toContain("authorizedWithdrawer");
     expect(prose).toMatch(/identity key/i);

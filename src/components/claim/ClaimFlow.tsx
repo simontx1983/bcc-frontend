@@ -17,7 +17,8 @@
  * the same step (no silent skip-back) so they can retry.
  *
  * Chain support is decided by what the BACKEND can prove about
- * validator operator authority, not by which wallets exist:
+ * validator operator authority, not by which wallets exist (the allowlist
+ * lives in `lib/wallet/claim-support.ts`):
  *
  *   cosmos   ✅ the operator account and the `…valoper…` address are the
  *               same 20 bytes under a different bech32 HRP.
@@ -44,17 +45,19 @@
  * Cache invalidation on success: the parent <EntityProfile> route is
  * a server component. We call `router.refresh()` so the next paint
  * re-fetches the card view-model with `is_claimed: true` and the
- * Wanted poster disappears.
+ * unclaimed callout disappears.
  */
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { getWalletNonce, linkWallet } from "@/lib/api/auth-endpoints";
-import { humanizeCode } from "@/lib/api/errors";
+import { humanizeCode, isCode } from "@/lib/api/errors";
 import { claimPage } from "@/lib/api/pages-endpoints";
 import { type CardClaimTarget } from "@/lib/api/types";
 import { findWalletChain, type WalletChainType } from "@/lib/wallet/chain-catalog";
+import { isChainClaimable, unsupportedClaimReason } from "@/lib/wallet/claim-support";
 import {
   connectWallet,
   humanizeWalletProviderError,
@@ -63,42 +66,6 @@ import {
   type WalletConnection,
 } from "@/lib/wallet/dispatch";
 import { Dialog } from "@/components/ui/Dialog";
-
-/**
- * Chain types whose validator operator authority the backend can PROVE.
- *
- * ⚠ Deliberately separate from `WALLET_CHAIN_CATALOG`, which is the
- * wallet-LINKING catalog. A chain can be linkable to an account and still
- * not be claimable as a validator: linking proves "you hold this key",
- * claiming proves "this key is this validator's operator". Only add a
- * chain type here once `ClaimService::matchValidator()` can establish the
- * second from stored data.
- */
-const CLAIMABLE_CHAIN_TYPES: ReadonlySet<WalletChainType> = new Set<WalletChainType>([
-  "cosmos",
-  "polkadot",
-]);
-
-/** Why a chain cannot be claimed, in the operator's terms. */
-function unsupportedReason(slug: string, chainType: WalletChainType | null): string {
-  if (chainType === "solana") {
-    return (
-      "Solana validator pages can't be claimed yet. Proving a Solana " +
-      "validator needs the vote account's withdraw authority, which BCC " +
-      "doesn't record — and the key we do record is the identity key that " +
-      "lives on your validator host, which should never go in a browser " +
-      "wallet."
-    );
-  }
-  if (chainType === "evm") {
-    return `${slug} doesn't have validator pages, so there's nothing to claim here.`;
-  }
-  return (
-    `Claiming isn't available for "${slug}" yet. The wallet side works, but ` +
-    "BCC can't yet prove operator authority for this chain from the data it " +
-    "stores."
-  );
-}
 
 /**
  * The wallet an operator actually opens, per chain. Used in copy only —
@@ -147,14 +114,14 @@ export function ClaimFlow({ pageId, pageName, target, onClose }: ClaimFlowProps)
 
   // ── Step 2: Connect the chain's wallet ─────────────────────────────
   const chainType = findWalletChain(target.chain_slug)?.chainType ?? null;
-  const claimable = chainType !== null && CLAIMABLE_CHAIN_TYPES.has(chainType);
+  const claimable = chainType !== null && isChainClaimable(target.chain_slug);
 
   const handleConnect = async () => {
     if (!claimable) {
       setStep({
         kind: "connect",
         pending: false,
-        error: unsupportedReason(target.chain_slug, chainType),
+        error: unsupportedClaimReason(target.chain_slug),
       });
       return;
     }
@@ -201,19 +168,53 @@ export function ClaimFlow({ pageId, pageName, target, onClose }: ClaimFlowProps)
       // a 33-byte compressed point, so the previous call (top-level `pub_key`,
       // no `extra`) could not verify a Cosmos signature at all. dispatch.ts
       // returns the right bundle per chain; pass it through untouched.
-      await linkWallet({
-        wallet_address: connection.address,
-        signature:      signed.signature,
-        wallet_type:    walletTypeFor(signChainType),
-        extra:          signed.extra,
-      });
+      //
+      // ⚠ `bcc_conflict` here means the wallet is ALREADY linked, to this
+      // account or another; the code does not say which. Don't stop: claim
+      // re-reads the viewer's own verified wallets server-side, so it
+      // succeeds for this account's wallet and refuses anyone else's. A
+      // wallet linked in Settings or used at signup must still be able to
+      // claim.
+      let alreadyLinked = false;
+      try {
+        await linkWallet({
+          wallet_address: connection.address,
+          signature:      signed.signature,
+          wallet_type:    walletTypeFor(signChainType),
+          extra:          signed.extra,
+        });
+      } catch (linkErr) {
+        if (!isCode(linkErr, "bcc_conflict")) {
+          throw linkErr;
+        }
+        alreadyLinked = true;
+      }
 
       // 3d. Claim the page now that the wallet is verified.
-      await claimPage({
-        id:          pageId,
-        entity_type: target.entity_type,
-        entity_id:   target.entity_id,
-      });
+      try {
+        await claimPage({
+          id:          pageId,
+          entity_type: target.entity_type,
+          entity_id:   target.entity_id,
+        });
+      } catch (claimErr) {
+        // The wallet in hand was already linked and still proved nothing for
+        // this account, so it may belong to a different one.
+        if (
+          alreadyLinked &&
+          (isCode(claimErr, "bcc_forbidden") || isCode(claimErr, "bcc_precondition_failed"))
+        ) {
+          setStep({
+            kind: "signature",
+            connection,
+            chainType: signChainType,
+            pending: false,
+            error: WALLET_ON_ANOTHER_ACCOUNT,
+          });
+          return;
+        }
+        throw claimErr;
+      }
 
       setStep({ kind: "confirmation" });
     } catch (err) {
@@ -414,7 +415,7 @@ function SignatureStep({
       <ButtonRow>
         <SecondaryButton onClick={onCancel}>CANCEL</SecondaryButton>
         <PrimaryButton onClick={onSign} disabled={pending}>
-          {pending ? "SIGNING…" : error !== null ? "RETRY SIGNATURE" : "SIGN WITH KEPLR"}
+          {pending ? "SIGNING…" : error !== null ? "RETRY SIGNATURE" : "SIGN MESSAGE"}
         </PrimaryButton>
       </ButtonRow>
     </>
@@ -455,6 +456,10 @@ function ConfirmationStep({
       <ul className="mt-2 space-y-1.5 font-serif text-bcc-text-secondary">
         <li>· Write a bio that tells your delegators who you are.</li>
         <li>· Post your first announcement in the stream.</li>
+        <li>
+          · Any messages left for you will appear in your{" "}
+          <Link href="/messages" className="underline">inbox</Link>.
+        </li>
         {handle !== null && <li>· Visit your profile at /u/{handle}.</li>}
       </ul>
       <ButtonRow>
@@ -532,6 +537,11 @@ function ErrorLine({ message }: { message: string }) {
 // ─────────────────────────────────────────────────────────────────────
 // Error humanizers
 // ─────────────────────────────────────────────────────────────────────
+
+const WALLET_ON_ANOTHER_ACCOUNT =
+  "This wallet doesn't match this validator's operator address on your " +
+  "account. It may be linked to another BCC account — if so, sign in with " +
+  "that account to claim.";
 
 function humanizeWalletError(err: unknown): string {
   // dispatch.ts owns the per-provider copy (Keplr / MetaMask / Phantom /
