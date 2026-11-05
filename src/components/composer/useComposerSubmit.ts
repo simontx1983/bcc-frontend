@@ -41,6 +41,12 @@ interface UseInlineComposerSubmitArgs {
    */
   hallFeed: HallFeedChannel | undefined;
   /**
+   * When present, a status submit carries `target_page_id` so the post
+   * lands on that validator page's feed. Text only, so photo and GIF
+   * submits never carry it. Operator status is enforced server-side.
+   */
+  pageId: number | undefined;
+  /**
    * §3.3.9 alt text — read at photo-success time so the chained §4.18
    * PATCH carries whatever the author had typed when the upload landed.
    */
@@ -61,6 +67,7 @@ export function useInlineComposerSubmit({
   groupId,
   visibility,
   hallFeed,
+  pageId,
   altText,
   onStatusSuccess,
   onPhotoSuccess,
@@ -144,6 +151,7 @@ export function useInlineComposerSubmit({
       statusMutation.mutate({
         content: trimmed,
         ...groupScope,
+        ...(pageId !== undefined ? { target_page_id: pageId } : {}),
       });
     }
   };
@@ -184,6 +192,12 @@ export function humanizeError(err: unknown): string {
     const reason = err.data?.["reason"];
     if (isRankedFeedDenyReason(reason)) {
       return RANKED_FEED_DENY_COPY[reason];
+    }
+    // A page post refused because the viewer no longer operates the
+    // validator. The generic copy below describes an unlock, which this
+    // is not. Same wording as the announcement composer's refusal.
+    if (err.data?.["reason_code"] === "not_claimer") {
+      return "You're not the verified operator of this validator any more.";
     }
   }
   // `bcc_too_many_mentions` carries a structured `data.max` we want to
