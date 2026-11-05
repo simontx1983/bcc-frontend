@@ -6495,6 +6495,21 @@ export type AnnouncementCommentDeniedReason =
  */
 export interface AnnouncementsBlock {
   capabilities: AnnouncementFeatureCapabilities;
+  /**
+   * Does the rotator have anything to show? Its only job is letting
+   * the page reserve the bar's height before the client fetch
+   * resolves — the bar sits at the very top, so inserting it late
+   * displaces the heading and everything beneath it.
+   *
+   * ⚠ Present on the DETAIL card only. `getPageCardForList()` runs
+   * once per card and the directory grid never renders the bar, so
+   * the backend omits it there rather than paying a query per card.
+   * Absent (or false) means reserve nothing — which is correct for
+   * the grid and the right failure mode everywhere else, since most
+   * pages have no announcements and a blank strip on all of them
+   * would be worse than a shift on the few that do.
+   */
+  has_any?: boolean;
 }
 
 /** §4.32.3 — one announcement as list/detail report it. */

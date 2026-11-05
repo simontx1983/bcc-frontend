@@ -148,6 +148,7 @@ export function EntityProfile({
         <AnnouncementsTopSection
           pageId={card.id}
           capabilities={card.announcements.capabilities}
+          hasAny={card.announcements.has_any ?? false}
         />
       )}
 

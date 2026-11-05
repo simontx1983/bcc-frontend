@@ -28,11 +28,22 @@ import { isAllowed } from "@/lib/permissions";
 interface AnnouncementsTopSectionProps {
   pageId: number;
   capabilities: AnnouncementFeatureCapabilities;
+  /**
+   * `card.announcements.has_any` — whether the rotator has anything to
+   * show. Reserves the bar's height while the fetch is in flight, and
+   * ONLY then: the section is the first thing in the page, so a late
+   * insertion pushes the heading and the whole page down, while an
+   * unconditional placeholder would leave a blank strip on the majority
+   * of pages, which have no announcements. Defaults to false, so an older
+   * backend that omits the field behaves exactly as before.
+   */
+  hasAny?: boolean;
 }
 
 export function AnnouncementsTopSection({
   pageId,
   capabilities,
+  hasAny = false,
 }: AnnouncementsTopSectionProps) {
   const [composerOpen, setComposerOpen] = useState(false);
   const create = useCreateAnnouncement(pageId);
@@ -62,7 +73,7 @@ export function AnnouncementsTopSection({
         </div>
       )}
 
-      <AnnouncementBar pageId={pageId} featureEnabled skeletonWhileLoading={false} />
+      <AnnouncementBar pageId={pageId} featureEnabled skeletonWhileLoading={hasAny} />
 
       {composerOpen && (
         <AnnouncementComposer
