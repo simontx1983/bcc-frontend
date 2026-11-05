@@ -659,6 +659,13 @@ export interface Card {
    */
   actions?: Record<string, CardAction>;
   /**
+   * The validator page's delegator group (one per page). Absent on
+   * non-validator cards. Every value is the server's: `can_create` and
+   * `can_edit_min_stake` are never recomputed here, and
+   * `unavailable_reason` / `min_stake_display` render verbatim (§A2).
+   */
+  delegator_group?: DelegatorGroupBlock | null;
+  /**
    * §4.32 validator announcements. **Presence of this block is the
    * feature gate** — no client flag, no environment variable.
    *
@@ -670,6 +677,68 @@ export interface Card {
    * of its backend.
    */
   announcements?: AnnouncementsBlock | null;
+}
+
+/** The one validator a delegator group verifies against. */
+export interface DelegatorGroupValidator {
+  id: number;
+  /** Moniker, falling back to the page title server-side. */
+  name: string;
+  chain_slug: string;
+  chain_name: string;
+}
+
+/** A delegator group as the page card and the create/edit routes describe it. */
+export interface DelegatorGroup {
+  id: number;
+  slug: string;
+  /** Server-built route to the group. Rendered verbatim. */
+  url: string;
+  /** Raw decimal, for prefilling the edit field. Never for display. */
+  min_stake: string;
+  /** "1 ATOM" / "2.5 OSMO". Null when it can't be formatted. */
+  min_stake_display: string | null;
+  validator: DelegatorGroupValidator | null;
+}
+
+/** A supported validator bound to the page, for the create form. */
+export interface DelegatorGroupOption {
+  validator_id: number;
+  /** Moniker, falling back to the page title server-side. Optional because an
+   *  older cached card can lack it. */
+  name?: string;
+  chain_slug: string;
+  chain_name: string;
+  native_token: string | null;
+}
+
+/** `Card.delegator_group`. */
+export interface DelegatorGroupBlock {
+  group: DelegatorGroup | null;
+  /** Current operator AND a supported option AND no group yet. */
+  can_create: boolean;
+  /** Current operator AND a group exists. */
+  can_edit_min_stake: boolean;
+  options: DelegatorGroupOption[];
+  /** Server copy explaining an unsupported chain. Null when supported. */
+  unavailable_reason: string | null;
+}
+
+/** POST /pages/:id/delegator-group request body. */
+export interface CreateDelegatorGroupRequest {
+  validator_id: number;
+  /** Plain positive decimal, as text so no precision is lost on the way. */
+  min_stake: string;
+}
+
+/** PATCH /pages/:id/delegator-group request body. */
+export interface UpdateDelegatorGroupRequest {
+  min_stake: string;
+}
+
+/** POST (201) and PATCH (200) /pages/:id/delegator-group success. */
+export interface DelegatorGroupResponse {
+  group: DelegatorGroup;
 }
 
 /**
@@ -1572,7 +1641,8 @@ export type NotificationKind =
   | "bcc_attestation_stand_behind_received"
   | "bcc_attestation_revoked"
   | "bcc_attestation_reaffirmed"
-  | "bcc_holder_community_live";
+  | "bcc_holder_community_live"
+  | "bcc_delegator_group_removed";
 
 export interface NotificationActor {
   id: number;
@@ -2227,6 +2297,22 @@ export interface LeaveHolderGroupResponse {
   group_id: number;
 }
 
+/**
+ * POST /me/validator-groups/:id/join success. Both codes are 200, same
+ * shape as the holder-group join.
+ */
+export interface JoinValidatorGroupResponse {
+  joined: true;
+  group_id: number;
+  code: "ok" | "already_member";
+}
+
+/** POST /me/validator-groups/:id/leave success. */
+export interface LeaveValidatorGroupResponse {
+  left: true;
+  group_id: number;
+}
+
 /** GET /me/holder-groups/preferences. */
 export interface HolderGroupPreferences {
   auto_join: boolean;
@@ -2723,8 +2809,11 @@ export interface HolderGroupPreferencesUpdateResponse {
  *   - "hall"   — chain Hall (browse via /halls/[slug])
  *   - "system" — system-managed group (membership-everyone or similar)
  *   - "user"   — user-created PeepSo group
+ *   - "validator" — delegator community for a validator page. Joining
+ *                 is verified live via POST /me/validator-groups/:id/join,
+ *                 never the plain group join (which 400s on this kind).
  */
-export type GroupDiscoveryType = "nft" | "hall" | "system" | "user";
+export type GroupDiscoveryType = "nft" | "hall" | "system" | "user" | "validator";
 
 /**
  * Privacy level. `secret` is documented for completeness but the
@@ -5474,7 +5563,8 @@ export type BellEventType =
   | "bcc_attestation_stand_behind_received"
   | "bcc_attestation_revoked"
   | "bcc_attestation_reaffirmed"
-  | "bcc_holder_community_live";
+  | "bcc_holder_community_live"
+  | "bcc_delegator_group_removed";
 
 export interface NotificationPrefs {
   email_digest: boolean;
@@ -5791,6 +5881,19 @@ export interface GroupViewerMembership {
 }
 
 /**
+ * `validator_stats` on a delegator community's detail response. Only the
+ * fields the page reads are declared. `chain_name` is optional because an
+ * older cached response can lack it.
+ */
+export interface GroupValidatorStats {
+  moniker: string | null;
+  chain_name?: string | null;
+  min_stake_display: string | null;
+  /** Server-built route to the validator page. */
+  validator_page: string | null;
+}
+
+/**
  * GET /bcc/v1/groups/{slug} — single-group detail view-model.
  *
  * Shape mirrors `GroupsService::getGroup`'s PHPDoc exactly; see
@@ -5818,6 +5921,8 @@ export interface GroupDetailResponse {
   activity: GroupActivity;
   /** Market-data block for NFT groups; null for non-NFT kinds. */
   collection_stats: CollectionStats | null;
+  /** Delegator communities only; null when the validator isn't indexed yet. */
+  validator_stats?: GroupValidatorStats | null;
   viewer_membership: GroupViewerMembership | null;
   permissions: GroupDetailPermissions;
   feed_visible: boolean;

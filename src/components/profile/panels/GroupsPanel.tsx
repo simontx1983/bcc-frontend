@@ -18,6 +18,7 @@
  *
  * Action dispatch (V1 hardcoded paths, per contract §3.3 line 770):
  *   - type === "nft"             → useJoin/LeaveHolderGroupMutation
+ *   - type === "validator"       → useJoin/LeaveValidatorGroupMutation
  *   - type === "hall"            → useJoin/LeaveHallMutation
  *   - type === "user" | "system" → useJoin/LeavePlainGroupMutation
  *
@@ -48,6 +49,11 @@ import {
   USER_GROUPS_QUERY_KEY_ROOT,
   useUserGroups,
 } from "@/hooks/useUserActivity";
+import {
+  humanizeValidatorJoinError,
+  useJoinValidatorGroupMutation,
+  useLeaveValidatorGroupMutation,
+} from "@/hooks/useValidatorGroups";
 import { LoadFailure } from "@/components/ui/LoadFailure";
 import { humanizeCode } from "@/lib/api/errors";
 import type { UserGroupItem } from "@/lib/api/types";
@@ -194,6 +200,8 @@ function JoinAction({ item }: { item: UserGroupItem }) {
   switch (item.type) {
     case "nft":
       return <HolderJoinButton groupId={item.group_id} />;
+    case "validator":
+      return <ValidatorJoinButton groupId={item.group_id} />;
     case "hall":
       return <HallJoinButton groupId={item.group_id} />;
     case "user":
@@ -206,6 +214,8 @@ function LeaveAction({ item }: { item: UserGroupItem }) {
   switch (item.type) {
     case "nft":
       return <HolderLeaveButton groupId={item.group_id} />;
+    case "validator":
+      return <ValidatorLeaveButton groupId={item.group_id} />;
     case "hall":
       return <HallLeaveButton groupId={item.group_id} />;
     case "user":
@@ -267,6 +277,42 @@ function HolderJoinButton({ groupId }: { groupId: number }) {
 function HolderLeaveButton({ groupId }: { groupId: number }) {
   const onSuccess = useInvalidateUserGroups();
   const mutation = useLeaveHolderGroupMutation({ onSuccess });
+  return (
+    <GroupActionButton
+      groupId={groupId}
+      label="LEAVE"
+      pendingLabel="LEAVING…"
+      isPending={mutation.isPending}
+      errorMessage={groupActionError(mutation.error)}
+      onClick={() => {
+        mutation.reset();
+        mutation.mutate(groupId);
+      }}
+    />
+  );
+}
+
+function ValidatorJoinButton({ groupId }: { groupId: number }) {
+  const onSuccess = useInvalidateUserGroups();
+  const mutation = useJoinValidatorGroupMutation({ onSuccess });
+  return (
+    <GroupActionButton
+      groupId={groupId}
+      label="JOIN"
+      pendingLabel="CHECKING…"
+      isPending={mutation.isPending}
+      errorMessage={mutation.error ? humanizeValidatorJoinError(mutation.error) : null}
+      onClick={() => {
+        mutation.reset();
+        mutation.mutate(groupId);
+      }}
+    />
+  );
+}
+
+function ValidatorLeaveButton({ groupId }: { groupId: number }) {
+  const onSuccess = useInvalidateUserGroups();
+  const mutation = useLeaveValidatorGroupMutation({ onSuccess });
   return (
     <GroupActionButton
       groupId={groupId}

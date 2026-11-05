@@ -457,9 +457,13 @@ export function CommunityActionBar({
 }) {
   const isMember = dossier.viewer_is_member || isJoined;
   const isNft = dossier.type === "nft";
+  // Delegator communities are STORED closed, but there is no request
+  // queue behind that: the gate is the delegation the join verifies. Read
+  // as plain privacy they would dim to a dead "Private" pill.
+  const isVerifiedJoin = isNft || dossier.type === "validator";
   const isPrivate =
-    !isNft && dossier.trust_min === null && dossier.privacy === "closed";
-  const isSecret = !isNft && dossier.privacy === "secret";
+    !isVerifiedJoin && dossier.trust_min === null && dossier.privacy === "closed";
+  const isSecret = !isVerifiedJoin && dossier.privacy === "secret";
 
   let joinLabel: string;
   let joinTitle: string;
@@ -484,10 +488,12 @@ export function CommunityActionBar({
     // choose "check" when "join" is sitting next to it. A viewer whose
     // wallet doesn't hold the collection gets the server's refusal, which
     // is the same information the label was trying to pre-empt.
-    joinLabel = joinPending ? (isNft ? "Checking…" : "Joining…") : "Join";
+    joinLabel = joinPending ? (isVerifiedJoin ? "Checking…" : "Joining…") : "Join";
     joinTitle = isNft
       ? "Verifies your linked wallet holds this collection, then joins."
-      : "Join this community.";
+      : isVerifiedJoin
+        ? "Verifies your linked wallet delegates enough to this validator, then joins."
+        : "Join this community.";
     joinDisabled = joinPending;
   }
 
