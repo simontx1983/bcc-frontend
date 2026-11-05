@@ -18,6 +18,7 @@
  *
  * Action dispatch (V1 hardcoded paths, per contract §3.3 line 770):
  *   - type === "nft"             → useJoin/LeaveHolderGroupMutation
+ *   - type === "validator"       → useJoin/LeaveValidatorGroupMutation
  *   - type === "hall"            → useJoin/LeaveHallMutation
  *   - type === "user" | "system" → useJoin/LeavePlainGroupMutation
  *
@@ -48,10 +49,15 @@ import {
   USER_GROUPS_QUERY_KEY_ROOT,
   useUserGroups,
 } from "@/hooks/useUserActivity";
+import {
+  humanizeValidatorJoinError,
+  useJoinValidatorGroupMutation,
+  useLeaveValidatorGroupMutation,
+} from "@/hooks/useValidatorGroups";
 import { LoadFailure } from "@/components/ui/LoadFailure";
-import { humanizeCode } from "@/lib/api/errors";
+import { humanizeCode, isCode } from "@/lib/api/errors";
 import type { UserGroupItem } from "@/lib/api/types";
-import { isAllowed, unlockHint } from "@/lib/permissions";
+import { isAllowed, reasonCode, unlockHint } from "@/lib/permissions";
 
 interface GroupsPanelProps {
   handle: string;
@@ -184,16 +190,57 @@ function GroupRowActions({ item }: { item: UserGroupItem }) {
     return <JoinAction item={item} />;
   }
   const joinHint = unlockHint(permissions, "can_join");
+  if (
+    item.type === "validator" &&
+    reasonCode(permissions, "can_join") === "not_eligible"
+  ) {
+    return <ValidatorEligibilityRow item={item} hint={joinHint} />;
+  }
   if (joinHint !== null) {
     return <UnlockHint hint={joinHint} />;
   }
   return null;
 }
 
+/**
+ * A delegator community never reports `can_join.allowed = true`:
+ * `UserGroupsEndpoint::canJoin()` hard-returns `not_eligible`, because only a
+ * live LCD delegation check can settle eligibility and the list view-model
+ * does not run one per row. So the verified join IS the check — the same
+ * reasoning `GroupMembershipStrip` applies in `ValidatorEligibilityCheck`.
+ *
+ * Without this branch the row fell through to `UnlockHint` and a delegator
+ * community was a dead end on this surface: the viewer was told to delegate
+ * and given no control, while an NFT holder community in the row above
+ * offered one.
+ *
+ * The server's unlock hint stays the primary copy — it names the minimum
+ * delegation — with the verified-join control beneath it. `UserGroupItem`
+ * carries no `chain_tag`, so the strip's wallet-connect arm is deliberately
+ * not reproduced here; an unlinked wallet is refused by the server and
+ * surfaced through `humanizeValidatorJoinError`.
+ */
+function ValidatorEligibilityRow({
+  item,
+  hint,
+}: {
+  item: UserGroupItem;
+  hint: string | null;
+}) {
+  return (
+    <div className="flex flex-col items-end gap-1.5">
+      {hint !== null ? <UnlockHint hint={hint} /> : null}
+      <ValidatorJoinButton groupId={item.group_id} />
+    </div>
+  );
+}
+
 function JoinAction({ item }: { item: UserGroupItem }) {
   switch (item.type) {
     case "nft":
       return <HolderJoinButton groupId={item.group_id} />;
+    case "validator":
+      return <ValidatorJoinButton groupId={item.group_id} />;
     case "hall":
       return <HallJoinButton groupId={item.group_id} />;
     case "user":
@@ -206,6 +253,8 @@ function LeaveAction({ item }: { item: UserGroupItem }) {
   switch (item.type) {
     case "nft":
       return <HolderLeaveButton groupId={item.group_id} />;
+    case "validator":
+      return <ValidatorLeaveButton groupId={item.group_id} />;
     case "hall":
       return <HallLeaveButton groupId={item.group_id} />;
     case "user":
@@ -246,6 +295,20 @@ function groupActionError(err: unknown): string | null {
   );
 }
 
+/**
+ * Leaving a delegator group refuses only one person with
+ * `bcc_permission_denied`: its owner, the operator who created it.
+ */
+export function validatorLeaveError(err: unknown): string | null {
+  if (err === null || err === undefined) {
+    return null;
+  }
+  if (isCode(err, "bcc_permission_denied")) {
+    return "You created this group, so you can't leave it.";
+  }
+  return groupActionError(err);
+}
+
 function HolderJoinButton({ groupId }: { groupId: number }) {
   const onSuccess = useInvalidateUserGroups();
   const mutation = useJoinHolderGroupMutation({ onSuccess });
@@ -274,6 +337,42 @@ function HolderLeaveButton({ groupId }: { groupId: number }) {
       pendingLabel="LEAVING…"
       isPending={mutation.isPending}
       errorMessage={groupActionError(mutation.error)}
+      onClick={() => {
+        mutation.reset();
+        mutation.mutate(groupId);
+      }}
+    />
+  );
+}
+
+function ValidatorJoinButton({ groupId }: { groupId: number }) {
+  const onSuccess = useInvalidateUserGroups();
+  const mutation = useJoinValidatorGroupMutation({ onSuccess });
+  return (
+    <GroupActionButton
+      groupId={groupId}
+      label="JOIN"
+      pendingLabel="CHECKING…"
+      isPending={mutation.isPending}
+      errorMessage={mutation.error ? humanizeValidatorJoinError(mutation.error) : null}
+      onClick={() => {
+        mutation.reset();
+        mutation.mutate(groupId);
+      }}
+    />
+  );
+}
+
+function ValidatorLeaveButton({ groupId }: { groupId: number }) {
+  const onSuccess = useInvalidateUserGroups();
+  const mutation = useLeaveValidatorGroupMutation({ onSuccess });
+  return (
+    <GroupActionButton
+      groupId={groupId}
+      label="LEAVE"
+      pendingLabel="LEAVING…"
+      isPending={mutation.isPending}
+      errorMessage={validatorLeaveError(mutation.error)}
       onClick={() => {
         mutation.reset();
         mutation.mutate(groupId);

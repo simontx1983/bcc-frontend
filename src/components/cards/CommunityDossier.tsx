@@ -144,6 +144,9 @@ function CollectionBlock({ dossier }: { dossier: CardCommunityDossier }) {
  * privacy under the hood so trust_min is the canonical gate signal).
  */
 function accessLabel(dossier: CardCommunityDossier): string {
+  // Stored closed, but nobody requests anything: the join verifies the
+  // delegation, so "Request to join" would describe a queue that isn't there.
+  if (dossier.type === "validator") return "Delegators only";
   if (dossier.trust_min !== null) return `Trust ${dossier.trust_min}+`;
   if (dossier.privacy === "closed") return "Request to join";
   if (dossier.privacy === "secret") return "Invite-only";
