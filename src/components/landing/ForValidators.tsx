@@ -10,6 +10,9 @@
  *   - No urgency, counts or "people are waiting". Followers read 0 on an
  *     unclaimed page and nothing surfaces a waiting-message count, so the
  *     copy says what CAN happen, never what has.
+ *   - Operator benefits are listed only once they've been seen working. A
+ *     promise the product can't keep is what would make this read as a scam,
+ *     so add a benefit here in the same change that proves it.
  *   - The exact wallet prompt is printed so it can be compared. It must stay
  *     word for word with `WalletChallenge::PREFIX` in bcc-core.
  *   - No trust score weights (see ReputationSummaryPanel) and nothing about
@@ -60,14 +63,6 @@ const CLAIM_STEPS: ReadonlyArray<{ title: string; body: string }> = [
     body: "Use the account behind your validator: the operator key on Cosmos chains, the stash account on Polkadot. Many operators keep this key offline, so take the time you need.",
   },
   { title: "Sign the message", body: "We match the signature against your on-chain address. If they match, the page is yours." },
-];
-
-const OWNER_TOOLS: ReadonlyArray<{ title: string; body: string }> = [
-  { title: "Your profile", body: "Write the bio and set the avatar your delegators see." },
-  { title: "Your voice", body: "Post as your validator and publish announcements in your stream." },
-  { title: "Your badge", body: "A verified operator badge on your page and your posts." },
-  { title: "Your inbox", body: "Direct messages from the people who want to reach you." },
-  { title: "Your dashboard", body: "Every validator page you run, in one place." },
 ];
 
 const TIERS = "Risky, Caution, Neutral, Trusted and Elite";
@@ -208,9 +203,8 @@ export function ForValidators() {
         <section className="bcc-ldg-section" style={{ paddingTop: 0 }}>
           <LandingReveal as="p" className="bcc-ldg-eyebrow">What we do</LandingReveal>
           <p className="max-w-3xl text-lg leading-relaxed text-bcc-text-secondary">
-            We&rsquo;re a place to look up crypto operators, build a public track
-            record, and form communities around the work. It&rsquo;s never about
-            price. We don&rsquo;t show one, and there&rsquo;s nothing here to buy.
+            We&rsquo;re a place to look up crypto operators and build a public
+            track record around the work. It&rsquo;s never about price. We don&rsquo;t show one, and there&rsquo;s nothing here to buy.
           </p>
         </section>
 
@@ -223,7 +217,6 @@ export function ForValidators() {
           <ul className="mt-6 max-w-3xl space-y-3 text-bcc-text-secondary">
             <li>Scores run from 0 to 100 and every page starts at 50. That isn&rsquo;t an average or a bad rating. It means nobody has weighed in yet.</li>
             <li>It moves with what people on the platform say about you and with on-chain signals, and it can go down as well as up. The tiers are {TIERS}.</li>
-            <li>Claiming your page adds a small operator bonus, because you&rsquo;ve proved who you are.</li>
             <li>It isn&rsquo;t an uptime rating. Uptime and commission appear separately on your page.</li>
             <li>It can&rsquo;t be bought. There&rsquo;s no way to pay for a score, a tier or a badge.</li>
           </ul>
@@ -243,21 +236,14 @@ export function ForValidators() {
           </div>
         </section>
 
-        {/* ── Community ────────────────────────────────────────────── */}
+        {/* ── After you claim ──────────────────────────────────────── */}
         <section className="bcc-ldg-section" style={{ paddingTop: 0 }}>
-          <LandingReveal as="p" className="bcc-ldg-eyebrow">Build your community</LandingReveal>
+          <LandingReveal as="p" className="bcc-ldg-eyebrow">After you claim</LandingReveal>
           <p className="max-w-3xl text-lg leading-relaxed text-bcc-text-secondary">
-            People can follow your page and leave you messages. Those are kept
-            and delivered to you when you claim it.
+            Your page is marked as claimed, and you can publish announcements on
+            it. We only list what works today, and we&rsquo;ll add more here as
+            it&rsquo;s ready.
           </p>
-          <div className="bcc-ldg-pillars mt-8">
-            {OWNER_TOOLS.map((tool) => (
-              <div key={tool.title} className="bcc-ldg-pillar">
-                <h3>{tool.title}</h3>
-                <p>{tool.body}</p>
-              </div>
-            ))}
-          </div>
         </section>
 
         {/* ── Chains ───────────────────────────────────────────────── */}

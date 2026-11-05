@@ -86,6 +86,12 @@ describe("the for-validators page", () => {
     expect(page).not.toMatch(/already (following|messag)|people are waiting|waiting for you/i);
   });
 
+  it("does not promise operator benefits that aren't shown working yet", () => {
+    const prose = page.replace(/\s+/g, " ");
+    expect(prose).not.toMatch(/post as your validator|operator badge|operator bonus|your inbox|your dashboard|community|communities|delegator group/i);
+    expect(prose).toContain("publish announcements");
+  });
+
   it("shows the city, not the street address in legal config", () => {
     expect(page).toContain("Fort Worth, Texas");
     expect(page).not.toContain("LEGAL.address");

@@ -48,7 +48,6 @@
  * unclaimed callout disappears.
  */
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
@@ -303,13 +302,8 @@ function ExplanationStep({
       </h3>
       <p className="mt-3 font-serif text-bcc-text-secondary">
         Claiming a validator page proves you control its on-chain keys.
-        It unlocks three things:
+        Once it&apos;s yours, you can publish announcements on it.
       </p>
-      <ul className="mt-3 space-y-2 font-serif text-bcc-text-secondary">
-        <li>· Edit the bio your delegators see when they visit your page.</li>
-        <li>· Post announcements in your validator&apos;s stream.</li>
-        <li>· Earn the operator badge on every post you write here.</li>
-      </ul>
       <p className="bcc-mono mt-4 text-[11px] text-bcc-text-secondary">
         Chain: {chainSlug.toUpperCase()} · Signature only — no transaction, no fees.
       </p>
@@ -447,19 +441,14 @@ function ConfirmationStep({
         {pageName} is yours.
       </h3>
       <p className="mt-3 font-serif text-bcc-text-secondary">
-        Your operator badge is live. The page&apos;s bio and stream
-        unlocked the moment you signed.
+        Your claim is verified, and you can now publish announcements on
+        this page.
       </p>
       <p className="bcc-mono mt-4 text-[11px] text-bcc-text-secondary">
         What&apos;s next:
       </p>
       <ul className="mt-2 space-y-1.5 font-serif text-bcc-text-secondary">
-        <li>· Write a bio that tells your delegators who you are.</li>
-        <li>· Post your first announcement in the stream.</li>
-        <li>
-          · Any messages left for you will appear in your{" "}
-          <Link href="/messages" className="underline">inbox</Link>.
-        </li>
+        <li>· Post your first announcement.</li>
         {handle !== null && <li>· Visit your profile at /u/{handle}.</li>}
       </ul>
       <ButtonRow>

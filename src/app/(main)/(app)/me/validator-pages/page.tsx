@@ -4,7 +4,7 @@
  * Every validator page the signed-in member holds a VERIFIED operator
  * claim on, grouped by chain. An operator running validators on several
  * chains sees one row per claimed page, each linking to its own public
- * page with its own chain data and its own community.
+ * page with its own chain data.
  *
  * Server component, matching /me/progression and /me/reliability: the
  * payload is session-scoped and read once per render, so there is no
@@ -88,7 +88,7 @@ export default async function ValidatorPagesDashboard() {
         </h1>
         <p className="mt-4 max-w-2xl font-serif text-lg leading-relaxed text-bcc-text-secondary">
           Every validator you have proved you operate. Each page keeps its
-          own chain data, its own URL, and its own community.
+          own chain data and its own URL.
         </p>
       </header>
 
