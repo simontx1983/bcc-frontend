@@ -92,8 +92,8 @@ export function LockedStreamPanel({ pageName }: LockedStreamPanelProps) {
           {pageName} hasn&apos;t claimed this page.
         </h2>
         <p className="max-w-md font-serif text-ink-soft">
-          The operator&apos;s bio and stream unlock the moment they sign
-          a challenge with their on-chain keys. Until then, this slot
+          The operator&apos;s posts appear here once they claim the page
+          by signing with their on-chain keys. Until then, this slot
           stays quiet.
         </p>
         <p className="bcc-mono text-[11px] text-cardstock-deep">
