@@ -16,32 +16,76 @@
  * Each step is its own panel. Errors at any step keep the user on
  * the same step (no silent skip-back) so they can retry.
  *
- * V1 scope: Cosmos / Keplr only. EVM (MetaMask) and Solana (Phantom)
- * variants layer on later — the step machine + API surface is shared.
+ * Chain support is decided by what the BACKEND can prove about
+ * validator operator authority, not by which wallets exist (the allowlist
+ * lives in `lib/wallet/claim-support.ts`):
+ *
+ *   cosmos   ✅ the operator account and the `…valoper…` address are the
+ *               same 20 bytes under a different bech32 HRP.
+ *   polkadot ✅ `operator_address` is the validator's STASH account, an
+ *               account the operator holds and can sign with.
+ *   solana   ⛔ `operator_address` is the vote account's `nodePubkey` —
+ *               the validator IDENTITY key, which lives on the validator
+ *               host. The authority that actually controls a vote account
+ *               (`authorizedWithdrawer`) is not stored at all, so there is
+ *               nothing to prove against. Adding Phantom would either match
+ *               nothing or invite operators to load a hot signing key into
+ *               a browser wallet. Deliberately unavailable.
+ *   evm      ⛔ no EVM validator pages exist — EvmFetcher returns no
+ *               validators by design, so there is nothing to claim.
+ *
+ * ⚠ Provider work goes through `lib/wallet/dispatch.ts`, the shared
+ * chainType → adapter layer. We use `connectWallet` + `signWalletChallenge`
+ * directly rather than `runLinkFlow` because this surface keeps the §N8
+ * FOUR-STEP machine (connect and sign are separate screens, on purpose —
+ * friction before a high-stakes action). `runLinkFlow` is a one-call
+ * composition of the same dispatch layer for the Settings form; please do
+ * not "simplify" this into it and collapse the step machine.
  *
  * Cache invalidation on success: the parent <EntityProfile> route is
  * a server component. We call `router.refresh()` so the next paint
  * re-fetches the card view-model with `is_claimed: true` and the
- * Wanted poster disappears.
+ * unclaimed callout disappears.
  */
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { getWalletNonce, linkWallet } from "@/lib/api/auth-endpoints";
-import { humanizeCode } from "@/lib/api/errors";
+import { humanizeCode, isCode } from "@/lib/api/errors";
 import { claimPage } from "@/lib/api/pages-endpoints";
 import { type CardClaimTarget } from "@/lib/api/types";
+import { findWalletChain, type WalletChainType } from "@/lib/wallet/chain-catalog";
+import { isChainClaimable, unsupportedClaimReason } from "@/lib/wallet/claim-support";
 import {
-  connectKeplr,
-  isCosmosChain,
-  KeplrError,
-  KeplrUnavailableError,
-  KeplrUnsupportedChainError,
-  signKeplrChallenge,
-  type KeplrConnection,
-} from "@/lib/wallet/keplr";
+  connectWallet,
+  humanizeWalletProviderError,
+  signWalletChallenge,
+  walletTypeFor,
+  type WalletConnection,
+} from "@/lib/wallet/dispatch";
 import { Dialog } from "@/components/ui/Dialog";
+
+/**
+ * The wallet an operator actually opens, per chain. Used in copy only —
+ * the provider itself is resolved by dispatch.ts. `null` (chain not in
+ * the catalog, or not claimable) gets a neutral label so no screen
+ * promises a wallet that cannot complete the flow.
+ */
+function walletNameFor(chainType: WalletChainType | null): string {
+  switch (chainType) {
+    case "cosmos":
+      return "Keplr";
+    case "polkadot":
+      return "Polkadot.js, Talisman or SubWallet";
+    case "evm":
+      return "MetaMask";
+    case "solana":
+      return "Phantom";
+    default:
+      return "your wallet";
+  }
+}
 
 interface ClaimFlowProps {
   pageId: number;
@@ -56,7 +100,8 @@ type Step =
   | { kind: "connect"; pending: boolean; error: string | null }
   | {
       kind: "signature";
-      connection: KeplrConnection;
+      connection: WalletConnection;
+      chainType: WalletChainType;
       pending: boolean;
       error: string | null;
     }
@@ -66,20 +111,23 @@ export function ClaimFlow({ pageId, pageName, target, onClose }: ClaimFlowProps)
   const router = useRouter();
   const [step, setStep] = useState<Step>({ kind: "explanation" });
 
-  // ── Step 2: Connect Keplr ──────────────────────────────────────────
+  // ── Step 2: Connect the chain's wallet ─────────────────────────────
+  const chainType = findWalletChain(target.chain_slug)?.chainType ?? null;
+  const claimable = chainType !== null && isChainClaimable(target.chain_slug);
+
   const handleConnect = async () => {
-    if (!isCosmosChain(target.chain_slug)) {
+    if (!claimable) {
       setStep({
         kind: "connect",
         pending: false,
-        error: `Chain "${target.chain_slug}" is not yet supported. Cosmos chains only for now.`,
+        error: unsupportedClaimReason(target.chain_slug),
       });
       return;
     }
     setStep({ kind: "connect", pending: true, error: null });
     try {
-      const connection = await connectKeplr(target.chain_slug);
-      setStep({ kind: "signature", connection, pending: false, error: null });
+      const connection = await connectWallet(target.chain_slug, chainType);
+      setStep({ kind: "signature", connection, chainType, pending: false, error: null });
     } catch (err) {
       setStep({
         kind: "connect",
@@ -90,42 +138,89 @@ export function ClaimFlow({ pageId, pageName, target, onClose }: ClaimFlowProps)
   };
 
   // ── Step 3: Sign challenge → link wallet → claim page ──────────────
-  const handleSign = async (connection: KeplrConnection) => {
-    setStep({ kind: "signature", connection, pending: true, error: null });
+  const handleSign = async (
+    connection: WalletConnection,
+    signChainType: WalletChainType,
+  ) => {
+    setStep({ kind: "signature", connection, chainType: signChainType, pending: true, error: null });
     try {
       // 3a. Server-issued nonce.
       const nonce = await getWalletNonce({
-        chain_slug:     connection.chainSlug,
+        chain_slug:     target.chain_slug,
         wallet_address: connection.address,
       });
 
-      // 3b. Sign the challenge in Keplr (ADR-036 signArbitrary).
-      const signed = await signKeplrChallenge(
-        connection.chainSlug,
-        connection.address,
-        nonce.message
+      // 3b. Sign the challenge with the chain's wallet.
+      const signed = await signWalletChallenge(
+        target.chain_slug,
+        signChainType,
+        connection,
+        nonce.message,
       );
 
       // 3c. Verify + persist wallet link on the server.
-      await linkWallet({
-        wallet_address: connection.address,
-        signature:      signed.signature,
-        pub_key:        signed.pubKey,
-        wallet_type:    "keplr",
-      });
+      //
+      // ⚠⚠ `extra` IS LOAD-BEARING AND WAS MISSING. WalletAuthController
+      // builds its verification `$extra` from the `extra` param ONLY — a
+      // top-level `pub_key` is never bridged into it. CosmosSignatureVerifier
+      // then reads `$extra['pub_key']` and returns false unless it decodes to
+      // a 33-byte compressed point, so the previous call (top-level `pub_key`,
+      // no `extra`) could not verify a Cosmos signature at all. dispatch.ts
+      // returns the right bundle per chain; pass it through untouched.
+      //
+      // ⚠ `bcc_conflict` here means the wallet is ALREADY linked, to this
+      // account or another; the code does not say which. Don't stop: claim
+      // re-reads the viewer's own verified wallets server-side, so it
+      // succeeds for this account's wallet and refuses anyone else's. A
+      // wallet linked in Settings or used at signup must still be able to
+      // claim.
+      let alreadyLinked = false;
+      try {
+        await linkWallet({
+          wallet_address: connection.address,
+          signature:      signed.signature,
+          wallet_type:    walletTypeFor(signChainType),
+          extra:          signed.extra,
+        });
+      } catch (linkErr) {
+        if (!isCode(linkErr, "bcc_conflict")) {
+          throw linkErr;
+        }
+        alreadyLinked = true;
+      }
 
       // 3d. Claim the page now that the wallet is verified.
-      await claimPage({
-        id:          pageId,
-        entity_type: target.entity_type,
-        entity_id:   target.entity_id,
-      });
+      try {
+        await claimPage({
+          id:          pageId,
+          entity_type: target.entity_type,
+          entity_id:   target.entity_id,
+        });
+      } catch (claimErr) {
+        // The wallet in hand was already linked and still proved nothing for
+        // this account, so it may belong to a different one.
+        if (
+          alreadyLinked &&
+          (isCode(claimErr, "bcc_forbidden") || isCode(claimErr, "bcc_precondition_failed"))
+        ) {
+          setStep({
+            kind: "signature",
+            connection,
+            chainType: signChainType,
+            pending: false,
+            error: WALLET_ON_ANOTHER_ACCOUNT,
+          });
+          return;
+        }
+        throw claimErr;
+      }
 
       setStep({ kind: "confirmation" });
     } catch (err) {
       setStep({
         kind: "signature",
         connection,
+        chainType: signChainType,
         pending: false,
         error: humanizeError(err),
       });
@@ -153,6 +248,8 @@ export function ClaimFlow({ pageId, pageName, target, onClose }: ClaimFlowProps)
       {step.kind === "connect" && (
         <ConnectStep
           chainSlug={target.chain_slug}
+          walletName={claimable ? walletNameFor(chainType) : "your wallet"}
+          claimable={claimable}
           pending={step.pending}
           error={step.error}
           onRetry={() => { void handleConnect(); }}
@@ -163,10 +260,11 @@ export function ClaimFlow({ pageId, pageName, target, onClose }: ClaimFlowProps)
       {step.kind === "signature" && (
         <SignatureStep
           pageName={pageName}
+          walletName={walletNameFor(step.chainType)}
           connection={step.connection}
           pending={step.pending}
           error={step.error}
-          onSign={() => { void handleSign(step.connection); }}
+          onSign={() => { void handleSign(step.connection, step.chainType); }}
           onCancel={handleClose}
         />
       )}
@@ -204,13 +302,8 @@ function ExplanationStep({
       </h3>
       <p className="mt-3 font-serif text-bcc-text-secondary">
         Claiming a validator page proves you control its on-chain keys.
-        It unlocks three things:
+        Once it&apos;s yours, you can publish announcements on it.
       </p>
-      <ul className="mt-3 space-y-2 font-serif text-bcc-text-secondary">
-        <li>· Edit the bio your delegators see when they visit your page.</li>
-        <li>· Post announcements in your validator&apos;s stream.</li>
-        <li>· Earn the operator badge on every post you write here.</li>
-      </ul>
       <p className="bcc-mono mt-4 text-[11px] text-bcc-text-secondary">
         Chain: {chainSlug.toUpperCase()} · Signature only — no transaction, no fees.
       </p>
@@ -228,22 +321,42 @@ function ExplanationStep({
 
 function ConnectStep({
   chainSlug,
+  walletName,
+  claimable,
   pending,
   error,
   onRetry,
   onCancel,
 }: {
   chainSlug: string;
+  walletName: string;
+  claimable: boolean;
   pending: boolean;
   error: string | null;
   onRetry: () => void;
   onCancel: () => void;
 }) {
+  // ⛔ An unsupported chain gets the explanation and a way out — never a
+  // retry button, which could only fail again for the same reason.
+  if (!claimable) {
+    return (
+      <>
+        <h3 className="bcc-stencil text-2xl text-bcc-text">
+          Claiming isn&apos;t available here
+        </h3>
+        {error !== null && <ErrorLine message={error} />}
+        <ButtonRow>
+          <SecondaryButton onClick={onCancel}>CLOSE</SecondaryButton>
+        </ButtonRow>
+      </>
+    );
+  }
+
   return (
     <>
-      <h3 className="bcc-stencil text-2xl text-bcc-text">Connect Keplr</h3>
+      <h3 className="bcc-stencil text-2xl text-bcc-text">Connect your wallet</h3>
       <p className="mt-3 font-serif text-bcc-text-secondary">
-        Open Keplr and approve the connection request for{" "}
+        Open {walletName} and approve the connection request for{" "}
         <span className="bcc-mono text-bcc-text">{chainSlug.toUpperCase()}</span>.
         We&apos;ll read your wallet&apos;s public address — nothing else.
       </p>
@@ -251,7 +364,7 @@ function ConnectStep({
       <ButtonRow>
         <SecondaryButton onClick={onCancel}>CANCEL</SecondaryButton>
         <PrimaryButton onClick={onRetry} disabled={pending}>
-          {pending ? "CONNECTING…" : error !== null ? "RETRY KEPLR" : "OPEN KEPLR"}
+          {pending ? "CONNECTING…" : error !== null ? "RETRY" : "CONNECT WALLET"}
         </PrimaryButton>
       </ButtonRow>
     </>
@@ -264,6 +377,7 @@ function ConnectStep({
 
 function SignatureStep({
   pageName,
+  walletName,
   connection,
   pending,
   error,
@@ -271,7 +385,8 @@ function SignatureStep({
   onCancel,
 }: {
   pageName: string;
-  connection: KeplrConnection;
+  walletName: string;
+  connection: WalletConnection;
   pending: boolean;
   error: string | null;
   onSign: () => void;
@@ -281,7 +396,7 @@ function SignatureStep({
     <>
       <h3 className="bcc-stencil text-2xl text-bcc-text">Sign the challenge</h3>
       <p className="mt-3 font-serif text-bcc-text-secondary">
-        Keplr will pop up with a plain-English message. Signing it
+        {walletName} will pop up with a plain-English message. Signing it
         proves you control{" "}
         <span className="bcc-mono break-all text-bcc-text">{connection.address}</span>.
         We match this address against {pageName}&apos;s on-chain operator key —
@@ -294,7 +409,7 @@ function SignatureStep({
       <ButtonRow>
         <SecondaryButton onClick={onCancel}>CANCEL</SecondaryButton>
         <PrimaryButton onClick={onSign} disabled={pending}>
-          {pending ? "SIGNING…" : error !== null ? "RETRY SIGNATURE" : "SIGN WITH KEPLR"}
+          {pending ? "SIGNING…" : error !== null ? "RETRY SIGNATURE" : "SIGN MESSAGE"}
         </PrimaryButton>
       </ButtonRow>
     </>
@@ -326,15 +441,14 @@ function ConfirmationStep({
         {pageName} is yours.
       </h3>
       <p className="mt-3 font-serif text-bcc-text-secondary">
-        Your operator badge is live. The page&apos;s bio and stream
-        unlocked the moment you signed.
+        Your claim is verified, and you can now publish announcements on
+        this page.
       </p>
       <p className="bcc-mono mt-4 text-[11px] text-bcc-text-secondary">
         What&apos;s next:
       </p>
       <ul className="mt-2 space-y-1.5 font-serif text-bcc-text-secondary">
-        <li>· Write a bio that tells your delegators who you are.</li>
-        <li>· Post your first announcement in the stream.</li>
+        <li>· Post your first announcement.</li>
         {handle !== null && <li>· Visit your profile at /u/{handle}.</li>}
       </ul>
       <ButtonRow>
@@ -413,22 +527,26 @@ function ErrorLine({ message }: { message: string }) {
 // Error humanizers
 // ─────────────────────────────────────────────────────────────────────
 
+const WALLET_ON_ANOTHER_ACCOUNT =
+  "This wallet doesn't match this validator's operator address on your " +
+  "account. It may be linked to another BCC account — if so, sign in with " +
+  "that account to claim.";
+
 function humanizeWalletError(err: unknown): string {
-  if (err instanceof KeplrUnavailableError) {
-    return "Keplr is not installed. Install it from keplr.app, then retry.";
+  // dispatch.ts owns the per-provider copy (Keplr / MetaMask / Phantom /
+  // Polkadot unavailable, user cancel, unsupported chain) so this surface
+  // does not keep a second copy of it.
+  const provider = humanizeWalletProviderError(err);
+  if (provider !== null) {
+    return provider;
   }
-  if (err instanceof KeplrUnsupportedChainError) {
-    return `Chain "${err.slug}" isn't supported by the claim flow yet.`;
-  }
-  if (err instanceof KeplrError) {
-    return err.message;
-  }
-  return "Couldn't connect to Keplr. Try again.";
+  return "Couldn't reach your wallet. Try again.";
 }
 
 function humanizeError(err: unknown): string {
-  if (err instanceof KeplrError) {
-    return humanizeWalletError(err);
+  const provider = humanizeWalletProviderError(err);
+  if (provider !== null) {
+    return provider;
   }
   return humanizeCode(
     err,

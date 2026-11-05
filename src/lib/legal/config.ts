@@ -23,8 +23,8 @@ export const LEGAL = {
   /** Governing law + venue for disputes. Materially affects enforceability. */
   jurisdiction: "Texas, USA",
 
-  /** Physical/mailing address of the operator. */
-  address: "506 Ranch Road Granbury TX 76049",
+  /** Where the operator is based: city and state, no street address. */
+  address: "Fort Worth, Texas",
 
   /** General legal / notices contact. */
   legalEmail: "phillip@bluecollarcrypto.io",

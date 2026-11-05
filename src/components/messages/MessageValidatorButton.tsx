@@ -58,7 +58,7 @@ const BUTTON_BASE_CLASS =
   "text-[11px] tracking-[0.18em] transition";
 
 const BUTTON_ENABLED_CLASS =
-  "border-cardstock-edge text-cardstock hover:bg-cardstock hover:text-ink";
+  "border-bcc-border text-bcc-text hover:bg-bcc-surface-active";
 
 const BUTTON_DISABLED_CLASS =
   "cursor-not-allowed border-cardstock-edge/40 text-cardstock-deep/60";
@@ -107,6 +107,19 @@ export function MessageValidatorButton({
     // a disabled control that explains nothing.
     if (hint === null) {
       return null;
+    }
+    // Anonymous: the way forward is signing in, so make the control do that.
+    // Login returns to the composer, which already reads this deep link.
+    if (reasonCode(permissions, "can_message") === "auth_required") {
+      const composer = `/messages/new?to_page=${pageId}&to_kind=validator`;
+      return (
+        <Link
+          href={`/login?callbackUrl=${encodeURIComponent(composer)}` as Route}
+          className={`${BUTTON_BASE_CLASS} ${BUTTON_ENABLED_CLASS}`}
+        >
+          {hint}
+        </Link>
+      );
     }
     return (
       <div className="flex w-fit flex-col gap-1">

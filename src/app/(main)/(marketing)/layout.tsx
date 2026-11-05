@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 
+import { MarketingHeaderCta } from "@/components/landing/MarketingHeaderCta";
 import { CopyrightMark } from "@/components/layout/CopyrightMark";
 import { ThemeSwitcher } from "@/components/layout/ThemeSwitcher";
 import { LEGAL_ROUTES } from "@/lib/legal/config";
@@ -57,9 +58,7 @@ export default function MarketingLayout({
           </Link>
           <div className="flex items-center gap-2">
             <ThemeSwitcher />
-            <Link href="/signup" className="bcc-btn bcc-btn-sm bcc-btn-primary">
-              Join the Floor
-            </Link>
+            <MarketingHeaderCta />
             {/* Hidden below 600px — the pair didn't fit the mobile header
                 width and Sign In was getting clipped at the viewport edge.
                 Same call SiteHeader already makes for its own guest state

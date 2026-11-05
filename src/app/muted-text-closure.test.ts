@@ -10,7 +10,7 @@
  * The token measures 2.54:1 light and 2.28:1 dark — it fails AA as text
  * on every surface in the app. WCAG 1.4.3 exempts inactive controls and
  * pure decoration, and nothing else. So the set of survivors is not a
- * matter of taste: **37 occurrences, each with a stated mechanism.**
+ * matter of taste: **36 occurrences, each with a stated mechanism.**
  *
  * ## No "known exception" bucket
  *
@@ -35,7 +35,7 @@
  *
  * ## Scope note
  *
- * `--bcc-search-placeholder` is NOT one of the 37. It is a separate
+ * `--bcc-search-placeholder` is NOT one of the 36. It is a separate
  * token, carved out in E4 because `.bcc-search-input` sits on
  * `--bcc-glass-bg-frosted` with a `backdrop-filter` and its backdrop is
  * unbounded. It is tested below only as a **deferred invariant** — that
@@ -124,7 +124,7 @@ describe("closure scan — the scan itself is honest", () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────
-// 1. The invariant: 37 survivors, every one exempt
+// 1. The invariant: 36 survivors, every one exempt
 // ─────────────────────────────────────────────────────────────────────────
 
 type Mechanism =
@@ -183,7 +183,6 @@ const APPROVED_SURVIVORS: readonly string[] = [
     "src/components/auth/EligibleCommunitiesModal.tsx :: <span aria-hidden className=\"text-bcc-text-muted\">\u00b7</span>",
     "src/components/auth/EligibleCommunitiesModal.tsx :: <span aria-hidden className=\"text-bcc-text-muted\">\u00b7</span>",
     "src/components/blog/BlogComposer.tsx :: : \"cursor-not-allowed bg-bcc-surface-active text-bcc-text-muted\")",
-    "src/components/claim/ClaimCallout.tsx :: : \"cursor-not-allowed bg-bcc-surface-active text-bcc-text-muted\")",
     "src/components/claim/ClaimFlow.tsx :: ? \"cursor-not-allowed bg-bcc-surface-active text-bcc-text-muted\"",
     "src/components/composer/Composer.tsx :: : \"cursor-not-allowed bg-[var(--bcc-surface-active)] text-[var(--bcc-text-muted)]\")",
     "src/components/composer/Composer.tsx :: : \"cursor-not-allowed bg-bcc-surface-active text-bcc-text-muted\")",
@@ -216,15 +215,15 @@ const APPROVED_SURVIVORS: readonly string[] = [
 const identity = (h: Hit) => `${h.file} :: ${h.text.slice(0, 88)}`;
 
 describe("closure invariant — every surviving muted use is exempt", () => {
-  it("there are exactly 37 survivors", () => {
-    expect(HITS).toHaveLength(37);
+  it("there are exactly 36 survivors", () => {
+    expect(HITS).toHaveLength(36);
   });
 
   it("the survivors are EXACTLY the approved set, member for member", () => {
     // Not just the count and not just per-slice tallies: an occurrence that
     // moved between files, or a new one appearing while another vanished,
     // would keep those numbers right and this assertion wrong.
-    expect(APPROVED_SURVIVORS).toHaveLength(37);
+    expect(APPROVED_SURVIVORS).toHaveLength(36);
     expect([...HITS].map(identity).sort()).toEqual([...APPROVED_SURVIVORS].sort());
   });
 
@@ -250,7 +249,7 @@ describe("closure invariant — every surviving muted use is exempt", () => {
       return acc;
     }, {});
     expect(counts).toEqual({
-      "disabled-inline": 22,
+      "disabled-inline": 21,
       "disabled-branch": 4,
       "disabled-guard": 1,
       "decorative-inline": 9,
@@ -304,9 +303,9 @@ describe("closure — the 19 exclusions from E3, E4 and E5 survive", () => {
   it("E3 kept its 5", () => expect(count(E3)).toBe(5));
   it("E4 kept its 10", () => expect(count(E4)).toBe(10));
   it("E5 kept its 4", () => expect(count(E5)).toBe(4));
-  it("19 in total, plus E6's 18, is the whole set", () => {
+  it("19 in total, plus E6's 17, is the whole set", () => {
     expect(count([...E3, ...E4, ...E5])).toBe(19);
-    expect(HITS.length - count([...E3, ...E4, ...E5])).toBe(18);
+    expect(HITS.length - count([...E3, ...E4, ...E5])).toBe(17);
   });
 });
 
@@ -416,7 +415,7 @@ describe("deferred — the header search placeholder is still broken", () => {
     return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
   };
 
-  it("is a SEPARATE token and therefore not one of the 37", () => {
+  it("is a SEPARATE token and therefore not one of the 36", () => {
     expect(values("bcc-search-placeholder")).toEqual(["#b3b8c3", "#3d444d", "#3d444d"]);
     // it must never appear in the muted census
     expect(HITS.some((h) => /search-placeholder/.test(h.text))).toBe(false);

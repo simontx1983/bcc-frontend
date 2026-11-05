@@ -428,9 +428,16 @@ export function renderOgCard(
  * Generic branded fallback — rendered when the subject can't be fetched
  * (404 / transient). No per-subject data; just the wordmark + "THE
  * FLOOR". Used by every route's catch branch so a fetch failure renders a
- * valid PNG rather than 500-ing the social-preview crawl.
+ * valid PNG rather than 500-ing the social-preview crawl. A fixed-copy page
+ * passes its own `headline` and `tagline` to get the same branded card.
  */
-export function renderGenericCard(resolved: ResolvedFonts): ImageResponse {
+export function renderGenericCard(
+  resolved: ResolvedFonts,
+  { headline = "THE FLOOR", tagline = "Trust · Identity · Reputation for crypto operators" }: {
+    headline?: string;
+    tagline?: string;
+  } = {},
+): ImageResponse {
   const { headlineFamily, monoFamily } = resolved;
   return new ImageResponse(
     (
@@ -492,7 +499,7 @@ export function renderGenericCard(resolved: ResolvedFonts): ImageResponse {
             marginTop: 24,
           }}
         >
-          THE FLOOR
+          {headline}
         </div>
         <div
           style={{
@@ -508,7 +515,7 @@ export function renderGenericCard(resolved: ResolvedFonts): ImageResponse {
           }}
         >
           <div style={{ width: 48, height: 2, background: SAFETY }} />
-          <span>Trust · Identity · Reputation for crypto operators</span>
+          <span>{tagline}</span>
         </div>
       </div>
     ),
