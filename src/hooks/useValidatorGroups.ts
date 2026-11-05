@@ -117,6 +117,10 @@ export function humanizeValidatorJoinError(err: unknown): string {
     // No "try again later": a moderator's removal never expires.
     return "You can't rejoin this group right now, because you recently left it or its moderators removed you.";
   }
+  const minimum = joinMinimum(err);
+  if (minimum !== null) {
+    return `You don't delegate enough to this validator from a linked wallet — this community needs at least ${minimum}.`;
+  }
   return humanizeCode(
     err,
     {
@@ -130,6 +134,27 @@ export function humanizeValidatorJoinError(err: unknown): string {
     },
     "Couldn't join this group. Try again.",
   );
+}
+
+/**
+ * The community's minimum, from `error.data.min_stake_display` (contract
+ * v1.85) — never from `error.message`, which §γ forbids us rendering.
+ *
+ * Before v1.85 the figure travelled only in the message, so the card
+ * surfaces could only say "you don't delegate enough" with no amount: the
+ * one thing the viewer needed in order to act. Null whenever the server
+ * could not name it, so the caller keeps its generic copy rather than
+ * printing an empty gap.
+ */
+export function joinMinimum(err: unknown): string | null {
+  if (!(err instanceof BccApiError) || err.code !== "bcc_permission_denied") {
+    return null;
+  }
+  if (err.data?.["reason_code"] !== "not_eligible") {
+    return null;
+  }
+  const value = err.data?.["min_stake_display"];
+  return typeof value === "string" && value !== "" ? value : null;
 }
 
 export function isJoinCooldown(err: unknown): boolean {
