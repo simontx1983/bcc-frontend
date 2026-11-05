@@ -71,13 +71,18 @@ interface UseComposerStateArgs {
    * the surface (URL param on the Hall page), not the composer.
    */
   hallFeed?: HallFeedChannel | undefined;
+  /**
+   * When present, the composer is posting to this validator page: the
+   * prompt is pinned and a status submit carries `target_page_id`.
+   */
+  pageId?: number | undefined;
   /** Mount already expanded — used when the composer opens as an explicit action (e.g. inside a modal) rather than sitting idle in a feed. */
   initialExpanded?: boolean | undefined;
   /** Called after a discard or a successful submit. Modal call sites use this to close their wrapping Dialog; the homepage inline composer leaves it unset and just collapses back to the idle row. */
   onClose?: (() => void) | undefined;
 }
 
-export function useComposerState({ groupId, hallFeed, initialExpanded, onClose }: UseComposerStateArgs) {
+export function useComposerState({ groupId, hallFeed, pageId, initialExpanded, onClose }: UseComposerStateArgs) {
   const [expanded, setExpanded] = useState(initialExpanded ?? false);
   // Sprint 2 — civic prompt rotation in the collapsed composer.
   // 18s cadence; halts on hover/focus (promptPaused). Group composer
@@ -85,12 +90,12 @@ export function useComposerState({ groupId, hallFeed, initialExpanded, onClose }
   const [promptIndex, setPromptIndex] = useState(0);
   const [promptPaused, setPromptPaused] = useState(false);
   useEffect(() => {
-    if (expanded || promptPaused || groupId !== undefined) return undefined;
+    if (expanded || promptPaused || groupId !== undefined || pageId !== undefined) return undefined;
     const id = window.setInterval(() => {
       setPromptIndex((i) => (i + 1) % COMPOSER_PROMPTS.length);
     }, 3_500);
     return () => window.clearInterval(id);
-  }, [expanded, promptPaused, groupId]);
+  }, [expanded, promptPaused, groupId, pageId]);
   const [content, setContent] = useState("");
   const [error, setError] = useState<string | null>(null);
   // §4.7.6 group-post visibility. Only surfaced (and only sent) when the
@@ -132,7 +137,7 @@ export function useComposerState({ groupId, hallFeed, initialExpanded, onClose }
   // Giphy integration — fetched once per session, cached. Drives the
   // GIF button visibility (admin disabled → button hidden entirely
   // per the §4.16 contract).
-  const giphyConfig = useGiphyIntegration({ enabled: expanded });
+  const giphyConfig = useGiphyIntegration({ enabled: expanded && pageId === undefined });
   const giphyEnabled = giphyConfig.data?.enabled === true;
 
   const clearAttachment = () => {
@@ -163,6 +168,7 @@ export function useComposerState({ groupId, hallFeed, initialExpanded, onClose }
     groupId,
     visibility,
     hallFeed,
+    pageId,
     altText,
     onStatusSuccess: () => {
       setContent("");
@@ -447,7 +453,9 @@ export function useComposerState({ groupId, hallFeed, initialExpanded, onClose }
     ? "Add a caption (optional)…"
     : groupId !== undefined
       ? "Post to this group…"
-      : `What's the ${COMPOSER_PROMPTS[promptIndex] ?? COMPOSER_PROMPTS[0]}`;
+      : pageId !== undefined
+        ? "Post to this page…"
+        : `What's the ${COMPOSER_PROMPTS[promptIndex] ?? COMPOSER_PROMPTS[0]}`;
 
   return {
     // expand/collapse + prompt rotation

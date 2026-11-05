@@ -154,9 +154,19 @@ export interface ComposerProps {
    */
   groupId?: number;
   /**
+   * When present and > 0, posts from this composer are written for that
+   * validator page: the submit carries `target_page_id`, so the post also
+   * shows on the page's feed. TEXT ONLY — photo, GIF and the attachment
+   * stubs are not offered. The server enforces that the viewer is the
+   * page's current operator; the caller mounts this only on
+   * `card.page_stream.can_post`. A positive `groupId` wins if both are
+   * passed, because the server refuses the pair.
+   */
+  pageId?: number;
+  /**
    * Optional one-line scope label rendered as a kicker above the
-   * collapsed placeholder when `groupId` is set (e.g. "POST IN
-   * HOLDERS: JUPPETS"). Server-pinned text per §A2 / §L5; when omitted
+   * collapsed placeholder when `groupId` or `pageId` is set (e.g. "POST
+   * IN HOLDERS: JUPPETS"). Server-pinned text per §A2 / §L5; when omitted
    * the composer falls back to the bare placeholder.
    */
   groupScopeLabel?: string;
@@ -202,6 +212,7 @@ export function Composer({
   viewerTierLabel,
   viewerRankLabel,
   groupId,
+  pageId,
   groupScopeLabel,
   canUsePublicAll,
   hallFeed,
@@ -221,6 +232,10 @@ export function Composer({
   // negative) collapses to undefined so the InlineStatusComposer's
   // membership-required code path stays binary.
   const scopedGroupId = typeof groupId === "number" && groupId > 0 ? groupId : undefined;
+  const scopedPageId =
+    scopedGroupId === undefined && typeof pageId === "number" && pageId > 0
+      ? pageId
+      : undefined;
 
   if (variant === "inline") {
     // Inline is status-only by design (v1.5). Review uses the modal
@@ -235,6 +250,7 @@ export function Composer({
         viewerTierLabel={viewerTierLabel ?? "Neutral"}
         viewerRankLabel={viewerRankLabel ?? ""}
         groupId={scopedGroupId}
+        pageId={scopedPageId}
         groupScopeLabel={groupScopeLabel}
         canUsePublicAll={canUsePublicAll}
         hallFeed={hallFeed}
@@ -305,7 +321,9 @@ interface InlineStatusComposerProps {
    * a member.
    */
   groupId: number | undefined;
-  /** Optional kicker copy rendered above the placeholder when group-scoped. */
+  /** See ComposerProps.pageId. Present means text only. */
+  pageId: number | undefined;
+  /** Optional kicker copy rendered above the placeholder when group- or page-scoped. */
   groupScopeLabel: string | undefined;
   /** See ComposerProps.canUsePublicAll (CL-FN06 visibility gate). */
   canUsePublicAll: boolean | undefined;
@@ -369,6 +387,7 @@ function InlineStatusComposer({
   viewerTierLabel,
   viewerRankLabel,
   groupId,
+  pageId,
   groupScopeLabel,
   canUsePublicAll,
   hallFeed,
@@ -426,7 +445,12 @@ function InlineStatusComposer({
     hasGif,
     hasAttachment,
     placeholder,
-  } = useComposerState({ groupId, hallFeed, initialExpanded: startExpanded, onClose });
+  } = useComposerState({ groupId, hallFeed, pageId, initialExpanded: startExpanded, onClose });
+
+  // A page post is text only in this version, so nothing that attaches
+  // anything is offered, and neither is the "where does this go" stub:
+  // a page composer already says where.
+  const isPageScoped = pageId !== undefined;
 
   // Identity-header label for the collapsed card: display name, else
   // handle, else nothing (bare-mount call sites like ActivityPanel pass
@@ -526,7 +550,7 @@ function InlineStatusComposer({
                       />
                     </span>
                   )}
-                  {expanded && (
+                  {expanded && !isPageScoped && (
                     // Design-only stub — where this post will be published.
                     // Not wired to any destination/visibility logic yet;
                     // revisit once the backend has a "post destinations"
@@ -610,9 +634,9 @@ function InlineStatusComposer({
                     ringColor="var(--bcc-accent)"
                   />
                 </span>
-                {groupId !== undefined ? (
+                {groupId !== undefined || isPageScoped ? (
                   <span className="bcc-mono ml-1 min-w-0 flex-1 truncate text-xs tracking-[0.25em] text-[var(--bcc-text-secondary)] sm:ml-0 sm:tracking-[0.3em]">
-                    Post to this group…
+                    {isPageScoped ? "Post to this page…" : "Post to this group…"}
                   </span>
                 ) : (
                   <span className="bcc-mono ml-1 min-w-0 flex-1 truncate text-xs tracking-[0.25em] text-[var(--bcc-text-secondary)] sm:ml-0 sm:tracking-[0.3em]">
@@ -821,6 +845,8 @@ function InlineStatusComposer({
 
             <footer className="flex items-center justify-between gap-2 sm:gap-3">
               <div className="flex min-w-0 flex-1 items-center gap-1.5 sm:gap-2">
+                {!isPageScoped && (
+                <>
                 {/* Photo — leftmost in the footer per the "attachment
                     belongs closer to creation than publishing" product
                     call. Triggers the hidden file input. Disabled while a
@@ -891,6 +917,8 @@ function InlineStatusComposer({
                     <circle cx="8" cy="6.5" r="1.75" />
                   </svg>
                 </button>
+                </>
+                )}
                 <span
                   className={
                     "bcc-mono min-w-0 truncate text-[11px] " +
@@ -949,15 +977,17 @@ function InlineStatusComposer({
                 to the same mime allowlist the server enforces; the
                 client-side validator in handleFileSelect re-checks
                 because `accept` is hint-only and not authoritative. */}
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/jpeg,image/png,image/webp,image/gif"
-              onChange={handleFileSelect}
-              className="hidden"
-              aria-hidden="true"
-              tabIndex={-1}
-            />
+            {!isPageScoped && (
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/gif"
+                onChange={handleFileSelect}
+                className="hidden"
+                aria-hidden="true"
+                tabIndex={-1}
+              />
+            )}
           </div>
         </form>
         </div>
