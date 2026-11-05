@@ -57,7 +57,7 @@ import {
 import { LoadFailure } from "@/components/ui/LoadFailure";
 import { humanizeCode, isCode } from "@/lib/api/errors";
 import type { UserGroupItem } from "@/lib/api/types";
-import { isAllowed, unlockHint } from "@/lib/permissions";
+import { isAllowed, reasonCode, unlockHint } from "@/lib/permissions";
 
 interface GroupsPanelProps {
   handle: string;
@@ -190,10 +190,49 @@ function GroupRowActions({ item }: { item: UserGroupItem }) {
     return <JoinAction item={item} />;
   }
   const joinHint = unlockHint(permissions, "can_join");
+  if (
+    item.type === "validator" &&
+    reasonCode(permissions, "can_join") === "not_eligible"
+  ) {
+    return <ValidatorEligibilityRow item={item} hint={joinHint} />;
+  }
   if (joinHint !== null) {
     return <UnlockHint hint={joinHint} />;
   }
   return null;
+}
+
+/**
+ * A delegator community never reports `can_join.allowed = true`:
+ * `UserGroupsEndpoint::canJoin()` hard-returns `not_eligible`, because only a
+ * live LCD delegation check can settle eligibility and the list view-model
+ * does not run one per row. So the verified join IS the check — the same
+ * reasoning `GroupMembershipStrip` applies in `ValidatorEligibilityCheck`.
+ *
+ * Without this branch the row fell through to `UnlockHint` and a delegator
+ * community was a dead end on this surface: the viewer was told to delegate
+ * and given no control, while an NFT holder community in the row above
+ * offered one.
+ *
+ * The server's unlock hint stays the primary copy — it names the minimum
+ * delegation — with the verified-join control beneath it. `UserGroupItem`
+ * carries no `chain_tag`, so the strip's wallet-connect arm is deliberately
+ * not reproduced here; an unlinked wallet is refused by the server and
+ * surfaced through `humanizeValidatorJoinError`.
+ */
+function ValidatorEligibilityRow({
+  item,
+  hint,
+}: {
+  item: UserGroupItem;
+  hint: string | null;
+}) {
+  return (
+    <div className="flex flex-col items-end gap-1.5">
+      {hint !== null ? <UnlockHint hint={hint} /> : null}
+      <ValidatorJoinButton groupId={item.group_id} />
+    </div>
+  );
 }
 
 function JoinAction({ item }: { item: UserGroupItem }) {
