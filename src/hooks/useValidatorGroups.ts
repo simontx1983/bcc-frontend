@@ -114,7 +114,8 @@ export function useUpdateDelegatorGroupMutation(
  */
 export function humanizeValidatorJoinError(err: unknown): string {
   if (isJoinCooldown(err)) {
-    return "You can't rejoin this group yet because of a recent leave or removal. Try again later.";
+    // No "try again later": a moderator's removal never expires.
+    return "You can't rejoin this group right now, because you recently left it or its moderators removed you.";
   }
   return humanizeCode(
     err,

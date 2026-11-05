@@ -55,7 +55,7 @@ import {
   useLeaveValidatorGroupMutation,
 } from "@/hooks/useValidatorGroups";
 import { LoadFailure } from "@/components/ui/LoadFailure";
-import { humanizeCode } from "@/lib/api/errors";
+import { humanizeCode, isCode } from "@/lib/api/errors";
 import type { UserGroupItem } from "@/lib/api/types";
 import { isAllowed, unlockHint } from "@/lib/permissions";
 
@@ -256,6 +256,20 @@ function groupActionError(err: unknown): string | null {
   );
 }
 
+/**
+ * Leaving a delegator group refuses only one person with
+ * `bcc_permission_denied`: its owner, the operator who created it.
+ */
+export function validatorLeaveError(err: unknown): string | null {
+  if (err === null || err === undefined) {
+    return null;
+  }
+  if (isCode(err, "bcc_permission_denied")) {
+    return "You created this group, so you can't leave it.";
+  }
+  return groupActionError(err);
+}
+
 function HolderJoinButton({ groupId }: { groupId: number }) {
   const onSuccess = useInvalidateUserGroups();
   const mutation = useJoinHolderGroupMutation({ onSuccess });
@@ -319,7 +333,7 @@ function ValidatorLeaveButton({ groupId }: { groupId: number }) {
       label="LEAVE"
       pendingLabel="LEAVING…"
       isPending={mutation.isPending}
-      errorMessage={groupActionError(mutation.error)}
+      errorMessage={validatorLeaveError(mutation.error)}
       onClick={() => {
         mutation.reset();
         mutation.mutate(groupId);

@@ -67,7 +67,7 @@ const GROUP_ID = 31;
 const JOIN_PATH = `me/validator-groups/${GROUP_ID}/join`;
 const NOT_ENOUGH = /You don't delegate enough to this validator/;
 const COULD_NOT_VERIFY = /Couldn't verify your delegation right now/;
-const COOLDOWN = /You can't rejoin this group yet/;
+const COOLDOWN = /You can't rejoin this group right now/;
 
 function denied(code: string, status: number, data?: Record<string, unknown>) {
   return new BccApiError(
@@ -217,6 +217,8 @@ describe("GroupMembershipStrip, validator group", () => {
     fireEvent.click(screen.getByRole("button", { name: "CHECK & JOIN" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent(COOLDOWN);
+    // A moderator's removal never expires, so the copy must not promise "later".
+    expect(screen.getByRole("alert")).not.toHaveTextContent(/later/i);
     expect(screen.queryByText(NOT_ENOUGH)).toBeNull();
     expect(screen.queryByRole("button", { name: "CONNECT ANOTHER WALLET" })).toBeNull();
   });
