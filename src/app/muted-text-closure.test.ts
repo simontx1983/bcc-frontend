@@ -10,7 +10,8 @@
  * The token measures 2.54:1 light and 2.28:1 dark — it fails AA as text
  * on every surface in the app. WCAG 1.4.3 exempts inactive controls and
  * pure decoration, and nothing else. So the set of survivors is not a
- * matter of taste: **37 occurrences, each with a stated mechanism.**
+ * matter of taste: **38 occurrences, each with a stated mechanism.**
+ * (37 until #203 widened the matcher; the 38th is a decorative dot.)
  *
  * ## No "known exception" bucket
  *
@@ -25,6 +26,9 @@
  *                         cursor class, so their inactivity is structural
  *   - `disabled-guard`    the line sits inside an `if (isDisabled)` block
  *   - `decorative-inline` `aria-hidden` appears on the line itself
+ *   - `decorative-element` the value is a prop of a multi-line JSX
+ *                         element whose opening tag carries `aria-hidden`
+ *                         (CardFrontFace's separator dot, a background)
  *   - `decorative-typed`  the value feeds a prop whose renderer is
  *                         `aria-hidden` (LoadFailure's glyph token)
  *
@@ -56,9 +60,16 @@ const ROOT = resolve(process.cwd(), "src");
 const read = (p: string) => readFileSync(resolve(process.cwd(), p), "utf-8");
 const CSS = read("src/app/globals.css");
 
-/** Every colour-bearing spelling of the token. */
+/**
+ * Every colour-bearing spelling of the token.
+ *
+ * The last alternative (#203) is a quoted `var(--bcc-text-muted)` in any
+ * position. Before it, a ternary arm, lookup value or `??` fallback in a
+ * style object was invisible: the catch-all refuses a token flanked by
+ * `-` and `)`, and `color:` only matches when the value follows directly.
+ */
 const MUTED =
-  /text-bcc-text-muted|text-\[var\(--bcc-text-muted\)\]|color:\s*"?var\(--bcc-text-muted\)|(?<![-\w[])bcc-text-muted(?![-\w)])/;
+  /text-bcc-text-muted|text-\[var\(--bcc-text-muted\)\]|color:\s*"?var\(--bcc-text-muted\)|(?<![-\w[])bcc-text-muted(?![-\w)])|["'`]var\(--bcc-text-muted\)["'`]/;
 
 interface Hit {
   readonly file: string;
@@ -109,21 +120,35 @@ describe("closure scan — the scan itself is honest", () => {
     expect(HITS.length).toBeGreaterThan(0);
   });
 
-  it("the matcher recognises all four spellings", () => {
+  it("the matcher recognises all five spellings", () => {
     for (const s of [
       'className="text-bcc-text-muted"',
       'className="text-[var(--bcc-text-muted)]"',
       'style={{ color: "var(--bcc-text-muted)" }}',
       'className="bcc-mono bcc-text-muted"',
+      // #203: a quoted var() anywhere — ternary arm, lookup value, fallback.
+      'color: isActive ? "var(--bcc-accent)" : "var(--bcc-text-muted)",',
+      'minor: "var(--bcc-text-muted)",',
+      'color: SEVERITY_COLOR[s] ?? "var(--bcc-text-muted)",',
+      "color: active ? 'var(--bcc-text)' : 'var(--bcc-text-muted)',",
+      "color: `var(--bcc-text-muted)`,",
     ]) {
       expect(MUTED.test(s), `matcher missed: ${s}`).toBe(true);
     }
     expect(MUTED.test('className="text-bcc-text-secondary"')).toBe(false);
+    expect(MUTED.test('minor: "var(--bcc-text-secondary)",')).toBe(false);
+  });
+
+  it("the #203 spelling was invisible to the old matcher (the control)", () => {
+    const OLD =
+      /text-bcc-text-muted|text-\[var\(--bcc-text-muted\)\]|color:\s*"?var\(--bcc-text-muted\)|(?<![-\w[])bcc-text-muted(?![-\w)])/;
+    expect(OLD.test('color: isActive ? "var(--bcc-accent)" : "var(--bcc-text-muted)",')).toBe(false);
+    expect(OLD.test('minor: "var(--bcc-text-muted)",')).toBe(false);
   });
 });
 
 // ─────────────────────────────────────────────────────────────────────────
-// 1. The invariant: 37 survivors, every one exempt
+// 1. The invariant: 38 survivors, every one exempt
 // ─────────────────────────────────────────────────────────────────────────
 
 type Mechanism =
@@ -131,6 +156,7 @@ type Mechanism =
   | "disabled-branch"
   | "disabled-guard"
   | "decorative-inline"
+  | "decorative-element"
   | "decorative-typed";
 
 /** Classify a survivor, or return null if nothing justifies it. */
@@ -150,6 +176,18 @@ function mechanismFor(hit: Hit): Mechanism | null {
   // disabled-guard: inside an `if (isDisabled) {` block
   for (let j = i; j >= 0 && j > i - 8; j -= 1) {
     if (/if \(isDisabled\)/.test(lines[j] ?? "")) return "disabled-guard";
+  }
+
+  // decorative-element: the value sits in the props of a JSX element whose
+  // opening tag carries aria-hidden, and that tag has not closed yet.
+  for (let j = i - 1; j >= 0 && j > i - 12; j -= 1) {
+    const l = lines[j] ?? "";
+    if (/^\s*\/?>\s*$/.test(l)) break; // an earlier tag closed first
+    if (/^\s*<[A-Za-z]/.test(l)) {
+      const tag = lines.slice(j, i).join("\n");
+      if (/\baria-hidden\b/.test(tag)) return "decorative-element";
+      break;
+    }
   }
 
   // decorative-typed: a token consumed by an aria-hidden renderer
@@ -181,6 +219,7 @@ const APPROVED_SURVIVORS: readonly string[] = [
     "src/app/(main)/(app)/validators/page.tsx :: <span aria-hidden className=\"text-bcc-text-muted\">\u2715</span>",
     "src/components/auth/EligibleCommunitiesModal.tsx :: <span aria-hidden className=\"text-bcc-text-muted\">\u00b7</span>",
     "src/components/auth/EligibleCommunitiesModal.tsx :: <span aria-hidden className=\"text-bcc-text-muted\">\u00b7</span>",
+    "src/components/cards/CardFrontFace.tsx :: background: \"var(--bcc-text-muted)\",",
     "src/components/blog/BlogComposer.tsx :: : \"cursor-not-allowed bg-bcc-surface-active text-bcc-text-muted\")",
     "src/components/claim/ClaimCallout.tsx :: : \"cursor-not-allowed bg-bcc-surface-active text-bcc-text-muted\")",
     "src/components/claim/ClaimFlow.tsx :: ? \"cursor-not-allowed bg-bcc-surface-active text-bcc-text-muted\"",
@@ -215,15 +254,15 @@ const APPROVED_SURVIVORS: readonly string[] = [
 const identity = (h: Hit) => `${h.file} :: ${h.text.slice(0, 88)}`;
 
 describe("closure invariant — every surviving muted use is exempt", () => {
-  it("there are exactly 37 survivors", () => {
-    expect(HITS).toHaveLength(37);
+  it("there are exactly 38 survivors", () => {
+    expect(HITS).toHaveLength(38);
   });
 
   it("the survivors are EXACTLY the approved set, member for member", () => {
     // Not just the count and not just per-slice tallies: an occurrence that
     // moved between files, or a new one appearing while another vanished,
     // would keep those numbers right and this assertion wrong.
-    expect(APPROVED_SURVIVORS).toHaveLength(37);
+    expect(APPROVED_SURVIVORS).toHaveLength(38);
     expect([...HITS].map(identity).sort()).toEqual([...APPROVED_SURVIVORS].sort());
   });
 
@@ -253,8 +292,16 @@ describe("closure invariant — every surviving muted use is exempt", () => {
       "disabled-branch": 4,
       "disabled-guard": 1,
       "decorative-inline": 9,
+      "decorative-element": 1,
       "decorative-typed": 1,
     });
+  });
+
+  it("FindingsSection's severity label no longer uses muted (#203)", () => {
+    const src = read("src/components/profile/FindingsSection.tsx");
+    expect(src).toContain('minor: "var(--bcc-text-secondary)"');
+    // Its one survivor is the request button's disabled: variant.
+    expect(HITS.filter((h) => h.file.endsWith("FindingsSection.tsx"))).toHaveLength(1);
   });
 });
 
@@ -303,9 +350,11 @@ describe("closure — the 19 exclusions from E3, E4 and E5 survive", () => {
   it("E3 kept its 5", () => expect(count(E3)).toBe(5));
   it("E4 kept its 10", () => expect(count(E4)).toBe(10));
   it("E5 kept its 4", () => expect(count(E5)).toBe(4));
-  it("19 in total, plus E6's 18, is the whole set", () => {
+  it("19 in total, plus E6's 18 and #203's 1, is the whole set", () => {
     expect(count([...E3, ...E4, ...E5])).toBe(19);
-    expect(HITS.length - count([...E3, ...E4, ...E5])).toBe(18);
+    // 18 from E6, plus CardFrontFace's decorative dot, first seen by the
+    // matcher once #203 widened it.
+    expect(HITS.length - count([...E3, ...E4, ...E5])).toBe(19);
   });
 });
 

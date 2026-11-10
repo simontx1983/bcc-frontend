@@ -33,9 +33,11 @@ import type {
 } from "@/lib/api/types";
 
 // Semantic status tokens per severity — presentation mapping, not a
-// derivation (severity itself is server-assigned).
+// derivation (severity itself is server-assigned). The label is readable
+// text, so "minor" rests on secondary, not muted (#203: muted read
+// 2.54:1 light / 2.28:1 dark here).
 const SEVERITY_COLOR: Record<RankFindingSeverity, string> = {
-  minor: "var(--bcc-text-muted)",
+  minor: "var(--bcc-text-secondary)",
   moderate: "var(--bcc-warning)",
   serious: "var(--bcc-danger)",
   severe: "var(--bcc-danger)",
@@ -159,9 +161,9 @@ export function FindingsSection({ findings }: { findings: RankFinding[] }) {
                 <span
                   className="bcc-mono border px-2 py-0.5 text-[10px] tracking-[0.2em]"
                   style={{
-                    color: SEVERITY_COLOR[finding.severity] ?? "var(--bcc-text-muted)",
+                    color: SEVERITY_COLOR[finding.severity] ?? "var(--bcc-text-secondary)",
                     borderColor:
-                      SEVERITY_COLOR[finding.severity] ?? "var(--bcc-text-muted)",
+                      SEVERITY_COLOR[finding.severity] ?? "var(--bcc-text-secondary)",
                   }}
                 >
                   {finding.severity.toUpperCase()}
