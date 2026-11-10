@@ -111,7 +111,7 @@ export function EndorseButton({
           {removing ? "REMOVING…" : "REMOVE VOUCH"}
         </button>
         {errorText !== null && (
-          <p role="alert" className="bcc-mono mt-2 text-[11px] text-bcc-danger">
+          <p role="alert" className="bcc-mono mt-2 text-[11px] text-bcc-text-error">
             {errorText}
           </p>
         )}
@@ -152,7 +152,7 @@ export function EndorseButton({
         {pending ? "VOUCHING…" : "VOUCH"}
       </button>
       {errorText !== null && (
-        <p role="alert" className="bcc-mono mt-2 text-[11px] text-bcc-danger">
+        <p role="alert" className="bcc-mono mt-2 text-[11px] text-bcc-text-error">
           {errorText}
         </p>
       )}

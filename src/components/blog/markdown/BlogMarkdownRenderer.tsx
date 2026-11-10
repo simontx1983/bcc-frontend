@@ -152,7 +152,7 @@ export function BlogMarkdownRenderer({
               return (
                 <Link
                   href={url as Route}
-                  className="text-safety underline-offset-2 hover:underline"
+                  className="text-bcc-text-safety underline-offset-2 hover:underline"
                   {...(title !== undefined ? { title } : {})}
                 >
                   {children}
@@ -165,7 +165,7 @@ export function BlogMarkdownRenderer({
                 href={url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-safety underline-offset-2 hover:underline"
+                className="text-bcc-text-safety underline-offset-2 hover:underline"
                 {...(title !== undefined ? { title } : {})}
               >
                 {children}

@@ -181,7 +181,7 @@ export function ReviewCallout({
           {removing ? "REMOVING…" : "REMOVE YOUR REVIEW"}
         </button>
         {error !== null && (
-          <p role="alert" className="bcc-mono mt-2 text-[11px] text-bcc-danger">
+          <p role="alert" className="bcc-mono mt-2 text-[11px] text-bcc-text-error">
             {error}
           </p>
         )}

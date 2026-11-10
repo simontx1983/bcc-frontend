@@ -23,6 +23,12 @@
  * hydration) AND nothing has been typed yet. On successful submit, the
  * key is cleared.
  *
+ * Long-form handoff: a status post moved here from the status composer
+ * arrives as that same draft (the body) plus a one-shot handoff record
+ * (`lib/blog/long-form-handoff`) carrying the cover and a notice. It is
+ * consumed once the viewer is known, in create mode only, and deleted on
+ * read.
+ *
  * Disclosure normalization: empty `{tickers: [], note: ''}` is sent
  * as `null` (server rejects empty struct as bcc_invalid_request).
  *
@@ -47,6 +53,11 @@ import { createBlog, updateBlog } from "@/lib/api/posts-endpoints";
 import { humanizeCode } from "@/lib/api/errors";
 import { useViewerScope } from "@/hooks/useViewerScope";
 import { scopedKey } from "@/lib/auth/viewer-scope";
+import {
+  BLOG_DRAFT_KEY_BASE,
+  consumeLongFormHandoff,
+  type LongFormHandoffNotice,
+} from "@/lib/blog/long-form-handoff";
 import { USER_BLOG_QUERY_KEY_ROOT } from "@/hooks/useUserBlog";
 
 import { BodyEditor } from "./BodyEditor";
@@ -79,8 +90,12 @@ export interface BlogComposerProps {
   initialValues?: BlogComposerInitialValues;
 }
 
-/** Scoped per viewer at runtime: `bcc.blog.draft::<viewer id>`. */
-const DRAFT_KEY_BASE = "bcc.blog.draft";
+/** Factual, one line each. Shown once, after a status post moves here. */
+const HANDOFF_NOTICE_COPY: Record<LongFormHandoffNotice, string> = {
+  none:         "Your post text moved here.",
+  photo_failed: "Your post text moved here. The photo couldn't be used as a cover; you can add one below.",
+  gif_dropped:  "Your post text moved here. A GIF can't be used as a cover; you can add an image below.",
+};
 
 const COMPOSER_COPY: Record<string, string> = {
   bcc_unauthorized:   "Sign in to publish.",
@@ -106,7 +121,7 @@ export function BlogComposer({
   // not durably name an owner. A null key means "we do not know who this
   // is yet" — nothing is read and nothing is written until we do.
   const scope = useViewerScope();
-  const autosaveKey = scopedKey(DRAFT_KEY_BASE, scope);
+  const autosaveKey = scopedKey(BLOG_DRAFT_KEY_BASE, scope);
 
   const [title,     setTitle]     = useState(initialValues?.title ?? "");
   const [excerpt,   setExcerpt]   = useState(initialValues?.excerpt ?? "");
@@ -121,6 +136,7 @@ export function BlogComposer({
 
   const [submitting, setSubmitting] = useState(false);
   const [error,      setError]      = useState<string | null>(null);
+  const [handoffNotice, setHandoffNotice] = useState<string | null>(null);
 
   /**
    * Restore the auto-saved draft once, when no initialValues were supplied.
@@ -150,6 +166,25 @@ export function BlogComposer({
     // one restore, decided by the key.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autosaveKey]);
+
+  /**
+   * Consume a long-form handoff once, in create mode, once the viewer is
+   * known. The record is deleted on read, so a second mount finds nothing.
+   * The body itself arrives through the draft restore above.
+   */
+  const handoffConsumedRef = useRef(false);
+  useEffect(() => {
+    if (handoffConsumedRef.current) return;
+    if (initialValues !== undefined || scope === null) return;
+    handoffConsumedRef.current = true;
+    const handoff = consumeLongFormHandoff(scope);
+    if (handoff === null) return;
+    if (handoff.cover !== null) setCover(handoff.cover);
+    setHandoffNotice(HANDOFF_NOTICE_COPY[handoff.notice]);
+    // `initialValues` is read, not tracked — same one-shot rule as the
+    // draft restore.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scope]);
 
   const excerptTrimmed = excerpt.trim();
   const excerptUnderMin = excerptTrimmed.length > 0 && excerptTrimmed.length < BLOG_EXCERPT_MIN_LENGTH;
@@ -247,13 +282,29 @@ export function BlogComposer({
       className="flex flex-col gap-5"
       aria-label="Compose a blog post"
     >
+      {handoffNotice !== null && (
+        <div className="flex items-start justify-between gap-3 rounded-sm border border-dashed border-bcc-border px-3 py-2">
+          <p role="status" className="bcc-mono text-[11px] text-bcc-text-secondary">
+            {handoffNotice}
+          </p>
+          <button
+            type="button"
+            onClick={() => setHandoffNotice(null)}
+            aria-label="Dismiss notice"
+            title="Dismiss"
+            className="bcc-mono -my-2 -mr-3 inline-flex h-11 w-11 shrink-0 items-center justify-center text-[14px] leading-none text-bcc-text-secondary hover:text-bcc-text"
+          >
+            ×
+          </button>
+        </div>
+      )}
       <CategoryPicker value={category} onChange={setCategory} disabled={submitting} />
       <TitleInput value={title} onChange={setTitle} disabled={submitting} />
       <CoverImageUpload value={cover} onChange={setCover} disabled={submitting} />
 
       <label className="flex flex-col gap-1">
         <span className="bcc-mono text-[10px] tracking-[0.18em] text-bcc-text-secondary">
-          EXCERPT <span className="text-safety">*</span> · Floor teaser ({BLOG_EXCERPT_MIN_LENGTH}–{BLOG_EXCERPT_MAX_LENGTH} chars)
+          EXCERPT <span className="text-bcc-text-safety">*</span> · Floor teaser ({BLOG_EXCERPT_MIN_LENGTH}–{BLOG_EXCERPT_MAX_LENGTH} chars)
         </span>
         <textarea
           value={excerpt}
@@ -270,7 +321,7 @@ export function BlogComposer({
             // underMin is this caller's own error condition, layered over the
             // shared ladder rather than pushed into it.
             (excerptUnderMin
-              ? "text-safety"
+              ? "text-bcc-text-error"
               : counterToneClass(
                   excerpt.length,
                   BLOG_EXCERPT_MAX_LENGTH,
@@ -324,7 +375,7 @@ export function BlogComposer({
       </div>
 
       {error !== null && (
-        <p role="alert" className="bcc-mono text-[11px] text-bcc-danger">
+        <p role="alert" className="bcc-mono text-[11px] text-bcc-text-error">
           {error}
         </p>
       )}

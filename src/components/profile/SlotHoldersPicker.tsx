@@ -264,7 +264,7 @@ function HolderRow({
         </button>
       </div>
       {errorText !== null && (
-        <p role="alert" className="bcc-mono mt-1 text-[11px] text-bcc-danger">
+        <p role="alert" className="bcc-mono mt-1 text-[11px] text-bcc-text-error">
           {errorText}
         </p>
       )}

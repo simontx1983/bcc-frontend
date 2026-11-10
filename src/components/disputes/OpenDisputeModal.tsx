@@ -121,7 +121,7 @@ export function OpenDisputeModal({
       }}
     >
       <header className="mb-5">
-        <p className="bcc-mono text-safety">OPEN A DISPUTE //</p>
+        <p className="bcc-mono text-bcc-text-safety">OPEN A DISPUTE //</p>
         <h3 className="bcc-stencil mt-1 text-3xl text-bcc-text">
           {pageName}
         </h3>
@@ -243,7 +243,7 @@ export function OpenDisputeModal({
                   // guard rather than being folded into the helper — passing
                   // the trimmed value would quietly move the top rung.
                   reasonTooLong
-                    ? "text-safety"
+                    ? "text-bcc-text-error"
                     : counterToneClass(
                         reasonLength,
                         DISPUTE_REASON_MAX_LENGTH,
@@ -276,7 +276,7 @@ export function OpenDisputeModal({
           </div>
 
           {error !== null && (
-            <p role="alert" className="bcc-mono text-bcc-danger">
+            <p role="alert" className="bcc-mono text-bcc-text-error">
               {error}
             </p>
           )}

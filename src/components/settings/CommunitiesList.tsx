@@ -186,7 +186,7 @@ function AutoJoinPreference() {
       )}
 
       {updateMutation.isError && (
-        <p role="alert" className="bcc-mono mt-3 text-[11px] text-bcc-danger">
+        <p role="alert" className="bcc-mono mt-3 text-[11px] text-bcc-text-error">
           {/* §γ — copy is keyed on err.code; never render err.message. */}
           {humanizeCode(
             updateMutation.error,
@@ -230,7 +230,7 @@ function CommunitiesSection({
       {items.length === 0 ? (
         <div className="bcc-panel mt-4 p-6">
           <p
-            className="bcc-mono mb-3 text-safety"
+            className="bcc-mono mb-3 text-bcc-text-safety"
             style={{ fontSize: "10px", letterSpacing: "0.24em" }}
           >
             NONE ON FILE

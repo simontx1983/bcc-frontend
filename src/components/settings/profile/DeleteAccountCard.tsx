@@ -33,7 +33,8 @@
  *
  * ## Colour
  *
- * The heading, trigger and error use `--bcc-danger`, not `text-safety`.
+ * The heading and trigger use `--bcc-danger`, not safety orange; the error
+ * line uses the error-text token like every other error message (#205).
  * Safety (#f05a28) measures 3.39:1 on the light panel, under the 4.5:1
  * floor for normal text; danger measures 4.83 light / 4.60 dark. This
  * slice moved and redesigned the control, so its readability is this
@@ -197,7 +198,7 @@ export function DeleteAccountCard() {
         <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
           <div className="bcc-mono min-h-[1rem] text-[10px]">
             {serverError !== null && (
-              <span role="alert" className="text-bcc-danger">
+              <span role="alert" className="text-bcc-text-error">
                 {serverError}
               </span>
             )}

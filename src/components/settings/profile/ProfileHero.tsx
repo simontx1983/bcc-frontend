@@ -756,28 +756,32 @@ export function ProfileHero({ profile, nav }: ProfileHeroProps) {
                   setNameEditing(true);
                 }}
                 /* Colour cannot carry this affordance.
-
-                   It was `text-blueprint`, a FIXED navy (#0F1E3C). That is
-                   right on the cardstock surface family, but `bcc-panel` is
-                   theme-aware: in dark it put #0F1E3C on #161b22 and
-                   measured 1.05:1, so the only way to edit your display name
-                   was invisible.
-
-                   No accent token fixes it. Measured against the panel in
-                   both themes (light / dark): accent 2.39 / 7.24,
-                   accent-dark 3.74 / 4.62, accent-light 1.86 / 9.29, info
-                   3.68 / 4.70. Every one fails 4.5:1 on one side — the
-                   accent family is tuned for a dark ground. Only --bcc-text
-                   (17.74 / 14.64) and --bcc-text-secondary (7.56 / 5.62)
-                   clear both.
-
-                   So the affordance moves off colour and onto a persistent
-                   underline, and the text takes the body token. Text at
-                   10px is normal text, so the bar is 4.5:1, not 3:1.
-
-                   Other `text-blueprint` sites sit on theme-aware panels too
-                   and look like the same hazard; they are recorded as
-                   follow-up rather than swept into this PR. */
+                 *
+                 * It was `text-blueprint`, a FIXED navy (#0F1E3C). That is
+                 * right on the cardstock surface family, but `bcc-panel` is
+                 * theme-aware: in dark it put #0F1E3C on #161b22 and
+                 * measured 1.05:1, so the only way to edit your display name
+                 * was invisible.
+                 *
+                 * No accent token fixes it. Measured against the panel in
+                 * both themes (light / dark): accent 2.39 / 7.24,
+                 * accent-dark 3.74 / 4.62, accent-light 1.86 / 9.29, info
+                 * 3.68 / 4.70. Every one fails 4.5:1 on one side — the
+                 * accent family is tuned for a dark ground. Only --bcc-text
+                 * (17.74 / 14.64) and --bcc-text-secondary (7.56 / 5.62)
+                 * clear both.
+                 *
+                 * So the affordance moves off colour and onto a persistent
+                 * underline, and the text takes the body token. Text at
+                 * 10px is normal text, so the bar is 4.5:1, not 3:1.
+                 *
+                 * Other `text-blueprint` sites sit on theme-aware panels too
+                 * and look like the same hazard; they are recorded as
+                 * follow-up rather than swept into this PR.
+                 *
+                 * Each line starts with `*` so the colour-token hook, which
+                 * skips only lines that begin with a comment marker, reads
+                 * the hex values above as prose (#210). */
                 className="bcc-mono text-[10px] tracking-[0.18em] text-bcc-text underline underline-offset-2 hover:no-underline"
               >
                 EDIT
@@ -788,7 +792,7 @@ export function ProfileHero({ profile, nav }: ProfileHeroProps) {
             <p
               id="bcc-display-name-error"
               role="alert"
-              className="bcc-mono mt-1 text-[11px] text-bcc-danger"
+              className="bcc-mono mt-1 text-[11px] text-bcc-text-error"
             >
               {nameError}
             </p>

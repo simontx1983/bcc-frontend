@@ -262,7 +262,7 @@ function EligibleRow({ item }: { item: HolderGroupItem }) {
           {errorMessage !== null && (
             <p
               role="alert"
-              className="bcc-mono mt-1 text-[10px] tracking-[0.12em] text-bcc-danger"
+              className="bcc-mono mt-1 text-[10px] tracking-[0.12em] text-bcc-text-error"
             >
               {errorMessage}
             </p>

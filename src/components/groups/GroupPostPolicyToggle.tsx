@@ -105,7 +105,7 @@ export function GroupPostPolicyToggle({
         <p
           id={errorId}
           role="alert"
-          className="bcc-mono mt-2 text-[10px] tracking-[0.12em] text-safety"
+          className="bcc-mono mt-2 text-[10px] tracking-[0.12em] text-bcc-text-error"
         >
           {errorMessage}
         </p>

@@ -29,12 +29,12 @@
  *     like a thought waiting to happen." PeepSo provides the
  *     storage primitive (peepso_activities) underneath; BCC owns
  *     the entire frontend identity.
- *   - The Blog tab is gone from this surface. Long-form is now an
- *     escalation path — an inline `Long-form →` link in the
- *     expanded composer routes to
- *     `/u/{handle}?tab=blog&blogsub=create`, which lands the author
- *     on the Blog tab's CREATE sub-tab inside their own profile.
- *     Different mindset, different context, by design.
+ *   - The Blog tab is gone from this surface. Long-form lives on the
+ *     author's Blog tab CREATE sub-tab
+ *     (`/u/{handle}?tab=blog&blogsub=create`). Once a status post
+ *     passes STATUS_POST_MAX_LENGTH, both status composers offer to
+ *     move it there (LongFormOffer): text, plus the first photo as the
+ *     cover. Group-scoped composers don't offer it.
  *
  * Review-mode contract (modal variant only in V1):
  *   - REQUIRES reviewTargetId (numeric page id) + reviewTargetName
@@ -55,6 +55,7 @@ import { useCreatePostMutation } from "@/hooks/useCreatePost";
 import { PhotoIcon } from "@/components/feed/actionIcons";
 import { Avatar } from "@/components/identity/Avatar";
 import { GifPicker } from "@/components/composer/GifPicker";
+import { LongFormOffer } from "@/components/composer/LongFormOffer";
 import { MentionPopover } from "@/components/composer/MentionPopover";
 import { PhotoPicker } from "@/components/composer/PhotoPicker";
 import {
@@ -148,9 +149,9 @@ export interface ComposerProps {
    * post-meta + validates the viewer is an active member). Used by
    * `/groups/[slug]` to host an in-context composer above the group
    * feed. When omitted / 0, posts go to the viewer's own wall (the
-   * default Floor / per-user-wall behavior). The composer also tucks
-   * the "Long-form →" escalation link when group-scoped — long-form
-   * blogs aren't group-scoped in V1.
+   * default Floor / per-user-wall behavior). A group-scoped composer
+   * never offers the long-form blog handoff — blogs can't target a
+   * group yet (see isLongFormHandoffAvailable).
    */
   groupId?: number;
   /**
@@ -225,7 +226,7 @@ export function Composer({
   if (variant === "inline") {
     // Inline is status-only by design (v1.5). Review uses the modal
     // variant; long-form lives on the author's blog tab CREATE
-    // sub-tab, behind the in-composer escalation link.
+    // sub-tab, offered by LongFormOffer once a post is over the limit.
     return (
       <InlineStatusComposer
         viewerAvatarUrl={viewerAvatarUrl}
@@ -279,8 +280,9 @@ export function Composer({
 //   - Collapsed (default): avatar chip + placeholder, sits in the dark
 //     feed flow with a faint top/bottom border. Reads as "a thought
 //     waiting to happen." Clicking anywhere on the row expands.
-//   - Expanded: textarea + char counter + `Long-form →` link + Publish
-//     button + close-X. The textarea autofocuses on expand.
+//   - Expanded: textarea + char counter + Publish button + close-X,
+//     plus the long-form offer once the post is over the limit. The
+//     textarea autofocuses on expand.
 //
 // Click-outside collapses ONLY when the textarea is empty — never lose
 // a draft to a stray click. ESC behaves the same. The X button always
@@ -387,6 +389,7 @@ function InlineStatusComposer({
     setPromptPaused,
     content,
     setContent,
+    contentAsPlainText,
     error,
     setError,
     length,
@@ -394,6 +397,7 @@ function InlineStatusComposer({
     isPending,
     visibility,
     setVisibility,
+    attachedFile,
     previewUrl,
     altText,
     setAltText,
@@ -757,7 +761,7 @@ function InlineStatusComposer({
             )}
 
             {error !== null && (
-              <p role="alert" className="bcc-mono text-[11px] text-safety">
+              <p role="alert" className="bcc-mono text-[11px] text-bcc-text-error">
                 {error}
               </p>
             )}
@@ -910,7 +914,7 @@ function InlineStatusComposer({
                   )}
                   {mentionRanges.length > 0 && (
                     <span
-                      className={`ml-2 hidden sm:inline ${overMentionCap ? "text-safety" : "text-[var(--bcc-text-secondary)]"}`}
+                      className={`ml-2 hidden sm:inline ${overMentionCap ? "text-bcc-text-error" : "text-[var(--bcc-text-secondary)]"}`}
                     >
                       · {mentionRanges.length} / {MENTIONS_PER_POST_MAX} mentions
                     </span>
@@ -943,6 +947,17 @@ function InlineStatusComposer({
                 )}
               </button>
             </footer>
+
+            <LongFormOffer
+              length={length}
+              groupId={groupId}
+              getText={contentAsPlainText}
+              photo={attachedFile}
+              hasGif={hasGif}
+              disabled={isPending}
+              viewerHandle={viewerHandle}
+              onMoved={dismiss}
+            />
 
             {/* Hidden native file input. The visible Photo button forwards
                 clicks via the ref. `accept` keeps the OS picker filtered
@@ -978,7 +993,8 @@ function InlineStatusComposer({
 // Modal core: shared state + tab strip for status/review modes.
 //
 // The Blog mode was lifted out of this surface in v1.5 and now lives
-// on the author's blog tab CREATE sub-tab. The modal still hosts
+// on the author's blog tab CREATE sub-tab (StatusForm offers the move
+// there once a post is over the limit). The modal still hosts
 // status (rare) + review (the primary modal entry from ReviewCallout).
 // ─────────────────────────────────────────────────────────────────────
 
@@ -1140,12 +1156,25 @@ function StatusForm({ onSubmitSuccess }: { onSubmitSuccess: (() => void) | undef
       />
 
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className={`bcc-mono text-[11px] ${counterTone}`}>
-          {length} / {STATUS_POST_MAX_LENGTH}
-          {overCap && (
-            <span className="ml-2">(over the cap by {length - STATUS_POST_MAX_LENGTH})</span>
-          )}
-        </p>
+        <div className="flex flex-col">
+          <p className={`bcc-mono text-[11px] ${counterTone}`}>
+            {length} / {STATUS_POST_MAX_LENGTH}
+            {overCap && (
+              <span className="ml-2">(over the cap by {length - STATUS_POST_MAX_LENGTH})</span>
+            )}
+          </p>
+          {/* The modal status form is never group-scoped. */}
+          <LongFormOffer
+            length={length}
+            getText={() => content}
+            disabled={mutation.isPending}
+            onMoved={() => {
+              setContent("");
+              setError(null);
+              onSubmitSuccess?.();
+            }}
+          />
+        </div>
 
         <button
           type="submit"
@@ -1163,7 +1192,7 @@ function StatusForm({ onSubmitSuccess }: { onSubmitSuccess: (() => void) | undef
       </div>
 
       {error !== null && (
-        <p role="alert" className="bcc-mono text-[11px] text-bcc-danger">
+        <p role="alert" className="bcc-mono text-[11px] text-bcc-text-error">
           {error}
         </p>
       )}
@@ -1217,7 +1246,7 @@ const REVIEW_GRADE_OPTIONS: ReadonlyArray<{
 }> = [
   { key: "trust",   label: "TRUST",   description: "I'd recommend this validator to others.", accent: "var(--verified)" },
   { key: "neutral", label: "NEUTRAL", description: "Mixed feelings — some pros, some concerns.", accent: "var(--blueprint)" },
-  { key: "caution", label: "CAUTION", description: "Others should know what I've seen here.",  accent: "var(--safety)" },
+  { key: "caution", label: "CAUTION", description: "Others should know what I've seen here.",  accent: "var(--bcc-text-safety)" },
 ];
 
 /**
@@ -1372,7 +1401,7 @@ function ReviewForm({
       </div>
 
       {error !== null && (
-        <p role="alert" className="bcc-mono text-[11px] text-bcc-danger">
+        <p role="alert" className="bcc-mono text-[11px] text-bcc-text-error">
           {error}
         </p>
       )}

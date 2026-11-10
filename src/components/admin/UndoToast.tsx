@@ -154,7 +154,7 @@ export function UndoToast({ descriptor, onDismiss }: Props) {
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex flex-col gap-0.5">
-          <span className="bcc-mono text-[10px] tracking-[0.18em] text-safety">
+          <span className="bcc-mono text-[10px] tracking-[0.18em] text-bcc-text-safety">
             {ACTION_LABELS[action].toUpperCase()} · REPORT #{reportId}
           </span>
           {!hasError ? (
@@ -164,7 +164,7 @@ export function UndoToast({ descriptor, onDismiss }: Props) {
                 : `Undo within ${secondsLeft}s`}
             </span>
           ) : (
-            <span className="bcc-mono text-[11px] text-bcc-danger">
+            <span className="bcc-mono text-[11px] text-bcc-text-error">
               {undoFailureCopy(errorCode)}
             </span>
           )}

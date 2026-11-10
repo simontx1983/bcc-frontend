@@ -25,7 +25,7 @@
 
 const COLOR_BY_STATE: Record<string, string> = {
   syncing:  "text-bcc-text",
-  degraded: "text-safety",
+  degraded: "text-bcc-text-safety",
 };
 
 export function IndexerStateChip({
@@ -44,7 +44,7 @@ export function IndexerStateChip({
       className="bcc-mono text-bcc-text-secondary"
       style={{ fontSize: "10px", letterSpacing: "0.18em" }}
     >
-      <span className="text-safety">{chain.toUpperCase()}</span>
+      <span className="text-bcc-text-safety">{chain.toUpperCase()}</span>
       <span className="ml-2">&middot;</span>
       <span className={`ml-2 ${stateColor}`}>{label}</span>
     </span>

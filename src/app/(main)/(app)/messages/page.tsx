@@ -154,7 +154,7 @@ function MessagesPageContent() {
       <RouteRail kicker={"BCC \u00a0//\u00a0 MESSAGES"} label={"DIRECT \u00a0//\u00a0 INBOX"} />
 
       <header className="mx-auto max-w-3xl px-2 sm:px-3 pt-12">
-        <p className="bcc-mono text-safety">DIRECT</p>
+        <p className="bcc-mono text-bcc-text-safety">DIRECT</p>
         <h1
           className="bcc-stencil mt-3 text-bcc-text leading-[0.95]"
           style={{ fontSize: "clamp(2rem, 5vw, 3.5rem)" }}
@@ -313,7 +313,7 @@ function TabBar({ active }: { active: MessagesTab }) {
 function QueuedEmpty() {
   return (
     <div className="bcc-paper mx-auto max-w-2xl p-8 text-center">
-      <p className="bcc-mono mb-2 text-safety">NOTHING QUEUED</p>
+      <p className="bcc-mono mb-2 text-bcc-text-safety">NOTHING QUEUED</p>
       <h2 className="bcc-stencil text-3xl text-ink">No messages waiting.</h2>
       <p className="mt-3 font-serif italic leading-relaxed text-ink-soft">
         When you message a validator that hasn&apos;t been claimed yet, it waits
@@ -332,7 +332,7 @@ function QueuedEmpty() {
 function NotSignedIn() {
   return (
     <div className="bcc-paper mx-auto max-w-2xl p-8 text-center">
-      <p className="bcc-mono mb-2 text-safety">SIGN IN REQUIRED</p>
+      <p className="bcc-mono mb-2 text-bcc-text-safety">SIGN IN REQUIRED</p>
       <h2 className="bcc-stencil text-3xl text-ink">
         Sign in to read your messages.
       </h2>
@@ -352,7 +352,7 @@ function NotSignedIn() {
 function InboxEmpty() {
   return (
     <div className="bcc-paper mx-auto max-w-2xl p-8 text-center">
-      <p className="bcc-mono mb-2 text-safety">QUIET INBOX</p>
+      <p className="bcc-mono mb-2 text-bcc-text-safety">QUIET INBOX</p>
       <h2 className="bcc-stencil text-3xl text-ink">No conversations yet.</h2>
       <p className="mt-3 font-serif italic leading-relaxed text-ink-soft">
         Start one from the directory — every operator has a file, every

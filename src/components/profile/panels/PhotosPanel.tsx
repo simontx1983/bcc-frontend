@@ -116,7 +116,7 @@ function PhotosHeader({
       {isOwner && active === "all" && (
         <Link
           href={"/" as Route}
-          className="bcc-mono text-safety hover:underline"
+          className="bcc-mono text-bcc-text-safety hover:underline"
           style={{ fontSize: "10px", letterSpacing: "0.18em" }}
           aria-label="Add a photo from the floor composer"
         >
@@ -131,7 +131,7 @@ function PhotosHeader({
         // typedRoutes graph.
         <a
           href={peepsoAlbumCreateUrl(handle)}
-          className="bcc-mono text-safety hover:underline"
+          className="bcc-mono text-bcc-text-safety hover:underline"
           style={{ fontSize: "10px", letterSpacing: "0.18em" }}
           aria-label="Create a new album"
         >
@@ -450,7 +450,7 @@ function AllPhotosEmpty({
     // a LOAD MORE under it; the full plate when it is the whole panel.
     <div className={moreToLoad ? "pb-1" : "px-8 py-12"}>
       <p
-        className="bcc-mono mb-3 text-safety"
+        className="bcc-mono mb-3 text-bcc-text-safety"
         style={{ fontSize: "10px", letterSpacing: "0.24em" }}
       >
         {moreToLoad ? "NONE LOADED YET" : "NOTHING ON FILE"}
@@ -812,7 +812,7 @@ function AlbumDetailHeader({
         <button
           type="button"
           onClick={onBack}
-          className="bcc-mono text-safety hover:underline"
+          className="bcc-mono text-bcc-text-safety hover:underline"
           style={{ fontSize: "10px", letterSpacing: "0.18em" }}
           aria-label="Back to albums"
         >
@@ -938,7 +938,7 @@ function AlbumsEmpty({ handle, isOwner }: { handle: string; isOwner: boolean }) 
   return (
     <div className="px-8 py-12">
       <p
-        className="bcc-mono mb-3 text-safety"
+        className="bcc-mono mb-3 text-bcc-text-safety"
         style={{ fontSize: "10px", letterSpacing: "0.24em" }}
       >
         NOTHING ON FILE

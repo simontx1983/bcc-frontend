@@ -118,7 +118,7 @@ export function CoverImageUpload({ value, onChange, disabled = false }: CoverIma
               setError(null);
             }}
             disabled={disabled || uploading}
-            className="bcc-mono self-start text-[10px] tracking-[0.18em] text-safety hover:underline underline-offset-4"
+            className="bcc-mono self-start text-[10px] tracking-[0.18em] text-bcc-text-safety hover:underline underline-offset-4"
           >
             REMOVE COVER
           </button>
@@ -171,7 +171,7 @@ export function CoverImageUpload({ value, onChange, disabled = false }: CoverIma
       )}
 
       {error !== null && (
-        <p role="alert" className="bcc-mono text-[11px] text-bcc-danger">
+        <p role="alert" className="bcc-mono text-[11px] text-bcc-text-error">
           {error}
         </p>
       )}

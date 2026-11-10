@@ -31,6 +31,8 @@ import {
 import { humanizeCode } from "@/lib/api/errors";
 import type { CollectionStancePanelItem } from "@/lib/api/types";
 
+import { NOT_YET_ACTIVE_LABEL } from "./NotYetActiveBadge";
+
 interface CollectionStancePanelProps {
   /**
    * Compact skips the header (host surface provides its own — e.g. the
@@ -48,7 +50,7 @@ export function CollectionStancePanel({ compact = false }: CollectionStancePanel
 
   if (panel.isError) {
     return (
-      <p role="alert" className="bcc-mono text-safety">
+      <p role="alert" className="bcc-mono text-bcc-text-error">
         {/* §γ — copy keyed on err.code; never render err.message. */}
         {humanizeCode(
           panel.error,
@@ -111,7 +113,7 @@ export function CollectionStancePanel({ compact = false }: CollectionStancePanel
 
       {!compact && (
         <header>
-          <p className="bcc-mono text-safety">YOUR COLLECTIONS //</p>
+          <p className="bcc-mono text-bcc-text-safety">YOUR COLLECTIONS //</p>
           <p className="mt-1 max-w-prose font-serif text-ink-soft">
             These came from your linked wallets. Join the communities that
             are live, raise your hand for the ones that aren&rsquo;t, and
@@ -161,7 +163,7 @@ function StanceRow({ item }: { item: CollectionStancePanelItem }) {
 
   return (
     <div
-      className="flex items-center gap-3 border-2 px-3 py-2"
+      className="bcc-paper-ground flex items-center gap-3 border-2 px-3 py-2"
       style={{
         borderColor: flaggedSpam ? "rgb(var(--bcc-flag-rgb) / 0.5)" : "rgb(var(--ink-rgb) / 0.18)",
         background: "var(--paper)",
@@ -197,10 +199,11 @@ function StanceRow({ item }: { item: CollectionStancePanelItem }) {
             ? "COMMUNITY LIVE"
             : item.waitlist_count > 0
               ? `${item.waitlist_count} ON THE WAITLIST`
-              : "COMMUNITY NOT YET ACTIVATED"}
+              : // Same words as the NFT picker's badge, one source.
+                NOT_YET_ACTIVE_LABEL.toUpperCase()}
         </p>
         {error !== null && (
-          <p role="alert" className="bcc-mono mt-1 text-safety" style={{ fontSize: "10px" }}>
+          <p role="alert" className="bcc-mono mt-1 text-bcc-text-error" style={{ fontSize: "10px" }}>
             {error}
           </p>
         )}

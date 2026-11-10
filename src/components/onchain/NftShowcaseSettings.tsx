@@ -100,7 +100,7 @@ export function NftShowcaseSettings() {
           )}
 
           {list.isError && (
-            <p role="alert" className="bcc-mono text-bcc-danger">
+            <p role="alert" className="bcc-mono text-bcc-text-error">
               {/* §γ — copy is keyed on err.code; never render err.message. */}
               {humanizeCode(
                 list.error,
@@ -135,7 +135,7 @@ export function NftShowcaseSettings() {
           {reorderError !== null && (
             <p
               role="alert"
-              className="bcc-mono mt-4 border-l-2 border-safety pl-3 text-bcc-danger"
+              className="bcc-mono mt-4 border-l-2 border-safety pl-3 text-bcc-text-error"
             >
               {reorderError}
             </p>
@@ -195,7 +195,7 @@ function ShowcaseTile({
 
   return (
     <article
-      className="group relative block w-full overflow-hidden border-2 border-bcc-border/15 focus-within:border-bcc-border/40"
+      className="bcc-paper-ground group relative block w-full overflow-hidden border-2 border-bcc-border/15 focus-within:border-bcc-border/40"
       style={{ background: "var(--paper)" }}
     >
       <div className="relative aspect-square w-full bg-cardstock-deep/30">
@@ -296,7 +296,7 @@ function ShowcaseTile({
 function ShowcaseEmpty() {
   return (
     <div className="border-2 border-dashed border-ink/30 bg-paper p-6 text-center">
-      <p className="bcc-mono text-safety">EMPTY FLOOR</p>
+      <p className="bcc-mono text-bcc-text-safety">EMPTY FLOOR</p>
       <p className="bcc-stencil mt-2 text-2xl text-ink">
         Nothing on display yet.
       </p>

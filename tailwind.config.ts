@@ -112,6 +112,12 @@ const config: Config = {
         "bcc-danger":           "var(--bcc-danger)",
         "bcc-info":             "var(--bcc-info)",
 
+        // ── Small-text tokens (#205) ───────────────────────────────────────
+        // Error/validation text, and every other orange word. Theme-aware;
+        // paper and ink containers pin them (globals.css).
+        "bcc-text-error":       "var(--bcc-text-error)",
+        "bcc-text-safety":      "var(--bcc-text-safety)",
+
 
         // ── Operator type badges ───────────────────────────────────────────
         "bcc-type-validator":   "var(--bcc-type-validator)",

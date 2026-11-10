@@ -187,7 +187,7 @@ export function GroupTransferOwnership({ group }: GroupTransferOwnershipProps) {
       )}
 
       {roster.isError && (
-        <p role="alert" className="bcc-mono mt-3 text-[10px] tracking-[0.16em] text-safety">
+        <p role="alert" className="bcc-mono mt-3 text-[10px] tracking-[0.16em] text-bcc-text-error">
           Couldn&apos;t load the member list. Refresh and try again.
         </p>
       )}
@@ -254,7 +254,7 @@ export function GroupTransferOwnership({ group }: GroupTransferOwnershipProps) {
           its own copy of this alert, and two live alerts with the same
           text would double-announce. */}
       {errorMessage !== null && !confirming && (
-        <p role="alert" className="bcc-mono mt-3 text-[10px] tracking-[0.14em] text-safety">
+        <p role="alert" className="bcc-mono mt-3 text-[10px] tracking-[0.14em] text-bcc-text-error">
           {errorMessage}
         </p>
       )}
@@ -280,7 +280,7 @@ export function GroupTransferOwnership({ group }: GroupTransferOwnershipProps) {
             receiving, or transferring communities.
           </p>
           {errorMessage !== null && (
-            <p role="alert" className="bcc-mono mt-3 text-[10px] tracking-[0.14em] text-bcc-danger">
+            <p role="alert" className="bcc-mono mt-3 text-[10px] tracking-[0.14em] text-bcc-text-error">
               {errorMessage}
             </p>
           )}

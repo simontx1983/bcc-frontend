@@ -147,7 +147,7 @@ export function SourcesField({ value, onChange, disabled = false }: SourcesField
                     aria-label={`Remove source ${idx + 1}`}
                     onClick={() => removeAt(idx)}
                     disabled={disabled}
-                    className="bcc-mono px-1 text-[12px] text-bcc-text-secondary hover:text-safety"
+                    className="bcc-mono px-1 text-[12px] text-bcc-text-secondary hover:text-bcc-text-safety"
                   >
                     ✕
                   </button>

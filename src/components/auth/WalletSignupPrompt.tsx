@@ -102,7 +102,7 @@ export function WalletSignupPrompt(props: WalletSignupPromptProps) {
             />
           </div>
           <span
-            className={`bcc-mono ${handleValid ? "text-bcc-text-secondary/70" : "text-safety"}`}
+            className={`bcc-mono ${handleValid ? "text-bcc-text-secondary/70" : "text-bcc-text-error"}`}
             role={handleValid ? undefined : "alert"}
             aria-live="polite"
           >

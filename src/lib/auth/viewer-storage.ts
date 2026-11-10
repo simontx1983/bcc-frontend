@@ -74,6 +74,10 @@ export const VIEWER_SCOPED_STORAGE_KEYS: readonly string[] = [
   // The scoped family; the legacy `bcc.blog.draft.<handle>` form is reached
   // by the prefix below.
   "bcc.blog.draft",
+  // The one-shot status-post → blog handoff (cover attachment + notice),
+  // written by the status composer and consumed by BlogComposer on mount
+  // (`lib/blog/long-form-handoff`).
+  "bcc.blog.handoff",
   // The server-side push-subscription row id for this viewer+device.
   "bcc-push-subscription-id",
 ];

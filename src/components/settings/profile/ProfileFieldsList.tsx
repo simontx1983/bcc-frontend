@@ -206,7 +206,7 @@ function ProfileFieldRow({ field }: { field: ProfileField }) {
           {/* The bare coloured asterisk carried this in colour alone, and
               nothing told assistive tech the field was required. */}
           {field.required && (
-            <span className="ml-2 text-safety">Required</span>
+            <span className="ml-2 text-bcc-text-safety">Required</span>
           )}
         </label>
         <VisibilityPicker
@@ -246,7 +246,7 @@ function ProfileFieldRow({ field }: { field: ProfileField }) {
               template, which is the other reason it lives out here. */}
           <SettingsSaveStatus status={outcome.status} />
           {outcome.errorMessage !== null && (
-            <p role="alert" className="mt-1 text-bcc-danger">
+            <p role="alert" className="mt-1 text-bcc-text-error">
               {outcome.errorMessage}
             </p>
           )}

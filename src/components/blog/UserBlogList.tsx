@@ -205,7 +205,7 @@ function BlogPostBody({ item, onEdit }: BlogPostBodyProps) {
       <header className="flex flex-col gap-2 border-b border-bcc-border pb-3">
         <div className="flex flex-wrap items-center gap-2">
           {category !== null && (
-            <span className="bcc-mono border border-safety/40 bg-safety/10 px-2 py-1 text-[10px] tracking-[0.18em] text-safety">
+            <span className="bcc-mono border border-safety/40 bg-safety/10 px-2 py-1 text-[10px] tracking-[0.18em] text-bcc-text-safety">
               {(CATEGORY_LABELS[category] ?? category).toUpperCase()}
             </span>
           )}
@@ -235,7 +235,7 @@ function BlogPostBody({ item, onEdit }: BlogPostBodyProps) {
               <button
                 type="button"
                 onClick={() => onEdit(item)}
-                className="bcc-mono text-[10px] tracking-[0.18em] text-safety hover:underline underline-offset-4"
+                className="bcc-mono text-[10px] tracking-[0.18em] text-bcc-text-safety hover:underline underline-offset-4"
               >
                 EDIT
               </button>

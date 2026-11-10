@@ -255,7 +255,7 @@ export default function CreateCommunityPage() {
             >
               <span>CHAIN TAG</span>
               <span
-                className="bcc-mono cursor-help rounded-sm border border-safety/40 px-1.5 py-0.5 text-[9px] tracking-[0.16em] text-safety"
+                className="bcc-mono cursor-help rounded-sm border border-safety/40 px-1.5 py-0.5 text-[9px] tracking-[0.16em] text-bcc-text-safety"
                 title="Chain tag locks at creation and can't be updated or changed later."
                 aria-label="Chain tag locks at creation and can't be updated or changed later."
               >
@@ -367,7 +367,7 @@ export default function CreateCommunityPage() {
           {errorMessage !== null && (
             <p
               role="alert"
-              className="bcc-mono text-[11px] tracking-[0.14em] text-safety"
+              className="bcc-mono text-[11px] tracking-[0.14em] text-bcc-text-error"
             >
               {errorMessage}
             </p>

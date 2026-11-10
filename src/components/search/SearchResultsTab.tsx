@@ -122,7 +122,7 @@ function SkeletonList() {
 function ErrorTile() {
   return (
     <div className="bcc-panel mx-auto max-w-md p-6 text-center">
-      <p className="bcc-mono text-safety">SEARCH UNAVAILABLE</p>
+      <p className="bcc-mono text-bcc-text-safety">SEARCH UNAVAILABLE</p>
       <p className="mt-3 font-serif text-sm text-bcc-text-secondary">
         That vertical hit a snag. Try a different filter or refresh in a moment.
       </p>
@@ -138,7 +138,7 @@ function EmptyTile({ query }: { query: string }) {
   const isTrendingLanding = trimmed === "";
   return (
     <div className="bcc-panel mx-auto max-w-md p-8 text-center">
-      <p className="bcc-mono text-safety">
+      <p className="bcc-mono text-bcc-text-safety">
         {isTrendingLanding ? "NOTHING TRENDING" : "NO MATCHES"}
       </p>
       <h2 className="bcc-stencil mt-2 text-2xl text-bcc-text">
