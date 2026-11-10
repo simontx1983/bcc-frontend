@@ -199,7 +199,7 @@ const APPROVED_SURVIVORS: readonly string[] = [
     "src/components/feed/CommentDrawer.tsx :: className=\"bcc-mono block w-full cursor-not-allowed rounded-lg px-2 py-1.5 text-left tex",
     "src/components/feed/ReportButton.tsx :: : \"cursor-not-allowed bg-bcc-surface-active text-bcc-text-muted\")",
     "src/components/messages/ConversationsPanel.tsx :: <div style={{ display: \"flex\", justifyContent: \"center\", marginBottom: 10, color: \"var(-",
-    "src/components/notifications/NotificationsPanel.tsx :: className=\"bcc-mono text-[10px] tracking-[0.16em] normal-case text-[var(--bcc-accent)] h",
+    "src/components/notifications/NotificationsPanel.tsx :: className=\"bcc-mono text-[10px] tracking-[0.16em] normal-case text-[var(--bcc-text)] und",
     "src/components/profile/AttestationActionCluster.tsx :: return `${BASE_BUTTON_CLASS} ${sizeClass} border border-bcc-border text-bcc-text-muted`;",
     "src/components/profile/FindingsSection.tsx :: className=\"bcc-mono text-safety hover:underline underline-offset-4 disabled:cursor-not-a",
     "src/components/profile/ReportMemberModal.tsx :: : \"cursor-not-allowed bg-bcc-surface-active text-bcc-text-muted\")",

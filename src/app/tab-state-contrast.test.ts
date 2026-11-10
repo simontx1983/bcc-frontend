@@ -154,12 +154,16 @@ describe("--bcc-accent-indicator is geometry, never readable text", () => {
     expect(NCSS).not.toMatch(/(^|[;{\s])color:\s*var\(--bcc-accent-indicator\)/m);
   });
 
-  it("every use is a border-color declaration", () => {
+  it("every use is a geometry declaration (border colour or a fill)", () => {
+    // Widened in #74's chrome pass from border-bottom-color only: the nav
+    // item's 3px selection bar (::before `background`) and the selected
+    // theme-option / palette-button outline (`border-color`) are the same
+    // kind of non-text indicator. Readable text stays banned above.
     const uses = [...NCSS.matchAll(/^.*var\(--bcc-accent-indicator\).*$/gm)]
       .map((m) => m[0].trim())
       .filter((l) => !l.startsWith("--bcc-accent-indicator"));
     expect(uses.length).toBeGreaterThan(0);
-    for (const u of uses) expect(u).toMatch(/^border-bottom-color:/);
+    for (const u of uses) expect(u).toMatch(/^(border-bottom-color|border-color|background):/);
   });
 });
 

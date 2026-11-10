@@ -99,7 +99,7 @@ export function LegalThemeToggle() {
                   letterSpacing: "0.1em", textTransform: "uppercase",
                   transition: "background 150ms ease, color 150ms ease",
                   background: theme === t ? "var(--bcc-accent)" : "transparent",
-                  color: theme === t ? "var(--bcc-white)" : "var(--bcc-text-secondary)",
+                  color: theme === t ? "var(--bcc-on-accent)" : "var(--bcc-text-secondary)",
                 }}
               >
                 {t === "light" ? <Sun size={13} strokeWidth={2} aria-hidden /> : <Moon size={13} strokeWidth={2} aria-hidden />}
@@ -124,7 +124,7 @@ export function LegalThemeToggle() {
                 aria-pressed={accent === value}
               >
                 <span className="bcc-accent-swatch" style={{ background: color }} />
-                <span style={{ fontFamily: "var(--font-mono), monospace", fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase", color: accent === value ? "var(--bcc-accent)" : "var(--bcc-text-muted)" }}>
+                <span style={{ fontFamily: "var(--font-mono), monospace", fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase", color: accent === value ? "var(--bcc-text)" : "var(--bcc-text-secondary)" }}>
                   {label}
                 </span>
               </button>
