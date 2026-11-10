@@ -24,7 +24,7 @@ export function TitleInput({ value, onChange, disabled = false }: TitleInputProp
   return (
     <label className="flex flex-col gap-1">
       <span className="bcc-mono text-[10px] tracking-[0.18em] text-bcc-text-secondary">
-        TITLE <span className="text-safety">*</span>
+        TITLE <span className="text-bcc-text-safety">*</span>
       </span>
       <input
         type="text"

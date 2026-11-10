@@ -348,7 +348,7 @@ function ManagementRow({
     <div className="flex flex-col gap-2 border-b border-cardstock-edge px-5 py-4 last:border-b-0 sm:px-8">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
         <span
-          className="bcc-mono text-safety"
+          className="bcc-mono text-bcc-text-safety"
           style={{ fontSize: "10px", letterSpacing: "0.24em" }}
           data-testid={`announcement-status-${row.id}`}
         >

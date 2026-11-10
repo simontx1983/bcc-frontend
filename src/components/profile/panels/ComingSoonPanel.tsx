@@ -27,7 +27,7 @@ export function ComingSoonPanel({ label, hint }: ComingSoonPanelProps) {
 
       <div className="px-8 py-12">
         <div
-          className="bcc-mono mb-4 text-safety"
+          className="bcc-mono mb-4 text-bcc-text-safety"
           style={{ fontSize: "10px", letterSpacing: "0.24em" }}
         >
           NOT BUILT — YET

@@ -236,14 +236,14 @@ function BallotCard({
           type="button"
           onClick={handleWithdraw}
           disabled={busy}
-          className="bcc-mono mt-3 text-bcc-text-secondary underline underline-offset-4 transition hover:text-safety disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none"
+          className="bcc-mono mt-3 text-bcc-text-secondary underline underline-offset-4 transition hover:text-bcc-text-safety disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none"
         >
           {withdraw.isPending ? "WITHDRAWING…" : "WITHDRAW BALLOT"}
         </button>
       )}
 
       {error !== null && (
-        <p role="alert" className="bcc-mono mt-4 text-bcc-danger">
+        <p role="alert" className="bcc-mono mt-4 text-bcc-text-error">
           {error}
         </p>
       )}
@@ -281,10 +281,10 @@ function ChoiceButton({
       className={
         "bcc-stencil border px-4 py-2.5 text-left text-[12px] tracking-[0.2em] transition motion-reduce:transition-none " +
         (active
-          ? "border-safety text-safety"
+          ? "border-safety text-bcc-text-safety"
           : disabled
             ? "cursor-not-allowed border-bcc-border text-bcc-text-muted"
-            : "border-bcc-border text-bcc-text hover:border-safety hover:text-safety")
+            : "border-bcc-border text-bcc-text hover:border-safety hover:text-bcc-text-safety")
       }
     >
       {label}

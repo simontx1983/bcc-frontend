@@ -359,7 +359,7 @@ function CreateSubTab({
       return (
         <div className="bcc-panel flex flex-col gap-3 p-6">
           <p
-            className="bcc-mono text-safety"
+            className="bcc-mono text-bcc-text-safety"
             style={{ fontSize: "10px", letterSpacing: "0.24em" }}
           >
             CAN&rsquo;T OPEN POST
@@ -404,7 +404,7 @@ function CreateSubTab({
     return (
       <div className="bcc-panel flex flex-col gap-3 p-6">
         <p
-          className="bcc-mono text-safety"
+          className="bcc-mono text-bcc-text-safety"
           style={{ fontSize: "10px", letterSpacing: "0.24em" }}
         >
           NOT YOUR FILE
@@ -415,7 +415,7 @@ function CreateSubTab({
         </p>
         <Link
           href={yourBlog}
-          className="bcc-mono text-safety hover:underline underline-offset-4 self-start"
+          className="bcc-mono text-bcc-text-safety hover:underline underline-offset-4 self-start"
         >
           Open your blog →
         </Link>
@@ -426,7 +426,7 @@ function CreateSubTab({
   return (
     <div className="bcc-panel flex flex-col gap-3 p-6">
       <p
-        className="bcc-mono text-safety"
+        className="bcc-mono text-bcc-text-safety"
         style={{ fontSize: "10px", letterSpacing: "0.24em" }}
       >
         SIGN IN
@@ -436,7 +436,7 @@ function CreateSubTab({
       </p>
       <Link
         href={"/login" as Route}
-        className="bcc-mono text-safety hover:underline underline-offset-4 self-start"
+        className="bcc-mono text-bcc-text-safety hover:underline underline-offset-4 self-start"
       >
         Sign in →
       </Link>

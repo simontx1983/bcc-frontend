@@ -182,7 +182,7 @@ function SectionFrame({
   return (
     <section className="mx-auto mt-12 max-w-[1560px]">
       <div className="mb-6 flex items-baseline justify-between border-b border-dashed border-safety/40 pb-2">
-        <span className="bcc-mono text-safety">
+        <span className="bcc-mono text-bcc-text-safety">
           FILE {fileNumber} &nbsp;//&nbsp; {label}
         </span>
       </div>
@@ -201,7 +201,7 @@ function QuestNavLink({ href, label }: { href: Route; label: string }) {
   return (
     <Link
       href={href}
-      className="bcc-mono whitespace-nowrap text-safety hover:underline underline-offset-4"
+      className="bcc-mono whitespace-nowrap text-bcc-text-safety hover:underline underline-offset-4"
     >
       {label}
     </Link>
@@ -348,7 +348,7 @@ function VerifiedIdentityBlock({ profile }: { profile: MemberProfile }) {
             </span>
             <Link
               href={row.href}
-              className="bcc-mono text-safety hover:underline underline-offset-4"
+              className="bcc-mono text-bcc-text-safety hover:underline underline-offset-4"
             >
               {row.ctaLabel}
             </Link>
@@ -413,7 +413,7 @@ function OnTheFloorBlock({ profile }: { profile: MemberProfile }) {
             {stat.link !== undefined && (
               <Link
                 href={stat.link.href}
-                className="bcc-mono text-safety hover:underline underline-offset-4 mt-1"
+                className="bcc-mono text-bcc-text-safety hover:underline underline-offset-4 mt-1"
               >
                 {stat.link.label}
               </Link>
@@ -490,7 +490,7 @@ function RankProgressBlock({
     <div className="flex flex-col gap-6">
       {progression.next_rank === null ? (
         <div className="border border-dashed border-safety/60 bg-bcc-surface-hover p-6">
-          <p className="bcc-mono text-safety">TERMINAL GRADE</p>
+          <p className="bcc-mono text-bcc-text-safety">TERMINAL GRADE</p>
           <p className="mt-3 font-serif text-lg text-bcc-text">
             You&rsquo;re a{" "}
             <span className="bcc-stencil">{currentLabel.toUpperCase()}</span>.
@@ -823,7 +823,7 @@ function ReadinessBlock({ readiness }: { readiness: MemberReadiness }) {
             {row.cta !== null && (
               <Link
                 href={row.cta.href}
-                className="bcc-mono text-safety hover:underline underline-offset-4"
+                className="bcc-mono text-bcc-text-safety hover:underline underline-offset-4"
               >
                 {row.cta.label}
               </Link>
@@ -833,7 +833,7 @@ function ReadinessBlock({ readiness }: { readiness: MemberReadiness }) {
       </ul>
       {readiness.confirmation_due_at !== null && (
         <div className="border border-dashed border-safety/60 bg-bcc-surface-hover p-5">
-          <p className="bcc-mono text-safety">APPRENTICE CONFIRMATION UNDERWAY</p>
+          <p className="bcc-mono text-bcc-text-safety">APPRENTICE CONFIRMATION UNDERWAY</p>
           <p className="mt-2 font-serif text-base text-bcc-text">
             Your qualifying contribution is in its 24-hour confirmation
             window. It completes at{" "}

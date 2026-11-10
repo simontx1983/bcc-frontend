@@ -84,7 +84,7 @@ export function PhotoPicker({
           hidden={altText.length < PHOTO_ALT_MAX_LENGTH - 50}
           className={
             altText.length > PHOTO_ALT_MAX_LENGTH
-              ? "text-safety"
+              ? "text-bcc-text-error"
               : "text-bcc-text-secondary"
           }
         >

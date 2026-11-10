@@ -167,7 +167,7 @@ export function GroupDetailShell({
           )}
         </div>
         <p
-          className="bcc-mono mt-3 text-safety"
+          className="bcc-mono mt-3 text-bcc-text-safety"
           style={{ fontSize: "11px", letterSpacing: "0.18em" }}
         >
           @{group.slug}

@@ -200,7 +200,7 @@ export function ReportMemberModal({ reportedUserId, onClose }: ReportMemberModal
             />
             <span
               className={
-                "bcc-mono text-[10px] " + (overCap ? "text-safety" : "text-bcc-text-secondary")
+                "bcc-mono text-[10px] " + (overCap ? "text-bcc-text-error" : "text-bcc-text-secondary")
               }
             >
               {detail.length} / {USER_REPORT_DETAIL_MAX_LENGTH}
@@ -208,7 +208,7 @@ export function ReportMemberModal({ reportedUserId, onClose }: ReportMemberModal
           </label>
 
           {errorText !== null && (
-            <p role="alert" className="bcc-mono text-[11px] text-bcc-danger">
+            <p role="alert" className="bcc-mono text-[11px] text-bcc-text-error">
               {errorText}
             </p>
           )}

@@ -76,7 +76,7 @@ export function GifPicker({ config, onSelect, onClose }: GifPickerProps) {
           </p>
         )}
         {search.isError && (
-          <p className="bcc-mono py-6 text-center text-[11px] text-safety">
+          <p className="bcc-mono py-6 text-center text-[11px] text-bcc-text-error">
             Couldn&apos;t load GIFs. Try again.
           </p>
         )}

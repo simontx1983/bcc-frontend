@@ -246,7 +246,7 @@ export function WalletsSection() {
 
       {/* Failures raised outside the dialog (none today) still surface. */}
       {errorText !== null && confirmingWallet === undefined && (
-        <p role="alert" className="bcc-mono text-[11px] text-bcc-danger">
+        <p role="alert" className="bcc-mono text-[11px] text-bcc-text-error">
           {errorText}
         </p>
       )}
@@ -371,7 +371,7 @@ function LinkWalletForm({ chainSelectRef }: LinkWalletFormProps) {
       )}
 
       {error !== null && (
-        <p role="alert" className="bcc-mono text-[11px] text-safety">
+        <p role="alert" className="bcc-mono text-[11px] text-bcc-text-error">
           {error}
         </p>
       )}
@@ -427,7 +427,7 @@ function RecoveryEmailPanel({
   return (
     <div className="flex flex-col gap-3 border border-safety/50 bg-safety/5 p-4">
       <div className="flex flex-col gap-1">
-        <span className="bcc-mono text-[10px] tracking-[0.24em] text-safety">
+        <span className="bcc-mono text-[10px] tracking-[0.24em] text-bcc-text-safety">
           ACCOUNT RECOVERY
         </span>
         <p className="font-serif text-sm text-bcc-text">
@@ -629,7 +629,7 @@ function RecoveryEmailForm({
         </div>
 
         {error !== null && (
-          <p role="alert" className="bcc-mono text-[11px] text-safety">
+          <p role="alert" className="bcc-mono text-[11px] text-bcc-text-error">
             {error}
           </p>
         )}
@@ -706,7 +706,7 @@ function RecoveryEmailForm({
       )}
 
       {error !== null && (
-        <p role="alert" className="bcc-mono text-[11px] text-safety">
+        <p role="alert" className="bcc-mono text-[11px] text-bcc-text-error">
           {error}
         </p>
       )}
@@ -750,7 +750,7 @@ function WalletRow({ wallet, registerTrigger, onCopy, onAskConfirm }: WalletRowP
             </span>
           )}
           {!wallet.verified && (
-            <span className="bcc-mono border border-safety/50 px-1.5 py-0.5 text-[9px] tracking-[0.18em] text-safety">
+            <span className="bcc-mono border border-safety/50 px-1.5 py-0.5 text-[9px] tracking-[0.18em] text-bcc-text-safety">
               UNVERIFIED
             </span>
           )}
@@ -795,7 +795,7 @@ function WalletRow({ wallet, registerTrigger, onCopy, onAskConfirm }: WalletRowP
           type="button"
           ref={registerTrigger}
           onClick={onAskConfirm}
-          className="bcc-mono border-2 border-bcc-border px-3 py-1.5 text-[11px] tracking-[0.18em] text-bcc-text-secondary transition hover:border-safety hover:text-safety"
+          className="bcc-mono border-2 border-bcc-border px-3 py-1.5 text-[11px] tracking-[0.18em] text-bcc-text-secondary transition hover:border-safety hover:text-bcc-text-safety"
         >
           Unlink
         </button>

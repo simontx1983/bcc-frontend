@@ -76,7 +76,7 @@ export function UnsavedChangesDialog({
           <button
             type="button"
             onClick={onDiscard}
-            className="bcc-btn bcc-btn-sm border-2 border-safety/70 text-safety transition hover:bg-safety/10"
+            className="bcc-btn bcc-btn-sm border-2 border-safety/70 text-bcc-text-safety transition hover:bg-safety/10"
           >
             Discard changes
           </button>

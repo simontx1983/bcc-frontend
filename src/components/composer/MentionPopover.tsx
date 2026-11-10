@@ -177,7 +177,7 @@ export function MentionPopover({
         </p>
       )}
       {search.isError && (
-        <p className="bcc-mono px-3 py-3 text-[11px] text-safety">
+        <p className="bcc-mono px-3 py-3 text-[11px] text-bcc-text-error">
           Couldn&apos;t load suggestions. Try again.
         </p>
       )}

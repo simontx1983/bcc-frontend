@@ -176,7 +176,7 @@ export function AnnouncementComments({
       {items.length === 0 ? (
         <div className="px-5 py-10 sm:px-8">
           <p
-            className="bcc-mono mb-3 text-safety"
+            className="bcc-mono mb-3 text-bcc-text-safety"
             style={{ fontSize: "10px", letterSpacing: "0.24em" }}
           >
             NOTHING SAID YET
@@ -249,7 +249,7 @@ export function AnnouncementComments({
             type="button"
             onClick={() => void query.fetchNextPage()}
             disabled={query.isFetchingNextPage}
-            className="bcc-mono text-safety hover:underline disabled:opacity-50"
+            className="bcc-mono text-bcc-text-safety hover:underline disabled:opacity-50"
             style={{ fontSize: "11px", letterSpacing: "0.12em", minHeight: "44px" }}
           >
             {query.isFetchingNextPage ? "LOADING…" : "LOAD MORE"}
@@ -283,7 +283,7 @@ export function AnnouncementComments({
             className="rounded-sm border border-bcc-border bg-bcc-input-bg px-3 py-2 font-serif text-bcc-text disabled:opacity-50"
           />
           {create.isError && (
-            <p role="alert" className="text-bcc-danger" style={{ fontSize: "13px" }}>
+            <p role="alert" className="text-bcc-text-error" style={{ fontSize: "13px" }}>
               {createCopy}
             </p>
           )}

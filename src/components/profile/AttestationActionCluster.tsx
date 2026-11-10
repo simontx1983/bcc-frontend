@@ -413,7 +413,7 @@ export function AttestationActionCluster(props: AttestationActionClusterProps) {
       {errorText !== null && (
         <p
           role="alert"
-          className="bcc-mono pl-1 text-[11px] tracking-[0.14em] text-bcc-danger"
+          className="bcc-mono pl-1 text-[11px] tracking-[0.14em] text-bcc-text-error"
         >
           {errorText}
         </p>
@@ -586,7 +586,7 @@ function ActionButton({
       )}
       {showUnlockHint && (
         <p
-          className="bcc-mono pl-1 leading-snug text-safety/80"
+          className="bcc-mono pl-1 leading-snug text-bcc-text-safety"
           style={{ fontSize: "10px", letterSpacing: "0.14em" }}
         >
           {permission.unlock_hint}

@@ -183,7 +183,7 @@ export function EntityProfile({
         </div>
         {card.handle !== "" && (
           <p
-            className="bcc-mono mt-3 text-safety"
+            className="bcc-mono mt-3 text-bcc-text-safety"
             style={{ fontSize: "11px", letterSpacing: "0.18em" }}
           >
             @{card.handle}
@@ -312,7 +312,7 @@ export function EntityProfile({
             <div>
               <div className="mb-3 flex items-center gap-3">
                 <span className="bcc-mono text-bcc-text-secondary">FILE 04</span>
-                <span className="bcc-mono text-safety">{"//"} STATS</span>
+                <span className="bcc-mono text-bcc-text-safety">{"//"} STATS</span>
               </div>
               <StatsStrip stats={card.stats} />
             </div>

@@ -50,8 +50,8 @@
  * leaving them hand-rolled beside the helper in the same file would have
  * been the exact inconsistency the extraction exists to remove.
  *
- * The top rung stays `text-safety` and is NOT repaired here. It measures
- * 3.39:1 in light theme and is separately scoped work.
+ * The top rung was `text-safety` (3.39:1 in light theme) until #205 moved
+ * it to the theme-aware error-text token: an over-limit counter is an error.
  */
 
 import { readFileSync } from "node:fs";
@@ -172,8 +172,9 @@ describe("E4 — hardcoded muted placeholders now use the token", () => {
 
 describe("counterToneClass — the shared ladder", () => {
   it("escalates over the limit", () => {
-    expect(counterToneClass(101, 100)).toBe("text-safety");
-    expect(counterToneClass(101, 100, 90)).toBe("text-safety");
+    // #205: the top rung moved from text-safety to the error-text token.
+    expect(counterToneClass(101, 100)).toBe("text-bcc-text-error");
+    expect(counterToneClass(101, 100, 90)).toBe("text-bcc-text-error");
   });
   it("warns only when a threshold is given", () => {
         // Was "text-warning" until 2026-08-18. That class named no Tailwind key
@@ -190,13 +191,14 @@ describe("counterToneClass — the shared ladder", () => {
     expect(counterToneClass(100, 100, 90)).toBe("text-bcc-warning");
     expect(counterToneClass(90, 100, 90)).toBe("text-bcc-text-secondary");
   });
-  it("leaves the safety rung alone — separately scoped, still failing", () => {
+  it("the top rung is the error-text token, never safety or muted (#205)", () => {
     // Comments stripped: the header explains WHICH token this replaced, so
     // asserting on raw text would fail on the documentation itself.
     const body = read("src/lib/counter-tone.ts")
       .replace(/\/\*[\s\S]*?\*\//g, "")
       .replace(/^\s*\/\/.*$/gm, "");
-    expect(body).toContain("text-safety");
+    expect(body).toContain("text-bcc-text-error");
+    expect(body).not.toContain("text-safety");
     expect(body).not.toContain("bcc-text-muted");
   });
 });
@@ -226,7 +228,7 @@ describe("E4 — every counter caller adopted the helper", () => {
       // Either spelling: a hand-rolled ladder written with the NEW class
       // would otherwise slip past this negative assertion.
       expect(read(file), `${file} still hand-rolls the ladder`).not.toMatch(
-        /\?\s*"text-safety"\s*\n?\s*:\s*.*\?\s*\n?\s*"text-(bcc-)?warning"/,
+        /\?\s*"text-(?:safety|bcc-text-error)"\s*\n?\s*:\s*.*\?\s*\n?\s*"text-(bcc-)?warning"/,
       );
     }
   });
@@ -259,7 +261,8 @@ describe("E4 — each caller's markup and ARIA survived the extraction", () => {
   it("BlogComposer's under-minimum error stays its own condition", () => {
     const src = read(`${B}/BlogComposer.tsx`);
     expect(src).toContain("excerptUnderMin");
-    expect(src).toContain('? "text-safety"');
+    // #205: the under-minimum error moved from text-safety to the error-text token.
+    expect(src).toContain('? "text-bcc-text-error"');
   });
   it("suffix children survived", () => {
     expect(read(`${B}/BlogComposer.tsx`)).toContain("(need ≥ {BLOG_EXCERPT_MIN_LENGTH})");

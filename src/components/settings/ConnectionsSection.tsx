@@ -335,7 +335,7 @@ function ProviderCard<S extends XStatusResponse | GitHubStatusResponse>({
               type="button"
               onClick={onDisconnect}
               disabled={isDisconnecting}
-              className="bcc-mono border-2 border-bcc-border px-3 py-1.5 text-[11px] tracking-[0.18em] text-bcc-text-secondary hover:border-safety hover:text-safety disabled:opacity-50"
+              className="bcc-mono border-2 border-bcc-border px-3 py-1.5 text-[11px] tracking-[0.18em] text-bcc-text-secondary hover:border-safety hover:text-bcc-text-safety disabled:opacity-50"
             >
               {isDisconnecting ? "Disconnecting…" : "Disconnect"}
             </button>
@@ -355,7 +355,7 @@ function ProviderCard<S extends XStatusResponse | GitHubStatusResponse>({
       {!isStatusError && status !== undefined && renderConnectedDetail(status)}
 
       {errorText !== null && (
-        <p role="alert" className="bcc-mono text-[11px] text-safety">
+        <p role="alert" className="bcc-mono text-[11px] text-bcc-text-error">
           {errorText}
         </p>
       )}

@@ -328,7 +328,7 @@ function ActiveSectionData({
     return (
       <div className="px-5 py-12 sm:px-8">
         <p
-          className="bcc-mono mb-3 text-safety"
+          className="bcc-mono mb-3 text-bcc-text-safety"
           style={{ fontSize: "10px", letterSpacing: "0.24em" }}
         >
           NOTHING POSTED YET
@@ -442,7 +442,7 @@ function ActiveSectionData({
                 }
               }}
               disabled={query.isFetchingNextPage}
-              className="bcc-mono text-safety hover:underline disabled:opacity-50"
+              className="bcc-mono text-bcc-text-safety hover:underline disabled:opacity-50"
               style={{ fontSize: "11px", letterSpacing: "0.12em", minHeight: "44px" }}
             >
               {query.isFetchingNextPage ? "LOADING…" : "LOAD MORE"}
@@ -567,7 +567,7 @@ function ArchivedSectionData({
                 }
               }}
               disabled={query.isFetchingNextPage}
-              className="bcc-mono text-safety hover:underline disabled:opacity-50"
+              className="bcc-mono text-bcc-text-safety hover:underline disabled:opacity-50"
               style={{ fontSize: "11px", letterSpacing: "0.12em", minHeight: "44px" }}
             >
               {query.isFetchingNextPage ? "LOADING…" : "LOAD MORE"}

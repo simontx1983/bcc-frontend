@@ -261,7 +261,7 @@ const MemberTile = memo(function MemberTile({ member }: { member: GroupMember })
         {member.role !== "member" && (
           // Server-rendered label per §A2 — render verbatim.
           <span
-            className="bcc-mono mt-1 text-safety"
+            className="bcc-mono mt-1 text-bcc-text-safety"
             style={{ fontSize: "9px", letterSpacing: "0.18em" }}
           >
             {member.role_label}

@@ -37,7 +37,8 @@
  *
  * ## Deferred, explicitly
  *
- * `text-safety` (3.08:1 on a light input), the remaining `--weld` uses
+ * `text-safety` (3.08:1 on a light input; #205 later moved it to the
+ * error-text and safety-text tokens), the remaining `--weld` uses
  * elsewhere, the phosphor backlog, header controls on glass, and focus
  * residue. None is touched here.
  */
@@ -120,9 +121,10 @@ describe("E5 — readable text migrated to --bcc-text-secondary", () => {
 
 describe("E5 — interactive resting states migrated, hover still differs", () => {
   const CHIPS = [
-    [`${B}/ChainTagsPicker.tsx`, "text-bcc-text-secondary hover:text-safety"],
-    [`${B}/DisclosureBlock.tsx`, "text-bcc-text-secondary hover:text-safety"],
-    [`${B}/TagsInput.tsx`, "text-bcc-text-secondary hover:text-safety"],
+    // #205: the hover target moved from text-safety to the safety-text token.
+    [`${B}/ChainTagsPicker.tsx`, "text-bcc-text-secondary hover:text-bcc-text-safety"],
+    [`${B}/DisclosureBlock.tsx`, "text-bcc-text-secondary hover:text-bcc-text-safety"],
+    [`${B}/TagsInput.tsx`, "text-bcc-text-secondary hover:text-bcc-text-safety"],
   ] as const;
   for (const [file, expected] of CHIPS) {
     it(`${file.split("/").pop()} chip remove button rests on secondary`, () => {
@@ -134,7 +136,7 @@ describe("E5 — interactive resting states migrated, hover still differs", () =
     const src = read(SOURCES);
     const moves = [...src.matchAll(/text-bcc-text-secondary hover:text-bcc-text disabled:opacity-30/g)];
     expect(moves).toHaveLength(2); // up + down
-    expect(src).toContain("text-bcc-text-secondary hover:text-safety"); // remove
+    expect(src).toContain("text-bcc-text-secondary hover:text-bcc-text-safety"); // remove (#205 token)
   });
 
   it("no resting state equals its own hover target", () => {
@@ -198,7 +200,8 @@ describe("E5 — the eighth counter adopts the shared helper", () => {
   it("keeps reasonTooLong as an outer guard — it tests the UNTRIMMED length", () => {
     // The counter renders `reasonLength` (trimmed) but the over-limit test
     // uses `reason.length`. Folding it into the helper would move the rung.
-    expect(src).toContain('reasonTooLong\n                    ? "text-safety"');
+    // #205: the over-limit rung moved from text-safety to the error-text token.
+    expect(src).toContain('reasonTooLong\n                    ? "text-bcc-text-error"');
     expect(src).toContain("const reasonTooLong = reason.length > DISPUTE_REASON_MAX_LENGTH;");
     expect(src).toContain("const reasonLength = reasonTrimmed.length;");
   });
@@ -222,10 +225,11 @@ describe("E5 — the eighth counter adopts the shared helper", () => {
     expect(src).toContain("{reasonLength}/{DISPUTE_REASON_MAX_LENGTH}");
   });
 
-  it("the safety top rung is untouched and still deferred", () => {
-    expect(src).toContain('"text-safety"');
+  it("the top rung is the error-text token (#205), not safety", () => {
+    expect(src).toContain('"text-bcc-text-error"');
+    expect(src).not.toContain('"text-safety"');
     const bg = token("bcc-input-bg");
-    expect(ratio("#f05a28", bg[0] ?? "")).toBeLessThan(4.5); // recorded, not fixed
+    expect(ratio("#f05a28", bg[0] ?? "")).toBeLessThan(4.5); // why #205 moved it
   });
 
   it("the helper now has ten call sites across the app", () => {
@@ -247,7 +251,7 @@ describe("E5 — the eighth counter adopts the shared helper", () => {
 
 describe("counterToneClass still behaves as E4 pinned it", () => {
   it("rungs unchanged", () => {
-    expect(counterToneClass(101, 100, 90)).toBe("text-safety");
+    expect(counterToneClass(101, 100, 90)).toBe("text-bcc-text-error"); // #205 token
         // Was "text-warning" until 2026-08-18. That class named no Tailwind key
     // and compiled to nothing, so this rung was invisible; see
     // warning-utility-emission.test.ts.
