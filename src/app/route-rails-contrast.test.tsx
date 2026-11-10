@@ -500,6 +500,8 @@ describe("E2 — secondary clears AA on the surfaces these routes render on", ()
   it("E2 changed no CSS — globals.css holds exactly E1's remaining exclusions", () => {
     // 8 -> 3 because the dead-CSS cleanup DELETED the five zero-consumer
     // rules E1 had pinned. No E2 site changed; the denominator did.
-    expect([...CSS.matchAll(/var\(--bcc-text-muted\)/g)]).toHaveLength(3);
+    // 3 -> 2 in #202: .bcc-search-icon moved to secondary (see
+    // muted-text-e1.test.ts, LATER_TO_SECONDARY).
+    expect([...CSS.matchAll(/var\(--bcc-text-muted\)/g)]).toHaveLength(2);
   });
 });

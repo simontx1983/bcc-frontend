@@ -139,8 +139,18 @@ const E1B_LADDER = [
  * genuinely-exempt decoratives, the honest utility, and the dead rules.
  */
 
-/** `aria-hidden` icons whose meaning is carried by a labelled sibling. */
-const DECORATIVE = [".bcc-search-icon", ".bcc-auth-select-arrow"] as const;
+/**
+ * `aria-hidden` icons whose meaning is carried by a labelled sibling.
+ *
+ * `.bcc-search-icon` left this set in #202. The magnifier is what marks
+ * the header field as a search box at a glance, so it is held to the 3:1
+ * icon bar (WCAG 1.4.11) and now rests on secondary. See the #202 block
+ * in `chrome-contrast.test.ts`.
+ */
+const DECORATIVE = [".bcc-auth-select-arrow"] as const;
+
+/** Selectors that left the muted set for secondary after E1. */
+const LATER_TO_SECONDARY = [".bcc-search-icon"] as const;
 
 /**
  * Zero-consumer rules that E1 pinned as byte-identical and the dead-CSS
@@ -164,12 +174,12 @@ const DELETED_ZERO_CONSUMER = [
 const UTILITY = ".bcc-text-muted";
 
 /**
- * 13 -> 10 (E1b) -> 9 (E1c) -> 8 (E1d) -> 3 (dead-CSS cleanup).
+ * 13 -> 10 (E1b) -> 9 (E1c) -> 8 (E1d) -> 3 (dead-CSS cleanup) -> 2 (#202).
  *
  * The drop from 8 to 3 is not a migration: the five zero-consumer rules
- * were deleted outright, so they can no longer be members of any set. What
- * remains is exempt by nature — two decorative icons and the honest
- * utility. `.bcc-text-muted` is deliberately kept: a class named "muted"
+ * were deleted outright, so they can no longer be members of any set. The
+ * drop to 2 is: `.bcc-search-icon` moved to secondary. What remains is
+ * exempt by nature — one decorative icon and the honest utility. `.bcc-text-muted` is deliberately kept: a class named "muted"
  * documenting a valid style for genuinely muted content is a design-system
  * invariant, and the defect was always misuse, never its existence.
  */
@@ -198,7 +208,7 @@ describe("E1 — the 24 approved selectors moved to --bcc-text-secondary", () =>
 describe("E1 — every exclusion is still muted", () => {
   const muted = declarationsByToken("muted");
 
-  it("the muted set is EXACTLY the 3 remaining excluded selectors", () => {
+  it("the muted set is EXACTLY the 2 remaining excluded selectors", () => {
     // The strongest assertion in this file: it fails both when an
     // excluded selector is migrated and when a new muted text rule is
     // introduced anywhere in the stylesheet.
@@ -208,6 +218,13 @@ describe("E1 — every exclusion is still muted", () => {
   for (const sel of DECORATIVE) {
     it(`${sel} stays muted — decorative`, () => {
       expect(muted).toContain(sel);
+    });
+  }
+
+  for (const sel of LATER_TO_SECONDARY) {
+    it(`${sel} left muted for secondary (#202)`, () => {
+      expect(muted).not.toContain(sel);
+      expect(declarationsByToken("secondary")).toContain(sel);
     });
   }
 

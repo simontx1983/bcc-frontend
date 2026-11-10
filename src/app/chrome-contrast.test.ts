@@ -29,9 +29,8 @@
  *    flanked by `-` and `)`, which is exactly how `"var(--bcc-text-muted)"`
  *    is spelled in a style object. → `--bcc-text-secondary`, ≥5.62.
  *
- * Out of scope and deliberately untouched: the header search icon, which
- * sits on the frosted `.bcc-search` field whose placeholder is a documented
- * deferral (`--bcc-search-placeholder`, see muted-text-closure.test.ts).
+ * The header search icon and placeholder were left out of that pass and
+ * fixed in #202; see section 4.
  */
 
 import { readFileSync } from "node:fs";
@@ -164,5 +163,67 @@ describe("3. --bcc-text-muted is not readable text in chrome", () => {
     expect(ratio(rgb("#4b5563"), rgb("#f8f9fa"))).toBeGreaterThanOrEqual(4.5); // light header
     expect(ratio(rgb("#8b949e"), rgb("#0d1117"))).toBeGreaterThanOrEqual(4.5); // dark header
     expect(ratio(rgb("#8b949e"), rgb("#161b22"))).toBeGreaterThanOrEqual(4.5); // dark surface
+  });
+});
+
+/**
+ * #202 — the header search field.
+ *
+ * The field was carved out as "unbounded" because it is frosted glass. It
+ * is bounded: 10% glass over the header's translucent fill over the page,
+ * and an opaque fill on focus. Every value below is read from globals.css
+ * and composited here, so a token change re-measures itself.
+ */
+describe("4. header search field (#202)", () => {
+  const values = (n: string) =>
+    [...CSS.matchAll(new RegExp(`--${n}:\\s*([^;]+);`, "g"))].map((m) => m[1]?.trim() ?? "");
+  /** `rgba(r,g,b,a)` or `#rrggbb` → [rgb, alpha]. */
+  const parse = (v: string): [number[], number] => {
+    const m = /rgba\(([^)]+)\)/.exec(v);
+    if (m === null) return [rgb(v), 1];
+    const parts = (m[1] ?? "").split(",").map((s) => Number(s.trim()));
+    return [parts.slice(0, 3), parts[3] ?? 1];
+  };
+  const over = (top: string, under: number[]) => {
+    const [c, a] = parse(top);
+    return c.map((v, i) => v * a + (under[i] ?? 0) * (1 - a));
+  };
+  // Scope 0 = light :root, scope 2 = [data-theme="dark"].
+  const ground = (scope: number) => {
+    const page = rgb(values("bcc-bg")[scope] ?? "");
+    const header = over(values("bcc-header-bg")[scope] ?? "", page);
+    return {
+      resting: over(values("bcc-glass-bg-frosted")[scope] ?? "", header),
+      focused: rgb(values("bcc-input-bg-focus")[scope] ?? ""),
+    };
+  };
+  const THEMES = [["light", 0], ["dark", 2]] as const;
+
+  it("the icon rests on secondary and the placeholder on the general token", () => {
+    expect(rule(".bcc-search-icon {")).toContain("color: var(--bcc-text-secondary)");
+    expect(rule(".bcc-search-input::placeholder {")).toContain("color: var(--bcc-text-placeholder)");
+  });
+
+  for (const [theme, scope] of THEMES) {
+    it(`${theme}: the icon clears 3:1, resting and focused`, () => {
+      const icon = rgb(values("bcc-text-secondary")[scope] ?? "");
+      const g = ground(scope);
+      expect(ratio(icon, g.resting)).toBeGreaterThanOrEqual(3);
+      expect(ratio(icon, g.focused)).toBeGreaterThanOrEqual(3);
+    });
+
+    it(`${theme}: the placeholder clears 4.5:1, resting and focused`, () => {
+      const ph = rgb(values("bcc-text-placeholder")[scope] ?? "");
+      const g = ground(scope);
+      expect(ratio(ph, g.resting)).toBeGreaterThanOrEqual(4.5);
+      expect(ratio(ph, g.focused)).toBeGreaterThanOrEqual(4.5);
+    });
+  }
+
+  it("the old values failed on the same grounds (the control)", () => {
+    expect(ratio(rgb("#9ca3af"), ground(0).resting)).toBeLessThan(3); // old icon, light
+    expect(ratio(rgb("#484f58"), ground(2).resting)).toBeLessThan(3); // old icon, dark
+    expect(ratio(rgb("#b3b8c3"), ground(0).resting)).toBeLessThan(4.5); // old placeholder, light
+    expect(ratio(rgb("#82878f"), rgb("#1c2128"))).toBeLessThan(4.5); // old dark focus fill
   });
 });
