@@ -232,7 +232,7 @@ export function FindingsSection({ findings }: { findings: RankFinding[] }) {
                       )
                     )}
                     {rowError !== null && rowError.id === finding.id && (
-                      <span role="alert" className="bcc-mono text-safety">
+                      <span role="alert" className="bcc-mono text-bcc-danger">
                         {rowError.message}
                       </span>
                     )}

@@ -208,7 +208,7 @@ export function ReportMemberModal({ reportedUserId, onClose }: ReportMemberModal
           </label>
 
           {errorText !== null && (
-            <p role="alert" className="bcc-mono text-[11px] text-safety">
+            <p role="alert" className="bcc-mono text-[11px] text-bcc-danger">
               {errorText}
             </p>
           )}

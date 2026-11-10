@@ -243,7 +243,7 @@ function BallotCard({
       )}
 
       {error !== null && (
-        <p role="alert" className="bcc-mono mt-4 text-safety">
+        <p role="alert" className="bcc-mono mt-4 text-bcc-danger">
           {error}
         </p>
       )}

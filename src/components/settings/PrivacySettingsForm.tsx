@@ -194,7 +194,7 @@ export function PrivacySettingsForm() {
                       </span>
                     )}
                     {status === "error" && (
-                      <span className="bcc-mono text-[10px] tracking-[0.18em] text-safety">
+                      <span className="bcc-mono text-[10px] tracking-[0.18em] text-bcc-danger">
                         COULDN&apos;T SAVE
                       </span>
                     )}

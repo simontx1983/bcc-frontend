@@ -733,7 +733,7 @@ function ReportRow({
       </div>
 
       {mutation.isError && (
-        <p role="alert" className="bcc-mono text-[11px] text-safety">
+        <p role="alert" className="bcc-mono text-[11px] text-bcc-danger">
           {/* §γ — copy is keyed on err.code; never render err.message. */}
           {humanizeCode(
             mutation.error,
@@ -921,7 +921,7 @@ function QueueError({ filter, onChange, error }: QueueErrorProps) {
   return (
     <div className="bcc-panel p-6">
       <StatusTabs value={filter} onChange={onChange} />
-      <p role="alert" className="bcc-mono mt-4 text-safety">
+      <p role="alert" className="bcc-mono mt-4 text-bcc-danger">
         {/* §γ — copy is keyed on err.code; never render err.message. */}
         {humanizeCode(
           error,

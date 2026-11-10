@@ -413,7 +413,7 @@ export function AttestationActionCluster(props: AttestationActionClusterProps) {
       {errorText !== null && (
         <p
           role="alert"
-          className="bcc-mono pl-1 text-[11px] tracking-[0.14em] text-safety"
+          className="bcc-mono pl-1 text-[11px] tracking-[0.14em] text-bcc-danger"
         >
           {errorText}
         </p>

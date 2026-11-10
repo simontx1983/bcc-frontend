@@ -246,7 +246,7 @@ function ProfileFieldRow({ field }: { field: ProfileField }) {
               template, which is the other reason it lives out here. */}
           <SettingsSaveStatus status={outcome.status} />
           {outcome.errorMessage !== null && (
-            <p role="alert" className="mt-1 text-safety">
+            <p role="alert" className="mt-1 text-bcc-danger">
               {outcome.errorMessage}
             </p>
           )}
