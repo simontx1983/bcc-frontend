@@ -75,7 +75,7 @@ export function ReviewsPanel({ handle }: ReviewsPanelProps) {
         <Header />
         <div className="px-8 py-12">
           <p
-            className="bcc-mono mb-3 text-safety"
+            className="bcc-mono mb-3 text-bcc-text-safety"
             style={{ fontSize: "10px", letterSpacing: "0.24em" }}
           >
             PRIVATE
@@ -161,7 +161,7 @@ function ReviewsPanelStatic({ reviews }: { reviews: MemberReview[] }) {
                 >
                   {review.subject_handle !== "" && (
                     <span>
-                      ON <strong className="text-safety" style={{ fontWeight: 500 }}>@{review.subject_handle}</strong>
+                      ON <strong className="text-bcc-text-safety" style={{ fontWeight: 500 }}>@{review.subject_handle}</strong>
                     </span>
                   )}
                   <span>{review.subject_handle !== "" ? "· " : ""}{review.posted_at_label}</span>
@@ -174,7 +174,7 @@ function ReviewsPanelStatic({ reviews }: { reviews: MemberReview[] }) {
               <button
                 type="button"
                 onClick={() => setExpanded(true)}
-                className="bcc-mono text-safety hover:underline"
+                className="bcc-mono text-bcc-text-safety hover:underline"
                 style={{ fontSize: "10px", letterSpacing: "0.18em" }}
                 aria-expanded={false}
               >
@@ -211,7 +211,7 @@ function ReviewsEmpty() {
   return (
     <div className="px-8 py-12">
       <p
-        className="bcc-mono mb-3 text-safety"
+        className="bcc-mono mb-3 text-bcc-text-safety"
         style={{ fontSize: "10px", letterSpacing: "0.24em" }}
       >
         NOTHING ON FILE

@@ -57,7 +57,7 @@ export function BlocksList() {
     return (
       <div className="bcc-panel p-6">
         <p
-          className="bcc-mono mb-3 text-safety"
+          className="bcc-mono mb-3 text-bcc-text-safety"
           style={{ fontSize: "10px", letterSpacing: "0.24em" }}
         >
           NONE ON FILE

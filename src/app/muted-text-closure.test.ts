@@ -239,7 +239,8 @@ const APPROVED_SURVIVORS: readonly string[] = [
     "src/components/messages/ConversationsPanel.tsx :: <div style={{ display: \"flex\", justifyContent: \"center\", marginBottom: 10, color: \"var(-",
     "src/components/notifications/NotificationsPanel.tsx :: className=\"bcc-mono text-[10px] tracking-[0.16em] normal-case text-[var(--bcc-text)] und",
     "src/components/profile/AttestationActionCluster.tsx :: return `${BASE_BUTTON_CLASS} ${sizeClass} border border-bcc-border text-bcc-text-muted`;",
-    "src/components/profile/FindingsSection.tsx :: className=\"bcc-mono text-safety hover:underline underline-offset-4 disabled:cursor-not-a",
+    // #205: text-safety became the safety-text token on this line; same exemption.
+    "src/components/profile/FindingsSection.tsx :: className=\"bcc-mono text-bcc-text-safety hover:underline underline-offset-4 disabled:cur",
     "src/components/profile/ReportMemberModal.tsx :: : \"cursor-not-allowed bg-bcc-surface-active text-bcc-text-muted\")",
     "src/components/profile/StandingFileBody.tsx :: <span aria-hidden className=\"mx-2 text-bcc-text-muted\">\u00b7</span>",
     "src/components/profile/StandingFileBody.tsx :: <span aria-hidden className=\"text-bcc-text-muted\">",

@@ -82,7 +82,7 @@ function MyDisputeRow({ dispute }: { dispute: Dispute }) {
       <div className="grid gap-5 sm:grid-cols-[1fr_auto] sm:items-start">
         <div>
           <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-            <span className="bcc-mono text-safety">CASE //</span>
+            <span className="bcc-mono text-bcc-text-safety">CASE //</span>
             <Link
               href={`/disputes/${dispute.id}`}
               className="bcc-stencil text-2xl text-ink underline-offset-4 transition hover:underline hover:decoration-safety"
@@ -111,7 +111,7 @@ function MyDisputeRow({ dispute }: { dispute: Dispute }) {
                 href={dispute.evidence_url}
                 target="_blank"
                 rel="noreferrer noopener"
-                className="bcc-mono mt-1 inline-block break-all text-blueprint underline hover:text-safety"
+                className="bcc-mono mt-1 inline-block break-all text-blueprint underline hover:text-bcc-text-safety"
               >
                 {dispute.evidence_url}
               </a>
@@ -131,7 +131,7 @@ function MyDisputeRow({ dispute }: { dispute: Dispute }) {
           <StatusBadge status={dispute.status} />
           <Link
             href={`/disputes/${dispute.id}`}
-            className="bcc-mono text-ink-ghost underline-offset-4 transition hover:text-safety hover:underline motion-reduce:transition-none"
+            className="bcc-mono text-ink-ghost underline-offset-4 transition hover:text-bcc-text-safety hover:underline motion-reduce:transition-none"
           >
             VIEW CASE &rarr;
           </Link>
@@ -182,13 +182,13 @@ const STATUS_CONFIG: Record<
   },
   rejected: {
     label: "LOST · DOWNVOTE STANDS",
-    color: "var(--safety)",
+    color: "var(--bcc-text-safety)",
     background: "rgb(var(--safety-rgb) / 0.08)",
     borderColor: "rgb(var(--safety-rgb) / 0.32)",
   },
   dismissed: {
     label: "DISMISSED BY ADMIN",
-    color: "var(--safety)",
+    color: "var(--bcc-text-safety)",
     background: "rgb(var(--safety-rgb) / 0.08)",
     borderColor: "rgb(var(--safety-rgb) / 0.32)",
   },
@@ -208,7 +208,7 @@ const STATUS_CONFIG: Record<
 function MyDisputesEmpty() {
   return (
     <div className="bcc-paper mx-auto max-w-2xl p-8 text-center">
-      <p className="bcc-mono mb-2 text-safety">CLEAN RECORD</p>
+      <p className="bcc-mono mb-2 text-bcc-text-safety">CLEAN RECORD</p>
       <h2 className="bcc-stencil text-3xl text-ink">
         You haven&rsquo;t filed any disputes.
       </h2>

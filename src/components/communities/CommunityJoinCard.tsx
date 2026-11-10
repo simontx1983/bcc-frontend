@@ -104,7 +104,7 @@ export function CommunityJoinCard({
       {joinError !== null && (
         <p
           role="alert"
-          className="bcc-mono max-w-[316px] text-center text-[10px] tracking-[0.12em] text-bcc-danger"
+          className="bcc-mono max-w-[316px] text-center text-[10px] tracking-[0.12em] text-bcc-text-error"
         >
           {humanizeMembershipError(joinError, "join")}
         </p>

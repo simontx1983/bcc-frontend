@@ -68,7 +68,7 @@ export function TagsInput({ value, onChange, disabled = false }: TagsInputProps)
               aria-label={`Remove tag ${tag}`}
               onClick={() => remove(tag)}
               disabled={disabled}
-              className="text-bcc-text-secondary hover:text-safety"
+              className="text-bcc-text-secondary hover:text-bcc-text-safety"
             >
               ✕
             </button>

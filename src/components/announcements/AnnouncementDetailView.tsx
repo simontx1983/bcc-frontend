@@ -66,7 +66,7 @@ export function AnnouncementDetailView({
     <article className="bcc-panel mx-auto max-w-3xl">
       <header className="border-b border-bcc-border px-5 py-6 sm:px-8">
         <p
-          className="bcc-mono mb-2 text-safety"
+          className="bcc-mono mb-2 text-bcc-text-safety"
           style={{ fontSize: "10px", letterSpacing: "0.24em" }}
         >
           ANNOUNCEMENT · {validatorName.toUpperCase()}
@@ -75,7 +75,7 @@ export function AnnouncementDetailView({
         <div className="mb-2 flex flex-wrap items-center gap-2">
           {is_pinned && !is_archived && (
             <span
-              className="bcc-mono text-safety"
+              className="bcc-mono text-bcc-text-safety"
               style={{ fontSize: "10px", letterSpacing: "0.24em" }}
             >
               PINNED

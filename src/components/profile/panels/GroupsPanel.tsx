@@ -147,7 +147,7 @@ function GroupRow({ item }: { item: UserGroupItem }) {
             {item.member_count.toLocaleString()} MEMBER{item.member_count === 1 ? "" : "S"}
           </span>
           {item.privacy === "closed" && (
-            <span aria-label="Closed group" className="text-safety">
+            <span aria-label="Closed group" className="text-bcc-text-safety">
               · CLOSED
             </span>
           )}
@@ -392,7 +392,7 @@ function GroupsEmpty() {
   return (
     <div className="px-8 py-12">
       <p
-        className="bcc-mono mb-3 text-safety"
+        className="bcc-mono mb-3 text-bcc-text-safety"
         style={{ fontSize: "10px", letterSpacing: "0.24em" }}
       >
         NOTHING ON FILE

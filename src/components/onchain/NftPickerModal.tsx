@@ -135,7 +135,7 @@ export function NftPickerModal({ onClose }: NftPickerModalProps) {
       panelClassName="max-w-3xl max-h-[92vh] overflow-y-auto"
     >
       <header className="mb-5">
-        <p className="bcc-mono text-safety">SHOWCASE //</p>
+        <p className="bcc-mono text-bcc-text-safety">SHOWCASE //</p>
         <h2 className="bcc-stencil mt-1 text-3xl text-bcc-text leading-[0.95]">
           Pick your NFTs.
         </h2>
@@ -151,7 +151,7 @@ export function NftPickerModal({ onClose }: NftPickerModalProps) {
       )}
 
       {picker.isError && (
-        <p role="alert" className="bcc-mono text-bcc-danger">
+        <p role="alert" className="bcc-mono text-bcc-text-error">
           {/* §γ — copy is keyed on err.code; never render err.message. */}
           {humanizeCode(
             picker.error,
@@ -208,7 +208,7 @@ export function NftPickerModal({ onClose }: NftPickerModalProps) {
       {errorMessage !== null && (
         <p
           role="alert"
-          className="bcc-mono mt-4 border-l-2 border-safety pl-3 text-bcc-danger"
+          className="bcc-mono mt-4 border-l-2 border-safety pl-3 text-bcc-text-error"
         >
           {errorMessage}
         </p>
@@ -337,7 +337,7 @@ function NftTile({
       aria-label={`${selected ? "Remove" : "Add"} ${fallbackTitle} ${selected ? "from" : "to"} your showcase${unverifiedCollection ? " (collection's community not yet activated)" : ""}`}
       onClick={onToggle}
       disabled={disabled || pending}
-      className="group relative block w-full overflow-hidden border-2 text-left transition motion-reduce:transition-none"
+      className="bcc-paper-ground group relative block w-full overflow-hidden border-2 text-left transition motion-reduce:transition-none"
       style={{
         borderColor: selected ? "var(--safety)" : "rgb(var(--ink-rgb) / 0.18)",
         background: "var(--paper)",
@@ -441,7 +441,7 @@ function NftTile({
 function NftPickerEmpty() {
   return (
     <div className="border-2 border-dashed border-bcc-border p-6 text-center">
-      <p className="bcc-mono text-safety">NOTHING ON THE FLOOR</p>
+      <p className="bcc-mono text-bcc-text-safety">NOTHING ON THE FLOOR</p>
       <p className="bcc-stencil mt-2 text-2xl text-bcc-text">
         No holdings detected.
       </p>

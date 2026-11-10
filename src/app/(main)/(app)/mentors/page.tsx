@@ -80,7 +80,7 @@ function MentorsPageContent() {
       <RouteRail kicker={"FLOOR \u00a0//\u00a0 MENTORS"} label={"FILE INDEX \u00a0//\u00a0 LISTED MENTORS"} />
 
       <header className="mx-auto max-w-[1560px] px-4 sm:px-7 pt-12">
-        <p className="bcc-mono text-safety">THE BENCH</p>
+        <p className="bcc-mono text-bcc-text-safety">THE BENCH</p>
         <h1
           className="bcc-stencil mt-3 text-bcc-text leading-[0.95]"
           style={{ fontSize: "clamp(2.5rem, 6.5vw, 5.5rem)" }}
@@ -156,7 +156,7 @@ function MentorsPageContent() {
 function MentorsEmpty() {
   return (
     <div className="bcc-paper mx-auto max-w-2xl p-8 text-center">
-      <p className="bcc-mono mb-2 text-safety">QUIET BENCH</p>
+      <p className="bcc-mono mb-2 text-bcc-text-safety">QUIET BENCH</p>
       <h2 className="bcc-stencil text-3xl text-ink">
         No mentors are listed yet.
       </h2>

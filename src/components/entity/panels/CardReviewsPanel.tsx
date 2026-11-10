@@ -210,7 +210,7 @@ function CardReviewsPanelData({
                 type="button"
                 onClick={() => void query.fetchNextPage()}
                 disabled={query.isFetchingNextPage}
-                className="bcc-mono inline-flex min-h-[44px] items-center justify-center px-4 text-safety hover:underline disabled:opacity-50"
+                className="bcc-mono inline-flex min-h-[44px] items-center justify-center px-4 text-bcc-text-safety hover:underline disabled:opacity-50"
                 style={{ fontSize: "10px", letterSpacing: "0.18em" }}
               >
                 LOAD MORE →
@@ -319,7 +319,7 @@ function AuthorRef({ author }: { author: MemberSummary }) {
           {author.display_name}
         </span>
         <span
-          className="bcc-mono block truncate text-safety"
+          className="bcc-mono block truncate text-bcc-text-safety"
           style={{ fontSize: "9px", letterSpacing: "0.18em" }}
         >
           @{author.handle.toUpperCase()}
@@ -341,7 +341,7 @@ function EmptyState({
   return (
     <div className="px-8 py-12">
       <p
-        className="bcc-mono mb-3 text-safety"
+        className="bcc-mono mb-3 text-bcc-text-safety"
         style={{ fontSize: "10px", letterSpacing: "0.24em" }}
       >
         {kicker}

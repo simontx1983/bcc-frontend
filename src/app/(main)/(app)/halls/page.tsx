@@ -111,7 +111,7 @@ export default async function HallsDirectoryPage({ searchParams }: PageProps) {
 
       <section className="mx-auto mt-6 max-w-6xl px-6 sm:px-8">
         {fetchError !== null ? (
-          <p role="alert" className="bcc-mono text-bcc-danger">
+          <p role="alert" className="bcc-mono text-bcc-text-error">
             {fetchError}
           </p>
         ) : items.length === 0 ? (
@@ -259,7 +259,7 @@ function ViewerBadge({ membership }: { membership: HallItem["viewer_membership"]
 function EmptyState({ chain }: { chain: string | null }) {
   return (
     <div className="bcc-panel mx-auto max-w-xl p-8 text-center">
-      <p className="bcc-mono text-safety">NO HALLS</p>
+      <p className="bcc-mono text-bcc-text-safety">NO HALLS</p>
       <h2 className="bcc-stencil mt-2 text-3xl text-bcc-text">
         {chain !== null
           ? `Nothing chartered on ${chain}.`

@@ -403,7 +403,7 @@ function SecondaryButton({
 
 function ErrorLine({ message }: { message: string }) {
   return (
-    <p role="alert" className="bcc-mono mt-3 text-[11px] text-bcc-danger">
+    <p role="alert" className="bcc-mono mt-3 text-[11px] text-bcc-text-error">
       {message}
     </p>
   );

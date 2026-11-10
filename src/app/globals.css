@@ -124,9 +124,10 @@
      color-token guard reserves the --bcc-safety/-verified spelling for the
      brand layer and for src/components/cards/, which consumes it directly.
      That is a NAMESPACE rule, not a ban on the colors: app code reaches for
-     the aesthetic alias (text-safety, var(--safety)), and these colors are
-     part of page chrome — text-safety is the established micro-eyebrow and
-     inline-alert color. See docs/frontend-doctrine.md §5.3-5.4. */
+     the aesthetic alias (bg-safety, var(--safety)) for fills, borders and
+     marks. Orange TEXT uses the theme-aware safety-text token and error
+     text the error-text token (#205); the bare safety colour fails 4.5:1 as
+     small text. See docs/frontend-doctrine.md §5.3-5.4. */
 
   /* Fixed black/white + a fixed near-black surface (equals the dark-theme
      bg value, but pinned regardless of theme where a surface is meant to
@@ -382,6 +383,15 @@
   --bcc-success:         #15803d;
   --bcc-warning:         #b45309;
   --bcc-danger:          #dc2626;
+
+  /* Small-text tokens (#205). The error-text token carries every error
+     and validation message; the safety-text token carries every other
+     orange word (eyebrows, kickers, links, verdicts). Both clear 4.5:1
+     on page, panel, raised, hover, active, the safety/5 tint and paper.
+     `--bcc-safety` stays the fill/border/mark colour. Paper and ink
+     containers re-declare both further down (fixed grounds). */
+  --bcc-text-error:      #b91c1c;
+  --bcc-text-safety:     #b53d14;
 }
 
 /* ── Dark mode surfaces ── */
@@ -458,6 +468,10 @@
     --bcc-success:         #22c55e;
     --bcc-warning:         #f59e0b;
     --bcc-danger:          #ef4444;
+
+    /* Small-text tokens (#205) — dark values. */
+    --bcc-text-error:      #f87171;
+    --bcc-text-safety:     #f4733f;
   }
 }
 
@@ -529,6 +543,10 @@
   --bcc-success:         #22c55e;
   --bcc-warning:         #f59e0b;
   --bcc-danger:          #ef4444;
+
+  /* Small-text tokens (#205) — dark values. */
+  --bcc-text-error:      #f87171;
+  --bcc-text-safety:     #f4733f;
 }
 
 /* ========================================================================
@@ -3166,6 +3184,29 @@
   @media (prefers-reduced-motion: reduce) {
     .bcc-card { transition: none; }
   }
+}
+
+/* #205 — fixed grounds pin the small-text tokens.
+   Paper and cardstock stay cream in both themes, so inside them the
+   error-text and safety-text tokens take their LIGHT values. Solid ink
+   (and the ink bar of a paper sheet) stays dark in both themes, so it
+   takes the DARK values. Text inherits the nearest declaration, so an
+   ink bar inside a paper sheet reads correctly. Kept outside any layer
+   so Tailwind never purges the escaped opacity variants. */
+.bcc-paper,
+.bg-paper,
+.bg-paper\/90,
+.bg-cardstock,
+.bg-cardstock\/95,
+.bg-cardstock-deep,
+.bcc-paper-ground {
+  --bcc-text-error: #b91c1c;
+  --bcc-text-safety: #b53d14;
+}
+.bcc-paper-head,
+.bg-ink {
+  --bcc-text-error: #f87171;
+  --bcc-text-safety: #f4733f;
 }
 
 @layer components {

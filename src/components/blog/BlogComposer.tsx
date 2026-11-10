@@ -253,7 +253,7 @@ export function BlogComposer({
 
       <label className="flex flex-col gap-1">
         <span className="bcc-mono text-[10px] tracking-[0.18em] text-bcc-text-secondary">
-          EXCERPT <span className="text-safety">*</span> · Floor teaser ({BLOG_EXCERPT_MIN_LENGTH}–{BLOG_EXCERPT_MAX_LENGTH} chars)
+          EXCERPT <span className="text-bcc-text-safety">*</span> · Floor teaser ({BLOG_EXCERPT_MIN_LENGTH}–{BLOG_EXCERPT_MAX_LENGTH} chars)
         </span>
         <textarea
           value={excerpt}
@@ -270,7 +270,7 @@ export function BlogComposer({
             // underMin is this caller's own error condition, layered over the
             // shared ladder rather than pushed into it.
             (excerptUnderMin
-              ? "text-safety"
+              ? "text-bcc-text-error"
               : counterToneClass(
                   excerpt.length,
                   BLOG_EXCERPT_MAX_LENGTH,
@@ -324,7 +324,7 @@ export function BlogComposer({
       </div>
 
       {error !== null && (
-        <p role="alert" className="bcc-mono text-[11px] text-bcc-danger">
+        <p role="alert" className="bcc-mono text-[11px] text-bcc-text-error">
           {error}
         </p>
       )}

@@ -83,7 +83,7 @@ export default function ConversationPage() {
           ? <NotFound />
           : (
             <div className="bcc-paper p-6">
-              <p role="alert" className="bcc-mono text-safety">
+              <p role="alert" className="bcc-mono text-bcc-text-error">
                 {/* §γ — copy is keyed on err.code; never render err.message. */}
                 {humanizeCode(
                   query.error,
@@ -117,7 +117,7 @@ export default function ConversationPage() {
 function NotFound() {
   return (
     <div className="bcc-paper mx-auto max-w-2xl p-8 text-center">
-      <p className="bcc-mono mb-2 text-safety">NO TRACE</p>
+      <p className="bcc-mono mb-2 text-bcc-text-safety">NO TRACE</p>
       <h2 className="bcc-stencil text-3xl text-ink">Conversation not found.</h2>
       <p className="mt-3 font-serif italic leading-relaxed text-ink-soft">
         Either it doesn&apos;t exist, or you&apos;re not a participant.

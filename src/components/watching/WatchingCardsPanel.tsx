@@ -175,7 +175,7 @@ export function WatchingCardsPanel({
     return (
       <section className="mt-12">
         <div className="bcc-panel mx-auto max-w-xl p-8 text-center">
-          <p className="bcc-mono text-safety">WATCHING NOTHING</p>
+          <p className="bcc-mono text-bcc-text-safety">WATCHING NOTHING</p>
           <h2 className="bcc-stencil mt-2 text-3xl text-bcc-text">
             Nothing on your watchlist yet.
           </h2>

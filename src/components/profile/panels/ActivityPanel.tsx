@@ -243,7 +243,7 @@ function ActivityPanelData({
 function ActivityEmpty() {
   return (
     <div className="bcc-paper mx-auto max-w-2xl p-8 text-center">
-      <p className="bcc-mono mb-2 text-safety">QUIET WALL</p>
+      <p className="bcc-mono mb-2 text-bcc-text-safety">QUIET WALL</p>
       <h2 className="bcc-stencil text-3xl text-ink">
         Nothing on file yet.
       </h2>

@@ -98,7 +98,7 @@ export function DirectoryGrid({ query }: Props) {
   if (items.length === 0 && !query.isError) {
     return (
       <div className="bcc-panel mx-auto max-w-md p-8 text-center">
-        <p className="bcc-mono text-safety">NO MATCHES</p>
+        <p className="bcc-mono text-bcc-text-safety">NO MATCHES</p>
         <h2 className="bcc-stencil mt-2 text-3xl text-bcc-text">
           Filter&rsquo;s too tight.
         </h2>

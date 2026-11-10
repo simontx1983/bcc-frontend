@@ -68,7 +68,7 @@ export function DisputesPanel({ handle }: DisputesPanelProps) {
         <Header />
         <div className="px-8 py-12">
           <p
-            className="bcc-mono mb-3 text-safety"
+            className="bcc-mono mb-3 text-bcc-text-safety"
             style={{ fontSize: "10px", letterSpacing: "0.24em" }}
           >
             PRIVATE
@@ -167,7 +167,7 @@ function DisputesEmpty() {
   return (
     <div className="px-8 py-12">
       <p
-        className="bcc-mono mb-3 text-safety"
+        className="bcc-mono mb-3 text-bcc-text-safety"
         style={{ fontSize: "10px", letterSpacing: "0.24em" }}
       >
         NONE ON FILE

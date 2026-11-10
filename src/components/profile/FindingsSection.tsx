@@ -216,7 +216,7 @@ export function FindingsSection({ findings }: { findings: RankFinding[] }) {
                         type="button"
                         onClick={() => handleRequest(finding)}
                         disabled={mutation.isPending}
-                        className="bcc-mono text-safety hover:underline underline-offset-4 disabled:cursor-not-allowed disabled:text-bcc-text-muted"
+                        className="bcc-mono text-bcc-text-safety hover:underline underline-offset-4 disabled:cursor-not-allowed disabled:text-bcc-text-muted"
                       >
                         {pending ? "Requesting…" : "Request review →"}
                       </button>
@@ -234,7 +234,7 @@ export function FindingsSection({ findings }: { findings: RankFinding[] }) {
                       )
                     )}
                     {rowError !== null && rowError.id === finding.id && (
-                      <span role="alert" className="bcc-mono text-bcc-danger">
+                      <span role="alert" className="bcc-mono text-bcc-text-error">
                         {rowError.message}
                       </span>
                     )}

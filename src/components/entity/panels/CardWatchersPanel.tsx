@@ -343,7 +343,7 @@ function ViewToggle({
               aria-pressed={active}
               className={
                 "inline-flex min-h-[44px] min-w-[44px] items-center justify-center transition-colors " +
-                (active ? "text-safety" : "text-cardstock-deep hover:text-cardstock")
+                (active ? "text-bcc-text-safety" : "text-cardstock-deep hover:text-cardstock")
               }
             >
               {opt.label.toUpperCase()}
@@ -417,7 +417,7 @@ function EmptyState({
   return (
     <div className="px-8 py-12">
       <p
-        className="bcc-mono mb-3 text-safety"
+        className="bcc-mono mb-3 text-bcc-text-safety"
         style={{ fontSize: "10px", letterSpacing: "0.24em" }}
       >
         {kicker}

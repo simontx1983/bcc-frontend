@@ -134,7 +134,7 @@ export default async function CommunitiesDiscoveryPage({ searchParams }: PagePro
 
       <section className="mx-auto mt-6 max-w-[1440px] px-6 sm:px-8">
         {fetchError !== null ? (
-          <p role="alert" className="bcc-mono text-bcc-danger">
+          <p role="alert" className="bcc-mono text-bcc-text-error">
             {fetchError}
           </p>
         ) : items.length === 0 ? (
@@ -417,7 +417,7 @@ function EmptyState({
 
   return (
     <div className="bcc-panel mx-auto max-w-xl p-8 text-center">
-      <p className="bcc-mono text-safety">{label}</p>
+      <p className="bcc-mono text-bcc-text-safety">{label}</p>
       <h2 className="bcc-stencil mt-2 text-3xl text-bcc-text">{title}</h2>
       <p className="mt-3 font-serif leading-relaxed text-bcc-text-secondary">{body}</p>
       {mineOnly && isAnon && (
