@@ -1150,8 +1150,10 @@
   .bcc-offcanvas-palette-btn:hover,
   .bcc-offcanvas-palette-btn.active {
     background: var(--bcc-accent-subtle);
-    color: var(--bcc-accent);
-    border-color: var(--bcc-accent);
+    /* Accent glyph on its own tint measured 2.23:1 light; the state is
+       carried by the tint and the indicator border instead. */
+    color: var(--bcc-text);
+    border-color: var(--bcc-accent-indicator);
   }
 
   .bcc-offcanvas-theme-drawer {
@@ -1212,7 +1214,11 @@
   .bcc-nav-item[aria-current="page"],
   .bcc-nav-item.active {
     background: var(--bcc-accent-subtle);
-    color: var(--bcc-accent);
+    /* Full-strength text rather than the accent: accent text on its own
+       subtle ground measured 2.23:1 light (blue) / 2.26:1 (orange).
+       Selection is carried by the tint and the indicator bar below —
+       the same ladder as .bcc-tab (see tab-state-contrast.test.ts). */
+    color: var(--bcc-text);
   }
   .bcc-nav-item[aria-current="page"]::before,
   .bcc-nav-item.active::before {
@@ -1223,7 +1229,7 @@
     transform: translateY(-50%);
     width: 3px;
     height: 20px;
-    background: var(--bcc-accent);
+    background: var(--bcc-accent-indicator);
     border-radius: 0 3px 3px 0;
   }
   .bcc-nav-item-icon {
@@ -1749,7 +1755,9 @@
     background: var(--bcc-surface-hover);
   }
   .bcc-theme-option.selected {
-    border-color: var(--bcc-accent);
+    /* Indicator rather than the raw accent: the border is the selection cue and
+       must clear 3:1 (1.4.11); raw accent is 2.39:1 on white. */
+    border-color: var(--bcc-accent-indicator);
     background: var(--bcc-accent-subtle);
   }
   .bcc-accent-swatch {

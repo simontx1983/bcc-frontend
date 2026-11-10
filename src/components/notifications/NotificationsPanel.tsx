@@ -148,7 +148,7 @@ export function NotificationsPanel({
               type="button"
               onClick={handleMarkAll}
               disabled={markRead.isPending}
-              className="bcc-mono text-[10px] tracking-[0.16em] normal-case text-[var(--bcc-accent)] hover:underline disabled:cursor-not-allowed disabled:text-[var(--bcc-text-muted)]"
+              className="bcc-mono text-[10px] tracking-[0.16em] normal-case text-[var(--bcc-text)] underline underline-offset-2 disabled:cursor-not-allowed disabled:text-[var(--bcc-text-muted)]"
             >
               {markRead.isPending ? "Marking…" : "Mark all read"}
             </button>
@@ -248,7 +248,7 @@ export function NotificationsPanel({
                   aria-disabled={list.isFetchingNextPage || undefined}
                   aria-busy={list.isFetchingNextPage || undefined}
                   className={
-                    "bcc-mono w-full px-4 py-2.5 text-center text-[10px] tracking-[0.18em] text-[var(--bcc-accent)] hover:bg-[var(--bcc-surface-hover)]" +
+                    "bcc-mono w-full px-4 py-2.5 text-center text-[10px] tracking-[0.18em] text-[var(--bcc-text)] hover:bg-[var(--bcc-surface-hover)]" +
                     (list.isFetchingNextPage ? " cursor-wait" : "")
                   }
                 >
