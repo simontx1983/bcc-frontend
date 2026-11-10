@@ -53,6 +53,7 @@ import { formatRelativeTime } from "@/lib/format";
 import { Dialog } from "@/components/ui/Dialog";
 
 import { IndexerStateChip } from "./IndexerStateChip";
+import { NotYetActiveBadge } from "./NotYetActiveBadge";
 
 interface NftPickerModalProps {
   onClose: () => void;
@@ -308,8 +309,10 @@ function NftTile({
   onToggle: () => void;
 }) {
   const selected = item.is_selected;
-  // Absent flag (older cached payloads) reads as verified — dimming on
+  // Absent flag (older cached payloads) reads as verified — badging on
   // missing data would flash the whole grid during deploy skew.
+  // Unverified items stay fully selectable, so the treatment is a label
+  // only (NotYetActiveBadge): no dimming, which would read as disabled.
   const unverifiedCollection = item.collection_verified === false;
   const displayName = (item.name ?? "").trim();
   const collection = (item.collection_name ?? "").trim();
@@ -348,17 +351,9 @@ function NftTile({
             loading="lazy"
             decoding="async"
             className="h-full w-full object-cover"
-            style={
-              unverifiedCollection
-                ? { opacity: 0.55, filter: "saturate(0.35)" }
-                : undefined
-            }
           />
         ) : (
-          <div
-            className="flex h-full w-full items-center justify-center"
-            style={unverifiedCollection ? { opacity: 0.55 } : undefined}
-          >
+          <div className="flex h-full w-full items-center justify-center">
             <span
               className="bcc-stencil text-3xl"
               style={{ color: "var(--cardstock-deep)" }}
@@ -368,19 +363,11 @@ function NftTile({
           </div>
         )}
 
-        {unverifiedCollection && !selected && (
-          <span
-            aria-hidden
-            className="bcc-mono absolute left-2 top-2 px-1.5 py-0.5"
-            style={{
-              background: "rgb(var(--ink-rgb) / 0.72)",
-              color: "var(--cardstock)",
-              fontSize: "8px",
-              letterSpacing: "0.16em",
-            }}
-          >
-            COMMUNITY NOT YET ACTIVATED
-          </span>
+        {/* Bottom-left so it never collides with the top-right
+            ✓ ON FLOOR stamp: an unverified item can be selected, and
+            at 375px a two-column tile cannot fit both on one edge. */}
+        {unverifiedCollection && (
+          <NotYetActiveBadge className="absolute bottom-2 left-2" />
         )}
 
         {selected && (
