@@ -429,7 +429,11 @@
     --card-shadow:         0 22px 48px -24px rgba(0,0,0,0.72), 0 6px 16px -8px rgba(0,0,0,0.50);
     --card-border:         var(--bcc-border);
 
-    --bcc-header-bg:       rgba(13,17,23,0.55);
+    /* 0.90, not 0.55 (#209): at 0.55 bright content scrolling under the
+       header showed through enough to drop header text to 3.54:1 and
+       secondary text to 1.36:1 over white. At 0.90 the worst case over
+       white is text 12.40, secondary 4.76. */
+    --bcc-header-bg:       rgba(13,17,23,0.90);
     --bcc-header-border:   rgba(255,255,255,0.06);
     /* Opaque form of --bcc-header-bg — see the light scope. */
     --bcc-header-plate:    #0d1117;
@@ -499,7 +503,8 @@
   --card-shadow:         0 22px 48px -24px rgba(0,0,0,0.72), 0 6px 16px -8px rgba(0,0,0,0.50);
   --card-border:         var(--bcc-border);
 
-  --bcc-header-bg:       rgba(13,17,23,0.55);
+  /* 0.90, not 0.55 — see the prefers-color-scheme dark scope (#209). */
+  --bcc-header-bg:       rgba(13,17,23,0.90);
   --bcc-header-border:   rgba(255,255,255,0.06);
   /* Opaque form of --bcc-header-bg — see the light scope. */
   --bcc-header-plate:    #0d1117;
