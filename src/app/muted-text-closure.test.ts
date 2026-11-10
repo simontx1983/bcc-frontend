@@ -35,13 +35,12 @@
  *
  * ## Scope note
  *
- * `--bcc-search-placeholder` is NOT one of the 37. It is a separate
- * token, carved out in E4 because `.bcc-search-input` sits on
- * `--bcc-glass-bg-frosted` with a `backdrop-filter` and its backdrop is
- * unbounded. It is tested below only as a **deferred invariant** — that
- * it still exists, still holds the pre-repair values, and is still
- * failing. It must never be counted as a muted-token exclusion or read
- * as resolved.
+ * `--bcc-search-placeholder` was never one of the 37. It was a separate
+ * token carved out in E4, on the view that `.bcc-search-input`'s frosted
+ * backdrop was unbounded. #202 measured that backdrop (it is bounded: 10%
+ * glass over the header's 80% / 55% fill over the page), moved the
+ * placeholder onto the general `--bcc-text-placeholder`, and deleted the
+ * carve-out token. Section 5 asserts it stays deleted.
  *
  * Likewise out of scope and untouched: `--phosphor`, `--bcc-safety` and
  * `--weld` (three unscoped, theme-blind tokens that fail light theme),
@@ -399,31 +398,22 @@ describe("E6 — the .bcc-text-muted utility has no production consumers left", 
 });
 
 // ─────────────────────────────────────────────────────────────────────────
-// 5. Deferred invariants — recorded, NOT counted, NOT resolved
+// 5. The former header-search deferral — resolved in #202
 // ─────────────────────────────────────────────────────────────────────────
 
-describe("deferred — the header search placeholder is still broken", () => {
+describe("resolved — the header search placeholder carve-out is gone (#202)", () => {
   const values = (n: string) =>
     [...CSS.matchAll(new RegExp(`--${n}:\\s*([^;]+);`, "g"))].map((m) => m[1]?.trim() ?? "");
-  const lin = (c: number) => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
-  const lum = (hex: string) => {
-    const h = hex.replace("#", "");
-    const [r, g, b] = [0, 2, 4].map((i) => lin(parseInt(h.slice(i, i + 2), 16) / 255));
-    return 0.2126 * (r ?? 0) + 0.7152 * (g ?? 0) + 0.0722 * (b ?? 0);
-  };
-  const ratio = (a: string, b: string) => {
-    const [x, y] = [lum(a), lum(b)];
-    return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
-  };
 
-  it("is a SEPARATE token and therefore not one of the 37", () => {
-    expect(values("bcc-search-placeholder")).toEqual(["#b3b8c3", "#3d444d", "#3d444d"]);
-    // it must never appear in the muted census
+  it("the carve-out token is deleted, not merely unused", () => {
+    expect(values("bcc-search-placeholder")).toEqual([]);
+    expect(CSS).not.toContain("--bcc-search-placeholder");
     expect(HITS.some((h) => /search-placeholder/.test(h.text))).toBe(false);
   });
 
-  it("still fails, and is not to be read as resolved", () => {
-    expect(ratio(values("bcc-search-placeholder")[0] ?? "", "#ffffff")).toBeLessThan(4.5);
+  it("the header field reads the general placeholder token", () => {
+    const rule = /\.bcc-search-input::placeholder\s*\{[^}]*\}/.exec(CSS)?.[0] ?? "";
+    expect(rule).toContain("var(--bcc-text-placeholder)");
   });
 
   it("the general placeholder token stays repaired", () => {

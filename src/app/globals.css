@@ -318,12 +318,6 @@
   --bcc-text-secondary-rgb: 75 85 99;
   --bcc-text-muted:      #9ca3af;
   --bcc-text-placeholder:#5f626a;
-  /* DEFERRED — header search only. Retains the pre-repair value so the
-     header keeps its exact computed appearance. It is NOT an approved
-     general token: .bcc-search-input sits on --bcc-glass-bg-frosted with a
-     backdrop-filter, so its backdrop is unbounded and no value can be
-     verified. Isolated here so it cannot block the 21 bounded consumers. */
-  --bcc-search-placeholder:#b3b8c3;
   --bcc-text-inverse:    #ffffff;
 
   /* Readable brand text — the wordmark's two-tone as TEXT, at 4.5:1.
@@ -415,7 +409,6 @@
     --bcc-text-secondary-rgb: 139 148 158;
     --bcc-text-muted:      #484f58;
     --bcc-text-placeholder:#82878f;
-    --bcc-search-placeholder:#3d444d;
     --bcc-text-inverse:    #0d1117;
     --bcc-stoke-ash:       #6f6358;
 
@@ -445,7 +438,7 @@
     --bcc-sidebar-border:  #30363d;
 
     --bcc-input-bg:        #161b22;
-    --bcc-input-bg-focus:  #1c2128;
+    --bcc-input-bg-focus:  #161b22;
     --bcc-input-border:    #30363d;
     --bcc-input-border-focus: var(--bcc-accent);
 
@@ -487,7 +480,6 @@
   --bcc-text-secondary-rgb: 139 148 158;
   --bcc-text-muted:      #484f58;
   --bcc-text-placeholder:#82878f;
-  --bcc-search-placeholder:#3d444d;
   --bcc-text-inverse:    #0d1117;
   --bcc-stoke-ash:       #6f6358;
 
@@ -516,7 +508,7 @@
   --bcc-sidebar-border:  #30363d;
 
   --bcc-input-bg:        #161b22;
-  --bcc-input-bg-focus:  #1c2128;
+  --bcc-input-bg-focus:  #161b22;
   --bcc-input-border:    #30363d;
   --bcc-input-border-focus: var(--bcc-accent);
 
@@ -966,9 +958,17 @@
                 border-color var(--bcc-transition-fast),
                 box-shadow var(--bcc-transition-fast);
   }
+  /* The frosted field's backdrop is bounded (#202): 10% glass over the
+     header's 80% light / 55% dark fill, over the page. Measured on that
+     composite (normal / focused): placeholder 5.87 / 6.10 light and
+     5.20 / 4.79 dark; icon 7.28 / 7.56 light and 6.11 / 5.62 dark.
+     The dark focused fill (input-bg-focus, used only here) now matches
+     the plain dark input fill, #161b22; at the old #1c2128 the
+     placeholder read 4.48. The one case no header colour clears is bright content
+     scrolled under the dark header's 55% fill; that applies to all header
+     chrome, not this field. */
   .bcc-search-input::placeholder {
-    /* Deferred: unbounded frosted-glass backdrop — see --bcc-search-placeholder. */
-    color: var(--bcc-search-placeholder);
+    color: var(--bcc-text-placeholder);
   }
   .bcc-search-input:focus {
     background: var(--bcc-input-bg-focus);
@@ -978,7 +978,7 @@
   .bcc-search-icon {
     position: absolute;
     right: 12px;
-    color: var(--bcc-text-muted);
+    color: var(--bcc-text-secondary);
     pointer-events: none;
     width: 16px;
     height: 16px;

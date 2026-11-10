@@ -29,10 +29,12 @@
  * reads a separate `--bcc-search-placeholder` holding the *old* values, so
  * the header's computed appearance is unchanged.
  *
- * That is containment, not a fix. The header search placeholder is still
- * failing; it is isolated so it cannot hold 21 sound consumers hostage.
- * Two instances are affected: the desktop header field and the mobile
- * search overlay, both via `inputClassName="bcc-search-input"`.
+ * That was containment, not a fix. **#202 resolved it:** the backdrop is
+ * bounded (10% glass over the header's 80% light / 55% dark fill over the
+ * page), the field now reads `--bcc-text-placeholder` like every other
+ * input, and the carve-out token is deleted. Section 2 pins that. Two
+ * instances use the class: the desktop header field and the mobile search
+ * overlay, both via `inputClassName="bcc-search-input"`.
  *
  * ## The counter ladder is shared as a helper, not a component
  *
@@ -118,37 +120,25 @@ describe("E4 — the repaired placeholder token", () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────
-// 2. Header isolation — containment, not a fix
+// 2. Header search field — the E4 carve-out, resolved in #202
 // ─────────────────────────────────────────────────────────────────────────
 
-describe("E4 — .bcc-search-input is isolated, and still broken", () => {
-  it("a separately named token exists, holding the pre-repair values", () => {
-    expect(tokenValues("bcc-search-placeholder")).toEqual(["#b3b8c3", "#3d444d", "#3d444d"]);
+describe("#202 — .bcc-search-input joins the general placeholder token", () => {
+  it("the carve-out token is deleted", () => {
+    expect(tokenValues("bcc-search-placeholder")).toEqual([]);
   });
 
-  it("the header rule reads the deferred token, not the repaired one", () => {
+  it("the header rule reads the repaired general token", () => {
     const rule = /\.bcc-search-input::placeholder\s*\{[^}]*\}/.exec(CSS)?.[0] ?? "";
-    expect(rule).toContain("var(--bcc-search-placeholder)");
-    expect(rule).not.toContain("var(--bcc-text-placeholder)");
+    expect(rule).toContain("var(--bcc-text-placeholder)");
+    expect(rule).not.toContain("search-placeholder");
   });
 
-  it("the header's computed appearance is unchanged", () => {
-    // Same values it had before the repair — this slice must not alter the
-    // header's look while its backdrop problem remains unsolved.
-    expect(tokenValues("bcc-search-placeholder")[0]).toBe("#b3b8c3");
-  });
-
-  it("records WHY it is excluded: an unbounded frosted-glass backdrop", () => {
+  it("the field is still frosted glass; the measured bounds live in chrome-contrast", () => {
+    // The numbers for this composite are asserted in chrome-contrast.test.ts.
     const block = /\.bcc-search-input\s*\{[^}]*\}/.exec(CSS)?.[0] ?? "";
     expect(block).toContain("--bcc-glass-bg-frosted");
     expect(block).toContain("backdrop-filter");
-  });
-
-  it("is still failing — this is containment, and must not be read as a pass", () => {
-    // Documented, not repaired. If someone later "tidies" this token to the
-    // repaired values without solving the glass, this fails and asks why.
-    const light = tokenValues("bcc-search-placeholder")[0] ?? "";
-    expect(ratio(light, "#ffffff")).toBeLessThan(4.5);
   });
 
   it("only the two known header instances use the class", () => {
