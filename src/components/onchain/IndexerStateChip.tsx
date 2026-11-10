@@ -17,10 +17,14 @@
  *     unconditionally without guarding.
  *
  * No `"use client"` — pure presentation. Safe in server components.
+ *
+ * Colours are theme-aware (#201): the chip sits on the Dialog panel,
+ * which flips with the theme. Fixed blueprint navy and ink-ghost read
+ * at 1.05:1 and 2.92:1 on the dark panel.
  */
 
 const COLOR_BY_STATE: Record<string, string> = {
-  syncing:  "text-blueprint",
+  syncing:  "text-bcc-text",
   degraded: "text-safety",
 };
 
@@ -34,10 +38,10 @@ export function IndexerStateChip({
   label: string;
 }) {
   if (label === "") return null;
-  const stateColor = COLOR_BY_STATE[state] ?? "text-ink-ghost";
+  const stateColor = COLOR_BY_STATE[state] ?? "text-bcc-text-secondary";
   return (
     <span
-      className="bcc-mono text-ink-ghost"
+      className="bcc-mono text-bcc-text-secondary"
       style={{ fontSize: "10px", letterSpacing: "0.18em" }}
     >
       <span className="text-safety">{chain.toUpperCase()}</span>
