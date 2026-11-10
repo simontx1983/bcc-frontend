@@ -100,7 +100,7 @@ export function NftShowcaseSettings() {
           )}
 
           {list.isError && (
-            <p role="alert" className="bcc-mono text-safety">
+            <p role="alert" className="bcc-mono text-bcc-danger">
               {/* §γ — copy is keyed on err.code; never render err.message. */}
               {humanizeCode(
                 list.error,
@@ -135,7 +135,7 @@ export function NftShowcaseSettings() {
           {reorderError !== null && (
             <p
               role="alert"
-              className="bcc-mono mt-4 border-l-2 border-safety pl-3 text-safety"
+              className="bcc-mono mt-4 border-l-2 border-safety pl-3 text-bcc-danger"
             >
               {reorderError}
             </p>

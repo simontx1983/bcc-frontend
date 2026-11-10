@@ -315,7 +315,7 @@ function NewMessagePageContent() {
               )}
 
               {wantsPin && pinnedQuery.isError && (
-                <p role="alert" className="bcc-mono text-[11px] text-safety">
+                <p role="alert" className="bcc-mono text-[11px] text-bcc-danger">
                   {humanizeCode(
                     pinnedQuery.error,
                     {
@@ -385,7 +385,7 @@ function NewMessagePageContent() {
             </div>
 
             {error !== null && (
-              <p role="alert" className="bcc-mono text-[11px] text-safety">
+              <p role="alert" className="bcc-mono text-[11px] text-bcc-danger">
                 {error}
               </p>
             )}

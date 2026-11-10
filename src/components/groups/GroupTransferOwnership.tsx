@@ -280,7 +280,7 @@ export function GroupTransferOwnership({ group }: GroupTransferOwnershipProps) {
             receiving, or transferring communities.
           </p>
           {errorMessage !== null && (
-            <p role="alert" className="bcc-mono mt-3 text-[10px] tracking-[0.14em] text-safety">
+            <p role="alert" className="bcc-mono mt-3 text-[10px] tracking-[0.14em] text-bcc-danger">
               {errorMessage}
             </p>
           )}

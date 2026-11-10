@@ -186,7 +186,7 @@ function AutoJoinPreference() {
       )}
 
       {updateMutation.isError && (
-        <p role="alert" className="bcc-mono mt-3 text-[11px] text-safety">
+        <p role="alert" className="bcc-mono mt-3 text-[11px] text-bcc-danger">
           {/* §γ — copy is keyed on err.code; never render err.message. */}
           {humanizeCode(
             updateMutation.error,

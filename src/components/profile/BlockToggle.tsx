@@ -95,7 +95,7 @@ export function BlockToggle({ profile }: BlockToggleProps) {
             : "BLOCK"}
       </button>
       {errorMessage !== null && (
-        <span role="alert" className="bcc-mono text-[10px] text-safety">
+        <span role="alert" className="bcc-mono text-[10px] text-bcc-danger">
           {errorMessage}
         </span>
       )}

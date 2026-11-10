@@ -111,7 +111,7 @@ export default async function HallsDirectoryPage({ searchParams }: PageProps) {
 
       <section className="mx-auto mt-6 max-w-6xl px-6 sm:px-8">
         {fetchError !== null ? (
-          <p role="alert" className="bcc-mono text-safety">
+          <p role="alert" className="bcc-mono text-bcc-danger">
             {fetchError}
           </p>
         ) : items.length === 0 ? (

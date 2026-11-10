@@ -436,7 +436,7 @@ export function NotificationPrefsForm() {
             {pushMasterError !== null && (
               <p
                 role="alert"
-                className="bcc-mono mt-1 text-[11px] text-safety"
+                className="bcc-mono mt-1 text-[11px] text-bcc-danger"
               >
                 {pushMasterError}
               </p>

@@ -1163,7 +1163,7 @@ function StatusForm({ onSubmitSuccess }: { onSubmitSuccess: (() => void) | undef
       </div>
 
       {error !== null && (
-        <p role="alert" className="bcc-mono text-[11px] text-safety">
+        <p role="alert" className="bcc-mono text-[11px] text-bcc-danger">
           {error}
         </p>
       )}
@@ -1372,7 +1372,7 @@ function ReviewForm({
       </div>
 
       {error !== null && (
-        <p role="alert" className="bcc-mono text-[11px] text-safety">
+        <p role="alert" className="bcc-mono text-[11px] text-bcc-danger">
           {error}
         </p>
       )}

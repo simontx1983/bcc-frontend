@@ -139,7 +139,7 @@ function MentorToggle({ prefs }: { prefs: ProfilePrefs }) {
         )}
       </p>
       {errorMessage !== null && (
-        <p role="alert" className="bcc-mono mt-2 text-[10px] tracking-[0.12em] text-safety">
+        <p role="alert" className="bcc-mono mt-2 text-[10px] tracking-[0.12em] text-bcc-danger">
           {errorMessage}
         </p>
       )}

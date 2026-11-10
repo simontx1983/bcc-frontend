@@ -134,7 +134,7 @@ export default async function CommunitiesDiscoveryPage({ searchParams }: PagePro
 
       <section className="mx-auto mt-6 max-w-[1440px] px-6 sm:px-8">
         {fetchError !== null ? (
-          <p role="alert" className="bcc-mono text-safety">
+          <p role="alert" className="bcc-mono text-bcc-danger">
             {fetchError}
           </p>
         ) : items.length === 0 ? (

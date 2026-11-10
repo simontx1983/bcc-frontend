@@ -171,7 +171,7 @@ export function CoverImageUpload({ value, onChange, disabled = false }: CoverIma
       )}
 
       {error !== null && (
-        <p role="alert" className="bcc-mono text-[11px] text-safety">
+        <p role="alert" className="bcc-mono text-[11px] text-bcc-danger">
           {error}
         </p>
       )}

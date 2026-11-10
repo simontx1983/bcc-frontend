@@ -151,7 +151,7 @@ export function NftPickerModal({ onClose }: NftPickerModalProps) {
       )}
 
       {picker.isError && (
-        <p role="alert" className="bcc-mono text-safety">
+        <p role="alert" className="bcc-mono text-bcc-danger">
           {/* §γ — copy is keyed on err.code; never render err.message. */}
           {humanizeCode(
             picker.error,
@@ -208,7 +208,7 @@ export function NftPickerModal({ onClose }: NftPickerModalProps) {
       {errorMessage !== null && (
         <p
           role="alert"
-          className="bcc-mono mt-4 border-l-2 border-safety pl-3 text-safety"
+          className="bcc-mono mt-4 border-l-2 border-safety pl-3 text-bcc-danger"
         >
           {errorMessage}
         </p>

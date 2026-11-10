@@ -919,18 +919,17 @@ describe("what this slice deliberately did NOT touch", () => {
     /**
      * Enumerated, not permitted.
      *
-     * `text-safety` is the pre-existing display-name validation `role="alert"`,
-     * unchanged since 89e0480 — genuine warning semantics on a theme-aware
-     * surface, so it is a row in the theme-aware migration (3.39 in light,
-     * wants `text-bcc-warning`). Not this slice's to move. The second
+     * The last `text-safety` here was the display-name validation
+     * `role="alert"` (3.39 in light on its bcc-panel). #205 moved error
+     * text on page and panel grounds to `text-bcc-danger` (4.83 / 4.60), so
+     * ProfileHero now carries no safety utility at all. The earlier second
      * `text-safety` went with the bespoke `serverError` line the profile-tab
      * slice replaced with `SettingsSaveStatus`.
      */
     // The destructive leading-edge mark moved out with the controls: it
     // now lives on the ActionMenu's destructive item, and
-    // profile-hero-photo-controls.test.ts owns it there. ProfileHero
-    // itself carries no safety utility other than the alert below.
-    expect(heroSafety).toEqual(["text-safety"]);
+    // profile-hero-photo-controls.test.ts owns it there.
+    expect(heroSafety).toEqual([]);
     // No FILL of any alpha, which is the thing the ProfileHero slice removed.
     expect(heroSafety.filter((c) => c.startsWith("bg-safety"))).toEqual([]);
   });

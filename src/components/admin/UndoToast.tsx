@@ -164,7 +164,7 @@ export function UndoToast({ descriptor, onDismiss }: Props) {
                 : `Undo within ${secondsLeft}s`}
             </span>
           ) : (
-            <span className="bcc-mono text-[11px] text-safety">
+            <span className="bcc-mono text-[11px] text-bcc-danger">
               {undoFailureCopy(errorCode)}
             </span>
           )}

@@ -276,7 +276,7 @@ export function OpenDisputeModal({
           </div>
 
           {error !== null && (
-            <p role="alert" className="bcc-mono text-safety">
+            <p role="alert" className="bcc-mono text-bcc-danger">
               {error}
             </p>
           )}
