@@ -6054,6 +6054,15 @@ export interface MessageUserMini {
   avatar_url: string;
 }
 
+/**
+ * Server placeholder for a message whose sender the viewer has blocked
+ * (bcc-trust #122). The inbox `preview` already carries it; a thread
+ * item's `body` will once the backend withholds the text, at which point
+ * the real body is fetched on demand via the reveal endpoint. Mirrors the
+ * server string exactly — the reveal path compares against it.
+ */
+export const BLOCKED_SENDER_PLACEHOLDER = "Message from someone you have blocked";
+
 /** One message in a thread. `is_inline_notice` flags PeepSo system rows. */
 export interface MessageItem {
   id: number;
@@ -6061,13 +6070,29 @@ export interface MessageItem {
   body: string;
   posted_at: string;
   is_inline_notice: boolean;
+  /** True when the viewer has blocked this message's sender. Always sent. */
+  sender_blocked_by_viewer: boolean;
 }
 
 export interface ConversationLastMessage {
   id: number;
   author: MessageUserMini | null;
+  /** Already `BLOCKED_SENDER_PLACEHOLDER` when `sender_blocked_by_viewer`. */
   preview: string;
   posted_at: string;
+  /** True when the viewer has blocked this message's sender. Always sent. */
+  sender_blocked_by_viewer: boolean;
+}
+
+/**
+ * GET /me/conversations/{id}/messages/{message_id}/reveal — the real
+ * body of one message from a sender the viewer has blocked. Viewer-
+ * initiated, `private, no-store`; 404 `bcc_not_found` for a non-
+ * participant or a message that isn't in that conversation.
+ */
+export interface RevealedMessageResponse {
+  id: number;
+  body: string;
 }
 
 /**

@@ -103,7 +103,11 @@ export default function ConversationPage() {
 
         {isAuthed && query.isSuccess && (
           <>
-            <ThreadView items={query.data.items} viewerId={viewerId} />
+            <ThreadView
+              conversationId={conversationId}
+              items={query.data.items}
+              viewerId={viewerId}
+            />
             <div className="mt-6">
               <MessageComposer conversationId={conversationId} />
             </div>
