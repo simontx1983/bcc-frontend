@@ -374,7 +374,7 @@ export default async function MemberProfilePage({ params }: PageProps) {
         </div>
         {showHandleKicker && (
           <p
-            className="bcc-mono mt-3 text-safety"
+            className="bcc-mono mt-3 text-bcc-text-safety"
             style={{ fontSize: "11px", letterSpacing: "0.18em" }}
           >
             @{profile.handle}
@@ -419,7 +419,7 @@ export default async function MemberProfilePage({ params }: PageProps) {
                   grid-cols-6 spreads across the whole hero width. */}
               <div className="mb-3 flex items-center gap-3">
                 <span className="bcc-mono text-bcc-text-secondary">FILE 04</span>
-                <span className="bcc-mono text-safety">{"//"} THE NUMBERS</span>
+                <span className="bcc-mono text-bcc-text-safety">{"//"} THE NUMBERS</span>
               </div>
               <CountsStrip counts={profile.counts} />
             </div>
@@ -667,7 +667,7 @@ function SectionFrame({
     <section className="mx-auto mt-16 max-w-[1440px] px-4 sm:px-7">
       <div className="mb-7 flex items-center gap-4">
         <span className="bcc-mono text-bcc-text-secondary">FILE {fileNumber}</span>
-        <span className="bcc-mono text-safety">{"//"} {label}</span>
+        <span className="bcc-mono text-bcc-text-safety">{"//"} {label}</span>
         <span aria-hidden className="h-px flex-1 bg-bcc-border" />
         {action !== undefined && action !== null && (
           <span className="shrink-0">{action}</span>

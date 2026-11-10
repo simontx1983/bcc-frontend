@@ -16,7 +16,7 @@
  *
  * The rungs:
  *
- *   over the limit   → `text-safety`
+ *   over the limit   → `text-bcc-text-error`
  *   near the limit   → `text-bcc-warning`  (only when `warnAt` is given)
  *   otherwise        → `text-bcc-text-secondary`
  *
@@ -32,10 +32,11 @@
  * 7.56 / 6.15, and stays distinguishable from `text-bcc-warning` (5.02 light,
  * 8.81 dark) by both hue and lightness.
  *
- * ⚠ The top rung is deliberately untouched. `--bcc-safety` is a single
- * unscoped `#f05a28` measuring 3.39:1 in light theme, so it fails as text —
- * but `text-safety` is separately scoped work and is not repaired here.
- * Do not "fix" it by editing this helper.
+ * The top rung is the theme-aware error-text token (#205). It replaced the
+ * theme-blind safety orange, which measured 3.39:1 in light theme and
+ * failed as text; the error-text token clears 4.5:1 on every app ground
+ * and on paper in both themes. An over-limit counter is a validation
+ * error, so it shares the token with inline error messages.
  */
 
 /**
@@ -45,7 +46,7 @@
  *               Omit for the two-rung callers that have no warning state.
  */
 export function counterToneClass(value: number, max: number, warnAt?: number): string {
-  if (value > max) return "text-safety";
+  if (value > max) return "text-bcc-text-error";
   if (warnAt !== undefined && value > warnAt) return "text-bcc-warning";
   return "text-bcc-text-secondary";
 }

@@ -106,7 +106,7 @@ function ValidatorsPageContent() {
       <RouteRail kicker={"FLOOR \u00a0//\u00a0 VALIDATORS"} label={"FILE INDEX \u00a0//\u00a0 STAKING OPERATORS"} />
 
       <header className="mx-auto max-w-[1560px] px-4 sm:px-7 pt-12">
-        <p className="bcc-mono text-safety">KNOW YOUR VALIDATOR</p>
+        <p className="bcc-mono text-bcc-text-safety">KNOW YOUR VALIDATOR</p>
         <h1
           className="bcc-stencil mt-3 text-bcc-text leading-[0.95]"
           style={{ fontSize: "clamp(2.5rem, 6.5vw, 5.5rem)" }}
@@ -216,7 +216,7 @@ function ActiveFiltersStrip({
           <button
             type="button"
             onClick={onClearAll}
-            className="bcc-mono shrink-0 text-safety hover:underline"
+            className="bcc-mono shrink-0 text-bcc-text-safety hover:underline"
           >
             CLEAR ALL
           </button>
@@ -232,7 +232,7 @@ function FilterChip({ label, onClear }: { label: string; onClear: () => void }) 
       type="button"
       onClick={onClear}
       aria-label={`Clear filter ${label}`}
-      className="bcc-mono inline-flex shrink-0 items-center gap-2 whitespace-nowrap border border-bcc-border px-2 py-1 text-bcc-text-secondary transition hover:border-safety hover:text-safety"
+      className="bcc-mono inline-flex shrink-0 items-center gap-2 whitespace-nowrap border border-bcc-border px-2 py-1 text-bcc-text-secondary transition hover:border-safety hover:text-bcc-text-safety"
     >
       <span>{label}</span>
       <span aria-hidden className="text-bcc-text-muted">✕</span>

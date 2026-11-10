@@ -406,9 +406,9 @@ safety-orange rule beneath). Use them together rather than rebuilding a sheet.
   `[data-accent]`. Use the accent for anything that tracks that choice: active
   tab, current nav row, selected chip, primary CTA, focus ring, link color.
   Never hardcode `--bcc-primary` / `--bcc-secondary` for those.
-- **Safety orange is the eyebrow and the inline alert.** `text-safety` on a
+- **Safety orange is the eyebrow and the inline alert.** `text-bcc-text-safety` on a
   `bcc-mono` label is the established micro-heading above a section or empty
-  state, and the established color for inline validation/error text. It is part
+  state, and inline validation/error text uses `text-bcc-text-error` (#205). It is part
   of the current vocabulary on both surface families — not a card-only color.
 - **Blueprint / weld / cardstock** are likewise part of the shipped vocabulary
   (`bg-blueprint` for dark inset blocks, `--weld` for caution tape and the
@@ -590,7 +590,7 @@ them instead of inventing a fourth.
 - **Empty — the canonical centered sheet:**
   ```
   bcc-paper mx-auto max-w-2xl p-8 text-center
-    → bcc-mono text-safety            eyebrow  ("QUIET FLOOR", "NO MATCHES")
+    → bcc-mono text-bcc-text-safety   eyebrow  ("QUIET FLOOR", "NO MATCHES")
     → bcc-stencil text-3xl text-ink   heading
     → font-serif italic text-ink-soft body
     → a recovery action (reset filter / broaden / go somewhere useful)
@@ -603,7 +603,7 @@ them instead of inventing a fourth.
   inline/in-button "working…" only.
 - **Error —** [`LoadFailure`](../src/components/ui/LoadFailure.tsx): muted glyph,
   plain-language `role="alert"` message, real Retry button. Inline field errors
-  are `bcc-mono text-[11px] text-safety` with `role="alert"`.
+  are `bcc-mono text-[11px] text-bcc-text-error` with `role="alert"`.
 
 ### 5.12 Display contexts are not app chrome
 

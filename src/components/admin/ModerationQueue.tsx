@@ -350,7 +350,7 @@ export function ModerationQueue() {
       {items.length === 0 ? (
         <div className="bcc-panel p-6">
           <p
-            className="bcc-mono mb-3 text-safety"
+            className="bcc-mono mb-3 text-bcc-text-safety"
             style={{ fontSize: "10px", letterSpacing: "0.24em" }}
           >
             QUEUE CLEAR
@@ -670,13 +670,13 @@ function ReportRow({
             {item.status_label}
           </span>
           <span
-            className="bcc-mono inline-flex items-center border-2 border-safety/50 px-2 py-0.5 text-[10px] tracking-[0.18em] text-safety"
+            className="bcc-mono inline-flex items-center border-2 border-safety/50 px-2 py-0.5 text-[10px] tracking-[0.18em] text-bcc-text-safety"
           >
             {item.reason_code.toUpperCase()}
           </span>
           {item.currently_hidden && (
             <span
-              className="bcc-mono inline-flex items-center border-2 border-safety bg-safety/10 px-2 py-0.5 text-[10px] tracking-[0.18em] text-safety"
+              className="bcc-mono inline-flex items-center border-2 border-safety bg-safety/10 px-2 py-0.5 text-[10px] tracking-[0.18em] text-bcc-text-safety"
             >
               HIDDEN
             </span>
@@ -733,7 +733,7 @@ function ReportRow({
       </div>
 
       {mutation.isError && (
-        <p role="alert" className="bcc-mono text-[11px] text-bcc-danger">
+        <p role="alert" className="bcc-mono text-[11px] text-bcc-text-error">
           {/* §γ — copy is keyed on err.code; never render err.message. */}
           {humanizeCode(
             mutation.error,
@@ -903,7 +903,7 @@ function QueueError({ filter, onChange, error }: QueueErrorProps) {
     return (
       <div className="bcc-panel p-6">
         <p
-          className="bcc-mono mb-3 text-safety"
+          className="bcc-mono mb-3 text-bcc-text-safety"
           style={{ fontSize: "10px", letterSpacing: "0.24em" }}
         >
           ADMIN ACCESS REQUIRED
@@ -921,7 +921,7 @@ function QueueError({ filter, onChange, error }: QueueErrorProps) {
   return (
     <div className="bcc-panel p-6">
       <StatusTabs value={filter} onChange={onChange} />
-      <p role="alert" className="bcc-mono mt-4 text-bcc-danger">
+      <p role="alert" className="bcc-mono mt-4 text-bcc-text-error">
         {/* §γ — copy is keyed on err.code; never render err.message. */}
         {humanizeCode(
           error,

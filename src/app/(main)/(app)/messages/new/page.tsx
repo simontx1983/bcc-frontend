@@ -315,7 +315,7 @@ function NewMessagePageContent() {
               )}
 
               {wantsPin && pinnedQuery.isError && (
-                <p role="alert" className="bcc-mono text-[11px] text-bcc-danger">
+                <p role="alert" className="bcc-mono text-[11px] text-bcc-text-error">
                   {humanizeCode(
                     pinnedQuery.error,
                     {
@@ -376,7 +376,7 @@ function NewMessagePageContent() {
                 className={
                   "bcc-mono text-[10px] tracking-[0.16em] " +
                   (body.length > MESSAGE_BODY_MAX_LENGTH
-                    ? "text-safety"
+                    ? "text-bcc-text-error"
                     : "text-bcc-text-secondary")
                 }
               >
@@ -385,7 +385,7 @@ function NewMessagePageContent() {
             </div>
 
             {error !== null && (
-              <p role="alert" className="bcc-mono text-[11px] text-bcc-danger">
+              <p role="alert" className="bcc-mono text-[11px] text-bcc-text-error">
                 {error}
               </p>
             )}

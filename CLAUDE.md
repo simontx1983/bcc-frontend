@@ -84,8 +84,11 @@ sitting on the app rather than as part of it.
 - `--bcc-accent*` follows the viewer's `[data-accent]` choice — use it for active
   tabs, current nav rows, selected chips, primary CTAs, links. Never hardcode
   `--bcc-primary`/`--bcc-secondary` where the accent belongs.
-- **`text-safety` is the established eyebrow and inline-alert color** on both
-  surface families. `--weld` and `--blueprint` are likewise part of the shipped
+- **Orange text is `text-bcc-text-safety`; error text is `text-bcc-text-error`**
+  on both surface families (#205). Both are theme-aware and paper/ink containers
+  pin them, so they read on every ground. The bare `text-safety` utility fails
+  4.5:1 as small text and is guarded to zero; `bg-safety`/`border-safety` stay
+  for fills, borders and marks. `--weld` and `--blueprint` are likewise part of the shipped
   vocabulary. Use them where a nearby screen already does.
 - **`--weld` is fixed-dark only, and is not a warning colour.** 11.84:1 on
   `--ink`, 1.64:1 on white — it belongs on caution tape, stencil stamps, grade
@@ -188,7 +191,7 @@ sitting on the app rather than as part of it.
 Every list, feed and grid defines all three. Reuse these shapes:
 
 - **Empty** — the canonical centered sheet:
-  `bcc-paper mx-auto max-w-2xl p-8 text-center` → `bcc-mono text-safety` eyebrow
+  `bcc-paper mx-auto max-w-2xl p-8 text-center` → `bcc-mono text-bcc-text-safety` eyebrow
   → `bcc-stencil text-3xl text-ink` heading → `font-serif italic text-ink-soft`
   body → a recovery action. Guidance copy plus a way out; never a blank panel,
   never a bare "0 results".
@@ -197,7 +200,7 @@ Every list, feed and grid defines all three. Reuse these shapes:
   a blank page; [`Spinner`](src/components/ui/Spinner.tsx) is inline/in-button only.
 - **Error** — [`LoadFailure`](src/components/ui/LoadFailure.tsx): glyph,
   plain-language `role="alert"` message, real Retry. Inline field errors are
-  `bcc-mono text-[11px] text-safety` with `role="alert"`.
+  `bcc-mono text-[11px] text-bcc-text-error` with `role="alert"`.
 
 ### Display contexts are not app chrome
 

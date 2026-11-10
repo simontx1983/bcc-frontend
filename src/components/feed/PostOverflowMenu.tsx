@@ -90,7 +90,7 @@ export function PostOverflowMenu({ selfHref, item }: { selfHref: string; item?: 
                 setOpen(false);
                 setReportOpen(true);
               }}
-              className="bcc-mono block w-full rounded-lg px-2 py-1.5 text-left text-[11px] text-[var(--bcc-text-secondary)] hover:bg-[var(--bcc-surface-active)] hover:text-safety"
+              className="bcc-mono block w-full rounded-lg px-2 py-1.5 text-left text-[11px] text-[var(--bcc-text-secondary)] hover:bg-[var(--bcc-surface-active)] hover:text-bcc-text-safety"
             >
               Report
             </button>
@@ -112,7 +112,7 @@ export function PostOverflowMenu({ selfHref, item }: { selfHref: string; item?: 
                   },
                 });
               }}
-              className="bcc-mono block w-full rounded-lg px-2 py-1.5 text-left text-[11px] text-safety hover:bg-[var(--bcc-surface-active)] disabled:opacity-50"
+              className="bcc-mono block w-full rounded-lg px-2 py-1.5 text-left text-[11px] text-bcc-text-safety hover:bg-[var(--bcc-surface-active)] disabled:opacity-50"
             >
               {deleteMutation.isPending
                 ? "Deleting…"

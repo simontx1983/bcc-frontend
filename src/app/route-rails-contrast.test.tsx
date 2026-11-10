@@ -342,13 +342,14 @@ describe("E2 — list and conversation metadata", () => {
     });
   }
 
-  it("the /messages/new character counter is secondary below the limit and safety above it", () => {
-    // A ternary, not a static className: the counter turns `text-safety`
-    // once the body exceeds the maximum. Only the under-limit branch was
-    // muted; the over-limit branch is a real error state, left as authored.
+  it("the /messages/new character counter is secondary below the limit and error-text above it", () => {
+    // A ternary, not a static className: the counter turns red once the
+    // body exceeds the maximum. Only the under-limit branch was muted; the
+    // over-limit branch is a real error state. #205 moved it from
+    // `text-safety` to the theme-aware error-text token.
     const src = read(MESSAGES_NEW).replace(/\r\n/g, "\n");
     expect(src).toContain(
-      '(body.length > MESSAGE_BODY_MAX_LENGTH\n                    ? "text-safety"\n                    : "text-bcc-text-secondary")',
+      '(body.length > MESSAGE_BODY_MAX_LENGTH\n                    ? "text-bcc-text-error"\n                    : "text-bcc-text-secondary")',
     );
     expect(src).not.toContain('"text-bcc-text-muted")');
   });

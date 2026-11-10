@@ -757,7 +757,7 @@ function InlineStatusComposer({
             )}
 
             {error !== null && (
-              <p role="alert" className="bcc-mono text-[11px] text-safety">
+              <p role="alert" className="bcc-mono text-[11px] text-bcc-text-error">
                 {error}
               </p>
             )}
@@ -910,7 +910,7 @@ function InlineStatusComposer({
                   )}
                   {mentionRanges.length > 0 && (
                     <span
-                      className={`ml-2 hidden sm:inline ${overMentionCap ? "text-safety" : "text-[var(--bcc-text-secondary)]"}`}
+                      className={`ml-2 hidden sm:inline ${overMentionCap ? "text-bcc-text-error" : "text-[var(--bcc-text-secondary)]"}`}
                     >
                       · {mentionRanges.length} / {MENTIONS_PER_POST_MAX} mentions
                     </span>
@@ -1163,7 +1163,7 @@ function StatusForm({ onSubmitSuccess }: { onSubmitSuccess: (() => void) | undef
       </div>
 
       {error !== null && (
-        <p role="alert" className="bcc-mono text-[11px] text-bcc-danger">
+        <p role="alert" className="bcc-mono text-[11px] text-bcc-text-error">
           {error}
         </p>
       )}
@@ -1217,7 +1217,7 @@ const REVIEW_GRADE_OPTIONS: ReadonlyArray<{
 }> = [
   { key: "trust",   label: "TRUST",   description: "I'd recommend this validator to others.", accent: "var(--verified)" },
   { key: "neutral", label: "NEUTRAL", description: "Mixed feelings — some pros, some concerns.", accent: "var(--blueprint)" },
-  { key: "caution", label: "CAUTION", description: "Others should know what I've seen here.",  accent: "var(--safety)" },
+  { key: "caution", label: "CAUTION", description: "Others should know what I've seen here.",  accent: "var(--bcc-text-safety)" },
 ];
 
 /**
@@ -1372,7 +1372,7 @@ function ReviewForm({
       </div>
 
       {error !== null && (
-        <p role="alert" className="bcc-mono text-[11px] text-bcc-danger">
+        <p role="alert" className="bcc-mono text-[11px] text-bcc-text-error">
           {error}
         </p>
       )}

@@ -388,12 +388,12 @@ function ChangePasswordCard() {
         </Field>
 
         {showLengthError && (
-          <p id={lengthId} className="bcc-mono text-[10px] text-bcc-danger">
+          <p id={lengthId} className="bcc-mono text-[10px] text-bcc-text-error">
             Password must be at least 10 characters.
           </p>
         )}
         {showMatchError && (
-          <p id={matchId} className="bcc-mono text-[10px] text-bcc-danger">
+          <p id={matchId} className="bcc-mono text-[10px] text-bcc-text-error">
             Passwords don&apos;t match.
           </p>
         )}

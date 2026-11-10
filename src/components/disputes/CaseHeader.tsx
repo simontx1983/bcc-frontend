@@ -22,7 +22,7 @@ export function CaseHeader({
 }) {
   return (
     <header>
-      <p className="bcc-mono text-safety">YOUR FILED CASE</p>
+      <p className="bcc-mono text-bcc-text-safety">YOUR FILED CASE</p>
 
       <div className="relative mt-3 flex flex-wrap items-end justify-between gap-x-8 gap-y-4">
         <h1
@@ -32,7 +32,7 @@ export function CaseHeader({
             letterSpacing: "-0.01em",
           }}
         >
-          CASE&nbsp;<span style={{ color: "var(--safety)" }}>№{dispute.id}</span>
+          CASE&nbsp;<span style={{ color: "var(--bcc-text-safety)" }}>№{dispute.id}</span>
         </h1>
 
         <StatusPill status={dispute.status} />
@@ -104,8 +104,8 @@ const VERDICT_STAMP: Partial<
   Record<DisputeStatus, { label: string; color: string }>
 > = {
   accepted: { label: "ACCEPTED", color: "var(--verified)" },
-  rejected: { label: "REJECTED", color: "var(--safety)" },
-  dismissed: { label: "DISMISSED", color: "var(--safety)" },
+  rejected: { label: "REJECTED", color: "var(--bcc-text-safety)" },
+  dismissed: { label: "DISMISSED", color: "var(--bcc-text-safety)" },
   timeout_no_quorum: {
     label: "TIMED OUT",
     color: "var(--bcc-text-secondary)",
@@ -152,13 +152,13 @@ const STATUS_CONFIG: Record<
   },
   rejected: {
     label: "REJECTED",
-    color: "var(--safety)",
+    color: "var(--bcc-text-safety)",
     background: "rgb(var(--safety-rgb) / 0.08)",
     borderColor: "rgb(var(--safety-rgb) / 0.32)",
   },
   dismissed: {
     label: "DISMISSED",
-    color: "var(--safety)",
+    color: "var(--bcc-text-safety)",
     background: "rgb(var(--safety-rgb) / 0.08)",
     borderColor: "rgb(var(--safety-rgb) / 0.32)",
   },

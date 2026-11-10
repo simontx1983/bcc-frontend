@@ -100,7 +100,7 @@ function SectionLabel({ n, label }: { n: string; label: string }) {
   return (
     <div className="flex items-center gap-3">
       <span className="bcc-mono text-bcc-text-secondary">{n}</span>
-      <span className="bcc-mono text-safety">{"//"} {label}</span>
+      <span className="bcc-mono text-bcc-text-safety">{"//"} {label}</span>
       <span aria-hidden className="h-px flex-1 bg-bcc-border" />
     </div>
   );

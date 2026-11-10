@@ -119,7 +119,7 @@ export function MessageValidatorButton({
         >
           {label}
         </button>
-        <p className="bcc-mono pl-1 text-[10px] leading-snug tracking-[0.14em] text-safety/80">
+        <p className="bcc-mono pl-1 text-[10px] leading-snug tracking-[0.14em] text-bcc-text-safety">
           {hint}
         </p>
       </div>

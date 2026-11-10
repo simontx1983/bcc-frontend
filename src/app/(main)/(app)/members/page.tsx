@@ -212,7 +212,7 @@ function MembersPageContent() {
       <RouteRail kicker={"FLOOR \u00a0//\u00a0 MEMBERS"} label={"FILE INDEX \u00a0//\u00a0 ALL OPERATORS"} />
 
       <header className="mx-auto max-w-[1560px] px-4 sm:px-7 pt-12">
-        <p className="bcc-mono text-safety">THE ROSTER</p>
+        <p className="bcc-mono text-bcc-text-safety">THE ROSTER</p>
         <h1
           className="bcc-stencil mt-3 text-bcc-text leading-[0.95]"
           style={{ fontSize: "clamp(2.5rem, 6.5vw, 5.5rem)" }}
@@ -510,7 +510,7 @@ function RosterFilterEmpty({
 
   return (
     <div className="bcc-paper mx-auto max-w-2xl p-8 text-center">
-      <p className="bcc-mono mb-2 text-safety">QUIET FLOOR</p>
+      <p className="bcc-mono mb-2 text-bcc-text-safety">QUIET FLOOR</p>
       <h2 className="bcc-stencil text-3xl text-ink">{copy.heading}</h2>
       <p className="mt-3 font-serif italic leading-relaxed text-ink-soft">
         {copy.body}
@@ -601,7 +601,7 @@ function FilterChip({
 function RosterRefinementEmpty({ onClear }: { onClear: () => void }) {
   return (
     <div className="bcc-paper mx-auto max-w-2xl p-8 text-center">
-      <p className="bcc-mono mb-2 text-safety">NO MATCHES</p>
+      <p className="bcc-mono mb-2 text-bcc-text-safety">NO MATCHES</p>
       <h2 className="bcc-stencil text-3xl text-ink">
         Nobody matches that combination.
       </h2>
@@ -623,7 +623,7 @@ function RosterEmpty({ hasSearch }: { hasSearch: boolean }) {
   if (hasSearch) {
     return (
       <div className="bcc-paper mx-auto max-w-2xl p-8 text-center">
-        <p className="bcc-mono mb-2 text-safety">NO MATCHES</p>
+        <p className="bcc-mono mb-2 text-bcc-text-safety">NO MATCHES</p>
         <h2 className="bcc-stencil text-3xl text-ink">
           Nobody by that name on the floor.
         </h2>
@@ -635,7 +635,7 @@ function RosterEmpty({ hasSearch }: { hasSearch: boolean }) {
   }
   return (
     <div className="bcc-paper mx-auto max-w-2xl p-8 text-center">
-      <p className="bcc-mono mb-2 text-safety">QUIET ROSTER</p>
+      <p className="bcc-mono mb-2 text-bcc-text-safety">QUIET ROSTER</p>
       <h2 className="bcc-stencil text-3xl text-ink">
         No operators on file yet.
       </h2>
