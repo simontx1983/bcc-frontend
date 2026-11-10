@@ -28,19 +28,16 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-import { getWalletNonce, linkWallet } from "@/lib/api/auth-endpoints";
 import { humanizeCode } from "@/lib/api/errors";
 import { claimPage } from "@/lib/api/pages-endpoints";
 import { type CardClaimTarget } from "@/lib/api/types";
 import {
-  connectKeplr,
-  isCosmosChain,
-  KeplrError,
-  KeplrUnavailableError,
-  KeplrUnsupportedChainError,
-  signKeplrChallenge,
-  type KeplrConnection,
-} from "@/lib/wallet/keplr";
+  connectWallet,
+  humanizeWalletProviderError,
+  type WalletConnection,
+} from "@/lib/wallet/dispatch";
+import { isCosmosChain } from "@/lib/wallet/keplr";
+import { linkOrConfirmOwnWallet, signLinkChallenge } from "@/lib/wallet/linkFlow";
 import { Dialog } from "@/components/ui/Dialog";
 
 interface ClaimFlowProps {
@@ -56,7 +53,7 @@ type Step =
   | { kind: "connect"; pending: boolean; error: string | null }
   | {
       kind: "signature";
-      connection: KeplrConnection;
+      connection: WalletConnection;
       pending: boolean;
       error: string | null;
     }
@@ -78,7 +75,10 @@ export function ClaimFlow({ pageId, pageName, target, onClose }: ClaimFlowProps)
     }
     setStep({ kind: "connect", pending: true, error: null });
     try {
-      const connection = await connectKeplr(target.chain_slug);
+      // The shared wallet layer (lib/wallet/dispatch), not a parallel
+      // Keplr path: §11, and the signed bundle it produces is what the
+      // backend verifier reads.
+      const connection = await connectWallet(target.chain_slug, "cosmos");
       setStep({ kind: "signature", connection, pending: false, error: null });
     } catch (err) {
       setStep({
@@ -90,31 +90,22 @@ export function ClaimFlow({ pageId, pageName, target, onClose }: ClaimFlowProps)
   };
 
   // ── Step 3: Sign challenge → link wallet → claim page ──────────────
-  const handleSign = async (connection: KeplrConnection) => {
+  const handleSign = async (connection: WalletConnection) => {
     setStep({ kind: "signature", connection, pending: true, error: null });
+    // Which call failed decides the copy: a link error and a claim error
+    // are different problems with different fixes.
+    let phase: "link" | "claim" = "link";
     try {
-      // 3a. Server-issued nonce.
-      const nonce = await getWalletNonce({
-        chain_slug:     connection.chainSlug,
-        wallet_address: connection.address,
-      });
-
-      // 3b. Sign the challenge in Keplr (ADR-036 signArbitrary).
-      const signed = await signKeplrChallenge(
-        connection.chainSlug,
-        connection.address,
-        nonce.message
-      );
-
-      // 3c. Verify + persist wallet link on the server.
-      await linkWallet({
-        wallet_address: connection.address,
-        signature:      signed.signature,
-        pub_key:        signed.pubKey,
-        wallet_type:    "keplr",
-      });
+      // 3a–3c. Nonce → ADR-036 signature → link, via the shared flow.
+      // The bundle carries extra {pub_key, chain_id}, which is the only
+      // place the Cosmos verifier reads the key from.
+      const linked = await signLinkChallenge(target.chain_slug, "cosmos", connection);
+      // A wallet already linked to THIS account (a re-run, or a retry
+      // after the link succeeded and the claim failed) is not an error.
+      await linkOrConfirmOwnWallet(target.chain_slug, linked);
 
       // 3d. Claim the page now that the wallet is verified.
+      phase = "claim";
       await claimPage({
         id:          pageId,
         entity_type: target.entity_type,
@@ -127,7 +118,7 @@ export function ClaimFlow({ pageId, pageName, target, onClose }: ClaimFlowProps)
         kind: "signature",
         connection,
         pending: false,
-        error: humanizeError(err),
+        error: phase === "link" ? humanizeLinkStepError(err) : humanizeClaimStepError(err),
       });
     }
   };
@@ -271,7 +262,7 @@ function SignatureStep({
   onCancel,
 }: {
   pageName: string;
-  connection: KeplrConnection;
+  connection: WalletConnection;
   pending: boolean;
   error: string | null;
   onSign: () => void;
@@ -413,23 +404,31 @@ function ErrorLine({ message }: { message: string }) {
 // Error humanizers
 // ─────────────────────────────────────────────────────────────────────
 
+/** Connect step: provider problems (Keplr missing, chain unknown, user cancel). */
 function humanizeWalletError(err: unknown): string {
-  if (err instanceof KeplrUnavailableError) {
-    return "Keplr is not installed. Install it from keplr.app, then retry.";
-  }
-  if (err instanceof KeplrUnsupportedChainError) {
-    return `Chain "${err.slug}" isn't supported by the claim flow yet.`;
-  }
-  if (err instanceof KeplrError) {
-    return err.message;
-  }
-  return "Couldn't connect to Keplr. Try again.";
+  return humanizeWalletProviderError(err) ?? "Couldn't connect to Keplr. Try again.";
 }
 
-function humanizeError(err: unknown): string {
-  if (err instanceof KeplrError) {
-    return humanizeWalletError(err);
-  }
+/** Nonce, signature and wallet link: proving you hold this wallet. */
+function humanizeLinkStepError(err: unknown): string {
+  const provider = humanizeWalletProviderError(err);
+  if (provider !== null) return provider;
+  return humanizeCode(
+    err,
+    {
+      bcc_unauthorized: "Sign in first.",
+      bcc_signature_invalid: "The wallet signature didn't verify. Try signing again.",
+      // Only reached when the wallet is NOT on this account's own list.
+      bcc_conflict: "This wallet is linked to a different BCC account.",
+      bcc_invalid_request: "The signing request expired. Try signing again.",
+      bcc_rate_limited: "Too many attempts — wait a minute and retry.",
+    },
+    "Couldn't verify the wallet. Try again.",
+  );
+}
+
+/** Claim: the wallet is verified; this is about the page itself. */
+function humanizeClaimStepError(err: unknown): string {
   return humanizeCode(
     err,
     {
@@ -437,10 +436,9 @@ function humanizeError(err: unknown): string {
       bcc_precondition_failed: "Connect a wallet before claiming this page.",
       bcc_forbidden: "This wallet doesn't match the validator's operator address.",
       bcc_conflict: "This page is already claimed by another wallet.",
-      bcc_signature_invalid: "Signature didn't verify. Try signing again.",
       bcc_rate_limited: "Too many attempts — wait a minute and retry.",
       bcc_not_found: "Page not found. Refresh and try again.",
-      bcc_invalid_request: "Couldn't complete the claim. Check the form and try again.",
+      bcc_invalid_request: "Couldn't complete the claim. Try again.",
     },
     "Couldn't complete the claim. Try again.",
   );

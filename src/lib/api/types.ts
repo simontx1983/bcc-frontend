@@ -3570,15 +3570,14 @@ export interface LinkWalletRequest {
   wallet_address: string;
   /** base64 signature returned by Keplr's signArbitrary. */
   signature: string;
-  /** base64 secp256k1 pubkey value (`pub_key.value` from Keplr). */
-  pub_key?: string;
   wallet_type?: string;
   label?: string;
   /**
    * Chain-specific verification context. Cosmos signature verification
-   * reads `pub_key` + `chain_id` from here (see WalletVerifier::verify
-   * on the backend). The top-level `pub_key` field above is only used
-   * by older callers and is ignored by the cosmos verifier.
+   * reads `pub_key` + `chain_id` from HERE and only here (WalletVerifier
+   * on the backend). There is deliberately no top-level `pub_key`: the
+   * validator ClaimFlow once sent one, the verifier ignored it, and every
+   * Cosmos claim failed. Build this with `lib/wallet/linkFlow`.
    */
   extra?: Record<string, unknown>;
 }

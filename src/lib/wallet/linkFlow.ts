@@ -10,14 +10,17 @@
  * one straight-line flow.
  */
 
-import { getWalletNonce } from "@/lib/api/auth-endpoints";
+import { getWalletNonce, linkWallet } from "@/lib/api/auth-endpoints";
 import { humanizeCode } from "@/lib/api/errors";
+import { BccApiError } from "@/lib/api/types";
+import { getMyWallets } from "@/lib/api/wallets-endpoints";
 import type { WalletChainType } from "@/lib/wallet/chain-catalog";
 import {
   connectWallet,
   humanizeWalletProviderError,
   signWalletChallenge,
   walletTypeFor,
+  type WalletConnection,
 } from "@/lib/wallet/dispatch";
 
 export interface LinkFlowResult {
@@ -27,12 +30,27 @@ export interface LinkFlowResult {
   extra: Record<string, string>;
 }
 
+/** Connect, then sign — the whole sequence in one call. */
 export async function runLinkFlow(
   chainSlug: string,
   chainType: WalletChainType,
 ): Promise<LinkFlowResult> {
   const connection = await connectWallet(chainSlug, chainType);
+  return signLinkChallenge(chainSlug, chainType, connection);
+}
 
+/**
+ * The second half of {@link runLinkFlow}, for callers that connect as a
+ * separate step (the validator ClaimFlow shows Connect and Sign as two
+ * screens on purpose): request a nonce for the connected address, sign
+ * it, and return the bundle `POST /auth/wallet-link` needs, including
+ * the chain-specific `extra` (Cosmos: `{pub_key, chain_id}`).
+ */
+export async function signLinkChallenge(
+  chainSlug: string,
+  chainType: WalletChainType,
+  connection: WalletConnection,
+): Promise<LinkFlowResult> {
   const nonce = await getWalletNonce({
     chain_slug:     chainSlug,
     wallet_address: connection.address,
@@ -51,6 +69,42 @@ export async function runLinkFlow(
     walletType: walletTypeFor(chainType),
     extra:      signed.extra,
   };
+}
+
+/**
+ * Link a signed wallet, treating "already linked to YOUR account" as
+ * success. Returns "linked" or "already_linked".
+ *
+ * The backend answers both "already linked to your account" and "already
+ * linked to another account" with the same `bcc_conflict` code; only the
+ * message differs, and §γ forbids branching on messages. So on a conflict
+ * this checks the viewer's own wallet list: if this chain + address is
+ * there, the link already exists (a re-run, or a retry after the link
+ * succeeded but a later step failed). Otherwise the conflict is rethrown.
+ */
+export async function linkOrConfirmOwnWallet(
+  chainSlug: string,
+  linked: LinkFlowResult,
+): Promise<"linked" | "already_linked"> {
+  try {
+    await linkWallet({
+      wallet_address: linked.address,
+      signature:      linked.signature,
+      wallet_type:    linked.walletType,
+      extra:          linked.extra,
+    });
+    return "linked";
+  } catch (err) {
+    if (!(err instanceof BccApiError) || err.code !== "bcc_conflict") throw err;
+    const mine = await getMyWallets();
+    const own = mine.items.some(
+      (w) =>
+        w.chain_slug === chainSlug &&
+        w.wallet_address.toLowerCase() === linked.address.toLowerCase(),
+    );
+    if (own) return "already_linked";
+    throw err;
+  }
 }
 
 export function humanizeLinkError(err: unknown): string {
