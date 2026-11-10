@@ -49,6 +49,7 @@ vi.mock("@/lib/api/messages-endpoints", () => ({
 
 import { ConversationList } from "@/components/messages/ConversationList";
 import { ThreadView } from "@/components/messages/ThreadView";
+import { MAX_CONCURRENT_REVEALS } from "@/hooks/useRevealBlockedMessages";
 import {
   BccApiError,
   BLOCKED_SENDER_PLACEHOLDER,
@@ -279,7 +280,7 @@ describe("reveal source", () => {
     await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
   });
 
-  it("a 404 shows its own copy and offers no Retry that cannot succeed", async () => {
+  it("a 404 shows its own copy, offers no Retry, and Show goes inert", async () => {
     getRevealedMessage.mockRejectedValueOnce(
       new BccApiError("bcc_not_found", "raw", 404, null),
     );
@@ -289,6 +290,78 @@ describe("reveal source", () => {
 
     expect(await screen.findByRole("alert")).toHaveTextContent("This message is no longer available.");
     expect(screen.queryByRole("button", { name: "Retry" })).toBeNull();
+
+    // The toggle must not re-request a reveal that can't succeed.
+    const show = screen.getByRole("button", { name: "Show message" });
+    expect(show).toHaveAttribute("aria-disabled", "true");
+    fireEvent.click(show);
+    fireEvent.click(show);
+    await new Promise((r) => setTimeout(r, 20));
+    expect(getRevealedMessage).toHaveBeenCalledTimes(1);
+  });
+
+  it("a double tap on Retry sends one request", async () => {
+    const m = blocked(BLOCKED_SENDER_PLACEHOLDER);
+    getRevealedMessage.mockRejectedValueOnce(
+      new BccApiError("bcc_unavailable", "raw", 503, null),
+    );
+    renderThread([m]);
+    fireEvent.click(screen.getByRole("button", { name: "Show message" }));
+    await screen.findByRole("alert");
+
+    let resolve: (v: { id: number; body: string }) => void = () => undefined;
+    getRevealedMessage.mockImplementationOnce(
+      () => new Promise((r) => { resolve = r; }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    await waitFor(() => expect(getRevealedMessage).toHaveBeenCalledTimes(2));
+    // While the retry is in flight, Retry is either gone or inert; tapping
+    // whatever is there must not send a second request.
+    const during = screen.queryByRole("button", { name: "Retry" });
+    if (during !== null) {
+      expect(during).toHaveAttribute("aria-disabled", "true");
+      fireEvent.click(during);
+      fireEvent.click(during);
+    }
+    expect(getRevealedMessage).toHaveBeenCalledTimes(2);
+
+    resolve({ id: m.id, body: "after one retry" });
+    expect(await screen.findByText("after one retry")).toBeInTheDocument();
+    expect(getRevealedMessage).toHaveBeenCalledTimes(2);
+  });
+
+  it("a long run never has more than MAX_CONCURRENT_REVEALS requests in flight", async () => {
+    const run = Array.from({ length: 12 }, () => blocked(BLOCKED_SENDER_PLACEHOLDER));
+    let inFlight = 0;
+    let peak = 0;
+    const pending: Array<() => void> = [];
+    getRevealedMessage.mockImplementation(
+      (_c: number, id: number) =>
+        new Promise((r) => {
+          inFlight += 1;
+          peak = Math.max(peak, inFlight);
+          pending.push(() => {
+            inFlight -= 1;
+            r({ id, body: `body ${id}` });
+          });
+        }),
+    );
+    renderThread(run);
+    fireEvent.click(screen.getByRole("button", { name: "Show 12 messages" }));
+
+    await waitFor(() => expect(getRevealedMessage).toHaveBeenCalledTimes(MAX_CONCURRENT_REVEALS));
+    expect(peak).toBe(MAX_CONCURRENT_REVEALS);
+
+    // Drain: each settled request opens the next slot until all 12 ran.
+    for (let guard = 0; guard < 30 && getRevealedMessage.mock.calls.length < 12; guard += 1) {
+      pending.splice(0).forEach((done) => done());
+      await new Promise((r) => setTimeout(r, 10));
+    }
+    pending.splice(0).forEach((done) => done());
+
+    expect(await screen.findByText(`body ${run[11]?.id}`)).toBeInTheDocument();
+    expect(getRevealedMessage).toHaveBeenCalledTimes(12);
+    expect(peak).toBeLessThanOrEqual(MAX_CONCURRENT_REVEALS);
   });
 });
 

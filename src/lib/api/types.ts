@@ -6087,8 +6087,10 @@ export interface ConversationLastMessage {
 /**
  * GET /me/conversations/{id}/messages/{message_id}/reveal — the real
  * body of one message from a sender the viewer has blocked. Viewer-
- * initiated, `private, no-store`; 404 `bcc_not_found` for a non-
- * participant or a message that isn't in that conversation.
+ * initiated, `private, no-store`. One identical 404 `bcc_not_found`,
+ * with no reason code, for every refusal: a non-participant, a message
+ * that isn't in that conversation, a message that doesn't exist, or a
+ * message the viewer never received. Don't branch on the reason.
  */
 export interface RevealedMessageResponse {
   id: number;

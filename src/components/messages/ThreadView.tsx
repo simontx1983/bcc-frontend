@@ -259,10 +259,15 @@ const BlockedRun = memo(function BlockedRun({
   const showLabel = count === 1 ? "Show message" : `Show ${count} messages`;
   const hideLabel = count === 1 ? "Hide message" : `Hide ${count} messages`;
 
+  // A reveal that failed in a way no retry can fix (404, 403) is a dead
+  // end: the toggle goes inert rather than re-requesting on every tap.
+  const deadEnd =
+    requested && reveal.error !== null && isNonRetryableFixedReadFailure(reveal.error);
+
   const onToggle = () => {
     // aria-disabled rather than `disabled`, so focus isn't dropped while
-    // a reveal is in flight.
-    if (reveal.isLoading) return;
+    // a reveal is in flight or after a dead end.
+    if (reveal.isLoading || deadEnd) return;
     refocusToggle.current = true;
     if (expanded) {
       setRequested(false);
@@ -280,8 +285,11 @@ const BlockedRun = memo(function BlockedRun({
       onClick={onToggle}
       aria-expanded={expanded}
       aria-controls={regionId}
-      aria-disabled={reveal.isLoading}
-      className="bcc-mono inline-flex min-h-[44px] items-center text-[10px] uppercase tracking-[0.18em] text-bcc-text-secondary underline-offset-2 transition hover:text-bcc-text hover:underline aria-disabled:cursor-wait aria-disabled:opacity-50"
+      aria-disabled={reveal.isLoading || deadEnd}
+      className={
+        "bcc-mono inline-flex min-h-[44px] items-center text-[10px] uppercase tracking-[0.18em] text-bcc-text-secondary underline-offset-2 transition hover:text-bcc-text hover:underline aria-disabled:opacity-50 " +
+        (reveal.isLoading ? "cursor-wait" : deadEnd ? "cursor-not-allowed" : "")
+      }
     >
       {expanded ? hideLabel : showLabel}
     </button>
@@ -357,7 +365,7 @@ const BlockedRun = memo(function BlockedRun({
           </span>
           {error !== null && (
             <div className="flex flex-wrap items-center gap-x-3 px-1">
-              <p role="alert" className="bcc-mono text-[11px] text-bcc-danger">
+              <p role="alert" className="bcc-mono text-[11px] text-bcc-text-error">
                 {/* §γ — copy is keyed on err.code; never render err.message. */}
                 {humanizeCode(
                   error,
@@ -374,8 +382,13 @@ const BlockedRun = memo(function BlockedRun({
               {!isNonRetryableFixedReadFailure(error) && (
                 <button
                   type="button"
-                  onClick={reveal.retry}
-                  className="bcc-mono inline-flex min-h-[44px] items-center text-[10px] uppercase tracking-[0.18em] text-bcc-text-secondary transition hover:text-bcc-text hover:underline"
+                  // In-flight guard: React Query v5 keeps `error` set while
+                  // a refetch runs, so the button stays up during a retry.
+                  onClick={() => {
+                    if (!reveal.isLoading) reveal.retry();
+                  }}
+                  aria-disabled={reveal.isLoading}
+                  className="bcc-mono inline-flex min-h-[44px] items-center text-[10px] uppercase tracking-[0.18em] text-bcc-text-secondary transition hover:text-bcc-text hover:underline aria-disabled:cursor-wait aria-disabled:opacity-50"
                 >
                   Retry
                 </button>
