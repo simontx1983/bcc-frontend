@@ -149,7 +149,7 @@ export function LongFormOffer({
         </button>
       </p>
       {error !== null && (
-        <p role="alert" className="bcc-mono text-[11px] text-bcc-danger">
+        <p role="alert" className="bcc-mono text-[11px] text-bcc-text-error">
           {error}
         </p>
       )}
