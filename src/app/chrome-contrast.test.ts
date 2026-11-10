@@ -227,3 +227,40 @@ describe("4. header search field (#202)", () => {
     expect(ratio(rgb("#82878f"), rgb("#1c2128"))).toBeLessThan(4.5); // old dark focus fill
   });
 });
+
+/**
+ * #209 — the dark header over bright content.
+ *
+ * The header is glass: its fill is translucent, so whatever scrolls under
+ * it shows through. The worst case is pure white beneath (paper cards,
+ * photos). At 0.55 that dropped dark header text to 3.54:1 and secondary
+ * text to 1.36:1. The dark fill is now 0.90.
+ */
+describe("5. dark header over bright content (#209)", () => {
+  const darkFill = [...CSS.matchAll(/--bcc-header-bg:\s*rgba\(([^)]+)\)/g)]
+    .map((m) => (m[1] ?? "").split(",").map((s) => Number(s.trim())))
+    .filter((p) => (p[0] ?? 255) < 128); // the dark scopes
+  const overWhite = (p: number[]) => {
+    const a = p[3] ?? 1;
+    return [0, 1, 2].map((i) => (p[i] ?? 0) * a + 255 * (1 - a));
+  };
+
+  it("both dark scopes declare the 0.90 fill", () => {
+    expect(darkFill).toHaveLength(2);
+    for (const p of darkFill) expect(p).toEqual([13, 17, 23, 0.9]);
+  });
+
+  it("text and secondary text clear 4.5:1 with white beneath", () => {
+    for (const p of darkFill) {
+      const ground = overWhite(p);
+      expect(ratio(rgb("#e6edf3"), ground)).toBeGreaterThanOrEqual(4.5); // --bcc-text, dark
+      expect(ratio(rgb("#8b949e"), ground)).toBeGreaterThanOrEqual(4.5); // --bcc-text-secondary, dark
+    }
+  });
+
+  it("the old 0.55 fill failed on the same ground (the control)", () => {
+    const old = overWhite([13, 17, 23, 0.55]);
+    expect(ratio(rgb("#e6edf3"), old)).toBeLessThan(4.5);
+    expect(ratio(rgb("#8b949e"), old)).toBeLessThan(4.5);
+  });
+});
