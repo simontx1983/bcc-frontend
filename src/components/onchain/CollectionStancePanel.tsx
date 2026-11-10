@@ -31,6 +31,8 @@ import {
 import { humanizeCode } from "@/lib/api/errors";
 import type { CollectionStancePanelItem } from "@/lib/api/types";
 
+import { NOT_YET_ACTIVE_LABEL } from "./NotYetActiveBadge";
+
 interface CollectionStancePanelProps {
   /**
    * Compact skips the header (host surface provides its own — e.g. the
@@ -197,7 +199,8 @@ function StanceRow({ item }: { item: CollectionStancePanelItem }) {
             ? "COMMUNITY LIVE"
             : item.waitlist_count > 0
               ? `${item.waitlist_count} ON THE WAITLIST`
-              : "COMMUNITY NOT YET ACTIVATED"}
+              : // Same words as the NFT picker's badge, one source.
+                NOT_YET_ACTIVE_LABEL.toUpperCase()}
         </p>
         {error !== null && (
           <p role="alert" className="bcc-mono mt-1 text-safety" style={{ fontSize: "10px" }}>

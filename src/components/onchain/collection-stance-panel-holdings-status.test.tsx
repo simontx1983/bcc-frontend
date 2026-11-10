@@ -89,6 +89,22 @@ afterEach(() => {
   panelState.data = undefined;
 });
 
+describe("stance panel — row status wording", () => {
+  it("a not-yet-live collection with no waitlist reads NOT YET ACTIVE, the picker badge's words", () => {
+    show([{ ...ROW, waitlist_count: 0 }], "complete");
+
+    expect(screen.getByText("NOT YET ACTIVE")).toBeTruthy();
+    expect(screen.queryByText(/COMMUNITY NOT YET ACTIVATED/)).toBeNull();
+  });
+
+  it("a waitlist count still wins over the not-active label", () => {
+    show([{ ...ROW, waitlist_count: 3 }], "complete");
+
+    expect(screen.getByText("3 ON THE WAITLIST")).toBeTruthy();
+    expect(screen.queryByText("NOT YET ACTIVE")).toBeNull();
+  });
+});
+
 describe("stance panel — holdings_status", () => {
   // ── complete ────────────────────────────────────────────────────────
 
