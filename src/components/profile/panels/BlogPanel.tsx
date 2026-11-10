@@ -15,7 +15,7 @@
  *     2026-05-14 — replaced by the CREATE sub-tab.
  *   - The previous standalone /u/{handle}/blog route was retired on
  *     2026-05-14 — replaced by this in-tab panel. External links and
- *     the inline Floor composer escalation now target
+ *     the status composer's long-form handoff now target
  *     /u/{handle}?tab=blog (+ &blogsub=create for direct authoring).
  *
  * Deep-link contract (all editing state lives in the URL):
@@ -53,6 +53,7 @@ import type { CoverImageValue } from "@/components/blog/CoverImageUpload";
 import type { BlogStatus } from "@/components/blog/StatusToggle";
 import { USER_BLOG_QUERY_KEY_ROOT } from "@/hooks/useUserBlog";
 import { useBlogPost } from "@/hooks/useBlogPost";
+import { blogUrl } from "@/lib/blog/blog-url";
 import type {
   BccApiError,
   BlogCategory,
@@ -183,22 +184,6 @@ export function BlogPanel({
       )}
     </div>
   );
-}
-
-// ──────────────────────────────────────────────────────────────────────
-// URL helper — all blog-panel navigation routes through here so the
-// `?tab=blog` outer key is never dropped.
-// ──────────────────────────────────────────────────────────────────────
-
-function blogUrl(
-  handle: string,
-  opts: { create?: boolean; editId?: number },
-): Route {
-  const editing = opts.editId !== undefined && opts.editId > 0;
-  let url = `/u/${encodeURIComponent(handle)}?tab=blog`;
-  if (opts.create || editing) url += "&blogsub=create";
-  if (editing) url += `&edit=${opts.editId}`;
-  return url as Route;
 }
 
 function parseEditId(raw: string | null | undefined): number {
