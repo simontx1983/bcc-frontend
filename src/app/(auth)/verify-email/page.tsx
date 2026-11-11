@@ -32,6 +32,7 @@ import {
 
 import { AuthCard } from "@/components/auth/AuthCard";
 import { WalletOwnershipPrompt } from "@/components/auth/WalletOwnershipPrompt";
+import { noteSignupCompleted } from "@/lib/analytics/posthog";
 import {
   resendVerification,
   verifyEmail,
@@ -86,6 +87,11 @@ function VerifyEmailContent() {
         redirect:         false,
       });
       if (result?.ok) {
+        // Verification is what completes a password signup. Owed to the
+        // next allowed pageview: this route's events are dropped. The
+        // manual "Sign in now" fallback below is a plain sign-in and
+        // does not mark.
+        noteSignupCompleted("password");
         // bcc-trust #398: a wallet already linked to this account may
         // not be the viewer's. Ask before onboarding, but only on a
         // positive count: 0 can also mean the server's read failed.

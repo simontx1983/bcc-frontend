@@ -57,21 +57,56 @@ export type AnalyticsConsent = "granted" | "denied";
 
 /** The product events this app sends. Adding one means disclosing it. */
 export type AnalyticsEventName =
+  | "claim_completed"
+  | "claim_started"
   | "comment_published"
   | "community_joined"
   | "member_followed"
   | "member_unfollowed"
   | "message_sent"
   | "onboarding_completed"
+  | "onboarding_step_completed"
+  | "onboarding_step_viewed"
   | "post_published"
+  | "signup_completed"
+  | "signup_started"
   | "wallet_linked"
   | "wallet_unlinked";
+
+/**
+ * How an account was created. The ONLY property `signup_started` and
+ * `signup_completed` carry. `"x"` is the Twitter provider.
+ */
+export type SignupMethod = "password" | "google" | "x" | "wallet";
+
+const SIGNUP_METHODS: readonly SignupMethod[] = ["password", "google", "x", "wallet"];
+
+/**
+ * One-shot marker: an account was just created in this tab, and the
+ * `signup_completed` event is still owed.
+ *
+ * Account creation finishes on routes whose events are DROPPED
+ * (`ANALYTICS_DENIED_ROUTES`: /verify-email, /signup/complete-profile,
+ * and /login for the wallet-signup modal), so the event cannot be sent
+ * where it happens. The creation point writes this key instead, and the
+ * first ALLOWED pageview reads it, sends the event and deletes it.
+ *
+ * Holds the method token only. sessionStorage, so it is per tab and gone
+ * with the tab, and viewer-scoped in `lib/auth/viewer-storage`, so a
+ * sign-out clears it.
+ */
+export const SIGNUP_COMPLETED_STORAGE_KEY = "bcc.analytics.signup_completed";
+
+/** Super-property on every event: signed in or not, nothing more. */
+type MemberStatus = "member" | "anonymous";
 
 let initialised = false;
 /** The viewer id the app last reported, signed in or not. */
 let currentViewer: string | null = null;
 /** The viewer id actually sent to PostHog via identify(). */
 let identifiedViewer: string | null = null;
+/** The `member_status` the app last reported; re-applied after a reset. */
+let memberStatus: MemberStatus = "anonymous";
 const listeners = new Set<() => void>();
 /** This document's choice, for when localStorage is unavailable. */
 let memoryConsent: AnalyticsConsent | null = null;
@@ -116,6 +151,7 @@ export function setAnalyticsConsent(choice: AnalyticsConsent): void {
     initAnalytics(choice);
     if (initialised) {
       posthog.opt_in_capturing({ captureEventName: false });
+      applyMemberStatus();
       void syncIdentity();
     }
   } else if (initialised) {
@@ -177,6 +213,7 @@ export function initAnalytics(
   posthog.init(TOKEN, buildPostHogOptions(consent));
   posthog.opt_in_capturing({ captureEventName: false });
   initialised = true;
+  applyMemberStatus();
 }
 
 // ---------------------------------------------------------------- capture
@@ -198,9 +235,20 @@ export function captureAnalyticsEvent(
  * this pageview, and registered once as `$initial_utm_*` so the first
  * consented visit's tags travel with later events (signup_completed
  * included). Nothing else from the query string is ever read.
+ *
+ * Also settles the one-shot signup marker (see
+ * `SIGNUP_COMPLETED_STORAGE_KEY`): on the first allowed pageview after an
+ * account was created, `signup_completed` follows the pageview and the
+ * marker is deleted. Without consent the marker is deleted unsent; it is
+ * never queued for later.
  */
 export function captureAnalyticsPageview(pathname: string): void {
-  if (!initialised || !isGranted() || isDeniedAnalyticsPath(pathname)) return;
+  if (isDeniedAnalyticsPath(pathname)) return;
+  if (!initialised || !isGranted()) {
+    // No consent (or no SDK): the owed event is dropped, not deferred.
+    takeSignupMarker();
+    return;
+  }
   const campaign =
     typeof window === "undefined" ? {} : pickCampaignParams(window.location.search);
   if (Object.keys(campaign).length > 0) {
@@ -209,6 +257,61 @@ export function captureAnalyticsPageview(pathname: string): void {
     posthog.register_once(firstTouch);
   }
   posthog.capture("$pageview", { $pathname: pathname, ...campaign });
+
+  const method = takeSignupMarker();
+  if (method !== null) posthog.capture("signup_completed", { method });
+}
+
+// ----------------------------------------------------------- signup marker
+
+/**
+ * Record that an account was just created by `method`. Call it ONLY at a
+ * real account-creation point, never on an ordinary sign-in. Writes the
+ * method token and nothing else; sending waits for the next allowed
+ * pageview (`captureAnalyticsPageview`).
+ *
+ * Written only when this device has already allowed analytics: without
+ * consent the event could never be sent, so nothing analytics-related is
+ * stored at all. (If consent is withdrawn before the next page, the
+ * pageview deletes the marker unsent.)
+ */
+export function noteSignupCompleted(method: SignupMethod): void {
+  if (typeof window === "undefined" || !isGranted()) return;
+  try {
+    window.sessionStorage.setItem(SIGNUP_COMPLETED_STORAGE_KEY, method);
+  } catch {
+    // Storage blocked: the event is lost, which is the honest outcome.
+  }
+}
+
+/**
+ * The signup method for an OAuth provider name (`?provider=` on
+ * /signup/complete-profile, appended by the OAuth callback in lib/auth.ts).
+ * Twitter is reported as "x". Anything else — missing or tampered — is
+ * null, and the caller writes no marker.
+ */
+export function signupMethodForProvider(provider: string | null): SignupMethod | null {
+  if (provider === "google") return "google";
+  if (provider === "twitter") return "x";
+  return null;
+}
+
+function isSignupMethod(value: string | null): value is SignupMethod {
+  return value !== null && (SIGNUP_METHODS as readonly string[]).includes(value);
+}
+
+/** Read and delete the marker. Anything outside the union reads as none. */
+function takeSignupMarker(): SignupMethod | null {
+  if (typeof window === "undefined") return null;
+  let stored: string | null;
+  try {
+    stored = window.sessionStorage.getItem(SIGNUP_COMPLETED_STORAGE_KEY);
+    if (stored === null) return null;
+    window.sessionStorage.removeItem(SIGNUP_COMPLETED_STORAGE_KEY);
+  } catch {
+    return null;
+  }
+  return isSignupMethod(stored) ? stored : null;
 }
 
 /** Report an error. Sanitised by `before_send`. No-op without consent. */
@@ -242,6 +345,8 @@ async function syncIdentity(): Promise<void> {
  */
 export function setAnalyticsViewer(analyticsId: string): Promise<void> {
   currentViewer = analyticsId;
+  memberStatus = "member";
+  applyMemberStatus();
   return syncIdentity();
 }
 
@@ -252,6 +357,7 @@ export function setAnalyticsViewer(analyticsId: string): Promise<void> {
 export function resetAnalyticsIdentity(): void {
   currentViewer = null;
   identifiedViewer = null;
+  memberStatus = "anonymous";
   resetSdkIdentity();
 }
 
@@ -260,7 +366,19 @@ function resetSdkIdentity(): void {
   posthog.reset();
   if (isGranted()) {
     posthog.opt_in_capturing({ captureEventName: false });
+    // reset() clears super-properties too.
+    applyMemberStatus();
   } else {
     posthog.opt_out_capturing();
   }
+}
+
+/**
+ * Register `member_status` ("member" / "anonymous") as a super-property.
+ * Only once the SDK is running with consent; `posthog.reset()` clears it,
+ * so every reset path calls this again.
+ */
+function applyMemberStatus(): void {
+  if (!initialised || !isGranted()) return;
+  posthog.register({ member_status: memberStatus });
 }

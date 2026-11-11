@@ -25,6 +25,7 @@ const STORAGE: StorageRow[] = [
   { name: "Fraud-check flag", type: "Session storage", purpose: "Records that this session already ran the once-per-session fraud-prevention device check, so it is not repeated.", category: "Functional" },
   { name: "Draft autosave", type: "Local storage", purpose: "Temporarily saves long-form drafts you are writing so you don't lose them.", category: "Functional" },
   { name: "Analytics choice", type: "Local storage", purpose: "Remembers whether you allowed or declined product analytics on this browser.", category: "Functional" },
+  { name: "Sign-up analytics marker", type: "Session storage", purpose: "Set only if you allow product analytics, when you create an account: holds which sign-up method you used (password, Google, X or wallet) until the next page, which reports it and deletes it. Also deleted when you sign out.", category: "Analytics (opt-in)" },
   { name: "PostHog analytics (ph_…)", type: "Cookie and local storage", purpose: "Set only if you allow product analytics: an analytics identifier and session state used by PostHog. Cleared when you turn analytics off, apart from a small marker PostHog keeps to record that analytics is off.", category: "Analytics (opt-in)" },
 ];
 

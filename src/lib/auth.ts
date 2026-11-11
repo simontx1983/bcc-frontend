@@ -393,6 +393,12 @@ export const authOptions: NextAuthOptions = {
           // complete-profile page treats a missing param as "collect one".
           const params = new URLSearchParams({ pt: result.provider_token });
           if (result.email !== "") params.set("email", result.email);
+          // Which provider this new account is coming from, for the
+          // `signup_completed` analytics method. A provider name, never an
+          // identifier; the page validates it against a closed set.
+          if (account.provider === "google" || account.provider === "twitter") {
+            params.set("provider", account.provider);
+          }
           return `/signup/complete-profile?${params.toString()}`;
         }
 

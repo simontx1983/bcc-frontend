@@ -28,6 +28,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { captureAnalyticsEvent } from "@/lib/analytics/posthog";
 import { humanizeCode } from "@/lib/api/errors";
 import { claimPage } from "@/lib/api/pages-endpoints";
 import { type CardClaimTarget } from "@/lib/api/types";
@@ -65,6 +66,9 @@ export function ClaimFlow({ pageId, pageName, target, onClose }: ClaimFlowProps)
 
   // ── Step 2: Connect Keplr ──────────────────────────────────────────
   const handleConnect = async () => {
+    // The attempt starts when the operator commits to it. The chain slug
+    // is the only property: no page, entity or wallet identifiers.
+    captureAnalyticsEvent("claim_started", { chain: target.chain_slug });
     if (!isCosmosChain(target.chain_slug)) {
       setStep({
         kind: "connect",
@@ -112,6 +116,7 @@ export function ClaimFlow({ pageId, pageName, target, onClose }: ClaimFlowProps)
         entity_id:   target.entity_id,
       });
 
+      captureAnalyticsEvent("claim_completed", { chain: target.chain_slug });
       setStep({ kind: "confirmation" });
     } catch (err) {
       setStep({

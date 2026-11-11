@@ -56,6 +56,7 @@ import { OnboardingTrustLayerSteps } from "@/components/onboarding/OnboardingTru
 import { WelcomeStep } from "@/components/onboarding/WelcomeStep";
 import { useWizardPulls } from "@/components/onboarding/useWizardPulls";
 import { useViewerScope } from "@/hooks/useViewerScope";
+import { captureAnalyticsEvent } from "@/lib/analytics/posthog";
 import { setOnboardingProgress } from "@/lib/onboarding/storage";
 import type { HomeChain, MemberProfile } from "@/lib/api/types";
 
@@ -210,6 +211,12 @@ export function OnboardingWizard({ handle, profile, initialStep }: OnboardingWiz
   const goTo = useCallback((next: Step, screen = 1) => {
     const cur = posRef.current;
     if (cur.step === next && cur.screen === screen) return;
+    // Advancing PAST a step completes it. Back, trust's inner screen
+    // change and history moves do not; a skip completes only the step it
+    // was pressed on, not the ones jumped over.
+    if (STEP_ORDER.indexOf(next) > STEP_ORDER.indexOf(cur.step)) {
+      captureAnalyticsEvent("onboarding_step_completed", { step: cur.step });
+    }
     posRef.current = { step: next, screen };
     if (typeof window !== "undefined") {
       const q = screen > 1 ? `?step=${next}&screen=${String(screen)}` : `?step=${next}`;
@@ -291,6 +298,15 @@ export function OnboardingWizard({ handle, profile, initialStep }: OnboardingWiz
       setOnboardingProgress(scope, step);
     }
   }, [step, scope]);
+
+  // `onboarding_step_viewed` once per step per mount, whichever way the
+  // visitor arrived (Continue, Back, history, or a resume deep link).
+  const viewedStepsRef = useRef<Set<Step>>(new Set());
+  useEffect(() => {
+    if (viewedStepsRef.current.has(step)) return;
+    viewedStepsRef.current.add(step);
+    captureAnalyticsEvent("onboarding_step_viewed", { step });
+  }, [step]);
 
   // Move focus to the new screen's heading so keyboard and screen-reader
   // users are taken to the content they just asked for. The <h1> is made

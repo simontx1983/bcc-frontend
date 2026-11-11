@@ -82,6 +82,11 @@ export interface WalletAuthButtonProps {
   email?: string;
   /** Parent can disable the whole control while its own form state is invalid/submitting. */
   disabled?: boolean;
+  /**
+   * Runs once the attempt actually starts — chain and handle passed local
+   * checks, before the wallet is asked to connect (e.g. an analytics event).
+   */
+  onStart?: () => void;
   /** Called after the NextAuth session is established. Parent typically router.replace()s. */
   onSuccess: () => void;
   /** mode="login" only: fires when /auth/wallet-login returns bcc_wallet_not_linked. */
@@ -115,6 +120,7 @@ export function WalletAuthButton(props: WalletAuthButtonProps) {
 
     const chainType = selectedChain.chainType;
 
+    props.onStart?.();
     setPending(true);
     try {
       const connection = await connectWallet(chainSlug, chainType);
