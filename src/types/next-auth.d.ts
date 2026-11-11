@@ -40,6 +40,11 @@ declare module "next-auth" {
       handle: string;
       /** Mirrors User.inGoodStanding; drives the SiteFooter stamp. */
       inGoodStanding: boolean;
+      /**
+       * HMAC of the user id under a server-only key: the only identifier
+       * analytics ever receives. Null when the key is not configured.
+       */
+      analyticsId?: string | null;
       // Standard NextAuth fields stay optional in case we ever populate them.
       name?: string | null;
       email?: string | null;

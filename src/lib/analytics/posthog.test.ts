@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -9,6 +8,7 @@ const sdk = vi.hoisted(() => ({
   capture: vi.fn(),
   captureException: vi.fn(),
   identify: vi.fn(),
+  register_once: vi.fn(),
   reset: vi.fn(),
   opt_in_capturing: vi.fn(),
   opt_out_capturing: vi.fn(),
@@ -26,7 +26,6 @@ async function load(configured = true): Promise<Wrapper> {
   return import("@/lib/analytics/posthog");
 }
 
-const sha256 = (s: string) => createHash("sha256").update(s).digest("hex");
 
 beforeEach(() => {
   window.localStorage.clear();
@@ -109,6 +108,36 @@ describe("analytics consent", () => {
     a.captureAnalyticsPageview("/feed");
     expect(sdk.capture).toHaveBeenCalledWith("$pageview", { $pathname: "/feed" });
   });
+
+  it("attaches only the allowlisted link tags to the pageview, and registers them once as first touch", async () => {
+    window.history.replaceState(null, "", "/feed?utm_source=news&utm_medium=email&utm_campaign=launch&utm_content=x&utm_term=y&gclid=g&secret=s");
+    try {
+      const a = await load();
+      a.setAnalyticsConsent("granted");
+      a.captureAnalyticsPageview("/feed");
+      expect(sdk.capture).toHaveBeenCalledWith("$pageview", {
+        $pathname: "/feed",
+        utm_source: "news",
+        utm_medium: "email",
+        utm_campaign: "launch",
+      });
+      expect(sdk.register_once).toHaveBeenCalledWith({
+        $initial_utm_source: "news",
+        $initial_utm_medium: "email",
+        $initial_utm_campaign: "launch",
+      });
+      expect(JSON.stringify(sdk.capture.mock.calls)).not.toMatch(/utm_content|utm_term|gclid|secret/);
+    } finally {
+      window.history.replaceState(null, "", "/");
+    }
+  });
+
+  it("registers nothing when the URL carries no link tags", async () => {
+    const a = await load();
+    a.setAnalyticsConsent("granted");
+    a.captureAnalyticsPageview("/feed");
+    expect(sdk.register_once).not.toHaveBeenCalled();
+  });
 });
 
 describe("analytics init options", () => {
@@ -142,20 +171,20 @@ describe("analytics init options", () => {
 });
 
 describe("analytics identity", () => {
-  it("identifies with a SHA-256 of the user id and no handle, only after consent", async () => {
+  it("identifies with the server's pseudonym exactly as given, no person properties, only after consent", async () => {
     const a = await load();
-    await a.setAnalyticsViewer("17");
+    await a.setAnalyticsViewer("keyed-pseudonym-17");
     expect(sdk.identify).not.toHaveBeenCalled();
 
     a.setAnalyticsConsent("granted");
     await vi.waitFor(() => expect(sdk.identify).toHaveBeenCalledTimes(1));
-    expect(sdk.identify).toHaveBeenCalledWith(sha256("17"));
+    expect(sdk.identify).toHaveBeenCalledWith("keyed-pseudonym-17");
     expect(sdk.identify.mock.calls[0]).toHaveLength(1);
   });
 
-  it("hashes to lower-case hex", async () => {
-    const a = await load();
-    await expect(a.hashViewerId("17")).resolves.toBe(sha256("17"));
+  it("no longer exposes a client-side hash of the raw id", async () => {
+    const a = (await load()) as Record<string, unknown>;
+    expect(a["hashViewerId"]).toBeUndefined();
   });
 
   it("resets on a viewer switch and re-applies consent after reset", async () => {
@@ -167,7 +196,7 @@ describe("analytics identity", () => {
     await a.setAnalyticsViewer("18");
     expect(sdk.reset).toHaveBeenCalledTimes(1);
     expect(sdk.opt_in_capturing).toHaveBeenCalled();
-    expect(sdk.identify).toHaveBeenLastCalledWith(sha256("18"));
+    expect(sdk.identify).toHaveBeenLastCalledWith("18");
   });
 
   it("resets on sign-out and keeps the device's consent", async () => {

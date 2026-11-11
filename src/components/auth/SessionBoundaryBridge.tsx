@@ -120,16 +120,18 @@ export function SessionBoundaryBridge() {
    */
   const purgeScope = useRef<string | null>(null);
 
-  // The NextAuth session is the client identity boundary. The analytics
-  // wrapper identifies with a hash of the WordPress user id, only after
-  // consent, and resets itself when the viewer changes.
+  // The NextAuth session is the client identity boundary. Analytics is
+  // identified ONLY with the server-computed keyed pseudonym
+  // (session.user.analyticsId), only after consent, and resets itself when
+  // the viewer changes. No pseudonym (the server key is unset) means the
+  // viewer stays anonymous; nothing reversible is derived client-side.
+  const analyticsId = session?.user?.analyticsId ?? null;
   useEffect(() => {
-    const viewer = session?.user?.id;
-    if (status !== "authenticated" || !viewer) {
+    if (status !== "authenticated" || analyticsId === null || analyticsId === "") {
       return;
     }
-    void setAnalyticsViewer(viewer);
-  }, [session?.user?.id, status]);
+    void setAnalyticsViewer(analyticsId);
+  }, [analyticsId, status]);
 
   useEffect(() => {
     return registerSessionTeardown({

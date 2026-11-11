@@ -40,6 +40,7 @@ import posthog, {
 
 import {
   isDeniedAnalyticsPath,
+  pickCampaignParams,
   sanitizeAnalyticsEvent,
 } from "@/lib/analytics/sanitize";
 
@@ -189,10 +190,25 @@ export function captureAnalyticsEvent(
   posthog.capture(event, properties);
 }
 
-/** Send a page view for a bare pathname. Denied routes are skipped. */
+/**
+ * Send a page view for a bare pathname. Denied routes are skipped.
+ *
+ * The allowlisted link tags (utm_source / utm_medium / utm_campaign) are
+ * read from the location BEFORE the sanitiser strips the URL, attached to
+ * this pageview, and registered once as `$initial_utm_*` so the first
+ * consented visit's tags travel with later events (signup_completed
+ * included). Nothing else from the query string is ever read.
+ */
 export function captureAnalyticsPageview(pathname: string): void {
   if (!initialised || !isGranted() || isDeniedAnalyticsPath(pathname)) return;
-  posthog.capture("$pageview", { $pathname: pathname });
+  const campaign =
+    typeof window === "undefined" ? {} : pickCampaignParams(window.location.search);
+  if (Object.keys(campaign).length > 0) {
+    const firstTouch: Record<string, string> = {};
+    for (const [k, v] of Object.entries(campaign)) firstTouch[`$initial_${k}`] = v;
+    posthog.register_once(firstTouch);
+  }
+  posthog.capture("$pageview", { $pathname: pathname, ...campaign });
 }
 
 /** Report an error. Sanitised by `before_send`. No-op without consent. */
@@ -202,15 +218,6 @@ export function captureAnalyticsException(error: unknown): void {
 }
 
 // --------------------------------------------------------------- identity
-
-/** Lower-case hex SHA-256 of the viewer id. */
-export async function hashViewerId(viewerId: string): Promise<string> {
-  const bytes = new TextEncoder().encode(viewerId);
-  const digest = await crypto.subtle.digest("SHA-256", bytes);
-  return Array.from(new Uint8Array(digest), (b) =>
-    b.toString(16).padStart(2, "0"),
-  ).join("");
-}
 
 async function syncIdentity(): Promise<void> {
   const viewer = currentViewer;
@@ -222,20 +229,19 @@ async function syncIdentity(): Promise<void> {
     resetSdkIdentity();
   }
 
-  const distinctId = await hashViewerId(viewer);
-  // The viewer may have changed, or consent been withdrawn, while hashing.
-  if (currentViewer !== viewer || !isGranted() || !initialised) return;
-  // No person properties: the hashed id is the only identifier sent.
-  posthog.identify(distinctId);
+  // `viewer` is already the server's keyed pseudonym; it is sent as-is.
+  // No person properties: it is the only identifier sent.
+  posthog.identify(viewer);
   identifiedViewer = viewer;
 }
 
 /**
- * Tell analytics who is signed in (WordPress user id). Identifies with a
- * SHA-256 of the id — never the raw id or handle — and only after consent.
+ * Tell analytics who is signed in. `analyticsId` MUST be the server's
+ * keyed pseudonym (session.user.analyticsId), never the raw user id or
+ * handle. Identifies only after consent.
  */
-export function setAnalyticsViewer(viewerId: string): Promise<void> {
-  currentViewer = viewerId;
+export function setAnalyticsViewer(analyticsId: string): Promise<void> {
+  currentViewer = analyticsId;
   return syncIdentity();
 }
 

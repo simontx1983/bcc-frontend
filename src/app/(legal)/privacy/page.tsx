@@ -178,15 +178,17 @@ export default function PrivacyPage() {
         </LegalP>
         <LegalP>When analytics is on, we record:</LegalP>
         <LegalUL>
-          <li><strong>Pages you open</strong> — the page address only, without its query string or fragment.</li>
+          <li><strong>Pages you open</strong> — the page address only, without its query string or fragment. Addresses that name a person, a post or a dispute are recorded as their page type (for example a member profile is recorded as &ldquo;/u/[handle]&rdquo;), never the handle or id itself.</li>
+          <li><strong>Link tags</strong> — if you arrived through a tagged link, only its source, medium and campaign tags (utm_source, utm_medium, utm_campaign), shortened to 100 characters. Other link tags and advertising click identifiers are discarded.</li>
           <li><strong>A small set of actions</strong> — publishing a post, publishing a comment, joining a community, following or unfollowing a member, sending a message, completing onboarding, and linking or unlinking a wallet. These carry only basic details such as the kind of post, the community type, or the chain; never the text you write, message contents, or wallet addresses.</li>
           <li><strong>Errors</strong> the site runs into, with any page addresses stripped of query strings.</li>
-          <li><strong>Standard technical details</strong> PostHog attaches to each event, such as browser type, screen size, and an approximate location derived from your IP address.</li>
+          <li><strong>Standard technical details</strong> PostHog attaches to each event, such as browser type and version (including your browser&rsquo;s user-agent string), screen size, and your country, derived from your IP address. Location is recorded at country level only.</li>
         </LegalUL>
         <LegalP>
           If you are signed in, these events are linked to a pseudonymous
-          identifier derived from your account number, not your name, handle,
-          or email. We do not record anything on sign-in, sign-up,
+          identifier: a keyed hash of your account number, computed on our
+          servers with a secret key, so it cannot be traced back to your
+          account without that key. It is never your name, handle, or email. We do not record anything on sign-in, sign-up,
           password-reset, email-verification, or messaging pages, and we do not
           use session recording, heatmaps, or automatic click tracking.
           Analytics is not used for advertising.
