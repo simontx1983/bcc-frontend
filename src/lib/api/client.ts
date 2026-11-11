@@ -118,7 +118,10 @@ export async function bccFetch<T>(
 
   // Phase 4c: the server stamps every BCC response with X-Request-Id (exposed
   // via CORS). Carry it on any error so a frontend failure can be correlated to
-  // the backend logs — error envelopes have no _meta, so the header is the link.
+  // the backend logs. Reshaped error envelopes now also carry
+  // `_meta: {version, request_id}` (bcc-trust #383), but the header is read
+  // first: it is present on every response, including ones that never
+  // reached the envelope layer.
   const requestId = response.headers.get("X-Request-Id");
 
   // 204 No Content — no body to parse. Return undefined cast as T;
