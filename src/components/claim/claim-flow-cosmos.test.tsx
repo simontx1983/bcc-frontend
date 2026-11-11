@@ -108,7 +108,7 @@ describe("ClaimFlow — a wallet already linked to this account", () => {
   it("treats a self-link conflict as success and goes on to the claim", async () => {
     linkWallet.mockRejectedValue(new BccApiError("bcc_conflict", "already linked to your account", 409, null));
     getMyWallets.mockResolvedValue({
-      items: [{ wallet_address: ADDRESS.toUpperCase(), chain_slug: "cosmos" }],
+      items: [{ wallet_address: ADDRESS.toUpperCase(), chain_slug: "cosmos", verified: true }],
     });
 
     await runToSign();
@@ -120,18 +120,62 @@ describe("ClaimFlow — a wallet already linked to this account", () => {
 
   it("a conflict for a wallet on ANOTHER account stops with link copy, and never claims", async () => {
     linkWallet.mockRejectedValue(new BccApiError("bcc_conflict", "already linked to another account", 409, null));
-    getMyWallets.mockResolvedValue({ items: [{ wallet_address: "cosmos1someoneelse", chain_slug: "cosmos" }] });
+    getMyWallets.mockResolvedValue({ items: [{ wallet_address: "cosmos1someoneelse", chain_slug: "cosmos", verified: true }] });
 
     await runToSign();
 
     expect(await screen.findByRole("alert")).toHaveTextContent("This wallet is linked to a different BCC account.");
     expect(claimPage).not.toHaveBeenCalled();
   });
+
+  it("the same address on a DIFFERENT chain doesn't count as own", async () => {
+    linkWallet.mockRejectedValue(new BccApiError("bcc_conflict", "raw", 409, null));
+    getMyWallets.mockResolvedValue({ items: [{ wallet_address: ADDRESS, chain_slug: "osmosis", verified: true }] });
+
+    await runToSign();
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("This wallet is linked to a different BCC account.");
+    expect(claimPage).not.toHaveBeenCalled();
+  });
+
+  it("an own but UNVERIFIED wallet stops with its own copy instead of claiming", async () => {
+    linkWallet.mockRejectedValue(new BccApiError("bcc_conflict", "raw", 409, null));
+    getMyWallets.mockResolvedValue({ items: [{ wallet_address: ADDRESS, chain_slug: "cosmos", verified: false }] });
+
+    await runToSign();
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("already on your account but isn't verified yet");
+    expect(claimPage).not.toHaveBeenCalled();
+  });
+});
+
+describe("linkOrConfirmOwnWallet — address comparison per wallet family", () => {
+  it("base58 (Phantom) is case-sensitive: a case-only difference is NOT own", async () => {
+    const { linkOrConfirmOwnWallet } = await import("@/lib/wallet/linkFlow");
+    linkWallet.mockRejectedValue(new BccApiError("bcc_conflict", "raw", 409, null));
+    getMyWallets.mockResolvedValue({ items: [{ wallet_address: "AbC123", chain_slug: "solana", verified: true }] });
+
+    const err = await linkOrConfirmOwnWallet("solana", {
+      address: "abc123", signature: "s", walletType: "phantom", extra: {},
+    }).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(BccApiError);
+    expect((err as BccApiError).code).toBe("bcc_conflict");
+  });
+
+  it("base58 exact match IS own", async () => {
+    const { linkOrConfirmOwnWallet } = await import("@/lib/wallet/linkFlow");
+    linkWallet.mockRejectedValue(new BccApiError("bcc_conflict", "raw", 409, null));
+    getMyWallets.mockResolvedValue({ items: [{ wallet_address: "AbC123", chain_slug: "solana", verified: true }] });
+
+    await expect(
+      linkOrConfirmOwnWallet("solana", { address: "AbC123", signature: "s", walletType: "phantom", extra: {} }),
+    ).resolves.toBe("already_linked");
+  });
 });
 
 describe("ClaimFlow — error copy names the step that failed", () => {
-  it("a link signature failure says the signature didn't verify", async () => {
-    linkWallet.mockRejectedValue(new BccApiError("bcc_signature_invalid", "raw", 403, null));
+  it("a link signature failure (wallet-link answers 403 bcc_forbidden) says the signature didn't verify", async () => {
+    linkWallet.mockRejectedValue(new BccApiError("bcc_forbidden", "raw", 403, null));
     await runToSign();
     expect(await screen.findByRole("alert")).toHaveTextContent("The wallet signature didn't verify.");
     expect(claimPage).not.toHaveBeenCalled();

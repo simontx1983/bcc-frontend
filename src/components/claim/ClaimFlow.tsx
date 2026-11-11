@@ -417,9 +417,15 @@ function humanizeLinkStepError(err: unknown): string {
     err,
     {
       bcc_unauthorized: "Sign in first.",
+      // POST /auth/wallet-link answers a failed signature with 403
+      // bcc_forbidden; bcc_signature_invalid is the login/signup code,
+      // kept in case the route ever aligns.
+      bcc_forbidden: "The wallet signature didn't verify. Try signing again.",
       bcc_signature_invalid: "The wallet signature didn't verify. Try signing again.",
       // Only reached when the wallet is NOT on this account's own list.
       bcc_conflict: "This wallet is linked to a different BCC account.",
+      bcc_wallet_unverified:
+        "This wallet is already on your account but isn't verified yet. Check it in Settings → Wallets.",
       bcc_invalid_request: "The signing request expired. Try signing again.",
       bcc_rate_limited: "Too many attempts — wait a minute and retry.",
     },

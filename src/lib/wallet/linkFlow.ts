@@ -97,14 +97,34 @@ export async function linkOrConfirmOwnWallet(
   } catch (err) {
     if (!(err instanceof BccApiError) || err.code !== "bcc_conflict") throw err;
     const mine = await getMyWallets();
-    const own = mine.items.some(
-      (w) =>
-        w.chain_slug === chainSlug &&
-        w.wallet_address.toLowerCase() === linked.address.toLowerCase(),
+    const own = mine.items.find(
+      (w) => w.chain_slug === chainSlug && sameAddress(linked.walletType, w.wallet_address, linked.address),
     );
-    if (own) return "already_linked";
-    throw err;
+    if (own === undefined) throw err;
+    if (!own.verified) {
+      // On this account, but never verified: claiming would fail on the
+      // page step with misleading copy, so stop here with its own code.
+      throw new BccApiError(
+        "bcc_wallet_unverified",
+        "This wallet is on your account but isn't verified.",
+        409,
+        null,
+      );
+    }
+    return "already_linked";
   }
+}
+
+/**
+ * Address equality per wallet family. bech32 (Keplr) and 0x-hex
+ * (MetaMask) are case-insensitive, so they compare lowercased. base58
+ * (Phantom) and SS58 (Polkadot) are case-SENSITIVE: lowercasing would
+ * make two different addresses match, so they compare exactly.
+ */
+function sameAddress(walletType: string, a: string, b: string): boolean {
+  return walletType === "keplr" || walletType === "metamask"
+    ? a.toLowerCase() === b.toLowerCase()
+    : a === b;
 }
 
 export function humanizeLinkError(err: unknown): string {
