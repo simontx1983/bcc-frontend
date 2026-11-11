@@ -25,10 +25,8 @@ import { useEffect, useState } from "react";
 
 import { GroupActionButton } from "@/components/groups/GroupActionButton";
 import { GroupTransferOwnership } from "@/components/groups/GroupTransferOwnership";
-import {
-  useJoinHolderGroupMutation,
-  useLeaveHolderGroupMutation,
-} from "@/hooks/useHolderGroups";
+import { HolderLeaveConfirm } from "@/components/groups/HolderLeaveConfirm";
+import { useJoinHolderGroupMutation } from "@/hooks/useHolderGroups";
 import {
   useJoinHallMutation,
   useLeaveHallMutation,
@@ -396,25 +394,18 @@ function HolderEligibilityCheck({ group, onActionStart, onActionError }: ActionD
   );
 }
 
+// Holder leave starts a 90-day cooldown, so it confirms first (Hall and
+// plain leaves below do not). The optimistic pill flips on confirm.
 function HolderLeaveButton({ groupId, onActionStart, onActionError }: ActionButtonProps) {
   const onSuccess = useRefreshOnSuccess();
-  const mutation = useLeaveHolderGroupMutation({ onSuccess, onError: onActionError });
-  const errorMessage = mutation.error
-    ? humanizeMembershipError(mutation.error, "leave")
-    : null;
   return (
     <ActionRow primaryCopy="You're an active member. Posts you make here scope to this group's feed.">
-      <GroupActionButton
+      <HolderLeaveConfirm
         groupId={groupId}
-        label="LEAVE"
-        pendingLabel="LEAVING…"
-        isPending={mutation.isPending}
-        errorMessage={errorMessage}
-        onClick={() => {
-          mutation.reset();
-          onActionStart("leaving");
-          mutation.mutate(groupId);
-        }}
+        humanizeError={(err) => humanizeMembershipError(err, "leave")}
+        onLeaveStart={() => onActionStart("leaving")}
+        onSuccess={onSuccess}
+        onError={onActionError}
       />
     </ActionRow>
   );

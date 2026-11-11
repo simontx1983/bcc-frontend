@@ -34,6 +34,7 @@ import {
   useMyDisputes,
   useWithdrawDisputeVote,
 } from "@/hooks/useDisputes";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { LoadFailure } from "@/components/ui/LoadFailure";
 import { humanizeCode, isCode, isPermissionDenial } from "@/lib/api/errors";
 import {
@@ -182,13 +183,33 @@ function BallotCard({
   const cast = useCastDisputeVote();
   const withdraw = useWithdrawDisputeVote();
   const [error, setError] = useState<string | null>(null);
+  // Changing or withdrawing an existing ballot spends something the
+  // engine rations (the recast budget; the 24h cooldown), so both go
+  // through a ConfirmDialog. A first cast does not.
+  const [confirming, setConfirming] = useState<BallotConfirm | null>(null);
+  const [confirmError, setConfirmError] = useState<string | null>(null);
 
   const { my_choice, my_effective_weight, can_change, can_withdraw } =
     state.viewer;
   const busy = cast.isPending || withdraw.isPending;
 
+  const openConfirm = (next: BallotConfirm): void => {
+    setError(null);
+    setConfirmError(null);
+    setConfirming(next);
+  };
+
+  const closeConfirm = (): void => {
+    setConfirming(null);
+    setConfirmError(null);
+  };
+
   const handleCast = (choice: DisputeVoteChoice): void => {
     if (busy) return;
+    if (my_choice !== null) {
+      openConfirm({ kind: "recast", from: my_choice, to: choice });
+      return;
+    }
     setError(null);
     cast.mutate(
       { disputeId, request: { choice } },
@@ -198,11 +219,21 @@ function BallotCard({
 
   const handleWithdraw = (): void => {
     if (busy) return;
-    setError(null);
-    withdraw.mutate(
-      { disputeId },
-      { onError: (err) => setError(humanizeBallotError(err)) },
-    );
+    openConfirm({ kind: "withdraw" });
+  };
+
+  const handleConfirm = (): void => {
+    if (confirming === null) return;
+    setConfirmError(null);
+    const callbacks = {
+      onSuccess: closeConfirm,
+      onError: (err: unknown) => setConfirmError(humanizeBallotError(err)),
+    };
+    if (confirming.kind === "recast") {
+      cast.mutate({ disputeId, request: { choice: confirming.to } }, callbacks);
+    } else {
+      withdraw.mutate({ disputeId }, callbacks);
+    }
   };
 
   const showCastControls = my_choice === null || can_change;
@@ -267,8 +298,50 @@ function BallotCard({
         TALLIES STAY SEALED UNTIL THE VOTE CLOSES &middot; RESOLVES BY{" "}
         {formatAbsoluteUTC(state.expires_at)}
       </p>
+
+      {confirming !== null && (
+        <ConfirmDialog
+          {...ballotConfirmCopy(confirming)}
+          retryLabel="TRY AGAIN"
+          errorMessage={confirmError}
+          pending={busy}
+          onConfirm={handleConfirm}
+          onCancel={closeConfirm}
+        />
+      )}
     </section>
   );
+}
+
+type BallotConfirm =
+  | { kind: "recast"; from: DisputeVoteChoice; to: DisputeVoteChoice }
+  | { kind: "withdraw" };
+
+/**
+ * The view-model carries no remaining-recast count (`DisputeVoteViewer`
+ * exposes only `can_change`), so the recast copy states the limit
+ * without a number rather than inventing one.
+ */
+function ballotConfirmCopy(c: BallotConfirm): {
+  title: string;
+  body: string;
+  confirmLabel: string;
+  cancelLabel: string;
+} {
+  if (c.kind === "recast") {
+    return {
+      title: "Change your vote?",
+      body: `Your ballot changes from ${CHOICE_LABEL[c.from]} to ${CHOICE_LABEL[c.to]}. You can only change your vote a limited number of times.`,
+      confirmLabel: "CHANGE VOTE",
+      cancelLabel: "KEEP MY VOTE",
+    };
+  }
+  return {
+    title: "Withdraw your ballot?",
+    body: "Withdrawing removes your vote. You'll have to wait 24 hours before you can vote on this dispute again.",
+    confirmLabel: "WITHDRAW",
+    cancelLabel: "KEEP MY VOTE",
+  };
 }
 
 const CHOICE_LABEL: Record<DisputeVoteChoice, string> = {

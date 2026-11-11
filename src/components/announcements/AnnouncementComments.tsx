@@ -22,6 +22,7 @@
 import { useState } from "react";
 
 import { Avatar } from "@/components/identity/Avatar";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { LoadFailure } from "@/components/ui/LoadFailure";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { Spinner } from "@/components/ui/Spinner";
@@ -91,6 +92,9 @@ export function AnnouncementComments({
   const create = useCreateAnnouncementComment(announcementId);
   const remove = useRemoveAnnouncementComment(announcementId);
   const [draft, setDraft] = useState("");
+  // The comment awaiting a REMOVE confirmation. Removal is one-way for
+  // the viewer (only an admin can restore), so the click alone never fires.
+  const [removingId, setRemovingId] = useState<string | null>(null);
 
   const failureCopy = humanizeCode(
     query.error,
@@ -240,7 +244,10 @@ export function AnnouncementComments({
                     {isAllowed(comment.permissions, "can_remove") && (
                       <button
                         type="button"
-                        onClick={() => void remove.mutate({ commentId: comment.id })}
+                        onClick={() => {
+                          remove.reset();
+                          setRemovingId(comment.id);
+                        }}
                         disabled={remove.isPending}
                         className="bcc-mono mt-2 text-bcc-text-secondary hover:underline disabled:opacity-50"
                         style={{ fontSize: "11px", minHeight: "44px" }}
@@ -339,7 +346,45 @@ export function AnnouncementComments({
           {deniedCopy(viewerAuthed, gateReason, gateHint)}
         </p>
       )}
+
+      {removingId !== null && (
+        <ConfirmDialog
+          title="Remove this comment?"
+          body="It will show as removed in the discussion."
+          confirmLabel="REMOVE"
+          cancelLabel="CANCEL"
+          retryLabel="TRY AGAIN"
+          errorMessage={remove.error ? humanizeRemoveError(remove.error) : null}
+          pending={remove.isPending}
+          onConfirm={() => {
+            remove.reset();
+            remove.mutate(
+              { commentId: removingId },
+              { onSuccess: () => setRemovingId(null) },
+            );
+          }}
+          onCancel={() => {
+            remove.reset();
+            setRemovingId(null);
+          }}
+        />
+      )}
     </section>
+  );
+}
+
+/** §γ — keyed on err.code (§4.32.7 DELETE), never err.message. */
+function humanizeRemoveError(err: unknown): string {
+  return humanizeCode(
+    err,
+    {
+      bcc_forbidden: "You can't remove this comment.",
+      bcc_conflict: "This comment was already removed.",
+      bcc_not_found: "This comment is no longer available.",
+      bcc_rate_limited: "Too fast — give it a moment and try again.",
+      bcc_unavailable: "Removing comments is unavailable right now. Try again shortly.",
+    },
+    "Couldn't remove that comment. Try again.",
   );
 }
 
