@@ -178,14 +178,14 @@ describe("reason_code 'unavailable' (F-99: blocks couldn't be checked)", () => {
 
   it("control: another code with a hint still renders the disabled pill", () => {
     renderBar({
-      can_message: { allowed: false, unlock_hint: "Friends only.", reason_code: "friends_only" },
+      can_message: { allowed: false, unlock_hint: "Turn on your DMs.", reason_code: "sender_chat_disabled" },
     });
     expect(messageEl()).not.toBeNull();
   });
 });
 
 describe("a denial with a reason_code is a closed list", () => {
-  it.each(["not_applicable", "messaging_unavailable", "self_action_blocked", "some_future_code"])(
+  it.each(["not_applicable", "messaging_unavailable", "self_action_blocked", "friends_only", "some_future_code"])(
     "hides %s even when it carries a hint",
     (reason_code) => {
       renderBar({ can_message: { allowed: false, unlock_hint: "A hint.", reason_code } });
@@ -194,7 +194,7 @@ describe("a denial with a reason_code is a closed list", () => {
     },
   );
 
-  it.each(["auth_required", "friends_only", "sender_chat_disabled"])(
+  it.each(["auth_required", "sender_chat_disabled"])(
     "shows the disabled pill for %s with a hint",
     (reason_code) => {
       renderBar({ can_message: { allowed: false, unlock_hint: "A hint.", reason_code } });

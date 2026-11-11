@@ -13,10 +13,12 @@
  *
  *   auth_required        → disabled ("Sign in to send a message.")
  *   sender_chat_disabled → disabled + the SERVER's unlock_hint
- *   friends_only         → disabled + the SERVER's unlock_hint
  *   anything else / null → hidden (structural deny, incl. F-99
  *                          `unavailable`, `self_action_blocked`,
- *                          `messaging_unavailable`, `not_applicable`)
+ *                          `messaging_unavailable`, `not_applicable`,
+ *                          and the legacy `friends_only`, which the
+ *                          server no longer emits since peepso-friends
+ *                          was removed)
  */
 
 import type { CardKind, CardMessaging } from "@/lib/api/types";
@@ -83,7 +85,7 @@ function disabledHintFor(code: string | null, serverHint: string | null): string
   if (code === "auth_required") {
     return MESSAGE_AUTH_REQUIRED_HINT;
   }
-  if (code === "sender_chat_disabled" || code === "friends_only") {
+  if (code === "sender_chat_disabled") {
     return serverHint;
   }
   return null;
