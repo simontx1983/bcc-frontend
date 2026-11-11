@@ -90,16 +90,28 @@ export function useUnreadCount(
   };
 }
 
+interface MarkReadMutationContext {
+  /** Snapshot of the list before the optimistic patch — restored on error. */
+  previous: InfiniteData<NotificationsListResponse> | undefined;
+}
+
 export function useMarkReadMutation() {
   const queryClient = useQueryClient();
 
-  return useMutation<NotificationsMarkReadResponse, BccApiError, number | undefined>({
+  return useMutation<
+    NotificationsMarkReadResponse,
+    BccApiError,
+    number | undefined,
+    MarkReadMutationContext
+  >({
     mutationFn: (id) => markNotificationsRead(id),
 
-    onMutate: (id) => {
+    onMutate: async (id) => {
       // Optimistic patch: flip the touched row(s) to read so the UI
       // doesn't lag the click. The list query's pages live as
-      // InfiniteData; iterate every page and rewrite items.
+      // InfiniteData; iterate every page and rewrite items. Cancel any
+      // in-flight list fetch first so it can't land over the patch.
+      await queryClient.cancelQueries({ queryKey: NOTIFICATIONS_QUERY_KEY });
       const previous = queryClient.getQueryData<InfiniteData<NotificationsListResponse>>(
         NOTIFICATIONS_QUERY_KEY
       );
@@ -118,6 +130,13 @@ export function useMarkReadMutation() {
         );
       }
       return { previous };
+    },
+
+    onError: (_err, _id, context) => {
+      // Server refused the mark-read: put the unread dots back.
+      if (context?.previous !== undefined) {
+        queryClient.setQueryData(NOTIFICATIONS_QUERY_KEY, context.previous);
+      }
     },
 
     onSettled: () => {

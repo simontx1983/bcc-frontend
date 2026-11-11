@@ -22,7 +22,7 @@ export function DisputesRoom() {
       </div>
 
       <header className="mt-10" data-bcc-tour="disputes.room">
-        <p className="bcc-mono text-safety">DISPUTE ROOM</p>
+        <p className="bcc-mono text-bcc-text-safety">DISPUTE ROOM</p>
         <h1
           className="bcc-stencil mt-2 text-bcc-text leading-[0.95]"
           style={{ fontSize: "clamp(2.25rem, 5.5vw, 4.5rem)" }}

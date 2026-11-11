@@ -79,7 +79,7 @@ export default async function ValidatorPagesDashboard() {
       </div>
 
       <header className="mx-auto max-w-[1560px] px-4 sm:px-7 pt-12">
-        <p className="bcc-mono text-safety">YOUR PAGES</p>
+        <p className="bcc-mono text-bcc-text-safety">YOUR PAGES</p>
         <h1
           className="bcc-stencil mt-3 text-bcc-text leading-[0.95]"
           style={{ fontSize: "clamp(2.5rem, 6.5vw, 5.5rem)" }}

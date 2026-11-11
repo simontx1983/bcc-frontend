@@ -19,6 +19,7 @@ import {
   useUpdateProfilePrefs,
 } from "@/hooks/useProfilePrefs";
 import type {
+  PostAudience,
   ProfilePrefs,
   ProfileVisibility,
   PostVisibility,
@@ -60,12 +61,26 @@ const PROFILE_VISIBILITY_OPTIONS: ReadonlyArray<{
     label: "Members only",
     blurb: "Only signed-in community members can see your profile.",
   },
+  // "friends" (level 30) is deliberately NOT offered: BCC has no friends
+  // screen, so nobody can have PeepSo friends and the option would mean
+  // "only me" in practice. A stored 30 is shown as Only me below. Add the
+  // option back when a friends screen exists.
   {
     value: "private",
-    label: "Private",
-    blurb: "Only you. Your profile is hidden from everyone else.",
+    label: "Only me",
+    blurb: "Only you. Site admins can still see it for moderation.",
   },
 ];
+
+/**
+ * The option a stored value is shown as. `friends` behaves like Only me
+ * today (an empty friends list admits only the owner and admins), so it
+ * is shown that way. The stored value is NOT rewritten: saving other
+ * fields leaves it untouched, because the PATCH only sends changes.
+ */
+function shownProfileVisibility(v: ProfileVisibility): ProfileVisibility {
+  return v === "friends" ? "private" : v;
+}
 
 const POST_VISIBILITY_OPTIONS: ReadonlyArray<{
   value: PostVisibility;
@@ -90,7 +105,7 @@ const POST_VISIBILITY_OPTIONS: ReadonlyArray<{
  * scoping audience for a specific post, not "who can see my profile".
  */
 const DEFAULT_POST_AUDIENCE_OPTIONS: ReadonlyArray<{
-  value: ProfileVisibility;
+  value: PostAudience;
   label: string;
   blurb: string;
 }> = [
@@ -225,7 +240,7 @@ function ProfilePrefsForm({ initial }: { initial: ProfilePrefs }) {
         <RadioGroup
           name="profile_visibility"
           options={PROFILE_VISIBILITY_OPTIONS}
-          value={draft.profile_visibility}
+          value={shownProfileVisibility(draft.profile_visibility)}
           onChange={(v) => setDraft({ ...draft, profile_visibility: v })}
           disabled={busy}
         />

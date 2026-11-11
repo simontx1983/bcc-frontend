@@ -22,6 +22,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 
+import { captureAnalyticsEvent } from "@/lib/analytics/posthog";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { LoadFailure } from "@/components/ui/LoadFailure";
 import { useCopyConfirm } from "@/hooks/useCopyConfirm";
@@ -43,11 +44,18 @@ import {
 import { walletHintFor } from "@/lib/wallet/dispatch";
 import { humanizeLinkError, runLinkFlow } from "@/lib/wallet/linkFlow";
 import { CollectionStancePanel } from "@/components/onchain/CollectionStancePanel";
+import {
+  RECOVERY_EMAIL_SESSION_LOST,
+  SessionWriteFailedNotice,
+  UNLINK_SESSION_UNCERTAIN,
+} from "@/components/auth/SessionWriteFailedNotice";
 
 export function WalletsSection() {
   const wallets = useMyWallets();
   const [confirmingId, setConfirmingId] = useState<number | null>(null);
   const [errorText, setErrorText] = useState<string | null>(null);
+  // The unlink worked but its replacement bearer didn't reach the session.
+  const [unlinkSessionDoubt, setUnlinkSessionDoubt] = useState(false);
 
   // One ref per row's Unlink trigger. Cancelling the dialog must return
   // focus to the exact wallet the user opened it from, not merely "a"
@@ -101,7 +109,9 @@ export function WalletsSection() {
   }
 
   const unlink = useUnlinkWallet({
-    onSuccess: () => {
+    onSuccess: (outcome) => {
+      captureAnalyticsEvent("wallet_unlinked");
+      setUnlinkSessionDoubt(outcome.sessionRestored === false);
       setConfirmingId(null);
       setErrorText(null);
       // Drop any copy status: it names a wallet that is about to vanish.
@@ -113,7 +123,7 @@ export function WalletsSection() {
     // Deliberately does NOT close the dialog: a failure keeps the user in
     // the decision they made, with the reason and a retry in place.
     onError: (err) => {
-      setErrorText(humanizeError(err));
+      setErrorText(humanizeUnlinkError(err));
     },
   });
 
@@ -138,6 +148,7 @@ export function WalletsSection() {
 
   return (
     <div className="bcc-panel flex flex-col gap-4 p-6">
+      {unlinkSessionDoubt && <SessionWriteFailedNotice message={UNLINK_SESSION_UNCERTAIN} />}
       {showRecoveryBanner && (
         <RecoveryEmailPanel
           verifiedWalletCount={verifiedWalletCount}
@@ -246,7 +257,7 @@ export function WalletsSection() {
 
       {/* Failures raised outside the dialog (none today) still surface. */}
       {errorText !== null && confirmingWallet === undefined && (
-        <p role="alert" className="bcc-mono text-[11px] text-bcc-danger">
+        <p role="alert" className="bcc-mono text-[11px] text-bcc-text-error">
           {errorText}
         </p>
       )}
@@ -311,8 +322,12 @@ function LinkWalletForm({ chainSelectRef }: LinkWalletFormProps) {
 
       void queryClient.invalidateQueries({ queryKey: MY_WALLETS_QUERY_KEY });
       // The user view-model holds wallet badges; refresh them too.
+      // useUser keys on ["user", handle]; ["users", …] is the per-profile
+      // panel namespace (activity, groups, …), kept so those refresh too.
+      void queryClient.invalidateQueries({ queryKey: ["user"] });
       void queryClient.invalidateQueries({ queryKey: ["users"] });
 
+      captureAnalyticsEvent("wallet_linked", { chain_slug: response.chain_slug });
       setSuccess(`Linked ${response.chain_name || response.chain_slug} wallet.`);
     } catch (err) {
       setError(humanizeLinkError(err));
@@ -371,7 +386,7 @@ function LinkWalletForm({ chainSelectRef }: LinkWalletFormProps) {
       )}
 
       {error !== null && (
-        <p role="alert" className="bcc-mono text-[11px] text-safety">
+        <p role="alert" className="bcc-mono text-[11px] text-bcc-text-error">
           {error}
         </p>
       )}
@@ -427,7 +442,7 @@ function RecoveryEmailPanel({
   return (
     <div className="flex flex-col gap-3 border border-safety/50 bg-safety/5 p-4">
       <div className="flex flex-col gap-1">
-        <span className="bcc-mono text-[10px] tracking-[0.24em] text-safety">
+        <span className="bcc-mono text-[10px] tracking-[0.24em] text-bcc-text-safety">
           ACCOUNT RECOVERY
         </span>
         <p className="font-serif text-sm text-bcc-text">
@@ -513,6 +528,7 @@ function RecoveryEmailForm({
   const [maskedEmail, setMaskedEmail] = useState<string | null>(null);
   const [code, setCode] = useState("");
   const [done, setDone] = useState<string | null>(null);
+  const [sessionLost, setSessionLost] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const request = useRequestRecoveryEmail({
@@ -529,6 +545,7 @@ function RecoveryEmailForm({
       // The query invalidation in the hook clears the banner; show a
       // brief confirmation in case the unmount is delayed by a refetch.
       setDone(data.email);
+      setSessionLost(data.sessionRestored === false);
     },
     onError: (err) => setError(humanizeRecoveryError(err)),
   });
@@ -578,6 +595,7 @@ function RecoveryEmailForm({
         >
           Recovery email confirmed: {done}
         </p>
+        {sessionLost && <SessionWriteFailedNotice message={RECOVERY_EMAIL_SESSION_LOST} />}
       </div>
     );
   }
@@ -629,7 +647,7 @@ function RecoveryEmailForm({
         </div>
 
         {error !== null && (
-          <p role="alert" className="bcc-mono text-[11px] text-safety">
+          <p role="alert" className="bcc-mono text-[11px] text-bcc-text-error">
             {error}
           </p>
         )}
@@ -706,7 +724,7 @@ function RecoveryEmailForm({
       )}
 
       {error !== null && (
-        <p role="alert" className="bcc-mono text-[11px] text-safety">
+        <p role="alert" className="bcc-mono text-[11px] text-bcc-text-error">
           {error}
         </p>
       )}
@@ -750,7 +768,7 @@ function WalletRow({ wallet, registerTrigger, onCopy, onAskConfirm }: WalletRowP
             </span>
           )}
           {!wallet.verified && (
-            <span className="bcc-mono border border-safety/50 px-1.5 py-0.5 text-[9px] tracking-[0.18em] text-safety">
+            <span className="bcc-mono border border-safety/50 px-1.5 py-0.5 text-[9px] tracking-[0.18em] text-bcc-text-safety">
               UNVERIFIED
             </span>
           )}
@@ -795,7 +813,7 @@ function WalletRow({ wallet, registerTrigger, onCopy, onAskConfirm }: WalletRowP
           type="button"
           ref={registerTrigger}
           onClick={onAskConfirm}
-          className="bcc-mono border-2 border-bcc-border px-3 py-1.5 text-[11px] tracking-[0.18em] text-bcc-text-secondary transition hover:border-safety hover:text-safety"
+          className="bcc-mono border-2 border-bcc-border px-3 py-1.5 text-[11px] tracking-[0.18em] text-bcc-text-secondary transition hover:border-safety hover:text-bcc-text-safety"
         >
           Unlink
         </button>
@@ -829,7 +847,9 @@ function EmptyState() {
 // Helpers
 // ─────────────────────────────────────────────────────────────────────
 
-function humanizeError(err: unknown): string {
+/** Code-keyed copy for a failed unlink. Shared with the post-verification
+ * "is this wallet yours?" prompt. */
+export function humanizeUnlinkError(err: unknown): string {
   return humanizeCode(
     err,
     {

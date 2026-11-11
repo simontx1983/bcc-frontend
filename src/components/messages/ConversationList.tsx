@@ -44,6 +44,10 @@ const ConversationRow = memo(function ConversationRow({
   const avatarHandle = conv.peer?.handle ?? title;
   const avatarDisplay = conv.peer?.display_name ?? title;
   const hasUnread = conv.unread_count > 0;
+  // bcc-trust #122: the server already substituted the preview for a
+  // blocked sender. Render it verbatim, muted-but-readable (secondary,
+  // never muted — muted fails contrast). Keyed only on the server flag.
+  const senderBlocked = conv.last_message.sender_blocked_by_viewer;
 
   return (
     <li>
@@ -86,9 +90,11 @@ const ConversationRow = memo(function ConversationRow({
           <p
             className={
               "truncate text-[13px] leading-snug " +
-              (hasUnread
-                ? "text-bcc-text"
-                : "text-bcc-text-secondary")
+              (senderBlocked
+                ? "italic text-bcc-text-secondary"
+                : hasUnread
+                  ? "text-bcc-text"
+                  : "text-bcc-text-secondary")
             }
           >
             {previewLine(conv)}

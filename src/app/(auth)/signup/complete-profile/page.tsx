@@ -32,6 +32,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { type FormEvent, Suspense, useState } from "react";
 
 import { AuthCard } from "@/components/auth/AuthCard";
+import { noteSignupCompleted, signupMethodForProvider } from "@/lib/analytics/posthog";
 import { oauthComplete } from "@/lib/api/auth-endpoints";
 import { BccApiError } from "@/lib/api/types";
 import { checkHandleLocal, formatHandleHint } from "@/lib/auth/handleValidation";
@@ -53,6 +54,8 @@ function CompleteProfileContent() {
   const searchParams = useSearchParams();
   const pt           = searchParams.get("pt") ?? "";
   const needsEmail   = (searchParams.get("email") ?? "") === "";
+  // `?provider=` is appended by the OAuth callback (lib/auth.ts).
+  const signupMethod = signupMethodForProvider(searchParams.get("provider"));
 
   const [handle, setHandle]               = useState("");
   const [displayName, setDisplayName]     = useState("");
@@ -92,6 +95,10 @@ function CompleteProfileContent() {
       });
 
       if (result?.ok) {
+        // The OAuth account now exists. Owed to the next allowed pageview:
+        // this route's events are dropped. An existing user's OAuth
+        // sign-in never reaches this page, so it never marks.
+        if (signupMethod !== null) noteSignupCompleted(signupMethod);
         router.replace("/onboarding" as Route);
         return;
       }

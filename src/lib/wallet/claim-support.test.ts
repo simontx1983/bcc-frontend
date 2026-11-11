@@ -39,10 +39,12 @@ describe("claim journey", () => {
   const callout = read("src/components/claim/ClaimCallout.tsx");
 
   it("carries on to the claim when the wallet is already linked", () => {
-    const at = flow.indexOf('isCode(linkErr, "bcc_conflict")');
+    // linkOrConfirmOwnWallet resolves for a wallet already on THIS account
+    // (and rethrows for anyone else's), and the claim follows it. The
+    // behaviour itself is covered in claim-flow-cosmos.test.tsx.
+    const at = flow.indexOf("await linkOrConfirmOwnWallet(");
     expect(at).toBeGreaterThan(-1);
-    // The link failure must not throw for a conflict, and claim must follow it.
-    expect(flow.slice(at)).toMatch(/alreadyLinked = true[\s\S]*await claimPage\(/);
+    expect(flow.slice(at)).toMatch(/await claimPage\(/);
   });
 
   it("does not name one wallet on a flow used by several", () => {

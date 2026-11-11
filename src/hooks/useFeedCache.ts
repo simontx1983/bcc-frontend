@@ -29,6 +29,7 @@ import type { InfiniteData, QueryClient } from "@tanstack/react-query";
 
 import { FEED_ITEM_QUERY_KEY, FEED_QUERY_KEY_ROOT } from "@/hooks/useFeed";
 import { GROUP_FEED_QUERY_KEY_ROOT } from "@/hooks/useGroupFeed";
+import { USER_ACTIVITY_QUERY_KEY_ROOT } from "@/hooks/useUserActivity";
 import type { FeedItem, FeedReactions, FeedResponse } from "@/lib/api/types";
 
 /**
@@ -131,6 +132,38 @@ export function patchFeedItem(
   queryClient.setQueryData<FeedItem>(FEED_ITEM_QUERY_KEY(feedId), (old) =>
     old === undefined ? old : { ...old, reactions: update(old) }
   );
+}
+
+/**
+ * Every namespace a post can be listed in: the feed page roots above plus
+ * the per-user profile walls (`["users","activity", handle]`, the same
+ * FeedResponse envelope). A deleted post must leave all of them, otherwise
+ * the stale row stays clickable and its detail route 404s.
+ */
+const FEED_LISTING_ROOTS = [...FEED_PAGE_ROOTS, USER_ACTIVITY_QUERY_KEY_ROOT] as const;
+
+/**
+ * Drop the item from every cached listing and clear its
+ * `["feedItem", id]` detail cache. Used once the server has confirmed a
+ * delete, so there is nothing to snapshot.
+ */
+export function removeFeedItem(queryClient: QueryClient, feedId: string): void {
+  for (const root of FEED_LISTING_ROOTS) {
+    queryClient.setQueriesData<InfiniteData<FeedResponse>>(
+      { queryKey: root },
+      (oldData) => {
+        if (oldData === undefined) return oldData;
+        return {
+          ...oldData,
+          pages: oldData.pages.map((page) => ({
+            ...page,
+            items: page.items.filter((item) => item.id !== feedId),
+          })),
+        };
+      }
+    );
+  }
+  queryClient.removeQueries({ queryKey: FEED_ITEM_QUERY_KEY(feedId) });
 }
 
 function containsFeedId(data: InfiniteData<FeedResponse>, feedId: string): boolean {

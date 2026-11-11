@@ -26,7 +26,7 @@ import Image from "next/image";
 
 import { useUserBlog } from "@/hooks/useUserBlog";
 import { formatRelativeTime } from "@/lib/format";
-import { LoadFailure } from "@/components/ui/LoadFailure";
+import { ProfileReadFailure } from "@/components/profile/ProfilePrivateNotice";
 import { humanizeCode } from "@/lib/api/errors";
 import type { FeedItem } from "@/lib/api/types";
 
@@ -103,7 +103,7 @@ export function UserBlogList({ handle, onEdit }: UserBlogListProps) {
   if (query.isLoadingError) {
     return (
       <div className="bcc-panel p-6">
-        <LoadFailure message={failureCopy} onRetry={() => void query.refetch()} />
+        <ProfileReadFailure error={query.error} message={failureCopy} onRetry={() => void query.refetch()} />
       </div>
     );
   }
@@ -140,14 +140,14 @@ export function UserBlogList({ handle, onEdit }: UserBlogListProps) {
           below stays available because the retained last page still holds
           a safe next cursor. */}
       {query.isRefetchError && (
-        <LoadFailure message={failureCopy} onRetry={() => void query.refetch()} />
+        <ProfileReadFailure error={query.error} message={failureCopy} onRetry={() => void query.refetch()} />
       )}
 
       {/* A failed LOAD MORE takes the place of the LOAD MORE control, so
           the cursor that failed cannot be skipped past. Retry resumes at
           that same cursor instead of refetching the whole list. */}
       {query.isFetchNextPageError ? (
-        <LoadFailure message={failureCopy} onRetry={() => void query.fetchNextPage()} />
+        <ProfileReadFailure error={query.error} message={failureCopy} onRetry={() => void query.fetchNextPage()} />
       ) : (
         query.hasNextPage && (
           <button
@@ -205,7 +205,7 @@ function BlogPostBody({ item, onEdit }: BlogPostBodyProps) {
       <header className="flex flex-col gap-2 border-b border-bcc-border pb-3">
         <div className="flex flex-wrap items-center gap-2">
           {category !== null && (
-            <span className="bcc-mono border border-safety/40 bg-safety/10 px-2 py-1 text-[10px] tracking-[0.18em] text-safety">
+            <span className="bcc-mono border border-safety/40 bg-safety/10 px-2 py-1 text-[10px] tracking-[0.18em] text-bcc-text-safety">
               {(CATEGORY_LABELS[category] ?? category).toUpperCase()}
             </span>
           )}
@@ -235,7 +235,7 @@ function BlogPostBody({ item, onEdit }: BlogPostBodyProps) {
               <button
                 type="button"
                 onClick={() => onEdit(item)}
-                className="bcc-mono text-[10px] tracking-[0.18em] text-safety hover:underline underline-offset-4"
+                className="bcc-mono text-[10px] tracking-[0.18em] text-bcc-text-safety hover:underline underline-offset-4"
               >
                 EDIT
               </button>

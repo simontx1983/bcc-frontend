@@ -9,7 +9,9 @@
  *                        join action. Sorted by heat (hot → warm → cold,
  *                        then posts_last_7d desc) per contract §4.7.1
  *                        line 1510 — anti-ghost-town.
- *   3. Opted-out       — viewer left or was mod-removed (read-only)
+ *   3. Opted-out       — viewer left (Join offered, F-158) or was
+ *                        mod-removed (no action). `opt_out_kind` absent
+ *                        is treated as mod-removed.
  *
  * Plus an auto-join preference toggle at the top. Toggling ON triggers
  * a synchronous reconcile sweep server-side; the reconciled count is
@@ -26,15 +28,15 @@ import { useState } from "react";
 import {
   useHolderGroupPreferences,
   useJoinHolderGroupMutation,
-  useLeaveHolderGroupMutation,
   useMyHolderGroups,
   useUpdateHolderGroupPreferences,
 } from "@/hooks/useHolderGroups";
 import { LoadFailure } from "@/components/ui/LoadFailure";
 import { GroupActionButton } from "@/components/groups/GroupActionButton";
+import { HolderLeaveConfirm } from "@/components/groups/HolderLeaveConfirm";
 import { HeatBadge } from "@/components/groups/HeatBadge";
 import { VerificationBadge } from "@/components/groups/VerificationBadge";
-import { humanizeCode } from "@/lib/api/errors";
+import { humanizeCode, isPermissionDenial } from "@/lib/api/errors";
 import type { GroupActivity, HolderGroupItem } from "@/lib/api/types";
 
 import { SettingsSectionHeader } from "@/components/settings/SettingsSectionHeader";
@@ -65,26 +67,35 @@ export function CommunitiesList() {
     );
   }
 
-  if (listQuery.isError) {
-    return (
-      <div className="bcc-panel p-6">
-        <LoadFailure
-          /* §γ — copy is keyed on err.code; never render err.message. */
-          message={humanizeCode(
-            listQuery.error,
-            {
-              bcc_unauthorized: "Sign in to see your communities.",
-              bcc_rate_limited: "Loading too fast — give it a moment and try again.",
-              bcc_unavailable: "Communities are temporarily unavailable. Try again shortly.",
-            },
-            "Couldn't load communities. Try again in a moment.",
-          )}
-          // The list query only — `updateMutation`'s error is a write
-          // failure and keeps its own inline message further down.
-          onRetry={() => void listQuery.refetch()}
-        />
-      </div>
-    );
+  const failure = listQuery.isError ? (
+    <div className="bcc-panel p-6">
+      <LoadFailure
+        /* §γ — copy is keyed on err.code; never render err.message. */
+        message={humanizeCode(
+          listQuery.error,
+          {
+            bcc_unauthorized: "Sign in to see your communities.",
+            bcc_rate_limited: "Loading too fast — give it a moment and try again.",
+            bcc_unavailable: "Communities are temporarily unavailable. Try again shortly.",
+          },
+          "Couldn't load communities. Try again in a moment.",
+        )}
+        // The list query only — `updateMutation`'s error is a write
+        // failure and keeps its own inline message further down.
+        onRetry={() => void listQuery.refetch()}
+      />
+    </div>
+  ) : null;
+
+  // Only a first-load failure, or a REFRESH the server refused, may
+  // replace the page. Every join and leave invalidates this query, so a
+  // blanket `isError` meant one failed refetch erased all three sections
+  // and the auto-join preference above them.
+  if (
+    listQuery.isLoadingError ||
+    (listQuery.isRefetchError && isPermissionDenial(listQuery.error))
+  ) {
+    return failure;
   }
 
   const { joined, eligible_to_join, opted_out } = listQuery.data;
@@ -92,6 +103,8 @@ export function CommunitiesList() {
 
   return (
     <div className="flex flex-col gap-10">
+      {/* A failed REFRESH keeps the sections; the recovery sits on top. */}
+      {failure}
       <AutoJoinPreference />
 
       <CommunitiesSection
@@ -115,10 +128,14 @@ export function CommunitiesList() {
       <CommunitiesSection
         eyebrow="PREVIOUSLY LEFT"
         title="Opted out"
-        blurb="Communities you left or were removed from. Cooldown clears in 90 days for self-leaves; mod-removals are permanent."
+        blurb="Communities you left or were removed from. If you left, auto-join won't add you back for 90 days, but you can rejoin any time while you hold the NFT. If a moderator removed you, you can't rejoin."
         items={opted_out}
         emptyCopy="Nothing here. You haven't left any holder communities." /* cadence-pressure-guard:allow — neutral empty-state fact, no attest cadence */
-        renderAction={() => null}
+        // Only a self-leave may rejoin. A missing kind (older backend) is
+        // treated as a moderator removal: no Join, never a doomed 403.
+        renderAction={(item) =>
+          item.opt_out_kind === "left" ? <JoinButton groupId={item.group_id} /> : null
+        }
       />
     </div>
   );
@@ -186,7 +203,7 @@ function AutoJoinPreference() {
       )}
 
       {updateMutation.isError && (
-        <p role="alert" className="bcc-mono mt-3 text-[11px] text-safety">
+        <p role="alert" className="bcc-mono mt-3 text-[11px] text-bcc-text-error">
           {/* §γ — copy is keyed on err.code; never render err.message. */}
           {humanizeCode(
             updateMutation.error,
@@ -230,7 +247,7 @@ function CommunitiesSection({
       {items.length === 0 ? (
         <div className="bcc-panel mt-4 p-6">
           <p
-            className="bcc-mono mb-3 text-safety"
+            className="bcc-mono mb-3 text-bcc-text-safety"
             style={{ fontSize: "10px", letterSpacing: "0.24em" }}
           >
             NONE ON FILE
@@ -339,32 +356,22 @@ function JoinButton({ groupId }: { groupId: number }) {
   );
 }
 
+// Holder leave starts a 90-day cooldown, so it confirms first.
 function LeaveButton({ groupId }: { groupId: number }) {
-  const mutation = useLeaveHolderGroupMutation();
-
-  // §γ — copy is keyed on err.code; never render err.message.
-  const errorMessage = mutation.error
-    ? humanizeCode(
-        mutation.error,
-        {
-          bcc_rate_limited: "Slow down — too many leave attempts. Wait a minute.",
-          bcc_unauthorized: "Sign in to leave this community.",
-        },
-        "Couldn't leave this community. Try again.",
-      )
-    : null;
-
   return (
-    <GroupActionButton
+    <HolderLeaveConfirm
       groupId={groupId}
-      label="LEAVE"
-      pendingLabel="LEAVING…"
-      isPending={mutation.isPending}
-      errorMessage={errorMessage}
-      onClick={() => {
-        mutation.reset();
-        mutation.mutate(groupId);
-      }}
+      // §γ — copy is keyed on err.code; never render err.message.
+      humanizeError={(err) =>
+        humanizeCode(
+          err,
+          {
+            bcc_rate_limited: "Slow down — too many leave attempts. Wait a minute.",
+            bcc_unauthorized: "Sign in to leave this community.",
+          },
+          "Couldn't leave this community. Try again.",
+        )
+      }
     />
   );
 }

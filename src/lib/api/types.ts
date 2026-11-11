@@ -17,6 +17,13 @@
 
 export interface ApiMeta {
   version: string;
+  /**
+   * The server's per-request correlation id (bcc-trust #377 / #383): the
+   * same value as the X-Request-Id header. Present on success envelopes
+   * and on reshaped error envelopes. Optional for responses from servers
+   * that predate it.
+   */
+  request_id?: string;
   /** kind → resolved post.ID for §D5 reactions. Absent on error responses. */
   reaction_types?: Record<string, number>;
 }
@@ -89,6 +96,18 @@ export class BccApiError extends Error {
  * If /auth/token (refresh) ever gets a frontend consumer, give it its
  * own type without `user_id` / `handle`.
  */
+/**
+ * POST /auth/verify-email — the /auth/login shape plus
+ * `linked_wallet_count` (bcc-trust #398): how many wallets the verified
+ * account has linked. A count only. `0` can also mean the wallet read
+ * failed, so a client never acts destructively on 0; it prompts "is
+ * this wallet yours?" only when the count is > 0. Optional so an older
+ * backend (no field) simply shows no prompt.
+ */
+export interface VerifyEmailResponse extends AuthTokenResponse {
+  linked_wallet_count?: number;
+}
+
 export interface AuthTokenResponse {
   user_id: number;
   handle: string;
@@ -321,6 +340,11 @@ export interface CardPermissions {
    *     "recipient has DMs off" and "mutually blocked". The payload is
    *     an info-leak shield; the frontend MUST NOT try to distinguish
    *     the two states or hint at which one applies.
+   *   - `unavailable`           → hidden, no hint. The server couldn't
+   *     check blocks right now (F-99), so the affordance is omitted
+   *     entirely, never shown disabled. Sent with `unlock_hint: null`.
+   *   - any other code          → hidden unless it carries a hint
+   *     (this field is an open string, not a closed inventory).
    */
   can_message?: CardPermissionEntry;
 }
@@ -2107,7 +2131,8 @@ export interface LeaveHallResponse {
 // client-side (privacy gate is server-authoritative per §S / §A2):
 //   - joined          — viewer is a current member
 //   - eligible_to_join — viewer holds the gating NFT but isn't a member
-//   - opted_out       — viewer left or was mod-removed (TTL or permanent)
+//   - opted_out       — viewer left (`opt_out_kind: "left"`, may rejoin)
+//                       or was mod-removed (`"removed"`, may not)
 // ─────────────────────────────────────────────────────────────────────
 
 /**
@@ -2200,6 +2225,14 @@ export interface HolderGroupItem {
   };
   verification: GroupVerification;
   activity: GroupActivity;
+  /**
+   * F-158. Present ONLY on `opted_out` rows: `"left"` means the viewer
+   * left it themselves and an explicit Join is allowed (eligibility
+   * still applies); `"removed"` means a moderator removed them and a
+   * Join is refused. Absent (an older backend) is treated as
+   * `"removed"`, so no Join is offered.
+   */
+  opt_out_kind?: "left" | "removed";
 }
 
 /** GET /me/holder-groups — three pre-bucketed lists. */
@@ -2574,7 +2607,9 @@ export interface UserGroupsResponse {
  * one render branch covers both surfaces.
  *   public         = visible to everyone (anon + members)
  *   site_members   = visible to logged-in viewers
- *   friends_only   = visible to friends + owner
+ *   friends_only   = legacy PeepSo level 30. peepso-friends is removed,
+ *                    so the server treats it as owner-only. No UI
+ *                    offers it.
  *   only_me        = visible to owner only (frontend never sees these
  *                    rows when viewing someone else's profile)
  */
@@ -3659,15 +3694,14 @@ export interface LinkWalletRequest {
   wallet_address: string;
   /** base64 signature returned by Keplr's signArbitrary. */
   signature: string;
-  /** base64 secp256k1 pubkey value (`pub_key.value` from Keplr). */
-  pub_key?: string;
   wallet_type?: string;
   label?: string;
   /**
    * Chain-specific verification context. Cosmos signature verification
-   * reads `pub_key` + `chain_id` from here (see WalletVerifier::verify
-   * on the backend). The top-level `pub_key` field above is only used
-   * by older callers and is ignored by the cosmos verifier.
+   * reads `pub_key` + `chain_id` from HERE and only here (WalletVerifier
+   * on the backend). There is deliberately no top-level `pub_key`: the
+   * validator ClaimFlow once sent one, the verifier ignored it, and every
+   * Cosmos claim failed. Build this with `lib/wallet/linkFlow`.
    */
   extra?: Record<string, unknown>;
 }
@@ -4178,6 +4212,13 @@ export type MyPrivacyPatch = Partial<MyPrivacySettings>;
 export interface MemberPermission {
   allowed: boolean;
   unlock_hint: string | null;
+  /**
+   * Why `allowed` is false, when the server says. Optional and an open
+   * string. For `can_message`, `unavailable` (F-99: blocks couldn't be
+   * checked) means omit the affordance entirely; see
+   * `CardPermissions.can_message` for the full inventory.
+   */
+  reason_code?: string | null;
 }
 
 /**
@@ -5490,6 +5531,16 @@ export interface UnlinkWalletResponse {
   ok: true;
   id: number;
   removed: boolean;
+  /**
+   * Present ONLY on a true removal of the caller's own wallet
+   * (`removed: true`). A replacement bearer: with the server option
+   * `bcc_unlink_revokes_sessions` ON, every earlier bearer is revoked
+   * first, so this is the caller's only working session. The client
+   * MUST store it (useUnlinkWallet does) on every unlink.
+   */
+  token?: string;
+  expires_in?: number;
+  token_type?: "Bearer";
 }
 
 // ────────────────────────────────────────────────────────────────────────
@@ -5528,7 +5579,83 @@ export interface VerifyRecoveryEmailResponse {
   ok: true;
   /** The now-confirmed recovery email (full, not masked). */
   email: string;
+  /**
+   * A replacement bearer: the server revokes every earlier one when it
+   * confirms the recovery email (support agent 1, pending). The client
+   * MUST store it (useVerifyRecoveryEmail does). Optional so an older
+   * backend, which neither revokes nor returns one, still works.
+   */
+  token?: string;
+  expires_in?: number;
+  token_type?: "Bearer";
 }
+
+// ────────────────────────────────────────────────────────────────────────
+// Account email change — verify-before-apply.
+//
+// Backend: MyAccountEndpoint. Two-step:
+//   1. PATCH /me/account/email        — current password + new address.
+//      Nothing changes yet: the new address is held pending and a 6-digit
+//      code is mailed to it.
+//   2. POST  /me/account/email/verify — the code. Only now is the address
+//      applied, and every earlier bearer is revoked, so the response
+//      carries a replacement the client MUST swap to (same as the
+//      password change).
+// ────────────────────────────────────────────────────────────────────────
+
+/** PATCH /me/account/email — a new address: held pending, code sent. */
+export interface AccountEmailChangePending {
+  ok: true;
+  pending: true;
+  /** Masked new address, safe to echo back in the UI. */
+  email_masked: string;
+  /** Seconds the code stays valid (900). */
+  expires_in: number;
+}
+
+/** PATCH /me/account/email — the address is already the account's. */
+export interface AccountEmailChangeUnchanged {
+  ok: true;
+  pending: false;
+}
+
+export interface VerifyAccountEmailChangeBody {
+  /** 6-digit code from the message sent to the new address. */
+  code: string;
+}
+
+export interface VerifyAccountEmailChangeResponse {
+  ok: true;
+  /** The newly applied address (full, not masked). */
+  email: string;
+  /** Replacement bearer for THIS session. A live credential — never log or store it. */
+  token: string;
+  /** Seconds until the replacement expires. */
+  expires_in: number;
+  token_type: "Bearer";
+}
+
+/**
+ * Error codes POST /me/account/email/verify answers with (bcc-trust
+ * #395). Branch on the CODE; the status is only a secondary guard:
+ *
+ *   bcc_invalid_otp     422 — wrong code; the pending change is kept
+ *   bcc_invalid_request 400 — no pending change (never requested,
+ *                             expired after 15 min, or superseded)
+ *   bcc_invalid_request 422 — the code was empty (validated client-side
+ *                             first, so not normally reached)
+ *   bcc_conflict        409 — address taken meanwhile; pending dropped
+ *   bcc_rate_limited    429 — 10 attempts per hour
+ *   bcc_internal_error  500 — retryable
+ *   bcc_unauthorized    401
+ */
+export type VerifyAccountEmailChangeErrorCode =
+  | "bcc_invalid_otp"
+  | "bcc_invalid_request"
+  | "bcc_conflict"
+  | "bcc_rate_limited"
+  | "bcc_internal_error"
+  | "bcc_unauthorized";
 
 // ────────────────────────────────────────────────────────────────────────
 // §I1 V1.5 — notification preferences (bell event toggles + email digest).
@@ -6043,9 +6170,10 @@ export interface NftPickerItem {
   token_standard?: string | null;
   /**
    * v1.31 — whether the operator has verified this item's collection
-   * (holder community activated). Display-only: unverified items render
-   * dimmed with a "community not yet activated" tag, never hidden.
-   * Absent (older payloads) reads as verified — don't dim on missing data.
+   * (holder community activated). Display-only: unverified items carry a
+   * "Not yet active" badge (NotYetActiveBadge) and stay fully selectable —
+   * never dimmed, never hidden. Absent (older payloads) reads as verified —
+   * don't badge on missing data.
    */
   collection_verified?: boolean;
 }
@@ -6158,6 +6286,15 @@ export interface MessageUserMini {
   avatar_url: string;
 }
 
+/**
+ * Server placeholder for a message whose sender the viewer has blocked
+ * (bcc-trust #122). The inbox `preview` already carries it; a thread
+ * item's `body` will once the backend withholds the text, at which point
+ * the real body is fetched on demand via the reveal endpoint. Mirrors the
+ * server string exactly — the reveal path compares against it.
+ */
+export const BLOCKED_SENDER_PLACEHOLDER = "Message from someone you have blocked";
+
 /** One message in a thread. `is_inline_notice` flags PeepSo system rows. */
 export interface MessageItem {
   id: number;
@@ -6165,13 +6302,31 @@ export interface MessageItem {
   body: string;
   posted_at: string;
   is_inline_notice: boolean;
+  /** True when the viewer has blocked this message's sender. Always sent. */
+  sender_blocked_by_viewer: boolean;
 }
 
 export interface ConversationLastMessage {
   id: number;
   author: MessageUserMini | null;
+  /** Already `BLOCKED_SENDER_PLACEHOLDER` when `sender_blocked_by_viewer`. */
   preview: string;
   posted_at: string;
+  /** True when the viewer has blocked this message's sender. Always sent. */
+  sender_blocked_by_viewer: boolean;
+}
+
+/**
+ * GET /me/conversations/{id}/messages/{message_id}/reveal — the real
+ * body of one message from a sender the viewer has blocked. Viewer-
+ * initiated, `private, no-store`. One identical 404 `bcc_not_found`,
+ * with no reason code, for every refusal: a non-participant, a message
+ * that isn't in that conversation, a message that doesn't exist, or a
+ * message the viewer never received. Don't branch on the reason.
+ */
+export interface RevealedMessageResponse {
+  id: number;
+  body: string;
 }
 
 /**

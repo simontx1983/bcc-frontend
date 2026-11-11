@@ -17,7 +17,7 @@ import { useEffect, useState } from "react";
 
 import { LoadFailure } from "@/components/ui/LoadFailure";
 import { useMyPrivacy, useUpdateMyPrivacy } from "@/hooks/useMyPrivacy";
-import { humanizeCode } from "@/lib/api/errors";
+import { humanizeCode, isPermissionDenial } from "@/lib/api/errors";
 import type { MyPrivacySettings } from "@/lib/api/types";
 
 type ToggleKey = keyof MyPrivacySettings;
@@ -97,7 +97,8 @@ const SECTIONS: ToggleSection[] = [
 ];
 
 export function PrivacySettingsForm() {
-  const { data, isPending, isError, error, refetch } = useMyPrivacy();
+  const { data, isPending, isError, isLoadingError, isRefetchError, error, refetch } =
+    useMyPrivacy();
   const mutation = useUpdateMyPrivacy();
 
   // Pending-key + last-result tracking so the row can show a tiny
@@ -132,28 +133,35 @@ export function PrivacySettingsForm() {
     );
   }
 
-  if (isError) {
-    return (
-      <div className="bcc-panel p-6">
-        <LoadFailure
-          /* §γ — copy is keyed on err.code; never render err.message. */
-          message={humanizeCode(
-            error,
-            {
-              bcc_unauthorized: "Sign in to manage your privacy settings.",
-              bcc_rate_limited: "Loading too fast — give it a moment and try again.",
-              bcc_unavailable: "Privacy settings are temporarily unavailable. Try again shortly.",
-            },
-            "Couldn't load privacy settings. Try again in a moment.",
-          )}
-          onRetry={() => void refetch()}
-        />
-      </div>
-    );
+  const failure = isError ? (
+    <div className="bcc-panel p-6">
+      <LoadFailure
+        /* §γ — copy is keyed on err.code; never render err.message. */
+        message={humanizeCode(
+          error,
+          {
+            bcc_unauthorized: "Sign in to manage your privacy settings.",
+            bcc_rate_limited: "Loading too fast — give it a moment and try again.",
+            bcc_unavailable: "Privacy settings are temporarily unavailable. Try again shortly.",
+          },
+          "Couldn't load privacy settings. Try again in a moment.",
+        )}
+        onRetry={() => void refetch()}
+      />
+    </div>
+  ) : null;
+
+  // Only a first-load failure, or a REFRESH the server refused, may
+  // replace the form. A blanket `isError` was also true when a remount
+  // refresh failed with the toggles already on screen, and erased them.
+  if (isLoadingError || (isRefetchError && isPermissionDenial(error))) {
+    return failure;
   }
 
   return (
     <div className="flex flex-col gap-6">
+      {/* A failed REFRESH keeps the toggles; the recovery sits on top. */}
+      {failure}
       {SECTIONS.map((section) => (
         <section key={section.title} className="bcc-panel p-6">
           <header className="mb-4 border-b border-bcc-border pb-3">
@@ -194,7 +202,7 @@ export function PrivacySettingsForm() {
                       </span>
                     )}
                     {status === "error" && (
-                      <span className="bcc-mono text-[10px] tracking-[0.18em] text-safety">
+                      <span className="bcc-mono text-[10px] tracking-[0.18em] text-bcc-text-error">
                         COULDN&apos;T SAVE
                       </span>
                     )}

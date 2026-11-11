@@ -16,7 +16,11 @@ export function MobileNav({ onMenuOpen }: MobileNavProps) {
   const isActive = (href: string) =>
     href === "/" ? pathname === "/" : pathname.startsWith(href);
 
+  // `alignSelf: stretch` makes each item span the bar's full height (its
+  // content stays centred), so the active mark can sit on the top edge.
   const itemStyle = (href: string): React.CSSProperties => ({
+    position: "relative",
+    alignSelf: "stretch",
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
@@ -24,7 +28,7 @@ export function MobileNav({ onMenuOpen }: MobileNavProps) {
     flex: 1,
     gap: 3,
     padding: "6px 0",
-    color: isActive(href) ? "var(--bcc-accent)" : "var(--bcc-text-muted)",
+    color: isActive(href) ? "var(--bcc-text)" : "var(--bcc-text-secondary)",
     textDecoration: "none",
     background: "transparent",
     border: "none",
@@ -32,6 +36,30 @@ export function MobileNav({ onMenuOpen }: MobileNavProps) {
     transition: "color var(--bcc-transition-fast)",
     WebkitTapHighlightColor: "transparent",
   });
+
+  // Non-colour active cue (#74): a 3px bar on the item's top edge, so the
+  // active destination is not signalled by text brightness alone. Drawn
+  // on --bcc-accent-indicator (selection geometry; ≥3:1 on the bar in
+  // both themes), the same token as .bcc-nav-item.active's side bar.
+  const activeMark = (href: string) =>
+    isActive(href) ? (
+      <span
+        aria-hidden
+        data-testid="mobile-nav-active-mark"
+        style={{
+          position: "absolute",
+          top: 0,
+          left: "50%",
+          transform: "translateX(-50%)",
+          width: 24,
+          height: 3,
+          borderRadius: "0 0 3px 3px",
+          background: "var(--bcc-accent-indicator)",
+        }}
+      />
+    ) : null;
+
+  const current = (href: string) => (isActive(href) ? ("page" as const) : undefined);
 
   const labelStyle: React.CSSProperties = {
     fontFamily: "var(--font-mono), monospace",
@@ -61,7 +89,8 @@ export function MobileNav({ onMenuOpen }: MobileNavProps) {
       }}
     >
       {/* Home */}
-      <Link href="/" style={itemStyle("/")}>
+      <Link href="/" style={itemStyle("/")} aria-current={current("/")}>
+        {activeMark("/")}
         <Home
           size={20}
           strokeWidth={1.7}
@@ -73,7 +102,8 @@ export function MobileNav({ onMenuOpen }: MobileNavProps) {
       </Link>
 
       {/* Directory */}
-      <Link href="/directory" style={itemStyle("/directory")}>
+      <Link href="/directory" style={itemStyle("/directory")} aria-current={current("/directory")}>
+        {activeMark("/directory")}
         <LayoutGrid size={20} strokeWidth={1.7} aria-hidden />
         <span style={labelStyle}>Directory</span>
       </Link>
@@ -89,7 +119,7 @@ export function MobileNav({ onMenuOpen }: MobileNavProps) {
             height: 52,
             borderRadius: "50%",
             background: "var(--bcc-accent)",
-            color: "var(--bcc-white)",
+            color: "var(--bcc-on-accent)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
@@ -103,7 +133,8 @@ export function MobileNav({ onMenuOpen }: MobileNavProps) {
       </div>
 
       {/* Communities */}
-      <Link href="/communities" style={itemStyle("/communities")}>
+      <Link href="/communities" style={itemStyle("/communities")} aria-current={current("/communities")}>
+        {activeMark("/communities")}
         <Globe size={20} strokeWidth={1.7} aria-hidden />
         <span style={labelStyle}>Communities</span>
       </Link>

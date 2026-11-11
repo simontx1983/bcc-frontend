@@ -135,7 +135,7 @@ export function ReputationSummaryPanel(props: ReputationSummaryPanelProps) {
         {props.flags.map((flag) => (
           <span
             key={flag}
-            className="bcc-mono border border-safety/60 px-2 py-[3px] text-safety"
+            className="bcc-mono border border-safety/60 px-2 py-[3px] text-bcc-text-safety"
           >
             {flag.toUpperCase().replace(/_/g, " ")}
           </span>
@@ -225,7 +225,7 @@ function StandingChip({ isInGoodStanding }: { isInGoodStanding: boolean }) {
     );
   }
   return (
-    <span className="bcc-mono border border-safety/60 px-2 py-[3px] text-safety">
+    <span className="bcc-mono border border-safety/60 px-2 py-[3px] text-bcc-text-safety">
       UNDER REVIEW
     </span>
   );
@@ -255,10 +255,10 @@ function LoudNegativeStateStrap({
       className="flex flex-wrap items-center gap-3 border-l-[3px] border-safety bg-safety/10 px-3 py-2"
     >
       {underReview && (
-        <span className="bcc-mono text-safety">⚠ UNDER REVIEW</span>
+        <span className="bcc-mono text-bcc-text-safety">⚠ UNDER REVIEW</span>
       )}
       {divergenceBadge !== null && (
-        <span className="bcc-mono text-safety">
+        <span className="bcc-mono text-bcc-text-safety">
           ⚠ {divergenceBadge.toUpperCase()}
         </span>
       )}

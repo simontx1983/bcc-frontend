@@ -11,6 +11,10 @@
  *
  * `enabled` gates on a non-empty handle on all three so swapping users
  * mid-render doesn't briefly fire a request to /users//<tab>.
+ *
+ * Every hook here reads a route that can answer `profile_private` (contract
+ * v1.91), so each uses `retryUnlessProfilePrivate`: the app-wide single
+ * retry, minus the pointless second request against a private profile.
  */
 
 import {
@@ -32,6 +36,7 @@ import {
   getUserReviews,
   type ActivityQueryParams,
 } from "@/lib/api/user-activity-endpoints";
+import { retryUnlessProfilePrivate } from "@/lib/api/errors";
 import type {
   AlbumPhotosResponse,
   BccApiError,
@@ -62,6 +67,7 @@ export function useUserReviews(handle: string, page: number = 1) {
     queryKey: [...USER_REVIEWS_QUERY_KEY_ROOT, handle, page],
     queryFn: ({ signal }) =>
       getUserReviews({ handle, page, perPage: DEFAULT_PER_PAGE }, signal),
+    retry: retryUnlessProfilePrivate,
     enabled: handle !== "",
     staleTime: 30_000,
   });
@@ -72,6 +78,7 @@ export function useUserDisputes(handle: string, page: number = 1) {
     queryKey: [...USER_DISPUTES_QUERY_KEY_ROOT, handle, page],
     queryFn: ({ signal }) =>
       getUserDisputes({ handle, page, perPage: DEFAULT_PER_PAGE }, signal),
+    retry: retryUnlessProfilePrivate,
     enabled: handle !== "",
     staleTime: 30_000,
   });
@@ -91,6 +98,7 @@ export function useUserActivity(handle: string) {
       getUserActivity(handle, buildActivityParams(pageParam), signal),
     getNextPageParam: (lastPage) =>
       lastPage.pagination.has_more ? lastPage.pagination.next_cursor : undefined,
+    retry: retryUnlessProfilePrivate,
     enabled: handle !== "",
     staleTime: 30_000,
   });
@@ -113,6 +121,7 @@ export function useUserGroups(handle: string) {
   return useQuery<UserGroupsResponse, BccApiError>({
     queryKey: [...USER_GROUPS_QUERY_KEY_ROOT, handle],
     queryFn: ({ signal }) => getUserGroups(handle, signal),
+    retry: retryUnlessProfilePrivate,
     enabled: handle !== "",
     staleTime: 30_000,
   });
@@ -129,6 +138,7 @@ export function useUserEndorsements(handle: string, limit: number = 20) {
   return useQuery<UserEndorsementsResponse, BccApiError>({
     queryKey: [...USER_ENDORSEMENTS_QUERY_KEY_ROOT, handle, limit],
     queryFn: ({ signal }) => getUserEndorsements(handle, limit, signal),
+    retry: retryUnlessProfilePrivate,
     enabled: handle !== "",
     staleTime: 15_000,
   });
@@ -144,6 +154,7 @@ export function useUserAlbums(handle: string) {
   return useQuery<UserAlbumsResponse, BccApiError>({
     queryKey: [...USER_ALBUMS_QUERY_KEY_ROOT, handle],
     queryFn: ({ signal }) => getUserAlbums(handle, signal),
+    retry: retryUnlessProfilePrivate,
     enabled: handle !== "",
     staleTime: 30_000,
   });
@@ -159,6 +170,7 @@ export function useAlbumPhotos(handle: string, albumId: number | null) {
   return useQuery<AlbumPhotosResponse, BccApiError>({
     queryKey: [...ALBUM_PHOTOS_QUERY_KEY_ROOT, handle, albumId ?? 0],
     queryFn: ({ signal }) => getAlbumPhotos(handle, albumId ?? 0, signal),
+    retry: retryUnlessProfilePrivate,
     enabled: handle !== "" && albumId !== null && albumId > 0,
     staleTime: 30_000,
   });
@@ -186,6 +198,7 @@ export function useUserFollowers(handle: string, offset: number = 0) {
     queryKey: [...USER_FOLLOWERS_QUERY_KEY_ROOT, handle, offset],
     queryFn: ({ signal }) =>
       getUserFollowers({ handle, offset, limit: FOLLOWS_DEFAULT_LIMIT }, signal),
+    retry: retryUnlessProfilePrivate,
     enabled: handle !== "",
     staleTime: 30_000,
   });
@@ -200,6 +213,7 @@ export function useUserFollowing(handle: string, offset: number = 0) {
     queryKey: [...USER_FOLLOWING_QUERY_KEY_ROOT, handle, offset],
     queryFn: ({ signal }) =>
       getUserFollowing({ handle, offset, limit: FOLLOWS_DEFAULT_LIMIT }, signal),
+    retry: retryUnlessProfilePrivate,
     enabled: handle !== "",
     staleTime: 30_000,
   });

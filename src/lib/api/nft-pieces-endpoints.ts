@@ -23,7 +23,32 @@
  */
 
 import { bccFetch } from "@/lib/api/client";
-import type { NftPiece } from "@/lib/api/types";
+import { BccApiError, type NftPiece } from "@/lib/api/types";
+
+const CHAIN_SLUG = /^[a-z0-9-]{1,64}$/;
+// EVM 0x-hex, Cosmos bech32 and Solana base58 are all plain alphanumerics.
+const CONTRACT_ADDRESS = /^[A-Za-z0-9]{1,128}$/;
+
+/**
+ * True when the three parts can be placed in the request path safely.
+ *
+ * `chain` and `contract` arrive from the page's `?chain=` / `&contract=`
+ * query string, so they are attacker-controlled. Interpolated raw, a
+ * crafted link could steer the SERVER-side fetch (which carries the
+ * viewer's bearer token) to any other `/wp-json` route. Encoding alone
+ * is not enough: `encodeURIComponent` leaves `.` alone, so a segment of
+ * exactly `..` would still climb a level. Hence: a strict shape for the
+ * chain slug and contract, and no `.`/`..` token id.
+ */
+export function isValidNftPieceRef(chainSlug: string, contractAddress: string, tokenId: string): boolean {
+  return (
+    CHAIN_SLUG.test(chainSlug) &&
+    CONTRACT_ADDRESS.test(contractAddress) &&
+    tokenId !== "" &&
+    tokenId !== "." &&
+    tokenId !== ".."
+  );
+}
 
 /**
  * GET /nft-pieces/{chainSlug}/{contractAddress}/{tokenId}
@@ -31,10 +56,13 @@ import type { NftPiece } from "@/lib/api/types";
  * URL-encoding rules per §4.17:
  *   - `tokenId` MUST be URL-encoded — CW-721 ids may contain `/` and
  *     other path-unsafe characters. The server URL-decodes once.
- *   - `chainSlug` and `contractAddress` are passed verbatim — the
- *     canonical forms (lowercased EVM hex, base58 Solana, bech32
- *     Cosmos, ascii chain slug) are URL-safe by construction. Passing
- *     a non-canonical case still resolves correctly (server normalises).
+ *   - `chainSlug` and `contractAddress` are validated against strict
+ *     shapes (see isValidNftPieceRef) and also encoded. The canonical
+ *     forms (lowercased EVM hex, base58 Solana, bech32 Cosmos, ascii
+ *     chain slug) pass unchanged; the server normalises case.
+ *
+ * An invalid reference is refused with `400 bcc_invalid_request` before
+ * any request is made.
  */
 export function getNftPiece(
   chainSlug: string,
@@ -43,7 +71,14 @@ export function getNftPiece(
   token: string | null,
   signal?: AbortSignal
 ): Promise<NftPiece> {
-  const path = `nft-pieces/${chainSlug}/${contractAddress}/${encodeURIComponent(tokenId)}`;
+  if (!isValidNftPieceRef(chainSlug, contractAddress, tokenId)) {
+    return Promise.reject(
+      new BccApiError("bcc_invalid_request", "Invalid NFT piece reference.", 400, null),
+    );
+  }
+  const path =
+    `nft-pieces/${encodeURIComponent(chainSlug)}/${encodeURIComponent(contractAddress)}/` +
+    encodeURIComponent(tokenId);
   return bccFetch<NftPiece>(path, {
     method: "GET",
     token,

@@ -19,6 +19,7 @@ import {
 } from "@tanstack/react-query";
 
 import { getUserBlog } from "@/lib/api/blog-endpoints";
+import { retryUnlessProfilePrivate } from "@/lib/api/errors";
 import type { BccApiError, FeedResponse } from "@/lib/api/types";
 
 const PAGE_SIZE = 20;
@@ -42,6 +43,8 @@ export function useUserBlog(handle: string) {
       ),
     getNextPageParam: (lastPage) =>
       lastPage.pagination.has_more ? lastPage.pagination.next_cursor : undefined,
+    // One request against a private profile (v1.91); else the app default.
+    retry: retryUnlessProfilePrivate,
     enabled: handle !== "",
     staleTime: 30_000,
   });

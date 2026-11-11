@@ -66,6 +66,7 @@ import { ClockIcon, PhotoIcon, ReplyIcon, ShareIcon } from "@/components/feed/ac
 import { CommentHelpfulButton } from "@/components/feed/HelpfulButton";
 import { CommentGifPicker } from "@/components/feed/CommentGifPicker";
 import { StokeFlame } from "@/components/feed/StokeFlame";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Dialog } from "@/components/ui/Dialog";
 import { LoadFailure } from "@/components/ui/LoadFailure";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -78,6 +79,7 @@ import {
 } from "@/hooks/useComments";
 import { useCommentStoke } from "@/hooks/useCommentStoke";
 import { useGiphyIntegration } from "@/hooks/useGiphyIntegration";
+import { captureAnalyticsEvent } from "@/lib/analytics/posthog";
 import { uploadBlogCoverImage } from "@/lib/api/blog-endpoints";
 import { humanizeCode, isPermissionDenial } from "@/lib/api/errors";
 import {
@@ -378,6 +380,21 @@ function CommentThread({
     [onReplyTarget],
   );
 
+  // Delete confirmation lives HERE, not in the row: the delete is
+  // optimistic, so the row (and anything it rendered) unmounts the
+  // instant the request fires. Held at thread level, the dialog survives
+  // that and can show the failure once the rollback puts the row back.
+  const deleteMut = useDeleteCommentMutation();
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const resetDelete = deleteMut.reset;
+  const requestDelete = useCallback(
+    (comment: Comment) => {
+      resetDelete();
+      setDeletingId(comment.id);
+    },
+    [resetDelete],
+  );
+
   // The drawer stays mounted (returns null) when collapsed, so reset the
   // drill + reply state on close — reopening should land on the top of the
   // thread, not wherever the viewer last drilled.
@@ -515,6 +532,7 @@ function CommentThread({
               feedId={feedId}
               canStoke={canStoke}
               onReply={startReply}
+              onDelete={requestDelete}
               onContinue={drillInto}
             />
           ))}
@@ -557,7 +575,42 @@ function CommentThread({
         )}
       </div>
 
+      {deletingId !== null && (
+        <ConfirmDialog
+          title="Delete this comment?"
+          body="It will be removed from this thread."
+          confirmLabel="DELETE"
+          cancelLabel="CANCEL"
+          retryLabel="TRY AGAIN"
+          errorMessage={deleteMut.error ? humanizeDeleteError(deleteMut.error) : null}
+          pending={deleteMut.isPending}
+          onConfirm={() => {
+            deleteMut.reset();
+            deleteMut.mutate(
+              { feedId, commentId: deletingId },
+              { onSuccess: () => setDeletingId(null) },
+            );
+          }}
+          onCancel={() => {
+            deleteMut.reset();
+            setDeletingId(null);
+          }}
+        />
+      )}
     </div>
+  );
+}
+
+/** §γ — keyed on err.code (§4.13 DELETE), never err.message. */
+function humanizeDeleteError(err: unknown): string {
+  return humanizeCode(
+    err,
+    {
+      bcc_unauthorized: "Sign in again to delete this comment.",
+      bcc_forbidden: "You can only delete your own comments.",
+      bcc_not_found: "This comment was already deleted.",
+    },
+    "Couldn't delete that comment. Try again.",
   );
 }
 
@@ -582,6 +635,7 @@ function CommentBranch({
   feedId,
   canStoke,
   onReply,
+  onDelete,
   onContinue,
 }: {
   node: CommentNode;
@@ -591,6 +645,8 @@ function CommentBranch({
   /** Authed + member gate — shared by Stoke and Reply (identical condition). */
   canStoke: boolean;
   onReply: (comment: Comment) => void;
+  /** Opens the thread-level delete confirmation. */
+  onDelete: (comment: Comment) => void;
   onContinue: (commentId: string) => void;
 }) {
   const relativeDepth = node.depth - baseDepth;
@@ -646,6 +702,7 @@ function CommentBranch({
         canStoke={canStoke}
         canReply={canStoke}
         onReply={onReply}
+        onDelete={onDelete}
         collapsible={hasChildren && !childrenAtCap}
         collapsed={collapsed}
         onToggleCollapse={toggleCollapsed}
@@ -699,6 +756,7 @@ function CommentBranch({
                   feedId={feedId}
                   canStoke={canStoke}
                   onReply={onReply}
+                  onDelete={onDelete}
                   onContinue={onContinue}
                 />
               </div>
@@ -947,6 +1005,7 @@ function CommentRow({
   canStoke,
   canReply,
   onReply,
+  onDelete,
   collapsible = false,
   collapsed = false,
   onToggleCollapse,
@@ -958,6 +1017,7 @@ function CommentRow({
   /** Same gate as canStoke — drives the live Reply affordance. */
   canReply: boolean;
   onReply: (comment: Comment) => void;
+  onDelete: (comment: Comment) => void;
   /** Has nested replies — enables tap-row-to-collapse (the desktop +/- icon on the trunk line is too small a target for touch). */
   collapsible?: boolean;
   collapsed?: boolean;
@@ -1004,9 +1064,9 @@ function CommentRow({
         avatarRingColor="var(--bcc-accent)"
         trailing={
           <CommentOverflowMenu
-            feedId={feedId}
             comment={comment}
             canDelete={canDelete}
+            onDelete={onDelete}
           />
         }
       />
@@ -1304,17 +1364,18 @@ function CommentMediaView({ media }: { media: CommentMedia }) {
 // ─────────────────────────────────────────────────────────────────────
 
 function CommentOverflowMenu({
-  feedId,
   comment,
   canDelete,
+  onDelete,
 }: {
-  feedId: string;
   comment: Comment;
   canDelete: boolean;
+  /** Opens the confirmation; the delete itself fires from there. */
+  onDelete: (comment: Comment) => void;
 }) {
-  const deleteMut = useDeleteCommentMutation();
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -1337,6 +1398,7 @@ function CommentOverflowMenu({
   return (
     <div ref={containerRef} className="relative shrink-0">
       <button
+        ref={triggerRef}
         type="button"
         onClick={(e) => {
           e.stopPropagation();
@@ -1376,13 +1438,15 @@ function CommentOverflowMenu({
               type="button"
               role="menuitem"
               onClick={() => {
-                deleteMut.mutate({ feedId, commentId: comment.id });
+                // The menu item unmounts with the menu; put focus on the
+                // trigger first so the confirm dialog restores it there.
+                triggerRef.current?.focus();
                 setOpen(false);
+                onDelete(comment);
               }}
-              disabled={deleteMut.isPending}
               className="bcc-mono block w-full rounded-lg px-2 py-1.5 text-left text-[11px] text-[var(--bcc-text-secondary)] hover:bg-[var(--bcc-surface-active)] hover:text-[var(--bcc-danger)] disabled:cursor-not-allowed"
             >
-              {deleteMut.isPending ? "Deleting…" : "Delete"}
+              Delete
             </button>
           )}
         </div>
@@ -1580,6 +1644,12 @@ function CommentComposer({
         ...(replyTarget !== null ? { parent_id: replyTarget.parentId } : {}),
       },
       {
+        onSuccess: () => {
+          captureAnalyticsEvent("comment_published", {
+            is_reply: replyTarget !== null,
+            attachment_type: media?.kind ?? "none",
+          });
+        },
         onError: () => {
           setDraft(draftSnapshot);
           setPhoto(photoSnapshot);

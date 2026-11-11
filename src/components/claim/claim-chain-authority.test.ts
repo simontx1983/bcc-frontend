@@ -36,6 +36,7 @@ function fn(src: string, name: string): string {
 }
 
 const CLAIM_FLOW = "src/components/claim/ClaimFlow.tsx";
+const LINK_FLOW = "src/lib/wallet/linkFlow.ts";
 const CLAIM_SUPPORT = "src/lib/wallet/claim-support.ts";
 const DASHBOARD = "src/app/(main)/(app)/me/validator-pages/page.tsx";
 
@@ -82,8 +83,13 @@ describe("validator claim — chain authority", () => {
 
     expect(src).toContain('from "@/lib/wallet/dispatch"');
     expect(src).toContain("connectWallet(");
-    expect(src).toContain("signWalletChallenge(");
-    expect(src).toContain("walletTypeFor(");
+    // Sign + link go through the shared flow (lib/wallet/linkFlow), which
+    // is itself built on the dispatch layer.
+    expect(src).toContain("signLinkChallenge(");
+    expect(src).toContain("linkOrConfirmOwnWallet(");
+    const flow = code(read(LINK_FLOW));
+    expect(flow).toContain("signWalletChallenge(");
+    expect(flow).toContain("walletTypeFor(");
 
     // No direct Keplr import — the cosmos branch lives behind dispatch.
     expect(src).not.toContain('from "@/lib/wallet/keplr"');
@@ -102,9 +108,13 @@ describe("validator claim — chain authority", () => {
    */
   it("sends the verifier bundle as `extra`, not a top-level pub_key", () => {
     const src = code(read(CLAIM_FLOW));
+    const flow = code(read(LINK_FLOW));
 
-    expect(src).toContain("extra:          signed.extra");
+    // The shared flow carries the bundle from the signature to the link.
+    expect(flow).toContain("extra:      signed.extra");
+    expect(flow).toContain("extra:          linked.extra");
     expect(src).not.toMatch(/pub_key:\s*signed\./);
+    expect(flow).not.toMatch(/pub_key:\s*signed\./);
   });
 
   it("names the right wallet per chain instead of hardcoding Keplr in copy", () => {

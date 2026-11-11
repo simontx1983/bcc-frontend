@@ -31,6 +31,7 @@
 import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
 
+import { captureAnalyticsEvent } from "@/lib/analytics/posthog";
 import { CardFactory } from "@/components/cards/CardFactory";
 import { humanizeMembershipError } from "@/components/groups/GroupMembershipStrip";
 import { useJoinHolderGroupMutation } from "@/hooks/useHolderGroups";
@@ -80,7 +81,9 @@ export function CommunityJoinCard({
       if (dossier === null) return;
       if (dossier.type === "nft") {
         // No optimistic flip — server adjudicates ownership.
-        holderJoin.mutate(joinCard.id);
+        holderJoin.mutate(joinCard.id, {
+          onSuccess: () => captureCommunityJoined(dossier.type),
+        });
         return;
       }
       if (dossier.type === "validator") {
@@ -91,9 +94,13 @@ export function CommunityJoinCard({
       }
       setOptimisticJoined(true);
       if (dossier.type === "hall") {
-        hallJoin.mutate(joinCard.id);
+        hallJoin.mutate(joinCard.id, {
+          onSuccess: () => captureCommunityJoined(dossier.type),
+        });
       } else {
-        plainJoin.mutate(joinCard.id);
+        plainJoin.mutate(joinCard.id, {
+          onSuccess: () => captureCommunityJoined(dossier.type),
+        });
       }
     },
     [holderJoin, hallJoin, plainJoin, validatorJoin],
@@ -124,11 +131,17 @@ export function CommunityJoinCard({
       {joinErrorCopy !== null && (
         <p
           role="alert"
-          className="bcc-mono max-w-[316px] text-center text-[10px] tracking-[0.12em] text-safety"
+          className="bcc-mono max-w-[316px] text-center text-[10px] tracking-[0.12em] text-bcc-text-error"
         >
           {joinErrorCopy}
         </p>
       )}
     </div>
   );
+}
+
+function captureCommunityJoined(
+  communityType: "nft" | "hall" | "system" | "user",
+) {
+  captureAnalyticsEvent("community_joined", { community_type: communityType });
 }

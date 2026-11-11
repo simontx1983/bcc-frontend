@@ -10,7 +10,9 @@
  * The token measures 2.54:1 light and 2.28:1 dark — it fails AA as text
  * on every surface in the app. WCAG 1.4.3 exempts inactive controls and
  * pure decoration, and nothing else. So the set of survivors is not a
- * matter of taste: **36 occurrences, each with a stated mechanism.**
+ * matter of taste: **37 occurrences, each with a stated mechanism.**
+ * (#203 widened the matcher, adding a decorative dot; #196 removed the
+ * ClaimCallout disabled button that used the token.)
  *
  * ## No "known exception" bucket
  *
@@ -25,6 +27,9 @@
  *                         cursor class, so their inactivity is structural
  *   - `disabled-guard`    the line sits inside an `if (isDisabled)` block
  *   - `decorative-inline` `aria-hidden` appears on the line itself
+ *   - `decorative-element` the value is a prop of a multi-line JSX
+ *                         element whose opening tag carries `aria-hidden`
+ *                         (CardFrontFace's separator dot, a background)
  *   - `decorative-typed`  the value feeds a prop whose renderer is
  *                         `aria-hidden` (LoadFailure's glyph token)
  *
@@ -35,13 +40,12 @@
  *
  * ## Scope note
  *
- * `--bcc-search-placeholder` is NOT one of the 36. It is a separate
- * token, carved out in E4 because `.bcc-search-input` sits on
- * `--bcc-glass-bg-frosted` with a `backdrop-filter` and its backdrop is
- * unbounded. It is tested below only as a **deferred invariant** — that
- * it still exists, still holds the pre-repair values, and is still
- * failing. It must never be counted as a muted-token exclusion or read
- * as resolved.
+ * `--bcc-search-placeholder` was never one of the 37. It was a separate
+ * token carved out in E4, on the view that `.bcc-search-input`'s frosted
+ * backdrop was unbounded. #202 measured that backdrop (it is bounded: 10%
+ * glass over the header's 80% / 55% fill over the page), moved the
+ * placeholder onto the general `--bcc-text-placeholder`, and deleted the
+ * carve-out token. Section 5 asserts it stays deleted.
  *
  * Likewise out of scope and untouched: `--phosphor`, `--bcc-safety` and
  * `--weld` (three unscoped, theme-blind tokens that fail light theme),
@@ -57,9 +61,16 @@ const ROOT = resolve(process.cwd(), "src");
 const read = (p: string) => readFileSync(resolve(process.cwd(), p), "utf-8");
 const CSS = read("src/app/globals.css");
 
-/** Every colour-bearing spelling of the token. */
+/**
+ * Every colour-bearing spelling of the token.
+ *
+ * The last alternative (#203) is a quoted `var(--bcc-text-muted)` in any
+ * position. Before it, a ternary arm, lookup value or `??` fallback in a
+ * style object was invisible: the catch-all refuses a token flanked by
+ * `-` and `)`, and `color:` only matches when the value follows directly.
+ */
 const MUTED =
-  /text-bcc-text-muted|text-\[var\(--bcc-text-muted\)\]|color:\s*"?var\(--bcc-text-muted\)|(?<![-\w[])bcc-text-muted(?![-\w)])/;
+  /text-bcc-text-muted|text-\[var\(--bcc-text-muted\)\]|color:\s*"?var\(--bcc-text-muted\)|(?<![-\w[])bcc-text-muted(?![-\w)])|["'`]var\(--bcc-text-muted\)["'`]/;
 
 interface Hit {
   readonly file: string;
@@ -110,21 +121,35 @@ describe("closure scan — the scan itself is honest", () => {
     expect(HITS.length).toBeGreaterThan(0);
   });
 
-  it("the matcher recognises all four spellings", () => {
+  it("the matcher recognises all five spellings", () => {
     for (const s of [
       'className="text-bcc-text-muted"',
       'className="text-[var(--bcc-text-muted)]"',
       'style={{ color: "var(--bcc-text-muted)" }}',
       'className="bcc-mono bcc-text-muted"',
+      // #203: a quoted var() anywhere — ternary arm, lookup value, fallback.
+      'color: isActive ? "var(--bcc-accent)" : "var(--bcc-text-muted)",',
+      'minor: "var(--bcc-text-muted)",',
+      'color: SEVERITY_COLOR[s] ?? "var(--bcc-text-muted)",',
+      "color: active ? 'var(--bcc-text)' : 'var(--bcc-text-muted)',",
+      "color: `var(--bcc-text-muted)`,",
     ]) {
       expect(MUTED.test(s), `matcher missed: ${s}`).toBe(true);
     }
     expect(MUTED.test('className="text-bcc-text-secondary"')).toBe(false);
+    expect(MUTED.test('minor: "var(--bcc-text-secondary)",')).toBe(false);
+  });
+
+  it("the #203 spelling was invisible to the old matcher (the control)", () => {
+    const OLD =
+      /text-bcc-text-muted|text-\[var\(--bcc-text-muted\)\]|color:\s*"?var\(--bcc-text-muted\)|(?<![-\w[])bcc-text-muted(?![-\w)])/;
+    expect(OLD.test('color: isActive ? "var(--bcc-accent)" : "var(--bcc-text-muted)",')).toBe(false);
+    expect(OLD.test('minor: "var(--bcc-text-muted)",')).toBe(false);
   });
 });
 
 // ─────────────────────────────────────────────────────────────────────────
-// 1. The invariant: 36 survivors, every one exempt
+// 1. The invariant: 37 survivors, every one exempt
 // ─────────────────────────────────────────────────────────────────────────
 
 type Mechanism =
@@ -132,6 +157,7 @@ type Mechanism =
   | "disabled-branch"
   | "disabled-guard"
   | "decorative-inline"
+  | "decorative-element"
   | "decorative-typed";
 
 /** Classify a survivor, or return null if nothing justifies it. */
@@ -151,6 +177,18 @@ function mechanismFor(hit: Hit): Mechanism | null {
   // disabled-guard: inside an `if (isDisabled) {` block
   for (let j = i; j >= 0 && j > i - 8; j -= 1) {
     if (/if \(isDisabled\)/.test(lines[j] ?? "")) return "disabled-guard";
+  }
+
+  // decorative-element: the value sits in the props of a JSX element whose
+  // opening tag carries aria-hidden, and that tag has not closed yet.
+  for (let j = i - 1; j >= 0 && j > i - 12; j -= 1) {
+    const l = lines[j] ?? "";
+    if (/^\s*\/?>\s*$/.test(l)) break; // an earlier tag closed first
+    if (/^\s*<[A-Za-z]/.test(l)) {
+      const tag = lines.slice(j, i).join("\n");
+      if (/\baria-hidden\b/.test(tag)) return "decorative-element";
+      break;
+    }
   }
 
   // decorative-typed: a token consumed by an aria-hidden renderer
@@ -182,6 +220,7 @@ const APPROVED_SURVIVORS: readonly string[] = [
     "src/app/(main)/(app)/validators/page.tsx :: <span aria-hidden className=\"text-bcc-text-muted\">\u2715</span>",
     "src/components/auth/EligibleCommunitiesModal.tsx :: <span aria-hidden className=\"text-bcc-text-muted\">\u00b7</span>",
     "src/components/auth/EligibleCommunitiesModal.tsx :: <span aria-hidden className=\"text-bcc-text-muted\">\u00b7</span>",
+    "src/components/cards/CardFrontFace.tsx :: background: \"var(--bcc-text-muted)\",",
     "src/components/blog/BlogComposer.tsx :: : \"cursor-not-allowed bg-bcc-surface-active text-bcc-text-muted\")",
     "src/components/claim/ClaimFlow.tsx :: ? \"cursor-not-allowed bg-bcc-surface-active text-bcc-text-muted\"",
     "src/components/composer/Composer.tsx :: : \"cursor-not-allowed bg-[var(--bcc-surface-active)] text-[var(--bcc-text-muted)]\")",
@@ -198,9 +237,10 @@ const APPROVED_SURVIVORS: readonly string[] = [
     "src/components/feed/CommentDrawer.tsx :: className=\"bcc-mono block w-full cursor-not-allowed rounded-lg px-2 py-1.5 text-left tex",
     "src/components/feed/ReportButton.tsx :: : \"cursor-not-allowed bg-bcc-surface-active text-bcc-text-muted\")",
     "src/components/messages/ConversationsPanel.tsx :: <div style={{ display: \"flex\", justifyContent: \"center\", marginBottom: 10, color: \"var(-",
-    "src/components/notifications/NotificationsPanel.tsx :: className=\"bcc-mono text-[10px] tracking-[0.16em] normal-case text-[var(--bcc-accent)] h",
+    "src/components/notifications/NotificationsPanel.tsx :: className=\"bcc-mono text-[10px] tracking-[0.16em] normal-case text-[var(--bcc-text)] und",
     "src/components/profile/AttestationActionCluster.tsx :: return `${BASE_BUTTON_CLASS} ${sizeClass} border border-bcc-border text-bcc-text-muted`;",
-    "src/components/profile/FindingsSection.tsx :: className=\"bcc-mono text-safety hover:underline underline-offset-4 disabled:cursor-not-a",
+    // #205: text-safety became the safety-text token on this line; same exemption.
+    "src/components/profile/FindingsSection.tsx :: className=\"bcc-mono text-bcc-text-safety hover:underline underline-offset-4 disabled:cur",
     "src/components/profile/ReportMemberModal.tsx :: : \"cursor-not-allowed bg-bcc-surface-active text-bcc-text-muted\")",
     "src/components/profile/StandingFileBody.tsx :: <span aria-hidden className=\"mx-2 text-bcc-text-muted\">\u00b7</span>",
     "src/components/profile/StandingFileBody.tsx :: <span aria-hidden className=\"text-bcc-text-muted\">",
@@ -215,15 +255,15 @@ const APPROVED_SURVIVORS: readonly string[] = [
 const identity = (h: Hit) => `${h.file} :: ${h.text.slice(0, 88)}`;
 
 describe("closure invariant — every surviving muted use is exempt", () => {
-  it("there are exactly 36 survivors", () => {
-    expect(HITS).toHaveLength(36);
+  it("there are exactly 37 survivors", () => {
+    expect(HITS).toHaveLength(37);
   });
 
   it("the survivors are EXACTLY the approved set, member for member", () => {
     // Not just the count and not just per-slice tallies: an occurrence that
     // moved between files, or a new one appearing while another vanished,
     // would keep those numbers right and this assertion wrong.
-    expect(APPROVED_SURVIVORS).toHaveLength(36);
+    expect(APPROVED_SURVIVORS).toHaveLength(37);
     expect([...HITS].map(identity).sort()).toEqual([...APPROVED_SURVIVORS].sort());
   });
 
@@ -249,12 +289,21 @@ describe("closure invariant — every surviving muted use is exempt", () => {
       return acc;
     }, {});
     expect(counts).toEqual({
+      // 21: #196 removed ClaimCallout's disabled button (was 22).
       "disabled-inline": 21,
       "disabled-branch": 4,
       "disabled-guard": 1,
       "decorative-inline": 9,
+      "decorative-element": 1,
       "decorative-typed": 1,
     });
+  });
+
+  it("FindingsSection's severity label no longer uses muted (#203)", () => {
+    const src = read("src/components/profile/FindingsSection.tsx");
+    expect(src).toContain('minor: "var(--bcc-text-secondary)"');
+    // Its one survivor is the request button's disabled: variant.
+    expect(HITS.filter((h) => h.file.endsWith("FindingsSection.tsx"))).toHaveLength(1);
   });
 });
 
@@ -303,9 +352,12 @@ describe("closure — the 19 exclusions from E3, E4 and E5 survive", () => {
   it("E3 kept its 5", () => expect(count(E3)).toBe(5));
   it("E4 kept its 10", () => expect(count(E4)).toBe(10));
   it("E5 kept its 4", () => expect(count(E5)).toBe(4));
-  it("19 in total, plus E6's 17, is the whole set", () => {
+  it("19 in total, plus E6's 17 and #203's 1, is the whole set", () => {
     expect(count([...E3, ...E4, ...E5])).toBe(19);
-    expect(HITS.length - count([...E3, ...E4, ...E5])).toBe(17);
+    // 17 from E6 (18 until #196 removed ClaimCallout's disabled button),
+    // plus CardFrontFace's decorative dot, first seen by the matcher once
+    // #203 widened it.
+    expect(HITS.length - count([...E3, ...E4, ...E5])).toBe(18);
   });
 });
 
@@ -398,31 +450,22 @@ describe("E6 — the .bcc-text-muted utility has no production consumers left", 
 });
 
 // ─────────────────────────────────────────────────────────────────────────
-// 5. Deferred invariants — recorded, NOT counted, NOT resolved
+// 5. The former header-search deferral — resolved in #202
 // ─────────────────────────────────────────────────────────────────────────
 
-describe("deferred — the header search placeholder is still broken", () => {
+describe("resolved — the header search placeholder carve-out is gone (#202)", () => {
   const values = (n: string) =>
     [...CSS.matchAll(new RegExp(`--${n}:\\s*([^;]+);`, "g"))].map((m) => m[1]?.trim() ?? "");
-  const lin = (c: number) => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
-  const lum = (hex: string) => {
-    const h = hex.replace("#", "");
-    const [r, g, b] = [0, 2, 4].map((i) => lin(parseInt(h.slice(i, i + 2), 16) / 255));
-    return 0.2126 * (r ?? 0) + 0.7152 * (g ?? 0) + 0.0722 * (b ?? 0);
-  };
-  const ratio = (a: string, b: string) => {
-    const [x, y] = [lum(a), lum(b)];
-    return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
-  };
 
-  it("is a SEPARATE token and therefore not one of the 36", () => {
-    expect(values("bcc-search-placeholder")).toEqual(["#b3b8c3", "#3d444d", "#3d444d"]);
-    // it must never appear in the muted census
+  it("the carve-out token is deleted, not merely unused", () => {
+    expect(values("bcc-search-placeholder")).toEqual([]);
+    expect(CSS).not.toContain("--bcc-search-placeholder");
     expect(HITS.some((h) => /search-placeholder/.test(h.text))).toBe(false);
   });
 
-  it("still fails, and is not to be read as resolved", () => {
-    expect(ratio(values("bcc-search-placeholder")[0] ?? "", "#ffffff")).toBeLessThan(4.5);
+  it("the header field reads the general placeholder token", () => {
+    const rule = /\.bcc-search-input::placeholder\s*\{[^}]*\}/.exec(CSS)?.[0] ?? "";
+    expect(rule).toContain("var(--bcc-text-placeholder)");
   });
 
   it("the general placeholder token stays repaired", () => {

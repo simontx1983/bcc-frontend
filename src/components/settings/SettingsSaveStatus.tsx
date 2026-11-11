@@ -122,7 +122,7 @@ export function SettingsSaveStatus({
       )}
 
       {effective === "error" && (
-        <span role="alert" className="text-safety">
+        <span role="alert" className="text-bcc-text-error">
           {errorLabel ?? (
             <>
               Couldn&apos;t save

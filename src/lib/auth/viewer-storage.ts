@@ -74,8 +74,24 @@ export const VIEWER_SCOPED_STORAGE_KEYS: readonly string[] = [
   // The scoped family; the legacy `bcc.blog.draft.<handle>` form is reached
   // by the prefix below.
   "bcc.blog.draft",
+  // The one-shot status-post → blog handoff (cover attachment + notice),
+  // written by the status composer and consumed by BlogComposer on mount
+  // (`lib/blog/long-form-handoff`).
+  "bcc.blog.handoff",
   // The server-side push-subscription row id for this viewer+device.
   "bcc-push-subscription-id",
+  // The pre-auth 2FA challenge token, handed from /login to
+  // /login/two-factor in sessionStorage instead of the URL
+  // (`lib/auth/two-factor-challenge`). Per-tab and short-lived, but it is
+  // one person's half-finished sign-in, so a sign-out or viewer switch
+  // clears it.
+  "bcc.2fa.challenge",
+  // The one-shot "an account was just created" analytics marker
+  // (`lib/analytics/posthog`, SIGNUP_COMPLETED_STORAGE_KEY), in
+  // sessionStorage. Holds only the signup method, but it is about one
+  // person's new account, so a sign-out or viewer switch drops it unsent.
+  // Arrival does not touch it: it is not a legacy key.
+  "bcc.analytics.signup_completed",
 ];
 
 /**
@@ -100,6 +116,10 @@ export const DEVICE_SCOPED_STORAGE_KEYS: readonly string[] = [
   // Roster list/grid choice. A display preference for the device, and it
   // reveals nothing about who was signed in.
   "bcc:roster-view",
+  // Product-analytics consent ("granted" / "denied", lib/analytics/posthog).
+  // A choice about this DEVICE, not a person, so sign-out keeps it rather
+  // than re-asking after every sign-in.
+  "bcc-analytics-consent",
 ];
 
 function isViewerScoped(key: string, scope: ViewerScope): boolean {

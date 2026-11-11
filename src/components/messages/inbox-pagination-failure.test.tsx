@@ -99,6 +99,7 @@ const convo = (id: number) => ({
     author: { id, handle: "m" + id, display_name: "M" + id, avatar_url: "" },
     preview: "hello",
     posted_at: "2026-10-01T12:00:00Z",
+    sender_blocked_by_viewer: false,
   },
   unread_count: 0,
   last_activity: "2026-10-01T12:00:00Z",

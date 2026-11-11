@@ -41,10 +41,12 @@ export function getMyHolderGroups(
  * between the GET and the POST). Failures come back as typed
  * BccApiError:
  *   - bcc_invalid_request (400) — group is not a holder group
- *   - bcc_permission_denied (403) — opt-out cooldown OR not eligible.
- *     `message` is the user-facing copy ("Hold a Bored Apes NFT to
- *     join…" / "You opted out of this community recently…"). Render
- *     verbatim — never substitute a generic 403 string.
+ *   - bcc_permission_denied (403) — not eligible ("Hold a Bored Apes
+ *     NFT to join…"), OR a moderator removed the viewer ("A moderator
+ *     removed you from this community, so you cannot rejoin it."). A
+ *     self-leave no longer blocks an explicit join (F-158); it only
+ *     keeps auto-join from re-adding the viewer. The UI keys its copy
+ *     on `code`, never on `message`.
  *   - bcc_internal_error (503) — chain unsupported (transient infra)
  */
 export function joinHolderGroup(

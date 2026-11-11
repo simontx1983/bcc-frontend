@@ -26,6 +26,7 @@
 import { bccFetch, bccFetchAsClient } from "@/lib/api/client";
 import type {
   AuthTokenResponse,
+  VerifyEmailResponse,
   LinkWalletRequest,
   LinkWalletResponse,
   WalletNonceResponse,
@@ -210,8 +211,8 @@ export async function verifyEmail(input: {
   email?: string;
   code?: string;
   token?: string;
-}): Promise<AuthTokenResponse> {
-  return bccFetch<AuthTokenResponse>("auth/verify-email", {
+}): Promise<VerifyEmailResponse> {
+  return bccFetch<VerifyEmailResponse>("auth/verify-email", {
     method: "POST",
     body: input,
   });

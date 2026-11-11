@@ -80,7 +80,7 @@ export function BioBox({ text, label = "BIO", previewWords = 25, ownerEditHref }
         ownerEditHref !== undefined ? (
           <Link
             href={ownerEditHref}
-            className="bcc-mono mt-3 inline-flex items-center gap-2 text-safety hover:underline"
+            className="bcc-mono mt-3 inline-flex items-center gap-2 text-bcc-text-safety hover:underline"
             style={{ fontSize: "11px", letterSpacing: "0.18em" }}
           >
             NO BIO ON FILE — WRITE ONE →
@@ -103,7 +103,7 @@ export function BioBox({ text, label = "BIO", previewWords = 25, ownerEditHref }
             <button
               type="button"
               onClick={() => setExpanded((v) => !v)}
-              className="bcc-mono mt-3 text-safety hover:underline"
+              className="bcc-mono mt-3 text-bcc-text-safety hover:underline"
               style={{ fontSize: "10px", letterSpacing: "0.18em" }}
               aria-expanded={expanded}
             >

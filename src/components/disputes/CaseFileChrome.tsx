@@ -45,7 +45,7 @@ export function CaseFileChrome({
       <div className="mt-12 border-t border-dashed border-bcc-border pt-5">
         <Link
           href="/disputes"
-          className="bcc-mono inline-flex items-center gap-2 text-bcc-text-secondary transition hover:text-safety"
+          className="bcc-mono inline-flex items-center gap-2 text-bcc-text-secondary transition hover:text-bcc-text-safety"
         >
           <span aria-hidden>&larr;</span>
           <span>BACK TO DISPUTE ROOM</span>
@@ -81,7 +81,7 @@ export function CaseFileSkeleton() {
 export function CaseFileError({ message }: { message: string }) {
   return (
     <div className="mt-10 border-2 border-safety p-6">
-      <p className="bcc-mono text-safety">CASE FILE ERROR //</p>
+      <p className="bcc-mono text-bcc-text-safety">CASE FILE ERROR //</p>
       <p className="bcc-stencil mt-2 text-2xl text-bcc-text">
         Couldn&rsquo;t load the case.
       </p>

@@ -18,6 +18,12 @@
  * selected tiles, faint cardstock-edge border on unselected. Brutalist
  * grid — sharp corners, dashed dividers, mono labels.
  *
+ * Colour families (#201): the tiles are fixed paper, so their text uses
+ * the fixed ink tokens. Everything else sits on the shared Dialog panel,
+ * which flips with the theme, so that chrome uses the theme-aware
+ * --bcc-text* / --bcc-border tokens. Fixed ink on the panel is dark-on-
+ * dark in the dark theme.
+ *
  * The "REFRESH HOLDINGS" button bypasses the HoldingsService transient
  * (via GET ?force=1) and seeds the same cached query slot the modal is
  * reading, so the refetch propagates without remounting the query.
@@ -53,6 +59,7 @@ import { formatRelativeTime } from "@/lib/format";
 import { Dialog } from "@/components/ui/Dialog";
 
 import { IndexerStateChip } from "./IndexerStateChip";
+import { NotYetActiveBadge } from "./NotYetActiveBadge";
 
 interface NftPickerModalProps {
   onClose: () => void;
@@ -128,11 +135,11 @@ export function NftPickerModal({ onClose }: NftPickerModalProps) {
       panelClassName="max-w-3xl max-h-[92vh] overflow-y-auto"
     >
       <header className="mb-5">
-        <p className="bcc-mono text-safety">SHOWCASE //</p>
-        <h2 className="bcc-stencil mt-1 text-3xl text-ink leading-[0.95]">
+        <p className="bcc-mono text-bcc-text-safety">SHOWCASE //</p>
+        <h2 className="bcc-stencil mt-1 text-3xl text-bcc-text leading-[0.95]">
           Pick your NFTs.
         </h2>
-        <p className="mt-2 max-w-prose font-serif text-ink-soft">
+        <p className="mt-2 max-w-prose font-serif text-bcc-text-secondary">
           Anything from a wallet you&rsquo;ve linked is fair game. Tap a
           tile to add it; tap again to take it out. Your showcase updates
           the moment each tile flips.
@@ -140,11 +147,11 @@ export function NftPickerModal({ onClose }: NftPickerModalProps) {
       </header>
 
       {picker.isPending && (
-        <p className="bcc-mono text-cardstock-deep">Loading holdings…</p>
+        <p className="bcc-mono text-bcc-text-secondary">Loading holdings…</p>
       )}
 
       {picker.isError && (
-        <p role="alert" className="bcc-mono text-safety">
+        <p role="alert" className="bcc-mono text-bcc-text-error">
           {/* §γ — copy is keyed on err.code; never render err.message. */}
           {humanizeCode(
             picker.error,
@@ -201,20 +208,20 @@ export function NftPickerModal({ onClose }: NftPickerModalProps) {
       {errorMessage !== null && (
         <p
           role="alert"
-          className="bcc-mono mt-4 border-l-2 border-safety pl-3 text-safety"
+          className="bcc-mono mt-4 border-l-2 border-safety pl-3 text-bcc-text-error"
         >
           {errorMessage}
         </p>
       )}
 
-      <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-dashed border-ink/20 pt-4">
+      <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-dashed border-bcc-border pt-4">
         <button
           type="button"
           onClick={() => {
             void handleRefresh();
           }}
           disabled={isRefreshing || picker.isPending}
-          className="bcc-mono border border-ink/40 px-3 py-2 text-[11px] tracking-[0.18em] text-ink transition hover:bg-ink/10 disabled:cursor-wait disabled:opacity-50 motion-reduce:transition-none"
+          className="bcc-mono border border-bcc-border-strong px-3 py-2 text-[11px] tracking-[0.18em] text-bcc-text transition hover:bg-bcc-surface-hover disabled:cursor-wait disabled:opacity-50 motion-reduce:transition-none"
         >
           {isRefreshing ? "REFRESHING…" : "REFRESH HOLDINGS →"}
         </button>
@@ -262,7 +269,7 @@ function SyncStatusBlock({
   const syncedAgo = latestRefresh !== "" ? formatRelativeTime(latestRefresh) : "";
 
   return (
-    <div className="mt-5 flex flex-col gap-2 border-t border-dashed border-ink/20 pt-4">
+    <div className="mt-5 flex flex-col gap-2 border-t border-dashed border-bcc-border pt-4">
       {chipsPresent && (
         <ul className="flex flex-col gap-1">
           {Object.entries(data.meta.indexer_state_label).map(
@@ -281,7 +288,7 @@ function SyncStatusBlock({
       )}
       {syncedAgo !== "" && (
         <p
-          className="bcc-mono text-ink-ghost"
+          className="bcc-mono text-bcc-text-secondary"
           style={{ fontSize: "10px", letterSpacing: "0.18em" }}
         >
           SYNCED {syncedAgo.toUpperCase()} AGO
@@ -308,8 +315,10 @@ function NftTile({
   onToggle: () => void;
 }) {
   const selected = item.is_selected;
-  // Absent flag (older cached payloads) reads as verified — dimming on
+  // Absent flag (older cached payloads) reads as verified — badging on
   // missing data would flash the whole grid during deploy skew.
+  // Unverified items stay fully selectable, so the treatment is a label
+  // only (NotYetActiveBadge): no dimming, which would read as disabled.
   const unverifiedCollection = item.collection_verified === false;
   const displayName = (item.name ?? "").trim();
   const collection = (item.collection_name ?? "").trim();
@@ -328,7 +337,7 @@ function NftTile({
       aria-label={`${selected ? "Remove" : "Add"} ${fallbackTitle} ${selected ? "from" : "to"} your showcase${unverifiedCollection ? " (collection's community not yet activated)" : ""}`}
       onClick={onToggle}
       disabled={disabled || pending}
-      className="group relative block w-full overflow-hidden border-2 text-left transition motion-reduce:transition-none"
+      className="bcc-paper-ground group relative block w-full overflow-hidden border-2 text-left transition motion-reduce:transition-none"
       style={{
         borderColor: selected ? "var(--safety)" : "rgb(var(--ink-rgb) / 0.18)",
         background: "var(--paper)",
@@ -348,17 +357,9 @@ function NftTile({
             loading="lazy"
             decoding="async"
             className="h-full w-full object-cover"
-            style={
-              unverifiedCollection
-                ? { opacity: 0.55, filter: "saturate(0.35)" }
-                : undefined
-            }
           />
         ) : (
-          <div
-            className="flex h-full w-full items-center justify-center"
-            style={unverifiedCollection ? { opacity: 0.55 } : undefined}
-          >
+          <div className="flex h-full w-full items-center justify-center">
             <span
               className="bcc-stencil text-3xl"
               style={{ color: "var(--cardstock-deep)" }}
@@ -368,19 +369,11 @@ function NftTile({
           </div>
         )}
 
-        {unverifiedCollection && !selected && (
-          <span
-            aria-hidden
-            className="bcc-mono absolute left-2 top-2 px-1.5 py-0.5"
-            style={{
-              background: "rgb(var(--ink-rgb) / 0.72)",
-              color: "var(--cardstock)",
-              fontSize: "8px",
-              letterSpacing: "0.16em",
-            }}
-          >
-            COMMUNITY NOT YET ACTIVATED
-          </span>
+        {/* Bottom-left so it never collides with the top-right
+            ✓ ON FLOOR stamp: an unverified item can be selected, and
+            at 375px a two-column tile cannot fit both on one edge. */}
+        {unverifiedCollection && (
+          <NotYetActiveBadge className="absolute bottom-2 left-2" />
         )}
 
         {selected && (
@@ -447,13 +440,13 @@ function NftTile({
 
 function NftPickerEmpty() {
   return (
-    <div className="border-2 border-dashed border-ink/30 p-6 text-center">
-      <p className="bcc-mono text-safety">NOTHING ON THE FLOOR</p>
-      <p className="bcc-stencil mt-2 text-2xl text-ink">
+    <div className="border-2 border-dashed border-bcc-border p-6 text-center">
+      <p className="bcc-mono text-bcc-text-safety">NOTHING ON THE FLOOR</p>
+      <p className="bcc-stencil mt-2 text-2xl text-bcc-text">
         No holdings detected.
       </p>
       <p
-        className="mx-auto mt-3 max-w-md font-serif italic text-ink-soft"
+        className="mx-auto mt-3 max-w-md font-serif italic text-bcc-text-secondary"
         style={{ fontSize: "14px", lineHeight: 1.55 }}
       >
         Either no wallet is linked yet or the chains haven&rsquo;t
@@ -463,7 +456,7 @@ function NftPickerEmpty() {
       <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
         <Link
           href="/u/me?tab=account"
-          className="bcc-stencil border-2 border-ink px-4 py-2 text-[11px] tracking-[0.2em] text-ink transition hover:bg-ink hover:text-cardstock motion-reduce:transition-none"
+          className="bcc-stencil border-2 border-bcc-text px-4 py-2 text-[11px] tracking-[0.2em] text-bcc-text transition hover:bg-bcc-surface-hover motion-reduce:transition-none"
         >
           LINK A WALLET →
         </Link>

@@ -407,7 +407,7 @@ export function AnnouncementComposer({
         </label>
 
         {error !== null && error !== undefined && (
-          <p role="alert" className="text-bcc-danger" style={{ fontSize: "13px" }}>
+          <p role="alert" className="text-bcc-text-error" style={{ fontSize: "13px" }}>
             {failureCopy}
           </p>
         )}

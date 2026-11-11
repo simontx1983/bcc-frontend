@@ -35,8 +35,9 @@
  *               validators by design, so there is nothing to claim.
  *
  * ⚠ Provider work goes through `lib/wallet/dispatch.ts`, the shared
- * chainType → adapter layer. We use `connectWallet` + `signWalletChallenge`
- * directly rather than `runLinkFlow` because this surface keeps the §N8
+ * chainType → adapter layer. We use `connectWallet`, then the shared
+ * `signLinkChallenge` + `linkOrConfirmOwnWallet` (lib/wallet/linkFlow),
+ * rather than the one-call `runLinkFlow`, because this surface keeps the §N8
  * FOUR-STEP machine (connect and sign are separate screens, on purpose —
  * friction before a high-stakes action). `runLinkFlow` is a one-call
  * composition of the same dispatch layer for the Settings form; please do
@@ -51,8 +52,8 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-import { getWalletNonce, linkWallet } from "@/lib/api/auth-endpoints";
-import { humanizeCode, isCode } from "@/lib/api/errors";
+import { captureAnalyticsEvent } from "@/lib/analytics/posthog";
+import { humanizeCode } from "@/lib/api/errors";
 import { claimPage } from "@/lib/api/pages-endpoints";
 import { type CardClaimTarget } from "@/lib/api/types";
 import { findWalletChain, type WalletChainType } from "@/lib/wallet/chain-catalog";
@@ -60,10 +61,9 @@ import { isChainClaimable, unsupportedClaimReason } from "@/lib/wallet/claim-sup
 import {
   connectWallet,
   humanizeWalletProviderError,
-  signWalletChallenge,
-  walletTypeFor,
   type WalletConnection,
 } from "@/lib/wallet/dispatch";
+import { linkOrConfirmOwnWallet, signLinkChallenge } from "@/lib/wallet/linkFlow";
 import { Dialog } from "@/components/ui/Dialog";
 
 /**
@@ -116,6 +116,9 @@ export function ClaimFlow({ pageId, pageName, target, onClose }: ClaimFlowProps)
   const claimable = chainType !== null && isChainClaimable(target.chain_slug);
 
   const handleConnect = async () => {
+    // The attempt starts when the operator commits to it. The chain slug
+    // is the only property: no page, entity or wallet identifiers.
+    captureAnalyticsEvent("claim_started", { chain: target.chain_slug });
     if (!claimable) {
       setStep({
         kind: "connect",
@@ -126,6 +129,9 @@ export function ClaimFlow({ pageId, pageName, target, onClose }: ClaimFlowProps)
     }
     setStep({ kind: "connect", pending: true, error: null });
     try {
+      // The shared wallet layer (lib/wallet/dispatch), not a parallel
+      // provider path: §11, and the signed bundle it produces is what the
+      // backend verifier reads.
       const connection = await connectWallet(target.chain_slug, chainType);
       setStep({ kind: "signature", connection, chainType, pending: false, error: null });
     } catch (err) {
@@ -143,78 +149,28 @@ export function ClaimFlow({ pageId, pageName, target, onClose }: ClaimFlowProps)
     signChainType: WalletChainType,
   ) => {
     setStep({ kind: "signature", connection, chainType: signChainType, pending: true, error: null });
+    // Which call failed decides the copy: a link error and a claim error
+    // are different problems with different fixes.
+    let phase: "link" | "claim" = "link";
     try {
-      // 3a. Server-issued nonce.
-      const nonce = await getWalletNonce({
-        chain_slug:     target.chain_slug,
-        wallet_address: connection.address,
-      });
-
-      // 3b. Sign the challenge with the chain's wallet.
-      const signed = await signWalletChallenge(
-        target.chain_slug,
-        signChainType,
-        connection,
-        nonce.message,
-      );
-
-      // 3c. Verify + persist wallet link on the server.
-      //
-      // ⚠⚠ `extra` IS LOAD-BEARING AND WAS MISSING. WalletAuthController
-      // builds its verification `$extra` from the `extra` param ONLY — a
-      // top-level `pub_key` is never bridged into it. CosmosSignatureVerifier
-      // then reads `$extra['pub_key']` and returns false unless it decodes to
-      // a 33-byte compressed point, so the previous call (top-level `pub_key`,
-      // no `extra`) could not verify a Cosmos signature at all. dispatch.ts
-      // returns the right bundle per chain; pass it through untouched.
-      //
-      // ⚠ `bcc_conflict` here means the wallet is ALREADY linked, to this
-      // account or another; the code does not say which. Don't stop: claim
-      // re-reads the viewer's own verified wallets server-side, so it
-      // succeeds for this account's wallet and refuses anyone else's. A
-      // wallet linked in Settings or used at signup must still be able to
-      // claim.
-      let alreadyLinked = false;
-      try {
-        await linkWallet({
-          wallet_address: connection.address,
-          signature:      signed.signature,
-          wallet_type:    walletTypeFor(signChainType),
-          extra:          signed.extra,
-        });
-      } catch (linkErr) {
-        if (!isCode(linkErr, "bcc_conflict")) {
-          throw linkErr;
-        }
-        alreadyLinked = true;
-      }
+      // 3a–3c. Nonce → signature → link, via the shared flow. The bundle
+      // carries the chain's `extra` (e.g. Cosmos {pub_key, chain_id}),
+      // which is the only place the verifier reads the key from.
+      const linked = await signLinkChallenge(target.chain_slug, signChainType, connection);
+      // A wallet already linked to THIS account (a re-run, or a retry after
+      // the link succeeded and the claim failed) is not an error. A wallet
+      // linked to ANOTHER account surfaces as bcc_conflict here.
+      await linkOrConfirmOwnWallet(target.chain_slug, linked);
 
       // 3d. Claim the page now that the wallet is verified.
-      try {
-        await claimPage({
-          id:          pageId,
-          entity_type: target.entity_type,
-          entity_id:   target.entity_id,
-        });
-      } catch (claimErr) {
-        // The wallet in hand was already linked and still proved nothing for
-        // this account, so it may belong to a different one.
-        if (
-          alreadyLinked &&
-          (isCode(claimErr, "bcc_forbidden") || isCode(claimErr, "bcc_precondition_failed"))
-        ) {
-          setStep({
-            kind: "signature",
-            connection,
-            chainType: signChainType,
-            pending: false,
-            error: WALLET_ON_ANOTHER_ACCOUNT,
-          });
-          return;
-        }
-        throw claimErr;
-      }
+      phase = "claim";
+      await claimPage({
+        id:          pageId,
+        entity_type: target.entity_type,
+        entity_id:   target.entity_id,
+      });
 
+      captureAnalyticsEvent("claim_completed", { chain: target.chain_slug });
       setStep({ kind: "confirmation" });
     } catch (err) {
       setStep({
@@ -222,7 +178,7 @@ export function ClaimFlow({ pageId, pageName, target, onClose }: ClaimFlowProps)
         connection,
         chainType: signChainType,
         pending: false,
-        error: humanizeError(err),
+        error: phase === "link" ? humanizeLinkStepError(err) : humanizeClaimStepError(err),
       });
     }
   };
@@ -517,7 +473,7 @@ function SecondaryButton({
 
 function ErrorLine({ message }: { message: string }) {
   return (
-    <p role="alert" className="bcc-mono mt-3 text-[11px] text-safety">
+    <p role="alert" className="bcc-mono mt-3 text-[11px] text-bcc-text-error">
       {message}
     </p>
   );
@@ -527,27 +483,41 @@ function ErrorLine({ message }: { message: string }) {
 // Error humanizers
 // ─────────────────────────────────────────────────────────────────────
 
-const WALLET_ON_ANOTHER_ACCOUNT =
-  "This wallet doesn't match this validator's operator address on your " +
-  "account. It may be linked to another BCC account — if so, sign in with " +
-  "that account to claim.";
-
+/** Connect step: provider problems (wallet missing, chain unknown, user cancel). */
 function humanizeWalletError(err: unknown): string {
   // dispatch.ts owns the per-provider copy (Keplr / MetaMask / Phantom /
-  // Polkadot unavailable, user cancel, unsupported chain) so this surface
-  // does not keep a second copy of it.
-  const provider = humanizeWalletProviderError(err);
-  if (provider !== null) {
-    return provider;
-  }
-  return "Couldn't reach your wallet. Try again.";
+  // Polkadot unavailable, user cancel, unsupported chain).
+  return humanizeWalletProviderError(err) ?? "Couldn't reach your wallet. Try again.";
 }
 
-function humanizeError(err: unknown): string {
+/** Nonce, signature and wallet link: proving you hold this wallet. */
+function humanizeLinkStepError(err: unknown): string {
   const provider = humanizeWalletProviderError(err);
-  if (provider !== null) {
-    return provider;
-  }
+  if (provider !== null) return provider;
+  return humanizeCode(
+    err,
+    {
+      bcc_unauthorized: "Sign in first.",
+      // POST /auth/wallet-link answers a failed signature with 403
+      // bcc_forbidden; bcc_signature_invalid is the login/signup code,
+      // kept in case the route ever aligns.
+      bcc_forbidden: "The wallet signature didn't verify. Try signing again.",
+      bcc_signature_invalid: "The wallet signature didn't verify. Try signing again.",
+      // Only reached when the wallet is NOT on this account's own list
+      // (linkOrConfirmOwnWallet checked), so the wording can be definite.
+      bcc_conflict:
+        "This wallet is linked to a different BCC account. Sign in with that account to claim.",
+      bcc_wallet_unverified:
+        "This wallet is already on your account but isn't verified yet. Check it in Settings → Wallets.",
+      bcc_invalid_request: "The signing request expired. Try signing again.",
+      bcc_rate_limited: "Too many attempts — wait a minute and retry.",
+    },
+    "Couldn't verify the wallet. Try again.",
+  );
+}
+
+/** Claim: the wallet is verified; this is about the page itself. */
+function humanizeClaimStepError(err: unknown): string {
   return humanizeCode(
     err,
     {
@@ -555,10 +525,9 @@ function humanizeError(err: unknown): string {
       bcc_precondition_failed: "Connect a wallet before claiming this page.",
       bcc_forbidden: "This wallet doesn't match the validator's operator address.",
       bcc_conflict: "This page is already claimed by another wallet.",
-      bcc_signature_invalid: "Signature didn't verify. Try signing again.",
       bcc_rate_limited: "Too many attempts — wait a minute and retry.",
       bcc_not_found: "Page not found. Refresh and try again.",
-      bcc_invalid_request: "Couldn't complete the claim. Check the form and try again.",
+      bcc_invalid_request: "Couldn't complete the claim. Try again.",
     },
     "Couldn't complete the claim. Try again.",
   );

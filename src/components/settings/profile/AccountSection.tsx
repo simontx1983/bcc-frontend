@@ -24,8 +24,10 @@ import { useDirtyRegistration } from "@/hooks/useDirtyRegistration";
 import {
   useChangeAccountEmail,
   useChangeAccountPassword,
+  useVerifyAccountEmailChange,
 } from "@/hooks/useAccount";
-import { BccApiError } from "@/lib/api/types";
+import { humanizeCode } from "@/lib/api/errors";
+import { BccApiError, type VerifyAccountEmailChangeErrorCode } from "@/lib/api/types";
 import { endSession } from "@/lib/auth/session-boundary";
 
 const ERROR_COPY: Record<string, string> = {
@@ -120,46 +122,261 @@ export function AccountSection({ currentEmail }: AccountSectionProps) {
 function ChangeEmailCard({ currentEmail }: { currentEmail: string }) {
   const uid = useId();
   const helpId = `${uid}-email-help`;
+  const codeHelpId = `${uid}-email-code-help`;
   const [email, setEmail] = useState(currentEmail);
   // `currentEmail` is a server-component prop and does not update when the
   // change succeeds, so it cannot serve as the baseline — comparing against
   // it would leave the form permanently dirty after a successful save. This
   // records what the server confirmed.
   const [confirmedEmail, setConfirmedEmail] = useState(currentEmail);
+  // Held for the life of the form ONLY — React state, never storage — so
+  // "Resend code" can repeat the PATCH, which re-verifies it. Cleared on a
+  // confirmed change, on Cancel, and gone with the component on unmount.
   const [currentPassword, setCurrentPassword] = useState("");
-  const [savedAt, setSavedAt] = useState<number | null>(null);
+  // Step 1 (the address + password form) vs step 2 (code entry). Step 2
+  // remembers the exact address the code was sent for, so a resend repeats
+  // the same body even if the step-1 field is edited meanwhile.
+  const [step, setStep] = useState<EmailStep>({ kind: "form" });
+  const [code, setCode] = useState("");
+  /** Step-1 failures, including a verify that sent the viewer back here. */
   const [serverError, setServerError] = useState<string | null>(null);
+  /** Step-2 failures; the code form stays open. */
+  const [codeError, setCodeError] = useState<string | null>(null);
+  /** Neutral, non-error outcomes ("already your email", "new code sent"). */
+  const [notice, setNotice] = useState<string | null>(null);
+  /** Set ONLY by a successful verify — never by the PATCH. */
+  const [changedTo, setChangedTo] = useState<string | null>(null);
+  // The address changed but the replacement bearer did not land, so this
+  // device is holding a revoked one. Same state as the password card's.
+  const [sessionLost, setSessionLost] = useState(false);
+  // Which PATCH is in flight: the step-1 submit or a step-2 resend. The
+  // outcome is handled differently, and the hook-level callbacks cannot
+  // see the call site.
+  const requestMode = useRef<"submit" | "resend">("submit");
+  // Same double-submit fence as the password card: `canSubmit` is derived
+  // during render, so two clicks in one commit both pass it.
+  const inFlight = useRef(false);
 
-  const mutation = useChangeAccountEmail({
-    onSuccess: () => {
-      setSavedAt(Date.now());
+  const request = useChangeAccountEmail({
+    onSuccess: (res, body) => {
       setServerError(null);
+      setCodeError(null);
+      if (res.pending) {
+        setStep({
+          kind: "code",
+          email: body.email,
+          emailMasked: res.email_masked,
+          expiresIn: res.expires_in,
+        });
+        setNotice(requestMode.current === "resend" ? "A new code was sent." : null);
+        return;
+      }
+      // Already the account's address: nothing changed and nothing to
+      // confirm. The password has done its job.
+      setStep({ kind: "form" });
+      setCode("");
       setCurrentPassword("");
-      setConfirmedEmail(email);
+      setNotice("That's already your email.");
     },
     onError: (err) => {
-      setSavedAt(null);
-      setServerError(humanizeError(err));
+      setNotice(null);
+      if (requestMode.current === "resend" && !isConflict(err)) {
+        setCodeError(humanizeError(err));
+        return;
+      }
+      // A step-1 failure, or a resend whose address was taken meanwhile —
+      // that one cannot be fixed from the code form.
+      setStep({ kind: "form" });
+      setCode("");
+      setServerError(
+        isConflict(err) ? "That email is already in use by another account." : humanizeError(err),
+      );
+    },
+    onSettled: () => {
+      inFlight.current = false;
+      // Drop the plaintext current_password `mutate()` parked in the
+      // MutationCache as `variables` (see ChangePasswordCard).
+      request.reset();
     },
   });
 
-  const dirty = email.trim() !== confirmedEmail.trim();
-  const canSubmit = dirty && email.trim() !== "" && currentPassword !== "" && !mutation.isPending;
+  const verify = useVerifyAccountEmailChange({
+    onSuccess: (outcome) => {
+      // The hook has already swapped the bearer and issued the query
+      // invalidations; only now does the UI say the email changed.
+      setStep({ kind: "form" });
+      setCode("");
+      setCurrentPassword("");
+      setServerError(null);
+      setCodeError(null);
+      setNotice(null);
+      setEmail(outcome.email);
+      setConfirmedEmail(outcome.email);
+      setChangedTo(outcome.email);
+      setSessionLost(!outcome.sessionRestored);
+    },
+    onError: (err) => {
+      const verdict = classifyVerifyError(err);
+      setNotice(null);
+      if (verdict.restart) {
+        setStep({ kind: "form" });
+        setCode("");
+        setCodeError(null);
+        setServerError(verdict.message);
+        return;
+      }
+      setCodeError(verdict.message);
+    },
+    onSettled: () => {
+      inFlight.current = false;
+      verify.reset();
+    },
+  });
 
-  // A typed-but-unsubmitted password is lost work too, so it counts — but
-  // only as a boolean. The value never leaves this component.
+  const busy = request.isPending || verify.isPending;
+  const dirty = email.trim() !== confirmedEmail.trim();
+  const canSubmit = dirty && email.trim() !== "" && currentPassword !== "" && !busy;
+  const canConfirm = code.length === CODE_LENGTH && !busy;
+
+  // A typed-but-unsubmitted password, or a change waiting on its code, is
+  // lost work too, so it counts — but only as a boolean. No value ever
+  // leaves this component.
   useDirtyRegistration({
     id: "account.email",
     label: "your email address",
-    isDirty: dirty || currentPassword !== "",
-    isSaving: mutation.isPending,
+    isDirty: dirty || currentPassword !== "" || step.kind === "code",
+    isSaving: busy,
   });
+
+  function sendRequest(mode: "submit" | "resend", targetEmail: string) {
+    if (inFlight.current) return;
+    inFlight.current = true;
+    requestMode.current = mode;
+    setServerError(null);
+    setCodeError(null);
+    setNotice(null);
+    setChangedTo(null);
+    request.mutate({ current_password: currentPassword, email: targetEmail });
+  }
+
+  function cancel() {
+    setStep({ kind: "form" });
+    setCode("");
+    setCurrentPassword("");
+    setCodeError(null);
+    setNotice(null);
+  }
+
+  if (sessionLost && changedTo !== null) {
+    return (
+      <section className="bcc-panel p-5">
+        <h3 className="bcc-stencil text-lg text-bcc-text">Email changed</h3>
+        <p role="status" className="bcc-mono mt-2 text-[11px] text-bcc-text-secondary">
+          Your email was changed to {changedTo}. We couldn&apos;t keep this
+          device signed in, so you&apos;ll need to sign in again.
+        </p>
+        {/* A button that ends the session, not a /login link — see the
+            password card: the cookie survives, only the bearer is dead. */}
+        <button
+          type="button"
+          onClick={() => {
+            void endSession("user", { callbackUrl: "/login" });
+          }}
+          className="bcc-auth-submit mt-4 inline-flex items-center justify-center"
+        >
+          Sign in again
+        </button>
+      </section>
+    );
+  }
+
+  if (step.kind === "code") {
+    const minutes = Math.max(1, Math.round(step.expiresIn / 60));
+    return (
+      <section className="bcc-panel p-5">
+        <h3 className="bcc-stencil text-lg text-bcc-text">Change email</h3>
+        <p id={codeHelpId} className="font-serif mt-1 text-[13px] text-bcc-text-secondary">
+          We sent a code to {step.emailMasked}. Enter it to confirm the change.
+          The code is valid for {minutes} minutes, and your email stays the same
+          until it is confirmed.
+        </p>
+
+        <form
+          className="mt-3 flex flex-col gap-3"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (!canConfirm || inFlight.current) return;
+            inFlight.current = true;
+            setCodeError(null);
+            setNotice(null);
+            verify.mutate(code);
+          }}
+        >
+          <Field label="Verification code">
+            <input
+              value={code}
+              onChange={(e) =>
+                setCode(e.target.value.replace(/[^0-9]/g, "").slice(0, CODE_LENGTH))
+              }
+              disabled={busy}
+              aria-describedby={codeHelpId}
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              placeholder="000000"
+              required
+              className={`${fieldClass} bcc-mono tracking-[0.3em]`}
+            />
+          </Field>
+
+          {codeError !== null && (
+            <p role="alert" className="bcc-mono text-[11px] text-bcc-text-error">
+              {codeError}
+            </p>
+          )}
+          {notice !== null && (
+            <p role="status" className="bcc-mono text-[11px] text-bcc-text-secondary">
+              {notice}
+            </p>
+          )}
+
+          <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                onClick={() => sendRequest("resend", step.email)}
+                disabled={busy}
+                className={textButtonClass}
+              >
+                {request.isPending ? "Sending…" : "Resend code"}
+              </button>
+              <button
+                type="button"
+                onClick={cancel}
+                disabled={busy}
+                className={textButtonClass}
+              >
+                Cancel
+              </button>
+            </div>
+            <button
+              type="submit"
+              disabled={!canConfirm}
+              className="bcc-stencil bg-ink px-4 py-2 text-cardstock transition disabled:opacity-50"
+            >
+              {verify.isPending ? "Confirming…" : "Confirm"}
+            </button>
+          </div>
+        </form>
+      </section>
+    );
+  }
 
   return (
     <section className="bcc-panel p-5">
       <h3 className="bcc-stencil text-lg text-bcc-text">Change email</h3>
       <p id={helpId} className="bcc-mono mt-1 text-[10px] text-bcc-text-secondary">
-        We&apos;ll need your current password to confirm.
+        We&apos;ll need your current password, then a code sent to the new
+        address to confirm.
       </p>
 
       <form
@@ -167,9 +384,7 @@ function ChangeEmailCard({ currentEmail }: { currentEmail: string }) {
         onSubmit={(e) => {
           e.preventDefault();
           if (!canSubmit) return;
-          setServerError(null);
-          setSavedAt(null);
-          mutation.mutate({ current_password: currentPassword, email: email.trim() });
+          sendRequest("submit", email.trim());
         }}
       >
         <Field label="Email">
@@ -177,7 +392,7 @@ function ChangeEmailCard({ currentEmail }: { currentEmail: string }) {
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            disabled={mutation.isPending}
+            disabled={busy}
             aria-describedby={helpId}
             required
             className={fieldClass}
@@ -188,7 +403,7 @@ function ChangeEmailCard({ currentEmail }: { currentEmail: string }) {
             type="password"
             value={currentPassword}
             onChange={(e) => setCurrentPassword(e.target.value)}
-            disabled={mutation.isPending}
+            disabled={busy}
             aria-describedby={helpId}
             autoComplete="current-password"
             required
@@ -196,16 +411,92 @@ function ChangeEmailCard({ currentEmail }: { currentEmail: string }) {
           />
         </Field>
 
+        {changedTo !== null && (
+          <p role="status" className="bcc-mono text-[11px] text-bcc-success">
+            Email changed to {changedTo}.
+          </p>
+        )}
+        {notice !== null && (
+          <p role="status" className="bcc-mono text-[11px] text-bcc-text-secondary">
+            {notice}
+          </p>
+        )}
+
         <SaveRow
           serverError={serverError}
-          savedAt={savedAt}
-          busy={mutation.isPending}
+          // Never "Saved" from step 1: the PATCH changes nothing.
+          savedAt={null}
+          busy={request.isPending}
           canSubmit={canSubmit}
-          label="Save email"
+          label="Send code"
+          busyLabel="Sending…"
         />
       </form>
     </section>
   );
+}
+
+type EmailStep =
+  | { kind: "form" }
+  | { kind: "code"; email: string; emailMasked: string; expiresIn: number };
+
+/** The server mails a 6-digit code (PendingEmailService). */
+const CODE_LENGTH = 6;
+
+const textButtonClass =
+  "bcc-mono px-1 py-2 text-[11px] tracking-[0.14em] text-bcc-text-secondary hover:text-bcc-text disabled:opacity-50";
+
+function isConflict(err: BccApiError | Error): boolean {
+  return err instanceof BccApiError && err.code === "bcc_conflict";
+}
+
+/**
+ * Copy for a verify failure that keeps the code form open, keyed on
+ * `err.code`. `bcc_invalid_request` reaches this table only as the 422
+ * empty-code case; the "no pending change" case restarts first.
+ */
+const VERIFY_ERROR_COPY: Record<VerifyAccountEmailChangeErrorCode, string> = {
+  bcc_invalid_otp:     "That code didn't match. Check the latest email and try again.",
+  bcc_invalid_request: "Enter the 6-digit code from the email.",
+  bcc_conflict:        "That email is already in use by another account.",
+  bcc_rate_limited:    "Too many code attempts. Try again later.",
+  bcc_internal_error:  "Server error. Try again.",
+  bcc_unauthorized:    "Sign in required.",
+};
+
+/**
+ * Not a definite rejection: a dropped connection or a response that is not
+ * our envelope. The server may have applied the change before the
+ * response was lost, so "try again" alone could be wrong — both addresses
+ * get a change notice when it lands.
+ */
+const VERIFY_INDETERMINATE =
+  "We couldn't confirm whether the change went through. Check both inboxes for an email-change notice before entering the code again.";
+
+function classifyVerifyError(err: BccApiError | Error): {
+  restart: boolean;
+  message: string;
+} {
+  if (err instanceof BccApiError) {
+    // Branch on the code. bcc_invalid_request means "no pending change"
+    // (400); the status guard only keeps the 422 empty-code case, which
+    // shares the code, on the code form instead of restarting.
+    if (err.code === "bcc_invalid_request" && err.status !== 422) {
+      return {
+        restart: true,
+        message:
+          "There's no email change waiting to be confirmed — the code may have expired. Submit the new address again to get a new code.",
+      };
+    }
+    if (err.code === "bcc_conflict") {
+      return {
+        restart: true,
+        message:
+          "That email was taken by another account before the change was confirmed. Choose a different address.",
+      };
+    }
+  }
+  return { restart: false, message: humanizeCode(err, VERIFY_ERROR_COPY, VERIFY_INDETERMINATE) };
 }
 
 // ─────────────────────────────────────────────────────────────────────
@@ -388,12 +679,12 @@ function ChangePasswordCard() {
         </Field>
 
         {showLengthError && (
-          <p id={lengthId} className="bcc-mono text-[10px] text-safety">
+          <p id={lengthId} className="bcc-mono text-[10px] text-bcc-text-error">
             Password must be at least 10 characters.
           </p>
         )}
         {showMatchError && (
-          <p id={matchId} className="bcc-mono text-[10px] text-safety">
+          <p id={matchId} className="bcc-mono text-[10px] text-bcc-text-error">
             Passwords don&apos;t match.
           </p>
         )}
@@ -434,12 +725,14 @@ function SaveRow({
   busy,
   canSubmit,
   label,
+  busyLabel = "Saving…",
 }: {
   serverError: string | null;
   savedAt: number | null;
   busy: boolean;
   canSubmit: boolean;
   label: string;
+  busyLabel?: string;
 }) {
   return (
     <div className="flex items-center justify-between gap-3 pt-1">
@@ -454,13 +747,14 @@ function SaveRow({
                 : "idle"
         }
         errorMessage={serverError ?? undefined}
+        savingLabel={busyLabel}
       />
       <button
         type="submit"
         disabled={!canSubmit}
         className="bcc-stencil bg-ink px-4 py-2 text-cardstock transition disabled:opacity-50"
       >
-        {busy ? "Saving…" : label}
+        {busy ? busyLabel : label}
       </button>
     </div>
   );

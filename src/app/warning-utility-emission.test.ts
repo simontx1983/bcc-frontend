@@ -77,6 +77,8 @@ const SEMANTIC = [
   "warning", "bcc-warning", "safety", "bcc-safety", "verified", "bcc-verified",
   "weld", "bcc-weld", "phosphor", "danger", "bcc-danger", "success", "bcc-success",
   "info", "bcc-info", "flag", "bcc-flag", "blueprint", "bcc-blueprint",
+  // #205 small-text tokens.
+  "bcc-text-error", "bcc-text-safety",
 ] as const;
 
 const decls = (n: string) =>
@@ -127,7 +129,9 @@ describe("every semantic colour utility names a real theme key", () => {
     const UTIL = new RegExp(
       String.raw`(?:[a-z-]+:)?(?:text|bg|border|ring|decoration|outline|divide|placeholder|from|to|via)-(` +
         SEMANTIC.join("|") +
-        String.raw`)(?:\/\d{1,3})?\b`,
+        // `(?![\w-])`, not `\b`: `\b` let `text-bcc-safety` match the front
+        // of `text-bcc-text-safety` (#205) and report a key that is not used.
+        String.raw`)(?:\/\d{1,3})?(?![\w-])`,
       "g",
     );
     for (const f of FILES) {
@@ -167,7 +171,8 @@ describe("counterToneClass returns only classes that compile", () => {
       counterToneClass(90, 100, 80), // near
       counterToneClass(10, 100, 80), // under
     ];
-    expect(rungs).toEqual(["text-safety", "text-bcc-warning", "text-bcc-text-secondary"]);
+    // #205: the top rung moved from text-safety to the error-text token.
+    expect(rungs).toEqual(["text-bcc-text-error", "text-bcc-warning", "text-bcc-text-secondary"]);
     for (const r of rungs) {
       const key = r.replace(/^text-/, "");
       expect(KEYS.has(key), `${r} names no theme key`).toBe(true);
@@ -176,16 +181,18 @@ describe("counterToneClass returns only classes that compile", () => {
 
   it("two-rung callers never reach the warning rung", () => {
     expect(counterToneClass(90, 100)).toBe("text-bcc-text-secondary");
-    expect(counterToneClass(200, 100)).toBe("text-safety");
+    expect(counterToneClass(200, 100)).toBe("text-bcc-text-error"); // #205 token
   });
 
   it("the three rungs are mutually distinguishable", () => {
-    const [safety, warn, sec] = [
-      decls("bcc-safety")[0] ?? "",
+    // #205: the top rung is the error-text token; [0] is its light value.
+    const [over, warn, sec] = [
+      decls("bcc-text-error")[0] ?? "",
       decls("bcc-warning")[1] ?? "", // light
       "#4b5563",
     ];
-    expect(ratio(safety, warn)).toBeGreaterThan(1.2);
+    expect(over).toBe("#b91c1c");
+    expect(ratio(over, warn)).toBeGreaterThan(1.2);
     expect(ratio(warn, sec)).toBeGreaterThan(1.2);
   });
 

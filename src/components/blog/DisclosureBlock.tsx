@@ -121,7 +121,7 @@ export function DisclosureBlock({ value, onChange, disabled = false }: Disclosur
                     aria-label={`Remove ticker ${t}`}
                     onClick={() => removeTicker(t)}
                     disabled={disabled}
-                    className="text-bcc-text-secondary hover:text-safety"
+                    className="text-bcc-text-secondary hover:text-bcc-text-safety"
                   >
                     ✕
                   </button>
@@ -184,7 +184,7 @@ export function DisclosureBlock({ value, onChange, disabled = false }: Disclosur
               type="button"
               onClick={() => onChange(null)}
               disabled={disabled}
-              className="bcc-mono self-start text-[10px] tracking-[0.18em] text-safety hover:underline underline-offset-4"
+              className="bcc-mono self-start text-[10px] tracking-[0.18em] text-bcc-text-safety hover:underline underline-offset-4"
             >
               CLEAR DISCLOSURE
             </button>

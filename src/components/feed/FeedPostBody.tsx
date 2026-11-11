@@ -31,7 +31,7 @@ import type { FeedItem } from "@/lib/api/types";
 const REVIEW_GRADE_LABELS: Record<string, { label: string; accent: string }> = {
   trust:   { label: "TRUST",   accent: "var(--verified)" },
   neutral: { label: "NEUTRAL", accent: "var(--blueprint)" },
-  caution: { label: "CAUTION", accent: "var(--safety)" },
+  caution: { label: "CAUTION", accent: "var(--bcc-text-safety)" },
 };
 
 /** card_kind → entity-route prefix. Mirrors CardUrlMap on the server.
@@ -130,7 +130,7 @@ export function BlogExcerptBody({ body, authorHandle }: BlogExcerptBodyProps) {
       {(category !== null || chainTags.length > 0) && (
         <div className="flex flex-wrap items-center gap-2">
           {category !== null && (
-            <span className="bcc-mono border border-safety/40 bg-safety/10 px-2 py-1 text-[10px] tracking-[0.18em] text-safety">
+            <span className="bcc-mono border border-safety/40 bg-safety/10 px-2 py-1 text-[10px] tracking-[0.18em] text-bcc-text-safety">
               {(FEED_CATEGORY_LABELS[category] ?? category).toUpperCase()}
             </span>
           )}

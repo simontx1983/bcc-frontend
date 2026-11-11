@@ -38,6 +38,13 @@
  * ⚠ The recovery is a RELOAD, not a retry, and is labelled as one. It
  * may cost unsaved in-memory work; see the comment on the control.
  *
+ * ## The third state: `private`
+ *
+ * `bcc_forbidden` with `error.data.reason === "profile_private"` (contract
+ * v1.91) is the OWNER's choice, not a failure: it renders the shared calm
+ * `ProfilePrivateNotice` (role="status", no alert, no error colour) and,
+ * like `denied`, no recovery control. The exits stay.
+ *
  * ## What it must never say, and never show
  *
  * - Not "this member doesn't exist". A read that failed tells us nothing
@@ -52,19 +59,22 @@
 import Link from "next/link";
 import type { Route } from "next";
 
+import { ProfilePrivateNotice } from "@/components/profile/ProfilePrivateNotice";
 import { LoadFailure } from "@/components/ui/LoadFailure";
 
 /**
  * `denied` — the server answered, and the answer was "no". Terminal.
+ * `private` — the owner's profile visibility does not admit this viewer.
+ * Terminal, and not an error.
  * `temporary` — the read did not complete, or completed with a status we
  * cannot interpret as a decision. Retrying may work.
  */
-export type ProfileUnavailableReason = "denied" | "temporary";
+export type ProfileUnavailableReason = "denied" | "private" | "temporary";
 
 /** Ties the warning to the button for assistive technology. */
 const WARNING_ID = "profile-reload-warning";
 
-const COPY: Record<ProfileUnavailableReason, string> = {
+const COPY: Record<Exclude<ProfileUnavailableReason, "private">, string> = {
   // Deliberately without "right now" / "shortly": those words promise a
   // later success this state cannot deliver. Says nothing about whether
   // the profile exists.
@@ -81,8 +91,8 @@ export function ProfileUnavailable({
 }: {
   reason: ProfileUnavailableReason;
   /**
-   * Only honoured for `reason="temporary"`. Passing it with `"denied"`
-   * is ignored on purpose — see the docblock.
+   * Only honoured for `reason="temporary"`. Passing it with `"denied"` or
+   * `"private"` is ignored on purpose — see the docblock.
    */
   onRetry?: (() => void) | undefined;
   /**
@@ -107,7 +117,11 @@ export function ProfileUnavailable({
         attached to it — neither of which that component's closed
         `retryLabel` inventory is meant to carry.
       */}
-      <LoadFailure message={COPY[reason]} />
+      {reason === "private" ? (
+        <ProfilePrivateNotice />
+      ) : (
+        <LoadFailure message={COPY[reason]} />
+      )}
       {/*
         The recovery action, named for what it may actually do.
 
@@ -149,7 +163,7 @@ export function ProfileUnavailable({
 
       {/* The "real exit" the LoadFailure docblock asks for, and the way
           out that costs nothing: leaving the page cannot discard work the
-          reload might. Present in BOTH states. */}
+          reload might. Present in EVERY state. */}
       <nav
         className="mt-2 flex flex-wrap items-center justify-center gap-3"
         aria-label="Where to go instead"

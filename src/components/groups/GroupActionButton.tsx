@@ -62,7 +62,7 @@ export function GroupActionButton({
         <p
           id={errorId}
           role="alert"
-          className="bcc-mono max-w-[14rem] text-right text-[10px] tracking-[0.12em] text-safety"
+          className="bcc-mono max-w-[14rem] text-right text-[10px] tracking-[0.12em] text-bcc-text-error"
         >
           {errorMessage}
         </p>

@@ -28,8 +28,10 @@ import {
   useCollectionStancePanel,
   useSetCollectionStance,
 } from "@/hooks/useCollectionStances";
-import { humanizeCode } from "@/lib/api/errors";
+import { humanizeCode, isPermissionDenial } from "@/lib/api/errors";
 import type { CollectionStancePanelItem } from "@/lib/api/types";
+
+import { NOT_YET_ACTIVE_LABEL } from "./NotYetActiveBadge";
 
 interface CollectionStancePanelProps {
   /**
@@ -46,24 +48,36 @@ export function CollectionStancePanel({ compact = false }: CollectionStancePanel
     return <p className="bcc-mono text-cardstock-deep">Reading your collections…</p>;
   }
 
-  if (panel.isError) {
-    return (
-      <p role="alert" className="bcc-mono text-safety">
-        {/* §γ — copy keyed on err.code; never render err.message. */}
-        {humanizeCode(
-          panel.error,
-          {
-            bcc_unauthorized: "Sign in to see your collections.",
-            bcc_rate_limited: "Loading too fast — give it a moment and try again.",
-          },
-          "Couldn't read your collections. Try again in a moment.",
-        )}
-      </p>
-    );
+  const failure = panel.isError ? (
+    <p role="alert" className="bcc-mono text-bcc-text-error">
+      {/* §γ — copy keyed on err.code; never render err.message. */}
+      {humanizeCode(
+        panel.error,
+        {
+          bcc_unauthorized: "Sign in to see your collections.",
+          bcc_rate_limited: "Loading too fast — give it a moment and try again.",
+        },
+        "Couldn't read your collections. Try again in a moment.",
+      )}
+    </p>
+  ) : null;
+
+  // Only a first-load failure, or a REFRESH the server refused, may
+  // replace the rows. Every join and stance change invalidates this query,
+  // so a blanket `isError` meant one failed refetch erased the list the
+  // member was working through.
+  if (panel.isLoadingError || (panel.isRefetchError && isPermissionDenial(panel.error))) {
+    return failure;
   }
 
   const items = panel.data.items;
   const holdingsStatus = panel.data.holdings_status;
+
+  // An empty list is a claim about the member's wallets; a failed refresh
+  // does not support it, so only the failure renders.
+  if (items.length === 0 && panel.isRefetchError) {
+    return failure;
+  }
 
   // An empty list is only a fact about the member's wallets when the server
   // says every source finished. Before `holdings_status` existed this branch
@@ -100,6 +114,9 @@ export function CollectionStancePanel({ compact = false }: CollectionStancePanel
 
   return (
     <div className="flex flex-col gap-3">
+      {/* A failed REFRESH keeps the rows; the notice sits above them. */}
+      {failure}
+
       {/* Positive rows are always shown, even when a source failed: what is
           here was proven. The notice says only that the list may be short —
           never which wallet, which chain, or what went wrong. */}
@@ -111,7 +128,7 @@ export function CollectionStancePanel({ compact = false }: CollectionStancePanel
 
       {!compact && (
         <header>
-          <p className="bcc-mono text-safety">YOUR COLLECTIONS //</p>
+          <p className="bcc-mono text-bcc-text-safety">YOUR COLLECTIONS //</p>
           <p className="mt-1 max-w-prose font-serif text-ink-soft">
             These came from your linked wallets. Join the communities that
             are live, raise your hand for the ones that aren&rsquo;t, and
@@ -161,7 +178,7 @@ function StanceRow({ item }: { item: CollectionStancePanelItem }) {
 
   return (
     <div
-      className="flex items-center gap-3 border-2 px-3 py-2"
+      className="bcc-paper-ground flex items-center gap-3 border-2 px-3 py-2"
       style={{
         borderColor: flaggedSpam ? "rgb(var(--bcc-flag-rgb) / 0.5)" : "rgb(var(--ink-rgb) / 0.18)",
         background: "var(--paper)",
@@ -197,10 +214,11 @@ function StanceRow({ item }: { item: CollectionStancePanelItem }) {
             ? "COMMUNITY LIVE"
             : item.waitlist_count > 0
               ? `${item.waitlist_count} ON THE WAITLIST`
-              : "COMMUNITY NOT YET ACTIVATED"}
+              : // Same words as the NFT picker's badge, one source.
+                NOT_YET_ACTIVE_LABEL.toUpperCase()}
         </p>
         {error !== null && (
-          <p role="alert" className="bcc-mono mt-1 text-safety" style={{ fontSize: "10px" }}>
+          <p role="alert" className="bcc-mono mt-1 text-bcc-text-error" style={{ fontSize: "10px" }}>
             {error}
           </p>
         )}

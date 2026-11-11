@@ -20,8 +20,8 @@
  *   - PATCH preferences flips the toggle instantly with rollback on
  *     error (mirrors useMyPrivacy) — single boolean, single field.
  *   - join / leave do NOT optimistically re-bucket the row. Server can
- *     reject join (NFT ownership changed mid-flight, opt-out cooldown
- *     hit, chain RPC failure) and we want the user to see the actual
+ *     reject join (NFT ownership changed mid-flight, a moderator
+ *     removal, chain RPC failure) and we want the user to see the actual
  *     server decision, not a flicker. Caller is expected to provide
  *     button-level pending state (see useState pattern in BlocksList).
  */
@@ -173,7 +173,16 @@ export function useUpdateHolderGroupPreferences(
           HOLDER_GROUPS_PREFS_QUERY_KEY,
           context.previous
         );
+        return;
       }
+      // Cold cache: there was no value to restore, so the optimistic
+      // write is the only thing in the cache. setQueryData(undefined) is
+      // a no-op, and removeQueries leaves a mounted observer rendering the
+      // stale value — reset clears it and refetches the server's truth.
+      void queryClient.resetQueries({
+        queryKey: HOLDER_GROUPS_PREFS_QUERY_KEY,
+        exact: true,
+      });
     },
     onSuccess: (data) => {
       // Server's post-write state is canonical.

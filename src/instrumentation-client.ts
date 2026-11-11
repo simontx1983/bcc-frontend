@@ -4,6 +4,13 @@
 
 import * as Sentry from "@sentry/nextjs";
 
+import { initAnalytics } from "@/lib/analytics/posthog";
+
+// Product analytics is opt-in: this starts PostHog only when the build is
+// configured AND this device has already consented. Otherwise the consent
+// banner (or the Privacy page control) starts it on "Allow".
+initAnalytics();
+
 Sentry.init({
   dsn: process.env['NEXT_PUBLIC_SENTRY_DSN'],
 

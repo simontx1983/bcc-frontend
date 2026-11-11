@@ -86,9 +86,11 @@ interface SSOButtonProps {
   mode: "login" | "signup";
   /** Where NextAuth redirects after successful OAuth sign-in (existing users only). */
   callbackUrl?: string;
+  /** Runs on click, before the OAuth redirect starts (e.g. an analytics event). */
+  onStart?: () => void;
 }
 
-export function SSOButton({ provider, mode, callbackUrl = "/onboarding" }: SSOButtonProps) {
+export function SSOButton({ provider, mode, callbackUrl = "/onboarding", onStart }: SSOButtonProps) {
   const label = mode === "login" ? "Continue with" : "Sign up with";
   const name  = provider === "google" ? "Google" : "X";
 
@@ -98,7 +100,10 @@ export function SSOButton({ provider, mode, callbackUrl = "/onboarding" }: SSOBu
     <button
       type="button"
       className="bcc-sso-btn"
-      onClick={() => { void signIn(providerId, { callbackUrl }); }}
+      onClick={() => {
+        onStart?.();
+        void signIn(providerId, { callbackUrl });
+      }}
     >
       <span className="bcc-sso-icon">
         {provider === "google" ? <GoogleIcon /> : <TwitterIcon />}

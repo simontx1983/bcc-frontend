@@ -33,10 +33,8 @@ import { useQueryClient } from "@tanstack/react-query";
 
 import { GroupActionButton } from "@/components/groups/GroupActionButton";
 import { VerificationBadge } from "@/components/groups/VerificationBadge";
-import {
-  useJoinHolderGroupMutation,
-  useLeaveHolderGroupMutation,
-} from "@/hooks/useHolderGroups";
+import { HolderLeaveConfirm } from "@/components/groups/HolderLeaveConfirm";
+import { useJoinHolderGroupMutation } from "@/hooks/useHolderGroups";
 import {
   useJoinHallMutation,
   useLeaveHallMutation,
@@ -54,8 +52,8 @@ import {
   useJoinValidatorGroupMutation,
   useLeaveValidatorGroupMutation,
 } from "@/hooks/useValidatorGroups";
-import { LoadFailure } from "@/components/ui/LoadFailure";
-import { humanizeCode, isCode } from "@/lib/api/errors";
+import { ProfileReadFailure } from "@/components/profile/ProfilePrivateNotice";
+import { humanizeCode, isCode, isPermissionDenial } from "@/lib/api/errors";
 import type { UserGroupItem } from "@/lib/api/types";
 import { isAllowed, reasonCode, unlockHint } from "@/lib/permissions";
 
@@ -77,26 +75,34 @@ export function GroupsPanel({ handle }: GroupsPanelProps) {
     );
   }
 
-  if (query.isError) {
+  const failure = query.isError ? (
+    <ProfileReadFailure
+      error={query.error}
+      surface="paper"
+      /* §γ — copy is keyed on err.code; never render err.message. */
+      message={humanizeCode(
+        query.error,
+        {
+          bcc_unauthorized: "Sign in to see groups.",
+          bcc_rate_limited: "Loading too fast — give it a moment and try again.",
+          bcc_unavailable: "Groups are temporarily unavailable. Try again shortly.",
+        },
+        "Couldn't load groups. Try again in a moment.",
+      )}
+      onRetry={() => void query.refetch()}
+    />
+  ) : null;
+
+  // Only a first-load failure, or a REFRESH the server refused, may
+  // replace the list. Every join/leave invalidates this query, so a
+  // blanket `isError` meant one failed refetch erased every group row.
+  // A refused refresh keeps the old whole-panel state: the server's
+  // latest answer is "you may not read this", so the rows are not kept.
+  if (query.isLoadingError || (query.isRefetchError && isPermissionDenial(query.error))) {
     return (
       <article className="bcc-paper">
         <Header />
-        <div className="px-8 py-12">
-          <LoadFailure
-            surface="paper"
-            /* §γ — copy is keyed on err.code; never render err.message. */
-            message={humanizeCode(
-              query.error,
-              {
-                bcc_unauthorized: "Sign in to see groups.",
-                bcc_rate_limited: "Loading too fast — give it a moment and try again.",
-                bcc_unavailable: "Groups are temporarily unavailable. Try again shortly.",
-              },
-              "Couldn't load groups. Try again in a moment.",
-            )}
-            onRetry={() => void query.refetch()}
-          />
-        </div>
+        <div className="px-8 py-12">{failure}</div>
       </article>
     );
   }
@@ -106,8 +112,12 @@ export function GroupsPanel({ handle }: GroupsPanelProps) {
   return (
     <article className="bcc-paper">
       <Header />
+      {/* A failed REFRESH keeps the rows; the recovery sits above them. */}
+      {query.isRefetchError && <div className="px-8">{failure}</div>}
       {items.length === 0 ? (
-        <GroupsEmpty />
+        // An empty bucket is a claim about the server; a failed refresh
+        // does not support it.
+        query.isError ? null : <GroupsEmpty />
       ) : (
         <ul>
           {items.map((item) => (
@@ -153,7 +163,7 @@ function GroupRow({ item }: { item: UserGroupItem }) {
             {item.member_count.toLocaleString()} MEMBER{item.member_count === 1 ? "" : "S"}
           </span>
           {item.privacy === "closed" && (
-            <span aria-label="Closed group" className="text-safety">
+            <span aria-label="Closed group" className="text-bcc-text-safety">
               · CLOSED
             </span>
           )}
@@ -284,6 +294,10 @@ function groupActionError(err: unknown): string | null {
   if (err === null || err === undefined) {
     return null;
   }
+  return humanizeGroupActionError(err);
+}
+
+function humanizeGroupActionError(err: unknown): string {
   return humanizeCode(
     err,
     {
@@ -327,20 +341,14 @@ function HolderJoinButton({ groupId }: { groupId: number }) {
   );
 }
 
+// Holder leave starts a 90-day cooldown, so it confirms first.
 function HolderLeaveButton({ groupId }: { groupId: number }) {
   const onSuccess = useInvalidateUserGroups();
-  const mutation = useLeaveHolderGroupMutation({ onSuccess });
   return (
-    <GroupActionButton
+    <HolderLeaveConfirm
       groupId={groupId}
-      label="LEAVE"
-      pendingLabel="LEAVING…"
-      isPending={mutation.isPending}
-      errorMessage={groupActionError(mutation.error)}
-      onClick={() => {
-        mutation.reset();
-        mutation.mutate(groupId);
-      }}
+      humanizeError={humanizeGroupActionError}
+      onSuccess={onSuccess}
     />
   );
 }
@@ -491,7 +499,7 @@ function GroupsEmpty() {
   return (
     <div className="px-8 py-12">
       <p
-        className="bcc-mono mb-3 text-safety"
+        className="bcc-mono mb-3 text-bcc-text-safety"
         style={{ fontSize: "10px", letterSpacing: "0.24em" }}
       >
         NOTHING ON FILE
