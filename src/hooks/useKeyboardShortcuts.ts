@@ -74,6 +74,14 @@ function matches(event: KeyboardEvent, key: string): boolean {
   if (key.startsWith("code:")) {
     return event.code === key.slice(5);
   }
+  // `KeyboardEvent.key` is not always a string in practice: Chrome's form
+  // autofill (and some IME / extension-synthesised events) dispatch a
+  // keydown with no `key`. Calling .toLowerCase() on it threw an uncaught
+  // TypeError on form pages (seen on /communities/new). Such an event
+  // matches no key-based shortcut.
+  if (typeof event.key !== "string") {
+    return false;
+  }
   // Case-insensitive match for letter keys; exact match for everything
   // else (Escape, ?, /, ArrowDown, etc.).
   if (key.length === 1 && /[a-z]/i.test(key)) {
