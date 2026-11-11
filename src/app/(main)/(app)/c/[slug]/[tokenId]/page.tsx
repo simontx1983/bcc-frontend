@@ -26,7 +26,7 @@ import { notFound } from "next/navigation";
 import { NftPieceDetail } from "@/components/creator/NftPieceDetail";
 import { authOptions } from "@/lib/auth";
 import { tokenFromSession } from "@/lib/api/client";
-import { getNftPiece } from "@/lib/api/nft-pieces-endpoints";
+import { getNftPiece, isValidNftPieceRef } from "@/lib/api/nft-pieces-endpoints";
 import { BccApiError } from "@/lib/api/types";
 
 interface PageProps {
@@ -46,6 +46,11 @@ export default async function NftPiecePage({ params, searchParams }: PageProps) 
   // a real 404 rather than a 422 from the BE so the user sees the same
   // "no such piece" page as a genuinely missing token.
   if (chain === "" || contract === "") {
+    notFound();
+  }
+  // A malformed reference (hand-edited or crafted link) is "no such
+  // piece", the same as a missing token, and is never sent upstream.
+  if (!isValidNftPieceRef(chain, contract, tokenId)) {
     notFound();
   }
 
