@@ -162,6 +162,28 @@ describe("denied WITHOUT a hint", () => {
   });
 });
 
+describe("reason_code 'unavailable' (F-99: blocks couldn't be checked)", () => {
+  it("omits the affordance when sent with no hint", () => {
+    renderBar({ can_message: { allowed: false, unlock_hint: null, reason_code: "unavailable" } });
+    expect(messageEl()).toBeNull();
+  });
+
+  it("omits it even if a hint arrives with it: no disabled pill, no hint text", () => {
+    renderBar({
+      can_message: { allowed: false, unlock_hint: "Try again later.", reason_code: "unavailable" },
+    });
+    expect(messageEl()).toBeNull();
+    expect(screen.queryByText("Try again later.")).toBeNull();
+  });
+
+  it("control: another code with a hint still renders the disabled pill", () => {
+    renderBar({
+      can_message: { allowed: false, unlock_hint: "Friends only.", reason_code: "friends_only" },
+    });
+    expect(messageEl()).not.toBeNull();
+  });
+});
+
 describe("malformed permission blocks degrade to hidden", () => {
   it.each([
     ["null", null],

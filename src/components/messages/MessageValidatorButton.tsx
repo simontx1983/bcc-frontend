@@ -23,6 +23,7 @@
  *   not_applicable       → hidden
  *   self_action_blocked  → hidden (the viewer IS the operator)
  *   messaging_unavailable→ hidden
+ *   unavailable          → hidden (F-99: blocks couldn't be checked)
  *   anything else / null → hidden (structural deny, per §N7)
  *
  * `messaging_unavailable` and the `unavailable` destination are
@@ -156,6 +157,7 @@ function disabledHintFor(
     return serverHint;
   }
   // not_applicable · self_action_blocked · messaging_unavailable ·
-  // an unrecognized future code · an absent gate — all hidden.
+  // unavailable (F-99) · an unrecognized future code · an absent gate —
+  // all hidden.
   return null;
 }
