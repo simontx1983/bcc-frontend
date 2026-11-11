@@ -69,7 +69,7 @@ const PROFILE_VISIBILITY_OPTIONS: ReadonlyArray<{
   {
     value: "private",
     label: "Private",
-    blurb: "Only you. Your profile is hidden from everyone else.",
+    blurb: "Only you. Site admins can still see it for moderation.",
   },
 ];
 

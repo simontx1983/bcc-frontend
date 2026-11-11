@@ -70,10 +70,14 @@ export function AuthorCard({
   enabled = true,
   onOpenRankInfo,
 }: AuthorCardProps) {
-  const { data: profile, isLoading, error } = useUser(handle, { enabled });
+  const { data: cachedProfile, isLoading, error } = useUser(handle, { enabled });
   // The owner's profile is private (v1.91): bio and counts are withheld, so
   // say so instead of the "no bio yet" filler, which would be a guess.
   const isPrivate = isProfilePrivate(error);
+  // React Query keeps the last good data when a refetch fails. Once the
+  // owner has made the profile private, show none of it: not the cover,
+  // name, rank or counts cached from when it was public.
+  const profile = isPrivate ? undefined : cachedProfile;
   const loadingProfile = isLoading && profile === undefined;
 
   // Prefer the caller's pre-resolved fields (feed byline has them); fall
