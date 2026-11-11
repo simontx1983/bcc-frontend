@@ -28,3 +28,14 @@ export function safeUrlTransform(url: string): string {
   if (scheme === null || scheme[1] === undefined) return sanitized;
   return ALLOWED_URL_SCHEMES.has(scheme[1].toLowerCase()) ? sanitized : "";
 }
+
+/**
+ * True for a root-relative path on THIS site: a single leading `/` not
+ * followed by another `/` or a `\`. `//evil.example` has no scheme, so it
+ * survives safeUrlTransform as "relative", but browsers resolve it (and
+ * `/\evil.example`) against the current protocol to a different host —
+ * so it must render as an external link, never a same-tab internal one.
+ */
+export function isInternalPath(url: string): boolean {
+  return /^\/(?![/\\])/.test(url);
+}

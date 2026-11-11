@@ -52,7 +52,7 @@ import type { Mention } from "@/lib/api/types";
 import { getShiki, highlightCode, shikiReady } from "@/lib/shiki";
 
 import { bccRemarkPlugins } from "./plugins";
-import { safeUrlTransform } from "./url-allowlist";
+import { isInternalPath, safeUrlTransform } from "./url-allowlist";
 
 // Syntax highlighting — path (b) from the old V1 note, now shipped:
 // Shiki's grammar loader is async and react-markdown 10.x calls the
@@ -146,7 +146,7 @@ export function BlogMarkdownRenderer({
           },
           a: ({ href, children, title }) => {
             const url = href ?? "";
-            const isInternal = url.startsWith("/");
+            const isInternal = isInternalPath(url);
 
             if (isInternal) {
               return (

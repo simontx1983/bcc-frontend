@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { safeUrlTransform } from "./url-allowlist";
+import { isInternalPath, safeUrlTransform } from "./url-allowlist";
 
 /**
  * Audit F4: the blog renderer's link/image URL safety must be an explicit,
@@ -41,5 +41,33 @@ describe("safeUrlTransform", () => {
     // Not in the allowlist today — adding ipfs: must be a deliberate edit.
     expect(safeUrlTransform("ipfs://Qm123")).toBe("");
     expect(safeUrlTransform("ftp://example.com")).toBe("");
+  });
+
+  it("passes protocol-relative URLs through unchanged (contract: '' only for disallowed schemes)", () => {
+    // Scheme-less, so not a scheme decision; isInternalPath below is what
+    // keeps it from being treated as an on-site link.
+    expect(safeUrlTransform("//evil.example")).toBe("//evil.example");
+  });
+});
+
+describe("isInternalPath", () => {
+  it("accepts root-relative paths on this site", () => {
+    expect(isInternalPath("/u/phillip")).toBe(true);
+    expect(isInternalPath("/")).toBe(true);
+    expect(isInternalPath("/post/abc?x=1#y")).toBe(true);
+  });
+
+  it("rejects protocol-relative and backslash host forms", () => {
+    expect(isInternalPath("//evil.example")).toBe(false);
+    expect(isInternalPath("//evil.example/u/phillip")).toBe(false);
+    expect(isInternalPath("/\\evil.example")).toBe(false);
+  });
+
+  it("rejects absolute, fragment, query and dot-relative URLs", () => {
+    expect(isInternalPath("https://example.com/x")).toBe(false);
+    expect(isInternalPath("#section")).toBe(false);
+    expect(isInternalPath("?tab=blog")).toBe(false);
+    expect(isInternalPath("./relative/path")).toBe(false);
+    expect(isInternalPath("")).toBe(false);
   });
 });

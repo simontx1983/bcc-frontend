@@ -632,6 +632,10 @@ function ReportRow({
 
   const trigger = useMemo(
     () => (action: ModerationAction) => {
+      // Same guard the buttons get from `disabled`: the H/D/R shortcuts
+      // dispatch through here too, and must not stack a second resolve
+      // on a row whose first one is still in flight.
+      if (mutation.isPending) return;
       mutation.mutate(action);
     },
     [mutation],
