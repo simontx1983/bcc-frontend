@@ -110,6 +110,10 @@ export const DEVICE_SCOPED_STORAGE_KEYS: readonly string[] = [
   // Roster list/grid choice. A display preference for the device, and it
   // reveals nothing about who was signed in.
   "bcc:roster-view",
+  // Product-analytics consent ("granted" / "denied", lib/analytics/posthog).
+  // A choice about this DEVICE, not a person, so sign-out keeps it rather
+  // than re-asking after every sign-in.
+  "bcc-analytics-consent",
 ];
 
 function isViewerScoped(key: string, scope: ViewerScope): boolean {
