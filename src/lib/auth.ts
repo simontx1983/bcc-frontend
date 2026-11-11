@@ -1,10 +1,13 @@
 /**
- * NextAuth options — server-side credentials provider against /auth/login.
+ * NextAuth options — session bridging for BCC bearer tokens.
  *
  * Architecture:
- *   1. Login form posts email/password → signIn("credentials", ...)
- *   2. NextAuth invokes authorize() → calls bcc-trust /auth/login
- *   3. On 200 with envelope, return User { id, handle, bccToken }
+ *   1. The login form calls bcc-trust /auth/login from the browser (and
+ *      /auth/2fa/verify when required), then signIn("bcc-verified", …)
+ *      with the minted token. Wallet login uses the "wallet" provider,
+ *      which calls /auth/wallet-login server-side.
+ *   2. The provider's authorize() builds the session user
+ *   3. On success, return User { id, handle, bccToken }
  *   4. On non-2xx, throw Error("bcc_*") so signIn(...).error carries
  *      the specific code (NextAuth surfaces error.message verbatim
  *      when redirect:false). UI in login/page.tsx maps codes → copy.
@@ -225,25 +228,11 @@ export const authOptions: NextAuthOptions = {
       userinfo: { url: "https://api.x.com/2/users/me" },
     }),
 
-    Credentials({
-      name: "credentials",
-      credentials: {
-        email: { label: "Email", type: "email" },
-        password: { label: "Password", type: "password" },
-      },
-      async authorize(credentials) {
-        const email = credentials?.email?.trim() ?? "";
-        const password = credentials?.password ?? "";
-        if (email === "" || password === "") {
-          throw new Error("bcc_invalid_request");
-        }
-
-        return await callBccAuth(`${clientEnv.BCC_API_URL}/wp-json/bcc/v1/auth/login`, {
-          email,
-          password,
-        });
-      },
-    }),
+    // No email/password "credentials" provider (F-132). Login posts to
+    // /auth/login from the browser and finishes through "bcc-verified".
+    // The old provider was unused by the UI but its callback stayed
+    // reachable, letting anyone drive /auth/login from the server's IP:
+    // a brute-force path that skipped the per-client throttle.
 
     // Post-verification bridge — accepts a BCC JWT that was just minted by
     // /auth/verify-email (or /auth/wallet-signup) and already validated

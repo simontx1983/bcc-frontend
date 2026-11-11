@@ -29,6 +29,11 @@ import { AuthCard } from "@/components/auth/AuthCard";
 import { resend2faCode, verify2fa } from "@/lib/api/auth-endpoints";
 import { BccApiError } from "@/lib/api/types";
 import { safeCallbackPath } from "@/lib/auth/safe-callback";
+import {
+  clearChallengeToken,
+  readChallengeToken,
+  stashChallengeToken,
+} from "@/lib/auth/two-factor-challenge";
 
 const ERROR_COPY: Record<string, string> = {
   // The backend separates these two, so the copy does too. `..._code` means
@@ -46,8 +51,11 @@ const ERROR_COPY: Record<string, string> = {
 function TwoFactorContent() {
   const router       = useRouter();
   const searchParams = useSearchParams();
-  const ct           = searchParams.get("ct") ?? "";
+  // Only a link from before the sessionStorage handoff still carries ?ct=.
+  const legacyCt     = searchParams.get("ct") ?? "";
   const callbackUrl  = searchParams.get("callbackUrl");
+  /** The challenge token, from sessionStorage (lib/auth/two-factor-challenge). */
+  const [ct, setCt]  = useState("");
   // Only ever follow a same-origin internal path — blocks open-redirect phishing.
   const safeCallback = safeCallbackPath(callbackUrl);
 
@@ -64,7 +72,23 @@ function TwoFactorContent() {
   /** Synchronous duplicate-activation guard — see the note in
    *  /verify-email; `resending` state alone loses a same-tick double tap. */
   const resendInFlight = useRef(false);
-  const [sessionExpired, setSessionExpired] = useState(ct === "");
+  const [sessionExpired, setSessionExpired] = useState(false);
+
+  // Load the challenge token once, on mount. A legacy ?ct= link is moved
+  // into sessionStorage and scrubbed from the address bar, so the token
+  // doesn't stay in history or leak through the Referer header.
+  useEffect(() => {
+    if (legacyCt !== "") {
+      stashChallengeToken(legacyCt);
+      const qs = safeCallback !== null ? `?${new URLSearchParams({ callbackUrl: safeCallback }).toString()}` : "";
+      router.replace(`/login/two-factor${qs}` as Route);
+    }
+    const token = legacyCt !== "" ? legacyCt : readChallengeToken();
+    setCt(token);
+    setSessionExpired(token === "");
+    // Mount-only: the token is read once; a scrubbed URL must not re-run this.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function targetAfterLogin(): Route {
     // Returning sign-in lands on the Floor, not /onboarding — the 2FA page
@@ -103,6 +127,7 @@ function TwoFactorContent() {
         redirect:         false,
       });
       if (result?.ok) {
+        clearChallengeToken();
         router.replace(targetAfterLogin());
         return;
       }
@@ -111,6 +136,7 @@ function TwoFactorContent() {
     } catch (err) {
       const errCode = err instanceof BccApiError ? err.code : "bcc_unknown";
       if (errCode === "bcc_invalid_2fa_token") {
+        clearChallengeToken();
         setSessionExpired(true);
       }
       setError(ERROR_COPY[errCode] ?? "Verification failed. Try again.");
