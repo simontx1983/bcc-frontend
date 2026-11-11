@@ -15,6 +15,11 @@
  *      that hasn't shipped the gate yet (absent key) degrades to
  *      "hidden" rather than crashing or, worse, defaulting to allowed.
  *
+ * The decision itself lives in `lib/validators/messaging`
+ * (`resolveValidatorMessageAction`), shared with the trading card's
+ * Message pill so the two surfaces can never drift; this file only
+ * renders it.
+ *
  * §N7 visibility rule, as applied to the reason codes:
  *
  *   auth_required        → visible-disabled ("Sign in to send a message.")
@@ -46,10 +51,7 @@ import type { Route } from "next";
 import Link from "next/link";
 
 import type { CardMessaging, CardPermissions } from "@/lib/api/types";
-import { isAllowed, reasonCode, unlockHint } from "@/lib/permissions";
-
-/** Copy owned by the frontend — the server sends no hint for anon viewers. */
-const AUTH_REQUIRED_HINT = "Sign in to send a message.";
+import { resolveValidatorMessageAction } from "@/lib/validators/messaging";
 
 /** Generic, identity-free line for the collapsed `unavailable` state. */
 const UNAVAILABLE_LINE = "Messaging temporarily unavailable";
@@ -78,86 +80,46 @@ export function MessageValidatorButton({
   permissions,
   messaging,
 }: MessageValidatorButtonProps) {
-  const destination = messaging?.destination ?? "none";
+  const action = resolveValidatorMessageAction({ pageId, permissions, messaging });
 
-  // No affordance on this surface at all.
-  if (destination === "none") {
-    return null;
-  }
-
-  // Collapsed two-state shield — one line, no identities, no action.
-  if (destination === "unavailable") {
-    return (
-      <p className="bcc-mono mt-4 text-[11px] tracking-[0.16em] text-cardstock-deep/70">
-        {UNAVAILABLE_LINE}
-      </p>
-    );
-  }
-
-  // destination is "queue" | "operator" from here down. The label names
-  // the real recipient so the viewer knows who reads it before they
-  // write — the queue variant is honest that nobody has claimed it yet.
-  const label = destination === "operator" ? "Message Operator" : "Message Validator";
-
-  if (!isAllowed(permissions, "can_message")) {
-    const hint = disabledHintFor(
-      reasonCode(permissions, "can_message"),
-      unlockHint(permissions, "can_message"),
-    );
-    // §N7 structural deny: no actionable path ⇒ hide rather than render
-    // a disabled control that explains nothing.
-    if (hint === null) {
+  switch (action.kind) {
+    case "hidden":
       return null;
-    }
-    return (
-      <div className="flex w-fit flex-col gap-1">
-        <button
-          type="button"
-          disabled
-          aria-disabled
-          title={hint}
-          className={`${BUTTON_BASE_CLASS} ${BUTTON_DISABLED_CLASS}`}
-        >
-          {label}
-        </button>
-        <p className="bcc-mono pl-1 text-[10px] leading-snug tracking-[0.14em] text-bcc-text-safety">
-          {hint}
+
+    // Collapsed two-state shield — one line, no identities, no action.
+    case "unavailable":
+      return (
+        <p className="bcc-mono mt-4 text-[11px] tracking-[0.16em] text-cardstock-deep/70">
+          {UNAVAILABLE_LINE}
         </p>
-      </div>
-    );
-  }
+      );
 
-  return (
-    <Link
-      href={`/messages/new?to_page=${pageId}&to_kind=validator` as Route}
-      className={`${BUTTON_BASE_CLASS} ${BUTTON_ENABLED_CLASS}`}
-    >
-      {label}
-    </Link>
-  );
-}
+    case "disabled":
+      return (
+        <div className="flex w-fit flex-col gap-1">
+          <button
+            type="button"
+            disabled
+            aria-disabled
+            title={action.hint}
+            className={`${BUTTON_BASE_CLASS} ${BUTTON_DISABLED_CLASS}`}
+          >
+            {action.label}
+          </button>
+          <p className="bcc-mono pl-1 text-[10px] leading-snug tracking-[0.14em] text-bcc-text-safety">
+            {action.hint}
+          </p>
+        </div>
+      );
 
-/**
- * Resolve the copy for a denied gate, or null when the action should be
- * hidden outright.
- *
- * `auth_required` is the one case whose copy the frontend owns (the
- * server has no per-viewer hint to give an anonymous request). Every
- * other visible-disabled reason renders the SERVER's `unlock_hint`
- * verbatim — the backend owns the wording of what would unlock it.
- */
-function disabledHintFor(
-  code: string | null,
-  serverHint: string | null,
-): string | null {
-  if (code === "auth_required") {
-    return AUTH_REQUIRED_HINT;
+    case "link":
+      return (
+        <Link
+          href={action.href as Route}
+          className={`${BUTTON_BASE_CLASS} ${BUTTON_ENABLED_CLASS}`}
+        >
+          {action.label}
+        </Link>
+      );
   }
-  if (code === "sender_chat_disabled" || code === "friends_only") {
-    return serverHint;
-  }
-  // not_applicable · self_action_blocked · messaging_unavailable ·
-  // unavailable (F-99) · an unrecognized future code · an absent gate —
-  // all hidden.
-  return null;
 }
