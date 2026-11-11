@@ -5,9 +5,10 @@
  * Auth required. Every operation re-verifies the user's current password
  * — there is no session-elevation flag.
  *
- * Three operations:
- *   - patchAccountEmail    → PATCH  /me/account/email
- *   - patchAccountPassword → PATCH  /me/account/password
+ * Operations:
+ *   - patchAccountEmail        → PATCH  /me/account/email (stages; sends a code)
+ *   - verifyAccountEmailChange → POST   /me/account/email/verify (applies)
+ *   - patchAccountPassword     → PATCH  /me/account/password
  *   - deleteAccount        → DELETE /me/account
  *
  * Plus the §V2 recovery-email pair (wallet-only accounts attaching a real
@@ -23,9 +24,13 @@
 import { bccFetchAsClient } from "@/lib/api/client";
 import type {
   AccountActivityResponse,
+  AccountEmailChangePending,
+  AccountEmailChangeUnchanged,
   LogoutEverywhereResponse,
   RecoveryEmailRequestBody,
   RecoveryEmailRequestResponse,
+  VerifyAccountEmailChangeBody,
+  VerifyAccountEmailChangeResponse,
   VerifyRecoveryEmailBody,
   VerifyRecoveryEmailResponse,
 } from "@/lib/api/types";
@@ -35,9 +40,15 @@ export interface PatchAccountEmailBody {
   email: string;
 }
 
-export interface PatchAccountEmailResponse {
-  email: string;
-}
+/**
+ * Verify-before-apply: this call NEVER changes the email. A new address
+ * comes back `pending: true` (a code went to it; confirm with
+ * {@link verifyAccountEmailChange}); the account's current address comes
+ * back `pending: false`. Discriminate on `pending`.
+ */
+export type PatchAccountEmailResponse =
+  | AccountEmailChangePending
+  | AccountEmailChangeUnchanged;
 
 export interface PatchAccountPasswordBody {
   current_password: string;
@@ -84,6 +95,24 @@ export function patchAccountEmail(
     method: "PATCH",
     body,
   });
+}
+
+/**
+ * POST /me/account/email/verify — confirm the code and apply the pending
+ * address. Every earlier bearer is revoked server-side; the response's
+ * `token` is the replacement and must be swapped into the session.
+ *
+ * Errors (thrown as BccApiError) — see VerifyAccountEmailChangeErrorCode.
+ * A wrong code is `bcc_invalid_otp`; `bcc_invalid_request` is "no pending
+ * change" (400) or an empty code (422).
+ */
+export function verifyAccountEmailChange(
+  body: VerifyAccountEmailChangeBody,
+): Promise<VerifyAccountEmailChangeResponse> {
+  return bccFetchAsClient<VerifyAccountEmailChangeResponse>(
+    "me/account/email/verify",
+    { method: "POST", body },
+  );
 }
 
 export function patchAccountPassword(

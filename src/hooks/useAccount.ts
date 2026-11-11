@@ -3,7 +3,8 @@
 /**
  * §V2 Phase 2.5 — React Query mutations for /me/account.
  *
- *   - useChangeAccountEmail
+ *   - useChangeAccountEmail        — stages a change; sends a code
+ *   - useVerifyAccountEmailChange  — applies it; swaps the bearer
  *   - useChangeAccountPassword
  *   - useDeleteAccount
  *
@@ -26,15 +27,18 @@ import {
   keepPreviousData,
   useMutation,
   useQuery,
+  useQueryClient,
   type UseMutationOptions,
 } from "@tanstack/react-query";
 
+import { MY_WALLETS_QUERY_KEY } from "@/hooks/useWallets";
 import {
   deleteAccount,
   getMyAccountActivity,
   logoutEverywhere,
   patchAccountEmail,
   patchAccountPassword,
+  verifyAccountEmailChange,
   type DeleteAccountBody,
   type DeleteAccountResponse,
   type PatchAccountEmailBody,
@@ -46,6 +50,7 @@ import type {
   AccountActivityResponse,
   BccApiError,
   LogoutEverywhereResponse,
+  VerifyAccountEmailChangeResponse,
 } from "@/lib/api/types";
 
 export const ACCOUNT_ACTIVITY_QUERY_KEY_ROOT = ["me", "account-activity"] as const;
@@ -58,6 +63,66 @@ export function useChangeAccountEmail(
 ) {
   return useMutation<PatchAccountEmailResponse, BccApiError | Error, PatchAccountEmailBody>({
     mutationFn: (body) => patchAccountEmail(body),
+    // `variables` carry the plaintext current_password; see the same
+    // setting on useChangeAccountPassword. The card also resets the
+    // mutation once it settles.
+    gcTime: 0,
+    ...options,
+  });
+}
+
+/**
+ * Outcome of confirming an email change. Same two-fact split as
+ * {@link ChangePasswordOutcome}: once the verify call resolves the address
+ * HAS changed and every earlier bearer is revoked; `sessionRestored` says
+ * only whether the replacement bearer landed in the NextAuth session.
+ */
+export interface ChangeEmailOutcome {
+  emailChanged: true;
+  /** The newly applied address, as the server reported it. */
+  email: string;
+  sessionRestored: boolean;
+}
+
+/**
+ * Invalidated after a confirmed email change — the same pair the
+ * recovery-email verify refreshes (useRecoveryEmail), because a change
+ * away from a wallet-only placeholder flips `recovery.has_recovery_email`
+ * on the wallets read, and the user view-models carry email-derived
+ * badges. The address shown in the change form itself comes from the
+ * server session, not a query; the card tracks the confirmed value.
+ */
+const EMAIL_CHANGE_INVALIDATES = [MY_WALLETS_QUERY_KEY, ["users"]] as const;
+
+export function useVerifyAccountEmailChange(
+  options: Omit<
+    UseMutationOptions<ChangeEmailOutcome, BccApiError | Error, string>,
+    "mutationFn"
+  > = {},
+) {
+  const queryClient = useQueryClient();
+  return useMutation<ChangeEmailOutcome, BccApiError | Error, string>({
+    mutationFn: async (code) => {
+      const res: VerifyAccountEmailChangeResponse = await verifyAccountEmailChange({ code });
+
+      // Past this line the email HAS changed and the held bearer is dead.
+      // The replacement goes through the same seam the password change
+      // uses — never a second session writer.
+      const sessionRestored = await updateSessionBearer({
+        token: res.token,
+        expiresIn: res.expires_in,
+      });
+
+      // AFTER the session write, so the refetches these trigger carry the
+      // replacement bearer rather than the revoked one. Not awaited: a
+      // slow refetch must not hold the confirmation open.
+      for (const queryKey of EMAIL_CHANGE_INVALIDATES) {
+        void queryClient.invalidateQueries({ queryKey });
+      }
+
+      return { emailChanged: true, email: res.email, sessionRestored };
+    },
+    gcTime: 0,
     ...options,
   });
 }
