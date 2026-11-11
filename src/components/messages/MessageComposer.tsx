@@ -11,6 +11,7 @@
 
 import { useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 
+import { captureAnalyticsEvent } from "@/lib/analytics/posthog";
 import { counterToneClass } from "@/lib/counter-tone";
 import { useReplyInConversationMutation } from "@/hooks/useReplyInConversation";
 import { humanizeCode } from "@/lib/api/errors";
@@ -26,6 +27,7 @@ export function MessageComposer({ conversationId }: MessageComposerProps) {
 
   const mutation = useReplyInConversationMutation({
     onSuccess: () => {
+      captureAnalyticsEvent("message_sent");
       setBody("");
       setError(null);
     },
