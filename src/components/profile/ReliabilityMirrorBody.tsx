@@ -72,7 +72,7 @@ function SectionFrame({
   return (
     <section className="mx-auto mt-12 max-w-[1560px]">
       <div className="mb-6 flex items-baseline justify-between border-b border-dashed border-safety/40 pb-2">
-        <span className="bcc-mono text-safety">
+        <span className="bcc-mono text-bcc-text-safety">
           FILE {fileNumber} &nbsp;//&nbsp; {label}
         </span>
       </div>
@@ -135,7 +135,7 @@ function TrendIndicator({ direction }: { direction: ReliabilityTrendDirection })
     softening: {
       glyph: "↓",
       label: "Softening",
-      toneClass: "text-safety/70",
+      toneClass: "text-bcc-text-safety",
     },
   };
   const t = TREND[direction];

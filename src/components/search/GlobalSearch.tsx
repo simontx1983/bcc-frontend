@@ -458,7 +458,7 @@ function PreSearchSurface({
                   type="button"
                   onClick={() => onRemoveRecent(q)}
                   aria-label={`Remove ${q} from recent searches`}
-                  className="bcc-mono px-3 py-2 text-[10px] text-bcc-text-secondary hover:text-safety motion-safe:transition-colors motion-safe:duration-bcc-fast"
+                  className="bcc-mono px-3 py-2 text-[10px] text-bcc-text-secondary hover:text-bcc-text-safety motion-safe:transition-colors motion-safe:duration-bcc-fast"
                 >
                   ✕
                 </button>

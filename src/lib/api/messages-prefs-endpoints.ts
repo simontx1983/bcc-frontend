@@ -18,7 +18,10 @@ import { bccFetchAsClient } from "@/lib/api/client";
 export interface MessagesPrefs {
   /** Master on/off for incoming direct messages. */
   chat_enabled: boolean;
-  /** When true, only confirmed PeepSo friends can message you. */
+  /**
+   * Still returned by the server, but inert: peepso-friends is removed,
+   * so PeepSo's chat model reports false. No UI reads or writes it.
+   */
   chat_friends_only: boolean;
 }
 

@@ -108,7 +108,7 @@ export function ConfirmDialog({
       <p className="font-serif text-base text-bcc-text">{body}</p>
 
       {failed && (
-        <p role="alert" className="bcc-mono text-[11px] text-bcc-danger">
+        <p role="alert" className="bcc-mono text-[11px] text-bcc-text-error">
           {errorMessage}
         </p>
       )}

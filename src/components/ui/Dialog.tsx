@@ -102,6 +102,25 @@ type DialogProps = {
   glass?: boolean;
 };
 
+/**
+ * Open dialogs, oldest first. Every Dialog listens for keys on `window`,
+ * so a dialog opened inside another (a confirm inside the Lightbox) would
+ * otherwise let one Escape close BOTH, unmounting the inner one mid-
+ * request. Only the topmost dialog handles Escape and the Tab trap.
+ *
+ * "Topmost" is the highest sequence number, taken at a dialog's FIRST
+ * render: render runs parent-first and in open order, whereas effects
+ * run child-first, so effect order would rank a parent above a child
+ * mounted in the same commit.
+ */
+let dialogSeq = 0;
+const openDialogs = new Set<number>();
+const isTopmost = (seq: number): boolean => {
+  let top = -1;
+  for (const s of openDialogs) if (s > top) top = s;
+  return top === seq;
+};
+
 const FOCUSABLE =
   'a[href],button:not([disabled]),textarea:not([disabled]),input:not([disabled]),select:not([disabled]),[tabindex]:not([tabindex="-1"])';
 
@@ -119,6 +138,8 @@ export function Dialog({
   glass = false,
 }: DialogProps) {
   const panelRef = useRef<HTMLDivElement>(null);
+  const seqRef = useRef(0);
+  if (seqRef.current === 0) seqRef.current = ++dialogSeq;
   const reducedMotion = usePrefersReducedMotion();
   const fade = animateIn && !reducedMotion;
   const slide = mobileSheet && !reducedMotion;
@@ -132,9 +153,20 @@ export function Dialog({
     return () => window.cancelAnimationFrame(id);
   }, [animate]);
 
-  // ESC to close + Tab focus trap, scoped to this dialog's lifetime.
+  // Register on the open-dialog stack for this dialog's lifetime.
+  useEffect(() => {
+    const seq = seqRef.current;
+    openDialogs.add(seq);
+    return () => {
+      openDialogs.delete(seq);
+    };
+  }, []);
+
+  // ESC to close + Tab focus trap, scoped to this dialog's lifetime, and
+  // only while this dialog is the topmost one.
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
+      if (!isTopmost(seqRef.current)) return;
       if (e.key === "Escape") {
         onClose();
         return;

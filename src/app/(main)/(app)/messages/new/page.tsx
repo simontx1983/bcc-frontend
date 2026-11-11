@@ -49,7 +49,7 @@ import { Avatar } from "@/components/identity/Avatar";
 import { useCardEntity } from "@/hooks/useCardEntity";
 import { useMembers } from "@/hooks/useMembers";
 import { useStartConversationMutation } from "@/hooks/useStartConversation";
-import { humanizeCode } from "@/lib/api/errors";
+import { humanizeCode, isProfilePrivate } from "@/lib/api/errors";
 import {
   MESSAGE_BODY_MAX_LENGTH,
   type Card,
@@ -315,7 +315,7 @@ function NewMessagePageContent() {
               )}
 
               {wantsPin && pinnedQuery.isError && (
-                <p role="alert" className="bcc-mono text-[11px] text-safety">
+                <p role="alert" className="bcc-mono text-[11px] text-bcc-text-error">
                   {humanizeCode(
                     pinnedQuery.error,
                     {
@@ -325,6 +325,18 @@ function NewMessagePageContent() {
                     },
                     "Couldn't load that validator. Pick a recipient instead.",
                   )}
+                </p>
+              )}
+
+              {/* A pinned member whose profile is private (v1.91). Not a
+                  failure, so no alert and no retry: the picker below is
+                  the way forward, as it already is for any unresolved pin. */}
+              {wantsUserPin && isProfilePrivate(pinnedUserQuery.error) && (
+                <p
+                  role="status"
+                  className="bcc-mono text-[10px] tracking-[0.16em] text-bcc-text-secondary"
+                >
+                  Private profile. Pick a recipient instead.
                 </p>
               )}
 
@@ -376,7 +388,7 @@ function NewMessagePageContent() {
                 className={
                   "bcc-mono text-[10px] tracking-[0.16em] " +
                   (body.length > MESSAGE_BODY_MAX_LENGTH
-                    ? "text-safety"
+                    ? "text-bcc-text-error"
                     : "text-bcc-text-secondary")
                 }
               >
@@ -385,7 +397,7 @@ function NewMessagePageContent() {
             </div>
 
             {error !== null && (
-              <p role="alert" className="bcc-mono text-[11px] text-safety">
+              <p role="alert" className="bcc-mono text-[11px] text-bcc-text-error">
                 {error}
               </p>
             )}

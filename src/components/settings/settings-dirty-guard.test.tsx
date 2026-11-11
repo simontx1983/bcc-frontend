@@ -699,6 +699,10 @@ describe("confirmed baselines, asserted at the source", () => {
       "utf-8",
     );
     expect(src).toContain("email.trim() !== confirmedEmail.trim()");
-    expect(src).toContain("setConfirmedEmail(email)");
+    // Verify-before-apply: the baseline moves only when the code is
+    // confirmed, to the address the server reports — never on the PATCH,
+    // which changes nothing.
+    expect(src).toContain("setConfirmedEmail(outcome.email)");
+    expect(src).not.toContain("setConfirmedEmail(email)");
   });
 });

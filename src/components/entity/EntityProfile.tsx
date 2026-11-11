@@ -53,6 +53,8 @@ import type {
   OnchainSignals,
 } from "@/lib/api/types";
 import { isAllowed, unlockHint } from "@/lib/permissions";
+import { ATTESTATION_COPY } from "@/lib/copy/trust-layer";
+import { isNeverClaimedValidator } from "@/lib/validators/messaging";
 
 /**
  * Map the FE's CardKind to the §J entity tab namespace
@@ -193,7 +195,7 @@ export function EntityProfile({
         </div>
         {card.handle !== "" && (
           <p
-            className="bcc-mono mt-3 text-safety"
+            className="bcc-mono mt-3 text-bcc-text-safety"
             style={{ fontSize: "11px", letterSpacing: "0.18em" }}
           >
             @{card.handle}
@@ -257,15 +259,21 @@ export function EntityProfile({
                   </p>
                 )}
 
-              <AttestationActionCluster
-                targetKind={targetKind}
-                targetId={card.id}
-                canVouch={card.permissions.can_vouch}
-                canStandBehind={card.permissions.can_stand_behind}
-                canReport={card.permissions.can_report}
-                viewerAttestation={card.viewer_attestation}
-                viewerHasEndorsed={card.viewer_has_endorsed}
-              />
+              {/* Never-claimed validator (messaging.destination "queue",
+                  NOT is_claimed): no operator behind the page, so Vouch,
+                  Back and Report are not offered. Watch and the Message
+                  CTA below stay. */}
+              {!isNeverClaimedValidator(card) && (
+                <AttestationActionCluster
+                  targetKind={targetKind}
+                  targetId={card.id}
+                  canVouch={card.permissions.can_vouch}
+                  canStandBehind={card.permissions.can_stand_behind}
+                  canReport={card.permissions.can_report}
+                  viewerAttestation={card.viewer_attestation}
+                  viewerHasEndorsed={card.viewer_has_endorsed}
+                />
+              )}
 
               {/* Validator surfaces only — project/creator pages have no
                   operator-inbox / unclaimed-queue routing behind them.
@@ -322,7 +330,7 @@ export function EntityProfile({
             <div>
               <div className="mb-3 flex items-center gap-3">
                 <span className="bcc-mono text-bcc-text-secondary">FILE 04</span>
-                <span className="bcc-mono text-safety">{"//"} STATS</span>
+                <span className="bcc-mono text-bcc-text-safety">{"//"} STATS</span>
               </div>
               <StatsStrip stats={card.stats} />
             </div>
@@ -338,7 +346,11 @@ export function EntityProfile({
               targetKind={targetKind}
               targetId={card.id}
               emptyState={{
-                body: "No attestations on file yet. Be the first to vouch.",
+                // A never-claimed validator can't be vouched for, so the
+                // empty state must not invite it.
+                body: isNeverClaimedValidator(card)
+                  ? ATTESTATION_COPY.unclaimed_validator_backing_empty
+                  : "No attestations on file yet. Be the first to vouch.",
               }}
               seed={rosterSeed}
             />

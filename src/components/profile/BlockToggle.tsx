@@ -83,7 +83,7 @@ export function BlockToggle({ profile }: BlockToggleProps) {
         className={
           "bcc-mono inline-flex items-center border-2 px-3 py-1.5 text-[11px] tracking-[0.18em] transition disabled:opacity-60 " +
           (blocking
-            ? "border-safety/60 text-safety hover:border-safety hover:bg-safety/10"
+            ? "border-safety/60 text-bcc-text-safety hover:border-safety hover:bg-safety/10"
             : "border-bcc-border text-bcc-text-secondary hover:border-bcc-border-strong hover:text-bcc-text")
         }
         aria-pressed={blocking}
@@ -95,7 +95,7 @@ export function BlockToggle({ profile }: BlockToggleProps) {
             : "BLOCK"}
       </button>
       {errorMessage !== null && (
-        <span role="alert" className="bcc-mono text-[10px] text-safety">
+        <span role="alert" className="bcc-mono text-[10px] text-bcc-text-error">
           {errorMessage}
         </span>
       )}

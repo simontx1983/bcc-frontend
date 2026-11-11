@@ -33,6 +33,7 @@ import { WalletSignupPrompt } from "@/components/auth/WalletSignupPrompt";
 import { loginWithIdentifier } from "@/lib/api/auth-endpoints";
 import { BccApiError, type AuthTokenResponse } from "@/lib/api/types";
 import { safeCallbackPath } from "@/lib/auth/safe-callback";
+import { stashChallengeToken } from "@/lib/auth/two-factor-challenge";
 
 const ERROR_COPY: Record<string, string> = {
   bcc_invalid_credentials:  "Invalid email/handle or password.",
@@ -82,11 +83,15 @@ function LoginPageContent() {
       const resp = await loginWithIdentifier(identifier, password);
 
       if ("status" in resp && resp.status === "2fa_required") {
-        const params = new URLSearchParams({ ct: resp.challenge_token });
+        // The challenge token goes through sessionStorage, never the URL
+        // (history, Referer and access logs) — see lib/auth/two-factor-challenge.
+        stashChallengeToken(resp.challenge_token);
+        const params = new URLSearchParams();
         if (safeCallback !== null) {
           params.set("callbackUrl", safeCallback);
         }
-        router.replace(`/login/two-factor?${params.toString()}` as Route);
+        const qs = params.toString();
+        router.replace(`/login/two-factor${qs === "" ? "" : `?${qs}`}` as Route);
         return;
       }
 

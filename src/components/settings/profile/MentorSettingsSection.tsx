@@ -19,6 +19,7 @@
 
 import { LoadFailure } from "@/components/ui/LoadFailure";
 import { useProfilePrefs, useUpdateProfilePrefs } from "@/hooks/useProfilePrefs";
+import { isPermissionDenial } from "@/lib/api/errors";
 import type { ProfilePrefs } from "@/lib/api/profile-prefs-endpoints";
 import { BccApiError, type MentorEligibilityReason } from "@/lib/api/types";
 
@@ -52,13 +53,21 @@ export function MentorSettingsSection() {
       </p>
     );
   }
-  if (query.isError || query.data === undefined) {
-    return (
-      <LoadFailure
-        message="Could not load mentor settings."
-        onRetry={() => void query.refetch()}
-      />
-    );
+  const failure = (
+    <LoadFailure
+      message="Could not load mentor settings."
+      onRetry={() => void query.refetch()}
+    />
+  );
+  // Only a first-load failure, or a REFRESH the server refused, may
+  // replace the toggle. A blanket `isError` was also true when a remount
+  // refresh failed with the toggle already on screen, and erased it.
+  if (
+    query.isLoadingError ||
+    (query.isRefetchError && isPermissionDenial(query.error)) ||
+    query.data === undefined
+  ) {
+    return failure;
   }
   // Pre-Phase-7 backend — the field doesn't exist, so neither does the
   // control. Explicit emptiness beats a toggle that silently no-ops.
@@ -66,7 +75,13 @@ export function MentorSettingsSection() {
     return null;
   }
 
-  return <MentorToggle prefs={query.data} />;
+  return (
+    <>
+      {/* A failed REFRESH keeps the toggle; the recovery sits above it. */}
+      {query.isRefetchError && failure}
+      <MentorToggle prefs={query.data} />
+    </>
+  );
 }
 
 function MentorToggle({ prefs }: { prefs: ProfilePrefs }) {
@@ -139,7 +154,7 @@ function MentorToggle({ prefs }: { prefs: ProfilePrefs }) {
         )}
       </p>
       {errorMessage !== null && (
-        <p role="alert" className="bcc-mono mt-2 text-[10px] tracking-[0.12em] text-safety">
+        <p role="alert" className="bcc-mono mt-2 text-[10px] tracking-[0.12em] text-bcc-text-error">
           {errorMessage}
         </p>
       )}

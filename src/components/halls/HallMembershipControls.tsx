@@ -234,7 +234,7 @@ function SecondaryButton({
 
 function ErrorLine({ message }: { message: string }) {
   return (
-    <p role="alert" className="bcc-mono mt-2 text-safety">
+    <p role="alert" className="bcc-mono mt-2 text-bcc-text-error">
       {message}
     </p>
   );

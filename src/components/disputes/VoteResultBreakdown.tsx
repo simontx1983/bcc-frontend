@@ -88,7 +88,7 @@ export function VoteResultBreakdown({
             <span style={{ color: "var(--verified)" }}>
               UPHOLD {weight_uphold.toFixed(2)}
             </span>
-            <span style={{ color: "var(--safety)" }}>
+            <span style={{ color: "var(--bcc-text-safety)" }}>
               REJECT {weight_reject.toFixed(2)}
             </span>
           </div>
@@ -117,7 +117,7 @@ const OUTCOME_CONFIG: Record<
   { label: string; color: string }
 > = {
   upheld: { label: "UPHELD · DOWNVOTE STRUCK", color: "var(--verified)" },
-  rejected: { label: "REJECTED · DOWNVOTE STANDS", color: "var(--safety)" },
+  rejected: { label: "REJECTED · DOWNVOTE STANDS", color: "var(--bcc-text-safety)" },
   inconclusive: {
     label: "INCONCLUSIVE · NO QUORUM",
     color: "var(--bcc-text-secondary)",

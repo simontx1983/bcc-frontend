@@ -36,6 +36,7 @@
  */
 
 import { bearerFailsConsistencyCheck } from "@/lib/auth/bearer-claims";
+import { notePendingBearer, settlePendingBearer } from "@/lib/auth/current-bearer";
 
 export interface SessionBearerUpdate {
   /** The replacement JWT from the server. Never logged or persisted. */
@@ -88,6 +89,30 @@ const CONFIRM_TIMEOUT_MS = 2_000;
 const CONFIRM_ATTEMPTS = 2;
 
 export async function updateSessionBearer(
+  update: SessionBearerUpdate,
+): Promise<boolean> {
+  // The server revoked the old bearer the moment it answered, but the
+  // session write below takes a round trip. Note the replacement NOW, so
+  // requests that go out meanwhile carry it, and a 401 on one that
+  // carried the old bearer retries instead of ending the session
+  // (lib/auth/current-bearer). Only a validated token is noted.
+  const valid =
+    typeof update.token === "string" &&
+    update.token !== "" &&
+    Number.isFinite(update.expiresIn) &&
+    update.expiresIn > 0;
+  if (!valid) {
+    return writeSessionBearer(update);
+  }
+  notePendingBearer(update.token, update.expiresIn);
+  try {
+    return await writeSessionBearer(update);
+  } finally {
+    settlePendingBearer(update.token);
+  }
+}
+
+async function writeSessionBearer(
   update: SessionBearerUpdate,
 ): Promise<boolean> {
   // Validated by TYPE, not just by value. `token` is typed `string`, but

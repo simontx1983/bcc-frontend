@@ -41,7 +41,7 @@ export function Crest({
   // gated /pages/{id}/avatar routes, keyed by the card id. We call all
   // hooks unconditionally (Rules of Hooks) and pick the active mutation
   // by card_kind. Member behaviour is unchanged: same hook, same
-  // `user-by-handle` invalidation, same router.refresh(); page mutations
+  // `["user"]` invalidation, same router.refresh(); page mutations
   // own their `["card"]` invalidation + refresh inside the hook.
   const isPageCard = card.card_kind !== "member";
 
@@ -51,12 +51,14 @@ export function Crest({
 
   // Member avatar upload — hover "UPDATE AVATAR" hint, click opens the
   // picker, selection fires the PeepSo upload. Cache invalidation
-  // (`user-by-handle`) refreshes the crest after upload; router.refresh()
+  // (the `["user"]` prefix) refreshes the crest after upload; router.refresh()
   // rehydrates the server-rendered profile so adjacent surfaces (header
   // avatar, composer chip) reflect the change without a hard reload.
   const memberUpload = useUploadAvatar({
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["user-by-handle"] });
+      // useUser keys on ["user", handle]; the previous key matched no
+      // query, so the crest never refreshed from the cache.
+      void queryClient.invalidateQueries({ queryKey: ["user"] });
       router.refresh();
     },
   });

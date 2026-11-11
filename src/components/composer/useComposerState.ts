@@ -129,6 +129,10 @@ export function useComposerState({ groupId, hallFeed, pageId, initialExpanded, o
   // as `aria-activedescendant` on the textarea so screen-reader users
   // hear the focused row announced as they arrow through suggestions.
   const [mentionActiveOptionId, setMentionActiveOptionId] = useState<string | null>(null);
+  // user_id → handle for every mention picked in this composer. The wire
+  // token carries only the display name, so this is how the long-form
+  // handoff writes a mention as plain `@handle` text.
+  const mentionHandlesRef = useRef(new Map<number, string>());
 
   const containerRef = useRef<HTMLDivElement>(null);
   const textareaRef  = useRef<HTMLTextAreaElement>(null);
@@ -344,6 +348,7 @@ export function useComposerState({ groupId, hallFeed, pageId, initialExpanded, o
     const before = content.substring(0, mentionTrigger.anchor);
     const after  = content.substring(caretPos);
     const token  = buildMentionToken(c.user_id, c.display_name);
+    mentionHandlesRef.current.set(c.user_id, c.handle);
     const insert = `${token} `;
     const next   = before + insert + after;
     const nextCaret = before.length + insert.length;
@@ -434,6 +439,15 @@ export function useComposerState({ groupId, hallFeed, pageId, initialExpanded, o
     submit({ trimmed, attachedFile, selectedGif });
   };
 
+  // The post as plain prose for the long-form handoff: each mention token
+  // becomes `@handle` (falling back to its display name for a token that
+  // was not picked here, e.g. one pasted in).
+  const contentAsPlainText = (): string =>
+    content.replace(MENTION_TOKEN_RE, (_token, id: string, name: string) => {
+      const handle = mentionHandlesRef.current.get(Number(id));
+      return `@${handle ?? name}`;
+    });
+
   const dismiss = () => {
     setContent("");
     clearAllAttachments();
@@ -466,6 +480,7 @@ export function useComposerState({ groupId, hallFeed, pageId, initialExpanded, o
     // body + validation
     content,
     setContent,
+    contentAsPlainText,
     error,
     setError,
     trimmed,
@@ -528,10 +543,10 @@ export function useComposerState({ groupId, hallFeed, pageId, initialExpanded, o
  * what the server's MentionExtractor / Tags::after_save_post
  * extract on write.
  *
- * The capture group is intentional but unused in this client; we
- * only need the match boundaries.
+ * findMentionRanges only needs the match boundaries; the two capture
+ * groups (user id, display name) feed contentAsPlainText.
  */
-const MENTION_TOKEN_RE = /@peepso_user_[a-z]*\d+\([^)]+\)/gi;
+const MENTION_TOKEN_RE = /@peepso_user_[a-z]*(\d+)\(([^)]+)\)/gi;
 
 /**
  * Walk the textarea value and emit `[start, end)` offsets of every

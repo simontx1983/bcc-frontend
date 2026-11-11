@@ -26,6 +26,7 @@
 import { useQuery } from "@tanstack/react-query";
 
 import { getCardEntityAsClient } from "@/lib/api/card-endpoints";
+import { retryUnlessProfilePrivate } from "@/lib/api/errors";
 import type { BccApiError, Card, CardKind } from "@/lib/api/types";
 
 export const CARD_ENTITY_QUERY_KEY_ROOT = ["card"] as const;
@@ -61,5 +62,8 @@ export function useCardEntity(
     },
     enabled,
     staleTime: DEFAULT_STALE_TIME_MS,
+    // A member card can answer `profile_private` (v1.91); that is not
+    // retried. Every other failure keeps the app-wide single retry.
+    retry: retryUnlessProfilePrivate,
   });
 }

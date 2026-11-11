@@ -84,7 +84,7 @@ export function LockedStreamPanel({ pageName }: LockedStreamPanelProps) {
         <LockMark />
         <p
           className="bcc-mono text-[10px] tracking-[0.24em]"
-          style={{ color: "var(--safety)" }}
+          style={{ color: "var(--bcc-text-safety)" }}
         >
           STREAM LOCKED
         </p>

@@ -12,6 +12,7 @@ import type {
   ConversationListResponse,
   ConversationThreadResponse,
   QueuedMessagesResponse,
+  RevealedMessageResponse,
   SendMessageResponse,
   StartConversationRequest,
   StartConversationResponse,
@@ -100,6 +101,23 @@ export function getConversation(
   const init: { method: "GET"; signal?: AbortSignal } = { method: "GET" };
   if (signal !== undefined) init.signal = signal;
   return bccFetchAsClient<ConversationThreadResponse>(path, init);
+}
+
+/**
+ * GET /me/conversations/{id}/messages/{message_id}/reveal — fetch the
+ * withheld body of a message from a sender the viewer has blocked.
+ * Read-only: it never unblocks or records anything. Call it only via
+ * `useRevealBlockedMessages`, which decides whether a fetch is needed.
+ */
+export function getRevealedMessage(
+  conversationId: number,
+  messageId: number,
+  signal?: AbortSignal,
+): Promise<RevealedMessageResponse> {
+  const path = `me/conversations/${conversationId}/messages/${messageId}/reveal`;
+  const init: { method: "GET"; signal?: AbortSignal } = { method: "GET" };
+  if (signal !== undefined) init.signal = signal;
+  return bccFetchAsClient<RevealedMessageResponse>(path, init);
 }
 
 export function replyInConversation(

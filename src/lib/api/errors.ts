@@ -6,7 +6,7 @@
  * server's English copy is free to change, but the code surface is part
  * of the public contract (§L5 of `docs/api-contract-v1.md`).
  *
- * This module is four small predicates/helpers. There is no central
+ * This module is a handful of small predicates/helpers. There is no central
  * copy registry — each call site owns its own copy map because UX copy
  * evolves per surface (settings vs composer vs auth). What we centralize
  * is the branching primitive (`isCode`), the safe code→copy lookup
@@ -114,6 +114,35 @@ const PERMISSION_DENIAL_CODES: ReadonlySet<string> = new Set([
 
 export function isPermissionDenial(err: unknown): boolean {
   return err instanceof BccApiError && PERMISSION_DENIAL_CODES.has(err.code);
+}
+
+/**
+ * The profile owner's `profile_visibility` does not admit this viewer
+ * (contract v1.91): `bcc_forbidden` 403 with `error.data.reason ===
+ * "profile_private"`, on `GET /users/:handle` and its per-user siblings.
+ *
+ * ⚠ The same routes also answer `bcc_permission_denied` 403, which is about
+ * the VIEWER's own standing (or `watching_hidden` on the follow lists). That
+ * one keeps its own UI, so branch on code AND reason, never on status.
+ *
+ * Not a failure from the viewer's point of view: render a calm "this
+ * profile is private" state, never an alert and never a Retry.
+ */
+export function isProfilePrivate(err: unknown): boolean {
+  return (
+    err instanceof BccApiError &&
+    err.code === "bcc_forbidden" &&
+    err.data?.["reason"] === "profile_private"
+  );
+}
+
+/**
+ * React Query `retry` for the per-user profile reads: the app-wide single
+ * retry, except that a private profile is answered after ONE request. The
+ * owner's setting does not change between two attempts a second apart.
+ */
+export function retryUnlessProfilePrivate(failureCount: number, err: unknown): boolean {
+  return !isProfilePrivate(err) && failureCount < 1;
 }
 
 const NON_RETRYABLE_FIXED_READ_CODES: ReadonlySet<string> = new Set([

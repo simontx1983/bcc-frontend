@@ -172,7 +172,7 @@ export function BioEditor({ profile }: BioEditorProps) {
                 never announced by two regions. */}
             <SettingsSaveStatus status={status} />
             {serverError !== null && (
-              <p role="alert" className="mt-1 text-safety">
+              <p role="alert" className="mt-1 text-bcc-text-error">
                 {serverError}
               </p>
             )}

@@ -227,7 +227,11 @@ export function AttestationActionCluster(props: AttestationActionClusterProps) {
           return;
         }
       }
-      setErrorText(humanizeAttestationError(err));
+      setErrorText(
+        humanizeAttestationError(err, {
+          pageTargetCast: targetKind !== undefined && targetKind !== "user_profile",
+        }),
+      );
     },
   });
   const revokeMutation = useRevokeAttestation({
@@ -413,7 +417,7 @@ export function AttestationActionCluster(props: AttestationActionClusterProps) {
       {errorText !== null && (
         <p
           role="alert"
-          className="bcc-mono pl-1 text-[11px] tracking-[0.14em] text-safety"
+          className="bcc-mono pl-1 text-[11px] tracking-[0.14em] text-bcc-text-error"
         >
           {errorText}
         </p>
@@ -586,7 +590,7 @@ function ActionButton({
       )}
       {showUnlockHint && (
         <p
-          className="bcc-mono pl-1 leading-snug text-safety/80"
+          className="bcc-mono pl-1 leading-snug text-bcc-text-safety"
           style={{ fontSize: "10px", letterSpacing: "0.14em" }}
         >
           {permission.unlock_hint}
@@ -673,8 +677,17 @@ function buttonClassFor(
  * gate error, the server supplies the aspirational unlock_hint
  * verbatim in error.data.unlock_hint — emit it instead of the
  * code-map fallback so the FE stays single-source-of-truth for tone.
+ *
+ * `pageTargetCast`: a CAST against a page target (validator / project /
+ * creator) that 404s means the page has no claimed operator to attest
+ * to, so `bcc_not_found` gets the unclaimed-page line. Revokes and member
+ * targets keep "Attestation not found." — there the missing thing really
+ * is the attestation row.
  */
-function humanizeAttestationError(err: BccApiError): string {
+function humanizeAttestationError(
+  err: BccApiError,
+  { pageTargetCast }: { pageTargetCast: boolean } = { pageTargetCast: false },
+): string {
   if (err.code === "bcc_attestation_ineligible") {
     const data = err.data;
     if (data !== null && typeof data === "object" && !Array.isArray(data)) {
@@ -697,7 +710,9 @@ function humanizeAttestationError(err: BccApiError): string {
         "Your account is temporarily restricted from attesting.",
       bcc_attestation_revoked:
         "That attestation was already revoked.",
-      bcc_not_found: "Attestation not found.",
+      bcc_not_found: pageTargetCast
+        ? ATTESTATION_COPY.unclaimed_page_target
+        : "Attestation not found.",
       bcc_forbidden: "You can only act on your own attestations.",
     },
     "Couldn't update attestation. Try again.",

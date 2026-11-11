@@ -42,6 +42,7 @@ import { useState } from "react";
 
 import { Dialog } from "@/components/ui/Dialog";
 import { WalletAuthButton } from "@/components/auth/WalletAuthButton";
+import { captureAnalyticsEvent, noteSignupCompleted } from "@/lib/analytics/posthog";
 import { checkHandleLocal, formatHandleHint } from "@/lib/auth/handleValidation";
 
 export interface WalletSignupPromptProps {
@@ -102,7 +103,7 @@ export function WalletSignupPrompt(props: WalletSignupPromptProps) {
             />
           </div>
           <span
-            className={`bcc-mono ${handleValid ? "text-bcc-text-secondary/70" : "text-safety"}`}
+            className={`bcc-mono ${handleValid ? "text-bcc-text-secondary/70" : "text-bcc-text-error"}`}
             role={handleValid ? undefined : "alert"}
             aria-live="polite"
           >
@@ -146,7 +147,16 @@ export function WalletSignupPrompt(props: WalletSignupPromptProps) {
           disabled={!handleValid}
           {...(displayName.trim() !== "" ? { displayName } : {})}
           {...(email.trim() !== "" ? { email } : {})}
-          onSuccess={props.onSuccess}
+          // This modal sits on /login, a denied analytics route, so the
+          // sanitiser drops `signup_started` here; it is raised anyway so
+          // the call site stays honest if the modal is ever reused. The
+          // account-created marker is what counts, and it is sent on the
+          // next allowed page.
+          onStart={() => { captureAnalyticsEvent("signup_started", { method: "wallet" }); }}
+          onSuccess={() => {
+            noteSignupCompleted("wallet");
+            props.onSuccess();
+          }}
         />
 
         <button

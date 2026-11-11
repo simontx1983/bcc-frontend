@@ -60,7 +60,7 @@ export function ThemeSwitcher({ className }: { className?: string }) {
         className={"bcc-btn-icon bcc-header-palette-btn" + (open ? " active" : "") + (className !== undefined ? " " + className : "")}
         aria-label="Theme settings"
         title="Theme & accent"
-        style={open ? { color: "var(--bcc-accent)", background: "var(--bcc-accent-subtle)" } : undefined}
+        style={open ? { color: "var(--bcc-text)", background: "var(--bcc-accent-subtle)" } : undefined}
       >
         <PaletteIcon />
       </button>
@@ -97,7 +97,7 @@ export function ThemeSwitcher({ className }: { className?: string }) {
                 letterSpacing: "0.1em", textTransform: "uppercase",
                 transition: "background 150ms ease, color 150ms ease",
                 background: theme === t ? "var(--bcc-accent)" : "transparent",
-                color: theme === t ? "var(--bcc-white)" : "var(--bcc-text-secondary)",
+                color: theme === t ? "var(--bcc-on-accent)" : "var(--bcc-text-secondary)",
               }}>
                 {t === "light" ? <Sun size={13} strokeWidth={2} aria-hidden /> : <Moon size={13} strokeWidth={2} aria-hidden />}
                 {t === "light" ? "Day" : "Night"}
@@ -120,7 +120,7 @@ export function ThemeSwitcher({ className }: { className?: string }) {
                 aria-pressed={accent === value}
               >
                 <span className="bcc-accent-swatch" style={{ background: color }} />
-                <span style={{ fontFamily: "var(--font-mono), monospace", fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase", color: accent === value ? "var(--bcc-accent)" : "var(--bcc-text-muted)" }}>
+                <span style={{ fontFamily: "var(--font-mono), monospace", fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase", color: accent === value ? "var(--bcc-text)" : "var(--bcc-text-secondary)" }}>
                   {label}
                 </span>
               </button>

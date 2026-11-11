@@ -7,6 +7,8 @@ import { SessionProvider } from "next-auth/react";
 import dynamic from "next/dynamic";
 import { useState, type ReactNode } from "react";
 
+import { AnalyticsConsentBanner } from "@/components/analytics/AnalyticsConsentBanner";
+import { AnalyticsPageview } from "@/components/analytics/AnalyticsPageview";
 import { PrivateRenderGate } from "@/components/auth/PrivateRenderGate";
 import { SessionBoundaryBridge } from "@/components/auth/SessionBoundaryBridge";
 import { FingerprintReporter } from "@/components/system/FingerprintReporter";
@@ -89,6 +91,10 @@ export function Providers({
             the gate swaps this subtree for a neutral placeholder, which
             unmounts every observer — the only thing that reliably stops
             the previous viewer's data being rendered. */}
+        {/* Device-level, not viewer data: outside the gate so a teardown
+            neither hides the analytics choice nor drops a page view. */}
+        <AnalyticsPageview />
+        <AnalyticsConsentBanner />
         <PrivateRenderGate>
           <BadgesProvider>
             {children}

@@ -32,7 +32,7 @@ import {
 import { LoadFailure } from "@/components/ui/LoadFailure";
 import { SettingsSaveStatus } from "@/components/settings/SettingsSaveStatus";
 import { useDirtyRegistration } from "@/hooks/useDirtyRegistration";
-import { isNonRetryableFixedReadFailure } from "@/lib/api/errors";
+import { isNonRetryableFixedReadFailure, isPermissionDenial } from "@/lib/api/errors";
 import { BccApiError } from "@/lib/api/types";
 
 const VISIBILITY_OPTIONS: ReadonlyArray<{
@@ -76,20 +76,31 @@ export function ProfileFieldsList() {
       <p className="bcc-mono py-4 text-[11px] text-bcc-text-secondary">Loading profile fields…</p>
     );
   }
-  if (query.isError) {
-    return (
-      <LoadFailure
-        message={humanizeError(query.error)}
-        // Conditional spread rather than `onRetry={undefined}` —
-        // `exactOptionalPropertyTypes` rejects the latter.
-        {...(isNonRetryableFixedReadFailure(query.error)
-          ? {}
-          : { onRetry: () => void query.refetch() })}
-      />
-    );
+  const failure = query.isError ? (
+    <LoadFailure
+      message={humanizeError(query.error)}
+      // Conditional spread rather than `onRetry={undefined}` —
+      // `exactOptionalPropertyTypes` rejects the latter.
+      {...(isNonRetryableFixedReadFailure(query.error)
+        ? {}
+        : { onRetry: () => void query.refetch() })}
+    />
+  ) : null;
+
+  // Only a first-load failure, or a REFRESH the server refused, may
+  // replace the list. A blanket `isError` was also true when a remount
+  // refresh failed with the fields on screen — hiding every row and any
+  // value the member was part-way through editing.
+  if (query.isLoadingError || (query.isRefetchError && isPermissionDenial(query.error))) {
+    return failure;
   }
 
   const data = query.data;
+  // "Nothing configured" is a claim about the server; a failed refresh
+  // does not support it, so only the failure renders.
+  if (data !== undefined && data.fields.length === 0 && query.isRefetchError) {
+    return failure;
+  }
   if (data === undefined || data.fields.length === 0) {
     return (
       <p className="bcc-mono py-4 text-[11px] text-bcc-text-secondary">
@@ -100,6 +111,8 @@ export function ProfileFieldsList() {
 
   return (
     <div className="flex flex-col gap-6">
+      {/* A failed REFRESH keeps the rows; the recovery sits on top. */}
+      {failure}
       {data.stats.total > 0 && (
         <div className="bcc-panel flex items-baseline justify-between px-4 py-3">
           <span className="bcc-mono text-[10px] tracking-[0.18em] text-bcc-text-secondary">
@@ -206,7 +219,7 @@ function ProfileFieldRow({ field }: { field: ProfileField }) {
           {/* The bare coloured asterisk carried this in colour alone, and
               nothing told assistive tech the field was required. */}
           {field.required && (
-            <span className="ml-2 text-safety">Required</span>
+            <span className="ml-2 text-bcc-text-safety">Required</span>
           )}
         </label>
         <VisibilityPicker
@@ -246,7 +259,7 @@ function ProfileFieldRow({ field }: { field: ProfileField }) {
               template, which is the other reason it lives out here. */}
           <SettingsSaveStatus status={outcome.status} />
           {outcome.errorMessage !== null && (
-            <p role="alert" className="mt-1 text-safety">
+            <p role="alert" className="mt-1 text-bcc-text-error">
               {outcome.errorMessage}
             </p>
           )}

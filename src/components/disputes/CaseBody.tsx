@@ -8,11 +8,15 @@
  * body-only vocabulary.
  */
 
+import { safeUrlTransform } from "@/components/blog/markdown/url-allowlist";
 import type { Dispute } from "@/lib/api/types";
 
 import { formatAbsoluteUTC } from "./caseFileFormat";
 
 export function CaseBody({ dispute }: { dispute: Dispute }) {
+  // Same scheme allowlist as blog markdown (http, https, mailto, or a
+  // relative URL); anything else becomes "" and renders as text.
+  const evidenceHref = safeUrlTransform(dispute.evidence_url);
   return (
     <div className="flex flex-col gap-10">
       <section>
@@ -34,9 +38,9 @@ export function CaseBody({ dispute }: { dispute: Dispute }) {
 
       <section>
         <SectionLabel n="02" label="EVIDENCE" />
-        {dispute.evidence_url !== "" ? (
+        {evidenceHref !== "" ? (
           <a
-            href={dispute.evidence_url}
+            href={evidenceHref}
             target="_blank"
             rel="noreferrer noopener"
             className="mt-4 flex items-stretch gap-0 transition hover:translate-x-[2px]"
@@ -57,6 +61,12 @@ export function CaseBody({ dispute }: { dispute: Dispute }) {
               {dispute.evidence_url}
             </span>
           </a>
+        ) : dispute.evidence_url !== "" ? (
+          // A scheme outside the allowlist (javascript:, data:, …) is shown
+          // as text, never as a link.
+          <p className="bcc-mono mt-4 break-all text-bcc-text-secondary" style={{ wordBreak: "break-all" }}>
+            EXHIBIT A (NOT A WEB LINK): {dispute.evidence_url}
+          </p>
         ) : (
           <p className="bcc-mono mt-4 text-bcc-text-secondary">
             NO EXHIBIT FILED
@@ -100,7 +110,7 @@ function SectionLabel({ n, label }: { n: string; label: string }) {
   return (
     <div className="flex items-center gap-3">
       <span className="bcc-mono text-bcc-text-secondary">{n}</span>
-      <span className="bcc-mono text-safety">{"//"} {label}</span>
+      <span className="bcc-mono text-bcc-text-safety">{"//"} {label}</span>
       <span aria-hidden className="h-px flex-1 bg-bcc-border" />
     </div>
   );

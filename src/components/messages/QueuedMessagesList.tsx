@@ -66,7 +66,7 @@ export function QueuedMessagesList({ items }: { items: QueuedMessageItem[] }) {
                 {item.preview}
               </p>
 
-              <p className="bcc-mono mt-2 inline-flex items-center gap-1.5 text-[10px] tracking-[0.14em] text-safety">
+              <p className="bcc-mono mt-2 inline-flex items-center gap-1.5 text-[10px] tracking-[0.14em] text-bcc-text-safety">
                 <span className="bcc-rail-dot" aria-hidden />
                 QUEUED — DELIVERS WHEN THIS VALIDATOR IS CLAIMED
               </p>

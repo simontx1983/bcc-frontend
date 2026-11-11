@@ -1,10 +1,13 @@
 /**
- * NextAuth options — server-side credentials provider against /auth/login.
+ * NextAuth options — session bridging for BCC bearer tokens.
  *
  * Architecture:
- *   1. Login form posts email/password → signIn("credentials", ...)
- *   2. NextAuth invokes authorize() → calls bcc-trust /auth/login
- *   3. On 200 with envelope, return User { id, handle, bccToken }
+ *   1. The login form calls bcc-trust /auth/login from the browser (and
+ *      /auth/2fa/verify when required), then signIn("bcc-verified", …)
+ *      with the minted token. Wallet login uses the "wallet" provider,
+ *      which calls /auth/wallet-login server-side.
+ *   2. The provider's authorize() builds the session user
+ *   3. On success, return User { id, handle, bccToken }
  *   4. On non-2xx, throw Error("bcc_*") so signIn(...).error carries
  *      the specific code (NextAuth surfaces error.message verbatim
  *      when redirect:false). UI in login/page.tsx maps codes → copy.
@@ -34,10 +37,57 @@ import Credentials from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
 import TwitterProvider from "next-auth/providers/twitter";
 
+import { analyticsIdFor } from "@/lib/analytics/analytics-id";
 import { clientEnv, serverEnv } from "@/lib/env";
 import { publicDisplayNameOrEmpty } from "@/lib/format";
 import type { ApiSuccess, AuthTokenResponse } from "@/lib/api/types";
 import type { OAuthHandleRequiredResponse } from "@/lib/api/auth-endpoints";
+
+/**
+ * The email an OAuth sign-in may forward to the BCC bridge, or "".
+ *
+ * The backend links accounts BY EMAIL (OAuthController: provider-id
+ * lookup, then an email-match fallback) and treats any email it receives
+ * at /auth/oauth as provider-verified when it creates the account in
+ * oauth-complete. So an address the provider has not verified must never
+ * reach it. Deny by default:
+ *   - Google: only when the profile says `email_verified: true`;
+ *   - every other provider (X returns no email): "".
+ * An empty email is X's existing path: no email match, and
+ * /signup/complete-profile collects a typed address that goes through
+ * email verification.
+ */
+export function verifiedOAuthEmail(
+  provider: string,
+  email: string | null | undefined,
+  profile: unknown,
+): string {
+  if (provider !== "google" || typeof email !== "string" || email === "") return "";
+  const verified =
+    typeof profile === "object" &&
+    profile !== null &&
+    (profile as { email_verified?: unknown }).email_verified === true;
+  return verified ? email : "";
+}
+
+/**
+ * The email fields of an /auth/oauth bridge body.
+ *
+ * `email_verified: true` (a JSON boolean) is present exactly when
+ * {@link verifiedOAuthEmail} let a Google address through, and omitted
+ * otherwise, so the backend can require a positive assertion rather
+ * than inferring "verified" from the email being present. Today's
+ * backend ignores the key, and the signature covers the raw body as
+ * sent, so adding it changes nothing until the backend reads it.
+ */
+export function oauthBridgeEmail(
+  provider: string,
+  email: string | null | undefined,
+  profile: unknown,
+): { email: string; email_verified?: true } {
+  const verified = verifiedOAuthEmail(provider, email, profile);
+  return verified === "" ? { email: "" } : { email: verified, email_verified: true };
+}
 
 /**
  * Shared POST handler for the credentials providers.
@@ -131,6 +181,7 @@ async function callBccOauth(body: {
   provider: string;
   provider_id: string;
   email: string;
+  email_verified?: true;
   display_name: string;
 }): Promise<AuthTokenResponse | OAuthHandleRequiredResponse> {
   // Signed server-to-server request. /auth/oauth trusts the OAuth identity
@@ -225,25 +276,11 @@ export const authOptions: NextAuthOptions = {
       userinfo: { url: "https://api.x.com/2/users/me" },
     }),
 
-    Credentials({
-      name: "credentials",
-      credentials: {
-        email: { label: "Email", type: "email" },
-        password: { label: "Password", type: "password" },
-      },
-      async authorize(credentials) {
-        const email = credentials?.email?.trim() ?? "";
-        const password = credentials?.password ?? "";
-        if (email === "" || password === "") {
-          throw new Error("bcc_invalid_request");
-        }
-
-        return await callBccAuth(`${clientEnv.BCC_API_URL}/wp-json/bcc/v1/auth/login`, {
-          email,
-          password,
-        });
-      },
-    }),
+    // No email/password "credentials" provider (F-132). Login posts to
+    // /auth/login from the browser and finishes through "bcc-verified".
+    // The old provider was unused by the UI but its callback stayed
+    // reachable, letting anyone drive /auth/login from the server's IP:
+    // a brute-force path that skipped the per-client throttle.
 
     // Post-verification bridge — accepts a BCC JWT that was just minted by
     // /auth/verify-email (or /auth/wallet-signup) and already validated
@@ -340,14 +377,14 @@ export const authOptions: NextAuthOptions = {
      *     redirects there and we collect a handle before creating the account.
      *   - Backend error → return false (block sign-in).
      */
-    async signIn({ account, user }) {
+    async signIn({ account, user, profile }) {
       if (account?.type !== "oauth") return true;
 
       try {
         const result = await callBccOauth({
           provider:     account.provider,
           provider_id:  account.providerAccountId,
-          email:        user.email ?? "",
+          ...oauthBridgeEmail(account.provider, user.email, profile),
           display_name: publicDisplayNameOrEmpty(user.name),
         });
 
@@ -356,6 +393,12 @@ export const authOptions: NextAuthOptions = {
           // complete-profile page treats a missing param as "collect one".
           const params = new URLSearchParams({ pt: result.provider_token });
           if (result.email !== "") params.set("email", result.email);
+          // Which provider this new account is coming from, for the
+          // `signup_completed` analytics method. A provider name, never an
+          // identifier; the page validates it against a closed set.
+          if (account.provider === "google" || account.provider === "twitter") {
+            params.set("provider", account.provider);
+          }
           return `/signup/complete-profile?${params.toString()}`;
         }
 
@@ -365,7 +408,7 @@ export const authOptions: NextAuthOptions = {
       }
     },
 
-    async jwt({ token, user, account, trigger, session }) {
+    async jwt({ token, user, account, profile, trigger, session }) {
       // OAuth first sign-in — get the BCC JWT from the backend.
       // `account` is only non-null on the very first call after sign-in.
       if (account?.type === "oauth" && user) {
@@ -373,7 +416,7 @@ export const authOptions: NextAuthOptions = {
           const result = await callBccOauth({
             provider:     account.provider,
             provider_id:  account.providerAccountId,
-            email:        user.email ?? "",
+            ...oauthBridgeEmail(account.provider, user.email, profile),
             display_name: publicDisplayNameOrEmpty(user.name),
           });
           if (!("status" in result)) {
@@ -447,6 +490,9 @@ export const authOptions: NextAuthOptions = {
         id: token.id,
         handle: token.handle,
         inGoodStanding: token.inGoodStanding,
+        // Keyed, server-computed analytics pseudonym; null (no identify)
+        // when ANALYTICS_ID_SECRET is unset.
+        analyticsId: typeof token.id === "string" ? analyticsIdFor(token.id) : null,
       };
       session.bccToken = token.bccToken;
       session.bccTokenExpiresAt = token.bccTokenExpiresAt;
