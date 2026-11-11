@@ -41,7 +41,7 @@ import {
   humanizeValidatorJoinError,
   useJoinValidatorGroupMutation,
 } from "@/hooks/useValidatorGroups";
-import type { Card } from "@/lib/api/types";
+import type { Card, GroupDiscoveryType } from "@/lib/api/types";
 
 export function CommunityJoinCard({
   card,
@@ -89,7 +89,9 @@ export function CommunityJoinCard({
       if (dossier.type === "validator") {
         // No optimistic flip — the server verifies the delegation live.
         // Never the plain join: that route 400s on a delegator community.
-        validatorJoin.mutate(joinCard.id);
+        validatorJoin.mutate(joinCard.id, {
+          onSuccess: () => captureCommunityJoined(dossier.type),
+        });
         return;
       }
       setOptimisticJoined(true);
@@ -140,8 +142,6 @@ export function CommunityJoinCard({
   );
 }
 
-function captureCommunityJoined(
-  communityType: "nft" | "hall" | "system" | "user",
-) {
+function captureCommunityJoined(communityType: GroupDiscoveryType) {
   captureAnalyticsEvent("community_joined", { community_type: communityType });
 }

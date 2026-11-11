@@ -461,7 +461,7 @@ function MinStakeDialog({
         </div>
 
         {error !== null && (
-          <p role="alert" className="text-bcc-danger" style={{ fontSize: "13px" }}>
+          <p role="alert" className="text-bcc-text-error" style={{ fontSize: "13px" }}>
             {errorCopy}
             {errorLink !== null && (
               <>
