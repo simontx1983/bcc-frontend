@@ -18,7 +18,7 @@
 import type { ReactNode } from "react";
 
 import { useUserDisputes } from "@/hooks/useUserActivity";
-import { LoadFailure } from "@/components/ui/LoadFailure";
+import { ProfileReadFailure } from "@/components/profile/ProfilePrivateNotice";
 import { humanizeCode, isPermissionDenial } from "@/lib/api/errors";
 import type { MemberDispute } from "@/lib/api/types";
 
@@ -41,7 +41,8 @@ export function DisputesPanel({ handle }: DisputesPanelProps) {
   }
 
   const failure = query.isError ? (
-    <LoadFailure
+    <ProfileReadFailure
+      error={query.error}
       surface="paper"
       /* §γ — copy is keyed on err.code; never render err.message. */
       message={humanizeCode(

@@ -83,8 +83,15 @@ export function shouldWithdrawOnDenial(
 export interface DenialGate {
   /** The resource has been withdrawn; render the denial state instead. */
   withdrawn: boolean;
+  /**
+   * The error that withdrew it (null while not withdrawn, or when the
+   * owner reported none). Lets the withdrawn state tell the owner's
+   * `profile_private` apart from an ordinary denial — the latch unmounts
+   * the query owner, so its error is not otherwise reachable.
+   */
+  cause: unknown;
   /** Called by the query owner when it sees a denied same-resource read. */
-  withdraw: () => void;
+  withdraw: (cause?: unknown) => void;
 }
 
 /**
@@ -96,7 +103,9 @@ export interface DenialGate {
  */
 export function useDenialGate(queryKey: QueryKey): DenialGate {
   const qc = useQueryClient();
-  const [withdrawn, setWithdrawn] = useState(false);
+  // `null` = not withdrawn; otherwise the cause that latched it.
+  const [latch, setLatch] = useState<{ cause: unknown } | null>(null);
+  const withdrawn = latch !== null;
 
   // Serialised so the reset below compares by VALUE: a fresh array literal
   // every render would otherwise reset the latch on every render.
@@ -118,7 +127,7 @@ export function useDenialGate(queryKey: QueryKey): DenialGate {
       // A different resource is being shown now; the previous refusal says
       // nothing about it. Reset during render so the new resource is never
       // painted as denied, not even for one commit.
-      setWithdrawn(false);
+      setLatch(null);
     }
     // No re-arm needed here: `removedFor` holds the OLD key, so the guard
     // below compares it against the NEW `serialised` and lets the removal
@@ -140,8 +149,13 @@ export function useDenialGate(queryKey: QueryKey): DenialGate {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [withdrawn, qc, serialised]);
 
-  const withdraw = useCallback(() => setWithdrawn(true), []);
-  return { withdrawn, withdraw };
+  // First cause wins; a repeat report returns the same state object, so
+  // React bails out exactly as it did for the old boolean latch.
+  const withdraw = useCallback(
+    (cause?: unknown) => setLatch((prev) => prev ?? { cause: cause ?? null }),
+    [],
+  );
+  return { withdrawn, cause: latch?.cause ?? null, withdraw };
 }
 
 /**
@@ -149,14 +163,18 @@ export function useDenialGate(queryKey: QueryKey): DenialGate {
  *
  * In an effect rather than during render because it sets parent state.
  *
- * No once-guard: `withdraw()` is `setWithdrawn(true)`, which React bails
- * out of when the value is unchanged, and the latch unmounts this component
- * anyway — so a second call is unobservable. A ref guard here also survived
+ * No once-guard: `withdraw()` keeps the first latch and returns the same
+ * state object on a repeat, which React bails out of, and the latch
+ * unmounts this component anyway — so a second call is unobservable. A ref guard here also survived
  * its mutation, confirming it was insurance against nothing.
  */
-export function useReportDenial(shouldWithdraw: boolean, withdraw: () => void): void {
+export function useReportDenial(
+  shouldWithdraw: boolean,
+  withdraw: (cause?: unknown) => void,
+  cause?: unknown,
+): void {
   useEffect(() => {
     if (!shouldWithdraw) return;
-    withdraw();
-  }, [shouldWithdraw, withdraw]);
+    withdraw(cause);
+  }, [shouldWithdraw, withdraw, cause]);
 }
