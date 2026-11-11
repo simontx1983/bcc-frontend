@@ -37,6 +37,7 @@ import Credentials from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
 import TwitterProvider from "next-auth/providers/twitter";
 
+import { analyticsIdFor } from "@/lib/analytics/analytics-id";
 import { clientEnv, serverEnv } from "@/lib/env";
 import { publicDisplayNameOrEmpty } from "@/lib/format";
 import type { ApiSuccess, AuthTokenResponse } from "@/lib/api/types";
@@ -483,6 +484,9 @@ export const authOptions: NextAuthOptions = {
         id: token.id,
         handle: token.handle,
         inGoodStanding: token.inGoodStanding,
+        // Keyed, server-computed analytics pseudonym; null (no identify)
+        // when ANALYTICS_ID_SECRET is unset.
+        analyticsId: typeof token.id === "string" ? analyticsIdFor(token.id) : null,
       };
       session.bccToken = token.bccToken;
       session.bccTokenExpiresAt = token.bccTokenExpiresAt;

@@ -203,15 +203,6 @@ export function captureAnalyticsException(error: unknown): void {
 
 // --------------------------------------------------------------- identity
 
-/** Lower-case hex SHA-256 of the viewer id. */
-export async function hashViewerId(viewerId: string): Promise<string> {
-  const bytes = new TextEncoder().encode(viewerId);
-  const digest = await crypto.subtle.digest("SHA-256", bytes);
-  return Array.from(new Uint8Array(digest), (b) =>
-    b.toString(16).padStart(2, "0"),
-  ).join("");
-}
-
 async function syncIdentity(): Promise<void> {
   const viewer = currentViewer;
   if (!initialised || !isGranted() || viewer === null) return;
@@ -222,20 +213,19 @@ async function syncIdentity(): Promise<void> {
     resetSdkIdentity();
   }
 
-  const distinctId = await hashViewerId(viewer);
-  // The viewer may have changed, or consent been withdrawn, while hashing.
-  if (currentViewer !== viewer || !isGranted() || !initialised) return;
-  // No person properties: the hashed id is the only identifier sent.
-  posthog.identify(distinctId);
+  // `viewer` is already the server's keyed pseudonym; it is sent as-is.
+  // No person properties: it is the only identifier sent.
+  posthog.identify(viewer);
   identifiedViewer = viewer;
 }
 
 /**
- * Tell analytics who is signed in (WordPress user id). Identifies with a
- * SHA-256 of the id — never the raw id or handle — and only after consent.
+ * Tell analytics who is signed in. `analyticsId` MUST be the server's
+ * keyed pseudonym (session.user.analyticsId), never the raw user id or
+ * handle. Identifies only after consent.
  */
-export function setAnalyticsViewer(viewerId: string): Promise<void> {
-  currentViewer = viewerId;
+export function setAnalyticsViewer(analyticsId: string): Promise<void> {
+  currentViewer = analyticsId;
   return syncIdentity();
 }
 

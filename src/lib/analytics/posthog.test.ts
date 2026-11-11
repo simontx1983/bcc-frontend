@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -26,7 +25,6 @@ async function load(configured = true): Promise<Wrapper> {
   return import("@/lib/analytics/posthog");
 }
 
-const sha256 = (s: string) => createHash("sha256").update(s).digest("hex");
 
 beforeEach(() => {
   window.localStorage.clear();
@@ -142,20 +140,20 @@ describe("analytics init options", () => {
 });
 
 describe("analytics identity", () => {
-  it("identifies with a SHA-256 of the user id and no handle, only after consent", async () => {
+  it("identifies with the server's pseudonym exactly as given, no person properties, only after consent", async () => {
     const a = await load();
-    await a.setAnalyticsViewer("17");
+    await a.setAnalyticsViewer("keyed-pseudonym-17");
     expect(sdk.identify).not.toHaveBeenCalled();
 
     a.setAnalyticsConsent("granted");
     await vi.waitFor(() => expect(sdk.identify).toHaveBeenCalledTimes(1));
-    expect(sdk.identify).toHaveBeenCalledWith(sha256("17"));
+    expect(sdk.identify).toHaveBeenCalledWith("keyed-pseudonym-17");
     expect(sdk.identify.mock.calls[0]).toHaveLength(1);
   });
 
-  it("hashes to lower-case hex", async () => {
-    const a = await load();
-    await expect(a.hashViewerId("17")).resolves.toBe(sha256("17"));
+  it("no longer exposes a client-side hash of the raw id", async () => {
+    const a = (await load()) as Record<string, unknown>;
+    expect(a["hashViewerId"]).toBeUndefined();
   });
 
   it("resets on a viewer switch and re-applies consent after reset", async () => {
@@ -167,7 +165,7 @@ describe("analytics identity", () => {
     await a.setAnalyticsViewer("18");
     expect(sdk.reset).toHaveBeenCalledTimes(1);
     expect(sdk.opt_in_capturing).toHaveBeenCalled();
-    expect(sdk.identify).toHaveBeenLastCalledWith(sha256("18"));
+    expect(sdk.identify).toHaveBeenLastCalledWith("18");
   });
 
   it("resets on sign-out and keeps the device's consent", async () => {

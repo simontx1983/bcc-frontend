@@ -149,4 +149,16 @@ export const serverEnv = Object.freeze({
     }
     return required("BCC_OAUTH_BRIDGE_SECRET", process.env["BCC_OAUTH_BRIDGE_SECRET"]);
   },
+  /**
+   * Key for the analytics pseudonym (lib/analytics/analytics-id). OPTIONAL
+   * by design: null when unset, and then no signed-in viewer is ever
+   * identified to analytics. Never NEXT_PUBLIC_.
+   */
+  get ANALYTICS_ID_SECRET(): string | null {
+    if (typeof window !== "undefined") {
+      throw new Error("[bcc-frontend] serverEnv accessed in client code");
+    }
+    const v = process.env["ANALYTICS_ID_SECRET"];
+    return typeof v === "string" && v !== "" ? v : null;
+  },
 });
