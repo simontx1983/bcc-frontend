@@ -106,6 +106,9 @@ export const ATTESTATION_COPY = {
    */
   unclaimed_page_target:
     "This page hasn't been claimed yet, so it can't be vouched for or backed.",
+  /** Backing tab empty state on a never-claimed validator page. */
+  unclaimed_validator_backing_empty:
+    "This validator hasn't been claimed yet. You can watch it or send a message, and it'll be delivered when the operator claims the page.",
 } as const;
 
 /**

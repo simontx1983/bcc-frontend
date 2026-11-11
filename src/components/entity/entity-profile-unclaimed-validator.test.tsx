@@ -29,7 +29,11 @@ vi.mock("@/components/announcements/AnnouncementBar", () => ({ AnnouncementBar: 
 vi.mock("@/components/announcements/AnnouncementsPanel", () => ({
   AnnouncementsPanel: stub("apanel"),
 }));
-vi.mock("@/components/entity/EntityTabs", () => ({ EntityTabs: stub("tabs") }));
+vi.mock("@/components/entity/EntityTabs", () => ({
+  EntityTabs: ({ backingPanel }: { backingPanel?: React.ReactNode }) => (
+    <div data-testid="tabs">{backingPanel}</div>
+  ),
+}));
 vi.mock("@/components/entity/panels/CardReviewsPanel", () => ({
   CardReviewsPanel: stub("reviews"),
 }));
@@ -52,7 +56,11 @@ vi.mock("@/components/messages/MessageValidatorButton", () => ({
 vi.mock("@/components/profile/AttestationActionCluster", () => ({
   AttestationActionCluster: stub("attestation-cluster"),
 }));
-vi.mock("@/components/profile/AttestationRoster", () => ({ AttestationRoster: stub("roster") }));
+vi.mock("@/components/profile/AttestationRoster", () => ({
+  AttestationRoster: ({ emptyState }: { emptyState?: { body?: string } }) => (
+    <div data-testid="roster">{emptyState?.body}</div>
+  ),
+}));
 vi.mock("@/components/profile/ReputationSummaryPanel", () => ({
   ReputationSummaryPanel: stub("reputation"),
 }));
@@ -118,5 +126,24 @@ describe("EntityProfile attestation cluster", () => {
       card({ card_kind: "project", messaging: { destination: "queue", operator: null } }),
     );
     expect(screen.getByTestId("attestation-cluster")).not.toBeNull();
+  });
+});
+
+
+describe("EntityProfile Backing empty state", () => {
+  it("on a never-claimed validator explains the queue instead of inviting a vouch", () => {
+    renderProfile(card({ messaging: { destination: "queue", operator: null } }));
+    const roster = screen.getByTestId("roster");
+    expect(roster.textContent).toBe(
+      "This validator hasn't been claimed yet. You can watch it or send a message, and it'll be delivered when the operator claims the page.",
+    );
+    expect(roster.textContent).not.toMatch(/first to vouch/i);
+  });
+
+  it("on a claimed validator keeps the original copy", () => {
+    renderProfile(card({ messaging: { destination: "operator", operator: null } }));
+    expect(screen.getByTestId("roster").textContent).toBe(
+      "No attestations on file yet. Be the first to vouch.",
+    );
   });
 });

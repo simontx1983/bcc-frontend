@@ -54,6 +54,7 @@ import type {
   OnchainSignals,
 } from "@/lib/api/types";
 import { isAllowed, unlockHint } from "@/lib/permissions";
+import { ATTESTATION_COPY } from "@/lib/copy/trust-layer";
 import { isNeverClaimedValidator } from "@/lib/validators/messaging";
 
 /**
@@ -342,7 +343,11 @@ export function EntityProfile({
               targetKind={targetKind}
               targetId={card.id}
               emptyState={{
-                body: "No attestations on file yet. Be the first to vouch.",
+                // A never-claimed validator can't be vouched for, so the
+                // empty state must not invite it.
+                body: isNeverClaimedValidator(card)
+                  ? ATTESTATION_COPY.unclaimed_validator_backing_empty
+                  : "No attestations on file yet. Be the first to vouch.",
               }}
               seed={rosterSeed}
             />
