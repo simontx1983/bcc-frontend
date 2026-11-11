@@ -5448,6 +5448,70 @@ export interface VerifyRecoveryEmailResponse {
 }
 
 // ────────────────────────────────────────────────────────────────────────
+// Account email change — verify-before-apply.
+//
+// Backend: MyAccountEndpoint. Two-step:
+//   1. PATCH /me/account/email        — current password + new address.
+//      Nothing changes yet: the new address is held pending and a 6-digit
+//      code is mailed to it.
+//   2. POST  /me/account/email/verify — the code. Only now is the address
+//      applied, and every earlier bearer is revoked, so the response
+//      carries a replacement the client MUST swap to (same as the
+//      password change).
+// ────────────────────────────────────────────────────────────────────────
+
+/** PATCH /me/account/email — a new address: held pending, code sent. */
+export interface AccountEmailChangePending {
+  ok: true;
+  pending: true;
+  /** Masked new address, safe to echo back in the UI. */
+  email_masked: string;
+  /** Seconds the code stays valid (900). */
+  expires_in: number;
+}
+
+/** PATCH /me/account/email — the address is already the account's. */
+export interface AccountEmailChangeUnchanged {
+  ok: true;
+  pending: false;
+}
+
+export interface VerifyAccountEmailChangeBody {
+  /** 6-digit code from the message sent to the new address. */
+  code: string;
+}
+
+export interface VerifyAccountEmailChangeResponse {
+  ok: true;
+  /** The newly applied address (full, not masked). */
+  email: string;
+  /** Replacement bearer for THIS session. A live credential — never log or store it. */
+  token: string;
+  /** Seconds until the replacement expires. */
+  expires_in: number;
+  token_type: "Bearer";
+}
+
+/**
+ * Error codes POST /me/account/email/verify answers with. Two of them
+ * share `bcc_invalid_request` and differ only by HTTP status, so a
+ * consumer must read `BccApiError.status` as well as `.code`:
+ *
+ *   bcc_invalid_request 400 — no pending change (none, or expired)
+ *   bcc_invalid_request 422 — wrong code; the pending change is kept
+ *   bcc_conflict        409 — address taken meanwhile; pending dropped
+ *   bcc_rate_limited    429 — 10 attempts per hour
+ *   bcc_internal_error  500 — retryable
+ *   bcc_unauthorized    401
+ */
+export type VerifyAccountEmailChangeErrorCode =
+  | "bcc_invalid_request"
+  | "bcc_conflict"
+  | "bcc_rate_limited"
+  | "bcc_internal_error"
+  | "bcc_unauthorized";
+
+// ────────────────────────────────────────────────────────────────────────
 // §I1 V1.5 — notification preferences (bell event toggles + email digest).
 //
 // Backend: NotificationPrefs / MyNotificationPrefsEndpoint. Storage in

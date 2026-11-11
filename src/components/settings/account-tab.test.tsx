@@ -64,6 +64,7 @@ vi.mock("@/hooks/useAccount", () => ({
     isPending: false,
     ...o,
   }),
+  useVerifyAccountEmailChange: () => ({ mutate: vi.fn(), isPending: false }),
   useChangeAccountPassword: () => ({ mutate: vi.fn(), isPending: false }),
   useDeleteAccount: (o: { onError?: (e: unknown) => void } = {}) => ({
     mutate: (...a: unknown[]) => deleteMutate(...a),
