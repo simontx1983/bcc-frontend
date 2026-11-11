@@ -25,7 +25,7 @@ import {
 import { LoadFailure } from "@/components/ui/LoadFailure";
 import { SettingsSaveStatus, saveStatusFrom } from "@/components/settings/SettingsSaveStatus";
 import { useDirtyRegistration } from "@/hooks/useDirtyRegistration";
-import { isNonRetryableFixedReadFailure } from "@/lib/api/errors";
+import { isNonRetryableFixedReadFailure, isPermissionDenial } from "@/lib/api/errors";
 import { BccApiError } from "@/lib/api/types";
 
 const ERROR_COPY: Record<string, string> = {
@@ -97,23 +97,26 @@ export function MessagesPrefsForm() {
     isDirty: dirty,
     isSaving: mutation.isPending,
   });
-  if (query.isError) {
-    return (
-      <div className="bcc-panel p-6">
-        <LoadFailure
-          // Keeps the "what failed" prefix — `humanize` alone returns the
-          // bare reason, which reads as orphaned without it.
-          message={`Couldn't load messages preferences: ${humanize(query.error)}`}
-          // `useMessagesPrefs()` takes no arguments, so a retry re-issues
-          // an identical GET — the terminal codes cannot resolve.
-          // Conditional spread because `exactOptionalPropertyTypes`
-          // rejects `onRetry={undefined}`.
-          {...(isNonRetryableFixedReadFailure(query.error)
-            ? {}
-            : { onRetry: () => void query.refetch() })}
-        />
-      </div>
-    );
+  const failure = query.isError ? (
+    <LoadFailure
+      // Keeps the "what failed" prefix — `humanize` alone returns the
+      // bare reason, which reads as orphaned without it.
+      message={`Couldn't load messages preferences: ${humanize(query.error)}`}
+      // `useMessagesPrefs()` takes no arguments, so a retry re-issues
+      // an identical GET — the terminal codes cannot resolve.
+      // Conditional spread because `exactOptionalPropertyTypes`
+      // rejects `onRetry={undefined}`.
+      {...(isNonRetryableFixedReadFailure(query.error)
+        ? {}
+        : { onRetry: () => void query.refetch() })}
+    />
+  ) : null;
+
+  // Only a first-load failure, or a REFRESH the server refused, may
+  // replace the form. A blanket `isError` was also true when a remount
+  // refresh failed with the form on screen — hiding an unsaved draft.
+  if (query.isLoadingError || (query.isRefetchError && isPermissionDenial(query.error))) {
+    return <div className="bcc-panel p-6">{failure}</div>;
   }
 
 
@@ -137,6 +140,8 @@ export function MessagesPrefsForm() {
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-6">
+      {/* A failed REFRESH keeps the form and any draft; the recovery sits on top. */}
+      {failure !== null && <div className="bcc-panel p-6">{failure}</div>}
       <div className="bcc-panel p-6">
         <h2 className="bcc-stencil text-xl text-bcc-text">Direct messages</h2>
         <p className="bcc-mono mt-1 text-[11px] text-bcc-text-secondary">

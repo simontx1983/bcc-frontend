@@ -43,6 +43,33 @@ import type { ApiSuccess, AuthTokenResponse } from "@/lib/api/types";
 import type { OAuthHandleRequiredResponse } from "@/lib/api/auth-endpoints";
 
 /**
+ * The email an OAuth sign-in may forward to the BCC bridge, or "".
+ *
+ * The backend links accounts BY EMAIL (OAuthController: provider-id
+ * lookup, then an email-match fallback) and treats any email it receives
+ * at /auth/oauth as provider-verified when it creates the account in
+ * oauth-complete. So an address the provider has not verified must never
+ * reach it. Deny by default:
+ *   - Google: only when the profile says `email_verified: true`;
+ *   - every other provider (X returns no email): "".
+ * An empty email is X's existing path: no email match, and
+ * /signup/complete-profile collects a typed address that goes through
+ * email verification.
+ */
+export function verifiedOAuthEmail(
+  provider: string,
+  email: string | null | undefined,
+  profile: unknown,
+): string {
+  if (provider !== "google" || typeof email !== "string" || email === "") return "";
+  const verified =
+    typeof profile === "object" &&
+    profile !== null &&
+    (profile as { email_verified?: unknown }).email_verified === true;
+  return verified ? email : "";
+}
+
+/**
  * Shared POST handler for the credentials providers.
  *
  * Both the email and wallet providers POST a JSON body to a bcc-trust
@@ -329,14 +356,14 @@ export const authOptions: NextAuthOptions = {
      *     redirects there and we collect a handle before creating the account.
      *   - Backend error → return false (block sign-in).
      */
-    async signIn({ account, user }) {
+    async signIn({ account, user, profile }) {
       if (account?.type !== "oauth") return true;
 
       try {
         const result = await callBccOauth({
           provider:     account.provider,
           provider_id:  account.providerAccountId,
-          email:        user.email ?? "",
+          email:        verifiedOAuthEmail(account.provider, user.email, profile),
           display_name: publicDisplayNameOrEmpty(user.name),
         });
 
@@ -354,7 +381,7 @@ export const authOptions: NextAuthOptions = {
       }
     },
 
-    async jwt({ token, user, account, trigger, session }) {
+    async jwt({ token, user, account, profile, trigger, session }) {
       // OAuth first sign-in — get the BCC JWT from the backend.
       // `account` is only non-null on the very first call after sign-in.
       if (account?.type === "oauth" && user) {
@@ -362,7 +389,7 @@ export const authOptions: NextAuthOptions = {
           const result = await callBccOauth({
             provider:     account.provider,
             provider_id:  account.providerAccountId,
-            email:        user.email ?? "",
+            email:        verifiedOAuthEmail(account.provider, user.email, profile),
             display_name: publicDisplayNameOrEmpty(user.name),
           });
           if (!("status" in result)) {

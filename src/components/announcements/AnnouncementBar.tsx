@@ -36,7 +36,7 @@ import type { Route } from "next";
 
 import { LoadFailure } from "@/components/ui/LoadFailure";
 import { Skeleton } from "@/components/ui/Skeleton";
-import { humanizeCode } from "@/lib/api/errors";
+import { humanizeCode, isPermissionDenial } from "@/lib/api/errors";
 import { formatAbsoluteDateTime, formatShortDate } from "@/lib/format";
 import { ROTATOR_MAX_ITEMS } from "@/lib/api/announcement-endpoints";
 import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
@@ -168,7 +168,13 @@ export function AnnouncementBar({ pageId, featureEnabled }: AnnouncementBarProps
   // Feature absent: nothing, and the hook never fetched.
   if (!featureEnabled) return null;
 
-  if (query.isError) {
+  // Only a first-load failure, or a REFRESH the server refused, may
+  // replace the bar. Every announcement write invalidates the rotator, and
+  // a blanket `isError` meant one failed background refetch swapped the
+  // announcements already showing for an error. A transient refresh
+  // failure keeps them, quietly — the DiscoverPanel rule for a
+  // supplementary surface: a stale bar beats a thrown-away one.
+  if (query.isLoadingError || (query.isRefetchError && isPermissionDenial(query.error))) {
     // Supplementary content — a failure here degrades the bar, never the
     // profile around it.
     const copy = humanizeCode(
