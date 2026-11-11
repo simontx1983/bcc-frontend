@@ -95,6 +95,18 @@ describe("ModerationQueue keyboard shortcuts", () => {
 
     fireEvent.keyDown(window, { key: "h" });
 
-    expect(mutate).toHaveBeenCalledWith("hide");
+    expect(mutate).toHaveBeenCalledWith("hide", expect.anything());
+  });
+
+  it("two presses in the same tick (isPending still false) dispatch only once", () => {
+    // isPending only flips on the next render; the synchronous ref latch
+    // must stop the second press.
+    mutationState.isPending = false;
+    render(<ModerationQueue />);
+
+    fireEvent.keyDown(window, { key: "h" });
+    fireEvent.keyDown(window, { key: "d" });
+
+    expect(mutate).toHaveBeenCalledTimes(1);
   });
 });

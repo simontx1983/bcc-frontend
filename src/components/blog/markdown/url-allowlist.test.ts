@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { isInternalPath, safeUrlTransform } from "./url-allowlist";
+import { internalPathOf, isInternalPath, safeUrlTransform } from "./url-allowlist";
 
 /**
  * Audit F4: the blog renderer's link/image URL safety must be an explicit,
@@ -69,5 +69,27 @@ describe("isInternalPath", () => {
     expect(isInternalPath("?tab=blog")).toBe(false);
     expect(isInternalPath("./relative/path")).toBe(false);
     expect(isInternalPath("")).toBe(false);
+  });
+
+  // Review M1 on #222: browsers strip TAB, LF and CR anywhere in a URL, so
+  // these become "//evil.com" and leave the site. A raw-string regex
+  // passed all three as internal.
+  it.each([
+    ["TAB between the slashes", "/\t/evil.com"],
+    ["LF between the slashes", "/\n/evil.com"],
+    ["CR between the slashes", "/\r/evil.com"],
+    ["protocol-relative (control)", "//evil.com"],
+    ["slash-backslash (control)", "/\\evil.com"],
+  ])("rejects %s", (_label, url) => {
+    expect(isInternalPath(url)).toBe(false);
+    expect(internalPathOf(url)).toBeNull();
+  });
+
+  it("returns the RESOLVED same-site path, which is what gets rendered", () => {
+    expect(internalPathOf("/u/phillip")).toBe("/u/phillip");
+    expect(internalPathOf("/post/abc?x=1#y")).toBe("/post/abc?x=1#y");
+    expect(internalPathOf("/a/../b")).toBe("/b");
+    // Whitespace the browser would strip is gone from what we render.
+    expect(internalPathOf("/u/\tphillip")).toBe("/u/phillip");
   });
 });

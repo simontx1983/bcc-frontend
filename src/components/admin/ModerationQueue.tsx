@@ -650,13 +650,21 @@ function ReportRow({
     },
   });
 
+  // Synchronous in-flight latch: `isPending` only flips on the next
+  // render, so two key presses in the same tick would both see false.
+  const inFlight = useRef(false);
   const trigger = useMemo(
     () => (action: ModerationAction) => {
       // Same guard the buttons get from `disabled`: the H/D/R shortcuts
       // dispatch through here too, and must not stack a second resolve
       // on a row whose first one is still in flight.
-      if (mutation.isPending) return;
-      mutation.mutate(action);
+      if (inFlight.current || mutation.isPending) return;
+      inFlight.current = true;
+      mutation.mutate(action, {
+        onSettled: () => {
+          inFlight.current = false;
+        },
+      });
     },
     [mutation],
   );
