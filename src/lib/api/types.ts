@@ -2521,7 +2521,9 @@ export interface UserGroupsResponse {
  * one render branch covers both surfaces.
  *   public         = visible to everyone (anon + members)
  *   site_members   = visible to logged-in viewers
- *   friends_only   = visible to friends + owner
+ *   friends_only   = legacy PeepSo level 30. peepso-friends is removed,
+ *                    so the server treats it as owner-only. No UI
+ *                    offers it.
  *   only_me        = visible to owner only (frontend never sees these
  *                    rows when viewing someone else's profile)
  */
