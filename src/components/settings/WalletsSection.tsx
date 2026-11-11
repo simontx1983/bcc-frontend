@@ -311,6 +311,9 @@ function LinkWalletForm({ chainSelectRef }: LinkWalletFormProps) {
 
       void queryClient.invalidateQueries({ queryKey: MY_WALLETS_QUERY_KEY });
       // The user view-model holds wallet badges; refresh them too.
+      // useUser keys on ["user", handle]; ["users", …] is the per-profile
+      // panel namespace (activity, groups, …), kept so those refresh too.
+      void queryClient.invalidateQueries({ queryKey: ["user"] });
       void queryClient.invalidateQueries({ queryKey: ["users"] });
 
       setSuccess(`Linked ${response.chain_name || response.chain_slug} wallet.`);

@@ -143,8 +143,13 @@ export function useCreateCommentMutation(
 
   return useMutation<CreateCommentResponse, BccApiError, CreateCommentRequest, CreateMutationContext>({
     mutationFn: (req) => createComment(req),
+    // Caller options first, the hook's own callbacks after: each one does
+    // its cache work and then forwards to the caller's (house pattern, see
+    // useCreatePostMutation). Spreading `options` last let a caller's
+    // onSuccess/onError silently replace the rollback + reconcile.
+    ...options,
 
-    onMutate: async (req) => {
+    onMutate: async (req, mutationContext) => {
       // Prefix key → patch every cached sort variant at once.
       const key = commentsQueryKey(req.feed_id);
       await queryClient.cancelQueries({ queryKey: key });
@@ -210,16 +215,19 @@ export function useCreateCommentMutation(
       });
 
       bumpFeedCommentCount(queryClient, req.feed_id, +1);
-      const userContext = (await options.onMutate?.(req, undefined as never)) ?? {};
+      const userContext = (await options.onMutate?.(req, mutationContext)) ?? {};
       return { prevData, optimisticId, ...userContext };
     },
 
-    onError: (_err, req, context) => {
+    onError: (...args) => {
+      const [, req, context] = args;
       restoreCommentsSnapshot(queryClient, context?.prevData);
       bumpFeedCommentCount(queryClient, req.feed_id, -1);
+      return options.onError?.(...args);
     },
 
-    onSuccess: (response, req, context) => {
+    onSuccess: (...args) => {
+      const [response, req, context] = args;
       const key = commentsQueryKey(req.feed_id);
       const optimisticId = context?.optimisticId;
       queryClient.setQueriesData<InfiniteData<CommentsResponse>>({ queryKey: key }, (oldData) => {
@@ -234,8 +242,8 @@ export function useCreateCommentMutation(
           })),
         };
       });
+      return options.onSuccess?.(...args);
     },
-    ...options,
   });
 }
 
@@ -253,8 +261,10 @@ export function useDeleteCommentMutation(
 
   return useMutation<DeleteCommentResponse, BccApiError, DeleteCommentParams, DeleteMutationContext>({
     mutationFn: (params) => deleteComment(params),
+    // Caller options first; the hook's callbacks below forward to them.
+    ...options,
 
-    onMutate: async (params) => {
+    onMutate: async (params, mutationContext) => {
       const key = commentsQueryKey(params.feedId);
       await queryClient.cancelQueries({ queryKey: key });
 
@@ -271,15 +281,16 @@ export function useDeleteCommentMutation(
       });
 
       bumpFeedCommentCount(queryClient, params.feedId, -1);
-      const userContext = (await options.onMutate?.(params, undefined as never)) ?? {};
+      const userContext = (await options.onMutate?.(params, mutationContext)) ?? {};
       return { prevData, ...userContext };
     },
 
-    onError: (_err, params, context) => {
+    onError: (...args) => {
+      const [, params, context] = args;
       restoreCommentsSnapshot(queryClient, context?.prevData);
       bumpFeedCommentCount(queryClient, params.feedId, +1);
+      return options.onError?.(...args);
     },
-    ...options,
   });
 }
 

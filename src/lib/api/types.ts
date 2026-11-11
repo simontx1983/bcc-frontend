@@ -328,6 +328,11 @@ export interface CardPermissions {
    *     "recipient has DMs off" and "mutually blocked". The payload is
    *     an info-leak shield; the frontend MUST NOT try to distinguish
    *     the two states or hint at which one applies.
+   *   - `unavailable`           → hidden, no hint. The server couldn't
+   *     check blocks right now (F-99), so the affordance is omitted
+   *     entirely, never shown disabled. Sent with `unlock_hint: null`.
+   *   - any other code          → hidden unless it carries a hint
+   *     (this field is an open string, not a closed inventory).
    */
   can_message?: CardPermissionEntry;
 }
@@ -4095,6 +4100,13 @@ export type MyPrivacyPatch = Partial<MyPrivacySettings>;
 export interface MemberPermission {
   allowed: boolean;
   unlock_hint: string | null;
+  /**
+   * Why `allowed` is false, when the server says. Optional and an open
+   * string. For `can_message`, `unavailable` (F-99: blocks couldn't be
+   * checked) means omit the affordance entirely; see
+   * `CardPermissions.can_message` for the full inventory.
+   */
+  reason_code?: string | null;
 }
 
 /**

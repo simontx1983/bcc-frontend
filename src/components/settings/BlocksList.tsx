@@ -9,7 +9,7 @@
  * is fast and a fresh re-fetch keeps the count accurate.
  */
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { Avatar } from "@/components/identity/Avatar";
 import { LoadFailure } from "@/components/ui/LoadFailure";
@@ -22,8 +22,24 @@ export function BlocksList() {
   const query = useMyBlocks(page);
   const unblockMutation = useUnblockUser();
   const [pendingId, setPendingId] = useState<number | null>(null);
+  // One failed unblock at a time, pinned to its row; cleared on retry.
+  const [failure, setFailure] = useState<{ userId: number; message: string } | null>(null);
 
-  if (query.isPending) {
+  // Page-overflow guard, same contract as <WatchersPanel>: unblocking the
+  // last row of a trailing page refetches an empty page, which would
+  // render the "NONE ON FILE" empty state with no pager — stranding the
+  // user away from the earlier pages. Clamp back to the last real page;
+  // the result is always < `page`, so it terminates at 1.
+  const emptyOverflow =
+    query.isSuccess && query.data.items.length === 0 && page > 1;
+  const totalPages = query.data?.pagination.total_pages;
+  useEffect(() => {
+    if (emptyOverflow) {
+      setPage(Math.max(1, Math.min(page - 1, totalPages ?? 1)));
+    }
+  }, [emptyOverflow, page, totalPages]);
+
+  if (query.isPending || emptyOverflow) {
     return (
       <div aria-label="Loading blocks" className="flex flex-col gap-2">
         <Skeleton className="h-[68px]" count={3} />
@@ -31,7 +47,7 @@ export function BlocksList() {
     );
   }
 
-  const failure = query.isError ? (
+  const loadFailure = query.isError ? (
     <div className="bcc-panel p-6">
       <LoadFailure
         /* §γ — copy is keyed on err.code; never render err.message. */
@@ -54,7 +70,7 @@ export function BlocksList() {
   // `isError` meant one failed refetch erased the whole list. A refused
   // refresh keeps the old whole-panel state rather than the stale rows.
   if (query.isLoadingError || (query.isRefetchError && isPermissionDenial(query.error))) {
-    return failure;
+    return loadFailure;
   }
 
   const { items, pagination } = query.data;
@@ -62,7 +78,7 @@ export function BlocksList() {
   // "None on file" is a claim about the server; a failed refresh does not
   // support it, so only the failure renders.
   if (items.length === 0 && query.isRefetchError) {
-    return failure;
+    return loadFailure;
   }
 
   if (items.length === 0) {
@@ -84,7 +100,9 @@ export function BlocksList() {
 
   const handleUnblock = (userId: number) => {
     setPendingId(userId);
+    setFailure(null);
     unblockMutation.mutate(userId, {
+      onError: (err) => setFailure({ userId, message: humanizeUnblockError(err) }),
       onSettled: () => setPendingId(null),
     });
   };
@@ -92,7 +110,7 @@ export function BlocksList() {
   return (
     <div className="flex flex-col gap-4">
       {/* A failed REFRESH keeps the rows and offers the recovery above them. */}
-      {failure}
+      {loadFailure}
       <ul className="bcc-panel divide-y divide-bcc-border">
         {items.map((entry) => (
           <li
@@ -119,14 +137,28 @@ export function BlocksList() {
               </div>
             </div>
 
-            <button
-              type="button"
-              onClick={() => handleUnblock(entry.user_id)}
-              disabled={pendingId === entry.user_id}
-              className="bcc-mono inline-flex items-center border-2 border-bcc-border px-3 py-1.5 text-[11px] tracking-[0.18em] text-bcc-text-secondary transition hover:border-bcc-border-strong hover:text-bcc-text disabled:opacity-60"
-            >
-              {pendingId === entry.user_id ? "WORKING…" : "UNBLOCK"}
-            </button>
+            <div className="flex shrink-0 flex-col items-end gap-2">
+              <button
+                type="button"
+                onClick={() => handleUnblock(entry.user_id)}
+                disabled={pendingId === entry.user_id}
+                aria-describedby={
+                  failure?.userId === entry.user_id ? `bcc-unblock-error-${entry.user_id}` : undefined
+                }
+                className="bcc-mono inline-flex items-center border-2 border-bcc-border px-3 py-1.5 text-[11px] tracking-[0.18em] text-bcc-text-secondary transition hover:border-bcc-border-strong hover:text-bcc-text disabled:opacity-60"
+              >
+                {pendingId === entry.user_id ? "WORKING…" : "UNBLOCK"}
+              </button>
+              {failure?.userId === entry.user_id && (
+                <p
+                  id={`bcc-unblock-error-${entry.user_id}`}
+                  role="alert"
+                  className="bcc-mono max-w-[14rem] text-right text-[10px] tracking-[0.12em] text-bcc-text-error"
+                >
+                  {failure.message}
+                </p>
+              )}
+            </div>
           </li>
         ))}
       </ul>
@@ -158,5 +190,17 @@ export function BlocksList() {
         </nav>
       )}
     </div>
+  );
+}
+
+/** §γ — keyed on err.code (DELETE /me/blocks/:user_id), never err.message. */
+function humanizeUnblockError(err: unknown): string {
+  return humanizeCode(
+    err,
+    {
+      bcc_rate_limited: "Slow down — too many unblock attempts. Wait a minute.",
+      bcc_unauthorized: "Sign in to manage your blocks.",
+    },
+    "Couldn't unblock. Try again.",
   );
 }

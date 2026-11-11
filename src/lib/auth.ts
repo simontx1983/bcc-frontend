@@ -70,6 +70,25 @@ export function verifiedOAuthEmail(
 }
 
 /**
+ * The email fields of an /auth/oauth bridge body.
+ *
+ * `email_verified: true` (a JSON boolean) is present exactly when
+ * {@link verifiedOAuthEmail} let a Google address through, and omitted
+ * otherwise, so the backend can require a positive assertion rather
+ * than inferring "verified" from the email being present. Today's
+ * backend ignores the key, and the signature covers the raw body as
+ * sent, so adding it changes nothing until the backend reads it.
+ */
+export function oauthBridgeEmail(
+  provider: string,
+  email: string | null | undefined,
+  profile: unknown,
+): { email: string; email_verified?: true } {
+  const verified = verifiedOAuthEmail(provider, email, profile);
+  return verified === "" ? { email: "" } : { email: verified, email_verified: true };
+}
+
+/**
  * Shared POST handler for the credentials providers.
  *
  * Both the email and wallet providers POST a JSON body to a bcc-trust
@@ -161,6 +180,7 @@ async function callBccOauth(body: {
   provider: string;
   provider_id: string;
   email: string;
+  email_verified?: true;
   display_name: string;
 }): Promise<AuthTokenResponse | OAuthHandleRequiredResponse> {
   // Signed server-to-server request. /auth/oauth trusts the OAuth identity
@@ -363,7 +383,7 @@ export const authOptions: NextAuthOptions = {
         const result = await callBccOauth({
           provider:     account.provider,
           provider_id:  account.providerAccountId,
-          email:        verifiedOAuthEmail(account.provider, user.email, profile),
+          ...oauthBridgeEmail(account.provider, user.email, profile),
           display_name: publicDisplayNameOrEmpty(user.name),
         });
 
@@ -389,7 +409,7 @@ export const authOptions: NextAuthOptions = {
           const result = await callBccOauth({
             provider:     account.provider,
             provider_id:  account.providerAccountId,
-            email:        verifiedOAuthEmail(account.provider, user.email, profile),
+            ...oauthBridgeEmail(account.provider, user.email, profile),
             display_name: publicDisplayNameOrEmpty(user.name),
           });
           if (!("status" in result)) {

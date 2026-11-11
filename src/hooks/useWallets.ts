@@ -78,6 +78,9 @@ export function useLinkWalletMutation(
     onSuccess: (data, vars) => {
       void queryClient.invalidateQueries({ queryKey: MY_WALLETS_QUERY_KEY });
       // The user view-model holds wallet badges; refresh them too.
+      // useUser keys on ["user", handle]; ["users", …] is the per-profile
+      // panel namespace (activity, groups, …), kept so those refresh too.
+      void queryClient.invalidateQueries({ queryKey: ["user"] });
       void queryClient.invalidateQueries({ queryKey: ["users"] });
       callerOnSuccess?.(data, vars);
     },
@@ -101,7 +104,9 @@ export function useUnlinkWallet(
     onSuccess: (data, walletId) => {
       void queryClient.invalidateQueries({ queryKey: MY_WALLETS_QUERY_KEY });
       // Also invalidate the user view-model — wallet count + verified
-      // badges live there too.
+      // badges live there too. useUser keys on ["user", handle];
+      // ["users", …] is the per-profile panel namespace, kept as well.
+      void queryClient.invalidateQueries({ queryKey: ["user"] });
       void queryClient.invalidateQueries({ queryKey: ["users"] });
       callerOnSuccess?.(data, walletId);
     },
