@@ -26,6 +26,7 @@ import {
 } from "@tanstack/react-query";
 
 import { MY_WALLETS_QUERY_KEY } from "@/hooks/useWallets";
+import { updateSessionBearer } from "@/lib/auth/session-update";
 import {
   requestRecoveryEmail,
   verifyRecoveryEmail,
@@ -98,7 +99,16 @@ export function useVerifyRecoveryEmail(
   const { onSuccess: callerOnSuccess, ...rest } = options;
 
   return useMutation<VerifyRecoveryEmailResponse, BccApiError, string>({
-    mutationFn: (code) => verifyRecoveryEmail({ code }),
+    mutationFn: async (code) => {
+      const data = await verifyRecoveryEmail({ code });
+      // The confirm revokes the old bearer and returns a replacement.
+      // Store it BEFORE anything refetches (same order as the email-change
+      // confirm); the pending-bearer seam covers in-flight requests.
+      if (typeof data.token === "string" && data.token !== "" && typeof data.expires_in === "number") {
+        await updateSessionBearer({ token: data.token, expiresIn: data.expires_in });
+      }
+      return data;
+    },
     onSuccess: (data, code) => {
       void queryClient.invalidateQueries({ queryKey: MY_WALLETS_QUERY_KEY });
       // useUser keys on ["user", handle]; ["users", …] is the per-profile

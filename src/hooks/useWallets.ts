@@ -20,6 +20,7 @@ import {
 
 import { linkWallet } from "@/lib/api/auth-endpoints";
 import { getMyWallets, unlinkWallet } from "@/lib/api/wallets-endpoints";
+import { updateSessionBearer } from "@/lib/auth/session-update";
 import type {
   BccApiError,
   LinkWalletResponse,
@@ -100,7 +101,24 @@ export function useUnlinkWallet(
   const { onSuccess: callerOnSuccess, ...rest } = options;
 
   return useMutation<UnlinkWalletResponse, BccApiError, number>({
-    mutationFn: (walletId) => unlinkWallet(walletId),
+    mutationFn: async (walletId) => {
+      const data = await unlinkWallet(walletId);
+      // A true removal returns a replacement bearer (bcc-trust #398). With
+      // `bcc_unlink_revokes_sessions` ON the old one is already revoked, so
+      // store it BEFORE anything refetches; the pending-bearer seam
+      // (lib/auth/current-bearer) covers requests already in flight. A
+      // failed session write is not fatal while the switch is OFF; with it
+      // ON the next request's 401 ends the session as it would anyway.
+      if (
+        data.removed &&
+        typeof data.token === "string" &&
+        data.token !== "" &&
+        typeof data.expires_in === "number"
+      ) {
+        await updateSessionBearer({ token: data.token, expiresIn: data.expires_in });
+      }
+      return data;
+    },
     onSuccess: (data, walletId) => {
       void queryClient.invalidateQueries({ queryKey: MY_WALLETS_QUERY_KEY });
       // Also invalidate the user view-model — wallet count + verified
