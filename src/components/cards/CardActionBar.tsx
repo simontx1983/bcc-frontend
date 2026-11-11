@@ -53,7 +53,7 @@ import type {
   CardKind,
 } from "@/lib/api/types";
 import { FOLLOW_COPY } from "@/lib/copy";
-import { isAllowed, unlockHint } from "@/lib/permissions";
+import { isAllowed, reasonCode, unlockHint } from "@/lib/permissions";
 
 /**
  * Card kind → §J attestation target taxonomy.
@@ -160,6 +160,13 @@ function MessagePill({
   const allowed = isAllowed(permissions, "can_message");
   const hint = unlockHint(permissions, "can_message");
   const hintId = `card-message-hint-${recipientId}`;
+
+  // `unavailable`: the server couldn't check blocks right now (F-99).
+  // Omit the affordance entirely, whatever hint came with it: a disabled
+  // pill would claim a reason the server never established.
+  if (!allowed && reasonCode(permissions, "can_message") === "unavailable") {
+    return null;
+  }
 
   // Denied with no explanation to offer — say nothing rather than show a
   // dead control the operator cannot act on.
