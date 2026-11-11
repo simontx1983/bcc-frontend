@@ -2049,7 +2049,8 @@ export interface LeaveHallResponse {
 // client-side (privacy gate is server-authoritative per §S / §A2):
 //   - joined          — viewer is a current member
 //   - eligible_to_join — viewer holds the gating NFT but isn't a member
-//   - opted_out       — viewer left or was mod-removed (TTL or permanent)
+//   - opted_out       — viewer left (`opt_out_kind: "left"`, may rejoin)
+//                       or was mod-removed (`"removed"`, may not)
 // ─────────────────────────────────────────────────────────────────────
 
 /**
@@ -2142,6 +2143,14 @@ export interface HolderGroupItem {
   };
   verification: GroupVerification;
   activity: GroupActivity;
+  /**
+   * F-158. Present ONLY on `opted_out` rows: `"left"` means the viewer
+   * left it themselves and an explicit Join is allowed (eligibility
+   * still applies); `"removed"` means a moderator removed them and a
+   * Join is refused. Absent (an older backend) is treated as
+   * `"removed"`, so no Join is offered.
+   */
+  opt_out_kind?: "left" | "removed";
 }
 
 /** GET /me/holder-groups — three pre-bucketed lists. */

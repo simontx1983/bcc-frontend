@@ -5,7 +5,9 @@
  * behind a `ConfirmDialog`.
  *
  * Leaving a holder group starts a 90-day cooldown before the group is
- * suggested again, so the click alone must not fire the request. Three
+ * suggested (auto-joined) again, so the click alone must not fire the
+ * request. An explicit rejoin is allowed straight away (F-158); only a
+ * moderator removal blocks it. Three
  * surfaces leave holder groups (the group-detail strip, /settings/
  * communities and the profile Groups tab); each used to bind
  * `useLeaveHolderGroupMutation` to a bare `GroupActionButton`. This is
@@ -30,7 +32,7 @@ import type { BccApiError } from "@/lib/api/types";
 
 export const HOLDER_LEAVE_CONFIRM_COPY = {
   title: "Leave this community?",
-  body: "You'll stop seeing its posts. Leaving starts a 90-day cooldown before this community is suggested to you again.",
+  body: "You'll stop seeing its posts. Leaving starts a 90-day cooldown before this community is suggested to you again, but you can rejoin any time while you hold the NFT.",
   confirmLabel: "LEAVE",
   cancelLabel: "STAY",
 } as const;
