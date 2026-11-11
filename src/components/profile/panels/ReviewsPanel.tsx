@@ -17,7 +17,7 @@
 import { type ReactNode, useState } from "react";
 
 import { useUserReviews } from "@/hooks/useUserActivity";
-import { LoadFailure } from "@/components/ui/LoadFailure";
+import { ProfileReadFailure } from "@/components/profile/ProfilePrivateNotice";
 import { humanizeCode, isPermissionDenial } from "@/lib/api/errors";
 import type { MemberReview } from "@/lib/api/types";
 
@@ -46,7 +46,8 @@ export function ReviewsPanel({ handle }: ReviewsPanelProps) {
   }
 
   const failure = query.isError ? (
-    <LoadFailure
+    <ProfileReadFailure
+      error={query.error}
       surface="paper"
       /* §γ — copy is keyed on err.code; never render err.message. */
       message={humanizeCode(

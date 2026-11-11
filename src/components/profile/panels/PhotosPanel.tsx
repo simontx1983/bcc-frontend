@@ -38,7 +38,7 @@ import {
   useUserActivity,
   useUserAlbums,
 } from "@/hooks/useUserActivity";
-import { LoadFailure } from "@/components/ui/LoadFailure";
+import { ProfileReadFailure } from "@/components/profile/ProfilePrivateNotice";
 import { humanizeCode, isPermissionDenial } from "@/lib/api/errors";
 import {
   shouldWithdrawOnDenial,
@@ -206,7 +206,7 @@ function SubTabStrip({
 function AllPhotos({ handle, isOwner }: { handle: string; isOwner: boolean }) {
   const gate = useDenialGate([...USER_ACTIVITY_QUERY_KEY_ROOT, handle]);
   if (gate.withdrawn) {
-    return <LoadFailure surface="paper" message={PHOTOS_WITHDRAWN_COPY} />;
+    return <ProfileReadFailure error={gate.cause} surface="paper" message={PHOTOS_WITHDRAWN_COPY} />;
   }
   return <AllPhotosData handle={handle} isOwner={isOwner} onDenied={gate.withdraw} />;
 }
@@ -218,7 +218,7 @@ function AllPhotosData({
 }: {
   handle: string;
   isOwner: boolean;
-  onDenied: () => void;
+  onDenied: (cause?: unknown) => void;
 }) {
   const query = useUserActivity(handle);
 
@@ -227,6 +227,7 @@ function AllPhotosData({
   useReportDenial(
     shouldWithdrawOnDenial(query.error, query.isRefetchError, query.data !== undefined),
     onDenied,
+    query.error,
   );
 
   // §γ — copy is keyed on err.code; never render err.message.
@@ -277,7 +278,7 @@ function AllPhotosData({
   //                          page instead of refreshing.
   if (query.isLoadingError) {
     return (
-      <LoadFailure surface="paper" message={failureCopy} {...refetchProps} />
+      <ProfileReadFailure error={query.error} surface="paper" message={failureCopy} {...refetchProps} />
     );
   }
 
@@ -339,7 +340,7 @@ function AllPhotosData({
           not one cursor, so the next page would be refused too and LOAD
           MORE is withdrawn there as well — see the paging branch below. */}
       {query.isRefetchError && (
-        <LoadFailure surface="paper" message={failureCopy} {...refetchProps} />
+        <ProfileReadFailure error={query.error} surface="paper" message={failureCopy} {...refetchProps} />
       )}
 
       {/* Cursor safety: while the NEXT cursor is failed, LOAD MORE is
@@ -348,7 +349,7 @@ function AllPhotosData({
           ordinary paging returns once the query is progressing again and
           there is still a next page. */}
       {query.isFetchNextPageError ? (
-        <LoadFailure surface="paper" message={failureCopy} {...nextPageProps} />
+        <ProfileReadFailure error={query.error} surface="paper" message={failureCopy} {...nextPageProps} />
       ) : (
         query.hasNextPage &&
         !denied && (
@@ -518,7 +519,7 @@ function AlbumsGrid(props: {
 }) {
   const gate = useDenialGate([...USER_ALBUMS_QUERY_KEY_ROOT, props.handle]);
   if (gate.withdrawn) {
-    return <LoadFailure surface="paper" message={ALBUMS_WITHDRAWN_COPY} />;
+    return <ProfileReadFailure error={gate.cause} surface="paper" message={ALBUMS_WITHDRAWN_COPY} />;
   }
   return <AlbumsGridData {...props} onDenied={gate.withdraw} />;
 }
@@ -532,7 +533,7 @@ function AlbumsGridData({
   handle: string;
   isOwner: boolean;
   onOpen: (album: UserAlbum) => void;
-  onDenied: () => void;
+  onDenied: (cause?: unknown) => void;
 }) {
   const query = useUserAlbums(handle);
 
@@ -541,6 +542,7 @@ function AlbumsGridData({
   useReportDenial(
     shouldWithdrawOnDenial(query.error, true, query.data !== undefined),
     onDenied,
+    query.error,
   );
 
   if (query.isPending) {
@@ -582,7 +584,7 @@ function AlbumsGridData({
   // Whole-panel failure therefore only when nothing was ever loaded.
   if (query.isError && query.data === undefined) {
     return (
-      <LoadFailure surface="paper" message={failureCopy} {...retryProps} />
+      <ProfileReadFailure error={query.error} surface="paper" message={failureCopy} {...retryProps} />
     );
   }
 
@@ -606,7 +608,7 @@ function AlbumsGridData({
       {/* A failed refresh keeps the loaded shelf and localises the
           recovery beneath it. */}
       {query.isError && (
-        <LoadFailure surface="paper" message={failureCopy} {...retryProps} />
+        <ProfileReadFailure error={query.error} surface="paper" message={failureCopy} {...retryProps} />
       )}
     </div>
   );
@@ -705,7 +707,7 @@ function AlbumDetail(props: {
       <div className="px-5 py-5">
         <AlbumDetailHeader album={props.album} onBack={props.onBack} />
         <div className="mt-6">
-          <LoadFailure surface="paper" message={ALBUM_WITHDRAWN_COPY} />
+          <ProfileReadFailure error={gate.cause} surface="paper" message={ALBUM_WITHDRAWN_COPY} />
         </div>
       </div>
     );
@@ -722,7 +724,7 @@ function AlbumDetailData({
   handle: string;
   album: UserAlbum;
   onBack: () => void;
-  onDenied: () => void;
+  onDenied: (cause?: unknown) => void;
 }) {
   const query = useAlbumPhotos(handle, album.id);
 
@@ -730,6 +732,7 @@ function AlbumDetailData({
   useReportDenial(
     shouldWithdrawOnDenial(query.error, true, query.data !== undefined),
     onDenied,
+    query.error,
   );
 
   return (
@@ -750,7 +753,8 @@ function AlbumDetailData({
           case, and the loaded photos stay on screen. */}
       {query.isError && (
         <div className="mt-6">
-          <LoadFailure
+          <ProfileReadFailure
+            error={query.error}
             surface="paper"
             /* §γ — copy is keyed on err.code; never render err.message. */
             message={humanizeCode(

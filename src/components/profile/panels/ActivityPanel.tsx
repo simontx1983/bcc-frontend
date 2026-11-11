@@ -25,8 +25,8 @@
 import { Composer } from "@/components/composer/Composer";
 import { FeedItemCard } from "@/components/feed/FeedItemCard";
 import { LivingHeader } from "@/components/profile/LivingHeader";
+import { ProfileReadFailure } from "@/components/profile/ProfilePrivateNotice";
 import { USER_ACTIVITY_QUERY_KEY_ROOT, useUserActivity } from "@/hooks/useUserActivity";
-import { LoadFailure } from "@/components/ui/LoadFailure";
 import { humanizeCode, isPermissionDenial } from "@/lib/api/errors";
 import {
   shouldWithdrawOnDenial,
@@ -59,7 +59,7 @@ export function ActivityPanel(props: ActivityPanelProps) {
   if (gate.withdrawn) {
     return (
       <div className="py-8">
-        <LoadFailure message={WALL_WITHDRAWN_COPY} />
+        <ProfileReadFailure error={gate.cause} message={WALL_WITHDRAWN_COPY} />
       </div>
     );
   }
@@ -73,7 +73,7 @@ function ActivityPanelData({
   living,
   progression,
   onDenied,
-}: ActivityPanelProps & { onDenied: () => void }) {
+}: ActivityPanelProps & { onDenied: (cause?: unknown) => void }) {
   const query = useUserActivity(handle);
 
   // A denied REFRESH of the rows already on screen withdraws them. A denied
@@ -81,6 +81,7 @@ function ActivityPanelData({
   useReportDenial(
     shouldWithdrawOnDenial(query.error, query.isRefetchError, query.data !== undefined),
     onDenied,
+    query.error,
   );
 
   // §γ — copy is keyed on err.code; never render err.message.
@@ -147,7 +148,7 @@ function ActivityPanelData({
   if (query.isLoadingError) {
     return (
       <div className="py-8">
-        <LoadFailure message={failureCopy} {...refetchProps} />
+        <ProfileReadFailure error={query.error} message={failureCopy} {...refetchProps} />
       </div>
     );
   }
@@ -200,7 +201,7 @@ function ActivityPanelData({
           not one cursor, so the next page would be refused too. LOAD MORE
           is withdrawn there as well — see the paging branch below. */}
       {query.isRefetchError && (
-        <LoadFailure message={failureCopy} {...refetchProps} />
+        <ProfileReadFailure error={query.error} message={failureCopy} {...refetchProps} />
       )}
 
       {/* Cursor safety: while the NEXT cursor is failed, LOAD MORE is
@@ -208,7 +209,7 @@ function ActivityPanelData({
           failed. Retry resumes that same cursor via fetchNextPage();
           ordinary paging returns once the query is progressing again. */}
       {query.isFetchNextPageError ? (
-        <LoadFailure message={failureCopy} {...nextPageProps} />
+        <ProfileReadFailure error={query.error} message={failureCopy} {...nextPageProps} />
       ) : (
         query.hasNextPage &&
         !denied && (

@@ -22,6 +22,7 @@ import { OperatorMark } from "@/components/identity/OperatorMark";
 import { RankChip } from "@/components/profile/RankChip";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { useUser } from "@/hooks/useUser";
+import { isProfilePrivate } from "@/lib/api/errors";
 import type {
   AuthorVouchPermission,
   ReputationTier,
@@ -69,7 +70,10 @@ export function AuthorCard({
   enabled = true,
   onOpenRankInfo,
 }: AuthorCardProps) {
-  const { data: profile, isLoading } = useUser(handle, { enabled });
+  const { data: profile, isLoading, error } = useUser(handle, { enabled });
+  // The owner's profile is private (v1.91): bio and counts are withheld, so
+  // say so instead of the "no bio yet" filler, which would be a guess.
+  const isPrivate = isProfilePrivate(error);
   const loadingProfile = isLoading && profile === undefined;
 
   // Prefer the caller's pre-resolved fields (feed byline has them); fall
@@ -186,6 +190,10 @@ export function AuthorCard({
               <Skeleton className="h-2 w-3/4" />
             </span>
           </div>
+        ) : isPrivate ? (
+          <p className="bcc-mono text-[11px] tracking-[0.14em] text-[var(--bcc-text-secondary)]">
+            Private profile
+          </p>
         ) : bio !== "" ? (
           <p className="line-clamp-3 font-serif text-[13px] leading-snug text-[var(--bcc-text)]">
             {bio}

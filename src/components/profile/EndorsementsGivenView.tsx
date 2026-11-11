@@ -23,7 +23,9 @@
  * No tier classification, no scoring math on the client.
  */
 
+import { ProfilePrivateNotice } from "@/components/profile/ProfilePrivateNotice";
 import { useUserEndorsements } from "@/hooks/useUserActivity";
+import { isProfilePrivate } from "@/lib/api/errors";
 import type { UserEndorsementItem } from "@/lib/api/types";
 import { formatRelativeTime } from "@/lib/format";
 
@@ -32,8 +34,14 @@ interface EndorsementsGivenViewProps {
 }
 
 export function EndorsementsGivenView({ handle }: EndorsementsGivenViewProps) {
-  const { data } = useUserEndorsements(handle);
+  const { data, error } = useUserEndorsements(handle);
   const items = data?.items ?? [];
+
+  // The owner's profile is private (v1.91). The empty state below would
+  // claim "hasn't vouched for any pages yet", which is not what we know.
+  if (isProfilePrivate(error)) {
+    return <ProfilePrivateNotice />;
+  }
 
   // Match AttestationRoster pattern: render the same empty-state block
   // during the initial fetch window AND when the server returns zero

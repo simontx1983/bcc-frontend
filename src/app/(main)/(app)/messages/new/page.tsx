@@ -49,7 +49,7 @@ import { Avatar } from "@/components/identity/Avatar";
 import { useCardEntity } from "@/hooks/useCardEntity";
 import { useMembers } from "@/hooks/useMembers";
 import { useStartConversationMutation } from "@/hooks/useStartConversation";
-import { humanizeCode } from "@/lib/api/errors";
+import { humanizeCode, isProfilePrivate } from "@/lib/api/errors";
 import {
   MESSAGE_BODY_MAX_LENGTH,
   type Card,
@@ -325,6 +325,18 @@ function NewMessagePageContent() {
                     },
                     "Couldn't load that validator. Pick a recipient instead.",
                   )}
+                </p>
+              )}
+
+              {/* A pinned member whose profile is private (v1.91). Not a
+                  failure, so no alert and no retry: the picker below is
+                  the way forward, as it already is for any unresolved pin. */}
+              {wantsUserPin && isProfilePrivate(pinnedUserQuery.error) && (
+                <p
+                  role="status"
+                  className="bcc-mono text-[10px] tracking-[0.16em] text-bcc-text-secondary"
+                >
+                  Private profile. Pick a recipient instead.
                 </p>
               )}
 

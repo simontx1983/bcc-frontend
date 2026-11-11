@@ -17,7 +17,17 @@
 import { bccFetchAsClient } from "@/lib/api/client";
 import type { MentorEligibilityReason } from "@/lib/api/types";
 
-export type ProfileVisibility = "public" | "members" | "private";
+/**
+ * Who can see the profile, on PeepSo's own ladder (contract v1.91):
+ * `public` 10 · `members` 20 · `friends` 30 · `private` 40. `friends` means
+ * the PeepSo friends list (mutual, request-and-accept), not BCC followers.
+ */
+export type ProfileVisibility = "public" | "members" | "friends" | "private";
+/**
+ * Default audience for new wall posts. Deliberately keeps three tokens —
+ * the contract did not add `friends` here (v1.91 §4 `/me/profile-prefs`).
+ */
+export type PostAudience = "public" | "members" | "private";
 export type PostVisibility = "members" | "private";
 
 export interface ProfilePrefs {
@@ -33,7 +43,7 @@ export interface ProfilePrefs {
    * as the audience-picker default; PeepSo overwrites it on every post,
    * so consider this a "manual nudge" rather than a permanent override.
    */
-  default_post_audience: ProfileVisibility;
+  default_post_audience: PostAudience;
   /**
    * §21.4 (v1.62) — explicit mentor-directory opt-in. Read/write.
    * Opting in requires NO eligibility: a non-Veteran may pre-opt-in and

@@ -19,6 +19,7 @@ import {
   useUpdateProfilePrefs,
 } from "@/hooks/useProfilePrefs";
 import type {
+  PostAudience,
   ProfilePrefs,
   ProfileVisibility,
   PostVisibility,
@@ -61,6 +62,11 @@ const PROFILE_VISIBILITY_OPTIONS: ReadonlyArray<{
     blurb: "Only signed-in community members can see your profile.",
   },
   {
+    value: "friends",
+    label: "Friends only",
+    blurb: "Only your PeepSo friends (people you've accepted as friends), not followers.",
+  },
+  {
     value: "private",
     label: "Private",
     blurb: "Only you. Your profile is hidden from everyone else.",
@@ -90,7 +96,7 @@ const POST_VISIBILITY_OPTIONS: ReadonlyArray<{
  * scoping audience for a specific post, not "who can see my profile".
  */
 const DEFAULT_POST_AUDIENCE_OPTIONS: ReadonlyArray<{
-  value: ProfileVisibility;
+  value: PostAudience;
   label: string;
   blurb: string;
 }> = [

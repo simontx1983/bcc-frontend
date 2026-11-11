@@ -210,3 +210,33 @@ describe("neither state leaks why", () => {
     },
   );
 });
+
+describe("a private profile (v1.91 profile_private)", () => {
+  it("says the profile is private, in calm copy", () => {
+    const ui = renderReason("private");
+    const status = ui.getByRole("status");
+    expect(status.textContent).toContain("This profile is private.");
+    expect(status.textContent).toContain("Only people the owner has chosen can see it.");
+    expect(status.textContent ?? "").not.toMatch(/not found|doesn't exist|try again|error/i);
+  });
+
+  it("is not an alert and carries no error colour", () => {
+    const { container } = render(<ProfileUnavailable reason="private" />);
+    expect(within(container).queryByRole("alert")).toBeNull();
+    expect(container.innerHTML).not.toContain("text-bcc-text-error");
+  });
+
+  it("offers NO retry or reload, even when the caller passes one", () => {
+    const onRetry = vi.fn();
+    const ui = renderReason("private", onRetry);
+    expect(ui.queryAllByRole("button")).toHaveLength(0);
+    expect(ui.queryByTestId("profile-reload-warning")).toBeNull();
+    expect(onRetry).not.toHaveBeenCalled();
+  });
+
+  it("keeps the exits", () => {
+    const ui = renderReason("private");
+    const nav = ui.getByRole("navigation", { name: /where to go instead/i });
+    expect(within(nav).getAllByRole("link").length).toBeGreaterThan(0);
+  });
+});

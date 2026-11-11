@@ -53,7 +53,8 @@ import { Avatar } from "@/components/identity/Avatar";
 import { useUserFollowers, useUserFollowing } from "@/hooks/useUserActivity";
 import { ROSTER_TAB_COPY } from "@/lib/copy/trust-layer";
 import { LoadFailure } from "@/components/ui/LoadFailure";
-import { humanizeCode } from "@/lib/api/errors";
+import { humanizeCode, isProfilePrivate } from "@/lib/api/errors";
+import { ProfilePrivateNotice } from "@/components/profile/ProfilePrivateNotice";
 import type { BccApiError, Card, UserFollowsResponse } from "@/lib/api/types";
 
 /** Which side of the follow graph this panel renders. */
@@ -283,6 +284,13 @@ function RosterList(props: RosterListProps) {
 
   const { query, offset } = props;
   const queryError = query.error;
+
+  // The owner's WHOLE profile is private (v1.91 `profile_private`). Checked
+  // first, as the server does, so a private profile never reveals whether
+  // its follow lists are also hidden — and it wins over rows already read.
+  if (query.isError && isProfilePrivate(queryError)) {
+    return <ProfilePrivateNotice surface="paper" />;
+  }
 
   // Privacy branch — 403 bcc_permission_denied means the target has
   // watching_hidden on. Render the private empty-state, not a failure.

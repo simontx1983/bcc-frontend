@@ -46,7 +46,7 @@ import {
   USER_GROUPS_QUERY_KEY_ROOT,
   useUserGroups,
 } from "@/hooks/useUserActivity";
-import { LoadFailure } from "@/components/ui/LoadFailure";
+import { ProfileReadFailure } from "@/components/profile/ProfilePrivateNotice";
 import { humanizeCode, isPermissionDenial } from "@/lib/api/errors";
 import type { UserGroupItem } from "@/lib/api/types";
 import { isAllowed, unlockHint } from "@/lib/permissions";
@@ -70,7 +70,8 @@ export function GroupsPanel({ handle }: GroupsPanelProps) {
   }
 
   const failure = query.isError ? (
-    <LoadFailure
+    <ProfileReadFailure
+      error={query.error}
       surface="paper"
       /* §γ — copy is keyed on err.code; never render err.message. */
       message={humanizeCode(
