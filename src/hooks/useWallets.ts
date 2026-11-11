@@ -89,18 +89,25 @@ export function useLinkWalletMutation(
   });
 }
 
+/**
+ * An unlink's result plus whether the replacement bearer it returned
+ * reached the session: true stored, false the write failed, null when no
+ * token came back (removed:false, or an older backend).
+ */
+export type UnlinkWalletOutcome = UnlinkWalletResponse & { sessionRestored: boolean | null };
+
 export function useUnlinkWallet(
   options: Omit<
-    UseMutationOptions<UnlinkWalletResponse, BccApiError, number>,
+    UseMutationOptions<UnlinkWalletOutcome, BccApiError, number>,
     "mutationFn" | "onSuccess"
   > & {
-    onSuccess?: (data: UnlinkWalletResponse, walletId: number) => void;
+    onSuccess?: (data: UnlinkWalletOutcome, walletId: number) => void;
   } = {},
 ) {
   const queryClient = useQueryClient();
   const { onSuccess: callerOnSuccess, ...rest } = options;
 
-  return useMutation<UnlinkWalletResponse, BccApiError, number>({
+  return useMutation<UnlinkWalletOutcome, BccApiError, number>({
     mutationFn: async (walletId) => {
       const data = await unlinkWallet(walletId);
       // A true removal returns a replacement bearer (bcc-trust #398). With
@@ -115,9 +122,13 @@ export function useUnlinkWallet(
         data.token !== "" &&
         typeof data.expires_in === "number"
       ) {
-        await updateSessionBearer({ token: data.token, expiresIn: data.expires_in });
+        const sessionRestored = await updateSessionBearer({
+          token: data.token,
+          expiresIn: data.expires_in,
+        });
+        return { ...data, sessionRestored };
       }
-      return data;
+      return { ...data, sessionRestored: null };
     },
     onSuccess: (data, walletId) => {
       void queryClient.invalidateQueries({ queryKey: MY_WALLETS_QUERY_KEY });

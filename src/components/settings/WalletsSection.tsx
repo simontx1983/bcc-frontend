@@ -44,11 +44,18 @@ import {
 import { walletHintFor } from "@/lib/wallet/dispatch";
 import { humanizeLinkError, runLinkFlow } from "@/lib/wallet/linkFlow";
 import { CollectionStancePanel } from "@/components/onchain/CollectionStancePanel";
+import {
+  RECOVERY_EMAIL_SESSION_LOST,
+  SessionWriteFailedNotice,
+  UNLINK_SESSION_UNCERTAIN,
+} from "@/components/auth/SessionWriteFailedNotice";
 
 export function WalletsSection() {
   const wallets = useMyWallets();
   const [confirmingId, setConfirmingId] = useState<number | null>(null);
   const [errorText, setErrorText] = useState<string | null>(null);
+  // The unlink worked but its replacement bearer didn't reach the session.
+  const [unlinkSessionDoubt, setUnlinkSessionDoubt] = useState(false);
 
   // One ref per row's Unlink trigger. Cancelling the dialog must return
   // focus to the exact wallet the user opened it from, not merely "a"
@@ -102,8 +109,9 @@ export function WalletsSection() {
   }
 
   const unlink = useUnlinkWallet({
-    onSuccess: () => {
+    onSuccess: (outcome) => {
       captureAnalyticsEvent("wallet_unlinked");
+      setUnlinkSessionDoubt(outcome.sessionRestored === false);
       setConfirmingId(null);
       setErrorText(null);
       // Drop any copy status: it names a wallet that is about to vanish.
@@ -140,6 +148,7 @@ export function WalletsSection() {
 
   return (
     <div className="bcc-panel flex flex-col gap-4 p-6">
+      {unlinkSessionDoubt && <SessionWriteFailedNotice message={UNLINK_SESSION_UNCERTAIN} />}
       {showRecoveryBanner && (
         <RecoveryEmailPanel
           verifiedWalletCount={verifiedWalletCount}
@@ -519,6 +528,7 @@ function RecoveryEmailForm({
   const [maskedEmail, setMaskedEmail] = useState<string | null>(null);
   const [code, setCode] = useState("");
   const [done, setDone] = useState<string | null>(null);
+  const [sessionLost, setSessionLost] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const request = useRequestRecoveryEmail({
@@ -535,6 +545,7 @@ function RecoveryEmailForm({
       // The query invalidation in the hook clears the banner; show a
       // brief confirmation in case the unmount is delayed by a refetch.
       setDone(data.email);
+      setSessionLost(data.sessionRestored === false);
     },
     onError: (err) => setError(humanizeRecoveryError(err)),
   });
@@ -584,6 +595,7 @@ function RecoveryEmailForm({
         >
           Recovery email confirmed: {done}
         </p>
+        {sessionLost && <SessionWriteFailedNotice message={RECOVERY_EMAIL_SESSION_LOST} />}
       </div>
     );
   }

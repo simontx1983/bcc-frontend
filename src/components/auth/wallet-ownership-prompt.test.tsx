@@ -127,13 +127,26 @@ describe("useUnlinkWallet — stores the replacement bearer", () => {
   it.each([
     ["removed:false (foreign or gone id)", { ok: true, id: 5, removed: false }],
     ["an older backend with no token", { ok: true, id: 5, removed: true }],
-  ])("stores nothing for %s", async (_l, resp) => {
+  ])("stores nothing for %s, and reports sessionRestored: null", async (_l, resp) => {
     api.unlinkWallet.mockResolvedValue(resp);
     const { result } = renderHook(() => useUnlinkWallet(), { wrapper: wrap });
+    let outcome: { sessionRestored: boolean | null } | undefined;
     await act(async () => {
-      await result.current.mutateAsync(5);
+      outcome = await result.current.mutateAsync(5);
     });
     expect(api.updateSessionBearer).not.toHaveBeenCalled();
+    expect(outcome?.sessionRestored).toBeNull();
+  });
+
+  it("reports sessionRestored: false when the session write fails", async () => {
+    api.unlinkWallet.mockResolvedValue({ ok: true, id: 5, removed: true, token: "t", expires_in: 60, token_type: "Bearer" });
+    api.updateSessionBearer.mockResolvedValue(false);
+    const { result } = renderHook(() => useUnlinkWallet(), { wrapper: wrap });
+    let outcome: { sessionRestored: boolean | null } | undefined;
+    await act(async () => {
+      outcome = await result.current.mutateAsync(5);
+    });
+    expect(outcome?.sessionRestored).toBe(false);
   });
 });
 
@@ -160,6 +173,20 @@ describe("WalletOwnershipPrompt", () => {
     fireEvent.click(within(dialog).getByRole("button", { name: "Remove wallet" }));
     await waitFor(() => expect(api.unlinkWallet).toHaveBeenCalledWith(5));
     expect(await screen.findByText("No wallets are linked to this account now.")).toBeInTheDocument();
+  });
+
+  it("a removal whose session write fails says so, with a Sign in again button", async () => {
+    api.getMyWallets.mockResolvedValueOnce(walletsResponse([wallet(5, "Ethereum")]));
+    api.getMyWallets.mockResolvedValue(walletsResponse([]));
+    api.unlinkWallet.mockResolvedValue({ ok: true, id: 5, removed: true, token: "t", expires_in: 60, token_type: "Bearer" });
+    api.updateSessionBearer.mockResolvedValue(false);
+    renderPrompt();
+
+    fireEvent.click(await screen.findByRole("button", { name: /Not mine/ }));
+    const dialog = screen.getByRole("dialog", { name: "Remove this wallet?" });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Remove wallet" }));
+    expect(await screen.findByText(/couldn't refresh this device's sign-in/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Sign in again" })).toBeInTheDocument();
   });
 
   it("'It's mine. Continue' continues without removing anything", async () => {

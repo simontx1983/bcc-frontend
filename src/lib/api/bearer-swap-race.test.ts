@@ -39,6 +39,7 @@ import {
   __resetPendingBearerForTests,
   notePendingBearer,
   pendingBearer,
+  rememberSessionBearer,
 } from "@/lib/auth/current-bearer";
 import { BccApiError } from "@/lib/api/types";
 
@@ -114,7 +115,9 @@ describe("bccFetchAsClient — bearer swapped mid-flight", () => {
   it("a pending replacement in this tab is sent straight away, before the session write lands", async () => {
     const s = server();
     getSession.mockResolvedValue(session(OLD));
-    notePendingBearer(NEW, 3600);
+    // A page load has already read the session in this epoch.
+    rememberSessionBearer(OLD);
+    expect(notePendingBearer(NEW, 3600)).toBe(true);
 
     await expect(bccFetchAsClient("me/badges")).resolves.toEqual({ ok: true });
     expect(s.seen).toEqual([NEW]);
@@ -228,6 +231,11 @@ describe("a swap-retry never crosses to another viewer (review M1/L1/L2)", () =>
     await expect(bccFetchAsClient("me/badges")).rejects.toBeInstanceOf(BccApiError);
     expect(s.seen).toEqual([PENDING]);
     expect(s.seen).not.toContain(NEW);
+  });
+
+  it("notePendingBearer refuses when no session bearer has been read in this epoch", () => {
+    expect(notePendingBearer(NEW, 3600)).toBe(false);
+    expect(pendingBearer()).toBeNull();
   });
 
   it("notePendingBearer refuses another account's token, or one older than the session's", async () => {

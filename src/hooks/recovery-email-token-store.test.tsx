@@ -63,6 +63,19 @@ describe("useVerifyRecoveryEmail — replacement bearer", () => {
     expect(api.order).toContain("invalidate");
   });
 
+  it("reports sessionRestored: false when the session write fails", async () => {
+    api.verifyRecoveryEmail.mockResolvedValue({
+      ok: true, email: "me@example.com", token: "fresh", expires_in: 604800, token_type: "Bearer",
+    });
+    api.updateSessionBearer.mockResolvedValue(false);
+    const { result } = renderHook(() => useVerifyRecoveryEmail(), { wrapper: wrap });
+    let outcome: { sessionRestored: boolean | null } | undefined;
+    await act(async () => {
+      outcome = await result.current.mutateAsync("123456");
+    });
+    expect(outcome?.sessionRestored).toBe(false);
+  });
+
   it("an older backend with no token stores nothing and still succeeds", async () => {
     api.verifyRecoveryEmail.mockResolvedValue({ ok: true, email: "me@example.com" });
     const { result } = renderHook(() => useVerifyRecoveryEmail(), { wrapper: wrap });
