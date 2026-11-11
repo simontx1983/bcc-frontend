@@ -100,6 +100,17 @@ const CLICK_ID_KEYS: ReadonlySet<string> = new Set([
 export const CAMPAIGN_VALUE_MAX = 100;
 
 /**
+ * A kept link-tag value, or null to drop it. Values containing "@" are
+ * dropped outright: a tag is free text anyone can put in a link, and "@"
+ * is the tell of an email address pasted into one.
+ */
+export function keptCampaignValue(value: string): string | null {
+  const v = value.trim();
+  if (v === "" || v.includes("@")) return null;
+  return v.slice(0, CAMPAIGN_VALUE_MAX);
+}
+
+/**
  * The allowlisted link tags in a query string (`?utm_source=x&…`), capped,
  * for attaching to events BEFORE the URL is stripped. Empty values and
  * every non-allowlisted key are ignored.
@@ -114,9 +125,8 @@ export function pickCampaignParams(search: string): Record<string, string> {
   }
   for (const key of KEPT_CAMPAIGN_KEYS) {
     const value = params.get(key);
-    if (value !== null && value.trim() !== "") {
-      out[key] = value.trim().slice(0, CAMPAIGN_VALUE_MAX);
-    }
+    const kept = value === null ? null : keptCampaignValue(value);
+    if (kept !== null) out[key] = kept;
   }
   return out;
 }
@@ -254,7 +264,12 @@ function sanitiseProperties(
     if (campaign !== null) {
       // Allowlist: anything not kept is dropped. Kept values are capped.
       if (!KEPT_CAMPAIGN_KEYS.has(campaign)) continue;
-      out[key] = typeof value === "string" ? value.slice(0, CAMPAIGN_VALUE_MAX) : value;
+      if (typeof value === "string") {
+        const kept = keptCampaignValue(value);
+        if (kept !== null) out[key] = kept;
+      } else {
+        out[key] = value;
+      }
     } else if (key.startsWith("$exception")) {
       // Messages, stack frames and source URLs can quote a URL verbatim.
       out[key] = scrubDeep(value);

@@ -209,7 +209,11 @@ export default function PrivacyPage() {
           addresses are sent without their query string or fragment, with
           person identifiers replaced as above, and nothing is sent from
           sign-in, sign-up completion, password-reset, email-verification or
-          messaging pages.
+          messaging pages. Along with the page address, Vercel records the
+          referring site, and derives your country, browser, operating system
+          and device type from the request. Visitors are counted with an
+          identifier that resets every day; Vercel does not store your IP
+          address.
         </LegalP>
         <div id="analytics-choice" className="mt-4">
           <AnalyticsConsentControl />

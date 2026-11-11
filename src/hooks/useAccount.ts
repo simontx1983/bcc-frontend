@@ -23,6 +23,7 @@ import {
   setPendingAuthNotice,
 } from "@/lib/auth/session-boundary";
 import { updateSessionBearer } from "@/lib/auth/session-update";
+import { reRegisterCurrentPushSubscription } from "@/lib/push/re-register";
 import {
   keepPreviousData,
   useMutation,
@@ -205,6 +206,15 @@ export function useChangeAccountPassword(
       // actionable even though a plain sign-out notice would have done.
       // A more specific reason — a suspension, say — still wins outright;
       // `landingUrl` lets a parked slug outrank only the generic slug.
+
+      // The server deleted every push subscription with the password
+      // change, this device's included. Put this device's back, but only
+      // when the new bearer reached the session (otherwise the request
+      // would carry a revoked token). Best-effort and not awaited: it
+      // never prompts, never throws, and cannot change this outcome.
+      if (sessionRestored) {
+        void reRegisterCurrentPushSubscription();
+      }
 
       return { passwordChanged: true, sessionRestored };
     },
