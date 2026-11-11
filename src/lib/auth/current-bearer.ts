@@ -69,7 +69,12 @@ export function notePendingBearer(token: string, expiresIn: number): boolean {
     lastSessionBearer !== null && !isStaleEpoch(lastSessionBearer.epoch)
       ? lastSessionBearer.token
       : null;
-  if (known !== null && bearerFailsConsistencyCheck(token, known)) return false;
+  // No session bearer read yet for this viewer: nothing to prove the new
+  // token belongs to them, so don't override the session early. Every
+  // caller today runs after a client request has read the session; the
+  // session write itself still runs and has its own confirm.
+  if (known === null) return false;
+  if (bearerFailsConsistencyCheck(token, known)) return false;
   pending = {
     token,
     epoch: currentViewerEpoch(),

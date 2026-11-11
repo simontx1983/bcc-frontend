@@ -87,27 +87,41 @@ export function useRequestRecoveryEmail(
  * query (clears the recovery banner) + the user view-model (profile
  * badges). Caller `onSuccess` still fires after the invalidations.
  */
+/**
+ * The confirm's result plus whether the replacement bearer reached the
+ * session: true stored, false the write failed (the old bearer is
+ * already revoked, so this device must sign in again), null when no
+ * token came back (an older backend).
+ */
+export type VerifyRecoveryEmailOutcome = VerifyRecoveryEmailResponse & {
+  sessionRestored: boolean | null;
+};
+
 export function useVerifyRecoveryEmail(
   options: Omit<
-    UseMutationOptions<VerifyRecoveryEmailResponse, BccApiError, string>,
+    UseMutationOptions<VerifyRecoveryEmailOutcome, BccApiError, string>,
     "mutationFn" | "onSuccess"
   > & {
-    onSuccess?: (data: VerifyRecoveryEmailResponse, code: string) => void;
+    onSuccess?: (data: VerifyRecoveryEmailOutcome, code: string) => void;
   } = {},
 ) {
   const queryClient = useQueryClient();
   const { onSuccess: callerOnSuccess, ...rest } = options;
 
-  return useMutation<VerifyRecoveryEmailResponse, BccApiError, string>({
+  return useMutation<VerifyRecoveryEmailOutcome, BccApiError, string>({
     mutationFn: async (code) => {
       const data = await verifyRecoveryEmail({ code });
       // The confirm revokes the old bearer and returns a replacement.
       // Store it BEFORE anything refetches (same order as the email-change
       // confirm); the pending-bearer seam covers in-flight requests.
       if (typeof data.token === "string" && data.token !== "" && typeof data.expires_in === "number") {
-        await updateSessionBearer({ token: data.token, expiresIn: data.expires_in });
+        const sessionRestored = await updateSessionBearer({
+          token: data.token,
+          expiresIn: data.expires_in,
+        });
+        return { ...data, sessionRestored };
       }
-      return data;
+      return { ...data, sessionRestored: null };
     },
     onSuccess: (data, code) => {
       void queryClient.invalidateQueries({ queryKey: MY_WALLETS_QUERY_KEY });

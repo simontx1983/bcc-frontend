@@ -21,6 +21,10 @@
 import { useState } from "react";
 
 import { AuthCard } from "@/components/auth/AuthCard";
+import {
+  SessionWriteFailedNotice,
+  UNLINK_SESSION_UNCERTAIN,
+} from "@/components/auth/SessionWriteFailedNotice";
 import { humanizeUnlinkError } from "@/components/settings/WalletsSection";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useMyWallets, useUnlinkWallet } from "@/hooks/useWallets";
@@ -35,12 +39,14 @@ export function WalletOwnershipPrompt({ onDone }: WalletOwnershipPromptProps) {
   const [confirmingId, setConfirmingId] = useState<number | null>(null);
   const [errorText, setErrorText] = useState<string | null>(null);
   const [removedCount, setRemovedCount] = useState(0);
+  const [sessionDoubt, setSessionDoubt] = useState(false);
 
   const unlink = useUnlinkWallet({
-    onSuccess: () => {
+    onSuccess: (outcome) => {
       setConfirmingId(null);
       setErrorText(null);
       setRemovedCount((n) => n + 1);
+      if (outcome.sessionRestored === false) setSessionDoubt(true);
     },
     // Keep the dialog open on failure, with the reason and a retry.
     onError: (err) => {
@@ -89,6 +95,7 @@ export function WalletOwnershipPrompt({ onDone }: WalletOwnershipPromptProps) {
             : "No wallets are linked to this account."
         }
       >
+        {sessionDoubt && <SessionWriteFailedNotice message={UNLINK_SESSION_UNCERTAIN} />}
         {continueButton("Continue")}
       </AuthCard>
     );
@@ -105,6 +112,7 @@ export function WalletOwnershipPrompt({ onDone }: WalletOwnershipPromptProps) {
           : "This account has a wallet linked. If you don't recognise it, remove it, so it can't be used to sign in to your account."
       }
     >
+      {sessionDoubt && <SessionWriteFailedNotice message={UNLINK_SESSION_UNCERTAIN} />}
       <ul className="flex flex-col gap-2" aria-label="Linked wallets">
         {items.map((w) => {
           const chainLabel = w.chain_name || w.chain_slug;
