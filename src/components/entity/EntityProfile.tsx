@@ -54,6 +54,7 @@ import type {
   OnchainSignals,
 } from "@/lib/api/types";
 import { isAllowed, unlockHint } from "@/lib/permissions";
+import { isNeverClaimedValidator } from "@/lib/validators/messaging";
 
 /**
  * Map the FE's CardKind to the §J entity tab namespace
@@ -247,15 +248,21 @@ export function EntityProfile({
                   </p>
                 )}
 
-              <AttestationActionCluster
-                targetKind={targetKind}
-                targetId={card.id}
-                canVouch={card.permissions.can_vouch}
-                canStandBehind={card.permissions.can_stand_behind}
-                canReport={card.permissions.can_report}
-                viewerAttestation={card.viewer_attestation}
-                viewerHasEndorsed={card.viewer_has_endorsed}
-              />
+              {/* Never-claimed validator (messaging.destination "queue",
+                  NOT is_claimed): no operator behind the page, so Vouch,
+                  Back and Report are not offered. Watch and the Message
+                  CTA below stay. */}
+              {!isNeverClaimedValidator(card) && (
+                <AttestationActionCluster
+                  targetKind={targetKind}
+                  targetId={card.id}
+                  canVouch={card.permissions.can_vouch}
+                  canStandBehind={card.permissions.can_stand_behind}
+                  canReport={card.permissions.can_report}
+                  viewerAttestation={card.viewer_attestation}
+                  viewerHasEndorsed={card.viewer_has_endorsed}
+                />
+              )}
 
               {/* Validator surfaces only — project/creator pages have no
                   operator-inbox / unclaimed-queue routing behind them.

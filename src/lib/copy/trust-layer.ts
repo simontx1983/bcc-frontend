@@ -99,6 +99,13 @@ export const ATTESTATION_COPY = {
    * follow-graph tab label on the same tab strip.
    */
   supporters_tab: "Supporters",
+  /**
+   * A vouch/back CAST against a page target that came back `bcc_not_found`
+   * — the page has no claimed operator to attest to. Page targets only;
+   * member targets keep their own not-found copy.
+   */
+  unclaimed_page_target:
+    "This page hasn't been claimed yet, so it can't be vouched for or backed.",
 } as const;
 
 /**
