@@ -127,6 +127,12 @@ describe("CommentDrawer delete", () => {
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   });
 
+  it("closing the confirm returns focus to the More actions trigger", async () => {
+    const dialog = await openDelete();
+    fireEvent.click(within(dialog).getByRole("button", { name: "CANCEL" }));
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "More actions" }));
+  });
+
   it("CANCEL sends nothing", async () => {
     const dialog = await openDelete();
     fireEvent.click(within(dialog).getByRole("button", { name: "CANCEL" }));

@@ -1374,6 +1374,7 @@ function CommentOverflowMenu({
 }) {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -1396,6 +1397,7 @@ function CommentOverflowMenu({
   return (
     <div ref={containerRef} className="relative shrink-0">
       <button
+        ref={triggerRef}
         type="button"
         onClick={(e) => {
           e.stopPropagation();
@@ -1435,6 +1437,9 @@ function CommentOverflowMenu({
               type="button"
               role="menuitem"
               onClick={() => {
+                // The menu item unmounts with the menu; put focus on the
+                // trigger first so the confirm dialog restores it there.
+                triggerRef.current?.focus();
                 setOpen(false);
                 onDelete(comment);
               }}
