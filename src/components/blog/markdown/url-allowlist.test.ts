@@ -80,6 +80,13 @@ describe("isInternalPath", () => {
     ["CR between the slashes", "/\r/evil.com"],
     ["protocol-relative (control)", "//evil.com"],
     ["slash-backslash (control)", "/\\evil.com"],
+    // Re-check on #222: dot segments collapse into the path "//evil.com",
+    // same-origin against the base but off-site once rendered.
+    ["/..//evil.com", "/..//evil.com"],
+    ["/.//evil.com", "/.//evil.com"],
+    ["/a/..//evil.com", "/a/..//evil.com"],
+    ["/%2e%2e//evil.com", "/%2e%2e//evil.com"],
+    ["/..//evil.com/x?y#z", "/..//evil.com/x?y#z"],
   ])("rejects %s", (_label, url) => {
     expect(isInternalPath(url)).toBe(false);
     expect(internalPathOf(url)).toBeNull();
@@ -91,5 +98,14 @@ describe("isInternalPath", () => {
     expect(internalPathOf("/a/../b")).toBe("/b");
     // Whitespace the browser would strip is gone from what we render.
     expect(internalPathOf("/u/\tphillip")).toBe("/u/phillip");
+  });
+
+  it("every path it returns is stable: resolving it again gives the same path", () => {
+    for (const u of ["/u/phillip", "/post/abc?x=1#y", "/a/../b", "/u/\tphillip", "/a/./b/"]) {
+      const p = internalPathOf(u);
+      expect(p).not.toBeNull();
+      expect(internalPathOf(p ?? "")).toBe(p);
+      expect(p?.startsWith("//")).toBe(false);
+    }
   });
 });

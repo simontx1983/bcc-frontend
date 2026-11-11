@@ -49,6 +49,19 @@ const INTERNAL_ORIGIN = new URL(INTERNAL_BASE).origin;
  */
 export function internalPathOf(url: string): string | null {
   if (!url.startsWith("/")) return null;
+  const path = resolveSameOrigin(url);
+  if (path === null) return null;
+  // Dot segments can collapse into a protocol-relative path that is
+  // same-origin against the base but leaves the site once rendered:
+  // `/..//evil.com` resolves to the PATH "//evil.com". Refuse any such
+  // path, and require the rendered value to be stable: resolving it
+  // again must give the same path.
+  if (/^\/[/\\]/.test(path)) return null;
+  if (resolveSameOrigin(path) !== path) return null;
+  return path;
+}
+
+function resolveSameOrigin(url: string): string | null {
   let resolved: URL;
   try {
     resolved = new URL(url, INTERNAL_BASE);
