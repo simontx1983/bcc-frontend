@@ -1,17 +1,22 @@
 /**
- * F-02 (contract v1.91) — `profile_visibility` gains `friends` (level 30).
- *
- * The ladder order is public, members, friends, private (10/20/30/40).
- * `default_post_audience` deliberately keeps its three tokens.
+ * F-02 (contract v1.91): `profile_visibility` has a `friends` level (30),
+ * but BCC has no friends screen, so nobody can have PeepSo friends.
+ * User decision: the picker offers Public, Members only and Only me; the
+ * "Friends only" option is hidden until a friends screen exists. A member
+ * already stored at `friends` is SHOWN as Only me (an empty friends list
+ * admits only the owner and admins, which is what Only me means), and the
+ * stored value is never rewritten by saving other fields.
+ * `default_post_audience` keeps its three tokens.
  */
 
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { ProfilePrefs } from "@/lib/api/profile-prefs-endpoints";
 
 const mutate = vi.fn();
-const PREFS: ProfilePrefs = {
+const state = vi.hoisted(() => ({ prefs: null as unknown }));
+const BASE: ProfilePrefs = {
   profile_visibility: "public",
   post_visibility: "members",
   hide_birthday_year: false,
@@ -21,7 +26,7 @@ const PREFS: ProfilePrefs = {
 };
 
 vi.mock("@/hooks/useProfilePrefs", () => ({
-  useProfilePrefs: () => ({ isLoading: false, isError: false, data: PREFS, error: null }),
+  useProfilePrefs: () => ({ isLoading: false, isError: false, data: state.prefs, error: null }),
   useUpdateProfilePrefs: () => ({
     mutate,
     isPending: false,
@@ -45,48 +50,45 @@ function group(name: string): HTMLInputElement[] {
 }
 
 describe("WHO CAN SEE MY PROFILE", () => {
-  it("offers four levels, in ladder order", () => {
+  it("offers Public, Members only and Only me; Friends only is absent", () => {
+    state.prefs = BASE;
     render(<ProfilePrefsSection />);
-    expect(group("profile_visibility").map((i) => i.value)).toEqual([
-      "public",
-      "members",
-      "friends",
-      "private",
-    ]);
+    expect(group("profile_visibility").map((i) => i.value)).toEqual(["public", "members", "private"]);
+    expect(screen.queryByText("Friends only")).toBeNull();
+    expect(screen.getAllByText("Only me").length).toBeGreaterThan(0);
   });
 
-  it("labels the new level 'Friends only' and says friends are not followers", () => {
+  it("a member stored at friends (30) is shown as Only me", () => {
+    state.prefs = { ...BASE, profile_visibility: "friends" };
     render(<ProfilePrefsSection />);
-    const friends = group("profile_visibility").find((i) => i.value === "friends");
-    expect(friends).toBeDefined();
-    const label = friends?.closest("label");
-    expect(label).not.toBeNull();
-    const ui = within(label as HTMLElement);
-    expect(ui.getByText("Friends only")).toBeInTheDocument();
-    expect(
-      ui.getByText(
-        "Only your PeepSo friends (people you've accepted as friends), not followers.",
-      ),
-    ).toBeInTheDocument();
+    const checked = group("profile_visibility").find((i) => i.checked);
+    expect(checked?.value).toBe("private");
   });
 
-  it("selecting it PATCHes profile_visibility: 'friends' and nothing else", () => {
+  it("saving another field never rewrites a stored friends value", () => {
+    state.prefs = { ...BASE, profile_visibility: "friends" };
     render(<ProfilePrefsSection />);
-    const friends = group("profile_visibility").find((i) => i.value === "friends");
-    fireEvent.click(friends as HTMLInputElement);
+    const search = document.querySelector<HTMLInputElement>('input[type="checkbox"]');
+    fireEvent.click(search as HTMLInputElement);
     fireEvent.click(screen.getByRole("button", { name: /save preferences/i }));
     expect(mutate).toHaveBeenCalledTimes(1);
-    expect(mutate).toHaveBeenCalledWith({ profile_visibility: "friends" });
+    const patch = mutate.mock.calls[0]?.[0] as Record<string, unknown>;
+    expect(patch).not.toHaveProperty("profile_visibility");
+  });
+
+  it("choosing Only me from public PATCHes private", () => {
+    state.prefs = BASE;
+    render(<ProfilePrefsSection />);
+    fireEvent.click(group("profile_visibility").find((i) => i.value === "private") as HTMLInputElement);
+    fireEvent.click(screen.getByRole("button", { name: /save preferences/i }));
+    expect(mutate).toHaveBeenCalledWith({ profile_visibility: "private" });
   });
 });
 
 describe("DEFAULT AUDIENCE FOR MY POSTS", () => {
-  it("still has exactly three tokens — no 'friends'", () => {
+  it("still has exactly three tokens, no friends", () => {
+    state.prefs = BASE;
     render(<ProfilePrefsSection />);
-    expect(group("default_post_audience").map((i) => i.value)).toEqual([
-      "public",
-      "members",
-      "private",
-    ]);
+    expect(group("default_post_audience").map((i) => i.value)).toEqual(["public", "members", "private"]);
   });
 });
