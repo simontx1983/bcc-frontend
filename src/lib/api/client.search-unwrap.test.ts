@@ -55,7 +55,7 @@ describe("bccSearchFetchAsClient shape tolerance", () => {
 
   it("unwraps the enveloped wire shape { data, _meta }", async () => {
     fetchMock.mockResolvedValue(
-      jsonResponse({ data: RESULTS, _meta: { version: "v1" } }),
+      jsonResponse({ data: RESULTS, _meta: { version: "v1", request_id: "req-7f3a2c" } }),
     );
 
     await expect(call()).resolves.toEqual(RESULTS);
