@@ -24,12 +24,13 @@
  *
  *   auth_required        → visible-disabled ("Sign in to send a message.")
  *   sender_chat_disabled → visible-disabled + the SERVER's unlock_hint
- *   friends_only         → visible-disabled + the SERVER's unlock_hint
  *   not_applicable       → hidden
  *   self_action_blocked  → hidden (the viewer IS the operator)
  *   messaging_unavailable→ hidden
  *   unavailable          → hidden (F-99: blocks couldn't be checked)
- *   anything else / null → hidden (structural deny, per §N7)
+ *   anything else / null → hidden (structural deny, per §N7; includes
+ *                          the legacy `friends_only`, no longer emitted
+ *                          since peepso-friends was removed)
  *
  * `messaging_unavailable` and the `unavailable` destination are
  * INFO-LEAK SHIELDS: the server returns a byte-identical payload for

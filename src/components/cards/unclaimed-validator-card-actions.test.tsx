@@ -122,24 +122,24 @@ describe("never-claimed validator card (destination queue)", () => {
     );
   });
 
-  it("friends_only: visible-disabled with the SERVER hint", () => {
+  it("sender_chat_disabled: visible-disabled with the SERVER hint", () => {
     renderBar(
       validatorCard({
         permissions: {
           can_watch: allow(),
           can_message: {
             allowed: false,
-            unlock_hint: "Only friends can message this page.",
-            reason_code: "friends_only",
+            unlock_hint: "Turn on your direct messages to send one.",
+            reason_code: "sender_chat_disabled",
           },
         },
       }),
     );
     const btn = screen.getByRole("button", { name: "Message Validator" });
-    expect(btn).toHaveAttribute("title", "Only friends can message this page.");
+    expect(btn).toHaveAttribute("title", "Turn on your direct messages to send one.");
   });
 
-  it.each(["self_action_blocked", "messaging_unavailable", "unavailable", "not_applicable"])(
+  it.each(["self_action_blocked", "messaging_unavailable", "unavailable", "not_applicable", "friends_only"])(
     "%s: hidden entirely, even with a hint",
     (code) => {
       renderBar(
