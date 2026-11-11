@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 
+import { AnalyticsConsentControl } from "@/components/analytics/AnalyticsConsentControl";
 import { LegalDoc, LegalSection, LegalP, LegalUL } from "@/components/legal/LegalDoc";
 import { LEGAL } from "@/lib/legal/config";
 
@@ -13,7 +14,7 @@ interface StorageRow {
   name: string;
   type: string;
   purpose: string;
-  category: "Strictly necessary" | "Functional";
+  category: "Strictly necessary" | "Functional" | "Analytics (opt-in)";
 }
 
 const STORAGE: StorageRow[] = [
@@ -23,6 +24,8 @@ const STORAGE: StorageRow[] = [
   { name: "Sidebar state", type: "Local storage", purpose: "Remembers whether you collapsed the navigation sidebar.", category: "Functional" },
   { name: "Fraud-check flag", type: "Session storage", purpose: "Records that this session already ran the once-per-session fraud-prevention device check, so it is not repeated.", category: "Functional" },
   { name: "Draft autosave", type: "Local storage", purpose: "Temporarily saves long-form drafts you are writing so you don't lose them.", category: "Functional" },
+  { name: "Analytics choice", type: "Local storage", purpose: "Remembers whether you allowed or declined product analytics on this browser.", category: "Functional" },
+  { name: "PostHog analytics (ph_…)", type: "Cookie and local storage", purpose: "Set only if you allow product analytics: an analytics identifier and session state used by PostHog. Cleared when you turn analytics off, apart from a small marker PostHog keeps to record that analytics is off.", category: "Analytics (opt-in)" },
 ];
 
 export default function CookiesPage() {
@@ -46,6 +49,7 @@ export default function CookiesPage() {
         <LegalUL>
           <li><strong>Strictly necessary</strong> — required for the Service to work, such as keeping you signed in and protecting requests. These cannot be switched off without breaking core functionality.</li>
           <li><strong>Functional</strong> — remember your preferences (such as theme and layout) and support security features like the once-per-session fraud check. They improve your experience but are not used to track you across sites.</li>
+          <li><strong>Analytics (opt-in)</strong> — set only if you allow product analytics, to understand how the Service is used. Nothing in this category is stored until you allow it. See section 14 of our Privacy Policy.</li>
         </LegalUL>
       </LegalSection>
 
@@ -85,7 +89,8 @@ export default function CookiesPage() {
           receive technical data when you interact with them — for example, our
           hosting and content-delivery provider, our error and performance
           monitoring provider, and single sign-on providers (Google or X) when
-          you choose to sign in with them. Their use of cookies is governed by
+          you choose to sign in with them, and our product-analytics provider
+          (PostHog) if you allow analytics. Their use of cookies is governed by
           their own policies.
         </LegalP>
       </LegalSection>
@@ -97,6 +102,12 @@ export default function CookiesPage() {
           the strictly-necessary items are required for authentication, blocking
           them may prevent you from signing in or using core features.
         </LegalP>
+        <LegalP>
+          You can allow or turn off product analytics for this browser here:
+        </LegalP>
+        <div className="mt-3">
+          <AnalyticsConsentControl />
+        </div>
       </LegalSection>
 
       <LegalSection n={6} heading="Changes">

@@ -56,3 +56,4 @@ next-env.d.ts
 
 # Playwright MCP artifacts (screenshots, console logs, snapshots)
 .playwright-mcp/
+.env.local

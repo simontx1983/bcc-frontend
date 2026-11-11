@@ -1,0 +1,184 @@
+import { createHash } from "node:crypto";
+
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+import type * as AnalyticsModule from "@/lib/analytics/posthog";
+
+const sdk = vi.hoisted(() => ({
+  init: vi.fn(),
+  capture: vi.fn(),
+  captureException: vi.fn(),
+  identify: vi.fn(),
+  reset: vi.fn(),
+  opt_in_capturing: vi.fn(),
+  opt_out_capturing: vi.fn(),
+}));
+
+vi.mock("posthog-js", () => ({ default: sdk }));
+
+type Wrapper = typeof AnalyticsModule;
+
+/** Fresh module per test: it reads env and holds init state at load. */
+async function load(configured = true): Promise<Wrapper> {
+  vi.resetModules();
+  vi.stubEnv("NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN", configured ? "phc_test" : "");
+  vi.stubEnv("NEXT_PUBLIC_POSTHOG_HOST", configured ? "https://ph.example" : "");
+  return import("@/lib/analytics/posthog");
+}
+
+const sha256 = (s: string) => createHash("sha256").update(s).digest("hex");
+
+beforeEach(() => {
+  window.localStorage.clear();
+  for (const fn of Object.values(sdk)) fn.mockReset();
+});
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
+
+describe("analytics consent", () => {
+  it("does not start the SDK or capture anything before opt-in", async () => {
+    const a = await load();
+    a.initAnalytics();
+    a.captureAnalyticsEvent("message_sent");
+    a.captureAnalyticsPageview("/feed");
+    a.captureAnalyticsException(new Error("x"));
+    await a.setAnalyticsViewer("17");
+
+    expect(sdk.init).not.toHaveBeenCalled();
+    expect(sdk.capture).not.toHaveBeenCalled();
+    expect(sdk.captureException).not.toHaveBeenCalled();
+    expect(sdk.identify).not.toHaveBeenCalled();
+  });
+
+  it("does not capture after a decline", async () => {
+    const a = await load();
+    a.setAnalyticsConsent("denied");
+    a.captureAnalyticsEvent("message_sent");
+
+    expect(window.localStorage.getItem(a.CONSENT_STORAGE_KEY)).toBe("denied");
+    expect(sdk.init).not.toHaveBeenCalled();
+    expect(sdk.capture).not.toHaveBeenCalled();
+  });
+
+  it("starts and captures after opt-in", async () => {
+    const a = await load();
+    a.setAnalyticsConsent("granted");
+    a.captureAnalyticsEvent("wallet_linked", { chain_slug: "cosmoshub" });
+
+    expect(window.localStorage.getItem(a.CONSENT_STORAGE_KEY)).toBe("granted");
+    expect(sdk.init).toHaveBeenCalledTimes(1);
+    expect(sdk.opt_in_capturing).toHaveBeenCalled();
+    expect(sdk.capture).toHaveBeenCalledWith("wallet_linked", { chain_slug: "cosmoshub" });
+  });
+
+  it("starts at load when consent was stored earlier", async () => {
+    window.localStorage.setItem("bcc-analytics-consent", "granted");
+    const a = await load();
+    a.initAnalytics();
+    expect(sdk.init).toHaveBeenCalledTimes(1);
+  });
+
+  it("stops capturing when consent is withdrawn", async () => {
+    const a = await load();
+    a.setAnalyticsConsent("granted");
+    a.setAnalyticsConsent("denied");
+    a.captureAnalyticsEvent("message_sent");
+
+    expect(sdk.reset).toHaveBeenCalled();
+    expect(sdk.opt_out_capturing).toHaveBeenCalled();
+    expect(sdk.capture).not.toHaveBeenCalled();
+  });
+
+  it("is inert when PostHog is not configured", async () => {
+    const a = await load(false);
+    expect(a.isAnalyticsConfigured).toBe(false);
+    a.setAnalyticsConsent("granted");
+    a.captureAnalyticsEvent("message_sent");
+    expect(sdk.init).not.toHaveBeenCalled();
+    expect(sdk.capture).not.toHaveBeenCalled();
+  });
+
+  it("skips page views on denied routes", async () => {
+    const a = await load();
+    a.setAnalyticsConsent("granted");
+    a.captureAnalyticsPageview("/login/two-factor");
+    a.captureAnalyticsPageview("/messages/3");
+    expect(sdk.capture).not.toHaveBeenCalled();
+    a.captureAnalyticsPageview("/feed");
+    expect(sdk.capture).toHaveBeenCalledWith("$pageview", { $pathname: "/feed" });
+  });
+});
+
+describe("analytics init options", () => {
+  it("opts out by default and turns off automatic collection", async () => {
+    const a = await load();
+    const opts = a.buildPostHogOptions(null);
+    expect(opts).toMatchObject({
+      opt_out_capturing_by_default: true,
+      persistence: "memory",
+      autocapture: false,
+      capture_pageview: false,
+      capture_pageleave: false,
+      disable_session_recording: true,
+    });
+    expect(a.buildPostHogOptions("granted").persistence).toBe("localStorage+cookie");
+  });
+
+  it("wires the sanitiser as before_send", async () => {
+    const a = await load();
+    const before = a.buildPostHogOptions("granted").before_send;
+    expect(typeof before).toBe("function");
+    if (typeof before !== "function") return;
+    expect(
+      before({
+        uuid: "u",
+        event: "$pageview",
+        properties: { $current_url: "https://bluecollarcrypto.io/login?callbackUrl=/x" },
+      }),
+    ).toBeNull();
+  });
+});
+
+describe("analytics identity", () => {
+  it("identifies with a SHA-256 of the user id and no handle, only after consent", async () => {
+    const a = await load();
+    await a.setAnalyticsViewer("17");
+    expect(sdk.identify).not.toHaveBeenCalled();
+
+    a.setAnalyticsConsent("granted");
+    await vi.waitFor(() => expect(sdk.identify).toHaveBeenCalledTimes(1));
+    expect(sdk.identify).toHaveBeenCalledWith(sha256("17"));
+    expect(sdk.identify.mock.calls[0]).toHaveLength(1);
+  });
+
+  it("hashes to lower-case hex", async () => {
+    const a = await load();
+    await expect(a.hashViewerId("17")).resolves.toBe(sha256("17"));
+  });
+
+  it("resets on a viewer switch and re-applies consent after reset", async () => {
+    const a = await load();
+    a.setAnalyticsConsent("granted");
+    await a.setAnalyticsViewer("17");
+    sdk.opt_in_capturing.mockClear();
+
+    await a.setAnalyticsViewer("18");
+    expect(sdk.reset).toHaveBeenCalledTimes(1);
+    expect(sdk.opt_in_capturing).toHaveBeenCalled();
+    expect(sdk.identify).toHaveBeenLastCalledWith(sha256("18"));
+  });
+
+  it("resets on sign-out and keeps the device's consent", async () => {
+    const a = await load();
+    a.setAnalyticsConsent("granted");
+    await a.setAnalyticsViewer("17");
+    a.resetAnalyticsIdentity();
+
+    expect(sdk.reset).toHaveBeenCalledTimes(1);
+    expect(window.localStorage.getItem(a.CONSENT_STORAGE_KEY)).toBe("granted");
+    a.captureAnalyticsEvent("message_sent");
+    expect(sdk.capture).toHaveBeenCalledWith("message_sent", undefined);
+  });
+});
