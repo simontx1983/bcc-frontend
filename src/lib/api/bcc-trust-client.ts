@@ -20,6 +20,7 @@
 import { getSession } from "next-auth/react";
 
 import { resolveAuthFailure } from "@/lib/api/client";
+import { pendingBearer, supersedingBearer } from "@/lib/auth/current-bearer";
 
 import { clientEnv } from "@/lib/env";
 import { BccApiError } from "@/lib/api/types";
@@ -45,6 +46,15 @@ export async function bccTrustFetch<T>(
   path: string,
   options: BccTrustFetchOptions = {},
 ): Promise<T> {
+  return bccTrustFetchOnce<T>(path, options, false);
+}
+
+async function bccTrustFetchOnce<T>(
+  path: string,
+  options: BccTrustFetchOptions,
+  /** True on the one retry after the bearer was swapped mid-flight. */
+  swapRetried: boolean,
+): Promise<T> {
   if (typeof window === "undefined") {
     // No server twin exists yet — the /bcc-trust/v1 namespace has zero
     // SSR consumers today. When the first one appears, add
@@ -59,7 +69,9 @@ export async function bccTrustFetch<T>(
   }
 
   const session = await getSession();
-  const token = session?.bccToken ?? null;
+  // A replacement bearer whose session write is still in flight wins:
+  // the session still holds the revoked one (lib/auth/current-bearer).
+  const token = pendingBearer() ?? session?.bccToken ?? null;
 
   // Mirror bccFetchAsClient's stale-token handling. This used to call
   // signOut() outright whenever NextAuth believed the bearer was past
@@ -134,6 +146,13 @@ export async function bccTrustFetch<T>(
     // classifier decide; it ends the session only on a definitive
     // rejection, and never hands back the refused token.
     if (response.status === 401 && effectiveToken !== null && effectiveToken !== "") {
+      // The bearer may have been REPLACED while this was in flight; then
+      // the 401 is about the old token, not the session. Retry once with
+      // the newer one rather than refreshing a superseded token, which the
+      // server rejects and which used to end the session.
+      if (!swapRetried && (await supersedingBearer(effectiveToken)) !== null) {
+        return bccTrustFetchOnce<T>(path, options, true);
+      }
       await resolveAuthFailure(effectiveToken);
     }
     throw new BccApiError(code, message, response.status, null);

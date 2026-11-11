@@ -203,9 +203,10 @@ describe("step 2 — verify", () => {
     });
     expect(invalidate).toHaveBeenCalledWith({ queryKey: MY_WALLETS_QUERY_KEY });
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ["users"] });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ["user"] });
     // Session write first, so the refetches carry the replacement bearer.
     expect(order[0]).toBe("session");
-    expect(order.filter((o) => o === "invalidate")).toHaveLength(2);
+    expect(order.filter((o) => o === "invalidate")).toHaveLength(3);
     // Back on step 1, showing the confirmed address, password cleared.
     const card = emailCard();
     expect((card.querySelector('input[type="email"]') as HTMLInputElement).value).toBe(NEW);
