@@ -131,16 +131,15 @@ describe("HolderLeaveConfirm", () => {
     expect(onLeaveStart).not.toHaveBeenCalled();
   });
 
-  it("states the cooldown in the agreed words, and nothing about rejoining", () => {
+  it("states the cooldown and that an explicit rejoin stays open (F-158)", () => {
     renderControl();
     fireEvent.click(screen.getByRole("button", { name: "LEAVE" }));
     expect(
       within(dialog()).getByText(
-        "You'll stop seeing its posts. Leaving starts a 90-day cooldown before this community is suggested to you again.",
+        "You'll stop seeing its posts. Leaving starts a 90-day cooldown before this community is suggested to you again, but you can rejoin any time while you hold the NFT.",
       ),
     ).toBeInTheDocument();
     expect(within(dialog()).getByRole("button", { name: "STAY" })).toBeInTheDocument();
-    expect(dialog().textContent ?? "").not.toMatch(/rejoin/i);
   });
 
   it("confirming sends the leave, then closes on success", async () => {

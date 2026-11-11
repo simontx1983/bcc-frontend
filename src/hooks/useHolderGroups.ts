@@ -20,8 +20,8 @@
  *   - PATCH preferences flips the toggle instantly with rollback on
  *     error (mirrors useMyPrivacy) — single boolean, single field.
  *   - join / leave do NOT optimistically re-bucket the row. Server can
- *     reject join (NFT ownership changed mid-flight, opt-out cooldown
- *     hit, chain RPC failure) and we want the user to see the actual
+ *     reject join (NFT ownership changed mid-flight, a moderator
+ *     removal, chain RPC failure) and we want the user to see the actual
  *     server decision, not a flicker. Caller is expected to provide
  *     button-level pending state (see useState pattern in BlocksList).
  */
