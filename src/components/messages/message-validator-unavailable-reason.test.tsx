@@ -34,11 +34,11 @@ describe("MessageValidatorButton — reason_code 'unavailable'", () => {
     expect(screen.queryByText("Try again later.")).toBeNull();
   });
 
-  it("control: friends_only with a hint still renders the disabled button", () => {
+  it("control: sender_chat_disabled with a hint still renders the disabled button", () => {
     render(
       <MessageValidatorButton
         pageId={7}
-        permissions={perms({ allowed: false, unlock_hint: "Friends only.", reason_code: "friends_only" })}
+        permissions={perms({ allowed: false, unlock_hint: "Turn on your DMs.", reason_code: "sender_chat_disabled" })}
         messaging={{ destination: "operator" } as never}
       />,
     );

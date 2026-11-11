@@ -333,7 +333,9 @@ export interface CardPermissions {
    *   - `null`                  → allowed; render the CTA
    *   - `auth_required`         → visible-disabled, "Sign in…" hint
    *   - `sender_chat_disabled`  → visible-disabled + server unlock_hint
-   *   - `friends_only`          → visible-disabled + server unlock_hint
+   *   - `friends_only`          → hidden. Legacy: peepso-friends is
+   *     removed, so the server no longer emits it. Still listed in
+   *     the contract, so it is documented here rather than dropped.
    *   - `not_applicable`        → hidden
    *   - `self_action_blocked`   → hidden (viewer IS the operator)
    *   - `messaging_unavailable` → hidden. DELIBERATELY identical for
@@ -2521,7 +2523,9 @@ export interface UserGroupsResponse {
  * one render branch covers both surfaces.
  *   public         = visible to everyone (anon + members)
  *   site_members   = visible to logged-in viewers
- *   friends_only   = visible to friends + owner
+ *   friends_only   = legacy PeepSo level 30. peepso-friends is removed,
+ *                    so the server treats it as owner-only. No UI
+ *                    offers it.
  *   only_me        = visible to owner only (frontend never sees these
  *                    rows when viewing someone else's profile)
  */

@@ -3,17 +3,16 @@
 /**
  * MessagesPrefsForm — §V2 Phase 2 messaging settings.
  *
- * Two toggles backed by PeepSo's per-user keys:
- *   - chat_enabled       (peepso_chat_enabled)       — master on/off
- *   - chat_friends_only  (peepso_chat_friends_only)  — restrict to friends
+ * One toggle backed by PeepSo's per-user key:
+ *   - chat_enabled  (peepso_chat_enabled)  — master on/off
+ *
+ * The former "Only friends can message me" toggle is gone: BCC has no
+ * friends feature and peepso-friends is removed, so the server's
+ * `chat_friends_only` flag is inert. The form never sends it.
  *
  * Same draft + save shape as NotificationPrefsForm: changes accumulate
  * in local state and only land on the server when the user clicks
  * Save. No optimistic update — the response is the source of truth.
- *
- * When chat is OFF entirely, the friends-only toggle is disabled (UI
- * state only — server still accepts the value, but it's meaningless
- * while master is off).
  */
 
 import { type FormEvent, useEffect, useState } from "react";
@@ -45,7 +44,6 @@ function humanize(err: BccApiError | Error): string {
 
 interface DraftState {
   chat_enabled: boolean;
-  chat_friends_only: boolean;
 }
 
 export function MessagesPrefsForm() {
@@ -71,7 +69,6 @@ export function MessagesPrefsForm() {
     if (query.data === undefined) return;
     setDraft({
       chat_enabled: query.data.chat_enabled,
-      chat_friends_only: query.data.chat_friends_only,
     });
   }, [query.data]);
 
@@ -89,8 +86,7 @@ export function MessagesPrefsForm() {
   const dirty =
     draft !== null &&
     query.data !== undefined &&
-    (draft.chat_enabled !== query.data.chat_enabled ||
-      draft.chat_friends_only !== query.data.chat_friends_only);
+    draft.chat_enabled !== query.data.chat_enabled;
   useDirtyRegistration({
     id: "messages.prefs",
     label: "your message settings",
@@ -156,14 +152,6 @@ export function MessagesPrefsForm() {
             checked={draft.chat_enabled}
             onChange={(value) => setDraft({ ...draft, chat_enabled: value })}
             disabled={mutation.isPending}
-          />
-
-          <ToggleRow
-            label="Only friends can message me"
-            blurb="When enabled, only your confirmed PeepSo friends can start a new conversation. Existing conversations stay open. Has no effect when direct messages are off."
-            checked={draft.chat_friends_only}
-            onChange={(value) => setDraft({ ...draft, chat_friends_only: value })}
-            disabled={mutation.isPending || !draft.chat_enabled}
           />
         </div>
       </div>

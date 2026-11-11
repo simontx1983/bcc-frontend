@@ -125,8 +125,8 @@ export function DeleteAccountCard() {
       <section className="bcc-panel border-2 border-safety/40 p-5">
         <h3 className="bcc-stencil text-lg text-bcc-danger">Delete account</h3>
         <p className="bcc-mono mt-1 text-[10px] text-bcc-text-secondary">
-          Permanent. Most of your data is removed; some references in
-          others&apos; inboxes and friend lists may persist.
+          Permanent. Most of your data is removed; messages you
+          sent may remain in other members&apos; inboxes.
         </p>
         <button
           type="button"

@@ -165,7 +165,6 @@ function ActionPill({
 /** Denial codes whose disabled pill + hint the viewer can act on. */
 const VISIBLE_DENIAL_CODES: ReadonlySet<string> = new Set([
   "auth_required",
-  "friends_only",
   "sender_chat_disabled",
 ]);
 
