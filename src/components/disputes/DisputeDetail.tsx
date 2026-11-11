@@ -34,7 +34,8 @@ import {
   useMyDisputes,
   useWithdrawDisputeVote,
 } from "@/hooks/useDisputes";
-import { humanizeCode, isCode } from "@/lib/api/errors";
+import { LoadFailure } from "@/components/ui/LoadFailure";
+import { humanizeCode, isCode, isPermissionDenial } from "@/lib/api/errors";
 import {
   BccApiError,
   type Dispute,
@@ -67,30 +68,43 @@ export function DisputeDetail({ id }: DisputeDetailProps) {
     return <CaseFileChrome>{<CaseFileSkeleton />}</CaseFileChrome>;
   }
 
-  if (myDisputes.isError) {
+  // §γ — copy is keyed on err.code; never render err.message.
+  const failureCopy = humanizeCode(
+    myDisputes.error,
+    {
+      bcc_unauthorized: "Sign in to view this case.",
+      bcc_rate_limited: "Loading too fast — give it a moment and try again.",
+      bcc_unavailable: "This case is temporarily unavailable. Try again shortly.",
+    },
+    "Couldn't load this case.",
+  );
+
+  // Only a first-load failure, or a REFRESH the server refused, may
+  // replace the case file. Casting or withdrawing a ballot invalidates
+  // this query, so a blanket `isError` meant one failed refetch swapped
+  // the case — ballot and all — for an error mid-vote.
+  if (
+    myDisputes.isLoadingError ||
+    (myDisputes.isRefetchError && isPermissionDenial(myDisputes.error))
+  ) {
     return (
       <CaseFileChrome>
-        <CaseFileError
-          message={
-            // §γ — copy is keyed on err.code; never render err.message.
-            humanizeCode(
-              myDisputes.error,
-              {
-                bcc_unauthorized: "Sign in to view this case.",
-                bcc_rate_limited: "Loading too fast — give it a moment and try again.",
-                bcc_unavailable: "This case is temporarily unavailable. Try again shortly.",
-              },
-              "Couldn't load this case.",
-            )
-          }
-        />
+        <CaseFileError message={failureCopy} />
       </CaseFileChrome>
     );
   }
 
+  // A failed REFRESH keeps the case file; the recovery sits above it.
+  const notice = myDisputes.isRefetchError ? (
+    <div className="mt-10">
+      <LoadFailure message={failureCopy} onRetry={() => void myDisputes.refetch()} />
+    </div>
+  ) : null;
+
   if (dispute === null) {
     return (
       <CaseFileChrome>
+        {notice}
         <CaseFileMissing id={id} />
       </CaseFileChrome>
     );
@@ -98,6 +112,7 @@ export function DisputeDetail({ id }: DisputeDetailProps) {
 
   return (
     <CaseFileChrome caseNumber={dispute.id}>
+      {notice}
       <CaseFile dispute={dispute} voteState={voteState.data} />
     </CaseFileChrome>
   );

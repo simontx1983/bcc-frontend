@@ -49,7 +49,7 @@ import {
   useUserGroups,
 } from "@/hooks/useUserActivity";
 import { LoadFailure } from "@/components/ui/LoadFailure";
-import { humanizeCode } from "@/lib/api/errors";
+import { humanizeCode, isPermissionDenial } from "@/lib/api/errors";
 import type { UserGroupItem } from "@/lib/api/types";
 import { isAllowed, unlockHint } from "@/lib/permissions";
 
@@ -71,26 +71,33 @@ export function GroupsPanel({ handle }: GroupsPanelProps) {
     );
   }
 
-  if (query.isError) {
+  const failure = query.isError ? (
+    <LoadFailure
+      surface="paper"
+      /* §γ — copy is keyed on err.code; never render err.message. */
+      message={humanizeCode(
+        query.error,
+        {
+          bcc_unauthorized: "Sign in to see groups.",
+          bcc_rate_limited: "Loading too fast — give it a moment and try again.",
+          bcc_unavailable: "Groups are temporarily unavailable. Try again shortly.",
+        },
+        "Couldn't load groups. Try again in a moment.",
+      )}
+      onRetry={() => void query.refetch()}
+    />
+  ) : null;
+
+  // Only a first-load failure, or a REFRESH the server refused, may
+  // replace the list. Every join/leave invalidates this query, so a
+  // blanket `isError` meant one failed refetch erased every group row.
+  // A refused refresh keeps the old whole-panel state: the server's
+  // latest answer is "you may not read this", so the rows are not kept.
+  if (query.isLoadingError || (query.isRefetchError && isPermissionDenial(query.error))) {
     return (
       <article className="bcc-paper">
         <Header />
-        <div className="px-8 py-12">
-          <LoadFailure
-            surface="paper"
-            /* §γ — copy is keyed on err.code; never render err.message. */
-            message={humanizeCode(
-              query.error,
-              {
-                bcc_unauthorized: "Sign in to see groups.",
-                bcc_rate_limited: "Loading too fast — give it a moment and try again.",
-                bcc_unavailable: "Groups are temporarily unavailable. Try again shortly.",
-              },
-              "Couldn't load groups. Try again in a moment.",
-            )}
-            onRetry={() => void query.refetch()}
-          />
-        </div>
+        <div className="px-8 py-12">{failure}</div>
       </article>
     );
   }
@@ -100,8 +107,12 @@ export function GroupsPanel({ handle }: GroupsPanelProps) {
   return (
     <article className="bcc-paper">
       <Header />
+      {/* A failed REFRESH keeps the rows; the recovery sits above them. */}
+      {query.isRefetchError && <div className="px-8">{failure}</div>}
       {items.length === 0 ? (
-        <GroupsEmpty />
+        // An empty bucket is a claim about the server; a failed refresh
+        // does not support it.
+        query.isError ? null : <GroupsEmpty />
       ) : (
         <ul>
           {items.map((item) => (
