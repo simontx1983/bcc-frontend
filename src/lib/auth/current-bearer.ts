@@ -31,6 +31,7 @@
 
 import { getSession } from "next-auth/react";
 
+import { bearerFailsConsistencyCheck, readBearerConsistencyClaims } from "@/lib/auth/bearer-claims";
 import { currentViewerEpoch, isStaleEpoch } from "@/lib/auth/session-boundary";
 
 interface PendingBearer {
@@ -42,13 +43,39 @@ interface PendingBearer {
 
 let pending: PendingBearer | null = null;
 
-/** Note a validated replacement bearer, before its session write starts. */
-export function notePendingBearer(token: string, expiresIn: number): void {
+/**
+ * The last session bearer a client read for the current viewer. Lets
+ * `notePendingBearer` refuse, synchronously, a replacement that belongs
+ * to a different account or is older than what the session already has.
+ */
+let lastSessionBearer: { token: string; epoch: number } | null = null;
+
+/** Record the session bearer a client just read (clients call this). */
+export function rememberSessionBearer(token: string | null): void {
+  lastSessionBearer = token === null ? null : { token, epoch: currentViewerEpoch() };
+}
+
+/**
+ * Note a validated replacement bearer, before its session write starts.
+ * Returns false (and notes nothing) when the token's claims are
+ * unreadable, or it fails the consistency check against the session
+ * bearer last read for this viewer: a different subject, or an older
+ * token version. The session write still runs and still has its own
+ * confirm; only the early override is refused.
+ */
+export function notePendingBearer(token: string, expiresIn: number): boolean {
+  if (readBearerConsistencyClaims(token) === null) return false;
+  const known =
+    lastSessionBearer !== null && !isStaleEpoch(lastSessionBearer.epoch)
+      ? lastSessionBearer.token
+      : null;
+  if (known !== null && bearerFailsConsistencyCheck(token, known)) return false;
   pending = {
     token,
     epoch: currentViewerEpoch(),
     expiresAt: Date.now() + expiresIn * 1000,
   };
+  return true;
 }
 
 /** The session write for `token` has settled; stop overriding the session. */
@@ -74,24 +101,49 @@ function sessionBearerOf(session: { bccToken?: unknown } | null): string | null 
 }
 
 /**
- * A bearer NEWER than `used`, or null. Checked on a 401 before anything
- * treats the rejection as the end of the session: if the bearer was
- * swapped while the request was in flight, the 401 says nothing about
- * the session, only about the token it replaced.
+ * A bearer that REPLACED `used` for the SAME viewer, or null. Checked on
+ * a 401 before anything treats the rejection as the end of the session:
+ * if the bearer was swapped while the request was in flight, the 401
+ * says nothing about the session, only about the token it replaced.
+ *
+ * A candidate qualifies only if ALL hold, checked before the caller
+ * re-sends anything:
+ *   - the viewer boundary has not moved since dispatch (a sign-out or an
+ *     account switch in another tab must never let a request re-send as
+ *     someone else);
+ *   - it passes the claims consistency check against `used`: same
+ *     subject / user_id, and a token version no older than `used`;
+ *   - while a pending bearer exists, ONLY the pending one is a candidate:
+ *     the session still holds the revoked bearer it replaces, so a 401 on
+ *     the fresh token must never retry with the old one.
+ * Otherwise null, and the caller takes the normal 401 path.
  */
-export async function supersedingBearer(used: string): Promise<string | null> {
+export async function supersedingBearer(
+  used: string,
+  dispatchEpoch: number,
+): Promise<string | null> {
+  if (isStaleEpoch(dispatchEpoch)) return null;
+  const qualifies = (candidate: string | null): candidate is string =>
+    candidate !== null &&
+    candidate !== used &&
+    !isStaleEpoch(dispatchEpoch) &&
+    !bearerFailsConsistencyCheck(candidate, used);
+
   const p = pendingBearer();
-  if (p !== null && p !== used) return p;
+  if (p !== null) {
+    return qualifies(p) ? p : null;
+  }
   let current: string | null = null;
   try {
     current = sessionBearerOf((await getSession()) as { bccToken?: unknown } | null);
   } catch {
     return null;
   }
-  return current !== null && current !== used ? current : null;
+  return qualifies(current) ? current : null;
 }
 
 /** Test seam: forget any pending bearer. */
 export function __resetPendingBearerForTests(): void {
   pending = null;
+  lastSessionBearer = null;
 }

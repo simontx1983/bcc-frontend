@@ -42,8 +42,14 @@ import {
 } from "@/lib/auth/current-bearer";
 import { BccApiError } from "@/lib/api/types";
 
-const OLD = "old-revoked-token";
-const NEW = "new-token";
+/** A JWT-shaped bearer whose payload the claims check can read. */
+const jwt = (claims: { sub: string; user_id: number; tv: number }) =>
+  `h.${Buffer.from(JSON.stringify(claims)).toString("base64url")}.s`;
+
+const OLD = jwt({ sub: "1", user_id: 1, tv: 1 });
+const NEW = jwt({ sub: "1", user_id: 1, tv: 2 });
+/** Another account's live token, as another tab's sign-in would leave it. */
+const OTHER = jwt({ sub: "2", user_id: 2, tv: 0 });
 
 const session = (token: string) => ({
   bccToken: token,
@@ -73,7 +79,7 @@ function server(onOldBearer?: () => void) {
     seen.push(bearer);
     if (bearer === OLD) onOldBearer?.();
     const trust = url.includes("/bcc-trust/v1");
-    if (bearer === NEW) {
+    if (bearer === NEW || bearer === OTHER) {
       return trust ? json({ success: true, data: { ok: true } }, 200) : json({ data: { ok: true }, _meta: { version: "v1" } }, 200);
     }
     return trust
@@ -167,5 +173,71 @@ describe("bccTrustFetch — bearer swapped mid-flight", () => {
     expect(s.seen).toEqual([OLD]);
     expect(s.refreshedWith).toEqual([OLD]);
     expect(endSession).toHaveBeenCalledWith("expired", { notice: "signed-out" });
+  });
+});
+
+
+describe("a swap-retry never crosses to another viewer (review M1/L1/L2)", () => {
+  it("bccFetchAsClient: another user's token in the session is NOT used; the normal 401 path runs", async () => {
+    const s = server();
+    getSession.mockResolvedValueOnce(session(OLD)).mockResolvedValue(session(OTHER));
+
+    await expect(bccFetchAsClient("me/badges")).rejects.toBeInstanceOf(BccApiError);
+    expect(s.seen).toEqual([OLD]);
+    expect(s.seen).not.toContain(OTHER);
+    expect(s.refreshedWith).toEqual([OLD]);
+  });
+
+  it("bccTrustFetch: another user's token in the session is NOT used", async () => {
+    const s = server();
+    getSession.mockResolvedValueOnce(session(OLD)).mockResolvedValue(session(OTHER));
+
+    await expect(bccTrustFetch("/disputes")).rejects.toBeInstanceOf(BccApiError);
+    expect(s.seen).toEqual([OLD]);
+  });
+
+  it("an older token version in the session is not a replacement", async () => {
+    const OLDER = jwt({ sub: "1", user_id: 1, tv: 0 });
+    const s = server();
+    getSession.mockResolvedValueOnce(session(OLD)).mockResolvedValue(session(OLDER));
+
+    await expect(bccFetchAsClient("me/badges")).rejects.toBeInstanceOf(BccApiError);
+    expect(s.seen).toEqual([OLD]);
+  });
+
+  it("a viewer boundary that moved during the request blocks the retry", async () => {
+    // Another tab signs out while the old-bearer request is in flight.
+    const s = server(() => {
+      epoch = 1;
+    });
+    getSession.mockResolvedValueOnce(session(OLD)).mockResolvedValue(session(NEW));
+
+    await expect(bccFetchAsClient("me/badges")).rejects.toThrow();
+    expect(s.seen).toEqual([OLD]);
+  });
+
+  it("while a pending bearer exists, a 401 on it never retries with the session's older token", async () => {
+    const PENDING = jwt({ sub: "1", user_id: 1, tv: 3 });
+    const s = server();
+    getSession.mockResolvedValue(session(NEW));
+    // Pretend the session was read first, so the pending note is allowed.
+    await bccFetchAsClient("me/badges");
+    expect(notePendingBearer(PENDING, 3600)).toBe(true);
+    s.seen.length = 0;
+
+    await expect(bccFetchAsClient("me/badges")).rejects.toBeInstanceOf(BccApiError);
+    expect(s.seen).toEqual([PENDING]);
+    expect(s.seen).not.toContain(NEW);
+  });
+
+  it("notePendingBearer refuses another account's token, or one older than the session's", async () => {
+    server();
+    getSession.mockResolvedValue(session(NEW));
+    await bccFetchAsClient("me/badges"); // records the session bearer
+
+    expect(notePendingBearer(OTHER, 3600)).toBe(false);
+    expect(notePendingBearer(OLD, 3600)).toBe(false); // tv 1 < session tv 2
+    expect(notePendingBearer("not-a-jwt", 3600)).toBe(false);
+    expect(pendingBearer()).toBeNull();
   });
 });
