@@ -29,9 +29,17 @@ const refetch = {
   notificationPrefs: vi.fn(),
 };
 
-/** A failed useQuery result carrying `code`. */
+/**
+ * A failed FIRST load carrying `code`. `isLoadingError` / `isRefetchError`
+ * are what TanStack sets for that state; they were omitted while every
+ * component branched on the blanket `isError`, and are needed now that
+ * only a first-load failure may replace a loaded surface (the refetch
+ * branch is covered in settings-refetch-failure.test.tsx).
+ */
 const failed = (code: string, key: keyof typeof refetch) => ({
   isError: true as const,
+  isLoadingError: true as const,
+  isRefetchError: false as const,
   isPending: false as const,
   isLoading: false as const,
   isSuccess: false as const,

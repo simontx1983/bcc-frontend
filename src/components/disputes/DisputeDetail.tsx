@@ -34,7 +34,9 @@ import {
   useMyDisputes,
   useWithdrawDisputeVote,
 } from "@/hooks/useDisputes";
-import { humanizeCode, isCode } from "@/lib/api/errors";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { LoadFailure } from "@/components/ui/LoadFailure";
+import { humanizeCode, isCode, isPermissionDenial } from "@/lib/api/errors";
 import {
   BccApiError,
   type Dispute,
@@ -67,30 +69,43 @@ export function DisputeDetail({ id }: DisputeDetailProps) {
     return <CaseFileChrome>{<CaseFileSkeleton />}</CaseFileChrome>;
   }
 
-  if (myDisputes.isError) {
+  // §γ — copy is keyed on err.code; never render err.message.
+  const failureCopy = humanizeCode(
+    myDisputes.error,
+    {
+      bcc_unauthorized: "Sign in to view this case.",
+      bcc_rate_limited: "Loading too fast — give it a moment and try again.",
+      bcc_unavailable: "This case is temporarily unavailable. Try again shortly.",
+    },
+    "Couldn't load this case.",
+  );
+
+  // Only a first-load failure, or a REFRESH the server refused, may
+  // replace the case file. Casting or withdrawing a ballot invalidates
+  // this query, so a blanket `isError` meant one failed refetch swapped
+  // the case — ballot and all — for an error mid-vote.
+  if (
+    myDisputes.isLoadingError ||
+    (myDisputes.isRefetchError && isPermissionDenial(myDisputes.error))
+  ) {
     return (
       <CaseFileChrome>
-        <CaseFileError
-          message={
-            // §γ — copy is keyed on err.code; never render err.message.
-            humanizeCode(
-              myDisputes.error,
-              {
-                bcc_unauthorized: "Sign in to view this case.",
-                bcc_rate_limited: "Loading too fast — give it a moment and try again.",
-                bcc_unavailable: "This case is temporarily unavailable. Try again shortly.",
-              },
-              "Couldn't load this case.",
-            )
-          }
-        />
+        <CaseFileError message={failureCopy} />
       </CaseFileChrome>
     );
   }
 
+  // A failed REFRESH keeps the case file; the recovery sits above it.
+  const notice = myDisputes.isRefetchError ? (
+    <div className="mt-10">
+      <LoadFailure message={failureCopy} onRetry={() => void myDisputes.refetch()} />
+    </div>
+  ) : null;
+
   if (dispute === null) {
     return (
       <CaseFileChrome>
+        {notice}
         <CaseFileMissing id={id} />
       </CaseFileChrome>
     );
@@ -98,6 +113,7 @@ export function DisputeDetail({ id }: DisputeDetailProps) {
 
   return (
     <CaseFileChrome caseNumber={dispute.id}>
+      {notice}
       <CaseFile dispute={dispute} voteState={voteState.data} />
     </CaseFileChrome>
   );
@@ -167,13 +183,33 @@ function BallotCard({
   const cast = useCastDisputeVote();
   const withdraw = useWithdrawDisputeVote();
   const [error, setError] = useState<string | null>(null);
+  // Changing or withdrawing an existing ballot spends something the
+  // engine rations (the recast budget; the 24h cooldown), so both go
+  // through a ConfirmDialog. A first cast does not.
+  const [confirming, setConfirming] = useState<BallotConfirm | null>(null);
+  const [confirmError, setConfirmError] = useState<string | null>(null);
 
   const { my_choice, my_effective_weight, can_change, can_withdraw } =
     state.viewer;
   const busy = cast.isPending || withdraw.isPending;
 
+  const openConfirm = (next: BallotConfirm): void => {
+    setError(null);
+    setConfirmError(null);
+    setConfirming(next);
+  };
+
+  const closeConfirm = (): void => {
+    setConfirming(null);
+    setConfirmError(null);
+  };
+
   const handleCast = (choice: DisputeVoteChoice): void => {
     if (busy) return;
+    if (my_choice !== null) {
+      openConfirm({ kind: "recast", from: my_choice, to: choice });
+      return;
+    }
     setError(null);
     cast.mutate(
       { disputeId, request: { choice } },
@@ -183,11 +219,21 @@ function BallotCard({
 
   const handleWithdraw = (): void => {
     if (busy) return;
-    setError(null);
-    withdraw.mutate(
-      { disputeId },
-      { onError: (err) => setError(humanizeBallotError(err)) },
-    );
+    openConfirm({ kind: "withdraw" });
+  };
+
+  const handleConfirm = (): void => {
+    if (confirming === null) return;
+    setConfirmError(null);
+    const callbacks = {
+      onSuccess: closeConfirm,
+      onError: (err: unknown) => setConfirmError(humanizeBallotError(err)),
+    };
+    if (confirming.kind === "recast") {
+      cast.mutate({ disputeId, request: { choice: confirming.to } }, callbacks);
+    } else {
+      withdraw.mutate({ disputeId }, callbacks);
+    }
   };
 
   const showCastControls = my_choice === null || can_change;
@@ -252,8 +298,50 @@ function BallotCard({
         TALLIES STAY SEALED UNTIL THE VOTE CLOSES &middot; RESOLVES BY{" "}
         {formatAbsoluteUTC(state.expires_at)}
       </p>
+
+      {confirming !== null && (
+        <ConfirmDialog
+          {...ballotConfirmCopy(confirming)}
+          retryLabel="TRY AGAIN"
+          errorMessage={confirmError}
+          pending={busy}
+          onConfirm={handleConfirm}
+          onCancel={closeConfirm}
+        />
+      )}
     </section>
   );
+}
+
+type BallotConfirm =
+  | { kind: "recast"; from: DisputeVoteChoice; to: DisputeVoteChoice }
+  | { kind: "withdraw" };
+
+/**
+ * The view-model carries no remaining-recast count (`DisputeVoteViewer`
+ * exposes only `can_change`), so the recast copy states the limit
+ * without a number rather than inventing one.
+ */
+function ballotConfirmCopy(c: BallotConfirm): {
+  title: string;
+  body: string;
+  confirmLabel: string;
+  cancelLabel: string;
+} {
+  if (c.kind === "recast") {
+    return {
+      title: "Change your vote?",
+      body: `Your ballot changes from ${CHOICE_LABEL[c.from]} to ${CHOICE_LABEL[c.to]}. You can only change your vote a limited number of times.`,
+      confirmLabel: "CHANGE VOTE",
+      cancelLabel: "KEEP MY VOTE",
+    };
+  }
+  return {
+    title: "Withdraw your ballot?",
+    body: "Withdrawing removes your vote. You'll have to wait 24 hours before you can vote on this dispute again.",
+    confirmLabel: "WITHDRAW",
+    cancelLabel: "KEEP MY VOTE",
+  };
 }
 
 const CHOICE_LABEL: Record<DisputeVoteChoice, string> = {

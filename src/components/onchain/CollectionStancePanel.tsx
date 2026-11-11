@@ -28,7 +28,7 @@ import {
   useCollectionStancePanel,
   useSetCollectionStance,
 } from "@/hooks/useCollectionStances";
-import { humanizeCode } from "@/lib/api/errors";
+import { humanizeCode, isPermissionDenial } from "@/lib/api/errors";
 import type { CollectionStancePanelItem } from "@/lib/api/types";
 
 import { NOT_YET_ACTIVE_LABEL } from "./NotYetActiveBadge";
@@ -48,24 +48,36 @@ export function CollectionStancePanel({ compact = false }: CollectionStancePanel
     return <p className="bcc-mono text-cardstock-deep">Reading your collections…</p>;
   }
 
-  if (panel.isError) {
-    return (
-      <p role="alert" className="bcc-mono text-bcc-text-error">
-        {/* §γ — copy keyed on err.code; never render err.message. */}
-        {humanizeCode(
-          panel.error,
-          {
-            bcc_unauthorized: "Sign in to see your collections.",
-            bcc_rate_limited: "Loading too fast — give it a moment and try again.",
-          },
-          "Couldn't read your collections. Try again in a moment.",
-        )}
-      </p>
-    );
+  const failure = panel.isError ? (
+    <p role="alert" className="bcc-mono text-bcc-text-error">
+      {/* §γ — copy keyed on err.code; never render err.message. */}
+      {humanizeCode(
+        panel.error,
+        {
+          bcc_unauthorized: "Sign in to see your collections.",
+          bcc_rate_limited: "Loading too fast — give it a moment and try again.",
+        },
+        "Couldn't read your collections. Try again in a moment.",
+      )}
+    </p>
+  ) : null;
+
+  // Only a first-load failure, or a REFRESH the server refused, may
+  // replace the rows. Every join and stance change invalidates this query,
+  // so a blanket `isError` meant one failed refetch erased the list the
+  // member was working through.
+  if (panel.isLoadingError || (panel.isRefetchError && isPermissionDenial(panel.error))) {
+    return failure;
   }
 
   const items = panel.data.items;
   const holdingsStatus = panel.data.holdings_status;
+
+  // An empty list is a claim about the member's wallets; a failed refresh
+  // does not support it, so only the failure renders.
+  if (items.length === 0 && panel.isRefetchError) {
+    return failure;
+  }
 
   // An empty list is only a fact about the member's wallets when the server
   // says every source finished. Before `holdings_status` existed this branch
@@ -102,6 +114,9 @@ export function CollectionStancePanel({ compact = false }: CollectionStancePanel
 
   return (
     <div className="flex flex-col gap-3">
+      {/* A failed REFRESH keeps the rows; the notice sits above them. */}
+      {failure}
+
       {/* Positive rows are always shown, even when a source failed: what is
           here was proven. The notice says only that the list may be short —
           never which wallet, which chain, or what went wrong. */}

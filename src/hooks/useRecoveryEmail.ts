@@ -101,6 +101,9 @@ export function useVerifyRecoveryEmail(
     mutationFn: (code) => verifyRecoveryEmail({ code }),
     onSuccess: (data, code) => {
       void queryClient.invalidateQueries({ queryKey: MY_WALLETS_QUERY_KEY });
+      // useUser keys on ["user", handle]; ["users", …] is the per-profile
+      // panel namespace, kept so those refresh too.
+      void queryClient.invalidateQueries({ queryKey: ["user"] });
       void queryClient.invalidateQueries({ queryKey: ["users"] });
       callerOnSuccess?.(data, code);
     },

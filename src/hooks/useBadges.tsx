@@ -38,6 +38,7 @@ import {
   type ReactNode,
 } from "react";
 import {
+  keepPreviousData,
   useQuery,
   useQueryClient,
   type Query,
@@ -224,6 +225,10 @@ export function BadgesProvider({ children }: { children: ReactNode }) {
     queryKey: [...BADGES_QUERY_KEY_ROOT, openThreadIds],
     queryFn: ({ signal }) => getBadges({ openThreadIds }, signal),
     enabled,
+    // openThreadIds is part of the key, so opening/closing a thread is a
+    // NEW query: without this the bell + inbox counts drop to undefined
+    // (rendered as 0) until the new key's first fetch lands.
+    placeholderData: keepPreviousData,
     staleTime: POLL_THREAD_MS / 2,
     refetchOnWindowFocus: true,
     refetchIntervalInBackground: false,

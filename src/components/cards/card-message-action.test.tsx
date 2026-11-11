@@ -162,6 +162,52 @@ describe("denied WITHOUT a hint", () => {
   });
 });
 
+describe("reason_code 'unavailable' (F-99: blocks couldn't be checked)", () => {
+  it("omits the affordance when sent with no hint", () => {
+    renderBar({ can_message: { allowed: false, unlock_hint: null, reason_code: "unavailable" } });
+    expect(messageEl()).toBeNull();
+  });
+
+  it("omits it even if a hint arrives with it: no disabled pill, no hint text", () => {
+    renderBar({
+      can_message: { allowed: false, unlock_hint: "Try again later.", reason_code: "unavailable" },
+    });
+    expect(messageEl()).toBeNull();
+    expect(screen.queryByText("Try again later.")).toBeNull();
+  });
+
+  it("control: another code with a hint still renders the disabled pill", () => {
+    renderBar({
+      can_message: { allowed: false, unlock_hint: "Friends only.", reason_code: "friends_only" },
+    });
+    expect(messageEl()).not.toBeNull();
+  });
+});
+
+describe("a denial with a reason_code is a closed list", () => {
+  it.each(["not_applicable", "messaging_unavailable", "self_action_blocked", "some_future_code"])(
+    "hides %s even when it carries a hint",
+    (reason_code) => {
+      renderBar({ can_message: { allowed: false, unlock_hint: "A hint.", reason_code } });
+      expect(messageEl()).toBeNull();
+      expect(screen.queryByText("A hint.")).toBeNull();
+    },
+  );
+
+  it.each(["auth_required", "friends_only", "sender_chat_disabled"])(
+    "shows the disabled pill for %s with a hint",
+    (reason_code) => {
+      renderBar({ can_message: { allowed: false, unlock_hint: "A hint.", reason_code } });
+      expect(messageEl()).not.toBeNull();
+    },
+  );
+
+  it("no reason_code (today's profile payload) keeps the hint-based rule", () => {
+    renderBar(denyWithHint("Sign in to send a message."));
+    expect(messageEl()).not.toBeNull();
+  });
+});
+
 describe("malformed permission blocks degrade to hidden", () => {
   it.each([
     ["null", null],

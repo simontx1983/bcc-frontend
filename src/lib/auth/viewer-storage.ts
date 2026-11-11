@@ -80,6 +80,12 @@ export const VIEWER_SCOPED_STORAGE_KEYS: readonly string[] = [
   "bcc.blog.handoff",
   // The server-side push-subscription row id for this viewer+device.
   "bcc-push-subscription-id",
+  // The pre-auth 2FA challenge token, handed from /login to
+  // /login/two-factor in sessionStorage instead of the URL
+  // (`lib/auth/two-factor-challenge`). Per-tab and short-lived, but it is
+  // one person's half-finished sign-in, so a sign-out or viewer switch
+  // clears it.
+  "bcc.2fa.challenge",
 ];
 
 /**

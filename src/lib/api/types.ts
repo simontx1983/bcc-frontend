@@ -17,6 +17,13 @@
 
 export interface ApiMeta {
   version: string;
+  /**
+   * The server's per-request correlation id (bcc-trust #377 / #383): the
+   * same value as the X-Request-Id header. Present on success envelopes
+   * and on reshaped error envelopes. Optional for responses from servers
+   * that predate it.
+   */
+  request_id?: string;
   /** kind → resolved post.ID for §D5 reactions. Absent on error responses. */
   reaction_types?: Record<string, number>;
 }
@@ -321,6 +328,11 @@ export interface CardPermissions {
    *     "recipient has DMs off" and "mutually blocked". The payload is
    *     an info-leak shield; the frontend MUST NOT try to distinguish
    *     the two states or hint at which one applies.
+   *   - `unavailable`           → hidden, no hint. The server couldn't
+   *     check blocks right now (F-99), so the affordance is omitted
+   *     entirely, never shown disabled. Sent with `unlock_hint: null`.
+   *   - any other code          → hidden unless it carries a hint
+   *     (this field is an open string, not a closed inventory).
    */
   can_message?: CardPermissionEntry;
 }
@@ -3570,15 +3582,14 @@ export interface LinkWalletRequest {
   wallet_address: string;
   /** base64 signature returned by Keplr's signArbitrary. */
   signature: string;
-  /** base64 secp256k1 pubkey value (`pub_key.value` from Keplr). */
-  pub_key?: string;
   wallet_type?: string;
   label?: string;
   /**
    * Chain-specific verification context. Cosmos signature verification
-   * reads `pub_key` + `chain_id` from here (see WalletVerifier::verify
-   * on the backend). The top-level `pub_key` field above is only used
-   * by older callers and is ignored by the cosmos verifier.
+   * reads `pub_key` + `chain_id` from HERE and only here (WalletVerifier
+   * on the backend). There is deliberately no top-level `pub_key`: the
+   * validator ClaimFlow once sent one, the verifier ignored it, and every
+   * Cosmos claim failed. Build this with `lib/wallet/linkFlow`.
    */
   extra?: Record<string, unknown>;
 }
@@ -4089,6 +4100,13 @@ export type MyPrivacyPatch = Partial<MyPrivacySettings>;
 export interface MemberPermission {
   allowed: boolean;
   unlock_hint: string | null;
+  /**
+   * Why `allowed` is false, when the server says. Optional and an open
+   * string. For `can_message`, `unavailable` (F-99: blocks couldn't be
+   * checked) means omit the affordance entirely; see
+   * `CardPermissions.can_message` for the full inventory.
+   */
+  reason_code?: string | null;
 }
 
 /**

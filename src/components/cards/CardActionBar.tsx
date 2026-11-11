@@ -53,7 +53,7 @@ import type {
   CardKind,
 } from "@/lib/api/types";
 import { FOLLOW_COPY } from "@/lib/copy";
-import { isAllowed, unlockHint } from "@/lib/permissions";
+import { isAllowed, reasonCode, unlockHint } from "@/lib/permissions";
 
 /**
  * Card kind → §J attestation target taxonomy.
@@ -148,6 +148,13 @@ function ActionPill({
  * profile the host passes `suppressBodyLink` so there is no body link at all.
  * No anchor ever nests inside another.
  */
+/** Denial codes whose disabled pill + hint the viewer can act on. */
+const VISIBLE_DENIAL_CODES: ReadonlySet<string> = new Set([
+  "auth_required",
+  "friends_only",
+  "sender_chat_disabled",
+]);
+
 function MessagePill({
   permissions,
   recipientId,
@@ -160,6 +167,19 @@ function MessagePill({
   const allowed = isAllowed(permissions, "can_message");
   const hint = unlockHint(permissions, "can_message");
   const hintId = `card-message-hint-${recipientId}`;
+
+  // A denial carrying a reason_code is read as a CLOSED list, like
+  // MessageValidatorButton: only these codes render the disabled pill;
+  // every other code (`unavailable` from F-99, `not_applicable`,
+  // `messaging_unavailable`, anything new) is hidden even with a hint,
+  // because a structural deny is never shown as a dead control.
+  // The profile view-model does not forward reason_code today, so an
+  // ABSENT code keeps the hint-based rule below rather than hiding
+  // every disabled pill on /u/[handle].
+  const code = reasonCode(permissions, "can_message");
+  if (!allowed && code !== null && !VISIBLE_DENIAL_CODES.has(code)) {
+    return null;
+  }
 
   // Denied with no explanation to offer — say nothing rather than show a
   // dead control the operator cannot act on.

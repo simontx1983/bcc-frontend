@@ -18,9 +18,10 @@
 
 import Link from "next/link";
 
+import { safeUrlTransform } from "@/components/blog/markdown/url-allowlist";
 import { useMyDisputes } from "@/hooks/useDisputes";
 import { LoadFailure } from "@/components/ui/LoadFailure";
-import { humanizeCode } from "@/lib/api/errors";
+import { humanizeCode, isPermissionDenial } from "@/lib/api/errors";
 import type { Dispute } from "@/lib/api/types";
 
 export function MyDisputesList() {
@@ -32,39 +33,50 @@ export function MyDisputesList() {
     );
   }
 
-  if (query.isError) {
-    return (
-      <div className="bcc-paper p-6">
-        <LoadFailure
-          surface="paper"
-          /* §γ — copy is keyed on err.code; never render err.message. */
-          message={humanizeCode(
-            query.error,
-            {
-              bcc_unauthorized: "Sign in to see your filed disputes.",
-              bcc_rate_limited: "Loading too fast — give it a moment and try again.",
-              bcc_unavailable: "Disputes are temporarily unavailable. Try again shortly.",
-            },
-            "Couldn't load your filed disputes. Try again in a moment.",
-          )}
-          onRetry={() => void query.refetch()}
-        />
-      </div>
-    );
+  const failure = query.isError ? (
+    <div className="bcc-paper p-6">
+      <LoadFailure
+        surface="paper"
+        /* §γ — copy is keyed on err.code; never render err.message. */
+        message={humanizeCode(
+          query.error,
+          {
+            bcc_unauthorized: "Sign in to see your filed disputes.",
+            bcc_rate_limited: "Loading too fast — give it a moment and try again.",
+            bcc_unavailable: "Disputes are temporarily unavailable. Try again shortly.",
+          },
+          "Couldn't load your filed disputes. Try again in a moment.",
+        )}
+        onRetry={() => void query.refetch()}
+      />
+    </div>
+  ) : null;
+
+  // Only a first-load failure, or a REFRESH the server refused, may
+  // replace the list. Every ballot cast or withdrawn invalidates this
+  // query, so a blanket `isError` meant one failed refetch erased it.
+  if (query.isLoadingError || (query.isRefetchError && isPermissionDenial(query.error))) {
+    return failure;
   }
 
   if (query.data.length === 0) {
-    return <MyDisputesEmpty />;
+    // "Clean record" is a claim about the server; a failed refresh does
+    // not support it.
+    return query.isRefetchError ? failure : <MyDisputesEmpty />;
   }
 
   return (
-    <ul className="flex flex-col gap-4">
-      {query.data.map((dispute) => (
-        <li key={dispute.id}>
-          <MyDisputeRow dispute={dispute} />
-        </li>
-      ))}
-    </ul>
+    <div className="flex flex-col gap-4">
+      {/* A failed REFRESH keeps the cases; the recovery sits above them. */}
+      {failure}
+      <ul className="flex flex-col gap-4">
+        {query.data.map((dispute) => (
+          <li key={dispute.id}>
+            <MyDisputeRow dispute={dispute} />
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 
@@ -76,6 +88,8 @@ export function MyDisputesList() {
 
 function MyDisputeRow({ dispute }: { dispute: Dispute }) {
   const reviewing = dispute.status === "reviewing";
+  // Scheme allowlist shared with blog markdown; "" means not a safe link.
+  const evidenceHref = safeUrlTransform(dispute.evidence_url);
 
   return (
     <article className="bcc-paper p-5">
@@ -107,14 +121,18 @@ function MyDisputeRow({ dispute }: { dispute: Dispute }) {
           {dispute.evidence_url !== "" && (
             <div className="mt-3">
               <p className="bcc-mono text-ink-ghost">EVIDENCE //</p>
-              <a
-                href={dispute.evidence_url}
-                target="_blank"
-                rel="noreferrer noopener"
-                className="bcc-mono mt-1 inline-block break-all text-blueprint underline hover:text-bcc-text-safety"
-              >
-                {dispute.evidence_url}
-              </a>
+              {evidenceHref !== "" ? (
+                <a
+                  href={evidenceHref}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  className="bcc-mono mt-1 inline-block break-all text-blueprint underline hover:text-bcc-text-safety"
+                >
+                  {dispute.evidence_url}
+                </a>
+              ) : (
+                <p className="bcc-mono mt-1 break-all text-ink-ghost">{dispute.evidence_url}</p>
+              )}
             </div>
           )}
 
