@@ -32,10 +32,8 @@ import { useQueryClient } from "@tanstack/react-query";
 
 import { GroupActionButton } from "@/components/groups/GroupActionButton";
 import { VerificationBadge } from "@/components/groups/VerificationBadge";
-import {
-  useJoinHolderGroupMutation,
-  useLeaveHolderGroupMutation,
-} from "@/hooks/useHolderGroups";
+import { HolderLeaveConfirm } from "@/components/groups/HolderLeaveConfirm";
+import { useJoinHolderGroupMutation } from "@/hooks/useHolderGroups";
 import {
   useJoinHallMutation,
   useLeaveHallMutation,
@@ -246,6 +244,10 @@ function groupActionError(err: unknown): string | null {
   if (err === null || err === undefined) {
     return null;
   }
+  return humanizeGroupActionError(err);
+}
+
+function humanizeGroupActionError(err: unknown): string {
   return humanizeCode(
     err,
     {
@@ -275,20 +277,14 @@ function HolderJoinButton({ groupId }: { groupId: number }) {
   );
 }
 
+// Holder leave starts a 90-day cooldown, so it confirms first.
 function HolderLeaveButton({ groupId }: { groupId: number }) {
   const onSuccess = useInvalidateUserGroups();
-  const mutation = useLeaveHolderGroupMutation({ onSuccess });
   return (
-    <GroupActionButton
+    <HolderLeaveConfirm
       groupId={groupId}
-      label="LEAVE"
-      pendingLabel="LEAVING…"
-      isPending={mutation.isPending}
-      errorMessage={groupActionError(mutation.error)}
-      onClick={() => {
-        mutation.reset();
-        mutation.mutate(groupId);
-      }}
+      humanizeError={humanizeGroupActionError}
+      onSuccess={onSuccess}
     />
   );
 }

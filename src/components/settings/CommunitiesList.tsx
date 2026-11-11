@@ -26,12 +26,12 @@ import { useState } from "react";
 import {
   useHolderGroupPreferences,
   useJoinHolderGroupMutation,
-  useLeaveHolderGroupMutation,
   useMyHolderGroups,
   useUpdateHolderGroupPreferences,
 } from "@/hooks/useHolderGroups";
 import { LoadFailure } from "@/components/ui/LoadFailure";
 import { GroupActionButton } from "@/components/groups/GroupActionButton";
+import { HolderLeaveConfirm } from "@/components/groups/HolderLeaveConfirm";
 import { HeatBadge } from "@/components/groups/HeatBadge";
 import { VerificationBadge } from "@/components/groups/VerificationBadge";
 import { humanizeCode, isPermissionDenial } from "@/lib/api/errors";
@@ -350,32 +350,22 @@ function JoinButton({ groupId }: { groupId: number }) {
   );
 }
 
+// Holder leave starts a 90-day cooldown, so it confirms first.
 function LeaveButton({ groupId }: { groupId: number }) {
-  const mutation = useLeaveHolderGroupMutation();
-
-  // §γ — copy is keyed on err.code; never render err.message.
-  const errorMessage = mutation.error
-    ? humanizeCode(
-        mutation.error,
-        {
-          bcc_rate_limited: "Slow down — too many leave attempts. Wait a minute.",
-          bcc_unauthorized: "Sign in to leave this community.",
-        },
-        "Couldn't leave this community. Try again.",
-      )
-    : null;
-
   return (
-    <GroupActionButton
+    <HolderLeaveConfirm
       groupId={groupId}
-      label="LEAVE"
-      pendingLabel="LEAVING…"
-      isPending={mutation.isPending}
-      errorMessage={errorMessage}
-      onClick={() => {
-        mutation.reset();
-        mutation.mutate(groupId);
-      }}
+      // §γ — copy is keyed on err.code; never render err.message.
+      humanizeError={(err) =>
+        humanizeCode(
+          err,
+          {
+            bcc_rate_limited: "Slow down — too many leave attempts. Wait a minute.",
+            bcc_unauthorized: "Sign in to leave this community.",
+          },
+          "Couldn't leave this community. Try again.",
+        )
+      }
     />
   );
 }

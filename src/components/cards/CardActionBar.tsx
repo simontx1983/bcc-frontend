@@ -148,6 +148,13 @@ function ActionPill({
  * profile the host passes `suppressBodyLink` so there is no body link at all.
  * No anchor ever nests inside another.
  */
+/** Denial codes whose disabled pill + hint the viewer can act on. */
+const VISIBLE_DENIAL_CODES: ReadonlySet<string> = new Set([
+  "auth_required",
+  "friends_only",
+  "sender_chat_disabled",
+]);
+
 function MessagePill({
   permissions,
   recipientId,
@@ -161,10 +168,16 @@ function MessagePill({
   const hint = unlockHint(permissions, "can_message");
   const hintId = `card-message-hint-${recipientId}`;
 
-  // `unavailable`: the server couldn't check blocks right now (F-99).
-  // Omit the affordance entirely, whatever hint came with it: a disabled
-  // pill would claim a reason the server never established.
-  if (!allowed && reasonCode(permissions, "can_message") === "unavailable") {
+  // A denial carrying a reason_code is read as a CLOSED list, like
+  // MessageValidatorButton: only these codes render the disabled pill;
+  // every other code (`unavailable` from F-99, `not_applicable`,
+  // `messaging_unavailable`, anything new) is hidden even with a hint,
+  // because a structural deny is never shown as a dead control.
+  // The profile view-model does not forward reason_code today, so an
+  // ABSENT code keeps the hint-based rule below rather than hiding
+  // every disabled pill on /u/[handle].
+  const code = reasonCode(permissions, "can_message");
+  if (!allowed && code !== null && !VISIBLE_DENIAL_CODES.has(code)) {
     return null;
   }
 
