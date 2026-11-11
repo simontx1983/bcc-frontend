@@ -18,6 +18,7 @@
 
 import Link from "next/link";
 
+import { safeUrlTransform } from "@/components/blog/markdown/url-allowlist";
 import { useMyDisputes } from "@/hooks/useDisputes";
 import { LoadFailure } from "@/components/ui/LoadFailure";
 import { humanizeCode } from "@/lib/api/errors";
@@ -76,6 +77,8 @@ export function MyDisputesList() {
 
 function MyDisputeRow({ dispute }: { dispute: Dispute }) {
   const reviewing = dispute.status === "reviewing";
+  // Scheme allowlist shared with blog markdown; "" means not a safe link.
+  const evidenceHref = safeUrlTransform(dispute.evidence_url);
 
   return (
     <article className="bcc-paper p-5">
@@ -107,14 +110,18 @@ function MyDisputeRow({ dispute }: { dispute: Dispute }) {
           {dispute.evidence_url !== "" && (
             <div className="mt-3">
               <p className="bcc-mono text-ink-ghost">EVIDENCE //</p>
-              <a
-                href={dispute.evidence_url}
-                target="_blank"
-                rel="noreferrer noopener"
-                className="bcc-mono mt-1 inline-block break-all text-blueprint underline hover:text-bcc-text-safety"
-              >
-                {dispute.evidence_url}
-              </a>
+              {evidenceHref !== "" ? (
+                <a
+                  href={evidenceHref}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  className="bcc-mono mt-1 inline-block break-all text-blueprint underline hover:text-bcc-text-safety"
+                >
+                  {dispute.evidence_url}
+                </a>
+              ) : (
+                <p className="bcc-mono mt-1 break-all text-ink-ghost">{dispute.evidence_url}</p>
+              )}
             </div>
           )}
 

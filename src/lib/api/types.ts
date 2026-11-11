@@ -17,6 +17,13 @@
 
 export interface ApiMeta {
   version: string;
+  /**
+   * The server's per-request correlation id (bcc-trust #377 / #383): the
+   * same value as the X-Request-Id header. Present on success envelopes
+   * and on reshaped error envelopes. Optional for responses from servers
+   * that predate it.
+   */
+  request_id?: string;
   /** kind → resolved post.ID for §D5 reactions. Absent on error responses. */
   reaction_types?: Record<string, number>;
 }
