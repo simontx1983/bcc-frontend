@@ -15,7 +15,7 @@ import { Avatar } from "@/components/identity/Avatar";
 import { LoadFailure } from "@/components/ui/LoadFailure";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { useMyBlocks, useUnblockUser } from "@/hooks/useBlocks";
-import { humanizeCode } from "@/lib/api/errors";
+import { humanizeCode, isPermissionDenial } from "@/lib/api/errors";
 
 export function BlocksList() {
   const [page, setPage] = useState(1);
@@ -31,27 +31,39 @@ export function BlocksList() {
     );
   }
 
-  if (query.isError) {
-    return (
-      <div className="bcc-panel p-6">
-        <LoadFailure
-          /* §γ — copy is keyed on err.code; never render err.message. */
-          message={humanizeCode(
-            query.error,
-            {
-              bcc_unauthorized: "Sign in to manage your blocks.",
-              bcc_rate_limited: "Loading too fast — give it a moment and try again.",
-              bcc_unavailable: "Blocks are temporarily unavailable. Try again shortly.",
-            },
-            "Couldn't load your blocks. Try again in a moment.",
-          )}
-          onRetry={() => void query.refetch()}
-        />
-      </div>
-    );
+  const failure = query.isError ? (
+    <div className="bcc-panel p-6">
+      <LoadFailure
+        /* §γ — copy is keyed on err.code; never render err.message. */
+        message={humanizeCode(
+          query.error,
+          {
+            bcc_unauthorized: "Sign in to manage your blocks.",
+            bcc_rate_limited: "Loading too fast — give it a moment and try again.",
+            bcc_unavailable: "Blocks are temporarily unavailable. Try again shortly.",
+          },
+          "Couldn't load your blocks. Try again in a moment.",
+        )}
+        onRetry={() => void query.refetch()}
+      />
+    </div>
+  ) : null;
+
+  // Only a first-load failure, or a REFRESH the server refused, may
+  // replace the list. Every unblock invalidates this query, so a blanket
+  // `isError` meant one failed refetch erased the whole list. A refused
+  // refresh keeps the old whole-panel state rather than the stale rows.
+  if (query.isLoadingError || (query.isRefetchError && isPermissionDenial(query.error))) {
+    return failure;
   }
 
   const { items, pagination } = query.data;
+
+  // "None on file" is a claim about the server; a failed refresh does not
+  // support it, so only the failure renders.
+  if (items.length === 0 && query.isRefetchError) {
+    return failure;
+  }
 
   if (items.length === 0) {
     return (
@@ -79,6 +91,8 @@ export function BlocksList() {
 
   return (
     <div className="flex flex-col gap-4">
+      {/* A failed REFRESH keeps the rows and offers the recovery above them. */}
+      {failure}
       <ul className="bcc-panel divide-y divide-bcc-border">
         {items.map((entry) => (
           <li

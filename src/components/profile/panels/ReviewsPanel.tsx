@@ -14,11 +14,11 @@
  * Lazy-fetches via useUserReviews on mount.
  */
 
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 
 import { useUserReviews } from "@/hooks/useUserActivity";
 import { LoadFailure } from "@/components/ui/LoadFailure";
-import { humanizeCode } from "@/lib/api/errors";
+import { humanizeCode, isPermissionDenial } from "@/lib/api/errors";
 import type { MemberReview } from "@/lib/api/types";
 
 interface ReviewsPanelProps {
@@ -45,34 +45,44 @@ export function ReviewsPanel({ handle }: ReviewsPanelProps) {
     );
   }
 
-  if (query.isError) {
+  const failure = query.isError ? (
+    <LoadFailure
+      surface="paper"
+      /* §γ — copy is keyed on err.code; never render err.message. */
+      message={humanizeCode(
+        query.error,
+        {
+          bcc_unauthorized: "Sign in to read reviews.",
+          bcc_rate_limited: "Loading too fast — give it a moment and try again.",
+          bcc_unavailable: "Reviews are temporarily unavailable. Try again shortly.",
+        },
+        "Couldn't load reviews. Try again in a moment.",
+      )}
+      onRetry={() => void query.refetch()}
+    />
+  ) : null;
+
+  // Only a first-load failure, or a REFRESH the server refused, may
+  // replace the panel. A blanket `isError` was also true when a background
+  // refresh failed with the reviews already on screen, and erased them. A
+  // refused refresh keeps the old whole-panel state rather than stale rows.
+  if (query.isLoadingError || (query.isRefetchError && isPermissionDenial(query.error))) {
     return (
       <article className="bcc-paper">
         <Header />
-        <div className="px-8 py-12">
-          <LoadFailure
-            surface="paper"
-            /* §γ — copy is keyed on err.code; never render err.message. */
-            message={humanizeCode(
-              query.error,
-              {
-                bcc_unauthorized: "Sign in to read reviews.",
-                bcc_rate_limited: "Loading too fast — give it a moment and try again.",
-                bcc_unavailable: "Reviews are temporarily unavailable. Try again shortly.",
-              },
-              "Couldn't load reviews. Try again in a moment.",
-            )}
-            onRetry={() => void query.refetch()}
-          />
-        </div>
+        <div className="px-8 py-12">{failure}</div>
       </article>
     );
   }
+
+  // A failed REFRESH keeps what loaded; the recovery sits under the header.
+  const notice = query.isRefetchError ? <div className="px-8">{failure}</div> : null;
 
   if (query.data.hidden) {
     return (
       <article className="bcc-paper">
         <Header />
+        {notice}
         <div className="px-8 py-12">
           <p
             className="bcc-mono mb-3 text-bcc-text-safety"
@@ -98,7 +108,7 @@ export function ReviewsPanel({ handle }: ReviewsPanelProps) {
     );
   }
 
-  return <ReviewsPanelStatic reviews={query.data.items} />;
+  return <ReviewsPanelStatic reviews={query.data.items} notice={notice} />;
 }
 
 // ──────────────────────────────────────────────────────────────────────
@@ -106,7 +116,15 @@ export function ReviewsPanel({ handle }: ReviewsPanelProps) {
 // states live here so the live variant can fall through cleanly.
 // ──────────────────────────────────────────────────────────────────────
 
-function ReviewsPanelStatic({ reviews }: { reviews: MemberReview[] }) {
+function ReviewsPanelStatic({
+  reviews,
+  notice,
+}: {
+  reviews: MemberReview[];
+  /** A failed-refresh notice. While present, the empty state is withheld:
+   *  "no reviews" is a claim a failed read does not support. */
+  notice: ReactNode;
+}) {
   const [expanded, setExpanded] = useState(false);
   const visible = expanded
     ? reviews
@@ -117,9 +135,10 @@ function ReviewsPanelStatic({ reviews }: { reviews: MemberReview[] }) {
   return (
     <article className="bcc-paper">
       <Header />
+      {notice}
 
       {reviews.length === 0 ? (
-        <ReviewsEmpty />
+        notice === null ? <ReviewsEmpty /> : null
       ) : (
         <ul>
           {visible.map((review) => (

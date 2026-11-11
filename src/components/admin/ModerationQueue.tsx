@@ -42,6 +42,7 @@ import type { Route } from "next";
 
 import { Dialog } from "@/components/ui/Dialog";
 import { FilterChipRow } from "@/components/ui/FilterChipRow";
+import { LoadFailure } from "@/components/ui/LoadFailure";
 import { UndoToast, type UndoToastDescriptor } from "@/components/admin/UndoToast";
 import {
   useAdminReports,
@@ -323,7 +324,11 @@ export function ModerationQueue() {
     );
   }
 
-  if (query.isError) {
+  // Only a first-load failure, or a REFRESH the server refused, may
+  // replace the queue. Every resolve and undo invalidates the queue root,
+  // so a blanket `isError` here meant one failed background refetch
+  // blanked every report the moderator was working through.
+  if (query.isLoadingError || (query.isRefetchError && isAdminDenial(query.error))) {
     return <QueueError filter={filters.status} onChange={handleStatusChange} error={query.error} />;
   }
 
@@ -347,7 +352,21 @@ export function ModerationQueue() {
 
       <KeyboardHint onOpenOverlay={() => setShortcutsOpen(true)} />
 
+      {/* A failed REFRESH keeps the reports on screen and offers the
+          recovery beside them. */}
+      {query.isRefetchError && (
+        <div className="bcc-panel">
+          <LoadFailure
+            message={queueFailureCopy(query.error)}
+            onRetry={() => void query.refetch()}
+          />
+        </div>
+      )}
+
+      {/* "Queue clear" is a claim about the server; a failed refresh does
+          not support it. */}
       {items.length === 0 ? (
+        query.isError ? null : (
         <div className="bcc-panel p-6">
           <p
             className="bcc-mono mb-3 text-bcc-text-safety"
@@ -359,6 +378,7 @@ export function ModerationQueue() {
             No reports {filters.status === "all" ? "match the current filters." : `with status "${filters.status}".`}
           </p>
         </div>
+        )
       ) : (
         <ul className="flex flex-col gap-3">
           {items.map((item, idx) => (
@@ -892,14 +912,33 @@ interface QueueErrorProps {
   error: BccApiError;
 }
 
+/**
+ * Two codes, one meaning: the endpoint's in-handler adminGate() emits
+ * bcc_forbidden, but the REST permission_callback rejects first with
+ * WP-core's rest_forbidden — which is what non-admins actually receive.
+ * Branching on only bcc_forbidden made the admin-required panel
+ * unreachable (non-admins got the generic retry copy, which invites
+ * retrying something that can never succeed).
+ */
+function isAdminDenial(error: BccApiError): boolean {
+  return error.code === "bcc_forbidden" || error.code === "rest_forbidden";
+}
+
+function queueFailureCopy(error: BccApiError): string {
+  // §γ — copy is keyed on err.code; never render err.message.
+  return humanizeCode(
+    error,
+    {
+      bcc_unauthorized: "Sign in again to view the moderation queue.",
+      bcc_rate_limited: "Loading too fast — give it a moment and try again.",
+      bcc_unavailable: "The moderation queue is temporarily unavailable. Try again shortly.",
+    },
+    "Couldn't load reports. Try again in a moment.",
+  );
+}
+
 function QueueError({ filter, onChange, error }: QueueErrorProps) {
-  // Two codes, one meaning: the endpoint's in-handler adminGate()
-  // emits bcc_forbidden, but the REST permission_callback rejects
-  // first with WP-core's rest_forbidden — which is what non-admins
-  // actually receive. Branching on only bcc_forbidden made this panel
-  // unreachable (non-admins got the generic retry copy below, which
-  // invites retrying something that can never succeed).
-  if (error.code === "bcc_forbidden" || error.code === "rest_forbidden") {
+  if (isAdminDenial(error)) {
     return (
       <div className="bcc-panel p-6">
         <p
@@ -922,16 +961,7 @@ function QueueError({ filter, onChange, error }: QueueErrorProps) {
     <div className="bcc-panel p-6">
       <StatusTabs value={filter} onChange={onChange} />
       <p role="alert" className="bcc-mono mt-4 text-bcc-text-error">
-        {/* §γ — copy is keyed on err.code; never render err.message. */}
-        {humanizeCode(
-          error,
-          {
-            bcc_unauthorized: "Sign in again to view the moderation queue.",
-            bcc_rate_limited: "Loading too fast — give it a moment and try again.",
-            bcc_unavailable: "The moderation queue is temporarily unavailable. Try again shortly.",
-          },
-          "Couldn't load reports. Try again in a moment.",
-        )}
+        {queueFailureCopy(error)}
       </p>
     </div>
   );
