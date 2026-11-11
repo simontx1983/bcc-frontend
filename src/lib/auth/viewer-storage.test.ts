@@ -141,6 +141,18 @@ describe("clearViewerStorage", () => {
     expect(window.localStorage.getItem("bcc-recent-searches")).toBeNull();
   });
 
+  it("drops the one-shot signup_completed analytics marker on sign-out, unsent", () => {
+    window.sessionStorage.setItem("bcc.analytics.signup_completed", "google");
+    expect(clearViewerStorage(LEAVING)).toBe("cleared");
+    expect(window.sessionStorage.getItem("bcc.analytics.signup_completed")).toBeNull();
+  });
+
+  it("keeps the signup_completed marker on viewer ARRIVAL, so the new account's event survives sign-in", () => {
+    window.sessionStorage.setItem("bcc.analytics.signup_completed", "password");
+    expect(clearCrossViewerStorage()).toBe("cleared");
+    expect(window.sessionStorage.getItem("bcc.analytics.signup_completed")).toBe("password");
+  });
+
   it("preserves device preferences", () => {
     for (const key of DEVICE_SCOPED_STORAGE_KEYS) {
       window.localStorage.setItem(key, "keep-me");

@@ -86,6 +86,12 @@ export const VIEWER_SCOPED_STORAGE_KEYS: readonly string[] = [
   // one person's half-finished sign-in, so a sign-out or viewer switch
   // clears it.
   "bcc.2fa.challenge",
+  // The one-shot "an account was just created" analytics marker
+  // (`lib/analytics/posthog`, SIGNUP_COMPLETED_STORAGE_KEY), in
+  // sessionStorage. Holds only the signup method, but it is about one
+  // person's new account, so a sign-out or viewer switch drops it unsent.
+  // Arrival does not touch it: it is not a legacy key.
+  "bcc.analytics.signup_completed",
 ];
 
 /**

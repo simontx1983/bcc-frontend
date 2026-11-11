@@ -22,6 +22,7 @@ import { type FormEvent, useState } from "react";
 import { AuthCard, AuthDivider, SSOButton } from "@/components/auth/AuthCard";
 import { PasswordStrengthMeter } from "@/components/auth/PasswordStrengthMeter";
 import { WalletAuthButton } from "@/components/auth/WalletAuthButton";
+import { captureAnalyticsEvent, noteSignupCompleted } from "@/lib/analytics/posthog";
 import { signup } from "@/lib/api/auth-endpoints";
 import { BccApiError } from "@/lib/api/types";
 import { checkHandleLocal, formatHandleHint } from "@/lib/auth/handleValidation";
@@ -55,6 +56,7 @@ export function SignupPageClient() {
     event.preventDefault();
     setError(null);
     setSubmitting(true);
+    captureAnalyticsEvent("signup_started", { method: "password" });
 
     const trimmedEmail = email.trim();
     try {
@@ -92,8 +94,16 @@ export function SignupPageClient() {
       }
     >
       {/* SSO — disabled until Phillip wires OAuth */}
-      <SSOButton provider="google"  mode="signup" />
-      <SSOButton provider="twitter" mode="signup" />
+      <SSOButton
+        provider="google"
+        mode="signup"
+        onStart={() => { captureAnalyticsEvent("signup_started", { method: "google" }); }}
+      />
+      <SSOButton
+        provider="twitter"
+        mode="signup"
+        onStart={() => { captureAnalyticsEvent("signup_started", { method: "x" }); }}
+      />
 
       <AuthDivider />
 
@@ -214,7 +224,13 @@ export function SignupPageClient() {
           handle={handle}
           {...(displayName.trim() !== "" ? { displayName } : {})}
           disabled={!handleValid || submitting}
-          onSuccess={() => { router.replace("/onboarding"); }}
+          onStart={() => { captureAnalyticsEvent("signup_started", { method: "wallet" }); }}
+          onSuccess={() => {
+            // The account now exists. /signup is allowed, but the event
+            // is owed to the next pageview like every other method.
+            noteSignupCompleted("wallet");
+            router.replace("/onboarding");
+          }}
         />
       </div>
 

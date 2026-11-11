@@ -8,6 +8,7 @@ const sdk = vi.hoisted(() => ({
   capture: vi.fn(),
   captureException: vi.fn(),
   identify: vi.fn(),
+  register: vi.fn(),
   register_once: vi.fn(),
   reset: vi.fn(),
   opt_in_capturing: vi.fn(),
