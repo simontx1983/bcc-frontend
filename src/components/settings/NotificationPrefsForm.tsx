@@ -35,7 +35,11 @@ import { usePushSubscription } from "@/hooks/usePushSubscription";
 import { LoadFailure } from "@/components/ui/LoadFailure";
 import { SettingsSaveStatus, saveStatusFrom } from "@/components/settings/SettingsSaveStatus";
 import { useDirtyRegistration } from "@/hooks/useDirtyRegistration";
-import { humanizeCode, isNonRetryableFixedReadFailure } from "@/lib/api/errors";
+import {
+  humanizeCode,
+  isNonRetryableFixedReadFailure,
+  isPermissionDenial,
+} from "@/lib/api/errors";
 import type {
   BellEventType,
   NotificationPrefs,
@@ -280,23 +284,27 @@ export function NotificationPrefsForm() {
     isDirty: dirty,
     isSaving: mutation.isPending,
   });
-  if (query.isError) {
-    return (
-      <div className="bcc-panel p-6">
-        <LoadFailure
-          // Keeps the "what failed" prefix — the humanizer returns the
-          // bare reason, which reads as orphaned without it.
-          message={`Couldn't load your notification preferences: ${humanizeReadError(query.error)}`}
-          // `useNotificationPrefs()` takes no request parameters, so a
-          // retry re-issues an identical GET — the terminal codes cannot
-          // resolve. Conditional spread because `exactOptionalPropertyTypes`
-          // rejects `onRetry={undefined}`.
-          {...(isNonRetryableFixedReadFailure(query.error)
-            ? {}
-            : { onRetry: () => void query.refetch() })}
-        />
-      </div>
-    );
+  const failure = query.isError ? (
+    <LoadFailure
+      // Keeps the "what failed" prefix — the humanizer returns the
+      // bare reason, which reads as orphaned without it.
+      message={`Couldn't load your notification preferences: ${humanizeReadError(query.error)}`}
+      // `useNotificationPrefs()` takes no request parameters, so a
+      // retry re-issues an identical GET — the terminal codes cannot
+      // resolve. Conditional spread because `exactOptionalPropertyTypes`
+      // rejects `onRetry={undefined}`.
+      {...(isNonRetryableFixedReadFailure(query.error)
+        ? {}
+        : { onRetry: () => void query.refetch() })}
+    />
+  ) : null;
+
+  // Only a first-load failure, or a REFRESH the server refused, may
+  // replace the form. A blanket `isError` was also true when a remount
+  // refresh failed with the form on screen — hiding an unsaved draft
+  // the member was part-way through editing.
+  if (query.isLoadingError || (query.isRefetchError && isPermissionDenial(query.error))) {
+    return <div className="bcc-panel p-6">{failure}</div>;
   }
 
   if (query.isLoading || draft === null) {
@@ -328,6 +336,8 @@ export function NotificationPrefsForm() {
 
   return (
     <div className="bcc-panel flex flex-col gap-6 p-6">
+      {/* A failed REFRESH keeps the form and any draft; the recovery sits on top. */}
+      {failure}
       <section className="flex flex-col gap-2">
         <span className="bcc-mono text-[10px] tracking-[0.24em] text-bcc-text-secondary">
           NOTIFICATIONS · EMAIL DIGEST
