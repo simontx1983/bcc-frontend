@@ -15,6 +15,7 @@ import {
   useCreatePostMutation,
 } from "@/hooks/useCreatePost";
 import { useSetPhotoAltMutation } from "@/hooks/useSetPhotoAlt";
+import { captureAnalyticsEvent } from "@/lib/analytics/posthog";
 import { humanizeCode } from "@/lib/api/errors";
 import {
   BccApiError,
@@ -68,7 +69,10 @@ export function useInlineComposerSubmit({
   onError,
 }: UseInlineComposerSubmitArgs) {
   const statusMutation = useCreatePostMutation({
-    onSuccess: onStatusSuccess,
+    onSuccess: () => {
+      capturePostPublished("status", groupId !== undefined, visibility, hallFeed);
+      onStatusSuccess();
+    },
     onError: (err) => onError(humanizeError(err)),
   });
 
@@ -91,13 +95,17 @@ export function useInlineComposerSubmit({
       if (cleanedAlt !== "") {
         photoAltMutation.mutate({ pho_id: response.photo_id, alt: cleanedAlt });
       }
+      capturePostPublished("photo", groupId !== undefined, visibility, hallFeed);
       onPhotoSuccess();
     },
     onError: (err) => onError(humanizeError(err)),
   });
 
   const gifMutation = useCreateGifPostMutation({
-    onSuccess: onGifSuccess,
+    onSuccess: () => {
+      capturePostPublished("gif", groupId !== undefined, visibility, hallFeed);
+      onGifSuccess();
+    },
     onError: (err) => onError(humanizeError(err)),
   });
 
@@ -149,6 +157,20 @@ export function useInlineComposerSubmit({
   };
 
   return { isPending, submit };
+}
+
+function capturePostPublished(
+  postType: "status" | "photo" | "gif",
+  isGroupPost: boolean,
+  visibility: GroupPostVisibility,
+  hallFeed: HallFeedChannel | undefined,
+) {
+  captureAnalyticsEvent("post_published", {
+    post_type: postType,
+    is_group_post: isGroupPost,
+    visibility,
+    feed_channel: hallFeed ?? "main",
+  });
 }
 
 /**
