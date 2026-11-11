@@ -9,7 +9,7 @@
  * is fast and a fresh re-fetch keeps the count accurate.
  */
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { Avatar } from "@/components/identity/Avatar";
 import { LoadFailure } from "@/components/ui/LoadFailure";
@@ -23,7 +23,21 @@ export function BlocksList() {
   const unblockMutation = useUnblockUser();
   const [pendingId, setPendingId] = useState<number | null>(null);
 
-  if (query.isPending) {
+  // Page-overflow guard, same contract as <WatchersPanel>: unblocking the
+  // last row of a trailing page refetches an empty page, which would
+  // render the "NONE ON FILE" empty state with no pager — stranding the
+  // user away from the earlier pages. Clamp back to the last real page;
+  // the result is always < `page`, so it terminates at 1.
+  const emptyOverflow =
+    query.isSuccess && query.data.items.length === 0 && page > 1;
+  const totalPages = query.data?.pagination.total_pages;
+  useEffect(() => {
+    if (emptyOverflow) {
+      setPage(Math.max(1, Math.min(page - 1, totalPages ?? 1)));
+    }
+  }, [emptyOverflow, page, totalPages]);
+
+  if (query.isPending || emptyOverflow) {
     return (
       <div aria-label="Loading blocks" className="flex flex-col gap-2">
         <Skeleton className="h-[68px]" count={3} />

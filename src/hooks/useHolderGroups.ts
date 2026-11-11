@@ -173,7 +173,16 @@ export function useUpdateHolderGroupPreferences(
           HOLDER_GROUPS_PREFS_QUERY_KEY,
           context.previous
         );
+        return;
       }
+      // Cold cache: there was no value to restore, so the optimistic
+      // write is the only thing in the cache. setQueryData(undefined) is
+      // a no-op, and removeQueries leaves a mounted observer rendering the
+      // stale value — reset clears it and refetches the server's truth.
+      void queryClient.resetQueries({
+        queryKey: HOLDER_GROUPS_PREFS_QUERY_KEY,
+        exact: true,
+      });
     },
     onSuccess: (data) => {
       // Server's post-write state is canonical.
