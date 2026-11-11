@@ -40,6 +40,7 @@ import posthog, {
 
 import {
   isDeniedAnalyticsPath,
+  pickCampaignParams,
   sanitizeAnalyticsEvent,
 } from "@/lib/analytics/sanitize";
 
@@ -189,10 +190,25 @@ export function captureAnalyticsEvent(
   posthog.capture(event, properties);
 }
 
-/** Send a page view for a bare pathname. Denied routes are skipped. */
+/**
+ * Send a page view for a bare pathname. Denied routes are skipped.
+ *
+ * The allowlisted link tags (utm_source / utm_medium / utm_campaign) are
+ * read from the location BEFORE the sanitiser strips the URL, attached to
+ * this pageview, and registered once as `$initial_utm_*` so the first
+ * consented visit's tags travel with later events (signup_completed
+ * included). Nothing else from the query string is ever read.
+ */
 export function captureAnalyticsPageview(pathname: string): void {
   if (!initialised || !isGranted() || isDeniedAnalyticsPath(pathname)) return;
-  posthog.capture("$pageview", { $pathname: pathname });
+  const campaign =
+    typeof window === "undefined" ? {} : pickCampaignParams(window.location.search);
+  if (Object.keys(campaign).length > 0) {
+    const firstTouch: Record<string, string> = {};
+    for (const [k, v] of Object.entries(campaign)) firstTouch[`$initial_${k}`] = v;
+    posthog.register_once(firstTouch);
+  }
+  posthog.capture("$pageview", { $pathname: pathname, ...campaign });
 }
 
 /** Report an error. Sanitised by `before_send`. No-op without consent. */

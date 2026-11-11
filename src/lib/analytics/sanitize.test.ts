@@ -5,6 +5,7 @@ import {
   campaignKeyOf,
   generaliseUrlPath,
   isDeniedAnalyticsPath,
+  pickCampaignParams,
   sanitizeAnalyticsEvent,
   stripQueryAndHash,
   type SanitizableEvent,
@@ -323,5 +324,19 @@ describe("exception text never quotes a person's path", () => {
     const msg = String(out?.properties["$exception_message"]);
     expect(msg).not.toMatch(/alice|bob|Q7|42/);
     expect(msg).toContain("/u/[handle]");
+  });
+});
+
+
+describe("pickCampaignParams", () => {
+  it("returns only utm_source/medium/campaign, trimmed and capped", () => {
+    expect(
+      pickCampaignParams(`?utm_source= news &utm_medium=email&utm_campaign=${"c".repeat(150)}&utm_term=t&fbclid=f&email=a@b.c`),
+    ).toEqual({ utm_source: "news", utm_medium: "email", utm_campaign: "c".repeat(100) });
+  });
+
+  it("ignores empty values and returns {} with no tags", () => {
+    expect(pickCampaignParams("?utm_source=&x=1")).toEqual({});
+    expect(pickCampaignParams("")).toEqual({});
   });
 });

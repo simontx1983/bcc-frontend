@@ -99,6 +99,28 @@ const CLICK_ID_KEYS: ReadonlySet<string> = new Set([
 /** Longest campaign value kept; they are free text. */
 export const CAMPAIGN_VALUE_MAX = 100;
 
+/**
+ * The allowlisted link tags in a query string (`?utm_source=x&…`), capped,
+ * for attaching to events BEFORE the URL is stripped. Empty values and
+ * every non-allowlisted key are ignored.
+ */
+export function pickCampaignParams(search: string): Record<string, string> {
+  const out: Record<string, string> = {};
+  let params: URLSearchParams;
+  try {
+    params = new URLSearchParams(search);
+  } catch {
+    return out;
+  }
+  for (const key of KEPT_CAMPAIGN_KEYS) {
+    const value = params.get(key);
+    if (value !== null && value.trim() !== "") {
+      out[key] = value.trim().slice(0, CAMPAIGN_VALUE_MAX);
+    }
+  }
+  return out;
+}
+
 /** Prefixes PostHog puts in front of a campaign key. */
 const CAMPAIGN_KEY_PREFIX = /^(?:\$session_entry_|\$initial_|\$entry_|\$)/;
 

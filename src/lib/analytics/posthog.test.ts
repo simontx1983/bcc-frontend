@@ -8,6 +8,7 @@ const sdk = vi.hoisted(() => ({
   capture: vi.fn(),
   captureException: vi.fn(),
   identify: vi.fn(),
+  register_once: vi.fn(),
   reset: vi.fn(),
   opt_in_capturing: vi.fn(),
   opt_out_capturing: vi.fn(),
@@ -106,6 +107,36 @@ describe("analytics consent", () => {
     expect(sdk.capture).not.toHaveBeenCalled();
     a.captureAnalyticsPageview("/feed");
     expect(sdk.capture).toHaveBeenCalledWith("$pageview", { $pathname: "/feed" });
+  });
+
+  it("attaches only the allowlisted link tags to the pageview, and registers them once as first touch", async () => {
+    window.history.replaceState(null, "", "/feed?utm_source=news&utm_medium=email&utm_campaign=launch&utm_content=x&utm_term=y&gclid=g&secret=s");
+    try {
+      const a = await load();
+      a.setAnalyticsConsent("granted");
+      a.captureAnalyticsPageview("/feed");
+      expect(sdk.capture).toHaveBeenCalledWith("$pageview", {
+        $pathname: "/feed",
+        utm_source: "news",
+        utm_medium: "email",
+        utm_campaign: "launch",
+      });
+      expect(sdk.register_once).toHaveBeenCalledWith({
+        $initial_utm_source: "news",
+        $initial_utm_medium: "email",
+        $initial_utm_campaign: "launch",
+      });
+      expect(JSON.stringify(sdk.capture.mock.calls)).not.toMatch(/utm_content|utm_term|gclid|secret/);
+    } finally {
+      window.history.replaceState(null, "", "/");
+    }
+  });
+
+  it("registers nothing when the URL carries no link tags", async () => {
+    const a = await load();
+    a.setAnalyticsConsent("granted");
+    a.captureAnalyticsPageview("/feed");
+    expect(sdk.register_once).not.toHaveBeenCalled();
   });
 });
 
