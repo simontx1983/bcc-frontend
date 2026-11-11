@@ -79,6 +79,7 @@ import {
 } from "@/hooks/useComments";
 import { useCommentStoke } from "@/hooks/useCommentStoke";
 import { useGiphyIntegration } from "@/hooks/useGiphyIntegration";
+import { captureAnalyticsEvent } from "@/lib/analytics/posthog";
 import { uploadBlogCoverImage } from "@/lib/api/blog-endpoints";
 import { humanizeCode, isPermissionDenial } from "@/lib/api/errors";
 import {
@@ -1643,6 +1644,12 @@ function CommentComposer({
         ...(replyTarget !== null ? { parent_id: replyTarget.parentId } : {}),
       },
       {
+        onSuccess: () => {
+          captureAnalyticsEvent("comment_published", {
+            is_reply: replyTarget !== null,
+            attachment_type: media?.kind ?? "none",
+          });
+        },
         onError: () => {
           setDraft(draftSnapshot);
           setPhoto(photoSnapshot);

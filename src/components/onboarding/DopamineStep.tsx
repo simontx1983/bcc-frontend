@@ -38,6 +38,7 @@ import { BookMarked } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { captureAnalyticsEvent } from "@/lib/analytics/posthog";
 import { useCompleteOnboarding } from "@/hooks/useCompleteOnboarding";
 import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
 import { useViewerScope } from "@/hooks/useViewerScope";
@@ -99,6 +100,10 @@ export function DopamineStep({
         // below retries it once identity is known, or the viewer would be
         // offered "finish setting up?" after finishing.
         clearOnboardingProgress(scope);
+        captureAnalyticsEvent("onboarding_completed", {
+          cards_pulled: pulledCards.length,
+          selected_home_chain: homeChain,
+        });
         setSave({ status: "saved", data });
       })
       .catch((err: unknown) => {
@@ -121,7 +126,7 @@ export function DopamineStep({
       .finally(() => {
         inFlightRef.current = false;
       });
-  }, [completeAsync, homeChain, scope]);
+  }, [completeAsync, homeChain, pulledCards.length, scope]);
 
   // The deferred clear above can arrive while identity is unavailable, in
   // which case nothing was removed. Idempotent, and keyed on the scope, so
