@@ -451,12 +451,13 @@ function isConflict(err: BccApiError | Error): boolean {
 }
 
 /**
- * Copy for a verify failure that keeps the code form open. Keyed on
- * `err.code`; `bcc_invalid_request` here is the 422 wrong-code case,
- * because the 400 no-pending case is split off by status first.
+ * Copy for a verify failure that keeps the code form open, keyed on
+ * `err.code`. `bcc_invalid_request` reaches this table only as the 422
+ * empty-code case; the "no pending change" case restarts first.
  */
 const VERIFY_ERROR_COPY: Record<VerifyAccountEmailChangeErrorCode, string> = {
-  bcc_invalid_request: "That code didn't match. Check it and try again.",
+  bcc_invalid_otp:     "That code didn't match. Check the latest email and try again.",
+  bcc_invalid_request: "Enter the 6-digit code from the email.",
   bcc_conflict:        "That email is already in use by another account.",
   bcc_rate_limited:    "Too many code attempts. Try again later.",
   bcc_internal_error:  "Server error. Try again.",
@@ -477,8 +478,10 @@ function classifyVerifyError(err: BccApiError | Error): {
   message: string;
 } {
   if (err instanceof BccApiError) {
-    // 400 and 422 share the code; only the status tells them apart.
-    if (err.code === "bcc_invalid_request" && err.status === 400) {
+    // Branch on the code. bcc_invalid_request means "no pending change"
+    // (400); the status guard only keeps the 422 empty-code case, which
+    // shares the code, on the code form instead of restarting.
+    if (err.code === "bcc_invalid_request" && err.status !== 422) {
       return {
         restart: true,
         message:

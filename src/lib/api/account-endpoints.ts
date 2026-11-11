@@ -102,8 +102,9 @@ export function patchAccountEmail(
  * address. Every earlier bearer is revoked server-side; the response's
  * `token` is the replacement and must be swapped into the session.
  *
- * Errors (thrown as BccApiError) — see VerifyAccountEmailChangeErrorCode;
- * 400 and 422 share `bcc_invalid_request`, so read `.status` too.
+ * Errors (thrown as BccApiError) — see VerifyAccountEmailChangeErrorCode.
+ * A wrong code is `bcc_invalid_otp`; `bcc_invalid_request` is "no pending
+ * change" (400) or an empty code (422).
  */
 export function verifyAccountEmailChange(
   body: VerifyAccountEmailChangeBody,

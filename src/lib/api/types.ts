@@ -5493,18 +5493,21 @@ export interface VerifyAccountEmailChangeResponse {
 }
 
 /**
- * Error codes POST /me/account/email/verify answers with. Two of them
- * share `bcc_invalid_request` and differ only by HTTP status, so a
- * consumer must read `BccApiError.status` as well as `.code`:
+ * Error codes POST /me/account/email/verify answers with (bcc-trust
+ * #395). Branch on the CODE; the status is only a secondary guard:
  *
- *   bcc_invalid_request 400 — no pending change (none, or expired)
- *   bcc_invalid_request 422 — wrong code; the pending change is kept
+ *   bcc_invalid_otp     422 — wrong code; the pending change is kept
+ *   bcc_invalid_request 400 — no pending change (never requested,
+ *                             expired after 15 min, or superseded)
+ *   bcc_invalid_request 422 — the code was empty (validated client-side
+ *                             first, so not normally reached)
  *   bcc_conflict        409 — address taken meanwhile; pending dropped
  *   bcc_rate_limited    429 — 10 attempts per hour
  *   bcc_internal_error  500 — retryable
  *   bcc_unauthorized    401
  */
 export type VerifyAccountEmailChangeErrorCode =
+  | "bcc_invalid_otp"
   | "bcc_invalid_request"
   | "bcc_conflict"
   | "bcc_rate_limited"

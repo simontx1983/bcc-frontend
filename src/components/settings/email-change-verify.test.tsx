@@ -225,17 +225,17 @@ describe("step 2 — verify", () => {
     expect(endSession).toHaveBeenCalledWith("user", { callbackUrl: "/login" });
   });
 
-  it("422 (wrong code): the error shows, the code form stays, and a retry goes through", async () => {
+  it("422 bcc_invalid_otp (wrong code): the error shows, the code form stays, and a retry goes through", async () => {
     updateSessionBearer.mockResolvedValue(true);
     verifyAccountEmailChange
-      .mockRejectedValueOnce(apiError("bcc_invalid_request", 422))
+      .mockRejectedValueOnce(apiError("bcc_invalid_otp", 422))
       .mockResolvedValueOnce(VERIFIED);
     mount();
     await reachCodeStep();
     enterCode("111111");
 
     const alert = await screen.findByRole("alert");
-    expect(alert.textContent).toBe("That code didn't match. Check it and try again.");
+    expect(alert.textContent).toBe("That code didn't match. Check the latest email and try again.");
     expect(alert.className).toContain("text-bcc-text-error");
     expect(alert.textContent).not.toContain("RAW SERVER DETAIL");
     expect(screen.getByLabelText(/verification code/i)).toBeInTheDocument();
@@ -247,7 +247,19 @@ describe("step 2 — verify", () => {
     expect(verifyAccountEmailChange).toHaveBeenLastCalledWith({ code: "123456" });
   });
 
-  it("400 (no pending change): back to step 1 with the message", async () => {
+  it("422 bcc_invalid_request (empty code): stays on the code form", async () => {
+    verifyAccountEmailChange.mockRejectedValueOnce(apiError("bcc_invalid_request", 422));
+    mount();
+    await reachCodeStep();
+    enterCode();
+
+    const alert = await screen.findByRole("alert");
+    expect(alert.textContent).toBe("Enter the 6-digit code from the email.");
+    expect(screen.getByLabelText(/verification code/i)).toBeInTheDocument();
+    expect(updateSessionBearer).not.toHaveBeenCalled();
+  });
+
+  it("400 bcc_invalid_request (no pending change): back to step 1 with the message", async () => {
     verifyAccountEmailChange.mockRejectedValueOnce(apiError("bcc_invalid_request", 400));
     mount();
     await reachCodeStep();
