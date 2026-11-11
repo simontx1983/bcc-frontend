@@ -113,7 +113,7 @@ export function WalletsSection() {
     // Deliberately does NOT close the dialog: a failure keeps the user in
     // the decision they made, with the reason and a retry in place.
     onError: (err) => {
-      setErrorText(humanizeError(err));
+      setErrorText(humanizeUnlinkError(err));
     },
   });
 
@@ -832,7 +832,9 @@ function EmptyState() {
 // Helpers
 // ─────────────────────────────────────────────────────────────────────
 
-function humanizeError(err: unknown): string {
+/** Code-keyed copy for a failed unlink. Shared with the post-verification
+ * "is this wallet yours?" prompt. */
+export function humanizeUnlinkError(err: unknown): string {
   return humanizeCode(
     err,
     {

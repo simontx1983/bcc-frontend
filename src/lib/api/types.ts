@@ -96,6 +96,18 @@ export class BccApiError extends Error {
  * If /auth/token (refresh) ever gets a frontend consumer, give it its
  * own type without `user_id` / `handle`.
  */
+/**
+ * POST /auth/verify-email — the /auth/login shape plus
+ * `linked_wallet_count` (bcc-trust #398): how many wallets the verified
+ * account has linked. A count only. `0` can also mean the wallet read
+ * failed, so a client never acts destructively on 0; it prompts "is
+ * this wallet yours?" only when the count is > 0. Optional so an older
+ * backend (no field) simply shows no prompt.
+ */
+export interface VerifyEmailResponse extends AuthTokenResponse {
+  linked_wallet_count?: number;
+}
+
 export interface AuthTokenResponse {
   user_id: number;
   handle: string;
@@ -5419,6 +5431,16 @@ export interface UnlinkWalletResponse {
   ok: true;
   id: number;
   removed: boolean;
+  /**
+   * Present ONLY on a true removal of the caller's own wallet
+   * (`removed: true`). A replacement bearer: with the server option
+   * `bcc_unlink_revokes_sessions` ON, every earlier bearer is revoked
+   * first, so this is the caller's only working session. The client
+   * MUST store it (useUnlinkWallet does) on every unlink.
+   */
+  token?: string;
+  expires_in?: number;
+  token_type?: "Bearer";
 }
 
 // ────────────────────────────────────────────────────────────────────────

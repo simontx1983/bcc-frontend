@@ -31,11 +31,12 @@ import {
 } from "react";
 
 import { AuthCard } from "@/components/auth/AuthCard";
+import { WalletOwnershipPrompt } from "@/components/auth/WalletOwnershipPrompt";
 import {
   resendVerification,
   verifyEmail,
 } from "@/lib/api/auth-endpoints";
-import { BccApiError, type AuthTokenResponse } from "@/lib/api/types";
+import { BccApiError, type VerifyEmailResponse } from "@/lib/api/types";
 
 const ERROR_COPY: Record<string, string> = {
   bcc_invalid_verify_token: "This link has expired or has already been used.",
@@ -46,7 +47,8 @@ const ERROR_COPY: Record<string, string> = {
   bcc_unknown:              "Verification failed. Try resending the code.",
 };
 
-type PageState = "otp-form" | "auto-verifying" | "success" | "link-expired";
+/** `wallet-check`: signed in, asking "is this wallet yours?" first. */
+type PageState = "otp-form" | "auto-verifying" | "success" | "link-expired" | "wallet-check";
 
 function VerifyEmailContent() {
   const router        = useRouter();
@@ -72,7 +74,7 @@ function VerifyEmailContent() {
    *  fire, because the disabled attribute only lands on the next render. */
   const resendInFlight = useRef(false);
 
-  async function autoSignIn(tokenResp: AuthTokenResponse) {
+  async function autoSignIn(tokenResp: VerifyEmailResponse) {
     setSigningIn(true);
     try {
       const result = await signIn("bcc-verified", {
@@ -84,6 +86,15 @@ function VerifyEmailContent() {
         redirect:         false,
       });
       if (result?.ok) {
+        // bcc-trust #398: a wallet already linked to this account may
+        // not be the viewer's. Ask before onboarding, but only on a
+        // positive count: 0 can also mean the server's read failed.
+        const linked = tokenResp.linked_wallet_count;
+        if (typeof linked === "number" && Number.isFinite(linked) && linked > 0) {
+          setSigningIn(false);
+          setPageState("wallet-check");
+          return;
+        }
         router.replace("/onboarding");
         return;
       }
@@ -200,6 +211,11 @@ function VerifyEmailContent() {
     : resendCooldown > 0
     ? `Resend in ${String(resendCooldown)}s`
     : "Resend code";
+
+  // ── Signed in; "is this wallet yours?" before onboarding ───────
+  if (pageState === "wallet-check") {
+    return <WalletOwnershipPrompt onDone={() => router.replace("/onboarding")} />;
+  }
 
   // ── Success ────────────────────────────────────────────────────
   if (pageState === "success") {
