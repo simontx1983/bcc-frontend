@@ -1,7 +1,5 @@
 "use client";
 
-import posthog from "posthog-js";
-
 /**
  * useInlineComposerSubmit — the inline composer's mutation
  * orchestration: the status / photo / GIF submit pipelines, the
@@ -17,6 +15,7 @@ import {
   useCreatePostMutation,
 } from "@/hooks/useCreatePost";
 import { useSetPhotoAltMutation } from "@/hooks/useSetPhotoAlt";
+import { captureAnalyticsEvent } from "@/lib/analytics/posthog";
 import { humanizeCode } from "@/lib/api/errors";
 import {
   BccApiError,
@@ -166,17 +165,12 @@ function capturePostPublished(
   visibility: GroupPostVisibility,
   hallFeed: HallFeedChannel | undefined,
 ) {
-  if (
-    process.env["NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN"] &&
-    process.env["NEXT_PUBLIC_POSTHOG_HOST"]
-  ) {
-    posthog.capture("post_published", {
-      post_type: postType,
-      is_group_post: isGroupPost,
-      visibility,
-      feed_channel: hallFeed ?? "main",
-    });
-  }
+  captureAnalyticsEvent("post_published", {
+    post_type: postType,
+    is_group_post: isGroupPost,
+    visibility,
+    feed_channel: hallFeed ?? "main",
+  });
 }
 
 /**

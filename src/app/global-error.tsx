@@ -2,8 +2,9 @@
 
 import * as Sentry from "@sentry/nextjs";
 import NextError from "next/error";
-import posthog from "posthog-js";
 import { useEffect } from "react";
+
+import { captureAnalyticsException } from "@/lib/analytics/posthog";
 
 export default function GlobalError({
   error,
@@ -12,12 +13,7 @@ export default function GlobalError({
 }) {
   useEffect(() => {
     Sentry.captureException(error);
-    if (
-      process.env["NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN"] &&
-      process.env["NEXT_PUBLIC_POSTHOG_HOST"]
-    ) {
-      posthog.captureException(error);
-    }
+    captureAnalyticsException(error);
   }, [error]);
 
   return (

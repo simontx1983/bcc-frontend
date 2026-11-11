@@ -21,8 +21,8 @@
 
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
-import posthog from "posthog-js";
 
+import { captureAnalyticsEvent } from "@/lib/analytics/posthog";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { LoadFailure } from "@/components/ui/LoadFailure";
 import { useCopyConfirm } from "@/hooks/useCopyConfirm";
@@ -103,12 +103,7 @@ export function WalletsSection() {
 
   const unlink = useUnlinkWallet({
     onSuccess: () => {
-      if (
-        process.env["NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN"] &&
-        process.env["NEXT_PUBLIC_POSTHOG_HOST"]
-      ) {
-        posthog.capture("wallet_unlinked");
-      }
+      captureAnalyticsEvent("wallet_unlinked");
       setConfirmingId(null);
       setErrorText(null);
       // Drop any copy status: it names a wallet that is about to vanish.
@@ -323,12 +318,7 @@ function LinkWalletForm({ chainSelectRef }: LinkWalletFormProps) {
       void queryClient.invalidateQueries({ queryKey: ["user"] });
       void queryClient.invalidateQueries({ queryKey: ["users"] });
 
-      if (
-        process.env["NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN"] &&
-        process.env["NEXT_PUBLIC_POSTHOG_HOST"]
-      ) {
-        posthog.capture("wallet_linked", { chain_slug: response.chain_slug });
-      }
+      captureAnalyticsEvent("wallet_linked", { chain_slug: response.chain_slug });
       setSuccess(`Linked ${response.chain_name || response.chain_slug} wallet.`);
     } catch (err) {
       setError(humanizeLinkError(err));

@@ -13,8 +13,8 @@
 
 import { useCallback, useMemo } from "react";
 import { useSession } from "next-auth/react";
-import posthog from "posthog-js";
 
+import { captureAnalyticsEvent } from "@/lib/analytics/posthog";
 import { useWatching } from "@/hooks/useWatching";
 import { useWatchMutation, useUnwatchMutation } from "@/hooks/useWatch";
 import { FOLLOW_COPY } from "@/lib/copy";
@@ -77,10 +77,5 @@ export function MemberFollowButton({
 }
 
 function captureFollowEvent(event: "member_followed" | "member_unfollowed") {
-  if (
-    process.env["NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN"] &&
-    process.env["NEXT_PUBLIC_POSTHOG_HOST"]
-  ) {
-    posthog.capture(event);
-  }
+  captureAnalyticsEvent(event);
 }

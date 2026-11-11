@@ -10,8 +10,8 @@
  */
 
 import { useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
-import posthog from "posthog-js";
 
+import { captureAnalyticsEvent } from "@/lib/analytics/posthog";
 import { counterToneClass } from "@/lib/counter-tone";
 import { useReplyInConversationMutation } from "@/hooks/useReplyInConversation";
 import { humanizeCode } from "@/lib/api/errors";
@@ -27,12 +27,7 @@ export function MessageComposer({ conversationId }: MessageComposerProps) {
 
   const mutation = useReplyInConversationMutation({
     onSuccess: () => {
-      if (
-        process.env["NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN"] &&
-        process.env["NEXT_PUBLIC_POSTHOG_HOST"]
-      ) {
-        posthog.capture("message_sent");
-      }
+      captureAnalyticsEvent("message_sent");
       setBody("");
       setError(null);
     },

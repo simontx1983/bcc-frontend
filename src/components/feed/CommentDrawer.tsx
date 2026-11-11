@@ -54,7 +54,6 @@ import {
 } from "lucide-react";
 import { useSession } from "next-auth/react";
 import Image from "next/image";
-import posthog from "posthog-js";
 import Link from "next/link";
 import type { Route } from "next";
 
@@ -80,6 +79,7 @@ import {
 } from "@/hooks/useComments";
 import { useCommentStoke } from "@/hooks/useCommentStoke";
 import { useGiphyIntegration } from "@/hooks/useGiphyIntegration";
+import { captureAnalyticsEvent } from "@/lib/analytics/posthog";
 import { uploadBlogCoverImage } from "@/lib/api/blog-endpoints";
 import { humanizeCode, isPermissionDenial } from "@/lib/api/errors";
 import {
@@ -1645,15 +1645,10 @@ function CommentComposer({
       },
       {
         onSuccess: () => {
-          if (
-            process.env["NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN"] &&
-            process.env["NEXT_PUBLIC_POSTHOG_HOST"]
-          ) {
-            posthog.capture("comment_published", {
-              is_reply: replyTarget !== null,
-              attachment_type: media?.kind ?? "none",
-            });
-          }
+          captureAnalyticsEvent("comment_published", {
+            is_reply: replyTarget !== null,
+            attachment_type: media?.kind ?? "none",
+          });
         },
         onError: () => {
           setDraft(draftSnapshot);

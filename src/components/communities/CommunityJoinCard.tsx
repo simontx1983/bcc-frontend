@@ -30,8 +30,8 @@
 
 import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
-import posthog from "posthog-js";
 
+import { captureAnalyticsEvent } from "@/lib/analytics/posthog";
 import { CardFactory } from "@/components/cards/CardFactory";
 import { humanizeMembershipError } from "@/components/groups/GroupMembershipStrip";
 import { useJoinHolderGroupMutation } from "@/hooks/useHolderGroups";
@@ -123,10 +123,5 @@ export function CommunityJoinCard({
 function captureCommunityJoined(
   communityType: "nft" | "hall" | "system" | "user",
 ) {
-  if (
-    process.env["NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN"] &&
-    process.env["NEXT_PUBLIC_POSTHOG_HOST"]
-  ) {
-    posthog.capture("community_joined", { community_type: communityType });
-  }
+  captureAnalyticsEvent("community_joined", { community_type: communityType });
 }

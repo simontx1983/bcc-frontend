@@ -3,26 +3,13 @@
 // https://docs.sentry.io/platforms/javascript/guides/nextjs/
 
 import * as Sentry from "@sentry/nextjs";
-import posthog from "posthog-js";
 
-const posthogToken = process.env["NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN"];
-const posthogHost = process.env["NEXT_PUBLIC_POSTHOG_HOST"];
+import { initAnalytics } from "@/lib/analytics/posthog";
 
-if (posthogToken && posthogHost) {
-  posthog.init(posthogToken, {
-    api_host: posthogHost,
-    defaults: "2026-08-30",
-    capture_exceptions: true,
-  });
-} else if (process.env["NODE_ENV"] === "development") {
-  const missingVariable = posthogToken
-    ? "NEXT_PUBLIC_POSTHOG_HOST"
-    : "NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN";
-
-  console.error(
-    `${missingVariable} variable required by PostHog is missing or un-configured, this causes events to be silently missed. This error stops appearing once ${missingVariable} is configured`,
-  );
-}
+// Product analytics is opt-in: this starts PostHog only when the build is
+// configured AND this device has already consented. Otherwise the consent
+// banner (or the Privacy page control) starts it on "Allow".
+initAnalytics();
 
 Sentry.init({
   dsn: process.env['NEXT_PUBLIC_SENTRY_DSN'],
