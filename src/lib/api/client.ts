@@ -230,7 +230,11 @@ import {
   endSession,
   isStaleEpoch,
 } from "@/lib/auth/session-boundary";
-import { pendingBearer, supersedingBearer } from "@/lib/auth/current-bearer";
+import {
+  pendingBearer,
+  rememberSessionBearer,
+  supersedingBearer,
+} from "@/lib/auth/current-bearer";
 import { updateSessionBearer } from "@/lib/auth/session-update";
 
 /**
@@ -274,14 +278,15 @@ export async function bccFetchAsClient<T>(
   }
 
   const session = await getSession();
+  const sessionBearer =
+    session !== null && typeof session.bccToken === "string" && session.bccToken !== ""
+      ? session.bccToken
+      : null;
+  rememberSessionBearer(sessionBearer);
   // A replacement bearer whose session write is still in flight wins over
   // the session's: the session still holds the bearer the server has
   // just revoked (lib/auth/current-bearer).
-  const sessionToken =
-    pendingBearer() ??
-    (session !== null && typeof session.bccToken === "string" && session.bccToken !== ""
-      ? session.bccToken
-      : null);
+  const sessionToken = pendingBearer() ?? sessionBearer;
   const hadSessionToken = sessionToken !== null;
   // The session JWT can outlive the BCC bearer (auth.ts blanks
   // session.bccToken once bccTokenExpiresAt is past). When that
@@ -367,7 +372,9 @@ export async function bccFetchAsClient<T>(
     // the newer one, and never refresh a superseded token: the server
     // would reject it and that rejection used to end the session.
     if (effectiveToken !== null) {
-      const newer = await supersedingBearer(effectiveToken);
+      // Same viewer only: supersedingBearer refuses a different account's
+      // token or a moved epoch BEFORE anything is re-sent.
+      const newer = await supersedingBearer(effectiveToken, epochAtDispatch);
       if (newer !== null) {
         try {
           const retried = await bccFetch<T>(path, { ...options, token: newer });
