@@ -5479,6 +5479,15 @@ export interface VerifyRecoveryEmailResponse {
   ok: true;
   /** The now-confirmed recovery email (full, not masked). */
   email: string;
+  /**
+   * A replacement bearer: the server revokes every earlier one when it
+   * confirms the recovery email (support agent 1, pending). The client
+   * MUST store it (useVerifyRecoveryEmail does). Optional so an older
+   * backend, which neither revokes nor returns one, still works.
+   */
+  token?: string;
+  expires_in?: number;
+  token_type?: "Bearer";
 }
 
 // ────────────────────────────────────────────────────────────────────────
