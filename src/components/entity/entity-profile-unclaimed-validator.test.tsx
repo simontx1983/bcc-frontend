@@ -26,6 +26,11 @@ vi.mock("@/components/claim/ClaimCallout", () => ({ ClaimCallout: stub("claim") 
 vi.mock("@/components/disputes/DisputeCallout", () => ({ DisputeCallout: stub("dispute") }));
 vi.mock("@/components/endorse/EndorseButton", () => ({ EndorseButton: stub("endorse") }));
 vi.mock("@/components/announcements/AnnouncementBar", () => ({ AnnouncementBar: stub("abar") }));
+vi.mock("@/components/announcements/AnnouncementsTopSection", () => ({
+  AnnouncementsTopSection: stub("atop"),
+}));
+vi.mock("@/components/entity/panels/PageStreamPanel", () => ({ PageStreamPanel: stub("pstream") }));
+vi.mock("@/lib/env", () => ({ clientEnv: { BCC_API_URL: "https://wp.example" } }));
 vi.mock("@/components/announcements/AnnouncementsPanel", () => ({
   AnnouncementsPanel: stub("apanel"),
 }));
