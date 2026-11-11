@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 
+import { AnalyticsConsentControl } from "@/components/analytics/AnalyticsConsentControl";
 import { LegalDoc, LegalSection, LegalP, LegalUL } from "@/components/legal/LegalDoc";
 import { LEGAL } from "@/lib/legal/config";
 
@@ -84,8 +85,8 @@ export default function PrivacyPage() {
           Service you request); <strong>legitimate interests</strong> (to secure
           the Service, prevent fraud, and operate trust features, balanced
           against your rights); <strong>consent</strong> (for fraud-prevention
-          device checks at signup and where otherwise indicated, which you may
-          withdraw); and <strong>legal obligation</strong> (to comply with
+          device checks at signup, for optional product analytics, and where
+          otherwise indicated, which you may withdraw); and <strong>legal obligation</strong> (to comply with
           applicable law).
         </LegalP>
       </LegalSection>
@@ -95,7 +96,7 @@ export default function PrivacyPage() {
           We do not sell your personal information. We share it only with:
         </LegalP>
         <LegalUL>
-          <li><strong>Service providers / processors</strong> that help us run the Service, including cloud hosting and deployment, error and performance monitoring, blockchain RPC and data providers (used to read public on-chain data), single sign-on providers, media providers, and email delivery. These providers process data on our behalf under contractual safeguards.</li>
+          <li><strong>Service providers / processors</strong> that help us run the Service, including cloud hosting and deployment, error and performance monitoring, blockchain RPC and data providers (used to read public on-chain data), single sign-on providers, media providers, email delivery, and product analytics (PostHog, only if you allow analytics — see section 14). These providers process data on our behalf under contractual safeguards.</li>
           <li><strong>Legal and safety</strong> — where required by law, legal process, or to protect the rights, safety, and integrity of the Service and its users.</li>
           <li><strong>Business transfers</strong> — in connection with a merger, acquisition, financing, or sale of assets, subject to this policy.</li>
         </LegalUL>
@@ -161,12 +162,61 @@ export default function PrivacyPage() {
       <LegalSection n={13} heading="Cookies and local storage">
         <LegalP>
           We use a small number of cookies and browser-storage entries that are
-          strictly necessary or functional. See our Cookie Policy for details and
-          choices.
+          strictly necessary or functional. If you allow product analytics
+          (section 14), PostHog also stores an analytics identifier and session
+          state on this browser; it stores nothing until you allow it. See our
+          Cookie Policy for details and choices.
         </LegalP>
       </LegalSection>
 
-      <LegalSection n={14} heading="Changes to this policy">
+      <LegalSection n={14} heading="Product analytics">
+        <LegalP>
+          If you allow it, we use PostHog, a product-analytics provider, to
+          understand how the Service is used. Analytics is off until you allow
+          it on this browser, and you can turn it off again at any time. Your
+          choice is stored on this browser and is kept when you sign out.
+        </LegalP>
+        <LegalP>When analytics is on, we record:</LegalP>
+        <LegalUL>
+          <li><strong>Pages you open</strong> — the page address only, without its query string or fragment. Addresses that name a person, a post or a dispute are recorded as their page type (for example a member profile is recorded as &ldquo;/u/[handle]&rdquo;), never the handle or id itself.</li>
+          <li><strong>Link tags</strong> — if you arrived through a tagged link, only its source, medium and campaign tags (utm_source, utm_medium, utm_campaign), shortened to 100 characters. Other link tags and advertising click identifiers are discarded.</li>
+          <li><strong>A small set of actions</strong> — publishing a post, publishing a comment, joining a community, following or unfollowing a member, sending a message, completing onboarding, and linking or unlinking a wallet. These carry only basic details such as the kind of post, the community type, or the chain; never the text you write, message contents, or wallet addresses.</li>
+          <li><strong>Sign-up and setup steps</strong> — starting and finishing sign-up, viewing and finishing each onboarding step, and starting and finishing a validator claim. These carry only the sign-up method (password, Google, X or wallet), the onboarding step name, or the chain. Every event also carries whether you are signed in (member or anonymous).</li>
+          <li><strong>Errors</strong> the site runs into, with any page addresses stripped of query strings.</li>
+          <li><strong>Standard technical details</strong> PostHog attaches to each event, such as browser type and version (including your browser&rsquo;s user-agent string), screen size, and your country, derived from your IP address. Location is recorded at country level only.</li>
+        </LegalUL>
+        <LegalP>
+          If you are signed in, these events are linked to a pseudonymous
+          identifier: a keyed hash of your account number, computed on our
+          servers with a secret key, so it cannot be traced back to your
+          account without that key. It is never your name, handle, or email. We do not record anything on sign-in,
+          sign-up completion, password-reset, email-verification, or messaging
+          pages (on the sign-up page itself we record only the page view and
+          which sign-up method you started), and we do not
+          use session recording, heatmaps, or automatic click tracking.
+          Analytics is not used for advertising.
+        </LegalP>
+        <LegalP>
+          <strong>Your choice.</strong> Turning analytics off stops collection
+          from this browser straight away. To ask us to delete analytics data
+          already collected, contact{" "}
+          <a href={`mailto:${LEGAL.privacyEmail}`} className="text-[var(--bcc-accent)] underline">{LEGAL.privacyEmail}</a>.
+        </LegalP>
+        <LegalP>
+          <strong>Vercel Web Analytics.</strong> Separately, our host Vercel
+          counts page views in aggregate. It uses no cookies and stores
+          nothing on your device, so it does not need your consent. Page
+          addresses are sent without their query string or fragment, with
+          person identifiers replaced as above, and nothing is sent from
+          sign-in, sign-up completion, password-reset, email-verification or
+          messaging pages.
+        </LegalP>
+        <div id="analytics-choice" className="mt-4">
+          <AnalyticsConsentControl />
+        </div>
+      </LegalSection>
+
+      <LegalSection n={15} heading="Changes to this policy">
         <LegalP>
           We may update this policy from time to time. We will change the
           effective date and, for material changes, provide notice where

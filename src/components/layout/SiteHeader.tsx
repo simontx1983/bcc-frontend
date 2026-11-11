@@ -131,10 +131,15 @@ const modalTitleStyle: React.CSSProperties = {
   textTransform: "uppercase",
 };
 
+// Full-strength text plus an underline: accent text on the light glass
+// panel is ~2.4:1, and once the link is not coloured differently from
+// its neighbours the underline is what marks it as a link (1.4.1).
 const modalSeeAllStyle: React.CSSProperties = {
   fontFamily: "var(--font-mono), monospace",
   fontSize: 11,
-  color: "var(--bcc-accent)",
+  color: "var(--bcc-text)",
+  textDecoration: "underline",
+  textUnderlineOffset: 3,
   letterSpacing: "0.06em",
 };
 
@@ -183,7 +188,7 @@ function ThemeModal({ theme, accent, onThemeChange, onAccentChange, onClose, anc
             letterSpacing: "0.1em", textTransform: "uppercase",
             transition: "background 150ms ease, color 150ms ease",
             background: theme === t ? "var(--bcc-accent)" : "transparent",
-            color: theme === t ? "var(--bcc-white)" : "var(--bcc-text-secondary)",
+            color: theme === t ? "var(--bcc-on-accent)" : "var(--bcc-text-secondary)",
           }}>
             {t === "light" ? <Sun size={13} aria-hidden strokeWidth={2} /> : <Moon size={13} aria-hidden strokeWidth={2} />}
             {t === "light" ? "Day" : "Night"}
@@ -206,7 +211,7 @@ function ThemeModal({ theme, accent, onThemeChange, onAccentChange, onClose, anc
             aria-pressed={accent === value}
           >
             <span className="bcc-accent-swatch" style={{ background: color }} />
-            <span style={{ fontFamily: "var(--font-mono), monospace", fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase", color: accent === value ? "var(--bcc-accent)" : "var(--bcc-text-muted)" }}>
+            <span style={{ fontFamily: "var(--font-mono), monospace", fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase", color: accent === value ? "var(--bcc-text)" : "var(--bcc-text-secondary)" }}>
               {label}
             </span>
           </button>
@@ -486,7 +491,10 @@ export function SiteHeader() {
 
   // Shared active icon style
   function activeStyle(open: boolean): React.CSSProperties | undefined {
-    return open ? { color: "var(--bcc-accent)", background: "var(--bcc-accent-subtle)" } : undefined;
+    // Full-strength glyph, not --bcc-accent: accent on its own subtle tint
+    // is 2.23:1 in light theme, below the 3:1 an icon needs. The tint
+    // (and the open popover itself) carries the state.
+    return open ? { color: "var(--bcc-text)", background: "var(--bcc-accent-subtle)" } : undefined;
   }
 
   return (
@@ -566,7 +574,7 @@ export function SiteHeader() {
           className={`bcc-btn-icon bcc-header-settings-btn${pathname.startsWith("/settings") ? " active" : ""}`}
           aria-label="Settings"
           title="Settings"
-          style={pathname.startsWith("/settings") ? { color: "var(--bcc-accent)", background: "var(--bcc-accent-subtle)" } : undefined}
+          style={activeStyle(pathname.startsWith("/settings"))}
         >
           <CogIcon />
         </Link>)}
@@ -593,7 +601,7 @@ export function SiteHeader() {
           {msgUnreadCount > 0 && (
             <span
               aria-hidden
-              className="bcc-mono absolute -right-0.5 -top-0.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-[var(--bcc-accent)] px-1 text-[9px] font-semibold leading-none text-cardstock"
+              className="bcc-mono absolute -right-0.5 -top-0.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-[var(--bcc-accent)] px-1 text-[9px] font-semibold leading-none text-bcc-on-accent"
             >
               {msgUnreadCount > 9 ? "9+" : msgUnreadCount}
             </span>
@@ -622,7 +630,7 @@ export function SiteHeader() {
             {notifUnreadCount > 0 && (
               <span
                 aria-hidden
-                className="bcc-mono absolute -right-0.5 -top-0.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-[var(--bcc-accent)] px-1 text-[9px] font-semibold leading-none text-cardstock"
+                className="bcc-mono absolute -right-0.5 -top-0.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-[var(--bcc-accent)] px-1 text-[9px] font-semibold leading-none text-bcc-on-accent"
               >
                 {notifUnreadCount > 9 ? "9+" : notifUnreadCount}
               </span>

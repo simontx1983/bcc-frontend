@@ -10,8 +10,8 @@
  */
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 // The announcement hooks resolve the viewer's storage scope through
 // `useViewerScope`, which reads `useSession()` — so these suites now need
@@ -62,6 +62,20 @@ const {
 } = await import("@/lib/announcements/fixtures");
 
 let client: QueryClient;
+
+beforeAll(() => {
+  // Dialog reads prefers-reduced-motion.
+  window.matchMedia = ((q: string) => ({
+    matches: false,
+    media: q,
+    onchange: null,
+    addEventListener: () => {},
+    removeEventListener: () => {},
+    addListener: () => {},
+    removeListener: () => {},
+    dispatchEvent: () => false,
+  })) as unknown as typeof window.matchMedia;
+});
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -239,6 +253,56 @@ describe("empty and failure states", () => {
     await waitFor(() => {
       expect(screen.getByText(/isn't open to you/)).toBeInTheDocument();
     });
+    expect(screen.queryByText(/raw server prose/)).toBeNull();
+  });
+});
+
+describe("removing a comment", () => {
+  async function openRemove() {
+    listAnnouncementComments.mockResolvedValue(commentsResponse([LIVE_COMMENT]));
+    renderComments(true);
+    fireEvent.click(await screen.findByRole("button", { name: "REMOVE" }));
+    return screen.getByRole("dialog", { name: "Remove this comment?" });
+  }
+
+  it("asks first: REMOVE opens a confirmation and sends nothing", async () => {
+    const dialog = await openRemove();
+    expect(within(dialog).getByRole("button", { name: "REMOVE" })).toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: "CANCEL" })).toBeInTheDocument();
+    expect(removeAnnouncementComment).not.toHaveBeenCalled();
+  });
+
+  it("confirming sends the removal and closes on success", async () => {
+    removeAnnouncementComment.mockResolvedValue({});
+    const dialog = await openRemove();
+    fireEvent.click(within(dialog).getByRole("button", { name: "REMOVE" }));
+    await waitFor(() => {
+      expect(removeAnnouncementComment).toHaveBeenCalledWith({
+        announcementId: "ann_4471",
+        commentId: LIVE_COMMENT.id,
+      });
+    });
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  });
+
+  it("cancelling sends nothing", async () => {
+    const dialog = await openRemove();
+    fireEvent.click(within(dialog).getByRole("button", { name: "CANCEL" }));
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(removeAnnouncementComment).not.toHaveBeenCalled();
+  });
+
+  it("a failure stays in the dialog, code-keyed, never the server's prose", async () => {
+    const { BccApiError } = await import("@/lib/api/types");
+    removeAnnouncementComment.mockRejectedValue(
+      new BccApiError("bcc_conflict", "raw server prose", 409, null),
+    );
+    const dialog = await openRemove();
+    fireEvent.click(within(dialog).getByRole("button", { name: "REMOVE" }));
+    const alert = await within(dialog).findByRole("alert");
+    expect(alert).toHaveTextContent("This comment was already removed.");
+    expect(alert.className).toContain("text-bcc-text-error");
+    expect(screen.getByRole("dialog")).toBe(dialog);
     expect(screen.queryByText(/raw server prose/)).toBeNull();
   });
 });

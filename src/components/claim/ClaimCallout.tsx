@@ -54,7 +54,7 @@ export function ClaimCallout({
         <span
           className="bcc-mono inline-flex w-fit items-center gap-2 rounded-sm px-3 py-1.5 text-[11px] tracking-[0.24em]"
           style={{
-            color: "var(--safety)",
+            color: "var(--bcc-text-safety)",
             background: "rgb(var(--safety-rgb) / 0.10)",
             border: "1px solid rgb(var(--safety-rgb) / 0.40)",
           }}

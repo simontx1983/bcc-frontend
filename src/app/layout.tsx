@@ -6,10 +6,10 @@ import {
   Homemade_Apple,
 } from "next/font/google";
 import { getServerSession } from "next-auth";
-import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 
 import { Providers } from "./providers";
+import { VercelAnalytics } from "@/components/analytics/VercelAnalytics";
 import { Preloader } from "@/components/preloader/Preloader";
 import { NavigationProgress } from "@/components/preloader/NavigationProgress";
 import { authOptions } from "@/lib/auth";
@@ -116,7 +116,7 @@ export default async function RootLayout({
         <Providers session={session}>
           {children}
         </Providers>
-        <Analytics />
+        <VercelAnalytics />
         <SpeedInsights />
       </body>
     </html>

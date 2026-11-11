@@ -52,7 +52,7 @@ function TagFeedViewData({ tag, onDenied }: { tag: string; onDenied: () => void 
   return (
     <section className="mx-auto w-full max-w-3xl px-6">
       <header className="py-6">
-        <p className="bcc-mono text-safety" style={{ letterSpacing: "0.18em" }}>
+        <p className="bcc-mono text-bcc-text-safety" style={{ letterSpacing: "0.18em" }}>
           FLOOR {"//"} HASHTAG
         </p>
         <h1 className="bcc-stencil mt-2 break-words text-bcc-text text-3xl sm:text-4xl">

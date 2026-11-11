@@ -25,7 +25,7 @@ const SETTINGS_IDENTITY = "/u/me?tab=profile" as Route;
 const SHARE_TEXT = "Building trust on the floor at Blue Collar Crypto.";
 
 const linkClass =
-  "bcc-mono text-safety hover:underline underline-offset-4 disabled:opacity-50";
+  "bcc-mono text-bcc-text-safety hover:underline underline-offset-4 disabled:opacity-50";
 
 export function TrustQuestShareAction({
   handle,

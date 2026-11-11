@@ -16,7 +16,9 @@
  * things to the viewer:
  *
  *   404 `bcc_not_found`         -> Next's `notFound()` (unchanged)
- *   403 `bcc_permission_denied` -> the denied state, rendered here, NO retry
+ *   403 `bcc_forbidden` + reason `profile_private`
+ *                               -> the calm private state, NO retry (v1.91)
+ *   any other 403               -> the denied state, rendered here, NO retry
  *   anything else               -> rethrow to `error.tsx` in this segment,
  *                                  which offers a retry
  *
@@ -58,6 +60,7 @@ import { ShareButton } from "@/components/common/ShareButton";
 import { TourAutoStart } from "@/components/tour/TourAutoStart";
 import { authOptions } from "@/lib/auth";
 import { tokenFromSession } from "@/lib/api/client";
+import { isProfilePrivate } from "@/lib/api/errors";
 import { getMeReliability } from "@/lib/api/me-reliability-endpoints";
 import { getUser } from "@/lib/api/user-endpoints";
 import {
@@ -117,9 +120,14 @@ export async function generateMetadata({
     profile = await getUser(handle, null, {
       revalidate: ANON_SSR_REVALIDATE_SECONDS,
     });
-  } catch {
+  } catch (err) {
     // 404 or any transient failure → safe minimal head. Don't throw.
-    return { title: "Profile not found · Blue Collar Crypto" };
+    // A private profile says so rather than claiming it was not found.
+    return {
+      title: isProfilePrivate(err)
+        ? "Private profile · Blue Collar Crypto"
+        : "Profile not found · Blue Collar Crypto",
+    };
   }
 
   const name = presentationName(profile);
@@ -200,6 +208,14 @@ export default async function MemberProfilePage({ params }: PageProps) {
     // Rendering instead of throwing is what keeps the distinction alive in
     // production: the denied state gets no retry control, because a 403
     // cannot be retried into a 200.
+    //
+    // The owner's privacy is checked FIRST, server-side and here: both are
+    // 403s, but `bcc_forbidden` + `profile_private` is the owner's choice
+    // and reads as a calm "this profile is private", while
+    // `bcc_permission_denied` (the viewer's own standing) stays "denied".
+    if (isProfilePrivate(err)) {
+      return <ProfileUnavailable reason="private" />;
+    }
     if (err instanceof BccApiError && err.status === 403) {
       return <ProfileUnavailable reason="denied" />;
     }
@@ -374,7 +390,7 @@ export default async function MemberProfilePage({ params }: PageProps) {
         </div>
         {showHandleKicker && (
           <p
-            className="bcc-mono mt-3 text-safety"
+            className="bcc-mono mt-3 text-bcc-text-safety"
             style={{ fontSize: "11px", letterSpacing: "0.18em" }}
           >
             @{profile.handle}
@@ -419,7 +435,7 @@ export default async function MemberProfilePage({ params }: PageProps) {
                   grid-cols-6 spreads across the whole hero width. */}
               <div className="mb-3 flex items-center gap-3">
                 <span className="bcc-mono text-bcc-text-secondary">FILE 04</span>
-                <span className="bcc-mono text-safety">{"//"} THE NUMBERS</span>
+                <span className="bcc-mono text-bcc-text-safety">{"//"} THE NUMBERS</span>
               </div>
               <CountsStrip counts={profile.counts} />
             </div>
@@ -667,7 +683,7 @@ function SectionFrame({
     <section className="mx-auto mt-16 max-w-[1440px] px-4 sm:px-7">
       <div className="mb-7 flex items-center gap-4">
         <span className="bcc-mono text-bcc-text-secondary">FILE {fileNumber}</span>
-        <span className="bcc-mono text-safety">{"//"} {label}</span>
+        <span className="bcc-mono text-bcc-text-safety">{"//"} {label}</span>
         <span aria-hidden className="h-px flex-1 bg-bcc-border" />
         {action !== undefined && action !== null && (
           <span className="shrink-0">{action}</span>

@@ -40,7 +40,7 @@ export function GroupGatedNotice({ hint, variant = "feed" }: GroupGatedNoticePro
 
       <div className="px-6 py-8 text-center">
         <p
-          className="bcc-mono text-safety"
+          className="bcc-mono text-bcc-text-safety"
           style={{ fontSize: "10px", letterSpacing: "0.24em" }}
         >
           GATED

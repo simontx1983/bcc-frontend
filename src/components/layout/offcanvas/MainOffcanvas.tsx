@@ -189,7 +189,7 @@ export function MainOffcanvas({ open, onClose }: MainOffcanvasProps) {
                       textTransform: "uppercase",
                       transition: "background 150ms ease, color 150ms ease",
                       background: currentTheme === t ? "var(--bcc-accent)" : "transparent",
-                      color: currentTheme === t ? "var(--bcc-white)" : "var(--bcc-text-secondary)",
+                      color: currentTheme === t ? "var(--bcc-on-accent)" : "var(--bcc-text-secondary)",
                     }}
                   >
                     {t === "light" ? <Sun size={13} strokeWidth={2} aria-hidden /> : <Moon size={13} strokeWidth={2} aria-hidden />}
@@ -214,7 +214,7 @@ export function MainOffcanvas({ open, onClose }: MainOffcanvasProps) {
                     aria-pressed={currentAccent === value}
                   >
                     <span className="bcc-accent-swatch" style={{ background: color }} />
-                    <span style={{ fontFamily: "var(--font-mono), monospace", fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase", color: currentAccent === value ? "var(--bcc-accent)" : "var(--bcc-text-muted)" }}>
+                    <span style={{ fontFamily: "var(--font-mono), monospace", fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase", color: currentAccent === value ? "var(--bcc-text)" : "var(--bcc-text-secondary)" }}>
                       {label}
                     </span>
                   </button>

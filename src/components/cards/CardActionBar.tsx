@@ -22,6 +22,14 @@
  * swapping its label) is pure CSS on .bcc-card-pill-on, so hover and
  * keyboard focus behave identically without any React hover state.
  *
+ * Never-claimed validators (destination "queue"): no operator stands
+ * behind the page, so slot 2 renders Message instead of Vouch — the
+ * server parks the message for the first verified operator. Keyed on
+ * `messaging.destination`, never `is_claimed` (isNeverClaimedValidator).
+ * Claimed validators keep Watch + Vouch exactly as before: a Message
+ * pill there would need the stacked second row, which takes ~42px of
+ * portrait from every grid tile.
+ *
  * Watch fallback (2026-07-23): like Review before it, the Watch button was
  * a SILENT NO-OP on every surface that didn't wire `onPull` — which was
  * every profile hero card. When no `onPull` is supplied the bar composes
@@ -52,8 +60,14 @@ import type {
   CardCommunityDossier,
   CardKind,
 } from "@/lib/api/types";
+import { humanizeCode } from "@/lib/api/errors";
 import { FOLLOW_COPY } from "@/lib/copy";
-import { isAllowed, unlockHint } from "@/lib/permissions";
+import { ATTESTATION_COPY } from "@/lib/copy/trust-layer";
+import { isAllowed, reasonCode, unlockHint } from "@/lib/permissions";
+import {
+  isNeverClaimedValidator,
+  resolveValidatorMessageAction,
+} from "@/lib/validators/messaging";
 
 /**
  * Card kind → §J attestation target taxonomy.
@@ -148,6 +162,13 @@ function ActionPill({
  * profile the host passes `suppressBodyLink` so there is no body link at all.
  * No anchor ever nests inside another.
  */
+/** Denial codes whose disabled pill + hint the viewer can act on. */
+const VISIBLE_DENIAL_CODES: ReadonlySet<string> = new Set([
+  "auth_required",
+  "friends_only",
+  "sender_chat_disabled",
+]);
+
 function MessagePill({
   permissions,
   recipientId,
@@ -161,6 +182,19 @@ function MessagePill({
   const hint = unlockHint(permissions, "can_message");
   const hintId = `card-message-hint-${recipientId}`;
 
+  // A denial carrying a reason_code is read as a CLOSED list, like
+  // MessageValidatorButton: only these codes render the disabled pill;
+  // every other code (`unavailable` from F-99, `not_applicable`,
+  // `messaging_unavailable`, anything new) is hidden even with a hint,
+  // because a structural deny is never shown as a dead control.
+  // The profile view-model does not forward reason_code today, so an
+  // ABSENT code keeps the hint-based rule below rather than hiding
+  // every disabled pill on /u/[handle].
+  const code = reasonCode(permissions, "can_message");
+  if (!allowed && code !== null && !VISIBLE_DENIAL_CODES.has(code)) {
+    return null;
+  }
+
   // Denied with no explanation to offer — say nothing rather than show a
   // dead control the operator cannot act on.
   if (!allowed && (hint === null || hint === "")) {
@@ -168,39 +202,76 @@ function MessagePill({
   }
 
   if (!allowed) {
-    return (
-      <>
-        <button
-          type="button"
-          // aria-disabled, NOT the disabled attribute: a disabled button is
-          // skipped by the tab order, which would make the explanation below
-          // unreachable by keyboard. This stays focusable and announced.
-          aria-disabled="true"
-          aria-describedby={hintId}
-          // Narrowing doesn't carry across the two guards above; the early
-          // return already proved this is a non-empty string.
-          title={hint ?? undefined}
-          onClick={(e: MouseEvent) => {
-            e.preventDefault();
-            e.stopPropagation();
-          }}
-          className="bcc-card-pill bcc-card-pill-message"
-          style={{ ["--pill-color" as string]: "var(--bcc-accent)", opacity: 0.55 }}
-        >
-          <MessageIcon size={14} strokeWidth={1.9} aria-hidden />
-          <span>Message</span>
-        </button>
-        <span id={hintId} className="sr-only">
-          {hint}
-        </span>
-      </>
-    );
+    // Narrowing doesn't carry across the two guards above; the early
+    // return already proved this is a non-empty string.
+    return <DisabledMessagePill hint={hint ?? ""} hintId={hintId} />;
   }
 
   return (
+    <MessageLinkPill
+      href={`/messages/new?to_user=${recipientId}`}
+      ariaLabel={`Message ${recipientName}`}
+    />
+  );
+}
+
+/**
+ * Validator Message — slot 2 on a never-claimed validator card, in place
+ * of Vouch. The decision (label, href, disabled hint, or hidden) is the
+ * same `resolveValidatorMessageAction` that MessageValidatorButton renders
+ * on the entity profile; only the visual register differs.
+ *
+ * The visible label stays "Message": "MESSAGE VALIDATOR" at the pill's
+ * 10.5px / 0.14em tracking does not fit a half-width pill in the 316px
+ * card. The full label ("Message Validator" / "Message Operator") is the
+ * accessible name and the tooltip.
+ *
+ * The `unavailable` shield renders nothing here: the profile's one-line
+ * notice has no room on a fixed-height card, and nothing is still
+ * identity-free.
+ */
+function ValidatorMessagePill({ card }: { card: Card }) {
+  const action = resolveValidatorMessageAction({
+    pageId: card.id,
+    permissions: card.permissions,
+    messaging: card.messaging,
+  });
+
+  if (action.kind === "disabled") {
+    return (
+      <DisabledMessagePill
+        hint={action.hint}
+        hintId={`card-validator-message-hint-${card.id}`}
+        ariaLabel={action.label}
+      />
+    );
+  }
+  if (action.kind === "link") {
+    return (
+      <MessageLinkPill
+        href={action.href}
+        ariaLabel={`${action.label}: ${card.name}`}
+        title={action.label}
+      />
+    );
+  }
+  return null;
+}
+
+function MessageLinkPill({
+  href,
+  ariaLabel,
+  title,
+}: {
+  href: string;
+  ariaLabel: string;
+  title?: string | undefined;
+}) {
+  return (
     <Link
-      href={`/messages/new?to_user=${recipientId}` as Route}
-      aria-label={`Message ${recipientName}`}
+      href={href as Route}
+      aria-label={ariaLabel}
+      title={title}
       // The card body is a link on grid surfaces; an action must never
       // navigate it. Harmless where suppressBodyLink is set.
       onClick={(e: MouseEvent) => e.stopPropagation()}
@@ -210,6 +281,43 @@ function MessagePill({
       <MessageIcon size={14} strokeWidth={1.9} aria-hidden />
       <span>Message</span>
     </Link>
+  );
+}
+
+function DisabledMessagePill({
+  hint,
+  hintId,
+  ariaLabel,
+}: {
+  hint: string;
+  hintId: string;
+  ariaLabel?: string | undefined;
+}) {
+  return (
+    <>
+      <button
+        type="button"
+        // aria-disabled, NOT the disabled attribute: a disabled button is
+        // skipped by the tab order, which would make the explanation below
+        // unreachable by keyboard. This stays focusable and announced.
+        aria-disabled="true"
+        aria-describedby={hintId}
+        aria-label={ariaLabel}
+        title={hint}
+        onClick={(e: MouseEvent) => {
+          e.preventDefault();
+          e.stopPropagation();
+        }}
+        className="bcc-card-pill bcc-card-pill-message"
+        style={{ ["--pill-color" as string]: "var(--bcc-accent)", opacity: 0.55 }}
+      >
+        <MessageIcon size={14} strokeWidth={1.9} aria-hidden />
+        <span>Message</span>
+      </button>
+      <span id={hintId} className="sr-only">
+        {hint}
+      </span>
+    </>
   );
 }
 
@@ -282,6 +390,7 @@ export function ActionBar({
   // server still adjudicates), and the id captured from the response
   // keeps withdraw working before any refetch arrives. Server truth
   // wins again on the next fetched card.
+  const targetKind = vouchTargetKind(card.card_kind);
   const [vouchError, setVouchError] = useState<string | null>(null);
   const [localVouch, setLocalVouch] = useState<
     { active: true; id: number } | { active: false } | null
@@ -292,7 +401,7 @@ export function ActionBar({
       // status 'existing' returns the pre-existing row — same end state.
       setLocalVouch({ active: true, id: data.id });
     },
-    onError: () => setVouchError("Couldn't update your vouch. Try again."),
+    onError: (err) => setVouchError(humanizeCardCastError(err, targetKind)),
   });
   const revokeVouch = useRevokeAttestation({
     onSuccess: () => {
@@ -302,7 +411,6 @@ export function ActionBar({
     onError: () => setVouchError("Couldn't update your vouch. Try again."),
   });
 
-  const targetKind = vouchTargetKind(card.card_kind);
   const serverVouch = card.viewer_attestation?.vouch ?? null;
   // Local mutation result beats the card snapshot; the snapshot beats
   // nothing. A refetched card that already agrees makes the override a
@@ -335,6 +443,11 @@ export function ActionBar({
   const showMessage =
     messagePermissions !== undefined && card.card_kind === "member";
 
+  // Never-claimed validator: Message takes the Vouch slot. Back and
+  // Report never render on the card row; EntityProfile applies the same
+  // predicate to AttestationActionCluster.
+  const neverClaimedValidator = isNeverClaimedValidator(card);
+
   return (
     <div
       className={
@@ -365,7 +478,9 @@ export function ActionBar({
 
       {/* Vouch is absent on community cards entirely — the community bar
           below renders Join in this slot instead. */}
-      {targetKind !== undefined && (
+      {neverClaimedValidator && <ValidatorMessagePill card={card} />}
+
+      {targetKind !== undefined && !neverClaimedValidator && (
         <ActionPill
           color="var(--bcc-verified)"
           active={hasVouched}
@@ -409,6 +524,23 @@ export function ActionBar({
       )}
     </div>
   );
+}
+
+/**
+ * Card vouch-cast failure copy. Generic by default (the pill tooltip has
+ * no room for detail), except `bcc_not_found` on a PAGE target, which the
+ * server returns when the page has no claimed operator to attest to.
+ * Member targets keep the generic line.
+ */
+function humanizeCardCastError(
+  err: unknown,
+  targetKind: AttestationTargetKind | undefined,
+): string {
+  const generic = "Couldn't update your vouch. Try again.";
+  if (targetKind === undefined || targetKind === "user_profile") {
+    return generic;
+  }
+  return humanizeCode(err, { bcc_not_found: ATTESTATION_COPY.unclaimed_page_target }, generic);
 }
 
 // ─────────────────────────────────────────────────────────────────────

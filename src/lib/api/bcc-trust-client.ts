@@ -20,6 +20,12 @@
 import { getSession } from "next-auth/react";
 
 import { resolveAuthFailure } from "@/lib/api/client";
+import {
+  pendingBearer,
+  rememberSessionBearer,
+  supersedingBearer,
+} from "@/lib/auth/current-bearer";
+import { currentViewerEpoch, isStaleEpoch } from "@/lib/auth/session-boundary";
 
 import { clientEnv } from "@/lib/env";
 import { BccApiError } from "@/lib/api/types";
@@ -45,6 +51,21 @@ export async function bccTrustFetch<T>(
   path: string,
   options: BccTrustFetchOptions = {},
 ): Promise<T> {
+  return bccTrustFetchOnce<T>(path, options, null);
+}
+
+async function bccTrustFetchOnce<T>(
+  path: string,
+  options: BccTrustFetchOptions,
+  /**
+   * On the one retry after the bearer was swapped mid-flight: the exact
+   * bearer `supersedingBearer` approved (same viewer, not older). It is
+   * sent as-is; the session is NOT re-read, so a second swap or an
+   * account switch in another tab cannot change who the retry acts as.
+   */
+  retryWith: { token: string; epoch: number } | null,
+): Promise<T> {
+  const swapRetried = retryWith !== null;
   if (typeof window === "undefined") {
     // No server twin exists yet — the /bcc-trust/v1 namespace has zero
     // SSR consumers today. When the first one appears, add
@@ -58,8 +79,16 @@ export async function bccTrustFetch<T>(
     );
   }
 
+  // Captured before dispatch: a swap-retry must never cross a viewer
+  // boundary (sign-out / account switch in another tab).
+  const epochAtDispatch = retryWith?.epoch ?? currentViewerEpoch();
   const session = await getSession();
-  const token = session?.bccToken ?? null;
+  const sessionBearer =
+    typeof session?.bccToken === "string" && session.bccToken !== "" ? session.bccToken : null;
+  rememberSessionBearer(sessionBearer);
+  // A replacement bearer whose session write is still in flight wins:
+  // the session still holds the revoked one (lib/auth/current-bearer).
+  const token = pendingBearer() ?? sessionBearer;
 
   // Mirror bccFetchAsClient's stale-token handling. This used to call
   // signOut() outright whenever NextAuth believed the bearer was past
@@ -68,10 +97,15 @@ export async function bccTrustFetch<T>(
   // renewed. Now the refresh endpoint decides, via the shared
   // classifier, and only a definitive rejection ends the session.
   const sessionExpired =
+    !swapRetried &&
     session !== null &&
     typeof session.bccTokenExpiresAt === "number" &&
     Date.now() >= session.bccTokenExpiresAt;
-  let effectiveToken = token;
+  if (retryWith !== null && isStaleEpoch(retryWith.epoch)) {
+    // The viewer changed between the approval and this re-send.
+    throw new BccApiError("bcc_unauthorized", `Viewer changed before retrying ${path}`, 401, null);
+  }
+  let effectiveToken = retryWith !== null ? retryWith.token : token;
   if (sessionExpired && token !== null && token !== "") {
     effectiveToken = await resolveAuthFailure(token);
   }
@@ -134,6 +168,16 @@ export async function bccTrustFetch<T>(
     // classifier decide; it ends the session only on a definitive
     // rejection, and never hands back the refused token.
     if (response.status === 401 && effectiveToken !== null && effectiveToken !== "") {
+      // The bearer may have been REPLACED while this was in flight; then
+      // the 401 is about the old token, not the session. Retry once with
+      // the newer one rather than refreshing a superseded token, which the
+      // server rejects and which used to end the session.
+      if (!swapRetried) {
+        const newer = await supersedingBearer(effectiveToken, epochAtDispatch);
+        if (newer !== null) {
+          return bccTrustFetchOnce<T>(path, options, { token: newer, epoch: epochAtDispatch });
+        }
+      }
       await resolveAuthFailure(effectiveToken);
     }
     throw new BccApiError(code, message, response.status, null);

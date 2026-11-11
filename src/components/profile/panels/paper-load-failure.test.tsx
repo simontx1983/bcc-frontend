@@ -111,8 +111,14 @@ afterEach(() => {
 });
 
 const RAW = "raw server text that must never render";
+// A failed FIRST load. `isLoadingError` / `isRefetchError` are what TanStack
+// sets for that state; they were omitted while every panel branched on the
+// blanket `isError`, and are needed now that only a first-load failure may
+// replace a loaded panel (the refetch branch: paper-refetch-failure.test.tsx).
 const failed = (code: string, key: keyof typeof refetch) => ({
   isError: true as const,
+  isLoadingError: true as const,
+  isRefetchError: false as const,
   isPending: false as const,
   isLoading: false as const,
   isSuccess: false as const,

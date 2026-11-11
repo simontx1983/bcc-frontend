@@ -22,10 +22,11 @@
 import { useState } from "react";
 
 import { Avatar } from "@/components/identity/Avatar";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { LoadFailure } from "@/components/ui/LoadFailure";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { Spinner } from "@/components/ui/Spinner";
-import { humanizeCode } from "@/lib/api/errors";
+import { humanizeCode, isPermissionDenial } from "@/lib/api/errors";
 import { formatAbsoluteDateTime, formatShortDate } from "@/lib/format";
 import { isAllowed, reasonCode, unlockHint } from "@/lib/permissions";
 import {
@@ -91,6 +92,9 @@ export function AnnouncementComments({
   const create = useCreateAnnouncementComment(announcementId);
   const remove = useRemoveAnnouncementComment(announcementId);
   const [draft, setDraft] = useState("");
+  // The comment awaiting a REMOVE confirmation. Removal is one-way for
+  // the viewer (only an admin can restore), so the click alone never fires.
+  const [removingId, setRemovingId] = useState<string | null>(null);
 
   const failureCopy = humanizeCode(
     query.error,
@@ -101,14 +105,23 @@ export function AnnouncementComments({
     "Couldn't load this discussion. Try again in a moment.",
   );
 
-  if (query.isError) {
+  // The recoveries differ: a first load and a failed refresh call
+  // refetch(); a failed next page calls fetchNextPage() to re-request the
+  // SAME cursor (refetch() would re-request every page already loaded).
+  const retryRefetch = () => void query.refetch();
+  const retryNextPage = () => void query.fetchNextPage();
+
+  // Only a first-load failure, or a REFRESH the server refused, may
+  // replace the discussion. A blanket `isError` here was also true when a
+  // LOAD MORE or a background refresh failed, so one failed page hid every
+  // comment already loaded AND the composer the viewer was typing in. A
+  // refused refresh keeps the old whole-section state: the server's latest
+  // answer is "you may not read this", so the comments are not kept.
+  if (query.isLoadingError || (query.isRefetchError && isPermissionDenial(query.error))) {
     return (
       <section aria-labelledby="announcement-discussion" className="mt-10">
         <Heading />
-        <LoadFailure
-          message={failureCopy}
-          onRetry={() => void query.refetch()}
-        />
+        <LoadFailure message={failureCopy} onRetry={retryRefetch} />
       </section>
     );
   }
@@ -173,10 +186,13 @@ export function AnnouncementComments({
     <section aria-labelledby="announcement-discussion" className="mt-10">
       <Heading />
 
+      {/* "No comments yet" is a claim about what the server holds; a failed
+          read does not support it, so it is withheld while in error. */}
       {items.length === 0 ? (
+        query.isError ? null : (
         <div className="px-5 py-10 sm:px-8">
           <p
-            className="bcc-mono mb-3 text-safety"
+            className="bcc-mono mb-3 text-bcc-text-safety"
             style={{ fontSize: "10px", letterSpacing: "0.24em" }}
           >
             NOTHING SAID YET
@@ -185,6 +201,7 @@ export function AnnouncementComments({
             No comments on this announcement yet.
           </p>
         </div>
+        )
       ) : (
         <ol className="flex flex-col">
           {items.map((comment) =>
@@ -227,7 +244,10 @@ export function AnnouncementComments({
                     {isAllowed(comment.permissions, "can_remove") && (
                       <button
                         type="button"
-                        onClick={() => void remove.mutate({ commentId: comment.id })}
+                        onClick={() => {
+                          remove.reset();
+                          setRemovingId(comment.id);
+                        }}
                         disabled={remove.isPending}
                         className="bcc-mono mt-2 text-bcc-text-secondary hover:underline disabled:opacity-50"
                         style={{ fontSize: "11px", minHeight: "44px" }}
@@ -243,18 +263,35 @@ export function AnnouncementComments({
         </ol>
       )}
 
-      {query.hasNextPage && (
-        <div className="px-5 py-4 sm:px-8">
-          <button
-            type="button"
-            onClick={() => void query.fetchNextPage()}
-            disabled={query.isFetchingNextPage}
-            className="bcc-mono text-safety hover:underline disabled:opacity-50"
-            style={{ fontSize: "11px", letterSpacing: "0.12em", minHeight: "44px" }}
-          >
-            {query.isFetchingNextPage ? "LOADING…" : "LOAD MORE"}
-          </button>
+      {/* A failed REFRESH keeps the comments and localises the recovery
+          beneath them; the cursor is still coherent, so paging stays open. */}
+      {query.isRefetchError && (
+        <div className="px-5 sm:px-8">
+          <LoadFailure message={failureCopy} onRetry={retryRefetch} />
         </div>
+      )}
+
+      {/* Cursor safety: while the NEXT page is failed, LOAD MORE is
+          withdrawn so it cannot advance past — and so skip — the page that
+          failed. Retry re-requests that same page. */}
+      {query.isFetchNextPageError ? (
+        <div className="px-5 sm:px-8">
+          <LoadFailure message={failureCopy} onRetry={retryNextPage} />
+        </div>
+      ) : (
+        query.hasNextPage && (
+          <div className="px-5 py-4 sm:px-8">
+            <button
+              type="button"
+              onClick={() => void query.fetchNextPage()}
+              disabled={query.isFetchingNextPage}
+              className="bcc-mono text-bcc-text-safety hover:underline disabled:opacity-50"
+              style={{ fontSize: "11px", letterSpacing: "0.12em", minHeight: "44px" }}
+            >
+              {query.isFetchingNextPage ? "LOADING…" : "LOAD MORE"}
+            </button>
+          </div>
+        )
       )}
 
       {canComment ? (
@@ -283,7 +320,7 @@ export function AnnouncementComments({
             className="rounded-sm border border-bcc-border bg-bcc-input-bg px-3 py-2 font-serif text-bcc-text disabled:opacity-50"
           />
           {create.isError && (
-            <p role="alert" className="text-bcc-danger" style={{ fontSize: "13px" }}>
+            <p role="alert" className="text-bcc-text-error" style={{ fontSize: "13px" }}>
               {createCopy}
             </p>
           )}
@@ -309,7 +346,45 @@ export function AnnouncementComments({
           {deniedCopy(viewerAuthed, gateReason, gateHint)}
         </p>
       )}
+
+      {removingId !== null && (
+        <ConfirmDialog
+          title="Remove this comment?"
+          body="It will show as removed in the discussion."
+          confirmLabel="REMOVE"
+          cancelLabel="CANCEL"
+          retryLabel="TRY AGAIN"
+          errorMessage={remove.error ? humanizeRemoveError(remove.error) : null}
+          pending={remove.isPending}
+          onConfirm={() => {
+            remove.reset();
+            remove.mutate(
+              { commentId: removingId },
+              { onSuccess: () => setRemovingId(null) },
+            );
+          }}
+          onCancel={() => {
+            remove.reset();
+            setRemovingId(null);
+          }}
+        />
+      )}
     </section>
+  );
+}
+
+/** §γ — keyed on err.code (§4.32.7 DELETE), never err.message. */
+function humanizeRemoveError(err: unknown): string {
+  return humanizeCode(
+    err,
+    {
+      bcc_forbidden: "You can't remove this comment.",
+      bcc_conflict: "This comment was already removed.",
+      bcc_not_found: "This comment is no longer available.",
+      bcc_rate_limited: "Too fast — give it a moment and try again.",
+      bcc_unavailable: "Removing comments is unavailable right now. Try again shortly.",
+    },
+    "Couldn't remove that comment. Try again.",
   );
 }
 

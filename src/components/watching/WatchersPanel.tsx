@@ -137,7 +137,7 @@ export function WatchersPanel({
     return (
       <section className="mt-12">
         <div className="bcc-panel mx-auto max-w-xl p-8 text-center">
-          <p className="bcc-mono text-safety">NO WATCHERS</p>
+          <p className="bcc-mono text-bcc-text-safety">NO WATCHERS</p>
           <h2 className="bcc-stencil mt-2 text-3xl text-bcc-text">
             Nobody&rsquo;s watching you yet.
           </h2>

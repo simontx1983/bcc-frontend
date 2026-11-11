@@ -124,9 +124,10 @@
      color-token guard reserves the --bcc-safety/-verified spelling for the
      brand layer and for src/components/cards/, which consumes it directly.
      That is a NAMESPACE rule, not a ban on the colors: app code reaches for
-     the aesthetic alias (text-safety, var(--safety)), and these colors are
-     part of page chrome — text-safety is the established micro-eyebrow and
-     inline-alert color. See docs/frontend-doctrine.md §5.3-5.4. */
+     the aesthetic alias (bg-safety, var(--safety)) for fills, borders and
+     marks. Orange TEXT uses the theme-aware safety-text token and error
+     text the error-text token (#205); the bare safety colour fails 4.5:1 as
+     small text. See docs/frontend-doctrine.md §5.3-5.4. */
 
   /* Fixed black/white + a fixed near-black surface (equals the dark-theme
      bg value, but pinned regardless of theme where a surface is meant to
@@ -318,12 +319,6 @@
   --bcc-text-secondary-rgb: 75 85 99;
   --bcc-text-muted:      #9ca3af;
   --bcc-text-placeholder:#5f626a;
-  /* DEFERRED — header search only. Retains the pre-repair value so the
-     header keeps its exact computed appearance. It is NOT an approved
-     general token: .bcc-search-input sits on --bcc-glass-bg-frosted with a
-     backdrop-filter, so its backdrop is unbounded and no value can be
-     verified. Isolated here so it cannot block the 21 bounded consumers. */
-  --bcc-search-placeholder:#b3b8c3;
   --bcc-text-inverse:    #ffffff;
 
   /* Readable brand text — the wordmark's two-tone as TEXT, at 4.5:1.
@@ -388,6 +383,15 @@
   --bcc-success:         #15803d;
   --bcc-warning:         #b45309;
   --bcc-danger:          #dc2626;
+
+  /* Small-text tokens (#205). The error-text token carries every error
+     and validation message; the safety-text token carries every other
+     orange word (eyebrows, kickers, links, verdicts). Both clear 4.5:1
+     on page, panel, raised, hover, active, the safety/5 tint and paper.
+     `--bcc-safety` stays the fill/border/mark colour. Paper and ink
+     containers re-declare both further down (fixed grounds). */
+  --bcc-text-error:      #b91c1c;
+  --bcc-text-safety:     #b53d14;
 }
 
 /* ── Dark mode surfaces ── */
@@ -415,7 +419,6 @@
     --bcc-text-secondary-rgb: 139 148 158;
     --bcc-text-muted:      #484f58;
     --bcc-text-placeholder:#82878f;
-    --bcc-search-placeholder:#3d444d;
     --bcc-text-inverse:    #0d1117;
     --bcc-stoke-ash:       #6f6358;
 
@@ -436,7 +439,11 @@
     --card-shadow:         0 22px 48px -24px rgba(0,0,0,0.72), 0 6px 16px -8px rgba(0,0,0,0.50);
     --card-border:         var(--bcc-border);
 
-    --bcc-header-bg:       rgba(13,17,23,0.55);
+    /* 0.90, not 0.55 (#209): at 0.55 bright content scrolling under the
+       header showed through enough to drop header text to 3.54:1 and
+       secondary text to 1.36:1 over white. At 0.90 the worst case over
+       white is text 12.40, secondary 4.76. */
+    --bcc-header-bg:       rgba(13,17,23,0.90);
     --bcc-header-border:   rgba(255,255,255,0.06);
     /* Opaque form of --bcc-header-bg — see the light scope. */
     --bcc-header-plate:    #0d1117;
@@ -445,7 +452,7 @@
     --bcc-sidebar-border:  #30363d;
 
     --bcc-input-bg:        #161b22;
-    --bcc-input-bg-focus:  #1c2128;
+    --bcc-input-bg-focus:  #161b22;
     --bcc-input-border:    #30363d;
     --bcc-input-border-focus: var(--bcc-accent);
 
@@ -461,6 +468,10 @@
     --bcc-success:         #22c55e;
     --bcc-warning:         #f59e0b;
     --bcc-danger:          #ef4444;
+
+    /* Small-text tokens (#205) — dark values. */
+    --bcc-text-error:      #f87171;
+    --bcc-text-safety:     #f4733f;
   }
 }
 
@@ -487,7 +498,6 @@
   --bcc-text-secondary-rgb: 139 148 158;
   --bcc-text-muted:      #484f58;
   --bcc-text-placeholder:#82878f;
-  --bcc-search-placeholder:#3d444d;
   --bcc-text-inverse:    #0d1117;
   --bcc-stoke-ash:       #6f6358;
 
@@ -507,7 +517,8 @@
   --card-shadow:         0 22px 48px -24px rgba(0,0,0,0.72), 0 6px 16px -8px rgba(0,0,0,0.50);
   --card-border:         var(--bcc-border);
 
-  --bcc-header-bg:       rgba(13,17,23,0.55);
+  /* 0.90, not 0.55 — see the prefers-color-scheme dark scope (#209). */
+  --bcc-header-bg:       rgba(13,17,23,0.90);
   --bcc-header-border:   rgba(255,255,255,0.06);
   /* Opaque form of --bcc-header-bg — see the light scope. */
   --bcc-header-plate:    #0d1117;
@@ -516,7 +527,7 @@
   --bcc-sidebar-border:  #30363d;
 
   --bcc-input-bg:        #161b22;
-  --bcc-input-bg-focus:  #1c2128;
+  --bcc-input-bg-focus:  #161b22;
   --bcc-input-border:    #30363d;
   --bcc-input-border-focus: var(--bcc-accent);
 
@@ -532,6 +543,10 @@
   --bcc-success:         #22c55e;
   --bcc-warning:         #f59e0b;
   --bcc-danger:          #ef4444;
+
+  /* Small-text tokens (#205) — dark values. */
+  --bcc-text-error:      #f87171;
+  --bcc-text-safety:     #f4733f;
 }
 
 /* ========================================================================
@@ -966,9 +981,17 @@
                 border-color var(--bcc-transition-fast),
                 box-shadow var(--bcc-transition-fast);
   }
+  /* The frosted field's backdrop is bounded (#202): 10% glass over the
+     header's 80% light / 55% dark fill, over the page. Measured on that
+     composite (normal / focused): placeholder 5.87 / 6.10 light and
+     5.20 / 4.79 dark; icon 7.28 / 7.56 light and 6.11 / 5.62 dark.
+     The dark focused fill (input-bg-focus, used only here) now matches
+     the plain dark input fill, #161b22; at the old #1c2128 the
+     placeholder read 4.48. The one case no header colour clears is bright content
+     scrolled under the dark header's 55% fill; that applies to all header
+     chrome, not this field. */
   .bcc-search-input::placeholder {
-    /* Deferred: unbounded frosted-glass backdrop — see --bcc-search-placeholder. */
-    color: var(--bcc-search-placeholder);
+    color: var(--bcc-text-placeholder);
   }
   .bcc-search-input:focus {
     background: var(--bcc-input-bg-focus);
@@ -978,7 +1001,7 @@
   .bcc-search-icon {
     position: absolute;
     right: 12px;
-    color: var(--bcc-text-muted);
+    color: var(--bcc-text-secondary);
     pointer-events: none;
     width: 16px;
     height: 16px;
@@ -1150,8 +1173,10 @@
   .bcc-offcanvas-palette-btn:hover,
   .bcc-offcanvas-palette-btn.active {
     background: var(--bcc-accent-subtle);
-    color: var(--bcc-accent);
-    border-color: var(--bcc-accent);
+    /* Accent glyph on its own tint measured 2.23:1 light; the state is
+       carried by the tint and the indicator border instead. */
+    color: var(--bcc-text);
+    border-color: var(--bcc-accent-indicator);
   }
 
   .bcc-offcanvas-theme-drawer {
@@ -1212,7 +1237,11 @@
   .bcc-nav-item[aria-current="page"],
   .bcc-nav-item.active {
     background: var(--bcc-accent-subtle);
-    color: var(--bcc-accent);
+    /* Full-strength text rather than the accent: accent text on its own
+       subtle ground measured 2.23:1 light (blue) / 2.26:1 (orange).
+       Selection is carried by the tint and the indicator bar below —
+       the same ladder as .bcc-tab (see tab-state-contrast.test.ts). */
+    color: var(--bcc-text);
   }
   .bcc-nav-item[aria-current="page"]::before,
   .bcc-nav-item.active::before {
@@ -1223,7 +1252,7 @@
     transform: translateY(-50%);
     width: 3px;
     height: 20px;
-    background: var(--bcc-accent);
+    background: var(--bcc-accent-indicator);
     border-radius: 0 3px 3px 0;
   }
   .bcc-nav-item-icon {
@@ -1749,7 +1778,9 @@
     background: var(--bcc-surface-hover);
   }
   .bcc-theme-option.selected {
-    border-color: var(--bcc-accent);
+    /* Indicator rather than the raw accent: the border is the selection cue and
+       must clear 3:1 (1.4.11); raw accent is 2.39:1 on white. */
+    border-color: var(--bcc-accent-indicator);
     background: var(--bcc-accent-subtle);
   }
   .bcc-accent-swatch {
@@ -3153,6 +3184,29 @@
   @media (prefers-reduced-motion: reduce) {
     .bcc-card { transition: none; }
   }
+}
+
+/* #205 — fixed grounds pin the small-text tokens.
+   Paper and cardstock stay cream in both themes, so inside them the
+   error-text and safety-text tokens take their LIGHT values. Solid ink
+   (and the ink bar of a paper sheet) stays dark in both themes, so it
+   takes the DARK values. Text inherits the nearest declaration, so an
+   ink bar inside a paper sheet reads correctly. Kept outside any layer
+   so Tailwind never purges the escaped opacity variants. */
+.bcc-paper,
+.bg-paper,
+.bg-paper\/90,
+.bg-cardstock,
+.bg-cardstock\/95,
+.bg-cardstock-deep,
+.bcc-paper-ground {
+  --bcc-text-error: #b91c1c;
+  --bcc-text-safety: #b53d14;
+}
+.bcc-paper-head,
+.bg-ink {
+  --bcc-text-error: #f87171;
+  --bcc-text-safety: #f4733f;
 }
 
 @layer components {

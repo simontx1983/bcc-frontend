@@ -94,7 +94,7 @@ export function SetupPanel({ profile, reliability, section }: SetupPanelProps) {
 function ReliabilityUnavailable() {
   return (
     <div className="bcc-panel flex flex-col gap-3 p-6">
-      <p className="bcc-mono text-safety" style={{ fontSize: "10px", letterSpacing: "0.24em" }}>
+      <p className="bcc-mono text-bcc-text-safety" style={{ fontSize: "10px", letterSpacing: "0.24em" }}>
         UNAVAILABLE
       </p>
       <p className="font-serif text-base text-bcc-text-secondary">
@@ -103,7 +103,7 @@ function ReliabilityUnavailable() {
       </p>
       <Link
         href={"/me/reliability" as Route}
-        className="bcc-mono text-safety hover:underline underline-offset-4 self-start"
+        className="bcc-mono text-bcc-text-safety hover:underline underline-offset-4 self-start"
       >
         Open your mirror →
       </Link>

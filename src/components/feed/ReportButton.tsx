@@ -244,7 +244,7 @@ export function ReportModal({
             <span
               className={
                 "bcc-mono text-[10px] " +
-                (overCap ? "text-safety" : "text-bcc-text-secondary")
+                (overCap ? "text-bcc-text-error" : "text-bcc-text-secondary")
               }
             >
               {comment.length} / {CONTENT_REPORT_COMMENT_MAX_LENGTH}
@@ -252,7 +252,7 @@ export function ReportModal({
           </label>
 
           {errorText !== null && (
-            <p role="alert" className="bcc-mono text-[11px] text-safety">
+            <p role="alert" className="bcc-mono text-[11px] text-bcc-text-error">
               {errorText}
             </p>
           )}

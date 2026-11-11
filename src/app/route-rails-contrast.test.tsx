@@ -342,13 +342,14 @@ describe("E2 — list and conversation metadata", () => {
     });
   }
 
-  it("the /messages/new character counter is secondary below the limit and safety above it", () => {
-    // A ternary, not a static className: the counter turns `text-safety`
-    // once the body exceeds the maximum. Only the under-limit branch was
-    // muted; the over-limit branch is a real error state, left as authored.
+  it("the /messages/new character counter is secondary below the limit and error-text above it", () => {
+    // A ternary, not a static className: the counter turns red once the
+    // body exceeds the maximum. Only the under-limit branch was muted; the
+    // over-limit branch is a real error state. #205 moved it from
+    // `text-safety` to the theme-aware error-text token.
     const src = read(MESSAGES_NEW).replace(/\r\n/g, "\n");
     expect(src).toContain(
-      '(body.length > MESSAGE_BODY_MAX_LENGTH\n                    ? "text-safety"\n                    : "text-bcc-text-secondary")',
+      '(body.length > MESSAGE_BODY_MAX_LENGTH\n                    ? "text-bcc-text-error"\n                    : "text-bcc-text-secondary")',
     );
     expect(src).not.toContain('"text-bcc-text-muted")');
   });
@@ -500,6 +501,8 @@ describe("E2 — secondary clears AA on the surfaces these routes render on", ()
   it("E2 changed no CSS — globals.css holds exactly E1's remaining exclusions", () => {
     // 8 -> 3 because the dead-CSS cleanup DELETED the five zero-consumer
     // rules E1 had pinned. No E2 site changed; the denominator did.
-    expect([...CSS.matchAll(/var\(--bcc-text-muted\)/g)]).toHaveLength(3);
+    // 3 -> 2 in #202: .bcc-search-icon moved to secondary (see
+    // muted-text-e1.test.ts, LATER_TO_SECONDARY).
+    expect([...CSS.matchAll(/var\(--bcc-text-muted\)/g)]).toHaveLength(2);
   });
 });

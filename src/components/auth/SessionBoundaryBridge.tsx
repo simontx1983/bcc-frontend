@@ -42,6 +42,10 @@ import {
   clearViewerStorage,
 } from "@/lib/auth/viewer-storage";
 import { revokePushForSessionEnd } from "@/lib/push/revoke";
+import {
+  resetAnalyticsIdentity,
+  setAnalyticsViewer,
+} from "@/lib/analytics/posthog";
 
 /**
  * next-auth's cross-tab notice: `localStorage["nextauth.message"]` plus the
@@ -116,6 +120,19 @@ export function SessionBoundaryBridge() {
    */
   const purgeScope = useRef<string | null>(null);
 
+  // The NextAuth session is the client identity boundary. Analytics is
+  // identified ONLY with the server-computed keyed pseudonym
+  // (session.user.analyticsId), only after consent, and resets itself when
+  // the viewer changes. No pseudonym (the server key is unset) means the
+  // viewer stays anonymous; nothing reversible is derived client-side.
+  const analyticsId = session?.user?.analyticsId ?? null;
+  useEffect(() => {
+    if (status !== "authenticated" || analyticsId === null || analyticsId === "") {
+      return;
+    }
+    void setAnalyticsViewer(analyticsId);
+  }, [analyticsId, status]);
+
   useEffect(() => {
     return registerSessionTeardown({
       purgeQueryCache: () => {
@@ -188,6 +205,7 @@ export function SessionBoundaryBridge() {
       // owner's email on /u/[handle]) is recomputed rather than lingering
       // from the authed render.
       signOut: async (callbackUrl: string) => {
+        resetAnalyticsIdentity();
         await signOut({ redirect: true, callbackUrl });
       },
     });
@@ -288,6 +306,7 @@ export function SessionBoundaryBridge() {
     // second call would race it. A reload is both sufficient and honest —
     // it re-derives everything from whatever cookie now exists.
     const depart = () => {
+      resetAnalyticsIdentity();
       purgeViewerState();
       window.location.reload();
     };

@@ -83,7 +83,7 @@ export function BodyEditor({
     <div className="flex flex-col gap-2">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <span className="bcc-mono text-[10px] tracking-[0.18em] text-bcc-text-secondary">
-          BODY · MARKDOWN <span className="text-safety">*</span>
+          BODY · MARKDOWN <span className="text-bcc-text-safety">*</span>
         </span>
         <div role="tablist" aria-label="Editor mode" className="flex items-center gap-1">
           {(["compose", "preview", "both"] as const).map((m) => {
@@ -98,7 +98,7 @@ export function BodyEditor({
                 className={
                   "bcc-mono shrink-0 border px-2 py-1 text-[10px] tracking-[0.18em] transition " +
                   (active
-                    ? "border-safety text-safety"
+                    ? "border-safety text-bcc-text-safety"
                     : "border-transparent text-bcc-text-secondary hover:border-bcc-border hover:text-bcc-text")
                 }
               >
