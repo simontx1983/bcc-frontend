@@ -230,6 +230,11 @@ import {
   endSession,
   isStaleEpoch,
 } from "@/lib/auth/session-boundary";
+import {
+  pendingBearer,
+  rememberSessionBearer,
+  supersedingBearer,
+} from "@/lib/auth/current-bearer";
 import { updateSessionBearer } from "@/lib/auth/session-update";
 
 /**
@@ -273,10 +278,15 @@ export async function bccFetchAsClient<T>(
   }
 
   const session = await getSession();
-  const sessionToken =
+  const sessionBearer =
     session !== null && typeof session.bccToken === "string" && session.bccToken !== ""
       ? session.bccToken
       : null;
+  rememberSessionBearer(sessionBearer);
+  // A replacement bearer whose session write is still in flight wins over
+  // the session's: the session still holds the bearer the server has
+  // just revoked (lib/auth/current-bearer).
+  const sessionToken = pendingBearer() ?? sessionBearer;
   const hadSessionToken = sessionToken !== null;
   // The session JWT can outlive the BCC bearer (auth.ts blanks
   // session.bccToken once bccTokenExpiresAt is past). When that
@@ -354,6 +364,35 @@ export async function bccFetchAsClient<T>(
       throw err;
     }
 
+    let lastErr: unknown = err;
+
+    // First: was the bearer this request carried REPLACED while it was in
+    // flight (a password or email change, a refresh, another tab)? Then
+    // the 401 is about the old token, not the session. Retry once with
+    // the newer one, and never refresh a superseded token: the server
+    // would reject it and that rejection used to end the session.
+    if (effectiveToken !== null) {
+      // Same viewer only: supersedingBearer refuses a different account's
+      // token or a moved epoch BEFORE anything is re-sent.
+      const newer = await supersedingBearer(effectiveToken, epochAtDispatch);
+      if (newer !== null) {
+        try {
+          const retried = await bccFetch<T>(path, { ...options, token: newer });
+          if (isStaleEpoch(epochAtDispatch)) {
+            throw new StaleViewerError(path);
+          }
+          return retried;
+        } catch (swapErr) {
+          if (!(swapErr instanceof BccApiError) || swapErr.status !== 401) {
+            throw swapErr;
+          }
+          // The newer bearer was refused too. Classify THAT one below.
+          lastErr = swapErr;
+          effectiveToken = newer;
+        }
+      }
+    }
+
     // Reactive 401: the server rejected a bearer NextAuth still believed
     // in. One refresh attempt, then classify.
     // At most ONE refresh per call, and that is the whole invariant: the
@@ -386,7 +425,7 @@ export async function bccFetchAsClient<T>(
       // indeterminate: session retained, and we do NOT retry with the
       // refused token. The original 401 propagates.
     }
-    throw err;
+    throw lastErr;
   }
 }
 

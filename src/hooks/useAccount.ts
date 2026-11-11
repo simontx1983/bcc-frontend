@@ -92,7 +92,8 @@ export interface ChangeEmailOutcome {
  * badges. The address shown in the change form itself comes from the
  * server session, not a query; the card tracks the confirmed value.
  */
-const EMAIL_CHANGE_INVALIDATES = [MY_WALLETS_QUERY_KEY, ["users"]] as const;
+// ["user"] is the per-handle profile read (useUser); ["users"] alone missed it.
+const EMAIL_CHANGE_INVALIDATES = [MY_WALLETS_QUERY_KEY, ["users"], ["user"]] as const;
 
 export function useVerifyAccountEmailChange(
   options: Omit<
