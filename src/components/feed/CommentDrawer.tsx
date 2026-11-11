@@ -54,6 +54,7 @@ import {
 } from "lucide-react";
 import { useSession } from "next-auth/react";
 import Image from "next/image";
+import posthog from "posthog-js";
 import Link from "next/link";
 import type { Route } from "next";
 
@@ -1643,6 +1644,17 @@ function CommentComposer({
         ...(replyTarget !== null ? { parent_id: replyTarget.parentId } : {}),
       },
       {
+        onSuccess: () => {
+          if (
+            process.env["NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN"] &&
+            process.env["NEXT_PUBLIC_POSTHOG_HOST"]
+          ) {
+            posthog.capture("comment_published", {
+              is_reply: replyTarget !== null,
+              attachment_type: media?.kind ?? "none",
+            });
+          }
+        },
         onError: () => {
           setDraft(draftSnapshot);
           setPhoto(photoSnapshot);

@@ -13,6 +13,7 @@
 
 import { useCallback, useMemo } from "react";
 import { useSession } from "next-auth/react";
+import posthog from "posthog-js";
 
 import { useWatching } from "@/hooks/useWatching";
 import { useWatchMutation, useUnwatchMutation } from "@/hooks/useWatch";
@@ -47,9 +48,15 @@ export function MemberFollowButton({
 
   const toggle = useCallback(() => {
     if (entry !== null) {
-      unwatchMutation.mutate({ follow_id: entry.follow_id, source: entry.source });
+      unwatchMutation.mutate(
+        { follow_id: entry.follow_id, source: entry.source },
+        { onSuccess: () => captureFollowEvent("member_unfollowed") },
+      );
     } else {
-      watchMutation.mutate({ target_kind: "member", target_id: userId });
+      watchMutation.mutate(
+        { target_kind: "member", target_id: userId },
+        { onSuccess: () => captureFollowEvent("member_followed") },
+      );
     }
   }, [entry, unwatchMutation, watchMutation, userId]);
 
@@ -67,4 +74,13 @@ export function MemberFollowButton({
       {isFollowing ? FOLLOW_COPY.state : FOLLOW_COPY.cta}
     </button>
   );
+}
+
+function captureFollowEvent(event: "member_followed" | "member_unfollowed") {
+  if (
+    process.env["NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN"] &&
+    process.env["NEXT_PUBLIC_POSTHOG_HOST"]
+  ) {
+    posthog.capture(event);
+  }
 }

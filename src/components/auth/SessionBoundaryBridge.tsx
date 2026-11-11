@@ -21,6 +21,7 @@
 
 import { useQueryClient } from "@tanstack/react-query";
 import { useSession, signOut } from "next-auth/react";
+import posthog from "posthog-js";
 import { useEffect, useRef } from "react";
 
 import {
@@ -85,6 +86,11 @@ const SESSION_CONFIRM_ATTEMPTS = 3;
 /** Gap between attempts. */
 const SESSION_CONFIRM_RETRY_MS = 5_000;
 
+const isPostHogConfigured = Boolean(
+  process.env["NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN"] &&
+    process.env["NEXT_PUBLIC_POSTHOG_HOST"],
+);
+
 export function SessionBoundaryBridge() {
   const queryClient = useQueryClient();
   const { data: session, status } = useSession();
@@ -103,6 +109,8 @@ export function SessionBoundaryBridge() {
   const disposed = useRef(false);
   /** The current effect run's confirm, for the gate's Retry control. */
   const recheckRef = useRef<(() => void) | null>(null);
+  /** The PostHog identity established for this browser document. */
+  const identifiedViewer = useRef<string | null>(null);
   /**
    * The viewer whose STORED values a teardown should clear.
    *
@@ -115,6 +123,27 @@ export function SessionBoundaryBridge() {
    * viewer is ESTABLISHED, never by a departure verdict.
    */
   const purgeScope = useRef<string | null>(null);
+
+  // The NextAuth session is the client identity boundary. On hydration this
+  // identifies an already-signed-in viewer; following a successful sign-in
+  // it merges the anonymous PostHog session into the stable WordPress user id.
+  useEffect(() => {
+    const viewer = session?.user?.id;
+    if (!isPostHogConfigured || status !== "authenticated" || !viewer) {
+      return;
+    }
+
+    if (identifiedViewer.current === viewer) {
+      return;
+    }
+
+    if (identifiedViewer.current !== null) {
+      posthog.reset();
+    }
+
+    posthog.identify(viewer, { handle: session.user.handle });
+    identifiedViewer.current = viewer;
+  }, [session?.user?.handle, session?.user?.id, status]);
 
   useEffect(() => {
     return registerSessionTeardown({
@@ -188,6 +217,10 @@ export function SessionBoundaryBridge() {
       // owner's email on /u/[handle]) is recomputed rather than lingering
       // from the authed render.
       signOut: async (callbackUrl: string) => {
+        if (isPostHogConfigured) {
+          posthog.reset();
+          identifiedViewer.current = null;
+        }
         await signOut({ redirect: true, callbackUrl });
       },
     });
@@ -288,6 +321,10 @@ export function SessionBoundaryBridge() {
     // second call would race it. A reload is both sufficient and honest —
     // it re-derives everything from whatever cookie now exists.
     const depart = () => {
+      if (isPostHogConfigured) {
+        posthog.reset();
+        identifiedViewer.current = null;
+      }
       purgeViewerState();
       window.location.reload();
     };

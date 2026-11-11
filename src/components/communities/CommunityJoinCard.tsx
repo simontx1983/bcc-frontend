@@ -30,6 +30,7 @@
 
 import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
+import posthog from "posthog-js";
 
 import { CardFactory } from "@/components/cards/CardFactory";
 import { humanizeMembershipError } from "@/components/groups/GroupMembershipStrip";
@@ -75,14 +76,20 @@ export function CommunityJoinCard({
       if (dossier === null) return;
       if (dossier.type === "nft") {
         // No optimistic flip — server adjudicates ownership.
-        holderJoin.mutate(joinCard.id);
+        holderJoin.mutate(joinCard.id, {
+          onSuccess: () => captureCommunityJoined(dossier.type),
+        });
         return;
       }
       setOptimisticJoined(true);
       if (dossier.type === "hall") {
-        hallJoin.mutate(joinCard.id);
+        hallJoin.mutate(joinCard.id, {
+          onSuccess: () => captureCommunityJoined(dossier.type),
+        });
       } else {
-        plainJoin.mutate(joinCard.id);
+        plainJoin.mutate(joinCard.id, {
+          onSuccess: () => captureCommunityJoined(dossier.type),
+        });
       }
     },
     [holderJoin, hallJoin, plainJoin],
@@ -111,4 +118,15 @@ export function CommunityJoinCard({
       )}
     </div>
   );
+}
+
+function captureCommunityJoined(
+  communityType: "nft" | "hall" | "system" | "user",
+) {
+  if (
+    process.env["NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN"] &&
+    process.env["NEXT_PUBLIC_POSTHOG_HOST"]
+  ) {
+    posthog.capture("community_joined", { community_type: communityType });
+  }
 }
