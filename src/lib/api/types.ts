@@ -4271,7 +4271,12 @@ export interface MyPrivacySettings {
   follower_count_hidden: boolean;
   real_name_hidden: boolean;
   email_hidden: boolean;
-  /** §G1: opt out of PeepSo user search. Owner-only. */
+  /**
+   * §G1: opt out of PeepSo user search. Owner-only.
+   * F-257: since bcc-trust #648 this is the SAME server flag as profile
+   * prefs' `hide_from_search`. The UI shows only that one switch
+   * (ProfilePrefsSection); this field is still returned and read nowhere.
+   */
   discovery_optout: boolean;
 }
 
