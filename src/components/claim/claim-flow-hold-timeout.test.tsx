@@ -152,6 +152,67 @@ describe("a wallet that never answers", () => {
   });
 });
 
+describe("a closed or superseded attempt never finishes out of sight", () => {
+  it("CLOSE ANYWAY, then approving in the wallet: no link, no claim", async () => {
+    vi.useFakeTimers();
+    let approveLate: (v: unknown) => void = () => undefined;
+    signKeplrChallenge.mockReturnValue(new Promise((r) => { approveLate = r; }));
+    fireEvent.click(await toSignStep());
+    await flush();
+    await act(async () => {
+      vi.advanceTimersByTime(30_000);
+    });
+    fireEvent.click(screen.getByRole("button", { name: "CLOSE ANYWAY" }));
+    expect(onClose).toHaveBeenCalledTimes(1);
+
+    // The user approves in the still-open wallet, inside the 90s window.
+    approveLate({ signature: "late", pubKey: "late" });
+    await flush();
+    await flush();
+    expect(linkWallet).not.toHaveBeenCalled();
+    expect(claimPage).not.toHaveBeenCalled();
+  });
+
+  it("RETRY after a timeout, then the old request answers: ignored", async () => {
+    vi.useFakeTimers();
+    let approveOld: (v: unknown) => void = () => undefined;
+    signKeplrChallenge.mockReturnValueOnce(new Promise((r) => { approveOld = r; }));
+    fireEvent.click(await toSignStep());
+    await flush();
+    await act(async () => {
+      vi.advanceTimersByTime(90_000);
+    });
+    await flush();
+
+    // The retry's own wallet request stays open.
+    signKeplrChallenge.mockReturnValueOnce(new Promise(() => undefined));
+    fireEvent.click(screen.getByRole("button", { name: "RETRY SIGNATURE" }));
+    await flush();
+    approveOld({ signature: "old", pubKey: "old" });
+    await flush();
+    await flush();
+    expect(linkWallet).not.toHaveBeenCalled();
+    expect(claimPage).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "SIGNING…" })).toBeInTheDocument();
+  });
+
+  it("closed while the link POST is in flight: the claim is never sent", async () => {
+    vi.useFakeTimers();
+    let finishLink: (v: unknown) => void = () => undefined;
+    linkWallet.mockReturnValue(new Promise((r) => { finishLink = r; }));
+    fireEvent.click(await toSignStep());
+    await flush();
+    await act(async () => {
+      vi.advanceTimersByTime(30_000);
+    });
+    fireEvent.click(screen.getByRole("button", { name: "CLOSE ANYWAY" }));
+    finishLink({ wallet_link_id: 9, chain_slug: "cosmos", chain_name: "Cosmos Hub", address: "cosmos1abc" });
+    await flush();
+    await flush();
+    expect(claimPage).not.toHaveBeenCalled();
+  });
+});
+
 describe("refusals a re-sign cannot fix", () => {
   it("a wallet linked to another account offers a different wallet", async () => {
     linkWallet.mockRejectedValue(new BccApiError("bcc_conflict", "x", 409, null));
@@ -176,6 +237,35 @@ describe("refusals a re-sign cannot fix", () => {
     expect(screen.getByRole("alert")).toHaveTextContent("Your account is suspended");
     expect(screen.queryByRole("button", { name: "USE A DIFFERENT WALLET" })).toBeNull();
     expect(screen.getByRole("button", { name: "CLOSE" })).toBeInTheDocument();
+  });
+
+  it.each([
+    ["holder_not_owner", /doesn't make you its creator/],
+    ["entity_not_bound", /isn't set up to be claimed this way/],
+  ])("reason %s is final with its own copy", async (reason, copy) => {
+    claimPage.mockRejectedValue(
+      new BccApiError("bcc_forbidden", "x", 403, {
+        error: { code: "bcc_forbidden", message: "x", data: { reason } },
+      } as never),
+    );
+    fireEvent.click(await toSignStep());
+    await flush();
+    await flush();
+    expect(screen.getByRole("alert")).toHaveTextContent(copy);
+    expect(screen.queryByRole("button", { name: "USE A DIFFERENT WALLET" })).toBeNull();
+    expect(screen.getByRole("button", { name: "CLOSE" })).toBeInTheDocument();
+  });
+
+  it("reason not_operator offers a different wallet", async () => {
+    claimPage.mockRejectedValue(
+      new BccApiError("bcc_forbidden", "x", 403, {
+        error: { code: "bcc_forbidden", message: "x", data: { reason: "not_operator" } },
+      } as never),
+    );
+    fireEvent.click(await toSignStep());
+    await flush();
+    await flush();
+    expect(screen.getByRole("button", { name: "USE A DIFFERENT WALLET" })).toBeInTheDocument();
   });
 
   it("a bare bcc_forbidden (not the operator) still offers a different wallet", async () => {
