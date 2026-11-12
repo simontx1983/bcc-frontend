@@ -1697,7 +1697,8 @@ export type NotificationKind =
   | "bcc_attestation_revoked"
   | "bcc_attestation_reaffirmed"
   | "bcc_holder_community_live"
-  | "bcc_delegator_group_removed";
+  | "bcc_delegator_group_removed"
+  | "bcc_content_auto_hidden";
 
 export interface NotificationActor {
   id: number;
@@ -5759,7 +5760,8 @@ export type BellEventType =
   | "bcc_attestation_revoked"
   | "bcc_attestation_reaffirmed"
   | "bcc_holder_community_live"
-  | "bcc_delegator_group_removed";
+  | "bcc_delegator_group_removed"
+  | "bcc_content_auto_hidden";
 
 export interface NotificationPrefs {
   email_digest: boolean;
