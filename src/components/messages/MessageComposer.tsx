@@ -9,7 +9,7 @@
  * paragraphs work like every chat surface.
  */
 
-import { useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
+import { useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 
 import { captureAnalyticsEvent } from "@/lib/analytics/posthog";
 import { counterToneClass } from "@/lib/counter-tone";
@@ -24,12 +24,17 @@ interface MessageComposerProps {
 export function MessageComposer({ conversationId }: MessageComposerProps) {
   const [body, setBody] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const mutation = useReplyInConversationMutation({
     onSuccess: () => {
       captureAnalyticsEvent("message_sent");
       setBody("");
       setError(null);
+      // Ready for the next message without a tap: on a phone this keeps
+      // the keyboard up; for keyboard and screen-reader users it keeps
+      // their place (UX scan H11).
+      textareaRef.current?.focus();
     },
     onError: (err) => {
       setError(
@@ -75,6 +80,7 @@ export function MessageComposer({ conversationId }: MessageComposerProps) {
       <label className="bcc-mono flex flex-col gap-1 text-[11px] tracking-[0.16em] text-bcc-text-secondary">
         <span className="sr-only">Message</span>
         <textarea
+          ref={textareaRef}
           id="message-composer-body"
           aria-describedby="message-composer-counter"
           value={body}
@@ -82,9 +88,14 @@ export function MessageComposer({ conversationId }: MessageComposerProps) {
           onKeyDown={onKeyDown}
           maxLength={MESSAGE_BODY_MAX_LENGTH}
           rows={3}
-          disabled={mutation.isPending}
+          // Read-only, not disabled, while sending. Disabling the focused
+          // textarea blurred it: the phone keyboard closed after every
+          // message and focus fell to <body> (UX scan H11). canSend still
+          // blocks a double send.
+          readOnly={mutation.isPending}
+          aria-busy={mutation.isPending}
           placeholder="Write a message…"
-          className="font-serif resize-y rounded-sm border border-bcc-input-border bg-bcc-input-bg px-3 py-2 text-[14px] leading-snug text-bcc-text placeholder:text-bcc-text-placeholder focus-visible:border-bcc-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-bcc-accent disabled:opacity-50"
+          className="font-serif resize-y rounded-sm border border-bcc-input-border bg-bcc-input-bg px-3 py-2 text-[14px] leading-snug text-bcc-text placeholder:text-bcc-text-placeholder focus-visible:border-bcc-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-bcc-accent read-only:opacity-70"
         />
         <span
           id="message-composer-counter"
