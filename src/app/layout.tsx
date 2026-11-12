@@ -12,7 +12,7 @@ import { appOrigin } from "@/lib/app-origin";
 import { isIndexableEnvironment } from "@/lib/seo/indexing";
 import "./globals.css";
 
-// Self-hosted brand fonts. `next/font/google` fetched these from Google
+// Self-hosted brand fonts. The Google font loader fetched these from Google
 // at BUILD time, and that fetch failing intermittently failed Vercel
 // builds ("Cannot read properties of null (reading '1')" in
 // next/font/dist/google/loader.js). The files in ./fonts are the exact

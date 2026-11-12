@@ -162,11 +162,11 @@
      somewhat lighter still. */
   --bcc-on-accent:       var(--bcc-night);
 
-  /* Typography — loaded via next/font in layout.tsx */
-  --font-stencil:        'Big Shoulders Stencil';
-  --font-serif:          'Fraunces';
-  --font-mono:           'JetBrains Mono';
-  --font-script:         'Homemade Apple';
+  /* Typography — --font-stencil / --font-serif / --font-mono / --font-script
+     are set by next/font/local (layout.tsx) on <html>, each naming the
+     self-hosted face plus its size-adjusted fallback. Do NOT redefine them
+     here: a literal family name (e.g. 'Big Shoulders Stencil') matches no
+     self-hosted face and silently drops every heading to Impact. */
 
   /* Layout dimensions */
   --bcc-header-h:        60px;
