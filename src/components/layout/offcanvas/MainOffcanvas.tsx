@@ -1,12 +1,13 @@
 "use client";
 
-import { Moon, Palette, Sun, User } from "lucide-react";
+import { Compass, Moon, Palette, Sun, User } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
 
 import { endSession } from "@/lib/auth/session-boundary";
+import { requestTour, SHOW_ME_AROUND_HREF, SHOW_ME_AROUND_TOUR } from "@/lib/tour/replay";
 import { useState, useEffect, useRef } from "react";
 
 import { Avatar } from "@/components/identity/Avatar";
@@ -292,6 +293,29 @@ export function MainOffcanvas({ open, onClose }: MainOffcanvasProps) {
           {handle && (
             <>
               <div className="bcc-nav-divider" />
+              {/* F-322: replay the Floor tour on request (it auto-starts
+                  once per account). Same entry as the avatar menu. */}
+              <Link
+                href={SHOW_ME_AROUND_HREF as Route}
+                onClick={() => {
+                  requestTour(SHOW_ME_AROUND_TOUR);
+                  onClose();
+                }}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  padding: "10px 24px",
+                  width: "100%",
+                  color: "var(--bcc-text-secondary)",
+                  fontFamily: "var(--font-serif), Georgia, serif",
+                  fontSize: 13,
+                  textDecoration: "none",
+                }}
+              >
+                <Compass size={16} strokeWidth={1.8} aria-hidden />
+                Show me around
+              </Link>
               <button
                 onClick={() => { onClose(); void endSession("user"); }}
                 style={{
