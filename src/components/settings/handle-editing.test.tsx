@@ -19,6 +19,7 @@ const DECOY = "SERVER MESSAGE THAT MUST NEVER RENDER";
 const updateHandle = vi.hoisted(() => vi.fn());
 const sessionUpdate = vi.hoisted(() => vi.fn());
 const refresh = vi.hoisted(() => vi.fn());
+const prefsState = vi.hoisted(() => ({ handle_next_change_at: null as string | null }));
 
 vi.mock("@/lib/env", () => ({ clientEnv: { BCC_API_URL: "https://wp.example" } }));
 vi.mock("@/lib/api/onboarding-endpoints", () => ({
@@ -28,6 +29,10 @@ vi.mock("next-auth/react", () => ({
   useSession: () => ({ data: { user: { handle: "old-name" } }, status: "authenticated", update: sessionUpdate }),
 }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh, push: vi.fn(), replace: vi.fn() }) }));
+vi.mock("@/hooks/useProfilePrefs", () => ({
+  PROFILE_PREFS_QUERY_KEY: ["bcc", "me", "profile-prefs"],
+  useProfilePrefs: () => ({ data: { handle_next_change_at: prefsState.handle_next_change_at } }),
+}));
 
 const { HandleSection } = await import("@/components/settings/HandleSection");
 
@@ -50,6 +55,7 @@ beforeEach(() => {
   updateHandle.mockReset();
   sessionUpdate.mockReset();
   refresh.mockReset();
+  prefsState.handle_next_change_at = null;
   qc = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
 });
 afterEach(() => {
@@ -66,6 +72,24 @@ function typeAndConfirm(value: string) {
   const dialog = screen.getByRole("dialog", { name: `Change your handle to @${value}?` });
   fireEvent.click(within(dialog).getByRole("button", { name: "CHANGE HANDLE" }));
 }
+
+describe("HandleSection — cooldown known before submitting (#653)", () => {
+  it("while the cooldown runs, says when and offers no change", () => {
+    prefsState.handle_next_change_at = "2099-01-01T00:00:00Z";
+    render(wrap(<HandleSection handle="old-name" />));
+    expect(screen.getByText(/You can change your handle again on/)).toBeInTheDocument();
+    expect(input()).toBeDisabled();
+    expect(submit()).toBeDisabled();
+  });
+
+  it("a past date is not a lock", () => {
+    prefsState.handle_next_change_at = "2000-01-01T00:00:00Z";
+    render(wrap(<HandleSection handle="old-name" />));
+    expect(screen.queryByText(/You can change your handle again on/)).toBeNull();
+    fireEvent.change(input(), { target: { value: "new-name" } });
+    expect(submit()).toBeEnabled();
+  });
+});
 
 describe("HandleSection — editing", () => {
   it("shows the current handle; Save is off until it changes to a valid shape", () => {
@@ -108,6 +132,7 @@ describe("HandleSection — editing", () => {
     expect(screen.getByRole("status")).not.toHaveTextContent(/sign in again/i);
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ["user"] });
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ["user-profile"] });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ["bcc", "me", "profile-prefs"] });
     expect(refresh).toHaveBeenCalled();
   });
 

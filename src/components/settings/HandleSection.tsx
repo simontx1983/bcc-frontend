@@ -18,12 +18,15 @@
  *     there is deliberately no public availability probe, so "taken" is
  *     only known on submit (409);
  *   - confirms before saving, because of the 7-day cooldown;
+ *   - while the cooldown runs, says when the next change is allowed and
+ *     offers no Save (profile-prefs `handle_next_change_at`, #653);
  *   - reports every error by code, never the server's message (§γ).
  */
 
 import { useId, useState } from "react";
 
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { useProfilePrefs } from "@/hooks/useProfilePrefs";
 import { useUpdateHandle, type HandleUpdateResult } from "@/hooks/useUpdateHandle";
 import { humanizeCode } from "@/lib/api/errors";
 import { BccApiError } from "@/lib/api/types";
@@ -71,11 +74,19 @@ export function HandleSection({ handle }: HandleSectionProps) {
   const [confirming, setConfirming] = useState(false);
   const [done, setDone] = useState<HandleUpdateResult | null>(null);
   const mutation = useUpdateHandle();
+  const prefs = useProfilePrefs();
+
+  // Cooldown: the date the server says (or the one this rename just armed).
+  const nextChangeAt = done?.next_change_at ?? prefs.data?.handle_next_change_at ?? null;
+  const lockedUntil =
+    nextChangeAt !== null && Number.isFinite(Date.parse(nextChangeAt)) && Date.parse(nextChangeAt) > Date.now()
+      ? nextChangeAt
+      : null;
 
   const next = draft.trim().toLowerCase();
   const kind = checkHandleLocal(next);
   const changed = next !== "" && next !== handle;
-  const canSave = changed && kind === null && !mutation.isPending;
+  const canSave = changed && kind === null && !mutation.isPending && lockedUntil === null;
   const serverError = mutation.isError ? humanizeHandleError(mutation.error) : null;
 
   const save = () => {
@@ -106,7 +117,7 @@ export function HandleSection({ handle }: HandleSectionProps) {
               setDone(null);
               mutation.reset();
             }}
-            disabled={mutation.isPending}
+            disabled={mutation.isPending || lockedUntil !== null}
             autoComplete="off"
             autoCapitalize="none"
             spellCheck={false}
@@ -126,6 +137,11 @@ export function HandleSection({ handle }: HandleSectionProps) {
 
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="bcc-mono min-h-[1rem] text-[11px]">
+            {lockedUntil !== null && done === null && (
+              <p className="text-bcc-text-secondary">
+                {`You can change your handle again on ${formatAbsoluteDateTime(lockedUntil)}.`}
+              </p>
+            )}
             {serverError !== null && (
               <p role="alert" className="text-bcc-text-error">
                 {serverError}

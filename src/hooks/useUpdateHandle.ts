@@ -23,6 +23,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 
+import { PROFILE_PREFS_QUERY_KEY } from "@/hooks/useProfilePrefs";
 import { updateHandle } from "@/lib/api/onboarding-endpoints";
 import type { BccApiError, HandleUpdateResponse } from "@/lib/api/types";
 
@@ -57,6 +58,8 @@ export function useUpdateHandle() {
       if (result.next_change_at === null) return;
       void queryClient.invalidateQueries({ queryKey: ["user"] });
       void queryClient.invalidateQueries({ queryKey: ["user-profile"] });
+      // Carries handle_next_change_at (the cooldown the rename just armed).
+      void queryClient.invalidateQueries({ queryKey: PROFILE_PREFS_QUERY_KEY });
       router.refresh();
     },
   });
