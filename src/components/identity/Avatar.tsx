@@ -54,6 +54,7 @@ import Link from "next/link";
 import type { Route } from "next";
 
 import { OperatorMark } from "@/components/identity/OperatorMark";
+import { FallbackImg } from "@/components/ui/FallbackImg";
 import { deriveInitials } from "@/lib/format/initials";
 import { isWpMediaUrl } from "@/lib/media";
 import type { ReputationTier } from "@/lib/api/types";
@@ -86,6 +87,14 @@ export interface AvatarProps {
    * variant, whose ring is tier/chain-driven by design.
    */
   ringColor?: string | undefined;
+  /**
+   * F-187: the server's `image_fallback_url` for this image (the ipfs.io
+   * copy of an IPFS crest), loaded if `avatarUrl` fails. Only the
+   * raw-<img> path uses it — a WP-hosted upload never has one. Absent /
+   * null = no fallback; either way an image that fails to load drops to
+   * the initials monogram instead of a broken-image icon.
+   */
+  avatarFallbackUrl?: string | null | undefined;
 }
 
 interface SizeSpec {
@@ -149,6 +158,7 @@ function AvatarImpl({
   asLink = false,
   className,
   ringColor,
+  avatarFallbackUrl,
 }: AvatarProps) {
   const spec = SIZE_TABLE[size];
   const initials = deriveInitials(displayName, handle);
@@ -244,13 +254,20 @@ function AvatarImpl({
                 className="object-cover"
               />
             ) : (
-              // eslint-disable-next-line @next/next/no-img-element -- non-WP host (Gravatar/IPFS/…) — outside the next/image allowlist; see lib/media.ts
-              <img
+              // Non-WP host (Gravatar/IPFS/…) — outside the next/image
+              // allowlist (see lib/media.ts). F-187 fallback chain.
+              <FallbackImg
                 src={avatarUrl}
+                fallbackSrc={avatarFallbackUrl}
                 alt={a11yName}
                 loading="lazy"
                 decoding="async"
                 className="absolute inset-0 h-full w-full object-cover"
+                placeholder={
+                  <span className={`absolute inset-0 z-[2] flex items-center justify-center text-cardstock ${spec.fontClass}`}>
+                    {initials}
+                  </span>
+                }
               />
             ))}
         </span>
@@ -269,13 +286,23 @@ function AvatarImpl({
         className={`h-full w-full ${shapeBase} object-cover`}
       />
     ) : hasImage ? (
-      // eslint-disable-next-line @next/next/no-img-element -- non-WP host (Gravatar/IPFS/…) — outside the next/image allowlist; see lib/media.ts
-      <img
+      // Non-WP host (Gravatar/IPFS/…) — outside the next/image allowlist
+      // (see lib/media.ts). F-187 fallback chain; exhausted → monogram.
+      <FallbackImg
         src={avatarUrl}
+        fallbackSrc={avatarFallbackUrl}
         alt={a11yName}
         loading="lazy"
         decoding="async"
         className={`h-full w-full ${shapeBase} object-cover`}
+        placeholder={
+          <span
+            className={`flex h-full w-full items-center justify-center ${shapeBase} bg-[var(--bcc-surface-hover)] text-[var(--bcc-text-secondary)] ${spec.fontClass}`}
+            aria-hidden
+          >
+            {initials !== "" ? initials : "?"}
+          </span>
+        }
       />
     ) : (
       // Subtle theme-aware placeholder — matches the header's own

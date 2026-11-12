@@ -268,6 +268,10 @@ export interface CardCrest {
    * first, then the post thumbnail. Member cards: get_avatar_url($userId).
    */
   image_url: string | null;
+  /** F-187: the ipfs.io copy of an IPFS image, loaded if `image_url`
+   *  fails; null otherwise. Optional only because a backend without
+   *  F-187 omits it. Render through `FallbackImg`. */
+  image_fallback_url?: string | null;
 }
 
 /**
@@ -1761,6 +1765,10 @@ export interface CreatorGalleryItem {
   /** Collection name with fallback to truncated contract ("0xabcd…1234"). */
   name: string;
   image_url: string | null;
+  /** F-187: the ipfs.io copy of an IPFS image, loaded if `image_url`
+   *  fails; null otherwise. Optional only because a backend without
+   *  F-187 omits it. Render through `FallbackImg`. */
+  image_fallback_url?: string | null;
   total_supply: number | null;
   /** Pre-formatted "1.5 ETH". Null when floor price isn't available. */
   floor_price_label: string | null;
@@ -2023,6 +2031,10 @@ export interface HallCollectionPreview {
   id: number;
   name: string | null;
   image_url: string | null;
+  /** F-187: the ipfs.io copy of an IPFS image, loaded if `image_url`
+   *  fails; null otherwise. Optional only because a backend without
+   *  F-187 omits it. Render through `FallbackImg`. */
+  image_fallback_url?: string | null;
   contract_address: string;
 }
 
@@ -2258,6 +2270,10 @@ export interface HolderGroupItem {
     contract: string;
     name: string | null;
     image_url: string | null;
+    /** F-187: the ipfs.io copy of an IPFS image, loaded if `image_url`
+     *  fails; null otherwise. Optional only because a backend without
+     *  F-187 omits it. Render through `FallbackImg`. */
+    image_fallback_url?: string | null;
   };
   verification: GroupVerification;
   activity: GroupActivity;
@@ -2973,6 +2989,10 @@ export interface GroupDiscoveryItem {
    * avatars for non-NFT kinds is V1.5.
    */
   image_url: string | null;
+  /** F-187: the ipfs.io copy of an IPFS image, loaded if `image_url`
+   *  fails; null otherwise. Optional only because a backend without
+   *  F-187 omits it. Render through `FallbackImg`. */
+  image_fallback_url?: string | null;
   /**
    * Market-data block for NFT cards. Null for `hall`/`system`/`user`
    * kinds — there's no equivalent for those.
@@ -6090,6 +6110,10 @@ export interface GroupDetailResponse {
   description: string | null;
   /** NFT-cover URL when `type === "nft"`; null otherwise. */
   image_url: string | null;
+  /** F-187: the ipfs.io copy of an IPFS image, loaded if `image_url`
+   *  fails; null otherwise. Optional only because a backend without
+   *  F-187 omits it. Render through `FallbackImg`. */
+  image_fallback_url?: string | null;
   member_count: number;
   /** On-chain badge for NFT groups; null for hall/system/user. */
   verification: GroupVerification | null;

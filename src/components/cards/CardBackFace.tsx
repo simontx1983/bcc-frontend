@@ -17,6 +17,7 @@
  * move it.
  */
 
+import { FallbackImg } from "@/components/ui/FallbackImg";
 import { OnchainStatsList } from "@/components/cards/CardOnchainSignals";
 import { CardStandingStrip } from "@/components/cards/CardStandingStrip";
 import { CommunityDossierBack } from "@/components/cards/CommunityDossier";
@@ -144,7 +145,7 @@ export function CardBackFace({
  * compete with the front rather than continue it.
  */
 function BackAvatar({ card }: { card: Card }) {
-  const { image_url: imageUrl, initials } = card.crest;
+  const { image_url: imageUrl, image_fallback_url: imageFallbackUrl, initials } = card.crest;
   const hasImage = imageUrl !== null && imageUrl !== "";
 
   return (
@@ -159,13 +160,25 @@ function BackAvatar({ card }: { card: Card }) {
       }}
     >
       {hasImage ? (
-        // eslint-disable-next-line @next/next/no-img-element -- a plain img at 36px: page art can be NFT/IPFS (outside the next/image allowlist, see lib/media.ts), and the front face already paid for the optimized fetch of this same URL
-        <img
+        // A plain image at 36px: page art can be NFT/IPFS (outside the
+        // next/image allowlist, see lib/media.ts), and the front face
+        // already paid for the optimized fetch of this same URL. F-187
+        // fallback chain; exhausted → initials.
+        <FallbackImg
           src={imageUrl}
+          fallbackSrc={imageFallbackUrl}
           alt=""
           loading="lazy"
           decoding="async"
           className="h-full w-full object-cover"
+          placeholder={
+            <span
+              className="bcc-stencil"
+              style={{ fontSize: 14, lineHeight: 1, color: "var(--bcc-text)" }}
+            >
+              {initials}
+            </span>
+          }
         />
       ) : (
         <span

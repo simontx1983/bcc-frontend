@@ -30,6 +30,8 @@ import type {
 
 export interface AvatarHovercardProps {
   avatarUrl: string | null | undefined;
+  /** F-187: forwarded to Avatar's `avatarFallbackUrl` (a crest's ipfs.io copy). */
+  avatarFallbackUrl?: string | null | undefined;
   handle: string;
   displayName?: string | undefined;
   size: AvatarSize;
@@ -47,6 +49,7 @@ export interface AvatarHovercardProps {
 
 export function AvatarHovercard({
   avatarUrl,
+  avatarFallbackUrl,
   handle,
   displayName,
   size,
@@ -85,6 +88,7 @@ export function AvatarHovercard({
     >
       <Avatar
         avatarUrl={avatarUrl}
+        avatarFallbackUrl={avatarFallbackUrl}
         handle={handle}
         displayName={displayName}
         size={size}
