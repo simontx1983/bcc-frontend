@@ -340,3 +340,25 @@ describe("pickCampaignParams", () => {
     expect(pickCampaignParams("")).toEqual({});
   });
 });
+
+
+describe("link-tag values that look like an email are dropped (review Low on #235)", () => {
+  it("drops a kept key whose value contains @, in every form", () => {
+    const out = sanitizeAnalyticsEvent(
+      event({
+        utm_source: "me@example.com",
+        $session_entry_utm_medium: "x@y",
+        $initial_utm_campaign: "launch",
+        $current_url: "https://x.io/",
+      }),
+    );
+    expect(out?.properties).not.toHaveProperty("utm_source");
+    expect(out?.properties).not.toHaveProperty("$session_entry_utm_medium");
+    expect(out?.properties["$initial_utm_campaign"]).toBe("launch");
+    expect(JSON.stringify(out)).not.toContain("@");
+  });
+
+  it("pickCampaignParams ignores an @ value", () => {
+    expect(pickCampaignParams("?utm_source=me%40example.com&utm_medium=email")).toEqual({ utm_medium: "email" });
+  });
+});

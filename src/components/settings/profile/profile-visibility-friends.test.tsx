@@ -76,6 +76,23 @@ describe("WHO CAN SEE MY PROFILE", () => {
     expect(patch).not.toHaveProperty("profile_visibility");
   });
 
+  it("an untouched save never sends profile_visibility for a stored friends (30)", () => {
+    state.prefs = { ...BASE, profile_visibility: "friends" };
+    render(<ProfilePrefsSection />);
+    const save = screen.getByRole("button", { name: /save preferences/i }) as HTMLButtonElement;
+    // Nothing edited: either the save is inert or it sends no visibility.
+    fireEvent.click(save);
+    for (const call of mutate.mock.calls) {
+      expect(call[0] as Record<string, unknown>).not.toHaveProperty("profile_visibility");
+    }
+    // And re-clicking the already-shown "Only me" is not a change either.
+    fireEvent.click(group("profile_visibility").find((i) => i.value === "private") as HTMLInputElement);
+    fireEvent.click(save);
+    for (const call of mutate.mock.calls) {
+      expect(call[0] as Record<string, unknown>).not.toHaveProperty("profile_visibility");
+    }
+  });
+
   it("choosing Only me from public PATCHes private", () => {
     state.prefs = BASE;
     render(<ProfilePrefsSection />);
