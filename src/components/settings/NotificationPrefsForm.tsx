@@ -175,6 +175,13 @@ const BELL_ROWS: ReadonlyArray<BellRow> = [
     label: "Removed from a delegator group",
     blurb: "An automatic check removed you because your delegation is below the group's minimum. You can rejoin once you delegate enough.",
   },
+  {
+    // Bell-only, like the row above: no push variant, not in the email
+    // digest. One type covers both badges a claim can carry.
+    key: "bcc_claim_badge_removed",
+    label: "Claim badge removed",
+    blurb: "An automatic check couldn't confirm the wallet or holding behind one of your claims, so its verified or holder badge was removed. You can claim again once it checks out.",
+  },
 ];
 
 // V2 Phase 1: push event taxonomy is a deliberate subset of the bell.
