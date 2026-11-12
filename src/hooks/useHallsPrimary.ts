@@ -34,6 +34,7 @@ import {
   leaveHall,
   setPrimaryHall,
 } from "@/lib/api/halls-endpoints";
+import { useGroupContentRefresh } from "@/hooks/groupContentCache";
 import type {
   BccApiError,
   ClearPrimaryHallResponse,
@@ -72,9 +73,10 @@ export function useJoinHallMutation(
     "mutationFn"
   > = {}
 ) {
+  const withRefresh = useGroupContentRefresh(options);
   return useMutation<JoinHallResponse, BccApiError, number>({
     mutationFn: (groupId) => joinHall(groupId),
-    ...options,
+    ...withRefresh,
   });
 }
 
@@ -84,8 +86,9 @@ export function useLeaveHallMutation(
     "mutationFn"
   > = {}
 ) {
+  const withRefresh = useGroupContentRefresh(options);
   return useMutation<LeaveHallResponse, BccApiError, number>({
     mutationFn: (groupId) => leaveHall(groupId),
-    ...options,
+    ...withRefresh,
   });
 }
