@@ -100,6 +100,7 @@ vi.mock("@/hooks/usePushSubscription", () => ({
     events: {},
     enable: idleMutation,
     disable: idleMutation,
+    removeThisDevice: idleMutation,
   }),
 }));
 vi.mock("@/hooks/useProfileFields", () => ({

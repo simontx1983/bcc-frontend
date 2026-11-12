@@ -14,6 +14,13 @@
  * mutations is fragile across browsers. Immediate enable/disable on
  * the toggle's onChange keeps the gesture chain tight.
  *
+ * H5 — two scopes, kept apart:
+ *   - removeThisDevice(): THIS browser only. Unsubscribes it and deletes
+ *     its server row (DELETE /me/push-subscriptions/:id). The account's
+ *     master `push.enabled` and its other devices are untouched.
+ *   - disable(): EVERY device. The prefs PATCH cascade turns the master
+ *     off and deletes all of the account's rows.
+ *
  * Cache strategy: enable() optimistically updates the cache with
  * push.enabled = true (no refetch — preserves any pending bell/event
  * draft edits). disable() sets the full prefs response from the
@@ -30,10 +37,15 @@ import { useEffect, useState } from "react";
 import {
   getVapidPublicKey,
   registerPushSubscription,
+  removeMyPushSubscription,
   type RegisterPushSubscriptionResponse,
 } from "@/lib/api/push-endpoints";
 import { patchNotificationPrefs } from "@/lib/api/notification-prefs-endpoints";
-import { rememberPushSubscriptionId } from "@/lib/push/revoke";
+import {
+  forgetPushSubscriptionId,
+  readPushSubscriptionId,
+  rememberPushSubscriptionId,
+} from "@/lib/push/revoke";
 import {
   getCurrentBrowserSubscription,
   isPushSupported,
@@ -54,6 +66,8 @@ interface UsePushSubscriptionResult {
   browserSubscribed: boolean;
   enable: UseMutationResult<RegisterPushSubscriptionResponse, BccApiError | Error, void>;
   disable: UseMutationResult<NotificationPrefs, BccApiError | Error, void>;
+  /** Stop push on THIS browser only; other devices and the master stay on. */
+  removeThisDevice: UseMutationResult<void, BccApiError | Error, void>;
 }
 
 export function usePushSubscription(): UsePushSubscriptionResult {
@@ -151,11 +165,37 @@ export function usePushSubscription(): UsePushSubscriptionResult {
     },
   });
 
+  const removeThisDevice = useMutation<void, BccApiError | Error, void>({
+    mutationFn: async () => {
+      // Browser side first: it is what actually stops delivery here.
+      await unregisterBrowserPush();
+      if ((await getCurrentBrowserSubscription()) !== null) {
+        throw new Error("browser_unsubscribe_failed");
+      }
+      // Then this device's server row, if we know its id. A failure here
+      // is not worth surfacing: the browser no longer holds the endpoint,
+      // so the row is undeliverable and is pruned on the next 410.
+      const id = readPushSubscriptionId();
+      if (id !== null) {
+        try {
+          await removeMyPushSubscription(id);
+        } catch {
+          // see above
+        }
+      }
+      forgetPushSubscriptionId();
+    },
+    onSuccess: () => {
+      setBrowserSubscribed(false);
+    },
+  });
+
   return {
     isSupported,
     isReady,
     browserSubscribed,
     enable,
     disable,
+    removeThisDevice,
   };
 }

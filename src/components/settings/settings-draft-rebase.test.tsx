@@ -53,6 +53,7 @@ vi.mock("@/hooks/usePushSubscription", () => ({
     browserSubscribed: true,
     enable: { isPending: false, isError: false, error: null, mutate: vi.fn() },
     disable: { isPending: false, isError: false, error: null, mutate: vi.fn() },
+    removeThisDevice: { isPending: false, isError: false, error: null, mutate: vi.fn() },
   }),
 }));
 vi.mock("@/hooks/useDirtyRegistration", () => ({ useDirtyRegistration: () => {} }));
