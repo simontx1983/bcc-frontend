@@ -53,7 +53,9 @@ import { humanizeCode, isProfilePrivate } from "@/lib/api/errors";
 import {
   MESSAGE_BODY_MAX_LENGTH,
   type Card,
+  type CardPermissionEntry,
 } from "@/lib/api/types";
+import { resolveDmGate, type DmGate } from "@/lib/validators/messaging";
 
 const SEARCH_DEBOUNCE_MS = 250;
 const PER_PAGE = 12;
@@ -222,13 +224,22 @@ function NewMessagePageContent() {
   });
 
   const trimmed = body.trim();
+  // F-246: a member card now carries the viewer's live DM gate to that
+  // person, so a refusal shows when they are picked — not after the user
+  // has written a whole message. Pinned PAGES keep their own path (the
+  // server routes them to an operator inbox or the queue at send time).
+  const personGate =
+    pinnedCard === null && activeRecipient !== null
+      ? resolveDmGate(cardMessageGate(activeRecipient))
+      : ({ kind: "allowed" } as const);
   const canSend = useMemo(
     () =>
       activeRecipient !== null &&
+      personGate.kind === "allowed" &&
       trimmed !== "" &&
       body.length <= MESSAGE_BODY_MAX_LENGTH &&
       !mutation.isPending,
-    [activeRecipient, trimmed, body.length, mutation.isPending],
+    [activeRecipient, personGate.kind, trimmed, body.length, mutation.isPending],
   );
 
   const submit = (event: React.FormEvent<HTMLFormElement>) => {
@@ -340,6 +351,11 @@ function NewMessagePageContent() {
                 </p>
               )}
 
+              {activeRecipient !== null && personGate.kind !== "allowed" && (
+                <p role="status" className="bcc-mono order-last text-[11px] leading-snug text-bcc-text-secondary">
+                  {dmGateCopy(personGate)}
+                </p>
+              )}
               {activeRecipient !== null ? (
                 <SelectedRecipient
                   recipient={activeRecipient}
@@ -512,12 +528,25 @@ function RecipientPicker({
 
       {searchInput.length >= 2 && query.isSuccess && query.data.items.length > 0 && (
         <ul className="flex flex-col divide-y divide-bcc-border rounded-sm border border-bcc-border">
-          {query.data.items.map((m) => (
+          {query.data.items.map((m) => {
+            const gate = resolveDmGate(cardMessageGate(m));
+            // Your own card: nothing to pick.
+            if (gate.kind === "self") return null;
+            const unavailable = gate.kind !== "allowed";
+            const reasonId = `recipient-reason-${m.id}`;
+            return (
             <li key={m.id}>
               <button
                 type="button"
-                onClick={() => onSelect(m)}
-                className="flex w-full items-center gap-3 px-3 py-2 text-left transition hover:bg-bcc-surface-hover"
+                onClick={() => {
+                  if (!unavailable) onSelect(m);
+                }}
+                aria-disabled={unavailable || undefined}
+                aria-describedby={unavailable ? reasonId : undefined}
+                className={
+                  "flex min-h-[44px] w-full items-center gap-3 px-3 py-2 text-left transition " +
+                  (unavailable ? "cursor-not-allowed opacity-60" : "hover:bg-bcc-surface-hover")
+                }
               >
                 <Avatar
                   avatarUrl={m.crest.image_url}
@@ -534,13 +563,33 @@ function RecipientPicker({
                   <p className="bcc-mono truncate text-[10px] tracking-[0.16em] text-bcc-text-secondary">
                     @{m.handle}
                   </p>
+                  {unavailable && (
+                    <p id={reasonId} className="bcc-mono text-[10px] leading-snug text-bcc-text-secondary">
+                      {dmGateCopy(gate)}
+                    </p>
+                  )}
                 </div>
               </button>
             </li>
-          ))}
+            );
+          })}
         </ul>
       )}
     </div>
   );
 }
 
+/** The member card's DM gate (F-246), read defensively. */
+function cardMessageGate(card: Card): CardPermissionEntry | undefined {
+  const entry = (card.permissions as { can_message?: unknown } | null | undefined)?.can_message;
+  if (entry === null || typeof entry !== "object") return undefined;
+  const e = entry as Partial<CardPermissionEntry>;
+  return typeof e.allowed === "boolean"
+    ? { allowed: e.allowed, unlock_hint: e.unlock_hint ?? null, reason_code: e.reason_code ?? null }
+    : undefined;
+}
+
+/** Copy for an unavailable DM gate: the server's hint, or one neutral line. */
+function dmGateCopy(gate: DmGate): string {
+  return gate.kind === "hint" ? gate.hint : "You can't message this person.";
+}
