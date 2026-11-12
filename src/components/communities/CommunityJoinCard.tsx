@@ -122,7 +122,13 @@ export function CommunityJoinCard({
         : null;
 
   return (
-    <div className="flex flex-col items-center gap-2">
+    // The stage gets an explicit width. Below 381px `.bcc-card` switches to
+    // `width: 100%` of its stage (globals.css), but `items-center` shrinks
+    // the stage to its content — so the 100% resolved against nothing and
+    // the card, JOIN included, collapsed to 0px on 375px phones (C2, UX
+    // scan 2026-11-12). w-full + max-w-[316px] keeps it centred at every
+    // width and never wider than the card's desktop size.
+    <div className="flex flex-col items-center gap-2 [&>.bcc-card-stage]:w-full [&>.bcc-card-stage]:max-w-[316px]">
       <CardFactory
         card={card}
         onJoin={handleJoin}
