@@ -32,6 +32,7 @@ import {
   useNftSelectionsList,
   useReorderNftSelections,
 } from "@/hooks/useNftSelections";
+import { FallbackImg } from "@/components/ui/FallbackImg";
 import { humanizeCode } from "@/lib/api/errors";
 import type { NftSelectionRow } from "@/lib/api/types";
 
@@ -199,25 +200,25 @@ function ShowcaseTile({
       style={{ background: "var(--paper)" }}
     >
       <div className="relative aspect-square w-full bg-cardstock-deep/30">
-        {item.image_url !== null && item.image_url !== "" ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={item.image_url}
-            alt=""
-            loading="lazy"
-            decoding="async"
-            className="h-full w-full object-cover"
-          />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center">
-            <span
-              className="bcc-stencil text-3xl"
-              style={{ color: "var(--cardstock-deep)" }}
-            >
-              №{item.token_id.length > 4 ? item.token_id.slice(0, 4) : item.token_id}
-            </span>
-          </div>
-        )}
+        {/* F-165: gateway → ipfs.io fallback → token-number placeholder. */}
+        <FallbackImg
+          src={item.image_url}
+          fallbackSrc={item.image_fallback_url}
+          alt=""
+          loading="lazy"
+          decoding="async"
+          className="h-full w-full object-cover"
+          placeholder={
+            <div className="flex h-full w-full items-center justify-center">
+              <span
+                className="bcc-stencil text-3xl"
+                style={{ color: "var(--cardstock-deep)" }}
+              >
+                №{item.token_id.length > 4 ? item.token_id.slice(0, 4) : item.token_id}
+              </span>
+            </div>
+          }
+        />
 
         {/*
           MOVE UP / MOVE DOWN affordance. Visible on hover OR keyboard
