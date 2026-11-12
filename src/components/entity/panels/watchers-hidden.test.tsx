@@ -142,9 +142,10 @@ describe("CardWatchersPanel: owner's profile not viewable (F-26)", () => {
 
 describe("useCardWatchers: a private answer is final after one request", () => {
   function wrapper(client: QueryClient) {
-    return ({ children }: { children: ReactNode }) => (
-      <QueryClientProvider client={client}>{children}</QueryClientProvider>
-    );
+    function Wrapper({ children }: { children: ReactNode }) {
+      return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
+    }
+    return Wrapper;
   }
   const client = () => new QueryClient({ defaultOptions: { queries: { retryDelay: 0 } } });
 
