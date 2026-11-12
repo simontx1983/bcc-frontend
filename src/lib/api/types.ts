@@ -4573,6 +4573,13 @@ export type UserReportReason =
 /** `reason_detail` cap. Mirrors the DisputeController maxLength. */
 export const USER_REPORT_DETAIL_MAX_LENGTH = 1000;
 
+/**
+ * F-311 (M5): minimum `reason_detail` when the reason requires one. Mirrors
+ * the server's BCC_DISPUTES_MIN_DETAIL_LENGTH (10); the form used to accept
+ * one character and the server answered `detail_required`.
+ */
+export const USER_REPORT_DETAIL_MIN_LENGTH = 10;
+
 export interface CreateUserReportRequest {
   reported_user_id: number;
   reason_key: UserReportReason;
