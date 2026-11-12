@@ -42,8 +42,9 @@
 
 import type { Route } from "next";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import type { MouseEvent, ReactNode } from "react";
-import { useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 
 import {
   WatchIcon,
@@ -95,6 +96,8 @@ function ActionPill({
   color,
   active,
   disabled,
+  locked = false,
+  describedBy,
   title,
   icon,
   idleLabel,
@@ -102,10 +105,18 @@ function ActionPill({
   undoLabel,
   ariaLabel,
   onClick,
+  onLocked,
 }: {
   color: string;
   active: boolean;
   disabled: boolean;
+  /**
+   * F-321: unavailable for a reason the viewer should be told. Stays
+   * focusable (aria-disabled, not disabled) so a tap — there is no hover
+   * on a phone — runs onLocked, which shows the reason under the pills.
+   */
+  locked?: boolean;
+  describedBy?: string | undefined;
   title: string;
   icon: ReactNode;
   idleLabel: string;
@@ -113,11 +124,14 @@ function ActionPill({
   undoLabel: string;
   ariaLabel: string;
   onClick: () => void;
+  onLocked?: () => void;
 }) {
   return (
     <button
       type="button"
       disabled={disabled}
+      aria-disabled={locked || undefined}
+      aria-describedby={describedBy}
       title={title}
       aria-label={ariaLabel}
       aria-pressed={active}
@@ -125,10 +139,14 @@ function ActionPill({
         // The card body is a link; an action must never navigate it.
         e.preventDefault();
         e.stopPropagation();
+        if (locked) {
+          onLocked?.();
+          return;
+        }
         onClick();
       }}
       className={`bcc-card-pill${active ? " bcc-card-pill-on" : ""}`}
-      style={{ ["--pill-color" as string]: color }}
+      style={{ ["--pill-color" as string]: color, ...(locked ? { opacity: 0.55 } : {}) }}
     >
       {icon}
       {active ? (
@@ -162,6 +180,40 @@ function ActionPill({
  * profile the host passes `suppressBodyLink` so there is no body link at all.
  * No anchor ever nests inside another.
  */
+/**
+ * Denial codes that mean "you're signed out". F-321: a signed-out viewer's
+ * Watch / Vouch pill is a link to sign in (and back), not a dead control.
+ * Page cards send `signin_required`; other surfaces use `auth_required`.
+ */
+const SIGN_IN_CODES: ReadonlySet<string> = new Set(["signin_required", "auth_required"]);
+
+function SignInPill({
+  color,
+  icon,
+  label,
+  ariaLabel,
+  href,
+}: {
+  color: string;
+  icon: ReactNode;
+  label: string;
+  ariaLabel: string;
+  href: string;
+}) {
+  return (
+    <Link
+      href={href as Route}
+      aria-label={ariaLabel}
+      onClick={(e: MouseEvent) => e.stopPropagation()}
+      className="bcc-card-pill"
+      style={{ ["--pill-color" as string]: color }}
+    >
+      {icon}
+      <span>{label}</span>
+    </Link>
+  );
+}
+
 /** Denial codes whose disabled pill + hint the viewer can act on. */
 const VISIBLE_DENIAL_CODES: ReadonlySet<string> = new Set([
   "auth_required",
@@ -448,6 +500,34 @@ export function ActionBar({
 
   const watchAllowed = isAllowed(card.permissions, "can_watch");
 
+  // ── Why a pill is unavailable (F-321) ─────────────────────────────
+  // A title tooltip never shows on a phone, so a tapped locked pill did
+  // nothing and said nothing. Signed out, the pill is a sign-in link
+  // instead. Locked for another reason, a tap shows the reason in a short
+  // line under the pills for a few seconds; a failed watch or vouch shows
+  // there too (it used to live in the tooltip only, F-236).
+  const pathname = usePathname();
+  const signInHref = `/login?callbackUrl=${encodeURIComponent(pathname ?? "/")}`;
+  const watchNeedsSignIn =
+    !watchAllowed && SIGN_IN_CODES.has(reasonCode(card.permissions, "can_watch") ?? "");
+  const vouchNeedsSignIn =
+    !canVouch && !hasVouched && SIGN_IN_CODES.has(reasonCode(card.permissions, "can_vouch") ?? "");
+  const watchLockedReason =
+    unlockHint(card.permissions, "can_watch") ?? `${FOLLOW_COPY.cta} is unavailable for this card.`;
+  const vouchLockedReason =
+    unlockHint(card.permissions, "can_vouch") ?? "Vouching unlocks at neutral reputation.";
+
+  const noticeId = useId();
+  const [notice, setNotice] = useState<string | null>(null);
+  // A failed action stays until the next one; an explanation fades.
+  const errorNotice = watchError ?? vouchError;
+  useEffect(() => {
+    if (notice === null || notice === errorNotice) return;
+    const timer = setTimeout(() => setNotice(null), 4000);
+    return () => clearTimeout(timer);
+  }, [notice, errorNotice]);
+  const shownNotice = errorNotice ?? notice;
+
   // A member card's `id` IS the user id (CardViewService emits
   // 'id' => $userId on that branch), so the recipient needs no extra lookup.
   const showMessage =
@@ -461,13 +541,27 @@ export function ActionBar({
   return (
     <div
       className={
-        showMessage ? "bcc-card-actions bcc-card-actions-stacked" : "bcc-card-actions"
+        showMessage || shownNotice !== null
+          ? "bcc-card-actions bcc-card-actions-stacked"
+          : "bcc-card-actions"
       }
     >
+      {watchNeedsSignIn ? (
+        <SignInPill
+          color="var(--bcc-accent)"
+          icon={<WatchIcon size={14} strokeWidth={1.9} aria-hidden />}
+          label="Watch"
+          ariaLabel={`Sign in to watch ${card.name}`}
+          href={signInHref}
+        />
+      ) : (
       <ActionPill
         color="var(--bcc-accent)"
         active={effectivePulled}
-        disabled={!watchAllowed}
+        disabled={false}
+        locked={!watchAllowed}
+        describedBy={shownNotice !== null ? noticeId : undefined}
+        onLocked={() => setNotice(watchLockedReason)}
         title={
           watchError ??
           (watchAllowed
@@ -486,16 +580,30 @@ export function ActionBar({
         }
         onClick={handleWatchClick}
       />
+      )}
 
       {/* Vouch is absent on community cards entirely — the community bar
           below renders Join in this slot instead. */}
       {neverClaimedValidator && <ValidatorMessagePill card={card} />}
 
-      {targetKind !== undefined && !neverClaimedValidator && (
+      {targetKind !== undefined && !neverClaimedValidator && vouchNeedsSignIn && (
+        <SignInPill
+          color="var(--bcc-verified)"
+          icon={<VouchIcon size={14} strokeWidth={1.9} aria-hidden />}
+          label="Vouch"
+          ariaLabel={`Sign in to vouch for ${card.name}`}
+          href={signInHref}
+        />
+      )}
+
+      {targetKind !== undefined && !neverClaimedValidator && !vouchNeedsSignIn && (
         <ActionPill
           color="var(--bcc-verified)"
           active={hasVouched}
-          disabled={vouchPending || (!canVouch && !hasVouched)}
+          disabled={vouchPending}
+          locked={!canVouch && !hasVouched}
+          describedBy={shownNotice !== null ? noticeId : undefined}
+          onLocked={() => setNotice(vouchLockedReason)}
           title={
             vouchError ??
             (canVouch || hasVouched
@@ -519,6 +627,19 @@ export function ActionBar({
           }
           onClick={handleVouchClick}
         />
+      )}
+
+      {/* F-321: the reason a tapped pill is unavailable, or why an action
+          failed — readable on touch. Sits under the pills; the portrait
+          (flex: 1) absorbs the height, as for the Message row below. */}
+      {shownNotice !== null && (
+        <p
+          id={noticeId}
+          role={errorNotice !== null ? "alert" : "status"}
+          className="bcc-mono basis-full text-center text-[10px] leading-snug tracking-[0.06em] text-bcc-text-secondary"
+        >
+          {shownNotice}
+        </p>
       )}
 
       {/* Second row. NOT a third pill across: CardActionBar's own history
