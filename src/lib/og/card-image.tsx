@@ -12,10 +12,12 @@
  * module renders from a normalized prop bag and each route maps its own
  * view-model (MemberProfile vs Card) into it.
  *
- * Font loading is intentionally STATIC (single explicit weight via the
- * css2 API with a desktop UA → TrueType): Satori, the engine behind
- * ImageResponse, CRASHES on variable fonts. Do not "simplify" loadFont to
- * request a variable axis.
+ * Fonts are BUNDLED static TrueType files in ./fonts (F-215), read from
+ * disk — no request-time call to Google Fonts. Satori, the engine behind
+ * ImageResponse, accepts only static TTF/OTF: it cannot parse woff2 (so
+ * the app's self-hosted woff2 from #243 cannot be reused here) and it
+ * CRASHES on variable fonts. Do not swap these files for woff2 or for a
+ * variable-axis font.
  *
  * §A2 compliance: every value rendered (name, handle, tier label, rank
  * label, monogram color, initials, reputation/trust score, kind label,
@@ -26,6 +28,9 @@
  * Never throws: callers wrap their fetch in try/catch and fall back to
  * `GenericCard`; this module's render path itself has no fetch.
  */
+
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
 
 import { ImageResponse } from "next/og";
 
@@ -50,57 +55,50 @@ export const OG_SIZE = { width: 1200, height: 630 };
 export const OG_CONTENT_TYPE = "image/png";
 
 /**
- * Resolve a STATIC TrueType instance of a Google font and return its
- * binary, bounded by a timeout. Returns null on ANY failure (network,
- * timeout, non-200, unparseable CSS) so the caller can fall back to the
- * built-in font rather than failing the whole image.
- *
- * Two-hop resolution:
- *   1. GET the css2 API with a desktop User-Agent. The UA matters — the
- *      API returns woff2 to modern browsers but TrueType to older/desktop
- *      agents, and Satori (the engine behind ImageResponse) only accepts
- *      static TTF/OTF. We request a single explicit weight so the file is
- *      a static instance, NOT a variable font (Satori crashes on variable
- *      fonts — `Cannot read properties of undefined`).
- *   2. Fetch the `url(...) format('truetype')` the CSS points at.
- *
- * The family/weight is passed as a css2 query fragment (e.g.
- * "Big+Shoulders+Stencil:wght@700").
+ * Bundled font files, relative to the project root. `process.cwd()` +
+ * `join` is the pattern Next documents for opengraph-image fonts on the
+ * Node runtime, and the one its output file tracing follows, so the files
+ * ship with every OG route's serverless function. These are the exact
+ * static instances the old loader fetched from Google at request time
+ * (css2 API, single explicit weight): 700 stencil for headlines, 500 mono
+ * for the technical rail copy. Licences: OFL-*.txt beside them.
  */
-async function loadFont(familyQuery: string): Promise<ArrayBuffer | null> {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 3500);
+export const OG_FONT_FILES = {
+  stencil: join("src", "lib", "og", "fonts", "BigShouldersStencil-700.ttf"),
+  mono: join("src", "lib", "og", "fonts", "JetBrainsMono-500.ttf"),
+} as const;
+
+/**
+ * Read one bundled font. Returns null on ANY failure (a file missing from
+ * the deployment, a read error) so the caller falls back to the built-in
+ * font rather than failing the whole image — the same never-throw contract
+ * the old network loader had.
+ */
+async function loadFont(relativePath: string): Promise<Buffer | null> {
   try {
-    const cssRes = await fetch(
-      `https://fonts.googleapis.com/css2?family=${familyQuery}&display=swap`,
-      {
-        signal: controller.signal,
-        // Desktop UA → TrueType (not woff2), which Satori can parse.
-        headers: {
-          "User-Agent":
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-        },
-      },
-    );
-    if (!cssRes.ok) return null;
-    const css = await cssRes.text();
-    const match = css.match(/src:\s*url\(([^)]+)\)\s*format\('truetype'\)/);
-    if (match === null || match[1] === undefined) return null;
-    const fontRes = await fetch(match[1], { signal: controller.signal });
-    if (!fontRes.ok) return null;
-    return await fontRes.arrayBuffer();
+    return await readFile(join(process.cwd(), relativePath));
   } catch {
     return null;
-  } finally {
-    clearTimeout(timer);
   }
 }
 
-// css2 family fragments for the brand families loaded via next/font in
-// layout.tsx. Single explicit weights → static instances. 700 stencil for
-// headlines, 500 mono for the technical rail copy.
-const STENCIL_QUERY = "Big+Shoulders+Stencil:wght@700";
-const MONO_QUERY = "JetBrains+Mono:wght@500";
+/**
+ * The bytes never change within a deployment, so read each file once per
+ * server process and share the promise. Two concurrent first requests
+ * share the one read instead of racing two. A failed read is not cached
+ * (its slot resets), so a transient error retries on the next request.
+ */
+const fontCache = new Map<string, Promise<Buffer | null>>();
+function loadFontOnce(relativePath: string): Promise<Buffer | null> {
+  const hit = fontCache.get(relativePath);
+  if (hit !== undefined) return hit;
+  const pending = loadFont(relativePath).then((data) => {
+    if (data === null) fontCache.delete(relativePath);
+    return data;
+  });
+  fontCache.set(relativePath, pending);
+  return pending;
+}
 
 /** Brand-font family names used in the JSX `style` props. */
 const FONT_STENCIL = "Big Shoulders Stencil";
@@ -128,8 +126,8 @@ interface ResolvedFonts {
  */
 export async function loadBrandFonts(): Promise<ResolvedFonts> {
   const [stencilData, monoData] = await Promise.all([
-    loadFont(STENCIL_QUERY),
-    loadFont(MONO_QUERY),
+    loadFontOnce(OG_FONT_FILES.stencil),
+    loadFontOnce(OG_FONT_FILES.mono),
   ]);
 
   const fonts: NonNullable<ImageFonts> = [];
