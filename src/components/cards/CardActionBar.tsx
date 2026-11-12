@@ -52,7 +52,7 @@ import {
   MessageIcon,
 } from "@/components/icons/registry";
 import { useCastAttestation, useRevokeAttestation } from "@/hooks/useAttestations";
-import { useWatchMutation, useUnwatchMutation } from "@/hooks/useWatch";
+import { useWatchMutation, useUnwatchMutation, watchErrorCopy } from "@/hooks/useWatch";
 import { useWatching } from "@/hooks/useWatching";
 import type {
   AttestationTargetKind,
@@ -346,6 +346,10 @@ export function ActionBar({
   const watchingQuery = useWatching({ page_size: 50 });
   const watchMutation = useWatchMutation();
   const unwatchMutation = useUnwatchMutation();
+  // F-236: a refused or failed watch surfaces through the pill's tooltip,
+  // the same place a failed vouch does: the card is a fixed 440px with no
+  // room for a line. Keyed on the error code, never err.message.
+  const [watchError, setWatchError] = useState<string | null>(null);
   const fallbackEntry = useMemo(() => {
     if (!watchFallbackActive) return undefined;
     const items = watchingQuery.data?.items ?? [];
@@ -366,10 +370,17 @@ export function ActionBar({
       return;
     }
     if (watchMutation.isPending || unwatchMutation.isPending) return;
+    setWatchError(null);
     if (fallbackEntry !== undefined) {
-      unwatchMutation.mutate({ follow_id: fallbackEntry.follow_id, source: fallbackEntry.source });
+      unwatchMutation.mutate(
+        { follow_id: fallbackEntry.follow_id, source: fallbackEntry.source },
+        { onError: (err) => setWatchError(watchErrorCopy(err, "unwatch")) },
+      );
     } else {
-      watchMutation.mutate({ target_kind: card.card_kind, target_id: card.id });
+      watchMutation.mutate(
+        { target_kind: card.card_kind, target_id: card.id },
+        { onError: (err) => setWatchError(watchErrorCopy(err, "watch")) },
+      );
     }
   };
 
@@ -458,12 +469,13 @@ export function ActionBar({
         active={effectivePulled}
         disabled={!watchAllowed}
         title={
-          watchAllowed
+          watchError ??
+          (watchAllowed
             ? effectivePulled
               ? FOLLOW_COPY.tooltipActive
               : FOLLOW_COPY.tooltipIdle
             : unlockHint(card.permissions, "can_watch") ??
-              `${FOLLOW_COPY.cta} is unavailable for this card.`
+              `${FOLLOW_COPY.cta} is unavailable for this card.`)
         }
         icon={<WatchIcon size={14} strokeWidth={1.9} aria-hidden />}
         idleLabel="Watch"

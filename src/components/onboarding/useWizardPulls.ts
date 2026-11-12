@@ -29,6 +29,7 @@ import { useMemo, useState } from "react";
 import { useWatching } from "@/hooks/useWatching";
 import { useWatchMutation, useUnwatchMutation } from "@/hooks/useWatch";
 import { humanizeCode } from "@/lib/api/errors";
+import { FOLLOW_COPY } from "@/lib/copy";
 import type { Card, ReputationTier } from "@/lib/api/types";
 
 /**
@@ -40,6 +41,8 @@ function humanizePullError(err: unknown): string {
     err,
     {
       bcc_unauthorized: "Sign in to pull cards.",
+      // F-236: a block either way, or a suspended viewer. Generic.
+      bcc_forbidden: FOLLOW_COPY.refused,
       bcc_rate_limited: "Too fast — wait a moment and try again.",
       bcc_unavailable: "Pulls are temporarily unavailable. Try again shortly.",
     },
