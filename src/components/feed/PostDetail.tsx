@@ -20,6 +20,7 @@ import {
   PhotoBody,
   ReviewBody,
 } from "@/components/feed/FeedPostBody";
+import { PageContextLine } from "@/components/feed/PageContextLine";
 import { POST_KIND_LABELS, deriveBodySummary } from "@/components/feed/postBody";
 import { useFeedItem } from "@/hooks/useFeed";
 import { CommentDrawer } from "@/components/feed/CommentDrawer";
@@ -100,6 +101,8 @@ export function PostDetail({
           }
         />
       </header>
+
+      <PageContextLine context={item.page_context} />
 
       {isReview && <ReviewBody body={item.body} />}
 

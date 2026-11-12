@@ -2,10 +2,9 @@
  * /v/[slug] — validator entity profile (Phase 4 minimum-viable).
  *
  * Server component. Fetches the §L5 Card view-model for type=validator
- * and renders the shared <EntityProfile>. The §C2 / §B5 claim flow,
- * the locked vs. unlocked stream gating, and the "Wanted" poster
- * overlay all land in Phase 4 polish — this shell is what makes
- * every "View →" link in the feed stop 404'ing.
+ * and renders the shared <EntityProfile>. The §C2 / §B5 claim flow
+ * and the "Wanted" poster overlay land in Phase 4 polish — this shell
+ * is what makes every "View →" link in the feed stop 404'ing.
  *
  * Auth is optional — anonymous browsers see the public view-model.
  * When a session exists we forward the bearer so viewer-aware
@@ -113,9 +112,7 @@ export default async function ValidatorProfilePage({ params }: PageProps) {
       kindLabel="Validator"
       streamEmptyState={{
         title: "No posts yet",
-        body:
-          "Once the operator claims this validator and starts posting, " +
-          "their stream will show up here.",
+        body: "Nothing has been posted here yet.",
       }}
       viewerAuthed={session !== null}
       {...(rosterSeed !== undefined ? { rosterSeed } : {})}

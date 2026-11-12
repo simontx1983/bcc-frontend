@@ -67,6 +67,22 @@ export function getTagFeed(
 }
 
 /**
+ * GET /pages/:id/feed — everyday posts on one validator page, newest
+ * first. Anonymous-OK; same envelope and cursor as /groups/:id/feed.
+ *
+ * 404 `bcc_not_found` unless the id is a published validator page, so
+ * callers mount this only behind the card's `page_stream` block.
+ */
+export function getPageFeed(
+  pageId: number,
+  params: FeedQueryParams = {},
+  signal?: AbortSignal
+): Promise<FeedResponse> {
+  const path = `pages/${pageId}/feed${buildQueryString(params)}`;
+  return bccFetchAsClient<FeedResponse>(path, { method: "GET", signal });
+}
+
+/**
  * GET /feed/:id — single-item permalink read. Anonymous-OK, backs the
  * `/post/[id]` detail page + its intercepting modal. Server-safe (uses
  * `bccFetch` directly) so `generateMetadata` and the SSR page body can

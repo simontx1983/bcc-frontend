@@ -131,6 +131,7 @@ describe("the source scan actually sees the components", () => {
       "AnnouncementOwnerActions.tsx",
       "AnnouncementReportControl.tsx",
       "AnnouncementsPanel.tsx",
+      "AnnouncementsTopSection.tsx",
     ]);
   });
 });

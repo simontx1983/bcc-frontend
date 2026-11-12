@@ -10,7 +10,8 @@
  * Tab roster:
  *   Backing   — AttestationRoster (§J.6 reputation-first roster)
  *   Reviews   — CardReviewsPanel (per-card votes)
- *   Activity  — operator stream (LockedStreamPanel / §N10 empty)
+ *   Activity  — validator pages: PageStreamPanel (everyday posts, never
+ *               announcements); other kinds: LockedStreamPanel / §N10 empty
  *   Watchers  — CardWatchersPanel (PeepSo follower graph anchored on
  *               the page's post_author; empty for unclaimed cards)
  *   On-chain  — OnchainSignalsBlock (validator-only; tab hidden when

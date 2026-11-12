@@ -1,7 +1,8 @@
 "use client";
 
 /**
- * The announcement bar — the rotating strip above the validator's tabs.
+ * The announcement bar — the rotating strip at the very top of the
+ * validator page.
  *
  * Shows at most five active announcements, one at a time, in the order
  * the server handed them over: pinned first when one exists, then newest
@@ -53,9 +54,20 @@ interface AnnouncementBarProps {
    * nothing and issue no request.
    */
   featureEnabled: boolean;
+  /**
+   * Hold the bar's height with a skeleton during the first read. Off at the
+   * very top of the page: most validators have no announcements, so a
+   * placeholder there would push the whole page down and snap it back up on
+   * every visit, for nothing.
+   */
+  skeletonWhileLoading?: boolean;
 }
 
-export function AnnouncementBar({ pageId, featureEnabled }: AnnouncementBarProps) {
+export function AnnouncementBar({
+  pageId,
+  featureEnabled,
+  skeletonWhileLoading = true,
+}: AnnouncementBarProps) {
   const query = useAnnouncementRotator(pageId, { enabled: featureEnabled });
   // Drives the TRANSFORM only. The interval reads matchMedia directly
   // (below), because this hook's pre-hydration default would let one
@@ -190,6 +202,7 @@ export function AnnouncementBar({ pageId, featureEnabled }: AnnouncementBarProps
   }
 
   if (query.isPending) {
+    if (!skeletonWhileLoading) return null;
     return (
       <section aria-label="Announcements" className="mx-auto mt-8 max-w-[1440px] px-4 sm:px-7">
         <Skeleton className="h-28 w-full" />

@@ -14,7 +14,7 @@ vi.mock("next-auth/react", () => ({
 }));
 
 import { patchFeedItem, snapshotFeed } from "@/hooks/useFeedCache";
-import { FEED_ITEM_QUERY_KEY } from "@/hooks/useFeed";
+import { FEED_ITEM_QUERY_KEY, PAGE_FEED_QUERY_KEY_ROOT } from "@/hooks/useFeed";
 import { GROUP_FEED_QUERY_KEY_ROOT } from "@/hooks/useGroupFeed";
 import type { FeedItem, FeedReactions, FeedResponse } from "@/lib/api/types";
 
@@ -91,6 +91,19 @@ describe("patchFeedItem group-stream coverage", () => {
     expect(patched?.reactions.viewer_has_stoked).toBe(true);
     expect(patched?.reactions.stoke_count).toBe(4);
     expect(untouched?.reactions.viewer_has_stoked).toBe(false);
+  });
+
+  it("patches and snapshots the validator page feed without its own root", () => {
+    const qc = new QueryClient();
+    const key = [...PAGE_FEED_QUERY_KEY_ROOT, 35];
+    qc.setQueryData(key, makePage(["f1"]));
+
+    const context = snapshotFeed(qc, "f1");
+    patchFeedItem(qc, "f1", () => stokedReactions());
+
+    const data = qc.getQueryData<InfiniteData<FeedResponse>>(key);
+    expect(data?.pages[0]?.items[0]?.reactions.viewer_has_stoked).toBe(true);
+    expect(context.snapshots.map((snapshot) => snapshot.queryKey)).toContainEqual(key);
   });
 
   it("patches the ['feedItem', id] detail cache alongside the stream", () => {

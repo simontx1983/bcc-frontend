@@ -29,6 +29,10 @@ vi.mock("@/components/announcements/AnnouncementBar", () => ({ AnnouncementBar: 
 vi.mock("@/components/entity/panels/DelegatorGroupPanel", () => ({
   DelegatorGroupPanel: stub("delegators"),
 }));
+vi.mock("@/components/announcements/AnnouncementsTopSection", () => ({
+  AnnouncementsTopSection: stub("atop"),
+}));
+vi.mock("@/components/entity/panels/PageStreamPanel", () => ({ PageStreamPanel: stub("pstream") }));
 vi.mock("@/lib/env", () => ({ clientEnv: { BCC_API_URL: "https://wp.example" } }));
 vi.mock("@/components/announcements/AnnouncementsPanel", () => ({
   AnnouncementsPanel: stub("apanel"),

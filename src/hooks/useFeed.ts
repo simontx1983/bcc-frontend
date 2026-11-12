@@ -33,6 +33,7 @@ import {
   getFeed,
   getFeedItemByIdAsClient,
   getHotFeed,
+  getPageFeed,
   getTagFeed,
   type FeedQueryParams,
 } from "@/lib/api/feed-endpoints";
@@ -151,6 +152,38 @@ export function useTagFeed(tag: string) {
       lastPage.pagination.has_more ? lastPage.pagination.next_cursor : undefined,
     staleTime: 60_000,
     enabled: tag.length > 0,
+  });
+}
+
+/**
+ * usePageFeed — everyday posts on one validator page, newest first
+ * (`GET /pages/:id/feed`). Public, so it reads the same for a signed-out
+ * visitor. Mirrors useGroupFeed's envelope and stale window.
+ *
+ * The key sits UNDER `["feed"]`, the same way the hot feed does, and that
+ * is the point: useCreatePost's invalidation, the Stoke and helpful-mark
+ * patches, post deletion and the block sweeps all walk that root, so this
+ * feed is covered by every one of them without a second namespace for each
+ * to remember.
+ */
+export const PAGE_FEED_QUERY_KEY_ROOT = [...FEED_QUERY_KEY_ROOT, "page"] as const;
+
+export function usePageFeed(pageId: number) {
+  return useInfiniteQuery<
+    FeedResponse,
+    BccApiError,
+    InfiniteData<FeedResponse>,
+    QueryKey,
+    string | null
+  >({
+    queryKey: [...PAGE_FEED_QUERY_KEY_ROOT, pageId],
+    initialPageParam: null,
+    queryFn: ({ pageParam, signal }) =>
+      getPageFeed(pageId, buildParams(pageParam), signal),
+    getNextPageParam: (lastPage) =>
+      lastPage.pagination.has_more ? lastPage.pagination.next_cursor : undefined,
+    staleTime: 30_000,
+    enabled: pageId > 0,
   });
 }
 
