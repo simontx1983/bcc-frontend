@@ -87,15 +87,38 @@ function useModalDismiss(
 ) {
   const menu = opts.menu === true;
 
-  // Focus into the panel once, on open.
+  // Focus into the panel once, on open — and give it back on close.
+  //
+  // On close, a panel that held focus is gone, and the browser drops focus
+  // to <body>: keyboard users lose their place. So when the panel unmounts
+  // and focus is inside it or on <body>, focus returns to the trigger —
+  // UNLESS the close came from activating a link, which is navigating (the
+  // panel's onClose runs from the link's onClick, before the URL changes,
+  // so a route check at this point could not tell).
   useEffect(() => {
     const panel = modalRef.current;
     if (panel === null) return;
+    const anchor = anchorRef.current;
     const first = menu
       ? panel.querySelector<HTMLElement>('[role="menuitem"]')
       : panel.querySelector<HTMLElement>(POPOVER_FOCUSABLE);
     (first ?? panel).focus();
-  }, [modalRef, menu]);
+
+    let navigating = false;
+    const noteActivation = (e: Event) => {
+      const target = e.target as Element | null;
+      navigating = target?.closest?.("a[href]") != null;
+    };
+    panel.addEventListener("click", noteActivation, true);
+    return () => {
+      panel.removeEventListener("click", noteActivation, true);
+      if (navigating) return;
+      const active = document.activeElement;
+      if (active === null || active === document.body || panel.contains(active)) {
+        anchor?.focus();
+      }
+    };
+  }, [modalRef, anchorRef, menu]);
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
