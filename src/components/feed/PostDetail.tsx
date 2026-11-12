@@ -14,6 +14,9 @@
  * frozen — clicking Stoke updated the feed cache but never this view.
  */
 
+import Link from "next/link";
+import { useEffect, useRef, useState } from "react";
+
 import {
   BlogExcerptBody,
   GifBody,
@@ -60,6 +63,18 @@ export function PostDetail({
   // instantly with no client fetch; mutations patch this cache so the
   // rail below reflects Stoke immediately instead of staying frozen.
   const item = useFeedItem(initialItem.id, initialItem).data;
+  // H8: deleting removes the post from every cached feed and clears its
+  // cache entry, but this view keeps rendering from the server-seeded
+  // data, so the post stayed on screen with no word that it was gone.
+  // Say so in place: works on the permalink page and in hosts that reuse
+  // PostDetail inside a sheet, where a redirect would be wrong.
+  const [deleted, setDeleted] = useState(false);
+  // The menu that held focus is gone; land keyboard and screen-reader
+  // users on the outcome instead of <body>. Once, when the state flips.
+  const deletedHeadingRef = useRef<HTMLHeadingElement>(null);
+  useEffect(() => {
+    if (deleted) deletedHeadingRef.current?.focus();
+  }, [deleted]);
   const kindLabel = POST_KIND_LABELS[item.post_kind] ?? item.post_kind.toUpperCase();
   const isReview  = item.post_kind === "review";
   const isBlog    = item.post_kind === "blog_excerpt";
@@ -68,6 +83,32 @@ export function PostDetail({
   const summary   = isReview || isBlog || isPhoto || isGif ? "" : deriveBodySummary(item);
 
   const groupVerification = item.group?.verification ?? null;
+
+  if (deleted) {
+    return (
+      <section className={className} aria-labelledby={`post-deleted-${item.id}`}>
+        <div role="status" className="flex flex-col items-start gap-2 py-4">
+          <h2
+            id={`post-deleted-${item.id}`}
+            tabIndex={-1}
+            ref={deletedHeadingRef}
+            className="bcc-stencil text-[15px] text-[var(--bcc-text)]"
+          >
+            Post deleted
+          </h2>
+          <p className="font-serif text-[14px] text-[var(--bcc-text-secondary)]">
+            It has been removed everywhere it appeared.
+          </p>
+          <Link
+            href="/"
+            className="bcc-mono mt-1 inline-flex min-h-[44px] items-center text-[11px] tracking-[0.18em] text-[var(--bcc-text-secondary)] hover:text-[var(--bcc-text)] hover:underline"
+          >
+            BACK TO THE FLOOR →
+          </Link>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <article className={className}>
@@ -96,7 +137,11 @@ export function PostDetail({
                   className="bcc-mono shrink-0 text-[10px]"
                 />
               )}
-              <PostOverflowMenu selfHref={item.links.self} item={item} />
+              <PostOverflowMenu
+                selfHref={item.links.self}
+                item={item}
+                onDeleted={() => setDeleted(true)}
+              />
             </div>
           }
         />

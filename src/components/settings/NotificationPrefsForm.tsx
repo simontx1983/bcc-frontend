@@ -25,7 +25,7 @@
  * "Saved" confirmation that fades after 3s.
  */
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
   useNotificationPrefs,
@@ -46,6 +46,7 @@ import type {
   NotificationPrefsPatch,
   PushEventType,
 } from "@/lib/api/types";
+import { rebaseDraft } from "@/lib/forms/rebaseDraft";
 import {
   PushPermissionDeniedError,
   PushSubscriptionKeysError,
@@ -257,11 +258,21 @@ export function NotificationPrefsForm() {
   const [error, setError] = useState<string | null>(null);
   const [savedAt, setSavedAt] = useState<number | null>(null);
 
-  // Seed the local draft once the server prefs land. Re-syncs on
-  // explicit cache primes (e.g. another tab updates).
+  // Seed the local draft once the server prefs land. Re-syncs on cache
+  // primes — another tab's save, or "Enable push" on this page, which
+  // writes `push.enabled` straight into the cache (usePushSubscription).
+  // H4: REBASE, don't replace — unsaved bell/email/push toggles survive;
+  // untouched fields take the new server value.
+  const baseRef = useRef<NotificationPrefs | undefined>(undefined);
   useEffect(() => {
     if (query.data === undefined) return;
-    setDraft(query.data);
+    const prevBase = baseRef.current;
+    const nextBase = query.data;
+    baseRef.current = nextBase;
+    if (prevBase === nextBase) return;
+    setDraft((d) =>
+      d === null || prevBase === undefined ? nextBase : rebaseDraft(prevBase, nextBase, d),
+    );
   }, [query.data]);
 
   // Saved confirmation auto-fades.
