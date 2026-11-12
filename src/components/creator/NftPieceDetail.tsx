@@ -245,18 +245,22 @@ function HeroImage({
   }, []);
 
   // Shown inside the panel once every URL for a layer has failed
-  // (F-165: gateway → ipfs.io fallback → placeholder).
-  const noArtwork = (
+  // (F-165: gateway → ipfs.io fallback → placeholder). `hidden` is for the
+  // two-layer hero: once the full image has loaded over an exhausted thumb,
+  // the full image already carries the name, so the placeholder must not
+  // announce it a second time — the same rule as the thumb image's own
+  // aria-hidden={fullLoaded}.
+  const renderNoArtwork = (hidden: boolean) => (
     <div
       className="absolute inset-0 flex items-center justify-center"
-      role="img"
-      aria-label={alt}
+      {...(hidden ? { "aria-hidden": true } : { role: "img", "aria-label": alt })}
     >
       <span className="bcc-mono text-[11px] uppercase tracking-[0.18em] text-bcc-text-secondary">
         No artwork
       </span>
     </div>
   );
+  const noArtwork = renderNoArtwork(false);
 
   // Both null → tier-toned placeholder.
   if (imageUrl === null && imageUrlThumb === null) {
@@ -301,7 +305,7 @@ function HeroImage({
         loading="eager"
         decoding="async"
         aria-hidden={fullLoaded}
-        placeholder={noArtwork}
+        placeholder={renderNoArtwork(fullLoaded)}
       />
       <FallbackImg
         src={imageUrl}
