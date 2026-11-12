@@ -119,8 +119,14 @@ export class PolkadotNoAccountsError extends PolkadotError {
 // ─────────────────────────────────────────────────────────────────────
 
 export interface PolkadotConnection {
-  /** SS58 address. */
+  /** SS58 address — the first account the wallet exposed. */
   address: string;
+  /**
+   * Every account the wallet exposed, in its order. A validator claim must
+   * be signed by the STASH account, which is not necessarily the first, so
+   * the claim flow lets the operator choose.
+   */
+  accounts: ReadonlyArray<{ address: string; name: string | null }>;
   /** Provider key from window.injectedWeb3 — debug-only ("polkadot-js" / "talisman" / etc.). */
   source: string;
 }
@@ -196,7 +202,13 @@ export async function connectPolkadot(): Promise<PolkadotConnection> {
   // without going through window.injectedWeb3 again.
   pinnedInjected.set(sourceKey, injected);
 
-  return { address: first.address, source: sourceKey };
+  return {
+    address: first.address,
+    accounts: accounts
+      .filter((a) => a.address !== "")
+      .map((a) => ({ address: a.address, name: a.name ?? null })),
+    source: sourceKey,
+  };
 }
 
 /**
