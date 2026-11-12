@@ -24,10 +24,13 @@ import type { MentorEligibilityReason } from "@/lib/api/types";
  */
 export type ProfileVisibility = "public" | "members" | "friends" | "private";
 /**
- * Default audience for new wall posts. Deliberately keeps three tokens —
- * the contract did not add `friends` here (v1.91 §4 `/me/profile-prefs`).
+ * Default audience for new wall posts. `friends` (30) is reported and
+ * accepted since bcc-trust #584 (contract v1.121), which stopped silently
+ * loosening a stored 30 to `members`. With peepso-friends gone, 30 admits
+ * only the author, so the UI labels it "Only me" (user decision F-225,
+ * 2026-11-12). The wire token stays `friends`.
  */
-export type PostAudience = "public" | "members" | "private";
+export type PostAudience = "public" | "members" | "friends" | "private";
 export type PostVisibility = "members" | "private";
 
 export interface ProfilePrefs {

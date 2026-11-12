@@ -82,6 +82,18 @@ function shownProfileVisibility(v: ProfileVisibility): ProfileVisibility {
   return v === "friends" ? "private" : v;
 }
 
+/**
+ * Same rule for the default post audience (F-225): a stored `friends` (30)
+ * admits only the author now that peepso-friends is gone, so it is shown
+ * on the "Only me" radio instead of leaving no radio selected. Not a
+ * fourth radio: two options both reading "Only me" could not be told
+ * apart. The stored 30 is not rewritten unless the member picks another
+ * option, because the PATCH only sends changes.
+ */
+function shownPostAudience(v: PostAudience): PostAudience {
+  return v === "friends" ? "private" : v;
+}
+
 const POST_VISIBILITY_OPTIONS: ReadonlyArray<{
   value: PostVisibility;
   label: string;
@@ -268,7 +280,7 @@ function ProfilePrefsForm({ initial }: { initial: ProfilePrefs }) {
         <RadioGroup
           name="default_post_audience"
           options={DEFAULT_POST_AUDIENCE_OPTIONS}
-          value={draft.default_post_audience}
+          value={shownPostAudience(draft.default_post_audience)}
           onChange={(v) => setDraft({ ...draft, default_post_audience: v })}
           disabled={busy}
         />
