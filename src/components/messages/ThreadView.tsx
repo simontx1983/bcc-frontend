@@ -22,7 +22,7 @@
  * setting is on.
  */
 
-import { memo, useEffect, useId, useMemo, useRef, useState } from "react";
+import { memo, useEffect, useId, useMemo, useRef, useState, type RefObject } from "react";
 
 import { Avatar } from "@/components/identity/Avatar";
 import { Spinner } from "@/components/ui/Spinner";
@@ -39,6 +39,12 @@ interface ThreadViewProps {
   conversationId: number;
   items: MessageItem[];
   viewerId: number | null;
+  /**
+   * The element to bring into view with the newest message — the page
+   * passes the composer's wrapper so a reply box is never scrolled below
+   * the fold. Falls back to the end of the thread.
+   */
+  bottomAnchorRef?: RefObject<HTMLElement | null>;
 }
 
 type ThreadSegment =
@@ -64,30 +70,56 @@ function segmentThread(items: readonly MessageItem[]): ThreadSegment[] {
   return out;
 }
 
-export function ThreadView({ conversationId, items, viewerId }: ThreadViewProps) {
+/** Within this many px of the bottom counts as "reading the latest". */
+const NEAR_BOTTOM_PX = 240;
+
+function isNearPageBottom(): boolean {
+  if (typeof window === "undefined") return true;
+  const doc = document.documentElement;
+  return doc.scrollHeight - (window.scrollY + window.innerHeight) < NEAR_BOTTOM_PX;
+}
+
+export function ThreadView({ conversationId, items, viewerId, bottomAnchorRef }: ThreadViewProps) {
   const reducedMotion = usePrefersReducedMotion();
   const endRef = useRef<HTMLDivElement | null>(null);
   const prevLastIdRef = useRef<number | null>(null);
   const segments = useMemo(() => segmentThread(items), [items]);
 
-  // Auto-scroll to bottom when the list grows (new tail). On the
-  // initial mount we skip the smooth animation (would feel like a
-  // jarring page-load lurch); on subsequent appends we honor reduced-
-  // motion.
+  // Where the reader was BEFORE new messages rendered: measured on scroll,
+  // because by the time the effect below runs the page has already grown.
+  const nearBottomRef = useRef(true);
+  useEffect(() => {
+    const onScroll = () => {
+      nearBottomRef.current = isNearPageBottom();
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  // Bring the newest message into view — together with the composer
+  // below it (bottomAnchorRef), not just the last bubble, which used to
+  // push the composer below the fold (UX scan H12). Only on first load,
+  // for the viewer's own message, or when the reader was already at the
+  // bottom: someone scrolled up to read history is never yanked down by
+  // a polled message. The initial scroll is instant (no page-load lurch);
+  // later ones honour reduced motion.
   useEffect(() => {
     if (items.length === 0) return;
-    const lastId = items[items.length - 1]?.id ?? null;
+    const last = items[items.length - 1];
+    const lastId = last?.id ?? null;
     const isInitial = prevLastIdRef.current === null;
     const grew = !isInitial && lastId !== prevLastIdRef.current;
+    const mine = last !== undefined && isMine(last, viewerId);
 
-    if (isInitial || grew) {
-      endRef.current?.scrollIntoView({
+    if (isInitial || (grew && (mine || nearBottomRef.current))) {
+      (bottomAnchorRef?.current ?? endRef.current)?.scrollIntoView({
         behavior: isInitial || reducedMotion ? "auto" : "smooth",
         block: "end",
       });
+      nearBottomRef.current = true;
     }
     prevLastIdRef.current = lastId;
-  }, [items, reducedMotion]);
+  }, [items, reducedMotion, viewerId, bottomAnchorRef]);
 
   if (items.length === 0) {
     return (
