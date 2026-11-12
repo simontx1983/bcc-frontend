@@ -176,6 +176,13 @@ const BELL_ROWS: ReadonlyArray<BellRow> = [
     blurb: "An automatic check removed you because your delegation is below the group's minimum. You can rejoin once you delegate enough.",
   },
   {
+    // F-73. Bell-only, like the row above: no push variant, not in the
+    // email digest (contract v1.93).
+    key: "bcc_content_auto_hidden",
+    label: "Post hidden automatically",
+    blurb: "One of your posts was hidden after several members reported it. A moderator reviews it, and restores it if it breaks no rule.",
+  },
+  {
     // Bell-only, like the row above: no push variant, not in the email
     // digest. One type covers both badges a claim can carry.
     key: "bcc_claim_badge_removed",
