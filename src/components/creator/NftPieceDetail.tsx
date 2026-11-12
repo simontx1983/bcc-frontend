@@ -248,7 +248,7 @@ function HeroImage({
   // (F-165: gateway → ipfs.io fallback → placeholder). `hidden` is for the
   // two-layer hero: once the full image has loaded over an exhausted thumb,
   // the full image already carries the name, so the placeholder must not
-  // announce it a second time — the same rule as the thumb <img>'s own
+  // announce it a second time — the same rule as the thumb image's own
   // aria-hidden={fullLoaded}.
   const renderNoArtwork = (hidden: boolean) => (
     <div
