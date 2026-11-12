@@ -182,6 +182,13 @@ const BELL_ROWS: ReadonlyArray<BellRow> = [
     label: "Post hidden automatically",
     blurb: "One of your posts was hidden after several members reported it. A moderator reviews it, and restores it if it breaks no rule.",
   },
+  {
+    // Bell-only, like the row above: no push variant, not in the email
+    // digest. One type covers both badges a claim can carry.
+    key: "bcc_claim_badge_removed",
+    label: "Claim badge removed",
+    blurb: "An automatic check couldn't confirm the wallet or holding behind one of your claims, so its verified or holder badge was removed. You can claim again once it checks out.",
+  },
 ];
 
 // V2 Phase 1: push event taxonomy is a deliberate subset of the bell.
