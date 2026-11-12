@@ -32,4 +32,17 @@ describe("community card at narrow widths (C2)", () => {
     expect(wrapper).toContain("[&>.bcc-card-stage]:w-full");
     expect(wrapper).toContain("[&>.bcc-card-stage]:max-w-[316px]");
   });
+
+  // F-326: a fixed 316px track is wider than a 320px phone's content box
+  // (272px), so the centred card sat 3px past the left edge. minmax(0, 316px)
+  // still packs columns by 316px, but lets a lone track shrink to fit.
+  it.each([
+    "src/components/cards/CardGrid.tsx",
+    "src/components/cards/CardGridSkeleton.tsx",
+    "src/components/communities/CommunityCardGrid.tsx",
+  ])("%s uses a shrinkable 316px track", (path) => {
+    const src = read(path);
+    expect(src).toContain("[grid-template-columns:repeat(auto-fit,minmax(0,316px))]");
+    expect(src).not.toContain("[grid-template-columns:repeat(auto-fit,316px)]");
+  });
 });

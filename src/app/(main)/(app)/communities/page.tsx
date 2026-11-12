@@ -102,7 +102,7 @@ export default async function CommunitiesDiscoveryPage({ searchParams }: PagePro
             <span className="bcc-mono text-[10px] tracking-[0.24em] text-bcc-text-secondary">
               DISCOVERY · COMMUNITIES
             </span>
-            <h1 className="bcc-stencil mt-2 text-5xl text-bcc-text md:text-6xl">
+            <h1 className="bcc-stencil mt-2 text-4xl text-bcc-text sm:text-5xl md:text-6xl">
               Communities
             </h1>
             <p className="mt-3 max-w-2xl font-serif text-lg text-bcc-text-secondary">

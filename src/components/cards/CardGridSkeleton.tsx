@@ -25,7 +25,7 @@ export function CardGridSkeleton({
   return (
     <ul
       aria-label={ariaLabel}
-      className="grid justify-center gap-6 [grid-template-columns:repeat(auto-fit,316px)]"
+      className="grid justify-center gap-6 [grid-template-columns:repeat(auto-fit,minmax(0,316px))]"
     >
       {Array.from({ length: 8 }).map((_, idx) => (
         <li key={idx} aria-hidden className={SKELETON_CLASS + " h-[460px]"} />

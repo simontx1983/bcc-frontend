@@ -21,7 +21,7 @@ import type { GroupDiscoveryItem } from "@/lib/api/types";
 
 export function CommunityCardGrid({ items }: { items: GroupDiscoveryItem[] }) {
   return (
-    <ul className="grid justify-center gap-6 [grid-template-columns:repeat(auto-fit,316px)]">
+    <ul className="grid justify-center gap-6 [grid-template-columns:repeat(auto-fit,minmax(0,316px))]">
       {items.map((item) => (
         <CommunityCardCell key={`community-${item.group_id}`} item={item} />
       ))}
