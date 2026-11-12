@@ -87,6 +87,10 @@ const FILES: readonly SourceFile[] = walk(SRC).map((f) => {
  *   CSS rule            `--foo: #fff;`
  *   JSX style object    `"--foo": value` / `["--foo"]: value`
  *   imperative          `el.style.setProperty("--foo", …)`
+ *   next/font           `localFont({ …, variable: "--foo" })` — the font
+ *                       loader sets the property on <html> (layout.tsx), so
+ *                       CSS consumes it without any CSS declaration. Only
+ *                       counted in files that import next/font.
  */
 function declaredProperties(files: readonly SourceFile[]): Set<string> {
   const out = new Set<string>();
@@ -94,6 +98,9 @@ function declaredProperties(files: readonly SourceFile[]): Set<string> {
     for (const m of f.code.matchAll(/(?:^|[;{\s(])(--[a-zA-Z0-9_-]+)\s*:/g)) out.add(m[1] ?? "");
     for (const m of f.code.matchAll(/["'`](--[a-zA-Z0-9_-]+)["'`]\s*\]?\s*:/g)) out.add(m[1] ?? "");
     for (const m of f.code.matchAll(/setProperty\(\s*["'`](--[a-zA-Z0-9_-]+)["'`]/g)) out.add(m[1] ?? "");
+    if (/from\s+["']next\/font\//.test(f.code)) {
+      for (const m of f.code.matchAll(/\bvariable:\s*["'`](--[a-zA-Z0-9_-]+)["'`]/g)) out.add(m[1] ?? "");
+    }
   }
   return out;
 }
@@ -177,6 +184,10 @@ describe("the detector flags what it must and ignores what it must not", () => {
     ["a fallback to a literal", `color: var(--nope, #dc2626)`],
     ["a property declared in the same file", `.x { --local: red; color: var(--local); }`],
     ["a JSX-declared property consumed in CSS", `style={{ "--local": "4px" }}; width: var(--local)`],
+    [
+      "a next/font variable consumed in CSS",
+      `import localFont from "next/font/local"; const f = localFont({ variable: "--font-x" }); .h { font-family: var(--font-x); }`,
+    ],
     ["a token named in prose only", `/* --nope is documented here, not used */`],
   ];
 
