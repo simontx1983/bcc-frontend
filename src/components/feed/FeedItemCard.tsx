@@ -102,7 +102,14 @@ function FeedItemCardImpl({
   // button, reaction + footer buttons, overflow menu) opts out via
   // `closest("a, button")` so its own handler runs instead. The selection
   // check keeps highlighting body text from firing the navigation.
+  //
+  // H2: dialogs opened from the card (Report, the photo/GIF Lightbox) are
+  // portaled to <body>, but React still bubbles their clicks through the
+  // component tree to this handler. Without the DOM-containment check, a
+  // click on a report reason, the comment box or the backdrop navigated
+  // away mid-action. Only clicks physically inside the card navigate.
   const handleBodyClick = (e: React.MouseEvent<HTMLElement>) => {
+    if (!e.currentTarget.contains(e.target as Node)) return;
     if ((e.target as HTMLElement).closest("a, button")) return;
     if ((window.getSelection()?.toString() ?? "") !== "") return;
     router.push(selfHref);
