@@ -34,6 +34,7 @@ import {
   setGroupPostPolicy,
   transferGroupOwnership,
 } from "@/lib/api/my-groups-endpoints";
+import { useGroupContentRefresh } from "@/hooks/groupContentCache";
 import type {
   BccApiError,
   CreatePlainGroupRequest,
@@ -50,9 +51,10 @@ export function useJoinPlainGroupMutation(
     "mutationFn"
   > = {}
 ) {
+  const withRefresh = useGroupContentRefresh(options);
   return useMutation<JoinPlainGroupResponse, BccApiError, number>({
     mutationFn: (groupId) => joinPlainGroup(groupId),
-    ...options,
+    ...withRefresh,
   });
 }
 
@@ -62,9 +64,10 @@ export function useLeavePlainGroupMutation(
     "mutationFn"
   > = {}
 ) {
+  const withRefresh = useGroupContentRefresh(options);
   return useMutation<LeavePlainGroupResponse, BccApiError, number>({
     mutationFn: (groupId) => leavePlainGroup(groupId),
-    ...options,
+    ...withRefresh,
   });
 }
 

@@ -40,6 +40,7 @@ import {
   leaveHolderGroup,
   updateHolderGroupPreferences,
 } from "@/lib/api/holder-groups-endpoints";
+import { invalidateGroupContent } from "@/hooks/groupContentCache";
 import type {
   BccApiError,
   HolderGroupPreferences,
@@ -100,6 +101,7 @@ export function useJoinHolderGroupMutation(
     onSuccess: (data, groupId) => {
       // Re-bucket: eligible → joined.
       void queryClient.invalidateQueries({ queryKey: HOLDER_GROUPS_QUERY_KEY });
+      invalidateGroupContent(queryClient, groupId);
       callerOnSuccess?.(data, groupId);
     },
     ...rest,
@@ -122,6 +124,7 @@ export function useLeaveHolderGroupMutation(
     onSuccess: (data, groupId) => {
       // Re-bucket: joined → opted_out.
       void queryClient.invalidateQueries({ queryKey: HOLDER_GROUPS_QUERY_KEY });
+      invalidateGroupContent(queryClient, groupId);
       callerOnSuccess?.(data, groupId);
     },
     ...rest,
