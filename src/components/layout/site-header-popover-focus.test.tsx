@@ -160,3 +160,36 @@ describe("avatar menu", () => {
     window.removeEventListener(TOUR_REQUEST_EVENT, listener);
   });
 });
+
+describe("header pop-ups — focus on close (F-325 follow-up)", () => {
+  it("an outside click that drops focus to <body> returns it to the trigger", () => {
+    render(<SiteHeader />);
+    fireEvent.click(bell());
+    expect(screen.getByRole("dialog", { name: "Notifications" }).contains(document.activeElement)).toBe(true);
+
+    fireEvent.mouseDown(document.body);
+
+    expect(screen.queryByRole("dialog", { name: "Notifications" })).toBeNull();
+    expect(document.activeElement).toBe(bell());
+  });
+
+  it("following a link inside the panel does NOT pull focus back (it is navigating)", () => {
+    render(<SiteHeader />);
+    fireEvent.click(bell());
+    const panel = screen.getByRole("dialog", { name: "Notifications" });
+    const seeAll = Array.from(panel.querySelectorAll("a")).find((a) => a.textContent === "See all") as HTMLElement;
+
+    fireEvent.click(seeAll);
+
+    expect(screen.queryByRole("dialog", { name: "Notifications" })).toBeNull();
+    expect(document.activeElement).not.toBe(bell());
+  });
+
+  it("a non-navigating item (Sign Out) hands focus back to the avatar, not <body>", () => {
+    render(<SiteHeader />);
+    fireEvent.click(avatar());
+    fireEvent.click(screen.getByRole("menuitem", { name: /sign out/i }));
+    expect(screen.queryByRole("menu", { name: "User menu" })).toBeNull();
+    expect(document.activeElement).toBe(avatar());
+  });
+});
