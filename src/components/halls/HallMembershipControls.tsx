@@ -27,7 +27,9 @@
  * call `router.refresh()` in onSuccess to re-render with fresh data.
  */
 
-import { useRouter } from "next/navigation";
+import type { Route } from "next";
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 
 import {
@@ -70,18 +72,21 @@ export function HallMembershipControls({
     clearMut.isPending;
 
   const state = resolveState(membership);
+  const pathname = usePathname();
 
   // ─── Anonymous ─────────────────────────────────────────────────
+  // F-321 / M-gr4: signed out, the way forward is signing in, so the
+  // control does that (and returns here) instead of being a disabled
+  // button explained only by a tooltip touch users never see.
   if (state.kind === "anon") {
     return (
       <ControlRow>
-        <PrimaryButton
-          disabled
-          tooltip="Sign in to join this Hall."
-          onClick={() => undefined}
+        <Link
+          href={`/login?callbackUrl=${encodeURIComponent(pathname ?? "/halls")}` as Route}
+          className="bcc-stencil inline-flex min-h-[44px] items-center rounded-sm bg-ink px-5 text-[12px] tracking-[0.2em] text-cardstock transition hover:bg-blueprint"
         >
-          JOIN HALL
-        </PrimaryButton>
+          SIGN IN TO JOIN
+        </Link>
       </ControlRow>
     );
   }
