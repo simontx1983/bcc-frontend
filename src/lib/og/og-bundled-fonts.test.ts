@@ -94,6 +94,27 @@ describe("loadBrandFonts", () => {
 
 });
 
+describe("the fonts ship with the OG functions", () => {
+  // Measured on a local `next build` (Next 15.5): WITHOUT this include, no
+  // opengraph-image route's .nft.json lists either TTF — output tracing does
+  // not follow readFile(join(process.cwd(), …)) here — so on Vercel every OG
+  // image would silently fall back to the built-in font. WITH it, all eight
+  // opengraph-image routes list both files. Removing it is a regression this
+  // test catches; the per-route proof needs a real build.
+  it("next.config.ts lists the font directory for every opengraph-image route", () => {
+    const config = readFileSync(join(ROOT, "next.config.ts"), "utf-8");
+    expect(config).toMatch(/outputFileTracingIncludes\s*:\s*\{/);
+    expect(config).toContain('"/**/opengraph-image*": ["./src/lib/og/fonts/*.ttf"]');
+  });
+
+  it("the include glob covers both bundled files", async () => {
+    const { OG_FONT_FILES } = await import("@/lib/og/card-image");
+    for (const file of Object.values(OG_FONT_FILES)) {
+      expect(file.replace(/\\/g, "/")).toMatch(/^src\/lib\/og\/fonts\/[^/]+\.ttf$/);
+    }
+  });
+});
+
 describe("no request-time Google Fonts fetch anywhere in the OG renderer", () => {
   it("card-image.tsx names neither Google font host", () => {
     const source = readFileSync(join(ROOT, "src/lib/og/card-image.tsx"), "utf-8");
