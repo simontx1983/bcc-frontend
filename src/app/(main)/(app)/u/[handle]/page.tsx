@@ -43,7 +43,7 @@ import type { Metadata } from "next";
 import { getServerSession } from "next-auth";
 import Link from "next/link";
 import type { Route } from "next";
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 
 import { ProfileUnavailable } from "@/components/errors/ProfileUnavailable";
 
@@ -70,6 +70,7 @@ import {
 import type { RosterSeed } from "@/hooks/useAttestationRoster";
 import { appOrigin } from "@/lib/app-origin";
 import { REVIEW_TAB_COPY } from "@/lib/copy/trust-layer";
+import { canonicalProfilePath, type ProfileSearchParams } from "@/lib/seo/canonical-profile-path";
 import { isIndexableEnvironment, isIndexableProfile } from "@/lib/seo/indexing";
 import { buildPersonGraph, serializeJsonLd } from "@/lib/seo/person-jsonld";
 import { ANON_SSR_REVALIDATE_SECONDS } from "@/lib/api/cache-policy";
@@ -85,6 +86,7 @@ import {
 
 interface PageProps {
   params: Promise<{ handle: string }>;
+  searchParams?: Promise<ProfileSearchParams>;
 }
 
 /**
@@ -180,7 +182,7 @@ export async function generateMetadata({
   };
 }
 
-export default async function MemberProfilePage({ params }: PageProps) {
+export default async function MemberProfilePage({ params, searchParams }: PageProps) {
   const { handle } = await params;
 
   const session = await getServerSession(authOptions);
@@ -222,6 +224,18 @@ export default async function MemberProfilePage({ params }: PageProps) {
     // Anything else — 5xx, a transport failure, a status we have no
     // reading of — goes to the segment boundary, which offers a retry.
     throw err;
+  }
+
+  // A retired handle (or member-{id}) resolved to this member: 308 to the
+  // current handle, query kept. Outside the try — permanentRedirect throws
+  // by design, and that throw must not be read as a fetch failure.
+  const canonicalPath = canonicalProfilePath(
+    handle,
+    profile.handle,
+    searchParams !== undefined ? await searchParams : {},
+  );
+  if (canonicalPath !== null) {
+    permanentRedirect(canonicalPath as Route);
   }
 
   const isOwner =
