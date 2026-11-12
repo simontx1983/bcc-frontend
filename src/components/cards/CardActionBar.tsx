@@ -42,7 +42,6 @@
 
 import type { Route } from "next";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
 import type { MouseEvent, ReactNode } from "react";
 import { useEffect, useId, useMemo, useState } from "react";
 
@@ -64,6 +63,7 @@ import type {
 import { humanizeCode } from "@/lib/api/errors";
 import { FOLLOW_COPY } from "@/lib/copy";
 import { ATTESTATION_COPY } from "@/lib/copy/trust-layer";
+import { useSignInLink } from "@/lib/auth/sign-in-link";
 import { isAllowed, reasonCode, unlockHint } from "@/lib/permissions";
 import {
   isNeverClaimedValidator,
@@ -193,18 +193,20 @@ function SignInPill({
   label,
   ariaLabel,
   href,
+  onClick,
 }: {
   color: string;
   icon: ReactNode;
   label: string;
   ariaLabel: string;
-  href: string;
+  href: Route;
+  onClick: (e: MouseEvent<HTMLAnchorElement>) => void;
 }) {
   return (
     <Link
-      href={href as Route}
+      href={href}
       aria-label={ariaLabel}
-      onClick={(e: MouseEvent) => e.stopPropagation()}
+      onClick={onClick}
       className="bcc-card-pill"
       style={{ ["--pill-color" as string]: color }}
     >
@@ -506,8 +508,7 @@ export function ActionBar({
   // instead. Locked for another reason, a tap shows the reason in a short
   // line under the pills for a few seconds; a failed watch or vouch shows
   // there too (it used to live in the tooltip only, F-236).
-  const pathname = usePathname();
-  const signInHref = `/login?callbackUrl=${encodeURIComponent(pathname ?? "/")}`;
+  const signIn = useSignInLink();
   const watchNeedsSignIn =
     !watchAllowed && SIGN_IN_CODES.has(reasonCode(card.permissions, "can_watch") ?? "");
   const vouchNeedsSignIn =
@@ -552,7 +553,8 @@ export function ActionBar({
           icon={<WatchIcon size={14} strokeWidth={1.9} aria-hidden />}
           label="Watch"
           ariaLabel={`Sign in to watch ${card.name}`}
-          href={signInHref}
+          href={signIn.href}
+          onClick={signIn.onClick}
         />
       ) : (
       <ActionPill
@@ -592,7 +594,8 @@ export function ActionBar({
           icon={<VouchIcon size={14} strokeWidth={1.9} aria-hidden />}
           label="Vouch"
           ariaLabel={`Sign in to vouch for ${card.name}`}
-          href={signInHref}
+          href={signIn.href}
+          onClick={signIn.onClick}
         />
       )}
 
