@@ -14,7 +14,7 @@
  * Suggested → useSuggestedMembers, auth-only).
  */
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useState } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 
@@ -25,7 +25,6 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { useMembers } from "@/hooks/useMembers";
 import { useTrendingHashtags } from "@/hooks/useTrendingHashtags";
 import { useSuggestedMembers } from "@/hooks/useSuggestedMembers";
-import { useWatching } from "@/hooks/useWatching";
 import { useWatchMutation, useUnwatchMutation, watchErrorCopy } from "@/hooks/useWatch";
 import { FOLLOW_COPY } from "@/lib/copy";
 import type { SuggestedMember, WatchingFollowSource } from "@/lib/api/types";
@@ -179,11 +178,11 @@ function TrendingWidget() {
 //   - loading     → bcc-widget shell + 3 reduced-motion-safe skeleton rows;
 //   - error/empty → renders nothing (hides gracefully, like TrendingWidget).
 //
-// Rows render in server order (no client-side ranking). The Follow
-// button reuses CardGrid's exact watch/unwatch wiring — useWatching
-// builds the follow-state map, useWatchMutation / useUnwatchMutation
-// toggle it. A member's watch target is the "member" CardKind keyed by
-// the member id (Card.id is the user id for member cards).
+// Rows render in server order (no client-side ranking). The Watch button
+// starts "not watching" (suggestions exclude watched members) and tracks
+// this session's own toggles from the mutation responses (F-255).
+// A member's watch target is the "member" CardKind keyed by the member id
+// (Card.id is the user id for member cards).
 
 interface SuggestedFollowEntry {
   follow_id: number;
@@ -196,9 +195,16 @@ function SuggestedWidget() {
 
   const { data, isLoading, isError } = useSuggestedMembers({ enabled: isAuthed });
 
-  // Same watch/unwatch wiring as CardGrid: one watchlist read + the two
-  // granular mutations, with a "{kind}-{id}" → {follow_id, source} map.
-  const watchingQuery = useWatching({ page_size: 50 });
+  // F-255: suggestions exclude members the viewer already watches, so every
+  // row starts "not watching". The outcome of this viewer's own toggles is
+  // kept per member, from the mutation RESPONSE: a watch answers with the
+  // follow (also when it was `already_watching`, which covers the rare
+  // suggestion of someone already followed), an unwatch clears it. This
+  // used to search the first page of /me/watching (50 items), which is
+  // partial — there is no cap on watches.
+  const [watched, setWatched] = useState<ReadonlyMap<number, SuggestedFollowEntry>>(
+    () => new Map(),
+  );
   const watchMutation = useWatchMutation();
   const unwatchMutation = useUnwatchMutation();
   // F-236: inline line under the row whose toggle failed. Keyed on the
@@ -206,35 +212,42 @@ function SuggestedWidget() {
   // time is enough because every row is disabled while a toggle runs.
   const [failure, setFailure] = useState<{ memberId: number; text: string } | null>(null);
 
-  const followMap = useMemo(() => {
-    const map = new Map<string, SuggestedFollowEntry>();
-    for (const item of watchingQuery.data?.items ?? []) {
-      const idKey = item.page_id !== null ? item.page_id : item.card_id;
-      map.set(`${item.card_kind}-${idKey}`, {
-        follow_id: item.follow_id,
-        source: item.follow_source ?? "peepso",
-      });
-    }
-    return map;
-  }, [watchingQuery.data]);
+  const setOutcome = useCallback((memberId: number, entry: SuggestedFollowEntry | null) => {
+    setWatched((prev) => {
+      const next = new Map(prev);
+      if (entry === null) next.delete(memberId);
+      else next.set(memberId, entry);
+      return next;
+    });
+  }, []);
 
   const handleToggle = useCallback(
     (member: SuggestedMember): void => {
-      const entry = followMap.get(`member-${member.id}`);
+      const entry = watched.get(member.id);
       setFailure(null);
       if (entry !== undefined) {
         unwatchMutation.mutate(
           { follow_id: entry.follow_id, source: entry.source },
-          { onError: (err) => setFailure({ memberId: member.id, text: watchErrorCopy(err, "unwatch") }) },
+          {
+            onSuccess: () => setOutcome(member.id, null),
+            onError: (err) => setFailure({ memberId: member.id, text: watchErrorCopy(err, "unwatch") }),
+          },
         );
       } else {
         watchMutation.mutate(
           { target_kind: "member", target_id: member.id },
-          { onError: (err) => setFailure({ memberId: member.id, text: watchErrorCopy(err, "watch") }) },
+          {
+            onSuccess: (res) =>
+              setOutcome(member.id, {
+                follow_id: res.item.follow_id,
+                source: res.item.follow_source ?? "peepso",
+              }),
+            onError: (err) => setFailure({ memberId: member.id, text: watchErrorCopy(err, "watch") }),
+          },
         );
       }
     },
-    [followMap, watchMutation, unwatchMutation],
+    [watched, watchMutation, unwatchMutation, setOutcome],
   );
 
   // Anonymous viewers never see this widget — and the personalized query
@@ -269,7 +282,7 @@ function SuggestedWidget() {
       <div className="bcc-widget-head">Suggested</div>
       <div className="bcc-widget-body" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         {members.map((member) => {
-          const isFollowing = followMap.has(`member-${member.id}`);
+          const isFollowing = watched.has(member.id);
           return (
             <div key={member.id} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -304,6 +317,11 @@ function SuggestedWidget() {
                   style={{ flexShrink: 0, fontSize: 12, padding: "3px 10px" }}
                   disabled={isMutating}
                   aria-pressed={isFollowing}
+                  aria-label={
+                    isFollowing
+                      ? `Stop watching ${member.display_name}`
+                      : `Watch ${member.display_name}`
+                  }
                   onClick={() => handleToggle(member)}
                 >
                   {isFollowing ? FOLLOW_COPY.state : FOLLOW_COPY.cta}

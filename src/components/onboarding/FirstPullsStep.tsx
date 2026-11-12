@@ -194,7 +194,7 @@ function SuggestionsBody({ result, pulls }: SuggestionsBodyProps) {
 }
 
 function CardWithError({ card, pulls }: { card: Card; pulls: WizardPullsApi }) {
-  const isPulled = pulls.isPulled(card.id);
+  const isPulled = pulls.isPulled(card);
   const isPending = pulls.isPending(card.id);
   const error = pulls.errorFor(card.id);
 

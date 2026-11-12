@@ -43,7 +43,7 @@
 import type { Route } from "next";
 import Link from "next/link";
 import type { MouseEvent, ReactNode } from "react";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 
 import {
   WatchIcon,
@@ -52,8 +52,7 @@ import {
   MessageIcon,
 } from "@/components/icons/registry";
 import { useCastAttestation, useRevokeAttestation } from "@/hooks/useAttestations";
-import { useWatchMutation, useUnwatchMutation, watchErrorCopy } from "@/hooks/useWatch";
-import { useWatching } from "@/hooks/useWatching";
+import { useViewerWatch, WATCH_UNKNOWN_COPY } from "@/hooks/useViewerWatch";
 import type {
   AttestationTargetKind,
   Card,
@@ -338,50 +337,26 @@ export function ActionBar({
   messagePermissions?: unknown;
 }) {
   // ── Watch ────────────────────────────────────────────────────────
-  // Same follow-map semantics as CardGrid's buildFollowMap: a watching
-  // row matches this card when kinds agree and (page_id ?? card_id)
-  // equals card.id. The query self-gates on session, so anon viewers
-  // never fire it (their button is server-disabled via can_watch).
-  const watchFallbackActive = onPull === undefined;
-  const watchingQuery = useWatching({ page_size: 50 });
-  const watchMutation = useWatchMutation();
-  const unwatchMutation = useUnwatchMutation();
+  // A host that owns watch state (CardGrid, the onboarding wizard) passes
+  // `onPull` + `isPulled`. Otherwise (the profile hero) the bar reads the
+  // card's own `viewer_is_watching` / `viewer_watch` (F-255) — never a page
+  // of /me/watching, which is partial past the 50th watch. Unknown (null)
+  // disables the pill with a reason instead of offering "Watch".
+  const hostOwnsWatch = onPull !== undefined;
+  const viewerWatch = useViewerWatch(card);
+  const effectivePulled = hostOwnsWatch ? isPulled : viewerWatch.watching;
+  const watchUnknown = !hostOwnsWatch && viewerWatch.unknown;
   // F-236: a refused or failed watch surfaces through the pill's tooltip,
   // the same place a failed vouch does: the card is a fixed 440px with no
   // room for a line. Keyed on the error code, never err.message.
-  const [watchError, setWatchError] = useState<string | null>(null);
-  const fallbackEntry = useMemo(() => {
-    if (!watchFallbackActive) return undefined;
-    const items = watchingQuery.data?.items ?? [];
-    const hit = items.find(
-      (item) =>
-        item.card_kind === card.card_kind &&
-        (item.page_id !== null ? item.page_id : item.card_id) === card.id
-    );
-    return hit !== undefined
-      ? { follow_id: hit.follow_id, source: hit.follow_source ?? "peepso" }
-      : undefined;
-  }, [watchFallbackActive, watchingQuery.data, card.card_kind, card.id]);
-  const effectivePulled = watchFallbackActive ? fallbackEntry !== undefined : isPulled;
+  const watchError = hostOwnsWatch ? null : viewerWatch.error;
 
   const handleWatchClick = () => {
     if (onPull !== undefined) {
       onPull(card);
       return;
     }
-    if (watchMutation.isPending || unwatchMutation.isPending) return;
-    setWatchError(null);
-    if (fallbackEntry !== undefined) {
-      unwatchMutation.mutate(
-        { follow_id: fallbackEntry.follow_id, source: fallbackEntry.source },
-        { onError: (err) => setWatchError(watchErrorCopy(err, "unwatch")) },
-      );
-    } else {
-      watchMutation.mutate(
-        { target_kind: card.card_kind, target_id: card.id },
-        { onError: (err) => setWatchError(watchErrorCopy(err, "watch")) },
-      );
-    }
+    viewerWatch.toggle();
   };
 
   // ── Vouch ────────────────────────────────────────────────────────
@@ -446,7 +421,11 @@ export function ActionBar({
     castVouch.mutate({ kind: "vouch", target_kind: targetKind, target_id: card.id });
   };
 
-  const watchAllowed = isAllowed(card.permissions, "can_watch");
+  // The server's permission decides first (anonymous, own card, community
+  // cards are "not applicable" there); only a permitted watch can be
+  // blocked by an unknown state.
+  const watchPermitted = isAllowed(card.permissions, "can_watch");
+  const watchAllowed = watchPermitted && !watchUnknown;
 
   // A member card's `id` IS the user id (CardViewService emits
   // 'id' => $userId on that branch), so the recipient needs no extra lookup.
@@ -474,8 +453,10 @@ export function ActionBar({
             ? effectivePulled
               ? FOLLOW_COPY.tooltipActive
               : FOLLOW_COPY.tooltipIdle
-            : unlockHint(card.permissions, "can_watch") ??
-              `${FOLLOW_COPY.cta} is unavailable for this card.`)
+            : watchPermitted
+              ? WATCH_UNKNOWN_COPY
+              : unlockHint(card.permissions, "can_watch") ??
+                `${FOLLOW_COPY.cta} is unavailable for this card.`)
         }
         icon={<WatchIcon size={14} strokeWidth={1.9} aria-hidden />}
         idleLabel="Watch"
