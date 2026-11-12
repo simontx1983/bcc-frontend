@@ -122,6 +122,7 @@ vi.mock("@/hooks/usePushSubscription", () => ({
     events: {},
     enable: idleMutation,
     disable: idleMutation,
+    removeThisDevice: idleMutation,
   }),
 }));
 

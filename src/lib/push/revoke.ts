@@ -57,7 +57,17 @@ export function rememberPushSubscriptionId(id: number): void {
   }
 }
 
-function readPushSubscriptionId(): number | null {
+/** Forget the parked id once this device's row has been removed. */
+export function forgetPushSubscriptionId(): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.removeItem(PUSH_SUBSCRIPTION_ID_KEY);
+  } catch {
+    // Storage blocked — nothing parked to forget.
+  }
+}
+
+export function readPushSubscriptionId(): number | null {
   if (typeof window === "undefined") {
     return null;
   }
