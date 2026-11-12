@@ -77,6 +77,12 @@ export interface WalletConnection {
    * chains.
    */
   source: string;
+  /**
+   * Polkadot only: every account the wallet exposed. Omitted for other
+   * chains (their wallets expose one active account). `address` is the
+   * first of these until the caller picks another.
+   */
+  accounts?: ReadonlyArray<{ address: string; name: string | null }>;
 }
 
 export interface WalletSignature {
@@ -113,7 +119,7 @@ export async function connectWallet(
     }
     case "polkadot": {
       const c = await connectPolkadot();
-      return { address: c.address, chainId: "", source: c.source };
+      return { address: c.address, chainId: "", source: c.source, accounts: c.accounts };
     }
   }
 }

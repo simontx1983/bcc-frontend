@@ -358,6 +358,9 @@ export function ClaimFlow({ pageId, pageName, target, onClose }: ClaimFlowProps)
           stuck={stuck}
           error={step.error}
           next={step.next}
+          onPickAccount={(address) => {
+            setStep({ ...step, connection: { ...step.connection, address }, error: null });
+          }}
           onSign={() => { void handleSign(step.connection, step.chainType); }}
           onUseOtherWallet={() => { void handleConnect(); }}
           onCancel={handleClose}
@@ -485,6 +488,7 @@ function SignatureStep({
   stuck,
   error,
   next,
+  onPickAccount,
   onSign,
   onUseOtherWallet,
   onCancel,
@@ -496,6 +500,7 @@ function SignatureStep({
   stuck: boolean;
   error: string | null;
   next: "retry" | "other-wallet" | "final";
+  onPickAccount: (address: string) => void;
   onSign: () => void;
   onUseOtherWallet: () => void;
   onCancel: () => void;
@@ -510,6 +515,14 @@ function SignatureStep({
         We match this address against {pageName}&apos;s on-chain operator key —
         if they match, the page is yours.
       </p>
+      {connection.accounts !== undefined && connection.accounts.length > 1 && (
+        <AccountPicker
+          accounts={connection.accounts}
+          selected={connection.address}
+          disabled={pending}
+          onPick={onPickAccount}
+        />
+      )}
       <p className="bcc-mono mt-4 text-[11px] text-bcc-text-secondary">
         Signing is free. No transaction is broadcast.
       </p>
@@ -643,6 +656,56 @@ function SecondaryButton({
     >
       {children}
     </button>
+  );
+}
+
+/**
+ * Polkadot wallets expose every account at once, and a validator claim
+ * must be signed by the STASH account — which is often not the first
+ * (that used to be the only one ever used, so an operator whose stash
+ * wasn't first could never claim). Shown only when there is a choice.
+ */
+function AccountPicker({
+  accounts,
+  selected,
+  disabled,
+  onPick,
+}: {
+  accounts: ReadonlyArray<{ address: string; name: string | null }>;
+  selected: string;
+  disabled: boolean;
+  onPick: (address: string) => void;
+}) {
+  return (
+    <fieldset className="mt-4" disabled={disabled}>
+      <legend className="bcc-mono text-[11px] text-bcc-text-secondary">
+        Your wallet has {accounts.length} accounts. Pick the validator&apos;s stash account:
+      </legend>
+      <div className="mt-2 flex max-h-56 flex-col gap-1 overflow-y-auto">
+        {accounts.map((a) => (
+          <label
+            key={a.address}
+            className="flex min-h-[44px] cursor-pointer items-center gap-3 rounded-sm border border-bcc-border px-3 py-2 has-[:checked]:border-bcc-accent"
+          >
+            <input
+              type="radio"
+              name="claim-signer-account"
+              value={a.address}
+              checked={a.address === selected}
+              onChange={() => onPick(a.address)}
+            />
+            <span className="min-w-0">
+              {a.name !== null && a.name !== "" && (
+                <span className="block font-serif text-[14px] text-bcc-text">{a.name}</span>
+              )}
+              <span className="bcc-mono block break-all text-[11px] text-bcc-text-secondary">
+                {a.address}
+              </span>
+            </span>
+          </label>
+        ))}
+      </div>
+    </fieldset>
   );
 }
 
