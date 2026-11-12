@@ -35,8 +35,26 @@ const TOKENS: Record<Surface, { glyph: string; heading: string; detail: string }
   },
 };
 
-export function ProfilePrivateNotice({ surface = "theme" }: { surface?: Surface }) {
+/**
+ * Copy override for a surface that is not the profile itself — e.g. an
+ * entity page's Watchers tab, withheld because its OWNER's profile is not
+ * viewable (F-26). Same state, same no-Retry rule; only the words change.
+ */
+export interface PrivateNoticeCopy {
+  heading: string;
+  detail: string;
+}
+
+export function ProfilePrivateNotice({
+  surface = "theme",
+  copy,
+}: {
+  surface?: Surface;
+  copy?: PrivateNoticeCopy;
+}) {
   const tokens = TOKENS[surface];
+  const heading = copy?.heading ?? PROFILE_PRIVATE_HEADING;
+  const detail = copy?.detail ?? PROFILE_PRIVATE_DETAIL;
   return (
     <div
       role="status"
@@ -44,8 +62,8 @@ export function ProfilePrivateNotice({ surface = "theme" }: { surface?: Surface 
       className="flex flex-col items-center gap-2 py-8 text-center"
     >
       <Lock size={22} strokeWidth={1.6} aria-hidden className={tokens.glyph} />
-      <p className={"bcc-stencil text-[17px] " + tokens.heading}>{PROFILE_PRIVATE_HEADING}</p>
-      <p className={"font-serif text-[13px] italic " + tokens.detail}>{PROFILE_PRIVATE_DETAIL}</p>
+      <p className={"bcc-stencil text-[17px] " + tokens.heading}>{heading}</p>
+      <p className={"font-serif text-[13px] italic " + tokens.detail}>{detail}</p>
     </div>
   );
 }
@@ -62,14 +80,21 @@ export function ProfileReadFailure({
   message,
   onRetry,
   surface = "theme",
+  privateCopy,
 }: {
   error: unknown;
   message: string;
   onRetry?: () => void;
   surface?: Surface;
+  privateCopy?: PrivateNoticeCopy;
 }) {
   if (isProfilePrivate(error)) {
-    return <ProfilePrivateNotice surface={surface} />;
+    return (
+      <ProfilePrivateNotice
+        surface={surface}
+        {...(privateCopy !== undefined ? { copy: privateCopy } : {})}
+      />
+    );
   }
   return (
     <LoadFailure

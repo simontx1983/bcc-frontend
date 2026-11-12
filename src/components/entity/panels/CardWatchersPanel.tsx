@@ -33,7 +33,10 @@ import {
   useReportDenial,
 } from "@/lib/api/resource-denial";
 import { dedupeById } from "@/lib/pagination";
-import { LoadFailure } from "@/components/ui/LoadFailure";
+import {
+  ProfileReadFailure,
+  type PrivateNoticeCopy,
+} from "@/components/profile/ProfilePrivateNotice";
 import { humanizeCode, isPermissionDenial } from "@/lib/api/errors";
 import type { Card, EntityCardKind } from "@/lib/api/types";
 
@@ -60,6 +63,18 @@ function readStoredView(): RosterView {
 const WATCHERS_WITHDRAWN_COPY = "You can’t see who is watching this card.";
 
 /**
+ * F-26 (bcc-trust #547): the page OWNER's profile is not viewable by this
+ * viewer (private, members/friends-only or suspended), so neither is the
+ * list of who watches their page. The owner's choice, not a failure: the
+ * calm private state, never an alert, never a Retry. Worded so it holds
+ * for every one of those reasons, not just "private".
+ */
+const WATCHERS_HIDDEN_COPY: PrivateNoticeCopy = {
+  heading: "Watchers are hidden.",
+  detail: "This page’s owner keeps their profile out of view, and the watcher list with it.",
+};
+
+/**
  * The denial gate. Owns no query, so latching it unmounts the panel below
  * — which is what makes removing the cache entry safe. See
  * `lib/api/resource-denial`.
@@ -75,7 +90,12 @@ export function CardWatchersPanel(props: CardWatchersPanelProps) {
             Watchers
           </h3>
         </header>
-        <LoadFailure surface="paper" message={WATCHERS_WITHDRAWN_COPY} />
+        <ProfileReadFailure
+          error={gate.cause}
+          surface="paper"
+          message={WATCHERS_WITHDRAWN_COPY}
+          privateCopy={WATCHERS_HIDDEN_COPY}
+        />
       </article>
     );
   }
@@ -89,7 +109,7 @@ function CardWatchersPanelData({
   cardName,
   isClaimed,
   onDenied,
-}: CardWatchersPanelProps & { onDenied: () => void }) {
+}: CardWatchersPanelProps & { onDenied: (cause?: unknown) => void }) {
   const [view, setView] = useState<RosterView>("list");
   useEffect(() => {
     setView(readStoredView());
@@ -106,6 +126,7 @@ function CardWatchersPanelData({
   useReportDenial(
     shouldWithdrawOnDenial(query.error, query.isRefetchError, query.data !== undefined),
     onDenied,
+    query.error,
   );
 
   // Pages in fetch order; TanStack appends only on success, so a failed LOAD
@@ -227,9 +248,11 @@ function Body(props: BodyProps) {
   // list, below, so the roster and its view toggle survive.
   if (failed && watchers.length === 0) {
     return (
-      <LoadFailure
+      <ProfileReadFailure
+        error={props.error}
         surface="paper"
         message={failureCopy}
+        privateCopy={WATCHERS_HIDDEN_COPY}
         {...retryProps}
       />
     );
@@ -280,9 +303,11 @@ function Body(props: BodyProps) {
           failing — advancing would skip the offset that failed. Retry
           refetches that same offset; paging resumes once it succeeds. */}
       {failed ? (
-        <LoadFailure
+        <ProfileReadFailure
+          error={props.error}
           surface="paper"
           message={failureCopy}
+          privateCopy={WATCHERS_HIDDEN_COPY}
           {...retryProps}
         />
       ) : (

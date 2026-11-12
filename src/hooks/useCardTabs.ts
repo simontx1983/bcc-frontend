@@ -46,6 +46,7 @@ import {
   getCardReviews,
   getCardWatchers,
 } from "@/lib/api/card-tabs-endpoints";
+import { retryUnlessProfilePrivate } from "@/lib/api/errors";
 import type {
   BccApiError,
   CardReviewsResponse,
@@ -111,5 +112,9 @@ export function useCardWatchers(kind: EntityCardKind, id: number) {
         : undefined,
     enabled: id > 0,
     staleTime: 30_000,
+    // F-26 (bcc-trust #547): a page whose owner's profile this viewer
+    // cannot see answers 403 profile_private. The owner's setting does not
+    // change a second later, so that answer is final after ONE request.
+    retry: retryUnlessProfilePrivate,
   });
 }
