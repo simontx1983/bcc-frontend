@@ -89,6 +89,34 @@ function walletNameFor(chainType: WalletChainType | null): string {
   }
 }
 
+/** A wallet that has not answered by now is treated as a failed request. */
+const WALLET_TIMEOUT_MS = 90_000;
+/** In flight this long (any request), the step offers CLOSE ANYWAY. */
+const CLOSE_ANYWAY_AFTER_MS = 30_000;
+
+class WalletTimeoutError extends Error {
+  constructor() {
+    super("wallet request timed out");
+    this.name = "WalletTimeoutError";
+  }
+}
+
+/**
+ * Race a wallet call against WALLET_TIMEOUT_MS. Some extensions leave a
+ * request queued when their popup is dismissed instead of rejecting it, so
+ * the promise never settles. The losing promise is abandoned: whatever it
+ * resolves to later is never awaited, so nothing follows from it.
+ */
+function withWalletTimeout<T>(promise: Promise<T>): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new WalletTimeoutError()), WALLET_TIMEOUT_MS);
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+}
+
+const WALLET_TIMEOUT_COPY = "Your wallet didn't respond. Check its window, then try again.";
+
 interface ClaimFlowProps {
   pageId: number;
   pageName: string;
@@ -126,7 +154,38 @@ export function ClaimFlow({ pageId, pageName, target, onClose }: ClaimFlowProps)
   // out to be claimed already). Closing then refreshes the server-rendered
   // page — not only from the confirmation step.
   const landedRef = useRef(false);
+
+  // Per-attempt cancel token. Every connect/sign run takes a number; closing
+  // the modal, unmounting it, or starting a new run moves the counter on,
+  // and a run checks it after every await. A superseded run stops where it
+  // is: it never sends the link or the claim, records no analytics and
+  // sets no state. Without this, CLOSE ANYWAY (or a RETRY) left the old
+  // run alive, and approving in the still-open wallet later linked and
+  // claimed out of sight, after the page had already refreshed.
+  const runRef = useRef(0);
+  useEffect(
+    () => () => {
+      runRef.current += 1;
+    },
+    [],
+  );
   const pending = (step.kind === "connect" || step.kind === "signature") && step.pending;
+
+  // The close-hold must not be a trap. Wallet calls are raced against
+  // WALLET_TIMEOUT_MS (below), and if anything is still in flight after
+  // CLOSE_ANYWAY_AFTER_MS the step offers CLOSE ANYWAY — an extension
+  // that leaves a request queued instead of rejecting (a dismissed
+  // polkadot-js signRaw) or a stalled request would otherwise hold the
+  // modal open until a reload.
+  const [stuck, setStuck] = useState(false);
+  useEffect(() => {
+    if (!pending) {
+      setStuck(false);
+      return;
+    }
+    const timer = setTimeout(() => setStuck(true), CLOSE_ANYWAY_AFTER_MS);
+    return () => clearTimeout(timer);
+  }, [pending]);
 
   // Each step replaces the focused button with a new screen. Move focus to
   // the new step's heading so keyboard and screen-reader users land on —
@@ -137,6 +196,16 @@ export function ClaimFlow({ pageId, pageName, target, onClose }: ClaimFlowProps)
     bodyRef.current?.querySelector<HTMLElement>("h3")?.focus();
   }, [step.kind]);
 
+  // An error inside a step swaps the focused (now disabled) button for a
+  // different one — RETRY, USE A DIFFERENT WALLET or CLOSE — which drops
+  // focus to <body>. Put it on the step's primary action instead; the
+  // error itself is announced by its role=alert line.
+  const stepError = step.kind === "connect" || step.kind === "signature" ? step.error : null;
+  useEffect(() => {
+    if (stepError === null) return;
+    bodyRef.current?.querySelector<HTMLElement>("[data-claim-primary]")?.focus();
+  }, [stepError]);
+
   // ── Step 2: Connect the chain's wallet ─────────────────────────────
   const chainType = findWalletChain(target.chain_slug)?.chainType ?? null;
   const claimable = chainType !== null && isChainClaimable(target.chain_slug);
@@ -144,6 +213,7 @@ export function ClaimFlow({ pageId, pageName, target, onClose }: ClaimFlowProps)
   const handleConnect = async () => {
     // The attempt starts when the operator commits to it. The chain slug
     // is the only property: no page, entity or wallet identifiers.
+    const run = ++runRef.current;
     captureAnalyticsEvent("claim_started", { chain: target.chain_slug });
     if (!claimable) {
       setStep({
@@ -158,9 +228,11 @@ export function ClaimFlow({ pageId, pageName, target, onClose }: ClaimFlowProps)
       // The shared wallet layer (lib/wallet/dispatch), not a parallel
       // provider path: §11, and the signed bundle it produces is what the
       // backend verifier reads.
-      const connection = await connectWallet(target.chain_slug, chainType);
+      const connection = await withWalletTimeout(connectWallet(target.chain_slug, chainType));
+      if (run !== runRef.current) return;
       setStep({ kind: "signature", connection, chainType, pending: false, error: null, next: "retry" });
     } catch (err) {
+      if (run !== runRef.current) return;
       setStep({
         kind: "connect",
         pending: false,
@@ -174,6 +246,7 @@ export function ClaimFlow({ pageId, pageName, target, onClose }: ClaimFlowProps)
     connection: WalletConnection,
     signChainType: WalletChainType,
   ) => {
+    const run = ++runRef.current;
     setStep({ kind: "signature", connection, chainType: signChainType, pending: true, error: null, next: "retry" });
     // Which call failed decides the copy: a link error and a claim error
     // are different problems with different fixes.
@@ -182,18 +255,28 @@ export function ClaimFlow({ pageId, pageName, target, onClose }: ClaimFlowProps)
       // 3a–3c. Nonce → signature → link, via the shared flow. The bundle
       // carries the chain's `extra` (e.g. Cosmos {pub_key, chain_id}),
       // which is the only place the verifier reads the key from.
-      const linked = await signLinkChallenge(target.chain_slug, signChainType, connection);
+      // Raced: a wallet that never answers lands on the error state with a
+      // retry. signLinkChallenge is the nonce and the wallet signature only
+      // (the link POST is linkOrConfirmOwnWallet, below), so a timed-out or
+      // closed run has sent nothing that changes the account.
+      const linked = await withWalletTimeout(
+        signLinkChallenge(target.chain_slug, signChainType, connection),
+      );
+      if (run !== runRef.current) return;
       // A wallet already linked to THIS account (a re-run, or a retry after
       // the link succeeded and the claim failed) is not an error. A wallet
       // linked to ANOTHER account surfaces as bcc_conflict here.
       await linkOrConfirmOwnWallet(target.chain_slug, linked);
       // The wallet is on the account now, whatever the claim does next:
       // refresh the wallet list and the profile's wallet badges (the same
-      // keys useLinkWalletMutation invalidates).
+      // keys useLinkWalletMutation invalidates). Done even for a run that
+      // was closed meanwhile — the link landed, so the cache should say so.
       landedRef.current = true;
       void queryClient.invalidateQueries({ queryKey: MY_WALLETS_QUERY_KEY });
       void queryClient.invalidateQueries({ queryKey: ["user"] });
       void queryClient.invalidateQueries({ queryKey: ["users"] });
+      // Closed or superseded while linking: never go on to claim.
+      if (run !== runRef.current) return;
 
       // 3d. Claim the page now that the wallet is verified.
       phase = "claim";
@@ -202,11 +285,13 @@ export function ClaimFlow({ pageId, pageName, target, onClose }: ClaimFlowProps)
         entity_type: target.entity_type,
         entity_id:   target.entity_id,
       });
+      if (run !== runRef.current) return;
 
       captureAnalyticsEvent("claim_completed", { chain: target.chain_slug });
       setStep({ kind: "confirmation" });
     } catch (err) {
-      const next = phase === "claim" ? claimStepNext(err) : "retry";
+      if (run !== runRef.current) return;
+      const next = phase === "claim" ? claimStepNext(err) : linkStepNext(err);
       // Already claimed: the server state differs from what the page shows.
       if (next === "final") landedRef.current = true;
       setStep({
@@ -221,11 +306,14 @@ export function ClaimFlow({ pageId, pageName, target, onClose }: ClaimFlowProps)
   };
 
   const handleClose = () => {
-    // Held while a wallet request or the claim is in flight: closing would
-    // not cancel it — the signature, link and claim would still land, out
-    // of sight, with the page left showing UNCLAIMED.
-    if (pending) return;
-    if (step.kind === "confirmation" || landedRef.current) {
+    // Held while a request is in flight, unless it has been in flight long
+    // enough to offer CLOSE ANYWAY. Closing cancels the running attempt
+    // (runRef): whatever the wallet answers afterwards, nothing more is
+    // sent. A request already on the wire may still land, so closing while
+    // pending refreshes too.
+    if (pending && !stuck) return;
+    runRef.current += 1;
+    if (step.kind === "confirmation" || landedRef.current || pending) {
       router.refresh();
     }
     onClose();
@@ -235,7 +323,7 @@ export function ClaimFlow({ pageId, pageName, target, onClose }: ClaimFlowProps)
     <Dialog
       title="Claim this validator"
       onClose={handleClose}
-      closeDisabled={pending}
+      closeDisabled={pending && !stuck}
       panelClassName="max-w-lg"
     >
       <div ref={bodyRef}>
@@ -254,6 +342,7 @@ export function ClaimFlow({ pageId, pageName, target, onClose }: ClaimFlowProps)
           walletName={claimable ? walletNameFor(chainType) : "your wallet"}
           claimable={claimable}
           pending={step.pending}
+          stuck={stuck}
           error={step.error}
           onRetry={() => { void handleConnect(); }}
           onCancel={handleClose}
@@ -266,6 +355,7 @@ export function ClaimFlow({ pageId, pageName, target, onClose }: ClaimFlowProps)
           walletName={walletNameFor(step.chainType)}
           connection={step.connection}
           pending={step.pending}
+          stuck={stuck}
           error={step.error}
           next={step.next}
           onSign={() => { void handleSign(step.connection, step.chainType); }}
@@ -330,6 +420,7 @@ function ConnectStep({
   walletName,
   claimable,
   pending,
+  stuck,
   error,
   onRetry,
   onCancel,
@@ -338,6 +429,7 @@ function ConnectStep({
   walletName: string;
   claimable: boolean;
   pending: boolean;
+  stuck: boolean;
   error: string | null;
   onRetry: () => void;
   onCancel: () => void;
@@ -368,8 +460,11 @@ function ConnectStep({
         adds this wallet to your BCC account — you can remove it in Settings → Wallets.
       </p>
       {error !== null && <ErrorLine message={error} />}
+      {pending && stuck && <StuckNote walletName={walletName} />}
       <ButtonRow>
-        <SecondaryButton onClick={onCancel} disabled={pending}>CANCEL</SecondaryButton>
+        <SecondaryButton onClick={onCancel} disabled={pending && !stuck}>
+          {pending && stuck ? "CLOSE ANYWAY" : "CANCEL"}
+        </SecondaryButton>
         <PrimaryButton onClick={onRetry} disabled={pending}>
           {pending ? "CONNECTING…" : error !== null ? "RETRY" : "CONNECT WALLET"}
         </PrimaryButton>
@@ -387,6 +482,7 @@ function SignatureStep({
   walletName,
   connection,
   pending,
+  stuck,
   error,
   next,
   onSign,
@@ -397,6 +493,7 @@ function SignatureStep({
   walletName: string;
   connection: WalletConnection;
   pending: boolean;
+  stuck: boolean;
   error: string | null;
   next: "retry" | "other-wallet" | "final";
   onSign: () => void;
@@ -417,6 +514,7 @@ function SignatureStep({
         Signing is free. No transaction is broadcast.
       </p>
       {error !== null && <ErrorLine message={error} />}
+      {pending && stuck && <StuckNote walletName={walletName} />}
       <ButtonRow>
         {error !== null && next === "final" ? (
           // Nothing in this flow can succeed now; a retry would only fail
@@ -431,7 +529,9 @@ function SignatureStep({
           </>
         ) : (
           <>
-            <SecondaryButton onClick={onCancel} disabled={pending}>CANCEL</SecondaryButton>
+            <SecondaryButton onClick={onCancel} disabled={pending && !stuck}>
+              {pending && stuck ? "CLOSE ANYWAY" : "CANCEL"}
+            </SecondaryButton>
             <PrimaryButton onClick={onSign} disabled={pending}>
               {pending ? "SIGNING…" : error !== null ? "RETRY SIGNATURE" : "SIGN MESSAGE"}
             </PrimaryButton>
@@ -512,6 +612,7 @@ function PrimaryButton({
       onClick={onClick}
       disabled={disabled}
       aria-disabled={disabled}
+      data-claim-primary=""
       className={
         "bcc-stencil rounded-sm px-5 py-2.5 text-[12px] tracking-[0.2em] transition " +
         (disabled
@@ -545,6 +646,15 @@ function SecondaryButton({
   );
 }
 
+function StuckNote({ walletName }: { walletName: string }) {
+  return (
+    <p role="status" className="bcc-mono mt-3 text-[11px] text-bcc-text-secondary">
+      Still waiting on {walletName}. Check its window. If you close this, approving
+      in your wallet afterwards links and claims nothing — start the claim again.
+    </p>
+  );
+}
+
 function ErrorLine({ message }: { message: string }) {
   return (
     <p role="alert" className="bcc-mono mt-3 text-[11px] text-bcc-text-error">
@@ -559,6 +669,7 @@ function ErrorLine({ message }: { message: string }) {
 
 /** Connect step: provider problems (wallet missing, chain unknown, user cancel). */
 function humanizeWalletError(err: unknown): string {
+  if (err instanceof WalletTimeoutError) return WALLET_TIMEOUT_COPY;
   // dispatch.ts owns the per-provider copy (Keplr / MetaMask / Phantom /
   // Polkadot unavailable, user cancel, unsupported chain).
   return humanizeWalletProviderError(err) ?? "Couldn't reach your wallet. Try again.";
@@ -566,6 +677,7 @@ function humanizeWalletError(err: unknown): string {
 
 /** Nonce, signature and wallet link: proving you hold this wallet. */
 function humanizeLinkStepError(err: unknown): string {
+  if (err instanceof WalletTimeoutError) return WALLET_TIMEOUT_COPY;
   const provider = humanizeWalletProviderError(err);
   if (provider !== null) return provider;
   return humanizeCode(
@@ -598,13 +710,57 @@ function humanizeLinkStepError(err: unknown): string {
  */
 function claimStepNext(err: unknown): "retry" | "other-wallet" | "final" {
   const code = (err as { code?: unknown } | null)?.code;
-  if (code === "bcc_forbidden") return "other-wallet";
+  // The claim route refuses several different things with bcc_forbidden
+  // and tells them apart with data.reason (F-303). Only "not_operator"
+  // is fixed by another wallet; a suspended account, an entity not bound
+  // to this page, and an NFT holder who isn't the creator are final.
+  // Until the route sends a reason, a bare bcc_forbidden is the
+  // not-the-operator case.
+  if (code === "bcc_forbidden") {
+    const reason = forbiddenReason(err);
+    return reason === null || reason === "not_operator" ? "other-wallet" : "final";
+  }
   if (code === "bcc_conflict") return "final";
   return "retry";
 }
 
+/**
+ * A link-step failure that a re-sign cannot fix. bcc_conflict here means
+ * the wallet is on ANOTHER account (linkOrConfirmOwnWallet already turned
+ * this account's own wallet into a success), so the way forward is a
+ * different wallet, not RETRY SIGNATURE.
+ */
+function linkStepNext(err: unknown): "retry" | "other-wallet" {
+  const code = (err as { code?: unknown } | null)?.code;
+  return code === "bcc_conflict" ? "other-wallet" : "retry";
+}
+
+/** The claim route's bcc_forbidden reasons (F-303). */
+type ForbiddenReason = "suspended" | "entity_not_bound" | "not_operator" | "holder_not_owner";
+
+function forbiddenReason(err: unknown): ForbiddenReason | null {
+  const reason = (err as { data?: Record<string, unknown> | null } | null)?.data?.["reason"];
+  return reason === "suspended" ||
+    reason === "entity_not_bound" ||
+    reason === "not_operator" ||
+    reason === "holder_not_owner"
+    ? reason
+    : null;
+}
+
+const FORBIDDEN_REASON_COPY: Record<Exclude<ForbiddenReason, "not_operator">, string> = {
+  suspended: "Your account is suspended, so it can't claim pages right now.",
+  entity_not_bound: "This page isn't set up to be claimed this way. Refresh the page and try again.",
+  holder_not_owner:
+    "Holding an NFT from this collection doesn't make you its creator. Only the creator's wallet can claim this page.",
+};
+
 /** Claim: the wallet is verified; this is about the page itself. */
 function humanizeClaimStepError(err: unknown): string {
+  const reason = forbiddenReason(err);
+  if (reason !== null && reason !== "not_operator") {
+    return FORBIDDEN_REASON_COPY[reason];
+  }
   return humanizeCode(
     err,
     {
