@@ -72,7 +72,7 @@ afterEach(() => {
 
 describe("two-layer hero: each layer walks its own chain", () => {
   it("thumb error → thumb fallback; full error → full fallback", () => {
-    render(<NftPieceDetail piece={piece()} />);
+    render(<NftPieceDetail piece={piece()} routeCreatorSlug="demo" />);
     fireEvent.error(imgBySrc(THUMB)!);
     fireEvent.error(imgBySrc(FULL)!);
     expect(imgBySrc(THUMB_FB)).not.toBeNull();
@@ -80,7 +80,7 @@ describe("two-layer hero: each layer walks its own chain", () => {
   });
 
   it("a fully failed full image leaves the thumb visible", () => {
-    render(<NftPieceDetail piece={piece()} />);
+    render(<NftPieceDetail piece={piece()} routeCreatorSlug="demo" />);
     fireEvent.error(imgBySrc(FULL)!);
     fireEvent.error(imgBySrc(FULL_FB)!);
     expect(imgBySrc(THUMB)).not.toBeNull();
@@ -95,7 +95,7 @@ describe("the piece name is announced once", () => {
   }
 
   it("thumb exhausted, full still loading: the placeholder names the piece", () => {
-    render(<NftPieceDetail piece={piece()} />);
+    render(<NftPieceDetail piece={piece()} routeCreatorSlug="demo" />);
     exhaustThumb();
     expect(screen.getByText("No artwork")).not.toBeNull();
     expect(screen.getAllByRole("img", { name: "Piece 7" })).toHaveLength(2);
@@ -104,7 +104,7 @@ describe("the piece name is announced once", () => {
   });
 
   it("thumb exhausted, THEN the full image loads: placeholder is aria-hidden", () => {
-    render(<NftPieceDetail piece={piece()} />);
+    render(<NftPieceDetail piece={piece()} routeCreatorSlug="demo" />);
     exhaustThumb();
     fireEvent.load(imgBySrc(FULL)!);
 
@@ -118,6 +118,7 @@ describe("the piece name is announced once", () => {
     render(
       <NftPieceDetail
         piece={piece({ image_url: null, image_fallback_url: null, image_url_thumb_fallback_url: null })}
+        routeCreatorSlug="demo"
       />,
     );
     fireEvent.error(imgBySrc(THUMB)!);
