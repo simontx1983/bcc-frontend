@@ -27,11 +27,11 @@
  * card. Callback props are stable (`useCallback`).
  */
 
-import { memo, useCallback, useMemo } from "react";
+import { memo, useCallback, useMemo, useState } from "react";
 
 import { CardFactory } from "@/components/cards/CardFactory";
 import { useWatching } from "@/hooks/useWatching";
-import { useWatchMutation, useUnwatchMutation } from "@/hooks/useWatch";
+import { useWatchMutation, useUnwatchMutation, watchErrorCopy } from "@/hooks/useWatch";
 import type { Card, WatchingFollowSource } from "@/lib/api/types";
 
 interface CardGridProps {
@@ -83,6 +83,10 @@ export function CardGrid({ cards }: CardGridProps) {
   const watchingQuery = useWatching({ page_size: 50 });
   const pullMutation = useWatchMutation();
   const unpullMutation = useUnwatchMutation();
+  // F-236: a refused or failed toggle shows one line under that card,
+  // keyed on the error code (never err.message) and cleared by the next
+  // click. One at a time: a new click replaces it.
+  const [failure, setFailure] = useState<{ key: string; text: string } | null>(null);
 
   const followMap = useMemo(
     () => buildFollowMap(watchingQuery.data?.items ?? []),
@@ -93,10 +97,17 @@ export function CardGrid({ cards }: CardGridProps) {
     (card: Card): void => {
       const key = `${card.card_kind}-${card.id}`;
       const entry = followMap.get(key);
+      setFailure(null);
       if (entry !== undefined) {
-        unpullMutation.mutate({ follow_id: entry.follow_id, source: entry.source });
+        unpullMutation.mutate(
+          { follow_id: entry.follow_id, source: entry.source },
+          { onError: (err) => setFailure({ key, text: watchErrorCopy(err, "unwatch") }) },
+        );
       } else {
-        pullMutation.mutate({ target_kind: card.card_kind, target_id: card.id });
+        pullMutation.mutate(
+          { target_kind: card.card_kind, target_id: card.id },
+          { onError: (err) => setFailure({ key, text: watchErrorCopy(err, "watch") }) },
+        );
       }
     },
     [followMap, pullMutation, unpullMutation],
@@ -117,6 +128,7 @@ export function CardGrid({ cards }: CardGridProps) {
             card={card}
             isPulled={followMap.has(key)}
             onPull={handlePull}
+            failure={failure?.key === key ? failure.text : null}
           />
         );
       })}
@@ -134,14 +146,26 @@ const CardGridCell = memo(function CardGridCell({
   card,
   isPulled,
   onPull,
+  failure,
 }: {
   card: Card;
   isPulled: boolean;
   onPull: (card: Card) => void;
+  failure: string | null;
 }) {
+  // The line sits OUTSIDE the fixed-size card, as a block sibling in the
+  // cell; the card itself keeps its exact footprint.
   return (
     <li>
       <CardFactory card={card} isPulled={isPulled} onPull={onPull} />
+      {failure !== null && (
+        <p
+          role="status"
+          className="bcc-mono mt-2 text-center text-[11px] leading-snug text-[var(--bcc-text-secondary)]"
+        >
+          {failure}
+        </p>
+      )}
     </li>
   );
 });

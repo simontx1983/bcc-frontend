@@ -44,4 +44,13 @@ export const FOLLOW_COPY = {
   watchingUpper: "WATCHING",
   /** Verb phrase, mid-sentence — "Pick people you want to watch." */
   verbPhrase: "watch",
+  /**
+   * Inline line when the server refuses a watch with 403 `bcc_forbidden`
+   * (contract v1.124, F-29): a block between the viewer and the owner in
+   * either direction, or a suspended viewer. Generic on purpose: it never
+   * says who blocked whom. Same words as the server's own message.
+   */
+  refused: "You can't watch this account.",
+  /** Inline line for any other failed watch or unwatch. */
+  failed: "Couldn't update this. Try again.",
 } as const;

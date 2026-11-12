@@ -26,14 +26,39 @@
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
+import { humanizeCode } from "@/lib/api/errors";
 import { watchCard, unwatchCard, type WatchCardRequest } from "@/lib/api/watching-endpoints";
 import { WATCHING_QUERY_KEY_ROOT } from "@/hooks/useWatching";
+import { FOLLOW_COPY } from "@/lib/copy";
 import type {
   BccApiError,
   WatchingFollowSource,
   WatchCardResponse,
   UnwatchCardResponse,
 } from "@/lib/api/types";
+
+/**
+ * Inline copy for a failed watch or unwatch, keyed on `err.code` and never
+ * on `err.message` (§γ). One helper so every watch surface says the same
+ * thing.
+ *
+ * F-236: `POST /me/watching/watch` refuses with 403 `bcc_forbidden` when a
+ * block exists either way, or the viewer is suspended (contract v1.124).
+ * The line is generic and reveals no block. A mutation does not retry
+ * (the QueryClient sets retry only for queries), and the mutation's
+ * onSettled already refetches the watching list, which drops a member
+ * the block removed.
+ */
+export function watchErrorCopy(err: unknown, verb: "watch" | "unwatch"): string {
+  return humanizeCode(
+    err,
+    {
+      ...(verb === "watch" ? { bcc_forbidden: FOLLOW_COPY.refused } : {}),
+      bcc_rate_limited: "Too fast — wait a moment and try again.",
+    },
+    FOLLOW_COPY.failed,
+  );
+}
 
 export function useWatchMutation() {
   const queryClient = useQueryClient();

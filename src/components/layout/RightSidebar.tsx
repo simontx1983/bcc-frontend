@@ -14,7 +14,7 @@
  * Suggested → useSuggestedMembers, auth-only).
  */
 
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 
@@ -26,7 +26,7 @@ import { useMembers } from "@/hooks/useMembers";
 import { useTrendingHashtags } from "@/hooks/useTrendingHashtags";
 import { useSuggestedMembers } from "@/hooks/useSuggestedMembers";
 import { useWatching } from "@/hooks/useWatching";
-import { useWatchMutation, useUnwatchMutation } from "@/hooks/useWatch";
+import { useWatchMutation, useUnwatchMutation, watchErrorCopy } from "@/hooks/useWatch";
 import { FOLLOW_COPY } from "@/lib/copy";
 import type { SuggestedMember, WatchingFollowSource } from "@/lib/api/types";
 
@@ -201,6 +201,10 @@ function SuggestedWidget() {
   const watchingQuery = useWatching({ page_size: 50 });
   const watchMutation = useWatchMutation();
   const unwatchMutation = useUnwatchMutation();
+  // F-236: inline line under the row whose toggle failed. Keyed on the
+  // error code, never err.message; cleared by the next click. One at a
+  // time is enough because every row is disabled while a toggle runs.
+  const [failure, setFailure] = useState<{ memberId: number; text: string } | null>(null);
 
   const followMap = useMemo(() => {
     const map = new Map<string, SuggestedFollowEntry>();
@@ -217,10 +221,17 @@ function SuggestedWidget() {
   const handleToggle = useCallback(
     (member: SuggestedMember): void => {
       const entry = followMap.get(`member-${member.id}`);
+      setFailure(null);
       if (entry !== undefined) {
-        unwatchMutation.mutate({ follow_id: entry.follow_id, source: entry.source });
+        unwatchMutation.mutate(
+          { follow_id: entry.follow_id, source: entry.source },
+          { onError: (err) => setFailure({ memberId: member.id, text: watchErrorCopy(err, "unwatch") }) },
+        );
       } else {
-        watchMutation.mutate({ target_kind: "member", target_id: member.id });
+        watchMutation.mutate(
+          { target_kind: "member", target_id: member.id },
+          { onError: (err) => setFailure({ memberId: member.id, text: watchErrorCopy(err, "watch") }) },
+        );
       }
     },
     [followMap, watchMutation, unwatchMutation],
@@ -298,6 +309,14 @@ function SuggestedWidget() {
                   {isFollowing ? FOLLOW_COPY.state : FOLLOW_COPY.cta}
                 </button>
               </div>
+              {failure?.memberId === member.id && (
+                <span
+                  role="status"
+                  className="bcc-mono text-[10px] leading-snug text-[var(--bcc-text-secondary)]"
+                >
+                  {failure.text}
+                </span>
+              )}
               {/* Social-proof line — sits below the avatar+name row (not
                   squeezed into it, which used to push the name/handle
                   upward off-center against the avatar). `avatars` is only
