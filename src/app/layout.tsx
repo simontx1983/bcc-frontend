@@ -1,10 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import {
-  Big_Shoulders_Stencil,
-  Fraunces,
-  JetBrains_Mono,
-  Homemade_Apple,
-} from "next/font/google";
+import localFont from "next/font/local";
 import { getServerSession } from "next-auth";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 
@@ -17,31 +12,41 @@ import { appOrigin } from "@/lib/app-origin";
 import { isIndexableEnvironment } from "@/lib/seo/indexing";
 import "./globals.css";
 
-const stencil = Big_Shoulders_Stencil({
-  subsets: ["latin"],
-  weight: ["400", "700", "800", "900"],
+// Self-hosted brand fonts. `next/font/google` fetched these from Google
+// at BUILD time, and that fetch failing intermittently failed Vercel
+// builds ("Cannot read properties of null (reading '1')" in
+// next/font/dist/google/loader.js). The files in ./fonts are the exact
+// latin woff2 files Google served for the same families, weights and
+// styles. They are variable fonts, so one file covers every weight below.
+// Licences sit beside them: SIL OFL 1.1 (Big Shoulders Stencil, Fraunces,
+// JetBrains Mono) and Apache 2.0 (Homemade Apple).
+
+const stencil = localFont({
+  src: [{ path: "./fonts/BigShouldersStencil-latin.woff2", weight: "400 900", style: "normal" }],
   variable: "--font-stencil",
   display: "swap",
 });
 
-const fraunces = Fraunces({
-  subsets: ["latin"],
-  weight: ["400", "500"],
-  style: ["normal", "italic"],
+const fraunces = localFont({
+  src: [
+    { path: "./fonts/Fraunces-latin.woff2", weight: "400 500", style: "normal" },
+    { path: "./fonts/Fraunces-Italic-latin.woff2", weight: "400 500", style: "italic" },
+  ],
   variable: "--font-serif",
   display: "swap",
+  // A serif: size-adjust its fallback against Times New Roman, as the
+  // Google loader did for serif families (the default is Arial).
+  adjustFontFallback: "Times New Roman",
 });
 
-const mono = JetBrains_Mono({
-  subsets: ["latin"],
-  weight: ["400", "500", "700"],
+const mono = localFont({
+  src: [{ path: "./fonts/JetBrainsMono-latin.woff2", weight: "400 700", style: "normal" }],
   variable: "--font-mono",
   display: "swap",
 });
 
-const script = Homemade_Apple({
-  subsets: ["latin"],
-  weight: ["400"],
+const script = localFont({
+  src: [{ path: "./fonts/HomemadeApple-latin.woff2", weight: "400", style: "normal" }],
   variable: "--font-script",
   display: "swap",
 });
