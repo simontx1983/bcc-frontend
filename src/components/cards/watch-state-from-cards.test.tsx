@@ -116,7 +116,10 @@ describe("CardGrid", () => {
     expect(btn).toHaveAttribute("aria-pressed", "true");
     fireEvent.click(btn);
 
-    expect(unwatchMutate).toHaveBeenCalledWith({ follow_id: 9073, source: "peepso" }, expect.anything());
+    expect(unwatchMutate).toHaveBeenCalledWith(
+      expect.objectContaining({ follow_id: 9073, source: "peepso" }),
+      expect.anything(),
+    );
     expect(screen.getByRole("button", { name: "Watch Fixture Validator" })).toHaveAttribute("aria-pressed", "false");
     expect(watchingRead).not.toHaveBeenCalled();
   });
@@ -133,7 +136,10 @@ describe("CardGrid", () => {
     expect(watchMutate).toHaveBeenCalledWith({ target_kind: "validator", target_id: 501 }, expect.anything());
 
     fireEvent.click(screen.getByRole("button", { name: "Watching Fixture Validator" }));
-    expect(unwatchMutate).toHaveBeenCalledWith({ follow_id: 77, source: "page" }, expect.anything());
+    expect(unwatchMutate).toHaveBeenCalledWith(
+      expect.objectContaining({ follow_id: 77, source: "page" }),
+      expect.anything(),
+    );
   });
 
   it("unknown (null) never offers Watch: disabled with a reason, and a click sends nothing", () => {
@@ -155,17 +161,25 @@ describe("card ActionBar (profile hero, no host)", () => {
     const pill = screen.getByRole("button", { name: "Stop watching Fixture Validator" });
     expect(pill).toHaveAttribute("title", FOLLOW_COPY.tooltipActive);
     fireEvent.click(pill);
-    expect(unwatchMutate).toHaveBeenCalledWith({ follow_id: 9073, source: "peepso" }, expect.anything());
+    expect(unwatchMutate).toHaveBeenCalledWith(
+      expect.objectContaining({ follow_id: 9073, source: "peepso" }),
+      expect.anything(),
+    );
     expect(screen.getByRole("button", { name: "Watch Fixture Validator" })).toBeInTheDocument();
     expect(watchingRead).not.toHaveBeenCalled();
   });
 
-  it("unknown disables the pill with the reason", () => {
+  it("unknown locks the pill; its tooltip and a tap both give the unknown reason", () => {
     const unknown = { ...WATCHED_PAST_50, viewer_is_watching: null, viewer_watch: null } as Card;
     render(<ActionBar card={unknown} isPulled={false} />);
     const pill = screen.getByRole("button", { name: "Watch Fixture Validator" });
-    expect(pill).toBeDisabled();
+    expect(pill).toHaveAttribute("aria-disabled", "true");
     expect(pill).toHaveAttribute("title", WATCH_UNKNOWN_COPY);
+
+    fireEvent.click(pill);
+    expect(screen.getByText(WATCH_UNKNOWN_COPY)).toBeInTheDocument();
+    expect(screen.queryByText(/Watch is unavailable for this card/)).toBeNull();
+    expect(watchMutate).not.toHaveBeenCalled();
   });
 });
 
@@ -181,7 +195,10 @@ describe("MemberFollowButton (author card)", () => {
       />,
     );
     fireEvent.click(screen.getByRole("button", { name: "Stop watching Dana Reyes" }));
-    expect(unwatchMutate).toHaveBeenCalledWith({ follow_id: 9100, source: "peepso" }, expect.anything());
+    expect(unwatchMutate).toHaveBeenCalledWith(
+      expect.objectContaining({ follow_id: 9100, source: "peepso", target: { card_kind: "member", id: 42 } }),
+      expect.anything(),
+    );
     expect(screen.getByRole("button", { name: "Watch Dana Reyes" })).toBeInTheDocument();
   });
 

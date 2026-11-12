@@ -3021,23 +3021,24 @@
   .bcc-card-pill .bcc-pill-undo {
     display: none;
   }
-  .bcc-card-pill-on:not(:disabled):hover,
-  .bcc-card-pill-on:not(:disabled):focus-visible {
+  .bcc-card-pill-on:not(:disabled):not([aria-disabled="true"]):hover,
+  .bcc-card-pill-on:not(:disabled):not([aria-disabled="true"]):focus-visible {
     background: transparent;
     border-color: var(--bcc-trust-risky);
     color: var(--bcc-trust-risky);
   }
-  .bcc-card-pill-on:not(:disabled):hover .bcc-pill-on-label,
-  .bcc-card-pill-on:not(:disabled):focus-visible .bcc-pill-on-label {
+  .bcc-card-pill-on:not(:disabled):not([aria-disabled="true"]):hover .bcc-pill-on-label,
+  .bcc-card-pill-on:not(:disabled):not([aria-disabled="true"]):focus-visible .bcc-pill-on-label {
     display: none;
   }
-  .bcc-card-pill-on:not(:disabled):hover .bcc-pill-undo,
-  .bcc-card-pill-on:not(:disabled):focus-visible .bcc-pill-undo {
+  .bcc-card-pill-on:not(:disabled):not([aria-disabled="true"]):hover .bcc-pill-undo,
+  .bcc-card-pill-on:not(:disabled):not([aria-disabled="true"]):focus-visible .bcc-pill-undo {
     display: inline;
   }
   /* Gated actions stay VISIBLE at 38%, never hidden — a hidden affordance
      teaches the viewer nothing about what they'd unlock. */
-  .bcc-card-pill:disabled {
+  .bcc-card-pill:disabled,
+  .bcc-card-pill[aria-disabled="true"] {
     opacity: 0.38;
     cursor: not-allowed;
   }

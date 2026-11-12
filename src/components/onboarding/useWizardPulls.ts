@@ -28,6 +28,7 @@
 
 import { useState } from "react";
 
+import { WATCH_UNKNOWN_COPY } from "@/hooks/useViewerWatch";
 import { useWatchMutation, useUnwatchMutation } from "@/hooks/useWatch";
 import { humanizeCode } from "@/lib/api/errors";
 import { FOLLOW_COPY } from "@/lib/copy";
@@ -70,17 +71,23 @@ export function useWizardPulls(): WizardPullsApi {
 
   // This session's toggle outcomes, from the mutation responses: a watch
   // stores the follow it created (or found: `already_watching`), an unwatch
-  // stores null. Absent → the card's own server answer.
-  const [outcomes, setOutcomes] = useState<ReadonlyMap<number, ViewerWatch | null>>(new Map());
-  const setOutcome = (cardId: number, watch: ViewerWatch | null) => {
-    setOutcomes((prev) => new Map(prev).set(cardId, watch));
+  // stores null. Keyed on (kind, id): ids are only unique within a kind.
+  // Absent → the card's own server answer.
+  const [outcomes, setOutcomes] = useState<ReadonlyMap<string, ViewerWatch | null>>(new Map());
+  const keyOf = (card: Card) => `${card.card_kind}-${card.id}`;
+  const setOutcome = (card: Card, watch: ViewerWatch | null) => {
+    setOutcomes((prev) => new Map(prev).set(keyOf(card), watch));
   };
   const currentWatch = (card: Card): ViewerWatch | null => {
-    if (outcomes.has(card.id)) return outcomes.get(card.id) ?? null;
+    if (outcomes.has(keyOf(card))) return outcomes.get(keyOf(card)) ?? null;
     return card.viewer_is_watching === true ? (card.viewer_watch ?? null) : null;
   };
   const watchedNow = (card: Card): boolean =>
-    outcomes.has(card.id) ? outcomes.get(card.id) !== null : card.viewer_is_watching === true;
+    outcomes.has(keyOf(card)) ? outcomes.get(keyOf(card)) !== null : card.viewer_is_watching === true;
+  // Unknown (null / absent): never offer a pull, same as every other watch
+  // button. The wizard's cards come from the suggestions read.
+  const unknown = (card: Card): boolean =>
+    !outcomes.has(keyOf(card)) && card.viewer_is_watching !== true && card.viewer_is_watching !== false;
 
   const [pending, setPending] = useState<ReadonlySet<number>>(new Set());
   const [errors, setErrors] = useState<ReadonlyMap<number, string>>(new Map());
@@ -137,6 +144,10 @@ export function useWizardPulls(): WizardPullsApi {
   const toggle = (card: Card) => {
     setErrorFor(card.id, null);
     if (pending.has(card.id)) return;
+    if (unknown(card)) {
+      setErrorFor(card.id, WATCH_UNKNOWN_COPY);
+      return;
+    }
 
     const entry = currentWatch(card);
     if (watchedNow(card) && entry === null) {
@@ -147,9 +158,9 @@ export function useWizardPulls(): WizardPullsApi {
     setPendingFor(card.id, true);
 
     if (entry !== null) {
-      unpullMut.mutate({ follow_id: entry.follow_id, source: entry.source }, {
+      unpullMut.mutate({ follow_id: entry.follow_id, source: entry.source, target: { card_kind: card.card_kind, id: card.id } }, {
         onSuccess: () => {
-          setOutcome(card.id, null);
+          setOutcome(card, null);
           dropSessionPull(card.id);
         },
         onError: (err) => setErrorFor(card.id, humanizePullError(err)),
@@ -160,7 +171,7 @@ export function useWizardPulls(): WizardPullsApi {
         { target_kind: card.card_kind, target_id: card.id },
         {
           onSuccess: (res) => {
-            setOutcome(card.id, {
+            setOutcome(card, {
               follow_id: res.item.follow_id,
               source: res.item.follow_source ?? "peepso",
             });

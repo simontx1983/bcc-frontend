@@ -76,7 +76,7 @@ export function useViewerWatch(
         return;
       }
       unwatchMutation.mutate(
-        { follow_id: watch.follow_id, source: watch.source },
+        { follow_id: watch.follow_id, source: watch.source, target: { card_kind: target.card_kind, id: target.id } },
         {
           onSuccess: () => {
             setLocal({ base, watch: null });
@@ -91,10 +91,8 @@ export function useViewerWatch(
       { target_kind: target.card_kind, target_id: target.id },
       {
         onSuccess: (res) => {
-          setLocal({
-            base,
-            watch: { follow_id: res.item.follow_id, source: res.item.follow_source ?? "peepso" },
-          });
+          const now: ViewerWatch = { follow_id: res.item.follow_id, source: res.item.follow_source ?? "peepso" };
+          setLocal({ base, watch: now });
           opts.onChanged?.(true);
         },
         onError: (err) => setError(watchErrorCopy(err, "watch")),

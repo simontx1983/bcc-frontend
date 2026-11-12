@@ -1354,6 +1354,9 @@ export interface SuggestedMember {
   rank_label: string | null;
   is_in_good_standing: boolean;
   suggestion_reason: SuggestionReason | null;
+  /** F-255: honoured when the server sends it; suggestions normally exclude watched members. */
+  viewer_is_watching?: boolean | null;
+  viewer_watch?: ViewerWatch | null;
 }
 
 export interface SuggestedMembersResponse {

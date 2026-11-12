@@ -202,8 +202,20 @@ function SuggestedWidget() {
   // suggestion of someone already followed), an unwatch clears it. This
   // used to search the first page of /me/watching (50 items), which is
   // partial — there is no cap on watches.
-  const [watched, setWatched] = useState<ReadonlyMap<number, SuggestedFollowEntry>>(
+  // Outcome per member: the follow, or null once unwatched. Absent → the
+  // row's own `viewer_watch` if the server sent one (it normally excludes
+  // watched members, so that is usually "not watching").
+  const [outcomes, setOutcomes] = useState<ReadonlyMap<number, SuggestedFollowEntry | null>>(
     () => new Map(),
+  );
+  const watchOf = useCallback(
+    (member: SuggestedMember): SuggestedFollowEntry | null =>
+      outcomes.has(member.id)
+        ? (outcomes.get(member.id) ?? null)
+        : member.viewer_is_watching === true
+          ? (member.viewer_watch ?? null)
+          : null,
+    [outcomes],
   );
   const watchMutation = useWatchMutation();
   const unwatchMutation = useUnwatchMutation();
@@ -213,21 +225,16 @@ function SuggestedWidget() {
   const [failure, setFailure] = useState<{ memberId: number; text: string } | null>(null);
 
   const setOutcome = useCallback((memberId: number, entry: SuggestedFollowEntry | null) => {
-    setWatched((prev) => {
-      const next = new Map(prev);
-      if (entry === null) next.delete(memberId);
-      else next.set(memberId, entry);
-      return next;
-    });
+    setOutcomes((prev) => new Map(prev).set(memberId, entry));
   }, []);
 
   const handleToggle = useCallback(
     (member: SuggestedMember): void => {
-      const entry = watched.get(member.id);
+      const entry = watchOf(member);
       setFailure(null);
-      if (entry !== undefined) {
+      if (entry !== null) {
         unwatchMutation.mutate(
-          { follow_id: entry.follow_id, source: entry.source },
+          { follow_id: entry.follow_id, source: entry.source, target: { card_kind: "member", id: member.id } },
           {
             onSuccess: () => setOutcome(member.id, null),
             onError: (err) => setFailure({ memberId: member.id, text: watchErrorCopy(err, "unwatch") }),
@@ -247,7 +254,7 @@ function SuggestedWidget() {
         );
       }
     },
-    [watched, watchMutation, unwatchMutation, setOutcome],
+    [watchOf, watchMutation, unwatchMutation, setOutcome],
   );
 
   // Anonymous viewers never see this widget — and the personalized query
@@ -282,7 +289,7 @@ function SuggestedWidget() {
       <div className="bcc-widget-head">Suggested</div>
       <div className="bcc-widget-body" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         {members.map((member) => {
-          const isFollowing = watched.has(member.id);
+          const isFollowing = watchOf(member) !== null;
           return (
             <div key={member.id} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>

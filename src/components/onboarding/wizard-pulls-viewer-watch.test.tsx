@@ -36,6 +36,27 @@ beforeEach(() => {
 });
 
 describe("useWizardPulls", () => {
+  it("unknown (null) offers no pull: a toggle sends nothing and explains", () => {
+    const unknown = { ...PAGE, viewer_is_watching: null } as Card;
+    const { result } = renderHook(() => useWizardPulls());
+    expect(result.current.isPulled(unknown)).toBe(false);
+    act(() => result.current.toggle(unknown));
+    expect(watchMutate).not.toHaveBeenCalled();
+    expect(result.current.errorFor(unknown.id)).toMatch(/Couldn't check/);
+  });
+
+  it("outcomes are keyed on (kind, id): a member 501 is not the validator 501", () => {
+    watchMutate.mockImplementation((_r: unknown, o?: Opts) => {
+      o?.onSuccess?.({ status: "watched", item: { follow_id: 1, follow_source: "peepso" } });
+      o?.onSettled?.();
+    });
+    const member501 = { ...PAGE, card_kind: "member" } as Card;
+    const { result } = renderHook(() => useWizardPulls());
+    act(() => result.current.toggle(PAGE));
+    expect(result.current.isPulled(PAGE)).toBe(true);
+    expect(result.current.isPulled(member501)).toBe(false);
+  });
+
   it("a card already watched (any position) reads pulled and un-pulls with its handle", () => {
     const watched = { ...PAGE, viewer_is_watching: true, viewer_watch: { follow_id: 9073, source: "peepso" } } as Card;
     unwatchMutate.mockImplementation((_r: unknown, o?: Opts) => {
@@ -45,7 +66,10 @@ describe("useWizardPulls", () => {
     const { result } = renderHook(() => useWizardPulls());
     expect(result.current.isPulled(watched)).toBe(true);
     act(() => result.current.toggle(watched));
-    expect(unwatchMutate).toHaveBeenCalledWith({ follow_id: 9073, source: "peepso" }, expect.anything());
+    expect(unwatchMutate).toHaveBeenCalledWith(
+      expect.objectContaining({ follow_id: 9073, source: "peepso" }),
+      expect.anything(),
+    );
     expect(result.current.isPulled(watched)).toBe(false);
   });
 
@@ -65,7 +89,10 @@ describe("useWizardPulls", () => {
     expect(result.current.pulledCount).toBe(1);
 
     act(() => result.current.toggle(PAGE));
-    expect(unwatchMutate).toHaveBeenCalledWith({ follow_id: 4812, source: "peepso" }, expect.anything());
+    expect(unwatchMutate).toHaveBeenCalledWith(
+      expect.objectContaining({ follow_id: 4812, source: "peepso" }),
+      expect.anything(),
+    );
     expect(result.current.isPulled(PAGE)).toBe(false);
   });
 });
