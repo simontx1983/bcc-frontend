@@ -23,7 +23,8 @@
  *
  * Keyboard shortcuts (admin power-user):
  *   - J / K           — focus next/previous report row
- *   - H               — Hide focused row (when allowed)
+ *   - H               — Hide focused row (when allowed); on a post that is
+ *                       already hidden, Uphold (same action, F-306)
  *   - D               — Dismiss focused row (when allowed)
  *   - R               — Restore focused row (when allowed)
  *   - /               — focus the reporter-handle search
@@ -225,7 +226,9 @@ export function ModerationQueue() {
     if (focusedItem === null) return;
     // Mirror the per-row visibility rules so the shortcut never fires
     // an action the user couldn't click.
-    if (action === "hide" && (focusedItem.status !== 0 || focusedItem.currently_hidden)) return;
+    // F-306: hide is allowed on any PENDING row, hidden or not. On an
+    // already-hidden post it is the "uphold" verdict.
+    if (action === "hide" && focusedItem.status !== 0) return;
     if (action === "restore" && !focusedItem.currently_hidden) return;
     if (action === "dismiss" && focusedItem.status !== 0) return;
     rowActionRef.current.get(focusedItem.id)?.(action);
@@ -780,9 +783,14 @@ function ReportRow({
       )}
 
       <footer className="flex flex-wrap items-center justify-end gap-2">
-        {item.status === 0 && !item.currently_hidden && (
+        {/* F-306: on a post that is already hidden (auto-hide, or an
+            earlier admin hide) the same action is the UPHOLD verdict: the
+            server keeps the hide and closes every pending report on the
+            post as upheld. Before, only Restore and Dismiss were offered
+            here, so clearing the queue recorded the reports as rejected. */}
+        {item.status === 0 && (
           <ActionButton
-            label="Hide"
+            label={item.currently_hidden ? "Uphold" : "Hide"}
             shortcut="H"
             tone="primary"
             onClick={() => trigger("hide")}
@@ -860,7 +868,7 @@ interface ShortcutOverlayProps {
 
 const SHORTCUT_TABLE: Array<{ keys: string; description: string }> = [
   { keys: "J / K", description: "Focus next / previous report" },
-  { keys: "H",     description: "Hide focused report" },
+  { keys: "H",     description: "Hide focused report (Uphold if already hidden)" },
   { keys: "D",     description: "Dismiss focused report" },
   { keys: "R",     description: "Restore focused report" },
   { keys: "/",     description: "Focus reporter-handle search" },
