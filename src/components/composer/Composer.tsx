@@ -47,7 +47,7 @@
  * FeedRankingService hydration. No optimistic insert.
  */
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 
 import { counterToneClass } from "@/lib/counter-tone";
@@ -123,6 +123,13 @@ export interface ComposerProps {
    * NewPostTrigger's modal.
    */
   hosted?: boolean;
+  /**
+   * Inline variant only — told whether the composer holds a draft (text,
+   * a photo or a GIF) whenever that changes. A HOST that can dismiss the
+   * composer on its own (NewPostTrigger's Dialog: Esc, backdrop) uses it
+   * to ask before throwing the draft away (H3).
+   */
+  onDraftChange?: (hasDraft: boolean) => void;
   /**
    * Inline-variant props for the collapsed-row identity treatment.
    * All optional — when missing, the composer falls back to a quiet
@@ -206,6 +213,7 @@ export function Composer({
   onClose,
   startExpanded,
   hosted,
+  onDraftChange,
   viewerAvatarUrl,
   viewerHandle,
   viewerDisplayName,
@@ -258,6 +266,7 @@ export function Composer({
         startExpanded={startExpanded}
         hosted={hosted}
         onClose={onClose}
+        onDraftChange={onDraftChange}
       />
     );
   }
@@ -337,6 +346,8 @@ interface InlineStatusComposerProps {
   hosted?: boolean | undefined;
   /** See ComposerProps.onClose. */
   onClose?: (() => void) | undefined;
+  /** See ComposerProps.onDraftChange. */
+  onDraftChange?: ((hasDraft: boolean) => void) | undefined;
 }
 
 // Sprint 2 civic prompts + the §3.3.12 mention listbox id moved to
@@ -396,6 +407,7 @@ function InlineStatusComposer({
   startExpanded,
   hosted,
   onClose,
+  onDraftChange,
 }: InlineStatusComposerProps) {
   // Phase 3.3 split — the entire form state machine (expand/collapse,
   // prompt rotation, body + validation, photo/GIF attachment slots,
@@ -450,6 +462,12 @@ function InlineStatusComposer({
     hasAttachment,
     placeholder,
   } = useComposerState({ groupId, hallFeed, pageId, initialExpanded: startExpanded, onClose });
+
+  // H3: report "is there a draft?" to a host that can dismiss us itself.
+  const hasDraft = content.trim() !== "" || hasAttachment;
+  useEffect(() => {
+    onDraftChange?.(hasDraft);
+  }, [hasDraft, onDraftChange]);
 
   // A page post is text only in this version, so nothing that attaches
   // anything is offered, and neither is the "where does this go" stub:
