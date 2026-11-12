@@ -15,6 +15,8 @@ vi.mock("@/lib/env", () => ({ clientEnv: { BCC_API_URL: "https://wp.example" } }
 const api = vi.hoisted(() => ({
   getCurrentBrowserSubscription: vi.fn(),
   registerPushSubscription: vi.fn(),
+  getNotificationPrefs: vi.fn(),
+  rememberPushSubscriptionId: vi.fn(),
   patchAccountPassword: vi.fn(),
   updateSessionBearer: vi.fn(),
 }));
@@ -29,6 +31,12 @@ vi.mock("@/lib/push/register", () => ({
 }));
 vi.mock("@/lib/api/push-endpoints", () => ({
   registerPushSubscription: (p: unknown) => api.registerPushSubscription(p),
+}));
+vi.mock("@/lib/api/notification-prefs-endpoints", () => ({
+  getNotificationPrefs: () => api.getNotificationPrefs(),
+}));
+vi.mock("@/lib/push/revoke", () => ({
+  rememberPushSubscriptionId: (id: number) => api.rememberPushSubscriptionId(id),
 }));
 vi.mock("@/lib/api/account-endpoints", async (orig) => ({
   ...(await orig<Record<string, unknown>>()),
@@ -55,7 +63,8 @@ function setPermission(p: NotificationPermission | null) {
 beforeEach(() => {
   vi.clearAllMocks();
   api.getCurrentBrowserSubscription.mockResolvedValue(SUB);
-  api.registerPushSubscription.mockResolvedValue({ id: 1, master_enabled: true });
+  api.registerPushSubscription.mockResolvedValue({ id: 41, master_enabled: true });
+  api.getNotificationPrefs.mockResolvedValue({ push: { enabled: true, events: {} } });
   setPermission("granted");
 });
 afterEach(() => vi.unstubAllGlobals());
@@ -66,6 +75,20 @@ describe("reRegisterCurrentPushSubscription", () => {
     expect(api.registerPushSubscription).toHaveBeenCalledTimes(1);
     expect(api.registerPushSubscription.mock.calls[0]?.[0]).toMatchObject({ endpoint: SUB.endpoint });
     expect(requestPermission).not.toHaveBeenCalled();
+    expect(api.rememberPushSubscriptionId).toHaveBeenCalledWith(41);
+  });
+
+  it("does nothing when push is switched OFF on the server (an OFF from another device stays OFF)", async () => {
+    api.getNotificationPrefs.mockResolvedValue({ push: { enabled: false, events: {} } });
+    await expect(reRegisterCurrentPushSubscription()).resolves.toBe(false);
+    expect(api.registerPushSubscription).not.toHaveBeenCalled();
+    expect(api.rememberPushSubscriptionId).not.toHaveBeenCalled();
+  });
+
+  it("does nothing when the prefs read fails", async () => {
+    api.getNotificationPrefs.mockRejectedValue(new Error("prefs down"));
+    await expect(reRegisterCurrentPushSubscription()).resolves.toBe(false);
+    expect(api.registerPushSubscription).not.toHaveBeenCalled();
   });
 
   it.each([
@@ -117,6 +140,20 @@ describe("useChangeAccountPassword re-registers push after the bearer swap", () 
     });
     expect(outcome).toEqual({ passwordChanged: true, sessionRestored: true });
     await vi.waitFor(() => expect(api.registerPushSubscription).toHaveBeenCalledTimes(1));
+  });
+
+  it("master OFF + subscription + password change: no registration", async () => {
+    api.updateSessionBearer.mockResolvedValue(true);
+    api.getNotificationPrefs.mockResolvedValue({ push: { enabled: false, events: {} } });
+    const { result } = renderHook(() => useChangeAccountPassword(), { wrapper: wrap });
+    let outcome: unknown;
+    await act(async () => {
+      outcome = await result.current.mutateAsync(BODY);
+    });
+    expect(outcome).toEqual({ passwordChanged: true, sessionRestored: true });
+    await vi.waitFor(() => expect(api.getNotificationPrefs).toHaveBeenCalledTimes(1));
+    await new Promise((r) => setTimeout(r, 20));
+    expect(api.registerPushSubscription).not.toHaveBeenCalled();
   });
 
   it("does not re-POST when the session write failed (the bearer is revoked)", async () => {
