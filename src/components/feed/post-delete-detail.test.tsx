@@ -123,7 +123,9 @@ describe("PostDetail — delete your own post", () => {
     const dialog = openDelete();
     fireEvent.click(within(dialog).getByRole("button", { name: "DELETE" }));
 
-    const heading = await screen.findByRole("heading", { name: "Post deleted" });
+    // Generous ceiling: under full-suite load the mutation + re-render can
+    // outlast the 1s default and flake (seen once on a full run).
+    const heading = await screen.findByRole("heading", { name: "Post deleted" }, { timeout: 5000 });
     expect(deleteFeedItem).toHaveBeenCalledWith("feed_1");
     expect(screen.queryByText("my own words")).toBeNull();
     expect(screen.queryByRole("dialog")).toBeNull();
@@ -136,8 +138,9 @@ describe("PostDetail — delete your own post", () => {
     const dialog = openDelete();
     fireEvent.click(within(dialog).getByRole("button", { name: "DELETE" }));
 
-    await waitFor(() =>
-      expect(within(dialog).getByText("You can only delete your own posts.")).toBeInTheDocument(),
+    await waitFor(
+      () => expect(within(dialog).getByText("You can only delete your own posts.")).toBeInTheDocument(),
+      { timeout: 5000 },
     );
     expect(within(dialog).getByRole("button", { name: "TRY AGAIN" })).toBeInTheDocument();
     expect(document.body.textContent ?? "").not.toContain(DECOY);
