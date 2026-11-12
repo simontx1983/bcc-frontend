@@ -445,6 +445,7 @@ function SelectedRecipient({
     <div className="flex items-center gap-3 rounded-sm border border-bcc-border bg-bcc-surface-hover px-3 py-2">
       <Avatar
         avatarUrl={recipient.crest.image_url}
+        avatarFallbackUrl={recipient.crest.image_fallback_url}
         handle={recipient.handle}
         displayName={recipient.name}
         size="sm"
@@ -520,6 +521,7 @@ function RecipientPicker({
               >
                 <Avatar
                   avatarUrl={m.crest.image_url}
+                  avatarFallbackUrl={m.crest.image_fallback_url}
                   handle={m.handle}
                   displayName={m.name}
                   size="sm"

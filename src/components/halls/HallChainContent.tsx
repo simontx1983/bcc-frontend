@@ -19,6 +19,7 @@
  * tabs rather than two empty rooms.
  */
 
+import { FallbackImg } from "@/components/ui/FallbackImg";
 import Image from "next/image";
 import Link from "next/link";
 import type { Route } from "next";
@@ -56,7 +57,43 @@ function initialOf(label: string): string {
 }
 
 /** Shared square thumb: real logo when we have one, monogram when we don't. */
-function Thumb({ src, label }: { src: string | null; label: string }) {
+function Thumb({
+  src,
+  fallbackSrc,
+  label,
+}: {
+  src: string | null;
+  /** Only collection covers carry one (F-187); validator logos pass none. */
+  fallbackSrc?: string | null | undefined;
+  label: string;
+}) {
+  const initial = (
+    <span
+      aria-hidden="true"
+      className="bcc-mono flex h-10 w-10 shrink-0 items-center justify-center rounded-sm bg-bcc-surface-raised text-bcc-text-secondary"
+    >
+      {initialOf(label)}
+    </span>
+  );
+  // F-187: an IPFS cover (the only kind that carries a fallback) is a plain
+  // image walking gateway → ipfs.io → initial, never next/image (no proxy,
+  // per the contract; no IPFS host is in remotePatterns either). Every
+  // other cover keeps the next/image path it had.
+  if (src !== null && fallbackSrc !== null && fallbackSrc !== undefined) {
+    return (
+      <FallbackImg
+        src={src}
+        fallbackSrc={fallbackSrc}
+        alt=""
+        width={40}
+        height={40}
+        loading="lazy"
+        decoding="async"
+        className="h-10 w-10 shrink-0 rounded-sm object-cover"
+        placeholder={initial}
+      />
+    );
+  }
   if (src !== null) {
     return (
       <Image
@@ -68,14 +105,7 @@ function Thumb({ src, label }: { src: string | null; label: string }) {
       />
     );
   }
-  return (
-    <span
-      aria-hidden="true"
-      className="bcc-mono flex h-10 w-10 shrink-0 items-center justify-center rounded-sm bg-bcc-surface-raised text-bcc-text-secondary"
-    >
-      {initialOf(label)}
-    </span>
-  );
+  return initial;
 }
 
 function PanelHeader({
@@ -198,6 +228,7 @@ export function HallCollectionsPanel({
           <li key={collection.id} className="flex items-center gap-3">
             <Thumb
               src={collection.image_url}
+              fallbackSrc={collection.image_fallback_url}
               label={collection.name ?? collection.contract_address}
             />
             <span className="min-w-0 flex-1">

@@ -397,6 +397,7 @@ function MemberRow({ card }: { card: Card }) {
       >
         <Avatar
           avatarUrl={card.crest.image_url}
+          avatarFallbackUrl={card.crest.image_fallback_url}
           handle={card.handle}
           displayName={card.name}
           size="md"

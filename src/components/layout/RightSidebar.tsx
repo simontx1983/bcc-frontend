@@ -94,6 +94,7 @@ function NewestMembersWidget() {
           >
             <AvatarHovercard
               avatarUrl={member.crest.image_url ?? ""}
+              avatarFallbackUrl={member.crest.image_fallback_url}
               handle={member.handle}
               displayName={member.name}
               size="md"

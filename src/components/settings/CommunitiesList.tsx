@@ -34,6 +34,7 @@ import {
 import { LoadFailure } from "@/components/ui/LoadFailure";
 import { GroupActionButton } from "@/components/groups/GroupActionButton";
 import { HolderLeaveConfirm } from "@/components/groups/HolderLeaveConfirm";
+import { FallbackImg } from "@/components/ui/FallbackImg";
 import { HeatBadge } from "@/components/groups/HeatBadge";
 import { VerificationBadge } from "@/components/groups/VerificationBadge";
 import { humanizeCode, isPermissionDenial } from "@/lib/api/errors";
@@ -284,25 +285,26 @@ function CommunityRow({ item, action }: CommunityRowProps) {
   return (
     <li className="flex items-center justify-between gap-4 px-5 py-4">
       <div className="flex min-w-0 items-center gap-3">
-        {item.collection.image_url !== null && item.collection.image_url !== "" ? (
-          // eslint-disable-next-line @next/next/no-img-element -- collection art is a remote NFT thumbnail; image optimization adds a domain-allowlist burden we haven't taken on yet
-          <img
-            src={item.collection.image_url}
-            alt=""
-            width={36}
-            height={36}
-            loading="lazy"
-            decoding="async"
-            className="h-9 w-9 shrink-0 rounded-full border border-bcc-border object-cover"
-          />
-        ) : (
-          <div
-            aria-hidden
-            className="bcc-mono flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-bcc-border bg-bcc-surface-hover text-[10px] text-bcc-text-secondary"
-          >
-            {collectionName.slice(0, 2).toUpperCase()}
-          </div>
-        )}
+        {/* Collection art is a remote NFT thumbnail (no next/image domain
+            allowlist). F-187: gateway → ipfs.io fallback → initials. */}
+        <FallbackImg
+          src={item.collection.image_url}
+          fallbackSrc={item.collection.image_fallback_url}
+          alt=""
+          width={36}
+          height={36}
+          loading="lazy"
+          decoding="async"
+          className="h-9 w-9 shrink-0 rounded-full border border-bcc-border object-cover"
+          placeholder={
+            <div
+              aria-hidden
+              className="bcc-mono flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-bcc-border bg-bcc-surface-hover text-[10px] text-bcc-text-secondary"
+            >
+              {collectionName.slice(0, 2).toUpperCase()}
+            </div>
+          }
+        />
 
         <div className="min-w-0">
           <p className="bcc-stencil truncate text-bcc-text">{item.name}</p>

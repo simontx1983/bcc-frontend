@@ -33,6 +33,7 @@ import {
   useJoinHolderGroupMutation,
   useMyHolderGroups,
 } from "@/hooks/useHolderGroups";
+import { FallbackImg } from "@/components/ui/FallbackImg";
 import { HeatBadge } from "@/components/groups/HeatBadge";
 import { VerificationBadge } from "@/components/groups/VerificationBadge";
 import { Dialog } from "@/components/ui/Dialog";
@@ -230,25 +231,26 @@ function EligibleRow({ item }: { item: HolderGroupItem }) {
   return (
     <li className="flex items-center justify-between gap-4 px-5 py-4">
       <div className="flex min-w-0 items-center gap-3">
-        {item.collection.image_url !== null && item.collection.image_url !== "" ? (
-          // eslint-disable-next-line @next/next/no-img-element -- collection art is a remote NFT thumbnail; we haven't taken on a domain allowlist for next/image
-          <img
-            src={item.collection.image_url}
-            alt=""
-            width={36}
-            height={36}
-            loading="lazy"
-            decoding="async"
-            className="h-9 w-9 shrink-0 rounded-full border border-bcc-border object-cover"
-          />
-        ) : (
-          <div
-            aria-hidden
-            className="bcc-mono flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-bcc-border bg-bcc-surface-hover text-[10px] text-bcc-text-secondary"
-          >
-            {collectionName.slice(0, 2).toUpperCase()}
-          </div>
-        )}
+        {/* Collection art is a remote NFT thumbnail (no next/image domain
+            allowlist). F-187: gateway → ipfs.io fallback → initials. */}
+        <FallbackImg
+          src={item.collection.image_url}
+          fallbackSrc={item.collection.image_fallback_url}
+          alt=""
+          width={36}
+          height={36}
+          loading="lazy"
+          decoding="async"
+          className="h-9 w-9 shrink-0 rounded-full border border-bcc-border object-cover"
+          placeholder={
+            <div
+              aria-hidden
+              className="bcc-mono flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-bcc-border bg-bcc-surface-hover text-[10px] text-bcc-text-secondary"
+            >
+              {collectionName.slice(0, 2).toUpperCase()}
+            </div>
+          }
+        />
 
         <div className="min-w-0">
           <p className="bcc-stencil truncate text-bcc-text">{item.name}</p>

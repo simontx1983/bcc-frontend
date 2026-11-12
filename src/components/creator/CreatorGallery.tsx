@@ -37,6 +37,7 @@ import {
   useDenialGate,
   useReportDenial,
 } from "@/lib/api/resource-denial";
+import { FallbackImg } from "@/components/ui/FallbackImg";
 import { LoadFailure } from "@/components/ui/LoadFailure";
 import { SKELETON_CLASS } from "@/components/ui/Skeleton";
 import { dedupeById } from "@/lib/pagination";
@@ -296,21 +297,26 @@ function CollectionTile({ item }: CollectionTileProps) {
 
   const inner = (
     <article className="bcc-panel flex h-full flex-col overflow-hidden">
-      <div
-        className="relative aspect-square w-full bg-cardstock-deep/30"
-        style={{
-          backgroundImage: item.image_url !== null ? `url(${item.image_url})` : undefined,
-          backgroundSize: "cover",
-          backgroundPosition: "center",
-        }}
-      >
-        {item.image_url === null && (
-          <div className="absolute inset-0 flex items-center justify-center">
-            <span className="bcc-mono text-[10px] tracking-[0.18em] text-bcc-text-secondary">
-              NO COVER
-            </span>
-          </div>
-        )}
+      <div className="relative aspect-square w-full bg-cardstock-deep/30">
+        {/* F-187: an image element, not a CSS background, so a failed IPFS
+            gateway load can fall back to ipfs.io (a background-image has no
+            error event). object-cover + object-center matches the old
+            background cover/center; exhausted or null → NO COVER. */}
+        <FallbackImg
+          src={item.image_url}
+          fallbackSrc={item.image_fallback_url}
+          alt=""
+          loading="lazy"
+          decoding="async"
+          className="absolute inset-0 h-full w-full object-cover object-center"
+          placeholder={
+            <div className="absolute inset-0 flex items-center justify-center">
+              <span className="bcc-mono text-[10px] tracking-[0.18em] text-bcc-text-secondary">
+                NO COVER
+              </span>
+            </div>
+          }
+        />
         <span
           className="bcc-mono absolute right-2 top-2 rounded-sm px-2 py-0.5 text-[9px] tracking-[0.18em]"
           style={{

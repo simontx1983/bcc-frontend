@@ -24,6 +24,7 @@ import { useQueryClient } from "@tanstack/react-query";
 
 import { useUploadAvatar } from "@/hooks/useUpdateProfile";
 import { useUploadPageAvatar, useDeletePageAvatar } from "@/hooks/usePageAvatar";
+import { FallbackImg } from "@/components/ui/FallbackImg";
 import { isWpMediaUrl } from "@/lib/media";
 import type { Card } from "@/lib/api/types";
 
@@ -34,7 +35,7 @@ export function Crest({
   card: Card;
   canEditAvatar: boolean;
 }) {
-  const { initials, image_url: imageUrl } = card.crest;
+  const { initials, image_url: imageUrl, image_fallback_url: imageFallbackUrl } = card.crest;
 
   // Member cards edit their avatar via /me/profile/avatar (PeepSo member
   // photo); page cards (validator/project/creator) edit via the claimer-
@@ -137,14 +138,25 @@ export function Crest({
               style={{ filter: "saturate(0.92) contrast(1.02)" }}
             />
           ) : (
-            // eslint-disable-next-line @next/next/no-img-element -- non-WP host (page-card art can be NFT/IPFS) — outside the next/image allowlist; see lib/media.ts
-            <img
+            // Non-WP host (page-card art can be NFT/IPFS) — outside the
+            // next/image allowlist (see lib/media.ts). F-187 fallback
+            // chain; exhausted → the same initials as the no-image state.
+            <FallbackImg
               src={imageUrl}
+              fallbackSrc={imageFallbackUrl}
               alt=""
               loading="lazy"
               decoding="async"
               className="h-full w-full object-cover"
               style={{ filter: "saturate(0.92) contrast(1.02)" }}
+              placeholder={
+                <span
+                  className="bcc-stencil flex h-full w-full items-center justify-center"
+                  style={{ fontSize: 38, lineHeight: 1, color: "var(--bcc-text-secondary)" }}
+                >
+                  {initials}
+                </span>
+              }
             />
           )}
         </div>
