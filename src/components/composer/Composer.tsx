@@ -1106,6 +1106,27 @@ function ModalCore({
 }: ModalCoreProps) {
   const [mode, setMode] = useState<ComposerMode>(initialMode);
 
+  // Switching tabs unmounts the current form, which silently dropped its
+  // draft. Track the active form's draft here too (as well as reporting it
+  // to the shell), and ask before a switch would discard one.
+  const [hasDraft, setHasDraft] = useState(false);
+  const [pendingMode, setPendingMode] = useState<ComposerMode | null>(null);
+  const reportDraft = useCallback(
+    (next: boolean) => {
+      setHasDraft(next);
+      onDraftChange(next);
+    },
+    [onDraftChange],
+  );
+  const requestMode = (next: ComposerMode) => {
+    if (next === mode) return;
+    if (hasDraft) {
+      setPendingMode(next);
+      return;
+    }
+    setMode(next);
+  };
+
   // Resolve the discriminated review target — member takes precedence
   // (the two are mutually exclusive at the Composer boundary).
   const reviewTarget: ReviewTarget | null =
@@ -1119,18 +1140,32 @@ function ModalCore({
     <>
       <ComposerTabs
         mode={mode}
-        onChange={setMode}
+        onChange={requestMode}
         reviewAvailable={reviewAvailable}
       />
       {mode === "status" && (
-        <StatusForm onSubmitSuccess={onSubmitSuccess} onDraftChange={onDraftChange} />
+        <StatusForm onSubmitSuccess={onSubmitSuccess} onDraftChange={reportDraft} />
       )}
       {mode === "review" && reviewAvailable && reviewTarget !== null && (
         <ReviewForm
           target={reviewTarget}
           targetName={reviewTargetName ?? ""}
           onSubmitSuccess={onSubmitSuccess}
-          onDraftChange={onDraftChange}
+          onDraftChange={reportDraft}
+        />
+      )}
+      {pendingMode !== null && (
+        <ConfirmDialog
+          title="Discard this draft?"
+          body="Switching tabs clears what you've written here."
+          confirmLabel="DISCARD"
+          cancelLabel="KEEP EDITING"
+          pending={false}
+          onConfirm={() => {
+            setMode(pendingMode);
+            setPendingMode(null);
+          }}
+          onCancel={() => setPendingMode(null)}
         />
       )}
     </>
