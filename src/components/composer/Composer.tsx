@@ -47,7 +47,7 @@
  * FeedRankingService hydration. No optimistic insert.
  */
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 
 import { counterToneClass } from "@/lib/counter-tone";
@@ -65,6 +65,7 @@ import {
 } from "@/components/composer/useComposerState";
 import { humanizeError } from "@/components/composer/useComposerSubmit";
 import { RankChip } from "@/components/profile/RankChip";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Dialog } from "@/components/ui/Dialog";
 import { humanizeCode } from "@/lib/api/errors";
 import { createReview } from "@/lib/api/posts-endpoints";
@@ -277,24 +278,61 @@ export function Composer({
     defaultMode === "review" && !reviewAvailable ? "status" : defaultMode;
 
   return (
-    <Dialog
+    <ModalComposerShell
       title={
         initialMode === "review" && reviewAvailable
           ? `Write a review of ${reviewTargetName ?? ""}`
           : "Compose"
       }
       onClose={onClose ?? noop}
-      panelClassName="max-w-2xl flex flex-col gap-3"
-    >
-      <ModalCore
-        initialMode={initialMode}
-        reviewTargetId={reviewAvailable && hasEntityTarget ? reviewTargetId : undefined}
-        reviewTargetUserId={reviewAvailable && hasMemberTarget ? reviewTargetUserId : undefined}
-        reviewTargetName={reviewAvailable ? reviewTargetName : undefined}
-        reviewAvailable={reviewAvailable}
-        onSubmitSuccess={onClose}
-      />
-    </Dialog>
+      initialMode={initialMode}
+      reviewTargetId={reviewAvailable && hasEntityTarget ? reviewTargetId : undefined}
+      reviewTargetUserId={reviewAvailable && hasMemberTarget ? reviewTargetUserId : undefined}
+      reviewTargetName={reviewAvailable ? reviewTargetName : undefined}
+      reviewAvailable={reviewAvailable}
+    />
+  );
+}
+
+// F-249 (H3 follow-up): the modal composer's Dialog closed on Esc, a
+// backdrop tap or the corner X straight away, unmounting the form and
+// losing a written review (or a status) with no warning. Same guard as
+// the New Post dialog (NewPostTrigger): the active form reports whether
+// it holds a draft; with one, closing asks "Discard this post?" first.
+// A successful submit still closes directly.
+function ModalComposerShell({
+  title,
+  onClose,
+  ...core
+}: { title: string; onClose: () => void } & Omit<ModalCoreProps, "onSubmitSuccess" | "onDraftChange">) {
+  const [hasDraft, setHasDraft] = useState(false);
+  const [confirmingDiscard, setConfirmingDiscard] = useState(false);
+
+  const requestClose = useCallback(() => {
+    if (hasDraft) {
+      setConfirmingDiscard(true);
+      return;
+    }
+    onClose();
+  }, [hasDraft, onClose]);
+
+  return (
+    <>
+      <Dialog title={title} onClose={requestClose} panelClassName="max-w-2xl flex flex-col gap-3">
+        <ModalCore {...core} onSubmitSuccess={onClose} onDraftChange={setHasDraft} />
+      </Dialog>
+      {confirmingDiscard && (
+        <ConfirmDialog
+          title="Discard this post?"
+          body="What you've written will be lost."
+          confirmLabel="DISCARD"
+          cancelLabel="KEEP EDITING"
+          pending={false}
+          onConfirm={onClose}
+          onCancel={() => setConfirmingDiscard(false)}
+        />
+      )}
+    </>
   );
 }
 
@@ -1053,6 +1091,8 @@ interface ModalCoreProps {
   reviewTargetName: string | undefined;
   reviewAvailable: boolean;
   onSubmitSuccess: (() => void) | undefined;
+  /** Whether the active form holds a draft (see ModalComposerShell). */
+  onDraftChange: (hasDraft: boolean) => void;
 }
 
 function ModalCore({
@@ -1062,6 +1102,7 @@ function ModalCore({
   reviewTargetName,
   reviewAvailable,
   onSubmitSuccess,
+  onDraftChange,
 }: ModalCoreProps) {
   const [mode, setMode] = useState<ComposerMode>(initialMode);
 
@@ -1081,12 +1122,15 @@ function ModalCore({
         onChange={setMode}
         reviewAvailable={reviewAvailable}
       />
-      {mode === "status" && <StatusForm onSubmitSuccess={onSubmitSuccess} />}
+      {mode === "status" && (
+        <StatusForm onSubmitSuccess={onSubmitSuccess} onDraftChange={onDraftChange} />
+      )}
       {mode === "review" && reviewAvailable && reviewTarget !== null && (
         <ReviewForm
           target={reviewTarget}
           targetName={reviewTargetName ?? ""}
           onSubmitSuccess={onSubmitSuccess}
+          onDraftChange={onDraftChange}
         />
       )}
     </>
@@ -1148,9 +1192,24 @@ function ComposerTabs({ mode, onChange, reviewAvailable }: ComposerTabsProps) {
 // reuse this form.
 // ─────────────────────────────────────────────────────────────────────
 
-function StatusForm({ onSubmitSuccess }: { onSubmitSuccess: (() => void) | undefined }) {
+/** Report a form's draft state to its host; clears it when the form unmounts (tab switch). */
+function useReportDraft(hasDraft: boolean, onDraftChange: (hasDraft: boolean) => void): void {
+  useEffect(() => {
+    onDraftChange(hasDraft);
+  }, [hasDraft, onDraftChange]);
+  useEffect(() => () => onDraftChange(false), [onDraftChange]);
+}
+
+function StatusForm({
+  onSubmitSuccess,
+  onDraftChange,
+}: {
+  onSubmitSuccess: (() => void) | undefined;
+  onDraftChange: (hasDraft: boolean) => void;
+}) {
   const [content, setContent] = useState("");
   const [error, setError] = useState<string | null>(null);
+  useReportDraft(content.trim() !== "", onDraftChange);
 
   const mutation = useCreatePostMutation({
     onSuccess: () => {
@@ -1310,14 +1369,18 @@ function ReviewForm({
   target,
   targetName,
   onSubmitSuccess,
+  onDraftChange,
 }: {
   target: ReviewTarget;
   targetName: string;
   onSubmitSuccess: (() => void) | undefined;
+  onDraftChange: (hasDraft: boolean) => void;
 }) {
   const queryClient = useQueryClient();
   const [grade, setGrade] = useState<ReviewGrade | null>(null);
   const [content, setContent] = useState("");
+  // A chosen grade counts: picking one is part of the review.
+  useReportDraft(grade !== null || content.trim() !== "", onDraftChange);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
