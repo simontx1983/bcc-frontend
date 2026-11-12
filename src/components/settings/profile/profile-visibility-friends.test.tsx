@@ -6,7 +6,12 @@
  * already stored at `friends` is SHOWN as Only me (an empty friends list
  * admits only the owner and admins, which is what Only me means), and the
  * stored value is never rewritten by saving other fields.
- * `default_post_audience` keeps its three tokens.
+ *
+ * F-225 (user decision 2026-11-12): `default_post_audience` gets the same
+ * treatment. bcc-trust #584 now reports a stored `friends` (30) instead
+ * of loosening it to `members`; the picker shows it as Only me (it admits
+ * only the author) rather than leaving no radio selected, and never
+ * rewrites it on an untouched save.
  */
 
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
@@ -103,9 +108,37 @@ describe("WHO CAN SEE MY PROFILE", () => {
 });
 
 describe("DEFAULT AUDIENCE FOR MY POSTS", () => {
-  it("still has exactly three tokens, no friends", () => {
+  it("offers Public, Members only and Only me; no Friends option or label", () => {
     state.prefs = BASE;
     render(<ProfilePrefsSection />);
     expect(group("default_post_audience").map((i) => i.value)).toEqual(["public", "members", "private"]);
+    expect(screen.queryByText(/friends/i)).toBeNull();
+  });
+
+  it("a stored friends (30) is shown as Only me, not with no radio selected", () => {
+    state.prefs = { ...BASE, default_post_audience: "friends" };
+    render(<ProfilePrefsSection />);
+    const checked = group("default_post_audience").filter((i) => i.checked);
+    expect(checked.map((i) => i.value)).toEqual(["private"]);
+  });
+
+  it("an untouched save never sends default_post_audience for a stored friends (30)", () => {
+    state.prefs = { ...BASE, default_post_audience: "friends" };
+    render(<ProfilePrefsSection />);
+    const save = screen.getByRole("button", { name: /save preferences/i });
+    fireEvent.click(save);
+    fireEvent.click(group("default_post_audience").find((i) => i.value === "private") as HTMLInputElement);
+    fireEvent.click(save);
+    for (const call of mutate.mock.calls) {
+      expect(call[0] as Record<string, unknown>).not.toHaveProperty("default_post_audience");
+    }
+  });
+
+  it("choosing another audience from a stored friends PATCHes that choice", () => {
+    state.prefs = { ...BASE, default_post_audience: "friends" };
+    render(<ProfilePrefsSection />);
+    fireEvent.click(group("default_post_audience").find((i) => i.value === "members") as HTMLInputElement);
+    fireEvent.click(screen.getByRole("button", { name: /save preferences/i }));
+    expect(mutate).toHaveBeenCalledWith({ default_post_audience: "members" });
   });
 });
