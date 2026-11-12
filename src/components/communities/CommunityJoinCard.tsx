@@ -9,17 +9,17 @@
  *   - GroupDetailShell's PageHero card slot
  *
  * Join wiring:
- *   - All three join mutations are mounted unconditionally (Rules of
+ *   - All four join mutations are mounted unconditionally (Rules of
  *     Hooks — one component must handle any kind) and dispatched by
  *     `card.community_dossier.type`.
  *   - Success → router.refresh(): both surfaces are SSR'd, so
  *     refetching the server component is the source of truth for the
  *     new viewer_is_member state.
- *   - Plain/local joins flip the JOIN cell optimistically; the NFT
- *     path does NOT (CHECK & JOIN is a speculative on-chain ownership
- *     check — flipping to MEMBER then snapping back on a 403 would
- *     read as "joined then kicked").
- *   - Errors render under the card via the same §γ key-map
+ *   - Plain/local joins flip the JOIN cell optimistically; the NFT and
+ *     validator paths do NOT (CHECK & JOIN is a speculative on-chain
+ *     ownership or delegation check — flipping to MEMBER then snapping
+ *     back on a 403 would read as "joined then kicked").
+ *   - Errors render under the card via the same §γ key-maps
  *     GroupMembershipStrip uses (copy keyed on err.code, never
  *     err.message).
  *
@@ -37,7 +37,11 @@ import { humanizeMembershipError } from "@/components/groups/GroupMembershipStri
 import { useJoinHolderGroupMutation } from "@/hooks/useHolderGroups";
 import { useJoinHallMutation } from "@/hooks/useHallsPrimary";
 import { useJoinPlainGroupMutation } from "@/hooks/useMyGroups";
-import type { Card } from "@/lib/api/types";
+import {
+  humanizeValidatorJoinError,
+  useJoinValidatorGroupMutation,
+} from "@/hooks/useValidatorGroups";
+import type { Card, GroupDiscoveryType } from "@/lib/api/types";
 
 export function CommunityJoinCard({
   card,
@@ -69,6 +73,7 @@ export function CommunityJoinCard({
     onSuccess: refresh,
     onError: clearOptimistic,
   });
+  const validatorJoin = useJoinValidatorGroupMutation({ onSuccess: refresh });
 
   const handleJoin = useCallback(
     (joinCard: Card) => {
@@ -77,6 +82,14 @@ export function CommunityJoinCard({
       if (dossier.type === "nft") {
         // No optimistic flip — server adjudicates ownership.
         holderJoin.mutate(joinCard.id, {
+          onSuccess: () => captureCommunityJoined(dossier.type),
+        });
+        return;
+      }
+      if (dossier.type === "validator") {
+        // No optimistic flip — the server verifies the delegation live.
+        // Never the plain join: that route 400s on a delegator community.
+        validatorJoin.mutate(joinCard.id, {
           onSuccess: () => captureCommunityJoined(dossier.type),
         });
         return;
@@ -92,12 +105,21 @@ export function CommunityJoinCard({
         });
       }
     },
-    [holderJoin, hallJoin, plainJoin],
+    [holderJoin, hallJoin, plainJoin, validatorJoin],
   );
 
   const joinPending =
-    holderJoin.isPending || hallJoin.isPending || plainJoin.isPending;
+    holderJoin.isPending ||
+    hallJoin.isPending ||
+    plainJoin.isPending ||
+    validatorJoin.isPending;
   const joinError = holderJoin.error ?? hallJoin.error ?? plainJoin.error;
+  const joinErrorCopy =
+    validatorJoin.error !== null
+      ? humanizeValidatorJoinError(validatorJoin.error)
+      : joinError !== null
+        ? humanizeMembershipError(joinError, "join")
+        : null;
 
   return (
     <div className="flex flex-col items-center gap-2">
@@ -108,20 +130,18 @@ export function CommunityJoinCard({
         joinPending={joinPending}
         suppressBodyLink={suppressBodyLink}
       />
-      {joinError !== null && (
+      {joinErrorCopy !== null && (
         <p
           role="alert"
           className="bcc-mono max-w-[316px] text-center text-[10px] tracking-[0.12em] text-bcc-text-error"
         >
-          {humanizeMembershipError(joinError, "join")}
+          {joinErrorCopy}
         </p>
       )}
     </div>
   );
 }
 
-function captureCommunityJoined(
-  communityType: "nft" | "hall" | "system" | "user",
-) {
+function captureCommunityJoined(communityType: GroupDiscoveryType) {
   captureAnalyticsEvent("community_joined", { community_type: communityType });
 }

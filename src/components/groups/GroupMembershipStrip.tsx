@@ -2,8 +2,8 @@
 
 /**
  * GroupMembershipStrip — the "your status here" panel on the §4.7.5
- * group-detail page. Cross-kind: works for nft / hall / system / user
- * groups via the same kind-dispatched wrapper pattern that
+ * group-detail page. Cross-kind: works for nft / hall / system / user /
+ * validator groups via the same kind-dispatched wrapper pattern that
  * `components/profile/panels/GroupsPanel.tsx` uses.
  *
  * Action precedence (matches GroupsPanel exactly per §A4 / §N7):
@@ -20,6 +20,8 @@
  * `permissions{}` block is the single source of truth (§A2).
  */
 
+import type { Route } from "next";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
@@ -35,8 +37,18 @@ import {
   useJoinPlainGroupMutation,
   useLeavePlainGroupMutation,
 } from "@/hooks/useMyGroups";
+import {
+  humanizeValidatorJoinError,
+  isJoinCooldown,
+  useJoinValidatorGroupMutation,
+  useLeaveValidatorGroupMutation,
+} from "@/hooks/useValidatorGroups";
 import { useLinkWalletMutation, useMyWallets } from "@/hooks/useWallets";
-import type { GroupDetailResponse } from "@/lib/api/types";
+import type {
+  BccApiError,
+  GroupDetailResponse,
+  GroupValidatorStats,
+} from "@/lib/api/types";
 import { isAllowed, reasonCode, unlockHint } from "@/lib/permissions";
 import { findWalletChain } from "@/lib/wallet/chain-catalog";
 import { humanizeCode } from "@/lib/api/errors";
@@ -103,6 +115,11 @@ export function GroupMembershipStrip({ group }: GroupMembershipStripProps) {
       </header>
 
       <div className="px-6 py-5">
+        {/* Above the action: this is where a delegator decides to join, so
+            what they'd be verified against has to be in view first. */}
+        {group.type === "validator" && group.validator_stats != null && (
+          <ValidatorServed stats={group.validator_stats} />
+        )}
         <MembershipBody
           group={group}
           onActionStart={setOptimisticIntent}
@@ -183,6 +200,21 @@ function MembershipBody({ group, onActionStart, onActionError }: MembershipBodyP
       />
     );
   }
+  // Delegator community, same reasoning: the detail view-model never runs a
+  // live LCD check at page-load, so the verified join is the check.
+  if (
+    group.type === "validator" &&
+    !isAllowed(permissions, "can_join") &&
+    reasonCode(permissions, "can_join") === "not_eligible"
+  ) {
+    return (
+      <ValidatorEligibilityCheck
+        group={group}
+        onActionStart={onActionStart}
+        onActionError={onActionError}
+      />
+    );
+  }
   const joinHint = unlockHint(permissions, "can_join");
   if (joinHint !== null) {
     return <UnlockHint hint={joinHint} />;
@@ -211,6 +243,8 @@ function JoinAction({ group, onActionStart, onActionError }: ActionDispatchProps
   switch (group.type) {
     case "nft":
       return <HolderJoinButton groupId={group.id} {...handlers} />;
+    case "validator":
+      return <ValidatorEligibilityCheck group={group} {...handlers} />;
     case "hall":
       return <HallJoinButton groupId={group.id} {...handlers} />;
     case "user":
@@ -224,6 +258,8 @@ function LeaveAction({ group, onActionStart, onActionError }: ActionDispatchProp
   switch (group.type) {
     case "nft":
       return <HolderLeaveButton groupId={group.id} {...handlers} />;
+    case "validator":
+      return <ValidatorLeaveButton groupId={group.id} {...handlers} />;
     case "hall":
       return <HallLeaveButton groupId={group.id} {...handlers} />;
     case "user":
@@ -282,6 +318,67 @@ function HolderEligibilityCheck({ group, onActionStart, onActionError }: ActionD
   void onActionStart; // intentionally unused — no optimistic flip on a speculative check
   const onSuccess = useRefreshOnSuccess();
   const join = useJoinHolderGroupMutation({ onSuccess, onError: onActionError });
+  return (
+    <EligibilityCheck
+      group={group}
+      join={join}
+      connectCopy={(chainLabel) => `Connect a ${chainLabel} wallet to verify you hold this NFT.`}
+      fallbackHint="Hold an NFT from this collection to join."
+      humanizeJoinError={(err) => humanizeMembershipError(err, "join")}
+      offerAnotherWallet={(err) => err.code !== "bcc_rate_limited"}
+    />
+  );
+}
+
+/**
+ * CHECK & JOIN for a delegator community. Same shape and same no-optimistic
+ * reasoning as HolderEligibilityCheck, against the verified route. Another
+ * wallet is only offered after a real "not enough delegation" answer: when
+ * the LCD couldn't be read or a cooldown is running, linking one more wallet
+ * changes nothing.
+ */
+function ValidatorEligibilityCheck({ group, onActionStart, onActionError }: ActionDispatchProps) {
+  void onActionStart; // intentionally unused — no optimistic flip on a speculative check
+  const onSuccess = useRefreshOnSuccess();
+  const join = useJoinValidatorGroupMutation({ onSuccess, onError: onActionError });
+  return (
+    <EligibilityCheck
+      group={group}
+      join={join}
+      connectCopy={(chainLabel) =>
+        `Connect a ${chainLabel} wallet to verify you delegate to this validator.`
+      }
+      fallbackHint="Delegate to this validator to join its community."
+      humanizeJoinError={humanizeValidatorJoinError}
+      offerAnotherWallet={(err) => err.code === "bcc_permission_denied" && !isJoinCooldown(err)}
+    />
+  );
+}
+
+interface EligibilityCheckProps {
+  group: GroupDetailResponse;
+  /** The kind's join-if-eligible mutation. Bound by the wrappers above. */
+  join: {
+    isPending: boolean;
+    error: BccApiError | null;
+    reset: () => void;
+    mutate: (groupId: number) => void;
+    mutateAsync: (groupId: number) => Promise<unknown>;
+  };
+  connectCopy: (chainLabel: string) => string;
+  fallbackHint: string;
+  humanizeJoinError: (err: unknown) => string;
+  offerAnotherWallet: (err: BccApiError) => boolean;
+}
+
+function EligibilityCheck({
+  group,
+  join,
+  connectCopy,
+  fallbackHint,
+  humanizeJoinError,
+  offerAnotherWallet,
+}: EligibilityCheckProps) {
   const link = useLinkWalletMutation();
   // CHECK & JOIN only checks wallets the user has ALREADY linked + verified
   // (the server does no fresh wallet/signature round-trip). A user with no
@@ -328,15 +425,13 @@ function HolderEligibilityCheck({ group, onActionStart, onActionError }: ActionD
 
   // Provider / user-cancel copy from the link step takes precedence; otherwise
   // §γ-keyed join copy (collection-aware not-eligible / opt-out / rate-limit).
-  const joinErrorMessage = join.error
-    ? humanizeMembershipError(join.error, "join")
-    : null;
+  const joinErrorMessage = join.error ? humanizeJoinError(join.error) : null;
   const errorMessage = link.error ? humanizeLinkError(link.error) : joinErrorMessage;
 
   // No verified wallet on the group's chain → connect one inline, then join.
   if (noMatchingWallet && canConnect) {
     return (
-      <ActionRow primaryCopy={`Connect a ${chainOpt.label} wallet to verify you hold this NFT.`}>
+      <ActionRow primaryCopy={connectCopy(chainOpt.label)}>
         <GroupActionButton
           groupId={group.id}
           label="CONNECT WALLET & VERIFY"
@@ -355,11 +450,9 @@ function HolderEligibilityCheck({ group, onActionStart, onActionError }: ActionD
   // the already-linked wallet (no signature). If it comes back not-eligible,
   // offer a secondary "connect another wallet" so a user holding the NFT in an
   // unlinked wallet can link it and retry.
-  const hint =
-    unlockHint(group.permissions, "can_join") ??
-    "Hold an NFT from this collection to join.";
+  const hint = unlockHint(group.permissions, "can_join") ?? fallbackHint;
   const showConnectAnother =
-    canConnect && join.error !== null && join.error.code !== "bcc_rate_limited" && !busy;
+    canConnect && join.error !== null && offerAnotherWallet(join.error) && !busy;
   return (
     <div className="flex flex-col gap-3">
       <ActionRow primaryCopy={hint}>
@@ -406,6 +499,30 @@ function HolderLeaveButton({ groupId, onActionStart, onActionError }: ActionButt
         onLeaveStart={() => onActionStart("leaving")}
         onSuccess={onSuccess}
         onError={onActionError}
+      />
+    </ActionRow>
+  );
+}
+
+function ValidatorLeaveButton({ groupId, onActionStart, onActionError }: ActionButtonProps) {
+  const onSuccess = useRefreshOnSuccess();
+  const mutation = useLeaveValidatorGroupMutation({ onSuccess, onError: onActionError });
+  const errorMessage = mutation.error
+    ? humanizeMembershipError(mutation.error, "leave")
+    : null;
+  return (
+    <ActionRow primaryCopy="You're an active member. Posts you make here scope to this group's feed.">
+      <GroupActionButton
+        groupId={groupId}
+        label="LEAVE"
+        pendingLabel="LEAVING…"
+        isPending={mutation.isPending}
+        errorMessage={errorMessage}
+        onClick={() => {
+          mutation.reset();
+          onActionStart("leaving");
+          mutation.mutate(groupId);
+        }}
       />
     </ActionRow>
   );
@@ -549,6 +666,30 @@ function UnlockHint({ hint }: { hint: string }) {
         LOCKED
       </span>
     </div>
+  );
+}
+
+/** "For Acme on Osmosis": which validator and chain this group serves. */
+function ValidatorServed({ stats }: { stats: GroupValidatorStats }) {
+  const chain = stats.chain_name ?? null;
+  if (stats.moniker === null && chain === null) return null;
+  const name = stats.moniker ?? "this validator";
+  return (
+    <p
+      className="mb-3 font-serif text-ink"
+      style={{ fontSize: "15px", lineHeight: 1.5 }}
+      data-testid="group-validator-served"
+    >
+      For{" "}
+      {stats.validator_page !== null ? (
+        <Link href={stats.validator_page as Route} className="underline">
+          {name}
+        </Link>
+      ) : (
+        name
+      )}
+      {chain !== null && ` on ${chain}`}
+    </p>
   );
 }
 

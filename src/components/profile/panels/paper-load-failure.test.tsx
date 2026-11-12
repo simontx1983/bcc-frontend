@@ -73,6 +73,10 @@ vi.mock("@/hooks/useMyGroups", () => ({
   useJoinPlainGroupMutation: () => idleMutation,
   useLeavePlainGroupMutation: () => idleMutation,
 }));
+vi.mock("@/hooks/useValidatorGroups", () => ({
+  useJoinValidatorGroupMutation: () => idleMutation,
+  useLeaveValidatorGroupMutation: () => idleMutation,
+}));
 
 import { DisputeCallout } from "@/components/disputes/DisputeCallout";
 import { MyDisputesList } from "@/components/disputes/MyDisputesList";

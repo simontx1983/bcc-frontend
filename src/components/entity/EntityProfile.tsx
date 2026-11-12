@@ -35,6 +35,7 @@ import { AnnouncementsTopSection } from "@/components/announcements/Announcement
 import { EntityTabs } from "@/components/entity/EntityTabs";
 import { CardReviewsPanel } from "@/components/entity/panels/CardReviewsPanel";
 import { CardWatchersPanel } from "@/components/entity/panels/CardWatchersPanel";
+import { DelegatorGroupPanel } from "@/components/entity/panels/DelegatorGroupPanel";
 import { PageStreamPanel } from "@/components/entity/panels/PageStreamPanel";
 import { LockedStreamPanel } from "@/components/entity/LockedStreamPanel";
 import { FileRail } from "@/components/layout/FileRail";
@@ -337,6 +338,16 @@ export function EntityProfile({
           ) : null}
         />
       </section>
+
+      {/* ── Delegator group — validator pages only; an absent block
+          renders nothing. Above the tabs so a delegator can find it. ─ */}
+      {card.delegator_group != null && (
+        <DelegatorGroupPanel
+          pageId={card.id}
+          pageName={card.name}
+          block={card.delegator_group}
+        />
+      )}
 
       {/* ── EntityTabs — replaces the old linear section stack ────── */}
       <section className="mx-auto mt-16 max-w-[1440px] px-4 sm:px-7">

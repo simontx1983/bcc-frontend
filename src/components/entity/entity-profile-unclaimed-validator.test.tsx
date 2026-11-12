@@ -26,6 +26,9 @@ vi.mock("@/components/claim/ClaimCallout", () => ({ ClaimCallout: stub("claim") 
 vi.mock("@/components/disputes/DisputeCallout", () => ({ DisputeCallout: stub("dispute") }));
 vi.mock("@/components/endorse/EndorseButton", () => ({ EndorseButton: stub("endorse") }));
 vi.mock("@/components/announcements/AnnouncementBar", () => ({ AnnouncementBar: stub("abar") }));
+vi.mock("@/components/entity/panels/DelegatorGroupPanel", () => ({
+  DelegatorGroupPanel: stub("delegators"),
+}));
 vi.mock("@/components/announcements/AnnouncementsTopSection", () => ({
   AnnouncementsTopSection: stub("atop"),
 }));

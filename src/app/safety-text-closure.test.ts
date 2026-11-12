@@ -24,7 +24,7 @@
  *      opacity suffix) and zero inline `color:` uses of the safety colour;
  *   4. every `role="alert"` element painted with a status utility uses the
  *      error-text token — not safety, not danger;
- *   5. the error-line inventory (73 lines), and `text-bcc-danger` confined
+ *   5. the error-line inventory (74 lines), and `text-bcc-danger` confined
  *      to the destructive headings and buttons it still owns.
  * A control proves the scanners find planted offenders.
  *
@@ -377,12 +377,13 @@ describe("#205 — control: the scanners find planted offenders", () => {
 
 /**
  * Files whose error / validation lines read `text-bcc-text-error` → count.
- * 73 lines: the 42 PR #208 moved to danger, 5 older role=alert lines that
+ * 74 lines: the 42 PR #208 moved to danger, 5 older role=alert lines that
  * were already on danger, the 15 error lines #208 deferred on orange,
  * 9 over-limit / invalid-input states (the counter-tone top rung, the
  * mention cap and seven inline over-cap counters), the email-change
  * code step's alert in AccountSection (verify-before-apply), and the
- * per-row unblock failure in BlocksList.
+ * per-row unblock failure in BlocksList, and the delegator-group join
+ * failure in DelegatorGroupPanel (#198).
  */
 const ERROR_LINES: Readonly<Record<string, number>> = {
   "src/app/(main)/(app)/communities/new/page.tsx": 1,
@@ -405,6 +406,7 @@ const ERROR_LINES: Readonly<Record<string, number>> = {
   "src/components/composer/MentionPopover.tsx": 1,
   "src/components/composer/PhotoPicker.tsx": 1,
   "src/components/disputes/DisputeDetail.tsx": 1,
+  "src/components/entity/panels/DelegatorGroupPanel.tsx": 1,
   "src/components/disputes/OpenDisputeModal.tsx": 2,
   "src/components/endorse/EndorseButton.tsx": 2,
   "src/components/feed/ReportButton.tsx": 2,
@@ -449,8 +451,8 @@ const countIn = (re: RegExp, src: string) =>
   stripComments(src).split(/\r?\n/).filter((l) => re.test(l)).length;
 
 describe("#205 — error-line inventory", () => {
-  it("73 error lines in total", () => {
-    expect(Object.values(ERROR_LINES).reduce((a, b) => a + b, 0)).toBe(73);
+  it("74 error lines in total", () => {
+    expect(Object.values(ERROR_LINES).reduce((a, b) => a + b, 0)).toBe(74);
   });
 
   for (const [file, n] of Object.entries(ERROR_LINES)) {

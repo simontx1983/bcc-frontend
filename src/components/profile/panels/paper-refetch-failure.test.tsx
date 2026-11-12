@@ -55,6 +55,7 @@ function result(key: Key, branch: "first" | "refetch", data: unknown, code = "bc
 
 const idleMutation = { mutate: vi.fn(), isPending: false, isError: false, error: null };
 
+vi.mock("@/lib/env", () => ({ clientEnv: { BCC_API_URL: "https://wp.example" } }));
 vi.mock("@/hooks/useDisputes", () => ({
   useMyDisputes: () => state.results.myDisputes,
   useDisputeVote: () => ({ data: undefined, isPending: false, isError: false }),

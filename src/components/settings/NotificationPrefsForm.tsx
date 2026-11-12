@@ -170,6 +170,11 @@ const BELL_ROWS: ReadonlyArray<BellRow> = [
     label: "Holder community live",
     blurb: "A holders community you waitlisted went live and you qualify to join.",
   },
+  {
+    key: "bcc_delegator_group_removed",
+    label: "Removed from a delegator group",
+    blurb: "An automatic check removed you because your delegation is below the group's minimum. You can rejoin once you delegate enough.",
+  },
 ];
 
 // V2 Phase 1: push event taxonomy is a deliberate subset of the bell.

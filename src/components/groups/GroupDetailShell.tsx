@@ -33,6 +33,7 @@ import type { GroupDetailResponse } from "@/lib/api/types";
 
 const KIND_RAIL_LABEL: Record<GroupDetailResponse["type"], string> = {
   nft:    "HOLDERS",
+  validator: "DELEGATORS",
   hall:   "HALL",
   system: "SYSTEM",
   user:   "COMMUNITY",
