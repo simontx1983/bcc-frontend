@@ -1,6 +1,6 @@
 "use client";
 
-import { Globe, Home, LayoutGrid, Menu, Plus } from "lucide-react";
+import { Globe, Home, Landmark, Menu, Plus } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -83,9 +83,9 @@ export function MobileNav({ onMenuOpen }: MobileNavProps) {
         alignItems: "center",
         zIndex: 200,
         borderTop: "1px solid var(--bcc-border)",
-        background: "var(--bcc-header-bg)",
-        backdropFilter: "var(--bcc-blur-md-saturate)",
-        WebkitBackdropFilter: "var(--bcc-blur-md-saturate)",
+        // Solid page-ground bar (dev note 33): the feed scrolls underneath
+        // it, so a translucent glass bar let post text show through.
+        background: "var(--bcc-bg)",
       }}
     >
       {/* Home */}
@@ -101,11 +101,13 @@ export function MobileNav({ onMenuOpen }: MobileNavProps) {
         <span style={labelStyle}>Home</span>
       </Link>
 
-      {/* Directory */}
-      <Link href="/directory" style={itemStyle("/directory")} aria-current={current("/directory")}>
-        {activeMark("/directory")}
-        <LayoutGrid size={20} strokeWidth={1.7} aria-hidden />
-        <span style={labelStyle}>Directory</span>
+      {/* Halls — replaced Directory in the Handoff v1 bottom menu (dev
+          note 15: Home, Halls, +, Communities, Menu). Directory is still
+          reachable from the Menu offcanvas and the desktop sidebar. */}
+      <Link href="/halls" style={itemStyle("/halls")} aria-current={current("/halls")}>
+        {activeMark("/halls")}
+        <Landmark size={20} strokeWidth={1.7} aria-hidden />
+        <span style={labelStyle}>Halls</span>
       </Link>
 
       {/* Center Post button */}

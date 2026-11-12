@@ -175,6 +175,7 @@ function FeedItemCardImpl({
           author={item.author}
           size="md"
           avatarRingColor="var(--bcc-accent)"
+          nameStyle="caps"
           trailing={trailing}
         />
       </header>
@@ -188,20 +189,20 @@ function FeedItemCardImpl({
         the name as plain text — never a broken href.
       */}
       {groupName && (
-        <p className="bcc-mono text-[11px] text-[var(--bcc-text-secondary)]">
+        <p className="font-serif text-[14px] leading-normal text-[var(--bcc-text-secondary)]">
           Posted in{" "}
           {groupLink ? (
-            <>
-              <Link
-                href={groupLink as Route}
-                className="hover:text-[var(--bcc-text)] hover:underline"
-              >
-                {groupName}
-              </Link>
+            // Handoff v1 (dev note 33): the Hall name is the accent-coloured
+            // link, the "→" rides with it; "Posted in" stays secondary.
+            <Link
+              href={groupLink as Route}
+              className="text-[var(--bcc-accent)] hover:underline"
+            >
+              {groupName}
               <span aria-hidden="true"> →</span>
-            </>
+            </Link>
           ) : (
-            groupName
+            <span className="text-[var(--bcc-text)]">{groupName}</span>
           )}
         </p>
       )}
@@ -218,7 +219,7 @@ function FeedItemCardImpl({
         {isGif && <GifBody item={item} />}
 
         {summary !== "" && (
-          <p className="font-serif text-[var(--bcc-text)] whitespace-pre-line break-words">
+          <p className="font-serif text-[14px] leading-normal text-[var(--bcc-text)] whitespace-pre-line break-words">
             {/*
               §3.3.12 — status bodies carry a `mentions[]` overlay.
               Other kinds (watch_batch, page_claim, dispute) emit a

@@ -238,14 +238,14 @@ export function PhotoBody({ item }: { item: FeedItem }) {
                 width={800}
                 height={480}
                 sizes="(max-width: 640px) 100vw, 600px"
-                className="h-auto max-h-[480px] w-full rounded-xl border border-[var(--bcc-border)] object-cover"
+                className="h-auto max-h-[320px] w-full rounded-xl border border-[var(--bcc-border)] object-cover"
               />
             ) : (
               // eslint-disable-next-line @next/next/no-img-element -- non-WP host — outside the next/image allowlist; see lib/media.ts
               <img
                 src={photoUrl}
                 alt={alt}
-                className="h-auto max-h-[480px] w-full rounded-xl border border-[var(--bcc-border)] object-cover"
+                className="h-auto max-h-[320px] w-full rounded-xl border border-[var(--bcc-border)] object-cover"
                 loading="lazy"
                 decoding="async"
               />
@@ -299,7 +299,7 @@ export function GifBody({ item }: { item: FeedItem }) {
             <img
               src={gifUrl}
               alt=""
-              className="h-auto max-h-[480px] w-full rounded-xl border border-[var(--bcc-border)] object-cover"
+              className="h-auto max-h-[320px] w-full rounded-xl border border-[var(--bcc-border)] object-cover"
               loading="lazy"
               decoding="async"
             />
