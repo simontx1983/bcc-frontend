@@ -135,7 +135,12 @@ export function MentionPopover({
         return;
       }
       if (event.key === "Escape") {
+        // H3: Esc closes the LIST only. This listener runs in the capture
+        // phase on window, ahead of the Dialog's and the composer's own
+        // Escape handlers (both bubble-phase on window); stopping here
+        // keeps one Esc from also closing the New Post dialog.
         event.preventDefault();
+        event.stopPropagation();
         onClose();
       }
     };

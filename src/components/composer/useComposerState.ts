@@ -224,7 +224,19 @@ export function useComposerState({ groupId, hallFeed, pageId, initialExpanded, o
     () => detectMentionTrigger(content, caretPos, mentionRanges),
     [content, caretPos, mentionRanges]
   );
-  const mentionPickerOpen = expanded && mentionTrigger.active && !isPending;
+  // H3: Esc dismisses the picker for THIS `@` (keyed by its position).
+  // Typing on keeps it dismissed; a different `@` — or the same spot once
+  // the trigger has gone inactive and come back — opens it again.
+  const [dismissedMentionAnchor, setDismissedMentionAnchor] = useState<number | null>(null);
+  const activeMentionAnchor = mentionTrigger.active ? mentionTrigger.anchor : null;
+  useEffect(() => {
+    if (activeMentionAnchor === null) setDismissedMentionAnchor(null);
+  }, [activeMentionAnchor]);
+  const mentionPickerOpen =
+    expanded &&
+    mentionTrigger.active &&
+    mentionTrigger.anchor !== dismissedMentionAnchor &&
+    !isPending;
   const overMentionCap    = mentionRanges.length > MENTIONS_PER_POST_MAX;
   // v1.5: photo-only / GIF-only posts are valid. `canSubmit` requires
   // SOMETHING — text OR photo OR GIF. Keeps casual posting frictionless
@@ -418,18 +430,9 @@ export function useComposerState({ groupId, hallFeed, pageId, initialExpanded, o
   };
 
   const closeMentionPicker = (): void => {
-    // Blur the trigger by stepping caret one past the `@` so the
-    // detector goes inactive. Easiest: temporarily move caret to
-    // start of line… but that's user-hostile. Cleanest: just
-    // synthesize a "no active prefix" state via an empty content
-    // change at the same caret. Practically, Esc just blurs the
-    // popover — the picker mounts on `mentionPickerOpen` which is
-    // derived from the trigger, so we can't force-close without
-    // either moving caret or stripping the `@`. For V1d: leave
-    // dismissal to caret-movement / typing past the prefix.
-    // No-op preserves the textarea state; the popover hides on the
-    // next caret/content tick when the trigger evaluates false.
-    // (Hooked up so MentionPopover.onClose has somewhere to land.)
+    // H3: dismiss the picker for the `@` it is showing for; the textarea
+    // is untouched. See `dismissedMentionAnchor`.
+    if (mentionTrigger.active) setDismissedMentionAnchor(mentionTrigger.anchor);
   };
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {

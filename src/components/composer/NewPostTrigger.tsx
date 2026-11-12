@@ -24,11 +24,12 @@
  * inline composer already uses for bare-mount call sites (ActivityPanel).
  */
 
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 
 import { Composer } from "@/components/composer/Composer";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Dialog } from "@/components/ui/Dialog";
 
 interface NewPostTriggerProps {
@@ -43,6 +44,27 @@ export function NewPostTrigger({ className, style, ariaLabel, title, children }:
   const { data: session } = useSession();
   const viewerHandle = session?.user?.handle;
   const [open, setOpen] = useState(false);
+  // H3: Esc and a backdrop tap close the Dialog without the composer's say,
+  // which unmounted it and silently threw away a typed post or an attached
+  // photo. The composer reports whether it holds a draft; with one, those
+  // two paths ask first. The composer's own "Discard draft" (X) and a
+  // successful post still close directly — both are explicit.
+  const [hasDraft, setHasDraft] = useState(false);
+  const [confirmingDiscard, setConfirmingDiscard] = useState(false);
+
+  const close = useCallback(() => {
+    setOpen(false);
+    setHasDraft(false);
+    setConfirmingDiscard(false);
+  }, []);
+
+  const requestClose = useCallback(() => {
+    if (hasDraft) {
+      setConfirmingDiscard(true);
+      return;
+    }
+    close();
+  }, [hasDraft, close]);
 
   if (viewerHandle === undefined) {
     return (
@@ -73,15 +95,27 @@ export function NewPostTrigger({ className, style, ariaLabel, title, children }:
         {children}
       </button>
       {open && (
-        <Dialog title="Compose a post" onClose={() => setOpen(false)} bare center panelClassName="max-w-2xl">
+        <Dialog title="Compose a post" onClose={requestClose} bare center panelClassName="max-w-2xl">
           <Composer
             variant="inline"
             startExpanded
             hosted
-            onClose={() => setOpen(false)}
+            onClose={close}
+            onDraftChange={setHasDraft}
             viewerHandle={viewerHandle}
           />
         </Dialog>
+      )}
+      {open && confirmingDiscard && (
+        <ConfirmDialog
+          title="Discard this post?"
+          body="What you've written and any photo or GIF you attached will be lost."
+          confirmLabel="DISCARD"
+          cancelLabel="KEEP EDITING"
+          pending={false}
+          onConfirm={close}
+          onCancel={() => setConfirmingDiscard(false)}
+        />
       )}
     </>
   );
