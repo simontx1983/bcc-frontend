@@ -43,6 +43,10 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ refresh: vi.fn(), push: vi.fn() }),
 }));
 
+// F-282: the bridge now also revokes the API token; keep it off the network.
+vi.mock("@/lib/auth/revoke-token", () => ({
+  revokeTokenForSessionEnd: async () => true,
+}));
 vi.mock("@/lib/push/revoke", () => ({
   revokePushForSessionEnd: async () => "not-subscribed" as const,
   pushCleanupNeedsWarning: () => false,

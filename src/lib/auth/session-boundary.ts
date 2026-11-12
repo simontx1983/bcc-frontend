@@ -126,6 +126,12 @@ export interface SessionTeardownResult {
   /** True when the sign-out call exceeded its budget. */
   signOutTimedOut: boolean;
   pushCleanup: PushCleanupOutcome;
+  /**
+   * F-282: the server confirmed this session's API token is revoked.
+   * False when it could not be confirmed (no token, timeout, error) — the
+   * cookie is still cleared, the token then lapses at its expiry.
+   */
+  tokenRevoked: boolean;
 }
 
 /** Options a caller may use to steer where the viewer lands. */
@@ -173,6 +179,14 @@ export interface SessionTeardownHandlers {
    * valid — the server's DELETE is authenticated and ownership-checked.
    */
   revokePush: () => Promise<PushCleanupOutcome>;
+  /**
+   * F-282: revoke this session's API token on the server
+   * (POST /auth/logout). Must run while the token is still readable from
+   * the session, and AFTER `revokePush`, whose DELETE authenticates with
+   * that same token. Best-effort; resolves false when not confirmed.
+   * Optional so older registrations keep working.
+   */
+  revokeToken?: () => Promise<boolean>;
   /** The NextAuth sign-out. Navigates on success; may reject or hang. */
   signOut: (callbackUrl: string) => Promise<void>;
 }
@@ -182,6 +196,12 @@ export interface SessionTeardownHandlers {
  * must never be the reason someone stays signed in.
  */
 export const PUSH_CLEANUP_TIMEOUT_MS = 2_000;
+
+/**
+ * Token-revocation budget (F-282). Same reasoning as push: the server-side
+ * logout is a safety net, never a reason to stay signed in here.
+ */
+export const TOKEN_REVOKE_TIMEOUT_MS = 2_000;
 
 /**
  * Sign-out budget. A hanging `/api/auth/signout` previously left the
@@ -729,6 +749,18 @@ async function runTeardown(
     }
   }
 
+  // 1b. Revoke this session's API token server-side (F-282). After push,
+  //     whose DELETE authenticates with this same token; before signOut,
+  //     which drops the session the token is read from. Bounded.
+  let tokenRevoked = false;
+  if (current?.revokeToken !== undefined) {
+    try {
+      tokenRevoked = await withTimeout(current.revokeToken(), TOKEN_REVOKE_TIMEOUT_MS, false);
+    } catch {
+      tokenRevoked = false;
+    }
+  }
+
   // 2. Bump the epoch, cancel in-flight reads and drop local state. The
   //    gate is already closed, so this runs with no observers attached.
   let localStateCleared = false;
@@ -779,6 +811,7 @@ async function runTeardown(
     signOutTimedOut,
     ...(signOutError !== undefined ? { signOutError } : {}),
     pushCleanup,
+    tokenRevoked,
   };
 
   // A successful sign-out navigates, so nothing needs to render. A failed

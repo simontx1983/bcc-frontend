@@ -56,6 +56,7 @@ function result(over: Partial<SessionTeardownResult> = {}): SessionTeardownResul
     signedOut: true,
     signOutTimedOut: false,
     pushCleanup: "revoked",
+    tokenRevoked: true,
     ...over,
   };
 }

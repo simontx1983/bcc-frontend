@@ -42,6 +42,10 @@ vi.mock("next-auth/react", () => ({
 }));
 
 const revokePushForSessionEnd = vi.fn(async () => "not-subscribed" as const);
+// F-282: the bridge now also revokes the API token; keep it off the network.
+vi.mock("@/lib/auth/revoke-token", () => ({
+  revokeTokenForSessionEnd: async () => true,
+}));
 vi.mock("@/lib/push/revoke", () => ({
   revokePushForSessionEnd: () => revokePushForSessionEnd(),
   pushCleanupNeedsWarning: () => false,

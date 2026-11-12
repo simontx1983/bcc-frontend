@@ -14,6 +14,7 @@
  *   - token                → POST /auth/token                (re-mint for already-authed user)
  *   - wallet nonce         → GET  /auth/nonce                (§N8 claim challenge)
  *   - wallet link          → POST /auth/wallet-link          (§N8 verify + persist)
+ *   - logout               → POST /auth/logout               (revoke THIS bearer; F-120 / F-282)
  *
  * Email login flow (2FA):
  *   loginWithEmail() → {status:"2fa_required", challenge_token} → /login/two-factor page
@@ -400,5 +401,19 @@ export async function confirmPasswordReset(
   await bccFetch<{ ok: true }>("auth/reset-password", {
     method: "POST",
     body: { key, login, password },
+  });
+}
+
+/**
+ * POST /auth/logout — revoke the PRESENTED bearer, and only it (bcc-trust
+ * F-120). Always 200 (`{ ok: true }`), including for an already-dead
+ * token. Takes an EXPLICIT token through the low-level `bccFetch`, like
+ * the sign-out push cleanup: its only caller is the session teardown, and
+ * the session-aware client's 401 handling could re-enter that teardown.
+ */
+export function logoutToken(token: string): Promise<{ ok: true }> {
+  return bccFetch<{ ok: true }>("auth/logout", {
+    method: "POST",
+    token,
   });
 }
