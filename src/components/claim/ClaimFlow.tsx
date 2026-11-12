@@ -49,8 +49,9 @@
  * unclaimed callout disappears.
  */
 
+import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { captureAnalyticsEvent } from "@/lib/analytics/posthog";
 import { humanizeCode } from "@/lib/api/errors";
@@ -65,6 +66,7 @@ import {
 } from "@/lib/wallet/dispatch";
 import { linkOrConfirmOwnWallet, signLinkChallenge } from "@/lib/wallet/linkFlow";
 import { Dialog } from "@/components/ui/Dialog";
+import { MY_WALLETS_QUERY_KEY } from "@/hooks/useWallets";
 
 /**
  * The wallet an operator actually opens, per chain. Used in copy only —
@@ -104,12 +106,36 @@ type Step =
       chainType: WalletChainType;
       pending: boolean;
       error: string | null;
+      /**
+       * What the error allows next. `retry`: signing again can work.
+       * `other-wallet`: the server refused THIS address as the operator,
+       * so re-signing with it can only fail again (and spends the claim
+       * rate limit) — the way forward is a different wallet or account.
+       * `final`: nothing in this flow can succeed (page already claimed).
+       */
+      next: "retry" | "other-wallet" | "final";
     }
   | { kind: "confirmation" };
 
 export function ClaimFlow({ pageId, pageName, target, onClose }: ClaimFlowProps) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [step, setStep] = useState<Step>({ kind: "explanation" });
+  // Something reached the server that changes what the page or account
+  // shows (a wallet was linked, the page was claimed, or the page turned
+  // out to be claimed already). Closing then refreshes the server-rendered
+  // page — not only from the confirmation step.
+  const landedRef = useRef(false);
+  const pending = (step.kind === "connect" || step.kind === "signature") && step.pending;
+
+  // Each step replaces the focused button with a new screen. Move focus to
+  // the new step's heading so keyboard and screen-reader users land on —
+  // and hear — the new step instead of falling back to <body>, where Tab
+  // would escape behind the modal.
+  const bodyRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    bodyRef.current?.querySelector<HTMLElement>("h3")?.focus();
+  }, [step.kind]);
 
   // ── Step 2: Connect the chain's wallet ─────────────────────────────
   const chainType = findWalletChain(target.chain_slug)?.chainType ?? null;
@@ -133,7 +159,7 @@ export function ClaimFlow({ pageId, pageName, target, onClose }: ClaimFlowProps)
       // provider path: §11, and the signed bundle it produces is what the
       // backend verifier reads.
       const connection = await connectWallet(target.chain_slug, chainType);
-      setStep({ kind: "signature", connection, chainType, pending: false, error: null });
+      setStep({ kind: "signature", connection, chainType, pending: false, error: null, next: "retry" });
     } catch (err) {
       setStep({
         kind: "connect",
@@ -148,7 +174,7 @@ export function ClaimFlow({ pageId, pageName, target, onClose }: ClaimFlowProps)
     connection: WalletConnection,
     signChainType: WalletChainType,
   ) => {
-    setStep({ kind: "signature", connection, chainType: signChainType, pending: true, error: null });
+    setStep({ kind: "signature", connection, chainType: signChainType, pending: true, error: null, next: "retry" });
     // Which call failed decides the copy: a link error and a claim error
     // are different problems with different fixes.
     let phase: "link" | "claim" = "link";
@@ -161,6 +187,13 @@ export function ClaimFlow({ pageId, pageName, target, onClose }: ClaimFlowProps)
       // the link succeeded and the claim failed) is not an error. A wallet
       // linked to ANOTHER account surfaces as bcc_conflict here.
       await linkOrConfirmOwnWallet(target.chain_slug, linked);
+      // The wallet is on the account now, whatever the claim does next:
+      // refresh the wallet list and the profile's wallet badges (the same
+      // keys useLinkWalletMutation invalidates).
+      landedRef.current = true;
+      void queryClient.invalidateQueries({ queryKey: MY_WALLETS_QUERY_KEY });
+      void queryClient.invalidateQueries({ queryKey: ["user"] });
+      void queryClient.invalidateQueries({ queryKey: ["users"] });
 
       // 3d. Claim the page now that the wallet is verified.
       phase = "claim";
@@ -173,25 +206,39 @@ export function ClaimFlow({ pageId, pageName, target, onClose }: ClaimFlowProps)
       captureAnalyticsEvent("claim_completed", { chain: target.chain_slug });
       setStep({ kind: "confirmation" });
     } catch (err) {
+      const next = phase === "claim" ? claimStepNext(err) : "retry";
+      // Already claimed: the server state differs from what the page shows.
+      if (next === "final") landedRef.current = true;
       setStep({
         kind: "signature",
         connection,
         chainType: signChainType,
         pending: false,
         error: phase === "link" ? humanizeLinkStepError(err) : humanizeClaimStepError(err),
+        next,
       });
     }
   };
 
   const handleClose = () => {
-    if (step.kind === "confirmation") {
+    // Held while a wallet request or the claim is in flight: closing would
+    // not cancel it — the signature, link and claim would still land, out
+    // of sight, with the page left showing UNCLAIMED.
+    if (pending) return;
+    if (step.kind === "confirmation" || landedRef.current) {
       router.refresh();
     }
     onClose();
   };
 
   return (
-    <Dialog title="Claim this validator" onClose={handleClose} panelClassName="max-w-lg">
+    <Dialog
+      title="Claim this validator"
+      onClose={handleClose}
+      closeDisabled={pending}
+      panelClassName="max-w-lg"
+    >
+      <div ref={bodyRef}>
       {step.kind === "explanation" && (
         <ExplanationStep
           pageName={pageName}
@@ -220,7 +267,9 @@ export function ClaimFlow({ pageId, pageName, target, onClose }: ClaimFlowProps)
           connection={step.connection}
           pending={step.pending}
           error={step.error}
+          next={step.next}
           onSign={() => { void handleSign(step.connection, step.chainType); }}
+          onUseOtherWallet={() => { void handleConnect(); }}
           onCancel={handleClose}
         />
       )}
@@ -232,6 +281,7 @@ export function ClaimFlow({ pageId, pageName, target, onClose }: ClaimFlowProps)
           onClose={handleClose}
         />
       )}
+      </div>
     </Dialog>
   );
 }
@@ -253,7 +303,7 @@ function ExplanationStep({
 }) {
   return (
     <>
-      <h3 className="bcc-stencil text-2xl text-bcc-text">
+      <h3 tabIndex={-1} className="bcc-stencil text-2xl text-bcc-text outline-none">
         Are you the operator of {pageName}?
       </h3>
       <p className="mt-3 font-serif text-bcc-text-secondary">
@@ -297,7 +347,7 @@ function ConnectStep({
   if (!claimable) {
     return (
       <>
-        <h3 className="bcc-stencil text-2xl text-bcc-text">
+        <h3 tabIndex={-1} className="bcc-stencil text-2xl text-bcc-text outline-none">
           Claiming isn&apos;t available here
         </h3>
         {error !== null && <ErrorLine message={error} />}
@@ -310,15 +360,16 @@ function ConnectStep({
 
   return (
     <>
-      <h3 className="bcc-stencil text-2xl text-bcc-text">Connect your wallet</h3>
+      <h3 tabIndex={-1} className="bcc-stencil text-2xl text-bcc-text outline-none">Connect your wallet</h3>
       <p className="mt-3 font-serif text-bcc-text-secondary">
         Open {walletName} and approve the connection request for{" "}
         <span className="bcc-mono text-bcc-text">{chainSlug.toUpperCase()}</span>.
-        We&apos;ll read your wallet&apos;s public address — nothing else.
+        We&apos;ll read your wallet&apos;s public address. Signing in the next step
+        adds this wallet to your BCC account — you can remove it in Settings → Wallets.
       </p>
       {error !== null && <ErrorLine message={error} />}
       <ButtonRow>
-        <SecondaryButton onClick={onCancel}>CANCEL</SecondaryButton>
+        <SecondaryButton onClick={onCancel} disabled={pending}>CANCEL</SecondaryButton>
         <PrimaryButton onClick={onRetry} disabled={pending}>
           {pending ? "CONNECTING…" : error !== null ? "RETRY" : "CONNECT WALLET"}
         </PrimaryButton>
@@ -337,7 +388,9 @@ function SignatureStep({
   connection,
   pending,
   error,
+  next,
   onSign,
+  onUseOtherWallet,
   onCancel,
 }: {
   pageName: string;
@@ -345,12 +398,14 @@ function SignatureStep({
   connection: WalletConnection;
   pending: boolean;
   error: string | null;
+  next: "retry" | "other-wallet" | "final";
   onSign: () => void;
+  onUseOtherWallet: () => void;
   onCancel: () => void;
 }) {
   return (
     <>
-      <h3 className="bcc-stencil text-2xl text-bcc-text">Sign the challenge</h3>
+      <h3 tabIndex={-1} className="bcc-stencil text-2xl text-bcc-text outline-none">Sign the challenge</h3>
       <p className="mt-3 font-serif text-bcc-text-secondary">
         {walletName} will pop up with a plain-English message. Signing it
         proves you control{" "}
@@ -363,10 +418,25 @@ function SignatureStep({
       </p>
       {error !== null && <ErrorLine message={error} />}
       <ButtonRow>
-        <SecondaryButton onClick={onCancel}>CANCEL</SecondaryButton>
-        <PrimaryButton onClick={onSign} disabled={pending}>
-          {pending ? "SIGNING…" : error !== null ? "RETRY SIGNATURE" : "SIGN MESSAGE"}
-        </PrimaryButton>
+        {error !== null && next === "final" ? (
+          // Nothing in this flow can succeed now; a retry would only fail
+          // again and spend the claim rate limit.
+          <PrimaryButton onClick={onCancel}>CLOSE</PrimaryButton>
+        ) : error !== null && next === "other-wallet" ? (
+          // The server refused THIS address. Re-signing with it can only
+          // fail again, so the way forward is another wallet or account.
+          <>
+            <SecondaryButton onClick={onCancel}>CANCEL</SecondaryButton>
+            <PrimaryButton onClick={onUseOtherWallet}>USE A DIFFERENT WALLET</PrimaryButton>
+          </>
+        ) : (
+          <>
+            <SecondaryButton onClick={onCancel} disabled={pending}>CANCEL</SecondaryButton>
+            <PrimaryButton onClick={onSign} disabled={pending}>
+              {pending ? "SIGNING…" : error !== null ? "RETRY SIGNATURE" : "SIGN MESSAGE"}
+            </PrimaryButton>
+          </>
+        )}
       </ButtonRow>
     </>
   );
@@ -386,14 +456,15 @@ function ConfirmationStep({
   onClose: () => void;
 }) {
   return (
-    <>
+    // role=status: the success is announced, not only the errors.
+    <div role="status">
       <p
         className="bcc-mono text-[10px] tracking-[0.24em]"
         style={{ color: "var(--verified)" }}
       >
         ✓ VERIFIED
       </p>
-      <h3 className="bcc-stencil mt-2 text-3xl text-bcc-text">
+      <h3 tabIndex={-1} className="bcc-stencil mt-2 text-3xl text-bcc-text outline-none">
         {pageName} is yours.
       </h3>
       <p className="mt-3 font-serif text-bcc-text-secondary">
@@ -410,7 +481,7 @@ function ConfirmationStep({
       <ButtonRow>
         <PrimaryButton onClick={onClose}>BACK TO THE FLOOR</PrimaryButton>
       </ButtonRow>
-    </>
+    </div>
   );
 }
 
@@ -455,16 +526,19 @@ function PrimaryButton({
 
 function SecondaryButton({
   onClick,
+  disabled = false,
   children,
 }: {
   onClick: () => void;
+  disabled?: boolean;
   children: React.ReactNode;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className="bcc-mono rounded-sm px-4 py-2 text-[10px] tracking-[0.18em] text-bcc-text-secondary hover:text-bcc-text"
+      disabled={disabled}
+      className="bcc-mono rounded-sm px-4 py-2 text-[10px] tracking-[0.18em] text-bcc-text-secondary hover:text-bcc-text disabled:cursor-not-allowed disabled:opacity-50"
     >
       {children}
     </button>
@@ -516,6 +590,19 @@ function humanizeLinkStepError(err: unknown): string {
   );
 }
 
+/**
+ * What a claim-step failure allows next. A refused address (bcc_forbidden:
+ * not the operator) needs a different wallet; an already-claimed page
+ * (bcc_conflict) cannot be claimed in this flow at all. Everything else
+ * is worth another attempt.
+ */
+function claimStepNext(err: unknown): "retry" | "other-wallet" | "final" {
+  const code = (err as { code?: unknown } | null)?.code;
+  if (code === "bcc_forbidden") return "other-wallet";
+  if (code === "bcc_conflict") return "final";
+  return "retry";
+}
+
 /** Claim: the wallet is verified; this is about the page itself. */
 function humanizeClaimStepError(err: unknown): string {
   return humanizeCode(
@@ -523,8 +610,9 @@ function humanizeClaimStepError(err: unknown): string {
     {
       bcc_unauthorized: "Sign in first.",
       bcc_precondition_failed: "Connect a wallet before claiming this page.",
-      bcc_forbidden: "This wallet doesn't match the validator's operator address.",
-      bcc_conflict: "This page is already claimed by another wallet.",
+      bcc_forbidden:
+        "This wallet doesn't match the validator's operator address. Switch to the operator account in your wallet, then connect again.",
+      bcc_conflict: "This page has already been claimed by another account.",
       bcc_rate_limited: "Too many attempts — wait a minute and retry.",
       bcc_not_found: "Page not found. Refresh and try again.",
       bcc_invalid_request: "Couldn't complete the claim. Try again.",

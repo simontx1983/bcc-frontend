@@ -6,7 +6,9 @@
  * may ride along. Mocks copied from claim-flow-cosmos.test.tsx.
  */
 
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { cleanup, fireEvent, render as rtlRender, screen } from "@testing-library/react";
+import type { ReactElement } from "react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type * as KeplrModule from "@/lib/wallet/keplr";
@@ -49,6 +51,10 @@ vi.mock("@/lib/analytics/posthog", async (importActual) => ({
 }));
 
 import { ClaimFlow } from "@/components/claim/ClaimFlow";
+
+// ClaimFlow refreshes the wallet queries after a link, so it needs a client.
+const render = (ui: ReactElement) =>
+  rtlRender(<QueryClientProvider client={new QueryClient()}>{ui}</QueryClientProvider>);
 import { BccApiError } from "@/lib/api/types";
 
 const ADDRESS = "cosmos1operatoraddressxyz";

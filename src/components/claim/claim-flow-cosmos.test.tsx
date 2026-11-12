@@ -11,7 +11,9 @@
  * real shared dispatch + linkFlow code builds the request body here.
  */
 
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { cleanup, fireEvent, render as rtlRender, screen, waitFor } from "@testing-library/react";
+import type { ReactElement } from "react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type * as KeplrModule from "@/lib/wallet/keplr";
@@ -48,6 +50,10 @@ vi.mock("@/lib/api/pages-endpoints", () => ({
 }));
 
 import { ClaimFlow } from "@/components/claim/ClaimFlow";
+
+// ClaimFlow refreshes the wallet queries after a link, so it needs a client.
+const render = (ui: ReactElement) =>
+  rtlRender(<QueryClientProvider client={new QueryClient()}>{ui}</QueryClientProvider>);
 import { BccApiError } from "@/lib/api/types";
 
 const ADDRESS = "cosmos1operatoraddressxyz";
@@ -190,7 +196,7 @@ describe("ClaimFlow — error copy names the step that failed", () => {
   it("a claim 409 says the page is already claimed", async () => {
     claimPage.mockRejectedValue(new BccApiError("bcc_conflict", "raw", 409, null));
     await runToSign();
-    expect(await screen.findByRole("alert")).toHaveTextContent("This page is already claimed by another wallet.");
+    expect(await screen.findByRole("alert")).toHaveTextContent("This page has already been claimed by another account.");
     expect(getMyWallets).not.toHaveBeenCalled();
   });
 
