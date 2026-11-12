@@ -696,6 +696,14 @@ export interface Card {
    * of its backend.
    */
   announcements?: AnnouncementsBlock | null;
+  /**
+   * The validator page's everyday-post stream. Presence is the gate for
+   * reading `GET /pages/:id/feed`, same convention as `announcements`:
+   * absent on non-validator cards and on a backend that predates it, in
+   * which case nothing fetches. `can_post` is the server's answer for THIS
+   * viewer and is the only thing that mounts the page composer.
+   */
+  page_stream?: { can_post: boolean } | null;
 }
 
 /**
@@ -1185,6 +1193,23 @@ export interface FeedItem {
    * unaffected by this field in v1 — it's metadata for badge rendering.
    */
   group?: GroupBlock;
+  /**
+   * The validator page this post was written for. Null when the post has
+   * no page marker or the page no longer resolves to a published page;
+   * absent on a backend that predates the field. `label` and `url` are
+   * server-rendered and shown verbatim. It stays on a post after its
+   * author stops being the operator, so it records who wrote the post
+   * then and is not a statement about who operates the validator now.
+   */
+  page_context?: FeedPageContext | null;
+}
+
+export interface FeedPageContext {
+  id: number;
+  name: string;
+  handle: string;
+  url: string;
+  label: string;
 }
 
 export interface FeedPagination {
@@ -3145,6 +3170,13 @@ export interface CreateStatusRequest {
    * targets. Omit for the main channel (canonical wire spelling).
    */
   hall_feed?: HallFeedChannel;
+  /**
+   * Post on a validator page: the post carries the page marker and shows
+   * on that page's feed as well as the author's wall and the Floor. Only
+   * the page's current operator may send it (403 `bcc_forbidden` +
+   * `reason_code: not_claimer`). Combined with `group_id` it is a 400.
+   */
+  target_page_id?: number;
 }
 
 interface CreateReviewRequestBase {
@@ -6620,6 +6652,21 @@ export type AnnouncementCommentDeniedReason =
  */
 export interface AnnouncementsBlock {
   capabilities: AnnouncementFeatureCapabilities;
+  /**
+   * Does the rotator have anything to show? Its only job is letting
+   * the page reserve the bar's height before the client fetch
+   * resolves — the bar sits at the very top, so inserting it late
+   * displaces the heading and everything beneath it.
+   *
+   * ⚠ Present on the DETAIL card only. `getPageCardForList()` runs
+   * once per card and the directory grid never renders the bar, so
+   * the backend omits it there rather than paying a query per card.
+   * Absent (or false) means reserve nothing — which is correct for
+   * the grid and the right failure mode everywhere else, since most
+   * pages have no announcements and a blank strip on all of them
+   * would be worse than a shift on the few that do.
+   */
+  has_any?: boolean;
 }
 
 /** §4.32.3 — one announcement as list/detail report it. */

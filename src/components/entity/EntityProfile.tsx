@@ -3,6 +3,7 @@
  * entities. Matches the /u/[handle] shape exactly so the platform reads
  * as one product:
  *
+ *   Announcements (validator pages: the bar, and the operator's button)
  *   FileRail   (FLOOR // {KIND} · @handle  …  FILE NNNN // OPEN)
  *   <h1>       (stencil clamp 1.75rem–4.5rem, card.name)
  *              @handle kicker in safety orange
@@ -20,9 +21,6 @@
  *   - "Wanted" poster overlay for unclaimed validator pages (server
  *     view-model split already exists; the UI variant is the pending
  *     piece)
- *   - Operator stream feed in the Activity tab (will reuse FeedItemCard
- *     / useFeed once /v/:slug/feed is exposed; today the tab is a §N10
- *     empty state or LockedStreamPanel)
  *   - Reviews tab + per-page reviews list (deferred)
  */
 
@@ -32,11 +30,12 @@ import { ChainTabs } from "@/components/entity/ChainTabs";
 import { ClaimCallout } from "@/components/claim/ClaimCallout";
 import { DisputeCallout } from "@/components/disputes/DisputeCallout";
 import { EndorseButton } from "@/components/endorse/EndorseButton";
-import { AnnouncementBar } from "@/components/announcements/AnnouncementBar";
 import { AnnouncementsPanel } from "@/components/announcements/AnnouncementsPanel";
+import { AnnouncementsTopSection } from "@/components/announcements/AnnouncementsTopSection";
 import { EntityTabs } from "@/components/entity/EntityTabs";
 import { CardReviewsPanel } from "@/components/entity/panels/CardReviewsPanel";
 import { CardWatchersPanel } from "@/components/entity/panels/CardWatchersPanel";
+import { PageStreamPanel } from "@/components/entity/panels/PageStreamPanel";
 import { LockedStreamPanel } from "@/components/entity/LockedStreamPanel";
 import { FileRail } from "@/components/layout/FileRail";
 import { PageHero } from "@/components/layout/PageHero";
@@ -107,9 +106,9 @@ export interface EntityProfileProps {
   kindLabel: string;
   /**
    * §N10 empty-state copy for the Activity tab when the page is
-   * claimed-but-quiet. Per kind the messaging is slightly different
-   * ("This validator hasn't claimed the page yet" vs. "This creator
-   * hasn't dropped anything yet"). Used only when card.is_claimed.
+   * claimed-but-quiet. Per kind the messaging is slightly different.
+   * The page IS claimed whenever this shows, so the copy must never
+   * talk about the operator claiming it. Used only when card.is_claimed.
    */
   streamEmptyState: { title: string; body: string };
   /**
@@ -144,6 +143,17 @@ export function EntityProfile({
 
   return (
     <main className="pb-24">
+      {/* ── Announcements — the very top of the page, above everything
+          else in it. Gated on the same capability block as the tab: absent
+          → renders nothing and fetches nothing. */}
+      {card.announcements != null && (
+        <AnnouncementsTopSection
+          pageId={card.id}
+          capabilities={card.announcements.capabilities}
+          hasAny={card.announcements.has_any ?? false}
+        />
+      )}
+
       {/* ── FileRail ────────────────────────────────────────────────
           Mirrors /u/[handle]: FLOOR // KIND  AT-HANDLE on the left,
           FILE NNNN // STATUS on the right. Status reads "OPEN" for
@@ -328,13 +338,6 @@ export function EntityProfile({
         />
       </section>
 
-      {/* ── Announcement bar — above the tabs, below the hero ─────
-          Gated on the same capability block as the tab: absent (every
-          backend today) → renders nothing and fetches nothing. */}
-      {card.announcements != null && (
-        <AnnouncementBar pageId={card.id} featureEnabled />
-      )}
-
       {/* ── EntityTabs — replaces the old linear section stack ────── */}
       <section className="mx-auto mt-16 max-w-[1440px] px-4 sm:px-7">
         <EntityTabs
@@ -374,8 +377,19 @@ export function EntityProfile({
               />
             ) : null
           }
+          /* `page_stream` is the gate for reading the page feed, the same way
+             `announcements` is for its surfaces: validator pages only, and
+             absent on a backend without the route, where asking would 404. */
           activityPanel={
-            card.is_claimed === false ? (
+            card.page_stream != null ? (
+              <PageStreamPanel
+                pageId={card.id}
+                pageName={card.name}
+                canPost={card.page_stream.can_post}
+                unclaimed={card.is_claimed === false}
+                emptyState={streamEmptyState}
+              />
+            ) : card.is_claimed === false ? (
               <LockedStreamPanel pageName={card.name} />
             ) : (
               <div className="bcc-panel mx-auto max-w-2xl p-8 text-center">

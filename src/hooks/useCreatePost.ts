@@ -66,6 +66,8 @@ export function useCreatePostMutation(
     // Spread-arg forwarding stays arity-agnostic across TanStack
     // Query versions (v5 added a 4th `mutateOptions` parameter).
     onSuccess: (...args) => {
+      // A post with `target_page_id` needs nothing extra: the page feed's
+      // key sits under FEED_QUERY_KEY_ROOT (see usePageFeed).
       void queryClient.invalidateQueries({ queryKey: FEED_QUERY_KEY_ROOT });
       void queryClient.invalidateQueries({ queryKey: HOT_FEED_QUERY_KEY });
       void queryClient.invalidateQueries({ queryKey: USER_ACTIVITY_QUERY_KEY_ROOT });

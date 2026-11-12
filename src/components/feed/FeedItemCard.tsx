@@ -29,6 +29,7 @@ import {
   PhotoBody,
   ReviewBody,
 } from "@/components/feed/FeedPostBody";
+import { PageContextLine } from "@/components/feed/PageContextLine";
 import { POST_KIND_LABELS, deriveBodySummary } from "@/components/feed/postBody";
 import { PostActionBar } from "@/components/feed/PostActionBar";
 import { PostOverflowMenu } from "@/components/feed/PostOverflowMenu";
@@ -197,6 +198,8 @@ function FeedItemCardImpl({
           )}
         </p>
       )}
+
+      <PageContextLine context={item.page_context} />
 
       <div className="flex flex-col gap-3">
         {isReview && <ReviewBody body={item.body} />}
