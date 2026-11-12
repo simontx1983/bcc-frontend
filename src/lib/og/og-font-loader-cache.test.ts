@@ -12,15 +12,20 @@
  * starts empty.
  */
 
+import type * as FsPromises from "node:fs/promises";
+
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+type ShouldFail = (path: string) => boolean;
+const NEVER_FAIL: ShouldFail = () => false;
 
 const fsState = vi.hoisted(() => ({
   reads: [] as string[],
-  shouldFail: (_path: string): boolean => false,
+  shouldFail: (() => false) as (path: string) => boolean,
 }));
 
 vi.mock("node:fs/promises", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("node:fs/promises")>();
+  const actual = await importOriginal<typeof FsPromises>();
   const readFile = async (...args: Parameters<typeof actual.readFile>) => {
     const path = String(args[0]);
     fsState.reads.push(path);
@@ -39,7 +44,7 @@ async function freshLoader() {
 
 beforeEach(() => {
   fsState.reads = [];
-  fsState.shouldFail = () => false;
+  fsState.shouldFail = NEVER_FAIL;
 });
 
 afterEach(() => {
