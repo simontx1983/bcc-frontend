@@ -5594,6 +5594,14 @@ export interface MyWalletsResponse {
   recovery: {
     has_recovery_email: boolean;
     verified_wallet_count: number;
+    /**
+     * F-253 (contract v1.130): does the member know a password? `false`
+     * (a wallet or OAuth signup that never set one) → the email / password
+     * / delete forms confirm with a wallet signature instead; `true` or
+     * `null` (unknown, older account) → the current-password field only.
+     * Optional for deploy skew; absent behaves like `null`.
+     */
+    has_password?: boolean | null;
   };
 }
 

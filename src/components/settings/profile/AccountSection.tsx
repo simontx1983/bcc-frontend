@@ -3,9 +3,10 @@
 /**
  * AccountSection — the SIGN-IN section of the Account sub-tab.
  *
- * Two sub-cards, each requiring the user's current password:
+ * Two sub-cards, each confirmed by the user's current password — or, for
+ * an account with NO password, a wallet signature (F-253, AccountConfirm):
  *   1. Change email
- *   2. Change password
+ *   2. Change password (for a wallet-only account: set a first password)
  *
  * Account deletion used to be a third sibling here. It now lives alone
  * in the Danger Zone (`DeleteAccountCard`) so an irreversible action no
@@ -18,6 +19,11 @@
  */
 
 import { useId, useRef, useState } from "react";
+import {
+  AccountConfirmField,
+  humanizeConfirmError,
+  useAccountConfirm,
+} from "@/components/settings/profile/AccountConfirm";
 import { SettingsSaveStatus } from "@/components/settings/SettingsSaveStatus";
 import { useDirtyRegistration } from "@/hooks/useDirtyRegistration";
 
@@ -129,10 +135,12 @@ function ChangeEmailCard({ currentEmail }: { currentEmail: string }) {
   // it would leave the form permanently dirty after a successful save. This
   // records what the server confirmed.
   const [confirmedEmail, setConfirmedEmail] = useState(currentEmail);
-  // Held for the life of the form ONLY — React state, never storage — so
-  // "Resend code" can repeat the PATCH, which re-verifies it. Cleared on a
-  // confirmed change, on Cancel, and gone with the component on unmount.
-  const [currentPassword, setCurrentPassword] = useState("");
+  // The confirmation (current password, or a wallet signature for an
+  // account with no password — F-253). A typed password is held for the
+  // life of the form ONLY — React state, never storage — so "Resend code"
+  // can repeat the PATCH, which re-verifies it; in wallet mode a resend
+  // signs a fresh challenge. Cleared on a confirmed change and on Cancel.
+  const confirm = useAccountConfirm("confirm_email_change");
   // Step 1 (the address + password form) vs step 2 (code entry). Step 2
   // remembers the exact address the code was sent for, so a resend repeats
   // the same body even if the step-1 field is edited meanwhile.
@@ -175,13 +183,13 @@ function ChangeEmailCard({ currentEmail }: { currentEmail: string }) {
       // confirm. The password has done its job.
       setStep({ kind: "form" });
       setCode("");
-      setCurrentPassword("");
+      confirm.clear();
       setNotice("That's already your email.");
     },
     onError: (err) => {
       setNotice(null);
       if (requestMode.current === "resend" && !isConflict(err)) {
-        setCodeError(humanizeError(err));
+        setCodeError(humanizeConfirmError(err, confirm.mode) ?? humanizeError(err));
         return;
       }
       // A step-1 failure, or a resend whose address was taken meanwhile —
@@ -189,7 +197,9 @@ function ChangeEmailCard({ currentEmail }: { currentEmail: string }) {
       setStep({ kind: "form" });
       setCode("");
       setServerError(
-        isConflict(err) ? "That email is already in use by another account." : humanizeError(err),
+        isConflict(err)
+          ? "That email is already in use by another account."
+          : (humanizeConfirmError(err, confirm.mode) ?? humanizeError(err)),
       );
     },
     onSettled: () => {
@@ -206,7 +216,7 @@ function ChangeEmailCard({ currentEmail }: { currentEmail: string }) {
       // invalidations; only now does the UI say the email changed.
       setStep({ kind: "form" });
       setCode("");
-      setCurrentPassword("");
+      confirm.clear();
       setServerError(null);
       setCodeError(null);
       setNotice(null);
@@ -233,9 +243,9 @@ function ChangeEmailCard({ currentEmail }: { currentEmail: string }) {
     },
   });
 
-  const busy = request.isPending || verify.isPending;
+  const busy = request.isPending || verify.isPending || confirm.signing;
   const dirty = email.trim() !== confirmedEmail.trim();
-  const canSubmit = dirty && email.trim() !== "" && currentPassword !== "" && !busy;
+  const canSubmit = dirty && email.trim() !== "" && confirm.ready && !busy;
   const canConfirm = code.length === CODE_LENGTH && !busy;
 
   // A typed-but-unsubmitted password, or a change waiting on its code, is
@@ -244,11 +254,11 @@ function ChangeEmailCard({ currentEmail }: { currentEmail: string }) {
   useDirtyRegistration({
     id: "account.email",
     label: "your email address",
-    isDirty: dirty || currentPassword !== "" || step.kind === "code",
+    isDirty: dirty || confirm.password !== "" || step.kind === "code",
     isSaving: busy,
   });
 
-  function sendRequest(mode: "submit" | "resend", targetEmail: string) {
+  async function sendRequest(mode: "submit" | "resend", targetEmail: string) {
     if (inFlight.current) return;
     inFlight.current = true;
     requestMode.current = mode;
@@ -256,13 +266,31 @@ function ChangeEmailCard({ currentEmail }: { currentEmail: string }) {
     setCodeError(null);
     setNotice(null);
     setChangedTo(null);
-    request.mutate({ current_password: currentPassword, email: targetEmail });
+    // A typed password goes out in the same tick, as it always did; only a
+    // wallet signature has to be awaited.
+    if (confirm.mode === "password") {
+      request.mutate({ current_password: confirm.password, email: targetEmail });
+      return;
+    }
+    let credential;
+    try {
+      // Wallet mode signs here, at submit: the challenge is single-use.
+      credential = await confirm.credential();
+    } catch (err) {
+      inFlight.current = false;
+      const text =
+        humanizeConfirmError(err, confirm.mode) ?? "Couldn't get a signature from your wallet. Try again.";
+      if (mode === "resend") setCodeError(text);
+      else setServerError(text);
+      return;
+    }
+    request.mutate({ ...credential, email: targetEmail });
   }
 
   function cancel() {
     setStep({ kind: "form" });
     setCode("");
-    setCurrentPassword("");
+    confirm.clear();
     setCodeError(null);
     setNotice(null);
   }
@@ -343,11 +371,11 @@ function ChangeEmailCard({ currentEmail }: { currentEmail: string }) {
             <div className="flex flex-wrap items-center gap-3">
               <button
                 type="button"
-                onClick={() => sendRequest("resend", step.email)}
+                onClick={() => void sendRequest("resend", step.email)}
                 disabled={busy}
                 className={textButtonClass}
               >
-                {request.isPending ? "Sending…" : "Resend code"}
+                {confirm.signing ? "Waiting for wallet…" : request.isPending ? "Sending…" : "Resend code"}
               </button>
               <button
                 type="button"
@@ -375,8 +403,9 @@ function ChangeEmailCard({ currentEmail }: { currentEmail: string }) {
     <section className="bcc-panel p-5">
       <h3 className="bcc-stencil text-lg text-bcc-text">Change email</h3>
       <p id={helpId} className="bcc-mono mt-1 text-[10px] text-bcc-text-secondary">
-        We&apos;ll need your current password, then a code sent to the new
-        address to confirm.
+        {confirm.mode === "wallet" || confirm.mode === "no-wallet"
+          ? "We'll need a signature from your wallet, then a code sent to the new address to confirm."
+          : "We'll need your current password, then a code sent to the new address to confirm."}
       </p>
 
       <form
@@ -384,7 +413,7 @@ function ChangeEmailCard({ currentEmail }: { currentEmail: string }) {
         onSubmit={(e) => {
           e.preventDefault();
           if (!canSubmit) return;
-          sendRequest("submit", email.trim());
+          void sendRequest("submit", email.trim());
         }}
       >
         <Field label="Email">
@@ -398,18 +427,12 @@ function ChangeEmailCard({ currentEmail }: { currentEmail: string }) {
             className={fieldClass}
           />
         </Field>
-        <Field label="Current password">
-          <input
-            type="password"
-            value={currentPassword}
-            onChange={(e) => setCurrentPassword(e.target.value)}
-            disabled={busy}
-            aria-describedby={helpId}
-            autoComplete="current-password"
-            required
-            className={fieldClass}
-          />
-        </Field>
+        <AccountConfirmField
+          confirm={confirm}
+          disabled={busy}
+          describedBy={helpId}
+          inputClassName={fieldClass}
+        />
 
         {changedTo !== null && (
           <p role="status" className="bcc-mono text-[11px] text-bcc-success">
@@ -426,10 +449,10 @@ function ChangeEmailCard({ currentEmail }: { currentEmail: string }) {
           serverError={serverError}
           // Never "Saved" from step 1: the PATCH changes nothing.
           savedAt={null}
-          busy={request.isPending}
+          busy={request.isPending || confirm.signing}
           canSubmit={canSubmit}
           label="Send code"
-          busyLabel="Sending…"
+          busyLabel={confirm.signing ? "Waiting for wallet…" : "Sending…"}
         />
       </form>
     </section>
@@ -508,7 +531,9 @@ function ChangePasswordCard() {
   const helpId = `${uid}-pw-help`;
   const lengthId = `${uid}-pw-length`;
   const matchId = `${uid}-pw-match`;
-  const [currentPassword, setCurrentPassword] = useState("");
+  // Current password, or (an account with no password, F-253) a wallet
+  // signature — which is how a wallet-only member sets a first password.
+  const confirm = useAccountConfirm("confirm_password_change");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [savedAt, setSavedAt] = useState<number | null>(null);
@@ -529,7 +554,7 @@ function ChangePasswordCard() {
   const mutation = useChangeAccountPassword({
     onSuccess: (outcome) => {
       setServerError(null);
-      setCurrentPassword("");
+      confirm.clear();
       setNewPassword("");
       setConfirmPassword("");
       if (outcome.sessionRestored) {
@@ -549,7 +574,7 @@ function ChangePasswordCard() {
     onError: (err) => {
       setSavedAt(null);
       setSessionLost(false);
-      setServerError(humanizePasswordError(err));
+      setServerError(humanizeConfirmError(err, confirm.mode) ?? humanizePasswordError(err));
     },
     onSettled: () => {
       submitting.current = false;
@@ -566,8 +591,8 @@ function ChangePasswordCard() {
     id: "account.password",
     label: "your password",
     isDirty:
-      currentPassword !== "" || newPassword !== "" || confirmPassword !== "",
-    isSaving: mutation.isPending,
+      confirm.password !== "" || newPassword !== "" || confirmPassword !== "",
+    isSaving: mutation.isPending || confirm.signing,
   });
 
   const matches = newPassword === confirmPassword;
@@ -575,10 +600,12 @@ function ChangePasswordCard() {
   const showLengthError = newPassword !== "" && !longEnough;
   const showMatchError = confirmPassword !== "" && !matches;
   const canSubmit =
-    currentPassword !== "" &&
+    confirm.ready &&
     longEnough &&
     matches &&
-    !mutation.isPending;
+    !mutation.isPending &&
+    !confirm.signing;
+  const settingFirst = confirm.mode === "wallet" || confirm.mode === "no-wallet";
 
   if (sessionLost) {
     return (
@@ -617,10 +644,13 @@ function ChangePasswordCard() {
 
   return (
     <section className="bcc-panel p-5">
-      <h3 className="bcc-stencil text-lg text-bcc-text">Change password</h3>
+      <h3 className="bcc-stencil text-lg text-bcc-text">
+        {settingFirst ? "Set a password" : "Change password"}
+      </h3>
       <p id={helpId} className="bcc-mono mt-1 text-[10px] text-bcc-text-secondary">
-        At least 10 characters. Every other signed-in device is signed out;
-        this one stays signed in.
+        {settingFirst
+          ? "Your account has no password yet. Set one to sign in with your email too. At least 10 characters."
+          : "At least 10 characters. Every other signed-in device is signed out; this one stays signed in."}
       </p>
 
       <form
@@ -631,24 +661,32 @@ function ChangePasswordCard() {
           submitting.current = true;
           setServerError(null);
           setSavedAt(null);
-          mutation.mutate({
-            current_password: currentPassword,
-            password: newPassword,
-          });
+          if (confirm.mode === "password") {
+            mutation.mutate({ current_password: confirm.password, password: newPassword });
+            return;
+          }
+          void (async () => {
+            let credential;
+            try {
+              credential = await confirm.credential();
+            } catch (err) {
+              submitting.current = false;
+              setServerError(
+                humanizeConfirmError(err, confirm.mode) ??
+                  "Couldn't get a signature from your wallet. Try again.",
+              );
+              return;
+            }
+            mutation.mutate({ ...credential, password: newPassword });
+          })();
         }}
       >
-        <Field label="Current password">
-          <input
-            type="password"
-            value={currentPassword}
-            onChange={(e) => setCurrentPassword(e.target.value)}
-            disabled={mutation.isPending}
-            aria-describedby={helpId}
-            autoComplete="current-password"
-            required
-            className={fieldClass}
-          />
-        </Field>
+        <AccountConfirmField
+          confirm={confirm}
+          disabled={mutation.isPending || confirm.signing}
+          describedBy={helpId}
+          inputClassName={fieldClass}
+        />
         <Field label="New password">
           <input
             type="password"
@@ -692,9 +730,10 @@ function ChangePasswordCard() {
         <SaveRow
           serverError={serverError}
           savedAt={savedAt}
-          busy={mutation.isPending}
+          busy={mutation.isPending || confirm.signing}
           canSubmit={canSubmit}
           label="Save password"
+          busyLabel={confirm.signing ? "Waiting for wallet…" : "Saving…"}
         />
       </form>
     </section>

@@ -121,7 +121,7 @@ export async function linkOrConfirmOwnWallet(
  * (Phantom) and SS58 (Polkadot) are case-SENSITIVE: lowercasing would
  * make two different addresses match, so they compare exactly.
  */
-function sameAddress(walletType: string, a: string, b: string): boolean {
+export function sameAddress(walletType: string, a: string, b: string): boolean {
   return walletType === "keplr" || walletType === "metamask"
     ? a.toLowerCase() === b.toLowerCase()
     : a === b;
