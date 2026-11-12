@@ -60,6 +60,16 @@ const nextConfig: NextConfig = {
   // Pin the workspace root to this folder so Next does not walk up the
   // tree and pick the stray package-lock.json in the user's home dir.
   outputFileTracingRoot: path.join(__dirname),
+  // F-215: the OG image routes read bundled TTFs from src/lib/og/fonts at
+  // runtime (lib/og/card-image.tsx). Output tracing does NOT pick those
+  // up from readFile(join(process.cwd(), …)) on its own — a build without
+  // this listed no font in any opengraph-image route's .nft.json — so on
+  // Vercel the files would be missing and every OG image would silently
+  // fall back to the built-in font. List them explicitly. Keys are route
+  // globs; this matches every opengraph-image route, route groups included.
+  outputFileTracingIncludes: {
+    "/**/opengraph-image*": ["./src/lib/og/fonts/*.ttf"],
+  },
   // @polkadot/* packages use dynamic internal requires to load their
   // WASM bytes. Bundling them breaks those relative-path lookups and
   // causes Vercel lambdas to fail at cold-start. Mark them external so
