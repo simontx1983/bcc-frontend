@@ -10,8 +10,9 @@
  * The token measures 2.54:1 light and 2.28:1 dark — it fails AA as text
  * on every surface in the app. WCAG 1.4.3 exempts inactive controls and
  * pure decoration, and nothing else. So the set of survivors is not a
- * matter of taste: **38 occurrences, each with a stated mechanism.**
- * (37 until #203 widened the matcher; the 38th is a decorative dot.)
+ * matter of taste: **37 occurrences, each with a stated mechanism.**
+ * (#203 widened the matcher, adding a decorative dot; #196 removed the
+ * ClaimCallout disabled button that used the token.)
  *
  * ## No "known exception" bucket
  *
@@ -148,7 +149,7 @@ describe("closure scan — the scan itself is honest", () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────
-// 1. The invariant: 38 survivors, every one exempt
+// 1. The invariant: 37 survivors, every one exempt
 // ─────────────────────────────────────────────────────────────────────────
 
 type Mechanism =
@@ -221,7 +222,6 @@ const APPROVED_SURVIVORS: readonly string[] = [
     "src/components/auth/EligibleCommunitiesModal.tsx :: <span aria-hidden className=\"text-bcc-text-muted\">\u00b7</span>",
     "src/components/cards/CardFrontFace.tsx :: background: \"var(--bcc-text-muted)\",",
     "src/components/blog/BlogComposer.tsx :: : \"cursor-not-allowed bg-bcc-surface-active text-bcc-text-muted\")",
-    "src/components/claim/ClaimCallout.tsx :: : \"cursor-not-allowed bg-bcc-surface-active text-bcc-text-muted\")",
     "src/components/claim/ClaimFlow.tsx :: ? \"cursor-not-allowed bg-bcc-surface-active text-bcc-text-muted\"",
     "src/components/composer/Composer.tsx :: : \"cursor-not-allowed bg-[var(--bcc-surface-active)] text-[var(--bcc-text-muted)]\")",
     "src/components/composer/Composer.tsx :: : \"cursor-not-allowed bg-bcc-surface-active text-bcc-text-muted\")",
@@ -255,15 +255,15 @@ const APPROVED_SURVIVORS: readonly string[] = [
 const identity = (h: Hit) => `${h.file} :: ${h.text.slice(0, 88)}`;
 
 describe("closure invariant — every surviving muted use is exempt", () => {
-  it("there are exactly 38 survivors", () => {
-    expect(HITS).toHaveLength(38);
+  it("there are exactly 37 survivors", () => {
+    expect(HITS).toHaveLength(37);
   });
 
   it("the survivors are EXACTLY the approved set, member for member", () => {
     // Not just the count and not just per-slice tallies: an occurrence that
     // moved between files, or a new one appearing while another vanished,
     // would keep those numbers right and this assertion wrong.
-    expect(APPROVED_SURVIVORS).toHaveLength(38);
+    expect(APPROVED_SURVIVORS).toHaveLength(37);
     expect([...HITS].map(identity).sort()).toEqual([...APPROVED_SURVIVORS].sort());
   });
 
@@ -289,7 +289,8 @@ describe("closure invariant — every surviving muted use is exempt", () => {
       return acc;
     }, {});
     expect(counts).toEqual({
-      "disabled-inline": 22,
+      // 21: #196 removed ClaimCallout's disabled button (was 22).
+      "disabled-inline": 21,
       "disabled-branch": 4,
       "disabled-guard": 1,
       "decorative-inline": 9,
@@ -351,11 +352,12 @@ describe("closure — the 19 exclusions from E3, E4 and E5 survive", () => {
   it("E3 kept its 5", () => expect(count(E3)).toBe(5));
   it("E4 kept its 10", () => expect(count(E4)).toBe(10));
   it("E5 kept its 4", () => expect(count(E5)).toBe(4));
-  it("19 in total, plus E6's 18 and #203's 1, is the whole set", () => {
+  it("19 in total, plus E6's 17 and #203's 1, is the whole set", () => {
     expect(count([...E3, ...E4, ...E5])).toBe(19);
-    // 18 from E6, plus CardFrontFace's decorative dot, first seen by the
-    // matcher once #203 widened it.
-    expect(HITS.length - count([...E3, ...E4, ...E5])).toBe(19);
+    // 17 from E6 (18 until #196 removed ClaimCallout's disabled button),
+    // plus CardFrontFace's decorative dot, first seen by the matcher once
+    // #203 widened it.
+    expect(HITS.length - count([...E3, ...E4, ...E5])).toBe(18);
   });
 });
 

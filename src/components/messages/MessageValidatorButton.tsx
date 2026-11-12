@@ -52,6 +52,7 @@ import type { Route } from "next";
 import Link from "next/link";
 
 import type { CardMessaging, CardPermissions } from "@/lib/api/types";
+import { reasonCode } from "@/lib/permissions";
 import { resolveValidatorMessageAction } from "@/lib/validators/messaging";
 
 /** Generic, identity-free line for the collapsed `unavailable` state. */
@@ -62,7 +63,7 @@ const BUTTON_BASE_CLASS =
   "text-[11px] tracking-[0.18em] transition";
 
 const BUTTON_ENABLED_CLASS =
-  "border-cardstock-edge text-cardstock hover:bg-cardstock hover:text-ink";
+  "border-bcc-border text-bcc-text hover:bg-bcc-surface-active";
 
 const BUTTON_DISABLED_CLASS =
   "cursor-not-allowed border-cardstock-edge/40 text-cardstock-deep/60";
@@ -95,7 +96,21 @@ export function MessageValidatorButton({
         </p>
       );
 
-    case "disabled":
+    case "disabled": {
+      // Anonymous: the way forward is signing in, so make the control do
+      // that. Login returns to the composer, which already reads this deep
+      // link. (Other denials stay a disabled control with their hint.)
+      if (reasonCode(permissions, "can_message") === "auth_required") {
+        const composer = `/messages/new?to_page=${pageId}&to_kind=validator`;
+        return (
+          <Link
+            href={`/login?callbackUrl=${encodeURIComponent(composer)}` as Route}
+            className={`${BUTTON_BASE_CLASS} ${BUTTON_ENABLED_CLASS}`}
+          >
+            {action.hint}
+          </Link>
+        );
+      }
       return (
         <div className="flex w-fit flex-col gap-1">
           <button
@@ -112,6 +127,7 @@ export function MessageValidatorButton({
           </p>
         </div>
       );
+    }
 
     case "link":
       return (

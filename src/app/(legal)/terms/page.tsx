@@ -228,8 +228,8 @@ export default function TermsPage() {
         </LegalP>
         <LegalP>
           Notices to us may be sent to{" "}
-          <a href={`mailto:${LEGAL.legalEmail}`} className="text-[var(--bcc-accent)] underline">{LEGAL.legalEmail}</a>{" "}
-          or {LEGAL.address}.
+          <a href={`mailto:${LEGAL.legalEmail}`} className="text-[var(--bcc-accent)] underline">{LEGAL.legalEmail}</a>.
+          {" "}{LEGAL.entity} is based in {LEGAL.address}.
         </LegalP>
       </LegalSection>
     </LegalDoc>

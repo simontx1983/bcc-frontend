@@ -147,13 +147,13 @@ export function EntityProfile({
       {/* ── FileRail ────────────────────────────────────────────────
           Mirrors /u/[handle]: FLOOR // KIND  AT-HANDLE on the left,
           FILE NNNN // STATUS on the right. Status reads "OPEN" for
-          claimed entities, "WANTED" for unclaimed ones — same word the
-          Phase-4 poster overlay will surface. */}
+          claimed entities, "UNCLAIMED" for unclaimed ones — the same word
+          the card ribbon and ClaimCallout use. */}
       <FileRail
         kind={kindLabel}
         subject={card.handle !== "" ? `@${card.handle.toUpperCase()}` : ""}
         fileNumber={String(card.id).padStart(4, "0")}
-        status={card.is_claimed === false ? "WANTED" : "OPEN"}
+        status={card.is_claimed === false ? "UNCLAIMED" : "OPEN"}
       />
 
       {/* ── §J page title — large stencil display name above the hero.

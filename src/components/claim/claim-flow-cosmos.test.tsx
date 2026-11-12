@@ -83,7 +83,7 @@ afterEach(() => cleanup());
 async function runToSign() {
   render(<ClaimFlow pageId={7} pageName="Atlas Validator" target={TARGET} onClose={() => undefined} />);
   fireEvent.click(screen.getByRole("button", { name: /I AM THE OPERATOR/ }));
-  fireEvent.click(await screen.findByRole("button", { name: "SIGN WITH KEPLR" }));
+  fireEvent.click(await screen.findByRole("button", { name: "SIGN MESSAGE" }));
 }
 
 describe("ClaimFlow — the Cosmos link request", () => {

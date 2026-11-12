@@ -85,7 +85,7 @@ afterEach(() => cleanup());
 async function runToSign() {
   render(<ClaimFlow pageId={7} pageName="Atlas Validator" target={TARGET} onClose={() => undefined} />);
   fireEvent.click(screen.getByRole("button", { name: /I AM THE OPERATOR/ }));
-  fireEvent.click(await screen.findByRole("button", { name: "SIGN WITH KEPLR" }));
+  fireEvent.click(await screen.findByRole("button", { name: "SIGN MESSAGE" }));
 }
 
 const sent = (name: string) => capture.mock.calls.filter((c) => c[0] === name).map((c) => c[1] as unknown);
