@@ -16,6 +16,7 @@ import { useEffect, useRef, useState } from "react";
 import {
   Bell,
   ChevronDown,
+  Compass,
   LogOut,
   MessageSquare,
   Moon,
@@ -38,6 +39,7 @@ import { Avatar } from "@/components/identity/Avatar";
 import { ConversationsPanel } from "@/components/messages/ConversationsPanel";
 import { NotificationsPanel } from "@/components/notifications/NotificationsPanel";
 import { GlobalSearch } from "@/components/search/GlobalSearch";
+import { requestTour, SHOW_ME_AROUND_HREF, SHOW_ME_AROUND_TOUR } from "@/lib/tour/replay";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useUnreadCount } from "@/hooks/useNotifications";
 import { useUnreadMessageCount } from "@/hooks/useUnreadMessageCount";
@@ -305,6 +307,10 @@ const AVATAR_MENU = [
      invisibly (regressed once already when this menu replaced the
      old ViewerMenu — 2026-07-21 admin audit P1). */
   { label: "Moderation",    href: "/admin/moderation", icon: <ShieldCheck size={16} strokeWidth={1.8} /> },
+  /* F-322: the tour auto-starts once per account; this is the only way
+     back to it. Raises a request the TourProvider answers (SiteHeader
+     sits outside it), then the link lands on the tour's surface. */
+  { label: "Show me around", href: SHOW_ME_AROUND_HREF, icon: <Compass size={16} strokeWidth={1.8} /> },
   { label: "Settings",      href: "/u/me?tab=profile",icon: <Settings size={16} strokeWidth={1.8} /> },
   { label: "Sign Out",      href: "/api/auth/signout",icon: <LogOut size={16} strokeWidth={1.8} /> },
 ] as const;
@@ -398,7 +404,10 @@ function AvatarDropdown({ handle, onClose, onSignOut, anchorRef }: AvatarDropdow
             key={item.label}
             href={href as Route}
             role="menuitem"
-            onClick={onClose}
+            onClick={() => {
+              if (item.label === "Show me around") requestTour(SHOW_ME_AROUND_TOUR);
+              onClose();
+            }}
             style={sharedStyle}
             onMouseEnter={e => {
               const el = e.currentTarget as HTMLElement;

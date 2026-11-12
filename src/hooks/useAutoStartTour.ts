@@ -30,7 +30,7 @@ const READY_POLL_MS = 200;
 const READY_GIVE_UP_MS = 4000;
 
 export function useAutoStartTour(tourId: string, enabled = true): void {
-  const { start, hasSeen, definition } = useTour();
+  const { start, hasSeen, seenReady, definition } = useTour();
   const scope = useViewerScope();
   const firedRef = useRef(false);
 
@@ -43,6 +43,10 @@ export function useAutoStartTour(tourId: string, enabled = true): void {
     // an unknown scope would read nobody's dismissal set and so replay a
     // tour this viewer already waved away.
     if (scope === null) return undefined;
+    // F-322: and until the seen-set can be trusted. Straight after a
+    // sign-in the local layer is empty (sign-out swept it), so deciding
+    // before the server answers re-showed the tour on every sign-in.
+    if (!seenReady) return undefined;
     const def = tourRegistry[tourId];
     if (def === undefined) return undefined;
     // Permanently seen (local ∪ server) OR dismissed for this session.
@@ -75,5 +79,5 @@ export function useAutoStartTour(tourId: string, enabled = true): void {
     return () => {
       if (poll !== undefined) window.clearTimeout(poll);
     };
-  }, [tourId, enabled, tourRunning, hasSeen, start, scope]);
+  }, [tourId, enabled, tourRunning, hasSeen, seenReady, start, scope]);
 }

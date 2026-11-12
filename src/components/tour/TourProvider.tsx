@@ -23,6 +23,7 @@ import { TourLayer } from "@/components/tour/TourLayer";
 import { useToursSeen } from "@/hooks/useToursSeen";
 import { useViewerScope } from "@/hooks/useViewerScope";
 import { tourRegistry } from "@/lib/tour/registry";
+import { TOUR_REQUEST_EVENT } from "@/lib/tour/replay";
 import { addSessionDismissed, clearLocalSeen, clearProgress, getProgress, setProgress } from "@/lib/tour/storage";
 import type { TourDefinition, TourStep } from "@/lib/tour/types";
 
@@ -52,6 +53,11 @@ export interface TourContextValue {
   finish: () => void;
   /** Has the viewer already seen this tour (local ∪ server)? */
   hasSeen: (tourId: string) => boolean;
+  /**
+   * Can `hasSeen` be trusted yet (the server's seen-set has answered for a
+   * signed-in viewer)? Auto-start waits on this. See useToursSeen.
+   */
+  seenReady: boolean;
 }
 
 export const TourContext = createContext<TourContextValue | null>(null);
@@ -64,7 +70,7 @@ function routeMatches(pathname: string, route: string): boolean {
 export function TourProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
-  const { hasSeen, markSeen } = useToursSeen();
+  const { hasSeen, markSeen, ready: seenReady } = useToursSeen();
   const scope = useViewerScope();
 
   const [active, setActive] = useState<ActiveTour | null>(null);
@@ -110,6 +116,18 @@ export function TourProvider({ children }: { children: React.ReactNode }) {
     setActive(next);
     setProgress(scope, next);
   }, [scope]);
+
+  // "Show me around" (lib/tour/replay): the chrome that offers it sits
+  // outside this provider, so it asks by event. An explicit request
+  // ignores the seen-set — that is the whole point of the button.
+  useEffect(() => {
+    const onRequest = (e: Event) => {
+      const tourId = (e as CustomEvent<unknown>).detail;
+      if (typeof tourId === "string") start(tourId);
+    };
+    window.addEventListener(TOUR_REQUEST_EVENT, onRequest);
+    return () => window.removeEventListener(TOUR_REQUEST_EVENT, onRequest);
+  }, [start]);
 
   const goTo = useCallback(
     (index: number) => {
@@ -180,8 +198,9 @@ export function TourProvider({ children }: { children: React.ReactNode }) {
       dismissForSession,
       finish,
       hasSeen,
+      seenReady,
     }),
-    [definition, stepDef, stepIndex, totalSteps, start, next, back, skip, dismissForSession, finish, hasSeen],
+    [definition, stepDef, stepIndex, totalSteps, start, next, back, skip, dismissForSession, finish, hasSeen, seenReady],
   );
 
   return (
