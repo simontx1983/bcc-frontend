@@ -12,7 +12,7 @@
  * — no per-control auto-save; the Save button mutates whatever's dirty.
  */
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
   useProfilePrefs,
@@ -27,6 +27,7 @@ import type {
 import { LoadFailure } from "@/components/ui/LoadFailure";
 import { SettingsSaveStatus, saveStatusFrom } from "@/components/settings/SettingsSaveStatus";
 import { useDirtyRegistration } from "@/hooks/useDirtyRegistration";
+import { rebaseDraft } from "@/lib/forms/rebaseDraft";
 import { isNonRetryableFixedReadFailure } from "@/lib/api/errors";
 import { BccApiError } from "@/lib/api/types";
 
@@ -173,9 +174,16 @@ function ProfilePrefsForm({ initial }: { initial: ProfilePrefs }) {
   const [savedAt, setSavedAt] = useState<number | null>(null);
   const [serverError, setServerError] = useState<string | null>(null);
 
-  // Re-sync when the cache replaces `initial` (e.g. cross-tab updates).
+  // Re-sync when the cache replaces `initial` (another tab's save, or the
+  // Mentor toggle below, which saves instantly into the same cache entry).
+  // H4: REBASE, don't replace — a field the member changed but hasn't
+  // saved keeps their value; untouched fields take the new server value.
+  const baseRef = useRef(initial);
   useEffect(() => {
-    setDraft(initial);
+    const prevBase = baseRef.current;
+    baseRef.current = initial;
+    if (prevBase === initial) return;
+    setDraft((d) => rebaseDraft(prevBase, initial, d));
   }, [initial]);
 
   const mutation = useUpdateProfilePrefs({

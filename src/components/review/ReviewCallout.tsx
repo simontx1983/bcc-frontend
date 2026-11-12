@@ -37,10 +37,13 @@
 
 import { useQueryClient } from "@tanstack/react-query";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import type { Route } from "next";
+import Link from "next/link";
 
 import { Composer } from "@/components/composer/Composer";
+import { DisabledReason } from "@/components/ui/DisabledReason";
+import { useSignInLink } from "@/lib/auth/sign-in-link";
 import { humanizeCode } from "@/lib/api/errors";
 import { removeReview } from "@/lib/api/posts-endpoints";
 import { CARD_REVIEWS_QUERY_KEY_ROOT } from "@/hooks/useCardTabs";
@@ -87,6 +90,10 @@ export function ReviewCallout({
 }: ReviewCalloutProps) {
   const router = useRouter();
   const pathname = usePathname();
+  // Ties a locked WRITE A REVIEW to its visible reason line (F-321), whose
+  // sign-in link returns to this page, path and query.
+  const reasonId = useId();
+  const signIn = useSignInLink();
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
 
@@ -206,6 +213,7 @@ export function ReviewCallout({
         }}
         disabled={!enabled}
         aria-disabled={!enabled}
+        aria-describedby={!enabled ? reasonId : undefined}
         title={tooltip}
         className={
           "bcc-stencil mt-4 w-fit rounded-sm px-4 py-2 text-[11px] tracking-[0.2em] transition " +
@@ -216,6 +224,25 @@ export function ReviewCallout({
       >
         WRITE A REVIEW
       </button>
+      {/* F-321: why it's locked, visible on touch (a title never shows there). */}
+      {!enabled && (
+        <DisabledReason id={reasonId}>
+          {!viewerAuthed ? (
+            <>
+              <Link
+                href={signIn.href}
+                onClick={signIn.onClick}
+                className="underline underline-offset-2"
+              >
+                Sign in
+              </Link>{" "}
+              to write a review.
+            </>
+          ) : (
+            tooltip
+          )}
+        </DisabledReason>
+      )}
 
       {open && (
         <Composer

@@ -61,11 +61,65 @@ export type ShiftStatus = "on_duty" | "quiet" | "off";
 
 // ── Shared modal dismiss hook ─────────────────────────────────────────────────
 
+const POPOVER_FOCUSABLE =
+  'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
+
+/**
+ * Shared behaviour for the four header pop-ups (theme, messages,
+ * notifications, avatar menu).
+ *
+ * F-325: they used to open without moving focus, let Tab walk out of them
+ * (and, because they render after the avatar button, Tab from the bell
+ * reached the avatar before the bell's own panel), and Esc closed them
+ * leaving focus on <body>. Now, while open:
+ *   - focus moves into the panel (its first control, else the panel);
+ *   - Tab / Shift+Tab cycle inside it;
+ *   - Esc closes it and returns focus to its trigger button;
+ *   - a click outside closes it (focus stays where the click put it);
+ *   - `menu: true` (the avatar menu) adds ArrowUp / ArrowDown / Home / End
+ *     between its menu items.
+ */
 function useModalDismiss(
   modalRef: React.RefObject<HTMLDivElement | null>,
   anchorRef: React.RefObject<HTMLButtonElement | null>,
   onClose: () => void,
+  opts: { menu?: boolean } = {},
 ) {
+  const menu = opts.menu === true;
+
+  // Focus into the panel once, on open — and give it back on close.
+  //
+  // On close, a panel that held focus is gone, and the browser drops focus
+  // to <body>: keyboard users lose their place. So when the panel unmounts
+  // and focus is inside it or on <body>, focus returns to the trigger —
+  // UNLESS the close came from activating a link, which is navigating (the
+  // panel's onClose runs from the link's onClick, before the URL changes,
+  // so a route check at this point could not tell).
+  useEffect(() => {
+    const panel = modalRef.current;
+    if (panel === null) return;
+    const anchor = anchorRef.current;
+    const first = menu
+      ? panel.querySelector<HTMLElement>('[role="menuitem"]')
+      : panel.querySelector<HTMLElement>(POPOVER_FOCUSABLE);
+    (first ?? panel).focus();
+
+    let navigating = false;
+    const noteActivation = (e: Event) => {
+      const target = e.target as Element | null;
+      navigating = target?.closest?.("a[href]") != null;
+    };
+    panel.addEventListener("click", noteActivation, true);
+    return () => {
+      panel.removeEventListener("click", noteActivation, true);
+      if (navigating) return;
+      const active = document.activeElement;
+      if (active === null || active === document.body || panel.contains(active)) {
+        anchor?.focus();
+      }
+    };
+  }, [modalRef, anchorRef, menu]);
+
   useEffect(() => {
     function handleClick(e: MouseEvent) {
       if (
@@ -73,15 +127,64 @@ function useModalDismiss(
         anchorRef.current && !anchorRef.current.contains(e.target as Node)
       ) onClose();
     }
-    function handleKey(e: KeyboardEvent) { if (e.key === "Escape") onClose(); }
+    function handleKey(e: KeyboardEvent) {
+      const panel = modalRef.current;
+      if (e.key === "Escape") {
+        e.preventDefault();
+        onClose();
+        anchorRef.current?.focus();
+        return;
+      }
+      if (panel === null) return;
+      if (e.key === "Tab") {
+        const items = Array.from(panel.querySelectorAll<HTMLElement>(POPOVER_FOCUSABLE));
+        if (items.length === 0) {
+          e.preventDefault();
+          panel.focus();
+          return;
+        }
+        const first = items[0];
+        const last = items[items.length - 1];
+        const active = document.activeElement;
+        const inside = active !== null && panel.contains(active);
+        if (e.shiftKey && (!inside || active === first || active === panel)) {
+          e.preventDefault();
+          last?.focus();
+        } else if (!e.shiftKey && (!inside || active === last)) {
+          e.preventDefault();
+          first?.focus();
+        }
+        return;
+      }
+      if (menu && ["ArrowDown", "ArrowUp", "Home", "End"].includes(e.key)) {
+        const items = Array.from(panel.querySelectorAll<HTMLElement>('[role="menuitem"]'));
+        if (items.length === 0) return;
+        e.preventDefault();
+        const at = items.indexOf(document.activeElement as HTMLElement);
+        const next =
+          e.key === "Home" ? 0
+          : e.key === "End" ? items.length - 1
+          : e.key === "ArrowDown" ? (at + 1) % items.length
+          : (at - 1 + items.length) % items.length;
+        items[next]?.focus();
+      }
+    }
     document.addEventListener("mousedown", handleClick);
     document.addEventListener("keydown", handleKey);
     return () => {
       document.removeEventListener("mousedown", handleClick);
       document.removeEventListener("keydown", handleKey);
     };
-  }, [modalRef, anchorRef, onClose]);
+  }, [modalRef, anchorRef, onClose, menu]);
 }
+
+/** Panel ids, so each trigger can name the panel it controls. */
+const POPOVER_IDS = {
+  theme: "bcc-header-theme-panel",
+  messages: "bcc-header-messages-panel",
+  notifications: "bcc-header-notifications-panel",
+  user: "bcc-header-user-menu",
+} as const;
 
 // ── Icons ─────────────────────────────────────────────────────────────────────
 // Backed by lucide-react (task 5, icon standardization) — these were
@@ -166,8 +269,11 @@ function ThemeModal({ theme, accent, onThemeChange, onAccentChange, onClose, anc
   return (
     <div
       ref={modalRef}
+      id={POPOVER_IDS.theme}
       role="dialog"
+      aria-modal="true"
       aria-label="Theme settings"
+      tabIndex={-1}
       className="bcc-header-modal"
       style={{
         position: "absolute",
@@ -238,7 +344,7 @@ function MessagesModal({ onClose, anchorRef }: MessagesModalProps) {
   useModalDismiss(modalRef, anchorRef, onClose);
 
   return (
-    <div ref={modalRef} role="dialog" aria-label="Messages" className="bcc-header-modal" style={modalShellStyle}>
+    <div ref={modalRef} id={POPOVER_IDS.messages} role="dialog" aria-modal="true" aria-label="Messages" tabIndex={-1} className="bcc-header-modal" style={modalShellStyle}>
       <div style={modalHeadStyle}>
         <span style={modalTitleStyle}>Messages</span>
         <Link href="/messages" style={modalSeeAllStyle} onClick={onClose}>
@@ -272,7 +378,7 @@ function NotifModal({ onClose, anchorRef }: NotifModalProps) {
   useModalDismiss(modalRef, anchorRef, onClose);
 
   return (
-    <div ref={modalRef} role="dialog" aria-label="Notifications" className="bcc-header-modal" style={modalShellStyle}>
+    <div ref={modalRef} id={POPOVER_IDS.notifications} role="dialog" aria-modal="true" aria-label="Notifications" tabIndex={-1} className="bcc-header-modal" style={modalShellStyle}>
       <div style={modalHeadStyle}>
         <span style={modalTitleStyle}>Notifications</span>
         <Link href={"/notifications" as Route} style={modalSeeAllStyle} onClick={onClose}>
@@ -297,8 +403,8 @@ function NotifModal({ onClose, anchorRef }: NotifModalProps) {
 // ── Avatar Dropdown ───────────────────────────────────────────────────────────
 
 const AVATAR_MENU = [
-  { label: "My Profile",    href: "/u/[handle]",     icon: <User size={16} strokeWidth={1.8} /> },
-  { label: "My Progression",href: "/me/progression", icon: <TrendingUp size={16} strokeWidth={1.8} /> },
+  { id: "profile",     label: "My Profile",    href: "/u/[handle]",     icon: <User size={16} strokeWidth={1.8} /> },
+  { id: "progression", label: "My Progression",href: "/me/progression", icon: <TrendingUp size={16} strokeWidth={1.8} /> },
   /* No capability gate by design (v1: no FE role checks — see the
      admin-architecture decision). Non-admins who click land on the
      page's own "Admin access required" panel; the API layer owns the
@@ -306,13 +412,13 @@ const AVATAR_MENU = [
      has NO inbound link anywhere and filed reports accumulate
      invisibly (regressed once already when this menu replaced the
      old ViewerMenu — 2026-07-21 admin audit P1). */
-  { label: "Moderation",    href: "/admin/moderation", icon: <ShieldCheck size={16} strokeWidth={1.8} /> },
+  { id: "moderation",  label: "Moderation",    href: "/admin/moderation", icon: <ShieldCheck size={16} strokeWidth={1.8} /> },
   /* F-322: the tour auto-starts once per account; this is the only way
      back to it. Raises a request the TourProvider answers (SiteHeader
      sits outside it), then the link lands on the tour's surface. */
-  { label: "Show me around", href: SHOW_ME_AROUND_HREF, icon: <Compass size={16} strokeWidth={1.8} /> },
-  { label: "Settings",      href: "/u/me?tab=profile",icon: <Settings size={16} strokeWidth={1.8} /> },
-  { label: "Sign Out",      href: "/api/auth/signout",icon: <LogOut size={16} strokeWidth={1.8} /> },
+  { id: "tour",        label: "Show me around", href: SHOW_ME_AROUND_HREF, icon: <Compass size={16} strokeWidth={1.8} /> },
+  { id: "settings",    label: "Settings",      href: "/u/me?tab=profile",icon: <Settings size={16} strokeWidth={1.8} /> },
+  { id: "signout",     label: "Sign Out",      href: "/api/auth/signout",icon: <LogOut size={16} strokeWidth={1.8} /> },
 ] as const;
 
 interface AvatarDropdownProps {
@@ -324,13 +430,15 @@ interface AvatarDropdownProps {
 
 function AvatarDropdown({ handle, onClose, onSignOut, anchorRef }: AvatarDropdownProps) {
   const dropRef = useRef<HTMLDivElement>(null);
-  useModalDismiss(dropRef, anchorRef, onClose);
+  useModalDismiss(dropRef, anchorRef, onClose, { menu: true });
 
   return (
     <div
       ref={dropRef}
+      id={POPOVER_IDS.user}
       role="menu"
       aria-label="User menu"
+      tabIndex={-1}
       className="bcc-header-modal"
       style={{
         position: "absolute",
@@ -351,7 +459,9 @@ function AvatarDropdown({ handle, onClose, onSignOut, anchorRef }: AvatarDropdow
 
       {AVATAR_MENU.map(item => {
         const href = item.href.replace("[handle]", handle);
-        const isDanger = item.label === "Sign Out";
+        // Keyed on the item's id, never its label, so a copy edit cannot
+        // silently turn Sign Out into a plain link (or break the tour).
+        const isDanger = item.id === "signout";
         const sharedStyle = {
           display: "flex",
           alignItems: "center",
@@ -378,7 +488,7 @@ function AvatarDropdown({ handle, onClose, onSignOut, anchorRef }: AvatarDropdow
         if (isDanger) {
           return (
             <button
-              key={item.label}
+              key={item.id}
               type="button"
               role="menuitem"
               style={sharedStyle}
@@ -401,11 +511,11 @@ function AvatarDropdown({ handle, onClose, onSignOut, anchorRef }: AvatarDropdow
 
         return (
           <Link
-            key={item.label}
+            key={item.id}
             href={href as Route}
             role="menuitem"
             onClick={() => {
-              if (item.label === "Show me around") requestTour(SHOW_ME_AROUND_TOUR);
+              if (item.id === "tour") requestTour(SHOW_ME_AROUND_TOUR);
               onClose();
             }}
             style={sharedStyle}
@@ -571,6 +681,9 @@ export function SiteHeader() {
           <button
           ref={paletteRef}
           onClick={() => themeOpen ? setThemeOpen(false) : openTheme()}
+          aria-haspopup="dialog"
+          aria-expanded={themeOpen}
+          aria-controls={themeOpen ? POPOVER_IDS.theme : undefined}
           className={`bcc-btn-icon bcc-header-palette-btn${themeOpen ? " active" : ""}`}
           aria-label="Theme settings"
           title="Theme & accent"
@@ -596,6 +709,9 @@ export function SiteHeader() {
           <button
           ref={messagesRef}
           onClick={() => messagesOpen ? setMessagesOpen(false) : openMessages()}
+          aria-haspopup="dialog"
+          aria-expanded={messagesOpen}
+          aria-controls={messagesOpen ? POPOVER_IDS.messages : undefined}
           className={`bcc-btn-icon${messagesOpen ? " active" : ""}`}
           aria-label={
             msgUnreadCount > 0
@@ -629,6 +745,9 @@ export function SiteHeader() {
           <button
             ref={notifRef}
             onClick={() => notifOpen ? setNotifOpen(false) : openNotif()}
+            aria-haspopup="dialog"
+            aria-expanded={notifOpen}
+            aria-controls={notifOpen ? POPOVER_IDS.notifications : undefined}
             className={`bcc-btn-icon bcc-header-notif-btn${notifOpen ? " active" : ""}`}
             aria-label={
               notifUnreadCount > 0
@@ -725,7 +844,9 @@ export function SiteHeader() {
             ref={avatarRef}
             onClick={() => avatarOpen ? setAvatarOpen(false) : openAvatar()}
             aria-label="User menu"
+            aria-haspopup="menu"
             aria-expanded={avatarOpen}
+            aria-controls={avatarOpen ? POPOVER_IDS.user : undefined}
             style={{
               display: "flex",
               alignItems: "center",

@@ -47,7 +47,7 @@
  * FeedRankingService hydration. No optimistic insert.
  */
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 
 import { counterToneClass } from "@/lib/counter-tone";
@@ -65,6 +65,7 @@ import {
 } from "@/components/composer/useComposerState";
 import { humanizeError } from "@/components/composer/useComposerSubmit";
 import { RankChip } from "@/components/profile/RankChip";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Dialog } from "@/components/ui/Dialog";
 import { humanizeCode } from "@/lib/api/errors";
 import { createReview } from "@/lib/api/posts-endpoints";
@@ -123,6 +124,13 @@ export interface ComposerProps {
    * NewPostTrigger's modal.
    */
   hosted?: boolean;
+  /**
+   * Inline variant only — told whether the composer holds a draft (text,
+   * a photo or a GIF) whenever that changes. A HOST that can dismiss the
+   * composer on its own (NewPostTrigger's Dialog: Esc, backdrop) uses it
+   * to ask before throwing the draft away (H3).
+   */
+  onDraftChange?: (hasDraft: boolean) => void;
   /**
    * Inline-variant props for the collapsed-row identity treatment.
    * All optional — when missing, the composer falls back to a quiet
@@ -206,6 +214,7 @@ export function Composer({
   onClose,
   startExpanded,
   hosted,
+  onDraftChange,
   viewerAvatarUrl,
   viewerHandle,
   viewerDisplayName,
@@ -258,6 +267,7 @@ export function Composer({
         startExpanded={startExpanded}
         hosted={hosted}
         onClose={onClose}
+        onDraftChange={onDraftChange}
       />
     );
   }
@@ -268,24 +278,61 @@ export function Composer({
     defaultMode === "review" && !reviewAvailable ? "status" : defaultMode;
 
   return (
-    <Dialog
+    <ModalComposerShell
       title={
         initialMode === "review" && reviewAvailable
           ? `Write a review of ${reviewTargetName ?? ""}`
           : "Compose"
       }
       onClose={onClose ?? noop}
-      panelClassName="max-w-2xl flex flex-col gap-3"
-    >
-      <ModalCore
-        initialMode={initialMode}
-        reviewTargetId={reviewAvailable && hasEntityTarget ? reviewTargetId : undefined}
-        reviewTargetUserId={reviewAvailable && hasMemberTarget ? reviewTargetUserId : undefined}
-        reviewTargetName={reviewAvailable ? reviewTargetName : undefined}
-        reviewAvailable={reviewAvailable}
-        onSubmitSuccess={onClose}
-      />
-    </Dialog>
+      initialMode={initialMode}
+      reviewTargetId={reviewAvailable && hasEntityTarget ? reviewTargetId : undefined}
+      reviewTargetUserId={reviewAvailable && hasMemberTarget ? reviewTargetUserId : undefined}
+      reviewTargetName={reviewAvailable ? reviewTargetName : undefined}
+      reviewAvailable={reviewAvailable}
+    />
+  );
+}
+
+// F-249 (H3 follow-up): the modal composer's Dialog closed on Esc, a
+// backdrop tap or the corner X straight away, unmounting the form and
+// losing a written review (or a status) with no warning. Same guard as
+// the New Post dialog (NewPostTrigger): the active form reports whether
+// it holds a draft; with one, closing asks "Discard this post?" first.
+// A successful submit still closes directly.
+function ModalComposerShell({
+  title,
+  onClose,
+  ...core
+}: { title: string; onClose: () => void } & Omit<ModalCoreProps, "onSubmitSuccess" | "onDraftChange">) {
+  const [hasDraft, setHasDraft] = useState(false);
+  const [confirmingDiscard, setConfirmingDiscard] = useState(false);
+
+  const requestClose = useCallback(() => {
+    if (hasDraft) {
+      setConfirmingDiscard(true);
+      return;
+    }
+    onClose();
+  }, [hasDraft, onClose]);
+
+  return (
+    <>
+      <Dialog title={title} onClose={requestClose} panelClassName="max-w-2xl flex flex-col gap-3">
+        <ModalCore {...core} onSubmitSuccess={onClose} onDraftChange={setHasDraft} />
+      </Dialog>
+      {confirmingDiscard && (
+        <ConfirmDialog
+          title="Discard this post?"
+          body="What you've written will be lost."
+          confirmLabel="DISCARD"
+          cancelLabel="KEEP EDITING"
+          pending={false}
+          onConfirm={onClose}
+          onCancel={() => setConfirmingDiscard(false)}
+        />
+      )}
+    </>
   );
 }
 
@@ -337,6 +384,8 @@ interface InlineStatusComposerProps {
   hosted?: boolean | undefined;
   /** See ComposerProps.onClose. */
   onClose?: (() => void) | undefined;
+  /** See ComposerProps.onDraftChange. */
+  onDraftChange?: ((hasDraft: boolean) => void) | undefined;
 }
 
 // Sprint 2 civic prompts + the §3.3.12 mention listbox id moved to
@@ -396,6 +445,7 @@ function InlineStatusComposer({
   startExpanded,
   hosted,
   onClose,
+  onDraftChange,
 }: InlineStatusComposerProps) {
   // Phase 3.3 split — the entire form state machine (expand/collapse,
   // prompt rotation, body + validation, photo/GIF attachment slots,
@@ -450,6 +500,12 @@ function InlineStatusComposer({
     hasAttachment,
     placeholder,
   } = useComposerState({ groupId, hallFeed, pageId, initialExpanded: startExpanded, onClose });
+
+  // H3: report "is there a draft?" to a host that can dismiss us itself.
+  const hasDraft = content.trim() !== "" || hasAttachment;
+  useEffect(() => {
+    onDraftChange?.(hasDraft);
+  }, [hasDraft, onDraftChange]);
 
   // A page post is text only in this version, so nothing that attaches
   // anything is offered, and neither is the "where does this go" stub:
@@ -1035,6 +1091,8 @@ interface ModalCoreProps {
   reviewTargetName: string | undefined;
   reviewAvailable: boolean;
   onSubmitSuccess: (() => void) | undefined;
+  /** Whether the active form holds a draft (see ModalComposerShell). */
+  onDraftChange: (hasDraft: boolean) => void;
 }
 
 function ModalCore({
@@ -1044,8 +1102,30 @@ function ModalCore({
   reviewTargetName,
   reviewAvailable,
   onSubmitSuccess,
+  onDraftChange,
 }: ModalCoreProps) {
   const [mode, setMode] = useState<ComposerMode>(initialMode);
+
+  // Switching tabs unmounts the current form, which silently dropped its
+  // draft. Track the active form's draft here too (as well as reporting it
+  // to the shell), and ask before a switch would discard one.
+  const [hasDraft, setHasDraft] = useState(false);
+  const [pendingMode, setPendingMode] = useState<ComposerMode | null>(null);
+  const reportDraft = useCallback(
+    (next: boolean) => {
+      setHasDraft(next);
+      onDraftChange(next);
+    },
+    [onDraftChange],
+  );
+  const requestMode = (next: ComposerMode) => {
+    if (next === mode) return;
+    if (hasDraft) {
+      setPendingMode(next);
+      return;
+    }
+    setMode(next);
+  };
 
   // Resolve the discriminated review target — member takes precedence
   // (the two are mutually exclusive at the Composer boundary).
@@ -1060,15 +1140,32 @@ function ModalCore({
     <>
       <ComposerTabs
         mode={mode}
-        onChange={setMode}
+        onChange={requestMode}
         reviewAvailable={reviewAvailable}
       />
-      {mode === "status" && <StatusForm onSubmitSuccess={onSubmitSuccess} />}
+      {mode === "status" && (
+        <StatusForm onSubmitSuccess={onSubmitSuccess} onDraftChange={reportDraft} />
+      )}
       {mode === "review" && reviewAvailable && reviewTarget !== null && (
         <ReviewForm
           target={reviewTarget}
           targetName={reviewTargetName ?? ""}
           onSubmitSuccess={onSubmitSuccess}
+          onDraftChange={reportDraft}
+        />
+      )}
+      {pendingMode !== null && (
+        <ConfirmDialog
+          title="Discard this draft?"
+          body="Switching tabs clears what you've written here."
+          confirmLabel="DISCARD"
+          cancelLabel="KEEP EDITING"
+          pending={false}
+          onConfirm={() => {
+            setMode(pendingMode);
+            setPendingMode(null);
+          }}
+          onCancel={() => setPendingMode(null)}
         />
       )}
     </>
@@ -1130,9 +1227,24 @@ function ComposerTabs({ mode, onChange, reviewAvailable }: ComposerTabsProps) {
 // reuse this form.
 // ─────────────────────────────────────────────────────────────────────
 
-function StatusForm({ onSubmitSuccess }: { onSubmitSuccess: (() => void) | undefined }) {
+/** Report a form's draft state to its host; clears it when the form unmounts (tab switch). */
+function useReportDraft(hasDraft: boolean, onDraftChange: (hasDraft: boolean) => void): void {
+  useEffect(() => {
+    onDraftChange(hasDraft);
+  }, [hasDraft, onDraftChange]);
+  useEffect(() => () => onDraftChange(false), [onDraftChange]);
+}
+
+function StatusForm({
+  onSubmitSuccess,
+  onDraftChange,
+}: {
+  onSubmitSuccess: (() => void) | undefined;
+  onDraftChange: (hasDraft: boolean) => void;
+}) {
   const [content, setContent] = useState("");
   const [error, setError] = useState<string | null>(null);
+  useReportDraft(content.trim() !== "", onDraftChange);
 
   const mutation = useCreatePostMutation({
     onSuccess: () => {
@@ -1292,14 +1404,18 @@ function ReviewForm({
   target,
   targetName,
   onSubmitSuccess,
+  onDraftChange,
 }: {
   target: ReviewTarget;
   targetName: string;
   onSubmitSuccess: (() => void) | undefined;
+  onDraftChange: (hasDraft: boolean) => void;
 }) {
   const queryClient = useQueryClient();
   const [grade, setGrade] = useState<ReviewGrade | null>(null);
   const [content, setContent] = useState("");
+  // A chosen grade counts: picking one is part of the review.
+  useReportDraft(grade !== null || content.trim() !== "", onDraftChange);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 

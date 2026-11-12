@@ -35,6 +35,10 @@ vi.mock("@/lib/api/push-endpoints", () => ({
 vi.mock("@/lib/api/notification-prefs-endpoints", () => ({
   getNotificationPrefs: () => api.getNotificationPrefs(),
 }));
+// F-282: the bridge now also revokes the API token; keep it off the network.
+vi.mock("@/lib/auth/revoke-token", () => ({
+  revokeTokenForSessionEnd: async () => true,
+}));
 vi.mock("@/lib/push/revoke", () => ({
   rememberPushSubscriptionId: (id: number) => api.rememberPushSubscriptionId(id),
 }));

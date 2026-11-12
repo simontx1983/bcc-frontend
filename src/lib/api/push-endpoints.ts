@@ -54,6 +54,19 @@ export function registerPushSubscription(
 }
 
 /**
+ * H5 — remove THIS device's push subscription from inside the app (the
+ * settings "Push on this device" checkbox). Same route as the sign-out
+ * cleanup below, but an ordinary in-session request, so it goes through
+ * the session-aware client. Master `push.enabled` is untouched by this
+ * route (contract §4.10): the account's other devices keep receiving.
+ */
+export function removeMyPushSubscription(id: number): Promise<{ ok: true }> {
+  return bccFetchAsClient<{ ok: true }>(`me/push-subscriptions/${id}`, {
+    method: "DELETE",
+  });
+}
+
+/**
  * Delete one server-side push-subscription row.
  *
  * Takes an EXPLICIT token and goes through the low-level `bccFetch`

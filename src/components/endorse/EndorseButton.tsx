@@ -23,8 +23,12 @@
  * up the fresh `viewer_has_endorsed` and `endorsements` count.
  */
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useId, useState } from "react";
+
+import { DisabledReason } from "@/components/ui/DisabledReason";
+import { useSignInLink } from "@/lib/auth/sign-in-link";
 
 import { useEndorsePage, useRevokeEndorsement } from "@/hooks/useEndorse";
 import { humanizeCode } from "@/lib/api/errors";
@@ -51,6 +55,11 @@ export function EndorseButton({
   viewerAuthed,
 }: EndorseButtonProps) {
   const router = useRouter();
+  // Sign in and come back to this page — path AND query (F-321).
+  const signIn = useSignInLink();
+  // Above every early return (rules of hooks): ties the locked VOUCH to
+  // its visible reason line (F-321).
+  const reasonId = useId();
   const [errorText, setErrorText] = useState<string | null>(null);
 
   const endorse = useEndorsePage({
@@ -128,6 +137,10 @@ export function EndorseButton({
       : `Vouch for ${pageName}. Adds to their trust score.`;
 
   const pending = endorse.isPending;
+  // F-321: the reason a locked VOUCH is unavailable is a visible line under
+  // it (a title tooltip never shows on touch). Signed out, it links to
+  // sign-in and back.
+  const locked = !enabled && !pending;
 
   return (
     <>
@@ -136,6 +149,7 @@ export function EndorseButton({
         onClick={handleEndorse}
         disabled={!enabled || pending}
         aria-disabled={!enabled || pending}
+        aria-describedby={locked ? reasonId : undefined}
         title={tooltip}
         className={
           "bcc-stencil mt-4 w-fit rounded-sm px-4 py-2 text-[11px] tracking-[0.2em] transition " +
@@ -151,6 +165,24 @@ export function EndorseButton({
       >
         {pending ? "VOUCHING…" : "VOUCH"}
       </button>
+      {locked && (
+        <DisabledReason id={reasonId}>
+          {!viewerAuthed ? (
+            <>
+              <Link
+                href={signIn.href}
+                onClick={signIn.onClick}
+                className="underline underline-offset-2"
+              >
+                Sign in
+              </Link>{" "}
+              to vouch.
+            </>
+          ) : (
+            tooltip
+          )}
+        </DisabledReason>
+      )}
       {errorText !== null && (
         <p role="alert" className="bcc-mono mt-2 text-[11px] text-bcc-text-error">
           {errorText}

@@ -41,6 +41,7 @@ import {
   clearCrossViewerStorage,
   clearViewerStorage,
 } from "@/lib/auth/viewer-storage";
+import { revokeTokenForSessionEnd } from "@/lib/auth/revoke-token";
 import { revokePushForSessionEnd } from "@/lib/push/revoke";
 import {
   resetAnalyticsIdentity,
@@ -200,6 +201,7 @@ export function SessionBoundaryBridge() {
         });
       },
       revokePush: revokePushForSessionEnd,
+      revokeToken: revokeTokenForSessionEnd,
       // `redirect: true` is load-bearing: the document load re-runs the
       // RSC tree, so server-computed owner gating (`isOwner` and the
       // owner's email on /u/[handle]) is recomputed rather than lingering

@@ -13,7 +13,7 @@
  *     mutations, mapped to a `${kind}-${id}` follow lookup so each
  *     card's "Keep Tabs" CTA reflects current state and toggles
  *     correctly (POST vs DELETE).
- *   - the responsive `[grid-template-columns:repeat(auto-fit,316px)]`
+ *   - the responsive `[grid-template-columns:repeat(auto-fit,minmax(0,316px))]`
  *     track (cards are a fixed 316px; the perspective + 3D flip rely on
  *     a stable width).
  *
@@ -119,7 +119,7 @@ export function CardGrid({ cards }: CardGridProps) {
     // columns as the available width admits, so cards never overlap
     // regardless of sidebar / breakpoint. `justify-center` centers any
     // leftover space when the row isn't full.
-    <ul className="grid justify-center gap-6 [grid-template-columns:repeat(auto-fit,316px)]">
+    <ul className="grid justify-center gap-6 [grid-template-columns:repeat(auto-fit,minmax(0,316px))]">
       {cards.map((card) => {
         const key = `${card.card_kind}-${card.id}`;
         return (

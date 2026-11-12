@@ -23,6 +23,7 @@ import {
   updateDelegatorGroup,
 } from "@/lib/api/validator-groups-endpoints";
 import { BccApiError } from "@/lib/api/types";
+import { useGroupContentRefresh } from "@/hooks/groupContentCache";
 import type {
   CreateDelegatorGroupRequest,
   DelegatorGroupResponse,
@@ -47,9 +48,10 @@ export function useJoinValidatorGroupMutation(
     "mutationFn"
   > = {}
 ) {
+  const withRefresh = useGroupContentRefresh(options);
   return useMutation<JoinValidatorGroupResponse, BccApiError, number>({
     mutationFn: (groupId) => joinValidatorGroup(groupId),
-    ...options,
+    ...withRefresh,
   });
 }
 
@@ -59,9 +61,10 @@ export function useLeaveValidatorGroupMutation(
     "mutationFn"
   > = {}
 ) {
+  const withRefresh = useGroupContentRefresh(options);
   return useMutation<LeaveValidatorGroupResponse, BccApiError, number>({
     mutationFn: (groupId) => leaveValidatorGroup(groupId),
-    ...options,
+    ...withRefresh,
   });
 }
 

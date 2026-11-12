@@ -25,7 +25,7 @@
  * "Saved" confirmation that fades after 3s.
  */
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
   useNotificationPrefs,
@@ -46,6 +46,7 @@ import type {
   NotificationPrefsPatch,
   PushEventType,
 } from "@/lib/api/types";
+import { rebaseDraft } from "@/lib/forms/rebaseDraft";
 import {
   PushPermissionDeniedError,
   PushSubscriptionKeysError,
@@ -260,7 +261,12 @@ export function NotificationPrefsForm() {
   const query = useNotificationPrefs();
   const push = usePushSubscription();
   const mutation = useUpdateNotificationPrefs({
-    onSuccess: () => {
+    onSuccess: (saved) => {
+      // Adopt what the server SAVED, like ProfilePrefsSection does. The
+      // rebase below keeps a just-sent value as an "edit", so if the
+      // server normalised it (e.g. forced push.enabled false) the form
+      // would stay dirty right after "Saved".
+      setDraft(saved);
       setSavedAt(Date.now());
       setError(null);
     },
@@ -271,11 +277,21 @@ export function NotificationPrefsForm() {
   const [error, setError] = useState<string | null>(null);
   const [savedAt, setSavedAt] = useState<number | null>(null);
 
-  // Seed the local draft once the server prefs land. Re-syncs on
-  // explicit cache primes (e.g. another tab updates).
+  // Seed the local draft once the server prefs land. Re-syncs on cache
+  // primes — another tab's save, or "Enable push" on this page, which
+  // writes `push.enabled` straight into the cache (usePushSubscription).
+  // H4: REBASE, don't replace — unsaved bell/email/push toggles survive;
+  // untouched fields take the new server value.
+  const baseRef = useRef<NotificationPrefs | undefined>(undefined);
   useEffect(() => {
     if (query.data === undefined) return;
-    setDraft(query.data);
+    const prevBase = baseRef.current;
+    const nextBase = query.data;
+    baseRef.current = nextBase;
+    if (prevBase === nextBase) return;
+    setDraft((d) =>
+      d === null || prevBase === undefined ? nextBase : rebaseDraft(prevBase, nextBase, d),
+    );
   }, [query.data]);
 
   // Saved confirmation auto-fades.
@@ -352,18 +368,31 @@ export function NotificationPrefsForm() {
 
 
   const disabled = mutation.isPending;
-  const pushBusy = push.enable.isPending || push.disable.isPending;
+  const pushBusy =
+    push.enable.isPending || push.disable.isPending || push.removeThisDevice.isPending;
   const pushMasterError = push.enable.isError
     ? humanizePushMutationError(push.enable.error)
     : push.disable.isError
       ? humanizePushMutationError(push.disable.error)
-      : null;
-  const handlePushMasterToggle = (value: boolean) => {
+      : push.removeThisDevice.isError
+        ? humanizePushMutationError(push.removeThisDevice.error)
+        : null;
+  // H5: the checkbox is about THIS device. It was bound to the account-wide
+  // `push.enabled`, so a second phone showed it ticked while receiving
+  // nothing, and the only way to add that phone was to untick (which turned
+  // push off on EVERY device) and tick again. Now:
+  //   - ticked  = the account has push on AND this browser is subscribed;
+  //   - tick    = register this browser (turns the account on if it was off);
+  //   - untick  = remove this browser only;
+  //   - "Turn off push on every device" is the account-wide switch.
+  const accountPushOn = draft.push.enabled;
+  const thisDeviceOn = accountPushOn && push.browserSubscribed;
+  const handleThisDeviceToggle = (value: boolean) => {
     if (pushBusy) return;
     if (value) {
       push.enable.mutate();
     } else {
-      push.disable.mutate();
+      push.removeThisDevice.mutate();
     }
   };
 
@@ -435,8 +464,9 @@ export function NotificationPrefsForm() {
         <p className="font-serif text-sm text-bcc-text-secondary">
           Real-time pings to this device for high-stakes events only — bell
           + email digest still cover the rest. Off by default; turning it on
-          asks the browser for notification permission. You can disable it
-          per device or at the account level any time.
+          asks the browser for notification permission. Each device is
+          turned on or off separately; you can also turn push off on every
+          device at once.
         </p>
 
         {draft.push_available === false ? (
@@ -466,16 +496,24 @@ export function NotificationPrefsForm() {
           <>
             <ToggleRow
               label={
-                pushBusy
-                  ? draft.push.enabled
-                    ? "Disabling…"
-                    : "Subscribing…"
-                  : "Enable push notifications on this device"
+                push.enable.isPending
+                  ? "Turning on for this device…"
+                  : push.removeThisDevice.isPending
+                    ? "Turning off for this device…"
+                    : push.disable.isPending
+                      ? "Turning off on every device…"
+                      : "Push notifications on this device"
               }
-              checked={draft.push.enabled}
+              checked={thisDeviceOn}
               disabled={disabled || pushBusy || !push.isReady}
-              onChange={handlePushMasterToggle}
+              onChange={handleThisDeviceToggle}
             />
+            {accountPushOn && push.isReady && !push.browserSubscribed && !pushBusy && (
+              <p className="bcc-mono mt-1 text-[11px] text-bcc-text-secondary">
+                Push is on for your account; this device isn&apos;t receiving it.
+                Tick the box to add this device.
+              </p>
+            )}
             {pushMasterError !== null && (
               <p
                 role="alert"
@@ -483,6 +521,19 @@ export function NotificationPrefsForm() {
               >
                 {pushMasterError}
               </p>
+            )}
+
+            {accountPushOn && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (!pushBusy) push.disable.mutate();
+                }}
+                disabled={disabled || pushBusy}
+                className="bcc-mono mt-1 inline-flex min-h-[44px] items-center self-start text-[11px] tracking-[0.12em] text-bcc-text-secondary underline-offset-2 hover:text-bcc-text hover:underline disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Turn off push on every device
+              </button>
             )}
 
             {draft.push.enabled && (
