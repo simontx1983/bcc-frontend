@@ -12,6 +12,7 @@ import type { Route } from "next";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useSession } from "next-auth/react";
+import { useRef } from "react";
 
 import { RouteRail } from "@/components/layout/RouteRail";
 import { MessageComposer } from "@/components/messages/MessageComposer";
@@ -34,6 +35,9 @@ export default function ConversationPage() {
   const query = useConversation(validId ? conversationId : null, {
     enabled: isAuthed,
   });
+  // The thread scrolls this (the composer) into view with the newest
+  // message, so the reply box is never left below the fold.
+  const composerRef = useRef<HTMLDivElement>(null);
 
   if (!validId) {
     return (
@@ -107,8 +111,9 @@ export default function ConversationPage() {
               conversationId={conversationId}
               items={query.data.items}
               viewerId={viewerId}
+              bottomAnchorRef={composerRef}
             />
-            <div className="mt-6">
+            <div ref={composerRef} className="mt-6">
               <MessageComposer conversationId={conversationId} />
             </div>
           </>
