@@ -105,7 +105,10 @@ const modalShellStyle: React.CSSProperties = {
   position: "absolute",
   top: "calc(100% + 8px)",
   right: 0,
-  width: 320,
+  // Capped to the viewport: below 1280px the modal is pinned 12px from the
+  // right edge (globals.css), so a flat 320px ran off the left edge of a
+  // 320px phone.
+  width: "min(320px, calc(100vw - 24px))",
   borderRadius: "var(--bcc-radius-lg)",
   boxShadow: "var(--bcc-shadow-lg)",
   zIndex: 300,
@@ -608,8 +611,12 @@ export function SiteHeader() {
           )}
         </button>}
 
-        {/* Notifications — authed only, hidden on mobile via CSS class */}
-        {viewerHandle &&!isMobile && (
+        {/* Notifications — authed only, on every width. It was desktop-only
+            on the promise that it "moves to offcanvas", which never landed,
+            so phones had no way to reach notifications at all (C1, UX scan
+            2026-11-12). Same modal as Messages, which already ships on
+            mobile. */}
+        {viewerHandle && (
           <button
             ref={notifRef}
             onClick={() => notifOpen ? setNotifOpen(false) : openNotif()}
@@ -624,7 +631,7 @@ export function SiteHeader() {
           >
             <BellIcon />
             {/* Unread badge — same chip classes as MessagesBadge;
-                count capped at "9+" like the mobile NotificationBell.
+                count capped at "9+", the same as the Messages badge.
                 Background is the active accent (not Phillip's "safety"
                 red) so it tracks the user's chosen accent color. */}
             {notifUnreadCount > 0 && (

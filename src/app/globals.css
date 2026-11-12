@@ -1026,7 +1026,9 @@
     .bcc-search { display: none; }
   }
 
-  /* Mobile: hide notifications bell from header (moves to offcanvas) */
+  /* Header icon buttons — visibility is decided in SiteHeader.tsx (the
+     notifications bell shows at every width; palette and settings are
+     desktop-only there). */
   .bcc-header-notif-btn, 
   .bcc-header-palette-btn,
   .bcc-header-settings-btn {
