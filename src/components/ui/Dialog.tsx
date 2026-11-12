@@ -225,6 +225,15 @@ export function Dialog({
   // viewport. Rendered inline, the backdrop would be confined to that
   // ancestor's box instead of covering the screen. The portal sidesteps
   // any ancestor's stacking/containing-block quirks entirely.
+  //
+  // A panel taller than the viewport (a long form on a 375px phone, or
+  // any panel once the on-screen keyboard is up) must stay reachable.
+  // The backdrop is the scroll container, and the panel is placed with
+  // AUTO MARGINS rather than `items-center` / `items-end`: flex
+  // alignment centers an overflowing panel by pushing its top above the
+  // viewport, where no scroll reaches it, while an auto margin drops to
+  // zero when there is no room, so the panel starts at the top and the
+  // rest scrolls into view. A panel that fits sits exactly where it did.
   return createPortal(
     <div
       role="dialog"
@@ -234,9 +243,8 @@ export function Dialog({
         // z-[550] clears the fixed SiteHeader (z-300), MobileNav (z-200),
         // and AuthorHoverPanel (z-500) — a dialog opened from inside the
         // hovercard (e.g. RankInfoModal via RankChip) must render above it.
-        "fixed inset-0 z-[550] flex justify-center " + backdropClassName + " " +
+        "fixed inset-0 z-[550] flex justify-center overflow-y-auto overscroll-contain " + backdropClassName + " " +
         (mobileSheet ? "p-0 md:p-4 " : "p-4 ") +
-        (center ? "items-center " : "items-end md:items-center ") +
         (fade ? "transition-opacity duration-200 " + (shown ? "opacity-100" : "opacity-0") : "")
       }
       onClick={(e) => {
@@ -252,6 +260,9 @@ export function Dialog({
             : glass
               ? "relative w-full rounded-2xl p-6 outline-none md:p-8 "
               : "bcc-panel relative w-full p-6 outline-none md:p-8 ") +
+          // Vertical placement (see the note above the portal): centered,
+          // or a bottom sheet on phones that centers on md+.
+          (center ? "my-auto " : "mt-auto md:mb-auto ") +
           (mobileSheet
             ? "md:translate-y-0 " +
               (slide ? "transition-transform duration-200 " + (shown ? "translate-y-0" : "translate-y-full") + " " : "")

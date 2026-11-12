@@ -49,6 +49,17 @@ function toursSeenKey(scope: ViewerScope) {
 export interface ToursSeenApi {
   hasSeen: (tourId: string) => boolean;
   markSeen: (tourId: string) => void;
+  /**
+   * F-322: can `hasSeen` be trusted yet? False while we don't know who the
+   * viewer is, and — for a signed-in viewer — until the server's seen-set
+   * has ANSWERED. Sign-out sweeps the local layer (`clearViewerStorage`),
+   * so straight after a sign-in the server is the only layer that knows
+   * this account already finished the tour; deciding before it answers
+   * re-showed the tour on every sign-in. A failed read stays not-ready:
+   * missing one auto-start is better than nagging someone who has seen it.
+   * Only AUTO-start waits on this; an explicit "Show me around" does not.
+   */
+  ready: boolean;
 }
 
 export function useToursSeen(): ToursSeenApi {
@@ -145,5 +156,12 @@ export function useToursSeen(): ToursSeenApi {
     [localSeen, markMutation, scope],
   );
 
-  return { hasSeen, markSeen };
+  // Anonymous: the local layer is the whole answer. Signed in: wait for
+  // the server's set (see `ready` on ToursSeenApi).
+  const ready =
+    scope !== null &&
+    (sessionStatus === "unauthenticated" ||
+      (sessionStatus === "authenticated" && serverQuery.isSuccess));
+
+  return { hasSeen, markSeen, ready };
 }

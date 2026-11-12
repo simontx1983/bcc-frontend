@@ -95,7 +95,10 @@ export default async function CommunitiesDiscoveryPage({ searchParams }: PagePro
     <main className="bcc-page-wide min-h-screen pb-24">
       <section className="mx-auto max-w-[1440px] px-6 pt-12 sm:px-8">
         <div className="flex flex-wrap items-start justify-between gap-6">
-          <div className="min-w-0 flex-1">
+          {/* basis-[20rem]: below ~20rem of free row the CTA wraps under the
+              intro instead of squeezing it to ~100px, one or two words per
+              line, at 375px (M-gr7, UX scan 2026-11-12). */}
+          <div className="min-w-0 flex-1 basis-[20rem]">
             <span className="bcc-mono text-[10px] tracking-[0.24em] text-bcc-text-secondary">
               DISCOVERY · COMMUNITIES
             </span>
