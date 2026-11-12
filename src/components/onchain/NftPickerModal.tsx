@@ -57,6 +57,7 @@ import {
 } from "@/lib/api/types";
 import { formatRelativeTime } from "@/lib/format";
 import { Dialog } from "@/components/ui/Dialog";
+import { FallbackImg } from "@/components/ui/FallbackImg";
 
 import { IndexerStateChip } from "./IndexerStateChip";
 import { NotYetActiveBadge } from "./NotYetActiveBadge";
@@ -349,25 +350,25 @@ function NftTile({
         className="relative aspect-square w-full bg-cardstock-deep/30"
         aria-hidden
       >
-        {item.image_url !== null && item.image_url !== undefined && item.image_url !== "" ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={item.image_url}
-            alt=""
-            loading="lazy"
-            decoding="async"
-            className="h-full w-full object-cover"
-          />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center">
-            <span
-              className="bcc-stencil text-3xl"
-              style={{ color: "var(--cardstock-deep)" }}
-            >
-              №{item.token_id.length > 4 ? item.token_id.slice(0, 4) : item.token_id}
-            </span>
-          </div>
-        )}
+        {/* F-165: gateway → ipfs.io fallback → token-number placeholder. */}
+        <FallbackImg
+          src={item.image_url}
+          fallbackSrc={item.image_fallback_url}
+          alt=""
+          loading="lazy"
+          decoding="async"
+          className="h-full w-full object-cover"
+          placeholder={
+            <div className="flex h-full w-full items-center justify-center">
+              <span
+                className="bcc-stencil text-3xl"
+                style={{ color: "var(--cardstock-deep)" }}
+              >
+                №{item.token_id.length > 4 ? item.token_id.slice(0, 4) : item.token_id}
+              </span>
+            </div>
+          }
+        />
 
         {/* Bottom-left so it never collides with the top-right
             ✓ ON FLOOR stamp: an unverified item can be selected, and

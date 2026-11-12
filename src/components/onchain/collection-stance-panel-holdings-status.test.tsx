@@ -55,6 +55,7 @@ const ROW: CollectionStancePanelItem = {
   contract_address: "cosmos1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqzz",
   name: "Atlas",
   image_url: null,
+  image_fallback_url: null,
   collection_verified: false,
   state: "waitlist",
   group_id: null,

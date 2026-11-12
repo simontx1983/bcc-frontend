@@ -22,6 +22,7 @@
 
 import { useState } from "react";
 
+import { FallbackImg } from "@/components/ui/FallbackImg";
 import { useJoinHolderGroupMutation } from "@/hooks/useHolderGroups";
 import {
   useClearCollectionStance,
@@ -189,17 +190,16 @@ function StanceRow({ item }: { item: CollectionStancePanelItem }) {
         className="h-12 w-12 shrink-0 overflow-hidden bg-cardstock-deep/30"
         aria-hidden
       >
-        {item.image_url !== null && item.image_url !== "" && (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={item.image_url}
-            alt=""
-            loading="lazy"
-            decoding="async"
-            className="h-full w-full object-cover"
-            style={flaggedSpam ? { filter: "saturate(0.3)" } : undefined}
-          />
-        )}
+        {/* F-165: gateway → ipfs.io fallback → empty tile. */}
+        <FallbackImg
+          src={item.image_url}
+          fallbackSrc={item.image_fallback_url}
+          alt=""
+          loading="lazy"
+          decoding="async"
+          className="h-full w-full object-cover"
+          style={flaggedSpam ? { filter: "saturate(0.3)" } : undefined}
+        />
       </div>
 
       <div className="min-w-0 flex-1">

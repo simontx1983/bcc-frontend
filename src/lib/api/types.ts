@@ -1832,11 +1832,20 @@ export interface NftPiece {
   /** Plain-text description; null when absent. UI hides the section
    *  entirely on null — never render an empty paragraph. */
   description: string | null;
-  /** Full-resolution asset URL (absolute per §1.7); null on cold cache. */
+  /** Full-resolution asset URL (absolute per §1.7); null on cold cache.
+   *  F-165: always `https://` or null, never `ipfs://`. */
   image_url: string | null;
+  /** F-165: when `image_url` is an IPFS image on the configured
+   *  gateway, the public ipfs.io copy to load if it fails; null otherwise.
+   *  Optional only because a backend without F-165 omits it. Render through
+   *  `FallbackImg`, never a key-added or proxied URL. */
+  image_fallback_url?: string | null;
   /** CDN-resized thumbnail (≤512 px on the long edge); falls back to
    *  `image_url` when no resize is available. */
   image_url_thumb: string | null;
+  /** F-165: the ipfs.io fallback for `image_url_thumb`; same
+   *  rules as `image_fallback_url`. */
+  image_url_thumb_fallback_url?: string | null;
   /** OpenSea-convention trait list. `[]` (never `null`) on no metadata. */
   attributes: NftPieceAttribute[];
   /** Single dominant holder; null on cold cache for ERC-721/CW-721. */
@@ -2217,6 +2226,11 @@ export interface CollectionStancePanelItem {
   contract_address: string;
   name: string | null;
   image_url: string | null;
+  /** F-165: when `image_url` is an IPFS image on the configured
+   *  gateway, the public ipfs.io copy to load if it fails; null otherwise.
+   *  Optional only because a backend without F-165 omits it. Render through
+   *  `FallbackImg`, never a key-added or proxied URL. */
+  image_fallback_url?: string | null;
   collection_verified: boolean;
   state: "live" | "waitlist";
   group_id: number | null;
@@ -6095,6 +6109,11 @@ export interface NftPickerItem {
   name?: string | null;
   collection_name?: string | null;
   image_url?: string | null;
+  /** F-165: when `image_url` is an IPFS image on the configured
+   *  gateway, the public ipfs.io copy to load if it fails; null otherwise.
+   *  Optional only because a backend without F-165 omits it. Render through
+   *  `FallbackImg`, never a key-added or proxied URL. */
+  image_fallback_url?: string | null;
   metadata_uri?: string | null;
   token_standard?: string | null;
   /**
@@ -6149,6 +6168,11 @@ export interface NftSelectionRow {
   collection_name: string | null;
   name: string | null;
   image_url: string | null;
+  /** F-165: when `image_url` is an IPFS image on the configured
+   *  gateway, the public ipfs.io copy to load if it fails; null otherwise.
+   *  Optional only because a backend without F-165 omits it. Render through
+   *  `FallbackImg`, never a key-added or proxied URL. */
+  image_fallback_url?: string | null;
   metadata_uri: string | null;
   token_standard: string | null;
   display_order: number | string;

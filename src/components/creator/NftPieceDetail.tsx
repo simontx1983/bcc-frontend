@@ -32,6 +32,7 @@ import { memo, useCallback, useEffect, useState } from "react";
 
 // <Avatar> import removed with the owner-identity block — the holder's
 // avatar/handle is no longer disclosed. See docs/wallet-privacy-policy.md.
+import { FallbackImg } from "@/components/ui/FallbackImg";
 import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
 import type {
   NftPiece,
@@ -115,7 +116,9 @@ function NftPieceDetailImpl({ piece, routeCreatorSlug }: NftPieceDetailProps) {
       <section className="grid grid-cols-1 items-start gap-10 lg:grid-cols-[minmax(0,600px)_1fr]">
         <HeroImage
           imageUrl={piece.image_url}
+          imageFallbackUrl={piece.image_fallback_url}
           imageUrlThumb={piece.image_url_thumb}
+          imageUrlThumbFallbackUrl={piece.image_url_thumb_fallback_url}
           alt={displayName}
         />
 
@@ -216,11 +219,15 @@ function NftPieceDetailImpl({ piece, routeCreatorSlug }: NftPieceDetailProps) {
  */
 function HeroImage({
   imageUrl,
+  imageFallbackUrl,
   imageUrlThumb,
+  imageUrlThumbFallbackUrl,
   alt,
 }: {
   imageUrl: string | null;
+  imageFallbackUrl: string | null | undefined;
   imageUrlThumb: string | null;
+  imageUrlThumbFallbackUrl: string | null | undefined;
   alt: string;
 }) {
   const reducedMotion = usePrefersReducedMotion();
@@ -237,16 +244,25 @@ function HeroImage({
     setFullLoaded(true);
   }, []);
 
+  // Shown inside the panel once every URL for a layer has failed
+  // (F-165: gateway → ipfs.io fallback → placeholder).
+  const noArtwork = (
+    <div
+      className="absolute inset-0 flex items-center justify-center"
+      role="img"
+      aria-label={alt}
+    >
+      <span className="bcc-mono text-[11px] uppercase tracking-[0.18em] text-bcc-text-secondary">
+        No artwork
+      </span>
+    </div>
+  );
+
   // Both null → tier-toned placeholder.
   if (imageUrl === null && imageUrlThumb === null) {
     return (
-      <div
-        className="bcc-panel flex aspect-square w-full items-center justify-center bg-cardstock-deep/30"
-        aria-label={alt}
-      >
-        <span className="bcc-mono text-[11px] uppercase tracking-[0.18em] text-bcc-text-secondary">
-          No artwork
-        </span>
+      <div className="bcc-panel relative aspect-square w-full bg-cardstock-deep/30">
+        {noArtwork}
       </div>
     );
   }
@@ -254,37 +270,42 @@ function HeroImage({
   // Single URL — render directly, no swap dance.
   const onlyOne = imageUrl === null || imageUrlThumb === null;
   if (onlyOne) {
-    const src = imageUrl ?? imageUrlThumb;
+    const useFull = imageUrl !== null;
     return (
       <div className="bcc-panel relative aspect-square w-full overflow-hidden bg-cardstock-deep/30">
-        {/* eslint-disable-next-line @next/next/no-img-element -- remote NFT CDN URLs without a domain allowlist for next/image */}
-        <img
-          src={src ?? ""}
+        <FallbackImg
+          src={useFull ? imageUrl : imageUrlThumb}
+          fallbackSrc={useFull ? imageFallbackUrl : imageUrlThumbFallbackUrl}
           alt={alt}
           className="h-full w-full object-cover"
           loading="eager"
           decoding="async"
+          placeholder={noArtwork}
         />
       </div>
     );
   }
 
   // Both present → render thumb, layer full on top, fade in once full
-  // is loaded. Reduced-motion: swap with no transition.
+  // is loaded. Reduced-motion: swap with no transition. Each layer walks
+  // its own fallback chain. If the full image fails entirely it renders
+  // nothing, so the thumb stays visible. "No artwork" shows only when the
+  // thumb is exhausted and the full image has not loaded over it.
   return (
     <div className="bcc-panel relative aspect-square w-full overflow-hidden bg-cardstock-deep/30">
-      {/* eslint-disable-next-line @next/next/no-img-element -- remote NFT CDN URLs without a domain allowlist for next/image */}
-      <img
+      <FallbackImg
         src={imageUrlThumb}
+        fallbackSrc={imageUrlThumbFallbackUrl}
         alt={alt}
         className="absolute inset-0 h-full w-full object-cover"
         loading="eager"
         decoding="async"
         aria-hidden={fullLoaded}
+        placeholder={noArtwork}
       />
-      {/* eslint-disable-next-line @next/next/no-img-element -- remote NFT CDN URLs without a domain allowlist for next/image */}
-      <img
+      <FallbackImg
         src={imageUrl}
+        fallbackSrc={imageFallbackUrl}
         alt={alt}
         onLoad={onFullLoad}
         className={
