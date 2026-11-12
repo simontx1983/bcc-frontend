@@ -15,7 +15,7 @@
  */
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import {
   BlogExcerptBody,
@@ -69,6 +69,12 @@ export function PostDetail({
   // Say so in place: works on the permalink page and in hosts that reuse
   // PostDetail inside a sheet, where a redirect would be wrong.
   const [deleted, setDeleted] = useState(false);
+  // The menu that held focus is gone; land keyboard and screen-reader
+  // users on the outcome instead of <body>. Once, when the state flips.
+  const deletedHeadingRef = useRef<HTMLHeadingElement>(null);
+  useEffect(() => {
+    if (deleted) deletedHeadingRef.current?.focus();
+  }, [deleted]);
   const kindLabel = POST_KIND_LABELS[item.post_kind] ?? item.post_kind.toUpperCase();
   const isReview  = item.post_kind === "review";
   const isBlog    = item.post_kind === "blog_excerpt";
@@ -82,12 +88,10 @@ export function PostDetail({
     return (
       <section className={className} aria-labelledby={`post-deleted-${item.id}`}>
         <div role="status" className="flex flex-col items-start gap-2 py-4">
-          {/* The menu that held focus is gone; land keyboard and screen
-              reader users on the outcome instead of <body>. */}
           <h2
             id={`post-deleted-${item.id}`}
             tabIndex={-1}
-            ref={(el) => el?.focus()}
+            ref={deletedHeadingRef}
             className="bcc-stencil text-[15px] text-[var(--bcc-text)]"
           >
             Post deleted

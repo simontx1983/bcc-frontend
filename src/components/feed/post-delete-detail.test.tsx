@@ -13,7 +13,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
-import * as FeedEndpoints from "@/lib/api/feed-endpoints";
+import type * as FeedEndpoints from "@/lib/api/feed-endpoints";
 import { BccApiError, type FeedItem } from "@/lib/api/types";
 
 const DECOY = "SERVER MESSAGE THAT MUST NEVER RENDER";
