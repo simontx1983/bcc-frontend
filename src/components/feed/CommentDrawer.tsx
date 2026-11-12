@@ -1032,6 +1032,10 @@ function CommentRow({
   // navigate handler, plus a text-selection guard.
   const handleRowClick = (e: React.MouseEvent<HTMLElement>) => {
     if (!collapsible || onToggleCollapse === undefined) return;
+    // A portaled dialog opened from the row (the comment photo zoom, the
+    // delete confirm) still bubbles its clicks here through React; only
+    // clicks physically inside the row toggle (same guard as FeedItemCard).
+    if (!e.currentTarget.contains(e.target as Node)) return;
     if ((e.target as HTMLElement).closest("a, button, time")) return;
     if ((window.getSelection()?.toString() ?? "") !== "") return;
     onToggleCollapse();
