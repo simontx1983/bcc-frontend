@@ -228,7 +228,17 @@ export function AuthorCard({
             width). */}
         {userId > 0 && (
           <div className="flex items-stretch gap-2 pt-0.5">
-            {!isSelf && <MemberFollowButton userId={userId} className="flex-1" />}
+            {!isSelf && (
+              <MemberFollowButton
+                userId={userId}
+                name={nameText}
+                // F-255: watch state from the profile; undefined while it
+                // loads or when it is private to this viewer → unknown.
+                viewerIsWatching={profile?.viewer_is_watching}
+                viewerWatch={profile?.viewer_watch}
+                className="flex-1"
+              />
+            )}
             <AuthorVouchButton
               targetUserId={userId}
               displayName={nameText}

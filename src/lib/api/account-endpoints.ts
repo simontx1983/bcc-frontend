@@ -35,10 +35,27 @@ import type {
   VerifyRecoveryEmailResponse,
 } from "@/lib/api/types";
 
-export interface PatchAccountEmailBody {
+/**
+ * F-253 (contract v1.130): how an account change is confirmed. Accounts
+ * with a password type it; an account with NO password
+ * (`recovery.has_password === false`) signs a purpose-bound challenge with
+ * one of its verified, established wallets instead.
+ */
+export interface PasswordCredential {
   current_password: string;
-  email: string;
 }
+export interface WalletCredential {
+  wallet_address: string;
+  chain_slug: string;
+  signature: string;
+  /** Chain-specific (Cosmos: pub_key, chain_id). */
+  extra?: Record<string, string>;
+}
+export type AccountCredential = PasswordCredential | WalletCredential;
+
+export type PatchAccountEmailBody = AccountCredential & {
+  email: string;
+};
 
 /**
  * Verify-before-apply: this call NEVER changes the email. A new address
@@ -50,10 +67,9 @@ export type PatchAccountEmailResponse =
   | AccountEmailChangePending
   | AccountEmailChangeUnchanged;
 
-export interface PatchAccountPasswordBody {
-  current_password: string;
+export type PatchAccountPasswordBody = AccountCredential & {
   password: string;
-}
+};
 
 /**
  * The server does NOT just acknowledge. `wp_set_password` destroys every
@@ -77,11 +93,10 @@ export interface PatchAccountPasswordResponse {
   token_type: "Bearer";
 }
 
-export interface DeleteAccountBody {
-  current_password: string;
+export type DeleteAccountBody = AccountCredential & {
   /** Must be the literal string "DELETE" — the server rejects any other value. */
   confirm: "DELETE";
-}
+};
 
 export interface DeleteAccountResponse {
   deleted: true;

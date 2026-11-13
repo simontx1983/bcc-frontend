@@ -6,10 +6,12 @@
  * logic unchanged.
  *
  * Source of truth split:
- *   - `isPulled(cardId)` reads the watching query (`useWatching()`). This
- *     is the *real* "is this in my watchlist right now" state — it
- *     correctly shows pre-existing watchlist rows from earlier sessions
- *     as already-pulled.
+ *   - `isPulled(card)` reads the card's own `viewer_is_watching` /
+ *     `viewer_watch` (F-255), then the outcome of this session's toggles
+ *     from the mutation responses. It used to search the first page of
+ *     /me/watching (50 items) keyed on `card_id`, which both missed watches
+ *     past the 50th and never matched a claimed page (card_id there is the
+ *     owner's user id, not the page id), so a pulled page flipped back.
  *   - `pulledCount` + `snapshot()` track ONLY this wizard session's
  *     pulls. The §O1 dopamine moment is a celebration of what the
  *     user just did, not their lifetime collection. We can't derive
@@ -24,13 +26,13 @@
  * is gated when pending.
  */
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 
-import { useWatching } from "@/hooks/useWatching";
+import { WATCH_UNKNOWN_COPY } from "@/hooks/useViewerWatch";
 import { useWatchMutation, useUnwatchMutation } from "@/hooks/useWatch";
 import { humanizeCode } from "@/lib/api/errors";
 import { FOLLOW_COPY } from "@/lib/copy";
-import type { Card, ReputationTier } from "@/lib/api/types";
+import type { Card, ReputationTier, ViewerWatch } from "@/lib/api/types";
 
 /**
  * §γ — pull/unpull failures render the returned string inline; copy is
@@ -51,7 +53,7 @@ function humanizePullError(err: unknown): string {
 }
 
 export interface WizardPullsApi {
-  isPulled: (cardId: number) => boolean;
+  isPulled: (card: Card) => boolean;
   isPending: (cardId: number) => boolean;
   errorFor: (cardId: number) => string | null;
   toggle: (card: Card) => void;
@@ -67,10 +69,25 @@ export function useWizardPulls(): WizardPullsApi {
   const pullMut = useWatchMutation();
   const unpullMut = useUnwatchMutation();
 
-  // Page size 50: comfortable headroom for the wizard's <=12 surfaced
-  // cards. A larger pre-existing watchlist won't change the wizard's
-  // state machine — we only key by card_id.
-  const watching = useWatching({ page_size: 50 });
+  // This session's toggle outcomes, from the mutation responses: a watch
+  // stores the follow it created (or found: `already_watching`), an unwatch
+  // stores null. Keyed on (kind, id): ids are only unique within a kind.
+  // Absent → the card's own server answer.
+  const [outcomes, setOutcomes] = useState<ReadonlyMap<string, ViewerWatch | null>>(new Map());
+  const keyOf = (card: Card) => `${card.card_kind}-${card.id}`;
+  const setOutcome = (card: Card, watch: ViewerWatch | null) => {
+    setOutcomes((prev) => new Map(prev).set(keyOf(card), watch));
+  };
+  const currentWatch = (card: Card): ViewerWatch | null => {
+    if (outcomes.has(keyOf(card))) return outcomes.get(keyOf(card)) ?? null;
+    return card.viewer_is_watching === true ? (card.viewer_watch ?? null) : null;
+  };
+  const watchedNow = (card: Card): boolean =>
+    outcomes.has(keyOf(card)) ? outcomes.get(keyOf(card)) !== null : card.viewer_is_watching === true;
+  // Unknown (null / absent): never offer a pull, same as every other watch
+  // button. The wizard's cards come from the suggestions read.
+  const unknown = (card: Card): boolean =>
+    !outcomes.has(keyOf(card)) && card.viewer_is_watching !== true && card.viewer_is_watching !== false;
 
   const [pending, setPending] = useState<ReadonlySet<number>>(new Set());
   const [errors, setErrors] = useState<ReadonlyMap<number, string>>(new Map());
@@ -82,22 +99,6 @@ export function useWizardPulls(): WizardPullsApi {
   const [sessionPulls, setSessionPulls] = useState<ReadonlyMap<number, ReputationTier>>(
     new Map()
   );
-
-  // V1.6 follows-by-card-id index. Carries the `source` discriminator
-  // so unpull routes to the correct table (peepso vs. bcc_page_follows)
-  // because their follow_id auto-increment ranges overlap.
-  const followIds = useMemo<ReadonlyMap<number, { follow_id: number; source: "peepso" | "page" }>>(() => {
-    const map = new Map<number, { follow_id: number; source: "peepso" | "page" }>();
-    if (watching.data !== undefined) {
-      for (const item of watching.data.items) {
-        map.set(item.card_id, {
-          follow_id: item.follow_id,
-          source: item.follow_source ?? "peepso",
-        });
-      }
-    }
-    return map;
-  }, [watching.data]);
 
   const setPendingFor = (cardId: number, isPending: boolean) => {
     setPending((prev) => {
@@ -143,13 +144,25 @@ export function useWizardPulls(): WizardPullsApi {
   const toggle = (card: Card) => {
     setErrorFor(card.id, null);
     if (pending.has(card.id)) return;
+    if (unknown(card)) {
+      setErrorFor(card.id, WATCH_UNKNOWN_COPY);
+      return;
+    }
 
-    const entry = followIds.get(card.id);
+    const entry = currentWatch(card);
+    if (watchedNow(card) && entry === null) {
+      // Watched, but no handle to unwatch it with.
+      setErrorFor(card.id, humanizePullError(null));
+      return;
+    }
     setPendingFor(card.id, true);
 
-    if (entry !== undefined) {
-      unpullMut.mutate({ follow_id: entry.follow_id, source: entry.source }, {
-        onSuccess: () => dropSessionPull(card.id),
+    if (entry !== null) {
+      unpullMut.mutate({ follow_id: entry.follow_id, source: entry.source, target: { card_kind: card.card_kind, id: card.id } }, {
+        onSuccess: () => {
+          setOutcome(card, null);
+          dropSessionPull(card.id);
+        },
         onError: (err) => setErrorFor(card.id, humanizePullError(err)),
         onSettled: () => setPendingFor(card.id, false),
       });
@@ -157,7 +170,13 @@ export function useWizardPulls(): WizardPullsApi {
       pullMut.mutate(
         { target_kind: card.card_kind, target_id: card.id },
         {
-          onSuccess: () => recordSessionPull(card.id, card.reputation_tier),
+          onSuccess: (res) => {
+            setOutcome(card, {
+              follow_id: res.item.follow_id,
+              source: res.item.follow_source ?? "peepso",
+            });
+            recordSessionPull(card.id, card.reputation_tier);
+          },
           onError: (err) => setErrorFor(card.id, humanizePullError(err)),
           onSettled: () => setPendingFor(card.id, false),
         }
@@ -165,9 +184,9 @@ export function useWizardPulls(): WizardPullsApi {
     }
   };
 
-  const isPulled = (cardId: number): boolean => {
-    const isWatched = followIds.has(cardId);
-    return pending.has(cardId) ? !isWatched : isWatched;
+  const isPulled = (card: Card): boolean => {
+    const isWatched = watchedNow(card);
+    return pending.has(card.id) ? !isWatched : isWatched;
   };
 
   return {

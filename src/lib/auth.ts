@@ -90,6 +90,39 @@ export function oauthBridgeEmail(
 }
 
 /**
+ * F-333: read the account's CURRENT handle for a session token, server-side.
+ *
+ * `GET /auth/session` validates the presented bearer and answers
+ * `{ user_id, handle, ... }` with the handle read from user meta, so it is
+ * correct straight after a rename (the token's own claim is not). Returns
+ * null on any failure; the caller then keeps the handle it had.
+ */
+async function fetchCurrentHandle(
+  bccToken: string,
+): Promise<{ userId: string; handle: string } | null> {
+  try {
+    const response = await fetch(`${clientEnv.BCC_API_URL}/wp-json/bcc/v1/auth/session`, {
+      method: "GET",
+      headers: { Accept: "application/json", Authorization: `Bearer ${bccToken}` },
+      cache: "no-store",
+      signal: AbortSignal.timeout(5_000),
+    });
+    if (!response.ok) return null;
+    const parsed = (await response.json().catch(() => null)) as
+      | { data?: { user_id?: unknown; handle?: unknown } }
+      | null;
+    const userId = parsed?.data?.user_id;
+    const handle = parsed?.data?.handle;
+    if ((typeof userId !== "number" && typeof userId !== "string") || typeof handle !== "string" || handle === "") {
+      return null;
+    }
+    return { userId: String(userId), handle };
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Shared POST handler for the credentials providers.
  *
  * Both the email and wallet providers POST a JSON body to a bcc-trust
@@ -453,12 +486,25 @@ export const authOptions: NextAuthOptions = {
         const next = session as {
           bccToken?: unknown;
           bccTokenExpiresAt?: unknown;
+          refreshHandle?: unknown;
         };
         if (typeof next.bccToken === "string" && next.bccToken !== "") {
           token.bccToken = next.bccToken;
         }
         if (typeof next.bccTokenExpiresAt === "number") {
           token.bccTokenExpiresAt = next.bccTokenExpiresAt;
+        }
+        // F-333: after a handle change the session keeps the old handle
+        // (written only at sign-in). The client may ASK for a refresh, but
+        // never says what the handle is: the value comes from the server,
+        // read with this session's own token, and is adopted only when it
+        // belongs to this session's user. A client-supplied `handle` is
+        // still ignored, so this seam cannot forge identity.
+        if (next.refreshHandle === true && typeof token.bccToken === "string" && token.bccToken !== "") {
+          const current = await fetchCurrentHandle(token.bccToken);
+          if (current !== null && current.userId === String(token.id)) {
+            token.handle = current.handle;
+          }
         }
       }
 

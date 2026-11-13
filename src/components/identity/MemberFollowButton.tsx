@@ -1,78 +1,60 @@
 "use client";
 
 /**
- * MemberFollowButton — Follow/Following toggle for a member, reused by the
- * author card (hover + sidebar). Wraps the same watch/unwatch wiring the
- * Suggested-members widget uses: one watchlist read builds the follow
- * map, the two granular mutations flip it.
+ * MemberFollowButton — Watch / Watching toggle for a member, in the author
+ * card (hover + sidebar).
  *
- * Anonymous viewers get no button (watching is auth-only — `useWatching`
- * self-gates and returns nothing), and the self-view is suppressed by the
- * caller (it passes `hidden` once the profile confirms `is_self`).
+ * F-255: the state comes from the member's PROFILE (`viewer_is_watching` /
+ * `viewer_watch` on GET /users/:handle), which the author card already
+ * loads. It used to search the first page of /me/watching (50 items), so
+ * past the 50th watch the button said "Watch" on someone already watched
+ * and could not unwatch them. While the profile is loading, or when it is
+ * private to this viewer (403, no fields), the state is unknown: the button
+ * is disabled with a reason rather than offering "Watch".
+ *
+ * Anonymous viewers get no button; the caller suppresses it on one's own
+ * card.
  */
 
-import { useCallback, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
 
 import { captureAnalyticsEvent } from "@/lib/analytics/posthog";
-import { useWatching } from "@/hooks/useWatching";
-import { useWatchMutation, useUnwatchMutation, watchErrorCopy } from "@/hooks/useWatch";
+import { useViewerWatch, WATCH_UNKNOWN_COPY } from "@/hooks/useViewerWatch";
+import type { ViewerWatch } from "@/lib/api/types";
 import { FOLLOW_COPY } from "@/lib/copy";
 
 export function MemberFollowButton({
   userId,
+  name,
+  viewerIsWatching,
+  viewerWatch,
   className = "",
 }: {
   userId: number;
+  /** Shown in the accessible name ("Watch Dana Reyes"). */
+  name?: string | undefined;
+  /** From the member's profile; undefined while it loads or is private. */
+  viewerIsWatching?: boolean | null | undefined;
+  viewerWatch?: ViewerWatch | null | undefined;
   className?: string;
 }) {
   const session = useSession();
   const isAuthed = session.status === "authenticated";
 
-  const watchingQuery = useWatching({ page_size: 50 });
-  const watchMutation = useWatchMutation();
-  const unwatchMutation = useUnwatchMutation();
-  // F-236: a refused or failed toggle used to do nothing visible. The line
-  // is keyed on the error code (never err.message) and clears on the next
-  // click or a success.
-  const [errorText, setErrorText] = useState<string | null>(null);
-
-  const entry = useMemo(() => {
-    for (const item of watchingQuery.data?.items ?? []) {
-      const idKey = item.page_id !== null ? item.page_id : item.card_id;
-      if (item.card_kind === "member" && idKey === userId) {
-        return { follow_id: item.follow_id, source: item.follow_source ?? "peepso" as const };
-      }
-    }
-    return null;
-  }, [watchingQuery.data, userId]);
-
-  const isFollowing = entry !== null;
-  const isMutating = watchMutation.isPending || unwatchMutation.isPending;
-
-  const toggle = useCallback(() => {
-    setErrorText(null);
-    if (entry !== null) {
-      unwatchMutation.mutate(
-        { follow_id: entry.follow_id, source: entry.source },
-        {
-          onSuccess: () => captureFollowEvent("member_unfollowed"),
-          onError: (err) => setErrorText(watchErrorCopy(err, "unwatch")),
-        },
-      );
-    } else {
-      watchMutation.mutate(
-        { target_kind: "member", target_id: userId },
-        {
-          onSuccess: () => captureFollowEvent("member_followed"),
-          onError: (err) => setErrorText(watchErrorCopy(err, "watch")),
-        },
-      );
-    }
-  }, [entry, unwatchMutation, watchMutation, userId]);
+  const watch = useViewerWatch(
+    {
+      card_kind: "member",
+      id: userId,
+      viewer_is_watching: viewerIsWatching,
+      viewer_watch: viewerWatch,
+    },
+    { onChanged: (now) => captureAnalyticsEvent(now ? "member_followed" : "member_unfollowed") },
+  );
 
   // Anon viewers can't follow — the card just drops the control.
   if (!isAuthed) return null;
+
+  const who = name !== undefined && name !== "" ? ` ${name}` : "";
 
   // Same shape as AuthorVouchButton's card variant, its neighbour in the
   // AuthorCard row: the caller's className sizes the wrapper, the button
@@ -81,25 +63,23 @@ export function MemberFollowButton({
     <span className={`flex flex-col gap-1 ${className}`}>
       <button
         type="button"
-        onClick={toggle}
-        disabled={isMutating}
-        aria-pressed={isFollowing}
-        className={`bcc-btn bcc-btn-sm w-full ${isFollowing ? "bcc-btn-ghost" : "bcc-btn-outline"}`}
+        onClick={watch.toggle}
+        disabled={watch.pending || watch.unknown}
+        aria-pressed={watch.unknown ? undefined : watch.watching}
+        aria-label={watch.watching ? `Stop watching${who}` : `Watch${who}`}
+        title={watch.unknown ? WATCH_UNKNOWN_COPY : undefined}
+        className={`bcc-btn bcc-btn-sm w-full ${watch.watching ? "bcc-btn-ghost" : "bcc-btn-outline"}`}
       >
-        {isFollowing ? FOLLOW_COPY.state : FOLLOW_COPY.cta}
+        {watch.watching ? FOLLOW_COPY.state : FOLLOW_COPY.cta}
       </button>
-      {errorText !== null && (
+      {watch.error !== null && (
         <span
           role="status"
           className="bcc-mono text-[10px] leading-snug text-[var(--bcc-text-secondary)]"
         >
-          {errorText}
+          {watch.error}
         </span>
       )}
     </span>
   );
-}
-
-function captureFollowEvent(event: "member_followed" | "member_unfollowed") {
-  captureAnalyticsEvent(event);
 }

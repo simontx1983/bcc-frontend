@@ -153,6 +153,7 @@ export function useChangeAccountPassword(
     "mutationFn"
   > = {},
 ) {
+  const queryClient = useQueryClient();
   return useMutation<ChangePasswordOutcome, BccApiError | Error, PatchAccountPasswordBody>({
     mutationFn: async (body) => {
       const res: PatchAccountPasswordResponse = await patchAccountPassword(body);
@@ -214,6 +215,10 @@ export function useChangeAccountPassword(
       // never prompts, never throws, and cannot change this outcome.
       if (sessionRestored) {
         void reRegisterCurrentPushSubscription();
+        // F-253: a wallet-only member who just set a FIRST password now has
+        // `recovery.has_password: true`. Refresh it, or the email / delete
+        // forms keep offering the wallet path and the server refuses it.
+        void queryClient.invalidateQueries({ queryKey: MY_WALLETS_QUERY_KEY });
       }
 
       return { passwordChanged: true, sessionRestored };
