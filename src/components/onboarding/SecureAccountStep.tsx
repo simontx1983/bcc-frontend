@@ -28,6 +28,10 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 
+import {
+  RECOVERY_EMAIL_SESSION_LOST,
+  SessionWriteFailedNotice,
+} from "@/components/auth/SessionWriteFailedNotice";
 import { LandingReveal } from "@/components/landing/LandingReveal";
 import { RecoveryEmailForm } from "@/components/settings/RecoveryEmail";
 import { MY_WALLETS_QUERY_KEY, useMyWallets } from "@/hooks/useWallets";
@@ -86,6 +90,10 @@ export function SecureAccountStep({
   }, []);
 
   const [codeVerified, setCodeVerified] = useState(false);
+  // The verify answered with a fresh bearer that could not be stored: the
+  // old one retires soon (#662), so the member must be told to sign in
+  // again — the same notice RecoveryEmailForm shows.
+  const [sessionLost, setSessionLost] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
   // Read once: the availability line compares a server timestamp to the
   // clock, and render must not call Date.now() on every pass.
@@ -97,9 +105,10 @@ export function SecureAccountStep({
   // has_recovery_email === true.
   const secured = codeVerified || recovery?.has_recovery_email === true;
 
-  function finishVerified() {
+  function finishVerified(sessionWriteFailed: boolean) {
     clearPendingRecoveryEmail();
     setCodeVerified(true);
+    setSessionLost(sessionWriteFailed);
     void queryClient.invalidateQueries({ queryKey: MY_WALLETS_QUERY_KEY });
     void queryClient.invalidateQueries({ queryKey: ["user"] });
   }
@@ -127,9 +136,12 @@ export function SecureAccountStep({
 
       <div className="bcc-onb-panel" style={{ marginTop: "clamp(24px, 4vw, 40px)" }}>
         {secured ? (
+          <>
           <p role="status" className="bcc-onb-note" style={{ marginTop: 0, color: "var(--verified)" }}>
             Recovery email confirmed. You can continue.
           </p>
+          {sessionLost && <SessionWriteFailedNotice message={RECOVERY_EMAIL_SESSION_LOST} />}
+          </>
         ) : pendingEmail === undefined ? null : pendingEmail !== null ? (
           <PendingCodeForm
             email={pendingEmail}
@@ -183,7 +195,8 @@ function PendingCodeForm({
   onUseDifferentEmail,
 }: {
   email: string;
-  onVerified: () => void;
+  /** `true` when the verify's fresh bearer could not be stored. */
+  onVerified: (sessionWriteFailed: boolean) => void;
   onUseDifferentEmail: () => void;
 }) {
   const [code, setCode] = useState("");
@@ -207,17 +220,21 @@ function PendingCodeForm({
       // The verify call can hand back a fresh bearer for this same user.
       // Store it if present; a failed session write must never fail the
       // step — the email IS verified server-side either way.
+      let sessionWriteFailed = false;
       if (typeof resp.token === "string" && resp.token !== "") {
-        await updateSessionBearer({ token: resp.token, expiresIn: resp.expires_in });
+        sessionWriteFailed = !(await updateSessionBearer({
+          token: resp.token,
+          expiresIn: resp.expires_in,
+        }));
       }
-      onVerified();
+      onVerified(sessionWriteFailed);
     },
     onError: (err) => {
       // Verified already (another tab, or a double submit) is the outcome
       // the member wanted.
       if (isCode(err, "bcc_already_verified")) {
         setError(null);
-        onVerified();
+        onVerified(false);
         return;
       }
       setError(humanizeVerifyError(err));

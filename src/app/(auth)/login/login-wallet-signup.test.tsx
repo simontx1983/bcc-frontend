@@ -96,6 +96,8 @@ describe("a wallet signup from the /login modal", () => {
     fireEvent.click(screen.getByRole("button", { name: /stub wallet signup succeeds/i }));
     await waitFor(() => expect(h.replace).toHaveBeenCalledWith("/onboarding"));
     expect(h.replace).toHaveBeenCalledTimes(1);
+    // #288 review: the deep link is kept for when onboarding finishes.
+    expect(window.sessionStorage.getItem("bcc:onboarding-return-to")).toBe("/v/some-validator");
     // The signup marker fires once, from the modal — not again here.
     expect(h.note).toHaveBeenCalledTimes(1);
     expect(h.note).toHaveBeenCalledWith("wallet");

@@ -219,6 +219,23 @@ describe("failure is recoverable, not a dead end", () => {
 });
 
 describe("success", () => {
+  // #288 review (F-332): a wallet signup from /login keeps the deep link it
+  // came from; the send-off uses it once, else the Floor.
+  it("goes to the saved deep link when onboarding finishes", async () => {
+    window.sessionStorage.setItem("bcc:onboarding-return-to", "/v/atlas?tab=reviews");
+    renderSendOff();
+    pending.shift()?.resolve({ completed: true, home_chain: null, rank_label: null });
+    await waitFor(() => expect(replaceSpy).toHaveBeenCalledWith("/v/atlas?tab=reviews"), { timeout: 5000 });
+    expect(window.sessionStorage.getItem("bcc:onboarding-return-to")).toBeNull();
+  });
+
+  it("goes to the Floor when there is no saved deep link", async () => {
+    window.sessionStorage.removeItem("bcc:onboarding-return-to");
+    renderSendOff();
+    pending.shift()?.resolve({ completed: true, home_chain: null, rank_label: null });
+    await waitFor(() => expect(replaceSpy).toHaveBeenCalledWith("/"), { timeout: 5000 });
+  });
+
   it("clears the resume point only once the server has confirmed", async () => {
     renderSendOff();
     expect(window.localStorage.getItem(PROGRESS_KEY)).not.toBeNull();

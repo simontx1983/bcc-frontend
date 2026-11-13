@@ -192,6 +192,20 @@ describe("Case 1 — a code was mailed at signup", () => {
     fireEvent.click(btn(/^verify$/i));
     await screen.findByText(/Recovery email confirmed/);
     expect(btn(/^continue$/i).disabled).toBe(false);
+    // #288 review: the old bearer retires soon (#662), so say so.
+    expect(screen.getByText(/couldn't keep this device signed in/i)).toBeInTheDocument();
+  });
+
+  it("a stored session write shows no sign-in-again notice", async () => {
+    h.verifyEmail.mockResolvedValue({ token: "fresh-jwt", expires_in: 3600 });
+    h.updateSessionBearer.mockResolvedValue(true);
+    renderStep();
+    fireEvent.change(await screen.findByLabelText("Verification code"), {
+      target: { value: "123456" },
+    });
+    fireEvent.click(btn(/^verify$/i));
+    await screen.findByText(/Recovery email confirmed/);
+    expect(screen.queryByText(/couldn't keep this device signed in/i)).toBeNull();
   });
 
   it("shows code-keyed copy for a wrong code, never the server message", async () => {

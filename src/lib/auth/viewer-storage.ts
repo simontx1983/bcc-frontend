@@ -97,6 +97,10 @@ export const VIEWER_SCOPED_STORAGE_KEYS: readonly string[] = [
   // `lib/onboarding/pending-recovery-email`), in sessionStorage. It is one
   // person's email address, so a sign-out or viewer switch clears it.
   "bcc:pending-recovery-email",
+  // Where onboarding goes when it finishes: the deep link a new account
+  // signed up from (F-332, `lib/onboarding/return-to`), in sessionStorage.
+  // It is one person's navigation, so a sign-out or viewer switch clears it.
+  "bcc:onboarding-return-to",
 ];
 
 /**
