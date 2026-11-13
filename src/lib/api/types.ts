@@ -6435,6 +6435,12 @@ export interface ConversationDetail {
   is_group: boolean;
   participants: MessageUserMini[];
   peer: MessageUserMini | null;
+  /**
+   * F-246 (contract v1.NEXT, additive): would a reply be accepted right
+   * now? The reply path's exact gates; reason codes are the `can_message`
+   * set. ABSENT means allowed (older backend). Read via resolveDmGate.
+   */
+  can_reply?: CardPermissionEntry;
 }
 
 export interface ConversationListResponse {

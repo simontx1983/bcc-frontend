@@ -18,7 +18,8 @@ import { RouteRail } from "@/components/layout/RouteRail";
 import { MessageComposer } from "@/components/messages/MessageComposer";
 import { ThreadView } from "@/components/messages/ThreadView";
 import { useConversation } from "@/hooks/useConversation";
-import { humanizeCode } from "@/lib/api/errors";
+import { LoadFailure } from "@/components/ui/LoadFailure";
+import { humanizeCode, isPermissionDenial } from "@/lib/api/errors";
 
 export default function ConversationPage() {
   const params = useParams<{ id: string }>();
@@ -86,10 +87,11 @@ export default function ConversationPage() {
         {isAuthed && query.isError && (query.error.code === "bcc_not_found"
           ? <NotFound />
           : (
+            // F-300: a failed read is a 503 now (it used to look like an
+            // empty thread). Retryable unless it is a permission denial.
             <div className="bcc-paper p-6">
-              <p role="alert" className="bcc-mono text-bcc-text-error">
-                {/* §γ — copy is keyed on err.code; never render err.message. */}
-                {humanizeCode(
+              <LoadFailure
+                message={humanizeCode(
                   query.error,
                   {
                     bcc_unauthorized:
@@ -101,7 +103,10 @@ export default function ConversationPage() {
                   },
                   "Couldn't load this conversation. Try again in a moment.",
                 )}
-              </p>
+                {...(isPermissionDenial(query.error) || query.error.code === "bcc_unauthorized"
+                  ? {}
+                  : { onRetry: () => void query.refetch() })}
+              />
             </div>
           ))}
 
@@ -114,7 +119,10 @@ export default function ConversationPage() {
               bottomAnchorRef={composerRef}
             />
             <div ref={composerRef} className="mt-6">
-              <MessageComposer conversationId={conversationId} />
+              <MessageComposer
+                conversationId={conversationId}
+                canReply={query.data.conversation.can_reply}
+              />
             </div>
           </>
         )}

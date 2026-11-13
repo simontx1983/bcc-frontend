@@ -383,13 +383,13 @@ describe("#205 — control: the scanners find planted offenders", () => {
  * mention cap and seven inline over-cap counters), the email-change
  * code step's alert in AccountSection (verify-before-apply), and the
  * per-row unblock failure in BlocksList, and the delegator-group join
- * failure in DelegatorGroupPanel (#198).
+ * failure in DelegatorGroupPanel (#198). 73 since F-246: the message
+ * thread's load failure moved to the shared LoadFailure (retryable 503).
  */
 const ERROR_LINES: Readonly<Record<string, number>> = {
   "src/app/(main)/(app)/communities/new/page.tsx": 1,
   "src/app/(main)/(app)/communities/page.tsx": 1,
   "src/app/(main)/(app)/halls/page.tsx": 1,
-  "src/app/(main)/(app)/messages/[id]/page.tsx": 1,
   "src/app/(main)/(app)/messages/new/page.tsx": 3,
   "src/components/admin/ModerationQueue.tsx": 2,
   "src/components/admin/UndoToast.tsx": 1,
@@ -451,8 +451,8 @@ const countIn = (re: RegExp, src: string) =>
   stripComments(src).split(/\r?\n/).filter((l) => re.test(l)).length;
 
 describe("#205 — error-line inventory", () => {
-  it("74 error lines in total", () => {
-    expect(Object.values(ERROR_LINES).reduce((a, b) => a + b, 0)).toBe(74);
+  it("73 error lines in total", () => {
+    expect(Object.values(ERROR_LINES).reduce((a, b) => a + b, 0)).toBe(73);
   });
 
   for (const [file, n] of Object.entries(ERROR_LINES)) {
