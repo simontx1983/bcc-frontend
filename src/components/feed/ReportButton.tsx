@@ -293,7 +293,9 @@ function humanizeError(err: unknown): string {
       bcc_invalid_request: "Check the form and try again.",
       bcc_rate_limited: "Too many reports just now. Wait a moment, then retry.",
       bcc_unavailable: "Reports are temporarily unavailable. Try again shortly.",
-      bcc_forbidden: "You can't file a report against this content.",
+      // F-315 (L8): the report path's only 403 is the reporter's own
+      // suspension (ContentReportService). The old copy blamed the content.
+      bcc_forbidden: "Your account is suspended, so you can't file reports right now.",
       bcc_not_found: "That content no longer exists.",
     },
     "Couldn't file the report. Try again.",

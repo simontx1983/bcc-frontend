@@ -11,7 +11,8 @@
  * ## What is deliberately NOT changed
  *
  * The two gates stay exactly as they are: the user types `DELETE` and
- * supplies the current password, and the server enforces both. This is
+ * supplies the current password — or, for an account with NO password, a
+ * wallet signature (F-253, AccountConfirm) — and the server enforces both. This is
  * already a stronger, fully accessible confirmation than a generic
  * two-button dialog, so it is NOT wrapped in `ConfirmDialog` — that
  * would add a click without adding safety.
@@ -48,6 +49,12 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 
+import {
+  AccountConfirmField,
+  humanizeConfirmError,
+  isWalletRefusal,
+  useAccountConfirm,
+} from "@/components/settings/profile/AccountConfirm";
 import { useDeleteAccount } from "@/hooks/useAccount";
 import { BccApiError } from "@/lib/api/types";
 
@@ -81,7 +88,7 @@ export function DeleteAccountCard() {
   // at the first one.
   const helpId = `${useId()}-delete-help`;
   const [showConfirm, setShowConfirm] = useState(false);
-  const [currentPassword, setCurrentPassword] = useState("");
+  const confirm = useAccountConfirm("confirm_account_delete");
   const [confirmText, setConfirmText] = useState("");
   const [serverError, setServerError] = useState<string | null>(null);
 
@@ -97,7 +104,8 @@ export function DeleteAccountCard() {
     },
     onError: (err) => {
       firedRef.current = false;
-      setServerError(humanizeError(err));
+      if (isWalletRefusal(err, confirm.mode)) confirm.refresh();
+      setServerError(humanizeConfirmError(err, confirm.mode) ?? humanizeError(err));
     },
   });
 
@@ -107,13 +115,13 @@ export function DeleteAccountCard() {
     setRestoreFocus(false);
   }, [restoreFocus]);
 
-  const canSubmit =
-    currentPassword !== "" && confirmText === "DELETE" && !mutation.isPending;
+  const busy = mutation.isPending || confirm.signing;
+  const canSubmit = confirm.ready && confirmText === "DELETE" && !busy;
 
   function closeForm() {
     setShowConfirm(false);
     // Never leave a password sitting in state behind a collapsed form.
-    setCurrentPassword("");
+    confirm.clear();
     setConfirmText("");
     setServerError(null);
     firedRef.current = false;
@@ -145,8 +153,10 @@ export function DeleteAccountCard() {
       <h3 className="bcc-stencil text-lg text-bcc-danger">Delete account</h3>
       <p id={helpId} className="bcc-mono mt-1 text-[10px] text-bcc-text-secondary">
         This is permanent. To confirm, type{" "}
-        <code className="bcc-mono text-bcc-text">DELETE</code> below and enter
-        your current password.
+        <code className="bcc-mono text-bcc-text">DELETE</code> below and{" "}
+        {confirm.mode === "wallet" || confirm.mode === "no-wallet"
+          ? "sign with your wallet."
+          : "enter your current password."}
       </p>
 
       <form
@@ -156,7 +166,26 @@ export function DeleteAccountCard() {
           if (!canSubmit || firedRef.current) return;
           firedRef.current = true;
           setServerError(null);
-          mutation.mutate({ current_password: currentPassword, confirm: "DELETE" });
+          // A typed password submits in the same tick (the double-submit
+          // latch relies on it); only a wallet signature is awaited.
+          if (confirm.mode === "password") {
+            mutation.mutate({ current_password: confirm.password, confirm: "DELETE" });
+            return;
+          }
+          void (async () => {
+            let credential;
+            try {
+              credential = await confirm.credential();
+            } catch (err) {
+              firedRef.current = false;
+              setServerError(
+                humanizeConfirmError(err, confirm.mode) ??
+                  "Couldn't get a signature from your wallet. Try again.",
+              );
+              return;
+            }
+            mutation.mutate({ ...credential, confirm: "DELETE" });
+          })();
         }}
       >
         <label className="flex flex-col gap-1">
@@ -167,7 +196,7 @@ export function DeleteAccountCard() {
             type="text"
             value={confirmText}
             onChange={(e) => setConfirmText(e.target.value)}
-            disabled={mutation.isPending}
+            disabled={busy}
             aria-describedby={helpId}
             autoComplete="off"
             autoCorrect="off"
@@ -179,21 +208,12 @@ export function DeleteAccountCard() {
             className={fieldClass}
           />
         </label>
-        <label className="flex flex-col gap-1">
-          <span className="bcc-mono text-[10px] tracking-[0.16em] text-bcc-text-secondary">
-            CURRENT PASSWORD
-          </span>
-          <input
-            type="password"
-            value={currentPassword}
-            onChange={(e) => setCurrentPassword(e.target.value)}
-            disabled={mutation.isPending}
-            aria-describedby={helpId}
-            autoComplete="current-password"
-            required
-            className={fieldClass}
-          />
-        </label>
+        <AccountConfirmField
+          confirm={confirm}
+          disabled={busy}
+          describedBy={helpId}
+          inputClassName={fieldClass}
+        />
 
         <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
           <div className="bcc-mono min-h-[1rem] text-[10px]">
@@ -207,7 +227,7 @@ export function DeleteAccountCard() {
             <button
               type="button"
               onClick={closeForm}
-              disabled={mutation.isPending}
+              disabled={busy}
               className="bcc-mono px-3 py-2 text-[11px] tracking-[0.14em] text-bcc-text-secondary hover:text-bcc-text disabled:opacity-50"
             >
               Cancel
@@ -217,7 +237,7 @@ export function DeleteAccountCard() {
               disabled={!canSubmit}
               className="bcc-stencil bg-safety px-4 py-2 text-bcc-on-accent transition disabled:opacity-50"
             >
-              {mutation.isPending ? "Deleting…" : "Delete forever"}
+              {confirm.signing ? "Waiting for wallet…" : mutation.isPending ? "Deleting…" : "Delete forever"}
             </button>
           </div>
         </div>

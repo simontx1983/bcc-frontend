@@ -240,7 +240,9 @@ describe("signup_completed marker at each account-creation point", () => {
 // Not on a plain sign-in: the marker is written only at creation points
 // ─────────────────────────────────────────────────────────────────────
 
-describe("signup_completed is never marked on a plain sign-in", () => {
+// Source scans walk the whole src/ tree; on a busy machine or CI runner that
+// can exceed vitest's 5s default and flake. 30s is a ceiling, not a budget.
+describe("signup_completed is never marked on a plain sign-in", { timeout: 30_000 }, () => {
   /**
    * Source scan: `noteSignupCompleted(` is called only from the four
    * creation points. Sign-in surfaces (/login, the 2FA page, the OAuth
