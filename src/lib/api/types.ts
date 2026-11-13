@@ -715,6 +715,17 @@ export interface Card {
    * viewer and is the only thing that mounts the page composer.
    */
   page_stream?: { can_post: boolean } | null;
+  /**
+   * F-255 (contract v1.NEXT, §3.2) — is the viewer watching this, and the
+   * handle to unwatch it with (`DELETE /me/watching/:follow_id?source=`).
+   * THE source of truth for every watch button: never derive it from a
+   * page of `GET /me/watching` (there is no cap on watches, so any page is
+   * partial). `null` = the server could not tell (read failed); render an
+   * unknown state, not "Watch". `false` / `null` for anonymous viewers and
+   * on one's own card. Optional for deploy skew; absent → unknown.
+   */
+  viewer_is_watching?: boolean | null;
+  viewer_watch?: ViewerWatch | null;
 }
 
 /** The one validator a delegator group verifies against. */
@@ -1343,6 +1354,9 @@ export interface SuggestedMember {
   rank_label: string | null;
   is_in_good_standing: boolean;
   suggestion_reason: SuggestionReason | null;
+  /** F-255: honoured when the server sends it; suggestions normally exclude watched members. */
+  viewer_is_watching?: boolean | null;
+  viewer_watch?: ViewerWatch | null;
 }
 
 export interface SuggestedMembersResponse {
@@ -3104,6 +3118,12 @@ export interface WatchingItemAction {
  * absence implies 'peepso' (backward-compatible default).
  */
 export type WatchingFollowSource = "peepso" | "page";
+
+/** F-255 — the viewer's follow of a card / profile, as DELETE /me/watching takes it. */
+export interface ViewerWatch {
+  follow_id: number;
+  source: WatchingFollowSource;
+}
 
 export interface WatchingItem {
   follow_id: number;
@@ -5499,6 +5519,17 @@ export interface MemberProfile {
   disputes: MemberDispute[];
   live_shift: MemberLiveShiftEvent[];
   tabs: MemberTabCount[];
+  /**
+   * F-255 (contract v1.NEXT, §3.2) — is the viewer watching this, and the
+   * handle to unwatch it with (`DELETE /me/watching/:follow_id?source=`).
+   * THE source of truth for every watch button: never derive it from a
+   * page of `GET /me/watching` (there is no cap on watches, so any page is
+   * partial). `null` = the server could not tell (read failed); render an
+   * unknown state, not "Watch". `false` / `null` for anonymous viewers and
+   * on one's own card. Optional for deploy skew; absent → unknown.
+   */
+  viewer_is_watching?: boolean | null;
+  viewer_watch?: ViewerWatch | null;
 }
 
 // ────────────────────────────────────────────────────────────────────────
