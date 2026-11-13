@@ -93,9 +93,33 @@ export type AccountConfirm = ReturnType<typeof useAccountConfirm>;
 
 const shortAddress = (a: string) => (a.length > 14 ? `${a.slice(0, 6)}…${a.slice(-4)}` : a);
 
+/**
+ * #637: a SUSPENDED member's email change or delete is refused with 403
+ * `bcc_forbidden` + `data.reason_code: "account_suspended"`, in either
+ * confirmation mode. Checked first: it is not a wallet problem, and no
+ * re-read or wallet copy applies.
+ */
+export function isAccountSuspended(err: unknown): boolean {
+  if (!(err instanceof BccApiError) || err.code !== "bcc_forbidden") return false;
+  const data = err.data;
+  return (
+    data !== null &&
+    typeof data === "object" &&
+    !Array.isArray(data) &&
+    (data as Record<string, unknown>)["reason_code"] === "account_suspended"
+  );
+}
+
+export const ACCOUNT_SUSPENDED_COPY = "Your account is suspended, so you can't make this change.";
+
 /** A wallet-path refusal that may mean the account now has a password. */
 export function isWalletRefusal(err: unknown, mode: ConfirmMode): boolean {
-  return mode === "wallet" && err instanceof BccApiError && err.code === "bcc_forbidden";
+  return (
+    mode === "wallet" &&
+    err instanceof BccApiError &&
+    err.code === "bcc_forbidden" &&
+    !isAccountSuspended(err)
+  );
 }
 
 /**
@@ -104,6 +128,7 @@ export function isWalletRefusal(err: unknown, mode: ConfirmMode): boolean {
  * humanizer handles it.
  */
 export function humanizeConfirmError(err: unknown, mode: ConfirmMode): string | null {
+  if (isAccountSuspended(err)) return ACCOUNT_SUSPENDED_COPY;
   if (err instanceof WrongWalletError) {
     return `Your wallet is on a different account. Switch it to ${shortAddress(err.expected)} and try again.`;
   }

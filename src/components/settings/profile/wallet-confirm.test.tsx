@@ -186,6 +186,33 @@ describe("wallet-path errors, by code", () => {
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ["me", "wallets"] });
   });
 
+  it("a suspended account (#637) says so in wallet mode, with no re-read and no wallet copy", async () => {
+    const invalidate = vi.spyOn(qc, "invalidateQueries");
+    await failEmail(
+      new BccApiError("bcc_forbidden", DECOY, 403, {
+        error: { code: "bcc_forbidden", message: DECOY, data: { reason_code: "account_suspended" } },
+      } as never),
+    );
+    expect(await screen.findByText(/Your account is suspended, so you can.t make this change/)).toBeInTheDocument();
+    expect(screen.queryByText(/use it instead/)).toBeNull();
+    expect(invalidate).not.toHaveBeenCalled();
+  });
+
+  it("a suspended account says so in password mode too", async () => {
+    walletsWith(true);
+    render(<AccountSection currentEmail="a@x.io" />);
+    fireEvent.change(emailField(), { target: { value: "b@x.io" } });
+    fireEvent.change(screen.getAllByLabelText(/current password/i)[0] as HTMLElement, { target: { value: "pw" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send code" }));
+    handlers.email.onError?.(
+      new BccApiError("bcc_forbidden", DECOY, 403, {
+        error: { code: "bcc_forbidden", message: DECOY, data: { reason_code: "account_suspended" } },
+      } as never),
+    );
+    expect(await screen.findByText(/Your account is suspended, so you can.t make this change/)).toBeInTheDocument();
+    expect(document.body.textContent ?? "").not.toContain(DECOY);
+  });
+
   it("an expired challenge asks for a new signature", async () => {
     await failEmail(new BccApiError("bcc_invalid_request", DECOY, 400, null));
     expect(await screen.findByText(/Check the wallet is linked and verified/)).toBeInTheDocument();
