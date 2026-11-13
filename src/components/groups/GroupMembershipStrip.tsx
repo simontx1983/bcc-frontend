@@ -9,8 +9,12 @@
  * Action precedence (matches GroupsPanel exactly per §A4 / §N7):
  *   1. permissions.can_leave.allowed → LEAVE button
  *   2. permissions.can_join.allowed  → JOIN button
- *   3. permissions.can_join.unlock_hint !== null → render hint verbatim
- *   4. otherwise → no action surface
+ *   3. F-272 closed / secret groups (v1.132), from the server's
+ *      `viewer_membership.status` + `permissions.can_request_join`:
+ *      invited → ACCEPT / DECLINE; requested → CANCEL REQUEST;
+ *      can_request_join.allowed → REQUEST TO JOIN
+ *   4. permissions.can_join.unlock_hint !== null → render hint verbatim
+ *   5. otherwise → no action surface
  *
  * On success → `router.refresh()` re-fetches the parent server component
  * (the page is SSR'd). This matches `HallMembershipControls` and is
@@ -34,8 +38,12 @@ import {
   useLeaveHallMutation,
 } from "@/hooks/useHallsPrimary";
 import {
+  useAcceptGroupInviteMutation,
+  useCancelJoinRequestMutation,
+  useDeclineGroupInviteMutation,
   useJoinPlainGroupMutation,
   useLeavePlainGroupMutation,
+  useRequestJoinGroupMutation,
 } from "@/hooks/useMyGroups";
 import {
   humanizeValidatorJoinError,
@@ -178,6 +186,25 @@ function MembershipBody({ group, onActionStart, onActionError }: MembershipBodyP
         {isOwner && <GroupTransferOwnership group={group} />}
       </div>
     );
+  }
+  // F-272 — closed / secret plain groups. The server says where the viewer
+  // stands (`viewer_membership.status`) and whether they may ask
+  // (`can_request_join`); nothing here recomputes it.
+  const status = group.viewer_membership?.status;
+  if (status === "invited") {
+    return <InviteAnswer groupId={group.id} />;
+  }
+  if (status === "requested") {
+    return <PendingRequest groupId={group.id} />;
+  }
+  if (isAllowed(permissions, "can_request_join")) {
+    return <RequestToJoin groupId={group.id} />;
+  }
+  // A refused or cooled-down ask explains itself (e.g. the 7-day wait
+  // after a denied request).
+  const requestHint = unlockHint(permissions, "can_request_join");
+  if (requestHint !== null && reasonCode(permissions, "can_request_join") === "cooldown") {
+    return <UnlockHint hint={requestHint} />;
   }
   // NFT holder group, authenticated non-member, server couldn't pre-confirm
   // ownership (the detail view-model never runs a live on-chain check at
@@ -621,6 +648,122 @@ function PlainLeaveButton({ groupId, onActionStart, onActionError }: ActionButto
         }}
       />
     </ActionRow>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────────
+// F-272 — asking to join a closed group, and answering an invitation.
+// Each refreshes the SSR'd page on success, so the next state (Requested,
+// Member, nothing) comes from the server.
+// ──────────────────────────────────────────────────────────────────────
+
+/** §γ — keyed on err.code (contract §4.7.3 F-272), never err.message. */
+export function humanizeJoinRequestError(err: unknown, action: "request" | "cancel" | "answer"): string {
+  const generic =
+    action === "request"
+      ? "You can't join this community."
+      : action === "cancel"
+        ? "Couldn't cancel your request. Try again."
+        : "Couldn't answer this invitation. Try again.";
+  return humanizeCode(
+    err,
+    {
+      bcc_unauthorized: "Sign in to continue.",
+      // A ban, a block and the 7-day wait all answer 403; only the wait
+      // has its own line (the server's hint covers it on the page).
+      bcc_permission_denied: action === "request" ? "You can't ask to join this community right now." : generic,
+      bcc_conflict: "This changed a moment ago. Reload the page and try again.",
+      bcc_unavailable: "Something went wrong on our side. Nothing changed — try again.",
+      bcc_rate_limited: "Too many attempts. Wait a minute and try again.",
+      bcc_invalid_request: action === "answer" ? "This invitation is no longer open." : generic,
+    },
+    generic,
+  );
+}
+
+function RequestToJoin({ groupId }: { groupId: number }) {
+  const onSuccess = useRefreshOnSuccess();
+  const mutation = useRequestJoinGroupMutation({ onSuccess });
+  return (
+    <ActionRow primaryCopy="This community is private. Ask to join and a moderator will decide.">
+      <GroupActionButton
+        groupId={groupId}
+        label="REQUEST TO JOIN"
+        pendingLabel="SENDING…"
+        isPending={mutation.isPending}
+        errorMessage={mutation.error ? humanizeJoinRequestError(mutation.error, "request") : null}
+        onClick={() => {
+          mutation.reset();
+          mutation.mutate(groupId);
+        }}
+      />
+    </ActionRow>
+  );
+}
+
+function PendingRequest({ groupId }: { groupId: number }) {
+  const onSuccess = useRefreshOnSuccess();
+  const mutation = useCancelJoinRequestMutation({ onSuccess });
+  return (
+    <ActionRow primaryCopy="Your request to join is waiting for a moderator.">
+      <GroupActionButton
+        groupId={groupId}
+        label="CANCEL REQUEST"
+        pendingLabel="CANCELLING…"
+        isPending={mutation.isPending}
+        errorMessage={mutation.error ? humanizeJoinRequestError(mutation.error, "cancel") : null}
+        onClick={() => {
+          mutation.reset();
+          mutation.mutate(groupId);
+        }}
+      />
+    </ActionRow>
+  );
+}
+
+function InviteAnswer({ groupId }: { groupId: number }) {
+  const onSuccess = useRefreshOnSuccess();
+  const accept = useAcceptGroupInviteMutation({ onSuccess });
+  const decline = useDeclineGroupInviteMutation({ onSuccess });
+  const busy = accept.isPending || decline.isPending;
+  const error = accept.error ?? decline.error;
+  return (
+    <div className="flex flex-col gap-3">
+      <p className="font-serif text-ink-soft" style={{ fontSize: "15px", lineHeight: 1.5, maxWidth: "44ch" }}>
+        You&apos;ve been invited to this community.
+      </p>
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          onClick={() => {
+            accept.reset();
+            decline.reset();
+            accept.mutate(groupId);
+          }}
+          disabled={busy}
+          className="bcc-mono inline-flex min-h-[44px] items-center border-2 border-bcc-border px-3 text-[11px] tracking-[0.18em] text-bcc-text transition motion-reduce:transition-none hover:border-bcc-border-strong disabled:opacity-60"
+        >
+          {accept.isPending ? "JOINING…" : "ACCEPT INVITATION"}
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            accept.reset();
+            decline.reset();
+            decline.mutate(groupId);
+          }}
+          disabled={busy}
+          className="bcc-mono inline-flex min-h-[44px] items-center px-3 text-[11px] tracking-[0.18em] text-bcc-text-secondary hover:text-bcc-text disabled:opacity-60"
+        >
+          {decline.isPending ? "DECLINING…" : "DECLINE"}
+        </button>
+      </div>
+      {error !== null && (
+        <p role="alert" className="bcc-mono text-[11px] text-bcc-text-error">
+          {humanizeJoinRequestError(error, "answer")}
+        </p>
+      )}
+    </div>
   );
 }
 
