@@ -35,7 +35,7 @@ import type { Route } from "next";
 import { Avatar, type AvatarSize } from "@/components/identity/Avatar";
 import { AuthorHoverPanel } from "@/components/identity/AuthorHoverPanel";
 import { RankInfoModal } from "@/components/identity/RankInfoModal";
-import { RankChip } from "@/components/profile/RankChip";
+import { RankChip, TrustChip } from "@/components/profile/RankChip";
 import { useHovercard } from "@/hooks/useHovercard";
 import { usePrefetchUser } from "@/hooks/useUser";
 import type {
@@ -66,6 +66,12 @@ export interface AuthorBadgeAuthor {
   /** Pre-rendered tier word ("Trusted", "Elite", etc.). Server-owned. */
   reputation_tier_label: string;
   is_operator?: boolean | undefined;
+  /**
+   * Server trust score, 0–100 (contract v1.142, bcc-trust #663). Optional
+   * for one release; only read when `chip="trust"`, where absence shows
+   * the tier word alone.
+   */
+  trust_score?: number | undefined;
   /**
    * Authed-only — the viewer's vouch state on this author, behind the
    * byline Vouch toggle. Absent (anon / surfaces that don't ship it) →
@@ -106,6 +112,14 @@ export interface AuthorBadgeProps {
    * hovercard and the other bylines keep the default treatment.
    */
   nameStyle?: "default" | "caps" | undefined;
+  /**
+   * "trust" swaps the rank chip for the Handoff v1 TrustChip — tier dot +
+   * tier word + the author's server trust score ("TRUSTED 72"), dev
+   * notes 33/35. Unlike the rank chip it also renders for new members
+   * (it replaces the NEW MEMBER treatment there). Opt-in: comments and
+   * the other bylines keep the rank chip.
+   */
+  chip?: "rank" | "trust" | undefined;
   className?: string | undefined;
 }
 
@@ -124,6 +138,7 @@ function AuthorBadgeImpl({
   hovercard = true,
   showRank = true,
   nameStyle = "default",
+  chip = "rank",
   className,
 }: AuthorBadgeProps) {
   const avatarSize = AVATAR_SIZE_BY_BADGE[size];
@@ -229,8 +244,17 @@ function AuthorBadgeImpl({
     </>
   );
 
-  const rank =
-    showRank && rankLabel !== "" ? (
+  const rank = !showRank ? null : chip === "trust" ? (
+    <TrustChip
+      reputationTier={reputationTier}
+      tierLabel={tierLabel}
+      score={author.trust_score}
+      size="compact"
+      className="shrink-0"
+      handle={author.handle}
+      onOpenRankInfo={() => setRankModalOpen(true)}
+    />
+  ) : rankLabel !== "" ? (
       <RankChip
         reputationTier={reputationTier}
         tierLabel={tierLabel}
