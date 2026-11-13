@@ -69,8 +69,11 @@ export function PostActionBar({
   const showEngagement = hasEngagementControls(item.post_kind);
 
   return (
-    <footer className={"flex flex-wrap items-center gap-1" + (topBorder ? " border-t border-[var(--bcc-border)] pt-2" : "")}>
-      {/* Order is the Handoff v1 action row (dev note 34): react, helping
+    <footer className={"flex flex-wrap items-center gap-x-3 gap-y-1" + (topBorder ? " border-t border-[var(--bcc-border)] pt-2" : "")}>
+      {/* gap-x-3: each pill carries a 44×44 hit area wider than its 26px
+          body (F-355), and 12px of spacing keeps neighbouring areas from
+          overlapping at the narrowest (icon-only) widths.
+          Order is the Handoff v1 action row (dev note 34): react, helping
           hand, comments, Share, then the time pinned right. Helpful used
           to sit behind a divider at the end of the row; it now reads as
           the second action, so the divider is gone with it. */}

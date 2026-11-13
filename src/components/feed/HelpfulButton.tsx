@@ -28,6 +28,7 @@ import { HelpfulIcon } from "@/components/feed/actionIcons";
 import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
 import { useMarkHelpful, useMarkHelpfulComment } from "@/hooks/useMarkHelpful";
 import type { Comment, FeedItem } from "@/lib/api/types";
+import { HIT_AREA_44 } from "@/components/feed/hitArea";
 
 type HelpfulSize = "feed" | "comment";
 
@@ -56,7 +57,9 @@ const HelpfulButtonView = memo(function HelpfulButtonView({
   // Endorsement copy — state-descriptive, no cadence-pressure nudging.
   const label = marked ? "You marked this helpful" : "Mark this as helpful";
   const iconSize = size === "feed" ? 17 : 15;
-  const minH = size === "feed" ? "min-h-[26px]" : "min-h-[24px]";
+  // The feed pill gets the 44×44 hit area (F-355); the compact comment
+  // size keeps its own target.
+  const minH = size === "feed" ? `min-h-[26px] ${HIT_AREA_44}` : "min-h-[24px]";
 
   const handleClick = (event: MouseEvent<HTMLButtonElement>) => {
     // Scope the toggle to the pill — the card's body click-to-navigate

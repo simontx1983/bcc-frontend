@@ -842,7 +842,7 @@
   @media (max-width: 767px), (max-width: 900px) and (orientation: landscape) {
     .bcc-col-left  { display: none; }
     .bcc-col-right { display: none; }
-    .bcc-col-center { padding-bottom: var(--bcc-mobile-nav-h); }
+    .bcc-col-center { padding-bottom: calc(var(--bcc-mobile-nav-h) + env(safe-area-inset-bottom, 0px)); }
   }
 }
 

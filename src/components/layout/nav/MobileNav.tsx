@@ -78,7 +78,11 @@ export function MobileNav({ onMenuOpen }: MobileNavProps) {
         bottom: 0,
         left: 0,
         right: 0,
-        height: "var(--bcc-mobile-nav-h)",
+        // F-355: grow by the home-indicator inset and pad it out, so the
+        // icons sit above the indicator on notched iPhones. env() is 0
+        // everywhere else (and needs viewport-fit=cover, set in layout).
+        height: "calc(var(--bcc-mobile-nav-h) + env(safe-area-inset-bottom, 0px))",
+        paddingBottom: "env(safe-area-inset-bottom, 0px)",
         display: "flex",
         alignItems: "center",
         zIndex: 200,
