@@ -19,9 +19,9 @@
 
 import { LoadFailure } from "@/components/ui/LoadFailure";
 import { useProfilePrefs, useUpdateProfilePrefs } from "@/hooks/useProfilePrefs";
-import { isPermissionDenial } from "@/lib/api/errors";
+import { humanizeCode, isPermissionDenial } from "@/lib/api/errors";
 import type { ProfilePrefs } from "@/lib/api/profile-prefs-endpoints";
-import { BccApiError, type MentorEligibilityReason } from "@/lib/api/types";
+import type { MentorEligibilityReason } from "@/lib/api/types";
 
 /**
  * §γ — paused-listing copy keyed on the stable machine reason. Plain
@@ -105,11 +105,14 @@ function MentorToggle({ prefs }: { prefs: ProfilePrefs }) {
         ? "You meet the requirements — turn this on to appear in the Mentors directory."
         : "You can opt in now. You'll be listed automatically once you reach Veteran rank with Trusted standing.";
 
+  // humanizeCode, so the 401 codes that now say why (bcc_token_expired /
+  // bcc_token_invalid) read as the same "sign in again" copy.
   const errorMessage = mutation.error
-    ? mutation.error instanceof BccApiError &&
-      mutation.error.code === "bcc_unauthorized"
-      ? "Sign in again to change this."
-      : "Couldn't save the mentor setting. Try again."
+    ? humanizeCode(
+        mutation.error,
+        { bcc_unauthorized: "Sign in again to change this." },
+        "Couldn't save the mentor setting. Try again.",
+      )
     : null;
 
   return (
