@@ -36,6 +36,7 @@ import { SettingsSectionHeader } from "@/components/settings/SettingsSectionHead
 import { WalletsSection } from "@/components/settings/WalletsSection";
 import { AccountSection } from "@/components/settings/profile/AccountSection";
 import { DeleteAccountCard } from "@/components/settings/profile/DeleteAccountCard";
+import { RecoveryEmailNudge } from "@/components/settings/RecoveryEmailNudge";
 
 export function AccountSettingsPanel({ currentEmail }: { currentEmail: string }) {
   return (
@@ -44,6 +45,10 @@ export function AccountSettingsPanel({ currentEmail }: { currentEmail: string })
         Manage how you sign in and secure your account. These settings are
         private.
       </p>
+
+      {/* F-332 (D): one calm line, only for an account without a recovery
+          email; it jumps to the form in the wallets section below. */}
+      <RecoveryEmailNudge href="#account-wallets" />
 
       <section>
         <SettingsSectionHeader
@@ -67,7 +72,7 @@ export function AccountSettingsPanel({ currentEmail }: { currentEmail: string })
         </div>
       </section>
 
-      <section>
+      <section id="account-wallets" className="scroll-mt-24">
         <SettingsSectionHeader
           eyebrow="WALLETS"
           title="Linked wallets"
