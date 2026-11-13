@@ -175,10 +175,27 @@ export function humanizeCode(
   defaultCopy: string,
 ): string {
   if (err instanceof BccApiError) {
-    const mapped = copyMap[err.code];
+    const mapped = copyMap[err.code] ?? copyMap[copyCodeFallback(err.code) ?? ""];
     if (typeof mapped === "string") {
       return mapped;
     }
   }
   return defaultCopy;
+}
+
+/**
+ * Codes that read as another code's copy when a call site has no entry of
+ * its own. bcc-trust F-288: a 401 on a route that requires sign-in now says
+ * WHY — `bcc_token_expired` or `bcc_token_invalid` instead of
+ * `bcc_unauthorized`. For the member it is the same situation ("sign in
+ * again"), so every copyMap written against `bcc_unauthorized` keeps
+ * working without editing each call site.
+ */
+const COPY_CODE_FALLBACK: Readonly<Record<string, string>> = {
+  bcc_token_expired: "bcc_unauthorized",
+  bcc_token_invalid: "bcc_unauthorized",
+};
+
+function copyCodeFallback(code: string): string | null {
+  return COPY_CODE_FALLBACK[code] ?? null;
 }

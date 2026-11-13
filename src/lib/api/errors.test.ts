@@ -53,6 +53,31 @@ describe("humanizeCode", () => {
     expect(humanizeCode(value, { bcc_rate_limited: "Slow down." }, "Default.")).toBe("Default.");
   });
 
+  // bcc-trust F-288: a protected route's 401 now says bcc_token_expired /
+  // bcc_token_invalid. Copy written for bcc_unauthorized must still apply.
+  it.each([["bcc_token_expired"], ["bcc_token_invalid"]])(
+    "%s reads as the call site's bcc_unauthorized copy",
+    (code) => {
+      expect(
+        humanizeCode(err(code), { bcc_unauthorized: "Sign in again." }, "Default."),
+      ).toBe("Sign in again.");
+    },
+  );
+
+  it("a call site's own entry for the new code still wins", () => {
+    expect(
+      humanizeCode(
+        err("bcc_token_expired"),
+        { bcc_unauthorized: "Sign in again.", bcc_token_expired: "Your session timed out." },
+        "Default.",
+      ),
+    ).toBe("Your session timed out.");
+  });
+
+  it("with no bcc_unauthorized entry either, the default applies", () => {
+    expect(humanizeCode(err("bcc_token_invalid"), { bcc_rate_limited: "Slow down." }, "Default.")).toBe("Default.");
+  });
+
   it("NEVER leaks err.message — even for an unmapped code with a distinctive message", () => {
     const leaky = err("bcc_internal", "SQLSTATE[42000]: near 'FROM wp_bcc_users'");
     const out = humanizeCode(leaky, { bcc_rate_limited: "Slow down." }, "Something went wrong.");
