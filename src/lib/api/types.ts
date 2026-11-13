@@ -400,6 +400,19 @@ export interface CardCommunityDossier {
    * the community action bar and the pinned back-face member line.
    */
   viewer_is_member: boolean;
+  /**
+   * F-244 (bcc-trust #667, contract v1.NEXT §3.2.4) — the server's join
+   * verdict for THIS viewer, computed by the same logic as the group page's
+   * permissions (§4.7.5). Render the JOIN cell from these; never recompute
+   * eligibility from `privacy` / `type` / `trust_min`. List-only
+   * `can_join.reason_code` values: `verify_on_join` (holder group in a
+   * list: allowed, and the join verifies the wallet) and `unavailable`
+   * (membership unreadable: never offer Join). Optional for deploy skew.
+   */
+  can_join?: CardPermissionEntry;
+  can_request_join?: CardPermissionEntry;
+  /** `null` for anonymous viewers and when the read failed. */
+  viewer_membership_status?: "none" | "requested" | "invited" | "member" | null;
 }
 
 export interface CardSocialProof {
