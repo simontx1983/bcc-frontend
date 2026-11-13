@@ -100,6 +100,12 @@ export interface AuthorBadgeProps {
   hovercard?: boolean | undefined;
   /** Render the RankChip beside the name/handle. Default true. */
   showRank?: boolean | undefined;
+  /**
+   * "caps" sets the display name in uppercase bold stencil at 16px, the
+   * Handoff v1 post-card byline (dev note 33). Opt-in so comments, the
+   * hovercard and the other bylines keep the default treatment.
+   */
+  nameStyle?: "default" | "caps" | undefined;
   className?: string | undefined;
 }
 
@@ -117,6 +123,7 @@ function AuthorBadgeImpl({
   asLink = true,
   hovercard = true,
   showRank = true,
+  nameStyle = "default",
   className,
 }: AuthorBadgeProps) {
   const avatarSize = AVATAR_SIZE_BY_BADGE[size];
@@ -167,15 +174,20 @@ function AuthorBadgeImpl({
       </span>
     ) : null;
 
+  const nameClass =
+    nameStyle === "caps"
+      ? "bcc-stencil truncate text-[16px] font-bold uppercase tracking-[0.03em] text-[var(--bcc-text)]"
+      : "bcc-stencil truncate text-[var(--bcc-text)]";
+
   const nameNode = asLink ? (
     <Link
       href={`/u/${author.handle}` as Route}
-      className="bcc-stencil truncate text-[var(--bcc-text)] hover:underline"
+      className={`${nameClass} hover:underline`}
     >
       {nameText}
     </Link>
   ) : (
-    <span className="bcc-stencil truncate text-[var(--bcc-text)]">{nameText}</span>
+    <span className={nameClass}>{nameText}</span>
   );
 
   const avatarNode = (

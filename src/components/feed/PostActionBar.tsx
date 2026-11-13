@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * PostActionBar — the shared Stoke / Comment / Share action row used by
+ * PostActionBar — the shared Stoke / Helpful / Comment / Share action row used by
  * both FeedItemCard and PostDetail so the two surfaces stay identical.
  *
  * The three pills sit tight at the left (X/Reddit-style quiet action
@@ -69,8 +69,16 @@ export function PostActionBar({
   const showEngagement = hasEngagementControls(item.post_kind);
 
   return (
-    <footer className={"flex items-center gap-1" + (topBorder ? " border-t border-[var(--bcc-border)] pt-2" : "")}>
+    <footer className={"flex flex-wrap items-center gap-x-3 gap-y-1" + (topBorder ? " border-t border-[var(--bcc-border)] pt-2" : "")}>
+      {/* gap-x-3: each pill carries a 44×44 hit area wider than its 26px
+          body (F-355), and 12px of spacing keeps neighbouring areas from
+          overlapping at the narrowest (icon-only) widths.
+          Order is the Handoff v1 action row (dev note 34): react, helping
+          hand, comments, Share, then the time pinned right. Helpful used
+          to sit behind a divider at the end of the row; it now reads as
+          the second action, so the divider is gone with it. */}
       {showEngagement && <ReactionRail item={item} canInteract={canInteract} />}
+      {showEngagement && <PostHelpfulButton item={item} canInteract={canInteract} />}
       <ActionRailButton
         icon={<ReplyIcon />}
         label="Comment"
@@ -83,22 +91,11 @@ export function PostActionBar({
         selfHref={item.links.self}
         {...(shareTitle !== undefined ? { shareTitle } : {})}
       />
-      {/* Divider — the "Mark helpful" endorsement is a different class of
-          action from the cosmetic Stoke/Comment/Share cluster to its left,
-          so it sits behind a thin rule to read as its own thing, not
-          another reaction. It goes with the control: a kind that shows no
-          Helpful button must not render an orphaned rule either. */}
-      {showEngagement && (
-        <>
-          <span aria-hidden className="mx-1 h-4 w-px self-center bg-[var(--bcc-border)]" />
-          <PostHelpfulButton item={item} canInteract={canInteract} />
-        </>
-      )}
       {timestamp !== undefined && (
         <time
           dateTime={timestamp}
           title={absoluteTitle}
-          className="bcc-mono inline-flex items-center gap-1 pl-1 text-[11px] text-[var(--bcc-text-secondary)]"
+          className="bcc-mono ml-auto inline-flex shrink-0 items-center gap-1 pl-1 text-[12px] text-[var(--bcc-text-secondary)]"
         >
           <ClockIcon />
           {formatRelativeTime(timestamp)}

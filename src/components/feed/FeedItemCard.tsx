@@ -175,6 +175,7 @@ function FeedItemCardImpl({
           author={item.author}
           size="md"
           avatarRingColor="var(--bcc-accent)"
+          nameStyle="caps"
           trailing={trailing}
         />
       </header>
@@ -188,20 +189,22 @@ function FeedItemCardImpl({
         the name as plain text — never a broken href.
       */}
       {groupName && (
-        <p className="bcc-mono text-[11px] text-[var(--bcc-text-secondary)]">
+        <p className="font-serif text-[14px] leading-normal text-[var(--bcc-text-secondary)]">
           Posted in{" "}
           {groupLink ? (
-            <>
-              <Link
-                href={groupLink as Route}
-                className="hover:text-[var(--bcc-text)] hover:underline"
-              >
-                {groupName}
-              </Link>
+            // Handoff v1 (dev note 33) draws the Hall name in accent. Accent
+            // as TEXT is ~2.4:1 on light surfaces (the chrome-contrast shape-2
+            // rule), so the name stays on --bcc-text and the accent rides on
+            // the underline (the selection-geometry indicator token).
+            <Link
+              href={groupLink as Route}
+              className="text-[var(--bcc-text)] underline decoration-[var(--bcc-accent-indicator)] underline-offset-4 hover:decoration-2"
+            >
+              {groupName}
               <span aria-hidden="true"> →</span>
-            </>
+            </Link>
           ) : (
-            groupName
+            <span className="text-[var(--bcc-text)]">{groupName}</span>
           )}
         </p>
       )}
@@ -218,7 +221,7 @@ function FeedItemCardImpl({
         {isGif && <GifBody item={item} />}
 
         {summary !== "" && (
-          <p className="font-serif text-[var(--bcc-text)] whitespace-pre-line break-words">
+          <p className="font-serif text-[14px] leading-normal text-[var(--bcc-text)] whitespace-pre-line break-words">
             {/*
               §3.3.12 — status bodies carry a `mentions[]` overlay.
               Other kinds (watch_batch, page_claim, dispute) emit a
