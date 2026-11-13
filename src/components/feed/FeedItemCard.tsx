@@ -176,6 +176,7 @@ function FeedItemCardImpl({
           size="md"
           avatarRingColor="var(--bcc-accent)"
           nameStyle="caps"
+          chip="trust"
           trailing={trailing}
         />
       </header>

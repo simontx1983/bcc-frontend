@@ -142,19 +142,21 @@ describe("the parent strip", () => {
   it("gives an owner FIVE groups, not eleven tabs", () => {
     renderTabs({ isOwner: true });
     expect(parentTabs()).toHaveLength(5);
+    // Dev note 31 (Figma Handoff v1): Activity first; My Profile after the
+    // public groups.
     expect(parentLabels()).toEqual([
-      "My Profile",
+      "Activity",
       "Reputation",
       "Network",
-      "Activity",
       "Content",
+      "My Profile",
     ]);
   });
 
   it("gives a visitor FOUR — My Profile is the only owner-only group", () => {
     renderTabs({ isOwner: false });
     expect(parentTabs()).toHaveLength(4);
-    expect(parentLabels()).toEqual(["Reputation", "Network", "Activity", "Content"]);
+    expect(parentLabels()).toEqual(["Activity", "Reputation", "Network", "Content"]);
   });
 
   it("does not list any LEAF as a top-level tab", () => {
@@ -273,13 +275,14 @@ describe("ownership still gates the editors", () => {
     // name no strip has ever had, so querying for it could never fail.
     expect(settingsStrips(), "a settings strip rendered").toHaveLength(0);
     expect(screen.queryByTestId("panel-profile")).toBeNull();
-    expect(screen.getByTestId("panel-backing")).toBeInTheDocument();
+    // Dev note 31: the default is Activity for every viewer.
+    expect(screen.getByTestId("panel-activity")).toBeInTheDocument();
   });
 
   it("a non-owner on ?tab=setup falls back too", () => {
     renderTabs({ isOwner: false, tab: "setup" });
     expect(screen.queryByTestId("panel-setup")).toBeNull();
-    expect(screen.getByTestId("panel-backing")).toBeInTheDocument();
+    expect(screen.getByTestId("panel-activity")).toBeInTheDocument();
   });
 });
 
