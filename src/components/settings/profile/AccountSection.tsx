@@ -22,6 +22,7 @@ import { useId, useRef, useState } from "react";
 import {
   AccountConfirmField,
   humanizeConfirmError,
+  isWalletRefusal,
   useAccountConfirm,
 } from "@/components/settings/profile/AccountConfirm";
 import { SettingsSaveStatus } from "@/components/settings/SettingsSaveStatus";
@@ -188,6 +189,7 @@ function ChangeEmailCard({ currentEmail }: { currentEmail: string }) {
     },
     onError: (err) => {
       setNotice(null);
+      if (isWalletRefusal(err, confirm.mode)) confirm.refresh();
       if (requestMode.current === "resend" && !isConflict(err)) {
         setCodeError(humanizeConfirmError(err, confirm.mode) ?? humanizeError(err));
         return;
@@ -572,6 +574,7 @@ function ChangePasswordCard() {
       // drift.
     },
     onError: (err) => {
+      if (isWalletRefusal(err, confirm.mode)) confirm.refresh();
       setSavedAt(null);
       setSessionLost(false);
       setServerError(humanizeConfirmError(err, confirm.mode) ?? humanizePasswordError(err));

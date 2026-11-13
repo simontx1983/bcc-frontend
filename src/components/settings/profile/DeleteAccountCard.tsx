@@ -52,6 +52,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import {
   AccountConfirmField,
   humanizeConfirmError,
+  isWalletRefusal,
   useAccountConfirm,
 } from "@/components/settings/profile/AccountConfirm";
 import { useDeleteAccount } from "@/hooks/useAccount";
@@ -103,6 +104,7 @@ export function DeleteAccountCard() {
     },
     onError: (err) => {
       firedRef.current = false;
+      if (isWalletRefusal(err, confirm.mode)) confirm.refresh();
       setServerError(humanizeConfirmError(err, confirm.mode) ?? humanizeError(err));
     },
   });

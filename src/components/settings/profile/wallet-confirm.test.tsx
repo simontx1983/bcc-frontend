@@ -9,7 +9,9 @@
  * never the server's message.
  */
 
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { cleanup, fireEvent, render as rtlRender, screen, waitFor } from "@testing-library/react";
+import type { ReactElement } from "react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { BccApiError } from "@/lib/api/types";
@@ -32,7 +34,7 @@ vi.mock("@/lib/env", () => ({ clientEnv: { BCC_API_URL: "https://wp.example" } }
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), replace: vi.fn() }) }));
 vi.mock("next-auth/react", () => ({ signOut: vi.fn() }));
 vi.mock("@/hooks/useDirtyRegistration", () => ({ useDirtyRegistration: () => {} }));
-vi.mock("@/hooks/useWallets", () => ({ useMyWallets: () => wallets }));
+vi.mock("@/hooks/useWallets", () => ({ MY_WALLETS_QUERY_KEY: ["me", "wallets"], useMyWallets: () => wallets }));
 vi.mock("@/lib/wallet/confirmFlow", async (orig) => ({
   ...(await orig<typeof ConfirmFlow>()),
   signAccountConfirmation: (...a: unknown[]) => sign(...a),
@@ -67,6 +69,9 @@ const KEPLR = {
   wallet_type: "user",
   verified: true,
 };
+let qc: QueryClient;
+const render = (ui: ReactElement) => rtlRender(<QueryClientProvider client={qc}>{ui}</QueryClientProvider>);
+
 const SIGNED = {
   wallet_address: KEPLR.wallet_address,
   chain_slug: "cosmos",
@@ -103,6 +108,7 @@ beforeEach(() => {
   passwordMutate.mockReset();
   deleteMutate.mockReset();
   wallets.isLoading = false;
+  qc = new QueryClient();
 });
 afterEach(cleanup);
 
@@ -170,14 +176,19 @@ describe("wallet-path errors, by code", () => {
     expect(document.body.textContent ?? "").not.toContain(DECOY);
   });
 
-  it("a wallet verified after sign-in says to sign in again", async () => {
+  it("a 403 without usable_at covers both causes and re-reads has_password", async () => {
+    const invalidate = vi.spyOn(qc, "invalidateQueries");
     await failEmail(new BccApiError("bcc_forbidden", DECOY, 403, null));
-    expect(await screen.findByText(/Sign out, sign back in, and try again/)).toBeInTheDocument();
+    expect(
+      await screen.findByText(/just set a password, use it instead\. If you linked this wallet after signing in, sign out, sign back in/),
+    ).toBeInTheDocument();
+    // An account that now HAS a password switches to the password field.
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ["me", "wallets"] });
   });
 
   it("an expired challenge asks for a new signature", async () => {
     await failEmail(new BccApiError("bcc_invalid_request", DECOY, 400, null));
-    expect(await screen.findByText(/Try again to sign a new one/)).toBeInTheDocument();
+    expect(await screen.findByText(/Check the wallet is linked and verified/)).toBeInTheDocument();
   });
 
   it("the wrong wallet account in the extension is caught before any request", async () => {

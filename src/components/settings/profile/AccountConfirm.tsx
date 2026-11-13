@@ -15,11 +15,12 @@
  *     at forgot-password, which sets a real password (D2).
  */
 
+import { useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import type { Route } from "next";
 import { useState } from "react";
 
-import { useMyWallets } from "@/hooks/useWallets";
+import { MY_WALLETS_QUERY_KEY, useMyWallets } from "@/hooks/useWallets";
 import type { AccountCredential } from "@/lib/api/account-endpoints";
 import { BccApiError, type LinkedWallet } from "@/lib/api/types";
 import { formatAbsoluteDateTime } from "@/lib/format";
@@ -34,6 +35,7 @@ import { humanizeWalletProviderError } from "@/lib/wallet/dispatch";
 export type ConfirmMode = "password" | "wallet" | "no-wallet";
 
 export function useAccountConfirm(purpose: ConfirmPurpose) {
+  const queryClient = useQueryClient();
   const wallets = useMyWallets();
   const verified = (wallets.data?.items ?? []).filter((w) => w.verified && w.wallet_type === "user");
   const hasPassword = wallets.data?.recovery.has_password;
@@ -78,12 +80,23 @@ export function useAccountConfirm(purpose: ConfirmPurpose) {
     credential,
     /** Forget the typed password (on success / cancel). */
     clear: () => setPassword(""),
+    /**
+     * Re-read `has_password`. Called after a wallet-path refusal that may
+     * mean the account now HAS a password (set on another tab or device):
+     * the form then switches to the password field by itself.
+     */
+    refresh: () => void queryClient.invalidateQueries({ queryKey: MY_WALLETS_QUERY_KEY }),
   };
 }
 
 export type AccountConfirm = ReturnType<typeof useAccountConfirm>;
 
 const shortAddress = (a: string) => (a.length > 14 ? `${a.slice(0, 6)}…${a.slice(-4)}` : a);
+
+/** A wallet-path refusal that may mean the account now has a password. */
+export function isWalletRefusal(err: unknown, mode: ConfirmMode): boolean {
+  return mode === "wallet" && err instanceof BccApiError && err.code === "bcc_forbidden";
+}
 
 /**
  * Wallet-path errors, by code (§γ — never the server message). Returns
@@ -110,11 +123,19 @@ export function humanizeConfirmError(err: unknown, mode: ConfirmMode): string | 
     if (typeof at === "string" && at !== "") {
       return `This wallet was verified recently. You can use it to confirm from ${formatAbsoluteDateTime(at)}.`;
     }
-    return "This wallet was verified after you signed in. Sign out, sign back in, and try again.";
+    // Two refusals share this code with no data: the account now HAS a
+    // password (set elsewhere), or the wallet was verified after this
+    // sign-in. Telling them apart would mean reading the server message
+    // (§γ), so the line covers both — and the caller re-reads
+    // has_password, which switches the form to the password field in the
+    // first case.
+    return "This wallet can't confirm this. If you've just set a password, use it instead. If you linked this wallet after signing in, sign out, sign back in, and try again.";
   }
   if (err.code === "bcc_signature_invalid") return "The wallet signature didn't check out. Try again.";
   if (err.code === "bcc_invalid_request" && err.status === 400) {
-    return "That confirmation expired or didn't match. Try again to sign a new one.";
+    // v1.130: a 400 covers an expired or mismatched challenge AND a wallet
+    // that is not linked or not verified, or an unknown chain.
+    return "That confirmation didn't go through. Check the wallet is linked and verified on your account, then try again to sign a new one.";
   }
   if (err.code === "bcc_unavailable") return "Confirming with a wallet isn't available right now. Try again later.";
   return null;
