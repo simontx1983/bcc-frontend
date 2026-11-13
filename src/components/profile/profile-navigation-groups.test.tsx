@@ -211,13 +211,13 @@ describe("the top level", () => {
   it("an owner sees exactly these five, in this order", () => {
     renderTabs({ isOwner: true });
     expect(groupLabels()).toEqual([
-      "My Profile", "Reputation", "Network", "Activity", "Content",
+      "Activity", "Reputation", "Network", "Content", "My Profile",
     ]);
   });
 
   it("a visitor sees exactly these four, in this order", () => {
     renderTabs({ isOwner: false });
-    expect(groupLabels()).toEqual(["Reputation", "Network", "Activity", "Content"]);
+    expect(groupLabels()).toEqual(["Activity", "Reputation", "Network", "Content"]);
   });
 
   it("NO retired top-level destination survives as a group", () => {
@@ -509,10 +509,11 @@ describe("malformed, empty, repeated and unknown values", () => {
     expect(selectedGroupLabel()).toBe("Reputation");
   });
 
-  it("a visitor's malformed value falls back to Supporters, not to an owner leaf", () => {
+  // Dev note 31 (Figma Handoff v1): every viewer's default is Activity.
+  it("a visitor's malformed value falls back to Activity, not to an owner leaf", () => {
     renderTabs({ isOwner: false, query: "tab=%25%25%25" });
-    expect(screen.getByTestId("panel-backing")).toBeInTheDocument();
-    expect(selectedGroupLabel()).toBe("Network");
+    expect(screen.getByTestId("panel-activity")).toBeInTheDocument();
+    expect(selectedGroupLabel()).toBe("Activity");
   });
 });
 
@@ -529,9 +530,9 @@ describe("?tab=network cannot bypass leaf selection", () => {
 
   it("a visitor gets the ordinary fallback and no placeholder", () => {
     renderTabs({ isOwner: false, tab: "network" });
-    expect(screen.getByTestId("panel-backing")).toBeInTheDocument();
+    expect(screen.getByTestId("panel-activity")).toBeInTheDocument();
     expect(screen.queryByTestId("panel-soon")).toBeNull();
-    expect(selectedGroupLabel()).toBe("Network");
+    expect(selectedGroupLabel()).toBe("Activity");
   });
 
   it("it selects exactly one leaf — never zero, never two", () => {
@@ -559,7 +560,8 @@ const OWNER_ONLY_KEYS = [
 describe("ownership gates by URL, not by hidden buttons", () => {
   it.each(OWNER_ONLY_KEYS)("a signed-in NON-owner on ?tab=%s falls back", (key) => {
     renderTabs({ isOwner: false, tab: key });
-    expect(screen.getByTestId("panel-backing")).toBeInTheDocument();
+    // Dev note 31: the visitor default is Activity.
+    expect(screen.getByTestId("panel-activity")).toBeInTheDocument();
     expect(screen.queryByTestId("panel-profile")).toBeNull();
     expect(screen.queryByTestId("panel-setup")).toBeNull();
     expect(settingsGroupStrip()).toBeUndefined();
@@ -593,7 +595,7 @@ describe("ownership gates by URL, not by hidden buttons", () => {
   it("the URL is preserved when an owner-only deep link falls back", () => {
     renderTabs({ isOwner: false, tab: "reliability" });
     expect(window.location.search).toBe("?tab=reliability");
-    expect(screen.getByTestId("panel-backing")).toBeInTheDocument();
+    expect(screen.getByTestId("panel-activity")).toBeInTheDocument();
   });
 });
 
@@ -687,7 +689,7 @@ describe("the optional `tabs` metadata decorates, it does not restructure", () =
     expect(labelsIn(leafStrip()!)).toEqual([
       "REVIEWS RECEIVED", "REVIEWS WRITTEN", "DISPUTES",
     ]);
-    expect(groupLabels()).toEqual(["Reputation", "Network", "Activity", "Content"]);
+    expect(groupLabels()).toEqual(["Activity", "Reputation", "Network", "Content"]);
   });
 
   it("duplicate keys resolve to the LAST entry, deterministically", () => {

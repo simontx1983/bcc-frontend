@@ -306,6 +306,6 @@ describe("mutation controls", () => {
     renderAt("profile");
     const labels = within(groupStrip()).getAllByRole("tab")
       .map((t) => (t.firstChild?.textContent ?? "").trim());
-    expect(labels).toEqual(["My Profile", "Reputation", "Network", "Activity", "Content"]);
+    expect(labels).toEqual(["Activity", "Reputation", "Network", "Content", "My Profile"]);
   });
 });

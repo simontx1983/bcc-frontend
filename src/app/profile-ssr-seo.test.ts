@@ -81,7 +81,7 @@ describe("server-rendered default tab — seed correctness", () => {
   it("a roster failure cannot take down the profile", () => {
     const block = PAGE.slice(
       PAGE.indexOf("let rosterSeed"),
-      PAGE.indexOf("// Email-shaped handles"),
+      PAGE.indexOf("// §J page title"),
     );
     expect(block).toContain("try {");
     expect(block).toContain("catch {");
@@ -146,67 +146,15 @@ describe("indexing — one gate, four surfaces", () => {
   });
 });
 
-describe("counts strip — the REVIEWS WRITTEN overflow", () => {
-  it("lays the groups out two per row, not four", () => {
-    // The hero sits in the 680px centre column, so the strip has ~574px at
-    // EVERY width from 768px up — 1024px and 1440px measure identically.
-    // Six tiles need >=92px each to keep their longest single WORD whole
-    // (WATCHERS is 60px of text plus 32px of panel padding), which puts four
-    // groups across at ~720px once gaps and pl-6 are counted. No fraction
-    // fits 720 into 574, which is why tuning them only moved the problem.
-    expect(PAGE).toContain("sm:grid sm:grid-cols-2");
-    expect(PAGE).not.toMatch(/grid-cols-\[[\d.]+fr_1fr_[\d.]+fr_1fr\]/);
-  });
-
-  it("never forces a mid-word break", () => {
-    // RECOGNITION is a single unbreakable word. Four across left it 65px, so
-    // it either pinned its own column or split as RECOGNI/TION. Two columns
-    // give it 251px — no override needed, and none may come back.
-    const strip = code(PAGE).slice(code(PAGE).indexOf("function CountsStrip"));
-    for (const hack of ["overflow-wrap", "break-all", "break-words", "hyphens"]) {
-      expect(strip, `CountsStrip reintroduced ${hack}`).not.toContain(hack);
-    }
-  });
-
-  it("draws the dashed rule on the right column only", () => {
-    // Four-across gave every group after the first a left rule. In two
-    // columns that would draw one down the left edge of a row-opening group.
-    expect(PAGE).toContain("idx % 2 === 1");
-  });
-
-  it("guards every track with min-w-0 so nothing can overflow", () => {
-    expect(PAGE).toContain('"min-w-0 " +');
-    expect(PAGE).toMatch(/bcc-panel[^"]*min-w-0/);
-  });
-
-  it("gives tiles a shared minimum height so a wrapped label stays level", () => {
-    expect(PAGE).toMatch(/min-h-\[\d+px\][^"]*sm:min-h-\[\d+px\]/);
-  });
-
-  it("keeps the wording and never truncates", () => {
-    expect(PAGE).toContain("REVIEW_TAB_COPY.written.toUpperCase()");
-    const stripped = code(PAGE);
-    const strip = stripped.slice(stripped.indexOf("function CountsStrip"));
-    expect(strip).not.toContain("truncate");
-    expect(strip).not.toContain("whitespace-nowrap");
-  });
-
-  it("keeps all six labels", () => {
-    for (const label of [
-      "BLOG POSTS",
-      "DISPUTES SIGNED",
-      "SOLIDS RECEIVED",
-      "REVIEW_TAB_COPY.written",
-    ]) {
-      expect(PAGE).toContain(label);
-    }
-  });
-});
+// The counts-strip describe was removed with CountsStrip itself: Figma
+// Handoff v1 dev note 22 makes the profile header trust-only, with no
+// follower counts, so the strip is no longer on this page.
 
 describe("the Message affordance reaches only the profile card", () => {
-  it("is withheld from anonymous viewers and from your own profile", () => {
-    expect(PAGE).toContain("session !== null && !isOwner");
-    expect(PAGE).toContain("messagePermissions: profile.permissions");
+  // The profile page no longer renders CardFactory (dev note 22), so it no
+  // longer passes messagePermissions at all.
+  it("is not passed from the profile page", () => {
+    expect(PAGE).not.toContain("messagePermissions");
   });
 
   it("adds nothing to the card view-model", () => {

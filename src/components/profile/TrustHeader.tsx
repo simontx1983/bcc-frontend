@@ -121,8 +121,8 @@ export function TrustHeader({
           empty bordered block. */}
       {!isOwner && (viewerAuthed || profile.permissions.can_vouch !== undefined) && (
         // Watch + Vouch side by side (Handoff v1). Stand-behind and Report
-        // stay on the full profile hero, so the cluster gets only the vouch
-        // permission and renders the Vouch control alone.
+        // render in the profile page's secondary-actions row, so the cluster
+        // gets only the vouch permission and renders the Vouch control alone.
         <div className="mt-4 grid grid-cols-2 items-start gap-3 border-t border-dashed border-bcc-border pt-4">
           {/* MemberFollowButton self-hides for anonymous viewers; gating here
               too keeps the slot out of the SSR markup, and Vouch then spans
@@ -131,6 +131,8 @@ export function TrustHeader({
           {viewerAuthed && (
             <MemberFollowButton
               userId={profile.user_id}
+              viewerIsWatching={profile.viewer_is_watching}
+              viewerWatch={profile.viewer_watch}
               className="[&>button]:min-h-[44px] [&>button]:w-full"
             />
           )}

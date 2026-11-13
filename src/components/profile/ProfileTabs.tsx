@@ -326,12 +326,12 @@ function childrenOfGroup(groupKey: TabKey): ReadonlyArray<SubTabDef<TabKey>> {
  *
  * Grouping is by the QUESTION being asked, not by which endpoint answers it:
  *
- *   My Profile   my own settings — owner-only, the one group a visitor
- *                never sees, which is why a visitor's strip is four
+ *   Activity     what they are doing right now (every viewer's default)
  *   Reputation   can this operator be trusted, and on what evidence
  *   Network      who they are connected to, in both directions
- *   Activity     what they are doing right now
  *   Content      what they have published
+ *   My Profile   my own settings — owner-only, the one group a visitor
+ *                never sees, which is why a visitor's strip is four
  *
  * Two of these hold sections that were previously LOCKED INSIDE a panel's
  * local state — Reliability inside SetupPanel and Watching inside
@@ -391,15 +391,10 @@ interface ProfileGroup {
 }
 
 const PROFILE_GROUPS: ReadonlyArray<ProfileGroup> = [
-  {
-    // The owner's own settings. Its children are not leaves of a plain strip —
-    // this group opens SETTINGS_GROUPS, which has its own second level. The
-    // settings manifest is REUSED, never forked.
-    key: "my-profile",
-    label: "My Profile",
-    ownerOnly: true,
-    children: MY_PROFILE_CHILDREN,
-  },
+  // Order per Figma Handoff v1 dev note 31: Activity / Reputation / Network /
+  // Content, with the owner-only My Profile group after them.
+  // One leaf, so no second row: Activity is a destination, not a choice.
+  { key: "activity", label: "Activity", children: [{ key: "activity", label: "Activity" }] },
   {
     key: "reputation",
     label: "Reputation",
@@ -444,8 +439,6 @@ const PROFILE_GROUPS: ReadonlyArray<ProfileGroup> = [
       { key: "groups",    label: "Communities" },
     ],
   },
-  // One leaf, so no second row: Activity is a destination, not a choice.
-  { key: "activity", label: "Activity", children: [{ key: "activity", label: "Activity" }] },
   {
     key: "content",
     label: "Content",
@@ -453,6 +446,15 @@ const PROFILE_GROUPS: ReadonlyArray<ProfileGroup> = [
       { key: "blog",   label: "Blog" },
       { key: "photos", label: "Photos" },
     ],
+  },
+  {
+    // The owner's own settings. Its children are not leaves of a plain strip —
+    // this group opens SETTINGS_GROUPS, which has its own second level. The
+    // settings manifest is REUSED, never forked.
+    key: "my-profile",
+    label: "My Profile",
+    ownerOnly: true,
+    children: MY_PROFILE_CHILDREN,
   },
 ];
 
@@ -475,8 +477,8 @@ const PROFILE_GROUP_OF_LEAF: Partial<Record<TabKey, ProfileGroupKey>> =
  * proved is a leaf — but a group key must still be returned, never a TabKey,
  * so the fallback names the group that owns the viewer's default destination.
  */
-function profileGroupOf(leaf: TabKey, isOwner: boolean): ProfileGroupKey {
-  return PROFILE_GROUP_OF_LEAF[leaf] ?? (isOwner ? "activity" : "network");
+function profileGroupOf(leaf: TabKey): ProfileGroupKey {
+  return PROFILE_GROUP_OF_LEAF[leaf] ?? "activity";
 }
 
 /** Groups this viewer may see. Only My Profile is owner-only. */
@@ -623,11 +625,11 @@ export function ProfileTabs({
   const searchParams = useSearchParams();
   const urlTab = searchParams?.get("tab") ?? null;
 
-  // Own-profile defaults to "activity" — the owner cares about "what
-  // am I doing on the floor" more than "what did people say about me."
-  // Visitors land on "backing" — the §J.6 trust headline that
-  // structures their "can I trust this operator?" evaluation.
-  const fallbackTab: TabKey = isOwner ? "activity" : "backing";
+  // Every viewer — owner and visitor alike — lands on "activity"
+  // (Figma Handoff v1 dev note 31, user-approved design). The trust
+  // headline now lives in the TrustHeader above the tabs, so the tab
+  // strip no longer has to carry it by opening on Supporters.
+  const fallbackTab: TabKey = "activity";
   const initialTab: TabKey = isTabKey(urlTab) ? urlTab : fallbackTab;
   const [active, setActive] = useState<TabKey>(initialTab);
 
@@ -731,7 +733,7 @@ export function ProfileTabs({
   // GROUP up top while the sub-strip selects the leaf itself. Derived from the
   // leaf every render — never stored — so Back, Forward, a refresh and a
   // pasted deep link all resolve identically.
-  const activeGroupKey: ProfileGroupKey = profileGroupOf(effectiveActive, isOwner);
+  const activeGroupKey: ProfileGroupKey = profileGroupOf(effectiveActive);
   const activeGroup = groups.find((g) => g.key === activeGroupKey);
   const isSettingsGroup = isOwner && activeGroupKey === "my-profile";
 

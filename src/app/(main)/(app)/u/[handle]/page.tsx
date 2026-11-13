@@ -47,16 +47,13 @@ import { notFound, permanentRedirect } from "next/navigation";
 
 import { ProfileUnavailable } from "@/components/errors/ProfileUnavailable";
 
-import { CardFactory } from "@/components/cards/CardFactory";
-import { NewMemberChip } from "@/components/identity/NewMemberChip";
-import { BioBox } from "@/components/layout/BioBox";
 import { FileRail } from "@/components/layout/FileRail";
-import { PageHero } from "@/components/layout/PageHero";
 import { AttestationActionCluster } from "@/components/profile/AttestationActionCluster";
 import { BlockToggle } from "@/components/profile/BlockToggle";
+import { ProfileMessageButton } from "@/components/profile/ProfileMessageButton";
 import { ProfileTabs } from "@/components/profile/ProfileTabs";
+import { TrustHeader } from "@/components/profile/TrustHeader";
 import { ReviewCallout } from "@/components/review/ReviewCallout";
-import { ShareButton } from "@/components/common/ShareButton";
 import { TourAutoStart } from "@/components/tour/TourAutoStart";
 import { authOptions } from "@/lib/auth";
 import { tokenFromSession } from "@/lib/api/client";
@@ -69,17 +66,14 @@ import {
 } from "@/lib/api/attestations-endpoints";
 import type { RosterSeed } from "@/hooks/useAttestationRoster";
 import { appOrigin } from "@/lib/app-origin";
-import { REVIEW_TAB_COPY } from "@/lib/copy/trust-layer";
 import { canonicalProfilePath, type ProfileSearchParams } from "@/lib/seo/canonical-profile-path";
 import { isIndexableEnvironment, isIndexableProfile } from "@/lib/seo/indexing";
 import { buildPersonGraph, serializeJsonLd } from "@/lib/seo/person-jsonld";
 import { ANON_SSR_REVALIDATE_SECONDS } from "@/lib/api/cache-policy";
-import { FOLLOW_COPY } from "@/lib/copy";
 import { formatJoinDate, presentationName } from "@/lib/format";
 import { isAllowed, unlockHint } from "@/lib/permissions";
 import {
   BccApiError,
-  type MemberCounts,
   type MemberProfile,
   type MeReliabilityResponse,
 } from "@/lib/api/types";
@@ -245,10 +239,7 @@ export default async function MemberProfilePage({ params, searchParams }: PagePr
   // page. Built from the viewed handle rather than /u/me so the owner
   // doesn't take a redirect hop back to the profile they're already on.
   const profileEditHref = `/u/${encodeURIComponent(profile.handle)}?tab=profile` as Route;
-  // BioBox's empty state says "WRITE ONE →", so it must land ON the bio
-  // field rather than at the top of a tab that has four sections. BioEditor
-  // consumes `focus=bio` once and strips it from the URL.
-  const bioEditHref = `${profileEditHref}&focus=bio` as Route;
+  const aboutHref = `/u/${encodeURIComponent(profile.handle)}/about` as Route;
 
   // PR-11b — Setup tab RELIABILITY sub-tab embeds the §J.5 self-mirror.
   // Fetch is owner-only (the endpoint is Bearer-authed and refuses
@@ -266,9 +257,9 @@ export default async function MemberProfilePage({ params, searchParams }: PagePr
 
   // Crawlable default public tab.
   //
-  // A visitor lands on Supporters (ProfileTabs fallbackTab), but every panel
-  // fetches client-side, so a crawler previously saw the hero plus an empty
-  // skeleton. Read the first page here and seed React Query with it.
+  // Visitors used to land on Supporters; since dev note 31 every viewer
+  // lands on Activity, but `?tab=backing` deep links still open it, so the
+  // first page is read here and seeds React Query.
   //
   // ANONYMOUS ONLY, two reasons. The read itself is token-less so the shared
   // 60s Data-Cache entry can be served to everyone without leaking one
@@ -297,11 +288,6 @@ export default async function MemberProfilePage({ params, searchParams }: PagePr
       rosterSeed = undefined;
     }
   }
-
-  // Email-shaped handles (PeepSo default before the operator picks a
-  // real one) read as broken UI when rendered with the `@` kicker —
-  // suppress until they pick a handle. Same rule the card uses now.
-  const showHandleKicker = !profile.handle.includes("@");
 
   // §J page title — centralized in presentationName() so email-shaped
   // display_name fields fall through to handle uppercased rather than
@@ -374,42 +360,23 @@ export default async function MemberProfilePage({ params, searchParams }: PagePr
         joinedLabel={formatJoinDate(profile.joined_at)}
       />
 
-      {/* §J page title — large stencil display name above the hero.
-          The trading card carries identity inside its nameplate strip,
-          but a 12px line inside a 316px tile is not a page title. The
-          big name here answers "whose page am I on?" without making
-          the viewer parse the card. Suppress the handle line when the
-          handle is email-shaped (default PeepSo before claim). */}
       {/* First-visit tour of your own profile (owner only). */}
       {isOwner && <TourAutoStart tourId="profile" />}
-      <header className="mx-auto mt-12 max-w-[1440px] px-4 sm:px-7" data-bcc-tour="profile.header">
-        {/* Title row — stencil display name on the left, Share on the
-            right. Share is public-to-everyone (any viewer can share any
-            public profile), distinct from the owner-only Edit Profile
-            CTA which lives down in the hero action column. */}
-        <div className="flex items-start justify-between gap-4">
-          <h1
-            className="bcc-stencil text-bcc-text leading-[0.92]"
-            style={{ fontSize: "clamp(1.75rem, 5.5vw, 4.5rem)", wordBreak: "break-word" }}
-          >
-            {title}
-          </h1>
-          <div className="shrink-0 pt-1">
-            <ShareButton
-              path={`/u/${encodeURIComponent(profile.handle)}`}
-              title={title}
-              ariaLabel={`Share ${title}'s profile`}
-            />
-          </div>
-        </div>
-        {showHandleKicker && (
-          <p
-            className="bcc-mono mt-3 text-bcc-text-safety"
-            style={{ fontSize: "11px", letterSpacing: "0.18em" }}
-          >
-            @{profile.handle}
-          </p>
-        )}
+      {/* Figma Handoff v1 (dev notes 22–35): the trust header replaces the
+          old stencil title + trading-card hero. It is trust-only — no
+          follower counts (note 22), so CountsStrip and CardFactory are gone
+          from this page. A viewer who already watches this member gets the
+          compact variant (note 28); the server says so, it is never derived. */}
+      <header
+        className="mx-auto mt-8 max-w-[640px] px-4 sm:px-7"
+        data-bcc-tour="profile.header"
+      >
+        <TrustHeader
+          profile={profile}
+          isOwner={isOwner}
+          viewerAuthed={session !== null}
+          variant={profile.viewer_is_watching === true ? "compact" : "full"}
+        />
         {titleFallbackUsed && profile.display_name.trim() !== "" && (
           <p
             className="bcc-mono mt-2 text-bcc-text-secondary"
@@ -418,156 +385,69 @@ export default async function MemberProfilePage({ params, searchParams }: PagePr
             LISTED AS {profile.display_name}
           </p>
         )}
-      </header>
-
-      {/* HERO — unified PageHero shape: directory-style card on the left,
-          attestation action cluster on the right (both in the dotted box).
-          Mirrored on /v, /c, /p, /communities/[slug] so the same shape
-          reads as one product. */}
-      <section className="mt-8">
-        <PageHero
-          card={
-            /* messagePermissions is what turns on the Message row, and this
-               is the only surface that passes it. Withheld for anonymous
-               viewers (a sign-in prompt on a card is noise) and on your own
-               profile (self-messaging is meaningless) so those cases render
-               nothing at all, per the state table. Everything else — allowed,
-               or denied-with-a-reason — is decided by the server flag. */
-            <CardFactory
-              card={profile.card}
-              canEditAvatar={isOwner}
-              suppressBodyLink
-              {...(session !== null && !isOwner
-                ? { messagePermissions: profile.permissions }
-                : {})}
+        {/* Note 36 (supersedes note 26): no expand-in-place bio here — the
+            bio lives on the About page. */}
+        <Link
+          href={aboutHref}
+          className="bcc-mono mt-3 inline-flex min-h-[44px] items-center text-[11px] uppercase tracking-[0.18em] text-bcc-text underline decoration-[var(--bcc-accent-indicator)] underline-offset-4"
+        >
+          More about {title} →
+        </Link>
+        {/* Slot: public-cb RecoveryEmailNudge (owner only) — the component
+            is not on main yet. Note 23's vouched-by line is TrustHeader's
+            concern and waits on the F-340 fields. */}
+        {isOwner ? (
+          <div className="mt-2">
+            <Link
+              href={profileEditHref}
+              className="bcc-mono inline-flex min-h-[44px] items-center text-[11px] uppercase tracking-[0.18em] text-bcc-text underline decoration-[var(--bcc-accent-indicator)] underline-offset-4"
+            >
+              Edit profile
+            </Link>
+          </div>
+        ) : (
+          // Secondary actions the trust header does not cover. TrustHeader
+          // already renders Watch + Vouch, so the cluster gets only the
+          // stand-behind and report permissions here.
+          <div className="mt-3 flex flex-col gap-3 border-t border-dashed border-bcc-border pt-3">
+            <AttestationActionCluster
+              targetKind="user_profile"
+              targetId={profile.user_id}
+              canStandBehind={profile.permissions.can_stand_behind}
+              canReport={profile.permissions.can_report}
+              viewerAttestation={profile.viewer_attestation}
             />
-          }
-          belowHero={
-            <div>
-              {/* FILE 04 // THE NUMBERS — full-width row inside the
-                  dotted box, below the card+actions split. CountsStrip
-                  grid-cols-6 spreads across the whole hero width. */}
-              <div className="mb-3 flex items-center gap-3">
-                <span className="bcc-mono text-bcc-text-secondary">FILE 04</span>
-                <span className="bcc-mono text-bcc-text-safety">{"//"} THE NUMBERS</span>
-              </div>
-              <CountsStrip counts={profile.counts} />
-            </div>
-          }
-          actions={
-            <>
-              {/* Reputation panel — framed cell making the score the
-                  visual headline of the right column (per the 2026-05-13
-                  UX review). REPUTATION kicker + stencil 4xl value +
-                  standing/rank chips stacked under. Left-aligned on
-                  mobile (where the eye lands), right-aligned at sm+
-                  where it pairs visually with the card on the left. */}
-              {/* Reputation panel — framed cell anchoring the score as
-                  the right column's headline. Center-aligned per the
-                  2026-05-14 layout request: REPUTATION kicker + stencil
-                  score + standing/rank chips all centered horizontally
-                  inside the cell at every breakpoint. */}
-              <div className="border border-bcc-border bg-bcc-surface-raised p-4">
-                <div className="flex flex-col items-center gap-3 sm:flex-row sm:flex-wrap sm:items-baseline sm:justify-center sm:gap-x-4 sm:gap-y-2">
-                  <div className="flex flex-col items-center">
-                    <span
-                      className="bcc-mono text-bcc-text-secondary"
-                      style={{ fontSize: "10px", letterSpacing: "0.24em" }}
-                    >
-                      REPUTATION
-                    </span>
-                    <span className="bcc-stencil mt-1 text-4xl leading-none text-bcc-text">
-                      {profile.reputation_score ?? profile.trust_score}
-                    </span>
-                  </div>
-                  <div className="flex flex-wrap items-center justify-center gap-2">
-                    {profile.is_in_good_standing && (
-                      <span
-                        className="bcc-mono border border-verified/60 px-2 py-1 text-verified"
-                        style={{ fontSize: "10px", letterSpacing: "0.18em" }}
-                      >
-                        GOOD STANDING
-                      </span>
-                    )}
-                    {/* C8 chip rule (Rank redesign Phase 5): "ranked" +
-                        label → rank chip; explicit "new_member" → the
-                        distinct NewMemberChip; member_state ABSENT (old
-                        backend / data failure) → NOTHING. Absence is
-                        never fabricated into a state. */}
-                    {profile.member_state === "ranked" &&
-                      typeof profile.rank_label === "string" &&
-                      profile.rank_label !== "" && (
-                        <span
-                          className="bcc-mono border border-bcc-border px-2 py-1 text-bcc-text"
-                          style={{ fontSize: "10px", letterSpacing: "0.18em" }}
-                        >
-                          {profile.rank_label.toUpperCase()}
-                        </span>
-                      )}
-                    {profile.member_state === "new_member" && <NewMemberChip />}
-                  </div>
-                </div>
-              </div>
-
-              <AttestationActionCluster
-                targetKind="user_profile"
-                targetId={profile.user_id}
-                canVouch={profile.permissions.can_vouch}
-                canStandBehind={profile.permissions.can_stand_behind}
-                canReport={profile.permissions.can_report}
-                viewerAttestation={profile.viewer_attestation}
+            {/* v1.49 — direct person-review via the shared ReviewCallout,
+                fed from the member card's server-resolved gates. */}
+            {session !== null && (
+              <ReviewCallout
+                target={{
+                  kind: "member",
+                  userId: profile.user_id,
+                  removePageId: profile.card.review_target_id,
+                }}
+                pageName={title}
+                canReview={isAllowed(profile.card.permissions, "can_review")}
+                unlockHint={unlockHint(profile.card.permissions, "can_review")}
+                hasReviewed={profile.card.viewer_has_reviewed}
+                viewerAuthed
               />
-              {/* v1.49 — direct person-review via the shared
-                  ReviewCallout, fed from the member hero card's real
-                  server-resolved gates (can_review / viewer_has_reviewed
-                  / review_target_id). Ineligible viewers see the
-                  disabled CTA with the unlock hint instead of a 403;
-                  reviewers get the REMOVE branch. */}
-              {session !== null && !isOwner && (
-                <ReviewCallout
-                  target={{
-                    kind: "member",
-                    userId: profile.user_id,
-                    removePageId: profile.card.review_target_id,
-                  }}
-                  pageName={title}
-                  canReview={isAllowed(profile.card.permissions, "can_review")}
-                  unlockHint={unlockHint(profile.card.permissions, "can_review")}
-                  hasReviewed={profile.card.viewer_has_reviewed}
-                  viewerAuthed
-                />
-              )}
-              {/* §K1 block control — the quiet moderation affordance.
-                  Self-hides when the viewer can't block (anonymous / self /
-                  tier-gated) via profile.permissions.can_block, so it needs
-                  no extra guard here. Sits below the review control as the
-                  lowest-key action in the column. */}
-              <BlockToggle profile={profile} />
-              <BioBox
-                text={profile.bio}
-                label="BIO"
-                {...(isOwner
-                  ? { ownerEditHref: bioEditHref }
-                  : {})}
+            )}
+            {/* Message — moved off the retired member card. Signed-in
+                visitors only (as before); server can_message gates it. */}
+            {session !== null && !isOwner && (
+              <ProfileMessageButton
+                permissions={profile.permissions}
+                // card.id, exactly what the card's MessagePill received.
+                recipientId={profile.card.id}
+                recipientName={title}
               />
-              {/* Edit Profile — owner-only column exit. JOINED metadata
-                  moved up to FileRail per the 2026-05-14 UX review so
-                  the column exits cleanly at BIO with just the CTA
-                  for owners. */}
-              {isOwner && (
-                <div className="flex justify-end border-t border-dashed border-bcc-border pt-4">
-                  <Link
-                    href={profileEditHref}
-                    className="bcc-btn bcc-btn-primary"
-                  >
-                    Edit Profile
-                  </Link>
-                </div>
-              )}
-            </>
-          }
-        />
-      </section>
+            )}
+            {/* §K1 block control — self-hides via permissions.can_block. */}
+            <BlockToggle profile={profile} />
+          </div>
+        )}
+      </header>
 
       {/* Sections previously sitting above the tab strip have moved
           INSIDE tabs per the 2026-05-14 reorganization:
@@ -708,135 +588,6 @@ function SectionFrame({
   );
 }
 
-
-// ──────────────────────────────────────────────────────────────────────
-// CountsStrip — six big stencil numbers from §3.1 counts. Watchers /
-// watching / reviews / disputes signed / solids received. The
-// `followers` / `following` API field names are part of the §9
-// contract — only the display labels changed (see lib/copy.ts).
-// ──────────────────────────────────────────────────────────────────────
-
-function CountsStrip({ counts }: { counts: MemberCounts }) {
-  // Grouped: SOCIAL (reach) · LIBRARY (watchlist) · TRUST WORK (real
-  // trust-layer acts) · RECOGNITION (social acknowledgement). Solids
-  // are a Layer-0 social ack that confers no trust (api-contract §670),
-  // so they live in their own RECOGNITION group — NOT beside reviews /
-  // disputes under a "trust" heading, which would read popularity as
-  // trust. Each group gets a kicker label so the numbers read as
-  // distinct concepts rather than a flat row of equal stats.
-  const groups: Array<{
-    label: string;
-    cells: Array<{ label: string; value: number }>;
-  }> = [
-    {
-      label: "SOCIAL",
-      cells: [
-        { label: FOLLOW_COPY.nounUpper,     value: counts.followers },
-        { label: FOLLOW_COPY.watchingUpper, value: counts.following },
-      ],
-    },
-    {
-      label: "LIBRARY",
-      cells: [
-        { label: "BLOG POSTS", value: counts.blog_posts_written },
-      ],
-    },
-    {
-      label: "TRUST WORK",
-      cells: [
-        // Same const the "Reviews Written" tab reads, so the tile and the tab
-        // cannot drift apart. Wording unchanged — the overflow was a layout
-        // fault, fixed in the grid below rather than by shortening the label.
-        { label: REVIEW_TAB_COPY.written.toUpperCase(), value: counts.reviews_written },
-        { label: "DISPUTES SIGNED", value: counts.disputes_signed },
-      ],
-    },
-    {
-      label: "RECOGNITION",
-      cells: [
-        { label: "SOLIDS RECEIVED", value: counts.solids_received },
-      ],
-    },
-  ];
-  // TWO groups per row, not four.
-  //
-  // This hero renders inside the 680px centre column, so the strip has
-  // ~574px at EVERY width from 768px up — 1024px and 1440px measure
-  // identically. Four groups never fit in that, and the measurements say so
-  // plainly: the six tiles need >=92px each to keep their longest single
-  // WORD on one line (WATCHERS/WATCHING at 60px of text plus 32px of panel
-  // padding), and RECOGNITION needs 93px for its kicker. Four across costs
-  // 6x92 + 24px inner gaps + 72px outer gaps + 72px of pl-6 = ~720px. There
-  // is no fraction that makes 720px fit in 574px, which is why tuning them
-  // only moved the problem around.
-  //
-  // Two columns give each group ~275px:
-  //   SOCIAL      275 -> two 131px tiles      WATCHERS one line
-  //   LIBRARY     251 -> one 251px tile       BLOG POSTS one line
-  //   TRUST WORK  275 -> two 131px tiles      REVIEWS / WRITTEN, at its space
-  //   RECOGNITION 251 -> one 251px tile       kicker one line, label one line
-  //
-  // So every single word stays whole, and the only wrapping left happens at
-  // a real space. Reading order stays left-to-right, top-to-bottom.
-  return (
-    <div className="flex flex-col gap-4 sm:grid sm:grid-cols-2 sm:items-stretch sm:gap-6">
-      {groups.map((group, idx) => (
-        <div
-          key={group.label}
-          // min-w-0 stops a long label forcing its track wider than its share
-          // and pushing the row past the page.
-          //
-          // The dashed rule belongs to the RIGHT column only. With four groups
-          // in one row every group after the first took one; in two columns
-          // that would draw a rule down the left edge of a row-opening group.
-          className={
-            "min-w-0 " +
-            (idx % 2 === 1
-              ? "sm:border-l sm:border-dashed sm:border-bcc-border sm:pl-6"
-              : "")
-          }
-        >
-          {/* No overflow-wrap override here. RECOGNITION is a single
-              unbreakable word, and the previous four-across layout left it
-              65px — so it either pinned its own column (min-width:auto) or
-              split as RECOGNI/TION. Two columns give it 251px, which is what
-              a word needs to simply fit. */}
-          <p
-            className="bcc-mono mb-2 text-bcc-text-secondary"
-            style={{ fontSize: "10px", letterSpacing: "0.24em" }}
-          >
-            {group.label}
-          </p>
-          <div
-            className="grid gap-2 sm:gap-3"
-            style={{
-              gridTemplateColumns: `repeat(${group.cells.length}, minmax(0, 1fr))`,
-            }}
-          >
-            {group.cells.map((cell) => (
-              <div
-                key={cell.label}
-                // A shared min-height keeps the row even at EVERY width, not
-                // just the tuned one: below lg a two-line label would
-                // otherwise make its tile taller than its one-line sibling.
-                // Two lines is the intended maximum; nothing truncates,
-                // because a clipped count label is worse than a wrapped one.
-                className="bcc-panel flex min-h-[104px] min-w-0 flex-col items-center justify-center px-2 py-3 text-center sm:min-h-[124px] sm:px-4 sm:py-5"
-              >
-                <p className="bcc-stencil text-3xl text-bcc-text sm:text-4xl">
-                  {cell.value}
-                </p>
-                <p className="bcc-mono mt-1 min-w-0 text-[10px] text-bcc-text-secondary sm:text-[11px]">
-                  {cell.label}
-                </p>
-              </div>
-            ))}
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
 
 // HallsStrip removed — halls now render inside GroupsPanel
 // (rows with type === "hall"), so the standalone strip was redundant
