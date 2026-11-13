@@ -333,7 +333,7 @@ describe("outcomes", () => {
     fireEvent.click(screen.getByRole("button", { name: /^submit report$/i }));
 
     expect(
-      await screen.findByText("You can't file a report against this content."),
+      await screen.findByText("Your account is suspended, so you can't file reports right now."),
     ).toBeTruthy();
     // Keyed on err.code, never err.message.
     expect(screen.queryByText(/raw server string/)).toBeNull();
