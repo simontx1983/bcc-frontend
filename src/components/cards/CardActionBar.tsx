@@ -254,7 +254,7 @@ const VISIBLE_DENIAL_CODES: ReadonlySet<string> = new Set([
   "sender_chat_disabled",
 ]);
 
-function MessagePill({
+export function MessagePill({
   permissions,
   recipientId,
   recipientName,

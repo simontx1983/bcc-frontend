@@ -50,6 +50,7 @@ import { ProfileUnavailable } from "@/components/errors/ProfileUnavailable";
 import { FileRail } from "@/components/layout/FileRail";
 import { AttestationActionCluster } from "@/components/profile/AttestationActionCluster";
 import { BlockToggle } from "@/components/profile/BlockToggle";
+import { ProfileMessageButton } from "@/components/profile/ProfileMessageButton";
 import { ProfileTabs } from "@/components/profile/ProfileTabs";
 import { TrustHeader } from "@/components/profile/TrustHeader";
 import { ReviewCallout } from "@/components/review/ReviewCallout";
@@ -430,6 +431,16 @@ export default async function MemberProfilePage({ params, searchParams }: PagePr
                 unlockHint={unlockHint(profile.card.permissions, "can_review")}
                 hasReviewed={profile.card.viewer_has_reviewed}
                 viewerAuthed
+              />
+            )}
+            {/* Message — moved off the retired member card. Signed-in
+                visitors only (as before); server can_message gates it. */}
+            {session !== null && (
+              <ProfileMessageButton
+                permissions={profile.permissions}
+                // card.id, exactly what the card's MessagePill received.
+                recipientId={profile.card.id}
+                recipientName={title}
               />
             )}
             {/* §K1 block control — self-hides via permissions.can_block. */}
