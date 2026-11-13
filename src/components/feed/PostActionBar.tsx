@@ -69,7 +69,7 @@ export function PostActionBar({
   const showEngagement = hasEngagementControls(item.post_kind);
 
   return (
-    <footer className={"flex items-center gap-1" + (topBorder ? " border-t border-[var(--bcc-border)] pt-2" : "")}>
+    <footer className={"flex flex-wrap items-center gap-1" + (topBorder ? " border-t border-[var(--bcc-border)] pt-2" : "")}>
       {/* Order is the Handoff v1 action row (dev note 34): react, helping
           hand, comments, Share, then the time pinned right. Helpful used
           to sit behind a divider at the end of the row; it now reads as

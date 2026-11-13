@@ -192,11 +192,13 @@ function FeedItemCardImpl({
         <p className="font-serif text-[14px] leading-normal text-[var(--bcc-text-secondary)]">
           Posted in{" "}
           {groupLink ? (
-            // Handoff v1 (dev note 33): the Hall name is the accent-coloured
-            // link, the "→" rides with it; "Posted in" stays secondary.
+            // Handoff v1 (dev note 33) draws the Hall name in accent. Accent
+            // as TEXT is ~2.4:1 on light surfaces (the chrome-contrast shape-2
+            // rule), so the name stays on --bcc-text and the accent rides on
+            // the underline (the selection-geometry indicator token).
             <Link
               href={groupLink as Route}
-              className="text-[var(--bcc-accent)] hover:underline"
+              className="text-[var(--bcc-text)] underline decoration-[var(--bcc-accent-indicator)] underline-offset-4 hover:decoration-2"
             >
               {groupName}
               <span aria-hidden="true"> →</span>

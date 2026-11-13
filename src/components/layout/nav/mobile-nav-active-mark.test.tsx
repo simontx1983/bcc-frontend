@@ -33,6 +33,7 @@ const link = (name: string) => screen.getByRole("link", { name });
 describe("MobileNav active item", () => {
   it.each([
     ["/", "Home"],
+    ["/halls", "Halls"],
     ["/halls/akash", "Halls"],
     ["/communities/abc", "Communities"],
   ])("on %s marks %s, and only it", (path, label) => {
@@ -48,6 +49,15 @@ describe("MobileNav active item", () => {
       if (other === label) expect(link(other)).toHaveAttribute("aria-current", "page");
       else expect(link(other)).not.toHaveAttribute("aria-current");
     }
+  });
+
+  it("marks nothing on /directory, which left the bar for Halls", () => {
+    show("/directory");
+    expect(screen.queryByTestId("mobile-nav-active-mark")).toBeNull();
+    for (const name of ["Home", "Halls", "Communities"]) {
+      expect(link(name)).not.toHaveAttribute("aria-current");
+    }
+    expect(screen.queryByRole("link", { name: "Directory" })).toBeNull();
   });
 
   it("marks nothing on a route the bar does not list", () => {
