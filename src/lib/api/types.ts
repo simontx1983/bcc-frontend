@@ -868,6 +868,12 @@ export interface FeedAuthor {
    * `allowed=false`. Omitted for anonymous viewers.
    */
   can_vouch?: AuthorVouchPermission;
+  /**
+   * Author's numeric trust score (0–100 integer, same scale as
+   * `MemberProfile.trust_score`). Contract pending — optional so every
+   * surface degrades to the tier word alone when it is absent.
+   */
+  trust_score?: number | undefined;
 }
 
 /**
@@ -981,6 +987,8 @@ export interface CommentAuthor {
   viewer_attestation?: ViewerAttestation;
   /** Authed-only — whether the viewer may vouch for this commenter. */
   can_vouch?: AuthorVouchPermission;
+  /** Commenter's numeric trust score (0–100). Contract pending — see FeedAuthor.trust_score. */
+  trust_score?: number | undefined;
 }
 
 export interface Comment {
@@ -4215,6 +4223,18 @@ export interface MemberHall {
   slug: string;
   name: string;
   is_primary: boolean;
+  /**
+   * The member's role in this group. Contract pending — optional, and
+   * never rendered directly: render `role_label` verbatim instead.
+   */
+  role?: "owner" | "moderator" | "member" | null;
+  /** Server-rendered role display string. Null/absent → no role badge. */
+  role_label?: string | null;
+  /**
+   * Group kind. Contract pending. Absent on old backends, where `halls[]`
+   * carried halls only.
+   */
+  type?: GroupDiscoveryType | null;
 }
 
 /** Counts strip — followers / following / etc. Server pre-rolled. */
