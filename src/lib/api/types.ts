@@ -1699,7 +1699,9 @@ export type NotificationKind =
   | "bcc_holder_community_live"
   | "bcc_delegator_group_removed"
   | "bcc_content_auto_hidden"
-  | "bcc_claim_badge_removed";
+  | "bcc_claim_badge_removed"
+  | "bcc_announcement_hidden"
+  | "bcc_announcement_restored";
 
 export interface NotificationActor {
   id: number;
@@ -5770,7 +5772,9 @@ export type BellEventType =
   | "bcc_holder_community_live"
   | "bcc_delegator_group_removed"
   | "bcc_content_auto_hidden"
-  | "bcc_claim_badge_removed";
+  | "bcc_claim_badge_removed"
+  | "bcc_announcement_hidden"
+  | "bcc_announcement_restored";
 
 export interface NotificationPrefs {
   email_digest: boolean;
