@@ -744,22 +744,49 @@ function humanizeCardCastError(
 // Join therefore takes the full width on its own.
 // ─────────────────────────────────────────────────────────────────────
 
+/** F-244: the JOIN cell when the viewer's membership could not be read. */
+export const JOIN_UNKNOWN_COPY = "Couldn't check whether you can join. Reload to try again.";
+
+/** Locked-pill labels by the server's `can_join.reason_code`. */
+const JOIN_LOCKED_LABELS: Readonly<Record<string, string>> = {
+  removed: "Removed",
+  requires_approval: "Private",
+  invite_only: "Invite-only",
+};
+
+/** Reasons to show when the server sends no `unlock_hint`. */
+const JOIN_LOCKED_FALLBACK: Readonly<Record<string, string>> = {
+  removed: "A moderator removed you from this community.",
+  requires_approval: "This community is private.",
+  invite_only: "Members join by invitation.",
+  trust_threshold: "Your standing is below what this community requires.",
+  not_eligible: "You can't join this community.",
+  unavailable: JOIN_UNKNOWN_COPY,
+};
+
 /**
- * JOIN-cell state machine. Branches ONLY on `card.community_dossier`
- * (§A2 — the server already resolved membership/gating; nothing here
- * recomputes eligibility):
+ * JOIN-cell state machine, driven ONLY by the server's verdict on
+ * `card.community_dossier` (F-244, §A2): `can_join`, `can_request_join`
+ * and `viewer_membership_status`, computed by the same logic as the group
+ * page. It used to recompute eligibility from `privacy` / `type` /
+ * `trust_min`, which was wrong for banned viewers, delegator groups, trust
+ * below the threshold, and pending requests and invites.
  *
- *   viewer_is_member (or optimistic isJoined) → MEMBER ✓   (inert)
- *   nft, not a member                         → CHECK & JOIN (onJoin)
- *   trust-gated non-member                    → JOIN (enabled — the
- *                                               server adjudicates the
- *                                               threshold on the POST)
- *   local / open plain group                  → JOIN
- *   closed non-trust                          → PRIVATE   (disabled)
- *   secret                                    → INVITE-ONLY (disabled)
+ *   member (status, viewer_is_member or optimistic isJoined) → MEMBER ✓
+ *   signed out (auth_required)                               → JOIN → sign in
+ *   can_join.allowed (incl. verify_on_join)                  → JOIN (onJoin)
+ *   status requested                                         → REQUESTED (locked)
+ *   status invited                                           → INVITED (locked)
+ *   otherwise                                                → locked, label + reason
+ *                                                               from can_join
+ *   verdict absent / unavailable                             → locked "Couldn't check…"
  *
- * The dimmed states are explained by the standing strip's T2 barrier row,
- * so the pill itself doesn't have to carry the reason.
+ * A closed group the viewer could ask to join (`can_request_join.allowed`)
+ * still reads "Private": there is no request flow in the app yet (F-272),
+ * and promising one would be the M-gr5 defect again.
+ *
+ * Locked pills explain themselves on tap (F-321) — a title never shows on
+ * a phone.
  */
 export function CommunityActionBar({
   card,
@@ -774,53 +801,67 @@ export function CommunityActionBar({
   isJoined: boolean;
   joinPending: boolean;
 }) {
-  const isMember = dossier.viewer_is_member || isJoined;
-  const isNft = dossier.type === "nft";
-  // Delegator communities are STORED closed, but there is no request
-  // queue behind that: the gate is the delegation the join verifies. Read
-  // as plain privacy they would dim to a dead "Private" pill.
-  const isVerifiedJoin = isNft || dossier.type === "validator";
-  const isPrivate =
-    !isVerifiedJoin && dossier.trust_min === null && dossier.privacy === "closed";
-  const isSecret = !isVerifiedJoin && dossier.privacy === "secret";
+  const status = dossier.viewer_membership_status;
+  const canJoin = dossier.can_join;
+  const reason = canJoin?.reason_code ?? null;
+  const isMember =
+    isJoined || dossier.viewer_is_member || status === "member" || reason === "already_member";
+  const verifies = reason === "verify_on_join" || dossier.type === "nft" || dossier.type === "validator";
+  const signIn = useSignInLink();
+  const pillNotice = usePillNotice();
 
   let joinLabel: string;
   let joinTitle: string;
-  let joinDisabled: boolean;
+  let locked = false;
   if (isMember) {
     joinLabel = "Member";
     joinTitle = "You're a member — manage membership on the community page.";
-    joinDisabled = false;
-  } else if (isPrivate) {
-    joinLabel = "Private";
-    // Truthful: there is no request flow (UX scan M-gr5).
-    joinTitle = "This community is private.";
-    joinDisabled = true;
-  } else if (isSecret) {
-    joinLabel = "Invite-only";
-    joinTitle = "Members join by invitation.";
-    joinDisabled = true;
+  } else if (canJoin === undefined) {
+    joinLabel = "Join";
+    joinTitle = JOIN_UNKNOWN_COPY;
+    locked = true;
+  } else if (reason !== null && SIGN_IN_CODES.has(reason)) {
+    return (
+      <div className="bcc-card-actions">
+        <SignInPill
+          color="var(--bcc-verified)"
+          icon={<JoinIcon size={14} strokeWidth={1.9} aria-hidden />}
+          label="Join"
+          ariaLabel={`Sign in to join ${card.name}`}
+          href={signIn.href}
+          onClick={signIn.onClick}
+        />
+      </div>
+    );
+  } else if (canJoin.allowed) {
+    // "Join" even on the holder / delegator path: the check IS the join.
+    joinLabel = joinPending ? (verifies ? "Checking…" : "Joining…") : "Join";
+    joinTitle =
+      dossier.type === "nft" || reason === "verify_on_join"
+        ? "Verifies your linked wallet holds this collection, then joins."
+        : dossier.type === "validator"
+          ? "Verifies your linked wallet delegates enough to this validator, then joins."
+          : "Join this community.";
+  } else if (status === "requested") {
+    joinLabel = "Requested";
+    joinTitle = dossier.can_request_join?.unlock_hint ?? "Your request to join is waiting for a moderator.";
+    locked = true;
+  } else if (status === "invited") {
+    joinLabel = "Invited";
+    joinTitle = dossier.can_request_join?.unlock_hint ?? "You've been invited to this community.";
+    locked = true;
   } else {
-    // Always just "Join", including the NFT holder-gate path. "Check &
-    // join" named a step the viewer never performs separately: the
-    // ownership check IS the join request, and the server adjudicates it
-    // either way. Splitting the two would be worse still — nobody would
-    // choose "check" when "join" is sitting next to it. A viewer whose
-    // wallet doesn't hold the collection gets the server's refusal, which
-    // is the same information the label was trying to pre-empt.
-    joinLabel = joinPending ? (isVerifiedJoin ? "Checking…" : "Joining…") : "Join";
-    joinTitle = isNft
-      ? "Verifies your linked wallet holds this collection, then joins."
-      : isVerifiedJoin
-        ? "Verifies your linked wallet delegates enough to this validator, then joins."
-        : "Join this community.";
-    joinDisabled = joinPending;
+    joinLabel = (reason !== null ? JOIN_LOCKED_LABELS[reason] : undefined) ?? "Join";
+    joinTitle =
+      reason === "unavailable"
+        ? JOIN_UNKNOWN_COPY
+        : canJoin.unlock_hint ??
+          (reason !== null ? JOIN_LOCKED_FALLBACK[reason] : undefined) ??
+          "You can't join this community.";
+    locked = true;
   }
 
-  // F-321: Private / Invite-only explain themselves on tap (a title never
-  // shows on a phone); a pending join stays a real disabled control.
-  const locked = !isMember && (isPrivate || isSecret);
-  const pillNotice = usePillNotice();
+  const joinDisabled = !isMember && !locked && joinPending;
 
   return (
     <div
@@ -831,7 +872,7 @@ export function CommunityActionBar({
       <ActionPill
         color="var(--bcc-verified)"
         active={isMember}
-        disabled={joinDisabled && !locked}
+        disabled={joinDisabled}
         locked={locked}
         describedBy={pillNotice.notice !== null ? pillNotice.id : undefined}
         onLocked={() => pillNotice.show(joinTitle)}
@@ -842,9 +883,17 @@ export function CommunityActionBar({
         // Leaving a community is a real decision made on the community
         // page, not a hover-to-undo on a directory card.
         undoLabel="Member"
-        ariaLabel={isMember ? `You are a member of ${card.name}` : `Join ${card.name}`}
+        // The name carries the visible label (WCAG 2.5.3): "Join Atlas", or
+        // "Private — Atlas" for a locked pill, never "Join" under "Private".
+        ariaLabel={
+          isMember
+            ? `You are a member of ${card.name}`
+            : joinLabel === "Join"
+              ? `Join ${card.name}`
+              : `${joinLabel} — ${card.name}`
+        }
         onClick={() => {
-          if (isMember || joinDisabled) return;
+          if (isMember || locked || joinDisabled) return;
           if (onJoin !== undefined) onJoin(card);
         }}
       />

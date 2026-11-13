@@ -185,16 +185,24 @@ describe("#276 review — the latest event wins", () => {
 });
 
 describe("#276 review — community pills", () => {
+  // F-244: the server's verdict for each case (the bar no longer derives it
+  // from `privacy`).
+  const VERDICT: Record<string, string> = { closed: "requires_approval", secret: "invite_only" };
   function dossier(privacy: string) {
-    return { type: "user", privacy, member_count: 3, verification: null, chain_tag: null, trust_min: null, collection_stats: null, viewer_is_member: false } as never;
+    return {
+      type: "user", privacy, member_count: 3, verification: null, chain_tag: null, trust_min: null,
+      collection_stats: null, viewer_is_member: false,
+      can_join: { allowed: false, unlock_hint: null, reason_code: VERDICT[privacy] ?? null },
+      viewer_membership_status: "none",
+    } as never;
   }
 
   it.each([
     ["closed", "Private", "This community is private."],
     ["secret", "Invite-only", "Members join by invitation."],
-  ])("%s: the %s pill is focusable and a tap shows why", (privacy, _label, copy) => {
+  ])("%s: the %s pill is focusable and a tap shows why", (privacy, label, copy) => {
     render(<CommunityActionBar card={card({})} dossier={dossier(privacy)} isJoined={false} joinPending={false} />);
-    const pill = screen.getByRole("button", { name: "Join Atlas" });
+    const pill = screen.getByRole("button", { name: `${label} — Atlas` });
     expect(pill).not.toBeDisabled();
     expect(pill).toHaveAttribute("aria-disabled", "true");
     fireEvent.click(pill);

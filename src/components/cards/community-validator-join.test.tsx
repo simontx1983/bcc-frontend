@@ -28,6 +28,13 @@ function dossier(type: CardCommunityDossier["type"]): CardCommunityDossier {
     trust_min: null,
     collection_stats: null,
     viewer_is_member: false,
+    // F-244: the server's verdict — a delegator group's join verifies the
+    // delegation; a genuinely closed plain group needs approval.
+    can_join:
+      type === "validator"
+        ? { allowed: true, unlock_hint: null, reason_code: null }
+        : { allowed: false, unlock_hint: null, reason_code: "requires_approval" },
+    viewer_membership_status: "none",
   };
 }
 
@@ -58,7 +65,7 @@ describe("community card, validator group", () => {
     const onJoin = vi.fn();
     renderBar("user", onJoin);
 
-    fireEvent.click(screen.getByRole("button", { name: "Join Delegators: Acme" }));
+    fireEvent.click(screen.getByRole("button", { name: "Private — Delegators: Acme" }));
     expect(screen.getByText("Private")).toBeInTheDocument();
     expect(onJoin).not.toHaveBeenCalled();
   });
