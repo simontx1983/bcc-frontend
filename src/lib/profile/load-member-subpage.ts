@@ -94,10 +94,14 @@ export async function memberSubpageMetadata(
       revalidate: ANON_SSR_REVALIDATE_SECONDS,
     });
   } catch (err) {
+    // Only a real 404 may say "not found" — a 503, a denial or a network
+    // failure gets a neutral title rather than a false claim.
     return {
       title: isProfilePrivate(err)
         ? "Private profile · Blue Collar Crypto"
-        : "Profile not found · Blue Collar Crypto",
+        : err instanceof BccApiError && err.status === 404
+          ? "Profile not found · Blue Collar Crypto"
+          : "Profile · Blue Collar Crypto",
     };
   }
 

@@ -13,17 +13,22 @@ import type { MemberHall } from "@/lib/api/types";
 interface MemberHallSplit {
   halls: MemberHall[];
   groups: MemberHall[];
+  /** False when no row carries `type` — the kinds are unknown. */
+  typed: boolean;
 }
 
 export function splitMemberHalls(rows: readonly MemberHall[]): MemberHallSplit {
-  // Old backends ship no `type` on any row, and on those `halls[]` has
-  // only ever carried Halls — so when NO row has the field, every row is
-  // a Hall (today's behaviour). Once the field ships, `"hall"` rows are
-  // Halls and every other row — including one whose type is null — is a
-  // group.
+  // Since v1.127 (#625) `halls[]` carries EVERY group the viewer may
+  // see, not only Halls — and only #671 adds `type` to tell them apart.
+  // So when NO row has the field (a backend before #671) the kinds are
+  // unknown: nothing is claimed to be a Hall, and every row goes to one
+  // neutral GROUPS list linking through /communities/{slug}, the route
+  // that serves every group kind (a non-Hall under /halls/ would 404).
+  // Once the field ships, `"hall"` rows are Halls and every other row —
+  // including one whose type is null — is a group.
   const typed = rows.some((row) => row.type !== undefined);
   if (!typed) {
-    return { halls: [...rows], groups: [] };
+    return { halls: [], groups: [...rows], typed: false };
   }
   const halls: MemberHall[] = [];
   const groups: MemberHall[] = [];
@@ -31,7 +36,7 @@ export function splitMemberHalls(rows: readonly MemberHall[]): MemberHallSplit {
     if (row.type === "hall") halls.push(row);
     else groups.push(row);
   }
-  return { halls, groups };
+  return { halls, groups, typed: true };
 }
 
 /**

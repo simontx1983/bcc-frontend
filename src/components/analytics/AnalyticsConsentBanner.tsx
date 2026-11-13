@@ -32,7 +32,7 @@ export function AnalyticsConsentBanner() {
   return (
     <section
       aria-labelledby={headingId}
-      className="bcc-panel pointer-events-auto fixed bottom-[calc(var(--bcc-mobile-nav-h)+16px)] left-1/2 z-40 flex w-[min(460px,calc(100vw-2rem))] -translate-x-1/2 flex-col gap-3 p-4 shadow-2xl md:bottom-6"
+      className="bcc-panel pointer-events-auto fixed bottom-[calc(var(--bcc-mobile-nav-total-h)+16px)] left-1/2 z-40 flex w-[min(460px,calc(100vw-2rem))] -translate-x-1/2 flex-col gap-3 p-4 shadow-2xl md:bottom-6"
     >
       <h2
         id={headingId}

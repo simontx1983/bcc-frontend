@@ -108,8 +108,17 @@ export function AboutHallsCard({ profile }: { profile: MemberProfile }) {
 }
 
 export function AboutGroupsCard({ profile }: { profile: MemberProfile }) {
-  const { groups } = splitMemberHalls(profile.halls);
+  const { groups, typed } = splitMemberHalls(profile.halls);
   if (groups.length === 0) return null;
+  // Untyped (a backend before #671): these rows may include Halls, so they
+  // get one neutral GROUPS card rather than an operator/projects heading.
+  if (!typed) {
+    return (
+      <AboutCard label="Groups" count={groups.length} testId="about-card-groups">
+        <MembershipRows rows={groups} isHall={false} layout="stacked" />
+      </AboutCard>
+    );
+  }
   return (
     <AboutCard label="Operator / Projects" testId="about-card-groups">
       <h3 className={KEY_CLASS}>Groups · {groups.length}</h3>

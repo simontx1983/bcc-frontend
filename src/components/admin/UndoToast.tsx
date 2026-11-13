@@ -150,7 +150,7 @@ export function UndoToast({ descriptor, onDismiss }: Props) {
       role="status"
       aria-live="polite"
       aria-label={`${ACTION_LABELS[action]} — undo within ${secondsLeft} seconds`}
-      className="bcc-panel pointer-events-auto fixed bottom-6 left-1/2 z-40 flex w-[min(420px,calc(100vw-2rem))] -translate-x-1/2 flex-col gap-2 p-4 shadow-2xl"
+      className="bcc-panel pointer-events-auto fixed bottom-[calc(var(--bcc-mobile-nav-total-h)+16px)] left-1/2 z-40 flex w-[min(420px,calc(100vw-2rem))] -translate-x-1/2 md:bottom-6 flex-col gap-2 p-4 shadow-2xl"
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex flex-col gap-0.5">

@@ -15,7 +15,6 @@ import type { Route } from "next";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { LoadFailure } from "@/components/ui/LoadFailure";
 import { useUserBlog } from "@/hooks/useUserBlog";
-import { humanizeCode } from "@/lib/api/errors";
 import { formatRelativeTime } from "@/lib/format";
 
 import { AboutCard, AboutSeeAll } from "./AboutCard";
@@ -38,7 +37,7 @@ export function AboutBlogsCard({ handle, total }: { handle: string; total: numbe
         </div>
       ) : query.isError && items.length === 0 ? (
         <LoadFailure
-          message={humanizeCode(query.error, {}, "Couldn't load posts. Try again in a moment.")}
+          message="Couldn't load posts. Try again in a moment."
           onRetry={() => void query.refetch()}
         />
       ) : (

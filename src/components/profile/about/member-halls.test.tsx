@@ -43,10 +43,13 @@ describe("splitMemberHalls", () => {
     expect(groups.map((r) => r.id)).toEqual([2]);
   });
 
-  it("an old backend (no type on any row) keeps every row a Hall", () => {
+  it("a backend before #671 (no type on any row) claims no Halls: one neutral groups list", () => {
+    // halls[] has carried every visible group since v1.127, so an untyped
+    // row may be a Hall or any other group — never route it to /halls/.
     const { halls, groups } = splitMemberHalls([row(1), row(2)]);
-    expect(halls.map((r) => r.id)).toEqual([1, 2]);
-    expect(groups).toEqual([]);
+    expect(halls).toEqual([]);
+    expect(groups.map((r) => r.id)).toEqual([1, 2]);
+    for (const r of groups) expect(memberHallHref(r, false)).toMatch(/^\/communities\//);
   });
 
   it("links Halls to /halls and groups to /communities", () => {
@@ -105,5 +108,21 @@ describe("About HALLS / GROUPS cards", () => {
       "href",
       "/communities/group-2",
     );
+  });
+});
+
+describe("About groups card on a backend before #671 (no type)", () => {
+  it("renders ONE neutral Groups card, no Halls card, all rows to /communities", () => {
+    const profile = withHalls([row(1), row(2), row(3)]);
+    const { unmount } = render(<AboutHallsCard profile={profile} />);
+    expect(screen.queryByTestId("about-card-halls")).toBeNull();
+    unmount();
+
+    render(<AboutGroupsCard profile={profile} />);
+    const card = screen.getByTestId("about-card-groups");
+    expect(card.textContent).toMatch(/Groups/i);
+    expect(card.textContent).not.toMatch(/Operator/i);
+    const hrefs = Array.from(card.querySelectorAll("a")).map((a) => a.getAttribute("href"));
+    expect(hrefs).toEqual(["/communities/group-1", "/communities/group-2", "/communities/group-3"]);
   });
 });

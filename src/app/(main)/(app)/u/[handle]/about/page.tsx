@@ -49,7 +49,7 @@ export default async function MemberAboutPage({ params }: PageProps) {
   const reviewTotal = profile.counts.reviews_received;
 
   return (
-    <main className="mx-auto w-full max-w-[640px] px-4 pb-24 pt-4">
+    <div className="mx-auto w-full max-w-[640px] px-4 pb-24 pt-4">
       <AboutBackLink href={profileHref}>Back to profile</AboutBackLink>
       <div className="mt-2">
         <TrustHeader profile={profile} isOwner={isOwner} viewerAuthed={session !== null} />
@@ -80,6 +80,6 @@ export default async function MemberAboutPage({ params }: PageProps) {
             />
           )}
       </div>
-    </main>
+    </div>
   );
 }

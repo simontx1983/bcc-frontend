@@ -16,7 +16,7 @@ import type { Route } from "next";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { LoadFailure } from "@/components/ui/LoadFailure";
 import { useCardReviews } from "@/hooks/useCardTabs";
-import { humanizeCode, isPermissionDenial } from "@/lib/api/errors";
+import { isPermissionDenial } from "@/lib/api/errors";
 
 import { AboutCard, AboutSeeAll } from "./AboutCard";
 
@@ -49,7 +49,7 @@ export function AboutReviewsCard({
         </div>
       ) : query.isError && items.length === 0 ? (
         <LoadFailure
-          message={humanizeCode(query.error, {}, "Couldn't load reviews. Try again in a moment.")}
+          message="Couldn't load reviews. Try again in a moment."
           onRetry={() => void query.refetch()}
         />
       ) : (

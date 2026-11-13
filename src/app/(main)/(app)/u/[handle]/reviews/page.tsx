@@ -35,7 +35,7 @@ export default async function MemberReviewsPage({ params }: PageProps) {
   const aboutHref = `/u/${encodeURIComponent(profile.handle)}/about` as Route;
 
   return (
-    <main className="mx-auto w-full max-w-[640px] px-4 pb-24 pt-4">
+    <div className="mx-auto w-full max-w-[640px] px-4 pb-24 pt-4">
       <AboutBackLink href={aboutHref}>Back to about</AboutBackLink>
       <p className="bcc-mono mt-4 text-[10px] uppercase tracking-[0.18em] text-bcc-text-secondary">
         {REVIEW_TAB_COPY.received}
@@ -50,6 +50,6 @@ export default async function MemberReviewsPage({ params }: PageProps) {
         <CardReviewsPanel kind="user_profile" cardId={profile.user_id} cardName={name} />
       </div>
       <ScrollToHashOnArrival />
-    </main>
+    </div>
   );
 }
