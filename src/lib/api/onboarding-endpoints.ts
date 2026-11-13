@@ -9,6 +9,7 @@
 
 import { bccFetch, bccFetchAsClient } from "@/lib/api/client";
 import type {
+  HandleUpdateResponse,
   OnboardingCompleteRequest,
   OnboardingCompleteResponse,
   OnboardingStatus,
@@ -66,5 +67,25 @@ export function getOnboardingStatusServerSide(
     method: "GET",
     token: bccToken,
     signal,
+  });
+}
+
+/**
+ * PATCH /me/handle — change the viewer's handle (§B6, contract §4).
+ *
+ * F-333: restored now that the backend retires the old handle (old links
+ * and @mentions keep resolving, no one else can take it, the owner may
+ * reclaim it) and sign-in works by the current handle. 7-day cooldown.
+ *
+ * Errors (by code): bcc_rate_limited 429 (cooldown, or the attempt
+ * buckets) · bcc_forbidden 403 (suspended) · bcc_invalid_handle 422 ·
+ * bcc_handle_reserved 422 · bcc_conflict 409 (taken, or retired by
+ * another member) · bcc_internal_error 500 (old handle not recorded;
+ * nothing changed). `next_change_at` is null on a no-op rename.
+ */
+export function updateHandle(handle: string): Promise<HandleUpdateResponse> {
+  return bccFetchAsClient<HandleUpdateResponse>("me/handle", {
+    method: "PATCH",
+    body: { handle },
   });
 }

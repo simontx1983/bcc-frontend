@@ -11,7 +11,7 @@
  * The sections mount the genuinely-wired editors:
  *   - ProfileHero       → avatar, cover photo, cover crop, display name
  *   - BioEditor         → the bio, via the existing PATCH /me/profile
- *   - HandleSection     → the handle, READ-ONLY (see its docblock)
+ *   - HandleSection     → change the handle (F-333; see its docblock)
  *   - ProfileFieldsList → the admin-configured profile-field catalogue,
  *                         each with its own visibility
  *
