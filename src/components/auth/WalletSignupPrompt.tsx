@@ -38,20 +38,46 @@
  * first focusable and Dialog's focus-on-open picks it.
  */
 
+import { getSession } from "next-auth/react";
 import { useState } from "react";
 
 import { Dialog } from "@/components/ui/Dialog";
 import { WalletAuthButton } from "@/components/auth/WalletAuthButton";
 import { captureAnalyticsEvent, noteSignupCompleted } from "@/lib/analytics/posthog";
 import { checkHandleLocal, formatHandleHint } from "@/lib/auth/handleValidation";
+import { resolveViewerScope, type ViewerScope } from "@/lib/auth/viewer-scope";
+import { writePendingRecoveryEmail } from "@/lib/onboarding/pending-recovery-email";
 
 export interface WalletSignupPromptProps {
   /** Pre-fill the handle input (e.g. if the parent already collected one). Optional. */
   initialHandle?: string;
-  /** Called after the new account is created AND signed in. Parent typically router.replace()s. */
-  onSuccess: () => void;
+  /**
+   * Called after the new account is created AND signed in. Parent routes
+   * to /onboarding (F-332). `scope` is the NEW account's storage scope
+   * (null when the session could not be read), for any hand-off the
+   * parent stores for onboarding.
+   */
+  onSuccess: (scope: ViewerScope) => void;
   /** Called when the user dismisses without completing. Parent should clear its open-state. */
   onDismiss: () => void;
+}
+
+/**
+ * The storage scope of the account the signup just signed in (F-332).
+ * Read from the session itself, not from a hook value captured before
+ * the sign-in, so hand-offs are keyed to the NEW member. Any failure is
+ * "unknown" (null), and unknown scopes store nothing.
+ */
+async function newAccountScope(): Promise<ViewerScope> {
+  try {
+    const session = await getSession();
+    return resolveViewerScope(
+      session !== null ? "authenticated" : "unauthenticated",
+      session?.user?.id,
+    );
+  } catch {
+    return null;
+  }
 }
 
 export function WalletSignupPrompt(props: WalletSignupPromptProps) {
@@ -155,7 +181,17 @@ export function WalletSignupPrompt(props: WalletSignupPromptProps) {
           onStart={() => { captureAnalyticsEvent("signup_started", { method: "wallet" }); }}
           onSuccess={() => {
             noteSignupCompleted("wallet");
-            props.onSuccess();
+            void (async () => {
+              const scope = await newAccountScope();
+              // F-332: the server mailed a 6-digit code to this address at
+              // signup. Hand it to onboarding's "Secure your account" step,
+              // under the new account's scope, so the new member can enter
+              // the code without retyping it. Only on success — a failed
+              // signup sent nothing.
+              const trimmedEmail = email.trim();
+              if (trimmedEmail !== "") writePendingRecoveryEmail(trimmedEmail, scope);
+              props.onSuccess(scope);
+            })();
           }}
         />
 

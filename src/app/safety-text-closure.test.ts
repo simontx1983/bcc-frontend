@@ -430,7 +430,9 @@ const ERROR_LINES: Readonly<Record<string, number>> = {
   "src/components/settings/NotificationPrefsForm.tsx": 1,
   "src/components/settings/PrivacySettingsForm.tsx": 1,
   "src/components/settings/SettingsSaveStatus.tsx": 1,
-  "src/components/settings/WalletsSection.tsx": 4,
+  // F-332 moved the recovery-email form (2 lines) to RecoveryEmail.tsx.
+  "src/components/settings/RecoveryEmail.tsx": 2,
+  "src/components/settings/WalletsSection.tsx": 2,
   "src/components/settings/profile/AccountSection.tsx": 3,
   "src/components/settings/profile/BioEditor.tsx": 1,
   "src/components/settings/profile/DeleteAccountCard.tsx": 1,

@@ -36,6 +36,8 @@
 
 import { BookMarked } from "lucide-react";
 import { useRouter } from "next/navigation";
+
+import { takeOnboardingReturnTo } from "@/lib/onboarding/return-to";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { captureAnalyticsEvent } from "@/lib/analytics/posthog";
@@ -181,9 +183,12 @@ export function DopamineStep({
   useEffect(() => {
     if (!holdElapsed) return;
     if (save.status === "saved") {
-      router.replace("/");
+      // A deep link the visitor signed up from (F-332), else the Floor.
+      // Read under the viewer's own scope: another member's stored target
+      // is never followed.
+      router.replace(takeOnboardingReturnTo(scope) ?? "/");
     }
-  }, [holdElapsed, save.status, router]);
+  }, [holdElapsed, save.status, router, scope]);
 
   if (save.status === "error") {
     return (

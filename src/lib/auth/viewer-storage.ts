@@ -92,6 +92,15 @@ export const VIEWER_SCOPED_STORAGE_KEYS: readonly string[] = [
   // person's new account, so a sign-out or viewer switch drops it unsent.
   // Arrival does not touch it: it is not a legacy key.
   "bcc.analytics.signup_completed",
+  // The email a wallet signup entered, handed from /login's signup modal to
+  // onboarding's "Secure your account" step (F-332,
+  // `lib/onboarding/pending-recovery-email`), in sessionStorage. It is one
+  // person's email address, so a sign-out or viewer switch clears it.
+  "bcc:pending-recovery-email",
+  // Where onboarding goes when it finishes: the deep link a new account
+  // signed up from (F-332, `lib/onboarding/return-to`), in sessionStorage.
+  // It is one person's navigation, so a sign-out or viewer switch clears it.
+  "bcc:onboarding-return-to",
 ];
 
 /**
