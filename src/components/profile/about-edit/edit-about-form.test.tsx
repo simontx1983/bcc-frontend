@@ -123,7 +123,7 @@ describe("EditAboutForm", () => {
   it("absent prefs read as shown; a stored false reads as hidden", async () => {
     const { container } = renderForm({ ...BASE_PREFS, show_blogs_on_profile: false });
     await loaded(container);
-    for (const section of ["Your bio", "Verifications", "Halls", "Operator / Projects", "Reviews"]) {
+    for (const section of ["Your bio", "Verifications", "Halls", "Operator / Projects", "reviews you wrote"]) {
       expect(pill(container, section)).toHaveAttribute("aria-checked", "true");
     }
     expect(pill(container, "Blogs")).toHaveAttribute("aria-checked", "false");
@@ -147,7 +147,7 @@ describe("EditAboutForm", () => {
 
     fireEvent.click(pill(container, "Halls"));
     fireEvent.click(pill(container, "Your bio"));
-    fireEvent.click(pill(container, "Reviews"));
+    fireEvent.click(pill(container, "reviews you wrote"));
     fireEvent.click(saveButton(container));
 
     await waitFor(() => expect(api.patchProfilePrefs).toHaveBeenCalledTimes(1));

@@ -108,15 +108,16 @@ export default async function MemberAboutPage({ params }: PageProps) {
             so it does not gate this card — same as the profile's Reviews
             tab. Hidden only when the count is absent (optional during the
             v1.49 rollout; the card cannot say "N" without it) or zero.
-            The SHOW ON PROFILE switch (`sections.reviews`) does gate it. */}
-        {(isOwner || sections.reviews) &&
-          reviewTotal !== undefined &&
+            User decision 2026-11-12: the SHOW ON PROFILE reviews switch
+            (`sections.reviews`) covers only reviews the member WROTE, so it
+            does NOT gate this card either — reviews ABOUT a member always
+            show, and the card carries no hidden marker. */}
+        {reviewTotal !== undefined &&
           reviewTotal > 0 && (
             <AboutReviewsCard
               handle={profile.handle}
               userId={profile.user_id}
               total={reviewTotal}
-              aside={marker(["show_reviews_on_profile"])}
             />
           )}
       </div>

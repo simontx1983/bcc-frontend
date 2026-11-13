@@ -337,10 +337,17 @@ export function EditAboutForm({
           label="Reviews"
           count={reviewTotal}
           testId="edit-card-reviews"
-          toggle={toggleFor("show_reviews_on_profile")}
+          toggle={{
+            ...toggleFor("show_reviews_on_profile"),
+            ariaLabel: "Show on profile: reviews you wrote",
+          }}
         >
+          {/* User decision 2026-11-12: this switch covers only the reviews
+              the member WROTE about others (it is §K2 reviews_hidden).
+              Reviews ABOUT the member always stay visible. */}
           <p className={NOTE_CLASS}>
-            Reviews are written by other members. They can&apos;t be edited or deleted here.
+            This switch covers the reviews you wrote about others. Reviews written about
+            you always show on your profile, and can&apos;t be edited or deleted here.
           </p>
           {/* SLOT — reply to a review, once review replies land. */}
           {reviewTotal !== undefined && reviewTotal > 0 && (
@@ -349,7 +356,7 @@ export function EditAboutForm({
             </AboutSeeAll>
           )}
           <p className={`${KEY_CLASS} mt-2 normal-case tracking-[0.08em]`}>
-            Same setting as Privacy → Hide my reviews.
+            Same setting as Privacy → Hide my reviews (reviews you wrote).
           </p>
         </EditSectionCard>
       </div>

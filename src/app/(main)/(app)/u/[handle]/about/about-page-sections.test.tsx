@@ -125,13 +125,16 @@ describe("about page — SHOW ON PROFILE", () => {
     expect(within(container).queryByTestId("marker")).toBeNull();
   });
 
-  it("a visitor gets no card whose flag is false", async () => {
+  it("a visitor gets no card whose flag is false — except received reviews", async () => {
     getUser.mockResolvedValue(profile({ about: false, blogs: false, reviews: false }));
     const { container } = await renderPage();
+    // sections.reviews covers reviews the member WROTE (user decision
+    // 2026-11-12); reviews ABOUT them always show.
     expect(rendered(container)).toEqual([
       "about-card-verifications",
       "about-card-halls",
       "about-card-groups",
+      "about-card-reviews",
     ]);
   });
 
@@ -167,6 +170,7 @@ describe("about page — SHOW ON PROFILE", () => {
     expect(markerOf("about-card-halls")).toBe("show_groups_on_profile");
     expect(markerOf("about-card-groups")).toBe("show_groups_on_profile,show_operator_on_profile");
     expect(markerOf("about-card-blogs")).toBe("show_blogs_on_profile");
-    expect(markerOf("about-card-reviews")).toBe("show_reviews_on_profile");
+    // Received reviews always show, so that card has no hidden marker.
+    expect(within(within(container).getByTestId("about-card-reviews")).queryByTestId("marker")).toBeNull();
   });
 });

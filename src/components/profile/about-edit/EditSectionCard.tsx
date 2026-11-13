@@ -15,6 +15,8 @@ export interface EditSectionToggle {
   /** Disables the pill — prefs not loaded yet, or a save in flight. */
   pending: boolean;
   onChange: (next: boolean) => void;
+  /** Overrides the default "Show on profile: {label}" accessible name. */
+  ariaLabel?: string;
 }
 
 export function EditSectionCard({
@@ -40,7 +42,7 @@ export function EditSectionCard({
           <ToggleSwitch
             variant="pill"
             label="Show on profile"
-            ariaLabel={`Show on profile: ${label}`}
+            ariaLabel={toggle.ariaLabel ?? `Show on profile: ${label}`}
             value={toggle.value}
             pending={toggle.pending}
             onChange={toggle.onChange}
