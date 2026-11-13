@@ -5,11 +5,17 @@
  *
  * Redesigned onto the page-chrome token system (`bcc-onb-*`, matching the
  * landing "LEDGER" direction) — the old workshop/cardstock palette is gone.
- * Streamlined lineup (6 top-level steps, 7 screens — see STEP_SCREENS):
+ * Streamlined lineup (6 top-level steps, 7 screens — see STEP_SCREENS;
+ * plus the conditional "secure" step, 7 and 8 when it applies):
  *
  *   1. "welcome"       — one-line framing + a 3-card preview of setup.
  *                        Primary "Let's go"; "Skip setup" jumps straight to
  *                        the send-off (which still fires /complete).
+ *   1b. "secure"       — F-332, CONDITIONAL: only for an account GET /wallets
+ *                        reports without a recovery email (a wallet-only
+ *                        member). Verifies the code mailed at signup, or
+ *                        opens the settings recovery-email form. Skippable.
+ *                        Absent from the order and the count otherwise.
  *   2. "identity"      — avatar · cover · bio. Skippable. Seeded from the
  *                        server-fetched MemberProfile; media commits
  *                        immediately, bio saves on Continue.
@@ -53,9 +59,11 @@ import { FirstPullsStep } from "@/components/onboarding/FirstPullsStep";
 import { IdentityStep } from "@/components/onboarding/IdentityStep";
 import { NotificationsStep } from "@/components/onboarding/NotificationsStep";
 import { OnboardingTrustLayerSteps } from "@/components/onboarding/OnboardingTrustLayerSteps";
+import { SecureAccountStep } from "@/components/onboarding/SecureAccountStep";
 import { WelcomeStep } from "@/components/onboarding/WelcomeStep";
 import { useWizardPulls } from "@/components/onboarding/useWizardPulls";
 import { useViewerScope } from "@/hooks/useViewerScope";
+import { useMyWallets } from "@/hooks/useWallets";
 import { captureAnalyticsEvent } from "@/lib/analytics/posthog";
 import { setOnboardingProgress } from "@/lib/onboarding/storage";
 import type { HomeChain, MemberProfile } from "@/lib/api/types";
@@ -66,6 +74,7 @@ import type { HomeChain, MemberProfile } from "@/lib/api/types";
 
 export type Step =
   | "welcome"
+  | "secure"
   | "identity"
   | "trust"
   | "watching"
@@ -74,8 +83,14 @@ export type Step =
 
 // Ordered for the progress bar. `dopamine` is the send-off — it reads as
 // "done", so the bar sits at 100% there.
+//
+// `secure` is CONDITIONAL (F-332): it exists in the full order so a
+// ?step=secure deep link and the analytics "advanced past" comparison
+// resolve, but it only counts — and is only reachable — for an account
+// without a recovery email. See activeOrder().
 const STEP_ORDER: readonly Step[] = [
   "welcome",
+  "secure",
   "identity",
   "trust",
   "watching",
@@ -94,6 +109,7 @@ const STEP_ORDER: readonly Step[] = [
  */
 const STEP_SCREENS: Record<Step, number> = {
   welcome: 1,
+  secure: 1,
   identity: 1,
   trust: 2,
   watching: 1,
@@ -101,8 +117,18 @@ const STEP_SCREENS: Record<Step, number> = {
   dopamine: 1,
 };
 
-/** 7 — six steps, with `trust` contributing two screens. */
-export const TOTAL_SCREENS = STEP_ORDER.reduce((sum, s) => sum + STEP_SCREENS[s], 0);
+/** The lineup a given visitor actually walks — `secure` only when it applies (F-332). */
+function activeOrder(includeSecure: boolean): readonly Step[] {
+  return includeSecure ? STEP_ORDER : STEP_ORDER.filter((s) => s !== "secure");
+}
+
+/** Screens in the lineup; one more when the `secure` step applies. */
+export function totalScreens(includeSecure = false): number {
+  return activeOrder(includeSecure).reduce((sum, s) => sum + STEP_SCREENS[s], 0);
+}
+
+/** 7 — six steps, with `trust` contributing two screens (no `secure` step). */
+export const TOTAL_SCREENS = totalScreens(false);
 
 /** Type guard for a resume deep link's `?step=` query param — untrusted input. */
 export function isValidStep(value: string): value is Step {
@@ -133,9 +159,13 @@ export function normaliseScreen(step: Step, raw: unknown): number {
  * step's two inner screens separately. Exported for the test that pins the
  * readout — the honesty of this number is the whole point.
  */
-export function screenNumber(step: Step, trustScreenIndex: number): number {
+export function screenNumber(
+  step: Step,
+  trustScreenIndex: number,
+  includeSecure = false,
+): number {
   let count = 0;
-  for (const s of STEP_ORDER) {
+  for (const s of activeOrder(includeSecure)) {
     if (s === step) break;
     count += STEP_SCREENS[s];
   }
@@ -150,6 +180,7 @@ export function screenNumber(step: Step, trustScreenIndex: number): number {
 // that step's own "How reputation works." headline.
 export const STEP_LABEL: Record<Step, string> = {
   welcome:       "Welcome",
+  secure:        "Secure your account",
   identity:      "Your identity",
   trust:         "Learn the graph",
   watching:      "Start watching",
@@ -174,6 +205,21 @@ export function OnboardingWizard({ handle, profile, initialStep }: OnboardingWiz
   const [homeChain, setHomeChain] = useState<HomeChain | null>(null);
   const pulls = useWizardPulls();
   const scope = useViewerScope();
+
+  // F-332 — does the "secure" step apply? Only the server's
+  // has_recovery_email === false turns it on. Loading, a failed read, or
+  // true all leave it out of the order and the count.
+  //
+  // Latched: once it applies it stays for this mount. Verifying an email
+  // on that step invalidates /wallets, which then reports true — without
+  // the latch the step would vanish from under the visitor and the count
+  // would jump backwards.
+  const wallets = useMyWallets();
+  const needsRecoveryEmail = wallets.data?.recovery?.has_recovery_email === false;
+  const [secureLatched, setSecureLatched] = useState(false);
+  if (needsRecoveryEmail && !secureLatched) setSecureLatched(true);
+  const secureApplies = secureLatched || needsRecoveryEmail;
+  const secureUndecided = wallets.isPending;
 
   const mainRef = useRef<HTMLElement | null>(null);
   // Skip the focus/announce effect on first mount — landing on a fresh
@@ -325,9 +371,30 @@ export function OnboardingWizard({ handle, profile, initialStep }: OnboardingWiz
     target.focus({ preventScroll: false });
   }, [step, trustScreen]);
 
-  const currentScreen = screenNumber(step, trustScreen);
-  const progressPct = Math.round(((currentScreen - 1) / (TOTAL_SCREENS - 1)) * 100);
-  const readout = `Step ${currentScreen} of ${TOTAL_SCREENS} · ${STEP_LABEL[step]}`;
+  // A ?step=secure deep link, resume point or history entry for an account
+  // the step does not apply to: once /wallets has answered, move on to
+  // identity in place (replace, never push) rather than showing an empty
+  // screen.
+  useEffect(() => {
+    if (step !== "secure" || secureApplies || secureUndecided) return;
+    applyPosition("identity", 1);
+    if (typeof window !== "undefined") {
+      window.history.replaceState(
+        { bccOnboardingStep: "identity", bccOnboardingScreen: 1 },
+        "",
+        `${window.location.pathname}?step=identity`,
+      );
+    }
+  }, [step, secureApplies, secureUndecided, applyPosition]);
+
+  // Counted while the visitor is ON the step even before /wallets answers,
+  // so a deep link's readout does not momentarily claim a screen number
+  // that belongs to identity.
+  const countSecure = secureApplies || step === "secure";
+  const total = totalScreens(countSecure);
+  const currentScreen = screenNumber(step, trustScreen, countSecure);
+  const progressPct = Math.round(((currentScreen - 1) / (total - 1)) * 100);
+  const readout = `Step ${currentScreen} of ${total} · ${STEP_LABEL[step]}`;
 
   return (
     <div className="bcc-onb-root">
@@ -351,7 +418,7 @@ export function OnboardingWizard({ handle, profile, initialStep }: OnboardingWiz
           className="bcc-onb-progress-track"
           role="progressbar"
           aria-valuemin={1}
-          aria-valuemax={TOTAL_SCREENS}
+          aria-valuemax={total}
           aria-valuenow={currentScreen}
           aria-valuetext={readout}
           aria-label="Setup progress"
@@ -375,15 +442,23 @@ export function OnboardingWizard({ handle, profile, initialStep }: OnboardingWiz
         {step === "welcome" && (
           <WelcomeStep
             handle={handle}
-            onStart={() => goTo("identity")}
+            onStart={() => goTo(secureApplies ? "secure" : "identity")}
             onSkipAll={() => goTo("dopamine")}
+          />
+        )}
+
+        {step === "secure" && (secureApplies || secureUndecided) && (
+          <SecureAccountStep
+            handle={handle}
+            onBack={() => goTo("welcome")}
+            onDone={() => goTo("identity")}
           />
         )}
 
         {step === "identity" && (
           <IdentityStep
             profile={profile}
-            onBack={() => goTo("welcome")}
+            onBack={() => goTo(secureApplies ? "secure" : "welcome")}
             onDone={() => goTo("trust")}
           />
         )}

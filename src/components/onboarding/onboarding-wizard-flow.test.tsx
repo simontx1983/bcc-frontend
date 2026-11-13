@@ -82,6 +82,16 @@ vi.mock("@/hooks/useUpdateProfile", () => ({
   useUploadCover: () => ({ mutate: vi.fn(), isPending: false }),
   useUpdateBio: () => ({ mutate: updateBioMutate, isPending: false }),
 }));
+// F-332: the wizard reads GET /wallets to decide whether the conditional
+// "secure" step applies. An account WITH a recovery email keeps the
+// original six-step lineup this suite pins.
+vi.mock("@/hooks/useWallets", () => ({
+  MY_WALLETS_QUERY_KEY: ["me", "wallets"],
+  useMyWallets: () => ({
+    data: { items: [], recovery: { has_recovery_email: true, verified_wallet_count: 1 } },
+    isPending: false,
+  }),
+}));
 vi.mock("@/hooks/usePrefersReducedMotion", () => ({
   usePrefersReducedMotion: () => true,
 }));

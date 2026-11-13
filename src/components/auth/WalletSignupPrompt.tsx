@@ -44,11 +44,12 @@ import { Dialog } from "@/components/ui/Dialog";
 import { WalletAuthButton } from "@/components/auth/WalletAuthButton";
 import { captureAnalyticsEvent, noteSignupCompleted } from "@/lib/analytics/posthog";
 import { checkHandleLocal, formatHandleHint } from "@/lib/auth/handleValidation";
+import { writePendingRecoveryEmail } from "@/lib/onboarding/pending-recovery-email";
 
 export interface WalletSignupPromptProps {
   /** Pre-fill the handle input (e.g. if the parent already collected one). Optional. */
   initialHandle?: string;
-  /** Called after the new account is created AND signed in. Parent typically router.replace()s. */
+  /** Called after the new account is created AND signed in. Parent routes to /onboarding (F-332). */
   onSuccess: () => void;
   /** Called when the user dismisses without completing. Parent should clear its open-state. */
   onDismiss: () => void;
@@ -155,6 +156,12 @@ export function WalletSignupPrompt(props: WalletSignupPromptProps) {
           onStart={() => { captureAnalyticsEvent("signup_started", { method: "wallet" }); }}
           onSuccess={() => {
             noteSignupCompleted("wallet");
+            // F-332: the server mailed a 6-digit code to this address at
+            // signup. Hand it to onboarding's "Secure your account" step
+            // so the new member can enter the code without retyping it.
+            // Only on success — a failed signup sent nothing.
+            const trimmedEmail = email.trim();
+            if (trimmedEmail !== "") writePendingRecoveryEmail(trimmedEmail);
             props.onSuccess();
           }}
         />

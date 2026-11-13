@@ -5590,10 +5590,16 @@ export interface MyWalletsResponse {
    *  - verified_wallet_count: how many of the user's linked wallets have
    *    passed signature verification — drives the banner's urgency copy
    *    (a single verified wallet with no recovery email = lockout risk).
+   *  - available_at / available_reason (F-332, bcc-trust #658): when the
+   *    wallet-signed add-recovery-email path opens (ISO-8601 UTC, or null)
+   *    and why it is gated. Optional — an older backend omits both, and
+   *    the client then shows the form as before.
    */
   recovery: {
     has_recovery_email: boolean;
     verified_wallet_count: number;
+    available_at?: string | null;
+    available_reason?: "signup_wallet" | "wallet_age" | null;
   };
 }
 

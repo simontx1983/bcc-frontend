@@ -227,7 +227,11 @@ function LoginPageContent() {
         <WalletSignupPrompt
           onSuccess={() => {
             setWalletSignupOpen(false);
-            router.replace(targetAfterLogin());
+            // F-332: a brand-new wallet account goes through onboarding,
+            // same as /signup's wallet path — not to the Floor or the
+            // callbackUrl. The wizard's "Secure your account" step is
+            // where a wallet-only member adds a recovery email.
+            router.replace("/onboarding");
           }}
           onDismiss={() => { setWalletSignupOpen(false); }}
         />
