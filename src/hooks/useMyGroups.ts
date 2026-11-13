@@ -23,9 +23,12 @@
  */
 
 import {
+  useInfiniteQuery,
   useMutation,
   useQuery,
   useQueryClient,
+  type InfiniteData,
+  type QueryKey,
   type UseMutationOptions,
 } from "@tanstack/react-query";
 import { useSession } from "next-auth/react";
@@ -45,16 +48,16 @@ import {
   transferGroupOwnership,
 } from "@/lib/api/my-groups-endpoints";
 import { useGroupContentRefresh } from "@/hooks/groupContentCache";
-import type {
+import {
   BccApiError,
-  CreatePlainGroupRequest,
-  CreatePlainGroupResponse,
-  GroupMembershipChangeResponse,
-  JoinPlainGroupResponse,
-  MyGroupInvitesResponse,
-  LeavePlainGroupResponse,
-  SetGroupPostPolicyResponse,
-  TransferCommunityResponse,
+  type CreatePlainGroupRequest,
+  type CreatePlainGroupResponse,
+  type GroupMembershipChangeResponse,
+  type JoinPlainGroupResponse,
+  type MyGroupInvitesResponse,
+  type LeavePlainGroupResponse,
+  type SetGroupPostPolicyResponse,
+  type TransferCommunityResponse,
 } from "@/lib/api/types";
 
 export function useJoinPlainGroupMutation(
@@ -229,12 +232,40 @@ export function useDeclineGroupInviteMutation(options: MembershipMutationOptions
   return useInviteAnswerMutation(declineGroupInvite, options);
 }
 
-/** GET /me/group-invites — signed-in only (it is a /me route). */
+const MY_GROUP_INVITES_PAGE = 50;
+
+/**
+ * GET /me/group-invites — signed-in only (it is a /me route). Paged by
+ * offset; the list offers "Show more" while `has_more` is true.
+ *
+ * A 404 means the route itself does not exist (a backend without F-272),
+ * not a failure the viewer can retry: it reads as "no invitations", so a
+ * frontend deployed ahead of its backend degrades to nothing instead of
+ * an error on every /communities visit.
+ */
 export function useMyGroupInvites() {
   const { status } = useSession();
-  return useQuery<MyGroupInvitesResponse, BccApiError>({
+  return useInfiniteQuery<
+    MyGroupInvitesResponse,
+    BccApiError,
+    InfiniteData<MyGroupInvitesResponse>,
+    QueryKey,
+    number
+  >({
     queryKey: MY_GROUP_INVITES_QUERY_KEY,
-    queryFn: ({ signal }) => getMyGroupInvites({ limit: 50 }, signal),
+    initialPageParam: 0,
+    queryFn: async ({ pageParam, signal }) => {
+      try {
+        return await getMyGroupInvites({ offset: pageParam, limit: MY_GROUP_INVITES_PAGE }, signal);
+      } catch (err) {
+        if (err instanceof BccApiError && err.status === 404) {
+          return { items: [], pagination: { offset: pageParam, limit: MY_GROUP_INVITES_PAGE, has_more: false } };
+        }
+        throw err;
+      }
+    },
+    getNextPageParam: (last) =>
+      last.pagination.has_more ? last.pagination.offset + last.items.length : undefined,
     enabled: status === "authenticated",
   });
 }

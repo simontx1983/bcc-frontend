@@ -32,6 +32,7 @@ import { useEffect, useState } from "react";
 import { GroupActionButton } from "@/components/groups/GroupActionButton";
 import { GroupTransferOwnership } from "@/components/groups/GroupTransferOwnership";
 import { HolderLeaveConfirm } from "@/components/groups/HolderLeaveConfirm";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useJoinHolderGroupMutation } from "@/hooks/useHolderGroups";
 import {
   useJoinHallMutation,
@@ -55,6 +56,7 @@ import { useLinkWalletMutation, useMyWallets } from "@/hooks/useWallets";
 import type {
   BccApiError,
   GroupDetailResponse,
+  GroupMembershipStatus,
   GroupValidatorStats,
 } from "@/lib/api/types";
 import { isAllowed, reasonCode, unlockHint } from "@/lib/permissions";
@@ -133,6 +135,7 @@ export function GroupMembershipStrip({ group }: GroupMembershipStripProps) {
           onActionStart={setOptimisticIntent}
           onActionError={() => setOptimisticIntent(null)}
         />
+        <RequestAnnouncer status={group.viewer_membership?.status} />
       </div>
     </article>
   );
@@ -192,7 +195,7 @@ function MembershipBody({ group, onActionStart, onActionError }: MembershipBodyP
   // (`can_request_join`); nothing here recomputes it.
   const status = group.viewer_membership?.status;
   if (status === "invited") {
-    return <InviteAnswer groupId={group.id} />;
+    return <InviteAnswer groupId={group.id} groupName={group.name} />;
   }
   if (status === "requested") {
     return <PendingRequest groupId={group.id} />;
@@ -672,7 +675,9 @@ export function humanizeJoinRequestError(err: unknown, action: "request" | "canc
       // A ban, a block and the 7-day wait all answer 403; only the wait
       // has its own line (the server's hint covers it on the page).
       bcc_permission_denied: action === "request" ? "You can't ask to join this community right now." : generic,
-      bcc_conflict: "This changed a moment ago. Reload the page and try again.",
+      // Every caller re-reads on a 409 (the page refreshes, the list
+      // refetches), so this states what already happened.
+      bcc_conflict: "This changed a moment ago. Showing the latest.",
       bcc_unavailable: "Something went wrong on our side. Nothing changed — try again.",
       bcc_rate_limited: "Too many attempts. Wait a minute and try again.",
       bcc_invalid_request: action === "answer" ? "This invitation is no longer open." : generic,
@@ -681,9 +686,23 @@ export function humanizeJoinRequestError(err: unknown, action: "request" | "canc
   );
 }
 
+/**
+ * Refresh on success, and on a 409 too: a conflict means the server's
+ * state moved under the viewer, so the page re-reads instead of asking
+ * them to reload it.
+ */
+function useRefreshOnSettle(): { onSuccess: () => void; onError: (err: BccApiError) => void } {
+  const router = useRouter();
+  return {
+    onSuccess: () => router.refresh(),
+    onError: (err) => {
+      if (err.code === "bcc_conflict") router.refresh();
+    },
+  };
+}
+
 function RequestToJoin({ groupId }: { groupId: number }) {
-  const onSuccess = useRefreshOnSuccess();
-  const mutation = useRequestJoinGroupMutation({ onSuccess });
+  const mutation = useRequestJoinGroupMutation(useRefreshOnSettle());
   return (
     <ActionRow primaryCopy="This community is private. Ask to join and a moderator will decide.">
       <GroupActionButton
@@ -692,6 +711,7 @@ function RequestToJoin({ groupId }: { groupId: number }) {
         pendingLabel="SENDING…"
         isPending={mutation.isPending}
         errorMessage={mutation.error ? humanizeJoinRequestError(mutation.error, "request") : null}
+        touchTarget
         onClick={() => {
           mutation.reset();
           mutation.mutate(groupId);
@@ -702,8 +722,7 @@ function RequestToJoin({ groupId }: { groupId: number }) {
 }
 
 function PendingRequest({ groupId }: { groupId: number }) {
-  const onSuccess = useRefreshOnSuccess();
-  const mutation = useCancelJoinRequestMutation({ onSuccess });
+  const mutation = useCancelJoinRequestMutation(useRefreshOnSettle());
   return (
     <ActionRow primaryCopy="Your request to join is waiting for a moderator.">
       <GroupActionButton
@@ -712,6 +731,7 @@ function PendingRequest({ groupId }: { groupId: number }) {
         pendingLabel="CANCELLING…"
         isPending={mutation.isPending}
         errorMessage={mutation.error ? humanizeJoinRequestError(mutation.error, "cancel") : null}
+        touchTarget
         onClick={() => {
           mutation.reset();
           mutation.mutate(groupId);
@@ -721,12 +741,25 @@ function PendingRequest({ groupId }: { groupId: number }) {
   );
 }
 
-function InviteAnswer({ groupId }: { groupId: number }) {
-  const onSuccess = useRefreshOnSuccess();
-  const accept = useAcceptGroupInviteMutation({ onSuccess });
-  const decline = useDeclineGroupInviteMutation({ onSuccess });
+/** Shared by the strip and the /communities list, so both confirm the same way. */
+export const DECLINE_INVITE_COPY = {
+  title: "Decline this invitation?",
+  body: (name: string) =>
+    `You won't be able to join ${name} unless someone invites you again.`,
+  confirm: "DECLINE",
+  cancel: "KEEP INVITATION",
+  retry: "TRY AGAIN",
+} as const;
+
+function InviteAnswer({ groupId, groupName }: { groupId: number; groupName: string }) {
+  const settle = useRefreshOnSettle();
+  const accept = useAcceptGroupInviteMutation(settle);
+  const decline = useDeclineGroupInviteMutation(settle);
+  // Declining cannot be undone, and for a secret group the invitation is
+  // the only way in, so it confirms first (a mis-tap beside ACCEPT on a
+  // phone would otherwise lose access).
+  const [confirmingDecline, setConfirmingDecline] = useState(false);
   const busy = accept.isPending || decline.isPending;
-  const error = accept.error ?? decline.error;
   return (
     <div className="flex flex-col gap-3">
       <p className="font-serif text-ink-soft" style={{ fontSize: "15px", lineHeight: 1.5, maxWidth: "44ch" }}>
@@ -750,20 +783,60 @@ function InviteAnswer({ groupId }: { groupId: number }) {
           onClick={() => {
             accept.reset();
             decline.reset();
-            decline.mutate(groupId);
+            setConfirmingDecline(true);
           }}
           disabled={busy}
           className="bcc-mono inline-flex min-h-[44px] items-center px-3 text-[11px] tracking-[0.18em] text-bcc-text-secondary hover:text-bcc-text disabled:opacity-60"
         >
-          {decline.isPending ? "DECLINING…" : "DECLINE"}
+          DECLINE
         </button>
       </div>
-      {error !== null && (
+      {accept.error !== null && (
         <p role="alert" className="bcc-mono text-[11px] text-bcc-text-error">
-          {humanizeJoinRequestError(error, "answer")}
+          {humanizeJoinRequestError(accept.error, "answer")}
         </p>
       )}
+      {confirmingDecline && (
+        <ConfirmDialog
+          title={DECLINE_INVITE_COPY.title}
+          body={DECLINE_INVITE_COPY.body(groupName)}
+          confirmLabel={DECLINE_INVITE_COPY.confirm}
+          cancelLabel={DECLINE_INVITE_COPY.cancel}
+          retryLabel={DECLINE_INVITE_COPY.retry}
+          errorMessage={decline.error ? humanizeJoinRequestError(decline.error, "answer") : null}
+          pending={decline.isPending}
+          onConfirm={() => {
+            decline.reset();
+            decline.mutate(groupId, { onSuccess: () => setConfirmingDecline(false) });
+          }}
+          onCancel={() => {
+            decline.reset();
+            setConfirmingDecline(false);
+          }}
+        />
+      )}
     </div>
+  );
+}
+
+/**
+ * F-272 — a polite live region that speaks when the refreshed page moves
+ * the viewer into "requested" (or back out of it). It is mounted empty and
+ * only filled by a CHANGE, so a page that loads already-requested says
+ * nothing; the visible strip copy covers that.
+ */
+function RequestAnnouncer({ status }: { status: GroupMembershipStatus | undefined }) {
+  const [initial] = useState(status);
+  const [message, setMessage] = useState("");
+  useEffect(() => {
+    if (status === initial) return;
+    if (status === "requested") setMessage("Request sent. A moderator will decide.");
+    else if (initial === "requested" && status === "none") setMessage("Request cancelled.");
+  }, [status, initial]);
+  return (
+    <p role="status" aria-live="polite" className="sr-only">
+      {message}
+    </p>
   );
 }
 
