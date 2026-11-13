@@ -172,6 +172,17 @@ export function ModerationQueue() {
 
   const query = useAdminReports(filters, page);
 
+  // F-311 (M6): resolving the last rows of a later page leaves the server
+  // answering that page with no items while `total` is still > 0, and
+  // total_pages drops below it. The view then showed "QUEUE CLEAR" with no
+  // pagination bar to leave it. Step back to the last real page.
+  const totalPages = query.data?.pagination.total_pages;
+  useEffect(() => {
+    if (totalPages !== undefined && totalPages >= 1 && page > totalPages) {
+      setPage(totalPages);
+    }
+  }, [page, totalPages]);
+
   // Track which row is keyboard-focused. Index into `items`. Reset to
   // 0 whenever the visible row count changes (page or filter flip).
   // Depending on `items.length` (a primitive) rather than `items` (a
