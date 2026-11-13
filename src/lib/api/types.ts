@@ -5510,6 +5510,27 @@ export interface MemberProfile {
   disputes: MemberDispute[];
   live_shift: MemberLiveShiftEvent[];
   tabs: MemberTabCount[];
+  /**
+   * Profile section visibility (umbrella #290 / bcc-trust #682), already
+   * resolved for THIS viewer: the owner always gets every key true; for
+   * anyone else a section the owner hid comes back false AND its payload
+   * as the documented empty. Driven by the owner's `show_*_on_profile`
+   * prefs (`halls` ← `show_groups_on_profile`; `reviews`/`disputes` are
+   * the inverted §K2 `reviews_hidden`/`disputes_hidden` flags).
+   *
+   * OPTIONAL — absent on older backends; treat every section as visible.
+   */
+  sections?: MemberProfileSections;
+}
+
+export interface MemberProfileSections {
+  about: boolean;
+  verifications: boolean;
+  halls: boolean;
+  operator: boolean;
+  blogs: boolean;
+  reviews: boolean;
+  disputes: boolean;
 }
 
 // ────────────────────────────────────────────────────────────────────────

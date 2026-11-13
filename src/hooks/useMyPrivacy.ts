@@ -28,7 +28,14 @@ import type {
   MyPrivacySettings,
 } from "@/lib/api/types";
 
-const QUERY_KEY = ["me", "privacy"] as const;
+/**
+ * Exported so a writer of the SAME flags through another endpoint can
+ * invalidate it: `/me/profile-prefs` `show_reviews_on_profile` /
+ * `show_disputes_on_profile` are inverted views of `reviews_hidden` /
+ * `disputes_hidden` (Edit About).
+ */
+export const MY_PRIVACY_QUERY_KEY = ["me", "privacy"] as const;
+const QUERY_KEY = MY_PRIVACY_QUERY_KEY;
 
 export function useMyPrivacy() {
   return useQuery<MyPrivacySettings, BccApiError>({

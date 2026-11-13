@@ -6,9 +6,19 @@
  * Every value is a server field rendered as-is. Not rendered because the
  * backend does not ship them yet: LOCATION, TRADE, WEBSITE, verification
  * dates, and the validator/node claim subsections of OPERATOR / PROJECTS.
+ *
+ * Section visibility (SHOW ON PROFILE) is the CALLER's decision — see the
+ * About page. `aside` is passed through to the card header (the owner's
+ * HIDDEN FROM YOUR PROFILE marker).
  */
 
+interface SectionCardProps {
+  profile: MemberProfile;
+  aside?: ReactNode;
+}
+
 import Link from "next/link";
+import type { ReactNode } from "react";
 
 import { formatJoinDate } from "@/lib/format";
 import type { MemberHall, MemberProfile } from "@/lib/api/types";
@@ -19,7 +29,7 @@ import { memberHallHref, splitMemberHalls } from "./member-halls";
 const KEY_CLASS = "bcc-mono text-[10px] uppercase tracking-[0.18em] text-bcc-text-secondary";
 const VALUE_CLASS = "bcc-mono text-[11px] uppercase tracking-[0.12em] text-bcc-text";
 
-export function AboutBioCard({ profile }: { profile: MemberProfile }) {
+export function AboutBioCard({ profile, aside }: SectionCardProps) {
   const bio = profile.bio.trim();
   // Same formatter the profile FileRail's JOINED reads.
   const joined = formatJoinDate(profile.joined_at);
@@ -27,7 +37,7 @@ export function AboutBioCard({ profile }: { profile: MemberProfile }) {
   if (bio === "" && !hasJoined) return null;
 
   return (
-    <AboutCard label="About" testId="about-card-bio">
+    <AboutCard label="About" testId="about-card-bio" aside={aside}>
       {bio !== "" && (
         <p
           className="whitespace-pre-line font-serif text-bcc-text"
@@ -48,7 +58,7 @@ export function AboutBioCard({ profile }: { profile: MemberProfile }) {
   );
 }
 
-export function AboutVerificationsCard({ profile }: { profile: MemberProfile }) {
+export function AboutVerificationsCard({ profile, aside }: SectionCardProps) {
   const v = profile.verifications;
   const rows: Array<{ key: string; label: string; detail: string | null }> = [];
   if (v.x_verified) {
@@ -73,7 +83,7 @@ export function AboutVerificationsCard({ profile }: { profile: MemberProfile }) 
   if (rows.length === 0) return null;
 
   return (
-    <AboutCard label="Verifications" testId="about-card-verifications">
+    <AboutCard label="Verifications" testId="about-card-verifications" aside={aside}>
       <ul className="flex flex-col divide-y divide-bcc-border">
         {rows.map((row) => (
           <li key={row.key} className="flex min-h-[44px] items-center justify-between gap-3">
@@ -97,30 +107,30 @@ export function AboutVerificationsCard({ profile }: { profile: MemberProfile }) 
   );
 }
 
-export function AboutHallsCard({ profile }: { profile: MemberProfile }) {
+export function AboutHallsCard({ profile, aside }: SectionCardProps) {
   const { halls } = splitMemberHalls(profile.halls);
   if (halls.length === 0) return null;
   return (
-    <AboutCard label="Halls" count={halls.length} testId="about-card-halls">
+    <AboutCard label="Halls" count={halls.length} testId="about-card-halls" aside={aside}>
       <MembershipRows rows={halls} isHall layout="inline" />
     </AboutCard>
   );
 }
 
-export function AboutGroupsCard({ profile }: { profile: MemberProfile }) {
+export function AboutGroupsCard({ profile, aside }: SectionCardProps) {
   const { groups, typed } = splitMemberHalls(profile.halls);
   if (groups.length === 0) return null;
   // Untyped (a backend before #671): these rows may include Halls, so they
   // get one neutral GROUPS card rather than an operator/projects heading.
   if (!typed) {
     return (
-      <AboutCard label="Groups" count={groups.length} testId="about-card-groups">
+      <AboutCard label="Groups" count={groups.length} testId="about-card-groups" aside={aside}>
         <MembershipRows rows={groups} isHall={false} layout="stacked" />
       </AboutCard>
     );
   }
   return (
-    <AboutCard label="Operator / Projects" testId="about-card-groups">
+    <AboutCard label="Operator / Projects" testId="about-card-groups" aside={aside}>
       <h3 className={KEY_CLASS}>Groups · {groups.length}</h3>
       <div className="mt-2">
         <MembershipRows rows={groups} isHall={false} layout="stacked" />
@@ -134,7 +144,7 @@ export function AboutGroupsCard({ profile }: { profile: MemberProfile }) {
  * rendered verbatim; null/absent → no badge. Halls put the role on the
  * right; groups put it under the name.
  */
-function MembershipRows({
+export function MembershipRows({
   rows,
   isHall,
   layout,

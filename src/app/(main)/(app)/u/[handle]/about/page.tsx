@@ -9,6 +9,12 @@
  *
  * Sections, in order, each hidden when it has nothing to show: ABOUT,
  * VERIFICATIONS, HALLS, OPERATOR / PROJECTS (groups only), BLOGS, REVIEWS.
+ *
+ * SHOW ON PROFILE (Edit About, umbrella #290): a visitor does not get a
+ * card whose `profile.sections` flag is false (absent `sections` → all
+ * visible). The server sends the owner every flag true, so the owner gets
+ * every card and a HIDDEN FROM YOUR PROFILE marker, read from their own
+ * prefs, on each one they switched off.
  */
 
 import type { Metadata, Route } from "next";
@@ -18,6 +24,7 @@ import { TrustHeader } from "@/components/profile/TrustHeader";
 import { AboutBackLink } from "@/components/profile/about/AboutCard";
 import { AboutBlogsCard } from "@/components/profile/about/AboutBlogsCard";
 import { AboutReviewsCard } from "@/components/profile/about/AboutReviewsCard";
+import { HiddenFromProfileMarker } from "@/components/profile/about/HiddenFromProfileMarker";
 import {
   AboutBioCard,
   AboutGroupsCard,
@@ -26,6 +33,8 @@ import {
 } from "@/components/profile/about/AboutSections";
 import { presentationName } from "@/lib/format";
 import { loadMemberSubpage, memberSubpageMetadata } from "@/lib/profile/load-member-subpage";
+import { resolveProfileSections, type SectionPrefKey } from "@/lib/profile/profile-sections";
+import { splitMemberHalls } from "@/components/profile/about/member-halls";
 
 interface PageProps {
   params: Promise<{ handle: string }>;
@@ -48,6 +57,17 @@ export default async function MemberAboutPage({ params }: PageProps) {
   const blogTotal = profile.counts.blog_posts_written;
   const reviewTotal = profile.counts.reviews_received;
 
+  const sections = resolveProfileSections(profile);
+  // The typed GROUPS card is headed OPERATOR / PROJECTS, so it sits behind
+  // both switches; the untyped (pre-#671) list is plain group membership.
+  const { typed } = splitMemberHalls(profile.halls);
+  const groupKeys: SectionPrefKey[] = typed
+    ? ["show_groups_on_profile", "show_operator_on_profile"]
+    : ["show_groups_on_profile"];
+  const groupsVisible = sections.halls && (!typed || sections.operator);
+  const marker = (keys: SectionPrefKey[]) =>
+    isOwner ? <HiddenFromProfileMarker prefKeys={keys} /> : undefined;
+
   return (
     <div className="mx-auto w-full max-w-[640px] px-4 pb-24 pt-4">
       <AboutBackLink href={profileHref}>Back to profile</AboutBackLink>
@@ -61,22 +81,42 @@ export default async function MemberAboutPage({ params }: PageProps) {
         About {name}
       </h1>
       <div className="mt-4 flex flex-col gap-4">
-        <AboutBioCard profile={profile} />
-        <AboutVerificationsCard profile={profile} />
-        <AboutHallsCard profile={profile} />
-        <AboutGroupsCard profile={profile} />
-        {blogTotal > 0 && <AboutBlogsCard handle={profile.handle} total={blogTotal} />}
+        {(isOwner || sections.about) && (
+          <AboutBioCard profile={profile} aside={marker(["show_about_on_profile"])} />
+        )}
+        {(isOwner || sections.verifications) && (
+          <AboutVerificationsCard
+            profile={profile}
+            aside={marker(["show_verifications_on_profile"])}
+          />
+        )}
+        {(isOwner || sections.halls) && (
+          <AboutHallsCard profile={profile} aside={marker(["show_groups_on_profile"])} />
+        )}
+        {(isOwner || groupsVisible) && (
+          <AboutGroupsCard profile={profile} aside={marker(groupKeys)} />
+        )}
+        {(isOwner || sections.blogs) && blogTotal > 0 && (
+          <AboutBlogsCard
+            handle={profile.handle}
+            total={blogTotal}
+            aside={marker(["show_blogs_on_profile"])}
+          />
+        )}
         {/* Reviews RECEIVED are public (2026-07-22 decision):
             `privacy.reviews_hidden` governs only the reviews-WRITTEN list,
             so it does not gate this card — same as the profile's Reviews
             tab. Hidden only when the count is absent (optional during the
-            v1.49 rollout; the card cannot say "N" without it) or zero. */}
-        {reviewTotal !== undefined &&
+            v1.49 rollout; the card cannot say "N" without it) or zero.
+            The SHOW ON PROFILE switch (`sections.reviews`) does gate it. */}
+        {(isOwner || sections.reviews) &&
+          reviewTotal !== undefined &&
           reviewTotal > 0 && (
             <AboutReviewsCard
               handle={profile.handle}
               userId={profile.user_id}
               total={reviewTotal}
+              aside={marker(["show_reviews_on_profile"])}
             />
           )}
       </div>
