@@ -11,6 +11,7 @@
 
 import Link from "next/link";
 import type { Route } from "next";
+import type { ReactNode } from "react";
 
 import { Skeleton } from "@/components/ui/Skeleton";
 import { LoadFailure } from "@/components/ui/LoadFailure";
@@ -21,7 +22,15 @@ import { AboutCard, AboutSeeAll } from "./AboutCard";
 
 const PREVIEW_COUNT = 2;
 
-export function AboutBlogsCard({ handle, total }: { handle: string; total: number }) {
+export function AboutBlogsCard({
+  handle,
+  total,
+  aside,
+}: {
+  handle: string;
+  total: number;
+  aside?: ReactNode;
+}) {
   const query = useUserBlog(handle);
   const seeAllHref = `/u/${encodeURIComponent(handle)}/blogs` as Route;
 
@@ -30,7 +39,7 @@ export function AboutBlogsCard({ handle, total }: { handle: string; total: numbe
   if (query.isSuccess && items.length === 0) return null;
 
   return (
-    <AboutCard label="Blogs" count={total} testId="about-card-blogs">
+    <AboutCard label="Blogs" count={total} testId="about-card-blogs" aside={aside}>
       {query.isPending ? (
         <div className="flex flex-col gap-2">
           <Skeleton className="h-11" count={PREVIEW_COUNT} />

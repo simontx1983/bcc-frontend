@@ -72,6 +72,28 @@ export interface ProfilePrefs {
    * handle editor say so before a submit. Optional for deploy skew.
    */
   handle_next_change_at?: string | null;
+  /**
+   * v1.127 (#625) — show your Halls/groups on your profile. Read/write.
+   * OPTIONAL: absent means true (shown).
+   */
+  show_groups_on_profile?: boolean;
+  /**
+   * Edit About section switches (umbrella #290 / bcc-trust #682). Each is
+   * read/write and OPTIONAL — ABSENT MEANS TRUE (shown). Off hides the
+   * section from everyone but the owner; the owner still sees it.
+   */
+  show_about_on_profile?: boolean;
+  /** Hiding verifications never changes the trust score that counts them. */
+  show_verifications_on_profile?: boolean;
+  show_operator_on_profile?: boolean;
+  show_blogs_on_profile?: boolean;
+  /**
+   * NOT a separate setting: the inverted view of the §K2 `reviews_hidden`
+   * privacy flag (Privacy → hide reviews). Writing one writes the other.
+   */
+  show_reviews_on_profile?: boolean;
+  /** Inverted view of the §K2 `disputes_hidden` privacy flag. */
+  show_disputes_on_profile?: boolean;
 }
 
 /**
