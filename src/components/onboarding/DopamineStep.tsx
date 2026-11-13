@@ -184,9 +184,11 @@ export function DopamineStep({
     if (!holdElapsed) return;
     if (save.status === "saved") {
       // A deep link the visitor signed up from (F-332), else the Floor.
-      router.replace(takeOnboardingReturnTo() ?? "/");
+      // Read under the viewer's own scope: another member's stored target
+      // is never followed.
+      router.replace(takeOnboardingReturnTo(scope) ?? "/");
     }
-  }, [holdElapsed, save.status, router]);
+  }, [holdElapsed, save.status, router, scope]);
 
   if (save.status === "error") {
     return (

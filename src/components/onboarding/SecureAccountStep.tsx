@@ -26,6 +26,7 @@
  */
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useSession } from "next-auth/react";
 import { useEffect, useRef, useState } from "react";
 
 import {
@@ -34,16 +35,22 @@ import {
 } from "@/components/auth/SessionWriteFailedNotice";
 import { LandingReveal } from "@/components/landing/LandingReveal";
 import { RecoveryEmailForm } from "@/components/settings/RecoveryEmail";
+import { useViewerScope } from "@/hooks/useViewerScope";
 import { MY_WALLETS_QUERY_KEY, useMyWallets } from "@/hooks/useWallets";
 import { resendVerification, verifyEmail } from "@/lib/api/auth-endpoints";
 import { humanizeCode, isCode } from "@/lib/api/errors";
 import type { LinkedWallet, VerifyEmailResponse } from "@/lib/api/types";
+import { currentViewerEpoch, isStaleEpoch } from "@/lib/auth/session-boundary";
 import { updateSessionBearer } from "@/lib/auth/session-update";
 import { formatAbsoluteDateTime } from "@/lib/format";
 import {
   clearPendingRecoveryEmail,
   readPendingRecoveryEmail,
 } from "@/lib/onboarding/pending-recovery-email";
+import {
+  recoveryAvailability,
+  type RecoveryAvailability,
+} from "@/lib/onboarding/recovery-availability";
 
 const RESEND_COOLDOWN_SECONDS = 60;
 
@@ -80,14 +87,18 @@ export function SecureAccountStep({
 }) {
   const queryClient = useQueryClient();
   const wallets = useMyWallets();
+  const scope = useViewerScope();
 
   // `undefined` = not read yet. sessionStorage is read after mount, never
   // during render, so the server-rendered HTML and the first client render
   // agree (the step can be the entry screen via a ?step=secure deep link).
+  // Read under the viewer's own scope (F-332 review M2): an email another
+  // member's signup left behind is never shown, or resent to. Re-read on a
+  // scope change; while the scope is unknown, nothing is read.
   const [pendingEmail, setPendingEmail] = useState<string | null | undefined>(undefined);
   useEffect(() => {
-    setPendingEmail(readPendingRecoveryEmail());
-  }, []);
+    setPendingEmail(scope === null ? undefined : readPendingRecoveryEmail(scope));
+  }, [scope]);
 
   const [codeVerified, setCodeVerified] = useState(false);
   // The verify answered with a fresh bearer that could not be stored: the
@@ -95,9 +106,6 @@ export function SecureAccountStep({
   // again — the same notice RecoveryEmailForm shows.
   const [sessionLost, setSessionLost] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
-  // Read once: the availability line compares a server timestamp to the
-  // clock, and render must not call Date.now() on every pass.
-  const [now] = useState(() => Date.now());
 
   const recovery = wallets.data?.recovery;
   // The server is the authority on "secured": a code verified here, or the
@@ -106,7 +114,7 @@ export function SecureAccountStep({
   const secured = codeVerified || recovery?.has_recovery_email === true;
 
   function finishVerified(sessionWriteFailed: boolean) {
-    clearPendingRecoveryEmail();
+    clearPendingRecoveryEmail(scope);
     setCodeVerified(true);
     setSessionLost(sessionWriteFailed);
     void queryClient.invalidateQueries({ queryKey: MY_WALLETS_QUERY_KEY });
@@ -114,8 +122,15 @@ export function SecureAccountStep({
   }
 
   function useDifferentEmail() {
-    clearPendingRecoveryEmail();
+    clearPendingRecoveryEmail(scope);
     setPendingEmail(null);
+  }
+
+  // Skipping drops the hand-off: the member chose not to use it now, and
+  // the address should not sit in storage for the rest of the tab.
+  function skip() {
+    clearPendingRecoveryEmail(scope);
+    onDone();
   }
 
   const verifiedWallets = wallets.data?.items.filter((w) => w.verified) ?? [];
@@ -152,9 +167,9 @@ export function SecureAccountStep({
           <p className="bcc-onb-note" style={{ marginTop: 0 }}>Checking your account…</p>
         ) : (
           <AddRecoveryEmail
-            availableAt={recovery?.available_at}
-            availableReason={recovery?.available_reason}
-            now={now}
+            // Evaluated at render with the current clock (F-332 review H2),
+            // never a clock captured at mount.
+            availability={recoveryAvailability(recovery, Date.now())}
             formOpen={formOpen}
             onOpenForm={() => setFormOpen(true)}
             onCloseForm={() => setFormOpen(false)}
@@ -168,7 +183,7 @@ export function SecureAccountStep({
           ← Back
         </button>
         <div className="bcc-onb-foot-end">
-          <button type="button" className="bcc-onb-link" onClick={onDone}>
+          <button type="button" className="bcc-onb-link" onClick={skip}>
             Skip for now
           </button>
           <button
@@ -207,21 +222,46 @@ function PendingCodeForm({
   // fast second tap by a render.
   const resendInFlight = useRef(false);
 
+  // F-332 review H1. verify-email looks the account up BY EMAIL and answers
+  // with THAT account's bearer. If the session changed while the request
+  // was out (a sign-out and someone else's sign-in in another tab), writing
+  // that bearer would put one member's token into another's session. The
+  // token is adopted only when it names the member signed in NOW and the
+  // session boundary has not moved since Verify was pressed. A ref, so the
+  // async handler reads the latest session, not the render it started in.
+  const { data: session } = useSession();
+  const sessionUserId = session?.user?.id ?? null;
+  const sessionUserIdRef = useRef<string | null>(sessionUserId);
+  useEffect(() => {
+    sessionUserIdRef.current = sessionUserId;
+  }, [sessionUserId]);
+
   useEffect(() => {
     if (cooldown <= 0) return;
     const timer = setTimeout(() => setCooldown((n) => n - 1), 1000);
     return () => clearTimeout(timer);
   }, [cooldown]);
 
-  const verify = useMutation<VerifyEmailResponse, Error, string>({
-    mutationFn: (value) => verifyEmail({ email, code: value }),
-    onSuccess: async (resp) => {
+  const verify = useMutation<
+    VerifyEmailResponse,
+    Error,
+    { code: string; epochAtDispatch: number }
+  >({
+    mutationFn: ({ code: value }) => verifyEmail({ email, code: value }),
+    onSuccess: async (resp, { epochAtDispatch }) => {
       setError(null);
-      // The verify call can hand back a fresh bearer for this same user.
-      // Store it if present; a failed session write must never fail the
-      // step — the email IS verified server-side either way.
+      // The verify call can hand back a fresh bearer. Store it only for the
+      // member it names (see the ref above); otherwise DROP it: no session
+      // write and no "session lost" notice, because this is not that
+      // member's session. The email is verified server-side either way, and
+      // a failed write must never fail the step.
+      const currentId = sessionUserIdRef.current;
+      const sameViewer =
+        currentId !== null &&
+        String(resp.user_id) === currentId &&
+        !isStaleEpoch(epochAtDispatch);
       let sessionWriteFailed = false;
-      if (typeof resp.token === "string" && resp.token !== "") {
+      if (sameViewer && typeof resp.token === "string" && resp.token !== "") {
         sessionWriteFailed = !(await updateSessionBearer({
           token: resp.token,
           expiresIn: resp.expires_in,
@@ -262,7 +302,7 @@ function PendingCodeForm({
       return;
     }
     setError(null);
-    verify.mutate(code);
+    verify.mutate({ code, epochAtDispatch: currentViewerEpoch() });
   }
 
   function handleResend() {
@@ -356,37 +396,36 @@ function PendingCodeForm({
 // ─────────────────────────────────────────────────────────────────────
 
 function AddRecoveryEmail({
-  availableAt,
-  availableReason,
-  now,
+  availability,
   formOpen,
   onOpenForm,
   onCloseForm,
   verifiedWallets,
 }: {
-  availableAt: string | null | undefined;
-  availableReason: string | null | undefined;
-  now: number;
+  availability: RecoveryAvailability;
   formOpen: boolean;
   onOpenForm: () => void;
   onCloseForm: () => void;
   verifiedWallets: LinkedWallet[];
 }) {
-  // Availability is the server's call (bcc-trust #658). We only read it:
-  //  - a future available_at → the path opens later; say when.
-  //  - both fields null → the server has no wallet sign-in it will accept
-  //    as proof right now.
-  //  - fields absent (older backend) or a past available_at → the form.
-  const opensAt = typeof availableAt === "string" ? Date.parse(availableAt) : Number.NaN;
-  if (typeof availableAt === "string" && !Number.isNaN(opensAt) && opensAt > now) {
+  // An open form stays open (F-332 review H2): a /wallets refetch that now
+  // reads "not open" must not unmount what the member is in the middle of.
+  // Only closing it, or the parent seeing has_recovery_email turn true,
+  // removes it.
+  if (formOpen) {
+    return <RecoveryEmailForm verifiedWallets={verifiedWallets} onClose={onCloseForm} />;
+  }
+  // Availability is the server's call (bcc-trust #658); the mapping lives
+  // in lib/onboarding/recovery-availability.
+  if (availability.kind === "later") {
     return (
       <p className="bcc-onb-lede" style={{ marginTop: 0, fontSize: "1rem" }}>
-        You can add a recovery email from {formatAbsoluteDateTime(availableAt)}.
+        You can add a recovery email from {formatAbsoluteDateTime(availability.at)}.
         You&rsquo;ll find it in Settings → Account.
       </p>
     );
   }
-  if (availableAt === null && availableReason === null) {
+  if (availability.kind === "relogin") {
     return (
       <p className="bcc-onb-lede" style={{ marginTop: 0, fontSize: "1rem" }}>
         Adding a recovery email needs a recently signed-in wallet. Sign out and
@@ -395,9 +434,6 @@ function AddRecoveryEmail({
     );
   }
 
-  if (formOpen) {
-    return <RecoveryEmailForm verifiedWallets={verifiedWallets} onClose={onCloseForm} />;
-  }
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "12px", alignItems: "flex-start" }}>
       <p className="bcc-onb-lede" style={{ marginTop: 0, fontSize: "1rem" }}>

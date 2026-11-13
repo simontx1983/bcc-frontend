@@ -33,6 +33,24 @@ const h = vi.hoisted(() => ({
     data: undefined as unknown,
     isPending: false,
   },
+  // Who is signed in, and the session-boundary epoch (F-332 review H1/M2).
+  sessionUserId: "7" as string | null,
+  scope: "7" as string | null,
+  epoch: 1,
+}));
+
+vi.mock("next-auth/react", () => ({
+  useSession: () => ({
+    data: h.sessionUserId === null ? null : { user: { id: h.sessionUserId } },
+    status: h.sessionUserId === null ? "unauthenticated" : "authenticated",
+  }),
+}));
+vi.mock("@/hooks/useViewerScope", () => ({
+  useViewerScope: () => h.scope,
+}));
+vi.mock("@/lib/auth/session-boundary", () => ({
+  currentViewerEpoch: () => h.epoch,
+  isStaleEpoch: (e: number) => e !== h.epoch,
 }));
 
 vi.mock("@/lib/api/auth-endpoints", () => ({
@@ -65,7 +83,23 @@ vi.mock("@/components/settings/RecoveryEmail", () => ({
 
 const { SecureAccountStep } = await import("@/components/onboarding/SecureAccountStep");
 const { BccApiError } = await import("@/lib/api/types");
-const { PENDING_RECOVERY_EMAIL_KEY } = await import("@/lib/onboarding/pending-recovery-email");
+const { PENDING_RECOVERY_EMAIL_KEY: BASE_KEY } = await import(
+  "@/lib/onboarding/pending-recovery-email"
+);
+/** The signed-in member's (id 7) scoped key. */
+const PENDING_RECOVERY_EMAIL_KEY = `${BASE_KEY}::7`;
+
+/** A verify response naming user `id`, with a fresh bearer. */
+function verifiedAs(id: number) {
+  return {
+    user_id: id,
+    handle: "tester",
+    token: "fresh-jwt",
+    expires_in: 3600,
+    token_type: "Bearer",
+    in_good_standing: false,
+  };
+}
 
 function wallet(id: number, verified: boolean) {
   return {
@@ -122,6 +156,9 @@ beforeEach(() => {
   vi.clearAllMocks();
   window.sessionStorage.clear();
   h.walletsState.isPending = false;
+  h.sessionUserId = "7";
+  h.scope = "7";
+  h.epoch = 1;
   setRecovery({});
   h.updateSessionBearer.mockResolvedValue(true);
   h.resendVerification.mockResolvedValue(undefined);
@@ -156,14 +193,7 @@ describe("Case 1 — a code was mailed at signup", () => {
   });
 
   it("verifies the code, swaps the bearer, clears the hand-off and refreshes /wallets", async () => {
-    h.verifyEmail.mockResolvedValue({
-      user_id: 7,
-      handle: "tester",
-      token: "fresh-jwt",
-      expires_in: 3600,
-      token_type: "Bearer",
-      in_good_standing: false,
-    });
+    h.verifyEmail.mockResolvedValue(verifiedAs(7));
     renderStep();
     const input = await screen.findByLabelText("Verification code");
     fireEvent.change(input, { target: { value: "12a3456" } });
@@ -183,7 +213,7 @@ describe("Case 1 — a code was mailed at signup", () => {
   });
 
   it("does not fail the step when the session write does not land", async () => {
-    h.verifyEmail.mockResolvedValue({ token: "fresh-jwt", expires_in: 3600 });
+    h.verifyEmail.mockResolvedValue(verifiedAs(7));
     h.updateSessionBearer.mockResolvedValue(false);
     renderStep();
     fireEvent.change(await screen.findByLabelText("Verification code"), {
@@ -197,7 +227,7 @@ describe("Case 1 — a code was mailed at signup", () => {
   });
 
   it("a stored session write shows no sign-in-again notice", async () => {
-    h.verifyEmail.mockResolvedValue({ token: "fresh-jwt", expires_in: 3600 });
+    h.verifyEmail.mockResolvedValue(verifiedAs(7));
     h.updateSessionBearer.mockResolvedValue(true);
     renderStep();
     fireEvent.change(await screen.findByLabelText("Verification code"), {
@@ -206,6 +236,74 @@ describe("Case 1 — a code was mailed at signup", () => {
     fireEvent.click(btn(/^verify$/i));
     await screen.findByText(/Recovery email confirmed/);
     expect(screen.queryByText(/couldn't keep this device signed in/i)).toBeNull();
+  });
+
+  it("drops a bearer that names a different account: no session write, still verified", async () => {
+    // A signed out and B signed in (another tab) while the verify was out:
+    // the response names A, the session is now B.
+    h.verifyEmail.mockResolvedValue(verifiedAs(99));
+    renderStep();
+    fireEvent.change(await screen.findByLabelText("Verification code"), {
+      target: { value: "123456" },
+    });
+    fireEvent.click(btn(/^verify$/i));
+    await screen.findByText(/Recovery email confirmed/);
+    expect(h.updateSessionBearer).not.toHaveBeenCalled();
+    // Not this member's session, so no "sign in again" notice either.
+    expect(screen.queryByText(/couldn't keep this device signed in/i)).toBeNull();
+    expect(btn(/^continue$/i).disabled).toBe(false);
+  });
+
+  it("drops the bearer when the session boundary moved after Verify was pressed", async () => {
+    let resolveVerify: (v: unknown) => void = () => {};
+    h.verifyEmail.mockReturnValue(
+      new Promise((res) => {
+        resolveVerify = res;
+      }),
+    );
+    renderStep();
+    fireEvent.change(await screen.findByLabelText("Verification code"), {
+      target: { value: "123456" },
+    });
+    fireEvent.click(btn(/^verify$/i));
+    // A sign-out / sign-in cycle while the request is out moves the epoch,
+    // even when the id happens to match again.
+    h.epoch = 2;
+    await act(async () => {
+      resolveVerify(verifiedAs(7));
+      await Promise.resolve();
+    });
+    await screen.findByText(/Recovery email confirmed/);
+    expect(h.updateSessionBearer).not.toHaveBeenCalled();
+    expect(screen.queryByText(/couldn't keep this device signed in/i)).toBeNull();
+  });
+
+  it("reads the session at response time, not at render time", async () => {
+    let resolveVerify: (v: unknown) => void = () => {};
+    h.verifyEmail.mockReturnValue(
+      new Promise((res) => {
+        resolveVerify = res;
+      }),
+    );
+    const view = renderStep();
+    fireEvent.change(await screen.findByLabelText("Verification code"), {
+      target: { value: "123456" },
+    });
+    fireEvent.click(btn(/^verify$/i));
+    // The session now reports someone else; the scope stays put so the
+    // step keeps rendering the same case.
+    h.sessionUserId = "8";
+    view.rerender(
+      <QueryClientProvider client={queryClient}>
+        <SecureAccountStep handle="tester" onBack={onBack} onDone={onDone} />
+      </QueryClientProvider>,
+    );
+    await act(async () => {
+      resolveVerify(verifiedAs(7));
+      await Promise.resolve();
+    });
+    await screen.findByText(/Recovery email confirmed/);
+    expect(h.updateSessionBearer).not.toHaveBeenCalled();
   });
 
   it("shows code-keyed copy for a wrong code, never the server message", async () => {
@@ -280,6 +378,56 @@ describe("Case 2 — no pending email", () => {
     expect(btn(/add a recovery email/i)).toBeTruthy();
   });
 
+  it("signup_wallet opening now, or a few seconds ahead of this clock, shows the form", async () => {
+    setRecovery({ available_at: new Date().toISOString(), available_reason: "signup_wallet" });
+    renderStep();
+    expect(await screen.findByRole("button", { name: /add a recovery email/i })).toBeTruthy();
+    cleanup();
+    setRecovery({
+      available_at: new Date(Date.now() + 5_000).toISOString(),
+      available_reason: "signup_wallet",
+    });
+    renderStep();
+    expect(await screen.findByRole("button", { name: /add a recovery email/i })).toBeTruthy();
+    expect(screen.queryByText(/You can add a recovery email from/)).toBeNull();
+  });
+
+  it("wallet_age within the 2-minute tolerance shows the form", async () => {
+    setRecovery({
+      available_at: new Date(Date.now() + 60_000).toISOString(),
+      available_reason: "wallet_age",
+    });
+    renderStep();
+    expect(await screen.findByRole("button", { name: /add a recovery email/i })).toBeTruthy();
+  });
+
+  it("wallet_age 10 minutes ahead says when it opens", async () => {
+    setRecovery({
+      available_at: new Date(Date.now() + 600_000).toISOString(),
+      available_reason: "wallet_age",
+    });
+    renderStep();
+    await screen.findByText(/You can add a recovery email from/);
+    expect(screen.queryByRole("button", { name: /add a recovery email/i })).toBeNull();
+  });
+
+  it("keeps an open form mounted when a refetch flips availability to 'later'", async () => {
+    const view = renderStep();
+    fireEvent.click(await screen.findByRole("button", { name: /add a recovery email/i }));
+    expect(screen.getByTestId("recovery-form")).toBeTruthy();
+    setRecovery({ available_at: "2999-01-01T12:00:00Z", available_reason: "wallet_age" });
+    view.rerender(
+      <QueryClientProvider client={queryClient}>
+        <SecureAccountStep handle="tester" onBack={onBack} onDone={onDone} />
+      </QueryClientProvider>,
+    );
+    expect(screen.getByTestId("recovery-form")).toBeTruthy();
+    expect(screen.queryByText(/You can add a recovery email from/)).toBeNull();
+    // Closing it is what lets the availability line take over.
+    fireEvent.click(btn(/stub cancel/i));
+    expect(screen.getByText(/You can add a recovery email from/)).toBeTruthy();
+  });
+
   it("says when the path opens instead of showing the form while available_at is ahead", async () => {
     setRecovery({ available_at: "2999-01-01T12:00:00Z", available_reason: "wallet_age" });
     renderStep();
@@ -313,6 +461,30 @@ describe("Case 2 — no pending email", () => {
   });
 });
 
+describe("the hand-off is the signed-in member's only (F-332 review M2)", () => {
+  it("ignores an email stored under another member's id", async () => {
+    window.sessionStorage.setItem(`${BASE_KEY}::8`, "someone-else@example.com");
+    renderStep();
+    expect(await screen.findByRole("button", { name: /add a recovery email/i })).toBeTruthy();
+    expect(screen.queryByText(/someone-else@example.com/)).toBeNull();
+    expect(screen.queryByRole("button", { name: /resend code/i })).toBeNull();
+  });
+
+  it("ignores an unscoped bare key", async () => {
+    window.sessionStorage.setItem(BASE_KEY, "legacy@example.com");
+    renderStep();
+    expect(await screen.findByRole("button", { name: /add a recovery email/i })).toBeTruthy();
+    expect(screen.queryByText(/legacy@example.com/)).toBeNull();
+  });
+
+  it("reads nothing while the viewer is unknown", () => {
+    h.scope = null;
+    window.sessionStorage.setItem(PENDING_RECOVERY_EMAIL_KEY, "me@example.com");
+    renderStep();
+    expect(screen.queryByText(/We sent a 6-digit code to/)).toBeNull();
+  });
+});
+
 describe("Skip for now", () => {
   it("advances without calling any API", async () => {
     window.sessionStorage.setItem(PENDING_RECOVERY_EMAIL_KEY, "me@example.com");
@@ -324,8 +496,9 @@ describe("Skip for now", () => {
     expect(h.resendVerification).not.toHaveBeenCalled();
     expect(h.updateSessionBearer).not.toHaveBeenCalled();
     expect(invalidateSpy).not.toHaveBeenCalled();
-    // Skipping leaves the hand-off alone; it is a tab-scoped key.
-    expect(window.sessionStorage.getItem(PENDING_RECOVERY_EMAIL_KEY)).toBe("me@example.com");
+    // Skipping drops the hand-off (F-332 review): the address does not
+    // stay in storage for the rest of the tab.
+    expect(window.sessionStorage.getItem(PENDING_RECOVERY_EMAIL_KEY)).toBeNull();
   });
 
   it("Back goes back", () => {

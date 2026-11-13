@@ -65,6 +65,7 @@ import { useWizardPulls } from "@/components/onboarding/useWizardPulls";
 import { useViewerScope } from "@/hooks/useViewerScope";
 import { useMyWallets } from "@/hooks/useWallets";
 import { captureAnalyticsEvent } from "@/lib/analytics/posthog";
+import { clearPendingRecoveryEmail } from "@/lib/onboarding/pending-recovery-email";
 import { setOnboardingProgress } from "@/lib/onboarding/storage";
 import type { HomeChain, MemberProfile } from "@/lib/api/types";
 
@@ -442,8 +443,15 @@ export function OnboardingWizard({ handle, profile, initialStep }: OnboardingWiz
         {step === "welcome" && (
           <WelcomeStep
             handle={handle}
-            onStart={() => goTo(secureApplies ? "secure" : "identity")}
-            onSkipAll={() => goTo("dopamine")}
+            // Still loading /wallets counts as "go to secure": the step
+            // shows "Checking your account..." and the redirect effect above
+            // moves on to identity if it turns out not to apply (F-332).
+            onStart={() => goTo(secureApplies || secureUndecided ? "secure" : "identity")}
+            onSkipAll={() => {
+              // Skipping setup also drops the signup email hand-off (F-332).
+              clearPendingRecoveryEmail(scope);
+              goTo("dopamine");
+            }}
           />
         )}
 

@@ -26,13 +26,21 @@ const h = vi.hoisted(() => ({
   replace: vi.fn(),
   note: vi.fn(),
   searchParams: new URLSearchParams(),
+  // The session the signup's sign-in produced (F-332 review M2): the
+  // hand-offs are keyed to THIS account's id.
+  session: { user: { id: "7" } } as { user: { id: string } } | null,
+  getSessionFails: false,
 }));
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ replace: h.replace, push: vi.fn(), refresh: vi.fn() }),
   useSearchParams: () => h.searchParams,
 }));
-vi.mock("next-auth/react", () => ({ signIn: vi.fn() }));
+vi.mock("next-auth/react", () => ({
+  signIn: vi.fn(),
+  getSession: () =>
+    h.getSessionFails ? Promise.reject(new Error("offline")) : Promise.resolve(h.session),
+}));
 vi.mock("@/lib/analytics/posthog", () => ({
   captureAnalyticsEvent: vi.fn(),
   noteSignupCompleted: (...a: unknown[]) => h.note(...a),
@@ -56,7 +64,12 @@ vi.mock("@/components/auth/WalletAuthButton", () => ({
 }));
 
 const { LoginPageClient } = await import("@/app/(auth)/login/LoginPageClient");
-const { PENDING_RECOVERY_EMAIL_KEY } = await import("@/lib/onboarding/pending-recovery-email");
+const { PENDING_RECOVERY_EMAIL_KEY: PENDING_BASE } = await import(
+  "@/lib/onboarding/pending-recovery-email"
+);
+/** The new account's (id 7) scoped keys. */
+const PENDING_RECOVERY_EMAIL_KEY = `${PENDING_BASE}::7`;
+const RETURN_TO_KEY = "bcc:onboarding-return-to::7";
 
 beforeAll(() => {
   window.matchMedia = ((q: string) => ({
@@ -75,6 +88,8 @@ beforeEach(() => {
   vi.clearAllMocks();
   window.sessionStorage.clear();
   for (const k of [...h.searchParams.keys()]) h.searchParams.delete(k);
+  h.session = { user: { id: "7" } };
+  h.getSessionFails = false;
 });
 
 afterEach(cleanup);
@@ -97,7 +112,7 @@ describe("a wallet signup from the /login modal", () => {
     await waitFor(() => expect(h.replace).toHaveBeenCalledWith("/onboarding"));
     expect(h.replace).toHaveBeenCalledTimes(1);
     // #288 review: the deep link is kept for when onboarding finishes.
-    expect(window.sessionStorage.getItem("bcc:onboarding-return-to")).toBe("/v/some-validator");
+    expect(window.sessionStorage.getItem(RETURN_TO_KEY)).toBe("/v/some-validator");
     // The signup marker fires once, from the modal — not again here.
     expect(h.note).toHaveBeenCalledTimes(1);
     expect(h.note).toHaveBeenCalledWith("wallet");
@@ -111,6 +126,34 @@ describe("a wallet signup from the /login modal", () => {
     fireEvent.click(screen.getByRole("button", { name: /stub wallet signup succeeds/i }));
     await waitFor(() => expect(h.replace).toHaveBeenCalledWith("/onboarding"));
     expect(window.sessionStorage.getItem(PENDING_RECOVERY_EMAIL_KEY)).toBe("me@example.com");
+  });
+
+  it("keys both hand-offs to the new account and writes nothing unscoped", async () => {
+    h.searchParams.set("callbackUrl", "/v/some-validator");
+    const dialog = openModal();
+    const email = dialog.querySelector<HTMLInputElement>('input[type="email"]');
+    if (email === null) throw new Error("no email input");
+    fireEvent.change(email, { target: { value: "me@example.com" } });
+    fireEvent.click(screen.getByRole("button", { name: /stub wallet signup succeeds/i }));
+    await waitFor(() => expect(h.replace).toHaveBeenCalledWith("/onboarding"));
+    expect(Object.keys(window.sessionStorage).sort()).toEqual(
+      [RETURN_TO_KEY, PENDING_RECOVERY_EMAIL_KEY].sort(),
+    );
+  });
+
+  it.each([
+    ["no session", () => { h.session = null; }],
+    ["the session read failing", () => { h.getSessionFails = true; }],
+  ])("stores nothing with %s, and still routes to /onboarding", async (_label, arrange) => {
+    arrange();
+    h.searchParams.set("callbackUrl", "/v/some-validator");
+    const dialog = openModal();
+    const email = dialog.querySelector<HTMLInputElement>('input[type="email"]');
+    if (email === null) throw new Error("no email input");
+    fireEvent.change(email, { target: { value: "me@example.com" } });
+    fireEvent.click(screen.getByRole("button", { name: /stub wallet signup succeeds/i }));
+    await waitFor(() => expect(h.replace).toHaveBeenCalledWith("/onboarding"));
+    expect(Object.keys(window.sessionStorage)).toEqual([]);
   });
 
   it("stores nothing when no email was entered", async () => {

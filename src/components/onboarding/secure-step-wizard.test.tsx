@@ -179,6 +179,40 @@ describe("an account that already has a recovery email", () => {
     expect(readout()).toContain("Step 1 of 7");
   });
 
+  it("'Let's go' while /wallets is pending goes to the step, then on to identity once it says no", () => {
+    walletsState.data = undefined;
+    walletsState.isPending = true;
+    const view = render(wizard());
+    fireEvent.click(btn(/let.s go/i));
+    expect(heading()).toBe("Secure your account");
+    expect(screen.getByText(/Checking your account/)).toBeTruthy();
+
+    walletsState.isPending = false;
+    setHasRecovery(true);
+    view.rerender(wizard());
+    expect(heading()).toContain("Put a face to it");
+    expect(window.location.search).toBe("?step=identity");
+  });
+
+  it("'Let's go' while pending keeps the step once /wallets says it applies", () => {
+    walletsState.data = undefined;
+    walletsState.isPending = true;
+    const view = render(wizard());
+    fireEvent.click(btn(/let.s go/i));
+    walletsState.isPending = false;
+    setHasRecovery(false);
+    view.rerender(wizard());
+    expect(heading()).toBe("Secure your account");
+    expect(readout()).toContain("Step 2 of 8");
+  });
+
+  it("'Skip setup' drops this member's pending signup email", () => {
+    window.sessionStorage.setItem("bcc:pending-recovery-email::4242", "me@example.com");
+    render(wizard());
+    fireEvent.click(btn(/skip setup/i));
+    expect(window.sessionStorage.getItem("bcc:pending-recovery-email::4242")).toBeNull();
+  });
+
   it("also omits the step when the /wallets read failed", () => {
     walletsState.data = undefined;
     render(wizard());
