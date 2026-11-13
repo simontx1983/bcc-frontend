@@ -233,6 +233,7 @@ import {
 import {
   pendingBearer,
   rememberSessionBearer,
+  sessionBearerAfterRejectedRefresh,
   supersedingBearer,
 } from "@/lib/auth/current-bearer";
 import { updateSessionBearer } from "@/lib/auth/session-update";
@@ -319,10 +320,17 @@ export async function bccFetchAsClient<T>(
     if (refreshed.kind === "refreshed") {
       effectiveToken = refreshed.token;
     } else if (refreshed.kind === "rejected") {
-      // Proven dead. End the session once (single-flight) and send the
-      // request anonymously so the caller still gets a real answer.
-      void endSession("expired", { notice: "signed-out" });
-      effectiveToken = null;
+      // This bearer is dead. Before ending the session, check whether the
+      // session cookie has moved on (another tab refreshed): then carry on
+      // with that one. Otherwise end the session once (single-flight) and
+      // send the request anonymously so the caller still gets a real answer.
+      const moved = await sessionBearerAfterRejectedRefresh(sessionToken, epochAtDispatch);
+      if (moved !== null) {
+        effectiveToken = moved;
+      } else {
+        void endSession("expired", { notice: "signed-out" });
+        effectiveToken = null;
+      }
     } else if (refreshed.kind === "standing-refused") {
       // The account is suspended. The backend refuses to refresh
       // precisely so the viewer is pushed through sign-out and re-login,
@@ -416,6 +424,25 @@ export async function bccFetchAsClient<T>(
         return retried;
       }
       if (refreshed.kind === "rejected") {
+        // The refused bearer is dead — but the session may not be: another
+        // tab may have refreshed and moved the cookie on (the old token
+        // dies 120 s after a refresh). Retry once with the cookie's bearer;
+        // only if there is none, or it is refused too, end the session.
+        const moved = await sessionBearerAfterRejectedRefresh(tokenToRefresh, epochAtDispatch);
+        if (moved !== null) {
+          try {
+            const retried = await bccFetch<T>(path, { ...options, token: moved });
+            if (isStaleEpoch(epochAtDispatch)) {
+              throw new StaleViewerError(path);
+            }
+            return retried;
+          } catch (movedErr) {
+            if (!(movedErr instanceof BccApiError) || movedErr.status !== 401) {
+              throw movedErr;
+            }
+            lastErr = movedErr;
+          }
+        }
         // Single-flight, so a burst of simultaneous 401s produces exactly
         // one teardown.
         void endSession("expired", { notice: "signed-out" });
@@ -579,7 +606,12 @@ async function tryRefresh(currentToken: string): Promise<RefreshResult> {
     // works because the caller holds the fresh token, and the cost is one
     // extra refresh round-trip on the next call. The password-change
     // caller treats the same failure very differently — see that flow.
-    await updateSessionBearer({ token: newToken, expiresIn });
+    // One retry: since a refresh retires the old token after a short
+    // overlap, a session write that fails leaves a reload holding a token
+    // that will soon be refused.
+    if (!(await updateSessionBearer({ token: newToken, expiresIn }))) {
+      await updateSessionBearer({ token: newToken, expiresIn });
+    }
 
     return { kind: "refreshed", token: newToken };
   } catch {
@@ -599,11 +631,17 @@ async function tryRefresh(currentToken: string): Promise<RefreshResult> {
 export async function resolveAuthFailure(
   token: string,
 ): Promise<string | null> {
+  const epoch = currentViewerEpoch();
   const refreshed = await tryRefresh(token);
   if (refreshed.kind === "refreshed") {
     return refreshed.token;
   }
   if (refreshed.kind === "rejected") {
+    // As in bccFetchAsClient: the cookie may already hold a newer bearer.
+    const moved = await sessionBearerAfterRejectedRefresh(token, epoch);
+    if (moved !== null) {
+      return moved;
+    }
     void endSession("expired", { notice: "signed-out" });
   } else if (refreshed.kind === "standing-refused") {
     void endSession("expired", { notice: "standing" });
