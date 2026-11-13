@@ -16,7 +16,10 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
-vi.mock("next/navigation", () => ({ useSearchParams: () => new URLSearchParams() }));
+// Mutable so the seeded-roster checks can render the `?tab=backing` deep link:
+// since dev note 31 the default panel is Activity, not Supporters.
+const nav = vi.hoisted(() => ({ query: "" }));
+vi.mock("next/navigation", () => ({ useSearchParams: () => new URLSearchParams(nav.query) }));
 vi.mock("next/dynamic", () => ({
   default: () => {
     const S = () => null;
@@ -58,7 +61,8 @@ const { ProfileTabs } = await import("@/components/profile/ProfileTabs");
 const PROFILE = { handle: "dana", display_name: "Dana", user_id: 42, bio: "" } as never;
 const SEED = { rows: ["Seeded Supporter A", "Seeded Supporter B"] } as never;
 
-function ssr(isOwner: boolean, withSeed = true) {
+function ssr(isOwner: boolean, withSeed = true, query = "") {
+  nav.query = query;
   return renderToStaticMarkup(
     <ProfileTabs
       handle="dana"
@@ -79,29 +83,33 @@ describe("the anonymous default survives server rendering", () => {
   const html = ssr(false);
 
   it("renders the four visitor groups in the HTML itself", () => {
-    for (const g of ["Reputation", "Network", "Activity", "Content"]) {
+    for (const g of ["Activity", "Reputation", "Network", "Content"]) {
       expect(html, `${g} missing from server HTML`).toContain(`>${g}<`);
     }
   });
 
-  it("selects NETWORK up top while the leaf stays Supporters", () => {
-    // The visitor's landing key is unchanged (`backing`); the regrouping only
-    // changed which parent lights up.
-    expect(html).toMatch(/id="tab-network"[^>]*aria-selected="true"/);
-    expect(html).not.toMatch(/id="tab-reputation"[^>]*aria-selected="true"/);
-    expect(html).toContain('id="profile-leaf-tab-backing"');
-    expect(html).toMatch(/id="profile-leaf-tab-backing"[^>]*aria-selected="true"/);
+  it("selects ACTIVITY up top for a visitor (dev note 31)", () => {
+    expect(html).toMatch(/id="tab-activity"[^>]*aria-selected="true"/);
+    expect(html).not.toMatch(/id="tab-network"[^>]*aria-selected="true"/);
+    expect(html).toContain('data-testid="activity"');
+  });
+
+  it("a ?tab=backing deep link selects NETWORK with the Supporters leaf", () => {
+    const deep = ssr(false, true, "tab=backing");
+    expect(deep).toMatch(/id="tab-network"[^>]*aria-selected="true"/);
+    expect(deep).toMatch(/id="profile-leaf-tab-backing"[^>]*aria-selected="true"/);
   });
 
   it("keeps the SEEDED roster rows in the server HTML", () => {
     // This is what a crawler reads. If Supporters had slipped behind a lazy
     // boundary, these rows would be gone and the page would look empty.
-    expect(html).toContain("Seeded Supporter A");
-    expect(html).toContain("Seeded Supporter B");
+    const deep = ssr(false, true, "tab=backing");
+    expect(deep).toContain("Seeded Supporter A");
+    expect(deep).toContain("Seeded Supporter B");
   });
 
   it("still renders the panel when no seed is supplied", () => {
-    expect(ssr(false, false)).toContain('data-testid="supporters"');
+    expect(ssr(false, false, "tab=backing")).toContain('data-testid="supporters"');
   });
 
   it("leaks NO owner navigation into anonymous HTML", () => {
@@ -123,7 +131,7 @@ describe("the owner's server render is a superset, not a different shape", () =>
   const html = ssr(true);
 
   it("renders five groups", () => {
-    for (const g of ["My Profile", "Reputation", "Network", "Activity", "Content"]) {
+    for (const g of ["Activity", "Reputation", "Network", "Content", "My Profile"]) {
       expect(html).toContain(`>${g}<`);
     }
   });
