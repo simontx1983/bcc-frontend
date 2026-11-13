@@ -32,7 +32,7 @@ export default async function MemberBlogsPage({ params }: PageProps) {
   const aboutHref = `/u/${encodeURIComponent(profile.handle)}/about` as Route;
 
   return (
-    <main className="mx-auto w-full max-w-[640px] px-4 pb-24 pt-4">
+    <div className="mx-auto w-full max-w-[640px] px-4 pb-24 pt-4">
       <AboutBackLink href={aboutHref}>Back to about</AboutBackLink>
       <h1
         className="bcc-stencil mt-4 uppercase leading-[0.95] text-bcc-text"
@@ -43,6 +43,6 @@ export default async function MemberBlogsPage({ params }: PageProps) {
       <div className="mt-6">
         <UserBlogList handle={profile.handle} />
       </div>
-    </main>
+    </div>
   );
 }
