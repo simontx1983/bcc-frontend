@@ -5,6 +5,9 @@
  *
  *   - useJoinPlainGroupMutation  — POST /me/groups/:id/join
  *   - useLeavePlainGroupMutation — POST /me/groups/:id/leave
+ *   - F-272 (closed / secret groups): useRequestJoinGroupMutation,
+ *     useCancelJoinRequestMutation, useAcceptGroupInviteMutation,
+ *     useDeclineGroupInviteMutation, and the useMyGroupInvites list
  *
  * Mirrors the `useHallsPrimary` pattern — no cache surgery, the
  * caller drives `router.refresh()` (or component-local re-render) on
@@ -21,16 +24,23 @@
 
 import {
   useMutation,
+  useQuery,
   useQueryClient,
   type UseMutationOptions,
 } from "@tanstack/react-query";
+import { useSession } from "next-auth/react";
 
 import { GROUP_MEMBERS_QUERY_KEY_ROOT } from "@/hooks/useGroupMembers";
 import { USER_GROUPS_QUERY_KEY_ROOT } from "@/hooks/useUserActivity";
 import {
+  acceptGroupInvite,
+  cancelJoinRequest,
   createPlainGroup,
+  declineGroupInvite,
+  getMyGroupInvites,
   joinPlainGroup,
   leavePlainGroup,
+  requestJoinGroup,
   setGroupPostPolicy,
   transferGroupOwnership,
 } from "@/lib/api/my-groups-endpoints";
@@ -39,7 +49,9 @@ import type {
   BccApiError,
   CreatePlainGroupRequest,
   CreatePlainGroupResponse,
+  GroupMembershipChangeResponse,
   JoinPlainGroupResponse,
+  MyGroupInvitesResponse,
   LeavePlainGroupResponse,
   SetGroupPostPolicyResponse,
   TransferCommunityResponse,
@@ -158,5 +170,71 @@ export function useSetGroupPostPolicyMutation(
     mutationFn: ({ groupId, publicAllMembers }) =>
       setGroupPostPolicy(groupId, publicAllMembers),
     ...options,
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// F-272 — closed-group requests and invitations (viewer side).
+//
+// Each write refreshes the group's server-rendered page through the same
+// `useGroupContentRefresh` the join/leave hooks use, so the strip shows
+// the new status (Requested, Member, …) from the server. Accept / decline
+// also re-read the caller's invitation list.
+// ─────────────────────────────────────────────────────────────────────
+
+export const MY_GROUP_INVITES_QUERY_KEY = ["me", "group-invites"] as const;
+
+type MembershipMutationOptions = Omit<
+  UseMutationOptions<GroupMembershipChangeResponse, BccApiError, number>,
+  "mutationFn"
+>;
+
+export function useRequestJoinGroupMutation(options: MembershipMutationOptions = {}) {
+  const withRefresh = useGroupContentRefresh(options);
+  return useMutation<GroupMembershipChangeResponse, BccApiError, number>({
+    mutationFn: (groupId) => requestJoinGroup(groupId),
+    ...withRefresh,
+  });
+}
+
+export function useCancelJoinRequestMutation(options: MembershipMutationOptions = {}) {
+  const withRefresh = useGroupContentRefresh(options);
+  return useMutation<GroupMembershipChangeResponse, BccApiError, number>({
+    mutationFn: (groupId) => cancelJoinRequest(groupId),
+    ...withRefresh,
+  });
+}
+
+function useInviteAnswerMutation(
+  answer: (groupId: number) => Promise<GroupMembershipChangeResponse>,
+  options: MembershipMutationOptions,
+) {
+  const queryClient = useQueryClient();
+  const withRefresh = useGroupContentRefresh(options);
+  return useMutation<GroupMembershipChangeResponse, BccApiError, number>({
+    mutationFn: (groupId) => answer(groupId),
+    ...withRefresh,
+    onSettled: (...args) => {
+      void queryClient.invalidateQueries({ queryKey: MY_GROUP_INVITES_QUERY_KEY });
+      withRefresh.onSettled?.(...args);
+    },
+  });
+}
+
+export function useAcceptGroupInviteMutation(options: MembershipMutationOptions = {}) {
+  return useInviteAnswerMutation(acceptGroupInvite, options);
+}
+
+export function useDeclineGroupInviteMutation(options: MembershipMutationOptions = {}) {
+  return useInviteAnswerMutation(declineGroupInvite, options);
+}
+
+/** GET /me/group-invites — signed-in only (it is a /me route). */
+export function useMyGroupInvites() {
+  const { status } = useSession();
+  return useQuery<MyGroupInvitesResponse, BccApiError>({
+    queryKey: MY_GROUP_INVITES_QUERY_KEY,
+    queryFn: ({ signal }) => getMyGroupInvites({ limit: 50 }, signal),
+    enabled: status === "authenticated",
   });
 }

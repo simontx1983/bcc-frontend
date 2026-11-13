@@ -6071,6 +6071,14 @@ export interface GroupDetailPermissions {
   can_join: GroupDetailPermissionEntry;
   can_leave: GroupDetailPermissionEntry;
   can_read_feed: GroupDetailPermissionEntry;
+  /**
+   * F-272 (v1.132) — may this viewer ASK to join? Allowed only for a
+   * signed-in non-member of a closed plain (`user` / `system`) group.
+   * `reason_code` ∈ auth_required | already_member | not_applicable |
+   * already_requested | invited | not_eligible | cooldown. Optional for
+   * deploy skew.
+   */
+  can_request_join?: GroupDetailPermissionEntry;
 }
 
 /**
@@ -6084,6 +6092,40 @@ export interface GroupViewerMembership {
   is_member: boolean;
   /** ISO 8601 UTC. Only populated when `is_member` is true. */
   joined_at: string | null;
+  /**
+   * F-272 (v1.132): `requested` = the viewer's join request is pending,
+   * `invited` = they hold an invitation. A banned row reads `none`.
+   * Optional for deploy skew.
+   */
+  status?: GroupMembershipStatus;
+}
+
+export type GroupMembershipStatus = "none" | "requested" | "invited" | "member";
+
+/** One of the caller's open invitations — GET /me/group-invites (F-272). */
+export interface MyGroupInvite {
+  group: {
+    id: number;
+    slug: string;
+    name: string;
+    privacy: GroupDiscoveryPrivacy;
+    links: { self: string };
+  };
+  invited_by: { handle: string; display_name: string } | null;
+  invited_at: string;
+}
+
+/** The small `{ status, group_id }` answer of the F-272 membership writes. */
+export interface GroupMembershipChangeResponse {
+  status: GroupMembershipStatus;
+  group_id: number;
+  /** Present on invite/accept. */
+  joined?: boolean;
+}
+
+export interface MyGroupInvitesResponse {
+  items: MyGroupInvite[];
+  pagination: { offset: number; limit: number; has_more: boolean };
 }
 
 /**
@@ -6135,6 +6177,11 @@ export interface GroupDetailResponse {
   validator_stats?: GroupValidatorStats | null;
   viewer_membership: GroupViewerMembership | null;
   permissions: GroupDetailPermissions;
+  /**
+   * F-272 (v1.132): pending join requests on a closed plain group — an int
+   * for the group's owner / manager / site admin, `null` for everyone else.
+   */
+  pending_request_count?: number | null;
   feed_visible: boolean;
   members_visible: boolean;
   /**
