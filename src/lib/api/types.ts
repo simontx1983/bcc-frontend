@@ -1720,6 +1720,12 @@ export interface NotificationItem {
   actor: NotificationActor;
   /** Server-built click-through. Always relative; safe to pass to <Link>. */
   link: string;
+  /**
+   * F-245 (bcc-trust #660): false when the post a REACTION / MENTION /
+   * COMMENT_RECEIVED row points at is gone or hidden from this viewer.
+   * Absent (older backend) means available.
+   */
+  target_available?: boolean;
 }
 
 export interface NotificationsListPagination {
