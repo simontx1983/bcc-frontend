@@ -435,7 +435,7 @@ export default async function MemberProfilePage({ params, searchParams }: PagePr
             )}
             {/* Message — moved off the retired member card. Signed-in
                 visitors only (as before); server can_message gates it. */}
-            {session !== null && (
+            {session !== null && !isOwner && (
               <ProfileMessageButton
                 permissions={profile.permissions}
                 // card.id, exactly what the card's MessagePill received.
