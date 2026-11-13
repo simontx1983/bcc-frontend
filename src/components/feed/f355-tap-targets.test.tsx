@@ -138,9 +138,7 @@ describe("F-355 safe-area inset on the mobile bar", () => {
     // declarations are pinned in the source; the render proves the bar
     // still mounts as the fixed bottom nav.
     const src = read("src/components/layout/nav/MobileNav.tsx");
-    expect(src).toContain(
-      'height: "calc(var(--bcc-mobile-nav-h) + env(safe-area-inset-bottom, 0px))"',
-    );
+    expect(src).toContain('height: "var(--bcc-mobile-nav-total-h)"');
     expect(src).toContain('paddingBottom: "env(safe-area-inset-bottom, 0px)"');
     const { container } = render(<MobileNav onMenuOpen={() => undefined} />);
     const nav = container.querySelector('nav[aria-label="Mobile navigation"]') as HTMLElement;
@@ -148,10 +146,46 @@ describe("F-355 safe-area inset on the mobile bar", () => {
     expect(nav.style.bottom).toBe("0px");
   });
 
-  it("the centre column clears the bar plus the inset", () => {
+  it("one var carries the bar's total height (body + home-indicator inset)", () => {
     expect(read("src/app/globals.css")).toContain(
-      ".bcc-col-center { padding-bottom: calc(var(--bcc-mobile-nav-h) + env(safe-area-inset-bottom, 0px)); }",
+      "--bcc-mobile-nav-total-h: calc(var(--bcc-mobile-nav-h) + env(safe-area-inset-bottom, 0px));",
     );
+  });
+
+  it("everything that clears the bar uses the total, never the bare 60px", () => {
+    const css = read("src/app/globals.css");
+    expect(css).toContain(".bcc-col-center { padding-bottom: var(--bcc-mobile-nav-total-h); }");
+    expect(css).toContain("bottom: calc(var(--bcc-mobile-nav-total-h) + 16px);"); // resume FAB
+    expect(css).toContain("bottom: calc(var(--bcc-mobile-nav-total-h) + 72px);"); // its tooltip
+    expect(read("src/components/layout/nav/MobileNav.tsx")).toContain(
+      'height: "var(--bcc-mobile-nav-total-h)"',
+    );
+    for (const f of [
+      "src/components/analytics/AnalyticsConsentBanner.tsx",
+      "src/components/admin/UndoToast.tsx",
+      "src/components/auth/AuthRedirectNotice.tsx",
+    ]) {
+      expect(read(f), f).toContain("bottom-[calc(var(--bcc-mobile-nav-total-h)+16px)]");
+    }
+    // The bare token may only appear in its own definition and the total.
+    const bare = [...css.matchAll(/var\(--bcc-mobile-nav-h\)/g)];
+    expect(bare).toHaveLength(1);
+  });
+
+  it("cover's landscape side insets are cleared by the body, the header and the bar", () => {
+    const css = read("src/app/globals.css");
+    expect(css).toContain(
+      "padding: 0 env(safe-area-inset-right, 0px) 0 env(safe-area-inset-left, 0px);",
+    );
+    expect(css).toContain(
+      "padding: 0 calc(16px + env(safe-area-inset-right, 0px)) 0 calc(10px + env(safe-area-inset-left, 0px));",
+    );
+    expect(css).toContain(
+      "padding: 0 calc(10px + env(safe-area-inset-right, 0px)) 0 calc(6px + env(safe-area-inset-left, 0px));",
+    );
+    const nav = read("src/components/layout/nav/MobileNav.tsx");
+    expect(nav).toContain('paddingLeft: "env(safe-area-inset-left, 0px)"');
+    expect(nav).toContain('paddingRight: "env(safe-area-inset-right, 0px)"');
   });
 
   it("the viewport opts in to viewport-fit=cover, or every inset is 0", () => {
