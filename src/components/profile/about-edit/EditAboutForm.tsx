@@ -362,10 +362,9 @@ export function EditAboutForm({
       </div>
 
       {/* Sticky Cancel / Save bar. Mobile: fixed just above the bottom nav
-          (z under its 200). md+: sticky to the column's bottom edge.
-          TODO(#281): switch the offset to --bcc-mobile-nav-total-h once
-          #281 merges (it adds the safe-area inset to the nav height). */}
-      <div className="fixed inset-x-0 bottom-[var(--bcc-mobile-nav-h)] z-[150] border-t border-bcc-border bg-bcc-surface px-4 py-3 md:sticky md:inset-x-auto md:bottom-0 md:z-10 md:mt-6">
+          (z under its 200), offset by the bar's TOTAL height incl. the
+          iPhone home-indicator inset. md+: sticky to the column's bottom. */}
+      <div className="fixed inset-x-0 bottom-[var(--bcc-mobile-nav-total-h)] z-[150] border-t border-bcc-border bg-bcc-surface px-4 py-3 md:sticky md:inset-x-auto md:bottom-0 md:z-10 md:mt-6">
         <div className="mx-auto flex w-full max-w-[640px] flex-wrap items-center justify-between gap-x-3 gap-y-2">
           <SettingsSaveStatus status={status} errorMessage={errorMessage} minWidthClass="min-w-0" />
           <div className="ml-auto flex items-center gap-2">
