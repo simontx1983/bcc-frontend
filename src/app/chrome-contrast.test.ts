@@ -164,6 +164,26 @@ describe("3. --bcc-text-muted is not readable text in chrome", () => {
     expect(ratio(rgb("#8b949e"), rgb("#0d1117"))).toBeGreaterThanOrEqual(4.5); // dark header
     expect(ratio(rgb("#8b949e"), rgb("#161b22"))).toBeGreaterThanOrEqual(4.5); // dark surface
   });
+
+  // The mobile bar is now a solid page-ground bar (Handoff v1), not the
+  // translucent header glass — so its labels sit on --bcc-bg itself. Read
+  // the real ground from the stylesheet so a token change re-measures.
+  it("the mobile bar sits on the opaque --bcc-bg, and its labels clear 4.5:1 on it", () => {
+    const nav = read("src/components/layout/nav/MobileNav.tsx");
+    expect(nav).toContain('background: "var(--bcc-bg)"');
+    expect(nav).not.toContain("var(--bcc-header-bg)");
+    const tokens = (n: string) =>
+      [...CSS.matchAll(new RegExp(`--${n}:\\s*(#[0-9a-fA-F]{6});`, "g"))].map((m) => m[1] ?? "");
+    const bg = tokens("bcc-bg");
+    const secondary = tokens("bcc-text-secondary");
+    const text = tokens("bcc-text");
+    // Scope 0 = light :root, last = [data-theme="dark"].
+    for (const i of [0, bg.length - 1]) {
+      const ground = rgb(bg[i] ?? "");
+      expect(ratio(rgb(secondary[i] ?? ""), ground)).toBeGreaterThanOrEqual(4.5);
+      expect(ratio(rgb(text[i] ?? ""), ground)).toBeGreaterThanOrEqual(4.5);
+    }
+  });
 });
 
 /**
