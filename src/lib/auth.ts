@@ -43,6 +43,93 @@ import { publicDisplayNameOrEmpty } from "@/lib/format";
 import type { ApiSuccess, AuthTokenResponse } from "@/lib/api/types";
 import type { OAuthHandleRequiredResponse } from "@/lib/api/auth-endpoints";
 
+/** GET /auth/session data (contract §4, owned by bcc-trust AuthSupport). */
+interface BccSessionData {
+  user_id: number;
+  handle: string;
+  /** Fails OPEN on the backend: display only, never a security gate. */
+  in_good_standing: boolean;
+  /** Unix seconds — the token's own `exp`. */
+  expires_at: number;
+}
+
+const SESSION_MAX_AHEAD_MS = 30 * 24 * 60 * 60 * 1000;
+/** The backend treats a token as expired only after exp + 60s of skew. */
+const SESSION_EXP_SKEW_MS = 60 * 1000;
+
+/**
+ * Resolve the session for a BCC bearer token by asking the backend.
+ *
+ * The token is the only input. GET /auth/session decodes it server-side
+ * (the Bearer header, never a cookie) and returns the CURRENT handle,
+ * standing and the token's exp. Throws `bcc_*` codes that NextAuth hands
+ * back as `signIn(...).error`:
+ *   401 → bcc_unauthorized (missing / invalid / expired / revoked)
+ *   409 → bcc_invalid_state (no handle) — no session
+ *   429 → bcc_rate_limited
+ * and `bcc_invalid_envelope` for a malformed body or an expiry outside
+ * (now − 60s, now + 30d].
+ */
+export async function resolveBccSession(token: string): Promise<{
+  id: string;
+  handle: string;
+  bccToken: string;
+  bccTokenExpiresAt: number;
+  inGoodStanding: boolean;
+}> {
+  let response: Response;
+  try {
+    response = await fetch(`${clientEnv.BCC_API_URL}/wp-json/bcc/v1/auth/session`, {
+      method: "GET",
+      headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+      cache: "no-store",
+    });
+  } catch {
+    throw new Error("bcc_network_error");
+  }
+
+  const parsed = (await response.json().catch(() => null)) as
+    | ApiSuccess<BccSessionData>
+    | { error?: { code?: string } }
+    | null;
+
+  if (!response.ok) {
+    const code =
+      parsed && "error" in parsed && typeof parsed.error?.code === "string"
+        ? parsed.error.code
+        : "bcc_unknown";
+    throw new Error(code);
+  }
+
+  const data = parsed && "data" in parsed ? parsed.data : null;
+  if (
+    data === null ||
+    typeof data !== "object" ||
+    !Number.isInteger(data.user_id) ||
+    data.user_id <= 0 ||
+    typeof data.handle !== "string" ||
+    data.handle === "" ||
+    typeof data.in_good_standing !== "boolean" ||
+    !Number.isInteger(data.expires_at)
+  ) {
+    throw new Error("bcc_invalid_envelope");
+  }
+
+  const expiresAtMs = data.expires_at * 1000;
+  const now = Date.now();
+  if (expiresAtMs <= now - SESSION_EXP_SKEW_MS || expiresAtMs > now + SESSION_MAX_AHEAD_MS) {
+    throw new Error("bcc_invalid_envelope");
+  }
+
+  return {
+    id: String(data.user_id),
+    handle: data.handle,
+    bccToken: token,
+    bccTokenExpiresAt: expiresAtMs,
+    inGoodStanding: data.in_good_standing,
+  };
+}
+
 /**
  * The email an OAuth sign-in may forward to the BCC bridge, or "".
  *
@@ -282,39 +369,29 @@ export const authOptions: NextAuthOptions = {
     // reachable, letting anyone drive /auth/login from the server's IP:
     // a brute-force path that skipped the per-client throttle.
 
-    // Post-verification bridge — accepts a BCC JWT that was just minted by
-    // /auth/verify-email (or /auth/wallet-signup) and already validated
-    // server-side. No second backend call; the token will be validated on
-    // every subsequent API call via Bearer. Used by the verify-email page
-    // so the user is signed in immediately after OTP confirmation.
+    // Post-verification bridge — signs in with a BCC JWT just minted by
+    // /auth/login (+ 2FA), /auth/verify-email, /auth/wallet-signup or
+    // complete-profile.
+    //
+    // ONLY the token is taken from the POST. Identity, standing and expiry
+    // come from GET /auth/session, which validates the token server-side
+    // (signature, issuer, audience, version, revocation, exp). Before this,
+    // authorize() returned the POSTed user_id/handle as the session, so
+    // anyone could mint a session for any account by posting to
+    // /api/auth/callback/bcc-verified. Callers may still send the other
+    // fields; they are ignored.
     Credentials({
       id: "bcc-verified",
       name: "BCC Verified",
       credentials: {
-        user_id:          { label: "User ID",       type: "text" },
-        handle:           { label: "Handle",        type: "text" },
-        token:            { label: "Token",         type: "text" },
-        expires_in:       { label: "Expires In",    type: "text" },
-        in_good_standing: { label: "Good Standing", type: "text" },
+        token: { label: "Token", type: "text" },
       },
       async authorize(credentials) {
-        const userId      = credentials?.user_id?.trim()  ?? "";
-        const handle      = credentials?.handle?.trim()   ?? "";
-        const token       = credentials?.token            ?? "";
-        const expiresIn   = parseInt(credentials?.expires_in ?? "0", 10);
-        const inGoodStanding = credentials?.in_good_standing === "true";
-
-        if (userId === "" || handle === "" || token === "") {
+        const token = credentials?.token ?? "";
+        if (token === "") {
           throw new Error("bcc_invalid_request");
         }
-
-        return {
-          id: userId,
-          handle,
-          bccToken: token,
-          bccTokenExpiresAt: Date.now() + expiresIn * 1000,
-          inGoodStanding,
-        };
+        return await resolveBccSession(token);
       },
     }),
 
@@ -473,9 +550,12 @@ export const authOptions: NextAuthOptions = {
       // because the new bccTokenExpiresAt is way in the future, so
       // the predicate evaluates false. The blanking only fires when
       // a refresh wasn't attempted OR the refresh failed.
+      // A non-finite expiry (e.g. NaN from a malformed value) counts as
+      // expired: `Date.now() >= NaN` is false, which used to keep the
+      // bearer forever.
       if (
         typeof token.bccTokenExpiresAt === "number" &&
-        Date.now() >= token.bccTokenExpiresAt
+        (!Number.isFinite(token.bccTokenExpiresAt) || Date.now() >= token.bccTokenExpiresAt)
       ) {
         token.bccToken = "";
       }
