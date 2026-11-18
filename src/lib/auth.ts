@@ -38,6 +38,7 @@ import GoogleProvider from "next-auth/providers/google";
 import TwitterProvider from "next-auth/providers/twitter";
 
 import { analyticsIdFor } from "@/lib/analytics/analytics-id";
+import { bearerFailsConsistencyCheck, readBearerConsistencyClaims } from "@/lib/auth/bearer-claims";
 import { clientEnv, serverEnv } from "@/lib/env";
 import { publicDisplayNameOrEmpty } from "@/lib/format";
 import type { ApiSuccess, AuthTokenResponse } from "@/lib/api/types";
@@ -272,6 +273,32 @@ async function callBccOauth(body: {
   return parsed.data;
 }
 
+/**
+ * F-358: may `candidate` replace this session's bearer through the jwt
+ * `update` seam? Only if its claims name THIS session's user, and — when the
+ * current bearer is readable — it is not older than the current one (a lower
+ * token version was minted before a revocation the current one carries).
+ *
+ * The claims are read without signature verification (bearer-claims): this
+ * can only REFUSE, never establish anything. An unreadable or claimless
+ * candidate, or a session with no user id, is refused.
+ */
+function bearerMayReplaceSessionBearer(candidate: string, sessionUserId: unknown, current: unknown): boolean {
+  const claims = readBearerConsistencyClaims(candidate);
+  if (claims === null) {
+    return false;
+  }
+  const userId =
+    typeof sessionUserId === "string" || typeof sessionUserId === "number" ? String(sessionUserId) : "";
+  if (userId === "" || claims.subject !== userId) {
+    return false;
+  }
+  if (readBearerConsistencyClaims(current) !== null && bearerFailsConsistencyCheck(candidate, current)) {
+    return false;
+  }
+  return true;
+}
+
 export const authOptions: NextAuthOptions = {
   // JWT-strategy sessions — required for headless deploys where the
   // Next.js host doesn't share cookies with the WP origin.
@@ -488,11 +515,21 @@ export const authOptions: NextAuthOptions = {
           bccTokenExpiresAt?: unknown;
           refreshHandle?: unknown;
         };
-        if (typeof next.bccToken === "string" && next.bccToken !== "") {
+        // F-358: a replacement bearer is adopted only when it belongs to
+        // THIS session's user — a second layer behind the client's
+        // subject + epoch guard (lib/auth/current-bearer), so a token for
+        // another account can never be swapped into this session through
+        // this seam. Its expiry travels with it: a refused token's expiry
+        // is refused too.
+        if (
+          typeof next.bccToken === "string" &&
+          next.bccToken !== "" &&
+          bearerMayReplaceSessionBearer(next.bccToken, token.id, token.bccToken)
+        ) {
           token.bccToken = next.bccToken;
-        }
-        if (typeof next.bccTokenExpiresAt === "number") {
-          token.bccTokenExpiresAt = next.bccTokenExpiresAt;
+          if (typeof next.bccTokenExpiresAt === "number") {
+            token.bccTokenExpiresAt = next.bccTokenExpiresAt;
+          }
         }
         // F-333: after a handle change the session keeps the old handle
         // (written only at sign-in). The client may ASK for a refresh, but
