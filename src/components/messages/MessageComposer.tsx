@@ -9,19 +9,51 @@
  * paragraphs work like every chat surface.
  */
 
+import type { Route } from "next";
+import Link from "next/link";
 import { useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 
 import { captureAnalyticsEvent } from "@/lib/analytics/posthog";
 import { counterToneClass } from "@/lib/counter-tone";
 import { useReplyInConversationMutation } from "@/hooks/useReplyInConversation";
 import { humanizeCode } from "@/lib/api/errors";
-import { MESSAGE_BODY_MAX_LENGTH } from "@/lib/api/types";
+import { MESSAGE_BODY_MAX_LENGTH, type CardPermissionEntry } from "@/lib/api/types";
+import { resolveDmGate } from "@/lib/validators/messaging";
 
 interface MessageComposerProps {
   conversationId: number;
+  /** The thread's `conversation.can_reply` (F-246). Absent = allowed. */
+  canReply?: CardPermissionEntry | undefined;
 }
 
-export function MessageComposer({ conversationId }: MessageComposerProps) {
+/** Where the viewer's own direct-message switch lives. */
+const MESSAGE_SETTINGS_HREF = "/u/me?tab=messages" as Route;
+
+export function MessageComposer({ conversationId, canReply }: MessageComposerProps) {
+  const gate = resolveDmGate(canReply);
+  if (gate.kind !== "allowed") {
+    // F-246: say so BEFORE the user writes, instead of failing on send
+    // ("This conversation no longer exists" for a block was wrong copy).
+    return (
+      <div role="status" className="bcc-paper flex flex-col gap-2 p-4">
+        <p className="bcc-mono text-[11px] leading-snug text-bcc-text-secondary">
+          {gate.kind === "hint" ? gate.hint : "You can't reply in this conversation."}
+        </p>
+        {gate.kind === "hint" && gate.opensSettings && (
+          <Link
+            href={MESSAGE_SETTINGS_HREF}
+            className="bcc-mono w-fit text-[11px] tracking-[0.12em] text-bcc-text underline underline-offset-2"
+          >
+            Open message settings
+          </Link>
+        )}
+      </div>
+    );
+  }
+  return <ReplyForm conversationId={conversationId} />;
+}
+
+function ReplyForm({ conversationId }: { conversationId: number }) {
   const [body, setBody] = useState("");
   const [error, setError] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);

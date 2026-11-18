@@ -36,6 +36,7 @@ import { humanizeCode } from "@/lib/api/errors";
 import { getGroupsDiscovery } from "@/lib/api/groups-discovery-endpoints";
 import { COMMUNITY_CHAIN_CATALOG } from "@/lib/communities/chain-catalog";
 import { CommunityCardGrid } from "@/components/communities/CommunityCardGrid";
+import { MyGroupInvitations } from "@/components/communities/MyGroupInvitations";
 import type { GroupsDiscoveryPagination } from "@/lib/api/types";
 
 interface PageProps {
@@ -116,6 +117,11 @@ export default async function CommunitiesDiscoveryPage({ searchParams }: PagePro
           <CreateCommunityCta isAnon={isAnon} />
         </div>
       </section>
+
+      {/* F-272: the member's open invitations — the only way into a secret
+          community (user decision: here, not Settings). Renders nothing
+          when there are none. */}
+      {!isAnon && <MyGroupInvitations />}
 
       {/* Chain dropdown — own row above the scope pills so the chain
           choice reads as the primary filter axis. Scope pills below

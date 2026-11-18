@@ -124,7 +124,7 @@ export function HandleSection({ handle }: HandleSectionProps) {
             maxLength={40}
             aria-describedby={hintId}
             aria-invalid={kind !== null}
-            className="bcc-mono min-h-[44px] w-full max-w-[16rem] border border-bcc-input-border bg-bcc-input-bg px-3 py-2 text-[14px] text-bcc-text outline-none focus:border-bcc-accent focus:ring-1 focus:ring-bcc-accent disabled:opacity-50"
+            className="bcc-mono min-h-[44px] w-full max-w-[16rem] rounded-[4px] border border-bcc-input-border bg-bcc-input-bg px-3 py-2 text-[16px] text-bcc-text outline-none focus:border-bcc-accent focus:ring-1 focus:ring-bcc-accent disabled:cursor-not-allowed disabled:opacity-40"
           />
         </div>
         <p
@@ -159,7 +159,7 @@ export function HandleSection({ handle }: HandleSectionProps) {
           <button
             type="submit"
             disabled={!canSave}
-            className="bcc-stencil min-h-[44px] bg-ink px-4 text-[11px] text-cardstock transition disabled:opacity-40"
+            className="bcc-stencil min-h-[44px] rounded-[4px] bg-bcc-accent px-4 text-[11px] text-bcc-on-accent transition disabled:cursor-not-allowed disabled:bg-bcc-surface-active disabled:text-bcc-text-secondary"
           >
             {mutation.isPending ? "Saving…" : "Change handle"}
           </button>

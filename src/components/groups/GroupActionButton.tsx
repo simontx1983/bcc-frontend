@@ -26,6 +26,9 @@ export interface GroupActionButtonProps {
   /** Server `error.message` to surface inline; `null` when no error. */
   errorMessage: string | null;
   onClick: () => void;
+  /** Full 44px tap target, for a standalone primary action (the group
+   *  page strip). Off by default: dense card rows keep their size. */
+  touchTarget?: boolean;
 }
 
 export function GroupActionButton({
@@ -35,6 +38,7 @@ export function GroupActionButton({
   isPending,
   errorMessage,
   onClick,
+  touchTarget = false,
 }: GroupActionButtonProps) {
   const errorId = `bcc-action-error-${groupId}`;
   return (
@@ -54,7 +58,7 @@ export function GroupActionButton({
         }}
         disabled={isPending}
         aria-describedby={errorMessage !== null ? errorId : undefined}
-        className="bcc-mono inline-flex items-center border-2 border-bcc-border px-3 py-1.5 text-[11px] tracking-[0.18em] text-bcc-text-secondary transition motion-reduce:transition-none hover:border-bcc-border-strong hover:text-bcc-text disabled:opacity-60"
+        className={`bcc-mono inline-flex items-center border-2 border-bcc-border px-3 py-1.5 ${touchTarget ? "min-h-[44px] " : ""}text-[11px] tracking-[0.18em] text-bcc-text-secondary transition motion-reduce:transition-none hover:border-bcc-border-strong hover:text-bcc-text disabled:opacity-60`}
       >
         {isPending ? pendingLabel : label}
       </button>
