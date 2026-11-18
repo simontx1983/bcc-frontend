@@ -113,9 +113,26 @@ export function NotificationsPanel({
     if (!item.read) {
       markRead.mutate(item.id);
     }
+    // F-245: the post is gone or hidden. Opening it would land on a 404 (or
+    // the Floor) with no explanation — the row already says why, so a click
+    // only marks it read and the panel stays put.
+    if (item.target_available === false) return;
     onNavigate();
     router.push(item.link as Route);
   };
+
+  // H8 (UX scan): a failed mark-read rolled the dots back with no word of
+  // why. Say so, keyed on the code — never the server message.
+  const markReadFailure = markRead.isError
+    ? humanizeCode(
+        markRead.error,
+        {
+          bcc_unauthorized: "Sign in again to update your notifications.",
+          bcc_rate_limited: "Too many tries. Wait a moment, then try again.",
+        },
+        "Couldn’t mark these as read. Try again.",
+      )
+    : null;
 
   const handleMarkAll = () => {
     if (unreadCount === 0) return;
@@ -154,6 +171,12 @@ export function NotificationsPanel({
             </button>
           )}
         </div>
+      )}
+
+      {markReadFailure !== null && (
+        <p role="alert" className="bcc-mono px-4 pb-1 text-[11px] text-bcc-text-error">
+          {markReadFailure}
+        </p>
       )}
 
       {/* A FIRST load that failed has nothing to keep, so the whole body
@@ -291,16 +314,27 @@ interface NotificationRowProps {
 }
 
 function NotificationRow({ item, onActivate }: NotificationRowProps) {
+  const gone = item.target_available === false;
+  const goneId = `notification-gone-${item.id}`;
   return (
     <li role="menuitem">
       <button
         type="button"
         onClick={onActivate}
+        aria-describedby={gone ? goneId : undefined}
         className={
           "flex w-full items-start gap-3 px-4 py-3 text-left transition hover:bg-[var(--bcc-surface-hover)] " +
-          (item.read ? "" : "bg-[var(--bcc-accent-subtle)]")
+          (item.read ? "" : "bg-[var(--bcc-accent-subtle)] ") +
+          (gone ? "opacity-60" : "")
         }
       >
+        {/* H9 (UX scan): the unread dot is aria-hidden, so read and unread
+            rows sounded identical to a screen reader. */}
+        {!item.read && (
+          <>
+            <span className="sr-only">Unread:</span>{" "}
+          </>
+        )}
         {!item.read && (
           <span
             aria-hidden
@@ -334,6 +368,11 @@ function NotificationRow({ item, onActivate }: NotificationRowProps) {
           {item.created_at !== "" && (
             <span className="bcc-mono text-[10px] tracking-[0.12em] text-[var(--bcc-text-secondary)]">
               {formatRelativeTime(item.created_at)}
+            </span>
+          )}
+          {gone && (
+            <span id={goneId} className="bcc-mono text-[10px] tracking-[0.06em] text-[var(--bcc-text-secondary)]">
+              This post is no longer available.
             </span>
           )}
         </span>
