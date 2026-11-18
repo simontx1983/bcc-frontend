@@ -91,6 +91,7 @@ const JWT = {
 beforeEach(() => {
   vi.clearAllMocks();
   for (const k of [...searchParams.keys()]) searchParams.delete(k);
+  window.history.replaceState(null, "", "/");
   h.signIn.mockResolvedValue({ ok: true, error: null });
   h.signup.mockResolvedValue({ ok: true, email: "a@b.co" });
   h.verifyEmail.mockResolvedValue({ ...JWT, linked_wallet_count: 0 });
@@ -186,7 +187,8 @@ describe("signup_completed marker at each account-creation point", () => {
     ["google", "google"],
     ["twitter", "x"],
   ])("oauth: complete-profile success with ?provider=%s marks %s", async (provider, method) => {
-    searchParams.set("pt", "provider-token");
+    // The OAuth callback puts the token in the fragment (lib/auth.ts).
+    window.history.replaceState(null, "", "/signup/complete-profile#pt=provider-token");
     searchParams.set("email", "a@b.co");
     searchParams.set("provider", provider);
     render(<CompleteProfilePage />);
@@ -197,7 +199,8 @@ describe("signup_completed marker at each account-creation point", () => {
   });
 
   it("oauth: no marker when ?provider= is missing or unknown", async () => {
-    searchParams.set("pt", "provider-token");
+    // The OAuth callback puts the token in the fragment (lib/auth.ts).
+    window.history.replaceState(null, "", "/signup/complete-profile#pt=provider-token");
     searchParams.set("email", "a@b.co");
     searchParams.set("provider", "github");
     render(<CompleteProfilePage />);
