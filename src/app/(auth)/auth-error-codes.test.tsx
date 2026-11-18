@@ -77,7 +77,10 @@ beforeEach(() => {
   for (const k of [...searchParams.keys()]) searchParams.delete(k);
 });
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  window.history.replaceState(null, "", "/");
+});
 
 /** The message an input's aria-describedby points at, or null. */
 function describedText(input: HTMLElement): string | null {
@@ -171,7 +174,8 @@ describe("password reset: a leaked password", () => {
 
 describe("oauth-complete: another submit for this token is in flight", () => {
   it("says to try again and keeps the form, not the session-expired card", async () => {
-    searchParams.set("pt", "provider-token");
+    // The OAuth callback puts the token in the fragment (lib/auth.ts).
+    window.history.replaceState(null, "", "/signup/complete-profile#pt=provider-token");
     searchParams.set("email", "jo@example.com");
     h.oauthComplete.mockRejectedValue(new BccApiError("bcc_unavailable", "RAW SERVER TEXT", 503, null));
     render(<CompleteProfilePage />);
