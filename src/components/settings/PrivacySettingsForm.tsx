@@ -82,18 +82,12 @@ const SECTIONS: ToggleSection[] = [
       },
     ],
   },
-  {
-    title: "Discovery",
-    blurb: "Whether you appear in search results.",
-    toggles: [
-      {
-        key: "discovery_optout",
-        label: "Don't list me in user search",
-        helper:
-          "Removed from PeepSo's user search index. Direct profile links still work.",
-      },
-    ],
-  },
+  // F-257 (H11): the "Discovery" section — "Don't list me in user search"
+  // (`discovery_optout`) — is gone. It and the profile-prefs switch were two
+  // near-identical controls with different save behaviour. Since
+  // bcc-trust #648 they are one server flag, and the single switch lives in
+  // Profile ▸ "Hide me from member search and the directory"
+  // (ProfilePrefsSection, `hide_from_search`).
 ];
 
 export function PrivacySettingsForm() {

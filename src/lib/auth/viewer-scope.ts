@@ -129,6 +129,10 @@ export const LEGACY_UNSCOPED_KEYS: readonly string[] = [
   "bcc-onboarding-progress",
   "bcc-onboarding-resume-dismissed",
   "bcc.communities.dismissed",
+  // F-332 hand-offs. Only ever read under a `::<user id>` scope; a bare
+  // value (an early build of the feature) names no owner, so it goes.
+  "bcc:pending-recovery-email",
+  "bcc:onboarding-return-to",
 ];
 
 /**
