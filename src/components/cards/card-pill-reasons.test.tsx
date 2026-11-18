@@ -39,6 +39,10 @@ function card(permissions: Record<string, unknown>) {
     card_kind: "validator",
     permissions,
     viewer_attestation: null,
+    // F-255: page cards carry the viewer's watch answer; without it the
+    // Watch pill is "unknown" and locked.
+    viewer_is_watching: false,
+    viewer_watch: null,
     links: { self: "/v/atlas" },
   } as never;
 }

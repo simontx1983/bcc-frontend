@@ -15,6 +15,7 @@
  */
 
 import type { ReactNode } from "react";
+import { HIT_AREA_44 } from "@/components/feed/hitArea";
 
 export function ActionRailButton({
   icon,
@@ -47,7 +48,7 @@ export function ActionRailButton({
   soon?: boolean;
 }) {
   const classes =
-    "bcc-mono inline-flex min-h-[26px] items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] text-[var(--bcc-text-secondary)] transition-colors duration-150 hover:bg-[var(--bcc-surface-active)] " +
+    `${HIT_AREA_44} bcc-mono inline-flex min-h-[26px] items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] text-[var(--bcc-text-secondary)] transition-colors duration-150 hover:bg-[var(--bcc-surface-active)] ` +
     hoverClassName +
     (soon ? " cursor-not-allowed opacity-70" : " disabled:cursor-not-allowed disabled:opacity-60");
 

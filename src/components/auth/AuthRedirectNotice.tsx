@@ -123,7 +123,7 @@ function AuthRedirectNoticeInner() {
     <div
       role="status"
       aria-live="polite"
-      className="bcc-panel pointer-events-auto fixed bottom-6 left-1/2 z-40 flex w-[min(420px,calc(100vw-2rem))] -translate-x-1/2 items-start justify-between gap-3 p-4 shadow-2xl"
+      className="bcc-panel pointer-events-auto fixed bottom-[calc(var(--bcc-mobile-nav-total-h)+16px)] left-1/2 z-40 flex w-[min(420px,calc(100vw-2rem))] -translate-x-1/2 md:bottom-6 items-start justify-between gap-3 p-4 shadow-2xl"
     >
       <span className="font-serif text-sm text-bcc-text-secondary">{message}</span>
       <button

@@ -31,6 +31,7 @@ import { useReportUser } from "@/hooks/useReportUser";
 import { humanizeCode } from "@/lib/api/errors";
 import {
   USER_REPORT_DETAIL_MAX_LENGTH,
+  USER_REPORT_DETAIL_MIN_LENGTH,
   type UserReportReason,
 } from "@/lib/api/types";
 
@@ -96,7 +97,7 @@ export function ReportMemberModal({ reportedUserId, onClose }: ReportMemberModal
     !overCap &&
     !mutation.isPending &&
     submittedState === null &&
-    (!detailRequired || trimmedDetail !== "");
+    (!detailRequired || trimmedDetail.length >= USER_REPORT_DETAIL_MIN_LENGTH);
 
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
@@ -181,7 +182,7 @@ export function ReportMemberModal({ reportedUserId, onClose }: ReportMemberModal
 
           <label className="flex flex-col gap-1">
             <span className="bcc-mono text-[10px] tracking-[0.18em] text-bcc-text-secondary">
-              DESCRIPTION {detailRequired ? "(required)" : "(optional)"}
+              DESCRIPTION {detailRequired ? `(required, at least ${USER_REPORT_DETAIL_MIN_LENGTH} characters)` : "(optional)"}
             </span>
             <textarea
               value={detail}
@@ -247,6 +248,9 @@ function humanizeError(err: unknown): string {
     {
       bcc_unauthorized: "Sign in to report.",
       bcc_rate_limited: "Too many reports just now. Wait a moment, then retry.",
+      // F-311 (M5): /report-user's throttle sends the bare code (shared
+      // with the dispute routes); without this the member saw "Try again".
+      rate_limited: "Too many reports just now. Wait a moment, then retry.",
       report_limit_reached: "You've hit today's report limit. Try again later.",
       target_report_limit: "This member already has reports under review.",
       cannot_self_report: "You can't report yourself.",

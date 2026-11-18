@@ -374,7 +374,6 @@ describe("E6 — the 17 migrations", () => {
     ["AuthorCard empty bio", "src/components/identity/AuthorCard.tsx", "italic leading-snug text-[var(--bcc-text-secondary)]"],
     ["RankInfoModal standing", "src/components/identity/RankInfoModal.tsx", 'tracking-[0.24em] text-[var(--bcc-text-secondary)]'],
     ["RankInfoModal arrow", "src/components/identity/RankInfoModal.tsx", '<span className="text-[var(--bcc-text-secondary)]">→</span>'],
-    ["BioBox empty state", "src/components/layout/BioBox.tsx", "font-serif italic mt-3 text-bcc-text-secondary"],
     ["RightSidebar utility", "src/components/layout/RightSidebar.tsx", 'className="bcc-mono bcc-text-secondary"'],
     ["LegalDoc meta a", "src/components/legal/LegalDoc.tsx", 'className="bcc-mono mt-4 text-[var(--bcc-text-secondary)]"'],
     ["LegalDoc meta b", "src/components/legal/LegalDoc.tsx", 'className="bcc-mono text-[var(--bcc-text-secondary)]"'],

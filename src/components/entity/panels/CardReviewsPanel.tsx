@@ -248,7 +248,8 @@ function Header({ cardName, total }: { cardName: string; total?: number }) {
 
 function ReviewRow({ review }: { review: CardReview }) {
   return (
-    <li className="py-4">
+    // id = the scroll target for /u/[handle]/reviews#review-{id}.
+    <li id={`review-${review.id}`} className="scroll-mt-24 py-4">
       <div className="flex items-start gap-3">
         <GradePill grade={review.grade} />
         <div className="min-w-0 flex-1">
