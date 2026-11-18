@@ -798,8 +798,10 @@ export function SiteHeader() {
             style={{
               position: "fixed",
               top: "calc(var(--bcc-header-h) + 12px)",
-              left: 0,
-              right: 0,
+              // Landscape notch (F-355 viewport-fit=cover): centre within
+              // the safe area, not the raw screen edge.
+              left: "env(safe-area-inset-left, 0px)",
+              right: "env(safe-area-inset-right, 0px)",
               marginLeft: "auto",
               marginRight: "auto",
               zIndex: 300,

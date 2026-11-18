@@ -88,7 +88,7 @@ export function PostOverflowMenu({
         aria-label="More actions"
         aria-haspopup="menu"
         aria-expanded={open}
-        className="bcc-mono inline-flex min-h-[20px] items-center px-1 text-[var(--bcc-text-secondary)] hover:text-[var(--bcc-text)]"
+        className="bcc-mono -my-3 -mr-3 inline-flex min-h-11 min-w-11 items-center justify-center text-[var(--bcc-text-secondary)] hover:text-[var(--bcc-text)]"
       >
         <MoreHorizontal size={15} strokeWidth={2} aria-hidden />
       </button>

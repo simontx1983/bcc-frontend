@@ -34,6 +34,7 @@ import { useState, type MouseEvent } from "react";
 import { StokeFlame } from "@/components/feed/StokeFlame";
 import { useStokeMutation, useUnstokeMutation } from "@/hooks/useStoke";
 import type { FeedItem, HeatStage } from "@/lib/api/types";
+import { HIT_AREA_44 } from "@/components/feed/hitArea";
 
 interface StagePreset {
   /** Flame icon box size, px — a tight band so the rail stays aligned with its siblings. */
@@ -115,7 +116,7 @@ export function ReactionRail({
       aria-pressed={hasStoked}
       aria-label={hasStoked ? "Stoked — tap to remove" : "Stoke"}
       title={hasStoked ? "Stoked — tap to remove" : "Stoke"}
-      className="bcc-stoke-button relative inline-flex min-h-[26px] items-center gap-1.5 rounded-full px-2 py-0.5 transition-colors duration-150 hover:bg-[var(--bcc-surface-active)] disabled:cursor-not-allowed"
+      className={`${HIT_AREA_44} bcc-stoke-button inline-flex min-h-[26px] items-center gap-1.5 rounded-full px-2 py-0.5 transition-colors duration-150 hover:bg-[var(--bcc-surface-active)] disabled:cursor-not-allowed`}
     >
       <StokeFlame
         boxSize={FLAME_BOX}

@@ -244,6 +244,12 @@ export interface NonceQueryParams {
   chain_slug: string;
   /** bech32 address — must match the wallet that will sign. */
   wallet_address: string;
+  /**
+   * F-253: bind the challenge to one account change. The server only
+   * accepts a confirmation signed over a challenge of the matching purpose.
+   * Omitted for wallet linking.
+   */
+  purpose?: "confirm_email_change" | "confirm_password_change" | "confirm_account_delete";
 }
 
 /**
@@ -259,6 +265,9 @@ export function getWalletNonce(
     chain_slug:     params.chain_slug,
     wallet_address: params.wallet_address,
   });
+  if (params.purpose !== undefined) {
+    search.set("purpose", params.purpose);
+  }
   return bccFetchAsClient<WalletNonceResponse>(
     `auth/nonce?${search.toString()}`,
     { method: "GET" }

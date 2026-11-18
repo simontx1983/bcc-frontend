@@ -438,7 +438,9 @@ function isClassified(key: string): boolean {
   );
 }
 
-describe("no storage key escapes classification", () => {
+// Source scans walk the whole src/ tree; on a busy machine or CI runner that
+// can exceed vitest's 5s default and flake. 30s is a ceiling, not a budget.
+describe("no storage key escapes classification", { timeout: 30_000 }, () => {
   it("scans a meaningful number of real write sites", () => {
     const { sites, keys } = discoverStorageKeys();
     // The literal-only predecessor resolved 5 keys from 12 sites and still

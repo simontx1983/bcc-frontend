@@ -79,7 +79,6 @@ vi.mock("@/hooks/useUpdateProfile", () => ({
 }));
 
 import { rowSaveOutcome } from "@/components/settings/profile/field-save-outcome";
-import { HandleSection } from "@/components/settings/HandleSection";
 import { ProfileFieldsList } from "@/components/settings/profile/ProfileFieldsList";
 import { ProfileHero } from "@/components/settings/profile/ProfileHero";
 import { PROFILE_FIELDS_QUERY_KEY } from "@/hooks/useProfileFields";
@@ -446,29 +445,13 @@ describe("ProfileHero confirmed state", () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────
-// 4. Handle — read only
+// 4. Handle — editable again (F-333)
+//
+// This block used to pin the read-only HandleSection: no input, the
+// "temporarily unavailable" note, and NO claims about redirects or the
+// cooldown, because the backend could not yet honour them. The backend
+// now retires old handles (old links resolve, nobody else can take them),
+// signs in by the current handle, and the session handle is refreshed
+// after a rename, so the editor and its claims are back. They are covered
+// in components/settings/handle-editing.test.tsx.
 // ─────────────────────────────────────────────────────────────────────────
-
-describe("HandleSection", () => {
-  it("shows the handle and the full profile address", () => {
-    render(<HandleSection handle="welder" />);
-    expect(screen.getByText("welder")).toBeDefined();
-    expect(screen.getByText(/bluecollarcrypto\.io\/u\//)).toBeDefined();
-  });
-
-  it("offers no way to edit, and says why", () => {
-    const { container } = render(<HandleSection handle="welder" />);
-    expect(container.querySelectorAll("input")).toHaveLength(0);
-    expect(container.querySelectorAll("button")).toHaveLength(0);
-    expect(container.querySelectorAll("form")).toHaveLength(0);
-    expect(screen.getByText(/temporarily unavailable/)).toBeDefined();
-  });
-
-  it("makes no claim about redirects, cooldowns or sign-in continuing to work", () => {
-    const { container } = render(<HandleSection handle="welder" />);
-    const text = container.textContent ?? "";
-    expect(text).not.toMatch(/redirect/i);
-    expect(text).not.toMatch(/7 days|cooldown/i);
-    expect(text).not.toMatch(/stay signed in|remain signed in/i);
-  });
-});
