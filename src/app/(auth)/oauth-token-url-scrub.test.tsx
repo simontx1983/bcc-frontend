@@ -20,6 +20,8 @@ import { renderToString } from "react-dom/server";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
+import type * as AuthCardModule from "@/components/auth/AuthCard";
+
 vi.mock("@/lib/env", () => ({
   clientEnv: { BCC_API_URL: "https://wp.example" },
   serverEnv: { BCC_OAUTH_BRIDGE_SECRET: "test-secret" },
@@ -43,7 +45,7 @@ vi.mock("next-auth/react", () => ({ signIn: (...a: unknown[]) => h.signIn(...a) 
 // card that one commit shows and the next replaces is still recorded.
 const headings = vi.hoisted(() => [] as string[]);
 vi.mock("@/components/auth/AuthCard", async (importOriginal) => {
-  const real = await importOriginal<typeof import("@/components/auth/AuthCard")>();
+  const real = await importOriginal<typeof AuthCardModule>();
   return {
     ...real,
     AuthCard: (props: Parameters<typeof real.AuthCard>[0]) => {
