@@ -715,6 +715,17 @@ export interface Card {
    * viewer and is the only thing that mounts the page composer.
    */
   page_stream?: { can_post: boolean } | null;
+  /**
+   * F-255 (contract v1.NEXT, §3.2) — is the viewer watching this, and the
+   * handle to unwatch it with (`DELETE /me/watching/:follow_id?source=`).
+   * THE source of truth for every watch button: never derive it from a
+   * page of `GET /me/watching` (there is no cap on watches, so any page is
+   * partial). `null` = the server could not tell (read failed); render an
+   * unknown state, not "Watch". `false` / `null` for anonymous viewers and
+   * on one's own card. Optional for deploy skew; absent → unknown.
+   */
+  viewer_is_watching?: boolean | null;
+  viewer_watch?: ViewerWatch | null;
 }
 
 /** The one validator a delegator group verifies against. */
@@ -868,6 +879,12 @@ export interface FeedAuthor {
    * `allowed=false`. Omitted for anonymous viewers.
    */
   can_vouch?: AuthorVouchPermission;
+  /**
+   * Author's numeric trust score (0–100 integer, same scale as
+   * `MemberProfile.trust_score`). Contract pending — optional so every
+   * surface degrades to the tier word alone when it is absent.
+   */
+  trust_score?: number | undefined;
 }
 
 /**
@@ -981,6 +998,8 @@ export interface CommentAuthor {
   viewer_attestation?: ViewerAttestation;
   /** Authed-only — whether the viewer may vouch for this commenter. */
   can_vouch?: AuthorVouchPermission;
+  /** Commenter's numeric trust score (0–100). Contract pending — see FeedAuthor.trust_score. */
+  trust_score?: number | undefined;
 }
 
 export interface Comment {
@@ -1343,6 +1362,9 @@ export interface SuggestedMember {
   rank_label: string | null;
   is_in_good_standing: boolean;
   suggestion_reason: SuggestionReason | null;
+  /** F-255: honoured when the server sends it; suggestions normally exclude watched members. */
+  viewer_is_watching?: boolean | null;
+  viewer_watch?: ViewerWatch | null;
 }
 
 export interface SuggestedMembersResponse {
@@ -1699,7 +1721,9 @@ export type NotificationKind =
   | "bcc_holder_community_live"
   | "bcc_delegator_group_removed"
   | "bcc_content_auto_hidden"
-  | "bcc_claim_badge_removed";
+  | "bcc_claim_badge_removed"
+  | "bcc_announcement_hidden"
+  | "bcc_announcement_restored";
 
 export interface NotificationActor {
   id: number;
@@ -1720,6 +1744,12 @@ export interface NotificationItem {
   actor: NotificationActor;
   /** Server-built click-through. Always relative; safe to pass to <Link>. */
   link: string;
+  /**
+   * F-245 (bcc-trust #660): false when the post a REACTION / MENTION /
+   * COMMENT_RECEIVED row points at is gone or hidden from this viewer.
+   * Absent (older backend) means available.
+   */
+  target_available?: boolean;
 }
 
 export interface NotificationsListPagination {
@@ -3103,6 +3133,12 @@ export interface WatchingItemAction {
  */
 export type WatchingFollowSource = "peepso" | "page";
 
+/** F-255 — the viewer's follow of a card / profile, as DELETE /me/watching takes it. */
+export interface ViewerWatch {
+  follow_id: number;
+  source: WatchingFollowSource;
+}
+
 export interface WatchingItem {
   follow_id: number;
   follow_source?: WatchingFollowSource;
@@ -4215,6 +4251,18 @@ export interface MemberHall {
   slug: string;
   name: string;
   is_primary: boolean;
+  /**
+   * The member's role in this group. Contract pending — optional, and
+   * never rendered directly: render `role_label` verbatim instead.
+   */
+  role?: "owner" | "moderator" | "member" | null;
+  /** Server-rendered role display string. Null/absent → no role badge. */
+  role_label?: string | null;
+  /**
+   * Group kind. Contract pending. Absent on old backends, where `halls[]`
+   * carried halls only.
+   */
+  type?: GroupDiscoveryType | null;
 }
 
 /** Counts strip — followers / following / etc. Server pre-rolled. */
@@ -4271,7 +4319,12 @@ export interface MyPrivacySettings {
   follower_count_hidden: boolean;
   real_name_hidden: boolean;
   email_hidden: boolean;
-  /** §G1: opt out of PeepSo user search. Owner-only. */
+  /**
+   * §G1: opt out of PeepSo user search. Owner-only.
+   * F-257: since bcc-trust #648 this is the SAME server flag as profile
+   * prefs' `hide_from_search`. The UI shows only that one switch
+   * (ProfilePrefsSection); this field is still returned and read nowhere.
+   */
   discovery_optout: boolean;
 }
 
@@ -5497,6 +5550,17 @@ export interface MemberProfile {
   disputes: MemberDispute[];
   live_shift: MemberLiveShiftEvent[];
   tabs: MemberTabCount[];
+  /**
+   * F-255 (contract v1.NEXT, §3.2) — is the viewer watching this, and the
+   * handle to unwatch it with (`DELETE /me/watching/:follow_id?source=`).
+   * THE source of truth for every watch button: never derive it from a
+   * page of `GET /me/watching` (there is no cap on watches, so any page is
+   * partial). `null` = the server could not tell (read failed); render an
+   * unknown state, not "Watch". `false` / `null` for anonymous viewers and
+   * on one's own card. Optional for deploy skew; absent → unknown.
+   */
+  viewer_is_watching?: boolean | null;
+  viewer_watch?: ViewerWatch | null;
 }
 
 // ────────────────────────────────────────────────────────────────────────
@@ -5601,6 +5665,14 @@ export interface MyWalletsResponse {
   recovery: {
     has_recovery_email: boolean;
     verified_wallet_count: number;
+    /**
+     * F-253 (contract v1.130): does the member know a password? `false`
+     * (a wallet or OAuth signup that never set one) → the email / password
+     * / delete forms confirm with a wallet signature instead; `true` or
+     * `null` (unknown, older account) → the current-password field only.
+     * Optional for deploy skew; absent behaves like `null`.
+     */
+    has_password?: boolean | null;
   };
 }
 
@@ -5770,7 +5842,9 @@ export type BellEventType =
   | "bcc_holder_community_live"
   | "bcc_delegator_group_removed"
   | "bcc_content_auto_hidden"
-  | "bcc_claim_badge_removed";
+  | "bcc_claim_badge_removed"
+  | "bcc_announcement_hidden"
+  | "bcc_announcement_restored";
 
 export interface NotificationPrefs {
   email_digest: boolean;

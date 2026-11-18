@@ -66,6 +66,12 @@ export interface ProfilePrefs {
    * call site per §γ — unknown values degrade to generic paused copy.
    */
   mentor_eligibility_reason?: MentorEligibilityReason | null;
+  /**
+   * F-333 / bcc-trust #653 — READ-ONLY: when the handle can next be
+   * changed (ISO-8601 UTC), or null when it can be changed now. Lets the
+   * handle editor say so before a submit. Optional for deploy skew.
+   */
+  handle_next_change_at?: string | null;
 }
 
 /**

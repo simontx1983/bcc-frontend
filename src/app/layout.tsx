@@ -84,6 +84,10 @@ export const viewport: Viewport = {
   themeColor: "#0d1117",
   width: "device-width",
   initialScale: 1,
+  // F-355: lets env(safe-area-inset-*) report real values, so the fixed
+  // mobile bar can clear the iPhone home indicator. Without it the
+  // insets are always 0.
+  viewportFit: "cover",
 };
 
 export default async function RootLayout({

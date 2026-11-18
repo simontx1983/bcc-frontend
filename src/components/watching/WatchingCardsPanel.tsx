@@ -65,9 +65,8 @@ export function WatchingCardsPanel({
   // successful response so the metric strip and the pager don't collapse
   // into the skeleton on every PREV/NEXT (the behavior the WatchingGrid
   // this panel replaced was careful to have). Held locally rather than by
-  // giving `useWatching` placeholderData: that hook also backs CardGrid's
-  // follow-map, MemberFollowButton, RightSidebar and the onboarding
-  // wizard, and changing its caching semantics reaches all of them.
+  // giving `useWatching` placeholderData: that hook also backs the
+  // /watching tab count, and changing its caching semantics reaches it.
   //
   // Only the pagination needs holding. `useWatchingSummary`'s key is
   // page-independent (`["watching", "summary"]`) and React Query keeps
@@ -215,11 +214,6 @@ export function WatchingCardsPanel({
       <WatchingHeader total={pagination.total} summary={summary.data} />
 
       <div className="mt-10">
-        {/* Inherited CardGrid limitation: its own follow-map read is
-            capped at the first 50 watches, so past that the "Keep Tabs"
-            CTA on a card can render idle even though this very list is
-            the proof it's watched. Cosmetic only — the toggle still
-            writes correctly, and a refetch restores the label. */}
         {watching.isError ? (
           // Only the grid swaps — the pager below stays mounted, so PREV is
           // still there to get back to a page that works.

@@ -333,10 +333,10 @@ function ProfilePrefsForm({ initial }: { initial: ProfilePrefs }) {
             />
             <span>
               <span className="bcc-mono block text-[11px] tracking-[0.14em] text-bcc-text">
-                Don&apos;t list me in member search
+                Hide me from member search and the directory
               </span>
               <span className="bcc-mono mt-1 block text-[10px] text-bcc-text-secondary">
-                Removed from the directory and search results. Direct profile links still work.
+                Direct profile links still work.
               </span>
             </span>
           </label>

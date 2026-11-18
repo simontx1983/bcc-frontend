@@ -147,6 +147,39 @@ export async function supersedingBearer(
   return qualifies(current) ? current : null;
 }
 
+/**
+ * After a refresh of `used` was REJECTED, has the SESSION COOKIE moved on
+ * to a newer bearer for the same viewer? Returns it, or null.
+ *
+ * Since a refresh retires the token it replaced after a short overlap
+ * (bcc-trust F-282), a request still carrying the old token, or a tab
+ * whose in-memory bearer was lost, can have its refresh rejected while
+ * the cookie already holds a working token another tab minted. Ending the
+ * session then would sign out every tab for nothing. Unlike
+ * supersedingBearer this reads the cookie even when a pending bearer
+ * exists, because the rejection already proved `used` is dead. Same
+ * guards: the viewer boundary must not have moved, and the candidate must
+ * pass the claims consistency check against `used`.
+ */
+export async function sessionBearerAfterRejectedRefresh(
+  used: string,
+  dispatchEpoch: number,
+): Promise<string | null> {
+  if (isStaleEpoch(dispatchEpoch)) return null;
+  let current: string | null = null;
+  try {
+    current = sessionBearerOf((await getSession()) as { bccToken?: unknown } | null);
+  } catch {
+    return null;
+  }
+  return current !== null &&
+    current !== used &&
+    !isStaleEpoch(dispatchEpoch) &&
+    !bearerFailsConsistencyCheck(current, used)
+    ? current
+    : null;
+}
+
 /** Test seam: forget any pending bearer. */
 export function __resetPendingBearerForTests(): void {
   pending = null;

@@ -262,3 +262,154 @@ export function RankChip({
     </>
   );
 }
+
+// ──────────────────────────────────────────────────────────────────────
+// TrustChip — the tier-led sibling of RankChip: "● TRUSTED 72".
+//
+// Same chip, same .bcc-rank-chip CSS, same --chip-tier hand-off, same dot
+// table and the same RankInfoModal trigger — the difference is only what
+// the visible words are. RankChip leads with the earned rank and lets the
+// dot carry the tier; TrustChip names the tier itself (the server's
+// pre-rendered `tierLabel`, uppercased) and, when the server sent one,
+// the numeric trust score after it.
+//
+// Unlike RankChip it does NOT depend on rank, so it renders for New
+// Members too. The word and the number stay neutral — the dot, border and
+// fill carry the hue (doctrine: color the mark, not the word).
+// ──────────────────────────────────────────────────────────────────────
+
+type TrustChipSize = "default" | "compact";
+
+interface TrustChipProps {
+  reputationTier: ReputationTier;
+  /** Pre-rendered §A2 tier display string ("Trusted"). Rendered uppercased, never derived. */
+  tierLabel: string;
+  /**
+   * Server trust score (0–100). Undefined → the chip shows the tier word
+   * alone; the number is never estimated.
+   */
+  score?: number | undefined;
+  /** "default" — 24px tall (headers). "compact" — dense rows (bylines, lists). */
+  size?: TrustChipSize;
+  /** Same contract as RankChip.handle: set → the chip opens RankInfoModal. */
+  handle?: string;
+  /** Same contract as RankChip.onOpenRankInfo. */
+  onOpenRankInfo?: () => void;
+  className?: string;
+}
+
+const TRUST_SIZE_STYLES: Record<
+  TrustChipSize,
+  { dot: number; gap: string; pad: string; font: string; height: string }
+> = {
+  default: { dot: 7, gap: "gap-1.5", pad: "pl-1.5 pr-2.5", font: "text-[11px]", height: "h-6" },
+  compact: { dot: 6, gap: "gap-1.5", pad: "py-[2px] pl-1.5 pr-2", font: "text-[10px]", height: "" },
+};
+
+export function TrustChip({
+  reputationTier,
+  tierLabel,
+  score,
+  size = "default",
+  handle,
+  onOpenRankInfo,
+  className,
+}: TrustChipProps) {
+  const [open, setOpen] = useState(false);
+
+  if (tierLabel === "") {
+    return null;
+  }
+
+  const sizeStyles = TRUST_SIZE_STYLES[size];
+  // Same guard as RankChip: an unknown band renders with NO dot and no
+  // tint, never with a substitute colour.
+  const dot: { color: string; glow: boolean } | undefined =
+    DOT_BY_REPUTATION_TIER[reputationTier];
+  const hasScore = typeof score === "number" && Number.isFinite(score);
+
+  const tooltip = hasScore
+    ? `${tierLabel} reputation tier · trust score ${score}`
+    : `${tierLabel} reputation tier`;
+
+  const baseClass = [
+    "bcc-rank-chip bcc-mono inline-flex items-center rounded-full font-semibold tracking-[0.18em]",
+    dot === undefined ? "bcc-rank-chip-untiered" : "",
+    sizeStyles.gap,
+    sizeStyles.pad,
+    sizeStyles.font,
+    sizeStyles.height,
+    className ?? "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  const tierStyle =
+    dot !== undefined ? ({ ["--chip-tier" as string]: dot.color } as CSSProperties) : undefined;
+
+  const inner = (
+    <>
+      <span className="sr-only">
+        {tierLabel} reputation tier{hasScore ? `, trust score ${score}` : ""} —{" "}
+      </span>
+      {dot !== undefined && (
+        <span
+          aria-hidden
+          data-testid="trust-chip-dot"
+          style={{
+            width: sizeStyles.dot,
+            height: sizeStyles.dot,
+            borderRadius: "9999px",
+            background: dot.color,
+            flexShrink: 0,
+            boxShadow: dot.glow ? `0 0 5px ${dot.color}` : undefined,
+          }}
+        />
+      )}
+      <span aria-hidden>{tierLabel.toUpperCase()}</span>
+      {hasScore && <span aria-hidden className="tabular-nums">{score}</span>}
+    </>
+  );
+
+  if (handle === undefined) {
+    return (
+      <span className={baseClass} style={tierStyle} title={tooltip}>
+        {inner}
+      </span>
+    );
+  }
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          if (onOpenRankInfo !== undefined) {
+            onOpenRankInfo();
+          } else {
+            setOpen(true);
+          }
+        }}
+        aria-haspopup="dialog"
+        title={`${tooltip} — what does this mean?`}
+        style={tierStyle}
+        className={`${baseClass} cursor-pointer transition-colors motion-reduce:transition-none`}
+      >
+        {inner}
+      </button>
+      {onOpenRankInfo === undefined && open && (
+        <RankInfoModal
+          handle={handle}
+          reputationTier={reputationTier}
+          tierLabel={tierLabel}
+          // No rank on this chip — the modal resolves the member's real
+          // rank from its own profile read (and "" falls back cleanly).
+          rankLabel=""
+          onClose={() => setOpen(false)}
+        />
+      )}
+    </>
+  );
+}

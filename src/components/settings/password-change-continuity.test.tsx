@@ -14,6 +14,15 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-libra
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
+import type * as WalletsModule from "@/hooks/useWallets";
+
+// F-253: the account forms read GET /wallets (recovery.has_password) to
+// pick their confirmation. These suites test the password path; keep that
+// read off the network (it raised unhandled ERR_INVALID_URL rejections).
+vi.mock("@/hooks/useWallets", async (importOriginal) => ({
+  ...(await importOriginal<typeof WalletsModule>()),
+  useMyWallets: () => ({ data: undefined, isLoading: false }),
+}));
 vi.mock("@/lib/env", () => ({
   clientEnv: { BCC_API_URL: "https://wp.example" },
 }));

@@ -295,7 +295,6 @@ describe("former phosphor consumers moved to owning semantics", () => {
  */
 const VERIFIED_TEXT_CHIPS: readonly string[] = [
   "src/app/(main)/(app)/halls/page.tsx",
-  "src/app/(main)/(app)/u/[handle]/page.tsx",
   "src/components/cards/CardFrontFace.tsx",
   "src/components/disputes/CaseHeader.tsx",
   "src/components/disputes/MyDisputesList.tsx",
@@ -303,6 +302,9 @@ const VERIFIED_TEXT_CHIPS: readonly string[] = [
   "src/components/identity/AuthorBadge.tsx",
   "src/components/identity/AuthorVouchButton.tsx",
   "src/components/profile/AttestationActionCluster.tsx",
+  // The profile page's GOOD STANDING chip moved here with the Figma
+  // Handoff v1 trust header (replaces u/[handle]/page.tsx in this list).
+  "src/components/profile/TrustHeader.tsx",
   "src/components/reliability/ReliabilityStandingBadge.tsx",
   "src/components/settings/ConnectionsSection.tsx",
 ];
