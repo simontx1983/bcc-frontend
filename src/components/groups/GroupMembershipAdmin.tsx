@@ -89,12 +89,19 @@ export function humanizeMembershipDecisionError(err: unknown, action: DecisionAc
           : action === "approve"
             ? "This member can't be approved."
             : "You can't manage who joins this community.",
-      // Every decision re-reads its list, so this states what happened.
-      bcc_conflict: "This changed a moment ago. Showing the latest.",
+      // An invite 409 is the person's own state (the search lists members,
+      // invitees and requesters alike), not a moved list. Every other
+      // decision re-reads its list, so its line states what happened.
+      bcc_conflict:
+        action === "invite"
+          ? "They're already a member, already invited, or have asked to join — check the lists on this page."
+          : "This changed a moment ago. Showing the latest.",
       bcc_unavailable: "Something went wrong on our side. Nothing changed — try again.",
+      // The invite caps (200 open / 50 a day) share the code; withdrawing
+      // an outstanding invitation frees room under the open cap.
       bcc_rate_limited:
         action === "invite"
-          ? "Invitation limit reached for now. Try again later."
+          ? "Invitation limit reached for now. Try again later, or withdraw some outstanding invitations."
           : "Too many attempts. Wait a minute and try again.",
     },
     generic[action],

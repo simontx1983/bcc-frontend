@@ -295,7 +295,8 @@ describe("inviting", () => {
   it.each([
     ["the generic refusal (a ban and a block read the same)", new BccApiError("bcc_permission_denied", "raw", 403, null), "This member can't be invited."],
     ["an unknown or suspended account (identical 404)", new BccApiError("bcc_invalid_request", "raw", 404, null), "We couldn't find that member."],
-    ["the open-invitation / daily cap", new BccApiError("bcc_rate_limited", "raw", 429, null), "Invitation limit reached for now. Try again later."],
+    ["the open-invitation / daily cap", new BccApiError("bcc_rate_limited", "raw", 429, null), "Invitation limit reached for now. Try again later, or withdraw some outstanding invitations."],
+    ["already in, already invited, or asked to join (409)", new BccApiError("bcc_conflict", "raw", 409, null), "They're already a member, already invited, or have asked to join — check the lists on this page."],
   ])("maps %s by code", async (_label, err, copy) => {
     api.useMembers.mockReturnValue(searchResults([{ id: 150, handle: "welderkim", name: "Kim Welder" }]));
     api.inviteToGroup.mockRejectedValue(err);
