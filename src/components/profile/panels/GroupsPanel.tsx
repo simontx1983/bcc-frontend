@@ -33,7 +33,7 @@ import { useQueryClient } from "@tanstack/react-query";
 
 import { GroupActionButton } from "@/components/groups/GroupActionButton";
 import { VerificationBadge } from "@/components/groups/VerificationBadge";
-import { HolderLeaveConfirm } from "@/components/groups/HolderLeaveConfirm";
+import { HolderLeaveConfirm, ValidatorLeaveConfirm } from "@/components/groups/HolderLeaveConfirm";
 import { useJoinHolderGroupMutation } from "@/hooks/useHolderGroups";
 import {
   useJoinHallMutation,
@@ -50,7 +50,6 @@ import {
 import {
   humanizeValidatorJoinError,
   useJoinValidatorGroupMutation,
-  useLeaveValidatorGroupMutation,
 } from "@/hooks/useValidatorGroups";
 import { ProfileReadFailure } from "@/components/profile/ProfilePrivateNotice";
 import { humanizeCode, isCode, isPermissionDenial } from "@/lib/api/errors";
@@ -371,20 +370,16 @@ function ValidatorJoinButton({ groupId }: { groupId: number }) {
   );
 }
 
+// Delegator leave records the same 90-day opt-out as a holder leave, so it
+// confirms first too (F-244 item 1).
 function ValidatorLeaveButton({ groupId }: { groupId: number }) {
   const onSuccess = useInvalidateUserGroups();
-  const mutation = useLeaveValidatorGroupMutation({ onSuccess });
   return (
-    <GroupActionButton
+    <ValidatorLeaveConfirm
       groupId={groupId}
-      label="LEAVE"
-      pendingLabel="LEAVING…"
-      isPending={mutation.isPending}
-      errorMessage={validatorLeaveError(mutation.error)}
-      onClick={() => {
-        mutation.reset();
-        mutation.mutate(groupId);
-      }}
+      // The operator who owns the group is refused with a 403 of its own.
+      humanizeError={(err) => validatorLeaveError(err) ?? humanizeGroupActionError(err)}
+      onSuccess={onSuccess}
     />
   );
 }
