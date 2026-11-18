@@ -58,9 +58,13 @@ export function AnnouncementDetailView({
     archived_at,
     is_pinned,
     capabilities,
+    moderation,
   } = announcement;
 
   const showUpdated = isMateriallyUpdated(published_at, updated_at);
+  // F-307 B2 — only the operator ever gets a taken-down row (everyone else
+  // gets a 404), so this notice is always addressed to them.
+  const takenDown = moderation?.hidden === true;
 
   return (
     <article className="bcc-panel mx-auto max-w-3xl">
@@ -73,7 +77,7 @@ export function AnnouncementDetailView({
         </p>
 
         <div className="mb-2 flex flex-wrap items-center gap-2">
-          {is_pinned && !is_archived && (
+          {is_pinned && !is_archived && !takenDown && (
             <span
               className="bcc-mono text-bcc-text-safety"
               style={{ fontSize: "10px", letterSpacing: "0.24em" }}
@@ -88,6 +92,15 @@ export function AnnouncementDetailView({
               data-testid="announcement-detail-archived-flag"
             >
               ARCHIVED
+            </span>
+          )}
+          {takenDown && (
+            <span
+              className="bcc-mono text-bcc-text-safety"
+              style={{ fontSize: "10px", letterSpacing: "0.24em" }}
+              data-testid="announcement-detail-moderation-flag"
+            >
+              HIDDEN BY A MODERATOR
             </span>
           )}
         </div>
@@ -139,6 +152,20 @@ export function AnnouncementDetailView({
           This announcement was archived
           {archived_at !== null ? ` on ${formatShortDate(archived_at)}` : ""}. It stays
           here as a record — its discussion is read-only.
+        </p>
+      )}
+
+      {takenDown && (
+        <p
+          role="status"
+          className="border-b border-bcc-border bg-bcc-surface-raised px-5 py-3 font-serif italic text-bcc-text-secondary sm:px-8"
+          style={{ fontSize: "14px" }}
+          data-testid="announcement-moderation-notice"
+        >
+          A moderator hid this announcement
+          {moderation?.hidden_at ? ` on ${formatShortDate(moderation.hidden_at)}` : ""} because
+          it breaks a site rule. Only you can see it now, and it can no longer be edited or
+          pinned.
         </p>
       )}
 

@@ -63,6 +63,7 @@ vi.mock("@/lib/api/announcement-endpoints", () => ({
 const { AnnouncementDetailView, isMateriallyUpdated } = await import(
   "@/components/announcements/AnnouncementDetailView"
 );
+const { pinDeniedCopy } = await import("@/components/announcements/AnnouncementOwnerActions");
 const {
   PUBLISHED_ANNOUNCEMENT_DETAIL,
   ARCHIVED_ANNOUNCEMENT_DETAIL,
@@ -149,6 +150,52 @@ describe("archiving is a public record, not a deletion", () => {
     expect(screen.queryByRole("textbox")).toBeNull();
     expect(screen.getByTestId("announcement-comment-disabled")).toHaveTextContent(
       /read-only/,
+    );
+  });
+});
+
+describe("a notice a moderator took down (F-307 B2)", () => {
+  const TAKEN_DOWN = {
+    ...PUBLISHED_ANNOUNCEMENT_DETAIL,
+    is_pinned: true,
+    moderation: { hidden: true, hidden_at: "2026-11-12T08:30:00Z" },
+  };
+
+  it("tells the operator it was hidden, when, and what that closes", () => {
+    renderDetail(TAKEN_DOWN);
+    expect(screen.getByTestId("announcement-detail-moderation-flag")).toHaveTextContent(
+      "HIDDEN BY A MODERATOR",
+    );
+    expect(screen.getByTestId("announcement-moderation-notice")).toHaveTextContent(
+      /A moderator hid this announcement on .+ because it breaks a site rule\. Only you can see it now, and it can no longer be edited or pinned\./s,
+    );
+  });
+
+  it("drops the PINNED flag — a hidden notice is promoted nowhere", () => {
+    renderDetail(TAKEN_DOWN);
+    expect(screen.queryByText("PINNED")).toBeNull();
+  });
+
+  it("omits the date rather than inventing one when the marker has none", () => {
+    renderDetail({ ...TAKEN_DOWN, moderation: { hidden: true, hidden_at: null } });
+    const notice = screen.getByTestId("announcement-moderation-notice");
+    expect(notice).toHaveTextContent(/A moderator hid this announcement because it breaks a site rule/);
+    expect(notice).not.toHaveTextContent(/ on /);
+  });
+
+  it("shows nothing when the notice is not hidden or the block is absent", () => {
+    renderDetail({ ...PUBLISHED_ANNOUNCEMENT_DETAIL, moderation: { hidden: false, hidden_at: null } });
+    expect(screen.queryByTestId("announcement-moderation-notice")).toBeNull();
+    expect(screen.queryByTestId("announcement-detail-moderation-flag")).toBeNull();
+    cleanup();
+
+    renderDetail(PUBLISHED_ANNOUNCEMENT_DETAIL);
+    expect(screen.queryByTestId("announcement-moderation-notice")).toBeNull();
+  });
+
+  it("explains a pin refused for a takedown in the operator's words", () => {
+    expect(pinDeniedCopy("announcement_moderation_hidden")).toBe(
+      "A moderator hid this announcement, so it can't be pinned.",
     );
   });
 });
