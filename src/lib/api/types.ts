@@ -1701,6 +1701,7 @@ export type TrendingResponse = ProjectSearchResponse;
 export type NotificationKind =
   | "bcc_reaction"
   | "bcc_review"
+  | "bcc_review_reply"
   | "bcc_card_watched"
   | "bcc_rank_up"
   | "bcc_rank_demoted"
@@ -5887,6 +5888,7 @@ export type VerifyAccountEmailChangeErrorCode =
 export type BellEventType =
   | "bcc_reaction"
   | "bcc_review"
+  | "bcc_review_reply"
   | "bcc_card_watched"
   | "bcc_rank_up"
   | "bcc_rank_demoted"

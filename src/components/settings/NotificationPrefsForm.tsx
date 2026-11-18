@@ -78,6 +78,12 @@ const BELL_ROWS: ReadonlyArray<BellRow> = [
     blurb: "Someone reviewed a validator / project / creator page you own.",
   },
   {
+    // F-345. Bell-only: no push variant, not in the email digest.
+    key: "bcc_review_reply",
+    label: "Replies to your reviews",
+    blurb: "The member or page owner you reviewed replied to your review.",
+  },
+  {
     key: "bcc_card_watched",
     label: "Watchers on your card",
     blurb: "Someone is now keeping tabs on your card.",
