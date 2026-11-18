@@ -65,7 +65,8 @@ const profile = {
   viewer_is_watching: false,
   viewer_attestation: null,
   permissions: { can_stand_behind: { allowed: false }, can_report: { allowed: false } },
-  card: { permissions: {}, review_target_id: 7, viewer_has_reviewed: false },
+  card: { id: 9, permissions: {}, review_target_id: 7, viewer_has_reviewed: false },
+  counts: { reviews_received: 0, reviews_written: 0 },
 };
 
 function signedInAs(handle: string) {
@@ -83,7 +84,7 @@ function findAll(node: ReactNode, type: unknown): Array<{ props: Record<string, 
     if (!isValidElement(n)) return;
     const props = n.props as Record<string, unknown>;
     if (n.type === type) out.push({ props });
-    walk(props.children);
+    walk(props["children"]);
   };
   walk(node);
   return out;
@@ -102,7 +103,7 @@ describe("profile page: recovery-email nudge mount", () => {
     signedInAs("alice");
     const nudges = findAll(await renderTree(), RecoveryEmailNudge);
     expect(nudges).toHaveLength(1);
-    expect(nudges[0]?.props.href).toBe("/u/alice?tab=account");
+    expect(nudges[0]?.props["href"]).toBe("/u/alice?tab=account");
   });
 
   it("a signed-in visitor does not", async () => {
