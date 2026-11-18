@@ -39,6 +39,20 @@ vi.mock("@/lib/api/auth-endpoints", () => ({
 }));
 vi.mock("next-auth/react", () => ({ signIn: (...a: unknown[]) => h.signIn(...a) }));
 
+// Every heading AuthCard is rendered with, in order: synchronous, so a
+// card that one commit shows and the next replaces is still recorded.
+const headings = vi.hoisted(() => [] as string[]);
+vi.mock("@/components/auth/AuthCard", async (importOriginal) => {
+  const real = await importOriginal<typeof import("@/components/auth/AuthCard")>();
+  return {
+    ...real,
+    AuthCard: (props: Parameters<typeof real.AuthCard>[0]) => {
+      headings.push(String(props.heading));
+      return <real.AuthCard {...props} />;
+    },
+  };
+});
+
 const searchParams = new URLSearchParams();
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ replace: h.replace, push: vi.fn(), refresh: vi.fn() }),
@@ -154,14 +168,13 @@ describe("no 'Session expired' flash", () => {
 
   it("with a token, 'Session expired' never renders on the way to the form", async () => {
     arriveAt(completeProfileUrl({ providerToken: TOKEN, email: "jo@example.com", provider: "google" }));
-    const seen: string[] = [];
-    const observer = new MutationObserver(() => seen.push(document.body.textContent ?? ""));
-    observer.observe(document.body, { childList: true, subtree: true, characterData: true });
+    headings.length = 0;
     render(<CompleteProfilePage />);
     await screen.findByRole("button", { name: "Join the floor" });
-    observer.disconnect();
 
-    expect(seen.some((t) => t.includes("Session expired"))).toBe(false);
+    expect(headings).not.toContain("Session expired");
+    // The first card is the reading card (same heading as the form).
+    expect(headings[0]).toBe("One last thing");
   });
 
   it("with no token anywhere, the expired card shows after mount, and nothing is rewritten", async () => {
