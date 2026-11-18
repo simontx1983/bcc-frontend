@@ -33,6 +33,7 @@ import { WalletSignupPrompt } from "@/components/auth/WalletSignupPrompt";
 import { loginWithIdentifier } from "@/lib/api/auth-endpoints";
 import { BccApiError, type AuthTokenResponse } from "@/lib/api/types";
 import { safeCallbackPath } from "@/lib/auth/safe-callback";
+import { writeOnboardingReturnTo } from "@/lib/onboarding/return-to";
 import { stashChallengeToken } from "@/lib/auth/two-factor-challenge";
 
 const ERROR_COPY: Record<string, string> = {
@@ -225,9 +226,17 @@ function LoginPageContent() {
 
       {walletSignupOpen && (
         <WalletSignupPrompt
-          onSuccess={() => {
+          onSuccess={(scope) => {
             setWalletSignupOpen(false);
-            router.replace(targetAfterLogin());
+            // F-332: a brand-new wallet account goes through onboarding,
+            // same as /signup's wallet path — not to the Floor or the
+            // callbackUrl. The wizard's "Secure your account" step is
+            // where a wallet-only member adds a recovery email.
+            // A new account goes through onboarding (F-332), and the deep
+            // link it came from is kept for when onboarding finishes.
+            // Keyed to the new account (the modal read its session).
+            writeOnboardingReturnTo(safeCallback, scope);
+            router.replace("/onboarding");
           }}
           onDismiss={() => { setWalletSignupOpen(false); }}
         />
