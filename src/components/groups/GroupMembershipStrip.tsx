@@ -27,7 +27,7 @@ import { useEffect, useState } from "react";
 
 import { GroupActionButton } from "@/components/groups/GroupActionButton";
 import { GroupTransferOwnership } from "@/components/groups/GroupTransferOwnership";
-import { HolderLeaveConfirm } from "@/components/groups/HolderLeaveConfirm";
+import { HolderLeaveConfirm, ValidatorLeaveConfirm } from "@/components/groups/HolderLeaveConfirm";
 import { useJoinHolderGroupMutation } from "@/hooks/useHolderGroups";
 import {
   useJoinHallMutation,
@@ -41,7 +41,6 @@ import {
   humanizeValidatorJoinError,
   isJoinCooldown,
   useJoinValidatorGroupMutation,
-  useLeaveValidatorGroupMutation,
 } from "@/hooks/useValidatorGroups";
 import { useLinkWalletMutation, useMyWallets } from "@/hooks/useWallets";
 import type {
@@ -504,25 +503,18 @@ function HolderLeaveButton({ groupId, onActionStart, onActionError }: ActionButt
   );
 }
 
+// Delegator leave records the same 90-day opt-out as a holder leave, so it
+// confirms first too (F-244 item 1). The optimistic pill flips on confirm.
 function ValidatorLeaveButton({ groupId, onActionStart, onActionError }: ActionButtonProps) {
   const onSuccess = useRefreshOnSuccess();
-  const mutation = useLeaveValidatorGroupMutation({ onSuccess, onError: onActionError });
-  const errorMessage = mutation.error
-    ? humanizeMembershipError(mutation.error, "leave")
-    : null;
   return (
     <ActionRow primaryCopy="You're an active member. Posts you make here scope to this group's feed.">
-      <GroupActionButton
+      <ValidatorLeaveConfirm
         groupId={groupId}
-        label="LEAVE"
-        pendingLabel="LEAVING…"
-        isPending={mutation.isPending}
-        errorMessage={errorMessage}
-        onClick={() => {
-          mutation.reset();
-          onActionStart("leaving");
-          mutation.mutate(groupId);
-        }}
+        humanizeError={(err) => humanizeMembershipError(err, "leave")}
+        onLeaveStart={() => onActionStart("leaving")}
+        onSuccess={onSuccess}
+        onError={onActionError}
       />
     </ActionRow>
   );

@@ -27,7 +27,7 @@ vi.mock("@/hooks/useAttestations", () => ({
   useRevokeAttestation: () => ({ mutate: vi.fn(), isPending: false }),
 }));
 
-const { CommunityActionBar, JOIN_UNKNOWN_COPY } = await import("@/components/cards/CardActionBar");
+const { CommunityActionBar, JOIN_ASK_PAGE_COPY, JOIN_UNKNOWN_COPY } = await import("@/components/cards/CardActionBar");
 
 const card = { id: 31, name: "Atlas" } as unknown as Card;
 
@@ -117,10 +117,11 @@ describe("JOIN cell from the server's verdict", () => {
     expect(onJoin).not.toHaveBeenCalled();
   });
 
-  it("no verdict at all (backend before #667) → the same unknown state, not a guess", () => {
+  it("no verdict at all (a surface that has not adopted it, §3.2.4) → points at the group page, not a guess", () => {
     const onJoin = renderBar(dossier({}));
     fireEvent.click(screen.getByRole("button", { name: /Atlas/ }));
-    expect(screen.getByRole("status")).toHaveTextContent(JOIN_UNKNOWN_COPY);
+    // Not "reload": a reload returns the same verdict-less card.
+    expect(screen.getByRole("status")).toHaveTextContent(JOIN_ASK_PAGE_COPY);
     expect(onJoin).not.toHaveBeenCalled();
   });
 

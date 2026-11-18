@@ -407,10 +407,12 @@ export interface CardCommunityDossier {
    * eligibility from `privacy` / `type` / `trust_min`. List-only
    * `can_join.reason_code` values: `verify_on_join` (holder group in a
    * list: allowed, and the join verifies the wallet) and `unavailable`
-   * (membership unreadable: never offer Join). Optional for deploy skew.
+   * (membership unreadable: never offer Join). Optional for deploy skew;
+   * `null` on a surface that has not adopted the verdict yet — treat both
+   * as "ask the group page" (§3.2.4).
    */
-  can_join?: CardPermissionEntry;
-  can_request_join?: CardPermissionEntry;
+  can_join?: CardPermissionEntry | null;
+  can_request_join?: CardPermissionEntry | null;
   /** `null` for anonymous viewers and when the read failed. */
   viewer_membership_status?: "none" | "requested" | "invited" | "member" | null;
 }

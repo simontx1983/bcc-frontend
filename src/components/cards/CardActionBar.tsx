@@ -725,6 +725,13 @@ function humanizeCardCastError(
 /** F-244: the JOIN cell when the viewer's membership could not be read. */
 export const JOIN_UNKNOWN_COPY = "Couldn't check whether you can join. Reload to try again.";
 
+/**
+ * F-244: no verdict on the card at all (`can_join` absent or `null`, §3.2.4)
+ * — the surface that built it has not adopted the verdict, so a reload
+ * would not help; the group page has the answer.
+ */
+export const JOIN_ASK_PAGE_COPY = "Open the community page to see whether you can join.";
+
 /** Locked-pill labels by the server's `can_join.reason_code`. */
 const JOIN_LOCKED_LABELS: Readonly<Record<string, string>> = {
   removed: "Removed",
@@ -751,13 +758,23 @@ const JOIN_LOCKED_FALLBACK: Readonly<Record<string, string>> = {
  * below the threshold, and pending requests and invites.
  *
  *   member (status, viewer_is_member or optimistic isJoined) → MEMBER ✓
+ *   verdict absent / null                                    → locked, "Open the community page…"
  *   signed out (auth_required)                               → JOIN → sign in
  *   can_join.allowed (incl. verify_on_join)                  → JOIN (onJoin)
+ *   nft / validator + not_eligible                           → JOIN (onJoin): the join IS the check
  *   status requested                                         → REQUESTED (locked)
  *   status invited                                           → INVITED (locked)
+ *   unavailable                                              → locked "Couldn't check…"
  *   otherwise                                                → locked, label + reason
  *                                                               from can_join
- *   verdict absent / unavailable                             → locked "Couldn't check…"
+ *
+ * The nft / validator rule is the one GroupMembershipStrip
+ * (HolderEligibilityCheck / ValidatorEligibilityCheck) and the profile
+ * Groups tab (ValidatorEligibilityRow) already apply: the server sends
+ * `not_eligible` for a delegator group always, and for a holder group on
+ * the detail card, because no live on-chain check runs at render time —
+ * the verified join settles it, and its refusal is mapped under the card.
+ * All three surfaces agree.
  *
  * A closed group the viewer could ask to join (`can_request_join.allowed`)
  * still reads "Private": there is no request flow in the app yet (F-272),
@@ -784,7 +801,11 @@ export function CommunityActionBar({
   const reason = canJoin?.reason_code ?? null;
   const isMember =
     isJoined || dossier.viewer_is_member || status === "member" || reason === "already_member";
-  const verifies = reason === "verify_on_join" || dossier.type === "nft" || dossier.type === "validator";
+  const onChainGated = dossier.type === "nft" || dossier.type === "validator";
+  const verifies = reason === "verify_on_join" || onChainGated;
+  // Not a refusal: the server cannot pre-confirm a holding or delegation
+  // without a live check, so the verified join is the check (see above).
+  const verifiedJoin = onChainGated && reason === "not_eligible";
   const signIn = useSignInLink();
   const pillNotice = usePillNotice();
 
@@ -794,9 +815,9 @@ export function CommunityActionBar({
   if (isMember) {
     joinLabel = "Member";
     joinTitle = "You're a member — manage membership on the community page.";
-  } else if (canJoin === undefined) {
+  } else if (canJoin === undefined || canJoin === null) {
     joinLabel = "Join";
-    joinTitle = JOIN_UNKNOWN_COPY;
+    joinTitle = JOIN_ASK_PAGE_COPY;
     locked = true;
   } else if (reason !== null && SIGN_IN_CODES.has(reason)) {
     return (
@@ -811,7 +832,7 @@ export function CommunityActionBar({
         />
       </div>
     );
-  } else if (canJoin.allowed) {
+  } else if (canJoin.allowed || verifiedJoin) {
     // "Join" even on the holder / delegator path: the check IS the join.
     joinLabel = joinPending ? (verifies ? "Checking…" : "Joining…") : "Join";
     joinTitle =
