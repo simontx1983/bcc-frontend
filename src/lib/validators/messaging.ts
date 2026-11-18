@@ -106,3 +106,55 @@ export function isNeverClaimedValidator(card: {
 }): boolean {
   return card.card_kind === "validator" && card.messaging?.destination === "queue";
 }
+
+// ─────────────────────────────────────────────────────────────────────
+// Direct-message gates for a PERSON (F-246): the thread composer's
+// `conversation.can_reply` and the recipient picker's member-card
+// `permissions.can_message`. Both are the server's exact send/reply gates
+// (contract §4.19, v1.NEXT), so the UI can say "can't" before the user
+// writes instead of failing on send.
+// ─────────────────────────────────────────────────────────────────────
+
+/** Fallback when sender_chat_disabled arrives without the server's hint. */
+export const DM_OWN_DMS_OFF_HINT = "Turn on direct messages in your settings to send messages.";
+
+export type DmGate =
+  /** Write away. Also an ABSENT field (older backend) and `not_applicable`. */
+  | { kind: "allowed" }
+  /** Unavailable, with copy the viewer can act on. */
+  | { kind: "hint"; hint: string; opensSettings: boolean }
+  /**
+   * Unavailable, and WHY must not be said: peer DMs off and a mutual block
+   * are deliberately identical (§4.19 shield), and a suspended sender or an
+   * unreadable block table gets the same neutral line.
+   */
+  | { kind: "shielded" }
+  /** The viewer themselves. */
+  | { kind: "self" };
+
+export function resolveDmGate(
+  entry: { allowed: boolean; unlock_hint: string | null; reason_code?: string | null } | null | undefined,
+): DmGate {
+  if (entry === null || entry === undefined || entry.allowed) return { kind: "allowed" };
+  switch (entry.reason_code ?? null) {
+    case "not_applicable":
+      // Member cards before F-246 always said not_applicable; the send
+      // path re-checks, so keep today's behaviour rather than hide people.
+      return { kind: "allowed" };
+    case "self_action_blocked":
+      return { kind: "self" };
+    case "auth_required":
+      return { kind: "hint", hint: MESSAGE_AUTH_REQUIRED_HINT, opensSettings: false };
+    case "sender_chat_disabled":
+      return { kind: "hint", hint: entry.unlock_hint ?? DM_OWN_DMS_OFF_HINT, opensSettings: true };
+    case "friends_only":
+      // Legacy (peepso-friends is gone); shown only with the server's hint.
+      return entry.unlock_hint !== null && entry.unlock_hint !== ""
+        ? { kind: "hint", hint: entry.unlock_hint, opensSettings: false }
+        : { kind: "shielded" };
+    default:
+      // sender_restricted, messaging_unavailable, unavailable, and any code
+      // added later: one neutral line, no reason.
+      return { kind: "shielded" };
+  }
+}
