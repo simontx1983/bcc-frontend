@@ -777,8 +777,10 @@ const JOIN_LOCKED_FALLBACK: Readonly<Record<string, string>> = {
  * All three surfaces agree.
  *
  * A closed group the viewer could ask to join (`can_request_join.allowed`)
- * still reads "Private": there is no request flow in the app yet (F-272),
- * and promising one would be the M-gr5 defect again.
+ * still reads "Private" on the card, and its tap shows the server's hint
+ * ("Visit the group page to request to join."): the request itself lives
+ * in the group page's membership strip (F-272, #290). The card offers no
+ * Request button of its own yet (a separate follow-up).
  *
  * Locked pills explain themselves on tap (F-321) — a title never shows on
  * a phone.

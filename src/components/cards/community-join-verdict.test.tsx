@@ -158,16 +158,21 @@ describe("JOIN cell from the server's verdict", () => {
     expect(screen.getByRole("link", { name: "Sign in to join Atlas" })).toBeInTheDocument();
   });
 
-  it("a closed group the viewer could ask to join still reads Private (no request flow yet, F-272)", () => {
+  it("a closed group the viewer could ask to join reads Private and points at the group page's request", () => {
     renderBar(
       dossier({
         privacy: "closed",
-        can_join: { allowed: false, unlock_hint: null, reason_code: "requires_approval" },
+        // The server's real verdict for a closed plain group (GroupsService).
+        can_join: {
+          allowed: false,
+          unlock_hint: "Visit the group page to request to join.",
+          reason_code: "requires_approval",
+        },
         can_request_join: { allowed: true, unlock_hint: null, reason_code: null },
       }),
     );
     fireEvent.click(screen.getByRole("button", { name: "Private — Atlas" }));
-    expect(screen.getByRole("status")).toHaveTextContent("This community is private.");
-    expect(screen.queryByText(/request/i)).toBeNull();
+    // Accurate since #290: the group page's strip carries REQUEST TO JOIN.
+    expect(screen.getByRole("status")).toHaveTextContent("Visit the group page to request to join.");
   });
 });
