@@ -74,8 +74,12 @@ export function removeMyPushSubscription(id: number): Promise<{ ok: true }> {
  * teardown: routing it through the session-aware client would let a 401
  * here re-enter the expiry handler and start a second teardown.
  *
- * The server is idempotent (a missing row is a 200) and ownership-checked
- * (someone else's row is a 403), so a rejection here is safe to swallow.
+ * The server answers the same `200 { ok: true }` for the caller's own row
+ * (deleted), a missing id, and another member's id (never touched): since
+ * bcc-trust #709 the ownership check is part of the DELETE, so the answer
+ * reveals nothing about which ids exist. A failed delete is a `503
+ * bcc_unavailable`. The only caller (the session teardown) swallows any
+ * rejection, because the browser-side unsubscribe is what stops delivery.
  */
 export function deletePushSubscription(
   id: number,
