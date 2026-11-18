@@ -324,6 +324,30 @@ describe("Case 1 — a code was mailed at signup", () => {
     expect(window.sessionStorage.getItem(PENDING_RECOVERY_EMAIL_KEY)).toBe("me@example.com");
   });
 
+  it("a 409 bcc_conflict (another account took the address) drops the hand-off and moves to add-an-email", async () => {
+    // F-294 (bcc-trust #717): the server dropped the pending address, so
+    // the code form is a dead end: a resend answers ok and mails nothing.
+    h.verifyEmail.mockRejectedValue(
+      new BccApiError("bcc_conflict", "RAW SERVER TEXT", 409, null),
+    );
+    renderStep();
+    fireEvent.change(await screen.findByLabelText("Verification code"), {
+      target: { value: "123456" },
+    });
+    fireEvent.click(btn(/^verify$/i));
+
+    const alert = await screen.findByRole("alert");
+    expect(alert.textContent).toBe(
+      "That email is already in use on another account, so it wasn’t added. You can add a different one.",
+    );
+    expect(window.sessionStorage.getItem(PENDING_RECOVERY_EMAIL_KEY)).toBeNull();
+    expect(screen.queryByLabelText("Verification code")).toBeNull();
+    expect(screen.queryByRole("button", { name: /resend/i })).toBeNull();
+    expect(btn(/add a recovery email/i)).toBeTruthy();
+    expect(btn(/^continue$/i).disabled).toBe(true);
+    expect(screen.queryByText(/RAW SERVER TEXT/)).toBeNull();
+  });
+
   it("treats bcc_already_verified as success", async () => {
     h.verifyEmail.mockRejectedValue(
       new BccApiError("bcc_already_verified", "x", 409, null),

@@ -126,6 +126,17 @@ export function SecureAccountStep({
     setPendingEmail(null);
   }
 
+  // F-294 (bcc-trust #717): another account took the pending address
+  // before it was verified, and the server dropped it. The code form is
+  // now a dead end (a resend answers ok and mails nothing), so drop the
+  // hand-off and move to the add-an-email path, saying why.
+  const [emailTaken, setEmailTaken] = useState(false);
+  function pendingEmailTaken() {
+    clearPendingRecoveryEmail(scope);
+    setPendingEmail(null);
+    setEmailTaken(true);
+  }
+
   // Skipping drops the hand-off: the member chose not to use it now, and
   // the address should not sit in storage for the rest of the tab.
   function skip() {
@@ -150,6 +161,12 @@ export function SecureAccountStep({
       </LandingReveal>
 
       <div className="bcc-onb-panel" style={{ marginTop: "clamp(24px, 4vw, 40px)" }}>
+        {emailTaken && !secured && (
+          <p role="alert" className="bcc-onb-err" style={{ marginTop: 0 }}>
+            That email is already in use on another account, so it wasn&rsquo;t added.
+            You can add a different one.
+          </p>
+        )}
         {secured ? (
           <>
           <p role="status" className="bcc-onb-note" style={{ marginTop: 0, color: "var(--verified)" }}>
@@ -162,6 +179,7 @@ export function SecureAccountStep({
             email={pendingEmail}
             onVerified={finishVerified}
             onUseDifferentEmail={useDifferentEmail}
+            onEmailTaken={pendingEmailTaken}
           />
         ) : wallets.isPending ? (
           <p className="bcc-onb-note" style={{ marginTop: 0 }}>Checking your account…</p>
@@ -208,11 +226,14 @@ function PendingCodeForm({
   email,
   onVerified,
   onUseDifferentEmail,
+  onEmailTaken,
 }: {
   email: string;
   /** `true` when the verify's fresh bearer could not be stored. */
   onVerified: (sessionWriteFailed: boolean) => void;
   onUseDifferentEmail: () => void;
+  /** The verify answered `bcc_conflict` 409: another account has the address. */
+  onEmailTaken: () => void;
 }) {
   const [code, setCode] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -275,6 +296,12 @@ function PendingCodeForm({
       if (isCode(err, "bcc_already_verified")) {
         setError(null);
         onVerified(false);
+        return;
+      }
+      // Keyed on the code: bcc_already_verified (above) is a 409 too.
+      if (isCode(err, "bcc_conflict")) {
+        setError(null);
+        onEmailTaken();
         return;
       }
       setError(humanizeVerifyError(err));

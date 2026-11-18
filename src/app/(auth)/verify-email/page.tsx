@@ -32,6 +32,7 @@ import {
 
 import { AuthCard } from "@/components/auth/AuthCard";
 import { WalletOwnershipPrompt } from "@/components/auth/WalletOwnershipPrompt";
+import { RECOVERY_EMAIL_SETTINGS_HREF } from "@/components/settings/RecoveryEmailNudge";
 import { noteSignupCompleted } from "@/lib/analytics/posthog";
 import {
   resendVerification,
@@ -50,8 +51,28 @@ const ERROR_COPY: Record<string, string> = {
   bcc_unknown:              "Verification failed. Try resending the code.",
 };
 
-/** `wallet-check`: signed in, asking "is this wallet yours?" first. */
-type PageState = "otp-form" | "auto-verifying" | "success" | "link-expired" | "wallet-check";
+/**
+ * F-294 (bcc-trust #717): a wallet sign-up's typed email is held pending
+ * until verified. If another account took the address first, the verify
+ * (code or link) answers `bcc_conflict` 409 and the server DROPS the
+ * pending address — so a resend or another code can never work. Keyed on
+ * the code alone: `bcc_already_verified` and `bcc_invalid_state` are 409s
+ * too and keep their own handling.
+ */
+const EMAIL_TAKEN_CODE = "bcc_conflict";
+const EMAIL_TAKEN_COPY = "That email is already in use. Add a different one in Settings.";
+
+/**
+ * `wallet-check`: signed in, asking "is this wallet yours?" first.
+ * `email-taken`: the pending address went to another account (above).
+ */
+type PageState =
+  | "otp-form"
+  | "auto-verifying"
+  | "success"
+  | "link-expired"
+  | "wallet-check"
+  | "email-taken";
 
 function VerifyEmailContent() {
   const router        = useRouter();
@@ -120,6 +141,10 @@ function VerifyEmailContent() {
       setPageState("success");
       void autoSignIn(tokenResp);
     } catch (err) {
+      if (err instanceof BccApiError && err.code === EMAIL_TAKEN_CODE) {
+        setPageState("email-taken");
+        return;
+      }
       setPageState("link-expired");
       if (err instanceof BccApiError) {
         // §γ — unmapped codes fall back to generic copy, never err.message.
@@ -159,7 +184,9 @@ function VerifyEmailContent() {
       setPageState("success");
       void autoSignIn(tokenResp);
     } catch (err) {
-      if (err instanceof BccApiError) {
+      if (err instanceof BccApiError && err.code === EMAIL_TAKEN_CODE) {
+        setPageState("email-taken");
+      } else if (err instanceof BccApiError) {
         // §γ — unmapped codes fall back to generic copy, never err.message.
         setError(ERROR_COPY[err.code] ?? "Verification failed. Try again.");
       } else {
@@ -249,6 +276,33 @@ function VerifyEmailContent() {
             Sign in now
           </Link>
         )}
+      </AuthCard>
+    );
+  }
+
+  // ── The pending address went to another account ───────────────
+  // No resend and no code entry: the server has dropped the address, so
+  // both would be dead ends. The account itself is untouched; a wallet
+  // sign-up keeps signing in with its wallet.
+  if (pageState === "email-taken") {
+    return (
+      <AuthCard
+        heading="Email already in use"
+        subheading="Another account has this email now, so it wasn't added to yours."
+      >
+        <p role="alert" className="bcc-auth-error" style={{ marginBottom: "12px" }}>
+          {EMAIL_TAKEN_COPY}
+        </p>
+        <p className="bcc-auth-hint" style={{ marginBottom: "12px" }}>
+          Your account is fine. Sign in with your wallet as usual.
+        </p>
+        <Link
+          href={RECOVERY_EMAIL_SETTINGS_HREF}
+          className="bcc-auth-submit"
+          style={{ textAlign: "center", textDecoration: "none", display: "block" }}
+        >
+          Open Settings
+        </Link>
       </AuthCard>
     );
   }

@@ -46,6 +46,11 @@ const ERROR_COPY: Record<string, string> = {
   bcc_invalid_email:       "Please enter a valid email address.",
   bcc_conflict:            "That handle or email is already taken. Try a different one.",
   bcc_rate_limited:        "Too many attempts. Wait a moment.",
+  // F-294 (bcc-trust #711): another submit with this token is still being
+  // processed. Nothing was created and the token is intact; resubmitting
+  // the same form is always safe (a retry after success signs in as that
+  // account), so the form stays as it is.
+  bcc_unavailable:         "We're still finishing your sign-up. Try again in a moment.",
   bcc_unknown:             "Something went wrong. Please try again.",
 };
 
