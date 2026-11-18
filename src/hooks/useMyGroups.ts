@@ -5,6 +5,9 @@
  *
  *   - useJoinPlainGroupMutation  — POST /me/groups/:id/join
  *   - useLeavePlainGroupMutation — POST /me/groups/:id/leave
+ *   - F-272 (closed / secret groups): useRequestJoinGroupMutation,
+ *     useCancelJoinRequestMutation, useAcceptGroupInviteMutation,
+ *     useDeclineGroupInviteMutation, and the useMyGroupInvites list
  *
  * Mirrors the `useHallsPrimary` pattern — no cache surgery, the
  * caller drives `router.refresh()` (or component-local re-render) on
@@ -20,29 +23,40 @@
  */
 
 import {
+  useInfiniteQuery,
   useMutation,
   useQueryClient,
+  type InfiniteData,
+  type QueryKey,
   type UseMutationOptions,
 } from "@tanstack/react-query";
+import { useSession } from "next-auth/react";
 
 import { GROUP_MEMBERS_QUERY_KEY_ROOT } from "@/hooks/useGroupMembers";
 import { USER_GROUPS_QUERY_KEY_ROOT } from "@/hooks/useUserActivity";
 import {
+  acceptGroupInvite,
+  cancelJoinRequest,
   createPlainGroup,
+  declineGroupInvite,
+  getMyGroupInvites,
   joinPlainGroup,
   leavePlainGroup,
+  requestJoinGroup,
   setGroupPostPolicy,
   transferGroupOwnership,
 } from "@/lib/api/my-groups-endpoints";
 import { useGroupContentRefresh } from "@/hooks/groupContentCache";
-import type {
+import {
   BccApiError,
-  CreatePlainGroupRequest,
-  CreatePlainGroupResponse,
-  JoinPlainGroupResponse,
-  LeavePlainGroupResponse,
-  SetGroupPostPolicyResponse,
-  TransferCommunityResponse,
+  type CreatePlainGroupRequest,
+  type CreatePlainGroupResponse,
+  type GroupMembershipChangeResponse,
+  type JoinPlainGroupResponse,
+  type MyGroupInvitesResponse,
+  type LeavePlainGroupResponse,
+  type SetGroupPostPolicyResponse,
+  type TransferCommunityResponse,
 } from "@/lib/api/types";
 
 export function useJoinPlainGroupMutation(
@@ -158,5 +172,99 @@ export function useSetGroupPostPolicyMutation(
     mutationFn: ({ groupId, publicAllMembers }) =>
       setGroupPostPolicy(groupId, publicAllMembers),
     ...options,
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// F-272 — closed-group requests and invitations (viewer side).
+//
+// Each write refreshes the group's server-rendered page through the same
+// `useGroupContentRefresh` the join/leave hooks use, so the strip shows
+// the new status (Requested, Member, …) from the server. Accept / decline
+// also re-read the caller's invitation list.
+// ─────────────────────────────────────────────────────────────────────
+
+export const MY_GROUP_INVITES_QUERY_KEY = ["me", "group-invites"] as const;
+
+type MembershipMutationOptions = Omit<
+  UseMutationOptions<GroupMembershipChangeResponse, BccApiError, number>,
+  "mutationFn"
+>;
+
+export function useRequestJoinGroupMutation(options: MembershipMutationOptions = {}) {
+  const withRefresh = useGroupContentRefresh(options);
+  return useMutation<GroupMembershipChangeResponse, BccApiError, number>({
+    mutationFn: (groupId) => requestJoinGroup(groupId),
+    ...withRefresh,
+  });
+}
+
+export function useCancelJoinRequestMutation(options: MembershipMutationOptions = {}) {
+  const withRefresh = useGroupContentRefresh(options);
+  return useMutation<GroupMembershipChangeResponse, BccApiError, number>({
+    mutationFn: (groupId) => cancelJoinRequest(groupId),
+    ...withRefresh,
+  });
+}
+
+function useInviteAnswerMutation(
+  answer: (groupId: number) => Promise<GroupMembershipChangeResponse>,
+  options: MembershipMutationOptions,
+) {
+  const queryClient = useQueryClient();
+  const withRefresh = useGroupContentRefresh(options);
+  return useMutation<GroupMembershipChangeResponse, BccApiError, number>({
+    mutationFn: (groupId) => answer(groupId),
+    ...withRefresh,
+    onSettled: (...args) => {
+      void queryClient.invalidateQueries({ queryKey: MY_GROUP_INVITES_QUERY_KEY });
+      withRefresh.onSettled?.(...args);
+    },
+  });
+}
+
+export function useAcceptGroupInviteMutation(options: MembershipMutationOptions = {}) {
+  return useInviteAnswerMutation(acceptGroupInvite, options);
+}
+
+export function useDeclineGroupInviteMutation(options: MembershipMutationOptions = {}) {
+  return useInviteAnswerMutation(declineGroupInvite, options);
+}
+
+const MY_GROUP_INVITES_PAGE = 50;
+
+/**
+ * GET /me/group-invites — signed-in only (it is a /me route). Paged by
+ * offset; the list offers "Show more" while `has_more` is true.
+ *
+ * A 404 means the route itself does not exist (a backend without F-272),
+ * not a failure the viewer can retry: it reads as "no invitations", so a
+ * frontend deployed ahead of its backend degrades to nothing instead of
+ * an error on every /communities visit.
+ */
+export function useMyGroupInvites() {
+  const { status } = useSession();
+  return useInfiniteQuery<
+    MyGroupInvitesResponse,
+    BccApiError,
+    InfiniteData<MyGroupInvitesResponse>,
+    QueryKey,
+    number
+  >({
+    queryKey: MY_GROUP_INVITES_QUERY_KEY,
+    initialPageParam: 0,
+    queryFn: async ({ pageParam, signal }) => {
+      try {
+        return await getMyGroupInvites({ offset: pageParam, limit: MY_GROUP_INVITES_PAGE }, signal);
+      } catch (err) {
+        if (err instanceof BccApiError && err.status === 404) {
+          return { items: [], pagination: { offset: pageParam, limit: MY_GROUP_INVITES_PAGE, has_more: false } };
+        }
+        throw err;
+      }
+    },
+    getNextPageParam: (last) =>
+      last.pagination.has_more ? last.pagination.offset + last.items.length : undefined,
+    enabled: status === "authenticated",
   });
 }

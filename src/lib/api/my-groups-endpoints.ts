@@ -5,16 +5,25 @@
  * use `me/holder-groups`; Halls use `me/halls`. This module is the
  * residual case for `type === "user"` / `type === "system"` groups.
  *
- * The server rejects closed/secret writes with `bcc_permission_denied`
- * + a hint pointing at PeepSo's group page (where the request-to-join
- * flow lives) — we don't replicate PeepSo's invitation machinery here.
- * Render the typed `BccApiError.message` verbatim per §A2.
+ * Closed and secret groups (F-272, v1.132): a member ASKS to join a
+ * closed group (request-join / cancel), and accepts or declines an
+ * invitation (invite/accept / decline; GET /me/group-invites lists them —
+ * the only way an invitee finds a secret group). Owners, managers and
+ * site admins decide requests and send invitations (the owner panels).
+ *
+ * F-272 errors, shared by every route (contract §4.7.3): 409 `bcc_conflict`
+ * — the row is not (or no longer) in the needed state, or "Please retry."
+ * when another membership change is in flight; 403 `bcc_permission_denied`
+ * — refused (always the generic copy: a ban and a block answer the same);
+ * 503 `bcc_unavailable` — nothing was written, retryable.
  */
 
 import { bccFetchAsClient } from "@/lib/api/client";
 import type {
   CreatePlainGroupRequest,
   CreatePlainGroupResponse,
+  GroupMembershipChangeResponse,
+  MyGroupInvitesResponse,
   JoinPlainGroupResponse,
   LeavePlainGroupResponse,
   SetGroupPostPolicyResponse,
@@ -141,4 +150,52 @@ export function setGroupPostPolicy(
     `me/groups/${groupId}/post-policy`,
     { method: "POST", body: { public_all_members: publicAllMembers } }
   );
+}
+
+/**
+ * POST /me/groups/:id/request-join — ask to join a CLOSED group (F-272).
+ * 200 `{ status: "requested", group_id }`. 403 within 7 days of a denied
+ * request ("You can't ask to join this community again yet."), or the
+ * generic refusal; 400 not a closed group; 409; 503.
+ */
+export function requestJoinGroup(groupId: number): Promise<GroupMembershipChangeResponse> {
+  return bccFetchAsClient<GroupMembershipChangeResponse>(`me/groups/${groupId}/request-join`, {
+    method: "POST",
+  });
+}
+
+/** POST /me/groups/:id/request-join/cancel — withdraw one's own pending request. 409 when none. */
+export function cancelJoinRequest(groupId: number): Promise<GroupMembershipChangeResponse> {
+  return bccFetchAsClient<GroupMembershipChangeResponse>(`me/groups/${groupId}/request-join/cancel`, {
+    method: "POST",
+  });
+}
+
+/** GET /me/group-invites — the caller's open invitations, newest first. 503 when unreadable. */
+export function getMyGroupInvites(
+  params: { offset?: number; limit?: number } = {},
+  signal?: AbortSignal,
+): Promise<MyGroupInvitesResponse> {
+  const search = new URLSearchParams();
+  if (params.offset !== undefined) search.set("offset", String(params.offset));
+  if (params.limit !== undefined) search.set("limit", String(params.limit));
+  const q = search.toString();
+  return bccFetchAsClient<MyGroupInvitesResponse>(`me/group-invites${q !== "" ? `?${q}` : ""}`, {
+    method: "GET",
+    ...(signal !== undefined ? { signal } : {}),
+  });
+}
+
+/** POST /me/groups/:id/invite/accept — become a member. 404 no pending invitation; 409; 503. */
+export function acceptGroupInvite(groupId: number): Promise<GroupMembershipChangeResponse> {
+  return bccFetchAsClient<GroupMembershipChangeResponse>(`me/groups/${groupId}/invite/accept`, {
+    method: "POST",
+  });
+}
+
+/** POST /me/groups/:id/invite/decline — nobody is notified. Same 404 / 409 as accept. */
+export function declineGroupInvite(groupId: number): Promise<GroupMembershipChangeResponse> {
+  return bccFetchAsClient<GroupMembershipChangeResponse>(`me/groups/${groupId}/invite/decline`, {
+    method: "POST",
+  });
 }
