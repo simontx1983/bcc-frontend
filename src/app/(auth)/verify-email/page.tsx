@@ -42,6 +42,8 @@ import { BccApiError, type VerifyEmailResponse } from "@/lib/api/types";
 const ERROR_COPY: Record<string, string> = {
   bcc_invalid_verify_token: "This link has expired or has already been used.",
   bcc_invalid_otp:          "Incorrect or expired code. Check the email and try again.",
+  // F-294 — after five wrong codes the code is spent.
+  bcc_otp_exhausted:        "Too many attempts. Request a new code.",
   bcc_already_verified:     "This email is already verified. Sign in to continue.",
   bcc_invalid_request:      "Something went wrong. Try resending the code.",
   bcc_rate_limited:         "Too many attempts. Wait a moment and try again.",
