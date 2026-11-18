@@ -2902,7 +2902,8 @@ export interface CardReview {
  * currently answers for the page — a stale reply (the page changed hands)
  * is never `reply`; only its own author gets it back, as
  * `viewer_stale_reply`, and the current party gets `can_reply`.
- *   - can_edit:   author in good standing (not_author · sender_restricted)
+ *   - can_edit:   author in good standing (not_author · sender_restricted ·
+ *                 page_changed_hands, only on `viewer_stale_reply`)
  *   - can_delete: author, not gated on suspension (not_author)
  *   - can_report: signed in, not the author, not restricted
  *                 (sign_in_required → hint "Sign in to report." · own_reply ·
