@@ -722,12 +722,19 @@ export function ProfileHero({ profile, nav }: ProfileHeroProps) {
                   setNameDraft(e.target.value);
                   setNameError(null);
                 }}
-                className="bcc-stencil w-64 bg-bcc-surface-raised px-2 py-1 text-2xl text-bcc-text ring-1 ring-bcc-input-border focus:outline-none focus:ring-2 focus:ring-blueprint md:text-3xl"
+                className="bcc-stencil w-64 rounded-[4px] border border-bcc-input-border bg-bcc-input-bg px-2 py-1 text-2xl text-bcc-text focus:outline-none focus:ring-2 focus:ring-blueprint md:text-3xl"
               />
               <button
                 type="submit"
-                disabled={nameMutation.isPending}
-                className="bcc-stencil bg-ink px-3 py-1.5 text-[11px] text-cardstock transition disabled:opacity-50"
+                // Disabled until the name actually changes (Figma Profile
+                // Settings). Cancel still closes the editor. Active stays ink:
+                // the on-accent foreground is reserved for safety grounds (see
+                // solid-safety-foreground.test.ts).
+                disabled={
+                  nameMutation.isPending ||
+                  nameDraft.trim() === confirmed.display_name.trim()
+                }
+                className="bcc-stencil min-h-[44px] rounded-[4px] bg-ink px-4 text-[11px] text-cardstock transition disabled:cursor-not-allowed disabled:bg-bcc-surface-active disabled:text-bcc-text-secondary"
               >
                 {nameMutation.isPending ? "Saving…" : "Save"}
               </button>

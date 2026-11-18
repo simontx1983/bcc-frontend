@@ -14,6 +14,7 @@
  *   - HandleSection     → change the handle (F-333; see its docblock)
  *   - ProfileFieldsList → the admin-configured profile-field catalogue,
  *                         each with its own visibility
+ *   - FootprintCard     → read-only contribution counts from profile.counts
  *
  * The section headers exist to separate two things users conflated: the
  * DISPLAY NAME (free text, changeable anytime, shown on posts) and the
@@ -33,7 +34,7 @@ import { SettingsSectionHeader } from "@/components/settings/SettingsSectionHead
 import { BioEditor } from "@/components/settings/profile/BioEditor";
 import { ProfileFieldsList } from "@/components/settings/profile/ProfileFieldsList";
 import { ProfileHero } from "@/components/settings/profile/ProfileHero";
-import type { MemberProfile } from "@/lib/api/types";
+import type { MemberCounts, MemberProfile } from "@/lib/api/types";
 
 export interface ProfileEditPanelProps {
   profile: MemberProfile;
@@ -41,7 +42,12 @@ export interface ProfileEditPanelProps {
 
 export function ProfileEditPanel({ profile }: ProfileEditPanelProps) {
   return (
-    <section className="flex flex-col gap-10">
+    // gap-5 between cards; the descendant variant tightens every card in
+    // this panel to the 7px Figma radius without touching .bcc-panel
+    // elsewhere. pb-8 is the extra clearance on top of the shell's own
+    // --bcc-mobile-nav-total-h padding on .bcc-col-center, so the last
+    // card never sits flush against the bottom nav.
+    <section className="flex flex-col gap-5 pb-8 [&_.bcc-panel]:rounded-[7px]">
       <section>
         <SettingsSectionHeader
           eyebrow="PHOTOS & NAME"
@@ -90,6 +96,40 @@ export function ProfileEditPanel({ profile }: ProfileEditPanelProps) {
           <ProfileFieldsList />
         </div>
       </section>
+
+      <FootprintCard counts={profile.counts} />
+    </section>
+  );
+}
+
+/**
+ * "Your Footprint" — the owner's own contribution counts, read verbatim from
+ * the server-rolled `profile.counts`. Nothing is computed here.
+ */
+function FootprintCard({ counts }: { counts: MemberCounts }) {
+  const rows: ReadonlyArray<{ label: string; value: number }> = [
+    { label: "REVIEWS WRITTEN", value: counts.reviews_written },
+    { label: "DISPUTES SIGNED", value: counts.disputes_signed },
+    { label: "BLOG POSTS", value: counts.blog_posts_written },
+    { label: "SOLIDS RECEIVED", value: counts.solids_received },
+  ];
+  return (
+    <section>
+      <SettingsSectionHeader
+        eyebrow="YOUR FOOTPRINT"
+        title="Your footprint"
+        blurb="What you've contributed on the Floor so far."
+      />
+      <dl className="bcc-panel mt-4 grid grid-cols-2 gap-4 p-5 sm:grid-cols-4">
+        {rows.map((row) => (
+          <div key={row.label} className="flex flex-col gap-1">
+            <dt className="bcc-mono text-[10px] tracking-[0.16em] text-bcc-text-secondary">
+              {row.label}
+            </dt>
+            <dd className="bcc-stencil text-2xl text-bcc-text">{row.value}</dd>
+          </div>
+        ))}
+      </dl>
     </section>
   );
 }

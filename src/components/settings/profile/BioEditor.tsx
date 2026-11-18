@@ -162,7 +162,7 @@ export function BioEditor({ profile }: BioEditorProps) {
           rows={4}
           aria-describedby={helpId}
           placeholder="What do you work on?"
-          className="w-full resize-y border border-bcc-input-border bg-bcc-input-bg px-3 py-2 font-serif text-bcc-text outline-none focus:border-bcc-accent focus:ring-1 focus:ring-bcc-accent disabled:opacity-50"
+          className="w-full resize-y rounded-[4px] border border-bcc-input-border bg-bcc-input-bg px-4 py-3 font-serif text-[16px] text-bcc-text outline-none focus:border-bcc-accent focus:ring-1 focus:ring-bcc-accent disabled:opacity-50"
         />
 
         <div className="flex items-center justify-between gap-3">
@@ -180,7 +180,7 @@ export function BioEditor({ profile }: BioEditorProps) {
           <button
             type="submit"
             disabled={mutation.isPending || !isDirty}
-            className="bcc-stencil bg-ink px-4 py-1.5 text-[11px] text-cardstock transition disabled:opacity-40"
+            className="bcc-stencil min-h-[44px] rounded-[4px] bg-bcc-accent px-4 text-[11px] text-bcc-on-accent transition disabled:cursor-not-allowed disabled:bg-bcc-surface-active disabled:text-bcc-text-secondary"
           >
             {mutation.isPending ? "Saving…" : "Save"}
           </button>
