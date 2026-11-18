@@ -141,6 +141,26 @@ describe("thread page — F-300 503", () => {
     wrap(<ConversationPage />);
     expect(screen.queryByRole("button", { name: /retry/i })).toBeNull();
   });
+
+  // bcc-trust F-288: a 401 can say why. Every 401 code is "sign in again",
+  // with no retry (a retry cannot sign anyone in).
+  it.each(["bcc_unauthorized", "bcc_token_expired", "bcc_token_invalid"])(
+    "a 401 (%s) says sign in again and offers no retry",
+    (code) => {
+      state.conversation = {
+        isPending: false,
+        isSuccess: false,
+        isError: true,
+        error: new BccApiError(code, "x", 401, null),
+        refetch: state.refetch,
+      };
+      wrap(<ConversationPage />);
+      expect(
+        screen.getByText("Your session expired — sign in again to view this conversation."),
+      ).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /retry/i })).toBeNull();
+    },
+  );
 });
 
 function member(id: number, handle: string, can_message?: unknown) {

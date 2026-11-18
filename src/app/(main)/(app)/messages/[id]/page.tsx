@@ -103,7 +103,11 @@ export default function ConversationPage() {
                   },
                   "Couldn't load this conversation. Try again in a moment.",
                 )}
-                {...(isPermissionDenial(query.error) || query.error.code === "bcc_unauthorized"
+                {...(isPermissionDenial(query.error) ||
+                // No retry on a sign-in failure. Keyed on the 401 status, not
+                // the code: since bcc-trust F-288 a 401 can say
+                // bcc_token_expired / bcc_token_invalid instead.
+                query.error.status === 401
                   ? {}
                   : { onRetry: () => void query.refetch() })}
               />
