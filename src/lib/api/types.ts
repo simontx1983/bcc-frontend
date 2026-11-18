@@ -2882,7 +2882,7 @@ export interface CardReview {
 
 /**
  * F-345 — the reviewed party's ONE public response to a review (contract
- * "Replies (v1.NEXT, F-345)"). One per review, no thread: it takes no
+ * "Replies (v1.159, F-345)"). One per review, no thread: it takes no
  * comments or reactions.
  *
  * `feed_id` ("feed_<act_id>") is only the REPORT target (its number goes to
