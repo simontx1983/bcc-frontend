@@ -31,6 +31,7 @@ describe("RecoveryEmailNudge", () => {
       "href",
       "/u/me?tab=account",
     );
+    // cadence-pressure-guard:allow — asserting the nudge avoids these words
     expect(nudge.textContent ?? "").not.toMatch(/haven't|streak|days|should|don't forget/i);
   });
 
@@ -49,15 +50,11 @@ describe("RecoveryEmailNudge", () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  it("on the Account tab itself the link can be hidden", () => {
-    render(<RecoveryEmailNudge showLink={false} />);
-    expect(screen.queryByRole("link")).toBeNull();
-  });
-});
-
-describe("RecoveryEmailNudge on the Account tab", () => {
-  it("can point at the in-page wallets section instead of reloading the tab", () => {
-    render(<RecoveryEmailNudge href="#account-wallets" />);
-    expect(screen.getByRole("link", { name: "Add recovery email" })).toHaveAttribute("href", "#account-wallets");
+  it("a placing surface can point the link at its own Account tab", () => {
+    render(<RecoveryEmailNudge href="/u/alice?tab=account" />);
+    expect(screen.getByRole("link", { name: "Add recovery email" })).toHaveAttribute(
+      "href",
+      "/u/alice?tab=account",
+    );
   });
 });
