@@ -54,6 +54,7 @@ import { ProfileMessageButton } from "@/components/profile/ProfileMessageButton"
 import { ProfileTabs } from "@/components/profile/ProfileTabs";
 import { TrustHeader } from "@/components/profile/TrustHeader";
 import { ReviewCallout } from "@/components/review/ReviewCallout";
+import { RecoveryEmailNudge } from "@/components/settings/RecoveryEmailNudge";
 import { TourAutoStart } from "@/components/tour/TourAutoStart";
 import { authOptions } from "@/lib/auth";
 import { tokenFromSession } from "@/lib/api/client";
@@ -393,9 +394,8 @@ export default async function MemberProfilePage({ params, searchParams }: PagePr
         >
           More about {title} →
         </Link>
-        {/* Slot: public-cb RecoveryEmailNudge (owner only) — the component
-            is not on main yet. Note 23's vouched-by line is TrustHeader's
-            concern and waits on the F-340 fields. */}
+        {/* Note 23's vouched-by line is TrustHeader's concern and waits on
+            the F-340 fields. */}
         {isOwner ? (
           <div className="mt-2">
             <Link
@@ -404,6 +404,12 @@ export default async function MemberProfilePage({ params, searchParams }: PagePr
             >
               Edit profile
             </Link>
+            {/* F-332 (D): owner only. Renders nothing unless GET /wallets
+                says this account has no recovery email. */}
+            <RecoveryEmailNudge
+              href={`/u/${encodeURIComponent(profile.handle)}?tab=account` as Route}
+              className="mt-2"
+            />
           </div>
         ) : (
           // Secondary actions the trust header does not cover. TrustHeader
