@@ -34,6 +34,14 @@ const deny = (unlock_hint: string | null = null): CardPermissionEntry => ({
 const member = (handle: string): MemberSummary =>
   ({ user_id: 7, handle, display_name: handle, avatar_url: "" }) as unknown as MemberSummary;
 
+/** Full reply permissions; anything not named is a structural denial. */
+const perms = (p: Partial<ReviewReply["permissions"]> = {}): ReviewReply["permissions"] => ({
+  can_edit: deny(),
+  can_delete: deny(),
+  can_report: deny(),
+  ...p,
+});
+
 const reply = (over: Partial<ReviewReply> = {}): ReviewReply => ({
   id: 9,
   body: "Thanks — fixed the signing gap.",
@@ -41,6 +49,7 @@ const reply = (over: Partial<ReviewReply> = {}): ReviewReply => ({
   posted_at: "2026-11-10T12:00:00Z",
   edited_at: null,
   feed_id: "feed_321",
+  permissions: perms(),
   ...over,
 });
 
@@ -120,13 +129,13 @@ describe("F-345 review replies", () => {
     fireEvent.click(screen.getByRole("button", { name: "REPLY" }));
     fireEvent.change(screen.getByLabelText("Your reply"), { target: { value: "Hi" } });
     fireEvent.click(screen.getByRole("button", { name: "POST REPLY" }));
-    expect(await screen.findByRole("alert")).toHaveTextContent("This review already has a reply.");
+    expect(await screen.findByRole("alert")).toHaveTextContent("You’ve already replied to this review.");
   });
 
   it("Edit / Delete / Report each follow their own reply permission", () => {
     renderSection(
       review({
-        reply: reply({ permissions: { can_edit: allow, can_delete: allow, can_report: deny() } }),
+        reply: reply({ permissions: perms({ can_edit: allow, can_delete: allow, can_report: deny() }) }),
       }),
     );
     expect(screen.getByRole("button", { name: "EDIT" })).toBeInTheDocument();
@@ -137,18 +146,18 @@ describe("F-345 review replies", () => {
 
   it("change of owner: the old author may delete but not edit", () => {
     renderSection(
-      review({ reply: reply({ permissions: { can_edit: deny(), can_delete: allow, can_report: deny() } }) }),
+      review({ reply: reply({ permissions: perms({ can_edit: deny(), can_delete: allow, can_report: deny() }) }) }),
     );
     expect(screen.queryByRole("button", { name: "EDIT" })).toBeNull();
     expect(screen.getByRole("button", { name: "DELETE" })).toBeInTheDocument();
   });
 
   it("Report: enabled on can_report; disabled with the hint when the viewer can unlock it", () => {
-    renderSection(review({ reply: reply({ permissions: { can_report: allow } }) }));
+    renderSection(review({ reply: reply({ permissions: perms({ can_report: allow }) }) }));
     expect(screen.getByRole("button", { name: "Report this reply" })).toBeEnabled();
     expect(screen.queryByRole("button", { name: "EDIT" })).toBeNull();
     cleanup();
-    renderSection(review({ reply: reply({ permissions: { can_report: deny("Sign in to report.") } }) }));
+    renderSection(review({ reply: reply({ permissions: perms({ can_report: { allowed: false, unlock_hint: "Sign in to report.", reason_code: "sign_in_required" } }) }) }));
     expect(screen.getByRole("button", { name: "Report this reply" })).toBeDisabled();
     expect(screen.getByText("Sign in to report.")).toBeInTheDocument();
   });
@@ -156,7 +165,7 @@ describe("F-345 review replies", () => {
   it("a reply carries no comment, reaction or reply-to-reply affordance", () => {
     renderSection(
       review({
-        reply: reply({ permissions: { can_edit: allow, can_delete: allow, can_report: allow } }),
+        reply: reply({ permissions: perms({ can_edit: allow, can_delete: allow, can_report: allow }) }),
         permissions: { can_reply: allow },
       }),
     );
@@ -166,13 +175,23 @@ describe("F-345 review replies", () => {
 
   it("edit sends PATCH with the new body; Save is disabled while unchanged", async () => {
     updateReviewReply.mockResolvedValue({ reply: reply({ body: "Updated.", edited_at: "2026-11-11T12:00:00Z" }) });
-    renderSection(review({ reply: reply({ permissions: { can_edit: allow } }) }));
+    renderSection(review({ reply: reply({ permissions: perms({ can_edit: allow }) }) }));
     fireEvent.click(screen.getByRole("button", { name: "EDIT" }));
     const save = screen.getByRole("button", { name: "SAVE" });
     expect(save).toBeDisabled();
     fireEvent.change(screen.getByLabelText("Your reply"), { target: { value: "Updated." } });
     fireEvent.click(save);
     await waitFor(() => expect(updateReviewReply).toHaveBeenCalledWith(88, { body: "Updated." }));
+  });
+
+  it("PATCH 403 means you no longer answer for the page", async () => {
+    const { BccApiError } = await import("@/lib/api/types");
+    updateReviewReply.mockRejectedValue(new BccApiError("bcc_forbidden", "RAW_LEAK", 403, null));
+    renderSection(review({ reply: reply({ permissions: perms({ can_edit: allow }) }) }));
+    fireEvent.click(screen.getByRole("button", { name: "EDIT" }));
+    fireEvent.change(screen.getByLabelText("Your reply"), { target: { value: "Changed." } });
+    fireEvent.click(screen.getByRole("button", { name: "SAVE" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("You can no longer edit this reply.");
   });
 
   it("the view shows the replier and marks an edited reply", () => {

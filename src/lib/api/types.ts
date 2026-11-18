@@ -2888,7 +2888,16 @@ export interface CardReview {
  * POST /me/reports as `feed_item`); no feed shows a reply.
  *
  * `permissions` is server-decided per viewer; the client never compares
- * `author` with the viewer (the change-of-owner rule makes that wrong).
+ * `author` with the viewer. The reply shown is always the one whose author
+ * currently answers for the page — a stale reply (the page changed hands)
+ * comes back as `reply: null` for everyone, and the current party gets
+ * `can_reply`.
+ *   - can_edit:   author in good standing (not_author · sender_restricted)
+ *   - can_delete: author, not gated on suspension (not_author)
+ *   - can_report: signed in, not the author, not restricted
+ *                 (sign_in_required → hint "Sign in to report." · own_reply ·
+ *                 sender_restricted)
+ * Ships with `reply` itself, so it is always present on a reply.
  */
 export interface ReviewReply {
   id: number;
@@ -2897,10 +2906,10 @@ export interface ReviewReply {
   posted_at: string;
   edited_at: string | null;
   feed_id: string;
-  permissions?: {
-    can_edit?: CardPermissionEntry;
-    can_delete?: CardPermissionEntry;
-    can_report?: CardPermissionEntry;
+  permissions: {
+    can_edit: CardPermissionEntry;
+    can_delete: CardPermissionEntry;
+    can_report: CardPermissionEntry;
   };
 }
 

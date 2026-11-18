@@ -49,11 +49,12 @@ const ACTION_CLASS =
   "bcc-mono inline-flex min-h-[44px] items-center px-2 text-ink hover:underline disabled:cursor-not-allowed disabled:opacity-50";
 const ACTION_STYLE = { fontSize: "10px", letterSpacing: "0.18em" } as const;
 
+// Shared by create + edit; each adds its own 403/404/409 meaning below.
+// 503 is retryable — including while another create on the same review is
+// in flight server-side.
 const WRITE_ERROR_COPY: Record<string, string> = {
   bcc_unauthorized: "Sign in to reply.",
-  bcc_conflict: "This review already has a reply.",
   bcc_invalid_request: `A reply needs 1 to ${REVIEW_REPLY_MAX_LENGTH} characters.`,
-  bcc_not_found: "This review is no longer available.",
   bcc_rate_limited: "Too many replies in a short time. Try again in a few minutes.",
   bcc_unavailable: "Replies are temporarily unavailable. Try again shortly.",
 };
@@ -68,10 +69,10 @@ export function ReviewReplySection({ review }: { review: CardReview }) {
   // the new reply while `can_reply` is still being refetched.
   const canReply = review.permissions?.can_reply?.allowed === true && reply === null;
   const perms = reply?.permissions;
-  const canEdit = perms?.can_edit?.allowed === true;
-  const canDelete = perms?.can_delete?.allowed === true;
+  const canEdit = perms?.can_edit.allowed === true;
+  const canDelete = perms?.can_delete.allowed === true;
   const reportTarget = reply !== null ? replyReportTargetId(reply.feed_id) : 0;
-  const canReport = perms?.can_report?.allowed === true && reportTarget !== 0;
+  const canReport = perms?.can_report.allowed === true && reportTarget !== 0;
   // §N7: a denial the viewer can act on (sign in) shows disabled with its
   // hint; a structural one (null hint, e.g. your own reply) hides.
   const reportHint = canReport ? null : unlockHint(perms, "can_report");
@@ -181,7 +182,12 @@ function CreateReply({ reviewId, onDone }: { reviewId: number; onDone: () => voi
         mut.error
           ? humanizeCode(
               mut.error,
-              { ...WRITE_ERROR_COPY, bcc_forbidden: "You can’t reply to this review." },
+              {
+                ...WRITE_ERROR_COPY,
+                bcc_forbidden: "You can’t reply to this review.",
+                bcc_not_found: "This review is no longer available.",
+                bcc_conflict: "You’ve already replied to this review.",
+              },
               "Couldn’t post your reply. Try again in a moment.",
             )
           : null
@@ -212,7 +218,12 @@ function EditReply({
         mut.error
           ? humanizeCode(
               mut.error,
-              { ...WRITE_ERROR_COPY, bcc_forbidden: "You can’t edit this reply." },
+              {
+                ...WRITE_ERROR_COPY,
+                // 403 on PATCH = you no longer answer for this page.
+                bcc_forbidden: "You can no longer edit this reply.",
+                bcc_not_found: "This reply is no longer available.",
+              },
               "Couldn’t save your reply. Try again in a moment.",
             )
           : null
@@ -237,7 +248,7 @@ function DeleteReplyDialog({ reviewId, onDone }: { reviewId: number; onDone: () 
           ? humanizeCode(
               mut.error,
               {
-                bcc_forbidden: "You can’t delete this reply.",
+                // No 403 on DELETE: deleting your own reply is never gated.
                 bcc_not_found: "This reply is already gone.",
                 bcc_unavailable: "Replies are temporarily unavailable. Try again shortly.",
               },
