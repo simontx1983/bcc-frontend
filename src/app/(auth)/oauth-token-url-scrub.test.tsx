@@ -46,7 +46,8 @@ const TOKEN = "provider-token-abc";
 /** Put the page at the URL NextAuth's callback builds, and mirror it in the hook. */
 function arriveWith(query: string) {
   window.history.replaceState(null, "", `/signup/complete-profile${query}`);
-  searchParams.forEach((_, k) => searchParams.delete(k));
+  // Snapshot the keys: deleting inside forEach skips every other entry.
+  for (const k of [...searchParams.keys()]) searchParams.delete(k);
   new URLSearchParams(query).forEach((v, k) => searchParams.set(k, v));
 }
 
