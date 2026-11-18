@@ -32,6 +32,7 @@ import { linkWallet } from "@/lib/api/auth-endpoints";
 import { humanizeCode } from "@/lib/api/errors";
 import type { LinkedWallet } from "@/lib/api/types";
 import { formatShortDate } from "@/lib/format";
+import { recoveryAvailability } from "@/lib/onboarding/recovery-availability";
 import { findWalletChain, groupedWalletChains } from "@/lib/wallet/chain-catalog";
 import { walletHintFor } from "@/lib/wallet/dispatch";
 import { humanizeLinkError, runLinkFlow } from "@/lib/wallet/linkFlow";
@@ -148,6 +149,8 @@ export function WalletsSection() {
           verifiedWalletCount={verifiedWalletCount}
           verifiedWallets={verifiedWallets}
           onLinkAnotherWallet={focusLinkForm}
+          // Render-time clock, never one captured at mount (#288 H2).
+          availability={recoveryAvailability(wallets.data?.recovery, Date.now())}
         />
       )}
 
