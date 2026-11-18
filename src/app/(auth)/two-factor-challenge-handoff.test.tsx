@@ -50,7 +50,8 @@ beforeAll(() => {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  searchParams.forEach((_, k) => searchParams.delete(k));
+  // Snapshot the keys: deleting inside forEach skips every other entry.
+  for (const k of [...searchParams.keys()]) searchParams.delete(k);
   window.sessionStorage.clear();
 });
 afterEach(cleanup);
