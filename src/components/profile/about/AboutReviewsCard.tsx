@@ -13,6 +13,7 @@
 import Link from "next/link";
 import type { Route } from "next";
 
+import { ReviewReplyView } from "@/components/review/ReviewReplyView";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { LoadFailure } from "@/components/ui/LoadFailure";
 import { useCardReviews } from "@/hooks/useCardTabs";
@@ -74,6 +75,11 @@ export function AboutReviewsCard({
                     >
                       &ldquo;{review.text}&rdquo;
                     </span>
+                  )}
+                  {/* F-345: read-only preview — the row is a link, so no
+                      controls here; replying happens on /reviews. */}
+                  {review.reply != null && (
+                    <ReviewReplyView reply={review.reply} surface="panel" compact />
                   )}
                 </span>
               </Link>

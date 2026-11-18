@@ -2869,6 +2869,54 @@ export interface CardReview {
   text: string;
   posted_at_label: string;
   author: MemberSummary;
+  /**
+   * F-345 — the reviewed party's ONE public response, or null. Optional
+   * until bcc-trust #686 is deployed everywhere: absent reads as "no
+   * reply", exactly like null.
+   */
+  reply?: ReviewReply | null;
+  /** F-345 — viewer-scoped. Absent = no composer (same as a denial). */
+  permissions?: { can_reply?: CardPermissionEntry };
+}
+
+/**
+ * F-345 — the reviewed party's ONE public response to a review (contract
+ * "Replies (v1.NEXT, F-345)"). One per review, no thread: it takes no
+ * comments or reactions.
+ *
+ * `feed_id` ("feed_<act_id>") is only the REPORT target (its number goes to
+ * POST /me/reports as `feed_item`); no feed shows a reply.
+ *
+ * `permissions` is server-decided per viewer; the client never compares
+ * `author` with the viewer (the change-of-owner rule makes that wrong).
+ */
+export interface ReviewReply {
+  id: number;
+  body: string;
+  author: MemberSummary;
+  posted_at: string;
+  edited_at: string | null;
+  feed_id: string;
+  permissions?: {
+    can_edit?: CardPermissionEntry;
+    can_delete?: CardPermissionEntry;
+    can_report?: CardPermissionEntry;
+  };
+}
+
+/** POST|PATCH /reviews/{id}/reply body. 1–1000 chars after trim. */
+export interface ReviewReplyRequest {
+  body: string;
+}
+
+/** POST (201) | PATCH (200) /reviews/{id}/reply response. */
+export interface ReviewReplyResponse {
+  reply: ReviewReply;
+}
+
+/** DELETE /reviews/{id}/reply response. */
+export interface DeleteReviewReplyResponse {
+  deleted: true;
 }
 
 /** GET /entities/{kind}/{id}/reviews response. */
@@ -4427,6 +4475,8 @@ export interface MemberReview {
   text: string;
   scope_label: string;
   posted_at_label: string;
+  /** F-345 — the reviewed party's response, shown read-only. Optional until #686 ships. */
+  reply?: ReviewReply | null;
 }
 
 /**
