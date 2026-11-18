@@ -414,7 +414,7 @@ export interface CardCommunityDossier {
   can_join?: CardPermissionEntry | null;
   can_request_join?: CardPermissionEntry | null;
   /** `null` for anonymous viewers and when the read failed. */
-  viewer_membership_status?: "none" | "requested" | "invited" | "member" | null;
+  viewer_membership_status?: GroupMembershipStatus | null;
 }
 
 export interface CardSocialProof {
