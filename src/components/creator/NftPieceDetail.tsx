@@ -34,11 +34,7 @@ import { memo, useCallback, useEffect, useState } from "react";
 // avatar/handle is no longer disclosed. See docs/wallet-privacy-policy.md.
 import { FallbackImg } from "@/components/ui/FallbackImg";
 import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
-import type {
-  NftPiece,
-  NftPieceAttribute,
-  NftPieceOwner,
-} from "@/lib/api/types";
+import type { NftPiece, NftPieceAttribute } from "@/lib/api/types";
 
 export interface NftPieceDetailProps {
   piece: NftPiece;
@@ -149,12 +145,9 @@ function NftPieceDetailImpl({ piece, routeCreatorSlug }: NftPieceDetailProps) {
             </div>
           )}
 
-          {/* Owner block. */}
-          {owner !== null && (
-            <OwnerBlock
-              owner={owner}
-              ownersSummaryLabel={piece.meta.owners_summary_label}
-            />
+          {/* Owner block — only when there is a holder summary to show. */}
+          {owner !== null && piece.meta.owners_summary_label !== null && (
+            <OwnerBlock ownersSummaryLabel={piece.meta.owners_summary_label} />
           )}
           {showLiveOwnerHint && (
             <div className="bcc-panel px-4 py-3" role="status">
@@ -340,31 +333,23 @@ function HeroImage({
  * forbids: verifying a wallet is not consent to broadcast what it holds.
  * Holdings are disclosed only through the explicit opt-in NFT showcase.
  *
- * What remains is `is_linked` — whether *some* BCC member holds it —
- * which names nobody. The server no longer sends anything else.
+ * `is_linked` ("is the holding wallet a BCC member's") is no longer
+ * rendered either: holder wallets are public on-chain, so a member /
+ * non-member line was a wallet→member signal. The server sends it as
+ * `null` from contract v1.NEXT; an older server's boolean is ignored.
+ * Only the aggregate holder summary remains.
  *
  * See docs/wallet-privacy-policy.md.
  */
-function OwnerBlock({
-  owner,
-  ownersSummaryLabel,
-}: {
-  owner: NftPieceOwner;
-  ownersSummaryLabel: string | null;
-}) {
+function OwnerBlock({ ownersSummaryLabel }: { ownersSummaryLabel: string }) {
   return (
     <div className="bcc-panel flex flex-col gap-3 px-4 py-3">
       <span className="bcc-mono text-[10px] uppercase tracking-[0.18em] text-bcc-text-secondary">
         Owner
       </span>
       <span className="bcc-mono text-[12px] text-bcc-text">
-        {owner.is_linked ? "Held by a BCC member" : "Held by an unlinked wallet"}
+        {ownersSummaryLabel}
       </span>
-      {ownersSummaryLabel !== null && (
-        <span className="bcc-mono text-[10px] text-bcc-text-secondary/70">
-          {ownersSummaryLabel}
-        </span>
-      )}
     </div>
   );
 }

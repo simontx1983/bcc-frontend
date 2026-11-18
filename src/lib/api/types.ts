@@ -1878,8 +1878,10 @@ export type NftPieceCoOwner = Record<string, never>;
  * Dominant holder for the NFT piece. `null` when no on-chain holder is
  * known yet (cold-cache, freshly minted, indexer behind).
  *
- * `is_linked` means "some BCC member holds this" — it names nobody and
- * cannot be resolved back to a member.
+ * `is_linked` is DEPRECATED and always `null` from contract v1.NEXT on.
+ * It used to say whether the holding wallet belongs to a BCC member, and
+ * holder wallets are public on-chain, so it was a wallet→member signal.
+ * Older servers still send a boolean; do not render either value.
  *
  * Removed 2026-07-23: `wallet_address`, `address_short`, `balance`, and
  * the `user` block. The `user` block was the severe one — it resolved
@@ -1891,7 +1893,8 @@ export type NftPieceCoOwner = Record<string, never>;
  * See docs/wallet-privacy-policy.md.
  */
 export interface NftPieceOwner {
-  is_linked: boolean;
+  /** @deprecated Always `null` from v1.NEXT; never render it. */
+  is_linked: boolean | null;
 }
 
 /**
