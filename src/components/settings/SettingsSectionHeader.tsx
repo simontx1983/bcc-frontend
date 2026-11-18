@@ -19,7 +19,9 @@ export function SettingsSectionHeader({
 }) {
   return (
     <div className="border-l-2 border-bcc-accent pl-4">
-      <span className="bcc-mono text-[10px] tracking-[0.24em] text-bcc-accent">
+      {/* Eyebrow on --bcc-text: accent as TEXT is ~2.4:1 on light
+          surfaces (chrome-contrast shape 2); the accent stays on the rule. */}
+      <span className="bcc-mono text-[10px] tracking-[0.24em] text-bcc-text">
         {eyebrow}
       </span>
       <h2 className="bcc-stencil mt-1 text-2xl text-bcc-text md:text-3xl">

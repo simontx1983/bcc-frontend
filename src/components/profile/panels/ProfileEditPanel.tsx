@@ -97,7 +97,11 @@ export function ProfileEditPanel({ profile }: ProfileEditPanelProps) {
         </div>
       </section>
 
-      <FootprintCard counts={profile.counts} />
+      {/* Owner-only, and only when the SERVER says so: the panel mounts on a
+          client handle check, so an expired bearer can read the profile
+          anonymously (is_self false, hidden counts zeroed) — a "0" there
+          would be a false statement about the owner's own record. */}
+      {profile.is_self === true && <FootprintCard counts={profile.counts} />}
     </section>
   );
 }

@@ -155,7 +155,7 @@ export function SubTabNav<K extends string>({
       //
       // Matches the parent strip in ProfileTabs and the EntityTabs /
       // GroupTabs strips, which already paired the two.
-      className="-mx-4 flex snap-x items-center gap-x-1 overflow-x-auto border-b border-bcc-border px-4 sm:mx-0 sm:flex-wrap sm:px-0"
+      className="-mx-4 flex snap-x scroll-px-4 items-center gap-x-1 overflow-x-auto border-b border-bcc-border px-4 sm:mx-0 sm:flex-wrap sm:scroll-px-0 sm:px-0"
     >
       {tabs.map((tab, index) => {
         const selected = tab.key === active;

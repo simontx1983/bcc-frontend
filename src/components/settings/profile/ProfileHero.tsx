@@ -722,6 +722,15 @@ export function ProfileHero({ profile, nav }: ProfileHeroProps) {
                   setNameDraft(e.target.value);
                   setNameError(null);
                 }}
+                // Save is disabled while the name is unchanged, which also
+                // blocks Enter — Escape is the keyboard way out.
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") {
+                    e.preventDefault();
+                    setNameEditing(false);
+                    setNameError(null);
+                  }
+                }}
                 className="bcc-stencil w-64 rounded-[4px] border border-bcc-input-border bg-bcc-input-bg px-2 py-1 text-2xl text-bcc-text focus:outline-none focus:ring-2 focus:ring-blueprint md:text-3xl"
               />
               <button
