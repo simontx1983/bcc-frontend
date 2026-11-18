@@ -8,8 +8,10 @@
  * `captcha_token` (single-use, about 5 minutes). A rejected or expired
  * token answers `bcc_captcha_required` again: reset the widget.
  *
- * The backend checks the siteverify reply's `action`, so the widget is
- * always rendered with TURNSTILE_LOGIN_ACTION.
+ * The widget is always rendered with TURNSTILE_LOGIN_ACTION. The merged
+ * TurnstileVerifier checks only `success`; SA1's follow-up will also
+ * require the siteverify reply's `action` to be "login" (and check the
+ * hostname), so rendering it now means nothing changes when that lands.
  */
 
 import { isCode } from "@/lib/api/errors";

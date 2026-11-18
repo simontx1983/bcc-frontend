@@ -252,6 +252,20 @@ describe("the step-up", () => {
     expect(ts.render).not.toHaveBeenCalled();
   });
 
+  it("follows the site theme, re-rendering on a toggle (Turnstile can't restyle in place)", async () => {
+    h.login.mockRejectedValueOnce(captchaRequired());
+    render(<LoginPageClient />);
+    submit();
+    await waitFor(() => expect(ts.render).toHaveBeenCalledTimes(1));
+    const first = lastOptions()?.theme;
+    const next = first === "light" ? "dark" : "light";
+
+    act(() => document.documentElement.setAttribute("data-theme", next));
+    await waitFor(() => expect(ts.render).toHaveBeenCalledTimes(2));
+    expect(lastOptions()).toMatchObject({ theme: next, sitekey: SITE_KEY, action: "login" });
+    expect(ts.remove).toHaveBeenCalledWith("widget-1");
+  });
+
   it("removes the widget when the page unmounts", async () => {
     h.login.mockRejectedValueOnce(captchaRequired());
     const { unmount } = render(<LoginPageClient />);

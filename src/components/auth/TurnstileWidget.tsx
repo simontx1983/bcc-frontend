@@ -8,8 +8,9 @@
  *
  * - The script loads once per page (a shared promise); a failed load can be
  *   retried, and says so rather than leaving an empty box.
- * - The widget is always rendered with `action: "login"`: the backend
- *   rejects a siteverify reply for any other action.
+ * - The widget is always rendered with `action: "login"`, which SA1's
+ *   backend follow-up will require in the siteverify reply.
+ * - It follows the site theme (html[data-theme]), re-rendering on a toggle.
  * - `resetSignal` resets the rendered widget (a spent or rejected token);
  *   unmounting removes it.
  * - The token reaches the page through `onToken`; `onExpire` / `onFail`
@@ -71,10 +72,27 @@ function loadTurnstile(): Promise<TurnstileApi> {
   return scriptLoad;
 }
 
+type WidgetTheme = "light" | "dark" | "auto";
+
 /** Match the site's theme (html[data-theme]); otherwise follow the OS. */
-function widgetTheme(): "light" | "dark" | "auto" {
+function widgetTheme(): WidgetTheme {
+  if (typeof document === "undefined") return "auto";
   const theme = document.documentElement.getAttribute("data-theme");
   return theme === "light" || theme === "dark" ? theme : "auto";
+}
+
+/**
+ * The site theme, live. Turnstile cannot restyle a rendered widget, so a
+ * toggle (the auth card has one) re-renders it with the new theme.
+ */
+function useWidgetTheme(): WidgetTheme {
+  const [theme, setTheme] = useState<WidgetTheme>(widgetTheme);
+  useEffect(() => {
+    const observer = new MutationObserver(() => setTheme(widgetTheme()));
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+    return () => observer.disconnect();
+  }, []);
+  return theme;
 }
 
 export function TurnstileWidget({
@@ -95,6 +113,7 @@ export function TurnstileWidget({
   const widgetId = useRef<string | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
+  const theme = useWidgetTheme();
 
   // The latest callbacks, so a parent re-render never re-renders the widget.
   const handlers = useRef({ onToken, onExpire, onFail });
@@ -113,7 +132,7 @@ export function TurnstileWidget({
           api.render(container.current, {
             sitekey: siteKey,
             action: TURNSTILE_LOGIN_ACTION,
-            theme: widgetTheme(),
+            theme,
             size: "flexible",
             language: "auto",
             callback: (token) => handlers.current.onToken(token),
@@ -134,7 +153,7 @@ export function TurnstileWidget({
         widgetId.current = null;
       }
     };
-  }, [siteKey, attempt]);
+  }, [siteKey, attempt, theme]);
 
   useEffect(() => {
     if (resetSignal === 0 || widgetId.current === null) return;
