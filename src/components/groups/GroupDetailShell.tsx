@@ -25,6 +25,7 @@ import { CommunityJoinCard } from "@/components/communities/CommunityJoinCard";
 import { FileRail } from "@/components/layout/FileRail";
 import { GroupAboutPanel } from "@/components/groups/GroupAboutPanel";
 import { GroupFeedSection } from "@/components/groups/GroupFeedSection";
+import { GroupMembershipAdmin } from "@/components/groups/GroupMembershipAdmin";
 import { GroupMembersStrip } from "@/components/groups/GroupMembersStrip";
 import { GroupMembershipStrip } from "@/components/groups/GroupMembershipStrip";
 import { GroupTabs, type GroupTabKey } from "@/components/groups/GroupTabs";
@@ -200,7 +201,15 @@ export function GroupDetailShell({
           initialTab={initialTab}
           {...(urlBase !== undefined ? { urlBase } : {})}
           streamPanel={<GroupFeedSection group={group} />}
-          membersPanel={<GroupMembersStrip group={group} />}
+          membersPanel={
+            // F-272 (b): owners / managers manage requests and invitations
+            // above the roster; everyone else sees the roster alone (the
+            // admin block renders nothing for them).
+            <div className="flex flex-col gap-8">
+              <GroupMembershipAdmin group={group} />
+              <GroupMembersStrip group={group} />
+            </div>
+          }
           aboutPanel={
             // Halls append their chain block below the group's own About
             // content; other kinds render GroupAboutPanel alone (unwrapped,

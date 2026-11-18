@@ -6209,6 +6209,33 @@ export interface MyGroupInvitesResponse {
 }
 
 /**
+ * F-272 (b) — one pending join request in an owner's / manager's view of
+ * the group (`GET /me/groups/:id/requests`): the member summary plus when
+ * they asked.
+ */
+export type GroupJoinRequestItem = MemberSummary & { requested_at: string };
+
+/** F-272 (b) — one outstanding invitation (`GET /me/groups/:id/invites`). */
+export type GroupOutstandingInviteItem = MemberSummary & { invited_at: string };
+
+/**
+ * The owner-side lists share the roster's offset envelope. `has_more` is
+ * counted over raw rows (a deleted account is skipped from `items`), so the
+ * next page starts at `offset + limit`, not `offset + items.length`.
+ */
+export interface GroupPendingListResponse<T> {
+  items: T[];
+  pagination: GroupMembersPagination;
+}
+
+/** approve / deny / invite / revoke — `{ status, group_id, user_id }`. */
+export interface GroupMembershipDecisionResponse {
+  status: GroupMembershipStatus;
+  group_id: number;
+  user_id: number;
+}
+
+/**
  * `validator_stats` on a delegator community's detail response. Only the
  * fields the page reads are declared. `chain_name` is optional because an
  * older cached response can lack it.
@@ -6262,6 +6289,14 @@ export interface GroupDetailResponse {
    * for the group's owner / manager / site admin, `null` for everyone else.
    */
   pending_request_count?: number | null;
+  /**
+   * F-272 (b) — whether THIS viewer decides who gets in: the group's owner,
+   * a manager or a site admin (D1; moderators no), on a closed or secret
+   * plain group; false elsewhere. Optional for deploy skew: a backend
+   * without it leaves secret groups ungated, and the FE falls back to
+   * `pending_request_count !== null` (closed groups only).
+   */
+  can_manage_membership?: boolean;
   feed_visible: boolean;
   members_visible: boolean;
   /**
