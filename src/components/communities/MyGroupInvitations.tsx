@@ -4,20 +4,29 @@
  * MyGroupInvitations — the communities the signed-in member has been
  * invited to (F-272, GET /me/group-invites).
  *
- * It is the ONLY way an invitee finds a secret group, so it lives on the
- * /communities page (user decision 2026-11-12) and the bcc_group_invited
- * bell item links there. Self-contained: placing it is one line.
+ * The bcc_group_invited bell item opens the group's own page, which
+ * carries Accept / Decline in its membership strip (user decision
+ * 2026-11-13). This list is the second way in: every open invitation in
+ * one place on /communities, so a secret group (absent from discovery) is
+ * still findable after the bell item is gone. Self-contained: placing it
+ * is one line.
  *
  * Renders nothing while loading and when there are no invitations (an
- * empty "Invitations" block would be noise on a discovery page); a failed
- * read says so with Retry rather than pretending there are none.
+ * empty "Invitations" block would be noise on a discovery page). A failed
+ * first read says so with Retry rather than pretending there are none; a
+ * failed REFETCH keeps what is already on screen.
  */
 
 import type { Route } from "next";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-import { humanizeJoinRequestError } from "@/components/groups/GroupMembershipStrip";
+import {
+  DECLINE_INVITE_COPY,
+  humanizeJoinRequestError,
+} from "@/components/groups/GroupMembershipStrip";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { LoadFailure } from "@/components/ui/LoadFailure";
 import {
   useAcceptGroupInviteMutation,
@@ -31,24 +40,17 @@ export function MyGroupInvitations() {
   const invites = useMyGroupInvites();
   const [joined, setJoined] = useState<MyGroupInvite[]>([]);
 
-  if (invites.isError) {
-    return (
-      <section aria-labelledby="my-invitations-heading" className="mx-auto mt-8 max-w-[1440px] px-6 sm:px-8">
-        <h2 id="my-invitations-heading" className="bcc-stencil text-2xl text-bcc-text">
-          Your invitations
-        </h2>
-        <div className="mt-3">
-          <LoadFailure message="Couldn't load your invitations." onRetry={() => void invites.refetch()} />
-        </div>
-      </section>
-    );
-  }
-
   // Accepting refetches the list, which drops that invitation; the
-  // confirmation is kept here so it does not vanish with its row.
+  // confirmation is kept here so it does not vanish with its row — nor
+  // when that refetch fails.
   const joinedIds = new Set(joined.map((j) => j.group.id));
-  const open = (invites.data?.items ?? []).filter((i) => !joinedIds.has(i.group.id));
-  if (open.length === 0 && joined.length === 0) return null;
+  const open = (invites.data?.pages.flatMap((p) => p.items) ?? []).filter(
+    (i) => !joinedIds.has(i.group.id),
+  );
+  // Only a read that never produced data is a failure worth a block of
+  // its own; React Query keeps the last good pages through a failed refetch.
+  const failedFirstRead = invites.isError && invites.data === undefined;
+  if (open.length === 0 && joined.length === 0 && !failedFirstRead) return null;
 
   return (
     <section aria-labelledby="my-invitations-heading" className="mx-auto mt-8 max-w-[1440px] px-6 sm:px-8">
@@ -56,18 +58,35 @@ export function MyGroupInvitations() {
       <h2 id="my-invitations-heading" className="bcc-stencil mt-1 text-2xl text-bcc-text">
         Your invitations
       </h2>
-      <ul className="mt-3 flex flex-col gap-3">
-        {joined.map((invite) => (
-          <JoinedRow key={invite.group.id} invite={invite} />
-        ))}
-        {open.map((invite) => (
-          <InvitationRow
-            key={invite.group.id}
-            invite={invite}
-            onJoined={() => setJoined((prev) => [...prev, invite])}
-          />
-        ))}
-      </ul>
+      {(joined.length > 0 || open.length > 0) && (
+        <ul className="mt-3 flex flex-col gap-3">
+          {joined.map((invite) => (
+            <JoinedRow key={invite.group.id} invite={invite} />
+          ))}
+          {open.map((invite) => (
+            <InvitationRow
+              key={invite.group.id}
+              invite={invite}
+              onJoined={() => setJoined((prev) => [...prev, invite])}
+            />
+          ))}
+        </ul>
+      )}
+      {failedFirstRead && (
+        <div className="mt-3">
+          <LoadFailure message="Couldn't load your invitations." onRetry={() => void invites.refetch()} />
+        </div>
+      )}
+      {invites.hasNextPage && (
+        <button
+          type="button"
+          onClick={() => void invites.fetchNextPage()}
+          disabled={invites.isFetchingNextPage}
+          className="bcc-mono mt-3 inline-flex min-h-[44px] items-center border-2 border-bcc-border px-3 text-[11px] tracking-[0.18em] text-bcc-text-secondary hover:border-bcc-border-strong hover:text-bcc-text disabled:opacity-60"
+        >
+          {invites.isFetchingNextPage ? "LOADING…" : "SHOW MORE"}
+        </button>
+      )}
     </section>
   );
 }
@@ -88,10 +107,13 @@ function JoinedRow({ invite }: { invite: MyGroupInvite }) {
 }
 
 function InvitationRow({ invite, onJoined }: { invite: MyGroupInvite; onJoined: () => void }) {
+  const router = useRouter();
   const accept = useAcceptGroupInviteMutation();
   const decline = useDeclineGroupInviteMutation();
+  // Declining cannot be undone, and for a secret group the invitation is
+  // the only way in — it confirms first, exactly as on the group page.
+  const [confirmingDecline, setConfirmingDecline] = useState(false);
   const busy = accept.isPending || decline.isPending;
-  const error = accept.error ?? decline.error;
   const { group } = invite;
   const by = invite.invited_by;
 
@@ -104,9 +126,9 @@ function InvitationRow({ invite, onJoined }: { invite: MyGroupInvite; onJoined: 
         <p className="bcc-mono mt-1 text-[11px] text-bcc-text-secondary">
           {by !== null ? `Invited by @${by.handle}` : "You were invited"} · {formatRelativeTime(invite.invited_at)}
         </p>
-        {error !== null && (
+        {accept.error !== null && (
           <p role="alert" className="bcc-mono mt-1 text-[11px] text-bcc-text-error">
-            {humanizeJoinRequestError(error, "answer")}
+            {humanizeJoinRequestError(accept.error, "answer")}
           </p>
         )}
       </div>
@@ -117,7 +139,13 @@ function InvitationRow({ invite, onJoined }: { invite: MyGroupInvite; onJoined: 
           onClick={() => {
             accept.reset();
             decline.reset();
-            accept.mutate(group.id, { onSuccess: onJoined });
+            accept.mutate(group.id, {
+              onSuccess: () => {
+                onJoined();
+                // The page's server-rendered membership lists are now stale.
+                router.refresh();
+              },
+            });
           }}
           aria-label={`Accept the invitation to ${group.name}`}
           className="bcc-mono inline-flex min-h-[44px] items-center border-2 border-bcc-border px-3 text-[11px] tracking-[0.18em] text-bcc-text hover:border-bcc-border-strong disabled:opacity-60"
@@ -130,14 +158,34 @@ function InvitationRow({ invite, onJoined }: { invite: MyGroupInvite; onJoined: 
           onClick={() => {
             accept.reset();
             decline.reset();
-            decline.mutate(group.id);
+            setConfirmingDecline(true);
           }}
           aria-label={`Decline the invitation to ${group.name}`}
           className="bcc-mono inline-flex min-h-[44px] items-center px-3 text-[11px] tracking-[0.18em] text-bcc-text-secondary hover:text-bcc-text disabled:opacity-60"
         >
-          {decline.isPending ? "DECLINING…" : "DECLINE"}
+          DECLINE
         </button>
       </div>
+      {confirmingDecline && (
+        <ConfirmDialog
+          title={DECLINE_INVITE_COPY.title}
+          body={DECLINE_INVITE_COPY.body(group.name)}
+          confirmLabel={DECLINE_INVITE_COPY.confirm}
+          cancelLabel={DECLINE_INVITE_COPY.cancel}
+          retryLabel={DECLINE_INVITE_COPY.retry}
+          errorMessage={decline.error ? humanizeJoinRequestError(decline.error, "answer") : null}
+          pending={decline.isPending}
+          onConfirm={() => {
+            decline.reset();
+            // The hook's settle refetches the list, which removes this row.
+            decline.mutate(group.id, { onSuccess: () => setConfirmingDecline(false) });
+          }}
+          onCancel={() => {
+            decline.reset();
+            setConfirmingDecline(false);
+          }}
+        />
+      )}
     </li>
   );
 }
