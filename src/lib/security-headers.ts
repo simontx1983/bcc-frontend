@@ -123,6 +123,13 @@ function sentryEndpoints(dsn: string | undefined): SentryEndpoints | null {
   }
 }
 
+/**
+ * Cloudflare Turnstile (the /auth/login captcha step-up, contract v1.161):
+ * Cloudflare's documented CSP is script-src + frame-src for this origin.
+ * The script loads only when the server asks for a captcha.
+ */
+export const TURNSTILE_ORIGIN = "https://challenges.cloudflare.com";
+
 const unique = (xs: ReadonlyArray<string | null>): string[] =>
   [...new Set(xs.filter((x): x is string => x !== null))];
 
@@ -145,6 +152,8 @@ export function buildReportOnlyCsp(env: SecurityHeaderEnv): string {
         posthog,
         "https://va.vercel-scripts.com",
         "https://vercel.live",
+        // Cloudflare Turnstile api.js (the /login captcha step-up).
+        TURNSTILE_ORIGIN,
       ]),
     ],
     ["style-src", ["'self'", "'unsafe-inline'"]],
@@ -163,7 +172,8 @@ export function buildReportOnlyCsp(env: SecurityHeaderEnv): string {
         "https://vercel.live",
       ]),
     ],
-    ["frame-src", ["'self'", "https://vercel.live"]],
+    // Turnstile renders its challenge in an iframe from the same origin.
+    ["frame-src", ["'self'", "https://vercel.live", TURNSTILE_ORIGIN]],
     ["worker-src", ["'self'", "blob:"]],
     ["object-src", ["'none'"]],
     ["base-uri", ["'self'"]],

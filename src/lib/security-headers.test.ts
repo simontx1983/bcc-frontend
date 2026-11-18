@@ -101,6 +101,15 @@ describe("S5 security headers", () => {
     ]);
   });
 
+  it("allows Cloudflare Turnstile's script and iframe, and nothing wider (the /login captcha)", () => {
+    const csp = buildReportOnlyCsp(PROD);
+    expect(directive(csp, "script-src")).toContain("https://challenges.cloudflare.com");
+    expect(directive(csp, "frame-src")).toContain("https://challenges.cloudflare.com");
+    // Cloudflare's documented CSP is those two; no wildcard, no connect-src.
+    expect(csp).not.toMatch(/\*\.cloudflare\.com/);
+    expect(directive(csp, "connect-src")).not.toContain("https://challenges.cloudflare.com");
+  });
+
   it("'unsafe-eval' only in dev", () => {
     expect(directive(buildReportOnlyCsp(PROD), "script-src")).not.toContain("'unsafe-eval'");
     expect(directive(buildReportOnlyCsp({ ...PROD, dev: true }), "script-src")).toContain("'unsafe-eval'");

@@ -61,14 +61,24 @@ export interface TwoFaChallengeResponse {
  *   bcc_email_not_verified   — account hasn't completed signup verification
  *   bcc_invalid_state        — account missing a handle (legacy account)
  *   bcc_rate_limited         — too many attempts from this IP
+ *   bcc_captcha_required     — 429, the captcha step-up is on (v1.161):
+ *                              render Turnstile from error.data.captcha and
+ *                              re-submit with `captchaToken`
+ *                              (lib/auth/login-captcha)
  */
 export async function loginWithIdentifier(
   identifier: string,
   password: string,
+  /** The Turnstile token, only once the server has asked for one. */
+  captchaToken?: string,
 ): Promise<TwoFaChallengeResponse | AuthTokenResponse> {
   return bccFetch<TwoFaChallengeResponse | AuthTokenResponse>("auth/login", {
     method: "POST",
-    body: { identifier, password },
+    body: {
+      identifier,
+      password,
+      ...(captchaToken !== undefined ? { captcha_token: captchaToken } : {}),
+    },
   });
 }
 
