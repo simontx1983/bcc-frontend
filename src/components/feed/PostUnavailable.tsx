@@ -21,8 +21,10 @@
  * through React Query and swaps it in on success. Nothing on the page is
  * discarded, and LoadFailure's plain "Retry" is the honest label.
  *
- * A press while a read is already in flight joins that read
- * (`cancelRefetch: false`) instead of cancelling and re-sending it.
+ * A press while a read is already in flight joins that read instead of
+ * cancelling and re-sending it. React Query already does that for a query
+ * that holds no data, which is the only state this control shows in;
+ * `cancelRefetch: false` keeps it true if that ever changes.
  *
  * ## What the viewer already has stays on screen
  *
