@@ -75,7 +75,7 @@ export function DemoPostCard({
         </span>
         <div className="flex min-w-0 flex-col">
           <div className="flex min-w-0 items-center gap-1.5">
-            <span className="bcc-stencil truncate text-[var(--bcc-text)]">Demo Operator</span>
+            <span className="bcc-stencil truncate text-[16px] font-bold uppercase tracking-[0.03em] text-[var(--bcc-text)]">Demo Operator</span>
           </div>
           <span className="bcc-mono truncate text-[11px] leading-tight text-[var(--bcc-text-secondary)]">
             @demo-operator

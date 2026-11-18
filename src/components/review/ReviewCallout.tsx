@@ -43,6 +43,7 @@ import Link from "next/link";
 
 import { Composer } from "@/components/composer/Composer";
 import { DisabledReason } from "@/components/ui/DisabledReason";
+import { useSignInLink } from "@/lib/auth/sign-in-link";
 import { humanizeCode } from "@/lib/api/errors";
 import { removeReview } from "@/lib/api/posts-endpoints";
 import { CARD_REVIEWS_QUERY_KEY_ROOT } from "@/hooks/useCardTabs";
@@ -89,8 +90,10 @@ export function ReviewCallout({
 }: ReviewCalloutProps) {
   const router = useRouter();
   const pathname = usePathname();
-  // Ties a locked WRITE A REVIEW to its visible reason line (F-321).
+  // Ties a locked WRITE A REVIEW to its visible reason line (F-321), whose
+  // sign-in link returns to this page, path and query.
   const reasonId = useId();
+  const signIn = useSignInLink();
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
 
@@ -227,7 +230,8 @@ export function ReviewCallout({
           {!viewerAuthed ? (
             <>
               <Link
-                href={`/login?callbackUrl=${encodeURIComponent(pathname ?? "/")}` as Route}
+                href={signIn.href}
+                onClick={signIn.onClick}
                 className="underline underline-offset-2"
               >
                 Sign in

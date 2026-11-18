@@ -168,8 +168,9 @@ describe("announcement engagement suppression — contract §4.32.15", () => {
     const bar = renderBar("status");
     expect(bar.stoke()).toBeTruthy();
     expect(bar.helpful()).toBeTruthy();
-    // And the divider that belongs with Helpful is present here.
-    expect(bar.container.querySelectorAll("footer > span[aria-hidden]").length).toBe(1);
+    // Helpful now sits second in the row (Handoff v1, dev note 34), so
+    // the divider that used to set it apart is gone for every kind.
+    expect(bar.container.querySelectorAll("footer > span[aria-hidden]").length).toBe(0);
     bar.unmount();
   });
 

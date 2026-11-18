@@ -23,12 +23,12 @@
  * up the fresh `viewer_has_endorsed` and `endorsements` count.
  */
 
-import type { Route } from "next";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useId, useState } from "react";
 
 import { DisabledReason } from "@/components/ui/DisabledReason";
+import { useSignInLink } from "@/lib/auth/sign-in-link";
 
 import { useEndorsePage, useRevokeEndorsement } from "@/hooks/useEndorse";
 import { humanizeCode } from "@/lib/api/errors";
@@ -55,7 +55,8 @@ export function EndorseButton({
   viewerAuthed,
 }: EndorseButtonProps) {
   const router = useRouter();
-  const pathname = usePathname();
+  // Sign in and come back to this page — path AND query (F-321).
+  const signIn = useSignInLink();
   // Above every early return (rules of hooks): ties the locked VOUCH to
   // its visible reason line (F-321).
   const reasonId = useId();
@@ -169,7 +170,8 @@ export function EndorseButton({
           {!viewerAuthed ? (
             <>
               <Link
-                href={`/login?callbackUrl=${encodeURIComponent(pathname ?? "/")}` as Route}
+                href={signIn.href}
+                onClick={signIn.onClick}
                 className="underline underline-offset-2"
               >
                 Sign in

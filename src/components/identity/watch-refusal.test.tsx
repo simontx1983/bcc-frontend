@@ -172,7 +172,7 @@ describe("watchErrorCopy", () => {
 describe("MemberFollowButton (author card)", () => {
   it("shows the refusal inline, once, and clears it on the next click", () => {
     refuseNextWatch();
-    render(<MemberFollowButton userId={77} />);
+    render(<MemberFollowButton userId={77} viewerIsWatching={false} viewerWatch={null} />);
 
     fireEvent.click(screen.getByRole("button", { name: FOLLOW_COPY.cta }));
     expect(watchMutate).toHaveBeenCalledTimes(1);
@@ -185,7 +185,7 @@ describe("MemberFollowButton (author card)", () => {
   });
 
   it("shows nothing on a successful watch", () => {
-    render(<MemberFollowButton userId={77} />);
+    render(<MemberFollowButton userId={77} viewerIsWatching={false} viewerWatch={null} />);
     fireEvent.click(screen.getByRole("button", { name: FOLLOW_COPY.cta }));
     expect(screen.queryByRole("status")).toBeNull();
   });
@@ -196,7 +196,8 @@ describe("Suggested members widget (right sidebar)", () => {
     refuseNextWatch();
     render(<RightSidebar />);
 
-    fireEvent.click(screen.getByRole("button", { name: FOLLOW_COPY.cta }));
+    // F-255 / audit M14: the button's name now says who.
+    fireEvent.click(screen.getByRole("button", { name: "Watch Dana Reyes" }));
     expect(watchMutate).toHaveBeenCalledTimes(1);
     expect(screen.getByRole("status")).toHaveTextContent(FOLLOW_COPY.refused);
     expectNoDecoy();
@@ -205,8 +206,8 @@ describe("Suggested members widget (right sidebar)", () => {
 
 describe("CardGrid", () => {
   const CARDS = [
-    { id: 1, name: "Alpha", card_kind: "member" },
-    { id: 2, name: "Beta", card_kind: "member" },
+    { id: 1, name: "Alpha", card_kind: "member", viewer_is_watching: false, viewer_watch: null },
+    { id: 2, name: "Beta", card_kind: "member", viewer_is_watching: false, viewer_watch: null },
   ] as never;
 
   it("shows the refusal under the refused card only, once", () => {
@@ -237,6 +238,8 @@ describe("card ActionBar (no host onPull)", () => {
       can_vouch: { allowed: true, unlock_hint: null },
     },
     viewer_attestation: null,
+    viewer_is_watching: false,
+    viewer_watch: null,
     links: { self: "/u/dana" },
   } as never;
 

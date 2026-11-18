@@ -280,8 +280,8 @@ describe("settings stay owner-only", () => {
     expect(screen.queryByRole("tablist", { name: "My Profile settings" })).toBeNull();
     expect(childStrips()).toHaveLength(0);
     expect(screen.queryByTestId("panel-profile")).toBeNull();
-    // Falls back to the visitor default rather than erroring.
-    expect(screen.getByTestId("panel-backing")).toBeInTheDocument();
+    // Falls back to the visitor default (Activity, dev note 31) rather than erroring.
+    expect(screen.getByTestId("panel-activity")).toBeInTheDocument();
   });
 
   it("no group or child label reaches a non-owner", () => {
