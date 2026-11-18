@@ -191,7 +191,7 @@ export function RecoveryEmailForm({
       setDone(data.email);
       setSessionLost(data.sessionRestored === false);
     },
-    onError: (err) => setError(humanizeRecoveryError(err)),
+    onError: (err) => setError(humanizeRecoveryVerifyError(err)),
   });
 
   const selected = options.find((o) => o.key === walletKey);
@@ -373,6 +373,32 @@ export function RecoveryEmailForm({
         </p>
       )}
     </div>
+  );
+}
+
+/**
+ * F-294 — the confirm step's copy. A wrong code answers `bcc_invalid_otp`
+ * (the unified wrong-code code, as on email change) or, from a server that
+ * predates the switch, `bcc_invalid_request`. Both mean "the code didn't
+ * work", never "that email is unusable", so they share one line. Accepting
+ * both lets the backend switch ship after this is live with no gap.
+ */
+const RECOVERY_WRONG_CODE =
+  "That code didn't match or has expired. Check the latest email, or start over for a new code.";
+
+export function humanizeRecoveryVerifyError(err: unknown): string {
+  return humanizeCode(
+    err,
+    {
+      bcc_invalid_otp: RECOVERY_WRONG_CODE,
+      bcc_invalid_request: RECOVERY_WRONG_CODE,
+      bcc_otp_exhausted: "Too many attempts. Start over to get a new code.",
+      bcc_rate_limited: "Too many attempts. Wait a moment and try again.",
+      bcc_unauthorized: "Sign in required.",
+      bcc_conflict:
+        "That email is already in use by another account. Try a different address.",
+    },
+    "Couldn't confirm the code. Try again.",
   );
 }
 

@@ -2,6 +2,8 @@ import { withSentryConfig } from "@sentry/nextjs";
 import path from "node:path";
 import type { NextConfig } from "next";
 
+import { buildSecurityHeaders } from "./src/lib/security-headers";
+
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   // The bcc-trust backend lives on a separate WP origin during dev.
@@ -42,6 +44,21 @@ const nextConfig: NextConfig = {
   // Order matters: Next takes the first match, so the specific routes sit
   // above the catch-all. The catch-all also covers paths that never
   // existed but were linked in-app (/settings/connections, /settings/wallets).
+  // Security headers on every route (finding S5) — see src/lib/security-headers.ts
+  // for why frame-ancestors is enforced while the full CSP is report-only.
+  async headers() {
+    return [
+      {
+        source: "/:path*",
+        headers: buildSecurityHeaders({
+          dev: process.env.NODE_ENV !== "production",
+          apiUrl: process.env["NEXT_PUBLIC_BCC_API_URL"],
+          posthogHost: process.env["NEXT_PUBLIC_POSTHOG_HOST"],
+          sentryDsn: process.env["NEXT_PUBLIC_SENTRY_DSN"],
+        }),
+      },
+    ];
+  },
   async redirects() {
     return [
       { source: "/settings/profile", destination: "/u/me?tab=profile", permanent: true },
