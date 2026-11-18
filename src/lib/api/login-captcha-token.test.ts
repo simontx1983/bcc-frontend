@@ -29,6 +29,9 @@ describe("loginWithIdentifier", () => {
       method: "POST",
       body: { identifier: "jo", password: "pw" },
     });
+    // No key at all, not an undefined one (toHaveBeenCalledWith can't tell).
+    const [, init] = bccFetch.mock.calls[0] as [string, { body: Record<string, unknown> }];
+    expect(Object.keys(init.body)).toEqual(["identifier", "password"]);
   });
 
   it("a re-submit after the step-up sends the widget's token", async () => {
