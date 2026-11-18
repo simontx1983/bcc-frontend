@@ -242,7 +242,7 @@ describe("scrubbing", () => {
     // Replacing with `pathname` alone dropped the whole query string,
     // which became load-bearing once this component was mounted on the
     // (auth) group: /login?callbackUrl=…, /reset-password?token=…,
-    // /signup/complete-profile?pt=…&email=… all carry params.
+    // /signup/complete-profile?email=… all carry params.
     search = new URLSearchParams(
       "callbackUrl=%2Fsettings&authNotice=standing&authNoticePush=1",
     );

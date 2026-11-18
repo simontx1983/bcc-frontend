@@ -4,9 +4,10 @@
  * OAuth complete-profile page — /signup/complete-profile
  *
  * Entry point: NextAuth's signIn callback redirects here after an OAuth
- * sign-in where no matching BCC account was found, appending
- * ?pt=<token>&email=<email> (email omitted when the provider didn't
- * supply one — currently always the case for Twitter).
+ * sign-in where no matching BCC account was found, with
+ * ?email=<email>&provider=<p>#pt=<token> (lib/auth.ts completeProfileUrl;
+ * email omitted when the provider didn't supply one — currently always the
+ * case for Twitter). The token is in the FRAGMENT so no server ever sees it.
  *
  * Flow:
  *   1. User picks a handle (and optionally edits their display name).
@@ -19,8 +20,10 @@
  *
  * The provider_token is short-lived (15 min). On expiry, show an error
  * with a link back to /login so they can restart the OAuth flow. It is
- * held in memory from mount and removed from the URL right away, so it
- * never stays in the address bar or browser history.
+ * read once at mount, held in memory and removed from the URL right away,
+ * so it never stays in the address bar or browser history. The server
+ * render cannot see a fragment, so the page shows a brief "reading" card
+ * until mount — never a "Session expired" flash.
  *
  * Validation errors (handle taken / invalid, email taken / invalid) leave
  * the provider_token intact on the backend so the user can correct and
@@ -31,7 +34,7 @@ import type { Route } from "next";
 import { signIn } from "next-auth/react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { type FormEvent, Suspense, useEffect, useState } from "react";
+import { type FormEvent, Suspense, useEffect, useRef, useState } from "react";
 
 import { AuthCard } from "@/components/auth/AuthCard";
 import { noteSignupCompleted, signupMethodForProvider } from "@/lib/analytics/posthog";
@@ -57,26 +60,46 @@ const ERROR_COPY: Record<string, string> = {
 };
 
 /**
- * Drop `pt` from the address bar and this history entry, without a
- * navigation. Other params stay. Next keeps `useSearchParams` in step with
- * `history.replaceState`, so the page must already hold its own copy.
+ * Read the provider token from the URL and remove it, without a navigation
+ * or a new history entry. Other params stay. Returns "" when there is none.
+ *
+ * The fragment (`#pt=`) is where lib/auth.ts puts it. A query `?pt=` is
+ * still accepted — and scrubbed — for a redirect issued by a deployment
+ * from before the fragment (deploy skew); it can be dropped later.
+ * Next keeps `useSearchParams` in step with `history.replaceState`, so the
+ * page must hold its own copy.
  */
-function scrubProviderTokenFromUrl(): void {
+function takeProviderTokenFromUrl(): string {
   const url = new URL(window.location.href);
-  if (!url.searchParams.has("pt")) return;
+  const fragment = new URLSearchParams(url.hash.replace(/^#/, ""));
+  const token = fragment.get("pt") ?? url.searchParams.get("pt") ?? "";
+  if (!fragment.has("pt") && !url.searchParams.has("pt")) return token;
+  fragment.delete("pt");
   url.searchParams.delete("pt");
-  window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
+  const hash = fragment.toString();
+  window.history.replaceState(
+    null,
+    "",
+    `${url.pathname}${url.search}${hash === "" ? "" : `#${hash}`}`,
+  );
+  return token;
 }
 
 function CompleteProfileContent() {
   const router       = useRouter();
   const searchParams = useSearchParams();
   // The provider token is a credential: read it once, at mount, then take
-  // it out of the URL (effect below) so a later visitor to this history
-  // entry, or anyone handed the address, cannot replay it.
-  const [pt]         = useState(() => searchParams.get("pt") ?? "");
+  // it out of the URL so a later visitor to this history entry, or anyone
+  // handed the address, cannot replay it. `undefined` until then — the
+  // server render cannot see a fragment.
+  const [pt, setPt]  = useState<string | undefined>(undefined);
+  // Taken exactly once: StrictMode runs effects twice in development, and
+  // the second run would find the URL already scrubbed.
+  const tokenTaken   = useRef(false);
   useEffect(() => {
-    scrubProviderTokenFromUrl();
+    if (tokenTaken.current) return;
+    tokenTaken.current = true;
+    setPt(takeProviderTokenFromUrl());
   }, []);
   const needsEmail   = (searchParams.get("email") ?? "") === "";
   // `?provider=` is appended by the OAuth callback (lib/auth.ts).
@@ -88,7 +111,7 @@ function CompleteProfileContent() {
   const [error, setError]                 = useState<string | null>(null);
   const [submitting, setSubmitting]       = useState(false);
   const [signingIn, setSigningIn]         = useState(false);
-  const [tokenExpired, setTokenExpired]   = useState(pt === "");
+  const [tokenExpired, setTokenExpired]   = useState(false);
 
   const handleErrorKind = checkHandleLocal(handle);
   const handleValid     = handleErrorKind === null && handle.length >= 3;
@@ -97,7 +120,7 @@ function CompleteProfileContent() {
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    if (!handleValid || !emailValid || pt === "") return;
+    if (!handleValid || !emailValid || pt === undefined || pt === "") return;
     setError(null);
     setSubmitting(true);
 
@@ -141,7 +164,22 @@ function CompleteProfileContent() {
     }
   }
 
-  if (tokenExpired) {
+  // Before mount (and on the server): the token has not been read yet.
+  if (pt === undefined) {
+    return (
+      <AuthCard heading="One last thing" subheading="Getting your sign-up ready…">
+        <p
+          role="status"
+          className="bcc-auth-hint"
+          style={{ textAlign: "center", padding: "8px 0" }}
+        >
+          Just a moment…
+        </p>
+      </AuthCard>
+    );
+  }
+
+  if (tokenExpired || pt === "") {
     return (
       <AuthCard
         heading="Session expired"

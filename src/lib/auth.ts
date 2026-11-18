@@ -204,6 +204,35 @@ async function callBccAuth(
 }
 
 /**
+ * Where a new OAuth member goes to pick a handle.
+ *
+ * The provider token is a credential, so it rides in the URL FRAGMENT
+ * (`#pt=`), never the query: a fragment is never sent to a server (no
+ * request log records it), never appears in a Referer, and is not part of
+ * the page segment key Next stores in history.state. The page reads it
+ * once at mount and removes it from the URL.
+ *
+ * Twitter doesn't return an email, so `email` is "" and the param is
+ * omitted — the page treats a missing param as "collect one". `provider`
+ * is for the `signup_completed` analytics method: a provider name, never
+ * an identifier, and the page validates it against a closed set.
+ */
+export function completeProfileUrl(input: {
+  providerToken: string;
+  email: string;
+  provider: string;
+}): string {
+  const query = new URLSearchParams();
+  if (input.email !== "") query.set("email", input.email);
+  if (input.provider === "google" || input.provider === "twitter") {
+    query.set("provider", input.provider);
+  }
+  const qs = query.toString();
+  const fragment = new URLSearchParams({ pt: input.providerToken }).toString();
+  return `/signup/complete-profile${qs === "" ? "" : `?${qs}`}#${fragment}`;
+}
+
+/**
  * POST /auth/oauth — look up or provision a BCC user for an OAuth sign-in.
  *
  * Called from the `signIn` and `jwt` callbacks. Returns AuthTokenResponse
@@ -449,17 +478,11 @@ export const authOptions: NextAuthOptions = {
         });
 
         if ("status" in result && result.status === "handle_required") {
-          // Twitter doesn't return an email, so result.email is "" — the
-          // complete-profile page treats a missing param as "collect one".
-          const params = new URLSearchParams({ pt: result.provider_token });
-          if (result.email !== "") params.set("email", result.email);
-          // Which provider this new account is coming from, for the
-          // `signup_completed` analytics method. A provider name, never an
-          // identifier; the page validates it against a closed set.
-          if (account.provider === "google" || account.provider === "twitter") {
-            params.set("provider", account.provider);
-          }
-          return `/signup/complete-profile?${params.toString()}`;
+          return completeProfileUrl({
+            providerToken: result.provider_token,
+            email:         result.email,
+            provider:      account.provider,
+          });
         }
 
         return true;

@@ -92,7 +92,7 @@ function AuthRedirectNoticeInner() {
     // Delete only OUR params. Replacing with `pathname` alone dropped the
     // whole query string, which became load-bearing once this component
     // was mounted on the (auth) group: /login?callbackUrl=…,
-    // /reset-password?token=…, /signup/complete-profile?pt=…&email=… and
+    // /reset-password?token=…, /signup/complete-profile?email=… and
     // /auth-error?error=… all carry params a scrub must not eat.
     const next = new URLSearchParams(searchParams.toString());
     next.delete("authNotice");
