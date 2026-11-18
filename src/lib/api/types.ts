@@ -2876,6 +2876,15 @@ export interface CardReview {
    * reply", exactly like null.
    */
   reply?: ReviewReply | null;
+  /**
+   * F-345 — viewer-scoped: the viewer's OWN reply that no longer shows
+   * publicly because they stopped answering for the page (claim revoked,
+   * operator changed, page reassigned). Null for every other viewer, and
+   * null once moderation hides it. Independent of `reply`: both are set
+   * when the new party has replied too. Its permissions allow delete only
+   * (can_edit `page_changed_hands`, can_report `own_reply`).
+   */
+  viewer_stale_reply?: ReviewReply | null;
   /** F-345 — viewer-scoped. Absent = no composer (same as a denial). */
   permissions?: { can_reply?: CardPermissionEntry };
 }
@@ -2891,8 +2900,8 @@ export interface CardReview {
  * `permissions` is server-decided per viewer; the client never compares
  * `author` with the viewer. The reply shown is always the one whose author
  * currently answers for the page — a stale reply (the page changed hands)
- * comes back as `reply: null` for everyone, and the current party gets
- * `can_reply`.
+ * is never `reply`; only its own author gets it back, as
+ * `viewer_stale_reply`, and the current party gets `can_reply`.
  *   - can_edit:   author in good standing (not_author · sender_restricted)
  *   - can_delete: author, not gated on suspension (not_author)
  *   - can_report: signed in, not the author, not restricted
@@ -4487,6 +4496,11 @@ export interface MemberReview {
   posted_at_label: string;
   /** F-345 — the reviewed party's response, shown read-only. Optional until #686 ships. */
   reply?: ReviewReply | null;
+  /**
+   * F-345 — see CardReview.viewer_stale_reply. Not rendered on this
+   * read-only list; the viewer deletes it from the page's Reviews list.
+   */
+  viewer_stale_reply?: ReviewReply | null;
 }
 
 /**

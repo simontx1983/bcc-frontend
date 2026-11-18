@@ -7,8 +7,12 @@
  * Every control is gated on a server permission and nothing else:
  * `review.permissions.can_reply` for the composer, `reply.permissions.
  * can_edit | can_delete | can_report` for the rest. The client never
- * compares the reply author with the viewer — after a page changes hands
- * the old author may delete but not edit, which only the server knows.
+ * compares the reply author with the viewer.
+ *
+ * After a page changes hands, the old author's reply stops showing
+ * publicly. The server sends it back to that author alone as
+ * `viewer_stale_reply`, which renders marked as no longer shown, with
+ * Delete only. It can sit beside the new party's public `reply`.
  *
  * Each write hook mounts only while its control is open, so a plain row
  * (the common case: no permissions) runs no mutation observers.
@@ -25,9 +29,10 @@ import {
   useCreateReviewReply,
   useDeleteReviewReply,
   useUpdateReviewReply,
+  type ReviewReplySlot,
 } from "@/hooks/useReviewReply";
 import { humanizeCode } from "@/lib/api/errors";
-import type { CardReview } from "@/lib/api/types";
+import type { CardReview, ReviewReply } from "@/lib/api/types";
 import { unlockHint } from "@/lib/permissions";
 
 /** Server cap (contract: 1–1000 chars after trim). */
@@ -61,38 +66,65 @@ const WRITE_ERROR_COPY: Record<string, string> = {
 
 export function ReviewReplySection({ review }: { review: CardReview }) {
   const reply = review.reply ?? null;
-  const [mode, setMode] = useState<"idle" | "compose" | "edit">("idle");
-  const [confirmingDelete, setConfirmingDelete] = useState(false);
-  const [reporting, setReporting] = useState(false);
+  const stale = review.viewer_stale_reply ?? null;
+  const [composing, setComposing] = useState(false);
 
   // `reply === null` as well: right after a create the row already holds
   // the new reply while `can_reply` is still being refetched.
   const canReply = review.permissions?.can_reply?.allowed === true && reply === null;
-  const perms = reply?.permissions;
-  const canEdit = perms?.can_edit.allowed === true;
-  const canDelete = perms?.can_delete.allowed === true;
-  const reportTarget = reply !== null ? replyReportTargetId(reply.feed_id) : 0;
-  const canReport = perms?.can_report.allowed === true && reportTarget !== 0;
+
+  return (
+    <>
+      {reply !== null ? (
+        <ReplyBlock reviewId={review.id} reply={reply} slot="reply" />
+      ) : canReply && composing ? (
+        <CreateReply reviewId={review.id} onDone={() => setComposing(false)} />
+      ) : canReply ? (
+        <div className="mt-2">
+          <button type="button" className={ACTION_CLASS} style={ACTION_STYLE} onClick={() => setComposing(true)}>
+            REPLY
+          </button>
+        </div>
+      ) : null}
+      {/* The viewer's own reply from before the page changed hands. Only
+          they get it; it can sit beside the new party's public reply. */}
+      {stale !== null && <ReplyBlock reviewId={review.id} reply={stale} slot="viewer_stale_reply" />}
+    </>
+  );
+}
+
+/**
+ * One reply and its controls, each gated on that reply's own permissions.
+ * The `viewer_stale_reply` slot is marked as no longer shown; its server
+ * permissions leave only Delete.
+ */
+function ReplyBlock({
+  reviewId,
+  reply,
+  slot,
+}: {
+  reviewId: number;
+  reply: ReviewReply;
+  slot: ReviewReplySlot;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [reporting, setReporting] = useState(false);
+
+  const perms = reply.permissions;
+  const stale = slot === "viewer_stale_reply";
+  // The PATCH path writes back into `reply` only; a stale reply's can_edit
+  // is denied (page_changed_hands) anyway.
+  const canEdit = perms.can_edit.allowed === true && !stale;
+  const canDelete = perms.can_delete.allowed === true;
+  const reportTarget = replyReportTargetId(reply.feed_id);
+  const canReport = perms.can_report.allowed === true && reportTarget !== 0;
   // §N7: a denial the viewer can act on (sign in) shows disabled with its
   // hint; a structural one (null hint, e.g. your own reply) hides.
   const reportHint = canReport ? null : unlockHint(perms, "can_report");
 
-  if (reply === null) {
-    if (!canReply) return null;
-    if (mode !== "compose") {
-      return (
-        <div className="mt-2">
-          <button type="button" className={ACTION_CLASS} style={ACTION_STYLE} onClick={() => setMode("compose")}>
-            REPLY
-          </button>
-        </div>
-      );
-    }
-    return <CreateReply reviewId={review.id} onDone={() => setMode("idle")} />;
-  }
-
-  if (mode === "edit" && canEdit) {
-    return <EditReply reviewId={review.id} initial={reply.body} onDone={() => setMode("idle")} />;
+  if (editing && canEdit) {
+    return <EditReply reviewId={reviewId} initial={reply.body} onDone={() => setEditing(false)} />;
   }
 
   const hintId = `reply-report-hint-${reply.id}`;
@@ -100,11 +132,15 @@ export function ReviewReplySection({ review }: { review: CardReview }) {
 
   return (
     <>
-      <ReviewReplyView reply={reply} surface="paper">
+      <ReviewReplyView
+        reply={reply}
+        surface="paper"
+        notice={stale ? "NO LONGER SHOWN ON THIS PAGE · ONLY YOU CAN SEE IT" : undefined}
+      >
         {hasControls && (
           <div className="mt-1 flex flex-wrap items-center gap-x-2">
             {canEdit && (
-              <button type="button" className={ACTION_CLASS} style={ACTION_STYLE} onClick={() => setMode("edit")}>
+              <button type="button" className={ACTION_CLASS} style={ACTION_STYLE} onClick={() => setEditing(true)}>
                 EDIT
               </button>
             )}
@@ -151,7 +187,7 @@ export function ReviewReplySection({ review }: { review: CardReview }) {
       </ReviewReplyView>
 
       {confirmingDelete && (
-        <DeleteReplyDialog reviewId={review.id} onDone={() => setConfirmingDelete(false)} />
+        <DeleteReplyDialog reviewId={reviewId} slot={slot} onDone={() => setConfirmingDelete(false)} />
       )}
 
       {reporting && (
@@ -234,12 +270,24 @@ function EditReply({
   );
 }
 
-function DeleteReplyDialog({ reviewId, onDone }: { reviewId: number; onDone: () => void }) {
+function DeleteReplyDialog({
+  reviewId,
+  slot,
+  onDone,
+}: {
+  reviewId: number;
+  slot: ReviewReplySlot;
+  onDone: () => void;
+}) {
   const mut = useDeleteReviewReply();
   return (
     <ConfirmDialog
       title="Delete your reply?"
-      body="It will be removed from this review."
+      body={
+        slot === "viewer_stale_reply"
+          ? "You no longer answer for this page, so only you can see this reply. Deleting it removes it for good."
+          : "It will be removed from this review."
+      }
       confirmLabel="DELETE"
       cancelLabel="CANCEL"
       retryLabel="TRY AGAIN"
@@ -259,7 +307,7 @@ function DeleteReplyDialog({ reviewId, onDone }: { reviewId: number; onDone: () 
       pending={mut.isPending}
       onConfirm={() => {
         mut.reset();
-        mut.mutate({ reviewId }, { onSuccess: onDone });
+        mut.mutate({ reviewId, slot }, { onSuccess: onDone });
       }}
       onCancel={onDone}
     />

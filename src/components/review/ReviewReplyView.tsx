@@ -31,12 +31,18 @@ export function ReviewReplyView({
   reply,
   surface,
   compact = false,
+  notice,
   children,
 }: {
   reply: ReviewReply;
   surface: ReplySurface;
   /** About preview: clamped body, no author link (the row is already a link). */
   compact?: boolean;
+  /**
+   * A status line above the body, and a dashed rule (ReviewReplySection's
+   * "no longer shown on this page" marker on the viewer's stale reply).
+   */
+  notice?: string | undefined;
   /** Controls row (ReviewReplySection only). */
   children?: ReactNode;
 }) {
@@ -51,7 +57,10 @@ export function ReviewReplyView({
   const Line = compact ? "span" : "p";
 
   return (
-    <Box className={`mt-3 block border-l-2 pl-3 ${tone.rule}`} data-testid="review-reply">
+    <Box
+      className={`mt-3 block border-l-2 pl-3 ${tone.rule} ${notice !== undefined ? "border-dashed" : ""}`}
+      data-testid="review-reply"
+    >
       <Line className={`block bcc-mono ${tone.meta}`} style={{ fontSize: "10px", letterSpacing: "0.16em" }}>
         REPLY FROM{" "}
         {compact ? (
@@ -73,6 +82,11 @@ export function ReviewReplyView({
           </>
         )}
       </Line>
+      {notice !== undefined && (
+        <Line className={`mt-1 block bcc-mono ${tone.body}`} style={{ fontSize: "10px", letterSpacing: "0.16em" }}>
+          {notice}
+        </Line>
+      )}
       <Line
         className={`mt-1 block whitespace-pre-line font-serif ${tone.body} ${compact ? "line-clamp-2" : ""}`}
         style={{ fontSize: "14px", lineHeight: 1.5 }}

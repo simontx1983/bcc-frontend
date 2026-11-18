@@ -10,6 +10,8 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/env", () => ({ clientEnv: { BCC_API_URL: "http://x" } }));
+// The delete confirm Dialog reads it; jsdom has no matchMedia.
+vi.mock("@/hooks/usePrefersReducedMotion", () => ({ usePrefersReducedMotion: () => false }));
 
 const createReviewReply = vi.fn();
 const updateReviewReply = vi.fn();
@@ -205,6 +207,55 @@ describe("F-345 review replies", () => {
     const { container } = render(<ReviewReplyView reply={reply()} surface="panel" compact />);
     expect(container.querySelector("a")).toBeNull();
     expect(container.querySelector("div, p")).toBeNull();
+  });
+
+  // The server's permissions on `viewer_stale_reply` (contract F-345).
+  const stalePerms = perms({
+    can_edit: { allowed: false, unlock_hint: null, reason_code: "page_changed_hands" },
+    can_delete: allow,
+    can_report: { allowed: false, unlock_hint: null, reason_code: "own_reply" },
+  });
+
+  it("a stale reply shows to its author marked as no longer shown, with Delete only", () => {
+    renderSection(review({ reply: null, viewer_stale_reply: reply({ permissions: stalePerms }) }));
+    expect(screen.getByText(/NO LONGER SHOWN ON THIS PAGE/)).toBeInTheDocument();
+    expect(screen.getByText("Thanks — fixed the signing gap.")).toBeInTheDocument();
+    const names = screen.getAllByRole("button").map((b) => b.getAttribute("aria-label") ?? b.textContent);
+    expect(names).toEqual(["DELETE"]);
+  });
+
+  it("the public reply carries no stale marker", () => {
+    renderSection(review({ reply: reply() }));
+    expect(screen.queryByText(/NO LONGER SHOWN/)).toBeNull();
+  });
+
+  it("deleting the stale reply empties only that slot; the new party's public reply stays", async () => {
+    const { CARD_REVIEWS_QUERY_KEY_ROOT } = await import("@/hooks/useCardTabs");
+    const { within } = await import("@testing-library/react");
+    deleteReviewReply.mockResolvedValue({ deleted: true });
+    const publicReply = reply({ id: 10, body: "New owner here.", author: member("newco"), feed_id: "feed_400" });
+    const row = review({ reply: publicReply, viewer_stale_reply: reply({ permissions: stalePerms }) });
+    const key = [...CARD_REVIEWS_QUERY_KEY_ROOT, "validator", 5];
+    qc.setQueryData(key, {
+      pages: [{ items: [row], pagination: { page: 1, per_page: 10, total: 1, total_pages: 1 } }],
+      pageParams: [1],
+    });
+
+    renderSection(row);
+    // Both replies render; only the stale one is marked.
+    expect(screen.getByText("New owner here.")).toBeInTheDocument();
+    expect(screen.getAllByText(/NO LONGER SHOWN/)).toHaveLength(1);
+
+    fireEvent.click(screen.getByRole("button", { name: "DELETE" }));
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "DELETE" }));
+
+    await waitFor(() => expect(deleteReviewReply).toHaveBeenCalledWith(88));
+    await waitFor(() => {
+      const data = qc.getQueryData<{ pages: { items: CardReview[] }[] }>(key);
+      const cached = data?.pages[0]?.items[0];
+      expect(cached?.viewer_stale_reply).toBeNull();
+      expect(cached?.reply).toEqual(publicReply);
+    });
   });
 
   it("report target is the bare number from feed_<n>", () => {
