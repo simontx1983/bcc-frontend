@@ -13,6 +13,7 @@
 import type { Metadata } from "next";
 
 import { ANON_SSR_REVALIDATE_SECONDS } from "@/lib/api/cache-policy";
+import { isCode } from "@/lib/api/errors";
 import { getFeedItemById } from "@/lib/api/feed-endpoints";
 import { POST_KIND_LABELS, deriveBodySummary } from "@/components/feed/postBody";
 import { presentationName } from "@/lib/format";
@@ -39,7 +40,14 @@ export async function buildPostMetadata(id: string): Promise<Metadata> {
     item = await getFeedItemById(id, null, {
       revalidate: ANON_SSR_REVALIDATE_SECONDS,
     });
-  } catch {
+  } catch (err) {
+    // F-275: a 503 says the read did not run, not that the post is gone,
+    // so the tab must not say "not found" while the page offers a retry.
+    // (A 503 is never written to the Data Cache: Next 15 only caches a
+    // 200, so the next load asks again.)
+    if (isCode(err, "bcc_unavailable")) {
+      return { title: "Post temporarily unavailable · Blue Collar Crypto" };
+    }
     return { title: "Post not found · Blue Collar Crypto" };
   }
 

@@ -4,7 +4,8 @@
  * Twitter style), and direct nav / refresh / shared links land here too.
  *
  * Same shell pattern as `/p/[slug]`: server component + `generateMetadata`,
- * SSR fetch via `getFeedItemById`, 404 on `bcc_not_found`.
+ * SSR fetch via `getFeedItemById`, 404 on `bcc_not_found`, and an in-page
+ * "temporarily unavailable" with a retry on 503 `bcc_unavailable` (F-275).
  */
 
 import type { Metadata } from "next";
@@ -14,9 +15,11 @@ import { notFound } from "next/navigation";
 import { PostBackButton } from "@/components/feed/PostBackButton";
 import { PostDetail } from "@/components/feed/PostDetail";
 import { PostRailRegistrar } from "@/components/feed/PostRailRegistrar";
+import { PostUnavailable } from "@/components/feed/PostUnavailable";
 import { authOptions } from "@/lib/auth";
 import { tokenFromSession } from "@/lib/api/client";
 import { ANON_SSR_REVALIDATE_SECONDS } from "@/lib/api/cache-policy";
+import { isCode } from "@/lib/api/errors";
 import { getFeedItemById } from "@/lib/api/feed-endpoints";
 import { buildPostMetadata } from "@/lib/og/post-metadata";
 import { BccApiError } from "@/lib/api/types";
@@ -58,6 +61,17 @@ export default async function PostPage({ params, searchParams }: PageProps) {
   } catch (err) {
     if (err instanceof BccApiError && err.status === 404) {
       notFound();
+    }
+    // F-275: the post could not be READ. That is not "not found", and
+    // rethrowing it lands on global-error, outside the app shell with no
+    // way back. Answer in place, with a retry. See PostUnavailable.
+    if (isCode(err, "bcc_unavailable")) {
+      return (
+        <div className="mx-auto max-w-2xl px-2 py-4 sm:px-0">
+          <PostBackButton />
+          <PostUnavailable routeId={id} focusComposer={intent === "comment"} />
+        </div>
+      );
     }
     throw err;
   }
