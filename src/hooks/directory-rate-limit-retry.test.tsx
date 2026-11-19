@@ -17,7 +17,11 @@ vi.mock("@/components/cards/CardGridSkeleton", () => ({
   CardGridSkeleton: ({ ariaLabel }: { ariaLabel: string }) => <div aria-label={ariaLabel} />,
 }));
 
-import { DirectoryGrid } from "@/components/directory/DirectoryGrid";
+import {
+  DIRECTORY_THROTTLED_COPY,
+  DirectoryThrottleNotice,
+  isDirectoryThrottled,
+} from "@/components/directory/DirectoryGrid";
 import { useDirectory, type DirectoryFilters } from "@/hooks/useDirectory";
 import {
   RATE_LIMIT_RETRY_DELAYS_MS,
@@ -115,27 +119,45 @@ describe("useDirectory", () => {
   });
 });
 
-describe("DirectoryGrid while a throttled search waits", () => {
-  const loading = (failureReason: unknown) =>
-    ({
-      isLoading: true,
-      isLoadingError: false,
-      isError: false,
-      error: null,
-      failureReason,
-      data: undefined,
-    }) as never;
-
-  it("says it is busy and will try again", () => {
-    render(<DirectoryGrid query={loading(rateLimited())} />);
-    expect(screen.getByRole("status")).toHaveTextContent(
-      "Lots of searches right now. Trying again in a moment…",
-    );
-    expect(screen.getByLabelText("Loading directory results")).toBeInTheDocument();
+describe("the throttle notice (always mounted)", () => {
+  it("is in the page, empty and visually hidden, before anything is throttled", () => {
+    render(<DirectoryThrottleNotice throttled={false} />);
+    const region = screen.getByRole("status");
+    expect(region).toHaveTextContent("");
+    expect(region).toHaveClass("sr-only");
   });
 
-  it("a different first failure being retried says nothing extra", () => {
-    render(<DirectoryGrid query={loading(serverError())} />);
-    expect(screen.queryByRole("status")).toBeNull();
+  it("the same region receives the text when a search is throttled", () => {
+    const { rerender } = render(<DirectoryThrottleNotice throttled={false} />);
+    const region = screen.getByRole("status");
+    rerender(<DirectoryThrottleNotice throttled />);
+    expect(screen.getByRole("status")).toBe(region);
+    expect(region).toHaveTextContent(DIRECTORY_THROTTLED_COPY);
+    expect(region).not.toHaveClass("sr-only");
+  });
+
+  it("keys on a throttled FIRST load only", () => {
+    expect(isDirectoryThrottled({ isLoading: true, failureReason: rateLimited() } as never)).toBe(true);
+    expect(isDirectoryThrottled({ isLoading: true, failureReason: serverError() } as never)).toBe(false);
+    expect(isDirectoryThrottled({ isLoading: false, failureReason: rateLimited() } as never)).toBe(false);
+  });
+});
+
+describe("Retry-After (contract §1.4.4, F-289)", () => {
+  const limited = (seconds: unknown) =>
+    new BccApiError("bcc_rate_limited", "x", 429, {
+      error: { code: "bcc_rate_limited", message: "x", status: 429, data: { retry_after_seconds: seconds } },
+    } as never);
+
+  it("waits the server's retry_after_seconds plus a small margin", () => {
+    expect(rateLimitedRetryDelay(0, limited(3))).toBe(3_250);
+    expect(rateLimitedRetryDelay(2, limited(1))).toBe(1_250);
+  });
+
+  it("caps it, and falls back to the fixed pauses when absent or unusable", () => {
+    expect(rateLimitedRetryDelay(0, limited(600))).toBe(30_000);
+    expect(rateLimitedRetryDelay(1, limited(0))).toBe(4_000);
+    expect(rateLimitedRetryDelay(1, limited("5"))).toBe(4_000);
+    expect(rateLimitedRetryDelay(0, rateLimited())).toBe(2_000);
   });
 });
