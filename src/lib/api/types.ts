@@ -4662,7 +4662,14 @@ export type CreateUserReportResponse = {
   message: string;
 };
 
-/** §K1 Phase A — one row in the viewer's block list. Server-shaped. */
+/**
+ * §K1 Phase A — one row in the viewer's block list. Server-shaped.
+ *
+ * `handle`, `display_name` and `profile_url` are all "" when no member
+ * holds `user_id`: any positive id can be blocked, and a blocked member
+ * can later be deleted. `user_id` is always set, and unblocking needs
+ * only that.
+ */
 export interface MyBlockEntry {
   user_id: number;
   handle: string;

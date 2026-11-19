@@ -7,6 +7,13 @@
  * Unblock button that fires the unblock mutation and invalidates the
  * blocks query for re-fetch. No optimistic removal — the round trip
  * is fast and a fresh re-fetch keeps the count accurate.
+ *
+ * A row can name nobody. `POST /me/blocks` accepts any positive user id
+ * (so it cannot tell a member which ids exist), and a member can be
+ * deleted after being blocked. Either way the server sends that row with
+ * an empty handle, display_name and profile_url. It still renders, as
+ * "Unknown account", and its Unblock still works: unblocking only needs
+ * the `user_id`. No row here links to a profile.
  */
 
 import { useEffect, useState } from "react";
@@ -16,6 +23,17 @@ import { LoadFailure } from "@/components/ui/LoadFailure";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { useMyBlocks, useUnblockUser } from "@/hooks/useBlocks";
 import { humanizeCode, isPermissionDenial } from "@/lib/api/errors";
+import type { MyBlockEntry } from "@/lib/api/types";
+
+/** A blocked id with no member behind it (see the module docblock). */
+export const UNKNOWN_ACCOUNT_COPY = "Unknown account";
+
+/** The row's name: display name, else @handle, else "Unknown account". */
+function blockedName(entry: MyBlockEntry): string {
+  if (entry.display_name !== "") return entry.display_name;
+  if (entry.handle !== "") return `@${entry.handle}`;
+  return UNKNOWN_ACCOUNT_COPY;
+}
 
 export function BlocksList() {
   const [page, setPage] = useState(1);
@@ -126,8 +144,14 @@ export function BlocksList() {
                 variant="rounded"
               />
               <div className="min-w-0">
-                <p className="bcc-stencil truncate text-bcc-text">
-                  {entry.display_name !== "" ? entry.display_name : `@${entry.handle}`}
+                <p
+                  className={`bcc-stencil truncate ${
+                    entry.display_name === "" && entry.handle === ""
+                      ? "text-bcc-text-secondary"
+                      : "text-bcc-text"
+                  }`}
+                >
+                  {blockedName(entry)}
                 </p>
                 {entry.handle !== "" && (
                   <p className="bcc-mono truncate text-[11px] text-bcc-text-secondary">
