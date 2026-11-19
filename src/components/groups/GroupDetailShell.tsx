@@ -107,8 +107,17 @@ export function GroupDetailShell({
   validatorsPanel,
   aboutSupplement,
 }: GroupDetailShellProps) {
+  // F-388: on the community sub-routes the strip can point an owner or
+  // manager at the Members tab's requests block.
   const actionCluster =
-    actions !== undefined ? actions : <GroupMembershipStrip group={group} />;
+    actions !== undefined ? (
+      actions
+    ) : (
+      <GroupMembershipStrip
+        group={group}
+        {...(urlBase !== undefined ? { membersHref: `${urlBase}/members` } : {})}
+      />
+    );
 
   const showBreadcrumb =
     backHref !== undefined && backHref !== "" &&

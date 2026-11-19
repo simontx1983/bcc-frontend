@@ -18,6 +18,11 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
+import {
+  clearPendingVerificationEmail,
+  stashPendingVerificationEmail,
+} from "@/lib/auth/pending-verification-email";
+
 vi.mock("@/lib/env", () => ({
   clientEnv: { BCC_API_URL: "https://wp.example" },
 }));
@@ -77,7 +82,10 @@ beforeEach(() => {
   for (const k of [...searchParams.keys()]) searchParams.delete(k);
 });
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  clearPendingVerificationEmail();
+});
 
 /** The message an input's aria-describedby points at, or null. */
 function describedText(input: HTMLElement): string | null {
@@ -211,7 +219,6 @@ describe("verify-email: the pending address went to another account", () => {
   }
 
   it("by link: shows the in-use card, not 'Link expired'", async () => {
-    searchParams.set("email", "jo@example.com");
     searchParams.set("token", "t");
     h.verifyEmail.mockRejectedValue(new BccApiError("bcc_conflict", "RAW SERVER TEXT", 409, null));
     render(<VerifyEmailPage />);
@@ -222,7 +229,7 @@ describe("verify-email: the pending address went to another account", () => {
   });
 
   it("by code: shows the same card in place of the form", async () => {
-    searchParams.set("email", "jo@example.com");
+    stashPendingVerificationEmail("jo@example.com");
     h.verifyEmail.mockRejectedValue(new BccApiError("bcc_conflict", "RAW SERVER TEXT", 409, null));
     render(<VerifyEmailPage />);
 
@@ -234,7 +241,7 @@ describe("verify-email: the pending address went to another account", () => {
   });
 
   it("the other 409, bcc_already_verified, keeps its own line on the form", async () => {
-    searchParams.set("email", "jo@example.com");
+    stashPendingVerificationEmail("jo@example.com");
     h.verifyEmail.mockRejectedValue(new BccApiError("bcc_already_verified", "raw", 409, null));
     render(<VerifyEmailPage />);
 

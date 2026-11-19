@@ -5,8 +5,20 @@
  *
  * Two entry points:
  *
- *   1. After signup     → ?email=xxx  (OTP form shown; no token in URL)
- *   2. Email link click → ?email=xxx&token=yyy  (auto-verifies on mount)
+ *   1. After signup (or a sign-in refused as unverified) → no params. The
+ *      address arrives in sessionStorage, never the URL (F-410,
+ *      lib/auth/pending-verification-email). OTP form shown.
+ *   2. Email link click → ?token=yyy (auto-verifies on mount). The token
+ *      alone verifies; no address is needed.
+ *
+ * The address is needed only to verify a code and to resend one. When this
+ * tab has none (a new tab, blocked storage, a link opened elsewhere), the
+ * OTP form asks for it.
+ *
+ * LEGACY: earlier redirects carried ?email=, and the emailed link still
+ * carries ?email=&token= until the backend drops it (then for the link's
+ * 24h life). A legacy ?email= is taken once into sessionStorage and
+ * scrubbed from the address bar.
  *
  * On successful verification (either path): the returned JWT is bridged
  * directly into NextAuth via the "bcc-verified" provider, signing the
@@ -39,6 +51,11 @@ import {
   verifyEmail,
 } from "@/lib/api/auth-endpoints";
 import { BccApiError, type VerifyEmailResponse } from "@/lib/api/types";
+import {
+  clearPendingVerificationEmail,
+  readPendingVerificationEmail,
+  stashPendingVerificationEmail,
+} from "@/lib/auth/pending-verification-email";
 
 const ERROR_COPY: Record<string, string> = {
   bcc_invalid_verify_token: "This link has expired or has already been used.",
@@ -74,11 +91,48 @@ type PageState =
   | "wallet-check"
   | "email-taken";
 
+/**
+ * LEGACY LINKS ONLY — remove once the emailed link carries only the token
+ * and its 24h life has passed. Remove `?email=` from the address bar,
+ * without a navigation or a new history entry. Other params (a link's
+ * token) stay. Next keeps `useSearchParams` in step with
+ * `history.replaceState`.
+ */
+function scrubEmailParam(): void {
+  const url = new URL(window.location.href);
+  if (!url.searchParams.has("email")) return;
+  url.searchParams.delete("email");
+  window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
+}
+
 function VerifyEmailContent() {
   const router        = useRouter();
   const searchParams  = useSearchParams();
-  const email         = searchParams.get("email") ?? "";
+  // Only a legacy redirect or emailed link still carries ?email=.
+  const legacyEmail   = searchParams.get("email") ?? "";
   const tokenParam    = searchParams.get("token") ?? "";
+
+  /**
+   * The address being verified, from sessionStorage (or a legacy ?email=,
+   * moved there and scrubbed from the address bar). "" when this tab has
+   * none: the OTP form then asks for it. `undefined` until read — storage
+   * is read after mount, never during render.
+   */
+  const [knownEmail, setKnownEmail] = useState<string | undefined>(undefined);
+  /** Typed into the OTP form when the address is not known. */
+  const [typedEmail, setTypedEmail] = useState("");
+  const emailInput = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (legacyEmail !== "") {
+      stashPendingVerificationEmail(legacyEmail);
+      scrubEmailParam();
+    }
+    setKnownEmail(legacyEmail !== "" ? legacyEmail : readPendingVerificationEmail());
+    // Mount-only: the address is read once; a scrubbed URL must not re-run this.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const askForEmail   = knownEmail === "";
+  const email         = askForEmail ? typedEmail.trim() : (knownEmail ?? "");
 
   const initialState: PageState = tokenParam !== "" ? "auto-verifying" : "otp-form";
 
@@ -137,11 +191,14 @@ function VerifyEmailContent() {
   const autoVerify = useCallback(async () => {
     try {
       const tokenResp = await verifyEmail({ token: tokenParam });
+      clearPendingVerificationEmail();
       setSigningIn(true);
       setPageState("success");
       void autoSignIn(tokenResp);
     } catch (err) {
       if (err instanceof BccApiError && err.code === EMAIL_TAKEN_CODE) {
+        // The server dropped the address: nothing left to verify.
+        clearPendingVerificationEmail();
         setPageState("email-taken");
         return;
       }
@@ -175,16 +232,18 @@ function VerifyEmailContent() {
   // ── OTP submit ─────────────────────────────────────────────────
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    if (code.length !== 6) return;
+    if (code.length !== 6 || email === "") return;
     setError(null);
     setSubmitting(true);
     try {
       const tokenResp = await verifyEmail({ email, code });
+      clearPendingVerificationEmail();
       setSigningIn(true);
       setPageState("success");
       void autoSignIn(tokenResp);
     } catch (err) {
       if (err instanceof BccApiError && err.code === EMAIL_TAKEN_CODE) {
+        clearPendingVerificationEmail();
         setPageState("email-taken");
       } else if (err instanceof BccApiError) {
         // §γ — unmapped codes fall back to generic copy, never err.message.
@@ -215,6 +274,8 @@ function VerifyEmailContent() {
   // continues to reveal nothing about whether the address is registered.
   async function handleResend() {
     if (resendCooldown > 0 || resending || email === "" || resendInFlight.current) return;
+    // A typed address is checked by the browser (type="email") first.
+    if (askForEmail && emailInput.current?.reportValidity() === false) return;
     resendInFlight.current = true;
     setResending(true);
     setError(null);
@@ -232,6 +293,9 @@ function VerifyEmailContent() {
       setError(
         code === "bcc_rate_limited"
           ? "Too many code requests. Wait a few minutes, then try again."
+          : code === "bcc_invalid_request"
+          // The server refused the address itself (only a typed one can be).
+          ? "Enter a valid email address."
           : "Couldn't send a new code just now. Check your connection and try again.",
       );
     } finally {
@@ -337,7 +401,17 @@ function VerifyEmailContent() {
           </p>
         )}
 
-        {email !== "" && (
+        {askForEmail ? (
+          // No address in this tab (e.g. a link opened in a new tab): the
+          // OTP form asks for it, and resends from there.
+          <button
+            type="button"
+            onClick={() => { setPageState("otp-form"); setError(null); }}
+            className="bcc-auth-submit"
+          >
+            Get a new code
+          </button>
+        ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
             <button
               type="button"
@@ -360,18 +434,54 @@ function VerifyEmailContent() {
     );
   }
 
-  // ── OTP form (default) ─────────────────────────────────────────
-  const displayEmail = email !== "" ? email : "your inbox";
+  // ── Before mount: the address has not been read yet ───────────
+  if (knownEmail === undefined) {
+    return (
+      <AuthCard heading="Check your email" subheading="Getting your code form ready…">
+        <p
+          role="status"
+          className="bcc-auth-hint"
+          style={{ textAlign: "center", padding: "8px 0" }}
+        >
+          Just a moment…
+        </p>
+      </AuthCard>
+    );
+  }
 
+  // ── OTP form (default) ─────────────────────────────────────────
   return (
     <AuthCard
       heading="Check your email"
-      subheading={`We sent a 6-digit code to ${displayEmail}. Enter it below to verify your account.`}
+      subheading={
+        askForEmail
+          ? "Enter the email you signed up with and the 6-digit code we sent. No code? Resend one below."
+          : `We sent a 6-digit code to ${knownEmail}. Enter it below to verify your account.`
+      }
     >
       <form
         onSubmit={(e) => { void handleSubmit(e); }}
         style={{ display: "flex", flexDirection: "column", gap: "16px" }}
       >
+        {askForEmail && (
+          <div className="bcc-auth-field">
+            <label className="bcc-auth-label" htmlFor="verify-email-address">
+              Email
+            </label>
+            <input
+              ref={emailInput}
+              id="verify-email-address"
+              type="email"
+              required
+              autoComplete="email"
+              placeholder="you@example.com"
+              value={typedEmail}
+              onChange={(e) => { setTypedEmail(e.target.value); }}
+              className="bcc-auth-input"
+            />
+          </div>
+        )}
+
         <div className="bcc-auth-field">
           <label className="bcc-auth-label" htmlFor="otp-code">
             Verification code
@@ -408,7 +518,7 @@ function VerifyEmailContent() {
 
         <button
           type="submit"
-          disabled={submitting || code.length !== 6}
+          disabled={submitting || code.length !== 6 || email === ""}
           className="bcc-auth-submit"
         >
           {submitting ? "Verifying…" : "Verify email"}

@@ -5,7 +5,8 @@
  *
  * On success: POST /auth/signup returns {ok, email}. No JWT is minted —
  * the user must verify their email before they can log in. We redirect
- * them to /verify-email?email=<email> to complete the flow.
+ * them to /verify-email to complete the flow, with the address in
+ * sessionStorage, never the URL (lib/auth/pending-verification-email).
  *
  * Handle validation: client-side regex gives instant feedback.
  * Server is authoritative — catches "already taken" via bcc_conflict.
@@ -27,6 +28,7 @@ import { signup } from "@/lib/api/auth-endpoints";
 import { BccApiError } from "@/lib/api/types";
 import { checkHandleLocal, formatHandleHint } from "@/lib/auth/handleValidation";
 import { PASSWORD_BREACHED_CODE, PASSWORD_BREACHED_COPY } from "@/lib/auth/password-policy";
+import { stashPendingVerificationEmail } from "@/lib/auth/pending-verification-email";
 
 const ERROR_COPY: Record<string, string> = {
   bcc_invalid_request: "Email, password, and handle are all required.",
@@ -85,7 +87,8 @@ export function SignupPageClient() {
     }
 
     setSubmitting(false);
-    router.replace(`/verify-email?email=${encodeURIComponent(trimmedEmail)}`);
+    stashPendingVerificationEmail(trimmedEmail);
+    router.replace("/verify-email");
   }
 
   return (

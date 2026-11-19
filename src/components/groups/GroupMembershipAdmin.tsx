@@ -31,6 +31,10 @@ import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useEffect, useState } from "react";
 
+import {
+  MEMBERSHIP_REQUESTS_ANCHOR,
+  canManageMembership,
+} from "@/components/groups/membership-gate";
 import { Avatar } from "@/components/identity/Avatar";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { LoadFailure } from "@/components/ui/LoadFailure";
@@ -52,17 +56,6 @@ import {
   type GroupOutstandingInviteItem,
 } from "@/lib/api/types";
 import { formatRelativeTime } from "@/lib/format";
-
-/**
- * Whether the viewer decides who gets into this group. The server's
- * `can_manage_membership` (closed and secret groups) when present; on a
- * backend without it, `pending_request_count` is non-null for exactly the
- * same viewers, but only on closed groups.
- */
-export function canManageMembership(group: GroupDetailResponse): boolean {
-  if (typeof group.can_manage_membership === "boolean") return group.can_manage_membership;
-  return group.pending_request_count !== null && group.pending_request_count !== undefined;
-}
 
 type DecisionAction = "approve" | "deny" | "invite" | "revoke";
 
@@ -116,7 +109,11 @@ export function GroupMembershipAdmin({ group }: { group: GroupDetailResponse }) 
     group.pending_request_count !== null && group.pending_request_count !== undefined;
 
   return (
-    <section aria-labelledby={`membership-admin-${group.id}`} className="bcc-panel flex flex-col gap-8 p-5 sm:p-6">
+    <section
+      id={MEMBERSHIP_REQUESTS_ANCHOR}
+      aria-labelledby={`membership-admin-${group.id}`}
+      className="bcc-panel flex scroll-mt-24 flex-col gap-8 p-5 sm:p-6"
+    >
       <header>
         <span className="bcc-mono text-[10px] tracking-[0.24em] text-bcc-text-secondary">OWNERS &amp; MANAGERS</span>
         <h2 id={`membership-admin-${group.id}`} className="bcc-stencil mt-1 text-2xl text-bcc-text">

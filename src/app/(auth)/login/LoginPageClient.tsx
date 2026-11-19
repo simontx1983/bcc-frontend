@@ -34,6 +34,7 @@ import { WalletSignupPrompt } from "@/components/auth/WalletSignupPrompt";
 import { loginWithIdentifier } from "@/lib/api/auth-endpoints";
 import { BccApiError, type AuthTokenResponse } from "@/lib/api/types";
 import { loginCaptchaChallenge, type LoginCaptchaChallenge } from "@/lib/auth/login-captcha";
+import { stashPendingVerificationEmail } from "@/lib/auth/pending-verification-email";
 import { safeCallbackPath } from "@/lib/auth/safe-callback";
 import { writeOnboardingReturnTo } from "@/lib/onboarding/return-to";
 import { stashChallengeToken } from "@/lib/auth/two-factor-challenge";
@@ -72,8 +73,10 @@ function LoginPageContent() {
   const [walletSignupOpen, setWalletSignupOpen] = useState(false);
   /** Set to the email address when the server blocks login with bcc_email_not_verified.
    * Only set when `identifier` itself was an email — if the user typed a
-   * handle instead, we don't have their address to deep-link /verify-email
-   * with, so the shortcut link is omitted (the generic error still shows). */
+   * handle instead, we don't have their address to hand /verify-email, so
+   * the shortcut link is omitted (the generic error still shows). The link
+   * hands it over in sessionStorage, never the URL
+   * (lib/auth/pending-verification-email). */
   const [notVerifiedEmail, setNotVerifiedEmail] = useState<string | null>(null);
   /**
    * The captcha step-up (lib/auth/login-captcha). `captcha` is set once the
@@ -251,7 +254,8 @@ function LoginPageContent() {
           {notVerifiedEmail !== null && (
             <p className="bcc-auth-hint">
               <Link
-                href={`/verify-email?email=${encodeURIComponent(notVerifiedEmail)}`}
+                href="/verify-email"
+                onClick={() => { stashPendingVerificationEmail(notVerifiedEmail); }}
               >
                 Verify your email →
               </Link>

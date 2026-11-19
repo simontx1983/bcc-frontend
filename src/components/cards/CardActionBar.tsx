@@ -39,7 +39,7 @@
 import type { Route } from "next";
 import Link from "next/link";
 import type { MouseEvent, ReactNode } from "react";
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 
 import {
   WatchIcon,
@@ -180,12 +180,28 @@ function ActionPill({
  * pill is unavailable, or why an action failed. The LATEST event wins: a
  * locked-pill tap replaces an earlier error and vice versa. An explanation
  * fades after a few seconds; a failure stays until the next event.
+ *
+ * #276 follow-ups:
+ *  - Each notice records which pill raised it (`source`), and only THAT
+ *    pill is described by the line. Before, a Vouch failure also became
+ *    Watch's description, and a screen reader read it on the wrong pill.
+ *  - Every event gets a new `seq`; its text is a fresh `<span key={seq}>`
+ *    inside a region that stays mounted (PillNoticeLine), so the same
+ *    failure twice in a row is announced again. Before, identical text
+ *    never re-announced.
  */
-type PillNotice = { text: string; tone: "status" | "alert"; at: number };
+type PillNoticeSource = "watch" | "vouch" | "message" | "join";
+type PillNotice = {
+  text: string;
+  tone: "status" | "alert";
+  source: PillNoticeSource;
+  seq: number;
+};
 
 function usePillNotice() {
   const id = useId();
   const [notice, setNotice] = useState<PillNotice | null>(null);
+  const seq = useRef(0);
   useEffect(() => {
     if (notice === null || notice.tone !== "status") return;
     const timer = setTimeout(() => setNotice(null), 4000);
@@ -194,20 +210,47 @@ function usePillNotice() {
   return {
     id,
     notice,
-    show: (text: string, tone: "status" | "alert" = "status") =>
-      setNotice({ text, tone, at: Date.now() }),
+    show: (text: string, source: PillNoticeSource, tone: "status" | "alert" = "status") => {
+      seq.current += 1;
+      setNotice({ text, tone, source, seq: seq.current });
+    },
+    /** The line's id for the pill that raised the notice; undefined for any other. */
+    describes: (source: PillNoticeSource): string | undefined =>
+      notice !== null && notice.source === source ? id : undefined,
     clear: () => setNotice(null),
   };
 }
 
+/** How long a freshly mounted notice region stays empty before its text. */
+export const NOTICE_FILL_DELAY_MS = 50;
+
+/**
+ * The notice line. A live region inserted already holding its text is
+ * often not read (NVDA/Chrome, VoiceOver), so this one mounts EMPTY and the
+ * first text arrives a beat later. Call sites key it by TONE, so a status
+ * and an alert are never one element changing role. Within a tone the
+ * region stays mounted and each event's text is a fresh `<span key={seq}>`,
+ * so a repeat is an insertion into a region that already exists.
+ */
 function PillNoticeLine({ id, notice }: { id: string; notice: PillNotice }) {
+  const [shown, setShown] = useState<PillNotice | null>(null);
+  const filled = useRef(false);
+  useEffect(() => {
+    if (!filled.current) {
+      filled.current = true;
+      const timer = setTimeout(() => setShown(notice), NOTICE_FILL_DELAY_MS);
+      return () => clearTimeout(timer);
+    }
+    setShown(notice);
+    return undefined;
+  }, [notice]);
   return (
     <p
       id={id}
       role={notice.tone}
       className="bcc-mono basis-full text-center text-[10px] leading-snug tracking-[0.06em] text-bcc-text-secondary"
     >
-      {notice.text}
+      {shown !== null && <span key={shown.seq}>{shown.text}</span>}
     </p>
   );
 }
@@ -451,11 +494,13 @@ export function ActionBar({
   // room for a line. Keyed on the error code, never err.message.
   const watchError = hostOwnsWatch ? null : viewerWatch.error;
 
+  const [watchAttempt, setWatchAttempt] = useState(0);
   const handleWatchClick = () => {
     if (onPull !== undefined) {
       onPull(card);
       return;
     }
+    setWatchAttempt((n) => n + 1);
     viewerWatch.toggle();
   };
 
@@ -552,20 +597,24 @@ export function ActionBar({
   const { show: showNotice } = pillNotice;
   // A failure is the latest event when it happens: it replaces whatever
   // the line was saying.
+  // `watchAttempt` re-fires it when a retry fails with the SAME copy in
+  // the same render (useViewerWatch's no-handle case clears and re-sets
+  // the error synchronously, so the value never changes).
   useEffect(() => {
-    if (watchError !== null) showNotice(watchError, "alert");
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- fire on a new error only
-  }, [watchError]);
+    if (watchError !== null) showNotice(watchError, "watch", "alert");
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- fire on a new error or attempt only
+  }, [watchError, watchAttempt]);
   useEffect(() => {
-    if (vouchError !== null) showNotice(vouchError, "alert");
+    if (vouchError !== null) showNotice(vouchError, "vouch", "alert");
     // eslint-disable-next-line react-hooks/exhaustive-deps -- fire on a new error only
   }, [vouchError]);
   /** A locked pill was tapped: its reason replaces any earlier failure. */
-  const explain = (reason: string) => {
+  const explain = (reason: string, source: PillNoticeSource) => {
     viewerWatch.clearError();
     setVouchError(null);
-    showNotice(reason);
+    showNotice(reason, source);
   };
+  const explainMessage = (reason: string) => explain(reason, "message");
   const shownNotice = pillNotice.notice;
 
   // A member card's `id` IS the user id (CardViewService emits
@@ -601,8 +650,8 @@ export function ActionBar({
         active={effectivePulled}
         disabled={false}
         locked={!watchAllowed}
-        describedBy={shownNotice !== null ? pillNotice.id : undefined}
-        onLocked={() => explain(watchLockedReason)}
+        describedBy={pillNotice.describes("watch")}
+        onLocked={() => explain(watchLockedReason, "watch")}
         title={
           watchError ??
           (watchAllowed
@@ -624,7 +673,7 @@ export function ActionBar({
 
       {/* Vouch is absent on community cards entirely — the community bar
           below renders Join in this slot instead. */}
-      {neverClaimedValidator && <ValidatorMessagePill card={card} onLocked={explain} />}
+      {neverClaimedValidator && <ValidatorMessagePill card={card} onLocked={explainMessage} />}
 
       {targetKind !== undefined && !neverClaimedValidator && vouchNeedsSignIn && (
         <SignInPill
@@ -643,8 +692,8 @@ export function ActionBar({
           active={hasVouched}
           disabled={vouchPending}
           locked={!canVouch && !hasVouched}
-          describedBy={shownNotice !== null ? pillNotice.id : undefined}
-          onLocked={() => explain(vouchLockedReason)}
+          describedBy={pillNotice.describes("vouch")}
+          onLocked={() => explain(vouchLockedReason, "vouch")}
           title={
             vouchError ??
             (canVouch || hasVouched
@@ -672,7 +721,9 @@ export function ActionBar({
       {/* F-321: the reason a tapped pill is unavailable, or why an action
           failed — readable on touch. Sits under the pills; the portrait
           (flex: 1) absorbs the height, as for the Message row below. */}
-      {shownNotice !== null && <PillNoticeLine id={pillNotice.id} notice={shownNotice} />}
+      {shownNotice !== null && (
+        <PillNoticeLine key={shownNotice.tone} id={pillNotice.id} notice={shownNotice} />
+      )}
 
       {/* Second row. NOT a third pill across: CardActionBar's own history
           records that a three-across layout stacked to 132px under 640px
@@ -684,7 +735,7 @@ export function ActionBar({
           permissions={messagePermissions}
           recipientId={card.id}
           recipientName={card.name}
-          onLocked={explain}
+          onLocked={explainMessage}
         />
       )}
     </div>
@@ -875,8 +926,8 @@ export function CommunityActionBar({
         active={isMember}
         disabled={joinDisabled}
         locked={locked}
-        describedBy={pillNotice.notice !== null ? pillNotice.id : undefined}
-        onLocked={() => pillNotice.show(joinTitle)}
+        describedBy={pillNotice.describes("join")}
+        onLocked={() => pillNotice.show(joinTitle, "join")}
         title={joinTitle}
         icon={<JoinIcon size={14} strokeWidth={1.9} aria-hidden />}
         idleLabel={joinLabel}
@@ -898,7 +949,9 @@ export function CommunityActionBar({
           if (onJoin !== undefined) onJoin(card);
         }}
       />
-      {pillNotice.notice !== null && <PillNoticeLine id={pillNotice.id} notice={pillNotice.notice} />}
+      {pillNotice.notice !== null && (
+        <PillNoticeLine key={pillNotice.notice.tone} id={pillNotice.id} notice={pillNotice.notice} />
+      )}
     </div>
   );
 }

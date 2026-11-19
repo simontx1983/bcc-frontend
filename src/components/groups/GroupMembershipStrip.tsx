@@ -30,6 +30,10 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { GroupActionButton } from "@/components/groups/GroupActionButton";
+import {
+  MEMBERSHIP_REQUESTS_ANCHOR,
+  canManageMembership,
+} from "@/components/groups/membership-gate";
 import { GroupTransferOwnership } from "@/components/groups/GroupTransferOwnership";
 import { HolderLeaveConfirm, ValidatorLeaveConfirm } from "@/components/groups/HolderLeaveConfirm";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -65,6 +69,12 @@ import { humanizeLinkError } from "@/lib/wallet/linkFlow";
 
 interface GroupMembershipStripProps {
   group: GroupDetailResponse;
+  /**
+   * The Members tab's URL, on routes that have one (the community
+   * sub-routes: `/communities/{slug}/members`). The pending-requests
+   * pointer links to its requests block. Omitted, there is no pointer.
+   */
+  membersHref?: string;
 }
 
 /**
@@ -95,7 +105,7 @@ export function humanizeMembershipError(err: unknown, verb: "join" | "leave"): s
  */
 type OptimisticIntent = "joining" | "leaving" | null;
 
-export function GroupMembershipStrip({ group }: GroupMembershipStripProps) {
+export function GroupMembershipStrip({ group, membersHref }: GroupMembershipStripProps) {
   const [optimisticIntent, setOptimisticIntent] = useState<OptimisticIntent>(null);
 
   // When the server-supplied membership changes (router.refresh landed),
@@ -134,6 +144,9 @@ export function GroupMembershipStrip({ group }: GroupMembershipStripProps) {
           onActionStart={setOptimisticIntent}
           onActionError={() => setOptimisticIntent(null)}
         />
+        {membersHref !== undefined && (
+          <PendingRequestsPointer group={group} membersHref={membersHref} />
+        )}
         <RequestAnnouncer status={group.viewer_membership?.status} />
       </div>
     </article>
@@ -829,6 +842,40 @@ function RequestAnnouncer({ status }: { status: GroupMembershipStatus | undefine
     <p role="status" aria-live="polite" className="sr-only">
       {message}
     </p>
+  );
+}
+
+/**
+ * F-388: the owner's / manager's way to the join requests waiting on them.
+ * The requests are decided on the Members tab, so from the Stream they
+ * were out of sight.
+ *
+ * It shows only to a viewer who decides (`canManageMembership`, the same
+ * gate as the block it links to), and only while the server's
+ * `pending_request_count` is above zero. That count is null for everyone
+ * else, so nothing is counted on the client. It links the Members tab's
+ * "Requests & invitations" block, by anchor.
+ */
+function PendingRequestsPointer({
+  group,
+  membersHref,
+}: {
+  group: GroupDetailResponse;
+  membersHref: string;
+}) {
+  const count = group.pending_request_count;
+  if (!canManageMembership(group) || typeof count !== "number" || count <= 0) return null;
+  const label = count === 1 ? "1 request waiting" : `${count} requests waiting`;
+  return (
+    <div className="mt-4">
+      <Link
+        href={`${membersHref}#${MEMBERSHIP_REQUESTS_ANCHOR}` as Route}
+        className="bcc-mono inline-flex min-h-[44px] items-center gap-2 border-2 border-bcc-border px-3 text-[11px] uppercase tracking-[0.18em] text-bcc-text transition motion-reduce:transition-none hover:border-bcc-border-strong"
+      >
+        {label}
+        <span aria-hidden>→</span>
+      </Link>
+    </div>
   );
 }
 

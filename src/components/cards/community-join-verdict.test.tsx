@@ -10,7 +10,8 @@
  */
 
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+import { filledNotice } from "@/components/cards/pill-notice.testing";
 
 import type { Card, CardCommunityDossier } from "@/lib/api/types";
 
@@ -74,7 +75,7 @@ describe("JOIN cell from the server's verdict", () => {
     expect(onJoin).toHaveBeenCalledWith(card);
   });
 
-  it("a banned viewer of an open group sees Removed, never Join", () => {
+  it("a banned viewer of an open group sees Removed, never Join", async () => {
     const onJoin = renderBar(
       dossier({
         can_join: { allowed: false, unlock_hint: "A moderator removed you from this community.", reason_code: "removed" },
@@ -82,11 +83,11 @@ describe("JOIN cell from the server's verdict", () => {
     );
     const pill = screen.getByRole("button", { name: "Removed — Atlas" });
     fireEvent.click(pill);
-    expect(screen.getByRole("status")).toHaveTextContent("A moderator removed you from this community.");
+    expect((await filledNotice("status"))).toHaveTextContent("A moderator removed you from this community.");
     expect(onJoin).not.toHaveBeenCalled();
   });
 
-  it("below the trust threshold → locked, with the server's hint (the old bar offered Join)", () => {
+  it("below the trust threshold → locked, with the server's hint (the old bar offered Join)", async () => {
     const onJoin = renderBar(
       dossier({
         trust_min: 50,
@@ -94,7 +95,7 @@ describe("JOIN cell from the server's verdict", () => {
       }),
     );
     fireEvent.click(screen.getByRole("button", { name: /Atlas/ }));
-    expect(screen.getByRole("status")).toHaveTextContent("Reach Trusted standing to join.");
+    expect((await filledNotice("status"))).toHaveTextContent("Reach Trusted standing to join.");
     expect(onJoin).not.toHaveBeenCalled();
   });
 
@@ -108,24 +109,24 @@ describe("JOIN cell from the server's verdict", () => {
     expect(onJoin).toHaveBeenCalled();
   });
 
-  it("unavailable (membership unreadable) → never Join; says it couldn't check", () => {
+  it("unavailable (membership unreadable) → never Join; says it couldn't check", async () => {
     const onJoin = renderBar(
       dossier({ viewer_membership_status: null, can_join: { allowed: false, unlock_hint: null, reason_code: "unavailable" } }),
     );
     fireEvent.click(screen.getByRole("button", { name: /Atlas/ }));
-    expect(screen.getByRole("status")).toHaveTextContent(JOIN_UNKNOWN_COPY);
+    expect((await filledNotice("status"))).toHaveTextContent(JOIN_UNKNOWN_COPY);
     expect(onJoin).not.toHaveBeenCalled();
   });
 
-  it("no verdict at all (a surface that has not adopted it, §3.2.4) → points at the group page, not a guess", () => {
+  it("no verdict at all (a surface that has not adopted it, §3.2.4) → points at the group page, not a guess", async () => {
     const onJoin = renderBar(dossier({}));
     fireEvent.click(screen.getByRole("button", { name: /Atlas/ }));
     // Not "reload": a reload returns the same verdict-less card.
-    expect(screen.getByRole("status")).toHaveTextContent(JOIN_ASK_PAGE_COPY);
+    expect((await filledNotice("status"))).toHaveTextContent(JOIN_ASK_PAGE_COPY);
     expect(onJoin).not.toHaveBeenCalled();
   });
 
-  it("a pending request reads Requested", () => {
+  it("a pending request reads Requested", async () => {
     renderBar(
       dossier({
         privacy: "closed",
@@ -134,7 +135,7 @@ describe("JOIN cell from the server's verdict", () => {
       }),
     );
     fireEvent.click(screen.getByRole("button", { name: "Requested — Atlas" }));
-    expect(screen.getByRole("status")).toHaveTextContent(/waiting for a moderator/);
+    expect((await filledNotice("status"))).toHaveTextContent(/waiting for a moderator/);
   });
 
   it("an invitation reads Invited", () => {
@@ -158,7 +159,7 @@ describe("JOIN cell from the server's verdict", () => {
     expect(screen.getByRole("link", { name: "Sign in to join Atlas" })).toBeInTheDocument();
   });
 
-  it("a closed group the viewer could ask to join reads Private and points at the group page's request", () => {
+  it("a closed group the viewer could ask to join reads Private and points at the group page's request", async () => {
     renderBar(
       dossier({
         privacy: "closed",
@@ -173,6 +174,6 @@ describe("JOIN cell from the server's verdict", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: "Private — Atlas" }));
     // Accurate since #290: the group page's strip carries REQUEST TO JOIN.
-    expect(screen.getByRole("status")).toHaveTextContent("Visit the group page to request to join.");
+    expect((await filledNotice("status"))).toHaveTextContent("Visit the group page to request to join.");
   });
 });
