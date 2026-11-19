@@ -218,8 +218,11 @@ describe("#205 — fixed grounds pin the tokens", () => {
 
   it("every inline var(--paper) background carries bcc-paper-ground", () => {
     let sites = 0;
-    for (const f of production()) {
-      const lines = read(f).split(/\r?\n/);
+    // SOURCES, the walk taken once at load, rather than a second whole-tree
+    // walk inside this test, which under load outlasted the 5s test
+    // timeout (F-449).
+    for (const [f, code] of SOURCES) {
+      const lines = code.split(/\r?\n/);
       lines.forEach((l, i) => {
         if (!/background:\s*"var\(--paper\)"/.test(l)) return;
         sites++;
