@@ -272,6 +272,15 @@ describe("a link that carries only the token (the backend's next link)", () => {
     expect(screen.queryByRole("button", { name: "Get a new code" })).toBeNull();
   });
 
+  it("a link the server answers 'in use by another account' clears the stashed address", async () => {
+    stashPendingVerificationEmail(ADDRESS);
+    arriveAt("/verify-email?token=link-token");
+    h.verifyEmail.mockRejectedValue(new BccApiError("bcc_conflict", "raw", 409, null));
+    render(<VerifyEmailPage />);
+    await screen.findByText("Email already in use");
+    expect(readPendingVerificationEmail()).toBe("");
+  });
+
   it("a successful link clears the stashed address", async () => {
     stashPendingVerificationEmail(ADDRESS);
     arriveAt("/verify-email?token=link-token");
