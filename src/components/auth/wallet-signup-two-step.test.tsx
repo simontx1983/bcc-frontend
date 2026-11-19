@@ -125,6 +125,10 @@ describe("a failure after the account exists", () => {
 
     expect(await screen.findByText("Account created — sign in")).toBeInTheDocument();
     expect(screen.getByRole("alert")).toHaveTextContent("Wallet signing was canceled.");
+    // The panel shows the reason too; the alert above is read out.
+    expect(
+      screen.getByText(/Signing in didn't finish: Wallet signing was canceled\./, { selector: ".bcc-auth-success-body" }),
+    ).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Sign up with wallet" })).toBeNull();
     expect(onSuccess).not.toHaveBeenCalled();
   });
