@@ -52,35 +52,26 @@
  * before any absence claim is trusted.
  */
 
-import { readdirSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-const SRC = resolve(process.cwd(), "src");
+import { baseName, isScript, sourceFiles } from "@/app/source-tree.testing";
 
 /** This file necessarily names every deleted symbol; it must not scan itself. */
 const SELF = "dead-symbol-removal.test.ts";
 
-function walk(dir: string): string[] {
-  const out: string[] = [];
-  for (const entry of readdirSync(dir, { withFileTypes: true })) {
-    const full = resolve(dir, entry.name);
-    if (entry.isDirectory()) {
-      out.push(...walk(full));
-    } else if (/\.tsx?$/.test(entry.name) && entry.name !== SELF) {
-      out.push(full);
-    }
-  }
-  return out;
-}
-
-const FILES = walk(SRC);
+/**
+ * Every .ts/.tsx file but this one, from the shared walk (F-449). Test
+ * files are included on purpose: a symbol a test still imports is live.
+ */
+const FILES = sourceFiles().filter((f) => isScript(f.rel) && baseName(f.rel) !== SELF);
 
 /** Comments stripped: a symbol named only in prose is not a reference. */
 const SOURCES = FILES.map((f) => ({
-  path: f.slice(SRC.length + 1).replace(/\\/g, "/"),
-  code: readFileSync(f, "utf-8")
+  path: f.rel,
+  code: f.code
     .replace(/\/\*[\s\S]*?\*\//g, "")
     .replace(/(?<!:)\/\/.*$/gm, ""),
 }));

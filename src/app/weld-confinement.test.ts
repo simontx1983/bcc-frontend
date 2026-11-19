@@ -35,31 +35,26 @@
  * consumer's dark-theme failure, not the weld tint.
  */
 
-import { readdirSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
+import { isTestFile, sourceFiles } from "@/app/source-tree.testing";
+
 const read = (p: string) => readFileSync(resolve(process.cwd(), p), "utf-8");
 const CSS = read("src/app/globals.css");
 const TW = read("tailwind.config.ts");
-const SRC = resolve(process.cwd(), "src");
 
-function walk(dir: string): string[] {
-  const out: string[] = [];
-  for (const e of readdirSync(dir, { withFileTypes: true })) {
-    const full = resolve(dir, e.name);
-    if (e.isDirectory()) out.push(...walk(full));
-    else if (/\.(tsx?|css)$/.test(e.name) && !/\.test\./.test(e.name)) out.push(full);
-  }
-  return out;
-}
-const FILES = walk(SRC).map((f) => ({
-  path: f.slice(SRC.length + 1).replace(/\\/g, "/"),
-  code: readFileSync(f, "utf-8")
-    .replace(/\/\*[\s\S]*?\*\//g, "")
-    .replace(/(?<!:)\/\/.*$/gm, ""),
-}));
+/** Production .ts/.tsx/.css from the shared walk (F-449), comment-stripped. */
+const FILES = sourceFiles()
+  .filter((f) => !isTestFile(f.rel))
+  .map((f) => ({
+    path: f.rel,
+    code: f.code
+      .replace(/\/\*[\s\S]*?\*\//g, "")
+      .replace(/(?<!:)\/\/.*$/gm, ""),
+  }));
 
 const decls = (n: string) =>
   [...CSS.matchAll(new RegExp(`--${n}:\\s*([^;]+);`, "g"))].map((m) => m[1]?.trim() ?? "");

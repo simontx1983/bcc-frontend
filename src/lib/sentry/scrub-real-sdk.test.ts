@@ -9,6 +9,11 @@
  * those instances untouched, and still strips the URL.
  */
 
+// @sentry/node is not a direct dependency: it is installed (and hoisted)
+// as a dependency of @sentry/nextjs, at the version that package pins. A
+// lock-file edit is blocked here, so this test relies on that; if the
+// import ever fails to resolve, add @sentry/node to devDependencies at
+// @sentry/nextjs's version.
 import * as Sentry from "@sentry/node";
 import { afterAll, describe, expect, it } from "vitest";
 

@@ -52,12 +52,13 @@
  * focus residue, touch targets, loading states, tab keyboard navigation.
  */
 
-import { readdirSync, readFileSync, statSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-const ROOT = resolve(process.cwd(), "src");
+import { isScript, isTestFile, sourceFiles } from "@/app/source-tree.testing";
+
 const read = (p: string) => readFileSync(resolve(process.cwd(), p), "utf-8");
 const CSS = read("src/app/globals.css");
 
@@ -78,24 +79,16 @@ interface Hit {
   readonly text: string;
 }
 
-/** Walk production TSX/TS — tests excluded, since they discuss the token. */
-function productionFiles(dir = ROOT, acc: string[] = []): string[] {
-  for (const name of readdirSync(dir)) {
-    const full = join(dir, name);
-    if (statSync(full).isDirectory()) {
-      productionFiles(full, acc);
-    } else if (/\.tsx?$/.test(name) && !/\.(test|spec)\.tsx?$/.test(name)) {
-      acc.push(full.slice(resolve(process.cwd()).length + 1).replace(/\\/g, "/"));
-    }
-  }
-  return acc;
-}
-
-const FILES = productionFiles();
-const HITS: Hit[] = FILES.flatMap((f) =>
-  read(f)
+/**
+ * Production TSX/TS from the shared walk (F-449), as repo-root paths
+ * ("src/…") — tests excluded, since they discuss the token.
+ */
+const PRODUCTION = sourceFiles().filter((f) => isScript(f.rel) && !isTestFile(f.rel));
+const FILES = PRODUCTION.map((f) => `src/${f.rel}`);
+const HITS: Hit[] = PRODUCTION.flatMap((f) =>
+  f.code
     .split(/\r?\n/)
-    .map((text, i) => ({ file: f, line: i + 1, text: text.trim() }))
+    .map((text, i) => ({ file: `src/${f.rel}`, line: i + 1, text: text.trim() }))
     .filter((h) => MUTED.test(h.text)),
 );
 

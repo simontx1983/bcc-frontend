@@ -57,9 +57,9 @@ const HelpfulButtonView = memo(function HelpfulButtonView({
   // Endorsement copy — state-descriptive, no cadence-pressure nudging.
   const label = marked ? "You marked this helpful" : "Mark this as helpful";
   const iconSize = size === "feed" ? 17 : 15;
-  // The feed pill gets the 44×44 hit area (F-355); the compact comment
-  // size keeps its own target.
-  const minH = size === "feed" ? `min-h-[26px] ${HIT_AREA_44}` : "min-h-[24px]";
+  // Both sizes get the 44×44 hit area: the feed pill since F-355, and the
+  // compact comment pill since F-440, whose row is spaced (gap-3) for it.
+  const minH = size === "feed" ? `min-h-[26px] ${HIT_AREA_44}` : `min-h-[24px] ${HIT_AREA_44}`;
 
   const handleClick = (event: MouseEvent<HTMLButtonElement>) => {
     // Scope the toggle to the pill — the card's body click-to-navigate

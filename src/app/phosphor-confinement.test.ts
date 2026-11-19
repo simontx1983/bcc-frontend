@@ -43,35 +43,29 @@
  * fixed ink-on-cardstock plate — **15.51:1**, identical in both themes.
  */
 
-import { readdirSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-const SRC = resolve(process.cwd(), "src");
-const SELF = "phosphor-confinement.test.ts";
+import { isTestFile, sourceFiles } from "@/app/source-tree.testing";
+
 const read = (p: string) => readFileSync(resolve(process.cwd(), p), "utf-8");
 const CSS = read("src/app/globals.css");
 
-function walk(dir: string): string[] {
-  const out: string[] = [];
-  for (const e of readdirSync(dir, { withFileTypes: true })) {
-    const full = resolve(dir, e.name);
-    if (e.isDirectory()) out.push(...walk(full));
-    else if (/\.(tsx?|css)$/.test(e.name) && e.name !== SELF && !/\.test\./.test(e.name)) {
-      out.push(full);
-    }
-  }
-  return out;
-}
-
-/** Comment-stripped: a token named in prose is documentation, not a use. */
-const FILES = walk(SRC).map((f) => ({
-  path: f.slice(SRC.length + 1).replace(/\\/g, "/"),
-  code: readFileSync(f, "utf-8")
-    .replace(/\/\*[\s\S]*?\*\//g, "")
-    .replace(/(?<!:)\/\/.*$/gm, ""),
-}));
+/**
+ * Production .ts/.tsx/.css from the shared walk (F-449). Test files,
+ * this one included, are out. Comment-stripped: a token named in prose is
+ * documentation, not a use.
+ */
+const FILES = sourceFiles()
+  .filter((f) => !isTestFile(f.rel))
+  .map((f) => ({
+    path: f.rel,
+    code: f.code
+      .replace(/\/\*[\s\S]*?\*\//g, "")
+      .replace(/(?<!:)\/\/.*$/gm, ""),
+  }));
 
 // ─────────────────────────────────────────────────────────────────────────
 // Colour maths

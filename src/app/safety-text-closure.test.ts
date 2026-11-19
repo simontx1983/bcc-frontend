@@ -32,10 +32,12 @@
  * safety colour on purpose: #205 is about text.
  */
 
-import { readdirSync, readFileSync, statSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 
 import { describe, expect, it } from "vitest";
+
+import { isScript, isTestFile, sourceFiles } from "@/app/source-tree.testing";
 
 const read = (p: string) => readFileSync(resolve(process.cwd(), p), "utf-8");
 const CSS = read("src/app/globals.css");
@@ -218,8 +220,11 @@ describe("#205 — fixed grounds pin the tokens", () => {
 
   it("every inline var(--paper) background carries bcc-paper-ground", () => {
     let sites = 0;
-    for (const f of production()) {
-      const lines = read(f).split(/\r?\n/);
+    // SOURCES, the walk taken once at load, rather than a second whole-tree
+    // walk inside this test, which under load outlasted the 5s test
+    // timeout (F-449).
+    for (const [f, code] of SOURCES) {
+      const lines = code.split(/\r?\n/);
       lines.forEach((l, i) => {
         if (!/background:\s*"var\(--paper\)"/.test(l)) return;
         sites++;
@@ -235,16 +240,6 @@ describe("#205 — fixed grounds pin the tokens", () => {
 // Closure scanners
 // ─────────────────────────────────────────────────────────────────────────
 
-function production(dir = resolve(process.cwd(), "src"), acc: string[] = []): string[] {
-  for (const name of readdirSync(dir)) {
-    const full = join(dir, name);
-    if (statSync(full).isDirectory()) production(full, acc);
-    else if (/\.tsx?$/.test(name) && !/\.test\.tsx?$/.test(name)) {
-      acc.push(full.slice(resolve(process.cwd()).length + 1).replace(/\\/g, "/"));
-    }
-  }
-  return acc;
-}
 
 /** Comments blanked, newlines kept so line numbers stay true. */
 const stripComments = (src: string) =>
@@ -305,7 +300,10 @@ function alertOffenders(sources: ReadonlyArray<readonly [string, string]>): stri
   return bad;
 }
 
-const SOURCES: ReadonlyArray<readonly [string, string]> = production().map((f) => [f, read(f)] as const);
+/** Production TSX/TS from the shared walk (F-449), as repo-root paths ("src/…"). */
+const SOURCES: ReadonlyArray<readonly [string, string]> = sourceFiles()
+  .filter((f) => isScript(f.rel) && !isTestFile(f.rel))
+  .map((f) => [`src/${f.rel}`, f.code] as const);
 
 describe("#205 — closure: no orange text survives", () => {
   it("the scan saw a real tree", () => {

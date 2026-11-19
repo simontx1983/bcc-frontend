@@ -104,7 +104,7 @@ export function PostOverflowMenu({
             onClick={() => {
               void copy(`${window.location.origin}${selfHref}`);
             }}
-            className="bcc-mono block w-full rounded-lg px-2 py-1.5 text-left text-[11px] text-[var(--bcc-text-secondary)] hover:bg-[var(--bcc-surface-active)] hover:text-[var(--bcc-text)]"
+            className="bcc-mono flex min-h-[44px] w-full items-center rounded-lg px-2 py-1.5 text-left text-[11px] text-[var(--bcc-text-secondary)] hover:bg-[var(--bcc-surface-active)] hover:text-[var(--bcc-text)]"
           >
             {copied ? "Copied" : "Copy link"}
           </button>
@@ -116,7 +116,7 @@ export function PostOverflowMenu({
                 setOpen(false);
                 setReportOpen(true);
               }}
-              className="bcc-mono block w-full rounded-lg px-2 py-1.5 text-left text-[11px] text-[var(--bcc-text-secondary)] hover:bg-[var(--bcc-surface-active)] hover:text-bcc-text-safety"
+              className="bcc-mono flex min-h-[44px] w-full items-center rounded-lg px-2 py-1.5 text-left text-[11px] text-[var(--bcc-text-secondary)] hover:bg-[var(--bcc-surface-active)] hover:text-bcc-text-safety"
             >
               Report
             </button>
@@ -130,7 +130,7 @@ export function PostOverflowMenu({
                 deleteMutation.reset();
                 setConfirmingDelete(true);
               }}
-              className="bcc-mono block w-full rounded-lg px-2 py-1.5 text-left text-[11px] text-bcc-text-safety hover:bg-[var(--bcc-surface-active)]"
+              className="bcc-mono flex min-h-[44px] w-full items-center rounded-lg px-2 py-1.5 text-left text-[11px] text-bcc-text-safety hover:bg-[var(--bcc-surface-active)]"
             >
               Delete
             </button>

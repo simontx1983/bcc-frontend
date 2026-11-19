@@ -1,7 +1,6 @@
-import { readdirSync, readFileSync, statSync } from "node:fs";
-import { join } from "node:path";
-
 import { describe, expect, it } from "vitest";
+
+import { isScript, isTestFile, sourceFiles } from "@/app/source-tree.testing";
 
 /**
  * bcc-trust F-288: a 401 on a route that requires sign-in can carry
@@ -59,22 +58,14 @@ describe("the direct-compare matcher", () => {
 });
 
 describe("no direct bcc_unauthorized comparisons in app code", () => {
+  // The whole-src walk runs here, at collection, outside the test's timer
+  // (F-449). It used to run inside the test, behind a 30s ceiling for a
+  // loaded CI box; the test itself now only scans strings.
+  const PRODUCTION = sourceFiles().filter((f) => isScript(f.rel) && !isTestFile(f.rel));
+
   it("routes sign-in copy through humanizeCode", () => {
-    const offenders: string[] = [];
-    const walk = (dir: string): void => {
-      for (const name of readdirSync(dir)) {
-        const full = join(dir, name);
-        if (statSync(full).isDirectory()) {
-          walk(full);
-        } else if (/\.(ts|tsx)$/.test(name) && !/\.test\.(ts|tsx)$/.test(name)) {
-          if (comparesDirectly(readFileSync(full, "utf8"))) {
-            offenders.push(full);
-          }
-        }
-      }
-    };
-    walk(join(process.cwd(), "src"));
+    expect(PRODUCTION.length, "the source scan matched nothing").toBeGreaterThan(200);
+    const offenders = PRODUCTION.filter((f) => comparesDirectly(f.code)).map((f) => f.rel);
     expect(offenders).toEqual([]);
-    // A whole-tree walk: generous timeout for a loaded CI box.
-  }, 30_000);
+  });
 });

@@ -1607,6 +1607,14 @@ export interface SearchSuggestion {
 
 export interface SearchSuggestionsResponse {
   items: SearchSuggestion[];
+  /**
+   * F-421: true when at least one vertical (pages, communities, members)
+   * could not be read, so `items` may be missing matches; an empty
+   * `items` then means "unknown", not "no matches". The response is
+   * `no-store` when true. OPTIONAL: a server without the field (production
+   * until the trust half ships) means false.
+   */
+  incomplete?: boolean;
 }
 
 // ─────────────────────────────────────────────────────────────────────
@@ -4722,7 +4730,16 @@ export type CreateUserReportResponse = {
   message: string;
 };
 
-/** §K1 Phase A — one row in the viewer's block list. Server-shaped. */
+/**
+ * §K1 Phase A — one row in the viewer's block list. Server-shaped.
+ *
+ * Since bcc-trust #759 (contract #334), `handle`, `display_name`,
+ * `avatar_url` and `profile_url` are all "" when no member holds `user_id`
+ * (any positive id can be blocked, and a blocked member can be deleted)
+ * or the blocker may not view that member's profile; the two cases are
+ * indistinguishable. Before it, the server sent a `member-<id>` fallback
+ * handle and name. `user_id` is always set, and unblocking needs only that.
+ */
 export interface MyBlockEntry {
   user_id: number;
   handle: string;
@@ -7080,6 +7097,20 @@ export interface AnnouncementsBlock {
   has_any?: boolean;
 }
 
+/**
+ * F-307 B2 — an administrator took the notice down.
+ *
+ * Only the notice's own operator ever receives a row with `hidden: true`:
+ * every public read refuses a taken-down notice, and the detail route
+ * answers 404 to anyone else. Who took it down and which report it
+ * resolved stay server-side.
+ */
+export interface AnnouncementModeration {
+  hidden: boolean;
+  /** ISO-8601 UTC, or null when hidden but the marker carries no date. */
+  hidden_at: string | null;
+}
+
 /** §4.32.3 — one announcement as list/detail report it. */
 export interface Announcement {
   /** Opaque, form `ann_<int>`. */
@@ -7102,6 +7133,13 @@ export interface Announcement {
   comment_count: number;
   comments_enabled: boolean;
   links: { self: string };
+  /**
+   * F-307 B2 — present on owner rows and detail, absent on public list
+   * rows and on backends before bcc-trust #700. Absent reads as "not
+   * taken down": it only drives an explanatory notice, never a control —
+   * edit and pin stay gated by their own capabilities.
+   */
+  moderation?: AnnouncementModeration;
   /**
    * Per-announcement capabilities, attached by the server **only** for a
    * viewer who may manage this validator. Absent for public readers.

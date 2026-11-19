@@ -102,7 +102,11 @@ function ui() {
   return render(<NotificationsPanel enabled open onNavigate={() => {}} />);
 }
 
-const rows = (c: HTMLElement) => within(c).queryAllByRole("menuitem").length;
+// M-no1: rows are the named list's items; the controls sit outside it.
+const rows = (c: HTMLElement) => {
+  const list = within(c).queryByRole("list", { name: "Notifications" });
+  return list === null ? 0 : within(list).queryAllByRole("listitem").length;
+};
 const loadMore = (c: HTMLElement) =>
   within(c).queryByRole("button", { name: /^LOAD MORE$/i });
 const retry = (c: HTMLElement) =>

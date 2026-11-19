@@ -11,6 +11,7 @@
  */
 
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { StrictMode } from "react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { filledNotice } from "@/components/cards/pill-notice.testing";
 
@@ -109,6 +110,26 @@ describe("the same event twice is announced again", () => {
     expect(screen.getByRole("alert")).toBe(region);
     expect(region).toHaveTextContent("Couldn't watch this card. Try again.");
     expect(firstText?.isConnected).toBe(false);
+  });
+
+  it("under StrictMode a fresh region still mounts EMPTY (the dev double effect does not fill it early)", () => {
+    vi.useFakeTimers();
+    try {
+      render(
+        <StrictMode>
+          <ActionBar card={card(perms)} isPulled={false} />
+        </StrictMode>,
+      );
+      fireEvent.click(screen.getByRole("button", { name: "Vouch for Atlas" }));
+      const region = screen.getByRole("status");
+      expect(region).toHaveTextContent("");
+      act(() => {
+        vi.advanceTimersByTime(NOTICE_FILL_DELAY_MS);
+      });
+      expect(region).toHaveTextContent("Vouching unlocks at neutral reputation.");
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("a fresh region mounts EMPTY and receives its text a beat later", () => {
