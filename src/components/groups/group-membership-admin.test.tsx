@@ -52,7 +52,9 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ refresh: api.refresh, push: vi.fn(), replace: vi.fn() }),
 }));
 
-const { GroupMembershipAdmin } = await import("@/components/groups/GroupMembershipAdmin");
+const { GroupMembershipAdmin, MEMBERSHIP_REQUESTS_ANCHOR } = await import(
+  "@/components/groups/GroupMembershipAdmin"
+);
 
 beforeAll(() => {
   window.matchMedia = ((q: string) => ({
@@ -131,6 +133,18 @@ describe("the gate", () => {
       <GroupMembershipAdmin group={group({ can_manage_membership: false, pending_request_count: null })} />,
     );
     expect(container).toBeEmptyDOMElement();
+  });
+
+  // F-388 / F-389: the strip's pointer and the server-built bell link both
+  // land on `/communities/{slug}/members#requests`.
+  it("the block carries the `requests` anchor, labelled by its heading", async () => {
+    api.getGroupJoinRequests.mockResolvedValue(page([]));
+    withClient(<GroupMembershipAdmin group={group({ can_manage_membership: true })} />);
+    const block = screen.getByRole("region", { name: "Requests & invitations" });
+    expect(block).toHaveAttribute("id", "requests");
+    expect(block.id).toBe(MEMBERSHIP_REQUESTS_ANCHOR);
+    expect(document.querySelectorAll("#requests")).toHaveLength(1);
+    expect(await screen.findByText("No one is waiting to join.")).toBeInTheDocument();
   });
 
   it("a secret group's decider gets invitations only — secret groups take no requests", async () => {

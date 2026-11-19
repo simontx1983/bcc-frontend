@@ -59,6 +59,14 @@ import { formatRelativeTime } from "@/lib/format";
  * backend without it, `pending_request_count` is non-null for exactly the
  * same viewers, but only on closed groups.
  */
+/**
+ * F-388 / F-389: the `id` of this block, so a link can land on it:
+ * `/communities/{slug}/members#requests`. The owner's strip points here,
+ * and so does the server-built link on a `bcc_group_join_requested` bell
+ * row. Changing it breaks that link.
+ */
+export const MEMBERSHIP_REQUESTS_ANCHOR = "requests";
+
 export function canManageMembership(group: GroupDetailResponse): boolean {
   if (typeof group.can_manage_membership === "boolean") return group.can_manage_membership;
   return group.pending_request_count !== null && group.pending_request_count !== undefined;
@@ -116,7 +124,11 @@ export function GroupMembershipAdmin({ group }: { group: GroupDetailResponse }) 
     group.pending_request_count !== null && group.pending_request_count !== undefined;
 
   return (
-    <section aria-labelledby={`membership-admin-${group.id}`} className="bcc-panel flex flex-col gap-8 p-5 sm:p-6">
+    <section
+      id={MEMBERSHIP_REQUESTS_ANCHOR}
+      aria-labelledby={`membership-admin-${group.id}`}
+      className="bcc-panel flex scroll-mt-24 flex-col gap-8 p-5 sm:p-6"
+    >
       <header>
         <span className="bcc-mono text-[10px] tracking-[0.24em] text-bcc-text-secondary">OWNERS &amp; MANAGERS</span>
         <h2 id={`membership-admin-${group.id}`} className="bcc-stencil mt-1 text-2xl text-bcc-text">
