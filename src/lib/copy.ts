@@ -51,6 +51,13 @@ export const FOLLOW_COPY = {
    * says who blocked whom. Same words as the server's own message.
    */
   refused: "You can't watch this account.",
+  /**
+   * Inline line when the server refuses a member watch with 403
+   * `bcc_forbidden` + reason `profile_private` (contract v1.168): the
+   * member's profile does not admit this viewer. Distinct from `refused`,
+   * which must stay generic so it never reveals a block.
+   */
+  private: "This profile is private, so it can't be watched.",
   /** Inline line for any other failed watch or unwatch. */
   failed: "Couldn't update this. Try again.",
 } as const;

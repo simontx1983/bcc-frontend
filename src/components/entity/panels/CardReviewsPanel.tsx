@@ -38,7 +38,10 @@ import {
   useReportDenial,
 } from "@/lib/api/resource-denial";
 import { dedupeById } from "@/lib/pagination";
-import { LoadFailure } from "@/components/ui/LoadFailure";
+import {
+  ProfileReadFailure,
+  type PrivateNoticeCopy,
+} from "@/components/profile/ProfilePrivateNotice";
 import { humanizeCode, isPermissionDenial } from "@/lib/api/errors";
 import type {
   CardReview,
@@ -56,6 +59,18 @@ interface CardReviewsPanelProps {
 const REVIEWS_WITHDRAWN_COPY = "You can’t read reviews of this card.";
 
 /**
+ * v1.168 (bcc-trust #720): a member's received reviews answer to their
+ * profile. One the viewer may not open (private, members/friends-only or
+ * suspended) answers 403 `bcc_forbidden` + `profile_private`. The owner's
+ * choice, not a failure: the calm private state, never an alert, never a
+ * Retry (ProfileReadFailure). Card kinds never send it.
+ */
+const REVIEWS_HIDDEN_COPY: PrivateNoticeCopy = {
+  heading: "Reviews are hidden.",
+  detail: "This member keeps their profile out of view, and the reviews they’ve received with it.",
+};
+
+/**
  * The denial gate. Owns no query, so latching it unmounts the panel below
  * — which is what makes removing the cache entry safe. See
  * `lib/api/resource-denial`.
@@ -67,7 +82,12 @@ export function CardReviewsPanel(props: CardReviewsPanelProps) {
     return (
       <article className="bcc-paper">
         <Header cardName={props.cardName} />
-        <LoadFailure surface="paper" message={REVIEWS_WITHDRAWN_COPY} />
+        <ProfileReadFailure
+          error={gate.cause}
+          surface="paper"
+          message={REVIEWS_WITHDRAWN_COPY}
+          privateCopy={REVIEWS_HIDDEN_COPY}
+        />
       </article>
     );
   }
@@ -80,14 +100,16 @@ function CardReviewsPanelData({
   cardId,
   cardName,
   onDenied,
-}: CardReviewsPanelProps & { onDenied: () => void }) {
+}: CardReviewsPanelProps & { onDenied: (cause?: unknown) => void }) {
   const query = useCardReviews(kind, cardId);
 
   // A denied REFRESH of the reviews already on screen withdraws them. A
-  // denied next page does not — it says nothing about page 1.
+  // denied next page does not — it says nothing about page 1. The error
+  // goes with it, so the withdrawn state can tell `profile_private` apart.
   useReportDenial(
     shouldWithdrawOnDenial(query.error, query.isRefetchError, query.data !== undefined),
     onDenied,
+    query.error,
   );
 
   // Pages in fetch order; TanStack appends only on success, so a failed
@@ -152,7 +174,13 @@ function CardReviewsPanelData({
     return (
       <article className="bcc-paper">
         <Header cardName={cardName} />
-        <LoadFailure surface="paper" message={failureCopy} {...retryProps} />
+        <ProfileReadFailure
+          error={query.error}
+          surface="paper"
+          message={failureCopy}
+          privateCopy={REVIEWS_HIDDEN_COPY}
+          {...retryProps}
+        />
       </article>
     );
   }
@@ -199,7 +227,13 @@ function CardReviewsPanelData({
             Retry refetches that same page, and ordinary paging returns
             once it succeeds. */}
         {query.isError ? (
-          <LoadFailure surface="paper" message={failureCopy} {...retryProps} />
+          <ProfileReadFailure
+            error={query.error}
+            surface="paper"
+            message={failureCopy}
+            privateCopy={REVIEWS_HIDDEN_COPY}
+            {...retryProps}
+          />
         ) : (
           query.hasNextPage && (
             <div className="mt-6 flex justify-center">

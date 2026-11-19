@@ -26,7 +26,7 @@
 
 import { useMutation, useQueryClient, type QueryClient } from "@tanstack/react-query";
 
-import { humanizeCode } from "@/lib/api/errors";
+import { humanizeCode, isProfilePrivate } from "@/lib/api/errors";
 import { watchCard, unwatchCard, type WatchCardRequest } from "@/lib/api/watching-endpoints";
 import { WATCHING_QUERY_KEY_ROOT } from "@/hooks/useWatching";
 import { FOLLOW_COPY } from "@/lib/copy";
@@ -50,8 +50,14 @@ import type {
  * (the QueryClient sets retry only for queries), and the mutation's
  * onSettled already refetches the watching list, which drops a member
  * the block removed.
+ *
+ * v1.168 (bcc-trust #720): a member watch also answers 403 `bcc_forbidden`
+ * with reason `profile_private` when the member's profile does not admit
+ * the viewer. That reason is the owner's documented choice, so it gets its
+ * own line; it is checked first because it shares the code.
  */
 export function watchErrorCopy(err: unknown, verb: "watch" | "unwatch"): string {
+  if (verb === "watch" && isProfilePrivate(err)) return FOLLOW_COPY.private;
   return humanizeCode(
     err,
     {
