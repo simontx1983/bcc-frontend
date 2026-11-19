@@ -1,7 +1,12 @@
 "use client";
 
 /**
- * FeedTabs — §N6 scope selector (For You / Watching / Signals).
+ * FeedTabs — §N6 scope selector (For You / Watching / My Groups).
+ *
+ * F-416 (2026-11-18): "My Groups" (`scope: "groups"`, posts from the
+ * groups and Halls the viewer belongs to) replaced Signals. Signals is
+ * hidden behind SIGNALS_TAB_ENABLED, its code kept, until automatic
+ * on-chain posts exist to fill it.
  *
  * v2 (HANDOVER-comment-v2-polish.md Item 1, locked design): a sliding
  * segmented control (icon + label per scope, animated thumb) that
@@ -25,7 +30,7 @@
 import { type ComponentType, useEffect, useLayoutEffect, useRef, useState } from "react";
 
 import { BoltIcon, SparklesIcon } from "@/components/feed/actionIcons";
-import { WatchIcon } from "@/components/icons/registry";
+import { GroupsIcon, WatchIcon } from "@/components/icons/registry";
 import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
 import { FOLLOW_COPY } from "@/lib/copy";
 import type { FeedScope } from "@/lib/api/types";
@@ -40,10 +45,18 @@ interface FeedTabsProps {
 // both accept the same `size`/`className` call signature.
 type TabIcon = ComponentType<{ size?: number; className?: string }>;
 
+/**
+ * F-416: off until automatic on-chain posts exist to fill the Signals feed.
+ * Flipping it back restores the tab (and its HighlightStrip in FeedView);
+ * the `signals` scope is untouched.
+ */
+const SIGNALS_TAB_ENABLED = false;
+
 const TABS: ReadonlyArray<{ scope: FeedScope; label: string; Icon: TabIcon }> = [
   { scope: "for_you",   label: "For You",         Icon: SparklesIcon },
   { scope: "following", label: FOLLOW_COPY.state,  Icon: WatchIcon },
-  { scope: "signals",   label: "Signals",          Icon: BoltIcon },
+  { scope: "groups",    label: "My Groups",        Icon: GroupsIcon },
+  ...(SIGNALS_TAB_ENABLED ? [{ scope: "signals" as const, label: "Signals", Icon: BoltIcon }] : []),
 ];
 
 /**
