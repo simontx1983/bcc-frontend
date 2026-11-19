@@ -18,13 +18,22 @@
  *                     signup signature is consumed server-side and
  *                     can't be reused to mint a session.
  *
+ * F-252: the two prompts are said up front and numbered while they run
+ * ("Step 1 of 2" / "Step 2 of 2"). If anything fails AFTER the account
+ * exists (the second nonce, the second prompt, or the sign-in), the
+ * control does not show a sign-up failure and does not sign up again
+ * (that would answer "already linked"): it says the account was created
+ * and offers to finish signing in with the same wallet, which re-runs
+ * only step 2.
+ *
  * All three providers are supported (MetaMask / Phantom / Keplr) via
  * the shared dispatch helper in lib/wallet/dispatch.ts. The two-prompt
  * UX cost is identical regardless of provider.
  */
 
-import { ChevronDown } from "lucide-react";
+import { CheckCircle2, ChevronDown } from "lucide-react";
 import { signIn } from "next-auth/react";
+import Link from "next/link";
 import { useState } from "react";
 
 import {
@@ -72,6 +81,25 @@ const ERROR_COPY: Record<string, string> = {
   CredentialsSignin:          "Wallet sign-in failed. Try again.",
 };
 
+/** What a wallet sign-up says before and during its two prompts (F-252). */
+export const WALLET_SIGNUP_STEP_COPY = {
+  before: "Signing up takes two wallet signatures: the first creates your account, the second signs you in.",
+  step1:  "Step 1 of 2: sign to create your account.",
+  step2:  "Step 2 of 2: sign once more to sign in. Your account is already created.",
+} as const;
+
+/**
+ * A wallet sign-up whose account exists but whose sign-in did not finish.
+ * Holds what step 2 needs to run again with the same wallet.
+ */
+interface UnfinishedSignup {
+  chainSlug: string;
+  chainType: WalletChainType;
+  connection: WalletConnection;
+  /** Why signing in did not finish, in the same copy as any wallet error. */
+  reason: string;
+}
+
 export interface WalletAuthButtonProps {
   mode: "login" | "signup";
   /** Required when mode="signup" — server validates per §B6 too. */
@@ -97,6 +125,10 @@ export function WalletAuthButton(props: WalletAuthButtonProps) {
   const [chainSlug, setChainSlug] = useState<string>(DEFAULT_SLUG);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** Which of a sign-up's two prompts is running; 0 when none is. */
+  const [step, setStep] = useState<0 | 1 | 2>(0);
+  /** Set once a sign-up created the account but signing in did not finish. */
+  const [unfinished, setUnfinished] = useState<UnfinishedSignup | null>(null);
 
   const selectedChain = findWalletChain(chainSlug);
   const isSignup = props.mode === "signup";
@@ -122,22 +154,91 @@ export function WalletAuthButton(props: WalletAuthButtonProps) {
 
     props.onStart?.();
     setPending(true);
+    // Filled in once the account exists. From then on a failure is not a
+    // failed sign-up, and the button must not sign up a second time.
+    const progress: { created: Omit<UnfinishedSignup, "reason"> | null } = { created: null };
     try {
       const connection = await connectWallet(chainSlug, chainType);
-      const signed = await fetchAndSign(chainSlug, chainType, connection);
 
       if (isSignup) {
-        await runSignup(chainSlug, chainType, connection, signed, props);
+        setStep(1);
+        const signed = await fetchAndSign(chainSlug, chainType, connection);
+        await runSignup(connection, signed, props);
+        progress.created = { chainSlug, chainType, connection };
+        setStep(2);
+        await signInWithFreshSignature(chainSlug, chainType, connection, props);
       } else {
+        const signed = await fetchAndSign(chainSlug, chainType, connection);
         await runLogin(connection, signed, props);
       }
 
       props.onSuccess();
     } catch (err) {
-      setError(humanizeError(err));
+      if (progress.created !== null) {
+        setUnfinished({ ...progress.created, reason: humanizeError(err) });
+      } else {
+        setError(humanizeError(err));
+      }
     } finally {
       setPending(false);
+      setStep(0);
     }
+  }
+
+  /** Re-run step 2 only, with the wallet the account was created with. */
+  async function finishSignIn(signup: UnfinishedSignup) {
+    setPending(true);
+    setStep(2);
+    try {
+      await signInWithFreshSignature(signup.chainSlug, signup.chainType, signup.connection, props);
+      props.onSuccess();
+    } catch (err) {
+      setUnfinished({ ...signup, reason: humanizeError(err) });
+    } finally {
+      setPending(false);
+      setStep(0);
+    }
+  }
+
+  // ── The account exists; signing in did not finish ─────────────
+  // No chain picker and no "Sign up" button: the account is created and
+  // its wallet is fixed. Not gated on props.disabled either — the parent's
+  // form (the handle) no longer matters.
+  if (unfinished !== null) {
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+        <div role="alert" className="bcc-auth-success">
+          <div className="bcc-auth-success-icon">
+            <CheckCircle2 size={20} strokeWidth={2.2} aria-hidden />
+          </div>
+          <p className="bcc-auth-success-title">Account created — sign in</p>
+          <p className="bcc-auth-success-body">
+            Your account is ready and this wallet is linked to it. Signing in
+            didn&apos;t finish: {unfinished.reason}
+          </p>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => { void finishSignIn(unfinished); }}
+          disabled={pending}
+          className="bcc-auth-submit"
+        >
+          {pending ? "Waiting for wallet…" : "Sign in with wallet"}
+        </button>
+
+        {pending && (
+          <p role="status" className="bcc-auth-hint" style={{ textAlign: "center" }}>
+            {WALLET_SIGNUP_STEP_COPY.step2}
+          </p>
+        )}
+
+        <p className="bcc-auth-hint" style={{ textAlign: "center" }}>
+          You can also sign in with this wallet later from the{" "}
+          <Link href="/login">sign-in page</Link>.
+        </p>
+      </div>
+    );
   }
 
   return (
@@ -178,6 +279,18 @@ export function WalletAuthButton(props: WalletAuthButtonProps) {
       >
         {pending ? "Waiting for wallet…" : buttonLabel}
       </button>
+
+      {/* F-252: say up front that sign-up takes two signatures, and number
+          them while they run, so the second prompt is never a surprise. */}
+      {isSignup && (
+        <p role="status" className="bcc-auth-hint" style={{ textAlign: "center" }}>
+          {step === 1
+            ? WALLET_SIGNUP_STEP_COPY.step1
+            : step === 2
+            ? WALLET_SIGNUP_STEP_COPY.step2
+            : WALLET_SIGNUP_STEP_COPY.before}
+        </p>
+      )}
 
       {selectedChain !== undefined && (
         <p
@@ -248,9 +361,8 @@ async function runLogin(
   }
 }
 
+/** Step 1 of a sign-up: create the account and link the wallet. */
 async function runSignup(
-  chainSlug: string,
-  chainType: WalletChainType,
   connection: WalletConnection,
   signed: { signature: string; extra: Record<string, string> },
   props: WalletAuthButtonProps,
@@ -267,31 +379,26 @@ async function runSignup(
     ...(displayName !== "" ? { display_name: displayName } : {}),
     ...(emailRaw !== ""    ? { email: emailRaw } : {}),
   });
+}
 
-  // Account created + wallet linked. The signup signature was consumed
-  // server-side; we need a fresh nonce + signature to bridge to the
-  // NextAuth session via /auth/wallet-login. Two provider prompts is
-  // the honest UX cost — the alternative (returning a session-bridging
-  // token from /auth/wallet-signup that bypasses NextAuth) is worse.
-  const second = await fetchAndSign(chainSlug, chainType, connection);
-
-  const result = await signIn("wallet", {
-    wallet_address: connection.address,
-    signature:      second.signature,
-    extra:          JSON.stringify(second.extra),
-    redirect:       false,
-  });
-
-  if (result?.error !== undefined && result.error !== null) {
-    // Account exists, but auto-sign-in failed — surface and let the
-    // user retry from /login.
-    throw new BccApiError(
-      result.error,
-      "Account created, but wallet sign-in failed. Try signing in.",
-      0,
-      null
-    );
-  }
+/**
+ * Step 2 of a sign-up, and the whole of its retry: sign in with the wallet
+ * the account was just created with.
+ *
+ * The signup signature was consumed server-side, so this needs a fresh
+ * nonce + signature to bridge to the NextAuth session via
+ * /auth/wallet-login. Two provider prompts is the honest UX cost — the
+ * alternative (returning a session-bridging token from
+ * /auth/wallet-signup that bypasses NextAuth) is worse.
+ */
+async function signInWithFreshSignature(
+  chainSlug: string,
+  chainType: WalletChainType,
+  connection: WalletConnection,
+  props: WalletAuthButtonProps,
+): Promise<void> {
+  const signed = await fetchAndSign(chainSlug, chainType, connection);
+  await runLogin(connection, signed, props);
 }
 
 function humanizeError(err: unknown): string {
