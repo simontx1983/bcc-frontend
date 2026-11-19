@@ -213,6 +213,9 @@ function ProfileFieldRow({ field }: { field: ProfileField }) {
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <label
           htmlFor={`field-${field.key}`}
+          // Also names the Yes/No and multi-select option groups, which
+          // have no single control for `htmlFor` to point at.
+          id={`field-${field.key}-label`}
           className="bcc-mono text-[11px] tracking-[0.16em] text-bcc-text"
         >
           {field.label.toUpperCase()}
@@ -389,7 +392,9 @@ function FieldInput({ field, value, onChange, disabled }: FieldInputProps) {
         { value: "0", label: "No" },
       ];
       return (
-        <div className="flex gap-3">
+        // Named by the field's label, so a screen reader hears which
+        // question "Yes" answers.
+        <div role="radiogroup" aria-labelledby={`${id}-label`} className="flex gap-3">
           {options.map((opt) => (
             <label key={opt.value} className="bcc-mono flex min-h-[44px] items-center gap-2 text-[11px]">
               <input
@@ -417,7 +422,9 @@ function FieldInput({ field, value, onChange, disabled }: FieldInputProps) {
         onChange(next);
       };
       return (
-        <div className="flex flex-wrap gap-2">
+        // Named by the field's label: each chip's checkbox otherwise only
+        // announces its own option, not the question it belongs to.
+        <div role="group" aria-labelledby={`${id}-label`} className="flex flex-wrap gap-2">
           {options.map((opt) => {
             const selected = arrValue.includes(opt.value);
             return (
