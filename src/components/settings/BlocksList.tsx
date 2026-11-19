@@ -18,7 +18,7 @@
  * unblocking only needs the `user_id`. No row here links to a profile.
  */
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { Avatar } from "@/components/identity/Avatar";
 import { LoadFailure } from "@/components/ui/LoadFailure";
@@ -37,11 +37,26 @@ function blockedName(entry: MyBlockEntry): string {
   return UNKNOWN_ACCOUNT_COPY;
 }
 
-export function BlocksList() {
+interface BlocksListProps {
+  /**
+   * Id of the section heading that takes focus after the LAST row's
+   * unblock succeeds (there is no next row to land on). The heading lives
+   * outside this list, so it survives the skeleton and the empty state.
+   */
+  headingId?: string;
+}
+
+export function BlocksList({ headingId }: BlocksListProps = {}) {
   const [page, setPage] = useState(1);
   const query = useMyBlocks(page);
   const unblockMutation = useUnblockUser();
   const [pendingId, setPendingId] = useState<number | null>(null);
+  // The id whose unblock is in flight, read synchronously: the button is
+  // aria-disabled (not disabled), so it can still be pressed, and a repeat
+  // press must not send a second request.
+  const inFlightRef = useRef<number | null>(null);
+  // Each row's Unblock button, so a success can move focus to the next one.
+  const unblockButtons = useRef(new Map<number, HTMLButtonElement>());
   // One failed unblock at a time, pinned to its row; cleared on retry.
   const [failure, setFailure] = useState<{ userId: number; message: string } | null>(null);
 
@@ -118,12 +133,36 @@ export function BlocksList() {
     );
   }
 
-  const handleUnblock = (userId: number) => {
+  // After a successful unblock the row leaves on the re-read, taking its
+  // focused button with it. Land on the next row's Unblock instead, or on
+  // the section heading when it was the last row. Only when focus is still
+  // on the pressed button (or already fell to <body>): never pull focus
+  // away from wherever the user has gone since.
+  const moveFocusAfterUnblock = (userId: number, nextUserId: number | null) => {
+    const pressed = unblockButtons.current.get(userId);
+    const active = document.activeElement;
+    if (active !== null && active !== document.body && active !== pressed) return;
+    const next = nextUserId === null ? undefined : unblockButtons.current.get(nextUserId);
+    if (next !== undefined) {
+      next.focus();
+    } else if (headingId !== undefined) {
+      document.getElementById(headingId)?.focus();
+    }
+  };
+
+  const handleUnblock = (userId: number, nextUserId: number | null) => {
+    // A press while this row's request is in flight does nothing.
+    if (inFlightRef.current === userId) return;
+    inFlightRef.current = userId;
     setPendingId(userId);
     setFailure(null);
     unblockMutation.mutate(userId, {
+      onSuccess: () => moveFocusAfterUnblock(userId, nextUserId),
       onError: (err) => setFailure({ userId, message: humanizeUnblockError(err) }),
-      onSettled: () => setPendingId(null),
+      onSettled: () => {
+        if (inFlightRef.current === userId) inFlightRef.current = null;
+        setPendingId(null);
+      },
     });
   };
 
@@ -132,7 +171,7 @@ export function BlocksList() {
       {/* A failed REFRESH keeps the rows and offers the recovery above them. */}
       {loadFailure}
       <ul className="bcc-panel divide-y divide-bcc-border">
-        {items.map((entry) => (
+        {items.map((entry, index) => (
           <li
             key={entry.user_id}
             className="flex items-center justify-between gap-4 px-5 py-4"
@@ -166,8 +205,17 @@ export function BlocksList() {
             <div className="flex shrink-0 flex-col items-end gap-2">
               <button
                 type="button"
-                onClick={() => handleUnblock(entry.user_id)}
-                disabled={pendingId === entry.user_id}
+                ref={(el) => {
+                  if (el === null) unblockButtons.current.delete(entry.user_id);
+                  else unblockButtons.current.set(entry.user_id, el);
+                }}
+                onClick={() => handleUnblock(entry.user_id, items[index + 1]?.user_id ?? null)}
+                // aria-disabled + aria-busy, NOT `disabled`: the browser blurs
+                // a focused control that turns disabled, so the in-flight name
+                // below would never be read (same as FeedView's Load more,
+                // #335). handleUnblock ignores a press while busy.
+                aria-disabled={pendingId === entry.user_id || undefined}
+                aria-busy={pendingId === entry.user_id || undefined}
                 // Every row's button used to read just "UNBLOCK", so a screen
                 // reader's button list could not tell them apart. The name
                 // says whose block it lifts and starts with the visible word
@@ -180,7 +228,7 @@ export function BlocksList() {
                 aria-describedby={
                   failure?.userId === entry.user_id ? `bcc-unblock-error-${entry.user_id}` : undefined
                 }
-                className="bcc-mono inline-flex items-center border-2 border-bcc-border px-3 py-1.5 text-[11px] tracking-[0.18em] text-bcc-text-secondary transition hover:border-bcc-border-strong hover:text-bcc-text disabled:opacity-60"
+                className="bcc-mono inline-flex items-center border-2 border-bcc-border px-3 py-1.5 text-[11px] tracking-[0.18em] text-bcc-text-secondary transition hover:border-bcc-border-strong hover:text-bcc-text aria-disabled:cursor-wait aria-disabled:opacity-60"
               >
                 {pendingId === entry.user_id ? "WORKING…" : "UNBLOCK"}
               </button>

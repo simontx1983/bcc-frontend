@@ -202,7 +202,7 @@ describe("BlocksList: each Unblock is named for its row", () => {
     expect(fx.unblockUser).toHaveBeenCalledWith(handleOnly.user_id);
   });
 
-  it("in flight: the name says it is working, the button is disabled, the other row is untouched", async () => {
+  it("in flight: the name says it is working, the button is busy, the other row is untouched", async () => {
     fx.getMyBlocks.mockResolvedValue(page([named, unknown]));
     fx.unblockUser.mockReturnValue(new Promise(() => undefined));
     renderList();
@@ -212,9 +212,14 @@ describe("BlocksList: each Unblock is named for its row", () => {
       fireEvent.click(button);
     });
 
+    // Busy via aria-disabled/aria-busy (blocks-list-busy-focus.test.tsx
+    // pins why it is not `disabled`).
     const working = screen.getByRole("button", { name: "Working… unblocking Anvil Smith" });
-    expect(working).toBeDisabled();
+    expect(working).toHaveAttribute("aria-disabled", "true");
+    expect(working).toHaveAttribute("aria-busy", "true");
     expect(working).toHaveTextContent("WORKING…");
-    expect(screen.getByRole("button", { name: `Unblock ${UNKNOWN_ACCOUNT_COPY}` })).toBeEnabled();
+    const other = screen.getByRole("button", { name: `Unblock ${UNKNOWN_ACCOUNT_COPY}` });
+    expect(other).toBeEnabled();
+    expect(other).not.toHaveAttribute("aria-disabled");
   });
 });
