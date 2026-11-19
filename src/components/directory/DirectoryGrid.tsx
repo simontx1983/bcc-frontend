@@ -32,7 +32,7 @@ import type { UseInfiniteQueryResult, InfiniteData } from "@tanstack/react-query
 
 import { CardGrid } from "@/components/cards/CardGrid";
 import { CardGridSkeleton } from "@/components/cards/CardGridSkeleton";
-import { humanizeCode, isPermissionDenial } from "@/lib/api/errors";
+import { humanizeCode, isCode, isPermissionDenial } from "@/lib/api/errors";
 import { LoadFailure } from "@/components/ui/LoadFailure";
 import type {
   BccApiError,
@@ -85,7 +85,19 @@ export function DirectoryGrid({ query }: Props) {
   }
 
   if (query.isLoading) {
-    return <CardGridSkeleton ariaLabel="Loading directory results" />;
+    // bcc-trust #716: a throttled search is retried after a pause
+    // (useDirectory). Say so rather than leave a skeleton spinning.
+    const throttled = isCode(query.failureReason, "bcc_rate_limited");
+    return (
+      <>
+        {throttled && (
+          <p role="status" className="bcc-mono mb-3 text-center text-[11px] tracking-[0.12em] text-bcc-text-secondary">
+            Lots of searches right now. Trying again in a moment…
+          </p>
+        )}
+        <CardGridSkeleton ariaLabel="Loading directory results" />
+      </>
+    );
   }
 
   // Flatten pages into a single Card[]. Each page is an independent
