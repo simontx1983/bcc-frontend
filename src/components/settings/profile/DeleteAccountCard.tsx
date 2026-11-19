@@ -235,7 +235,7 @@ export function DeleteAccountCard() {
             <button
               type="submit"
               disabled={!canSubmit}
-              className="bcc-stencil inline-flex min-h-[44px] items-center bg-safety px-4 py-2 text-bcc-on-accent transition disabled:opacity-50"
+              className="bcc-stencil bg-safety px-4 py-2 inline-flex min-h-[44px] items-center text-bcc-on-accent transition disabled:opacity-50"
             >
               {confirm.signing ? "Waiting for wallet…" : mutation.isPending ? "Deleting…" : "Delete forever"}
             </button>
