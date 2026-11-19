@@ -33,7 +33,7 @@ import { GroupActionButton } from "@/components/groups/GroupActionButton";
 import {
   MEMBERSHIP_REQUESTS_ANCHOR,
   canManageMembership,
-} from "@/components/groups/GroupMembershipAdmin";
+} from "@/components/groups/membership-gate";
 import { GroupTransferOwnership } from "@/components/groups/GroupTransferOwnership";
 import { HolderLeaveConfirm, ValidatorLeaveConfirm } from "@/components/groups/HolderLeaveConfirm";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";

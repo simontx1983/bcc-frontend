@@ -35,9 +35,16 @@ vi.mock("@/hooks/useHallsPrimary", () => ({
 vi.mock("@/components/groups/GroupTransferOwnership", () => ({
   GroupTransferOwnership: () => null,
 }));
+// The strip renders on every group page, so it must not load the admin
+// block's module graph (its hooks, endpoints and client env). The gate and
+// the anchor live in the dependency-free membership-gate. If the strip ever
+// imports GroupMembershipAdmin again, this whole file fails to load.
+vi.mock("@/components/groups/GroupMembershipAdmin", () => {
+  throw new Error("GroupMembershipStrip must not load GroupMembershipAdmin");
+});
 
 const { GroupMembershipStrip } = await import("@/components/groups/GroupMembershipStrip");
-const { MEMBERSHIP_REQUESTS_ANCHOR } = await import("@/components/groups/GroupMembershipAdmin");
+const { MEMBERSHIP_REQUESTS_ANCHOR } = await import("@/components/groups/membership-gate");
 
 beforeAll(() => {
   window.matchMedia = ((q: string) => ({

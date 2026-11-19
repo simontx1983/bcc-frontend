@@ -31,6 +31,10 @@ import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useEffect, useState } from "react";
 
+import {
+  MEMBERSHIP_REQUESTS_ANCHOR,
+  canManageMembership,
+} from "@/components/groups/membership-gate";
 import { Avatar } from "@/components/identity/Avatar";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { LoadFailure } from "@/components/ui/LoadFailure";
@@ -52,25 +56,6 @@ import {
   type GroupOutstandingInviteItem,
 } from "@/lib/api/types";
 import { formatRelativeTime } from "@/lib/format";
-
-/**
- * Whether the viewer decides who gets into this group. The server's
- * `can_manage_membership` (closed and secret groups) when present; on a
- * backend without it, `pending_request_count` is non-null for exactly the
- * same viewers, but only on closed groups.
- */
-/**
- * F-388 / F-389: the `id` of this block, so a link can land on it:
- * `/communities/{slug}/members#requests`. The owner's strip points here,
- * and so does the server-built link on a `bcc_group_join_requested` bell
- * row. Changing it breaks that link.
- */
-export const MEMBERSHIP_REQUESTS_ANCHOR = "requests";
-
-export function canManageMembership(group: GroupDetailResponse): boolean {
-  if (typeof group.can_manage_membership === "boolean") return group.can_manage_membership;
-  return group.pending_request_count !== null && group.pending_request_count !== undefined;
-}
 
 type DecisionAction = "approve" | "deny" | "invite" | "revoke";
 

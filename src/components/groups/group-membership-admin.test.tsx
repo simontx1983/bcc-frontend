@@ -52,9 +52,8 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ refresh: api.refresh, push: vi.fn(), replace: vi.fn() }),
 }));
 
-const { GroupMembershipAdmin, MEMBERSHIP_REQUESTS_ANCHOR } = await import(
-  "@/components/groups/GroupMembershipAdmin"
-);
+const { GroupMembershipAdmin } = await import("@/components/groups/GroupMembershipAdmin");
+const { MEMBERSHIP_REQUESTS_ANCHOR } = await import("@/components/groups/membership-gate");
 
 beforeAll(() => {
   window.matchMedia = ((q: string) => ({
