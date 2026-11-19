@@ -224,7 +224,6 @@ describe("WalletOwnershipPrompt", () => {
 
 describe("verify-email — when to ask", () => {
   function verifyWith(linked: number | undefined) {
-    searchParams.set("email", "me@example.com");
     searchParams.set("token", "link-token");
     api.verifyEmail.mockResolvedValue({
       user_id: 1, handle: "me", token: "jwt", expires_in: 604800, token_type: "Bearer",

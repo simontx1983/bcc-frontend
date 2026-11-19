@@ -165,7 +165,6 @@ describe("signup_started on /signup", () => {
 
 describe("signup_completed marker at each account-creation point", () => {
   it("password: verify-email's automatic sign-in success", async () => {
-    searchParams.set("email", "a@b.co");
     searchParams.set("token", "link-token");
     render(<VerifyEmailPage />);
     await waitFor(() => expect(h.replace).toHaveBeenCalledWith("/onboarding"));
@@ -175,7 +174,6 @@ describe("signup_completed marker at each account-creation point", () => {
 
   it("password: no marker when the automatic sign-in fails", async () => {
     h.signIn.mockResolvedValue({ ok: false, error: "x" });
-    searchParams.set("email", "a@b.co");
     searchParams.set("token", "link-token");
     render(<VerifyEmailPage />);
     await waitFor(() => expect(h.signIn).toHaveBeenCalled());
