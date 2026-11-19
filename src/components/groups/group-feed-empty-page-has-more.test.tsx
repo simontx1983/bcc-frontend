@@ -196,6 +196,37 @@ describe("a group wall whose pages came back empty while more exist", () => {
     expect(fetchNextPage).not.toHaveBeenCalled();
   });
 
+  it("the ordinary Load more under the rows keeps its place, name and focus while it fetches", () => {
+    state.groupFeed = feed({ pages: 1, hasNextPage: true, rows: [{ id: "post_1" }] });
+    const view = render(tree());
+    const button = screen.getByRole("button", { name: "Load more" });
+    button.focus();
+    fireEvent.click(button);
+    expect(fetchNextPage).toHaveBeenCalledTimes(1);
+
+    state.groupFeed = feed({ pages: 1, hasNextPage: true, rows: [{ id: "post_1" }], isFetchingNextPage: true });
+    view.rerender(tree());
+    const busy = screen.getByRole("button", { name: "Load more" });
+    expect(busy).toBe(button);
+    expect(document.activeElement).toBe(button);
+    expect(busy).toHaveAttribute("aria-busy", "true");
+    expect(busy).toHaveAttribute("aria-disabled", "true");
+    expect(busy).not.toBeDisabled();
+    expect(screen.getByRole("status", { name: "Loading" })).toBeInTheDocument();
+
+    fireEvent.click(busy);
+    expect(fetchNextPage).toHaveBeenCalledTimes(1);
+  });
+
+  it("the ordinary Load more is an ordinary button when idle", () => {
+    state.groupFeed = feed({ pages: 1, hasNextPage: true, rows: [{ id: "post_1" }] });
+    render(tree());
+    const button = screen.getByRole("button", { name: "Load more" });
+    expect(button).toHaveAttribute("aria-busy", "false");
+    expect(button).toHaveAttribute("aria-disabled", "false");
+    expect(screen.queryByRole("status", { name: "Loading" })).toBeNull();
+  });
+
   it("control: a page with rows is unchanged (no auto-fetch, the usual Load more)", () => {
     state.groupFeed = feed({ pages: 1, hasNextPage: true, rows: [{ id: "post_1" }] });
     render(tree());
