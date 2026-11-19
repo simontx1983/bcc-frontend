@@ -62,8 +62,7 @@ const ERROR_COPY: Record<string, string> = {
   bcc_invalid_otp:          "Incorrect or expired code. Check the email and try again.",
   // F-294 — after five wrong codes the code is spent.
   bcc_otp_exhausted:        "Too many attempts. Request a new code.",
-  bcc_already_verified:     "This email is already verified. Sign in to continue.",
-  bcc_invalid_request:      "Something went wrong. Try resending the code.",
+  bcc_invalid_request:     "Something went wrong. Try resending the code.",
   bcc_rate_limited:         "Too many attempts. Wait a moment and try again.",
   bcc_unknown:              "Verification failed. Try resending the code.",
 };
@@ -80,8 +79,23 @@ const EMAIL_TAKEN_CODE = "bcc_conflict";
 const EMAIL_TAKEN_COPY = "That email is already in use. Add a different one in Settings.";
 
 /**
+ * F-263 (M30): the address is verified already. Only the CODE path can
+ * say so: the server answers `bcc_already_verified` 409 there ("OTP path
+ * only" in the contract). That used to be one more error line on the form,
+ * with no way to sign in; it is now its own card with Sign in. A 409 too,
+ * so keyed on the code alone.
+ *
+ * The LINK path cannot tell: the token is deleted on first use, so a link
+ * opened a second time answers `bcc_invalid_verify_token` like an expired
+ * one. Its "Link expired" card therefore offers Sign in beside Resend,
+ * since Resend does nothing for an account that is verified already.
+ */
+const ALREADY_VERIFIED_CODE = "bcc_already_verified";
+
+/**
  * `wallet-check`: signed in, asking "is this wallet yours?" first.
  * `email-taken`: the pending address went to another account (above).
+ * `already-verified`: nothing left to verify (above).
  */
 type PageState =
   | "otp-form"
@@ -89,7 +103,8 @@ type PageState =
   | "success"
   | "link-expired"
   | "wallet-check"
-  | "email-taken";
+  | "email-taken"
+  | "already-verified";
 
 /**
  * LEGACY LINKS ONLY — remove once the emailed link carries only the token
@@ -245,6 +260,9 @@ function VerifyEmailContent() {
       if (err instanceof BccApiError && err.code === EMAIL_TAKEN_CODE) {
         clearPendingVerificationEmail();
         setPageState("email-taken");
+      } else if (err instanceof BccApiError && err.code === ALREADY_VERIFIED_CODE) {
+        clearPendingVerificationEmail();
+        setPageState("already-verified");
       } else if (err instanceof BccApiError) {
         // §γ — unmapped codes fall back to generic copy, never err.message.
         setError(ERROR_COPY[err.code] ?? "Verification failed. Try again.");
@@ -371,6 +389,26 @@ function VerifyEmailContent() {
     );
   }
 
+  // ── Verified already (e.g. the link opened twice) ─────────────
+  // Not an error and not a dead end: no Resend, no code entry, just the
+  // way in.
+  if (pageState === "already-verified") {
+    return (
+      <AuthCard
+        heading="Already verified"
+        subheading="This email is already verified, so there's nothing more to do here."
+      >
+        <Link
+          href="/login"
+          className="bcc-auth-submit"
+          style={{ textAlign: "center", textDecoration: "none", display: "block" }}
+        >
+          Sign in
+        </Link>
+      </AuthCard>
+    );
+  }
+
   // ── Auto-verifying (link click, waiting) ──────────────────────
   if (pageState === "auto-verifying") {
     return (
@@ -430,6 +468,13 @@ function VerifyEmailContent() {
             </button>
           </div>
         )}
+
+        {/* F-263 (M30): a used link reads as expired (see
+            ALREADY_VERIFIED_CODE), and Resend does nothing for a verified
+            account, so the way in is offered here too. */}
+        <p className="bcc-auth-hint" style={{ marginTop: "12px", textAlign: "center" }}>
+          Already verified this address? <Link href="/login">Sign in</Link>.
+        </p>
       </AuthCard>
     );
   }

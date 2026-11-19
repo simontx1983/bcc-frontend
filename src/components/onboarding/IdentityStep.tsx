@@ -5,14 +5,21 @@
  *
  * Seeded from the server-fetched MemberProfile. Avatar/cover uploads
  * commit immediately (each mutation returns the updated MemberProfile,
- * which we swap into local state for the live preview); the bio is saved
- * on Continue via PATCH /me/profile. Reuses the same mutation hooks and
+ * which becomes the preview); the bio is saved on Continue via PATCH
+ * /me/profile.
+ *
+ * F-263 (M24): the step's state lives in the WIZARD (`IdentityDraft`), not
+ * here. It used to be local, seeded from the page's server-fetched
+ * profile, so leaving the step and coming Back remounted it from that
+ * stale seed: a just-uploaded avatar and cover, and a just-saved bio,
+ * showed as gone, and a typed bio was thrown away. Back now keeps all of
+ * it; Skip still drops only the unsaved bio. Reuses the same mutation hooks and
  * size/type guards as the settings ProfileHero — this is a lean editor
  * on the `bcc-onb-*` page-chrome namespace, not the cardstock hero.
  */
 
 import Image from "next/image";
-import { useRef, useState } from "react";
+import { useRef, useState, type Dispatch, type SetStateAction } from "react";
 
 import { LandingReveal } from "@/components/landing/LandingReveal";
 import { isPeepSoPlaceholder } from "@/components/identity/Avatar";
@@ -50,41 +57,71 @@ function humanFileSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+/**
+ * The identity step's state, held by the wizard so it survives the step
+ * unmounting (Back, or Back from the next step).
+ */
+export interface IdentityDraft {
+  /**
+   * The profile as this session last saw it: the page's server copy, then
+   * each upload's response, then the saved bio.
+   */
+  profile: MemberProfile;
+  /** A typed bio not yet saved; null when there is none. */
+  bio: string | null;
+  /**
+   * The member uploaded their own avatar this session. "Remove" only shows
+   * then: a fresh account's default PeepSo placeholder isn't something to
+   * offer removing.
+   */
+  avatarChanged: boolean;
+}
+
+export function initialIdentityDraft(profile: MemberProfile): IdentityDraft {
+  return { profile, bio: null, avatarChanged: false };
+}
+
 export function IdentityStep({
-  profile,
+  draft,
+  onDraftChange,
   onBack,
   onDone,
 }: {
-  profile: MemberProfile;
+  draft: IdentityDraft;
+  /** Functional updates: an upload can land after the bio was typed. */
+  onDraftChange: Dispatch<SetStateAction<IdentityDraft>>;
   onBack: () => void;
   onDone: () => void;
 }) {
-  const [current, setCurrent] = useState<MemberProfile>(profile);
-  const [bio, setBio] = useState(profile.bio);
+  const current = draft.profile;
+  const bio = draft.bio ?? current.bio;
+  const avatarChanged = draft.avatarChanged;
+  const setBio = (next: string) => onDraftChange((prev) => ({ ...prev, bio: next }));
   const [error, setError] = useState<string | null>(null);
-  // "Remove" only appears once the user has actually uploaded their own
-  // avatar this session — a fresh account's default PeepSo placeholder
-  // isn't something to offer "removing".
-  const [avatarChanged, setAvatarChanged] = useState(false);
 
   const avatarInputRef = useRef<HTMLInputElement | null>(null);
   const coverInputRef = useRef<HTMLInputElement | null>(null);
 
-  const onMediaSuccess = (updated: MemberProfile) => {
-    setCurrent(updated);
+  const onMediaSuccess = (updated: MemberProfile, avatarChangedNow?: boolean) => {
+    // The upload's profile replaces the preview; a typed bio is kept.
+    onDraftChange((prev) => ({
+      ...prev,
+      profile: updated,
+      avatarChanged: avatarChangedNow ?? prev.avatarChanged,
+    }));
     setError(null);
   };
   const onMediaError = (err: BccApiError | Error) => setError(humanize(err));
 
   const uploadAvatar = useUploadAvatar({
-    onSuccess: (updated) => { onMediaSuccess(updated); setAvatarChanged(true); },
+    onSuccess: (updated) => onMediaSuccess(updated, true),
     onError: onMediaError,
   });
   const removeAvatar = useDeleteAvatar({
-    onSuccess: (updated) => { onMediaSuccess(updated); setAvatarChanged(false); },
+    onSuccess: (updated) => onMediaSuccess(updated, false),
     onError: onMediaError,
   });
-  const uploadCover = useUploadCover({ onSuccess: onMediaSuccess, onError: onMediaError });
+  const uploadCover = useUploadCover({ onSuccess: (updated) => onMediaSuccess(updated), onError: onMediaError });
   const updateBio = useUpdateBio();
 
   const busy =
@@ -114,18 +151,30 @@ export function IdentityStep({
   }
 
   function handleContinue() {
-    if (bio.trim() === current.bio.trim()) {
+    const trimmed = bio.trim();
+    if (trimmed === current.bio.trim()) {
+      onDraftChange((prev) => ({ ...prev, bio: null }));
       onDone();
       return;
     }
     setError(null);
     updateBio.mutate(
-      { bio: bio.trim() },
+      { bio: trimmed },
       {
-        onSuccess: () => onDone(),
+        onSuccess: () => {
+          // Saved: it is the profile's bio now, not a draft.
+          onDraftChange((prev) => ({ ...prev, profile: { ...prev.profile, bio: trimmed }, bio: null }));
+          onDone();
+        },
         onError: (err) => setError(humanize(err)),
       },
     );
+  }
+
+  /** Skip abandons only the unsaved bio; uploads are already saved. */
+  function handleSkip() {
+    onDraftChange((prev) => ({ ...prev, bio: null }));
+    onDone();
   }
 
   return (
@@ -248,7 +297,7 @@ export function IdentityStep({
           ← Back
         </button>
         <div className="bcc-onb-foot-end">
-          <button type="button" className="bcc-onb-link" onClick={onDone}>
+          <button type="button" className="bcc-onb-link" onClick={handleSkip}>
             Skip
           </button>
           <button type="button" className="bcc-onb-btn bcc-onb-btn-primary" disabled={busy} onClick={handleContinue}>
