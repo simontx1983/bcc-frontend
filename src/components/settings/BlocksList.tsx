@@ -50,15 +50,17 @@ export function BlocksList({ headingId }: BlocksListProps = {}) {
   const [page, setPage] = useState(1);
   const query = useMyBlocks(page);
   const unblockMutation = useUnblockUser();
-  const [pendingId, setPendingId] = useState<number | null>(null);
-  // The id whose unblock is in flight, read synchronously: the button is
-  // aria-disabled (not disabled), so it can still be pressed, and a repeat
-  // press must not send a second request.
-  const inFlightRef = useRef<number | null>(null);
+  // Per ROW, not one slot (F-446): two rows can be in flight at once, and
+  // one row's request settling must not clear another row's busy state or
+  // its failure.
+  const [pendingIds, setPendingIds] = useState<ReadonlySet<number>>(() => new Set());
+  // Read synchronously: the button is aria-disabled (not disabled), so it
+  // can still be pressed, and a repeat press must not send a second request.
+  const inFlight = useRef(new Set<number>());
   // Each row's Unblock button, so a success can move focus to the next one.
   const unblockButtons = useRef(new Map<number, HTMLButtonElement>());
-  // One failed unblock at a time, pinned to its row; cleared on retry.
-  const [failure, setFailure] = useState<{ userId: number; message: string } | null>(null);
+  // A failed unblock, pinned to its row; cleared when that row retries.
+  const [failures, setFailures] = useState<ReadonlyMap<number, string>>(() => new Map());
 
   // Page-overflow guard, same contract as <WatchersPanel>: unblocking the
   // last row of a trailing page refetches an empty page, which would
@@ -152,17 +154,21 @@ export function BlocksList({ headingId }: BlocksListProps = {}) {
 
   const handleUnblock = (userId: number, nextUserId: number | null) => {
     // A press while this row's request is in flight does nothing.
-    if (inFlightRef.current === userId) return;
-    inFlightRef.current = userId;
-    setPendingId(userId);
-    setFailure(null);
-    unblockMutation.mutate(userId, {
-      onSuccess: () => moveFocusAfterUnblock(userId, nextUserId),
-      onError: (err) => setFailure({ userId, message: humanizeUnblockError(err) }),
-      onSettled: () => {
-        if (inFlightRef.current === userId) inFlightRef.current = null;
-        setPendingId(null);
-      },
+    if (inFlight.current.has(userId)) return;
+    inFlight.current.add(userId);
+    setPendingIds((prev) => new Set(prev).add(userId));
+    setFailures((prev) => withoutKey(prev, userId));
+    // mutateAsync, not mutate(id, callbacks): TanStack runs mutate()'s
+    // per-call callbacks for the LATEST call only, so with two rows in
+    // flight the first row's error and settle were never handled (F-446).
+    // Each call's own promise settles for that call.
+    void unblockMutation.mutateAsync(userId).then(
+      () => moveFocusAfterUnblock(userId, nextUserId),
+      (err: unknown) =>
+        setFailures((prev) => new Map(prev).set(userId, humanizeUnblockError(err))),
+    ).finally(() => {
+      inFlight.current.delete(userId);
+      setPendingIds((prev) => withoutMember(prev, userId));
     });
   };
 
@@ -214,31 +220,31 @@ export function BlocksList({ headingId }: BlocksListProps = {}) {
                 // a focused control that turns disabled, so the in-flight name
                 // below would never be read (same as FeedView's Load more,
                 // #335). handleUnblock ignores a press while busy.
-                aria-disabled={pendingId === entry.user_id || undefined}
-                aria-busy={pendingId === entry.user_id || undefined}
+                aria-disabled={pendingIds.has(entry.user_id) || undefined}
+                aria-busy={pendingIds.has(entry.user_id) || undefined}
                 // Every row's button used to read just "UNBLOCK", so a screen
                 // reader's button list could not tell them apart. The name
                 // says whose block it lifts and starts with the visible word
                 // (WCAG 2.5.3, label in name), in flight too.
                 aria-label={
-                  pendingId === entry.user_id
+                  pendingIds.has(entry.user_id)
                     ? `Working… unblocking ${blockedName(entry)}`
                     : `Unblock ${blockedName(entry)}`
                 }
                 aria-describedby={
-                  failure?.userId === entry.user_id ? `bcc-unblock-error-${entry.user_id}` : undefined
+                  failures.has(entry.user_id) ? `bcc-unblock-error-${entry.user_id}` : undefined
                 }
                 className="bcc-mono inline-flex items-center border-2 border-bcc-border px-3 py-1.5 text-[11px] tracking-[0.18em] text-bcc-text-secondary transition hover:border-bcc-border-strong hover:text-bcc-text aria-disabled:cursor-wait aria-disabled:opacity-60"
               >
-                {pendingId === entry.user_id ? "WORKING…" : "UNBLOCK"}
+                {pendingIds.has(entry.user_id) ? "WORKING…" : "UNBLOCK"}
               </button>
-              {failure?.userId === entry.user_id && (
+              {failures.has(entry.user_id) && (
                 <p
                   id={`bcc-unblock-error-${entry.user_id}`}
                   role="alert"
                   className="bcc-mono max-w-[14rem] text-right text-[10px] tracking-[0.12em] text-bcc-text-error"
                 >
-                  {failure.message}
+                  {failures.get(entry.user_id)}
                 </p>
               )}
             </div>
@@ -274,6 +280,22 @@ export function BlocksList({ headingId }: BlocksListProps = {}) {
       )}
     </div>
   );
+}
+
+/** A copy of `set` without `member` (state updates never mutate in place). */
+function withoutMember(set: ReadonlySet<number>, member: number): ReadonlySet<number> {
+  if (!set.has(member)) return set;
+  const next = new Set(set);
+  next.delete(member);
+  return next;
+}
+
+/** A copy of `map` without `key`. */
+function withoutKey(map: ReadonlyMap<number, string>, key: number): ReadonlyMap<number, string> {
+  if (!map.has(key)) return map;
+  const next = new Map(map);
+  next.delete(key);
+  return next;
 }
 
 /** §γ — keyed on err.code (DELETE /me/blocks/:user_id), never err.message. */
