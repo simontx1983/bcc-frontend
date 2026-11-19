@@ -147,7 +147,15 @@ export function NotificationsPanel({
     // on mobile) — no background of its own, so loading/empty/list
     // states all sit on ONE consistent surface instead of layering an
     // opaque cardstock block on top.
-    <div role="menu" className="flex flex-col gap-px overflow-hidden">
+    //
+    // M-no1 (UX scan): NOT role="menu". A menu promises arrow-key
+    // navigation over menuitems only, and this panel holds a list of
+    // notifications plus Mark all read, LOAD MORE and retry controls, and
+    // each row's menuitem wrapped a <button> (one interactive role inside
+    // another). It is a named list of rows, with the controls after it.
+    // The host names the whole panel (the header's "Notifications" dialog,
+    // or the /notifications page).
+    <div className="flex flex-col gap-px overflow-hidden">
       {(showTitle || showMarkAll) && (
         <div
           className={
@@ -205,14 +213,16 @@ export function NotificationsPanel({
           Nothing on file.
         </div>
       ) : (
-        <ul role="presentation" className="flex max-h-[60vh] flex-col gap-px overflow-y-auto">
-          {items.map((item) => (
-            <NotificationRow
-              key={item.id}
-              item={item}
-              onActivate={() => handleItemClick(item)}
-            />
-          ))}
+        <div className="flex max-h-[60vh] flex-col gap-px overflow-y-auto">
+          <ul aria-label="Notifications" className="flex flex-col gap-px">
+            {items.map((item) => (
+              <NotificationRow
+                key={item.id}
+                item={item}
+                onActivate={() => handleItemClick(item)}
+              />
+            ))}
+          </ul>
           {/* A failed REFRESH is not a failed cursor: the retained pages
               and the cursor taken from the last of them are still
               coherent, so LOAD MORE deliberately stays available below
@@ -221,12 +231,12 @@ export function NotificationsPanel({
               the app-wide `retry: 1` means two consecutive failures
               surface it. */}
           {list.isRefetchError && (
-            <li>
+            <div>
               <LoadFailure
                 message={failureCopy}
                 {...(retryIsHonest ? { onRetry: () => void list.refetch() } : {})}
               />
-            </li>
+            </div>
           )}
 
           {/* Cursor safety: while the NEXT cursor is failed, LOAD MORE is
@@ -235,15 +245,15 @@ export function NotificationsPanel({
               `fetchNextPage()`; it must never be `refetch()`, which would
               re-request every page already loaded. */}
           {list.isFetchNextPageError ? (
-            <li>
+            <div>
               <LoadFailure
                 message={failureCopy}
                 {...(retryIsHonest ? { onRetry: () => void list.fetchNextPage() } : {})}
               />
-            </li>
+            </div>
           ) : (
             list.hasNextPage && (
-              <li>
+              <div>
                 {/* Not `disabled` while fetching: a disabled element is
                     removed from the tab order and the browser blurs it, so
                     disabling the button the viewer just pressed drops focus
@@ -277,7 +287,7 @@ export function NotificationsPanel({
                 >
                   {list.isFetchingNextPage ? "LOADING…" : "LOAD MORE"}
                 </button>
-              </li>
+              </div>
             )
           )}
 
@@ -291,7 +301,7 @@ export function NotificationsPanel({
               reading happens because focus MOVES here, which is one
               announcement rather than two. */}
           {!list.hasNextPage && !list.isError && (
-            <li>
+            <div>
               <p
                 ref={endRef}
                 tabIndex={-1}
@@ -300,9 +310,9 @@ export function NotificationsPanel({
               >
                 End of the list.
               </p>
-            </li>
+            </div>
           )}
-        </ul>
+        </div>
       )}
     </div>
   );
@@ -317,7 +327,7 @@ function NotificationRow({ item, onActivate }: NotificationRowProps) {
   const gone = item.target_available === false;
   const goneId = `notification-gone-${item.id}`;
   return (
-    <li role="menuitem">
+    <li>
       <button
         type="button"
         onClick={onActivate}
