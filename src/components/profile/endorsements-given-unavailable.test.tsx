@@ -29,6 +29,7 @@ vi.mock("@/lib/api/user-activity-endpoints", async (importOriginal) => ({
 
 import {
   ENDORSEMENTS_LOAD_FAILED_COPY,
+  ENDORSEMENTS_LOADING_COPY,
   ENDORSEMENTS_UNAVAILABLE_COPY,
   EndorsementsGivenView,
 } from "@/components/profile/EndorsementsGivenView";
@@ -110,6 +111,43 @@ describe("EndorsementsGivenView — a failed read is not an empty list (F-421)",
 
     expect(await screen.findByText(EMPTY_CLAIM)).toBeInTheDocument();
     expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("during the first read: loading, never the empty claim; empty only once the read succeeds", async () => {
+    let answer: (v: UserEndorsementsResponse) => void = () => undefined;
+    fx.getUserEndorsements.mockReturnValue(
+      new Promise<UserEndorsementsResponse>((resolve) => {
+        answer = resolve;
+      }),
+    );
+    renderView();
+
+    expect(screen.getByText(ENDORSEMENTS_LOADING_COPY)).toBeInTheDocument();
+    expect(screen.queryByText(EMPTY_CLAIM)).toBeNull();
+
+    await act(async () => {
+      answer(response([]));
+    });
+    expect(await screen.findByText(EMPTY_CLAIM)).toBeInTheDocument();
+    expect(screen.queryByText(ENDORSEMENTS_LOADING_COPY)).toBeNull();
+  });
+
+  it("during the first read of a member WITH vouches: loading, then the rows, never the empty claim", async () => {
+    let answer: (v: UserEndorsementsResponse) => void = () => undefined;
+    fx.getUserEndorsements.mockReturnValue(
+      new Promise<UserEndorsementsResponse>((resolve) => {
+        answer = resolve;
+      }),
+    );
+    renderView();
+    expect(screen.queryByText(EMPTY_CLAIM)).toBeNull();
+
+    await act(async () => {
+      answer(response([row]));
+    });
+    expect(await screen.findByText("Blacksmith Node")).toBeInTheDocument();
+    expect(screen.queryByText(EMPTY_CLAIM)).toBeNull();
+    expect(screen.queryByText(ENDORSEMENTS_LOADING_COPY)).toBeNull();
   });
 
   it("rows already shown stay through a failed refresh", async () => {
