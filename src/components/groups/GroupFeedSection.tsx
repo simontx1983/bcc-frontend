@@ -424,14 +424,28 @@ function GroupFeedBodyData({
       ) : (
         query.hasNextPage &&
         !denied && (
-          <button
-            type="button"
-            onClick={handleLoadMore}
-            disabled={query.isFetchingNextPage}
-            className="bcc-stencil mx-auto mt-4 border border-bcc-border px-6 py-2.5 text-bcc-text disabled:opacity-50"
-          >
-            {query.isFetchingNextPage ? "Loading…" : "Load more"}
-          </button>
+          // Same as the past-bound block above: the button stays put and
+          // keeps focus while the next page loads. `aria-disabled` +
+          // `aria-busy`, not `disabled` (the browser blurs a focused
+          // control that turns disabled), and a constant name, so the
+          // focused button isn't renamed mid-press. handleLoadMore ignores
+          // a press while a fetch is in flight.
+          <div className="mx-auto mt-4 flex items-center gap-3">
+            <button
+              type="button"
+              onClick={handleLoadMore}
+              aria-disabled={query.isFetchingNextPage}
+              aria-busy={query.isFetchingNextPage}
+              className="bcc-stencil border border-bcc-border px-6 py-2.5 text-bcc-text aria-disabled:cursor-wait aria-disabled:opacity-60"
+            >
+              Load more
+            </button>
+            {query.isFetchingNextPage && (
+              <span className="text-[var(--bcc-accent)]">
+                <Spinner size={18} />
+              </span>
+            )}
+          </div>
         )
       )}
 
