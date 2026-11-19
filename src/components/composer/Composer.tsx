@@ -67,7 +67,7 @@ import { humanizeError } from "@/components/composer/useComposerSubmit";
 import { RankChip } from "@/components/profile/RankChip";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Dialog } from "@/components/ui/Dialog";
-import { humanizeCode } from "@/lib/api/errors";
+import { humanizeReviewError } from "@/components/composer/review-error-copy";
 import { createReview } from "@/lib/api/posts-endpoints";
 import {
   MENTIONS_PER_POST_MAX,
@@ -1348,37 +1348,6 @@ function StatusForm({
 // resolved target, and the target name renders unmistakably so the
 // reviewer can never mis-target their post.
 // ─────────────────────────────────────────────────────────────────────
-
-/**
- * Review-surface error copy (§γ: each call site owns its copy map;
- * never render err.message).
- *
- * `bcc_forbidden` here is the VOTE-pipeline denial, not the
- * write_review gate: PostsService::createReview surfaces every
- * VoteEligibilityException as bcc_forbidden — the downvote tier gate
- * ("trusted or elite only"), the identity-verification gate, the daily
- * downvote cap, and the fraud/coordination gates
- * (bcc-trust app/Domain/Core/Services/Vote/VoteEligibilityChecker.php).
- * The composer-wide humanizeError copy ("keep watching cards…")
- * describes the write_review unlock, which can't fire from this form —
- * ReviewCallout only opens the modal when `can_review` is already true.
- * So the copy leads with the gates that CAN fire. If the backend ever
- * grows distinct codes per gate (it should), split this entry.
- */
-function humanizeReviewError(err: unknown): string {
-  return humanizeCode(
-    err,
-    {
-      bcc_unauthorized: "Sign in to post a review.",
-      bcc_invalid_request: "That review can't be sent — check the grade and body.",
-      bcc_forbidden:
-        "This review was blocked by a trust-safety gate. Caution reviews require trusted or elite standing and a verified identity (linked wallet or GitHub), and downvotes are capped daily.",
-      bcc_rate_limited: "Slow down — wait a moment before posting again.",
-      bcc_unavailable: "Reviews are temporarily unavailable. Try again shortly.",
-    },
-    "Couldn't post your review. Try again.",
-  );
-}
 
 const REVIEW_GRADE_OPTIONS: ReadonlyArray<{
   key: ReviewGrade;

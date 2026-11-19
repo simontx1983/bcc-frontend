@@ -46,6 +46,17 @@ export function isCode(err: unknown, code: string): boolean {
 }
 
 /**
+ * The server's wait on a rate-limit 429, in whole seconds, or null when it
+ * sent none (or an unusable value). Contract §1.4.4 (v1.176, F-289):
+ * `data.retry_after_seconds` is the time LEFT on the limit that refused.
+ */
+export function retryAfterSeconds(err: unknown): number | null {
+  if (!isCode(err, "bcc_rate_limited")) return null;
+  const hinted = (err as BccApiError).data?.["retry_after_seconds"];
+  return typeof hinted === "number" && Number.isFinite(hinted) && hinted > 0 ? hinted : null;
+}
+
+/**
  * Codes for which re-issuing an *identical* read cannot succeed, so a
  * failure state must not offer a Retry control. A button that fails the
  * same way on every press is worse than no button.
