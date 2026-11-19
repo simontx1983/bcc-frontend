@@ -37,7 +37,7 @@
  * navigation alone).
  */
 
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useState } from "react";
 
 import { DiscoverPanel } from "@/components/feed/DiscoverPanel";
 import { FeedItemCard } from "@/components/feed/FeedItemCard";
@@ -220,7 +220,11 @@ export function FeedBody(props: FeedBodyProps) {
   // Sentinel for IntersectionObserver auto-load. Sits just above the
   // "Load more" button so it scrolls into view (with the 400px root
   // margin) before the button visually crests the viewport.
-  const sentinelRef = useRef<HTMLDivElement>(null);
+  //
+  // A callback ref into state, not a useRef: the sentinel mounts only once
+  // rows exist, which can happen with no change to the observer effect's
+  // other deps. A plain ref would leave that late-mounted node unobserved.
+  const [sentinel, setSentinel] = useState<HTMLDivElement | null>(null);
 
   // Stable load-more callback. Guard against duplicate dispatches when
   // the observer fires repeatedly while a fetch is already in flight.
@@ -240,7 +244,7 @@ export function FeedBody(props: FeedBodyProps) {
   // fallback path.
   useEffect(() => {
     if (typeof IntersectionObserver === "undefined") return undefined;
-    const node = sentinelRef.current;
+    const node = sentinel;
     if (node === null) return undefined;
     if (!hasNextPage) return undefined;
 
@@ -257,7 +261,7 @@ export function FeedBody(props: FeedBodyProps) {
     return () => {
       observer.disconnect();
     };
-  }, [handleLoadMore, hasNextPage]);
+  }, [sentinel, handleLoadMore, hasNextPage]);
 
   // Flatten paginated pages into one list — memoized so it isn't rebuilt into a
   // new array (and new downstream identities) on every render (perf-audit F5).
@@ -279,7 +283,9 @@ export function FeedBody(props: FeedBodyProps) {
     if (keepAutoFetching && !isFetchingNextPage) fetchNextPage();
   }, [keepAutoFetching, isFetchingNextPage, fetchNextPage]);
 
-  if (isLoading || keepAutoFetching || (emptyRun && isFetchingNextPage)) {
+  // Past the bound, a manual Load more does NOT fall back to the skeleton:
+  // that would unmount the button the viewer just pressed and drop focus.
+  if (isLoading || keepAutoFetching) {
     return <FeedSkeleton />;
   }
 
@@ -316,17 +322,33 @@ export function FeedBody(props: FeedBodyProps) {
   // The auto-fetch bound was reached and every page was still filtered
   // empty. The server says more exist, so this is not the empty state:
   // the viewer pages on by hand (no sentinel, so nothing spins).
+  //
+  // The block stays mounted while that manual fetch runs and is swapped
+  // out only when rows arrive, so keyboard focus stays on the button.
+  // `aria-disabled` + `aria-busy`, not `disabled`: the browser blurs a
+  // focused control that turns disabled (same reason as
+  // ProfileUnavailable's isBusy). handleLoadMore already ignores a press
+  // while a fetch is in flight.
   if (emptyRun) {
     return (
       <div className="flex flex-col items-center gap-3 py-8">
         <p className="bcc-mono text-center text-[11px] text-bcc-text-secondary">No posts to show so far.</p>
-        <button
-          type="button"
-          onClick={handleLoadMore}
-          className="bcc-stencil rounded-lg border border-[var(--bcc-border)] px-6 py-2.5 text-[var(--bcc-text-secondary)] transition-colors hover:border-[var(--bcc-accent)] hover:text-[var(--bcc-accent)]"
-        >
-          Load more
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={handleLoadMore}
+            aria-disabled={isFetchingNextPage}
+            aria-busy={isFetchingNextPage}
+            className="bcc-stencil rounded-lg border border-[var(--bcc-border)] px-6 py-2.5 text-[var(--bcc-text-secondary)] transition-colors hover:border-[var(--bcc-accent)] hover:text-[var(--bcc-accent)] aria-disabled:cursor-wait aria-disabled:opacity-60"
+          >
+            Load more
+          </button>
+          {isFetchingNextPage && (
+            <span className="text-[var(--bcc-accent)]">
+              <Spinner size={18} />
+            </span>
+          )}
+        </div>
       </div>
     );
   }
@@ -380,7 +402,7 @@ export function FeedBody(props: FeedBodyProps) {
               effectively invisible but still observable. Only with rows
               above it: on an empty list it would sit in view and page
               forever past the empty-run bound. */}
-          {items.length > 0 && <div ref={sentinelRef} aria-hidden className="h-px" />}
+          {items.length > 0 && <div ref={setSentinel} aria-hidden className="h-px" />}
           {isFetchingNextPage ? (
             <div className="mt-4 flex justify-center py-2.5 text-[var(--bcc-accent)]">
               <Spinner size={22} />
