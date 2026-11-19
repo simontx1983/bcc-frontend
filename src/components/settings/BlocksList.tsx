@@ -10,10 +10,12 @@
  *
  * A row can name nobody. `POST /me/blocks` accepts any positive user id
  * (so it cannot tell a member which ids exist), and a member can be
- * deleted after being blocked. Either way the server sends that row with
- * an empty handle, display_name and profile_url. It still renders, as
- * "Unknown account", and its Unblock still works: unblocking only needs
- * the `user_id`. No row here links to a profile.
+ * deleted after being blocked. Today the server still names such a row
+ * with a `member-<id>` fallback, which renders like any other handle. A
+ * pending bcc-trust change sends an empty handle, display_name and
+ * profile_url instead (also for a profile the blocker can't see). Such a
+ * row renders as "Unknown account", and its Unblock still works:
+ * unblocking only needs the `user_id`. No row here links to a profile.
  */
 
 import { useEffect, useState } from "react";
