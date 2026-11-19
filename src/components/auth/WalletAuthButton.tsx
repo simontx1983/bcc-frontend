@@ -200,111 +200,122 @@ export function WalletAuthButton(props: WalletAuthButtonProps) {
     }
   }
 
-  // ── The account exists; signing in did not finish ─────────────
-  // No chain picker and no "Sign up" button: the account is created and
-  // its wallet is fixed. Not gated on props.disabled either — the parent's
-  // form (the handle) no longer matters.
-  if (unfinished !== null) {
-    return (
-      <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-        <div role="alert" className="bcc-auth-success">
-          <div className="bcc-auth-success-icon">
-            <CheckCircle2 size={20} strokeWidth={2.2} aria-hidden />
-          </div>
-          <p className="bcc-auth-success-title">Account created — sign in</p>
-          <p className="bcc-auth-success-body">
-            Your account is ready and this wallet is linked to it. Signing in
-            didn&apos;t finish: {unfinished.reason}
-          </p>
-        </div>
-
-        <button
-          type="button"
-          onClick={() => { void finishSignIn(unfinished); }}
-          disabled={pending}
-          className="bcc-auth-submit"
-        >
-          {pending ? "Waiting for wallet…" : "Sign in with wallet"}
-        </button>
-
-        {pending && (
-          <p role="status" className="bcc-auth-hint" style={{ textAlign: "center" }}>
-            {WALLET_SIGNUP_STEP_COPY.step2}
-          </p>
-        )}
-
-        <p className="bcc-auth-hint" style={{ textAlign: "center" }}>
-          You can also sign in with this wallet later from the{" "}
-          <Link href="/login">sign-in page</Link>.
-        </p>
-      </div>
-    );
-  }
+  // One alert region, mounted with the control, whose text changes: a live
+  // region inserted already holding its text is often not read (#328). It
+  // shows a wallet error, or reads out the account-created notice (which
+  // the panel below shows).
+  const alertText =
+    unfinished !== null
+      ? `Account created — sign in. Signing in didn't finish: ${unfinished.reason}`
+      : (error ?? "");
+  const alertClass = unfinished === null && error !== null ? "bcc-auth-error" : "sr-only";
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-      <div className="bcc-auth-field">
-        <label className="bcc-auth-label" htmlFor="wallet-chain">Wallet chain</label>
-        <div className="bcc-auth-select-wrap">
-          <select
-            id="wallet-chain"
-            value={chainSlug}
-            onChange={(e) => setChainSlug(e.target.value)}
-            disabled={pending || props.disabled === true}
-            className="bcc-auth-input bcc-auth-select"
+      {unfinished !== null ? (
+        // ── The account exists; signing in did not finish ─────────
+        // No chain picker and no "Sign up" button: the account is created
+        // and its wallet is fixed. Not gated on props.disabled either — the
+        // parent's form (the handle) no longer matters.
+        <div key="unfinished" style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+          <div className="bcc-auth-success">
+            <div className="bcc-auth-success-icon">
+              <CheckCircle2 size={20} strokeWidth={2.2} aria-hidden />
+            </div>
+            <p className="bcc-auth-success-title">Account created — sign in</p>
+            <p className="bcc-auth-success-body">
+              Your account is ready and this wallet is linked to it. Signing in
+              didn&apos;t finish: {unfinished.reason}
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => { void finishSignIn(unfinished); }}
+            disabled={pending}
+            className="bcc-auth-submit"
           >
-            {GROUPED_CHAINS.map((group) => (
-              <optgroup key={group.chainType} label={group.label} style={{
-                  background: "var(--bcc-primary)",
-                  fontWeight: "bold",
-                  padding: "44px 8px",
-                }}>
-                {group.options.map((opt) => (
-                  <option key={opt.slug} value={opt.slug}>{opt.label}</option>
-                ))}
-              </optgroup>
-            ))}
-          </select>
-          <span className="bcc-auth-select-arrow" aria-hidden="true">
-            <ChevronDown size={12} strokeWidth={2.5} />
-          </span>
+            {pending ? "Waiting for wallet…" : "Sign in with wallet"}
+          </button>
+
+          {/* Mounted empty with the panel, filled while the retry runs (#328). */}
+          <p
+            role="status"
+            className={pending ? "bcc-auth-hint" : "sr-only"}
+            style={{ textAlign: "center" }}
+          >
+            {pending ? WALLET_SIGNUP_STEP_COPY.step2 : ""}
+          </p>
+
+          <p className="bcc-auth-hint" style={{ textAlign: "center" }}>
+            You can also sign in with this wallet later from the{" "}
+            <Link href="/login">sign-in page</Link>.
+          </p>
         </div>
-      </div>
+      ) : (
+        <div key="form" style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+          <div className="bcc-auth-field">
+            <label className="bcc-auth-label" htmlFor="wallet-chain">Wallet chain</label>
+            <div className="bcc-auth-select-wrap">
+              <select
+                id="wallet-chain"
+                value={chainSlug}
+                onChange={(e) => setChainSlug(e.target.value)}
+                disabled={pending || props.disabled === true}
+                className="bcc-auth-input bcc-auth-select"
+              >
+                {GROUPED_CHAINS.map((group) => (
+                  <optgroup key={group.chainType} label={group.label} style={{
+                      background: "var(--bcc-primary)",
+                      fontWeight: "bold",
+                      padding: "44px 8px",
+                    }}>
+                    {group.options.map((opt) => (
+                      <option key={opt.slug} value={opt.slug}>{opt.label}</option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
+              <span className="bcc-auth-select-arrow" aria-hidden="true">
+                <ChevronDown size={12} strokeWidth={2.5} />
+              </span>
+            </div>
+          </div>
 
-      <button
-        type="button"
-        onClick={() => { void run(); }}
-        disabled={pending || props.disabled === true}
-        className="bcc-auth-submit bcc-auth-submit--outline"
-      >
-        {pending ? "Waiting for wallet…" : buttonLabel}
-      </button>
+          <button
+            type="button"
+            onClick={() => { void run(); }}
+            disabled={pending || props.disabled === true}
+            className="bcc-auth-submit bcc-auth-submit--outline"
+          >
+            {pending ? "Waiting for wallet…" : buttonLabel}
+          </button>
 
-      {/* F-252: say up front that sign-up takes two signatures, and number
-          them while they run, so the second prompt is never a surprise. */}
-      {isSignup && (
-        <p role="status" className="bcc-auth-hint" style={{ textAlign: "center" }}>
-          {step === 1
-            ? WALLET_SIGNUP_STEP_COPY.step1
-            : step === 2
-            ? WALLET_SIGNUP_STEP_COPY.step2
-            : WALLET_SIGNUP_STEP_COPY.before}
-        </p>
+          {/* F-252: say up front that sign-up takes two signatures, and number
+              them while they run, so the second prompt is never a surprise. */}
+          {isSignup && (
+            <p role="status" className="bcc-auth-hint" style={{ textAlign: "center" }}>
+              {step === 1
+                ? WALLET_SIGNUP_STEP_COPY.step1
+                : step === 2
+                ? WALLET_SIGNUP_STEP_COPY.step2
+                : WALLET_SIGNUP_STEP_COPY.before}
+            </p>
+          )}
+
+          {selectedChain !== undefined && (
+            <p
+              className="bcc-mono"
+              style={{ textAlign: "center", fontSize: 10, letterSpacing: "0.18em", color: "var(--bcc-text-secondary)" }}
+              aria-live="polite"
+            >
+              {walletHintFor(selectedChain.chainType)}
+            </p>
+          )}
+        </div>
       )}
 
-      {selectedChain !== undefined && (
-        <p
-          className="bcc-mono"
-          style={{ textAlign: "center", fontSize: 10, letterSpacing: "0.18em", color: "var(--bcc-text-secondary)" }}
-          aria-live="polite"
-        >
-          {walletHintFor(selectedChain.chainType)}
-        </p>
-      )}
-
-      {error !== null && (
-        <p role="alert" className="bcc-auth-error">{error}</p>
-      )}
+      <p key="alert" role="alert" className={alertClass}>{alertText}</p>
     </div>
   );
 }

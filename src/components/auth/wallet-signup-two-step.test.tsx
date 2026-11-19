@@ -200,7 +200,7 @@ describe("a failure before the account exists is still a plain error", () => {
     renderSignup();
     fireEvent.click(signUpButton());
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("That handle is already taken.");
+    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("That handle is already taken."));
     expect(accountCreated()).toBeNull();
     expect(signUpButton()).toBeInTheDocument();
     expect(h.signIn).not.toHaveBeenCalled();
@@ -211,7 +211,7 @@ describe("a failure before the account exists is still a plain error", () => {
     renderSignup();
     fireEvent.click(signUpButton());
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("Wallet signing was canceled.");
+    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("Wallet signing was canceled."));
     expect(accountCreated()).toBeNull();
     expect(h.walletSignup).not.toHaveBeenCalled();
   });
@@ -221,7 +221,50 @@ describe("a failure before the account exists is still a plain error", () => {
     render(<WalletAuthButton mode="login" onSuccess={onSuccess} />);
     fireEvent.click(screen.getByRole("button", { name: "Sign in with wallet" }));
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("Wallet sign-in failed. Try again.");
+    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("Wallet sign-in failed. Try again."));
     expect(accountCreated()).toBeNull();
+  });
+});
+
+describe("live regions are mounted before their text arrives (#328)", () => {
+  it("the account-created notice fills the alert region that was already there", async () => {
+    h.signIn.mockResolvedValue({ ok: false, error: "CredentialsSignin" });
+    renderSignup();
+    const region = screen.getByRole("alert");
+    expect(region).toHaveTextContent("");
+    fireEvent.click(signUpButton());
+
+    await screen.findByText("Account created — sign in");
+    expect(screen.getByRole("alert")).toBe(region);
+    expect(region).toHaveTextContent("Account created — sign in. Signing in didn't finish:");
+  });
+
+  it("a plain error fills the same region, visibly", async () => {
+    h.walletSignup.mockRejectedValue(new BccApiError("bcc_conflict", "raw", 409, null));
+    renderSignup();
+    const region = screen.getByRole("alert");
+    expect(region.className).toContain("sr-only");
+    fireEvent.click(signUpButton());
+
+    await waitFor(() => expect(region).toHaveTextContent("That handle is already taken."));
+    expect(screen.getByRole("alert")).toBe(region);
+    expect(region.className).toContain("bcc-auth-error");
+  });
+
+  it("the retry's Step 2 of 2 fills a status region mounted empty with the panel", async () => {
+    h.signIn.mockResolvedValueOnce({ ok: false, error: "CredentialsSignin" });
+    renderSignup();
+    fireEvent.click(signUpButton());
+    await screen.findByText("Account created — sign in");
+    const status = screen.getByRole("status");
+    expect(status).toHaveTextContent("");
+
+    const second = deferred<{ signature: string; extra: Record<string, string> }>();
+    h.sign.mockReturnValueOnce(second.promise);
+    fireEvent.click(finishButton());
+    await waitFor(() => expect(status).toHaveTextContent(WALLET_SIGNUP_STEP_COPY.step2));
+    expect(screen.getByRole("status")).toBe(status);
+    second.resolve({ signature: "sig-3", extra: {} });
+    await waitFor(() => expect(onSuccess).toHaveBeenCalledTimes(1));
   });
 });
