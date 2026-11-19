@@ -52,9 +52,14 @@ interface UseInlineComposerSubmitArgs {
    * PATCH carries whatever the author had typed when the upload landed.
    */
   altText: string;
-  onStatusSuccess: () => void;
-  onPhotoSuccess: () => void;
-  onGifSuccess: () => void;
+  /**
+   * Each success callback receives the new post's `feed_id` (from the
+   * create response), so the composer can link to it (F-258 M6). Null
+   * when the server sent none.
+   */
+  onStatusSuccess: (feedId: string | null) => void;
+  onPhotoSuccess: (feedId: string | null) => void;
+  onGifSuccess: (feedId: string | null) => void;
   onError: (message: string) => void;
 }
 
@@ -76,9 +81,11 @@ export function useInlineComposerSubmit({
   onError,
 }: UseInlineComposerSubmitArgs) {
   const statusMutation = useCreatePostMutation({
-    onSuccess: () => {
+    onSuccess: (response) => {
       capturePostPublished("status", groupId !== undefined, visibility, hallFeed);
-      onStatusSuccess();
+      // CreatePostResponse is a union (status / review / blog); only the
+      // status and review shapes carry `feed_id`.
+      onStatusSuccess("feed_id" in response ? response.feed_id : null);
     },
     onError: (err) => onError(humanizeError(err)),
   });
@@ -103,15 +110,15 @@ export function useInlineComposerSubmit({
         photoAltMutation.mutate({ pho_id: response.photo_id, alt: cleanedAlt });
       }
       capturePostPublished("photo", groupId !== undefined, visibility, hallFeed);
-      onPhotoSuccess();
+      onPhotoSuccess(response.feed_id);
     },
     onError: (err) => onError(humanizeError(err)),
   });
 
   const gifMutation = useCreateGifPostMutation({
-    onSuccess: () => {
+    onSuccess: (response) => {
       capturePostPublished("gif", groupId !== undefined, visibility, hallFeed);
-      onGifSuccess();
+      onGifSuccess(response.feed_id);
     },
     onError: (err) => onError(humanizeError(err)),
   });

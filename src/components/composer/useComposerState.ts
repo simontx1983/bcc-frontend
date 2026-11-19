@@ -137,6 +137,17 @@ export function useComposerState({ groupId, hallFeed, pageId, initialExpanded, o
   const containerRef = useRef<HTMLDivElement>(null);
   const textareaRef  = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // The collapsed "What's the…" button: focus returns here after a post.
+  const triggerRef   = useRef<HTMLButtonElement>(null);
+
+  // F-258 M6: a successful post used to just collapse the card. Nothing
+  // said it worked (on a ranked feed the post may not even be at the top)
+  // and focus fell to <body> with the unmounted textarea. `posted` feeds
+  // the composer's status line and its "View post" link; `seq` makes
+  // each post a fresh event, so a second post is announced as well.
+  const [posted, setPosted] = useState<{ seq: number; feedId: string | null } | null>(null);
+  const postedSeq = useRef(0);
+  const focusTriggerAfterPost = useRef(false);
 
   // Giphy integration — fetched once per session, cached. Drives the
   // GIF button visibility (admin disabled → button hidden entirely
@@ -168,37 +179,52 @@ export function useComposerState({ groupId, hallFeed, pageId, initialExpanded, o
     clearGif();
   };
 
+  // Shared tail of every successful submit: reset the draft, collapse,
+  // say it worked, and send focus back to the trigger once it is
+  // focusable again (it is inert while the form is open).
+  const finishPost = (feedId: string | null) => {
+    setContent("");
+    setVisibility("members_only");
+    setError(null);
+    setExpanded(false);
+    postedSeq.current += 1;
+    setPosted({ seq: postedSeq.current, feedId });
+    focusTriggerAfterPost.current = true;
+    onClose?.();
+  };
+
   const { isPending, submit } = useInlineComposerSubmit({
     groupId,
     visibility,
     hallFeed,
     pageId,
     altText,
-    onStatusSuccess: () => {
-      setContent("");
-      setVisibility("members_only");
-      setError(null);
-      setExpanded(false);
-      onClose?.();
+    onStatusSuccess: (feedId) => {
+      finishPost(feedId);
     },
-    onPhotoSuccess: () => {
-      setContent("");
+    onPhotoSuccess: (feedId) => {
       clearAttachment();
-      setVisibility("members_only");
-      setError(null);
-      setExpanded(false);
-      onClose?.();
+      finishPost(feedId);
     },
-    onGifSuccess: () => {
-      setContent("");
+    onGifSuccess: (feedId) => {
       clearGif();
-      setVisibility("members_only");
-      setError(null);
-      setExpanded(false);
-      onClose?.();
+      finishPost(feedId);
     },
     onError: setError,
   });
+
+  // After a post: the collapse has rendered and the trigger is no longer
+  // inert, so focus lands on it instead of falling to <body>.
+  useEffect(() => {
+    if (expanded || !focusTriggerAfterPost.current) return;
+    focusTriggerAfterPost.current = false;
+    triggerRef.current?.focus();
+  }, [expanded, posted]);
+
+  // A new draft starts: the last post's status line has served its turn.
+  useEffect(() => {
+    if (expanded) setPosted(null);
+  }, [expanded]);
 
   const trimmed = content.trim();
   const length  = content.length;
@@ -480,6 +506,9 @@ export function useComposerState({ groupId, hallFeed, pageId, initialExpanded, o
     setExpanded,
     promptIndex,
     setPromptPaused,
+    // F-258 M6: the last successful post + the trigger focus returns to
+    posted,
+    triggerRef,
     // body + validation
     content,
     setContent,
