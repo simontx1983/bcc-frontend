@@ -96,6 +96,22 @@ describe.each(ROUTES)("$name", ({ routeId, run }) => {
     expect(screen.getByTestId("post-unavailable")).toHaveAttribute("data-focus", "true");
   });
 
+  // A host-level 503 (LiteSpeed, a proxy) never reaches the BCC envelope.
+  // It must not fall through to global-error either.
+  it.each([["bcc_invalid_response"], ["bcc_unexpected_status"]])(
+    "a host-level 503 with no envelope (%s) gets the same retry state",
+    async (code) => {
+      getFeedItemById.mockRejectedValue(new BccApiError(code, "x", 503, null));
+      render(await run());
+      expect(screen.getByTestId("post-unavailable")).toHaveAttribute("data-route-id", routeId);
+    },
+  );
+
+  it("control: a code-less 502 is still rethrown", async () => {
+    getFeedItemById.mockRejectedValue(new BccApiError("bcc_invalid_response", "x", 502, null));
+    await expect(run()).rejects.toThrow("x");
+  });
+
   it("a 404 is still notFound()", async () => {
     getFeedItemById.mockRejectedValue(new BccApiError("bcc_not_found", "x", 404, null));
     await expect(run()).rejects.toThrow("NEXT_NOT_FOUND");

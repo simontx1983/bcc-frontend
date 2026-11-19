@@ -5,7 +5,7 @@
  *
  * Same shell pattern as `/p/[slug]`: server component + `generateMetadata`,
  * SSR fetch via `getFeedItemById`, 404 on `bcc_not_found`, and an in-page
- * "temporarily unavailable" with a retry on 503 `bcc_unavailable` (F-275).
+ * "temporarily unavailable" with a retry on any 503 (F-275).
  */
 
 import type { Metadata } from "next";
@@ -19,7 +19,7 @@ import { PostUnavailable } from "@/components/feed/PostUnavailable";
 import { authOptions } from "@/lib/auth";
 import { tokenFromSession } from "@/lib/api/client";
 import { ANON_SSR_REVALIDATE_SECONDS } from "@/lib/api/cache-policy";
-import { isCode } from "@/lib/api/errors";
+import { isServiceUnavailable } from "@/lib/api/errors";
 import { getFeedItemById } from "@/lib/api/feed-endpoints";
 import { buildPostMetadata } from "@/lib/og/post-metadata";
 import { BccApiError } from "@/lib/api/types";
@@ -64,8 +64,9 @@ export default async function PostPage({ params, searchParams }: PageProps) {
     }
     // F-275: the post could not be READ. That is not "not found", and
     // rethrowing it lands on global-error, outside the app shell with no
-    // way back. Answer in place, with a retry. See PostUnavailable.
-    if (isCode(err, "bcc_unavailable")) {
+    // way back. Answer in place, with a retry. See PostUnavailable. A
+    // host-level 503 with no BCC envelope counts too (isServiceUnavailable).
+    if (isServiceUnavailable(err)) {
       return (
         <div className="mx-auto max-w-2xl px-2 py-4 sm:px-0">
           <PostBackButton />

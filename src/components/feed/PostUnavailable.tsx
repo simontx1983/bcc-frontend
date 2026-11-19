@@ -3,7 +3,8 @@
 /**
  * PostUnavailable — what a post permalink shows when the server could not
  * read the post (F-275): `GET /feed/{id}`, numeric or shortcode, answered
- * 503 `bcc_unavailable`.
+ * 503 `bcc_unavailable`, or a host-level 503 that never reached the BCC
+ * envelope (`isServiceUnavailable`).
  *
  * ## What it must never say
  *
@@ -39,7 +40,8 @@
  * - Succeeded: the post, rendered as the page itself renders it.
  * - 404, 403 or 400: that identical read cannot succeed, so the state is
  *   terminal and offers no Retry (`isNonRetryableFixedReadFailure`).
- * - Anything else: the failure copy again, keyed on the code, with Retry.
+ * - Any 503, enveloped or not: the "temporarily unavailable" copy, with Retry.
+ * - Anything else: copy keyed on the code, with Retry.
  */
 
 import { PostDetail } from "@/components/feed/PostDetail";
@@ -47,7 +49,11 @@ import { PostRailRegistrar } from "@/components/feed/PostRailRegistrar";
 import { LoadFailure } from "@/components/ui/LoadFailure";
 import { useCachedFeedItemByPath } from "@/hooks/useCachedFeedItemByPath";
 import { useFeedItemRecovery } from "@/hooks/useFeed";
-import { humanizeCode, isNonRetryableFixedReadFailure } from "@/lib/api/errors";
+import {
+  humanizeCode,
+  isNonRetryableFixedReadFailure,
+  isServiceUnavailable,
+} from "@/lib/api/errors";
 
 /** The server's 503, in the house phrasing. Exported for the tests. */
 export const POST_UNAVAILABLE_COPY = "This post is temporarily unavailable. Try again.";
@@ -80,15 +86,15 @@ export function PostUnavailable({
     return <LoadFailure message={POST_NOT_AVAILABLE_COPY} />;
   }
 
-  // §γ — copy is keyed on err.code; never render err.message. Before any
-  // retry there is no client error, and the server's answer was the 503.
+  // §γ — copy is keyed on err.code (and a bare 503 status); never render
+  // err.message. Before any retry there is no client error, and the
+  // server's answer was the 503.
   const message =
-    recovery.error === null
+    recovery.error === null || isServiceUnavailable(recovery.error)
       ? POST_UNAVAILABLE_COPY
       : humanizeCode(
           recovery.error,
           {
-            bcc_unavailable: POST_UNAVAILABLE_COPY,
             bcc_rate_limited: "Loading too fast — give it a moment and try again.",
           },
           "Couldn't load this post. Try again in a moment.",

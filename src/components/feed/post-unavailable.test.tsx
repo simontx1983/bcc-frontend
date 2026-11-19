@@ -124,6 +124,30 @@ describe("a permalink the server could not read", () => {
     expect(getFeedItemByIdAsClient).toHaveBeenCalledTimes(2);
   });
 
+  // A 503 from the host or a proxy never reaches the BCC envelope; the
+  // client labels it by body shape, and only the status says what it was.
+  it.each([
+    ["bcc_invalid_response", "a non-JSON page"],
+    ["bcc_unexpected_status", "JSON with no envelope"],
+  ])("a retry answered by a host-level 503 (%s: %s) reads as unavailable, with Retry", async (code) => {
+    // Start from a different failure, so the return to the 503 copy is visible.
+    getFeedItemByIdAsClient.mockRejectedValueOnce(new TypeError("Failed to fetch"));
+    mount();
+    fireEvent.click(retryBtn()!);
+    await vi.waitFor(() =>
+      expect(screen.getByRole("alert")).toHaveTextContent("Couldn't load this post. Try again in a moment."),
+    );
+
+    getFeedItemByIdAsClient.mockRejectedValueOnce(new BccApiError(code, "RAW SERVER TEXT", 503, null));
+    fireEvent.click(retryBtn()!);
+    await vi.waitFor(() =>
+      expect(screen.getByRole("alert")).toHaveTextContent(POST_UNAVAILABLE_COPY),
+    );
+    expect(getFeedItemByIdAsClient).toHaveBeenCalledTimes(2);
+    expect(retryBtn()).not.toBeNull();
+    expect(document.body.textContent).not.toContain("RAW SERVER TEXT");
+  });
+
   it("a retry that answers 404 is terminal: no Retry against a missing post", async () => {
     getFeedItemByIdAsClient.mockRejectedValue(notFound());
     mount();

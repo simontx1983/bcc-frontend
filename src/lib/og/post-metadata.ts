@@ -13,7 +13,7 @@
 import type { Metadata } from "next";
 
 import { ANON_SSR_REVALIDATE_SECONDS } from "@/lib/api/cache-policy";
-import { isCode } from "@/lib/api/errors";
+import { isServiceUnavailable } from "@/lib/api/errors";
 import { getFeedItemById } from "@/lib/api/feed-endpoints";
 import { POST_KIND_LABELS, deriveBodySummary } from "@/components/feed/postBody";
 import { presentationName } from "@/lib/format";
@@ -45,8 +45,15 @@ export async function buildPostMetadata(id: string): Promise<Metadata> {
     // so the tab must not say "not found" while the page offers a retry.
     // (A 503 is never written to the Data Cache: Next 15 only caches a
     // 200, so the next load asks again.)
-    if (isCode(err, "bcc_unavailable")) {
-      return { title: "Post temporarily unavailable · Blue Collar Crypto" };
+    //
+    // `noindex`: the page answers this state in place, so the document
+    // streams as HTTP 200. Without it a crawler that hit the outage could
+    // index "Post temporarily unavailable" as the post's page.
+    if (isServiceUnavailable(err)) {
+      return {
+        title: "Post temporarily unavailable · Blue Collar Crypto",
+        robots: { index: false },
+      };
     }
     return { title: "Post not found · Blue Collar Crypto" };
   }

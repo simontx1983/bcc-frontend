@@ -156,6 +156,25 @@ export function isNonRetryableFixedReadFailure(err: unknown): boolean {
 }
 
 /**
+ * The read did not run, so it says nothing about the resource: show
+ * "temporarily unavailable" with a Retry, never "not found".
+ *
+ *   - `bcc_unavailable`: the server's own answer (contract "Feed read
+ *     failure", F-275).
+ *   - Any 503, whatever the code. A 503 from the host or a proxy (a
+ *     LiteSpeed HTML page, say) never reaches the BCC envelope, so the
+ *     client labels it `bcc_invalid_response` (non-JSON body) or
+ *     `bcc_unexpected_status` (JSON, no envelope). Only the status says
+ *     what happened.
+ *
+ * Other 5xx are left to each call site: a 500 is not a promise that the
+ * same read will work shortly.
+ */
+export function isServiceUnavailable(err: unknown): boolean {
+  return err instanceof BccApiError && (err.code === "bcc_unavailable" || err.status === 503);
+}
+
+/**
  * Map a BccApiError onto call-site-owned copy without ever leaking the
  * server's `error.message` through to the UI.
  *
