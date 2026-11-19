@@ -594,6 +594,21 @@ export function SiteHeader() {
   // Mobile search overlay open state
   const [searchOverlayOpen, setSearchOverlayOpen] = useState(false);
   const searchIconRef = useRef<HTMLButtonElement>(null);
+  // What the overlay's input opens holding: on /search, the page's query
+  // (F-260 M12), so refining a search doesn't mean retyping it. Read from
+  // window.location when the overlay opens, not via useSearchParams,
+  // which would need a Suspense boundary around the whole header.
+  const [searchOverlayPrefill, setSearchOverlayPrefill] = useState("");
+  const toggleSearchOverlay = () => {
+    if (!searchOverlayOpen) {
+      setSearchOverlayPrefill(
+        pathname === "/search"
+          ? (new URLSearchParams(window.location.search).get("q") ?? "").trim()
+          : "",
+      );
+    }
+    setSearchOverlayOpen((o) => !o);
+  };
 
   // Restore theme preference on mount
   useEffect(() => {
@@ -668,7 +683,7 @@ export function SiteHeader() {
         {isMobile && (
           <button
             ref={searchIconRef}
-            onClick={() => setSearchOverlayOpen(o => !o)}
+            onClick={toggleSearchOverlay}
             className="bcc-btn-icon bcc-header-search-icon-btn"
             aria-label="Search"
             title="Search"
@@ -821,6 +836,7 @@ export function SiteHeader() {
             <input
               autoFocus
               type="search"
+              defaultValue={searchOverlayPrefill}
               placeholder="Search BCC…"
               className="bcc-search-input"
               style={{ width: "100%" }}
