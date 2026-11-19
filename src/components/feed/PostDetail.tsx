@@ -30,6 +30,7 @@ import { CommentDrawer } from "@/components/feed/CommentDrawer";
 import { PostActionBar } from "@/components/feed/PostActionBar";
 import { PostOverflowMenu } from "@/components/feed/PostOverflowMenu";
 import { ReactorStack } from "@/components/feed/ReactorStack";
+import { RepostedPostPreview } from "@/components/feed/RepostBlocks";
 import { VerificationBadge } from "@/components/groups/VerificationBadge";
 import { AuthorBadge } from "@/components/identity/AuthorBadge";
 import { formatAbsoluteDateTime } from "@/lib/format";
@@ -162,6 +163,9 @@ export function PostDetail({
           {renderTextWithMentions(summary, readMentions(item.body))}
         </p>
       )}
+
+      {/* F-346: a repost's permalink nests the original, read-only. */}
+      {item.repost_of != null && <RepostedPostPreview original={item.repost_of} />}
 
       <ReactorStack social_proof={item.social_proof} />
 

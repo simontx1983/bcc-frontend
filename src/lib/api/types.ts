@@ -1309,6 +1309,26 @@ export interface FeedItem {
    * then and is not a statement about who operates the validator now.
    */
   page_context?: FeedPageContext | null;
+  /*
+   * F-346 reposts. Every repost field is keyed on the item's ROOT (a
+   * non-repost is its own root), so a plain or quote repost reports the
+   * original's numbers — tapping Repost on either reposts the original.
+   * All optional until the read side ships: absent = no repost UI.
+   */
+  /** Distinct members with a PLAIN repost of the root; null = could not be read. */
+  repost_count?: number | null;
+  /** Quote reposts of the root; null = could not be read. */
+  quote_count?: number | null;
+  /** Whether the viewer has a PLAIN repost of the root. */
+  viewer_has_reposted?: boolean;
+  /**
+   * Non-null only on a repost: the ROOT, as a full FeedItem (its own
+   * `repost_of` is always null). `author` / `body` on this item are the
+   * reposter's — the body is the quote, empty on a plain repost.
+   */
+  repost_of?: FeedItem | null;
+  /** Server-decided, after trimming: true when the reposter added text. */
+  repost_quote?: boolean;
 }
 
 export interface FeedPageContext {
@@ -1317,6 +1337,30 @@ export interface FeedPageContext {
   handle: string;
   url: string;
   label: string;
+}
+
+/**
+ * F-346 — what POST|DELETE /feed/{id}/repost and POST /feed/{id}/quote
+ * return. `root_feed_id` ("feed_<n>") is the post the counts belong to,
+ * which differs from the id sent when that id is itself a repost. Both
+ * counts are `null` when they could not be read, even after a successful
+ * write — never render that as 0.
+ */
+export interface RepostState {
+  root_feed_id: string;
+  repost_count: number | null;
+  quote_count: number | null;
+  viewer_has_reposted: boolean;
+}
+
+/** POST /feed/{id}/quote body: required, 1–500 characters after trimming. */
+export interface QuoteRepostRequest {
+  body: string;
+}
+
+export interface QuoteRepostResponse extends RepostState {
+  /** The new quote post. */
+  quote_feed_id: string;
 }
 
 export interface FeedPagination {
