@@ -240,7 +240,7 @@ describe("verify-email: the pending address went to another account", () => {
     expectEmailTakenCard();
   });
 
-  it("the other 409, bcc_already_verified, keeps its own line on the form", async () => {
+  it("the other 409, bcc_already_verified, gets its own card (F-263 M30), never this one", async () => {
     stashPendingVerificationEmail("jo@example.com");
     h.verifyEmail.mockRejectedValue(new BccApiError("bcc_already_verified", "raw", 409, null));
     render(<VerifyEmailPage />);
@@ -248,9 +248,7 @@ describe("verify-email: the pending address went to another account", () => {
     fireEvent.change(screen.getByLabelText("Verification code"), { target: { value: "123456" } });
     fireEvent.click(screen.getByRole("button", { name: "Verify email" }));
 
-    expect(await screen.findByRole("alert")).toHaveTextContent(
-      "This email is already verified. Sign in to continue.",
-    );
+    expect(await screen.findByText("Already verified")).toBeInTheDocument();
     expect(screen.queryByText("Email already in use")).toBeNull();
   });
 });
