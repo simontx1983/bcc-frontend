@@ -19,11 +19,13 @@
  *    stops a new unconditional `behavior: "smooth"` from landing.
  */
 
-import { readdirSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 import postcss, { type AtRule, type Container, type Declaration, type Document, type Rule } from "postcss";
 import { describe, expect, it } from "vitest";
+
+import { isScript, isTestFile, sourceFiles } from "@/app/source-tree.testing";
 
 const CSS_PATH = resolve(process.cwd(), "src/app/globals.css");
 const ROOT = postcss.parse(readFileSync(CSS_PATH, "utf-8"), { from: CSS_PATH });
@@ -105,8 +107,6 @@ describe("globals.css — scroll-behavior under reduced motion (F-426)", () => {
 
 // ── ratchet: no new unconditional smooth script scroll ─────────────────
 
-const SRC = resolve(process.cwd(), "src");
-
 /**
  * Files allowed to keep an unconditional smooth scroll, each with its reason.
  * PostDetail.tsx is out of F-426's scope: FE #326 (F-346) is already
@@ -118,19 +118,6 @@ const ALLOWED: Readonly<Record<string, string>> = {
   "components/feed/PostDetail.tsx": "fixed inside FE #326",
 };
 
-function walk(dir: string): string[] {
-  const out: string[] = [];
-  for (const entry of readdirSync(dir, { withFileTypes: true })) {
-    const full = resolve(dir, entry.name);
-    if (entry.isDirectory()) {
-      out.push(...walk(full));
-    } else if (/\.tsx?$/.test(entry.name) && !/\.test\.tsx?$/.test(entry.name)) {
-      out.push(full);
-    }
-  }
-  return out;
-}
-
 /** A literal smooth behaviour, a Tailwind `scroll-smooth`, or an inline scrollBehavior. */
 const UNCONDITIONAL_SMOOTH = [
   /\bbehavior\s*:\s*["'`]smooth["'`]/,
@@ -138,15 +125,15 @@ const UNCONDITIONAL_SMOOTH = [
   /(^|[\s"'`])scroll-smooth(?=[\s"'`]|$)/,
 ];
 
-// Scanned once at load (like dead-symbol-removal.test.ts): walking the
-// whole tree inside a test can outrun the per-test timeout on a busy runner.
+// Scanned once at load through the shared walk (F-449): walking the whole
+// tree inside a test can outrun the per-test timeout on a busy runner.
 const OFFENDERS: string[] = [];
 /** ALLOWED paths that still contain a matching line. */
 const ALLOWED_STILL_MATCHING = new Set<string>();
-for (const file of walk(SRC)) {
-  const path = file.slice(SRC.length + 1).replace(/\\/g, "/");
+for (const file of sourceFiles().filter((f) => isScript(f.rel) && !isTestFile(f.rel))) {
+  const path = file.rel;
   // Comments stripped: prose that names the pattern is not a call.
-  const code = readFileSync(file, "utf-8")
+  const code = file.code
     .replace(/\/\*[\s\S]*?\*\//g, "")
     .replace(/(?<!:)\/\/.*$/gm, "");
   code.split(/\r?\n/).forEach((line, i) => {
