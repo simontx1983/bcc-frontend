@@ -425,7 +425,10 @@ function FieldInput({ field, value, onChange, disabled }: FieldInputProps) {
                 key={opt.value}
                 className={
                   // Tag-chip grammar: the sanctioned 36px compact size.
-                  "bcc-mono inline-flex min-h-[36px] cursor-pointer items-center gap-2 border-2 px-3 py-1 text-[11px] transition " +
+                  // F-444: the checkbox inside is sr-only, so the global
+                  // focus ring would draw on a 1px clipped box; the chip
+                  // shows it instead while the checkbox has keyboard focus.
+                  "bcc-mono inline-flex min-h-[36px] cursor-pointer items-center gap-2 border-2 px-3 py-1 text-[11px] transition has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-[color:var(--bcc-accent)] " +
                   (selected
                     ? "border-bcc-accent bg-bcc-accent-subtle text-bcc-text"
                     : "border-bcc-border text-bcc-text-secondary hover:border-bcc-border-strong")
@@ -436,7 +439,10 @@ function FieldInput({ field, value, onChange, disabled }: FieldInputProps) {
                   checked={selected}
                   onChange={() => toggle(opt.value)}
                   disabled={disabled}
-                  className="hidden"
+                  // F-444: sr-only, not `hidden`. display:none took the
+                  // checkbox out of the tab order, so a keyboard could not
+                  // reach or toggle any chip.
+                  className="sr-only"
                 />
                 {opt.label}
               </label>
@@ -499,7 +505,9 @@ function VisibilityPicker({
         value={value}
         onChange={(e) => onChange(e.target.value as ProfileFieldVisibility)}
         disabled={disabled}
-        className="bcc-mono min-h-[44px] border border-bcc-input-border bg-bcc-input-bg px-2 py-1 text-[10px] tracking-[0.14em] text-bcc-text outline-none focus:border-bcc-accent focus:ring-1 focus:ring-bcc-accent disabled:opacity-50"
+        // F-443: 16px, not 10px. iOS Safari zooms the page into any form
+        // control under 16px on focus, and does not zoom back out.
+        className="bcc-mono min-h-[44px] border border-bcc-input-border bg-bcc-input-bg px-2 py-1 text-base tracking-[0.06em] text-bcc-text outline-none focus:border-bcc-accent focus:ring-1 focus:ring-bcc-accent disabled:opacity-50"
         aria-label={`Who can see ${fieldLabel}`}
       >
         {VISIBILITY_OPTIONS.map((opt) => (

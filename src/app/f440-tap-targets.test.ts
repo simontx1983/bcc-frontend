@@ -15,6 +15,10 @@
  *
  * Each file also has a floor on how many controls the scan found, so a scan
  * that stops matching fails instead of passing over nothing.
+ *
+ * F-443 / F-444 (ProfileFieldsList follow-ups found during F-440) reuse the
+ * same scanner at the end of this file: no form control under 16px, and no
+ * display:none checkbox.
  */
 
 import { readFileSync } from "node:fs";
@@ -65,7 +69,7 @@ function openTagAt(src: string, start: number): string {
   throw new Error(`unterminated tag at ${start}`);
 }
 
-function openTags(src: string, tag: "button" | "select"): string[] {
+function openTags(src: string, tag: "button" | "select" | "input"): string[] {
   const out: string[] = [];
   const re = new RegExp(`<${tag}[\\s>]`, "g");
   for (let m = re.exec(src); m !== null; m = re.exec(src)) {
@@ -173,5 +177,42 @@ describe("F-440 — HIT_AREA_44 neighbours are spaced apart", () => {
 
   it("the attachment remove box only grows down and left, never over the textarea", () => {
     expect(src).toMatch(/className="group absolute -right-3 -top-1\.5 inline-flex h-11 w-11 items-start justify-end pr-1\.5"/);
+  });
+});
+
+const PROFILE_FIELDS = "src/components/settings/profile/ProfileFieldsList.tsx";
+
+describe("F-443 — no ProfileFieldsList form control under 16px", () => {
+  // iOS Safari zooms the page into a focused control whose font is under
+  // 16px, and leaves it zoomed. The visibility select was text-[10px].
+  const SMALL_TEXT = /\btext-\[(?:[0-9]|1[0-5])px\]|\btext-(?:xs|sm)\b/;
+
+  it("every select and input", () => {
+    const src = read(PROFILE_FIELDS);
+    const tags = [...openTags(src, "select"), ...openTags(src, "input")];
+    // 2 selects + date, url, email, radio, checkbox, text inputs.
+    expect(tags.length).toBeGreaterThanOrEqual(8);
+    expect(tags.filter((t) => SMALL_TEXT.test(classesOf(t, src)))).toEqual([]);
+  });
+});
+
+describe("F-444 — the multi-select chips are reachable by keyboard", () => {
+  const src = read(PROFILE_FIELDS);
+
+  it("no checkbox is display:none; the chip's checkbox is sr-only", () => {
+    const boxes = openTags(src, "input").filter((t) => /type="checkbox"/.test(t));
+    expect(boxes.length).toBeGreaterThanOrEqual(1);
+    for (const t of boxes) {
+      expect(t).not.toMatch(/className="hidden"/);
+      expect(t).toMatch(/className="sr-only"/);
+    }
+  });
+
+  it("the chip shows the focus ring while its checkbox has keyboard focus", () => {
+    // The global :focus-visible ring would draw on the 1px clipped
+    // checkbox, so the label carries it.
+    expect(src).toMatch(
+      /"bcc-mono inline-flex min-h-\[36px\] cursor-pointer[^"]*has-\[:focus-visible\]:outline has-\[:focus-visible\]:outline-2[^"]*has-\[:focus-visible\]:outline-\[color:var\(--bcc-accent\)\]/,
+    );
   });
 });
