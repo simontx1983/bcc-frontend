@@ -183,7 +183,8 @@ export interface SignupResponse {
  * email, then returns {ok, email}. No JWT is minted — the user must
  * complete email verification before they can log in.
  *
- * On success: redirect the user to /verify-email?email=<email>.
+ * On success: stash the address (lib/auth/pending-verification-email) and
+ * redirect the user to /verify-email. The address never goes in the URL.
  *
  * Errors (thrown as BccApiError):
  *   bcc_invalid_request    — missing or malformed fields
