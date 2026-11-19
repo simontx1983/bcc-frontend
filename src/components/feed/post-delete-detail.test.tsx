@@ -130,7 +130,13 @@ describe("PostDetail — delete your own post", () => {
     expect(screen.queryByText("my own words")).toBeNull();
     expect(screen.queryByRole("dialog")).toBeNull();
     expect(screen.getByRole("link", { name: /back to the floor/i })).toHaveAttribute("href", "/");
-    expect(document.activeElement).toBe(heading);
+    // Wait for focus; don't sample it once. PostDetail focuses the heading
+    // in a passive effect, which React's scheduler runs on a setImmediate
+    // task in Node. findByRole resolves on the DOM mutation, and RTL then
+    // drains with a setTimeout(0). Node does not order setImmediate against
+    // setTimeout(0) from the main loop, so a one-shot check sometimes runs
+    // before the effect and saw <body> under load.
+    await waitFor(() => expect(document.activeElement).toBe(heading), { timeout: 5000 });
   });
 
   it("on failure the dialog says why (by code), offers TRY AGAIN, and the post stays", async () => {
