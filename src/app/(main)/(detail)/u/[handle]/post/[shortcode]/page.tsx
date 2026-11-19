@@ -10,7 +10,7 @@
  * only; the shortcode alone identifies the post.
  *
  * Mirrors `/post/[id]/page.tsx`: server component + `generateMetadata`,
- * SSR fetch, 404 on `bcc_not_found`.
+ * SSR fetch, 404 on `bcc_not_found`, in-page retry on 503 (F-275).
  */
 
 import type { Metadata } from "next";
@@ -20,9 +20,11 @@ import { notFound } from "next/navigation";
 import { PostBackButton } from "@/components/feed/PostBackButton";
 import { PostDetail } from "@/components/feed/PostDetail";
 import { PostRailRegistrar } from "@/components/feed/PostRailRegistrar";
+import { PostUnavailable } from "@/components/feed/PostUnavailable";
 import { authOptions } from "@/lib/auth";
 import { tokenFromSession } from "@/lib/api/client";
 import { ANON_SSR_REVALIDATE_SECONDS } from "@/lib/api/cache-policy";
+import { isServiceUnavailable } from "@/lib/api/errors";
 import { getFeedItemById } from "@/lib/api/feed-endpoints";
 import { buildPostMetadata } from "@/lib/og/post-metadata";
 import { BccApiError } from "@/lib/api/types";
@@ -64,6 +66,17 @@ export default async function PostByShortcodePage({ params, searchParams }: Page
   } catch (err) {
     if (err instanceof BccApiError && err.status === 404) {
       notFound();
+    }
+    // F-275: same as `/post/[id]`. A 503 means the post could not be
+    // read, not that it is gone; answer in place, with a retry. A
+    // host-level 503 with no BCC envelope counts too.
+    if (isServiceUnavailable(err)) {
+      return (
+        <div className="mx-auto max-w-2xl px-2 py-4 sm:px-0">
+          <PostBackButton />
+          <PostUnavailable routeId={shortcode} focusComposer={intent === "comment"} />
+        </div>
+      );
     }
     throw err;
   }

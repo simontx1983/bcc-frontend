@@ -74,6 +74,38 @@ export function useFeedItem(id: string, initialData: FeedItem) {
   });
 }
 
+/**
+ * The permalink's recovery read: the cache slot for the viewer's Retry
+ * after the SERVER render of `/post/[id]` or `/u/[handle]/post/[shortcode]`
+ * answered 503 `bcc_unavailable` (F-275, contract "Feed read failure").
+ *
+ * Keyed on the ROUTE id, not FEED_ITEM_QUERY_KEY: that id may be a
+ * shortcode, and the item's own `id` is not known until a read succeeds.
+ * PostDetail seeds the real detail entry from the result, exactly as it
+ * does from the server page's item.
+ */
+export const FEED_ITEM_RECOVERY_QUERY_KEY = (routeId: string) =>
+  ["feedItem", "recovery", routeId] as const;
+
+/**
+ * useFeedItemRecovery — the viewer's own retry of a permalink read the
+ * server could not make.
+ *
+ *   - `enabled: false`: the server render already made the first attempt,
+ *     so mounting the failure state must not fire a second read by itself.
+ *     The Retry control is the only trigger (`refetch()` runs a disabled
+ *     query).
+ *   - `retry: false`: that press IS the retry. One press, one read.
+ */
+export function useFeedItemRecovery(routeId: string) {
+  return useQuery<FeedItem, BccApiError>({
+    queryKey: FEED_ITEM_RECOVERY_QUERY_KEY(routeId),
+    queryFn: ({ signal }) => getFeedItemByIdAsClient(routeId, signal),
+    enabled: false,
+    retry: false,
+  });
+}
+
 export function useHotFeed() {
   return useInfiniteQuery<
     FeedResponse,
