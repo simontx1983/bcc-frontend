@@ -38,6 +38,8 @@ const hoisted = vi.hoisted(() => ({
 vi.mock("next/navigation", () => ({
   usePathname: () => "/",
   useRouter: () => ({ push: hoisted.pushMock, replace: vi.fn(), prefetch: vi.fn() }),
+  // Read by the box's /search?q= sync (F-260 M12); off /search it is inert.
+  useSearchParams: () => new URLSearchParams(),
 }));
 
 // Recent searches are viewer-scoped, so the dropdown needs a session. These

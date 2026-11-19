@@ -6,7 +6,7 @@
  * Wraps a UseQueryResult and dispatches to the right row component
  * based on `kind`. Owns the four visible states:
  *   - loading  → skeleton rows (DirectoryGrid idiom, narrower)
- *   - error    → bcc-panel error tile (mirrors DirectoryGrid:122)
+ *   - error    → the shared LoadFailure with a real Retry
  *   - empty    → "No matches" tile
  *   - results  → list of rows
  *
@@ -19,8 +19,10 @@ import NextImage from "next/image";
 import Link from "next/link";
 import { memo, useMemo } from "react";
 
+import { LoadFailure } from "@/components/ui/LoadFailure";
 import { SKELETON_CLASS } from "@/components/ui/Skeleton";
 import { VerifiedBadge } from "@/components/ui/VerifiedBadge";
+import { SEARCH_MIN_LENGTH } from "@/hooks/useSearchTerm";
 import { toInternalHref } from "@/lib/internal-route";
 import { isWpMediaUrl } from "@/lib/media";
 
@@ -34,7 +36,16 @@ interface BaseTabProps {
   query: string;
   isLoading: boolean;
   isError: boolean;
+  /** Refetches this vertical. Rendered as the error state's Retry. */
+  onRetry: () => void;
 }
+
+/** What each vertical is called in copy (the tab labels' words). */
+export const VERTICAL_NOUN = {
+  projects: "projects",
+  users: "members",
+  groups: "communities",
+} as const;
 
 interface ProjectsTabProps extends BaseTabProps {
   kind: "projects";
@@ -59,7 +70,14 @@ export type SearchResultsTabProps =
 const SKELETON_COUNT = 5;
 
 export function SearchResultsTab(props: SearchResultsTabProps) {
-  if (props.isError) return <ErrorTile />;
+  if (props.isError) {
+    return (
+      <SearchLoadFailure
+        message={`Couldn't load ${VERTICAL_NOUN[props.kind]}. Try again in a moment.`}
+        onRetry={props.onRetry}
+      />
+    );
+  }
   if (props.isLoading) return <SkeletonList />;
   if (props.results.length === 0) return <EmptyTile query={props.query} />;
 
@@ -119,12 +137,43 @@ function SkeletonList() {
   );
 }
 
-function ErrorTile() {
+/**
+ * The search surfaces' failure state: the shared LoadFailure (theme
+ * palette, real Retry) in the tiles' bcc-panel frame. Replaces a tile
+ * that said "refresh in a moment" and offered nothing to press (F-260
+ * M11). The All tab uses it too, for whole and partial failures.
+ */
+export function SearchLoadFailure({
+  message,
+  onRetry,
+}: {
+  message: string;
+  onRetry: () => void;
+}) {
   return (
-    <div className="bcc-panel mx-auto max-w-md p-6 text-center">
-      <p className="bcc-mono text-bcc-text-safety">SEARCH UNAVAILABLE</p>
-      <p className="mt-3 font-serif text-sm text-bcc-text-secondary">
-        That vertical hit a snag. Try a different filter or refresh in a moment.
+    <div className="bcc-panel mx-auto max-w-md px-6">
+      <LoadFailure message={message} onRetry={onRetry} />
+    </div>
+  );
+}
+
+/**
+ * A term under the search floor. The verticals never fire for it (the
+ * server would refuse it too), so the old page fell through to "Nothing
+ * found", forever, and the mobile search overlay sends one-character
+ * terms (F-260 M9). Say what is wrong instead.
+ */
+export function TooShortTile({ query }: { query: string }) {
+  return (
+    <div className="bcc-panel mx-auto max-w-md p-8 text-center">
+      <p className="bcc-mono text-bcc-text-safety">
+        TYPE AT LEAST {SEARCH_MIN_LENGTH} CHARACTERS
+      </p>
+      <h2 className="bcc-stencil mt-2 text-2xl text-bcc-text">
+        &ldquo;{query}&rdquo; is too short to search.
+      </h2>
+      <p className="mt-3 font-serif leading-relaxed text-bcc-text-secondary">
+        Add another character or two and search again.
       </p>
     </div>
   );
