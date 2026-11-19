@@ -12,6 +12,9 @@
  *   - bcc_invalid_reset_token → link expired or already used
  *   - bcc_weak_password       → < 8 chars
  *   - bcc_rate_limited        → 10/hour attempt cap tripped
+ *   - bcc_password_breached   → a leaked password (F-294), shown on the
+ *                               password field; the key is not consumed,
+ *                               so the same link takes another password
  *   - missing key/login in URL → "Invalid reset link"
  */
 
@@ -24,6 +27,7 @@ import { AuthCard } from "@/components/auth/AuthCard";
 import { PasswordStrengthMeter } from "@/components/auth/PasswordStrengthMeter";
 import { confirmPasswordReset } from "@/lib/api/auth-endpoints";
 import { BccApiError } from "@/lib/api/types";
+import { PASSWORD_BREACHED_CODE, PASSWORD_BREACHED_COPY } from "@/lib/auth/password-policy";
 
 const MIN_PASSWORD_LENGTH = 8;
 
@@ -44,12 +48,15 @@ function ResetPasswordContent() {
   const [confirm,  setConfirm]    = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** A refusal of the password alone (F-294), shown on its field. */
+  const [passwordError, setPasswordError] = useState<string | null>(null);
 
   const linkValid = key !== "" && login !== "";
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
+    setPasswordError(null);
 
     if (password !== confirm) {
       setError("Passwords don't match.");
@@ -65,7 +72,9 @@ function ResetPasswordContent() {
       await confirmPasswordReset(key, login, password);
       router.replace("/login?reset=1" as Route);
     } catch (err) {
-      if (err instanceof BccApiError) {
+      if (err instanceof BccApiError && err.code === PASSWORD_BREACHED_CODE) {
+        setPasswordError(PASSWORD_BREACHED_COPY);
+      } else if (err instanceof BccApiError) {
         setError(ERROR_COPY[err.code] ?? "Something went wrong. Try again.");
       } else {
         setError("Something went wrong. Try again.");
@@ -107,10 +116,20 @@ function ResetPasswordContent() {
             minLength={MIN_PASSWORD_LENGTH}
             autoComplete="new-password"
             value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            onChange={(e) => {
+              setPassword(e.target.value);
+              setPasswordError(null);
+            }}
+            aria-invalid={passwordError !== null}
+            aria-describedby={passwordError !== null ? "password-error" : undefined}
             className="bcc-auth-input"
           />
           <PasswordStrengthMeter password={password} />
+          {passwordError !== null && (
+            <span id="password-error" role="alert" className="bcc-auth-hint bcc-auth-hint--error">
+              {passwordError}
+            </span>
+          )}
         </div>
 
         <div className="bcc-auth-field">

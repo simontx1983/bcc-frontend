@@ -36,6 +36,7 @@ import { Composer } from "@/components/composer/Composer";
 import { FeedItemCard } from "@/components/feed/FeedItemCard";
 import { GroupGatedNotice } from "@/components/groups/GroupGatedNotice";
 import { GroupPostPolicyToggle } from "@/components/groups/GroupPostPolicyToggle";
+import { useEmptyPageAutoFetch } from "@/hooks/useEmptyPageAutoFetch";
 import { GROUP_FEED_QUERY_KEY_ROOT, useGroupFeed } from "@/hooks/useGroupFeed";
 import { humanizeCode, isPermissionDenial } from "@/lib/api/errors";
 import {
@@ -44,6 +45,7 @@ import {
   useReportDenial,
 } from "@/lib/api/resource-denial";
 import { LoadFailure } from "@/components/ui/LoadFailure";
+import { Spinner } from "@/components/ui/Spinner";
 import type {
   FeedItem,
   GroupDetailResponse,
@@ -269,7 +271,22 @@ function GroupFeedBodyData({
     }
   }, [query]);
 
-  if (query.isLoading) {
+  const items = (query.data?.pages ?? []).flatMap((page) => page.items);
+
+  // F-420: every page so far came back empty (the per-viewer filter emptied
+  // it) while the server says more exist. That is not an empty wall: fetch
+  // on, a bounded number of pages, then offer Load more. Same rule and
+  // bound as the home feed (#329).
+  const { emptyRun, keepAutoFetching } = useEmptyPageAutoFetch({
+    itemCount: items.length,
+    pageCount: query.data?.pages.length ?? 1,
+    hasNextPage: query.hasNextPage,
+    isError: query.isError,
+    isFetchingNextPage: query.isFetchingNextPage,
+    fetchNextPage: query.fetchNextPage,
+  });
+
+  if (query.isLoading || keepAutoFetching) {
     return (
       <div className="py-8 text-center">
         <p className="bcc-mono text-bcc-text-secondary">Loading the floor…</p>
@@ -312,10 +329,46 @@ function GroupFeedBodyData({
     );
   }
 
-  const items = (query.data?.pages ?? []).flatMap((page) => page.items);
+  // Past the auto-fetch bound and every page still filtered empty. The
+  // server says more exist, so this is not the empty state: the viewer
+  // pages on by hand.
+  //
+  // The block stays mounted while that manual fetch runs and is swapped out
+  // only when rows arrive, so keyboard focus stays on the button (the
+  // loading state above is for the auto-fetch only). `aria-disabled` +
+  // `aria-busy`, not `disabled`: the browser blurs a focused control that
+  // turns disabled (same reason as ProfileUnavailable's isBusy, and the
+  // home feed's block in #335). handleLoadMore ignores a press while a
+  // fetch is in flight.
+  if (emptyRun) {
+    return (
+      <div className="flex flex-col items-center gap-3 py-8">
+        <p className="bcc-mono text-center text-[11px] text-bcc-text-secondary">
+          No posts to show so far.
+        </p>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={handleLoadMore}
+            aria-disabled={query.isFetchingNextPage}
+            aria-busy={query.isFetchingNextPage}
+            className="bcc-stencil border border-bcc-border px-6 py-2.5 text-bcc-text aria-disabled:cursor-wait aria-disabled:opacity-60"
+          >
+            Load more
+          </button>
+          {query.isFetchingNextPage && (
+            <span className="text-[var(--bcc-accent)]">
+              <Spinner size={18} />
+            </span>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   // An empty claim is about the SERVER having no posts; a failed read
-  // does not support it, so it is withheld while in error.
+  // does not support it, so it is withheld while in error. Nor does a page
+  // the per-viewer filter emptied while more exist (handled above).
   if (items.length === 0 && !query.isError && channel === "ranked") {
     // §21.3 — ranked channel has its own empty copy: the founder-chair
     // hall framing below assumes the whole Hall is quiet, which is
@@ -371,14 +424,28 @@ function GroupFeedBodyData({
       ) : (
         query.hasNextPage &&
         !denied && (
-          <button
-            type="button"
-            onClick={handleLoadMore}
-            disabled={query.isFetchingNextPage}
-            className="bcc-stencil mx-auto mt-4 border border-bcc-border px-6 py-2.5 text-bcc-text disabled:opacity-50"
-          >
-            {query.isFetchingNextPage ? "Loading…" : "Load more"}
-          </button>
+          // Same as the past-bound block above: the button stays put and
+          // keeps focus while the next page loads. `aria-disabled` +
+          // `aria-busy`, not `disabled` (the browser blurs a focused
+          // control that turns disabled), and a constant name, so the
+          // focused button isn't renamed mid-press. handleLoadMore ignores
+          // a press while a fetch is in flight.
+          <div className="mx-auto mt-4 flex items-center gap-3">
+            <button
+              type="button"
+              onClick={handleLoadMore}
+              aria-disabled={query.isFetchingNextPage}
+              aria-busy={query.isFetchingNextPage}
+              className="bcc-stencil border border-bcc-border px-6 py-2.5 text-bcc-text aria-disabled:cursor-wait aria-disabled:opacity-60"
+            >
+              Load more
+            </button>
+            {query.isFetchingNextPage && (
+              <span className="text-[var(--bcc-accent)]">
+                <Spinner size={18} />
+              </span>
+            )}
+          </div>
         )
       )}
 

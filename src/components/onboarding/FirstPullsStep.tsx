@@ -15,6 +15,7 @@
 
 import { CardFactory } from "@/components/cards/CardFactory";
 import { LandingReveal } from "@/components/landing/LandingReveal";
+import { SKELETON_CLASS } from "@/components/ui/Skeleton";
 import { useOnboardingSuggestions } from "@/hooks/useOnboardingSuggestions";
 import { humanizeCode } from "@/lib/api/errors";
 import type { Card, HomeChain, OnboardingSuggestions } from "@/lib/api/types";
@@ -130,11 +131,7 @@ interface SuggestionsBodyProps {
 
 function SuggestionsBody({ result, pulls }: SuggestionsBodyProps) {
   if (result.isLoading) {
-    return (
-      <p className="bcc-onb-note" style={{ marginTop: "40px", textAlign: "center" }}>
-        Loading suggestions…
-      </p>
-    );
+    return <SuggestionsSkeleton />;
   }
 
   if (result.isError) {
@@ -169,13 +166,27 @@ function SuggestionsBody({ result, pulls }: SuggestionsBodyProps) {
       <div className="bcc-onb-panel" style={{ marginTop: "40px", maxWidth: "40ch" }}>
         <h2 className="bcc-onb-disp" style={{ fontSize: "1.6rem" }}>No suggestions yet</h2>
         <p className="bcc-onb-lede" style={{ marginTop: "10px", fontSize: "1rem" }}>
-          The Floor is still warming up — once admins curate cards, they&rsquo;ll show
-          here. Skip this step and head to the Floor.
+          There are no cards to suggest right now. Skip this step and head to the
+          Floor &mdash; you can watch anyone, any time.
         </p>
       </div>
     );
   }
 
+  return (
+    <SuggestionsFrame>
+      {allCards.map((card) => (
+        <CardWithError key={`${card.card_kind}-${card.id}`} card={card} pulls={pulls} />
+      ))}
+    </SuggestionsFrame>
+  );
+}
+
+/**
+ * The suggestions block: its label row and the wrapping card row. Shared
+ * by the loaded grid and its skeleton so the two occupy the same box.
+ */
+function SuggestionsFrame({ children }: { children: React.ReactNode }) {
   return (
     <div style={{ marginTop: "clamp(28px, 5vw, 48px)" }}>
       <div className="bcc-onb-field-label" style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "20px" }}>
@@ -185,10 +196,39 @@ function SuggestionsBody({ result, pulls }: SuggestionsBodyProps) {
       </div>
 
       <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: "clamp(28px, 5vw, 48px)" }}>
-        {allCards.map((card) => (
-          <CardWithError key={`${card.card_kind}-${card.id}`} card={card} pulls={pulls} />
-        ))}
+        {children}
       </div>
+    </div>
+  );
+}
+
+/** Placeholder tiles while the suggestions load: one per bucket. */
+const SKELETON_TILES = 3;
+
+/**
+ * F-264: loading used to be one line of text, so the step jumped by a
+ * card's height when the suggestions arrived. These tiles take the card's
+ * own box: 316 × 440, and below 381px the card's narrow rule (globals.css
+ * `.bcc-card` under `max-width: 380px`) of full width capped at 296px with
+ * the same aspect ratio. The tiles are hidden from assistive tech; the
+ * sr-only line says what is happening, as the visible text did.
+ */
+function SuggestionsSkeleton() {
+  return (
+    <div aria-busy="true">
+      <p className="sr-only">Loading suggestions…</p>
+      <SuggestionsFrame>
+        {Array.from({ length: SKELETON_TILES }, (_, i) => (
+          // The card wrapper's width, as a class: onboarding-foundations
+          // pins the card's own inline width as the one load-bearing rule.
+          <div key={i} aria-hidden className="w-[min(316px,100%)]">
+            <div
+              data-testid="suggestion-skeleton"
+              className={`${SKELETON_CLASS} aspect-[316/440] w-full max-w-[296px] min-[381px]:max-w-[316px]`}
+            />
+          </div>
+        ))}
+      </SuggestionsFrame>
     </div>
   );
 }

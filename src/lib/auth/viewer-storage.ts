@@ -86,6 +86,11 @@ export const VIEWER_SCOPED_STORAGE_KEYS: readonly string[] = [
   // one person's half-finished sign-in, so a sign-out or viewer switch
   // clears it.
   "bcc.2fa.challenge",
+  // The address a password sign-up is verifying, handed from /signup or
+  // /login to /verify-email in sessionStorage instead of the URL (F-410,
+  // `lib/auth/pending-verification-email`). It is one person's email
+  // address, so a sign-out or viewer switch clears it.
+  "bcc.verify.email",
   // The one-shot "an account was just created" analytics marker
   // (`lib/analytics/posthog`, SIGNUP_COMPLETED_STORAGE_KEY), in
   // sessionStorage. Holds only the signup method, but it is about one

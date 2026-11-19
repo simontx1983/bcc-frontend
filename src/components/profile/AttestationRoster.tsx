@@ -65,8 +65,13 @@
  */
 
 import { Avatar } from "@/components/identity/Avatar";
+import {
+  ProfilePrivateNotice,
+  type PrivateNoticeCopy,
+} from "@/components/profile/ProfilePrivateNotice";
 import { RELIABILITY_LABEL } from "@/components/reliability/ReliabilityStandingBadge";
 import { PROFILE_ROSTER_PARAMS } from "@/lib/api/attestations-endpoints";
+import { isProfilePrivate } from "@/lib/api/errors";
 import type { RosterSeed } from "@/hooks/useAttestationRoster";
 import { useAttestationRoster } from "@/hooks/useAttestationRoster";
 import type {
@@ -75,6 +80,18 @@ import type {
 } from "@/lib/api/types";
 import { ATTESTATION_COPY } from "@/lib/copy/trust-layer";
 import { formatRelativeTime } from "@/lib/format";
+
+/**
+ * v1.168 (bcc-trust #720): a member's received vouches answer to their
+ * profile. One the viewer may not open answers 403 `bcc_forbidden` +
+ * `profile_private` — shown as the calm private state, never as the empty
+ * invitation (which would claim nobody has vouched). Page targets never
+ * send it.
+ */
+const VOUCHES_HIDDEN_COPY: PrivateNoticeCopy = {
+  heading: "Vouches are hidden.",
+  detail: "This member keeps their profile out of view, and who vouches for them with it.",
+};
 
 interface AttestationRosterProps {
   /**
@@ -116,12 +133,18 @@ export function AttestationRoster({
   // have a target. include_revoked=true so the "SHOW REVOKED" toggle
   // below has rows to reveal without a follow-up request.
   const shouldFetch = items === undefined;
-  const { data } = useAttestationRoster(
+  const { data, error } = useAttestationRoster(
     shouldFetch ? targetKind : undefined,
     shouldFetch ? targetId : undefined,
     PROFILE_ROSTER_PARAMS,
     seed,
   );
+
+  // The member's profile closed to this viewer, including on a refetch of
+  // rows already shown (their setting changed): stop showing the roster.
+  if (shouldFetch && isProfilePrivate(error)) {
+    return <ProfilePrivateNotice copy={VOUCHES_HIDDEN_COPY} />;
+  }
 
   const effectiveItems: AttestationRosterItem[] | undefined =
     items ?? data?.items;

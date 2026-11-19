@@ -56,7 +56,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { DopamineStep } from "@/components/onboarding/DopamineStep";
 import { FirstPullsStep } from "@/components/onboarding/FirstPullsStep";
-import { IdentityStep } from "@/components/onboarding/IdentityStep";
+import { IdentityStep, initialIdentityDraft, type IdentityDraft } from "@/components/onboarding/IdentityStep";
 import { NotificationsStep } from "@/components/onboarding/NotificationsStep";
 import { OnboardingTrustLayerSteps } from "@/components/onboarding/OnboardingTrustLayerSteps";
 import { SecureAccountStep } from "@/components/onboarding/SecureAccountStep";
@@ -204,6 +204,10 @@ export function OnboardingWizard({ handle, profile, initialStep }: OnboardingWiz
   const [step, setStep] = useState<Step>(initialStep ?? "welcome");
   const [trustScreen, setTrustScreen] = useState(1);
   const [homeChain, setHomeChain] = useState<HomeChain | null>(null);
+  // F-263 (M24): the identity step's uploads, saved bio and bio draft,
+  // kept here so leaving the step and coming Back doesn't reset them to
+  // the page's server-fetched profile.
+  const [identityDraft, setIdentityDraft] = useState<IdentityDraft>(() => initialIdentityDraft(profile));
   const pulls = useWizardPulls();
   const scope = useViewerScope();
 
@@ -465,7 +469,8 @@ export function OnboardingWizard({ handle, profile, initialStep }: OnboardingWiz
 
         {step === "identity" && (
           <IdentityStep
-            profile={profile}
+            draft={identityDraft}
+            onDraftChange={setIdentityDraft}
             onBack={() => goTo(secureApplies ? "secure" : "welcome")}
             onDone={() => goTo("trust")}
           />

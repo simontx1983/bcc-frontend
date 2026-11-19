@@ -218,8 +218,11 @@ describe("#205 — fixed grounds pin the tokens", () => {
 
   it("every inline var(--paper) background carries bcc-paper-ground", () => {
     let sites = 0;
-    for (const f of production()) {
-      const lines = read(f).split(/\r?\n/);
+    // SOURCES, the walk taken once at load, rather than a second whole-tree
+    // walk inside this test, which under load outlasted the 5s test
+    // timeout (F-449).
+    for (const [f, code] of SOURCES) {
+      const lines = code.split(/\r?\n/);
       lines.forEach((l, i) => {
         if (!/background:\s*"var\(--paper\)"/.test(l)) return;
         sites++;
@@ -385,6 +388,7 @@ describe("#205 — control: the scanners find planted offenders", () => {
  * per-row unblock failure in BlocksList, and the delegator-group join
  * failure in DelegatorGroupPanel (#198). 73 since F-246: the message
  * thread's load failure moved to the shared LoadFailure (retryable 503).
+ * 74 since F-294: the leaked-password line on Settings' new-password field.
  */
 const ERROR_LINES: Readonly<Record<string, number>> = {
   "src/app/(main)/(app)/communities/new/page.tsx": 1,
@@ -433,7 +437,7 @@ const ERROR_LINES: Readonly<Record<string, number>> = {
   // F-332 moved the recovery-email form (2 lines) to RecoveryEmail.tsx.
   "src/components/settings/RecoveryEmail.tsx": 2,
   "src/components/settings/WalletsSection.tsx": 2,
-  "src/components/settings/profile/AccountSection.tsx": 3,
+  "src/components/settings/profile/AccountSection.tsx": 4,
   "src/components/settings/profile/BioEditor.tsx": 1,
   "src/components/settings/profile/DeleteAccountCard.tsx": 1,
   "src/components/settings/profile/MentorSettingsSection.tsx": 1,
@@ -453,8 +457,8 @@ const countIn = (re: RegExp, src: string) =>
   stripComments(src).split(/\r?\n/).filter((l) => re.test(l)).length;
 
 describe("#205 — error-line inventory", () => {
-  it("73 error lines in total", () => {
-    expect(Object.values(ERROR_LINES).reduce((a, b) => a + b, 0)).toBe(73);
+  it("74 error lines in total", () => {
+    expect(Object.values(ERROR_LINES).reduce((a, b) => a + b, 0)).toBe(74);
   });
 
   for (const [file, n] of Object.entries(ERROR_LINES)) {

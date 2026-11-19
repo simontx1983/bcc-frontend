@@ -75,6 +75,11 @@ vi.mock("@/hooks/useHolderGroups", () => ({
   useJoinHolderGroupMutation: () => idleMutation,
   useLeaveHolderGroupMutation: () => idleMutation,
 }));
+// HolderLeaveConfirm.tsx also binds the delegator leave (F-244 item 1);
+// keep its endpoint chain out the same way.
+vi.mock("@/hooks/useValidatorGroups", () => ({
+  useLeaveValidatorGroupMutation: () => idleMutation,
+}));
 vi.mock("@/hooks/useMessagesPrefs", () => ({
   useMessagesPrefs: () => state.results.messagesPrefs,
   useUpdateMessagesPrefs: () => idleMutation,

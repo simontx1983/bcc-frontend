@@ -169,7 +169,7 @@ describe("card ActionBar (profile hero, no host)", () => {
     expect(watchingRead).not.toHaveBeenCalled();
   });
 
-  it("unknown locks the pill; its tooltip and a tap both give the unknown reason", () => {
+  it("unknown locks the pill; its tooltip and a tap both give the unknown reason", async () => {
     const unknown = { ...WATCHED_PAST_50, viewer_is_watching: null, viewer_watch: null } as Card;
     render(<ActionBar card={unknown} isPulled={false} />);
     const pill = screen.getByRole("button", { name: "Watch Fixture Validator" });
@@ -177,7 +177,7 @@ describe("card ActionBar (profile hero, no host)", () => {
     expect(pill).toHaveAttribute("title", WATCH_UNKNOWN_COPY);
 
     fireEvent.click(pill);
-    expect(screen.getByText(WATCH_UNKNOWN_COPY)).toBeInTheDocument();
+    expect(await screen.findByText(WATCH_UNKNOWN_COPY)).toBeInTheDocument();
     expect(screen.queryByText(/Watch is unavailable for this card/)).toBeNull();
     expect(watchMutate).not.toHaveBeenCalled();
   });
