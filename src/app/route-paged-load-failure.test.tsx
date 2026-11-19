@@ -14,6 +14,11 @@
  * pager unmounted with the list and PREV disappeared — the URL was the
  * only way back. Same defect class as WatchersPanel in C1b.
  *
+ * /members has since opted into `keepPreviousData` (F-260 M10; tested with
+ * a real QueryClient in members-keep-previous-data.test.tsx). That backs a
+ * PENDING query only, so a failed page still carries no data and still
+ * needs the retained pager pinned here.
+ *
  * Each surface now holds its last good pagination locally and renders the
  * pager from it on failure, at the requested page, so PREV steps back to
  * a page that worked.
