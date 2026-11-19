@@ -15,7 +15,8 @@
  */
 
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { filledNotice } from "@/components/cards/pill-notice.testing";
 
 import type { Card, CardCommunityDossier } from "@/lib/api/types";
 
@@ -102,14 +103,14 @@ describe("community card, validator group", () => {
     expect(onJoin).not.toHaveBeenCalled();
   });
 
-  it("a null verdict (a surface that has not adopted it) sends the viewer to the group page", () => {
+  it("a null verdict (a surface that has not adopted it) sends the viewer to the group page", async () => {
     const onJoin = vi.fn();
     renderBar("user", onJoin, { can_join: null, can_request_join: null, viewer_membership_status: null });
 
     const button = screen.getByRole("button", { name: "Join Delegators: Acme" });
     fireEvent.click(button);
     expect(onJoin).not.toHaveBeenCalled();
-    expect(screen.getByRole("status")).toHaveTextContent(JOIN_ASK_PAGE_COPY);
+    expect((await filledNotice("status"))).toHaveTextContent(JOIN_ASK_PAGE_COPY);
   });
 
   it("leaves a genuinely closed plain group as Private", () => {
