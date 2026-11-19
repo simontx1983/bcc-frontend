@@ -31,6 +31,7 @@ import {
 } from "@tanstack/react-query";
 
 import { getCardsList } from "@/lib/api/cards-list-endpoints";
+import { rateLimitedRetryDelay, retryRateLimitedRead } from "@/lib/api/errors";
 import type {
   BccApiError,
   CardsListQueryParams,
@@ -109,6 +110,11 @@ export function useDirectory(filters: DirectoryFilters) {
         ? lastPage.pagination.page + 1
         : undefined,
     staleTime: 60_000,
+    // bcc-trust #716: a search (`q`) is throttled at 10 per 5 s per caller.
+    // A 429 waits and tries again instead of showing a load failure;
+    // DirectoryGrid says so meanwhile. Covers /directory and /validators.
+    retry: retryRateLimitedRead,
+    retryDelay: rateLimitedRetryDelay,
   });
 }
 
