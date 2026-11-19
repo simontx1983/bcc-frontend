@@ -12,10 +12,14 @@
  * Unblock press goes through useUnblockUser and the invalidation re-read.
  * The real Avatar renders too: its `asLink` path is the one place a /u/
  * link could come from.
+ *
+ * Each row's Unblock is named for its row ("Unblock Anvil Smith",
+ * "Unblock Unknown account"): every button used to read just "UNBLOCK",
+ * so a screen reader's list of buttons could not tell them apart.
  */
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { BccApiError, type MyBlockEntry, type MyBlocksResponse } from "@/lib/api/types";
@@ -105,7 +109,7 @@ describe("BlocksList: a blocked id no member holds", () => {
     expect(row.innerHTML).not.toContain("/u/");
     // The avatar falls back to its "?" monogram rather than empty initials.
     expect(within(row).getByText("?")).toBeInTheDocument();
-    expect(within(row).getByRole("button", { name: "UNBLOCK" })).toBeEnabled();
+    expect(within(row).getByRole("button", { name: `Unblock ${UNKNOWN_ACCOUNT_COPY}` })).toBeEnabled();
   });
 
   it("Unblock sends that user id and the row leaves on the re-read", async () => {
@@ -114,7 +118,7 @@ describe("BlocksList: a blocked id no member holds", () => {
     renderList();
 
     const row = await findRow(UNKNOWN_ACCOUNT_COPY);
-    fireEvent.click(within(row).getByRole("button", { name: "UNBLOCK" }));
+    fireEvent.click(within(row).getByRole("button", { name: `Unblock ${UNKNOWN_ACCOUNT_COPY}` }));
 
     await waitFor(() => expect(screen.queryByText(UNKNOWN_ACCOUNT_COPY)).toBeNull());
     expect(fx.unblockUser).toHaveBeenCalledTimes(1);
@@ -129,7 +133,7 @@ describe("BlocksList: a blocked id no member holds", () => {
     renderList();
 
     const row = await findRow(UNKNOWN_ACCOUNT_COPY);
-    fireEvent.click(within(row).getByRole("button", { name: "UNBLOCK" }));
+    fireEvent.click(within(row).getByRole("button", { name: `Unblock ${UNKNOWN_ACCOUNT_COPY}` }));
 
     expect(await within(row).findByRole("alert")).toHaveTextContent(
       "Slow down — too many unblock attempts. Wait a minute.",
@@ -163,5 +167,54 @@ describe("BlocksList: a blocked id no member holds", () => {
 
     expect(await screen.findByText("Weld Jones")).toBeInTheDocument();
     expect(screen.queryByText(UNKNOWN_ACCOUNT_COPY)).toBeNull();
+  });
+});
+
+describe("BlocksList: each Unblock is named for its row", () => {
+  it("names the button after the row: display name, else @handle, else Unknown account", async () => {
+    fx.getMyBlocks.mockResolvedValue(page([named, handleOnly, nameOnly, unknown]));
+    renderList();
+    await screen.findByText("Anvil Smith");
+
+    const expected: Array<[MyBlockEntry, string]> = [
+      [named, "Unblock Anvil Smith"],
+      [handleOnly, "Unblock @rivet"],
+      [nameOnly, "Unblock Weld Jones"],
+      [unknown, `Unblock ${UNKNOWN_ACCOUNT_COPY}`],
+    ];
+    const buttons = screen.getAllByRole("button", { name: /^Unblock / });
+    expect(buttons.map((b) => b.getAttribute("aria-label"))).toEqual(expected.map(([, n]) => n));
+    // The visible word stays, and starts the name (label in name).
+    for (const b of buttons) expect(b).toHaveTextContent("UNBLOCK");
+  });
+
+  it("each name sits on its own row and unblocks that row's id", async () => {
+    fx.getMyBlocks.mockResolvedValue(page([named, handleOnly]));
+    fx.unblockUser.mockReturnValue(new Promise(() => undefined));
+    renderList();
+
+    const button = await screen.findByRole("button", { name: "Unblock @rivet" });
+    // "@rivet" is both the row's name and its handle line; either finds the row.
+    expect(button.closest("li")).toBe(screen.getAllByText("@rivet")[0]?.closest("li"));
+    expect(within(rowOf("Anvil Smith")).queryByRole("button", { name: "Unblock @rivet" })).toBeNull();
+    fireEvent.click(button);
+    await waitFor(() => expect(fx.unblockUser).toHaveBeenCalledTimes(1));
+    expect(fx.unblockUser).toHaveBeenCalledWith(handleOnly.user_id);
+  });
+
+  it("in flight: the name says it is working, the button is disabled, the other row is untouched", async () => {
+    fx.getMyBlocks.mockResolvedValue(page([named, unknown]));
+    fx.unblockUser.mockReturnValue(new Promise(() => undefined));
+    renderList();
+
+    const button = await screen.findByRole("button", { name: "Unblock Anvil Smith" });
+    await act(async () => {
+      fireEvent.click(button);
+    });
+
+    const working = screen.getByRole("button", { name: "Working… unblocking Anvil Smith" });
+    expect(working).toBeDisabled();
+    expect(working).toHaveTextContent("WORKING…");
+    expect(screen.getByRole("button", { name: `Unblock ${UNKNOWN_ACCOUNT_COPY}` })).toBeEnabled();
   });
 });

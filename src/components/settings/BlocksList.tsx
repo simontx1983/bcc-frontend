@@ -168,6 +168,15 @@ export function BlocksList() {
                 type="button"
                 onClick={() => handleUnblock(entry.user_id)}
                 disabled={pendingId === entry.user_id}
+                // Every row's button used to read just "UNBLOCK", so a screen
+                // reader's button list could not tell them apart. The name
+                // says whose block it lifts and starts with the visible word
+                // (WCAG 2.5.3, label in name), in flight too.
+                aria-label={
+                  pendingId === entry.user_id
+                    ? `Working… unblocking ${blockedName(entry)}`
+                    : `Unblock ${blockedName(entry)}`
+                }
                 aria-describedby={
                   failure?.userId === entry.user_id ? `bcc-unblock-error-${entry.user_id}` : undefined
                 }

@@ -82,7 +82,7 @@ describe("BlocksList page overflow", () => {
     expect(view.getByText("User 2")).toBeInTheDocument();
 
     await act(async () => {
-      fireEvent.click(view.getByRole("button", { name: "UNBLOCK" }));
+      fireEvent.click(view.getByRole("button", { name: "Unblock User 2" }));
       await new Promise((resolve) => setTimeout(resolve, 5));
     });
 
