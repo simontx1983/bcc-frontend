@@ -135,8 +135,10 @@ describe("PostDetail — delete your own post", () => {
     // task in Node. findByRole resolves on the DOM mutation, and RTL then
     // drains with a setTimeout(0). Node does not order setImmediate against
     // setTimeout(0) from the main loop, so a one-shot check sometimes runs
-    // before the effect and saw <body> under load.
-    await waitFor(() => expect(document.activeElement).toBe(heading), { timeout: 5000 });
+    // before the effect and saw <body> under load. 2s, under the test's own
+    // 5s limit, so a real regression reports this assertion's diff rather
+    // than "Test timed out".
+    await waitFor(() => expect(document.activeElement).toBe(heading), { timeout: 2000 });
   });
 
   it("on failure the dialog says why (by code), offers TRY AGAIN, and the post stays", async () => {
