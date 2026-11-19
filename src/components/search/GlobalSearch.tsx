@@ -38,8 +38,10 @@
  *   that the user always touches before it does anything.
  */
 
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
+  Suspense,
+  useCallback,
   useEffect,
   useId,
   useRef,
@@ -128,8 +130,28 @@ export function GlobalSearch({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
 
-  const search = useGlobalSearch(query, scope);
+  // Fetch only while the dropdown is open: the box can now hold a term
+  // while closed (synced from /search?q=, below), and on mobile it is
+  // mounted but hidden.
+  const search = useGlobalSearch(query, scope, { enabled: open });
   const items: SearchSuggestion[] = search.data?.items ?? [];
+
+  // On /search the box shows the page's query: after a submit, on a deep
+  // link, and on back/forward (F-260 M12). Leaving /search clears it, but
+  // only if it still holds the synced term, never something typed since.
+  const syncedQueryRef = useRef<string | null>(null);
+  const syncFromUrl = useCallback((urlQuery: string | null) => {
+    if (urlQuery !== null) {
+      syncedQueryRef.current = urlQuery;
+      setQuery(urlQuery);
+      return;
+    }
+    const synced = syncedQueryRef.current;
+    syncedQueryRef.current = null;
+    if (synced !== null) {
+      setQuery((current) => (current === synced ? "" : current));
+    }
+  }, []);
 
   const recents = useRecentSearches();
   const trimmed = query.trim();
@@ -219,7 +241,13 @@ export function GlobalSearch({
     const cleaned = q.trim();
     if (cleaned.length < 2) return;
     recents.push(cleaned);
-    navigateAndClose(`/search?q=${encodeURIComponent(cleaned)}`);
+    // Keep the term in the box: /search is about to show its results.
+    // (Clearing it emptied the box under its own results page; a re-submit
+    // of the same term changes no URL, so the sync could not refill it.)
+    setQuery(cleaned);
+    navigateAndClose(`/search?q=${encodeURIComponent(cleaned)}`, {
+      keepQuery: true,
+    });
   };
 
   const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
@@ -258,9 +286,12 @@ export function GlobalSearch({
     }
   };
 
-  const navigateAndClose = (href: string) => {
+  const navigateAndClose = (
+    href: string,
+    { keepQuery = false }: { keepQuery?: boolean } = {},
+  ) => {
     setOpen(false);
-    setQuery("");
+    if (!keepQuery) setQuery("");
     setActiveIndex(-1);
     inputRef.current?.blur();
     router.push(toInternalHref(href));
@@ -278,6 +309,12 @@ export function GlobalSearch({
           : "relative flex items-center gap-1"
       }
     >
+      {/* useSearchParams needs its own Suspense boundary (Next 15), or
+          every statically rendered page would bail out to client
+          rendering up to the nearest one. Renders nothing. */}
+      <Suspense fallback={null}>
+        <SearchQuerySync onChange={syncFromUrl} />
+      </Suspense>
       <label htmlFor={inputId} className="sr-only">
         Search BCC
       </label>
@@ -358,7 +395,10 @@ export function GlobalSearch({
               trendingLoading={trending.isLoading}
               onSelectTrending={(q) => {
                 recents.push(q);
-                navigateAndClose(`/search?q=${encodeURIComponent(q)}`);
+                setQuery(q);
+                navigateAndClose(`/search?q=${encodeURIComponent(q)}`, {
+                  keepQuery: true,
+                });
               }}
             />
           ) : search.isError ? (
@@ -400,6 +440,29 @@ export function GlobalSearch({
       )}
     </div>
   );
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// SearchQuerySync — reports /search's `?q=` (or null off /search) to
+// the box. A separate null-rendering child so the useSearchParams read
+// sits inside its own Suspense boundary.
+// ─────────────────────────────────────────────────────────────────────
+
+function SearchQuerySync({
+  onChange,
+}: {
+  onChange: (urlQuery: string | null) => void;
+}) {
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const urlQuery =
+    pathname === "/search" ? (searchParams.get("q") ?? "").trim() : null;
+
+  useEffect(() => {
+    onChange(urlQuery);
+  }, [urlQuery, onChange]);
+
+  return null;
 }
 
 // ─────────────────────────────────────────────────────────────────────

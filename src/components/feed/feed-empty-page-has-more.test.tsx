@@ -100,6 +100,74 @@ describe("FeedBody — an empty page while more exist", () => {
     expect(screen.queryByText("EMPTY STATE")).toBeNull();
   });
 
+  it("a manual Load more keeps the button mounted and focused while it fetches", () => {
+    const { rerender } = render(<FeedBody {...props({ data: emptyPages(4), hasNextPage: true })} />);
+    const button = screen.getByRole("button", { name: "Load more" });
+    button.focus();
+    fireEvent.click(button);
+    expect(fetchNextPage).toHaveBeenCalledTimes(1);
+
+    // The fetch is in flight: no skeleton, same button, still focused.
+    rerender(<FeedBody {...props({ data: emptyPages(4), hasNextPage: true, isFetchingNextPage: true })} />);
+    expect(screen.queryByLabelText("Loading the Floor")).toBeNull();
+    const busy = screen.getByRole("button", { name: "Load more" });
+    expect(busy).toBe(button);
+    expect(document.activeElement).toBe(button);
+    expect(busy).toHaveAttribute("aria-busy", "true");
+    expect(busy).toHaveAttribute("aria-disabled", "true");
+    expect(busy).not.toBeDisabled();
+    // A second press while busy sends nothing.
+    fireEvent.click(busy);
+    expect(fetchNextPage).toHaveBeenCalledTimes(1);
+
+    // Rows arrive: the block gives way to the list.
+    rerender(
+      <FeedBody
+        {...props({
+          data: { pages: [...(emptyPages(4)?.pages ?? []), { items: [{ id: "feed_9" } as never] }] },
+          hasNextPage: true,
+        })}
+      />,
+    );
+    expect(screen.queryByText("No posts to show so far.")).toBeNull();
+    expect(screen.getByTestId("row")).toHaveTextContent("feed_9");
+  });
+
+  it("observes a sentinel that mounts late, when rows first arrive", () => {
+    const observed: Element[] = [];
+    const io: { fire?: () => void } = {};
+    class FakeObserver {
+      constructor(cb: (entries: Array<{ isIntersecting: boolean }>) => void) {
+        io.fire = () => cb([{ isIntersecting: true }]);
+      }
+      observe(el: Element) { observed.push(el); }
+      disconnect() {}
+      unobserve() {}
+      takeRecords() { return []; }
+    }
+    vi.stubGlobal("IntersectionObserver", FakeObserver);
+    try {
+      // Past the bound and empty: no sentinel yet. Every other input of the
+      // observer effect (hasNextPage, isFetchingNextPage, fetchNextPage)
+      // stays the same across the rerender — only the rows change.
+      const { rerender } = render(<FeedBody {...props({ data: emptyPages(4), hasNextPage: true })} />);
+      expect(observed).toHaveLength(0);
+      rerender(
+        <FeedBody
+          {...props({
+            data: { pages: [...(emptyPages(4)?.pages ?? []), { items: [{ id: "feed_9" } as never] }] },
+            hasNextPage: true,
+          })}
+        />,
+      );
+      expect(observed).toHaveLength(1);
+      io.fire?.();
+      expect(fetchNextPage).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("an ordinary page with rows is unchanged", () => {
     render(
       <FeedBody

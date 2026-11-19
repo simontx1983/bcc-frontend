@@ -154,6 +154,12 @@ describe("Retry-After (contract §1.4.4, F-289)", () => {
     expect(rateLimitedRetryDelay(2, limited(1))).toBe(1_250);
   });
 
+  it("a wait longer than the cap is not retried at all; one within it is", () => {
+    expect(retryRateLimitedRead(0, limited(60))).toBe(false);
+    expect(retryRateLimitedRead(0, limited(20))).toBe(true);
+    expect(retryRateLimitedRead(0, limited(30))).toBe(true);
+  });
+
   it("caps it, and falls back to the fixed pauses when absent or unusable", () => {
     expect(rateLimitedRetryDelay(0, limited(600))).toBe(30_000);
     expect(rateLimitedRetryDelay(1, limited(0))).toBe(4_000);

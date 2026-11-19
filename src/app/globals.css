@@ -693,6 +693,12 @@
       animation-iteration-count: 1 !important;
       transition-duration: 0.01ms !important;
     }
+    /* Anchor jumps and `behavior: "auto"` scrolls snap instead of gliding
+       (F-426). Same layer and specificity as the `html` smooth default
+       above, so this later rule wins only under reduced motion. */
+    html {
+      scroll-behavior: auto;
+    }
   }
 }
 
