@@ -69,12 +69,18 @@ describe("WalletAuthButton — the chain across 'no account yet'", () => {
     expect(chainSelect().value).toBe("arbitrum");
   });
 
-  it("ignores an unsupported initialChainSlug and keeps the default", () => {
-    render(<WalletAuthButton mode="signup" handle="jo-welds" onSuccess={() => {}} />);
+  it("ignores an unsupported initialChainSlug and keeps the default", async () => {
+    render(<WalletAuthButton mode="login" onSuccess={() => {}} />);
     const fallback = chainSelect().value;
     cleanup();
-    render(<WalletAuthButton mode="signup" handle="jo-welds" onSuccess={() => {}} initialChainSlug="not-a-chain" />);
-    expect(chainSelect().value).toBe(fallback);
+    // A <select> shows its first option for an unknown value either way, so
+    // the proof is what the button DOES: it connects on the default chain,
+    // rather than refusing with "Pick a supported chain."
+    render(<WalletAuthButton mode="login" onSuccess={() => {}} initialChainSlug="not-a-chain" />);
+    fireEvent.click(screen.getByRole("button", { name: "Sign in with wallet" }));
+    await waitFor(() => expect(h.connect).toHaveBeenCalledTimes(1));
+    expect(h.connect).toHaveBeenCalledWith(fallback, expect.anything());
+    expect(screen.queryByText("Pick a supported chain.")).toBeNull();
   });
 
   it("a sign-up's own sign-in never hands off as 'not linked' (signup mode has no hand-off)", async () => {

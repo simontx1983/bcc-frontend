@@ -174,6 +174,17 @@ describe("M24 — the identity step keeps what was done in it", () => {
     expect(btn(/change avatar/i)).toBeInTheDocument();
   });
 
+  it("a cover uploaded after the avatar keeps Remove offered for the avatar", () => {
+    renderIdentity();
+    const [coverInput, avatarInput] = fileInputs();
+    fireEvent.change(avatarInput!, { target: { files: [png()] } });
+    expect(btn(/^remove$/i)).toBeInTheDocument();
+    fireEvent.change(coverInput!, { target: { files: [png()] } });
+    expect(btn(/^remove$/i)).toBeInTheDocument();
+    backAndForth();
+    expect(btn(/^remove$/i)).toBeInTheDocument();
+  });
+
   it("an uploaded cover is still there after Back", () => {
     renderIdentity();
     const [coverInput] = fileInputs();
