@@ -10,10 +10,10 @@
  *
  * A row can name nobody. `POST /me/blocks` accepts any positive user id
  * (so it cannot tell a member which ids exist), and a member can be
- * deleted after being blocked. Today the server still names such a row
- * with a `member-<id>` fallback, which renders like any other handle. A
- * pending bcc-trust change sends an empty handle, display_name and
- * profile_url instead (also for a profile the blocker can't see). Such a
+ * deleted after being blocked. Since bcc-trust #759 (contract #334) the
+ * server sends such a row, and one whose profile the blocker may not view,
+ * with an empty handle, display_name, avatar_url and profile_url; before
+ * it, a `member-<id>` fallback that renders like any other handle. Such a
  * row renders as "Unknown account", and its Unblock still works:
  * unblocking only needs the `user_id`. No row here links to a profile.
  */

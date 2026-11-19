@@ -4665,12 +4665,12 @@ export type CreateUserReportResponse = {
 /**
  * §K1 Phase A — one row in the viewer's block list. Server-shaped.
  *
- * `handle`, `display_name` and `profile_url` can all be "", once a
- * pending bcc-trust change ships: when no member holds `user_id` (any
- * positive id can be blocked, and a blocked member can be deleted), or
- * the blocker can't see that profile. Until then the server sends a
- * `member-<id>` fallback handle and name. `user_id` is always set, and
- * unblocking needs only that.
+ * Since bcc-trust #759 (contract #334), `handle`, `display_name`,
+ * `avatar_url` and `profile_url` are all "" when no member holds `user_id`
+ * (any positive id can be blocked, and a blocked member can be deleted)
+ * or the blocker may not view that member's profile; the two cases are
+ * indistinguishable. Before it, the server sent a `member-<id>` fallback
+ * handle and name. `user_id` is always set, and unblocking needs only that.
  */
 export interface MyBlockEntry {
   user_id: number;

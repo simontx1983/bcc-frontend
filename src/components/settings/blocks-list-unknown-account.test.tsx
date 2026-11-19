@@ -1,11 +1,12 @@
 /**
  * A blocked id with no member behind it. `POST /me/blocks` accepts any
  * positive user id (bcc-trust #736), and a member can be deleted after
- * being blocked. A pending bcc-trust change makes `GET /me/blocks` send
- * that row with an empty handle, display_name and profile_url (today it
- * sends a `member-<id>` fallback). The list would print a lone "@" for
- * an empty row. It now reads "Unknown account", links nowhere, and
- * Unblock still removes it.
+ * being blocked. Since bcc-trust #759 (contract #334), `GET /me/blocks`
+ * sends that row, and one whose profile the blocker may not view, with an
+ * empty handle, display_name, avatar_url and profile_url (before it, a
+ * `member-<id>` fallback). The list would print a lone "@" for an empty
+ * row. It now reads "Unknown account", links nowhere, and Unblock still
+ * removes it.
  *
  * Real hooks and a real QueryClient against stubbed endpoints, so the
  * Unblock press goes through useUnblockUser and the invalidation re-read.
