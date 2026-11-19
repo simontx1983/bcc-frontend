@@ -26,6 +26,7 @@ import { captureAnalyticsEvent } from "@/lib/analytics/posthog";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { LoadFailure } from "@/components/ui/LoadFailure";
 import { useCopyConfirm } from "@/hooks/useCopyConfirm";
+import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
 
 import { MY_WALLETS_QUERY_KEY, useMyWallets, useUnlinkWallet } from "@/hooks/useWallets";
 import { linkWallet } from "@/lib/api/auth-endpoints";
@@ -93,12 +94,14 @@ export function WalletsSection() {
 
   // The recovery banner's "or link another wallet" secondary action focuses
   // the existing link form's chain <select> so the user lands on the right
-  // control without a separate page or duplicate form.
+  // control without a separate page or duplicate form. Under reduced
+  // motion the scroll jumps instead of gliding (F-426).
   const linkChainSelectRef = useRef<HTMLSelectElement | null>(null);
+  const reducedMotion = usePrefersReducedMotion();
   function focusLinkForm() {
     const el = linkChainSelectRef.current;
     if (el !== null) {
-      el.scrollIntoView({ block: "center", behavior: "smooth" });
+      el.scrollIntoView({ block: "center", behavior: reducedMotion ? "auto" : "smooth" });
       el.focus();
     }
   }
