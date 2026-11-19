@@ -3,13 +3,16 @@
  *   - Only the pill that raised a notice is described by it. Before, every
  *     pill pointed aria-describedby at the line, so a Vouch failure was
  *     read as Watch's description too.
- *   - The same event twice in a row is announced again. The line is keyed
- *     per event, so a repeat is a fresh live region; before, identical text
- *     in the same element was never re-read.
+ *   - The same event twice in a row is announced again: the region stays
+ *     mounted and each event's text is a fresh span inside it (a region
+ *     inserted already holding its text is often not read), so a repeat is
+ *     a new insertion; before, identical text in the same element was never
+ *     re-read.
  */
 
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { filledNotice } from "@/components/cards/pill-notice.testing";
 
 vi.mock("next/navigation", () => ({ usePathname: () => "/directory" }));
 
@@ -28,7 +31,7 @@ vi.mock("@/hooks/useAttestations", () => ({
   useRevokeAttestation: () => ({ mutate: vi.fn(), isPending: false }),
 }));
 
-const { ActionBar } = await import("@/components/cards/CardActionBar");
+const { ActionBar, NOTICE_FILL_DELAY_MS } = await import("@/components/cards/CardActionBar");
 
 function card(permissions: Record<string, unknown>, extra: Record<string, unknown> = {}) {
   return {
@@ -69,22 +72,22 @@ function failWatch() {
 }
 
 describe("the notice describes only the pill that raised it", () => {
-  it("a locked Vouch tap describes Vouch, not Watch", () => {
+  it("a locked Vouch tap describes Vouch, not Watch", async () => {
     render(<ActionBar card={card(perms)} isPulled={false} />);
     const vouch = screen.getByRole("button", { name: "Vouch for Atlas" });
     const watch = screen.getByRole("button", { name: "Watch Atlas" });
     fireEvent.click(vouch);
-    const line = screen.getByRole("status");
+    const line = await filledNotice("status");
     expect(vouch).toHaveAttribute("aria-describedby", line.id);
     expect(watch).not.toHaveAttribute("aria-describedby");
   });
 
-  it("a failed Watch describes Watch, not Vouch", () => {
+  it("a failed Watch describes Watch, not Vouch", async () => {
     render(<ActionBar card={card(perms)} isPulled={false} />);
     const watch = screen.getByRole("button", { name: "Watch Atlas" });
     fireEvent.click(watch);
     failWatch();
-    const line = screen.getByRole("alert");
+    const line = await filledNotice("alert");
     expect(watch).toHaveAttribute("aria-describedby", line.id);
     expect(screen.getByRole("button", { name: "Vouch for Atlas" })).not.toHaveAttribute(
       "aria-describedby",
@@ -93,30 +96,49 @@ describe("the notice describes only the pill that raised it", () => {
 });
 
 describe("the same event twice is announced again", () => {
-  it("a second identical failure is a fresh alert", () => {
+  it("a second identical failure is a new insertion into the same, already-mounted alert", async () => {
     render(<ActionBar card={card(perms)} isPulled={false} />);
     const watch = screen.getByRole("button", { name: "Watch Atlas" });
     fireEvent.click(watch);
     failWatch();
-    const first = screen.getByRole("alert");
+    const region = await filledNotice("alert");
+    const firstText = region.firstElementChild;
     fireEvent.click(watch);
     failWatch();
-    const second = screen.getByRole("alert");
-    expect(second).toHaveTextContent("Couldn't watch this card. Try again.");
-    expect(second).not.toBe(first);
-    expect(first.isConnected).toBe(false);
+    await waitFor(() => expect(region.firstElementChild).not.toBe(firstText));
+    expect(screen.getByRole("alert")).toBe(region);
+    expect(region).toHaveTextContent("Couldn't watch this card. Try again.");
+    expect(firstText?.isConnected).toBe(false);
   });
 
-  it("tapping the same locked pill again is a fresh status", () => {
+  it("a fresh region mounts EMPTY and receives its text a beat later", () => {
+    vi.useFakeTimers();
+    try {
+      render(<ActionBar card={card(perms)} isPulled={false} />);
+      fireEvent.click(screen.getByRole("button", { name: "Vouch for Atlas" }));
+      const region = screen.getByRole("status");
+      expect(region).toHaveTextContent("");
+      act(() => {
+        vi.advanceTimersByTime(NOTICE_FILL_DELAY_MS);
+      });
+      expect(region).toHaveTextContent("Vouching unlocks at neutral reputation.");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("tapping the same locked pill again inserts fresh text into the same status", async () => {
     render(<ActionBar card={card(perms)} isPulled={false} />);
     const vouch = screen.getByRole("button", { name: "Vouch for Atlas" });
     fireEvent.click(vouch);
-    const first = screen.getByRole("status");
+    const region = await filledNotice("status");
+    const firstText = region.firstElementChild;
     fireEvent.click(vouch);
-    expect(screen.getByRole("status")).not.toBe(first);
+    await waitFor(() => expect(region.firstElementChild).not.toBe(firstText));
+    expect(screen.getByRole("status")).toBe(region);
   });
 
-  it("a failure that recurs in the same render (no unwatch handle) is re-announced", () => {
+  it("a failure that recurs in the same render (no unwatch handle) is re-announced", async () => {
     // Watched, but the server sent no handle to unwatch with: useViewerWatch
     // clears and re-sets the same error synchronously on every tap.
     render(
@@ -127,8 +149,9 @@ describe("the same event twice is announced again", () => {
     );
     const unwatch = screen.getByRole("button", { name: "Stop watching Atlas" });
     fireEvent.click(unwatch);
-    const first = screen.getByRole("alert");
+    const region = await filledNotice("alert");
+    const firstText = region.firstElementChild;
     fireEvent.click(unwatch);
-    expect(screen.getByRole("alert")).not.toBe(first);
+    await waitFor(() => expect(region.firstElementChild).not.toBe(firstText));
   });
 });

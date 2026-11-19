@@ -185,9 +185,10 @@ function ActionPill({
  *  - Each notice records which pill raised it (`source`), and only THAT
  *    pill is described by the line. Before, a Vouch failure also became
  *    Watch's description, and a screen reader read it on the wrong pill.
- *  - Every event gets a new `seq`, and the line is keyed on it, so the
- *    same failure twice in a row is a fresh live region and is announced
- *    again. Before, identical text never re-announced.
+ *  - Every event gets a new `seq`; its text is a fresh `<span key={seq}>`
+ *    inside a region that stays mounted (PillNoticeLine), so the same
+ *    failure twice in a row is announced again. Before, identical text
+ *    never re-announced.
  */
 type PillNoticeSource = "watch" | "vouch" | "message" | "join";
 type PillNotice = {
@@ -220,14 +221,36 @@ function usePillNotice() {
   };
 }
 
+/** How long a freshly mounted notice region stays empty before its text. */
+export const NOTICE_FILL_DELAY_MS = 50;
+
+/**
+ * The notice line. A live region inserted already holding its text is
+ * often not read (NVDA/Chrome, VoiceOver), so this one mounts EMPTY and the
+ * first text arrives a beat later. Call sites key it by TONE, so a status
+ * and an alert are never one element changing role. Within a tone the
+ * region stays mounted and each event's text is a fresh `<span key={seq}>`,
+ * so a repeat is an insertion into a region that already exists.
+ */
 function PillNoticeLine({ id, notice }: { id: string; notice: PillNotice }) {
+  const [shown, setShown] = useState<PillNotice | null>(null);
+  const filled = useRef(false);
+  useEffect(() => {
+    if (!filled.current) {
+      filled.current = true;
+      const timer = setTimeout(() => setShown(notice), NOTICE_FILL_DELAY_MS);
+      return () => clearTimeout(timer);
+    }
+    setShown(notice);
+    return undefined;
+  }, [notice]);
   return (
     <p
       id={id}
       role={notice.tone}
       className="bcc-mono basis-full text-center text-[10px] leading-snug tracking-[0.06em] text-bcc-text-secondary"
     >
-      {notice.text}
+      {shown !== null && <span key={shown.seq}>{shown.text}</span>}
     </p>
   );
 }
@@ -699,7 +722,7 @@ export function ActionBar({
           failed — readable on touch. Sits under the pills; the portrait
           (flex: 1) absorbs the height, as for the Message row below. */}
       {shownNotice !== null && (
-        <PillNoticeLine key={shownNotice.seq} id={pillNotice.id} notice={shownNotice} />
+        <PillNoticeLine key={shownNotice.tone} id={pillNotice.id} notice={shownNotice} />
       )}
 
       {/* Second row. NOT a third pill across: CardActionBar's own history
@@ -927,7 +950,7 @@ export function CommunityActionBar({
         }}
       />
       {pillNotice.notice !== null && (
-        <PillNoticeLine key={pillNotice.notice.seq} id={pillNotice.id} notice={pillNotice.notice} />
+        <PillNoticeLine key={pillNotice.notice.tone} id={pillNotice.id} notice={pillNotice.notice} />
       )}
     </div>
   );
