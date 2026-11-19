@@ -11,9 +11,11 @@
  * `enabled` defaults to true — the directory always wants live data
  * the moment it mounts. Pass `false` to suspend (e.g. while a user
  * is mid-edit on the search input).
+ *
+ * `keepPreviousData` is opt-in, off by default: see the option.
  */
 
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 
 import { getMembers } from "@/lib/api/members-endpoints";
 import type {
@@ -41,6 +43,14 @@ export interface UseMembersOptions {
   /** §21.4 — restrict to actively listed mentors (see MembersQueryParams). */
   mentors?: boolean;
   enabled?: boolean;
+  /** Keep the last result on screen while a new key loads (TanStack v5
+   *  `placeholderData: keepPreviousData`): the query reports success with
+   *  the old rows and `isPlaceholderData` until the new ones land. For the
+   *  /members directory, where each debounced keystroke or filter click is
+   *  a new key. Off by default: the hook is shared with surfaces (mention
+   *  picker, DM recipient search, sidebar) whose own states were written
+   *  for a pending query, and a failed fetch still carries no data. */
+  keepPreviousData?: boolean;
 }
 
 export function useMembers(options: UseMembersOptions = {}) {
@@ -69,5 +79,8 @@ export function useMembers(options: UseMembersOptions = {}) {
       getMembers({ page, perPage, q, type, verified, mentors }, signal),
     enabled,
     staleTime: 30_000,
+    ...(options.keepPreviousData === true
+      ? { placeholderData: keepPreviousData }
+      : {}),
   });
 }
