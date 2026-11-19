@@ -33,6 +33,41 @@ import type { UseInfiniteQueryResult, InfiniteData } from "@tanstack/react-query
 import { CardGrid } from "@/components/cards/CardGrid";
 import { CardGridSkeleton } from "@/components/cards/CardGridSkeleton";
 import { humanizeCode, isCode, isPermissionDenial } from "@/lib/api/errors";
+
+/** Shown while a throttled first load waits to retry (bcc-trust #716). */
+export const DIRECTORY_THROTTLED_COPY = "Lots of searches right now. Trying again in a moment…";
+
+/**
+ * Is a throttled first load waiting to retry? useDirectory retries a 429
+ * after a pause instead of failing; this is what the notice keys on.
+ */
+export function isDirectoryThrottled(
+  query: Pick<UseInfiniteQueryResult<unknown, unknown>, "isLoading" | "failureReason">,
+): boolean {
+  return query.isLoading && isCode(query.failureReason, "bcc_rate_limited");
+}
+
+/**
+ * The throttle notice. ALWAYS mounted, empty and visually hidden when idle:
+ * a live region inserted already holding its text is often not read
+ * (NVDA/Chrome, VoiceOver), so the text arrives in a region that exists.
+ * The parent renders it outside DirectoryGrid's branches so a switch
+ * between loading, loaded and failed never remounts it.
+ */
+export function DirectoryThrottleNotice({ throttled }: { throttled: boolean }) {
+  return (
+    <p
+      role="status"
+      className={
+        throttled
+          ? "bcc-mono mb-3 text-center text-[11px] tracking-[0.12em] text-bcc-text-secondary"
+          : "sr-only"
+      }
+    >
+      {throttled ? DIRECTORY_THROTTLED_COPY : ""}
+    </p>
+  );
+}
 import { LoadFailure } from "@/components/ui/LoadFailure";
 import type {
   BccApiError,
@@ -85,19 +120,7 @@ export function DirectoryGrid({ query }: Props) {
   }
 
   if (query.isLoading) {
-    // bcc-trust #716: a throttled search is retried after a pause
-    // (useDirectory). Say so rather than leave a skeleton spinning.
-    const throttled = isCode(query.failureReason, "bcc_rate_limited");
-    return (
-      <>
-        {throttled && (
-          <p role="status" className="bcc-mono mb-3 text-center text-[11px] tracking-[0.12em] text-bcc-text-secondary">
-            Lots of searches right now. Trying again in a moment…
-          </p>
-        )}
-        <CardGridSkeleton ariaLabel="Loading directory results" />
-      </>
-    );
+    return <CardGridSkeleton ariaLabel="Loading directory results" />;
   }
 
   // Flatten pages into a single Card[]. Each page is an independent

@@ -154,6 +154,9 @@ export function retryUnlessProfilePrivate(failureCount: number, err: unknown): b
  */
 export const RATE_LIMIT_RETRY_DELAYS_MS: readonly number[] = [2_000, 4_000, 6_000];
 
+/** Added to the server's `retry_after_seconds` before retrying. */
+const RETRY_AFTER_MARGIN_MS = 250;
+
 /**
  * React Query `retry` for reads that can be rate-limited: a 429 is retried
  * after a pause (RATE_LIMIT_RETRY_DELAYS_MS) instead of becoming a load
@@ -167,6 +170,14 @@ export function retryRateLimitedRead(failureCount: number, err: unknown): boolea
 /** React Query `retryDelay` to pair with retryRateLimitedRead. */
 export function rateLimitedRetryDelay(failureCount: number, err: unknown): number {
   if (isCode(err, "bcc_rate_limited")) {
+    // Contract §1.4.4 (v1.176, F-289): a rate limit's 429 carries
+    // `data.retry_after_seconds`, the time LEFT on the limit that refused.
+    // Wait that (plus a small margin for clock and network); without it,
+    // the fixed pauses.
+    const hinted = err instanceof BccApiError ? err.data?.["retry_after_seconds"] : undefined;
+    if (typeof hinted === "number" && Number.isFinite(hinted) && hinted > 0) {
+      return Math.min(hinted * 1000 + RETRY_AFTER_MARGIN_MS, 30_000);
+    }
     return RATE_LIMIT_RETRY_DELAYS_MS[Math.min(failureCount, RATE_LIMIT_RETRY_DELAYS_MS.length - 1)] ?? 2_000;
   }
   // React Query's own default backoff.
