@@ -5,6 +5,8 @@
 
 import * as Sentry from "@sentry/nextjs";
 
+import { scrubSentryEvent } from "@/lib/sentry/scrub";
+
 Sentry.init({
   dsn: process.env['NEXT_PUBLIC_SENTRY_DSN'],
 
@@ -27,4 +29,9 @@ Sentry.init({
 
   // Disabled: see sentry.server.config.ts for rationale.
   sendDefaultPii: false,
+
+  // See sentry.server.config.ts: URLs lose their query string and
+  // fragment before any event leaves.
+  beforeSend: scrubSentryEvent,
+  beforeSendTransaction: scrubSentryEvent,
 });
