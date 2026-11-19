@@ -109,14 +109,12 @@ const SRC = resolve(process.cwd(), "src");
 
 /**
  * Files allowed to keep an unconditional smooth scroll, each with its reason.
- * PostDetail.tsx is out of F-426's scope: FE #326 (F-346) is already
- * rewriting that file and folds the same fix in. An entry must still
- * match: once a listed file is fixed (or moved), the stale-entry test
- * below fails until the entry is deleted, so no file stays exempt for free.
+ * Empty: PostDetail.tsx was the one entry, and FE #326 (F-346) fixed it.
+ * An entry must still match: once a listed file is fixed (or moved), the
+ * stale-entry test below fails until the entry is deleted, so no file
+ * stays exempt for free.
  */
-const ALLOWED: Readonly<Record<string, string>> = {
-  "components/feed/PostDetail.tsx": "fixed inside FE #326",
-};
+const ALLOWED: Readonly<Record<string, string>> = {};
 
 function walk(dir: string): string[] {
   const out: string[] = [];
