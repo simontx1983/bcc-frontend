@@ -59,7 +59,7 @@ describe("BlocksList unblock failure", () => {
     });
     render(<BlocksList />);
 
-    fireEvent.click(within(rowOf("User 2")).getByRole("button", { name: "UNBLOCK" }));
+    fireEvent.click(within(rowOf("User 2")).getByRole("button", { name: "Unblock User 2" }));
 
     const alert = within(rowOf("User 2")).getByRole("alert");
     expect(alert).toHaveTextContent("Slow down — too many unblock attempts. Wait a minute.");
@@ -67,7 +67,7 @@ describe("BlocksList unblock failure", () => {
     expect(within(rowOf("User 1")).queryByRole("alert")).toBeNull();
     expect(screen.queryByText(/raw server prose/)).toBeNull();
     // The button names the failure for assistive tech.
-    expect(within(rowOf("User 2")).getByRole("button", { name: "UNBLOCK" })).toHaveAttribute(
+    expect(within(rowOf("User 2")).getByRole("button", { name: "Unblock User 2" })).toHaveAttribute(
       "aria-describedby",
       alert.id,
     );
@@ -79,7 +79,7 @@ describe("BlocksList unblock failure", () => {
       cb.onSettled?.();
     });
     render(<BlocksList />);
-    fireEvent.click(within(rowOf("User 1")).getByRole("button", { name: "UNBLOCK" }));
+    fireEvent.click(within(rowOf("User 1")).getByRole("button", { name: "Unblock User 1" }));
     expect(within(rowOf("User 1")).getByRole("alert")).toHaveTextContent("Couldn't unblock. Try again.");
   });
 
@@ -89,11 +89,11 @@ describe("BlocksList unblock failure", () => {
       cb.onSettled?.();
     });
     render(<BlocksList />);
-    fireEvent.click(within(rowOf("User 1")).getByRole("button", { name: "UNBLOCK" }));
+    fireEvent.click(within(rowOf("User 1")).getByRole("button", { name: "Unblock User 1" }));
     expect(screen.getByRole("alert")).toBeInTheDocument();
 
     // Retry is in flight (mutate default: never settles).
-    fireEvent.click(within(rowOf("User 1")).getByRole("button", { name: "UNBLOCK" }));
+    fireEvent.click(within(rowOf("User 1")).getByRole("button", { name: "Unblock User 1" }));
     expect(screen.queryByRole("alert")).toBeNull();
     expect(fx.mutate).toHaveBeenCalledTimes(2);
   });
