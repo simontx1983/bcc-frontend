@@ -1607,6 +1607,14 @@ export interface SearchSuggestion {
 
 export interface SearchSuggestionsResponse {
   items: SearchSuggestion[];
+  /**
+   * F-421: true when at least one vertical (pages, communities, members)
+   * could not be read, so `items` may be missing matches; an empty
+   * `items` then means "unknown", not "no matches". The response is
+   * `no-store` when true. OPTIONAL: a server without the field (production
+   * until the trust half ships) means false.
+   */
+  incomplete?: boolean;
 }
 
 // ─────────────────────────────────────────────────────────────────────

@@ -66,6 +66,11 @@ import { toInternalHref } from "@/lib/internal-route";
 
 const MAX_TRENDING_IN_DROPDOWN = 5;
 
+/** F-421: an empty answer the server marked `incomplete`. */
+export const SUGGESTIONS_UNAVAILABLE_COPY = "Suggestions unavailable right now.";
+/** F-421: rows shown, but the server marked the answer `incomplete`. */
+export const SUGGESTIONS_PARTIAL_COPY = "Some suggestions couldn't load.";
+
 /**
  * Scope options for the dropdown's <select>. `undefined` = All (no
  * `kind` param — the server merges pages + communities + members).
@@ -135,6 +140,9 @@ export function GlobalSearch({
   // mounted but hidden.
   const search = useGlobalSearch(query, scope, { enabled: open });
   const items: SearchSuggestion[] = search.data?.items ?? [];
+  // F-421: a vertical could not be read, so the list may be missing
+  // matches. A missing flag (older servers) means complete.
+  const incomplete = search.data?.incomplete === true;
 
   // On /search the box shows the page's query: after a submit, on a deep
   // link, and on back/forward (F-260 M12). Leaving /search clears it, but
@@ -407,7 +415,13 @@ export function GlobalSearch({
             </div>
           ) : items.length === 0 ? (
             <div className="bcc-mono bg-bcc-surface-raised px-4 py-3 text-[11px] text-bcc-text-secondary">
-              {search.isFetching ? "Searching…" : `No matches for “${trimmed}”.`}
+              {/* An empty INCOMPLETE answer is not "no matches". No retry
+                  button: the next keystroke asks again. */}
+              {search.isFetching
+                ? "Searching…"
+                : incomplete
+                  ? SUGGESTIONS_UNAVAILABLE_COPY
+                  : `No matches for “${trimmed}”.`}
             </div>
           ) : (
             <ul role="presentation" className="flex flex-col gap-px">
@@ -425,6 +439,13 @@ export function GlobalSearch({
                 />
               ))}
             </ul>
+          )}
+
+          {/* Rows shown, but a vertical could not be read: say so quietly. */}
+          {showResults && !search.isError && items.length > 0 && incomplete && (
+            <p className="bcc-mono bg-bcc-surface-raised px-4 py-2 text-[10px] text-bcc-text-secondary">
+              {SUGGESTIONS_PARTIAL_COPY}
+            </p>
           )}
 
           {trimmed.length >= 2 && (
