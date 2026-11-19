@@ -145,6 +145,34 @@ export function retryUnlessProfilePrivate(failureCount: number, err: unknown): b
   return !isProfilePrivate(err) && failureCount < 1;
 }
 
+/**
+ * Pauses before each retry of a rate-limited read. bcc-trust #716 throttles
+ * `GET /cards?q=` at 10 requests per 5 s per caller, so a 429 means "wait
+ * for the window to roll", and the app-wide retry (once, after 1 s) would
+ * usually land inside the same window and show a load failure. These add
+ * up to 12 s: past two full windows.
+ */
+export const RATE_LIMIT_RETRY_DELAYS_MS: readonly number[] = [2_000, 4_000, 6_000];
+
+/**
+ * React Query `retry` for reads that can be rate-limited: a 429 is retried
+ * after a pause (RATE_LIMIT_RETRY_DELAYS_MS) instead of becoming a load
+ * failure; any other error keeps the app-wide single retry.
+ */
+export function retryRateLimitedRead(failureCount: number, err: unknown): boolean {
+  if (isCode(err, "bcc_rate_limited")) return failureCount < RATE_LIMIT_RETRY_DELAYS_MS.length;
+  return failureCount < 1;
+}
+
+/** React Query `retryDelay` to pair with retryRateLimitedRead. */
+export function rateLimitedRetryDelay(failureCount: number, err: unknown): number {
+  if (isCode(err, "bcc_rate_limited")) {
+    return RATE_LIMIT_RETRY_DELAYS_MS[Math.min(failureCount, RATE_LIMIT_RETRY_DELAYS_MS.length - 1)] ?? 2_000;
+  }
+  // React Query's own default backoff.
+  return Math.min(1000 * 2 ** failureCount, 30_000);
+}
+
 const NON_RETRYABLE_FIXED_READ_CODES: ReadonlySet<string> = new Set([
   ...PERMISSION_DENIAL_CODES,
   "bcc_not_found",
