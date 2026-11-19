@@ -12,10 +12,17 @@ export function SettingsSectionHeader({
   eyebrow,
   title,
   blurb,
+  headingId,
 }: {
   eyebrow: string;
   title: string;
   blurb: string;
+  /**
+   * Gives the heading an id and makes it a programmatic focus target
+   * (tabIndex -1, never in the tab order): a section can land focus here
+   * when the control that held it goes away (BlocksList, last unblock).
+   */
+  headingId?: string;
 }) {
   return (
     <div className="border-l-2 border-bcc-accent pl-4">
@@ -24,7 +31,11 @@ export function SettingsSectionHeader({
       <span className="bcc-mono text-[10px] tracking-[0.24em] text-bcc-text">
         {eyebrow}
       </span>
-      <h2 className="bcc-stencil mt-1 text-2xl text-bcc-text md:text-3xl">
+      <h2
+        id={headingId}
+        tabIndex={headingId === undefined ? undefined : -1}
+        className="bcc-stencil mt-1 text-2xl text-bcc-text md:text-3xl"
+      >
         {title}
       </h2>
       <p className="bcc-mono mt-2 text-[11px] tracking-[0.14em] text-bcc-text-secondary">

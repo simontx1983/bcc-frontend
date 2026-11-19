@@ -313,7 +313,7 @@ function ChangeEmailCard({ currentEmail }: { currentEmail: string }) {
           onClick={() => {
             void endSession("user", { callbackUrl: "/login" });
           }}
-          className="bcc-auth-submit mt-4 inline-flex items-center justify-center"
+          className="bcc-auth-submit mt-4 inline-flex min-h-[44px] items-center justify-center"
         >
           Sign in again
         </button>
@@ -392,7 +392,7 @@ function ChangeEmailCard({ currentEmail }: { currentEmail: string }) {
             <button
               type="submit"
               disabled={!canConfirm}
-              className="bcc-stencil bg-ink px-4 py-2 text-cardstock transition disabled:opacity-50"
+              className="bcc-stencil inline-flex min-h-[44px] items-center bg-ink px-4 py-2 text-cardstock transition disabled:opacity-50"
             >
               {verify.isPending ? "Confirming…" : "Confirm"}
             </button>
@@ -470,7 +470,7 @@ type EmailStep =
 const CODE_LENGTH = 6;
 
 const textButtonClass =
-  "bcc-mono px-1 py-2 text-[11px] tracking-[0.14em] text-bcc-text-secondary hover:text-bcc-text disabled:opacity-50";
+  "bcc-mono inline-flex min-h-[44px] items-center px-1 py-2 text-[11px] tracking-[0.14em] text-bcc-text-secondary hover:text-bcc-text disabled:opacity-50";
 
 function isConflict(err: BccApiError | Error): boolean {
   return err instanceof BccApiError && err.code === "bcc_conflict";
@@ -651,7 +651,7 @@ function ChangePasswordCard() {
           onClick={() => {
             void endSession("user", { callbackUrl: "/login" });
           }}
-          className="bcc-auth-submit mt-4 inline-flex items-center justify-center"
+          className="bcc-auth-submit mt-4 inline-flex min-h-[44px] items-center justify-center"
         >
           Sign in again
         </button>
@@ -773,7 +773,7 @@ function ChangePasswordCard() {
 // ─────────────────────────────────────────────────────────────────────
 
 const fieldClass =
-  "w-full border border-bcc-input-border bg-bcc-input-bg px-3 py-2 font-serif text-bcc-text outline-none focus:border-bcc-accent focus:ring-1 focus:ring-bcc-accent disabled:opacity-50";
+  "min-h-[44px] w-full border border-bcc-input-border bg-bcc-input-bg px-3 py-2 font-serif text-bcc-text outline-none focus:border-bcc-accent focus:ring-1 focus:ring-bcc-accent disabled:opacity-50";
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -819,7 +819,7 @@ function SaveRow({
       <button
         type="submit"
         disabled={!canSubmit}
-        className="bcc-stencil bg-ink px-4 py-2 text-cardstock transition disabled:opacity-50"
+        className="bcc-stencil inline-flex min-h-[44px] items-center bg-ink px-4 py-2 text-cardstock transition disabled:opacity-50"
       >
         {busy ? busyLabel : label}
       </button>

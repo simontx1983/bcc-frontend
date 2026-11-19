@@ -142,7 +142,7 @@ function MentorToggle({ prefs }: { prefs: ProfilePrefs }) {
             mutation.reset();
             mutation.mutate({ mentor_opt_in: !optedIn });
           }}
-          className="bcc-mono inline-flex shrink-0 items-center border-2 border-bcc-border-strong px-3 py-1.5 text-[11px] tracking-[0.18em] text-bcc-text-secondary transition motion-reduce:transition-none hover:text-bcc-text disabled:cursor-not-allowed disabled:opacity-60"
+          className="bcc-mono inline-flex min-h-[44px] shrink-0 items-center border-2 border-bcc-border-strong px-3 py-1.5 text-[11px] tracking-[0.18em] text-bcc-text-secondary transition motion-reduce:transition-none hover:text-bcc-text disabled:cursor-not-allowed disabled:opacity-60"
         >
           {mutation.isPending ? "SAVING…" : optedIn ? "OPTED IN" : "OPTED OUT"}
         </button>

@@ -53,6 +53,7 @@ import {
   useFeed,
   useHotFeed,
 } from "@/hooks/useFeed";
+import { useEmptyPageAutoFetch } from "@/hooks/useEmptyPageAutoFetch";
 import { humanizeCode, isPermissionDenial } from "@/lib/api/errors";
 import {
   shouldWithdrawOnDenial,
@@ -89,15 +90,6 @@ export function FeedView({ isAuthenticated }: FeedViewProps) {
 
 /** Shown once the server has withdrawn permission to read a feed. */
 const FEED_WITHDRAWN_COPY = "You can’t read this feed.";
-
-/**
- * How many further pages FeedBody fetches on its own while every page so
- * far came back empty but the server says more exist. The per-viewer
- * filter (blocks, hidden reposts) runs after the page is cut, so a page
- * can arrive empty with `has_more: true`. Bounded so a long run of
- * filtered pages cannot spin; past it the viewer pages on by hand.
- */
-const EMPTY_PAGE_AUTO_FETCH_LIMIT = 3;
 
 /**
  * The denial gates for the three feed owners.
@@ -298,16 +290,16 @@ export function FeedBody(props: FeedBodyProps) {
   );
 
   // Every page so far is empty, yet the server says more exist (the
-  // per-viewer filter emptied them). That is not an empty feed. The number
-  // of pages beyond the first is exactly how many next-page fetches have
-  // run, so the bound needs no state of its own.
-  const emptyRun = items.length === 0 && hasNextPage && !isError;
-  const pagesFetchedAfterFirst = Math.max(0, (data?.pages.length ?? 1) - 1);
-  const keepAutoFetching = emptyRun && pagesFetchedAfterFirst < EMPTY_PAGE_AUTO_FETCH_LIMIT;
-
-  useEffect(() => {
-    if (keepAutoFetching && !isFetchingNextPage) fetchNextPage();
-  }, [keepAutoFetching, isFetchingNextPage, fetchNextPage]);
+  // per-viewer filter emptied them). That is not an empty feed. The rule,
+  // its bound and the auto-fetch effect are shared with the group wall.
+  const { emptyRun, keepAutoFetching } = useEmptyPageAutoFetch({
+    itemCount: items.length,
+    pageCount: data?.pages.length ?? 1,
+    hasNextPage,
+    isError,
+    isFetchingNextPage,
+    fetchNextPage,
+  });
 
   // Past the bound, a manual Load more does NOT fall back to the skeleton:
   // that would unmount the button the viewer just pressed and drop focus.

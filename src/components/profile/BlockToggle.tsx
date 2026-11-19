@@ -57,7 +57,12 @@ export function BlockToggle({ profile }: BlockToggleProps) {
     return null;
   }
 
+  const pending = blockMutation.isPending || unblockMutation.isPending;
+
   const handleClick = () => {
+    // The button stays focusable while a request runs (aria-disabled, not
+    // disabled), so a second press is ignored here instead.
+    if (pending) return;
     setErrorMessage(null);
     if (blocking) {
       setOptimisticBlocking(false);
@@ -72,21 +77,33 @@ export function BlockToggle({ profile }: BlockToggleProps) {
     }
   };
 
-  const pending = blockMutation.isPending || unblockMutation.isPending;
-
+  // F-264 (UX Lows):
+  //  - The name carries the handle ("Block @jo"), so out of context (a
+  //    screen reader's button list) it says whom it acts on.
+  //  - No aria-pressed. The label already swaps between BLOCK and
+  //    UNBLOCK, so a toggle state on top read as "UNBLOCK, pressed",
+  //    which says the opposite of the state.
+  //  - aria-disabled + aria-busy while a request runs, not `disabled`: the
+  //    browser blurs a focused control that turns disabled, and the
+  //    viewer just pressed this one.
+  //  - 44px tall (F-259's M8: it was about 30px). An important action, not
+  //    a dense chip, so the 36px exception does not apply.
   return (
     <div className="flex flex-col items-start gap-1">
       <button
         type="button"
         onClick={handleClick}
-        disabled={pending}
+        // Starts with the visible word, so a voice-control "click block"
+        // still matches. While working, the visible "WORKING…" is the name.
+        aria-label={pending ? undefined : `${blocking ? "Unblock" : "Block"} @${profile.handle}`}
+        aria-disabled={pending}
+        aria-busy={pending}
         className={
-          "bcc-mono inline-flex items-center border-2 px-3 py-1.5 text-[11px] tracking-[0.18em] transition disabled:opacity-60 " +
+          "bcc-mono inline-flex min-h-[44px] items-center border-2 px-3 py-1.5 text-[11px] tracking-[0.18em] transition aria-disabled:cursor-wait aria-disabled:opacity-60 " +
           (blocking
             ? "border-safety/60 text-bcc-text-safety hover:border-safety hover:bg-safety/10"
             : "border-bcc-border text-bcc-text-secondary hover:border-bcc-border-strong hover:text-bcc-text")
         }
-        aria-pressed={blocking}
       >
         {pending
           ? "WORKING…"
