@@ -40,8 +40,11 @@ const filters: DirectoryFilters = {
 
 const page = { items: [], pagination: { page: 1, has_more: false } };
 
+// The app's own default (providers.tsx): one retry. A bare QueryClient
+// retries 3 times, which would hide a hook that forgot its 429 policy.
 function wrapper({ children }: { children: ReactNode }) {
-  return <QueryClientProvider client={new QueryClient()}>{children}</QueryClientProvider>;
+  const client = new QueryClient({ defaultOptions: { queries: { retry: 1 } } });
+  return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
 }
 
 beforeEach(() => {
