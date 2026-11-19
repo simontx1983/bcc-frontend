@@ -23,8 +23,7 @@
  * No tier classification, no scoring math on the client.
  */
 
-import { ProfilePrivateNotice } from "@/components/profile/ProfilePrivateNotice";
-import { LoadFailure } from "@/components/ui/LoadFailure";
+import { ProfilePrivateNotice, ProfileReadFailure } from "@/components/profile/ProfilePrivateNotice";
 import { useUserEndorsements } from "@/hooks/useUserActivity";
 import { humanizeCode, isProfilePrivate } from "@/lib/api/errors";
 import type { UserEndorsementItem } from "@/lib/api/types";
@@ -53,10 +52,13 @@ export function EndorsementsGivenView({ handle }: EndorsementsGivenViewProps) {
   // bcc_unavailable when it could not read them (it used to answer 200
   // with an empty list), so with nothing to show the failure renders,
   // with a Retry, never the empty-state claim. Rows already held from an
-  // earlier read stay on screen through a failed refresh.
+  // earlier read stay on screen through a failed refresh. ProfileReadFailure
+  // is the profile tabs' shared drop-in for LoadFailure (UserBlogList,
+  // CardReviewsPanel, …).
   if (isError && items.length === 0) {
     return (
-      <LoadFailure
+      <ProfileReadFailure
+        error={error}
         message={humanizeCode(
           error,
           { bcc_unavailable: ENDORSEMENTS_UNAVAILABLE_COPY },

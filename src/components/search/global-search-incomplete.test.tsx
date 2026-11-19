@@ -17,7 +17,7 @@
  */
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { SearchSuggestion } from "@/lib/api/types";
@@ -75,6 +75,22 @@ function type(input: HTMLElement, value: string) {
   fireEvent.change(input, { target: { value } });
 }
 
+/**
+ * Waits until the request has been made AND answered. Before the 200 ms
+ * debounce fires, the dropdown already reads "No matches for …" with no
+ * request in flight, so a bare findByText("No matches…") would pass
+ * without ever seeing the server's answer.
+ */
+async function settled() {
+  await waitFor(() => expect(hoisted.getSearchSuggestions).toHaveBeenCalled());
+  // The stub answers at once; let that answer land and the query's
+  // batched notify render it.
+  await act(async () => {
+    await new Promise((r) => setTimeout(r, 50));
+  });
+  expect(screen.queryByText("Searching…")).toBeNull();
+}
+
 /** Calls the endpoint received for this exact term. */
 const callsFor = (q: string) =>
   hoisted.getSearchSuggestions.mock.calls.filter((c) => (c[0] as { q: string }).q === q).length;
@@ -101,7 +117,8 @@ describe("GlobalSearch — an incomplete answer (F-421)", () => {
     const input = renderSearch();
     type(input, "cosmos");
 
-    expect(await screen.findByText("No matches for “cosmos”.")).toBeInTheDocument();
+    await settled();
+    expect(screen.getByText("No matches for “cosmos”.")).toBeInTheDocument();
     expect(screen.queryByText(SUGGESTIONS_UNAVAILABLE_COPY)).toBeNull();
   });
 
@@ -110,7 +127,9 @@ describe("GlobalSearch — an incomplete answer (F-421)", () => {
     const input = renderSearch();
     type(input, "cosmos");
 
-    expect(await screen.findByText("No matches for “cosmos”.")).toBeInTheDocument();
+    await settled();
+    expect(screen.getByText("No matches for “cosmos”.")).toBeInTheDocument();
+    expect(screen.queryByText(SUGGESTIONS_UNAVAILABLE_COPY)).toBeNull();
   });
 
   it("rows and incomplete: the rows plus a quiet note", async () => {
