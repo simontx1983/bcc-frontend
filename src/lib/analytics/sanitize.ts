@@ -235,10 +235,17 @@ const EMBEDDED_PERSON_SEGMENTS: ReadonlyArray<readonly [RegExp, string]> = [
   [/\/disputes\/[^\s/?#"'<>()[\]]+/g, "/disputes/[id]"],
 ];
 
+/**
+ * Remove the `?…` / `#…` tail of every URL inside free text, absolute or
+ * root-relative, and nothing else. Shared with the Sentry scrubber
+ * (lib/sentry/scrub), so both privacy filters cut URLs the same way.
+ */
+export function stripEmbeddedQueryStrings(text: string): string {
+  return text.replace(EMBEDDED_ABSOLUTE, "$1").replace(EMBEDDED_RELATIVE, "$1$2");
+}
+
 function scrubEmbeddedUrls(text: string): string {
-  let out = text
-    .replace(EMBEDDED_ABSOLUTE, "$1")
-    .replace(EMBEDDED_RELATIVE, "$1$2");
+  let out = stripEmbeddedQueryStrings(text);
   for (const [re, pattern] of EMBEDDED_PERSON_SEGMENTS) out = out.replace(re, pattern);
   return out;
 }

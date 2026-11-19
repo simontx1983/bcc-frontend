@@ -4,6 +4,8 @@
 
 import * as Sentry from "@sentry/nextjs";
 
+import { scrubSentryEvent } from "@/lib/sentry/scrub";
+
 Sentry.init({
   dsn: process.env['NEXT_PUBLIC_SENTRY_DSN'],
 
@@ -39,4 +41,22 @@ Sentry.init({
   // with that surface. Selectively opt back in if a specific field is
   // genuinely needed.
   sendDefaultPii: false,
+
+  // Never collect request cookies or the body. In @sentry/nextjs 10 the
+  // requestData integration includes cookies, data and headers by default
+  // whatever sendDefaultPii says, so the next-auth session cookie could be
+  // attached to a server event. Headers stay (user agent, referer); the
+  // scrubber drops cookie/authorization headers and every URL query.
+  integrations: [
+    Sentry.requestDataIntegration({
+      include: { cookies: false, data: false, query_string: false, headers: true, url: true },
+    }),
+  ],
+
+  // URLs keep their path but lose the query string and fragment before
+  // any event leaves: `?pt=`, the password-reset `?key=&login=` and OAuth
+  // `?code=` would otherwise be stored as sent. Sentry's own scrubber
+  // matches field names, not these keys. See lib/sentry/scrub.
+  beforeSend: scrubSentryEvent,
+  beforeSendTransaction: scrubSentryEvent,
 });
