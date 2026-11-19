@@ -1145,7 +1145,9 @@ function CommentActionRail({
     // gap-3: every control in this row carries HIT_AREA_44, and its
     // contract is that neighbours sit far enough apart for the enlarged
     // areas not to cover each other's visible pill (as PostActionBar).
-    <div className="-ml-1 flex items-center gap-3">
+    // sm:mt-1: at sm+ the pills' areas would otherwise reach up into the
+    // comment's last line and nick an @mention link there.
+    <div className="-ml-1 flex items-center gap-3 sm:mt-1">
       <CommentStokeButton feedId={feedId} comment={comment} canStoke={canStoke} />
       {/* Reply seeds the composer with this comment's parent_id + a
           "replying to @handle" chip. Icon matches the feed speech-bubble.
@@ -1208,7 +1210,9 @@ function CommentActionRail({
           }}
           aria-label={collapsed ? "Expand replies" : "Collapse replies"}
           title={collapsed ? "Expand replies" : "Collapse replies"}
-          className={`${HIT_AREA_44} inline-flex h-4 w-4 items-center justify-center rounded-full text-[var(--bcc-text-secondary)] hover:bg-[var(--bcc-surface-active)] hover:text-[var(--bcc-text)]`}
+          // ml-0.5: a 16px control's area reaches 14px out, 2px past the
+          // row's gap-3, so it would win the edge of the Helpful pill.
+          className={`${HIT_AREA_44} ml-0.5 inline-flex h-4 w-4 items-center justify-center rounded-full text-[var(--bcc-text-secondary)] hover:bg-[var(--bcc-surface-active)] hover:text-[var(--bcc-text)]`}
         >
           <CollapseToggleIcon collapsed={collapsed} />
         </button>

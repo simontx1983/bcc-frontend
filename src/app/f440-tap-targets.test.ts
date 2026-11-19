@@ -150,7 +150,20 @@ describe("F-440 — HIT_AREA_44 neighbours are spaced apart", () => {
   const src = read("src/components/feed/CommentDrawer.tsx");
 
   it("the comment action row", () => {
-    expect(src).toMatch(/<div className="-ml-1 flex items-center gap-3">\s*<CommentStokeButton/);
+    expect(src).toMatch(/<div className="-ml-1 flex items-center gap-3 sm:mt-1">\s*<CommentStokeButton/);
+    // The 16px collapse toggle's area reaches 14px, 2px past gap-3: ml-0.5
+    // keeps it off the Helpful pill beside it.
+    expect(src).toMatch(/\$\{HIT_AREA_44\} ml-0\.5 inline-flex h-4 w-4 items-center/);
+  });
+
+  it("the comment Helpful pill carries HIT_AREA_44 too, not only the feed one", () => {
+    // HelpfulButton renders both sizes from one view; the comment size sits
+    // in the same gap-3 rail, so it needs the same area.
+    const helpful = read("src/components/feed/HelpfulButton.tsx");
+    const minH = /const minH = ([^;]+);/.exec(helpful)?.[1] ?? "";
+    const [feed, comment] = minH.split(" : ");
+    expect(feed).toMatch(/HIT_AREA_44/);
+    expect(comment).toMatch(/HIT_AREA_44/);
   });
 
   it("the composer toolbar, both groups", () => {
