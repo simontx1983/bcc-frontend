@@ -42,6 +42,17 @@ Sentry.init({
   // genuinely needed.
   sendDefaultPii: false,
 
+  // Never collect request cookies or the body. In @sentry/nextjs 10 the
+  // requestData integration includes cookies, data and headers by default
+  // whatever sendDefaultPii says, so the next-auth session cookie could be
+  // attached to a server event. Headers stay (user agent, referer); the
+  // scrubber drops cookie/authorization headers and every URL query.
+  integrations: [
+    Sentry.requestDataIntegration({
+      include: { cookies: false, data: false, query_string: false, headers: true, url: true },
+    }),
+  ],
+
   // URLs keep their path but lose the query string and fragment before
   // any event leaves: `?pt=`, the password-reset `?key=&login=` and OAuth
   // `?code=` would otherwise be stored as sent. Sentry's own scrubber

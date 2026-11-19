@@ -13,7 +13,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { scrubSentryEvent } from "@/lib/sentry/scrub";
+import { SCRUB_CIRCULAR, SCRUB_TRUNCATED, scrubSentryEvent } from "@/lib/sentry/scrub";
 
 const PT = "pt-secret-7f3a";
 const KEY = "reset-key-91bc";
@@ -118,10 +118,76 @@ describe("scrubSentryEvent", () => {
   });
 });
 
+describe("request credentials and body (#322 review)", () => {
+  it("drops cookies, the body and credential headers in any case; keeps the rest", () => {
+    const out = scrubSentryEvent({
+      request: {
+        url: "https://app.example/settings",
+        cookies: { "__Secure-next-auth.session-token": "SESSION" },
+        data: { password: "hunter2" },
+        headers: {
+          Cookie: "__Secure-next-auth.session-token=SESSION",
+          authorization: "Bearer BEARER",
+          "Proxy-Authorization": "Basic PROXY",
+          "User-Agent": "Mozilla/5.0",
+        },
+      },
+    });
+    const s = JSON.stringify(out);
+    for (const leak of ["SESSION", "BEARER", "PROXY", "hunter2"]) expect(s).not.toContain(leak);
+    expect(out.request).not.toHaveProperty("cookies");
+    expect(out.request).not.toHaveProperty("data");
+    expect(out.request.headers).toEqual({ "User-Agent": "Mozilla/5.0" });
+  });
+});
+
+describe("bounded walk (#322 review)", () => {
+  it("fails closed past the depth limit: the deep subtree is replaced, not passed on", () => {
+    let deep: Record<string, unknown> = { url: "/reset-password?key=" + KEY };
+    for (let i = 0; i < 40; i++) deep = { next: deep };
+    const out = scrubSentryEvent({ extra: deep });
+    const s = JSON.stringify(out);
+    expect(s).not.toContain(KEY);
+    expect(s).toContain(SCRUB_TRUNCATED);
+  });
+
+  it("a plain-object cycle becomes a marker instead of hanging", () => {
+    const loop: Record<string, unknown> = { url: "/x?key=" + KEY };
+    loop["self"] = loop;
+    const out = scrubSentryEvent({ extra: loop }) as { extra: Record<string, unknown> };
+    expect(out.extra["self"]).toBe(SCRUB_CIRCULAR);
+    expect(out.extra["url"]).toBe("/x");
+  });
+
+  it("class instances (even cyclic) are passed through by reference, never walked", () => {
+    class Holder {
+      self: Holder;
+      big: number[] = Array.from({ length: 1000 }, (_, i) => i);
+      constructor() {
+        this.self = this;
+      }
+    }
+    const scope = new Holder();
+    const other = new Holder();
+    const t0 = performance.now();
+    const out = scrubSentryEvent({
+      sdkProcessingMetadata: { capturedSpanScope: scope },
+      extra: { holder: other },
+    });
+    expect(performance.now() - t0).toBeLessThan(50);
+    expect(out.sdkProcessingMetadata.capturedSpanScope).toBe(scope);
+    expect(out.extra.holder).toBe(other);
+  });
+});
+
 // ── Wiring: every real config runs the scrubber ─────────────────────────
 const init = vi.hoisted(() => vi.fn());
+const requestDataIntegration = vi.hoisted(() =>
+  vi.fn((options: unknown) => ({ name: "RequestData", options })),
+);
 vi.mock("@sentry/nextjs", () => ({
   init,
+  requestDataIntegration,
   captureRouterTransitionStart: vi.fn(),
   captureRequestError: vi.fn(),
 }));
@@ -130,6 +196,7 @@ vi.mock("@/lib/analytics/posthog", () => ({ initAnalytics: vi.fn() }));
 type Hooks = {
   beforeSend: (e: unknown, h: unknown) => unknown;
   beforeSendTransaction: (e: unknown, h: unknown) => unknown;
+  integrations?: Array<{ name: string; options: unknown }>;
 };
 
 describe("each Sentry config runs the scrubber", () => {
@@ -149,5 +216,15 @@ describe("each Sentry config runs the scrubber", () => {
     const opts = init.mock.calls[0]?.[0] as Hooks;
     expect(leaks(opts.beforeSend(errorEvent(), {}))).toEqual([]);
     expect(leaks(opts.beforeSendTransaction(transactionEvent(), {}))).toEqual([]);
+  });
+
+  it.each([
+    ["server", () => import("../../../sentry.server.config")],
+    ["edge", () => import("../../../sentry.edge.config")],
+  ])("%s: never collects request cookies or the body", async (_name, load) => {
+    await load();
+    const opts = init.mock.calls[0]?.[0] as Hooks;
+    const rd = opts.integrations?.find((i) => i.name === "RequestData");
+    expect(rd?.options).toMatchObject({ include: { cookies: false, data: false } });
   });
 });
