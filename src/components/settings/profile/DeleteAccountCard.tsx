@@ -80,7 +80,7 @@ function humanizeError(err: BccApiError | Error): string {
 }
 
 const fieldClass =
-  "w-full border border-bcc-input-border bg-bcc-input-bg px-3 py-2 font-serif text-bcc-text outline-none focus:border-bcc-accent focus:ring-1 focus:ring-bcc-accent disabled:opacity-50";
+  "min-h-[44px] w-full border border-bcc-input-border bg-bcc-input-bg px-3 py-2 font-serif text-bcc-text outline-none focus:border-bcc-accent focus:ring-1 focus:ring-bcc-accent disabled:opacity-50";
 
 export function DeleteAccountCard() {
   // useId rather than a literal: a hardcoded id would collide if this card
@@ -140,7 +140,7 @@ export function DeleteAccountCard() {
           type="button"
           ref={triggerRef}
           onClick={() => setShowConfirm(true)}
-          className="bcc-mono mt-3 border-2 border-safety/70 px-4 py-2 text-[11px] tracking-[0.16em] text-bcc-danger transition hover:bg-safety/10"
+          className="bcc-mono mt-3 inline-flex min-h-[44px] items-center border-2 border-safety/70 px-4 py-2 text-[11px] tracking-[0.16em] text-bcc-danger transition hover:bg-safety/10"
         >
           Delete my account…
         </button>
@@ -228,14 +228,14 @@ export function DeleteAccountCard() {
               type="button"
               onClick={closeForm}
               disabled={busy}
-              className="bcc-mono px-3 py-2 text-[11px] tracking-[0.14em] text-bcc-text-secondary hover:text-bcc-text disabled:opacity-50"
+              className="bcc-mono inline-flex min-h-[44px] items-center px-3 py-2 text-[11px] tracking-[0.14em] text-bcc-text-secondary hover:text-bcc-text disabled:opacity-50"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={!canSubmit}
-              className="bcc-stencil bg-safety px-4 py-2 text-bcc-on-accent transition disabled:opacity-50"
+              className="bcc-stencil inline-flex min-h-[44px] items-center bg-safety px-4 py-2 text-bcc-on-accent transition disabled:opacity-50"
             >
               {confirm.signing ? "Waiting for wallet…" : mutation.isPending ? "Deleting…" : "Delete forever"}
             </button>
