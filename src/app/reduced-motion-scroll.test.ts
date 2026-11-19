@@ -110,8 +110,9 @@ const SRC = resolve(process.cwd(), "src");
 /**
  * Files allowed to keep an unconditional smooth scroll, each with its reason.
  * PostDetail.tsx is out of F-426's scope: FE #326 (F-346) is already
- * rewriting that file and folds the same fix in. Drop the entry once it
- * lands; nothing fails while it lingers.
+ * rewriting that file and folds the same fix in. An entry must still
+ * match: once a listed file is fixed (or moved), the stale-entry test
+ * below fails until the entry is deleted, so no file stays exempt for free.
  */
 const ALLOWED: Readonly<Record<string, string>> = {
   "components/feed/PostDetail.tsx": "fixed inside FE #326",
@@ -140,15 +141,19 @@ const UNCONDITIONAL_SMOOTH = [
 // Scanned once at load (like dead-symbol-removal.test.ts): walking the
 // whole tree inside a test can outrun the per-test timeout on a busy runner.
 const OFFENDERS: string[] = [];
+/** ALLOWED paths that still contain a matching line. */
+const ALLOWED_STILL_MATCHING = new Set<string>();
 for (const file of walk(SRC)) {
   const path = file.slice(SRC.length + 1).replace(/\\/g, "/");
-  if (path in ALLOWED) continue;
   // Comments stripped: prose that names the pattern is not a call.
   const code = readFileSync(file, "utf-8")
     .replace(/\/\*[\s\S]*?\*\//g, "")
     .replace(/(?<!:)\/\/.*$/gm, "");
   code.split(/\r?\n/).forEach((line, i) => {
-    if (UNCONDITIONAL_SMOOTH.some((re) => re.test(line))) {
+    if (!UNCONDITIONAL_SMOOTH.some((re) => re.test(line))) return;
+    if (path in ALLOWED) {
+      ALLOWED_STILL_MATCHING.add(path);
+    } else {
       OFFENDERS.push(`${path}:${i + 1}: ${line.trim()}`);
     }
   });
@@ -157,6 +162,13 @@ for (const file of walk(SRC)) {
 describe("ratchet — script scrolls ask for reduced motion (F-426)", () => {
   it("no source passes behavior: \"smooth\" unconditionally", () => {
     expect(OFFENDERS).toEqual([]);
+  });
+
+  it("no stale ALLOWED entry: each listed file still has an unconditional smooth", () => {
+    // A fixed, moved or deleted file must leave ALLOWED, or it would stay
+    // exempt from the ratchet with nothing left to excuse.
+    const stale = Object.keys(ALLOWED).filter((p) => !ALLOWED_STILL_MATCHING.has(p));
+    expect(stale).toEqual([]);
   });
 
   it("its patterns catch a literal smooth and pass the conditional form", () => {
