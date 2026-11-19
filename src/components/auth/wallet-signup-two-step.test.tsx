@@ -273,3 +273,67 @@ describe("live regions are mounted before their text arrives (#328)", () => {
     await waitFor(() => expect(onSuccess).toHaveBeenCalledTimes(1));
   });
 });
+
+// Review Lows on #331 (free agent): focus after the panel replaces the
+// form, and a repeat failure with the same reason.
+describe("after a failure: focus, and the same reason twice", () => {
+  it("the panel puts focus on its 'Sign in with wallet' button, not <body>", async () => {
+    h.signIn.mockResolvedValueOnce({ ok: false, error: "CredentialsSignin" });
+    renderSignup();
+    signUpButton().focus();
+    expect(document.activeElement).toBe(signUpButton());
+    fireEvent.click(signUpButton());
+
+    await screen.findByText("Account created — sign in");
+    expect(document.activeElement).toBe(finishButton());
+  });
+
+  it("a failed retry puts focus back on the retry button", async () => {
+    h.signIn.mockResolvedValueOnce({ ok: false, error: "CredentialsSignin" });
+    renderSignup();
+    fireEvent.click(signUpButton());
+    await screen.findByText("Account created — sign in");
+
+    // The button is disabled while the wallet is asked; a browser then drops
+    // focus to <body>. jsdom keeps it on the disabled button (and will not
+    // blur it), so the test moves focus off it by hand.
+    const retry = finishButton();
+    const elsewhere = document.body.appendChild(document.createElement("button"));
+    const second = deferred<{ signature: string; extra: Record<string, string> }>();
+    h.sign.mockReturnValueOnce(second.promise);
+    fireEvent.click(retry);
+    await waitFor(() => expect(retry).toBeDisabled());
+    elsewhere.focus();
+    expect(document.activeElement).toBe(elsewhere);
+
+    second.reject(new MetaMaskUserRejectedError());
+    await waitFor(() => expect(document.activeElement).toBe(retry));
+    expect(retry).toBeEnabled();
+    expect(retry).toBe(finishButton());
+    elsewhere.remove();
+  });
+
+  it("the same reason twice is announced again: new text in the same region", async () => {
+    h.sign
+      .mockResolvedValueOnce({ signature: "sig-1", extra: {} })
+      .mockRejectedValueOnce(new MetaMaskUserRejectedError());
+    renderSignup();
+    fireEvent.click(signUpButton());
+    await screen.findByText("Account created — sign in");
+    const region = announcer();
+    const first = region?.firstElementChild ?? null;
+    expect(first).not.toBeNull();
+    expect(first).toHaveTextContent("Wallet signing was canceled.");
+
+    h.sign.mockRejectedValueOnce(new MetaMaskUserRejectedError());
+    fireEvent.click(finishButton());
+    await waitFor(() => expect(announcer()?.firstElementChild).not.toBe(first));
+
+    expect(announcer()).toBe(region);
+    expect(region?.children).toHaveLength(1);
+    expect(region?.firstElementChild).toHaveTextContent(
+      "Account created — sign in. Signing in didn't finish: Wallet signing was canceled.",
+    );
+    expect(first?.isConnected).toBe(false);
+  });
+});

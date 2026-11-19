@@ -34,7 +34,7 @@
 import { CheckCircle2, ChevronDown } from "lucide-react";
 import { signIn } from "next-auth/react";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import {
   getPublicWalletNonce,
@@ -98,6 +98,11 @@ interface UnfinishedSignup {
   connection: WalletConnection;
   /** Why signing in did not finish, in the same copy as any wallet error. */
   reason: string;
+  /**
+   * New on every failure, so the notice is announced again (and focus
+   * returns to the retry button) even when the reason is the same.
+   */
+  seq: number;
 }
 
 export interface WalletAuthButtonProps {
@@ -129,6 +134,22 @@ export function WalletAuthButton(props: WalletAuthButtonProps) {
   const [step, setStep] = useState<0 | 1 | 2>(0);
   /** Set once a sign-up created the account but signing in did not finish. */
   const [unfinished, setUnfinished] = useState<UnfinishedSignup | null>(null);
+  const failureSeq = useRef(0);
+  const retryRef = useRef<HTMLButtonElement | null>(null);
+
+  /** Record a failure after the account exists, as a new event. */
+  function markUnfinished(signup: Omit<UnfinishedSignup, "reason" | "seq">, err: unknown) {
+    failureSeq.current += 1;
+    setUnfinished({ ...signup, reason: humanizeError(err), seq: failureSeq.current });
+  }
+
+  // The panel replaces the form, whose button had focus, so focus would
+  // drop to <body>. A failed retry does the same: its button was disabled
+  // while the wallet was asked. Each failure puts focus on the retry button.
+  const unfinishedSeq = unfinished?.seq ?? 0;
+  useEffect(() => {
+    if (unfinishedSeq > 0) retryRef.current?.focus();
+  }, [unfinishedSeq]);
 
   const selectedChain = findWalletChain(chainSlug);
   const isSignup = props.mode === "signup";
@@ -156,7 +177,7 @@ export function WalletAuthButton(props: WalletAuthButtonProps) {
     setPending(true);
     // Filled in once the account exists. From then on a failure is not a
     // failed sign-up, and the button must not sign up a second time.
-    const progress: { created: Omit<UnfinishedSignup, "reason"> | null } = { created: null };
+    const progress: { created: Omit<UnfinishedSignup, "reason" | "seq"> | null } = { created: null };
     try {
       const connection = await connectWallet(chainSlug, chainType);
 
@@ -175,7 +196,7 @@ export function WalletAuthButton(props: WalletAuthButtonProps) {
       props.onSuccess();
     } catch (err) {
       if (progress.created !== null) {
-        setUnfinished({ ...progress.created, reason: humanizeError(err) });
+        markUnfinished(progress.created, err);
       } else {
         setError(humanizeError(err));
       }
@@ -193,7 +214,10 @@ export function WalletAuthButton(props: WalletAuthButtonProps) {
       await signInWithFreshSignature(signup.chainSlug, signup.chainType, signup.connection, props);
       props.onSuccess();
     } catch (err) {
-      setUnfinished({ ...signup, reason: humanizeError(err) });
+      markUnfinished(
+        { chainSlug: signup.chainSlug, chainType: signup.chainType, connection: signup.connection },
+        err,
+      );
     } finally {
       setPending(false);
       setStep(0);
@@ -220,6 +244,7 @@ export function WalletAuthButton(props: WalletAuthButtonProps) {
           </div>
 
           <button
+            ref={retryRef}
             type="button"
             onClick={() => { void finishSignIn(unfinished); }}
             disabled={pending}
@@ -313,11 +338,15 @@ export function WalletAuthButton(props: WalletAuthButtonProps) {
           with the control and empty until then: a live region inserted
           already holding its text is often not read (#328). Assertive and
           atomic, as role="alert" would be, without adding an alert to every
-          page this control sits on. */}
+          page this control sits on. Each failure's text is a fresh
+          <span key={seq}> inside it (#328), so the same reason twice in a
+          row is announced again rather than being an unchanged region. */}
       <p key="announce" aria-live="assertive" aria-atomic="true" className="sr-only">
-        {unfinished !== null
-          ? `Account created — sign in. Signing in didn't finish: ${unfinished.reason}`
-          : ""}
+        {unfinished !== null && (
+          <span key={unfinished.seq}>
+            {`Account created — sign in. Signing in didn't finish: ${unfinished.reason}`}
+          </span>
+        )}
       </p>
     </div>
   );
