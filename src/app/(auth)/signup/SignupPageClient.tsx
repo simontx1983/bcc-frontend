@@ -5,7 +5,8 @@
  *
  * On success: POST /auth/signup returns {ok, email}. No JWT is minted —
  * the user must verify their email before they can log in. We redirect
- * them to /verify-email?email=<email> to complete the flow.
+ * them to /verify-email to complete the flow, with the address in
+ * sessionStorage, never the URL (lib/auth/pending-verification-email).
  *
  * Handle validation: client-side regex gives instant feedback.
  * Server is authoritative — catches "already taken" via bcc_conflict.
@@ -26,6 +27,8 @@ import { captureAnalyticsEvent, noteSignupCompleted } from "@/lib/analytics/post
 import { signup } from "@/lib/api/auth-endpoints";
 import { BccApiError } from "@/lib/api/types";
 import { checkHandleLocal, formatHandleHint } from "@/lib/auth/handleValidation";
+import { PASSWORD_BREACHED_CODE, PASSWORD_BREACHED_COPY } from "@/lib/auth/password-policy";
+import { stashPendingVerificationEmail } from "@/lib/auth/pending-verification-email";
 
 const ERROR_COPY: Record<string, string> = {
   bcc_invalid_request: "Email, password, and handle are all required.",
@@ -46,6 +49,8 @@ export function SignupPageClient() {
   const [handle, setHandle]           = useState("");
   const [displayName, setDisplayName] = useState("");
   const [error, setError]             = useState<string | null>(null);
+  /** A refusal of the password alone (F-294), shown on its field. */
+  const [passwordError, setPasswordError] = useState<string | null>(null);
   const [submitting, setSubmitting]   = useState(false);
 
   const handleErrorKind = checkHandleLocal(handle);
@@ -55,6 +60,7 @@ export function SignupPageClient() {
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
+    setPasswordError(null);
     setSubmitting(true);
     captureAnalyticsEvent("signup_started", { method: "password" });
 
@@ -69,7 +75,9 @@ export function SignupPageClient() {
       });
     } catch (err) {
       setSubmitting(false);
-      if (err instanceof BccApiError) {
+      if (err instanceof BccApiError && err.code === PASSWORD_BREACHED_CODE) {
+        setPasswordError(PASSWORD_BREACHED_COPY);
+      } else if (err instanceof BccApiError) {
         // §γ — unmapped codes fall back to generic copy, never err.message.
         setError(ERROR_COPY[err.code] ?? "Sign-up failed. Try again.");
       } else {
@@ -79,7 +87,8 @@ export function SignupPageClient() {
     }
 
     setSubmitting(false);
-    router.replace(`/verify-email?email=${encodeURIComponent(trimmedEmail)}`);
+    stashPendingVerificationEmail(trimmedEmail);
+    router.replace("/verify-email");
   }
 
   return (
@@ -137,7 +146,12 @@ export function SignupPageClient() {
               autoComplete="new-password"
               placeholder="········"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(e) => {
+                setPassword(e.target.value);
+                setPasswordError(null);
+              }}
+              aria-invalid={passwordError !== null}
+              aria-describedby={passwordError !== null ? "password-error" : undefined}
               className="bcc-auth-input bcc-auth-input--has-icon"
             />
             <button
@@ -155,6 +169,11 @@ export function SignupPageClient() {
           </div>
           <span className="bcc-auth-hint">8+ characters</span>
           <PasswordStrengthMeter password={password} />
+          {passwordError !== null && (
+            <span id="password-error" role="alert" className="bcc-auth-hint bcc-auth-hint--error">
+              {passwordError}
+            </span>
+          )}
         </div>
 
         <div className="bcc-auth-field">

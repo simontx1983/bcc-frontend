@@ -400,6 +400,21 @@ export interface CardCommunityDossier {
    * the community action bar and the pinned back-face member line.
    */
   viewer_is_member: boolean;
+  /**
+   * F-244 (bcc-trust #667, contract v1.NEXT §3.2.4) — the server's join
+   * verdict for THIS viewer, computed by the same logic as the group page's
+   * permissions (§4.7.5). Render the JOIN cell from these; never recompute
+   * eligibility from `privacy` / `type` / `trust_min`. List-only
+   * `can_join.reason_code` values: `verify_on_join` (holder group in a
+   * list: allowed, and the join verifies the wallet) and `unavailable`
+   * (membership unreadable: never offer Join). Optional for deploy skew;
+   * `null` on a surface that has not adopted the verdict yet — treat both
+   * as "ask the group page" (§3.2.4).
+   */
+  can_join?: CardPermissionEntry | null;
+  can_request_join?: CardPermissionEntry | null;
+  /** `null` for anonymous viewers and when the read failed. */
+  viewer_membership_status?: GroupMembershipStatus | null;
 }
 
 export interface CardSocialProof {
@@ -1879,8 +1894,10 @@ export type NftPieceCoOwner = Record<string, never>;
  * Dominant holder for the NFT piece. `null` when no on-chain holder is
  * known yet (cold-cache, freshly minted, indexer behind).
  *
- * `is_linked` means "some BCC member holds this" — it names nobody and
- * cannot be resolved back to a member.
+ * `is_linked` is DEPRECATED and always `null` from contract v1.NEXT on.
+ * It used to say whether the holding wallet belongs to a BCC member, and
+ * holder wallets are public on-chain, so it was a wallet→member signal.
+ * Older servers still send a boolean; do not render either value.
  *
  * Removed 2026-07-23: `wallet_address`, `address_short`, `balance`, and
  * the `user` block. The `user` block was the severe one — it resolved
@@ -1892,7 +1909,8 @@ export type NftPieceCoOwner = Record<string, never>;
  * See docs/wallet-privacy-policy.md.
  */
 export interface NftPieceOwner {
-  is_linked: boolean;
+  /** @deprecated Always `null` from v1.NEXT; never render it. */
+  is_linked: boolean | null;
 }
 
 /**
@@ -6270,6 +6288,33 @@ export interface MyGroupInvitesResponse {
 }
 
 /**
+ * F-272 (b) — one pending join request in an owner's / manager's view of
+ * the group (`GET /me/groups/:id/requests`): the member summary plus when
+ * they asked.
+ */
+export type GroupJoinRequestItem = MemberSummary & { requested_at: string };
+
+/** F-272 (b) — one outstanding invitation (`GET /me/groups/:id/invites`). */
+export type GroupOutstandingInviteItem = MemberSummary & { invited_at: string };
+
+/**
+ * The owner-side lists share the roster's offset envelope. `has_more` is
+ * counted over raw rows (a deleted account is skipped from `items`), so the
+ * next page starts at `offset + limit`, not `offset + items.length`.
+ */
+export interface GroupPendingListResponse<T> {
+  items: T[];
+  pagination: GroupMembersPagination;
+}
+
+/** approve / deny / invite / revoke — `{ status, group_id, user_id }`. */
+export interface GroupMembershipDecisionResponse {
+  status: GroupMembershipStatus;
+  group_id: number;
+  user_id: number;
+}
+
+/**
  * `validator_stats` on a delegator community's detail response. Only the
  * fields the page reads are declared. `chain_name` is optional because an
  * older cached response can lack it.
@@ -6323,6 +6368,14 @@ export interface GroupDetailResponse {
    * for the group's owner / manager / site admin, `null` for everyone else.
    */
   pending_request_count?: number | null;
+  /**
+   * F-272 (b) — whether THIS viewer decides who gets in: the group's owner,
+   * a manager or a site admin (D1; moderators no), on a closed or secret
+   * plain group; false elsewhere. Optional for deploy skew: a backend
+   * without it leaves secret groups ungated, and the FE falls back to
+   * `pending_request_count !== null` (closed groups only).
+   */
+  can_manage_membership?: boolean;
   feed_visible: boolean;
   members_visible: boolean;
   /**

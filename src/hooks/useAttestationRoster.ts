@@ -25,6 +25,8 @@
 
 import { useQuery } from "@tanstack/react-query";
 
+import { retryUnlessProfilePrivate } from "@/lib/api/errors";
+
 import {
   getAttestationRoster,
   type AttestationRosterParams,
@@ -77,6 +79,8 @@ export function useAttestationRoster(
     },
     enabled,
     staleTime: STALE_TIME_MS,
+    // A member's private profile (v1.168) is answered after ONE request.
+    retry: retryUnlessProfilePrivate,
     ...(seed !== undefined
       ? { initialData: seed.data, initialDataUpdatedAt: seed.updatedAt }
       : {}),

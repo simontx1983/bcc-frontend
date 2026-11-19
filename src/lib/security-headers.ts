@@ -28,7 +28,43 @@
  *   - Vercel's preview toolbar (vercel.live) — previews only, harmless in prod
  * Wallet signing happens inside the browser extensions; no RPC host is
  * called from page code today.
+ *
+ * `Permissions-Policy` turns off powerful browser features the app never
+ * uses, for the page and every frame in it (see PERMISSIONS_POLICY).
  */
+
+/**
+ * Features denied to every origin. Each one was checked as unused
+ * (2026-11-18): no camera/mic/QR capture, no geolocation, no Payment
+ * Request, no WebUSB/WebHID/serial/Bluetooth (wallets are browser
+ * extensions, which this header does not govern, and no hardware-wallet SDK
+ * is a dependency), no MIDI, no motion sensors, no screen capture, no
+ * WebAuthn. `browsing-topics=()` opts the site out of the Topics ad API.
+ *
+ * Deliberately NOT listed because the app uses them: `web-share`
+ * (ShareButton), `clipboard-write` (useCopyConfirm, ShareButton),
+ * `fullscreen` (native video controls). Before using a feature listed here,
+ * remove it first; the browser blocks it silently otherwise.
+ */
+const PERMISSIONS_POLICY = [
+  "camera",
+  "microphone",
+  "geolocation",
+  "payment",
+  "usb",
+  "hid",
+  "serial",
+  "bluetooth",
+  "midi",
+  "accelerometer",
+  "gyroscope",
+  "magnetometer",
+  "display-capture",
+  "publickey-credentials-get",
+  "browsing-topics",
+]
+  .map((feature) => `${feature}=()`)
+  .join(", ");
 
 export interface SecurityHeader {
   key: string;
@@ -87,6 +123,13 @@ function sentryEndpoints(dsn: string | undefined): SentryEndpoints | null {
   }
 }
 
+/**
+ * Cloudflare Turnstile (the /auth/login captcha step-up, contract v1.161):
+ * Cloudflare's documented CSP is script-src + frame-src for this origin.
+ * The script loads only when the server asks for a captcha.
+ */
+export const TURNSTILE_ORIGIN = "https://challenges.cloudflare.com";
+
 const unique = (xs: ReadonlyArray<string | null>): string[] =>
   [...new Set(xs.filter((x): x is string => x !== null))];
 
@@ -109,6 +152,8 @@ export function buildReportOnlyCsp(env: SecurityHeaderEnv): string {
         posthog,
         "https://va.vercel-scripts.com",
         "https://vercel.live",
+        // Cloudflare Turnstile api.js (the /login captcha step-up).
+        TURNSTILE_ORIGIN,
       ]),
     ],
     ["style-src", ["'self'", "'unsafe-inline'"]],
@@ -127,7 +172,8 @@ export function buildReportOnlyCsp(env: SecurityHeaderEnv): string {
         "https://vercel.live",
       ]),
     ],
-    ["frame-src", ["'self'", "https://vercel.live"]],
+    // Turnstile renders its challenge in an iframe from the same origin.
+    ["frame-src", ["'self'", "https://vercel.live", TURNSTILE_ORIGIN]],
     ["worker-src", ["'self'", "blob:"]],
     ["object-src", ["'none'"]],
     ["base-uri", ["'self'"]],
@@ -145,6 +191,7 @@ export function buildSecurityHeaders(env: SecurityHeaderEnv): SecurityHeader[] {
     { key: "Content-Security-Policy", value: "frame-ancestors 'none'" },
     { key: "X-Content-Type-Options", value: "nosniff" },
     { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+    { key: "Permissions-Policy", value: PERMISSIONS_POLICY },
     { key: "Content-Security-Policy-Report-Only", value: buildReportOnlyCsp(env) },
   ];
 }

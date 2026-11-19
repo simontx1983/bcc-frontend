@@ -9,8 +9,8 @@
  */
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   BccApiError,
@@ -62,6 +62,20 @@ vi.mock("@/components/cards/CardFactory", () => ({
 
 import { CommunityJoinCard } from "@/components/communities/CommunityJoinCard";
 import { GroupMembershipStrip } from "@/components/groups/GroupMembershipStrip";
+
+// The delegator LEAVE now confirms in a Dialog, which reads reduced motion.
+beforeAll(() => {
+  window.matchMedia = ((q: string) => ({
+    matches: false,
+    media: q,
+    onchange: null,
+    addEventListener: () => {},
+    removeEventListener: () => {},
+    addListener: () => {},
+    removeListener: () => {},
+    dispatchEvent: () => false,
+  })) as unknown as typeof window.matchMedia;
+});
 
 const GROUP_ID = 31;
 const JOIN_PATH = `me/validator-groups/${GROUP_ID}/join`;
@@ -245,7 +259,7 @@ describe("GroupMembershipStrip, validator group", () => {
     ).toBeInTheDocument();
   });
 
-  it("leaves through the validator route", async () => {
+  it("leaves through the validator route, after confirming (F-244 item 1)", async () => {
     bccFetchAsClient.mockResolvedValue({ left: true, group_id: GROUP_ID });
     withClient(
       <GroupMembershipStrip
@@ -260,6 +274,11 @@ describe("GroupMembershipStrip, validator group", () => {
     );
 
     fireEvent.click(screen.getByRole("button", { name: "LEAVE" }));
+    // The delegator leave records a 90-day opt-out, so it asks first.
+    expect(bccFetchAsClient).not.toHaveBeenCalledWith(`me/validator-groups/${GROUP_ID}/leave`, {
+      method: "POST",
+    });
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "LEAVE" }));
 
     await waitFor(() => expect(refresh).toHaveBeenCalledTimes(1));
     expect(bccFetchAsClient).toHaveBeenCalledWith(`me/validator-groups/${GROUP_ID}/leave`, {

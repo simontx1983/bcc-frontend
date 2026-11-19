@@ -12,11 +12,14 @@
  *
  * ## Why the server call comes first
  *
- * `DELETE /me/push-subscriptions/{id}` is authenticated and
- * ownership-checked (403 if the row is not yours). Once the NextAuth
- * cookie is gone it can only 401 — so it must run while the session is
- * still alive, which is why the boundary orders push cleanup ahead of
- * `signOut`.
+ * `DELETE /me/push-subscriptions/{id}` is authenticated. Since
+ * bcc-trust #709 the ownership check is part of the DELETE itself: the
+ * caller's own row is deleted, another member's is never touched, and
+ * both answer the same `200` as a missing id, so the answer reveals
+ * nothing about which ids exist. A failed delete is a `503`. Once the
+ * NextAuth cookie is gone it can only 401, so it must run while the
+ * session is still alive, which is why the boundary orders push cleanup
+ * ahead of `signOut`.
  *
  * ## Why it uses the low-level fetch
  *
@@ -110,10 +113,17 @@ export async function revokePushForSessionEnd(): Promise<PushCleanupOutcome> {
           : null;
       if (token !== null) {
         await deletePushSubscription(id, token);
+        // A 200 means this account has no row with that id any more. It
+        // cannot say whether one was deleted just now: since #709 a
+        // missing id and another member's id get the same answer. An id
+        // parked here by an earlier account on this browser therefore
+        // reports "revoked" too. The browser-side unsubscribe below is
+        // what stops delivery either way.
         serverRowDeleted = true;
       }
     } catch {
-      // A 401/403/5xx here is not worth blocking sign-out over. The
+      // A 401, 429 or 5xx (a failed delete is a 503 since #709) is
+      // not worth blocking sign-out over. The
       // browser-side unsubscribe below is what actually stops delivery
       // to this device; the row becomes undeliverable and is pruned on
       // the next 410 from the push service.

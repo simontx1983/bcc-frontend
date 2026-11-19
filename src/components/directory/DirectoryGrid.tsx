@@ -32,7 +32,42 @@ import type { UseInfiniteQueryResult, InfiniteData } from "@tanstack/react-query
 
 import { CardGrid } from "@/components/cards/CardGrid";
 import { CardGridSkeleton } from "@/components/cards/CardGridSkeleton";
-import { humanizeCode, isPermissionDenial } from "@/lib/api/errors";
+import { humanizeCode, isCode, isPermissionDenial } from "@/lib/api/errors";
+
+/** Shown while a throttled first load waits to retry (bcc-trust #716). */
+export const DIRECTORY_THROTTLED_COPY = "Lots of searches right now. Trying again in a moment…";
+
+/**
+ * Is a throttled first load waiting to retry? useDirectory retries a 429
+ * after a pause instead of failing; this is what the notice keys on.
+ */
+export function isDirectoryThrottled(
+  query: Pick<UseInfiniteQueryResult<unknown, unknown>, "isLoading" | "failureReason">,
+): boolean {
+  return query.isLoading && isCode(query.failureReason, "bcc_rate_limited");
+}
+
+/**
+ * The throttle notice. ALWAYS mounted, empty and visually hidden when idle:
+ * a live region inserted already holding its text is often not read
+ * (NVDA/Chrome, VoiceOver), so the text arrives in a region that exists.
+ * The parent renders it outside DirectoryGrid's branches so a switch
+ * between loading, loaded and failed never remounts it.
+ */
+export function DirectoryThrottleNotice({ throttled }: { throttled: boolean }) {
+  return (
+    <p
+      role="status"
+      className={
+        throttled
+          ? "bcc-mono mb-3 text-center text-[11px] tracking-[0.12em] text-bcc-text-secondary"
+          : "sr-only"
+      }
+    >
+      {throttled ? DIRECTORY_THROTTLED_COPY : ""}
+    </p>
+  );
+}
 import { LoadFailure } from "@/components/ui/LoadFailure";
 import type {
   BccApiError,

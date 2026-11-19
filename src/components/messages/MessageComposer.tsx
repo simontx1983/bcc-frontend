@@ -57,6 +57,11 @@ function ReplyForm({ conversationId }: { conversationId: number }) {
   const [body, setBody] = useState("");
   const [error, setError] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  // F-319: a synchronous in-flight flag. `mutation.isPending` only flips
+  // on the next render, so two submits that land before React commits
+  // (Enter plus a click on SEND, a key repeat on a slow device) both saw
+  // isPending === false and sent the message twice.
+  const sendingRef = useRef(false);
 
   const mutation = useReplyInConversationMutation({
     onSuccess: () => {
@@ -83,13 +88,17 @@ function ReplyForm({ conversationId }: { conversationId: number }) {
         ),
       );
     },
+    onSettled: () => {
+      sendingRef.current = false;
+    },
   });
 
   const trimmed = body.trim();
   const canSend = trimmed !== "" && !mutation.isPending && body.length <= MESSAGE_BODY_MAX_LENGTH;
 
   const submit = () => {
-    if (!canSend) return;
+    if (!canSend || sendingRef.current) return;
+    sendingRef.current = true;
     setError(null);
     mutation.mutate({ conversationId, body: trimmed });
   };

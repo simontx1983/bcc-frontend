@@ -22,7 +22,11 @@ import { bccFetchAsClient } from "@/lib/api/client";
 import type {
   CreatePlainGroupRequest,
   CreatePlainGroupResponse,
+  GroupJoinRequestItem,
   GroupMembershipChangeResponse,
+  GroupMembershipDecisionResponse,
+  GroupOutstandingInviteItem,
+  GroupPendingListResponse,
   MyGroupInvitesResponse,
   JoinPlainGroupResponse,
   LeavePlainGroupResponse,
@@ -198,4 +202,79 @@ export function declineGroupInvite(groupId: number): Promise<GroupMembershipChan
   return bccFetchAsClient<GroupMembershipChangeResponse>(`me/groups/${groupId}/invite/decline`, {
     method: "POST",
   });
+}
+
+// ── F-272 (b): the owner / manager / site-admin side ─────────────────
+// Every route answers 403 to anyone else and 400 on a holder group, a Hall
+// or a delegator community; the UI only mounts for viewers the group
+// detail marks as deciders.
+
+function pendingQuery(params: { offset?: number; limit?: number }): string {
+  const search = new URLSearchParams();
+  if (params.offset !== undefined) search.set("offset", String(params.offset));
+  if (params.limit !== undefined) search.set("limit", String(params.limit));
+  const q = search.toString();
+  return q !== "" ? `?${q}` : "";
+}
+
+/** GET /me/groups/:id/requests — pending requests, newest first. 503 when unreadable (never an empty list). */
+export function getGroupJoinRequests(
+  groupId: number,
+  params: { offset?: number; limit?: number } = {},
+  signal?: AbortSignal,
+): Promise<GroupPendingListResponse<GroupJoinRequestItem>> {
+  return bccFetchAsClient<GroupPendingListResponse<GroupJoinRequestItem>>(
+    `me/groups/${groupId}/requests${pendingQuery(params)}`,
+    { method: "GET", ...(signal !== undefined ? { signal } : {}) },
+  );
+}
+
+/** POST /me/groups/:id/requests/:user_id/approve — the requester becomes a member. 403 (incl. suspended); 409. */
+export function approveJoinRequest(groupId: number, userId: number): Promise<GroupMembershipDecisionResponse> {
+  return bccFetchAsClient<GroupMembershipDecisionResponse>(
+    `me/groups/${groupId}/requests/${userId}/approve`,
+    { method: "POST" },
+  );
+}
+
+/** POST /me/groups/:id/requests/:user_id/deny — silent; the requester may not ask again for 7 days. 409. */
+export function denyJoinRequest(groupId: number, userId: number): Promise<GroupMembershipDecisionResponse> {
+  return bccFetchAsClient<GroupMembershipDecisionResponse>(
+    `me/groups/${groupId}/requests/${userId}/deny`,
+    { method: "POST" },
+  );
+}
+
+/** GET /me/groups/:id/invites — outstanding invitations, newest first. 503 when unreadable. */
+export function getGroupInvites(
+  groupId: number,
+  params: { offset?: number; limit?: number } = {},
+  signal?: AbortSignal,
+): Promise<GroupPendingListResponse<GroupOutstandingInviteItem>> {
+  return bccFetchAsClient<GroupPendingListResponse<GroupOutstandingInviteItem>>(
+    `me/groups/${groupId}/invites${pendingQuery(params)}`,
+    { method: "GET", ...(signal !== undefined ? { signal } : {}) },
+  );
+}
+
+/**
+ * POST /me/groups/:id/invites — invite a member to a closed or secret group.
+ * 400 open group / self; 404 "Member not found." (unknown OR suspended,
+ * identical); 403 the generic "This member can't be invited."; 409 already
+ * a member / invited / has asked (approve instead); 429 the 200-open or
+ * 50-a-day cap.
+ */
+export function inviteToGroup(groupId: number, userId: number): Promise<GroupMembershipDecisionResponse> {
+  return bccFetchAsClient<GroupMembershipDecisionResponse>(`me/groups/${groupId}/invites`, {
+    method: "POST",
+    body: { user_id: userId },
+  });
+}
+
+/** POST /me/groups/:id/invites/:user_id/revoke — withdraw an outstanding invitation. 409. */
+export function revokeGroupInvite(groupId: number, userId: number): Promise<GroupMembershipDecisionResponse> {
+  return bccFetchAsClient<GroupMembershipDecisionResponse>(
+    `me/groups/${groupId}/invites/${userId}/revoke`,
+    { method: "POST" },
+  );
 }

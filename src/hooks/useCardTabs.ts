@@ -82,6 +82,9 @@ export function useCardReviews(kind: ReviewTargetKind, id: number) {
         : undefined,
     enabled: id > 0,
     staleTime: 30_000,
+    // A member's received reviews answer to their profile (v1.168): a
+    // private one is answered after ONE request, as the watchers read.
+    retry: retryUnlessProfilePrivate,
   });
 }
 

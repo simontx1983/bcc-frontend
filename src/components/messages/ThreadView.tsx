@@ -20,6 +20,12 @@
  * Auto-scrolls to bottom on initial render and on new server messages.
  * Respects `prefers-reduced-motion`: skips smooth scroll when the OS
  * setting is on.
+ *
+ * A reader scrolled up into history is never yanked down by a polled
+ * message; instead a "New messages ↓" pill appears (F-319). It jumps to
+ * the latest message and the composer, and goes away on its own once the
+ * reader scrolls back to the bottom. No count: it says there is something
+ * new, not how much.
  */
 
 import { memo, useEffect, useId, useMemo, useRef, useState, type RefObject } from "react";
@@ -88,9 +94,14 @@ export function ThreadView({ conversationId, items, viewerId, bottomAnchorRef }:
   // Where the reader was BEFORE new messages rendered: measured on scroll,
   // because by the time the effect below runs the page has already grown.
   const nearBottomRef = useRef(true);
+  // F-319: a message arrived while the reader was up in history.
+  const [hasUnseen, setHasUnseen] = useState(false);
+  const containerRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     const onScroll = () => {
-      nearBottomRef.current = isNearPageBottom();
+      const near = isNearPageBottom();
+      nearBottomRef.current = near;
+      if (near) setHasUnseen(false);
     };
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
@@ -117,9 +128,29 @@ export function ThreadView({ conversationId, items, viewerId, bottomAnchorRef }:
         block: "end",
       });
       nearBottomRef.current = true;
+      setHasUnseen(false);
+    } else if (grew && lastId !== null && lastId > (prevLastIdRef.current ?? 0)) {
+      // Only a NEWER last message: the newest one being deleted also
+      // changes the last id, and that is not "new messages".
+      setHasUnseen(true);
     }
     prevLastIdRef.current = lastId;
   }, [items, reducedMotion, viewerId, bottomAnchorRef]);
+
+  const jumpToLatest = () => {
+    (bottomAnchorRef?.current ?? endRef.current)?.scrollIntoView({
+      behavior: reducedMotion ? "auto" : "smooth",
+      block: "end",
+    });
+    nearBottomRef.current = true;
+    setHasUnseen(false);
+    // The pill unmounts on click; land focus where the reader is going
+    // (the reply box when there is one, else the thread) rather than on
+    // <body>.
+    const target =
+      bottomAnchorRef?.current?.querySelector<HTMLElement>("textarea") ?? containerRef.current;
+    target?.focus({ preventScroll: true });
+  };
 
   if (items.length === 0) {
     return (
@@ -130,41 +161,56 @@ export function ThreadView({ conversationId, items, viewerId, bottomAnchorRef }:
   }
 
   return (
-    <div
-      className="flex flex-col gap-3"
-      aria-live="polite"
-      aria-relevant="additions"
-    >
-      {segments.map((seg) => {
-        if (seg.kind === "blocked") {
-          // Keyed on the run's first message so reveal state survives a
-          // refetch that appends to the same run.
+    <>
+      <div
+        ref={containerRef}
+        tabIndex={-1}
+        className="flex flex-col gap-3 focus:outline-none"
+        aria-live="polite"
+        aria-relevant="additions"
+      >
+        {segments.map((seg) => {
+          if (seg.kind === "blocked") {
+            // Keyed on the run's first message so reveal state survives a
+            // refetch that appends to the same run.
+            return (
+              <BlockedRun
+                key={`blocked-${seg.msgs[0]?.id ?? 0}`}
+                conversationId={conversationId}
+                msgs={seg.msgs}
+                viewerId={viewerId}
+              />
+            );
+          }
+          const msg = seg.msg;
+          if (msg.is_inline_notice) {
+            return (
+              <p
+                key={msg.id}
+                className="bcc-mono mx-auto text-center text-[10px] tracking-[0.18em] text-bcc-text-secondary"
+              >
+                {stripHtml(msg.body)}
+              </p>
+            );
+          }
           return (
-            <BlockedRun
-              key={`blocked-${seg.msgs[0]?.id ?? 0}`}
-              conversationId={conversationId}
-              msgs={seg.msgs}
-              viewerId={viewerId}
-            />
+            <Bubble key={msg.id} msg={msg} isMine={isMine(msg, viewerId)} />
           );
-        }
-        const msg = seg.msg;
-        if (msg.is_inline_notice) {
-          return (
-            <p
-              key={msg.id}
-              className="bcc-mono mx-auto text-center text-[10px] tracking-[0.18em] text-bcc-text-secondary"
-            >
-              {stripHtml(msg.body)}
-            </p>
-          );
-        }
-        return (
-          <Bubble key={msg.id} msg={msg} isMine={isMine(msg, viewerId)} />
-        );
-      })}
-      <div ref={endRef} aria-hidden />
-    </div>
+        })}
+        <div ref={endRef} aria-hidden />
+      </div>
+      {hasUnseen && (
+        // Outside the thread's live region: the new message itself is
+        // announced there, so the pill appearing is not announced again.
+        <button
+          type="button"
+          onClick={jumpToLatest}
+          className="bcc-mono fixed bottom-[calc(var(--bcc-mobile-nav-total-h)+16px)] left-1/2 z-30 inline-flex min-h-[44px] -translate-x-1/2 items-center gap-2 border-2 border-bcc-border-strong bg-bcc-surface px-4 text-[11px] tracking-[0.16em] text-bcc-text shadow-lg hover:bg-bcc-surface-hover md:bottom-6"
+        >
+          New messages <span aria-hidden>↓</span>
+        </button>
+      )}
+    </>
   );
 }
 

@@ -23,6 +23,8 @@ import {
 } from "@/hooks/useRecoveryEmail";
 import { humanizeCode } from "@/lib/api/errors";
 import type { LinkedWallet } from "@/lib/api/types";
+import { formatAbsoluteDateTime } from "@/lib/format";
+import type { RecoveryAvailability } from "@/lib/onboarding/recovery-availability";
 import { findWalletChain, type WalletChainType } from "@/lib/wallet/chain-catalog";
 import { humanizeLinkError } from "@/lib/wallet/linkFlow";
 
@@ -38,18 +40,29 @@ import { humanizeLinkError } from "@/lib/wallet/linkFlow";
 //
 // No business logic here: urgency + which-wallets-are-eligible derive
 // from server fields (recovery.verified_wallet_count + item.verified).
+//
+// Whether the wallet-signed add path is open is the server's call too
+// (recovery.available_at / available_reason, bcc-trust #658), read through
+// recoveryAvailability() — the same reading the onboarding step and the
+// profile nudge use. When it is not open, the panel says when or how
+// instead of offering a form that would refuse. A form the member has
+// already opened stays open: availability can change under them, and
+// pulling the form away mid-entry loses what they typed.
 // ─────────────────────────────────────────────────────────────────────
 
 interface RecoveryEmailPanelProps {
   verifiedWalletCount: number;
   verifiedWallets: LinkedWallet[];
   onLinkAnotherWallet: () => void;
+  /** recoveryAvailability(), evaluated by the caller at render time. */
+  availability: RecoveryAvailability;
 }
 
 export function RecoveryEmailPanel({
   verifiedWalletCount,
   verifiedWallets,
   onLinkAnotherWallet,
+  availability,
 }: RecoveryEmailPanelProps) {
   const [formOpen, setFormOpen] = useState(false);
 
@@ -74,22 +87,37 @@ export function RecoveryEmailPanel({
           onClose={() => setFormOpen(false)}
         />
       ) : (
-        <div className="flex flex-wrap items-center gap-3">
-          <button
-            type="button"
-            onClick={() => setFormOpen(true)}
-            className="bcc-stencil border border-ink bg-cardstock px-4 py-2 text-ink transition hover:bg-ink hover:text-cardstock"
-          >
-            Add recovery email
-          </button>
-          <button
-            type="button"
-            onClick={onLinkAnotherWallet}
-            className="bcc-mono text-[11px] tracking-[0.14em] text-blueprint hover:underline"
-          >
-            or link another wallet
-          </button>
-        </div>
+        <>
+          {availability.kind === "later" && (
+            <p className="font-serif text-sm text-bcc-text">
+              You can add a recovery email from {formatAbsoluteDateTime(availability.at)}.
+            </p>
+          )}
+          {availability.kind === "relogin" && (
+            <p className="font-serif text-sm text-bcc-text">
+              Adding a recovery email needs a recently signed-in wallet. Sign out and
+              back in with your wallet, then add it here.
+            </p>
+          )}
+          <div className="flex flex-wrap items-center gap-3">
+            {availability.kind === "open" && (
+              <button
+                type="button"
+                onClick={() => setFormOpen(true)}
+                className="bcc-stencil border border-ink bg-cardstock px-4 py-2 text-ink transition hover:bg-ink hover:text-cardstock"
+              >
+                Add recovery email
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={onLinkAnotherWallet}
+              className="bcc-mono text-[11px] tracking-[0.14em] text-blueprint hover:underline"
+            >
+              {availability.kind === "open" ? "or link another wallet" : "Link another wallet"}
+            </button>
+          </div>
+        </>
       )}
     </div>
   );
@@ -163,7 +191,7 @@ export function RecoveryEmailForm({
       setDone(data.email);
       setSessionLost(data.sessionRestored === false);
     },
-    onError: (err) => setError(humanizeRecoveryError(err)),
+    onError: (err) => setError(humanizeRecoveryVerifyError(err)),
   });
 
   const selected = options.find((o) => o.key === walletKey);
@@ -345,6 +373,32 @@ export function RecoveryEmailForm({
         </p>
       )}
     </div>
+  );
+}
+
+/**
+ * F-294 — the confirm step's copy. A wrong code answers `bcc_invalid_otp`
+ * (the unified wrong-code code, as on email change) or, from a server that
+ * predates the switch, `bcc_invalid_request`. Both mean "the code didn't
+ * work", never "that email is unusable", so they share one line. Accepting
+ * both lets the backend switch ship after this is live with no gap.
+ */
+const RECOVERY_WRONG_CODE =
+  "That code didn't match or has expired. Check the latest email, or start over for a new code.";
+
+export function humanizeRecoveryVerifyError(err: unknown): string {
+  return humanizeCode(
+    err,
+    {
+      bcc_invalid_otp: RECOVERY_WRONG_CODE,
+      bcc_invalid_request: RECOVERY_WRONG_CODE,
+      bcc_otp_exhausted: "Too many attempts. Start over to get a new code.",
+      bcc_rate_limited: "Too many attempts. Wait a moment and try again.",
+      bcc_unauthorized: "Sign in required.",
+      bcc_conflict:
+        "That email is already in use by another account. Try a different address.",
+    },
+    "Couldn't confirm the code. Try again.",
   );
 }
 

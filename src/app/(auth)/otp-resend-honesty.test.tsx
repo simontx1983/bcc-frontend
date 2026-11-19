@@ -15,6 +15,11 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
+import {
+  clearPendingVerificationEmail,
+  stashPendingVerificationEmail,
+} from "@/lib/auth/pending-verification-email";
+
 vi.mock("@/lib/env", () => ({
   clientEnv: { BCC_API_URL: "https://wp.example" },
 }));
@@ -55,10 +60,14 @@ beforeAll(() => {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  searchParams.forEach((_, k) => searchParams.delete(k));
+  // Snapshot the keys: deleting inside forEach skips every other entry.
+  for (const k of [...searchParams.keys()]) searchParams.delete(k);
 });
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  clearPendingVerificationEmail();
+});
 
 // ─────────────────────────────────────────────────────────────────────
 // /verify-email
@@ -66,7 +75,8 @@ afterEach(cleanup);
 
 describe("verify-email resend", () => {
   function renderPage() {
-    searchParams.set("email", "someone@example.com");
+    // /signup hands the address over in sessionStorage (F-410).
+    stashPendingVerificationEmail("someone@example.com");
     return render(<VerifyEmailPage />);
   }
 
