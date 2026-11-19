@@ -7036,6 +7036,20 @@ export interface AnnouncementsBlock {
   has_any?: boolean;
 }
 
+/**
+ * F-307 B2 — an administrator took the notice down.
+ *
+ * Only the notice's own operator ever receives a row with `hidden: true`:
+ * every public read refuses a taken-down notice, and the detail route
+ * answers 404 to anyone else. Who took it down and which report it
+ * resolved stay server-side.
+ */
+export interface AnnouncementModeration {
+  hidden: boolean;
+  /** ISO-8601 UTC, or null when hidden but the marker carries no date. */
+  hidden_at: string | null;
+}
+
 /** §4.32.3 — one announcement as list/detail report it. */
 export interface Announcement {
   /** Opaque, form `ann_<int>`. */
@@ -7058,6 +7072,13 @@ export interface Announcement {
   comment_count: number;
   comments_enabled: boolean;
   links: { self: string };
+  /**
+   * F-307 B2 — present on owner rows and detail, absent on public list
+   * rows and on backends before bcc-trust #700. Absent reads as "not
+   * taken down": it only drives an explanatory notice, never a control —
+   * edit and pin stay gated by their own capabilities.
+   */
+  moderation?: AnnouncementModeration;
   /**
    * Per-announcement capabilities, attached by the server **only** for a
    * viewer who may manage this validator. Absent for public readers.
