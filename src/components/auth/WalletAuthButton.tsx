@@ -200,16 +200,6 @@ export function WalletAuthButton(props: WalletAuthButtonProps) {
     }
   }
 
-  // One alert region, mounted with the control, whose text changes: a live
-  // region inserted already holding its text is often not read (#328). It
-  // shows a wallet error, or reads out the account-created notice (which
-  // the panel below shows).
-  const alertText =
-    unfinished !== null
-      ? `Account created — sign in. Signing in didn't finish: ${unfinished.reason}`
-      : (error ?? "");
-  const alertClass = unfinished === null && error !== null ? "bcc-auth-error" : "sr-only";
-
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
       {unfinished !== null ? (
@@ -312,10 +302,23 @@ export function WalletAuthButton(props: WalletAuthButtonProps) {
               {walletHintFor(selectedChain.chainType)}
             </p>
           )}
+
+          {error !== null && (
+            <p role="alert" className="bcc-auth-error">{error}</p>
+          )}
         </div>
       )}
 
-      <p key="alert" role="alert" className={alertClass}>{alertText}</p>
+      {/* Reads out the account-created notice (the panel shows it). Mounted
+          with the control and empty until then: a live region inserted
+          already holding its text is often not read (#328). Assertive and
+          atomic, as role="alert" would be, without adding an alert to every
+          page this control sits on. */}
+      <p key="announce" aria-live="assertive" aria-atomic="true" className="sr-only">
+        {unfinished !== null
+          ? `Account created — sign in. Signing in didn't finish: ${unfinished.reason}`
+          : ""}
+      </p>
     </div>
   );
 }

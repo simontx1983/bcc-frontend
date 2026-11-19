@@ -53,6 +53,8 @@ function renderSignup(extra: { disabled?: boolean } = {}) {
 const signUpButton = () => screen.getByRole("button", { name: "Sign up with wallet" });
 const finishButton = () => screen.getByRole("button", { name: "Sign in with wallet" });
 const accountCreated = () => screen.queryByText("Account created — sign in");
+/** The screen-reader-only region that reads out the account-created notice. */
+const announcer = () => document.querySelector<HTMLElement>('[aria-live="assertive"]');
 
 /** A promise the test settles by hand. */
 function deferred<T>() {
@@ -124,8 +126,8 @@ describe("a failure after the account exists", () => {
     fireEvent.click(signUpButton());
 
     expect(await screen.findByText("Account created — sign in")).toBeInTheDocument();
-    expect(screen.getByRole("alert")).toHaveTextContent("Wallet signing was canceled.");
-    // The panel shows the reason too; the alert above is read out.
+    expect(announcer()).toHaveTextContent("Wallet signing was canceled.");
+    // The panel shows the reason too; the region above reads it out.
     expect(
       screen.getByText(/Signing in didn't finish: Wallet signing was canceled\./, { selector: ".bcc-auth-success-body" }),
     ).toBeInTheDocument();
@@ -150,7 +152,7 @@ describe("a failure after the account exists", () => {
     fireEvent.click(signUpButton());
 
     expect(await screen.findByText("Account created — sign in")).toBeInTheDocument();
-    expect(screen.getByRole("alert")).toHaveTextContent("Couldn't reach the server.");
+    expect(announcer()).toHaveTextContent("Couldn't reach the server.");
   });
 
   it("'Sign in with wallet' re-runs step 2 only — no second sign-up", async () => {
@@ -174,7 +176,7 @@ describe("a failure after the account exists", () => {
 
     h.sign.mockRejectedValueOnce(new MetaMaskUserRejectedError());
     fireEvent.click(finishButton());
-    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("Wallet signing was canceled."));
+    await waitFor(() => expect(announcer()).toHaveTextContent("Wallet signing was canceled."));
     expect(accountCreated()).toBeInTheDocument();
     expect(onSuccess).not.toHaveBeenCalled();
   });
@@ -231,28 +233,27 @@ describe("a failure before the account exists is still a plain error", () => {
 });
 
 describe("live regions are mounted before their text arrives (#328)", () => {
-  it("the account-created notice fills the alert region that was already there", async () => {
+  it("the account-created notice fills the assertive region that was already there", async () => {
     h.signIn.mockResolvedValue({ ok: false, error: "CredentialsSignin" });
     renderSignup();
-    const region = screen.getByRole("alert");
+    const region = announcer();
+    expect(region).not.toBeNull();
     expect(region).toHaveTextContent("");
+    expect(region).toHaveAttribute("aria-atomic", "true");
     fireEvent.click(signUpButton());
 
     await screen.findByText("Account created — sign in");
-    expect(screen.getByRole("alert")).toBe(region);
+    expect(announcer()).toBe(region);
     expect(region).toHaveTextContent("Account created — sign in. Signing in didn't finish:");
   });
 
-  it("a plain error fills the same region, visibly", async () => {
-    h.walletSignup.mockRejectedValue(new BccApiError("bcc_conflict", "raw", 409, null));
+  it("adds no alert to its page while idle, or with the panel up (host pages count their own)", async () => {
+    h.signIn.mockResolvedValue({ ok: false, error: "CredentialsSignin" });
     renderSignup();
-    const region = screen.getByRole("alert");
-    expect(region.className).toContain("sr-only");
+    expect(screen.queryByRole("alert")).toBeNull();
     fireEvent.click(signUpButton());
-
-    await waitFor(() => expect(region).toHaveTextContent("That handle is already taken."));
-    expect(screen.getByRole("alert")).toBe(region);
-    expect(region.className).toContain("bcc-auth-error");
+    await screen.findByText("Account created — sign in");
+    expect(screen.queryByRole("alert")).toBeNull();
   });
 
   it("the retry's Step 2 of 2 fills a status region mounted empty with the panel", async () => {
