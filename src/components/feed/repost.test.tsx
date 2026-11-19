@@ -149,6 +149,23 @@ describe("F-346 Repost pill (plain repost toggle)", () => {
     expect(createRepost).not.toHaveBeenCalled();
   });
 
+  it("a non-public post (not_public, no hint) shows neither pill; a stale card's 403 says why", async () => {
+    const notPublic = { allowed: false, unlock_hint: null, reason_code: "not_public" } as FeedItemPermission;
+    const hidden = post("feed_1", "a", "x", { permissions: { can_repost: notPublic, can_quote: notPublic } });
+    const { container } = mount(
+      <>
+        <RepostButton item={hidden} />
+        <QuoteButton item={hidden} />
+      </>,
+    );
+    expect(container).toBeEmptyDOMElement();
+    cleanup();
+    createRepost.mockRejectedValue(new BccApiError("bcc_permission_denied", "RAW", 403, null));
+    mount(<RepostButton item={post("feed_1", "a", "x")} />);
+    fireEvent.click(screen.getByRole("button", { name: "Repost" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Only public posts can be reposted.");
+  });
+
   it("409 shows its own copy, never the raw server message", async () => {
     createRepost.mockRejectedValue(new BccApiError("bcc_conflict", "RAW_LEAK", 409, null));
     mount(<RepostButton item={post("feed_1", "a", "x")} />);
@@ -222,6 +239,21 @@ describe("F-346 repost cards", () => {
     expect(preview).toHaveAttribute("href", "/post/feed_10");
     expect(within(preview).getByText("The original post.")).toBeInTheDocument();
     expect(within(preview).queryByRole("button")).toBeNull();
+  });
+
+  it("a quote whose original the viewer can't see keeps its text, with a neutral unavailable block", () => {
+    const quote = post("feed_32", "bolt", "My own words.", {
+      repost_of: null,
+      repost_of_unavailable: true,
+      repost_quote: true,
+    });
+    mount(<FeedItemCard item={quote} />);
+    expect(screen.getByText("My own words.")).toBeInTheDocument();
+    const block = screen.getByTestId("repost-original-unavailable");
+    expect(block).toHaveTextContent("The original post isn’t available.");
+    // Names nothing and links nowhere.
+    expect(within(block).queryByRole("link")).toBeNull();
+    expect(screen.queryByTestId("reposted-post-preview")).toBeNull();
   });
 
   it("a backend that omits repost_quote keeps the wrapper, so no quote text is dropped", () => {

@@ -7,6 +7,8 @@
  *   - RepostedPostPreview: the original, nested read-only inside a QUOTE
  *     repost. The quote card's own action bar acts on the quote, so the
  *     preview has no controls: it is one link to the original.
+ *   - RepostOriginalUnavailable: in its place when this viewer cannot see
+ *     the original (`repost_of_unavailable`). The quote's own text stays.
  *
  * Both render inside the card's <article>, whose click-to-open handler
  * ignores clicks on links, so each link here navigates on its own.
@@ -40,6 +42,29 @@ export function RepostedByLine({ repost }: { repost: FeedItem }) {
       </span>
     </p>
   );
+}
+
+/**
+ * In place of the nested original on a quote whose original this viewer
+ * cannot see (`repost_of_unavailable`). Deliberately says only that: no
+ * author, group, link or id.
+ */
+export function RepostOriginalUnavailable() {
+  return (
+    <p
+      data-testid="repost-original-unavailable"
+      className="bcc-mono rounded-[4px] border border-dashed border-[var(--bcc-border)] p-3 text-[11px] text-[var(--bcc-text-secondary)]"
+    >
+      The original post isn’t available.
+    </p>
+  );
+}
+
+/** The quote's original, or the unavailable block, or nothing for a non-repost. */
+export function RepostedOriginal({ item }: { item: FeedItem }) {
+  if (item.repost_of != null) return <RepostedPostPreview original={item.repost_of} />;
+  if (item.repost_of_unavailable === true) return <RepostOriginalUnavailable />;
+  return null;
 }
 
 export function RepostedPostPreview({ original }: { original: FeedItem }) {

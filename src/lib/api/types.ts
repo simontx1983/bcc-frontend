@@ -1327,6 +1327,13 @@ export interface FeedItem {
    * reposter's — the body is the quote, empty on a plain repost.
    */
   repost_of?: FeedItem | null;
+  /**
+   * True on a QUOTE whose original this viewer cannot see (`repost_of` is
+   * then null): the card shows the quote with a neutral "original
+   * unavailable" block, which names no author, group or post. A plain
+   * repost of an unseen original is never sent at all.
+   */
+  repost_of_unavailable?: boolean;
   /** Server-decided, after trimming: true when the reposter added text. */
   repost_quote?: boolean;
 }

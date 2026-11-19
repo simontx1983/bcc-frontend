@@ -119,6 +119,8 @@ function RepostToggle({ item, allowed, hint }: { item: FeedItem; allowed: boolea
         {
           ...SHARED_ERROR_COPY,
           bcc_conflict: "You’ve already reposted this.",
+          // The pill hides on a non-public post; this covers a stale card.
+          bcc_permission_denied: "Only public posts can be reposted.",
           bcc_rate_limited: "Too many reposts in a short time. Try again in a minute.",
           bcc_unavailable: "Reposting is unavailable right now, and nothing changed. Try again shortly.",
           // DELETE 404 = no plain repost of yours (another tab undid it).
@@ -194,6 +196,7 @@ function QuoteDialog({ feedId, onDone }: { feedId: string; onDone: () => void })
         {
           ...SHARED_ERROR_COPY,
           bcc_invalid_request: `A quote needs 1 to ${QUOTE_MAX_LENGTH} characters.`,
+          bcc_permission_denied: "Only public posts can be quoted.",
           bcc_too_many_mentions: "That quote mentions too many people.",
           // Quotes share the posting limit, which is stricter than reposts'.
           bcc_rate_limited: "Too many posts in a short time. Try again in a couple of minutes.",

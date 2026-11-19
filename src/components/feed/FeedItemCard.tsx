@@ -34,7 +34,7 @@ import { POST_KIND_LABELS, deriveBodySummary } from "@/components/feed/postBody"
 import { PostActionBar } from "@/components/feed/PostActionBar";
 import { PostOverflowMenu } from "@/components/feed/PostOverflowMenu";
 import { ReactorStack } from "@/components/feed/ReactorStack";
-import { RepostedByLine, RepostedPostPreview } from "@/components/feed/RepostBlocks";
+import { RepostedByLine, RepostedOriginal } from "@/components/feed/RepostBlocks";
 import { VerificationBadge } from "@/components/groups/VerificationBadge";
 import { AuthorBadge } from "@/components/identity/AuthorBadge";
 import { formatAbsoluteDateTime } from "@/lib/format";
@@ -244,8 +244,9 @@ function FeedItemCardImpl({
           </p>
         )}
 
-        {/* F-346 quote repost: the original, nested read-only. */}
-        {item.repost_of != null && <RepostedPostPreview original={item.repost_of} />}
+        {/* F-346 quote repost: the original nested read-only, or the
+            "original unavailable" block when this viewer can't see it. */}
+        <RepostedOriginal item={item} />
 
         <ReactorStack social_proof={item.social_proof} />
       </div>
