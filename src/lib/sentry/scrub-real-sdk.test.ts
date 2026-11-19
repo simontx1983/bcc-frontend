@@ -82,7 +82,9 @@ describe("scrubSentryEvent on real SDK events", () => {
     const got = errors.at(-1);
     expect(got).toBeDefined();
     if (got === undefined) return;
-    const { sdkProcessingMetadata: _internal, ...sent } = got.out;
+    // sdkProcessingMetadata is internal and never sent; check the rest.
+    const sent: Record<string, unknown> = { ...got.out };
+    delete sent["sdkProcessingMetadata"];
     const s = JSON.stringify(sent);
     for (const leak of [session, bearer, password, resetKey, login]) {
       expect(s).not.toContain(leak);
