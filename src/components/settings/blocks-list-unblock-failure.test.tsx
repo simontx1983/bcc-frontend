@@ -10,9 +10,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { BccApiError } from "@/lib/api/types";
 
-type Callbacks = { onError?: (err: unknown) => void; onSettled?: () => void };
-
-const fx = vi.hoisted(() => ({ mutate: vi.fn() }));
+const fx = vi.hoisted(() => ({ mutateAsync: vi.fn() }));
 
 const row = (id: number) => ({
   user_id: id,
@@ -39,29 +37,28 @@ vi.mock("@/hooks/useBlocks", () => ({
       pagination: { page, per_page: 20, total: 2, total_pages: 1 },
     },
   }),
-  useUnblockUser: () => ({ mutate: fx.mutate, isPending: false }),
+  useUnblockUser: () => ({ mutateAsync: fx.mutateAsync, isPending: false }),
 }));
 
 import { BlocksList } from "@/components/settings/BlocksList";
 
 beforeEach(() => {
-  fx.mutate.mockReset();
+  fx.mutateAsync.mockReset();
+  // Default: the request never settles (an unblock still in flight).
+  fx.mutateAsync.mockImplementation(() => new Promise(() => undefined));
 });
 afterEach(cleanup);
 
 const rowOf = (name: string) => screen.getByText(name).closest("li") as HTMLElement;
 
 describe("BlocksList unblock failure", () => {
-  it("shows a code-keyed failure on the row that failed, and only that row", () => {
-    fx.mutate.mockImplementation((_id: number, cb: Callbacks) => {
-      cb.onError?.(new BccApiError("bcc_rate_limited", "raw server prose", 429, null));
-      cb.onSettled?.();
-    });
+  it("shows a code-keyed failure on the row that failed, and only that row", async () => {
+    fx.mutateAsync.mockRejectedValue(new BccApiError("bcc_rate_limited", "raw server prose", 429, null));
     render(<BlocksList />);
 
     fireEvent.click(within(rowOf("User 2")).getByRole("button", { name: "Unblock User 2" }));
 
-    const alert = within(rowOf("User 2")).getByRole("alert");
+    const alert = await within(rowOf("User 2")).findByRole("alert");
     expect(alert).toHaveTextContent("Slow down — too many unblock attempts. Wait a minute.");
     expect(alert.className).toContain("text-bcc-text-error");
     expect(within(rowOf("User 1")).queryByRole("alert")).toBeNull();
@@ -73,28 +70,22 @@ describe("BlocksList unblock failure", () => {
     );
   });
 
-  it("falls back to generic copy for an unmapped code", () => {
-    fx.mutate.mockImplementation((_id: number, cb: Callbacks) => {
-      cb.onError?.(new BccApiError("bcc_internal_error", "raw server prose", 500, null));
-      cb.onSettled?.();
-    });
+  it("falls back to generic copy for an unmapped code", async () => {
+    fx.mutateAsync.mockRejectedValue(new BccApiError("bcc_internal_error", "raw server prose", 500, null));
     render(<BlocksList />);
     fireEvent.click(within(rowOf("User 1")).getByRole("button", { name: "Unblock User 1" }));
-    expect(within(rowOf("User 1")).getByRole("alert")).toHaveTextContent("Couldn't unblock. Try again.");
+    expect(await within(rowOf("User 1")).findByRole("alert")).toHaveTextContent("Couldn't unblock. Try again.");
   });
 
-  it("clears the failure on retry", () => {
-    fx.mutate.mockImplementationOnce((_id: number, cb: Callbacks) => {
-      cb.onError?.(new BccApiError("bcc_internal_error", "x", 500, null));
-      cb.onSettled?.();
-    });
+  it("clears the failure on retry", async () => {
+    fx.mutateAsync.mockImplementationOnce(() => Promise.reject(new BccApiError("bcc_internal_error", "x", 500, null)));
     render(<BlocksList />);
     fireEvent.click(within(rowOf("User 1")).getByRole("button", { name: "Unblock User 1" }));
-    expect(screen.getByRole("alert")).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toBeInTheDocument();
 
-    // Retry is in flight (mutate default: never settles).
+    // Retry is in flight (the default never settles).
     fireEvent.click(within(rowOf("User 1")).getByRole("button", { name: "Unblock User 1" }));
     expect(screen.queryByRole("alert")).toBeNull();
-    expect(fx.mutate).toHaveBeenCalledTimes(2);
+    expect(fx.mutateAsync).toHaveBeenCalledTimes(2);
   });
 });
