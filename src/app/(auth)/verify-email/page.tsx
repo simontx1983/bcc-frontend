@@ -79,11 +79,16 @@ const EMAIL_TAKEN_CODE = "bcc_conflict";
 const EMAIL_TAKEN_COPY = "That email is already in use. Add a different one in Settings.";
 
 /**
- * F-263 (M30): the address is verified already — most often the same link
- * opened a second time. That is not a failure. It used to land on "Link
- * expired" with Resend buttons, the "already verified" line squeezed in as
- * an error, and no way to sign in. Both paths (link and code) now show
- * their own card with Sign in. A 409 too, so keyed on the code alone.
+ * F-263 (M30): the address is verified already. Only the CODE path can
+ * say so: the server answers `bcc_already_verified` 409 there ("OTP path
+ * only" in the contract). That used to be one more error line on the form,
+ * with no way to sign in; it is now its own card with Sign in. A 409 too,
+ * so keyed on the code alone.
+ *
+ * The LINK path cannot tell: the token is deleted on first use, so a link
+ * opened a second time answers `bcc_invalid_verify_token` like an expired
+ * one. Its "Link expired" card therefore offers Sign in beside Resend,
+ * since Resend does nothing for an account that is verified already.
  */
 const ALREADY_VERIFIED_CODE = "bcc_already_verified";
 
@@ -210,11 +215,6 @@ function VerifyEmailContent() {
         // The server dropped the address: nothing left to verify.
         clearPendingVerificationEmail();
         setPageState("email-taken");
-        return;
-      }
-      if (err instanceof BccApiError && err.code === ALREADY_VERIFIED_CODE) {
-        clearPendingVerificationEmail();
-        setPageState("already-verified");
         return;
       }
       setPageState("link-expired");
@@ -468,6 +468,13 @@ function VerifyEmailContent() {
             </button>
           </div>
         )}
+
+        {/* F-263 (M30): a used link reads as expired (see
+            ALREADY_VERIFIED_CODE), and Resend does nothing for a verified
+            account, so the way in is offered here too. */}
+        <p className="bcc-auth-hint" style={{ marginTop: "12px", textAlign: "center" }}>
+          Already verified this address? <Link href="/login">Sign in</Link>.
+        </p>
       </AuthCard>
     );
   }
