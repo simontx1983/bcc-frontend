@@ -238,8 +238,18 @@ function PillNoticeLine({ id, notice }: { id: string; notice: PillNotice }) {
   useEffect(() => {
     if (!filled.current) {
       filled.current = true;
-      const timer = setTimeout(() => setShown(notice), NOTICE_FILL_DELAY_MS);
-      return () => clearTimeout(timer);
+      let fired = false;
+      const timer = setTimeout(() => {
+        fired = true;
+        setShown(notice);
+      }, NOTICE_FILL_DELAY_MS);
+      return () => {
+        clearTimeout(timer);
+        // StrictMode (dev) runs this cleanup before the timer fires and then
+        // the effect again: reset, so the re-run waits too instead of filling
+        // a just-mounted region at once.
+        if (!fired) filled.current = false;
+      };
     }
     setShown(notice);
     return undefined;
