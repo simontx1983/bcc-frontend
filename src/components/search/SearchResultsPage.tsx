@@ -3,11 +3,12 @@
 /**
  * SearchResultsPage — /search top-level surface.
  *
- * Two states:
- *   - With `?q=…`: 4-tab multi-vertical results (All / Projects / Users
- *     / Groups). Tab state lives in URL (`?tab=…`) so refresh and deep
- *     links work — same pattern as
+ * Three states:
+ *   - With `?q=…`: 4-tab multi-vertical results (All / Projects /
+ *     Members / Communities). Tab state lives in URL (`?tab=…`) so
+ *     refresh and deep links work — same pattern as
  *     [DisputesRoom](../disputes/DisputesRoom.tsx).
+ *   - With a `?q=` under the search floor: a sheet saying so.
  *   - Without a query: landing state shows the trending list as a
  *     single panel (no tabs) so the page never feels empty.
  *
@@ -29,12 +30,16 @@ import { useMemo } from "react";
 import {
   GroupRow,
   ProjectRow,
+  SearchLoadFailure,
   SearchResultsTab,
+  TooShortTile,
   UserRow,
+  VERTICAL_NOUN,
 } from "@/components/search/SearchResultsTab";
 import { FilterChipRow } from "@/components/ui/FilterChipRow";
 import { useSearchGroups } from "@/hooks/useSearchGroups";
 import { useSearchProjects } from "@/hooks/useSearchProjects";
+import { SEARCH_MIN_LENGTH } from "@/hooks/useSearchTerm";
 import { useSearchUsers } from "@/hooks/useSearchUsers";
 import { useTrendingSearches } from "@/hooks/useTrendingSearches";
 import { TabRail } from "@/components/ui/TabRail";
@@ -62,7 +67,12 @@ export function SearchResultsPage({ query }: SearchResultsPageProps) {
   const hasQuery = trimmed.length > 0;
 
   if (!hasQuery) return <TrendingLanding />;
-  return <ResultsView query={trimmed} />;
+  if (trimmed.length < SEARCH_MIN_LENGTH) return <TooShortTile query={trimmed} />;
+  // Keyed on the query: a new search from the header box is a fresh
+  // mount, so its verticals fire at once (no debounce wait) and never
+  // show the previous search's rows, under keepPreviousData, beneath
+  // "RESULTS FOR" the new one.
+  return <ResultsView key={trimmed} query={trimmed} />;
 }
 
 // ─────────────────────────────────────────────────────────────────────
@@ -142,6 +152,18 @@ function ResultsView({ query }: { query: string }) {
   };
   const anyLoading = projects.isLoading || users.isLoading || groups.isLoading;
 
+  // The verticals that failed, for the All tab: a failure must never read
+  // as "Nothing found", and must name what is missing when the rest
+  // loaded. Retry refetches the failed ones only.
+  const failed = [
+    { noun: VERTICAL_NOUN.projects, isError: projects.isError, refetch: projects.refetch },
+    { noun: VERTICAL_NOUN.users, isError: users.isError, refetch: users.refetch },
+    { noun: VERTICAL_NOUN.groups, isError: groups.isError, refetch: groups.refetch },
+  ].filter((v) => v.isError);
+  const retryFailed = (): void => {
+    for (const v of failed) void v.refetch();
+  };
+
   return (
     <section>
       <header className="border-b border-dashed border-bcc-border pb-3">
@@ -181,7 +203,8 @@ function ResultsView({ query }: { query: string }) {
             users={users.data?.results ?? []}
             groups={groups.data?.results ?? []}
             isLoading={anyLoading}
-            isError={projects.isError && users.isError && groups.isError}
+            failedNouns={failed.map((v) => v.noun)}
+            onRetry={retryFailed}
           />
         )}
         {tab === "projects" && (
@@ -191,6 +214,7 @@ function ResultsView({ query }: { query: string }) {
             results={projects.data?.results ?? []}
             isLoading={projects.isLoading}
             isError={projects.isError}
+            onRetry={() => void projects.refetch()}
           />
         )}
         {tab === "users" && (
@@ -200,6 +224,7 @@ function ResultsView({ query }: { query: string }) {
             results={users.data?.results ?? []}
             isLoading={users.isLoading}
             isError={users.isError}
+            onRetry={() => void users.refetch()}
           />
         )}
         {tab === "groups" && (
@@ -209,6 +234,7 @@ function ResultsView({ query }: { query: string }) {
             results={groups.data?.results ?? []}
             isLoading={groups.isLoading}
             isError={groups.isError}
+            onRetry={() => void groups.refetch()}
           />
         )}
       </div>
@@ -233,7 +259,9 @@ interface TabBarProps {
 const TABS: ReadonlyArray<{ key: TabKey; label: string }> = [
   { key: "all", label: "All" },
   { key: "projects", label: "Projects" },
-  { key: "users", label: "Users" },
+  // "Members", the product word (and the header scope option's); the KEY
+  // stays "users" so existing ?tab=users deep links keep resolving.
+  { key: "users", label: "Members" },
   // Label follows the product vocabulary (Communities, v1.70); the KEY
   // stays "groups" so existing ?tab=groups deep links keep resolving.
   { key: "groups", label: "Communities" },
@@ -283,9 +311,16 @@ function TabBar({ tab, setTab, counts, loading }: TabBarProps) {
 // AllTab — interleaves results from the three verticals so the user
 // sees a mixed slice of the floor up top. Skeleton state delegates to
 // SearchResultsTab's loading branch (one path for all four tabs).
-// Empty state shows when all three verticals returned empty; error
-// state only when all three failed (a single partial failure still
-// renders the surviving rows).
+//
+// Failures (F-260 M11). This used to error only when ALL three verticals
+// failed, so one failed vertical plus two empty ones read as "Nothing
+// found", and the tile had no Retry. Now:
+//   - nothing to show and any vertical failed → LoadFailure naming the
+//     failed verticals, with a Retry that refetches them;
+//   - rows to show and a vertical failed → the rows, then the same
+//     LoadFailure saying the list is incomplete;
+//   - "Nothing found" only when every vertical answered and all were
+//     empty.
 // ─────────────────────────────────────────────────────────────────────
 
 interface AllTabProps {
@@ -294,18 +329,49 @@ interface AllTabProps {
   users: UserSearchResult[];
   groups: GroupSearchResult[];
   isLoading: boolean;
-  isError: boolean;
+  /** Copy nouns of the verticals that failed; empty when none did. */
+  failedNouns: string[];
+  /** Refetches the failed verticals. */
+  onRetry: () => void;
 }
 
-function AllTab({ query, projects, users, groups, isLoading, isError }: AllTabProps) {
-  if (isError || isLoading || (projects.length === 0 && users.length === 0 && groups.length === 0)) {
+/** "a", "a and b", "a, b and c". */
+function joinNouns(nouns: string[]): string {
+  if (nouns.length <= 1) return nouns.join("");
+  return `${nouns.slice(0, -1).join(", ")} and ${nouns[nouns.length - 1]}`;
+}
+
+function AllTab({
+  query,
+  projects,
+  users,
+  groups,
+  isLoading,
+  failedNouns,
+  onRetry,
+}: AllTabProps) {
+  const nothing =
+    projects.length === 0 && users.length === 0 && groups.length === 0;
+  const anyFailed = failedNouns.length > 0;
+
+  if (!isLoading && nothing && anyFailed) {
+    return (
+      <SearchLoadFailure
+        message={`Couldn't load ${joinNouns(failedNouns)}. Try again in a moment.`}
+        onRetry={onRetry}
+      />
+    );
+  }
+
+  if (isLoading || nothing) {
     return (
       <SearchResultsTab
         kind="projects"
         query={query}
         results={[]}
         isLoading={isLoading}
-        isError={isError}
+        isError={false}
+        onRetry={onRetry}
       />
     );
   }
@@ -328,29 +394,39 @@ function AllTab({ query, projects, users, groups, isLoading, isError }: AllTabPr
   }
 
   return (
-    <ul className="flex flex-col gap-2">
-      {interleaved.map((item) => {
-        if (item.kind === "project") {
+    <>
+      <ul className="flex flex-col gap-2">
+        {interleaved.map((item) => {
+          if (item.kind === "project") {
+            return (
+              <li key={`p-${item.row.page_id}`}>
+                <ProjectRow row={item.row} />
+              </li>
+            );
+          }
+          if (item.kind === "user") {
+            return (
+              <li key={`u-${item.row.id}`}>
+                <UserRow row={item.row} />
+              </li>
+            );
+          }
           return (
-            <li key={`p-${item.row.page_id}`}>
-              <ProjectRow row={item.row} />
+            <li key={`g-${item.row.id}`}>
+              <GroupRow row={item.row} />
             </li>
           );
-        }
-        if (item.kind === "user") {
-          return (
-            <li key={`u-${item.row.id}`}>
-              <UserRow row={item.row} />
-            </li>
-          );
-        }
-        return (
-          <li key={`g-${item.row.id}`}>
-            <GroupRow row={item.row} />
-          </li>
-        );
-      })}
-    </ul>
+        })}
+      </ul>
+      {anyFailed && (
+        <div className="mt-4">
+          <SearchLoadFailure
+            message={`Couldn't load ${joinNouns(failedNouns)}, so these results are incomplete.`}
+            onRetry={onRetry}
+          />
+        </div>
+      )}
+    </>
   );
 }
 
@@ -377,6 +453,7 @@ function TrendingLanding() {
           results={results}
           isLoading={trending.isLoading}
           isError={trending.isError}
+          onRetry={() => void trending.refetch()}
         />
       </div>
     </section>
