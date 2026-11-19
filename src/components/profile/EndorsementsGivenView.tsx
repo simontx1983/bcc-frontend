@@ -39,7 +39,7 @@ export const ENDORSEMENTS_UNAVAILABLE_COPY =
 export const ENDORSEMENTS_LOAD_FAILED_COPY = "Couldn't load vouches. Try again in a moment.";
 
 export function EndorsementsGivenView({ handle }: EndorsementsGivenViewProps) {
-  const { data, error, isError, refetch } = useUserEndorsements(handle);
+  const { data, error, isError, isPending, refetch } = useUserEndorsements(handle);
   const items = data?.items ?? [];
 
   // The owner's profile is private (v1.91). The empty state below would
@@ -69,9 +69,14 @@ export function EndorsementsGivenView({ handle }: EndorsementsGivenViewProps) {
     );
   }
 
-  // Match AttestationRoster pattern: render the same empty-state block
-  // during the initial fetch window AND when the server returns zero
-  // rows — no spinner state flicker.
+  // The empty state is a claim, so it shows only after a SUCCESSFUL read
+  // (F-421). It used to show during the first fetch too, so "hasn't vouched
+  // for any pages yet" flashed for a member who has. While loading, the
+  // same dashed box says so instead: same footprint, no layout jump.
+  if (isPending) {
+    return <LoadingState />;
+  }
+
   if (items.length === 0) {
     return <EmptyState />;
   }
@@ -84,6 +89,16 @@ export function EndorsementsGivenView({ handle }: EndorsementsGivenViewProps) {
         ))}
       </ul>
     </section>
+  );
+}
+
+export const ENDORSEMENTS_LOADING_COPY = "Loading vouches…";
+
+function LoadingState() {
+  return (
+    <div className="border border-dashed border-bcc-border px-6 py-8 text-center">
+      <p className="bcc-mono text-[11px] text-bcc-text-secondary">{ENDORSEMENTS_LOADING_COPY}</p>
+    </div>
   );
 }
 
