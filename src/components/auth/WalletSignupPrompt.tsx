@@ -38,19 +38,24 @@
  * first focusable and Dialog's focus-on-open picks it.
  */
 
-import { getSession } from "next-auth/react";
 import { useState } from "react";
 
 import { Dialog } from "@/components/ui/Dialog";
 import { WalletAuthButton } from "@/components/auth/WalletAuthButton";
 import { captureAnalyticsEvent, noteSignupCompleted } from "@/lib/analytics/posthog";
 import { checkHandleLocal, formatHandleHint } from "@/lib/auth/handleValidation";
-import { resolveViewerScope, type ViewerScope } from "@/lib/auth/viewer-scope";
+import { newAccountScope } from "@/lib/auth/new-account-scope";
+import type { ViewerScope } from "@/lib/auth/viewer-scope";
 import { writePendingRecoveryEmail } from "@/lib/onboarding/pending-recovery-email";
 
 export interface WalletSignupPromptProps {
   /** Pre-fill the handle input (e.g. if the parent already collected one). Optional. */
   initialHandle?: string;
+  /**
+   * The chain the visitor just tried to sign in with (F-263 M22). The
+   * picker starts on it; the visitor already chose it once.
+   */
+  initialChainSlug?: string;
   /**
    * Called after the new account is created AND signed in. Parent routes
    * to /onboarding (F-332). `scope` is the NEW account's storage scope
@@ -62,23 +67,6 @@ export interface WalletSignupPromptProps {
   onDismiss: () => void;
 }
 
-/**
- * The storage scope of the account the signup just signed in (F-332).
- * Read from the session itself, not from a hook value captured before
- * the sign-in, so hand-offs are keyed to the NEW member. Any failure is
- * "unknown" (null), and unknown scopes store nothing.
- */
-async function newAccountScope(): Promise<ViewerScope> {
-  try {
-    const session = await getSession();
-    return resolveViewerScope(
-      session !== null ? "authenticated" : "unauthenticated",
-      session?.user?.id,
-    );
-  } catch {
-    return null;
-  }
-}
 
 export function WalletSignupPrompt(props: WalletSignupPromptProps) {
   const [handle, setHandle] = useState(props.initialHandle ?? "");
@@ -108,7 +96,7 @@ export function WalletSignupPrompt(props: WalletSignupPromptProps) {
       </h2>
       <p className="mt-2 font-serif text-bcc-text-secondary">
         No BCC account is linked to that wallet yet. Pick a handle and we&apos;ll
-        mint one — your wallet stays the credential.
+        create one. You&apos;ll sign in with this wallet, no password needed.
       </p>
 
       <div className="mt-6 flex flex-col gap-4">
@@ -158,8 +146,8 @@ export function WalletSignupPrompt(props: WalletSignupPromptProps) {
             className="border border-bcc-input-border bg-bcc-input-bg px-3 py-2 font-serif text-bcc-text outline-none focus:border-bcc-accent focus:ring-1 focus:ring-bcc-accent"
           />
           <span className="bcc-mono text-bcc-text-secondary/70">
-            Skipped? We mint a placeholder so password recovery still works if
-            you add one later.
+            It lets you get back in if you lose this wallet. You can add it
+            later.
           </span>
         </label>
 
@@ -171,6 +159,7 @@ export function WalletSignupPrompt(props: WalletSignupPromptProps) {
           mode="signup"
           handle={handle}
           disabled={!handleValid}
+          {...(props.initialChainSlug !== undefined ? { initialChainSlug: props.initialChainSlug } : {})}
           {...(displayName.trim() !== "" ? { displayName } : {})}
           {...(email.trim() !== "" ? { email } : {})}
           // This modal sits on /login, a denied analytics route, so the
