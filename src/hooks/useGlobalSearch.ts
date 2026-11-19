@@ -51,7 +51,10 @@ export function useGlobalSearch(
         signal,
       ),
     enabled: term !== "" && options.enabled !== false,
-    staleTime: 15_000,
+    // An incomplete answer (F-421) is stale at once: the server sends it
+    // no-store, and typing the same term again must ask again rather than
+    // replay "Suggestions unavailable" from cache.
+    staleTime: (q) => (q.state.data?.incomplete === true ? 0 : 15_000),
     // Keep showing the prior list while a new query is in flight — the
     // dropdown shouldn't blank out on every keystroke — but ONLY within
     // the same scope. Carrying rows across a scope switch briefly
