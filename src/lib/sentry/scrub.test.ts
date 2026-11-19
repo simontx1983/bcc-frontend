@@ -227,4 +227,11 @@ describe("each Sentry config runs the scrubber", () => {
     const rd = opts.integrations?.find((i) => i.name === "RequestData");
     expect(rd?.options).toMatchObject({ include: { cookies: false, data: false } });
   });
+
+  it("edge sends no request headers either (minimal data)", async () => {
+    await import("../../../sentry.edge.config");
+    const opts = init.mock.calls[0]?.[0] as Hooks;
+    const rd = opts.integrations?.find((i) => i.name === "RequestData");
+    expect(rd?.options).toMatchObject({ include: { headers: false, url: true } });
+  });
 });
