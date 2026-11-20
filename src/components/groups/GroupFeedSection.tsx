@@ -147,10 +147,15 @@ export function GroupFeedSection({ group }: GroupFeedSectionProps) {
         <div className="flex flex-col gap-2">
           {/* §21.3 — static state note on the ranked composer. The
               server owns the gate; we don't pre-compute the viewer's
-              rank here (the deny reason renders inline on submit). */}
+              rank here (the deny reason renders inline on submit, from
+              useComposerSubmit's RANKED_FEED_DENY_COPY). F-317 M-gr5: it
+              used to name one condition, "Journeyman and above", but the
+              gate is Journeyman+ AND Neutral+ AND not suspended AND not
+              in recovery (§4.14), so the note names none of them. */}
           {channel === "ranked" && (
             <p className="bcc-mono text-[11px] tracking-[0.16em] text-bcc-text-secondary/70">
-              Ranked feed — Journeyman and above post here.
+              Ranked feed — who can post here depends on rank and standing. A post
+              that can&apos;t go here says why.
             </p>
           )}
           <Composer
@@ -383,8 +388,8 @@ function GroupFeedBodyData({
           Nothing on the ranked feed yet.
         </h2>
         <p className="mt-2 font-serif text-bcc-text-secondary">
-          Posts from Journeyman-and-above operators land here. Everyone can
-          read along.
+          Ranked posts come from members whose rank and standing allow it.
+          Everyone can read along.
         </p>
       </div>
     );
