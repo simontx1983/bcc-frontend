@@ -56,6 +56,16 @@ describe("F-317 — every button in the groups and halls controls has a 44px tar
   }
 });
 
+describe("F-317 — GroupActionButton has a 44px target at both sizes", () => {
+  it("the dense size carries HIT_AREA_44, not only the touchTarget size", () => {
+    // The whole-file scan above cannot see this: before F-317 the class was
+    // `${touchTarget ? "min-h-[44px] " : ""}`, so the tag held the 44px
+    // token while every dense row (the default) had none.
+    const src = read("src/components/groups/GroupActionButton.tsx");
+    expect(src).toMatch(/\$\{touchTarget \? "min-h-\[44px\]" : HIT_AREA_44\}/);
+  });
+});
+
 describe("F-317 — the discovery filters have a 44px target", () => {
   const COMMUNITIES = "src/app/(main)/(app)/communities/page.tsx";
   const HALLS = "src/app/(main)/(app)/halls/page.tsx";
