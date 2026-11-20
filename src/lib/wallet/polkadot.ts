@@ -85,23 +85,30 @@ declare global {
 // can render specific copy via instanceof checks.
 // ─────────────────────────────────────────────────────────────────────
 
+import { MOBILE_WALLET_HINT, WALLET_FAILED_COPY, walletRejectedCopy, type WalletStage } from "@/lib/wallet/error-copy";
+
 export class PolkadotError extends Error {
   override readonly name: string = "PolkadotError";
 }
 
 export class PolkadotUnavailableError extends PolkadotError {
   override readonly name = "PolkadotUnavailableError";
+  /** Where to get the wallet (rendered as a link by the claim flow). */
+  readonly installUrl = "https://polkadot.js.org/extension/";
   constructor() {
     super(
-      "Polkadot.js / Talisman / SubWallet / Nova not detected. Install a Substrate-compatible wallet to continue.",
+      `Polkadot.js, Talisman, SubWallet or Nova isn't installed in this browser. Install a Substrate wallet to continue. ${MOBILE_WALLET_HINT}`,
     );
   }
 }
 
 export class PolkadotUserRejectedError extends PolkadotError {
   override readonly name = "PolkadotUserRejectedError";
-  constructor() {
-    super("Wallet signing was canceled.");
+  /** Declined at the connect prompt, or cancelled at signing. */
+  readonly stage: WalletStage;
+  constructor(stage: WalletStage = "sign") {
+    super(walletRejectedCopy(stage));
+    this.stage = stage;
   }
 }
 
@@ -180,14 +187,14 @@ export async function connectPolkadot(): Promise<PolkadotConnection> {
   try {
     injected = await injector.enable(DAPP_NAME);
   } catch (err) {
-    throw normalizePolkadotError(err);
+    throw normalizePolkadotError(err, "connect");
   }
 
   let accounts: PolkadotAccount[];
   try {
     accounts = await injected.accounts.get();
   } catch (err) {
-    throw normalizePolkadotError(err);
+    throw normalizePolkadotError(err, "connect");
   }
   if (accounts.length === 0) {
     throw new PolkadotNoAccountsError();
@@ -253,7 +260,7 @@ export async function signPolkadotChallenge(
     try {
       injected = await injector.enable(DAPP_NAME);
     } catch (err) {
-      throw normalizePolkadotError(err);
+      throw normalizePolkadotError(err, "connect");
     }
     pinnedInjected.set(source, injected);
   }
@@ -269,7 +276,7 @@ export async function signPolkadotChallenge(
     }
     return { signature };
   } catch (err) {
-    throw normalizePolkadotError(err);
+    throw normalizePolkadotError(err, "sign");
   }
 }
 
@@ -297,23 +304,26 @@ function pickProvider(injectors: Record<string, PolkadotInjector>): string {
   return keys[0] ?? "polkadot-js";
 }
 
-function normalizePolkadotError(err: unknown): PolkadotError {
+function normalizePolkadotError(err: unknown, stage: WalletStage): PolkadotError {
+  // Already one of ours (deliberate copy, e.g. "No accounts" / "empty
+  // signature" thrown inside the try): keep it, never genericise it.
+  if (err instanceof PolkadotError) return err;
   // The polkadot.js extension surfaces user rejection as either a
   // string starting with "Rejected" or an Error with that message.
   // Loose match across implementations.
   if (err instanceof Error) {
     const msg = err.message.toLowerCase();
     if (msg.includes("reject") || msg.includes("denied") || msg.includes("cancel")) {
-      return new PolkadotUserRejectedError();
+      return new PolkadotUserRejectedError(stage);
     }
-    return new PolkadotError(err.message);
+    return new PolkadotError(WALLET_FAILED_COPY, { cause: err });
   }
   if (typeof err === "string") {
     const lower = err.toLowerCase();
     if (lower.includes("reject") || lower.includes("denied") || lower.includes("cancel")) {
-      return new PolkadotUserRejectedError();
+      return new PolkadotUserRejectedError(stage);
     }
-    return new PolkadotError(err);
+    return new PolkadotError(WALLET_FAILED_COPY, { cause: err });
   }
-  return new PolkadotError("Wallet error.");
+  return new PolkadotError(WALLET_FAILED_COPY, { cause: err });
 }

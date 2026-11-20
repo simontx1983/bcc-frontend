@@ -94,6 +94,8 @@ const COSMOS_CHAIN_IDS: Record<string, string> = {
   dungeon:        "dungeon-1",
 };
 
+import { MOBILE_WALLET_HINT, WALLET_FAILED_COPY, walletRejectedCopy, type WalletStage } from "@/lib/wallet/error-copy";
+
 export function isCosmosChain(slug: string): boolean {
   return slug in COSMOS_CHAIN_IDS;
 }
@@ -117,8 +119,10 @@ export class KeplrError extends Error {
 
 export class KeplrUnavailableError extends KeplrError {
   override readonly name = "KeplrUnavailableError";
+  /** Where to get the wallet (rendered as a link by the claim flow). */
+  readonly installUrl = "https://www.keplr.app/get";
   constructor() {
-    super("Keplr extension not detected. Install Keplr to continue.");
+    super(`Keplr isn't installed in this browser. Install it to continue. ${MOBILE_WALLET_HINT}`);
   }
 }
 
@@ -133,8 +137,11 @@ export class KeplrUnsupportedChainError extends KeplrError {
 
 export class KeplrUserRejectedError extends KeplrError {
   override readonly name = "KeplrUserRejectedError";
-  constructor() {
-    super("Signing was canceled.");
+  /** Declined at the connect prompt, or cancelled at signing. */
+  readonly stage: WalletStage;
+  constructor(stage: WalletStage = "sign") {
+    super(walletRejectedCopy(stage));
+    this.stage = stage;
   }
 }
 
@@ -172,7 +179,7 @@ export async function connectKeplr(chainSlug: string): Promise<KeplrConnection> 
       chainId,
     };
   } catch (err) {
-    throw normalizeKeplrError(err);
+    throw normalizeKeplrError(err, "connect");
   }
 }
 
@@ -203,7 +210,7 @@ export async function signKeplrChallenge(
       pubKey:    result.pub_key.value,
     };
   } catch (err) {
-    throw normalizeKeplrError(err);
+    throw normalizeKeplrError(err, "sign");
   }
 }
 
@@ -211,15 +218,18 @@ export async function signKeplrChallenge(
 // Helpers
 // ─────────────────────────────────────────────────────────────────────
 
-function normalizeKeplrError(err: unknown): KeplrError {
+function normalizeKeplrError(err: unknown, stage: WalletStage): KeplrError {
+  // Already one of ours (deliberate copy, e.g. "No accounts" / "empty
+  // signature" thrown inside the try): keep it, never genericise it.
+  if (err instanceof KeplrError) return err;
   // Keplr surfaces user rejection as an Error with message "Request rejected"
   // (or sometimes ".. is rejected"). Match loosely.
   if (err instanceof Error) {
     const msg = err.message.toLowerCase();
     if (msg.includes("reject") || msg.includes("cancel")) {
-      return new KeplrUserRejectedError();
+      return new KeplrUserRejectedError(stage);
     }
-    return new KeplrError(err.message);
+    return new KeplrError(WALLET_FAILED_COPY, { cause: err });
   }
-  return new KeplrError("Wallet error.");
+  return new KeplrError(WALLET_FAILED_COPY, { cause: err });
 }
