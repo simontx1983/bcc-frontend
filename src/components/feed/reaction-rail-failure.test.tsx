@@ -187,6 +187,11 @@ describe("a failed toggle says so under the action row", () => {
     act(() => state.helpful[0]!.cb.onError?.(apiErr("bcc_rate_limited", 429)));
     expect(regions()[1]!.textContent).toBe("Too many taps. Wait a moment, then try again.");
     expect(regions()[0]!.textContent).toBe("");
+
+    // The next Helpful press clears its line.
+    fireEvent.click(screen.getByRole("button", { name: "Mark this as helpful" }));
+    expect(state.helpful).toHaveLength(2);
+    expect(regions()[1]!.textContent).toBe("");
   });
 
   it("a failed unmark says which way it failed", () => {
