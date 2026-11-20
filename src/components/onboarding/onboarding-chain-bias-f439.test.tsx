@@ -8,7 +8,9 @@
  *
  * Every claim on screen must come from the RESPONSE:
  *   - a backend without the bias (today's prod) ignores `?chain=` and
- *     sends no `bias` key, so the heading says only "Your home chain";
+ *     sends no `bias` key, so the heading says only "Your home chain",
+ *     and a chip click shows no update cue (no "Updating suggestions…",
+ *     no dimming), since the same cards come back;
  *   - "Bias validators toward" + "Also sets your home chain." appear only
  *     once a response carries the `bias` key;
  *   - the status line names a chain only when `bias.chain` is the chip
@@ -224,13 +226,50 @@ describe("F-439 — today's prod backend (no `bias` key) claims nothing", () => 
 
     fireEvent.click(chip("Cosmos"));
     expect(getOnboardingSuggestions).toHaveBeenLastCalledWith("cosmos", expect.any(AbortSignal));
-    await waitFor(() => expect(frame()?.getAttribute("aria-busy")).toBe("false"));
+    // Let the cosmos answer land.
+    await act(async () => {});
 
     // The old backend ignored ?chain=: no bias key, so nothing is claimed.
     expect(status().textContent).toBe("");
     expect(screen.getByRole("group", { name: "Your home chain" })).toBeTruthy();
     expect(screen.queryByText(/validators come first/)).toBeNull();
     expect(chip("Cosmos").getAttribute("aria-pressed")).toBe("true");
+  });
+
+  it("a chip's request in flight shows no update cue: the same cards are coming back", async () => {
+    const cosmos = deferred<OnboardingSuggestions>();
+    getOnboardingSuggestions.mockImplementation((chain: HomeChain | null) =>
+      chain === null ? Promise.resolve(answer([1, 2])) : cosmos.promise,
+    );
+    renderStep();
+    await waitFor(() => expect(cardNames()).toEqual(["validator-1", "validator-2"]));
+
+    fireEvent.click(chip("Cosmos"));
+    expect(getOnboardingSuggestions).toHaveBeenLastCalledWith("cosmos", expect.any(AbortSignal));
+    expect(status().textContent).toBe("");
+    expect(screen.queryByText("Updating suggestions…")).toBeNull();
+    expect(frame()?.getAttribute("aria-busy")).toBe("false");
+    expect(frame()?.className ?? "").not.toContain("opacity-60");
+    expect(cardNames()).toEqual(["validator-1", "validator-2"]);
+
+    await act(async () => cosmos.resolve(answer([1, 2])));
+    await waitFor(() => expect(getOnboardingSuggestions).toHaveBeenCalledTimes(2));
+    expect(status().textContent).toBe("");
+    expect(cardNames()).toEqual(["validator-1", "validator-2"]);
+  });
+
+  it("an empty answer stays the empty sheet (no skeleton) while a chip's request flies", async () => {
+    const cosmos = deferred<OnboardingSuggestions>();
+    getOnboardingSuggestions.mockImplementation((chain: HomeChain | null) =>
+      chain === null ? Promise.resolve(answer([])) : cosmos.promise,
+    );
+    renderStep();
+    await waitFor(() => expect(screen.getByText("No suggestions yet")).toBeTruthy());
+
+    fireEvent.click(chip("Cosmos"));
+    expect(screen.getByText("No suggestions yet")).toBeTruthy();
+    expect(screen.queryAllByTestId("suggestion-skeleton")).toHaveLength(0);
+    await act(async () => cosmos.resolve(answer([])));
   });
 
   it("before the first answer the heading claims nothing either", () => {

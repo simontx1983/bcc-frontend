@@ -61,7 +61,11 @@ export function FirstPullsStep({
   // so until a response carries that key the heading claims nothing about
   // the suggestions.
   const canBias = suggestions.data !== undefined && suggestions.data.bias !== undefined;
-  const isUpdating = suggestions.isPlaceholderData;
+  // A chip's answer is loading under the previous chip's cards. Show that
+  // ("Updating suggestions…", the grid dimmed and busy) only when the
+  // previous answer carried the `bias` key: an older backend returns the
+  // same cards for every chip, so an update cue would imply a change.
+  const isUpdating = suggestions.isPlaceholderData && canBias;
   const status = chainStatusLine(suggestions.data, homeChain, isUpdating);
 
   return (
