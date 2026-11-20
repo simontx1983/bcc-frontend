@@ -52,6 +52,7 @@ export const REACTION_COPY = {
   },
   rateLimited: "Too many taps. Wait a moment, then try again.",
   denied: "You can't react here.",
+  suspended: "Your account is suspended, so you can't react right now.",
   gone: "This is no longer available.",
 } as const;
 
@@ -69,6 +70,12 @@ export function reactionFailureCopy(err: unknown, kind: ReactionKind, removing: 
       bcc_unauthorized: copy.unauthorized,
       bcc_rate_limited: REACTION_COPY.rateLimited,
       bcc_permission_denied: REACTION_COPY.denied,
+      // The routes' only 403 bcc_forbidden is the reactor's own suspension
+      // (StokeEndpoint, CommentStokeEndpoint, HelpfulMarkEndpoint: "Your
+      // account is suspended."). Without this a suspended member read
+      // "Couldn't stoke this. Try again." and retried forever. Same
+      // wording as ReportButton's suspended line.
+      bcc_forbidden: REACTION_COPY.suspended,
       bcc_not_found: REACTION_COPY.gone,
     },
     removing ? copy.remove : copy.add,

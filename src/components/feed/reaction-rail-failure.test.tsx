@@ -164,6 +164,14 @@ describe("a failed toggle says so under the action row", () => {
     expect(document.body.textContent).not.toMatch(/RAW SERVER TEXT/);
   });
 
+  it("a suspended member's stoke says so, instead of an endless Try again", () => {
+    rail();
+    fireEvent.click(screen.getByRole("button", { name: "Stoke" }));
+    act(() => state.stoke[0]!.cb.onError?.(apiErr("bcc_forbidden", 403)));
+    expect(regions()[0]!.textContent).toBe("Your account is suspended, so you can't react right now.");
+    expect(regions()[0]!.textContent).not.toMatch(/try again/i);
+  });
+
   it("the next press clears the line, and a repeat failure is a fresh span", () => {
     rail();
     fireEvent.click(screen.getByRole("button", { name: "Stoke" }));
@@ -207,6 +215,9 @@ describe("reactionFailureCopy", () => {
     ["bcc_unauthorized", "stoke", false, "Sign in to stoke."],
     ["bcc_token_expired", "helpful", false, "Sign in to mark this helpful."],
     ["bcc_permission_denied", "stoke", false, "You can't react here."],
+    ["bcc_forbidden", "stoke", false, "Your account is suspended, so you can't react right now."],
+    ["bcc_forbidden", "stoke", true, "Your account is suspended, so you can't react right now."],
+    ["bcc_forbidden", "helpful", false, "Your account is suspended, so you can't react right now."],
     ["bcc_not_found", "helpful", true, "This is no longer available."],
     ["bcc_rate_limited", "helpful", true, "Too many taps. Wait a moment, then try again."],
     ["bcc_internal_error", "helpful", false, "Couldn't mark this helpful. Try again."],
