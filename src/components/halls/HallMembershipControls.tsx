@@ -39,7 +39,7 @@ import {
 } from "@/hooks/useHallsPrimary";
 import { humanizeCode } from "@/lib/api/errors";
 import { useSignInLink } from "@/lib/auth/sign-in-link";
-import type { HallItem } from "@/lib/api/types";
+import type { BccApiError, HallItem } from "@/lib/api/types";
 
 interface HallMembershipControlsProps {
   groupId: number;
@@ -58,12 +58,19 @@ export function HallMembershipControls({
     setError(null);
     router.refresh();
   };
-  const onError = (err: unknown) => setError(humanizeError(err));
+  // Copy is per action (F-317 M-gr1): the same code means different things
+  // on join and on set-primary. When the refusal says the server's state
+  // moved under the viewer, the page re-reads, so the line can say it is
+  // showing the latest.
+  const onErrorFor = (action: HallAction) => (err: BccApiError) => {
+    setError(humanizeError(err, action));
+    if (staleState(err, action)) router.refresh();
+  };
 
-  const joinMut    = useJoinHallMutation({ onSuccess, onError });
-  const leaveMut   = useLeaveHallMutation({ onSuccess, onError });
-  const setPrimMut = useSetPrimaryHallMutation({ onSuccess, onError });
-  const clearMut   = useClearPrimaryHallMutation({ onSuccess, onError });
+  const joinMut    = useJoinHallMutation({ onSuccess, onError: onErrorFor("join") });
+  const leaveMut   = useLeaveHallMutation({ onSuccess, onError: onErrorFor("leave") });
+  const setPrimMut = useSetPrimaryHallMutation({ onSuccess, onError: onErrorFor("primary") });
+  const clearMut   = useClearPrimaryHallMutation({ onSuccess, onError: onErrorFor("primary") });
 
   const isPending =
     joinMut.isPending ||
@@ -265,12 +272,39 @@ function resolveState(membership: HallItem["viewer_membership"]): ResolvedState 
   return { kind: "member", isPrimary: membership.is_primary };
 }
 
-function humanizeError(err: unknown): string {
+type HallAction = "join" | "leave" | "primary";
+
+/**
+ * A refusal that means the server's state moved under the viewer: a 409
+ * (already a member, §4.7), or a set-primary refused because they are not
+ * a member any more. The page re-reads on these.
+ */
+function staleState(err: BccApiError, action: HallAction): boolean {
+  return err.code === "bcc_conflict" || (action === "primary" && err.code === "bcc_forbidden");
+}
+
+/**
+ * §γ — keyed on err.code, never err.message.
+ *
+ * `bcc_forbidden` on a JOIN (contract §4.7) is a suspended account, a Hall
+ * closed to open joining, or a moderator's ban, and nothing in
+ * `error.data` tells them apart, so the line is one that is true of all
+ * three. It used to say "This Hall doesn't accept open membership." to
+ * every one of them, a suspended member included. On set-primary the same
+ * code means "not a member of this Hall" (§4.7).
+ */
+function humanizeError(err: unknown, action: HallAction): string {
   return humanizeCode(
     err,
     {
       bcc_unauthorized: "Sign in first.",
-      bcc_forbidden: "This Hall doesn't accept open membership.",
+      bcc_forbidden:
+        action === "join"
+          ? "You can't join this Hall right now."
+          : action === "primary"
+            ? "Only members can make a Hall their primary. Showing the latest."
+            : "Couldn't update your Hall. Try again.",
+      bcc_conflict: "This changed a moment ago. Showing the latest.",
       bcc_not_found: "This Hall no longer exists.",
       bcc_unavailable: "Membership service is down. Try again shortly.",
       bcc_rate_limited: "Slow down — try again in a minute.",

@@ -144,6 +144,19 @@ describe("F-317 M-gr2 — focus and announcement once the refreshed page lands",
     expect(live()).toHaveTextContent("You joined this group.");
   });
 
+  it("a 409 on JOIN (it already happened) re-reads the page, and focus follows the change", async () => {
+    // F-317 M-gr1: a conflict refreshes like a success, so it tells the
+    // strip first too, or the swapped-out JOIN would drop focus to <body>.
+    api.joinPlainGroup.mockRejectedValue(new BccApiError("bcc_conflict", "raw server prose", 409, null));
+    const { rerender } = render(wrap(<GroupMembershipStrip group={group(false)} />));
+
+    press(button("JOIN"));
+    await waitFor(() => expect(api.refresh).toHaveBeenCalledTimes(1));
+    rerender(wrap(<GroupMembershipStrip group={group(true)} />));
+
+    expect(document.activeElement).toBe(button("LEAVE"));
+  });
+
   it("after a leave, focus moves to JOIN and the leave is announced", async () => {
     api.leavePlainGroup.mockResolvedValue({ left: true });
     const { rerender } = render(wrap(<GroupMembershipStrip group={group(true)} />));
