@@ -187,8 +187,8 @@ export function retryRateLimitedRead(failureCount: number, err: unknown): boolea
 
 /** The server's `data.retry_after_seconds` in ms, or null when absent or unusable. */
 function retryAfterMs(err: unknown): number | null {
-  const hinted = err instanceof BccApiError ? err.data?.["retry_after_seconds"] : undefined;
-  return typeof hinted === "number" && Number.isFinite(hinted) && hinted > 0 ? hinted * 1000 : null;
+  const seconds = retryAfterSeconds(err);
+  return seconds === null ? null : seconds * 1000;
 }
 
 /** Longest single wait before a retry. */
