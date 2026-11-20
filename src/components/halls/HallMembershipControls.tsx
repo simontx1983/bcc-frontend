@@ -7,7 +7,8 @@
  * orchestrates four discrete viewer states with the §N7 visible-but-
  * disabled rules:
  *
- *   anonymous              → JOIN disabled, tooltip "Sign in to join."
+ *   anonymous              → SIGN IN TO JOIN link, back to this Hall
+ *                            (F-321 / M-gr4; it was a disabled JOIN)
  *   non-member             → JOIN enabled (primary action). Primary
  *                            controls absent — you must be a member
  *                            before designating a primary.
@@ -20,8 +21,11 @@
  *
  * Leave-while-primary is a multi-step concern: the server handles the
  * atomic primary-pointer cleanup (§E3 single-graph rule), but UX-wise
- * we surface a native confirm so the user knows their primary
- * designation is also disappearing.
+ * the viewer confirms first, so they know their primary designation is
+ * also disappearing. Clearing the primary confirms too (F-317 M-gr4): it
+ * drops the Hall from their card and their feed, and it sat one tap away
+ * with nothing in between. Both use the shared ConfirmDialog (focus trap,
+ * focus return, Escape), not the browser's native confirm.
  *
  * No cache surgery — the surrounding page is a server component. We
  * call `router.refresh()` in onSuccess to re-render with fresh data.
@@ -29,8 +33,9 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import {
   useClearPrimaryHallMutation,
   useJoinHallMutation,
@@ -47,15 +52,42 @@ interface HallMembershipControlsProps {
   membership: HallItem["viewer_membership"];
 }
 
+/** Shared copy for the two confirms, so tests and the dialogs agree. */
+export const HALL_CONFIRM_COPY = {
+  leave: {
+    title: "Leave this Hall?",
+    body: "It's your primary Hall, so leaving also clears it from your card and your feed. You can join again any time.",
+    confirm: "LEAVE",
+    cancel: "STAY",
+  },
+  clear: {
+    title: "Clear your primary Hall?",
+    body: "It stops showing on your card and stops shaping your feed. You stay a member.",
+    confirm: "CLEAR",
+    cancel: "KEEP IT",
+  },
+  retry: "TRY AGAIN",
+} as const;
+
+type Confirming = "leave" | "clear" | null;
+
 export function HallMembershipControls({
   groupId,
   membership,
 }: HallMembershipControlsProps) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
+  const [confirming, setConfirming] = useState<Confirming>(null);
+  const primaryRef = useRef<HTMLButtonElement | null>(null);
+  // F-317 M-gr2 (Hall side): set by a mutation that succeeded (or found the
+  // state moved), just before it refreshes the page; spent by every
+  // refresh. Same rules as the group page strip.
+  const actedRef = useRef(false);
 
   const onSuccess = () => {
     setError(null);
+    setConfirming(null);
+    actedRef.current = true;
     router.refresh();
   };
   // Copy is per action (F-317 M-gr1): the same code means different things
@@ -64,8 +96,29 @@ export function HallMembershipControls({
   // showing the latest.
   const onErrorFor = (action: HallAction) => (err: BccApiError) => {
     setError(humanizeError(err, action));
-    if (staleState(err, action)) router.refresh();
+    if (staleState(err, action)) {
+      actedRef.current = true;
+      router.refresh();
+    }
   };
+
+  // LEAVE is the one control a refresh takes away (the viewer is no longer
+  // a member), and focus fell to <body> with it. When the membership VALUE
+  // changed after a mutation here, focus moves to the button that remains
+  // (JOIN HALL / SET AS PRIMARY: the same element, kept by position).
+  // Focus the viewer has moved somewhere else is left alone. Declared
+  // before the effect below, so it reads the flag before that one spends it.
+  const isMember = membership?.is_member ?? null;
+  const isPrimary = membership?.is_primary ?? null;
+  useEffect(() => {
+    if (!actedRef.current) return;
+    const active = document.activeElement;
+    if (active !== null && active !== document.body) return;
+    primaryRef.current?.focus();
+  }, [isMember, isPrimary]);
+  useEffect(() => {
+    actedRef.current = false;
+  }, [membership]);
 
   const joinMut    = useJoinHallMutation({ onSuccess, onError: onErrorFor("join") });
   const leaveMut   = useLeaveHallMutation({ onSuccess, onError: onErrorFor("leave") });
@@ -103,8 +156,12 @@ export function HallMembershipControls({
   if (state.kind === "non_member") {
     return (
       <>
+        {/* First in both branches, so it is the same element when the
+            refreshed membership switches branch and remembers what it saw. */}
+        <HallAnnouncer isMember={isMember} isPrimary={isPrimary} />
         <ControlRow>
           <PrimaryButton
+            buttonRef={primaryRef}
             disabled={isPending}
             tooltip="Join this Hall to participate."
             onClick={() => {
@@ -122,10 +179,14 @@ export function HallMembershipControls({
   }
 
   // ─── Authed, member ────────────────────────────────────────────
+  // Setting a primary is one tap; clearing it, or leaving the primary
+  // Hall, confirms first. A failure there shows inside the dialog, which
+  // stays open with TRY AGAIN; cancelling clears it.
   const handleSetClear = () => {
     setError(null);
     if (state.isPrimary) {
-      clearMut.mutate();
+      clearMut.reset();
+      setConfirming("clear");
     } else {
       setPrimMut.mutate(groupId);
     }
@@ -134,18 +195,26 @@ export function HallMembershipControls({
   const handleLeave = () => {
     setError(null);
     if (state.isPrimary) {
-      const ok = window.confirm(
-        "Leaving will also clear your primary Hall. Continue?"
-      );
-      if (!ok) return;
+      leaveMut.reset();
+      setConfirming("leave");
+      return;
     }
     leaveMut.mutate(groupId);
   };
 
+  const closeConfirm = () => {
+    setError(null);
+    setConfirming(null);
+  };
+
   return (
     <>
+      {/* First in both branches, so it is the same element when the
+          refreshed membership switches branch and remembers what it saw. */}
+      <HallAnnouncer isMember={isMember} isPrimary={isPrimary} />
       <ControlRow>
         <PrimaryButton
+          buttonRef={primaryRef}
           disabled={isPending}
           tooltip={
             state.isPrimary
@@ -167,8 +236,72 @@ export function HallMembershipControls({
           LEAVE
         </SecondaryButton>
       </ControlRow>
-      {error !== null && <ErrorLine message={error} />}
+      {error !== null && confirming === null && <ErrorLine message={error} />}
+      {confirming === "leave" && (
+        <ConfirmDialog
+          title={HALL_CONFIRM_COPY.leave.title}
+          body={HALL_CONFIRM_COPY.leave.body}
+          confirmLabel={HALL_CONFIRM_COPY.leave.confirm}
+          cancelLabel={HALL_CONFIRM_COPY.leave.cancel}
+          retryLabel={HALL_CONFIRM_COPY.retry}
+          errorMessage={error}
+          pending={leaveMut.isPending}
+          onConfirm={() => {
+            setError(null);
+            leaveMut.mutate(groupId);
+          }}
+          onCancel={closeConfirm}
+        />
+      )}
+      {confirming === "clear" && (
+        <ConfirmDialog
+          title={HALL_CONFIRM_COPY.clear.title}
+          body={HALL_CONFIRM_COPY.clear.body}
+          confirmLabel={HALL_CONFIRM_COPY.clear.confirm}
+          cancelLabel={HALL_CONFIRM_COPY.clear.cancel}
+          retryLabel={HALL_CONFIRM_COPY.retry}
+          errorMessage={error}
+          pending={clearMut.isPending}
+          onConfirm={() => {
+            setError(null);
+            clearMut.mutate();
+          }}
+          onCancel={closeConfirm}
+        />
+      )}
     </>
+  );
+}
+
+/**
+ * A polite live region that speaks when the refreshed page changes where
+ * the viewer stands in this Hall: joined, left, primary set or cleared.
+ * The buttons' labels change silently otherwise. Mounted empty and only
+ * filled by a change from the previous render, so a page that loads in
+ * any state says nothing. Same shape as the group page strip's announcer;
+ * a Hall's states differ (is_primary, no join requests).
+ */
+function HallAnnouncer({
+  isMember,
+  isPrimary,
+}: {
+  isMember: boolean | null;
+  isPrimary: boolean | null;
+}) {
+  const prev = useRef({ isMember, isPrimary });
+  const [message, setMessage] = useState("");
+  useEffect(() => {
+    const before = prev.current;
+    prev.current = { isMember, isPrimary };
+    if (before.isMember === false && isMember === true) setMessage("You joined this Hall.");
+    else if (before.isMember === true && isMember === false) setMessage("You left this Hall.");
+    else if (before.isPrimary === false && isPrimary === true) setMessage("This is now your primary Hall.");
+    else if (before.isPrimary === true && isPrimary === false) setMessage("Your primary Hall is cleared.");
+  }, [isMember, isPrimary]);
+  return (
+    <p role="status" aria-live="polite" className="sr-only">
+      {message}
+    </p>
   );
 }
 
@@ -180,6 +313,12 @@ function ControlRow({ children }: { children: React.ReactNode }) {
   return <div className="flex flex-wrap items-center gap-3">{children}</div>;
 }
 
+/**
+ * `disabled` here is aria-disabled, not the attribute: a disabled button
+ * drops keyboard focus to <body> the moment it is pressed (F-317 M-gr2),
+ * so the press is refused in the handler instead. `pending` also marks
+ * the button busy.
+ */
 interface ButtonProps {
   disabled?: boolean;
   pending?: boolean;
@@ -195,18 +334,26 @@ function PrimaryButton({
   onClick,
   children,
   variant = "primary",
-}: ButtonProps & { variant?: "primary" | "primary-active" }) {
+  buttonRef,
+}: ButtonProps & {
+  variant?: "primary" | "primary-active";
+  buttonRef?: React.Ref<HTMLButtonElement>;
+}) {
   const enabledClass =
     variant === "primary-active"
       ? "bg-cardstock text-ink ring-1 ring-cardstock-edge hover:bg-cardstock-deep"
       : "bg-ink text-cardstock hover:bg-blueprint";
   return (
     <button
+      ref={buttonRef}
       type="button"
-      onClick={onClick}
-      disabled={disabled}
+      onClick={() => {
+        if (disabled) return;
+        onClick();
+      }}
       title={tooltip}
       aria-disabled={disabled}
+      aria-busy={pending}
       className={
         "bcc-stencil inline-flex min-h-[44px] items-center rounded-sm px-5 text-[12px] tracking-[0.2em] transition " +
         (disabled
@@ -229,10 +376,13 @@ function SecondaryButton({
   return (
     <button
       type="button"
-      onClick={onClick}
-      disabled={disabled}
+      onClick={() => {
+        if (disabled) return;
+        onClick();
+      }}
       title={tooltip}
       aria-disabled={disabled}
+      aria-busy={pending}
       className={
         "bcc-mono inline-flex min-h-[44px] items-center rounded-sm px-4 text-[10px] tracking-[0.18em] transition " +
         (disabled
