@@ -19,7 +19,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { GroupDetailResponse } from "@/lib/api/types";
+import { BccApiError, type GroupDetailResponse } from "@/lib/api/types";
 
 vi.mock("@/lib/env", () => ({
   clientEnv: { BCC_API_URL: "https://wp.example" },
@@ -193,6 +193,39 @@ describe("F-317 M-gr2 — focus and announcement once the refreshed page lands",
     );
 
     expect(document.activeElement).toBe(elsewhere);
+  });
+
+  it("a failed LEAVE, then a refresh that changed nothing here, never lands focus on LEAVE", async () => {
+    // Review fix: the flag used to be set by ANY press and spent by the next
+    // refresh. A manager whose LEAVE failed, who then approved a request on
+    // the Members tab (that refreshes the page; focus falls to <body>), got
+    // focus moved onto LEAVE, unannounced, where the next Enter leaves.
+    api.leavePlainGroup.mockRejectedValue(new BccApiError("bcc_unavailable", "raw server prose", 503, null));
+    const { rerender } = render(wrap(<GroupMembershipStrip group={group(true)} />));
+
+    press(button("LEAVE"));
+    await screen.findByRole("alert");
+    (document.activeElement as HTMLElement).blur();
+    // Same membership, new object: what every router.refresh hands down.
+    rerender(wrap(<GroupMembershipStrip group={group(true)} />));
+
+    expect(document.activeElement).toBe(document.body);
+    expect(api.refresh).not.toHaveBeenCalled();
+  });
+
+  it("a successful join whose refresh changed nothing here spends the flag; a later change moves no focus", async () => {
+    api.joinPlainGroup.mockResolvedValue({ joined: true });
+    const { rerender } = render(wrap(<GroupMembershipStrip group={group(false)} />));
+
+    press(button("JOIN"));
+    await waitFor(() => expect(api.refresh).toHaveBeenCalledTimes(1));
+    (document.activeElement as HTMLElement).blur();
+    rerender(wrap(<GroupMembershipStrip group={group(false)} />));
+    expect(document.activeElement).toBe(document.body);
+
+    // Some later refresh, not from this strip, brings the change.
+    rerender(wrap(<GroupMembershipStrip group={group(true)} />));
+    expect(document.activeElement).toBe(document.body);
   });
 
   it("control: a refresh with no press in the strip moves no focus", () => {

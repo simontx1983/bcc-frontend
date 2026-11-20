@@ -27,7 +27,7 @@
 import type { Route } from "next";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 
 import { GroupActionButton } from "@/components/groups/GroupActionButton";
 import {
@@ -105,33 +105,58 @@ export function humanizeMembershipError(err: unknown, verb: "join" | "leave"): s
  */
 type OptimisticIntent = "joining" | "leaving" | null;
 
+/**
+ * F-317 M-gr2 — how a strip mutation tells the strip "I succeeded, the
+ * refresh I'm about to fire may swap the control the viewer pressed".
+ * Outside a strip (no provider) it is a no-op.
+ */
+const MembershipActedContext = createContext<() => void>(() => {});
+
 export function GroupMembershipStrip({ group, membersHref }: GroupMembershipStripProps) {
   const [optimisticIntent, setOptimisticIntent] = useState<OptimisticIntent>(null);
   const headingRef = useRef<HTMLHeadingElement | null>(null);
   const bodyRef = useRef<HTMLDivElement | null>(null);
-  // Set when a button in the strip (or in a dialog it opened) is pressed;
-  // read once, when the refreshed membership lands.
+  // Set by a strip mutation that SUCCEEDED (or hit a 409), just before it
+  // refreshes the page (`useRefreshOnSuccess` / `useRefreshOnSettle`, via
+  // context). A press that failed or a dialog that was cancelled never
+  // sets it. Cleared on every refresh, whether or not anything changed.
   const actedRef = useRef(false);
+  const markActed = useCallback(() => {
+    actedRef.current = true;
+  }, []);
+  const isMember = group.viewer_membership?.is_member ?? null;
+  const status = group.viewer_membership?.status;
 
-  // When the server-supplied membership changes (router.refresh landed),
-  // the in-flight optimistic prediction has been replaced with truth —
-  // clear it so a future action starts from a clean state.
+  // F-317 M-gr2: the refresh after a join / leave swaps the control the
+  // viewer pressed (JOIN becomes LEAVE, a different component), and focus
+  // fell to <body> with it. When the viewer's membership VALUE changed
+  // after a strip mutation succeeded, focus moves to the control that
+  // replaced it, or to the heading when there is none. Focus the viewer
+  // has moved somewhere else is left alone.
   //
-  // F-317 M-gr2: the refresh also swaps the control the viewer pressed
-  // (JOIN becomes LEAVE, a different component), and focus fell to <body>
-  // with it. If that happened after a press in this strip, focus moves to
-  // the control that replaced it, or to the heading when there is none.
-  // Focus the viewer has moved somewhere else is left alone.
+  // Keyed on the value, not on the `viewer_membership` object: every
+  // router.refresh hands a new object, so a refresh that changed nothing
+  // here (a manager approving a request on the Members tab) must not move
+  // focus onto LEAVE, where the next Enter would leave. Declared before
+  // the effect below, so it reads the flag before that one clears it.
   useEffect(() => {
-    setOptimisticIntent(null);
     if (!actedRef.current) return;
-    actedRef.current = false;
     const active = document.activeElement;
     if (active !== null && active !== document.body) return;
     const next = bodyRef.current?.querySelector<HTMLElement>(
       "button:not([disabled]):not([aria-disabled='true'])",
     );
     (next ?? headingRef.current)?.focus();
+  }, [isMember, status]);
+
+  // When the server-supplied membership changes (router.refresh landed),
+  // the in-flight optimistic prediction has been replaced with truth —
+  // clear it so a future action starts from a clean state. Every refresh
+  // also spends the focus flag, so it can never carry over to a later,
+  // unrelated one.
+  useEffect(() => {
+    setOptimisticIntent(null);
+    actedRef.current = false;
   }, [group.viewer_membership]);
 
   return (
@@ -154,25 +179,19 @@ export function GroupMembershipStrip({ group, membersHref }: GroupMembershipStri
         />
       </header>
 
-      <div
-        ref={bodyRef}
-        className="px-6 py-5"
-        onClickCapture={(e) => {
-          if (e.target instanceof Element && e.target.closest("button") !== null) {
-            actedRef.current = true;
-          }
-        }}
-      >
+      <div ref={bodyRef} className="px-6 py-5">
         {/* Above the action: this is where a delegator decides to join, so
             what they'd be verified against has to be in view first. */}
         {group.type === "validator" && group.validator_stats != null && (
           <ValidatorServed stats={group.validator_stats} />
         )}
-        <MembershipBody
-          group={group}
-          onActionStart={setOptimisticIntent}
-          onActionError={() => setOptimisticIntent(null)}
-        />
+        <MembershipActedContext.Provider value={markActed}>
+          <MembershipBody
+            group={group}
+            onActionStart={setOptimisticIntent}
+            onActionError={() => setOptimisticIntent(null)}
+          />
+        </MembershipActedContext.Provider>
         {membersHref !== undefined && (
           <PendingRequestsPointer group={group} membersHref={membersHref} />
         )}
@@ -348,9 +367,14 @@ interface ActionButtonProps {
   onActionError: () => void;
 }
 
+/** On success: tell the strip (focus, M-gr2), then re-read the SSR'd page. */
 function useRefreshOnSuccess(): () => void {
   const router = useRouter();
-  return () => router.refresh();
+  const markActed = useContext(MembershipActedContext);
+  return () => {
+    markActed();
+    router.refresh();
+  };
 }
 
 function HolderJoinButton({ groupId, onActionStart, onActionError }: ActionButtonProps) {
@@ -735,14 +759,21 @@ export function humanizeJoinRequestError(err: unknown, action: "request" | "canc
 /**
  * Refresh on success, and on a 409 too: a conflict means the server's
  * state moved under the viewer, so the page re-reads instead of asking
- * them to reload it.
+ * them to reload it. Both tell the strip first (focus, M-gr2): either way
+ * the refreshed page may swap the control the viewer pressed.
  */
 function useRefreshOnSettle(): { onSuccess: () => void; onError: (err: BccApiError) => void } {
   const router = useRouter();
+  const markActed = useContext(MembershipActedContext);
   return {
-    onSuccess: () => router.refresh(),
+    onSuccess: () => {
+      markActed();
+      router.refresh();
+    },
     onError: (err) => {
-      if (err.code === "bcc_conflict") router.refresh();
+      if (err.code !== "bcc_conflict") return;
+      markActed();
+      router.refresh();
     },
   };
 }
