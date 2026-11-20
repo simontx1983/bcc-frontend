@@ -9,6 +9,11 @@
  * second submit while one is pending (`canSubmit` requires
  * `!createMut.isPending`). This pins that guard with the real mutation
  * hook, so removing it fails here rather than silently.
+ *
+ * The box itself stays free to type in while a comment is in flight. When
+ * that comment fails, it comes back only into an EMPTY box: what the
+ * member typed meanwhile is never overwritten, and neither is it turned
+ * into a reply by the failed comment's reply target (main agent's call).
  */
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -106,5 +111,59 @@ describe("the comment composer allows one submit in flight", () => {
     });
     const region = document.querySelector('form [aria-live="assertive"]') as HTMLElement;
     await waitFor(() => expect(region.textContent).toBe("Commenting too fast — slow down."));
+    // What the member typed meanwhile survives: the failed text is not put
+    // back over it.
+    expect(box.value).toBe("second");
+  });
+});
+
+describe("a failed comment comes back only into an empty box", () => {
+  async function openDrawer() {
+    render(
+      <QueryClientProvider client={client}>
+        <CommentDrawer feedId="feed_1" isOpen />
+      </QueryClientProvider>,
+    );
+    await screen.findByText("measured words");
+    const box = screen.getByRole("textbox") as HTMLTextAreaElement;
+    return { box, form: box.closest("form") as HTMLFormElement };
+  }
+
+  function failNextCreate(): () => void {
+    let reject: (err: unknown) => void = () => {};
+    api.createComment.mockImplementationOnce(
+      () => new Promise((_resolve, r) => { reject = r; }),
+    );
+    return () => reject(new BccApiError("bcc_unavailable", "RAW", 503, null));
+  }
+
+  it("with the box still empty, the failed text is restored", async () => {
+    const fail = failNextCreate();
+    const { box, form } = await openDrawer();
+    fireEvent.change(box, { target: { value: "lost words" } });
+    fireEvent.submit(form);
+    await waitFor(() => expect(api.createComment).toHaveBeenCalledTimes(1));
+    expect(box.value).toBe("");
+
+    await act(async () => fail());
+    await waitFor(() => expect(box.value).toBe("lost words"));
+  });
+
+  it("a failed reply doesn't put its target over a new top-level draft", async () => {
+    const fail = failNextCreate();
+    const { box, form } = await openDrawer();
+    fireEvent.click(screen.getByRole("button", { name: "Reply to Anvil" }));
+    fireEvent.change(box, { target: { value: "a reply" } });
+    fireEvent.submit(form);
+    await waitFor(() => expect(api.createComment).toHaveBeenCalledTimes(1));
+    expect(screen.queryByText(/replying to/i)).toBeNull();
+
+    fireEvent.change(box, { target: { value: "a new top-level comment" } });
+    await act(async () => fail());
+
+    const region = document.querySelector('form [aria-live="assertive"]') as HTMLElement;
+    await waitFor(() => expect(region.textContent).toBe("Couldn't post the comment."));
+    expect(box.value).toBe("a new top-level comment");
+    expect(screen.queryByText(/replying to/i)).toBeNull();
   });
 });
