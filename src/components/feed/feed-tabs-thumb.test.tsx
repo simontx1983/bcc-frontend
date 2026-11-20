@@ -78,14 +78,14 @@ function restorePrototypeGeometry() {
 const ONE_ROW: Record<string, Box> = {
   "For You":  { left: 4,   top: 4, width: 100, height: 40 },
   "Watching": { left: 108, top: 4, width: 100, height: 40 },
-  "Signals":  { left: 212, top: 4, width: 100, height: 40 },
+  "My Groups":  { left: 212, top: 4, width: 100, height: 40 },
 };
 
 /** Wrapped: the third tab drops to a second row at top 48. */
 const TWO_ROWS: Record<string, Box> = {
   "For You":  { left: 4,   top: 4,  width: 100, height: 40 },
   "Watching": { left: 108, top: 4,  width: 100, height: 40 },
-  "Signals":  { left: 4,   top: 48, width: 100, height: 40 },
+  "My Groups":  { left: 4,   top: 48, width: 100, height: 40 },
 };
 
 // ── observers, restored per test ──────────────────────────────────────
@@ -174,7 +174,7 @@ describe("the thumb is placed from the selected tab's real box", () => {
 describe("wrapping — the defect this guards", () => {
   it("follows the selected tab DOWN to a second row", () => {
     GEO = { ...TWO_ROWS };
-    render(<FeedTabs active="signals" onChange={() => {}} />);
+    render(<FeedTabs active="groups" onChange={() => {}} />);
 
     const t = thumbPosition();
     expect(t.y, "thumb stayed on row one while the selected tab wrapped").toBe(48);
@@ -187,15 +187,15 @@ describe("wrapping — the defect this guards", () => {
     // The exact failure the horizontal-only implementation produced: correct
     // x, wrong row — an indicator pointing confidently at the wrong tab.
     GEO = { ...TWO_ROWS };
-    render(<FeedTabs active="signals" onChange={() => {}} />);
-    const selectedTop = GEO["Signals"]!.top;
+    render(<FeedTabs active="groups" onChange={() => {}} />);
+    const selectedTop = GEO["My Groups"]!.top;
     expect(thumbPosition().y).toBe(selectedTop);
     expect(thumbPosition().y).not.toBe(GEO["For You"]!.top);
   });
 
   it("returns to the first row when the selection moves back", () => {
     GEO = { ...TWO_ROWS };
-    const { rerender } = render(<FeedTabs active="signals" onChange={() => {}} />);
+    const { rerender } = render(<FeedTabs active="groups" onChange={() => {}} />);
     expect(thumbPosition().y).toBe(48);
 
     rerender(<FeedTabs active="for_you" onChange={() => {}} />);
@@ -203,8 +203,8 @@ describe("wrapping — the defect this guards", () => {
   });
 
   it("recalculates when the nav resizes into a wrapped layout", () => {
-    render(<FeedTabs active="signals" onChange={() => {}} />);
-    // Starts unwrapped: Signals is third on row one.
+    render(<FeedTabs active="groups" onChange={() => {}} />);
+    // Starts unwrapped: My Groups is third on row one.
     expect(thumbPosition()).toEqual({ x: 212, y: 4, width: 100, height: 40 });
 
     // The viewport narrows and the row wraps; the observer fires.
@@ -224,14 +224,14 @@ describe("selection and painting order", () => {
     const onChange = vi.fn();
     render(<FeedTabs active="for_you" onChange={onChange} />);
 
-    fireEvent.click(tab("Signals"));
+    fireEvent.click(tab("My Groups"));
     expect(onChange).toHaveBeenCalledTimes(1);
-    expect(onChange).toHaveBeenCalledWith("signals");
+    expect(onChange).toHaveBeenCalledWith("groups");
 
     // Controlled component: the parent owns `active`, so aria-selected must
     // not move on its own.
     expect(tab("For You")).toHaveAttribute("aria-selected", "true");
-    expect(tab("Signals")).toHaveAttribute("aria-selected", "false");
+    expect(tab("My Groups")).toHaveAttribute("aria-selected", "false");
   });
 
   it("has no arrow-key model — activation is the native button click", () => {
@@ -240,9 +240,9 @@ describe("selection and painting order", () => {
     // own tab stop. Noted so a future reader does not assume parity.
     const onChange = vi.fn();
     render(<FeedTabs active="for_you" onChange={onChange} />);
-    fireEvent.keyDown(tab("Signals"), { key: "ArrowRight" });
+    fireEvent.keyDown(tab("My Groups"), { key: "ArrowRight" });
     expect(onChange).not.toHaveBeenCalled();
-    for (const label of ["For You", "Watching", "Signals"]) {
+    for (const label of ["For You", "Watching", "My Groups"]) {
       expect(tab(label).getAttribute("tabindex")).toBeNull();
     }
   });
@@ -253,7 +253,7 @@ describe("selection and painting order", () => {
     const children = [...nav.children];
     // Thumb first in DOM, and every button raised above it.
     expect(children[0]).toBe(thumb());
-    for (const label of ["For You", "Watching", "Signals"]) {
+    for (const label of ["For You", "Watching", "My Groups"]) {
       expect(tab(label).className).toMatch(/\bz-10\b/);
     }
     expect(thumb().className).not.toMatch(/\bz-\d+\b/);

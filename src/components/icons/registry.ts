@@ -36,4 +36,9 @@ export {
   RotateCcw as FlipIcon,
   /** Message — matches the Messages nav row, so the two read as one place. */
   MessageSquare as MessageIcon,
+  /**
+   * My Groups — the Halls nav row's glyph, so the home tab reads as "your
+   * Halls". Not Users: that already means Members.
+   */
+  Landmark as GroupsIcon,
 } from "lucide-react";
