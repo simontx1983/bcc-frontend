@@ -82,11 +82,18 @@ describe("walkTree", () => {
 });
 
 describe("sourceFiles", () => {
+  // Walked HERE, while the file is collected, not inside `it`: the rule
+  // source-tree.testing.ts sets for every caller. This test used to walk
+  // inside `it`, the one place that breaks it, and on a loaded machine
+  // (a full CI-sized run) the real-src walk took ~42s against vitest's 5s
+  // per-test timeout, so a correct tree failed with "Test timed out".
+  const first = sourceFiles();
+  const second = sourceFiles();
+
   it("walks the real src/ once and memoises it", () => {
-    const files = sourceFiles();
-    expect(sourceFiles()).toBe(files);
-    expect(files.length).toBeGreaterThan(400);
-    expect(files.some((f) => f.rel === "app/source-tree.testing.ts")).toBe(true);
+    expect(second).toBe(first);
+    expect(first.length).toBeGreaterThan(400);
+    expect(first.some((f) => f.rel === "app/source-tree.testing.ts")).toBe(true);
   });
 });
 
