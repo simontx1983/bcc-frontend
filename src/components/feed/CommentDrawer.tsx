@@ -65,6 +65,13 @@ import { ActionRailButton } from "@/components/feed/ActionRailButton";
 import { HIT_AREA_44 } from "@/components/feed/hitArea";
 import { ClockIcon, PhotoIcon, ReplyIcon, ShareIcon } from "@/components/feed/actionIcons";
 import { CommentHelpfulButton } from "@/components/feed/HelpfulButton";
+import {
+  ReactionFailureNotice,
+  ReactionSignInLink,
+  REACTION_COPY,
+  useReactionFailure,
+  type ReactionFeedback,
+} from "@/components/feed/ReactionFailureNotice";
 import { CommentGifPicker } from "@/components/feed/CommentGifPicker";
 import { StokeFlame } from "@/components/feed/StokeFlame";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -208,11 +215,17 @@ export function CommentDrawer({
 }: CommentDrawerProps) {
   const session = useSession();
   const isAuthed = session.status === "authenticated";
+  // Settled signed-out, not merely "not authed yet": while the session
+  // loads the reaction pills stay as they are rather than flash to links.
+  const signedOut = session.status === "unauthenticated";
 
   // §C15 sort — `relevant` is the server default (lean stoke×recency).
   const [sort, setSort] = useState<CommentSort>("relevant");
   const [replyTarget, setReplyTarget] = useState<ReplyTarget | null>(null);
   const clearReply = useCallback(() => setReplyTarget(null), []);
+  // Moves each time the thread is withdrawn, so a submit that fails after
+  // a withdrawal can tell, and leaves the dropped target dropped (M2).
+  const replyEpoch = useRef(0);
 
   const gate = useDenialGate(commentsListQueryKey(feedId, sort));
 
@@ -246,9 +259,33 @@ export function CommentDrawer({
    * on null so nothing is refocused or scrolled.
    */
   const withdrawAndDropReplyContext = useCallback(() => {
+    replyEpoch.current += 1;
     setReplyTarget(null);
     gate.withdraw();
   }, [gate]);
+
+  /**
+   * F-258 (audit M2): a failed reply came back as a top-level comment.
+   * The composer clears the "Replying to @x" chip the moment it submits
+   * (the optimistic row is already in the thread), and on failure it put
+   * back the draft and the media but not the target, so the retry posted
+   * at the top level.
+   *
+   * The composer now detaches the target through this, and calls what it
+   * returns if the request fails. It puts the target back except:
+   *  - when the thread was withdrawn since (`replyEpoch` moved): the
+   *    withdrawal drops reply context on purpose, see above;
+   *  - over a target the viewer picked meanwhile (`current ?? detached`).
+   */
+  const detachReply = useCallback((): (() => void) => {
+    const detached = replyTarget;
+    const epoch = replyEpoch.current;
+    setReplyTarget(null);
+    return () => {
+      if (detached === null || replyEpoch.current !== epoch) return;
+      setReplyTarget((current) => current ?? detached);
+    };
+  }, [replyTarget]);
 
   if (!isOpen) return null;
 
@@ -267,6 +304,7 @@ export function CommentDrawer({
           canInteract={canInteract}
           topDivider={topDivider}
           isAuthed={isAuthed}
+          signedOut={signedOut}
           sort={sort}
           onSortChange={setSort}
           onReplyTarget={setReplyTarget}
@@ -284,6 +322,7 @@ export function CommentDrawer({
             autoFocus={focusComposer}
             replyTarget={replyTarget}
             onClearReply={clearReply}
+            onDetachReply={detachReply}
           />
         ) : (
           <p className="bcc-mono mt-4 text-[11px] text-[var(--bcc-text-secondary)]">
@@ -303,6 +342,8 @@ interface CommentThreadProps {
   canInteract: boolean;
   topDivider: boolean;
   isAuthed: boolean;
+  /** Settled signed-out (not loading): the reaction pills become sign-in links. */
+  signedOut: boolean;
   sort: CommentSort;
   onSortChange: (s: CommentSort) => void;
   /** Setter only: the VALUE is read by the composer, which is the gate's
@@ -317,6 +358,7 @@ function CommentThread({
   canInteract,
   topDivider,
   isAuthed,
+  signedOut,
   sort,
   onSortChange,
   onReplyTarget,
@@ -493,6 +535,10 @@ function CommentThread({
   const rootNodes = isDrilled ? (focusNode !== null ? [focusNode] : []) : tree;
   const baseDepth = focusNode !== null ? focusNode.depth : 0;
   const canStoke = isAuthed && canInteract;
+  // F-258 (M5): signed out on a thread they could react in, Stoke and
+  // Helpful are sign-in links. The non-member teaser (canInteract=false)
+  // stays read-only for everyone, as its composer and prompt do.
+  const signInToReact = signedOut && canInteract;
 
   return (
     <div ref={drawerRootRef} className={dividerPad.trim()}>
@@ -532,6 +578,7 @@ function CommentThread({
               baseDepth={baseDepth}
               feedId={feedId}
               canStoke={canStoke}
+              signInToReact={signInToReact}
               onReply={startReply}
               onDelete={requestDelete}
               onContinue={drillInto}
@@ -635,6 +682,7 @@ function CommentBranch({
   baseDepth,
   feedId,
   canStoke,
+  signInToReact,
   onReply,
   onDelete,
   onContinue,
@@ -645,6 +693,8 @@ function CommentBranch({
   feedId: string;
   /** Authed + member gate — shared by Stoke and Reply (identical condition). */
   canStoke: boolean;
+  /** Signed out where they could react: Stoke and Helpful are sign-in links. */
+  signInToReact: boolean;
   onReply: (comment: Comment) => void;
   /** Opens the thread-level delete confirmation. */
   onDelete: (comment: Comment) => void;
@@ -701,6 +751,7 @@ function CommentBranch({
         feedId={feedId}
         comment={node.comment}
         canStoke={canStoke}
+        signInToReact={signInToReact}
         canReply={canStoke}
         onReply={onReply}
         onDelete={onDelete}
@@ -756,6 +807,7 @@ function CommentBranch({
                   baseDepth={baseDepth}
                   feedId={feedId}
                   canStoke={canStoke}
+                  signInToReact={signInToReact}
                   onReply={onReply}
                   onDelete={onDelete}
                   onContinue={onContinue}
@@ -1004,6 +1056,7 @@ function CommentRow({
   feedId,
   comment,
   canStoke,
+  signInToReact,
   canReply,
   onReply,
   onDelete,
@@ -1015,6 +1068,8 @@ function CommentRow({
   comment: Comment;
   /** Viewer is authed AND allowed to interact (member on gated posts). */
   canStoke: boolean;
+  /** Signed out where they could react: Stoke and Helpful are sign-in links. */
+  signInToReact: boolean;
   /** Same gate as canStoke — drives the live Reply affordance. */
   canReply: boolean;
   onReply: (comment: Comment) => void;
@@ -1101,6 +1156,7 @@ function CommentRow({
           feedId={feedId}
           comment={comment}
           canStoke={canStoke}
+          signInToReact={signInToReact}
           canReply={canReply}
           onReply={onReply}
           timestamp={comment.posted_at}
@@ -1123,6 +1179,7 @@ function CommentActionRail({
   feedId,
   comment,
   canStoke,
+  signInToReact,
   canReply,
   onReply,
   timestamp,
@@ -1133,6 +1190,7 @@ function CommentActionRail({
   feedId: string;
   comment: Comment;
   canStoke: boolean;
+  signInToReact: boolean;
   canReply: boolean;
   onReply: (comment: Comment) => void;
   timestamp: string;
@@ -1141,83 +1199,101 @@ function CommentActionRail({
   collapsed?: boolean;
   onToggleCollapse?: (() => void) | undefined;
 }) {
+  // F-258 (M5): one failure line for the row's Stoke and Helpful, under
+  // the rail (ReactionFailureNotice).
+  const feedback = useReactionFailure();
   return (
-    // gap-3: every control in this row carries HIT_AREA_44, and its
-    // contract is that neighbours sit far enough apart for the enlarged
-    // areas not to cover each other's visible pill (as PostActionBar).
-    // sm:mt-1: at sm+ the pills' areas would otherwise reach up into the
-    // comment's last line and nick an @mention link there.
-    <div className="-ml-1 flex items-center gap-3 sm:mt-1">
-      <CommentStokeButton feedId={feedId} comment={comment} canStoke={canStoke} />
-      {/* Reply seeds the composer with this comment's parent_id + a
-          "replying to @handle" chip. Icon matches the feed speech-bubble.
-          Optimistic replies (an unsaved comment_optimistic_* id) can't be
-          a parent yet, so Reply is suppressed until the row is confirmed. */}
-      {canReply && !comment.id.startsWith("comment_optimistic_") ? (
-        <ActionRailButton
-          icon={<ReplyIcon size={15} />}
-          label="Reply"
-          hoverClassName="hover:text-[var(--bcc-info)]"
-          onClick={() => onReply(comment)}
-          ariaLabel={`Reply to ${comment.author.display_name}`}
+    <>
+      {/* gap-3: every control in this row carries HIT_AREA_44, and its
+          contract is that neighbours sit far enough apart for the enlarged
+          areas not to cover each other's visible pill (as PostActionBar).
+          sm:mt-1: at sm+ the pills' areas would otherwise reach up into the
+          comment's last line and nick an @mention link there. */}
+      <div className="-ml-1 flex items-center gap-3 sm:mt-1">
+        <CommentStokeButton
+          feedId={feedId}
+          comment={comment}
+          canStoke={canStoke}
+          signIn={signInToReact}
+          feedback={feedback}
         />
-      ) : (
+        {/* Reply seeds the composer with this comment's parent_id + a
+            "replying to @handle" chip. Icon matches the feed speech-bubble.
+            Optimistic replies (an unsaved comment_optimistic_* id) can't be
+            a parent yet, so Reply is suppressed until the row is confirmed. */}
+        {canReply && !comment.id.startsWith("comment_optimistic_") ? (
+          <ActionRailButton
+            icon={<ReplyIcon size={15} />}
+            label="Reply"
+            hoverClassName="hover:text-[var(--bcc-info)]"
+            onClick={() => onReply(comment)}
+            ariaLabel={`Reply to ${comment.author.display_name}`}
+          />
+        ) : (
+          <ActionRailButton
+            icon={<ReplyIcon size={15} />}
+            label="Reply"
+            hoverClassName="hover:text-[var(--bcc-info)]"
+            soon
+            title="Replies — coming soon"
+            ariaLabel="Reply — coming soon"
+          />
+        )}
+        {/* No comment permalink on the view-model yet — kept a visually
+            consistent stub (same icon + hover grammar as the feed's Share)
+            until a backend comment-permalink field lands. */}
         <ActionRailButton
-          icon={<ReplyIcon size={15} />}
-          label="Reply"
-          hoverClassName="hover:text-[var(--bcc-info)]"
+          icon={<ShareIcon size={15} />}
+          label="Share"
+          hoverClassName="hover:text-[var(--bcc-success)]"
           soon
-          title="Replies — coming soon"
-          ariaLabel="Reply — coming soon"
+          title="Share — coming soon"
+          ariaLabel="Share — coming soon"
         />
-      )}
-      {/* No comment permalink on the view-model yet — kept a visually
-          consistent stub (same icon + hover grammar as the feed's Share)
-          until a backend comment-permalink field lands. */}
-      <ActionRailButton
-        icon={<ShareIcon size={15} />}
-        label="Share"
-        hoverClassName="hover:text-[var(--bcc-success)]"
-        soon
-        title="Share — coming soon"
-        ariaLabel="Share — coming soon"
-      />
-      {/* "Mark helpful" — a distinct endorsement, set apart from the
-          cosmetic Stoke/Reply/Share cluster by a thin divider (same
-          grammar as the feed action bar). Enabled on the same authed +
-          member gate as Stoke. */}
-      <span aria-hidden className="mx-0.5 h-3.5 w-px self-center bg-[var(--bcc-border)]" />
-      <CommentHelpfulButton feedId={feedId} comment={comment} canInteract={canStoke} />
-      <time
-        dateTime={timestamp}
-        title={timestamp}
-        className="bcc-mono hidden items-center gap-1 pl-1 text-[10px] text-[var(--bcc-text-secondary)] sm:inline-flex"
-      >
-        <ClockIcon size={12} />
-        {formatRelativeTime(timestamp)}
-      </time>
-      {/* Collapse toggle lives on the comment it actually controls — a
-          floating icon on the nesting line was ambiguous about which
-          comment it belonged to (confusing even in Reddit's own version).
-          Right after the timestamp so it doesn't compete with the other
-          actions for attention. */}
-      {collapsible && onToggleCollapse !== undefined && (
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            onToggleCollapse();
-          }}
-          aria-label={collapsed ? "Expand replies" : "Collapse replies"}
-          title={collapsed ? "Expand replies" : "Collapse replies"}
-          // ml-0.5: a 16px control's area reaches 14px out, 2px past the
-          // row's gap-3, so it would win the edge of the Helpful pill.
-          className={`${HIT_AREA_44} ml-0.5 inline-flex h-4 w-4 items-center justify-center rounded-full text-[var(--bcc-text-secondary)] hover:bg-[var(--bcc-surface-active)] hover:text-[var(--bcc-text)]`}
+        {/* "Mark helpful" — a distinct endorsement, set apart from the
+            cosmetic Stoke/Reply/Share cluster by a thin divider (same
+            grammar as the feed action bar). Enabled on the same authed +
+            member gate as Stoke. */}
+        <span aria-hidden className="mx-0.5 h-3.5 w-px self-center bg-[var(--bcc-border)]" />
+        <CommentHelpfulButton
+          feedId={feedId}
+          comment={comment}
+          canInteract={canStoke}
+          signIn={signInToReact}
+          feedback={feedback}
+        />
+        <time
+          dateTime={timestamp}
+          title={timestamp}
+          className="bcc-mono hidden items-center gap-1 pl-1 text-[10px] text-[var(--bcc-text-secondary)] sm:inline-flex"
         >
-          <CollapseToggleIcon collapsed={collapsed} />
-        </button>
-      )}
-    </div>
+          <ClockIcon size={12} />
+          {formatRelativeTime(timestamp)}
+        </time>
+        {/* Collapse toggle lives on the comment it actually controls — a
+            floating icon on the nesting line was ambiguous about which
+            comment it belonged to (confusing even in Reddit's own version).
+            Right after the timestamp so it doesn't compete with the other
+            actions for attention. */}
+        {collapsible && onToggleCollapse !== undefined && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleCollapse();
+            }}
+            aria-label={collapsed ? "Expand replies" : "Collapse replies"}
+            title={collapsed ? "Expand replies" : "Collapse replies"}
+            // ml-0.5: a 16px control's area reaches 14px out, 2px past the
+            // row's gap-3, so it would win the edge of the Helpful pill.
+            className={`${HIT_AREA_44} ml-0.5 inline-flex h-4 w-4 items-center justify-center rounded-full text-[var(--bcc-text-secondary)] hover:bg-[var(--bcc-surface-active)] hover:text-[var(--bcc-text)]`}
+          >
+            <CollapseToggleIcon collapsed={collapsed} />
+          </button>
+        )}
+      </div>
+      <ReactionFailureNotice failure={feedback.failure} className="mt-1 block" />
+    </>
   );
 }
 
@@ -1231,10 +1307,16 @@ function CommentStokeButton({
   feedId,
   comment,
   canStoke,
+  signIn,
+  feedback,
 }: {
   feedId: string;
   comment: Comment;
   canStoke: boolean;
+  /** Signed out where they could react: a sign-in link (F-258 M5). */
+  signIn: boolean;
+  /** The row's failure line, shared with its Helpful pill. */
+  feedback: ReactionFeedback;
 }) {
   const stokeMut = useCommentStoke(feedId);
   const [burstKey, setBurstKey] = useState(0);
@@ -1253,22 +1335,11 @@ function CommentStokeButton({
   // when stoked — not the grey-brown stoke-ash, which read as an odd
   // yellow next to the feed's flame.
   const color = hasStoked ? "var(--bcc-secondary)" : "var(--bcc-secondary-dark)";
-
-  return (
-    <button
-      type="button"
-      onClick={() => {
-        if (disabled) return;
-        if (!hasStoked) setBurstKey((k) => k + 1);
-        stokeMut.mutate({ commentId: comment.id, hasStoked });
-      }}
-      disabled={disabled}
-      aria-pressed={hasStoked}
-      aria-label={hasStoked ? "Stoked — tap to remove" : "Stoke"}
-      title={hasStoked ? "Stoked — tap to remove" : "Stoke"}
-      className={`${HIT_AREA_44} bcc-stoke-button bcc-mono inline-flex min-h-[24px] items-center gap-1 rounded-full px-2 py-0.5 text-[11px] transition-colors duration-150 hover:bg-[var(--bcc-surface-active)] disabled:cursor-not-allowed`}
-      style={{ color }}
-    >
+  // HIT_AREA_44 stays inline on each element: the F-440 source scan reads
+  // a tag's own className (it resolves only a plain string constant).
+  const pillClass = `bcc-stoke-button bcc-mono inline-flex min-h-[24px] items-center gap-1 rounded-full px-2 py-0.5 text-[11px] transition-colors duration-150 hover:bg-[var(--bcc-surface-active)]`;
+  const body = (
+    <>
       <StokeFlame
         boxSize={COMMENT_FLAME_BOX}
         flameSize={COMMENT_FLAME_SIZE}
@@ -1280,6 +1351,37 @@ function CommentStokeButton({
       />
       <span className="hidden sm:inline">Stoke</span>
       {count > 0 ? ` ${count}` : ""}
+    </>
+  );
+
+  if (signIn) {
+    return (
+      <ReactionSignInLink label={REACTION_COPY.stoke.signIn} className={`${HIT_AREA_44} ${pillClass}`} style={{ color }}>
+        {body}
+      </ReactionSignInLink>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        if (disabled) return;
+        feedback.clear();
+        if (!hasStoked) setBurstKey((k) => k + 1);
+        stokeMut.mutate(
+          { commentId: comment.id, hasStoked },
+          { onError: (err) => feedback.report(err, "stoke", hasStoked) },
+        );
+      }}
+      disabled={disabled}
+      aria-pressed={hasStoked}
+      aria-label={hasStoked ? "Stoked — tap to remove" : "Stoke"}
+      title={hasStoked ? "Stoked — tap to remove" : "Stoke"}
+      className={`${HIT_AREA_44} ${pillClass} disabled:cursor-not-allowed`}
+      style={{ color }}
+    >
+      {body}
     </button>
   );
 }
@@ -1478,13 +1580,17 @@ function CommentComposer({
   autoFocus = false,
   replyTarget,
   onClearReply,
+  onDetachReply,
 }: {
   feedId: string;
   /** Focus the textarea + scroll it into view once, on mount. */
   autoFocus?: boolean;
   /** Slice 2 — when set, this submission is a reply (sends `parent_id`). */
   replyTarget: ReplyTarget | null;
+  /** The chip's ✕: the viewer drops the reply. */
   onClearReply: () => void;
+  /** A submit's clear; returns how to put the target back if it fails (M2). */
+  onDetachReply: () => () => void;
 }) {
   const [draft, setDraft] = useState("");
   const [expanded, setExpanded] = useState(false);
@@ -1504,6 +1610,19 @@ function CommentComposer({
   const [gifPickerOpen, setGifPickerOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [mediaError, setMediaError] = useState<string | null>(null);
+
+  // F-258 (audit M4): a failed comment or attachment was only a red row,
+  // with no role, inside the expanded footer. It is now also announced:
+  // an assertive region mounted empty with the composer, each failure a
+  // fresh <span key={seq}> so a repeat is read again (#328, as F-252).
+  // aria-live rather than role="alert": the composer sits under every
+  // open thread, and an idle alert would count on every host page.
+  const [notice, setNotice] = useState<{ seq: number; text: string } | null>(null);
+  const noticeSeq = useRef(0);
+  const announce = (text: string) => {
+    noticeSeq.current += 1;
+    setNotice({ seq: noticeSeq.current, text });
+  };
 
   // GIF button mounts only when the admin Giphy integration is on (config
   // is server-owned; anon never reaches here — the composer is authed).
@@ -1539,17 +1658,17 @@ function CommentComposer({
     } catch (err) {
       // Surface the real reason (too large / bad mime / rate limited)
       // rather than a generic line, reusing the shared code map.
-      setMediaError(
-        humanizeCode(
-          err,
-          {
-            bcc_invalid_request: "That image can't be attached (check size/format).",
-            bcc_rate_limited: "Uploading too fast — wait a moment.",
-            bcc_unauthorized: "Sign in to attach an image.",
-          },
-          "Couldn't attach that image.",
-        ),
+      const text = humanizeCode(
+        err,
+        {
+          bcc_invalid_request: "That image can't be attached (check size/format).",
+          bcc_rate_limited: "Uploading too fast — wait a moment.",
+          bcc_unauthorized: "Sign in to attach an image.",
+        },
+        "Couldn't attach that image.",
       );
+      setMediaError(text);
+      announce(text);
     } finally {
       setUploading(false);
     }
@@ -1637,10 +1756,12 @@ function CommentComposer({
     // round-trip, which visibly lagged behind the comment already
     // appearing in the thread (useCreateCommentMutation's own onMutate
     // inserts it into the cache synchronously). If the request actually
-    // fails, restore exactly what was here so nothing typed is lost.
+    // fails, restore exactly what was here so nothing typed is lost —
+    // the reply target too (M2), through the drawer, which owns it.
     const draftSnapshot = draft;
     const photoSnapshot = photo;
     const gifSnapshot = gif;
+    const restoreReply = onDetachReply();
 
     createMut.mutate(
       {
@@ -1662,11 +1783,13 @@ function CommentComposer({
             attachment_type: media?.kind ?? "none",
           });
         },
-        onError: () => {
+        onError: (err) => {
           setDraft(draftSnapshot);
           setPhoto(photoSnapshot);
           setGif(gifSnapshot);
+          restoreReply();
           setExpanded(true);
+          announce(commentPostErrorCopy(err));
         },
       },
     );
@@ -1675,7 +1798,6 @@ function CommentComposer({
     setExpanded(false);
     clearMedia();
     setGifPickerOpen(false);
-    onClearReply();
   };
 
   const error = createMut.error;
@@ -1689,6 +1811,9 @@ function CommentComposer({
       <label className="sr-only" htmlFor={`comment-${feedId}`}>
         Write a comment
       </label>
+      <p aria-live="assertive" aria-atomic="true" className="sr-only">
+        {notice !== null && <span key={notice.seq}>{notice.text}</span>}
+      </p>
 
       <div
         onClick={expanded ? undefined : expand}
@@ -1733,7 +1858,13 @@ function CommentComposer({
               ellipsis) rather than a hardcoded character cap — it adapts to
               whatever width the composer actually has at any breakpoint,
               mobile included, instead of guessing a fixed count that's
-              wrong at some viewport. */}
+              wrong at some viewport.
+              F-258 (audit M3): under the preview the textarea is opacity-0,
+              not `invisible`. `visibility: hidden` took it out of the tab
+              order, so a collapsed draft couldn't be reached by keyboard;
+              transparent, it still takes focus, and focus expands the box.
+              The preview is aria-hidden when it repeats the textarea's own
+              text, and read when it names a media-only draft. */}
           <div className="relative w-full flex-1">
             <textarea
               id={`comment-${feedId}`}
@@ -1746,11 +1877,14 @@ function CommentComposer({
               placeholder={replyTarget !== null ? `Reply to @${replyTarget.handle}…` : "Write a comment…"}
               className={
                 "w-full flex-1 resize-none bg-transparent text-[14px] leading-snug text-[var(--bcc-text)] placeholder:text-[var(--bcc-text-placeholder)] focus:outline-none" +
-                (showCollapsedPreview ? " invisible" : "")
+                (showCollapsedPreview ? " opacity-0" : "")
               }
             />
             {showCollapsedPreview && (
-              <div className="pointer-events-none absolute inset-0 flex items-center gap-1.5 text-[14px] leading-snug text-[var(--bcc-text)]">
+              <div
+                aria-hidden={trimmed !== "" ? true : undefined}
+                className="pointer-events-none absolute inset-0 flex items-center gap-1.5 text-[14px] leading-snug text-[var(--bcc-text)]"
+              >
                 {hasMedia && (
                   <span className="inline-flex shrink-0 text-[var(--bcc-text-secondary)]" aria-hidden>
                     <PhotoIcon size={14} />
@@ -1920,19 +2054,7 @@ function CommentComposer({
                 {mediaError !== null
                   ? mediaError
                   : error !== null
-                    ? humanizeCode(
-                        error,
-                        {
-                          bcc_unauthorized: "Sign in to comment.",
-                          bcc_rate_limited: "Commenting too fast — slow down.",
-                          bcc_forbidden: "You can't comment here.",
-                          bcc_invalid_request: "Comment couldn't be posted.",
-                          bcc_too_many_mentions: "Too many @-mentions in one comment.",
-                          bcc_invalid_mention_target:
-                            "One of your @-mentions can't receive notifications.",
-                        },
-                        "Couldn't post the comment.",
-                      )
+                    ? commentPostErrorCopy(error)
                     : `Over the ${COMMENT_MAX_LENGTH}-char cap.`}
               </p>
             )}
@@ -1940,6 +2062,22 @@ function CommentComposer({
         )}
       </div>
     </form>
+  );
+}
+
+/** A failed comment, in the footer's red row and in the announcement (M4). */
+function commentPostErrorCopy(err: unknown): string {
+  return humanizeCode(
+    err,
+    {
+      bcc_unauthorized: "Sign in to comment.",
+      bcc_rate_limited: "Commenting too fast — slow down.",
+      bcc_forbidden: "You can't comment here.",
+      bcc_invalid_request: "Comment couldn't be posted.",
+      bcc_too_many_mentions: "Too many @-mentions in one comment.",
+      bcc_invalid_mention_target: "One of your @-mentions can't receive notifications.",
+    },
+    "Couldn't post the comment.",
   );
 }
 
