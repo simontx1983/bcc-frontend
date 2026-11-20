@@ -52,15 +52,17 @@ vi.mock("@/hooks/useBlocks", () => ({
     };
   },
   useUnblockUser: () => ({
-    mutate: (_id: number, opts: { onSettled?: () => void }) => {
-      // Server accepted the unblock (async, like the real mutation); the
-      // trailing page is now empty.
-      setTimeout(() => {
-        store.pages[2] = [];
-        store.totalPages = 1;
-        opts.onSettled?.();
-      }, 0);
-    },
+    // Server accepted the unblock (async, like the real mutation); the
+    // trailing page is now empty. BlocksList calls mutateAsync and
+    // re-renders when that call settles (F-446).
+    mutateAsync: (id: number) =>
+      new Promise((resolve) => {
+        setTimeout(() => {
+          store.pages[2] = [];
+          store.totalPages = 1;
+          resolve({ ok: true, user_id: id, removed: true });
+        }, 0);
+      }),
     isPending: false,
   }),
 }));
@@ -82,7 +84,7 @@ describe("BlocksList page overflow", () => {
     expect(view.getByText("User 2")).toBeInTheDocument();
 
     await act(async () => {
-      fireEvent.click(view.getByRole("button", { name: "UNBLOCK" }));
+      fireEvent.click(view.getByRole("button", { name: "Unblock User 2" }));
       await new Promise((resolve) => setTimeout(resolve, 5));
     });
 

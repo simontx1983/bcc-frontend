@@ -27,10 +27,9 @@
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+
+import { sourceFiles } from "@/app/source-tree.testing";
 
 vi.mock("@/lib/env", () => ({ clientEnv: { BCC_API_URL: "https://wp.example" } }));
 vi.mock("next/navigation", () => ({
@@ -124,6 +123,15 @@ describe("the email and password forms describe themselves", () => {
 // LoadFailure
 // ─────────────────────────────────────────────────────────────────────
 
+/**
+ * Every file under src/ that renders <LoadFailure, as the repo-root path
+ * ("src/…") the slice list below uses. Taken at collection, outside every
+ * test's timer (F-449).
+ */
+const LOAD_FAILURE_SITES = sourceFiles()
+  .filter((f) => f.code.includes("<LoadFailure"))
+  .map((f) => ({ path: `src/${f.rel}`, code: f.code }));
+
 describe("LoadFailure stayed backward compatible", () => {
   it("a caller that passes no retryLabel still renders Retry", () => {
     render(<LoadFailure message="Couldn't load." onRetry={() => {}} />);
@@ -158,20 +166,19 @@ describe("LoadFailure stayed backward compatible", () => {
     // Derived, not pinned. `retryLabel` is also a ConfirmDialog prop, so
     // the check is scoped to files that actually render <LoadFailure and
     // pass it — a bare grep for the identifier conflates the two.
-    const out = execFileSync("git", ["grep", "-l", "<LoadFailure", "--", "src"], {
-      encoding: "utf-8",
-      cwd: process.cwd(),
-    });
-    const consumers = out.split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
-    expect(consumers.length, "no LoadFailure consumers found — grep is broken").toBeGreaterThan(20);
+    //
+    // F-449: this read the tree with a `git grep` subprocess inside the
+    // test, which under load outlasted the 5s test timeout. It now uses
+    // the shared walk taken at collection (LOAD_FAILURE_SITES, above this
+    // describe). That walk also sees untracked files, which `git grep`
+    // did not: a stray uncommitted call site now counts, as it should.
+    const consumers = LOAD_FAILURE_SITES.map((f) => f.path);
+    expect(consumers.length, "no LoadFailure consumers found — the scan is broken").toBeGreaterThan(20);
 
-    const optedIn = consumers.filter((f) => {
-      const src = readFileSync(resolve(process.cwd(), f), "utf-8");
+    const optedIn = LOAD_FAILURE_SITES.filter((f) =>
       // Only look inside LoadFailure elements.
-      return [...src.matchAll(/<LoadFailure[\s\S]*?\/>/g)].some((m) =>
-        m[0].includes("retryLabel"),
-      );
-    });
+      [...f.code.matchAll(/<LoadFailure[\s\S]*?\/>/g)].some((m) => m[0].includes("retryLabel")),
+    ).map((f) => f.path);
 
     const thisSlice = [
       "src/components/settings/AccountActivitySection.tsx",

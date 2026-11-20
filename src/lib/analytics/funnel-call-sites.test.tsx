@@ -11,11 +11,10 @@
  * `signupMethodForProvider` is kept real.
  */
 
-import { readFileSync, readdirSync, statSync } from "node:fs";
-import { join, relative, resolve } from "node:path";
-
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+
+import { isScript, isTestFile, sourceFiles } from "@/app/source-tree.testing";
 
 import type * as AnalyticsModule from "@/lib/analytics/posthog";
 
@@ -238,9 +237,12 @@ describe("signup_completed marker at each account-creation point", () => {
 // Not on a plain sign-in: the marker is written only at creation points
 // ─────────────────────────────────────────────────────────────────────
 
-// Source scans walk the whole src/ tree; on a busy machine or CI runner that
-// can exceed vitest's 5s default and flake. 30s is a ceiling, not a budget.
-describe("signup_completed is never marked on a plain sign-in", { timeout: 30_000 }, () => {
+describe("signup_completed is never marked on a plain sign-in", () => {
+  // The whole-src walk runs here, at collection, outside every test's timer
+  // (F-449). It used to run inside the test, which needed a 30s ceiling to
+  // survive a busy machine; the test itself now only filters strings.
+  const PRODUCTION = sourceFiles().filter((f) => isScript(f.rel) && !isTestFile(f.rel));
+
   /**
    * Source scan: `noteSignupCompleted(` is called only from the four
    * creation points. Sign-in surfaces (/login, the 2FA page, the OAuth
@@ -249,21 +251,7 @@ describe("signup_completed is never marked on a plain sign-in", { timeout: 30_00
    * walks the tree rather than `git grep`.
    */
   it("is called only at the account-creation points", () => {
-    const root = resolve(process.cwd(), "src");
-    const hits: string[] = [];
-    const walk = (dir: string) => {
-      for (const name of readdirSync(dir)) {
-        const p = join(dir, name);
-        if (statSync(p).isDirectory()) {
-          walk(p);
-        } else if (/\.tsx?$/.test(name) && !/\.test\.tsx?$/.test(name)) {
-          if (/noteSignupCompleted\(/.test(readFileSync(p, "utf-8"))) {
-            hits.push(relative(root, p).replace(/\\/g, "/"));
-          }
-        }
-      }
-    };
-    walk(root);
+    const hits = PRODUCTION.filter((f) => /noteSignupCompleted\(/.test(f.code)).map((f) => f.rel);
     expect(hits.sort()).toEqual([
       "app/(auth)/signup/SignupPageClient.tsx",
       "app/(auth)/signup/complete-profile/page.tsx",

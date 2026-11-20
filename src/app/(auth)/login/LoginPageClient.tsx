@@ -71,6 +71,9 @@ function LoginPageContent() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [walletSignupOpen, setWalletSignupOpen] = useState(false);
+  // F-263 (M22): the chain the visitor just tried, so the sign-up prompt
+  // starts on it instead of the default.
+  const [walletSignupChain, setWalletSignupChain] = useState<string | null>(null);
   /** Set to the email address when the server blocks login with bcc_email_not_verified.
    * Only set when `identifier` itself was an email — if the user typed a
    * handle instead, we don't have their address to hand /verify-email, so
@@ -277,12 +280,16 @@ function LoginPageContent() {
         <WalletAuthButton
           mode="login"
           onSuccess={() => { router.replace(targetAfterLogin()); }}
-          onWalletNotLinked={() => { setWalletSignupOpen(true); }}
+          onWalletNotLinked={(chainSlug) => {
+            setWalletSignupChain(chainSlug);
+            setWalletSignupOpen(true);
+          }}
         />
       </AuthCard>
 
       {walletSignupOpen && (
         <WalletSignupPrompt
+          {...(walletSignupChain !== null ? { initialChainSlug: walletSignupChain } : {})}
           onSuccess={(scope) => {
             setWalletSignupOpen(false);
             // F-332: a brand-new wallet account goes through onboarding,

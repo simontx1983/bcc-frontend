@@ -174,9 +174,25 @@ const RETRY_AFTER_MARGIN_MS = 250;
  * failure; any other error keeps the app-wide single retry.
  */
 export function retryRateLimitedRead(failureCount: number, err: unknown): boolean {
-  if (isCode(err, "bcc_rate_limited")) return failureCount < RATE_LIMIT_RETRY_DELAYS_MS.length;
+  if (isCode(err, "bcc_rate_limited")) {
+    // #328 review: a wait longer than the retry cap cannot succeed early,
+    // so a capped retry would be refused again. Fail now; the failure copy
+    // says to give it a moment.
+    const hinted = retryAfterMs(err);
+    if (hinted !== null && hinted > RETRY_AFTER_CAP_MS) return false;
+    return failureCount < RATE_LIMIT_RETRY_DELAYS_MS.length;
+  }
   return failureCount < 1;
 }
+
+/** The server's `data.retry_after_seconds` in ms, or null when absent or unusable. */
+function retryAfterMs(err: unknown): number | null {
+  const hinted = err instanceof BccApiError ? err.data?.["retry_after_seconds"] : undefined;
+  return typeof hinted === "number" && Number.isFinite(hinted) && hinted > 0 ? hinted * 1000 : null;
+}
+
+/** Longest single wait before a retry. */
+const RETRY_AFTER_CAP_MS = 30_000;
 
 /** React Query `retryDelay` to pair with retryRateLimitedRead. */
 export function rateLimitedRetryDelay(failureCount: number, err: unknown): number {
@@ -185,10 +201,8 @@ export function rateLimitedRetryDelay(failureCount: number, err: unknown): numbe
     // `data.retry_after_seconds`, the time LEFT on the limit that refused.
     // Wait that (plus a small margin for clock and network); without it,
     // the fixed pauses.
-    const hinted = err instanceof BccApiError ? err.data?.["retry_after_seconds"] : undefined;
-    if (typeof hinted === "number" && Number.isFinite(hinted) && hinted > 0) {
-      return Math.min(hinted * 1000 + RETRY_AFTER_MARGIN_MS, 30_000);
-    }
+    const hinted = retryAfterMs(err);
+    if (hinted !== null) return Math.min(hinted + RETRY_AFTER_MARGIN_MS, RETRY_AFTER_CAP_MS);
     return RATE_LIMIT_RETRY_DELAYS_MS[Math.min(failureCount, RATE_LIMIT_RETRY_DELAYS_MS.length - 1)] ?? 2_000;
   }
   // React Query's own default backoff.

@@ -49,6 +49,7 @@ import { CommentDrawer } from "@/components/feed/CommentDrawer";
 import { PostActionBar } from "@/components/feed/PostActionBar";
 import { readString } from "@/components/feed/postBody";
 import { useFeedItem } from "@/hooks/useFeed";
+import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
 import { formatRelativeTime } from "@/lib/format";
 import { readMentions, renderTextWithMentions } from "@/lib/format/mentions";
 import type { FeedItem } from "@/lib/api/types";
@@ -72,12 +73,14 @@ export function Lightbox({
   const mentions = readMentions(item.body);
   const commentCount = item.comment_count;
   const shareTitle = `${item.author.display_name ?? item.author.handle} on Blue Collar Crypto`;
+  const reducedMotion = usePrefersReducedMotion();
 
   // Same jump-to-composer behavior on both surfaces — there's only ever
   // one CommentDrawer mount, CSS just repositions it (see doc comment).
+  // Under reduced motion it jumps instead of gliding (F-426).
   const scrollToComments = () => {
     const el = document.getElementById(`comment-${item.id}`);
-    el?.scrollIntoView({ block: "center", behavior: "smooth" });
+    el?.scrollIntoView({ block: "center", behavior: reducedMotion ? "auto" : "smooth" });
     (el as HTMLTextAreaElement | null)?.focus();
   };
 

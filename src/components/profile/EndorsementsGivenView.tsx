@@ -23,9 +23,9 @@
  * No tier classification, no scoring math on the client.
  */
 
-import { ProfilePrivateNotice } from "@/components/profile/ProfilePrivateNotice";
+import { ProfilePrivateNotice, ProfileReadFailure } from "@/components/profile/ProfilePrivateNotice";
 import { useUserEndorsements } from "@/hooks/useUserActivity";
-import { isProfilePrivate } from "@/lib/api/errors";
+import { humanizeCode, isProfilePrivate } from "@/lib/api/errors";
 import type { UserEndorsementItem } from "@/lib/api/types";
 import { formatRelativeTime } from "@/lib/format";
 
@@ -33,8 +33,13 @@ interface EndorsementsGivenViewProps {
   handle: string;
 }
 
+/** §γ — copy keyed on err.code, never err.message. */
+export const ENDORSEMENTS_UNAVAILABLE_COPY =
+  "Vouches are temporarily unavailable. Try again shortly.";
+export const ENDORSEMENTS_LOAD_FAILED_COPY = "Couldn't load vouches. Try again in a moment.";
+
 export function EndorsementsGivenView({ handle }: EndorsementsGivenViewProps) {
-  const { data, error } = useUserEndorsements(handle);
+  const { data, error, isError, isPending, refetch } = useUserEndorsements(handle);
   const items = data?.items ?? [];
 
   // The owner's profile is private (v1.91). The empty state below would
@@ -43,9 +48,35 @@ export function EndorsementsGivenView({ handle }: EndorsementsGivenViewProps) {
     return <ProfilePrivateNotice />;
   }
 
-  // Match AttestationRoster pattern: render the same empty-state block
-  // during the initial fetch window AND when the server returns zero
-  // rows — no spinner state flicker.
+  // F-421: a failed read is not "no vouches". The server answers 503
+  // bcc_unavailable when it could not read them (it used to answer 200
+  // with an empty list), so with nothing to show the failure renders,
+  // with a Retry, never the empty-state claim. Rows already held from an
+  // earlier read stay on screen through a failed refresh. ProfileReadFailure
+  // is the profile tabs' shared drop-in for LoadFailure (UserBlogList,
+  // CardReviewsPanel, …).
+  if (isError && items.length === 0) {
+    return (
+      <ProfileReadFailure
+        error={error}
+        message={humanizeCode(
+          error,
+          { bcc_unavailable: ENDORSEMENTS_UNAVAILABLE_COPY },
+          ENDORSEMENTS_LOAD_FAILED_COPY,
+        )}
+        onRetry={() => void refetch()}
+      />
+    );
+  }
+
+  // The empty state is a claim, so it shows only after a SUCCESSFUL read
+  // (F-421). It used to show during the first fetch too, so "hasn't vouched
+  // for any pages yet" flashed for a member who has. While loading, the
+  // same dashed box says so instead: same footprint, no layout jump.
+  if (isPending) {
+    return <LoadingState />;
+  }
+
   if (items.length === 0) {
     return <EmptyState />;
   }
@@ -58,6 +89,16 @@ export function EndorsementsGivenView({ handle }: EndorsementsGivenViewProps) {
         ))}
       </ul>
     </section>
+  );
+}
+
+export const ENDORSEMENTS_LOADING_COPY = "Loading vouches…";
+
+function LoadingState() {
+  return (
+    <div className="border border-dashed border-bcc-border px-6 py-8 text-center">
+      <p className="bcc-mono text-[11px] text-bcc-text-secondary">{ENDORSEMENTS_LOADING_COPY}</p>
+    </div>
   );
 }
 

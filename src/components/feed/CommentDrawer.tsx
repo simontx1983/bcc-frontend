@@ -62,6 +62,7 @@ import { AuthorBadge } from "@/components/identity/AuthorBadge";
 import { isWpMediaUrl } from "@/lib/media";
 import { buildCommentTree, findNode, type CommentNode } from "@/lib/comments/thread";
 import { ActionRailButton } from "@/components/feed/ActionRailButton";
+import { HIT_AREA_44 } from "@/components/feed/hitArea";
 import { ClockIcon, PhotoIcon, ReplyIcon, ShareIcon } from "@/components/feed/actionIcons";
 import { CommentHelpfulButton } from "@/components/feed/HelpfulButton";
 import { CommentGifPicker } from "@/components/feed/CommentGifPicker";
@@ -567,7 +568,7 @@ function CommentThread({
             <button
               type="button"
               onClick={() => void query.fetchNextPage()}
-              className="bcc-mono mt-3 inline-flex min-h-[36px] items-center text-[11px] tracking-[0.18em] text-[var(--bcc-text-secondary)] hover:text-[var(--bcc-text)] hover:underline"
+              className="bcc-mono mt-3 inline-flex min-h-[44px] items-center text-[11px] tracking-[0.18em] text-[var(--bcc-text-secondary)] hover:text-[var(--bcc-text)] hover:underline"
             >
               LOAD MORE →
             </button>
@@ -789,7 +790,7 @@ function CollapsedRepliesHint({ count, onExpand }: { count: number; onExpand: ()
         e.stopPropagation();
         onExpand();
       }}
-      className="group flex items-center gap-2 pl-3 text-left"
+      className="group flex min-h-[44px] items-center gap-2 pl-3 text-left"
       style={{ marginLeft: THREAD_INDENT }}
     >
       <span
@@ -820,7 +821,7 @@ function ContinueControl({
     <button
       type="button"
       onClick={() => onContinue(node.comment.id)}
-      className="group flex items-center gap-2 pl-3 text-left"
+      className="group flex min-h-[44px] items-center gap-2 pl-3 text-left"
       style={{ marginLeft: THREAD_INDENT }}
     >
       {/* Several stacked strokes = "more replies are threaded below". */}
@@ -864,7 +865,7 @@ function DrillHeader({
       <button
         type="button"
         onClick={onBack}
-        className="bcc-mono inline-flex min-h-[32px] w-fit items-center gap-1.5 text-[11px] tracking-[0.08em] text-[var(--bcc-text-secondary)] hover:text-[var(--bcc-text)]"
+        className="bcc-mono inline-flex min-h-[44px] w-fit items-center gap-1.5 text-[11px] tracking-[0.08em] text-[var(--bcc-text-secondary)] hover:text-[var(--bcc-text)]"
       >
         <ChevronLeft size={15} strokeWidth={1.8} aria-hidden />
         Back
@@ -877,7 +878,7 @@ function DrillHeader({
         <button
           type="button"
           onClick={onBack}
-          className="flex items-center gap-2 text-left"
+          className="flex min-h-[44px] items-center gap-2 text-left"
         >
           <HiddenThreadLines />
           <span className="bcc-mono text-[11px] text-[var(--bcc-text-secondary)] hover:text-[var(--bcc-text)]">
@@ -938,7 +939,7 @@ function CommentFilterRow({
         onClick={() => setOpen((o) => !o)}
         aria-haspopup="listbox"
         aria-expanded={open}
-        className="bcc-mono inline-flex items-center gap-1.5 rounded-full border border-[var(--bcc-border)] px-2.5 py-1 text-[10px] tracking-[0.14em] text-[var(--bcc-text-secondary)] transition-colors hover:text-[var(--bcc-text)]"
+        className={`${HIT_AREA_44} bcc-mono inline-flex items-center gap-1.5 rounded-full border border-[var(--bcc-border)] px-2.5 py-1 text-[10px] tracking-[0.14em] text-[var(--bcc-text-secondary)] transition-colors hover:text-[var(--bcc-text)]`}
       >
         {active?.label}
         <svg width="8" height="8" viewBox="0 0 8 8" fill="none" aria-hidden className={open ? "rotate-180" : ""}>
@@ -978,7 +979,7 @@ function CommentFilterRow({
                   setOpen(false);
                 }}
                 className={
-                  "bcc-mono block w-full rounded-lg px-2.5 py-1.5 text-left text-[11px] tracking-[0.12em] transition-colors " +
+                  "bcc-mono flex min-h-[44px] w-full items-center rounded-lg px-2.5 py-1.5 text-left text-[11px] tracking-[0.12em] transition-colors " +
                   (isActive
                     ? "text-[var(--bcc-accent)]"
                     : "text-[var(--bcc-text-secondary)] hover:bg-[var(--bcc-surface-active)] hover:text-[var(--bcc-text)]")
@@ -1141,7 +1142,12 @@ function CommentActionRail({
   onToggleCollapse?: (() => void) | undefined;
 }) {
   return (
-    <div className="-ml-1 flex items-center gap-1">
+    // gap-3: every control in this row carries HIT_AREA_44, and its
+    // contract is that neighbours sit far enough apart for the enlarged
+    // areas not to cover each other's visible pill (as PostActionBar).
+    // sm:mt-1: at sm+ the pills' areas would otherwise reach up into the
+    // comment's last line and nick an @mention link there.
+    <div className="-ml-1 flex items-center gap-3 sm:mt-1">
       <CommentStokeButton feedId={feedId} comment={comment} canStoke={canStoke} />
       {/* Reply seeds the composer with this comment's parent_id + a
           "replying to @handle" chip. Icon matches the feed speech-bubble.
@@ -1204,7 +1210,9 @@ function CommentActionRail({
           }}
           aria-label={collapsed ? "Expand replies" : "Collapse replies"}
           title={collapsed ? "Expand replies" : "Collapse replies"}
-          className="inline-flex h-4 w-4 items-center justify-center rounded-full text-[var(--bcc-text-secondary)] hover:bg-[var(--bcc-surface-active)] hover:text-[var(--bcc-text)]"
+          // ml-0.5: a 16px control's area reaches 14px out, 2px past the
+          // row's gap-3, so it would win the edge of the Helpful pill.
+          className={`${HIT_AREA_44} ml-0.5 inline-flex h-4 w-4 items-center justify-center rounded-full text-[var(--bcc-text-secondary)] hover:bg-[var(--bcc-surface-active)] hover:text-[var(--bcc-text)]`}
         >
           <CollapseToggleIcon collapsed={collapsed} />
         </button>
@@ -1258,7 +1266,7 @@ function CommentStokeButton({
       aria-pressed={hasStoked}
       aria-label={hasStoked ? "Stoked — tap to remove" : "Stoke"}
       title={hasStoked ? "Stoked — tap to remove" : "Stoke"}
-      className="bcc-stoke-button bcc-mono inline-flex min-h-[24px] items-center gap-1 rounded-full px-2 py-0.5 text-[11px] transition-colors duration-150 hover:bg-[var(--bcc-surface-active)] disabled:cursor-not-allowed"
+      className={`${HIT_AREA_44} bcc-stoke-button bcc-mono inline-flex min-h-[24px] items-center gap-1 rounded-full px-2 py-0.5 text-[11px] transition-colors duration-150 hover:bg-[var(--bcc-surface-active)] disabled:cursor-not-allowed`}
       style={{ color }}
     >
       <StokeFlame
@@ -1337,7 +1345,7 @@ function CommentMediaView({ media }: { media: CommentMedia }) {
               type="button"
               onClick={() => setZoomed(false)}
               aria-label="Close"
-              className="fixed right-3 top-3 z-10 inline-flex h-9 w-9 items-center justify-center rounded-full bg-ink/60 text-paper backdrop-blur-sm transition-colors hover:bg-ink"
+              className="fixed right-3 top-3 z-10 inline-flex h-11 w-11 items-center justify-center rounded-full bg-ink/60 text-paper backdrop-blur-sm transition-colors hover:bg-ink"
             >
               <X size={18} strokeWidth={2} aria-hidden />
             </button>
@@ -1411,7 +1419,7 @@ function CommentOverflowMenu({
         aria-label="More actions"
         aria-haspopup="menu"
         aria-expanded={open}
-        className="bcc-mono inline-flex min-h-[32px] items-center px-1 text-[var(--bcc-text-secondary)] hover:text-[var(--bcc-text)]"
+        className={`${HIT_AREA_44} bcc-mono inline-flex min-h-[32px] items-center px-1 text-[var(--bcc-text-secondary)] hover:text-[var(--bcc-text)]`}
       >
         <MoreHorizontal size={16} strokeWidth={2} aria-hidden />
       </button>
@@ -1448,7 +1456,7 @@ function CommentOverflowMenu({
                 setOpen(false);
                 onDelete(comment);
               }}
-              className="bcc-mono block w-full rounded-lg px-2 py-1.5 text-left text-[11px] text-[var(--bcc-text-secondary)] hover:bg-[var(--bcc-surface-active)] hover:text-[var(--bcc-danger)] disabled:cursor-not-allowed"
+              className="bcc-mono flex min-h-[44px] w-full items-center rounded-lg px-2 py-1.5 text-left text-[11px] text-[var(--bcc-text-secondary)] hover:bg-[var(--bcc-surface-active)] hover:text-[var(--bcc-danger)] disabled:cursor-not-allowed"
             >
               Delete
             </button>
@@ -1708,7 +1716,7 @@ function CommentComposer({
               }}
               aria-label="Cancel reply"
               title="Cancel reply"
-              className="bcc-mono inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] leading-none text-[var(--bcc-text-secondary)] hover:bg-[var(--bcc-surface-hover)] hover:text-[var(--bcc-text)]"
+              className={`${HIT_AREA_44} bcc-mono inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] leading-none text-[var(--bcc-text-secondary)] hover:bg-[var(--bcc-surface-hover)] hover:text-[var(--bcc-text)]`}
             >
               ×
             </button>
@@ -1807,9 +1815,23 @@ function CommentComposer({
                     onClick={clearMedia}
                     aria-label="Remove attachment"
                     title="Remove attachment"
-                    className="bcc-mono absolute -right-1.5 -top-1.5 inline-flex h-5 w-5 items-center justify-center rounded-full border border-[var(--bcc-border)] bg-[var(--bcc-surface)] text-[11px] leading-none text-[var(--bcc-text)] hover:text-[var(--bcc-danger)]"
+                    // A transparent 44×44 tap box; the 20px badge is the
+                    // inner span, pinned to the box's top edge and 6px in
+                    // from its right, which is exactly where it always sat
+                    // (-top-1.5 / -right-1.5). The box grows only down and
+                    // left over the thumbnail, never up: the textarea row
+                    // is just 6px (gap-1.5) above, and this positioned box
+                    // would otherwise take taps meant for it. Not
+                    // HIT_AREA_44: that adds `relative`, which would
+                    // override `absolute`.
+                    className="group absolute -right-3 -top-1.5 inline-flex h-11 w-11 items-start justify-end pr-1.5"
                   >
-                    ×
+                    <span
+                      aria-hidden
+                      className="bcc-mono inline-flex h-5 w-5 items-center justify-center rounded-full border border-[var(--bcc-border)] bg-[var(--bcc-surface)] text-[11px] leading-none text-[var(--bcc-text)] group-hover:text-[var(--bcc-danger)]"
+                    >
+                      ×
+                    </span>
                   </button>
                 </>
               )}
@@ -1835,7 +1857,11 @@ function CommentComposer({
         {expanded && (
           <div className="flex flex-col gap-1">
             <div className="flex items-center justify-between gap-3">
-              <div className="flex min-w-0 items-center gap-0.5">
+              {/* gap-3 here and below: each 32px control carries
+                  HIT_AREA_44, and the enlarged areas must not cover a
+                  neighbour's visible button. Vertically they stop at the
+                  6px (gap-1.5) above, so the textarea keeps its taps. */}
+              <div className="flex min-w-0 items-center gap-3">
                 <MediaIconButton
                   onClick={() => fileInputRef.current?.click()}
                   active={photo !== null}
@@ -1866,20 +1892,22 @@ function CommentComposer({
                 </p>
               </div>
 
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-3">
                 <button
                   type="button"
                   onClick={collapse}
                   aria-label="Collapse composer"
                   title="Collapse"
-                  className="inline-flex h-8 w-8 items-center justify-center rounded-full text-[var(--bcc-text-secondary)] hover:bg-[var(--bcc-surface-hover)] hover:text-[var(--bcc-text)]"
+                  className={`${HIT_AREA_44} inline-flex h-8 w-8 items-center justify-center rounded-full text-[var(--bcc-text-secondary)] hover:bg-[var(--bcc-surface-hover)] hover:text-[var(--bcc-text)]`}
                 >
                   <Minimize2 size={16} strokeWidth={2} aria-hidden />
                 </button>
                 <button
                   type="submit"
                   disabled={!canSubmit}
-                  className="bcc-btn bcc-btn-sm bcc-btn-primary"
+                  // min-h-8 levels it with the 32px icons beside it, so its
+                  // HIT_AREA_44 also stops short of the textarea above.
+                  className={`${HIT_AREA_44} bcc-btn bcc-btn-sm bcc-btn-primary min-h-8`}
                 >
                   {createMut.isPending ? "Posting…" : "Comment"}
                   <SendIcon />
@@ -1922,7 +1950,7 @@ function SubmitIconButton({ disabled, pending }: { disabled: boolean; pending: b
       disabled={disabled}
       aria-label="Post comment"
       title="Post comment"
-      className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[var(--bcc-text-inverse)] transition-opacity disabled:opacity-40"
+      className={`${HIT_AREA_44} inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[var(--bcc-text-inverse)] transition-opacity disabled:opacity-40`}
       style={{ background: "var(--bcc-accent)" }}
     >
       {pending ? (
@@ -1961,7 +1989,7 @@ function MediaIconButton({
       aria-pressed={active}
       title={label}
       className={
-        "inline-flex h-8 min-w-8 items-center justify-center rounded-full px-1.5 transition-colors hover:bg-[var(--bcc-surface-hover)] disabled:cursor-not-allowed disabled:opacity-40 " +
+        `${HIT_AREA_44} inline-flex h-8 min-w-8 items-center justify-center rounded-full px-1.5 transition-colors hover:bg-[var(--bcc-surface-hover)] disabled:cursor-not-allowed disabled:opacity-40 ` +
         (active ? "" : "text-[var(--bcc-text-secondary)] hover:text-[var(--bcc-accent)]")
       }
       style={active ? { color: "var(--bcc-accent)" } : undefined}

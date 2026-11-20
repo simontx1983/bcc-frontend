@@ -57,7 +57,7 @@ export default async function SearchPage({ searchParams }: PageProps) {
         </h1>
         <p className="mt-3 max-w-2xl font-serif leading-relaxed text-bcc-text-secondary">
           Three verticals from one box — <strong>projects</strong>,{" "}
-          <strong>users</strong>, and <strong>communities</strong>. Type into
+          <strong>members</strong>, and <strong>communities</strong>. Type into
           the bar up top, or jump in via a trending thread below.
         </p>
       </header>

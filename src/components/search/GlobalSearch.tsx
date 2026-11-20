@@ -38,8 +38,10 @@
  *   that the user always touches before it does anything.
  */
 
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
+  Suspense,
+  useCallback,
   useEffect,
   useId,
   useRef,
@@ -63,6 +65,11 @@ import type {
 import { toInternalHref } from "@/lib/internal-route";
 
 const MAX_TRENDING_IN_DROPDOWN = 5;
+
+/** F-421: an empty answer the server marked `incomplete`. */
+export const SUGGESTIONS_UNAVAILABLE_COPY = "Suggestions unavailable right now.";
+/** F-421: rows shown, but the server marked the answer `incomplete`. */
+export const SUGGESTIONS_PARTIAL_COPY = "Some suggestions couldn't load.";
 
 /**
  * Scope options for the dropdown's <select>. `undefined` = All (no
@@ -128,8 +135,31 @@ export function GlobalSearch({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
 
-  const search = useGlobalSearch(query, scope);
+  // Fetch only while the dropdown is open: the box can now hold a term
+  // while closed (synced from /search?q=, below), and on mobile it is
+  // mounted but hidden.
+  const search = useGlobalSearch(query, scope, { enabled: open });
   const items: SearchSuggestion[] = search.data?.items ?? [];
+  // F-421: a vertical could not be read, so the list may be missing
+  // matches. A missing flag (older servers) means complete.
+  const incomplete = search.data?.incomplete === true;
+
+  // On /search the box shows the page's query: after a submit, on a deep
+  // link, and on back/forward (F-260 M12). Leaving /search clears it, but
+  // only if it still holds the synced term, never something typed since.
+  const syncedQueryRef = useRef<string | null>(null);
+  const syncFromUrl = useCallback((urlQuery: string | null) => {
+    if (urlQuery !== null) {
+      syncedQueryRef.current = urlQuery;
+      setQuery(urlQuery);
+      return;
+    }
+    const synced = syncedQueryRef.current;
+    syncedQueryRef.current = null;
+    if (synced !== null) {
+      setQuery((current) => (current === synced ? "" : current));
+    }
+  }, []);
 
   const recents = useRecentSearches();
   const trimmed = query.trim();
@@ -219,7 +249,13 @@ export function GlobalSearch({
     const cleaned = q.trim();
     if (cleaned.length < 2) return;
     recents.push(cleaned);
-    navigateAndClose(`/search?q=${encodeURIComponent(cleaned)}`);
+    // Keep the term in the box: /search is about to show its results.
+    // (Clearing it emptied the box under its own results page; a re-submit
+    // of the same term changes no URL, so the sync could not refill it.)
+    setQuery(cleaned);
+    navigateAndClose(`/search?q=${encodeURIComponent(cleaned)}`, {
+      keepQuery: true,
+    });
   };
 
   const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
@@ -258,9 +294,12 @@ export function GlobalSearch({
     }
   };
 
-  const navigateAndClose = (href: string) => {
+  const navigateAndClose = (
+    href: string,
+    { keepQuery = false }: { keepQuery?: boolean } = {},
+  ) => {
     setOpen(false);
-    setQuery("");
+    if (!keepQuery) setQuery("");
     setActiveIndex(-1);
     inputRef.current?.blur();
     router.push(toInternalHref(href));
@@ -278,6 +317,12 @@ export function GlobalSearch({
           : "relative flex items-center gap-1"
       }
     >
+      {/* useSearchParams needs its own Suspense boundary (Next 15), or
+          every statically rendered page would bail out to client
+          rendering up to the nearest one. Renders nothing. */}
+      <Suspense fallback={null}>
+        <SearchQuerySync onChange={syncFromUrl} />
+      </Suspense>
       <label htmlFor={inputId} className="sr-only">
         Search BCC
       </label>
@@ -358,7 +403,10 @@ export function GlobalSearch({
               trendingLoading={trending.isLoading}
               onSelectTrending={(q) => {
                 recents.push(q);
-                navigateAndClose(`/search?q=${encodeURIComponent(q)}`);
+                setQuery(q);
+                navigateAndClose(`/search?q=${encodeURIComponent(q)}`, {
+                  keepQuery: true,
+                });
               }}
             />
           ) : search.isError ? (
@@ -367,7 +415,13 @@ export function GlobalSearch({
             </div>
           ) : items.length === 0 ? (
             <div className="bcc-mono bg-bcc-surface-raised px-4 py-3 text-[11px] text-bcc-text-secondary">
-              {search.isFetching ? "Searching…" : `No matches for “${trimmed}”.`}
+              {/* An empty INCOMPLETE answer is not "no matches". No retry
+                  button: the next keystroke asks again. */}
+              {search.isFetching
+                ? "Searching…"
+                : incomplete
+                  ? SUGGESTIONS_UNAVAILABLE_COPY
+                  : `No matches for “${trimmed}”.`}
             </div>
           ) : (
             <ul role="presentation" className="flex flex-col gap-px">
@@ -387,6 +441,13 @@ export function GlobalSearch({
             </ul>
           )}
 
+          {/* Rows shown, but a vertical could not be read: say so quietly. */}
+          {showResults && !search.isError && items.length > 0 && incomplete && (
+            <p className="bcc-mono bg-bcc-surface-raised px-4 py-2 text-[10px] text-bcc-text-secondary">
+              {SUGGESTIONS_PARTIAL_COPY}
+            </p>
+          )}
+
           {trimmed.length >= 2 && (
             <button
               type="button"
@@ -400,6 +461,29 @@ export function GlobalSearch({
       )}
     </div>
   );
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// SearchQuerySync — reports /search's `?q=` (or null off /search) to
+// the box. A separate null-rendering child so the useSearchParams read
+// sits inside its own Suspense boundary.
+// ─────────────────────────────────────────────────────────────────────
+
+function SearchQuerySync({
+  onChange,
+}: {
+  onChange: (urlQuery: string | null) => void;
+}) {
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const urlQuery =
+    pathname === "/search" ? (searchParams.get("q") ?? "").trim() : null;
+
+  useEffect(() => {
+    onChange(urlQuery);
+  }, [urlQuery, onChange]);
+
+  return null;
 }
 
 // ─────────────────────────────────────────────────────────────────────

@@ -13,10 +13,9 @@
  * that does not exist.
  */
 
-import { readFileSync, readdirSync, statSync } from "node:fs";
-import { join, resolve } from "node:path";
-
 import { describe, expect, it, vi, beforeEach } from "vitest";
+
+import { isScript, isTestFile, sourceFiles } from "@/app/source-tree.testing";
 
 vi.mock("@/lib/env", () => ({
   clientEnv: { BCC_API_URL: "https://wp.example" },
@@ -126,19 +125,10 @@ describe("capability present — the gate opens only then", () => {
 });
 
 describe("fixtures cannot reach production code", () => {
-  const SRC = resolve(process.cwd(), "src");
-
-  function walk(dir: string, out: string[] = []): string[] {
-    for (const entry of readdirSync(dir)) {
-      const full = join(dir, entry);
-      if (statSync(full).isDirectory()) {
-        walk(full, out);
-      } else if (/\.(ts|tsx)$/.test(entry)) {
-        out.push(full);
-      }
-    }
-    return out;
-  }
+  // Walked once, here at collection, not inside a test: two tests each
+  // walked the whole tree, and under load that alone outlasted the 5s
+  // test timeout (F-449).
+  const FILES = sourceFiles().filter((f) => isScript(f.rel));
 
   /**
    * The fixtures exist so the UI can be proven against the contract with
@@ -147,21 +137,18 @@ describe("fixtures cannot reach production code", () => {
    * is shaped to avoid.
    */
   it("is imported only by tests", () => {
-    const files = walk(SRC);
-    expect(files.length, "the source scan matched nothing").toBeGreaterThan(200);
+    expect(FILES.length, "the source scan matched nothing").toBeGreaterThan(200);
 
-    const offenders = files
-      .filter((f) => !/\.(test|spec)\.tsx?$/.test(f))
-      .filter((f) => /announcements\/fixtures/.test(readFileSync(f, "utf8")))
-      .map((f) => f.slice(SRC.length + 1));
+    const offenders = FILES
+      .filter((f) => !isTestFile(f.rel))
+      .filter((f) => /announcements\/fixtures/.test(f.code))
+      .map((f) => f.rel);
 
     expect(offenders, "a non-test file imports the announcement fixtures").toEqual([]);
   });
 
   it("ships no screenshot harness", () => {
-    const harnesses = walk(SRC)
-      .map((f) => f.slice(SRC.length + 1))
-      .filter((f) => /harness/i.test(f));
+    const harnesses = FILES.map((f) => f.rel).filter((f) => /harness/i.test(f));
     expect(harnesses).toEqual([]);
   });
 });
