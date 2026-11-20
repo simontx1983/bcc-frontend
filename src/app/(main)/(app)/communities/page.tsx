@@ -37,6 +37,7 @@ import { getGroupsDiscovery } from "@/lib/api/groups-discovery-endpoints";
 import { COMMUNITY_CHAIN_CATALOG } from "@/lib/communities/chain-catalog";
 import { CommunityCardGrid } from "@/components/communities/CommunityCardGrid";
 import { MyGroupInvitations } from "@/components/communities/MyGroupInvitations";
+import { HIT_AREA_44 } from "@/components/feed/hitArea";
 import type { GroupsDiscoveryPagination } from "@/lib/api/types";
 
 interface PageProps {
@@ -224,8 +225,11 @@ function FilterStrip({
     },
   ];
 
+  // The pills are drawn at ~30px; HIT_AREA_44 makes each tap target 44px
+  // without changing that (F-317 M-gr3). gap-y-4 keeps the areas of a
+  // wrapped second row clear of the first.
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    <div className="flex flex-wrap items-center gap-x-2 gap-y-4">
       {filters.map((filter) => (
         <Link
           key={filter.key}
@@ -235,7 +239,7 @@ function FilterStrip({
           })}
           aria-current={filter.isActive ? "page" : undefined}
           className={
-            "bcc-mono rounded-full px-3 py-1.5 text-[11px] tracking-[0.16em] transition " +
+            `${HIT_AREA_44} bcc-mono rounded-full px-3 py-1.5 text-[11px] tracking-[0.16em] transition ` +
             (filter.isActive
               ? "bg-ink text-cardstock"
               : "border border-cardstock-edge/40 bg-cardstock text-ink-soft hover:border-cardstock-edge hover:text-ink")
@@ -308,7 +312,7 @@ function ChainDropdown({
     <form
       method="GET"
       action="/communities"
-      className="flex items-center gap-2"
+      className="flex flex-wrap items-center gap-2"
     >
       {scope === "verified" && <input type="hidden" name="verified" value="1" />}
       {scope === "mine" && <input type="hidden" name="mine" value="1" />}
@@ -322,7 +326,10 @@ function ChainDropdown({
         id="communities-chain"
         name="chain"
         defaultValue={chain ?? ""}
-        className="bcc-mono rounded-full border border-cardstock-edge/40 bg-cardstock px-3 py-1.5 text-[11px] tracking-[0.16em] text-ink focus:outline-none focus:ring-2 focus:ring-blueprint"
+        // 16px text: anything smaller zooms the page on focus in iOS
+        // Safari. A <select> draws no ::before, so it takes a real 44px
+        // box, and APPLY / CLEAR beside it match (F-317 M-gr3).
+        className="bcc-mono min-h-[44px] rounded-full border border-cardstock-edge/40 bg-cardstock px-3 text-base tracking-[0.16em] text-ink focus:outline-none focus:ring-2 focus:ring-blueprint"
       >
         <option value="">All chains</option>
         {COMMUNITY_CHAIN_CATALOG.map((opt) => (
@@ -333,14 +340,14 @@ function ChainDropdown({
       </select>
       <button
         type="submit"
-        className="bcc-mono rounded-full bg-ink px-3 py-1.5 text-[11px] tracking-[0.16em] text-cardstock transition hover:bg-safety"
+        className="bcc-mono inline-flex min-h-[44px] items-center rounded-full bg-ink px-4 text-[11px] tracking-[0.16em] text-cardstock transition hover:bg-safety"
       >
         APPLY
       </button>
       {chain !== null && (
         <Link
           href={buildCommunitiesHref({ scope, chain: null })}
-          className="bcc-mono rounded-full border border-cardstock-edge/40 bg-cardstock px-2 py-1 text-[10px] tracking-[0.16em] text-ink-soft hover:border-cardstock-edge hover:text-ink"
+          className="bcc-mono inline-flex min-h-[44px] items-center rounded-full border border-cardstock-edge/40 bg-cardstock px-3 text-[10px] tracking-[0.16em] text-ink-soft hover:border-cardstock-edge hover:text-ink"
         >
           CLEAR
         </Link>
