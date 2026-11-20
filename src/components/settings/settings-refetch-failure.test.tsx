@@ -126,6 +126,7 @@ import { NotificationPrefsForm } from "@/components/settings/NotificationPrefsFo
 import { PrivacySettingsForm } from "@/components/settings/PrivacySettingsForm";
 import { MentorSettingsSection } from "@/components/settings/profile/MentorSettingsSection";
 import { ProfileFieldsList } from "@/components/settings/profile/ProfileFieldsList";
+import { ProfilePrefsSection } from "@/components/settings/profile/ProfilePrefsSection";
 
 beforeAll(() => {
   window.matchMedia = ((q: string) => ({
@@ -172,6 +173,14 @@ const NOTIFICATIONS: NotificationPrefs = {
   push_available: false,
 };
 const MENTOR = { mentor_opt_in: true, mentor_listed: true, mentor_eligibility_reason: null };
+const PREFS = {
+  profile_visibility: "public",
+  post_visibility: "members",
+  hide_birthday_year: false,
+  hide_online: false,
+  hide_from_search: false,
+  default_post_audience: "public",
+};
 const FIELDS = {
   fields: [
     {
@@ -251,6 +260,14 @@ const CASES: Case[] = [
     ui: () => <ProfileFieldsList />,
     content: () => screen.queryByText("COMPLETENESS"),
   },
+  {
+    // M18: it replaced the whole form on any `isError`, refresh included.
+    name: "ProfilePrefsSection",
+    key: "profilePrefs",
+    data: PREFS,
+    ui: () => <ProfilePrefsSection />,
+    content: () => screen.queryByRole("button", { name: "Save preferences" }),
+  },
 ];
 
 for (const c of CASES) {
@@ -324,5 +341,36 @@ describe("NotificationPrefsForm keeps an unsaved draft through a failed refresh"
     expect(
       within(document.body).getByRole("checkbox", { name: /email me a weekly digest/i }),
     ).not.toBeChecked();
+  });
+});
+
+describe("ProfilePrefsSection keeps an unsaved draft through a failed refresh (M18)", () => {
+  it("the picked radio survives, and the failure shows above the form", () => {
+    state.results.profilePrefs = result("profilePrefs", "ok", PREFS);
+    const view = render(<ProfilePrefsSection />);
+    const group = screen.getByRole("radiogroup", { name: /WHO CAN SEE MY PROFILE/ });
+    const onlyMe = within(group).getByRole("radio", { name: /^Only me/ });
+    expect(onlyMe).not.toBeChecked();
+    fireEvent.click(onlyMe);
+    expect(onlyMe).toBeChecked();
+
+    state.results.profilePrefs = result("profilePrefs", "refetch", PREFS);
+    view.rerender(<ProfilePrefsSection />);
+
+    expect(screen.getByRole("alert")).toBeInTheDocument();
+    const after = screen.getByRole("radiogroup", { name: /WHO CAN SEE MY PROFILE/ });
+    expect(within(after).getByRole("radio", { name: /^Only me/ })).toBeChecked();
+    expect(screen.getByRole("button", { name: "Save preferences" })).toBeEnabled();
+  });
+});
+
+describe("ProfilePrefsSection radio groups are named by their heading (M20)", () => {
+  it("each of the three groups carries its section's name", () => {
+    state.results.profilePrefs = result("profilePrefs", "ok", PREFS);
+    render(<ProfilePrefsSection />);
+    for (const name of [/WHO CAN SEE MY PROFILE/, /WHO CAN POST ON MY PROFILE/, /DEFAULT AUDIENCE FOR MY POSTS/]) {
+      const group = screen.getByRole("radiogroup", { name });
+      expect(within(group).getAllByRole("radio").length).toBeGreaterThanOrEqual(2);
+    }
   });
 });

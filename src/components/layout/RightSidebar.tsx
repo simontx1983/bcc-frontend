@@ -323,7 +323,8 @@ function SuggestedWidget() {
                   className={`bcc-btn bcc-btn-sm ${isFollowing ? "bcc-btn-ghost" : "bcc-btn-outline"}`}
                   style={{ flexShrink: 0, fontSize: 12, padding: "3px 10px" }}
                   disabled={isMutating}
-                  aria-pressed={isFollowing}
+                  // F-261: no aria-pressed on top of a name that swaps
+                  // ("Watch X" / "Stop watching X"); see MemberFollowButton.
                   aria-label={
                     isFollowing
                       ? `Stop watching ${member.display_name}`

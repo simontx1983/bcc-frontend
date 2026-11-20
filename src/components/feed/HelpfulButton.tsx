@@ -13,8 +13,13 @@
  * Each wrapper reads its row's optional `helpful_count`/`viewer_has_marked`
  * (absent on a backend that doesn't hydrate them yet → a neutral unmarked
  * state) and drives the toggle via the matching mutation hook, which
- * supplies the server truth. A 404/error rolls back inside the hook and
- * the control simply returns to its prior state — no crash, no noise.
+ * supplies the server truth. A failure rolls back inside the hook and the
+ * control returns to its prior state.
+ *
+ * F-258 (audit M5): that rollback used to be silent, for a signed-out
+ * visitor's 401 too. Signed out, the pill is now a sign-in link with the
+ * same look, and a failed toggle says so in a line (ReactionFailureNotice):
+ * the post pill owns its line, a comment row owns one for its two pills.
  *
  * Rest state matches the neighbouring rail buttons (neutral secondary
  * text); active state fills the pill with a faint info tint + a bolder,
@@ -22,9 +27,17 @@
  * icon when marked; with reduced motion the active state is fully static.
  */
 
+import { useSession } from "next-auth/react";
 import { memo, useCallback, type CSSProperties, type MouseEvent } from "react";
 
 import { HelpfulIcon } from "@/components/feed/actionIcons";
+import {
+  ReactionFailureNotice,
+  ReactionSignInLink,
+  REACTION_COPY,
+  useReactionFailure,
+  type ReactionFeedback,
+} from "@/components/feed/ReactionFailureNotice";
 import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
 import { useMarkHelpful, useMarkHelpfulComment } from "@/hooks/useMarkHelpful";
 import type { Comment, FeedItem } from "@/lib/api/types";
@@ -38,6 +51,8 @@ interface HelpfulButtonViewProps {
   disabled: boolean;
   size: HelpfulSize;
   onToggle: () => void;
+  /** Signed out: render the same pill as a link to sign in. */
+  signIn?: boolean;
 }
 
 /**
@@ -51,6 +66,7 @@ const HelpfulButtonView = memo(function HelpfulButtonView({
   disabled,
   size,
   onToggle,
+  signIn = false,
 }: HelpfulButtonViewProps) {
   const reduced = usePrefersReducedMotion();
 
@@ -83,6 +99,27 @@ const HelpfulButtonView = memo(function HelpfulButtonView({
     transition: reduced ? undefined : "transform 160ms ease",
   };
 
+  const pillClass =
+    "bcc-mono inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] transition-colors duration-150 hover:bg-[var(--bcc-surface-active)] hover:text-[var(--bcc-info)] " +
+    minH;
+  const body = (
+    <>
+      <span className="inline-flex" style={iconStyle}>
+        <HelpfulIcon size={iconSize} active={marked} />
+      </span>
+      <span className="hidden sm:inline">Helpful</span>
+      {count > 0 ? <span>{count}</span> : null}
+    </>
+  );
+
+  if (signIn) {
+    return (
+      <ReactionSignInLink label={REACTION_COPY.helpful.signIn} className={pillClass} style={style}>
+        {body}
+      </ReactionSignInLink>
+    );
+  }
+
   return (
     <button
       type="button"
@@ -91,17 +128,10 @@ const HelpfulButtonView = memo(function HelpfulButtonView({
       aria-pressed={marked}
       aria-label={label}
       title={label}
-      className={
-        "bcc-mono inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] transition-colors duration-150 hover:bg-[var(--bcc-surface-active)] hover:text-[var(--bcc-info)] disabled:cursor-not-allowed disabled:opacity-60 " +
-        minH
-      }
+      className={`${pillClass} disabled:cursor-not-allowed disabled:opacity-60`}
       style={style}
     >
-      <span className="inline-flex" style={iconStyle}>
-        <HelpfulIcon size={iconSize} active={marked} />
-      </span>
-      <span className="hidden sm:inline">Helpful</span>
-      {count > 0 ? <span>{count}</span> : null}
+      {body}
     </button>
   );
 });
@@ -119,22 +149,36 @@ export const PostHelpfulButton = memo(function PostHelpfulButton({
   canInteract?: boolean;
 }) {
   const mutation = useMarkHelpful();
+  const { failure, report, clear } = useReactionFailure();
+  // Only a settled "unauthenticated" swaps in the link (no flash while the
+  // session loads). The non-member teaser stays read-only for everyone.
+  const signIn = useSession().status === "unauthenticated" && canInteract;
   const marked = item.viewer_has_marked ?? false;
   const count = item.helpful_count ?? 0;
   const feedId = item.id;
 
   const onToggle = useCallback(() => {
-    mutation.mutate({ feedId, hasMarked: marked });
-  }, [mutation, feedId, marked]);
+    clear();
+    mutation.mutate(
+      { feedId, hasMarked: marked },
+      { onError: (err) => report(err, "helpful", marked) },
+    );
+  }, [mutation, feedId, marked, clear, report]);
 
+  // A fragment: the notice is a sibling in PostActionBar's wrapping row,
+  // where "order-last basis-full" puts a line under the whole row.
   return (
-    <HelpfulButtonView
-      marked={marked}
-      count={count}
-      disabled={!canInteract || mutation.isPending}
-      size="feed"
-      onToggle={onToggle}
-    />
+    <>
+      <HelpfulButtonView
+        marked={marked}
+        count={count}
+        disabled={!canInteract || mutation.isPending}
+        size="feed"
+        onToggle={onToggle}
+        signIn={signIn}
+      />
+      <ReactionFailureNotice failure={failure} className="order-last basis-full" />
+    </>
   );
 });
 
@@ -145,20 +189,31 @@ export function CommentHelpfulButton({
   feedId,
   comment,
   canInteract,
+  signIn,
+  feedback,
 }: {
   feedId: string;
   comment: Comment;
   /** Authed + allowed-to-interact (member on gated posts). */
   canInteract: boolean;
+  /** Signed out on a thread they could otherwise react in: a sign-in link. */
+  signIn: boolean;
+  /** The comment row's failure line (one for its Stoke and Helpful). */
+  feedback: ReactionFeedback;
 }) {
   const mutation = useMarkHelpfulComment(feedId);
   const marked = comment.viewer_has_marked ?? false;
   const count = comment.helpful_count ?? 0;
   const commentId = comment.id;
+  const { report, clear } = feedback;
 
   const onToggle = useCallback(() => {
-    mutation.mutate({ commentId, hasMarked: marked });
-  }, [mutation, commentId, marked]);
+    clear();
+    mutation.mutate(
+      { commentId, hasMarked: marked },
+      { onError: (err) => report(err, "helpful", marked) },
+    );
+  }, [mutation, commentId, marked, clear, report]);
 
   return (
     <HelpfulButtonView
@@ -167,6 +222,7 @@ export function CommentHelpfulButton({
       disabled={!canInteract || mutation.isPending}
       size="comment"
       onToggle={onToggle}
+      signIn={signIn}
     />
   );
 }
