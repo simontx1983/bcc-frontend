@@ -164,6 +164,28 @@ describe("a failed toggle says so under the action row", () => {
     expect(document.body.textContent).not.toMatch(/RAW SERVER TEXT/);
   });
 
+  it("a suspended member's stoke says so, instead of an endless Try again", () => {
+    rail();
+    fireEvent.click(screen.getByRole("button", { name: "Stoke" }));
+    act(() => state.stoke[0]!.cb.onError?.(apiErr("bcc_forbidden", 403)));
+    expect(regions()[0]!.textContent).toBe("Your account is suspended, so you can't react right now.");
+    expect(regions()[0]!.textContent).not.toMatch(/try again/i);
+  });
+
+  it("a refused no-reactions post says so, not that the member is suspended", () => {
+    rail();
+    fireEvent.click(screen.getByRole("button", { name: "Mark this as helpful" }));
+    act(() =>
+      state.helpful[0]!.cb.onError?.(
+        new BccApiError("bcc_forbidden", "RAW", 403, {
+          error: { code: "bcc_forbidden", message: "RAW", data: { reason_code: "reactions_not_applicable" } },
+        } as never),
+      ),
+    );
+    expect(regions()[1]!.textContent).toBe("This kind of post doesn't take reactions.");
+    expect(document.body.textContent).not.toMatch(/suspended/i);
+  });
+
   it("the next press clears the line, and a repeat failure is a fresh span", () => {
     rail();
     fireEvent.click(screen.getByRole("button", { name: "Stoke" }));
@@ -207,11 +229,34 @@ describe("reactionFailureCopy", () => {
     ["bcc_unauthorized", "stoke", false, "Sign in to stoke."],
     ["bcc_token_expired", "helpful", false, "Sign in to mark this helpful."],
     ["bcc_permission_denied", "stoke", false, "You can't react here."],
+    ["bcc_forbidden", "stoke", false, "Your account is suspended, so you can't react right now."],
+    ["bcc_forbidden", "stoke", true, "Your account is suspended, so you can't react right now."],
+    ["bcc_forbidden", "helpful", false, "Your account is suspended, so you can't react right now."],
     ["bcc_not_found", "helpful", true, "This is no longer available."],
     ["bcc_rate_limited", "helpful", true, "Too many taps. Wait a moment, then try again."],
     ["bcc_internal_error", "helpful", false, "Couldn't mark this helpful. Try again."],
   ] as const)("%s on %s (removing=%s) reads %j", (code, kind, removing, expected) => {
     expect(reactionFailureCopy(apiErr(code), kind, removing)).toBe(expected);
+  });
+
+  it("a post kind that takes no reactions is never read as a suspension", () => {
+    const notApplicable = new BccApiError("bcc_forbidden", "This kind of post does not take reactions.", 403, {
+      error: {
+        code: "bcc_forbidden",
+        message: "This kind of post does not take reactions.",
+        data: { reason_code: "reactions_not_applicable" },
+      },
+    } as never);
+    for (const [kind, removing] of [["stoke", false], ["stoke", true], ["helpful", false]] as const) {
+      expect(reactionFailureCopy(notApplicable, kind, removing)).toBe("This kind of post doesn't take reactions.");
+    }
+    // Another reason_code (or none) stays the suspended line.
+    const other = new BccApiError("bcc_forbidden", "x", 403, {
+      error: { code: "bcc_forbidden", message: "x", data: { reason_code: "something_else" } },
+    } as never);
+    expect(reactionFailureCopy(other, "stoke", false)).toBe(
+      "Your account is suspended, so you can't react right now.",
+    );
   });
 
   it("a non-API error gets the direction's plain line", () => {
