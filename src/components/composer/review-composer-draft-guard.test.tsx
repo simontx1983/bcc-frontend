@@ -25,6 +25,7 @@ vi.mock("next-auth/react", () => ({
   }),
 }));
 vi.mock("next/navigation", () => ({
+  usePathname: () => "/",
   useRouter: () => ({ push: vi.fn(), replace: vi.fn(), refresh: vi.fn() }),
 }));
 vi.mock("@/lib/env", () => ({

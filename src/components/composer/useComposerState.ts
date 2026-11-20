@@ -20,6 +20,7 @@ import {
   type SyntheticEvent,
 } from "react";
 
+import { usePostedEvent } from "@/components/composer/PostedNotice";
 import { useGiphyIntegration } from "@/hooks/useGiphyIntegration";
 import {
   buildMentionToken,
@@ -80,9 +81,16 @@ interface UseComposerStateArgs {
   initialExpanded?: boolean | undefined;
   /** Called after a discard or a successful submit. Modal call sites use this to close their wrapping Dialog; the homepage inline composer leaves it unset and just collapses back to the idle row. */
   onClose?: (() => void) | undefined;
+  /**
+   * Called with the new post's activity id (null when the server sent
+   * no usable one) just before `onClose` on a successful submit. A host that closes the
+   * composer on success (the New Post dialog) unmounts the composer's
+   * own "Posted" line with it, so it uses this to show its own.
+   */
+  onPosted?: ((actId: number | null) => void) | undefined;
 }
 
-export function useComposerState({ groupId, hallFeed, pageId, initialExpanded, onClose }: UseComposerStateArgs) {
+export function useComposerState({ groupId, hallFeed, pageId, initialExpanded, onClose, onPosted }: UseComposerStateArgs) {
   const [expanded, setExpanded] = useState(initialExpanded ?? false);
   // Sprint 2 — civic prompt rotation in the collapsed composer.
   // 18s cadence; halts on hover/focus (promptPaused). Group composer
@@ -143,10 +151,9 @@ export function useComposerState({ groupId, hallFeed, pageId, initialExpanded, o
   // F-258 M6: a successful post used to just collapse the card. Nothing
   // said it worked (on a ranked feed the post may not even be at the top)
   // and focus fell to <body> with the unmounted textarea. `posted` feeds
-  // the composer's status line and its "View post" link; `seq` makes
-  // each post a fresh event, so a second post is announced as well.
-  const [posted, setPosted] = useState<{ seq: number; actId: number | null } | null>(null);
-  const postedSeq = useRef(0);
+  // the composer's status line and its "View post" link (PostedNotice);
+  // each post is a fresh event, so a second post is announced as well.
+  const { posted, record: recordPost, clear: clearPosted } = usePostedEvent();
   const focusTriggerAfterPost = useRef(false);
 
   // Giphy integration — fetched once per session, cached. Drives the
@@ -187,9 +194,9 @@ export function useComposerState({ groupId, hallFeed, pageId, initialExpanded, o
     setVisibility("members_only");
     setError(null);
     setExpanded(false);
-    postedSeq.current += 1;
-    setPosted({ seq: postedSeq.current, actId });
+    recordPost(actId);
     focusTriggerAfterPost.current = true;
+    onPosted?.(actId);
     onClose?.();
   };
 
@@ -223,8 +230,8 @@ export function useComposerState({ groupId, hallFeed, pageId, initialExpanded, o
 
   // A new draft starts: the last post's status line has served its turn.
   useEffect(() => {
-    if (expanded) setPosted(null);
-  }, [expanded]);
+    if (expanded) clearPosted();
+  }, [expanded, clearPosted]);
 
   const trimmed = content.trim();
   const length  = content.length;
