@@ -65,6 +65,9 @@ export interface HolderLeaveConfirmProps {
   onLeaveStart?: () => void;
   onSuccess?: () => void;
   onError?: () => void;
+  /** GroupActionButton's drawn 44px box, so LEAVE matches JOIN on the
+   *  group page strip. Off: the dense-row size, with a 44px hit area. */
+  touchTarget?: boolean;
 }
 
 /** Same props for both kinds. */
@@ -86,6 +89,7 @@ function LeaveConfirmControl({
   setConfirming,
   humanizeError,
   onLeaveStart,
+  touchTarget,
 }: {
   groupId: number;
   copy: LeaveConfirmCopy;
@@ -94,6 +98,7 @@ function LeaveConfirmControl({
   setConfirming: (open: boolean) => void;
   humanizeError: (err: BccApiError) => string;
   onLeaveStart?: (() => void) | undefined;
+  touchTarget: boolean;
 }) {
   const errorMessage = mutation.error ? humanizeError(mutation.error) : null;
 
@@ -106,6 +111,7 @@ function LeaveConfirmControl({
         isPending={mutation.isPending}
         // Failures render inside the dialog, which is open whenever one exists.
         errorMessage={null}
+        touchTarget={touchTarget}
         onClick={() => {
           mutation.reset();
           setConfirming(true);
@@ -141,6 +147,7 @@ export function HolderLeaveConfirm({
   onLeaveStart,
   onSuccess,
   onError,
+  touchTarget = false,
 }: HolderLeaveConfirmProps) {
   const [confirming, setConfirming] = useState(false);
   const mutation = useLeaveHolderGroupMutation({
@@ -159,6 +166,7 @@ export function HolderLeaveConfirm({
       setConfirming={setConfirming}
       humanizeError={humanizeError}
       onLeaveStart={onLeaveStart}
+      touchTarget={touchTarget}
     />
   );
 }
@@ -169,6 +177,7 @@ export function ValidatorLeaveConfirm({
   onLeaveStart,
   onSuccess,
   onError,
+  touchTarget = false,
 }: ValidatorLeaveConfirmProps) {
   const [confirming, setConfirming] = useState(false);
   const mutation = useLeaveValidatorGroupMutation({
@@ -187,6 +196,7 @@ export function ValidatorLeaveConfirm({
       setConfirming={setConfirming}
       humanizeError={humanizeError}
       onLeaveStart={onLeaveStart}
+      touchTarget={touchTarget}
     />
   );
 }

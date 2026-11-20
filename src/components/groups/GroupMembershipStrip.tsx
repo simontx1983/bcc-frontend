@@ -27,7 +27,7 @@
 import type { Route } from "next";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { GroupActionButton } from "@/components/groups/GroupActionButton";
 import {
@@ -107,12 +107,31 @@ type OptimisticIntent = "joining" | "leaving" | null;
 
 export function GroupMembershipStrip({ group, membersHref }: GroupMembershipStripProps) {
   const [optimisticIntent, setOptimisticIntent] = useState<OptimisticIntent>(null);
+  const headingRef = useRef<HTMLHeadingElement | null>(null);
+  const bodyRef = useRef<HTMLDivElement | null>(null);
+  // Set when a button in the strip (or in a dialog it opened) is pressed;
+  // read once, when the refreshed membership lands.
+  const actedRef = useRef(false);
 
   // When the server-supplied membership changes (router.refresh landed),
   // the in-flight optimistic prediction has been replaced with truth —
   // clear it so a future action starts from a clean state.
+  //
+  // F-317 M-gr2: the refresh also swaps the control the viewer pressed
+  // (JOIN becomes LEAVE, a different component), and focus fell to <body>
+  // with it. If that happened after a press in this strip, focus moves to
+  // the control that replaced it, or to the heading when there is none.
+  // Focus the viewer has moved somewhere else is left alone.
   useEffect(() => {
     setOptimisticIntent(null);
+    if (!actedRef.current) return;
+    actedRef.current = false;
+    const active = document.activeElement;
+    if (active !== null && active !== document.body) return;
+    const next = bodyRef.current?.querySelector<HTMLElement>(
+      "button:not([disabled]):not([aria-disabled='true'])",
+    );
+    (next ?? headingRef.current)?.focus();
   }, [group.viewer_membership]);
 
   return (
@@ -122,6 +141,8 @@ export function GroupMembershipStrip({ group, membersHref }: GroupMembershipStri
     >
       <header className="bcc-paper-head">
         <h3
+          ref={headingRef}
+          tabIndex={-1}
           className="bcc-stencil"
           style={{ fontSize: "16px", letterSpacing: "0.18em" }}
         >
@@ -133,7 +154,15 @@ export function GroupMembershipStrip({ group, membersHref }: GroupMembershipStri
         />
       </header>
 
-      <div className="px-6 py-5">
+      <div
+        ref={bodyRef}
+        className="px-6 py-5"
+        onClickCapture={(e) => {
+          if (e.target instanceof Element && e.target.closest("button") !== null) {
+            actedRef.current = true;
+          }
+        }}
+      >
         {/* Above the action: this is where a delegator decides to join, so
             what they'd be verified against has to be in view first. */}
         {group.type === "validator" && group.validator_stats != null && (
@@ -147,7 +176,10 @@ export function GroupMembershipStrip({ group, membersHref }: GroupMembershipStri
         {membersHref !== undefined && (
           <PendingRequestsPointer group={group} membersHref={membersHref} />
         )}
-        <RequestAnnouncer status={group.viewer_membership?.status} />
+        <MembershipAnnouncer
+          membership={group.viewer_membership}
+          noun={group.type === "hall" ? "Hall" : "group"}
+        />
       </div>
     </article>
   );
@@ -335,6 +367,7 @@ function HolderJoinButton({ groupId, onActionStart, onActionError }: ActionButto
         pendingLabel="JOINING…"
         isPending={mutation.isPending}
         errorMessage={errorMessage}
+        touchTarget
         onClick={() => {
           mutation.reset();
           onActionStart("joining");
@@ -480,6 +513,7 @@ function EligibilityCheck({
           pendingLabel={connectLabel}
           isPending={busy}
           errorMessage={errorMessage}
+          touchTarget
           onClick={() => {
             void connectAndJoin();
           }}
@@ -504,6 +538,7 @@ function EligibilityCheck({
           pendingLabel={busy ? connectLabel : "CHECKING…"}
           isPending={busy}
           errorMessage={errorMessage}
+          touchTarget
           onClick={() => {
             link.reset();
             join.reset();
@@ -519,7 +554,7 @@ function EligibilityCheck({
             onClick={() => {
               void connectAndJoin();
             }}
-            className="bcc-mono inline-flex shrink-0 items-center border-2 border-cardstock-edge px-3 py-1.5 text-[11px] tracking-[0.18em] text-ink-soft transition motion-reduce:transition-none hover:border-ink/50 hover:text-ink disabled:opacity-60"
+            className="bcc-mono inline-flex min-h-[44px] shrink-0 items-center border-2 border-cardstock-edge px-3 text-[11px] tracking-[0.18em] text-ink-soft transition motion-reduce:transition-none hover:border-ink/50 hover:text-ink disabled:opacity-60"
           >
             CONNECT ANOTHER WALLET
           </button>
@@ -538,6 +573,7 @@ function HolderLeaveButton({ groupId, onActionStart, onActionError }: ActionButt
       <HolderLeaveConfirm
         groupId={groupId}
         humanizeError={(err) => humanizeMembershipError(err, "leave")}
+        touchTarget
         onLeaveStart={() => onActionStart("leaving")}
         onSuccess={onSuccess}
         onError={onActionError}
@@ -555,6 +591,7 @@ function ValidatorLeaveButton({ groupId, onActionStart, onActionError }: ActionB
       <ValidatorLeaveConfirm
         groupId={groupId}
         humanizeError={(err) => humanizeMembershipError(err, "leave")}
+        touchTarget
         onLeaveStart={() => onActionStart("leaving")}
         onSuccess={onSuccess}
         onError={onActionError}
@@ -577,6 +614,7 @@ function HallJoinButton({ groupId, onActionStart, onActionError }: ActionButtonP
         pendingLabel="JOINING…"
         isPending={mutation.isPending}
         errorMessage={errorMessage}
+        touchTarget
         onClick={() => {
           mutation.reset();
           onActionStart("joining");
@@ -601,6 +639,7 @@ function HallLeaveButton({ groupId, onActionStart, onActionError }: ActionButton
         pendingLabel="LEAVING…"
         isPending={mutation.isPending}
         errorMessage={errorMessage}
+        touchTarget
         onClick={() => {
           mutation.reset();
           onActionStart("leaving");
@@ -625,6 +664,7 @@ function PlainJoinButton({ groupId, onActionStart, onActionError }: ActionButton
         pendingLabel="JOINING…"
         isPending={mutation.isPending}
         errorMessage={errorMessage}
+        touchTarget
         onClick={() => {
           mutation.reset();
           onActionStart("joining");
@@ -649,6 +689,7 @@ function PlainLeaveButton({ groupId, onActionStart, onActionError }: ActionButto
         pendingLabel="LEAVING…"
         isPending={mutation.isPending}
         errorMessage={errorMessage}
+        touchTarget
         onClick={() => {
           mutation.reset();
           onActionStart("leaving");
@@ -825,19 +866,33 @@ function InviteAnswer({ groupId, groupName }: { groupId: number; groupName: stri
 }
 
 /**
- * F-272 — a polite live region that speaks when the refreshed page moves
- * the viewer into "requested" (or back out of it). It is mounted empty and
- * only filled by a CHANGE, so a page that loads already-requested says
- * nothing; the visible strip copy covers that.
+ * A polite live region that speaks when the refreshed page changes where
+ * the viewer stands: joined or left (F-317 M-gr2; the pill flips silently),
+ * and into or out of "requested" (F-272). It is mounted empty and only
+ * filled by a CHANGE from the previous render, so a page that loads
+ * already-joined or already-requested says nothing; the visible strip copy
+ * covers that.
  */
-function RequestAnnouncer({ status }: { status: GroupMembershipStatus | undefined }) {
-  const [initial] = useState(status);
+function MembershipAnnouncer({
+  membership,
+  noun,
+}: {
+  membership: GroupDetailResponse["viewer_membership"];
+  noun: "group" | "Hall";
+}) {
+  const isMember = membership?.is_member ?? null;
+  const status: GroupMembershipStatus | undefined = membership?.status;
+  const prev = useRef({ isMember, status });
   const [message, setMessage] = useState("");
   useEffect(() => {
-    if (status === initial) return;
-    if (status === "requested") setMessage("Request sent. A moderator will decide.");
-    else if (initial === "requested" && status === "none") setMessage("Request cancelled.");
-  }, [status, initial]);
+    const before = prev.current;
+    prev.current = { isMember, status };
+    if (before.isMember === false && isMember === true) setMessage(`You joined this ${noun}.`);
+    else if (before.isMember === true && isMember === false) setMessage(`You left this ${noun}.`);
+    else if (before.status !== "requested" && status === "requested") {
+      setMessage("Request sent. A moderator will decide.");
+    } else if (before.status === "requested" && status === "none") setMessage("Request cancelled.");
+  }, [isMember, status, noun]);
   return (
     <p role="status" aria-live="polite" className="sr-only">
       {message}
