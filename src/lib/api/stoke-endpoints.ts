@@ -15,7 +15,8 @@
 import { bccFetchAsClient } from "@/lib/api/client";
 import type { FeedReactions } from "@/lib/api/types";
 
-function actIdFromFeedId(feedId: string): string {
+/** "feed_<n>" → "<n>". Shared with the repost routes, which key the same way. */
+export function actIdFromFeedId(feedId: string): string {
   return feedId.startsWith("feed_") ? feedId.slice("feed_".length) : feedId;
 }
 

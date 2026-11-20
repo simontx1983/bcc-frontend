@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * PostActionBar — the shared Stoke / Helpful / Comment / Share action row used by
+ * PostActionBar — the shared Stoke / Helpful / Comment / Share / Repost / Quote action row used by
  * both FeedItemCard and PostDetail so the two surfaces stay identical.
  *
  * The three pills sit tight at the left (X/Reddit-style quiet action
@@ -15,6 +15,7 @@ import { ClockIcon, ReplyIcon } from "@/components/feed/actionIcons";
 import { PostHelpfulButton } from "@/components/feed/HelpfulButton";
 import { hasEngagementControls } from "@/components/feed/postBody";
 import { ReactionRail } from "@/components/feed/ReactionRail";
+import { QuoteButton, RepostButton } from "@/components/feed/RepostButton";
 import { ShareButton } from "@/components/feed/ShareButton";
 import { formatRelativeTime } from "@/lib/format";
 import type { FeedItem } from "@/lib/api/types";
@@ -91,6 +92,10 @@ export function PostActionBar({
         selfHref={item.links.self}
         {...(shareTitle !== undefined ? { shareTitle } : {})}
       />
+      {/* F-346: Repost then Quote, after Share (note 34). Each renders
+          nothing until the server sends its permission. */}
+      <RepostButton item={item} />
+      <QuoteButton item={item} />
       {timestamp !== undefined && (
         <time
           dateTime={timestamp}

@@ -30,7 +30,7 @@ import type { InfiniteData, QueryClient } from "@tanstack/react-query";
 import { FEED_ITEM_QUERY_KEY, FEED_QUERY_KEY_ROOT } from "@/hooks/useFeed";
 import { GROUP_FEED_QUERY_KEY_ROOT } from "@/hooks/useGroupFeed";
 import { USER_ACTIVITY_QUERY_KEY_ROOT } from "@/hooks/useUserActivity";
-import type { FeedItem, FeedReactions, FeedResponse } from "@/lib/api/types";
+import type { FeedItem, FeedReactions, FeedResponse, RepostState } from "@/lib/api/types";
 
 /**
  * Every infinite-query namespace that carries FeedResponse pages. The
@@ -141,6 +141,43 @@ export function patchFeedItem(
  * the stale row stays clickable and its detail route 404s.
  */
 const FEED_LISTING_ROOTS = [...FEED_PAGE_ROOTS, USER_ACTIVITY_QUERY_KEY_ROOT] as const;
+
+/**
+ * F-346 — write a repost/quote response into every cached copy of its
+ * root: the root itself, every repost of it (whose own repost fields are
+ * keyed on the root too) and the nested `repost_of` copy, across every
+ * listing and every `["feedItem", id]` detail cache. Items that do not
+ * involve the root keep their reference, so memoized cards skip.
+ */
+export function patchRepostState(queryClient: QueryClient, state: RepostState): void {
+  const root = state.root_feed_id;
+  const fields = {
+    repost_count: state.repost_count,
+    quote_count: state.quote_count,
+    viewer_has_reposted: state.viewer_has_reposted,
+  };
+  const patch = (item: FeedItem): FeedItem => {
+    const nested = item.repost_of;
+    const nestedHit = nested != null && nested.id === root;
+    if (item.id !== root && !nestedHit) return item;
+    return nestedHit ? { ...item, ...fields, repost_of: { ...nested, ...fields } } : { ...item, ...fields };
+  };
+
+  for (const listingRoot of FEED_LISTING_ROOTS) {
+    queryClient.setQueriesData<InfiniteData<FeedResponse>>({ queryKey: listingRoot }, (oldData) =>
+      oldData === undefined
+        ? oldData
+        : {
+            ...oldData,
+            pages: oldData.pages.map((page) => ({ ...page, items: page.items.map(patch) })),
+          },
+    );
+  }
+  // Every detail cache: a repost's permalink holds the root nested inside it.
+  queryClient.setQueriesData<FeedItem>({ queryKey: FEED_ITEM_QUERY_KEY("").slice(0, 1) }, (old) =>
+    old === undefined || typeof old !== "object" || !("id" in old) ? old : patch(old),
+  );
+}
 
 /**
  * Drop the item from every cached listing and clear its

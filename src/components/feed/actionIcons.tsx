@@ -21,10 +21,22 @@ import {
   HandHelping,
   Image as LucideImage,
   MessageCircle,
+  MessageSquareQuote,
+  Repeat2,
   Sparkles,
   SquareArrowOutUpRight,
   Zap,
 } from "lucide-react";
+
+/** F-346 plain repost. */
+export function RepostIcon({ size = 17, className }: { size?: number; className?: string }) {
+  return <Repeat2 size={size} className={className} aria-hidden strokeWidth={1.8} />;
+}
+
+/** F-346 quote repost. */
+export function QuoteIcon({ size = 17, className }: { size?: number; className?: string }) {
+  return <MessageSquareQuote size={size} className={className} aria-hidden strokeWidth={1.8} />;
+}
 
 export function FlameIcon({
   size,
