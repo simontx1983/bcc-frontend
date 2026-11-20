@@ -297,6 +297,8 @@ describe("F-264 (3) — the listbox is the suggestions list, and options hold no
     expect(children).toHaveLength(2);
     for (const child of children) {
       expect(child.getAttribute("role")).toBe("option");
+      // Not a Tab stop itself, and nothing focusable inside it.
+      expect(child.hasAttribute("tabindex")).toBe(false);
       expect(child.querySelector("button, a[href], input, [tabindex]")).toBeNull();
     }
     const viewAll = screen.getByRole("button", { name: /view all results/i });
