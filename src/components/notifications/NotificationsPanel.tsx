@@ -27,6 +27,7 @@
 import { useEffect, useRef } from "react";
 
 import type { Route } from "next";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import { Avatar } from "@/components/identity/Avatar";
@@ -36,9 +37,13 @@ import {
   useUnreadCount,
 } from "@/hooks/useNotifications";
 import { LoadFailure } from "@/components/ui/LoadFailure";
+import { Skeleton } from "@/components/ui/Skeleton";
 import { humanizeCode, isPermissionDenial } from "@/lib/api/errors";
 import type { NotificationItem } from "@/lib/api/types";
 import { formatRelativeTime } from "@/lib/format";
+
+/** The profile's Notifications tab, where the prefs form lives. */
+export const NOTIFICATION_SETTINGS_HREF = "/u/me?tab=notifications" as Route;
 
 interface NotificationsPanelProps {
   /** False for anon — the hooks short-circuit without firing. */
@@ -69,6 +74,10 @@ export function NotificationsPanel({
 
   const unreadCount = unread.data?.unread_count ?? 0;
   const items: NotificationItem[] = (list.data?.pages ?? []).flatMap((p) => p.items);
+
+  // M-no3 (UX scan): the list follows the badge. BadgesProvider
+  // invalidates this list whenever the unread count rises, open or not
+  // (the header mounts this panel only while it is open).
 
   // §γ — copy is keyed on err.code; never render err.message. The
   // previous single hardcoded line is kept as the default, so the
@@ -173,7 +182,8 @@ export function NotificationsPanel({
               type="button"
               onClick={handleMarkAll}
               disabled={markRead.isPending}
-              className="bcc-mono text-[10px] tracking-[0.16em] normal-case text-[var(--bcc-text)] underline underline-offset-2 disabled:cursor-not-allowed disabled:text-[var(--bcc-text-muted)]"
+              // M-no6: a 44px target (it was ~15px of underlined text).
+              className="bcc-mono -my-2.5 inline-flex min-h-[44px] items-center px-2 text-[10px] tracking-[0.16em] normal-case text-[var(--bcc-text)] underline underline-offset-2 disabled:cursor-not-allowed disabled:text-[var(--bcc-text-muted)]"
             >
               {markRead.isPending ? "Marking…" : "Mark all read"}
             </button>
@@ -198,8 +208,11 @@ export function NotificationsPanel({
           />
         </div>
       ) : list.isLoading ? (
-        <div className="bcc-mono px-4 py-3 text-[11px] text-[var(--bcc-text-secondary)]">
-          Loading…
+        // M-no5: row-shaped placeholders (the shared Skeleton, which
+        // respects reduced motion) instead of a bare "Loading…".
+        <div className="flex flex-col gap-px px-2 py-2">
+          <span className="sr-only">Loading notifications…</span>
+          <Skeleton className="h-14" count={3} />
         </div>
       ) : items.length === 0 && !list.isError ? (
         // Sprint 5 empty-state hygiene: "No notifications yet. We'll
@@ -209,8 +222,16 @@ export function NotificationsPanel({
         // rest of the product uses (FILE 01-07 frames on profile,
         // "on the books" on halls empty). Observational; no
         // promise; no system-speaking-at-you.
-        <div className="bcc-mono px-4 py-6 text-center text-[11px] text-[var(--bcc-text-secondary)]">
-          Nothing on file.
+        // M-no5: not a dead end. Where to choose what arrives here.
+        <div className="bcc-mono flex flex-col items-center gap-2 px-4 py-6 text-center text-[11px] text-[var(--bcc-text-secondary)]">
+          <span>Nothing on file.</span>
+          <Link
+            href={NOTIFICATION_SETTINGS_HREF}
+            onClick={onNavigate}
+            className="inline-flex min-h-[44px] items-center text-[var(--bcc-text)] underline underline-offset-2"
+          >
+            Notification settings
+          </Link>
         </div>
       ) : (
         <div className="flex max-h-[60vh] flex-col gap-px overflow-y-auto">
