@@ -22,13 +22,22 @@
  * Only `viewerHandle` is available here (from the session) — no avatar
  * image, display name, or rank, same degraded-identity fallback the
  * inline composer already uses for bare-mount call sites (ActivityPanel).
+ *
+ * F-494: a successful post closes the Dialog, which unmounts the
+ * composer's own "Posted" line. So this host shows a floating
+ * "Posted — View post" notice (PostedNotice), right after the button in
+ * the DOM: the Dialog returns focus to the button, and the next Tab
+ * reaches the link. It clears on its × (focus back to the button), on
+ * the next open, or on a route change. No timeout: it holds a link.
  */
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
 
 import { Composer } from "@/components/composer/Composer";
+import { PostedNotice, usePostedEvent } from "@/components/composer/PostedNotice";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Dialog } from "@/components/ui/Dialog";
 
@@ -51,6 +60,20 @@ export function NewPostTrigger({ className, style, ariaLabel, title, children }:
   // successful post still close directly — both are explicit.
   const [hasDraft, setHasDraft] = useState(false);
   const [confirmingDiscard, setConfirmingDiscard] = useState(false);
+
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const { posted, record: recordPost, clear: clearPosted } = usePostedEvent();
+  const pathname = usePathname();
+  // The notice belongs to the page it was posted from ("View post" itself
+  // navigates away, which clears it too).
+  useEffect(() => {
+    clearPosted();
+  }, [pathname, clearPosted]);
+
+  const dismissPosted = useCallback(() => {
+    clearPosted();
+    triggerRef.current?.focus();
+  }, [clearPosted]);
 
   const close = useCallback(() => {
     setOpen(false);
@@ -84,8 +107,12 @@ export function NewPostTrigger({ className, style, ariaLabel, title, children }:
   return (
     <>
       <button
+        ref={triggerRef}
         type="button"
-        onClick={() => setOpen(true)}
+        onClick={() => {
+          clearPosted();
+          setOpen(true);
+        }}
         className={className}
         style={style}
         aria-label={ariaLabel}
@@ -94,6 +121,7 @@ export function NewPostTrigger({ className, style, ariaLabel, title, children }:
       >
         {children}
       </button>
+      <PostedNotice posted={posted} variant="floating" onDismiss={dismissPosted} />
       {open && (
         <Dialog title="Compose a post" onClose={requestClose} bare center panelClassName="max-w-2xl">
           <Composer
@@ -101,6 +129,7 @@ export function NewPostTrigger({ className, style, ariaLabel, title, children }:
             startExpanded
             hosted
             onClose={close}
+            onPosted={recordPost}
             onDraftChange={setHasDraft}
             viewerHandle={viewerHandle}
           />
