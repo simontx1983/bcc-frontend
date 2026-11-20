@@ -8,6 +8,20 @@
  */
 
 /**
+ * A wait in seconds as words: "a minute", "12 minutes", "5 hours".
+ * Always rounded UP, so the wait it names is never shorter than the real
+ * one: someone told "in 4 hours" who tries at 4 hours must not be refused.
+ * Under two hours it counts minutes (90 minutes, not "2 hours").
+ */
+export function formatWaitDuration(seconds: number): string {
+  if (!Number.isFinite(seconds) || seconds <= 60) return "a minute";
+  const minutes = Math.ceil(seconds / 60);
+  if (minutes < 120) return `${minutes} minutes`;
+  const hours = Math.ceil(seconds / 3600);
+  return `${hours} hours`;
+}
+
+/**
  * Format an ISO 8601 UTC timestamp as a relative phrase like "2d" /
  * "3h" / "just now". Bounded resolution — no calendar math beyond
  * 7 days; older shows "Mmm dd".
