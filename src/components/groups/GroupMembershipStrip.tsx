@@ -133,26 +133,6 @@ export function humanizeMembershipError(
 }
 
 /**
- * The strip's mutation handlers: refresh the SSR'd page on success, and on
- * a 409 too, since a conflict means the server's state moved under the
- * viewer (the copy above says "Showing the latest"). Any failure snaps the
- * optimistic pill back.
- */
-function useMembershipHandlers(onActionError: () => void): {
-  onSuccess: () => void;
-  onError: (err: BccApiError) => void;
-} {
-  const router = useRouter();
-  return {
-    onSuccess: () => router.refresh(),
-    onError: (err) => {
-      onActionError();
-      if (err.code === "bcc_conflict") router.refresh();
-    },
-  };
-}
-
-/**
  * Optimistic intent recorded the instant a join/leave action fires —
  * lets the pill predict the post-mutation state and skip the ~500ms
  * `router.refresh()` round-trip flicker. Reset to null on action error
@@ -166,6 +146,33 @@ type OptimisticIntent = "joining" | "leaving" | null;
  * Outside a strip (no provider) it is a no-op.
  */
 const MembershipActedContext = createContext<() => void>(() => {});
+
+/**
+ * The strip's join/leave handlers: refresh the SSR'd page on success, and
+ * on a 409 too, since a conflict means the server's state moved under the
+ * viewer (the copy above says "Showing the latest"). Both tell the strip
+ * first (focus, M-gr2), like useRefreshOnSettle. Any failure snaps the
+ * optimistic pill back.
+ */
+function useMembershipHandlers(onActionError: () => void): {
+  onSuccess: () => void;
+  onError: (err: BccApiError) => void;
+} {
+  const router = useRouter();
+  const markActed = useContext(MembershipActedContext);
+  return {
+    onSuccess: () => {
+      markActed();
+      router.refresh();
+    },
+    onError: (err) => {
+      onActionError();
+      if (err.code !== "bcc_conflict") return;
+      markActed();
+      router.refresh();
+    },
+  };
+}
 
 export function GroupMembershipStrip({ group, membersHref }: GroupMembershipStripProps) {
   const [optimisticIntent, setOptimisticIntent] = useState<OptimisticIntent>(null);
