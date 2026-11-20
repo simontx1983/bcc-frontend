@@ -79,22 +79,77 @@ interface GroupMembershipStripProps {
 
 /**
  * §γ — join/leave failures render the returned string inline; copy is
- * keyed on err.code, never err.message. `verb` is "join" | "leave".
+ * keyed on err.code, never err.message. `verb` is "join" | "leave";
+ * `noun` is what the viewer is joining, "group" or "Hall".
+ *
+ * F-317 M-gr1 — `bcc_forbidden` on a join (contract §4.7 / §4.7.1 /
+ * §4.7.3):
+ *   - a holder, delegator or plain join answers it ONLY for a suspended
+ *     account, so it says so;
+ *   - a Hall join answers it for a suspended account, a Hall closed to
+ *     open joining, AND a moderator's ban, with nothing in `error.data` to
+ *     tell them apart. The Hall line is one that is true of all three
+ *     (a suspended member used to be told the Hall "doesn't accept open
+ *     membership").
+ * A 409 means the server's state moved under the viewer; callers refresh
+ * the page on it (`useMembershipHandlers`), so the line says it is showing
+ * the latest. A leave refused with `bcc_permission_denied` is only ever
+ * the owner (§4.7.1 / §4.7.3).
  *
  * Exported for reuse by CommunityJoinCard (the community trading card
  * joins through the same three mutations and must speak the same
  * copy).
  */
-export function humanizeMembershipError(err: unknown, verb: "join" | "leave"): string {
+export function humanizeMembershipError(
+  err: unknown,
+  verb: "join" | "leave",
+  noun: "group" | "Hall",
+): string {
   return humanizeCode(
     err,
     {
       bcc_rate_limited: `Slow down — too many ${verb} attempts. Wait a minute.`,
-      bcc_unauthorized: `Sign in to ${verb} this group.`,
-      bcc_permission_denied: "You don't meet this group's requirements yet.",
+      bcc_unauthorized: `Sign in to ${verb} this ${noun}.`,
+      bcc_permission_denied:
+        verb === "leave"
+          ? "Owners can't leave their own community. Hand off ownership first."
+          : `You don't meet this ${noun}'s requirements yet.`,
+      ...(verb === "join"
+        ? {
+            bcc_forbidden:
+              noun === "Hall"
+                ? "You can't join this Hall right now."
+                : "Your account is suspended, so you can't join communities right now.",
+            // Holder join: the ownership check could not run, or the write
+            // failed. Fail-closed and retryable; never an eligibility answer.
+            bcc_upstream_unavailable: "Couldn't confirm your membership just now. Nothing changed — try again.",
+          }
+        : {}),
+      bcc_conflict: "This changed a moment ago. Showing the latest.",
+      bcc_unavailable: "Something went wrong on our side. Nothing changed — try again.",
     },
-    `Couldn't ${verb} this group. Try again.`,
+    `Couldn't ${verb} this ${noun}. Try again.`,
   );
+}
+
+/**
+ * The strip's mutation handlers: refresh the SSR'd page on success, and on
+ * a 409 too, since a conflict means the server's state moved under the
+ * viewer (the copy above says "Showing the latest"). Any failure snaps the
+ * optimistic pill back.
+ */
+function useMembershipHandlers(onActionError: () => void): {
+  onSuccess: () => void;
+  onError: (err: BccApiError) => void;
+} {
+  const router = useRouter();
+  return {
+    onSuccess: () => router.refresh(),
+    onError: (err) => {
+      onActionError();
+      if (err.code === "bcc_conflict") router.refresh();
+    },
+  };
 }
 
 /**
@@ -322,10 +377,9 @@ function useRefreshOnSuccess(): () => void {
 }
 
 function HolderJoinButton({ groupId, onActionStart, onActionError }: ActionButtonProps) {
-  const onSuccess = useRefreshOnSuccess();
-  const mutation = useJoinHolderGroupMutation({ onSuccess, onError: onActionError });
+  const mutation = useJoinHolderGroupMutation(useMembershipHandlers(onActionError));
   const errorMessage = mutation.error
-    ? humanizeMembershipError(mutation.error, "join")
+    ? humanizeMembershipError(mutation.error, "join", "group")
     : null;
   return (
     <ActionRow primaryCopy="Join the group to read its feed and post inside it.">
@@ -366,8 +420,14 @@ function HolderEligibilityCheck({ group, onActionStart, onActionError }: ActionD
       join={join}
       connectCopy={(chainLabel) => `Connect a ${chainLabel} wallet to verify you hold this NFT.`}
       fallbackHint="Hold an NFT from this collection to join."
-      humanizeJoinError={(err) => humanizeMembershipError(err, "join")}
-      offerAnotherWallet={(err) => err.code !== "bcc_rate_limited"}
+      humanizeJoinError={(err) => humanizeMembershipError(err, "join", "group")}
+      // F-317 M-gr1: only the "doesn't hold it" answer, bcc_permission_denied
+      // (§4.7.1). It used to show for every code but a rate limit: a
+      // suspension, a provider outage, an unsupported chain. A moderator's
+      // eviction shares that code with no reason_code on the holder route
+      // (the delegator route has one), so it still shows there; a backend
+      // reason_code would let this drop it too.
+      offerAnotherWallet={(err) => err.code === "bcc_permission_denied"}
     />
   );
 }
@@ -489,9 +549,10 @@ function EligibilityCheck({
   }
 
   // Has a wallet on the chain (or we couldn't determine) → CHECK & JOIN against
-  // the already-linked wallet (no signature). If it comes back not-eligible,
-  // offer a secondary "connect another wallet" so a user holding the NFT in an
-  // unlinked wallet can link it and retry.
+  // the already-linked wallet (no signature). When the kind's
+  // `offerAnotherWallet` says the refusal is one another wallet could fix
+  // (not eligible), offer a secondary "connect another wallet" so a user
+  // holding the NFT or stake in an unlinked wallet can link it and retry.
   const hint = unlockHint(group.permissions, "can_join") ?? fallbackHint;
   const showConnectAnother =
     canConnect && join.error !== null && offerAnotherWallet(join.error) && !busy;
@@ -537,7 +598,7 @@ function HolderLeaveButton({ groupId, onActionStart, onActionError }: ActionButt
     <ActionRow primaryCopy="You're an active member. Posts you make here scope to this group's feed.">
       <HolderLeaveConfirm
         groupId={groupId}
-        humanizeError={(err) => humanizeMembershipError(err, "leave")}
+        humanizeError={(err) => humanizeMembershipError(err, "leave", "group")}
         onLeaveStart={() => onActionStart("leaving")}
         onSuccess={onSuccess}
         onError={onActionError}
@@ -554,7 +615,7 @@ function ValidatorLeaveButton({ groupId, onActionStart, onActionError }: ActionB
     <ActionRow primaryCopy="You're an active member. Posts you make here scope to this group's feed.">
       <ValidatorLeaveConfirm
         groupId={groupId}
-        humanizeError={(err) => humanizeMembershipError(err, "leave")}
+        humanizeError={(err) => humanizeMembershipError(err, "leave", "group")}
         onLeaveStart={() => onActionStart("leaving")}
         onSuccess={onSuccess}
         onError={onActionError}
@@ -564,10 +625,9 @@ function ValidatorLeaveButton({ groupId, onActionStart, onActionError }: ActionB
 }
 
 function HallJoinButton({ groupId, onActionStart, onActionError }: ActionButtonProps) {
-  const onSuccess = useRefreshOnSuccess();
-  const mutation = useJoinHallMutation({ onSuccess, onError: onActionError });
+  const mutation = useJoinHallMutation(useMembershipHandlers(onActionError));
   const errorMessage = mutation.error
-    ? humanizeMembershipError(mutation.error, "join")
+    ? humanizeMembershipError(mutation.error, "join", "Hall")
     : null;
   return (
     <ActionRow primaryCopy="Join the group to read its feed and post inside it.">
@@ -588,10 +648,9 @@ function HallJoinButton({ groupId, onActionStart, onActionError }: ActionButtonP
 }
 
 function HallLeaveButton({ groupId, onActionStart, onActionError }: ActionButtonProps) {
-  const onSuccess = useRefreshOnSuccess();
-  const mutation = useLeaveHallMutation({ onSuccess, onError: onActionError });
+  const mutation = useLeaveHallMutation(useMembershipHandlers(onActionError));
   const errorMessage = mutation.error
-    ? humanizeMembershipError(mutation.error, "leave")
+    ? humanizeMembershipError(mutation.error, "leave", "Hall")
     : null;
   return (
     <ActionRow primaryCopy="You're an active member of this Hall.">
@@ -612,10 +671,9 @@ function HallLeaveButton({ groupId, onActionStart, onActionError }: ActionButton
 }
 
 function PlainJoinButton({ groupId, onActionStart, onActionError }: ActionButtonProps) {
-  const onSuccess = useRefreshOnSuccess();
-  const mutation = useJoinPlainGroupMutation({ onSuccess, onError: onActionError });
+  const mutation = useJoinPlainGroupMutation(useMembershipHandlers(onActionError));
   const errorMessage = mutation.error
-    ? humanizeMembershipError(mutation.error, "join")
+    ? humanizeMembershipError(mutation.error, "join", "group")
     : null;
   return (
     <ActionRow primaryCopy="Join the group to read its feed and post inside it.">
@@ -636,10 +694,9 @@ function PlainJoinButton({ groupId, onActionStart, onActionError }: ActionButton
 }
 
 function PlainLeaveButton({ groupId, onActionStart, onActionError }: ActionButtonProps) {
-  const onSuccess = useRefreshOnSuccess();
-  const mutation = useLeavePlainGroupMutation({ onSuccess, onError: onActionError });
+  const mutation = useLeavePlainGroupMutation(useMembershipHandlers(onActionError));
   const errorMessage = mutation.error
-    ? humanizeMembershipError(mutation.error, "leave")
+    ? humanizeMembershipError(mutation.error, "leave", "group")
     : null;
   return (
     <ActionRow primaryCopy="You're an active member.">
