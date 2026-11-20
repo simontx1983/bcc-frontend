@@ -39,7 +39,11 @@
  *
  * F-319:
  *  - M-me5: TO and MESSAGE were bare spans over placeholder-only fields,
- *    so the fields had no name. They are labels now.
+ *    so the fields had no name. MESSAGE is the textarea's label. TO names
+ *    the whole recipient section as a group (its search box, a picked
+ *    recipient's chip, or a pinned member loading), and the search box by
+ *    the same text: a <label for> pointed at the search box alone, which
+ *    isn't rendered while a chip or a loading pin shows.
  *  - M-me6: a ?to_user pin showed nothing while it loaded, and a failure
  *    other than a private profile fell back to the picker without a word.
  *    The picker was open meanwhile, so a pin landing late replaced a
@@ -73,8 +77,8 @@ import { resolveDmGate, type DmGate } from "@/lib/validators/messaging";
 const SEARCH_DEBOUNCE_MS = 250;
 const PER_PAGE = 12;
 
-/** The recipient search field, named by the TO label (M-me5). */
-const TO_INPUT_ID = "new-message-to";
+/** The TO heading: names the recipient section and its search box (M-me5). */
+const TO_LABEL_ID = "new-message-to-label";
 
 /** Shown after a send that parked in the unclaimed-page queue. */
 const QUEUED_CONFIRMATION =
@@ -344,13 +348,13 @@ function NewMessagePageContent() {
 
         {isAuthed && (
           <form onSubmit={submit} className="flex flex-col gap-6">
-            <div className="flex flex-col gap-2">
-              <label
-                htmlFor={TO_INPUT_ID}
+            <div role="group" aria-labelledby={TO_LABEL_ID} className="flex flex-col gap-2">
+              <span
+                id={TO_LABEL_ID}
                 className="bcc-mono text-[10px] tracking-[0.24em] text-bcc-text-secondary"
               >
                 TO
-              </label>
+              </span>
               {userPinLoading && (
                 <p className="bcc-mono text-[10px] tracking-[0.16em] text-bcc-text-secondary">
                   Loading member…
@@ -559,7 +563,7 @@ function RecipientPicker({
   return (
     <div className="flex flex-col gap-2">
       <input
-        id={TO_INPUT_ID}
+        aria-labelledby={TO_LABEL_ID}
         type="search"
         value={searchInput}
         onChange={(e) => onSearchChange(e.target.value)}
