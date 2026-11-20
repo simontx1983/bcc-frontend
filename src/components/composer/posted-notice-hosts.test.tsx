@@ -10,6 +10,11 @@
  *   - the review dialog's Update tab (ReviewCallout → modal StatusForm)
  *     now shows the line under WRITE A REVIEW. A submitted REVIEW does not.
  *
+ * F-514: the floating panel is portaled into the shared bottom slot (on
+ * document.body), and the region stays in place, sr-only. The keyboard
+ * path is kept by PostedNotice's focus bridge: Tab from the button reaches
+ * "View post", Shift+Tab goes back, Tab past × reaches what followed it.
+ *
  * Real NewPostTrigger / ReviewCallout / Composer / Dialog and QueryClient;
  * the posts endpoints are stubbed.
  */
@@ -121,6 +126,9 @@ function triggerTree() {
 }
 
 const trigger = () => screen.getByRole("button", { name: "New post" });
+/** The floating panel: in the shared bottom slot, on document.body. */
+const slot = () => document.getElementById("bcc-bottom-slot");
+const panelLink = () => within(slot() as HTMLElement).getByRole("link", { name: VIEW_POST_COPY });
 const composeDialog = () => screen.queryByRole("dialog", { name: "Compose a post" });
 
 async function openDialog() {
@@ -153,11 +161,46 @@ describe("NewPostTrigger — 'Posted' after the dialog closes (F-494)", () => {
 
     await waitFor(() => expect(composeDialog()).toBeNull());
     await waitFor(() => expect(notice()).toHaveTextContent(`${POSTED_COPY} — ${VIEW_POST_COPY}`));
-    const link = within(notice()).getByRole("link", { name: VIEW_POST_COPY });
+    // The region announces in place (sr-only); the link is in the panel,
+    // which is in the shared bottom slot on document.body.
+    expect(notice()).toHaveClass("sr-only");
+    const link = panelLink();
     expect(link).toHaveAttribute("href", "/post/10");
+    expect((slot() as HTMLElement).parentElement).toBe(document.body);
+    expect(link.closest(".bcc-panel")).not.toBeNull();
     expect(document.activeElement).toBe(trigger());
-    expect(nextTabbableAfter(trigger())).toBe(link);
-    expect((notice().parentElement as HTMLElement).className).toContain("bcc-panel");
+    // The bridge: Tab from the button reaches "View post" next.
+    const notPrevented = fireEvent.keyDown(trigger(), { key: "Tab" });
+    expect(notPrevented).toBe(false);
+    expect(document.activeElement).toBe(link);
+  });
+
+  it("the bridge: Shift+Tab from View post is the button; Tab past × is what followed the button", async () => {
+    render(triggerTree());
+    await postFromDialog();
+    await waitFor(() => expect(notice()).toHaveTextContent(POSTED_COPY));
+
+    const link = panelLink();
+    link.focus();
+    fireEvent.keyDown(link, { key: "Tab", shiftKey: true });
+    expect(document.activeElement).toBe(trigger());
+
+    const dismiss = screen.getByRole("button", { name: DISMISS_POSTED_COPY });
+    dismiss.focus();
+    fireEvent.keyDown(dismiss, { key: "Tab" });
+    expect(document.activeElement).toBe(screen.getByRole("link", { name: "next link" }));
+
+    // Inside the panel, Tab from View post is left to the browser (× is next).
+    link.focus();
+    expect(fireEvent.keyDown(link, { key: "Tab" })).toBe(true);
+  });
+
+  it("with no notice, Tab from the button is the browser's own", async () => {
+    render(triggerTree());
+    trigger().focus();
+    expect(fireEvent.keyDown(trigger(), { key: "Tab" })).toBe(true);
+    expect(document.activeElement).toBe(trigger());
+    expect(slot()).toBeNull();
   });
 
   it("a second post is a fresh announcement in the same region", async () => {
@@ -169,9 +212,7 @@ describe("NewPostTrigger — 'Posted' after the dialog closes (F-494)", () => {
 
     fx.createPost.mockResolvedValue({ ok: true, kind: "status", feed_id: "feed_124", post_id: 11, act_id: 12 });
     await postFromDialog("second");
-    await waitFor(() =>
-      expect(within(notice()).getByRole("link", { name: VIEW_POST_COPY })).toHaveAttribute("href", "/post/12"),
-    );
+    await waitFor(() => expect(panelLink()).toHaveAttribute("href", "/post/12"));
     expect(notice()).toBe(region);
     expect(region.firstElementChild).not.toBe(first);
   });
