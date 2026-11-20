@@ -4,7 +4,9 @@
  * M6: a successful post used to just collapse the card. Nothing said it
  *     worked (on a ranked feed the new post may not be at the top), and
  *     keyboard focus fell to <body> with the unmounted textarea. Now:
- *       - a status line reads "Posted — View post", linking /post/{feed_id};
+ *       - a status line reads "Posted — View post", linking /post/{act_id}
+ *         (the permalink route reads the bare activity id; the feed_<n>
+ *         wire id 404s there);
  *       - the live region is mounted EMPTY with the composer and filled
  *         per post with a fresh element, so a second post is announced too;
  *       - focus returns to the collapsed "What's the…" trigger;
@@ -60,7 +62,32 @@ vi.mock("@/components/composer/GifPicker", () => ({
 }));
 
 import { Composer, POSTED_COPY, VIEW_POST_COPY } from "@/components/composer/Composer";
+import { getFeedItemById } from "@/lib/api/feed-endpoints";
 import { BccApiError } from "@/lib/api/types";
+
+// The two GET /feed/{id} routes the /post/[id] page can reach: bcc-trust
+// FeedEndpoint registers '/feed/(?P<id>\d+)' and '/feed/(?P<id>[a-zA-Z]{8})'.
+const FEED_ITEM_ROUTE = /^\/wp-json\/bcc\/v1\/feed\/(\d+|[a-zA-Z]{8})$/;
+
+/**
+ * The REST path the /post/[id] page requests for an href: the page hands
+ * its `id` param straight to getFeedItemById. Runs the real fetcher with
+ * fetch stubbed and returns the requested path.
+ */
+async function restPathFor(href: string): Promise<string> {
+  const match = /^\/post\/([^/]+)$/.exec(href);
+  expect(match).not.toBeNull();
+  const id = decodeURIComponent(match?.[1] ?? "");
+  const fetchSpy = vi
+    .spyOn(globalThis, "fetch")
+    .mockResolvedValue(new Response("{}", { status: 404, headers: { "Content-Type": "application/json" } }));
+  try {
+    await getFeedItemById(id, null).catch(() => undefined);
+    return new URL(String(fetchSpy.mock.calls[0]?.[0])).pathname;
+  } finally {
+    fetchSpy.mockRestore();
+  }
+}
 
 let qc: QueryClient;
 
@@ -128,7 +155,7 @@ describe("Composer — after a successful post (F-258 M6)", () => {
     await submit();
 
     await waitFor(() => expect(status()).toHaveTextContent(`${POSTED_COPY} — ${VIEW_POST_COPY}`));
-    expect(within(status()).getByRole("link", { name: VIEW_POST_COPY })).toHaveAttribute("href", "/post/feed_123");
+    expect(within(status()).getByRole("link", { name: VIEW_POST_COPY })).toHaveAttribute("href", "/post/10");
     expect(document.activeElement).toBe(trigger());
     expect(fx.createPost).toHaveBeenCalledTimes(1);
   });
@@ -145,7 +172,7 @@ describe("Composer — after a successful post (F-258 M6)", () => {
     await openAndType("second");
     await submit();
     await waitFor(() =>
-      expect(within(status()).getByRole("link", { name: VIEW_POST_COPY })).toHaveAttribute("href", "/post/feed_124"),
+      expect(within(status()).getByRole("link", { name: VIEW_POST_COPY })).toHaveAttribute("href", "/post/12"),
     );
 
     expect(status()).toBe(region);
@@ -177,8 +204,8 @@ describe("Composer — after a successful post (F-258 M6)", () => {
     expect(textarea().value).toBe("hello");
   });
 
-  it("without a feed id: 'Posted', and no link", async () => {
-    fx.createPost.mockResolvedValue({ ok: true, kind: "status", feed_id: "", post_id: 9, act_id: 10 });
+  it("without an act id: 'Posted', and no link", async () => {
+    fx.createPost.mockResolvedValue({ ok: true, kind: "status", feed_id: "feed_123", post_id: 9 });
     renderInline();
     await openAndType("hello");
     await submit();
@@ -198,7 +225,7 @@ describe("Composer — after a successful post (F-258 M6)", () => {
     await submit();
 
     await waitFor(() =>
-      expect(within(status()).getByRole("link", { name: VIEW_POST_COPY })).toHaveAttribute("href", "/post/feed_gif"),
+      expect(within(status()).getByRole("link", { name: VIEW_POST_COPY })).toHaveAttribute("href", "/post/4"),
     );
     expect(document.activeElement).toBe(trigger());
   });
@@ -213,7 +240,7 @@ describe("Composer — after a successful post (F-258 M6)", () => {
     await submit();
 
     await waitFor(() =>
-      expect(within(status()).getByRole("link", { name: VIEW_POST_COPY })).toHaveAttribute("href", "/post/feed_photo"),
+      expect(within(status()).getByRole("link", { name: VIEW_POST_COPY })).toHaveAttribute("href", "/post/6"),
     );
     expect(document.activeElement).toBe(trigger());
   });
@@ -224,9 +251,32 @@ describe("Composer — after a successful post (F-258 M6)", () => {
     await submit();
 
     await waitFor(() =>
-      expect(within(status()).getByRole("link", { name: VIEW_POST_COPY })).toHaveAttribute("href", "/post/feed_123"),
+      expect(within(status()).getByRole("link", { name: VIEW_POST_COPY })).toHaveAttribute("href", "/post/10"),
     );
     expect(document.activeElement).toBe(trigger());
+  });
+
+  it("the link resolves on the real /post/[id] route (the bare act id, not the feed_<n> wire id)", async () => {
+    renderInline();
+    await openAndType("hello floor");
+    await submit();
+    const link = await within(status()).findByRole("link", { name: VIEW_POST_COPY });
+    const href = link.getAttribute("href") ?? "";
+
+    expect(await restPathFor(href)).toMatch(FEED_ITEM_ROUTE);
+    // Control: the old href shape (/post/{feed_id}) requests a path no
+    // GET route matches, so the matcher above can fail.
+    expect(await restPathFor("/post/feed_123")).not.toMatch(FEED_ITEM_ROUTE);
+  });
+
+  it("an unusable act id links nowhere", async () => {
+    fx.createPost.mockResolvedValue({ ok: true, kind: "status", feed_id: "feed_0", post_id: 9, act_id: 0 });
+    renderInline();
+    await openAndType("hello");
+    await submit();
+
+    await waitFor(() => expect(status()).toHaveTextContent(POSTED_COPY));
+    expect(within(status()).queryByRole("link")).toBeNull();
   });
 });
 

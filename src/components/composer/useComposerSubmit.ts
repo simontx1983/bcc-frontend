@@ -53,13 +53,16 @@ interface UseInlineComposerSubmitArgs {
    */
   altText: string;
   /**
-   * Each success callback receives the new post's `feed_id` (from the
-   * create response), so the composer can link to it (F-258 M6). Null
-   * when the server sent none.
+   * Each success callback receives the new post's activity id (`act_id`
+   * from the create response), so the composer can link to it (F-258
+   * M6). The permalink `/post/[id]` reads a post by that bare number,
+   * the same path the server builds for a feed item's `links.self`; the
+   * `feed_<n>` wire id matches no `GET /feed/{id}` route. Null when the
+   * server sent no usable id.
    */
-  onStatusSuccess: (feedId: string | null) => void;
-  onPhotoSuccess: (feedId: string | null) => void;
-  onGifSuccess: (feedId: string | null) => void;
+  onStatusSuccess: (actId: number | null) => void;
+  onPhotoSuccess: (actId: number | null) => void;
+  onGifSuccess: (actId: number | null) => void;
   onError: (message: string) => void;
 }
 
@@ -84,8 +87,8 @@ export function useInlineComposerSubmit({
     onSuccess: (response) => {
       capturePostPublished("status", groupId !== undefined, visibility, hallFeed);
       // CreatePostResponse is a union (status / review / blog); only the
-      // status and review shapes carry `feed_id`.
-      onStatusSuccess("feed_id" in response ? response.feed_id : null);
+      // status shape carries `act_id`.
+      onStatusSuccess(permalinkActId("act_id" in response ? response.act_id : null));
     },
     onError: (err) => onError(humanizeError(err)),
   });
@@ -110,7 +113,7 @@ export function useInlineComposerSubmit({
         photoAltMutation.mutate({ pho_id: response.photo_id, alt: cleanedAlt });
       }
       capturePostPublished("photo", groupId !== undefined, visibility, hallFeed);
-      onPhotoSuccess(response.feed_id);
+      onPhotoSuccess(permalinkActId(response.act_id));
     },
     onError: (err) => onError(humanizeError(err)),
   });
@@ -118,7 +121,7 @@ export function useInlineComposerSubmit({
   const gifMutation = useCreateGifPostMutation({
     onSuccess: (response) => {
       capturePostPublished("gif", groupId !== undefined, visibility, hallFeed);
-      onGifSuccess(response.feed_id);
+      onGifSuccess(permalinkActId(response.act_id));
     },
     onError: (err) => onError(humanizeError(err)),
   });
@@ -172,6 +175,11 @@ export function useInlineComposerSubmit({
   };
 
   return { isPending, submit };
+}
+
+/** The id for a `/post/{id}` link, or null: a missing or malformed id links nowhere. */
+function permalinkActId(actId: number | null | undefined): number | null {
+  return typeof actId === "number" && Number.isInteger(actId) && actId > 0 ? actId : null;
 }
 
 function capturePostPublished(

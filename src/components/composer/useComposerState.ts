@@ -145,7 +145,7 @@ export function useComposerState({ groupId, hallFeed, pageId, initialExpanded, o
   // and focus fell to <body> with the unmounted textarea. `posted` feeds
   // the composer's status line and its "View post" link; `seq` makes
   // each post a fresh event, so a second post is announced as well.
-  const [posted, setPosted] = useState<{ seq: number; feedId: string | null } | null>(null);
+  const [posted, setPosted] = useState<{ seq: number; actId: number | null } | null>(null);
   const postedSeq = useRef(0);
   const focusTriggerAfterPost = useRef(false);
 
@@ -182,13 +182,13 @@ export function useComposerState({ groupId, hallFeed, pageId, initialExpanded, o
   // Shared tail of every successful submit: reset the draft, collapse,
   // say it worked, and send focus back to the trigger once it is
   // focusable again (it is inert while the form is open).
-  const finishPost = (feedId: string | null) => {
+  const finishPost = (actId: number | null) => {
     setContent("");
     setVisibility("members_only");
     setError(null);
     setExpanded(false);
     postedSeq.current += 1;
-    setPosted({ seq: postedSeq.current, feedId });
+    setPosted({ seq: postedSeq.current, actId });
     focusTriggerAfterPost.current = true;
     onClose?.();
   };
@@ -199,16 +199,16 @@ export function useComposerState({ groupId, hallFeed, pageId, initialExpanded, o
     hallFeed,
     pageId,
     altText,
-    onStatusSuccess: (feedId) => {
-      finishPost(feedId);
+    onStatusSuccess: (actId) => {
+      finishPost(actId);
     },
-    onPhotoSuccess: (feedId) => {
+    onPhotoSuccess: (actId) => {
       clearAttachment();
-      finishPost(feedId);
+      finishPost(actId);
     },
-    onGifSuccess: (feedId) => {
+    onGifSuccess: (actId) => {
       clearGif();
-      finishPost(feedId);
+      finishPost(actId);
     },
     onError: setError,
   });

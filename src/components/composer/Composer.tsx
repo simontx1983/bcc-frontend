@@ -1072,11 +1072,14 @@ function InlineStatusComposer({
         {posted !== null && (
           <span key={posted.seq} className="block px-2 pt-2">
             {POSTED_COPY}
-            {posted.feedId !== null && posted.feedId !== "" && (
+            {posted.actId !== null && (
               <>
                 {" — "}
+                {/* /post/{act_id}: the path the server builds for a feed
+                    item's links.self. Not the feed_<n> wire id, which
+                    matches no GET /feed/{id} route (the page would 404). */}
                 <Link
-                  href={`/post/${encodeURIComponent(posted.feedId)}` as Route}
+                  href={`/post/${posted.actId}` as Route}
                   className="text-blueprint underline-offset-2 hover:underline"
                 >
                   {VIEW_POST_COPY}
