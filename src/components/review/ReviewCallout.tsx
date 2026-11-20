@@ -42,6 +42,7 @@ import type { Route } from "next";
 import Link from "next/link";
 
 import { Composer } from "@/components/composer/Composer";
+import { PostedNotice, usePostedEvent } from "@/components/composer/PostedNotice";
 import { DisabledReason } from "@/components/ui/DisabledReason";
 import { useSignInLink } from "@/lib/auth/sign-in-link";
 import { humanizeCode } from "@/lib/api/errors";
@@ -98,6 +99,11 @@ export function ReviewCallout({
   const queryClient = useQueryClient();
 
   const [open, setOpen] = useState(false);
+  // F-494: the review modal's Status tab can post a status. The modal
+  // closes on success, so the "Posted — View post" line shows here,
+  // straight after WRITE A REVIEW (where the Dialog returns focus).
+  // Cleared on the next open.
+  const { posted, record: recordPost, clear: clearPosted } = usePostedEvent();
   const [removing, setRemoving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -127,12 +133,13 @@ export function ReviewCallout({
       router.replace((qs !== "" ? `${pathname}?${qs}` : pathname) as Route);
       return;
     }
+    clearPosted();
     setOpen(true);
     const next = new URLSearchParams(searchParams.toString());
     next.delete("compose");
     const qs = next.toString();
     router.replace((qs !== "" ? `${pathname}?${qs}` : pathname) as Route);
-  }, [searchParams, pathname, router, viewerAuthed, canReview, hasReviewed]);
+  }, [searchParams, pathname, router, viewerAuthed, canReview, hasReviewed, clearPosted]);
 
   const handleRemove = async () => {
     if (!viewerAuthed || removeId === undefined) return;
@@ -209,7 +216,9 @@ export function ReviewCallout({
       <button
         type="button"
         onClick={() => {
-          if (enabled) setOpen(true);
+          if (!enabled) return;
+          clearPosted();
+          setOpen(true);
         }}
         disabled={!enabled}
         aria-disabled={!enabled}
@@ -224,6 +233,7 @@ export function ReviewCallout({
       >
         WRITE A REVIEW
       </button>
+      <PostedNotice posted={posted} />
       {/* F-321: why it's locked, visible on touch (a title never shows there). */}
       {!enabled && (
         <DisabledReason id={reasonId}>
@@ -252,6 +262,7 @@ export function ReviewCallout({
             ? { reviewTargetId: target.pageId }
             : { reviewTargetUserId: target.userId })}
           reviewTargetName={pageName}
+          onPosted={recordPost}
           onClose={() => {
             setOpen(false);
             router.refresh();

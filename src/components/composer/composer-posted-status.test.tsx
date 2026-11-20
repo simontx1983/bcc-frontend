@@ -61,7 +61,8 @@ vi.mock("@/components/composer/GifPicker", () => ({
   ),
 }));
 
-import { Composer, POSTED_COPY, VIEW_POST_COPY } from "@/components/composer/Composer";
+import { Composer } from "@/components/composer/Composer";
+import { POSTED_COPY, VIEW_POST_COPY } from "@/components/composer/PostedNotice";
 import { getFeedItemById } from "@/lib/api/feed-endpoints";
 import { BccApiError } from "@/lib/api/types";
 
@@ -277,6 +278,61 @@ describe("Composer — after a successful post (F-258 M6)", () => {
 
     await waitFor(() => expect(status()).toHaveTextContent(POSTED_COPY));
     expect(within(status()).queryByRole("link")).toBeNull();
+  });
+});
+
+describe("Composer — a host's onPosted (F-258 hosts)", () => {
+  function renderHosted() {
+    const calls: string[] = [];
+    const onPosted = vi.fn((actId: number | null) => calls.push(`posted:${String(actId)}`));
+    const onClose = vi.fn(() => calls.push("close"));
+    render(
+      wrap(
+        <Composer variant="inline" viewerHandle="alice" startExpanded hosted onPosted={onPosted} onClose={onClose} />,
+      ),
+    );
+    return { calls, onPosted, onClose };
+  }
+
+  it("gets the new post's act id once, before onClose", async () => {
+    const { calls, onPosted } = renderHosted();
+    fireEvent.change(textarea(), { target: { value: "hello from the dialog" } });
+    await submit();
+
+    await waitFor(() => expect(onPosted).toHaveBeenCalledTimes(1));
+    expect(calls).toEqual(["posted:10", "close"]);
+  });
+
+  it("gets null when the server sent no act id", async () => {
+    fx.createGifPost.mockResolvedValue({ ok: true, feed_id: "feed_gif", post_id: 3 });
+    const { calls } = renderHosted();
+    fireEvent.click(screen.getByRole("button", { name: /gif/i }));
+    fireEvent.click(await screen.findByRole("button", { name: "pick test gif" }));
+    await submit();
+
+    await waitFor(() => expect(calls).toEqual(["posted:null", "close"]));
+  });
+
+  it("a failed post calls neither", async () => {
+    fx.createPost.mockRejectedValue(new BccApiError("bcc_rate_limited", "raw", 429, null));
+    const { onPosted, onClose } = renderHosted();
+    fireEvent.change(textarea(), { target: { value: "hello" } });
+    await submit();
+
+    await waitFor(() => expect(fx.createPost).toHaveBeenCalledTimes(1));
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 20));
+    });
+    expect(onPosted).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it("discarding the draft closes without onPosted", () => {
+    const { onPosted, onClose } = renderHosted();
+    fireEvent.click(screen.getByRole("button", { name: "Discard draft" }));
+
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(onPosted).not.toHaveBeenCalled();
   });
 });
 

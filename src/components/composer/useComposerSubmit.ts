@@ -19,6 +19,9 @@ import { captureAnalyticsEvent } from "@/lib/analytics/posthog";
 import { humanizeCode } from "@/lib/api/errors";
 import {
   BccApiError,
+  type CreateGifPostResponse,
+  type CreatePhotoPostResponse,
+  type CreatePostResponse,
   type GiphySearchResult,
   type GroupPostVisibility,
   type HallFeedChannel,
@@ -55,10 +58,9 @@ interface UseInlineComposerSubmitArgs {
   /**
    * Each success callback receives the new post's activity id (`act_id`
    * from the create response), so the composer can link to it (F-258
-   * M6). The permalink `/post/[id]` reads a post by that bare number,
-   * the same path the server builds for a feed item's `links.self`; the
-   * `feed_<n>` wire id matches no `GET /feed/{id}` route. Null when the
-   * server sent no usable id.
+   * M6). `/post/{act_id}` is the numeric permalink the `/post/[id]`
+   * page serves; the `feed_<n>` wire id matches no `GET /feed/{id}`
+   * route. Null when the server sent no usable id.
    */
   onStatusSuccess: (actId: number | null) => void;
   onPhotoSuccess: (actId: number | null) => void;
@@ -86,9 +88,7 @@ export function useInlineComposerSubmit({
   const statusMutation = useCreatePostMutation({
     onSuccess: (response) => {
       capturePostPublished("status", groupId !== undefined, visibility, hallFeed);
-      // CreatePostResponse is a union (status / review / blog); only the
-      // status shape carries `act_id`.
-      onStatusSuccess(permalinkActId("act_id" in response ? response.act_id : null));
+      onStatusSuccess(createdPostActId(response));
     },
     onError: (err) => onError(humanizeError(err)),
   });
@@ -113,7 +113,7 @@ export function useInlineComposerSubmit({
         photoAltMutation.mutate({ pho_id: response.photo_id, alt: cleanedAlt });
       }
       capturePostPublished("photo", groupId !== undefined, visibility, hallFeed);
-      onPhotoSuccess(permalinkActId(response.act_id));
+      onPhotoSuccess(createdPostActId(response));
     },
     onError: (err) => onError(humanizeError(err)),
   });
@@ -121,7 +121,7 @@ export function useInlineComposerSubmit({
   const gifMutation = useCreateGifPostMutation({
     onSuccess: (response) => {
       capturePostPublished("gif", groupId !== undefined, visibility, hallFeed);
-      onGifSuccess(permalinkActId(response.act_id));
+      onGifSuccess(createdPostActId(response));
     },
     onError: (err) => onError(humanizeError(err)),
   });
@@ -177,8 +177,16 @@ export function useInlineComposerSubmit({
   return { isPending, submit };
 }
 
-/** The id for a `/post/{id}` link, or null: a missing or malformed id links nowhere. */
-function permalinkActId(actId: number | null | undefined): number | null {
+/**
+ * The new post's id for its `/post/{id}` link (PostedNotice), or null: a
+ * missing or malformed id links nowhere. CreatePostResponse is a union
+ * (status / review / blog) and only the status shape carries `act_id`.
+ * Shared by the inline composer and the modal StatusForm.
+ */
+export function createdPostActId(
+  response: CreatePostResponse | CreatePhotoPostResponse | CreateGifPostResponse,
+): number | null {
+  const actId = "act_id" in response ? response.act_id : null;
   return typeof actId === "number" && Number.isInteger(actId) && actId > 0 ? actId : null;
 }
 

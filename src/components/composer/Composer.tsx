@@ -47,8 +47,6 @@
  * FeedRankingService hydration. No optimistic insert.
  */
 
-import type { Route } from "next";
-import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -65,7 +63,8 @@ import {
   MENTION_LISTBOX_ID,
   useComposerState,
 } from "@/components/composer/useComposerState";
-import { humanizeError } from "@/components/composer/useComposerSubmit";
+import { PostedNotice } from "@/components/composer/PostedNotice";
+import { createdPostActId, humanizeError } from "@/components/composer/useComposerSubmit";
 import { RankChip } from "@/components/profile/RankChip";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Dialog } from "@/components/ui/Dialog";
@@ -133,6 +132,15 @@ export interface ComposerProps {
    * to ask before throwing the draft away (H3).
    */
   onDraftChange?: (hasDraft: boolean) => void;
+  /**
+   * Called with the new post's activity id (null when the server sent
+   * no usable one) on a successful post, just before `onClose`; it links
+   * as `/post/{actId}`. Inline: every post. Modal: the Status tab only
+   * (a review is not a post with a permalink of its own here).
+   * A host that closes on success (NewPostTrigger's Dialog) unmounts the
+   * composer's own "Posted" line, so it shows its own from this.
+   */
+  onPosted?: (actId: number | null) => void;
   /**
    * Inline-variant props for the collapsed-row identity treatment.
    * All optional — when missing, the composer falls back to a quiet
@@ -217,6 +225,7 @@ export function Composer({
   startExpanded,
   hosted,
   onDraftChange,
+  onPosted,
   viewerAvatarUrl,
   viewerHandle,
   viewerDisplayName,
@@ -270,6 +279,7 @@ export function Composer({
         hosted={hosted}
         onClose={onClose}
         onDraftChange={onDraftChange}
+        onPosted={onPosted}
       />
     );
   }
@@ -287,6 +297,7 @@ export function Composer({
           : "Compose"
       }
       onClose={onClose ?? noop}
+      onPosted={onPosted}
       initialMode={initialMode}
       reviewTargetId={reviewAvailable && hasEntityTarget ? reviewTargetId : undefined}
       reviewTargetUserId={reviewAvailable && hasMemberTarget ? reviewTargetUserId : undefined}
@@ -388,6 +399,8 @@ interface InlineStatusComposerProps {
   onClose?: (() => void) | undefined;
   /** See ComposerProps.onDraftChange. */
   onDraftChange?: ((hasDraft: boolean) => void) | undefined;
+  /** See ComposerProps.onPosted. */
+  onPosted?: ((actId: number | null) => void) | undefined;
 }
 
 // Sprint 2 civic prompts + the §3.3.12 mention listbox id moved to
@@ -407,10 +420,6 @@ function stripSeedPrefix(value: string): string {
 function capitalizeFirst(value: string): string {
   return value === "" ? value : value.charAt(0).toUpperCase() + value.slice(1);
 }
-
-/** F-258 M6: the inline composer's status line after a successful post. */
-export const POSTED_COPY = "Posted";
-export const VIEW_POST_COPY = "View post";
 
 // §4.7.6 — group-post visibility options. Static copy only; the wire
 // value (`key`) is forwarded verbatim and the server owns enforcement.
@@ -452,6 +461,7 @@ function InlineStatusComposer({
   hosted,
   onClose,
   onDraftChange,
+  onPosted,
 }: InlineStatusComposerProps) {
   // Phase 3.3 split — the entire form state machine (expand/collapse,
   // prompt rotation, body + validation, photo/GIF attachment slots,
@@ -507,7 +517,7 @@ function InlineStatusComposer({
     hasGif,
     hasAttachment,
     placeholder,
-  } = useComposerState({ groupId, hallFeed, pageId, initialExpanded: startExpanded, onClose });
+  } = useComposerState({ groupId, hallFeed, pageId, initialExpanded: startExpanded, onClose, onPosted });
 
   // H3: report "is there a draft?" to a host that can dismiss us itself.
   const hasDraft = content.trim() !== "" || hasAttachment;
@@ -1064,31 +1074,8 @@ function InlineStatusComposer({
 
       {/* F-258 M6: "Posted — View post" after a successful submit. Outside
           the card (whose click expands the composer) and outside its flex
-          gap. The region mounts EMPTY with the composer and is filled per
-          post, a fresh <span key={seq}> each time so a second post is
-          announced too (the PillNoticeLine pattern). Cleared when a new
-          draft opens. */}
-      <p role="status" className="bcc-mono text-[11px] text-[var(--bcc-text-secondary)]">
-        {posted !== null && (
-          <span key={posted.seq} className="block px-2 pt-2">
-            {POSTED_COPY}
-            {posted.actId !== null && (
-              <>
-                {" — "}
-                {/* /post/{act_id}: the path the server builds for a feed
-                    item's links.self. Not the feed_<n> wire id, which
-                    matches no GET /feed/{id} route (the page would 404). */}
-                <Link
-                  href={`/post/${posted.actId}` as Route}
-                  className="text-blueprint underline-offset-2 hover:underline"
-                >
-                  {VIEW_POST_COPY}
-                </Link>
-              </>
-            )}
-          </span>
-        )}
-      </p>
+          gap. Cleared when a new draft opens. */}
+      <PostedNotice posted={posted} className="px-2" />
     </section>
   );
 }
@@ -1117,6 +1104,8 @@ interface ModalCoreProps {
   reviewTargetName: string | undefined;
   reviewAvailable: boolean;
   onSubmitSuccess: (() => void) | undefined;
+  /** See ComposerProps.onPosted (Status tab only). */
+  onPosted: ((actId: number | null) => void) | undefined;
   /** Whether the active form holds a draft (see ModalComposerShell). */
   onDraftChange: (hasDraft: boolean) => void;
 }
@@ -1128,6 +1117,7 @@ function ModalCore({
   reviewTargetName,
   reviewAvailable,
   onSubmitSuccess,
+  onPosted,
   onDraftChange,
 }: ModalCoreProps) {
   const [mode, setMode] = useState<ComposerMode>(initialMode);
@@ -1170,7 +1160,7 @@ function ModalCore({
         reviewAvailable={reviewAvailable}
       />
       {mode === "status" && (
-        <StatusForm onSubmitSuccess={onSubmitSuccess} onDraftChange={reportDraft} />
+        <StatusForm onSubmitSuccess={onSubmitSuccess} onPosted={onPosted} onDraftChange={reportDraft} />
       )}
       {mode === "review" && reviewAvailable && reviewTarget !== null && (
         <ReviewForm
@@ -1263,9 +1253,11 @@ function useReportDraft(hasDraft: boolean, onDraftChange: (hasDraft: boolean) =>
 
 function StatusForm({
   onSubmitSuccess,
+  onPosted,
   onDraftChange,
 }: {
   onSubmitSuccess: (() => void) | undefined;
+  onPosted: ((actId: number | null) => void) | undefined;
   onDraftChange: (hasDraft: boolean) => void;
 }) {
   const [content, setContent] = useState("");
@@ -1273,9 +1265,11 @@ function StatusForm({
   useReportDraft(content.trim() !== "", onDraftChange);
 
   const mutation = useCreatePostMutation({
-    onSuccess: () => {
+    onSuccess: (response) => {
       setContent("");
       setError(null);
+      // F-494: the modal closes on success, so its host says "Posted".
+      onPosted?.(createdPostActId(response));
       onSubmitSuccess?.();
     },
     onError: (err) => setError(humanizeError(err)),
