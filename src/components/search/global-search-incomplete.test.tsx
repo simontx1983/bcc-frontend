@@ -46,6 +46,13 @@ import {
   SUGGESTIONS_UNAVAILABLE_COPY,
 } from "@/components/search/GlobalSearch";
 
+/**
+ * The visible results line. F-264 added an sr-only role="status" that
+ * repeats it for assistive tech, so text queries for these lines skip
+ * the live region (global-search-a11y-f264.test.tsx covers that one).
+ */
+const VISIBLE = { ignore: "script, style, [role='status']" };
+
 const validator: SearchSuggestion = {
   id: 7,
   name: "Blacksmith Node",
@@ -77,9 +84,10 @@ function type(input: HTMLElement, value: string) {
 
 /**
  * Waits until the request has been made AND answered. Before the 200 ms
- * debounce fires, the dropdown already reads "No matches for …" with no
- * request in flight, so a bare findByText("No matches…") would pass
- * without ever seeing the server's answer.
+ * debounce fires there is no request in flight; the dropdown used to read
+ * "No matches for …" then (F-264: it now reads "Searching…" until this
+ * term's own answer lands), so a bare findByText could pass without ever
+ * seeing the server's answer.
  */
 async function settled() {
   await waitFor(() => expect(hoisted.getSearchSuggestions).toHaveBeenCalled());
@@ -88,7 +96,7 @@ async function settled() {
   await act(async () => {
     await new Promise((r) => setTimeout(r, 50));
   });
-  expect(screen.queryByText("Searching…")).toBeNull();
+  expect(screen.queryByText("Searching…", VISIBLE)).toBeNull();
 }
 
 /** Calls the endpoint received for this exact term. */
@@ -107,8 +115,8 @@ describe("GlobalSearch — an incomplete answer (F-421)", () => {
     const input = renderSearch();
     type(input, "cosmos");
 
-    expect(await screen.findByText(SUGGESTIONS_UNAVAILABLE_COPY)).toBeInTheDocument();
-    expect(screen.queryByText(/No matches for/)).toBeNull();
+    expect(await screen.findByText(SUGGESTIONS_UNAVAILABLE_COPY, VISIBLE)).toBeInTheDocument();
+    expect(screen.queryByText(/No matches for/, VISIBLE)).toBeNull();
     expect(screen.queryByRole("button", { name: /retry|try again/i })).toBeNull();
   });
 
@@ -118,8 +126,8 @@ describe("GlobalSearch — an incomplete answer (F-421)", () => {
     type(input, "cosmos");
 
     await settled();
-    expect(screen.getByText("No matches for “cosmos”.")).toBeInTheDocument();
-    expect(screen.queryByText(SUGGESTIONS_UNAVAILABLE_COPY)).toBeNull();
+    expect(screen.getByText("No matches for “cosmos”.", VISIBLE)).toBeInTheDocument();
+    expect(screen.queryByText(SUGGESTIONS_UNAVAILABLE_COPY, VISIBLE)).toBeNull();
   });
 
   it("control: incomplete: false reads 'No matches'", async () => {
@@ -128,8 +136,8 @@ describe("GlobalSearch — an incomplete answer (F-421)", () => {
     type(input, "cosmos");
 
     await settled();
-    expect(screen.getByText("No matches for “cosmos”.")).toBeInTheDocument();
-    expect(screen.queryByText(SUGGESTIONS_UNAVAILABLE_COPY)).toBeNull();
+    expect(screen.getByText("No matches for “cosmos”.", VISIBLE)).toBeInTheDocument();
+    expect(screen.queryByText(SUGGESTIONS_UNAVAILABLE_COPY, VISIBLE)).toBeNull();
   });
 
   it("rows and incomplete: the rows plus a quiet note", async () => {
@@ -157,7 +165,7 @@ describe("GlobalSearch — an incomplete answer (F-421)", () => {
     );
     const input = renderSearch();
     type(input, "cosmos");
-    await screen.findByText(SUGGESTIONS_UNAVAILABLE_COPY);
+    await screen.findByText(SUGGESTIONS_UNAVAILABLE_COPY, VISIBLE);
     type(input, "cosmo");
     await screen.findByText("Blacksmith Node");
     type(input, "cosmos");
@@ -173,7 +181,7 @@ describe("GlobalSearch — an incomplete answer (F-421)", () => {
     type(input, "cosmos");
     await screen.findByText("Blacksmith Node");
     type(input, "cosmo");
-    await screen.findByText("No matches for “cosmo”.");
+    await screen.findByText("No matches for “cosmo”.", VISIBLE);
     type(input, "cosmos");
     await screen.findByText("Blacksmith Node");
     // Past the 200 ms debounce, with room for a request to land.
