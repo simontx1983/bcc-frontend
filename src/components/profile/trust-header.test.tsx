@@ -173,6 +173,21 @@ describe("TrustHeader", () => {
     expect(screen.queryByText("Watch")).toBeNull();
   });
 
+  it("owner gets EDIT ABOUT in the action slot; nobody else does", () => {
+    const { container, unmount } = render(
+      <TrustHeader profile={makeProfile()} isOwner viewerAuthed />,
+    );
+    const edit = within(container).getByRole("link", { name: "Edit About" });
+    expect(edit).toHaveAttribute("href", "/u/alice/about/edit");
+    expect(edit.className).toContain("min-h-[44px]");
+    expect(within(container).queryByText("Watch")).toBeNull();
+    expect(within(container).queryByTestId("vouch-cluster")).toBeNull();
+    unmount();
+
+    const visitor = render(<TrustHeader profile={makeProfile()} isOwner={false} viewerAuthed />);
+    expect(within(visitor.container).queryByRole("link", { name: "Edit About" })).toBeNull();
+  });
+
   it("C8: new_member → NEW MEMBER chip; member_state absent → no rank chip", () => {
     const { unmount } = render(
       <TrustHeader

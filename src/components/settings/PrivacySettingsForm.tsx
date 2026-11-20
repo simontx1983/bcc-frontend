@@ -19,6 +19,7 @@ import { LoadFailure } from "@/components/ui/LoadFailure";
 import { useMyPrivacy, useUpdateMyPrivacy } from "@/hooks/useMyPrivacy";
 import { humanizeCode, isPermissionDenial } from "@/lib/api/errors";
 import type { MyPrivacySettings } from "@/lib/api/types";
+import { ToggleSwitch } from "@/components/ui/ToggleSwitch";
 
 type ToggleKey = keyof MyPrivacySettings;
 
@@ -215,44 +216,5 @@ export function PrivacySettingsForm() {
         </section>
       ))}
     </div>
-  );
-}
-
-// ─────────────────────────────────────────────────────────────────────
-// ToggleSwitch — accessible button-as-switch. Uses role="switch" +
-// aria-checked so screen readers announce both the state and the action.
-// ─────────────────────────────────────────────────────────────────────
-
-interface ToggleSwitchProps {
-  label: string;
-  value: boolean;
-  pending: boolean;
-  onChange: (next: boolean) => void;
-}
-
-function ToggleSwitch({ label, value, pending, onChange }: ToggleSwitchProps) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={value}
-      aria-label={label}
-      disabled={pending}
-      onClick={() => onChange(!value)}
-      className={
-        "relative inline-flex h-7 w-12 flex-shrink-0 items-center border-2 transition disabled:opacity-60 " +
-        (value
-          ? "border-bcc-accent-dark bg-bcc-accent-dark"
-          : "border-bcc-border bg-bcc-surface-hover")
-      }
-    >
-      <span
-        aria-hidden
-        className={
-          "block h-4 w-4 transition-transform " +
-          (value ? "translate-x-6 bg-bcc-text-inverse" : "translate-x-1 bg-bcc-text")
-        }
-      />
-    </button>
   );
 }

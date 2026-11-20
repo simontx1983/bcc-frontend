@@ -32,6 +32,7 @@ import {
   useUpdateHolderGroupPreferences,
 } from "@/hooks/useHolderGroups";
 import { LoadFailure } from "@/components/ui/LoadFailure";
+import { ToggleSwitch } from "@/components/ui/ToggleSwitch";
 import { GroupActionButton } from "@/components/groups/GroupActionButton";
 import { HolderLeaveConfirm } from "@/components/groups/HolderLeaveConfirm";
 import { FallbackImg } from "@/components/ui/FallbackImg";
@@ -375,46 +376,5 @@ function LeaveButton({ groupId }: { groupId: number }) {
         )
       }
     />
-  );
-}
-
-// ─────────────────────────────────────────────────────────────────────
-// ToggleSwitch — local copy of the accessible button-as-switch from
-// PrivacySettingsForm. Inline rather than extracted because there are
-// only two callers and extraction would introduce a shared-component
-// surface area we don't otherwise need.
-// ─────────────────────────────────────────────────────────────────────
-
-interface ToggleSwitchProps {
-  label: string;
-  value: boolean;
-  pending: boolean;
-  onChange: (next: boolean) => void;
-}
-
-function ToggleSwitch({ label, value, pending, onChange }: ToggleSwitchProps) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={value}
-      aria-label={label}
-      disabled={pending}
-      onClick={() => onChange(!value)}
-      className={
-        "relative inline-flex h-7 w-12 flex-shrink-0 items-center border-2 transition disabled:opacity-60 " +
-        (value
-          ? "border-bcc-accent-dark bg-bcc-accent-dark"
-          : "border-bcc-border bg-bcc-surface-hover")
-      }
-    >
-      <span
-        aria-hidden
-        className={
-          "block h-4 w-4 transition-transform " +
-          (value ? "translate-x-6 bg-bcc-text-inverse" : "translate-x-1 bg-bcc-text")
-        }
-      />
-    </button>
   );
 }

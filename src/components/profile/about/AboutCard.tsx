@@ -2,6 +2,9 @@
  * AboutCard — the "Reputation card" shell every About section shares:
  * a theme-surface `.bcc-panel` (16px padding, 8px radius from the class)
  * headed by the signature mono micro-label, optionally "LABEL · N".
+ *
+ * `aside` fills the header's top-right corner: the owner's "HIDDEN FROM
+ * YOUR PROFILE" marker on About, the SHOW ON PROFILE switch on Edit About.
  */
 
 import Link from "next/link";
@@ -13,18 +16,30 @@ export function AboutCard({
   count,
   children,
   testId,
+  aside,
 }: {
   label: string;
   count?: number | undefined;
   children: ReactNode;
-  testId?: string;
+  testId?: string | undefined;
+  aside?: ReactNode;
 }) {
+  const heading = (
+    <h2 className="bcc-mono text-[10px] uppercase tracking-[0.18em] text-bcc-text-secondary">
+      {label}
+      {count !== undefined && ` · ${count}`}
+    </h2>
+  );
   return (
     <section className="bcc-panel" data-testid={testId}>
-      <h2 className="bcc-mono text-[10px] uppercase tracking-[0.18em] text-bcc-text-secondary">
-        {label}
-        {count !== undefined && ` · ${count}`}
-      </h2>
+      {aside === undefined || aside === null ? (
+        heading
+      ) : (
+        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+          {heading}
+          {aside}
+        </div>
+      )}
       <div className="mt-3">{children}</div>
     </section>
   );

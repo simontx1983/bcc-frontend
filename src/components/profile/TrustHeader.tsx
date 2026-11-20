@@ -20,6 +20,9 @@
  * identical.
  */
 
+import Link from "next/link";
+import type { Route } from "next";
+
 import { Avatar } from "@/components/identity/Avatar";
 import { MemberFollowButton } from "@/components/identity/MemberFollowButton";
 import { NewMemberChip } from "@/components/identity/NewMemberChip";
@@ -113,8 +116,18 @@ export function TrustHeader({
         {variant === "full" && <VerificationLine profile={profile} />}
       </div>
 
-      {/* Owner view: no Watch/Vouch on your own header. The owner action
-          (EDIT ABOUT) lands in a later PR. */}
+      {/* Owner view: no Watch/Vouch on your own header — the slot holds
+          EDIT ABOUT instead (Figma dev note 39). Nobody else sees it. */}
+      {isOwner && (
+        <div className="mt-4 border-t border-dashed border-bcc-border pt-4">
+          <Link
+            href={`${profilePath}/about/edit` as Route}
+            className="bcc-stencil flex min-h-[44px] w-full items-center justify-center rounded-sm border border-bcc-border-strong px-4 text-[13px] uppercase tracking-[0.08em] text-bcc-text hover:bg-bcc-surface-hover"
+          >
+            Edit About
+          </Link>
+        </div>
+      )}
       {/* Rendered only when there is something to put in it: the cluster
           returns null when the server omitted can_vouch (it is optional),
           and Watch needs a signed-in viewer — otherwise this would be an

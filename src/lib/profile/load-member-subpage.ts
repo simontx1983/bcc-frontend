@@ -27,7 +27,8 @@ import { presentationName } from "@/lib/format";
 import { canonicalProfilePath } from "@/lib/seo/canonical-profile-path";
 import { isIndexableEnvironment, isIndexableProfile } from "@/lib/seo/indexing";
 
-export type MemberSubpage = "about" | "blogs" | "reviews";
+/** "about/edit" is owner-only; its page does the gating (see that page). */
+export type MemberSubpage = "about" | "about/edit" | "blogs" | "reviews";
 
 export type MemberSubpageLoad =
   | {
