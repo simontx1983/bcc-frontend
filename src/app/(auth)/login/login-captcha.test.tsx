@@ -221,7 +221,11 @@ describe("the step-up", () => {
     act(() => lastOptions()?.callback("tok-1"));
     fireEvent.click(screen.getByRole("button", { name: "Sign in" }));
     await waitFor(() => expect(alertText()).toBe("Invalid email/handle or password."));
-    expect(ts.reset).toHaveBeenCalledWith("widget-1");
+    // F-447: the alert and the spent token land in one commit, but the
+    // widget's reset() runs in a passive effect AFTER it. waitFor can see
+    // the alert first, so a synchronous check here sampled too early under
+    // load. Wait for the reset itself.
+    await waitFor(() => expect(ts.reset).toHaveBeenCalledWith("widget-1"));
 
     fireEvent.click(screen.getByRole("button", { name: "Sign in" }));
     expect(alertText()).toBe("Complete the check below first.");

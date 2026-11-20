@@ -13,7 +13,7 @@
  */
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { createRef, type ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -272,10 +272,28 @@ const member = (id: number, handle: string) => ({
 });
 
 describe("M-me5: /messages/new names its fields", () => {
-  it("TO names the recipient search and MESSAGE names the textarea", () => {
+  it("TO names the recipient section and its search box; MESSAGE names the textarea", () => {
     wrap(<NewMessagePage />);
-    expect(screen.getByLabelText("TO")).toHaveAttribute("type", "search");
+    const to = screen.getByRole("group", { name: "TO" });
+    expect(within(to).getByRole("searchbox", { name: "TO" })).toBeInTheDocument();
     expect(screen.getByLabelText("MESSAGE").tagName).toBe("TEXTAREA");
+  });
+
+  it("with a recipient picked (no search box), TO still names the section with the chip", () => {
+    state.params = new URLSearchParams("to_user=42");
+    state.memberPin = { data: member(42, "pinned"), isPending: false, isError: false, error: null };
+    wrap(<NewMessagePage />);
+    expect(screen.queryByRole("searchbox")).toBeNull();
+    const to = screen.getByRole("group", { name: "TO" });
+    expect(within(to).getByText("@pinned")).toBeInTheDocument();
+    expect(within(to).getByRole("button", { name: "CHANGE" })).toBeInTheDocument();
+  });
+
+  it("while a pinned member loads, TO names the section with the loading line", () => {
+    state.params = new URLSearchParams("to_user=42");
+    state.memberPin = { data: undefined, isPending: true, isError: false, error: null };
+    wrap(<NewMessagePage />);
+    expect(within(screen.getByRole("group", { name: "TO" })).getByText("Loading member…")).toBeInTheDocument();
   });
 });
 
