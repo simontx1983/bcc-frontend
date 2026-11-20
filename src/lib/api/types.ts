@@ -1745,6 +1745,7 @@ export type TrendingResponse = ProjectSearchResponse;
 export type NotificationKind =
   | "bcc_reaction"
   | "bcc_review"
+  | "bcc_review_reply"
   | "bcc_card_watched"
   | "bcc_rank_up"
   | "bcc_rank_demoted"
@@ -2916,6 +2917,63 @@ export interface CardReview {
   text: string;
   posted_at_label: string;
   author: MemberSummary;
+  /**
+   * F-345 — the reviewed party's ONE public response, or null. Optional
+   * until bcc-trust #686 is deployed everywhere: absent reads as "no
+   * reply", exactly like null.
+   */
+  reply?: ReviewReply | null;
+  /** F-345 — viewer-scoped. Absent = no composer (same as a denial). */
+  permissions?: { can_reply?: CardPermissionEntry };
+}
+
+/**
+ * F-345 — the reviewed party's ONE public response to a review (contract
+ * "Replies (v1.159, F-345)"). One per review, no thread: it takes no
+ * comments or reactions.
+ *
+ * `feed_id` ("feed_<act_id>") is only the REPORT target (its number goes to
+ * POST /me/reports as `feed_item`); no feed shows a reply.
+ *
+ * `permissions` is server-decided per viewer; the client never compares
+ * `author` with the viewer. The reply shown is always the one whose author
+ * currently answers for the page — a stale reply (the page changed hands)
+ * comes back as `reply: null` for everyone, and the current party gets
+ * `can_reply`.
+ *   - can_edit:   author in good standing (not_author · sender_restricted)
+ *   - can_delete: author, not gated on suspension (not_author)
+ *   - can_report: signed in, not the author, not restricted
+ *                 (sign_in_required → hint "Sign in to report." · own_reply ·
+ *                 sender_restricted)
+ * Ships with `reply` itself, so it is always present on a reply.
+ */
+export interface ReviewReply {
+  id: number;
+  body: string;
+  author: MemberSummary;
+  posted_at: string;
+  edited_at: string | null;
+  feed_id: string;
+  permissions: {
+    can_edit: CardPermissionEntry;
+    can_delete: CardPermissionEntry;
+    can_report: CardPermissionEntry;
+  };
+}
+
+/** POST|PATCH /reviews/{id}/reply body. 1–1000 chars after trim. */
+export interface ReviewReplyRequest {
+  body: string;
+}
+
+/** POST (201) | PATCH (200) /reviews/{id}/reply response. */
+export interface ReviewReplyResponse {
+  reply: ReviewReply;
+}
+
+/** DELETE /reviews/{id}/reply response. */
+export interface DeleteReviewReplyResponse {
+  deleted: true;
 }
 
 /** GET /entities/{kind}/{id}/reviews response. */
@@ -4474,6 +4532,8 @@ export interface MemberReview {
   text: string;
   scope_label: string;
   posted_at_label: string;
+  /** F-345 — the reviewed party's response, shown read-only. Optional until #686 ships. */
+  reply?: ReviewReply | null;
 }
 
 /**
@@ -5884,6 +5944,7 @@ export type VerifyAccountEmailChangeErrorCode =
 export type BellEventType =
   | "bcc_reaction"
   | "bcc_review"
+  | "bcc_review_reply"
   | "bcc_card_watched"
   | "bcc_rank_up"
   | "bcc_rank_demoted"

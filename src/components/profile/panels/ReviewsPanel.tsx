@@ -19,6 +19,7 @@ import { type ReactNode, useState } from "react";
 import { useUserReviews } from "@/hooks/useUserActivity";
 import { ProfileReadFailure } from "@/components/profile/ProfilePrivateNotice";
 import { humanizeCode, isPermissionDenial } from "@/lib/api/errors";
+import { ReviewReplyView } from "@/components/review/ReviewReplyView";
 import type { MemberReview } from "@/lib/api/types";
 
 interface ReviewsPanelProps {
@@ -186,6 +187,8 @@ function ReviewsPanelStatic({
                   )}
                   <span>{review.subject_handle !== "" ? "· " : ""}{review.posted_at_label}</span>
                 </div>
+                {/* F-345: the reviewed party's reply, read-only here. */}
+                {review.reply != null && <ReviewReplyView reply={review.reply} surface="paper" />}
               </div>
             </li>
           ))}
