@@ -1636,6 +1636,14 @@ function CommentComposer({
   /** Collapsed box has content to summarize — swap the raw textarea for a truncated preview (items 8/9). */
   const showCollapsedPreview = !expanded && (trimmed !== "" || hasMedia);
 
+  // Whether the member has started something since a submit cleared the
+  // box, read by that submit's failure when it lands later (below).
+  const boxInUse = trimmed !== "" || hasMedia || uploading;
+  const boxInUseRef = useRef(boxInUse);
+  useEffect(() => {
+    boxInUseRef.current = boxInUse;
+  }, [boxInUse]);
+
   const clearMedia = () => {
     setPhoto(null);
     setGif(null);
@@ -1757,7 +1765,8 @@ function CommentComposer({
     // appearing in the thread (useCreateCommentMutation's own onMutate
     // inserts it into the cache synchronously). If the request actually
     // fails, restore exactly what was here so nothing typed is lost —
-    // the reply target too (M2), through the drawer, which owns it.
+    // the reply target too (M2), through the drawer, which owns it — as
+    // long as the box is still empty (see onError).
     const draftSnapshot = draft;
     const photoSnapshot = photo;
     const gifSnapshot = gif;
@@ -1784,10 +1793,17 @@ function CommentComposer({
           });
         },
         onError: (err) => {
-          setDraft(draftSnapshot);
-          setPhoto(photoSnapshot);
-          setGif(gifSnapshot);
-          restoreReply();
+          // Never overwrite what the member typed while this was in
+          // flight. The failed comment comes back only into an empty box;
+          // otherwise their new draft stays, its reply context too (the old
+          // target would turn it into a reply), and the announcement and
+          // the red row say the earlier comment didn't post. No merging.
+          if (!boxInUseRef.current) {
+            setDraft(draftSnapshot);
+            setPhoto(photoSnapshot);
+            setGif(gifSnapshot);
+            restoreReply();
+          }
           setExpanded(true);
           announce(commentPostErrorCopy(err));
         },
