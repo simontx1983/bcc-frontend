@@ -216,8 +216,11 @@ describe("F-264 — the first-watch step's empty and loading states", () => {
     const spoken = screen.getByText("Loading suggestions…");
     expect(spoken.className).toContain("sr-only");
     expect(container.querySelector("[aria-busy='true']")).not.toBeNull();
-    // The old visible text line is gone.
-    expect(container.querySelector(".bcc-onb-note")).toBeNull();
+    // The old visible text line (a `.bcc-onb-note` reading "Loading
+    // suggestions…") is gone. F-439's chip status line is also a
+    // `.bcc-onb-note`, so look for the loading words, not the class.
+    const notes = Array.from(container.querySelectorAll(".bcc-onb-note"));
+    expect(notes.filter((n) => /Loading/.test(n.textContent ?? ""))).toEqual([]);
   });
 
   it("loading and loaded share one frame, so the cards land where the tiles were", () => {

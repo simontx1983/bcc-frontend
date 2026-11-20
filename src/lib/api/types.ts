@@ -822,10 +822,31 @@ export interface CardAction {
 // Onboarding suggestions
 // ─────────────────────────────────────────────────────────────────────
 
+/** A suggestions bucket, as `OnboardingSuggestionsBias.applied_to` names it. */
+export type OnboardingSuggestionsBucket = "validators" | "projects" | "creators";
+
+/**
+ * F-439 — what a `?chain=` request actually changed. `applied_to` names a
+ * bucket only when the chain really re-ranked it: it is `[]` when no
+ * validator on that chain made the cut, or when discovery is on its
+ * fallback path and cannot filter by chain. Label from this, never from
+ * the chain the client asked for.
+ */
+export interface OnboardingSuggestionsBias {
+  chain: string;
+  applied_to: OnboardingSuggestionsBucket[];
+}
+
 export interface OnboardingSuggestions {
   validators: Card[];
   projects: Card[];
   creators: Card[];
+  /**
+   * F-439 — `null` when no chain was asked for. ABSENT on backends that
+   * predate the chain bias: those ignore `?chain=` entirely, so an absent
+   * key means the chips cannot change the suggestions.
+   */
+  bias?: OnboardingSuggestionsBias | null;
 }
 
 // ─────────────────────────────────────────────────────────────────────
