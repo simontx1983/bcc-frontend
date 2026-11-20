@@ -1,7 +1,7 @@
 /**
  * F-318 (UX scan notifications Mediums):
- *   M-no3 the list never refetched, so an open panel / the page disagreed
- *         with the polling badge: a RISE in the badge refetches the list.
+ *   M-no3 (the list following the badge) is BadgesProvider's job now; see
+ *         hooks/badges-invalidate-notifications.test.tsx.
  *   M-no5 a bare "Loading…" and a dead-end "Nothing on file.": skeleton
  *         rows, and the empty state links to notification settings.
  *   M-no6 "Mark all read" was a ~15px target: now 44px.
@@ -68,29 +68,6 @@ beforeEach(() => {
   onNavigate.mockReset();
 });
 afterEach(() => cleanup());
-
-describe("M-no3 — the list follows the badge", () => {
-  it("a rise in the badge while open refetches the list", () => {
-    state.badge = 1;
-    const { rerender } = render(panel());
-    expect(state.refetch).not.toHaveBeenCalled();
-    state.badge = 3;
-    rerender(panel());
-    expect(state.refetch).toHaveBeenCalledTimes(1);
-  });
-
-  it("the badge's first load, a fall, or a closed panel do not refetch", () => {
-    const { rerender } = render(panel());
-    state.badge = 4; // first load of the badge
-    rerender(panel());
-    state.badge = 2; // the viewer marked some read
-    rerender(panel());
-    expect(state.refetch).not.toHaveBeenCalled();
-    state.badge = 9; // a rise, but the panel is closed
-    rerender(panel(false));
-    expect(state.refetch).not.toHaveBeenCalled();
-  });
-});
 
 describe("M-no5 — loading and empty states", () => {
   it("loading shows row placeholders, not a bare word", () => {

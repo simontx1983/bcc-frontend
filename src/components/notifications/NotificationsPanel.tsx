@@ -75,21 +75,9 @@ export function NotificationsPanel({
   const unreadCount = unread.data?.unread_count ?? 0;
   const items: NotificationItem[] = (list.data?.pages ?? []).flatMap((p) => p.items);
 
-  // M-no3 (UX scan): the badge polls, the list did not, so an open panel
-  // (or /notifications) disagreed with the bell. When the badge's real
-  // count RISES while the list is shown, there is something new: refetch.
-  // A fall is the viewer's own mark-read (already applied optimistically);
-  // the badge's first load is not news either.
-  const listActive = enabled && open;
-  const badgeCount = unread.data?.unread_count;
-  const lastBadgeCount = useRef<number | undefined>(undefined);
-  const { refetch: refetchList } = list;
-  useEffect(() => {
-    const previous = lastBadgeCount.current;
-    lastBadgeCount.current = badgeCount;
-    if (!listActive || previous === undefined || badgeCount === undefined) return;
-    if (badgeCount > previous) void refetchList();
-  }, [badgeCount, listActive, refetchList]);
+  // M-no3 (UX scan): the list follows the badge. BadgesProvider
+  // invalidates this list whenever the unread count rises, open or not
+  // (the header mounts this panel only while it is open).
 
   // §γ — copy is keyed on err.code; never render err.message. The
   // previous single hardcoded line is kept as the default, so the
