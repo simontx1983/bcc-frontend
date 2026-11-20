@@ -28,7 +28,9 @@ import { signup } from "@/lib/api/auth-endpoints";
 import { BccApiError } from "@/lib/api/types";
 import { checkHandleLocal, formatHandleHint } from "@/lib/auth/handleValidation";
 import { PASSWORD_BREACHED_CODE, PASSWORD_BREACHED_COPY } from "@/lib/auth/password-policy";
+import { newAccountScope } from "@/lib/auth/new-account-scope";
 import { stashPendingVerificationEmail } from "@/lib/auth/pending-verification-email";
+import { writePendingRecoveryEmail } from "@/lib/onboarding/pending-recovery-email";
 
 const ERROR_COPY: Record<string, string> = {
   bcc_invalid_request: "Email, password, and handle are all required.",
@@ -40,10 +42,26 @@ const ERROR_COPY: Record<string, string> = {
   bcc_unknown:         "Sign-up failed. Try again, or contact support if the issue persists.",
 };
 
+/**
+ * What the wallet path treats as a malformed email (F-263 M23). The
+ * browser's own type="email" check, plus a dot in the domain: the browser
+ * accepts "a@b", but the server's address check (WordPress is_email)
+ * rejects it, and the sign-up would fail after the wallet was asked.
+ */
+function isMalformedEmail(input: HTMLInputElement): boolean {
+  const value = input.value.trim();
+  if (value === "") return false;
+  if (input.validity.typeMismatch) return true;
+  const domain = value.slice(value.lastIndexOf("@") + 1);
+  return !domain.includes(".") || domain.startsWith(".") || domain.endsWith(".");
+}
+
 export function SignupPageClient() {
   const router = useRouter();
 
   const [email, setEmail]             = useState("");
+  /** The browser's own type="email" check failed on what was typed (F-263 M23). */
+  const [emailMalformed, setEmailMalformed] = useState(false);
   const [password, setPassword]       = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [handle, setHandle]           = useState("");
@@ -130,7 +148,10 @@ export function SignupPageClient() {
             autoComplete="email"
             placeholder="you@example.com"
             value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            onChange={(e) => {
+              setEmail(e.target.value);
+              setEmailMalformed(isMalformedEmail(e.target));
+            }}
             className="bcc-auth-input"
           />
         </div>
@@ -235,20 +256,37 @@ export function SignupPageClient() {
       <AuthDivider />
 
       <div className="bcc-auth-field">
+        {/* F-263 (M23): an email typed above used to be dropped by the
+            wallet path without a word. It now goes with the sign-up, and
+            onboarding's "Secure your account" step picks it up (the
+            server mails a code to it), as /login's wallet prompt does.
+            A malformed one holds the wallet button rather than failing
+            the sign-up on the server. */}
         <p className="bcc-auth-hint" style={{ marginBottom: "8px" }}>
-          Pick a handle above, then sign up with a wallet instead of a password.
+          {emailMalformed
+            ? "Fix the email above, or clear it, to sign up with a wallet."
+            : "Pick a handle above, then sign up with a wallet instead of a password. An email typed above becomes your recovery email."}
         </p>
         <WalletAuthButton
           mode="signup"
           handle={handle}
           {...(displayName.trim() !== "" ? { displayName } : {})}
-          disabled={!handleValid || submitting}
+          {...(email.trim() !== "" ? { email: email.trim() } : {})}
+          disabled={!handleValid || submitting || emailMalformed}
           onStart={() => { captureAnalyticsEvent("signup_started", { method: "wallet" }); }}
           onSuccess={() => {
             // The account now exists. /signup is allowed, but the event
             // is owed to the next pageview like every other method.
             noteSignupCompleted("wallet");
-            router.replace("/onboarding");
+            const trimmedEmail = email.trim();
+            void (async () => {
+              // Keyed to the NEW account, read from its session; only on
+              // success, since a failed sign-up mailed nothing.
+              if (trimmedEmail !== "") {
+                writePendingRecoveryEmail(trimmedEmail, await newAccountScope());
+              }
+              router.replace("/onboarding");
+            })();
           }}
         />
       </div>
