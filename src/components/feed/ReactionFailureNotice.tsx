@@ -28,6 +28,7 @@ import type { CSSProperties, ReactNode } from "react";
 import { useCallback, useRef, useState } from "react";
 
 import { humanizeCode } from "@/lib/api/errors";
+import { BccApiError } from "@/lib/api/types";
 import { useSignInLink } from "@/lib/auth/sign-in-link";
 
 export type ReactionKind = "stoke" | "helpful";
@@ -53,6 +54,7 @@ export const REACTION_COPY = {
   rateLimited: "Too many taps. Wait a moment, then try again.",
   denied: "You can't react here.",
   suspended: "Your account is suspended, so you can't react right now.",
+  notApplicable: "This kind of post doesn't take reactions.",
   gone: "This is no longer available.",
 } as const;
 
@@ -64,17 +66,29 @@ export const REACTION_COPY = {
  */
 export function reactionFailureCopy(err: unknown, kind: ReactionKind, removing: boolean): string {
   const copy = REACTION_COPY[kind];
+  // Checked BEFORE the suspended line below: NoReactionsGate (StokeEndpoint,
+  // HelpfulMarkEndpoint) also answers bcc_forbidden, for a kind of post
+  // that takes no reactions, and says so in data.reason_code. The pills are
+  // hidden only for the kinds the frontend knows about, so a new kind, or
+  // drift between the two lists, must not tell a member they're suspended.
+  if (
+    err instanceof BccApiError &&
+    err.code === "bcc_forbidden" &&
+    err.data?.["reason_code"] === "reactions_not_applicable"
+  ) {
+    return REACTION_COPY.notApplicable;
+  }
   return humanizeCode(
     err,
     {
       bcc_unauthorized: copy.unauthorized,
       bcc_rate_limited: REACTION_COPY.rateLimited,
       bcc_permission_denied: REACTION_COPY.denied,
-      // The routes' only 403 bcc_forbidden is the reactor's own suspension
-      // (StokeEndpoint, CommentStokeEndpoint, HelpfulMarkEndpoint: "Your
-      // account is suspended."). Without this a suspended member read
-      // "Couldn't stoke this. Try again." and retried forever. Same
-      // wording as ReportButton's suspended line.
+      // Any other bcc_forbidden from these routes is the reactor's own
+      // suspension (StokeEndpoint, CommentStokeEndpoint, HelpfulMarkEndpoint:
+      // "Your account is suspended."); the no-reactions refusal is handled
+      // above. Without this a suspended member read "Couldn't stoke this.
+      // Try again." and retried forever. ReportButton's suspended wording.
       bcc_forbidden: REACTION_COPY.suspended,
       bcc_not_found: REACTION_COPY.gone,
     },
