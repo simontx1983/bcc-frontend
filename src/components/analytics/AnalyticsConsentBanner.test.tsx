@@ -41,6 +41,8 @@ describe("AnalyticsConsentBanner", () => {
   it("asks once, and Allow records consent and hides the banner", () => {
     render(<AnalyticsConsentBanner />);
     expect(screen.getByRole("region", { name: "Analytics" })).toBeInTheDocument();
+    // F-514: in the shared bottom slot, stacked with the other notices.
+    expect(screen.getByRole("region", { name: "Analytics" }).closest("#bcc-bottom-slot")).not.toBeNull();
 
     act(() => {
       fireEvent.click(screen.getByRole("button", { name: "Allow" }));

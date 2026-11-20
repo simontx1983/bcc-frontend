@@ -121,7 +121,8 @@ const isTopmost = (seq: number): boolean => {
   return top === seq;
 };
 
-const FOCUSABLE =
+/** What Tab can reach. Shared with PostedNotice's focus bridge (F-514). */
+export const FOCUSABLE =
   'a[href],button:not([disabled]),textarea:not([disabled]),input:not([disabled]),select:not([disabled]),[tabindex]:not([tabindex="-1"])';
 
 export function Dialog({
