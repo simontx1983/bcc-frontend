@@ -212,8 +212,10 @@ const SITES: readonly Site[] = [
  */
 const HOVER_ONLY: readonly (readonly [string, string])[] = [
   [
+    // The chain filter's APPLY. F-317 M-gr3 (2026-11-19) gave it a 44px box
+    // (was `px-3 py-1.5`); its ground and hover-only safety are unchanged.
     "src/app/(main)/(app)/communities/page.tsx",
-    "bcc-mono rounded-full bg-ink px-3 py-1.5 text-[11px] tracking-[0.16em] text-cardstock transition hover:bg-safety",
+    "bcc-mono inline-flex min-h-[44px] items-center rounded-full bg-ink px-4 text-[11px] tracking-[0.16em] text-cardstock transition hover:bg-safety",
   ],
   [
     "src/app/(main)/(app)/communities/page.tsx",

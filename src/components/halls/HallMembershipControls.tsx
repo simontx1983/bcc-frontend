@@ -208,7 +208,7 @@ function PrimaryButton({
       title={tooltip}
       aria-disabled={disabled}
       className={
-        "bcc-stencil rounded-sm px-5 py-2.5 text-[12px] tracking-[0.2em] transition " +
+        "bcc-stencil inline-flex min-h-[44px] items-center rounded-sm px-5 text-[12px] tracking-[0.2em] transition " +
         (disabled
           ? "cursor-not-allowed bg-cardstock-deep/40 text-ink-soft/60"
           : enabledClass)
@@ -234,7 +234,7 @@ function SecondaryButton({
       title={tooltip}
       aria-disabled={disabled}
       className={
-        "bcc-mono rounded-sm px-4 py-2 text-[10px] tracking-[0.18em] transition " +
+        "bcc-mono inline-flex min-h-[44px] items-center rounded-sm px-4 text-[10px] tracking-[0.18em] transition " +
         (disabled
           ? "cursor-not-allowed text-ink-soft/40"
           : "text-cardstock-deep hover:text-ink")

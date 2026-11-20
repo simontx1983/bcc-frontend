@@ -316,12 +316,17 @@ describe("closure — E2's six exclusions survive", () => {
     // three-line comment above the intro column (net +3).
     // 475/491 → 481/497: F-272 mounted "Your invitations" above the
     // chain dropdown (net +6).
-    [`${APP}/communities/page.tsx`, 481, "← Previous, no prev page"],
-    [`${APP}/communities/page.tsx`, 497, "Next →, no next page"],
+    // 481/497 → 488/504: F-317 M-gr3 (2026-11-19) imported HIT_AREA_44 and
+    // added 44px rationale comments to the scope pills and the chain
+    // picker (net +7).
+    [`${APP}/communities/page.tsx`, 488, "← Previous, no prev page"],
+    [`${APP}/communities/page.tsx`, 504, "Next →, no next page"],
     // 300/316 before the phosphor-confinement slice removed a verified tint
     // and added its rationale comment three lines above these (net +2).
-    [`${APP}/halls/page.tsx`, 308, "← Previous, no prev page"],
-    [`${APP}/halls/page.tsx`, 324, "Next →, no next page"],
+    // 308/324 → 312/328: F-317 M-gr3 (2026-11-19) imported HIT_AREA_44 and
+    // added a 44px rationale comment to the chain pills (net +4).
+    [`${APP}/halls/page.tsx`, 312, "← Previous, no prev page"],
+    [`${APP}/halls/page.tsx`, 328, "Next →, no next page"],
     // 252 → 251 and 239 → 238: both pages lost their `const query =
     // useDirectory(...)` line when the directory's denial gate moved the
     // hook call down into <DirectoryResults>. The exclusion itself is

@@ -34,6 +34,7 @@ import { memo, useCallback } from "react";
 
 import { Composer } from "@/components/composer/Composer";
 import { FeedItemCard } from "@/components/feed/FeedItemCard";
+import { HIT_AREA_44 } from "@/components/feed/hitArea";
 import { GroupGatedNotice } from "@/components/groups/GroupGatedNotice";
 import { GroupPostPolicyToggle } from "@/components/groups/GroupPostPolicyToggle";
 import { useEmptyPageAutoFetch } from "@/hooks/useEmptyPageAutoFetch";
@@ -184,7 +185,10 @@ export function GroupFeedSection({ group }: GroupFeedSectionProps) {
 
 /**
  * ChannelChip — one MAIN/RANKED toggle chip. Same "active = full fill"
- * grammar as the directory filter chips; theme tokens only.
+ * grammar as the directory filter chips; theme tokens only. Drawn at
+ * ~28px; HIT_AREA_44 makes the tap target 44px without changing that
+ * (F-317 M-gr3). Each chip is wider than 44px, so the areas stay inside
+ * their own chip across the row's gap.
  */
 function ChannelChip({
   label,
@@ -201,7 +205,7 @@ function ChannelChip({
       onClick={onClick}
       aria-pressed={active}
       className={
-        "bcc-mono px-3 py-1.5 text-[10px] tracking-[0.18em] transition motion-reduce:transition-none " +
+        `${HIT_AREA_44} bcc-mono px-3 py-1.5 text-[10px] tracking-[0.18em] transition motion-reduce:transition-none ` +
         (active
           ? "bg-bcc-text text-bcc-bg"
           : "border border-bcc-border bg-bcc-surface-hover text-bcc-text-secondary hover:bg-bcc-surface-active")
@@ -352,7 +356,7 @@ function GroupFeedBodyData({
             onClick={handleLoadMore}
             aria-disabled={query.isFetchingNextPage}
             aria-busy={query.isFetchingNextPage}
-            className="bcc-stencil border border-bcc-border px-6 py-2.5 text-bcc-text aria-disabled:cursor-wait aria-disabled:opacity-60"
+            className="bcc-stencil min-h-[44px] border border-bcc-border px-6 py-2.5 text-bcc-text aria-disabled:cursor-wait aria-disabled:opacity-60"
           >
             Load more
           </button>
@@ -436,7 +440,7 @@ function GroupFeedBodyData({
               onClick={handleLoadMore}
               aria-disabled={query.isFetchingNextPage}
               aria-busy={query.isFetchingNextPage}
-              className="bcc-stencil border border-bcc-border px-6 py-2.5 text-bcc-text aria-disabled:cursor-wait aria-disabled:opacity-60"
+              className="bcc-stencil min-h-[44px] border border-bcc-border px-6 py-2.5 text-bcc-text aria-disabled:cursor-wait aria-disabled:opacity-60"
             >
               Load more
             </button>

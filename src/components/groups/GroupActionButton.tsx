@@ -15,6 +15,9 @@
  * `BccApiError.message`, which is the user-facing unlock_hint copy
  * (per §A2 / §4.7.x). Never substitute a generic error string.
  */
+
+import { HIT_AREA_44 } from "@/components/feed/hitArea";
+
 export interface GroupActionButtonProps {
   /** Used for the error-region id (`bcc-action-error-${groupId}`). */
   groupId: number;
@@ -26,8 +29,10 @@ export interface GroupActionButtonProps {
   /** Server `error.message` to surface inline; `null` when no error. */
   errorMessage: string | null;
   onClick: () => void;
-  /** Full 44px tap target, for a standalone primary action (the group
-   *  page strip). Off by default: dense card rows keep their size. */
+  /** A drawn 44px box, for a standalone primary action (the group page
+   *  strip). Off by default: dense card rows keep their drawn size and get
+   *  an invisible 44×44 hit area (HIT_AREA_44) instead, so the tap target
+   *  is 44px either way (F-317 M-gr3). */
   touchTarget?: boolean;
 }
 
@@ -54,11 +59,16 @@ export function GroupActionButton({
           // ancestor anchor wraps via SSR.
           e.stopPropagation();
           e.preventDefault();
+          // Pending is aria-disabled, not `disabled`: a disabled button
+          // drops keyboard focus to <body> the moment it is pressed
+          // (F-317 M-gr2), so the guard lives here instead.
+          if (isPending) return;
           onClick();
         }}
-        disabled={isPending}
+        aria-disabled={isPending}
+        aria-busy={isPending}
         aria-describedby={errorMessage !== null ? errorId : undefined}
-        className={`bcc-mono inline-flex items-center border-2 border-bcc-border px-3 py-1.5 ${touchTarget ? "min-h-[44px] " : ""}text-[11px] tracking-[0.18em] text-bcc-text-secondary transition motion-reduce:transition-none hover:border-bcc-border-strong hover:text-bcc-text disabled:opacity-60`}
+        className={`bcc-mono inline-flex items-center border-2 border-bcc-border px-3 py-1.5 ${touchTarget ? "min-h-[44px]" : HIT_AREA_44} text-[11px] tracking-[0.18em] text-bcc-text-secondary transition motion-reduce:transition-none hover:border-bcc-border-strong hover:text-bcc-text aria-disabled:cursor-wait aria-disabled:opacity-60`}
       >
         {isPending ? pendingLabel : label}
       </button>
