@@ -1335,7 +1335,9 @@ function CommentStokeButton({
   // when stoked — not the grey-brown stoke-ash, which read as an odd
   // yellow next to the feed's flame.
   const color = hasStoked ? "var(--bcc-secondary)" : "var(--bcc-secondary-dark)";
-  const pillClass = `${HIT_AREA_44} bcc-stoke-button bcc-mono inline-flex min-h-[24px] items-center gap-1 rounded-full px-2 py-0.5 text-[11px] transition-colors duration-150 hover:bg-[var(--bcc-surface-active)]`;
+  // HIT_AREA_44 stays inline on each element: the F-440 source scan reads
+  // a tag's own className (it resolves only a plain string constant).
+  const pillClass = `bcc-stoke-button bcc-mono inline-flex min-h-[24px] items-center gap-1 rounded-full px-2 py-0.5 text-[11px] transition-colors duration-150 hover:bg-[var(--bcc-surface-active)]`;
   const body = (
     <>
       <StokeFlame
@@ -1354,7 +1356,7 @@ function CommentStokeButton({
 
   if (signIn) {
     return (
-      <ReactionSignInLink label={REACTION_COPY.stoke.signIn} className={pillClass} style={{ color }}>
+      <ReactionSignInLink label={REACTION_COPY.stoke.signIn} className={`${HIT_AREA_44} ${pillClass}`} style={{ color }}>
         {body}
       </ReactionSignInLink>
     );
@@ -1376,7 +1378,7 @@ function CommentStokeButton({
       aria-pressed={hasStoked}
       aria-label={hasStoked ? "Stoked — tap to remove" : "Stoke"}
       title={hasStoked ? "Stoked — tap to remove" : "Stoke"}
-      className={`${pillClass} disabled:cursor-not-allowed`}
+      className={`${HIT_AREA_44} ${pillClass} disabled:cursor-not-allowed`}
       style={{ color }}
     >
       {body}
