@@ -26,6 +26,12 @@
  * the latest message and the composer, and goes away on its own once the
  * reader scrolls back to the bottom. No count: it says there is something
  * new, not how much.
+ *
+ * F-319 (M-me1): a long unbroken string (a hash, an address, a URL) ran
+ * out of the bubble. `break-words` only breaks a word that can't fit on a
+ * line of its own, and the flex column it sits in wouldn't shrink below
+ * that word's width (min-width: auto). The column is now `min-w-0` and the
+ * bubble wraps with `overflow-wrap: anywhere`.
  */
 
 import { memo, useEffect, useId, useMemo, useRef, useState, type RefObject } from "react";
@@ -246,7 +252,7 @@ function Bubble({
       />
       <div
         className={
-          "flex max-w-[80%] flex-col gap-1 " +
+          "flex min-w-0 max-w-[80%] flex-col gap-1 " +
           (isMine ? "items-end" : "items-start")
         }
       >
@@ -257,7 +263,7 @@ function Bubble({
         )}
         <div
           className={
-            "rounded-lg px-3 py-2 text-sm whitespace-pre-wrap break-words " +
+            "max-w-full rounded-lg px-3 py-2 text-sm whitespace-pre-wrap [overflow-wrap:anywhere] " +
             (isMine
               ? "bg-cardstock text-ink"
               : "border border-bcc-border bg-bcc-surface-raised text-bcc-text")
