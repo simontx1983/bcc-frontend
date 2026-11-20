@@ -109,9 +109,9 @@ export default async function CommunitiesDiscoveryPage({ searchParams }: PagePro
             </h1>
             <p className="mt-3 max-w-2xl font-serif text-lg text-bcc-text-secondary">
               Active rooms across the floor. <span className="bcc-mono">HOLDERS</span> are NFT-gated,
-              <span className="bcc-mono"> LOCAL</span> rooms cluster by chain, and the rest are open
-              rooms anyone can join. Verified rooms rank first, then warmest, then largest — so
-              you see the rooms worth walking into, not the dead ones.
+              delegator rooms are for a validator&apos;s delegators, Halls gather by chain, and the rest
+              are member-made: some open to anyone, some by request. Verified rooms rank first, then
+              warmest, then largest — so you see the rooms worth walking into, not the dead ones.
             </p>
           </div>
 

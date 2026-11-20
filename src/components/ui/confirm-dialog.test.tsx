@@ -10,7 +10,8 @@
  * `Dialog` and are its tests' business, not repeated here.
  */
 
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { useState } from "react";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -133,5 +134,68 @@ describe("after a failure", () => {
     renderDialog({ errorMessage: "" });
     expect(screen.queryByRole("alert")).toBeNull();
     expect(screen.getByRole("button", { name: "Remove photo" })).toBeDefined();
+  });
+});
+
+/**
+ * The caller's half of the latch (F-317 C1 review). The one-shot latch
+ * re-arms when `errorMessage` goes from empty to set. A caller that clears
+ * its error as each retry starts gives it that edge on every failure, even
+ * when the copy is identical. A caller that leaves the old message up gives
+ * none: React bails on an identical setState, so `failed` never changes,
+ * and the third press is silently refused. HolderLeaveConfirm and
+ * HallMembershipControls clear first; this pins why that matters.
+ */
+describe("retrying after the same failure twice", () => {
+  const SAME = "Couldn't remove it. Your image hasn't changed.";
+  interface Control {
+    attempts: number;
+    fail: () => void;
+  }
+
+  function Caller({ clearOnRetry, control }: { clearOnRetry: boolean; control: Control }) {
+    const [error, setError] = useState<string | null>(null);
+    const [pending, setPending] = useState(false);
+    control.fail = () => {
+      setPending(false);
+      setError(SAME);
+    };
+    return (
+      <ConfirmDialog
+        title="Remove your avatar?"
+        body="Your profile will show your initial instead."
+        confirmLabel="Remove photo"
+        cancelLabel="Keep photo"
+        retryLabel="Try again"
+        errorMessage={error}
+        pending={pending}
+        onConfirm={() => {
+          control.attempts += 1;
+          if (clearOnRetry) setError(null);
+          setPending(true);
+        }}
+        onCancel={() => {}}
+      />
+    );
+  }
+
+  function attemptThreeTimes(clearOnRetry: boolean): number {
+    const control: Control = { attempts: 0, fail: () => {} };
+    render(<Caller clearOnRetry={clearOnRetry} control={control} />);
+    const confirm = () => screen.getByRole("button", { name: /^(Remove photo|Try again)$/ });
+    fireEvent.click(confirm());
+    act(() => control.fail());
+    fireEvent.click(confirm());
+    act(() => control.fail());
+    fireEvent.click(confirm());
+    return control.attempts;
+  }
+
+  it("a caller that clears its error as the retry starts gets a third attempt", () => {
+    expect(attemptThreeTimes(true)).toBe(3);
+  });
+
+  it("control: a caller that leaves the identical message up has the third press refused", () => {
+    expect(attemptThreeTimes(false)).toBe(2);
   });
 });
