@@ -27,10 +27,22 @@
  * absent (backend not shipped yet), the rail renders a flat ash/lit
  * flame from whatever legacy reaction counts already exist — never
  * throws, never blanks the rail.
+ *
+ * F-258 (audit M5): a signed-out visitor's tap showed the burst and then
+ * the 401 rolled it back without a word. Signed out, the pill is now a
+ * sign-in link with the same look, and a failed toggle says so in a line
+ * under the action row (ReactionFailureNotice).
  */
 
+import { useSession } from "next-auth/react";
 import { useState, type MouseEvent } from "react";
 
+import {
+  ReactionFailureNotice,
+  ReactionSignInLink,
+  REACTION_COPY,
+  useReactionFailure,
+} from "@/components/feed/ReactionFailureNotice";
 import { StokeFlame } from "@/components/feed/StokeFlame";
 import { useStokeMutation, useUnstokeMutation } from "@/hooks/useStoke";
 import type { FeedItem, HeatStage } from "@/lib/api/types";
@@ -77,6 +89,10 @@ export function ReactionRail({
 }) {
   const stokeMut = useStokeMutation();
   const unstokeMut = useUnstokeMutation();
+  const failure = useReactionFailure();
+  // Only a settled "unauthenticated" swaps in the link: while the session
+  // loads, a signed-in viewer must not see the pill flash to "Sign in".
+  const signedOut = useSession().status === "unauthenticated";
   const heatStage = item.reactions.heat_stage;
   const hasStoked = item.reactions.viewer_has_stoked ?? false;
   const count = item.reactions.stoke_count ?? 0;
@@ -98,43 +114,68 @@ export function ReactionRail({
     // but this keeps the toggle unambiguously scoped to the pill.
     event.stopPropagation();
     if (disabled) return;
+    failure.clear();
 
     if (hasStoked) {
-      unstokeMut.mutate(item.id);
+      unstokeMut.mutate(item.id, { onError: (err) => failure.report(err, "stoke", true) });
       return;
     }
     setBurstKey((k) => k + 1);
-    stokeMut.mutate(item.id);
+    stokeMut.mutate(item.id, { onError: (err) => failure.report(err, "stoke", false) });
   };
 
-  return (
-    <button
-      type="button"
-      onClick={handleClick}
-      disabled={disabled}
-      aria-disabled={disabled}
-      aria-pressed={hasStoked}
-      aria-label={hasStoked ? "Stoked — tap to remove" : "Stoke"}
-      title={hasStoked ? "Stoked — tap to remove" : "Stoke"}
-      className={`${HIT_AREA_44} bcc-stoke-button inline-flex min-h-[26px] items-center gap-1.5 rounded-full px-2 py-0.5 transition-colors duration-150 hover:bg-[var(--bcc-surface-active)] disabled:cursor-not-allowed`}
+  const pillClass = `${HIT_AREA_44} bcc-stoke-button inline-flex min-h-[26px] items-center gap-1.5 rounded-full px-2 py-0.5 transition-colors duration-150 hover:bg-[var(--bcc-surface-active)]`;
+  const flame = (
+    <StokeFlame
+      boxSize={FLAME_BOX}
+      flameSize={preset.size}
+      color={preset.color}
+      outline={!hasStoked}
+      glowOpacity={preset.glowOpacity}
+      burstKey={burstKey}
+      particleRadius={PARTICLE_RADIUS}
+    />
+  );
+  const label = (
+    <span
+      className="bcc-mono text-[11px]"
+      style={{ color: hasStoked ? preset.color : "var(--bcc-text-secondary)" }}
     >
-      <StokeFlame
-        boxSize={FLAME_BOX}
-        flameSize={preset.size}
-        color={preset.color}
-        outline={!hasStoked}
-        glowOpacity={preset.glowOpacity}
-        burstKey={burstKey}
-        particleRadius={PARTICLE_RADIUS}
-      />
-      <span
-        className="bcc-mono text-[11px]"
-        style={{ color: hasStoked ? preset.color : "var(--bcc-text-secondary)" }}
+      <span className="hidden sm:inline">Stoke</span>
+      {count > 0 ? ` ${count}` : ""}
+    </span>
+  );
+
+  // The non-member group teaser (canInteract=false) stays a read-only pill
+  // for everyone: its "join to interact" lives once on GroupFeedSection.
+  if (signedOut && canInteract) {
+    return (
+      <ReactionSignInLink label={REACTION_COPY.stoke.signIn} className={pillClass}>
+        {flame}
+        {label}
+      </ReactionSignInLink>
+    );
+  }
+
+  // A fragment: the notice is a sibling in PostActionBar's wrapping row,
+  // where "order-last basis-full" puts a line under the whole row.
+  return (
+    <>
+      <button
+        type="button"
+        onClick={handleClick}
+        disabled={disabled}
+        aria-disabled={disabled}
+        aria-pressed={hasStoked}
+        aria-label={hasStoked ? "Stoked — tap to remove" : "Stoke"}
+        title={hasStoked ? "Stoked — tap to remove" : "Stoke"}
+        className={`${pillClass} disabled:cursor-not-allowed`}
       >
-        <span className="hidden sm:inline">Stoke</span>
-        {count > 0 ? ` ${count}` : ""}
-      </span>
-    </button>
+        {flame}
+        {label}
+      </button>
+      <ReactionFailureNotice failure={failure.failure} className="order-last basis-full" />
+    </>
   );
 }
 

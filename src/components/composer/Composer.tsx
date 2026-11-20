@@ -47,6 +47,8 @@
  * FeedRankingService hydration. No optimistic insert.
  */
 
+import type { Route } from "next";
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -67,7 +69,7 @@ import { humanizeError } from "@/components/composer/useComposerSubmit";
 import { RankChip } from "@/components/profile/RankChip";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Dialog } from "@/components/ui/Dialog";
-import { humanizeCode } from "@/lib/api/errors";
+import { humanizeReviewError } from "@/components/composer/review-error-copy";
 import { createReview } from "@/lib/api/posts-endpoints";
 import {
   MENTIONS_PER_POST_MAX,
@@ -406,6 +408,10 @@ function capitalizeFirst(value: string): string {
   return value === "" ? value : value.charAt(0).toUpperCase() + value.slice(1);
 }
 
+/** F-258 M6: the inline composer's status line after a successful post. */
+export const POSTED_COPY = "Posted";
+export const VIEW_POST_COPY = "View post";
+
 // §4.7.6 — group-post visibility options. Static copy only; the wire
 // value (`key`) is forwarded verbatim and the server owns enforcement.
 const VISIBILITY_OPTIONS: ReadonlyArray<{
@@ -454,6 +460,8 @@ function InlineStatusComposer({
   const {
     expanded,
     setExpanded,
+    posted,
+    triggerRef,
     promptIndex,
     setPromptPaused,
     content,
@@ -610,29 +618,18 @@ function InlineStatusComposer({
                       />
                     </span>
                   )}
-                  {expanded && !isPageScoped && (
-                    // Design-only stub — where this post will be published.
-                    // Not wired to any destination/visibility logic yet;
-                    // revisit once the backend has a "post destinations"
-                    // contract (see [[project-homepage-redesign]] deferred
-                    // follow-up on the composer post-type/destination switcher).
-                    <button
-                      type="button"
-                      aria-label="Post destination: the Floor"
-                      title="Post destination (coming soon)"
-                      className="bcc-mono inline-flex w-fit items-center gap-1 self-start rounded-full bg-[var(--bcc-surface-active)] px-2 py-[3px] text-[9px] tracking-[0.18em] text-[var(--bcc-text-secondary)] transition hover:bg-[var(--bcc-surface-hover)] hover:text-[var(--bcc-text)]"
-                    >
+                  {expanded && !isPageScoped && groupId === undefined && (
+                    // Where this post goes: the Floor. A plain label, not a
+                    // control (F-258 M7). It was a focusable button with a
+                    // dropdown chevron that did nothing, and it also showed in
+                    // GROUP composers, where a post does not go to the Floor
+                    // (those already say "Post to this group…"). A destination
+                    // switcher waits on a backend "post destinations" contract
+                    // ([[project-homepage-redesign]]).
+                    <span className="bcc-mono inline-flex w-fit items-center self-start rounded-full bg-[var(--bcc-surface-active)] px-2 py-[3px] text-[9px] tracking-[0.18em] text-[var(--bcc-text-secondary)]">
+                      <span className="sr-only">Posting to the </span>
                       FLOOR
-                      <svg width="8" height="8" viewBox="0 0 8 8" fill="none" aria-hidden>
-                        <path
-                          d="M1.5 3L4 5.5L6.5 3"
-                          stroke="currentColor"
-                          strokeWidth="1.2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        />
-                      </svg>
-                    </button>
+                    </span>
                   )}
                 </div>
               )}
@@ -669,6 +666,7 @@ function InlineStatusComposer({
             <div className="min-h-0 overflow-hidden">
               <button
                 type="button"
+                ref={triggerRef}
                 onClick={() => setExpanded(true)}
                 onMouseEnter={() => setPromptPaused(true)}
                 onMouseLeave={() => setPromptPaused(false)}
@@ -1063,6 +1061,34 @@ function InlineStatusComposer({
         </form>
         </div>
       </div>
+
+      {/* F-258 M6: "Posted — View post" after a successful submit. Outside
+          the card (whose click expands the composer) and outside its flex
+          gap. The region mounts EMPTY with the composer and is filled per
+          post, a fresh <span key={seq}> each time so a second post is
+          announced too (the PillNoticeLine pattern). Cleared when a new
+          draft opens. */}
+      <p role="status" className="bcc-mono text-[11px] text-[var(--bcc-text-secondary)]">
+        {posted !== null && (
+          <span key={posted.seq} className="block px-2 pt-2">
+            {POSTED_COPY}
+            {posted.actId !== null && (
+              <>
+                {" — "}
+                {/* /post/{act_id}: the path the server builds for a feed
+                    item's links.self. Not the feed_<n> wire id, which
+                    matches no GET /feed/{id} route (the page would 404). */}
+                <Link
+                  href={`/post/${posted.actId}` as Route}
+                  className="text-blueprint underline-offset-2 hover:underline"
+                >
+                  {VIEW_POST_COPY}
+                </Link>
+              </>
+            )}
+          </span>
+        )}
+      </p>
     </section>
   );
 }
@@ -1348,37 +1374,6 @@ function StatusForm({
 // resolved target, and the target name renders unmistakably so the
 // reviewer can never mis-target their post.
 // ─────────────────────────────────────────────────────────────────────
-
-/**
- * Review-surface error copy (§γ: each call site owns its copy map;
- * never render err.message).
- *
- * `bcc_forbidden` here is the VOTE-pipeline denial, not the
- * write_review gate: PostsService::createReview surfaces every
- * VoteEligibilityException as bcc_forbidden — the downvote tier gate
- * ("trusted or elite only"), the identity-verification gate, the daily
- * downvote cap, and the fraud/coordination gates
- * (bcc-trust app/Domain/Core/Services/Vote/VoteEligibilityChecker.php).
- * The composer-wide humanizeError copy ("keep watching cards…")
- * describes the write_review unlock, which can't fire from this form —
- * ReviewCallout only opens the modal when `can_review` is already true.
- * So the copy leads with the gates that CAN fire. If the backend ever
- * grows distinct codes per gate (it should), split this entry.
- */
-function humanizeReviewError(err: unknown): string {
-  return humanizeCode(
-    err,
-    {
-      bcc_unauthorized: "Sign in to post a review.",
-      bcc_invalid_request: "That review can't be sent — check the grade and body.",
-      bcc_forbidden:
-        "This review was blocked by a trust-safety gate. Caution reviews require trusted or elite standing and a verified identity (linked wallet or GitHub), and downvotes are capped daily.",
-      bcc_rate_limited: "Slow down — wait a moment before posting again.",
-      bcc_unavailable: "Reviews are temporarily unavailable. Try again shortly.",
-    },
-    "Couldn't post your review. Try again.",
-  );
-}
 
 const REVIEW_GRADE_OPTIONS: ReadonlyArray<{
   key: ReviewGrade;
