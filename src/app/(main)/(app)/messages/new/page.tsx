@@ -36,6 +36,18 @@
  * we render existing groups read-only but don't expose the
  * multi-recipient picker). PeepSo's native UI still creates groups
  * the old-fashioned way.
+ *
+ * F-319:
+ *  - M-me5: TO and MESSAGE were bare spans over placeholder-only fields,
+ *    so the fields had no name. They are labels now.
+ *  - M-me6: a ?to_user pin showed nothing while it loaded, and a failure
+ *    other than a private profile fell back to the picker without a word.
+ *    The picker was open meanwhile, so a pin landing late replaced a
+ *    recipient the viewer had already picked. Now the pin says it is
+ *    loading and keeps the picker shut (as the validator pin does), says
+ *    when it failed, and a manual pick drops the pin for good. CHANGE
+ *    also clears the last send error, which belonged to the old recipient.
+ *  - Signed out, the page links to sign in and come back (?to_user kept).
  */
 
 import type { Route } from "next";
@@ -50,6 +62,7 @@ import { useCardEntity } from "@/hooks/useCardEntity";
 import { useMembers } from "@/hooks/useMembers";
 import { useStartConversationMutation } from "@/hooks/useStartConversation";
 import { humanizeCode, isProfilePrivate } from "@/lib/api/errors";
+import { useSignInLink } from "@/lib/auth/sign-in-link";
 import {
   MESSAGE_BODY_MAX_LENGTH,
   type Card,
@@ -59,6 +72,9 @@ import { resolveDmGate, type DmGate } from "@/lib/validators/messaging";
 
 const SEARCH_DEBOUNCE_MS = 250;
 const PER_PAGE = 12;
+
+/** The recipient search field, named by the TO label (M-me5). */
+const TO_INPUT_ID = "new-message-to";
 
 /** Shown after a send that parked in the unclaimed-page queue. */
 const QUEUED_CONFIRMATION =
@@ -96,6 +112,7 @@ function NewMessagePageContent() {
   const searchParams = useSearchParams();
   const session = useSession();
   const isAuthed = session.status === "authenticated";
+  const signIn = useSignInLink("/messages/new");
 
   const [recipient, setRecipient] = useState<Card | null>(null);
   const [pinCleared, setPinCleared] = useState(false);
@@ -160,6 +177,11 @@ function NewMessagePageContent() {
       : null;
 
   const activeRecipient = pinnedCard ?? pinnedUserCard ?? recipient;
+  // M-me6: while a member pin loads, the picker stays shut, so a pin that
+  // lands late can't replace a recipient picked meanwhile.
+  const userPinLoading = wantsUserPin && pinnedUserQuery.isPending;
+  const userPinFailed =
+    wantsUserPin && pinnedUserQuery.isError && !isProfilePrivate(pinnedUserQuery.error);
 
   // Debounce the search input → debouncedSearch.
   const debounceRef = useRef<number | null>(null);
@@ -271,6 +293,8 @@ function NewMessagePageContent() {
     setSearchInput("");
     setDebouncedSearch("");
     setQueuedNotice(null);
+    // The last send's error was about the recipient being replaced.
+    setError(null);
   };
 
   // Server-owned composer notice: names the real destination before the
@@ -310,15 +334,43 @@ function NewMessagePageContent() {
 
       <section className="mx-auto mt-10 max-w-3xl px-2 sm:px-3">
         {!isAuthed && session.status !== "loading" && (
-          <p className="bcc-mono text-bcc-text-secondary">Sign in to start a conversation.</p>
+          <p className="bcc-mono text-bcc-text-secondary">
+            <Link href={signIn.href} onClick={signIn.onClick} className="text-bcc-text underline underline-offset-2">
+              Sign in
+            </Link>{" "}
+            to start a conversation.
+          </p>
         )}
 
         {isAuthed && (
           <form onSubmit={submit} className="flex flex-col gap-6">
             <div className="flex flex-col gap-2">
-              <span className="bcc-mono text-[10px] tracking-[0.24em] text-bcc-text-secondary">
+              <label
+                htmlFor={TO_INPUT_ID}
+                className="bcc-mono text-[10px] tracking-[0.24em] text-bcc-text-secondary"
+              >
                 TO
-              </span>
+              </label>
+              {userPinLoading && (
+                <p className="bcc-mono text-[10px] tracking-[0.16em] text-bcc-text-secondary">
+                  Loading member…
+                </p>
+              )}
+
+              {userPinFailed && (
+                <p role="alert" className="bcc-mono text-[11px] text-bcc-text-error">
+                  {humanizeCode(
+                    pinnedUserQuery.error,
+                    {
+                      bcc_not_found: "That member no longer exists. Pick a recipient instead.",
+                      bcc_unauthorized:
+                        "Your session expired — sign in again to message this member.",
+                    },
+                    "Couldn't load that member. Pick a recipient instead.",
+                  )}
+                </p>
+              )}
+
               {wantsPin && pinnedQuery.isPending && (
                 <p className="bcc-mono text-[10px] tracking-[0.16em] text-cardstock-deep/50">
                   Loading validator…
@@ -362,12 +414,16 @@ function NewMessagePageContent() {
                   onClear={clearRecipient}
                 />
               ) : (
-                (!wantsPin || pinnedQuery.isError) && (
+                (!wantsPin || pinnedQuery.isError) &&
+                !userPinLoading && (
                   <RecipientPicker
                     searchInput={searchInput}
                     onSearchChange={setSearchInput}
                     query={memberQuery}
                     onSelect={(m) => {
+                      // A manual pick wins: drop any pin, so one that
+                      // resolves later (a refetch) can't replace it.
+                      setPinCleared(true);
                       setRecipient(m);
                       setSearchInput("");
                     }}
@@ -383,9 +439,12 @@ function NewMessagePageContent() {
             </div>
 
             <div className="flex flex-col gap-2">
-              <span className="bcc-mono text-[10px] tracking-[0.24em] text-bcc-text-secondary">
+              <label
+                htmlFor="new-message-body"
+                className="bcc-mono text-[10px] tracking-[0.24em] text-bcc-text-secondary"
+              >
                 MESSAGE
-              </span>
+              </label>
               <textarea
                 id="new-message-body"
                 aria-describedby="new-message-counter"
@@ -500,6 +559,7 @@ function RecipientPicker({
   return (
     <div className="flex flex-col gap-2">
       <input
+        id={TO_INPUT_ID}
         type="search"
         value={searchInput}
         onChange={(e) => onSearchChange(e.target.value)}

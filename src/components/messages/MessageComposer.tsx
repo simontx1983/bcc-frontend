@@ -7,11 +7,25 @@
  * region anchored via aria-describedby). Empty body disables submit.
  * `Enter` (without Shift) submits; `Shift+Enter` inserts a newline so
  * paragraphs work like every chat surface.
+ *
+ * F-319 (M-me3): on a phone, Enter always sent, so a newline couldn't be
+ * typed, and the "Shift + Enter" hint named a key the phone hasn't got.
+ * On a touch-only device (a coarse pointer and no fine one) Enter now
+ * types a newline, as a phone keyboard expects, and SEND sends; the hint
+ * is hidden. Ctrl/Cmd+Enter sends on every device, so a tablet with a
+ * hardware keyboard and no trackpad keeps a keyboard send. Anything with a
+ * fine pointer (a mouse, a trackpad, an iPad with a trackpad keyboard)
+ * keeps Enter to send, exactly as before.
  */
 
 import type { Route } from "next";
 import Link from "next/link";
-import { useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
+import {
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type KeyboardEvent as ReactKeyboardEvent,
+} from "react";
 
 import { captureAnalyticsEvent } from "@/lib/analytics/posthog";
 import { counterToneClass } from "@/lib/counter-tone";
@@ -28,6 +42,32 @@ interface MessageComposerProps {
 
 /** Where the viewer's own direct-message switch lives. */
 const MESSAGE_SETTINGS_HREF = "/u/me?tab=messages" as Route;
+
+const COARSE_POINTER = "(any-pointer: coarse)";
+const FINE_POINTER = "(any-pointer: fine)";
+
+/** Touch only: some coarse pointer and no fine one (M-me3). */
+function readTouchOnly(): boolean {
+  if (typeof window === "undefined" || typeof window.matchMedia !== "function") return false;
+  return window.matchMedia(COARSE_POINTER).matches && !window.matchMedia(FINE_POINTER).matches;
+}
+
+function subscribeToPointers(onChange: () => void): () => void {
+  if (typeof window === "undefined" || typeof window.matchMedia !== "function") return () => {};
+  const lists = [window.matchMedia(COARSE_POINTER), window.matchMedia(FINE_POINTER)];
+  for (const list of lists) list.addEventListener?.("change", onChange);
+  return () => {
+    for (const list of lists) list.removeEventListener?.("change", onChange);
+  };
+}
+
+/**
+ * Live, so plugging a trackpad into a tablet switches Enter back to send.
+ * The server snapshot is "not touch only": the markup a desktop expects.
+ */
+function useTouchOnly(): boolean {
+  return useSyncExternalStore(subscribeToPointers, readTouchOnly, () => false);
+}
 
 export function MessageComposer({ conversationId, canReply }: MessageComposerProps) {
   const gate = resolveDmGate(canReply);
@@ -57,6 +97,7 @@ function ReplyForm({ conversationId }: { conversationId: number }) {
   const [body, setBody] = useState("");
   const [error, setError] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const touchOnly = useTouchOnly();
   // F-319: a synchronous in-flight flag. `mutation.isPending` only flips
   // on the next render, so two submits that land before React commits
   // (Enter plus a click on SEND, a key repeat on a slow device) both saw
@@ -104,10 +145,11 @@ function ReplyForm({ conversationId }: { conversationId: number }) {
   };
 
   const onKeyDown = (event: ReactKeyboardEvent<HTMLTextAreaElement>) => {
-    if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
-      event.preventDefault();
-      submit();
-    }
+    if (event.key !== "Enter" || event.shiftKey || event.nativeEvent.isComposing) return;
+    // Touch only: a plain Enter is a newline (M-me3); Ctrl/Cmd+Enter sends.
+    if (touchOnly && !event.ctrlKey && !event.metaKey) return;
+    event.preventDefault();
+    submit();
   };
 
   return (
@@ -155,13 +197,15 @@ function ReplyForm({ conversationId }: { conversationId: number }) {
       )}
 
       <div className="flex items-center justify-between">
-        <span className="bcc-mono text-[10px] tracking-[0.16em] text-bcc-text-secondary">
-          ENTER TO SEND · SHIFT + ENTER FOR NEWLINE
-        </span>
+        {!touchOnly && (
+          <span className="bcc-mono text-[10px] tracking-[0.16em] text-bcc-text-secondary">
+            ENTER TO SEND · SHIFT + ENTER FOR NEWLINE
+          </span>
+        )}
         <button
           type="submit"
           disabled={!canSend}
-          className="bcc-mono inline-flex items-center gap-2 border-2 border-bcc-border px-3 py-1.5 text-[10px] tracking-[0.18em] text-bcc-text transition hover:bg-bcc-surface-hover hover:border-bcc-border-strong disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
+          className="bcc-mono ml-auto inline-flex items-center gap-2 border-2 border-bcc-border px-3 py-1.5 text-[10px] tracking-[0.18em] text-bcc-text transition hover:bg-bcc-surface-hover hover:border-bcc-border-strong disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
         >
           {mutation.isPending ? "SENDING…" : "SEND"}
         </button>
