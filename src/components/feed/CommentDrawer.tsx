@@ -1636,13 +1636,15 @@ function CommentComposer({
   /** Collapsed box has content to summarize — swap the raw textarea for a truncated preview (items 8/9). */
   const showCollapsedPreview = !expanded && (trimmed !== "" || hasMedia);
 
-  // Whether the member has started something since a submit cleared the
-  // box, read by that submit's failure when it lands later (below).
+  // What the member has started since a submit cleared the box, read by
+  // that submit's failure when it lands later (below): text, an attachment
+  // or one still uploading, and the reply target they've picked since.
+  // Assigned during render, not in an effect: an effect runs after paint,
+  // so a failure landing in the same frame as the first keystroke could
+  // still have restored over it.
   const boxInUse = trimmed !== "" || hasMedia || uploading;
-  const boxInUseRef = useRef(boxInUse);
-  useEffect(() => {
-    boxInUseRef.current = boxInUse;
-  }, [boxInUse]);
+  const boxNowRef = useRef({ inUse: boxInUse, replyParentId: replyTarget?.parentId ?? null });
+  boxNowRef.current = { inUse: boxInUse, replyParentId: replyTarget?.parentId ?? null };
 
   const clearMedia = () => {
     setPhoto(null);
@@ -1771,6 +1773,7 @@ function CommentComposer({
     const photoSnapshot = photo;
     const gifSnapshot = gif;
     const restoreReply = onDetachReply();
+    const submittedParentId = replyTarget?.parentId ?? null;
 
     createMut.mutate(
       {
@@ -1798,7 +1801,11 @@ function CommentComposer({
           // otherwise their new draft stays, its reply context too (the old
           // target would turn it into a reply), and the announcement and
           // the red row say the earlier comment didn't post. No merging.
-          if (!boxInUseRef.current) {
+          // A reply target picked on ANOTHER comment meanwhile is the
+          // member's new choice too: keep it and restore nothing.
+          const now = boxNowRef.current;
+          const pickedAnother = now.replyParentId !== null && now.replyParentId !== submittedParentId;
+          if (!now.inUse && !pickedAnother) {
             setDraft(draftSnapshot);
             setPhoto(photoSnapshot);
             setGif(gifSnapshot);
