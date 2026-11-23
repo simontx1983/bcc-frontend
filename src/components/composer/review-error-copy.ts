@@ -16,9 +16,8 @@
  * limit and the 3-per-day downvote cap (a SLIDING 24 h window, so the
  * wait can be hours), answer `bcc_rate_limited` 429 with
  * `data.retry_after_seconds`. The copy names that wait; without it, a
- * neutral line with no number. Until #763 is in production the daily cap
- * still answers 403, so the forbidden entry keeps its "capped daily"
- * clause; a follow-up removes it once #763 ships.
+ * neutral line with no number. With #763 live the daily cap is a 429, not
+ * a 403, so the forbidden copy no longer mentions it.
  */
 
 import { humanizeCode, retryAfterSeconds } from "@/lib/api/errors";
@@ -41,7 +40,7 @@ export function humanizeReviewError(err: unknown): string {
       bcc_unauthorized: "Sign in to post a review.",
       bcc_invalid_request: "That review can't be sent — check the grade and body.",
       bcc_forbidden:
-        "This review was blocked by a trust-safety gate. Caution reviews require trusted or elite standing and a verified identity (linked wallet or GitHub), and downvotes are capped daily.",
+        "This review was blocked by a trust-safety gate. Caution reviews require trusted or elite standing and a verified identity (linked wallet or GitHub).",
       bcc_rate_limited: reviewLimitCopy(err),
       bcc_unavailable: "Reviews are temporarily unavailable. Try again shortly.",
     },
