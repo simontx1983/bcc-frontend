@@ -37,7 +37,8 @@ function fn(src: string, name: string): string {
 
 const CLAIM_FLOW = "src/components/claim/ClaimFlow.tsx";
 const LINK_FLOW = "src/lib/wallet/linkFlow.ts";
-const CLAIM_SUPPORT = "src/lib/wallet/claim-support.ts";
+const CLAIM_CALLOUT = "src/components/claim/ClaimCallout.tsx";
+const CLAIMABILITY = "src/components/claim/claimability.ts";
 const DASHBOARD = "src/app/(main)/(app)/me/validator-pages/page.tsx";
 
 /** Strip comments so prose can never satisfy a code assertion. */
@@ -51,27 +52,25 @@ describe("validator claim — chain authority", () => {
     expect(read(DASHBOARD).length).toBeGreaterThan(0);
   });
 
-  it("allows exactly the chain types whose operator authority the backend can prove", () => {
-    const src = code(read(CLAIM_SUPPORT));
-
-    // cosmos: bech32 bytes. polkadot: the stash account.
-    expect(src).toContain('"cosmos"');
-    expect(src).toContain('"polkadot"');
-    expect(src).toContain("CLAIMABLE_CHAIN_TYPES");
-
-    // The allowlist literal itself must not admit solana or evm.
-    const listMatch = /CLAIMABLE_CHAIN_TYPES[^=]*=\s*new Set<WalletChainType>\(\[([^\]]*)\]\)/.exec(src);
-    expect(listMatch).not.toBeNull();
-    const list = listMatch?.[1] ?? "";
-    expect(list).toContain("cosmos");
-    expect(list).toContain("polkadot");
-    expect(list).not.toContain("solana");
-    expect(list).not.toContain("evm");
+  it("claimability is the server's answer: no client chain allowlist (F-552)", () => {
+    // Contract F-515: clients decide claimability from claim_target.claimable
+    // and can_claim, never from a chain allowlist of their own.
+    const flow = code(read(CLAIM_FLOW));
+    const callout = code(read(CLAIM_CALLOUT));
+    const helper = code(read(CLAIMABILITY));
+    for (const src of [flow, callout]) {
+      expect(src).toContain("claimabilityOf(");
+      expect(src).not.toMatch(/isChainClaimable|CLAIMABLE_CHAIN_TYPES|claim-support/);
+    }
+    expect(helper).toContain("target.claimable !== false");
+    expect(helper).toContain('"not_claimable"');
+    // No chain names or types decide anything in the helper.
+    expect(helper).not.toMatch(/"(cosmos|polkadot|solana|evm|thorchain)"/);
   });
 
   it("explains WHY Solana is unavailable, so it is not 'fixed' by adding Phantom", () => {
     // Prose assertion on purpose — the reason is the safeguard here.
-    const prose = read(CLAIM_FLOW) + read(CLAIM_SUPPORT);
+    const prose = read(CLAIM_FLOW);
 
     expect(prose).toContain("authorizedWithdrawer");
     expect(prose).toMatch(/identity key/i);

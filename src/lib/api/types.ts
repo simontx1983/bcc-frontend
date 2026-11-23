@@ -313,6 +313,13 @@ export interface CardPermissions {
   can_stand_behind?: CardPermissionEntry;
   can_report?: CardPermissionEntry;
   /**
+   * v1.136 (F-301), page cards only: may this viewer claim the page?
+   * reason_code: suspended | signin_required | not_applicable, and since
+   * F-515 not_claimable (checked first; its unlock_hint is the card's
+   * claim_target.unclaimable_hint).
+   */
+  can_claim?: CardPermissionEntry;
+  /**
    * §7 owner vote-dispute entry (DisputeCallout → OpenDisputeModal →
    * POST /disputes). Owner-only: mirrors DisputeController's
    * Permissions::owns_page write gate exactly — no feature ladder.
@@ -439,6 +446,16 @@ export interface CardClaimTarget {
   entity_id: number;
   /** e.g. "cosmos", "osmosis", "ethereum". Drives the wallet picker. */
   chain_slug: string;
+  /**
+   * F-515 (contract v1.NEXT), additive: whether BCC can prove an operator
+   * on this validator's chain from the data it stores. Absent on an older
+   * backend, which means "let the claim route decide".
+   */
+  claimable?: boolean;
+  /** Why not, when `claimable` is false (operator_address_missing, …); else null. */
+  unclaimable_reason_code?: string | null;
+  /** Server copy for why not, naming the chain; rendered verbatim. Null when claimable. */
+  unclaimable_hint?: string | null;
 }
 
 /**

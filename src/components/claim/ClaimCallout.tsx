@@ -19,6 +19,12 @@
  * Auth state crosses the RSC boundary as a boolean — the IdentityBlock
  * doesn't know about sessions, so we pass `viewerAuthed` from the
  * page-level server component.
+ *
+ * F-552: whether the page can be claimed is the SERVER's answer
+ * (claim_target.claimable / can_claim, contract F-515), never a chain
+ * allowlist of ours. Its reason is rendered verbatim. can_claim's other
+ * refusals: not_applicable shows nothing, suspended shows its line
+ * instead of the button.
  */
 
 import type { Route } from "next";
@@ -27,15 +33,17 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 
 import { ClaimFlow } from "@/components/claim/ClaimFlow";
-import type { CardClaimTarget } from "@/lib/api/types";
+import { claimabilityOf } from "@/components/claim/claimability";
+import type { CardClaimTarget, CardPermissionEntry } from "@/lib/api/types";
 import { LEGAL } from "@/lib/legal/config";
-import { isChainClaimable, unsupportedClaimReason } from "@/lib/wallet/claim-support";
 
 interface ClaimCalloutProps {
   pageId: number;
   pageName: string;
   target: CardClaimTarget;
   viewerAuthed: boolean;
+  /** The page's permissions.can_claim (F-301 / F-515); absent on an older backend. */
+  canClaim?: CardPermissionEntry | undefined;
 }
 
 export function ClaimCallout({
@@ -43,11 +51,19 @@ export function ClaimCallout({
   pageName,
   target,
   viewerAuthed,
+  canClaim,
 }: ClaimCalloutProps) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
-  const claimable = isChainClaimable(target.chain_slug);
-
+  const { claimable, hint } = claimabilityOf(target, canClaim);
+  // Nothing to claim (already claimed, or no target): render nothing.
+  if (canClaim?.reason_code === "not_applicable") return null;
+  // A signed-in member the server refuses for themselves (suspended) gets
+  // the server's line instead of a button that can only fail.
+  const refusal =
+    claimable && viewerAuthed && canClaim !== undefined && !canClaim.allowed && canClaim.reason_code !== "signin_required"
+      ? canClaim.unlock_hint
+      : null;
   return (
     <>
       <div className="mt-6 flex flex-col gap-3">
@@ -69,7 +85,9 @@ export function ClaimCallout({
               this validator&apos;s keys, you can claim it.
             </p>
 
-            {viewerAuthed ? (
+            {refusal !== null ? (
+              <p className="font-serif text-sm text-bcc-text-secondary">{refusal}</p>
+            ) : viewerAuthed ? (
               <button
                 type="button"
                 onClick={() => setOpen(true)}
@@ -98,9 +116,7 @@ export function ClaimCallout({
           </>
         ) : (
           <>
-            <p className="font-serif text-bcc-text-secondary">
-              {unsupportedClaimReason(target.chain_slug)}
-            </p>
+            <p className="font-serif text-bcc-text-secondary">{hint}</p>
             <p className="font-serif text-sm text-bcc-text-secondary">
               Your page stays up and you don&apos;t need to do anything.
               Questions?{" "}
