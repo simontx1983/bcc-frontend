@@ -14,6 +14,10 @@
  * (the common case: no permissions) runs no mutation observers.
  *
  * One reply, no thread: a reply takes no comments and no reactions.
+ *
+ * v1.174: after a hand-over the old author still sees their own reply as
+ * `viewer_stale_reply`, below the page's current one, with Delete only
+ * (its `can_delete`; `can_edit` is `page_changed_hands`).
  */
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
@@ -27,7 +31,7 @@ import {
   useUpdateReviewReply,
 } from "@/hooks/useReviewReply";
 import { humanizeCode } from "@/lib/api/errors";
-import type { CardReview } from "@/lib/api/types";
+import type { CardReview, ReviewReply } from "@/lib/api/types";
 import { unlockHint } from "@/lib/permissions";
 
 /** Server cap (contract: 1–1000 chars after trim). */
@@ -60,6 +64,44 @@ const WRITE_ERROR_COPY: Record<string, string> = {
 };
 
 export function ReviewReplySection({ review }: { review: CardReview }) {
+  const stale = review.viewer_stale_reply ?? null;
+  return (
+    <>
+      <CurrentReply review={review} />
+      {stale !== null && <StaleReply reviewId={review.id} reply={stale} />}
+    </>
+  );
+}
+
+/** The viewer's own reply after the page changed hands: theirs to delete, nobody else sees it. */
+function StaleReply({ reviewId, reply }: { reviewId: number; reply: ReviewReply }) {
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const canDelete = reply.permissions.can_delete.allowed === true;
+  return (
+    <>
+      <ReviewReplyView reply={reply} surface="paper" stale>
+        {canDelete && (
+          <div className="mt-1 flex flex-wrap items-center gap-x-2">
+            <button
+              type="button"
+              className={ACTION_CLASS}
+              style={ACTION_STYLE}
+              aria-label="Delete your earlier reply"
+              onClick={() => setConfirmingDelete(true)}
+            >
+              DELETE
+            </button>
+          </div>
+        )}
+      </ReviewReplyView>
+      {confirmingDelete && (
+        <DeleteReplyDialog reviewId={reviewId} stale onDone={() => setConfirmingDelete(false)} />
+      )}
+    </>
+  );
+}
+
+function CurrentReply({ review }: { review: CardReview }) {
   const reply = review.reply ?? null;
   const [mode, setMode] = useState<"idle" | "compose" | "edit">("idle");
   const [confirmingDelete, setConfirmingDelete] = useState(false);
@@ -234,12 +276,20 @@ function EditReply({
   );
 }
 
-function DeleteReplyDialog({ reviewId, onDone }: { reviewId: number; onDone: () => void }) {
+function DeleteReplyDialog({
+  reviewId,
+  stale = false,
+  onDone,
+}: {
+  reviewId: number;
+  stale?: boolean;
+  onDone: () => void;
+}) {
   const mut = useDeleteReviewReply();
   return (
     <ConfirmDialog
-      title="Delete your reply?"
-      body="It will be removed from this review."
+      title={stale ? "Delete your earlier reply?" : "Delete your reply?"}
+      body={stale ? "Only you can see it now. Deleting it removes it for good." : "It will be removed from this review."}
       confirmLabel="DELETE"
       cancelLabel="CANCEL"
       retryLabel="TRY AGAIN"
@@ -259,7 +309,7 @@ function DeleteReplyDialog({ reviewId, onDone }: { reviewId: number; onDone: () 
       pending={mut.isPending}
       onConfirm={() => {
         mut.reset();
-        mut.mutate({ reviewId }, { onSuccess: onDone });
+        mut.mutate({ reviewId, stale }, { onSuccess: onDone });
       }}
       onCancel={onDone}
     />

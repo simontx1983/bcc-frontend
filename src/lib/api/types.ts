@@ -2923,6 +2923,12 @@ export interface CardReview {
    * reply", exactly like null.
    */
   reply?: ReviewReply | null;
+  /**
+   * v1.174 — the VIEWER's own reply after the page changed hands: no
+   * longer the page's response, shown to its author only, deletable, not
+   * editable. Absent or null = none.
+   */
+  viewer_stale_reply?: ReviewReply | null;
   /** F-345 — viewer-scoped. Absent = no composer (same as a denial). */
   permissions?: { can_reply?: CardPermissionEntry };
 }
@@ -2938,19 +2944,27 @@ export interface CardReview {
  * `permissions` is server-decided per viewer; the client never compares
  * `author` with the viewer. The reply shown is always the one whose author
  * currently answers for the page — a stale reply (the page changed hands)
- * comes back as `reply: null` for everyone, and the current party gets
- * `can_reply`.
+ * comes back as `reply: null` for everyone (its author sees it as
+ * `viewer_stale_reply`, v1.174), and the current party gets `can_reply`.
  *   - can_edit:   author in good standing (not_author · sender_restricted)
  *   - can_delete: author, not gated on suspension (not_author)
  *   - can_report: signed in, not the author, not restricted
  *                 (sign_in_required → hint "Sign in to report." · own_reply ·
  *                 sender_restricted)
  * Ships with `reply` itself, so it is always present on a reply.
+ *
+ * Who it is from (SA5, page-attributed replies): `author_kind` "member"
+ * (or absent: today's backend sends none) carries `author`; "page" carries
+ * `page` and NO `author` key: the reply is shown as the page's own
+ * response, because the author's profile level doesn't admit this viewer.
+ * Render the page's name and avatar, link the page; never read person
+ * fields from it. Only on `/entities/{kind}/:id/reviews`, only in `reply`.
  */
-export interface ReviewReply {
+export type ReviewReply = ReviewReplyMember | ReviewReplyPage;
+
+interface ReviewReplyShared {
   id: number;
   body: string;
-  author: MemberSummary;
   posted_at: string;
   edited_at: string | null;
   feed_id: string;
@@ -2959,6 +2973,26 @@ export interface ReviewReply {
     can_delete: CardPermissionEntry;
     can_report: CardPermissionEntry;
   };
+}
+
+export interface ReviewReplyMember extends ReviewReplyShared {
+  author_kind?: "member";
+  author: MemberSummary;
+}
+
+export interface ReviewReplyPage extends ReviewReplyShared {
+  author_kind: "page";
+  page: ReviewReplyPageAuthor;
+}
+
+/** The reviewed page itself (the card the tab sits on). */
+export interface ReviewReplyPageAuthor {
+  id: number;
+  card_kind: "validator" | "project" | "creator";
+  name: string;
+  handle: string;
+  /** The crest image, or "" when none. */
+  avatar_url: string;
 }
 
 /** POST|PATCH /reviews/{id}/reply body. 1–1000 chars after trim. */

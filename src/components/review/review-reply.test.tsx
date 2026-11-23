@@ -3,11 +3,16 @@
  * permission and nothing else, that a double-click cannot send two
  * writes, that a reply has no comment/reaction affordance, and that a
  * pre-#686 row (no `reply`, no `permissions`) renders exactly as before.
+ *
+ * Also SA5's page-attributed reply (`author_kind: "page"`: the page's
+ * name, crest and card link, never person fields) and v1.174's
+ * `viewer_stale_reply` (the viewer's own reply after a hand-over).
  */
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { type InfiniteData } from "@tanstack/react-query";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/env", () => ({ clientEnv: { BCC_API_URL: "http://x" } }));
 
@@ -21,8 +26,18 @@ vi.mock("@/lib/api/posts-endpoints", () => ({
 }));
 
 import { ReviewReplySection, replyReportTargetId } from "@/components/review/ReviewReplySection";
-import { ReviewReplyView } from "@/components/review/ReviewReplyView";
-import type { CardPermissionEntry, CardReview, MemberSummary, ReviewReply } from "@/lib/api/types";
+import { pageReplyHref, ReviewReplyView } from "@/components/review/ReviewReplyView";
+import { CARD_REVIEWS_QUERY_KEY_ROOT } from "@/hooks/useCardTabs";
+import type {
+  CardPermissionEntry,
+  CardReview,
+  CardReviewsResponse,
+  MemberSummary,
+  ReviewReply,
+  ReviewReplyMember,
+  ReviewReplyPage,
+  ReviewReplyPageAuthor,
+} from "@/lib/api/types";
 
 const allow: CardPermissionEntry = { allowed: true, unlock_hint: null, reason_code: null };
 const deny = (unlock_hint: string | null = null): CardPermissionEntry => ({
@@ -42,7 +57,7 @@ const perms = (p: Partial<ReviewReply["permissions"]> = {}): ReviewReply["permis
   ...p,
 });
 
-const reply = (over: Partial<ReviewReply> = {}): ReviewReply => ({
+const reply = (over: Partial<ReviewReplyMember> = {}): ReviewReplyMember => ({
   id: 9,
   body: "Thanks — fixed the signing gap.",
   author: member("acme"),
@@ -52,6 +67,43 @@ const reply = (over: Partial<ReviewReply> = {}): ReviewReply => ({
   permissions: perms(),
   ...over,
 });
+
+const PAGE: ReviewReplyPageAuthor = {
+  id: 501,
+  card_kind: "validator",
+  name: "Acme Validator",
+  handle: "acme-validator",
+  avatar_url: "",
+};
+
+/** SA5's page variant: `page`, and no `author` key at all. */
+const pageReply = (over: Partial<ReviewReplyPage> = {}): ReviewReplyPage => ({
+  id: 10,
+  body: "Thanks for the report. Fixed.",
+  author_kind: "page",
+  page: PAGE,
+  posted_at: "2026-11-10T12:00:00Z",
+  edited_at: null,
+  feed_id: "feed_322",
+  permissions: perms(),
+  ...over,
+});
+
+const notAuthor: CardPermissionEntry = { allowed: false, unlock_hint: null, reason_code: "not_author" };
+
+/** v1.174: the viewer's own reply after the page changed hands. */
+const staleReply = (over: Partial<ReviewReplyMember> = {}): ReviewReplyMember =>
+  reply({
+    id: 11,
+    body: "My old answer.",
+    author: member("oldop"),
+    permissions: perms({
+      can_edit: { allowed: false, unlock_hint: null, reason_code: "page_changed_hands" },
+      can_delete: allow,
+      can_report: { allowed: false, unlock_hint: null, reason_code: "own_reply" },
+    }),
+    ...over,
+  });
 
 const review = (over: Partial<CardReview> = {}): CardReview => ({
   id: 88,
@@ -69,6 +121,21 @@ const renderSection = (r: CardReview) =>
       <ReviewReplySection review={r} />
     </QueryClientProvider>,
   );
+
+// ConfirmDialog (the delete confirm) reads the reduced-motion query.
+beforeAll(() => {
+  if (typeof window.matchMedia !== "function") {
+    Object.defineProperty(window, "matchMedia", {
+      writable: true,
+      value: (query: string) => ({
+        matches: false, media: query, onchange: null,
+        addListener: () => undefined, removeListener: () => undefined,
+        addEventListener: () => undefined, removeEventListener: () => undefined,
+        dispatchEvent: () => false,
+      }),
+    });
+  }
+});
 
 beforeEach(() => {
   qc = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
@@ -214,3 +281,88 @@ describe("F-345 review replies", () => {
     expect(replyReportTargetId("feed_0")).toBe(0);
   });
 });
+
+describe("SA5 page-attributed replies", () => {
+  it("shows the page as the responder, linked by card_kind + handle, with no person fields", () => {
+    const { container } = render(<ReviewReplyView reply={pageReply()} surface="paper" />);
+    expect(screen.getByRole("link", { name: "Acme Validator" })).toHaveAttribute("href", "/v/acme-validator");
+    expect(container.querySelector('a[href^="/u/"]')).toBeNull();
+    expect(container.textContent).not.toContain("@");
+    expect(screen.getByText("Thanks for the report. Fixed.")).toBeInTheDocument();
+  });
+
+  it("each page kind links to its own card route; an unknown kind renders unlinked", () => {
+    expect(pageReplyHref(PAGE)).toBe("/v/acme-validator");
+    expect(pageReplyHref({ ...PAGE, card_kind: "project" })).toBe("/p/acme-validator");
+    expect(pageReplyHref({ ...PAGE, card_kind: "creator" })).toBe("/c/acme-validator");
+    expect(pageReplyHref({ ...PAGE, card_kind: "hall" as never })).toBeNull();
+    render(<ReviewReplyView reply={pageReply({ page: { ...PAGE, card_kind: "hall" as never } })} surface="paper" />);
+    expect(screen.queryByRole("link")).toBeNull();
+    expect(screen.getByText("Acme Validator")).toBeInTheDocument();
+  });
+
+  it("no author_kind (today's backend) reads as a member reply", () => {
+    render(<ReviewReplyView reply={reply()} surface="paper" />);
+    expect(screen.getByRole("link", { name: "@ACME" })).toHaveAttribute("href", "/u/acme");
+  });
+
+  it("compact page reply has no links either", () => {
+    const { container } = render(<ReviewReplyView reply={pageReply()} surface="panel" compact />);
+    expect(container.querySelector("a")).toBeNull();
+    expect(container.querySelector("div, p")).toBeNull();
+    expect(screen.getByText("Acme Validator")).toBeInTheDocument();
+  });
+
+  it("uses the page reply's permissions as sent: Report on, no Edit or Delete", () => {
+    renderSection(
+      review({ reply: pageReply({ permissions: perms({ can_edit: notAuthor, can_delete: notAuthor, can_report: allow }) }) }),
+    );
+    expect(screen.getByRole("button", { name: "Report this reply" })).toBeEnabled();
+    expect(screen.queryByRole("button", { name: "EDIT" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "DELETE" })).toBeNull();
+  });
+});
+
+describe("v1.174 viewer_stale_reply", () => {
+  it("shows the viewer's own handed-over reply as not public, with Delete only", () => {
+    renderSection(review({ reply: null, viewer_stale_reply: staleReply() }));
+    expect(screen.getByText(/YOUR EARLIER REPLY · NO LONGER SHOWN PUBLICLY/)).toBeInTheDocument();
+    expect(screen.getByText("My old answer.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Delete your earlier reply" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "EDIT" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Report this reply" })).toBeNull();
+  });
+
+  it("Delete follows its can_delete", () => {
+    renderSection(review({ reply: null, viewer_stale_reply: staleReply({ permissions: perms() }) }));
+    expect(screen.getByText("My old answer.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Delete your earlier reply" })).toBeNull();
+  });
+
+  it("sits beside the page's current reply", () => {
+    renderSection(review({ reply: pageReply(), viewer_stale_reply: staleReply() }));
+    expect(screen.getAllByTestId("review-reply")).toHaveLength(2);
+    expect(screen.getByText("Acme Validator")).toBeInTheDocument();
+  });
+
+  it("deleting it clears only viewer_stale_reply; the page's reply stays", async () => {
+    deleteReviewReply.mockResolvedValue({ deleted: true });
+    const row = review({ reply: pageReply(), viewer_stale_reply: staleReply() });
+    const key = [...CARD_REVIEWS_QUERY_KEY_ROOT, "validator_card", 501];
+    qc.setQueryData<InfiniteData<CardReviewsResponse>>(key, {
+      pages: [{ items: [row], pagination: { page: 1, per_page: 20, total: 1, total_pages: 1 } }],
+      pageParams: [1],
+    });
+    renderSection(row);
+    fireEvent.click(screen.getByRole("button", { name: "Delete your earlier reply" }));
+    expect(screen.getByRole("dialog", { name: "Delete your earlier reply?" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "DELETE" }));
+    await waitFor(() => expect(deleteReviewReply).toHaveBeenCalledWith(88));
+    await waitFor(() => {
+      const cached = qc.getQueryData<InfiniteData<CardReviewsResponse>>(key)?.pages[0]?.items[0];
+      expect(cached?.viewer_stale_reply).toBeNull();
+      expect(cached?.reply).toEqual(pageReply());
+    });
+  });
+});
+
