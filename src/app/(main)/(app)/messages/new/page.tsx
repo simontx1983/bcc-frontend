@@ -67,6 +67,7 @@ import { useMembers } from "@/hooks/useMembers";
 import { useStartConversationMutation } from "@/hooks/useStartConversation";
 import { humanizeCode, isProfilePrivate } from "@/lib/api/errors";
 import { useSignInLink } from "@/lib/auth/sign-in-link";
+import { HIT_AREA_44 } from "@/components/feed/hitArea";
 import {
   MESSAGE_BODY_MAX_LENGTH,
   type Card,
@@ -79,8 +80,15 @@ const PER_PAGE = 12;
 
 /** The TO heading: names the recipient section and its search box (M-me5). */
 const TO_LABEL_ID = "new-message-to-label";
+/** The search box's own words, after TO (RA2's #372 nit). */
+const TO_SEARCH_HINT_ID = "new-message-to-search";
+/** The search box, so a click on the visible TO can focus it. */
+const TO_INPUT_ID = "new-message-to";
 
 /** Shown after a send that parked in the unclaimed-page queue. */
+/** The link after the queued confirmation (F-319 L-me2). */
+const SEE_QUEUED_COPY = "See it in Queued";
+
 const QUEUED_CONFIRMATION =
   "Message queued. It will be delivered when the validator is claimed by a verified operator.";
 
@@ -324,7 +332,8 @@ function NewMessagePageContent() {
       <header className="mx-auto max-w-3xl px-2 sm:px-3 pt-12">
         <Link
           href={"/messages" as Route}
-          className="bcc-mono text-[10px] tracking-[0.18em] text-bcc-text-secondary transition hover:text-bcc-text"
+          // F-319 (L-me1): a 44px tap target without changing its look.
+          className={`${HIT_AREA_44} bcc-mono inline-block text-[10px] tracking-[0.18em] text-bcc-text-secondary transition hover:text-bcc-text`}
         >
           ← INBOX
         </Link>
@@ -349,8 +358,12 @@ function NewMessagePageContent() {
         {isAuthed && (
           <form onSubmit={submit} className="flex flex-col gap-6">
             <div role="group" aria-labelledby={TO_LABEL_ID} className="flex flex-col gap-2">
+              {/* A click on the visible TO focuses the search box when it is
+                  shown, as a <label> would (RA2's #372 nit); with a chip
+                  or a loading pin there is no box, and nothing happens. */}
               <span
                 id={TO_LABEL_ID}
+                onClick={() => document.getElementById(TO_INPUT_ID)?.focus()}
                 className="bcc-mono text-[10px] tracking-[0.24em] text-bcc-text-secondary"
               >
                 TO
@@ -481,17 +494,29 @@ function NewMessagePageContent() {
               </p>
             )}
 
-            {queuedNotice !== null && (
-              <p role="status" className="bcc-mono text-[11px] text-cardstock">
-                {queuedNotice}
-              </p>
-            )}
+            {/* F-319 (L-me2): the confirmation links to where the message
+                now waits. The region is mounted empty and filled per send
+                (#328), so it is announced; a polite region with no role, so
+                an idle one adds no match to the page's getByRole("status"). */}
+            <p aria-live="polite" aria-atomic="true" className="bcc-mono text-[11px] text-cardstock">
+              {queuedNotice !== null && (
+                <span>
+                  {queuedNotice}{" "}
+                  <Link
+                    href={"/messages?tab=queued" as Route}
+                    className="underline underline-offset-2"
+                  >
+                    {SEE_QUEUED_COPY}
+                  </Link>
+                </span>
+              )}
+            </p>
 
             <div>
               <button
                 type="submit"
                 disabled={!canSend}
-                className="bcc-mono inline-flex items-center gap-2 border-2 border-bcc-border px-3 py-1.5 text-[10px] tracking-[0.18em] text-bcc-text transition hover:bg-bcc-surface-hover hover:border-bcc-border-strong disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
+                className="bcc-mono inline-flex min-h-[44px] items-center gap-2 border-2 border-bcc-border px-3 py-1.5 text-[10px] tracking-[0.18em] text-bcc-text transition hover:bg-bcc-surface-hover hover:border-bcc-border-strong disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
               >
                 {mutation.isPending ? "SENDING…" : "SEND →"}
               </button>
@@ -541,7 +566,8 @@ function SelectedRecipient({
       <button
         type="button"
         onClick={onClear}
-        className="bcc-mono text-[10px] tracking-[0.18em] text-bcc-text-secondary transition hover:text-bcc-text"
+        // F-319 (L-me1): a 44px tap target without changing its look.
+        className={`${HIT_AREA_44} bcc-mono text-[10px] tracking-[0.18em] text-bcc-text-secondary transition hover:text-bcc-text`}
       >
         CHANGE
       </button>
@@ -562,8 +588,12 @@ function RecipientPicker({
 }) {
   return (
     <div className="flex flex-col gap-2">
+      <span id={TO_SEARCH_HINT_ID} className="sr-only">
+        search members
+      </span>
       <input
-        aria-labelledby={TO_LABEL_ID}
+        id={TO_INPUT_ID}
+        aria-labelledby={`${TO_LABEL_ID} ${TO_SEARCH_HINT_ID}`}
         type="search"
         value={searchInput}
         onChange={(e) => onSearchChange(e.target.value)}

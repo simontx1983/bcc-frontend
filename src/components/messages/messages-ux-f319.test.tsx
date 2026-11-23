@@ -275,7 +275,7 @@ describe("M-me5: /messages/new names its fields", () => {
   it("TO names the recipient section and its search box; MESSAGE names the textarea", () => {
     wrap(<NewMessagePage />);
     const to = screen.getByRole("group", { name: "TO" });
-    expect(within(to).getByRole("searchbox", { name: "TO" })).toBeInTheDocument();
+    expect(within(to).getByRole("searchbox", { name: "TO search members" })).toBeInTheDocument();
     expect(screen.getByLabelText("MESSAGE").tagName).toBe("TEXTAREA");
   });
 

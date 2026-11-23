@@ -25,6 +25,7 @@ import { MessageComposer } from "@/components/messages/MessageComposer";
 import { ThreadView } from "@/components/messages/ThreadView";
 import { useConversation } from "@/hooks/useConversation";
 import { LoadFailure } from "@/components/ui/LoadFailure";
+import { HIT_AREA_44 } from "@/components/feed/hitArea";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { humanizeCode, isPermissionDenial } from "@/lib/api/errors";
 import { useSignInLink } from "@/lib/auth/sign-in-link";
@@ -68,7 +69,8 @@ export default function ConversationPage() {
       <header className="mx-auto max-w-3xl px-2 sm:px-3 pt-12">
         <Link
           href={"/messages" as Route}
-          className="bcc-mono text-[10px] tracking-[0.18em] text-bcc-text-secondary transition hover:text-bcc-text"
+          // F-319 (L-me1): a 44px tap target without changing its look.
+          className={`${HIT_AREA_44} bcc-mono inline-block text-[10px] tracking-[0.18em] text-bcc-text-secondary transition hover:text-bcc-text`}
         >
           ← INBOX
         </Link>

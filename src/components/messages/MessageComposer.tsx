@@ -205,7 +205,7 @@ function ReplyForm({ conversationId }: { conversationId: number }) {
         <button
           type="submit"
           disabled={!canSend}
-          className="bcc-mono ml-auto inline-flex items-center gap-2 border-2 border-bcc-border px-3 py-1.5 text-[10px] tracking-[0.18em] text-bcc-text transition hover:bg-bcc-surface-hover hover:border-bcc-border-strong disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
+          className="bcc-mono ml-auto inline-flex min-h-[44px] items-center gap-2 border-2 border-bcc-border px-3 py-1.5 text-[10px] tracking-[0.18em] text-bcc-text transition hover:bg-bcc-surface-hover hover:border-bcc-border-strong disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
         >
           {mutation.isPending ? "SENDING…" : "SEND"}
         </button>
