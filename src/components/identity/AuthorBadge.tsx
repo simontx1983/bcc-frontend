@@ -92,6 +92,13 @@ export interface AuthorBadgeProps {
   trailing?: React.ReactNode;
   /** Pills/badges rendered to the right of the display name. */
   inlineAdornments?: React.ReactNode;
+  /**
+   * Secondary chips that travel WITH the rank / trust chip (e.g. the feed
+   * card's REVIEWED / WATCHED kind label). Beside the name from sm up;
+   * below sm they wrap onto a second line together when the name would
+   * otherwise be squeezed (testnet UX audit S1).
+   */
+  meta?: React.ReactNode;
   /** sm (default) = 28px avatar; md = 36px avatar (composer, prominent rows). */
   size?: "sm" | "md" | undefined;
   /**
@@ -136,6 +143,7 @@ function AuthorBadgeImpl({
   author,
   trailing,
   inlineAdornments,
+  meta,
   size = "sm",
   avatarRingColor,
   asLink = true,
@@ -276,15 +284,23 @@ function AuthorBadgeImpl({
     hover.triggerHandlers.onMouseEnter();
   };
 
+  // Testnet UX audit S1: at 375px the name shared one row with the chip
+  // (and the feed's kind label), and was cut to 3–4 characters. Below sm
+  // the row wraps instead: the identity keeps at least 12rem (or the whole
+  // row, if narrower), so when the chips don't fit beside it they move to
+  // a second line. From sm up it never wraps, as before. One DOM copy of
+  // each chip either way.
+  const identityClass = "flex min-w-[min(100%,12rem)] items-center gap-2.5 sm:min-w-0";
+
   return (
     <div
       className={`flex w-full items-start justify-between gap-3 ${className ?? ""}`}
     >
-      <div className="flex min-w-0 flex-1 items-center gap-2">
+      <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1 sm:flex-nowrap">
         {hovercard ? (
           <span
             ref={hover.triggerRef}
-            className="flex min-w-0 items-center gap-2.5"
+            className={identityClass}
             onMouseEnter={onEnter}
             onMouseLeave={hover.triggerHandlers.onMouseLeave}
           >
@@ -313,9 +329,10 @@ function AuthorBadgeImpl({
             )}
           </span>
         ) : (
-          <span className="flex min-w-0 items-center gap-2.5">{identityCore}</span>
+          <span className={identityClass}>{identityCore}</span>
         )}
         {rank}
+        {meta}
       </div>
       {trailing !== undefined && trailing !== null && (
         <div className="flex shrink-0 items-baseline">{trailing}</div>

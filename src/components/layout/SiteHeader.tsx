@@ -45,6 +45,7 @@ import { useIsMobile } from "@/hooks/useIsMobile";
 import { useUnreadCount } from "@/hooks/useNotifications";
 import { useUnreadMessageCount } from "@/hooks/useUnreadMessageCount";
 import { useUser } from "@/hooks/useUser";
+import { HIT_AREA_44 } from "@/components/feed/hitArea";
 import { applyTheme, getStoredAccent, getStoredTheme, type Accent, type Theme } from "@/lib/theme";
 
 // Code-split — the sign-out confirm only mounts behind the SIGN OUT
@@ -946,7 +947,7 @@ export function SiteHeader() {
           </button>
         ) : (
           <div style={{ display: "flex", gap: 8 }}>
-            <Link href="/signup" className="bcc-btn bcc-btn-sm bcc-btn-primary">
+            <Link href="/signup" className={`${HIT_AREA_44} bcc-btn bcc-btn-sm bcc-btn-primary`}>
               Sign Up
             </Link>
             {!isMobile && (
