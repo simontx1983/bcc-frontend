@@ -34,9 +34,16 @@ export function StatePill({ state }: { state: AdminValidatorPageState }) {
 export const LOCKED_FOR_STAFF_COPY = "Owned by proof — only the owner can change this.";
 
 /**
- * Shown ONLY when the server says `owner.locked_for_staff === true`. The
- * frontend never infers the lock from the verification kind or method.
+ * Whether an owner is locked for staff, FAIL CLOSED: locked unless the
+ * server explicitly says `locked_for_staff === false`. A missing or
+ * non-boolean flag reads as locked. The frontend never infers the lock
+ * from the verification kind or method. No owner → nothing to lock.
  */
+export function lockedForStaff(owner: { locked_for_staff?: unknown } | null): boolean {
+  return owner !== null && owner.locked_for_staff !== false;
+}
+
+/** Shown wherever `lockedForStaff(owner)` is true (fail closed). */
 export function LockedMarker() {
   return (
     <span className={CHIP_CLASS + " text-bcc-text-secondary"} title={LOCKED_FOR_STAFF_COPY}>

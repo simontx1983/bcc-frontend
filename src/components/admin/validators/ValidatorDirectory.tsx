@@ -43,7 +43,7 @@ import {
   STATE_ORDER,
   verificationLabel,
 } from "@/components/admin/validators/labels";
-import { LockedMarker, StatePill } from "@/components/admin/validators/StatePill";
+import { LockedMarker, lockedForStaff, StatePill } from "@/components/admin/validators/StatePill";
 import { FilterChipRow } from "@/components/ui/FilterChipRow";
 import { LoadFailure } from "@/components/ui/LoadFailure";
 import { TabRail } from "@/components/ui/TabRail";
@@ -324,7 +324,7 @@ function DirectoryRow({ item }: { item: AdminValidatorDirectoryItem }) {
           </Link>
         </h2>
         <span className="flex flex-wrap items-center gap-2">
-          {item.owner?.locked_for_staff === true && <LockedMarker />}
+          {lockedForStaff(item.owner) && <LockedMarker />}
           <StatePill state={item.state} />
         </span>
       </div>

@@ -19,7 +19,7 @@ import { AdminReadFailure } from "@/components/admin/validators/AdminReadFailure
 import { HistoryList } from "@/components/admin/validators/HistoryList";
 import { OwnerNotice, type OwnerPanelNotice } from "@/components/admin/validators/OwnerNotice";
 import { OwnerPanel } from "@/components/admin/validators/OwnerPanel";
-import { LockedMarker, StatePill } from "@/components/admin/validators/StatePill";
+import { LockedMarker, lockedForStaff, StatePill } from "@/components/admin/validators/StatePill";
 import { SKELETON_CLASS } from "@/components/ui/Skeleton";
 import {
   useAdminValidatorPage,
@@ -75,7 +75,7 @@ function PageHeader({ data }: { data: AdminValidatorPageRelationships }) {
       <div className="flex flex-wrap items-start justify-between gap-2">
         <h2 className="bcc-stencil min-w-0 break-words text-2xl text-bcc-text">{data.page.title}</h2>
         <span className="flex flex-wrap items-center gap-2">
-          {data.owner?.locked_for_staff === true && <LockedMarker />}
+          {lockedForStaff(data.owner) && <LockedMarker />}
           <StatePill state={data.state} />
         </span>
       </div>

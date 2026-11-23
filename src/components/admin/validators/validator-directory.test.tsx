@@ -8,7 +8,8 @@
  *   - a tab switch refetches with `chain`, a state chip with `state`;
  *   - rows carry the state pill, the owner and the server's verification
  *     label; each title links to the page view; a Locked marker shows
- *     only when the server says `owner.locked_for_staff === true`;
+ *     unless the server says `owner.locked_for_staff === false` (fail
+ *     closed: a missing flag is locked);
  *   - Load more sends the server's cursor;
  *   - 403 → "Admin access required" (no Retry), 503 → Retry,
  *     404 rest_no_route → "not available yet"; 404 bcc_not_found → its own line.
@@ -260,7 +261,7 @@ describe("Validator Directory — rows", () => {
     );
   });
 
-  it("a Locked marker shows only when the server says locked_for_staff === true", async () => {
+  it("a Locked marker shows unless the server says locked_for_staff === false (missing flag = locked)", async () => {
     const owner = (lock: Record<string, unknown>) => ({
       user: { user_id: 9, handle: "ada", display_name: "Ada Lovelace", avatar_url: null },
       verification: { kind: "node_key" as const, method: "solana_identity" as const, verified_at: "2026-11-01T00:00:00Z" },
@@ -280,7 +281,7 @@ describe("Validator Directory — rows", () => {
       (await screen.findByRole("heading", { name: title })).closest("li") as HTMLElement;
     expect(within(await row("Validator 1")).getByText("LOCKED")).toBeInTheDocument();
     expect(within(await row("Validator 2")).queryByText("LOCKED")).toBeNull();
-    expect(within(await row("Validator 3")).queryByText("LOCKED")).toBeNull();
+    expect(within(await row("Validator 3")).getByText("LOCKED")).toBeInTheDocument();
     expect(within(await row("Validator 4")).queryByText("LOCKED")).toBeNull();
     // No server label: the labels.ts fallback for the method.
     expect(within(await row("Validator 1")).getByText("VIA NODE KEY PROOF")).toBeInTheDocument();

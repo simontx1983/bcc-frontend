@@ -43,7 +43,7 @@ import {
 } from "@/components/admin/validators/labels";
 import { LinkOwnerForm } from "@/components/admin/validators/LinkOwnerForm";
 import type { OwnerPanelNotice } from "@/components/admin/validators/OwnerNotice";
-import { LOCKED_FOR_STAFF_COPY } from "@/components/admin/validators/StatePill";
+import { LOCKED_FOR_STAFF_COPY, lockedForStaff } from "@/components/admin/validators/StatePill";
 import { StepUpDialog } from "@/components/admin/validators/StepUpDialog";
 import { useCancelValidatorOwnerLink, useRevokeValidatorOwner } from "@/hooks/useAdminValidators";
 import type {
@@ -54,7 +54,7 @@ import type {
 import { formatAbsoluteDateTime } from "@/lib/format";
 
 export const OWNER_COPY = {
-  conflictNote: "A page with a wallet-proven claim can't be changed here.",
+  conflictNote: "A page with a proof-verified claim can't be changed here.",
   revokeHeading: "Revoke",
   revokeIntro: "Removes this owner from the page.",
   reasonRequired: "Pick a reason.",
@@ -71,8 +71,7 @@ export const OWNER_COPY = {
  * true, missing, or not a boolean — is locked (fail closed).
  */
 export function staffMayAct(owner: AdminValidatorPageOwner): boolean {
-  const flag: unknown = owner.locked_for_staff;
-  return flag === false;
+  return !lockedForStaff(owner);
 }
 
 function When({ iso }: { iso: string }) {

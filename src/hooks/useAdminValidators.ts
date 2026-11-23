@@ -286,6 +286,8 @@ function refreshOwnershipReads(queryClient: QueryClient, pageId: number): void {
   void queryClient.invalidateQueries({ queryKey: adminValidatorPageQueryKey(pageId) });
   void queryClient.invalidateQueries({ queryKey: [...ADMIN_VALIDATORS_QUERY_KEY_ROOT, "history"] });
   void queryClient.invalidateQueries({ queryKey: [...ADMIN_VALIDATORS_QUERY_KEY_ROOT, "directory"] });
+  // A write appends to the hash-chained log, so the health check moves too.
+  void queryClient.invalidateQueries({ queryKey: [...ADMIN_VALIDATORS_QUERY_KEY_ROOT, "health"] });
 }
 
 export function useStartValidatorStepUp(pageId: number) {
