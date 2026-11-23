@@ -52,6 +52,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 
 import { captureAnalyticsEvent } from "@/lib/analytics/posthog";
 import { humanizeCode } from "@/lib/api/errors";
@@ -372,11 +373,7 @@ export function ClaimFlow({ pageId, pageName, target, onClose }: ClaimFlowProps)
       )}
 
       {step.kind === "confirmation" && (
-        <ConfirmationStep
-          pageName={pageName}
-          handle={null}
-          onClose={handleClose}
-        />
+        <ConfirmationStep pageName={pageName} onClose={handleClose} />
       )}
       </div>
     </Dialog>
@@ -579,11 +576,9 @@ function SignatureStep({
 
 function ConfirmationStep({
   pageName,
-  handle,
   onClose,
 }: {
   pageName: string;
-  handle: string | null;
   onClose: () => void;
 }) {
   return (
@@ -606,8 +601,17 @@ function ConfirmationStep({
         What&apos;s next:
       </p>
       <ul className="mt-2 space-y-1.5 font-serif text-bcc-text-secondary">
-        <li>· Post your first announcement.</li>
-        {handle !== null && <li>· Visit your profile at /u/{handle}.</li>}
+        {/* F-320 (UX Low): the profile line was a handle that was always
+            null (so it never showed) printed as a path, not a link. /u/me
+            resolves to the viewer's own profile; the announcement line
+            says where, instead of reading like a dead link. */}
+        <li>· Post your first announcement from this page&apos;s Announcements tab.</li>
+        <li>
+          ·{" "}
+          <Link href="/u/me" className="text-bcc-text underline underline-offset-2">
+            Visit your profile
+          </Link>
+        </li>
       </ul>
       <ButtonRow>
         <PrimaryButton onClick={onClose}>BACK TO THE FLOOR</PrimaryButton>
