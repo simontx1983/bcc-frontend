@@ -37,6 +37,7 @@
 
 import type { Card, ReputationTier } from "@/lib/api/types";
 import { FlipIcon } from "@/components/icons/registry";
+import { HIT_AREA_44 } from "@/components/feed/hitArea";
 
 type StandingTone = "alarm" | "barrier" | "identity";
 
@@ -270,7 +271,7 @@ export function CardStandingStrip({
 
       <button
         type="button"
-        className="bcc-card-flip-chip"
+        className={`${HIT_AREA_44} bcc-card-flip-chip`}
         aria-pressed={flipped}
         aria-label={flipped ? `Show the front of ${card.name}'s card` : `Show the back of ${card.name}'s card`}
         onClick={(e) => {

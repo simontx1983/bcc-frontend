@@ -444,14 +444,32 @@ export function EntityProfile({
 // (belowHero slot) so it reads as "header stats" not "page section."
 // ─────────────────────────────────────────────────────────────────────
 
+/**
+ * Column classes for the stats strip, as static strings so Tailwind
+ * generates them. Below sm the strip is at most two across: four stats in
+ * one row clipped their labels at 375px ("FOLLOW…", testnet UX audit S2).
+ * From sm up it is one row of up to six, as before.
+ */
+const STATS_BASE_COLS = ["grid-cols-1", "grid-cols-2"] as const;
+const STATS_SM_COLS = [
+  "sm:grid-cols-1",
+  "sm:grid-cols-2",
+  "sm:grid-cols-3",
+  "sm:grid-cols-4",
+  "sm:grid-cols-5",
+  "sm:grid-cols-6",
+] as const;
+
+export function statsStripColumns(count: number): string {
+  const n = Math.max(1, Math.min(count, 6));
+  return `${STATS_BASE_COLS[Math.min(n, 2) - 1]} ${STATS_SM_COLS[n - 1]}`;
+}
+
 function StatsStrip({ stats }: { stats: Card["stats"] }) {
   return (
     <div
-      className="bcc-panel grid gap-px overflow-hidden"
-      style={{
-        gridTemplateColumns: `repeat(${Math.min(stats.length, 6)}, minmax(0,1fr))`,
-        background: "rgb(var(--ink-rgb) / 0.08)",
-      }}
+      className={`bcc-panel grid gap-px overflow-hidden ${statsStripColumns(stats.length)}`}
+      style={{ background: "rgb(var(--ink-rgb) / 0.08)" }}
     >
       {stats.map((stat) => (
         <div
