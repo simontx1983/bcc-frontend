@@ -43,6 +43,8 @@ vi.mock("@/components/settings/RecoveryEmailNudge", () => ({
 
 import { RecoveryEmailNudge } from "@/components/settings/RecoveryEmailNudge";
 
+import { TrustHeader } from "@/components/profile/TrustHeader";
+
 import MemberProfilePage from "./page";
 
 afterEach(() => {
@@ -109,5 +111,14 @@ describe("profile page: recovery-email nudge mount", () => {
   it("a signed-in visitor does not", async () => {
     signedInAs("bob");
     expect(findAll(await renderTree(), RecoveryEmailNudge)).toHaveLength(0);
+  });
+});
+
+describe("F-565 — the profile page has a top-level heading", () => {
+  it("the trust header renders the member's name as the page's <h1>", async () => {
+    signedInAs("bob");
+    const headers = findAll(await renderTree(), TrustHeader);
+    expect(headers).toHaveLength(1);
+    expect(headers[0]?.props["nameAs"]).toBe("h1");
   });
 });

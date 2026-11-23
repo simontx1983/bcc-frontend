@@ -34,6 +34,13 @@ export interface TrustHeaderProps {
   isOwner: boolean;
   viewerAuthed: boolean;
   variant?: "full" | "compact";
+  /**
+   * F-565 (testnet audit): the profile page had no <h1>, so its heading is
+   * the member's name. A page that already has its own <h1> (About) keeps
+   * the default <p>: one <h1> per page. Same classes either way, so there
+   * is no visual change.
+   */
+  nameAs?: "h1" | "p";
 }
 
 export function TrustHeader({
@@ -41,7 +48,9 @@ export function TrustHeader({
   isOwner,
   viewerAuthed,
   variant = "full",
+  nameAs = "p",
 }: TrustHeaderProps) {
+  const NameTag = nameAs;
   const name = presentationName(profile);
   const profilePath = `/u/${encodeURIComponent(profile.handle)}`;
   // Same rule as the profile page: an email-shaped handle (PeepSo's default
@@ -59,12 +68,12 @@ export function TrustHeader({
           size="lg"
         />
         <div className="min-w-0 flex-1">
-          <p
+          <NameTag
             className="bcc-stencil uppercase leading-[0.95] text-bcc-text"
             style={{ fontSize: "24px", wordBreak: "break-word" }}
           >
             {name}
-          </p>
+          </NameTag>
           {showHandle && (
             <p
               className="bcc-mono mt-1 truncate text-bcc-text-safety"
