@@ -447,7 +447,7 @@ export interface CardClaimTarget {
   /** e.g. "cosmos", "osmosis", "ethereum". Drives the wallet picker. */
   chain_slug: string;
   /**
-   * F-515 (contract v1.NEXT), additive: whether BCC can prove an operator
+   * F-515 (contract v1.221), additive: whether BCC can prove an operator
    * on this validator's chain from the data it stores. Absent on an older
    * backend, which means "let the claim route decide".
    */

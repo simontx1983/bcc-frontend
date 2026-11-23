@@ -245,7 +245,7 @@ export function ForValidators() {
 
         {/* ── Chains ───────────────────────────────────────────────── */}
         <section className="bcc-ldg-section" style={{ paddingTop: 0 }}>
-          <LandingReveal as="p" className="bcc-ldg-eyebrow">Supported chains</LandingReveal>
+          <LandingReveal as="p" className="bcc-ldg-eyebrow">Can my page be claimed?</LandingReveal>
           <p className="max-w-3xl text-lg leading-relaxed text-bcc-text-secondary">
             Your validator&rsquo;s page shows whether it can be claimed today,
             and why not if it can&rsquo;t. If your chain isn&rsquo;t ready, your

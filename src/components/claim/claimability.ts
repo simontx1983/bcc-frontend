@@ -14,6 +14,13 @@
 
 import type { CardClaimTarget, CardPermissionEntry } from "@/lib/api/types";
 
+/**
+ * The server says the page is claimable, but this frontend has no wallet
+ * for its chain (WALLET_CHAIN_CATALOG). A wallet-capability fact the
+ * frontend owns, not a claimability allowlist (RA2's M1 on #384, kujira).
+ */
+export const NO_WALLET_FOR_CHAIN_COPY = "We can't connect a wallet for this chain yet.";
+
 /** Only when the server says "not claimable" but sends no reason of its own. */
 export const UNCLAIMABLE_FALLBACK_COPY =
   "This page can't be claimed: BCC can't prove who operates this validator from the data it stores.";

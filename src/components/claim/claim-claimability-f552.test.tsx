@@ -45,7 +45,7 @@ vi.mock("@/lib/api/pages-endpoints", () => ({ claimPage: (...a: unknown[]) => cl
 
 import { ClaimCallout } from "@/components/claim/ClaimCallout";
 import { ClaimFlow } from "@/components/claim/ClaimFlow";
-import { claimabilityOf, UNCLAIMABLE_FALLBACK_COPY } from "@/components/claim/claimability";
+import { claimabilityOf, NO_WALLET_FOR_CHAIN_COPY, UNCLAIMABLE_FALLBACK_COPY } from "@/components/claim/claimability";
 import { BccApiError, type CardClaimTarget, type CardPermissionEntry } from "@/lib/api/types";
 
 const HINT = "Solana validator pages can't be claimed yet. Email ops@example.test to have yours verified by hand.";
@@ -54,6 +54,9 @@ const UNCLAIMABLE: CardClaimTarget = {
   entity_type: "validator", entity_id: 43, chain_slug: "solana",
   claimable: false, unclaimable_reason_code: "solana_unsupported", unclaimable_hint: HINT,
 };
+// The server says claimable, but this frontend has no wallet for kujira
+// (it is not in WALLET_CHAIN_CATALOG): RA2's M1 on #384.
+const KUJIRA: CardClaimTarget = { entity_type: "validator", entity_id: 44, chain_slug: "kujira", claimable: true, unclaimable_hint: null };
 const entry = (allowed: boolean, reason_code: string | null, unlock_hint: string | null): CardPermissionEntry =>
   ({ allowed, reason_code, unlock_hint }) as CardPermissionEntry;
 
@@ -147,6 +150,26 @@ describe("ClaimCallout renders the server's answer", () => {
     expect(screen.queryByRole("button", { name: /CLAIM THIS PAGE/ })).toBeNull();
   });
 
+  it("M1: claimable, but no wallet for the chain (kujira): no claim button, an honest line", () => {
+    wrap(<ClaimCallout pageId={7} pageName="Atlas" target={KUJIRA} viewerAuthed canClaim={entry(true, null, null)} />);
+    expect(screen.queryByRole("button", { name: /CLAIM THIS PAGE/ })).toBeNull();
+    expect(screen.getByText(NO_WALLET_FOR_CHAIN_COPY)).toBeInTheDocument();
+    expect(screen.getByText("UNCLAIMED · CLAIMING NOT OPEN YET")).toBeInTheDocument();
+    expect(screen.queryByText(/IS THIS YOURS/)).toBeNull();
+  });
+
+  it("M1: signed out on a chain with no wallet gets no sign-in-to-claim link", () => {
+    wrap(<ClaimCallout pageId={7} pageName="Atlas" target={KUJIRA} viewerAuthed={false} canClaim={entry(false, "signin_required", "Sign in to claim this page.")} />);
+    expect(screen.queryByRole("link", { name: /SIGN IN TO CLAIM/ })).toBeNull();
+    expect(screen.getByText(NO_WALLET_FOR_CHAIN_COPY)).toBeInTheDocument();
+  });
+
+  it("M1: when the server says no, its hint wins over the no-wallet line", () => {
+    wrap(<ClaimCallout pageId={7} pageName="Atlas" target={{ ...KUJIRA, claimable: false, unclaimable_hint: HINT }} viewerAuthed />);
+    expect(screen.getByText(HINT)).toBeInTheDocument();
+    expect(screen.queryByText(NO_WALLET_FOR_CHAIN_COPY)).toBeNull();
+  });
+
   it("can_claim not_applicable renders nothing", () => {
     const { container } = wrap(<ClaimCallout pageId={7} pageName="Atlas" target={COSMOS} viewerAuthed canClaim={entry(false, "not_applicable", null)} />);
     expect(container.textContent).toBe("");
@@ -165,6 +188,15 @@ describe("ClaimFlow and not_claimable", () => {
     fireEvent.click(screen.getByRole("button", { name: /I AM THE OPERATOR/ }));
     await flush();
     expect(screen.getByRole("alert")).toHaveTextContent(HINT);
+    expect(connectKeplr).not.toHaveBeenCalled();
+  });
+
+  it("M1: a claimable page on a chain with no wallet stops with the no-wallet line", async () => {
+    wrap(<ClaimFlow pageId={7} pageName="Atlas" target={KUJIRA} onClose={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: /I AM THE OPERATOR/ }));
+    await flush();
+    expect(screen.getByRole("alert")).toHaveTextContent(NO_WALLET_FOR_CHAIN_COPY);
+    expect(screen.getByRole("alert")).not.toHaveTextContent(UNCLAIMABLE_FALLBACK_COPY);
     expect(connectKeplr).not.toHaveBeenCalled();
   });
 

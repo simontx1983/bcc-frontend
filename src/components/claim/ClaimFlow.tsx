@@ -60,7 +60,7 @@ import { humanizeCode } from "@/lib/api/errors";
 import { claimPage } from "@/lib/api/pages-endpoints";
 import { type CardClaimTarget } from "@/lib/api/types";
 import { findWalletChain, type WalletChainType } from "@/lib/wallet/chain-catalog";
-import { claimabilityOf, UNCLAIMABLE_FALLBACK_COPY } from "@/components/claim/claimability";
+import { claimabilityOf, NO_WALLET_FOR_CHAIN_COPY, UNCLAIMABLE_FALLBACK_COPY } from "@/components/claim/claimability";
 import {
   connectWallet,
   humanizeWalletProviderError,
@@ -225,7 +225,11 @@ export function ClaimFlow({ pageId, pageName, target, onClose }: ClaimFlowProps)
       setStep({
         kind: "connect",
         pending: false,
-        error: claimability.hint ?? UNCLAIMABLE_FALLBACK_COPY,
+        // The server's reason when it says no; otherwise the chain is
+        // claimable but we have no wallet for it.
+        error: !claimability.claimable
+          ? (claimability.hint ?? UNCLAIMABLE_FALLBACK_COPY)
+          : NO_WALLET_FOR_CHAIN_COPY,
       });
       return;
     }

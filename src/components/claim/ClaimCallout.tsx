@@ -33,9 +33,10 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 
 import { ClaimFlow } from "@/components/claim/ClaimFlow";
-import { claimabilityOf } from "@/components/claim/claimability";
+import { claimabilityOf, NO_WALLET_FOR_CHAIN_COPY } from "@/components/claim/claimability";
 import type { CardClaimTarget, CardPermissionEntry } from "@/lib/api/types";
 import { LEGAL } from "@/lib/legal/config";
+import { findWalletChain } from "@/lib/wallet/chain-catalog";
 
 interface ClaimCalloutProps {
   pageId: number;
@@ -56,12 +57,16 @@ export function ClaimCallout({
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
   const { claimable, hint } = claimabilityOf(target, canClaim);
+  // The server can say "claimable" for a chain this frontend has no wallet
+  // for (kujira): then no button that can only dead-end, and an honest line.
+  const walletAvailable = findWalletChain(target.chain_slug) !== undefined;
+  const claimableHere = claimable && walletAvailable;
   // Nothing to claim (already claimed, or no target): render nothing.
   if (canClaim?.reason_code === "not_applicable") return null;
   // A signed-in member the server refuses for themselves (suspended) gets
   // the server's line instead of a button that can only fail.
   const refusal =
-    claimable && viewerAuthed && canClaim !== undefined && !canClaim.allowed && canClaim.reason_code !== "signin_required"
+    claimableHere && viewerAuthed && canClaim !== undefined && !canClaim.allowed && canClaim.reason_code !== "signin_required"
       ? canClaim.unlock_hint
       : null;
   return (
@@ -78,10 +83,10 @@ export function ClaimCallout({
           {/* S7 (figma's audit): an unclaimable page doesn't ask "is this
               yours?" and then say it can't be claimed. Chain-neutral: the
               reason is the server's hint below. */}
-          {claimable ? "UNCLAIMED · IS THIS YOURS?" : "UNCLAIMED · CLAIMING NOT OPEN YET"}
+          {claimableHere ? "UNCLAIMED · IS THIS YOURS?" : "UNCLAIMED · CLAIMING NOT OPEN YET"}
         </span>
 
-        {claimable ? (
+        {claimableHere ? (
           <>
             <p className="font-serif text-bcc-text-secondary">
               The operator hasn&apos;t verified this page yet. If you control
@@ -119,7 +124,7 @@ export function ClaimCallout({
           </>
         ) : (
           <>
-            <p className="font-serif text-bcc-text-secondary">{hint}</p>
+            <p className="font-serif text-bcc-text-secondary">{claimable ? NO_WALLET_FOR_CHAIN_COPY : hint}</p>
             <p className="font-serif text-sm text-bcc-text-secondary">
               Your page stays up and you don&apos;t need to do anything.
               Questions?{" "}
