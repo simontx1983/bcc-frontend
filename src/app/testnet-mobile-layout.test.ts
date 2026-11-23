@@ -21,7 +21,7 @@ import { describe, expect, it, vi } from "vitest";
 import { MECHANISM, classesOf, openTags } from "@/app/tap-target-scan.testing";
 // Imported at collection, outside every test's 5s timer: EntityProfile pulls
 // in a large module graph, and importing it inside `it` timed out.
-import { statsStripColumns } from "@/components/entity/EntityProfile";
+import { statsCellSpan, statsStripColumns } from "@/components/entity/EntityProfile";
 
 vi.mock("@/lib/env", () => ({ env: { NEXT_PUBLIC_BCC_API_URL: "http://x" }, clientEnv: { BCC_API_URL: "http://x" } }));
 
@@ -35,6 +35,15 @@ describe("S2 — the validator stats strip", () => {
     expect(statsStripColumns(4)).toBe("grid-cols-2 sm:grid-cols-4");
     expect(statsStripColumns(6)).toBe("grid-cols-2 sm:grid-cols-6");
     expect(statsStripColumns(9)).toBe("grid-cols-2 sm:grid-cols-6");
+  });
+
+  it("an odd count's last stat spans both columns below sm, so no empty cell shows", () => {
+    expect([0, 1, 2].map((i) => statsCellSpan(3, i))).toEqual(["", "", "col-span-2 sm:col-span-1"]);
+    expect(statsCellSpan(5, 4)).toBe("col-span-2 sm:col-span-1");
+    expect([0, 1, 2, 3].map((i) => statsCellSpan(4, i))).toEqual(["", "", "", ""]);
+    expect(statsCellSpan(1, 0)).toBe("");
+    const src = read("src/components/entity/EntityProfile.tsx");
+    expect(src).toContain("statsCellSpan(stats.length, i)");
   });
 
   it("no inline column count overrides the classes", () => {
