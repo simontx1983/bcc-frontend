@@ -4605,6 +4605,145 @@ export interface UndoReportResponse {
   currently_hidden: boolean;
 }
 
+// Validator admin V1 — directory, global relationship history, audit-log
+// health (GET /admin/validator-pages, /admin/validator-relationships/history,
+// /admin/validator-relationships/health). `manage_options`-gated
+// server-side; the frontend has no role gate.
+//
+// Source of truth until the umbrella contract §4 entries land: the
+// validator admin API V1 agreed with bcc-trust on 2026-11-23.
+
+/**
+ * A user as the validator admin routes carry them. Never an email or a
+ * login: the server never sends either, and this type must not grow them.
+ */
+export interface AdminUserRef {
+  user_id: number;
+  handle: string;
+  display_name: string;
+  /** Empty or null when the user has no avatar. */
+  avatar_url: string | null;
+}
+
+/** "wallet" = cryptographic proof; "staff" = verified by BCC staff. */
+export type ValidatorOwnerVerificationKind = "wallet" | "staff";
+
+/** How the owner was verified. `wallet` pairs with kind "wallet". */
+export type ValidatorOwnerVerificationMethod = "wallet" | "website" | "keybase" | "manual";
+
+export interface ValidatorOwnerVerification {
+  kind: ValidatorOwnerVerificationKind;
+  method: ValidatorOwnerVerificationMethod;
+  /** ISO 8601 UTC. */
+  verified_at: string;
+}
+
+/**
+ * Server-decided ownership state of a validator page. The frontend only
+ * labels it; it never derives it from the owner or the addresses.
+ */
+export type AdminValidatorPageState =
+  | "unclaimed"
+  | "wallet_verified"
+  | "staff_verified"
+  | "conflict";
+
+/** Per-state page counts — one entry per {@link AdminValidatorPageState}. */
+export type AdminValidatorStateCounts = Record<AdminValidatorPageState, number>;
+
+export interface AdminValidatorChainRef {
+  slug: string;
+  name: string;
+}
+
+export interface AdminValidatorDirectoryItem {
+  page_id: number;
+  title: string;
+  slug: string;
+  chain: AdminValidatorChainRef;
+  operator_addresses: string[];
+  state: AdminValidatorPageState;
+  owner: { user: AdminUserRef; verification: ValidatorOwnerVerification } | null;
+  uncovered_validator_count: number;
+  /** Server-decided: whether this page's chain supports a wallet claim. */
+  wallet_claim_possible: boolean;
+}
+
+/** The directory's `chains` facet: one entry per chain, with state counts. */
+export interface AdminValidatorDirectoryChain {
+  slug: string;
+  name: string;
+  wallet_claim_possible: boolean;
+  counts: AdminValidatorStateCounts;
+}
+
+/** §1.5 cursor envelope plus the chain facet. */
+export interface AdminValidatorDirectoryResponse {
+  items: AdminValidatorDirectoryItem[];
+  pagination: { next_cursor: string | null; has_more: boolean };
+  chains: AdminValidatorDirectoryChain[];
+}
+
+export type ValidatorRelationshipAction =
+  | "linked"
+  | "revoked"
+  | "cancelled"
+  | "wallet_unlinked"
+  | "account_deleted"
+  | "promoted_by_wallet"
+  | "step_up_failed"
+  | "step_up_expired";
+
+/** Which step-up the acting admin passed; null when none applied. */
+export type ValidatorRelationshipStepUp = "password" | "password+code";
+
+/**
+ * One side of a history row's before → after. The contract names the
+ * three fields without fixing their values, so each may be null (no
+ * relationship on that side) and `role` / `status` render as sent.
+ */
+export interface ValidatorRelationshipSnapshot {
+  role: string | null;
+  status: string | null;
+  method: ValidatorOwnerVerificationMethod | null;
+}
+
+export interface ValidatorRelationshipHistoryItem {
+  id: number;
+  /** ISO 8601 UTC. */
+  created_at: string;
+  action: ValidatorRelationshipAction;
+  subject: AdminUserRef;
+  actor: AdminUserRef;
+  page: { page_id: number; title: string };
+  prev: ValidatorRelationshipSnapshot;
+  new: ValidatorRelationshipSnapshot;
+  reason: string | null;
+  /**
+   * Staff-entered evidence (≤2000 / ≤500 chars). PLAIN TEXT ONLY — never
+   * rendered as HTML, never as a link (security D5). Null or empty when
+   * the event carries none.
+   */
+  evidence_note: string | null;
+  evidence_ref: string | null;
+  step_up: ValidatorRelationshipStepUp | null;
+}
+
+/** §1.5 cursor envelope, newest first. */
+export interface ValidatorRelationshipHistoryResponse {
+  items: ValidatorRelationshipHistoryItem[];
+  pagination: { next_cursor: string | null; has_more: boolean };
+}
+
+/** Hash-chain check over the relationship audit log. */
+export interface ValidatorRelationshipHealth {
+  chain_ok: boolean;
+  /** ISO 8601 UTC. */
+  checked_at: string;
+  rows_checked: number;
+  head_seq: number;
+}
+
 // §K1 Phase B — content reports (POST /me/reports)
 //
 // Reason taxonomy is locked here in lockstep with ContentReportService::

@@ -14,6 +14,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import {
+  BadgeCheck,
   Bell,
   ChevronDown,
   Compass,
@@ -414,6 +415,9 @@ const AVATAR_MENU = [
      invisibly (regressed once already when this menu replaced the
      old ViewerMenu — 2026-07-21 admin audit P1). */
   { id: "moderation",  label: "Moderation",    href: "/admin/moderation", icon: <ShieldCheck size={16} strokeWidth={1.8} /> },
+  /* Same no-gate rule as Moderation: the validator admin routes answer a
+     non-admin with the "Admin access required" panel. */
+  { id: "validators",  label: "Validators",    href: "/admin/validators", icon: <BadgeCheck size={16} strokeWidth={1.8} /> },
   /* F-322: the tour auto-starts once per account; this is the only way
      back to it. Raises a request the TourProvider answers (SiteHeader
      sits outside it), then the link lands on the tour's surface. */
