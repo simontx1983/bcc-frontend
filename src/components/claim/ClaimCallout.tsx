@@ -75,7 +75,10 @@ export function ClaimCallout({
             border: "1px solid rgb(var(--safety-rgb) / 0.40)",
           }}
         >
-          UNCLAIMED · IS THIS YOURS?
+          {/* S7 (figma's audit): an unclaimable page doesn't ask "is this
+              yours?" and then say it can't be claimed. Chain-neutral: the
+              reason is the server's hint below. */}
+          {claimable ? "UNCLAIMED · IS THIS YOURS?" : "UNCLAIMED · CLAIMING NOT OPEN YET"}
         </span>
 
         {claimable ? (

@@ -112,6 +112,23 @@ describe("ClaimCallout renders the server's answer", () => {
     expect(screen.queryByRole("link", { name: /SIGN IN TO CLAIM/ })).toBeNull();
   });
 
+  it("can_claim not_claimable alone (an older claim_target) still blocks, with its hint", () => {
+    wrap(<ClaimCallout pageId={7} pageName="Atlas" target={COSMOS} viewerAuthed canClaim={entry(false, "not_claimable", HINT)} />);
+    expect(screen.getByText(HINT)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /CLAIM THIS PAGE/ })).toBeNull();
+  });
+
+  it("S7: an unclaimable page's kicker doesn't ask 'is this yours?'", () => {
+    wrap(<ClaimCallout pageId={7} pageName="Atlas" target={UNCLAIMABLE} viewerAuthed />);
+    expect(screen.getByText("UNCLAIMED · CLAIMING NOT OPEN YET")).toBeInTheDocument();
+    expect(screen.queryByText(/IS THIS YOURS/)).toBeNull();
+  });
+
+  it("a claimable page keeps 'is this yours?'", () => {
+    wrap(<ClaimCallout pageId={7} pageName="Atlas" target={{ ...COSMOS, claimable: true }} viewerAuthed />);
+    expect(screen.getByText("UNCLAIMED · IS THIS YOURS?")).toBeInTheDocument();
+  });
+
   it("an older backend (no fields) still offers the claim", () => {
     wrap(<ClaimCallout pageId={7} pageName="Atlas" target={COSMOS} viewerAuthed />);
     expect(screen.getByRole("button", { name: /CLAIM THIS PAGE/ })).toBeInTheDocument();
