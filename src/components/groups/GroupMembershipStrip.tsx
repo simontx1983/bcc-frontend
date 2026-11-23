@@ -113,7 +113,11 @@ export function humanizeMembershipError(
       bcc_permission_denied:
         verb === "leave"
           ? "Owners can't leave their own community. Hand off ownership first."
-          : `You don't meet this ${noun}'s requirements yet.`,
+          : // A join's bcc_permission_denied is "doesn't hold it", but also
+            // admin approval required, invite-only and a moderator's
+            // removal (§4.7.1 / §4.7.3), with no reason_code to tell them
+            // apart. "Requirements … yet" was untrue for the last three.
+            `You can't join this ${noun} right now.`,
       ...(verb === "join"
         ? {
             bcc_forbidden:
