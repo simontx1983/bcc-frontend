@@ -31,7 +31,8 @@ afterEach(cleanup);
 
 const read = (p: string) => readFileSync(resolve(process.cwd(), p), "utf-8");
 
-function card(over: Partial<Card> & Record<string, unknown>): Card {
+/** A minimal community card; `over` may set fields loosely (e.g. a null kicker). */
+function card(over: Record<string, unknown> = {}): Card {
   return {
     id: 1,
     name: "Akash Hall",
