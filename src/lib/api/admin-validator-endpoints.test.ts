@@ -1,6 +1,7 @@
 /**
- * The validator admin read wrappers build the agreed V1 paths, send only
- * the filters that are set, and never send an empty value.
+ * The validator admin wrappers build the agreed V1 paths, send only the
+ * filters that are set, never send an empty value, and POST the writes'
+ * bodies unchanged.
  */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -11,9 +12,17 @@ vi.mock("@/lib/api/client", () => ({
 }));
 
 const {
+  cancelValidatorOwnerLink,
   getAdminValidatorDirectory,
+  getAdminValidatorPageHistory,
+  getAdminValidatorPageRelationships,
   getValidatorRelationshipHealth,
   getValidatorRelationshipHistory,
+  linkValidatorOwner,
+  resendValidatorStepUp,
+  revokeValidatorOwner,
+  searchAdminUsers,
+  startValidatorStepUp,
 } = await import("@/lib/api/admin-validator-endpoints");
 
 beforeEach(() => {
@@ -22,7 +31,7 @@ beforeEach(() => {
 });
 
 const pathOf = () => bccFetchAsClient.mock.calls[0]?.[0] as string;
-const optionsOf = () => bccFetchAsClient.mock.calls[0]?.[1] as { method: string };
+const optionsOf = () => bccFetchAsClient.mock.calls[0]?.[1] as { method: string; body?: unknown };
 
 describe("getAdminValidatorDirectory", () => {
   it("GETs admin/validator-pages with no query string when unfiltered", async () => {
@@ -69,5 +78,68 @@ describe("getValidatorRelationshipHealth", () => {
     await getValidatorRelationshipHealth();
     expect(pathOf()).toBe("admin/validator-relationships/health");
     expect(optionsOf().method).toBe("GET");
+  });
+});
+
+describe("one page (PR B)", () => {
+  it("GETs a page's relationships", async () => {
+    await getAdminValidatorPageRelationships(40);
+    expect(pathOf()).toBe("admin/validator-pages/40/relationships");
+    expect(optionsOf().method).toBe("GET");
+  });
+
+  it("GETs a page's history, sending cursor and limit only when set", async () => {
+    await getAdminValidatorPageHistory(40);
+    expect(pathOf()).toBe("admin/validator-pages/40/history");
+
+    bccFetchAsClient.mockClear();
+    await getAdminValidatorPageHistory(40, { cursor: "h/2", limit: 25 });
+    expect(pathOf()).toBe("admin/validator-pages/40/history?cursor=h%2F2&limit=25");
+  });
+
+  it("searches admin users with q", async () => {
+    await searchAdminUsers("ada@example.com");
+    expect(pathOf()).toBe("admin/users/search?q=ada%40example.com");
+    expect(optionsOf().method).toBe("GET");
+  });
+});
+
+describe("step-up and ownership writes (PR B)", () => {
+  it("POSTs the step-up start with the body as given", async () => {
+    const body = { action: "link_owner" as const, target_user_id: 12, current_password: "pw" };
+    await startValidatorStepUp(40, body);
+    expect(pathOf()).toBe("admin/validator-pages/40/step-up");
+    expect(optionsOf()).toEqual({ method: "POST", body });
+  });
+
+  it("POSTs a resend for the step-up id, escaped", async () => {
+    await resendValidatorStepUp("su/1");
+    expect(pathOf()).toBe("admin/validator-pages/step-up/su%2F1/resend");
+    expect(optionsOf().method).toBe("POST");
+  });
+
+  it("POSTs link, revoke and cancel to their routes", async () => {
+    const proof = { step_up_id: "su-1", code: "123456" };
+    const link = {
+      user_id: 12,
+      role: "owner" as const,
+      verification_method: "website" as const,
+      evidence_note: "n",
+      evidence_ref: "r",
+      ...proof,
+    };
+    await linkValidatorOwner(40, link);
+    expect(pathOf()).toBe("admin/validator-pages/40/relationships");
+    expect(optionsOf()).toEqual({ method: "POST", body: link });
+
+    bccFetchAsClient.mockClear();
+    await revokeValidatorOwner(40, 77, { reason: "linked_in_error", note: "", ...proof });
+    expect(pathOf()).toBe("admin/validator-pages/40/relationships/77/revoke");
+    expect(optionsOf().body).toEqual({ reason: "linked_in_error", note: "", ...proof });
+
+    bccFetchAsClient.mockClear();
+    await cancelValidatorOwnerLink(40, 77, { note: "", ...proof });
+    expect(pathOf()).toBe("admin/validator-pages/40/relationships/77/cancel");
+    expect(optionsOf()).toEqual({ method: "POST", body: { note: "", ...proof } });
   });
 });

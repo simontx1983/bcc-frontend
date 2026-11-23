@@ -42,11 +42,8 @@ vi.mock("@/lib/api/admin-validator-endpoints", () => ({
 }));
 
 import { ADMIN_ID_NOT_FOUND_COPY } from "@/components/admin/validators/AdminReadFailure";
-import {
-  DELETED_ACCOUNT_COPY,
-  RelationshipHistory,
-  SYSTEM_ACTOR_COPY,
-} from "@/components/admin/validators/RelationshipHistory";
+import { DELETED_ACCOUNT_COPY, SYSTEM_ACTOR_COPY } from "@/components/admin/validators/HistoryRow";
+import { RelationshipHistory } from "@/components/admin/validators/RelationshipHistory";
 
 const writeText = vi.fn();
 

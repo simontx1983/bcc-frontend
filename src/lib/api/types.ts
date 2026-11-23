@@ -4642,18 +4642,37 @@ export interface AdminUserRef {
   avatar_url: string | null;
 }
 
-/** "wallet" = cryptographic proof; "staff" = verified by BCC staff. */
-export type ValidatorOwnerVerificationKind = "wallet" | "staff";
+/**
+ * Display only — NEVER the staff lock. Whether staff may act on an owner
+ * is the server's `locked_for_staff` flag (see {@link AdminValidatorPageOwner}).
+ */
+export type ValidatorOwnerVerificationKind = "wallet" | "staff" | "node_key";
 
-/** How the owner was verified. `wallet` pairs with kind "wallet". */
-export type ValidatorOwnerVerificationMethod = "wallet" | "website" | "keybase" | "manual";
+/**
+ * How the owner was verified, as stored. A staff link reads back as
+ * kind "staff", method "staff". The server may add methods; an unknown
+ * one renders as its raw value.
+ */
+export type ValidatorOwnerVerificationMethod = "wallet" | "siws" | "solana_identity" | "staff";
 
 export interface ValidatorOwnerVerification {
   kind: ValidatorOwnerVerificationKind;
   method: ValidatorOwnerVerificationMethod;
+  /**
+   * Server copy for the verification ("Wallet Verified", "Node Key
+   * Verified", "Staff Verified"). Display this; labels.ts is only the
+   * fallback for a server that sent none.
+   */
+  label?: string;
   /** ISO 8601 UTC. */
   verified_at: string;
 }
+
+/**
+ * The EVIDENCE type a staff link was made on: the link form's
+ * `verification_method`, read back as the owner's `evidence_type`.
+ */
+export type ValidatorEvidenceType = "website" | "keybase" | "manual";
 
 /**
  * Server-decided ownership state of a validator page. The frontend only
@@ -4680,7 +4699,12 @@ export interface AdminValidatorDirectoryItem {
   chain: AdminValidatorChainRef;
   operator_addresses: string[];
   state: AdminValidatorPageState;
-  owner: { user: AdminUserRef; verification: ValidatorOwnerVerification } | null;
+  owner: {
+    user: AdminUserRef;
+    verification: ValidatorOwnerVerification;
+    /** Server-decided; see {@link AdminValidatorPageOwner.locked_for_staff}. */
+    locked_for_staff?: boolean;
+  } | null;
   uncovered_validator_count: number;
   /** Server-decided: whether this page's chain supports a wallet claim. */
   wallet_claim_possible: boolean;
@@ -4722,7 +4746,8 @@ export type ValidatorRelationshipStepUp = "password" | "password+code";
 export interface ValidatorRelationshipSnapshot {
   role: string | null;
   status: string | null;
-  method: ValidatorOwnerVerificationMethod | null;
+  /** A verification method or a staff evidence type; an unknown value renders raw. */
+  method: ValidatorOwnerVerificationMethod | ValidatorEvidenceType | null;
 }
 
 export interface ValidatorRelationshipHistoryItem {
@@ -4764,6 +4789,131 @@ export interface ValidatorRelationshipHealth {
   checked_at: string;
   rows_checked: number;
   head_seq: number;
+}
+
+// Validator admin V1, PR B — one page's relationships, the step-up, and
+// the owner link / revoke / cancel writes (routes 2–6, 7 per page, 8).
+
+/** The page's current owner, as route 2 returns it. */
+export interface AdminValidatorPageOwner {
+  /** The audit-log id of the link event; the handle for revoke and cancel. */
+  link_id: number;
+  user: AdminUserRef;
+  verification: ValidatorOwnerVerification;
+  /** Null for proof owners (no staff member linked them). */
+  linked_by: AdminUserRef | null;
+  /** ISO 8601 UTC. */
+  linked_at: string;
+  /** What the staff link was made on; null for proof owners. */
+  evidence_type: ValidatorEvidenceType | null;
+  /** PLAIN TEXT ONLY (security D5); null or empty when there is none. */
+  evidence_note: string | null;
+  evidence_ref: string | null;
+  /** Server-decided: whether this link can still be cancelled. */
+  cancellable: boolean;
+  /**
+   * Server-decided staff lock. `false` ONLY for a staff-verified owner;
+   * `true` for wallet, SIWS and node-key owners and any unknown method.
+   * The UI offers revoke / cancel only on an explicit `false`: missing
+   * or not a boolean reads as locked (fail closed).
+   */
+  locked_for_staff?: boolean;
+}
+
+export interface AdminValidatorRevokeReason {
+  /** Sent back as the revoke `reason`. */
+  key: string;
+  label: string;
+}
+
+/** GET /admin/validator-pages/:pageId/relationships. */
+export interface AdminValidatorPageRelationships {
+  page: { page_id: number; title: string; slug: string; chain: AdminValidatorChainRef };
+  state: AdminValidatorPageState;
+  owner: AdminValidatorPageOwner | null;
+  /** Non-empty when competing proven claims put the page in conflict. */
+  conflict_users: Array<{ user: AdminUserRef; verification: ValidatorOwnerVerification }>;
+  /** The revoke reasons to offer, in order. Never hard-coded client-side. */
+  revoke_reasons: AdminValidatorRevokeReason[];
+}
+
+/** The write a step-up is bound to. */
+export type ValidatorStepUpAction = "link_owner" | "revoke_owner" | "cancel_link";
+
+/**
+ * POST /admin/validator-pages/:pageId/step-up. V1's credential is the
+ * password only; the wallet-signature fields come later.
+ */
+export interface ValidatorStepUpStartRequest {
+  action: ValidatorStepUpAction;
+  target_user_id: number;
+  current_password: string;
+}
+
+/** Times are seconds from now. The address the code went to is never sent. */
+export interface ValidatorStepUpStartResponse {
+  /** Opaque; sent back with the code on the action call. */
+  step_up_id: string;
+  expires_in: number;
+  resend_after: number;
+}
+
+/** POST /admin/validator-pages/step-up/:stepUpId/resend. */
+export interface ValidatorStepUpResendResponse {
+  expires_in: number;
+  resend_after: number;
+}
+
+/** What every V1 write carries to prove the step-up. */
+export interface ValidatorStepUpProof {
+  step_up_id: string;
+  code: string;
+}
+
+/** POST /admin/validator-pages/:pageId/relationships. */
+export interface LinkValidatorOwnerRequest extends ValidatorStepUpProof {
+  user_id: number;
+  role: "owner";
+  verification_method: ValidatorEvidenceType;
+  evidence_note: string;
+  evidence_ref: string;
+}
+
+/** 201. */
+export interface LinkValidatorOwnerResponse {
+  link_id: number;
+  owner: AdminValidatorPageOwner;
+}
+
+/** POST /admin/validator-pages/:pageId/relationships/:linkId/revoke. */
+export interface RevokeValidatorOwnerRequest extends ValidatorStepUpProof {
+  /** A `key` from the page's `revoke_reasons`. */
+  reason: string;
+  note: string;
+}
+
+export interface RevokeValidatorOwnerResponse {
+  revoked: true;
+}
+
+/** POST /admin/validator-pages/:pageId/relationships/:linkId/cancel. */
+export interface CancelValidatorOwnerLinkRequest extends ValidatorStepUpProof {
+  note: string;
+}
+
+export interface CancelValidatorOwnerLinkResponse {
+  cancelled: true;
+  /** The owner the cancelled link had replaced, now restored; null if none. */
+  restored_owner: AdminUserRef | null;
+}
+
+/**
+ * GET /admin/users/search?q= — at most 10. Matches handle or display
+ * name, or an exact email or login, and never echoes either back. An
+ * over-throttled search answers 200 with no items, like no match.
+ */
+export interface AdminUserSearchResponse {
+  items: AdminUserRef[];
 }
 
 // §K1 Phase B — content reports (POST /me/reports)

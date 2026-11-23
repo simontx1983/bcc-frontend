@@ -2,8 +2,10 @@
 
 /**
  * ValidatorDirectory — every validator page, its ownership state, and who
- * owns it. Read-only (PR A): linking, revoking and the per-page view
- * arrive with the page view, so row titles are plain text.
+ * owns it. Read-only: each row's title links to the page view
+ * (/admin/validators/<page_id>), where owners are linked and revoked.
+ * A row whose owner the server has locked for staff
+ * (`owner.locked_for_staff === true`) carries a Locked marker.
  *
  * Filters (all server-side, via useAdminValidatorDirectory):
  *   - chain tabs, one per entry in the response's `chains` facet, plus
@@ -21,6 +23,8 @@
  * adding up the facet's counts for the tab totals and the All chip.
  */
 
+import type { Route } from "next";
+import Link from "next/link";
 import { useCallback, useEffect, useId, useMemo, useState } from "react";
 
 import { AdminField } from "@/components/admin/validators/AdminField";
@@ -35,11 +39,11 @@ import {
 } from "@/components/admin/validators/AdminReadFailure";
 import { AdminUserChip } from "@/components/admin/validators/AdminUserChip";
 import {
-  METHOD_LABEL,
   STATE_LABEL,
   STATE_ORDER,
-  labelFor,
+  verificationLabel,
 } from "@/components/admin/validators/labels";
+import { LockedMarker, StatePill } from "@/components/admin/validators/StatePill";
 import { FilterChipRow } from "@/components/ui/FilterChipRow";
 import { LoadFailure } from "@/components/ui/LoadFailure";
 import { TabRail } from "@/components/ui/TabRail";
@@ -68,14 +72,6 @@ const ZERO_COUNTS: AdminValidatorStateCounts = {
   wallet_verified: 0,
   staff_verified: 0,
   conflict: 0,
-};
-
-/** The state's mark — the dot carries the hue, the label stays neutral. */
-const STATE_MARK: Readonly<Record<AdminValidatorPageState, React.CSSProperties>> = {
-  unclaimed: { border: "1px solid var(--bcc-border-strong)" },
-  wallet_verified: { background: "var(--verified)" },
-  staff_verified: { background: "var(--bcc-info)" },
-  conflict: { background: "var(--bcc-warning)" },
 };
 
 function totalOf(counts: AdminValidatorStateCounts): number {
@@ -318,25 +314,19 @@ export function ValidatorDirectory() {
   );
 }
 
-function StatePill({ state }: { state: AdminValidatorPageState }) {
-  return (
-    <span
-      className="bcc-mono inline-flex shrink-0 items-center gap-1.5 rounded-sm border border-bcc-border px-2 py-0.5 text-[10px] tracking-[0.18em] text-bcc-text"
-      data-state={state}
-    >
-      <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full" style={STATE_MARK[state]} />
-      {labelFor(STATE_LABEL, state).toUpperCase()}
-    </span>
-  );
-}
-
 function DirectoryRow({ item }: { item: AdminValidatorDirectoryItem }) {
   return (
     <li className="bcc-panel flex flex-col gap-4 p-4 sm:p-5">
       <div className="flex flex-wrap items-start justify-between gap-2">
-        {/* Plain text until the per-page view ships. */}
-        <h2 className="bcc-stencil min-w-0 break-words text-xl text-bcc-text">{item.title}</h2>
-        <StatePill state={item.state} />
+        <h2 className="bcc-stencil min-w-0 break-words text-xl text-bcc-text">
+          <Link href={`/admin/validators/${item.page_id}` as Route} className="hover:underline">
+            {item.title}
+          </Link>
+        </h2>
+        <span className="flex flex-wrap items-center gap-2">
+          {item.owner?.locked_for_staff === true && <LockedMarker />}
+          <StatePill state={item.state} />
+        </span>
       </div>
 
       <dl className="grid gap-x-6 gap-y-3 sm:grid-cols-2">
@@ -369,7 +359,7 @@ function DirectoryRow({ item }: { item: AdminValidatorDirectoryItem }) {
             <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
               <AdminUserChip user={item.owner.user} />
               <span className="bcc-mono text-[10px] tracking-[0.16em] text-bcc-text-secondary">
-                VIA {labelFor(METHOD_LABEL, item.owner.verification.method).toUpperCase()}
+                VIA {verificationLabel(item.owner.verification).toUpperCase()}
               </span>
             </span>
           )}
