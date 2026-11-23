@@ -27,7 +27,8 @@
  * composer's own "Posted" line. So this host shows a floating
  * "Posted — View post" notice (PostedNotice), right after the button in
  * the DOM: the Dialog returns focus to the button, and the next Tab
- * reaches the link. It clears on its × (focus back to the button), on
+ * reaches the link (since F-514 the panel is portaled to the shared
+ * BottomSlot, and PostedNotice bridges that Tab). It clears on its × (focus back to the button), on
  * the next open, or on a route change. No timeout: it holds a link.
  */
 
@@ -121,7 +122,7 @@ export function NewPostTrigger({ className, style, ariaLabel, title, children }:
       >
         {children}
       </button>
-      <PostedNotice posted={posted} variant="floating" onDismiss={dismissPosted} />
+      <PostedNotice posted={posted} variant="floating" onDismiss={dismissPosted} triggerRef={triggerRef} />
       {open && (
         <Dialog title="Compose a post" onClose={requestClose} bare center panelClassName="max-w-2xl">
           <Composer

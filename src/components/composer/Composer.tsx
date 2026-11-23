@@ -436,7 +436,10 @@ const VISIBILITY_OPTIONS: ReadonlyArray<{
   {
     key: "public_group",
     label: "PUBLIC GROUP",
-    description: "Anyone can see it on the group page.",
+    // F-317 M-gr5: true in every group. Non-members read open and closed
+    // groups' pages, but a secret group's page is members-only (§4.7.6),
+    // so "anyone can see it" was false there.
+    description: "Anyone who can open the group page can see it.",
   },
   {
     key: "public_all",

@@ -128,6 +128,25 @@ describe("leaving your primary Hall confirms in the app's dialog, not window.con
     expect(screen.queryByText("raw server prose")).toBeNull();
   });
 
+  it("fails twice with the same message, and a third TRY AGAIN still sends", async () => {
+    // #370 review: ConfirmDialog's one-shot latch re-arms only when its
+    // error goes from empty to set. The dialog's LEAVE clears the error as
+    // each retry starts; without that, a second identical failure leaves
+    // the error unchanged (React bails), the latch stays shut, and the
+    // third press is silently refused.
+    bccFetchAsClient.mockRejectedValue(new BccApiError("bcc_unavailable", "raw server prose", 503, null));
+    render(wrap(controls(PRIMARY)));
+    press(button("LEAVE"));
+    const open = () => dialog(HALL_CONFIRM_COPY.leave.title);
+
+    fireEvent.click(within(open()).getByRole("button", { name: "LEAVE" }));
+    fireEvent.click(await within(open()).findByRole("button", { name: "TRY AGAIN" }));
+    await waitFor(() => expect(bccFetchAsClient).toHaveBeenCalledTimes(2));
+    fireEvent.click(await within(open()).findByRole("button", { name: "TRY AGAIN" }));
+
+    await waitFor(() => expect(bccFetchAsClient).toHaveBeenCalledTimes(3));
+  });
+
   it("control: leaving a Hall that is not your primary needs no confirm", async () => {
     bccFetchAsClient.mockResolvedValue({ left: true });
     render(wrap(controls(MEMBER)));

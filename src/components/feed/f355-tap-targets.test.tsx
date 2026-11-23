@@ -160,12 +160,21 @@ describe("F-355 safe-area inset on the mobile bar", () => {
     expect(read("src/components/layout/nav/MobileNav.tsx")).toContain(
       'height: "var(--bcc-mobile-nav-total-h)"',
     );
+    // F-514: the bottom-centre notices clear the bar through the one
+    // shared slot, and none positions itself any more.
+    expect(read("src/components/ui/BottomSlot.tsx")).toContain(
+      "bottom-[calc(var(--bcc-mobile-nav-total-h)+16px)]",
+    );
     for (const f of [
       "src/components/analytics/AnalyticsConsentBanner.tsx",
       "src/components/admin/UndoToast.tsx",
       "src/components/auth/AuthRedirectNotice.tsx",
+      "src/components/composer/PostedNotice.tsx",
+      "src/components/messages/ThreadView.tsx",
     ]) {
-      expect(read(f), f).toContain("bottom-[calc(var(--bcc-mobile-nav-total-h)+16px)]");
+      const src = read(f);
+      expect(src, f).toContain("<BottomSlot>");
+      expect(src, f).not.toContain("bottom-[calc(var(--bcc-mobile-nav-total-h)+16px)]");
     }
     // The bare token may only appear in its own definition and the total.
     const bare = [...css.matchAll(/var\(--bcc-mobile-nav-h\)/g)];

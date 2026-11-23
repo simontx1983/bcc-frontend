@@ -19,11 +19,16 @@
  * then scrubs the param. Bounded by the same 7s auto-dismiss as the rest,
  * and non-sensitive by construction: a slug indexes copy held here, so no
  * viewer data and no failure detail travel in the URL.
+ *
+ * F-514: the toast renders through the shared BottomSlot, so it stacks
+ * with the other bottom-centre notices instead of covering them.
  */
 
 import type { Route } from "next";
 import { Suspense, useEffect, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+
+import { BottomSlot } from "@/components/ui/BottomSlot";
 
 const AUTO_DISMISS_MS = 7000;
 
@@ -120,21 +125,23 @@ function AuthRedirectNoticeInner() {
   if (message === null || dismissed) return null;
 
   return (
-    <div
-      role="status"
-      aria-live="polite"
-      className="bcc-panel pointer-events-auto fixed bottom-[calc(var(--bcc-mobile-nav-total-h)+16px)] left-1/2 z-40 flex w-[min(420px,calc(100vw-2rem))] -translate-x-1/2 md:bottom-6 items-start justify-between gap-3 p-4 shadow-2xl"
-    >
-      <span className="font-serif text-sm text-bcc-text-secondary">{message}</span>
-      <button
-        type="button"
-        onClick={() => setDismissed(true)}
-        aria-label="Dismiss"
-        className="bcc-mono inline-flex min-h-[28px] min-w-[28px] shrink-0 items-center justify-center text-[14px] text-bcc-text-secondary hover:text-bcc-text"
+    <BottomSlot>
+      <div
+        role="status"
+        aria-live="polite"
+        className="bcc-panel pointer-events-auto flex w-[min(420px,calc(100vw-2rem))] items-start justify-between gap-3 p-4 shadow-2xl"
       >
-        ✕
-      </button>
-    </div>
+        <span className="font-serif text-sm text-bcc-text-secondary">{message}</span>
+        <button
+          type="button"
+          onClick={() => setDismissed(true)}
+          aria-label="Dismiss"
+          className="bcc-mono inline-flex min-h-[28px] min-w-[28px] shrink-0 items-center justify-center text-[14px] text-bcc-text-secondary hover:text-bcc-text"
+        >
+          ✕
+        </button>
+      </div>
+    </BottomSlot>
   );
 }
 

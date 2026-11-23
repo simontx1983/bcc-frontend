@@ -11,9 +11,11 @@
  * `components/settings/CommunitiesList.tsx` and by plain groups
  * (`useJoinPlainGroupMutation`) on the discovery page.
  *
- * `errorMessage` is rendered verbatim — it carries the server's
- * `BccApiError.message`, which is the user-facing unlock_hint copy
- * (per §A2 / §4.7.x). Never substitute a generic error string.
+ * `errorMessage` is rendered as given. Callers pass copy keyed on the
+ * error's code (§γ; e.g. humanizeMembershipError), never the server's
+ * `BccApiError.message`. A server unlock_hint, which IS display copy, comes
+ * from `permissions` (§A2) and is shown beside the button, not through
+ * this prop.
  */
 
 import { HIT_AREA_44 } from "@/components/feed/hitArea";

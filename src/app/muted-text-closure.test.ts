@@ -304,39 +304,30 @@ describe("closure invariant — every surviving muted use is exempt", () => {
 // 2. The earlier slices' exclusions are still there
 // ─────────────────────────────────────────────────────────────────────────
 
-const at = (file: string, line: number) => HITS.some((h) => h.file === file && h.line === line);
+/** A hit by file and exact (trimmed) source line, wherever it now sits. */
+const has = (file: string, text: string) => HITS.some((h) => h.file === file && h.text === text);
 
 describe("closure — E2's six exclusions survive", () => {
   const APP = "src/app/(main)/(app)";
-  const E2: ReadonlyArray<readonly [string, number, string]> = [
-    // 467/483 before the solid-safety-foreground slice added a five-line
-    // rationale comment to the CreateCommunityCta className at :273 (net +5).
-    // The exclusions themselves are untouched — only their line numbers moved.
-    // 472/488 → 475/491: the intro's basis-[20rem] fix (M-gr7) added a
-    // three-line comment above the intro column (net +3).
-    // 475/491 → 481/497: F-272 mounted "Your invitations" above the
-    // chain dropdown (net +6).
-    // 481/497 → 488/504: F-317 M-gr3 (2026-11-19) imported HIT_AREA_44 and
-    // added 44px rationale comments to the scope pills and the chain
-    // picker (net +7).
-    [`${APP}/communities/page.tsx`, 488, "← Previous, no prev page"],
-    [`${APP}/communities/page.tsx`, 504, "Next →, no next page"],
-    // 300/316 before the phosphor-confinement slice removed a verified tint
-    // and added its rationale comment three lines above these (net +2).
-    // 308/324 → 312/328: F-317 M-gr3 (2026-11-19) imported HIT_AREA_44 and
-    // added a 44px rationale comment to the chain pills (net +4).
-    [`${APP}/halls/page.tsx`, 312, "← Previous, no prev page"],
-    [`${APP}/halls/page.tsx`, 328, "Next →, no next page"],
-    // 252 → 251 and 239 → 238: both pages lost their `const query =
-    // useDirectory(...)` line when the directory's denial gate moved the
-    // hook call down into <DirectoryResults>. The exclusion itself is
-    // unchanged; only its line moved (net −1 each).
-    [`${APP}/directory/page.tsx`, 251, "aria-hidden ✕ chip"],
-    [`${APP}/validators/page.tsx`, 238, "aria-hidden ✕ chip"],
+  const PREV = '<span className="bcc-mono text-bcc-text-muted">← Previous</span>';
+  const NEXT = '<span className="bcc-mono text-bcc-text-muted">Next →</span>';
+  const CHIP = '<span aria-hidden className="text-bcc-text-muted">✕</span>';
+  // Anchored on the line's text, not its number (F-317, 2026-11-19). The
+  // numbers moved with every edit above them (five times: the
+  // solid-safety-foreground rationale, M-gr7, F-272's invitations, F-317
+  // M-gr3, the directory's denial gate) while the exclusions never changed.
+  // Each text is unique in its file, as APPROVED_SURVIVORS above shows.
+  const E2: ReadonlyArray<readonly [string, string, string]> = [
+    [`${APP}/communities/page.tsx`, PREV, "← Previous, no prev page"],
+    [`${APP}/communities/page.tsx`, NEXT, "Next →, no next page"],
+    [`${APP}/halls/page.tsx`, PREV, "← Previous, no prev page"],
+    [`${APP}/halls/page.tsx`, NEXT, "Next →, no next page"],
+    [`${APP}/directory/page.tsx`, CHIP, "aria-hidden ✕ chip"],
+    [`${APP}/validators/page.tsx`, CHIP, "aria-hidden ✕ chip"],
   ];
-  for (const [file, line, why] of E2) {
-    it(`${file.split("/").pop()}:${line} — ${why}`, () => {
-      expect(at(file, line), `${file}:${line} lost its exclusion`).toBe(true);
+  for (const [file, text, why] of E2) {
+    it(`${file.split("/").pop()} — ${why}`, () => {
+      expect(has(file, text), `${file} lost its exclusion`).toBe(true);
     });
   }
 });

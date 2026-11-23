@@ -46,6 +46,7 @@
 import { memo, useEffect, useId, useMemo, useRef, useState, type RefObject } from "react";
 
 import { Avatar } from "@/components/identity/Avatar";
+import { BottomSlot } from "@/components/ui/BottomSlot";
 import { Spinner } from "@/components/ui/Spinner";
 import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
 import { useRevealBlockedMessages } from "@/hooks/useRevealBlockedMessages";
@@ -252,13 +253,17 @@ export function ThreadView({ conversationId, items, viewerId, bottomAnchorRef }:
       {hasUnseen && (
         // Outside the thread's live region: the new message itself is
         // announced there, so the pill appearing is not announced again.
-        <button
-          type="button"
-          onClick={jumpToLatest}
-          className="bcc-mono fixed bottom-[calc(var(--bcc-mobile-nav-total-h)+16px)] left-1/2 z-30 inline-flex min-h-[44px] -translate-x-1/2 items-center gap-2 border-2 border-bcc-border-strong bg-bcc-surface px-4 text-[11px] tracking-[0.16em] text-bcc-text shadow-lg hover:bg-bcc-surface-hover md:bottom-6"
-        >
-          New messages <span aria-hidden>↓</span>
-        </button>
+        // F-514: in the shared BottomSlot, stacked with the consent banner
+        // and the other bottom-centre notices instead of under them.
+        <BottomSlot>
+          <button
+            type="button"
+            onClick={jumpToLatest}
+            className="bcc-mono pointer-events-auto inline-flex min-h-[44px] items-center gap-2 border-2 border-bcc-border-strong bg-bcc-surface px-4 text-[11px] tracking-[0.16em] text-bcc-text shadow-lg hover:bg-bcc-surface-hover"
+          >
+            New messages <span aria-hidden>↓</span>
+          </button>
+        </BottomSlot>
       )}
     </>
   );
