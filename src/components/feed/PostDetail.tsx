@@ -117,6 +117,11 @@ export function PostDetail({
           author={item.author}
           size="md"
           avatarRingColor="var(--bcc-accent)"
+          // A post's byline shows the trust chip, as the feed card does
+          // (AuthorBadge's chip rule): the same post read "NEUTRAL 50" in
+          // the feed and "APPRENTICE" here (testnet UX audit S4).
+          chip="trust"
+          nameStyle="caps"
           // The full author card already lives in the detail right rail —
           // no hover popover on the byline here (B7).
           hovercard={false}
