@@ -295,6 +295,7 @@ export function EntityProfile({
                   pageName={card.name}
                   target={card.claim_target}
                   viewerAuthed={viewerAuthed}
+                  canClaim={card.permissions.can_claim}
                 />
               )}
 
