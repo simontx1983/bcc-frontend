@@ -3,7 +3,8 @@
  * screens.
  *
  *   - admin denial (403)              → <AdminAccessRequired>, no Retry
- *   - route not on the server (404)   → "not available yet", no Retry
+ *   - route not on the server (404 rest_no_route) → "not available yet", no Retry
+ *   - an unknown id filter (404 bcc_not_found)    → "No page or member matches that id.", no Retry
  *   - anything else (503, 429, …)     → LoadFailure with a real Retry
  *
  * §γ: copy is keyed on `err.code` (and a 503 on its status); the
@@ -12,7 +13,7 @@
 
 import { AdminAccessRequired } from "@/components/admin/AdminAccessRequired";
 import { LoadFailure } from "@/components/ui/LoadFailure";
-import { isAdminDenial, isAdminToolUnavailable } from "@/lib/api/admin-errors";
+import { isAdminDenial, isAdminIdNotFound, isAdminToolUnavailable } from "@/lib/api/admin-errors";
 import { humanizeCode, isServiceUnavailable } from "@/lib/api/errors";
 
 /** The read-failure sentence for `subject` ("The validator directory"). */
@@ -31,6 +32,9 @@ export function adminReadFailureCopy(error: unknown, subject: string): string {
     `Couldn't load ${object}. Try again in a moment.`,
   );
 }
+
+/** An id filter that matches nothing (`bcc_not_found`). */
+export const ADMIN_ID_NOT_FOUND_COPY = "No page or member matches that id.";
 
 function AdminToolUnavailable() {
   return (
@@ -61,6 +65,13 @@ export function AdminReadFailure({ error, subject, onRetry }: AdminReadFailurePr
   }
   if (isAdminToolUnavailable(error)) {
     return <AdminToolUnavailable />;
+  }
+  if (isAdminIdNotFound(error)) {
+    return (
+      <div className="bcc-panel p-6">
+        <p className="font-serif text-bcc-text-secondary">{ADMIN_ID_NOT_FOUND_COPY}</p>
+      </div>
+    );
   }
   return (
     <div className="bcc-panel">

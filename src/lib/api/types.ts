@@ -4730,12 +4730,17 @@ export interface ValidatorRelationshipHistoryItem {
   /** ISO 8601 UTC. */
   created_at: string;
   action: ValidatorRelationshipAction;
-  subject: AdminUserRef;
-  actor: AdminUserRef;
+  /** Null when the account no longer exists (e.g. after `account_deleted`). */
+  subject: AdminUserRef | null;
+  /** Null for SYSTEM events (re-verify sweep, `step_up_expired`, invite expiry, wallet-proof supersede). */
+  actor: AdminUserRef | null;
   page: { page_id: number; title: string };
   prev: ValidatorRelationshipSnapshot;
   new: ValidatorRelationshipSnapshot;
+  /** A server KEY (e.g. `evidence_withdrawn`); display `reason_label`, never this. */
   reason: string | null;
+  /** Server copy for `reason`; null when there's no reason. */
+  reason_label: string | null;
   /**
    * Staff-entered evidence (≤2000 / ≤500 chars). PLAIN TEXT ONLY — never
    * rendered as HTML, never as a link (security D5). Null or empty when

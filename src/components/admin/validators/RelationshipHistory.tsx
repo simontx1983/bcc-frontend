@@ -51,6 +51,11 @@ import { formatAbsoluteDateTime } from "@/lib/format";
 
 const SUBJECT = "The validator audit history";
 
+/** The subject's account no longer exists (e.g. after `account_deleted`). */
+export const DELETED_ACCOUNT_COPY = "Deleted account";
+/** No person acted: the re-verify sweep, an expired step-up or invite, a wallet-proof supersede. */
+export const SYSTEM_ACTOR_COPY = "System";
+
 /** A positive whole number from a URL param or an input, else null. */
 function parseId(raw: string | null): number | null {
   if (raw === null) return null;
@@ -297,7 +302,8 @@ function HistoryRow({ item, onCopyRef }: HistoryRowProps) {
   const when = formatAbsoluteDateTime(item.created_at);
   const note = item.evidence_note ?? "";
   const ref = item.evidence_ref ?? "";
-  const reason = item.reason ?? "";
+  // The server's label; the raw key only if an older server sent no label.
+  const reason = item.reason_label ?? item.reason ?? "";
 
   return (
     <li className="bcc-panel flex flex-col gap-4 p-4 sm:p-5">
@@ -323,10 +329,18 @@ function HistoryRow({ item, onCopyRef }: HistoryRowProps) {
 
       <dl className="grid gap-x-6 gap-y-3 sm:grid-cols-2">
         <AdminField label="Subject">
-          <AdminUserChip user={item.subject} size="xs" />
+          {item.subject === null ? (
+            <span className="text-bcc-text-secondary">{DELETED_ACCOUNT_COPY}</span>
+          ) : (
+            <AdminUserChip user={item.subject} size="xs" />
+          )}
         </AdminField>
         <AdminField label="Actor">
-          <AdminUserChip user={item.actor} size="xs" />
+          {item.actor === null ? (
+            <span className="text-bcc-text-secondary">{SYSTEM_ACTOR_COPY}</span>
+          ) : (
+            <AdminUserChip user={item.actor} size="xs" />
+          )}
         </AdminField>
         <AdminField label="Before → after">
           <ul className="flex flex-col gap-0.5">

@@ -31,7 +31,7 @@ import {
   type AdminValidatorDirectoryParams,
   type ValidatorRelationshipHistoryParams,
 } from "@/lib/api/admin-validator-endpoints";
-import { isAdminDenial, isAdminToolUnavailable } from "@/lib/api/admin-errors";
+import { isAdminDenial, isAdminIdNotFound, isAdminToolUnavailable } from "@/lib/api/admin-errors";
 import { rateLimitedRetryDelay, retryRateLimitedRead } from "@/lib/api/errors";
 import type {
   AdminValidatorDirectoryResponse,
@@ -46,7 +46,7 @@ const PAGE_SIZE = 25;
 export const ADMIN_VALIDATORS_QUERY_KEY_ROOT = ["admin", "validators"] as const;
 
 function retryAdminRead(failureCount: number, err: unknown): boolean {
-  if (isAdminDenial(err) || isAdminToolUnavailable(err)) return false;
+  if (isAdminDenial(err) || isAdminToolUnavailable(err) || isAdminIdNotFound(err)) return false;
   return retryRateLimitedRead(failureCount, err);
 }
 

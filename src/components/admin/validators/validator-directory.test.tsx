@@ -9,7 +9,7 @@
  *   - rows carry the state pill, the owner and the method label;
  *   - Load more sends the server's cursor;
  *   - 403 → "Admin access required" (no Retry), 503 → Retry,
- *     404 rest_no_route / bcc_not_found → "not available yet".
+ *     404 rest_no_route → "not available yet"; 404 bcc_not_found → its own line.
  */
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -33,6 +33,7 @@ vi.mock("@/lib/api/admin-validator-endpoints", () => ({
   getValidatorRelationshipHealth: vi.fn(),
 }));
 
+import { ADMIN_ID_NOT_FOUND_COPY } from "@/components/admin/validators/AdminReadFailure";
 import { ValidatorDirectory } from "@/components/admin/validators/ValidatorDirectory";
 
 beforeAll(() => {
@@ -291,16 +292,23 @@ describe("Validator Directory — failed reads", () => {
     expect(await screen.findByRole("heading", { name: "Validator 1" })).toBeInTheDocument();
   });
 
-  it.each(["rest_no_route", "bcc_not_found"])(
-    "a 404 (%s) says the tool isn't on the server yet, with no Retry",
-    async (code) => {
-      getDir.mockRejectedValue(new BccApiError(code, RAW, 404, null));
-      renderDirectory();
+  it("a 404 rest_no_route says the tool isn't on the server yet, with no Retry", async () => {
+    getDir.mockRejectedValue(new BccApiError("rest_no_route", RAW, 404, null));
+    renderDirectory();
 
-      expect(await screen.findByText("This tool isn't available on the server yet.")).toBeInTheDocument();
-      expect(screen.queryByRole("button", { name: /retry/i })).toBeNull();
-      expect(screen.queryByText(/admin access required/i)).toBeNull();
-      expect(getDir).toHaveBeenCalledTimes(1);
-    },
-  );
+    expect(await screen.findByText("This tool isn't available on the server yet.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /retry/i })).toBeNull();
+    expect(screen.queryByText(/admin access required/i)).toBeNull();
+    expect(getDir).toHaveBeenCalledTimes(1);
+  });
+
+  it("a 404 bcc_not_found is NOT 'not available yet': it says no page or member matches", async () => {
+    getDir.mockRejectedValue(new BccApiError("bcc_not_found", RAW, 404, null));
+    renderDirectory();
+
+    expect(await screen.findByText(ADMIN_ID_NOT_FOUND_COPY)).toBeInTheDocument();
+    expect(screen.queryByText("This tool isn't available on the server yet.")).toBeNull();
+    expect(screen.queryByRole("button", { name: /retry/i })).toBeNull();
+    expect(getDir).toHaveBeenCalledTimes(1);
+  });
 });

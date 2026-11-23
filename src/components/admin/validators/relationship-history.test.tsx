@@ -41,7 +41,12 @@ vi.mock("@/lib/api/admin-validator-endpoints", () => ({
   getValidatorRelationshipHealth: vi.fn(),
 }));
 
-import { RelationshipHistory } from "@/components/admin/validators/RelationshipHistory";
+import { ADMIN_ID_NOT_FOUND_COPY } from "@/components/admin/validators/AdminReadFailure";
+import {
+  DELETED_ACCOUNT_COPY,
+  RelationshipHistory,
+  SYSTEM_ACTOR_COPY,
+} from "@/components/admin/validators/RelationshipHistory";
 
 const writeText = vi.fn();
 
@@ -87,6 +92,7 @@ function entry(id: number, over: Partial<ValidatorRelationshipHistoryItem> = {})
     prev: { role: null, status: null, method: null },
     new: { role: "owner", status: "active", method: "keybase" },
     reason: null,
+    reason_label: null,
     evidence_note: null,
     evidence_ref: null,
     step_up: "password+code",
@@ -189,6 +195,7 @@ describe("Audit history — rows", () => {
           prev: { role: "owner", status: "active", method: "website" },
           new: { role: null, status: "revoked", method: null },
           reason: "evidence_withdrawn",
+          reason_label: "Evidence withdrawn",
           step_up: "password",
         }),
       ]),
@@ -204,9 +211,26 @@ describe("Audit history — rows", () => {
     expect(within(row).getByText("owner → —")).toBeInTheDocument();
     expect(within(row).getByText("active → revoked")).toBeInTheDocument();
     expect(within(row).getByText("Website → —")).toBeInTheDocument();
-    expect(within(row).getByText("evidence_withdrawn")).toBeInTheDocument();
+    expect(within(row).getByText("Evidence withdrawn")).toBeInTheDocument();
+    expect(within(row).queryByText("evidence_withdrawn")).toBeNull();
     expect(within(row).getByText("Password")).toBeInTheDocument();
     expect(row.querySelector("time")).toHaveAttribute("datetime", "2026-11-20T10:00:00Z");
+  });
+});
+
+describe("Audit history — deleted accounts and system events", () => {
+  it("a null subject reads 'Deleted account' and a null actor reads 'System'", async () => {
+    getHistory.mockResolvedValue(
+      page([entry(2, { action: "account_deleted", subject: null, actor: null, step_up: null })]),
+    );
+    renderHistory();
+    await screen.findByText("Validator 2");
+    const row = rowOf("Validator 2");
+
+    expect(within(row).getByText(DELETED_ACCOUNT_COPY)).toBeInTheDocument();
+    expect(within(row).getByText(SYSTEM_ACTOR_COPY)).toBeInTheDocument();
+    expect(within(row).queryByText("Ada Lovelace")).toBeNull();
+    expect(within(row).queryByText("Grace Hopper")).toBeNull();
   });
 });
 
@@ -297,6 +321,18 @@ describe("Audit history — paging and failures", () => {
     renderHistory();
     expect(await screen.findByText("This tool isn't available on the server yet.")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /retry/i })).toBeNull();
+    expect(getHistory).toHaveBeenCalledTimes(1);
+  });
+
+  it("a 404 bcc_not_found on an id filter says no page or member matches, and keeps the filters to fix it", async () => {
+    nav.searchParams = new URLSearchParams("page_id=999999");
+    getHistory.mockRejectedValue(new BccApiError("bcc_not_found", RAW, 404, null));
+    renderHistory();
+    expect(await screen.findByText(ADMIN_ID_NOT_FOUND_COPY)).toBeInTheDocument();
+    expect(screen.queryByText("This tool isn't available on the server yet.")).toBeNull();
+    expect(screen.queryByRole("button", { name: /retry/i })).toBeNull();
+    // The filter form stays, so the id can be corrected.
+    expect(screen.getByDisplayValue("999999")).toBeInTheDocument();
     expect(getHistory).toHaveBeenCalledTimes(1);
   });
 });
