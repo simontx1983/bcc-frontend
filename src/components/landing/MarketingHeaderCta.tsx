@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { HIT_AREA_44 } from "@/components/feed/hitArea";
 
 /**
  * The marketing header's primary CTA. /for-validators points at its own search
@@ -11,13 +12,13 @@ import { usePathname } from "next/navigation";
 export function MarketingHeaderCta() {
   if (usePathname() === "/for-validators") {
     return (
-      <a href="#find" className="bcc-btn bcc-btn-sm bcc-btn-primary">
+      <a href="#find" className={`${HIT_AREA_44} bcc-btn bcc-btn-sm bcc-btn-primary`}>
         Find your validator
       </a>
     );
   }
   return (
-    <Link href="/signup" className="bcc-btn bcc-btn-sm bcc-btn-primary">
+    <Link href="/signup" className={`${HIT_AREA_44} bcc-btn bcc-btn-sm bcc-btn-primary`}>
       Join the Floor
     </Link>
   );
