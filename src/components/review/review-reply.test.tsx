@@ -301,6 +301,15 @@ describe("SA5 page-attributed replies", () => {
     expect(screen.getByText("Acme Validator")).toBeInTheDocument();
   });
 
+  it("shows the page's crest beside its name", () => {
+    const { container } = render(
+      <ReviewReplyView reply={pageReply({ page: { ...PAGE, avatar_url: "https://cdn.example.test/crest.png" } })} surface="paper" />,
+    );
+    const img = container.querySelector("img");
+    expect(img).not.toBeNull();
+    expect(decodeURIComponent(img?.getAttribute("src") ?? "")).toContain("https://cdn.example.test/crest.png");
+  });
+
   it("no author_kind (today's backend) reads as a member reply", () => {
     render(<ReviewReplyView reply={reply()} surface="paper" />);
     expect(screen.getByRole("link", { name: "@ACME" })).toHaveAttribute("href", "/u/acme");
