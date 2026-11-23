@@ -3278,6 +3278,15 @@
     justify-content: space-between;
     align-items: center;
   }
+  /* F-544: the base heading rule (`h1, h2, h3 { color: var(--bcc-text) }`)
+     painted a paper head's title in --bcc-text, which is DARK in the light
+     theme: near-invisible on this ink bar (CardReviewsPanel's "Reviews",
+     and every other panel head). Headings here take the bar's own
+     cardstock instead, in both themes. In this layer, so it beats the base
+     rule whatever the specificity. */
+  .bcc-paper-head :is(h1, h2, h3) {
+    color: inherit;
+  }
 
 
   /* `.bcc-phosphor-text` and `.bcc-phosphor-dot` were removed 2026-08-14.
