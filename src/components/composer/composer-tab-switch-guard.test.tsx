@@ -51,18 +51,23 @@ afterEach(() => {
 const prompt = () => screen.queryByRole("dialog", { name: "Discard this draft?" });
 const tab = (name: RegExp) => screen.getByRole("tab", { name });
 
+// F-561: a composer opened FOR a review (defaultMode "review") has no tabs
+// any more. The tabs, and so this guard, remain on a modal composer that
+// opens on Update with a review target available: open there, then move
+// to the Review tab (nothing written yet, so no prompt).
 function openReview(onClose = vi.fn()) {
   render(
     <QueryClientProvider client={qc}>
       <Composer
         variant="modal"
-        defaultMode="review"
+        defaultMode="status"
         reviewTargetId={35}
         reviewTargetName="Fixture Validator"
         onClose={onClose}
       />
     </QueryClientProvider>,
   );
+  fireEvent.click(tab(/review/i));
   return { onClose };
 }
 
