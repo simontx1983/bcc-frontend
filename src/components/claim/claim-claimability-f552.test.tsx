@@ -116,6 +116,8 @@ describe("ClaimCallout renders the server's answer", () => {
     wrap(<ClaimCallout pageId={7} pageName="Atlas" target={COSMOS} viewerAuthed canClaim={entry(false, "not_claimable", HINT)} />);
     expect(screen.getByText(HINT)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /CLAIM THIS PAGE/ })).toBeNull();
+    // Read as unclaimable (not as a member-level refusal): the kicker says so.
+    expect(screen.getByText("UNCLAIMED · CLAIMING NOT OPEN YET")).toBeInTheDocument();
   });
 
   it("S7: an unclaimable page's kicker doesn't ask 'is this yours?'", () => {
