@@ -74,7 +74,7 @@ export function ClaimCallout({
                 type="button"
                 onClick={() => setOpen(true)}
                 title="Open the four-step claim flow."
-                className="bcc-stencil w-fit rounded-sm bg-ink px-5 py-2.5 text-[12px] tracking-[0.2em] text-cardstock transition hover:bg-blueprint"
+                className="bcc-btn bcc-btn-primary min-h-[44px] w-fit px-5 tracking-[0.2em]"
               >
                 CLAIM THIS PAGE →
               </button>
@@ -82,7 +82,7 @@ export function ClaimCallout({
               <div className="flex flex-col gap-2">
                 <Link
                   href={`/login?callbackUrl=${encodeURIComponent(pathname)}` as Route}
-                  className="bcc-stencil w-fit rounded-sm bg-ink px-5 py-2.5 text-[12px] tracking-[0.2em] text-cardstock transition hover:bg-blueprint"
+                  className="bcc-btn bcc-btn-primary min-h-[44px] w-fit px-5 tracking-[0.2em]"
                 >
                   SIGN IN TO CLAIM →
                 </Link>
