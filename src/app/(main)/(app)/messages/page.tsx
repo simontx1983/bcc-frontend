@@ -168,7 +168,7 @@ function MessagesPageContent() {
         <div className="mt-5">
           <Link
             href={"/messages/new" as Route}
-            className="bcc-mono inline-flex items-center gap-2 border-2 border-bcc-border px-3 py-1.5 text-[10px] tracking-[0.18em] text-bcc-text transition hover:bg-bcc-surface-hover hover:border-bcc-border-strong"
+            className="bcc-mono inline-flex min-h-[44px] items-center gap-2 border-2 border-bcc-border px-3 py-1.5 text-[10px] tracking-[0.18em] text-bcc-text transition hover:bg-bcc-surface-hover hover:border-bcc-border-strong"
           >
             + NEW MESSAGE
           </Link>
@@ -283,8 +283,10 @@ function MessagesPageContent() {
 }
 
 function TabBar({ active }: { active: MessagesTab }) {
+  // F-319 (L-me1): 44px tall, the label kept at the bottom edge over its
+  // underline.
   const base =
-    "bcc-mono border-b-2 px-1 pb-2 text-[11px] tracking-[0.18em] transition";
+    "bcc-mono inline-flex min-h-[44px] items-end border-b-2 px-1 pb-2 text-[11px] tracking-[0.18em] transition";
   const on = "border-bcc-border-strong text-bcc-text";
   const off = "border-transparent text-bcc-text-secondary hover:text-bcc-text";
   return (
@@ -361,7 +363,7 @@ function InboxEmpty() {
       <div className="mt-6 flex flex-wrap justify-center gap-2">
         <Link
           href={"/messages/new" as Route}
-          className="bcc-mono inline-flex items-center gap-2 border-2 border-ink/40 px-3 py-1.5 text-[10px] tracking-[0.18em] text-ink transition hover:bg-ink hover:text-cardstock"
+          className="bcc-mono inline-flex min-h-[44px] items-center gap-2 border-2 border-ink/40 px-3 py-1.5 text-[10px] tracking-[0.18em] text-ink transition hover:bg-ink hover:text-cardstock"
         >
           + NEW MESSAGE
         </Link>
