@@ -143,6 +143,11 @@ export function NotificationsPanel({
       )
     : null;
 
+  // F-320 (UX Low): marking ONE row read set the shared mutation pending,
+  // and the bulk button said "Marking…" though nobody pressed it. Only the
+  // bulk call (no id) is "marking all".
+  const markingAll = markRead.isPending && markRead.variables === undefined;
+
   const handleMarkAll = () => {
     if (unreadCount === 0) return;
     markRead.mutate(undefined);
@@ -185,7 +190,7 @@ export function NotificationsPanel({
               // M-no6: a 44px target (it was ~15px of underlined text).
               className="bcc-mono -my-2.5 inline-flex min-h-[44px] items-center px-2 text-[10px] tracking-[0.16em] normal-case text-[var(--bcc-text)] underline underline-offset-2 disabled:cursor-not-allowed disabled:text-[var(--bcc-text-muted)]"
             >
-              {markRead.isPending ? "Marking…" : "Mark all read"}
+              {markingAll ? "Marking…" : "Mark all read"}
             </button>
           )}
         </div>
