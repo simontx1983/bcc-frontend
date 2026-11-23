@@ -188,14 +188,6 @@ export function walletHintFor(chainType: WalletChainType): string {
 }
 
 /**
- * Map a known provider error to user-facing copy. Returns `null` when
- * the error is NOT a provider-side error — the caller should then fall
- * through to its own server-side error mapping (e.g. humanizeCode).
- *
- * Keeps the three provider error families behind one switch so consumers
- * don't have to enumerate `instanceof X || instanceof Y || ...` themselves.
- */
-/**
  * Where to get the wallet a "not installed" error is about, or null for
  * any other error. The claim flow renders it as a link (F-316 M-cl2).
  */
@@ -211,6 +203,14 @@ export function walletInstallUrl(err: unknown): string | null {
   return null;
 }
 
+/**
+ * Map a known provider error to user-facing copy. Returns `null` when
+ * the error is NOT a provider-side error — the caller should then fall
+ * through to its own server-side error mapping (e.g. humanizeCode).
+ *
+ * Keeps the three provider error families behind one switch so consumers
+ * don't have to enumerate `instanceof X || instanceof Y || ...` themselves.
+ */
 export function humanizeWalletProviderError(err: unknown): string | null {
   // Unavailable provider — each adapter authors its own copy (different
   // wallets, different install URLs); pass through verbatim.
