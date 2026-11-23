@@ -22,7 +22,13 @@ function stub(name: string) {
 vi.mock("@/components/cards/CardFactory", () => ({ CardFactory: stub("card") }));
 vi.mock("@/components/common/ShareButton", () => ({ ShareButton: stub("share") }));
 vi.mock("@/components/entity/ChainTabs", () => ({ ChainTabs: stub("chains") }));
-vi.mock("@/components/claim/ClaimCallout", () => ({ ClaimCallout: stub("claim") }));
+const claimProps = vi.hoisted(() => [] as Record<string, unknown>[]);
+vi.mock("@/components/claim/ClaimCallout", () => ({
+  ClaimCallout: (p: Record<string, unknown>) => {
+    claimProps.push(p);
+    return <div data-testid="claim" />;
+  },
+}));
 vi.mock("@/components/disputes/DisputeCallout", () => ({ DisputeCallout: stub("dispute") }));
 vi.mock("@/components/endorse/EndorseButton", () => ({ EndorseButton: stub("endorse") }));
 vi.mock("@/components/announcements/AnnouncementBar", () => ({ AnnouncementBar: stub("abar") }));
@@ -116,6 +122,26 @@ function renderProfile(c: never) {
     />,
   );
 }
+
+describe("EntityProfile claim callout (F-552)", () => {
+  it("hands the page's can_claim to the callout, which renders from it", () => {
+    claimProps.length = 0;
+    const canClaim = { allowed: false, unlock_hint: "Not claimable here.", reason_code: "not_claimable" };
+    renderProfile(card({
+      is_claimed: false,
+      claim_target: { entity_type: "validator", entity_id: 9, chain_slug: "cosmos" },
+      messaging: { destination: "queue", operator: null },
+      permissions: {
+        can_vouch: { allowed: true, unlock_hint: null },
+        can_stand_behind: { allowed: true, unlock_hint: null },
+        can_report: { allowed: true, unlock_hint: null },
+        can_claim: canClaim,
+      },
+    }));
+    expect(screen.getByTestId("claim")).toBeInTheDocument();
+    expect(claimProps[claimProps.length - 1]?.["canClaim"]).toEqual(canClaim);
+  });
+});
 
 describe("EntityProfile attestation cluster", () => {
   it("is not rendered for a never-claimed validator; Message stays", () => {
