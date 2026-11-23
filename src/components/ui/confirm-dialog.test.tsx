@@ -57,6 +57,19 @@ function renderDialog(o: Overrides = {}) {
   return { onConfirm, onCancel };
 }
 
+describe("layout at phone width", () => {
+  // The Dialog's close × is pinned top-right (right-3 top-3, h-8 w-8) and
+  // the title is an aria-label only, so the body is the first visible line.
+  // At 390px (panel p-6) it ran under the ×. jsdom does no layout, so this
+  // pins the classes: the body's right padding clears the button.
+  it("the body text keeps clear of the close ×", () => {
+    renderDialog();
+    const close = screen.getByRole("button", { name: "Close" });
+    expect(close).toHaveClass("absolute", "right-3", "top-3", "h-8", "w-8");
+    expect(screen.getByText("Your profile will show your initial instead.")).toHaveClass("pr-6");
+  });
+});
+
 describe("the decision", () => {
   it("states what will happen, in the caller's words", () => {
     renderDialog();
