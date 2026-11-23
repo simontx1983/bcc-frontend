@@ -195,6 +195,22 @@ export function walletHintFor(chainType: WalletChainType): string {
  * Keeps the three provider error families behind one switch so consumers
  * don't have to enumerate `instanceof X || instanceof Y || ...` themselves.
  */
+/**
+ * Where to get the wallet a "not installed" error is about, or null for
+ * any other error. The claim flow renders it as a link (F-316 M-cl2).
+ */
+export function walletInstallUrl(err: unknown): string | null {
+  if (
+    err instanceof KeplrUnavailableError ||
+    err instanceof MetaMaskUnavailableError ||
+    err instanceof PhantomUnavailableError ||
+    err instanceof PolkadotUnavailableError
+  ) {
+    return err.installUrl;
+  }
+  return null;
+}
+
 export function humanizeWalletProviderError(err: unknown): string | null {
   // Unavailable provider — each adapter authors its own copy (different
   // wallets, different install URLs); pass through verbatim.
@@ -206,14 +222,16 @@ export function humanizeWalletProviderError(err: unknown): string | null {
   ) {
     return err.message;
   }
-  // User-cancel is identical UX across providers.
+  // A rejection reads the same across providers, but says WHERE: a
+  // declined connect prompt is not a cancelled signature (F-316 M-cl2).
+  // The adapters author that copy from the shared lib/wallet/error-copy.
   if (
     err instanceof KeplrUserRejectedError ||
     err instanceof MetaMaskUserRejectedError ||
     err instanceof PhantomUserRejectedError ||
     err instanceof PolkadotUserRejectedError
   ) {
-    return "Wallet signing was canceled.";
+    return err.message;
   }
   // EVM-only chain-switch failure — wallet refused or hadn't pre-added
   // the chain. The wallet message already explains "switch it manually

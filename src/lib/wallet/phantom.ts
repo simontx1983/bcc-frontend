@@ -63,21 +63,28 @@ declare global {
 // Errors — typed family parallels keplr.ts / metamask.ts.
 // ─────────────────────────────────────────────────────────────────────
 
+import { MOBILE_WALLET_HINT, WALLET_FAILED_COPY, walletRejectedCopy, type WalletStage } from "@/lib/wallet/error-copy";
+
 export class PhantomError extends Error {
   override readonly name: string = "PhantomError";
 }
 
 export class PhantomUnavailableError extends PhantomError {
   override readonly name = "PhantomUnavailableError";
+  /** Where to get the wallet (rendered as a link by the claim flow). */
+  readonly installUrl = "https://phantom.com/download";
   constructor() {
-    super("Phantom (or another Solana wallet) not detected. Install one to continue.");
+    super(`Phantom (or another Solana wallet) isn't installed in this browser. Install one to continue. ${MOBILE_WALLET_HINT}`);
   }
 }
 
 export class PhantomUserRejectedError extends PhantomError {
   override readonly name = "PhantomUserRejectedError";
-  constructor() {
-    super("Wallet signing was canceled.");
+  /** Declined at the connect prompt, or cancelled at signing. */
+  readonly stage: WalletStage;
+  constructor(stage: WalletStage = "sign") {
+    super(walletRejectedCopy(stage));
+    this.stage = stage;
   }
 }
 
@@ -105,7 +112,7 @@ export async function connectPhantom(): Promise<PhantomConnection> {
     const response = await provider.connect();
     return { address: pkToBase58(response.publicKey) };
   } catch (err) {
-    throw normalizePhantomError(err);
+    throw normalizePhantomError(err, "connect");
   }
 }
 
@@ -133,7 +140,7 @@ export async function signPhantomChallenge(
     }
     return { signature: base58Encode(result.signature) };
   } catch (err) {
-    throw normalizePhantomError(err);
+    throw normalizePhantomError(err, "sign");
   }
 }
 
@@ -191,21 +198,24 @@ function pkToBase58(pk: PhantomPublicKey): string {
   return pk.toString();
 }
 
-function normalizePhantomError(err: unknown): PhantomError {
+function normalizePhantomError(err: unknown, stage: WalletStage): PhantomError {
+  // Already one of ours (deliberate copy, e.g. "No accounts" / "empty
+  // signature" thrown inside the try): keep it, never genericise it.
+  if (err instanceof PhantomError) return err;
   // Phantom's user-rejection error has code 4001 (mirrors EIP-1193).
   if (typeof err === "object" && err !== null) {
     const code = (err as { code?: number }).code;
     if (code === 4001) {
-      return new PhantomUserRejectedError();
+      return new PhantomUserRejectedError(stage);
     }
     const message = (err as { message?: string }).message;
     if (typeof message === "string" && message !== "") {
       const lower = message.toLowerCase();
       if (lower.includes("reject") || lower.includes("denied") || lower.includes("cancel")) {
-        return new PhantomUserRejectedError();
+        return new PhantomUserRejectedError(stage);
       }
-      return new PhantomError(message);
+      return new PhantomError(WALLET_FAILED_COPY, { cause: err });
     }
   }
-  return new PhantomError("Wallet error.");
+  return new PhantomError(WALLET_FAILED_COPY, { cause: err });
 }
