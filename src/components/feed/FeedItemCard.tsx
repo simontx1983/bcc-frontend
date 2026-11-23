@@ -127,19 +127,27 @@ function FeedItemCardImpl({
   // passing fresh inline JSX every render would silently defeat its
   // shallow-compare (perf-audit F4) — the same fix main applied, kept
   // here for the redesign's grouped layout.
+  // Kind chip — suppressed for plain posts ("POSTED" adds nothing); kept
+  // for action kinds (WATCHED, REVIEWED, DISPUTED, …). It rides in
+  // AuthorBadge's `meta` slot, beside the trust chip, so below sm the two
+  // wrap to a second line together and the name keeps its row (testnet UX
+  // audit S1). It used to sit in `trailing`, where it squeezed the name.
+  const meta = useMemo(
+    () =>
+      kindLabel !== "POSTED" ? (
+        <span
+          className="bcc-mono shrink-0 rounded px-1.5 py-0.5 text-[10px] text-[var(--bcc-text-secondary)]"
+          style={{ background: "var(--bcc-surface-active)" }}
+        >
+          {kindLabel}
+        </span>
+      ) : null,
+    [kindLabel]
+  );
+
   const trailing = useMemo(
     () => (
       <div className="flex shrink-0 items-baseline gap-2">
-        {/* Kind chip — suppressed for plain posts ("POSTED" adds nothing);
-            kept for action kinds (WATCHED, REVIEWED, DISPUTED, …). */}
-        {kindLabel !== "POSTED" && (
-          <span
-            className="bcc-mono shrink-0 rounded px-1.5 py-0.5 text-[10px] text-[var(--bcc-text-secondary)]"
-            style={{ background: "var(--bcc-surface-active)" }}
-          >
-            {kindLabel}
-          </span>
-        )}
         {groupVerification !== null && (
           <VerificationBadge
             label={groupVerification.label}
@@ -149,7 +157,7 @@ function FeedItemCardImpl({
         <PostOverflowMenu selfHref={selfHref} item={item} />
       </div>
     ),
-    [kindLabel, groupVerification, selfHref, item]
+    [groupVerification, selfHref, item]
   );
 
   return (
@@ -161,10 +169,10 @@ function FeedItemCardImpl({
     >
       {/*
         Sprint 1 Identity Grammar — header is now <AuthorBadge>. Operator
-        pill folds into AuthorBadge (driven by author.is_operator); kind
-        label + verification badge + timestamp are grouped into the
-        trailing slot as one secondary meta line, so the display name
-        reads clean on its own.
+        pill folds into AuthorBadge (driven by author.is_operator); the
+        kind label rides beside the trust chip (`meta`), and the
+        verification badge + overflow sit in the trailing slot, so the
+        display name reads clean on its own.
 
         size="md" + the accent ring match the Composer's identity
         header so a viewer's own posting avatar and every author's feed
@@ -177,6 +185,7 @@ function FeedItemCardImpl({
           avatarRingColor="var(--bcc-accent)"
           nameStyle="caps"
           chip="trust"
+          meta={meta}
           trailing={trailing}
         />
       </header>
