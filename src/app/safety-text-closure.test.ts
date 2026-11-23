@@ -24,7 +24,7 @@
  *      opacity suffix) and zero inline `color:` uses of the safety colour;
  *   4. every `role="alert"` element painted with a status utility uses the
  *      error-text token — not safety, not danger;
- *   5. the error-line inventory (74 lines), and `text-bcc-danger` confined
+ *   5. the error-line inventory (75 lines), and `text-bcc-danger` confined
  *      to the destructive headings and buttons it still owns.
  * A control proves the scanners find planted offenders.
  *
@@ -375,7 +375,7 @@ describe("#205 — control: the scanners find planted offenders", () => {
 
 /**
  * Files whose error / validation lines read `text-bcc-text-error` → count.
- * 74 lines: the 42 PR #208 moved to danger, 5 older role=alert lines that
+ * 75 lines: the 42 PR #208 moved to danger, 5 older role=alert lines that
  * were already on danger, the 15 error lines #208 deferred on orange,
  * 9 over-limit / invalid-input states (the counter-tone top rung, the
  * mention cap and seven inline over-cap counters), the email-change
@@ -384,12 +384,13 @@ describe("#205 — control: the scanners find planted offenders", () => {
  * failure in DelegatorGroupPanel (#198). 73 since F-246: the message
  * thread's load failure moved to the shared LoadFailure (retryable 503).
  * 74 since F-294: the leaked-password line on Settings' new-password field.
+ * 75 since F-319: the ?to_user pin's failure line on /messages/new.
  */
 const ERROR_LINES: Readonly<Record<string, number>> = {
   "src/app/(main)/(app)/communities/new/page.tsx": 1,
   "src/app/(main)/(app)/communities/page.tsx": 1,
   "src/app/(main)/(app)/halls/page.tsx": 1,
-  "src/app/(main)/(app)/messages/new/page.tsx": 3,
+  "src/app/(main)/(app)/messages/new/page.tsx": 4,
   "src/components/admin/ModerationQueue.tsx": 2,
   "src/components/admin/UndoToast.tsx": 1,
   "src/components/announcements/AnnouncementComments.tsx": 1,
@@ -452,8 +453,8 @@ const countIn = (re: RegExp, src: string) =>
   stripComments(src).split(/\r?\n/).filter((l) => re.test(l)).length;
 
 describe("#205 — error-line inventory", () => {
-  it("74 error lines in total", () => {
-    expect(Object.values(ERROR_LINES).reduce((a, b) => a + b, 0)).toBe(74);
+  it("75 error lines in total", () => {
+    expect(Object.values(ERROR_LINES).reduce((a, b) => a + b, 0)).toBe(75);
   });
 
   for (const [file, n] of Object.entries(ERROR_LINES)) {

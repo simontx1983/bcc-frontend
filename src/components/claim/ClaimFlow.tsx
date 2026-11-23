@@ -52,6 +52,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 
 import { captureAnalyticsEvent } from "@/lib/analytics/posthog";
 import { humanizeCode } from "@/lib/api/errors";
@@ -62,6 +63,7 @@ import { isChainClaimable, unsupportedClaimReason } from "@/lib/wallet/claim-sup
 import {
   connectWallet,
   humanizeWalletProviderError,
+  walletInstallUrl,
   type WalletConnection,
 } from "@/lib/wallet/dispatch";
 import { linkOrConfirmOwnWallet, signLinkChallenge } from "@/lib/wallet/linkFlow";
@@ -127,7 +129,7 @@ interface ClaimFlowProps {
 
 type Step =
   | { kind: "explanation" }
-  | { kind: "connect"; pending: boolean; error: string | null }
+  | { kind: "connect"; pending: boolean; error: string | null; installUrl?: string | null }
   | {
       kind: "signature";
       connection: WalletConnection;
@@ -237,6 +239,8 @@ export function ClaimFlow({ pageId, pageName, target, onClose }: ClaimFlowProps)
         kind: "connect",
         pending: false,
         error: humanizeWalletError(err),
+        // F-316 M-cl2: "not installed" comes with where to get the wallet.
+        installUrl: walletInstallUrl(err),
       });
     }
   };
@@ -344,6 +348,7 @@ export function ClaimFlow({ pageId, pageName, target, onClose }: ClaimFlowProps)
           pending={step.pending}
           stuck={stuck}
           error={step.error}
+          installUrl={step.installUrl ?? null}
           onRetry={() => { void handleConnect(); }}
           onCancel={handleClose}
         />
@@ -368,11 +373,7 @@ export function ClaimFlow({ pageId, pageName, target, onClose }: ClaimFlowProps)
       )}
 
       {step.kind === "confirmation" && (
-        <ConfirmationStep
-          pageName={pageName}
-          handle={null}
-          onClose={handleClose}
-        />
+        <ConfirmationStep pageName={pageName} onClose={handleClose} />
       )}
       </div>
     </Dialog>
@@ -425,6 +426,7 @@ function ConnectStep({
   pending,
   stuck,
   error,
+  installUrl,
   onRetry,
   onCancel,
 }: {
@@ -434,6 +436,8 @@ function ConnectStep({
   pending: boolean;
   stuck: boolean;
   error: string | null;
+  /** Where to get the wallet, when the error was "not installed". */
+  installUrl: string | null;
   onRetry: () => void;
   onCancel: () => void;
 }) {
@@ -463,6 +467,17 @@ function ConnectStep({
         adds this wallet to your BCC account — you can remove it in Settings → Wallets.
       </p>
       {error !== null && <ErrorLine message={error} />}
+      {installUrl !== null && (
+        <a
+          href={installUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="bcc-mono mt-2 inline-flex min-h-[44px] items-center gap-1 text-[11px] tracking-[0.12em] text-bcc-text underline underline-offset-2"
+        >
+          Get {walletName} <span aria-hidden>↗</span>
+          <span className="sr-only"> (opens in a new tab)</span>
+        </a>
+      )}
       {pending && stuck && <StuckNote walletName={walletName} />}
       <ButtonRow>
         <SecondaryButton onClick={onCancel} disabled={pending && !stuck}>
@@ -561,11 +576,9 @@ function SignatureStep({
 
 function ConfirmationStep({
   pageName,
-  handle,
   onClose,
 }: {
   pageName: string;
-  handle: string | null;
   onClose: () => void;
 }) {
   return (
@@ -588,8 +601,17 @@ function ConfirmationStep({
         What&apos;s next:
       </p>
       <ul className="mt-2 space-y-1.5 font-serif text-bcc-text-secondary">
-        <li>· Post your first announcement.</li>
-        {handle !== null && <li>· Visit your profile at /u/{handle}.</li>}
+        {/* F-320 (UX Low): the profile line was a handle that was always
+            null (so it never showed) printed as a path, not a link. /u/me
+            resolves to the viewer's own profile; the announcement line
+            says where, instead of reading like a dead link. */}
+        <li>· Post your first announcement from this page&apos;s Announcements tab.</li>
+        <li>
+          ·{" "}
+          <Link href="/u/me" className="text-bcc-text underline underline-offset-2">
+            Visit your profile
+          </Link>
+        </li>
       </ul>
       <ButtonRow>
         <PrimaryButton onClick={onClose}>BACK TO THE FLOOR</PrimaryButton>
@@ -627,7 +649,7 @@ function PrimaryButton({
       aria-disabled={disabled}
       data-claim-primary=""
       className={
-        "bcc-stencil rounded-sm px-5 py-2.5 text-[12px] tracking-[0.2em] transition " +
+        "bcc-stencil rounded-sm px-5 py-2.5 text-[12px] tracking-[0.2em] transition inline-flex min-h-[44px] items-center justify-center " +
         (disabled
           ? "cursor-not-allowed bg-bcc-surface-active text-bcc-text-muted"
           : "bg-ink text-cardstock hover:bg-blueprint")
@@ -652,7 +674,7 @@ function SecondaryButton({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className="bcc-mono rounded-sm px-4 py-2 text-[10px] tracking-[0.18em] text-bcc-text-secondary hover:text-bcc-text disabled:cursor-not-allowed disabled:opacity-50"
+      className="bcc-mono rounded-sm px-4 py-2 text-[10px] tracking-[0.18em] text-bcc-text-secondary hover:text-bcc-text disabled:cursor-not-allowed disabled:opacity-50 inline-flex min-h-[44px] items-center justify-center"
     >
       {children}
     </button>

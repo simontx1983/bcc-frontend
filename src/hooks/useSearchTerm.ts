@@ -4,9 +4,9 @@
  * useSearchTerm — the debounced, length-gated term every search hook keys
  * its query on.
  *
- * Shared by useGlobalSearch (the header combobox) and the three /search
- * verticals, which each carried their own copy of this debounce before
- * F-260.
+ * Shared by GlobalSearch (the header combobox, which hands the term to
+ * useGlobalSearch) and the three /search verticals, which each carried
+ * their own copy of this debounce before F-260.
  *
  * Returns the trimmed input once typing has settled for DEBOUNCE_MS, or ""
  * while the input is shorter than SEARCH_MIN_LENGTH ("" keeps the query

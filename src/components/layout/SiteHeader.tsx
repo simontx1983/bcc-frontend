@@ -14,6 +14,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import {
+  BadgeCheck,
   Bell,
   ChevronDown,
   Compass,
@@ -184,6 +185,7 @@ const POPOVER_IDS = {
   messages: "bcc-header-messages-panel",
   notifications: "bcc-header-notifications-panel",
   user: "bcc-header-user-menu",
+  search: "bcc-header-search-panel",
 } as const;
 
 // ── Icons ─────────────────────────────────────────────────────────────────────
@@ -413,6 +415,9 @@ const AVATAR_MENU = [
      invisibly (regressed once already when this menu replaced the
      old ViewerMenu — 2026-07-21 admin audit P1). */
   { id: "moderation",  label: "Moderation",    href: "/admin/moderation", icon: <ShieldCheck size={16} strokeWidth={1.8} /> },
+  /* Same no-gate rule as Moderation: the validator admin routes answer a
+     non-admin with the "Admin access required" panel. */
+  { id: "validators",  label: "Validators",    href: "/admin/validators", icon: <BadgeCheck size={16} strokeWidth={1.8} /> },
   /* F-322: the tour auto-starts once per account; this is the only way
      back to it. Raises a request the TourProvider answers (SiteHeader
      sits outside it), then the link lands on the tour's surface. */
@@ -538,6 +543,98 @@ function AvatarDropdown({ handle, onClose, onSignOut, anchorRef }: AvatarDropdow
         );
       })}
     </div>
+  );
+}
+
+// ── Mobile Search Overlay ─────────────────────────────────────────────────────
+
+interface SearchOverlayProps {
+  /** What the input opens holding (F-260 M12: /search's query there). */
+  prefill: string;
+  onClose: () => void;
+  onSubmit: (query: string) => void;
+  anchorRef: React.RefObject<HTMLButtonElement | null>;
+}
+
+/**
+ * The phone search panel. F-264: it was a hand-made dialog with no
+ * aria-modal, no focus trap and no focus return, Esc worked only while
+ * the input had focus, and its backdrop value carried a stray semicolon
+ * (`"var(--bcc-glass-bg-frosted);"`), so the declaration was dropped and
+ * the backdrop was clear. It now shares useModalDismiss with the other
+ * four header pop-ups: focus moves to the input, Tab stays inside, Esc
+ * from anywhere and a click outside (the backdrop) close it, and focus
+ * goes back to the search button.
+ *
+ * Minimal wiring by design: Enter → /search?q= (the full combobox stays
+ * desktop-only for now; the /search results page carries the mobile
+ * experience).
+ */
+function SearchOverlay({ prefill, onClose, onSubmit, anchorRef }: SearchOverlayProps) {
+  const panelRef = useRef<HTMLDivElement>(null);
+  useModalDismiss(panelRef, anchorRef, onClose);
+
+  return (
+    <>
+      {/* Backdrop. A click on it is outside the panel, so useModalDismiss
+          closes the overlay. Fade gated on motion-safe so a reduced-motion
+          user gets no animation (globals.css has no global reduce
+          kill-switch; inline styles can't carry a media query). */}
+      <div
+        data-testid="search-overlay-backdrop"
+        className="motion-safe:[animation:bcc-fade-in_0.2s_ease]"
+        style={{
+          position: "fixed",
+          inset: 0,
+          zIndex: 299,
+          background: "var(--bcc-glass-bg-frosted)",
+          backdropFilter: "var(--bcc-blur-sm)",
+        }}
+      />
+      <div
+        ref={panelRef}
+        id={POPOVER_IDS.search}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Search"
+        tabIndex={-1}
+        className="motion-safe:[animation:bcc-fade-in_0.15s_ease_forwards]"
+        style={{
+          position: "fixed",
+          top: "calc(var(--bcc-header-h) + 12px)",
+          // Landscape notch (F-355 viewport-fit=cover): centre within
+          // the safe area, not the raw screen edge.
+          left: "env(safe-area-inset-left, 0px)",
+          right: "env(safe-area-inset-right, 0px)",
+          marginLeft: "auto",
+          marginRight: "auto",
+          zIndex: 300,
+          padding: "8px",
+          background: "var(--bcc-glass-bg-solid)",
+          backdropFilter: "blur(20px) saturate(160%)",
+          WebkitBackdropFilter: "blur(20px) saturate(160%)",
+          borderBottom: "1px solid var(--bcc-glass-border)",
+          boxShadow: "var(--bcc-shadow-lg)",
+          width: "80%",
+          borderRadius: "var(--bcc-radius-xl)",
+        }}
+      >
+        <input
+          type="search"
+          defaultValue={prefill}
+          placeholder="Search BCC…"
+          className="bcc-search-input"
+          style={{ width: "100%" }}
+          aria-label="Search BCC"
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              const q = e.currentTarget.value.trim();
+              if (q.length > 0) onSubmit(q);
+            }
+          }}
+        />
+      </div>
+    </>
   );
 }
 
@@ -684,6 +781,9 @@ export function SiteHeader() {
           <button
             ref={searchIconRef}
             onClick={toggleSearchOverlay}
+            aria-haspopup="dialog"
+            aria-expanded={searchOverlayOpen}
+            aria-controls={searchOverlayOpen ? POPOVER_IDS.search : undefined}
             className="bcc-btn-icon bcc-header-search-icon-btn"
             aria-label="Search"
             title="Search"
@@ -788,72 +888,18 @@ export function SiteHeader() {
           </button>
         )}
 
-        {/* Mobile search overlay */}
+        {/* Mobile search overlay (F-264: on useModalDismiss, like the
+            other four pop-ups). */}
         {searchOverlayOpen && (
-          <>
-          {/* Backdrop Overlay */}
-          <div
-            onClick={() => setSearchOverlayOpen(false)}
-            // Fade gated on motion-safe so a reduced-motion user gets no
-            // animation (globals.css has no global reduce kill-switch;
-            // inline styles can't carry a media query).
-            className="motion-safe:[animation:bcc-fade-in_0.2s_ease]"
-            style={{
-              position: "fixed",
-              inset: 0,
-              zIndex: 299,
-              background: "var(--bcc-glass-bg-frosted);",
-              backdropFilter: "var(--bcc-blur-sm)",
+          <SearchOverlay
+            prefill={searchOverlayPrefill}
+            anchorRef={searchIconRef}
+            onClose={() => setSearchOverlayOpen(false)}
+            onSubmit={(q) => {
+              setSearchOverlayOpen(false);
+              router.push(`/search?q=${encodeURIComponent(q)}`);
             }}
           />
-          <div
-            role="dialog"
-            aria-label="Search"
-            className="motion-safe:[animation:bcc-fade-in_0.15s_ease_forwards]"
-            style={{
-              position: "fixed",
-              top: "calc(var(--bcc-header-h) + 12px)",
-              // Landscape notch (F-355 viewport-fit=cover): centre within
-              // the safe area, not the raw screen edge.
-              left: "env(safe-area-inset-left, 0px)",
-              right: "env(safe-area-inset-right, 0px)",
-              marginLeft: "auto",
-              marginRight: "auto",
-              zIndex: 300,
-              padding: "8px",
-              background: "var(--bcc-glass-bg-solid)",
-              backdropFilter: "blur(20px) saturate(160%)",
-              WebkitBackdropFilter: "blur(20px) saturate(160%)",
-              borderBottom: "1px solid var(--bcc-glass-border)",
-              boxShadow: "var(--bcc-shadow-lg)",
-              width: "80%",
-              borderRadius: "var(--bcc-radius-xl)",
-            }}
-          >
-            {/* Minimal wiring by design: Enter → /search?q= (the full
-                combobox stays desktop-only for now; the /search results
-                page carries the mobile experience). */}
-            <input
-              autoFocus
-              type="search"
-              defaultValue={searchOverlayPrefill}
-              placeholder="Search BCC…"
-              className="bcc-search-input"
-              style={{ width: "100%" }}
-              aria-label="Search BCC"
-              onKeyDown={e => {
-                if (e.key === "Escape") setSearchOverlayOpen(false);
-                if (e.key === "Enter") {
-                  const q = e.currentTarget.value.trim();
-                  if (q.length > 0) {
-                    setSearchOverlayOpen(false);
-                    router.push(`/search?q=${encodeURIComponent(q)}`);
-                  }
-                }
-              }}
-            />
-          </div>
-          </>
         )}
 
         {/* Avatar / Sign in */}

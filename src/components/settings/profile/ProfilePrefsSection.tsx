@@ -28,7 +28,7 @@ import { LoadFailure } from "@/components/ui/LoadFailure";
 import { SettingsSaveStatus, saveStatusFrom } from "@/components/settings/SettingsSaveStatus";
 import { useDirtyRegistration } from "@/hooks/useDirtyRegistration";
 import { rebaseDraft } from "@/lib/forms/rebaseDraft";
-import { isNonRetryableFixedReadFailure } from "@/lib/api/errors";
+import { isNonRetryableFixedReadFailure, isPermissionDenial } from "@/lib/api/errors";
 import { BccApiError } from "@/lib/api/types";
 
 const ERROR_COPY: Record<string, string> = {
@@ -147,26 +147,43 @@ export function ProfilePrefsSection() {
       <p className="bcc-mono py-4 text-[11px] text-bcc-text-secondary">Loading preferences…</p>
     );
   }
-  if (query.isError || query.data === undefined) {
-    return (
-      <LoadFailure
-        message={
-          query.error !== null && query.error !== undefined
-            ? humanizeError(query.error)
-            : "Could not load preferences."
-        }
-        // `useProfilePrefs()` takes no arguments, so a retry re-issues an
-        // identical GET — the terminal codes cannot resolve. Conditional
-        // spread because `exactOptionalPropertyTypes` rejects
-        // `onRetry={undefined}`.
-        {...(isNonRetryableFixedReadFailure(query.error)
-          ? {}
-          : { onRetry: () => void query.refetch() })}
-      />
-    );
+  const failure = (
+    <LoadFailure
+      message={
+        query.error !== null && query.error !== undefined
+          ? humanizeError(query.error)
+          : "Could not load preferences."
+      }
+      // `useProfilePrefs()` takes no arguments, so a retry re-issues an
+      // identical GET — the terminal codes cannot resolve. Conditional
+      // spread because `exactOptionalPropertyTypes` rejects
+      // `onRetry={undefined}`.
+      {...(isNonRetryableFixedReadFailure(query.error)
+        ? {}
+        : { onRetry: () => void query.refetch() })}
+    />
+  );
+
+  // M18: only a first-load failure, or a REFRESH the server refused, may
+  // replace the form. A blanket `isError` is also true when a background
+  // refresh fails with the prefs already on screen, and replacing the form
+  // then unmounted it and threw away an unsaved edit. Same split as
+  // ProfileFieldsList and the other settings reads.
+  if (
+    query.isLoadingError ||
+    query.data === undefined ||
+    (query.isRefetchError && isPermissionDenial(query.error))
+  ) {
+    return failure;
   }
 
-  return <ProfilePrefsForm initial={query.data} />;
+  return (
+    <div className="flex flex-col gap-6">
+      {/* A failed REFRESH keeps the form, and any draft in it; the recovery sits on top. */}
+      {query.isRefetchError && failure}
+      <ProfilePrefsForm initial={query.data} />
+    </div>
+  );
 }
 
 function ProfilePrefsForm({ initial }: { initial: ProfilePrefs }) {
@@ -251,7 +268,7 @@ function ProfilePrefsForm({ initial }: { initial: ProfilePrefs }) {
   return (
     <div className="flex flex-col gap-6">
       <section className="bcc-panel p-5">
-        <h3 className="bcc-mono text-[11px] tracking-[0.18em] text-bcc-text">
+        <h3 id="prefs-profile-visibility-label" className="bcc-mono text-[11px] tracking-[0.18em] text-bcc-text">
           WHO CAN SEE MY PROFILE
         </h3>
         <p className="bcc-mono mt-1 text-[10px] text-bcc-text-secondary">
@@ -259,6 +276,7 @@ function ProfilePrefsForm({ initial }: { initial: ProfilePrefs }) {
         </p>
         <RadioGroup
           name="profile_visibility"
+          labelledBy="prefs-profile-visibility-label"
           options={PROFILE_VISIBILITY_OPTIONS}
           value={shownProfileVisibility(draft.profile_visibility)}
           onChange={(v) => setDraft({ ...draft, profile_visibility: v })}
@@ -267,11 +285,12 @@ function ProfilePrefsForm({ initial }: { initial: ProfilePrefs }) {
       </section>
 
       <section className="bcc-panel p-5">
-        <h3 className="bcc-mono text-[11px] tracking-[0.18em] text-bcc-text">
+        <h3 id="prefs-post-visibility-label" className="bcc-mono text-[11px] tracking-[0.18em] text-bcc-text">
           WHO CAN POST ON MY PROFILE
         </h3>
         <RadioGroup
           name="post_visibility"
+          labelledBy="prefs-post-visibility-label"
           options={POST_VISIBILITY_OPTIONS}
           value={draft.post_visibility}
           onChange={(v) => setDraft({ ...draft, post_visibility: v })}
@@ -280,13 +299,16 @@ function ProfilePrefsForm({ initial }: { initial: ProfilePrefs }) {
       </section>
 
       <section className="bcc-panel p-5">
-        <h3 className="bcc-mono text-[11px] tracking-[0.18em] text-bcc-text">DEFAULT AUDIENCE FOR MY POSTS</h3>
+        <h3 id="prefs-default-audience-label" className="bcc-mono text-[11px] tracking-[0.18em] text-bcc-text">
+          DEFAULT AUDIENCE FOR MY POSTS
+        </h3>
         <p className="bcc-mono mt-1 text-[10px] text-bcc-text-secondary">
           The audience picker on new wall posts starts on this. Posting with a different audience
           updates the default to match — this is a sticky preference, not a hard lock.
         </p>
         <RadioGroup
           name="default_post_audience"
+          labelledBy="prefs-default-audience-label"
           options={DEFAULT_POST_AUDIENCE_OPTIONS}
           value={shownPostAudience(draft.default_post_audience)}
           onChange={(v) => setDraft({ ...draft, default_post_audience: v })}
@@ -404,19 +426,24 @@ interface RadioOption<T extends string> {
 
 function RadioGroup<T extends string>({
   name,
+  labelledBy,
   options,
   value,
   onChange,
   disabled,
 }: {
   name: string;
+  /** The id of the section heading that names this group (M20). */
+  labelledBy: string;
   options: ReadonlyArray<RadioOption<T>>;
   value: T;
   onChange: (v: T) => void;
   disabled: boolean;
 }) {
   return (
-    <div className="mt-3 flex flex-col gap-2">
+    // M20: named by its section heading, so a screen reader hears which
+    // question "Only me" answers, not three bare "Only me, radio"s.
+    <div role="radiogroup" aria-labelledby={labelledBy} className="mt-3 flex flex-col gap-2">
       {options.map((opt) => (
         <label
           key={opt.value}

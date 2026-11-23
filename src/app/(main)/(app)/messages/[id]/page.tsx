@@ -6,6 +6,12 @@
  * Reads `id` from the dynamic route segment, renders the participants
  * header + paginated message bubbles + composer. The thread auto-marks
  * messages viewed on every load (server side-effect of the GET).
+ *
+ * F-319 (M-me4): loading was a bare text line, and a signed-out visitor
+ * got plain text with no way on, under a heading stuck on "Loading…". The
+ * load is now the house Skeleton (busy, with a screen-reader line), a
+ * signed-out visitor gets a link to sign in and come back to this thread,
+ * and the heading says "Loading…" only while something is loading.
  */
 
 import type { Route } from "next";
@@ -19,7 +25,10 @@ import { MessageComposer } from "@/components/messages/MessageComposer";
 import { ThreadView } from "@/components/messages/ThreadView";
 import { useConversation } from "@/hooks/useConversation";
 import { LoadFailure } from "@/components/ui/LoadFailure";
+import { HIT_AREA_44 } from "@/components/feed/hitArea";
+import { Skeleton } from "@/components/ui/Skeleton";
 import { humanizeCode, isPermissionDenial } from "@/lib/api/errors";
+import { useSignInLink } from "@/lib/auth/sign-in-link";
 
 export default function ConversationPage() {
   const params = useParams<{ id: string }>();
@@ -39,6 +48,8 @@ export default function ConversationPage() {
   // The thread scrolls this (the composer) into view with the newest
   // message, so the reply box is never left below the fold.
   const composerRef = useRef<HTMLDivElement>(null);
+  const signIn = useSignInLink("/messages");
+  const loading = session.status === "loading" || (isAuthed && query.isPending);
 
   if (!validId) {
     return (
@@ -58,7 +69,8 @@ export default function ConversationPage() {
       <header className="mx-auto max-w-3xl px-2 sm:px-3 pt-12">
         <Link
           href={"/messages" as Route}
-          className="bcc-mono text-[10px] tracking-[0.18em] text-bcc-text-secondary transition hover:text-bcc-text"
+          // F-319 (L-me1): a 44px tap target without changing its look.
+          className={`${HIT_AREA_44} bcc-mono inline-block text-[10px] tracking-[0.18em] text-bcc-text-secondary transition hover:text-bcc-text`}
         >
           ← INBOX
         </Link>
@@ -66,7 +78,11 @@ export default function ConversationPage() {
           className="bcc-stencil mt-3 text-bcc-text leading-[0.95]"
           style={{ fontSize: "clamp(1.5rem, 4vw, 2.5rem)" }}
         >
-          {query.isSuccess ? resolveTitle(query.data.conversation) : "Loading…"}
+          {query.isSuccess
+            ? resolveTitle(query.data.conversation)
+            : loading
+              ? "Loading…"
+              : "Conversation"}
         </h1>
         {query.isSuccess && query.data.conversation.is_group && (
           <p className="mt-2 bcc-mono text-[10px] tracking-[0.18em] text-bcc-text-secondary">
@@ -77,12 +93,15 @@ export default function ConversationPage() {
 
       <section className="mx-auto mt-8 max-w-3xl px-2 sm:px-3">
         {!isAuthed && session.status !== "loading" && (
-          <p className="bcc-mono text-bcc-text-secondary">Sign in to view this conversation.</p>
+          <p className="bcc-mono text-bcc-text-secondary">
+            <Link href={signIn.href} onClick={signIn.onClick} className="text-bcc-text underline underline-offset-2">
+              Sign in
+            </Link>{" "}
+            to view this conversation.
+          </p>
         )}
 
-        {isAuthed && query.isPending && (
-          <p className="bcc-mono text-bcc-text-secondary">Loading conversation…</p>
-        )}
+        {isAuthed && query.isPending && <ThreadSkeleton />}
 
         {isAuthed && query.isError && (query.error.code === "bcc_not_found"
           ? <NotFound />
@@ -132,6 +151,18 @@ export default function ConversationPage() {
         )}
       </section>
     </main>
+  );
+}
+
+/** Bubble-shaped placeholders, alternating sides like a thread. */
+function ThreadSkeleton() {
+  return (
+    <div aria-busy="true" className="flex flex-col gap-4">
+      <p className="sr-only">Loading conversation…</p>
+      <Skeleton className="h-12 w-3/5" />
+      <Skeleton className="ml-auto h-16 w-2/3" />
+      <Skeleton className="h-10 w-1/2" />
+    </div>
   );
 }
 

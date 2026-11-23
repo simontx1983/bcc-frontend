@@ -121,7 +121,8 @@ const isTopmost = (seq: number): boolean => {
   return top === seq;
 };
 
-const FOCUSABLE =
+/** What Tab can reach. Shared with PostedNotice's focus bridge (F-514). */
+export const FOCUSABLE =
   'a[href],button:not([disabled]),textarea:not([disabled]),input:not([disabled]),select:not([disabled]),[tabindex]:not([tabindex="-1"])';
 
 export function Dialog({
@@ -199,16 +200,23 @@ export function Dialog({
     return () => window.removeEventListener("keydown", handler);
   }, [onClose]);
 
+  // The element to hand focus back to on close: whatever had focus when
+  // the dialog first rendered (the trigger). Read during render, not in
+  // the effect below: children's mount effects run before this one, so a
+  // child that focuses itself (the New Post dialog's composer focuses its
+  // textarea) would otherwise be recorded instead, and on close focus
+  // went to that unmounted element and fell to <body> (F-494).
+  const [returnFocusTo] = useState(() => document.activeElement as HTMLElement | null);
+
   // Focus the panel on open; restore focus to the trigger on close.
   useEffect(() => {
-    const previouslyFocused = document.activeElement as HTMLElement | null;
     const panel = panelRef.current;
     const firstFocusable = panel?.querySelector<HTMLElement>(FOCUSABLE);
     (firstFocusable ?? panel)?.focus();
     return () => {
-      previouslyFocused?.focus?.();
+      returnFocusTo?.focus?.();
     };
-  }, []);
+  }, [returnFocusTo]);
 
   // Lock body scroll while the dialog is open.
   useEffect(() => {

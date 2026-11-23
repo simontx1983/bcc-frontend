@@ -99,6 +99,8 @@ describe("F-319 — the New messages pill", () => {
     setScroll(false);
     rerender([msg(1, PEER), msg(2, PEER)]);
     expect(pill()).toBeInTheDocument();
+    // F-514: in the shared bottom slot, stacked with the consent banner.
+    expect((pill() as HTMLElement).closest("#bcc-bottom-slot")).not.toBeNull();
     expect(scrollIntoView).not.toHaveBeenCalled();
   });
 

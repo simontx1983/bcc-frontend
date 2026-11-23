@@ -41,7 +41,7 @@ import {
   humanizeValidatorJoinError,
   useJoinValidatorGroupMutation,
 } from "@/hooks/useValidatorGroups";
-import type { Card, GroupDiscoveryType } from "@/lib/api/types";
+import type { BccApiError, Card, GroupDiscoveryType } from "@/lib/api/types";
 
 export function CommunityJoinCard({
   card,
@@ -59,19 +59,27 @@ export function CommunityJoinCard({
   const [optimisticJoined, setOptimisticJoined] = useState(false);
 
   const refresh = useCallback(() => router.refresh(), [router]);
-  const clearOptimistic = useCallback(() => setOptimisticJoined(false), []);
+  // A 409 means the server's state moved under the viewer; the page
+  // re-reads, as the copy ("Showing the latest") says (F-317 M-gr1).
+  const onJoinError = useCallback(
+    (err: BccApiError) => {
+      setOptimisticJoined(false);
+      if (err.code === "bcc_conflict") router.refresh();
+    },
+    [router],
+  );
 
   const holderJoin = useJoinHolderGroupMutation({
     onSuccess: refresh,
-    onError: clearOptimistic,
+    onError: onJoinError,
   });
   const hallJoin = useJoinHallMutation({
     onSuccess: refresh,
-    onError: clearOptimistic,
+    onError: onJoinError,
   });
   const plainJoin = useJoinPlainGroupMutation({
     onSuccess: refresh,
-    onError: clearOptimistic,
+    onError: onJoinError,
   });
   const validatorJoin = useJoinValidatorGroupMutation({ onSuccess: refresh });
 
@@ -113,13 +121,16 @@ export function CommunityJoinCard({
     hallJoin.isPending ||
     plainJoin.isPending ||
     validatorJoin.isPending;
-  const joinError = holderJoin.error ?? hallJoin.error ?? plainJoin.error;
+  // A Hall's bcc_forbidden is not only a suspension (see
+  // humanizeMembershipError), so the Hall error is named as one.
   const joinErrorCopy =
     validatorJoin.error !== null
       ? humanizeValidatorJoinError(validatorJoin.error)
-      : joinError !== null
-        ? humanizeMembershipError(joinError, "join")
-        : null;
+      : hallJoin.error !== null
+        ? humanizeMembershipError(hallJoin.error, "join", "Hall")
+        : (holderJoin.error ?? plainJoin.error) !== null
+          ? humanizeMembershipError(holderJoin.error ?? plainJoin.error, "join", "group")
+          : null;
 
   return (
     // The stage gets an explicit width. Below 381px `.bcc-card` switches to

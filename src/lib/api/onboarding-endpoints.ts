@@ -10,6 +10,7 @@
 import { bccFetch, bccFetchAsClient } from "@/lib/api/client";
 import type {
   HandleUpdateResponse,
+  HomeChain,
   OnboardingCompleteRequest,
   OnboardingCompleteResponse,
   OnboardingStatus,
@@ -21,9 +22,21 @@ import type {
  * Returns 4 admin-curated cards per bucket (validators / projects /
  * creators), top-ranked by trust. Auth required — bccFetchAsClient
  * attaches the BCC bearer JWT from the active NextAuth session.
+ *
+ * F-439: `chain` puts that chain's validators first (the validators
+ * bucket only); `data.bias` says whether it did. Omitted when null.
  */
-export function getOnboardingSuggestions(signal?: AbortSignal): Promise<OnboardingSuggestions> {
-  return bccFetchAsClient<OnboardingSuggestions>("onboarding/suggestions", {
+export function getOnboardingSuggestions(
+  chain: HomeChain | null,
+  signal?: AbortSignal,
+): Promise<OnboardingSuggestions> {
+  const search = new URLSearchParams();
+  if (chain !== null) {
+    search.set("chain", chain);
+  }
+  const qs = search.toString();
+  const path = `onboarding/suggestions${qs !== "" ? `?${qs}` : ""}`;
+  return bccFetchAsClient<OnboardingSuggestions>(path, {
     method: "GET",
     signal,
   });

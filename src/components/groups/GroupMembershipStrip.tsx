@@ -27,7 +27,7 @@
 import type { Route } from "next";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 
 import { GroupActionButton } from "@/components/groups/GroupActionButton";
 import {
@@ -79,21 +79,60 @@ interface GroupMembershipStripProps {
 
 /**
  * §γ — join/leave failures render the returned string inline; copy is
- * keyed on err.code, never err.message. `verb` is "join" | "leave".
+ * keyed on err.code, never err.message. `verb` is "join" | "leave";
+ * `noun` is what the viewer is joining, "group" or "Hall".
+ *
+ * F-317 M-gr1 — `bcc_forbidden` on a join (contract §4.7 / §4.7.1 /
+ * §4.7.3):
+ *   - a holder, delegator or plain join answers it ONLY for a suspended
+ *     account, so it says so;
+ *   - a Hall join answers it for a suspended account, a Hall closed to
+ *     open joining, AND a moderator's ban, with nothing in `error.data` to
+ *     tell them apart. The Hall line is one that is true of all three
+ *     (a suspended member used to be told the Hall "doesn't accept open
+ *     membership").
+ * A 409 means the server's state moved under the viewer; callers refresh
+ * the page on it (`useMembershipHandlers`), so the line says it is showing
+ * the latest. A leave refused with `bcc_permission_denied` is only ever
+ * the owner (§4.7.1 / §4.7.3).
  *
  * Exported for reuse by CommunityJoinCard (the community trading card
  * joins through the same three mutations and must speak the same
  * copy).
  */
-export function humanizeMembershipError(err: unknown, verb: "join" | "leave"): string {
+export function humanizeMembershipError(
+  err: unknown,
+  verb: "join" | "leave",
+  noun: "group" | "Hall",
+): string {
   return humanizeCode(
     err,
     {
       bcc_rate_limited: `Slow down — too many ${verb} attempts. Wait a minute.`,
-      bcc_unauthorized: `Sign in to ${verb} this group.`,
-      bcc_permission_denied: "You don't meet this group's requirements yet.",
+      bcc_unauthorized: `Sign in to ${verb} this ${noun}.`,
+      bcc_permission_denied:
+        verb === "leave"
+          ? "Owners can't leave their own community. Hand off ownership first."
+          : // A join's bcc_permission_denied is "doesn't hold it", but also
+            // admin approval required, invite-only and a moderator's
+            // removal (§4.7.1 / §4.7.3), with no reason_code to tell them
+            // apart. "Requirements … yet" was untrue for the last three.
+            `You can't join this ${noun} right now.`,
+      ...(verb === "join"
+        ? {
+            bcc_forbidden:
+              noun === "Hall"
+                ? "You can't join this Hall right now."
+                : "Your account is suspended, so you can't join communities right now.",
+            // Holder join: the ownership check could not run, or the write
+            // failed. Fail-closed and retryable; never an eligibility answer.
+            bcc_upstream_unavailable: "Couldn't confirm your membership just now. Nothing changed — try again.",
+          }
+        : {}),
+      bcc_conflict: "This changed a moment ago. Showing the latest.",
+      bcc_unavailable: "Something went wrong on our side. Nothing changed — try again.",
     },
-    `Couldn't ${verb} this group. Try again.`,
+    `Couldn't ${verb} this ${noun}. Try again.`,
   );
 }
 
@@ -105,14 +144,85 @@ export function humanizeMembershipError(err: unknown, verb: "join" | "leave"): s
  */
 type OptimisticIntent = "joining" | "leaving" | null;
 
+/**
+ * F-317 M-gr2 — how a strip mutation tells the strip "I succeeded, the
+ * refresh I'm about to fire may swap the control the viewer pressed".
+ * Outside a strip (no provider) it is a no-op.
+ */
+const MembershipActedContext = createContext<() => void>(() => {});
+
+/**
+ * The strip's join/leave handlers: refresh the SSR'd page on success, and
+ * on a 409 too, since a conflict means the server's state moved under the
+ * viewer (the copy above says "Showing the latest"). Both tell the strip
+ * first (focus, M-gr2), like useRefreshOnSettle. Any failure snaps the
+ * optimistic pill back.
+ */
+function useMembershipHandlers(onActionError: () => void): {
+  onSuccess: () => void;
+  onError: (err: BccApiError) => void;
+} {
+  const router = useRouter();
+  const markActed = useContext(MembershipActedContext);
+  return {
+    onSuccess: () => {
+      markActed();
+      router.refresh();
+    },
+    onError: (err) => {
+      onActionError();
+      if (err.code !== "bcc_conflict") return;
+      markActed();
+      router.refresh();
+    },
+  };
+}
+
 export function GroupMembershipStrip({ group, membersHref }: GroupMembershipStripProps) {
   const [optimisticIntent, setOptimisticIntent] = useState<OptimisticIntent>(null);
+  const headingRef = useRef<HTMLHeadingElement | null>(null);
+  const bodyRef = useRef<HTMLDivElement | null>(null);
+  // Set by a strip mutation that SUCCEEDED (or hit a 409), just before it
+  // refreshes the page (`useRefreshOnSuccess` / `useRefreshOnSettle`, via
+  // context). A press that failed or a dialog that was cancelled never
+  // sets it. Cleared on every refresh, whether or not anything changed.
+  const actedRef = useRef(false);
+  const markActed = useCallback(() => {
+    actedRef.current = true;
+  }, []);
+  const isMember = group.viewer_membership?.is_member ?? null;
+  const status = group.viewer_membership?.status;
+
+  // F-317 M-gr2: the refresh after a join / leave swaps the control the
+  // viewer pressed (JOIN becomes LEAVE, a different component), and focus
+  // fell to <body> with it. When the viewer's membership VALUE changed
+  // after a strip mutation succeeded, focus moves to the control that
+  // replaced it, or to the heading when there is none. Focus the viewer
+  // has moved somewhere else is left alone.
+  //
+  // Keyed on the value, not on the `viewer_membership` object: every
+  // router.refresh hands a new object, so a refresh that changed nothing
+  // here (a manager approving a request on the Members tab) must not move
+  // focus onto LEAVE, where the next Enter would leave. Declared before
+  // the effect below, so it reads the flag before that one clears it.
+  useEffect(() => {
+    if (!actedRef.current) return;
+    const active = document.activeElement;
+    if (active !== null && active !== document.body) return;
+    const next = bodyRef.current?.querySelector<HTMLElement>(
+      "button:not([disabled]):not([aria-disabled='true'])",
+    );
+    (next ?? headingRef.current)?.focus();
+  }, [isMember, status]);
 
   // When the server-supplied membership changes (router.refresh landed),
   // the in-flight optimistic prediction has been replaced with truth —
-  // clear it so a future action starts from a clean state.
+  // clear it so a future action starts from a clean state. Every refresh
+  // also spends the focus flag, so it can never carry over to a later,
+  // unrelated one.
   useEffect(() => {
     setOptimisticIntent(null);
+    actedRef.current = false;
   }, [group.viewer_membership]);
 
   return (
@@ -122,6 +232,8 @@ export function GroupMembershipStrip({ group, membersHref }: GroupMembershipStri
     >
       <header className="bcc-paper-head">
         <h3
+          ref={headingRef}
+          tabIndex={-1}
           className="bcc-stencil"
           style={{ fontSize: "16px", letterSpacing: "0.18em" }}
         >
@@ -133,21 +245,26 @@ export function GroupMembershipStrip({ group, membersHref }: GroupMembershipStri
         />
       </header>
 
-      <div className="px-6 py-5">
+      <div ref={bodyRef} className="px-6 py-5">
         {/* Above the action: this is where a delegator decides to join, so
             what they'd be verified against has to be in view first. */}
         {group.type === "validator" && group.validator_stats != null && (
           <ValidatorServed stats={group.validator_stats} />
         )}
-        <MembershipBody
-          group={group}
-          onActionStart={setOptimisticIntent}
-          onActionError={() => setOptimisticIntent(null)}
-        />
+        <MembershipActedContext.Provider value={markActed}>
+          <MembershipBody
+            group={group}
+            onActionStart={setOptimisticIntent}
+            onActionError={() => setOptimisticIntent(null)}
+          />
+        </MembershipActedContext.Provider>
         {membersHref !== undefined && (
           <PendingRequestsPointer group={group} membersHref={membersHref} />
         )}
-        <RequestAnnouncer status={group.viewer_membership?.status} />
+        <MembershipAnnouncer
+          membership={group.viewer_membership}
+          noun={group.type === "hall" ? "Hall" : "group"}
+        />
       </div>
     </article>
   );
@@ -316,16 +433,20 @@ interface ActionButtonProps {
   onActionError: () => void;
 }
 
+/** On success: tell the strip (focus, M-gr2), then re-read the SSR'd page. */
 function useRefreshOnSuccess(): () => void {
   const router = useRouter();
-  return () => router.refresh();
+  const markActed = useContext(MembershipActedContext);
+  return () => {
+    markActed();
+    router.refresh();
+  };
 }
 
 function HolderJoinButton({ groupId, onActionStart, onActionError }: ActionButtonProps) {
-  const onSuccess = useRefreshOnSuccess();
-  const mutation = useJoinHolderGroupMutation({ onSuccess, onError: onActionError });
+  const mutation = useJoinHolderGroupMutation(useMembershipHandlers(onActionError));
   const errorMessage = mutation.error
-    ? humanizeMembershipError(mutation.error, "join")
+    ? humanizeMembershipError(mutation.error, "join", "group")
     : null;
   return (
     <ActionRow primaryCopy="Join the group to read its feed and post inside it.">
@@ -335,6 +456,7 @@ function HolderJoinButton({ groupId, onActionStart, onActionError }: ActionButto
         pendingLabel="JOINING…"
         isPending={mutation.isPending}
         errorMessage={errorMessage}
+        touchTarget
         onClick={() => {
           mutation.reset();
           onActionStart("joining");
@@ -366,8 +488,14 @@ function HolderEligibilityCheck({ group, onActionStart, onActionError }: ActionD
       join={join}
       connectCopy={(chainLabel) => `Connect a ${chainLabel} wallet to verify you hold this NFT.`}
       fallbackHint="Hold an NFT from this collection to join."
-      humanizeJoinError={(err) => humanizeMembershipError(err, "join")}
-      offerAnotherWallet={(err) => err.code !== "bcc_rate_limited"}
+      humanizeJoinError={(err) => humanizeMembershipError(err, "join", "group")}
+      // F-317 M-gr1: only the "doesn't hold it" answer, bcc_permission_denied
+      // (§4.7.1). It used to show for every code but a rate limit: a
+      // suspension, a provider outage, an unsupported chain. A moderator's
+      // eviction shares that code with no reason_code on the holder route
+      // (the delegator route has one), so it still shows there; a backend
+      // reason_code would let this drop it too.
+      offerAnotherWallet={(err) => err.code === "bcc_permission_denied"}
     />
   );
 }
@@ -480,6 +608,7 @@ function EligibilityCheck({
           pendingLabel={connectLabel}
           isPending={busy}
           errorMessage={errorMessage}
+          touchTarget
           onClick={() => {
             void connectAndJoin();
           }}
@@ -489,9 +618,10 @@ function EligibilityCheck({
   }
 
   // Has a wallet on the chain (or we couldn't determine) → CHECK & JOIN against
-  // the already-linked wallet (no signature). If it comes back not-eligible,
-  // offer a secondary "connect another wallet" so a user holding the NFT in an
-  // unlinked wallet can link it and retry.
+  // the already-linked wallet (no signature). When the kind's
+  // `offerAnotherWallet` says the refusal is one another wallet could fix
+  // (not eligible), offer a secondary "connect another wallet" so a user
+  // holding the NFT or stake in an unlinked wallet can link it and retry.
   const hint = unlockHint(group.permissions, "can_join") ?? fallbackHint;
   const showConnectAnother =
     canConnect && join.error !== null && offerAnotherWallet(join.error) && !busy;
@@ -504,6 +634,7 @@ function EligibilityCheck({
           pendingLabel={busy ? connectLabel : "CHECKING…"}
           isPending={busy}
           errorMessage={errorMessage}
+          touchTarget
           onClick={() => {
             link.reset();
             join.reset();
@@ -519,7 +650,7 @@ function EligibilityCheck({
             onClick={() => {
               void connectAndJoin();
             }}
-            className="bcc-mono inline-flex shrink-0 items-center border-2 border-cardstock-edge px-3 py-1.5 text-[11px] tracking-[0.18em] text-ink-soft transition motion-reduce:transition-none hover:border-ink/50 hover:text-ink disabled:opacity-60"
+            className="bcc-mono inline-flex min-h-[44px] shrink-0 items-center border-2 border-cardstock-edge px-3 text-[11px] tracking-[0.18em] text-ink-soft transition motion-reduce:transition-none hover:border-ink/50 hover:text-ink disabled:opacity-60"
           >
             CONNECT ANOTHER WALLET
           </button>
@@ -537,7 +668,8 @@ function HolderLeaveButton({ groupId, onActionStart, onActionError }: ActionButt
     <ActionRow primaryCopy="You're an active member. Posts you make here scope to this group's feed.">
       <HolderLeaveConfirm
         groupId={groupId}
-        humanizeError={(err) => humanizeMembershipError(err, "leave")}
+        humanizeError={(err) => humanizeMembershipError(err, "leave", "group")}
+        touchTarget
         onLeaveStart={() => onActionStart("leaving")}
         onSuccess={onSuccess}
         onError={onActionError}
@@ -554,7 +686,8 @@ function ValidatorLeaveButton({ groupId, onActionStart, onActionError }: ActionB
     <ActionRow primaryCopy="You're an active member. Posts you make here scope to this group's feed.">
       <ValidatorLeaveConfirm
         groupId={groupId}
-        humanizeError={(err) => humanizeMembershipError(err, "leave")}
+        humanizeError={(err) => humanizeMembershipError(err, "leave", "group")}
+        touchTarget
         onLeaveStart={() => onActionStart("leaving")}
         onSuccess={onSuccess}
         onError={onActionError}
@@ -564,10 +697,9 @@ function ValidatorLeaveButton({ groupId, onActionStart, onActionError }: ActionB
 }
 
 function HallJoinButton({ groupId, onActionStart, onActionError }: ActionButtonProps) {
-  const onSuccess = useRefreshOnSuccess();
-  const mutation = useJoinHallMutation({ onSuccess, onError: onActionError });
+  const mutation = useJoinHallMutation(useMembershipHandlers(onActionError));
   const errorMessage = mutation.error
-    ? humanizeMembershipError(mutation.error, "join")
+    ? humanizeMembershipError(mutation.error, "join", "Hall")
     : null;
   return (
     <ActionRow primaryCopy="Join the group to read its feed and post inside it.">
@@ -577,6 +709,7 @@ function HallJoinButton({ groupId, onActionStart, onActionError }: ActionButtonP
         pendingLabel="JOINING…"
         isPending={mutation.isPending}
         errorMessage={errorMessage}
+        touchTarget
         onClick={() => {
           mutation.reset();
           onActionStart("joining");
@@ -588,10 +721,9 @@ function HallJoinButton({ groupId, onActionStart, onActionError }: ActionButtonP
 }
 
 function HallLeaveButton({ groupId, onActionStart, onActionError }: ActionButtonProps) {
-  const onSuccess = useRefreshOnSuccess();
-  const mutation = useLeaveHallMutation({ onSuccess, onError: onActionError });
+  const mutation = useLeaveHallMutation(useMembershipHandlers(onActionError));
   const errorMessage = mutation.error
-    ? humanizeMembershipError(mutation.error, "leave")
+    ? humanizeMembershipError(mutation.error, "leave", "Hall")
     : null;
   return (
     <ActionRow primaryCopy="You're an active member of this Hall.">
@@ -601,6 +733,7 @@ function HallLeaveButton({ groupId, onActionStart, onActionError }: ActionButton
         pendingLabel="LEAVING…"
         isPending={mutation.isPending}
         errorMessage={errorMessage}
+        touchTarget
         onClick={() => {
           mutation.reset();
           onActionStart("leaving");
@@ -612,10 +745,9 @@ function HallLeaveButton({ groupId, onActionStart, onActionError }: ActionButton
 }
 
 function PlainJoinButton({ groupId, onActionStart, onActionError }: ActionButtonProps) {
-  const onSuccess = useRefreshOnSuccess();
-  const mutation = useJoinPlainGroupMutation({ onSuccess, onError: onActionError });
+  const mutation = useJoinPlainGroupMutation(useMembershipHandlers(onActionError));
   const errorMessage = mutation.error
-    ? humanizeMembershipError(mutation.error, "join")
+    ? humanizeMembershipError(mutation.error, "join", "group")
     : null;
   return (
     <ActionRow primaryCopy="Join the group to read its feed and post inside it.">
@@ -625,6 +757,7 @@ function PlainJoinButton({ groupId, onActionStart, onActionError }: ActionButton
         pendingLabel="JOINING…"
         isPending={mutation.isPending}
         errorMessage={errorMessage}
+        touchTarget
         onClick={() => {
           mutation.reset();
           onActionStart("joining");
@@ -636,10 +769,9 @@ function PlainJoinButton({ groupId, onActionStart, onActionError }: ActionButton
 }
 
 function PlainLeaveButton({ groupId, onActionStart, onActionError }: ActionButtonProps) {
-  const onSuccess = useRefreshOnSuccess();
-  const mutation = useLeavePlainGroupMutation({ onSuccess, onError: onActionError });
+  const mutation = useLeavePlainGroupMutation(useMembershipHandlers(onActionError));
   const errorMessage = mutation.error
-    ? humanizeMembershipError(mutation.error, "leave")
+    ? humanizeMembershipError(mutation.error, "leave", "group")
     : null;
   return (
     <ActionRow primaryCopy="You're an active member.">
@@ -649,6 +781,7 @@ function PlainLeaveButton({ groupId, onActionStart, onActionError }: ActionButto
         pendingLabel="LEAVING…"
         isPending={mutation.isPending}
         errorMessage={errorMessage}
+        touchTarget
         onClick={() => {
           mutation.reset();
           onActionStart("leaving");
@@ -694,14 +827,21 @@ export function humanizeJoinRequestError(err: unknown, action: "request" | "canc
 /**
  * Refresh on success, and on a 409 too: a conflict means the server's
  * state moved under the viewer, so the page re-reads instead of asking
- * them to reload it.
+ * them to reload it. Both tell the strip first (focus, M-gr2): either way
+ * the refreshed page may swap the control the viewer pressed.
  */
 function useRefreshOnSettle(): { onSuccess: () => void; onError: (err: BccApiError) => void } {
   const router = useRouter();
+  const markActed = useContext(MembershipActedContext);
   return {
-    onSuccess: () => router.refresh(),
+    onSuccess: () => {
+      markActed();
+      router.refresh();
+    },
     onError: (err) => {
-      if (err.code === "bcc_conflict") router.refresh();
+      if (err.code !== "bcc_conflict") return;
+      markActed();
+      router.refresh();
     },
   };
 }
@@ -825,19 +965,33 @@ function InviteAnswer({ groupId, groupName }: { groupId: number; groupName: stri
 }
 
 /**
- * F-272 — a polite live region that speaks when the refreshed page moves
- * the viewer into "requested" (or back out of it). It is mounted empty and
- * only filled by a CHANGE, so a page that loads already-requested says
- * nothing; the visible strip copy covers that.
+ * A polite live region that speaks when the refreshed page changes where
+ * the viewer stands: joined or left (F-317 M-gr2; the pill flips silently),
+ * and into or out of "requested" (F-272). It is mounted empty and only
+ * filled by a CHANGE from the previous render, so a page that loads
+ * already-joined or already-requested says nothing; the visible strip copy
+ * covers that.
  */
-function RequestAnnouncer({ status }: { status: GroupMembershipStatus | undefined }) {
-  const [initial] = useState(status);
+function MembershipAnnouncer({
+  membership,
+  noun,
+}: {
+  membership: GroupDetailResponse["viewer_membership"];
+  noun: "group" | "Hall";
+}) {
+  const isMember = membership?.is_member ?? null;
+  const status: GroupMembershipStatus | undefined = membership?.status;
+  const prev = useRef({ isMember, status });
   const [message, setMessage] = useState("");
   useEffect(() => {
-    if (status === initial) return;
-    if (status === "requested") setMessage("Request sent. A moderator will decide.");
-    else if (initial === "requested" && status === "none") setMessage("Request cancelled.");
-  }, [status, initial]);
+    const before = prev.current;
+    prev.current = { isMember, status };
+    if (before.isMember === false && isMember === true) setMessage(`You joined this ${noun}.`);
+    else if (before.isMember === true && isMember === false) setMessage(`You left this ${noun}.`);
+    else if (before.status !== "requested" && status === "requested") {
+      setMessage("Request sent. A moderator will decide.");
+    } else if (before.status === "requested" && status === "none") setMessage("Request cancelled.");
+  }, [isMember, status, noun]);
   return (
     <p role="status" aria-live="polite" className="sr-only">
       {message}

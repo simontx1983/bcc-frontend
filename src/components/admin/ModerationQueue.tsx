@@ -44,6 +44,7 @@ import type { Route } from "next";
 import { Dialog } from "@/components/ui/Dialog";
 import { FilterChipRow } from "@/components/ui/FilterChipRow";
 import { LoadFailure } from "@/components/ui/LoadFailure";
+import { AdminAccessRequired } from "@/components/admin/AdminAccessRequired";
 import { UndoToast, type UndoToastDescriptor } from "@/components/admin/UndoToast";
 import {
   useAdminReports,
@@ -62,6 +63,7 @@ import type {
   ModerationTargetPostKind,
 } from "@/lib/api/types";
 import { formatRelativeTime } from "@/lib/format";
+import { isAdminDenial } from "@/lib/api/admin-errors";
 import { humanizeCode } from "@/lib/api/errors";
 
 const STATUS_FILTERS: Array<{ key: ModerationStatusFilter; label: string }> = [
@@ -943,18 +945,6 @@ interface QueueErrorProps {
   error: BccApiError;
 }
 
-/**
- * Two codes, one meaning: the endpoint's in-handler adminGate() emits
- * bcc_forbidden, but the REST permission_callback rejects first with
- * WP-core's rest_forbidden — which is what non-admins actually receive.
- * Branching on only bcc_forbidden made the admin-required panel
- * unreachable (non-admins got the generic retry copy, which invites
- * retrying something that can never succeed).
- */
-function isAdminDenial(error: BccApiError): boolean {
-  return error.code === "bcc_forbidden" || error.code === "rest_forbidden";
-}
-
 function queueFailureCopy(error: BccApiError): string {
   // §γ — copy is keyed on err.code; never render err.message.
   return humanizeCode(
@@ -970,22 +960,7 @@ function queueFailureCopy(error: BccApiError): string {
 
 function QueueError({ filter, onChange, error }: QueueErrorProps) {
   if (isAdminDenial(error)) {
-    return (
-      <div className="bcc-panel p-6">
-        <p
-          className="bcc-mono mb-3 text-bcc-text-safety"
-          style={{ fontSize: "10px", letterSpacing: "0.24em" }}
-        >
-          ADMIN ACCESS REQUIRED
-        </p>
-        <p className="font-serif italic text-bcc-text-secondary">
-          The moderation queue is restricted to platform admins. If you
-          should have access, ask an admin to grant your account the
-          <code className="bcc-mono mx-1 text-[12px]">manage_options</code>
-          capability.
-        </p>
-      </div>
-    );
+    return <AdminAccessRequired subject="The moderation queue" />;
   }
 
   return (
