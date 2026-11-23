@@ -33,6 +33,7 @@
 import { useSession } from "next-auth/react";
 
 import { NotificationsPanel } from "@/components/notifications/NotificationsPanel";
+import { useSignInLink } from "@/lib/auth/sign-in-link";
 
 const NOOP = () => {
   /* full page — nothing to close before navigation */
@@ -41,6 +42,7 @@ const NOOP = () => {
 export function NotificationsPageBody() {
   const { status } = useSession();
   const isAuthed = status === "authenticated";
+  const signIn = useSignInLink("/notifications");
 
   return (
     <section className="mx-auto mt-10 max-w-[720px] px-4 sm:px-7">
@@ -61,10 +63,23 @@ export function NotificationsPageBody() {
               showTitle={false}
               onNavigate={NOOP}
             />
-          ) : (
-            <p className="bcc-mono py-6 text-center text-bcc-text-secondary">
-              Sign in to see your notifications.
-            </p>
+          ) : status === "loading" ? null : (
+            // F-320 (UX Low): the signed-out page said "Sign in" with no way
+            // to; the link comes back here afterwards. Nothing while the
+            // session is still loading, so a signed-in member never sees a
+            // "Sign in" flash first.
+            <div className="flex flex-col items-center pb-4">
+              <p className="bcc-mono py-6 text-center text-bcc-text-secondary">
+                Sign in to see your notifications.
+              </p>
+              <a
+                href={signIn.href}
+                onClick={signIn.onClick}
+                className="bcc-mono inline-flex min-h-[44px] items-center text-[12px] tracking-[0.12em] text-bcc-text underline underline-offset-2"
+              >
+                Sign in
+              </a>
+            </div>
           )}
         </div>
       </article>
