@@ -25,7 +25,7 @@ import type { Route } from "next";
 import { signIn } from "next-auth/react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { type FormEvent, useState, Suspense } from "react";
+import { type FormEvent, useRef, useState, Suspense } from "react";
 
 import { AuthCard, AuthDivider, SSOButton } from "@/components/auth/AuthCard";
 import { TurnstileWidget } from "@/components/auth/TurnstileWidget";
@@ -68,6 +68,8 @@ function LoginPageContent() {
 
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
+  /** F-264: a synchronous latch, so one sign-in runs at a time. */
+  const inFlightRef = useRef(false);
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -102,14 +104,24 @@ function LoginPageContent() {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    // F-264: one sign-in at a time. `submitting` disables the button only
+    // after a re-render, so two submits in the same frame (a double-click,
+    // or Enter and a click) both got this far; the ref is set at once.
+    if (inFlightRef.current) return;
     setError(null);
     setNotVerifiedEmail(null);
     if (captcha !== null && captchaToken === null) {
       setError(CAPTCHA_COPY.pending);
       return;
     }
+    inFlightRef.current = true;
     setSubmitting(true);
     const sentToken = captchaToken;
+    // Set when this attempt hands off to another page (the 2FA step, or the
+    // signed-in target). The form then stays locked: re-enabling it while
+    // the page is leaving let a second sign-in start. Every other ending —
+    // a refusal, a network error, an unexpected throw — releases it below.
+    let navigating = false;
 
     try {
       const resp = await loginWithIdentifier(identifier, password, sentToken ?? undefined);
@@ -124,6 +136,7 @@ function LoginPageContent() {
         }
         const qs = params.toString();
         router.replace(`/login/two-factor${qs === "" ? "" : `?${qs}`}` as Route);
+        navigating = true;
         return;
       }
 
@@ -140,6 +153,7 @@ function LoginPageContent() {
       });
       if (result?.ok) {
         router.replace(targetAfterLogin());
+        navigating = true;
       } else {
         setError("Sign-in failed. Try again.");
       }
@@ -163,7 +177,10 @@ function LoginPageContent() {
         setNotVerifiedEmail(identifier.includes("@") ? identifier : null);
       }
     } finally {
-      setSubmitting(false);
+      if (!navigating) {
+        inFlightRef.current = false;
+        setSubmitting(false);
+      }
     }
   }
 
