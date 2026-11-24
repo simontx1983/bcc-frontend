@@ -34,7 +34,7 @@ import { readFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { resolve } from "node:path";
 
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 
 const read = (p: string) => readFileSync(resolve(process.cwd(), p), "utf-8");
 
@@ -48,7 +48,7 @@ const read = (p: string) => readFileSync(resolve(process.cwd(), p), "utf-8");
  * demanded a className from a file that has no tablist to give one, and
  * failed on a file it was never meant to police.
  */
-function tablistFiles(): string[] {
+function findTablistFiles(): string[] {
   // `--untracked`: git grep searches only TRACKED files by default, so a
   // newly added strip was invisible to this guard until the moment it was
   // committed — precisely when the author most needs to be told. Verified:
@@ -64,6 +64,23 @@ function tablistFiles(): string[] {
     .filter((s) => s !== "" && !s.includes(".test."))
     .filter((f) => /(^|[^[])role="tablist"/.test(read(f)));
 }
+
+/**
+ * The scan runs ONCE per run, not once per test. It spawns git and reads
+ * every match, and when each test repeated it, one of them overran the
+ * default 5s per-test budget on a loaded full-suite run (twice, in two
+ * different tests). The list can't change mid-run, so the tests share it.
+ */
+let tablistFilesOnce: string[] | null = null;
+function tablistFiles(): string[] {
+  tablistFilesOnce ??= findTablistFiles();
+  return tablistFilesOnce;
+}
+
+// The one scan gets a generous budget of its own, outside any single test.
+beforeAll(() => {
+  tablistFiles();
+}, 60_000);
 
 /**
  * The className string on each `role="tablist"` element.

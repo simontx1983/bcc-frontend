@@ -13,6 +13,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { BccApiError } from "@/lib/api/types";
+
 // The announcement hooks resolve the viewer's storage scope through
 // `useViewerScope`, which reads `useSession()` — so these suites now need
 // a session in context or next-auth throws "must be wrapped in a
@@ -189,6 +191,27 @@ describe("comment composer gating", () => {
    * The gate is read from the LAST page, so an archive that happened
    * while the reader was paging does not leave a live composer behind.
    */
+  // bcc-trust PR 857: a standing that couldn't be read is its own,
+  // retryable reason. It must not read as a suspension.
+  it("says a standing that couldn't be checked is retryable, not a suspension", async () => {
+    listAnnouncementComments.mockResolvedValue(
+      commentsResponse([LIVE_COMMENT], {
+        allowed: false,
+        reason_code: "unavailable",
+        unlock_hint: "Your standing could not be checked right now. Please try again.",
+      }),
+    );
+    renderComments(true);
+    await waitFor(() => {
+      expect(screen.getByTestId("announcement-comment-disabled")).toBeInTheDocument();
+    });
+    expect(
+      screen.getByText("Your standing couldn't be checked right now. Please try again."),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/suspended/i)).toBeNull();
+    expect(screen.queryByRole("textbox")).toBeNull();
+  });
+
   it("honours the gate from the newest page, not the first", async () => {
     listAnnouncementComments.mockResolvedValue(
       commentsResponse([LIVE_COMMENT], ARCHIVED_COMMENT_GATE),
@@ -225,6 +248,38 @@ describe("posting", () => {
     fireEvent.change(box, { target: { value: "   " } });
     expect(screen.getByRole("button", { name: /COMMENT/ })).toBeDisabled();
     expect(createAnnouncementComment).not.toHaveBeenCalled();
+  });
+
+  // bcc-trust PR 857: the POST answers 503 bcc_unavailable with
+  // reason_code "unavailable" when the author's standing can't be read.
+  it("a 503 for an unreadable standing says so, and invites a retry", async () => {
+    listAnnouncementComments.mockResolvedValue(commentsResponse([]));
+    createAnnouncementComment.mockRejectedValue(
+      new BccApiError("bcc_unavailable", "raw", 503, {
+        error: { code: "bcc_unavailable", message: "raw", status: 503, data: { reason_code: "unavailable" } },
+      } as never),
+    );
+    renderComments(true);
+    fireEvent.change(await screen.findByRole("textbox"), { target: { value: "hello" } });
+    fireEvent.click(screen.getByRole("button", { name: /COMMENT/ }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Your standing couldn't be checked right now. Please try again.",
+    );
+  });
+
+  it("a plain 503 (an outage, no reason) keeps the generic retry line", async () => {
+    listAnnouncementComments.mockResolvedValue(commentsResponse([]));
+    createAnnouncementComment.mockRejectedValue(
+      new BccApiError("bcc_unavailable", "raw", 503, {
+        error: { code: "bcc_unavailable", message: "raw", status: 503, data: null },
+      } as never),
+    );
+    renderComments(true);
+    fireEvent.change(await screen.findByRole("textbox"), { target: { value: "hello" } });
+    fireEvent.click(screen.getByRole("button", { name: /COMMENT/ }));
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("Couldn't post that comment. Try again in a moment.");
+    expect(alert).not.toHaveTextContent(/standing/i);
   });
 
   it("caps the body at the contract length", async () => {
