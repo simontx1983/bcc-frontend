@@ -4,9 +4,10 @@
  * `card` (SA4). Tolerant before then.
  *   1. every item has a card → the shared community card grid;
  *   2. any item without one → today's Hall panels, never a mix;
- *   3. on a Hall's card the stats read Members (name line) and
- *      Validators · Posts 7d (stats row); a topic Hall sends no
- *      Validators stat and shows none, never a 0.
+ *   3. a Hall's card shows its three counts side by side in the stats row,
+ *      Members · Posts 7d · Validators (Phillip, 2026-11-25); a topic Hall
+ *      sends no Validators stat and shows none, never a 0; any other
+ *      community keeps Members in the name line, like every card.
  */
 import { cleanup, render, screen } from "@testing-library/react";
 import type { AnchorHTMLAttributes, ReactNode } from "react";
@@ -19,6 +20,7 @@ vi.mock("@/components/communities/CommunityJoinCard", () => ({
 }));
 vi.mock("@/components/cards/CardActionBar", () => ({ ActionBar: () => null, CommunityActionBar: () => null }));
 vi.mock("@/components/cards/Crest", () => ({ Crest: () => null }));
+vi.mock("@/components/cards/CardStandingStrip", () => ({ CardStandingStrip: () => null }));
 vi.mock("@/lib/env", () => ({ clientEnv: { BCC_API_URL: "https://wp.example" } }));
 vi.mock("next-auth/react", () => ({
   useSession: () => ({ status: "unauthenticated", data: null }),
@@ -41,7 +43,9 @@ const denied = (): CardPermissionEntry => ({ allowed: false, unlock_hint: null, 
 const stat = (key: string, label: string, raw: number): CardStat =>
   ({ key, label, value: String(raw), raw, format: "count" }) as CardStat;
 
-function hallCard(name: string, stats: CardStat[]): Card {
+type DossierType = "hall" | "user" | null;
+
+function hallCard(name: string, stats: CardStat[], dossierType: DossierType = null): Card {
   return {
     id: 7,
     name,
@@ -64,7 +68,10 @@ function hallCard(name: string, stats: CardStat[]): Card {
     crest: { initials: "AH", monogram_color: "#8a8a8a", background_kind: "solid", background_value: "#222222", image_url: null },
     stats,
     member_dossier: null,
-    community_dossier: null,
+    community_dossier:
+      dossierType === null
+        ? null
+        : { type: dossierType, privacy: "open", member_count: 3, verification: null, chain_tag: "akash", trust_min: null, collection_stats: null },
     permissions: {
       can_review: denied(),
       can_watch: denied(),
@@ -119,16 +126,36 @@ describe("3. a Hall card's counts", () => {
       <CardFrontFace card={card} kindColor="var(--kind-community)" flipped={false} onFlip={() => {}} isPulled={false} canEditAvatar={false} />,
     );
 
-  it("chain Hall: Members in the name line, Validators · Posts 7d in the stats row", () => {
-    face(hallCard("Akash Hall", [stat("members", "Members", 3), stat("validators", "Validators", 12), stat("posts_7d", "Posts 7d", 4)]));
-    expect(screen.getByText("Validators")).toBeInTheDocument();
-    expect(screen.getByText("Posts 7d")).toBeInTheDocument();
-    expect(screen.getByText("Members")).toBeInTheDocument();
+  /** The stats row's labels, in order, and its column class. */
+  const statsRow = (container: HTMLElement) => {
+    const row = container.querySelector('[class*="grid-cols-"]');
+    const cols = /grid-cols-(\d)/.exec(row?.className ?? "")?.[1];
+    const labels = ["Members", "Posts 7d", "Validators"].filter((l) => row?.textContent?.includes(l));
+    return { cols, labels, text: row?.textContent ?? "" };
+  };
+
+  it("chain Hall: Members · Posts 7d · Validators, side by side in the stats row", () => {
+    const { container } = face(
+      hallCard("Akash Hall", [stat("members", "Members", 3), stat("posts_7d", "Posts 7d", 4), stat("validators", "Validators", 12)], "hall"),
+    );
+    const row = statsRow(container);
+    expect(row.cols).toBe("3");
+    expect(row.labels).toEqual(["Members", "Posts 7d", "Validators"]);
+    expect(row.text.indexOf("Members")).toBeLessThan(row.text.indexOf("Posts 7d"));
+    expect(row.text.indexOf("Posts 7d")).toBeLessThan(row.text.indexOf("Validators"));
+    // Members is in the row, not also in the name line.
+    expect(screen.getAllByText("Members")).toHaveLength(1);
   });
 
-  it("topic Hall: no Validators stat sent → none shown, never a 0", () => {
-    face(hallCard("DeFi Hall", [stat("members", "Members", 3), stat("posts_7d", "Posts 7d", 4)]));
+  it("topic Hall: no Validators stat sent → Members · Posts 7d, never a 0", () => {
+    const { container } = face(hallCard("DeFi Hall", [stat("members", "Members", 3), stat("posts_7d", "Posts 7d", 4)], "hall"));
     expect(screen.queryByText("Validators")).toBeNull();
-    expect(screen.getByText("Posts 7d")).toBeInTheDocument();
+    expect(statsRow(container)).toMatchObject({ cols: "2", labels: ["Members", "Posts 7d"] });
+  });
+
+  it("any other community keeps Members in the name line, like every card", () => {
+    const { container } = face(hallCard("Night Shift", [stat("members", "Members", 3), stat("posts_7d", "Posts 7d", 4)], "user"));
+    expect(statsRow(container)).toMatchObject({ cols: "1", labels: ["Posts 7d"] });
+    expect(screen.getByText("Members")).toBeInTheDocument();
   });
 });
