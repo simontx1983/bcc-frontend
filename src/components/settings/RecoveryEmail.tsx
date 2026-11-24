@@ -27,6 +27,8 @@ import { formatAbsoluteDateTime } from "@/lib/format";
 import type { RecoveryAvailability } from "@/lib/onboarding/recovery-availability";
 import { findWalletChain, type WalletChainType } from "@/lib/wallet/chain-catalog";
 import { humanizeLinkError } from "@/lib/wallet/linkFlow";
+import { walletInstallUrl } from "@/lib/wallet/dispatch";
+import { OpenInWalletApp } from "@/components/wallet/OpenInWalletApp";
 
 // ─────────────────────────────────────────────────────────────────────
 // Recovery email — banner + inline two-step form.
@@ -371,6 +373,11 @@ export function RecoveryEmailForm({
         <p role="alert" className="bcc-mono text-[11px] text-bcc-text-error">
           {error}
         </p>
+      )}
+      {/* The wallet step failed because the wallet isn't installed: on a
+          phone, offer the wallet app's own browser. */}
+      {selected !== undefined && request.error !== null && walletInstallUrl(request.error) !== null && (
+        <OpenInWalletApp chainType={selected.chainType} />
       )}
     </div>
   );

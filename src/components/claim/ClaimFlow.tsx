@@ -68,6 +68,7 @@ import {
   type WalletConnection,
 } from "@/lib/wallet/dispatch";
 import { linkOrConfirmOwnWallet, signLinkChallenge } from "@/lib/wallet/linkFlow";
+import { OpenInWalletApp } from "@/components/wallet/OpenInWalletApp";
 import { Dialog } from "@/components/ui/Dialog";
 import { MY_WALLETS_QUERY_KEY } from "@/hooks/useWallets";
 
@@ -352,6 +353,7 @@ export function ClaimFlow({ pageId, pageName, target, onClose }: ClaimFlowProps)
         <ConnectStep
           chainSlug={target.chain_slug}
           walletName={claimable ? walletNameFor(chainType) : "your wallet"}
+          chainType={chainType}
           claimable={claimable}
           pending={step.pending}
           stuck={stuck}
@@ -430,6 +432,7 @@ function ExplanationStep({
 function ConnectStep({
   chainSlug,
   walletName,
+  chainType,
   claimable,
   pending,
   stuck,
@@ -440,6 +443,8 @@ function ConnectStep({
 }: {
   chainSlug: string;
   walletName: string;
+  /** For the phone's "Open in wallet app" step; null = no wallet for the chain. */
+  chainType: WalletChainType | null;
   claimable: boolean;
   pending: boolean;
   stuck: boolean;
@@ -486,6 +491,9 @@ function ConnectStep({
           <span className="sr-only"> (opens in a new tab)</span>
         </a>
       )}
+      {/* On a phone there is no extension to install: open this page in
+          the wallet app's own browser instead. */}
+      {installUrl !== null && chainType !== null && <OpenInWalletApp chainType={chainType} />}
       {pending && stuck && <StuckNote walletName={walletName} />}
       <ButtonRow>
         <SecondaryButton onClick={onCancel} disabled={pending && !stuck}>
