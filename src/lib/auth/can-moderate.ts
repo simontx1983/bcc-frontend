@@ -11,21 +11,20 @@
  * false) when the backend did not send it.
  */
 
+import { booleanFlagCredential, parseBooleanFlagCredential } from "@/lib/auth/auth-flags";
+
 /**
  * The signIn("bcc-verified") credential for the flag, present only when
  * the auth response carries a boolean. Credentials travel as strings.
  */
 export function canModerateCredential(resp: { can_moderate?: unknown }): { can_moderate?: "true" | "false" } {
-  if (resp.can_moderate === true) return { can_moderate: "true" };
-  if (resp.can_moderate === false) return { can_moderate: "false" };
-  return {};
+  const value = booleanFlagCredential(resp.can_moderate);
+  return value === undefined ? {} : { can_moderate: value };
 }
 
 /** The credential read back in authorize(): a boolean, or undefined (absent). */
 export function parseCanModerateCredential(raw: unknown): boolean | undefined {
-  if (raw === "true") return true;
-  if (raw === "false") return false;
-  return undefined;
+  return parseBooleanFlagCredential(raw);
 }
 
 /** The Admin group's gate: shown for exactly `true`, hidden otherwise. */

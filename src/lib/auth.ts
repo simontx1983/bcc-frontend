@@ -39,6 +39,7 @@ import TwitterProvider from "next-auth/providers/twitter";
 
 import { analyticsIdFor } from "@/lib/analytics/analytics-id";
 import { bearerFailsConsistencyCheck, readBearerConsistencyClaims } from "@/lib/auth/bearer-claims";
+import { parseSuspendedCredential } from "@/lib/auth/auth-flags";
 import { parseCanModerateCredential } from "@/lib/auth/can-moderate";
 import { clientEnv, serverEnv } from "@/lib/env";
 import { publicDisplayNameOrEmpty } from "@/lib/format";
@@ -92,16 +93,18 @@ export function oauthBridgeEmail(
 }
 
 /**
- * F-333: read the account's CURRENT handle for a session token, server-side.
+ * F-333 / F-582: read the account's CURRENT handle and standing for a
+ * session token, server-side.
  *
  * `GET /auth/session` validates the presented bearer and answers
- * `{ user_id, handle, ... }` with the handle read from user meta, so it is
- * correct straight after a rename (the token's own claim is not). Returns
- * null on any failure; the caller then keeps the handle it had.
+ * `{ user_id, handle, suspended, ... }` with the handle read from user
+ * meta, so it is correct straight after a rename (the token's own claim is
+ * not). `suspended` is included only when it is a boolean. Returns null on
+ * any failure; the caller then keeps what it had.
  */
-async function fetchCurrentHandle(
+async function fetchCurrentSession(
   bccToken: string,
-): Promise<{ userId: string; handle: string } | null> {
+): Promise<{ userId: string; handle: string; suspended?: boolean } | null> {
   try {
     const response = await fetch(`${clientEnv.BCC_API_URL}/wp-json/bcc/v1/auth/session`, {
       method: "GET",
@@ -111,14 +114,19 @@ async function fetchCurrentHandle(
     });
     if (!response.ok) return null;
     const parsed = (await response.json().catch(() => null)) as
-      | { data?: { user_id?: unknown; handle?: unknown } }
+      | { data?: { user_id?: unknown; handle?: unknown; suspended?: unknown } }
       | null;
     const userId = parsed?.data?.user_id;
     const handle = parsed?.data?.handle;
     if ((typeof userId !== "number" && typeof userId !== "string") || typeof handle !== "string" || handle === "") {
       return null;
     }
-    return { userId: String(userId), handle };
+    const suspended = parsed?.data?.suspended;
+    return {
+      userId: String(userId),
+      handle,
+      ...(typeof suspended === "boolean" ? { suspended } : {}),
+    };
   } catch {
     return null;
   }
@@ -145,6 +153,7 @@ async function callBccAuth(
   bccTokenExpiresAt: number;
   inGoodStanding: boolean;
   canModerate?: boolean;
+  suspended?: boolean;
 }> {
   let response: Response;
   try {
@@ -199,6 +208,9 @@ async function callBccAuth(
   // Display only (bcc-trust #876). Kept absent, not false, when the
   // backend did not send a boolean.
   const canModerate: unknown = parsed.data.can_moderate;
+  // Display only (contract v1.136, F-582): the suspension notice. Absent
+  // stays absent.
+  const suspended: unknown = parsed.data.suspended;
 
   return {
     id: String(parsed.data.user_id),
@@ -207,6 +219,7 @@ async function callBccAuth(
     bccTokenExpiresAt: Date.now() + parsed.data.expires_in * 1000,
     inGoodStanding,
     ...(typeof canModerate === "boolean" ? { canModerate } : {}),
+    ...(typeof suspended === "boolean" ? { suspended } : {}),
   };
 }
 
@@ -364,6 +377,7 @@ export const authOptions: NextAuthOptions = {
         expires_in:       { label: "Expires In",    type: "text" },
         in_good_standing: { label: "Good Standing", type: "text" },
         can_moderate:     { label: "Can Moderate",  type: "text" },
+        suspended:        { label: "Suspended",     type: "text" },
       },
       async authorize(credentials) {
         const userId      = credentials?.user_id?.trim()  ?? "";
@@ -374,6 +388,8 @@ export const authOptions: NextAuthOptions = {
         // Display only, like in_good_standing: it shows the Admin menu
         // group and nothing else; the server re-checks every admin call.
         const canModerate = parseCanModerateCredential(credentials?.can_moderate);
+        // Display only: the suspension notice (F-582). Writes stay server-gated.
+        const suspended = parseSuspendedCredential(credentials?.suspended);
 
         if (userId === "" || handle === "" || token === "") {
           throw new Error("bcc_invalid_request");
@@ -386,6 +402,7 @@ export const authOptions: NextAuthOptions = {
           bccTokenExpiresAt: Date.now() + expiresIn * 1000,
           inGoodStanding,
           ...(canModerate !== undefined ? { canModerate } : {}),
+          ...(suspended !== undefined ? { suspended } : {}),
         };
       },
     }),
@@ -499,6 +516,8 @@ export const authOptions: NextAuthOptions = {
             token.inGoodStanding  = result.in_good_standing;
             const canModerate: unknown = result.can_moderate;
             if (typeof canModerate === "boolean") token.canModerate = canModerate;
+            const suspended: unknown = result.suspended;
+            if (typeof suspended === "boolean") token.suspended = suspended;
           }
         } catch {
           // OAuth→BCC bridge failed — token stays empty; protected routes will 401.
@@ -515,6 +534,8 @@ export const authOptions: NextAuthOptions = {
         token.inGoodStanding = user.inGoodStanding;
         if (typeof user.canModerate === "boolean") token.canModerate = user.canModerate;
         else delete token.canModerate;
+        if (typeof user.suspended === "boolean") token.suspended = user.suspended;
+        else delete token.suspended;
       }
 
       // Phase β.3 silent-refresh hook. When the SPA's
@@ -530,6 +551,7 @@ export const authOptions: NextAuthOptions = {
           bccToken?: unknown;
           bccTokenExpiresAt?: unknown;
           refreshHandle?: unknown;
+          refreshStanding?: unknown;
         };
         // F-358: a replacement bearer is adopted only when it belongs to
         // THIS session's user — a second layer behind the client's
@@ -554,9 +576,21 @@ export const authOptions: NextAuthOptions = {
         // belongs to this session's user. A client-supplied `handle` is
         // still ignored, so this seam cannot forge identity.
         if (next.refreshHandle === true && typeof token.bccToken === "string" && token.bccToken !== "") {
-          const current = await fetchCurrentHandle(token.bccToken);
+          const current = await fetchCurrentSession(token.bccToken);
           if (current !== null && current.userId === String(token.id)) {
             token.handle = current.handle;
+          }
+        }
+        // F-582: the client may likewise ASK for the standing to be re-read
+        // (after a refresh, or for a session from before the field). The
+        // value comes from GET /auth/session with this session's own token,
+        // adopted only for this session's user; a client-supplied
+        // `suspended` is ignored. A failed read changes nothing, so an
+        // unknown standing stays unknown (no notice).
+        if (next.refreshStanding === true && typeof token.bccToken === "string" && token.bccToken !== "") {
+          const current = await fetchCurrentSession(token.bccToken);
+          if (current !== null && current.userId === String(token.id) && current.suspended !== undefined) {
+            token.suspended = current.suspended;
           }
         }
       }
@@ -591,6 +625,8 @@ export const authOptions: NextAuthOptions = {
         inGoodStanding: token.inGoodStanding,
         // Display only; absent stays absent (the Admin group hides).
         ...(typeof token.canModerate === "boolean" ? { canModerate: token.canModerate } : {}),
+        // Display only: the suspension notice. Absent means unknown.
+        ...(typeof token.suspended === "boolean" ? { suspended: token.suspended } : {}),
         // Keyed, server-computed analytics pseudonym; null (no identify)
         // when ANALYTICS_ID_SECRET is unset.
         analyticsId: typeof token.id === "string" ? analyticsIdFor(token.id) : null,
