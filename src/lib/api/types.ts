@@ -6868,6 +6868,14 @@ export interface GroupMember extends MemberSummary {
    * roster (Phillip, 2026-11-24): optional, and never rendered.
    */
   joined_at?: string | null;
+  /**
+   * The member's Card, from the same builder as the /members directory
+   * (incl. is_mentor), so a group's Members tab shows the same card as
+   * every other list. `null` = show this member as a plain tile (private,
+   * suspended or blocked for this viewer, or a per-item build failure).
+   * Absent on a backend before it; treated the same as null.
+   */
+  card?: Card | null;
 }
 
 /**
