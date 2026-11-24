@@ -12,6 +12,7 @@
 
 import Link from "next/link";
 import type { Route } from "next";
+import type { ReactNode } from "react";
 
 import { ReviewReplyView } from "@/components/review/ReviewReplyView";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -27,10 +28,12 @@ export function AboutReviewsCard({
   handle,
   userId,
   total,
+  aside,
 }: {
   handle: string;
   userId: number;
   total: number;
+  aside?: ReactNode;
 }) {
   const query = useCardReviews("user_profile", userId);
   const base = `/u/${encodeURIComponent(handle)}/reviews`;
@@ -43,7 +46,7 @@ export function AboutReviewsCard({
   if (query.isError && items.length === 0 && isPermissionDenial(query.error)) return null;
 
   return (
-    <AboutCard label="Reviews" count={total} testId="about-card-reviews">
+    <AboutCard label="Reviews" count={total} testId="about-card-reviews" aside={aside}>
       {query.isPending ? (
         <div className="flex flex-col gap-2">
           <Skeleton className="h-16" count={PREVIEW_COUNT} />

@@ -52,6 +52,11 @@ const ERROR_COPY: Record<string, string> = {
   bcc_internal_error:  "Server error. Try again.",
 };
 
+/** Also used by Edit About, which saves the same field. */
+export function humanizeBioError(err: BccApiError | Error): string {
+  return humanizeError(err);
+}
+
 function humanizeError(err: BccApiError | Error): string {
   if (err instanceof BccApiError) {
     return ERROR_COPY[err.code] ?? "Couldn't save your bio. Try again.";
