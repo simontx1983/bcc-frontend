@@ -255,8 +255,8 @@ describe("verified as a solid background — inverse text on top", () => {
  * asserted in `vouch-semantic-neutral.test.ts` instead.
  */
 const DECORATIVE_BORDER_SITES: ReadonlyArray<readonly [string, string]> = [
-  ["src/app/(main)/(app)/halls/page.tsx", "0.32"],
   ["src/components/cards/CardFrontFace.tsx", "0.32"],
+  ["src/components/communities/HallsTabPanel.tsx", "0.32"],
   ["src/components/disputes/CaseHeader.tsx", "0.32"],
   ["src/components/disputes/MyDisputesList.tsx", "0.32"],
   ["src/components/groups/GroupMembershipStrip.tsx", "0.32"],

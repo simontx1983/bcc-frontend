@@ -1,5 +1,6 @@
 /**
- * Site Structure A, PR 1: Explore and Members ▸ Mentors routes.
+ * Site Structure A, PR 1 + PR 2: Explore, Members ▸ Mentors, and Halls
+ * moved into Communities.
  *
  *   1. The permanent forwards resolve exactly as intended, through Next's
  *      OWN matchers (path match, `has` match, destination + query), so
@@ -63,6 +64,7 @@ const { ROUTE_MOVES } = await import("@/lib/route-moves");
 const { KindDirectoryPage } = await import("@/app/(main)/(app)/explore/KindDirectoryPage");
 const { SectionTabs } = await import("@/components/ui/SectionTabs");
 const { EXPLORE_TABS } = await import("@/app/(main)/(app)/explore/explore-tabs");
+const { HALLS_TAB_HREF } = await import("@/components/communities/halls-tab-href");
 const { MEMBERS_TABS } = await import("@/app/(main)/(app)/members/members-tabs");
 
 afterEach(cleanup);
@@ -96,6 +98,8 @@ describe("1. the forwards", () => {
     ["/directory", { kind: "projects" }, "/explore"],
     ["/validators", {}, "/explore"],
     ["/mentors", {}, "/members/mentors"],
+    ["/halls", {}, "/communities"],
+    ["/halls/akash-hall", {}, "/communities/akash-hall"],
   ] as const)("%s %j → %s", (path, query, to) => {
     expect(forward(path, { ...query })?.to).toBe(to);
   });
@@ -104,10 +108,20 @@ describe("1. the forwards", () => {
     expect(forward("/validators", { chain: "cosmos", q: "lion" })?.query).toEqual({ chain: "cosmos", q: "lion" });
     expect(forward("/directory", { kind: "project", tier: "trusted" })?.query).toMatchObject({ tier: "trusted" });
     expect(forward("/mentors", { page: "2" })?.query).toEqual({ page: "2" });
+    // /halls lands on the Halls tab and keeps the old chain + page.
+    expect(forward("/halls", { chain: "cosmos", page: "2" })?.query).toEqual({
+      tab: "halls",
+      chain: "cosmos",
+      page: "2",
+    });
+  });
+
+  it("lets the Halls forward's own tab win over a stray ?tab=", () => {
+    expect(forward("/halls", { tab: "all" })?.query).toEqual({ tab: "halls" });
   });
 
   it("forwards only the moved paths, not their neighbours", () => {
-    for (const path of ["/admin/validators", "/for-validators", "/validators/x", "/mentors/x", "/explore", "/members"]) {
+    for (const path of ["/admin/validators", "/for-validators", "/validators/x", "/mentors/x", "/explore", "/members", "/halls/a/b", "/communities", "/communities/x"]) {
       expect(forward(path), path).toBeNull();
     }
   });
@@ -142,11 +156,13 @@ describe("2. destinations exist, old routes are gone", () => {
     ["/explore/projects", "explore/projects/page.tsx"],
     ["/explore/creators", "explore/creators/page.tsx"],
     ["/members/mentors", "members/mentors/page.tsx"],
+    ["/communities (and ?tab=halls)", "communities/page.tsx"],
+    ["/communities/[slug]", "communities/[slug]/page.tsx"],
   ])("%s has a page", (_route, file) => {
     expect(existsSync(resolve(APP, file))).toBe(true);
   });
 
-  it.each(["directory", "validators", "mentors"])("no page is left under /%s", (dir) => {
+  it.each(["directory", "validators", "mentors", "halls", "halls/[slug]"])("no page is left under /%s", (dir) => {
     expect(existsSync(resolve(APP, dir, "page.tsx"))).toBe(false);
     expect(existsSync(resolve(APP, dir, "layout.tsx"))).toBe(false);
   });
@@ -177,6 +193,24 @@ describe("3. route tabs", () => {
   });
 });
 
+describe("3c. query-keyed tabs (Communities ▸ All · Halls)", () => {
+  it("marks the tab the page says is current, not the pathname's", () => {
+    pathname.value = "/communities";
+    render(
+      <SectionTabs
+        label="Communities sections"
+        tabs={[
+          { label: "All", href: "/communities" },
+          { label: "Halls", href: HALLS_TAB_HREF },
+        ]}
+        current={HALLS_TAB_HREF}
+      />,
+    );
+    expect(screen.getByRole("link", { name: "Halls" })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("link", { name: "All" })).not.toHaveAttribute("aria-current");
+  });
+});
+
 describe("3b. Projects and Creators ask for their own kind, and no chain", () => {
   // What an old /directory?kind=validator&chain=…&tier=… link carries
   // through the forward. The route decides the kind; `chain` is a
@@ -199,10 +233,13 @@ describe("3b. Projects and Creators ask for their own kind, and no chain", () =>
 
 describe("4. no in-app link to a moved route", () => {
   // A quote, backtick or paren, the old path, then a delimiter or the end.
-  const OLD = /["'`(]\/(directory|validators|mentors)(?=["'`?/#)]|$)/m;
+  const OLD = /["'`(]\/(directory|validators|mentors|halls)(?=["'`?/#)]|$)/m;
+  // Comments may name an old path on purpose: the server still emits
+  // /halls/{slug} in links, and the types document that wire value.
+  const COMMENT = /^\s*(\*|\/\/|\/\*)/;
   /** The nav model is rewritten by the navigation PR (Site Structure A,
-   *  PR 3); until then its three old items forward through the 308s. */
-  const PENDING_NAV_PR = new Set(["components/layout/nav-items.tsx"]);
+   *  PR 3); until then its old items forward through the 308s. */
+  const PENDING_NAV_PR = new Set(["components/layout/nav-items.tsx", "components/layout/nav/MobileNav.tsx"]);
 
   const files = sourceFiles().filter(
     (f) =>
@@ -221,14 +258,14 @@ describe("4. no in-app link to a moved route", () => {
       f.code
         .split(/\r?\n/)
         .map((line, i) => ({ line, at: `${f.rel}:${i + 1}` }))
-        .filter(({ line }) => OLD.test(line) && !/\/(admin|me)\/validators|bcc\/v1/.test(line))
+        .filter(({ line }) => OLD.test(line) && !COMMENT.test(line) && !/\/(admin|me)\/validators|bcc\/v1/.test(line))
         .map(({ at, line }) => `${at}  ${line.trim()}`),
     );
     expect(hits).toEqual([]);
   });
 
-  it("still sees the nav items it is waiting on (drop this exemption in PR 3)", () => {
-    const nav = sourceFiles().find((f) => f.rel === "components/layout/nav-items.tsx");
-    expect(nav?.code).toMatch(OLD);
+  it.each([...PENDING_NAV_PR])("still sees the old links in %s (drop the exemption in PR 3)", (rel) => {
+    const file = sourceFiles().find((f) => f.rel === rel);
+    expect(file?.code).toMatch(OLD);
   });
 });

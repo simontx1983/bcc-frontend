@@ -2,7 +2,7 @@
  * F-317 M-gr3 — the groups and halls controls were drawn at ~28-30px with
  * nothing making the tap target bigger: the join/leave button, the
  * posting-policy switch, the Hall feed's MAIN/RANKED chips, the Hall
- * membership buttons, and the /communities and /halls filter pills, chain
+ * membership buttons, and the /communities and Communities ▸ Halls filter pills, chain
  * picker and APPLY.
  *
  * Same source-scan idiom as F-440, through the shared scanner
@@ -68,7 +68,7 @@ describe("F-317 — GroupActionButton has a 44px target at both sizes", () => {
 
 describe("F-317 — the discovery filters have a 44px target", () => {
   const COMMUNITIES = "src/app/(main)/(app)/communities/page.tsx";
-  const HALLS = "src/app/(main)/(app)/halls/page.tsx";
+  const HALLS = "src/components/communities/HallsTabPanel.tsx";
 
   it("/communities scope pills", () => {
     const body = functionBody(read(COMMUNITIES), "FilterStrip");
@@ -84,7 +84,7 @@ describe("F-317 — the discovery filters have a 44px target", () => {
     expect(short(tags, body)).toEqual([]);
   });
 
-  it("/halls chain pills", () => {
+  it("Communities ▸ Halls chain pills", () => {
     const body = functionBody(read(HALLS), "ChainFilterStrip");
     const pills = openTags(body, "Link");
     expect(pills.length).toBeGreaterThanOrEqual(1);
