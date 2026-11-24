@@ -23,6 +23,7 @@ import { ScopedSearchField } from "@/components/search/ScopedSearchField";
 import { SearchEverywhereLink } from "@/components/search/SearchEverywhereLink";
 import { CardGrid } from "@/components/cards/CardGrid";
 import { PagerNav } from "@/components/ui/PagerNav";
+import { SectionTabs } from "@/components/ui/SectionTabs";
 import { useMembers } from "@/hooks/useMembers";
 import { LoadFailure } from "@/components/ui/LoadFailure";
 import { humanizeCode } from "@/lib/api/errors";
@@ -32,6 +33,8 @@ import type {
   MembersTypeFilter,
   MembersVerifiedAxis,
 } from "@/lib/api/types";
+
+import { MEMBERS_TABS } from "./members-tabs";
 
 const ZERO_TYPE_COUNTS: MembersTypeCounts = {
   validator: 0,
@@ -244,6 +247,8 @@ function MembersPageContent() {
           by handle or name. Click anyone to read their file.
         </p>
       </header>
+
+      <SectionTabs label="Members sections" tabs={MEMBERS_TABS} />
 
       <section className="mx-auto mt-10 flex max-w-[1560px] flex-col gap-6 px-4 sm:px-7">
         {/* Scoped to members (Structure A §9). GET /members caps q at 64. */}

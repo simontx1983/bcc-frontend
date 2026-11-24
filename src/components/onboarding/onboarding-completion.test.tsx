@@ -401,9 +401,12 @@ describe("reduced motion", () => {
     render(
       <DopamineStep
         homeChain={null}
-        pulledCards={[{ id: 1, tier: "trusted" }, { id: 2, tier: "proven" }]}
+        pulledCards={[{ id: 1, tier: "trusted" }, { id: 2, tier: "elite" }]}
       />,
     );
     expect(document.querySelectorAll(".bcc-onboarding-chip").length).toBeGreaterThan(0);
+    // The top band's chip is named for the server's key, `elite`.
+    expect(document.querySelectorAll(".bcc-onboarding-chip-elite").length).toBeGreaterThan(0);
+    expect(document.querySelector(".bcc-onboarding-chip-proven")).toBeNull();
   });
 });

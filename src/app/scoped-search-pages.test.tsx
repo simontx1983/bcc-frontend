@@ -34,7 +34,7 @@ vi.mock("@/components/cards/CardGrid", () => ({
 }));
 
 import MembersPage from "@/app/(main)/(app)/members/page";
-import MentorsPage from "@/app/(main)/(app)/mentors/page";
+import MentorsPage from "@/app/(main)/(app)/members/mentors/page";
 import { SearchResultsPage } from "@/components/search/SearchResultsPage";
 
 beforeAll(() => {
@@ -135,7 +135,7 @@ describe("Mentors (gains the field)", () => {
       await act(async () => {
         vi.advanceTimersByTime(300);
       });
-      expect(state.replace).toHaveBeenCalledWith("/mentors?q=leo", { scroll: false });
+      expect(state.replace).toHaveBeenCalledWith("/members/mentors?q=leo", { scroll: false });
     } finally {
       vi.useRealTimers();
     }
@@ -146,7 +146,7 @@ describe("Mentors (gains the field)", () => {
     getMembers.mockResolvedValue(membersPage([mentor(1)], 3));
     withClient(<MentorsPage />);
     fireEvent.click(await screen.findByRole("button", { name: /next/i }));
-    expect(state.replace).toHaveBeenCalledWith("/mentors?page=2&q=leo", { scroll: false });
+    expect(state.replace).toHaveBeenCalledWith("/members/mentors?page=2&q=leo", { scroll: false });
   });
 
   it("no match with a search says so and hands off to global search", async () => {

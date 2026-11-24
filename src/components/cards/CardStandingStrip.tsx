@@ -108,8 +108,6 @@ const TIER_WARNS: ReadonlySet<ReputationTier> = new Set(["risky", "caution"]);
 const TIER_FACT_DOT: Partial<Record<ReputationTier, string>> = {
   neutral: "var(--bcc-trust-neutral)",
   trusted: "var(--bcc-trust-trusted)",
-  proven: "var(--bcc-trust-proven)",
-  // Legacy wire value, same band, same colour — see ReputationTier.
   elite: "var(--bcc-trust-proven)",
 };
 

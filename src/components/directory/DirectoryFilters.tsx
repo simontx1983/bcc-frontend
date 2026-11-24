@@ -1,8 +1,13 @@
 "use client";
 
 /**
- * DirectoryFilters — kind / tier / sort / search controls atop the
- * §G1/§G2 directory grid.
+ * DirectoryFilters — tier / sort / search controls atop the §G1/§G2
+ * directory grid on Explore ▸ Projects and Explore ▸ Creators.
+ *
+ * The kind is fixed by the route (Site Structure A), so there are no
+ * kind chips, and no chain dropdown either: the server's chain filter is
+ * validator-only, and validators have their own page and filter panel
+ * (ValidatorFilters on /explore).
  *
  * Stateless: parent owns the filter values and the `onChange` callback.
  * Drives URL state at the page level so a filter set is shareable +
@@ -10,7 +15,6 @@
  * inputs and fires onChange.
  *
  * V1 controls (per §G2 launch checklist):
- *   - Kind chips (validator / project / creator)
  *   - Tier chips (elite / trusted / neutral / caution / risky)
  *   - Good-Standing-Only toggle (§G2) — restricts to tier ≥ neutral
  *   - Sort dropdown (trust / newest / vouches / followers)
@@ -25,11 +29,9 @@ import type { ChangeEvent } from "react";
 
 import { FilterChipRow } from "@/components/ui/FilterChipRow";
 import type {
-  DirectoryKind,
   DirectorySort,
   DirectoryTier,
 } from "@/lib/api/types";
-import { VALIDATOR_CHAIN_CATALOG } from "@/lib/validators/chain-catalog";
 
 import { ScopedSearchField } from "@/components/search/ScopedSearchField";
 import type { DirectoryFilters as Filters } from "@/hooks/useDirectory";
@@ -40,8 +42,8 @@ interface Props {
 }
 
 /**
- * An option's own label, for the active-filter chips on /directory and
- * /validators, so a chip never prints a wire slug. The raw value only
+ * An option's own label, for the active-filter chips on the Explore
+ * tabs, so a chip never prints a wire slug. The raw value only
  * when no option matches (a value from an old link).
  */
 export function filterOptionLabel<V extends string>(
@@ -50,13 +52,6 @@ export function filterOptionLabel<V extends string>(
 ): string {
   return options.find((option) => option.value === value)?.label ?? value;
 }
-
-export const KIND_OPTIONS: { value: DirectoryKind | null; label: string }[] = [
-  { value: null,        label: "All" },
-  { value: "validator", label: "Validators" },
-  { value: "project",   label: "Projects" },
-  { value: "creator",   label: "Creators" },
-];
 
 export const TIER_OPTIONS: { value: DirectoryTier | null; label: string }[] = [
   { value: null,      label: "Any" },
@@ -110,50 +105,6 @@ export function DirectoryFilters({ value, onChange }: Props) {
         onClear={() => update({ q: "" })}
         maxLength={CARDS_QUERY_MAX}
       />
-
-      {/* Kind chips */}
-      <FilterChipRow
-        label="KIND"
-        options={KIND_OPTIONS}
-        selected={value.kind}
-        onSelect={(next) => {
-          // Switching kind away from `validator` clears the chain filter
-          // — the chain JOIN only applies to validator pages today, so
-          // a stale chain selection on a non-validator kind would just
-          // silently zero out results.
-          const nextChain = next === "validator" ? value.chain : null;
-          update({ kind: next, chain: nextChain });
-        }}
-      />
-
-      {/* Chain dropdown — only meaningful for validator kind today; the
-          backend JOIN goes through `_bcc_onchain_validator_id` post_meta
-          which only validator pages carry. */}
-      {value.kind === "validator" && (
-        <div className="flex flex-col gap-2">
-          <label
-            htmlFor="directory-chain"
-            className="bcc-mono text-[10px] tracking-[0.2em] text-cardstock-deep"
-          >
-            CHAIN
-          </label>
-          <select
-            id="directory-chain"
-            value={value.chain ?? ""}
-            onChange={(e: ChangeEvent<HTMLSelectElement>) =>
-              update({ chain: e.target.value === "" ? null : e.target.value })
-            }
-            className="bcc-mono w-full bg-cardstock px-3 py-2 text-sm text-ink ring-1 ring-cardstock-edge focus:outline-none focus:ring-2 focus:ring-blueprint"
-          >
-            <option value="">All chains</option>
-            {VALIDATOR_CHAIN_CATALOG.map((opt) => (
-              <option key={opt.slug} value={opt.slug}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
-        </div>
-      )}
 
       {/* Tier chips */}
       <FilterChipRow

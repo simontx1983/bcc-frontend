@@ -63,9 +63,11 @@ const APP = "src/app/(main)/(app)";
 const ROUTE_RAIL = "src/components/layout/RouteRail.tsx";
 const FILE_RAIL = "src/components/layout/FileRail.tsx";
 const MEMBERS = `${APP}/members/page.tsx`;
-const DIRECTORY = `${APP}/directory/page.tsx`;
-const VALIDATORS = `${APP}/validators/page.tsx`;
-const MENTORS = `${APP}/mentors/page.tsx`;
+// Explore ▸ Projects + Creators share one component; Explore ▸ Validators
+// is the former /validators page (Site Structure A).
+const EXPLORE_KIND = `${APP}/explore/KindDirectoryPage.tsx`;
+const EXPLORE = `${APP}/explore/page.tsx`;
+const MENTORS = `${APP}/members/mentors/page.tsx`;
 const MESSAGES = `${APP}/messages/page.tsx`;
 const MESSAGES_NEW = `${APP}/messages/new/page.tsx`;
 const MESSAGES_ID = `${APP}/messages/[id]/page.tsx`;
@@ -75,8 +77,8 @@ const HALLS = `${APP}/halls/page.tsx`;
 /** Every file in E2's blast radius, including the two it must not have changed. */
 const FILE_SET = [
   MEMBERS,
-  DIRECTORY,
-  VALIDATORS,
+  EXPLORE_KIND,
+  EXPLORE,
   MENTORS,
   MESSAGES,
   MESSAGES_NEW,
@@ -220,9 +222,16 @@ interface CallSite {
 
 const CALL_SITES: readonly CallSite[] = [
   { route: "/members", file: MEMBERS, kicker: `FLOOR ${NBSP}//${NBSP} MEMBERS`, label: `FILE INDEX ${NBSP}//${NBSP} ALL MEMBERS` },
-  { route: "/directory", file: DIRECTORY, kicker: `FLOOR ${NBSP}//${NBSP} DIRECTORY`, label: `FILE INDEX ${NBSP}//${NBSP} ALL PAGES` },
-  { route: "/validators", file: VALIDATORS, kicker: `FLOOR ${NBSP}//${NBSP} VALIDATORS`, label: `FILE INDEX ${NBSP}//${NBSP} ALL VALIDATORS` },
-  { route: "/mentors", file: MENTORS, kicker: `FLOOR ${NBSP}//${NBSP} MENTORS`, label: `FILE INDEX ${NBSP}//${NBSP} LISTED MENTORS` },
+  {
+    route: "/explore/projects + /explore/creators",
+    file: EXPLORE_KIND,
+    kicker: `FLOOR ${NBSP}//${NBSP} EXPLORE`,
+    // Per-kind label from the page's KIND_PAGE map.
+    label: null,
+    rawLabels: ["label={page.label}"],
+  },
+  { route: "/explore", file: EXPLORE, kicker: `FLOOR ${NBSP}//${NBSP} EXPLORE`, label: `FILE INDEX ${NBSP}//${NBSP} ALL VALIDATORS` },
+  { route: "/members/mentors", file: MENTORS, kicker: `FLOOR ${NBSP}//${NBSP} MEMBERS`, label: `FILE INDEX ${NBSP}//${NBSP} LISTED MENTORS` },
   { route: "/messages", file: MESSAGES, kicker: `BCC ${NBSP}//${NBSP} MESSAGES`, label: `DIRECT ${NBSP}//${NBSP} INBOX` },
   { route: "/messages/new", file: MESSAGES_NEW, kicker: `BCC ${NBSP}//${NBSP} MESSAGES`, label: `DIRECT ${NBSP}//${NBSP} NEW` },
   {
@@ -248,7 +257,7 @@ for (const site of CALL_SITES) {
       // re-exports, no "temporary" local copies.
       expect(src).not.toMatch(/^function (Rail|DirectoryRail|ValidatorsRail)\b/m);
       // The rail's two signature marks. Deliberately NOT the 1560px width:
-      // the filter strips on /directory and /validators share it and are
+      // the filter strips on the Explore tabs share it and are
       // not rails, so asserting on width would fail for the wrong reason.
       expect(src).not.toContain("border-b border-dashed border-bcc-border");
       expect(src).not.toContain("bcc-rail-dot");
@@ -325,8 +334,8 @@ describe("FileRail — the other rail, fixed but not merged", () => {
 
 const METADATA: ReadonlyArray<readonly [string, string, string]> = [
   ["/members VERIFICATIONS column head", MEMBERS, "VERIFICATIONS"],
-  ["/directory SHOWING ALL", DIRECTORY, ">SHOWING ALL<"],
-  ["/validators SHOWING ALL", VALIDATORS, ">SHOWING ALL<"],
+  ["/explore/projects SHOWING ALL", EXPLORE_KIND, ">SHOWING ALL<"],
+  ["/explore SHOWING ALL", EXPLORE, ">SHOWING ALL<"],
   ["/messages queued explainer", MESSAGES, "Messages you&apos;ve sent to validators"],
   ["/messages/new recipient @handle", MESSAGES_NEW, "@{recipient.handle}"],
   ["/messages/new result @handle", MESSAGES_NEW, "@{m.handle}"],
@@ -412,8 +421,8 @@ describe("E2 — disabled pagers stay muted, and stay distinguishable", () => {
 
 describe("E2 — decorative chip glyphs stay muted", () => {
   for (const [label, file] of [
-    ["/directory", DIRECTORY],
-    ["/validators", VALIDATORS],
+    ["/explore/projects", EXPLORE_KIND],
+    ["/explore", EXPLORE],
   ] as const) {
     it(`${label}: the aria-hidden ✕ is not promoted to text`, () => {
       expect(read(file)).toContain('<span aria-hidden className="text-bcc-text-muted">✕</span>');
@@ -441,10 +450,10 @@ describe("E2 — no unaccounted muted text remains in the E2 file set", () => {
       [
         'communities/page.tsx :: <span className="bcc-mono text-bcc-text-muted">← Previous</span>',
         'communities/page.tsx :: <span className="bcc-mono text-bcc-text-muted">Next →</span>',
-        'directory/page.tsx :: <span aria-hidden className="text-bcc-text-muted">✕</span>',
+        'explore/KindDirectoryPage.tsx :: <span aria-hidden className="text-bcc-text-muted">✕</span>',
         'halls/page.tsx :: <span className="bcc-mono text-bcc-text-muted">← Previous</span>',
         'halls/page.tsx :: <span className="bcc-mono text-bcc-text-muted">Next →</span>',
-        'validators/page.tsx :: <span aria-hidden className="text-bcc-text-muted">✕</span>',
+        'explore/page.tsx :: <span aria-hidden className="text-bcc-text-muted">✕</span>',
       ].sort(),
     );
   });

@@ -138,7 +138,7 @@ sitting on the app rather than as part of it.
 - Three-column app shell; fixed viewport height, `body` scroll locked, each
   column scrolls independently. Center column caps reading width at 680px.
 - **`.bcc-page-wide`** is the sanctioned escape hatch for grid pages
-  (`/members`, `/directory`, `/communities`, `/validators`, `/mentors`,
+  (`/members`, `/members/mentors`, `/explore` and its tabs, `/communities`,
   `/watching`); the page then owns its cap — `max-w-[1560px]` grids,
   `max-w-[1440px]` hero pages, with `px-4 sm:px-7`.
 - [`PageHero`](src/components/layout/PageHero.tsx) is the hero grammar for every

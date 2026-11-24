@@ -2,7 +2,7 @@
  * Site-structure audit, the small fixes that hold under any structure:
  *   1. a Hall's collections panel links nowhere that doesn't exist;
  *   2. the landing's floor peek leads to the (members-only) feed via sign-up;
- *   3. the directory and validators filter chips print option labels, not
+ *   3. the Explore tabs' filter chips print option labels, not
  *      wire slugs, and the tier filter says "Elite" like the card chip;
  *   4. guests aren't shown Messages, Disputes or Watching (they bounce to
  *      /login), in either nav.
@@ -49,8 +49,8 @@ const { MainOffcanvas } = await import("@/components/layout/offcanvas/MainOffcan
 const { LeftSidebar } = await import("@/components/layout/LeftSidebar");
 const { HallCollectionsPanel } = await import("@/components/halls/HallChainContent");
 const { FloorIntro } = await import("@/components/landing/FloorIntro");
-const { default: DirectoryPage } = await import("@/app/(main)/(app)/directory/page");
-const { default: ValidatorsPage } = await import("@/app/(main)/(app)/validators/page");
+const { KindDirectoryPage } = await import("@/app/(main)/(app)/explore/KindDirectoryPage");
+const { default: ValidatorsPage } = await import("@/app/(main)/(app)/explore/page");
 const { TIER_OPTIONS } = await import("@/components/directory/DirectoryFilters");
 
 beforeAll(() => {
@@ -107,22 +107,24 @@ describe("4. the nav hides signed-in-only pages from guests", () => {
 });
 
 describe("3. filter chips print the option labels", () => {
-  it("/directory: kind, tier and sort chips read Validators, Elite and Vouches", () => {
+  it("/explore/projects: tier and sort chips read Elite and Vouches; the route's kind is no chip", () => {
+    // `kind=validator` is what an old /directory link carries through the
+    // forward. The route fixes the kind, so the param is ignored, not a chip.
     search.params = new URLSearchParams("kind=validator&tier=elite&sort=endorsements");
-    withQuery(<DirectoryPage />);
-    expect(screen.getByRole("button", { name: "Clear filter VALIDATORS" })).toBeInTheDocument();
+    withQuery(<KindDirectoryPage kind="project" />);
+    expect(screen.queryByRole("button", { name: /Clear filter (VALIDATORS|PROJECTS)/ })).toBeNull();
     expect(screen.getByRole("button", { name: "Clear filter ELITE" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Clear filter SORT · VOUCHES" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /VALIDATOR$|ENDORSEMENTS/ })).toBeNull();
   });
 
-  it("/directory: the followers sort reads Watchers", () => {
+  it("/explore/creators: the followers sort reads Watchers", () => {
     search.params = new URLSearchParams("sort=followers");
-    withQuery(<DirectoryPage />);
+    withQuery(<KindDirectoryPage kind="creator" />);
     expect(screen.getByRole("button", { name: "Clear filter SORT · WATCHERS" })).toBeInTheDocument();
   });
 
-  it("/validators: the self_stake sort reads Self stake", () => {
+  it("/explore: the self_stake sort reads Self stake", () => {
     search.params = new URLSearchParams("sort=self_stake&status=jailed");
     withQuery(<ValidatorsPage />);
     expect(screen.getByRole("button", { name: "Clear filter SORT · SELF STAKE" })).toBeInTheDocument();

@@ -64,8 +64,8 @@ export interface DirectoryFilters {
    */
   chain: string | null;
   /**
-   * Validator-only axes — set by the `/validators` page, left null on
-   * `/directory` (the shared directory never exposes these controls).
+   * Validator-only axes — set by Explore ▸ Validators (`/explore`), left
+   * null on the Projects and Creators tabs (they never expose these).
    * The server treats them as no-ops on non-validator kinds.
    */
   status?: ValidatorStatusFilter | null;
