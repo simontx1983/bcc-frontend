@@ -48,21 +48,28 @@ declare global {
 // specific copy via instanceof checks.
 // ─────────────────────────────────────────────────────────────────────
 
+import { MOBILE_WALLET_HINT, WALLET_FAILED_COPY, walletRejectedCopy, type WalletStage } from "@/lib/wallet/error-copy";
+
 export class MetaMaskError extends Error {
   override readonly name: string = "MetaMaskError";
 }
 
 export class MetaMaskUnavailableError extends MetaMaskError {
   override readonly name = "MetaMaskUnavailableError";
+  /** Where to get the wallet (rendered as a link by the claim flow). */
+  readonly installUrl = "https://metamask.io/download/";
   constructor() {
-    super("MetaMask (or another EVM wallet) not detected. Install one to continue.");
+    super(`MetaMask (or another EVM wallet) isn't installed in this browser. Install one to continue. ${MOBILE_WALLET_HINT}`);
   }
 }
 
 export class MetaMaskUserRejectedError extends MetaMaskError {
   override readonly name = "MetaMaskUserRejectedError";
-  constructor() {
-    super("Wallet signing was canceled.");
+  /** Declined at the connect prompt, or cancelled at signing. */
+  readonly stage: WalletStage;
+  constructor(stage: WalletStage = "sign") {
+    super(walletRejectedCopy(stage));
+    this.stage = stage;
   }
 }
 
@@ -116,7 +123,7 @@ export async function connectMetaMask(
     }
     address = String(accounts[0]);
   } catch (err) {
-    throw normalizeMetaMaskError(err);
+    throw normalizeMetaMaskError(err, "connect");
   }
 
   // Best-effort chain switch. Errors here are non-fatal — we proceed
@@ -175,7 +182,7 @@ export async function signMetaMaskChallenge(
     }
     return { signature };
   } catch (err) {
-    throw normalizeMetaMaskError(err);
+    throw normalizeMetaMaskError(err, "sign");
   }
 }
 
@@ -183,23 +190,26 @@ export async function signMetaMaskChallenge(
 // Helpers
 // ─────────────────────────────────────────────────────────────────────
 
-function normalizeMetaMaskError(err: unknown): MetaMaskError {
+function normalizeMetaMaskError(err: unknown, stage: WalletStage): MetaMaskError {
+  // Already one of ours (deliberate copy, e.g. "No accounts" / "empty
+  // signature" thrown inside the try): keep it, never genericise it.
+  if (err instanceof MetaMaskError) return err;
   // EIP-1193 error code 4001 = user rejected. Other RPC errors expose
   // a message; pass it through with our typed wrapper so the UI can
   // branch on instanceof.
   if (typeof err === "object" && err !== null) {
     const code = (err as { code?: number }).code;
     if (code === 4001) {
-      return new MetaMaskUserRejectedError();
+      return new MetaMaskUserRejectedError(stage);
     }
     const message = (err as { message?: string }).message;
     if (typeof message === "string" && message !== "") {
       const lower = message.toLowerCase();
       if (lower.includes("reject") || lower.includes("denied") || lower.includes("cancel")) {
-        return new MetaMaskUserRejectedError();
+        return new MetaMaskUserRejectedError(stage);
       }
-      return new MetaMaskError(message);
+      return new MetaMaskError(WALLET_FAILED_COPY, { cause: err });
     }
   }
-  return new MetaMaskError("Wallet error.");
+  return new MetaMaskError(WALLET_FAILED_COPY, { cause: err });
 }

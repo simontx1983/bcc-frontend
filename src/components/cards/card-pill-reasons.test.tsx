@@ -11,7 +11,8 @@
  */
 
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { filledNotice } from "@/components/cards/pill-notice.testing";
 
 vi.mock("next/navigation", () => ({ usePathname: () => "/directory" }));
 
@@ -88,14 +89,14 @@ describe("locked for another reason", () => {
     can_vouch: { allowed: false, unlock_hint: "Vouching unlocks at neutral reputation.", reason_code: "tier_locked" },
   };
 
-  it("a tap shows the reason under the pills, described and announced", () => {
+  it("a tap shows the reason under the pills, described and announced", async () => {
     render(<ActionBar card={card(perms)} isPulled={false} />);
     const vouch = screen.getByRole("button", { name: "Vouch for Atlas" });
     expect(vouch).not.toBeDisabled();
     expect(vouch).toHaveAttribute("aria-disabled", "true");
 
     fireEvent.click(vouch);
-    const line = screen.getByRole("status");
+    const line = (await filledNotice("status"));
     expect(line).toHaveTextContent("Vouching unlocks at neutral reputation.");
     expect(vouch).toHaveAttribute("aria-describedby", line.id);
     expect(castMutate).not.toHaveBeenCalled();
@@ -121,7 +122,7 @@ describe("locked for another reason", () => {
 });
 
 describe("a failed action", () => {
-  it("shows the failure under the pills as an alert, not only in the tooltip", () => {
+  it("shows the failure under the pills as an alert, not only in the tooltip", async () => {
     watchMutate.mockImplementation((_vars: unknown, opts: { onError: (e: unknown) => void }) => {
       opts.onError(new Error("x"));
     });
@@ -132,12 +133,12 @@ describe("a failed action", () => {
       />,
     );
     fireEvent.click(screen.getByRole("button", { name: "Watch Atlas" }));
-    expect(screen.getByRole("alert")).toHaveTextContent("Couldn't watch this card. Try again.");
+    expect((await filledNotice("alert"))).toHaveTextContent("Couldn't watch this card. Try again.");
   });
 });
 
 describe("#276 review — the latest event wins", () => {
-  it("a locked tap after a failed watch shows the reason, not the old error", () => {
+  it("a locked tap after a failed watch shows the reason, not the old error", async () => {
     watchMutate.mockImplementation((_v: unknown, opts: { onError: (e: unknown) => void }) => {
       opts.onError(new Error("x"));
     });
@@ -151,17 +152,17 @@ describe("#276 review — the latest event wins", () => {
       />,
     );
     fireEvent.click(screen.getByRole("button", { name: "Watch Atlas" }));
-    expect(screen.getByRole("alert")).toHaveTextContent("Couldn't watch this card.");
+    expect((await filledNotice("alert"))).toHaveTextContent("Couldn't watch this card.");
 
     const vouch = screen.getByRole("button", { name: "Vouch for Atlas" });
     fireEvent.click(vouch);
     expect(screen.queryByRole("alert")).toBeNull();
-    const line = screen.getByRole("status");
+    const line = (await filledNotice("status"));
     expect(line).toHaveTextContent("Vouching unlocks later.");
     expect(vouch).toHaveAttribute("aria-describedby", line.id);
   });
 
-  it("with no server hint the fallback is neutral, not a frontend-written rule", () => {
+  it("with no server hint the fallback is neutral, not a frontend-written rule", async () => {
     render(
       <ActionBar
         card={card({
@@ -172,10 +173,10 @@ describe("#276 review — the latest event wins", () => {
       />,
     );
     fireEvent.click(screen.getByRole("button", { name: "Vouch for Atlas" }));
-    expect(screen.getByRole("status")).toHaveTextContent("Not available yet.");
+    expect((await filledNotice("status"))).toHaveTextContent("Not available yet.");
   });
 
-  it("a disabled Message pill explains itself on tap", () => {
+  it("a disabled Message pill explains itself on tap", async () => {
     render(
       <ActionBar
         card={{ ...(card({ can_watch: { allowed: true, unlock_hint: null }, can_vouch: { allowed: true, unlock_hint: null } }) as object), card_kind: "member" } as never}
@@ -184,24 +185,32 @@ describe("#276 review — the latest event wins", () => {
       />,
     );
     fireEvent.click(screen.getByRole("button", { name: /Message/ }));
-    expect(screen.getByRole("status")).toHaveTextContent("Turn on direct messages first.");
+    expect((await filledNotice("status"))).toHaveTextContent("Turn on direct messages first.");
   });
 });
 
 describe("#276 review — community pills", () => {
+  // F-244: the server's verdict for each case (the bar no longer derives it
+  // from `privacy`).
+  const VERDICT: Record<string, string> = { closed: "requires_approval", secret: "invite_only" };
   function dossier(privacy: string) {
-    return { type: "user", privacy, member_count: 3, verification: null, chain_tag: null, trust_min: null, collection_stats: null, viewer_is_member: false } as never;
+    return {
+      type: "user", privacy, member_count: 3, verification: null, chain_tag: null, trust_min: null,
+      collection_stats: null, viewer_is_member: false,
+      can_join: { allowed: false, unlock_hint: null, reason_code: VERDICT[privacy] ?? null },
+      viewer_membership_status: "none",
+    } as never;
   }
 
   it.each([
     ["closed", "Private", "This community is private."],
     ["secret", "Invite-only", "Members join by invitation."],
-  ])("%s: the %s pill is focusable and a tap shows why", (privacy, _label, copy) => {
+  ])("%s: the %s pill is focusable and a tap shows why", async (privacy, label, copy) => {
     render(<CommunityActionBar card={card({})} dossier={dossier(privacy)} isJoined={false} joinPending={false} />);
-    const pill = screen.getByRole("button", { name: "Join Atlas" });
+    const pill = screen.getByRole("button", { name: `${label} — Atlas` });
     expect(pill).not.toBeDisabled();
     expect(pill).toHaveAttribute("aria-disabled", "true");
     fireEvent.click(pill);
-    expect(screen.getByRole("status")).toHaveTextContent(copy);
+    expect((await filledNotice("status"))).toHaveTextContent(copy);
   });
 });

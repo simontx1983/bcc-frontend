@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { humanizeCode, isCode } from "@/lib/api/errors";
+import { humanizeCode, isCode, isServiceUnavailable } from "@/lib/api/errors";
 import { BccApiError } from "@/lib/api/types";
 
 /**
@@ -85,5 +85,32 @@ describe("humanizeCode", () => {
     expect(out).toBe("Something went wrong.");
     expect(out).not.toBe(leaky.message);
     expect(out).not.toContain("SQLSTATE");
+  });
+});
+
+/**
+ * "The read did not run": the server's own `bcc_unavailable`, or any 503
+ * the host answered without a BCC envelope (the client then labels it by
+ * body shape, so only the status tells).
+ */
+describe("isServiceUnavailable", () => {
+  const at = (code: string, status: number) => new BccApiError(code, "raw", status, null);
+
+  it.each([
+    ["bcc_unavailable at 503", at("bcc_unavailable", 503)],
+    ["bcc_invalid_response at 503 (HTML page)", at("bcc_invalid_response", 503)],
+    ["bcc_unexpected_status at 503 (JSON, no envelope)", at("bcc_unexpected_status", 503)],
+  ])("is true for %s", (_label, value) => {
+    expect(isServiceUnavailable(value)).toBe(true);
+  });
+
+  it.each([
+    ["bcc_invalid_response at 502", at("bcc_invalid_response", 502)],
+    ["bcc_internal_error at 500", at("bcc_internal_error", 500)],
+    ["bcc_not_found at 404", at("bcc_not_found", 404)],
+    ["a network failure", new TypeError("Failed to fetch")],
+    ["null", null],
+  ])("is false for %s", (_label, value) => {
+    expect(isServiceUnavailable(value)).toBe(false);
   });
 });

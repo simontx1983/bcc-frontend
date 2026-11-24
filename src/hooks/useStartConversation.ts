@@ -28,6 +28,7 @@ import type {
 } from "@/lib/api/types";
 import { BADGES_QUERY_KEY_ROOT } from "@/hooks/useBadges";
 import { CONVERSATIONS_QUERY_KEY_ROOT } from "@/hooks/useConversations";
+import { QUEUED_MESSAGES_QUERY_KEY_ROOT } from "@/hooks/useQueuedMessages";
 
 export function useStartConversationMutation(
   options: Omit<
@@ -50,6 +51,11 @@ export function useStartConversationMutation(
     ...options,
     onSuccess: (...args) => {
       void queryClient.invalidateQueries({ queryKey: CONVERSATIONS_QUERY_KEY_ROOT });
+      // F-319 (L-me2): a send parked in an unclaimed page's queue shows
+      // on the Queued tab, so that list re-reads too.
+      if ("queued" in args[0]) {
+        void queryClient.invalidateQueries({ queryKey: QUEUED_MESSAGES_QUERY_KEY_ROOT });
+      }
       // Refresh badges immediately so the messages-unread badge picks
       // up the new conversation. Server-side bump already ran inside
       // MessagesService::sendMessage.

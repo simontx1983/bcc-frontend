@@ -21,7 +21,11 @@
 
 "use client";
 
-import { DirectoryGrid } from "@/components/directory/DirectoryGrid";
+import {
+  DirectoryGrid,
+  DirectoryThrottleNotice,
+  isDirectoryThrottled,
+} from "@/components/directory/DirectoryGrid";
 import { LoadFailure } from "@/components/ui/LoadFailure";
 import {
   shouldWithdrawOnDenial,
@@ -70,5 +74,10 @@ function DirectoryResultsData({
     onDenied,
   );
 
-  return <DirectoryGrid query={query} />;
+  return (
+    <>
+      <DirectoryThrottleNotice throttled={isDirectoryThrottled(query)} />
+      <DirectoryGrid query={query} searchQuery={filters.q} />
+    </>
+  );
 }

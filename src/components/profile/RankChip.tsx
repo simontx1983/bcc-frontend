@@ -106,8 +106,6 @@ const DOT_BY_REPUTATION_TIER: Record<ReputationTier, { color: string; glow: bool
   caution: { color: "var(--bcc-trust-caution)", glow: true  },
   neutral: { color: "var(--bcc-trust-neutral)", glow: false },
   trusted: { color: "var(--bcc-trust-trusted)", glow: true  },
-  proven:  { color: "var(--bcc-trust-proven)",  glow: true  },
-  // Legacy wire value, same band, same colour — see ReputationTier.
   elite:   { color: "var(--bcc-trust-proven)",  glow: true  },
 };
 

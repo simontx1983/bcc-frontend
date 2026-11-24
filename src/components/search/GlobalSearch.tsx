@@ -38,8 +38,10 @@
  *   that the user always touches before it does anything.
  */
 
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
+  Suspense,
+  useCallback,
   useEffect,
   useId,
   useRef,
@@ -54,6 +56,7 @@ import {
   useKeyboardShortcuts,
 } from "@/hooks/useKeyboardShortcuts";
 import { useRecentSearches } from "@/hooks/useRecentSearches";
+import { useSearchTerm } from "@/hooks/useSearchTerm";
 import { useTrendingSearches } from "@/hooks/useTrendingSearches";
 import type {
   ProjectSearchResult,
@@ -63,6 +66,20 @@ import type {
 import { toInternalHref } from "@/lib/internal-route";
 
 const MAX_TRENDING_IN_DROPDOWN = 5;
+
+/** F-421: an empty answer the server marked `incomplete`. */
+export const SUGGESTIONS_UNAVAILABLE_COPY = "Suggestions unavailable right now.";
+/** F-421: rows shown, but the server marked the answer `incomplete`. */
+export const SUGGESTIONS_PARTIAL_COPY = "Some suggestions couldn't load.";
+
+const SEARCHING_COPY = "Searching…";
+const SEARCH_FAILED_COPY = "Search is briefly unavailable. Try again in a moment.";
+
+/** F-264: the live region's line once current rows are on screen. */
+function suggestionCountCopy(count: number, incomplete: boolean): string {
+  const line = count === 1 ? "1 suggestion." : `${count} suggestions.`;
+  return incomplete ? `${line} ${SUGGESTIONS_PARTIAL_COPY}` : line;
+}
 
 /**
  * Scope options for the dropdown's <select>. `undefined` = All (no
@@ -128,13 +145,77 @@ export function GlobalSearch({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
 
-  const search = useGlobalSearch(query, scope);
+  // The settled (debounced, floored) term the query keys on. GlobalSearch
+  // owns it so it knows which term the rows on screen answer (F-264).
+  const term = useSearchTerm(query);
+  // Fetch only while the dropdown is open: the box can now hold a term
+  // while closed (synced from /search?q=, below), and on mobile it is
+  // mounted but hidden.
+  const search = useGlobalSearch(term, scope, { enabled: open });
   const items: SearchSuggestion[] = search.data?.items ?? [];
+  // F-421: a vertical could not be read, so the list may be missing
+  // matches. A missing flag (older servers) means complete.
+  const incomplete = search.data?.incomplete === true;
+
+  // On /search the box shows the page's query: after a submit, on a deep
+  // link, and on back/forward (F-260 M12). Leaving /search clears it, but
+  // only if it still holds the synced term, never something typed since.
+  const syncedQueryRef = useRef<string | null>(null);
+  const syncFromUrl = useCallback((urlQuery: string | null) => {
+    if (urlQuery !== null) {
+      syncedQueryRef.current = urlQuery;
+      setQuery(urlQuery);
+      return;
+    }
+    const synced = syncedQueryRef.current;
+    syncedQueryRef.current = null;
+    if (synced !== null) {
+      setQuery((current) => (current === synced ? "" : current));
+    }
+  }, []);
 
   const recents = useRecentSearches();
   const trimmed = query.trim();
   const showPreSearch = open && trimmed.length < 2;
   const showResults = open && trimmed.length >= 2;
+
+  // F-264: the rows ↓/↑/Enter may act on. Only rows that are on screen
+  // AND answer what is typed now: not the previous term's rows, kept as
+  // placeholder while the new term loads or still keyed during the
+  // debounce. Otherwise the keys opened a row for a query the box no
+  // longer showed, or, after backspacing under 2 chars, a row that was
+  // not rendered at all (the placeholder outlives the disabled key).
+  const rowsCurrent =
+    showResults && search.data !== undefined && !search.isPlaceholderData && term === trimmed;
+  const actionable = rowsCurrent ? items : [];
+
+  // What the results area says when it has no rows. "No matches" only for
+  // the term typed now: during the debounce the query still holds the
+  // previous term, so its empty answer is not this term's.
+  const resultsMessage = !showResults
+    ? ""
+    : search.isError
+      ? SEARCH_FAILED_COPY
+      : items.length > 0
+        ? ""
+        : search.isFetching || !rowsCurrent
+          ? SEARCHING_COPY
+          : incomplete
+            ? SUGGESTIONS_UNAVAILABLE_COPY
+            : `No matches for “${trimmed}”.`;
+  // F-264: the same lines for assistive tech, which never heard the
+  // visible ones, plus a count once current rows land.
+  const liveText =
+    resultsMessage !== ""
+      ? resultsMessage
+      : !showResults
+        ? ""
+        : rowsCurrent
+          ? suggestionCountCopy(items.length, incomplete)
+          : SEARCHING_COPY;
+  const listboxId = `${inputId}-listbox`;
+  const listboxShown = showResults && !search.isError && items.length > 0;
+
   // Only fetch trending when we'd actually display it (pre-search surface
   // is visible AND the input is focused). Avoids a network call for users
   // who never touch the search bar.
@@ -219,30 +300,43 @@ export function GlobalSearch({
     const cleaned = q.trim();
     if (cleaned.length < 2) return;
     recents.push(cleaned);
-    navigateAndClose(`/search?q=${encodeURIComponent(cleaned)}`);
+    // Keep the term in the box: /search is about to show its results.
+    // (Clearing it emptied the box under its own results page; a re-submit
+    // of the same term changes no URL, so the sync could not refill it.)
+    setQuery(cleaned);
+    navigateAndClose(`/search?q=${encodeURIComponent(cleaned)}`, {
+      keepQuery: true,
+    });
   };
 
   const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
     if (event.key === "ArrowDown") {
       event.preventDefault();
-      if (items.length === 0) return;
-      setOpen(true);
-      setActiveIndex((prev) => (prev + 1) % items.length);
+      // Closed: open it. The rows become actionable once they are shown.
+      if (!open) {
+        setOpen(true);
+        return;
+      }
+      if (actionable.length === 0) return;
+      setActiveIndex((prev) => (prev + 1) % actionable.length);
       return;
     }
     if (event.key === "ArrowUp") {
       event.preventDefault();
-      if (items.length === 0) return;
-      setOpen(true);
-      setActiveIndex((prev) => (prev <= 0 ? items.length - 1 : prev - 1));
+      if (!open) {
+        setOpen(true);
+        return;
+      }
+      if (actionable.length === 0) return;
+      setActiveIndex((prev) => (prev <= 0 ? actionable.length - 1 : prev - 1));
       return;
     }
     if (event.key === "Enter") {
-      // Active suggestion → navigate to that entity AND record the
-      // query in recents (the user just used it productively).
-      if (activeIndex >= 0 && activeIndex < items.length) {
+      // Active CURRENT suggestion → navigate to that entity AND record
+      // the query in recents (the user just used it productively).
+      if (activeIndex >= 0 && activeIndex < actionable.length) {
         event.preventDefault();
-        const target = items[activeIndex];
+        const target = actionable[activeIndex];
         if (target !== undefined) {
           if (trimmed.length >= 2) recents.push(trimmed);
           navigateAndClose(target.href);
@@ -258,9 +352,12 @@ export function GlobalSearch({
     }
   };
 
-  const navigateAndClose = (href: string) => {
+  const navigateAndClose = (
+    href: string,
+    { keepQuery = false }: { keepQuery?: boolean } = {},
+  ) => {
     setOpen(false);
-    setQuery("");
+    if (!keepQuery) setQuery("");
     setActiveIndex(-1);
     inputRef.current?.blur();
     router.push(toInternalHref(href));
@@ -278,6 +375,12 @@ export function GlobalSearch({
           : "relative flex items-center gap-1"
       }
     >
+      {/* useSearchParams needs its own Suspense boundary (Next 15), or
+          every statically rendered page would bail out to client
+          rendering up to the nearest one. Renders nothing. */}
+      <Suspense fallback={null}>
+        <SearchQuerySync onChange={syncFromUrl} />
+      </Suspense>
       <label htmlFor={inputId} className="sr-only">
         Search BCC
       </label>
@@ -313,11 +416,15 @@ export function GlobalSearch({
         onFocus={() => setOpen(true)}
         onKeyDown={handleKeyDown}
         role="combobox"
-        aria-expanded={showDropdown}
-        aria-controls={`${inputId}-listbox`}
+        // The popup the combobox controls is the suggestions listbox only
+        // (F-264): the pre-search surface is buttons, not options.
+        aria-expanded={listboxShown}
+        aria-controls={listboxShown ? listboxId : undefined}
         aria-autocomplete="list"
         aria-activedescendant={
-          activeIndex >= 0 ? `${inputId}-opt-${activeIndex}` : undefined
+          activeIndex >= 0 && activeIndex < actionable.length
+            ? `${inputId}-opt-${activeIndex}`
+            : undefined
         }
         placeholder={placeholder}
         className={
@@ -326,10 +433,15 @@ export function GlobalSearch({
         }
       />
 
+      {/* F-264: the results lines were plain text a screen reader never
+          heard. Mounted with the control (outside the popup) and empty
+          at first, so the first line is announced; filled from liveText. */}
+      <p role="status" aria-atomic="true" className="sr-only">
+        {liveText}
+      </p>
+
       {showDropdown && (
         <div
-          id={`${inputId}-listbox`}
-          role="listbox"
           // Centered on the input (left-1/2 + -translate-x-1/2) rather than
           // left-anchored — min-w-[28rem] can be wider than a narrow host
           // container, and anchoring left let it overflow off to the
@@ -358,19 +470,25 @@ export function GlobalSearch({
               trendingLoading={trending.isLoading}
               onSelectTrending={(q) => {
                 recents.push(q);
-                navigateAndClose(`/search?q=${encodeURIComponent(q)}`);
+                setQuery(q);
+                navigateAndClose(`/search?q=${encodeURIComponent(q)}`, {
+                  keepQuery: true,
+                });
               }}
             />
-          ) : search.isError ? (
+          ) : !listboxShown ? (
             <div className="bcc-mono bg-bcc-surface-raised px-4 py-3 text-[11px] text-bcc-text-secondary">
-              Search is briefly unavailable. Try again in a moment.
-            </div>
-          ) : items.length === 0 ? (
-            <div className="bcc-mono bg-bcc-surface-raised px-4 py-3 text-[11px] text-bcc-text-secondary">
-              {search.isFetching ? "Searching…" : `No matches for “${trimmed}”.`}
+              {/* An empty INCOMPLETE answer is not "no matches". No retry
+                  button: the next keystroke asks again. */}
+              {resultsMessage}
             </div>
           ) : (
-            <ul role="presentation" className="flex flex-col gap-px">
+            <ul
+              id={listboxId}
+              role="listbox"
+              aria-label="Suggestions"
+              className="flex flex-col gap-px"
+            >
               {items.map((item, idx) => (
                 <SuggestionRow
                   key={suggestionKey(item)}
@@ -387,6 +505,13 @@ export function GlobalSearch({
             </ul>
           )}
 
+          {/* Rows shown, but a vertical could not be read: say so quietly. */}
+          {showResults && !search.isError && items.length > 0 && incomplete && (
+            <p className="bcc-mono bg-bcc-surface-raised px-4 py-2 text-[10px] text-bcc-text-secondary">
+              {SUGGESTIONS_PARTIAL_COPY}
+            </p>
+          )}
+
           {trimmed.length >= 2 && (
             <button
               type="button"
@@ -400,6 +525,29 @@ export function GlobalSearch({
       )}
     </div>
   );
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// SearchQuerySync — reports /search's `?q=` (or null off /search) to
+// the box. A separate null-rendering child so the useSearchParams read
+// sits inside its own Suspense boundary.
+// ─────────────────────────────────────────────────────────────────────
+
+function SearchQuerySync({
+  onChange,
+}: {
+  onChange: (urlQuery: string | null) => void;
+}) {
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const urlQuery =
+    pathname === "/search" ? (searchParams.get("q") ?? "").trim() : null;
+
+  useEffect(() => {
+    onChange(urlQuery);
+  }, [urlQuery, onChange]);
+
+  return null;
 }
 
 // ─────────────────────────────────────────────────────────────────────
@@ -525,45 +673,49 @@ interface SuggestionRowProps {
 
 function SuggestionRow({ item, id, active, onActivate, onHover }: SuggestionRowProps) {
   return (
-    <li role="option" id={id} aria-selected={active}>
-      <button
-        type="button"
-        onClick={onActivate}
-        onMouseEnter={onHover}
-        className={
-          "flex w-full items-center justify-between gap-3 px-4 py-2.5 text-left motion-safe:transition motion-safe:duration-bcc-fast " +
-          (active ? "bg-bcc-surface-active" : "bg-bcc-surface-raised hover:bg-bcc-surface-hover")
-        }
-      >
-        <span className="flex flex-col gap-0.5 overflow-hidden">
-          <span className="bcc-stencil truncate text-sm text-bcc-text">{item.name}</span>
-          <span className="bcc-mono truncate text-[10px] text-bcc-text-secondary">
-            {/* Communities use the /slug idiom (a group has no
-                @-handle); members + pages keep @handle. */}
-            {item.card_kind.toUpperCase()} ·{" "}
-            {item.card_kind === "community" ? `/${item.handle}` : `@${item.handle}`}
-          </span>
+    // F-264: the option holds no control of its own. A nested <button>
+    // made every row a Tab stop and put an interactive child inside an
+    // option. A pointer picks it here; the keyboard picks it through the
+    // combobox (aria-activedescendant + Enter).
+    <li
+      role="option"
+      id={id}
+      aria-selected={active}
+      onClick={onActivate}
+      onMouseEnter={onHover}
+      className={
+        "flex w-full cursor-pointer items-center justify-between gap-3 px-4 py-2.5 text-left motion-safe:transition motion-safe:duration-bcc-fast " +
+        (active ? "bg-bcc-surface-active" : "bg-bcc-surface-raised hover:bg-bcc-surface-hover")
+      }
+    >
+      <span className="flex flex-col gap-0.5 overflow-hidden">
+        <span className="bcc-stencil truncate text-sm text-bcc-text">{item.name}</span>
+        <span className="bcc-mono truncate text-[10px] text-bcc-text-secondary">
+          {/* Communities use the /slug idiom (a group has no
+              @-handle); members + pages keep @handle. */}
+          {item.card_kind.toUpperCase()} ·{" "}
+          {item.card_kind === "community" ? `/${item.handle}` : `@${item.handle}`}
         </span>
+      </span>
 
-        {/* Right-hand cluster: claim-verified checkmark (§ verified-wins,
-            server-resolved boolean) beside the tier chip. Either may
-            render without the other. */}
-        <span className="flex shrink-0 items-center gap-1.5">
-          {item.is_claim_verified && <VerifiedBadge />}
-          {item.reputation_tier_label !== null && item.reputation_tier !== null && (
-            <span
-              className="bcc-mono shrink-0 rounded-sm px-2 py-0.5 text-[9px] tracking-[0.18em]"
-              style={{
-                color: `var(--tier-${item.reputation_tier})`,
-                background: "var(--bcc-surface-hover)",
-                border: "1px solid var(--bcc-border)",
-              }}
-            >
-              {item.reputation_tier_label.toUpperCase()}
-            </span>
-          )}
-        </span>
-      </button>
+      {/* Right-hand cluster: claim-verified checkmark (§ verified-wins,
+          server-resolved boolean) beside the tier chip. Either may
+          render without the other. */}
+      <span className="flex shrink-0 items-center gap-1.5">
+        {item.is_claim_verified && <VerifiedBadge />}
+        {item.reputation_tier_label !== null && item.reputation_tier !== null && (
+          <span
+            className="bcc-mono shrink-0 rounded-sm px-2 py-0.5 text-[9px] tracking-[0.18em]"
+            style={{
+              color: `var(--tier-${item.reputation_tier})`,
+              background: "var(--bcc-surface-hover)",
+              border: "1px solid var(--bcc-border)",
+            }}
+          >
+            {item.reputation_tier_label.toUpperCase()}
+          </span>
+        )}
+      </span>
     </li>
   );
 }

@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * ValidatorFilters — filter controls for the dedicated /validators page.
+ * ValidatorFilters — filter controls for Explore ▸ Validators (/explore).
  *
  * Sibling to DirectoryFilters, but specialised for the single
  * `kind=validator` slice, so it:
@@ -11,12 +11,14 @@
  *   - ADDS validator-only axes the shared directory can't express:
  *       · Status chips (active / jailed / inactive)
  *       · Self-stake in the sort dropdown (bonded self-stake, DESC)
- *   - KEEPS search verbatim
+ *   - KEEPS search and the tier chips (TIER_OPTIONS, shared with the
+ *     other Explore tabs, so "Elite" reads the same everywhere). Tier
+ *     came back with Site Structure A: old /directory?kind=validator&tier=…
+ *     links forward here, and Explore filters every tab by tier.
  *
- * Deliberately leaner than DirectoryFilters: tier, good-standing, and the
- * min-self-stake floor were dropped from this surface (the underlying
- * `DirectoryFilters` shape still carries those fields — they just default
- * to null/false here and the shared /directory still exposes them).
+ * Leaner than DirectoryFilters: good-standing and the min-self-stake floor
+ * are not on this surface (the underlying `DirectoryFilters` shape still
+ * carries those fields — they default to false/null here).
  *
  * Stateless like DirectoryFilters: the parent owns the filter values +
  * URL state, this component just renders controls and fires onChange.
@@ -24,6 +26,8 @@
 
 import type { ChangeEvent } from "react";
 
+import { TIER_OPTIONS } from "@/components/directory/DirectoryFilters";
+import { ScopedSearchField } from "@/components/search/ScopedSearchField";
 import { FilterChipRow } from "@/components/ui/FilterChipRow";
 import type {
   DirectorySort,
@@ -38,14 +42,14 @@ interface Props {
   onChange: (next: Filters) => void;
 }
 
-const STATUS_OPTIONS: { value: ValidatorStatusFilter | null; label: string }[] = [
+export const STATUS_OPTIONS: { value: ValidatorStatusFilter | null; label: string }[] = [
   { value: null,       label: "Any" },
   { value: "active",   label: "Active" },
   { value: "jailed",   label: "Jailed" },
   { value: "inactive", label: "Inactive" },
 ];
 
-const SORT_OPTIONS: { value: DirectorySort; label: string }[] = [
+export const SORT_OPTIONS: { value: DirectorySort; label: string }[] = [
   { value: "trust",        label: "Trust" },
   { value: "self_stake",   label: "Self stake" },
   { value: "endorsements", label: "Vouches" },
@@ -63,19 +67,16 @@ export function ValidatorFilters({ value, onChange }: Props) {
       aria-label="Validator filters"
       className="bcc-panel flex flex-col gap-5 p-5"
     >
-      {/* Search row */}
-      <div className="flex flex-col gap-2">
-        <label className="bcc-mono text-[10px] tracking-[0.2em] text-cardstock-deep">
-          SEARCH
-        </label>
-        <input
-          type="search"
-          value={value.q}
-          onChange={(e: ChangeEvent<HTMLInputElement>) => update({ q: e.target.value })}
-          placeholder="Moniker or handle…"
-          className="bcc-mono w-full bg-cardstock px-3 py-2 text-sm text-ink placeholder:text-ink-soft/60 focus:outline-none ring-1 ring-cardstock-edge focus:ring-2 focus:ring-blueprint"
-        />
-      </div>
+      {/* Search row: scoped to validators (Structure A §9). GET /cards caps q at 100. */}
+      <ScopedSearchField
+        tone="cardstock"
+        label="SEARCH"
+        placeholder="Search validators by moniker or @handle…"
+        value={value.q}
+        onChange={(q) => update({ q })}
+        onClear={() => update({ q: "" })}
+        maxLength={100}
+      />
 
       {/* Chain dropdown — always shown; every row here is a validator. */}
       <div className="flex flex-col gap-2">
@@ -108,6 +109,14 @@ export function ValidatorFilters({ value, onChange }: Props) {
         options={STATUS_OPTIONS}
         selected={value.status ?? null}
         onSelect={(next) => update({ status: next })}
+      />
+
+      {/* Tier chips — shared with the other Explore tabs */}
+      <FilterChipRow
+        label="TIER"
+        options={TIER_OPTIONS}
+        selected={value.tier}
+        onSelect={(next) => update({ tier: next })}
       />
 
       {/* Sort */}

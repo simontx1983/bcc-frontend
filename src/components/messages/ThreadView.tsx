@@ -20,11 +20,33 @@
  * Auto-scrolls to bottom on initial render and on new server messages.
  * Respects `prefers-reduced-motion`: skips smooth scroll when the OS
  * setting is on.
+ *
+ * A reader scrolled up into history is never yanked down by a polled
+ * message; instead a "New messages ↓" pill appears (F-319). It jumps to
+ * the latest message and the composer, and goes away on its own once the
+ * reader scrolls back to the bottom. No count: it says there is something
+ * new, not how much.
+ *
+ * F-319 (M-me1): a long unbroken string (a hash, an address, a URL) ran
+ * out of the bubble. `break-words` only breaks a word that can't fit on a
+ * line of its own, and the flex column it sits in wouldn't shrink below
+ * that word's width (min-width: auto). The column is now `min-w-0` and the
+ * bubble wraps with `overflow-wrap: anywhere`.
+ *
+ * F-319 (L-me3): the whole thread used to be the live region, so a member's
+ * own send was read back to them, and an empty thread had no region at all
+ * (it renders the "say hi" sheet), so the first message arrived with its
+ * region and wasn't announced. Now one sr-only polite region, mounted
+ * empty in both states, says only what's NEW and from SOMEONE ELSE: "New
+ * message from Dana: …", a fresh keyed span per arrival (#328). Messages
+ * already there when the thread opens are not announced, and neither are
+ * a blocked sender's (they render collapsed) or inline notices.
  */
 
 import { memo, useEffect, useId, useMemo, useRef, useState, type RefObject } from "react";
 
 import { Avatar } from "@/components/identity/Avatar";
+import { BottomSlot } from "@/components/ui/BottomSlot";
 import { Spinner } from "@/components/ui/Spinner";
 import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
 import { useRevealBlockedMessages } from "@/hooks/useRevealBlockedMessages";
@@ -87,10 +109,48 @@ export function ThreadView({ conversationId, items, viewerId, bottomAnchorRef }:
 
   // Where the reader was BEFORE new messages rendered: measured on scroll,
   // because by the time the effect below runs the page has already grown.
+  // L-me3: what's new from someone else, announced once per arrival.
+  const [arrival, setArrival] = useState<{ seq: number; text: string } | null>(null);
+  const arrivalSeq = useRef(0);
+  const seenIdsRef = useRef<Set<number> | null>(null);
+  useEffect(() => {
+    if (seenIdsRef.current === null) {
+      // What the thread opened with is already on screen, not news.
+      seenIdsRef.current = new Set(items.map((m) => m.id));
+      return;
+    }
+    const seen = seenIdsRef.current;
+    const fresh = items.filter((m) => !seen.has(m.id));
+    for (const m of fresh) seen.add(m.id);
+    const fromOthers = fresh.filter(
+      (m) => !m.is_inline_notice && !m.sender_blocked_by_viewer && !isMine(m, viewerId),
+    );
+    const latest = fromOthers[fromOthers.length - 1];
+    if (latest === undefined) return;
+    const who = nameOf(latest.author ?? null);
+    const body = stripHtml(latest.body);
+    const one = who !== "" ? `New message from ${who}: ${body}` : `New message: ${body}`;
+    arrivalSeq.current += 1;
+    setArrival({
+      seq: arrivalSeq.current,
+      text: fromOthers.length === 1 ? one : `${fromOthers.length} new messages. ${one}`,
+    });
+  }, [items, viewerId]);
+  const announcer = (
+    <p aria-live="polite" aria-atomic="true" className="sr-only">
+      {arrival !== null && <span key={arrival.seq}>{arrival.text}</span>}
+    </p>
+  );
+
   const nearBottomRef = useRef(true);
+  // F-319: a message arrived while the reader was up in history.
+  const [hasUnseen, setHasUnseen] = useState(false);
+  const containerRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     const onScroll = () => {
-      nearBottomRef.current = isNearPageBottom();
+      const near = isNearPageBottom();
+      nearBottomRef.current = near;
+      if (near) setHasUnseen(false);
     };
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
@@ -117,54 +177,95 @@ export function ThreadView({ conversationId, items, viewerId, bottomAnchorRef }:
         block: "end",
       });
       nearBottomRef.current = true;
+      setHasUnseen(false);
+    } else if (grew && lastId !== null && lastId > (prevLastIdRef.current ?? 0)) {
+      // Only a NEWER last message: the newest one being deleted also
+      // changes the last id, and that is not "new messages".
+      setHasUnseen(true);
     }
     prevLastIdRef.current = lastId;
   }, [items, reducedMotion, viewerId, bottomAnchorRef]);
 
+  const jumpToLatest = () => {
+    (bottomAnchorRef?.current ?? endRef.current)?.scrollIntoView({
+      behavior: reducedMotion ? "auto" : "smooth",
+      block: "end",
+    });
+    nearBottomRef.current = true;
+    setHasUnseen(false);
+    // The pill unmounts on click; land focus where the reader is going
+    // (the reply box when there is one, else the thread) rather than on
+    // <body>.
+    const target =
+      bottomAnchorRef?.current?.querySelector<HTMLElement>("textarea") ?? containerRef.current;
+    target?.focus({ preventScroll: true });
+  };
+
   if (items.length === 0) {
     return (
-      <div className="bcc-paper p-6 text-center">
-        <p className="bcc-mono text-ink-soft">No messages yet — say hi.</p>
-      </div>
+      <>
+        {announcer}
+        <div className="bcc-paper p-6 text-center">
+          <p className="bcc-mono text-ink-soft">No messages yet — say hi.</p>
+        </div>
+      </>
     );
   }
 
   return (
-    <div
-      className="flex flex-col gap-3"
-      aria-live="polite"
-      aria-relevant="additions"
-    >
-      {segments.map((seg) => {
-        if (seg.kind === "blocked") {
-          // Keyed on the run's first message so reveal state survives a
-          // refetch that appends to the same run.
+    <>
+      {announcer}
+      <div
+        ref={containerRef}
+        tabIndex={-1}
+        className="flex flex-col gap-3 focus:outline-none"
+      >
+        {segments.map((seg) => {
+          if (seg.kind === "blocked") {
+            // Keyed on the run's first message so reveal state survives a
+            // refetch that appends to the same run.
+            return (
+              <BlockedRun
+                key={`blocked-${seg.msgs[0]?.id ?? 0}`}
+                conversationId={conversationId}
+                msgs={seg.msgs}
+                viewerId={viewerId}
+              />
+            );
+          }
+          const msg = seg.msg;
+          if (msg.is_inline_notice) {
+            return (
+              <p
+                key={msg.id}
+                className="bcc-mono mx-auto text-center text-[10px] tracking-[0.18em] text-bcc-text-secondary"
+              >
+                {stripHtml(msg.body)}
+              </p>
+            );
+          }
           return (
-            <BlockedRun
-              key={`blocked-${seg.msgs[0]?.id ?? 0}`}
-              conversationId={conversationId}
-              msgs={seg.msgs}
-              viewerId={viewerId}
-            />
+            <Bubble key={msg.id} msg={msg} isMine={isMine(msg, viewerId)} />
           );
-        }
-        const msg = seg.msg;
-        if (msg.is_inline_notice) {
-          return (
-            <p
-              key={msg.id}
-              className="bcc-mono mx-auto text-center text-[10px] tracking-[0.18em] text-bcc-text-secondary"
-            >
-              {stripHtml(msg.body)}
-            </p>
-          );
-        }
-        return (
-          <Bubble key={msg.id} msg={msg} isMine={isMine(msg, viewerId)} />
-        );
-      })}
-      <div ref={endRef} aria-hidden />
-    </div>
+        })}
+        <div ref={endRef} aria-hidden />
+      </div>
+      {hasUnseen && (
+        // Outside the thread's live region: the new message itself is
+        // announced there, so the pill appearing is not announced again.
+        // F-514: in the shared BottomSlot, stacked with the consent banner
+        // and the other bottom-centre notices instead of under them.
+        <BottomSlot>
+          <button
+            type="button"
+            onClick={jumpToLatest}
+            className="bcc-mono pointer-events-auto inline-flex min-h-[44px] items-center gap-2 border-2 border-bcc-border-strong bg-bcc-surface px-4 text-[11px] tracking-[0.16em] text-bcc-text shadow-lg hover:bg-bcc-surface-hover"
+          >
+            New messages <span aria-hidden>↓</span>
+          </button>
+        </BottomSlot>
+      )}
+    </>
   );
 }
 
@@ -200,7 +301,7 @@ function Bubble({
       />
       <div
         className={
-          "flex max-w-[80%] flex-col gap-1 " +
+          "flex min-w-0 max-w-[80%] flex-col gap-1 " +
           (isMine ? "items-end" : "items-start")
         }
       >
@@ -211,7 +312,7 @@ function Bubble({
         )}
         <div
           className={
-            "rounded-lg px-3 py-2 text-sm whitespace-pre-wrap break-words " +
+            "max-w-full rounded-lg px-3 py-2 text-sm whitespace-pre-wrap [overflow-wrap:anywhere] " +
             (isMine
               ? "bg-cardstock text-ink"
               : "border border-bcc-border bg-bcc-surface-raised text-bcc-text")

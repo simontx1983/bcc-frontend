@@ -30,14 +30,39 @@ const directive = (csp: string, name: string): string[] =>
     ?.slice(1) ?? [];
 
 describe("S5 security headers", () => {
-  it("sends exactly the five headers", () => {
+  it("sends exactly the six headers", () => {
     expect(buildSecurityHeaders(PROD).map((h) => h.key)).toEqual([
       "X-Frame-Options",
       "Content-Security-Policy",
       "X-Content-Type-Options",
       "Referrer-Policy",
+      "Permissions-Policy",
       "Content-Security-Policy-Report-Only",
     ]);
+  });
+
+  it("Permissions-Policy denies the unused powerful features and nothing the app uses", () => {
+    const policy = header("Permissions-Policy") ?? "";
+    const entries = policy.split(",").map((e) => e.trim());
+    // Every entry is a deny (empty allow-list) — nothing is granted.
+    for (const entry of entries) expect(entry).toMatch(/^[a-z-]+=\(\)$/);
+    const denied = entries.map((e) => e.replace("=()", ""));
+    expect(denied).toEqual(
+      expect.arrayContaining([
+        "camera",
+        "microphone",
+        "geolocation",
+        "payment",
+        "usb",
+        "hid",
+        "serial",
+        "bluetooth",
+      ]),
+    );
+    // Used by ShareButton / useCopyConfirm / native video controls.
+    for (const used of ["web-share", "clipboard-write", "clipboard-read", "fullscreen"]) {
+      expect(denied).not.toContain(used);
+    }
   });
 
   it("enforces anti-framing two ways, and enforces nothing else", () => {
@@ -74,6 +99,15 @@ describe("S5 security headers", () => {
     expect(directive(csp, "report-uri")).toEqual([
       "https://o42.ingest.us.sentry.io/api/7/security/?sentry_key=abc123",
     ]);
+  });
+
+  it("allows Cloudflare Turnstile's script and iframe, and nothing wider (the /login captcha)", () => {
+    const csp = buildReportOnlyCsp(PROD);
+    expect(directive(csp, "script-src")).toContain("https://challenges.cloudflare.com");
+    expect(directive(csp, "frame-src")).toContain("https://challenges.cloudflare.com");
+    // Cloudflare's documented CSP is those two; no wildcard, no connect-src.
+    expect(csp).not.toMatch(/\*\.cloudflare\.com/);
+    expect(directive(csp, "connect-src")).not.toContain("https://challenges.cloudflare.com");
   });
 
   it("'unsafe-eval' only in dev", () => {

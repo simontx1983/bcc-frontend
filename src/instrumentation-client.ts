@@ -5,6 +5,7 @@
 import * as Sentry from "@sentry/nextjs";
 
 import { initAnalytics } from "@/lib/analytics/posthog";
+import { scrubSentryEvent } from "@/lib/sentry/scrub";
 
 // Product analytics is opt-in: this starts PostHog only when the build is
 // configured AND this device has already consented. Otherwise the consent
@@ -41,6 +42,11 @@ Sentry.init({
 
   // Disabled: see sentry.server.config.ts for rationale.
   sendDefaultPii: false,
+
+  // See sentry.server.config.ts: URLs lose their query string and
+  // fragment before any event leaves.
+  beforeSend: scrubSentryEvent,
+  beforeSendTransaction: scrubSentryEvent,
 });
 
 export const onRouterTransitionStart = Sentry.captureRouterTransitionStart;

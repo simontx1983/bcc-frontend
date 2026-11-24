@@ -8,6 +8,20 @@
  */
 
 /**
+ * A wait in seconds as words: "a minute", "12 minutes", "5 hours".
+ * Always rounded UP, so the wait it names is never shorter than the real
+ * one: someone told "in 4 hours" who tries at 4 hours must not be refused.
+ * Under two hours it counts minutes (90 minutes, not "2 hours").
+ */
+export function formatWaitDuration(seconds: number): string {
+  if (!Number.isFinite(seconds) || seconds <= 60) return "a minute";
+  const minutes = Math.ceil(seconds / 60);
+  if (minutes < 120) return `${minutes} minutes`;
+  const hours = Math.ceil(seconds / 3600);
+  return `${hours} hours`;
+}
+
+/**
  * Format an ISO 8601 UTC timestamp as a relative phrase like "2d" /
  * "3h" / "just now". Bounded resolution — no calendar math beyond
  * 7 days; older shows "Mmm dd".
@@ -83,8 +97,14 @@ export function formatShortDate(iso: string): string {
  * server-side render and client-side render don't drift across
  * timezones. Returns "—" for empty / unparseable values.
  */
-export function formatJoinDate(iso: string): string {
-  if (iso === "") return "—";
+/**
+ * When an account was created, as other members may see it: MONTH and
+ * YEAR only ("MAY 2026"), never a day (Phillip, 2026-11-24). UTC, so a
+ * month-truncated timestamp (the 1st, 00:00Z) reads as its own month in
+ * every timezone. "—" when absent or unreadable.
+ */
+export function formatJoinDate(iso: string | null | undefined): string {
+  if (iso === null || iso === undefined || iso === "") return "—";
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "—";
   const months = [
@@ -138,5 +158,5 @@ export function presentationName(
   if (handle !== "" && !handle.includes("@")) {
     return handle.toUpperCase();
   }
-  return "OPERATOR";
+  return "MEMBER";
 }

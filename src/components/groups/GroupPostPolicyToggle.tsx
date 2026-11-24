@@ -92,7 +92,7 @@ export function GroupPostPolicyToggle({
             mutation.reset();
             mutation.mutate({ groupId, publicAllMembers: !confirmed });
           }}
-          className="bcc-mono inline-flex shrink-0 items-center border-2 border-[var(--bcc-border-strong)] px-3 py-1.5 text-[11px] tracking-[0.18em] text-[var(--bcc-text-secondary)] transition motion-reduce:transition-none hover:text-[var(--bcc-text)] disabled:cursor-not-allowed disabled:opacity-60"
+          className="bcc-mono inline-flex min-h-[44px] shrink-0 items-center border-2 border-[var(--bcc-border-strong)] px-3 text-[11px] tracking-[0.18em] text-[var(--bcc-text-secondary)] transition motion-reduce:transition-none hover:text-[var(--bcc-text)] disabled:cursor-not-allowed disabled:opacity-60"
         >
           {mutation.isPending
             ? "SAVING…"

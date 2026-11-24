@@ -31,7 +31,7 @@
  * announcement rather than two. A `role="status"` here would be a second.
  */
 
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/env", () => ({
@@ -179,7 +179,7 @@ describe("the guard — focus is not stolen", () => {
 
     // Move focus away — to a REAL focusable element, because `body.focus()`
     // is a no-op in jsdom and would make this pass for the wrong reason.
-    const row = screen.getAllByRole("menuitem")[0]?.querySelector("button");
+    const row = within(screen.getByRole("list", { name: "Notifications" })).getAllByRole("listitem")[0]?.querySelector("button");
     (row as HTMLElement).focus();
     expect(document.activeElement).toBe(row);
 

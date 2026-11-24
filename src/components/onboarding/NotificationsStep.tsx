@@ -37,6 +37,7 @@ import {
 import { usePushSubscription } from "@/hooks/usePushSubscription";
 import { humanizeCode } from "@/lib/api/errors";
 import type { NotificationPrefsPatch } from "@/lib/api/types";
+import { PushPermissionDeniedError, PushUnsupportedError } from "@/lib/push/register";
 
 export function NotificationsStep({
   onBack,
@@ -137,6 +138,21 @@ export function NotificationsStep({
 
   const saving = updatePrefs.isPending;
 
+  // F-263 (M26): the prefs could not be read. This used to say nothing:
+  // the toggles came back usable, and Continue quietly saved nothing. Now
+  // the step says so with a retry, and the two toggles stay off-limits
+  // until there is something to edit. Skip and Continue still go on, with
+  // the server's defaults.
+  const prefsUnavailable = prefsQuery.data === undefined && prefsQuery.isError;
+  const prefsUnavailableCopy = humanizeCode(
+    prefsQuery.error,
+    {
+      bcc_unauthorized: "Sign in to see your notification settings.",
+      bcc_rate_limited: "Loading too fast — give it a moment and try again.",
+    },
+    "Couldn't load your notification settings, so they can't be changed here yet.",
+  );
+
   return (
     <section className="bcc-onb-step">
       <p className="bcc-onb-eyebrow">Before you go</p>
@@ -153,12 +169,20 @@ export function NotificationsStep({
       </p>
 
       <div style={{ marginTop: "clamp(24px, 4vw, 40px)", display: "flex", flexDirection: "column", gap: "14px" }}>
+        {prefsUnavailable && (
+          <div>
+            <p role="alert" className="bcc-onb-err">{prefsUnavailableCopy}</p>
+            <button type="button" className="bcc-onb-link" onClick={() => { void prefsQuery.refetch(); }} style={{ marginTop: "8px" }}>
+              Try again
+            </button>
+          </div>
+        )}
         {/* Bell rollup */}
         <WizardOptCard
           title="In-app bell"
           subtitle="Reactions, reviews, vouches, new watchers on your cards, rank-ups."
           checked={bellEnabled === true}
-          disabled={prefsQuery.isLoading || saving}
+          disabled={prefsQuery.data === undefined || saving}
           onChange={setBellEnabled}
         />
 
@@ -167,7 +191,7 @@ export function NotificationsStep({
           title="Weekly email digest"
           subtitle="A plain-text summary of unread bell notifications, sent Sunday. One-click unsubscribe in every email."
           checked={emailDigest === true}
-          disabled={prefsQuery.isLoading || saving}
+          disabled={prefsQuery.data === undefined || saving}
           onChange={setEmailDigest}
         />
 
@@ -256,16 +280,30 @@ function WizardOptCard({
   );
 }
 
-// Inline humanizer mirroring the one in NotificationPrefsForm but
-// dependency-free (no module import — keeps the wizard self-contained).
-function humanizePushMutationErrorBrief(err: { message?: string; code?: string } | Error): string {
-  const code = (err as { code?: string }).code;
-  const message = (err as { message?: string }).message ?? "";
-  if (code === "bcc_push_not_configured") {
-    return "Push isn't configured on this site yet.";
-  }
-  if (message.includes("permission") || message.includes("denied")) {
+/**
+ * The wizard's brief push-error copy (the settings page has a fuller one).
+ *
+ * F-263 (M27): this used to fall back to `err.message`, so a server or
+ * browser error's own text reached a brand-new member verbatim. It is now
+ * keyed on the error's CLASS (the push errors lib/push/register throws, and
+ * the browser's NotAllowedError) or the server's code, never its message.
+ */
+function humanizePushMutationErrorBrief(err: unknown): string {
+  if (
+    err instanceof PushPermissionDeniedError ||
+    (err instanceof DOMException && err.name === "NotAllowedError")
+  ) {
     return "Permission was blocked in your browser. Re-allow it in site settings to enable push.";
   }
-  return message !== "" ? message : "Couldn't update push notifications.";
+  if (err instanceof PushUnsupportedError) {
+    return "Push isn't supported in this browser.";
+  }
+  return humanizeCode(
+    err,
+    {
+      bcc_push_not_configured: "Push isn't configured on this site yet.",
+      bcc_rate_limited: "Too fast — try again in a moment.",
+    },
+    "Couldn't update push notifications. Try again.",
+  );
 }

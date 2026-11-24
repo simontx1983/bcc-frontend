@@ -1,18 +1,23 @@
 "use client";
 
 /**
- * HolderLeaveConfirm — the LEAVE control for an NFT holder group, gated
- * behind a `ConfirmDialog`.
+ * HolderLeaveConfirm / ValidatorLeaveConfirm — the LEAVE control for an
+ * on-chain-gated group (NFT holder or delegator), gated behind a
+ * `ConfirmDialog`.
  *
- * Leaving a holder group starts a 90-day cooldown before the group is
- * suggested (auto-joined) again, so the click alone must not fire the
- * request. An explicit rejoin is allowed straight away (F-158); only a
- * moderator removal blocks it. Three
- * surfaces leave holder groups (the group-detail strip, /settings/
- * communities and the profile Groups tab); each used to bind
- * `useLeaveHolderGroupMutation` to a bare `GroupActionButton`. This is
- * the one shared binding so the confirm copy and the open/close wiring
- * cannot drift between them.
+ * Leaving either kind records the same 90-day opt-out (one shared,
+ * group-id-keyed store on the server) before the group is suggested
+ * (auto-joined) again, so the click alone must not fire the request. An
+ * explicit rejoin is allowed straight away (F-158); only a moderator
+ * removal blocks it.
+ *
+ * Holder groups are left from three surfaces (the group-detail strip,
+ * /settings/communities and the profile Groups tab), delegator groups
+ * from two (the strip and the profile tab). Each used to bind its leave
+ * mutation to a bare `GroupActionButton`, and the delegator leave still
+ * fired on one tap (F-244 item 1). This file is the one binding per kind,
+ * over one shared control, so the confirm copy and the open/close wiring
+ * cannot drift between surfaces or kinds.
  *
  * Callers keep what genuinely differs per surface: the code-keyed error
  * copy, what happens on success (router refresh vs. query invalidation)
@@ -28,14 +33,29 @@ import { useState } from "react";
 import { GroupActionButton } from "@/components/groups/GroupActionButton";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useLeaveHolderGroupMutation } from "@/hooks/useHolderGroups";
+import { useLeaveValidatorGroupMutation } from "@/hooks/useValidatorGroups";
 import type { BccApiError } from "@/lib/api/types";
+
+interface LeaveConfirmCopy {
+  title: string;
+  body: string;
+  confirmLabel: string;
+  cancelLabel: string;
+}
 
 export const HOLDER_LEAVE_CONFIRM_COPY = {
   title: "Leave this community?",
   body: "You'll stop seeing its posts. Leaving starts a 90-day cooldown before this community is suggested to you again, but you can rejoin any time while you hold the NFT.",
   confirmLabel: "LEAVE",
   cancelLabel: "STAY",
-} as const;
+} as const satisfies LeaveConfirmCopy;
+
+export const VALIDATOR_LEAVE_CONFIRM_COPY = {
+  title: "Leave this community?",
+  body: "You'll stop seeing its posts. Leaving starts a 90-day cooldown before this community is suggested to you again, but you can rejoin any time while you delegate to this validator.",
+  confirmLabel: "LEAVE",
+  cancelLabel: "STAY",
+} as const satisfies LeaveConfirmCopy;
 
 export interface HolderLeaveConfirmProps {
   groupId: number;
@@ -45,24 +65,41 @@ export interface HolderLeaveConfirmProps {
   onLeaveStart?: () => void;
   onSuccess?: () => void;
   onError?: () => void;
+  /** GroupActionButton's drawn 44px box, so LEAVE matches JOIN on the
+   *  group page strip. Off: the dense-row size, with a 44px hit area. */
+  touchTarget?: boolean;
 }
 
-export function HolderLeaveConfirm({
+/** Same props for both kinds. */
+export type ValidatorLeaveConfirmProps = HolderLeaveConfirmProps;
+
+interface LeaveMutation {
+  isPending: boolean;
+  error: BccApiError | null;
+  mutate: (groupId: number) => void;
+  reset: () => void;
+}
+
+/** The shared control: the LEAVE button plus its confirmation. */
+function LeaveConfirmControl({
   groupId,
+  copy,
+  mutation,
+  confirming,
+  setConfirming,
   humanizeError,
   onLeaveStart,
-  onSuccess,
-  onError,
-}: HolderLeaveConfirmProps) {
-  const [confirming, setConfirming] = useState(false);
-  const mutation = useLeaveHolderGroupMutation({
-    onSuccess: () => {
-      setConfirming(false);
-      onSuccess?.();
-    },
-    onError: () => onError?.(),
-  });
-
+  touchTarget,
+}: {
+  groupId: number;
+  copy: LeaveConfirmCopy;
+  mutation: LeaveMutation;
+  confirming: boolean;
+  setConfirming: (open: boolean) => void;
+  humanizeError: (err: BccApiError) => string;
+  onLeaveStart?: (() => void) | undefined;
+  touchTarget: boolean;
+}) {
   const errorMessage = mutation.error ? humanizeError(mutation.error) : null;
 
   return (
@@ -74,6 +111,7 @@ export function HolderLeaveConfirm({
         isPending={mutation.isPending}
         // Failures render inside the dialog, which is open whenever one exists.
         errorMessage={null}
+        touchTarget={touchTarget}
         onClick={() => {
           mutation.reset();
           setConfirming(true);
@@ -81,10 +119,10 @@ export function HolderLeaveConfirm({
       />
       {confirming && (
         <ConfirmDialog
-          title={HOLDER_LEAVE_CONFIRM_COPY.title}
-          body={HOLDER_LEAVE_CONFIRM_COPY.body}
-          confirmLabel={HOLDER_LEAVE_CONFIRM_COPY.confirmLabel}
-          cancelLabel={HOLDER_LEAVE_CONFIRM_COPY.cancelLabel}
+          title={copy.title}
+          body={copy.body}
+          confirmLabel={copy.confirmLabel}
+          cancelLabel={copy.cancelLabel}
           retryLabel="TRY AGAIN"
           errorMessage={errorMessage}
           pending={mutation.isPending}
@@ -100,5 +138,65 @@ export function HolderLeaveConfirm({
         />
       )}
     </>
+  );
+}
+
+export function HolderLeaveConfirm({
+  groupId,
+  humanizeError,
+  onLeaveStart,
+  onSuccess,
+  onError,
+  touchTarget = false,
+}: HolderLeaveConfirmProps) {
+  const [confirming, setConfirming] = useState(false);
+  const mutation = useLeaveHolderGroupMutation({
+    onSuccess: () => {
+      setConfirming(false);
+      onSuccess?.();
+    },
+    onError: () => onError?.(),
+  });
+  return (
+    <LeaveConfirmControl
+      groupId={groupId}
+      copy={HOLDER_LEAVE_CONFIRM_COPY}
+      mutation={mutation}
+      confirming={confirming}
+      setConfirming={setConfirming}
+      humanizeError={humanizeError}
+      onLeaveStart={onLeaveStart}
+      touchTarget={touchTarget}
+    />
+  );
+}
+
+export function ValidatorLeaveConfirm({
+  groupId,
+  humanizeError,
+  onLeaveStart,
+  onSuccess,
+  onError,
+  touchTarget = false,
+}: ValidatorLeaveConfirmProps) {
+  const [confirming, setConfirming] = useState(false);
+  const mutation = useLeaveValidatorGroupMutation({
+    onSuccess: () => {
+      setConfirming(false);
+      onSuccess?.();
+    },
+    onError: () => onError?.(),
+  });
+  return (
+    <LeaveConfirmControl
+      groupId={groupId}
+      copy={VALIDATOR_LEAVE_CONFIRM_COPY}
+      mutation={mutation}
+      confirming={confirming}
+      setConfirming={setConfirming}
+      humanizeError={humanizeError}
+      onLeaveStart={onLeaveStart}
+      touchTarget={touchTarget}
+    />
   );
 }

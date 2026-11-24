@@ -18,16 +18,16 @@
  *   - No trust score weights (see ReputationSummaryPanel) and nothing about
  *     price (BCC is never about price).
  *
- * The supported-chains list reads `isChainClaimable`, the same answer
- * ClaimFlow acts on, so the page can't promise a chain the flow refuses.
+ * F-552: no chain list. Whether a validator can be claimed is the
+ * server's answer per page (claim_target.claimable), and support is
+ * growing (Solana self-claim, F-550), so a hand-kept list here would go
+ * stale. The page says where to look instead.
  */
 
 import Image from "next/image";
 
 import { LandingReveal } from "@/components/landing/LandingReveal";
 import { LEGAL } from "@/lib/legal/config";
-import { VALIDATOR_CHAIN_CATALOG } from "@/lib/validators/chain-catalog";
-import { isChainClaimable } from "@/lib/wallet/claim-support";
 
 /** Displayed location. Deliberately not the street address in legal config. */
 const LOCATION = "Fort Worth, Texas";
@@ -87,9 +87,6 @@ const FAQ: ReadonlyArray<{ q: string; a: string }> = [
 ];
 
 export function ForValidators() {
-  const claimNow = VALIDATOR_CHAIN_CATALOG.filter((c) => isChainClaimable(c.slug));
-  const notYet = VALIDATOR_CHAIN_CATALOG.filter((c) => !isChainClaimable(c.slug));
-
   return (
     <div className="bcc-ldg-root">
       <div className="bcc-ldg-field" aria-hidden>
@@ -111,7 +108,7 @@ export function ForValidators() {
             signature.
           </p>
 
-          <form method="GET" action="/validators" className="mt-8 flex max-w-xl flex-wrap gap-3">
+          <form method="GET" action="/explore" className="mt-8 flex max-w-xl flex-wrap gap-3">
             <label htmlFor="for-validators-q" className="sr-only">
               Your validator&rsquo;s name
             </label>
@@ -248,18 +245,11 @@ export function ForValidators() {
 
         {/* ── Chains ───────────────────────────────────────────────── */}
         <section className="bcc-ldg-section" style={{ paddingTop: 0 }}>
-          <LandingReveal as="p" className="bcc-ldg-eyebrow">Supported chains</LandingReveal>
-          <p className="text-bcc-text">Claim now</p>
-          <p className="mt-2 max-w-3xl text-bcc-text-secondary">
-            {claimNow.map((c) => c.label).join(", ")}
-          </p>
-          <p className="mt-6 text-bcc-text">Not yet</p>
-          <p className="mt-2 max-w-3xl text-bcc-text-secondary">
-            {notYet.map((c) => c.label).join(", ")}
-          </p>
-          <p className="mt-4 max-w-3xl text-bcc-text-secondary">
-            If your chain isn&rsquo;t ready, your page stays visible and
-            there&rsquo;s nothing you need to do.
+          <LandingReveal as="p" className="bcc-ldg-eyebrow">Can my page be claimed?</LandingReveal>
+          <p className="max-w-3xl text-lg leading-relaxed text-bcc-text-secondary">
+            Your validator&rsquo;s page shows whether it can be claimed today,
+            and why not if it can&rsquo;t. If your chain isn&rsquo;t ready, your
+            page stays visible and there&rsquo;s nothing you need to do.
           </p>
         </section>
 

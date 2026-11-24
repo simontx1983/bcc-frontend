@@ -26,6 +26,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { type FormEvent, Suspense, useCallback, useEffect, useRef, useState } from "react";
 
 import { AuthCard } from "@/components/auth/AuthCard";
+import { OneTimeCodeInput } from "@/components/auth/OneTimeCodeInput";
 import { resend2faCode, verify2fa } from "@/lib/api/auth-endpoints";
 import { BccApiError } from "@/lib/api/types";
 import { safeCallbackPath } from "@/lib/auth/safe-callback";
@@ -240,18 +241,12 @@ function TwoFactorContent() {
           <label className="bcc-auth-label" htmlFor="2fa-code">
             Verification code
           </label>
-          <input
+          <OneTimeCodeInput
             id="2fa-code"
-            type="text"
-            inputMode="numeric"
-            maxLength={6}
-            autoComplete="one-time-code"
             autoFocus
             placeholder="000000"
             value={code}
-            onChange={(e) => {
-              setCode(e.target.value.replace(/\D/g, "").slice(0, 6));
-            }}
+            onChange={setCode}
             className="bcc-auth-input"
             style={{
               textAlign:     "center",

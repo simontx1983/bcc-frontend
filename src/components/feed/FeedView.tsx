@@ -37,7 +37,7 @@
  * navigation alone).
  */
 
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useState } from "react";
 
 import { DiscoverPanel } from "@/components/feed/DiscoverPanel";
 import { FeedItemCard } from "@/components/feed/FeedItemCard";
@@ -52,6 +52,7 @@ import {
   useFeed,
   useHotFeed,
 } from "@/hooks/useFeed";
+import { useEmptyPageAutoFetch } from "@/hooks/useEmptyPageAutoFetch";
 import { humanizeCode, isPermissionDenial } from "@/lib/api/errors";
 import {
   shouldWithdrawOnDenial,
@@ -211,7 +212,11 @@ export function FeedBody(props: FeedBodyProps) {
   // Sentinel for IntersectionObserver auto-load. Sits just above the
   // "Load more" button so it scrolls into view (with the 400px root
   // margin) before the button visually crests the viewport.
-  const sentinelRef = useRef<HTMLDivElement>(null);
+  //
+  // A callback ref into state, not a useRef: the sentinel mounts only once
+  // rows exist, which can happen with no change to the observer effect's
+  // other deps. A plain ref would leave that late-mounted node unobserved.
+  const [sentinel, setSentinel] = useState<HTMLDivElement | null>(null);
 
   // Stable load-more callback. Guard against duplicate dispatches when
   // the observer fires repeatedly while a fetch is already in flight.
@@ -231,7 +236,7 @@ export function FeedBody(props: FeedBodyProps) {
   // fallback path.
   useEffect(() => {
     if (typeof IntersectionObserver === "undefined") return undefined;
-    const node = sentinelRef.current;
+    const node = sentinel;
     if (node === null) return undefined;
     if (!hasNextPage) return undefined;
 
@@ -248,7 +253,7 @@ export function FeedBody(props: FeedBodyProps) {
     return () => {
       observer.disconnect();
     };
-  }, [handleLoadMore, hasNextPage]);
+  }, [sentinel, handleLoadMore, hasNextPage]);
 
   // Flatten paginated pages into one list — memoized so it isn't rebuilt into a
   // new array (and new downstream identities) on every render (perf-audit F5).
@@ -258,30 +263,22 @@ export function FeedBody(props: FeedBodyProps) {
     [data?.pages]
   );
 
-  if (isLoading) {
-    // Skeleton rows match DirectoryGrid's idiom: bcc-panel + animate-pulse +
-    // opacity-40, sized to the average FeedItemCard height so there's no
-    // layout shift when data arrives. Two stacked grey bars per row hint at
-    // the header line + body line of a real card without inventing chrome.
-    return (
-      <ul
-        aria-label="Loading the Floor"
-        className="flex flex-col gap-4 py-4"
-      >
-        {Array.from({ length: 4 }).map((_, idx) => (
-          <li
-            key={idx}
-            aria-hidden
-            className={SKELETON_CLASS + " h-40"}
-          >
-            <div className="flex h-full flex-col justify-between p-4">
-              <span className="block h-3 w-1/3 rounded-sm bg-bcc-surface-hover" />
-              <span className="block h-3 w-4/5 rounded-sm bg-bcc-surface-hover" />
-            </div>
-          </li>
-        ))}
-      </ul>
-    );
+  // Every page so far is empty, yet the server says more exist (the
+  // per-viewer filter emptied them). That is not an empty feed. The rule,
+  // its bound and the auto-fetch effect are shared with the group wall.
+  const { emptyRun, keepAutoFetching } = useEmptyPageAutoFetch({
+    itemCount: items.length,
+    pageCount: data?.pages.length ?? 1,
+    hasNextPage,
+    isError,
+    isFetchingNextPage,
+    fetchNextPage,
+  });
+
+  // Past the bound, a manual Load more does NOT fall back to the skeleton:
+  // that would unmount the button the viewer just pressed and drop focus.
+  if (isLoading || keepAutoFetching) {
+    return <FeedSkeleton />;
   }
 
   // §γ — copy is keyed on err.code; never render err.message.
@@ -314,10 +311,46 @@ export function FeedBody(props: FeedBodyProps) {
     return <LoadFailure message={failureCopy} {...refetchProps} />;
   }
 
+  // The auto-fetch bound was reached and every page was still filtered
+  // empty. The server says more exist, so this is not the empty state:
+  // the viewer pages on by hand (no sentinel, so nothing spins).
+  //
+  // The block stays mounted while that manual fetch runs and is swapped
+  // out only when rows arrive, so keyboard focus stays on the button.
+  // `aria-disabled` + `aria-busy`, not `disabled`: the browser blurs a
+  // focused control that turns disabled (same reason as
+  // ProfileUnavailable's isBusy). handleLoadMore already ignores a press
+  // while a fetch is in flight.
+  if (emptyRun) {
+    return (
+      <div className="flex flex-col items-center gap-3 py-8">
+        <p className="bcc-mono text-center text-[11px] text-bcc-text-secondary">No posts to show so far.</p>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={handleLoadMore}
+            aria-disabled={isFetchingNextPage}
+            aria-busy={isFetchingNextPage}
+            className="bcc-stencil rounded-lg border border-[var(--bcc-border)] px-6 py-2.5 text-[var(--bcc-text-secondary)] transition-colors hover:border-[var(--bcc-accent)] hover:text-[var(--bcc-accent)] aria-disabled:cursor-wait aria-disabled:opacity-60"
+          >
+            Load more
+          </button>
+          {isFetchingNextPage && (
+            <span className="text-[var(--bcc-accent)]">
+              <Spinner size={18} />
+            </span>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   // An empty feed is a claim about the SERVER having nothing. A failed read
   // does not support it, and DiscoverPanel's cold-start copy is actively
   // wrong there — it tells someone the room is quiet when the request failed.
-  if (items.length === 0 && !isError) {
+  // Nor does a page the per-viewer filter emptied while more exist
+  // (`hasNextPage`), which is handled above.
+  if (items.length === 0 && !isError && !hasNextPage) {
     // §F5 / Sprint 3 — cold-start bridge surface. DiscoverPanel mounts
     // ONLY here (parent gates on items.length === 0). It is NOT a
     // default feed for inactive users; it's a one-shot map showing the
@@ -358,8 +391,10 @@ export function FeedBody(props: FeedBodyProps) {
       {hasNextPage && !isFetchNextPageError && !denied && (
         <>
           {/* Sentinel for the IntersectionObserver. h-px keeps it
-              effectively invisible but still observable. */}
-          <div ref={sentinelRef} aria-hidden className="h-px" />
+              effectively invisible but still observable. Only with rows
+              above it: on an empty list it would sit in view and page
+              forever past the empty-run bound. */}
+          {items.length > 0 && <div ref={setSentinel} aria-hidden className="h-px" />}
           {isFetchingNextPage ? (
             <div className="mt-4 flex justify-center py-2.5 text-[var(--bcc-accent)]">
               <Spinner size={22} />
@@ -393,6 +428,27 @@ export function FeedBody(props: FeedBodyProps) {
 // will skip re-rendering siblings under shallow-equality memo. Mirror
 // of GroupFeedSection's GroupFeedItem.
 // ─────────────────────────────────────────────────────────────────────
+
+/**
+ * Skeleton rows match DirectoryGrid's idiom: bcc-panel + animate-pulse +
+ * opacity-40, sized to the average FeedItemCard height so there's no
+ * layout shift when data arrives. Two stacked grey bars per row hint at
+ * the header line + body line of a real card without inventing chrome.
+ */
+function FeedSkeleton() {
+  return (
+    <ul aria-label="Loading the Floor" className="flex flex-col gap-4 py-4">
+      {Array.from({ length: 4 }).map((_, idx) => (
+        <li key={idx} aria-hidden className={SKELETON_CLASS + " h-40"}>
+          <div className="flex h-full flex-col justify-between p-4">
+            <span className="block h-3 w-1/3 rounded-sm bg-bcc-surface-hover" />
+            <span className="block h-3 w-4/5 rounded-sm bg-bcc-surface-hover" />
+          </div>
+        </li>
+      ))}
+    </ul>
+  );
+}
 
 const FeedRow = memo(function FeedRow({ item }: { item: FeedItem }) {
   return <FeedItemCard item={item} />;

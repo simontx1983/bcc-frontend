@@ -34,6 +34,8 @@ export function pinDeniedCopy(reason: string | null): string {
       return "Archived announcements can't be pinned.";
     case "announcement_not_published":
       return "Only published announcements can be pinned.";
+    case "announcement_moderation_hidden":
+      return "A moderator hid this announcement, so it can't be pinned.";
     case "not_claimer":
       return "You're not the verified operator of this validator.";
     default:

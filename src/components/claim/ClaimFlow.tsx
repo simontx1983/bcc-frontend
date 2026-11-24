@@ -17,8 +17,9 @@
  * the same step (no silent skip-back) so they can retry.
  *
  * Chain support is decided by what the BACKEND can prove about
- * validator operator authority, not by which wallets exist (the allowlist
- * lives in `lib/wallet/claim-support.ts`):
+ * validator operator authority, not by which wallets exist. Since F-552
+ * the server says so per page (claim_target.claimable, contract F-515)
+ * and the flow renders its answer; there is no client allowlist. Today:
  *
  *   cosmos   ✅ the operator account and the `…valoper…` address are the
  *               same 20 bytes under a different bech32 HRP.
@@ -52,16 +53,18 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 
 import { captureAnalyticsEvent } from "@/lib/analytics/posthog";
 import { humanizeCode } from "@/lib/api/errors";
 import { claimPage } from "@/lib/api/pages-endpoints";
 import { type CardClaimTarget } from "@/lib/api/types";
 import { findWalletChain, type WalletChainType } from "@/lib/wallet/chain-catalog";
-import { isChainClaimable, unsupportedClaimReason } from "@/lib/wallet/claim-support";
+import { claimabilityOf, NO_WALLET_FOR_CHAIN_COPY, UNCLAIMABLE_FALLBACK_COPY } from "@/components/claim/claimability";
 import {
   connectWallet,
   humanizeWalletProviderError,
+  walletInstallUrl,
   type WalletConnection,
 } from "@/lib/wallet/dispatch";
 import { linkOrConfirmOwnWallet, signLinkChallenge } from "@/lib/wallet/linkFlow";
@@ -127,7 +130,7 @@ interface ClaimFlowProps {
 
 type Step =
   | { kind: "explanation" }
-  | { kind: "connect"; pending: boolean; error: string | null }
+  | { kind: "connect"; pending: boolean; error: string | null; installUrl?: string | null }
   | {
       kind: "signature";
       connection: WalletConnection;
@@ -208,7 +211,10 @@ export function ClaimFlow({ pageId, pageName, target, onClose }: ClaimFlowProps)
 
   // ── Step 2: Connect the chain's wallet ─────────────────────────────
   const chainType = findWalletChain(target.chain_slug)?.chainType ?? null;
-  const claimable = chainType !== null && isChainClaimable(target.chain_slug);
+  // The server's answer (F-552); a chain with no wallet of ours can't be
+  // claimed from here either.
+  const claimability = claimabilityOf(target);
+  const claimable = chainType !== null && claimability.claimable;
 
   const handleConnect = async () => {
     // The attempt starts when the operator commits to it. The chain slug
@@ -219,7 +225,11 @@ export function ClaimFlow({ pageId, pageName, target, onClose }: ClaimFlowProps)
       setStep({
         kind: "connect",
         pending: false,
-        error: unsupportedClaimReason(target.chain_slug),
+        // The server's reason when it says no; otherwise the chain is
+        // claimable but we have no wallet for it.
+        error: !claimability.claimable
+          ? (claimability.hint ?? UNCLAIMABLE_FALLBACK_COPY)
+          : NO_WALLET_FOR_CHAIN_COPY,
       });
       return;
     }
@@ -237,6 +247,8 @@ export function ClaimFlow({ pageId, pageName, target, onClose }: ClaimFlowProps)
         kind: "connect",
         pending: false,
         error: humanizeWalletError(err),
+        // F-316 M-cl2: "not installed" comes with where to get the wallet.
+        installUrl: walletInstallUrl(err),
       });
     }
   };
@@ -299,7 +311,7 @@ export function ClaimFlow({ pageId, pageName, target, onClose }: ClaimFlowProps)
         connection,
         chainType: signChainType,
         pending: false,
-        error: phase === "link" ? humanizeLinkStepError(err) : humanizeClaimStepError(err),
+        error: phase === "link" ? humanizeLinkStepError(err) : humanizeClaimStepError(err, claimability.hint),
         next,
       });
     }
@@ -344,6 +356,7 @@ export function ClaimFlow({ pageId, pageName, target, onClose }: ClaimFlowProps)
           pending={step.pending}
           stuck={stuck}
           error={step.error}
+          installUrl={step.installUrl ?? null}
           onRetry={() => { void handleConnect(); }}
           onCancel={handleClose}
         />
@@ -368,11 +381,7 @@ export function ClaimFlow({ pageId, pageName, target, onClose }: ClaimFlowProps)
       )}
 
       {step.kind === "confirmation" && (
-        <ConfirmationStep
-          pageName={pageName}
-          handle={null}
-          onClose={handleClose}
-        />
+        <ConfirmationStep pageName={pageName} onClose={handleClose} />
       )}
       </div>
     </Dialog>
@@ -425,6 +434,7 @@ function ConnectStep({
   pending,
   stuck,
   error,
+  installUrl,
   onRetry,
   onCancel,
 }: {
@@ -434,6 +444,8 @@ function ConnectStep({
   pending: boolean;
   stuck: boolean;
   error: string | null;
+  /** Where to get the wallet, when the error was "not installed". */
+  installUrl: string | null;
   onRetry: () => void;
   onCancel: () => void;
 }) {
@@ -463,6 +475,17 @@ function ConnectStep({
         adds this wallet to your BCC account — you can remove it in Settings → Wallets.
       </p>
       {error !== null && <ErrorLine message={error} />}
+      {installUrl !== null && (
+        <a
+          href={installUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="bcc-mono mt-2 inline-flex min-h-[44px] items-center gap-1 text-[11px] tracking-[0.12em] text-bcc-text underline underline-offset-2"
+        >
+          Get {walletName} <span aria-hidden>↗</span>
+          <span className="sr-only"> (opens in a new tab)</span>
+        </a>
+      )}
       {pending && stuck && <StuckNote walletName={walletName} />}
       <ButtonRow>
         <SecondaryButton onClick={onCancel} disabled={pending && !stuck}>
@@ -561,11 +584,9 @@ function SignatureStep({
 
 function ConfirmationStep({
   pageName,
-  handle,
   onClose,
 }: {
   pageName: string;
-  handle: string | null;
   onClose: () => void;
 }) {
   return (
@@ -588,8 +609,17 @@ function ConfirmationStep({
         What&apos;s next:
       </p>
       <ul className="mt-2 space-y-1.5 font-serif text-bcc-text-secondary">
-        <li>· Post your first announcement.</li>
-        {handle !== null && <li>· Visit your profile at /u/{handle}.</li>}
+        {/* F-320 (UX Low): the profile line was a handle that was always
+            null (so it never showed) printed as a path, not a link. /u/me
+            resolves to the viewer's own profile; the announcement line
+            says where, instead of reading like a dead link. */}
+        <li>· Post your first announcement from this page&apos;s Announcements tab.</li>
+        <li>
+          ·{" "}
+          <Link href="/u/me" className="text-bcc-text underline underline-offset-2">
+            Visit your profile
+          </Link>
+        </li>
       </ul>
       <ButtonRow>
         <PrimaryButton onClick={onClose}>BACK TO THE FLOOR</PrimaryButton>
@@ -627,7 +657,7 @@ function PrimaryButton({
       aria-disabled={disabled}
       data-claim-primary=""
       className={
-        "bcc-stencil rounded-sm px-5 py-2.5 text-[12px] tracking-[0.2em] transition " +
+        "bcc-stencil rounded-sm px-5 py-2.5 text-[12px] tracking-[0.2em] transition inline-flex min-h-[44px] items-center justify-center " +
         (disabled
           ? "cursor-not-allowed bg-bcc-surface-active text-bcc-text-muted"
           : "bg-ink text-cardstock hover:bg-blueprint")
@@ -652,7 +682,7 @@ function SecondaryButton({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className="bcc-mono rounded-sm px-4 py-2 text-[10px] tracking-[0.18em] text-bcc-text-secondary hover:text-bcc-text disabled:cursor-not-allowed disabled:opacity-50"
+      className="bcc-mono rounded-sm px-4 py-2 text-[10px] tracking-[0.18em] text-bcc-text-secondary hover:text-bcc-text disabled:cursor-not-allowed disabled:opacity-50 inline-flex min-h-[44px] items-center justify-center"
     >
       {children}
     </button>
@@ -798,20 +828,25 @@ function linkStepNext(err: unknown): "retry" | "other-wallet" {
   return code === "bcc_conflict" ? "other-wallet" : "retry";
 }
 
-/** The claim route's bcc_forbidden reasons (F-303). */
-type ForbiddenReason = "suspended" | "entity_not_bound" | "not_operator" | "holder_not_owner";
+/**
+ * The claim route's bcc_forbidden reasons (F-303). `not_claimable` (F-515)
+ * is FINAL: BCC can't prove an operator on this chain at all, so no wallet
+ * or retry helps; its copy is the card's unclaimable_hint, verbatim.
+ */
+type ForbiddenReason = "suspended" | "entity_not_bound" | "not_operator" | "holder_not_owner" | "not_claimable";
 
 function forbiddenReason(err: unknown): ForbiddenReason | null {
   const reason = (err as { data?: Record<string, unknown> | null } | null)?.data?.["reason"];
   return reason === "suspended" ||
     reason === "entity_not_bound" ||
     reason === "not_operator" ||
-    reason === "holder_not_owner"
+    reason === "holder_not_owner" ||
+    reason === "not_claimable"
     ? reason
     : null;
 }
 
-const FORBIDDEN_REASON_COPY: Record<Exclude<ForbiddenReason, "not_operator">, string> = {
+const FORBIDDEN_REASON_COPY: Record<Exclude<ForbiddenReason, "not_operator" | "not_claimable">, string> = {
   suspended: "Your account is suspended, so it can't claim pages right now.",
   entity_not_bound: "This page isn't set up to be claimed this way. Refresh the page and try again.",
   holder_not_owner:
@@ -819,8 +854,12 @@ const FORBIDDEN_REASON_COPY: Record<Exclude<ForbiddenReason, "not_operator">, st
 };
 
 /** Claim: the wallet is verified; this is about the page itself. */
-function humanizeClaimStepError(err: unknown): string {
+function humanizeClaimStepError(err: unknown, unclaimableHint: string | null): string {
   const reason = forbiddenReason(err);
+  if (reason === "not_claimable") {
+    // The card's own hint, never the error's message text (§γ).
+    return unclaimableHint ?? UNCLAIMABLE_FALLBACK_COPY;
+  }
   if (reason !== null && reason !== "not_operator") {
     return FORBIDDEN_REASON_COPY[reason];
   }

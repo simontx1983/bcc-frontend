@@ -13,9 +13,16 @@
  * whenever the crest was chain-keyed. The top rule always takes the
  * KIND colour now. Chain is a qualifier in the header pill, not the
  * card's identity.
+ *
+ * Header word (Phillip, 2026-11-23): validator / project / creator /
+ * member cards say their family word; a community card says its server
+ * kicker (CHAIN HALL, HOLDER COMMUNITY, …) in the community colour, and
+ * no longer repeats it in the standing row. See cardHeaderWord.
  */
 
 import type { Route } from "next";
+import Image from "next/image";
+import { useState } from "react";
 import Link from "next/link";
 
 import { ActionBar, CommunityActionBar } from "@/components/cards/CardActionBar";
@@ -23,9 +30,11 @@ import { OnchainSignalsStrip } from "@/components/cards/CardOnchainSignals";
 import { CardStandingStrip } from "@/components/cards/CardStandingStrip";
 import { Crest } from "@/components/cards/Crest";
 import { RankChip } from "@/components/profile/RankChip";
+import { FallbackImg } from "@/components/ui/FallbackImg";
 import { ReliabilityStandingBadge } from "@/components/reliability/ReliabilityStandingBadge";
 import { FOLLOW_COPY } from "@/lib/copy";
 import type { Card, CardStat } from "@/lib/api/types";
+import { isWpMediaUrl } from "@/lib/media";
 
 /**
  * Audience counts live in the nameplate, not the stats grid — an audience
@@ -134,6 +143,22 @@ export function CardFrontFace({
 
       <Nameplate card={card} audienceStats={audienceStats} />
 
+      {/* Structure A row 16: the card's own bio, under the counts. Phillip
+          (2026-11-24) kept the 108px crest, so the bio is clamped to the
+          room the portrait can give without clipping it — the on-chain
+          strip takes that room on a validator card. The clamps live with
+          the card's own size rules in globals.css (.bcc-card-bio). No bio
+          → no line. The back still carries the longer bio. */}
+      {card.bio.trim() !== "" && (
+        <p
+          className="bcc-card-bio font-serif"
+          data-room={card.onchain_signals != null ? "tight" : "open"}
+          data-testid="card-front-bio"
+        >
+          {card.bio}
+        </p>
+      )}
+
       {/* On-chain validator signals — what the operator actually does on
           chain, shown claimed or unclaimed so the card communicates real
           data even before a human owns the page. Null for other kinds. */}
@@ -211,8 +236,26 @@ function chainSlug(card: Card): string | null {
  *
  * The kind word is a closed set of five, so it can never overflow.
  */
+/**
+ * The word in the card's header slot.
+ *
+ * Card doctrine (Phillip, 2026-11-23, F-563): the four person/entity
+ * families say their family word (VALIDATOR, PROJECT, CREATOR, MEMBER).
+ * A COMMUNITY-family card says WHICH kind of community it is, from the
+ * server's `kicker` (§3.2.4: CHAIN HALL, HOLDER COMMUNITY, DELEGATOR
+ * COMMUNITY, SYSTEM COMMUNITY, COMMUNITY), still in the community colour,
+ * so the family stays readable. A Hall card used to say "COMMUNITY" on a
+ * page titled HALL. No kicker → "community". Server copy, rendered as is.
+ */
+export function cardHeaderWord(card: Card): string {
+  if (card.card_kind !== "community") return card.card_kind;
+  const kicker = card.kicker?.trim() ?? "";
+  return kicker !== "" ? kicker : "community";
+}
+
 function CardHeader({ card, kindColor }: { card: Card; kindColor: string }) {
   const slug = chainSlug(card);
+  const word = cardHeaderWord(card);
   const showChainPill =
     slug !== null && (card.card_kind === "validator" || card.card_kind === "community");
   const showRank = card.card_kind === "member" && card.rank_label !== null;
@@ -228,14 +271,16 @@ function CardHeader({ card, kindColor }: { card: Card; kindColor: string }) {
       <span
         className="bcc-stencil"
         style={{
-          fontSize: 20,
+          // The longest kicker ("DELEGATOR COMMUNITY") shares this row with
+          // the chain pill; at 20px it would not fit a 375px card.
+          fontSize: word.length > 12 ? 16 : 20,
           lineHeight: 1,
           letterSpacing: "0.04em",
           textTransform: "uppercase",
           color: kindColor,
         }}
       >
-        {card.card_kind}
+        {word}
       </span>
 
       {showRank ? (
@@ -294,10 +339,12 @@ function ChainPill({ slug }: { slug: string }) {
  * absorbs whatever height the standing strip gives back when it
  * collapses.
  *
- * Surface plus a halftone, nothing kind-coloured. There is no cover
- * photo: `cover_photo_url` isn't on `Card` yet. The slot is built
- * cover-ready but renders NOTHING until the field lands — deliberately
- * not a placeholder gradient.
+ * Surface plus a halftone, nothing kind-coloured. With a
+ * `cover_photo_url` (structure A row 17; absent on older backends, null
+ * when there is none) the cover replaces the halftone, under a light shade
+ * that keeps the crest's ring readable in both themes. No cover → the
+ * halftone, never a made-up gradient. A cover that fails to load — on
+ * either image path — falls back to the halftone (CardCover).
  */
 function Portrait({
   card,
@@ -307,6 +354,7 @@ function Portrait({
   canEditAvatar: boolean;
 }) {
   const showRibbon = !card.is_claimed && card.claim_target !== null;
+  const cover = coverUrl(card.cover_photo_url);
 
   return (
     // `relative` WITHOUT a z-index — a z-index here creates a stacking
@@ -315,19 +363,74 @@ function Portrait({
     // beneath the z-5 .bcc-card-body-link nav overlay. See the z-order
     // comment in globals.css.
     <div className="relative flex min-h-0 flex-1 items-center justify-center overflow-hidden">
-      {/* Halftone — theme-aware via --card-dot, purely decorative. */}
-      <span
-        aria-hidden
-        className="pointer-events-none absolute inset-0"
-        style={{
-          backgroundImage:
-            "radial-gradient(circle, var(--card-dot) 1px, transparent 1.5px)",
-          backgroundSize: "6px 6px",
-        }}
-      />
+      {/* Keyed on the URL so a new cover gets a fresh load (and error) state. */}
+      {cover !== null ? <CardCover key={cover} url={cover} /> : <Halftone />}
       <Crest card={card} canEditAvatar={canEditAvatar} />
       {showRibbon && <UnclaimedRibbon />}
     </div>
+  );
+}
+
+/** Halftone — theme-aware via --card-dot, purely decorative. */
+function Halftone() {
+  return (
+    <span
+      aria-hidden
+      data-testid="card-halftone"
+      className="pointer-events-none absolute inset-0"
+      style={{
+        backgroundImage:
+          "radial-gradient(circle, var(--card-dot) 1px, transparent 1.5px)",
+        backgroundSize: "6px 6px",
+      }}
+    />
+  );
+}
+
+/**
+ * An absolute https cover URL, or null (absent, null, blank, or anything
+ * that isn't https — the site is https, so an http image would be blocked
+ * as mixed content anyway).
+ */
+function coverUrl(url: string | null | undefined): string | null {
+  if (typeof url !== "string") return null;
+  const trimmed = url.trim();
+  return /^https:\/\//i.test(trimmed) ? trimmed : null;
+}
+
+/**
+ * The cover photo, decorative (the card's name is the label). WP media
+ * goes through next/image, any other host through FallbackImg — same split
+ * as the Crest. Either way a failed load shows the halftone instead:
+ * next/image through its onError here, FallbackImg through its placeholder.
+ */
+function CardCover({ url }: { url: string }) {
+  const [failed, setFailed] = useState(false);
+  if (failed) return <Halftone />;
+  return (
+    <span aria-hidden data-testid="card-cover" className="pointer-events-none absolute inset-0">
+      {isWpMediaUrl(url) ? (
+        <Image src={url} alt="" fill sizes="316px" className="object-cover" onError={() => setFailed(true)} />
+      ) : (
+        <FallbackImg
+          src={url}
+          fallbackSrc={null}
+          alt=""
+          loading="lazy"
+          decoding="async"
+          className="h-full w-full object-cover"
+          placeholder={<Halftone />}
+        />
+      )}
+      {/* Light shade so the crest's ring reads over any photo. */}
+      <span
+        className="absolute inset-0"
+        style={{
+          background:
+            "linear-gradient(180deg, rgb(var(--bcc-black-rgb) / 0.08), rgb(var(--bcc-black-rgb) / 0.38))",
+        }}
+      />
+    </span>
   );
 }
 

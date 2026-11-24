@@ -123,7 +123,7 @@ function MentorToggle({ prefs }: { prefs: ProfilePrefs }) {
             MENTOR LISTING
           </h3>
           <p className="bcc-mono mt-1 text-[10px] text-bcc-text-secondary">
-            List yourself in the Mentors directory so newer operators can
+            List yourself in the Mentors directory so newer members can
             find you. Listing requires Veteran rank and Trusted standing —
             it pauses automatically whenever you don&apos;t qualify.
           </p>
@@ -142,7 +142,7 @@ function MentorToggle({ prefs }: { prefs: ProfilePrefs }) {
             mutation.reset();
             mutation.mutate({ mentor_opt_in: !optedIn });
           }}
-          className="bcc-mono inline-flex shrink-0 items-center border-2 border-bcc-border-strong px-3 py-1.5 text-[11px] tracking-[0.18em] text-bcc-text-secondary transition motion-reduce:transition-none hover:text-bcc-text disabled:cursor-not-allowed disabled:opacity-60"
+          className="bcc-mono inline-flex min-h-[44px] shrink-0 items-center border-2 border-bcc-border-strong px-3 py-1.5 text-[11px] tracking-[0.18em] text-bcc-text-secondary transition motion-reduce:transition-none hover:text-bcc-text disabled:cursor-not-allowed disabled:opacity-60"
         >
           {mutation.isPending ? "SAVING…" : optedIn ? "OPTED IN" : "OPTED OUT"}
         </button>

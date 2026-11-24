@@ -137,7 +137,7 @@ export async function generateMetadata({
   const description =
     bio !== ""
       ? bio
-      : `${name} on the Floor — trust, identity, and reputation for crypto operators.`;
+      : `${name}, a member on the Floor: trust, identity, and reputation in crypto.`;
 
   const canonical = `/u/${encodeURIComponent(profile.handle)}`;
 
@@ -299,25 +299,12 @@ export default async function MemberProfilePage({ params, searchParams }: PagePr
   // viewer can still see what the server returned.
   const titleFallbackUsed = title !== profile.display_name.trim();
 
-  // Cold-operator detection — visitors landing on a fresh-account
-  // profile see five empty SectionFrames stacked. We collapse them
-  // into a single "JUST CLOCKED IN" frame for low-reputation accounts
-  // joined within 14 days. The visible UI honestly says "this operator
-  // is new" rather than reading as five abandoned filing cabinets.
-  // Owners never see the collapsed view (their own surfaces stay
-  // expandable so they can pick the action next).
-  const repScore = profile.reputation_score ?? profile.trust_score;
-  const joinedMs = Date.parse(profile.joined_at);
-  const joinedAgeDays = Number.isFinite(joinedMs)
-    ? Math.floor((Date.now() - joinedMs) / 86_400_000)
-    : 999;
-  const isColdOperator =
-    !isOwner &&
-    repScore < 10 &&
-    joinedAgeDays < 14 &&
-    profile.halls.length === 0 &&
-    profile.wallets.length === 0 &&
-    profile.bio.trim() === "";
+  // Other members see when an account was created to the MONTH only
+  // (Phillip, 2026-11-24). The "JUST CLOCKED IN" frame that said
+  // "JOINED MAY 2026 · 3D AGO" to visitors of a new account is gone, and
+  // nothing here computes an age from `joined_at` (it may arrive
+  // month-truncated, or not at all).
+  const joinedLabel = formatJoinDate(profile.joined_at);
 
   // Structured data, gated by the SAME two conditions as the robots tag —
   // emitting a Person graph for a hidden or suspended profile would hand a
@@ -355,10 +342,10 @@ export default async function MemberProfilePage({ params, searchParams }: PagePr
       {/* JOINED rides the rail as reference data, not as a neighbour to
           a column-exit CTA — per the 2026-05-14 UX review. */}
       <FileRail
-        kind="OPERATOR"
+        kind="MEMBER"
         subject={`@${profile.handle.toUpperCase()}`}
         isOwner={isOwner}
-        joinedLabel={formatJoinDate(profile.joined_at)}
+        joinedLabel={joinedLabel === "—" ? null : joinedLabel}
       />
 
       {/* First-visit tour of your own profile (owner only). */}
@@ -377,6 +364,7 @@ export default async function MemberProfilePage({ params, searchParams }: PagePr
           isOwner={isOwner}
           viewerAuthed={session !== null}
           variant={profile.viewer_is_watching === true ? "compact" : "full"}
+          nameAs="h1"
         />
         {titleFallbackUsed && profile.display_name.trim() !== "" && (
           <p
@@ -467,38 +455,7 @@ export default async function MemberProfilePage({ params, searchParams }: PagePr
           The above-tabs region is now hero-only — identity, card,
           reputation chips. */}
 
-      {/* FILE NEW // JUST CLOCKED IN — cold-operator collapsed frame.
-          For visitors viewing a brand-new operator (low rep, joined
-          recently, no data anywhere) we replace FILE 02 / 05 / 06
-          with a single honest "this operator is new" stamp. Owners
-          never see this collapse — their fresh-account view still
-          renders all sections so they can pick what to fill in next. */}
-      {isColdOperator && (
-        <SectionFrame fileNumber="NEW" label="JUST CLOCKED IN">
-          <div className="bcc-panel px-5 py-6">
-            <p
-              className="bcc-mono text-bcc-text-secondary"
-              style={{ fontSize: "10px", letterSpacing: "0.24em" }}
-            >
-              JOINED {formatJoinDate(profile.joined_at)} · {joinedAgeDays}D AGO
-            </p>
-            <h2 className="bcc-stencil mt-3 text-2xl text-bcc-text">
-              Early days for this operator.
-            </h2>
-            <p
-              className="font-serif italic text-bcc-text-secondary mt-2"
-              style={{ fontSize: "15px", lineHeight: 1.55, maxWidth: "60ch" }}
-            >
-              No supporters, no Halls linked, no wallets on file yet — the
-              floor will fill in as they participate. Check back when
-              they&apos;ve clocked a few shifts.
-            </p>
-          </div>
-        </SectionFrame>
-      )}
-
-      {!isColdOperator && (
-        <>
+      <>
           {/* Tab strip — Backing / Reviews / Activity / Watching /
               Photos / Disputes / Groups / (Setup for owner) + Blog
               link. The previously-above-tabs FILE sections (BACKING,
@@ -548,8 +505,7 @@ export default async function MemberProfilePage({ params, searchParams }: PagePr
               tab (?tab=account). If verified wallets should be a PUBLIC
               trust signal they need a real public surface; the old
               read-only panel was never one. */}
-        </>
-      )}
+      </>
     </main>
   );
 }
@@ -558,41 +514,6 @@ export default async function MemberProfilePage({ params, searchParams }: PagePr
 // `@/components/profile/panels/SetupPanel` per the 2026-05-14
 // reorganization — it now backs the owner-only "Setup" tab instead of
 // the FILE 00 SectionFrame above the strip.
-
-// ──────────────────────────────────────────────────────────────────────
-// SectionFrame — numbered section wrapper. Section title kicker on a
-// dashed safety-orange rule; pulls each block into the "FILE NN" rhythm.
-// ──────────────────────────────────────────────────────────────────────
-
-function SectionFrame({
-  fileNumber,
-  label,
-  action,
-  children,
-}: {
-  fileNumber: string;
-  label: string;
-  /** Optional owner-only affordance rendered at the right end of the
-   *  kicker row ("+ ADD WALLET", "+ JOIN LOCAL"). Per the 2026-05-13
-   *  UX review — section frames read as read-only without an entry
-   *  point, so the kicker row is the natural slot for "add here." */
-  action?: React.ReactNode;
-  children: React.ReactNode;
-}) {
-  return (
-    <section className="mx-auto mt-16 max-w-[1440px] px-4 sm:px-7">
-      <div className="mb-7 flex items-center gap-4">
-        <span className="bcc-mono text-bcc-text-secondary">FILE {fileNumber}</span>
-        <span className="bcc-mono text-bcc-text-safety">{"//"} {label}</span>
-        <span aria-hidden className="h-px flex-1 bg-bcc-border" />
-        {action !== undefined && action !== null && (
-          <span className="shrink-0">{action}</span>
-        )}
-      </div>
-      {children}
-    </section>
-  );
-}
 
 
 // HallsStrip removed — halls now render inside GroupsPanel

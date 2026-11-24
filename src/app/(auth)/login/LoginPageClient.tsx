@@ -28,10 +28,13 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { type FormEvent, useState, Suspense } from "react";
 
 import { AuthCard, AuthDivider, SSOButton } from "@/components/auth/AuthCard";
+import { TurnstileWidget } from "@/components/auth/TurnstileWidget";
 import { WalletAuthButton } from "@/components/auth/WalletAuthButton";
 import { WalletSignupPrompt } from "@/components/auth/WalletSignupPrompt";
 import { loginWithIdentifier } from "@/lib/api/auth-endpoints";
 import { BccApiError, type AuthTokenResponse } from "@/lib/api/types";
+import { loginCaptchaChallenge, type LoginCaptchaChallenge } from "@/lib/auth/login-captcha";
+import { stashPendingVerificationEmail } from "@/lib/auth/pending-verification-email";
 import { safeCallbackPath } from "@/lib/auth/safe-callback";
 import { writeOnboardingReturnTo } from "@/lib/onboarding/return-to";
 import { stashChallengeToken } from "@/lib/auth/two-factor-challenge";
@@ -44,7 +47,16 @@ const ERROR_COPY: Record<string, string> = {
   bcc_unknown:              "Sign-in failed. Try again, or contact support if the issue persists.",
   // Email verification gate — set by /auth/login when _bcc_email_verified = '0'.
   bcc_email_not_verified:   "Please verify your email address before signing in.",
+  // A step-up this client can't render (unknown provider, no site key).
+  bcc_captcha_required:     "Sign-in needs an extra check we can't show right now. Wait a few minutes, then try again.",
 };
+
+/** The captcha step-up (v1.161) — copy keyed on what just happened. */
+const CAPTCHA_COPY = {
+  needed:  "Complete the check below, then press Sign in again.",
+  retry:   "That check expired or didn't go through. Complete it again, then press Sign in.",
+  pending: "Complete the check below first.",
+} as const;
 
 function LoginPageContent() {
   const router = useRouter();
@@ -59,11 +71,24 @@ function LoginPageContent() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [walletSignupOpen, setWalletSignupOpen] = useState(false);
+  // F-263 (M22): the chain the visitor just tried, so the sign-up prompt
+  // starts on it instead of the default.
+  const [walletSignupChain, setWalletSignupChain] = useState<string | null>(null);
   /** Set to the email address when the server blocks login with bcc_email_not_verified.
    * Only set when `identifier` itself was an email — if the user typed a
-   * handle instead, we don't have their address to deep-link /verify-email
-   * with, so the shortcut link is omitted (the generic error still shows). */
+   * handle instead, we don't have their address to hand /verify-email, so
+   * the shortcut link is omitted (the generic error still shows). The link
+   * hands it over in sessionStorage, never the URL
+   * (lib/auth/pending-verification-email). */
   const [notVerifiedEmail, setNotVerifiedEmail] = useState<string | null>(null);
+  /**
+   * The captcha step-up (lib/auth/login-captcha). `captcha` is set once the
+   * server answers bcc_captcha_required and stays for the page's life;
+   * `captchaToken` is the widget's single-use token, spent by any submit.
+   */
+  const [captcha, setCaptcha] = useState<LoginCaptchaChallenge | null>(null);
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const [captchaReset, setCaptchaReset] = useState(0);
 
   function targetAfterLogin(): Route {
     // Returning sign-in lands on the Floor, not /onboarding. The wizard is
@@ -78,10 +103,15 @@ function LoginPageContent() {
     event.preventDefault();
     setError(null);
     setNotVerifiedEmail(null);
+    if (captcha !== null && captchaToken === null) {
+      setError(CAPTCHA_COPY.pending);
+      return;
+    }
     setSubmitting(true);
+    const sentToken = captchaToken;
 
     try {
-      const resp = await loginWithIdentifier(identifier, password);
+      const resp = await loginWithIdentifier(identifier, password, sentToken ?? undefined);
 
       if ("status" in resp && resp.status === "2fa_required") {
         // The challenge token goes through sessionStorage, never the URL
@@ -112,6 +142,19 @@ function LoginPageContent() {
         setError("Sign-in failed. Try again.");
       }
     } catch (err) {
+      // A token is single-use: whatever the answer, it is spent. Reset the
+      // widget for a fresh one.
+      if (sentToken !== null) {
+        setCaptchaToken(null);
+        setCaptchaReset((n) => n + 1);
+      }
+      const challenge = loginCaptchaChallenge(err);
+      if (challenge !== null) {
+        setCaptcha(challenge);
+        setError(sentToken !== null ? CAPTCHA_COPY.retry : CAPTCHA_COPY.needed);
+        return;
+      }
+      // §γ — an unrenderable step-up falls to ERROR_COPY like any code.
       const code = err instanceof BccApiError ? err.code : "bcc_unknown";
       setError(ERROR_COPY[code] ?? "Sign-in failed. Try again.");
       if (code === "bcc_email_not_verified") {
@@ -191,6 +234,22 @@ function LoginPageContent() {
             </div>
           </div>
 
+          {/* The captcha step-up: mounted only after the server asks. */}
+          {captcha !== null && (
+            <div className="bcc-auth-field" role="group" aria-label="Verification check">
+              <TurnstileWidget
+                siteKey={captcha.siteKey}
+                resetSignal={captchaReset}
+                onToken={(token) => {
+                  setCaptchaToken(token);
+                  setError((current) => (current === CAPTCHA_COPY.pending ? null : current));
+                }}
+                onExpire={() => setCaptchaToken(null)}
+                onFail={() => setCaptchaToken(null)}
+              />
+            </div>
+          )}
+
           {error !== null && (
             <p role="alert" className="bcc-auth-error">{error}</p>
           )}
@@ -198,7 +257,8 @@ function LoginPageContent() {
           {notVerifiedEmail !== null && (
             <p className="bcc-auth-hint">
               <Link
-                href={`/verify-email?email=${encodeURIComponent(notVerifiedEmail)}`}
+                href="/verify-email"
+                onClick={() => { stashPendingVerificationEmail(notVerifiedEmail); }}
               >
                 Verify your email →
               </Link>
@@ -220,12 +280,16 @@ function LoginPageContent() {
         <WalletAuthButton
           mode="login"
           onSuccess={() => { router.replace(targetAfterLogin()); }}
-          onWalletNotLinked={() => { setWalletSignupOpen(true); }}
+          onWalletNotLinked={(chainSlug) => {
+            setWalletSignupChain(chainSlug);
+            setWalletSignupOpen(true);
+          }}
         />
       </AuthCard>
 
       {walletSignupOpen && (
         <WalletSignupPrompt
+          {...(walletSignupChain !== null ? { initialChainSlug: walletSignupChain } : {})}
           onSuccess={(scope) => {
             setWalletSignupOpen(false);
             // F-332: a brand-new wallet account goes through onboarding,

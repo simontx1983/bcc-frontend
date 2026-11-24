@@ -46,6 +46,17 @@ export function isCode(err: unknown, code: string): boolean {
 }
 
 /**
+ * The server's wait on a rate-limit 429, in whole seconds, or null when it
+ * sent none (or an unusable value). Contract §1.4.4 (v1.176, F-289):
+ * `data.retry_after_seconds` is the time LEFT on the limit that refused.
+ */
+export function retryAfterSeconds(err: unknown): number | null {
+  if (!isCode(err, "bcc_rate_limited")) return null;
+  const hinted = (err as BccApiError).data?.["retry_after_seconds"];
+  return typeof hinted === "number" && Number.isFinite(hinted) && hinted > 0 ? hinted : null;
+}
+
+/**
  * Codes for which re-issuing an *identical* read cannot succeed, so a
  * failure state must not offer a Retry control. A button that fails the
  * same way on every press is worse than no button.
@@ -145,6 +156,59 @@ export function retryUnlessProfilePrivate(failureCount: number, err: unknown): b
   return !isProfilePrivate(err) && failureCount < 1;
 }
 
+/**
+ * Pauses before each retry of a rate-limited read. bcc-trust #716 throttles
+ * `GET /cards?q=` at 10 requests per 5 s per caller, so a 429 means "wait
+ * for the window to roll", and the app-wide retry (once, after 1 s) would
+ * usually land inside the same window and show a load failure. These add
+ * up to 12 s: past two full windows.
+ */
+export const RATE_LIMIT_RETRY_DELAYS_MS: readonly number[] = [2_000, 4_000, 6_000];
+
+/** Added to the server's `retry_after_seconds` before retrying. */
+const RETRY_AFTER_MARGIN_MS = 250;
+
+/**
+ * React Query `retry` for reads that can be rate-limited: a 429 is retried
+ * after a pause (RATE_LIMIT_RETRY_DELAYS_MS) instead of becoming a load
+ * failure; any other error keeps the app-wide single retry.
+ */
+export function retryRateLimitedRead(failureCount: number, err: unknown): boolean {
+  if (isCode(err, "bcc_rate_limited")) {
+    // #328 review: a wait longer than the retry cap cannot succeed early,
+    // so a capped retry would be refused again. Fail now; the failure copy
+    // says to give it a moment.
+    const hinted = retryAfterMs(err);
+    if (hinted !== null && hinted > RETRY_AFTER_CAP_MS) return false;
+    return failureCount < RATE_LIMIT_RETRY_DELAYS_MS.length;
+  }
+  return failureCount < 1;
+}
+
+/** The server's `data.retry_after_seconds` in ms, or null when absent or unusable. */
+function retryAfterMs(err: unknown): number | null {
+  const seconds = retryAfterSeconds(err);
+  return seconds === null ? null : seconds * 1000;
+}
+
+/** Longest single wait before a retry. */
+const RETRY_AFTER_CAP_MS = 30_000;
+
+/** React Query `retryDelay` to pair with retryRateLimitedRead. */
+export function rateLimitedRetryDelay(failureCount: number, err: unknown): number {
+  if (isCode(err, "bcc_rate_limited")) {
+    // Contract §1.4.4 (v1.176, F-289): a rate limit's 429 carries
+    // `data.retry_after_seconds`, the time LEFT on the limit that refused.
+    // Wait that (plus a small margin for clock and network); without it,
+    // the fixed pauses.
+    const hinted = retryAfterMs(err);
+    if (hinted !== null) return Math.min(hinted + RETRY_AFTER_MARGIN_MS, RETRY_AFTER_CAP_MS);
+    return RATE_LIMIT_RETRY_DELAYS_MS[Math.min(failureCount, RATE_LIMIT_RETRY_DELAYS_MS.length - 1)] ?? 2_000;
+  }
+  // React Query's own default backoff.
+  return Math.min(1000 * 2 ** failureCount, 30_000);
+}
+
 const NON_RETRYABLE_FIXED_READ_CODES: ReadonlySet<string> = new Set([
   ...PERMISSION_DENIAL_CODES,
   "bcc_not_found",
@@ -153,6 +217,25 @@ const NON_RETRYABLE_FIXED_READ_CODES: ReadonlySet<string> = new Set([
 
 export function isNonRetryableFixedReadFailure(err: unknown): boolean {
   return err instanceof BccApiError && NON_RETRYABLE_FIXED_READ_CODES.has(err.code);
+}
+
+/**
+ * The read did not run, so it says nothing about the resource: show
+ * "temporarily unavailable" with a Retry, never "not found".
+ *
+ *   - `bcc_unavailable`: the server's own answer (contract "Feed read
+ *     failure", F-275).
+ *   - Any 503, whatever the code. A 503 from the host or a proxy (a
+ *     LiteSpeed HTML page, say) never reaches the BCC envelope, so the
+ *     client labels it `bcc_invalid_response` (non-JSON body) or
+ *     `bcc_unexpected_status` (JSON, no envelope). Only the status says
+ *     what happened.
+ *
+ * Other 5xx are left to each call site: a 500 is not a promise that the
+ * same read will work shortly.
+ */
+export function isServiceUnavailable(err: unknown): boolean {
+  return err instanceof BccApiError && (err.code === "bcc_unavailable" || err.status === 503);
 }
 
 /**

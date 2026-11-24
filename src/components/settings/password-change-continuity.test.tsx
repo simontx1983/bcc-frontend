@@ -509,6 +509,53 @@ describe("definite-ness, not a list of codes", () => {
   });
 });
 
+describe("a leaked new password (F-294, bcc_password_breached 422)", () => {
+  function newPasswordInput(): HTMLInputElement {
+    const card = screen.getByRole("heading", { name: /change password/i }).closest("section");
+    if (card === null) throw new Error("password card not found");
+    return [...card.querySelectorAll('input[type="password"]')][1] as HTMLInputElement;
+  }
+
+  it("is DEFINITE, and shown on the new-password field", async () => {
+    // The server refuses it before either confirmation, so nothing
+    // committed. Unmapped, it fell to the indeterminate branch and said
+    // the change may have gone through.
+    const { BccApiError } = await import("@/lib/api/types");
+    const { PASSWORD_BREACHED_COPY } = await import("@/lib/auth/password-policy");
+    patchAccountPassword.mockRejectedValue(
+      new BccApiError("bcc_password_breached", "RAW SERVER TEXT", 422, null),
+    );
+    mount();
+    submitPasswordChange();
+
+    const alert = await screen.findByRole("alert");
+    expect(alert.textContent).toBe(PASSWORD_BREACHED_COPY);
+    expect(screen.queryByText(/couldn't confirm/i)).toBeNull();
+    expect(screen.queryByText(/was changed/i)).toBeNull();
+    expect(screen.queryByText(/RAW SERVER TEXT/)).toBeNull();
+
+    const input = newPasswordInput();
+    expect(input).toHaveAttribute("aria-invalid", "true");
+    expect(input.getAttribute("aria-describedby")?.split(" ")).toContain(alert.id);
+  });
+
+  it("clears once the new password is edited", async () => {
+    const { BccApiError } = await import("@/lib/api/types");
+    patchAccountPassword.mockRejectedValue(
+      new BccApiError("bcc_password_breached", "raw", 422, null),
+    );
+    mount();
+    submitPasswordChange();
+    const alert = await screen.findByRole("alert");
+    const breachedId = alert.id;
+
+    fireEvent.change(newPasswordInput(), { target: { value: "another-new-one-10" } });
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(newPasswordInput()).toHaveAttribute("aria-invalid", "false");
+    expect(newPasswordInput().getAttribute("aria-describedby")?.split(" ")).not.toContain(breachedId);
+  });
+});
+
 describe("parking happens on the FACT, not on the recovery attempt", () => {
   it("parks as soon as the PATCH resolves, before the session write finishes", async () => {
     // The password — and the revocation of every outstanding bearer — is

@@ -183,10 +183,10 @@ export function WatchingCardsPanel({
             trust. The card lands here. The floor remembers.
           </p>
           <Link
-            href="/directory"
+            href="/explore"
             className="bcc-btn bcc-btn-primary mt-6 inline-flex"
           >
-            Browse the Directory
+            Explore pages
           </Link>
         </div>
       </section>

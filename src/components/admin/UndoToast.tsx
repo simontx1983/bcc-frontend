@@ -47,6 +47,8 @@
 
 import { useEffect, useRef, useState } from "react";
 
+import { BottomSlot } from "@/components/ui/BottomSlot";
+
 import { useUndoAdminReport } from "@/hooks/useAdminReports";
 import type { ModerationAction, ModerationUndoDescriptor } from "@/lib/api/types";
 
@@ -145,68 +147,72 @@ export function UndoToast({ descriptor, onDismiss }: Props) {
 
   const progressPercent = Math.max(0, Math.min(100, (secondsLeft / undo.ttl_seconds) * 100));
 
+  // F-514: in the shared BottomSlot, stacked with the other bottom-centre
+  // notices instead of covering them.
   return (
-    <div
-      role="status"
-      aria-live="polite"
-      aria-label={`${ACTION_LABELS[action]} — undo within ${secondsLeft} seconds`}
-      className="bcc-panel pointer-events-auto fixed bottom-[calc(var(--bcc-mobile-nav-total-h)+16px)] left-1/2 z-40 flex w-[min(420px,calc(100vw-2rem))] -translate-x-1/2 md:bottom-6 flex-col gap-2 p-4 shadow-2xl"
-    >
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex flex-col gap-0.5">
-          <span className="bcc-mono text-[10px] tracking-[0.18em] text-bcc-text-safety">
-            {ACTION_LABELS[action].toUpperCase()} · REPORT #{reportId}
-          </span>
-          {!hasError ? (
-            <span className="font-serif text-sm text-bcc-text-secondary">
-              {undoMutation.isPending
-                ? "Reversing…"
-                : `Undo within ${secondsLeft}s`}
+    <BottomSlot>
+      <div
+        role="status"
+        aria-live="polite"
+        aria-label={`${ACTION_LABELS[action]} — undo within ${secondsLeft} seconds`}
+        className="bcc-panel pointer-events-auto flex w-[min(420px,calc(100vw-2rem))] flex-col gap-2 p-4 shadow-2xl"
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex flex-col gap-0.5">
+            <span className="bcc-mono text-[10px] tracking-[0.18em] text-bcc-text-safety">
+              {ACTION_LABELS[action].toUpperCase()} · REPORT #{reportId}
             </span>
-          ) : (
-            <span className="bcc-mono text-[11px] text-bcc-text-error">
-              {undoFailureCopy(errorCode)}
-            </span>
-          )}
-        </div>
-        <div className="flex shrink-0 items-center gap-2">
-          {!hasError && (
+            {!hasError ? (
+              <span className="font-serif text-sm text-bcc-text-secondary">
+                {undoMutation.isPending
+                  ? "Reversing…"
+                  : `Undo within ${secondsLeft}s`}
+              </span>
+            ) : (
+              <span className="bcc-mono text-[11px] text-bcc-text-error">
+                {undoFailureCopy(errorCode)}
+              </span>
+            )}
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            {!hasError && (
+              <button
+                type="button"
+                onClick={handleUndoClick}
+                disabled={undoMutation.isPending || secondsLeft <= 0}
+                title="Undo (H/D/R action — 30s window)"
+                className="bcc-mono inline-flex min-h-[36px] items-center border-2 border-ink bg-ink px-3 py-1.5 text-[11px] tracking-[0.18em] text-cardstock transition hover:bg-blueprint disabled:opacity-50"
+              >
+                UNDO
+              </button>
+            )}
             <button
               type="button"
-              onClick={handleUndoClick}
-              disabled={undoMutation.isPending || secondsLeft <= 0}
-              title="Undo (H/D/R action — 30s window)"
-              className="bcc-mono inline-flex min-h-[36px] items-center border-2 border-ink bg-ink px-3 py-1.5 text-[11px] tracking-[0.18em] text-cardstock transition hover:bg-blueprint disabled:opacity-50"
+              onClick={onDismiss}
+              aria-label="Dismiss undo affordance"
+              className="bcc-mono inline-flex min-h-[36px] min-w-[36px] items-center justify-center text-[14px] text-bcc-text-secondary hover:text-bcc-text"
             >
-              UNDO
+              ✕
             </button>
-          )}
-          <button
-            type="button"
-            onClick={onDismiss}
-            aria-label="Dismiss undo affordance"
-            className="bcc-mono inline-flex min-h-[36px] min-w-[36px] items-center justify-center text-[14px] text-bcc-text-secondary hover:text-bcc-text"
-          >
-            ✕
-          </button>
+          </div>
         </div>
-      </div>
 
-      {/* Progress bar — decorative, motion-safe transitioned. Reduced
-          motion users still see the numeric countdown above; the bar
-          just stops easing. */}
-      {!hasError && (
-        <div
-          aria-hidden
-          className="h-[2px] w-full overflow-hidden bg-bcc-border"
-        >
+        {/* Progress bar — decorative, motion-safe transitioned. Reduced
+            motion users still see the numeric countdown above; the bar
+            just stops easing. */}
+        {!hasError && (
           <div
-            className="h-full bg-safety motion-safe:transition-[width] motion-safe:duration-[250ms] motion-safe:ease-linear"
-            style={{ width: `${progressPercent}%` }}
-          />
-        </div>
-      )}
-    </div>
+            aria-hidden
+            className="h-[2px] w-full overflow-hidden bg-bcc-border"
+          >
+            <div
+              className="h-full bg-safety motion-safe:transition-[width] motion-safe:duration-[250ms] motion-safe:ease-linear"
+              style={{ width: `${progressPercent}%` }}
+            />
+          </div>
+        )}
+      </div>
+    </BottomSlot>
   );
 }
 

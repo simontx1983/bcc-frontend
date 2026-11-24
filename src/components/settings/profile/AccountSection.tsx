@@ -33,8 +33,9 @@ import {
   useChangeAccountPassword,
   useVerifyAccountEmailChange,
 } from "@/hooks/useAccount";
-import { humanizeCode } from "@/lib/api/errors";
+import { humanizeCode, isCode } from "@/lib/api/errors";
 import { BccApiError, type VerifyAccountEmailChangeErrorCode } from "@/lib/api/types";
+import { PASSWORD_BREACHED_CODE, PASSWORD_BREACHED_COPY } from "@/lib/auth/password-policy";
 import { endSession } from "@/lib/auth/session-boundary";
 
 const ERROR_COPY: Record<string, string> = {
@@ -312,7 +313,7 @@ function ChangeEmailCard({ currentEmail }: { currentEmail: string }) {
           onClick={() => {
             void endSession("user", { callbackUrl: "/login" });
           }}
-          className="bcc-auth-submit mt-4 inline-flex items-center justify-center"
+          className="bcc-auth-submit mt-4 inline-flex min-h-[44px] items-center justify-center"
         >
           Sign in again
         </button>
@@ -391,7 +392,7 @@ function ChangeEmailCard({ currentEmail }: { currentEmail: string }) {
             <button
               type="submit"
               disabled={!canConfirm}
-              className="bcc-stencil bg-ink px-4 py-2 text-cardstock transition disabled:opacity-50"
+              className="bcc-stencil inline-flex min-h-[44px] items-center bg-ink px-4 py-2 text-cardstock transition disabled:opacity-50"
             >
               {verify.isPending ? "Confirming…" : "Confirm"}
             </button>
@@ -469,7 +470,7 @@ type EmailStep =
 const CODE_LENGTH = 6;
 
 const textButtonClass =
-  "bcc-mono px-1 py-2 text-[11px] tracking-[0.14em] text-bcc-text-secondary hover:text-bcc-text disabled:opacity-50";
+  "bcc-mono inline-flex min-h-[44px] items-center px-1 py-2 text-[11px] tracking-[0.14em] text-bcc-text-secondary hover:text-bcc-text disabled:opacity-50";
 
 function isConflict(err: BccApiError | Error): boolean {
   return err instanceof BccApiError && err.code === "bcc_conflict";
@@ -533,6 +534,7 @@ function ChangePasswordCard() {
   const helpId = `${uid}-pw-help`;
   const lengthId = `${uid}-pw-length`;
   const matchId = `${uid}-pw-match`;
+  const breachedId = `${uid}-pw-breached`;
   // Current password, or (an account with no password, F-253) a wallet
   // signature — which is how a wallet-only member sets a first password.
   const confirm = useAccountConfirm("confirm_password_change");
@@ -540,6 +542,9 @@ function ChangePasswordCard() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [savedAt, setSavedAt] = useState<number | null>(null);
   const [serverError, setServerError] = useState<string | null>(null);
+  // The new password is known to have leaked (F-294): a refusal of that
+  // field alone, so it is shown there, not in the save row.
+  const [breached, setBreached] = useState(false);
   // "The password changed but we could not keep you signed in." Distinct
   // from both success and failure, because it is BOTH: the credential is
   // already rotated, and the session is not recoverable from here.
@@ -577,6 +582,15 @@ function ChangePasswordCard() {
       if (isWalletRefusal(err, confirm.mode)) confirm.refresh();
       setSavedAt(null);
       setSessionLost(false);
+      // The server checks a leaked password after the length check and
+      // before either confirmation, so nothing has committed: DEFINITE.
+      // It must not reach humanizePasswordError, whose unmapped-code
+      // branch would say the change may have gone through.
+      if (isCode(err, PASSWORD_BREACHED_CODE)) {
+        setServerError(null);
+        setBreached(true);
+        return;
+      }
       setServerError(humanizeConfirmError(err, confirm.mode) ?? humanizePasswordError(err));
     },
     onSettled: () => {
@@ -637,7 +651,7 @@ function ChangePasswordCard() {
           onClick={() => {
             void endSession("user", { callbackUrl: "/login" });
           }}
-          className="bcc-auth-submit mt-4 inline-flex items-center justify-center"
+          className="bcc-auth-submit mt-4 inline-flex min-h-[44px] items-center justify-center"
         >
           Sign in again
         </button>
@@ -663,6 +677,7 @@ function ChangePasswordCard() {
           if (!canSubmit || submitting.current) return;
           submitting.current = true;
           setServerError(null);
+          setBreached(false);
           setSavedAt(null);
           if (confirm.mode === "password") {
             mutation.mutate({ current_password: confirm.password, password: newPassword });
@@ -694,10 +709,15 @@ function ChangePasswordCard() {
           <input
             type="password"
             value={newPassword}
-            onChange={(e) => setNewPassword(e.target.value)}
+            onChange={(e) => {
+              setNewPassword(e.target.value);
+              setBreached(false);
+            }}
             disabled={mutation.isPending}
-            aria-describedby={showLengthError ? `${helpId} ${lengthId}` : helpId}
-            aria-invalid={showLengthError}
+            aria-describedby={[helpId, showLengthError ? lengthId : null, breached ? breachedId : null]
+              .filter((id) => id !== null)
+              .join(" ")}
+            aria-invalid={showLengthError || breached}
             autoComplete="new-password"
             minLength={10}
             required
@@ -724,6 +744,11 @@ function ChangePasswordCard() {
             Password must be at least 10 characters.
           </p>
         )}
+        {breached && (
+          <p id={breachedId} role="alert" className="bcc-mono text-[10px] text-bcc-text-error">
+            {PASSWORD_BREACHED_COPY}
+          </p>
+        )}
         {showMatchError && (
           <p id={matchId} className="bcc-mono text-[10px] text-bcc-text-error">
             Passwords don&apos;t match.
@@ -748,7 +773,7 @@ function ChangePasswordCard() {
 // ─────────────────────────────────────────────────────────────────────
 
 const fieldClass =
-  "w-full border border-bcc-input-border bg-bcc-input-bg px-3 py-2 font-serif text-bcc-text outline-none focus:border-bcc-accent focus:ring-1 focus:ring-bcc-accent disabled:opacity-50";
+  "min-h-[44px] w-full border border-bcc-input-border bg-bcc-input-bg px-3 py-2 font-serif text-bcc-text outline-none focus:border-bcc-accent focus:ring-1 focus:ring-bcc-accent disabled:opacity-50";
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -794,7 +819,7 @@ function SaveRow({
       <button
         type="submit"
         disabled={!canSubmit}
-        className="bcc-stencil bg-ink px-4 py-2 text-cardstock transition disabled:opacity-50"
+        className="bcc-stencil inline-flex min-h-[44px] items-center bg-ink px-4 py-2 text-cardstock transition disabled:opacity-50"
       >
         {busy ? busyLabel : label}
       </button>

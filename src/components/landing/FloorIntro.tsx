@@ -262,7 +262,10 @@ function FloorNow() {
           On the floor right now
         </span>
         <span className="bcc-ldg-fh-rule" aria-hidden />
-        <Link href="/directory">See the whole floor →</Link>
+        {/* The peek shows posts, so this leads to the feed, which is
+            members-only: guests (the only visitors here; signed-in "/"
+            renders the feed) sign up for it. */}
+        <Link href="/signup">Join to see the whole floor →</Link>
       </LandingReveal>
       <LandingFloorPeek />
     </div>

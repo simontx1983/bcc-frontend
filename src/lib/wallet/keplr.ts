@@ -94,6 +94,17 @@ const COSMOS_CHAIN_IDS: Record<string, string> = {
   dungeon:        "dungeon-1",
 };
 
+// Keplr's own list of natively integrated chains
+// (keplr-chain-registry.vercel.app/api/native-chains, mainnetChains),
+// checked 2026-11-24: every chain above is native except these two.
+// Keplr only knows a non-native chain once the member has added it to
+// their wallet; until then enable() fails with "There is no chain info
+// for <chain id>" (F-569).
+const KEPLR_NON_NATIVE: ReadonlySet<string> = new Set(["dungeon", "thorchain"]);
+
+import { MOBILE_WALLET_HINT, WALLET_FAILED_COPY, walletRejectedCopy, type WalletStage } from "@/lib/wallet/error-copy";
+import { findWalletChain } from "@/lib/wallet/chain-catalog";
+
 export function isCosmosChain(slug: string): boolean {
   return slug in COSMOS_CHAIN_IDS;
 }
@@ -117,8 +128,10 @@ export class KeplrError extends Error {
 
 export class KeplrUnavailableError extends KeplrError {
   override readonly name = "KeplrUnavailableError";
+  /** Where to get the wallet (rendered as a link by the claim flow). */
+  readonly installUrl = "https://www.keplr.app/get";
   constructor() {
-    super("Keplr extension not detected. Install Keplr to continue.");
+    super(`Keplr isn't installed in this browser. Install it to continue. ${MOBILE_WALLET_HINT}`);
   }
 }
 
@@ -133,8 +146,34 @@ export class KeplrUnsupportedChainError extends KeplrError {
 
 export class KeplrUserRejectedError extends KeplrError {
   override readonly name = "KeplrUserRejectedError";
-  constructor() {
-    super("Signing was canceled.");
+  /** Declined at the connect prompt, or cancelled at signing. */
+  readonly stage: WalletStage;
+  constructor(stage: WalletStage = "sign") {
+    super(walletRejectedCopy(stage));
+    this.stage = stage;
+  }
+}
+
+/**
+ * The chain isn't in the member's Keplr (F-569). `confirmed` is true when
+ * Keplr said so ("There is no chain info for …"); false when the connect
+ * failed on a non-native chain for a reason Keplr didn't name, so the copy
+ * offers adding the chain as the likely fix instead of asserting it.
+ */
+export class KeplrChainNotAddedError extends KeplrError {
+  override readonly name = "KeplrChainNotAddedError";
+  readonly slug: string;
+  readonly confirmed: boolean;
+  constructor(slug: string, confirmed: boolean, cause?: unknown) {
+    const chain = findWalletChain(slug)?.label ?? slug;
+    super(
+      confirmed
+        ? `${chain} isn't added to your Keplr yet. Add it from Keplr's chain list at chains.keplr.app, then try again.`
+        : `Couldn't connect to ${chain} in Keplr. If it isn't added to your Keplr yet, add it from Keplr's chain list at chains.keplr.app, then try again.`,
+      cause === undefined ? undefined : { cause },
+    );
+    this.slug = slug;
+    this.confirmed = confirmed;
   }
 }
 
@@ -172,7 +211,7 @@ export async function connectKeplr(chainSlug: string): Promise<KeplrConnection> 
       chainId,
     };
   } catch (err) {
-    throw normalizeKeplrError(err);
+    throw chainNotAddedError(err, chainSlug) ?? normalizeKeplrError(err, "connect");
   }
 }
 
@@ -203,7 +242,7 @@ export async function signKeplrChallenge(
       pubKey:    result.pub_key.value,
     };
   } catch (err) {
-    throw normalizeKeplrError(err);
+    throw normalizeKeplrError(err, "sign");
   }
 }
 
@@ -211,15 +250,32 @@ export async function signKeplrChallenge(
 // Helpers
 // ─────────────────────────────────────────────────────────────────────
 
-function normalizeKeplrError(err: unknown): KeplrError {
+/**
+ * A connect failure that means (or, on a non-native chain, most likely
+ * means) the chain isn't in the member's Keplr. Null for anything else,
+ * including a declined prompt, which keeps its own copy.
+ */
+function chainNotAddedError(err: unknown, slug: string): KeplrChainNotAddedError | null {
+  if (err instanceof KeplrError) return null;
+  const msg = err instanceof Error ? err.message.toLowerCase() : "";
+  if (msg.includes("no chain info")) return new KeplrChainNotAddedError(slug, true, err);
+  if (!KEPLR_NON_NATIVE.has(slug)) return null;
+  if (msg.includes("reject") || msg.includes("cancel")) return null;
+  return new KeplrChainNotAddedError(slug, false, err);
+}
+
+function normalizeKeplrError(err: unknown, stage: WalletStage): KeplrError {
+  // Already one of ours (deliberate copy, e.g. "No accounts" / "empty
+  // signature" thrown inside the try): keep it, never genericise it.
+  if (err instanceof KeplrError) return err;
   // Keplr surfaces user rejection as an Error with message "Request rejected"
   // (or sometimes ".. is rejected"). Match loosely.
   if (err instanceof Error) {
     const msg = err.message.toLowerCase();
     if (msg.includes("reject") || msg.includes("cancel")) {
-      return new KeplrUserRejectedError();
+      return new KeplrUserRejectedError(stage);
     }
-    return new KeplrError(err.message);
+    return new KeplrError(WALLET_FAILED_COPY, { cause: err });
   }
-  return new KeplrError("Wallet error.");
+  return new KeplrError(WALLET_FAILED_COPY, { cause: err });
 }

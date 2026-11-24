@@ -224,7 +224,7 @@ describe("the top level", () => {
     renderTabs({ isOwner: true });
     const labels = groupLabels();
     for (const gone of [
-      "My Standing", "Supporters", "Reviews Received", "Reviews Written",
+      "My Standing", "Supporters", "Vouches", "Reviews Received", "Reviews Written",
       "Roster", "Photos", "Disputes", "Groups", "Blog", "Setup", "Watching",
     ]) {
       expect(labels, `${gone} must live under a group, not beside them`).not.toContain(gone);
@@ -260,12 +260,12 @@ describe("exact group contents, in order", () => {
   it("Network — four, identical for owner and visitor", () => {
     renderTabs({ isOwner: true, tab: "backing" });
     expect(labelsIn(leafStrip()!)).toEqual([
-      "SUPPORTERS", "WATCHERS", "WATCHING", "COMMUNITIES",
+      "VOUCHES", "WATCHERS", "WATCHING", "COMMUNITIES",
     ]);
     cleanup();
     renderTabs({ isOwner: false, tab: "backing" });
     expect(labelsIn(leafStrip()!)).toEqual([
-      "SUPPORTERS", "WATCHERS", "WATCHING", "COMMUNITIES",
+      "VOUCHES", "WATCHERS", "WATCHING", "COMMUNITIES",
     ]);
   });
 
@@ -315,7 +315,7 @@ describe("defaults when a group is activated", () => {
     expect(window.location.search).toContain("tab=reviews");
   });
 
-  it("Network opens on Supporters for both viewers", () => {
+  it("Network opens on Vouches for both viewers", () => {
     for (const owner of [true, false]) {
       cleanup();
       renderTabs({ isOwner: owner, tab: "activity" });
@@ -365,7 +365,7 @@ const URL_MAP: ReadonlyArray<[string, string, string, string]> = [
   ["Reviews Received", "reviews",       "Reputation", "panel-reviews"],
   ["Reviews Written",  "written",       "Reputation", "panel-written"],
   ["Disputes",         "disputes",      "Reputation", "panel-disputes"],
-  ["Supporters",       "backing",       "Network",    "panel-backing"],
+  ["Vouches",          "backing",       "Network",    "panel-backing"],
   ["Watchers",         "watching",      "Network",    "panel-watching"],
   ["Watching",         "following",     "Network",    "panel-watching"],
   ["Communities",      "groups",        "Network",    "panel-groups"],
@@ -677,7 +677,7 @@ describe("the optional `tabs` metadata decorates, it does not restructure", () =
     // `photos`, `backing`, `blog` are not in the §9 metadata contract at all.
     renderTabs({ isOwner: false, tab: "backing", tabs: [meta({ key: "reviews", count: 1 })] });
     expect(labelsIn(leafStrip()!)).toEqual([
-      "SUPPORTERS", "WATCHERS", "WATCHING", "COMMUNITIES",
+      "VOUCHES", "WATCHERS", "WATCHING", "COMMUNITIES",
     ]);
   });
 
@@ -1006,7 +1006,7 @@ describe("re-selecting the ACTIVE group is a true no-op", () => {
     renderTabs({ isOwner: false, tab: "groups" });
     expect(screen.getByTestId("panel-groups")).toBeInTheDocument();
     clickGroup("Network");
-    expect(screen.getByTestId("panel-groups"), "thrown back to Supporters").toBeInTheDocument();
+    expect(screen.getByTestId("panel-groups"), "thrown back to Vouches").toBeInTheDocument();
     expect(window.location.search).toContain("tab=groups");
   });
 

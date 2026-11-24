@@ -36,22 +36,32 @@ import { GROUP_MEMBERS_QUERY_KEY_ROOT } from "@/hooks/useGroupMembers";
 import { USER_GROUPS_QUERY_KEY_ROOT } from "@/hooks/useUserActivity";
 import {
   acceptGroupInvite,
+  approveJoinRequest,
   cancelJoinRequest,
   createPlainGroup,
   declineGroupInvite,
+  denyJoinRequest,
+  getGroupInvites,
+  getGroupJoinRequests,
   getMyGroupInvites,
+  inviteToGroup,
   joinPlainGroup,
   leavePlainGroup,
   requestJoinGroup,
+  revokeGroupInvite,
   setGroupPostPolicy,
   transferGroupOwnership,
 } from "@/lib/api/my-groups-endpoints";
-import { useGroupContentRefresh } from "@/hooks/groupContentCache";
+import { invalidateGroupContent, useGroupContentRefresh } from "@/hooks/groupContentCache";
 import {
   BccApiError,
   type CreatePlainGroupRequest,
   type CreatePlainGroupResponse,
+  type GroupJoinRequestItem,
   type GroupMembershipChangeResponse,
+  type GroupMembershipDecisionResponse,
+  type GroupOutstandingInviteItem,
+  type GroupPendingListResponse,
   type JoinPlainGroupResponse,
   type MyGroupInvitesResponse,
   type LeavePlainGroupResponse,
@@ -267,4 +277,120 @@ export function useMyGroupInvites() {
       last.pagination.has_more ? last.pagination.offset + last.items.length : undefined,
     enabled: status === "authenticated",
   });
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// F-272 (b) — the owner / manager / site-admin side: a group's pending
+// requests and outstanding invitations, and the four decisions on them.
+//
+// The lists are only ever enabled for a viewer the group detail marks as
+// a decider (every route 403s anyone else). Each decision re-reads its
+// list; an approval also re-reads the roster (a new member).
+// ─────────────────────────────────────────────────────────────────────
+
+export const GROUP_JOIN_REQUESTS_QUERY_KEY_ROOT = ["me", "groups", "requests"] as const;
+export const GROUP_INVITES_QUERY_KEY_ROOT = ["me", "groups", "invites"] as const;
+
+const PENDING_PAGE = 24;
+
+function usePendingList<T>(
+  root: readonly string[],
+  groupId: number,
+  fetchPage: (
+    groupId: number,
+    params: { offset: number; limit: number },
+    signal: AbortSignal,
+  ) => Promise<GroupPendingListResponse<T>>,
+  enabled: boolean,
+) {
+  return useInfiniteQuery<
+    GroupPendingListResponse<T>,
+    BccApiError,
+    InfiniteData<GroupPendingListResponse<T>>,
+    QueryKey,
+    number
+  >({
+    queryKey: [...root, groupId],
+    initialPageParam: 0,
+    queryFn: ({ pageParam, signal }) => fetchPage(groupId, { offset: pageParam, limit: PENDING_PAGE }, signal),
+    // has_more is counted over raw rows (deleted accounts are skipped from
+    // items), so the next page starts at offset + limit.
+    getNextPageParam: (last) =>
+      last.pagination.has_more ? last.pagination.offset + last.pagination.limit : undefined,
+    enabled: enabled && groupId > 0,
+  });
+}
+
+/** GET /me/groups/:id/requests — enable only for a decider. */
+export function useGroupJoinRequests(groupId: number, enabled: boolean) {
+  return usePendingList<GroupJoinRequestItem>(
+    GROUP_JOIN_REQUESTS_QUERY_KEY_ROOT,
+    groupId,
+    getGroupJoinRequests,
+    enabled,
+  );
+}
+
+/** GET /me/groups/:id/invites — enable only for a decider. */
+export function useGroupInvites(groupId: number, enabled: boolean) {
+  return usePendingList<GroupOutstandingInviteItem>(
+    GROUP_INVITES_QUERY_KEY_ROOT,
+    groupId,
+    getGroupInvites,
+    enabled,
+  );
+}
+
+export interface MembershipDecisionVars {
+  groupId: number;
+  userId: number;
+}
+
+type DecisionMutationOptions = Omit<
+  UseMutationOptions<GroupMembershipDecisionResponse, BccApiError, MembershipDecisionVars>,
+  "mutationFn"
+>;
+
+function useDecisionMutation(
+  run: (groupId: number, userId: number) => Promise<GroupMembershipDecisionResponse>,
+  roots: ReadonlyArray<readonly string[]>,
+  refreshesRoster: boolean,
+  options: DecisionMutationOptions,
+) {
+  const queryClient = useQueryClient();
+  return useMutation<GroupMembershipDecisionResponse, BccApiError, MembershipDecisionVars>({
+    mutationFn: ({ groupId, userId }) => run(groupId, userId),
+    ...options,
+    // Settled, not success: a 409 ("no longer pending") means the list is
+    // stale too, so it is re-read either way.
+    onSettled: (data, error, vars, ...rest) => {
+      for (const root of roots) {
+        void queryClient.invalidateQueries({ queryKey: [...root, vars.groupId] });
+      }
+      if (refreshesRoster && error === null) {
+        invalidateGroupContent(queryClient, vars.groupId);
+      }
+      options.onSettled?.(data, error, vars, ...rest);
+    },
+  });
+}
+
+/** POST …/requests/:user_id/approve — the requester becomes a member. */
+export function useApproveJoinRequestMutation(options: DecisionMutationOptions = {}) {
+  return useDecisionMutation(approveJoinRequest, [GROUP_JOIN_REQUESTS_QUERY_KEY_ROOT], true, options);
+}
+
+/** POST …/requests/:user_id/deny — silent; a 7-day wait before they may ask again. */
+export function useDenyJoinRequestMutation(options: DecisionMutationOptions = {}) {
+  return useDecisionMutation(denyJoinRequest, [GROUP_JOIN_REQUESTS_QUERY_KEY_ROOT], false, options);
+}
+
+/** POST …/invites — invite a member to a closed or secret group. */
+export function useInviteToGroupMutation(options: DecisionMutationOptions = {}) {
+  return useDecisionMutation(inviteToGroup, [GROUP_INVITES_QUERY_KEY_ROOT], false, options);
+}
+
+/** POST …/invites/:user_id/revoke — withdraw an outstanding invitation. */
+export function useRevokeGroupInviteMutation(options: DecisionMutationOptions = {}) {
+  return useDecisionMutation(revokeGroupInvite, [GROUP_INVITES_QUERY_KEY_ROOT], false, options);
 }

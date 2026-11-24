@@ -18,7 +18,9 @@
  *   4. router.replace("/onboarding").
  *
  * The provider_token is short-lived (15 min). On expiry, show an error
- * with a link back to /login so they can restart the OAuth flow.
+ * with a link back to /login so they can restart the OAuth flow. It is
+ * held in memory from mount and removed from the URL right away, so it
+ * never stays in the address bar or browser history.
  *
  * Validation errors (handle taken / invalid, email taken / invalid) leave
  * the provider_token intact on the backend so the user can correct and
@@ -29,7 +31,7 @@ import type { Route } from "next";
 import { signIn } from "next-auth/react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { type FormEvent, Suspense, useState } from "react";
+import { type FormEvent, Suspense, useEffect, useState } from "react";
 
 import { AuthCard } from "@/components/auth/AuthCard";
 import { noteSignupCompleted, signupMethodForProvider } from "@/lib/analytics/posthog";
@@ -46,13 +48,36 @@ const ERROR_COPY: Record<string, string> = {
   bcc_invalid_email:       "Please enter a valid email address.",
   bcc_conflict:            "That handle or email is already taken. Try a different one.",
   bcc_rate_limited:        "Too many attempts. Wait a moment.",
+  // F-294 (bcc-trust #711): another submit with this token is still being
+  // processed. Nothing was created and the token is intact; resubmitting
+  // the same form is always safe (a retry after success signs in as that
+  // account), so the form stays as it is.
+  bcc_unavailable:         "We're still finishing your sign-up. Try again in a moment.",
   bcc_unknown:             "Something went wrong. Please try again.",
 };
+
+/**
+ * Drop `pt` from the address bar and this history entry, without a
+ * navigation. Other params stay. Next keeps `useSearchParams` in step with
+ * `history.replaceState`, so the page must already hold its own copy.
+ */
+function scrubProviderTokenFromUrl(): void {
+  const url = new URL(window.location.href);
+  if (!url.searchParams.has("pt")) return;
+  url.searchParams.delete("pt");
+  window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
+}
 
 function CompleteProfileContent() {
   const router       = useRouter();
   const searchParams = useSearchParams();
-  const pt           = searchParams.get("pt") ?? "";
+  // The provider token is a credential: read it once, at mount, then take
+  // it out of the URL (effect below) so a later visitor to this history
+  // entry, or anyone handed the address, cannot replay it.
+  const [pt]         = useState(() => searchParams.get("pt") ?? "");
+  useEffect(() => {
+    scrubProviderTokenFromUrl();
+  }, []);
   const needsEmail   = (searchParams.get("email") ?? "") === "";
   // `?provider=` is appended by the OAuth callback (lib/auth.ts).
   const signupMethod = signupMethodForProvider(searchParams.get("provider"));

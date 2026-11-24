@@ -19,8 +19,11 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, Suspense } from "react";
 
 import { RouteRail } from "@/components/layout/RouteRail";
+import { ScopedSearchField } from "@/components/search/ScopedSearchField";
+import { SearchEverywhereLink } from "@/components/search/SearchEverywhereLink";
 import { CardGrid } from "@/components/cards/CardGrid";
 import { PagerNav } from "@/components/ui/PagerNav";
+import { SectionTabs } from "@/components/ui/SectionTabs";
 import { useMembers } from "@/hooks/useMembers";
 import { LoadFailure } from "@/components/ui/LoadFailure";
 import { humanizeCode } from "@/lib/api/errors";
@@ -30,6 +33,8 @@ import type {
   MembersTypeFilter,
   MembersVerifiedAxis,
 } from "@/lib/api/types";
+
+import { MEMBERS_TABS } from "./members-tabs";
 
 const ZERO_TYPE_COUNTS: MembersTypeCounts = {
   validator: 0,
@@ -149,12 +154,30 @@ function MembersPageContent() {
     q: urlQ,
     type: urlType,
     verified: urlVerified,
+    // Every debounced keystroke, chip click and page step is a new query
+    // key. Without this each one dropped the grid for "Loading the
+    // roster…" and zeroed the role counts, so the chips vanished and came
+    // back while typing (F-260 M10). The old rows stay, dimmed, until the
+    // new ones land.
+    keepPreviousData: true,
   });
 
+  // True while the rows on screen answer the PREVIOUS key.
+  const isUpdating = query.isPlaceholderData;
+
+  // The search the rows on screen answer. While `isUpdating` that is the
+  // previous one, so the count line must not echo the new `q` over the
+  // old rows. Derived during render (React's "adjusting state when a prop
+  // changes" pattern), so it never lags the rows by a commit.
+  const [shownQ, setShownQ] = useState(urlQ);
+  if (query.isSuccess && !isUpdating && shownQ !== urlQ) {
+    setShownQ(urlQ);
+  }
+
   // Last good pagination, held locally so a failed page keeps its pager.
-  // Not solved with `placeholderData` on the hook: `useMembers` is shared
-  // with other surfaces, and changing its caching semantics would reach
-  // past this page. Same reasoning as WatchersPanel.
+  // `keepPreviousData` does not cover this: it backs a PENDING query only,
+  // and once the new key fails its status is `error` with no data. Same
+  // reasoning as WatchersPanel.
   const [lastPagination, setLastPagination] = useState<
     MembersResponse["pagination"] | undefined
   >(undefined);
@@ -209,7 +232,7 @@ function MembersPageContent() {
 
   return (
     <main className="bcc-page-wide pb-24">
-      <RouteRail kicker={"FLOOR \u00a0//\u00a0 MEMBERS"} label={"FILE INDEX \u00a0//\u00a0 ALL OPERATORS"} />
+      <RouteRail kicker={"FLOOR \u00a0//\u00a0 MEMBERS"} label={"FILE INDEX \u00a0//\u00a0 ALL MEMBERS"} />
 
       <header className="mx-auto max-w-[1560px] px-4 sm:px-7 pt-12">
         <p className="bcc-mono text-bcc-text-safety">THE ROSTER</p>
@@ -217,7 +240,7 @@ function MembersPageContent() {
           className="bcc-stencil mt-3 text-bcc-text leading-[0.95]"
           style={{ fontSize: "clamp(2.5rem, 6.5vw, 5.5rem)" }}
         >
-          Every operator on the floor.
+          Every member on the floor.
         </h1>
         <p className="mt-4 max-w-2xl font-serif text-lg leading-relaxed text-bcc-text-secondary">
           Members in good standing, sorted by who joined most recently. Search
@@ -225,20 +248,20 @@ function MembersPageContent() {
         </p>
       </header>
 
+      <SectionTabs label="Members sections" tabs={MEMBERS_TABS} />
+
       <section className="mx-auto mt-10 flex max-w-[1560px] flex-col gap-6 px-4 sm:px-7">
-        <label className="flex flex-col gap-1.5">
-          <span className="bcc-mono text-[10px] tracking-[0.24em] text-bcc-text-secondary">
-            SEARCH
-          </span>
-          <input
-            type="search"
+        {/* Scoped to members (Structure A §9). GET /members caps q at 64. */}
+        <div className="w-full max-w-md">
+          <ScopedSearchField
+            label="SEARCH"
+            placeholder="Search members by name or @handle…"
             value={localQ}
-            onChange={(e) => setLocalQ(e.target.value)}
-            placeholder="Handle or display name…"
+            onChange={setLocalQ}
+            onClear={() => setLocalQ("")}
             maxLength={64}
-            className="bcc-mono w-full max-w-md rounded-sm border border-bcc-input-border bg-bcc-input-bg px-3 py-2 text-bcc-text outline-none placeholder:text-bcc-text-placeholder focus:border-bcc-accent focus:ring-1 focus:ring-bcc-accent"
           />
-        </label>
+        </div>
         <TypeFilterRow
           active={urlType}
           counts={query.isSuccess ? query.data.type_counts : ZERO_TYPE_COUNTS}
@@ -253,7 +276,19 @@ function MembersPageContent() {
       </section>
 
       <section className="mx-auto mt-8 max-w-[1560px] px-4 sm:px-7">
-        {query.isPending && (
+        {/* ALWAYS mounted and empty when idle: a live region inserted
+            already holding its text is often not read (see
+            DirectoryThrottleNotice). The dimmed rows say "updating" to
+            sighted users; this says it to everyone else. */}
+        <p role="status" className="sr-only">
+          {isUpdating ? "Updating the roster…" : ""}
+        </p>
+
+        {/* A first load, or an update whose previous answer was empty:
+            an empty sheet answering the OLD filters must not stand in for
+            the new ones (it would claim "no validators" under a new
+            filter that has some). */}
+        {(query.isPending || (isUpdating && query.data.items.length === 0)) && (
           <p className="bcc-mono text-bcc-text-secondary">Loading the roster…</p>
         )}
 
@@ -293,6 +328,7 @@ function MembersPageContent() {
         )}
 
         {query.isSuccess &&
+          !isUpdating &&
           query.data.items.length === 0 &&
           (urlType !== null ? (
             <RosterFilterEmpty
@@ -301,17 +337,23 @@ function MembersPageContent() {
               onSelectType={setTypeFilter}
             />
           ) : hasRefinement ? (
-            <RosterRefinementEmpty onClear={clearRefinement} />
+            <RosterRefinementEmpty onClear={clearRefinement} query={urlQ} />
           ) : (
-            <RosterEmpty hasSearch={urlQ !== ""} />
+            <RosterEmpty hasSearch={urlQ !== ""} query={urlQ} />
           ))}
 
         {query.isSuccess && query.data.items.length > 0 && (
-          <>
+          <div
+            aria-busy={isUpdating}
+            className={
+              "motion-safe:transition-opacity motion-safe:duration-bcc-fast" +
+              (isUpdating ? " opacity-60" : "")
+            }
+          >
             <p className="bcc-mono mb-4 text-bcc-text-secondary">
-              {query.data.pagination.total} OPERATOR
+              {query.data.pagination.total} MEMBER
               {query.data.pagination.total === 1 ? "" : "S"}
-              {urlQ !== "" && ` MATCHING "${urlQ.toUpperCase()}"`}
+              {shownQ !== "" && ` MATCHING "${shownQ.toUpperCase()}"`}
             </p>
             <CardGrid cards={query.data.items} />
             <PagerNav
@@ -319,7 +361,7 @@ function MembersPageContent() {
               totalPages={query.data.pagination.total_pages}
               onPageChange={goToPage}
             />
-          </>
+          </div>
         )}
       </section>
     </main>
@@ -598,7 +640,7 @@ function FilterChip({
 // way RosterFilterEmpty does.
 // ──────────────────────────────────────────────────────────────────────
 
-function RosterRefinementEmpty({ onClear }: { onClear: () => void }) {
+function RosterRefinementEmpty({ onClear, query }: { onClear: () => void; query: string }) {
   return (
     <div className="bcc-paper mx-auto max-w-2xl p-8 text-center">
       <p className="bcc-mono mb-2 text-bcc-text-safety">NO MATCHES</p>
@@ -615,11 +657,14 @@ function RosterRefinementEmpty({ onClear }: { onClear: () => void }) {
       >
         CLEAR REFINEMENT
       </button>
+      <div>
+        <SearchEverywhereLink query={query} surface="paper" />
+      </div>
     </div>
   );
 }
 
-function RosterEmpty({ hasSearch }: { hasSearch: boolean }) {
+function RosterEmpty({ hasSearch, query }: { hasSearch: boolean; query: string }) {
   if (hasSearch) {
     return (
       <div className="bcc-paper mx-auto max-w-2xl p-8 text-center">
@@ -630,6 +675,7 @@ function RosterEmpty({ hasSearch }: { hasSearch: boolean }) {
         <p className="mt-3 font-serif italic leading-relaxed text-ink-soft">
           Try a different handle, or clear the search to see everyone.
         </p>
+        <SearchEverywhereLink query={query} surface="paper" />
       </div>
     );
   }
@@ -637,7 +683,7 @@ function RosterEmpty({ hasSearch }: { hasSearch: boolean }) {
     <div className="bcc-paper mx-auto max-w-2xl p-8 text-center">
       <p className="bcc-mono mb-2 text-bcc-text-safety">QUIET ROSTER</p>
       <h2 className="bcc-stencil text-3xl text-ink">
-        No operators on file yet.
+        No members on file yet.
       </h2>
       <p className="mt-3 font-serif italic leading-relaxed text-ink-soft">
         Once members start signing up, they&apos;ll show up here.
