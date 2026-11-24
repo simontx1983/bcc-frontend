@@ -78,6 +78,12 @@ const BELL_ROWS: ReadonlyArray<BellRow> = [
     blurb: "Someone reviewed a validator / project / creator page you own.",
   },
   {
+    // F-345. Bell-only: no push variant, not in the email digest.
+    key: "bcc_review_reply",
+    label: "Replies to your reviews",
+    blurb: "The member or page owner you reviewed replied to your review.",
+  },
+  {
     key: "bcc_card_watched",
     label: "Watchers on your card",
     blurb: "Someone is now keeping tabs on your card.",
@@ -85,7 +91,7 @@ const BELL_ROWS: ReadonlyArray<BellRow> = [
   {
     key: "bcc_rank_up",
     label: "Rank progression",
-    blurb: "You climbed to a new rank — a quieter audit-trail companion to the celebration toast.",
+    blurb: "You moved up to a new rank.",
   },
   // Rank Phase 8 rows. All state statements, never schedule nudges
   // (§2.7); the progression page carries every actionable detail.
@@ -127,22 +133,22 @@ const BELL_ROWS: ReadonlyArray<BellRow> = [
   {
     key: "bcc_welcome",
     label: "Welcome notification",
-    blurb: "A one-time first-touch notification when you signed up — proves the bell channel works. You'll only ever see one.",
+    blurb: "A one-time welcome when you joined. You'll only ever get one.",
   },
   {
     key: "bcc_mention",
     label: "Mentions in posts and comments",
-    blurb: "Someone @-tagged you in a post or comment. Fires once per author per post; edits don't ping again.",
+    blurb: "Someone @-tagged you in a post or comment. One notice per post or comment; an edit doesn't send another.",
   },
   {
     key: "bcc_hall_post",
     label: "Posts in your primary Hall",
-    blurb: "Someone posted in the Hall you've designated as primary. Coalesced to at most one bell per Hall per 5-minute window.",
+    blurb: "Someone posted in your primary Hall. At most one notice per Hall every 5 minutes.",
   },
   {
     key: "bcc_comment_received",
     label: "Comments on your posts",
-    blurb: "Someone commented on a post you authored. Coalesced to at most one bell per post per 5-minute window — hot posts don't spam.",
+    blurb: "Someone commented on a post you wrote. At most one notice per post every 5 minutes.",
   },
   {
     key: "bcc_attestation_vouch_received",
@@ -154,17 +160,17 @@ const BELL_ROWS: ReadonlyArray<BellRow> = [
     // silently reset every user's prefs. Label only. (contract v1.56)
     key: "bcc_attestation_stand_behind_received",
     label: "Backing received",
-    blurb: "Someone put a Backing slot on your operator profile or one of your cards. High-conviction.",
+    blurb: "Someone put a Backing slot on your operator profile or one of your cards.",
   },
   {
     key: "bcc_attestation_revoked",
     label: "Attestation revoked",
-    blurb: "Someone revoked a vouch or Backing they had previously cast on you. Reads as a neutral state change.",
+    blurb: "Someone withdrew a vouch or Backing they had given you.",
   },
   {
     key: "bcc_attestation_reaffirmed",
     label: "Attestation reaffirmed",
-    blurb: "Someone reaffirmed an attestation on you — refresh signal that they still endorse you.",
+    blurb: "Someone renewed a vouch or Backing they had given you.",
   },
   {
     key: "bcc_holder_community_live",
@@ -217,43 +223,43 @@ const PUSH_ROWS: ReadonlyArray<PushRow> = [
   {
     key: "dispute_outcome",
     label: "Dispute outcomes",
-    blurb: "A dispute you reported reached a final adjudication.",
+    blurb: "A dispute you reported has its final decision.",
   },
   {
     key: "mention",
     label: "Mentions in posts and comments",
-    blurb: "Push to your device when someone @-tags you. Rapid-fire mentions coalesce into one push.",
+    blurb: "Push to your device when someone @-tags you. Several mentions close together arrive as one push.",
   },
   {
     key: "hall_post",
     label: "Posts in your primary Hall",
-    blurb: "Push when your primary Hall has new activity. Rapid bursts coalesce into a single 'N new posts' push.",
+    blurb: "Push when your primary Hall has new posts. A burst of posts arrives as one 'N new posts' push.",
   },
   {
     key: "comment_received",
     label: "Comments on your posts",
-    blurb: "Push when someone comments on a post you authored. Rapid bursts on a hot post coalesce into 'N new comments'.",
+    blurb: "Push when someone comments on a post you wrote. A burst of comments arrives as one 'N new comments' push.",
   },
   {
     key: "attestation_vouch_received",
     label: "Vouches received",
-    blurb: "Push when someone vouches for you. Per-attestor debounce coalesces rapid bursts.",
+    blurb: "Push when someone vouches for you. Several vouches from one person close together arrive as one push.",
   },
   {
     // Persisted push-preference key — label only, same as the bell row.
     key: "attestation_stand_behind_received",
     label: "Backing received",
-    blurb: "Push when someone backs you — scarce, high-conviction signal.",
+    blurb: "Push when someone backs you.",
   },
   {
     key: "attestation_revoked",
     label: "Attestation revoked",
-    blurb: "Push when someone revokes a previously-cast attestation on you. Neutral state-change notice.",
+    blurb: "Push when someone withdraws a vouch or Backing they had given you.",
   },
   {
     key: "attestation_reaffirmed",
     label: "Attestation reaffirmed",
-    blurb: "Push when someone reaffirms their attestation on you. Periodic positive nudge.",
+    blurb: "Push when someone renews a vouch or Backing they had given you.",
   },
 ];
 
@@ -751,7 +757,7 @@ function humanizePushMutationError(err: unknown): string {
     err,
     {
       bcc_push_not_configured:
-        "Push isn't configured on this site yet. Ask an administrator to generate VAPID keys.",
+        "Push isn't configured on this site yet.",
       bcc_unauthorized: "Sign in required.",
       bcc_invalid_request: "Couldn't update push notifications. Check your selections.",
       bcc_rate_limited: "Saving too fast — try again in a moment.",

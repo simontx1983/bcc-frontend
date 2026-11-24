@@ -51,7 +51,7 @@ describe("claim badge removal notice preference", () => {
 
     // The push section is rendering its event rows, or this proves nothing.
     expect(screen.getByRole("heading", { name: "Browser push" })).toBeInTheDocument();
-    expect(screen.getByText("Push when someone backs you — scarce, high-conviction signal.")).toBeInTheDocument();
+    expect(screen.getByText("Push when someone backs you.")).toBeInTheDocument();
 
     expect(screen.getAllByText(LABEL)).toHaveLength(1);
   });

@@ -1,7 +1,7 @@
 /**
- * `bcc_announcement_hidden` and `bcc_announcement_restored` (F-307) are
- * bell-only: each gets one bell toggle, and the push section has no row for
- * either. Fixtures only.
+ * `bcc_announcement_hidden` and `bcc_announcement_restored` (F-307), and
+ * `bcc_review_reply` (F-345), are bell-only: each gets one bell toggle, and
+ * the push section has no row for any of them. Fixtures only.
  */
 
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
@@ -16,6 +16,7 @@ const PREFS: NotificationPrefs = {
   bell: {
     bcc_announcement_hidden: true,
     bcc_announcement_restored: true,
+    bcc_review_reply: true,
   } as NotificationPrefs["bell"],
   push: { enabled: true, events: {} as NotificationPrefs["push"]["events"] },
   push_available: true,
@@ -47,12 +48,13 @@ import { NotificationPrefsForm } from "@/components/settings/NotificationPrefsFo
 const ROWS = [
   { key: "bcc_announcement_hidden", label: /Announcement hidden by a moderator/ },
   { key: "bcc_announcement_restored", label: /Announcement restored/ },
+  { key: "bcc_review_reply", label: /Replies to your reviews/ },
 ] as const;
 
 beforeEach(() => mutate.mockReset());
 afterEach(cleanup);
 
-describe("announcement moderation notice preferences", () => {
+describe("bell-only notice preferences", () => {
   it("each appears exactly once, with the push section open, so never as a push toggle", () => {
     render(<NotificationPrefsForm />);
 
