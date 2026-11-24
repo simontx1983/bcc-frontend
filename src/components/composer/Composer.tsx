@@ -64,7 +64,7 @@ import {
   useComposerState,
 } from "@/components/composer/useComposerState";
 import { PostedNotice } from "@/components/composer/PostedNotice";
-import { createdPostActId, humanizeError } from "@/components/composer/useComposerSubmit";
+import { humanizeError } from "@/components/composer/useComposerSubmit";
 import { RankChip } from "@/components/profile/RankChip";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Dialog } from "@/components/ui/Dialog";
@@ -135,8 +135,9 @@ export interface ComposerProps {
   /**
    * Called with the new post's activity id (null when the server sent
    * no usable one) on a successful post, just before `onClose`; it links
-   * as `/post/{actId}`. Inline: every post. Modal: the Status tab only
-   * (a review is not a post with a permalink of its own here).
+   * as `/post/{actId}`. Inline variant only: the modal is the review
+   * dialog (F-561: review-only), and a review is not a post with a
+   * permalink of its own here.
    * A host that closes on success (NewPostTrigger's Dialog) unmounts the
    * composer's own "Posted" line, so it shows its own from this.
    */
@@ -297,7 +298,6 @@ export function Composer({
           : "Compose"
       }
       onClose={onClose ?? noop}
-      onPosted={onPosted}
       initialMode={initialMode}
       reviewTargetId={reviewAvailable && hasEntityTarget ? reviewTargetId : undefined}
       reviewTargetUserId={reviewAvailable && hasMemberTarget ? reviewTargetUserId : undefined}
@@ -1107,8 +1107,6 @@ interface ModalCoreProps {
   reviewTargetName: string | undefined;
   reviewAvailable: boolean;
   onSubmitSuccess: (() => void) | undefined;
-  /** See ComposerProps.onPosted (Status tab only). */
-  onPosted: ((actId: number | null) => void) | undefined;
   /** Whether the active form holds a draft (see ModalComposerShell). */
   onDraftChange: (hasDraft: boolean) => void;
 }
@@ -1120,7 +1118,6 @@ function ModalCore({
   reviewTargetName,
   reviewAvailable,
   onSubmitSuccess,
-  onPosted,
   onDraftChange,
 }: ModalCoreProps) {
   const [mode, setMode] = useState<ComposerMode>(initialMode);
@@ -1155,15 +1152,23 @@ function ModalCore({
         ? { kind: "entity", pageId: reviewTargetId }
         : null;
 
+  // F-561 (testnet audit): opened from WRITE A REVIEW, the dialog showed an
+  // UPDATE / REVIEW switcher, inviting a status post from a review button.
+  // A composer opened FOR a review target is a review dialog: no switcher.
+  // Every other modal composer keeps both tabs.
+  const reviewOnly = initialMode === "review" && reviewTarget !== null;
+
   return (
     <>
-      <ComposerTabs
-        mode={mode}
-        onChange={requestMode}
-        reviewAvailable={reviewAvailable}
-      />
+      {!reviewOnly && (
+        <ComposerTabs
+          mode={mode}
+          onChange={requestMode}
+          reviewAvailable={reviewAvailable}
+        />
+      )}
       {mode === "status" && (
-        <StatusForm onSubmitSuccess={onSubmitSuccess} onPosted={onPosted} onDraftChange={reportDraft} />
+        <StatusForm onSubmitSuccess={onSubmitSuccess} onDraftChange={reportDraft} />
       )}
       {mode === "review" && reviewAvailable && reviewTarget !== null && (
         <ReviewForm
@@ -1256,11 +1261,9 @@ function useReportDraft(hasDraft: boolean, onDraftChange: (hasDraft: boolean) =>
 
 function StatusForm({
   onSubmitSuccess,
-  onPosted,
   onDraftChange,
 }: {
   onSubmitSuccess: (() => void) | undefined;
-  onPosted: ((actId: number | null) => void) | undefined;
   onDraftChange: (hasDraft: boolean) => void;
 }) {
   const [content, setContent] = useState("");
@@ -1268,11 +1271,9 @@ function StatusForm({
   useReportDraft(content.trim() !== "", onDraftChange);
 
   const mutation = useCreatePostMutation({
-    onSuccess: (response) => {
+    onSuccess: () => {
       setContent("");
       setError(null);
-      // F-494: the modal closes on success, so its host says "Posted".
-      onPosted?.(createdPostActId(response));
       onSubmitSuccess?.();
     },
     onError: (err) => setError(humanizeError(err)),

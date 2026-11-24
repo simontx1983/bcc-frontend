@@ -7,15 +7,16 @@
  *     right after its button in the DOM. The Dialog returns focus to the
  *     button, so the next Tab reaches "View post". It clears on its ×
  *     (focus back to the button), on the next open, or on a route change;
- *   - the review dialog's Update tab (ReviewCallout → modal StatusForm)
- *     now shows the line under WRITE A REVIEW. A submitted REVIEW does not.
+ *   - the review dialog's Update tab (ReviewCallout) did too, until F-561
+ *     made that dialog review-only (Phillip, 2026-11-23): that path and
+ *     its tests are gone.
  *
  * F-514: the floating panel is portaled into the shared bottom slot (on
  * document.body), and the region stays in place, sr-only. The keyboard
  * path is kept by PostedNotice's focus bridge: Tab from the button reaches
  * "View post", Shift+Tab goes back, Tab past × reaches what followed it.
  *
- * Real NewPostTrigger / ReviewCallout / Composer / Dialog and QueryClient;
+ * Real NewPostTrigger / Composer / Dialog and QueryClient;
  * the posts endpoints are stubbed.
  */
 
@@ -26,7 +27,6 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vite
 
 const fx = vi.hoisted(() => ({
   createPost: vi.fn(),
-  createReview: vi.fn(),
   refresh: vi.fn(),
   pathname: "/",
 }));
@@ -45,7 +45,6 @@ vi.mock("@/lib/env", () => ({
 vi.mock("@/lib/api/posts-endpoints", async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
   createPost: (...a: unknown[]) => fx.createPost(...a),
-  createReview: (...a: unknown[]) => fx.createReview(...a),
 }));
 vi.mock("@/hooks/useGiphyIntegration", () => ({
   useGiphyIntegration: () => ({ data: { enabled: false }, isLoading: false, error: null }),
@@ -56,7 +55,6 @@ vi.mock("@/hooks/useMentionSearch", () => ({
 
 import { NewPostTrigger } from "@/components/composer/NewPostTrigger";
 import { DISMISS_POSTED_COPY, POSTED_COPY, VIEW_POST_COPY } from "@/components/composer/PostedNotice";
-import { ReviewCallout } from "@/components/review/ReviewCallout";
 import { BccApiError } from "@/lib/api/types";
 
 let qc: QueryClient;
@@ -70,11 +68,6 @@ const notice = () => {
   return outside[0] as HTMLElement;
 };
 
-const TABBABLE = 'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])';
-function nextTabbableAfter(el: Element): Element | undefined {
-  const all = Array.from(document.querySelectorAll(TABBABLE)).filter((n) => n.closest("[inert]") === null);
-  return all[all.indexOf(el) + 1];
-}
 
 async function settle() {
   await act(async () => {
@@ -99,11 +92,9 @@ beforeEach(() => {
   window.localStorage.clear();
   window.sessionStorage.clear();
   fx.createPost.mockReset();
-  fx.createReview.mockReset();
   fx.refresh.mockReset();
   fx.pathname = "/";
   fx.createPost.mockResolvedValue({ ok: true, kind: "status", feed_id: "feed_123", post_id: 9, act_id: 10 });
-  fx.createReview.mockResolvedValue({ ok: true, kind: "review", feed_id: null, vote_id: 1, page_id: 7, grade: "trust" });
   qc = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
 });
 afterEach(() => {
@@ -278,86 +269,6 @@ describe("NewPostTrigger — 'Posted' after the dialog closes (F-494)", () => {
     fireEvent.click(within(dialog).getByRole("button", { name: "Discard draft" }));
 
     await waitFor(() => expect(composeDialog()).toBeNull());
-    expect(notice()).toHaveTextContent("");
-  });
-});
-
-// ─────────────────────────────────────────────────────────────────────
-// ReviewCallout → the review dialog's Update tab (modal StatusForm)
-// ─────────────────────────────────────────────────────────────────────
-
-function calloutTree() {
-  return wrap(
-    <ReviewCallout
-      target={{ kind: "entity", pageId: 7 }}
-      pageName="Atlas"
-      canReview
-      unlockHint={null}
-      hasReviewed={false}
-      viewerAuthed
-    />,
-  );
-}
-
-const writeButton = () => screen.getByRole("button", { name: "WRITE A REVIEW" });
-const reviewDialog = () => screen.queryByRole("dialog", { name: "Write a review of Atlas" });
-
-async function openReviewDialog() {
-  writeButton().focus();
-  fireEvent.click(writeButton());
-  return screen.findByRole("dialog", { name: "Write a review of Atlas" });
-}
-
-describe("ReviewCallout — a status from the review dialog's Update tab (F-494)", () => {
-  it("the region is mounted empty, right after WRITE A REVIEW", () => {
-    render(calloutTree());
-    expect(notice()).toHaveTextContent("");
-    expect(writeButton().compareDocumentPosition(notice()) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-  });
-
-  it("'Posted — View post' under WRITE A REVIEW, focus back on it, Tab reaches the link next; the page still refreshes", async () => {
-    render(calloutTree());
-    const dialog = await openReviewDialog();
-    fireEvent.click(within(dialog).getByRole("tab", { name: /update/i }));
-    fireEvent.change(within(dialog).getByRole("textbox"), { target: { value: "status from the review dialog" } });
-    await act(async () => {
-      fireEvent.click(within(dialog).getByRole("button", { name: "POST TO THE FLOOR" }));
-    });
-
-    await waitFor(() => expect(reviewDialog()).toBeNull());
-    expect(fx.refresh).toHaveBeenCalledTimes(1);
-    expect(notice()).toHaveTextContent(`${POSTED_COPY} — ${VIEW_POST_COPY}`);
-    const link = within(notice()).getByRole("link", { name: VIEW_POST_COPY });
-    expect(link).toHaveAttribute("href", "/post/10");
-    expect(document.activeElement).toBe(writeButton());
-    expect(nextTabbableAfter(writeButton())).toBe(link);
-  });
-
-  it("a submitted review shows no 'Posted' line", async () => {
-    render(calloutTree());
-    const dialog = await openReviewDialog();
-    fireEvent.click(within(dialog).getByRole("button", { name: /TRUST/ }));
-    fireEvent.change(within(dialog).getByRole("textbox"), { target: { value: "Solid uptime all quarter." } });
-    await act(async () => {
-      fireEvent.click(within(dialog).getByRole("button", { name: "POST REVIEW" }));
-    });
-
-    await waitFor(() => expect(reviewDialog()).toBeNull());
-    expect(fx.createReview).toHaveBeenCalledTimes(1);
-    expect(notice()).toHaveTextContent("");
-  });
-
-  it("opening the dialog again clears it", async () => {
-    render(calloutTree());
-    const dialog = await openReviewDialog();
-    fireEvent.click(within(dialog).getByRole("tab", { name: /update/i }));
-    fireEvent.change(within(dialog).getByRole("textbox"), { target: { value: "status" } });
-    await act(async () => {
-      fireEvent.click(within(dialog).getByRole("button", { name: "POST TO THE FLOOR" }));
-    });
-    await waitFor(() => expect(notice()).toHaveTextContent(POSTED_COPY));
-
-    await openReviewDialog();
     expect(notice()).toHaveTextContent("");
   });
 });

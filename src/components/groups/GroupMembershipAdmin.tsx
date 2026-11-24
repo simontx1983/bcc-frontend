@@ -176,9 +176,24 @@ function JoinRequestRow({
 }) {
   const router = useRouter();
   const name = displayName(item.display_name, item.handle);
-  const approve = useApproveJoinRequestMutation();
-  const deny = useDenyJoinRequestMutation();
   const [confirmingDeny, setConfirmingDeny] = useState(false);
+  // Success callbacks live on the hooks, not on mutate(): TanStack skips a
+  // mutate() callback when the observer has no listener yet, which happens
+  // if the tap lands before this row's subscription effect runs.
+  const approve = useApproveJoinRequestMutation({
+    onSuccess: () => {
+      onDone(`${name} is now a member.`);
+      // The page's request count and roster are server-rendered.
+      router.refresh();
+    },
+  });
+  const deny = useDenyJoinRequestMutation({
+    onSuccess: () => {
+      setConfirmingDeny(false);
+      onDone(`Request from ${name} denied.`);
+      router.refresh();
+    },
+  });
   const busy = approve.isPending || deny.isPending;
 
   return (
@@ -191,16 +206,7 @@ function JoinRequestRow({
           onClick={() => {
             approve.reset();
             deny.reset();
-            approve.mutate(
-              { groupId, userId: item.id },
-              {
-                onSuccess: () => {
-                  onDone(`${name} is now a member.`);
-                  // The page's request count and roster are server-rendered.
-                  router.refresh();
-                },
-              },
-            );
+            approve.mutate({ groupId, userId: item.id });
           }}
           aria-label={`Approve ${name}`}
           className={PRIMARY_BUTTON}
@@ -237,16 +243,7 @@ function JoinRequestRow({
           pending={deny.isPending}
           onConfirm={() => {
             deny.reset();
-            deny.mutate(
-              { groupId, userId: item.id },
-              {
-                onSuccess: () => {
-                  setConfirmingDeny(false);
-                  onDone(`Request from ${name} denied.`);
-                  router.refresh();
-                },
-              },
-            );
+            deny.mutate({ groupId, userId: item.id });
           }}
           onCancel={() => {
             deny.reset();
@@ -384,7 +381,8 @@ function InviteCandidateRow({
   invited: boolean;
   onInvited: (name: string) => void;
 }) {
-  const invite = useInviteToGroupMutation();
+  // On the hook, not on mutate() (see JoinRequestRow).
+  const invite = useInviteToGroupMutation({ onSuccess: () => onInvited(name) });
   return (
     <li className="flex flex-wrap items-center justify-between gap-3 px-3 py-2">
       <PersonCell handle={handle} name={name} avatarUrl={avatarUrl} meta={`@${handle}`} />
@@ -393,7 +391,7 @@ function InviteCandidateRow({
         disabled={invite.isPending || invited}
         onClick={() => {
           invite.reset();
-          invite.mutate({ groupId, userId }, { onSuccess: () => onInvited(name) });
+          invite.mutate({ groupId, userId });
         }}
         aria-label={invited ? `Invited ${name}` : `Invite ${name}`}
         className={PRIMARY_BUTTON}

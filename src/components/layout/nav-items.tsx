@@ -36,9 +36,9 @@ export const PRIMARY_NAV = [
   { label: "Members",     href: "/members",     icon: <Users size={20} strokeWidth={1.7} aria-hidden /> },
   { label: "Directory",   href: "/directory",   icon: <LayoutGrid size={20} strokeWidth={1.7} aria-hidden /> },
   { label: "Communities", href: "/communities", icon: <Globe size={20} strokeWidth={1.7} aria-hidden /> },
-  { label: "Messages",    href: "/messages",    icon: <MessageSquare size={20} strokeWidth={1.7} aria-hidden /> },
-  { label: "Disputes",    href: "/disputes",    icon: <Scale size={20} strokeWidth={1.7} aria-hidden /> },
-  { label: "Watching",    href: "/watching",    icon: <WatchIcon size={20} strokeWidth={1.7} aria-hidden /> },
+  { label: "Messages",    href: "/messages",    signedInOnly: true, icon: <MessageSquare size={20} strokeWidth={1.7} aria-hidden /> },
+  { label: "Disputes",    href: "/disputes",    signedInOnly: true, icon: <Scale size={20} strokeWidth={1.7} aria-hidden /> },
+  { label: "Watching",    href: "/watching",    signedInOnly: true, icon: <WatchIcon size={20} strokeWidth={1.7} aria-hidden /> },
   { label: "Validators",  href: "/validators",  icon: <BadgeCheck size={20} strokeWidth={1.7} aria-hidden /> },
   { label: "Mentors",     href: "/mentors",     icon: <GraduationCap size={20} strokeWidth={1.7} aria-hidden /> },
 ] as const;
@@ -58,3 +58,12 @@ export const LEGAL_LINKS = [
 ] as const;
 
 export type NavItem = (typeof PRIMARY_NAV)[number];
+
+/**
+ * PRIMARY_NAV for this viewer. `signedInOnly` pages are the viewer's own
+ * (their inbox, their disputes, their watchlist) and send a guest to
+ * /login, so guests aren't shown them. Both navs render through this.
+ */
+export function primaryNavFor(signedIn: boolean): readonly NavItem[] {
+  return signedIn ? PRIMARY_NAV : PRIMARY_NAV.filter((item) => !("signedInOnly" in item && item.signedInOnly));
+}

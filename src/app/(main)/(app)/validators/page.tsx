@@ -25,7 +25,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, Suspense } from "react";
 
 import { RouteRail } from "@/components/layout/RouteRail";
-import { ValidatorFilters } from "@/components/directory/ValidatorFilters";
+import { filterOptionLabel } from "@/components/directory/DirectoryFilters";
+import { SORT_OPTIONS, STATUS_OPTIONS, ValidatorFilters } from "@/components/directory/ValidatorFilters";
 import { DirectoryResults } from "@/components/directory/DirectoryResults";
 import type { DirectoryFilters as Filters } from "@/hooks/useDirectory";
 import type {
@@ -192,9 +193,9 @@ function ActiveFiltersStrip({
               onClear={() => onChange({ ...filters, chain: null })}
             />
           )}
-          {(filters.status ?? null) !== null && (
+          {filters.status !== undefined && filters.status !== null && (
             <FilterChip
-              label={`STATUS · ${(filters.status as string).toUpperCase()}`}
+              label={`STATUS · ${filterOptionLabel(STATUS_OPTIONS, filters.status).toUpperCase()}`}
               onClear={() => onChange({ ...filters, status: null })}
             />
           )}
@@ -206,7 +207,7 @@ function ActiveFiltersStrip({
           )}
           {filters.sort !== "trust" && (
             <FilterChip
-              label={`SORT · ${filters.sort.toUpperCase()}`}
+              label={`SORT · ${filterOptionLabel(SORT_OPTIONS, filters.sort).toUpperCase()}`}
               onClear={() => onChange({ ...filters, sort: "trust" })}
             />
           )}
