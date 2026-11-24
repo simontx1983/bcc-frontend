@@ -56,3 +56,21 @@ export function markNotificationsRead(
     }
   );
 }
+
+/**
+ * F-516: mark exactly the bell rows an opened push carried as
+ * `notification_ids` (1 to 50; the server refuses anything else with a
+ * 400 and marks nothing). Only ever called with a push's ids, never to
+ * mark all.
+ */
+export function markNotificationsReadByIds(
+  ids: readonly number[]
+): Promise<NotificationsMarkReadResponse> {
+  return bccFetchAsClient<NotificationsMarkReadResponse>(
+    "me/notifications/mark-read",
+    {
+      method: "POST",
+      body: { ids },
+    }
+  );
+}

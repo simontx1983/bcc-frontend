@@ -9,7 +9,8 @@
  *      file is intentionally a thin renderer with sensible fallbacks
  *      so a payload-shape mismatch never silently swallows a push.
  *   3. notificationclick — if an open tab is already on the target URL,
- *      focus it; otherwise open a new tab. We deliberately do NOT
+ *      focus it (and post it the push's bell ids, F-516); otherwise open a
+ *      new tab (with the ids as `?bcc_read=`). We deliberately do NOT
  *      hijack an existing tab with `client.navigate()` — that would
  *      yank the user away from in-progress work in another tab of
  *      our app.
@@ -24,6 +25,49 @@
  *
  * @see docs/v2-phase-1-push-notifications.md sub-phase 1.4
  */
+
+// F-516: opening a push marks the bell rows it stood for as read. The
+// worker holds no credentials, so it hands the push's `notification_ids`
+// to the page: a `?bcc_read=` param on a tab it opens, or a message to a
+// tab already on the push's URL. Keep these in step with
+// src/lib/push/push-read-ids.ts.
+const PUSH_READ_PARAM = "bcc_read";
+const PUSH_READ_MESSAGE = "bcc:mark-read";
+const PUSH_READ_MAX_IDS = 50;
+
+/** 1–50 positive integer ids, de-duplicated; [] for anything else. */
+function readNotificationIds(raw) {
+  if (!Array.isArray(raw) || raw.length === 0 || raw.length > PUSH_READ_MAX_IDS) {
+    return [];
+  }
+  const ids = [];
+  for (const value of raw) {
+    if (!Number.isSafeInteger(value) || value <= 0) {
+      return [];
+    }
+    if (!ids.includes(value)) {
+      ids.push(value);
+    }
+  }
+  return ids;
+}
+
+/** The URL to open, carrying the ids, on our own origin only. */
+function withReadParam(url, ids) {
+  if (ids.length === 0) {
+    return url;
+  }
+  try {
+    const target = new URL(url, self.location.origin);
+    if (target.origin !== self.location.origin) {
+      return url;
+    }
+    target.searchParams.set(PUSH_READ_PARAM, ids.join(","));
+    return target.href;
+  } catch {
+    return url;
+  }
+}
 
 self.addEventListener("install", () => {
   // Skip the "waiting" state — new SW takes over immediately rather
@@ -70,7 +114,7 @@ self.addEventListener("push", (event) => {
   // less polished, but no broken-image 404 in the network log.
   const options = {
     body,
-    data: { url },
+    data: { url, notificationIds: readNotificationIds(payload.notification_ids) },
   };
   if (tag !== undefined) {
     options.tag = tag;
@@ -81,7 +125,9 @@ self.addEventListener("push", (event) => {
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  const url = (event.notification.data && event.notification.data.url) || "/";
+  const data = event.notification.data || {};
+  const url = data.url || "/";
+  const ids = readNotificationIds(data.notificationIds);
 
   event.waitUntil(
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((windowClients) => {
@@ -99,6 +145,9 @@ self.addEventListener("notificationclick", (event) => {
       for (const client of windowClients) {
         try {
           if (client.url === targetHref && "focus" in client) {
+            if (ids.length > 0) {
+              client.postMessage({ type: PUSH_READ_MESSAGE, ids });
+            }
             return client.focus();
           }
         } catch {
@@ -109,7 +158,7 @@ self.addEventListener("notificationclick", (event) => {
       // Otherwise open a new tab; this leaves whatever the user was
       // doing in their existing tabs untouched.
       if (self.clients.openWindow) {
-        return self.clients.openWindow(url);
+        return self.clients.openWindow(withReadParam(url, ids));
       }
       return null;
     }),
