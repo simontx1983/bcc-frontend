@@ -57,10 +57,11 @@
   --bcc-trust-neutral:   #6b6e72;
   --bcc-trust-trusted:   #247a3f;
   --bcc-trust-proven:    #8b5cf6;
-  /* Legacy alias — `elite` is still the value on the wire until bcc-trust
-     ships the rename. Pointing it at Proven means every existing consumer
-     picks up violet without a flag-day cutover. Delete once the backend
-     emits `proven` and nothing reads this name. */
+  /* The top band's key is `elite`, labelled "Elite" (bcc-trust
+     ReputationTierMap; the "Proven" rename was rejected, see ReputationTier
+     in lib/api/types.ts). Its colour is still declared as
+     --bcc-trust-proven, a name left from that rename; this alias is the
+     name that matches the key. The two token names can be unified later. */
   --bcc-trust-elite:     var(--bcc-trust-proven);
 
   /* Operator type badge colors */
