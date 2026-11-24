@@ -32,6 +32,7 @@ import {
 import { BccApiError, type MemberProfile } from "@/lib/api/types";
 import { deriveInitials } from "@/lib/format/initials";
 import { isWpMediaUrl } from "@/lib/media";
+import { CARD_BIO_HINT } from "@/lib/copy/card";
 
 const AVATAR_MAX_BYTES = 2 * 1024 * 1024;
 const COVER_MAX_BYTES = 5 * 1024 * 1024;
@@ -265,6 +266,7 @@ export function IdentityStep({
           </label>
           <textarea
             id="onb-bio"
+            aria-describedby="onb-bio-card-hint"
             className="bcc-onb-textarea"
             value={bio}
             maxLength={BIO_MAX}
@@ -272,9 +274,12 @@ export function IdentityStep({
             placeholder="What do you build, run, or watch? A line is plenty."
             onChange={(e) => setBio(e.target.value)}
           />
-          <p className="bcc-onb-note" style={{ marginTop: "6px", textAlign: "right" }}>
-            {bio.length}/{BIO_MAX}
-          </p>
+          <div className="flex items-baseline justify-between gap-3" style={{ marginTop: "6px" }}>
+            <p id="onb-bio-card-hint" className="bcc-onb-note">{CARD_BIO_HINT}</p>
+            <p className="bcc-onb-note" style={{ textAlign: "right" }}>
+              {bio.length}/{BIO_MAX}
+            </p>
+          </div>
         </div>
 
         {error !== null && (

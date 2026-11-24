@@ -26,13 +26,14 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, Suspense } from "react";
 
 import { RouteRail } from "@/components/layout/RouteRail";
-import { filterOptionLabel } from "@/components/directory/DirectoryFilters";
+import { TIER_OPTIONS, filterOptionLabel } from "@/components/directory/DirectoryFilters";
 import { SORT_OPTIONS, STATUS_OPTIONS, ValidatorFilters } from "@/components/directory/ValidatorFilters";
 import { DirectoryResults } from "@/components/directory/DirectoryResults";
 import { SectionTabs } from "@/components/ui/SectionTabs";
 import type { DirectoryFilters as Filters } from "@/hooks/useDirectory";
 import type {
   DirectorySort,
+  DirectoryTier,
   ValidatorStatusFilter,
 } from "@/lib/api/types";
 
@@ -48,13 +49,14 @@ const VALID_SORTS = new Set<DirectorySort>([
   "self_stake",
 ]);
 const VALID_STATUSES = new Set<ValidatorStatusFilter>(["active", "jailed", "inactive"]);
+const VALID_TIERS = new Set<DirectoryTier>(["elite", "trusted", "neutral", "caution", "risky"]);
 const SEARCH_DEBOUNCE_MS = 300;
 
 const DEFAULT_FILTERS: Filters = {
   kind: "validator",
-  // tier / goodStandingOnly are part of the shared filter shape but are
-  // not exposed on this tab — they stay at their inert defaults here.
   tier: null,
+  // goodStandingOnly is part of the shared filter shape but is not
+  // exposed on this tab — it stays at its inert default here.
   sort: "trust",
   q: "",
   goodStandingOnly: false,
@@ -174,6 +176,7 @@ function ActiveFiltersStrip({
     filters.q !== "" ||
     filters.sort !== "trust" ||
     filters.chain !== null ||
+    filters.tier !== null ||
     (filters.status ?? null) !== null;
 
   return (
@@ -203,6 +206,12 @@ function ActiveFiltersStrip({
             <FilterChip
               label={`STATUS · ${filterOptionLabel(STATUS_OPTIONS, filters.status).toUpperCase()}`}
               onClear={() => onChange({ ...filters, status: null })}
+            />
+          )}
+          {filters.tier !== null && (
+            <FilterChip
+              label={filterOptionLabel(TIER_OPTIONS, filters.tier).toUpperCase()}
+              onClear={() => onChange({ ...filters, tier: null })}
             />
           )}
           {filters.q !== "" && (
@@ -272,8 +281,16 @@ function parseFilters(searchParams: URLSearchParams | null): Filters {
     ? (statusRaw as ValidatorStatusFilter)
     : null;
 
-  // tier / goodStandingOnly are not exposed on this tab — held inert.
-  return { kind: "validator", tier: null, sort, q, goodStandingOnly: false, chain, status };
+  // Tier is honoured on every Explore tab, so an old
+  // /directory?kind=validator&tier=… link keeps its filter after the
+  // forward. An unknown value is dropped rather than sent.
+  const tierRaw = searchParams.get("tier");
+  const tier = tierRaw !== null && VALID_TIERS.has(tierRaw as DirectoryTier)
+    ? (tierRaw as DirectoryTier)
+    : null;
+
+  // goodStandingOnly is not exposed on this tab — held inert.
+  return { kind: "validator", tier, sort, q, goodStandingOnly: false, chain, status };
 }
 
 function pushFiltersToUrl(
@@ -284,6 +301,7 @@ function pushFiltersToUrl(
   if (filters.sort !== "trust") params.set("sort", filters.sort);
   if (filters.q !== "") params.set("q", filters.q);
   if (filters.chain !== null) params.set("chain", filters.chain);
+  if (filters.tier !== null) params.set("tier", filters.tier);
   if ((filters.status ?? null) !== null) params.set("status", filters.status as string);
 
   const qs = params.toString();
