@@ -168,6 +168,62 @@ describe("Mentors (gains the field)", () => {
   });
 });
 
+// Review follow-up (#413): a q that ARRIVES from the URL (Back / Forward, a
+// link) is not typing. The debounce used to treat it as typing and, 300 ms
+// later, replace the URL with page 1, dropping ?page= and overwriting that
+// history entry.
+describe("Back / Forward keeps the page and the history entry", () => {
+  function renderWithSameClient(ui: () => ReactNode) {
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const tree = () => <QueryClientProvider client={qc}>{ui()}</QueryClientProvider>;
+    const view = render(tree());
+    return () => view.rerender(tree());
+  }
+
+  it.each([
+    ["Members", () => <MembersPage />, [{ id: 1 }]],
+    ["Mentors", () => <MentorsPage />, [{ id: 1, is_mentor: true }]],
+  ] as const)("%s: arriving at another q writes nothing to the URL", async (_label, ui, items) => {
+    vi.useFakeTimers();
+    try {
+      getMembers.mockResolvedValue(membersPage([...items], 5));
+      state.searchParams = new URLSearchParams("q=alpha&page=3");
+      const rerender = renderWithSameClient(ui);
+
+      // Back: the browser restores an entry with a different q, same page.
+      state.searchParams = new URLSearchParams("q=beta&page=3");
+      rerender();
+      expect(screen.getByRole("searchbox", { name: "SEARCH" })).toHaveValue("beta");
+
+      await act(async () => {
+        vi.advanceTimersByTime(1000);
+      });
+      expect(state.replace).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it.each([
+    ["Members", () => <MembersPage />, "/members?q=gamma"],
+    ["Mentors", () => <MentorsPage />, "/members/mentors?q=gamma"],
+  ] as const)("%s: typing still writes ?q= (page reset) after the debounce", async (_label, ui, href) => {
+    vi.useFakeTimers();
+    try {
+      getMembers.mockResolvedValue(membersPage([{ id: 1, is_mentor: true }], 5));
+      state.searchParams = new URLSearchParams("q=alpha&page=3");
+      renderWithSameClient(ui);
+      fireEvent.change(screen.getByRole("searchbox", { name: "SEARCH" }), { target: { value: "gamma" } });
+      await act(async () => {
+        vi.advanceTimersByTime(300);
+      });
+      expect(state.replace).toHaveBeenCalledWith(href, { scroll: false });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
 describe("Global search results: the tabs use the menu's words (Structure A §10)", () => {
   it("reads All · Explore · Members · Communities", async () => {
     const never = () => new Promise<never>(() => {});
