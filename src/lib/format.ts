@@ -97,8 +97,14 @@ export function formatShortDate(iso: string): string {
  * server-side render and client-side render don't drift across
  * timezones. Returns "—" for empty / unparseable values.
  */
-export function formatJoinDate(iso: string): string {
-  if (iso === "") return "—";
+/**
+ * When an account was created, as other members may see it: MONTH and
+ * YEAR only ("MAY 2026"), never a day (Phillip, 2026-11-24). UTC, so a
+ * month-truncated timestamp (the 1st, 00:00Z) reads as its own month in
+ * every timezone. "—" when absent or unreadable.
+ */
+export function formatJoinDate(iso: string | null | undefined): string {
+  if (iso === null || iso === undefined || iso === "") return "—";
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "—";
   const months = [

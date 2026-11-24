@@ -80,7 +80,9 @@ describe("the private FileRail is completely removed", () => {
     expect(call).toContain('kind="MEMBER"');
     expect(call).toContain("subject={`@${profile.handle.toUpperCase()}`}");
     expect(call).toContain("isOwner={isOwner}");
-    expect(call).toContain("joinedLabel={formatJoinDate(profile.joined_at)}");
+    // Month + year only, and no JOINED at all when the date is absent.
+    expect(src).toContain("const joinedLabel = formatJoinDate(profile.joined_at);");
+    expect(call).toContain('joinedLabel={joinedLabel === "—" ? null : joinedLabel}');
     // `handle` was the local component's prop; the shared one takes `subject`.
     expect(call).not.toMatch(/\bhandle=\{profile\.handle\}/);
   });
