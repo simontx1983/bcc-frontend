@@ -12,6 +12,11 @@
  *
  * Every builder takes the page URL and refuses anything but http(s), so a
  * crafted value can't become a `javascript:` or app-scheme target.
+ *
+ * Only origin + path + an allowlist of query keys ever leave the app: a
+ * vendor's domain receives the link when its app isn't installed, so a
+ * token a future host page carries in its query or #fragment must not
+ * ride along. The fragment is always dropped.
  */
 
 import type { WalletChainType } from "@/lib/wallet/chain-catalog";
@@ -42,15 +47,30 @@ const LABELS: Readonly<Record<WalletAppId, string>> = {
   metamask: "Open in MetaMask",
 };
 
-/** The page as an http(s) URL, or null. */
-function httpUrl(pageUrl: string): URL | null {
+/**
+ * Query keys a wallet link may carry. `callbackUrl` is /login's
+ * same-origin return path; nothing else is needed to land back on the page.
+ */
+export const FORWARDED_QUERY_KEYS: readonly string[] = ["callbackUrl"];
+
+/**
+ * The page as an http(s) URL reduced to origin + path + the allowlisted
+ * query keys, with no fragment; or null.
+ */
+export function shareablePage(pageUrl: string): URL | null {
   let url: URL;
   try {
     url = new URL(pageUrl);
   } catch {
     return null;
   }
-  return url.protocol === "https:" || url.protocol === "http:" ? url : null;
+  if (url.protocol !== "https:" && url.protocol !== "http:") return null;
+  const page = new URL(url.origin + url.pathname);
+  for (const key of FORWARDED_QUERY_KEYS) {
+    const value = url.searchParams.get(key);
+    if (value !== null) page.searchParams.set(key, value);
+  }
+  return page;
 }
 
 /**
@@ -104,7 +124,7 @@ const BUILDERS: Readonly<Record<WalletAppId, (page: URL) => string>> = {
 
 /** The wallet-app links for this chain type and page; [] when none apply. */
 export function walletAppLinksFor(chainType: WalletChainType, pageUrl: string): WalletAppLink[] {
-  const page = httpUrl(pageUrl);
+  const page = shareablePage(pageUrl);
   if (page === null) return [];
   return (WALLET_APPS_BY_CHAIN_TYPE[chainType] ?? []).map((id) => ({
     id,

@@ -7,7 +7,9 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  FORWARDED_QUERY_KEYS,
   WALLET_APPS_BY_CHAIN_TYPE,
+  shareablePage,
   walletAppLinksFor,
   type WalletAppLink,
 } from "@/lib/wallet/open-in-wallet";
@@ -15,8 +17,8 @@ import {
 // A sign-in page carrying its own encoded callback, a second param, a
 // space and a fragment: everything a naive concatenation gets wrong.
 const PAGE = "https://bluecollarcrypto.io/login?callbackUrl=%2Fv%2Facme&x=a b#claim";
-// What the URL parser normalises it to (the space becomes %20).
-const HREF = "https://bluecollarcrypto.io/login?callbackUrl=%2Fv%2Facme&x=a%20b#claim";
+// What reaches a vendor: origin + path + the allowlisted callbackUrl only.
+const HREF = "https://bluecollarcrypto.io/login?callbackUrl=%2Fv%2Facme";
 const ORIGIN = "https://bluecollarcrypto.io";
 
 const byId = (links: WalletAppLink[]) => Object.fromEntries(links.map((l) => [l.id, l]));
@@ -44,7 +46,7 @@ describe("the documented link formats", () => {
 
   it("MetaMask: link.metamask.io/dapp/<host + path, no scheme>", () => {
     const { metamask } = byId(walletAppLinksFor("evm", PAGE));
-    expect(metamask?.href).toBe("https://link.metamask.io/dapp/bluecollarcrypto.io/login?callbackUrl=%2Fv%2Facme&x=a%20b#claim");
+    expect(metamask?.href).toBe("https://link.metamask.io/dapp/bluecollarcrypto.io/login?callbackUrl=%2Fv%2Facme");
   });
 });
 
@@ -68,9 +70,27 @@ describe("encoding", () => {
     for (const link of [keplr, phantom, solflare]) {
       const parsed = new URL(link?.href ?? "");
       expect(parsed.searchParams.get("callbackUrl")).toBeNull();
-      expect(parsed.searchParams.get("x")).toBeNull();
       expect(parsed.hash).toBe("");
     }
+  });
+
+  it("no other query key and no #fragment ever reaches a vendor (a future token can't leak)", () => {
+    const page = "https://bluecollarcrypto.io/v/acme?key=SECRETKEY&pt=PROVIDERTOKEN&callbackUrl=%2Fv%2Facme#access_token=FRAGTOKEN";
+    for (const chainType of ["cosmos", "solana", "evm"] as const) {
+      for (const link of walletAppLinksFor(chainType, page)) {
+        const decoded = decodeURIComponent(decodeURIComponent(link.href));
+        for (const secret of ["SECRETKEY", "PROVIDERTOKEN", "FRAGTOKEN", "key=", "pt=", "#"]) {
+          expect(decoded, `${link.id} carries ${secret}`).not.toContain(secret);
+        }
+        expect(decoded, link.id).toContain("/v/acme");
+        expect(decoded, link.id).toContain("callbackUrl=/v/acme");
+      }
+    }
+  });
+
+  it("only callbackUrl is forwarded", () => {
+    expect(FORWARDED_QUERY_KEYS).toEqual(["callbackUrl"]);
+    expect(shareablePage("https://bluecollarcrypto.io/v/acme?utm=1#x")?.href).toBe("https://bluecollarcrypto.io/v/acme");
   });
 
   it("refuses anything but an http(s) page", () => {
