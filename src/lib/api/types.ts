@@ -7460,7 +7460,10 @@ export type AnnouncementCommentDeniedReason =
   | "announcement_unavailable"
   | "suspended"
   | "fraud_locked"
-  | "feature_disabled";
+  | "feature_disabled"
+  // The viewer's standing could not be read (bcc-trust PR 857): a retryable
+  // state, not a verdict about the account.
+  | "unavailable";
 
 /**
  * Additive-optional block on the validator Card view-model.
