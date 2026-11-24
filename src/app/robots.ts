@@ -1,5 +1,6 @@
 import type { MetadataRoute } from "next";
 
+import { appOrigin } from "@/lib/app-origin";
 import { isIndexableEnvironment } from "@/lib/seo/indexing";
 
 /**
@@ -35,13 +36,12 @@ import { isIndexableEnvironment } from "@/lib/seo/indexing";
  * under-blocks), so /u/me is handled by page metadata instead — see
  * app/(main)/(app)/u/me/page.tsx.
  *
- * ## No Sitemap directive
+ * ## Sitemap directive (F-518)
  *
- * A member-profile sitemap is BLOCKED — BACKEND DATA REQUIRED. No frontend
- * endpoint enumerates only public, indexable profiles: /bcc/v1/members maps
- * to a plain WP_User_Query and the contract states the directory may surface
- * hidden and banned users. Advertising a sitemap we cannot build correctly is
- * worse than advertising none.
+ * Only the indexable deployment advertises /sitemap.xml, built from the
+ * backend's public index (contract §4.33), which lists only what a
+ * signed-out visitor may open. Off production there is no sitemap at all:
+ * the route answers 404 there, like this file's missing directive.
  */
 /**
  * Evaluated per request, not prerendered.
@@ -80,5 +80,6 @@ export default function robots(): MetadataRoute.Robots {
         "/settings",
       ],
     },
+    sitemap: `${appOrigin()}/sitemap.xml`,
   };
 }
