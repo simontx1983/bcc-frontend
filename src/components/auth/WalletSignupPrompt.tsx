@@ -113,7 +113,7 @@ export function WalletSignupPrompt(props: WalletSignupPromptProps) {
               pattern="[a-z0-9\-]{3,20}"
               value={handle}
               onChange={(e) => setHandle(e.target.value.toLowerCase())}
-              className="flex-1 bg-transparent px-2 py-2 font-serif text-bcc-text outline-none"
+              className="min-h-[44px] flex-1 bg-transparent px-2 py-2 font-serif text-bcc-text outline-none"
             />
           </div>
           <span
@@ -132,7 +132,7 @@ export function WalletSignupPrompt(props: WalletSignupPromptProps) {
             maxLength={60}
             value={displayName}
             onChange={(e) => setDisplayName(e.target.value)}
-            className="border border-bcc-input-border bg-bcc-input-bg px-3 py-2 font-serif text-bcc-text outline-none focus:border-bcc-accent focus:ring-1 focus:ring-bcc-accent"
+            className="min-h-[44px] border border-bcc-input-border bg-bcc-input-bg px-3 py-2 font-serif text-bcc-text outline-none focus:border-bcc-accent focus:ring-1 focus:ring-bcc-accent"
           />
         </label>
 
@@ -143,7 +143,7 @@ export function WalletSignupPrompt(props: WalletSignupPromptProps) {
             autoComplete="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="border border-bcc-input-border bg-bcc-input-bg px-3 py-2 font-serif text-bcc-text outline-none focus:border-bcc-accent focus:ring-1 focus:ring-bcc-accent"
+            className="min-h-[44px] border border-bcc-input-border bg-bcc-input-bg px-3 py-2 font-serif text-bcc-text outline-none focus:border-bcc-accent focus:ring-1 focus:ring-bcc-accent"
           />
           <span className="bcc-mono text-bcc-text-secondary/70">
             It lets you get back in if you lose this wallet. You can add it
@@ -187,7 +187,7 @@ export function WalletSignupPrompt(props: WalletSignupPromptProps) {
         <button
           type="button"
           onClick={props.onDismiss}
-          className="bcc-mono py-2 text-bcc-text-secondary underline"
+          className="bcc-mono min-h-[44px] py-2 text-bcc-text-secondary underline"
         >
           Cancel
         </button>
