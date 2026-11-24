@@ -147,6 +147,12 @@ describe("a group's 'connect a wallet to join'", () => {
     h.linkError = null;
     withClient(<GroupMembershipStrip group={validatorGroup()} />);
     expect(step()).toBeNull();
+    cleanup();
+
+    h.linkError = new KeplrUserRejectedError("connect");
+    withClient(<GroupMembershipStrip group={validatorGroup()} />);
+    expect(screen.getByRole("button", { name: "CONNECT WALLET & VERIFY" })).toBeInTheDocument();
+    expect(step()).toBeNull();
   });
 
   it("also under CHECK & JOIN when a wallet is already linked", () => {

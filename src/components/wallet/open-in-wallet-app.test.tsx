@@ -158,6 +158,35 @@ describe("WalletAuthButton", () => {
 });
 
 describe("ClaimFlow, the connect step", () => {
+  const renderClaim = () =>
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <ClaimFlow
+          pageId={7}
+          pageName="Acme"
+          target={{ entity_type: "validator", entity_id: 42, chain_slug: "cosmos", claimable: true }}
+          onClose={vi.fn()}
+        />
+      </QueryClientProvider>,
+    );
+
+  it("a declined prompt (any error but 'not installed') gets no step, and neither does the waiting state", async () => {
+    h.connect.mockRejectedValue(new KeplrUserRejectedError("connect"));
+    renderClaim();
+    fireEvent.click(screen.getByRole("button", { name: /I AM THE OPERATOR/ }));
+    await flush();
+    expect(screen.getByRole("alert")).toBeInTheDocument();
+    expect(step()).toBeNull();
+    cleanup();
+
+    h.connect.mockReturnValue(new Promise(() => {}));
+    renderClaim();
+    fireEvent.click(screen.getByRole("button", { name: /I AM THE OPERATOR/ }));
+    await flush();
+    expect(screen.getByRole("heading", { name: "Connect your wallet" })).toBeInTheDocument();
+    expect(step()).toBeNull();
+  });
+
   it("a phone with no Keplr gets 'Open in Keplr' beside the install link", async () => {
     h.connect.mockRejectedValue(new KeplrUnavailableError());
     render(
