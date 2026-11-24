@@ -6,8 +6,8 @@
  * onboarding identity step and the new-community form both pull in
  * mutation hooks that a render would only mock away. Each must import its
  * shared constant, render it under its own id, and point its textarea's
- * aria-describedby at that id. The member BioEditor joins this list when
- * figma's #295 (which owns that file) lands.
+ * aria-describedby at that id. The profile's ABOUT YOU editor (BioEditor)
+ * appends it to its existing help line, which already describes its field.
  */
 
 import { readFileSync } from "node:fs";
@@ -44,5 +44,13 @@ describe("the card-bio hint", () => {
     // Never a private copy of the words.
     expect(src).not.toContain("shows on your card");
     expect(src).not.toContain("first 25 words");
+  });
+
+  it("the profile's ABOUT YOU editor adds it to the help line that describes its field", () => {
+    const src = read("src/components/settings/profile/BioEditor.tsx");
+    expect(src).toContain('import { CARD_BIO_HINT } from "@/lib/copy/card";');
+    expect(src).toMatch(/<p id=\{helpId\}[^>]*>[^<]*\{CARD_BIO_HINT\}\s*<\/p>/);
+    expect(src).toMatch(/<textarea[\s\S]*?aria-describedby=\{helpId\}/);
+    expect(src).not.toContain("shows on your card");
   });
 });

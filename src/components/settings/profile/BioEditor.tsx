@@ -39,6 +39,7 @@ import {
 import { useDirtyRegistration } from "@/hooks/useDirtyRegistration";
 import { useUpdateBio } from "@/hooks/useUpdateProfile";
 import { BccApiError, type MemberProfile } from "@/lib/api/types";
+import { CARD_BIO_HINT } from "@/lib/copy/card";
 
 /**
  * `bcc_invalid_request` on THIS mutation can only mean the bio was too
@@ -148,7 +149,7 @@ export function BioEditor({ profile }: BioEditorProps) {
           ABOUT YOU
         </label>
         <p id={helpId} className="bcc-mono text-[10px] text-bcc-text-secondary">
-          A short introduction shown at the top of your profile.
+          A short introduction shown at the top of your profile. {CARD_BIO_HINT}
         </p>
         <textarea
           id={fieldId}
