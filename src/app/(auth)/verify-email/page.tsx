@@ -51,6 +51,7 @@ import {
   verifyEmail,
 } from "@/lib/api/auth-endpoints";
 import { BccApiError, type VerifyEmailResponse } from "@/lib/api/types";
+import { canModerateCredential } from "@/lib/auth/can-moderate";
 import {
   clearPendingVerificationEmail,
   readPendingVerificationEmail,
@@ -176,6 +177,7 @@ function VerifyEmailContent() {
         token:            tokenResp.token,
         expires_in:       String(tokenResp.expires_in),
         in_good_standing: String(tokenResp.in_good_standing),
+        ...canModerateCredential(tokenResp),
         redirect:         false,
       });
       if (result?.ok) {

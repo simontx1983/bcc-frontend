@@ -126,6 +126,13 @@ export interface AuthTokenResponse {
    * BCC JWT expires + the session re-authenticates).
    */
   in_good_standing: boolean;
+  /**
+   * Whether the user passes the admin routes' own capability check.
+   * DISPLAY ONLY: it shows or hides the avatar menu's Admin group, and
+   * the server re-checks every admin request. Optional: a backend from
+   * before the field sends nothing, which reads as "hide".
+   */
+  can_moderate?: boolean;
 }
 
 export interface HandleUpdateResponse {
@@ -7254,6 +7261,13 @@ export interface BadgesResponse {
   notifications_unread: number;
   /** Map of open conversation root id → latest-message hint. Empty when caller passes no open_threads param. */
   open_thread_hints: Record<string, BadgesOpenThreadHint>;
+  /**
+   * How many disputes the viewer filed that are still open (status
+   * `reviewing`): the open subset of GET /disputes/mine. Null when the
+   * server could not read the count (never a guessed 0); absent on a
+   * backend from before the field. Read it through useOpenCaseCount.
+   */
+  disputes_open?: number | null;
   /** Server timestamp (ISO 8601 UTC). Useful for staleness debugging. */
   polled_at: string;
 }

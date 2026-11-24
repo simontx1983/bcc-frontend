@@ -19,7 +19,7 @@ import { describe, expect, it } from "vitest";
 
 import { ATTESTATION_COPY } from "@/lib/copy/trust-layer";
 import { presentationName } from "@/lib/format";
-import { QUICK_LINKS } from "@/components/layout/nav-items";
+import { YOU_ITEMS } from "@/components/layout/nav-items";
 
 const read = (p: string) => readFileSync(resolve(process.cwd(), p), "utf-8");
 /** Code only: comments may still explain history. */
@@ -37,7 +37,10 @@ const SURFACES: ReadonlyArray<readonly [string, string, string]> = [
   ["src/app/(main)/(app)/u/[handle]/opengraph-image.tsx", "Blue Collar Crypto member file", "Blue Collar Crypto operator file"],
   ["src/components/messages/ConversationsPanel.tsx", "every member has a file", "every operator has a file"],
   ["src/components/profile/panels/BackingPanel.tsx", "This member has no vouches yet", "no supporters yet"],
-  ["src/components/layout/SiteHeader.tsx", 'label: "Standing"', '"My Progression"'],
+  // The avatar menu and the phone Menu both draw nav-items' YOU_ITEMS
+  // since Site Structure A; SiteHeader keeps no copy of its own.
+  ["src/components/layout/nav-items.tsx", 'label: "Standing"', '"My Progression"'],
+  ["src/components/layout/SiteHeader.tsx", "YOU_ITEMS.map", '"My Progression"'],
   ["src/app/(main)/(app)/me/progression/page.tsx", "MEMBER &nbsp;//&nbsp; STANDING", "OPERATOR &nbsp;//&nbsp; STANDING"],
   ["src/app/(main)/(app)/me/reliability/page.tsx", "MEMBER &nbsp;//&nbsp; RELIABILITY", "OPERATOR &nbsp;//&nbsp; RELIABILITY"],
   ["src/app/(main)/(app)/members/mentors/page.tsx", "Veteran members in Trusted standing", "Veteran operators"],
@@ -63,13 +66,12 @@ const SURFACES: ReadonlyArray<readonly [string, string, string]> = [
   ["src/lib/tour/registry.ts", "that member's reputation", "that operator's reputation"],
   ["src/components/disputes/OpenDisputeModal.tsx", "Our team has been notified.", "An operator has been notified."],
   ["src/components/entity/ChainTabs.tsx", "Chains this validator runs on", "Chains this operator runs on"],
-  ["src/app/(main)/(app)/explore/page.tsx", "the validators you actually trust", "the operators you actually trust"],
+  ["src/app/(main)/(app)/explore/explore-tabs.ts", "the pages members vouch for and review", "the pages operators vouch for"],
   // The follow-up: the Explore rails, and a member's meta description.
   ["src/app/(main)/(app)/explore/KindDirectoryPage.tsx", "FILE INDEX \\u00a0//\\u00a0 ALL PROJECTS", "ALL OPERATORS"],
   ["src/app/(main)/(app)/explore/KindDirectoryPage.tsx", "FILE INDEX \\u00a0//\\u00a0 ALL CREATORS", "ALL OPERATORS"],
   ["src/app/(main)/(app)/explore/page.tsx", "FILE INDEX \\u00a0//\\u00a0 ALL VALIDATORS", "STAKING OPERATORS"],
-  ["src/app/(main)/(app)/explore/KindDirectoryPage.tsx", "Every project on the floor.", "Every operator on the floor."],
-  ["src/app/(main)/(app)/members/page.tsx", "Every member on the floor.", "Every operator on the floor."],
+  ["src/app/(main)/(app)/members/members-tabs.ts", "The people on BCC: find them by trust, rank and what they run.", "Every operator on the floor."],
   ["src/app/(main)/(app)/u/[handle]/page.tsx", "a member on the Floor: trust, identity, and reputation in crypto.", "reputation for crypto operators"],
   ["src/lib/profile/load-member-subpage.ts", "a member on the Floor: trust, identity, and reputation in crypto.", "reputation for crypto operators"],
 ];
@@ -87,8 +89,8 @@ describe("F-579 vocabulary", () => {
     expect(code("src/components/entity/EntityTabs.tsx")).toContain('{ key: "backing",  label: ATTESTATION_COPY.supporters_tab }');
   });
 
-  it("the quick link to /me/progression is called Standing", () => {
-    expect(QUICK_LINKS.find((l) => l.href === "/me/progression")?.label).toBe("Standing");
+  it("the You item for /me/progression is called Standing", () => {
+    expect(YOU_ITEMS.find((l) => l.href === "/me/progression")?.label).toBe("Standing");
   });
 
   it("a person with no usable name or handle reads as MEMBER", () => {

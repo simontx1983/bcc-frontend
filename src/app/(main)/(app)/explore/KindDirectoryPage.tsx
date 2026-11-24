@@ -43,6 +43,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, Suspense } from "react";
 
 import { RouteRail } from "@/components/layout/RouteRail";
+import { SectionHeader } from "@/components/layout/SectionHeader";
 import {
   DirectoryFilters,
   SORT_OPTIONS,
@@ -58,23 +59,19 @@ import type {
   DirectoryTier,
 } from "@/lib/api/types";
 
-import { EXPLORE_TABS } from "./explore-tabs";
+import { EXPLORE_SECTION, EXPLORE_TABS } from "./explore-tabs";
 
 /** The kinds this page serves; validators have their own page (/explore). */
 export type ExploreKind = Extract<DirectoryKind, "project" | "creator">;
 
-const KIND_PAGE: Record<ExploreKind, { path: string; label: string; title: string; lede: string }> = {
+const KIND_PAGE: Record<ExploreKind, { path: string; label: string }> = {
   project: {
     path: "/explore/projects",
     label: "FILE INDEX \u00a0//\u00a0 ALL PROJECTS",
-    title: "Every project on the floor.",
-    lede: "Browse the projects graded on the floor. Filter by tier, search by name, sort by trust. Keep tabs on the ones you actually trust.",
   },
   creator: {
     path: "/explore/creators",
     label: "FILE INDEX \u00a0//\u00a0 ALL CREATORS",
-    title: "Every creator on the floor.",
-    lede: "Browse the creators graded on the floor. Filter by tier, search by name, sort by trust. Keep tabs on the ones you actually trust.",
   },
 };
 
@@ -156,18 +153,11 @@ function DirectoryPageContent({ kind }: { kind: ExploreKind }) {
     <main className="bcc-page-wide pb-24">
       <RouteRail kicker={"FLOOR \u00a0//\u00a0 EXPLORE"} label={page.label} />
 
-      <header className="mx-auto max-w-[1560px] px-4 sm:px-7 pt-12">
-        <p className="bcc-mono text-bcc-text-safety">FIND YOUR FLOOR</p>
-        <h1
-          className="bcc-stencil mt-3 text-bcc-text leading-[0.95]"
-          style={{ fontSize: "clamp(2.5rem, 6.5vw, 5.5rem)" }}
-        >
-          {page.title}
-        </h1>
-        <p className="mt-4 max-w-2xl font-serif text-lg leading-relaxed text-bcc-text-secondary">
-          {page.lede}
-        </p>
-      </header>
+      <SectionHeader
+        eyebrow={EXPLORE_SECTION.eyebrow}
+        title={EXPLORE_SECTION.title}
+        lede={EXPLORE_SECTION.lede}
+      />
 
       <SectionTabs label="Explore sections" tabs={EXPLORE_TABS} />
 
