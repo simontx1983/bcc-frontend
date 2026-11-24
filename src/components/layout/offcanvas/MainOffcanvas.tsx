@@ -12,7 +12,7 @@ import { useState, useEffect, useRef } from "react";
 
 import { Avatar } from "@/components/identity/Avatar";
 import { CopyrightMark } from "@/components/layout/CopyrightMark";
-import { LEGAL_LINKS, PRIMARY_NAV, QUICK_LINKS } from "@/components/layout/nav-items";
+import { LEGAL_LINKS, QUICK_LINKS, primaryNavFor } from "@/components/layout/nav-items";
 import { useUser } from "@/hooks/useUser";
 import { applyTheme, getStoredAccent, getStoredTheme, type Accent, type Theme } from "@/lib/theme";
 
@@ -230,7 +230,7 @@ export function MainOffcanvas({ open, onClose }: MainOffcanvasProps) {
 
           {/* Primary nav */}
           <nav aria-label="Primary navigation">
-            {PRIMARY_NAV.map(item => (
+            {primaryNavFor(session !== null && session !== undefined).map(item => (
               <Link
                 key={item.href}
                 href={item.href as Route}

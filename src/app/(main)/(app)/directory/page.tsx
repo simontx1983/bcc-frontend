@@ -35,7 +35,13 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, Suspense } from "react";
 
 import { RouteRail } from "@/components/layout/RouteRail";
-import { DirectoryFilters } from "@/components/directory/DirectoryFilters";
+import {
+  DirectoryFilters,
+  KIND_OPTIONS,
+  SORT_OPTIONS,
+  TIER_OPTIONS,
+  filterOptionLabel,
+} from "@/components/directory/DirectoryFilters";
 import { DirectoryResults } from "@/components/directory/DirectoryResults";
 import type { DirectoryFilters as Filters } from "@/hooks/useDirectory";
 import type {
@@ -190,7 +196,7 @@ function ActiveFiltersStrip({
 
         {filters.kind !== null && (
           <FilterChip
-            label={filters.kind.toUpperCase()}
+            label={filterOptionLabel(KIND_OPTIONS, filters.kind).toUpperCase()}
             onClear={() => onChange({ ...filters, kind: null })}
           />
         )}
@@ -202,7 +208,7 @@ function ActiveFiltersStrip({
         )}
         {filters.tier !== null && (
           <FilterChip
-            label={filters.tier.toUpperCase()}
+            label={filterOptionLabel(TIER_OPTIONS, filters.tier).toUpperCase()}
             onClear={() => onChange({ ...filters, tier: null })}
           />
         )}
@@ -220,7 +226,7 @@ function ActiveFiltersStrip({
         )}
         {filters.sort !== "trust" && (
           <FilterChip
-            label={`SORT · ${filters.sort.toUpperCase()}`}
+            label={`SORT · ${filterOptionLabel(SORT_OPTIONS, filters.sort).toUpperCase()}`}
             onClear={() => onChange({ ...filters, sort: "trust" })}
           />
         )}
