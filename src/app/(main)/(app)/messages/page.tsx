@@ -357,7 +357,7 @@ function InboxEmpty() {
       <p className="bcc-mono mb-2 text-bcc-text-safety">QUIET INBOX</p>
       <h2 className="bcc-stencil text-3xl text-ink">No conversations yet.</h2>
       <p className="mt-3 font-serif italic leading-relaxed text-ink-soft">
-        Start one from the directory — every operator has a file, every
+        Start one from the directory — every member has a file, every
         file has a Message button.
       </p>
       <div className="mt-6 flex flex-wrap justify-center gap-2">

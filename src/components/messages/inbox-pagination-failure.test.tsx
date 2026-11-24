@@ -372,4 +372,12 @@ describe("messages intro copy", () => {
     expect(screen.getByText(/Quiet conversations between members\./)).toBeInTheDocument();
     expect(screen.queryByText(/between operators/)).toBeNull();
   });
+
+  it("the empty inbox says every member has a file", () => {
+    state.page = 1;
+    state.inbox = ok([], 1, 1);
+    render(<MessagesPage />);
+    expect(screen.getByText(/every member has a file/)).toBeInTheDocument();
+    expect(screen.queryByText(/every operator has a file/)).toBeNull();
+  });
 });
