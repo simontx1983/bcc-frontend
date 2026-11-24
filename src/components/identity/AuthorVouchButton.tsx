@@ -181,7 +181,7 @@ function AuthorVouchButtonImpl({
       title={
         hasVouched
           ? `You vouch for ${displayName}. Click to revoke.`
-          : `Vouch for ${displayName} — back this operator.`
+          : `Vouch for ${displayName} — back this member.`
       }
       className={
         isCard

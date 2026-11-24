@@ -33,6 +33,7 @@
 import type { Route } from "next";
 import Link from "next/link";
 
+import { HALLS_TAB_HREF } from "@/components/communities/halls-tab-href";
 import { StatusTick } from "@/components/profile/StatusTick";
 import { FindingsSection } from "@/components/profile/FindingsSection";
 import { NewMemberChip } from "@/components/identity/NewMemberChip";
@@ -142,7 +143,7 @@ export function StandingFileBody({ profile }: { profile: MemberProfile }) {
                           label="Communities →"
                         />
                         <QuestNavLink
-                          href={"/validators" as Route}
+                          href={"/explore" as Route}
                           label="Validators →"
                         />
                       </span>
@@ -268,7 +269,7 @@ function VerifiedIdentityBlock({ profile }: { profile: MemberProfile }) {
   const profileComplete = verifications.profile_complete === true;
   const settingsRoute = "/u/me?tab=profile" as Route;
   const profileEditRoute = "/u/me?tab=profile" as Route;
-  const hallsRoute = "/halls" as Route;
+  const hallsRoute = HALLS_TAB_HREF;
 
   const rows: Array<{
     label: string;
@@ -393,7 +394,7 @@ function OnTheFloorBlock({ profile }: { profile: MemberProfile }) {
     <div className="flex flex-col gap-5">
       <p className="font-serif text-base leading-relaxed text-bcc-text-secondary max-w-prose">
         Posts, reviews, and comments you write surface to other
-        operators on the floor. Solids are lightweight community
+        members on the floor. Solids are lightweight community
         acknowledgements — they show where your work is being noticed,
         but they do not directly change your trust score.
       </p>

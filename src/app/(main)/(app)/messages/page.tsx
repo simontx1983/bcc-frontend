@@ -162,7 +162,7 @@ function MessagesPageContent() {
           Messages
         </h1>
         <p className="mt-4 max-w-2xl font-serif text-base leading-relaxed text-bcc-text-secondary">
-          Quiet conversations between operators. Click anyone&apos;s file
+          Quiet conversations between members. Open anyone&apos;s file
           to start a new thread.
         </p>
         <div className="mt-5">
@@ -322,7 +322,7 @@ function QueuedEmpty() {
         here until a verified operator claims the page — then it&apos;s delivered.
       </p>
       <Link
-        href={"/validators" as Route}
+        href={"/explore" as Route}
         className="bcc-mono mt-6 inline-flex items-center gap-2 border-2 border-ink/40 px-3 py-1.5 text-[10px] tracking-[0.18em] text-ink transition hover:bg-ink hover:text-cardstock"
       >
         BROWSE VALIDATORS
@@ -357,7 +357,7 @@ function InboxEmpty() {
       <p className="bcc-mono mb-2 text-bcc-text-safety">QUIET INBOX</p>
       <h2 className="bcc-stencil text-3xl text-ink">No conversations yet.</h2>
       <p className="mt-3 font-serif italic leading-relaxed text-ink-soft">
-        Start one from the directory — every operator has a file, every
+        Start one from the directory — every member has a file, every
         file has a Message button.
       </p>
       <div className="mt-6 flex flex-wrap justify-center gap-2">

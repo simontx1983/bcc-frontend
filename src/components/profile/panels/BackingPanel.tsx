@@ -54,8 +54,8 @@ export function BackingPanel({
 
   const receivedEmpty =
     reputationScore >= 50
-      ? "Score earned through floor activity. This operator has no supporters yet — be the first."
-      : "This operator has no supporters yet. Their reputation will form as they participate.";
+      ? "Score earned through floor activity. This member has no vouches yet — be the first."
+      : "This member has no vouches yet. Their reputation will form as they participate.";
 
   return (
     <div className="flex flex-col">

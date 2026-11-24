@@ -7,8 +7,8 @@
  *     resolves the slug at render time; if the slug doesn't exist,
  *     the directory route returns 404 — acceptable V1 behavior).
  *   - `$contract:<0x[0-9a-fA-F]{1,}>` → links to
- *     `/directory?contract={addr}` (graceful fallback when the
- *     directory page isn't wired yet — the URL stays stable).
+ *     `/explore/creators?contract={addr}` (graceful fallback: Explore ▸
+ *     Creators doesn't filter by contract yet, but the URL stays stable).
  *
  * The link's display label keeps the raw token (`$validator:akashvalop1…`)
  * so the reader sees what was typed, not a synthesized name. Visual
@@ -62,7 +62,7 @@ export const remarkBccEntityRefs: Plugin<[], Root> = () => {
           match: m[0],
           index: m.index,
           node: makeLink(
-            `/directory?contract=${addr}`,
+            `/explore/creators?contract=${addr}`,
             `$contract:${addr}`,
             "Open contract page"
           ),

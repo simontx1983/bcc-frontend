@@ -39,6 +39,7 @@ import TwitterProvider from "next-auth/providers/twitter";
 
 import { analyticsIdFor } from "@/lib/analytics/analytics-id";
 import { bearerFailsConsistencyCheck, readBearerConsistencyClaims } from "@/lib/auth/bearer-claims";
+import { parseCanModerateCredential } from "@/lib/auth/can-moderate";
 import { clientEnv, serverEnv } from "@/lib/env";
 import { publicDisplayNameOrEmpty } from "@/lib/format";
 import type { ApiSuccess, AuthTokenResponse } from "@/lib/api/types";
@@ -143,6 +144,7 @@ async function callBccAuth(
   bccToken: string;
   bccTokenExpiresAt: number;
   inGoodStanding: boolean;
+  canModerate?: boolean;
 }> {
   let response: Response;
   try {
@@ -194,12 +196,17 @@ async function callBccAuth(
       ? parsed.data.in_good_standing
       : false;
 
+  // Display only (bcc-trust #876). Kept absent, not false, when the
+  // backend did not send a boolean.
+  const canModerate: unknown = parsed.data.can_moderate;
+
   return {
     id: String(parsed.data.user_id),
     handle: parsed.data.handle,
     bccToken: parsed.data.token,
     bccTokenExpiresAt: Date.now() + parsed.data.expires_in * 1000,
     inGoodStanding,
+    ...(typeof canModerate === "boolean" ? { canModerate } : {}),
   };
 }
 
@@ -356,6 +363,7 @@ export const authOptions: NextAuthOptions = {
         token:            { label: "Token",         type: "text" },
         expires_in:       { label: "Expires In",    type: "text" },
         in_good_standing: { label: "Good Standing", type: "text" },
+        can_moderate:     { label: "Can Moderate",  type: "text" },
       },
       async authorize(credentials) {
         const userId      = credentials?.user_id?.trim()  ?? "";
@@ -363,6 +371,9 @@ export const authOptions: NextAuthOptions = {
         const token       = credentials?.token            ?? "";
         const expiresIn   = parseInt(credentials?.expires_in ?? "0", 10);
         const inGoodStanding = credentials?.in_good_standing === "true";
+        // Display only, like in_good_standing: it shows the Admin menu
+        // group and nothing else; the server re-checks every admin call.
+        const canModerate = parseCanModerateCredential(credentials?.can_moderate);
 
         if (userId === "" || handle === "" || token === "") {
           throw new Error("bcc_invalid_request");
@@ -374,6 +385,7 @@ export const authOptions: NextAuthOptions = {
           bccToken: token,
           bccTokenExpiresAt: Date.now() + expiresIn * 1000,
           inGoodStanding,
+          ...(canModerate !== undefined ? { canModerate } : {}),
         };
       },
     }),
@@ -485,6 +497,8 @@ export const authOptions: NextAuthOptions = {
             token.bccToken        = result.token;
             token.bccTokenExpiresAt = Date.now() + result.expires_in * 1000;
             token.inGoodStanding  = result.in_good_standing;
+            const canModerate: unknown = result.can_moderate;
+            if (typeof canModerate === "boolean") token.canModerate = canModerate;
           }
         } catch {
           // OAuth→BCC bridge failed — token stays empty; protected routes will 401.
@@ -499,6 +513,8 @@ export const authOptions: NextAuthOptions = {
         token.bccToken = user.bccToken;
         token.bccTokenExpiresAt = user.bccTokenExpiresAt;
         token.inGoodStanding = user.inGoodStanding;
+        if (typeof user.canModerate === "boolean") token.canModerate = user.canModerate;
+        else delete token.canModerate;
       }
 
       // Phase β.3 silent-refresh hook. When the SPA's
@@ -508,7 +524,7 @@ export const authOptions: NextAuthOptions = {
       // `session`. We accept ONLY the fields we expect (bccToken +
       // bccTokenExpiresAt) and IGNORE anything else — a compromised
       // page cannot use this seam to forge identity (id / handle /
-      // inGoodStanding stay at their current values).
+      // inGoodStanding / canModerate stay at their current values).
       if (trigger === "update" && session !== null && typeof session === "object") {
         const next = session as {
           bccToken?: unknown;
@@ -573,6 +589,8 @@ export const authOptions: NextAuthOptions = {
         id: token.id,
         handle: token.handle,
         inGoodStanding: token.inGoodStanding,
+        // Display only; absent stays absent (the Admin group hides).
+        ...(typeof token.canModerate === "boolean" ? { canModerate: token.canModerate } : {}),
         // Keyed, server-computed analytics pseudonym; null (no identify)
         // when ANALYTICS_ID_SECRET is unset.
         analyticsId: typeof token.id === "string" ? analyticsIdFor(token.id) : null,

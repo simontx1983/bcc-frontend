@@ -351,3 +351,33 @@ describe("the inbox PREVIEW panel", () => {
     expect(retryBtn()).toBeNull();
   });
 });
+
+// F-564 (testnet audit): the intro said "Click anyone's file"; on a phone
+// nobody clicks. Touch-neutral copy.
+describe("messages intro copy", () => {
+  it("says Open, not Click", () => {
+    state.page = 1;
+    state.inbox = ok([convo(1)], 1, 1);
+    render(<MessagesPage />);
+    expect(screen.getByText(/Open anyone.s file/)).toBeInTheDocument();
+    expect(screen.queryByText(/Click anyone/)).toBeNull();
+  });
+
+  // "Operator" now means only the owner of a claimed page; messages are
+  // between any two members.
+  it("says members, not operators", () => {
+    state.page = 1;
+    state.inbox = ok([convo(1)], 1, 1);
+    render(<MessagesPage />);
+    expect(screen.getByText(/Quiet conversations between members\./)).toBeInTheDocument();
+    expect(screen.queryByText(/between operators/)).toBeNull();
+  });
+
+  it("the empty inbox says every member has a file", () => {
+    state.page = 1;
+    state.inbox = ok([], 1, 1);
+    render(<MessagesPage />);
+    expect(screen.getByText(/every member has a file/)).toBeInTheDocument();
+    expect(screen.queryByText(/every operator has a file/)).toBeNull();
+  });
+});

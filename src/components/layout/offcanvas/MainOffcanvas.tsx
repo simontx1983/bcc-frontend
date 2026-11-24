@@ -8,11 +8,19 @@ import { useSession } from "next-auth/react";
 
 import { endSession } from "@/lib/auth/session-boundary";
 import { requestTour, SHOW_ME_AROUND_HREF, SHOW_ME_AROUND_TOUR } from "@/lib/tour/replay";
-import { useState, useEffect, useRef } from "react";
+import { Fragment, useState, useEffect, useRef } from "react";
 
 import { Avatar } from "@/components/identity/Avatar";
 import { CopyrightMark } from "@/components/layout/CopyrightMark";
-import { LEGAL_LINKS, PRIMARY_NAV, QUICK_LINKS } from "@/components/layout/nav-items";
+import {
+  LEGAL_LINKS,
+  NavIcon,
+  OpenCasesPill,
+  YOU_ITEMS,
+  navGroupsFor,
+  youItemHref,
+} from "@/components/layout/nav-items";
+import { useOpenCaseCount } from "@/hooks/useOpenCaseCount";
 import { useUser } from "@/hooks/useUser";
 import { applyTheme, getStoredAccent, getStoredTheme, type Accent, type Theme } from "@/lib/theme";
 
@@ -24,10 +32,13 @@ interface MainOffcanvasProps {
 export function MainOffcanvas({ open, onClose }: MainOffcanvasProps) {
   const pathname = usePathname() ?? "/";
   const { data: session } = useSession();
+  const signedIn = session !== null && session !== undefined;
   const handle = session?.user?.handle ?? null;
   // The session/JWT never carries an avatar_url — fetch the viewer's own
   // profile for it, same seam AuthorCard's hover-card uses.
   const { data: viewerProfile } = useUser(handle ?? "", { enabled: handle !== null });
+  // "N open" on My cases: the same /me/badges poll as the header's dot.
+  const openCases = useOpenCaseCount();
 
   const [themeOpen, setThemeOpen] = useState(false);
   const [currentTheme, setCurrentTheme] = useState<Theme>("dark");
@@ -228,45 +239,75 @@ export function MainOffcanvas({ open, onClose }: MainOffcanvasProps) {
         {/* Scrollable content */}
         <div style={{ flex: 1, overflowY: "auto", padding: "8px 0" }}>
 
-          {/* Primary nav */}
+          {/* Primary nav — every desktop section: the public ones, then
+              (signed in) the viewer's own pages after a dashed rule. */}
           <nav aria-label="Primary navigation">
-            {PRIMARY_NAV.map(item => (
-              <Link
-                key={item.href}
-                href={item.href as Route}
-                onClick={onClose}
-                className={`bcc-nav-item${isActive(item.href) ? " active" : ""}`}
-                aria-current={isActive(item.href) ? "page" : undefined}
-              >
-                {/* Tour target sits on this inner span, not the Link —
-                    .bcc-nav-item is a full-width row, so a selector on
-                    the Link spotlighted the whole row instead of just
-                    hugging the label text. */}
-                <span data-bcc-tour={item.href === "/watching" ? "nav.watching" : undefined}>
-                  {item.label}
-                </span>
-              </Link>
+            {navGroupsFor(signedIn).map((group, g) => (
+              <Fragment key={group[0]?.href ?? g}>
+                {g > 0 && <hr className="mx-4 my-2 border-0 border-t border-dashed border-bcc-border" />}
+                {group.map(item => (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    onClick={onClose}
+                    className={`bcc-nav-item min-h-[44px]${isActive(item.href) ? " active" : ""}`}
+                    aria-current={isActive(item.href) ? "page" : undefined}
+                  >
+                    {/* Tour target sits on this inner span, not the Link —
+                        .bcc-nav-item is a full-width row, so a selector on
+                        the Link spotlighted the whole row instead of just
+                        hugging the icon and label. */}
+                    <span
+                      data-bcc-tour={item.href === "/watching" ? "nav.watching" : undefined}
+                      style={{ display: "inline-flex", alignItems: "center", gap: 12 }}
+                    >
+                      <span className="bcc-nav-item-icon"><NavIcon Icon={item.Icon} /></span>
+                      {item.label}
+                    </span>
+                    {/* The space keeps the accessible name "Explore pages",
+                        not "Explorepages"; the flex row doesn't draw it. */}
+                    {item.sub !== null && (
+                      <>
+                        {" "}
+                        <span className="bcc-mono ml-auto text-[10px] font-normal normal-case tracking-[0.08em] text-bcc-text-secondary">
+                          {item.sub}
+                        </span>
+                      </>
+                    )}
+                  </Link>
+                ))}
+              </Fragment>
             ))}
           </nav>
 
-          {/* Quick links — authed only */}
-          {handle && (
+          {/* You — the avatar menu's items, for phones. Signed in only. */}
+          {handle !== null && (
             <>
               <div className="bcc-nav-divider" />
-              <p className="bcc-nav-section">Quick links</p>
-              <nav aria-label="Quick links">
-                {QUICK_LINKS.map(item => (
-                  <Link
-                    key={item.href}
-                    href={item.href as Route}
-                    onClick={onClose}
-                    className={`bcc-nav-item${isActive(item.href) ? " active" : ""}`}
-                    aria-current={isActive(item.href) ? "page" : undefined}
-                    style={{ fontSize: 12 }}
-                  >
-                    {item.label}
-                  </Link>
-                ))}
+              <p className="bcc-nav-section" id="bcc-offcanvas-you">You</p>
+              <nav aria-labelledby="bcc-offcanvas-you">
+                {YOU_ITEMS.map(item => {
+                  const href = youItemHref(item, handle);
+                  const active = isActive(href);
+                  return (
+                    <Link
+                      key={item.id}
+                      href={href}
+                      onClick={onClose}
+                      className={`bcc-nav-item min-h-[44px]${active ? " active" : ""}`}
+                      aria-current={active ? "page" : undefined}
+                    >
+                      <span className="bcc-nav-item-icon"><NavIcon Icon={item.Icon} /></span>
+                      {item.label}
+                      {item.id === "cases" && (
+                        <>
+                          {" "}
+                          <OpenCasesPill count={openCases} />
+                        </>
+                      )}
+                    </Link>
+                  );
+                })}
               </nav>
             </>
           )}
@@ -276,13 +317,16 @@ export function MainOffcanvas({ open, onClose }: MainOffcanvasProps) {
           <div style={{ padding: "0 16px 4px" }}>
             <CopyrightMark />
           </div>
-          <div style={{ padding: "4px 16px 8px", display: "flex", gap: 12, flexWrap: "wrap" }}>
+          {/* Real 44px rows, not an invisible hit area: those areas of a
+              wrapped row overlapped each other and reached up over the
+              copyright line (#386 review). */}
+          <div style={{ padding: "0 16px 8px", display: "flex", columnGap: 12, flexWrap: "wrap" }}>
             {LEGAL_LINKS.map(item => (
               <Link
                 key={item.href}
                 href={item.href as Route}
                 onClick={onClose}
-                className="bcc-legal-link"
+                className="bcc-legal-link inline-flex min-h-[44px] items-center"
               >
                 {item.label}
               </Link>

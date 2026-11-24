@@ -17,8 +17,9 @@
  * the same step (no silent skip-back) so they can retry.
  *
  * Chain support is decided by what the BACKEND can prove about
- * validator operator authority, not by which wallets exist (the allowlist
- * lives in `lib/wallet/claim-support.ts`):
+ * validator operator authority, not by which wallets exist. Since F-552
+ * the server says so per page (claim_target.claimable, contract F-515)
+ * and the flow renders its answer; there is no client allowlist. Today:
  *
  *   cosmos   ✅ the operator account and the `…valoper…` address are the
  *               same 20 bytes under a different bech32 HRP.
@@ -59,7 +60,7 @@ import { humanizeCode } from "@/lib/api/errors";
 import { claimPage } from "@/lib/api/pages-endpoints";
 import { type CardClaimTarget } from "@/lib/api/types";
 import { findWalletChain, type WalletChainType } from "@/lib/wallet/chain-catalog";
-import { isChainClaimable, unsupportedClaimReason } from "@/lib/wallet/claim-support";
+import { claimabilityOf, NO_WALLET_FOR_CHAIN_COPY, UNCLAIMABLE_FALLBACK_COPY } from "@/components/claim/claimability";
 import {
   connectWallet,
   humanizeWalletProviderError,
@@ -210,7 +211,10 @@ export function ClaimFlow({ pageId, pageName, target, onClose }: ClaimFlowProps)
 
   // ── Step 2: Connect the chain's wallet ─────────────────────────────
   const chainType = findWalletChain(target.chain_slug)?.chainType ?? null;
-  const claimable = chainType !== null && isChainClaimable(target.chain_slug);
+  // The server's answer (F-552); a chain with no wallet of ours can't be
+  // claimed from here either.
+  const claimability = claimabilityOf(target);
+  const claimable = chainType !== null && claimability.claimable;
 
   const handleConnect = async () => {
     // The attempt starts when the operator commits to it. The chain slug
@@ -221,7 +225,11 @@ export function ClaimFlow({ pageId, pageName, target, onClose }: ClaimFlowProps)
       setStep({
         kind: "connect",
         pending: false,
-        error: unsupportedClaimReason(target.chain_slug),
+        // The server's reason when it says no; otherwise the chain is
+        // claimable but we have no wallet for it.
+        error: !claimability.claimable
+          ? (claimability.hint ?? UNCLAIMABLE_FALLBACK_COPY)
+          : NO_WALLET_FOR_CHAIN_COPY,
       });
       return;
     }
@@ -303,7 +311,7 @@ export function ClaimFlow({ pageId, pageName, target, onClose }: ClaimFlowProps)
         connection,
         chainType: signChainType,
         pending: false,
-        error: phase === "link" ? humanizeLinkStepError(err) : humanizeClaimStepError(err),
+        error: phase === "link" ? humanizeLinkStepError(err) : humanizeClaimStepError(err, claimability.hint),
         next,
       });
     }
@@ -820,20 +828,25 @@ function linkStepNext(err: unknown): "retry" | "other-wallet" {
   return code === "bcc_conflict" ? "other-wallet" : "retry";
 }
 
-/** The claim route's bcc_forbidden reasons (F-303). */
-type ForbiddenReason = "suspended" | "entity_not_bound" | "not_operator" | "holder_not_owner";
+/**
+ * The claim route's bcc_forbidden reasons (F-303). `not_claimable` (F-515)
+ * is FINAL: BCC can't prove an operator on this chain at all, so no wallet
+ * or retry helps; its copy is the card's unclaimable_hint, verbatim.
+ */
+type ForbiddenReason = "suspended" | "entity_not_bound" | "not_operator" | "holder_not_owner" | "not_claimable";
 
 function forbiddenReason(err: unknown): ForbiddenReason | null {
   const reason = (err as { data?: Record<string, unknown> | null } | null)?.data?.["reason"];
   return reason === "suspended" ||
     reason === "entity_not_bound" ||
     reason === "not_operator" ||
-    reason === "holder_not_owner"
+    reason === "holder_not_owner" ||
+    reason === "not_claimable"
     ? reason
     : null;
 }
 
-const FORBIDDEN_REASON_COPY: Record<Exclude<ForbiddenReason, "not_operator">, string> = {
+const FORBIDDEN_REASON_COPY: Record<Exclude<ForbiddenReason, "not_operator" | "not_claimable">, string> = {
   suspended: "Your account is suspended, so it can't claim pages right now.",
   entity_not_bound: "This page isn't set up to be claimed this way. Refresh the page and try again.",
   holder_not_owner:
@@ -841,8 +854,12 @@ const FORBIDDEN_REASON_COPY: Record<Exclude<ForbiddenReason, "not_operator">, st
 };
 
 /** Claim: the wallet is verified; this is about the page itself. */
-function humanizeClaimStepError(err: unknown): string {
+function humanizeClaimStepError(err: unknown, unclaimableHint: string | null): string {
   const reason = forbiddenReason(err);
+  if (reason === "not_claimable") {
+    // The card's own hint, never the error's message text (§γ).
+    return unclaimableHint ?? UNCLAIMABLE_FALLBACK_COPY;
+  }
   if (reason !== null && reason !== "not_operator") {
     return FORBIDDEN_REASON_COPY[reason];
   }

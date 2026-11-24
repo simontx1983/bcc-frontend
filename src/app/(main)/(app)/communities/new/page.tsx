@@ -40,6 +40,7 @@ import {
 import { useCreatePlainGroupMutation } from "@/hooks/useMyGroups";
 import { COMMUNITY_CHAIN_CATALOG } from "@/lib/communities/chain-catalog";
 import { humanizeCode } from "@/lib/api/errors";
+import { CARD_DESCRIPTION_HINT } from "@/lib/copy/card";
 import {
   BccApiError,
   type CommunityCustodyDenyReason,
@@ -231,6 +232,7 @@ export default function CreateCommunityPage() {
             </label>
             <textarea
               id="community-description"
+              aria-describedby="community-description-card-hint"
               maxLength={DESCRIPTION_MAX}
               value={description}
               onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setDescription(e.target.value)}
@@ -239,6 +241,9 @@ export default function CreateCommunityPage() {
               className="bcc-mono bg-paper px-3 py-2 text-sm leading-relaxed text-ink placeholder:text-ink-soft/60 ring-1 ring-cardstock-edge focus:outline-none focus:ring-2 focus:ring-blueprint"
               disabled={isSubmitting}
             />
+            <p id="community-description-card-hint" className="font-serif text-sm text-ink-soft">
+              {CARD_DESCRIPTION_HINT}
+            </p>
             <p className="bcc-mono text-[9px] tracking-[0.18em] text-ink-soft/70">
               {description.length} / {DESCRIPTION_MAX}
             </p>

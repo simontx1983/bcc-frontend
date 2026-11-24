@@ -1,8 +1,13 @@
 "use client";
 
 /**
- * DirectoryFilters — kind / tier / sort / search controls atop the
- * §G1/§G2 directory grid.
+ * DirectoryFilters — tier / sort / search controls atop the §G1/§G2
+ * directory grid on Explore ▸ Projects and Explore ▸ Creators.
+ *
+ * The kind is fixed by the route (Site Structure A), so there are no
+ * kind chips, and no chain dropdown either: the server's chain filter is
+ * validator-only, and validators have their own page and filter panel
+ * (ValidatorFilters on /explore).
  *
  * Stateless: parent owns the filter values and the `onChange` callback.
  * Drives URL state at the page level so a filter set is shareable +
@@ -10,7 +15,6 @@
  * inputs and fires onChange.
  *
  * V1 controls (per §G2 launch checklist):
- *   - Kind chips (validator / project / creator)
  *   - Tier chips (elite / trusted / neutral / caution / risky)
  *   - Good-Standing-Only toggle (§G2) — restricts to tier ≥ neutral
  *   - Sort dropdown (trust / newest / vouches / followers)
@@ -25,12 +29,11 @@ import type { ChangeEvent } from "react";
 
 import { FilterChipRow } from "@/components/ui/FilterChipRow";
 import type {
-  DirectoryKind,
   DirectorySort,
   DirectoryTier,
 } from "@/lib/api/types";
-import { VALIDATOR_CHAIN_CATALOG } from "@/lib/validators/chain-catalog";
 
+import { ScopedSearchField } from "@/components/search/ScopedSearchField";
 import type { DirectoryFilters as Filters } from "@/hooks/useDirectory";
 
 interface Props {
@@ -38,19 +41,23 @@ interface Props {
   onChange: (next: Filters) => void;
 }
 
-const KIND_OPTIONS: { value: DirectoryKind | null; label: string }[] = [
-  { value: null,        label: "All" },
-  { value: "validator", label: "Validators" },
-  { value: "project",   label: "Projects" },
-  { value: "creator",   label: "Creators" },
-];
+/**
+ * An option's own label, for the active-filter chips on the Explore
+ * tabs, so a chip never prints a wire slug. The raw value only
+ * when no option matches (a value from an old link).
+ */
+export function filterOptionLabel<V extends string>(
+  options: ReadonlyArray<{ value: V | null; label: string }>,
+  value: V,
+): string {
+  return options.find((option) => option.value === value)?.label ?? value;
+}
 
-const TIER_OPTIONS: { value: DirectoryTier | null; label: string }[] = [
+export const TIER_OPTIONS: { value: DirectoryTier | null; label: string }[] = [
   { value: null,      label: "Any" },
-  // Label renamed ahead of the wire value: the `tier` query param is
-  // still `elite` server-side, so changing it here would silently break
-  // the filter. Flip the value once bcc-trust accepts `proven`.
-  { value: "elite",   label: "Proven" },
+  // "Elite" everywhere (Phillip): the filter, its chip and the card's
+  // tier chip use one word.
+  { value: "elite",   label: "Elite" },
   { value: "trusted", label: "Trusted" },
   { value: "neutral", label: "Neutral" },
   { value: "caution", label: "Caution" },
@@ -60,12 +67,23 @@ const TIER_OPTIONS: { value: DirectoryTier | null; label: string }[] = [
   { value: "risky",   label: "Risky" },
 ];
 
-const SORT_OPTIONS: { value: DirectorySort; label: string }[] = [
+export const SORT_OPTIONS: { value: DirectorySort; label: string }[] = [
   { value: "trust",        label: "Trust" },
   { value: "endorsements", label: "Vouches" },
   { value: "followers",    label: "Watchers" },
   { value: "newest",       label: "Newest" },
 ];
+
+/** GET /cards caps `q` at 100 characters. */
+const CARDS_QUERY_MAX = 100;
+
+/** The placeholder names what this search covers (Structure A §9). */
+const DIRECTORY_SEARCH_PLACEHOLDER: Record<NonNullable<Filters["kind"]> | "all", string> = {
+  all: "Search pages…",
+  validator: "Search validators…",
+  project: "Search projects…",
+  creator: "Search creators…",
+};
 
 export function DirectoryFilters({ value, onChange }: Props) {
   const update = (patch: Partial<Filters>) => {
@@ -77,63 +95,16 @@ export function DirectoryFilters({ value, onChange }: Props) {
       aria-label="Directory filters"
       className="bcc-panel flex flex-col gap-5 p-5"
     >
-      {/* Search row */}
-      <div className="flex flex-col gap-2">
-        <label className="bcc-mono text-[10px] tracking-[0.2em] text-cardstock-deep">
-          SEARCH
-        </label>
-        <input
-          type="search"
-          value={value.q}
-          onChange={(e: ChangeEvent<HTMLInputElement>) => update({ q: e.target.value })}
-          placeholder="Name or handle…"
-          className="bcc-mono w-full bg-cardstock px-3 py-2 text-sm text-ink placeholder:text-ink-soft/60 focus:outline-none ring-1 ring-cardstock-edge focus:ring-2 focus:ring-blueprint"
-        />
-      </div>
-
-      {/* Kind chips */}
-      <FilterChipRow
-        label="KIND"
-        options={KIND_OPTIONS}
-        selected={value.kind}
-        onSelect={(next) => {
-          // Switching kind away from `validator` clears the chain filter
-          // — the chain JOIN only applies to validator pages today, so
-          // a stale chain selection on a non-validator kind would just
-          // silently zero out results.
-          const nextChain = next === "validator" ? value.chain : null;
-          update({ kind: next, chain: nextChain });
-        }}
+      {/* Search row: scoped to the kind on screen (Structure A §9). */}
+      <ScopedSearchField
+        tone="cardstock"
+        label="SEARCH"
+        placeholder={DIRECTORY_SEARCH_PLACEHOLDER[value.kind ?? "all"]}
+        value={value.q}
+        onChange={(q) => update({ q })}
+        onClear={() => update({ q: "" })}
+        maxLength={CARDS_QUERY_MAX}
       />
-
-      {/* Chain dropdown — only meaningful for validator kind today; the
-          backend JOIN goes through `_bcc_onchain_validator_id` post_meta
-          which only validator pages carry. */}
-      {value.kind === "validator" && (
-        <div className="flex flex-col gap-2">
-          <label
-            htmlFor="directory-chain"
-            className="bcc-mono text-[10px] tracking-[0.2em] text-cardstock-deep"
-          >
-            CHAIN
-          </label>
-          <select
-            id="directory-chain"
-            value={value.chain ?? ""}
-            onChange={(e: ChangeEvent<HTMLSelectElement>) =>
-              update({ chain: e.target.value === "" ? null : e.target.value })
-            }
-            className="bcc-mono w-full bg-cardstock px-3 py-2 text-sm text-ink ring-1 ring-cardstock-edge focus:outline-none focus:ring-2 focus:ring-blueprint"
-          >
-            <option value="">All chains</option>
-            {VALIDATOR_CHAIN_CATALOG.map((opt) => (
-              <option key={opt.slug} value={opt.slug}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
-        </div>
-      )}
 
       {/* Tier chips */}
       <FilterChipRow

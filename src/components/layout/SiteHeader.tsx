@@ -26,8 +26,6 @@ import {
   Settings,
   ShieldCheck,
   Sun,
-  TrendingUp,
-  User,
 } from "lucide-react";
 import { useSession } from "next-auth/react";
 import type { Route } from "next";
@@ -37,14 +35,18 @@ import { usePathname, useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 
 import { Avatar } from "@/components/identity/Avatar";
+import { OpenCasesPill, YOU_ITEMS, youItemHref } from "@/components/layout/nav-items";
 import { ConversationsPanel } from "@/components/messages/ConversationsPanel";
 import { NotificationsPanel } from "@/components/notifications/NotificationsPanel";
 import { GlobalSearch } from "@/components/search/GlobalSearch";
 import { requestTour, SHOW_ME_AROUND_HREF, SHOW_ME_AROUND_TOUR } from "@/lib/tour/replay";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useUnreadCount } from "@/hooks/useNotifications";
+import { useOpenCaseCount } from "@/hooks/useOpenCaseCount";
 import { useUnreadMessageCount } from "@/hooks/useUnreadMessageCount";
 import { useUser } from "@/hooks/useUser";
+import { HIT_AREA_44 } from "@/components/feed/hitArea";
+import { sessionCanModerate } from "@/lib/auth/can-moderate";
 import { applyTheme, getStoredAccent, getStoredTheme, type Accent, type Theme } from "@/lib/theme";
 
 // Code-split — the sign-out confirm only mounts behind the SIGN OUT
@@ -404,38 +406,92 @@ function NotifModal({ onClose, anchorRef }: NotifModalProps) {
 
 // ── Avatar Dropdown ───────────────────────────────────────────────────────────
 
-const AVATAR_MENU = [
-  { id: "profile",     label: "My Profile",    href: "/u/[handle]",     icon: <User size={16} strokeWidth={1.8} /> },
-  { id: "progression", label: "My Progression",href: "/me/progression", icon: <TrendingUp size={16} strokeWidth={1.8} /> },
-  /* No capability gate by design (v1: no FE role checks — see the
-     admin-architecture decision). Non-admins who click land on the
-     page's own "Admin access required" panel; the API layer owns the
-     manage_options check. Without this entry the §K1 reports queue
-     has NO inbound link anywhere and filed reports accumulate
-     invisibly (regressed once already when this menu replaced the
-     old ViewerMenu — 2026-07-21 admin audit P1). */
-  { id: "moderation",  label: "Moderation",    href: "/admin/moderation", icon: <ShieldCheck size={16} strokeWidth={1.8} /> },
-  /* Same no-gate rule as Moderation: the validator admin routes answer a
-     non-admin with the "Admin access required" panel. */
-  { id: "validators",  label: "Validators",    href: "/admin/validators", icon: <BadgeCheck size={16} strokeWidth={1.8} /> },
-  /* F-322: the tour auto-starts once per account; this is the only way
-     back to it. Raises a request the TourProvider answers (SiteHeader
-     sits outside it), then the link lands on the tour's surface. */
-  { id: "tour",        label: "Show me around", href: SHOW_ME_AROUND_HREF, icon: <Compass size={16} strokeWidth={1.8} /> },
-  { id: "settings",    label: "Settings",      href: "/u/me?tab=profile",icon: <Settings size={16} strokeWidth={1.8} /> },
-  { id: "signout",     label: "Sign Out",      href: "/api/auth/signout",icon: <LogOut size={16} strokeWidth={1.8} /> },
+/*
+ * Order (Site Structure A): the shared "You" items (nav-items YOU_ITEMS:
+ * My profile · Standing · My Reliability · My cases · Settings), Show me
+ * around, the Admin group when allowed, a rule, then Theme and Sign out.
+ *
+ * Admin: the only inbound links to the admin screens — without them the
+ * §K1 reports queue has no way in and filed reports pile up unseen (it
+ * regressed once, 2026-07-21 admin audit P1). Shown ONLY when the session's
+ * `canModerate` is exactly true (bcc-trust #876, the admin routes' own
+ * check). DISPLAY ONLY and fail-closed: absent, false or malformed hides
+ * the group; every admin request is still checked by the server, and a
+ * non-admin who reaches the URL gets the page's "Admin access required"
+ * panel.
+ */
+const ADMIN_MENU = [
+  { id: "moderation", label: "Moderation", href: "/admin/moderation", icon: <ShieldCheck size={16} strokeWidth={1.8} aria-hidden /> },
+  { id: "validators", label: "Validators", href: "/admin/validators", icon: <BadgeCheck size={16} strokeWidth={1.8} aria-hidden /> },
 ] as const;
+
+const ADMIN_GROUP_LABEL_ID = "bcc-header-admin-group";
 
 interface AvatarDropdownProps {
   handle: string;
+  /** From sessionCanModerate: exactly `true` shows the Admin group. */
+  canModerate: boolean;
+  /** From useOpenCaseCount: a whole number above zero, or null. */
+  openCases: number | null;
   onClose: () => void;
+  onTheme: () => void;
   onSignOut: () => void;
   anchorRef: React.RefObject<HTMLButtonElement | null>;
 }
 
-function AvatarDropdown({ handle, onClose, onSignOut, anchorRef }: AvatarDropdownProps) {
+function menuItemStyle(color: string): React.CSSProperties {
+  return {
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+    padding: "8px 12px",
+    borderRadius: "var(--bcc-radius-md)",
+    textDecoration: "none",
+    color,
+    fontSize: 13,
+    fontFamily: "var(--font-serif), Georgia, serif",
+    transition: "background 120ms ease, color 120ms ease",
+    cursor: "pointer",
+    background: "transparent",
+    border: "none",
+    width: "100%",
+    boxSizing: "border-box",
+    textAlign: "left",
+  };
+}
+
+const ICON_SLOT: React.CSSProperties = { width: 16, height: 16, flexShrink: 0, opacity: 0.8 };
+
+function AvatarDropdown({ handle, canModerate, openCases, onClose, onTheme, onSignOut, anchorRef }: AvatarDropdownProps) {
   const dropRef = useRef<HTMLDivElement>(null);
   useModalDismiss(dropRef, anchorRef, onClose, { menu: true });
+
+  const link = (key: string, href: Route, color: string, children: React.ReactNode, onPick?: () => void) => (
+    <Link
+      key={key}
+      href={href}
+      role="menuitem"
+      onClick={() => {
+        onPick?.();
+        onClose();
+      }}
+      style={menuItemStyle(color)}
+      onMouseEnter={e => {
+        const el = e.currentTarget as HTMLElement;
+        el.style.background = "var(--bcc-surface-hover)";
+        el.style.color = "var(--bcc-accent)";
+        el.style.fontWeight = "600";
+      }}
+      onMouseLeave={e => {
+        const el = e.currentTarget as HTMLElement;
+        el.style.background = "transparent";
+        el.style.color = color;
+        el.style.fontWeight = "normal";
+      }}
+    >
+      {children}
+    </Link>
+  );
 
   return (
     <div
@@ -462,86 +518,95 @@ function AvatarDropdown({ handle, onClose, onSignOut, anchorRef }: AvatarDropdow
         </span>
       </div>
 
-      {AVATAR_MENU.map(item => {
-        const href = item.href.replace("[handle]", handle);
-        // Keyed on the item's id, never its label, so a copy edit cannot
-        // silently turn Sign Out into a plain link (or break the tour).
-        const isDanger = item.id === "signout";
-        const sharedStyle = {
-          display: "flex",
-          alignItems: "center",
-          gap: 10,
-          padding: "8px 12px",
-          borderRadius: "var(--bcc-radius-md)",
-          textDecoration: "none",
-          color: isDanger ? "var(--bcc-danger)" : "var(--bcc-text-secondary)",
-          fontSize: 13,
-          fontFamily: "var(--font-serif), Georgia, serif",
-          transition: "background 120ms ease, color 120ms ease",
-          marginTop: isDanger ? 4 : 0,
-          borderTop: isDanger ? "1px solid var(--bcc-border-light)" : "none",
-          cursor: "pointer",
-          background: "transparent",
-          border: isDanger ? "none" : undefined,
-          borderTopWidth: isDanger ? 1 : undefined,
-          borderTopStyle: isDanger ? "solid" as const : undefined,
-          borderTopColor: isDanger ? "var(--bcc-border-light)" : undefined,
-          width: "100%",
-          boxSizing: "border-box" as const,
-        };
-
-        if (isDanger) {
-          return (
-            <button
-              key={item.id}
-              type="button"
-              role="menuitem"
-              style={sharedStyle}
-              onClick={() => {
-                onClose();
-                onSignOut();
-              }}
-              onMouseEnter={e => {
-                (e.currentTarget as HTMLElement).style.background = "rgb(var(--bcc-danger-rgb) / 0.08)";
-              }}
-              onMouseLeave={e => {
-                (e.currentTarget as HTMLElement).style.background = "transparent";
-              }}
-            >
-              <span style={{ width: 16, height: 16, flexShrink: 0, opacity: 0.8 }}>{item.icon}</span>
-              {item.label}
-            </button>
-          );
-        }
-
-        return (
-          <Link
-            key={item.id}
-            href={href as Route}
-            role="menuitem"
-            onClick={() => {
-              if (item.id === "tour") requestTour(SHOW_ME_AROUND_TOUR);
-              onClose();
-            }}
-            style={sharedStyle}
-            onMouseEnter={e => {
-              const el = e.currentTarget as HTMLElement;
-              el.style.background = "var(--bcc-surface-hover)";
-              el.style.color = "var(--bcc-accent)";
-              el.style.fontWeight = "600";
-            }}
-            onMouseLeave={e => {
-              const el = e.currentTarget as HTMLElement;
-              el.style.background = "transparent";
-              el.style.color = "var(--bcc-text-secondary)";
-              el.style.fontWeight = "normal";
-            }}
-          >
-            <span style={{ width: 16, height: 16, flexShrink: 0, opacity: 0.8 }}>{item.icon}</span>
+      {/* Keyed on ids, never labels, so a copy edit cannot silently move
+          the pill, break the tour, or turn Sign Out into a plain link. */}
+      {YOU_ITEMS.map(item =>
+        link(item.id, youItemHref(item, handle), "var(--bcc-text-secondary)", (
+          <>
+            <span style={ICON_SLOT}><item.Icon size={16} strokeWidth={1.8} aria-hidden /></span>
             {item.label}
-          </Link>
-        );
-      })}
+            {item.id === "cases" && (
+              <>
+                {" "}
+                <OpenCasesPill count={openCases} />
+              </>
+            )}
+          </>
+        )),
+      )}
+
+      {/* F-322: the tour auto-starts once per account; this is the only way
+          back to it. Raises a request the TourProvider answers (SiteHeader
+          sits outside it), then the link lands on the tour's surface. */}
+      {link("tour", SHOW_ME_AROUND_HREF as Route, "var(--bcc-text-secondary)", (
+        <>
+          <span style={ICON_SLOT}><Compass size={16} strokeWidth={1.8} aria-hidden /></span>
+          Show me around
+        </>
+      ), () => requestTour(SHOW_ME_AROUND_TOUR))}
+
+      {canModerate && (
+        <div role="group" aria-labelledby={ADMIN_GROUP_LABEL_ID}>
+          <div
+            id={ADMIN_GROUP_LABEL_ID}
+            className="bcc-mono"
+            style={{ fontSize: 10, letterSpacing: "0.2em", textTransform: "uppercase", color: "var(--bcc-text-secondary)", padding: "10px 12px 4px" }}
+          >
+            Admin
+          </div>
+          {ADMIN_MENU.map(item =>
+            link(item.id, item.href, "var(--bcc-text-safety)", (
+              <>
+                <span style={ICON_SLOT}>{item.icon}</span>
+                {item.label}
+              </>
+            )),
+          )}
+        </div>
+      )}
+
+      <div role="separator" style={{ borderTop: "1px solid var(--bcc-border-light)", margin: "6px 0" }} />
+
+      {/* Opens the Theme panel (Day / Night, accent) from here, so phones —
+          whose header has no palette button — reach it from the avatar too. */}
+      <button
+        type="button"
+        role="menuitem"
+        aria-haspopup="dialog"
+        style={menuItemStyle("var(--bcc-text-secondary)")}
+        onClick={() => {
+          onClose();
+          onTheme();
+        }}
+        onMouseEnter={e => {
+          e.currentTarget.style.background = "var(--bcc-surface-hover)";
+        }}
+        onMouseLeave={e => {
+          e.currentTarget.style.background = "transparent";
+        }}
+      >
+        <span style={ICON_SLOT}><Palette size={16} strokeWidth={1.8} aria-hidden /></span>
+        Theme
+      </button>
+
+      <button
+        type="button"
+        role="menuitem"
+        style={menuItemStyle("var(--bcc-danger)")}
+        onClick={() => {
+          onClose();
+          onSignOut();
+        }}
+        onMouseEnter={e => {
+          e.currentTarget.style.background = "rgb(var(--bcc-danger-rgb) / 0.08)";
+        }}
+        onMouseLeave={e => {
+          e.currentTarget.style.background = "transparent";
+        }}
+      >
+        <span style={ICON_SLOT}><LogOut size={16} strokeWidth={1.8} aria-hidden /></span>
+        Sign Out
+      </button>
     </div>
   );
 }
@@ -676,8 +741,18 @@ export function SiteHeader() {
   const msgUnread = useUnreadMessageCount();
   const msgUnreadCount = msgUnread.data?.count ?? 0;
 
+  // Open cases — the disputes_open slice of the same /me/badges poll.
+  // null unless it is a whole number above zero: then no dot, no pill.
+  const openCases = useOpenCaseCount();
+
+  // Admin group: display only, shown for exactly `true` (see ADMIN_MENU).
+  const canModerate = sessionCanModerate(session);
+
   // Modal open state — only one can be open at a time
   const [themeOpen,    setThemeOpen]    = useState(false);
+  // Which control opened the Theme panel (the palette, or the avatar
+  // menu's Theme item), so Esc hands focus back to that one.
+  const [themeFromAvatar, setThemeFromAvatar] = useState(false);
   const [messagesOpen, setMessagesOpen] = useState(false);
   const [notifOpen,    setNotifOpen]    = useState(false);
   const [avatarOpen,   setAvatarOpen]   = useState(false);
@@ -718,7 +793,7 @@ export function SiteHeader() {
 
   // Mutual-exclusion helpers — opening one closes all others
   function closeAll() { setThemeOpen(false); setMessagesOpen(false); setNotifOpen(false); setAvatarOpen(false); }
-  function openTheme()    { closeAll(); setThemeOpen(true);    }
+  function openTheme(fromAvatar = false) { closeAll(); setThemeFromAvatar(fromAvatar); setThemeOpen(true); }
   function openMessages() { closeAll(); setMessagesOpen(true); }
   function openNotif()    { closeAll(); setNotifOpen(true);    }
   function openAvatar()   { closeAll(); setAvatarOpen(true);   }
@@ -907,7 +982,11 @@ export function SiteHeader() {
           <button
             ref={avatarRef}
             onClick={() => avatarOpen ? setAvatarOpen(false) : openAvatar()}
-            aria-label="User menu"
+            aria-label={
+              openCases !== null
+                ? `User menu — ${openCases} open ${openCases === 1 ? "case" : "cases"}`
+                : "User menu"
+            }
             aria-haspopup="menu"
             aria-expanded={avatarOpen}
             aria-controls={avatarOpen ? POPOVER_IDS.user : undefined}
@@ -933,7 +1012,7 @@ export function SiteHeader() {
                 the light-mode header (--bcc-surface-raised is nearly
                 indistinguishable from --bcc-header-bg there), matching
                 how it already reads in dark mode. */}
-            <span style={{ pointerEvents: "none" }}>
+            <span style={{ pointerEvents: "none", position: "relative", display: "inline-flex" }}>
               <Avatar
                 avatarUrl={viewerProfile?.avatar_url}
                 handle={viewerHandle}
@@ -941,19 +1020,28 @@ export function SiteHeader() {
                 size="sm"
                 ringColor="var(--bcc-accent)"
               />
+              {/* Open-case dot: status, not a call to act. The count is
+                  in the button's name and on My cases in the menu. */}
+              {openCases !== null && (
+                <span
+                  aria-hidden
+                  data-testid="avatar-open-cases-dot"
+                  className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full border-2 border-bcc-bg bg-safety"
+                />
+              )}
             </span>
             <ChevronDownIcon open={avatarOpen} />
           </button>
         ) : (
-          <div style={{ display: "flex", gap: 8 }}>
-            <Link href="/signup" className="bcc-btn bcc-btn-sm bcc-btn-primary">
+          // Both at every width (Structure A): phones used to get Sign Up
+          // only, with Sign In one level down in the Menu.
+          <div className="bcc-header-guest-actions">
+            <Link href="/signup" className={`${HIT_AREA_44} bcc-btn bcc-btn-sm bcc-btn-primary`}>
               Sign Up
             </Link>
-            {!isMobile && (
-              <Link href="/login" className="bcc-btn bcc-btn-sm bcc-btn-ghost bcc-header-signin-btn">
-                Sign In
-              </Link>
-            )}
+            <Link href="/login" className={`${HIT_AREA_44} bcc-btn bcc-btn-sm bcc-btn-ghost bcc-header-signin-btn`}>
+              Sign In
+            </Link>
           </div>
         )}
 
@@ -966,7 +1054,7 @@ export function SiteHeader() {
             onThemeChange={t => { setTheme(t); applyTheme(t, accent); }}
             onAccentChange={a => { setAccent(a); applyTheme(theme, a); }}
             onClose={() => setThemeOpen(false)}
-            anchorRef={paletteRef}
+            anchorRef={themeFromAvatar ? avatarRef : paletteRef}
           />
         )}
 
@@ -987,7 +1075,10 @@ export function SiteHeader() {
         {avatarOpen && viewerHandle && (
           <AvatarDropdown
             handle={viewerHandle}
+            canModerate={canModerate}
+            openCases={openCases}
             onClose={() => setAvatarOpen(false)}
+            onTheme={() => openTheme(true)}
             onSignOut={() => setShowSignOut(true)}
             anchorRef={avatarRef}
           />

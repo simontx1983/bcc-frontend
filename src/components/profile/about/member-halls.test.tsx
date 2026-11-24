@@ -45,17 +45,17 @@ describe("splitMemberHalls", () => {
 
   it("a backend before #671 (no type on any row) claims no Halls: one neutral groups list", () => {
     // halls[] has carried every visible group since v1.127, so an untyped
-    // row may be a Hall or any other group — never route it to /halls/.
+    // row may be a Hall or any other group.
     const { halls, groups } = splitMemberHalls([row(1), row(2)]);
     expect(halls).toEqual([]);
     expect(groups.map((r) => r.id)).toEqual([1, 2]);
-    for (const r of groups) expect(memberHallHref(r, false)).toMatch(/^\/communities\//);
+    for (const r of groups) expect(memberHallHref(r)).toMatch(/^\/communities\//);
   });
 
-  it("links Halls to /halls and groups to /communities", () => {
-    expect(memberHallHref(row(1), true)).toBe("/halls/group-1");
-    expect(memberHallHref(row(2), false)).toBe("/communities/group-2");
-    expect(memberHallHref(row(3, { slug: "" }), true)).toBeNull();
+  it("links every kind, Halls included, to /communities (one Hall page)", () => {
+    expect(memberHallHref(row(1, { type: "hall" }))).toBe("/communities/group-1");
+    expect(memberHallHref(row(2))).toBe("/communities/group-2");
+    expect(memberHallHref(row(3, { slug: "" }))).toBeNull();
   });
 });
 

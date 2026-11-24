@@ -491,7 +491,7 @@ The UI is dense. Use the rhythm already in place rather than the unused
 - **The center column caps reading width at 680px** (`--bcc-content-max-w`)
   automatically.
 - **`.bcc-page-wide` is the sanctioned escape hatch** for grid pages
-  (`/members`, `/directory`, `/communities`, `/validators`, `/mentors`,
+  (`/members`, `/members/mentors`, `/explore` and its tabs, `/communities`,
   `/watching`). The page then owns its own cap — `max-w-[1560px]` for full-bleed
   grids, `max-w-[1440px]` for hero pages — with `px-4 sm:px-7`.
 - **`PageHero` is the hero grammar** for every profile-style and group-style

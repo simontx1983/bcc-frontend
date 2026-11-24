@@ -19,8 +19,13 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, Suspense } from "react";
 
 import { RouteRail } from "@/components/layout/RouteRail";
+import { SectionHeader } from "@/components/layout/SectionHeader";
+import { RankTrustNote } from "@/components/members/RankTrustNote";
+import { ScopedSearchField } from "@/components/search/ScopedSearchField";
+import { SearchEverywhereLink } from "@/components/search/SearchEverywhereLink";
 import { CardGrid } from "@/components/cards/CardGrid";
 import { PagerNav } from "@/components/ui/PagerNav";
+import { SectionTabs, withActiveCount } from "@/components/ui/SectionTabs";
 import { useMembers } from "@/hooks/useMembers";
 import { LoadFailure } from "@/components/ui/LoadFailure";
 import { humanizeCode } from "@/lib/api/errors";
@@ -30,6 +35,8 @@ import type {
   MembersTypeFilter,
   MembersVerifiedAxis,
 } from "@/lib/api/types";
+
+import { MEMBERS_SECTION, MEMBERS_TABS } from "./members-tabs";
 
 const ZERO_TYPE_COUNTS: MembersTypeCounts = {
   validator: 0,
@@ -124,11 +131,16 @@ function MembersPageContent() {
   // we debounce the URL update.
   const [localQ, setLocalQ] = useState(urlQ);
 
+  // The q the URL holds now. It follows the URL itself (Back / Forward, a
+  // link), not only our own writes: otherwise a q that ARRIVED from the URL
+  // looked like typing, and the debounce rewrote the URL 300 ms later with
+  // page 1, dropping ?page= and overwriting that history entry.
+  const lastUrlQRef = useRef<string>(urlQ);
   useEffect(() => {
+    lastUrlQRef.current = urlQ;
     setLocalQ(urlQ);
   }, [urlQ]);
 
-  const lastUrlQRef = useRef<string>(urlQ);
   useEffect(() => {
     if (localQ === lastUrlQRef.current) return;
     const t = window.setTimeout(() => {
@@ -227,36 +239,31 @@ function MembersPageContent() {
 
   return (
     <main className="bcc-page-wide pb-24">
-      <RouteRail kicker={"FLOOR \u00a0//\u00a0 MEMBERS"} label={"FILE INDEX \u00a0//\u00a0 ALL OPERATORS"} />
+      <RouteRail kicker={"FLOOR \u00a0//\u00a0 MEMBERS"} label={"FILE INDEX \u00a0//\u00a0 ALL MEMBERS"} />
 
-      <header className="mx-auto max-w-[1560px] px-4 sm:px-7 pt-12">
-        <p className="bcc-mono text-bcc-text-safety">THE ROSTER</p>
-        <h1
-          className="bcc-stencil mt-3 text-bcc-text leading-[0.95]"
-          style={{ fontSize: "clamp(2.5rem, 6.5vw, 5.5rem)" }}
-        >
-          Every operator on the floor.
-        </h1>
-        <p className="mt-4 max-w-2xl font-serif text-lg leading-relaxed text-bcc-text-secondary">
-          Members in good standing, sorted by who joined most recently. Search
-          by handle or name. Click anyone to read their file.
-        </p>
-      </header>
+      <SectionHeader
+        eyebrow={MEMBERS_SECTION.eyebrow}
+        title={MEMBERS_SECTION.title}
+        lede={MEMBERS_SECTION.lede}
+      />
+
+      <SectionTabs
+        label="Members sections"
+        tabs={withActiveCount(MEMBERS_TABS, "/members", query.isSuccess ? query.data.pagination.total : undefined)}
+      />
 
       <section className="mx-auto mt-10 flex max-w-[1560px] flex-col gap-6 px-4 sm:px-7">
-        <label className="flex flex-col gap-1.5">
-          <span className="bcc-mono text-[10px] tracking-[0.24em] text-bcc-text-secondary">
-            SEARCH
-          </span>
-          <input
-            type="search"
+        {/* Scoped to members (Structure A §9). GET /members caps q at 64. */}
+        <div className="w-full max-w-md">
+          <ScopedSearchField
+            label="SEARCH"
+            placeholder="Search members by name or @handle…"
             value={localQ}
-            onChange={(e) => setLocalQ(e.target.value)}
-            placeholder="Handle or display name…"
+            onChange={setLocalQ}
+            onClear={() => setLocalQ("")}
             maxLength={64}
-            className="bcc-mono w-full max-w-md rounded-sm border border-bcc-input-border bg-bcc-input-bg px-3 py-2 text-bcc-text outline-none placeholder:text-bcc-text-placeholder focus:border-bcc-accent focus:ring-1 focus:ring-bcc-accent"
           />
-        </label>
+        </div>
         <TypeFilterRow
           active={urlType}
           counts={query.isSuccess ? query.data.type_counts : ZERO_TYPE_COUNTS}
@@ -268,6 +275,7 @@ function MembersPageContent() {
           onToggleVerified={toggleVerifiedAxis}
           onClear={clearRefinement}
         />
+        <RankTrustNote />
       </section>
 
       <section className="mx-auto mt-8 max-w-[1560px] px-4 sm:px-7">
@@ -332,9 +340,9 @@ function MembersPageContent() {
               onSelectType={setTypeFilter}
             />
           ) : hasRefinement ? (
-            <RosterRefinementEmpty onClear={clearRefinement} />
+            <RosterRefinementEmpty onClear={clearRefinement} query={urlQ} />
           ) : (
-            <RosterEmpty hasSearch={urlQ !== ""} />
+            <RosterEmpty hasSearch={urlQ !== ""} query={urlQ} />
           ))}
 
         {query.isSuccess && query.data.items.length > 0 && (
@@ -346,7 +354,7 @@ function MembersPageContent() {
             }
           >
             <p className="bcc-mono mb-4 text-bcc-text-secondary">
-              {query.data.pagination.total} OPERATOR
+              {query.data.pagination.total} MEMBER
               {query.data.pagination.total === 1 ? "" : "S"}
               {shownQ !== "" && ` MATCHING "${shownQ.toUpperCase()}"`}
             </p>
@@ -635,7 +643,7 @@ function FilterChip({
 // way RosterFilterEmpty does.
 // ──────────────────────────────────────────────────────────────────────
 
-function RosterRefinementEmpty({ onClear }: { onClear: () => void }) {
+function RosterRefinementEmpty({ onClear, query }: { onClear: () => void; query: string }) {
   return (
     <div className="bcc-paper mx-auto max-w-2xl p-8 text-center">
       <p className="bcc-mono mb-2 text-bcc-text-safety">NO MATCHES</p>
@@ -652,11 +660,14 @@ function RosterRefinementEmpty({ onClear }: { onClear: () => void }) {
       >
         CLEAR REFINEMENT
       </button>
+      <div>
+        <SearchEverywhereLink query={query} surface="paper" />
+      </div>
     </div>
   );
 }
 
-function RosterEmpty({ hasSearch }: { hasSearch: boolean }) {
+function RosterEmpty({ hasSearch, query }: { hasSearch: boolean; query: string }) {
   if (hasSearch) {
     return (
       <div className="bcc-paper mx-auto max-w-2xl p-8 text-center">
@@ -667,6 +678,7 @@ function RosterEmpty({ hasSearch }: { hasSearch: boolean }) {
         <p className="mt-3 font-serif italic leading-relaxed text-ink-soft">
           Try a different handle, or clear the search to see everyone.
         </p>
+        <SearchEverywhereLink query={query} surface="paper" />
       </div>
     );
   }
@@ -674,7 +686,7 @@ function RosterEmpty({ hasSearch }: { hasSearch: boolean }) {
     <div className="bcc-paper mx-auto max-w-2xl p-8 text-center">
       <p className="bcc-mono mb-2 text-bcc-text-safety">QUIET ROSTER</p>
       <h2 className="bcc-stencil text-3xl text-ink">
-        No operators on file yet.
+        No members on file yet.
       </h2>
       <p className="mt-3 font-serif italic leading-relaxed text-ink-soft">
         Once members start signing up, they&apos;ll show up here.

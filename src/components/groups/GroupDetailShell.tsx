@@ -3,8 +3,9 @@
  * shared by every group-style route:
  *
  *   /groups/[slug]                          (urlBase: undefined → internal tabs)
- *   /communities/[slug] + /about + /members (urlBase: "/communities/{slug}")
- *   /halls/[slug]                           (urlBase: undefined; pass hallActions)
+ *   /communities/[slug] + /about + /members (urlBase: "/communities/{slug}";
+ *                                            a Hall also passes its actions +
+ *                                            chain panels, see community-detail)
  *
  * Server component. Composes:
  *   1. FileRail            — top status strip (FLOOR // KIND  {SLUG}  ·  FILE / OPEN)
@@ -12,7 +13,7 @@
  *   3. PageHero            — CommunityJoinCard (CardFactory) in card slot; actions slot caller-supplied
  *   4. GroupTabs           — Stream / Members / About
  *
- * Mirrors the EntityProfile shape so /groups, /communities, /halls
+ * Mirrors the EntityProfile shape so /groups and /communities (Halls included)
  * read as one product with /u, /v, /p, /c.
  */
 
@@ -53,11 +54,11 @@ export interface GroupDetailShellProps {
   initialTab?: GroupTabKey;
   /** Optional URL prefix for community sub-routes — when set, the tab
    *  strip pushes /communities/{slug}/<segment> on click. Omit on
-   *  /groups/[slug] + /halls/[slug] for internal-state tabs. */
+   *  /groups/[slug] for internal-state tabs. */
   urlBase?: string;
   /**
    * Action cluster rendered in PageHero's `actions` slot. Defaults to
-   * `<GroupMembershipStrip>` for /groups + /communities; /halls passes
+   * `<GroupMembershipStrip>` for /groups + /communities; a Hall passes
    * its own `<HallMembershipControls>` since halls support set/clear
    * primary semantics plain groups don't.
    */
@@ -73,7 +74,7 @@ export interface GroupDetailShellProps {
   /**
    * App-relative path to share (leading slash, no origin), e.g.
    * "/communities/{slug}". Built by the route the viewer is on — the shell
-   * is shared across /communities, /groups, and /halls, so the share +
+   * is shared across /communities and /groups, so the share +
    * canonical surface differs per route and is threaded down rather than
    * derived from a single `links.self`. Omit to hide the Share button.
    */

@@ -5,6 +5,7 @@ import { MarketingHeaderCta } from "@/components/landing/MarketingHeaderCta";
 import { CopyrightMark } from "@/components/layout/CopyrightMark";
 import { ThemeSwitcher } from "@/components/layout/ThemeSwitcher";
 import { LEGAL_ROUTES } from "@/lib/legal/config";
+import { HIT_AREA_44 } from "@/components/feed/hitArea";
 
 /**
  * (marketing) — the guest landing page's shell. Bare, full-bleed, no
@@ -78,9 +79,9 @@ export default function MarketingLayout({
         <div className="flex flex-col items-center justify-center gap-1.5 sm:flex-row sm:gap-3">
           <CopyrightMark />
           <nav className="flex flex-wrap items-center justify-center gap-3" aria-label="Legal">
-            <Link href={LEGAL_ROUTES.terms} className="bcc-legal-link">Terms</Link>
-            <Link href={LEGAL_ROUTES.privacy} className="bcc-legal-link">Privacy</Link>
-            <Link href={LEGAL_ROUTES.cookies} className="bcc-legal-link">Cookies</Link>
+            <Link href={LEGAL_ROUTES.terms} className={`${HIT_AREA_44} bcc-legal-link`}>Terms</Link>
+            <Link href={LEGAL_ROUTES.privacy} className={`${HIT_AREA_44} bcc-legal-link`}>Privacy</Link>
+            <Link href={LEGAL_ROUTES.cookies} className={`${HIT_AREA_44} bcc-legal-link`}>Cookies</Link>
           </nav>
         </div>
       </footer>

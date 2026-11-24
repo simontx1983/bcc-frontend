@@ -82,7 +82,7 @@ export function EndorsementsGivenView({ handle }: EndorsementsGivenViewProps) {
   }
 
   return (
-    <section aria-label="Pages this operator has vouched for" className="flex flex-col">
+    <section aria-label="Pages this member has vouched for" className="flex flex-col">
       <ul className="flex flex-col">
         {items.map((item) => (
           <EndorsementRow key={item.id} item={item} />

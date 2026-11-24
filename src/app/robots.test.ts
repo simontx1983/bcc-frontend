@@ -52,16 +52,23 @@ describe("non-production stays CRAWLABLE", () => {
     expect(disallowOf(result)).not.toContain("/");
   });
 
-  it("never advertises a sitemap (the profile sitemap is blocked)", async () => {
+  it("advertises no sitemap off the indexable deployment (F-518)", async () => {
     for (const [env, url] of [
-      ["production", "https://bluecollarcrypto.io"],
       ["production", "https://stage.bluecollarcrypto.io"],
       ["preview", "https://x.vercel.app"],
+      [undefined, "http://localhost:3000"],
     ] as const) {
       setEnv(env, url);
       const result = await loadRobots();
       expect(result).not.toHaveProperty("sitemap");
     }
+  });
+});
+
+describe("production sitemap (F-518)", () => {
+  it("points at the app's own /sitemap.xml", async () => {
+    const result = await loadRobots();
+    expect(result.sitemap).toBe("https://bluecollarcrypto.io/sitemap.xml");
   });
 });
 

@@ -8,7 +8,7 @@
  * `isSuccess`, exactly like the other three. The inventory was renamed so
  * the old and revised meanings of C2b/C2c cannot collide.
  *
- * `/members`, `/mentors` and both tabs of `/messages` put `page` in the
+ * `/members`, `/members/mentors` and both tabs of `/messages` put `page` in the
  * query key with no `placeholderData`, and gate their list *and* their
  * pager behind `isSuccess`. A failed page 2 therefore had no data, so the
  * pager unmounted with the list and PREV disappeared — the URL was the
@@ -48,6 +48,8 @@ const push = vi.fn();
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ replace, push, refresh: vi.fn() }),
   useSearchParams: () => state.searchParams,
+  // The Members tabs (Everyone · Mentors) mark the current route.
+  usePathname: () => "/members",
 }));
 vi.mock("next-auth/react", () => ({
   useSession: () => ({ data: { user: { name: "ada" } }, status: "authenticated" }),
@@ -73,7 +75,7 @@ vi.mock("@/components/messages/QueuedMessagesList", () => ({
 }));
 
 import MembersPage from "@/app/(main)/(app)/members/page";
-import MentorsPage from "@/app/(main)/(app)/mentors/page";
+import MentorsPage from "@/app/(main)/(app)/members/mentors/page";
 import MessagesPage from "@/app/(main)/(app)/messages/page";
 
 beforeAll(() => {
@@ -124,7 +126,7 @@ const failed = (code: string, key: keyof typeof refetch) => ({
 
 const TYPE_COUNTS = { validator: 1, project: 0, nft: 0, dao: 0 };
 
-// ── /members and /mentors share the useMembers hook ───────────────────
+// ── /members and /members/mentors share the useMembers hook ───────────
 
 const ROUTES = [
   {
@@ -137,10 +139,10 @@ const ROUTES = [
     emptyCopy: /roster|operator/i,
   },
   {
-    name: "/mentors",
+    name: "/members/mentors",
     ui: () => <MentorsPage />,
     key: "members" as const,
-    // /mentors filters on `is_mentor === true`.
+    // /members/mentors filters on `is_mentor === true`.
     okData: () => ok([{ id: 1, is_mentor: true }], "members", { type_counts: TYPE_COUNTS }),
     failData: (c: string) => failed(c, "members"),
     message: /mentor list is temporarily unavailable/i,

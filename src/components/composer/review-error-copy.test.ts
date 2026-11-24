@@ -47,9 +47,10 @@ describe("review limit copy", () => {
     expect(humanizeReviewError(limited(60))).not.toContain("RAW SERVER TEXT");
   });
 
-  it("the forbidden copy keeps its daily-cap clause until #763 is in production", () => {
+  it("the forbidden copy no longer mentions the daily cap (#763 made it a 429)", () => {
     const forbidden = new BccApiError("bcc_forbidden", "x", 403, null);
-    expect(humanizeReviewError(forbidden)).toContain("downvotes are capped daily");
+    expect(humanizeReviewError(forbidden)).not.toContain("capped daily");
+    expect(humanizeReviewError(forbidden)).toContain("trust-safety gate");
   });
 });
 

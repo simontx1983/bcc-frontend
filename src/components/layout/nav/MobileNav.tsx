@@ -1,17 +1,28 @@
 "use client";
 
-import { Globe, Home, Landmark, Menu, Plus } from "lucide-react";
+import { Menu, Plus } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useSession } from "next-auth/react";
 
 import { NewPostTrigger } from "@/components/composer/NewPostTrigger";
+import { NavIcon, phoneBarFor } from "@/components/layout/nav-items";
 
 interface MobileNavProps {
   onMenuOpen?: () => void;
 }
 
+/**
+ * The phone bar. Its slots come from nav-items (phoneBarFor): signed in,
+ * Home · Explore · ＋ · Communities · Menu; a guest, who can't post, gets
+ * Members in the ＋ slot. Everything else is in the Menu (MainOffcanvas).
+ */
 export function MobileNav({ onMenuOpen }: MobileNavProps) {
   const pathname = usePathname() ?? "/";
+  // Same signed-in test as LeftSidebar: the session is seeded server-side,
+  // so this is settled on the first render.
+  const { data: session } = useSession();
+  const signedIn = session !== null && session !== undefined;
 
   const isActive = (href: string) =>
     href === "/" ? pathname === "/" : pathname.startsWith(href);
@@ -95,65 +106,54 @@ export function MobileNav({ onMenuOpen }: MobileNavProps) {
         background: "var(--bcc-bg)",
       }}
     >
-      {/* Home */}
-      <Link href="/" style={itemStyle("/")} aria-current={current("/")}>
-        {activeMark("/")}
-        <Home
-          size={20}
-          strokeWidth={1.7}
-          aria-hidden
-          fill={isActive("/") ? "var(--bcc-accent)" : "none"}
-          fillOpacity={isActive("/") ? 0.15 : 0}
-        />
-        <span style={labelStyle}>Home</span>
-      </Link>
+      {phoneBarFor(signedIn).map((slot) => {
+        if (slot.kind === "post") {
+          return (
+            <div key="post" style={{ flex: 1, display: "flex", justifyContent: "center", alignItems: "center", position: "relative" }}>
+              <NewPostTrigger
+                ariaLabel="New Post"
+                style={{
+                  position: "absolute",
+                  bottom: -16,
+                  width: 52,
+                  height: 52,
+                  borderRadius: "50%",
+                  background: "var(--bcc-accent)",
+                  color: "var(--bcc-on-accent)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  boxShadow: "0 4px 16px var(--bcc-accent-glow), 0 0 0 3px var(--bcc-bg)",
+                  flexShrink: 0,
+                  WebkitTapHighlightColor: "transparent",
+                }}
+              >
+                <Plus size={20} strokeWidth={2.2} aria-hidden />
+              </NewPostTrigger>
+            </div>
+          );
+        }
 
-      {/* Halls — replaced Directory in the Handoff v1 bottom menu (dev
-          note 15: Home, Halls, +, Communities, Menu). Directory is still
-          reachable from the Menu offcanvas and the desktop sidebar. */}
-      <Link href="/halls" style={itemStyle("/halls")} aria-current={current("/halls")}>
-        {activeMark("/halls")}
-        <Landmark size={20} strokeWidth={1.7} aria-hidden />
-        <span style={labelStyle}>Halls</span>
-      </Link>
+        if (slot.kind === "menu") {
+          // Opens the offcanvas Menu.
+          return (
+            <button key="menu" onClick={onMenuOpen} style={itemStyle("__menu__")} aria-label="Open menu">
+              <Menu size={20} strokeWidth={1.7} aria-hidden />
+              <span style={labelStyle}>Menu</span>
+            </button>
+          );
+        }
 
-      {/* Center Post button */}
-      <div style={{ flex: 1, display: "flex", justifyContent: "center", alignItems: "center", position: "relative" }}>
-        <NewPostTrigger
-          ariaLabel="New Post"
-          style={{
-            position: "absolute",
-            bottom: -16,
-            width: 52,
-            height: 52,
-            borderRadius: "50%",
-            background: "var(--bcc-accent)",
-            color: "var(--bcc-on-accent)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            boxShadow: "0 4px 16px var(--bcc-accent-glow), 0 0 0 3px var(--bcc-bg)",
-            flexShrink: 0,
-            WebkitTapHighlightColor: "transparent",
-          }}
-        >
-          <Plus size={20} strokeWidth={2.2} aria-hidden />
-        </NewPostTrigger>
-      </div>
-
-      {/* Communities */}
-      <Link href="/communities" style={itemStyle("/communities")} aria-current={current("/communities")}>
-        {activeMark("/communities")}
-        <Globe size={20} strokeWidth={1.7} aria-hidden />
-        <span style={labelStyle}>Communities</span>
-      </Link>
-
-      {/* Menu — opens offcanvas */}
-      <button onClick={onMenuOpen} style={itemStyle("__menu__")} aria-label="Open menu">
-        <Menu size={20} strokeWidth={1.7} aria-hidden />
-        <span style={labelStyle}>Menu</span>
-      </button>
-
+        const { item } = slot;
+        return (
+          <Link key={item.href} href={item.href} style={itemStyle(item.href)} aria-current={current(item.href)}>
+            {activeMark(item.href)}
+            {/* Home fills on its active state, as it always has. */}
+            <NavIcon Icon={item.Icon} filled={item.href === "/" && isActive("/")} />
+            <span style={labelStyle}>{item.label}</span>
+          </Link>
+        );
+      })}
     </nav>
   );
 }

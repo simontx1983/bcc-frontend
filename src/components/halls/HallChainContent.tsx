@@ -154,7 +154,7 @@ export function HallValidatorsPanel({
     <section className="bcc-panel flex flex-col gap-4 p-6">
       <PanelHeader
         heading={`Who secures ${chainLabel}`}
-        href={chain !== null ? `/validators?chain=${encodeURIComponent(chain)}` : null}
+        href={chain !== null ? `/explore?chain=${encodeURIComponent(chain)}` : null}
         linkLabel={`All ${validatorCount.toLocaleString()} →`}
       />
 
@@ -217,9 +217,12 @@ export function HallCollectionsPanel({
 
   return (
     <section className="bcc-panel flex flex-col gap-4 p-6">
+      {/* No "All N →" link: there is no list of a chain's collections to
+          open (/cards never existed, and the directory's `chain` filter
+          is a no-op outside validators, contract §directory). */}
       <PanelHeader
         heading={`Collections on ${chainLabel}`}
-        href="/cards"
+        href={null}
         linkLabel={`All ${collectionCount.toLocaleString()} →`}
       />
 

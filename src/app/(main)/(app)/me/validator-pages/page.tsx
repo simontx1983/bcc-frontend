@@ -212,7 +212,7 @@ function EmptyState() {
         you claiming others — each validator is proved separately.
       </p>
       <Link
-        href={"/directory?kind=validator" as Route}
+        href={"/explore" as Route}
         className="bcc-mono mt-5 inline-block border border-bcc-border px-4 py-2 text-sm text-bcc-text hover:border-safety"
       >
         BROWSE VALIDATORS

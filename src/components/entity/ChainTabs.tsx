@@ -41,7 +41,7 @@ export function ChainTabs({ chains }: ChainTabsProps) {
 
   return (
     <section
-      aria-label="Chains this operator runs on"
+      aria-label="Chains this validator runs on"
       className="bcc-panel mt-6 flex flex-col gap-3 p-5"
     >
       <header className="flex items-baseline justify-between gap-3">

@@ -93,8 +93,8 @@ function PrimerScreen({ onBack, onContinue }: { onBack: () => void; onContinue: 
     <>
       <h1 className="bcc-onb-disp">What this is.</h1>
       <p className="bcc-onb-lede">
-        Blue Collar Crypto is an operator intelligence network. Operators back,
-        dispute, or stay silent about other operators. The platform synthesizes
+        Blue Collar Crypto is a reputation network of members. Members back,
+        dispute, or stay silent about other members. The platform synthesizes
         those signals into a reputation graph counter-parties consult before
         trusting someone with capital, code, or governance.
       </p>
@@ -105,7 +105,7 @@ function PrimerScreen({ onBack, onContinue }: { onBack: () => void; onContinue: 
         </p>
         <div className="bcc-onb-prim">
           <div className="k">VOUCH</div>
-          <p className="q">&ldquo;I think this operator is competent.&rdquo;</p>
+          <p className="q">&ldquo;I think this member is competent.&rdquo;</p>
           {/* "back" was the generic verb here until contract v1.56 made it
               the scarce primitive's name — reworded so Card 2 doesn't
               describe Vouch using the other action's label (§J.7). */}
@@ -113,7 +113,7 @@ function PrimerScreen({ onBack, onContinue }: { onBack: () => void; onContinue: 
         </div>
         <div className="bcc-onb-prim">
           <div className="k">BACK · 0 OF 5</div>
-          <p className="q">&ldquo;I&rsquo;m putting my reputation on this operator&rsquo;s work.&rdquo;</p>
+          <p className="q">&ldquo;I&rsquo;m putting my reputation on this member&rsquo;s work.&rdquo;</p>
           <p className="d">Scarce. You only have a few high-conviction slots; spend them deliberately.</p>
         </div>
         <div className="bcc-onb-prim">

@@ -61,6 +61,7 @@ import { memo } from "react";
 import type { Route } from "next";
 import Link from "next/link";
 
+import { HALLS_TAB_HREF } from "@/components/communities/halls-tab-href";
 import { Avatar } from "@/components/identity/Avatar";
 import { FeedItemCard } from "@/components/feed/FeedItemCard";
 import { RankChip } from "@/components/profile/RankChip";
@@ -138,7 +139,7 @@ function DiscoverPanelImpl({ enabled }: DiscoverPanelProps) {
         {data.halls.length > 0 && (
           <BlockSection
             label="HALLS YOU MIGHT JOIN"
-            viewAllHref={"/halls" as Route}
+            viewAllHref={HALLS_TAB_HREF}
           >
             <ul className="grid grid-cols-1 gap-2 sm:grid-cols-3">
               {data.halls.map((hall) => (
@@ -150,7 +151,7 @@ function DiscoverPanelImpl({ enabled }: DiscoverPanelProps) {
 
         {data.recent_operators.length > 0 && (
           <BlockSection
-            label="RECENTLY ACTIVE OPERATORS"
+            label="RECENTLY ACTIVE MEMBERS"
             viewAllHref={"/members" as Route}
           >
             <ul className="flex flex-col">
@@ -279,20 +280,27 @@ function BlockSection({ label, viewAllHref, children }: BlockSectionProps) {
 // ─────────────────────────────────────────────────────────────────────
 
 function HallCard({ hall }: { hall: ColdStartHall }) {
+  // A chainless Hall has no chain_slug: no chain accent, and the same
+  // "GENERAL" label Communities ▸ Halls gives it (HallsTabPanel).
+  const chain =
+    typeof hall.chain_slug === "string" && hall.chain_slug.trim() !== "" ? hall.chain_slug : null;
   return (
     <li>
       <Link
-        href={`/halls/${hall.slug}` as Route}
+        href={`/communities/${hall.slug}` as Route}
         className="bcc-panel block px-3 py-3 transition hover:bg-bcc-surface-hover"
         style={{
-          borderLeft: `3px solid var(--chain-${hall.chain_slug}, var(--bcc-border))`,
+          borderLeft:
+            chain !== null
+              ? `3px solid var(--chain-${chain}, var(--bcc-border))`
+              : "3px solid var(--bcc-border)",
         }}
       >
         <span className="bcc-stencil block truncate text-sm text-bcc-text">
           {hall.name}
         </span>
         <span className="bcc-mono mt-1 block text-[10px] tracking-[0.14em] text-bcc-text-secondary">
-          {hall.chain_slug.toUpperCase()} · {hall.member_count}{" "}
+          {chain !== null ? chain.toUpperCase() : "GENERAL"} · {hall.member_count}{" "}
           {hall.member_count === 1 ? "member" : "members"}
         </span>
       </Link>

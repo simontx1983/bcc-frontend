@@ -24,11 +24,49 @@ export function isAdminDenial(err: unknown): boolean {
 /**
  * The admin route is not on this server yet: WP-core answers an
  * unregistered route with `rest_no_route` (enveloped by bcc-trust's
- * Envelope, still 404), and a deployed handler that has not been wired
- * answers `bcc_not_found`. Used while the validator admin backend rolls
- * out, so staff see "not available yet" rather than a Retry that cannot
- * help.
+ * Envelope, still 404). Only that code means "not deployed": staff see
+ * "not available yet" rather than a Retry that cannot help.
  */
 export function isAdminToolUnavailable(err: unknown): boolean {
-  return err instanceof BccApiError && (err.code === "rest_no_route" || err.code === "bcc_not_found");
+  return err instanceof BccApiError && err.code === "rest_no_route";
+}
+
+/**
+ * The route exists but an id it was given matches nothing: an unknown
+ * page_id or user_id filter answers `bcc_not_found` (the normal BCC 404).
+ * Retrying can't help, and it must not read as "not deployed".
+ */
+export function isAdminIdNotFound(err: unknown): boolean {
+  return err instanceof BccApiError && err.code === "bcc_not_found";
+}
+
+/**
+ * `data.<key>` of a BccApiError carrying `code`, when it is a string;
+ * otherwise null. The validator admin writes key their copy on
+ * `data.reason` (409, step-up) and `data.field` (422).
+ */
+function dataString(err: unknown, code: string, key: string): string | null {
+  if (!(err instanceof BccApiError) || err.code !== code) return null;
+  const value = err.data?.[key];
+  return typeof value === "string" && value !== "" ? value : null;
+}
+
+/** A 409 `bcc_conflict`: the page changed under the admin. */
+export function isOwnershipConflict(err: unknown): boolean {
+  return err instanceof BccApiError && err.code === "bcc_conflict";
+}
+
+/** The 409's `data.reason` (`wallet_owner_present`, `owner_exists`, …), or null. */
+export function conflictReason(err: unknown): string | null {
+  return dataString(err, "bcc_conflict", "reason");
+}
+
+/** A `bcc_step_up_failed`'s `data.reason` (`password`, `code`, `expired`, `used`, `mismatch`), or null. */
+export function stepUpFailureReason(err: unknown): string | null {
+  return dataString(err, "bcc_step_up_failed", "reason");
+}
+
+/** The field a 422 `bcc_invalid_request` names in `data.field`, or null. */
+export function invalidField(err: unknown): string | null {
+  return dataString(err, "bcc_invalid_request", "field");
 }

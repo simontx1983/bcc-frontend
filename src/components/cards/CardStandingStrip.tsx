@@ -37,6 +37,7 @@
 
 import type { Card, ReputationTier } from "@/lib/api/types";
 import { FlipIcon } from "@/components/icons/registry";
+import { HIT_AREA_44 } from "@/components/feed/hitArea";
 
 type StandingTone = "alarm" | "barrier" | "identity";
 
@@ -107,8 +108,6 @@ const TIER_WARNS: ReadonlySet<ReputationTier> = new Set(["risky", "caution"]);
 const TIER_FACT_DOT: Partial<Record<ReputationTier, string>> = {
   neutral: "var(--bcc-trust-neutral)",
   trusted: "var(--bcc-trust-trusted)",
-  proven: "var(--bcc-trust-proven)",
-  // Legacy wire value, same band, same colour — see ReputationTier.
   elite: "var(--bcc-trust-proven)",
 };
 
@@ -204,18 +203,15 @@ function resolveIdentity(card: Card, kindColor: string): StandingRow | null {
   if (card.card_kind === "community") {
     const dossier = card.community_dossier;
     if (dossier === null) return null;
-    // Community always resolves something here — the kicker is always
-    // present and privacy is always a real value — so a community card
-    // can never reach T5. Guaranteed content, zero backend work.
     if (dossier.verification !== null) {
       return { tone: "identity", text: dossier.verification.label, dotColor: VERIFIED_DOT };
     }
-    // Privacy moved to the `access` stat, so this row is now purely
-    // "what kind of room is this" — "Chain Hall", "Holder community".
-    const kicker = card.kicker ?? "";
-    return kicker !== ""
-      ? { tone: "identity", text: kicker, dotColor: kindColor }
-      : null;
+    // "What kind of room is this" (the server kicker: CHAIN HALL, HOLDER
+    // COMMUNITY, …) now names the card in its header slot (F-317 / F-563,
+    // CardFrontFace.cardHeaderWord). Repeating it here said the same words
+    // twice, so an unverified community has nothing more to state: T5,
+    // the row is omitted and the portrait grows.
+    return null;
   }
 
   // Projects have no on-chain backing and can never be unclaimed, so
@@ -270,7 +266,7 @@ export function CardStandingStrip({
 
       <button
         type="button"
-        className="bcc-card-flip-chip"
+        className={`${HIT_AREA_44} bcc-card-flip-chip`}
         aria-pressed={flipped}
         aria-label={flipped ? `Show the front of ${card.name}'s card` : `Show the back of ${card.name}'s card`}
         onClick={(e) => {

@@ -6,10 +6,13 @@
  * cursor) as well as what renders:
  *   - chain tabs come from the `chains` facet, each with its total;
  *   - a tab switch refetches with `chain`, a state chip with `state`;
- *   - rows carry the state pill, the owner and the method label;
+ *   - rows carry the state pill, the owner and the server's verification
+ *     label; each title links to the page view; a Locked marker shows
+ *     unless the server says `owner.locked_for_staff === false` (fail
+ *     closed: a missing flag is locked);
  *   - Load more sends the server's cursor;
  *   - 403 → "Admin access required" (no Retry), 503 → Retry,
- *     404 rest_no_route / bcc_not_found → "not available yet".
+ *     404 rest_no_route → "not available yet"; 404 bcc_not_found → its own line.
  */
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -33,6 +36,7 @@ vi.mock("@/lib/api/admin-validator-endpoints", () => ({
   getValidatorRelationshipHealth: vi.fn(),
 }));
 
+import { ADMIN_ID_NOT_FOUND_COPY } from "@/components/admin/validators/AdminReadFailure";
 import { ValidatorDirectory } from "@/components/admin/validators/ValidatorDirectory";
 
 beforeAll(() => {
@@ -179,14 +183,20 @@ describe("Validator Directory — facet tabs and filters", () => {
 });
 
 describe("Validator Directory — rows", () => {
-  it("renders the state pill, the owner and the method label; titles are plain text", async () => {
+  it("renders the state pill, the owner and the server's verification label", async () => {
     getDir.mockResolvedValue(
       page([
         item(1, {
           state: "wallet_verified",
           owner: {
             user: { user_id: 9, handle: "ada", display_name: "Ada Lovelace", avatar_url: null },
-            verification: { kind: "wallet", method: "wallet", verified_at: "2026-11-01T00:00:00Z" },
+            verification: {
+              kind: "wallet",
+              method: "wallet",
+              label: "Wallet Verified",
+              verified_at: "2026-11-01T00:00:00Z",
+            },
+            locked_for_staff: true,
           },
         }),
         item(2, {
@@ -194,7 +204,13 @@ describe("Validator Directory — rows", () => {
           wallet_claim_possible: false,
           owner: {
             user: { user_id: 10, handle: "grace", display_name: "Grace Hopper", avatar_url: null },
-            verification: { kind: "staff", method: "keybase", verified_at: "2026-11-02T00:00:00Z" },
+            verification: {
+              kind: "staff",
+              method: "staff",
+              label: "Staff Verified",
+              verified_at: "2026-11-02T00:00:00Z",
+            },
+            locked_for_staff: false,
           },
         }),
         item(3, { state: "conflict" }),
@@ -210,7 +226,7 @@ describe("Validator Directory — rows", () => {
     expect(within(r1).getByText("WALLET VERIFIED")).toBeInTheDocument();
     expect(within(r1).getByText("Ada Lovelace")).toBeInTheDocument();
     expect(within(r1).getByText("@ada")).toBeInTheDocument();
-    expect(within(r1).getByText("VIA WALLET PROOF")).toBeInTheDocument();
+    expect(within(r1).getByText("VIA WALLET VERIFIED")).toBeInTheDocument();
     expect(within(r1).getByText("cosmosvaloper1addr1")).toBeInTheDocument();
     expect(within(r1).getByText("Yes")).toBeInTheDocument();
     expect(within(r1).queryByText(/uncovered validators/i)).toBeNull();
@@ -218,7 +234,7 @@ describe("Validator Directory — rows", () => {
     const r2 = await row("Validator 2");
     expect(within(r2).getByText("VERIFIED BY BCC")).toBeInTheDocument();
     expect(within(r2).getByText("Grace Hopper")).toBeInTheDocument();
-    expect(within(r2).getByText("VIA KEYBASE")).toBeInTheDocument();
+    expect(within(r2).getByText("VIA STAFF VERIFIED")).toBeInTheDocument();
     expect(within(r2).getByText("No")).toBeInTheDocument();
 
     const r3 = await row("Validator 3");
@@ -230,8 +246,45 @@ describe("Validator Directory — rows", () => {
     expect(within(r4).getByText("Uncovered validators: 2")).toBeInTheDocument();
     expect(within(r4).getByText("OPERATOR ADDRESSES")).toBeInTheDocument();
 
-    // The per-page view is PR B: no row may link to a route that doesn't exist.
-    expect(document.querySelectorAll("a")).toHaveLength(0);
+  });
+
+  it("each row's title links to its page view", async () => {
+    getDir.mockResolvedValue(page([item(1), item(27)]));
+    renderDirectory();
+
+    const link = await screen.findByRole("link", { name: "Validator 27" });
+    expect(link).toHaveAttribute("href", "/admin/validators/27");
+    expect(screen.getByRole("heading", { name: "Validator 27" })).toContainElement(link);
+    expect(screen.getByRole("link", { name: "Validator 1" })).toHaveAttribute(
+      "href",
+      "/admin/validators/1",
+    );
+  });
+
+  it("a Locked marker shows unless the server says locked_for_staff === false (missing flag = locked)", async () => {
+    const owner = (lock: Record<string, unknown>) => ({
+      user: { user_id: 9, handle: "ada", display_name: "Ada Lovelace", avatar_url: null },
+      verification: { kind: "node_key" as const, method: "solana_identity" as const, verified_at: "2026-11-01T00:00:00Z" },
+      ...lock,
+    });
+    getDir.mockResolvedValue(
+      page([
+        item(1, { state: "wallet_verified", owner: owner({ locked_for_staff: true }) }),
+        item(2, { state: "staff_verified", owner: owner({ locked_for_staff: false }) }),
+        item(3, { state: "wallet_verified", owner: owner({}) }),
+        item(4),
+      ]),
+    );
+    renderDirectory();
+
+    const row = async (title: string) =>
+      (await screen.findByRole("heading", { name: title })).closest("li") as HTMLElement;
+    expect(within(await row("Validator 1")).getByText("LOCKED")).toBeInTheDocument();
+    expect(within(await row("Validator 2")).queryByText("LOCKED")).toBeNull();
+    expect(within(await row("Validator 3")).getByText("LOCKED")).toBeInTheDocument();
+    expect(within(await row("Validator 4")).queryByText("LOCKED")).toBeNull();
+    // No server label: the labels.ts fallback for the method.
+    expect(within(await row("Validator 1")).getByText("VIA NODE KEY PROOF")).toBeInTheDocument();
   });
 
   it("Load more requests the server's cursor and appends the next page", async () => {
@@ -291,16 +344,23 @@ describe("Validator Directory — failed reads", () => {
     expect(await screen.findByRole("heading", { name: "Validator 1" })).toBeInTheDocument();
   });
 
-  it.each(["rest_no_route", "bcc_not_found"])(
-    "a 404 (%s) says the tool isn't on the server yet, with no Retry",
-    async (code) => {
-      getDir.mockRejectedValue(new BccApiError(code, RAW, 404, null));
-      renderDirectory();
+  it("a 404 rest_no_route says the tool isn't on the server yet, with no Retry", async () => {
+    getDir.mockRejectedValue(new BccApiError("rest_no_route", RAW, 404, null));
+    renderDirectory();
 
-      expect(await screen.findByText("This tool isn't available on the server yet.")).toBeInTheDocument();
-      expect(screen.queryByRole("button", { name: /retry/i })).toBeNull();
-      expect(screen.queryByText(/admin access required/i)).toBeNull();
-      expect(getDir).toHaveBeenCalledTimes(1);
-    },
-  );
+    expect(await screen.findByText("This tool isn't available on the server yet.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /retry/i })).toBeNull();
+    expect(screen.queryByText(/admin access required/i)).toBeNull();
+    expect(getDir).toHaveBeenCalledTimes(1);
+  });
+
+  it("a 404 bcc_not_found is NOT 'not available yet': it says no page or member matches", async () => {
+    getDir.mockRejectedValue(new BccApiError("bcc_not_found", RAW, 404, null));
+    renderDirectory();
+
+    expect(await screen.findByText(ADMIN_ID_NOT_FOUND_COPY)).toBeInTheDocument();
+    expect(screen.queryByText("This tool isn't available on the server yet.")).toBeNull();
+    expect(screen.queryByRole("button", { name: /retry/i })).toBeNull();
+    expect(getDir).toHaveBeenCalledTimes(1);
+  });
 });

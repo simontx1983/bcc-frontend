@@ -126,6 +126,13 @@ export interface AuthTokenResponse {
    * BCC JWT expires + the session re-authenticates).
    */
   in_good_standing: boolean;
+  /**
+   * Whether the user passes the admin routes' own capability check.
+   * DISPLAY ONLY: it shows or hides the avatar menu's Admin group, and
+   * the server re-checks every admin request. Optional: a backend from
+   * before the field sends nothing, which reads as "hide".
+   */
+  can_moderate?: boolean;
 }
 
 export interface HandleUpdateResponse {
@@ -196,17 +203,13 @@ export type CardKind = "validator" | "project" | "creator" | "member" | "communi
 /**
  * The five-band trust axis.
  *
- * `proven` is the current name for the top band; `elite` is the LEGACY
- * wire value and is retained only until bcc-trust ships the rename.
- * Both are accepted and both render violet, so the two repos can deploy
- * independently instead of needing a flag day — the same dual-accept
- * pattern §J.11 used for `reputation_score` / `trust_score`.
- *
- * Drop `elite` once the backend emits `proven` everywhere (including the
- * directory's `tier` query param).
+ * The top band is `elite`, labelled "Elite": bcc-trust's
+ * `ReputationTierMap::TIER_LABEL`, an owner decision ("Proven" was
+ * considered and rejected; glossary §6). A frontend-only `proven` key
+ * once sat here for a rename the server never shipped; it is gone. Show
+ * the server's `reputation_tier_label` wherever the payload carries one.
  */
 export type ReputationTier =
-  | "proven"
   | "elite"
   | "trusted"
   | "neutral"
@@ -312,6 +315,13 @@ export interface CardPermissions {
   can_vouch?: CardPermissionEntry;
   can_stand_behind?: CardPermissionEntry;
   can_report?: CardPermissionEntry;
+  /**
+   * v1.136 (F-301), page cards only: may this viewer claim the page?
+   * reason_code: suspended | signin_required | not_applicable, and since
+   * F-515 not_claimable (checked first; its unlock_hint is the card's
+   * claim_target.unclaimable_hint).
+   */
+  can_claim?: CardPermissionEntry;
   /**
    * §7 owner vote-dispute entry (DisputeCallout → OpenDisputeModal →
    * POST /disputes). Owner-only: mirrors DisputeController's
@@ -439,6 +449,16 @@ export interface CardClaimTarget {
   entity_id: number;
   /** e.g. "cosmos", "osmosis", "ethereum". Drives the wallet picker. */
   chain_slug: string;
+  /**
+   * F-515 (contract v1.221), additive: whether BCC can prove an operator
+   * on this validator's chain from the data it stores. Absent on an older
+   * backend, which means "let the claim route decide".
+   */
+  claimable?: boolean;
+  /** Why not, when `claimable` is false (operator_address_missing, …); else null. */
+  unclaimable_reason_code?: string | null;
+  /** Server copy for why not, naming the chain; rendered verbatim. Null when claimable. */
+  unclaimable_hint?: string | null;
 }
 
 /**
@@ -547,6 +567,13 @@ export interface Card {
   handle: string;
   card_kind: CardKind;
   /**
+   * Structure A row 17: the card's cover photo, an absolute URL; null when
+   * it has none (members: their profile cover; communities and pages:
+   * their cover meta, never PeepSo's default). Absent on older backends.
+   * The front face's portrait shows it in place of the halftone.
+   */
+  cover_photo_url?: string | null;
+  /**
    * Short editorial bio for the back-face render — one paragraph, max
    * ~200 chars, server-truncated at word boundary with "…" suffix.
    * Empty string when the entity hasn't set a bio. Source per kind:
@@ -592,7 +619,7 @@ export interface Card {
    */
   reputation_tier_label: string | null;
   /**
-   * Group-type kicker ("HOLDER COMMUNITY", "CHAIN HALL", …) — `community`
+   * Group-type kicker ("CHAIN HALL", "HOLDER GROUP", …; §3.2.4) — `community`
    * cards only.
    *
    * Until v1.57 this rode on `tier_label`, overloading a trust field to
@@ -1507,8 +1534,8 @@ export type DirectoryKind = "validator" | "project" | "creator";
 
 /**
  * Sort modes accepted by the cards-list endpoint. `self_stake` (bonded
- * self-stake, DESC) is validator-only — meaningful on `/validators`,
- * where every result is a validator.
+ * self-stake, DESC) is validator-only — meaningful on Explore ▸ Validators
+ * (`/explore`), where every result is a validator.
  */
 export type DirectorySort =
   | "trust"
@@ -1745,6 +1772,7 @@ export type TrendingResponse = ProjectSearchResponse;
 export type NotificationKind =
   | "bcc_reaction"
   | "bcc_review"
+  | "bcc_review_reply"
   | "bcc_card_watched"
   | "bcc_rank_up"
   | "bcc_rank_demoted"
@@ -1767,7 +1795,14 @@ export type NotificationKind =
   | "bcc_content_auto_hidden"
   | "bcc_claim_badge_removed"
   | "bcc_announcement_hidden"
-  | "bcc_announcement_restored";
+  | "bcc_announcement_restored"
+  // Validator admin V1 (bell only). To every admin: an owner linked,
+  // revoked or link cancelled. To the member: ownership granted or removed.
+  | "bcc_validator_owner_linked"
+  | "bcc_validator_owner_revoked"
+  | "bcc_validator_owner_link_cancelled"
+  | "bcc_validator_ownership_granted"
+  | "bcc_validator_ownership_removed";
 
 export interface NotificationActor {
   id: number;
@@ -2173,7 +2208,7 @@ export interface ChainProfile {
  *
  * Both previews are capped server-side (6) and ordered by stake /
  * holder count. They are a "worth a look" teaser, NOT a directory —
- * link to `/validators?chain=` and `/cards` for the full lists rather
+ * link to `/explore?chain=` and `/cards` for the full lists rather
  * than paginating here. Empty arrays (never null) when the Hall has no
  * chain or nothing is indexed.
  */
@@ -2916,6 +2951,97 @@ export interface CardReview {
   text: string;
   posted_at_label: string;
   author: MemberSummary;
+  /**
+   * F-345 — the reviewed party's ONE public response, or null. Optional
+   * until bcc-trust #686 is deployed everywhere: absent reads as "no
+   * reply", exactly like null.
+   */
+  reply?: ReviewReply | null;
+  /**
+   * v1.174 — the VIEWER's own reply after the page changed hands: no
+   * longer the page's response, shown to its author only, deletable, not
+   * editable. Absent or null = none.
+   */
+  viewer_stale_reply?: ReviewReply | null;
+  /** F-345 — viewer-scoped. Absent = no composer (same as a denial). */
+  permissions?: { can_reply?: CardPermissionEntry };
+}
+
+/**
+ * F-345 — the reviewed party's ONE public response to a review (contract
+ * "Replies (v1.159, F-345)"). One per review, no thread: it takes no
+ * comments or reactions.
+ *
+ * `feed_id` ("feed_<act_id>") is only the REPORT target (its number goes to
+ * POST /me/reports as `feed_item`); no feed shows a reply.
+ *
+ * `permissions` is server-decided per viewer; the client never compares
+ * `author` with the viewer. The reply shown is always the one whose author
+ * currently answers for the page — a stale reply (the page changed hands)
+ * comes back as `reply: null` for everyone (its author sees it as
+ * `viewer_stale_reply`, v1.174), and the current party gets `can_reply`.
+ *   - can_edit:   author in good standing (not_author · sender_restricted)
+ *   - can_delete: author, not gated on suspension (not_author)
+ *   - can_report: signed in, not the author, not restricted
+ *                 (sign_in_required → hint "Sign in to report." · own_reply ·
+ *                 sender_restricted)
+ * Ships with `reply` itself, so it is always present on a reply.
+ *
+ * Who it is from (SA5, page-attributed replies): `author_kind` "member"
+ * (or absent: today's backend sends none) carries `author`; "page" carries
+ * `page` and NO `author` key: the reply is shown as the page's own
+ * response, because the author's profile level doesn't admit this viewer.
+ * Render the page's name and avatar, link the page; never read person
+ * fields from it. Only on `/entities/{kind}/:id/reviews`, only in `reply`.
+ */
+export type ReviewReply = ReviewReplyMember | ReviewReplyPage;
+
+interface ReviewReplyShared {
+  id: number;
+  body: string;
+  posted_at: string;
+  edited_at: string | null;
+  feed_id: string;
+  permissions: {
+    can_edit: CardPermissionEntry;
+    can_delete: CardPermissionEntry;
+    can_report: CardPermissionEntry;
+  };
+}
+
+export interface ReviewReplyMember extends ReviewReplyShared {
+  author_kind?: "member";
+  author: MemberSummary;
+}
+
+export interface ReviewReplyPage extends ReviewReplyShared {
+  author_kind: "page";
+  page: ReviewReplyPageAuthor;
+}
+
+/** The reviewed page itself (the card the tab sits on). */
+export interface ReviewReplyPageAuthor {
+  id: number;
+  card_kind: "validator" | "project" | "creator";
+  name: string;
+  handle: string;
+  /** The crest image, or "" when none. */
+  avatar_url: string;
+}
+
+/** POST|PATCH /reviews/{id}/reply body. 1–1000 chars after trim. */
+export interface ReviewReplyRequest {
+  body: string;
+}
+
+/** POST (201) | PATCH (200) /reviews/{id}/reply response. */
+export interface ReviewReplyResponse {
+  reply: ReviewReply;
+}
+
+/** DELETE /reviews/{id}/reply response. */
+export interface DeleteReviewReplyResponse {
+  deleted: true;
 }
 
 /** GET /entities/{kind}/{id}/reviews response. */
@@ -4288,8 +4414,12 @@ export interface MemberWallet {
   chain_slug: string;
   chain_name: string;
   is_primary: boolean;
-  /** ISO 8601. May be empty when no verification timestamp was recorded. */
-  verified_at: string;
+  /**
+   * ISO 8601. May be empty when no verification timestamp was recorded,
+   * and may be absent for other viewers (when a wallet was verified is
+   * private). Not rendered on profiles.
+   */
+  verified_at?: string;
 }
 
 /** Hall membership entry inside MemberProfile.halls. */
@@ -4474,6 +4604,8 @@ export interface MemberReview {
   text: string;
   scope_label: string;
   posted_at_label: string;
+  /** F-345 — the reviewed party's response, shown read-only. Optional until #686 ships. */
+  reply?: ReviewReply | null;
 }
 
 /**
@@ -4625,18 +4757,37 @@ export interface AdminUserRef {
   avatar_url: string | null;
 }
 
-/** "wallet" = cryptographic proof; "staff" = verified by BCC staff. */
-export type ValidatorOwnerVerificationKind = "wallet" | "staff";
+/**
+ * Display only — NEVER the staff lock. Whether staff may act on an owner
+ * is the server's `locked_for_staff` flag (see {@link AdminValidatorPageOwner}).
+ */
+export type ValidatorOwnerVerificationKind = "wallet" | "staff" | "node_key";
 
-/** How the owner was verified. `wallet` pairs with kind "wallet". */
-export type ValidatorOwnerVerificationMethod = "wallet" | "website" | "keybase" | "manual";
+/**
+ * How the owner was verified, as stored. A staff link reads back as
+ * kind "staff", method "staff". The server may add methods; an unknown
+ * one renders as its raw value.
+ */
+export type ValidatorOwnerVerificationMethod = "wallet" | "siws" | "solana_identity" | "staff";
 
 export interface ValidatorOwnerVerification {
   kind: ValidatorOwnerVerificationKind;
   method: ValidatorOwnerVerificationMethod;
+  /**
+   * Server copy for the verification ("Wallet Verified", "Node Key
+   * Verified", "Staff Verified"). Display this; labels.ts is only the
+   * fallback for a server that sent none.
+   */
+  label?: string;
   /** ISO 8601 UTC. */
   verified_at: string;
 }
+
+/**
+ * The EVIDENCE type a staff link was made on: the link form's
+ * `verification_method`, read back as the owner's `evidence_type`.
+ */
+export type ValidatorEvidenceType = "website" | "keybase" | "manual";
 
 /**
  * Server-decided ownership state of a validator page. The frontend only
@@ -4663,7 +4814,12 @@ export interface AdminValidatorDirectoryItem {
   chain: AdminValidatorChainRef;
   operator_addresses: string[];
   state: AdminValidatorPageState;
-  owner: { user: AdminUserRef; verification: ValidatorOwnerVerification } | null;
+  owner: {
+    user: AdminUserRef;
+    verification: ValidatorOwnerVerification;
+    /** Server-decided; see {@link AdminValidatorPageOwner.locked_for_staff}. */
+    locked_for_staff?: boolean;
+  } | null;
   uncovered_validator_count: number;
   /** Server-decided: whether this page's chain supports a wallet claim. */
   wallet_claim_possible: boolean;
@@ -4705,7 +4861,8 @@ export type ValidatorRelationshipStepUp = "password" | "password+code";
 export interface ValidatorRelationshipSnapshot {
   role: string | null;
   status: string | null;
-  method: ValidatorOwnerVerificationMethod | null;
+  /** A verification method or a staff evidence type; an unknown value renders raw. */
+  method: ValidatorOwnerVerificationMethod | ValidatorEvidenceType | null;
 }
 
 export interface ValidatorRelationshipHistoryItem {
@@ -4713,12 +4870,17 @@ export interface ValidatorRelationshipHistoryItem {
   /** ISO 8601 UTC. */
   created_at: string;
   action: ValidatorRelationshipAction;
-  subject: AdminUserRef;
-  actor: AdminUserRef;
+  /** Null when the account no longer exists (e.g. after `account_deleted`). */
+  subject: AdminUserRef | null;
+  /** Null for SYSTEM events (re-verify sweep, `step_up_expired`, invite expiry, wallet-proof supersede). */
+  actor: AdminUserRef | null;
   page: { page_id: number; title: string };
   prev: ValidatorRelationshipSnapshot;
   new: ValidatorRelationshipSnapshot;
+  /** A server KEY (e.g. `evidence_withdrawn`); display `reason_label`, never this. */
   reason: string | null;
+  /** Server copy for `reason`; null when there's no reason. */
+  reason_label: string | null;
   /**
    * Staff-entered evidence (≤2000 / ≤500 chars). PLAIN TEXT ONLY — never
    * rendered as HTML, never as a link (security D5). Null or empty when
@@ -4742,6 +4904,131 @@ export interface ValidatorRelationshipHealth {
   checked_at: string;
   rows_checked: number;
   head_seq: number;
+}
+
+// Validator admin V1, PR B — one page's relationships, the step-up, and
+// the owner link / revoke / cancel writes (routes 2–6, 7 per page, 8).
+
+/** The page's current owner, as route 2 returns it. */
+export interface AdminValidatorPageOwner {
+  /** The audit-log id of the link event; the handle for revoke and cancel. */
+  link_id: number;
+  user: AdminUserRef;
+  verification: ValidatorOwnerVerification;
+  /** Null for proof owners (no staff member linked them). */
+  linked_by: AdminUserRef | null;
+  /** ISO 8601 UTC. */
+  linked_at: string;
+  /** What the staff link was made on; null for proof owners. */
+  evidence_type: ValidatorEvidenceType | null;
+  /** PLAIN TEXT ONLY (security D5); null or empty when there is none. */
+  evidence_note: string | null;
+  evidence_ref: string | null;
+  /** Server-decided: whether this link can still be cancelled. */
+  cancellable: boolean;
+  /**
+   * Server-decided staff lock. `false` ONLY for a staff-verified owner;
+   * `true` for wallet, SIWS and node-key owners and any unknown method.
+   * The UI offers revoke / cancel only on an explicit `false`: missing
+   * or not a boolean reads as locked (fail closed).
+   */
+  locked_for_staff?: boolean;
+}
+
+export interface AdminValidatorRevokeReason {
+  /** Sent back as the revoke `reason`. */
+  key: string;
+  label: string;
+}
+
+/** GET /admin/validator-pages/:pageId/relationships. */
+export interface AdminValidatorPageRelationships {
+  page: { page_id: number; title: string; slug: string; chain: AdminValidatorChainRef };
+  state: AdminValidatorPageState;
+  owner: AdminValidatorPageOwner | null;
+  /** Non-empty when competing proven claims put the page in conflict. */
+  conflict_users: Array<{ user: AdminUserRef; verification: ValidatorOwnerVerification }>;
+  /** The revoke reasons to offer, in order. Never hard-coded client-side. */
+  revoke_reasons: AdminValidatorRevokeReason[];
+}
+
+/** The write a step-up is bound to. */
+export type ValidatorStepUpAction = "link_owner" | "revoke_owner" | "cancel_link";
+
+/**
+ * POST /admin/validator-pages/:pageId/step-up. V1's credential is the
+ * password only; the wallet-signature fields come later.
+ */
+export interface ValidatorStepUpStartRequest {
+  action: ValidatorStepUpAction;
+  target_user_id: number;
+  current_password: string;
+}
+
+/** Times are seconds from now. The address the code went to is never sent. */
+export interface ValidatorStepUpStartResponse {
+  /** Opaque; sent back with the code on the action call. */
+  step_up_id: string;
+  expires_in: number;
+  resend_after: number;
+}
+
+/** POST /admin/validator-pages/step-up/:stepUpId/resend. */
+export interface ValidatorStepUpResendResponse {
+  expires_in: number;
+  resend_after: number;
+}
+
+/** What every V1 write carries to prove the step-up. */
+export interface ValidatorStepUpProof {
+  step_up_id: string;
+  code: string;
+}
+
+/** POST /admin/validator-pages/:pageId/relationships. */
+export interface LinkValidatorOwnerRequest extends ValidatorStepUpProof {
+  user_id: number;
+  role: "owner";
+  verification_method: ValidatorEvidenceType;
+  evidence_note: string;
+  evidence_ref: string;
+}
+
+/** 201. */
+export interface LinkValidatorOwnerResponse {
+  link_id: number;
+  owner: AdminValidatorPageOwner;
+}
+
+/** POST /admin/validator-pages/:pageId/relationships/:linkId/revoke. */
+export interface RevokeValidatorOwnerRequest extends ValidatorStepUpProof {
+  /** A `key` from the page's `revoke_reasons`. */
+  reason: string;
+  note: string;
+}
+
+export interface RevokeValidatorOwnerResponse {
+  revoked: true;
+}
+
+/** POST /admin/validator-pages/:pageId/relationships/:linkId/cancel. */
+export interface CancelValidatorOwnerLinkRequest extends ValidatorStepUpProof {
+  note: string;
+}
+
+export interface CancelValidatorOwnerLinkResponse {
+  cancelled: true;
+  /** The owner the cancelled link had replaced, now restored; null if none. */
+  restored_owner: AdminUserRef | null;
+}
+
+/**
+ * GET /admin/users/search?q= — at most 10. Matches handle or display
+ * name, or an exact email or login, and never echoes either back. An
+ * over-throttled search answers 200 with no items, like no match.
+ */
+export interface AdminUserSearchResponse {
+  items: AdminUserRef[];
 }
 
 // §K1 Phase B — content reports (POST /me/reports)
@@ -5592,8 +5879,13 @@ export interface MemberProfile {
    * peepso_cover_position_x / peepso_cover_position_y user_meta.
    */
   cover_photo_position: { x: number; y: number };
-  /** ISO 8601 UTC. */
-  joined_at: string;
+  /**
+   * ISO 8601 UTC. For other viewers it is month-truncated (the 1st,
+   * 00:00Z) or absent (bcc-trust privacy change, Phillip 2026-11-24).
+   * Render only through formatJoinDate (month + year); never compute an
+   * age or a day from it.
+   */
+  joined_at?: string | null;
   is_self: boolean;
   trust_score: number;
   /**
@@ -6023,6 +6315,7 @@ export type VerifyAccountEmailChangeErrorCode =
 export type BellEventType =
   | "bcc_reaction"
   | "bcc_review"
+  | "bcc_review_reply"
   | "bcc_card_watched"
   | "bcc_rank_up"
   | "bcc_rank_demoted"
@@ -6045,7 +6338,14 @@ export type BellEventType =
   | "bcc_content_auto_hidden"
   | "bcc_claim_badge_removed"
   | "bcc_announcement_hidden"
-  | "bcc_announcement_restored";
+  | "bcc_announcement_restored"
+  // Validator admin V1 (bell only). To every admin: an owner linked,
+  // revoked or link cancelled. To the member: ownership granted or removed.
+  | "bcc_validator_owner_linked"
+  | "bcc_validator_owner_revoked"
+  | "bcc_validator_owner_link_cancelled"
+  | "bcc_validator_ownership_granted"
+  | "bcc_validator_ownership_removed";
 
 export interface NotificationPrefs {
   email_digest: boolean;
@@ -6133,8 +6433,11 @@ export interface MemberSummary {
   display_name: string;
   /** Absolute URL or empty string when no avatar resolved. */
   avatar_url: string;
-  /** ISO 8601 UTC. */
-  joined_at: string;
+  /**
+   * ISO 8601 UTC; month-truncated or absent for other viewers (see
+   * MemberProfile.joined_at). Not rendered; never compute an age from it.
+   */
+  joined_at?: string | null;
   /**
    * Pre-rendered tier word. Mirrors the same field on the full
    * `MemberProfile` (`/users/:handle`); the accompanying `reputation_tier`
@@ -6560,8 +6863,11 @@ export interface GroupMember extends MemberSummary {
    *  "MEMBER" by default; filterable via `bcc_group_role_labels`).
    *  Render verbatim per §A2 — no client-side enum→label mapping. */
   role_label: string;
-  /** ISO 8601 UTC — when this user joined THIS group. */
-  joined_at: string;
+  /**
+   * ISO 8601 UTC — when this user joined THIS group. Leaving the public
+   * roster (Phillip, 2026-11-24): optional, and never rendered.
+   */
+  joined_at?: string | null;
 }
 
 /**
@@ -6947,6 +7253,13 @@ export interface BadgesResponse {
   notifications_unread: number;
   /** Map of open conversation root id → latest-message hint. Empty when caller passes no open_threads param. */
   open_thread_hints: Record<string, BadgesOpenThreadHint>;
+  /**
+   * How many disputes the viewer filed that are still open (status
+   * `reviewing`): the open subset of GET /disputes/mine. Null when the
+   * server could not read the count (never a guessed 0); absent on a
+   * backend from before the field. Read it through useOpenCaseCount.
+   */
+  disputes_open?: number | null;
   /** Server timestamp (ISO 8601 UTC). Useful for staleness debugging. */
   polled_at: string;
 }
@@ -6966,8 +7279,13 @@ export interface ColdStartHall {
   slug: string;
   /** Pre-rendered display name per §A2. */
   name: string;
-  /** Server-resolved chain slug (cosmos / osmosis / etc.) — drives the chain accent. */
-  chain_slug: string;
+  /**
+   * Server-resolved chain slug (cosmos / osmosis / etc.) — drives the chain
+   * accent. NULL for a chainless ("GENERAL") Hall: the backend sends
+   * `?string` (FeedColdStartService::composeHalls), and the no-home-chain
+   * cold start takes the first Halls by title, so one can arrive here.
+   */
+  chain_slug: string | null;
   /** Member-count tally — informational only. NOT used for ranking on FE. */
   member_count: number;
 }
@@ -7168,7 +7486,10 @@ export type AnnouncementCommentDeniedReason =
   | "announcement_unavailable"
   | "suspended"
   | "fraud_locked"
-  | "feature_disabled";
+  | "feature_disabled"
+  // The viewer's standing could not be read (bcc-trust PR 857): a retryable
+  // state, not a verdict about the account.
+  | "unavailable";
 
 /**
  * Additive-optional block on the validator Card view-model.

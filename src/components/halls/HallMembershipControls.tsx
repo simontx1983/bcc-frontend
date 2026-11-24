@@ -35,6 +35,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
+import { HALLS_TAB_HREF } from "@/components/communities/halls-tab-href";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import {
   useClearPrimaryHallMutation,
@@ -132,7 +133,7 @@ export function HallMembershipControls({
     clearMut.isPending;
 
   const state = resolveState(membership);
-  const signIn = useSignInLink("/halls");
+  const signIn = useSignInLink(HALLS_TAB_HREF);
 
   // ─── Anonymous ─────────────────────────────────────────────────
   // F-321 / M-gr4: signed out, the way forward is signing in, so the
