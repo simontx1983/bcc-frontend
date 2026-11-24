@@ -45,7 +45,7 @@ export default async function ReliabilityPage() {
         </h1>
         <p className="mt-4 max-w-2xl font-serif text-lg leading-relaxed text-bcc-text-secondary">
           How the floor reads your track record as a judge of other
-          operators. Not how others read you — that&rsquo;s your
+          members. Not how others read you — that&rsquo;s your
           reputation. This is the inverse: when you back someone,
           does the floor agree later?
         </p>
@@ -64,7 +64,7 @@ function FileRail({ handle }: { handle: string }) {
       <div className="mx-auto flex max-w-[1560px] flex-wrap items-center justify-between gap-4 px-7 py-3">
         <span className="bcc-mono inline-flex items-center gap-2 text-bcc-text-secondary">
           <span className="bcc-rail-dot" aria-hidden />
-          <span>OPERATOR &nbsp;//&nbsp; RELIABILITY</span>
+          <span>MEMBER &nbsp;//&nbsp; RELIABILITY</span>
           <span className="text-bcc-text">@{handle.toUpperCase()}</span>
         </span>
         <span className="bcc-mono text-bcc-text-secondary">

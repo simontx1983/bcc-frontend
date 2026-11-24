@@ -99,7 +99,7 @@ export function ConversationsPanel({ enabled, open, onNavigate }: ConversationsP
           Quiet Inbox
         </p>
         <p style={{ fontFamily: "var(--font-serif), Georgia, serif", fontSize: 13, color: "var(--bcc-text-secondary)", lineHeight: 1.6 }}>
-          No conversations yet. Start one from the directory — every operator has a file, every file has a Message button.
+          No conversations yet. Start one from the directory — every member has a file, every file has a Message button.
         </p>
       </div>
     );

@@ -204,7 +204,7 @@ describe("behaviour that must not have changed", () => {
   it("still lands on the first tab with the documented roster", () => {
     renderTabs({ withOptional: true });
     expect(tabNames()).toEqual([
-      "Supporters",
+      "Vouches",
       "Reviews",
       "Activity",
       "Watchers",
@@ -228,7 +228,7 @@ describe("behaviour that must not have changed", () => {
         chainsPanel={null}
       />,
     );
-    expect(tabNames()).toEqual(["Supporters", "Reviews", "Activity", "Watchers"]);
+    expect(tabNames()).toEqual(["Vouches", "Reviews", "Activity", "Watchers"]);
   });
 
   it("still renders only the active panel", () => {

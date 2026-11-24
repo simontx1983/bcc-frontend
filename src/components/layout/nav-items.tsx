@@ -45,7 +45,7 @@ export const PRIMARY_NAV = [
 
 /** Viewer-scoped shortcuts (authed only). */
 export const QUICK_LINKS = [
-  { label: "My Progression", href: "/me/progression" },
+  { label: "Standing",       href: "/me/progression" },
   { label: "My Reliability",  href: "/me/reliability"  },
   { label: "Settings",        href: "/u/me?tab=profile" },
 ] as const;

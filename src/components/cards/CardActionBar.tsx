@@ -709,7 +709,7 @@ export function ActionBar({
             (canVouch || hasVouched
               ? hasVouched
                 ? `You vouch for ${card.name}. Click to withdraw.`
-                : `Vouch for ${card.name} — back this operator.`
+                : `Vouch for ${card.name} — back this page.`
               : vouchLockedReason)
           }
           icon={<VouchIcon size={14} strokeWidth={1.9} aria-hidden />}

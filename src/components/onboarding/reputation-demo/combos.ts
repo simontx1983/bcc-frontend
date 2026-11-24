@@ -43,7 +43,7 @@ export const REPUTATION_DEMO_COMBOS: readonly ReputationDemoCombo[] = [
     id: "proven-veteran",
     rankLabel: "Veteran",
     reputationTier: "elite",
-    tierLabel: "Proven",
+    tierLabel: "Elite",
     borderColor: "var(--bcc-trust-proven)",
     caption:
       "The highest trust band on the floor — backed by people who've actually worked with them, not a badge you can buy or rush. The Veteran tag underneath is just time served; the violet is the part others had to give them.",
@@ -82,7 +82,7 @@ export const REPUTATION_DEMO_COMBOS: readonly ReputationDemoCombo[] = [
     tierLabel: "Neutral",
     borderColor: null,
     caption:
-      "No red flags, but no long track record either — this is where most operators sit while they're still building a public history. Neither a warning nor an endorsement, just the honest starting point.",
+      "No red flags, but no long track record either — this is where most members sit while they're still building a public history. Neither a warning nor an endorsement, just the honest starting point.",
     stokeCount: 8,
     commentCount: 1,
     shareCount: 0,

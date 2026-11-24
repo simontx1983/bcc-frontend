@@ -88,7 +88,7 @@ function MentorsPageContent() {
           Mentors on the floor.
         </h1>
         <p className="mt-4 max-w-2xl font-serif text-lg leading-relaxed text-bcc-text-secondary">
-          Veteran operators in Trusted standing who&apos;ve raised their hand
+          Veteran members in Trusted standing who&apos;ve raised their hand
           to help newer members. Click anyone to read their file.
         </p>
       </header>
@@ -161,7 +161,7 @@ function MentorsEmpty() {
         No mentors are listed yet.
       </h2>
       <p className="mt-3 font-serif italic leading-relaxed text-ink-soft">
-        Veteran operators in Trusted standing can list themselves from their
+        Veteran members in Trusted standing can list themselves from their
         profile settings. When they do, they&apos;ll show up here.
       </p>
     </div>

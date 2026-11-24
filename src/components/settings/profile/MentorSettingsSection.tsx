@@ -123,7 +123,7 @@ function MentorToggle({ prefs }: { prefs: ProfilePrefs }) {
             MENTOR LISTING
           </h3>
           <p className="bcc-mono mt-1 text-[10px] text-bcc-text-secondary">
-            List yourself in the Mentors directory so newer operators can
+            List yourself in the Mentors directory so newer members can
             find you. Listing requires Veteran rank and Trusted standing —
             it pauses automatically whenever you don&apos;t qualify.
           </p>

@@ -61,7 +61,7 @@ function FileRail({ handle }: { handle: string }) {
       <div className="mx-auto flex max-w-[1560px] flex-wrap items-center justify-between gap-4 px-7 py-3">
         <span className="bcc-mono inline-flex items-center gap-2 text-bcc-text-secondary">
           <span className="bcc-rail-dot" aria-hidden />
-          <span>OPERATOR &nbsp;//&nbsp; STANDING</span>
+          <span>MEMBER &nbsp;//&nbsp; STANDING</span>
           <span className="text-bcc-text">@{handle.toUpperCase()}</span>
         </span>
         <span className="bcc-mono text-bcc-text-secondary">

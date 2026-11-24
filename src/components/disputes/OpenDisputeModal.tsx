@@ -381,7 +381,7 @@ function humanizeError(err: unknown): string {
       vote_no_longer_active:
         "That vote was removed before the dispute landed. Refresh and pick another.",
       dispute_subsystem_unhealthy:
-        "Dispute filing is temporarily unavailable. An operator has been notified.",
+        "Dispute filing is temporarily unavailable. Our team has been notified.",
       db_transient: "Connection blip — please try again.",
       bcc_rate_limited: "Too many dispute attempts — wait a moment.",
     },

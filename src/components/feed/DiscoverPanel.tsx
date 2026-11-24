@@ -150,7 +150,7 @@ function DiscoverPanelImpl({ enabled }: DiscoverPanelProps) {
 
         {data.recent_operators.length > 0 && (
           <BlockSection
-            label="RECENTLY ACTIVE OPERATORS"
+            label="RECENTLY ACTIVE MEMBERS"
             viewAllHref={"/members" as Route}
           >
             <ul className="flex flex-col">
