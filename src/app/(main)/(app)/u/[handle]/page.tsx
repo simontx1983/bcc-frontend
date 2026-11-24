@@ -137,7 +137,7 @@ export async function generateMetadata({
   const description =
     bio !== ""
       ? bio
-      : `${name} on the Floor — trust, identity, and reputation for crypto operators.`;
+      : `${name}, a member on the Floor: trust, identity, and reputation in crypto.`;
 
   const canonical = `/u/${encodeURIComponent(profile.handle)}`;
 

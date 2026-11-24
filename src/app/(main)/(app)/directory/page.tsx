@@ -123,7 +123,7 @@ function DirectoryPageContent() {
 
   return (
     <main className="bcc-page-wide pb-24">
-      <RouteRail kicker={"FLOOR \u00a0//\u00a0 DIRECTORY"} label={"FILE INDEX \u00a0//\u00a0 ALL OPERATORS"} />
+      <RouteRail kicker={"FLOOR \u00a0//\u00a0 DIRECTORY"} label={"FILE INDEX \u00a0//\u00a0 ALL PAGES"} />
 
       <header className="mx-auto max-w-[1560px] px-4 sm:px-7 pt-12">
         <p className="bcc-mono text-bcc-text-safety">FIND YOUR FLOOR</p>
