@@ -5002,9 +5002,10 @@ export interface CancelValidatorOwnerLinkResponse {
 }
 
 /**
- * GET /admin/users/search?q= — at most 10. Matches handle or display
- * name, or an exact email or login, and never echoes either back. An
- * over-throttled search answers 200 with no items, like no match.
+ * POST /admin/users/search with `{q}` in the JSON body — at most 10.
+ * Matches handle or display name, or an exact email or login, and never
+ * echoes either back. An over-throttled search answers 200 with no items,
+ * like no match.
  */
 export interface AdminUserSearchResponse {
   items: AdminUserRef[];

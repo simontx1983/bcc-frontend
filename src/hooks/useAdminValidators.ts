@@ -244,7 +244,8 @@ export function useAdminValidatorPageHistory(pageId: number) {
 const USER_SEARCH_DEBOUNCE_MS = 300;
 
 /**
- * Debounced like useMentionSearch: an empty query sends nothing. The
+ * Debounced like useMentionSearch: an empty query sends nothing. A read,
+ * though the route is a POST (the term rides in the body, not the URL). The
  * server caps results at 10 and answers an over-throttled search with an
  * empty list, so "no matches" is all the UI can say either way.
  */

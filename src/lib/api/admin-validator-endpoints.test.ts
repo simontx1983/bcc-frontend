@@ -97,10 +97,13 @@ describe("one page (PR B)", () => {
     expect(pathOf()).toBe("admin/validator-pages/40/history?cursor=h%2F2&limit=25");
   });
 
-  it("searches admin users with q", async () => {
-    await searchAdminUsers("ada@example.com");
-    expect(pathOf()).toBe("admin/users/search?q=ada%40example.com");
-    expect(optionsOf().method).toBe("GET");
+  it("searches admin users with a POST carrying q in the JSON body, never in the URL", async () => {
+    const signal = new AbortController().signal;
+    await searchAdminUsers("ada@example.com", signal);
+    expect(pathOf()).toBe("admin/users/search");
+    expect(pathOf()).not.toContain("?");
+    expect(pathOf()).not.toContain("ada");
+    expect(optionsOf()).toEqual({ method: "POST", body: { q: "ada@example.com" }, signal });
   });
 });
 
