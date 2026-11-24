@@ -38,19 +38,30 @@ interface Props {
   onChange: (next: Filters) => void;
 }
 
-const KIND_OPTIONS: { value: DirectoryKind | null; label: string }[] = [
+/**
+ * An option's own label, for the active-filter chips on /directory and
+ * /validators, so a chip never prints a wire slug. The raw value only
+ * when no option matches (a value from an old link).
+ */
+export function filterOptionLabel<V extends string>(
+  options: ReadonlyArray<{ value: V | null; label: string }>,
+  value: V,
+): string {
+  return options.find((option) => option.value === value)?.label ?? value;
+}
+
+export const KIND_OPTIONS: { value: DirectoryKind | null; label: string }[] = [
   { value: null,        label: "All" },
   { value: "validator", label: "Validators" },
   { value: "project",   label: "Projects" },
   { value: "creator",   label: "Creators" },
 ];
 
-const TIER_OPTIONS: { value: DirectoryTier | null; label: string }[] = [
+export const TIER_OPTIONS: { value: DirectoryTier | null; label: string }[] = [
   { value: null,      label: "Any" },
-  // Label renamed ahead of the wire value: the `tier` query param is
-  // still `elite` server-side, so changing it here would silently break
-  // the filter. Flip the value once bcc-trust accepts `proven`.
-  { value: "elite",   label: "Proven" },
+  // "Elite" everywhere (Phillip): the filter, its chip and the card's
+  // tier chip use one word.
+  { value: "elite",   label: "Elite" },
   { value: "trusted", label: "Trusted" },
   { value: "neutral", label: "Neutral" },
   { value: "caution", label: "Caution" },
@@ -60,7 +71,7 @@ const TIER_OPTIONS: { value: DirectoryTier | null; label: string }[] = [
   { value: "risky",   label: "Risky" },
 ];
 
-const SORT_OPTIONS: { value: DirectorySort; label: string }[] = [
+export const SORT_OPTIONS: { value: DirectorySort; label: string }[] = [
   { value: "trust",        label: "Trust" },
   { value: "endorsements", label: "Vouches" },
   { value: "followers",    label: "Watchers" },

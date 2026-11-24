@@ -8,7 +8,7 @@ import { useSession } from "next-auth/react";
 
 import { NewPostTrigger } from "@/components/composer/NewPostTrigger";
 import { CopyrightMark } from "@/components/layout/CopyrightMark";
-import { LEGAL_LINKS, PRIMARY_NAV, QUICK_LINKS } from "@/components/layout/nav-items";
+import { LEGAL_LINKS, QUICK_LINKS, primaryNavFor } from "@/components/layout/nav-items";
 
 function ChevronIcon({ collapsed }: { collapsed: boolean }) {
   return (
@@ -63,7 +63,7 @@ export function LeftSidebar({ collapsed, onToggle }: LeftSidebarProps) {
       <div className="bcc-sidebar-scroll">
 
         <nav aria-label="Primary navigation" style={{ padding: "4px 0" }}>
-          {PRIMARY_NAV.map(item => {
+          {primaryNavFor(session !== null && session !== undefined).map(item => {
             const isActive = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
             return (
               <Link

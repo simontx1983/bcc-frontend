@@ -38,14 +38,14 @@ interface Props {
   onChange: (next: Filters) => void;
 }
 
-const STATUS_OPTIONS: { value: ValidatorStatusFilter | null; label: string }[] = [
+export const STATUS_OPTIONS: { value: ValidatorStatusFilter | null; label: string }[] = [
   { value: null,       label: "Any" },
   { value: "active",   label: "Active" },
   { value: "jailed",   label: "Jailed" },
   { value: "inactive", label: "Inactive" },
 ];
 
-const SORT_OPTIONS: { value: DirectorySort; label: string }[] = [
+export const SORT_OPTIONS: { value: DirectorySort; label: string }[] = [
   { value: "trust",        label: "Trust" },
   { value: "self_stake",   label: "Self stake" },
   { value: "endorsements", label: "Vouches" },
