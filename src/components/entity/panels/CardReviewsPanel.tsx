@@ -42,6 +42,7 @@ import {
   ProfileReadFailure,
   type PrivateNoticeCopy,
 } from "@/components/profile/ProfilePrivateNotice";
+import { ReviewReplySection } from "@/components/review/ReviewReplySection";
 import { humanizeCode, isPermissionDenial } from "@/lib/api/errors";
 import type {
   CardReview,
@@ -301,6 +302,8 @@ function ReviewRow({ review }: { review: CardReview }) {
               {review.text}
             </p>
           )}
+          {/* F-345: the reviewed party's reply + its composer/controls. */}
+          <ReviewReplySection review={review} />
         </div>
       </div>
     </li>

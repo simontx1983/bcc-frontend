@@ -151,7 +151,7 @@ describe("every semantic colour utility names a real theme key", () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────
-// 3. The helper and its ten callers
+// 3. The helper and its twelve callers
 // ─────────────────────────────────────────────────────────────────────────
 
 describe("counterToneClass returns only classes that compile", () => {
@@ -206,14 +206,16 @@ const CALLERS = [
   ["src/components/disputes/OpenDisputeModal.tsx", true],
   ["src/components/feed/CommentDrawer.tsx", false],
   ["src/components/messages/MessageComposer.tsx", false],
+  // Validator admin PR B: the link form's evidence note and reference.
+  ["src/components/admin/validators/LinkOwnerForm.tsx", true],
 ] as const;
 
-describe("all ten call sites across eight files", () => {
-  it("the caller inventory is exactly ten sites in eight files", () => {
+describe("all twelve call sites across nine files", () => {
+  it("the caller inventory is exactly twelve sites in nine files", () => {
     const total = FILES.filter((f) => /counterToneClass\(/.test(f.code) && !f.path.startsWith("lib/"))
       .flatMap((f) => [...f.code.matchAll(/counterToneClass\(/g)]).length;
-    expect(total).toBe(10); // Composer holds three
-    expect(CALLERS).toHaveLength(8);
+    expect(total).toBe(12); // Composer holds three, LinkOwnerForm two
+    expect(CALLERS).toHaveLength(9);
   });
 
   for (const [file, threeRung] of CALLERS) {

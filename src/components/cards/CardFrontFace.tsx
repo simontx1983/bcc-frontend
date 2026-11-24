@@ -13,6 +13,11 @@
  * whenever the crest was chain-keyed. The top rule always takes the
  * KIND colour now. Chain is a qualifier in the header pill, not the
  * card's identity.
+ *
+ * Header word (Phillip, 2026-11-23): validator / project / creator /
+ * member cards say their family word; a community card says its server
+ * kicker (CHAIN HALL, HOLDER COMMUNITY, …) in the community colour, and
+ * no longer repeats it in the standing row. See cardHeaderWord.
  */
 
 import type { Route } from "next";
@@ -211,8 +216,26 @@ function chainSlug(card: Card): string | null {
  *
  * The kind word is a closed set of five, so it can never overflow.
  */
+/**
+ * The word in the card's header slot.
+ *
+ * Card doctrine (Phillip, 2026-11-23, F-563): the four person/entity
+ * families say their family word (VALIDATOR, PROJECT, CREATOR, MEMBER).
+ * A COMMUNITY-family card says WHICH kind of community it is, from the
+ * server's `kicker` (§3.2.4: CHAIN HALL, HOLDER COMMUNITY, DELEGATOR
+ * COMMUNITY, SYSTEM COMMUNITY, COMMUNITY), still in the community colour,
+ * so the family stays readable. A Hall card used to say "COMMUNITY" on a
+ * page titled HALL. No kicker → "community". Server copy, rendered as is.
+ */
+export function cardHeaderWord(card: Card): string {
+  if (card.card_kind !== "community") return card.card_kind;
+  const kicker = card.kicker?.trim() ?? "";
+  return kicker !== "" ? kicker : "community";
+}
+
 function CardHeader({ card, kindColor }: { card: Card; kindColor: string }) {
   const slug = chainSlug(card);
+  const word = cardHeaderWord(card);
   const showChainPill =
     slug !== null && (card.card_kind === "validator" || card.card_kind === "community");
   const showRank = card.card_kind === "member" && card.rank_label !== null;
@@ -228,14 +251,16 @@ function CardHeader({ card, kindColor }: { card: Card; kindColor: string }) {
       <span
         className="bcc-stencil"
         style={{
-          fontSize: 20,
+          // The longest kicker ("DELEGATOR COMMUNITY") shares this row with
+          // the chain pill; at 20px it would not fit a 375px card.
+          fontSize: word.length > 12 ? 16 : 20,
           lineHeight: 1,
           letterSpacing: "0.04em",
           textTransform: "uppercase",
           color: kindColor,
         }}
       >
-        {card.card_kind}
+        {word}
       </span>
 
       {showRank ? (

@@ -351,3 +351,15 @@ describe("the inbox PREVIEW panel", () => {
     expect(retryBtn()).toBeNull();
   });
 });
+
+// F-564 (testnet audit): the intro said "Click anyone's file"; on a phone
+// nobody clicks. Touch-neutral copy.
+describe("messages intro copy", () => {
+  it("says Open, not Click", () => {
+    state.page = 1;
+    state.inbox = ok([convo(1)], 1, 1);
+    render(<MessagesPage />);
+    expect(screen.getByText(/Open anyone.s file/)).toBeInTheDocument();
+    expect(screen.queryByText(/Click anyone/)).toBeNull();
+  });
+});

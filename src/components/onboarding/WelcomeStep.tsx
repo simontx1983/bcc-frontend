@@ -2,7 +2,9 @@
 
 /**
  * WelcomeStep — the first onboarding screen. Sets the tone, frames what
- * the next minute looks like (a 3-card preview), and offers a clean
+ * the next minute looks like (a 3-card preview of what's ahead, unnumbered:
+ * numbered 01–03 they read as "3 steps" beside the rail's honest "Step 1 of
+ * 7", which counts screens — testnet UX audit S3), and offers a clean
  * "Skip setup" escape that jumps straight to the send-off (which still
  * fires /complete, so the user lands onboarded either way).
  *
@@ -13,24 +15,20 @@
 import { LandingReveal } from "@/components/landing/LandingReveal";
 
 interface PreviewCard {
-  n: string;
   title: string;
   body: string;
 }
 
 const PREVIEW: readonly PreviewCard[] = [
   {
-    n: "01",
     title: "Set up your profile",
     body: "Add an avatar, a cover, and a line about yourself. Optional — you can do it later.",
   },
   {
-    n: "02",
     title: "How trust works here",
     body: "Sixty seconds on how reputation is earned — vouch, back, or dispute.",
   },
   {
-    n: "03",
     title: "Pick who to watch",
     body: "Choose the validators, projects, and creators your Floor feed starts with.",
   },
@@ -64,8 +62,7 @@ export function WelcomeStep({
 
       <div className="bcc-onb-preview">
         {PREVIEW.map((card, i) => (
-          <LandingReveal key={card.n} delayMs={i * 80} className="bcc-onb-pv">
-            <div className="n">{card.n}</div>
+          <LandingReveal key={card.title} delayMs={i * 80} className="bcc-onb-pv">
             <h2>{card.title}</h2>
             <p>{card.body}</p>
           </LandingReveal>

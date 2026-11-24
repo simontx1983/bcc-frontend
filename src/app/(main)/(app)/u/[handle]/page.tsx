@@ -377,6 +377,7 @@ export default async function MemberProfilePage({ params, searchParams }: PagePr
           isOwner={isOwner}
           viewerAuthed={session !== null}
           variant={profile.viewer_is_watching === true ? "compact" : "full"}
+          nameAs="h1"
         />
         {titleFallbackUsed && profile.display_name.trim() !== "" && (
           <p
