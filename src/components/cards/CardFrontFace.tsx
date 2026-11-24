@@ -22,6 +22,7 @@
 
 import type { Route } from "next";
 import Image from "next/image";
+import { useState } from "react";
 import Link from "next/link";
 
 import { ActionBar, CommunityActionBar } from "@/components/cards/CardActionBar";
@@ -342,8 +343,8 @@ function ChainPill({ slug }: { slug: string }) {
  * `cover_photo_url` (structure A row 17; absent on older backends, null
  * when there is none) the cover replaces the halftone, under a light shade
  * that keeps the crest's ring readable in both themes. No cover → the
- * halftone, never a made-up gradient. A cover that fails to load falls
- * back to the halftone too.
+ * halftone, never a made-up gradient. A cover that fails to load — on
+ * either image path — falls back to the halftone (CardCover).
  */
 function Portrait({
   card,
@@ -362,7 +363,8 @@ function Portrait({
     // beneath the z-5 .bcc-card-body-link nav overlay. See the z-order
     // comment in globals.css.
     <div className="relative flex min-h-0 flex-1 items-center justify-center overflow-hidden">
-      {cover !== null ? <CardCover url={cover} /> : <Halftone />}
+      {/* Keyed on the URL so a new cover gets a fresh load (and error) state. */}
+      {cover !== null ? <CardCover key={cover} url={cover} /> : <Halftone />}
       <Crest card={card} canEditAvatar={canEditAvatar} />
       {showRibbon && <UnclaimedRibbon />}
     </div>
@@ -385,23 +387,30 @@ function Halftone() {
   );
 }
 
-/** An absolute http(s) cover URL, or null (absent, null, blank or not http). */
+/**
+ * An absolute https cover URL, or null (absent, null, blank, or anything
+ * that isn't https — the site is https, so an http image would be blocked
+ * as mixed content anyway).
+ */
 function coverUrl(url: string | null | undefined): string | null {
   if (typeof url !== "string") return null;
   const trimmed = url.trim();
-  return /^https?:\/\//i.test(trimmed) ? trimmed : null;
+  return /^https:\/\//i.test(trimmed) ? trimmed : null;
 }
 
 /**
  * The cover photo, decorative (the card's name is the label). WP media
- * goes through next/image; any other host through FallbackImg, which
- * shows the halftone if the image fails — same split as the Crest.
+ * goes through next/image, any other host through FallbackImg — same split
+ * as the Crest. Either way a failed load shows the halftone instead:
+ * next/image through its onError here, FallbackImg through its placeholder.
  */
 function CardCover({ url }: { url: string }) {
+  const [failed, setFailed] = useState(false);
+  if (failed) return <Halftone />;
   return (
     <span aria-hidden data-testid="card-cover" className="pointer-events-none absolute inset-0">
       {isWpMediaUrl(url) ? (
-        <Image src={url} alt="" fill sizes="316px" className="object-cover" />
+        <Image src={url} alt="" fill sizes="316px" className="object-cover" onError={() => setFailed(true)} />
       ) : (
         <FallbackImg
           src={url}
