@@ -20,11 +20,12 @@
 import type { Route } from "next";
 import Link from "next/link";
 
+import { CommunityCardGrid } from "@/components/communities/CommunityCardGrid";
 import { hallsTabHref } from "@/components/communities/halls-tab-href";
 import { HIT_AREA_44 } from "@/components/feed/hitArea";
 import { humanizeCode } from "@/lib/api/errors";
 import { getHalls } from "@/lib/api/halls-endpoints";
-import type { HallItem } from "@/lib/api/types";
+import type { Card, HallItem } from "@/lib/api/types";
 
 interface ChainFilter {
   /** URL value; null = "All" (no filter). */
@@ -102,7 +103,7 @@ export async function HallsTabPanel({
         ) : items.length === 0 ? (
           <EmptyState chain={chain} />
         ) : (
-          <HallsGrid items={items} />
+          <HallsList items={items} />
         )}
       </section>
 
@@ -146,6 +147,20 @@ function ChainFilterStrip({ activeChain }: { activeChain: string | null }) {
       })}
     </div>
   );
+}
+
+/**
+ * The same community card as every other list (Phillip: one card
+ * everywhere), when the server sends each Hall's card. Until it does (or
+ * if any item lacks one) the tab keeps its plain Hall panels: one look per
+ * page, never a mix.
+ */
+export function HallsList({ items }: { items: HallItem[] }) {
+  const cards = items.flatMap((item): Card[] => (item.card != null ? [item.card] : []));
+  if (cards.length === items.length) {
+    return <CommunityCardGrid cards={cards} />;
+  }
+  return <HallsGrid items={items} />;
 }
 
 function HallsGrid({ items }: { items: HallItem[] }) {

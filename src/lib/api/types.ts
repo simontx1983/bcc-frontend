@@ -2115,6 +2115,14 @@ export interface HallItem {
   links: {
     self: string;
   };
+  /**
+   * The Hall's community Card (§3.2.4), from the same builder as the
+   * GET /groups items, so Communities ▸ Halls shows the same card as every
+   * other list. A chain Hall's card carries a `validators` stat before
+   * `posts_7d`; a topic Hall's omits it. Additive: absent on a backend
+   * before it, and the tab then keeps its plain Hall panel.
+   */
+  card?: Card | null;
 }
 
 /** One entry in a Hall's validator preview (§4.7). */
