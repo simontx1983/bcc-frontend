@@ -64,6 +64,7 @@ const SURFACES: ReadonlyArray<readonly [string, string, string]> = [
   ["src/lib/tour/registry.ts", "that member's reputation", "that operator's reputation"],
   ["src/components/disputes/OpenDisputeModal.tsx", "Our team has been notified.", "An operator has been notified."],
   ["src/components/entity/ChainTabs.tsx", "Chains this validator runs on", "Chains this operator runs on"],
+  ["src/app/(main)/(app)/validators/page.tsx", "the validators you actually trust", "the operators you actually trust"],
 ];
 
 describe("F-579 vocabulary", () => {

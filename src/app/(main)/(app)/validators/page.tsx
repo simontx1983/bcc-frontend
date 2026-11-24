@@ -117,7 +117,7 @@ function ValidatorsPageContent() {
         <p className="mt-4 max-w-2xl font-serif text-lg leading-relaxed text-bcc-text-secondary">
           Browse validators graded on the floor. Filter by chain, on-chain
           status, and bonded self-stake; sort by trust or skin-in-the-game.
-          Keep tabs on the operators you actually trust to secure the chain.
+          Keep tabs on the validators you actually trust to secure the chain.
         </p>
       </header>
 
