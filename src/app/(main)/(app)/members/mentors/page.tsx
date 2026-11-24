@@ -26,17 +26,18 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, Suspense } from "react";
 
 import { RouteRail } from "@/components/layout/RouteRail";
+import { SectionHeader } from "@/components/layout/SectionHeader";
 import { ScopedSearchField } from "@/components/search/ScopedSearchField";
 import { SearchEverywhereLink } from "@/components/search/SearchEverywhereLink";
 import { CardGrid } from "@/components/cards/CardGrid";
 import { PagerNav } from "@/components/ui/PagerNav";
-import { SectionTabs } from "@/components/ui/SectionTabs";
+import { SectionTabs, withActiveCount } from "@/components/ui/SectionTabs";
 import { useMembers } from "@/hooks/useMembers";
 import { LoadFailure } from "@/components/ui/LoadFailure";
 import { humanizeCode } from "@/lib/api/errors";
 import type { MembersResponse } from "@/lib/api/types";
 
-import { MEMBERS_TABS } from "../members-tabs";
+import { MEMBERS_SECTION, MEMBERS_TABS } from "../members-tabs";
 
 const PER_PAGE = 24;
 const SEARCH_DEBOUNCE_MS = 300;
@@ -121,23 +122,28 @@ function MentorsPageContent() {
     <main className="bcc-page-wide pb-24">
       <RouteRail kicker={"FLOOR \u00a0//\u00a0 MEMBERS"} label={"FILE INDEX \u00a0//\u00a0 LISTED MENTORS"} />
 
-      <header className="mx-auto max-w-[1560px] px-4 sm:px-7 pt-12">
-        <p className="bcc-mono text-bcc-text-safety">THE BENCH</p>
-        <h1
-          className="bcc-stencil mt-3 text-bcc-text leading-[0.95]"
-          style={{ fontSize: "clamp(2.5rem, 6.5vw, 5.5rem)" }}
-        >
-          Mentors on the floor.
-        </h1>
-        <p className="mt-4 max-w-2xl font-serif text-lg leading-relaxed text-bcc-text-secondary">
+      <SectionHeader
+        eyebrow={MEMBERS_SECTION.eyebrow}
+        title={MEMBERS_SECTION.title}
+        lede={MEMBERS_SECTION.lede}
+      />
+
+      {/* The count only when the rows really are mentors: a pre-Phase-7
+          backend ignores `mentors=1`, and its total would be everyone. */}
+      <SectionTabs
+        label="Members sections"
+        tabs={withActiveCount(
+          MEMBERS_TABS,
+          "/members/mentors",
+          query.isSuccess && mentorCards.length > 0 ? query.data.pagination.total : undefined,
+        )}
+      />
+
+      <section className="mx-auto mt-10 max-w-[1560px] px-4 sm:px-7">
+        <p className="mb-6 max-w-2xl font-serif text-bcc-text-secondary">
           Veteran members in Trusted standing who&apos;ve raised their hand
           to help newer members. Click anyone to read their file.
         </p>
-      </header>
-
-      <SectionTabs label="Members sections" tabs={MEMBERS_TABS} />
-
-      <section className="mx-auto mt-10 max-w-[1560px] px-4 sm:px-7">
         <div className="mb-6 w-full max-w-md">
           <ScopedSearchField
             label="SEARCH"

@@ -24,7 +24,7 @@ import { hallsTabHref } from "@/components/communities/halls-tab-href";
 import { HIT_AREA_44 } from "@/components/feed/hitArea";
 import { humanizeCode } from "@/lib/api/errors";
 import { getHalls } from "@/lib/api/halls-endpoints";
-import type { HallItem } from "@/lib/api/types";
+import type { HallItem, HallsResponse } from "@/lib/api/types";
 
 interface ChainFilter {
   /** URL value; null = "All" (no filter). */
@@ -41,7 +41,14 @@ const CHAIN_FILTERS: ReadonlyArray<ChainFilter> = [
   { value: "solana",    label: "Solana" },
 ];
 
-export async function HallsTabPanel({
+/** One read of the Halls list. The page holds it so the tab can show the total. */
+export interface HallsLoad {
+  result: HallsResponse | null;
+  /** Copy for a failed read (keyed on the error code), or null. */
+  fetchError: string | null;
+}
+
+export async function loadHalls({
   chain,
   page,
   token,
@@ -49,11 +56,11 @@ export async function HallsTabPanel({
   chain: string | null;
   page: number;
   token: string | null;
-}) {
+}): Promise<HallsLoad> {
   // Failure non-fatal: render an empty grid + a small error note. The
   // directory shouldn't 500 the whole page on a transient backend
   // hiccup; a refresh recovers.
-  let result;
+  let result: HallsResponse | null;
   let fetchError: string | null = null;
   try {
     result = await getHalls(
@@ -72,7 +79,11 @@ export async function HallsTabPanel({
       "Couldn't load Halls. Try again in a moment.",
     );
   }
+  return { result, fetchError };
+}
 
+export function HallsTabPanel({ chain, load }: { chain: string | null; load: HallsLoad }) {
+  const { result, fetchError } = load;
   const items = result?.items ?? [];
   const pagination = result?.pagination ?? null;
 

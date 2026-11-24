@@ -26,6 +26,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, Suspense } from "react";
 
 import { RouteRail } from "@/components/layout/RouteRail";
+import { SectionHeader } from "@/components/layout/SectionHeader";
 import { TIER_OPTIONS, filterOptionLabel } from "@/components/directory/DirectoryFilters";
 import { SORT_OPTIONS, STATUS_OPTIONS, ValidatorFilters } from "@/components/directory/ValidatorFilters";
 import { DirectoryResults } from "@/components/directory/DirectoryResults";
@@ -37,7 +38,7 @@ import type {
   ValidatorStatusFilter,
 } from "@/lib/api/types";
 
-import { EXPLORE_TABS } from "./explore-tabs";
+import { EXPLORE_SECTION, EXPLORE_TABS } from "./explore-tabs";
 
 // `self_stake` IS offered here (unlike the shared directory) — every row
 // is a validator, so the validator-only sort is always meaningful.
@@ -112,20 +113,11 @@ function ValidatorsPageContent() {
     <main className="bcc-page-wide pb-24">
       <RouteRail kicker={"FLOOR \u00a0//\u00a0 EXPLORE"} label={"FILE INDEX \u00a0//\u00a0 ALL VALIDATORS"} />
 
-      <header className="mx-auto max-w-[1560px] px-4 sm:px-7 pt-12">
-        <p className="bcc-mono text-bcc-text-safety">KNOW YOUR VALIDATOR</p>
-        <h1
-          className="bcc-stencil mt-3 text-bcc-text leading-[0.95]"
-          style={{ fontSize: "clamp(2.5rem, 6.5vw, 5.5rem)" }}
-        >
-          Every validator on the floor.
-        </h1>
-        <p className="mt-4 max-w-2xl font-serif text-lg leading-relaxed text-bcc-text-secondary">
-          Browse validators graded on the floor. Filter by chain, on-chain
-          status, and bonded self-stake; sort by trust or skin-in-the-game.
-          Keep tabs on the validators you actually trust to secure the chain.
-        </p>
-      </header>
+      <SectionHeader
+        eyebrow={EXPLORE_SECTION.eyebrow}
+        title={EXPLORE_SECTION.title}
+        lede={EXPLORE_SECTION.lede}
+      />
 
       <SectionTabs label="Explore sections" tabs={EXPLORE_TABS} />
 
