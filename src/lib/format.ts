@@ -152,5 +152,5 @@ export function presentationName(
   if (handle !== "" && !handle.includes("@")) {
     return handle.toUpperCase();
   }
-  return "OPERATOR";
+  return "MEMBER";
 }

@@ -24,7 +24,7 @@ const HOME_FEED: TourDefinition = {
     {
       center: true,
       title: "Welcome to the Floor.",
-      body: "This is your feed — operators, projects, and creators you watch, plus what the wider floor is signalling. Here's a quick lay of the land.",
+      body: "This is your feed — validators, projects, and creators you watch, plus what the wider floor is signalling. Here's a quick lay of the land.",
     },
     {
       target: '[data-bcc-tour="feed.item"]',
@@ -35,7 +35,7 @@ const HOME_FEED: TourDefinition = {
     {
       target: '[data-bcc-tour="rankchip.trigger"]',
       title: "Rank tells you who's earned it.",
-      body: "Tap any rank chip to see how that operator's reputation was built — who backed them, and how reliable those judges are.",
+      body: "Tap any rank chip to see how that member's reputation was built — who backed them, and how reliable those judges are.",
       placement: "auto",
     },
     {

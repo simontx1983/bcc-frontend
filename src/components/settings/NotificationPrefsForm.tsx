@@ -153,14 +153,14 @@ const BELL_ROWS: ReadonlyArray<BellRow> = [
   {
     key: "bcc_attestation_vouch_received",
     label: "Vouches received",
-    blurb: "Someone vouched for you — operator profile or one of your cards.",
+    blurb: "Someone vouched for you — your profile or one of your cards.",
   },
   {
     // `key` is a persisted user-meta preference key — renaming it would
     // silently reset every user's prefs. Label only. (contract v1.56)
     key: "bcc_attestation_stand_behind_received",
     label: "Backing received",
-    blurb: "Someone put a Backing slot on your operator profile or one of your cards.",
+    blurb: "Someone put a Backing slot on your profile or one of your cards.",
   },
   {
     key: "bcc_attestation_revoked",

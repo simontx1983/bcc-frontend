@@ -355,7 +355,7 @@ export default async function MemberProfilePage({ params, searchParams }: PagePr
       {/* JOINED rides the rail as reference data, not as a neighbour to
           a column-exit CTA — per the 2026-05-14 UX review. */}
       <FileRail
-        kind="OPERATOR"
+        kind="MEMBER"
         subject={`@${profile.handle.toUpperCase()}`}
         isOwner={isOwner}
         joinedLabel={formatJoinDate(profile.joined_at)}
@@ -484,13 +484,13 @@ export default async function MemberProfilePage({ params, searchParams }: PagePr
               JOINED {formatJoinDate(profile.joined_at)} · {joinedAgeDays}D AGO
             </p>
             <h2 className="bcc-stencil mt-3 text-2xl text-bcc-text">
-              Early days for this operator.
+              Early days for this member.
             </h2>
             <p
               className="font-serif italic text-bcc-text-secondary mt-2"
               style={{ fontSize: "15px", lineHeight: 1.55, maxWidth: "60ch" }}
             >
-              No supporters, no Halls linked, no wallets on file yet — the
+              No vouches, no Halls linked, no wallets on file yet — the
               floor will fill in as they participate. Check back when
               they&apos;ve clocked a few shifts.
             </p>

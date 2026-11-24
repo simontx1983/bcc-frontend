@@ -407,7 +407,7 @@ function NotifModal({ onClose, anchorRef }: NotifModalProps) {
 
 const AVATAR_MENU = [
   { id: "profile",     label: "My Profile",    href: "/u/[handle]",     icon: <User size={16} strokeWidth={1.8} /> },
-  { id: "progression", label: "My Progression",href: "/me/progression", icon: <TrendingUp size={16} strokeWidth={1.8} /> },
+  { id: "progression", label: "Standing",      href: "/me/progression", icon: <TrendingUp size={16} strokeWidth={1.8} /> },
   /* No capability gate by design (v1: no FE role checks — see the
      admin-architecture decision). Non-admins who click land on the
      page's own "Admin access required" panel; the API layer owns the

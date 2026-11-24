@@ -393,7 +393,7 @@ function OnTheFloorBlock({ profile }: { profile: MemberProfile }) {
     <div className="flex flex-col gap-5">
       <p className="font-serif text-base leading-relaxed text-bcc-text-secondary max-w-prose">
         Posts, reviews, and comments you write surface to other
-        operators on the floor. Solids are lightweight community
+        members on the floor. Solids are lightweight community
         acknowledgements — they show where your work is being noticed,
         but they do not directly change your trust score.
       </p>

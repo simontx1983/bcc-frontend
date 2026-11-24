@@ -219,7 +219,7 @@ interface CallSite {
 }
 
 const CALL_SITES: readonly CallSite[] = [
-  { route: "/members", file: MEMBERS, kicker: `FLOOR ${NBSP}//${NBSP} MEMBERS`, label: `FILE INDEX ${NBSP}//${NBSP} ALL OPERATORS` },
+  { route: "/members", file: MEMBERS, kicker: `FLOOR ${NBSP}//${NBSP} MEMBERS`, label: `FILE INDEX ${NBSP}//${NBSP} ALL MEMBERS` },
   { route: "/directory", file: DIRECTORY, kicker: `FLOOR ${NBSP}//${NBSP} DIRECTORY`, label: `FILE INDEX ${NBSP}//${NBSP} ALL OPERATORS` },
   { route: "/validators", file: VALIDATORS, kicker: `FLOOR ${NBSP}//${NBSP} VALIDATORS`, label: `FILE INDEX ${NBSP}//${NBSP} STAKING OPERATORS` },
   { route: "/mentors", file: MENTORS, kicker: `FLOOR ${NBSP}//${NBSP} MENTORS`, label: `FILE INDEX ${NBSP}//${NBSP} LISTED MENTORS` },

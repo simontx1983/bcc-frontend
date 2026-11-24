@@ -139,7 +139,7 @@ export function SlotHoldersPicker({
           Your current commitments
         </h3>
         <p className="mt-3 max-w-prose font-serif text-bcc-text-secondary">
-          Each row is a public commitment to that operator&rsquo;s work.
+          Each row is a public commitment to that member&rsquo;s work.
           Release any that no longer reflects your current assessment to
           make room for a new one. Releasing has no reputation cost &mdash;
           changing your mind is part of staying honest.

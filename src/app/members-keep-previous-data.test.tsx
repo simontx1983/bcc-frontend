@@ -113,10 +113,10 @@ function status() {
   return screen.getByRole("status");
 }
 
-// "1 OPERATOR", "2 OPERATORS MATCHING …" — the line above the grid (the
+// "1 MEMBER", "2 MEMBERS MATCHING …" — the line above the grid (the
 // rail's "ALL OPERATORS" has no leading count).
 function countLine() {
-  return screen.getByText(/^\d+ OPERATORS?\b/);
+  return screen.getByText(/^\d+ MEMBERS?\b/);
 }
 
 describe("/members — keeps the roster while a new key loads (F-260 M10)", () => {

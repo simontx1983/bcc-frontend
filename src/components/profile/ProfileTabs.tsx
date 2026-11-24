@@ -420,10 +420,11 @@ const PROFILE_GROUPS: ReadonlyArray<ProfileGroup> = [
     key: "network",
     label: "Network",
     children: [
-      // Supporters is who stands behind this operator — a relationship, which
-      // is what this group is about. §J.6: the label is the genus term over
-      // vouches AND backings (contract v1.56), deliberately not named after
-      // either primitive. The `backing` key is unchanged.
+      // Who stands behind this member — a relationship, which is what this
+      // group is about. The panel lists vouches AND backings (contract
+      // v1.56); it was labelled with the genus term "Supporters" (§J.6)
+      // until Phillip's vocabulary (2026-11-24): "Vouches" everywhere.
+      // The `backing` key is unchanged, so deep links keep working.
       { key: "backing",   label: ATTESTATION_COPY.supporters_tab },
       // Direction is load-bearing and was previously buried inside one panel's
       // local state: `watching` → useUserFollowers (people watching this
