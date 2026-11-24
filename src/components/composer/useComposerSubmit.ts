@@ -183,7 +183,7 @@ export function useInlineComposerSubmit({
  * (status / review / blog) and only the status shape carries `act_id`.
  * Shared by the inline composer and the modal StatusForm.
  */
-export function createdPostActId(
+function createdPostActId(
   response: CreatePostResponse | CreatePhotoPostResponse | CreateGifPostResponse,
 ): number | null {
   const actId = "act_id" in response ? response.act_id : null;
