@@ -17,6 +17,7 @@
  */
 
 import { useSession } from "next-auth/react";
+import { useId } from "react";
 
 import { captureAnalyticsEvent } from "@/lib/analytics/posthog";
 import { useViewerWatch, WATCH_UNKNOWN_COPY } from "@/hooks/useViewerWatch";
@@ -40,6 +41,7 @@ export function MemberFollowButton({
 }) {
   const session = useSession();
   const isAuthed = session.status === "authenticated";
+  const reasonId = useId();
 
   const watch = useViewerWatch(
     {
@@ -55,6 +57,12 @@ export function MemberFollowButton({
   if (!isAuthed) return null;
 
   const who = name !== undefined && name !== "" ? ` ${name}` : "";
+  // F-264: when the server answered "couldn't read it" (null), say so on
+  // the page, not only in a tooltip (invisible on touch, and a disabled
+  // button can't be focused to hear it). The button stays focusable
+  // (aria-disabled) and `toggle` is a no-op while unknown. While the
+  // profile is still loading (undefined) it just waits, quietly disabled.
+  const showReason = watch.unknown && viewerIsWatching === null;
 
   // Same shape as AuthorVouchButton's card variant, its neighbour in the
   // AuthorCard row: the caller's className sizes the wrapper, the button
@@ -64,16 +72,23 @@ export function MemberFollowButton({
       <button
         type="button"
         onClick={watch.toggle}
-        disabled={watch.pending || watch.unknown}
+        disabled={watch.pending || (watch.unknown && !showReason)}
+        aria-disabled={showReason || undefined}
+        aria-describedby={showReason ? reasonId : undefined}
         // F-261: no aria-pressed. The name already swaps between "Watch X"
         // and "Stop watching X", so a pressed state on top read as "Stop
         // watching X, pressed" (as BlockToggle's did, F-264).
         aria-label={watch.watching ? `Stop watching${who}` : `Watch${who}`}
         title={watch.unknown ? WATCH_UNKNOWN_COPY : undefined}
-        className={`bcc-btn bcc-btn-sm w-full ${watch.watching ? "bcc-btn-ghost" : "bcc-btn-outline"}`}
+        className={`bcc-btn bcc-btn-sm w-full aria-disabled:cursor-not-allowed aria-disabled:opacity-[0.45] ${watch.watching ? "bcc-btn-ghost" : "bcc-btn-outline"}`}
       >
         {watch.watching ? FOLLOW_COPY.state : FOLLOW_COPY.cta}
       </button>
+      {showReason && (
+        <span id={reasonId} className="bcc-mono text-[10px] leading-snug text-[var(--bcc-text-secondary)]">
+          {WATCH_UNKNOWN_COPY}
+        </span>
+      )}
       {watch.error !== null && (
         <span
           role="status"
