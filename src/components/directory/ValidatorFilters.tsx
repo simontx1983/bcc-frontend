@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * ValidatorFilters — filter controls for the dedicated /validators page.
+ * ValidatorFilters — filter controls for Explore ▸ Validators (/explore).
  *
  * Sibling to DirectoryFilters, but specialised for the single
  * `kind=validator` slice, so it:
@@ -11,12 +11,14 @@
  *   - ADDS validator-only axes the shared directory can't express:
  *       · Status chips (active / jailed / inactive)
  *       · Self-stake in the sort dropdown (bonded self-stake, DESC)
- *   - KEEPS search verbatim
+ *   - KEEPS search and the tier chips (TIER_OPTIONS, shared with the
+ *     other Explore tabs, so "Elite" reads the same everywhere). Tier
+ *     came back with Site Structure A: old /directory?kind=validator&tier=…
+ *     links forward here, and Explore filters every tab by tier.
  *
- * Deliberately leaner than DirectoryFilters: tier, good-standing, and the
- * min-self-stake floor were dropped from this surface (the underlying
- * `DirectoryFilters` shape still carries those fields — they just default
- * to null/false here and the shared /directory still exposes them).
+ * Leaner than DirectoryFilters: good-standing and the min-self-stake floor
+ * are not on this surface (the underlying `DirectoryFilters` shape still
+ * carries those fields — they default to false/null here).
  *
  * Stateless like DirectoryFilters: the parent owns the filter values +
  * URL state, this component just renders controls and fires onChange.
@@ -24,6 +26,7 @@
 
 import type { ChangeEvent } from "react";
 
+import { TIER_OPTIONS } from "@/components/directory/DirectoryFilters";
 import { FilterChipRow } from "@/components/ui/FilterChipRow";
 import type {
   DirectorySort,
@@ -108,6 +111,14 @@ export function ValidatorFilters({ value, onChange }: Props) {
         options={STATUS_OPTIONS}
         selected={value.status ?? null}
         onSelect={(next) => update({ status: next })}
+      />
+
+      {/* Tier chips — shared with the other Explore tabs */}
+      <FilterChipRow
+        label="TIER"
+        options={TIER_OPTIONS}
+        selected={value.tier}
+        onSelect={(next) => update({ tier: next })}
       />
 
       {/* Sort */}
