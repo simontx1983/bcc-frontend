@@ -11,6 +11,7 @@ import { AnalyticsConsentBanner } from "@/components/analytics/AnalyticsConsentB
 import { AnalyticsPageview } from "@/components/analytics/AnalyticsPageview";
 import { PrivateRenderGate } from "@/components/auth/PrivateRenderGate";
 import { SessionBoundaryBridge } from "@/components/auth/SessionBoundaryBridge";
+import { PushReadBridge } from "@/components/notifications/PushReadBridge";
 import { FingerprintReporter } from "@/components/system/FingerprintReporter";
 import { BadgesProvider } from "@/hooks/useBadges";
 
@@ -99,6 +100,7 @@ export function Providers({
           <BadgesProvider>
             {children}
             <FingerprintReporter />
+            <PushReadBridge />
             <EligibleCommunitiesModal />
             <ReactQueryDevtools initialIsOpen={false} />
           </BadgesProvider>
