@@ -88,11 +88,18 @@ function tablistClassNames(src: string): string[] {
   return found;
 }
 
+/**
+ * Each guard below walks the source tree (`git grep` over src, then reads
+ * the hits). Alone that takes well under a second, but a loaded full run
+ * has pushed it past vitest's 5 s default, so the walkers say so explicitly.
+ */
+const TREE_WALK_TIMEOUT_MS = 30_000;
+
 describe("preconditions", () => {
   it("finds the tab strips at all", () => {
     const files = tablistFiles();
     expect(files.length, "no tablist files found — the search is broken").toBeGreaterThanOrEqual(5);
-  });
+  }, TREE_WALK_TIMEOUT_MS);
 
   it("extracts a className for EVERY file that declares a tablist", () => {
     // Per-file, not a total. A total lets one unreadable file hide behind
@@ -106,7 +113,7 @@ describe("preconditions", () => {
       blind,
       `tablist declared but no className extracted — the guard is blind here:\n  ${blind.join("\n  ")}`,
     ).toHaveLength(0);
-  });
+  }, TREE_WALK_TIMEOUT_MS);
 });
 
 describe("every scrolling tab strip also wraps", () => {
@@ -123,7 +130,7 @@ describe("every scrolling tab strip also wraps", () => {
       offenders,
       `tablist scrolls with no wrap — tabs past the right edge are unreachable:\n  ${offenders.join("\n  ")}`,
     ).toHaveLength(0);
-  });
+  }, TREE_WALK_TIMEOUT_MS);
 
   it("the three strips that were broken now wrap", () => {
     // Named explicitly: the generic rule above would also pass if these
@@ -202,7 +209,7 @@ describe("every destination tablist has a strategy", () => {
       offenders,
       `destination tablist with no wrap and no scroll — a long label pushes the page sideways:\n  ${offenders.join("\n  ")}`,
     ).toHaveLength(0);
-  });
+  }, TREE_WALK_TIMEOUT_MS);
 
   it("the two controls fixed here declare a wrap", () => {
     for (const f of [
@@ -254,7 +261,7 @@ describe("every scrolling navigation strip has a rail", () => {
       offenders,
       `scrolling strip with no rail — its tabs can hide with no way to know:\n  ${offenders.join("\n  ")}`,
     ).toHaveLength(0);
-  });
+  }, TREE_WALK_TIMEOUT_MS);
 
   it("names the six wired strips explicitly", () => {
     // The generic rule above would pass if a file stopped scrolling; this
