@@ -68,6 +68,7 @@ export function DirectoryThrottleNotice({ throttled }: { throttled: boolean }) {
     </p>
   );
 }
+import { SearchEverywhereLink } from "@/components/search/SearchEverywhereLink";
 import { LoadFailure } from "@/components/ui/LoadFailure";
 import type {
   BccApiError,
@@ -77,9 +78,11 @@ import type {
 
 interface Props {
   query: UseInfiniteQueryResult<InfiniteData<CardsListResponse>, BccApiError>;
+  /** The active search, if any: an empty result offers it to the global search. */
+  searchQuery?: string;
 }
 
-export function DirectoryGrid({ query }: Props) {
+export function DirectoryGrid({ query, searchQuery = "" }: Props) {
   // §γ — copy is keyed on err.code; never render err.message. This
   // component previously rendered ONE hardcoded sentence for every failure,
   // so a denial and a rate limit read identically and neither was keyed on
@@ -141,6 +144,7 @@ export function DirectoryGrid({ query }: Props) {
           Drop a tier, switch the kind, or clear the search. Plenty more
           on the floor.
         </p>
+        <SearchEverywhereLink query={searchQuery} />
       </div>
     );
   }

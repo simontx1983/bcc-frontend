@@ -19,6 +19,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, Suspense } from "react";
 
 import { RouteRail } from "@/components/layout/RouteRail";
+import { ScopedSearchField } from "@/components/search/ScopedSearchField";
+import { SearchEverywhereLink } from "@/components/search/SearchEverywhereLink";
 import { CardGrid } from "@/components/cards/CardGrid";
 import { PagerNav } from "@/components/ui/PagerNav";
 import { useMembers } from "@/hooks/useMembers";
@@ -244,19 +246,17 @@ function MembersPageContent() {
       </header>
 
       <section className="mx-auto mt-10 flex max-w-[1560px] flex-col gap-6 px-4 sm:px-7">
-        <label className="flex flex-col gap-1.5">
-          <span className="bcc-mono text-[10px] tracking-[0.24em] text-bcc-text-secondary">
-            SEARCH
-          </span>
-          <input
-            type="search"
+        {/* Scoped to members (Structure A §9). GET /members caps q at 64. */}
+        <div className="w-full max-w-md">
+          <ScopedSearchField
+            label="SEARCH"
+            placeholder="Search members by name or @handle…"
             value={localQ}
-            onChange={(e) => setLocalQ(e.target.value)}
-            placeholder="Handle or display name…"
+            onChange={setLocalQ}
+            onClear={() => setLocalQ("")}
             maxLength={64}
-            className="bcc-mono w-full max-w-md rounded-sm border border-bcc-input-border bg-bcc-input-bg px-3 py-2 text-bcc-text outline-none placeholder:text-bcc-text-placeholder focus:border-bcc-accent focus:ring-1 focus:ring-bcc-accent"
           />
-        </label>
+        </div>
         <TypeFilterRow
           active={urlType}
           counts={query.isSuccess ? query.data.type_counts : ZERO_TYPE_COUNTS}
@@ -332,9 +332,9 @@ function MembersPageContent() {
               onSelectType={setTypeFilter}
             />
           ) : hasRefinement ? (
-            <RosterRefinementEmpty onClear={clearRefinement} />
+            <RosterRefinementEmpty onClear={clearRefinement} query={urlQ} />
           ) : (
-            <RosterEmpty hasSearch={urlQ !== ""} />
+            <RosterEmpty hasSearch={urlQ !== ""} query={urlQ} />
           ))}
 
         {query.isSuccess && query.data.items.length > 0 && (
@@ -635,7 +635,7 @@ function FilterChip({
 // way RosterFilterEmpty does.
 // ──────────────────────────────────────────────────────────────────────
 
-function RosterRefinementEmpty({ onClear }: { onClear: () => void }) {
+function RosterRefinementEmpty({ onClear, query }: { onClear: () => void; query: string }) {
   return (
     <div className="bcc-paper mx-auto max-w-2xl p-8 text-center">
       <p className="bcc-mono mb-2 text-bcc-text-safety">NO MATCHES</p>
@@ -652,11 +652,14 @@ function RosterRefinementEmpty({ onClear }: { onClear: () => void }) {
       >
         CLEAR REFINEMENT
       </button>
+      <div>
+        <SearchEverywhereLink query={query} />
+      </div>
     </div>
   );
 }
 
-function RosterEmpty({ hasSearch }: { hasSearch: boolean }) {
+function RosterEmpty({ hasSearch, query }: { hasSearch: boolean; query: string }) {
   if (hasSearch) {
     return (
       <div className="bcc-paper mx-auto max-w-2xl p-8 text-center">
@@ -667,6 +670,7 @@ function RosterEmpty({ hasSearch }: { hasSearch: boolean }) {
         <p className="mt-3 font-serif italic leading-relaxed text-ink-soft">
           Try a different handle, or clear the search to see everyone.
         </p>
+        <SearchEverywhereLink query={query} />
       </div>
     );
   }
