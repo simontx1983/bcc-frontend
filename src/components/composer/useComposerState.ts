@@ -20,6 +20,7 @@ import {
   type SyntheticEvent,
 } from "react";
 
+import { usePostedEvent } from "@/components/composer/PostedNotice";
 import { useGiphyIntegration } from "@/hooks/useGiphyIntegration";
 import {
   buildMentionToken,
@@ -80,9 +81,16 @@ interface UseComposerStateArgs {
   initialExpanded?: boolean | undefined;
   /** Called after a discard or a successful submit. Modal call sites use this to close their wrapping Dialog; the homepage inline composer leaves it unset and just collapses back to the idle row. */
   onClose?: (() => void) | undefined;
+  /**
+   * Called with the new post's activity id (null when the server sent
+   * no usable one) just before `onClose` on a successful submit. A host that closes the
+   * composer on success (the New Post dialog) unmounts the composer's
+   * own "Posted" line with it, so it uses this to show its own.
+   */
+  onPosted?: ((actId: number | null) => void) | undefined;
 }
 
-export function useComposerState({ groupId, hallFeed, pageId, initialExpanded, onClose }: UseComposerStateArgs) {
+export function useComposerState({ groupId, hallFeed, pageId, initialExpanded, onClose, onPosted }: UseComposerStateArgs) {
   const [expanded, setExpanded] = useState(initialExpanded ?? false);
   // Sprint 2 — civic prompt rotation in the collapsed composer.
   // 18s cadence; halts on hover/focus (promptPaused). Group composer
@@ -137,6 +145,16 @@ export function useComposerState({ groupId, hallFeed, pageId, initialExpanded, o
   const containerRef = useRef<HTMLDivElement>(null);
   const textareaRef  = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // The collapsed "What's the…" button: focus returns here after a post.
+  const triggerRef   = useRef<HTMLButtonElement>(null);
+
+  // F-258 M6: a successful post used to just collapse the card. Nothing
+  // said it worked (on a ranked feed the post may not even be at the top)
+  // and focus fell to <body> with the unmounted textarea. `posted` feeds
+  // the composer's status line and its "View post" link (PostedNotice);
+  // each post is a fresh event, so a second post is announced as well.
+  const { posted, record: recordPost, clear: clearPosted } = usePostedEvent();
+  const focusTriggerAfterPost = useRef(false);
 
   // Giphy integration — fetched once per session, cached. Drives the
   // GIF button visibility (admin disabled → button hidden entirely
@@ -168,37 +186,52 @@ export function useComposerState({ groupId, hallFeed, pageId, initialExpanded, o
     clearGif();
   };
 
+  // Shared tail of every successful submit: reset the draft, collapse,
+  // say it worked, and send focus back to the trigger once it is
+  // focusable again (it is inert while the form is open).
+  const finishPost = (actId: number | null) => {
+    setContent("");
+    setVisibility("members_only");
+    setError(null);
+    setExpanded(false);
+    recordPost(actId);
+    focusTriggerAfterPost.current = true;
+    onPosted?.(actId);
+    onClose?.();
+  };
+
   const { isPending, submit } = useInlineComposerSubmit({
     groupId,
     visibility,
     hallFeed,
     pageId,
     altText,
-    onStatusSuccess: () => {
-      setContent("");
-      setVisibility("members_only");
-      setError(null);
-      setExpanded(false);
-      onClose?.();
+    onStatusSuccess: (actId) => {
+      finishPost(actId);
     },
-    onPhotoSuccess: () => {
-      setContent("");
+    onPhotoSuccess: (actId) => {
       clearAttachment();
-      setVisibility("members_only");
-      setError(null);
-      setExpanded(false);
-      onClose?.();
+      finishPost(actId);
     },
-    onGifSuccess: () => {
-      setContent("");
+    onGifSuccess: (actId) => {
       clearGif();
-      setVisibility("members_only");
-      setError(null);
-      setExpanded(false);
-      onClose?.();
+      finishPost(actId);
     },
     onError: setError,
   });
+
+  // After a post: the collapse has rendered and the trigger is no longer
+  // inert, so focus lands on it instead of falling to <body>.
+  useEffect(() => {
+    if (expanded || !focusTriggerAfterPost.current) return;
+    focusTriggerAfterPost.current = false;
+    triggerRef.current?.focus();
+  }, [expanded, posted]);
+
+  // A new draft starts: the last post's status line has served its turn.
+  useEffect(() => {
+    if (expanded) clearPosted();
+  }, [expanded, clearPosted]);
 
   const trimmed = content.trim();
   const length  = content.length;
@@ -480,6 +513,9 @@ export function useComposerState({ groupId, hallFeed, pageId, initialExpanded, o
     setExpanded,
     promptIndex,
     setPromptPaused,
+    // F-258 M6: the last successful post + the trigger focus returns to
+    posted,
+    triggerRef,
     // body + validation
     content,
     setContent,

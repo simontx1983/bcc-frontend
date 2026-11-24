@@ -12,7 +12,7 @@ import { useState, useEffect, useRef } from "react";
 
 import { Avatar } from "@/components/identity/Avatar";
 import { CopyrightMark } from "@/components/layout/CopyrightMark";
-import { LEGAL_LINKS, PRIMARY_NAV, QUICK_LINKS } from "@/components/layout/nav-items";
+import { LEGAL_LINKS, QUICK_LINKS, primaryNavFor } from "@/components/layout/nav-items";
 import { useUser } from "@/hooks/useUser";
 import { applyTheme, getStoredAccent, getStoredTheme, type Accent, type Theme } from "@/lib/theme";
 
@@ -230,7 +230,7 @@ export function MainOffcanvas({ open, onClose }: MainOffcanvasProps) {
 
           {/* Primary nav */}
           <nav aria-label="Primary navigation">
-            {PRIMARY_NAV.map(item => (
+            {primaryNavFor(session !== null && session !== undefined).map(item => (
               <Link
                 key={item.href}
                 href={item.href as Route}
@@ -276,13 +276,16 @@ export function MainOffcanvas({ open, onClose }: MainOffcanvasProps) {
           <div style={{ padding: "0 16px 4px" }}>
             <CopyrightMark />
           </div>
-          <div style={{ padding: "4px 16px 8px", display: "flex", gap: 12, flexWrap: "wrap" }}>
+          {/* Real 44px rows, not an invisible hit area: those areas of a
+              wrapped row overlapped each other and reached up over the
+              copyright line (#386 review). */}
+          <div style={{ padding: "0 16px 8px", display: "flex", columnGap: 12, flexWrap: "wrap" }}>
             {LEGAL_LINKS.map(item => (
               <Link
                 key={item.href}
                 href={item.href as Route}
                 onClick={onClose}
-                className="bcc-legal-link"
+                className="bcc-legal-link inline-flex min-h-[44px] items-center"
               >
                 {item.label}
               </Link>

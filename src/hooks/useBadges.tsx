@@ -45,6 +45,7 @@ import {
 } from "@tanstack/react-query";
 import { useSession } from "next-auth/react";
 
+import { NOTIFICATIONS_QUERY_KEY } from "@/hooks/notifications-query-key";
 import { getBadges } from "@/lib/api/me-badges-endpoint";
 import type {
   BadgesOpenThreadHint,
@@ -272,6 +273,27 @@ export function BadgesProvider({ children }: { children: ReactNode }) {
       return next;
     },
   });
+
+  // F-318 M-no3: the badge polls, the notifications list does not. When
+  // the unread count RISES there is something new, so the list is
+  // invalidated wherever it is: refetched if a panel is open, marked stale
+  // if not, so the next open refetches instead of showing a cached list
+  // that disagrees with the bell (staleTime 30 s). Lives here because the
+  // header mounts the panel only while it is open, so the panel cannot see
+  // a rise that happens while it is closed. A fall (the viewer's own
+  // mark-read, already optimistic) and the first poll are not news. Same
+  // shape as useOpenThreadHint's conversation invalidation above.
+  const queryClient = useQueryClient();
+  const unreadNotifications = query.data?.notifications_unread;
+  const lastUnreadNotifications = useRef<number | undefined>(undefined);
+  useEffect(() => {
+    const previous = lastUnreadNotifications.current;
+    lastUnreadNotifications.current = unreadNotifications;
+    if (previous === undefined || unreadNotifications === undefined) return;
+    if (unreadNotifications > previous) {
+      void queryClient.invalidateQueries({ queryKey: NOTIFICATIONS_QUERY_KEY });
+    }
+  }, [unreadNotifications, queryClient]);
 
   const value = useMemo<BadgesContextValue>(
     () => ({

@@ -37,7 +37,7 @@
 export const ABSENCE_NOT_NEGATIVE = {
   headline: "Absence of attestation is not a negative signal.",
   body:
-    "Most operators remain silent most of the time — that’s expected. " +
+    "Most members remain silent most of the time — that’s expected. " +
     "You’re not expected to judge on a schedule or participate constantly. " +
     "Attest only when you have genuine judgment to offer.",
 } as const;
@@ -98,7 +98,7 @@ export const ATTESTATION_COPY = {
    * named after either one. "Roster" is unavailable: it is already the
    * follow-graph tab label on the same tab strip.
    */
-  supporters_tab: "Supporters",
+  supporters_tab: "Vouches",
   /**
    * A vouch/back CAST against a page target that came back `bcc_not_found`
    * — the page has no claimed operator to attest to. Page targets only;

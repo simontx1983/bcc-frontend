@@ -4,7 +4,7 @@
  *
  * E1 fixed the `globals.css` half of the muted-text programme. This is the
  * first TSX slice: the seven index routes that open with a dashed rail
- * (`FILE INDEX // ALL OPERATORS`, `DIRECT // INBOX`, …) and the list and
+ * (`FILE INDEX // ALL PAGES`, `DIRECT // INBOX`, …) and the list and
  * conversation metadata rendered beside them.
  *
  * All the migrated sites are prose read at 9–14px on `--bcc-bg`, where
@@ -152,7 +152,7 @@ describe("RouteRail — the one place the rail's colour and geometry live", () =
     // ones. That is exactly the regression this needs to catch.
     const exact = { normalizer: (t: string) => t };
     const kicker = `FLOOR ${NBSP}//${NBSP} DIRECTORY`;
-    const label = `FILE INDEX ${NBSP}//${NBSP} ALL OPERATORS`;
+    const label = `FILE INDEX ${NBSP}//${NBSP} ALL PAGES`;
     render(<RouteRail kicker={kicker} label={label} />);
     expect(screen.getByText(kicker, exact)).toBeInTheDocument();
     expect(screen.getByText(label, exact)).toBeInTheDocument();
@@ -219,9 +219,9 @@ interface CallSite {
 }
 
 const CALL_SITES: readonly CallSite[] = [
-  { route: "/members", file: MEMBERS, kicker: `FLOOR ${NBSP}//${NBSP} MEMBERS`, label: `FILE INDEX ${NBSP}//${NBSP} ALL OPERATORS` },
-  { route: "/directory", file: DIRECTORY, kicker: `FLOOR ${NBSP}//${NBSP} DIRECTORY`, label: `FILE INDEX ${NBSP}//${NBSP} ALL OPERATORS` },
-  { route: "/validators", file: VALIDATORS, kicker: `FLOOR ${NBSP}//${NBSP} VALIDATORS`, label: `FILE INDEX ${NBSP}//${NBSP} STAKING OPERATORS` },
+  { route: "/members", file: MEMBERS, kicker: `FLOOR ${NBSP}//${NBSP} MEMBERS`, label: `FILE INDEX ${NBSP}//${NBSP} ALL MEMBERS` },
+  { route: "/directory", file: DIRECTORY, kicker: `FLOOR ${NBSP}//${NBSP} DIRECTORY`, label: `FILE INDEX ${NBSP}//${NBSP} ALL PAGES` },
+  { route: "/validators", file: VALIDATORS, kicker: `FLOOR ${NBSP}//${NBSP} VALIDATORS`, label: `FILE INDEX ${NBSP}//${NBSP} ALL VALIDATORS` },
   { route: "/mentors", file: MENTORS, kicker: `FLOOR ${NBSP}//${NBSP} MENTORS`, label: `FILE INDEX ${NBSP}//${NBSP} LISTED MENTORS` },
   { route: "/messages", file: MESSAGES, kicker: `BCC ${NBSP}//${NBSP} MESSAGES`, label: `DIRECT ${NBSP}//${NBSP} INBOX` },
   { route: "/messages/new", file: MESSAGES_NEW, kicker: `BCC ${NBSP}//${NBSP} MESSAGES`, label: `DIRECT ${NBSP}//${NBSP} NEW` },

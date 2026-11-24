@@ -17,8 +17,11 @@ import type {
   CreatePostRequest,
   CreatePostResponse,
   CreateReviewArgs,
+  DeleteReviewReplyResponse,
   GroupPostVisibility,
   HallFeedChannel,
+  ReviewReplyRequest,
+  ReviewReplyResponse,
   UpdateBlogRequest,
 } from "@/lib/api/types";
 
@@ -74,6 +77,41 @@ export function createReview(
       ? { kind: "review", ...request }
       : { kind: "review", ...request },
   );
+}
+
+/**
+ * F-345 — the reviewed party's ONE public reply to a review.
+ * `reviewId` is the row `id` the Reviews lists return. Server gates:
+ * reviewed party only, one per review (409 when taken), 1–1000 chars (422),
+ * 10 writes per 5 min shared with edits (429). The UI offers it only on
+ * `permissions.can_reply.allowed`.
+ */
+export function createReviewReply(
+  reviewId: number,
+  request: ReviewReplyRequest,
+): Promise<ReviewReplyResponse> {
+  return bccFetchAsClient<ReviewReplyResponse>(`reviews/${reviewId}/reply`, {
+    method: "POST",
+    body: request,
+  });
+}
+
+/** F-345 — edit the reply (offered on `reply.permissions.can_edit.allowed`). */
+export function updateReviewReply(
+  reviewId: number,
+  request: ReviewReplyRequest,
+): Promise<ReviewReplyResponse> {
+  return bccFetchAsClient<ReviewReplyResponse>(`reviews/${reviewId}/reply`, {
+    method: "PATCH",
+    body: request,
+  });
+}
+
+/** F-345 — delete the reply (offered on `reply.permissions.can_delete.allowed`). */
+export function deleteReviewReply(reviewId: number): Promise<DeleteReviewReplyResponse> {
+  return bccFetchAsClient<DeleteReviewReplyResponse>(`reviews/${reviewId}/reply`, {
+    method: "DELETE",
+  });
 }
 
 /**

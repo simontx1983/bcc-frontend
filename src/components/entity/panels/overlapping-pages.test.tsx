@@ -45,6 +45,10 @@ const refetch = { reviews: vi.fn(), watchers: vi.fn() };
 // a withdrawn resource's cache entry. These tests drive the data hooks
 // directly, so a stub is enough — the removal itself is asserted in
 // `ui/panel-denial-retry.test.tsx` and measured in the browser.
+// CardReviewsPanel rows mount the F-345 reply section, whose write path
+// imports the API client (and so lib/env).
+vi.mock("@/lib/env", () => ({ clientEnv: { BCC_API_URL: "http://x" } }));
+
 vi.mock("@tanstack/react-query", async (importOriginal) => ({
   ...(await importOriginal<typeof ReactQueryModule>()),
   useQueryClient: () => ({ removeQueries: () => {} }),

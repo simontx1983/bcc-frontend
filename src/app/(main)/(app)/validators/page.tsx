@@ -25,7 +25,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, Suspense } from "react";
 
 import { RouteRail } from "@/components/layout/RouteRail";
-import { ValidatorFilters } from "@/components/directory/ValidatorFilters";
+import { filterOptionLabel } from "@/components/directory/DirectoryFilters";
+import { SORT_OPTIONS, STATUS_OPTIONS, ValidatorFilters } from "@/components/directory/ValidatorFilters";
 import { DirectoryResults } from "@/components/directory/DirectoryResults";
 import type { DirectoryFilters as Filters } from "@/hooks/useDirectory";
 import type {
@@ -103,7 +104,7 @@ function ValidatorsPageContent() {
 
   return (
     <main className="bcc-page-wide pb-24">
-      <RouteRail kicker={"FLOOR \u00a0//\u00a0 VALIDATORS"} label={"FILE INDEX \u00a0//\u00a0 STAKING OPERATORS"} />
+      <RouteRail kicker={"FLOOR \u00a0//\u00a0 VALIDATORS"} label={"FILE INDEX \u00a0//\u00a0 ALL VALIDATORS"} />
 
       <header className="mx-auto max-w-[1560px] px-4 sm:px-7 pt-12">
         <p className="bcc-mono text-bcc-text-safety">KNOW YOUR VALIDATOR</p>
@@ -116,7 +117,7 @@ function ValidatorsPageContent() {
         <p className="mt-4 max-w-2xl font-serif text-lg leading-relaxed text-bcc-text-secondary">
           Browse validators graded on the floor. Filter by chain, on-chain
           status, and bonded self-stake; sort by trust or skin-in-the-game.
-          Keep tabs on the operators you actually trust to secure the chain.
+          Keep tabs on the validators you actually trust to secure the chain.
         </p>
       </header>
 
@@ -192,9 +193,9 @@ function ActiveFiltersStrip({
               onClear={() => onChange({ ...filters, chain: null })}
             />
           )}
-          {(filters.status ?? null) !== null && (
+          {filters.status !== undefined && filters.status !== null && (
             <FilterChip
-              label={`STATUS · ${(filters.status as string).toUpperCase()}`}
+              label={`STATUS · ${filterOptionLabel(STATUS_OPTIONS, filters.status).toUpperCase()}`}
               onClear={() => onChange({ ...filters, status: null })}
             />
           )}
@@ -206,7 +207,7 @@ function ActiveFiltersStrip({
           )}
           {filters.sort !== "trust" && (
             <FilterChip
-              label={`SORT · ${filters.sort.toUpperCase()}`}
+              label={`SORT · ${filterOptionLabel(SORT_OPTIONS, filters.sort).toUpperCase()}`}
               onClear={() => onChange({ ...filters, sort: "trust" })}
             />
           )}

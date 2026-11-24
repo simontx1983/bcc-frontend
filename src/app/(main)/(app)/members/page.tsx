@@ -227,7 +227,7 @@ function MembersPageContent() {
 
   return (
     <main className="bcc-page-wide pb-24">
-      <RouteRail kicker={"FLOOR \u00a0//\u00a0 MEMBERS"} label={"FILE INDEX \u00a0//\u00a0 ALL OPERATORS"} />
+      <RouteRail kicker={"FLOOR \u00a0//\u00a0 MEMBERS"} label={"FILE INDEX \u00a0//\u00a0 ALL MEMBERS"} />
 
       <header className="mx-auto max-w-[1560px] px-4 sm:px-7 pt-12">
         <p className="bcc-mono text-bcc-text-safety">THE ROSTER</p>
@@ -235,7 +235,7 @@ function MembersPageContent() {
           className="bcc-stencil mt-3 text-bcc-text leading-[0.95]"
           style={{ fontSize: "clamp(2.5rem, 6.5vw, 5.5rem)" }}
         >
-          Every operator on the floor.
+          Every member on the floor.
         </h1>
         <p className="mt-4 max-w-2xl font-serif text-lg leading-relaxed text-bcc-text-secondary">
           Members in good standing, sorted by who joined most recently. Search
@@ -346,7 +346,7 @@ function MembersPageContent() {
             }
           >
             <p className="bcc-mono mb-4 text-bcc-text-secondary">
-              {query.data.pagination.total} OPERATOR
+              {query.data.pagination.total} MEMBER
               {query.data.pagination.total === 1 ? "" : "S"}
               {shownQ !== "" && ` MATCHING "${shownQ.toUpperCase()}"`}
             </p>
@@ -674,7 +674,7 @@ function RosterEmpty({ hasSearch }: { hasSearch: boolean }) {
     <div className="bcc-paper mx-auto max-w-2xl p-8 text-center">
       <p className="bcc-mono mb-2 text-bcc-text-safety">QUIET ROSTER</p>
       <h2 className="bcc-stencil text-3xl text-ink">
-        No operators on file yet.
+        No members on file yet.
       </h2>
       <p className="mt-3 font-serif italic leading-relaxed text-ink-soft">
         Once members start signing up, they&apos;ll show up here.

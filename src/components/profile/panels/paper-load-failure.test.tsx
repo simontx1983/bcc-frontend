@@ -42,6 +42,10 @@ const submitMutation = {
   error: null,
 };
 
+// ReviewsPanel renders review replies, and a page reply's crest goes
+// through Avatar → lib/media, which reads the API origin from the env.
+vi.mock("@/lib/env", () => ({ clientEnv: { BCC_API_URL: "https://wp.example" } }));
+
 vi.mock("@/hooks/useDisputes", () => ({
   useMyDisputes: () => state.myDisputes,
   useDisputableVotes: () => state.disputableVotes,

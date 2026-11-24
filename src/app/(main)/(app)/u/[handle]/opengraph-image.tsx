@@ -47,7 +47,7 @@ import { presentationName } from "@/lib/format";
 // tags and the route advertises the right content type.
 export const size = OG_SIZE;
 export const contentType = OG_CONTENT_TYPE;
-export const alt = "Blue Collar Crypto operator file";
+export const alt = "Blue Collar Crypto member file";
 // ISR (F2): the card is anonymous + deterministic per handle, so cache the
 // rendered PNG for 1h. Crawler re-fetch / re-share storms then serve the
 // cached image instead of re-running satori + re-fetching the view-model.
@@ -100,11 +100,11 @@ export default async function OpengraphImage({ params }: OgImageProps) {
   const tagline =
     tierLabel !== ""
       ? `${tierLabel} · ON THE FLOOR`
-      : "OPERATOR ON THE FLOOR";
+      : "MEMBER ON THE FLOOR";
 
   return renderOgCard(
     {
-      railLabel: "OPERATOR FILE",
+      railLabel: "MEMBER FILE",
       name,
       handle: showHandle ? profile.handle : "",
       monogramColor: crest.monogram_color,

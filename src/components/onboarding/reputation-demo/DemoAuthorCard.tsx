@@ -110,10 +110,10 @@ export function DemoAuthorCard({
 
         <div className="flex min-w-0 flex-col">
           <span className="bcc-stencil truncate text-[15px] leading-tight text-[var(--bcc-text)]">
-            Demo Operator
+            Demo Member
           </span>
           <span className="bcc-mono truncate text-[12px] leading-tight text-[var(--bcc-text-secondary)]">
-            @demo-operator
+            @demo-member
           </span>
           <span
             key={reducedMotion ? "static" : combo.id}

@@ -24,7 +24,7 @@
  *      opacity suffix) and zero inline `color:` uses of the safety colour;
  *   4. every `role="alert"` element painted with a status utility uses the
  *      error-text token — not safety, not danger;
- *   5. the error-line inventory (74 lines), and `text-bcc-danger` confined
+ *   5. the error-line inventory (75 lines), and `text-bcc-danger` confined
  *      to the destructive headings and buttons it still owns.
  * A control proves the scanners find planted offenders.
  *
@@ -32,10 +32,12 @@
  * safety colour on purpose: #205 is about text.
  */
 
-import { readdirSync, readFileSync, statSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 
 import { describe, expect, it } from "vitest";
+
+import { isScript, isTestFile, sourceFiles } from "@/app/source-tree.testing";
 
 const read = (p: string) => readFileSync(resolve(process.cwd(), p), "utf-8");
 const CSS = read("src/app/globals.css");
@@ -218,8 +220,11 @@ describe("#205 — fixed grounds pin the tokens", () => {
 
   it("every inline var(--paper) background carries bcc-paper-ground", () => {
     let sites = 0;
-    for (const f of production()) {
-      const lines = read(f).split(/\r?\n/);
+    // SOURCES, the walk taken once at load, rather than a second whole-tree
+    // walk inside this test, which under load outlasted the 5s test
+    // timeout (F-449).
+    for (const [f, code] of SOURCES) {
+      const lines = code.split(/\r?\n/);
       lines.forEach((l, i) => {
         if (!/background:\s*"var\(--paper\)"/.test(l)) return;
         sites++;
@@ -235,16 +240,6 @@ describe("#205 — fixed grounds pin the tokens", () => {
 // Closure scanners
 // ─────────────────────────────────────────────────────────────────────────
 
-function production(dir = resolve(process.cwd(), "src"), acc: string[] = []): string[] {
-  for (const name of readdirSync(dir)) {
-    const full = join(dir, name);
-    if (statSync(full).isDirectory()) production(full, acc);
-    else if (/\.tsx?$/.test(name) && !/\.test\.tsx?$/.test(name)) {
-      acc.push(full.slice(resolve(process.cwd()).length + 1).replace(/\\/g, "/"));
-    }
-  }
-  return acc;
-}
 
 /** Comments blanked, newlines kept so line numbers stay true. */
 const stripComments = (src: string) =>
@@ -305,7 +300,10 @@ function alertOffenders(sources: ReadonlyArray<readonly [string, string]>): stri
   return bad;
 }
 
-const SOURCES: ReadonlyArray<readonly [string, string]> = production().map((f) => [f, read(f)] as const);
+/** Production TSX/TS from the shared walk (F-449), as repo-root paths ("src/…"). */
+const SOURCES: ReadonlyArray<readonly [string, string]> = sourceFiles()
+  .filter((f) => isScript(f.rel) && !isTestFile(f.rel))
+  .map((f) => [`src/${f.rel}`, f.code] as const);
 
 describe("#205 — closure: no orange text survives", () => {
   it("the scan saw a real tree", () => {
@@ -377,7 +375,7 @@ describe("#205 — control: the scanners find planted offenders", () => {
 
 /**
  * Files whose error / validation lines read `text-bcc-text-error` → count.
- * 74 lines: the 42 PR #208 moved to danger, 5 older role=alert lines that
+ * 75 lines: the 42 PR #208 moved to danger, 5 older role=alert lines that
  * were already on danger, the 15 error lines #208 deferred on orange,
  * 9 over-limit / invalid-input states (the counter-tone top rung, the
  * mention cap and seven inline over-cap counters), the email-change
@@ -386,12 +384,13 @@ describe("#205 — control: the scanners find planted offenders", () => {
  * failure in DelegatorGroupPanel (#198). 73 since F-246: the message
  * thread's load failure moved to the shared LoadFailure (retryable 503).
  * 74 since F-294: the leaked-password line on Settings' new-password field.
+ * 75 since F-319: the ?to_user pin's failure line on /messages/new.
  */
 const ERROR_LINES: Readonly<Record<string, number>> = {
   "src/app/(main)/(app)/communities/new/page.tsx": 1,
   "src/app/(main)/(app)/communities/page.tsx": 1,
   "src/app/(main)/(app)/halls/page.tsx": 1,
-  "src/app/(main)/(app)/messages/new/page.tsx": 3,
+  "src/app/(main)/(app)/messages/new/page.tsx": 4,
   "src/components/admin/ModerationQueue.tsx": 2,
   "src/components/admin/UndoToast.tsx": 1,
   "src/components/announcements/AnnouncementComments.tsx": 1,
@@ -454,8 +453,8 @@ const countIn = (re: RegExp, src: string) =>
   stripComments(src).split(/\r?\n/).filter((l) => re.test(l)).length;
 
 describe("#205 — error-line inventory", () => {
-  it("74 error lines in total", () => {
-    expect(Object.values(ERROR_LINES).reduce((a, b) => a + b, 0)).toBe(74);
+  it("75 error lines in total", () => {
+    expect(Object.values(ERROR_LINES).reduce((a, b) => a + b, 0)).toBe(75);
   });
 
   for (const [file, n] of Object.entries(ERROR_LINES)) {

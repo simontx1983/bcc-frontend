@@ -122,12 +122,26 @@ export interface WalletAuthButtonProps {
   onStart?: () => void;
   /** Called after the NextAuth session is established. Parent typically router.replace()s. */
   onSuccess: () => void;
-  /** mode="login" only: fires when /auth/wallet-login returns bcc_wallet_not_linked. */
-  onWalletNotLinked?: () => void;
+  /**
+   * mode="login" only: fires when /auth/wallet-login returns
+   * bcc_wallet_not_linked, with the chain the visitor had picked, so the
+   * sign-up that follows can start on it (F-263 M22).
+   */
+  onWalletNotLinked?: (chainSlug: string) => void;
+  /**
+   * The chain the picker starts on. Ignored unless it is a supported
+   * chain. /login's sign-up prompt passes the chain the visitor just
+   * tried, rather than starting over at the default.
+   */
+  initialChainSlug?: string;
 }
 
 export function WalletAuthButton(props: WalletAuthButtonProps) {
-  const [chainSlug, setChainSlug] = useState<string>(DEFAULT_SLUG);
+  const [chainSlug, setChainSlug] = useState<string>(() =>
+    props.initialChainSlug !== undefined && findWalletChain(props.initialChainSlug) !== undefined
+      ? props.initialChainSlug
+      : DEFAULT_SLUG,
+  );
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   /** Which of a sign-up's two prompts is running; 0 when none is. */
@@ -187,10 +201,10 @@ export function WalletAuthButton(props: WalletAuthButtonProps) {
         await runSignup(connection, signed, props);
         progress.created = { chainSlug, chainType, connection };
         setStep(2);
-        await signInWithFreshSignature(chainSlug, chainType, connection, props);
+        await signInWithFreshSignature(chainSlug, chainType, connection);
       } else {
         const signed = await fetchAndSign(chainSlug, chainType, connection);
-        await runLogin(connection, signed, props);
+        await runLogin(connection, signed, () => props.onWalletNotLinked?.(chainSlug));
       }
 
       props.onSuccess();
@@ -211,7 +225,7 @@ export function WalletAuthButton(props: WalletAuthButtonProps) {
     setPending(true);
     setStep(2);
     try {
-      await signInWithFreshSignature(signup.chainSlug, signup.chainType, signup.connection, props);
+      await signInWithFreshSignature(signup.chainSlug, signup.chainType, signup.connection);
       props.onSuccess();
     } catch (err) {
       markUnfinished(
@@ -372,7 +386,8 @@ async function fetchAndSign(
 async function runLogin(
   connection: WalletConnection,
   signed: { signature: string; extra: Record<string, string> },
-  props: WalletAuthButtonProps,
+  /** Sign-in mode's hand-off; a sign-up's own step 2 passes none. */
+  onWalletNotLinked?: () => void,
 ): Promise<void> {
   const result = await signIn("wallet", {
     wallet_address: connection.address,
@@ -385,7 +400,7 @@ async function runLogin(
     if (result.error === "bcc_wallet_not_linked") {
       // Per Decision B(a): hand off to the parent so it can route the
       // user to /signup with the wallet pre-attached.
-      props.onWalletNotLinked?.();
+      onWalletNotLinked?.();
       // Throw so the parent's onSuccess does NOT fire — onWalletNotLinked
       // is the terminal callback for this branch.
       throw new BccApiError(
@@ -438,10 +453,9 @@ async function signInWithFreshSignature(
   chainSlug: string,
   chainType: WalletChainType,
   connection: WalletConnection,
-  props: WalletAuthButtonProps,
 ): Promise<void> {
   const signed = await fetchAndSign(chainSlug, chainType, connection);
-  await runLogin(connection, signed, props);
+  await runLogin(connection, signed);
 }
 
 function humanizeError(err: unknown): string {

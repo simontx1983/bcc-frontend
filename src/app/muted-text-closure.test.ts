@@ -52,12 +52,13 @@
  * focus residue, touch targets, loading states, tab keyboard navigation.
  */
 
-import { readdirSync, readFileSync, statSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-const ROOT = resolve(process.cwd(), "src");
+import { isScript, isTestFile, sourceFiles } from "@/app/source-tree.testing";
+
 const read = (p: string) => readFileSync(resolve(process.cwd(), p), "utf-8");
 const CSS = read("src/app/globals.css");
 
@@ -78,24 +79,16 @@ interface Hit {
   readonly text: string;
 }
 
-/** Walk production TSX/TS — tests excluded, since they discuss the token. */
-function productionFiles(dir = ROOT, acc: string[] = []): string[] {
-  for (const name of readdirSync(dir)) {
-    const full = join(dir, name);
-    if (statSync(full).isDirectory()) {
-      productionFiles(full, acc);
-    } else if (/\.tsx?$/.test(name) && !/\.(test|spec)\.tsx?$/.test(name)) {
-      acc.push(full.slice(resolve(process.cwd()).length + 1).replace(/\\/g, "/"));
-    }
-  }
-  return acc;
-}
-
-const FILES = productionFiles();
-const HITS: Hit[] = FILES.flatMap((f) =>
-  read(f)
+/**
+ * Production TSX/TS from the shared walk (F-449), as repo-root paths
+ * ("src/…") — tests excluded, since they discuss the token.
+ */
+const PRODUCTION = sourceFiles().filter((f) => isScript(f.rel) && !isTestFile(f.rel));
+const FILES = PRODUCTION.map((f) => `src/${f.rel}`);
+const HITS: Hit[] = PRODUCTION.flatMap((f) =>
+  f.code
     .split(/\r?\n/)
-    .map((text, i) => ({ file: f, line: i + 1, text: text.trim() }))
+    .map((text, i) => ({ file: `src/${f.rel}`, line: i + 1, text: text.trim() }))
     .filter((h) => MUTED.test(h.text)),
 );
 
@@ -237,7 +230,7 @@ const APPROVED_SURVIVORS: readonly string[] = [
     "src/components/feed/CommentDrawer.tsx :: className=\"bcc-mono block w-full cursor-not-allowed rounded-lg px-2 py-1.5 text-left tex",
     "src/components/feed/ReportButton.tsx :: : \"cursor-not-allowed bg-bcc-surface-active text-bcc-text-muted\")",
     "src/components/messages/ConversationsPanel.tsx :: <div style={{ display: \"flex\", justifyContent: \"center\", marginBottom: 10, color: \"var(-",
-    "src/components/notifications/NotificationsPanel.tsx :: className=\"bcc-mono text-[10px] tracking-[0.16em] normal-case text-[var(--bcc-text)] und",
+    "src/components/notifications/NotificationsPanel.tsx :: className=\"bcc-mono -my-2.5 inline-flex min-h-[44px] items-center px-2 text-[10px] track",
     "src/components/profile/AttestationActionCluster.tsx :: return `${BASE_BUTTON_CLASS} ${sizeClass} border border-bcc-border text-bcc-text-muted`;",
     // #205: text-safety became the safety-text token on this line; same exemption.
     "src/components/profile/FindingsSection.tsx :: className=\"bcc-mono text-bcc-text-safety hover:underline underline-offset-4 disabled:cur",
@@ -311,34 +304,30 @@ describe("closure invariant — every surviving muted use is exempt", () => {
 // 2. The earlier slices' exclusions are still there
 // ─────────────────────────────────────────────────────────────────────────
 
-const at = (file: string, line: number) => HITS.some((h) => h.file === file && h.line === line);
+/** A hit by file and exact (trimmed) source line, wherever it now sits. */
+const has = (file: string, text: string) => HITS.some((h) => h.file === file && h.text === text);
 
 describe("closure — E2's six exclusions survive", () => {
   const APP = "src/app/(main)/(app)";
-  const E2: ReadonlyArray<readonly [string, number, string]> = [
-    // 467/483 before the solid-safety-foreground slice added a five-line
-    // rationale comment to the CreateCommunityCta className at :273 (net +5).
-    // The exclusions themselves are untouched — only their line numbers moved.
-    // 472/488 → 475/491: the intro's basis-[20rem] fix (M-gr7) added a
-    // three-line comment above the intro column (net +3).
-    // 475/491 → 481/497: F-272 mounted "Your invitations" above the
-    // chain dropdown (net +6).
-    [`${APP}/communities/page.tsx`, 481, "← Previous, no prev page"],
-    [`${APP}/communities/page.tsx`, 497, "Next →, no next page"],
-    // 300/316 before the phosphor-confinement slice removed a verified tint
-    // and added its rationale comment three lines above these (net +2).
-    [`${APP}/halls/page.tsx`, 308, "← Previous, no prev page"],
-    [`${APP}/halls/page.tsx`, 324, "Next →, no next page"],
-    // 252 → 251 and 239 → 238: both pages lost their `const query =
-    // useDirectory(...)` line when the directory's denial gate moved the
-    // hook call down into <DirectoryResults>. The exclusion itself is
-    // unchanged; only its line moved (net −1 each).
-    [`${APP}/directory/page.tsx`, 251, "aria-hidden ✕ chip"],
-    [`${APP}/validators/page.tsx`, 238, "aria-hidden ✕ chip"],
+  const PREV = '<span className="bcc-mono text-bcc-text-muted">← Previous</span>';
+  const NEXT = '<span className="bcc-mono text-bcc-text-muted">Next →</span>';
+  const CHIP = '<span aria-hidden className="text-bcc-text-muted">✕</span>';
+  // Anchored on the line's text, not its number (F-317, 2026-11-19). The
+  // numbers moved with every edit above them (five times: the
+  // solid-safety-foreground rationale, M-gr7, F-272's invitations, F-317
+  // M-gr3, the directory's denial gate) while the exclusions never changed.
+  // Each text is unique in its file, as APPROVED_SURVIVORS above shows.
+  const E2: ReadonlyArray<readonly [string, string, string]> = [
+    [`${APP}/communities/page.tsx`, PREV, "← Previous, no prev page"],
+    [`${APP}/communities/page.tsx`, NEXT, "Next →, no next page"],
+    [`${APP}/halls/page.tsx`, PREV, "← Previous, no prev page"],
+    [`${APP}/halls/page.tsx`, NEXT, "Next →, no next page"],
+    [`${APP}/directory/page.tsx`, CHIP, "aria-hidden ✕ chip"],
+    [`${APP}/validators/page.tsx`, CHIP, "aria-hidden ✕ chip"],
   ];
-  for (const [file, line, why] of E2) {
-    it(`${file.split("/").pop()}:${line} — ${why}`, () => {
-      expect(at(file, line), `${file}:${line} lost its exclusion`).toBe(true);
+  for (const [file, text, why] of E2) {
+    it(`${file.split("/").pop()} — ${why}`, () => {
+      expect(has(file, text), `${file} lost its exclusion`).toBe(true);
     });
   }
 });

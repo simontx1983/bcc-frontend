@@ -105,7 +105,11 @@ export function ConfirmDialog({
       closeDisabled={pending}
       panelClassName="max-w-md flex flex-col gap-4"
     >
-      <p className="font-serif text-base text-bcc-text">{body}</p>
+      {/* pr-6: the Dialog's close × sits in the panel's top-right corner
+          (right-3 top-3, 32px) and the title is an aria-label only, so
+          this body is the first line on screen. At phone width (p-6) the
+          text ran under the ×; this keeps it clear (24 + 24 > 12 + 32). */}
+      <p className="pr-6 font-serif text-base text-bcc-text">{body}</p>
 
       {failed && (
         <p role="alert" className="bcc-mono text-[11px] text-bcc-text-error">

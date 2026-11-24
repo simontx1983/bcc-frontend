@@ -65,7 +65,9 @@ export function MemberFollowButton({
         type="button"
         onClick={watch.toggle}
         disabled={watch.pending || watch.unknown}
-        aria-pressed={watch.unknown ? undefined : watch.watching}
+        // F-261: no aria-pressed. The name already swaps between "Watch X"
+        // and "Stop watching X", so a pressed state on top read as "Stop
+        // watching X, pressed" (as BlockToggle's did, F-264).
         aria-label={watch.watching ? `Stop watching${who}` : `Watch${who}`}
         title={watch.unknown ? WATCH_UNKNOWN_COPY : undefined}
         className={`bcc-btn bcc-btn-sm w-full ${watch.watching ? "bcc-btn-ghost" : "bcc-btn-outline"}`}

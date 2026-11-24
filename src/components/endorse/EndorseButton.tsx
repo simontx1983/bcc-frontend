@@ -106,7 +106,7 @@ export function EndorseButton({
           aria-disabled={removing}
           title={`Remove your vouch for ${pageName}.`}
           className={
-            "bcc-stencil mt-4 w-fit rounded-sm px-4 py-2 text-[11px] tracking-[0.2em] transition " +
+            "bcc-stencil mt-4 inline-flex min-h-[44px] w-fit items-center rounded-sm px-4 text-[11px] tracking-[0.2em] transition " +
             (removing
               ? "cursor-wait bg-bcc-surface-active text-bcc-text-muted"
               : "ring-1 ring-cardstock-edge bg-cardstock text-ink hover:bg-cardstock-deep")
@@ -152,7 +152,7 @@ export function EndorseButton({
         aria-describedby={locked ? reasonId : undefined}
         title={tooltip}
         className={
-          "bcc-stencil mt-4 w-fit rounded-sm px-4 py-2 text-[11px] tracking-[0.2em] transition " +
+          "bcc-stencil mt-4 inline-flex min-h-[44px] w-fit items-center rounded-sm px-4 text-[11px] tracking-[0.2em] transition " +
           (enabled && !pending
             ? "bg-cardstock text-ink ring-1 ring-cardstock-edge hover:bg-cardstock-deep"
             : "cursor-not-allowed bg-bcc-surface-active text-bcc-text-muted")

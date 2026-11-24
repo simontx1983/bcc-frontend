@@ -410,7 +410,7 @@ function CreateSubTab({
           NOT YOUR FILE
         </p>
         <p className="font-serif text-base text-bcc-text">
-          You can&rsquo;t post to another operator&rsquo;s blog. Your
+          You can&rsquo;t post to another member&rsquo;s blog. Your
           composer lives on your own blog page.
         </p>
         <Link
@@ -449,7 +449,7 @@ function CreateSubTab({
 function editPostErrorCopy(err: BccApiError): string {
   switch (err.code) {
     case "bcc_forbidden":
-      return "That post belongs to another operator — you can only edit your own.";
+      return "That post belongs to another member — you can only edit your own.";
     case "bcc_not_found":
       return "That post no longer exists — it may have been deleted.";
     default:

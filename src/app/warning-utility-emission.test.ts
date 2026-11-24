@@ -30,35 +30,30 @@
  *   StandingFileBody       `text-[var(--bcc-warning)]`      — arbitrary value
  */
 
-import { readdirSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
+import { isTestFile, sourceFiles } from "@/app/source-tree.testing";
 import { counterToneClass } from "@/lib/counter-tone";
 
 const read = (p: string) => readFileSync(resolve(process.cwd(), p), "utf-8");
 const TW = read("tailwind.config.ts");
 const CSS = read("src/app/globals.css");
-const SRC = resolve(process.cwd(), "src");
 
-function walk(dir: string): string[] {
-  const out: string[] = [];
-  for (const e of readdirSync(dir, { withFileTypes: true })) {
-    const full = resolve(dir, e.name);
-    if (e.isDirectory()) out.push(...walk(full));
-    else if (/\.(tsx?|css)$/.test(e.name) && !/\.test\./.test(e.name)) out.push(full);
-  }
-  return out;
-}
-
-/** Comment-stripped, newline-preserving so reported lines stay true. */
-const FILES = walk(SRC).map((f) => ({
-  path: f.slice(SRC.length + 1).replace(/\\/g, "/"),
-  code: readFileSync(f, "utf-8")
-    .replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, ""))
-    .replace(/(?<!:)\/\/.*$/gm, ""),
-}));
+/**
+ * Production .ts/.tsx/.css from the shared walk (F-449). Comment-stripped,
+ * newline-preserving so reported lines stay true.
+ */
+const FILES = sourceFiles()
+  .filter((f) => !isTestFile(f.rel))
+  .map((f) => ({
+    path: f.rel,
+    code: f.code
+      .replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, ""))
+      .replace(/(?<!:)\/\/.*$/gm, ""),
+  }));
 
 /**
  * Colour keys declared in the Tailwind theme. Both quoted (`"bcc-warning":`)
@@ -156,7 +151,7 @@ describe("every semantic colour utility names a real theme key", () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────
-// 3. The helper and its ten callers
+// 3. The helper and its twelve callers
 // ─────────────────────────────────────────────────────────────────────────
 
 describe("counterToneClass returns only classes that compile", () => {
@@ -211,14 +206,16 @@ const CALLERS = [
   ["src/components/disputes/OpenDisputeModal.tsx", true],
   ["src/components/feed/CommentDrawer.tsx", false],
   ["src/components/messages/MessageComposer.tsx", false],
+  // Validator admin PR B: the link form's evidence note and reference.
+  ["src/components/admin/validators/LinkOwnerForm.tsx", true],
 ] as const;
 
-describe("all ten call sites across eight files", () => {
-  it("the caller inventory is exactly ten sites in eight files", () => {
+describe("all twelve call sites across nine files", () => {
+  it("the caller inventory is exactly twelve sites in nine files", () => {
     const total = FILES.filter((f) => /counterToneClass\(/.test(f.code) && !f.path.startsWith("lib/"))
       .flatMap((f) => [...f.code.matchAll(/counterToneClass\(/g)]).length;
-    expect(total).toBe(10); // Composer holds three
-    expect(CALLERS).toHaveLength(8);
+    expect(total).toBe(12); // Composer holds three, LinkOwnerForm two
+    expect(CALLERS).toHaveLength(9);
   });
 
   for (const [file, threeRung] of CALLERS) {

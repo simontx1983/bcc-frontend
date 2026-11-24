@@ -39,7 +39,9 @@ import type {
 
 const PAGE_SIZE = 20;
 
-export const NOTIFICATIONS_QUERY_KEY = ["me", "notifications"] as const;
+import { NOTIFICATIONS_QUERY_KEY } from "@/hooks/notifications-query-key";
+
+export { NOTIFICATIONS_QUERY_KEY };
 
 interface UseNotificationsOptions {
   /** Pass false for anonymous viewers; the hook short-circuits without firing. */

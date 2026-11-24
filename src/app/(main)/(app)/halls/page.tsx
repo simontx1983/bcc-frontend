@@ -20,6 +20,7 @@ import type { Route } from "next";
 import { getServerSession } from "next-auth";
 import Link from "next/link";
 
+import { HIT_AREA_44 } from "@/components/feed/hitArea";
 import { authOptions } from "@/lib/auth";
 import { tokenFromSession } from "@/lib/api/client";
 import { humanizeCode } from "@/lib/api/errors";
@@ -135,8 +136,11 @@ export default async function HallsDirectoryPage({ searchParams }: PageProps) {
 // ─────────────────────────────────────────────────────────────────────
 
 function ChainFilterStrip({ activeChain }: { activeChain: string | null }) {
+  // The pills are drawn at ~30px; HIT_AREA_44 makes each tap target 44px
+  // without changing that (F-317 M-gr3, same as /communities). gap-y-4
+  // keeps the areas of a wrapped row clear of the row above.
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    <div className="flex flex-wrap items-center gap-x-2 gap-y-4">
       {CHAIN_FILTERS.map((filter) => {
         const isActive = filter.value === activeChain;
         const href = (filter.value === null
@@ -148,7 +152,7 @@ function ChainFilterStrip({ activeChain }: { activeChain: string | null }) {
             href={href}
             aria-current={isActive ? "page" : undefined}
             className={
-              "bcc-mono rounded-full px-3 py-1.5 text-[11px] tracking-[0.16em] transition " +
+              `${HIT_AREA_44} bcc-mono rounded-full px-3 py-1.5 text-[11px] tracking-[0.16em] transition ` +
               (isActive
                 ? "bg-ink text-cardstock"
                 : "border border-cardstock-edge/40 bg-cardstock text-ink-soft hover:border-cardstock-edge hover:text-ink")

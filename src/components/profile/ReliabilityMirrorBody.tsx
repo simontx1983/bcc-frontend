@@ -187,7 +187,7 @@ function ShowUpBlock({ reliability }: { reliability: MeReliabilityResponse }) {
             <span className="bcc-stencil text-bcc-text">{slots_total}</span>
           </>
         )}{" "}
-        operators at your current tier.
+        members at your current tier.
       </p>
       <p className="font-serif text-bcc-text-secondary">
         Vouches are easy to give. Backing is reserved for higher

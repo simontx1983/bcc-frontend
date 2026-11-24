@@ -29,14 +29,21 @@
  * Internal-state mode (/groups/[slug], /halls/[slug]):
  *   Omit `urlBase` (or pass `urlSyncOn={false}`). Tab clicks update
  *   internal state only — no route navigation.
+ *
+ * Keyboard (F-317 L-gr1): the APG tabs model through the shared
+ * useRovingTabs — Arrow / Home / End move focus, Enter / Space activate,
+ * one tab stop for the strip. Manual activation matters here: in urlBase
+ * mode activating a tab pushes a route, so selection following focus would
+ * navigate on every arrow press.
  */
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { ReactNode } from "react";
 import type { Route } from "next";
 
 import { TabRail } from "@/components/ui/TabRail";
+import { useRovingTabs } from "@/hooks/useRovingTabs";
 
 export type GroupTabKey =
   | "stream"
@@ -95,8 +102,14 @@ export function GroupTabs({
   };
 
   // A tab exists only if its panel was supplied — /groups and
-  // /communities pass three and stay on three.
-  const visibleTabs = TABS.filter((tab) => panels[tab.key] !== undefined);
+  // /communities pass three and stay on three. Memoized on which panels
+  // exist, because the keys feed useRovingTabs' key handler.
+  const present = TABS.map((tab) => (panels[tab.key] !== undefined ? "1" : "0")).join("");
+  const visibleTabs = useMemo(
+    () => TABS.filter((_, i) => present[i] === "1"),
+    [present],
+  );
+  const visibleKeys = useMemo(() => visibleTabs.map((tab) => tab.key), [visibleTabs]);
 
   // Guard the mount tab: a caller could pass initialTab="validators" for a
   // Hall whose chain has nothing indexed, which would render a tablist
@@ -116,6 +129,8 @@ export function GroupTabs({
     }
   };
 
+  const { setRef, onKeyDown } = useRovingTabs<GroupTabKey>(visibleKeys, handleSelect);
+
   return (
     <section className="bcc-stage-reveal" style={{ ["--stagger" as string]: "440ms" }}>
       {/* The real deep-link case outside the profile. `/communities/[slug]/about`
@@ -130,15 +145,20 @@ export function GroupTabs({
         aria-label="Group sections"
         className="-mx-4 flex items-center gap-x-1 overflow-x-auto border-b border-bcc-border px-4 sm:mx-0 sm:flex-wrap sm:px-0"
       >
-        {visibleTabs.map((tab) => (
+        {visibleTabs.map((tab, index) => (
           <button
             key={tab.key}
+            ref={setRef(tab.key)}
             type="button"
             role="tab"
             id={`group-tab-${tab.key}`}
             aria-selected={active === tab.key}
-            aria-controls={`group-tabpanel-${tab.key}`}
+            // Only the active panel is rendered, so only its tab names
+            // one; the others used to point at ids that didn't exist.
+            {...(active === tab.key ? { "aria-controls": `group-tabpanel-${tab.key}` } : {})}
+            tabIndex={active === tab.key ? 0 : -1}
             onClick={() => handleSelect(tab.key)}
+            onKeyDown={(e) => onKeyDown(e, index)}
             className="bcc-tab shrink-0"
           >
             {tab.label}
@@ -147,11 +167,13 @@ export function GroupTabs({
       </div>
       </TabRail>
 
+      {/* No aria-live (F-317 L-gr1): this wraps the whole Stream feed, so
+          every page load, reaction count and new post was read out. The
+          selected tab already says which section is showing. */}
       <div
         role="tabpanel"
         id={`group-tabpanel-${active}`}
         aria-labelledby={`group-tab-${active}`}
-        aria-live="polite"
         className="mt-6"
       >
         {panels[active]}

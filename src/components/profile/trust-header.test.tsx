@@ -195,3 +195,15 @@ describe("TrustHeader", () => {
     expect(screen.queryByText("JOURNEYMAN")).toBeNull();
   });
 });
+
+describe("F-565 — the member's name as the page heading", () => {
+  it("nameAs h1 makes the name the page's <h1>", () => {
+    render(<TrustHeader profile={makeProfile()} isOwner={false} viewerAuthed={false} nameAs="h1" />);
+    expect(screen.getByRole("heading", { level: 1 }).textContent ?? "").not.toBe("");
+  });
+
+  it("by default it is not a heading (a page with its own <h1>, e.g. About)", () => {
+    render(<TrustHeader profile={makeProfile()} isOwner={false} viewerAuthed={false} />);
+    expect(screen.queryByRole("heading", { level: 1 })).toBeNull();
+  });
+});

@@ -77,10 +77,12 @@ describe("the private FileRail is completely removed", () => {
   it("passes the shared component's prop names, not the old local ones", () => {
     const call = /<FileRail\b[\s\S]*?\/>/.exec(src)?.[0] ?? "";
     expect(call, "no <FileRail .../> call site found").not.toBe("");
-    expect(call).toContain('kind="OPERATOR"');
+    expect(call).toContain('kind="MEMBER"');
     expect(call).toContain("subject={`@${profile.handle.toUpperCase()}`}");
     expect(call).toContain("isOwner={isOwner}");
-    expect(call).toContain("joinedLabel={formatJoinDate(profile.joined_at)}");
+    // Month + year only, and no JOINED at all when the date is absent.
+    expect(src).toContain("const joinedLabel = formatJoinDate(profile.joined_at);");
+    expect(call).toContain('joinedLabel={joinedLabel === "—" ? null : joinedLabel}');
     // `handle` was the local component's prop; the shared one takes `subject`.
     expect(call).not.toMatch(/\bhandle=\{profile\.handle\}/);
   });

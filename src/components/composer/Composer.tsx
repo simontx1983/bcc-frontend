@@ -63,11 +63,12 @@ import {
   MENTION_LISTBOX_ID,
   useComposerState,
 } from "@/components/composer/useComposerState";
+import { PostedNotice } from "@/components/composer/PostedNotice";
 import { humanizeError } from "@/components/composer/useComposerSubmit";
 import { RankChip } from "@/components/profile/RankChip";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Dialog } from "@/components/ui/Dialog";
-import { humanizeCode } from "@/lib/api/errors";
+import { humanizeReviewError } from "@/components/composer/review-error-copy";
 import { createReview } from "@/lib/api/posts-endpoints";
 import {
   MENTIONS_PER_POST_MAX,
@@ -131,6 +132,16 @@ export interface ComposerProps {
    * to ask before throwing the draft away (H3).
    */
   onDraftChange?: (hasDraft: boolean) => void;
+  /**
+   * Called with the new post's activity id (null when the server sent
+   * no usable one) on a successful post, just before `onClose`; it links
+   * as `/post/{actId}`. Inline variant only: the modal is the review
+   * dialog (F-561: review-only), and a review is not a post with a
+   * permalink of its own here.
+   * A host that closes on success (NewPostTrigger's Dialog) unmounts the
+   * composer's own "Posted" line, so it shows its own from this.
+   */
+  onPosted?: (actId: number | null) => void;
   /**
    * Inline-variant props for the collapsed-row identity treatment.
    * All optional — when missing, the composer falls back to a quiet
@@ -215,6 +226,7 @@ export function Composer({
   startExpanded,
   hosted,
   onDraftChange,
+  onPosted,
   viewerAvatarUrl,
   viewerHandle,
   viewerDisplayName,
@@ -268,6 +280,7 @@ export function Composer({
         hosted={hosted}
         onClose={onClose}
         onDraftChange={onDraftChange}
+        onPosted={onPosted}
       />
     );
   }
@@ -386,6 +399,8 @@ interface InlineStatusComposerProps {
   onClose?: (() => void) | undefined;
   /** See ComposerProps.onDraftChange. */
   onDraftChange?: ((hasDraft: boolean) => void) | undefined;
+  /** See ComposerProps.onPosted. */
+  onPosted?: ((actId: number | null) => void) | undefined;
 }
 
 // Sprint 2 civic prompts + the §3.3.12 mention listbox id moved to
@@ -421,7 +436,10 @@ const VISIBILITY_OPTIONS: ReadonlyArray<{
   {
     key: "public_group",
     label: "PUBLIC GROUP",
-    description: "Anyone can see it on the group page.",
+    // F-317 M-gr5: true in every group. Non-members read open and closed
+    // groups' pages, but a secret group's page is members-only (§4.7.6),
+    // so "anyone can see it" was false there.
+    description: "Anyone who can open the group page can see it.",
   },
   {
     key: "public_all",
@@ -446,6 +464,7 @@ function InlineStatusComposer({
   hosted,
   onClose,
   onDraftChange,
+  onPosted,
 }: InlineStatusComposerProps) {
   // Phase 3.3 split — the entire form state machine (expand/collapse,
   // prompt rotation, body + validation, photo/GIF attachment slots,
@@ -454,6 +473,8 @@ function InlineStatusComposer({
   const {
     expanded,
     setExpanded,
+    posted,
+    triggerRef,
     promptIndex,
     setPromptPaused,
     content,
@@ -499,7 +520,7 @@ function InlineStatusComposer({
     hasGif,
     hasAttachment,
     placeholder,
-  } = useComposerState({ groupId, hallFeed, pageId, initialExpanded: startExpanded, onClose });
+  } = useComposerState({ groupId, hallFeed, pageId, initialExpanded: startExpanded, onClose, onPosted });
 
   // H3: report "is there a draft?" to a host that can dismiss us itself.
   const hasDraft = content.trim() !== "" || hasAttachment;
@@ -610,29 +631,18 @@ function InlineStatusComposer({
                       />
                     </span>
                   )}
-                  {expanded && !isPageScoped && (
-                    // Design-only stub — where this post will be published.
-                    // Not wired to any destination/visibility logic yet;
-                    // revisit once the backend has a "post destinations"
-                    // contract (see [[project-homepage-redesign]] deferred
-                    // follow-up on the composer post-type/destination switcher).
-                    <button
-                      type="button"
-                      aria-label="Post destination: the Floor"
-                      title="Post destination (coming soon)"
-                      className="bcc-mono inline-flex w-fit items-center gap-1 self-start rounded-full bg-[var(--bcc-surface-active)] px-2 py-[3px] text-[9px] tracking-[0.18em] text-[var(--bcc-text-secondary)] transition hover:bg-[var(--bcc-surface-hover)] hover:text-[var(--bcc-text)]"
-                    >
+                  {expanded && !isPageScoped && groupId === undefined && (
+                    // Where this post goes: the Floor. A plain label, not a
+                    // control (F-258 M7). It was a focusable button with a
+                    // dropdown chevron that did nothing, and it also showed in
+                    // GROUP composers, where a post does not go to the Floor
+                    // (those already say "Post to this group…"). A destination
+                    // switcher waits on a backend "post destinations" contract
+                    // ([[project-homepage-redesign]]).
+                    <span className="bcc-mono inline-flex w-fit items-center self-start rounded-full bg-[var(--bcc-surface-active)] px-2 py-[3px] text-[9px] tracking-[0.18em] text-[var(--bcc-text-secondary)]">
+                      <span className="sr-only">Posting to the </span>
                       FLOOR
-                      <svg width="8" height="8" viewBox="0 0 8 8" fill="none" aria-hidden>
-                        <path
-                          d="M1.5 3L4 5.5L6.5 3"
-                          stroke="currentColor"
-                          strokeWidth="1.2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        />
-                      </svg>
-                    </button>
+                    </span>
                   )}
                 </div>
               )}
@@ -669,6 +679,7 @@ function InlineStatusComposer({
             <div className="min-h-0 overflow-hidden">
               <button
                 type="button"
+                ref={triggerRef}
                 onClick={() => setExpanded(true)}
                 onMouseEnter={() => setPromptPaused(true)}
                 onMouseLeave={() => setPromptPaused(false)}
@@ -1063,6 +1074,11 @@ function InlineStatusComposer({
         </form>
         </div>
       </div>
+
+      {/* F-258 M6: "Posted — View post" after a successful submit. Outside
+          the card (whose click expands the composer) and outside its flex
+          gap. Cleared when a new draft opens. */}
+      <PostedNotice posted={posted} className="px-2" />
     </section>
   );
 }
@@ -1136,13 +1152,21 @@ function ModalCore({
         ? { kind: "entity", pageId: reviewTargetId }
         : null;
 
+  // F-561 (testnet audit): opened from WRITE A REVIEW, the dialog showed an
+  // UPDATE / REVIEW switcher, inviting a status post from a review button.
+  // A composer opened FOR a review target is a review dialog: no switcher.
+  // Every other modal composer keeps both tabs.
+  const reviewOnly = initialMode === "review" && reviewTarget !== null;
+
   return (
     <>
-      <ComposerTabs
-        mode={mode}
-        onChange={requestMode}
-        reviewAvailable={reviewAvailable}
-      />
+      {!reviewOnly && (
+        <ComposerTabs
+          mode={mode}
+          onChange={requestMode}
+          reviewAvailable={reviewAvailable}
+        />
+      )}
       {mode === "status" && (
         <StatusForm onSubmitSuccess={onSubmitSuccess} onDraftChange={reportDraft} />
       )}
@@ -1348,37 +1372,6 @@ function StatusForm({
 // resolved target, and the target name renders unmistakably so the
 // reviewer can never mis-target their post.
 // ─────────────────────────────────────────────────────────────────────
-
-/**
- * Review-surface error copy (§γ: each call site owns its copy map;
- * never render err.message).
- *
- * `bcc_forbidden` here is the VOTE-pipeline denial, not the
- * write_review gate: PostsService::createReview surfaces every
- * VoteEligibilityException as bcc_forbidden — the downvote tier gate
- * ("trusted or elite only"), the identity-verification gate, the daily
- * downvote cap, and the fraud/coordination gates
- * (bcc-trust app/Domain/Core/Services/Vote/VoteEligibilityChecker.php).
- * The composer-wide humanizeError copy ("keep watching cards…")
- * describes the write_review unlock, which can't fire from this form —
- * ReviewCallout only opens the modal when `can_review` is already true.
- * So the copy leads with the gates that CAN fire. If the backend ever
- * grows distinct codes per gate (it should), split this entry.
- */
-function humanizeReviewError(err: unknown): string {
-  return humanizeCode(
-    err,
-    {
-      bcc_unauthorized: "Sign in to post a review.",
-      bcc_invalid_request: "That review can't be sent — check the grade and body.",
-      bcc_forbidden:
-        "This review was blocked by a trust-safety gate. Caution reviews require trusted or elite standing and a verified identity (linked wallet or GitHub), and downvotes are capped daily.",
-      bcc_rate_limited: "Slow down — wait a moment before posting again.",
-      bcc_unavailable: "Reviews are temporarily unavailable. Try again shortly.",
-    },
-    "Couldn't post your review. Try again.",
-  );
-}
 
 const REVIEW_GRADE_OPTIONS: ReadonlyArray<{
   key: ReviewGrade;

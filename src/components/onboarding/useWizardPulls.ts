@@ -29,26 +29,29 @@
 import { useState } from "react";
 
 import { WATCH_UNKNOWN_COPY } from "@/hooks/useViewerWatch";
-import { useWatchMutation, useUnwatchMutation } from "@/hooks/useWatch";
+import { useWatchMutation, useUnwatchMutation, watchErrorCopy } from "@/hooks/useWatch";
 import { humanizeCode } from "@/lib/api/errors";
-import { FOLLOW_COPY } from "@/lib/copy";
 import type { Card, ReputationTier, ViewerWatch } from "@/lib/api/types";
 
 /**
- * §γ — pull/unpull failures render the returned string inline; copy is
- * keyed on err.code, never err.message.
+ * §γ — a failed watch or unwatch renders this line inline under the card;
+ * copy is keyed on err.code, never err.message.
+ *
+ * F-264: it used to say "pull" ("Sign in to pull cards.", "Couldn't update
+ * this pull."), the retired word for watch, in the one place a brand-new
+ * member meets it. Now it is the shared `watchErrorCopy`, so a refused
+ * watch, a private profile, a rate limit and the fallback read the same
+ * here as on every other watch button. The wizard adds only the two lines
+ * the others don't have: a lapsed session and a service outage.
  */
-function humanizePullError(err: unknown): string {
+function wizardWatchError(err: unknown, verb: "watch" | "unwatch"): string {
   return humanizeCode(
     err,
     {
-      bcc_unauthorized: "Sign in to pull cards.",
-      // F-236: a block either way, or a suspended viewer. Generic.
-      bcc_forbidden: FOLLOW_COPY.refused,
-      bcc_rate_limited: "Too fast — wait a moment and try again.",
-      bcc_unavailable: "Pulls are temporarily unavailable. Try again shortly.",
+      bcc_unauthorized: "Sign in to watch cards.",
+      bcc_unavailable: "Watching is temporarily unavailable. Try again shortly.",
     },
-    "Couldn't update this pull. Try again.",
+    watchErrorCopy(err, verb),
   );
 }
 
@@ -152,7 +155,7 @@ export function useWizardPulls(): WizardPullsApi {
     const entry = currentWatch(card);
     if (watchedNow(card) && entry === null) {
       // Watched, but no handle to unwatch it with.
-      setErrorFor(card.id, humanizePullError(null));
+      setErrorFor(card.id, wizardWatchError(null, "unwatch"));
       return;
     }
     setPendingFor(card.id, true);
@@ -163,7 +166,7 @@ export function useWizardPulls(): WizardPullsApi {
           setOutcome(card, null);
           dropSessionPull(card.id);
         },
-        onError: (err) => setErrorFor(card.id, humanizePullError(err)),
+        onError: (err) => setErrorFor(card.id, wizardWatchError(err, "unwatch")),
         onSettled: () => setPendingFor(card.id, false),
       });
     } else {
@@ -177,7 +180,7 @@ export function useWizardPulls(): WizardPullsApi {
             });
             recordSessionPull(card.id, card.reputation_tier);
           },
-          onError: (err) => setErrorFor(card.id, humanizePullError(err)),
+          onError: (err) => setErrorFor(card.id, wizardWatchError(err, "watch")),
           onSettled: () => setPendingFor(card.id, false),
         }
       );

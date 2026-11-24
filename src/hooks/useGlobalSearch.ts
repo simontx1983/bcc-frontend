@@ -5,13 +5,17 @@
  * autocomplete.
  *
  * Behaviour:
- *   - Caller passes the raw input string. The shared useSearchTerm
- *     debounces it (~200ms) before firing the network request.
- *   - Queries with under 2 chars return an empty list locally — no
- *     wasted round-trip. The server enforces the same rule so this
- *     gate is a courtesy, not a contract.
- *   - The query key includes the debounced query so React Query
- *     caches per query string. Typing the same word again hits cache.
+ *   - Caller passes the SETTLED term from the shared useSearchTerm
+ *     (debounced ~200ms, "" under 2 chars), not the raw input. The
+ *     caller owns the debounce because it must know which term the
+ *     rows on screen answer (F-264): GlobalSearch lets ↓/↑/Enter act
+ *     only on rows for the term typed now. A second useSearchTerm
+ *     there would be a separate timer that can disagree for a render.
+ *   - An empty term ("" = under 2 chars) sends nothing. The server
+ *     enforces the same floor, so this gate is a courtesy, not a
+ *     contract.
+ *   - The query key includes the term so React Query caches per query
+ *     string. Typing the same word again hits cache.
  *   - `enabled: false` holds the request without resetting the term.
  *     GlobalSearch passes its dropdown's open state: the box can now
  *     hold a term while closed (synced from /search?q=), and a closed,
@@ -25,7 +29,6 @@
 
 import { useQuery } from "@tanstack/react-query";
 
-import { useSearchTerm } from "@/hooks/useSearchTerm";
 import { getSearchSuggestions } from "@/lib/api/cards-search-endpoints";
 import type {
   SearchSuggestionsResponse,
@@ -33,14 +36,10 @@ import type {
 } from "@/lib/api/types";
 
 export function useGlobalSearch(
-  rawQuery: string,
+  term: string,
   kind?: SuggestionKind,
   options: { enabled?: boolean } = {},
 ) {
-  // Debounced mirror of the input. Drives the React Query key, so the
-  // network only fires after typing settles.
-  const term = useSearchTerm(rawQuery);
-
   return useQuery<SearchSuggestionsResponse>({
     // Scope is part of the cache key: "cosmos" under Members and
     // "cosmos" under All are different result sets.
@@ -51,7 +50,10 @@ export function useGlobalSearch(
         signal,
       ),
     enabled: term !== "" && options.enabled !== false,
-    staleTime: 15_000,
+    // An incomplete answer (F-421) is stale at once: the server sends it
+    // no-store, and typing the same term again must ask again rather than
+    // replay "Suggestions unavailable" from cache.
+    staleTime: (q) => (q.state.data?.incomplete === true ? 0 : 15_000),
     // Keep showing the prior list while a new query is in flight — the
     // dropdown shouldn't blank out on every keystroke — but ONLY within
     // the same scope. Carrying rows across a scope switch briefly

@@ -1,7 +1,7 @@
 /**
  * RouteRail — the two-sided status strip at the top of an index route.
  *
- *   ● FLOOR // DIRECTORY                    FILE INDEX // ALL OPERATORS
+ *   ● FLOOR // DIRECTORY                    FILE INDEX // ALL PAGES
  *
  * Dumb layout: both labels arrive pre-formatted. It takes two props and
  * is meant to keep taking two — a rail needing a third is a different

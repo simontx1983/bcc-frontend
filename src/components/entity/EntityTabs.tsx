@@ -98,7 +98,7 @@ export function EntityTabs({
   // pre-memo `if (announcementsPanel !== null) tabs.push(...)` it replaces.
   const tabs: EntityTabDef[] = useMemo(() => {
     const list: EntityTabDef[] = [
-      // See ProfileTabs — genus term, key stays `backing` for deep links.
+      // See ProfileTabs: labelled "Vouches"; the key stays `backing` for deep links.
       { key: "backing",  label: ATTESTATION_COPY.supporters_tab },
       { key: "reviews",  label: "Reviews"  },
       // Announcements sits directly after Reviews — the operator's own voice
