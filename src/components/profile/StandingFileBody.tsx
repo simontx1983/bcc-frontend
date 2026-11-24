@@ -33,6 +33,7 @@
 import type { Route } from "next";
 import Link from "next/link";
 
+import { HALLS_TAB_HREF } from "@/components/communities/halls-tab-href";
 import { StatusTick } from "@/components/profile/StatusTick";
 import { FindingsSection } from "@/components/profile/FindingsSection";
 import { NewMemberChip } from "@/components/identity/NewMemberChip";
@@ -268,7 +269,7 @@ function VerifiedIdentityBlock({ profile }: { profile: MemberProfile }) {
   const profileComplete = verifications.profile_complete === true;
   const settingsRoute = "/u/me?tab=profile" as Route;
   const profileEditRoute = "/u/me?tab=profile" as Route;
-  const hallsRoute = "/halls" as Route;
+  const hallsRoute = HALLS_TAB_HREF;
 
   const rows: Array<{
     label: string;

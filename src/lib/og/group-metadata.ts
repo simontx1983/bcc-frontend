@@ -1,8 +1,8 @@
 /**
- * group-metadata — shared `generateMetadata` builder for the three
- * group-style routes (/communities, /groups, /halls). One source so
- * title/description/canonical/card-type stay identical; only the route
- * prefix (for the canonical URL) differs per caller.
+ * group-metadata — the `generateMetadata` builder for a community's
+ * detail route. Every kind, Halls included, lives at /communities/[slug]
+ * (Site Structure A), so the kind word in the copy ("Hall" or
+ * "Community") comes from the group itself, not from the route.
  *
  * Mirrors the entity-metadata / /u[handle] pattern: NO og:image /
  * twitter:image entries here — the sibling `opengraph-image.tsx` /
@@ -17,10 +17,9 @@
  * here would 500 the <head> render path). The page itself owns the privacy
  * gate; this builder only governs the shareable preview tags.
  *
- * The canonical is built from the ROUTE the user is on (`/communities` vs
- * `/groups` vs `/halls` + slug) — `GroupDetailResponse.links.self` points
- * at a single fixed surface and would collapse all three routes onto one
- * canonical, so we use the route prefix the caller passes instead.
+ * The canonical is built from the route prefix the caller passes, not
+ * from `GroupDetailResponse.links.self`: the server still emits /halls/…
+ * for Halls, which now forwards here.
  */
 
 import type { Metadata } from "next";
@@ -30,17 +29,14 @@ import { ANON_SSR_REVALIDATE_SECONDS } from "@/lib/api/cache-policy";
 
 interface GroupMetadataInput {
   slug: string;
-  /** Route prefix for the canonical URL, e.g. "/communities", "/groups",
-   *  "/halls". The share + canonical surface the viewer is actually on. */
+  /** Route prefix for the canonical URL, e.g. "/communities". The share +
+   *  canonical surface the viewer is actually on. */
   pathPrefix: string;
-  /** Title-case kind word for copy, e.g. "Community", "Group", "Hall". */
-  kindLabel: string;
 }
 
 export async function buildGroupMetadata({
   slug,
   pathPrefix,
-  kindLabel,
 }: GroupMetadataInput): Promise<Metadata> {
   // Build the canonical from the route + slug up front so even the 404
   // head carries a stable URL.
@@ -54,9 +50,12 @@ export async function buildGroupMetadata({
       revalidate: ANON_SSR_REVALIDATE_SECONDS,
     });
   } catch {
-    return { title: `${kindLabel} not found · Blue Collar Crypto` };
+    return { title: "Community not found · Blue Collar Crypto" };
   }
 
+  // Title-case kind word for the copy: a Hall says so; every other kind is
+  // a community.
+  const kindLabel = group.type === "hall" ? "Hall" : "Community";
   const title = `${group.name} · ${kindLabel} on the Floor`;
 
   const description =

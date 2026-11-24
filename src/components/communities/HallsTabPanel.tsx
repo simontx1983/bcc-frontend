@@ -1,39 +1,30 @@
 /**
- * /halls — directory of Halls (per §E3 + §G1).
+ * HallsTabPanel — Communities ▸ Halls (`/communities?tab=halls`, §E3 +
+ * §G1). The former /halls directory, moved under Communities (Site
+ * Structure A); /halls forwards here (src/lib/route-moves.ts).
  *
- * Server component. URL is the source of truth for the chain filter
- * and the page index — keeps Back/Forward + share-link working
- * without bolting on client-side router state.
+ * Server component. The URL is the source of truth for the chain filter
+ * and the page index — keeps Back/Forward + share-link working without
+ * bolting on client-side router state. Every link this panel builds
+ * keeps `tab=halls`.
  *
  * Filter UI: a strip of chain chips (All + the §B4 home-chain set).
- * Each chip links to `/halls?chain=…` so navigation is plain
- * <Link> hops; no client state needed.
  *
- * Pagination: backend exposes offset pagination (per §1.5) — we
- * render Prev / Next buttons that bump the `page` query param.
+ * Pagination: backend offset pagination (per §1.5) — Prev / Next links
+ * bump the `page` query param.
  *
- * Auth: anon allowed. When a session exists we forward the bearer so
+ * Auth: anon allowed. When a session exists the bearer is forwarded so
  * each item's `viewer_membership` block is populated.
  */
 
 import type { Route } from "next";
-import { getServerSession } from "next-auth";
 import Link from "next/link";
 
+import { hallsTabHref } from "@/components/communities/halls-tab-href";
 import { HIT_AREA_44 } from "@/components/feed/hitArea";
-import { authOptions } from "@/lib/auth";
-import { tokenFromSession } from "@/lib/api/client";
 import { humanizeCode } from "@/lib/api/errors";
 import { getHalls } from "@/lib/api/halls-endpoints";
 import type { HallItem } from "@/lib/api/types";
-
-interface PageProps {
-  // Next 15 App Router: searchParams is async per the routes contract.
-  searchParams: Promise<{
-    chain?: string;
-    page?: string;
-  }>;
-}
 
 interface ChainFilter {
   /** URL value; null = "All" (no filter). */
@@ -50,14 +41,15 @@ const CHAIN_FILTERS: ReadonlyArray<ChainFilter> = [
   { value: "solana",    label: "Solana" },
 ];
 
-export default async function HallsDirectoryPage({ searchParams }: PageProps) {
-  const params = await searchParams;
-  const chain = typeof params.chain === "string" && params.chain !== "" ? params.chain : null;
-  const page = clampPage(params.page);
-
-  const session = await getServerSession(authOptions);
-  const token = tokenFromSession(session);
-
+export async function HallsTabPanel({
+  chain,
+  page,
+  token,
+}: {
+  chain: string | null;
+  page: number;
+  token: string | null;
+}) {
   // Failure non-fatal: render an empty grid + a small error note. The
   // directory shouldn't 500 the whole page on a transient backend
   // hiccup; a refresh recovers.
@@ -85,32 +77,24 @@ export default async function HallsDirectoryPage({ searchParams }: PageProps) {
   const pagination = result?.pagination ?? null;
 
   return (
-    <main className="min-h-screen pb-24">
-      <section className="mx-auto max-w-6xl px-6 pt-12 sm:px-8">
-        <span className="bcc-mono text-[10px] tracking-[0.24em] text-bcc-text-secondary">
-          DIRECTORY · HALLS
-        </span>
-        <h1 className="bcc-stencil mt-2 text-5xl text-bcc-text md:text-6xl">
-          Halls
-        </h1>
+    <>
+      <section className="mx-auto mt-8 max-w-[1440px] px-6 sm:px-8">
         {/*
-          Was: "Pick your home Hall from your settings." There is no
-          /settings screen, and no settings surface sets a primary Hall
-          either — the control lives on each Hall's own page, next to Join.
-          The copy now points at the affordance that actually exists.
+          Set a primary Hall from that Hall's own page, next to Join; there
+          is no settings surface for it.
         */}
-        <p className="mt-3 max-w-2xl font-serif text-lg text-bcc-text-secondary">
+        <p className="max-w-2xl font-serif text-bcc-text-secondary">
           Per-chain rooms where members organize, hang, and bias their
           feeds. Open a Hall to join it, and set one as your primary from
           that Hall&rsquo;s page; you can hold membership in many.
         </p>
       </section>
 
-      <section className="mx-auto mt-8 max-w-6xl px-6 sm:px-8">
+      <section className="mx-auto mt-6 max-w-[1440px] px-6 sm:px-8">
         <ChainFilterStrip activeChain={chain} />
       </section>
 
-      <section className="mx-auto mt-6 max-w-6xl px-6 sm:px-8">
+      <section className="mx-auto mt-6 max-w-[1440px] px-6 sm:px-8">
         {fetchError !== null ? (
           <p role="alert" className="bcc-mono text-bcc-text-error">
             {fetchError}
@@ -123,11 +107,11 @@ export default async function HallsDirectoryPage({ searchParams }: PageProps) {
       </section>
 
       {pagination !== null && pagination.total_pages > 1 && (
-        <section className="mx-auto mt-8 max-w-6xl px-6 sm:px-8">
+        <section className="mx-auto mt-8 max-w-[1440px] px-6 sm:px-8">
           <Pagination chain={chain} pagination={pagination} />
         </section>
       )}
-    </main>
+    </>
   );
 }
 
@@ -143,9 +127,7 @@ function ChainFilterStrip({ activeChain }: { activeChain: string | null }) {
     <div className="flex flex-wrap items-center gap-x-2 gap-y-4">
       {CHAIN_FILTERS.map((filter) => {
         const isActive = filter.value === activeChain;
-        const href = (filter.value === null
-          ? "/halls"
-          : `/halls?chain=${encodeURIComponent(filter.value)}`) as Route;
+        const href = hallsTabHref({ chain: filter.value });
         return (
           <Link
             key={filter.label}
@@ -180,7 +162,8 @@ function HallsGrid({ items }: { items: HallItem[] }) {
 
 function HallCard({ item }: { item: HallItem }) {
   // Server-supplied path → typedRoutes-safe via Route cast (same pattern
-  // as CardFactory's `links.self`).
+  // as CardFactory's `links.self`). The server still says /halls/{slug},
+  // which forwards to /communities/{slug}.
   const href = item.links.self as Route;
 
   return (
@@ -286,14 +269,6 @@ function Pagination({
   pagination: { page: number; total_pages: number };
 }) {
   const { page, total_pages } = pagination;
-  const baseQuery = chain !== null ? `chain=${encodeURIComponent(chain)}` : "";
-
-  const buildHref = (target: number): Route => {
-    const parts: string[] = [];
-    if (baseQuery !== "") parts.push(baseQuery);
-    parts.push(`page=${target}`);
-    return `/halls?${parts.join("&")}` as Route;
-  };
 
   const hasPrev = page > 1;
   const hasNext = page < total_pages;
@@ -302,7 +277,7 @@ function Pagination({
     <nav className="flex items-center justify-between" aria-label="Pagination">
       {hasPrev ? (
         <Link
-          href={buildHref(page - 1)}
+          href={hallsTabHref({ chain, page: page - 1 })}
           rel="prev"
           className="bcc-mono text-bcc-text-secondary hover:underline"
         >
@@ -318,7 +293,7 @@ function Pagination({
 
       {hasNext ? (
         <Link
-          href={buildHref(page + 1)}
+          href={hallsTabHref({ chain, page: page + 1 })}
           rel="next"
           className="bcc-mono text-bcc-text-secondary hover:underline"
         >
@@ -329,15 +304,4 @@ function Pagination({
       )}
     </nav>
   );
-}
-
-// ─────────────────────────────────────────────────────────────────────
-// Helpers
-// ─────────────────────────────────────────────────────────────────────
-
-function clampPage(raw: string | undefined): number {
-  if (typeof raw !== "string") return 1;
-  const n = Number.parseInt(raw, 10);
-  if (!Number.isFinite(n) || n < 1) return 1;
-  return n;
 }

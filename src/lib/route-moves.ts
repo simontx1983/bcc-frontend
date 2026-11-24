@@ -23,6 +23,13 @@
  *   - /validators   → /explore (Explore ▸ Validators is that page, moved)
  *   - /mentors      → /members/mentors
  *
+ * …and Communities = places you join, Halls included:
+ *   - /halls        → /communities?tab=halls (Communities ▸ Halls; a
+ *                     `?chain=` / `?page=` on the old link is kept, and
+ *                     the destination's own `tab=halls` wins)
+ *   - /halls/:slug  → /communities/:slug (a Hall's slug IS its group
+ *                     slug, so this is 1:1; one Hall page)
+ *
  * The server still emits some of these old paths in links (notification
  * fallbacks, search results), which is why they forward rather than 404.
  */
@@ -68,6 +75,8 @@ const STRUCTURE_A_MOVES: RouteMove[] = [
   { source: "/directory", destination: "/explore", permanent: true },
   { source: "/validators", destination: "/explore", permanent: true },
   { source: "/mentors", destination: "/members/mentors", permanent: true },
+  { source: "/halls", destination: "/communities?tab=halls", permanent: true },
+  { source: "/halls/:slug", destination: "/communities/:slug", permanent: true },
 ];
 
 export const ROUTE_MOVES: readonly RouteMove[] = [...SETTINGS_MOVES, ...STRUCTURE_A_MOVES];
