@@ -1,14 +1,14 @@
 "use client";
 
 import { ChevronLeft, Plus } from "lucide-react";
-import type { Route } from "next";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
+import { Fragment } from "react";
 
 import { NewPostTrigger } from "@/components/composer/NewPostTrigger";
 import { CopyrightMark } from "@/components/layout/CopyrightMark";
-import { LEGAL_LINKS, QUICK_LINKS, primaryNavFor } from "@/components/layout/nav-items";
+import { LEGAL_LINKS, NavIcon, navGroupsFor } from "@/components/layout/nav-items";
 
 function ChevronIcon({ collapsed }: { collapsed: boolean }) {
   return (
@@ -31,7 +31,7 @@ export function LeftSidebar({ collapsed, onToggle }: LeftSidebarProps) {
   // Session is resolved server-side and seeded into SessionProvider (see
   // SiteHeader) — authed/anon on first render, no loading branch needed.
   const { data: session } = useSession();
-  const handle = session?.user?.handle ?? null;
+  const signedIn = session !== null && session !== undefined;
 
   const iconOnlyItem: React.CSSProperties = {
     justifyContent: "center",
@@ -43,73 +43,83 @@ export function LeftSidebar({ collapsed, onToggle }: LeftSidebarProps) {
   return (
     <div className="bcc-sidebar-content" style={{ padding: 0 }}>
 
-      {/* ── Compose button ── */}
-      <div className="bcc-sidebar-pin-top" style={{ padding: collapsed ? "12px 8px 8px" : "12px 12px 8px" }}>
-        {collapsed ? (
-          <NewPostTrigger className="bcc-btn-icon" ariaLabel="New Post" title="New Post"
-            style={{ width: 36, height: 36, background: "var(--bcc-accent)", color: "var(--bcc-on-accent)", borderRadius: "var(--bcc-radius-md)", margin: "0 auto", display: "flex" }}
-          >
-            <Plus size={14} strokeWidth={2.2} aria-hidden />
-          </NewPostTrigger>
-        ) : (
-          <NewPostTrigger className="bcc-btn bcc-btn-primary" style={{ width: "100%", justifyContent: "center" }}>
-            <Plus size={14} strokeWidth={2.2} aria-hidden />
-            New Post
-          </NewPostTrigger>
-        )}
-      </div>
+      {/* ── Compose button — members only: a guest can't post ── */}
+      {signedIn && (
+        <div className="bcc-sidebar-pin-top" style={{ padding: collapsed ? "12px 8px 8px" : "12px 12px 8px" }}>
+          {collapsed ? (
+            <NewPostTrigger className="bcc-btn-icon" ariaLabel="New Post" title="New Post"
+              style={{ width: 36, height: 36, background: "var(--bcc-accent)", color: "var(--bcc-on-accent)", borderRadius: "var(--bcc-radius-md)", margin: "0 auto", display: "flex" }}
+            >
+              <Plus size={14} strokeWidth={2.2} aria-hidden />
+            </NewPostTrigger>
+          ) : (
+            <NewPostTrigger className="bcc-btn bcc-btn-primary" style={{ width: "100%", justifyContent: "center" }}>
+              <Plus size={14} strokeWidth={2.2} aria-hidden />
+              New Post
+            </NewPostTrigger>
+          )}
+        </div>
+      )}
 
       {/* ── Scrollable nav region ── */}
       <div className="bcc-sidebar-scroll">
 
+        {/* The sections, then (signed in) the viewer's own pages, split
+            by a dashed rule. One landmark for both groups. */}
         <nav aria-label="Primary navigation" style={{ padding: "4px 0" }}>
-          {primaryNavFor(session !== null && session !== undefined).map(item => {
-            const isActive = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`bcc-nav-item${isActive ? " active" : ""}`}
-                aria-current={isActive ? "page" : undefined}
-                title={collapsed ? item.label : undefined}
-                style={collapsed ? iconOnlyItem : undefined}
-              >
-                {/* The tour target sits on this inner span, not the Link
-                    itself — .bcc-nav-item is a full-width flex row, so a
-                    selector on the Link spotlighted the whole row width
-                    instead of hugging the icon+label content. */}
-                <span
-                  data-bcc-tour={item.href === "/watching" ? "nav.watching" : undefined}
-                  style={{ display: "inline-flex", alignItems: "center", gap: 12 }}
-                >
-                  <span className="bcc-nav-item-icon">{item.icon}</span>
-                  {!collapsed && item.label}
-                </span>
-              </Link>
-            );
-          })}
-        </nav>
-
-        {/* Quick links — authed only (viewer-scoped /me/* + settings routes) */}
-        {!collapsed && handle !== null && (
-          <>
-            <div className="bcc-nav-divider" />
-            <p className="bcc-nav-section">Quick links</p>
-            <nav aria-label="Quick links">
-              {QUICK_LINKS.map(item => {
-                const isActive = pathname.startsWith(item.href);
+          {navGroupsFor(signedIn).map((group, g) => (
+            <Fragment key={group[0]?.href ?? g}>
+              {g > 0 && <hr className="mx-4 my-2 border-0 border-t border-dashed border-bcc-border" />}
+              {group.map(item => {
+                const isActive = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
                 return (
-                  <Link key={item.href} href={item.href as Route}
+                  <Link
+                    key={item.href}
+                    href={item.href}
                     className={`bcc-nav-item${isActive ? " active" : ""}`}
                     aria-current={isActive ? "page" : undefined}
-                    style={{ fontSize: 12 }}
+                    title={collapsed ? item.label : undefined}
+                    style={collapsed ? iconOnlyItem : undefined}
                   >
-                    {item.label}
+                    {/* The tour target sits on this inner span, not the Link
+                        itself — .bcc-nav-item is a full-width flex row, so a
+                        selector on the Link spotlighted the whole row width
+                        instead of hugging the icon+label content. */}
+                    <span
+                      data-bcc-tour={item.href === "/watching" ? "nav.watching" : undefined}
+                      style={{ display: "inline-flex", alignItems: "center", gap: 12 }}
+                    >
+                      <span className="bcc-nav-item-icon"><NavIcon Icon={item.Icon} /></span>
+                      {!collapsed && item.label}
+                    </span>
+                    {/* The space keeps the accessible name "Explore pages",
+                        not "Explorepages"; the flex row doesn't draw it. */}
+                    {!collapsed && item.sub !== null && (
+                      <>
+                        {" "}
+                        <span className="bcc-mono ml-auto text-[10px] font-normal normal-case tracking-[0.08em] text-bcc-text-secondary">
+                          {item.sub}
+                        </span>
+                      </>
+                    )}
                   </Link>
                 );
               })}
-            </nav>
-          </>
+            </Fragment>
+          ))}
+        </nav>
+
+        {/* Guests: the way in. The header carries the same pair at every
+            width, so the icon rail leaves them out rather than squeeze. */}
+        {!signedIn && !collapsed && (
+          <div style={{ padding: "8px 16px", display: "flex", flexDirection: "column", gap: 8 }}>
+            <Link href="/signup" className="bcc-btn bcc-btn-primary min-h-[44px] w-full">
+              Join the Floor
+            </Link>
+            <Link href="/login" className="bcc-btn bcc-btn-ghost min-h-[44px] w-full">
+              Sign in
+            </Link>
+          </div>
         )}
 
         {/* Copyright + legal links — always shown, small and faint */}

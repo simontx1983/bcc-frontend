@@ -32,6 +32,12 @@ declare module "next-auth" {
      * carried through the JWT until next login.
      */
     inGoodStanding: boolean;
+    /**
+     * `can_moderate` from the auth response (bcc-trust #876). DISPLAY
+     * ONLY: shows the avatar menu's Admin group; the server re-checks
+     * every admin request. Absent when the backend did not send it.
+     */
+    canModerate?: boolean;
   }
 
   interface Session {
@@ -40,6 +46,8 @@ declare module "next-auth" {
       handle: string;
       /** Mirrors User.inGoodStanding; drives the SiteFooter stamp. */
       inGoodStanding: boolean;
+      /** Mirrors User.canModerate. Display only; absent stays absent. */
+      canModerate?: boolean;
       /**
        * HMAC of the user id under a server-only key: the only identifier
        * analytics ever receives. Null when the key is not configured.
@@ -65,5 +73,7 @@ declare module "next-auth/jwt" {
     bccTokenExpiresAt: number;
     /** §I1 chrome signal — carried through the JWT until next login. */
     inGoodStanding: boolean;
+    /** Display only, carried until next login; absent when not sent. */
+    canModerate?: boolean;
   }
 }

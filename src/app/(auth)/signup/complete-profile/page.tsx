@@ -37,6 +37,7 @@ import { AuthCard } from "@/components/auth/AuthCard";
 import { noteSignupCompleted, signupMethodForProvider } from "@/lib/analytics/posthog";
 import { oauthComplete } from "@/lib/api/auth-endpoints";
 import { BccApiError } from "@/lib/api/types";
+import { canModerateCredential } from "@/lib/auth/can-moderate";
 import { checkHandleLocal, formatHandleHint } from "@/lib/auth/handleValidation";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -116,6 +117,7 @@ function CompleteProfileContent() {
         token:            jwt.token,
         expires_in:       String(jwt.expires_in),
         in_good_standing: String(jwt.in_good_standing),
+        ...canModerateCredential(jwt),
         redirect:         false,
       });
 

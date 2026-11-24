@@ -31,6 +31,8 @@ vi.mock("next/image", () => ({ default: () => null }));
 vi.mock("@/hooks/useIsMobile", () => ({ useIsMobile: () => false }));
 vi.mock("@/hooks/useNotifications", () => ({ useUnreadCount: () => ({ data: { unread_count: 0 } }) }));
 vi.mock("@/hooks/useUnreadMessageCount", () => ({ useUnreadMessageCount: () => 0 }));
+// MainOffcanvas / SiteHeader read the open-case count from /me/badges.
+vi.mock("@/hooks/useOpenCaseCount", () => ({ useOpenCaseCount: () => null }));
 vi.mock("@/hooks/useUser", () => ({ useUser: () => ({ data: undefined }) }));
 vi.mock("@/components/identity/Avatar", () => ({ Avatar: () => null }));
 vi.mock("@/components/messages/ConversationsPanel", () => ({ ConversationsPanel: () => null }));

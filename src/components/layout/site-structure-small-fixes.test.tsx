@@ -4,8 +4,9 @@
  *   2. the landing's floor peek leads to the (members-only) feed via sign-up;
  *   3. the Explore tabs' filter chips print option labels, not
  *      wire slugs, and the tier filter says "Elite" like the card chip;
- *   4. guests aren't shown Messages, Disputes or Watching (they bounce to
- *      /login), in either nav.
+ *   4. guests aren't shown Messages, Watching or My cases (they bounce to
+ *      /login), in either nav. Disputes left the primary nav for the
+ *      avatar's "My cases" in Site Structure A; it stays members-only.
  */
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -28,6 +29,7 @@ vi.mock("next/navigation", () => ({
 }));
 vi.mock("@/lib/env", () => ({ clientEnv: { BCC_API_URL: "https://wp.example" } }));
 vi.mock("@/hooks/useUser", () => ({ useUser: () => ({ data: undefined }) }));
+vi.mock("@/hooks/useOpenCaseCount", () => ({ useOpenCaseCount: () => null }));
 vi.mock("@/lib/auth/session-boundary", () => ({ endSession: vi.fn() }));
 vi.mock("@/components/identity/Avatar", () => ({ Avatar: () => null }));
 vi.mock("@/components/layout/RouteRail", () => ({ RouteRail: () => null }));
@@ -44,7 +46,7 @@ vi.mock("@/components/landing/LandingMagneticLink", () => ({
   LandingMagneticLink: ({ children, href }: { children?: ReactNode; href: string }) => <a href={href}>{children}</a>,
 }));
 
-const { primaryNavFor, PRIMARY_NAV } = await import("@/components/layout/nav-items");
+const { navGroupsFor, PRIMARY_NAV, MEMBER_NAV } = await import("@/components/layout/nav-items");
 const { MainOffcanvas } = await import("@/components/layout/offcanvas/MainOffcanvas");
 const { LeftSidebar } = await import("@/components/layout/LeftSidebar");
 const { HallCollectionsPanel } = await import("@/components/halls/HallChainContent");
@@ -70,29 +72,34 @@ afterEach(cleanup);
 const withQuery = (ui: ReactNode) =>
   render(<QueryClientProvider client={new QueryClient()}>{ui}</QueryClientProvider>);
 
-const SIGNED_IN_ONLY = ["Messages", "Disputes", "Watching"];
+const SIGNED_IN_ONLY = ["Messages", "Watching"];
 
 function primaryNavLabels(): string[] {
   const nav = screen.getByRole("navigation", { name: "Primary navigation" });
-  return within(nav).getAllByRole("link").map((a) => a.textContent?.trim() ?? "");
+  // The label sits in the row's first span; a sub-label ("your list") follows it.
+  return within(nav).getAllByRole("link").map((a) => a.firstElementChild?.textContent?.trim() ?? "");
 }
 
 describe("4. the nav hides signed-in-only pages from guests", () => {
-  it("primaryNavFor: everything for a member; no Messages, Disputes or Watching for a guest", () => {
-    expect(primaryNavFor(true)).toBe(PRIMARY_NAV);
-    const guest = primaryNavFor(false).map((item) => item.label);
+  it("navGroupsFor: both groups for a member; the four public sections for a guest", () => {
+    expect(navGroupsFor(true)).toEqual([PRIMARY_NAV, MEMBER_NAV]);
+    const guest = navGroupsFor(false).flat().map((item) => item.label);
     for (const label of SIGNED_IN_ONLY) expect(guest).not.toContain(label);
-    expect(guest).toEqual(["Home", "Halls", "Members", "Directory", "Communities", "Validators", "Mentors"]);
+    expect(guest).toEqual(["Home", "Explore", "Members", "Communities"]);
+    // Disputes is no primary item for anyone now; members reach it as My cases.
+    expect(navGroupsFor(true).flat().map((item) => item.label)).not.toContain("Disputes");
   });
 
   it("mobile menu: a guest doesn't see them, a member does", () => {
     session.data = null;
     render(<MainOffcanvas open onClose={() => {}} />);
     for (const label of SIGNED_IN_ONLY) expect(primaryNavLabels()).not.toContain(label);
+    expect(screen.queryByRole("link", { name: /My cases/ })).toBeNull();
     cleanup();
     session.data = { user: { handle: "anvil" } };
     render(<MainOffcanvas open onClose={() => {}} />);
     for (const label of SIGNED_IN_ONLY) expect(primaryNavLabels()).toContain(label);
+    expect(screen.getByRole("link", { name: "My cases" })).toHaveAttribute("href", "/disputes");
   });
 
   it("desktop sidebar: a guest doesn't see them, a member does", () => {

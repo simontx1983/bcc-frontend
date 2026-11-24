@@ -29,6 +29,7 @@ import { AuthCard } from "@/components/auth/AuthCard";
 import { OneTimeCodeInput } from "@/components/auth/OneTimeCodeInput";
 import { resend2faCode, verify2fa } from "@/lib/api/auth-endpoints";
 import { BccApiError } from "@/lib/api/types";
+import { canModerateCredential } from "@/lib/auth/can-moderate";
 import { safeCallbackPath } from "@/lib/auth/safe-callback";
 import {
   clearChallengeToken,
@@ -125,6 +126,7 @@ function TwoFactorContent() {
         token:            tokenResp.token,
         expires_in:       String(tokenResp.expires_in),
         in_good_standing: String(tokenResp.in_good_standing),
+        ...canModerateCredential(tokenResp),
         redirect:         false,
       });
       if (result?.ok) {

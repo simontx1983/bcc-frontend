@@ -19,7 +19,7 @@ import { describe, expect, it } from "vitest";
 
 import { ATTESTATION_COPY } from "@/lib/copy/trust-layer";
 import { presentationName } from "@/lib/format";
-import { QUICK_LINKS } from "@/components/layout/nav-items";
+import { YOU_ITEMS } from "@/components/layout/nav-items";
 
 const read = (p: string) => readFileSync(resolve(process.cwd(), p), "utf-8");
 /** Code only: comments may still explain history. */
@@ -37,7 +37,10 @@ const SURFACES: ReadonlyArray<readonly [string, string, string]> = [
   ["src/app/(main)/(app)/u/[handle]/opengraph-image.tsx", "Blue Collar Crypto member file", "Blue Collar Crypto operator file"],
   ["src/components/messages/ConversationsPanel.tsx", "every member has a file", "every operator has a file"],
   ["src/components/profile/panels/BackingPanel.tsx", "This member has no vouches yet", "no supporters yet"],
-  ["src/components/layout/SiteHeader.tsx", 'label: "Standing"', '"My Progression"'],
+  // The avatar menu and the phone Menu both draw nav-items' YOU_ITEMS
+  // since Site Structure A; SiteHeader keeps no copy of its own.
+  ["src/components/layout/nav-items.tsx", 'label: "Standing"', '"My Progression"'],
+  ["src/components/layout/SiteHeader.tsx", "YOU_ITEMS.map", '"My Progression"'],
   ["src/app/(main)/(app)/me/progression/page.tsx", "MEMBER &nbsp;//&nbsp; STANDING", "OPERATOR &nbsp;//&nbsp; STANDING"],
   ["src/app/(main)/(app)/me/reliability/page.tsx", "MEMBER &nbsp;//&nbsp; RELIABILITY", "OPERATOR &nbsp;//&nbsp; RELIABILITY"],
   ["src/app/(main)/(app)/members/mentors/page.tsx", "Veteran members in Trusted standing", "Veteran operators"],
@@ -87,8 +90,8 @@ describe("F-579 vocabulary", () => {
     expect(code("src/components/entity/EntityTabs.tsx")).toContain('{ key: "backing",  label: ATTESTATION_COPY.supporters_tab }');
   });
 
-  it("the quick link to /me/progression is called Standing", () => {
-    expect(QUICK_LINKS.find((l) => l.href === "/me/progression")?.label).toBe("Standing");
+  it("the You item for /me/progression is called Standing", () => {
+    expect(YOU_ITEMS.find((l) => l.href === "/me/progression")?.label).toBe("Standing");
   });
 
   it("a person with no usable name or handle reads as MEMBER", () => {
