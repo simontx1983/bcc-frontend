@@ -1056,6 +1056,26 @@
     display: flex;
   }
 
+  /* The guest Sign Up + Sign In pair. Below 390px (a 360px phone) the brand
+     plus the pair is a few px wider than the fixed header, which would clip
+     Sign In at the right edge, so the pair tightens there: a smaller gap and
+     less side padding. Both buttons stay at every width, and HIT_AREA_44
+     keeps each tap target 44px tall whatever the padding. Scoped to this
+     pair: other .bcc-btn-sm buttons are unchanged. */
+  .bcc-header-guest-actions {
+    display: flex;
+    gap: 8px;
+  }
+  @media (max-width: 389px) {
+    .bcc-header-guest-actions {
+      gap: 4px;
+    }
+    .bcc-header-guest-actions .bcc-btn-sm {
+      padding-left: 8px;
+      padding-right: 8px;
+    }
+  }
+
   /* bcc-header-actions — right-side icon cluster */
   .bcc-header-actions {
     display: flex;

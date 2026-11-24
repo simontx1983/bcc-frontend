@@ -15,6 +15,9 @@
  * /me/badges payload are mocked.
  */
 
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -94,6 +97,29 @@ describe("1. a guest's header", () => {
     for (const el of [signIn, signUp]) expect(el.className).toContain("before:h-11");
     expect(screen.queryByRole("button", { name: /^User menu/ })).toBeNull();
     expect(screen.queryByRole("button", { name: /^Messages/ })).toBeNull();
+  });
+
+  /**
+   * At 360px the brand plus the pair is a few px wider than the fixed header,
+   * which would clip Sign In. jsdom can't evaluate media queries, so this pins
+   * the pieces: the pair carries the class (not an inline gap a stylesheet
+   * can't override), and globals.css tightens exactly that pair below 390px.
+   */
+  it("the pair is styled by class, and tightens below 390px without dropping either button", () => {
+    state.session = null;
+    state.mobile = true;
+    render(<SiteHeader />);
+    const pair = screen.getByRole("link", { name: "Sign In" }).parentElement as HTMLElement;
+    expect(pair.className).toContain("bcc-header-guest-actions");
+    expect(pair.getAttribute("style") ?? "").not.toMatch(/gap/);
+    expect(pair).toContainElement(screen.getByRole("link", { name: "Sign Up" }));
+
+    const css = readFileSync(join(process.cwd(), "src", "app", "globals.css"), "utf8");
+    const narrow = /@media \(max-width: 389px\) \{([\s\S]*?)\r?\n {2}\}/.exec(css)?.[1] ?? "";
+    expect(narrow).toMatch(/\.bcc-header-guest-actions \{\s*gap: 4px;/);
+    expect(narrow).toMatch(/\.bcc-header-guest-actions \.bcc-btn-sm \{\s*padding-left: 8px;\s*padding-right: 8px;/);
+    // Neither button is hidden at that width.
+    expect(narrow).not.toMatch(/display:\s*none/);
   });
 });
 

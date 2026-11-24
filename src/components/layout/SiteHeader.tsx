@@ -1035,7 +1035,7 @@ export function SiteHeader() {
         ) : (
           // Both at every width (Structure A): phones used to get Sign Up
           // only, with Sign In one level down in the Menu.
-          <div style={{ display: "flex", gap: 8 }}>
+          <div className="bcc-header-guest-actions">
             <Link href="/signup" className={`${HIT_AREA_44} bcc-btn bcc-btn-sm bcc-btn-primary`}>
               Sign Up
             </Link>
