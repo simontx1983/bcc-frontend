@@ -612,7 +612,7 @@ export interface Card {
    */
   reputation_tier_label: string | null;
   /**
-   * Group-type kicker ("HOLDER COMMUNITY", "CHAIN HALL", …) — `community`
+   * Group-type kicker ("CHAIN HALL", "HOLDER GROUP", …; §3.2.4) — `community`
    * cards only.
    *
    * Until v1.57 this rode on `tier_label`, overloading a trust field to

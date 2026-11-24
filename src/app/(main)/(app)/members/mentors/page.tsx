@@ -65,10 +65,15 @@ function MentorsPageContent() {
   // responsive; the URL follows after a short debounce.
   const urlQ = useMemo(() => searchParams.get("q") ?? "", [searchParams]);
   const [localQ, setLocalQ] = useState(urlQ);
+  // The q the URL holds now. It follows the URL itself (Back / Forward, a
+  // link), not only our own writes: otherwise a q that ARRIVED from the URL
+  // looked like typing, and the debounce rewrote the URL 300 ms later with
+  // page 1, dropping ?page= and overwriting that history entry.
+  const lastUrlQRef = useRef<string>(urlQ);
   useEffect(() => {
+    lastUrlQRef.current = urlQ;
     setLocalQ(urlQ);
   }, [urlQ]);
-  const lastUrlQRef = useRef<string>(urlQ);
   useEffect(() => {
     if (localQ === lastUrlQRef.current) return;
     const t = window.setTimeout(() => {
