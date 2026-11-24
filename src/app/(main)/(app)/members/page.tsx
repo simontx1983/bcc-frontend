@@ -19,11 +19,13 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, Suspense } from "react";
 
 import { RouteRail } from "@/components/layout/RouteRail";
+import { SectionHeader } from "@/components/layout/SectionHeader";
+import { RankTrustNote } from "@/components/members/RankTrustNote";
 import { ScopedSearchField } from "@/components/search/ScopedSearchField";
 import { SearchEverywhereLink } from "@/components/search/SearchEverywhereLink";
 import { CardGrid } from "@/components/cards/CardGrid";
 import { PagerNav } from "@/components/ui/PagerNav";
-import { SectionTabs } from "@/components/ui/SectionTabs";
+import { SectionTabs, withActiveCount } from "@/components/ui/SectionTabs";
 import { useMembers } from "@/hooks/useMembers";
 import { LoadFailure } from "@/components/ui/LoadFailure";
 import { humanizeCode } from "@/lib/api/errors";
@@ -34,7 +36,7 @@ import type {
   MembersVerifiedAxis,
 } from "@/lib/api/types";
 
-import { MEMBERS_TABS } from "./members-tabs";
+import { MEMBERS_SECTION, MEMBERS_TABS } from "./members-tabs";
 
 const ZERO_TYPE_COUNTS: MembersTypeCounts = {
   validator: 0,
@@ -234,21 +236,16 @@ function MembersPageContent() {
     <main className="bcc-page-wide pb-24">
       <RouteRail kicker={"FLOOR \u00a0//\u00a0 MEMBERS"} label={"FILE INDEX \u00a0//\u00a0 ALL MEMBERS"} />
 
-      <header className="mx-auto max-w-[1560px] px-4 sm:px-7 pt-12">
-        <p className="bcc-mono text-bcc-text-safety">THE ROSTER</p>
-        <h1
-          className="bcc-stencil mt-3 text-bcc-text leading-[0.95]"
-          style={{ fontSize: "clamp(2.5rem, 6.5vw, 5.5rem)" }}
-        >
-          Every member on the floor.
-        </h1>
-        <p className="mt-4 max-w-2xl font-serif text-lg leading-relaxed text-bcc-text-secondary">
-          Members in good standing, sorted by who joined most recently. Search
-          by handle or name. Click anyone to read their file.
-        </p>
-      </header>
+      <SectionHeader
+        eyebrow={MEMBERS_SECTION.eyebrow}
+        title={MEMBERS_SECTION.title}
+        lede={MEMBERS_SECTION.lede}
+      />
 
-      <SectionTabs label="Members sections" tabs={MEMBERS_TABS} />
+      <SectionTabs
+        label="Members sections"
+        tabs={withActiveCount(MEMBERS_TABS, "/members", query.isSuccess ? query.data.pagination.total : undefined)}
+      />
 
       <section className="mx-auto mt-10 flex max-w-[1560px] flex-col gap-6 px-4 sm:px-7">
         {/* Scoped to members (Structure A §9). GET /members caps q at 64. */}
@@ -273,6 +270,7 @@ function MembersPageContent() {
           onToggleVerified={toggleVerifiedAxis}
           onClear={clearRefinement}
         />
+        <RankTrustNote />
       </section>
 
       <section className="mx-auto mt-8 max-w-[1560px] px-4 sm:px-7">

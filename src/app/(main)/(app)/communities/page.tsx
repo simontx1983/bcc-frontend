@@ -42,10 +42,12 @@ import { getGroupsDiscovery } from "@/lib/api/groups-discovery-endpoints";
 import { COMMUNITY_CHAIN_CATALOG } from "@/lib/communities/chain-catalog";
 import { CommunityCardGrid } from "@/components/communities/CommunityCardGrid";
 import { HALLS_TAB_HREF } from "@/components/communities/halls-tab-href";
-import { HallsTabPanel } from "@/components/communities/HallsTabPanel";
+import { HallsTabPanel, loadHalls } from "@/components/communities/HallsTabPanel";
 import { MyGroupInvitations } from "@/components/communities/MyGroupInvitations";
 import { HIT_AREA_44 } from "@/components/feed/hitArea";
-import { SectionTabs, type SectionTab } from "@/components/ui/SectionTabs";
+import { RouteRail } from "@/components/layout/RouteRail";
+import { SectionHeader } from "@/components/layout/SectionHeader";
+import { SectionTabs, withActiveCount, type SectionTab } from "@/components/ui/SectionTabs";
 import type { GroupsDiscoveryPagination } from "@/lib/api/types";
 
 interface PageProps {
@@ -60,6 +62,13 @@ interface PageProps {
 }
 
 const ALL_TAB_HREF = "/communities" as Route;
+
+/** Communities' section header (Site Structure A §10): the menu word as title. */
+const COMMUNITIES_SECTION = {
+  eyebrow: "COMMUNITIES · GROUPS",
+  title: "Communities",
+  lede: "Places you join: chain Halls, holder and delegator groups, and member-made rooms.",
+} as const;
 
 const COMMUNITIES_TABS: readonly SectionTab[] = [
   { label: "All", href: ALL_TAB_HREF },
@@ -79,11 +88,16 @@ export default async function CommunitiesDiscoveryPage({ searchParams }: PagePro
     // slug, passed through (the server answers an unknown one with an
     // empty list).
     const hallsChain = typeof params.chain === "string" && params.chain !== "" ? params.chain : null;
+    const halls = await loadHalls({ chain: hallsChain, page, token });
     return (
       <main className="bcc-page-wide min-h-screen pb-24">
         <CommunitiesHeader isAnon={isAnon} />
-        <SectionTabs label="Communities sections" tabs={COMMUNITIES_TABS} current={HALLS_TAB_HREF} />
-        <HallsTabPanel chain={hallsChain} page={page} token={token} />
+        <SectionTabs
+          label="Communities sections"
+          tabs={withActiveCount(COMMUNITIES_TABS, HALLS_TAB_HREF, halls.result?.pagination.total)}
+          current={HALLS_TAB_HREF}
+        />
+        <HallsTabPanel chain={hallsChain} load={halls} />
       </main>
     );
   }
@@ -127,7 +141,11 @@ export default async function CommunitiesDiscoveryPage({ searchParams }: PagePro
     // card grid needs the full viewport to go multi-column.
     <main className="bcc-page-wide min-h-screen pb-24">
       <CommunitiesHeader isAnon={isAnon} />
-      <SectionTabs label="Communities sections" tabs={COMMUNITIES_TABS} current={ALL_TAB_HREF} />
+      <SectionTabs
+        label="Communities sections"
+        tabs={withActiveCount(COMMUNITIES_TABS, ALL_TAB_HREF, pagination?.total)}
+        current={ALL_TAB_HREF}
+      />
 
       {/* F-272: the member's open invitations — the only way into a secret
           community (user decision: here, not Settings). Renders nothing
@@ -187,32 +205,20 @@ export default async function CommunitiesDiscoveryPage({ searchParams }: PagePro
 // Sub-components
 // ─────────────────────────────────────────────────────────────────────
 
-/** The section header both tabs share: title, intro and the create CTA. */
+/** The rail + section header both tabs share; the create CTA is its action. */
 function CommunitiesHeader({ isAnon }: { isAnon: boolean }) {
   return (
-    <section className="mx-auto max-w-[1440px] px-6 pt-12 sm:px-8">
-      <div className="flex flex-wrap items-start justify-between gap-6">
-        {/* basis-[20rem]: below ~20rem of free row the CTA wraps under the
-            intro instead of squeezing it to ~100px, one or two words per
-            line, at 375px (M-gr7, UX scan 2026-11-12). */}
-        <div className="min-w-0 flex-1 basis-[20rem]">
-          <span className="bcc-mono text-[10px] tracking-[0.24em] text-bcc-text-secondary">
-            DISCOVERY · COMMUNITIES
-          </span>
-          <h1 className="bcc-stencil mt-2 text-4xl text-bcc-text sm:text-5xl md:text-6xl">
-            Communities
-          </h1>
-          <p className="mt-3 max-w-2xl font-serif text-lg text-bcc-text-secondary">
-            Active rooms across the floor. <span className="bcc-mono">HOLDERS</span> are NFT-gated,
-            delegator rooms are for a validator&apos;s delegators, Halls gather by chain, and the rest
-            are member-made: some open to anyone, some by request. Verified rooms rank first, then
-            warmest, then largest — so you see the rooms worth walking into, not the dead ones.
-          </p>
-        </div>
-
-        <CreateCommunityCta isAnon={isAnon} />
-      </div>
-    </section>
+    <>
+      <RouteRail kicker={"FLOOR \u00a0//\u00a0 COMMUNITIES"} label={"FILE INDEX \u00a0//\u00a0 ALL COMMUNITIES"} />
+      <SectionHeader
+        eyebrow={COMMUNITIES_SECTION.eyebrow}
+        title={COMMUNITIES_SECTION.title}
+        lede={COMMUNITIES_SECTION.lede}
+        action={<CreateCommunityCta isAnon={isAnon} />}
+        // The communities grid runs at 1440px; the header lines up with it.
+        containerClassName="max-w-[1440px] px-6 sm:px-8"
+      />
+    </>
   );
 }
 

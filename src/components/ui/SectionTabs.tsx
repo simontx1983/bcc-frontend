@@ -35,6 +35,20 @@ export interface SectionTab {
   count?: number;
 }
 
+/**
+ * The tabs with `count` set on the active one, when the page has a count
+ * for it (its list's `total`). The other tabs get none: a count there
+ * would cost a read per tab.
+ */
+export function withActiveCount(
+  tabs: readonly SectionTab[],
+  activeHref: Route,
+  count: number | undefined,
+): readonly SectionTab[] {
+  if (count === undefined) return tabs;
+  return tabs.map((tab) => (tab.href === activeHref ? { ...tab, count } : tab));
+}
+
 export function SectionTabs({
   label,
   tabs,
