@@ -69,6 +69,8 @@ const SURFACES: ReadonlyArray<readonly [string, string, string]> = [
   // The follow-up: the /directory and /validators rails, and a member's meta description.
   ["src/app/(main)/(app)/directory/page.tsx", "FILE INDEX \\u00a0//\\u00a0 ALL PAGES", "ALL OPERATORS"],
   ["src/app/(main)/(app)/validators/page.tsx", "FILE INDEX \\u00a0//\\u00a0 ALL VALIDATORS", "STAKING OPERATORS"],
+  ["src/app/(main)/(app)/directory/page.tsx", "Every page on the floor.", "Every operator on the floor."],
+  ["src/app/(main)/(app)/members/page.tsx", "Every member on the floor.", "Every operator on the floor."],
   ["src/app/(main)/(app)/u/[handle]/page.tsx", "a member on the Floor: trust, identity, and reputation in crypto.", "reputation for crypto operators"],
   ["src/lib/profile/load-member-subpage.ts", "a member on the Floor: trust, identity, and reputation in crypto.", "reputation for crypto operators"],
 ];

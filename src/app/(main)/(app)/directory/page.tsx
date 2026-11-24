@@ -131,7 +131,7 @@ function DirectoryPageContent() {
           className="bcc-stencil mt-3 text-bcc-text leading-[0.95]"
           style={{ fontSize: "clamp(2.5rem, 6.5vw, 5.5rem)" }}
         >
-          Every operator on the floor.
+          Every page on the floor.
         </h1>
         <p className="mt-4 max-w-2xl font-serif text-lg leading-relaxed text-bcc-text-secondary">
           Browse every validator, project, and creator graded on the floor.
