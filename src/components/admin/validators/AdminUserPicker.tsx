@@ -7,7 +7,8 @@
  * display name, or an exact email or login.
  *
  * Results show avatar, display name and @handle (AdminUserChip). Never an
- * email or login: the route never returns either.
+ * email or login: the route never returns either. A search route the
+ * server doesn't have yet (`rest_no_route`) says so instead of "try again".
  *
  * The ARIA combobox idiom of MentionPopover / GlobalSearch: the input
  * keeps focus and carries role="combobox", aria-expanded, aria-controls
@@ -20,9 +21,11 @@
 
 import { useEffect, useId, useRef, useState, type RefObject } from "react";
 
+import { ADMIN_TOOL_UNAVAILABLE_COPY } from "@/components/admin/validators/AdminReadFailure";
 import { AdminUserChip } from "@/components/admin/validators/AdminUserChip";
 import { ADMIN_GHOST_BUTTON_CLASS, ADMIN_INPUT_CLASS } from "@/components/admin/validators/form-classes";
 import { useAdminUserSearch } from "@/hooks/useAdminValidators";
+import { isAdminToolUnavailable } from "@/lib/api/admin-errors";
 import type { AdminUserRef } from "@/lib/api/types";
 
 export interface AdminUserPickerProps {
@@ -165,7 +168,9 @@ export function AdminUserPicker({
         {open &&
           (search.isError ? (
             <p className="bcc-mono px-3 py-3 text-[11px] text-bcc-text-error">
-              Couldn&apos;t search members. Try again.
+              {isAdminToolUnavailable(search.error)
+                ? ADMIN_TOOL_UNAVAILABLE_COPY
+                : "Couldn't search members. Try again."}
             </p>
           ) : search.data === undefined ? (
             <p className="bcc-mono px-3 py-3 text-[11px] text-bcc-text-secondary">Searching…</p>

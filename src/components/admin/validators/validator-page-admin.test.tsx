@@ -63,7 +63,10 @@ vi.mock("@/lib/api/admin-validator-endpoints", () => ({
   cancelValidatorOwnerLink: (...a: unknown[]) => api.cancel(...a),
 }));
 
-import { ADMIN_ID_NOT_FOUND_COPY } from "@/components/admin/validators/AdminReadFailure";
+import {
+  ADMIN_ID_NOT_FOUND_COPY,
+  ADMIN_TOOL_UNAVAILABLE_COPY,
+} from "@/components/admin/validators/AdminReadFailure";
 import { LINK_COPY } from "@/components/admin/validators/LinkOwnerForm";
 import { RESTORED_OWNER_COPY } from "@/components/admin/validators/OwnerNotice";
 import { OWNER_COPY } from "@/components/admin/validators/OwnerPanel";
@@ -440,6 +443,20 @@ describe("Link an owner — the full flow", () => {
     expect(screen.getByLabelText("MEMBER")).toHaveFocus();
   });
 
+  it("a rest_no_route on the user search says the tool isn't on the server yet, with no Retry", async () => {
+    api.getPage.mockResolvedValue(rel());
+    renderPage();
+    await ownership();
+    api.search.mockRejectedValue(apiError("rest_no_route", 404));
+    fireEvent.change(screen.getByLabelText("MEMBER"), { target: { value: "lin" } });
+
+    const listbox = await screen.findByRole("listbox", { name: "Members" });
+    expect(await within(listbox).findByText(ADMIN_TOOL_UNAVAILABLE_COPY)).toBeInTheDocument();
+    expect(within(listbox).queryByText(/couldn't search/i)).toBeNull();
+    expect(within(listbox).queryAllByRole("button")).toHaveLength(0);
+    expect(screen.queryByText(RAW)).toBeNull();
+  });
+
   it("an empty form names every missing field and opens no dialog", async () => {
     api.getPage.mockResolvedValue(rel());
     renderPage();
@@ -590,6 +607,19 @@ describe("Step-up — errors keyed on code and reason", () => {
     expect(busy).not.toHaveAttribute("disabled");
     fireEvent.click(busy);
     expect(api.start).toHaveBeenCalledTimes(1);
+  });
+
+  it("a rest_no_route on the step-up start says the tool isn't on the server yet, with no Retry", async () => {
+    await openStaffRevokeDialog();
+    api.start.mockRejectedValue(apiError("rest_no_route", 404));
+    fireEvent.change(screen.getByLabelText("CURRENT PASSWORD"), { target: { value: PASSWORD } });
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+
+    const line = await screen.findByText(ADMIN_TOOL_UNAVAILABLE_COPY);
+    expect(line).toHaveAttribute("role", "alert");
+    expect(screen.queryByText(STEP_UP_COPY.generic)).toBeNull();
+    expect(screen.queryByRole("button", { name: /retry|try again/i })).toBeNull();
+    expect(screen.queryByText(RAW)).toBeNull();
   });
 
   it("the code field takes digits only", async () => {

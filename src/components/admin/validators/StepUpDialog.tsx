@@ -32,6 +32,7 @@
 
 import { useEffect, useId, useRef, useState, type FormEvent } from "react";
 
+import { ADMIN_TOOL_UNAVAILABLE_COPY } from "@/components/admin/validators/AdminReadFailure";
 import {
   ADMIN_FIELD_ERROR_CLASS,
   ADMIN_GHOST_BUTTON_CLASS,
@@ -48,6 +49,7 @@ import {
   invalidField,
   isAdminDenial,
   isAdminIdNotFound,
+  isAdminToolUnavailable,
   isOwnershipConflict,
   stepUpFailureReason,
 } from "@/lib/api/admin-errors";
@@ -118,6 +120,9 @@ export function stepUpErrorOutcome(
     clear,
   });
   if (isAdminDenial(err)) return stay(STEP_UP_COPY.denied);
+  // The backend can ship one route before another; a missing route is not
+  // a passing failure, so it never reads as "try again".
+  if (isAdminToolUnavailable(err)) return stay(ADMIN_TOOL_UNAVAILABLE_COPY);
   if (isCode(err, "bcc_step_up_failed")) {
     switch (stepUpFailureReason(err)) {
       case "password":
