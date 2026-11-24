@@ -8,7 +8,9 @@
  *   2. Every forward lands on a route that exists, and the old route
  *      folders hold no page any more.
  *   3. The route tabs mark exactly the current route and are 44px tall.
- *   4. No in-app link still points at a moved route.
+ *   4. No in-app link still points at a moved route — the nav files
+ *      included (Site Structure A, PR 3 rewrote the nav model and retired
+ *      the exemption that waited on it).
  */
 import { cleanup, render, screen, within } from "@testing-library/react";
 import { existsSync, readFileSync } from "node:fs";
@@ -200,16 +202,9 @@ describe("3b. Projects and Creators ask for their own kind, and no chain", () =>
 describe("4. no in-app link to a moved route", () => {
   // A quote, backtick or paren, the old path, then a delimiter or the end.
   const OLD = /["'`(]\/(directory|validators|mentors)(?=["'`?/#)]|$)/m;
-  /** The nav model is rewritten by the navigation PR (Site Structure A,
-   *  PR 3); until then its three old items forward through the 308s. */
-  const PENDING_NAV_PR = new Set(["components/layout/nav-items.tsx"]);
 
   const files = sourceFiles().filter(
-    (f) =>
-      isScript(f.rel) &&
-      !isTestFile(f.rel) &&
-      f.rel !== "lib/route-moves.ts" &&
-      !PENDING_NAV_PR.has(f.rel),
+    (f) => isScript(f.rel) && !isTestFile(f.rel) && f.rel !== "lib/route-moves.ts",
   );
 
   it("scans a real tree", () => {
@@ -227,8 +222,16 @@ describe("4. no in-app link to a moved route", () => {
     expect(hits).toEqual([]);
   });
 
-  it("still sees the nav items it is waiting on (drop this exemption in PR 3)", () => {
-    const nav = sourceFiles().find((f) => f.rel === "components/layout/nav-items.tsx");
-    expect(nav?.code).toMatch(OLD);
+  it("scans every nav file, with no exemption left", () => {
+    const scanned = new Set(files.map((f) => f.rel));
+    for (const rel of [
+      "components/layout/nav-items.tsx",
+      "components/layout/nav/MobileNav.tsx",
+      "components/layout/LeftSidebar.tsx",
+      "components/layout/offcanvas/MainOffcanvas.tsx",
+      "components/layout/SiteHeader.tsx",
+    ]) {
+      expect(scanned.has(rel), rel).toBe(true);
+    }
   });
 });

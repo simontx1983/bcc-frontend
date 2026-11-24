@@ -18,6 +18,8 @@ vi.mock("next-auth/react", () => ({
 }));
 vi.mock("next/navigation", () => ({ usePathname: () => "/settings" }));
 vi.mock("@/hooks/useUser", () => ({ useUser: () => ({ data: undefined }) }));
+// MainOffcanvas / SiteHeader read the open-case count from /me/badges.
+vi.mock("@/hooks/useOpenCaseCount", () => ({ useOpenCaseCount: () => null }));
 vi.mock("@/lib/auth/session-boundary", () => ({ endSession: vi.fn() }));
 vi.mock("@/components/identity/Avatar", () => ({ Avatar: () => null }));
 

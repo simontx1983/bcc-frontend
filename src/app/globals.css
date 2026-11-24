@@ -1051,7 +1051,7 @@
     display: flex; /* default — shown on desktop/tablet */
   }
 
-  /* Guest buttons on mobile — hide Sign In, keep only Sign Up */
+  /* Guest Sign In — shown at every width, beside Sign Up (Structure A) */
   .bcc-header-signin-btn {
     display: flex;
   }
