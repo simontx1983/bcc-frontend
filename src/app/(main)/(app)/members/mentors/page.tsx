@@ -1,11 +1,13 @@
 "use client";
 
 /**
- * /mentors — directory of actively listed mentors (Rank Phase 7,
- * §21.4, contract v1.62).
+ * /members/mentors — Members ▸ Mentors, the directory of actively listed
+ * mentors (Rank Phase 7, §21.4, contract v1.62). Moved from the old
+ * top-level /mentors, which forwards here (src/lib/route-moves.ts).
  *
  * Thin wrapper over the /members data layer with the `mentors=1` axis
- * LOCKED — same promotion pattern as /validators over /directory. Rows
+ * LOCKED — same pattern as Explore ▸ Validators over the shared
+ * directory data layer. Rows
  * are full member `Card` view-models; CardGrid renders the canonical
  * trading card (which carries the MENTOR chip when `is_mentor` is true).
  *
@@ -25,10 +27,13 @@ import { useEffect, useMemo, useState, Suspense } from "react";
 import { RouteRail } from "@/components/layout/RouteRail";
 import { CardGrid } from "@/components/cards/CardGrid";
 import { PagerNav } from "@/components/ui/PagerNav";
+import { SectionTabs } from "@/components/ui/SectionTabs";
 import { useMembers } from "@/hooks/useMembers";
 import { LoadFailure } from "@/components/ui/LoadFailure";
 import { humanizeCode } from "@/lib/api/errors";
 import type { MembersResponse } from "@/lib/api/types";
+
+import { MEMBERS_TABS } from "../members-tabs";
 
 const PER_PAGE = 24;
 
@@ -62,7 +67,7 @@ function MentorsPageContent() {
   }, [query.data]);
 
   const goToPage = (next: number) => {
-    router.replace(next > 1 ? `/mentors?page=${next}` : "/mentors", {
+    router.replace(next > 1 ? `/members/mentors?page=${next}` : "/members/mentors", {
       scroll: false,
     });
   };
@@ -77,7 +82,7 @@ function MentorsPageContent() {
 
   return (
     <main className="bcc-page-wide pb-24">
-      <RouteRail kicker={"FLOOR \u00a0//\u00a0 MENTORS"} label={"FILE INDEX \u00a0//\u00a0 LISTED MENTORS"} />
+      <RouteRail kicker={"FLOOR \u00a0//\u00a0 MEMBERS"} label={"FILE INDEX \u00a0//\u00a0 LISTED MENTORS"} />
 
       <header className="mx-auto max-w-[1560px] px-4 sm:px-7 pt-12">
         <p className="bcc-mono text-bcc-text-safety">THE BENCH</p>
@@ -92,6 +97,8 @@ function MentorsPageContent() {
           to help newer members. Click anyone to read their file.
         </p>
       </header>
+
+      <SectionTabs label="Members sections" tabs={MEMBERS_TABS} />
 
       <section className="mx-auto mt-10 max-w-[1560px] px-4 sm:px-7">
         {query.isPending && (

@@ -1,7 +1,15 @@
 "use client";
 
 /**
- * /directory — §G1/§G2 browse surface.
+ * Explore ▸ Projects (/explore/projects) and Explore ▸ Creators
+ * (/explore/creators) — the §G1/§G2 browse surface, one kind per route.
+ *
+ * This is the former /directory page, moved (Site Structure A). The kind
+ * used to be a filter chip; now the route fixes it (a `kind` prop), so it
+ * is never read from or written to the URL. Old /directory?kind=… links
+ * forward to the matching tab (src/lib/route-moves.ts). The validator
+ * kind has its own page (/explore) because it carries extra on-chain
+ * filters.
  *
  * Composes <DirectoryFilters> + <DirectoryGrid> on top of the
  * useDirectory hook. URL searchParams are the single source of truth
@@ -10,7 +18,7 @@
  * restores the prior filter set.
  *
  * Why URL-state instead of component-state-only:
- *   - Sharable: `/directory?kind=validator&tier=legendary` is a real link
+ *   - Sharable: `/explore/projects?tier=trusted` is a real link
  *   - Back-button friendly: filter changes are history entries the user
  *     can rewind through
  *   - SSR-friendly later: a future server-rendered variant can read
@@ -37,12 +45,12 @@ import { useEffect, useMemo, useRef, useState, Suspense } from "react";
 import { RouteRail } from "@/components/layout/RouteRail";
 import {
   DirectoryFilters,
-  KIND_OPTIONS,
   SORT_OPTIONS,
   TIER_OPTIONS,
   filterOptionLabel,
 } from "@/components/directory/DirectoryFilters";
 import { DirectoryResults } from "@/components/directory/DirectoryResults";
+import { SectionTabs } from "@/components/ui/SectionTabs";
 import type { DirectoryFilters as Filters } from "@/hooks/useDirectory";
 import type {
   DirectoryKind,
@@ -50,28 +58,50 @@ import type {
   DirectoryTier,
 } from "@/lib/api/types";
 
-const VALID_KINDS = new Set<DirectoryKind>(["validator", "project", "creator"]);
+import { EXPLORE_TABS } from "./explore-tabs";
+
+/** The kinds this page serves; validators have their own page (/explore). */
+export type ExploreKind = Extract<DirectoryKind, "project" | "creator">;
+
+const KIND_PAGE: Record<ExploreKind, { path: string; label: string; title: string; lede: string }> = {
+  project: {
+    path: "/explore/projects",
+    label: "FILE INDEX \u00a0//\u00a0 ALL PROJECTS",
+    title: "Every project on the floor.",
+    lede: "Browse the projects graded on the floor. Filter by tier, search by name, sort by trust. Keep tabs on the ones you actually trust.",
+  },
+  creator: {
+    path: "/explore/creators",
+    label: "FILE INDEX \u00a0//\u00a0 ALL CREATORS",
+    title: "Every creator on the floor.",
+    lede: "Browse the creators graded on the floor. Filter by tier, search by name, sort by trust. Keep tabs on the ones you actually trust.",
+  },
+};
+
 const VALID_TIERS = new Set<DirectoryTier>(["elite", "trusted", "neutral", "caution", "risky"]);
 const VALID_SORTS = new Set<DirectorySort>(["trust", "newest", "endorsements", "followers"]);
 const SEARCH_DEBOUNCE_MS = 300;
 
-const DEFAULT_FILTERS: Filters = {
-  kind: null,
-  tier: null,
-  sort: "trust",
-  q: "",
-  goodStandingOnly: false,
-  chain: null,
-};
+function defaultFilters(kind: ExploreKind): Filters {
+  return {
+    kind,
+    tier: null,
+    sort: "trust",
+    q: "",
+    goodStandingOnly: false,
+    chain: null,
+  };
+}
 
-function DirectoryPageContent() {
+function DirectoryPageContent({ kind }: { kind: ExploreKind }) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const page = KIND_PAGE[kind];
 
   // Build the canonical filter object from the current URL. This is
   // memoized on the searchParams identity so it's stable across renders
   // unless the URL actually changes.
-  const filtersFromUrl = useMemo<Filters>(() => parseFilters(searchParams), [searchParams]);
+  const filtersFromUrl = useMemo<Filters>(() => parseFilters(searchParams, kind), [searchParams, kind]);
 
   // Local filter state mirrors the URL but allows the search box to
   // stay responsive while debouncing the URL update. Chip / sort
@@ -95,10 +125,10 @@ function DirectoryPageContent() {
     }
     const t = window.setTimeout(() => {
       lastUrlQRef.current = filters.q;
-      pushFiltersToUrl(router, filters);
+      pushFiltersToUrl(router, filters, kind);
     }, SEARCH_DEBOUNCE_MS);
     return () => window.clearTimeout(t);
-  }, [filters, router]);
+  }, [filters, router, kind]);
 
   const handleChange = (next: Filters) => {
     setFilters(next);
@@ -107,14 +137,15 @@ function DirectoryPageContent() {
     // clicked a chip" and should land in the URL immediately.
     if (next.q === filters.q) {
       lastUrlQRef.current = next.q;
-      pushFiltersToUrl(router, next);
+      pushFiltersToUrl(router, next, kind);
     }
   };
 
   const handleClearAll = () => {
-    setFilters(DEFAULT_FILTERS);
-    lastUrlQRef.current = DEFAULT_FILTERS.q;
-    pushFiltersToUrl(router, DEFAULT_FILTERS);
+    const cleared = defaultFilters(kind);
+    setFilters(cleared);
+    lastUrlQRef.current = cleared.q;
+    pushFiltersToUrl(router, cleared, kind);
   };
 
   // Drive the query off the URL-derived filters (not the local state)
@@ -123,7 +154,7 @@ function DirectoryPageContent() {
 
   return (
     <main className="bcc-page-wide pb-24">
-      <RouteRail kicker={"FLOOR \u00a0//\u00a0 DIRECTORY"} label={"FILE INDEX \u00a0//\u00a0 ALL PAGES"} />
+      <RouteRail kicker={"FLOOR \u00a0//\u00a0 EXPLORE"} label={page.label} />
 
       <header className="mx-auto max-w-[1560px] px-4 sm:px-7 pt-12">
         <p className="bcc-mono text-bcc-text-safety">FIND YOUR FLOOR</p>
@@ -131,14 +162,14 @@ function DirectoryPageContent() {
           className="bcc-stencil mt-3 text-bcc-text leading-[0.95]"
           style={{ fontSize: "clamp(2.5rem, 6.5vw, 5.5rem)" }}
         >
-          Every page on the floor.
+          {page.title}
         </h1>
         <p className="mt-4 max-w-2xl font-serif text-lg leading-relaxed text-bcc-text-secondary">
-          Browse every validator, project, and creator graded on the floor.
-          Filter by tier, search by name, sort by trust. Keep tabs on the
-          ones you actually trust.
+          {page.lede}
         </p>
       </header>
+
+      <SectionTabs label="Explore sections" tabs={EXPLORE_TABS} />
 
       <ActiveFiltersStrip filters={filters} onChange={handleChange} onClearAll={handleClearAll} />
 
@@ -177,13 +208,12 @@ function ActiveFiltersStrip({
   onChange: (next: Filters) => void;
   onClearAll: () => void;
 }) {
+  // `kind` is fixed by the route, so it is never a removable filter here.
   const hasAny =
-    filters.kind !== null ||
     filters.tier !== null ||
     filters.q !== "" ||
     filters.sort !== "trust" ||
-    filters.goodStandingOnly ||
-    filters.chain !== null;
+    filters.goodStandingOnly;
 
   return (
     <div className="mt-10 border-y border-dashed border-bcc-border">
@@ -194,18 +224,6 @@ function ActiveFiltersStrip({
           <span className="bcc-mono text-bcc-text-secondary">SHOWING ALL</span>
         )}
 
-        {filters.kind !== null && (
-          <FilterChip
-            label={filterOptionLabel(KIND_OPTIONS, filters.kind).toUpperCase()}
-            onClear={() => onChange({ ...filters, kind: null })}
-          />
-        )}
-        {filters.chain !== null && (
-          <FilterChip
-            label={`CHAIN · ${filters.chain.toUpperCase()}`}
-            onClear={() => onChange({ ...filters, chain: null })}
-          />
-        )}
         {filters.tier !== null && (
           <FilterChip
             label={filterOptionLabel(TIER_OPTIONS, filters.tier).toUpperCase()}
@@ -263,15 +281,13 @@ function FilterChip({ label, onClear }: { label: string; onClear: () => void }) 
 // URL ↔ filters serialization
 // ─────────────────────────────────────────────────────────────────────
 
-function parseFilters(searchParams: URLSearchParams | null): Filters {
+function parseFilters(searchParams: URLSearchParams | null, kind: ExploreKind): Filters {
   if (searchParams === null) {
-    return DEFAULT_FILTERS;
+    return defaultFilters(kind);
   }
 
-  const kindRaw = searchParams.get("kind");
-  const kind = kindRaw !== null && VALID_KINDS.has(kindRaw as DirectoryKind)
-    ? (kindRaw as DirectoryKind)
-    : null;
+  // A `kind` param (an old /directory?kind=… link carried through the
+  // forward) is ignored: the route decides the kind.
 
   const tierRaw = searchParams.get("tier");
   const tier = tierRaw !== null && VALID_TIERS.has(tierRaw as DirectoryTier)
@@ -287,31 +303,33 @@ function parseFilters(searchParams: URLSearchParams | null): Filters {
 
   const goodStandingOnly = searchParams.get("good_standing") === "1";
 
-  // Chain slug — passed through verbatim. Server validates against
-  // active chains and rejects unknown slugs at the endpoint boundary,
-  // so a bogus URL param surfaces as an API error rather than silently
-  // matching nothing.
-  const chainRaw = searchParams.get("chain");
-  const chain = chainRaw !== null && chainRaw !== "" ? chainRaw : null;
-
-  return { kind, tier, sort, q, goodStandingOnly, chain };
+  // No chain axis: the server's `chain` filter is validator-only (empty
+  // for other kinds), so a `chain` param from an old link is dropped
+  // rather than sent.
+  return { kind, tier, sort, q, goodStandingOnly, chain: null };
 }
 
 function pushFiltersToUrl(
   router: ReturnType<typeof useRouter>,
-  filters: Filters
+  filters: Filters,
+  kind: ExploreKind,
 ): void {
   const params = new URLSearchParams();
-  if (filters.kind !== null) params.set("kind", filters.kind);
   if (filters.tier !== null) params.set("tier", filters.tier);
   if (filters.sort !== "trust") params.set("sort", filters.sort);
   if (filters.q !== "") params.set("q", filters.q);
   if (filters.goodStandingOnly) params.set("good_standing", "1");
-  if (filters.chain !== null) params.set("chain", filters.chain);
 
   const qs = params.toString();
-  const url = (qs === "" ? "/directory" : `/directory?${qs}`) as Route;
+  const path = KIND_PAGE[kind].path;
+  const url = (qs === "" ? path : `${path}?${qs}`) as Route;
   router.replace(url, { scroll: false });
 }
 
-export default function DirectoryPage() { return <Suspense><DirectoryPageContent /></Suspense>; }
+export function KindDirectoryPage({ kind }: { kind: ExploreKind }) {
+  return (
+    <Suspense>
+      <DirectoryPageContent kind={kind} />
+    </Suspense>
+  );
+}

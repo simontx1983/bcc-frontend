@@ -142,7 +142,7 @@ export function StandingFileBody({ profile }: { profile: MemberProfile }) {
                           label="Communities →"
                         />
                         <QuestNavLink
-                          href={"/validators" as Route}
+                          href={"/explore" as Route}
                           label="Validators →"
                         />
                       </span>

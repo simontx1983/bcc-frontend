@@ -322,7 +322,7 @@ function QueuedEmpty() {
         here until a verified operator claims the page — then it&apos;s delivered.
       </p>
       <Link
-        href={"/validators" as Route}
+        href={"/explore" as Route}
         className="bcc-mono mt-6 inline-flex items-center gap-2 border-2 border-ink/40 px-3 py-1.5 text-[10px] tracking-[0.18em] text-ink transition hover:bg-ink hover:text-cardstock"
       >
         BROWSE VALIDATORS

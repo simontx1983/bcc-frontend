@@ -1,13 +1,13 @@
 "use client";
 
 /**
- * /validators — dedicated browse surface for validators.
+ * /explore — Explore ▸ Validators, the front door of Explore (Site
+ * Structure A). This is the former /validators page, moved; /validators
+ * and a bare /directory forward here (src/lib/route-moves.ts). Projects
+ * and Creators are sibling routes (./projects, ./creators).
  *
- * Promoted from a bare redirect to /directory?kind=validator. The shared
- * /directory is polymorphic across validator/project/creator, so its
- * filter set is the lowest common denominator. Validators carry an
- * on-chain signal set (status, self-stake, …) the shared directory can't
- * filter on — this page exposes those validator-only axes.
+ * Validators carry an on-chain signal set (status, self-stake, …) the
+ * other kinds don't, so this tab exposes those validator-only axes.
  *
  * It reuses the directory's data layer wholesale: the same useDirectory
  * hook (with `kind` locked to "validator") and DirectoryGrid. The only
@@ -16,8 +16,9 @@
  * chain/tier/sort/search/good-standing axes.
  *
  * URL searchParams are the single source of truth (sharable +
- * back-button navigable), mirroring /directory. `kind` is NOT in the URL
- * — it's implied by the route and always sent as "validator".
+ * back-button navigable), mirroring the Projects and Creators tabs.
+ * `kind` is NOT in the URL — it's implied by the route and always sent
+ * as "validator".
  */
 
 import type { Route } from "next";
@@ -28,11 +29,14 @@ import { RouteRail } from "@/components/layout/RouteRail";
 import { filterOptionLabel } from "@/components/directory/DirectoryFilters";
 import { SORT_OPTIONS, STATUS_OPTIONS, ValidatorFilters } from "@/components/directory/ValidatorFilters";
 import { DirectoryResults } from "@/components/directory/DirectoryResults";
+import { SectionTabs } from "@/components/ui/SectionTabs";
 import type { DirectoryFilters as Filters } from "@/hooks/useDirectory";
 import type {
   DirectorySort,
   ValidatorStatusFilter,
 } from "@/lib/api/types";
+
+import { EXPLORE_TABS } from "./explore-tabs";
 
 // `self_stake` IS offered here (unlike the shared directory) — every row
 // is a validator, so the validator-only sort is always meaningful.
@@ -49,7 +53,7 @@ const SEARCH_DEBOUNCE_MS = 300;
 const DEFAULT_FILTERS: Filters = {
   kind: "validator",
   // tier / goodStandingOnly are part of the shared filter shape but are
-  // not exposed on /validators — they stay at their inert defaults here.
+  // not exposed on this tab — they stay at their inert defaults here.
   tier: null,
   sort: "trust",
   q: "",
@@ -104,7 +108,7 @@ function ValidatorsPageContent() {
 
   return (
     <main className="bcc-page-wide pb-24">
-      <RouteRail kicker={"FLOOR \u00a0//\u00a0 VALIDATORS"} label={"FILE INDEX \u00a0//\u00a0 ALL VALIDATORS"} />
+      <RouteRail kicker={"FLOOR \u00a0//\u00a0 EXPLORE"} label={"FILE INDEX \u00a0//\u00a0 ALL VALIDATORS"} />
 
       <header className="mx-auto max-w-[1560px] px-4 sm:px-7 pt-12">
         <p className="bcc-mono text-bcc-text-safety">KNOW YOUR VALIDATOR</p>
@@ -120,6 +124,8 @@ function ValidatorsPageContent() {
           Keep tabs on the validators you actually trust to secure the chain.
         </p>
       </header>
+
+      <SectionTabs label="Explore sections" tabs={EXPLORE_TABS} />
 
       <ActiveFiltersStrip filters={filters} onChange={handleChange} onClearAll={handleClearAll} />
 
@@ -146,7 +152,7 @@ function ValidatorsPageContent() {
 
 // ──────────────────────────────────────────────────────────────────────
 // ValidatorsRail — top status strip in the same vocabulary as the
-// SiteHeader rail and the /directory FileRail.
+// SiteHeader rail and the Explore tabs' FileRail.
 // ──────────────────────────────────────────────────────────────────────
 
 // ──────────────────────────────────────────────────────────────────────
@@ -266,7 +272,7 @@ function parseFilters(searchParams: URLSearchParams | null): Filters {
     ? (statusRaw as ValidatorStatusFilter)
     : null;
 
-  // tier / goodStandingOnly are not exposed on /validators — held inert.
+  // tier / goodStandingOnly are not exposed on this tab — held inert.
   return { kind: "validator", tier: null, sort, q, goodStandingOnly: false, chain, status };
 }
 
@@ -281,7 +287,7 @@ function pushFiltersToUrl(
   if ((filters.status ?? null) !== null) params.set("status", filters.status as string);
 
   const qs = params.toString();
-  const url = (qs === "" ? "/validators" : `/validators?${qs}`) as Route;
+  const url = (qs === "" ? "/explore" : `/explore?${qs}`) as Route;
   router.replace(url, { scroll: false });
 }
 
