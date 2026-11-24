@@ -7265,8 +7265,13 @@ export interface ColdStartHall {
   slug: string;
   /** Pre-rendered display name per §A2. */
   name: string;
-  /** Server-resolved chain slug (cosmos / osmosis / etc.) — drives the chain accent. */
-  chain_slug: string;
+  /**
+   * Server-resolved chain slug (cosmos / osmosis / etc.) — drives the chain
+   * accent. NULL for a chainless ("GENERAL") Hall: the backend sends
+   * `?string` (FeedColdStartService::composeHalls), and the no-home-chain
+   * cold start takes the first Halls by title, so one can arrive here.
+   */
+  chain_slug: string | null;
   /** Member-count tally — informational only. NOT used for ranking on FE. */
   member_count: number;
 }
