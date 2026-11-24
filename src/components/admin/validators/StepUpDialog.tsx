@@ -43,6 +43,7 @@ import {
   ADMIN_OUTLINE_BUTTON_CLASS,
   ADMIN_PRIMARY_BUTTON_CLASS,
 } from "@/components/admin/validators/form-classes";
+import { PasswordConfirmField } from "@/components/admin/validators/PasswordConfirmField";
 import { OneTimeCodeInput } from "@/components/auth/OneTimeCodeInput";
 import { Dialog } from "@/components/ui/Dialog";
 import { useResendValidatorStepUp, useStartValidatorStepUp } from "@/hooks/useAdminValidators";
@@ -390,23 +391,14 @@ export function StepUpDialog({
         <form noValidate onSubmit={submitPassword} className="mt-2 flex flex-col gap-4">
           <h2 className="bcc-stencil text-2xl text-bcc-text">{STEP_UP_COPY.passwordHeading}</h2>
           <p className="font-serif text-bcc-text-secondary">{STEP_UP_COPY.passwordIntro}</p>
-          <div className="flex flex-col gap-2">
-            <label htmlFor={passwordId} className={ADMIN_LABEL_CLASS}>
-              CURRENT PASSWORD
-            </label>
-            <input
-              ref={passwordRef}
-              id={passwordId}
-              type="password"
-              autoComplete="current-password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              aria-invalid={error !== null}
-              aria-describedby={error !== null ? errorId : undefined}
-              className={ADMIN_INPUT_CLASS}
-            />
-          </div>
+          <PasswordConfirmField
+            ref={passwordRef}
+            id={passwordId}
+            value={password}
+            onChange={setPassword}
+            invalid={error !== null}
+            describedBy={error !== null ? errorId : undefined}
+          />
           {errorLine}
           <div className="flex flex-wrap justify-end gap-2">
             <button
