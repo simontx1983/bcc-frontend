@@ -32,8 +32,6 @@ const SURFACES: ReadonlyArray<readonly [string, string, string]> = [
   ["src/app/(main)/(app)/members/page.tsx", "FILE INDEX \\u00a0//\\u00a0 ALL MEMBERS", "ALL OPERATORS"],
   ["src/components/feed/DiscoverPanel.tsx", "RECENTLY ACTIVE MEMBERS", "RECENTLY ACTIVE OPERATORS"],
   ["src/app/(main)/(app)/u/[handle]/page.tsx", 'kind="MEMBER"', 'kind="OPERATOR"'],
-  ["src/app/(main)/(app)/u/[handle]/page.tsx", "Early days for this member.", "Early days for this operator."],
-  ["src/app/(main)/(app)/u/[handle]/page.tsx", "No vouches, no Halls linked", "No supporters"],
   ["src/app/(main)/(app)/u/[handle]/opengraph-image.tsx", '"MEMBER ON THE FLOOR"', '"OPERATOR ON THE FLOOR"'],
   ["src/app/(main)/(app)/u/[handle]/opengraph-image.tsx", 'railLabel: "MEMBER FILE"', 'railLabel: "OPERATOR FILE"'],
   ["src/app/(main)/(app)/u/[handle]/opengraph-image.tsx", "Blue Collar Crypto member file", "Blue Collar Crypto operator file"],
