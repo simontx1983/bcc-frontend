@@ -1,36 +1,41 @@
 /**
- * GroupDetailShell — the unified FileRail + PageHero + GroupTabs shell
- * shared by every group-style route:
+ * GroupDetailShell — the community / Hall detail page, on the ONE shared
+ * detail layout (Site Structure A §12, hero option B):
  *
  *   /groups/[slug]                          (urlBase: undefined → internal tabs)
  *   /communities/[slug] + /about + /members (urlBase: "/communities/{slug}";
- *                                            a Hall also passes its actions +
- *                                            chain panels, see community-detail)
+ *                                            a Hall also passes its actions,
+ *                                            side blocks and chain panels —
+ *                                            see community-detail)
  *
  * Server component. Composes:
- *   1. FileRail            — top status strip (FLOOR // KIND  {SLUG}  ·  FILE / OPEN)
- *   2. <h1> stencil title  — group.name (matches /u/[handle]'s page title)
- *   3. PageHero            — CommunityJoinCard (CardFactory) in card slot; actions slot caller-supplied
- *   4. GroupTabs           — Stream / Members / About
+ *   1. FileRail      — top status strip (FLOOR // KIND  {SLUG}  ·  FILE / OPEN)
+ *   2. DetailHeader  — avatar · the card's kind word · name · @slug · chips
+ *                      (privacy, chain, verification) · membership actions
+ *                      · Share · the card's stats
+ *   3. DetailBody    — GroupTabs (Stream / About / Members [+ a Hall's
+ *                      Collections / Validators]) beside the side column
+ *                      (About · Facts · any page-specific blocks)
  *
- * Mirrors the EntityProfile shape so /groups and /communities (Halls included)
- * read as one product with /u, /v, /p, /c.
+ * The trading card is not in the header (option B, Phillip 2026-11-25); it
+ * stays on the Communities lists. Join lives in the header's actions, as it
+ * did beside the card.
  */
 
-import type { ReactNode } from "react";
-import Link from "next/link";
 import type { Route } from "next";
+import type { ReactNode } from "react";
 
+import { cardHeaderWord } from "@/components/cards/CardFrontFace";
 import { ShareButton } from "@/components/common/ShareButton";
-import { CommunityJoinCard } from "@/components/communities/CommunityJoinCard";
-import { FileRail } from "@/components/layout/FileRail";
+import { DetailBody, DetailHeader, DetailPage, SideBlock } from "@/components/detail/DetailLayout";
 import { GroupAboutPanel } from "@/components/groups/GroupAboutPanel";
 import { GroupFeedSection } from "@/components/groups/GroupFeedSection";
 import { GroupMembershipAdmin } from "@/components/groups/GroupMembershipAdmin";
 import { GroupMembersStrip } from "@/components/groups/GroupMembersStrip";
 import { GroupMembershipStrip } from "@/components/groups/GroupMembershipStrip";
 import { GroupTabs, type GroupTabKey } from "@/components/groups/GroupTabs";
-import { PageHero } from "@/components/layout/PageHero";
+import { Avatar } from "@/components/identity/Avatar";
+import { FileRail } from "@/components/layout/FileRail";
 import type { GroupDetailResponse } from "@/lib/api/types";
 
 const KIND_RAIL_LABEL: Record<GroupDetailResponse["type"], string> = {
@@ -47,6 +52,16 @@ const STATUS_BY_PRIVACY: Record<GroupDetailResponse["privacy"], string> = {
   secret: "SECRET",
 };
 
+/** Plain words for the Facts block and the privacy chip. */
+const ACCESS_BY_PRIVACY: Record<GroupDetailResponse["privacy"], string> = {
+  open:   "Open to anyone",
+  closed: "Join by request",
+  secret: "Invite only",
+};
+
+/** The card family's colour for a community (CardFactory's KIND_TO_COLOR_VAR). */
+const COMMUNITY_COLOR = "var(--kind-community)";
+
 export interface GroupDetailShellProps {
   group: GroupDetailResponse;
   /** Active tab on mount. URL-aware route shells pass the segment-
@@ -57,43 +72,36 @@ export interface GroupDetailShellProps {
    *  /groups/[slug] for internal-state tabs. */
   urlBase?: string;
   /**
-   * Action cluster rendered in PageHero's `actions` slot. Defaults to
-   * `<GroupMembershipStrip>` for /groups + /communities; a Hall passes
-   * its own `<HallMembershipControls>` since halls support set/clear
-   * primary semantics plain groups don't.
+   * The header's action cluster. Defaults to `<GroupMembershipStrip>`; a
+   * Hall passes its own `<HallMembershipControls>` since halls support
+   * set/clear primary semantics plain groups don't.
    */
   actions?: ReactNode;
   /**
-   * Optional back-link breadcrumb rendered above the h1. Restores the
-   * `← COMMUNITIES` / `← GROUPS` / `← HALLS` affordance from the
-   * pre-unification pages. Both `backHref` and `backLabel` must be
-   * supplied; omit both to hide the breadcrumb.
+   * Optional back link above the header (`← COMMUNITIES` / `← HALLS`).
+   * Both must be supplied; omit both to hide it.
    */
   backHref?: string;
   backLabel?: string;
   /**
    * App-relative path to share (leading slash, no origin), e.g.
-   * "/communities/{slug}". Built by the route the viewer is on — the shell
-   * is shared across /communities and /groups, so the share +
-   * canonical surface differs per route and is threaded down rather than
-   * derived from a single `links.self`. Omit to hide the Share button.
+   * "/communities/{slug}". Built by the route the viewer is on. Omit to
+   * hide the Share button.
    */
   sharePath?: string;
   /**
    * Hall-only tab panels. Passing one adds its tab to the strip; omitting
-   * it leaves the strip at Stream / About / Members, which is what
-   * /groups and /communities want — they have no chain behind them.
+   * it leaves the strip at Stream / About / Members.
    */
   collectionsPanel?: ReactNode;
   validatorsPanel?: ReactNode;
   /**
    * Optional content appended INSIDE the About tab, below GroupAboutPanel.
-   * Halls pass their chain-identity + "About this chain" block here so all
-   * chain material lives in one place (the About tab) rather than a top-of-
-   * page hero. Omit on /groups + /communities — the About tab stays exactly
-   * as before (no wrapper, byte-identical output).
+   * Halls pass their chain-identity + "About this chain" block here.
    */
   aboutSupplement?: ReactNode;
+  /** Extra side-column blocks for this page (e.g. a Hall's "Your status"). */
+  side?: ReactNode;
 }
 
 export function GroupDetailShell({
@@ -107,6 +115,7 @@ export function GroupDetailShell({
   collectionsPanel,
   validatorsPanel,
   aboutSupplement,
+  side,
 }: GroupDetailShellProps) {
   // F-388: on the community sub-routes the strip can point an owner or
   // manager at the Members tab's requests block.
@@ -120,14 +129,12 @@ export function GroupDetailShell({
       />
     );
 
-  const showBreadcrumb =
-    backHref !== undefined && backHref !== "" &&
-    backLabel !== undefined && backLabel !== "";
-
+  const showBack = backHref !== undefined && backHref !== "" && backLabel !== undefined && backLabel !== "";
   const showShare = sharePath !== undefined && sharePath !== "";
+  const description = group.description?.trim() ?? "";
 
   return (
-    <main className="pb-24">
+    <DetailPage>
       <FileRail
         kind={KIND_RAIL_LABEL[group.type]}
         subject={`@${group.slug.toUpperCase()}`}
@@ -135,108 +142,112 @@ export function GroupDetailShell({
         status={STATUS_BY_PRIVACY[group.privacy]}
       />
 
-      {/* §J page title — large stencil name. Same vocabulary as
-          /u/[handle] / EntityProfile so the platform reads as one
-          product. The CardFactory community card sits below in the
-          PageHero `card` slot; this is the page-level identifier. */}
-      <header className="mx-auto mt-8 max-w-[1440px] px-4 sm:px-7">
-        {showBreadcrumb && (
-          <Link
-            href={backHref as Route}
-            className="bcc-mono inline-block text-bcc-text-secondary hover:text-bcc-text"
-            style={{ fontSize: "10px", letterSpacing: "0.18em" }}
-          >
-            ← {backLabel?.toUpperCase()}
-          </Link>
-        )}
-        {/* Title row — stencil name on the left, Share on the right.
-            Group/community/local detail pages are a shareable surface for
-            any viewer who can see them; the page itself owns the privacy
-            gate, so a Share button on a page you're already looking at is
-            fine. The share path is the route the viewer is on (threaded in
-            as `sharePath`) — the shell is reused across three routes, so we
-            don't derive it from a single `links.self`. */}
-        <div
-          className={
-            "flex items-start justify-between gap-4 " +
-            (showBreadcrumb ? "mt-4" : "")
-          }
-        >
-          <h1
-            className="bcc-stencil text-bcc-text leading-[0.92]"
-            style={{ fontSize: "clamp(1.75rem, 5.5vw, 4.5rem)", wordBreak: "break-word" }}
-          >
-            {group.name}
-          </h1>
-          {showShare && (
-            <div className="shrink-0 pt-1">
-              <ShareButton
-                path={sharePath}
-                title={group.name}
-                ariaLabel={`Share ${group.name}`}
-              />
-            </div>
-          )}
-        </div>
-        <p
-          className="bcc-mono mt-3 text-bcc-text-safety"
-          style={{ fontSize: "11px", letterSpacing: "0.18em" }}
-        >
-          @{group.slug}
-        </p>
-      </header>
+      <DetailHeader
+        avatar={
+          <Avatar
+            avatarUrl={group.image_url ?? group.card.crest.image_url ?? null}
+            handle={group.slug}
+            displayName={group.name}
+            size="lg"
+          />
+        }
+        kind={cardHeaderWord(group.card)}
+        kindColor={COMMUNITY_COLOR}
+        name={group.name}
+        handle={group.slug}
+        chips={
+          <>
+            <Chip>{ACCESS_BY_PRIVACY[group.privacy]}</Chip>
+            {group.chain_tag !== null && group.chain_tag !== "" && <Chip>{group.chain_tag}</Chip>}
+            {group.verification !== null && <Chip verified>{group.verification.label}</Chip>}
+          </>
+        }
+        actions={actionCluster}
+        {...(showShare
+          ? { share: <ShareButton path={sharePath} title={group.name} ariaLabel={`Share ${group.name}`} /> }
+          : {})}
+        stats={group.card.stats}
+        {...(showBack ? { backHref: backHref as Route, backLabel } : {})}
+      />
 
-      <section className="mt-8">
-        {/* CardFactory community card in the hero slot — the same §L5
-            trading card the /communities grid renders, with live JOIN
-            wiring. The body nav overlay is suppressed (it would loop
-            back to this page); the JOIN cell benignly duplicates
-            GroupMembershipStrip in the actions slot — both fire the
-            same server mutations. */}
-        <PageHero
-          card={<CommunityJoinCard card={group.card} suppressBodyLink />}
-          actions={
-            <div
-              className="bcc-stage-reveal flex flex-col gap-3"
-              style={{ ["--stagger" as string]: "120ms" }}
-            >
-              {actionCluster}
-            </div>
-          }
-        />
-      </section>
-
-      <section className="mx-auto mt-16 max-w-[1440px] px-4 sm:px-7">
-        <GroupTabs
-          initialTab={initialTab}
-          {...(urlBase !== undefined ? { urlBase } : {})}
-          streamPanel={<GroupFeedSection group={group} />}
-          membersPanel={
-            // F-272 (b): owners / managers manage requests and invitations
-            // above the roster; everyone else sees the roster alone (the
-            // admin block renders nothing for them).
-            <div className="flex flex-col gap-8">
-              <GroupMembershipAdmin group={group} />
-              <GroupMembersStrip group={group} />
-            </div>
-          }
-          aboutPanel={
-            // Halls append their chain block below the group's own About
-            // content; other kinds render GroupAboutPanel alone (unwrapped,
-            // so their output is unchanged).
-            aboutSupplement !== undefined ? (
-              <div className="flex flex-col gap-6">
-                <GroupAboutPanel group={group} />
-                {aboutSupplement}
+      <DetailBody
+        main={
+          <GroupTabs
+            initialTab={initialTab}
+            {...(urlBase !== undefined ? { urlBase } : {})}
+            streamPanel={<GroupFeedSection group={group} />}
+            membersPanel={
+              // F-272 (b): owners / managers manage requests and invitations
+              // above the roster; everyone else sees the roster alone (the
+              // admin block renders nothing for them).
+              <div className="flex flex-col gap-8">
+                <GroupMembershipAdmin group={group} />
+                <GroupMembersStrip group={group} />
               </div>
-            ) : (
-              <GroupAboutPanel group={group} />
-            )
-          }
-          {...(collectionsPanel !== undefined ? { collectionsPanel } : {})}
-          {...(validatorsPanel !== undefined ? { validatorsPanel } : {})}
-        />
-      </section>
-    </main>
+            }
+            aboutPanel={
+              // Halls append their chain block below the group's own About
+              // content; other kinds render GroupAboutPanel alone.
+              aboutSupplement !== undefined ? (
+                <div className="flex flex-col gap-6">
+                  <GroupAboutPanel group={group} />
+                  {aboutSupplement}
+                </div>
+              ) : (
+                <GroupAboutPanel group={group} />
+              )
+            }
+            {...(collectionsPanel !== undefined ? { collectionsPanel } : {})}
+            {...(validatorsPanel !== undefined ? { validatorsPanel } : {})}
+          />
+        }
+        side={
+          <>
+            {side}
+            {description !== "" && (
+              <SideBlock title="About">
+                <p className="line-clamp-6 text-[15px] leading-relaxed text-bcc-text-secondary">{description}</p>
+              </SideBlock>
+            )}
+            <SideBlock title="Facts">
+              <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-[14px]">
+                <dt className="text-bcc-text-secondary">Access</dt>
+                <dd>{ACCESS_BY_PRIVACY[group.privacy]}</dd>
+                {group.chain_tag !== null && group.chain_tag !== "" && (
+                  <>
+                    <dt className="text-bcc-text-secondary">Chain</dt>
+                    <dd>{group.chain_tag}</dd>
+                  </>
+                )}
+                {group.verification !== null && (
+                  <>
+                    <dt className="text-bcc-text-secondary">Verified</dt>
+                    <dd>{group.verification.label}</dd>
+                  </>
+                )}
+              </dl>
+            </SideBlock>
+          </>
+        }
+      />
+    </DetailPage>
+  );
+}
+
+/** A plain fact chip in the header (no dot: a dot means trust). */
+function Chip({ children, verified = false }: { children: ReactNode; verified?: boolean }) {
+  return (
+    <span
+      className="bcc-mono rounded-full border px-2.5 py-1"
+      style={{
+        fontSize: "10px",
+        letterSpacing: "0.14em",
+        textTransform: "uppercase",
+        borderColor: verified ? "var(--verified)" : "var(--bcc-border-strong)",
+        color: verified ? "var(--verified)" : "var(--bcc-text-secondary)",
+      }}
+    >
+      {children}
+    </span>
   );
 }

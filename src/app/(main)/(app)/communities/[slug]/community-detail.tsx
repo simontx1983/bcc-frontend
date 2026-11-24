@@ -33,6 +33,7 @@ import { getServerSession } from "next-auth";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { SideBlock } from "@/components/detail/DetailLayout";
 import { GroupDetailShell } from "@/components/groups/GroupDetailShell";
 import {
   HallCollectionsPanel,
@@ -115,7 +116,14 @@ export async function CommunityDetail({
       aboutSupplement={
         <HallChainProfile chainProfile={hall.chain_profile} containerClassName="" />
       }
-      actions={<HallStatusPanel hall={hall} />}
+      // The detail header carries the controls themselves (join, primary
+      // set / clear); what they mean sits in the side column.
+      actions={<HallMembershipControls groupId={hall.id} membership={hall.viewer_membership} />}
+      side={
+        <SideBlock title="Your status here">
+          <p className="text-[15px] leading-relaxed text-bcc-text-secondary">{HALL_STATUS_COPY}</p>
+        </SideBlock>
+      }
       // Only pass a panel when there is something in it — GroupTabs hides
       // the tab otherwise, so a chain with nothing indexed shows the usual
       // three rather than two empty rooms.
@@ -145,16 +153,16 @@ export async function CommunityDetail({
   );
 }
 
-/** "Your status here": join, primary set / clear. */
+/** What a Hall's membership controls mean. */
+const HALL_STATUS_COPY =
+  "Join a Hall to vote in its stream and bias your Floor feed. You can hold membership in many Halls at once; designate one as your primary to show it on your card. Switch any time.";
+
+/** "Your status here" as one panel: the degraded view, which has no header. */
 function HallStatusPanel({ hall }: { hall: HallDetailResponse }) {
   return (
     <div className="bcc-panel flex flex-col gap-4 p-6">
       <h2 className="bcc-stencil text-xl text-bcc-text">Your status here</h2>
-      <p className="font-serif text-bcc-text-secondary">
-        Join a Hall to vote in its stream and bias your Floor feed.
-        You can hold membership in many Halls at once; designate one as
-        your primary to show it on your card. Switch any time.
-      </p>
+      <p className="font-serif text-bcc-text-secondary">{HALL_STATUS_COPY}</p>
       <div>
         <HallMembershipControls groupId={hall.id} membership={hall.viewer_membership} />
       </div>
