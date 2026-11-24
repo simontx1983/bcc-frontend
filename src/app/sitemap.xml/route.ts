@@ -15,6 +15,15 @@ import { isIndexableEnvironment } from "@/lib/seo/indexing";
 import { probeIndex } from "@/lib/seo/public-index";
 import { notFoundResponse, sitemapIndexXml, unavailableResponse, xmlResponse } from "@/lib/seo/sitemap-xml";
 
+/**
+ * Evaluated per request. A GET handler that reads no request data is
+ * otherwise prerendered at BUILD time, baking in the build environment's
+ * answer (a 404, since a build is not the indexable deployment): the same
+ * trap robots.ts documents. The upstream cost stays bounded by the Data
+ * Cache in lib/seo/public-index.
+ */
+export const dynamic = "force-dynamic";
+
 export async function GET(): Promise<Response> {
   if (!isIndexableEnvironment()) return notFoundResponse();
   const probe = await probeIndex();

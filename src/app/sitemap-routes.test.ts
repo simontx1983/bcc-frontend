@@ -42,7 +42,8 @@ vi.mock("@/lib/api/sitemap-endpoints", async (orig) => ({
   getSitemapPage: (...a: unknown[]) => h.getSitemapPage(...a),
 }));
 
-const { GET: getIndex } = await import("@/app/sitemap.xml/route");
+const indexRoute = await import("@/app/sitemap.xml/route");
+const { GET: getIndex } = indexRoute;
 const { GET: getSection } = await import("@/app/sitemaps/[section]/route");
 const { MAX_SCAN_PAGES, SITEMAP_CACHE_SECONDS } = await import("@/lib/seo/public-index");
 
@@ -92,6 +93,12 @@ afterEach(() => {
 });
 
 describe("/sitemap.xml (the index)", () => {
+  it("is evaluated per request, never prerendered with the build's environment", () => {
+    // Without this, `next build` marks the route static and serves the
+    // build-time answer (a 404) forever. Found by a production build.
+    expect(indexRoute.dynamic).toBe("force-dynamic");
+  });
+
   it("lists one absolute sitemap per section", async () => {
     upstream(page(["/u/alice"], 1));
     const res = await getIndex();
