@@ -162,7 +162,7 @@ function MessagesPageContent() {
           Messages
         </h1>
         <p className="mt-4 max-w-2xl font-serif text-base leading-relaxed text-bcc-text-secondary">
-          Quiet conversations between operators. Open anyone&apos;s file
+          Quiet conversations between members. Open anyone&apos;s file
           to start a new thread.
         </p>
         <div className="mt-5">
