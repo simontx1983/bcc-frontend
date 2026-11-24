@@ -208,8 +208,8 @@ const APPROVED_SURVIVORS: readonly string[] = [
     "src/app/(main)/(app)/communities/page.tsx :: <span className=\"bcc-mono text-bcc-text-muted\">Next \u2192</span>",
     "src/app/(main)/(app)/communities/page.tsx :: <span className=\"bcc-mono text-bcc-text-muted\">\u2190 Previous</span>",
     "src/app/(main)/(app)/explore/KindDirectoryPage.tsx :: <span aria-hidden className=\"text-bcc-text-muted\">\u2715</span>",
-    "src/app/(main)/(app)/halls/page.tsx :: <span className=\"bcc-mono text-bcc-text-muted\">Next \u2192</span>",
-    "src/app/(main)/(app)/halls/page.tsx :: <span className=\"bcc-mono text-bcc-text-muted\">\u2190 Previous</span>",
+    "src/components/communities/HallsTabPanel.tsx :: <span className=\"bcc-mono text-bcc-text-muted\">Next \u2192</span>",
+    "src/components/communities/HallsTabPanel.tsx :: <span className=\"bcc-mono text-bcc-text-muted\">\u2190 Previous</span>",
     "src/app/(main)/(app)/explore/page.tsx :: <span aria-hidden className=\"text-bcc-text-muted\">\u2715</span>",
     "src/components/auth/EligibleCommunitiesModal.tsx :: <span aria-hidden className=\"text-bcc-text-muted\">\u00b7</span>",
     "src/components/auth/EligibleCommunitiesModal.tsx :: <span aria-hidden className=\"text-bcc-text-muted\">\u00b7</span>",
@@ -320,8 +320,8 @@ describe("closure — E2's six exclusions survive", () => {
   const E2: ReadonlyArray<readonly [string, string, string]> = [
     [`${APP}/communities/page.tsx`, PREV, "← Previous, no prev page"],
     [`${APP}/communities/page.tsx`, NEXT, "Next →, no next page"],
-    [`${APP}/halls/page.tsx`, PREV, "← Previous, no prev page"],
-    [`${APP}/halls/page.tsx`, NEXT, "Next →, no next page"],
+    ["src/components/communities/HallsTabPanel.tsx", PREV, "← Previous, no prev page"],
+    ["src/components/communities/HallsTabPanel.tsx", NEXT, "Next →, no next page"],
     [`${APP}/explore/KindDirectoryPage.tsx`, CHIP, "aria-hidden ✕ chip"],
     [`${APP}/explore/page.tsx`, CHIP, "aria-hidden ✕ chip"],
   ];

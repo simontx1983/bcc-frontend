@@ -288,8 +288,8 @@ describe("former phosphor consumers moved to owning semantics", () => {
  *     pairing, already measured, untouched.
  */
 const VERIFIED_TEXT_CHIPS: readonly string[] = [
-  "src/app/(main)/(app)/halls/page.tsx",
   "src/components/cards/CardFrontFace.tsx",
+  "src/components/communities/HallsTabPanel.tsx",
   "src/components/disputes/CaseHeader.tsx",
   "src/components/disputes/MyDisputesList.tsx",
   "src/components/groups/GroupMembershipStrip.tsx",

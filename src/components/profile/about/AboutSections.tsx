@@ -102,7 +102,7 @@ export function AboutHallsCard({ profile }: { profile: MemberProfile }) {
   if (halls.length === 0) return null;
   return (
     <AboutCard label="Halls" count={halls.length} testId="about-card-halls">
-      <MembershipRows rows={halls} isHall layout="inline" />
+      <MembershipRows rows={halls} layout="inline" />
     </AboutCard>
   );
 }
@@ -115,7 +115,7 @@ export function AboutGroupsCard({ profile }: { profile: MemberProfile }) {
   if (!typed) {
     return (
       <AboutCard label="Groups" count={groups.length} testId="about-card-groups">
-        <MembershipRows rows={groups} isHall={false} layout="stacked" />
+        <MembershipRows rows={groups} layout="stacked" />
       </AboutCard>
     );
   }
@@ -123,7 +123,7 @@ export function AboutGroupsCard({ profile }: { profile: MemberProfile }) {
     <AboutCard label="Operator / Projects" testId="about-card-groups">
       <h3 className={KEY_CLASS}>Groups · {groups.length}</h3>
       <div className="mt-2">
-        <MembershipRows rows={groups} isHall={false} layout="stacked" />
+        <MembershipRows rows={groups} layout="stacked" />
       </div>
     </AboutCard>
   );
@@ -136,17 +136,15 @@ export function AboutGroupsCard({ profile }: { profile: MemberProfile }) {
  */
 function MembershipRows({
   rows,
-  isHall,
   layout,
 }: {
   rows: readonly MemberHall[];
-  isHall: boolean;
   layout: "inline" | "stacked";
 }) {
   return (
     <ul className="flex flex-col divide-y divide-bcc-border">
       {rows.map((row) => {
-        const href = memberHallHref(row, isHall);
+        const href = memberHallHref(row);
         const role =
           typeof row.role_label === "string" && row.role_label !== "" ? row.role_label : null;
         const body = (

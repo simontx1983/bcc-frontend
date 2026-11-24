@@ -24,9 +24,13 @@
  *   Pass `urlBase="/communities/{slug}"` and `urlSyncOn=true`. Clicking a
  *   tab pushes the canonical sub-URL (`/communities/{slug}/about`, etc.)
  *   so SEO + deeplinks stay intact. Each community sub-route mounts the
- *   same shell with the right `initialTab`.
+ *   same shell with the right `initialTab`. Only Stream, About and
+ *   Members have sub-routes: a Hall's NFT Collections and Validators tabs
+ *   switch in-page even in this mode, since a Hall now lives at
+ *   /communities/{slug} (Site Structure A) and there is no
+ *   /communities/{slug}/collections or /validators to push.
  *
- * Internal-state mode (/groups/[slug], /halls/[slug]):
+ * Internal-state mode:
  *   Omit `urlBase` (or pass `urlSyncOn={false}`). Tab clicks update
  *   internal state only — no route navigation.
  *
@@ -52,12 +56,13 @@ export type GroupTabKey =
   | "collections"
   | "validators";
 
-const TABS: ReadonlyArray<{ key: GroupTabKey; label: string; segment: string }> = [
-  { key: "stream",      label: "Stream",          segment: ""            },
-  { key: "about",       label: "About",           segment: "about"       },
-  { key: "members",     label: "Members",         segment: "members"     },
-  { key: "collections", label: "NFT Collections", segment: "collections" },
-  { key: "validators",  label: "Validators",      segment: "validators"  },
+/** `segment` is the tab's sub-route under `urlBase`; null = in-page only. */
+const TABS: ReadonlyArray<{ key: GroupTabKey; label: string; segment: string | null }> = [
+  { key: "stream",      label: "Stream",          segment: ""        },
+  { key: "about",       label: "About",           segment: "about"   },
+  { key: "members",     label: "Members",         segment: "members" },
+  { key: "collections", label: "NFT Collections", segment: null      },
+  { key: "validators",  label: "Validators",      segment: null      },
 ];
 
 export interface GroupTabsProps {
@@ -77,7 +82,7 @@ export interface GroupTabsProps {
   /**
    * URL prefix for community sub-routes (e.g. `/communities/cosmos-hub`).
    * When set, clicking a tab pushes the canonical sub-URL. Omit on
-   * /groups/[slug] + /halls/[slug] for internal-state-only mode.
+   * /groups/[slug] for internal-state-only mode.
    */
   urlBase?: string;
 }
@@ -122,8 +127,8 @@ export function GroupTabs({
 
   const handleSelect = (key: GroupTabKey) => {
     setActive(key);
-    if (urlBase !== undefined) {
-      const segment = TABS.find((t) => t.key === key)?.segment ?? "";
+    const segment = TABS.find((t) => t.key === key)?.segment ?? null;
+    if (urlBase !== undefined && segment !== null) {
       const href = segment === "" ? urlBase : `${urlBase}/${segment}`;
       router.push(href as Route);
     }
