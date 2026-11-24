@@ -3,9 +3,8 @@
  * demo cycles through. New content, written for this demo — does NOT
  * touch the constitutionally-locked strings in `lib/copy/trust-layer.ts`.
  *
- * Tier labels follow bcc-trust's honest `ReputationTierMap::TIER_LABEL`,
- * except that the top band now DISPLAYS as "Proven" while its key stays
- * `elite` — the wire value until bcc-trust ships the rename.
+ * Tier labels follow bcc-trust's honest `ReputationTierMap::TIER_LABEL`;
+ * the top band is "Elite" (Phillip, 2026-11-24).
  *
  * Border color is null for the three middle bands on purpose — violet/
  * red borders stay rare and meaningful, mirroring the real feed's

@@ -29,6 +29,7 @@ const code = (p: string) => read(p).replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\
 const SURFACES: ReadonlyArray<readonly [string, string, string]> = [
   ["src/app/(main)/(app)/members/page.tsx", "{query.data.pagination.total} MEMBER", "{query.data.pagination.total} OPERATOR"],
   ["src/app/(main)/(app)/members/page.tsx", "No members on file yet.", "No operators on file yet."],
+  ["src/app/(main)/(app)/members/page.tsx", "FILE INDEX \\u00a0//\\u00a0 ALL MEMBERS", "ALL OPERATORS"],
   ["src/components/feed/DiscoverPanel.tsx", "RECENTLY ACTIVE MEMBERS", "RECENTLY ACTIVE OPERATORS"],
   ["src/app/(main)/(app)/u/[handle]/page.tsx", 'kind="MEMBER"', 'kind="OPERATOR"'],
   ["src/app/(main)/(app)/u/[handle]/page.tsx", "Early days for this member.", "Early days for this operator."],
@@ -51,7 +52,7 @@ const SURFACES: ReadonlyArray<readonly [string, string, string]> = [
   ["src/components/profile/SlotHoldersPicker.tsx", "that member&rsquo;s work", "that operator&rsquo;s work"],
   ["src/components/profile/EndorsementsGivenView.tsx", "Pages this member has vouched for", "Pages this operator has vouched for"],
   ["src/components/identity/AuthorVouchButton.tsx", "back this member.", "back this operator."],
-  ["src/components/cards/CardActionBar.tsx", "back this page.", "back this operator."],
+  ["src/components/cards/CardActionBar.tsx", 'targetKind === "user_profile" ? "back this member." : "back this page."', "back this operator."],
   ["src/components/onboarding/OnboardingTrustLayerSteps.tsx", "Members back,", "Operators back,"],
   ["src/components/onboarding/OnboardingTrustLayerSteps.tsx", "I think this member is competent.", "I think this operator is competent."],
   ["src/components/onboarding/OnboardingTrustLayerSteps.tsx", "this member&rsquo;s work", "this operator&rsquo;s work"],

@@ -56,8 +56,7 @@ interface TierRow {
 
 // Best → worst, left → right (proven/trusted lead, risky/caution trail).
 const TIER_ROWS: TierRow[] = [
-  // Key stays `elite` (the wire value) while the label reads "Proven".
-  // Both flip together once bcc-trust ships the rename.
+  // Key and label are both `elite` / "Elite" (Phillip, 2026-11-24).
   { key: "elite",   label: "Elite",   color: "var(--bcc-trust-proven)",  glow: true,  pulse: true,  blurb: "Top-tier trust — long track record, heavily vouched." },
   { key: "trusted", label: "Trusted", color: "var(--bcc-trust-trusted)", glow: true,  pulse: false, blurb: "Consistent good standing, backed by the community." },
   { key: "neutral", label: "Neutral", color: "var(--bcc-trust-neutral)", glow: false, pulse: false, blurb: "New or quiet — not enough signal yet." },
