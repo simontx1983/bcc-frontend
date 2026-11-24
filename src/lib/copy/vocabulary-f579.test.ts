@@ -66,6 +66,13 @@ const SURFACES: ReadonlyArray<readonly [string, string, string]> = [
   ["src/components/disputes/OpenDisputeModal.tsx", "Our team has been notified.", "An operator has been notified."],
   ["src/components/entity/ChainTabs.tsx", "Chains this validator runs on", "Chains this operator runs on"],
   ["src/app/(main)/(app)/validators/page.tsx", "the validators you actually trust", "the operators you actually trust"],
+  // The follow-up: the /directory and /validators rails, and a member's meta description.
+  ["src/app/(main)/(app)/directory/page.tsx", "FILE INDEX \\u00a0//\\u00a0 ALL PAGES", "ALL OPERATORS"],
+  ["src/app/(main)/(app)/validators/page.tsx", "FILE INDEX \\u00a0//\\u00a0 ALL VALIDATORS", "STAKING OPERATORS"],
+  ["src/app/(main)/(app)/directory/page.tsx", "Every page on the floor.", "Every operator on the floor."],
+  ["src/app/(main)/(app)/members/page.tsx", "Every member on the floor.", "Every operator on the floor."],
+  ["src/app/(main)/(app)/u/[handle]/page.tsx", "a member on the Floor: trust, identity, and reputation in crypto.", "reputation for crypto operators"],
+  ["src/lib/profile/load-member-subpage.ts", "a member on the Floor: trust, identity, and reputation in crypto.", "reputation for crypto operators"],
 ];
 
 describe("F-579 vocabulary", () => {

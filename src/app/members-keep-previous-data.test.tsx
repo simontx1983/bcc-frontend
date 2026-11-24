@@ -114,7 +114,7 @@ function status() {
 }
 
 // "1 MEMBER", "2 MEMBERS MATCHING …" — the line above the grid (the
-// rail's "ALL OPERATORS" has no leading count).
+// rail's "ALL MEMBERS" has no leading count).
 function countLine() {
   return screen.getByText(/^\d+ MEMBERS?\b/);
 }

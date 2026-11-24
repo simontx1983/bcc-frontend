@@ -123,7 +123,7 @@ function DirectoryPageContent() {
 
   return (
     <main className="bcc-page-wide pb-24">
-      <RouteRail kicker={"FLOOR \u00a0//\u00a0 DIRECTORY"} label={"FILE INDEX \u00a0//\u00a0 ALL OPERATORS"} />
+      <RouteRail kicker={"FLOOR \u00a0//\u00a0 DIRECTORY"} label={"FILE INDEX \u00a0//\u00a0 ALL PAGES"} />
 
       <header className="mx-auto max-w-[1560px] px-4 sm:px-7 pt-12">
         <p className="bcc-mono text-bcc-text-safety">FIND YOUR FLOOR</p>
@@ -131,7 +131,7 @@ function DirectoryPageContent() {
           className="bcc-stencil mt-3 text-bcc-text leading-[0.95]"
           style={{ fontSize: "clamp(2.5rem, 6.5vw, 5.5rem)" }}
         >
-          Every operator on the floor.
+          Every page on the floor.
         </h1>
         <p className="mt-4 max-w-2xl font-serif text-lg leading-relaxed text-bcc-text-secondary">
           Browse every validator, project, and creator graded on the floor.
