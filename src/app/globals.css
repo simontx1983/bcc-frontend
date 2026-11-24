@@ -2155,7 +2155,9 @@
   background: var(--bcc-glass-bg-frosted);
   color: var(--bcc-text);
   font-family: var(--font-serif), serif;
-  font-size: 14px;
+  /* 16px: iOS Safari zooms the page into any focused field under 16px
+     and leaves it zoomed (sign-in, sign-up, password reset). */
+  font-size: 16px;
   outline: none;
   transition: border-color 150ms ease, box-shadow 150ms ease;
 }
@@ -2283,7 +2285,10 @@
   align-items: center;
   border: 1px solid var(--bcc-border-strong);
   border-radius: var(--bcc-radius-md);
-  background: var(--bcc-input-bg, var(--bcc-surface));
+  /* The same fill as every other auth field (.bcc-auth-input). It was
+     --bcc-input-bg, a grey in light mode, so the handle field read as
+     disabled beside its siblings (testnet UX audit S6). */
+  background: var(--bcc-glass-bg-frosted);
   overflow: hidden;
 }
 .bcc-auth-handle-prefix {
@@ -4215,8 +4220,7 @@
 /* Welcome preview row */
 .bcc-onb-preview { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: clamp(28px, 5vw, 44px); }
 .bcc-onb-pv { border: 1px solid var(--bcc-border); border-radius: var(--bcc-radius-lg); background: var(--bcc-surface-raised); padding: 20px; }
-.bcc-onb-pv .n { font-family: var(--font-stencil), Impact, sans-serif; font-size: 1.6rem; color: var(--bcc-accent); line-height: 1; }
-.bcc-onb-pv h2 { font-family: var(--font-stencil), Impact, sans-serif; font-size: 1.15rem; text-transform: uppercase; letter-spacing: 0.01em; margin: 10px 0 6px; line-height: 1; color: var(--bcc-text); }
+.bcc-onb-pv h2 { font-family: var(--font-stencil), Impact, sans-serif; font-size: 1.15rem; text-transform: uppercase; letter-spacing: 0.01em; margin: 0 0 6px; line-height: 1; color: var(--bcc-text); }
 .bcc-onb-pv p { font-size: 0.9rem; color: var(--bcc-text-secondary); margin: 0; line-height: 1.45; }
 @media (max-width: 760px) { .bcc-onb-preview { grid-template-columns: 1fr; } }
 
@@ -4288,7 +4292,6 @@
   .bcc-onb-panel { padding: 16px; }
   .bcc-onb-preview { gap: 10px; margin-top: 22px; }
   .bcc-onb-pv { padding: 15px; }
-  .bcc-onb-pv .n { font-size: 1.3rem; }
   .bcc-onb-pv h2 { font-size: 1rem; margin: 8px 0 5px; }
   .bcc-onb-foot { margin-top: 26px; }
   .bcc-onb-btn { padding: 10px 20px; }

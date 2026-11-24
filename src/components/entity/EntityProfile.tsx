@@ -466,16 +466,26 @@ export function statsStripColumns(count: number): string {
   return `${STATS_BASE_COLS[Math.min(n, 2) - 1]} ${STATS_SM_COLS[n - 1]}`;
 }
 
+/**
+ * Below sm, an odd count (3, 5) left one tinted empty cell beside the last
+ * stat in the two-across grid; the last stat spans both columns instead.
+ * From sm up it is one row, so no span.
+ */
+export function statsCellSpan(count: number, index: number): string {
+  const n = Math.min(count, 6);
+  return n >= 3 && n % 2 === 1 && index === n - 1 ? "col-span-2 sm:col-span-1" : "";
+}
+
 function StatsStrip({ stats }: { stats: Card["stats"] }) {
   return (
     <div
       className={`bcc-panel grid gap-px overflow-hidden ${statsStripColumns(stats.length)}`}
       style={{ background: "rgb(var(--ink-rgb) / 0.08)" }}
     >
-      {stats.map((stat) => (
+      {stats.map((stat, i) => (
         <div
           key={stat.key}
-          className="flex flex-col items-start gap-1 bg-cardstock px-4 py-4"
+          className={`flex flex-col items-start gap-1 bg-cardstock px-4 py-4 ${statsCellSpan(stats.length, i)}`}
         >
           <span className="bcc-mono text-[10px] tracking-[0.18em] text-ink-soft">
             {stat.label.toUpperCase()}

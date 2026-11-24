@@ -8,6 +8,10 @@
  * trailing element (timestamp). Used at feed, comment, and
  * notification surfaces so identity reads continuously across them.
  *
+ * Chip rule (Handoff v1 dev notes 33/35): a POST's byline (feed card, post
+ * permalink) shows the trust chip, `chip="trust"` (tier + score); a person
+ * in conversation (comments, the lightbox) shows the default rank chip.
+ *
  * Critical §A2 boundary (Phillip — this is why this component does NOT
  * compute a tier locally): `RankChip` accepts `reputationTier` (the
  * canonical 5-band signal) and `reputationTier`/`tierLabel` — all server-
