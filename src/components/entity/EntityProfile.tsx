@@ -45,6 +45,7 @@ import { AttestationActionCluster } from "@/components/profile/AttestationAction
 import { AttestationRoster } from "@/components/profile/AttestationRoster";
 import { ReputationSummaryPanel } from "@/components/profile/ReputationSummaryPanel";
 import { ReviewCallout } from "@/components/review/ReviewCallout";
+import { OwnerVerificationBadge } from "@/components/ui/OwnerVerificationBadge";
 import type { RosterSeed } from "@/hooks/useAttestationRoster";
 import type {
   AttestationTargetKind,
@@ -202,6 +203,8 @@ export function EntityProfile({
             @{card.handle}
           </p>
         )}
+        {/* How the owner was verified: server copy, verbatim. Absent → nothing. */}
+        <OwnerVerificationBadge verification={card.owner_verification} />
       </header>
 
       {/* ── HERO — unified PageHero shape ───────────────────────────

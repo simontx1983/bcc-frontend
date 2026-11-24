@@ -14,7 +14,8 @@
  * ClaimFlow success copy). Accessible name is "Verified Operator" via
  * sr-only text; the glyph itself is aria-hidden. No animation.
  *
- * Consumers:
+ * Consumers, through `ClaimVerificationMark` (which shows the server's
+ * owner-verification label instead when the row carries one):
  *   - `GlobalSearch` SuggestionRow — beside the tier chip
  *   - `SearchResultsTab` ProjectRow — beside the page name
  */

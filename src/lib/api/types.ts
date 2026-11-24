@@ -304,6 +304,16 @@ export interface CardPermissions {
    */
   can_edit_image: CardPermissionEntry;
   /**
+   * bcc-trust page-data P1, page cards only: the page's Team management
+   * entry, its links editor and its notification settings. The owner gets
+   * `allowed: true`; everyone else `{allowed: false, unlock_hint: null}`
+   * (hidden). No control reads these yet. Gate on `.allowed`; a refusal
+   * with an `unlock_hint` is a lock to explain, never hide (§N7).
+   */
+  can_manage_team?: CardPermissionEntry;
+  can_edit_links?: CardPermissionEntry;
+  can_edit_notifications?: CardPermissionEntry;
+  /**
    * §J.6 Trust Attestation Layer permission extensions. Optional on
    * the FE type during the Phase 1 backend rollout; backend ships
    * these gates in Week 2 of the Phase 1 plan. Per §N7 the
@@ -757,6 +767,18 @@ export interface Card {
    * viewer and is the only thing that mounts the page composer.
    */
   page_stream?: { can_post: boolean } | null;
+  /**
+   * PR C1: the verified owner's public verification label. Absent on every
+   * backend before bcc-trust's page-data P1, and then no badge renders.
+   */
+  owner_verification?: PublicOwnerVerification | null;
+  /**
+   * PR C1 (bcc-trust page-data P1): the viewer's role on this page, from
+   * the server's fail-closed role read. Until team members exist it's only
+   * "owner" or null. Display context only: every control is gated by its
+   * own permission entry, never by this.
+   */
+  viewer_page_role?: "owner" | "administrator" | "representative" | null;
   /**
    * F-255 (contract v1.NEXT, §3.2) — is the viewer watching this, and the
    * handle to unwatch it with (`DELETE /me/watching/:follow_id?source=`).
@@ -1647,6 +1669,8 @@ export interface SearchSuggestion {
    *  Constant false on member/community rows (§3.2 — not
    *  on-chain-claimable). */
   is_claim_verified: boolean;
+  /** PR C1: when present with a label, replaces the VerifiedBadge. */
+  owner_verification?: PublicOwnerVerification | null;
   /** Pre-built headless route (`/v/:slug`, `/p/:slug`, `/c/:slug`;
    *  v1.70 adds `/halls/:slug` | `/communities/:slug` | `/u/:handle`),
    *  server-validated as a relative internal path. */
@@ -1704,6 +1728,8 @@ export interface ProjectSearchResult {
   /** Verified operator/creator claim (§ verified-wins) — distinct from
    *  the email-verified `verified` flag. Drives the VerifiedBadge. */
   is_claim_verified: boolean;
+  /** PR C1: when present with a label, replaces the VerifiedBadge. */
+  owner_verification?: PublicOwnerVerification | null;
   followers: number;
   category: string | null;
   category_slug: string | null;
@@ -4764,6 +4790,19 @@ export interface AdminUserRef {
   /** Empty or null when the user has no avatar. */
   avatar_url: string | null;
 }
+
+/**
+ * The page owner's verification as the PUBLIC Card and search items carry
+ * it (PR C1). Server copy: render `label` and `description` verbatim, never
+ * text derived from `kind`. It carries no date and no method by design (the
+ * public no-dates rule). A missing or blank `label` means no badge.
+ */
+export interface PublicOwnerVerification {
+  kind: ValidatorOwnerVerificationKind;
+  label: string;
+  description: string;
+}
+
 
 /**
  * Display only — NEVER the staff lock. Whether staff may act on an owner
