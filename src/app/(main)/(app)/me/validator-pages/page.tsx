@@ -4,7 +4,8 @@
  * Every validator page the signed-in member holds a VERIFIED operator
  * claim on, grouped by chain. An operator running validators on several
  * chains sees one row per claimed page, each linking to its own public
- * page with its own chain data.
+ * page with its own chain data. A row with a page also links to that
+ * page's team (/me/validator-pages/<page_id>/team).
  *
  * Server component, matching /me/progression and /me/reliability: the
  * payload is session-scoped and read once per render, so there is no
@@ -181,7 +182,7 @@ function ValidatorRow({ row }: { row: MeValidatorPageRow }) {
         </p>
       </div>
 
-      <div className="shrink-0">
+      <div className="flex shrink-0 flex-wrap gap-2">
         {row.page_slug !== null ? (
           <Link
             href={`/v/${row.page_slug}` as Route}
@@ -194,6 +195,16 @@ function ValidatorRow({ row }: { row: MeValidatorPageRow }) {
             YOUR CLAIM IS VERIFIED BUT THIS VALIDATOR HAS NO PUBLIC PAGE YET.
             NOTHING IS LOST — THE PAGE IS CREATED BY THE INDEXER.
           </p>
+        )}
+        {/* The team hangs off the page, so a row with no page has no team. */}
+        {row.page_id !== null && (
+          <Link
+            href={`/me/validator-pages/${row.page_id}/team` as Route}
+            aria-label={`Team for ${name}`}
+            className="bcc-mono inline-block border border-bcc-border px-4 py-2 text-sm text-bcc-text hover:border-safety"
+          >
+            TEAM
+          </Link>
         )}
       </div>
     </div>

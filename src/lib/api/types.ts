@@ -5011,6 +5011,204 @@ export interface AdminUserSearchResponse {
   items: AdminUserRef[];
 }
 
+// Validator team, owner / member side (validator admin V1, PR B2): the
+// team screen (route 5), invite / remove / reconfirm / leave / visibility
+// (6, 7, 10, 11), my invites and answering one (8, 9), the owner revert
+// and the permissions page. Source of truth until the umbrella contract
+// §4 entries land: the team sections of the validator admin API V1
+// agreed with bcc-trust (2026-11-23, routes corrected 2026-11-24).
+//
+// Users are the same `{user_id, handle, display_name, avatar_url}` object
+// the admin routes carry (AdminUserRef): never an email or a login.
+//
+// ⛔ No relationship history or evidence here. Those are staff-only and
+// never reach a member-facing response, not even the owner's own page.
+
+export type ValidatorTeamRole = "administrator" | "representative";
+
+/** The viewer's place on the page. `null`: not on the team. */
+export type ValidatorTeamViewerRole = "owner" | ValidatorTeamRole;
+
+export interface ValidatorTeamMembership {
+  membership_id: number;
+  user: AdminUserRef;
+  role: ValidatorTeamRole;
+  /** Every role starts as an invite; it becomes active on accept. */
+  status: "pending" | "active";
+  /** Who invited them; null when staff did (see `added_by_staff`) or the account is gone. */
+  added_by: AdminUserRef | null;
+  added_by_staff: boolean;
+  /** ISO 8601 UTC. */
+  invited_at: string;
+  /** ISO 8601 UTC; pending invites only (they expire after 7 days). */
+  expires_at?: string | null;
+  accepted_at: string | null;
+  show_publicly: boolean;
+  /**
+   * Added without a password re-confirmation, so delegator-reaching
+   * powers newly granted to their role wait until someone re-confirms
+   * them. Server-decided; the UI only shows it. Read as false unless
+   * exactly true (a server without the permissions work omits it).
+   */
+  needs_reconfirm?: boolean;
+}
+
+/**
+ * What the viewer may do on the team screen. Policy output: the UI
+ * renders an action ONLY when its key is true. Route 5's `can` also
+ * carries the page power keys (`publish_announcements`, `edit_profile`,
+ * …); the team screen doesn't read them.
+ */
+export interface ValidatorTeamCan {
+  invite_administrator: boolean;
+  invite_representative: boolean;
+  /** Remove a member, or cancel a pending invite, of that role. */
+  remove: Record<ValidatorTeamRole, boolean>;
+  leave: boolean;
+  set_visibility: boolean;
+}
+
+/** One change the owner can undo in a step (30-day window, once per event). */
+export interface ValidatorTeamRevertable {
+  /** The relationship-log id; the revert route's `:eventId`. */
+  event_id: number;
+  kind: "team_member_added" | "team_member_removed" | "profile_edited" | "links_edited";
+  /** The contract says a user; null is tolerated for an account that's gone. */
+  actor: AdminUserRef | null;
+  /** ISO 8601 UTC. */
+  at: string;
+  /** A server-written line describing the change. Plain text. */
+  summary: string;
+}
+
+/** GET /me/validator-pages/:pageId/team (route 5). */
+export interface ValidatorTeamResponse {
+  viewer: {
+    role: ValidatorTeamViewerRole | null;
+    membership_id: number | null;
+    show_publicly: boolean | null;
+  };
+  can: ValidatorTeamCan;
+  /**
+   * Whether inviting each role asks for the ADDER's own password. Only an
+   * explicit `true` shows the field; if the server then asks for one
+   * anyway (a 422 on `current_password`), the field appears.
+   */
+  requires_password_to_invite?: Partial<Record<ValidatorTeamRole, boolean>>;
+  /**
+   * Representatives get active members plus their own row; pending
+   * invites go to the owner and administrators only. Rendered as sent.
+   */
+  items: ValidatorTeamMembership[];
+  /** Empty unless the viewer is the owner; absent on a server without the revert route yet. */
+  revertable?: ValidatorTeamRevertable[];
+}
+
+/** POST /me/validator-pages/:pageId/team/invites (route 6). */
+export interface InviteValidatorTeamMemberRequest {
+  user_id: number;
+  role: ValidatorTeamRole;
+  /** Sent ONLY when `requires_password_to_invite[role]` is true. */
+  current_password?: string;
+}
+
+/** Route 6 (201), route 9 accept, and reconfirm. */
+export interface ValidatorTeamMembershipResponse {
+  membership: ValidatorTeamMembership;
+}
+
+/** POST /me/validator-pages/:pageId/team/:membershipId/remove (route 7). */
+export interface RemoveValidatorTeamMemberRequest {
+  /** Required when the member (or pending invitee) is an administrator; never sent otherwise. */
+  current_password?: string;
+}
+
+export interface RemoveValidatorTeamMemberResponse {
+  removed: true;
+}
+
+/** POST /me/validator-pages/:pageId/team/:membershipId/reconfirm. */
+export interface ReconfirmValidatorTeamMemberRequest {
+  current_password: string;
+}
+
+export interface LeaveValidatorTeamResponse {
+  left: true;
+}
+
+/** PATCH /me/validator-pages/:pageId/team/visibility (route 11): body and response. */
+export interface ValidatorTeamVisibility {
+  show_publicly: boolean;
+}
+
+/** POST /me/validator-pages/:pageId/team/revert/:eventId. */
+export interface RevertValidatorTeamEventResponse {
+  reverted: true;
+  event_id: number;
+}
+
+/** One pending invite to the viewer (route 8). */
+export interface MyTeamInvite {
+  membership_id: number;
+  page: { page_id: number; title: string; slug: string };
+  role: ValidatorTeamRole;
+  /** Null when staff added them (`added_by_staff`) or the account is gone. */
+  invited_by: AdminUserRef | null;
+  added_by_staff: boolean;
+  /** ISO 8601 UTC. */
+  invited_at: string;
+  /** ISO 8601 UTC. */
+  expires_at: string;
+}
+
+/** GET /me/team-invites (route 8). */
+export interface MyTeamInvitesResponse {
+  items: MyTeamInvite[];
+}
+
+export interface DeclineTeamInviteResponse {
+  declined: true;
+}
+
+/** A power the owner can grant per role, in the order the server lists them. */
+export interface ValidatorTeamPower {
+  key: string;
+  label: string;
+  description: string;
+}
+
+/** A power only the owner holds. Code, not data: listed, never granted. */
+export interface ValidatorTeamLockedPower {
+  key: string;
+  label: string;
+  /** Server copy saying why it's locked. */
+  reason: string;
+}
+
+/** Power key → granted, per role. */
+export type ValidatorTeamRoleGrants = Record<ValidatorTeamRole, Record<string, boolean>>;
+
+/**
+ * GET (and PUT) /me/validator-pages/:pageId/team/permissions, owner
+ * only. A settings read that fails is a 503, never the defaults.
+ */
+export interface ValidatorTeamPermissions {
+  powers: ValidatorTeamPower[];
+  roles: ValidatorTeamRoleGrants;
+  /** What "Reset to defaults" restores; never shown as the settings. */
+  defaults: ValidatorTeamRoleGrants;
+  locked: ValidatorTeamLockedPower[];
+  /** ISO 8601 UTC; null when never changed. */
+  updated_at: string | null;
+  updated_by: AdminUserRef | null;
+}
+
+/** PUT /me/validator-pages/:pageId/team/permissions. Locked keys are never sent. */
+export interface UpdateValidatorTeamPermissionsRequest {
+  roles: ValidatorTeamRoleGrants;
+  current_password: string;
+}
+
 // §K1 Phase B — content reports (POST /me/reports)
 //
 // Reason taxonomy is locked here in lockstep with ContentReportService::

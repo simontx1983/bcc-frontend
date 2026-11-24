@@ -61,6 +61,11 @@ export function conflictReason(err: unknown): string | null {
   return dataString(err, "bcc_conflict", "reason");
 }
 
+/** A 403 `bcc_forbidden`'s `data.reason` (the team writes' `credential_invalid`), or null. */
+export function forbiddenReason(err: unknown): string | null {
+  return dataString(err, "bcc_forbidden", "reason");
+}
+
 /** A `bcc_step_up_failed`'s `data.reason` (`password`, `code`, `expired`, `used`, `mismatch`), or null. */
 export function stepUpFailureReason(err: unknown): string | null {
   return dataString(err, "bcc_step_up_failed", "reason");
