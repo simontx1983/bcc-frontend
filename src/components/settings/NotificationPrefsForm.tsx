@@ -58,6 +58,17 @@ interface BellRow {
   key: BellEventType;
   label: string;
   blurb: string;
+  /**
+   * A kind whose sender may not be on the server yet: its row renders only
+   * when the server's prefs carry the key. The server drops an unknown key
+   * on save, so an earlier row would be a toggle that saves nothing.
+   */
+  requiresServerKey?: true;
+}
+
+/** Whether a bell row renders against the prefs the server sent. */
+function bellRowShown(row: BellRow, bell: NotificationPrefs["bell"]): boolean {
+  return row.requiresServerKey !== true || Object.prototype.hasOwnProperty.call(bell, row.key);
 }
 
 interface PushRow {
@@ -209,6 +220,22 @@ const BELL_ROWS: ReadonlyArray<BellRow> = [
     key: "bcc_announcement_restored",
     label: "Announcement restored",
     blurb: "A moderator reviewed one of your hidden announcements and restored it.",
+  },
+  {
+    // Validator admin V1. Bell-only. Rendered only once the server's prefs
+    // carry the key (see `requiresServerKey`). The three admin kinds
+    // (owner linked / revoked / link cancelled) have no row: admins
+    // always get them, and members never see an admin toggle.
+    key: "bcc_validator_ownership_granted",
+    label: "Validator page ownership granted",
+    blurb: "BCC staff verified you as the owner of a validator page. The notice links to the page.",
+    requiresServerKey: true,
+  },
+  {
+    key: "bcc_validator_ownership_removed",
+    label: "Validator page ownership removed",
+    blurb: "BCC staff removed you as the owner of a validator page.",
+    requiresServerKey: true,
   },
 ];
 
@@ -437,7 +464,7 @@ export function NotificationPrefsForm() {
           you mark them read.
         </p>
         <div className="mt-2 flex flex-col gap-3">
-          {BELL_ROWS.map((row) => (
+          {BELL_ROWS.filter((row) => bellRowShown(row, draft.bell)).map((row) => (
             <ToggleRow
               key={row.key}
               label={row.label}

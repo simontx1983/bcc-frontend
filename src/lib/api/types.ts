@@ -1785,7 +1785,14 @@ export type NotificationKind =
   | "bcc_content_auto_hidden"
   | "bcc_claim_badge_removed"
   | "bcc_announcement_hidden"
-  | "bcc_announcement_restored";
+  | "bcc_announcement_restored"
+  // Validator admin V1 (bell only). To every admin: an owner linked,
+  // revoked or link cancelled. To the member: ownership granted or removed.
+  | "bcc_validator_owner_linked"
+  | "bcc_validator_owner_revoked"
+  | "bcc_validator_owner_link_cancelled"
+  | "bcc_validator_ownership_granted"
+  | "bcc_validator_ownership_removed";
 
 export interface NotificationActor {
   id: number;
@@ -6312,7 +6319,14 @@ export type BellEventType =
   | "bcc_content_auto_hidden"
   | "bcc_claim_badge_removed"
   | "bcc_announcement_hidden"
-  | "bcc_announcement_restored";
+  | "bcc_announcement_restored"
+  // Validator admin V1 (bell only). To every admin: an owner linked,
+  // revoked or link cancelled. To the member: ownership granted or removed.
+  | "bcc_validator_owner_linked"
+  | "bcc_validator_owner_revoked"
+  | "bcc_validator_owner_link_cancelled"
+  | "bcc_validator_ownership_granted"
+  | "bcc_validator_ownership_removed";
 
 export interface NotificationPrefs {
   email_digest: boolean;
