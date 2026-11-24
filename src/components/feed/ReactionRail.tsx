@@ -44,6 +44,7 @@ import {
   useReactionFailure,
 } from "@/components/feed/ReactionFailureNotice";
 import { StokeFlame } from "@/components/feed/StokeFlame";
+import { stokeAccessibleName } from "@/components/feed/stoke-name";
 import { useStokeMutation, useUnstokeMutation } from "@/hooks/useStoke";
 import type { FeedItem, HeatStage } from "@/lib/api/types";
 import { HIT_AREA_44 } from "@/components/feed/hitArea";
@@ -167,8 +168,8 @@ export function ReactionRail({
         disabled={disabled}
         aria-disabled={disabled}
         aria-pressed={hasStoked}
-        aria-label={hasStoked ? "Stoked — tap to remove" : "Stoke"}
-        title={hasStoked ? "Stoked — tap to remove" : "Stoke"}
+        aria-label={stokeAccessibleName(count)}
+        title={hasStoked ? "Remove your stoke" : "Stoke"}
         className={`${pillClass} disabled:cursor-not-allowed`}
       >
         {flame}

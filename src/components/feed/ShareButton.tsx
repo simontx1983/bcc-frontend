@@ -11,6 +11,11 @@ import { ActionRailButton } from "@/components/feed/ActionRailButton";
 import { ShareIcon } from "@/components/feed/actionIcons";
 import { useCopyConfirm } from "@/hooks/useCopyConfirm";
 
+/** The Web Share API rejects with AbortError when the member cancels. */
+function isShareCancel(err: unknown): boolean {
+  return typeof err === "object" && err !== null && (err as { name?: unknown }).name === "AbortError";
+}
+
 export function ShareButton({
   selfHref,
   shareTitle,
@@ -27,8 +32,11 @@ export function ShareButton({
         try {
           await navigator.share({ url, ...(shareTitle !== undefined ? { title: shareTitle } : {}) });
           return;
-        } catch {
-          // Cancelled or unsupported mid-flight — fall through to clipboard.
+        } catch (err) {
+          // F-264: the member closed the share sheet. Nothing was shared,
+          // so nothing is copied and no "Link copied" appears.
+          if (isShareCancel(err)) return;
+          // Unsupported mid-flight (or blocked) — fall through to clipboard.
         }
       }
       void copy(url);

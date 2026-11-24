@@ -110,7 +110,7 @@ describe("signed out, Stoke and Helpful are sign-in links", () => {
     state.session = "loading";
     rail();
     expect(screen.queryByRole("link")).toBeNull();
-    expect(screen.getByRole("button", { name: "Stoke" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Stoke, 3" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Mark this as helpful" })).toBeInTheDocument();
   });
 
@@ -118,7 +118,7 @@ describe("signed out, Stoke and Helpful are sign-in links", () => {
     state.session = "unauthenticated";
     rail({ canInteract: false });
     expect(screen.queryByRole("link")).toBeNull();
-    expect(screen.getByRole("button", { name: "Stoke" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Stoke, 3" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Mark this as helpful" })).toBeDisabled();
   });
 });
@@ -139,7 +139,7 @@ describe("a failed toggle says so under the action row", () => {
 
   it("a failed stoke fills its region with the line, under the whole row", () => {
     rail();
-    fireEvent.click(screen.getByRole("button", { name: "Stoke" }));
+    fireEvent.click(screen.getByRole("button", { name: "Stoke, 3" }));
     expect(state.stoke[0]!.id).toBe("feed_9");
     act(() => state.stoke[0]!.cb.onError?.(apiErr("bcc_internal_error", 500)));
 
@@ -151,14 +151,14 @@ describe("a failed toggle says so under the action row", () => {
 
   it("an unstoke failure says which way it failed", () => {
     rail({ item: item({ reactions: { counts: {}, heat_stage: 2, viewer_has_stoked: true, stoke_count: 4 } } as never) });
-    fireEvent.click(screen.getByRole("button", { name: "Stoked — tap to remove" }));
+    fireEvent.click(screen.getByRole("button", { name: "Stoke, 4", pressed: true }));
     act(() => state.unstoke[0]!.cb.onError?.(apiErr("bcc_internal_error", 500)));
     expect(regions()[0]!.textContent).toBe("Couldn't remove your stoke. Try again.");
   });
 
   it("a 401 (a session that ended) says to sign in, never the raw text", () => {
     rail();
-    fireEvent.click(screen.getByRole("button", { name: "Stoke" }));
+    fireEvent.click(screen.getByRole("button", { name: "Stoke, 3" }));
     act(() => state.stoke[0]!.cb.onError?.(apiErr("bcc_unauthorized", 401)));
     expect(regions()[0]!.textContent).toBe("Sign in to stoke.");
     expect(document.body.textContent).not.toMatch(/RAW SERVER TEXT/);
@@ -166,7 +166,7 @@ describe("a failed toggle says so under the action row", () => {
 
   it("a suspended member's stoke says so, instead of an endless Try again", () => {
     rail();
-    fireEvent.click(screen.getByRole("button", { name: "Stoke" }));
+    fireEvent.click(screen.getByRole("button", { name: "Stoke, 3" }));
     act(() => state.stoke[0]!.cb.onError?.(apiErr("bcc_forbidden", 403)));
     expect(regions()[0]!.textContent).toBe("Your account is suspended, so you can't react right now.");
     expect(regions()[0]!.textContent).not.toMatch(/try again/i);
@@ -188,12 +188,12 @@ describe("a failed toggle says so under the action row", () => {
 
   it("the next press clears the line, and a repeat failure is a fresh span", () => {
     rail();
-    fireEvent.click(screen.getByRole("button", { name: "Stoke" }));
+    fireEvent.click(screen.getByRole("button", { name: "Stoke, 3" }));
     act(() => state.stoke[0]!.cb.onError?.(apiErr("bcc_internal_error", 500)));
     const region = regions()[0]!;
     const span = region.firstElementChild;
 
-    fireEvent.click(screen.getByRole("button", { name: "Stoke" }));
+    fireEvent.click(screen.getByRole("button", { name: "Stoke, 3" }));
     expect(region.textContent).toBe("");
 
     act(() => state.stoke[1]!.cb.onError?.(apiErr("bcc_internal_error", 500)));
@@ -263,5 +263,32 @@ describe("reactionFailureCopy", () => {
     expect(reactionFailureCopy(new TypeError("Failed to fetch"), "stoke", true)).toBe(
       "Couldn't remove your stoke. Try again.",
     );
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────
+// F-264: one stable name, the count in it, the state in aria-pressed
+// ─────────────────────────────────────────────────────────────────────
+
+describe("F-264: the post Stoke's accessible name", () => {
+  it("not stoked: 'Stoke, 3', not pressed, and a title with no 'tap'", () => {
+    rail();
+    const btn = screen.getByRole("button", { name: "Stoke, 3" });
+    expect(btn).toHaveAttribute("aria-pressed", "false");
+    expect(btn).toHaveAttribute("title", "Stoke");
+  });
+
+  it("stoked: the SAME name shape, pressed, and the title says how to undo it", () => {
+    rail({ item: item({ reactions: { counts: {}, heat_stage: 2, viewer_has_stoked: true, stoke_count: 4 } } as never) });
+    const btn = screen.getByRole("button", { name: "Stoke, 4" });
+    expect(btn).toHaveAttribute("aria-pressed", "true");
+    expect(btn).toHaveAttribute("title", "Remove your stoke");
+    expect(btn.getAttribute("aria-label")).not.toMatch(/tap/i);
+    expect(btn.getAttribute("title")).not.toMatch(/tap/i);
+  });
+
+  it("no stokes yet: just 'Stoke'", () => {
+    rail({ item: item({ reactions: { counts: {}, heat_stage: 1, viewer_has_stoked: false, stoke_count: 0 } } as never) });
+    expect(screen.getByRole("button", { name: "Stoke" })).toHaveAttribute("aria-pressed", "false");
   });
 });

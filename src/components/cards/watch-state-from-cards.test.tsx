@@ -202,10 +202,36 @@ describe("MemberFollowButton (author card)", () => {
     expect(screen.getByRole("button", { name: "Watch Dana Reyes" })).toBeInTheDocument();
   });
 
-  it("while the profile loads or is private (no fields), the button is disabled with a reason", () => {
+  it("while the profile loads or is private (no fields), the button waits: disabled, no reason line", () => {
     render(<MemberFollowButton userId={42} name="Dana Reyes" />);
     const btn = screen.getByRole("button", { name: "Watch Dana Reyes" });
     expect(btn).toBeDisabled();
     expect(btn).toHaveAttribute("title", WATCH_UNKNOWN_COPY);
+    // F-264: no "Couldn't check…" flash on every normal load.
+    expect(screen.queryByText(WATCH_UNKNOWN_COPY)).toBeNull();
+    expect(btn).not.toHaveAttribute("aria-describedby");
+  });
+
+  it("F-264: when the server couldn't read it (null), the reason is on the page and the button stays focusable", () => {
+    render(<MemberFollowButton userId={42} name="Dana Reyes" viewerIsWatching={null} />);
+    const btn = screen.getByRole("button", { name: "Watch Dana Reyes" });
+    const reason = screen.getByText(WATCH_UNKNOWN_COPY);
+    expect(btn).toBeEnabled();
+    expect(btn).toHaveAttribute("aria-disabled", "true");
+    expect(btn).toHaveAttribute("aria-describedby", reason.id);
+    expect(btn).toHaveAccessibleDescription(WATCH_UNKNOWN_COPY);
+    btn.focus();
+    expect(btn).toHaveFocus();
+    fireEvent.click(btn);
+    expect(watchMutate).not.toHaveBeenCalled();
+    expect(unwatchMutate).not.toHaveBeenCalled();
+  });
+
+  it("F-264: a known answer shows no reason and no aria-disabled", () => {
+    render(<MemberFollowButton userId={42} name="Dana Reyes" viewerIsWatching={false} />);
+    const btn = screen.getByRole("button", { name: "Watch Dana Reyes" });
+    expect(btn).toBeEnabled();
+    expect(btn).not.toHaveAttribute("aria-disabled");
+    expect(screen.queryByText(WATCH_UNKNOWN_COPY)).toBeNull();
   });
 });
