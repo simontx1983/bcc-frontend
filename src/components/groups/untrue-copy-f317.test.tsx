@@ -117,14 +117,14 @@ describe("Composer — the PUBLIC GROUP option", () => {
 
 describe("/communities intro", () => {
   it("names no LOCAL rooms and doesn't call every other room open", () => {
+    // Site Structure A: the intro is the section header's one-sentence
+    // lede (COMMUNITIES_SECTION), naming the kinds of room.
     const src = read("src/app/(main)/(app)/communities/page.tsx");
-    const start = src.indexOf("Active rooms across the floor.");
+    const start = src.indexOf("const COMMUNITIES_SECTION");
     expect(start).toBeGreaterThan(-1);
-    const intro = src.slice(start, src.indexOf("</p>", start));
+    const intro = src.slice(start, src.indexOf("} as const;", start));
     expect(intro).not.toMatch(/LOCAL/);
     expect(intro).not.toMatch(/anyone can join/);
-    expect(intro).toMatch(/some open to anyone, some by request/);
-    // The ranking sentence stays: it is §4.7.4's sort (verified, heat, members).
-    expect(intro).toMatch(/Verified rooms rank first, then\s+warmest, then largest/);
+    expect(intro).toMatch(/lede: "Places you join: chain Halls, holder and delegator groups, and member-made rooms\."/);
   });
 });

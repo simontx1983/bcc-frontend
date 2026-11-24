@@ -18,7 +18,7 @@
 
 import { useContext } from "react";
 
-import { TourContext } from "@/components/tour/TourProvider";
+import { TourContext } from "@/components/tour/tour-context";
 
 /** Seen-set id. Matches the server's tour-id pattern ([a-z0-9][a-z0-9_-]*). */
 export const RANK_TRUST_NOTE_ID = "members-intro";
