@@ -76,10 +76,10 @@ beforeEach(() => {
 });
 afterEach(() => cleanup());
 
-function renderFlow() {
+function renderFlow(target: typeof TARGET = TARGET) {
   return render(
     <QueryClientProvider client={client}>
-      <ClaimFlow pageId={7} pageName="Atlas Validator" target={TARGET} onClose={onClose} />
+      <ClaimFlow pageId={7} pageName="Atlas Validator" target={target} onClose={onClose} />
     </QueryClientProvider>,
   );
 }
@@ -105,6 +105,19 @@ describe("M-cl2 — wallet errors at the connect step", () => {
     renderFlow();
     fireEvent.click(screen.getByRole("button", { name: /I AM THE OPERATOR/ }));
     expect(await screen.findByRole("alert")).toHaveTextContent("You declined the wallet connection.");
+    expect(screen.queryByRole("link", { name: /Get / })).toBeNull();
+  });
+
+  // F-569: Keplr is installed but doesn't have the chain yet (Dungeon is
+  // not native to Keplr). Say how to add it; "Get Keplr" would be wrong.
+  it("a chain missing from Keplr names the chain and where to add it, with no install link", async () => {
+    const { KeplrChainNotAddedError } = await vi.importActual<typeof KeplrModule>("@/lib/wallet/keplr");
+    connectKeplr.mockRejectedValue(new KeplrChainNotAddedError("dungeon", true));
+    renderFlow({ ...TARGET, chain_slug: "dungeon" });
+    fireEvent.click(screen.getByRole("button", { name: /I AM THE OPERATOR/ }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Dungeon Chain isn't added to your Keplr yet. Add it from Keplr's chain list at chains.keplr.app, then try again.",
+    );
     expect(screen.queryByRole("link", { name: /Get / })).toBeNull();
   });
 });
