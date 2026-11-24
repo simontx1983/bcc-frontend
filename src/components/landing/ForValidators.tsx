@@ -108,7 +108,7 @@ export function ForValidators() {
             signature.
           </p>
 
-          <form method="GET" action="/validators" className="mt-8 flex max-w-xl flex-wrap gap-3">
+          <form method="GET" action="/explore" className="mt-8 flex max-w-xl flex-wrap gap-3">
             <label htmlFor="for-validators-q" className="sr-only">
               Your validator&rsquo;s name
             </label>

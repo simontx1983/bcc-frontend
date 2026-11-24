@@ -259,7 +259,8 @@ describe("the /settings/* redirects still land somewhere real", () => {
   it("every redirect destination is a leaf this navigation can select", async () => {
     const { readFileSync } = await import("node:fs");
     const { resolve } = await import("node:path");
-    const cfg = readFileSync(resolve(process.cwd(), "next.config.ts"), "utf-8");
+    // The table next.config.ts serves lives in src/lib/route-moves.ts.
+    const cfg = readFileSync(resolve(process.cwd(), "src/lib/route-moves.ts"), "utf-8");
     const dests = [...cfg.matchAll(/destination:\s*"\/u\/me\?tab=([a-z]+)"/g)].map((m) => m[1]!);
     expect(dests.length, "no settings redirects found — the scan is broken").toBeGreaterThanOrEqual(8);
 

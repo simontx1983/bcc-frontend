@@ -1524,8 +1524,8 @@ export type DirectoryKind = "validator" | "project" | "creator";
 
 /**
  * Sort modes accepted by the cards-list endpoint. `self_stake` (bonded
- * self-stake, DESC) is validator-only — meaningful on `/validators`,
- * where every result is a validator.
+ * self-stake, DESC) is validator-only — meaningful on Explore ▸ Validators
+ * (`/explore`), where every result is a validator.
  */
 export type DirectorySort =
   | "trust"
@@ -2198,7 +2198,7 @@ export interface ChainProfile {
  *
  * Both previews are capped server-side (6) and ordered by stake /
  * holder count. They are a "worth a look" teaser, NOT a directory —
- * link to `/validators?chain=` and `/cards` for the full lists rather
+ * link to `/explore?chain=` and `/cards` for the full lists rather
  * than paginating here. Empty arrays (never null) when the Hall has no
  * chain or nothing is indexed.
  */

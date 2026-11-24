@@ -648,8 +648,8 @@ describe("withdrawal reaches FeedBody and DirectoryGrid via their owners", () =>
     // observer and the removal would refetch into the same denial.
     const fs = await import("node:fs/promises");
     for (const f of [
-      "src/app/(main)/(app)/directory/page.tsx",
-      "src/app/(main)/(app)/validators/page.tsx",
+      "src/app/(main)/(app)/explore/KindDirectoryPage.tsx",
+      "src/app/(main)/(app)/explore/page.tsx",
     ]) {
       const src = await fs.readFile(f, "utf8");
       expect(src, f + " still owns the query").not.toContain("useDirectory(");

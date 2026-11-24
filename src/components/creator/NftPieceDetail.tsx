@@ -403,7 +403,7 @@ function pickBackHref(routeSlug: string, collectionHandle: string | null): Route
   if (collectionHandle !== null && collectionHandle !== "") {
     return `/c/${collectionHandle}` as Route;
   }
-  return "/directory" as Route;
+  return "/explore/creators" as Route;
 }
 
 export const NftPieceDetail = memo(NftPieceDetailImpl);

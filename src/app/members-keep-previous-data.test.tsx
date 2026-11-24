@@ -38,6 +38,8 @@ const getMembers = vi.hoisted(() => vi.fn());
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ replace: vi.fn(), push: vi.fn(), refresh: vi.fn() }),
   useSearchParams: () => state.searchParams,
+  // The Everyone · Mentors tabs mark the current route.
+  usePathname: () => "/members",
 }));
 vi.mock("@/lib/api/members-endpoints", () => ({ getMembers }));
 // Card rendering is irrelevant here and pulls the API client.

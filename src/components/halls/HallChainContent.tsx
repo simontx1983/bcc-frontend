@@ -154,7 +154,7 @@ export function HallValidatorsPanel({
     <section className="bcc-panel flex flex-col gap-4 p-6">
       <PanelHeader
         heading={`Who secures ${chainLabel}`}
-        href={chain !== null ? `/validators?chain=${encodeURIComponent(chain)}` : null}
+        href={chain !== null ? `/explore?chain=${encodeURIComponent(chain)}` : null}
         linkLabel={`All ${validatorCount.toLocaleString()} →`}
       />
 

@@ -37,7 +37,7 @@ describe("QUERY_ROOTS_TO_INVALIDATE", () => {
     expect(roots).toContain(JSON.stringify(root));
   };
 
-  it("covers the /directory + /validators grids (useDirectory)", () => {
+  it("covers the Explore grids (useDirectory)", () => {
     expectCovers(DIRECTORY_QUERY_KEY_ROOT);
   });
 
