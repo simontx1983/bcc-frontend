@@ -28,6 +28,7 @@
  */
 
 import { memo, useCallback, useMemo, useState } from "react";
+import type { ReactNode } from "react";
 
 import { CardFactory } from "@/components/cards/CardFactory";
 import { useViewerWatch, WATCH_UNKNOWN_COPY } from "@/hooks/useViewerWatch";
@@ -39,6 +40,31 @@ interface CardGridProps {
 }
 
 export function CardGrid({ cards }: CardGridProps) {
+  const entries = useMemo(
+    () => cards.map((card): CardGridEntry => ({ key: `${card.card_kind}-${card.id}`, card })),
+    [cards],
+  );
+  return <CardGridEntries entries={entries} />;
+}
+
+/**
+ * One cell of a card grid. Usually a card; `card: null` puts `fallback`
+ * in the card's place, for a list where the server sends no card for some
+ * rows (a group roster shows such a member as a plain tile). `above` is a
+ * line over the card, OUTSIDE its face, for context the card itself
+ * doesn't carry (a member's role in this group), so the card stays
+ * identical to every other list.
+ */
+export interface CardGridEntry {
+  /** Stable key, unique within the grid. */
+  key: string;
+  card: Card | null;
+  above?: ReactNode;
+  fallback?: ReactNode;
+}
+
+/** The same grid as CardGrid, for callers that need `above` or fallbacks. */
+export function CardGridEntries({ entries }: { entries: readonly CardGridEntry[] }) {
   // F-236: one failure line at a time — the card clicked last owns it, so
   // a new click elsewhere clears the previous card's line.
   const [lastClicked, setLastClicked] = useState<string | null>(null);
@@ -49,14 +75,19 @@ export function CardGrid({ cards }: CardGridProps) {
     // regardless of sidebar / breakpoint. `justify-center` centers any
     // leftover space when the row isn't full.
     <ul className="grid justify-center gap-6 [grid-template-columns:repeat(auto-fit,minmax(0,316px))]">
-      {cards.map((card) => (
-        <CardGridCell
-          key={`${card.card_kind}-${card.id}`}
-          card={card}
-          showsFailure={lastClicked === `${card.card_kind}-${card.id}`}
-          onClicked={setLastClicked}
-        />
-      ))}
+      {entries.map((entry) =>
+        entry.card !== null ? (
+          <CardGridCell
+            key={entry.key}
+            card={entry.card}
+            above={entry.above}
+            showsFailure={lastClicked === `${entry.card.card_kind}-${entry.card.id}`}
+            onClicked={setLastClicked}
+          />
+        ) : (
+          <li key={entry.key}>{entry.fallback}</li>
+        ),
+      )}
     </ul>
   );
 }
@@ -68,10 +99,12 @@ export function CardGrid({ cards }: CardGridProps) {
 
 const CardGridCell = memo(function CardGridCell({
   card,
+  above,
   showsFailure,
   onClicked,
 }: {
   card: Card;
+  above: ReactNode;
   showsFailure: boolean;
   onClicked: (key: string) => void;
 }) {
@@ -104,6 +137,7 @@ const CardGridCell = memo(function CardGridCell({
   // cell; the card itself keeps its exact footprint.
   return (
     <li>
+      {above}
       <CardFactory card={shownCard} isPulled={watch.watching} onPull={onPull} />
       {showsFailure && watch.error !== null && (
         <p

@@ -10,8 +10,14 @@
  *   members_visible = false → <GroupGatedNotice variant="roster"/>
  *                             (no fetch — would 403 anyway).
  *   members_visible = true  → useGroupMembers(group.id) → render the
- *                             first 8 members as a horizontal strip
- *                             of avatar tiles + a "VIEW ALL" CTA.
+ *                             first 8 members + a "VIEW ALL" CTA.
+ *
+ * Each member shows as the SAME card as the /members directory (Phillip:
+ * one card everywhere) when the roster row carries one, with the member's
+ * role in this group (OWNER / MODERATOR, verbatim) as a line above the
+ * card, outside its face. A row without a card (`null`: private, blocked,
+ * a failed build; or a backend before the field) shows as today's tile.
+ * When no row carries a card at all the roster is exactly as before.
  *
  * The "VIEW ALL N MEMBERS →" affordance currently expands the strip
  * to two rows (16 visible) and continues paginating from there. A
@@ -25,6 +31,7 @@ import { memo, useState } from "react";
 import Link from "next/link";
 import type { Route } from "next";
 
+import { CardGridEntries } from "@/components/cards/CardGrid";
 import { Avatar } from "@/components/identity/Avatar";
 import { GroupGatedNotice } from "@/components/groups/GroupGatedNotice";
 import { GROUP_MEMBERS_QUERY_KEY_ROOT, useGroupMembers } from "@/hooks/useGroupMembers";
@@ -159,19 +166,31 @@ function GroupMembersBody({
   const visible = expanded ? items : items.slice(0, PREVIEW_COUNT);
   const total = query.data?.pages[0]?.pagination.total ?? items.length;
   const hasMoreToShow = !expanded && total > PREVIEW_COUNT;
+  const showsCards = visible.some((member) => member.card != null);
 
   return (
     <div className="flex flex-col gap-5">
-      <ul
-        className="grid gap-3"
-        style={{ gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))" }}
-      >
-        {visible.map((member) => (
-          <li key={member.id}>
-            <MemberTile member={member} />
-          </li>
-        ))}
-      </ul>
+      {showsCards ? (
+        <CardGridEntries
+          entries={visible.map((member) => ({
+            key: `member-${member.id}`,
+            card: member.card ?? null,
+            above: <RoleLine member={member} />,
+            fallback: <MemberTile member={member} />,
+          }))}
+        />
+      ) : (
+        <ul
+          className="grid gap-3"
+          style={{ gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))" }}
+        >
+          {visible.map((member) => (
+            <li key={member.id}>
+              <MemberTile member={member} />
+            </li>
+          ))}
+        </ul>
+      )}
 
       {/* A failed REFRESH keeps the roster and localises the recovery
           beneath it; the cursor is still coherent so paging stays open. */}
@@ -212,6 +231,23 @@ function GroupMembersBody({
         </button>
       )}
     </div>
+  );
+}
+
+/**
+ * The member's role in THIS group, over their card: a fact about the
+ * group, not the person, so it stays off the card face. Server label
+ * verbatim (§A2). Plain members get an empty line of the same height so
+ * the cards in a row stay aligned.
+ */
+function RoleLine({ member }: { member: GroupMember }) {
+  return (
+    <p
+      className="bcc-mono mb-2 min-h-[14px] text-center text-bcc-text-safety"
+      style={{ fontSize: "10px", letterSpacing: "0.18em", lineHeight: "14px" }}
+    >
+      {member.role !== "member" ? member.role_label : ""}
+    </p>
   );
 }
 
