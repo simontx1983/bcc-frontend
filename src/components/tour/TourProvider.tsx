@@ -54,6 +54,12 @@ export interface TourContextValue {
   /** Has the viewer already seen this tour (local ∪ server)? */
   hasSeen: (tourId: string) => boolean;
   /**
+   * Record an id as seen without running a tour. For one-off first-visit
+   * notes (e.g. Members' "members-intro"): the same durable seen-set, so a
+   * note dismissed on one device stays dismissed on the others.
+   */
+  markSeen: (tourId: string) => void;
+  /**
    * Can `hasSeen` be trusted yet (the server's seen-set has answered for a
    * signed-in viewer)? Auto-start waits on this. See useToursSeen.
    */
@@ -198,9 +204,10 @@ export function TourProvider({ children }: { children: React.ReactNode }) {
       dismissForSession,
       finish,
       hasSeen,
+      markSeen,
       seenReady,
     }),
-    [definition, stepDef, stepIndex, totalSteps, start, next, back, skip, dismissForSession, finish, hasSeen, seenReady],
+    [definition, stepDef, stepIndex, totalSteps, start, next, back, skip, dismissForSession, finish, hasSeen, markSeen, seenReady],
   );
 
   return (

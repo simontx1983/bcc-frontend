@@ -27,6 +27,12 @@ import { usePathname } from "next/navigation";
 export interface SectionTab {
   label: string;
   href: Route;
+  /**
+   * The tab's item count, from its list's own `total`. Pages pass it for
+   * the ACTIVE tab only (no extra reads for the others), and only when
+   * the server sent one: no number rather than a made-up 0.
+   */
+  count?: number;
 }
 
 export function SectionTabs({
@@ -56,6 +62,9 @@ export function SectionTabs({
               className={`bcc-tab min-h-[44px] shrink-0${active ? " active" : ""}`}
             >
               {tab.label}
+              {tab.count !== undefined && (
+                <span className="bcc-tab-count">{tab.count.toLocaleString()}</span>
+              )}
             </Link>
           );
         })}
