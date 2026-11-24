@@ -332,6 +332,7 @@ function RevokeOwner({ pageId, owner, reasons, onNotice }: StaffOwnerStateProps)
           title="Revoke owner"
           write={{
             isPending: revoke.isPending,
+            reset: revoke.reset,
             run: (proof, onError) =>
               revoke.mutate(
                 { linkId: owner.link_id, body: { reason, note: note.trim(), ...proof } },
@@ -423,6 +424,7 @@ function CancelLink({
           title="Cancel this link"
           write={{
             isPending: cancel.isPending,
+            reset: cancel.reset,
             run: (proof, onError) =>
               cancel.mutate(
                 { linkId: owner.link_id, body: { note: note.trim(), ...proof } },

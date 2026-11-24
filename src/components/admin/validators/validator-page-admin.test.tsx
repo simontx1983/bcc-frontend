@@ -766,6 +766,33 @@ describe("Cancel this link", () => {
 });
 
 describe("Step-up — secrets and focus", () => {
+  const cacheHolds = (qc: QueryClient, secret: string) =>
+    qc.getMutationCache().getAll().some((m) => JSON.stringify(m.state.variables ?? null).includes(secret));
+
+  it("after a failed step-up start, the mutation cache holds no variables containing the password", async () => {
+    const { qc } = await openStaffRevokeDialog();
+    api.start.mockRejectedValueOnce(apiError("bcc_step_up_failed", 403, { reason: "password" }));
+    fireEvent.change(screen.getByLabelText("CURRENT PASSWORD"), { target: { value: PASSWORD } });
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    await screen.findByText(STEP_UP_COPY.wrongPassword);
+
+    // The dialog is still open: the reset happens on the failure, not on close.
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    await waitFor(() => expect(cacheHolds(qc, PASSWORD)).toBe(false));
+  });
+
+  it("after a failed write, the mutation cache holds no variables containing the code", async () => {
+    const { qc } = await openStaffRevokeDialog();
+    api.start.mockResolvedValue(stepUpStarted());
+    await passPassword();
+    api.revoke.mockRejectedValueOnce(apiError("bcc_unavailable", 503));
+    await enterCode();
+    await screen.findByText(STEP_UP_COPY.unavailable);
+
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    await waitFor(() => expect(cacheHolds(qc, CODE)).toBe(false));
+  });
+
   it("the password leaves the DOM and the mutation cache when the dialog closes", async () => {
     const { qc } = await openStaffRevokeDialog();
     api.start.mockReturnValueOnce(Promise.reject(apiError("bcc_rate_limited", 429)));
