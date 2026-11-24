@@ -91,10 +91,10 @@ describe("Members", () => {
     withClient(<MembersPage />);
     await waitFor(() => expect(getMembers).toHaveBeenCalled());
     expect(getMembers.mock.calls[0]?.[0]).toMatchObject({ q: "atom" });
-    expect(await screen.findByRole("link", { name: /Search everywhere for “atom”/ })).toHaveAttribute(
-      "href",
-      "/search?q=atom",
-    );
+    const link = await screen.findByRole("link", { name: /Search everywhere for “atom”/ });
+    expect(link).toHaveAttribute("href", "/search?q=atom");
+    // The roster's empty state is paper: the link must use ink to stay visible in dark mode.
+    expect(link).toHaveClass("text-ink");
   });
 
   it("an empty roster with no search offers no hand-off", async () => {
@@ -154,10 +154,9 @@ describe("Mentors (gains the field)", () => {
     getMembers.mockResolvedValue(membersPage([]));
     withClient(<MentorsPage />);
     expect(await screen.findByText("No mentor by that name.")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Search everywhere for “zed”/ })).toHaveAttribute(
-      "href",
-      "/search?q=zed",
-    );
+    const link = screen.getByRole("link", { name: /Search everywhere for “zed”/ });
+    expect(link).toHaveAttribute("href", "/search?q=zed");
+    expect(link).toHaveClass("text-ink");
   });
 
   it("no mentors at all (no search) keeps the existing empty state, no hand-off", async () => {

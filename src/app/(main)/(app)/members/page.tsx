@@ -658,7 +658,7 @@ function RosterRefinementEmpty({ onClear, query }: { onClear: () => void; query:
         CLEAR REFINEMENT
       </button>
       <div>
-        <SearchEverywhereLink query={query} />
+        <SearchEverywhereLink query={query} surface="paper" />
       </div>
     </div>
   );
@@ -675,7 +675,7 @@ function RosterEmpty({ hasSearch, query }: { hasSearch: boolean; query: string }
         <p className="mt-3 font-serif italic leading-relaxed text-ink-soft">
           Try a different handle, or clear the search to see everyone.
         </p>
-        <SearchEverywhereLink query={query} />
+        <SearchEverywhereLink query={query} surface="paper" />
       </div>
     );
   }

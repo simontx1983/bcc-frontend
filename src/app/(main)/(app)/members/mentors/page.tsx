@@ -227,7 +227,7 @@ function MentorsNoMatch({ query }: { query: string }) {
       <p className="mt-3 font-serif italic leading-relaxed text-ink-soft">
         Mentors are searched by name and @handle. Clear the search to see them all.
       </p>
-      <SearchEverywhereLink query={query} />
+      <SearchEverywhereLink query={query} surface="paper" />
     </div>
   );
 }

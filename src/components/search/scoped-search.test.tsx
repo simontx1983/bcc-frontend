@@ -95,6 +95,17 @@ describe("SearchEverywhereLink", () => {
     const { container } = render(<SearchEverywhereLink query="   " />);
     expect(container).toBeEmptyDOMElement();
   });
+
+  // Paper (bcc-paper) stays light in both themes: the app colour would
+  // vanish on it in dark mode, so the paper variant uses ink.
+  it("uses ink on a paper surface and the app colour elsewhere", () => {
+    render(<SearchEverywhereLink query="leo" surface="paper" />);
+    expect(screen.getByRole("link")).toHaveClass("text-ink");
+    expect(screen.getByRole("link")).not.toHaveClass("text-bcc-text");
+    cleanup();
+    render(<SearchEverywhereLink query="leo" />);
+    expect(screen.getByRole("link")).toHaveClass("text-bcc-text");
+  });
 });
 
 describe("Explore: the /directory filter panel", () => {
