@@ -8,7 +8,9 @@
  *     repost. The quote card's own action bar acts on the quote, so the
  *     preview has no controls: it is one link to the original.
  *   - RepostOriginalUnavailable: in its place when this viewer cannot see
- *     the original (`repost_of_unavailable`). The quote's own text stays.
+ *     the original, or the server could not verify that they can
+ *     (`repost_of_unavailable`; the two are rendered identically). The
+ *     quote's own text stays.
  *
  * Both render inside the card's <article>, whose click-to-open handler
  * ignores clicks on links, so each link here navigates on its own.
@@ -21,6 +23,18 @@ import { RepostIcon } from "@/components/feed/actionIcons";
 import { POST_KIND_LABELS, deriveBodySummary } from "@/components/feed/postBody";
 import { formatRelativeTime } from "@/lib/format";
 import type { FeedItem } from "@/lib/api/types";
+
+/**
+ * Plain vs quote is told apart by CONTENT, PeepSo's own rule (contract
+ * umbrella #327; there is no marker field): the reposter's text empty or
+ * whitespace-only = a plain repost, anything else = a quote. The server
+ * omits a plain repost of an original this viewer can't see (or can't be
+ * verified as readable) entirely, so only a quote can arrive with
+ * `repost_of_unavailable`.
+ */
+export function isPlainRepost(item: FeedItem): item is FeedItem & { repost_of: FeedItem } {
+  return item.repost_of != null && deriveBodySummary(item).trim() === "";
+}
 
 function authorName(item: FeedItem): string {
   return item.author.display_name ?? `@${item.author.handle}`;

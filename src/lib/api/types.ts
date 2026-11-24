@@ -1344,9 +1344,11 @@ export interface FeedItem {
    */
   page_context?: FeedPageContext | null;
   /*
-   * F-346 reposts. Every repost field is keyed on the item's ROOT (a
-   * non-repost is its own root), so a plain or quote repost reports the
-   * original's numbers — tapping Repost on either reposts the original.
+   * F-346 reposts (write side trust #747, contract umbrella #327). Every
+   * repost field is keyed on the item's ROOT (a non-repost is its own
+   * root), so a plain or quote repost reports the original's numbers —
+   * tapping Repost on either reposts the original. There is no nesting:
+   * PeepSo stores the chain's root, so `repost_of` is always the root.
    * All optional until the read side ships: absent = no repost UI.
    */
   /** Distinct members with a PLAIN repost of the root; null = could not be read. */
@@ -1358,18 +1360,19 @@ export interface FeedItem {
   /**
    * Non-null only on a repost: the ROOT, as a full FeedItem (its own
    * `repost_of` is always null). `author` / `body` on this item are the
-   * reposter's — the body is the quote, empty on a plain repost.
+   * reposter's. Plain vs quote is that body's text: empty or whitespace =
+   * plain, otherwise a quote (no marker field; see isPlainRepost).
    */
   repost_of?: FeedItem | null;
   /**
-   * True on a QUOTE whose original this viewer cannot see (`repost_of` is
-   * then null): the card shows the quote with a neutral "original
-   * unavailable" block, which names no author, group or post. A plain
-   * repost of an unseen original is never sent at all.
+   * True on a QUOTE whose original this viewer cannot see, or whose
+   * readability the server could not verify (`repost_of` is then null;
+   * the two cases are not told apart). The card shows the quote with a
+   * neutral "original unavailable" block, which names no author, group
+   * or post; the original's id never reaches the wire. A plain repost of
+   * such an original is never sent at all.
    */
   repost_of_unavailable?: boolean;
-  /** Server-decided, after trimming: true when the reposter added text. */
-  repost_quote?: boolean;
 }
 
 export interface FeedPageContext {

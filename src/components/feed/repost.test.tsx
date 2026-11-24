@@ -61,7 +61,6 @@ function post(id: string, handle: string, text: string, over: Partial<FeedItem> 
     quote_count: 0,
     viewer_has_reposted: false,
     repost_of: null,
-    repost_quote: false,
     ...over,
   } as FeedItem;
 }
@@ -149,9 +148,11 @@ describe("F-346 Repost pill (plain repost toggle)", () => {
     expect(createRepost).not.toHaveBeenCalled();
   });
 
-  it("a non-public post (not_public, no hint) shows neither pill; a stale card's 403 says why", async () => {
-    const notPublic = { allowed: false, unlock_hint: null, reason_code: "not_public" } as FeedItemPermission;
-    const hidden = post("feed_1", "a", "x", { permissions: { can_repost: notPublic, can_quote: notPublic } });
+  it("a refused post (2-key entry, no hint) shows neither pill; a stale card's 403 says why", async () => {
+    // Post-local permissions are {allowed, unlock_hint} only (#327): a
+    // non-public root is just a refusal with no hint.
+    const refused: FeedItemPermission = { allowed: false, unlock_hint: null };
+    const hidden = post("feed_1", "a", "x", { permissions: { can_repost: refused, can_quote: refused } });
     const { container } = mount(
       <>
         <RepostButton item={hidden} />
@@ -222,7 +223,7 @@ describe("F-346 Quote pill", () => {
 
 describe("F-346 repost cards", () => {
   it("a plain repost card IS the original, under a 'reposted' line", () => {
-    const wrapper = post("feed_20", "bolt", "", { repost_of: ROOT, repost_quote: false });
+    const wrapper = post("feed_20", "bolt", "", { repost_of: ROOT });
     mount(<FeedItemCard item={wrapper} />);
     expect(screen.getByTestId("reposted-by")).toHaveTextContent("@bolt reposted");
     expect(screen.getByRole("link", { name: "@bolt" })).toHaveAttribute("href", "/u/bolt");
@@ -232,7 +233,7 @@ describe("F-346 repost cards", () => {
   });
 
   it("a quote card shows the quote and nests the original as one read-only link", () => {
-    const quote = post("feed_30", "bolt", "Worth reading.", { repost_of: ROOT, repost_quote: true });
+    const quote = post("feed_30", "bolt", "Worth reading.", { repost_of: ROOT });
     mount(<FeedItemCard item={quote} />);
     expect(screen.getByText("Worth reading.")).toBeInTheDocument();
     const preview = screen.getByTestId("reposted-post-preview");
@@ -245,7 +246,6 @@ describe("F-346 repost cards", () => {
     const quote = post("feed_32", "bolt", "My own words.", {
       repost_of: null,
       repost_of_unavailable: true,
-      repost_quote: true,
     });
     mount(<FeedItemCard item={quote} />);
     expect(screen.getByText("My own words.")).toBeInTheDocument();
@@ -256,19 +256,35 @@ describe("F-346 repost cards", () => {
     expect(screen.queryByTestId("reposted-post-preview")).toBeNull();
   });
 
-  it("a backend that omits repost_quote keeps the wrapper, so no quote text is dropped", () => {
-    const wrapper = post("feed_31", "bolt", "Kept.", { repost_of: ROOT });
-    delete (wrapper as { repost_quote?: boolean }).repost_quote;
-    mount(<FeedItemCard item={wrapper} />);
+  it("plain vs quote is the reposter's text: whitespace-only is plain, any text is a quote", () => {
+    mount(<FeedItemCard item={post("feed_31", "bolt", "   \n ", { repost_of: ROOT })} />);
+    expect(screen.getByTestId("reposted-by")).toBeInTheDocument();
+    expect(screen.queryByTestId("reposted-post-preview")).toBeNull();
+    cleanup();
+    mount(<FeedItemCard item={post("feed_33", "bolt", "Kept.", { repost_of: ROOT })} />);
     expect(screen.getByText("Kept.")).toBeInTheDocument();
     expect(screen.getByTestId("reposted-post-preview")).toBeInTheDocument();
+    expect(screen.queryByTestId("reposted-by")).toBeNull();
+  });
+
+  it("an ordinary post (repost_of null or absent) gets no repost chrome", () => {
+    mount(<FeedItemCard item={post("feed_34", "bolt", "Just a post.")} />);
+    expect(screen.queryByTestId("reposted-by")).toBeNull();
+    expect(screen.queryByTestId("reposted-post-preview")).toBeNull();
+    expect(screen.queryByTestId("repost-original-unavailable")).toBeNull();
+    cleanup();
+    const bare = post("feed_35", "bolt", "Older backend.");
+    delete (bare as { repost_of?: unknown }).repost_of;
+    mount(<FeedItemCard item={bare} />);
+    expect(screen.getByText("Older backend.")).toBeInTheDocument();
+    expect(screen.queryByTestId("repost-original-unavailable")).toBeNull();
   });
 });
 
 describe("F-346 cache patch", () => {
   it("patches every copy keyed on the root and leaves other posts alone", () => {
-    const plain = post("feed_20", "bolt", "", { repost_of: ROOT, repost_quote: false });
-    const quote = post("feed_30", "cog", "Hm.", { repost_of: ROOT, repost_quote: true });
+    const plain = post("feed_20", "bolt", "", { repost_of: ROOT });
+    const quote = post("feed_30", "cog", "Hm.", { repost_of: ROOT });
     const other = post("feed_40", "dent", "Unrelated.");
     const page: FeedResponse = { items: [ROOT, plain, quote, other], pagination: { next_cursor: null, has_more: false } };
     qc.setQueryData<InfiniteData<FeedResponse>>([...FEED_QUERY_KEY_ROOT, "for_you"], { pages: [page], pageParams: [null] });

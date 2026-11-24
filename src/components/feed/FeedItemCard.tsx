@@ -34,7 +34,7 @@ import { POST_KIND_LABELS, deriveBodySummary } from "@/components/feed/postBody"
 import { PostActionBar } from "@/components/feed/PostActionBar";
 import { PostOverflowMenu } from "@/components/feed/PostOverflowMenu";
 import { ReactorStack } from "@/components/feed/ReactorStack";
-import { RepostedByLine, RepostedOriginal } from "@/components/feed/RepostBlocks";
+import { RepostedByLine, RepostedOriginal, isPlainRepost } from "@/components/feed/RepostBlocks";
 import { VerificationBadge } from "@/components/groups/VerificationBadge";
 import { AuthorBadge } from "@/components/identity/AuthorBadge";
 import { formatAbsoluteDateTime } from "@/lib/format";
@@ -282,12 +282,12 @@ function FeedItemCardImpl({
 //
 // F-346: a PLAIN repost renders as the original, under a "reposted" line,
 // so its actions hit the original and engagement is not split across
-// copies. Only an explicit `repost_quote: false` counts as plain; a quote,
-// or a backend that omits the flag, keeps the wrapper (its text plus the
-// nested original), so no text is ever dropped. No hooks here, so the
-// switch cannot change Impl's hook order.
+// copies. Plain vs quote is the reposter's text (isPlainRepost: empty =
+// plain), so a quote always keeps the wrapper (its text plus the nested
+// original) and no text is ever dropped. No hooks here, so the switch
+// cannot change Impl's hook order.
 function FeedItemCardSwitch({ item, canInteract = true }: { item: FeedItem; canInteract?: boolean }) {
-  if (item.repost_of != null && item.repost_quote === false) {
+  if (isPlainRepost(item)) {
     return <FeedItemCardImpl item={item.repost_of} canInteract={canInteract} repost={item} />;
   }
   return <FeedItemCardImpl item={item} canInteract={canInteract} />;
