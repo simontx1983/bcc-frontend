@@ -389,9 +389,9 @@ describe("#205 — control: the scanners find planted offenders", () => {
 const ERROR_LINES: Readonly<Record<string, number>> = {
   "src/app/(main)/(app)/communities/new/page.tsx": 1,
   "src/app/(main)/(app)/communities/page.tsx": 1,
-  "src/app/(main)/(app)/halls/page.tsx": 1,
   "src/app/(main)/(app)/messages/new/page.tsx": 4,
   "src/components/admin/ModerationQueue.tsx": 2,
+  "src/components/communities/HallsTabPanel.tsx": 1,
   "src/components/admin/UndoToast.tsx": 1,
   "src/components/announcements/AnnouncementComments.tsx": 1,
   "src/components/announcements/AnnouncementComposer.tsx": 1,

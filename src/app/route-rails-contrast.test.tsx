@@ -72,7 +72,8 @@ const MESSAGES = `${APP}/messages/page.tsx`;
 const MESSAGES_NEW = `${APP}/messages/new/page.tsx`;
 const MESSAGES_ID = `${APP}/messages/[id]/page.tsx`;
 const COMMUNITIES = `${APP}/communities/page.tsx`;
-const HALLS = `${APP}/halls/page.tsx`;
+// Communities ▸ Halls: the former /halls directory (Site Structure A).
+const HALLS = "src/components/communities/HallsTabPanel.tsx";
 
 /** Every file in E2's blast radius, including the two it must not have changed. */
 const FILE_SET = [
@@ -407,7 +408,7 @@ describe("E2 — the /messages tab ladder keeps a visible hover step", () => {
 describe("E2 — disabled pagers stay muted, and stay distinguishable", () => {
   for (const [label, file] of [
     ["/communities", COMMUNITIES],
-    ["/halls", HALLS],
+    ["/communities?tab=halls", HALLS],
   ] as const) {
     it(`${label}: the inactive branch is muted and the live branch is secondary`, () => {
       const src = read(file);
@@ -451,8 +452,8 @@ describe("E2 — no unaccounted muted text remains in the E2 file set", () => {
         'communities/page.tsx :: <span className="bcc-mono text-bcc-text-muted">← Previous</span>',
         'communities/page.tsx :: <span className="bcc-mono text-bcc-text-muted">Next →</span>',
         'explore/KindDirectoryPage.tsx :: <span aria-hidden className="text-bcc-text-muted">✕</span>',
-        'halls/page.tsx :: <span className="bcc-mono text-bcc-text-muted">← Previous</span>',
-        'halls/page.tsx :: <span className="bcc-mono text-bcc-text-muted">Next →</span>',
+        'src/components/communities/HallsTabPanel.tsx :: <span className="bcc-mono text-bcc-text-muted">← Previous</span>',
+        'src/components/communities/HallsTabPanel.tsx :: <span className="bcc-mono text-bcc-text-muted">Next →</span>',
         'explore/page.tsx :: <span aria-hidden className="text-bcc-text-muted">✕</span>',
       ].sort(),
     );

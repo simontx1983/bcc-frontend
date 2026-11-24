@@ -144,7 +144,7 @@ describe("the real query lifecycle", () => {
     renderPanel();
 
     await waitFor(() => expect(has(/bravo hall/i)).toBe(true));
-    const names = [...document.querySelectorAll("a[href^='/halls/']")].map(
+    const names = [...document.querySelectorAll("a[href^='/communities/']")].map(
       (a) => a.textContent ?? "",
     );
     // Server order preserved — no client-side ranking by member_count or name.

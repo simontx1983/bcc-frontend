@@ -15,7 +15,9 @@
  * just reaches.
  *
  * Active = exact pathname match, so `/explore` is not also active on
- * `/explore/projects`.
+ * `/explore/projects`. Tabs keyed by a query (Communities ▸ All ·
+ * Halls, `/communities?tab=halls`) can't be told apart by pathname, so
+ * their page passes `current`: the href of the tab it is showing.
  */
 
 import type { Route } from "next";
@@ -30,18 +32,22 @@ export interface SectionTab {
 export function SectionTabs({
   label,
   tabs,
+  current,
 }: {
   /** Accessible name of the strip, e.g. "Explore sections". */
   label: string;
   tabs: readonly SectionTab[];
+  /** The active tab's href, for tabs a pathname can't tell apart. */
+  current?: Route;
 }) {
   const pathname = usePathname() ?? "";
+  const activeHref = current ?? pathname;
 
   return (
     <nav aria-label={label} className="mx-auto mt-8 max-w-[1560px] px-4 sm:px-7">
       <div className="flex gap-1 overflow-x-auto border-b border-dashed border-bcc-border [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {tabs.map((tab) => {
-          const active = pathname === tab.href;
+          const active = activeHref === tab.href;
           return (
             <Link
               key={tab.href}

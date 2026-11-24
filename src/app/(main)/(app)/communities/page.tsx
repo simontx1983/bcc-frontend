@@ -1,9 +1,14 @@
 /**
  * /communities — cross-kind community discovery (§4.7.4).
  *
- * Server component. URL is the source of truth for filter + page index
- * (matches /halls pattern) so Back/Forward + share-link "just work"
- * without bolting on client router state.
+ * Tabs (Site Structure A): All (this discovery list) · Halls
+ * (`?tab=halls`, the former /halls directory, rendered by
+ * HallsTabPanel; /halls forwards there). The kind tabs (Holder Groups,
+ * Delegator Groups, Member-made) follow once /groups takes `kind`.
+ *
+ * Server component. URL is the source of truth for tab + filter + page
+ * index so Back/Forward + share-link "just work" without bolting on
+ * client router state.
  *
  * Filter UI: a single binary chip strip — All / On-Chain Verified.
  * The verified=1 backend filter restricts to NFT-gated holder groups
@@ -36,13 +41,17 @@ import { humanizeCode } from "@/lib/api/errors";
 import { getGroupsDiscovery } from "@/lib/api/groups-discovery-endpoints";
 import { COMMUNITY_CHAIN_CATALOG } from "@/lib/communities/chain-catalog";
 import { CommunityCardGrid } from "@/components/communities/CommunityCardGrid";
+import { HALLS_TAB_HREF } from "@/components/communities/halls-tab-href";
+import { HallsTabPanel } from "@/components/communities/HallsTabPanel";
 import { MyGroupInvitations } from "@/components/communities/MyGroupInvitations";
 import { HIT_AREA_44 } from "@/components/feed/hitArea";
+import { SectionTabs, type SectionTab } from "@/components/ui/SectionTabs";
 import type { GroupsDiscoveryPagination } from "@/lib/api/types";
 
 interface PageProps {
   // Next 15 App Router: searchParams is async per the routes contract.
   searchParams: Promise<{
+    tab?: string;
     verified?: string;
     mine?: string;
     chain?: string;
@@ -50,15 +59,38 @@ interface PageProps {
   }>;
 }
 
+const ALL_TAB_HREF = "/communities" as Route;
+
+const COMMUNITIES_TABS: readonly SectionTab[] = [
+  { label: "All", href: ALL_TAB_HREF },
+  { label: "Halls", href: HALLS_TAB_HREF },
+];
+
 export default async function CommunitiesDiscoveryPage({ searchParams }: PageProps) {
   const params = await searchParams;
-  const verifiedOnly = params.verified === "1";
-  const mineOnly = params.mine === "1";
-  const chain = normalizeChainSlug(params.chain);
   const page = clampPage(params.page);
 
   const session = await getServerSession(authOptions);
   const token = tokenFromSession(session);
+  const isAnon = session === null;
+
+  if (params.tab === "halls") {
+    // The Halls tab keeps the old /halls chain handling: any non-empty
+    // slug, passed through (the server answers an unknown one with an
+    // empty list).
+    const hallsChain = typeof params.chain === "string" && params.chain !== "" ? params.chain : null;
+    return (
+      <main className="bcc-page-wide min-h-screen pb-24">
+        <CommunitiesHeader isAnon={isAnon} />
+        <SectionTabs label="Communities sections" tabs={COMMUNITIES_TABS} current={HALLS_TAB_HREF} />
+        <HallsTabPanel chain={hallsChain} page={page} token={token} />
+      </main>
+    );
+  }
+
+  const verifiedOnly = params.verified === "1";
+  const mineOnly = params.mine === "1";
+  const chain = normalizeChainSlug(params.chain);
 
   let result;
   let fetchError: string | null = null;
@@ -88,36 +120,14 @@ export default async function CommunitiesDiscoveryPage({ searchParams }: PagePro
 
   const items = result?.items ?? [];
   const pagination = result?.pagination ?? null;
-  const isAnon = session === null;
 
   return (
     // `bcc-page-wide` opts this grid page out of the app shell's 680px
     // reading-width cap (see globals.css escape hatch) — the trading-
     // card grid needs the full viewport to go multi-column.
     <main className="bcc-page-wide min-h-screen pb-24">
-      <section className="mx-auto max-w-[1440px] px-6 pt-12 sm:px-8">
-        <div className="flex flex-wrap items-start justify-between gap-6">
-          {/* basis-[20rem]: below ~20rem of free row the CTA wraps under the
-              intro instead of squeezing it to ~100px, one or two words per
-              line, at 375px (M-gr7, UX scan 2026-11-12). */}
-          <div className="min-w-0 flex-1 basis-[20rem]">
-            <span className="bcc-mono text-[10px] tracking-[0.24em] text-bcc-text-secondary">
-              DISCOVERY · COMMUNITIES
-            </span>
-            <h1 className="bcc-stencil mt-2 text-4xl text-bcc-text sm:text-5xl md:text-6xl">
-              Communities
-            </h1>
-            <p className="mt-3 max-w-2xl font-serif text-lg text-bcc-text-secondary">
-              Active rooms across the floor. <span className="bcc-mono">HOLDERS</span> are NFT-gated,
-              delegator rooms are for a validator&apos;s delegators, Halls gather by chain, and the rest
-              are member-made: some open to anyone, some by request. Verified rooms rank first, then
-              warmest, then largest — so you see the rooms worth walking into, not the dead ones.
-            </p>
-          </div>
-
-          <CreateCommunityCta isAnon={isAnon} />
-        </div>
-      </section>
+      <CommunitiesHeader isAnon={isAnon} />
+      <SectionTabs label="Communities sections" tabs={COMMUNITIES_TABS} current={ALL_TAB_HREF} />
 
       {/* F-272: the member's open invitations — the only way into a secret
           community (user decision: here, not Settings). Renders nothing
@@ -176,6 +186,35 @@ export default async function CommunitiesDiscoveryPage({ searchParams }: PagePro
 // ─────────────────────────────────────────────────────────────────────
 // Sub-components
 // ─────────────────────────────────────────────────────────────────────
+
+/** The section header both tabs share: title, intro and the create CTA. */
+function CommunitiesHeader({ isAnon }: { isAnon: boolean }) {
+  return (
+    <section className="mx-auto max-w-[1440px] px-6 pt-12 sm:px-8">
+      <div className="flex flex-wrap items-start justify-between gap-6">
+        {/* basis-[20rem]: below ~20rem of free row the CTA wraps under the
+            intro instead of squeezing it to ~100px, one or two words per
+            line, at 375px (M-gr7, UX scan 2026-11-12). */}
+        <div className="min-w-0 flex-1 basis-[20rem]">
+          <span className="bcc-mono text-[10px] tracking-[0.24em] text-bcc-text-secondary">
+            DISCOVERY · COMMUNITIES
+          </span>
+          <h1 className="bcc-stencil mt-2 text-4xl text-bcc-text sm:text-5xl md:text-6xl">
+            Communities
+          </h1>
+          <p className="mt-3 max-w-2xl font-serif text-lg text-bcc-text-secondary">
+            Active rooms across the floor. <span className="bcc-mono">HOLDERS</span> are NFT-gated,
+            delegator rooms are for a validator&apos;s delegators, Halls gather by chain, and the rest
+            are member-made: some open to anyone, some by request. Verified rooms rank first, then
+            warmest, then largest — so you see the rooms worth walking into, not the dead ones.
+          </p>
+        </div>
+
+        <CreateCommunityCta isAnon={isAnon} />
+      </div>
+    </section>
+  );
+}
 
 /**
  * Three mutually-exclusive scope pills + a chain dropdown.

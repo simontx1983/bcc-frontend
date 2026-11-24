@@ -40,12 +40,11 @@ export function splitMemberHalls(rows: readonly MemberHall[]): MemberHallSplit {
 }
 
 /**
- * Route for a membership row. Halls have their own detail route; every
- * other kind is served by the cross-kind `/communities/[slug]` page (the
- * same split GroupBlock.link documents). A row with no slug gets no link.
+ * Route for a membership row. Every kind, Halls included, lives at the
+ * cross-kind `/communities/[slug]` page (Site Structure A: one Hall page;
+ * /halls/[slug] forwards there). A row with no slug gets no link.
  */
-export function memberHallHref(row: MemberHall, isHall: boolean): Route | null {
+export function memberHallHref(row: MemberHall): Route | null {
   if (row.slug === "") return null;
-  const slug = encodeURIComponent(row.slug);
-  return (isHall ? `/halls/${slug}` : `/communities/${slug}`) as Route;
+  return `/communities/${encodeURIComponent(row.slug)}` as Route;
 }
