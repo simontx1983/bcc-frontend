@@ -29,6 +29,7 @@ import { BADGES_QUERY_KEY_ROOT, useBadges } from "@/hooks/useBadges";
 import {
   getNotifications,
   markNotificationsRead,
+  markNotificationsReadByIds,
 } from "@/lib/api/notifications-endpoints";
 import type {
   BccApiError,
@@ -146,6 +147,23 @@ export function useMarkReadMutation() {
       // server's authoritative state immediately rather than waiting
       // up to 8s for the adaptive polling interval. The list itself
       // refetches on next dropdown open via stale-time.
+      void queryClient.invalidateQueries({ queryKey: BADGES_QUERY_KEY_ROOT });
+    },
+  });
+}
+
+/**
+ * F-516: mark the bell rows an opened push stood for (its
+ * `notification_ids`) as read. Callers pass a parsed, non-empty list
+ * (parsePushReadIds); there is no "mark all" mode here.
+ */
+export function useMarkPushedReadMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation<NotificationsMarkReadResponse, BccApiError, readonly number[]>({
+    mutationFn: (ids) => markNotificationsReadByIds(ids),
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: NOTIFICATIONS_QUERY_KEY });
       void queryClient.invalidateQueries({ queryKey: BADGES_QUERY_KEY_ROOT });
     },
   });
