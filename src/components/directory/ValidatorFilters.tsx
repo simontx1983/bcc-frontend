@@ -27,6 +27,7 @@
 import type { ChangeEvent } from "react";
 
 import { TIER_OPTIONS } from "@/components/directory/DirectoryFilters";
+import { ScopedSearchField } from "@/components/search/ScopedSearchField";
 import { FilterChipRow } from "@/components/ui/FilterChipRow";
 import type {
   DirectorySort,
@@ -66,19 +67,16 @@ export function ValidatorFilters({ value, onChange }: Props) {
       aria-label="Validator filters"
       className="bcc-panel flex flex-col gap-5 p-5"
     >
-      {/* Search row */}
-      <div className="flex flex-col gap-2">
-        <label className="bcc-mono text-[10px] tracking-[0.2em] text-cardstock-deep">
-          SEARCH
-        </label>
-        <input
-          type="search"
-          value={value.q}
-          onChange={(e: ChangeEvent<HTMLInputElement>) => update({ q: e.target.value })}
-          placeholder="Moniker or handle…"
-          className="bcc-mono w-full bg-cardstock px-3 py-2 text-sm text-ink placeholder:text-ink-soft/60 focus:outline-none ring-1 ring-cardstock-edge focus:ring-2 focus:ring-blueprint"
-        />
-      </div>
+      {/* Search row: scoped to validators (Structure A §9). GET /cards caps q at 100. */}
+      <ScopedSearchField
+        tone="cardstock"
+        label="SEARCH"
+        placeholder="Search validators by moniker or @handle…"
+        value={value.q}
+        onChange={(q) => update({ q })}
+        onClear={() => update({ q: "" })}
+        maxLength={100}
+      />
 
       {/* Chain dropdown — always shown; every row here is a validator. */}
       <div className="flex flex-col gap-2">
