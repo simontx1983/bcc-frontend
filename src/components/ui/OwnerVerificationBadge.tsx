@@ -22,6 +22,7 @@
  * stays neutral (theme surfaces in both hosts).
  */
 
+import { HIT_AREA_44 } from "@/components/feed/hitArea";
 import { VerifiedBadge } from "@/components/ui/VerifiedBadge";
 
 export interface OwnerVerificationView {
@@ -45,7 +46,8 @@ export function OwnerVerificationBadge({ verification }: { verification: unknown
 
   return (
     <details className="mt-3" data-testid="owner-verification">
-      <summary className="bcc-mono inline-flex min-h-[36px] cursor-pointer list-none items-center gap-1.5 rounded-sm border border-verified/50 px-2.5 text-[11px] uppercase tracking-[0.18em] text-bcc-text hover:border-verified [&::-webkit-details-marker]:hidden">
+      {/* 36px to look at; HIT_AREA_44 makes the tap target 44px. */}
+      <summary className={`${HIT_AREA_44} bcc-mono inline-flex min-h-[36px] cursor-pointer list-none items-center gap-1.5 rounded-sm border border-verified/50 px-2.5 text-[11px] uppercase tracking-[0.18em] text-bcc-text hover:border-verified [&::-webkit-details-marker]:hidden`}>
         <span aria-hidden style={{ color: "var(--verified)" }}>
           ✓
         </span>

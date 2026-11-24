@@ -66,6 +66,10 @@ describe("OwnerVerificationBadge (page header)", () => {
     const badge = screen.getByTestId("owner-verification");
     const summary = within(badge).getByText("Node Key Verified", { selector: "summary" });
     expect(summary).toBeInTheDocument();
+    // The toggle is an interactive control: a 44px tap target (HIT_AREA_44's
+    // h-11 hit area) around the 36px chip.
+    expect(summary.className).toContain("before:h-11");
+    expect(summary.className).toContain("before:w-[max(100%,2.75rem)]");
     expect(badge).not.toHaveAttribute("open");
 
     fireEvent.click(summary);
