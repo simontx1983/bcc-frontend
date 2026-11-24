@@ -67,6 +67,9 @@ export default async function HomePage({ searchParams }: PageProps) {
 
   return (
     <main className="min-h-screen pb-24">
+      {/* F-565 (testnet audit): the page needs a top-level heading; the
+          design has no visible title, so it is for screen readers only. */}
+      <h1 className="sr-only">The Floor</h1>
       {/* First-visit walkthrough of the Floor. Self-guards: won't fire if
           already seen, or if another tour is running. */}
       {isAuthenticated && <TourAutoStart tourId="home-feed" />}
