@@ -1,8 +1,9 @@
 "use client";
 
 /**
- * CommunityCardGrid — the /communities discovery grid, rendered as
- * CardFactory trading cards (card_kind "community").
+ * CommunityCardGrid — a grid of community trading cards (card_kind
+ * "community"): Communities ▸ All (the discovery list) and Communities ▸
+ * Halls (when GET /halls carries each Hall's card).
  *
  * Layout: fixed-width 316px tracks (`.bcc-card` is intrinsically
  * 316×440 — the 3D flip depends on a fixed footprint), auto-fit so the
@@ -17,26 +18,22 @@
 import { memo } from "react";
 
 import { CommunityJoinCard } from "@/components/communities/CommunityJoinCard";
-import type { GroupDiscoveryItem } from "@/lib/api/types";
+import type { Card } from "@/lib/api/types";
 
-export function CommunityCardGrid({ items }: { items: GroupDiscoveryItem[] }) {
+export function CommunityCardGrid({ cards }: { cards: readonly Card[] }) {
   return (
     <ul className="grid justify-center gap-6 [grid-template-columns:repeat(auto-fit,minmax(0,316px))]">
-      {items.map((item) => (
-        <CommunityCardCell key={`community-${item.group_id}`} item={item} />
+      {cards.map((card) => (
+        <CommunityCardCell key={`community-${card.id}`} card={card} />
       ))}
     </ul>
   );
 }
 
-const CommunityCardCell = memo(function CommunityCardCell({
-  item,
-}: {
-  item: GroupDiscoveryItem;
-}) {
+const CommunityCardCell = memo(function CommunityCardCell({ card }: { card: Card }) {
   return (
     <li>
-      <CommunityJoinCard card={item.card} />
+      <CommunityJoinCard card={card} />
     </li>
   );
 });

@@ -183,7 +183,7 @@ export default async function CommunitiesDiscoveryPage({ searchParams }: PagePro
             isAnon={isAnon}
           />
         ) : (
-          <CommunityCardGrid items={items} />
+          <CommunityCardGrid cards={items.map((item) => item.card)} />
         )}
       </section>
 
