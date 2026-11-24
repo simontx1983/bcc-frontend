@@ -164,12 +164,13 @@ export class KeplrChainNotAddedError extends KeplrError {
   override readonly name = "KeplrChainNotAddedError";
   readonly slug: string;
   readonly confirmed: boolean;
-  constructor(slug: string, confirmed: boolean) {
+  constructor(slug: string, confirmed: boolean, cause?: unknown) {
     const chain = findWalletChain(slug)?.label ?? slug;
     super(
       confirmed
         ? `${chain} isn't added to your Keplr yet. Add it from Keplr's chain list at chains.keplr.app, then try again.`
         : `Couldn't connect to ${chain} in Keplr. If it isn't added to your Keplr yet, add it from Keplr's chain list at chains.keplr.app, then try again.`,
+      cause === undefined ? undefined : { cause },
     );
     this.slug = slug;
     this.confirmed = confirmed;
@@ -257,10 +258,10 @@ export async function signKeplrChallenge(
 function chainNotAddedError(err: unknown, slug: string): KeplrChainNotAddedError | null {
   if (err instanceof KeplrError) return null;
   const msg = err instanceof Error ? err.message.toLowerCase() : "";
-  if (msg.includes("no chain info")) return new KeplrChainNotAddedError(slug, true);
+  if (msg.includes("no chain info")) return new KeplrChainNotAddedError(slug, true, err);
   if (!KEPLR_NON_NATIVE.has(slug)) return null;
   if (msg.includes("reject") || msg.includes("cancel")) return null;
-  return new KeplrChainNotAddedError(slug, false);
+  return new KeplrChainNotAddedError(slug, false, err);
 }
 
 function normalizeKeplrError(err: unknown, stage: WalletStage): KeplrError {

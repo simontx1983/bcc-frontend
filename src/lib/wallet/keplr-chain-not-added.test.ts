@@ -42,11 +42,14 @@ afterEach(() => {
 
 describe("connecting Keplr to a chain the member hasn't added", () => {
   it("says so plainly when Keplr reports no chain info", async () => {
-    keplrWhoseEnableFails(new Error("There is no chain info for dungeon-1"));
+    const raw = new Error("There is no chain info for dungeon-1");
+    keplrWhoseEnableFails(raw);
     const err = await connectError("dungeon");
     expect(err).toBeInstanceOf(KeplrChainNotAddedError);
     expect((err as KeplrChainNotAddedError).confirmed).toBe(true);
     expect((err as Error).message).toBe(NOT_ADDED_DUNGEON);
+    // Keplr's own text is kept for debugging, never shown.
+    expect((err as Error).cause).toBe(raw);
   });
 
   it("names the chain by its label (THORChain)", async () => {
