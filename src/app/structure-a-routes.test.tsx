@@ -42,9 +42,25 @@ const { matchHas, prepareDestination } = createRequire(import.meta.url)(
 import { isScript, isTestFile, sourceFiles } from "@/app/source-tree.testing";
 
 const pathname = vi.hoisted(() => ({ value: "/explore" }));
-vi.mock("next/navigation", () => ({ usePathname: () => pathname.value }));
+const search = vi.hoisted(() => ({ params: new URLSearchParams() }));
+vi.mock("next/navigation", () => ({
+  usePathname: () => pathname.value,
+  useSearchParams: () => search.params,
+  useRouter: () => ({ replace: vi.fn(), push: vi.fn(), refresh: vi.fn() }),
+}));
+// Capture what the Explore tabs ask the data layer for; the grid itself
+// is not under test.
+const sent = vi.hoisted(() => ({ filters: [] as unknown[] }));
+vi.mock("@/components/directory/DirectoryResults", () => ({
+  DirectoryResults: ({ filters }: { filters: unknown }) => {
+    sent.filters.push(filters);
+    return null;
+  },
+}));
+vi.mock("@/components/layout/RouteRail", () => ({ RouteRail: () => null }));
 
 const { ROUTE_MOVES } = await import("@/lib/route-moves");
+const { KindDirectoryPage } = await import("@/app/(main)/(app)/explore/KindDirectoryPage");
 const { SectionTabs } = await import("@/components/ui/SectionTabs");
 const { EXPLORE_TABS } = await import("@/app/(main)/(app)/explore/explore-tabs");
 const { MEMBERS_TABS } = await import("@/app/(main)/(app)/members/members-tabs");
@@ -158,6 +174,26 @@ describe("3. route tabs", () => {
     }
     expect(screen.getByRole("link", { name: "Everyone" })).toHaveAttribute("aria-current", "page");
     expect(screen.getByRole("link", { name: "Mentors" })).toHaveAttribute("href", "/members/mentors");
+  });
+});
+
+describe("3b. Projects and Creators ask for their own kind, and no chain", () => {
+  // What an old /directory?kind=validator&chain=…&tier=… link carries
+  // through the forward. The route decides the kind; `chain` is a
+  // validator-only server filter (empty for other kinds), so it is dropped.
+  it.each([
+    ["project", "/explore/projects"],
+    ["creator", "/explore/creators"],
+  ] as const)("%s", (kind, path) => {
+    pathname.value = path;
+    search.params = new URLSearchParams("kind=validator&chain=cosmos&tier=trusted");
+    sent.filters = [];
+    render(<KindDirectoryPage kind={kind} />);
+    expect(sent.filters.at(-1)).toMatchObject({ kind, chain: null, tier: "trusted" });
+    expect(screen.getByRole("link", { name: kind === "project" ? "Projects" : "Creators" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
   });
 });
 
