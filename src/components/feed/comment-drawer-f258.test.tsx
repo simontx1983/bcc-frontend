@@ -356,7 +356,7 @@ describe("M5: a failed comment toggle says so under the row", () => {
   it("an unstoke failure says which way it failed", () => {
     state.comments = healthy([comment(1, { viewer_has_stoked: true, stoke_count: 1 })]);
     drawer();
-    fireEvent.click(within(firstRow()).getByRole("button", { name: "Stoked — tap to remove" }));
+    fireEvent.click(within(firstRow()).getByRole("button", { name: "Stoke, 1", pressed: true }));
     act(() => state.stokeCalls[0]!.cb.onError?.(apiErr("bcc_internal_error", 500)));
     expect(politeRegion(firstRow()).textContent).toBe("Couldn't remove your stoke. Try again.");
   });
@@ -381,5 +381,43 @@ describe("M5: a failed comment toggle says so under the row", () => {
     act(() => state.stokeCalls[0]!.cb.onError?.(apiErr("bcc_internal_error", 500)));
     expect(politeRegion(firstRow())).toBe(region);
     expect(region.firstElementChild).not.toBe(span);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────
+// F-264 (Lows): sign-in comes back here, the field's name follows a
+// reply, and the comment Stoke has one stable name
+// ─────────────────────────────────────────────────────────────────────
+
+describe("F-264: the comment drawer's Lows", () => {
+  it("signed out, 'Sign in to comment' comes back to this page", () => {
+    state.session = "unauthenticated";
+    drawer();
+    const link = screen.getByRole("link", { name: "Sign in" });
+    expect(link).toHaveAttribute("href", "/login?callbackUrl=%2Fu%2Fanvil");
+    expect(link.parentElement).toHaveTextContent("Sign in to comment.");
+  });
+
+  it("the composer's name follows the reply target, as its placeholder does", () => {
+    drawer();
+    expect(screen.getByRole("textbox", { name: "Write a comment" })).toBeInTheDocument();
+    replyTo("A1");
+    expect(screen.getByRole("textbox", { name: "Reply to @a1" })).toBeInTheDocument();
+    expect(screen.queryByRole("textbox", { name: "Write a comment" })).toBeNull();
+  });
+
+  it("a comment's Stoke: one name with the count, state in aria-pressed, no 'tap'", () => {
+    state.comments = healthy([
+      comment(1, { viewer_has_stoked: true, stoke_count: 1 }),
+      comment(2, { viewer_has_stoked: false, stoke_count: 5 }),
+    ]);
+    drawer();
+    const stoked = within(firstRow()).getByRole("button", { name: "Stoke, 1" });
+    expect(stoked).toHaveAttribute("aria-pressed", "true");
+    expect(stoked).toHaveAttribute("title", "Remove your stoke");
+    const row2 = screen.getByText("comment body 2").closest("article") as HTMLElement;
+    const other = within(row2).getByRole("button", { name: "Stoke, 5" });
+    expect(other).toHaveAttribute("aria-pressed", "false");
+    expect(other).toHaveAttribute("title", "Stoke");
   });
 });

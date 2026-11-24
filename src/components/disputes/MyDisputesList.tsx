@@ -18,6 +18,7 @@
 
 import Link from "next/link";
 
+import { Skeleton } from "@/components/ui/Skeleton";
 import { safeUrlTransform } from "@/components/blog/markdown/url-allowlist";
 import { useMyDisputes } from "@/hooks/useDisputes";
 import { LoadFailure } from "@/components/ui/LoadFailure";
@@ -29,7 +30,10 @@ export function MyDisputesList() {
 
   if (query.isPending) {
     return (
-      <p className="bcc-mono text-bcc-text-secondary">Loading your disputes…</p>
+      <div aria-busy="true" className="flex flex-col gap-3">
+        <p className="sr-only">Loading your disputes…</p>
+        <Skeleton className="h-20" count={2} />
+      </div>
     );
   }
 
