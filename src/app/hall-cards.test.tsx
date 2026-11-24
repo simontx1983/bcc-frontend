@@ -126,36 +126,48 @@ describe("3. a Hall card's counts", () => {
       <CardFrontFace card={card} kindColor="var(--kind-community)" flipped={false} onFlip={() => {}} isPulled={false} canEditAvatar={false} />,
     );
 
-  /** The stats row's labels, in order, and its column class. */
+  // What a community card carries on the wire today (§3.2.4), plus the
+  // validators stat SA4 adds to chain-Hall cards after posts_7d.
+  const members = stat("members", "Members", 87);
+  const posts = stat("posts_7d", "Posts (7d)", 14);
+  const validators = stat("validators", "Validators", 98);
+  const active = stat("active", "Active", 9);
+  const access = { key: "access", label: "Access", value: "Public", raw: null, format: "text" } as unknown as CardStat;
+
+  /** The stats row's labels, in order, and its column count. */
   const statsRow = (container: HTMLElement) => {
     const row = container.querySelector('[class*="grid-cols-"]');
     const cols = /grid-cols-(\d)/.exec(row?.className ?? "")?.[1];
-    const labels = ["Members", "Posts 7d", "Validators"].filter((l) => row?.textContent?.includes(l));
-    return { cols, labels, text: row?.textContent ?? "" };
+    const all = ["Members", "Posts (7d)", "Validators", "Active", "Access"];
+    const text = row?.textContent ?? "";
+    const labels = all.filter((l) => text.includes(l)).sort((a, b) => text.indexOf(a) - text.indexOf(b));
+    return { cols, labels };
   };
 
-  it("chain Hall: Members · Posts 7d · Validators, side by side in the stats row", () => {
-    const { container } = face(
-      hallCard("Akash Hall", [stat("members", "Members", 3), stat("posts_7d", "Posts 7d", 4), stat("validators", "Validators", 12)], "hall"),
-    );
-    const row = statsRow(container);
-    expect(row.cols).toBe("3");
-    expect(row.labels).toEqual(["Members", "Posts 7d", "Validators"]);
-    expect(row.text.indexOf("Members")).toBeLessThan(row.text.indexOf("Posts 7d"));
-    expect(row.text.indexOf("Posts 7d")).toBeLessThan(row.text.indexOf("Validators"));
-    // Members is in the row, not also in the name line.
+  it("chain Hall: exactly Members · Posts (7d) · Validators in the row, nothing under the name", () => {
+    const { container } = face(hallCard("Akash Hall", [members, posts, validators, active, access], "hall"));
+    expect(statsRow(container)).toEqual({ cols: "3", labels: ["Members", "Posts (7d)", "Validators"] });
     expect(screen.getAllByText("Members")).toHaveLength(1);
+    expect(screen.queryByText("Active")).toBeNull();
+    expect(screen.queryByText("Access")).toBeNull();
   });
 
-  it("topic Hall: no Validators stat sent → Members · Posts 7d, never a 0", () => {
-    const { container } = face(hallCard("DeFi Hall", [stat("members", "Members", 3), stat("posts_7d", "Posts 7d", 4)], "hall"));
-    expect(screen.queryByText("Validators")).toBeNull();
-    expect(statsRow(container)).toMatchObject({ cols: "2", labels: ["Members", "Posts 7d"] });
+  it("before the validators stat ships: Members · Posts (7d), never Active in its place", () => {
+    const { container } = face(hallCard("Akash Hall", [members, posts, active, access], "hall"));
+    expect(statsRow(container)).toEqual({ cols: "2", labels: ["Members", "Posts (7d)"] });
   });
 
-  it("any other community keeps Members in the name line, like every card", () => {
-    const { container } = face(hallCard("Night Shift", [stat("members", "Members", 3), stat("posts_7d", "Posts 7d", 4)], "user"));
-    expect(statsRow(container)).toMatchObject({ cols: "1", labels: ["Posts 7d"] });
+  it("topic Hall (no validators) reads Members · Posts (7d); an unreadable posts count is simply left out", () => {
+    const topic = face(hallCard("DeFi Hall", [members, posts, active, access], "hall"));
+    expect(statsRow(topic.container)).toEqual({ cols: "2", labels: ["Members", "Posts (7d)"] });
+    cleanup();
+    const unread = face(hallCard("Akash Hall", [members, validators, access], "hall"));
+    expect(statsRow(unread.container)).toEqual({ cols: "2", labels: ["Members", "Validators"] });
+  });
+
+  it("any other community is unchanged: Members in the name line, the rest in the row", () => {
+    const { container } = face(hallCard("Night Shift", [members, posts, active, access], "user"));
+    expect(statsRow(container)).toEqual({ cols: "3", labels: ["Posts (7d)", "Active", "Access"] });
     expect(screen.getByText("Members")).toBeInTheDocument();
   });
 });
