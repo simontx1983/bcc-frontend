@@ -196,17 +196,13 @@ export type CardKind = "validator" | "project" | "creator" | "member" | "communi
 /**
  * The five-band trust axis.
  *
- * `proven` is the current name for the top band; `elite` is the LEGACY
- * wire value and is retained only until bcc-trust ships the rename.
- * Both are accepted and both render violet, so the two repos can deploy
- * independently instead of needing a flag day — the same dual-accept
- * pattern §J.11 used for `reputation_score` / `trust_score`.
- *
- * Drop `elite` once the backend emits `proven` everywhere (including the
- * directory's `tier` query param).
+ * The top band is `elite`, labelled "Elite": bcc-trust's
+ * `ReputationTierMap::TIER_LABEL`, an owner decision ("Proven" was
+ * considered and rejected; glossary §6). A frontend-only `proven` key
+ * once sat here for a rename the server never shipped; it is gone. Show
+ * the server's `reputation_tier_label` wherever the payload carries one.
  */
 export type ReputationTier =
-  | "proven"
   | "elite"
   | "trusted"
   | "neutral"

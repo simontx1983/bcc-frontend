@@ -3510,7 +3510,7 @@
   animation-delay: var(--bcc-onboarding-delay, 0ms);
 }
 
-.bcc-onboarding-chip-proven    { --bcc-onboarding-tier: var(--tier-proven); }
+.bcc-onboarding-chip-elite     { --bcc-onboarding-tier: var(--tier-proven); }
 .bcc-onboarding-chip-trusted   { --bcc-onboarding-tier: var(--tier-trusted); }
 .bcc-onboarding-chip-caution   { --bcc-onboarding-tier: var(--tier-caution); }
 .bcc-onboarding-chip-risky     { --bcc-onboarding-tier: var(--tier-risky); }
