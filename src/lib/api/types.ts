@@ -4404,8 +4404,12 @@ export interface MemberWallet {
   chain_slug: string;
   chain_name: string;
   is_primary: boolean;
-  /** ISO 8601. May be empty when no verification timestamp was recorded. */
-  verified_at: string;
+  /**
+   * ISO 8601. May be empty when no verification timestamp was recorded,
+   * and may be absent for other viewers (when a wallet was verified is
+   * private). Not rendered on profiles.
+   */
+  verified_at?: string;
 }
 
 /** Hall membership entry inside MemberProfile.halls. */
@@ -5865,8 +5869,13 @@ export interface MemberProfile {
    * peepso_cover_position_x / peepso_cover_position_y user_meta.
    */
   cover_photo_position: { x: number; y: number };
-  /** ISO 8601 UTC. */
-  joined_at: string;
+  /**
+   * ISO 8601 UTC. For other viewers it is month-truncated (the 1st,
+   * 00:00Z) or absent (bcc-trust privacy change, Phillip 2026-11-24).
+   * Render only through formatJoinDate (month + year); never compute an
+   * age or a day from it.
+   */
+  joined_at?: string | null;
   is_self: boolean;
   trust_score: number;
   /**
@@ -6414,8 +6423,11 @@ export interface MemberSummary {
   display_name: string;
   /** Absolute URL or empty string when no avatar resolved. */
   avatar_url: string;
-  /** ISO 8601 UTC. */
-  joined_at: string;
+  /**
+   * ISO 8601 UTC; month-truncated or absent for other viewers (see
+   * MemberProfile.joined_at). Not rendered; never compute an age from it.
+   */
+  joined_at?: string | null;
   /**
    * Pre-rendered tier word. Mirrors the same field on the full
    * `MemberProfile` (`/users/:handle`); the accompanying `reputation_tier`
@@ -6841,8 +6853,11 @@ export interface GroupMember extends MemberSummary {
    *  "MEMBER" by default; filterable via `bcc_group_role_labels`).
    *  Render verbatim per §A2 — no client-side enum→label mapping. */
   role_label: string;
-  /** ISO 8601 UTC — when this user joined THIS group. */
-  joined_at: string;
+  /**
+   * ISO 8601 UTC — when this user joined THIS group. Leaving the public
+   * roster (Phillip, 2026-11-24): optional, and never rendered.
+   */
+  joined_at?: string | null;
 }
 
 /**
