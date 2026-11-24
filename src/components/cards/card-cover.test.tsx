@@ -24,7 +24,9 @@ vi.mock("next/link", () => ({
   ),
 }));
 vi.mock("next/image", () => ({
-  default: ({ src, alt }: { src: string; alt: string }) => <img data-next-image="" src={src} alt={alt} />,
+  default: ({ src, alt, onError }: { src: string; alt: string; onError?: () => void }) => (
+    <img data-next-image="" src={src} alt={alt} onError={onError} />
+  ),
 }));
 
 import { CardFrontFace } from "@/components/cards/CardFrontFace";
@@ -87,7 +89,16 @@ describe("card cover photo", () => {
   });
 
   it("null, blank or a non-http value: the halftone", () => {
-    for (const value of [null, "", "   ", "javascript:alert(1)", "/uploads/cover.jpg", "data:image/png;base64,AAAA"]) {
+    for (const value of [
+      null,
+      "",
+      "   ",
+      "javascript:alert(1)",
+      "/uploads/cover.jpg",
+      "data:image/png;base64,AAAA",
+      // https only: an http image is mixed content on the https site.
+      "http://cdn.example.test/cover.jpg",
+    ]) {
       face(makeCard({ cover_photo_url: value }));
       expect(screen.getByTestId("card-halftone"), String(value)).toBeInTheDocument();
       expect(screen.queryByTestId("card-cover"), String(value)).toBeNull();
@@ -113,6 +124,15 @@ describe("card cover photo", () => {
     const img = screen.getByTestId("card-cover").querySelector("img");
     expect(img).toHaveAttribute("data-next-image");
     expect(img).toHaveAttribute("src", "https://wp.example/wp-content/uploads/2026/11/cover.jpg");
+  });
+
+  it("a WordPress-hosted cover that fails to load falls back to the halftone too", () => {
+    face(makeCard({ cover_photo_url: "https://wp.example/wp-content/uploads/2026/11/gone.jpg" }));
+    const img = screen.getByTestId("card-cover").querySelector("img");
+    expect(img).toHaveAttribute("data-next-image");
+    fireEvent.error(img as HTMLImageElement);
+    expect(screen.getByTestId("card-halftone")).toBeInTheDocument();
+    expect(screen.queryByTestId("card-cover")).toBeNull();
   });
 
   it("a cover that fails to load falls back to the halftone", () => {

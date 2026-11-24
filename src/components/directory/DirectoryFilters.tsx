@@ -33,6 +33,7 @@ import type {
   DirectoryTier,
 } from "@/lib/api/types";
 
+import { ScopedSearchField } from "@/components/search/ScopedSearchField";
 import type { DirectoryFilters as Filters } from "@/hooks/useDirectory";
 
 interface Props {
@@ -73,6 +74,17 @@ export const SORT_OPTIONS: { value: DirectorySort; label: string }[] = [
   { value: "newest",       label: "Newest" },
 ];
 
+/** GET /cards caps `q` at 100 characters. */
+const CARDS_QUERY_MAX = 100;
+
+/** The placeholder names what this search covers (Structure A §9). */
+const DIRECTORY_SEARCH_PLACEHOLDER: Record<NonNullable<Filters["kind"]> | "all", string> = {
+  all: "Search pages…",
+  validator: "Search validators…",
+  project: "Search projects…",
+  creator: "Search creators…",
+};
+
 export function DirectoryFilters({ value, onChange }: Props) {
   const update = (patch: Partial<Filters>) => {
     onChange({ ...value, ...patch });
@@ -83,19 +95,16 @@ export function DirectoryFilters({ value, onChange }: Props) {
       aria-label="Directory filters"
       className="bcc-panel flex flex-col gap-5 p-5"
     >
-      {/* Search row */}
-      <div className="flex flex-col gap-2">
-        <label className="bcc-mono text-[10px] tracking-[0.2em] text-cardstock-deep">
-          SEARCH
-        </label>
-        <input
-          type="search"
-          value={value.q}
-          onChange={(e: ChangeEvent<HTMLInputElement>) => update({ q: e.target.value })}
-          placeholder="Name or handle…"
-          className="bcc-mono w-full bg-cardstock px-3 py-2 text-sm text-ink placeholder:text-ink-soft/60 focus:outline-none ring-1 ring-cardstock-edge focus:ring-2 focus:ring-blueprint"
-        />
-      </div>
+      {/* Search row: scoped to the kind on screen (Structure A §9). */}
+      <ScopedSearchField
+        tone="cardstock"
+        label="SEARCH"
+        placeholder={DIRECTORY_SEARCH_PLACEHOLDER[value.kind ?? "all"]}
+        value={value.q}
+        onChange={(q) => update({ q })}
+        onClear={() => update({ q: "" })}
+        maxLength={CARDS_QUERY_MAX}
+      />
 
       {/* Tier chips */}
       <FilterChipRow

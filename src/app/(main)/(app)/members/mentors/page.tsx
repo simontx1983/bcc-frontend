@@ -21,10 +21,13 @@
  * state rather than mislabeling plain members as mentors.
  */
 
+import type { Route } from "next";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useState, Suspense } from "react";
+import { useEffect, useMemo, useRef, useState, Suspense } from "react";
 
 import { RouteRail } from "@/components/layout/RouteRail";
+import { ScopedSearchField } from "@/components/search/ScopedSearchField";
+import { SearchEverywhereLink } from "@/components/search/SearchEverywhereLink";
 import { CardGrid } from "@/components/cards/CardGrid";
 import { PagerNav } from "@/components/ui/PagerNav";
 import { SectionTabs } from "@/components/ui/SectionTabs";
@@ -36,6 +39,16 @@ import type { MembersResponse } from "@/lib/api/types";
 import { MEMBERS_TABS } from "../members-tabs";
 
 const PER_PAGE = 24;
+const SEARCH_DEBOUNCE_MS = 300;
+
+/** `/members/mentors?page=N&q=…`: the query lives in the URL so Back and sharing work. */
+function mentorsHref(page: number, q: string): string {
+  const params = new URLSearchParams();
+  if (page > 1) params.set("page", String(page));
+  if (q !== "") params.set("q", q);
+  const qs = params.toString();
+  return qs === "" ? "/members/mentors" : `/members/mentors?${qs}`;
+}
 
 function MentorsPageContent() {
   const router = useRouter();
@@ -47,9 +60,28 @@ function MentorsPageContent() {
     return Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
   }, [searchParams]);
 
+  // Scoped search (Structure A §9): the SERVER searches mentors (q with
+  // mentors=1, capped at 64 like /members). Local state keeps the field
+  // responsive; the URL follows after a short debounce.
+  const urlQ = useMemo(() => searchParams.get("q") ?? "", [searchParams]);
+  const [localQ, setLocalQ] = useState(urlQ);
+  useEffect(() => {
+    setLocalQ(urlQ);
+  }, [urlQ]);
+  const lastUrlQRef = useRef<string>(urlQ);
+  useEffect(() => {
+    if (localQ === lastUrlQRef.current) return;
+    const t = window.setTimeout(() => {
+      lastUrlQRef.current = localQ;
+      router.replace(mentorsHref(1, localQ) as Route, { scroll: false });
+    }, SEARCH_DEBOUNCE_MS);
+    return () => window.clearTimeout(t);
+  }, [localQ, router]);
+
   const query = useMembers({
     page: urlPage,
     perPage: PER_PAGE,
+    q: urlQ,
     mentors: true,
   });
 
@@ -67,7 +99,7 @@ function MentorsPageContent() {
   }, [query.data]);
 
   const goToPage = (next: number) => {
-    router.replace(next > 1 ? `/members/mentors?page=${next}` : "/members/mentors", {
+    router.replace(mentorsHref(next, urlQ) as Route, {
       scroll: false,
     });
   };
@@ -101,6 +133,17 @@ function MentorsPageContent() {
       <SectionTabs label="Members sections" tabs={MEMBERS_TABS} />
 
       <section className="mx-auto mt-10 max-w-[1560px] px-4 sm:px-7">
+        <div className="mb-6 w-full max-w-md">
+          <ScopedSearchField
+            label="SEARCH"
+            placeholder="Search mentors by name or @handle…"
+            value={localQ}
+            onChange={setLocalQ}
+            onClear={() => setLocalQ("")}
+            maxLength={64}
+          />
+        </div>
+
         {query.isPending && (
           <p className="bcc-mono text-bcc-text-secondary">Loading mentors…</p>
         )}
@@ -139,7 +182,8 @@ function MentorsPageContent() {
           </>
         )}
 
-        {query.isSuccess && mentorCards.length === 0 && <MentorsEmpty />}
+        {query.isSuccess && mentorCards.length === 0 &&
+          (urlQ !== "" ? <MentorsNoMatch query={urlQ} /> : <MentorsEmpty />)}
 
         {query.isSuccess && mentorCards.length > 0 && (
           <>
@@ -171,6 +215,19 @@ function MentorsEmpty() {
         Veteran members in Trusted standing can list themselves from their
         profile settings. When they do, they&apos;ll show up here.
       </p>
+    </div>
+  );
+}
+
+function MentorsNoMatch({ query }: { query: string }) {
+  return (
+    <div className="bcc-paper mx-auto max-w-2xl p-8 text-center">
+      <p className="bcc-mono mb-2 text-bcc-text-safety">NO MATCHES</p>
+      <h2 className="bcc-stencil text-3xl text-ink">No mentor by that name.</h2>
+      <p className="mt-3 font-serif italic leading-relaxed text-ink-soft">
+        Mentors are searched by name and @handle. Clear the search to see them all.
+      </p>
+      <SearchEverywhereLink query={query} surface="paper" />
     </div>
   );
 }

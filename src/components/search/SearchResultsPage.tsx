@@ -4,7 +4,7 @@
  * SearchResultsPage — /search top-level surface.
  *
  * Three states:
- *   - With `?q=…`: 4-tab multi-vertical results (All / Projects /
+ *   - With `?q=…`: 4-tab multi-vertical results (All / Explore /
  *     Members / Communities). Tab state lives in URL (`?tab=…`) so
  *     refresh and deep links work — same pattern as
  *     [DisputesRoom](../disputes/DisputesRoom.tsx).
@@ -258,7 +258,10 @@ interface TabBarProps {
 
 const TABS: ReadonlyArray<{ key: TabKey; label: string }> = [
   { key: "all", label: "All" },
-  { key: "projects", label: "Projects" },
+  // "Explore", the menu's word for pages (Structure A). The vertical
+  // already returns every page kind (validator, project, creator); the
+  // KEY stays "projects" so existing ?tab= links keep working.
+  { key: "projects", label: "Explore" },
   // "Members", the product word (and the header scope option's); the KEY
   // stays "users" so existing ?tab=users deep links keep resolving.
   { key: "users", label: "Members" },

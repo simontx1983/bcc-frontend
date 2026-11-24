@@ -77,7 +77,7 @@ function DirectoryResultsData({
   return (
     <>
       <DirectoryThrottleNotice throttled={isDirectoryThrottled(query)} />
-      <DirectoryGrid query={query} />
+      <DirectoryGrid query={query} searchQuery={filters.q} />
     </>
   );
 }
