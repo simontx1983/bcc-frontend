@@ -34,10 +34,27 @@ import {
   useCreateAnnouncementComment,
   useRemoveAnnouncementComment,
 } from "@/hooks/useAnnouncements";
-import type { AnnouncementComment } from "@/lib/api/types";
+import { BccApiError, type AnnouncementComment } from "@/lib/api/types";
 
 /** Contract bound (§4.32.7). Mirrored for UX; the server re-checks. */
 export const ANNOUNCEMENT_COMMENT_MAX = 2000;
+
+/** The viewer's standing couldn't be read: retryable, and says nothing about the account. */
+const STANDING_UNREADABLE_COPY = "Your standing couldn't be checked right now. Please try again.";
+
+/**
+ * A comment POST refused because the author's standing couldn't be read
+ * (bcc-trust PR 857): 503 `bcc_unavailable` with `reason_code: "unavailable"`.
+ * A 503 without that reason is an outage and keeps the generic retry line,
+ * so it is never mislabelled as a standing problem.
+ */
+function isStandingUnreadable(err: unknown): boolean {
+  return (
+    err instanceof BccApiError &&
+    err.code === "bcc_unavailable" &&
+    err.data?.["reason_code"] === "unavailable"
+  );
+}
 
 /**
  * Why the composer is absent, in the viewer's words.
@@ -72,6 +89,8 @@ export function deniedCopy(
       return "Your account is temporarily restricted, so you can't comment right now.";
     case "feature_disabled":
       return "Announcement discussions are unavailable right now.";
+    case "unavailable":
+      return STANDING_UNREADABLE_COPY;
     default:
       // An unlock hint is server-authored, so prefer it when present.
       return hint ?? "Comments are closed on this announcement.";
@@ -170,17 +189,19 @@ export function AnnouncementComments({
   const submitBlocked =
     trimmed === "" || trimmed.length > ANNOUNCEMENT_COMMENT_MAX || create.isPending;
 
-  const createCopy = humanizeCode(
-    create.error,
-    {
-      announcement_archived: "This announcement is archived — the discussion is read-only.",
-      bcc_forbidden: "You can't comment on this announcement.",
-      bcc_invalid_request: `Keep it under ${ANNOUNCEMENT_COMMENT_MAX} characters.`,
-      bcc_rate_limited: "Commenting too fast — give it a moment.",
-      bcc_unauthorized: "Sign in again to comment.",
-    },
-    "Couldn't post that comment. Try again in a moment.",
-  );
+  const createCopy = isStandingUnreadable(create.error)
+    ? STANDING_UNREADABLE_COPY
+    : humanizeCode(
+        create.error,
+        {
+          announcement_archived: "This announcement is archived — the discussion is read-only.",
+          bcc_forbidden: "You can't comment on this announcement.",
+          bcc_invalid_request: `Keep it under ${ANNOUNCEMENT_COMMENT_MAX} characters.`,
+          bcc_rate_limited: "Commenting too fast — give it a moment.",
+          bcc_unauthorized: "Sign in again to comment.",
+        },
+        "Couldn't post that comment. Try again in a moment.",
+      );
 
   return (
     <section aria-labelledby="announcement-discussion" className="mt-10">

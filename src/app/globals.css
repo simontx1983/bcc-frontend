@@ -2874,6 +2874,47 @@
     }
   }
 
+  /* Card front bio (structure A row 16). The 108px crest stays (Phillip,
+     2026-11-24), so the bio is clamped to the height the portrait can
+     give before the crest would clip. Measured on live cards, at these
+     exact metrics (13px, line-height 1.4, 6px top padding):
+       316×440 — a validator card (28px on-chain strip): room for 1 line;
+                 every other card: 3 lines.
+       ≤380px viewport (the narrow card below, 296×412 or smaller) — the
+                 rows keep their heights and the portrait shrinks: no room
+                 on a validator card, 1 line elsewhere.
+     Same media query as the narrow .bcc-card rule, so they can't disagree. */
+  .bcc-card-bio {
+    position: relative;
+    z-index: 1;
+    flex-shrink: 0;
+    margin: 0;
+    padding: 6px 16px 0;
+    font-size: 13px;
+    line-height: 1.4;
+    text-align: center;
+    color: var(--bcc-text-secondary);
+    overflow-wrap: anywhere;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
+    overflow: hidden;
+  }
+  .bcc-card-bio[data-room="tight"] {
+    -webkit-line-clamp: 1;
+    line-clamp: 1;
+  }
+  @media (max-width: 380px) {
+    .bcc-card-bio {
+      -webkit-line-clamp: 1;
+      line-clamp: 1;
+    }
+    .bcc-card-bio[data-room="tight"] {
+      display: none;
+    }
+  }
+
   /* Card faces — positioned absolutely, backface hidden. Theme-aware
      brand surface: the kind colour appears in exactly three places on
      the whole card (this 3px top rule, the short wash falling from it,

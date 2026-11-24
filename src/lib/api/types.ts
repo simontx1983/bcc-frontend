@@ -567,6 +567,13 @@ export interface Card {
   handle: string;
   card_kind: CardKind;
   /**
+   * Structure A row 17: the card's cover photo, an absolute URL; null when
+   * it has none (members: their profile cover; communities and pages:
+   * their cover meta, never PeepSo's default). Absent on older backends.
+   * The front face's portrait shows it in place of the halftone.
+   */
+  cover_photo_url?: string | null;
+  /**
    * Short editorial bio for the back-face render — one paragraph, max
    * ~200 chars, server-truncated at word boundary with "…" suffix.
    * Empty string when the entity hasn't set a bio. Source per kind:
@@ -7474,7 +7481,10 @@ export type AnnouncementCommentDeniedReason =
   | "announcement_unavailable"
   | "suspended"
   | "fraud_locked"
-  | "feature_disabled";
+  | "feature_disabled"
+  // The viewer's standing could not be read (bcc-trust PR 857): a retryable
+  // state, not a verdict about the account.
+  | "unavailable";
 
 /**
  * Additive-optional block on the validator Card view-model.

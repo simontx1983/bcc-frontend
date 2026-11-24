@@ -12,7 +12,7 @@
  *      included (Site Structure A, PR 3 rewrote the nav model and retired
  *      the exemption that waited on it).
  */
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { existsSync, readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { resolve } from "node:path";
@@ -45,10 +45,11 @@ import { isScript, isTestFile, sourceFiles } from "@/app/source-tree.testing";
 
 const pathname = vi.hoisted(() => ({ value: "/explore" }));
 const search = vi.hoisted(() => ({ params: new URLSearchParams() }));
+const nav = vi.hoisted(() => ({ replace: vi.fn() }));
 vi.mock("next/navigation", () => ({
   usePathname: () => pathname.value,
   useSearchParams: () => search.params,
-  useRouter: () => ({ replace: vi.fn(), push: vi.fn(), refresh: vi.fn() }),
+  useRouter: () => ({ replace: nav.replace, push: vi.fn(), refresh: vi.fn() }),
 }));
 // Capture what the Explore tabs ask the data layer for; the grid itself
 // is not under test.
@@ -63,6 +64,7 @@ vi.mock("@/components/layout/RouteRail", () => ({ RouteRail: () => null }));
 
 const { ROUTE_MOVES } = await import("@/lib/route-moves");
 const { KindDirectoryPage } = await import("@/app/(main)/(app)/explore/KindDirectoryPage");
+const { default: ExploreValidatorsPage } = await import("@/app/(main)/(app)/explore/page");
 const { SectionTabs } = await import("@/components/ui/SectionTabs");
 const { EXPLORE_TABS } = await import("@/app/(main)/(app)/explore/explore-tabs");
 const { MEMBERS_TABS } = await import("@/app/(main)/(app)/members/members-tabs");
@@ -176,6 +178,38 @@ describe("3. route tabs", () => {
     }
     expect(screen.getByRole("link", { name: "Everyone" })).toHaveAttribute("aria-current", "page");
     expect(screen.getByRole("link", { name: "Mentors" })).toHaveAttribute("href", "/members/mentors");
+  });
+});
+
+describe("3a. Explore ▸ Validators honours tier", () => {
+  // An old /directory?kind=validator&tier=… link forwards to /explore with
+  // its query; the tier must still filter, and show as a removable chip.
+  it("sends the tier, keeps the chain, and shows the tier chip", () => {
+    pathname.value = "/explore";
+    search.params = new URLSearchParams("kind=validator&tier=elite&chain=cosmos");
+    sent.filters = [];
+    render(<ExploreValidatorsPage />);
+    expect(sent.filters.at(-1)).toMatchObject({ kind: "validator", tier: "elite", chain: "cosmos" });
+    expect(screen.getByRole("button", { name: "Clear filter ELITE" })).toBeInTheDocument();
+    // The tier chips are in the filter panel, shared with the other tabs.
+    expect(screen.getByText("TIER")).toBeInTheDocument();
+  });
+
+  it("writes a tier picked in the panel to the URL", () => {
+    pathname.value = "/explore";
+    search.params = new URLSearchParams("chain=cosmos");
+    nav.replace.mockClear();
+    render(<ExploreValidatorsPage />);
+    fireEvent.click(screen.getByRole("button", { name: "ELITE" }));
+    expect(nav.replace).toHaveBeenLastCalledWith("/explore?chain=cosmos&tier=elite", { scroll: false });
+  });
+
+  it("drops an unknown tier rather than sending it", () => {
+    pathname.value = "/explore";
+    search.params = new URLSearchParams("tier=legendary");
+    sent.filters = [];
+    render(<ExploreValidatorsPage />);
+    expect(sent.filters.at(-1)).toMatchObject({ tier: null });
   });
 });
 
