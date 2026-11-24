@@ -262,6 +262,14 @@ async function pickInvitee(user: AdminUserRef = KAI) {
 
 // ─────────────────────────────────────────────────────────────────────
 
+describe("Header — the validator's name from the server", () => {
+  it("shows the page title when route 5 sends one, and nothing when it doesn't", async () => {
+    api.getTeam.mockResolvedValue(team({ page: { page_id: PAGE_ID, title: "Atlas Validator", slug: "atlas" } }));
+    renderScreen();
+    expect(await screen.findByText("Atlas Validator")).toBeInTheDocument();
+  });
+});
+
 describe("Members — rendered as sent", () => {
   it("shows name, @handle, role, status with expiry, and who added them", async () => {
     api.getTeam.mockResolvedValue(team());

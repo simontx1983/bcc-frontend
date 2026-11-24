@@ -147,6 +147,14 @@ async function save(password = PASSWORD) {
 
 // ─────────────────────────────────────────────────────────────────────
 
+describe("Permissions — the validator's name from the server", () => {
+  it("shows the page title when the GET sends one", async () => {
+    api.get.mockResolvedValue(perms({ page: { page_id: PAGE_ID, title: "Atlas Validator", slug: "atlas" } }));
+    renderPage();
+    expect(await screen.findByText("Atlas Validator")).toBeInTheDocument();
+  });
+});
+
 describe("Permissions — render", () => {
   it("rows follow the server's order, with label, description and the current grants", async () => {
     api.get.mockResolvedValue(perms());

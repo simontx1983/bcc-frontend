@@ -52,6 +52,7 @@ import {
   type ValidatorTeamRoleGrants,
 } from "@/lib/api/types";
 import { formatAbsoluteDateTime } from "@/lib/format";
+import { TeamPageTitle } from "@/components/validator-team/TeamPageTitle";
 
 export const PERMISSIONS_COPY = {
   forbidden: "Only the owner can change team permissions.",
@@ -126,6 +127,7 @@ export function TeamPermissions({ pageId }: { pageId: number }) {
 
   return (
     <div className="flex flex-col gap-4">
+      <TeamPageTitle page={query.data.page} />
       {query.isRefetchError && (
         <TeamReadFailure
           error={query.error}

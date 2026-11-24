@@ -36,6 +36,7 @@ import { RevertConfirm, TeamRevertList } from "@/components/validator-team/TeamR
 import { TeamSelfSection } from "@/components/validator-team/TeamSelfSection";
 import { SKELETON_CLASS } from "@/components/ui/Skeleton";
 import { useValidatorTeam } from "@/hooks/useValidatorTeam";
+import { TeamPageTitle } from "@/components/validator-team/TeamPageTitle";
 
 const UNAVAILABLE = "This team couldn't be read just now.";
 
@@ -103,6 +104,7 @@ export function ValidatorTeamScreen({ pageId, revertEventId }: ValidatorTeamScre
 
   return (
     <div className="flex flex-col gap-4">
+      <TeamPageTitle page={data.page} />
       {revertEventId !== null && <RevertConfirm pageId={pageId} eventId={revertEventId} data={data} revertable={revertable} />}
 
       {isOwner && (

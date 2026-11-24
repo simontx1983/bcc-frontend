@@ -5082,7 +5082,16 @@ export interface ValidatorTeamRevertable {
 }
 
 /** GET /me/validator-pages/:pageId/team (route 5). */
+/** The validator page a team screen belongs to (route 5 and the permissions GET). */
+export interface ValidatorTeamPageRef {
+  page_id: number;
+  title: string;
+  slug: string;
+}
+
 export interface ValidatorTeamResponse {
+  /** Optional so a server without it can't break the screen; the header then omits the name. */
+  page?: ValidatorTeamPageRef;
   viewer: {
     role: ValidatorTeamViewerRole | null;
     membership_id: number | null;
@@ -5193,6 +5202,8 @@ export type ValidatorTeamRoleGrants = Record<ValidatorTeamRole, Record<string, b
  * only. A settings read that fails is a 503, never the defaults.
  */
 export interface ValidatorTeamPermissions {
+  /** See ValidatorTeamResponse.page. */
+  page?: ValidatorTeamPageRef;
   powers: ValidatorTeamPower[];
   roles: ValidatorTeamRoleGrants;
   /** What "Reset to defaults" restores; never shown as the settings. */
