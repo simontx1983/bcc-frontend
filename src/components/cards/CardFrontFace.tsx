@@ -48,6 +48,14 @@ import { isWpMediaUrl } from "@/lib/media";
 const AUDIENCE_STAT_KEYS = new Set(["followers", "watchers", "watching", "members"]);
 
 /**
+ * A Hall card is the exception (Phillip, 2026-11-25): its three counts sit
+ * side by side in the stats row, Members · Posts 7d · Validators, in the
+ * server's order. So on a Hall, `members` stays in the grid. A topic Hall
+ * (no validators stat) reads Members · Posts 7d.
+ */
+const HALL_AUDIENCE_STAT_KEYS = new Set(["followers", "watchers", "watching"]);
+
+/**
  * Split the server's stats into "the one that goes under the handle" and
  * "the grid", and give member cards the Vouches column they were missing.
  *
@@ -63,8 +71,12 @@ function splitStats(card: Card): {
   audience: CardStat[];
   grid: CardStat[];
 } {
-  const audience = card.stats.filter((s) => AUDIENCE_STAT_KEYS.has(s.key));
-  const grid = card.stats.filter((s) => !AUDIENCE_STAT_KEYS.has(s.key));
+  const audienceKeys =
+    card.card_kind === "community" && card.community_dossier?.type === "hall"
+      ? HALL_AUDIENCE_STAT_KEYS
+      : AUDIENCE_STAT_KEYS;
+  const audience = card.stats.filter((s) => audienceKeys.has(s.key));
+  const grid = card.stats.filter((s) => !audienceKeys.has(s.key));
 
   const engagement = card.member_dossier?.engagement;
   if (
