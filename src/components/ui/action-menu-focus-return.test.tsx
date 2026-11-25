@@ -100,3 +100,47 @@ describe("ActionMenu disabled items and the pointer", () => {
     expect(screen.getByRole("menuitem", { name: "Beta" })).toHaveAttribute("tabindex", "-1");
   });
 });
+
+describe("ActionMenu Escape stays with the menu", () => {
+  it("inside a dialog, Escape closes the menu only; the next Escape closes the dialog", async () => {
+    const { Dialog } = await import("@/components/ui/Dialog");
+    window.matchMedia = ((q: string) => ({
+      matches: false, media: q, onchange: null,
+      addEventListener: () => {}, removeEventListener: () => {},
+      addListener: () => {}, removeListener: () => {}, dispatchEvent: () => false,
+    })) as unknown as typeof window.matchMedia;
+    const onClose = vi.fn();
+    render(
+      <Dialog title="Host" onClose={onClose}>
+        <ActionMenu
+          triggerLabel="EDIT"
+          groups={[{ id: "g", label: "Group", items: [{ id: "a", label: "Alpha", onSelect: vi.fn() }] }]}
+        />
+      </Dialog>,
+    );
+    const trigger = screen.getByRole("button", { name: /EDIT/ });
+    fireEvent.click(trigger);
+    fireEvent.keyDown(screen.getByRole("menu"), { key: "Escape" });
+    expect(screen.queryByRole("menu")).toBeNull();
+    expect(trigger).toHaveFocus();
+    expect(onClose).not.toHaveBeenCalled();
+
+    fireEvent.keyDown(trigger, { key: "Escape" });
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("only Escape is held back: the menu's other keys still reach window", () => {
+    const seen: string[] = [];
+    const onKey = (e: KeyboardEvent) => seen.push(e.key);
+    window.addEventListener("keydown", onKey);
+    try {
+      menu();
+      fireEvent.click(screen.getByRole("button", { name: /EDIT/ }));
+      fireEvent.keyDown(screen.getByRole("menu"), { key: "ArrowDown" });
+      fireEvent.keyDown(screen.getByRole("menu"), { key: "Escape" });
+      expect(seen).toEqual(["ArrowDown"]);
+    } finally {
+      window.removeEventListener("keydown", onKey);
+    }
+  });
+});
