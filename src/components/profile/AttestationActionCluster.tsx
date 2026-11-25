@@ -71,6 +71,7 @@ import {
 import { humanizeCode } from "@/lib/api/errors";
 import { ATTESTATION_COPY, formatBackLabel } from "@/lib/copy/trust-layer";
 import type {
+  AttestationKind,
   AttestationCastRequest,
   AttestationTargetKind,
   BandwidthExhaustedData,
@@ -230,6 +231,7 @@ export function AttestationActionCluster(props: AttestationActionClusterProps) {
       setErrorText(
         humanizeAttestationError(err, {
           pageTargetCast: targetKind !== undefined && targetKind !== "user_profile",
+          kind: castMutation.variables?.kind,
         }),
       );
     },
@@ -244,7 +246,14 @@ export function AttestationActionCluster(props: AttestationActionClusterProps) {
       if (inPickerFlow.current) {
         return;
       }
-      setErrorText(humanizeAttestationError(err));
+      const revokedId = revokeMutation.variables;
+      const kind: AttestationKind | undefined =
+        revokedId !== undefined && revokedId === props.viewerAttestation?.stand_behind?.id
+          ? "stand_behind"
+          : revokedId !== undefined && revokedId === props.viewerAttestation?.vouch?.id
+            ? "vouch"
+            : undefined;
+      setErrorText(humanizeAttestationError(err, { pageTargetCast: false, kind }));
     },
   });
 
@@ -345,7 +354,7 @@ export function AttestationActionCluster(props: AttestationActionClusterProps) {
 
   return (
     <section
-      aria-label="Trust attestation actions"
+      aria-label="Vouch, back and report"
       className="grid grid-cols-1 justify-items-start gap-2 sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]"
     >
       {/* §J trust-not-adversarial weighting (per 2026-05-13 UX review):
@@ -681,13 +690,36 @@ function buttonClassFor(
  * `pageTargetCast`: a CAST against a page target (validator / project /
  * creator) that 404s means the page has no claimed operator to attest
  * to, so `bcc_not_found` gets the unclaimed-page line. Revokes and member
- * targets keep "Attestation not found." — there the missing thing really
- * is the attestation row.
+ * targets keep "We couldn't find that vouch." — there the missing thing
+ * really is the attestation row.
+ *
+ * `kind` picks the words (F-264): this one map serves VOUCH and BACK, so a
+ * Back failure says "back" / "backing" (ATTESTATION_COPY's noun) and a
+ * Vouch failure says "vouch" (F-579's word). Unknown kind → "vouch", the
+ * genus term (the Vouches tab lists both). "attestation" stays in code
+ * names only.
  */
+const ATTESTATION_WORDS: Record<
+  AttestationKind,
+  { noun: string; plural: string; verb: string; verbFor: string; gerund: string }
+> = {
+  vouch: { noun: "vouch", plural: "vouches", verb: "vouch", verbFor: "vouch for", gerund: "vouching" },
+  stand_behind: {
+    noun: ATTESTATION_COPY.backing_noun.toLowerCase(),
+    plural: `${ATTESTATION_COPY.backing_noun.toLowerCase()}s`,
+    verb: "back",
+    verbFor: "back",
+    gerund: ATTESTATION_COPY.backing_noun.toLowerCase(),
+  },
+};
+
 function humanizeAttestationError(
   err: BccApiError,
-  { pageTargetCast }: { pageTargetCast: boolean } = { pageTargetCast: false },
+  { pageTargetCast, kind }: { pageTargetCast: boolean; kind?: AttestationKind | undefined } = {
+    pageTargetCast: false,
+  },
 ): string {
+  const w = ATTESTATION_WORDS[kind ?? "vouch"];
   if (err.code === "bcc_attestation_ineligible") {
     const data = err.data;
     if (data !== null && typeof data === "object" && !Array.isArray(data)) {
@@ -700,21 +732,20 @@ function humanizeAttestationError(
   return humanizeCode(
     err,
     {
-      bcc_unauthorized: "Sign in to attest.",
+      bcc_unauthorized: `Sign in to ${w.verb}.`,
       bcc_rate_limited: "Too many actions just now. Wait a moment.",
-      bcc_invalid_request: "We couldn't record that attestation.",
-      bcc_attestation_self: "You can't attest on yourself.",
+      bcc_invalid_request: `We couldn't record that ${w.noun}.`,
+      bcc_attestation_self: `You can't ${w.verbFor} yourself.`,
       bcc_attestation_bandwidth_exhausted:
         "You're at your Backing limit. Revoke one to free a slot.",
       bcc_attestation_fraud_blocked:
-        "Your account is temporarily restricted from attesting.",
-      bcc_attestation_revoked:
-        "That attestation was already revoked.",
+        `Your account is temporarily restricted from ${w.gerund}.`,
+      bcc_attestation_revoked: `That ${w.noun} was already revoked.`,
       bcc_not_found: pageTargetCast
         ? ATTESTATION_COPY.unclaimed_page_target
-        : "Attestation not found.",
-      bcc_forbidden: "You can only act on your own attestations.",
+        : `We couldn't find that ${w.noun}.`,
+      bcc_forbidden: `You can only change your own ${w.plural}.`,
     },
-    "Couldn't update attestation. Try again.",
+    `Couldn't update your ${w.noun}. Try again.`,
   );
 }

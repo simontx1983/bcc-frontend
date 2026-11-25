@@ -11,14 +11,16 @@
  * `aria-haspopup` sites (ShareButton, SiteHeader, NotificationsPanel,
  * RankChip, CommentDrawer, TourLayer) each hand-roll open/close with no
  * arrow-key navigation and no guaranteed focus return. Rather than add a
- * seventh partial implementation, the keyboard contract lives here once.
+ * seventh partial implementation, the keyboard contract lives once, in
+ * `useMenuButton` (F-264: shared with PostOverflowMenu, which keeps its
+ * own "⋯" markup). This component is the labelled, grouped rendering.
  *
  * Deliberately narrow: a trigger, optional labelled groups, and items.
  * No submenus, no checkable items, no typeahead, no portal — the profile
  * caption is a normal flow container and the menu is short enough that
  * arrow keys and Home/End cover it.
  *
- * ## Keyboard contract (APG menu button)
+ * ## Keyboard contract (APG menu button, implemented in useMenuButton)
  *
  *   Trigger  Enter / Space / ArrowDown → open, focus FIRST item
  *            ArrowUp                   → open, focus LAST item
@@ -36,15 +38,9 @@
  * replaced were hover-revealed overlays, invisible on touch.
  */
 
-import {
-  useCallback,
-  useEffect,
-  useId,
-  useRef,
-  useState,
-  type ReactNode,
-} from "react";
-import { flushSync } from "react-dom";
+import type { ReactNode } from "react";
+
+import { useMenuButton } from "@/hooks/useMenuButton";
 
 export interface ActionMenuItem {
   /** Stable within one menu; used as the React key. */
@@ -80,136 +76,23 @@ export function ActionMenu({
   disabled = false,
   className,
 }: ActionMenuProps) {
-  const menuId = useId();
-  const [open, setOpen] = useState(false);
-  const [activeIndex, setActiveIndex] = useState(0);
-
-  const triggerRef = useRef<HTMLButtonElement | null>(null);
-  const menuRef = useRef<HTMLDivElement | null>(null);
-  const itemRefs = useRef<(HTMLButtonElement | null)[]>([]);
-  /** Set when closing should NOT pull focus back (item selected). */
-  const skipFocusReturn = useRef(false);
-
   // Flat, in DOM order — arrow keys cross group boundaries, as the
   // pattern requires.
   const flat = groups.flatMap((g) => g.items);
-  const enabledIndexes = flat
-    .map((it, i) => (it.disabled === true ? -1 : i))
-    .filter((i) => i >= 0);
-
-  const close = useCallback((returnFocus: boolean) => {
-    setOpen(false);
-    if (returnFocus && !skipFocusReturn.current) triggerRef.current?.focus();
-    skipFocusReturn.current = false;
-  }, []);
-
-  const openAt = useCallback(
-    (where: "first" | "last") => {
-      if (disabled || enabledIndexes.length === 0) return;
-      const next =
-        where === "first"
-          ? enabledIndexes[0]
-          : enabledIndexes[enabledIndexes.length - 1];
-      setActiveIndex(next ?? 0);
-      setOpen(true);
-    },
-    [disabled, enabledIndexes],
-  );
-
-  // Move DOM focus to the active item whenever it changes while open.
-  useEffect(() => {
-    if (!open) return;
-    itemRefs.current[activeIndex]?.focus();
-  }, [open, activeIndex]);
-
-  // Outside click. Pointerdown rather than click so a press that starts
-  // outside cannot select an item that moves under the cursor.
-  useEffect(() => {
-    if (!open) return;
-    const onPointerDown = (e: PointerEvent) => {
-      const t = e.target as Node;
-      if (menuRef.current?.contains(t) === true) return;
-      if (triggerRef.current?.contains(t) === true) return;
-      close(false);
-    };
-    document.addEventListener("pointerdown", onPointerDown, true);
-    return () => document.removeEventListener("pointerdown", onPointerDown, true);
-  }, [open, close]);
-
-  // An open menu whose items all became disabled (a save started) has
-  // nothing left to operate on.
-  useEffect(() => {
-    if (open && enabledIndexes.length === 0) close(true);
-  }, [open, enabledIndexes.length, close]);
-
-  function step(delta: number) {
-    if (enabledIndexes.length === 0) return;
-    const pos = enabledIndexes.indexOf(activeIndex);
-    const nextPos =
-      pos === -1
-        ? 0
-        : (pos + delta + enabledIndexes.length) % enabledIndexes.length;
-    setActiveIndex(enabledIndexes[nextPos] ?? 0);
-  }
-
-  function onTriggerKeyDown(e: React.KeyboardEvent<HTMLButtonElement>) {
-    if (e.key === "ArrowDown" || e.key === "Enter" || e.key === " ") {
-      e.preventDefault();
-      openAt("first");
-    } else if (e.key === "ArrowUp") {
-      e.preventDefault();
-      openAt("last");
-    }
-  }
-
-  function onMenuKeyDown(e: React.KeyboardEvent<HTMLDivElement>) {
-    switch (e.key) {
-      case "ArrowDown":
-        e.preventDefault();
-        step(1);
-        break;
-      case "ArrowUp":
-        e.preventDefault();
-        step(-1);
-        break;
-      case "Home":
-        e.preventDefault();
-        setActiveIndex(enabledIndexes[0] ?? 0);
-        break;
-      case "End":
-        e.preventDefault();
-        setActiveIndex(enabledIndexes[enabledIndexes.length - 1] ?? 0);
-        break;
-      case "Escape":
-        e.preventDefault();
-        close(true);
-        break;
-      case "Tab":
-        // Let focus proceed; just don't leave an orphaned open menu.
-        close(false);
-        break;
-      default:
-        break;
-    }
-  }
+  const menu = useMenuButton({
+    itemCount: flat.length,
+    isDisabled: (i) => flat[i]?.disabled === true,
+    disabled,
+  });
 
   function select(item: ActionMenuItem) {
     if (item.disabled === true) return;
-    // Close BEFORE the action runs, so a file picker, a reposition panel
-    // or a confirmation dialog never opens behind a menu that is still
-    // painted. Focus return is skipped because the action owns focus from
-    // here — a dialog traps it, and a removal hands it to the control
-    // that replaces the one that unmounted.
-    //
-    // `flushSync` is load-bearing, not defensive. A bare `setOpen(false)`
-    // is batched, so `onSelect()` ran while the menu was still mounted —
-    // the file dialog opened over an open menu, and a confirmation dialog
-    // took focus with the menu still behind it. Flushing commits the close
-    // first while staying inside the same user gesture, which the file
-    // input's `.click()` requires.
-    skipFocusReturn.current = true;
-    flushSync(() => setOpen(false));
-    item.onSelect();
+    // Close BEFORE the action runs (see useMenuButton's closeThen), so a
+    // file picker, a reposition panel or a confirmation dialog never opens
+    // behind a menu that is still painted. Focus is NOT pulled back: the
+    // action owns it from here — a dialog traps it, and a removal hands it
+    // to the control that replaces the one that unmounted.
+    menu.closeThen(item.onSelect);
   }
 
   let flatIndex = -1;
@@ -219,13 +102,13 @@ export function ActionMenu({
       <div className="flex flex-wrap items-center gap-3">
         <button
           type="button"
-          ref={triggerRef}
+          ref={menu.triggerRef}
           disabled={disabled}
           aria-haspopup="menu"
-          aria-expanded={open}
-          aria-controls={open ? menuId : undefined}
-          onClick={() => (open ? close(false) : openAt("first"))}
-          onKeyDown={onTriggerKeyDown}
+          aria-expanded={menu.open}
+          aria-controls={menu.open ? menu.menuId : undefined}
+          onClick={menu.toggle}
+          onKeyDown={menu.onTriggerKeyDown}
           className="bcc-mono inline-flex min-h-[36px] items-center gap-2 border border-bcc-border bg-bcc-surface px-3 py-1.5 text-[10px] tracking-[0.16em] text-bcc-text transition hover:bg-bcc-surface-hover disabled:cursor-wait disabled:opacity-50"
         >
           {triggerLabel}
@@ -234,17 +117,17 @@ export function ActionMenu({
         {after}
       </div>
 
-      {open && (
+      {menu.open && (
         <div
-          id={menuId}
-          ref={menuRef}
+          id={menu.menuId}
+          ref={menu.menuRef}
           role="menu"
           aria-label={triggerLabel}
-          onKeyDown={onMenuKeyDown}
+          onKeyDown={menu.onMenuKeyDown}
           className="absolute left-0 z-30 mt-1 min-w-[220px] max-w-[calc(100vw-2rem)] border border-bcc-border bg-bcc-surface-raised p-1 shadow-lg"
         >
           {groups.map((group) => {
-            const groupLabelId = `${menuId}-${group.id}`;
+            const groupLabelId = `${menu.menuId}-${group.id}`;
             return (
               <div key={group.id} role="group" aria-labelledby={groupLabelId}>
                 <p
@@ -261,15 +144,11 @@ export function ActionMenu({
                       key={item.id}
                       type="button"
                       role="menuitem"
-                      ref={(el) => {
-                        itemRefs.current[i] = el;
-                      }}
-                      tabIndex={i === activeIndex ? 0 : -1}
+                      ref={menu.itemRef(i)}
+                      tabIndex={i === menu.activeIndex ? 0 : -1}
                       disabled={item.disabled === true}
                       onClick={() => select(item)}
-                      onMouseEnter={() => {
-                        if (item.disabled !== true) setActiveIndex(i);
-                      }}
+                      onMouseEnter={() => menu.hover(i)}
                       className={`block w-full px-2 py-2 text-left font-serif text-[13px] text-bcc-text transition hover:bg-bcc-surface-hover focus:bg-bcc-surface-hover focus:outline-none disabled:cursor-not-allowed disabled:opacity-40 ${
                         item.destructive === true
                           ? "mt-1 border-l-[3px] border-l-safety"
