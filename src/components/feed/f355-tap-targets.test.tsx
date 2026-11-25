@@ -108,7 +108,7 @@ describe("F-355 action-row hit areas", () => {
     );
     const q = within(container);
     const controls = [
-      q.getByLabelText("Stoke"),
+      q.getByLabelText("Stoke, 3"),
       q.getByLabelText("Mark this as helpful"),
       q.getByLabelText("Comments"),
       q.getByLabelText("Share post"),

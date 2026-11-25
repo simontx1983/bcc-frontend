@@ -55,7 +55,6 @@ import {
 import { useSession } from "next-auth/react";
 import Image from "next/image";
 import Link from "next/link";
-import type { Route } from "next";
 
 import { counterToneClass } from "@/lib/counter-tone";
 import { AuthorBadge } from "@/components/identity/AuthorBadge";
@@ -74,6 +73,7 @@ import {
 } from "@/components/feed/ReactionFailureNotice";
 import { CommentGifPicker } from "@/components/feed/CommentGifPicker";
 import { StokeFlame } from "@/components/feed/StokeFlame";
+import { stokeAccessibleName } from "@/components/feed/stoke-name";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Dialog } from "@/components/ui/Dialog";
 import { LoadFailure } from "@/components/ui/LoadFailure";
@@ -97,6 +97,7 @@ import {
 } from "@/lib/api/resource-denial";
 import { formatRelativeTime } from "@/lib/format";
 import { renderTextWithMentions } from "@/lib/format/mentions";
+import { useSignInLink } from "@/lib/auth/sign-in-link";
 import type {
   Comment,
   CommentMedia,
@@ -325,14 +326,25 @@ export function CommentDrawer({
             onDetachReply={detachReply}
           />
         ) : (
-          <p className="bcc-mono mt-4 text-[11px] text-[var(--bcc-text-secondary)]">
-            <Link href={"/login" as Route} className="text-[var(--bcc-text)] hover:underline">
-              Sign in
-            </Link>{" "}
-            to comment.
-          </p>
+          <SignInToComment />
         ))}
     </>
+  );
+}
+
+/**
+ * F-264: the signed-out prompt. Sign-in comes back to this post
+ * (callbackUrl), as the reaction pills' sign-in links already do.
+ */
+function SignInToComment() {
+  const signIn = useSignInLink();
+  return (
+    <p className="bcc-mono mt-4 text-[11px] text-[var(--bcc-text-secondary)]">
+      <Link href={signIn.href} onClick={signIn.onClick} className="text-[var(--bcc-text)] hover:underline">
+        Sign in
+      </Link>{" "}
+      to comment.
+    </p>
   );
 }
 
@@ -1376,8 +1388,8 @@ function CommentStokeButton({
       }}
       disabled={disabled}
       aria-pressed={hasStoked}
-      aria-label={hasStoked ? "Stoked — tap to remove" : "Stoke"}
-      title={hasStoked ? "Stoked — tap to remove" : "Stoke"}
+      aria-label={stokeAccessibleName(count)}
+      title={hasStoked ? "Remove your stoke" : "Stoke"}
       className={`${HIT_AREA_44} ${pillClass} disabled:cursor-not-allowed`}
       style={{ color }}
     >
@@ -1831,8 +1843,10 @@ function CommentComposer({
       onSubmit={handleSubmit}
       className="sticky bottom-0 z-10 mt-4 pb-1 pt-2"
     >
+      {/* F-264: the field's name follows the reply target, as its
+          placeholder does; a placeholder alone isn't a reliable name. */}
       <label className="sr-only" htmlFor={`comment-${feedId}`}>
-        Write a comment
+        {replyTarget !== null ? `Reply to @${replyTarget.handle}` : "Write a comment"}
       </label>
       <p aria-live="assertive" aria-atomic="true" className="sr-only">
         {notice !== null && <span key={notice.seq}>{notice.text}</span>}

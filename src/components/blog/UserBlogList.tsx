@@ -24,6 +24,7 @@
 import { Fragment } from "react";
 import Image from "next/image";
 
+import { Skeleton } from "@/components/ui/Skeleton";
 import { useUserBlog } from "@/hooks/useUserBlog";
 import { formatRelativeTime } from "@/lib/format";
 import { ProfileReadFailure } from "@/components/profile/ProfilePrivateNotice";
@@ -60,8 +61,9 @@ export function UserBlogList({ handle, onEdit }: UserBlogListProps) {
 
   if (query.isPending) {
     return (
-      <div className="bcc-panel p-6">
-        <p className="bcc-mono text-bcc-text-secondary">Loading posts…</p>
+      <div aria-busy="true" className="flex flex-col gap-3">
+        <p className="sr-only">Loading posts…</p>
+        <Skeleton className="h-24" count={3} />
       </div>
     );
   }

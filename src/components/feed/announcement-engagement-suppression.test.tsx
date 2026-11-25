@@ -127,10 +127,8 @@ function renderBar(postKind: unknown, canInteract = true) {
   const q = within(utils.container);
   return {
     ...utils,
-    /** The Stoke control, by either of its two aria labels. */
-    stoke: () =>
-      q.queryByLabelText("Stoke") ??
-      q.queryByLabelText("Stoked — tap to remove"),
+    /** The Stoke control, by its one name (F-264: the count rides along). */
+    stoke: () => q.queryByLabelText("Stoke, 55"),
     /** The Mark-helpful control, by either of its two aria labels. */
     helpful: () =>
       q.queryByLabelText("Mark this as helpful") ??

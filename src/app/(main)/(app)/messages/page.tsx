@@ -16,6 +16,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useEffect, useMemo, useState, Suspense } from "react";
 
+import { Skeleton } from "@/components/ui/Skeleton";
 import { RouteRail } from "@/components/layout/RouteRail";
 import { ConversationList } from "@/components/messages/ConversationList";
 import { QueuedMessagesList } from "@/components/messages/QueuedMessagesList";
@@ -185,7 +186,10 @@ function MessagesPageContent() {
         {isAuthed && activeTab === "messages" && (
           <div className="mt-6">
             {query.isPending && (
-              <p className="bcc-mono text-bcc-text-secondary">Loading conversations…</p>
+              <div aria-busy="true" className="flex flex-col gap-2">
+                <p className="sr-only">Loading conversations…</p>
+                <Skeleton className="h-16" count={3} />
+              </div>
             )}
 
             {query.isError && (
@@ -236,7 +240,10 @@ function MessagesPageContent() {
         {isAuthed && activeTab === "queued" && (
           <div className="mt-6">
             {queuedQuery.isPending && (
-              <p className="bcc-mono text-bcc-text-secondary">Loading queued messages…</p>
+              <div aria-busy="true" className="flex flex-col gap-2">
+                <p className="sr-only">Loading queued messages…</p>
+                <Skeleton className="h-16" count={2} />
+              </div>
             )}
 
             {queuedQuery.isError && (
