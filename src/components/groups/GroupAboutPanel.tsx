@@ -11,6 +11,7 @@
  * Server component. Pure presentation — no fetches, no state.
  */
 
+import { hasHeat } from "@/components/groups/group-activity";
 import { HeatBadge } from "@/components/groups/HeatBadge";
 import { VerificationBadge } from "@/components/groups/VerificationBadge";
 import type { GroupDetailResponse } from "@/lib/api/types";
@@ -40,16 +41,19 @@ export function GroupAboutPanel({ group }: { group: GroupDetailResponse }) {
           trust threshold when set). Mirrors the chip vocabulary on the
           hero so a viewer who jumps tabs sees the same data primitives
           in both places. Trust + Chain cells render conditionally so
-          untagged or non-trust groups don't display empty rows. */}
+          untagged or non-trust groups don't display empty rows; so does
+          Activity, when the server couldn't count the posts. */}
       <dl className="grid gap-4 border-t border-bcc-border pt-5 sm:grid-cols-3">
         <MetaCell label="Privacy" value={privacyLabel(group)} />
         <MetaCell
           label="Members"
           value={`${group.member_count.toLocaleString()} ${group.member_count === 1 ? "member" : "members"}`}
         />
-        <MetaCell label="Activity" value={null}>
-          <HeatBadge activity={group.activity} />
-        </MetaCell>
+        {hasHeat(group.activity) && (
+          <MetaCell label="Activity" value={null}>
+            <HeatBadge activity={group.activity} />
+          </MetaCell>
+        )}
         {group.chain_tag !== null && (
           <MetaCell label="Chain" value={chainLabel(group.chain_tag)} />
         )}
