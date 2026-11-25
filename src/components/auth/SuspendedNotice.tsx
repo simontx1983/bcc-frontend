@@ -21,10 +21,19 @@
  */
 
 import { useSession } from "next-auth/react";
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 
 import { BottomSlot } from "@/components/ui/BottomSlot";
 import { sessionSuspended } from "@/lib/auth/auth-flags";
+
+/**
+ * The panel is fixed and persistent, so the scroll areas reserve its height
+ * (globals.css reads `--bcc-bottom-reserve`): the last content on a page,
+ * a pager or a button, can always scroll clear of it.
+ */
+export const BOTTOM_RESERVE_VAR = "--bcc-bottom-reserve";
+/** The slot's gap above the panel's own height. */
+const RESERVE_GAP_PX = 16;
 
 /** Bearers (by expiry) whose standing this page load has already asked about. */
 const askedForBearer = new Set<string>();
@@ -44,6 +53,11 @@ export function SuspendedNotice() {
   const headingId = useId();
   const detailsId = useId();
   const firstBearer = useRef<string | null>(null);
+  // State, not a ref: BottomSlot portals its content only after it mounts,
+  // so the panel element arrives a render later than this component, and
+  // the reserve must be measured (and observed) once it exists.
+  const [panel, setPanel] = useState<HTMLElement | null>(null);
+  const suspended = sessionSuspended(session);
 
   useEffect(() => {
     if (status !== "authenticated" || session === null) return;
@@ -57,11 +71,29 @@ export function SuspendedNotice() {
     void Promise.resolve(update({ refreshStanding: true })).catch(() => undefined);
   }, [status, session, update]);
 
-  if (!sessionSuspended(session)) return null;
+  // Publish the panel's height while it is shown; clear it when it goes.
+  useLayoutEffect(() => {
+    if (!suspended || panel === null) return;
+    const root = document.documentElement;
+    const publish = () => {
+      const height = panel.getBoundingClientRect().height;
+      root.style.setProperty(BOTTOM_RESERVE_VAR, `${Math.ceil(height) + RESERVE_GAP_PX}px`);
+    };
+    publish();
+    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(publish);
+    observer?.observe(panel);
+    return () => {
+      observer?.disconnect();
+      root.style.removeProperty(BOTTOM_RESERVE_VAR);
+    };
+  }, [suspended, panel]);
+
+  if (!suspended) return null;
 
   return (
     <BottomSlot>
       <section
+        ref={setPanel}
         aria-labelledby={headingId}
         className="bcc-panel pointer-events-auto w-[min(420px,calc(100vw-2rem))] px-4 py-3 shadow-2xl"
       >

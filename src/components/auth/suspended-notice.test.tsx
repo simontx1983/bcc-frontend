@@ -18,6 +18,7 @@ vi.mock("next-auth/react", () => ({
 }));
 
 import {
+  BOTTOM_RESERVE_VAR,
   resetSuspendedNoticeAsks,
   SUSPENDED_NOTICE_DETAILS,
   SuspendedNotice,
@@ -79,6 +80,25 @@ describe("what it shows", () => {
     const { container } = render(<SuspendedNotice />);
     expect(container).toBeEmptyDOMElement();
     expect(auth.update).not.toHaveBeenCalled();
+  });
+});
+
+describe("the panel never hides the end of a page", () => {
+  const reserve = () => document.documentElement.style.getPropertyValue(BOTTOM_RESERVE_VAR);
+
+  it("while it shows, the scroll areas reserve its height; when it goes, the reserve goes", () => {
+    signedIn({ suspended: true });
+    const { unmount } = render(<SuspendedNotice />);
+    // jsdom has no layout, so the panel measures 0: the reserve is the gap alone.
+    expect(reserve()).toBe("16px");
+    unmount();
+    expect(reserve()).toBe("");
+  });
+
+  it("not suspended → no reserve", () => {
+    signedIn({ suspended: false });
+    render(<SuspendedNotice />);
+    expect(reserve()).toBe("");
   });
 });
 
