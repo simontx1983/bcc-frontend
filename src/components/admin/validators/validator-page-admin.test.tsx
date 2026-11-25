@@ -509,6 +509,26 @@ describe("Link an owner — the full flow", () => {
     // The rest of the form is kept for a different pick.
     expect(screen.getByLabelText("EVIDENCE REFERENCE")).toHaveValue("https://figment.io/.well-known/bcc");
   });
+
+  it("a 422 with any OTHER reason still lands on its field, never the not-eligible line", async () => {
+    api.getPage.mockResolvedValue(rel());
+    renderPage();
+    await ownership();
+    await fillLinkForm();
+    api.start.mockResolvedValue(stepUpStarted());
+    press(screen.getByRole("button", { name: "Link owner" }));
+    await passPassword();
+
+    api.link.mockRejectedValue(
+      apiError("bcc_invalid_request", 422, { reason: "invalid_evidence", field: "evidence_ref" }),
+    );
+    await enterCode();
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(screen.getByLabelText("EVIDENCE REFERENCE")).toHaveAttribute("aria-invalid", "true");
+    expect(screen.getByText(LINK_COPY.rejected)).toBeInTheDocument();
+    expect(screen.queryByText(STEP_UP_COPY.targetNotEligible)).toBeNull();
+  });
 });
 
 
