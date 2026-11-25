@@ -60,15 +60,19 @@ export function DetailHeader({
   /** Share, when the route offers it. */
   share?: ReactNode;
   /**
-   * The subject's counts, from the server's card stats, verbatim. A stat
-   * the server couldn't count (value null or empty) is left out: no
-   * number rather than a made-up 0.
+   * The subject's counts, the ones its card face shows
+   * (`cardFaceStats(card)`), values verbatim. A stat the server couldn't
+   * count (value null or empty) is left out: no number rather than a
+   * made-up 0. A text stat (e.g. a community's Access) is a fact, not a
+   * count; it belongs in the chips or the Facts block, so it's left out too.
    */
   stats?: readonly CardStat[];
   backHref?: Route;
   backLabel?: string;
 }) {
-  const shownStats = (stats ?? []).filter((stat) => stat.value !== null && stat.value !== "");
+  const shownStats = (stats ?? []).filter(
+    (stat) => stat.format !== "text" && stat.value !== null && stat.value !== "",
+  );
 
   return (
     <header className={`${DETAIL_CONTAINER} mt-6`}>

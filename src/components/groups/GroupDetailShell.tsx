@@ -25,7 +25,7 @@
 import type { Route } from "next";
 import type { ReactNode } from "react";
 
-import { cardHeaderWord } from "@/components/cards/CardFrontFace";
+import { cardFaceStats, cardHeaderWord } from "@/components/cards/CardFrontFace";
 import { ShareButton } from "@/components/common/ShareButton";
 import { DetailBody, DetailHeader, DetailPage, SideBlock } from "@/components/detail/DetailLayout";
 import { GroupAboutPanel } from "@/components/groups/GroupAboutPanel";
@@ -52,12 +52,23 @@ const STATUS_BY_PRIVACY: Record<GroupDetailResponse["privacy"], string> = {
   secret: "SECRET",
 };
 
-/** Plain words for the Facts block and the privacy chip. */
+/** Plain words for the Facts block and the access chip. */
 const ACCESS_BY_PRIVACY: Record<GroupDetailResponse["privacy"], string> = {
   open:   "Open to anyone",
   closed: "Join by request",
   secret: "Invite only",
 };
+
+/**
+ * How you get in. A trust group runs on PeepSo's `open` privacy while the
+ * server gates the join on reputation, so the gate wins, as it does in
+ * GroupAboutPanel; "Open to anyone" would be wrong there.
+ */
+function accessPhrase(group: GroupDetailResponse): string {
+  return group.trust_min !== null
+    ? `Reputation ${group.trust_min}+ to join`
+    : ACCESS_BY_PRIVACY[group.privacy];
+}
 
 /** The card family's colour for a community (CardFactory's KIND_TO_COLOR_VAR). */
 const COMMUNITY_COLOR = "var(--kind-community)";
@@ -157,7 +168,7 @@ export function GroupDetailShell({
         handle={group.slug}
         chips={
           <>
-            <Chip>{ACCESS_BY_PRIVACY[group.privacy]}</Chip>
+            <Chip>{accessPhrase(group)}</Chip>
             {group.chain_tag !== null && group.chain_tag !== "" && <Chip>{group.chain_tag}</Chip>}
             {group.verification !== null && <Chip verified>{group.verification.label}</Chip>}
           </>
@@ -166,7 +177,7 @@ export function GroupDetailShell({
         {...(showShare
           ? { share: <ShareButton path={sharePath} title={group.name} ariaLabel={`Share ${group.name}`} /> }
           : {})}
-        stats={group.card.stats}
+        stats={cardFaceStats(group.card)}
         {...(showBack ? { backHref: backHref as Route, backLabel } : {})}
       />
 
@@ -212,7 +223,7 @@ export function GroupDetailShell({
             <SideBlock title="Facts">
               <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-[14px]">
                 <dt className="text-bcc-text-secondary">Access</dt>
-                <dd>{ACCESS_BY_PRIVACY[group.privacy]}</dd>
+                <dd>{accessPhrase(group)}</dd>
                 {group.chain_tag !== null && group.chain_tag !== "" && (
                   <>
                     <dt className="text-bcc-text-secondary">Chain</dt>

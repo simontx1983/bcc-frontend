@@ -103,6 +103,22 @@ function splitStats(card: Card): {
   return { audience, grid };
 }
 
+/** The stats row holds at most this many columns. */
+const STATS_ROW_MAX = 3;
+
+/**
+ * The counts a card's face shows, listed the way a detail header lists
+ * them: the stats row's, then the audience count the card puts under the
+ * name. A detail page's header shows these,
+ * so it carries the same numbers as the card you met on the list (Site
+ * Structure A §12, option B) — a Hall's Members · Posts (7d) · Validators,
+ * a member's Trust · Vouches · Reviews · Watchers.
+ */
+export function cardFaceStats(card: Card): CardStat[] {
+  const { audience, grid } = splitStats(card);
+  return [...grid.slice(0, STATS_ROW_MAX), ...audience];
+}
+
 export function CardFrontFace({
   card,
   kindColor,
@@ -632,7 +648,7 @@ const STATS_COLS: Record<number, string> = {
 function StatsPanel({ stats }: { stats: CardStat[] }) {
   // The server may return more than three; we slice for layout and
   // never re-derive the values (§A2 — `value` is used verbatim).
-  const visible = stats.slice(0, 3);
+  const visible = stats.slice(0, STATS_ROW_MAX);
   if (visible.length === 0) return null;
   const cols = STATS_COLS[visible.length] ?? "grid-cols-3";
 
