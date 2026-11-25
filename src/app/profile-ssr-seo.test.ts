@@ -107,8 +107,10 @@ describe("indexing — one gate, four surfaces", () => {
     expect(LAYOUT).toContain("robots: { index: false, follow: false }");
   });
 
-  it("profile metadata gates on BOTH environment and profile flags", () => {
-    expect(PAGE).toContain("isIndexableEnvironment() && isIndexableProfile(profile.flags)");
+  it("profile metadata gates on BOTH the environment and the server's indexable", () => {
+    expect(PAGE).toContain("isIndexableEnvironment() && profileIsIndexable(profile)");
+    // Never derived from flags: non-owners receive [] since trust #902.
+    expect(PAGE).not.toContain("isIndexableProfile(profile.flags)");
   });
 
   it("never uses is_in_good_standing for indexing", () => {
@@ -132,7 +134,7 @@ describe("indexing — one gate, four surfaces", () => {
 
   it("emits no JSON-LD for a non-indexable environment or profile", () => {
     expect(PAGE).toMatch(
-      /isIndexableEnvironment\(\) && isIndexableProfile\(profile\.flags\)[\s\S]{0,80}\? serializeJsonLd/,
+      /isIndexableEnvironment\(\) && profileIsIndexable\(profile\)[\s\S]{0,80}\? serializeJsonLd/,
     );
   });
 

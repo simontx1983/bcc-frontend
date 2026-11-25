@@ -5960,8 +5960,18 @@ export interface MemberProfile {
   /** Pre-rendered rank label. Null for New Members (Phase 5). */
   rank_label: string | null;
   is_in_good_standing: boolean;
-  /** V1 catalogue: suspended, shadow_limited, hidden, under_review. */
+  /**
+   * Moderation flags. ⚠ The member's and administrators' to see (trust #902,
+   * F-582): every other viewer receives `[]`, so an empty list means
+   * "nothing to show YOU", never "no flags". Never infer anything from it.
+   */
   flags: string[];
+  /**
+   * Contract v1.228 (F-518): whether a search engine may index this profile,
+   * the anonymous answer whoever asks. The robots tag reads exactly this.
+   * Optional: absent means "do not index".
+   */
+  indexable?: boolean;
   /** Plain string. Server-sanitized. §3.1 contract. */
   bio: string;
   /**

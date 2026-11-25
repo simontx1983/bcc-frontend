@@ -115,44 +115,25 @@ describe("isIndexableEnvironment — both conditions are required", () => {
   });
 });
 
-describe("isIndexableProfile — explicit moderation flags only", () => {
-  it("indexes an ordinary profile", async () => {
-    const { isIndexableProfile } = await loadIndexing();
-    expect(isIndexableProfile([])).toBe(true);
+describe("profileIsIndexable — the server's `indexable`, never `flags`", () => {
+  it("indexes exactly when the server says true", async () => {
+    const { profileIsIndexable } = await loadIndexing();
+    expect(profileIsIndexable({ indexable: true })).toBe(true);
   });
 
-  it.each(["suspended", "hidden", "under_review", "shadow_limited"])(
-    "de-indexes a profile flagged %s",
-    async (flag) => {
-      const { isIndexableProfile } = await loadIndexing();
-      expect(isIndexableProfile([flag])).toBe(false);
-    },
-  );
-
-  it("de-indexes when a moderation flag rides alongside others", async () => {
-    const { isIndexableProfile } = await loadIndexing();
-    expect(isIndexableProfile(["something_else", "hidden"])).toBe(false);
+  it.each([
+    ["false", false],
+    ["absent", undefined],
+    ["a string", "true"],
+    ["null", null],
+  ])("does not index when indexable is %s (fail closed)", async (_label, value) => {
+    const { profileIsIndexable } = await loadIndexing();
+    expect(profileIsIndexable(value === undefined ? {} : { indexable: value })).toBe(false);
   });
 
-  it("does NOT de-index for an unrecognised flag", async () => {
-    // Only the four documented slugs are moderation signals. A future
-    // additive flag must not silently remove people from search.
-    const { isIndexableProfile } = await loadIndexing();
-    expect(isIndexableProfile(["mentor_opt_in"])).toBe(true);
-  });
-
-  it("fails closed on a missing flags array", async () => {
-    const { isIndexableProfile } = await loadIndexing();
-    expect(isIndexableProfile(undefined)).toBe(false);
-  });
-
-  it("never consults reputation tier", async () => {
-    // is_in_good_standing is in_array(tier, ['neutral','trusted','elite']) —
-    // reputation, not moderation. A new member on the risky or caution tier
-    // is `false` there, and must still be indexable. The helper takes only
-    // `flags`, so tier CANNOT reach it; this pins that signature.
-    const { isIndexableProfile } = await loadIndexing();
-    expect(isIndexableProfile.length).toBe(1);
-    expect(isIndexableProfile([])).toBe(true);
+  it("an empty flags list proves nothing: non-owners always receive [] (trust #902)", async () => {
+    const { profileIsIndexable } = await loadIndexing();
+    expect(profileIsIndexable({ flags: [], indexable: false } as { indexable?: unknown })).toBe(false);
+    expect(profileIsIndexable({ flags: [] } as { indexable?: unknown })).toBe(false);
   });
 });
