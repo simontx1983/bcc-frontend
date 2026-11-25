@@ -104,10 +104,22 @@ describe("1. a plain group renders as before", () => {
     });
     expect(lastShell().actions).toBeUndefined();
     expect(lastShell().collectionsPanel).toBeUndefined();
+    expect(lastShell().side).toBeUndefined();
   });
 });
 
 describe("2. a Hall at /communities/[slug]", () => {
+  it("explains its membership controls in the side column (the controls sit in the header)", async () => {
+    api.getGroup.mockResolvedValue(group("hall"));
+    api.getHall.mockResolvedValue(hall());
+    await renderDetail();
+    cleanup();
+    render(<>{lastShell().side}</>);
+    expect(screen.getByRole("region", { name: "Your status here" })).toHaveTextContent(
+      /designate one as your primary/,
+    );
+  });
+
   it("adds its controls, chain block and the non-empty chain tab; back to Halls", async () => {
     api.getGroup.mockResolvedValue(group("hall"));
     api.getHall.mockResolvedValue(hall());

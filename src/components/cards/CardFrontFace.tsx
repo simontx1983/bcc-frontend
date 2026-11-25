@@ -1,3 +1,5 @@
+"use client";
+
 /**
  * CardFrontFace — the front face of the trading card, plus its chrome
  * sub-components (CardHeader, Portrait, Nameplate, StatsPanel, the
@@ -26,6 +28,7 @@ import { useState } from "react";
 import Link from "next/link";
 
 import { ActionBar, CommunityActionBar } from "@/components/cards/CardActionBar";
+import { cardHeaderWord, splitStats, STATS_ROW_MAX } from "@/components/cards/card-face-stats";
 import { OnchainSignalsStrip } from "@/components/cards/CardOnchainSignals";
 import { CardStandingStrip } from "@/components/cards/CardStandingStrip";
 import { Crest } from "@/components/cards/Crest";
@@ -35,73 +38,6 @@ import { ReliabilityStandingBadge } from "@/components/reliability/ReliabilitySt
 import { FOLLOW_COPY } from "@/lib/copy";
 import type { Card, CardStat } from "@/lib/api/types";
 import { isWpMediaUrl } from "@/lib/media";
-
-/**
- * Audience counts live in the nameplate, not the stats grid — an audience
- * measure is not a trust output. Filtering by key keeps the grid to real
- * trust signals (Trust / Reviews / Vouches).
- *
- * `members` is in here for community cards: a community has no trust axis
- * at all (see below), so its head-count is the closest thing it has to an
- * audience number and belongs in the same slot every other kind uses.
- */
-const AUDIENCE_STAT_KEYS = new Set(["followers", "watchers", "watching", "members"]);
-
-/**
- * A Hall card is the exception (Phillip, 2026-11-25): its stats row is
- * exactly Members · Posts 7d · Validators, side by side in that order
- * whatever order the server sends them in, and nothing goes under the
- * name. A community card also carries `active` and `access`; on a Hall
- * those stay off the face so the three counts Phillip named are the row.
- * A count the server leaves out (a topic Hall has no validators; an
- * unreadable posts count is omitted) is simply not shown: never a 0.
- */
-const HALL_GRID_STAT_KEYS = ["members", "posts_7d", "validators"] as const;
-
-/** A Hall card's row: the named counts it has, in HALL_GRID_STAT_KEYS order. */
-function hallGrid(stats: readonly CardStat[]): CardStat[] {
-  return HALL_GRID_STAT_KEYS.flatMap((key) => stats.filter((s) => s.key === key).slice(0, 1));
-}
-
-/**
- * Split the server's stats into "the one that goes under the handle" and
- * "the grid", and give member cards the Vouches column they were missing.
- *
- * The server ships member cards `trust · reviews_written · watchers` and
- * entity cards `trust · followers · reviews · endorsements`, so once the
- * audience count moves to the nameplate a member card was left with only
- * two columns while an entity had three. The vouch count IS on the wire
- * for members, just on a different block — `member_dossier.engagement.
- * endorsements_received` — so this reads it into the missing column
- * rather than inventing or recomputing anything.
- */
-function splitStats(card: Card): {
-  audience: CardStat[];
-  grid: CardStat[];
-} {
-  if (card.card_kind === "community" && card.community_dossier?.type === "hall") {
-    return { audience: [], grid: hallGrid(card.stats) };
-  }
-  const audience = card.stats.filter((s) => AUDIENCE_STAT_KEYS.has(s.key));
-  const grid = card.stats.filter((s) => !AUDIENCE_STAT_KEYS.has(s.key));
-
-  const engagement = card.member_dossier?.engagement;
-  if (
-    card.card_kind === "member" &&
-    engagement !== undefined &&
-    !grid.some((s) => s.key === "endorsements")
-  ) {
-    grid.push({
-      key: "endorsements",
-      label: "Vouches",
-      value: String(engagement.endorsements_received),
-      raw: engagement.endorsements_received,
-      format: "count",
-    });
-  }
-
-  return { audience, grid };
-}
 
 export function CardFrontFace({
   card,
@@ -255,22 +191,6 @@ function chainSlug(card: Card): string | null {
  *
  * The kind word is a closed set of five, so it can never overflow.
  */
-/**
- * The word in the card's header slot.
- *
- * Card doctrine (Phillip, 2026-11-23, F-563): the four person/entity
- * families say their family word (VALIDATOR, PROJECT, CREATOR, MEMBER).
- * A COMMUNITY-family card says WHICH kind of community it is, from the
- * server's `kicker` (§3.2.4: CHAIN HALL, HOLDER COMMUNITY, DELEGATOR
- * COMMUNITY, SYSTEM COMMUNITY, COMMUNITY), still in the community colour,
- * so the family stays readable. A Hall card used to say "COMMUNITY" on a
- * page titled HALL. No kicker → "community". Server copy, rendered as is.
- */
-export function cardHeaderWord(card: Card): string {
-  if (card.card_kind !== "community") return card.card_kind;
-  const kicker = card.kicker?.trim() ?? "";
-  return kicker !== "" ? kicker : "community";
-}
 
 function CardHeader({ card, kindColor }: { card: Card; kindColor: string }) {
   const slug = chainSlug(card);
@@ -632,7 +552,7 @@ const STATS_COLS: Record<number, string> = {
 function StatsPanel({ stats }: { stats: CardStat[] }) {
   // The server may return more than three; we slice for layout and
   // never re-derive the values (§A2 — `value` is used verbatim).
-  const visible = stats.slice(0, 3);
+  const visible = stats.slice(0, STATS_ROW_MAX);
   if (visible.length === 0) return null;
   const cols = STATS_COLS[visible.length] ?? "grid-cols-3";
 

@@ -7,22 +7,22 @@
  */
 
 import { cleanup, render, screen } from "@testing-library/react";
-import type { ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { GroupDetailResponse } from "@/lib/api/types";
 
 vi.mock("@/components/common/ShareButton", () => ({ ShareButton: () => null }));
-vi.mock("@/components/communities/CommunityJoinCard", () => ({ CommunityJoinCard: () => null }));
+vi.mock("@/components/cards/card-face-stats", () => ({
+  cardHeaderWord: () => "COMMUNITY",
+  cardFaceStats: () => [],
+}));
+vi.mock("@/components/identity/Avatar", () => ({ Avatar: () => null }));
 vi.mock("@/components/layout/FileRail", () => ({ FileRail: () => null }));
 vi.mock("@/components/groups/GroupAboutPanel", () => ({ GroupAboutPanel: () => null }));
 vi.mock("@/components/groups/GroupFeedSection", () => ({ GroupFeedSection: () => null }));
 vi.mock("@/components/groups/GroupMembershipAdmin", () => ({ GroupMembershipAdmin: () => null }));
 vi.mock("@/components/groups/GroupMembersStrip", () => ({ GroupMembersStrip: () => null }));
 vi.mock("@/components/groups/GroupTabs", () => ({ GroupTabs: () => null }));
-vi.mock("@/components/layout/PageHero", () => ({
-  PageHero: ({ actions }: { actions: ReactNode }) => <div>{actions}</div>,
-}));
 vi.mock("@/components/groups/GroupMembershipStrip", () => ({
   GroupMembershipStrip: ({ membersHref }: { membersHref?: string }) => (
     <p data-testid="strip" data-members-href={membersHref ?? "(none)"} />
@@ -39,7 +39,14 @@ const GROUP = {
   name: "Night Shift",
   type: "user",
   privacy: "closed",
-  card: {},
+  image_url: null,
+  description: null,
+  chain_tag: null,
+  verification: null,
+  trust_min: null,
+  collection_stats: null,
+  viewer_membership: null,
+  card: { crest: { image_url: null }, stats: [] },
 } as unknown as GroupDetailResponse;
 
 describe("GroupDetailShell → GroupMembershipStrip membersHref", () => {

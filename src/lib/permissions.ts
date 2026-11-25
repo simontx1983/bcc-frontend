@@ -124,3 +124,15 @@ export function reasonCode(permissions: unknown, capability: string): string | n
   }
   return code;
 }
+
+/**
+ * The denial reasons whose way forward is signing in. Page cards send
+ * `signin_required`; other surfaces use `auth_required`.
+ */
+export const SIGN_IN_REASON_CODES: ReadonlySet<string> = new Set(["signin_required", "auth_required"]);
+
+/** True when a capability is denied only because the viewer is signed out. */
+export function isSignInGate(permissions: unknown, capability: string): boolean {
+  const code = reasonCode(permissions, capability);
+  return code !== null && SIGN_IN_REASON_CODES.has(code);
+}

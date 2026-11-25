@@ -29,7 +29,7 @@ const wallets = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/api/client", () => ({ bccFetchAsClient, bccFetch: vi.fn() }));
-vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh }) }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh }), usePathname: () => "/communities/validator-group" }));
 vi.mock("@/hooks/useWallets", () => ({
   useMyWallets: () => wallets.current,
   useLinkWalletMutation: () => ({
@@ -305,6 +305,11 @@ describe("GroupMembershipStrip, validator group", () => {
 
     expect(screen.getByText("Sign in to join.")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "CHECK & JOIN" })).toBeNull();
+    // The way forward is signing in (and coming back), not a dead LOCKED.
+    expect(screen.getByRole("link", { name: "SIGN IN TO JOIN" })).toHaveAttribute(
+      "href",
+      "/login?callbackUrl=%2Fcommunities%2Fvalidator-group",
+    );
   });
 });
 
