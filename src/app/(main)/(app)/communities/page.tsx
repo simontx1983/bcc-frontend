@@ -39,7 +39,7 @@ import { authOptions } from "@/lib/auth";
 import { tokenFromSession } from "@/lib/api/client";
 import { humanizeCode } from "@/lib/api/errors";
 import { getGroupsDiscovery } from "@/lib/api/groups-discovery-endpoints";
-import { COMMUNITY_CHAIN_CATALOG } from "@/lib/communities/chain-catalog";
+import { COMMUNITY_CHAIN_CATALOG, communityChainLabel } from "@/lib/communities/chain-catalog";
 import { CommunityCardGrid } from "@/components/communities/CommunityCardGrid";
 import { HALLS_TAB_HREF } from "@/components/communities/halls-tab-href";
 import { HallsTabPanel, loadHalls } from "@/components/communities/HallsTabPanel";
@@ -436,7 +436,7 @@ function EmptyState({
   let body: string;
 
   const chainLabel = chain !== null
-    ? (COMMUNITY_CHAIN_CATALOG.find((o) => o.slug === chain)?.label ?? chain)
+    ? (communityChainLabel(chain) ?? chain)
     : null;
 
   if (mineOnly && isAnon) {

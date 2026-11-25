@@ -15,7 +15,7 @@ import { hasHeat } from "@/components/groups/group-activity";
 import { HeatBadge } from "@/components/groups/HeatBadge";
 import { VerificationBadge } from "@/components/groups/VerificationBadge";
 import type { GroupDetailResponse } from "@/lib/api/types";
-import { COMMUNITY_CHAIN_CATALOG } from "@/lib/communities/chain-catalog";
+import { communityChainLabel } from "@/lib/communities/chain-catalog";
 
 export function GroupAboutPanel({ group }: { group: GroupDetailResponse }) {
   return (
@@ -113,8 +113,5 @@ function privacyLabel(group: GroupDetailResponse): string {
 }
 
 function chainLabel(slug: string): string {
-  return (
-    COMMUNITY_CHAIN_CATALOG.find((o) => o.slug === slug)?.label ??
-    slug.toUpperCase()
-  );
+  return communityChainLabel(slug) ?? slug.toUpperCase();
 }

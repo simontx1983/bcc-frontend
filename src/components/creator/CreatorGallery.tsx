@@ -272,7 +272,8 @@ interface GalleryShellProps {
 
 function GalleryShell({ title, subtitle, children }: GalleryShellProps) {
   return (
-    <section className="mx-auto mt-12 max-w-[1560px] px-7">
+    // A tab panel on the creator page now (Site Structure A §12): the page owns the width.
+    <section>
       <div className="bcc-mono mb-4 flex items-center gap-3 text-bcc-text-secondary">
         <span className="inline-block h-px w-8 bg-bcc-border" />
         <span>{title}</span>

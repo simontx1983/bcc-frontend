@@ -38,6 +38,7 @@ import type {
   DelegatorGroupBlock,
   DelegatorGroupOption,
 } from "@/lib/api/types";
+import { delegatorGroupHasContent } from "@/components/entity/delegator-group-visibility";
 
 const DEFAULT_MIN_STAKE = "1";
 
@@ -79,12 +80,13 @@ export function DelegatorGroupPanel({
   const canEdit = group !== null && block.can_edit_min_stake;
   const reason = block.unavailable_reason;
 
-  if (group === null && !canCreate && reason === null) return null;
+  // The same rule decides whether the page offers the Delegators tab at all.
+  if (!delegatorGroupHasContent({ ...block, group })) return null;
 
   return (
     <section
       aria-label="Delegator group"
-      className="mx-auto mt-8 max-w-[1440px] px-4 sm:px-7"
+      // A tab panel now (Site Structure A §12): the page owns the width.
     >
       <div className="bcc-panel flex flex-wrap items-center justify-between gap-3 p-5">
         <div className="min-w-0" style={{ maxWidth: "60ch" }}>

@@ -62,25 +62,22 @@ export default async function CreatorProfilePage({ params }: PageProps) {
   }
 
   return (
-    <>
-      <EntityProfile
-        card={card}
-        kindLabel="NFT Creator"
-        streamEmptyState={{
-          title: "No drops yet",
-          body:
-            "Once this creator drops a piece or announces a release, " +
-            "their stream will show up here.",
-        }}
-        viewerAuthed={session !== null}
-      />
-
-      {/* §H1 NFT gallery — client-side query against
-          /bcc/v1/creators/:slug/gallery. Server-side SWR pattern: any
-          stale rows trigger a background refresh; the UI shows a
-          "Coming soon" / "Loading collection…" placeholder for first-
-          ever requests. */}
-      <CreatorGallery slug={slug} creatorName={card.name} />
-    </>
+    <EntityProfile
+      card={card}
+      kindLabel="NFT Creator"
+      streamEmptyState={{
+        title: "No drops yet",
+        body:
+          "Once this creator drops a piece or announces a release, " +
+          "their stream will show up here.",
+      }}
+      viewerAuthed={session !== null}
+      // §H1 NFT gallery, a tab on the page (Site Structure A §12) —
+      // client-side query against /bcc/v1/creators/:slug/gallery.
+      // Server-side SWR pattern: any stale rows trigger a background
+      // refresh; the UI shows a "Coming soon" / "Loading collection…"
+      // placeholder for first-ever requests.
+      galleryPanel={<CreatorGallery slug={slug} creatorName={card.name} />}
+    />
   );
 }
