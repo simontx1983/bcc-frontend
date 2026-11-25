@@ -35,27 +35,13 @@ import { LoadFailure } from "@/components/ui/LoadFailure";
 import { GroupActionButton } from "@/components/groups/GroupActionButton";
 import { HolderLeaveConfirm } from "@/components/groups/HolderLeaveConfirm";
 import { FallbackImg } from "@/components/ui/FallbackImg";
+import { hasHeat, sortByHeat } from "@/components/groups/group-activity";
 import { HeatBadge } from "@/components/groups/HeatBadge";
 import { VerificationBadge } from "@/components/groups/VerificationBadge";
 import { humanizeCode, isPermissionDenial } from "@/lib/api/errors";
-import type { GroupActivity, HolderGroupItem } from "@/lib/api/types";
+import type { HolderGroupItem } from "@/lib/api/types";
 
 import { SettingsSectionHeader } from "@/components/settings/SettingsSectionHeader";
-
-const HEAT_ORDER: Record<GroupActivity["heat"], number> = {
-  hot: 0,
-  warm: 1,
-  cold: 2,
-};
-
-function sortByHeat(items: HolderGroupItem[]): HolderGroupItem[] {
-  return [...items].sort((a, b) => {
-    const heatDelta =
-      HEAT_ORDER[a.activity.heat] - HEAT_ORDER[b.activity.heat];
-    if (heatDelta !== 0) return heatDelta;
-    return b.activity.posts_last_7d - a.activity.posts_last_7d;
-  });
-}
 
 export function CommunitiesList() {
   const listQuery = useMyHolderGroups();
@@ -311,8 +297,13 @@ function CommunityRow({ item, action }: CommunityRowProps) {
           <p className="bcc-mono mt-0.5 flex flex-wrap items-center gap-2 truncate text-[11px] text-bcc-text-secondary">
             <span>{item.member_count.toLocaleString()} members</span>
             <span aria-hidden className="text-bcc-text-muted">·</span>
-            <HeatBadge activity={item.activity} />
-            <span aria-hidden className="text-bcc-text-muted">·</span>
+            {/* No heat when the server couldn't count: drop it and its dot. */}
+            {hasHeat(item.activity) && (
+              <>
+                <HeatBadge activity={item.activity} />
+                <span aria-hidden className="text-bcc-text-muted">·</span>
+              </>
+            )}
             <VerificationBadge label={item.verification.label} />
           </p>
         </div>

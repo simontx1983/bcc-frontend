@@ -2360,19 +2360,28 @@ export interface GroupBlock {
  * Note: the contract doc (§4.7.1 lines 1465–1469) reserves an
  * `active_members_last_7d` field for v2.5 — the current backend does
  * NOT emit it. When the backend starts emitting it, widen this type.
+ *
+ * Unreadable counts: activity counts leave out posts moderation has
+ * hidden. When the server can't read that list it sends no numbers —
+ * `posts_last_7d`, `heat`, `heat_label` and `last_activity_at` all null —
+ * rather than a guess. Null means "unknown": render no number and no heat
+ * label (never 0, never "Quiet"), and sort the row after known ones.
+ * Read it through components/groups/group-activity.ts.
  */
 export interface GroupActivity {
-  posts_last_7d: number;
-  /** ISO 8601 UTC. Null when no posts in window or timestamp invalid. */
+  /** Null when the server couldn't count (see above). */
+  posts_last_7d: number | null;
+  /** ISO 8601 UTC. Null when no posts in window, timestamp invalid, or unreadable. */
   last_activity_at: string | null;
-  heat: "cold" | "warm" | "hot";
+  /** Null when the server couldn't count (see above). */
+  heat: "cold" | "warm" | "hot" | null;
   /**
    * Server-authoritative display string for the heat bucket
    * ("Hot" / "Warm" / "Quiet" by default; filterable server-side via
    * `bcc_group_heat_label`). Frontend renders verbatim per §A2 — no
-   * client-side `heat === "hot" ? "Hot" : ...` mapping.
+   * client-side `heat === "hot" ? "Hot" : ...` mapping. Null with `heat`.
    */
-  heat_label: string;
+  heat_label: string | null;
 }
 
 /**
