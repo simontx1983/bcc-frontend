@@ -133,6 +133,12 @@ export interface AuthTokenResponse {
    * before the field sends nothing, which reads as "hide".
    */
   can_moderate?: boolean;
+  /**
+   * Contract v1.136 (F-305): the member is suspended and signed in
+   * READ-ONLY. DISPLAY ONLY: it shows the suspension notice (F-582); the
+   * server refuses every write. Optional: absent means "unknown".
+   */
+  suspended?: boolean;
 }
 
 export interface HandleUpdateResponse {

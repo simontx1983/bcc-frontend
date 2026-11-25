@@ -775,6 +775,19 @@
     padding: 0;
     scrollbar-gutter: stable;
   }
+
+  /* F-582: room at the END of the scroll content for a persistent
+     bottom-slot panel (the suspension notice sets --bcc-bottom-reserve to
+     its height), so the last content can always scroll clear of it. A
+     spacer, not padding, so the column's own padding rules stay as they
+     are. 0 tall when nothing is there. */
+  .bcc-col-center::after,
+  .bcc-detail-shell::after,
+  .bcc-marketing-shell::after {
+    content: "";
+    display: block;
+    height: var(--bcc-bottom-reserve, 0px);
+  }
   /* Center column inner content wrapper — constrains reading width */
   .bcc-col-center > div {
     max-width: var(--bcc-content-max-w);

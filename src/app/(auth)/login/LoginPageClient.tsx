@@ -33,6 +33,7 @@ import { WalletAuthButton } from "@/components/auth/WalletAuthButton";
 import { WalletSignupPrompt } from "@/components/auth/WalletSignupPrompt";
 import { loginWithIdentifier, resendVerification } from "@/lib/api/auth-endpoints";
 import { BccApiError, type AuthTokenResponse } from "@/lib/api/types";
+import { suspendedCredential } from "@/lib/auth/auth-flags";
 import { canModerateCredential } from "@/lib/auth/can-moderate";
 import { loginCaptchaChallenge, type LoginCaptchaChallenge } from "@/lib/auth/login-captcha";
 import { stashPendingVerificationEmail } from "@/lib/auth/pending-verification-email";
@@ -172,6 +173,7 @@ function LoginPageContent() {
         expires_in:       String(jwtResp.expires_in),
         in_good_standing: String(jwtResp.in_good_standing),
         ...canModerateCredential(jwtResp),
+        ...suspendedCredential(jwtResp),
         redirect:         false,
       });
       if (result?.ok) {

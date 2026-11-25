@@ -28,6 +28,13 @@ vi.mock("next/navigation", () => ({
   useSearchParams: () => search,
 }));
 
+// The (main) root also mounts the suspension notice (F-582), which reads
+// the session. The audience here is a SIGNED-OUT viewer, so the session
+// says exactly that; the suspension notice then renders nothing.
+vi.mock("next-auth/react", () => ({
+  useSession: () => ({ data: null, status: "unauthenticated", update: vi.fn() }),
+}));
+
 // jsdom has no IntersectionObserver, and MinimalShell (the (auth) shell)
 // uses one. Stubbed rather than mocking the shell away, so the test keeps
 // rendering the REAL layout.

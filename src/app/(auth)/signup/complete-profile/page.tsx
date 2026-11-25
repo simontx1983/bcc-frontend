@@ -37,6 +37,7 @@ import { AuthCard } from "@/components/auth/AuthCard";
 import { noteSignupCompleted, signupMethodForProvider } from "@/lib/analytics/posthog";
 import { oauthComplete } from "@/lib/api/auth-endpoints";
 import { BccApiError } from "@/lib/api/types";
+import { suspendedCredential } from "@/lib/auth/auth-flags";
 import { canModerateCredential } from "@/lib/auth/can-moderate";
 import { checkHandleLocal, formatHandleHint } from "@/lib/auth/handleValidation";
 
@@ -118,6 +119,7 @@ function CompleteProfileContent() {
         expires_in:       String(jwt.expires_in),
         in_good_standing: String(jwt.in_good_standing),
         ...canModerateCredential(jwt),
+        ...suspendedCredential(jwt),
         redirect:         false,
       });
 
