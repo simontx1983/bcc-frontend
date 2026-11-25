@@ -4,9 +4,11 @@
  * `card` (SA4). Tolerant before then.
  *   1. every item has a card → the shared community card grid;
  *   2. any item without one → today's Hall panels, never a mix;
- *   3. on a Hall's card the stats read Members (name line) and
- *      Validators · Posts 7d (stats row); a topic Hall sends no
- *      Validators stat and shows none, never a 0.
+ *   3. a Hall's card shows its three counts side by side in the stats row,
+ *      Members · Posts 7d · Validators (Phillip, 2026-11-25), in that order
+ *      whatever order the server sends; a topic Hall sends no Validators
+ *      stat and shows none, never a 0; any other community keeps Members
+ *      in the name line, like every card.
  */
 import { cleanup, render, screen } from "@testing-library/react";
 import type { AnchorHTMLAttributes, ReactNode } from "react";
@@ -19,6 +21,7 @@ vi.mock("@/components/communities/CommunityJoinCard", () => ({
 }));
 vi.mock("@/components/cards/CardActionBar", () => ({ ActionBar: () => null, CommunityActionBar: () => null }));
 vi.mock("@/components/cards/Crest", () => ({ Crest: () => null }));
+vi.mock("@/components/cards/CardStandingStrip", () => ({ CardStandingStrip: () => null }));
 vi.mock("@/lib/env", () => ({ clientEnv: { BCC_API_URL: "https://wp.example" } }));
 vi.mock("next-auth/react", () => ({
   useSession: () => ({ status: "unauthenticated", data: null }),
@@ -41,7 +44,9 @@ const denied = (): CardPermissionEntry => ({ allowed: false, unlock_hint: null, 
 const stat = (key: string, label: string, raw: number): CardStat =>
   ({ key, label, value: String(raw), raw, format: "count" }) as CardStat;
 
-function hallCard(name: string, stats: CardStat[]): Card {
+type DossierType = "hall" | "user" | null;
+
+function hallCard(name: string, stats: CardStat[], dossierType: DossierType = null): Card {
   return {
     id: 7,
     name,
@@ -64,7 +69,10 @@ function hallCard(name: string, stats: CardStat[]): Card {
     crest: { initials: "AH", monogram_color: "#8a8a8a", background_kind: "solid", background_value: "#222222", image_url: null },
     stats,
     member_dossier: null,
-    community_dossier: null,
+    community_dossier:
+      dossierType === null
+        ? null
+        : { type: dossierType, privacy: "open", member_count: 3, verification: null, chain_tag: "akash", trust_min: null, collection_stats: null },
     permissions: {
       can_review: denied(),
       can_watch: denied(),
@@ -119,16 +127,53 @@ describe("3. a Hall card's counts", () => {
       <CardFrontFace card={card} kindColor="var(--kind-community)" flipped={false} onFlip={() => {}} isPulled={false} canEditAvatar={false} />,
     );
 
-  it("chain Hall: Members in the name line, Validators · Posts 7d in the stats row", () => {
-    face(hallCard("Akash Hall", [stat("members", "Members", 3), stat("validators", "Validators", 12), stat("posts_7d", "Posts 7d", 4)]));
-    expect(screen.getByText("Validators")).toBeInTheDocument();
-    expect(screen.getByText("Posts 7d")).toBeInTheDocument();
-    expect(screen.getByText("Members")).toBeInTheDocument();
+  // What a community card carries on the wire today (§3.2.4), plus the
+  // validators stat SA4 adds to chain-Hall cards after posts_7d.
+  const members = stat("members", "Members", 87);
+  const posts = stat("posts_7d", "Posts (7d)", 14);
+  const validators = stat("validators", "Validators", 98);
+  const active = stat("active", "Active", 9);
+  const access = { key: "access", label: "Access", value: "Public", raw: null, format: "text" } as unknown as CardStat;
+
+  /** The stats row's labels, in order, and its column count. */
+  const statsRow = (container: HTMLElement) => {
+    const row = container.querySelector('[class*="grid-cols-"]');
+    const cols = /grid-cols-(\d)/.exec(row?.className ?? "")?.[1];
+    const all = ["Members", "Posts (7d)", "Validators", "Active", "Access"];
+    const text = row?.textContent ?? "";
+    const labels = all.filter((l) => text.includes(l)).sort((a, b) => text.indexOf(a) - text.indexOf(b));
+    return { cols, labels };
+  };
+
+  it("chain Hall: exactly Members · Posts (7d) · Validators in the row, nothing under the name", () => {
+    const { container } = face(hallCard("Akash Hall", [members, posts, validators, active, access], "hall"));
+    expect(statsRow(container)).toEqual({ cols: "3", labels: ["Members", "Posts (7d)", "Validators"] });
+    expect(screen.getAllByText("Members")).toHaveLength(1);
+    expect(screen.queryByText("Active")).toBeNull();
+    expect(screen.queryByText("Access")).toBeNull();
   });
 
-  it("topic Hall: no Validators stat sent → none shown, never a 0", () => {
-    face(hallCard("DeFi Hall", [stat("members", "Members", 3), stat("posts_7d", "Posts 7d", 4)]));
-    expect(screen.queryByText("Validators")).toBeNull();
-    expect(screen.getByText("Posts 7d")).toBeInTheDocument();
+  it("the card orders the row itself: a server order of validators before posts_7d still reads Members · Posts (7d) · Validators", () => {
+    const { container } = face(hallCard("Akash Hall", [access, validators, active, posts, members], "hall"));
+    expect(statsRow(container)).toEqual({ cols: "3", labels: ["Members", "Posts (7d)", "Validators"] });
+  });
+
+  it("before the validators stat ships: Members · Posts (7d), never Active in its place", () => {
+    const { container } = face(hallCard("Akash Hall", [members, posts, active, access], "hall"));
+    expect(statsRow(container)).toEqual({ cols: "2", labels: ["Members", "Posts (7d)"] });
+  });
+
+  it("topic Hall (no validators) reads Members · Posts (7d); an unreadable posts count is simply left out", () => {
+    const topic = face(hallCard("DeFi Hall", [members, posts, active, access], "hall"));
+    expect(statsRow(topic.container)).toEqual({ cols: "2", labels: ["Members", "Posts (7d)"] });
+    cleanup();
+    const unread = face(hallCard("Akash Hall", [members, validators, access], "hall"));
+    expect(statsRow(unread.container)).toEqual({ cols: "2", labels: ["Members", "Validators"] });
+  });
+
+  it("any other community is unchanged: Members in the name line, the rest in the row", () => {
+    const { container } = face(hallCard("Night Shift", [members, posts, active, access], "user"));
+    expect(statsRow(container)).toEqual({ cols: "3", labels: ["Posts (7d)", "Active", "Access"] });
+    expect(screen.getByText("Members")).toBeInTheDocument();
   });
 });

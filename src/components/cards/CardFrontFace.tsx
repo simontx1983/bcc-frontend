@@ -48,6 +48,22 @@ import { isWpMediaUrl } from "@/lib/media";
 const AUDIENCE_STAT_KEYS = new Set(["followers", "watchers", "watching", "members"]);
 
 /**
+ * A Hall card is the exception (Phillip, 2026-11-25): its stats row is
+ * exactly Members · Posts 7d · Validators, side by side in that order
+ * whatever order the server sends them in, and nothing goes under the
+ * name. A community card also carries `active` and `access`; on a Hall
+ * those stay off the face so the three counts Phillip named are the row.
+ * A count the server leaves out (a topic Hall has no validators; an
+ * unreadable posts count is omitted) is simply not shown: never a 0.
+ */
+const HALL_GRID_STAT_KEYS = ["members", "posts_7d", "validators"] as const;
+
+/** A Hall card's row: the named counts it has, in HALL_GRID_STAT_KEYS order. */
+function hallGrid(stats: readonly CardStat[]): CardStat[] {
+  return HALL_GRID_STAT_KEYS.flatMap((key) => stats.filter((s) => s.key === key).slice(0, 1));
+}
+
+/**
  * Split the server's stats into "the one that goes under the handle" and
  * "the grid", and give member cards the Vouches column they were missing.
  *
@@ -63,6 +79,9 @@ function splitStats(card: Card): {
   audience: CardStat[];
   grid: CardStat[];
 } {
+  if (card.card_kind === "community" && card.community_dossier?.type === "hall") {
+    return { audience: [], grid: hallGrid(card.stats) };
+  }
   const audience = card.stats.filter((s) => AUDIENCE_STAT_KEYS.has(s.key));
   const grid = card.stats.filter((s) => !AUDIENCE_STAT_KEYS.has(s.key));
 
