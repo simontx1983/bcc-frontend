@@ -24,7 +24,7 @@ import type { Card } from "@/lib/api/types";
 vi.mock("@/lib/env", () => ({ env: { NEXT_PUBLIC_BCC_API_URL: "http://x" }, clientEnv: { BCC_API_URL: "http://x" } }));
 
 // Imported at collection, outside every test's timer (large module graphs).
-import { cardHeaderWord } from "@/components/cards/CardFrontFace";
+import { cardHeaderWord } from "@/components/cards/card-face-stats";
 import { CardStandingStrip } from "@/components/cards/CardStandingStrip";
 
 afterEach(cleanup);

@@ -12,13 +12,23 @@
  *      Access), no trading card, and the side column holds the page's
  *      blocks, then About and Facts;
  *   4. a non-Hall community's header lists the card's counts too, with
- *      Access left to the chips.
+ *      Access left to the chips; access is said the ONE way the card back
+ *      says it (community-access.ts): a delegator group is "Delegators
+ *      only", a trust group "Trust N+", and a holder group adds its holding
+ *      requirement for a non-member, with its collection in the side column
+ *      (no prices);
+ *   5. the build boundary: the server-rendered shell takes the card rules
+ *      from hook-free modules, never from a client card component (tsc and
+ *      vitest can't see that; `next build` fails on it).
  */
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+
 import { cleanup, render, screen, within } from "@testing-library/react";
 import type { AnchorHTMLAttributes, ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import type { Card, CardStat, GroupDetailResponse } from "@/lib/api/types";
+import type { Card, CardStat, CollectionStats, GroupDetailResponse } from "@/lib/api/types";
 
 vi.mock("@/lib/env", () => ({ clientEnv: { BCC_API_URL: "https://wp.example" } }));
 vi.mock("next-auth/react", () => ({
@@ -38,7 +48,9 @@ vi.mock("@/components/cards/Crest", () => ({ Crest: () => null }));
 vi.mock("@/components/cards/CardStandingStrip", () => ({ CardStandingStrip: () => null }));
 // The shell's children: stubbed to markers.
 vi.mock("@/components/common/ShareButton", () => ({ ShareButton: () => <button type="button">Share</button> }));
-vi.mock("@/components/identity/Avatar", () => ({ Avatar: () => <span data-testid="avatar" /> }));
+vi.mock("@/components/identity/Avatar", () => ({
+  Avatar: ({ avatarUrl }: { avatarUrl: string | null }) => <span data-testid="avatar" data-url={avatarUrl ?? "(none)"} />,
+}));
 vi.mock("@/components/layout/FileRail", () => ({ FileRail: () => <div data-testid="rail" /> }));
 vi.mock("@/components/groups/GroupAboutPanel", () => ({ GroupAboutPanel: () => null }));
 vi.mock("@/components/groups/GroupFeedSection", () => ({ GroupFeedSection: () => null }));
@@ -123,14 +135,14 @@ describe("2. DetailBody and DetailPage", () => {
   });
 });
 
-function communityCard(stats: CardStat[], dossierType: "hall" | "user"): Card {
+function communityCard(stats: CardStat[], dossierType: "hall" | "user" | "validator" | "nft", crestUrl: string | null = null): Card {
   return {
     id: 7,
     name: "Akash Hall",
     handle: "akash-hall",
     card_kind: "community",
     kicker: dossierType === "hall" ? "CHAIN HALL" : "COMMUNITY",
-    crest: { initials: "AH", monogram_color: "#8a8a8a", background_kind: "solid", background_value: "#222222", image_url: null },
+    crest: { initials: "AH", monogram_color: "#8a8a8a", background_kind: "solid", background_value: "#222222", image_url: crestUrl },
     stats,
     member_dossier: null,
     community_dossier: { type: dossierType, privacy: "open", member_count: 87, verification: null, chain_tag: "akash", trust_min: null, collection_stats: null },
@@ -149,6 +161,8 @@ function group(card: Card, over: Partial<GroupDetailResponse> = {}): GroupDetail
     chain_tag: "akash",
     verification: null,
     trust_min: null,
+    collection_stats: null,
+    viewer_membership: null,
     card,
     ...over,
   } as unknown as GroupDetailResponse;
@@ -203,16 +217,117 @@ describe("3. a Hall on the shared layout", () => {
 });
 
 describe("4. any other community", () => {
-  it("a trust-gated group reads its reputation gate, not \"Open to anyone\"", () => {
-    render(<GroupDetailShell group={group(communityCard([members], "user"), { trust_min: 50 })} />);
-    expect(screen.getAllByText("Reputation 50+ to join")).toHaveLength(2);
-    expect(screen.queryByText("Open to anyone")).toBeNull();
-  });
-
   it("lists the card's counts, Access left to the chips, with the plain Join", () => {
     const { container } = render(<GroupDetailShell group={group(communityCard([members, posts, active, access], "user"))} />);
     expect(headerStats(container)).toEqual(["Posts (7d)", "Active", "Members"]);
-    expect(screen.getAllByText("Open to anyone").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Open to all")).toHaveLength(2);
     expect(screen.getByRole("button", { name: "Join" })).toBeInTheDocument();
+  });
+
+  it("a trust-gated group reads its gate, as the card back does", () => {
+    render(<GroupDetailShell group={group(communityCard([members], "user"), { trust_min: 50 })} />);
+    expect(screen.getAllByText("Trust 50+")).toHaveLength(2);
+    expect(screen.queryByText("Open to all")).toBeNull();
+  });
+
+  it("a delegator group is delegators-only, never a request queue", () => {
+    render(<GroupDetailShell group={group(communityCard([members], "validator"), { type: "validator", privacy: "closed" })} />);
+    expect(screen.getAllByText("Delegators only")).toHaveLength(2);
+    expect(screen.queryByText(/request/i)).toBeNull();
+  });
+
+  const collection = (over: Partial<CollectionStats> = {}): CollectionStats =>
+    ({
+      token_standard: "ERC-721",
+      holders_display: "1,204",
+      supply_display: "5,000",
+      floor_display: "0.42 ETH",
+      volume_display: "88 ETH",
+      listed_display: "3%",
+      royalty_display: "5%",
+      min_balance_display: "1 NFT",
+      marketplace: { url: "https://market.example/c/smiths", label: "Market" },
+      ...over,
+    }) as CollectionStats;
+
+  it("a holder group, to a non-member: open to all AND requires the holding; its collection sits in the side column, no prices", () => {
+    render(
+      <GroupDetailShell
+        group={group(communityCard([members], "nft"), { type: "nft", collection_stats: collection() })}
+      />,
+    );
+    const header = screen.getByRole("banner");
+    expect(within(header).getByText("Open to all")).toBeInTheDocument();
+    expect(within(header).getByText("Requires 1 NFT")).toBeInTheDocument();
+
+    const block = screen.getByRole("region", { name: "Collection" });
+    expect(block).toHaveTextContent("ERC-721");
+    expect(block).toHaveTextContent("1,204");
+    expect(block).toHaveTextContent("5,000");
+    expect(block).toHaveTextContent("Requires 1 NFT");
+    const link = within(block).getByRole("link", { name: "View on Market ↗" });
+    expect(link).toHaveAttribute("href", "https://market.example/c/smiths");
+    expect(link).toHaveAttribute("target", "_blank");
+    expect(link).toHaveAttribute("rel", "noopener noreferrer");
+    // BCC never puts price forward.
+    expect(document.body).not.toHaveTextContent(/0\.42 ETH|88 ETH|Floor|Volume|Royalty|Listed/);
+
+    const order = within(screen.getByRole("complementary"))
+      .getAllByRole("region")
+      .map((r) => r.getAttribute("aria-label"));
+    expect(order).toEqual(["Collection", "About", "Facts"]);
+  });
+
+  it("a member of the holder group sees no barrier chip (the requirement stays a collection fact)", () => {
+    render(
+      <GroupDetailShell
+        group={group(communityCard([members], "nft"), {
+          type: "nft",
+          collection_stats: collection(),
+          viewer_membership: { is_member: true, joined_at: null },
+        })}
+      />,
+    );
+    expect(within(screen.getByRole("banner")).queryByText("Requires 1 NFT")).toBeNull();
+    expect(screen.getByRole("region", { name: "Collection" })).toHaveTextContent("Requires 1 NFT");
+  });
+
+  it("no Collection block for a group without a collection", () => {
+    render(<GroupDetailShell group={group(communityCard([members], "user"))} />);
+    expect(screen.queryByRole("region", { name: "Collection" })).toBeNull();
+  });
+
+  it("an empty group image falls through to the card's crest image", () => {
+    render(
+      <GroupDetailShell
+        group={group(communityCard([members], "user", "https://img.example/crest.png"), { image_url: "" })}
+      />,
+    );
+    expect(screen.getByTestId("avatar")).toHaveAttribute("data-url", "https://img.example/crest.png");
+  });
+});
+
+describe("5. the build boundary", () => {
+  const read = (p: string) => readFileSync(resolve(process.cwd(), p), "utf-8");
+
+  it("the shell imports the card rules from hook-free modules, not from a card component", () => {
+    const shell = read("src/components/groups/GroupDetailShell.tsx");
+    expect(shell.startsWith('"use client"')).toBe(false);
+    expect(shell).not.toMatch(/from "@\/components\/cards\/(CardFrontFace|CardFactory|CommunityDossier|CardStandingStrip)"/);
+    expect(shell).toMatch(/from "@\/components\/cards\/card-face-stats"/);
+    expect(shell).toMatch(/from "@\/components\/cards\/community-access"/);
+  });
+
+  it("those modules stay hook-free and JSX-free", () => {
+    for (const p of ["src/components/cards/card-face-stats.ts", "src/components/cards/community-access.ts"]) {
+      const src = read(p);
+      expect(src, p).not.toMatch(/^"use client"/);
+      expect(src, p).not.toMatch(/from "react"/);
+      expect(src, p).not.toMatch(/\buse[A-Z]\w*\(/);
+    }
+  });
+
+  it("the card face, which keeps state, says it is a client component", () => {
+    expect(read("src/components/cards/CardFrontFace.tsx").startsWith('"use client";')).toBe(true);
   });
 });

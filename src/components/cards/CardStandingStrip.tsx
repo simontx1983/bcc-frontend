@@ -35,6 +35,7 @@
  * broken in the meantime.
  */
 
+import { holdingRequirement } from "@/components/cards/community-access";
 import type { Card, ReputationTier } from "@/lib/api/types";
 import { FlipIcon } from "@/components/icons/registry";
 import { HIT_AREA_44 } from "@/components/feed/hitArea";
@@ -150,11 +151,11 @@ function resolveBarrier(card: Card): StandingRow | null {
   if (dossier === null) return null;
   if (dossier.viewer_is_member) return null;
 
-  const requirement = dossier.collection_stats?.min_balance_display ?? null;
-  if (requirement !== null && requirement !== "") {
+  const requirement = holdingRequirement(dossier.collection_stats);
+  if (requirement !== null) {
     return {
       tone: "barrier",
-      text: `Requires ${requirement}`,
+      text: requirement,
       dotColor: "var(--bcc-safety)",
     };
   }
@@ -208,7 +209,7 @@ function resolveIdentity(card: Card, kindColor: string): StandingRow | null {
     }
     // "What kind of room is this" (the server kicker: CHAIN HALL, HOLDER
     // COMMUNITY, …) now names the card in its header slot (F-317 / F-563,
-    // CardFrontFace.cardHeaderWord). Repeating it here said the same words
+    // card-face-stats.cardHeaderWord). Repeating it here said the same words
     // twice, so an unverified community has nothing more to state: T5,
     // the row is omitted and the portrait grows.
     return null;

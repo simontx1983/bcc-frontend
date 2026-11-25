@@ -24,6 +24,7 @@
 
 import type { MouseEvent } from "react";
 
+import { communityAccessLabel, holdingRequirement } from "@/components/cards/community-access";
 import { DossierSection, Row } from "@/components/cards/MemberDossier";
 import { COMMUNITY_CHAIN_CATALOG } from "@/lib/communities/chain-catalog";
 import type { CardCommunityDossier } from "@/lib/api/types";
@@ -59,6 +60,7 @@ function CollectionBlock({ dossier }: { dossier: CardCommunityDossier }) {
   if (stats === null) return null;
 
   const stop = (event: MouseEvent) => event.stopPropagation();
+  const requirement = holdingRequirement(stats);
 
   // Row order is fixed; rows with a null display string are dropped
   // (the server emits "—" for present-but-empty, null for absent).
@@ -110,12 +112,12 @@ function CollectionBlock({ dossier }: { dossier: CardCommunityDossier }) {
       </dl>
 
       <div className="mt-3 flex flex-col gap-1">
-        {stats.min_balance_display !== null && (
+        {requirement !== null && (
           <p
             className="bcc-mono text-[10px] tracking-[0.16em]"
             style={{ color: "var(--bcc-text-secondary)" }}
           >
-            Requires {stats.min_balance_display}
+            {requirement}
           </p>
         )}
         {stats.marketplace !== null && (
@@ -138,21 +140,6 @@ function CollectionBlock({ dossier }: { dossier: CardCommunityDossier }) {
 // Non-NFT register — halls and plain groups.
 // ─────────────────────────────────────────────────────────────────────
 
-/**
- * Access copy — same precedence as the front-face signals strip
- * (trust gate beats privacy; trust groups run on PeepSo "open"
- * privacy under the hood so trust_min is the canonical gate signal).
- */
-function accessLabel(dossier: CardCommunityDossier): string {
-  // Stored closed, but nobody requests anything: the join verifies the
-  // delegation, so "Request to join" would describe a queue that isn't there.
-  if (dossier.type === "validator") return "Delegators only";
-  if (dossier.trust_min !== null) return `Trust ${dossier.trust_min}+`;
-  if (dossier.privacy === "closed") return "Request to join";
-  if (dossier.privacy === "secret") return "Invite-only";
-  return "Open to all";
-}
-
 function FloorBlock({ dossier }: { dossier: CardCommunityDossier }) {
   const chainLabel =
     dossier.chain_tag !== null
@@ -163,7 +150,8 @@ function FloorBlock({ dossier }: { dossier: CardCommunityDossier }) {
   return (
     <DossierSection label="THE FLOOR">
       <Row label="MEMBERS" value={dossier.member_count.toLocaleString()} />
-      <Row label="ACCESS" value={accessLabel(dossier)} />
+      {/* The one access rule (community-access.ts), shared with the detail page. */}
+      <Row label="ACCESS" value={communityAccessLabel(dossier)} />
       {chainLabel !== null && <Row label="CHAIN" value={chainLabel} />}
       {/* Verification has to live here as well as on the standing strip.
           The strip is first-match-wins, so a GATED community shows its

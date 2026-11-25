@@ -12,7 +12,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { GroupDetailResponse } from "@/lib/api/types";
 
 vi.mock("@/components/common/ShareButton", () => ({ ShareButton: () => null }));
-vi.mock("@/components/cards/CardFrontFace", () => ({
+vi.mock("@/components/cards/card-face-stats", () => ({
   cardHeaderWord: () => "COMMUNITY",
   cardFaceStats: () => [],
 }));
@@ -44,6 +44,8 @@ const GROUP = {
   chain_tag: null,
   verification: null,
   trust_min: null,
+  collection_stats: null,
+  viewer_membership: null,
   card: { crest: { image_url: null }, stats: [] },
 } as unknown as GroupDetailResponse;
 
