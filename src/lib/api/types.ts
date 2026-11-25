@@ -4050,13 +4050,28 @@ export interface ClaimPageRequest {
   entity_id: number;
 }
 
+/**
+ * POST /pages/:id/claim → 200: the payload under the standard envelope's
+ * `data` (contract §4, `POST /bcc/v1/pages/:id/claim`). There is no `ok`
+ * field. `status` is `already_verified` when the member already held the
+ * verified claim (nothing new was written).
+ */
 export interface ClaimPageResponse {
-  ok: true;
+  claim_id: number;
+  page_id: number;
+  entity_type: "validator" | "collection";
+  entity_id: number;
+  /**
+   * `operator` (a validator) or `creator` (a collection). A wallet that only
+   * holds a collection is refused (403, reason `holder_not_owner`), so a
+   * successful claim is never `holder`.
+   */
+  role: "operator" | "creator";
+  is_primary: boolean;
   status: "verified" | "already_verified";
-  claim_id?: number;
-  role: "operator" | "creator" | "holder";
-  is_primary?: boolean;
-  message?: string;
+  message: string;
+  /** The claimer's public identity. */
+  claimed_by: { user_id: number; handle: string };
 }
 
 /**
