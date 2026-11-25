@@ -68,7 +68,7 @@ import {
 import type { RosterSeed } from "@/hooks/useAttestationRoster";
 import { appOrigin } from "@/lib/app-origin";
 import { canonicalProfilePath, type ProfileSearchParams } from "@/lib/seo/canonical-profile-path";
-import { isIndexableEnvironment, isIndexableProfile } from "@/lib/seo/indexing";
+import { isIndexableEnvironment, profileIsIndexable } from "@/lib/seo/indexing";
 import { buildPersonGraph, serializeJsonLd } from "@/lib/seo/person-jsonld";
 import { ANON_SSR_REVALIDATE_SECONDS } from "@/lib/api/cache-policy";
 import { formatJoinDate, presentationName } from "@/lib/format";
@@ -149,14 +149,14 @@ export async function generateMetadata({
   // Two independent reasons to stay out of the index, both fail-closed.
   //
   // The environment gate keeps staging, previews and local out. The profile
-  // gate keeps moderated accounts out, and reads ONLY the explicit moderation
-  // flags — never is_in_good_standing, which is derived from reputation tier
-  // and would de-index legitimate new members for being new.
+  // gate is the server's own `indexable` (v1.228): never `flags`, which
+  // non-owners receive empty (trust #902), and never is_in_good_standing,
+  // which is reputation tier alone.
   //
-  // The reason is never stated in the markup: that a profile is under review
-  // is not public information.
+  // The reason is never stated in the markup: why a profile is not
+  // indexed is not public information.
   const indexable =
-    isIndexableEnvironment() && isIndexableProfile(profile.flags);
+    isIndexableEnvironment() && profileIsIndexable(profile);
 
   return {
     title,
@@ -314,7 +314,7 @@ export default async function MemberProfilePage({ params, searchParams }: PagePr
     appOrigin(),
   ).toString();
   const jsonLd =
-    isIndexableEnvironment() && isIndexableProfile(profile.flags)
+    isIndexableEnvironment() && profileIsIndexable(profile)
       ? serializeJsonLd(
           buildPersonGraph({
             name: title,

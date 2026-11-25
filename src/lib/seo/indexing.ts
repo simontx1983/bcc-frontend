@@ -63,46 +63,19 @@ export function isIndexableEnvironment(): boolean {
 }
 
 /**
- * Moderation / privacy flags that take a profile out of the index.
+ * True when this specific member profile may be indexed: the server's own
+ * answer, `indexable` (contract v1.228, F-518). It is the anonymous answer
+ * whoever asks, by the same rule `GET /sitemap/members` lists members with,
+ * so a profile is indexable exactly when it is in the sitemap. Exactly
+ * `true` indexes; absent or anything else does not (fail closed).
  *
- * Sourced from `UserViewService::resolveFlags`, which composes four slugs
- * from four separate places: `suspended` from the Permissions suspension
- * check, and `hidden` / `shadow_limited` / `under_review` from their own
- * usermeta keys. They are NOT interchangeable, so each was ruled on its own:
- *
- *   suspended       account is suspended — proven account state
- *   hidden          explicitly hidden — the name is the semantics
- *   under_review    outcome undetermined; indexing now and de-indexing later
- *                   is worse than waiting. Fails closed.
- *   shadow_limited  shadow-limiting reduces amplification, and a search index
- *                   is amplification. It MAY be intended to limit content
- *                   reach while leaving the profile reachable — the usermeta
- *                   key carries no documented intent either way, so this
- *                   fails closed pending confirmation.
- *
- * Deliberately absent: `is_in_good_standing`. It is
- * `in_array($tier, ['neutral','trusted','elite'])` — reputation tier alone,
- * with its own source comment stating that moderation is carried separately
- * by `flags`. A legitimate new member on the risky or caution tier is
- * `false`. Using it here would de-index people for being new.
+ * ⛔ Never derived from `flags`. Since trust #902 (F-582) the moderation
+ * flags are the member's and administrators' to see: every other viewer,
+ * a crawler included, receives `[]`. Reading that empty list as "no flags,
+ * index it" would index exactly the accounts the flags exist to keep out.
+ * (`is_in_good_standing` was never an input either: it is reputation tier
+ * alone and would de-index members for being new.)
  */
-const NON_INDEXABLE_PROFILE_FLAGS: ReadonlySet<string> = new Set([
-  "suspended",
-  "hidden",
-  "under_review",
-  "shadow_limited",
-]);
-
-/**
- * True when this specific profile may be indexed.
- *
- * Takes the raw `flags` array off the member view-model. Tolerates a missing
- * or malformed array the way lib/permissions.ts tolerates a missing
- * permission block — an unreadable answer is treated as "do not index".
- */
-export function isIndexableProfile(flags: readonly string[] | undefined): boolean {
-  if (!Array.isArray(flags)) {
-    return false;
-  }
-  return !flags.some((flag) => NON_INDEXABLE_PROFILE_FLAGS.has(flag));
+export function profileIsIndexable(profile: { indexable?: unknown }): boolean {
+  return profile.indexable === true;
 }

@@ -25,7 +25,7 @@ import { getUser } from "@/lib/api/user-endpoints";
 import { BccApiError, type MemberProfile } from "@/lib/api/types";
 import { presentationName } from "@/lib/format";
 import { canonicalProfilePath } from "@/lib/seo/canonical-profile-path";
-import { isIndexableEnvironment, isIndexableProfile } from "@/lib/seo/indexing";
+import { isIndexableEnvironment, profileIsIndexable } from "@/lib/seo/indexing";
 
 export type MemberSubpage = "about" | "blogs" | "reviews";
 
@@ -113,8 +113,9 @@ export async function memberSubpageMetadata(
       ? bio
       : `${name}, a member on the Floor: trust, identity, and reputation in crypto.`;
   const canonical = `/u/${encodeURIComponent(profile.handle)}/${subpage}`;
+  // The server's own answer (v1.228), never `flags` (empty for non-owners).
   const indexable =
-    isIndexableEnvironment() && isIndexableProfile(profile.flags);
+    isIndexableEnvironment() && profileIsIndexable(profile);
 
   return {
     title,
