@@ -14,13 +14,19 @@
  *            click / tap               → open, focus first item
  *   Menu     ArrowDown / ArrowUp       → move, wrapping
  *            Home / End                → first / last
- *            Escape                    → close, focus returns to trigger
+ *            Escape                    → close, focus returns to trigger;
+ *                                          the key goes no further, so a
+ *                                          dialog around the menu stays open
+ *                                          (the innermost thing closes first)
  *            Tab                       → close (focus proceeds naturally)
  *            outside press             → close
  *
- * Disabled items are skipped by arrow navigation rather than focused and
- * then refused, so a keyboard user never lands somewhere inert. Moving the
- * pointer over an enabled item makes it the active one.
+ * Disabled items (`isDisabled`) are skipped by arrow navigation rather than
+ * focused and then refused, so a keyboard user never lands somewhere inert.
+ * A menu that wants an inert item reachable (ARIA allows a focusable
+ * aria-disabled item) simply doesn't report it as disabled. Moving the
+ * pointer over an enabled item makes it the active one. Items may be any
+ * element (a <button>, or a <span role="menuitem">).
  *
  * Choosing an item goes through `closeThen`: the menu closes first, then
  * the action runs. Focus goes back to the trigger only when asked
@@ -57,12 +63,12 @@ export interface MenuButton {
   triggerRef: RefObject<HTMLButtonElement | null>;
   menuRef: RefObject<HTMLDivElement | null>;
   /** A ref callback for the item at `index`. */
-  itemRef: (index: number) => (el: HTMLButtonElement | null) => void;
+  itemRef: (index: number) => (el: HTMLElement | null) => void;
   /** The trigger's click: open at the first item, or close. */
   toggle: () => void;
   close: (returnFocus: boolean) => void;
   onTriggerKeyDown: (e: KeyboardEvent<HTMLButtonElement>) => void;
-  onMenuKeyDown: (e: KeyboardEvent<HTMLDivElement>) => void;
+  onMenuKeyDown: (e: KeyboardEvent<HTMLElement>) => void;
   /** The item's pointer-enter: make it active, unless it is disabled. */
   hover: (index: number) => void;
   /** Close the menu, then run the chosen item's action. */
@@ -80,7 +86,7 @@ export function useMenuButton({
 
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
-  const itemRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  const itemRefs = useRef<(HTMLElement | null)[]>([]);
 
   const enabledIndexes: number[] = [];
   for (let i = 0; i < itemCount; i += 1) {
@@ -144,7 +150,7 @@ export function useMenuButton({
     }
   }
 
-  function onMenuKeyDown(e: KeyboardEvent<HTMLDivElement>) {
+  function onMenuKeyDown(e: KeyboardEvent<HTMLElement>) {
     switch (e.key) {
       case "ArrowDown":
         e.preventDefault();
@@ -164,6 +170,9 @@ export function useMenuButton({
         break;
       case "Escape":
         e.preventDefault();
+        // The open menu handled it: a dialog or drawer around the menu
+        // must not close on the same key (they listen on window).
+        e.stopPropagation();
         close(true);
         break;
       case "Tab":

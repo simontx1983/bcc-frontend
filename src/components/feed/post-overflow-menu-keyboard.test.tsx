@@ -146,6 +146,23 @@ describe("inside the menu", () => {
     expect(trigger()).toHaveAttribute("aria-expanded", "false");
   });
 
+  it("Escape stays with the open menu: a dialog or drawer around it doesn't see it", () => {
+    const seen: string[] = [];
+    const onKey = (e: KeyboardEvent) => seen.push(e.key);
+    window.addEventListener("keydown", onKey);
+    try {
+      renderMenu();
+      key(trigger(), "Enter");
+      key(menu(), "Escape");
+      expect(seen).not.toContain("Escape");
+      // With the menu closed, Escape on ⋯ goes on as usual.
+      key(trigger(), "Escape");
+      expect(seen).toContain("Escape");
+    } finally {
+      window.removeEventListener("keydown", onKey);
+    }
+  });
+
   it("Tab closes it", () => {
     renderMenu();
     key(trigger(), "Enter");

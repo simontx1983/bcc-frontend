@@ -87,6 +87,7 @@ import {
 } from "@/hooks/useComments";
 import { useCommentStoke } from "@/hooks/useCommentStoke";
 import { useGiphyIntegration } from "@/hooks/useGiphyIntegration";
+import { useMenuButton } from "@/hooks/useMenuButton";
 import { captureAnalyticsEvent } from "@/lib/analytics/posthog";
 import { uploadBlogCoverImage } from "@/lib/api/blog-endpoints";
 import { humanizeCode, isPermissionDenial } from "@/lib/api/errors";
@@ -1499,53 +1500,47 @@ function CommentOverflowMenu({
   /** Opens the confirmation; the delete itself fires from there. */
   onDelete: (comment: Comment) => void;
 }) {
-  const [open, setOpen] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const triggerRef = useRef<HTMLButtonElement>(null);
-
-  useEffect(() => {
-    if (!open) return undefined;
-    const onDocClick = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
-    };
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
-    };
-    window.addEventListener("click", onDocClick);
-    window.addEventListener("keydown", onKeyDown);
-    return () => {
-      window.removeEventListener("click", onDocClick);
-      window.removeEventListener("keydown", onKeyDown);
-    };
-  }, [open]);
+  // The shared menu-button keyboard contract (useMenuButton), as the post
+  // menu and ActionMenu use it. Report and Copy link are "coming soon":
+  // aria-disabled and inert, but reachable by the arrow keys (ARIA allows a
+  // focusable disabled item). Reporting them disabled to the hook would
+  // leave a non-author's menu with nothing to open.
+  const menu = useMenuButton({ itemCount: canDelete ? 3 : 2 });
 
   return (
-    <div ref={containerRef} className="relative shrink-0">
+    <div className="relative shrink-0">
       <button
-        ref={triggerRef}
+        ref={menu.triggerRef}
         type="button"
         onClick={(e) => {
           e.stopPropagation();
-          setOpen((o) => !o);
+          menu.toggle();
         }}
+        onKeyDown={menu.onTriggerKeyDown}
         aria-label="More actions"
         aria-haspopup="menu"
-        aria-expanded={open}
+        aria-expanded={menu.open}
+        aria-controls={menu.open ? menu.menuId : undefined}
         className={`${HIT_AREA_44} bcc-mono inline-flex min-h-[32px] items-center px-1 text-[var(--bcc-text-secondary)] hover:text-[var(--bcc-text)]`}
       >
         <MoreHorizontal size={16} strokeWidth={2} aria-hidden />
       </button>
-      {open && (
+      {menu.open && (
         <div
+          id={menu.menuId}
+          ref={menu.menuRef}
           role="menu"
+          aria-label="More actions"
+          onKeyDown={menu.onMenuKeyDown}
           onClick={(e) => e.stopPropagation()}
           className="bcc-panel absolute right-0 top-full z-20 mt-1 min-w-[140px] p-1"
         >
           <span
             role="menuitem"
             aria-disabled="true"
+            ref={menu.itemRef(0)}
+            tabIndex={menu.activeIndex === 0 ? 0 : -1}
+            onMouseEnter={() => menu.hover(0)}
             title="Report — coming soon"
             className="bcc-mono block w-full cursor-not-allowed rounded-lg px-2 py-1.5 text-left text-[11px] text-[var(--bcc-text-muted)] opacity-60"
           >
@@ -1554,6 +1549,9 @@ function CommentOverflowMenu({
           <span
             role="menuitem"
             aria-disabled="true"
+            ref={menu.itemRef(1)}
+            tabIndex={menu.activeIndex === 1 ? 0 : -1}
+            onMouseEnter={() => menu.hover(1)}
             title="Copy link — coming soon"
             className="bcc-mono block w-full cursor-not-allowed rounded-lg px-2 py-1.5 text-left text-[11px] text-[var(--bcc-text-muted)] opacity-60"
           >
@@ -1563,13 +1561,12 @@ function CommentOverflowMenu({
             <button
               type="button"
               role="menuitem"
-              onClick={() => {
-                // The menu item unmounts with the menu; put focus on the
-                // trigger first so the confirm dialog restores it there.
-                triggerRef.current?.focus();
-                setOpen(false);
-                onDelete(comment);
-              }}
+              ref={menu.itemRef(2)}
+              tabIndex={menu.activeIndex === 2 ? 0 : -1}
+              onMouseEnter={() => menu.hover(2)}
+              // The menu item unmounts with the menu: close, put focus on
+              // the trigger, then open the confirm, which restores it there.
+              onClick={() => menu.closeThen(() => onDelete(comment), { returnFocus: true })}
               className="bcc-mono flex min-h-[44px] w-full items-center rounded-lg px-2 py-1.5 text-left text-[11px] text-[var(--bcc-text-secondary)] hover:bg-[var(--bcc-surface-active)] hover:text-[var(--bcc-danger)] disabled:cursor-not-allowed"
             >
               Delete
