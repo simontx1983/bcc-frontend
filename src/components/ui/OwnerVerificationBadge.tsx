@@ -11,19 +11,16 @@
  * Fail closed: a missing, null or blank label renders nothing, so a backend
  * without the field shows today's page.
  *
- *   OwnerVerificationBadge — the page header. A native disclosure: the
- *     label is the summary, opening it shows label + description. No
- *     client JS, so it renders inside the server-rendered header.
- *   ClaimVerificationMark — search rows. The row is itself a link or a
- *     listbox option, so no nested control: a static chip with the label,
- *     and today's VerifiedBadge when the field is absent.
+ * The page header only: a native disclosure, where the label is the
+ * summary and opening it shows label + description. No client JS, so it
+ * renders inside the server-rendered header. (Search rows don't carry the
+ * field: bcc-search doesn't serve it, so they keep today's VerifiedBadge.)
  *
- * Mark, not word: the glyph and border carry the verified green, the label
- * stays neutral (theme surfaces in both hosts).
+ * Mark, not word: the glyph and border carry the verified green, and the
+ * label stays neutral.
  */
 
 import { HIT_AREA_44 } from "@/components/feed/hitArea";
-import { VerifiedBadge } from "@/components/ui/VerifiedBadge";
 
 export interface OwnerVerificationView {
   label: string;
@@ -60,30 +57,5 @@ export function OwnerVerificationBadge({ verification }: { verification: unknown
         )}
       </div>
     </details>
-  );
-}
-
-/** Search rows: the server's label when present, else today's checkmark. */
-export function ClaimVerificationMark({
-  isClaimVerified,
-  ownerVerification,
-}: {
-  isClaimVerified: boolean;
-  ownerVerification: unknown;
-}) {
-  const view = readOwnerVerification(ownerVerification);
-  if (view === null) return isClaimVerified ? <VerifiedBadge /> : null;
-
-  return (
-    <span
-      className="bcc-mono inline-flex shrink-0 items-center gap-1 rounded-sm border border-verified/50 px-1 py-0.5 text-[9px] uppercase leading-none tracking-[0.18em] text-bcc-text"
-      title={view.description.trim() !== "" ? view.description : undefined}
-      data-testid="owner-verification-chip"
-    >
-      <span aria-hidden style={{ color: "var(--verified)" }}>
-        ✓
-      </span>
-      {view.label}
-    </span>
   );
 }

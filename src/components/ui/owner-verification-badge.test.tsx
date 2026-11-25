@@ -1,54 +1,23 @@
 /**
- * PR C — the public owner-verification badge.
+ * PR C1: the public owner-verification badge on the validator page header.
  *
  * Pinned:
  *   - the server's `label` renders VERBATIM (never "Verified", never text
  *     derived from `kind`), and opening it shows `label` + `description`;
+ *   - the toggle is a 44px tap target;
  *   - a missing, null or blank label renders no badge at all (fail closed);
- *   - nothing date-like reaches the DOM even when the wire carries one;
- *   - both search hosts keep today's VerifiedBadge when the field is absent
- *     and show the server label instead when it is present.
+ *   - nothing date-like reaches the DOM even when the wire carries one.
  *
- * Real components and a real QueryClient; only the search endpoint module
- * (plus router/session) is a stand-in.
+ * Search rows don't carry the field (bcc-search doesn't serve it), so they
+ * keep today's VerifiedBadge and aren't tested here.
  */
 
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { afterEach, describe, expect, it } from "vitest";
 
-import type { ProjectSearchResult, SearchSuggestion } from "@/lib/api/types";
-
-const hoisted = vi.hoisted(() => ({
-  getSearchSuggestions: vi.fn(),
-  getTrendingSearches: vi.fn(async () => ({ results: [], categories: [] })),
-}));
-
-vi.mock("@/lib/env", () => ({ clientEnv: { BCC_API_URL: "https://wp.example" } }));
-vi.mock("next/navigation", () => ({
-  usePathname: () => "/",
-  useRouter: () => ({ push: vi.fn(), replace: vi.fn(), prefetch: vi.fn() }),
-  useSearchParams: () => new URLSearchParams(),
-}));
-vi.mock("next-auth/react", () => ({
-  useSession: () => ({ data: null, status: "unauthenticated" }),
-}));
-vi.mock("@/lib/api/cards-search-endpoints", () => ({
-  getSearchSuggestions: (...a: unknown[]) => hoisted.getSearchSuggestions(...(a as [])),
-  getTrendingSearches: (...a: unknown[]) => hoisted.getTrendingSearches(...(a as [])),
-}));
-
-import { GlobalSearch } from "@/components/search/GlobalSearch";
-import { ProjectRow } from "@/components/search/SearchResultsTab";
-import {
-  ClaimVerificationMark,
-  OwnerVerificationBadge,
-} from "@/components/ui/OwnerVerificationBadge";
+import { OwnerVerificationBadge } from "@/components/ui/OwnerVerificationBadge";
 
 afterEach(cleanup);
-beforeEach(() => {
-  hoisted.getSearchSuggestions.mockReset();
-});
 
 const NODE_KEY = {
   kind: "node_key",
@@ -113,107 +82,5 @@ describe("OwnerVerificationBadge (page header)", () => {
   ])("renders nothing for %s", (_name, value) => {
     const { container } = render(<OwnerVerificationBadge verification={value} />);
     expect(container).toBeEmptyDOMElement();
-  });
-});
-
-describe("ClaimVerificationMark (search rows)", () => {
-  it("falls back to today's VerifiedBadge when the field is absent", () => {
-    render(<ClaimVerificationMark isClaimVerified ownerVerification={undefined} />);
-    expect(screen.getByTitle("Verified Operator")).toBeInTheDocument();
-    expect(screen.queryByTestId("owner-verification-chip")).toBeNull();
-  });
-
-  it("falls back to today's VerifiedBadge when the label is blank", () => {
-    render(<ClaimVerificationMark isClaimVerified ownerVerification={{ ...STAFF, label: " " }} />);
-    expect(screen.getByTitle("Verified Operator")).toBeInTheDocument();
-  });
-
-  it("renders nothing for an unverified row without the field", () => {
-    const { container } = render(<ClaimVerificationMark isClaimVerified={false} ownerVerification={null} />);
-    expect(container).toBeEmptyDOMElement();
-  });
-
-  it("shows the server label, statically, when present", () => {
-    render(<ClaimVerificationMark isClaimVerified ownerVerification={STAFF} />);
-    const chip = screen.getByTestId("owner-verification-chip");
-    expect(chip).toHaveTextContent("Verified by BCC");
-    expect(chip).toHaveAttribute("title", "Staff verification");
-    // No nested control: the search row is itself a link or an option.
-    expect(within(chip).queryByRole("button")).toBeNull();
-    expect(chip.querySelector("details, summary, a")).toBeNull();
-    expect(screen.queryByTitle("Verified Operator")).toBeNull();
-  });
-});
-
-const PROJECT_ROW: ProjectSearchResult = {
-  page_id: 40,
-  page_name: "Anvil Validator",
-  page_url: "/v/anvil",
-  avatar_url: "",
-  trust_score: 60,
-  tier: null,
-  endorsements: 0,
-  verified: true,
-  is_claim_verified: true,
-  followers: 3,
-  category: "Validator",
-  category_slug: "validator",
-};
-
-describe("SearchResultsTab ProjectRow", () => {
-  it("keeps VerifiedBadge exactly as today when owner_verification is absent", () => {
-    render(<ProjectRow row={PROJECT_ROW} />);
-    expect(screen.getByTitle("Verified Operator")).toBeInTheDocument();
-    expect(screen.queryByTestId("owner-verification-chip")).toBeNull();
-  });
-
-  it("shows the server label instead when the row carries one", () => {
-    render(<ProjectRow row={{ ...PROJECT_ROW, owner_verification: NODE_KEY as never }} />);
-    expect(screen.getByTestId("owner-verification-chip")).toHaveTextContent("Node Key Verified");
-    expect(screen.queryByTitle("Verified Operator")).toBeNull();
-  });
-});
-
-const SUGGESTION: SearchSuggestion = {
-  id: 40,
-  name: "Anvil Validator",
-  handle: "anvil",
-  card_kind: "validator",
-  reputation_tier: "trusted",
-  reputation_tier_label: "Trusted",
-  trust_score: 60,
-  is_verified: true,
-  is_claim_verified: true,
-  href: "/v/anvil",
-};
-
-async function showSuggestions(items: SearchSuggestion[]) {
-  hoisted.getSearchSuggestions.mockResolvedValue({ items });
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  render(
-    <QueryClientProvider client={client}>
-      <GlobalSearch />
-    </QueryClientProvider>,
-  );
-  const input = screen.getByRole("combobox", { name: "Search BCC" });
-  fireEvent.focus(input);
-  fireEvent.change(input, { target: { value: "anvil" } });
-  await waitFor(() => {
-    expect(document.querySelectorAll('[role="option"]')).toHaveLength(items.length);
-  });
-  return document.querySelector('[role="option"]') as HTMLElement;
-}
-
-describe("GlobalSearch SuggestionRow", () => {
-  it("keeps VerifiedBadge exactly as today when owner_verification is absent", async () => {
-    const row = await showSuggestions([SUGGESTION]);
-    expect(within(row).getByTitle("Verified Operator")).toBeInTheDocument();
-    expect(within(row).queryByTestId("owner-verification-chip")).toBeNull();
-  });
-
-  it("shows the server label instead when the row carries one", async () => {
-    const row = await showSuggestions([{ ...SUGGESTION, owner_verification: STAFF as never }]);
-    expect(within(row).getByTestId("owner-verification-chip")).toHaveTextContent("Verified by BCC");
-    expect(within(row).queryByTitle("Verified Operator")).toBeNull();
   });
 });

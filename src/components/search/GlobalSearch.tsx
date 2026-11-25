@@ -49,7 +49,7 @@ import {
   type KeyboardEvent,
 } from "react";
 
-import { ClaimVerificationMark } from "@/components/ui/OwnerVerificationBadge";
+import { VerifiedBadge } from "@/components/ui/VerifiedBadge";
 import { useGlobalSearch } from "@/hooks/useGlobalSearch";
 import {
   isTypingTarget,
@@ -702,10 +702,7 @@ function SuggestionRow({ item, id, active, onActivate, onHover }: SuggestionRowP
           server-resolved boolean) beside the tier chip. Either may
           render without the other. */}
       <span className="flex shrink-0 items-center gap-1.5">
-        <ClaimVerificationMark
-          isClaimVerified={item.is_claim_verified}
-          ownerVerification={item.owner_verification}
-        />
+        {item.is_claim_verified && <VerifiedBadge />}
         {item.reputation_tier_label !== null && item.reputation_tier !== null && (
           <span
             className="bcc-mono shrink-0 rounded-sm px-2 py-0.5 text-[9px] tracking-[0.18em]"

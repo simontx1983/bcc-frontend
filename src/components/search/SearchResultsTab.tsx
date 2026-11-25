@@ -21,7 +21,7 @@ import { memo, useMemo } from "react";
 
 import { LoadFailure } from "@/components/ui/LoadFailure";
 import { SKELETON_CLASS } from "@/components/ui/Skeleton";
-import { ClaimVerificationMark } from "@/components/ui/OwnerVerificationBadge";
+import { VerifiedBadge } from "@/components/ui/VerifiedBadge";
 import { SEARCH_MIN_LENGTH } from "@/hooks/useSearchTerm";
 import { toInternalHref } from "@/lib/internal-route";
 import { isWpMediaUrl } from "@/lib/media";
@@ -229,10 +229,7 @@ export const ProjectRow = memo(function ProjectRow({ row }: { row: ProjectSearch
           </span>
           {/* Claim-verified checkmark (§ verified-wins) — server-resolved
               boolean, distinct from email verification. */}
-          <ClaimVerificationMark
-            isClaimVerified={row.is_claim_verified}
-            ownerVerification={row.owner_verification}
-          />
+          {row.is_claim_verified && <VerifiedBadge />}
         </span>
         <span className="bcc-mono truncate text-[10px] text-bcc-text-secondary">
           {[row.category, row.tier !== null ? `TIER · ${row.tier}` : null]

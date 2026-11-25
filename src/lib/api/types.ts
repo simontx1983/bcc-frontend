@@ -1669,8 +1669,6 @@ export interface SearchSuggestion {
    *  Constant false on member/community rows (§3.2 — not
    *  on-chain-claimable). */
   is_claim_verified: boolean;
-  /** PR C1: when present with a label, replaces the VerifiedBadge. */
-  owner_verification?: PublicOwnerVerification | null;
   /** Pre-built headless route (`/v/:slug`, `/p/:slug`, `/c/:slug`;
    *  v1.70 adds `/halls/:slug` | `/communities/:slug` | `/u/:handle`),
    *  server-validated as a relative internal path. */
@@ -1728,8 +1726,6 @@ export interface ProjectSearchResult {
   /** Verified operator/creator claim (§ verified-wins) — distinct from
    *  the email-verified `verified` flag. Drives the VerifiedBadge. */
   is_claim_verified: boolean;
-  /** PR C1: when present with a label, replaces the VerifiedBadge. */
-  owner_verification?: PublicOwnerVerification | null;
   followers: number;
   category: string | null;
   category_slug: string | null;
@@ -4792,7 +4788,7 @@ export interface AdminUserRef {
 }
 
 /**
- * The page owner's verification as the PUBLIC Card and search items carry
+ * The page owner's verification as the PUBLIC Card carries
  * it (PR C1). Server copy: render `label` and `description` verbatim, never
  * text derived from `kind`. It carries no date and no method by design (the
  * public no-dates rule). A missing or blank `label` means no badge.
