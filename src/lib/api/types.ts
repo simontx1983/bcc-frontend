@@ -2125,9 +2125,11 @@ export interface HallItem {
   /**
    * The Hall's community Card (§3.2.4), from the same builder as the
    * GET /groups items, so Communities ▸ Halls shows the same card as every
-   * other list. A chain Hall's card carries a `validators` stat before
-   * `posts_7d`; a topic Hall's omits it. Additive: absent on a backend
-   * before it, and the tab then keeps its plain Hall panel.
+   * other list. A chain Hall's card carries a `validators` stat (SA4 sends
+   * it after `posts_7d`); a topic Hall's omits it. The card face orders a
+   * Hall's row Members · Posts (7d) · Validators itself (CardFrontFace),
+   * so the server's stat order doesn't decide it. Additive: absent on a
+   * backend before it, and the tab then keeps its plain Hall panel.
    */
   card?: Card | null;
 }
