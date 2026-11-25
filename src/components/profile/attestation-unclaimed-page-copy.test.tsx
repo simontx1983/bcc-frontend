@@ -11,14 +11,33 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 type Opts = { onError?: (err: unknown) => void };
 const hookOpts: { cast: Opts | null; revoke: Opts | null } = { cast: null, revoke: null };
 
+// The mutation's `variables`, as React Query exposes them to the cluster
+// (read through a getter, so a test can set them before firing onError).
+const castVars: { current: unknown } = { current: undefined };
+const revokeVars: { current: unknown } = { current: undefined };
+
 vi.mock("@/hooks/useAttestations", () => ({
   useCastAttestation: (opts: Opts) => {
     hookOpts.cast = opts;
-    return { mutate: vi.fn(), mutateAsync: vi.fn(), isPending: false, variables: undefined };
+    return {
+      mutate: vi.fn(),
+      mutateAsync: vi.fn(),
+      isPending: false,
+      get variables() {
+        return castVars.current;
+      },
+    };
   },
   useRevokeAttestation: (opts: Opts) => {
     hookOpts.revoke = opts;
-    return { mutate: vi.fn(), mutateAsync: vi.fn(), isPending: false, variables: undefined };
+    return {
+      mutate: vi.fn(),
+      mutateAsync: vi.fn(),
+      isPending: false,
+      get variables() {
+        return revokeVars.current;
+      },
+    };
   },
 }));
 vi.mock("@/components/profile/SlotHoldersPicker", () => ({
@@ -31,7 +50,11 @@ const { AttestationActionCluster } = await import(
 const { BccApiError } = await import("@/lib/api/types");
 const { ATTESTATION_COPY } = await import("@/lib/copy/trust-layer");
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  castVars.current = undefined;
+  revokeVars.current = undefined;
+});
 
 const allow = { allowed: true, unlock_hint: null };
 const notFound = () => new BccApiError("bcc_not_found", "Target not found.", 404, null);
@@ -75,7 +98,7 @@ describe("AttestationActionCluster — bcc_not_found copy", () => {
   });
 });
 
-describe("AttestationActionCluster — in-app words say 'vouch' (F-264 / F-579)", () => {
+describe("AttestationActionCluster — a failed VOUCH says 'vouch' (F-264 / F-579)", () => {
   const fail = (code: string) => new BccApiError(code, "RAW SERVER TEXT", 400, null);
 
   it("the cluster is named in the words its buttons use", () => {
@@ -93,9 +116,65 @@ describe("AttestationActionCluster — in-app words say 'vouch' (F-264 / F-579)"
     ["bcc_something_new", "Couldn't update your vouch. Try again."],
   ])("%s reads %s", (code, copy) => {
     renderCluster("user_profile");
+    castVars.current = { kind: "vouch", target_kind: "user_profile", target_id: 77 };
     act(() => hookOpts.cast?.onError?.(fail(code)));
     const alert = screen.getByRole("alert");
     expect(alert.textContent).toBe(copy);
     expect(alert.textContent).not.toMatch(/attest/i);
+  });
+});
+
+describe("AttestationActionCluster — a failed BACK says 'back' / 'backing', never 'vouch'", () => {
+  const fail = (code: string) => new BccApiError(code, "RAW SERVER TEXT", 400, null);
+
+  it.each([
+    ["bcc_unauthorized", "Sign in to back."],
+    ["bcc_invalid_request", "We couldn't record that backing."],
+    ["bcc_attestation_self", "You can't back yourself."],
+    ["bcc_attestation_fraud_blocked", "Your account is temporarily restricted from backing."],
+    ["bcc_attestation_revoked", "That backing was already revoked."],
+    ["bcc_not_found", "We couldn't find that backing."],
+    ["bcc_forbidden", "You can only change your own backings."],
+    ["bcc_something_new", "Couldn't update your backing. Try again."],
+  ])("cast %s reads %s", (code, copy) => {
+    renderCluster("user_profile");
+    castVars.current = { kind: "stand_behind", target_kind: "user_profile", target_id: 77 };
+    act(() => hookOpts.cast?.onError?.(fail(code)));
+    const alert = screen.getByRole("alert");
+    expect(alert.textContent).toBe(copy);
+    expect(alert.textContent).not.toMatch(/vouch|attest/i);
+  });
+
+  it("a failed revoke of the viewer's BACKING says backing; of their VOUCH says vouch", () => {
+    const viewerAttestation = {
+      vouch: { id: 501 },
+      stand_behind: { id: 502 },
+    } as unknown as NonNullable<Parameters<typeof AttestationActionCluster>[0]["viewerAttestation"]>;
+    const view = render(
+      <AttestationActionCluster
+        targetKind="user_profile"
+        targetId={77}
+        canVouch={allow}
+        canStandBehind={allow}
+        viewerAttestation={viewerAttestation}
+      />,
+    );
+    revokeVars.current = 502;
+    act(() => hookOpts.revoke?.onError?.(fail("bcc_attestation_revoked")));
+    expect(screen.getByRole("alert").textContent).toBe("That backing was already revoked.");
+    view.unmount();
+
+    render(
+      <AttestationActionCluster
+        targetKind="user_profile"
+        targetId={77}
+        canVouch={allow}
+        canStandBehind={allow}
+        viewerAttestation={viewerAttestation}
+      />,
+    );
+    revokeVars.current = 501;
+    act(() => hookOpts.revoke?.onError?.(fail("bcc_attestation_revoked")));
+    expect(screen.getByRole("alert").textContent).toBe("That vouch was already revoked.");
   });
 });
