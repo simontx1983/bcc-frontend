@@ -25,14 +25,15 @@ import type { Route } from "next";
 import { signIn } from "next-auth/react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { type FormEvent, useRef, useState, Suspense } from "react";
+import { type FormEvent, useEffect, useRef, useState, Suspense } from "react";
 
 import { AuthCard, AuthDivider, SSOButton } from "@/components/auth/AuthCard";
 import { TurnstileWidget } from "@/components/auth/TurnstileWidget";
 import { WalletAuthButton } from "@/components/auth/WalletAuthButton";
 import { WalletSignupPrompt } from "@/components/auth/WalletSignupPrompt";
-import { loginWithIdentifier } from "@/lib/api/auth-endpoints";
+import { loginWithIdentifier, resendVerification } from "@/lib/api/auth-endpoints";
 import { BccApiError, type AuthTokenResponse } from "@/lib/api/types";
+import { suspendedCredential } from "@/lib/auth/auth-flags";
 import { canModerateCredential } from "@/lib/auth/can-moderate";
 import { loginCaptchaChallenge, type LoginCaptchaChallenge } from "@/lib/auth/login-captcha";
 import { stashPendingVerificationEmail } from "@/lib/auth/pending-verification-email";
@@ -51,6 +52,26 @@ const ERROR_COPY: Record<string, string> = {
   // A step-up this client can't render (unknown provider, no site key).
   bcc_captcha_required:     "Sign-in needs an extra check we can't show right now. Wait a few minutes, then try again.",
 };
+
+/**
+ * F-378: an unverified sign-in by HANDLE can ask for a new verification
+ * email (POST /auth/resend-verification takes `identifier`, contract
+ * v1.175). The success line points at the emailed LINK: it works on its
+ * own, while the 6-digit code would still need the address at
+ * /verify-email. It stays hedged like /verify-email's ("if"), since the
+ * endpoint answers the same whether or not anything was sent.
+ */
+const RESEND_BY_HANDLE_COPY = {
+  idle:        "Resend verification email",
+  sending:     "Sending…",
+  sent:        "Email sent",
+  success:     "If this account is waiting on verification, a new email is on its way. Open the link in it to verify, then sign in.",
+  rateLimited: "Too many requests. Wait a few minutes, then try again.",
+  failed:      "Couldn't send a new email just now. Check your connection and try again.",
+} as const;
+
+/** After a real send, the button rests this long (verify-email's 60 s). */
+const RESEND_COOLDOWN_MS = 60_000;
 
 /** The captcha step-up (v1.161) — copy keyed on what just happened. */
 const CAPTCHA_COPY = {
@@ -84,6 +105,8 @@ function LoginPageContent() {
    * hands it over in sessionStorage, never the URL
    * (lib/auth/pending-verification-email). */
   const [notVerifiedEmail, setNotVerifiedEmail] = useState<string | null>(null);
+  /** F-378: the handle, when the blocked sign-in used one (no address to hand over). */
+  const [notVerifiedHandle, setNotVerifiedHandle] = useState<string | null>(null);
   /**
    * The captcha step-up (lib/auth/login-captcha). `captcha` is set once the
    * server answers bcc_captcha_required and stays for the page's life;
@@ -110,6 +133,7 @@ function LoginPageContent() {
     if (inFlightRef.current) return;
     setError(null);
     setNotVerifiedEmail(null);
+    setNotVerifiedHandle(null);
     if (captcha !== null && captchaToken === null) {
       setError(CAPTCHA_COPY.pending);
       return;
@@ -149,6 +173,7 @@ function LoginPageContent() {
         expires_in:       String(jwtResp.expires_in),
         in_good_standing: String(jwtResp.in_good_standing),
         ...canModerateCredential(jwtResp),
+        ...suspendedCredential(jwtResp),
         redirect:         false,
       });
       if (result?.ok) {
@@ -174,7 +199,14 @@ function LoginPageContent() {
       const code = err instanceof BccApiError ? err.code : "bcc_unknown";
       setError(ERROR_COPY[code] ?? "Sign-in failed. Try again.");
       if (code === "bcc_email_not_verified") {
-        setNotVerifiedEmail(identifier.includes("@") ? identifier : null);
+        // An address has something before its "@"; "@anvil" is a handle
+        // (the resend endpoint ignores one leading "@").
+        const typed = identifier.trim();
+        if (typed.indexOf("@") > 0) {
+          setNotVerifiedEmail(typed);
+        } else if (typed !== "") {
+          setNotVerifiedHandle(typed);
+        }
       }
     } finally {
       if (!navigating) {
@@ -284,6 +316,8 @@ function LoginPageContent() {
             </p>
           )}
 
+          {notVerifiedHandle !== null && <ResendByHandle handle={notVerifiedHandle} />}
+
           <button
             type="submit"
             disabled={submitting}
@@ -333,5 +367,68 @@ export function LoginPageClient() {
     <Suspense>
       <LoginPageContent />
     </Suspense>
+  );
+}
+
+/**
+ * F-378: "Resend verification email" for a sign-in blocked as unverified
+ * when the visitor typed a handle. Mounted fresh by each such refusal (a
+ * new submit unmounts it), so its state never leaks between attempts.
+ *
+ * The status line is in the DOM, empty, from the first render and filled
+ * after the request settles, so a screen reader announces it (#328).
+ */
+function ResendByHandle({ handle }: { handle: string }) {
+  const [sending, setSending] = useState(false);
+  const [coolingDown, setCoolingDown] = useState(false);
+  const [notice, setNotice] = useState("");
+  /** Synchronous duplicate guard: `sending` disables only after a render. */
+  const inFlight = useRef(false);
+
+  useEffect(() => {
+    if (!coolingDown) return;
+    const timer = window.setTimeout(() => setCoolingDown(false), RESEND_COOLDOWN_MS);
+    return () => window.clearTimeout(timer);
+  }, [coolingDown]);
+
+  async function resend() {
+    if (inFlight.current || coolingDown) return;
+    inFlight.current = true;
+    setSending(true);
+    setNotice("");
+    try {
+      await resendVerification({ identifier: handle });
+      setNotice(RESEND_BY_HANDLE_COPY.success);
+      // Only a real send rests the button: a failure must stay retryable.
+      setCoolingDown(true);
+    } catch (err) {
+      // §γ — copy keyed on err.code, never err.message.
+      const code = err instanceof BccApiError ? err.code : "";
+      setNotice(code === "bcc_rate_limited" ? RESEND_BY_HANDLE_COPY.rateLimited : RESEND_BY_HANDLE_COPY.failed);
+    } finally {
+      inFlight.current = false;
+      setSending(false);
+    }
+  }
+
+  return (
+    <div style={{ marginTop: "8px" }}>
+      <button
+        type="button"
+        onClick={() => { void resend(); }}
+        disabled={sending || coolingDown}
+        className="bcc-auth-submit bcc-auth-submit--outline min-h-[44px]"
+        style={{ fontSize: "14px" }}
+      >
+        {sending
+          ? RESEND_BY_HANDLE_COPY.sending
+          : coolingDown
+            ? RESEND_BY_HANDLE_COPY.sent
+            : RESEND_BY_HANDLE_COPY.idle}
+      </button>
+      <p role="status" aria-live="polite" className="bcc-auth-hint" style={{ marginTop: "8px" }}>
+        {notice}
+      </p>
+    </div>
   );
 }

@@ -25,6 +25,7 @@
  * nothing from the chrome around it.
  */
 import { AuthRedirectNotice } from "@/components/auth/AuthRedirectNotice";
+import { SuspendedNotice } from "@/components/auth/SuspendedNotice";
 
 export default function MainLayout({
   children,
@@ -35,6 +36,9 @@ export default function MainLayout({
     <>
       {children}
       <AuthRedirectNotice />
+      {/* F-582: a suspended member's read-only notice, in the same bottom
+          slot, for every (main) layout. Renders nothing otherwise. */}
+      <SuspendedNotice />
     </>
   );
 }

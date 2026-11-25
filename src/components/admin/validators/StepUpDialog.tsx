@@ -46,6 +46,7 @@ import { useResendValidatorStepUp, useStartValidatorStepUp } from "@/hooks/useAd
 import {
   conflictReason,
   invalidField,
+  invalidReason,
   isAdminDenial,
   isAdminIdNotFound,
   isOwnershipConflict,
@@ -72,6 +73,7 @@ export const STEP_UP_COPY = {
   passwordRequired: "Enter your current password.",
   codeRequired: "Enter the code from the email.",
   rejected: "The server didn't accept this. Check it and try again.",
+  targetNotEligible: "This member can't be made an owner. Pick someone else.",
   vanished: "That page or owner link no longer exists. The latest details are shown.",
   generic: "Couldn't finish this. Try again.",
   resent: "A new code is on its way.",
@@ -142,6 +144,12 @@ export function stepUpErrorOutcome(
   }
   if (isAdminIdNotFound(err)) return { kind: "close", message: STEP_UP_COPY.vanished };
   if (isCode(err, "bcc_invalid_request")) {
+    // The member can't hold the role (no account, suspended, or no member
+    // powers). One plain line that never says which: it closes the dialog,
+    // and the form keeps everything else for a different pick.
+    if (invalidReason(err) === "target_not_eligible") {
+      return { kind: "close", message: STEP_UP_COPY.targetNotEligible };
+    }
     const field = invalidField(err);
     return field !== null ? { kind: "field", field } : stay(STEP_UP_COPY.rejected);
   }

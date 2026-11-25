@@ -38,6 +38,12 @@ declare module "next-auth" {
      * every admin request. Absent when the backend did not send it.
      */
     canModerate?: boolean;
+    /**
+     * `suspended` from the auth responses (contract v1.136). DISPLAY ONLY:
+     * shows the suspension notice; the server refuses every write. Absent
+     * when unknown (not sent, or a session from before the field).
+     */
+    suspended?: boolean;
   }
 
   interface Session {
@@ -48,6 +54,8 @@ declare module "next-auth" {
       inGoodStanding: boolean;
       /** Mirrors User.canModerate. Display only; absent stays absent. */
       canModerate?: boolean;
+      /** Mirrors User.suspended. Display only; absent means unknown. */
+      suspended?: boolean;
       /**
        * HMAC of the user id under a server-only key: the only identifier
        * analytics ever receives. Null when the key is not configured.
@@ -75,5 +83,7 @@ declare module "next-auth/jwt" {
     inGoodStanding: boolean;
     /** Display only, carried until next login; absent when not sent. */
     canModerate?: boolean;
+    /** Display only; set at sign-in and on a server re-read (refresh). */
+    suspended?: boolean;
   }
 }
