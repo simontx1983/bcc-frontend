@@ -48,14 +48,52 @@ describe("ActionMenu focus return", () => {
     expect(trigger).toHaveFocus();
   });
 
-  it("choosing an item does not pull focus back to the trigger", () => {
-    const onSelect = vi.fn(() => {
-      // The action takes focus somewhere else, as a dialog would.
-      (document.body.appendChild(document.createElement("button")) as HTMLButtonElement).focus();
-    });
-    const { trigger } = menu(onSelect);
+  it("choosing an item closes the menu without pulling focus back: the action owns it", () => {
+    const { trigger, onSelect } = menu();
     fireEvent.click(trigger);
     fireEvent.click(screen.getByRole("menuitem", { name: "Alpha" }));
+    expect(onSelect).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("menu")).toBeNull();
     expect(trigger).not.toHaveFocus();
+  });
+});
+
+describe("ActionMenu disabled items and the pointer", () => {
+  function three() {
+    render(
+      <ActionMenu
+        triggerLabel="EDIT"
+        groups={[
+          {
+            id: "g",
+            label: "Group",
+            items: [
+              { id: "a", label: "Alpha", onSelect: vi.fn() },
+              { id: "b", label: "Beta", onSelect: vi.fn(), disabled: true },
+              { id: "c", label: "Gamma", onSelect: vi.fn() },
+            ],
+          },
+        ]}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /EDIT/ }));
+    return screen.getByRole("menu");
+  }
+
+  it("the arrows skip a disabled item, both ways", () => {
+    const m = three();
+    expect(screen.getByRole("menuitem", { name: "Alpha" })).toHaveFocus();
+    fireEvent.keyDown(m, { key: "ArrowDown" });
+    expect(screen.getByRole("menuitem", { name: "Gamma" })).toHaveFocus();
+    fireEvent.keyDown(m, { key: "ArrowUp" });
+    expect(screen.getByRole("menuitem", { name: "Alpha" })).toHaveFocus();
+  });
+
+  it("the pointer over an enabled item makes it active; over a disabled one, nothing changes", () => {
+    three();
+    fireEvent.mouseEnter(screen.getByRole("menuitem", { name: "Gamma" }));
+    expect(screen.getByRole("menuitem", { name: "Gamma" })).toHaveFocus();
+    fireEvent.mouseEnter(screen.getByRole("menuitem", { name: "Beta" }));
+    expect(screen.getByRole("menuitem", { name: "Gamma" })).toHaveFocus();
   });
 });
