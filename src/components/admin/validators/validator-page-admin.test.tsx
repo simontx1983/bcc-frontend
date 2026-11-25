@@ -486,6 +486,49 @@ describe("Link an owner — the full flow", () => {
     expect(ref).toHaveValue("https://figment.io/.well-known/bcc");
     expect(screen.queryByText(RAW)).toBeNull();
   });
+
+  it("a 422 target_not_eligible closes the dialog with one plain line, whatever field it names", async () => {
+    api.getPage.mockResolvedValue(rel());
+    renderPage();
+    await ownership();
+    await fillLinkForm();
+    api.start.mockResolvedValue(stepUpStarted());
+    press(screen.getByRole("button", { name: "Link owner" }));
+    await passPassword();
+
+    api.link.mockRejectedValue(
+      apiError("bcc_invalid_request", 422, { reason: "target_not_eligible", field: "user_id" }),
+    );
+    await enterCode();
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(screen.getByRole("alert")).toHaveTextContent(STEP_UP_COPY.targetNotEligible);
+    // Not the generic rejection, and never the server's words.
+    expect(screen.queryByText(LINK_COPY.rejected)).toBeNull();
+    expect(screen.queryByText(RAW)).toBeNull();
+    // The rest of the form is kept for a different pick.
+    expect(screen.getByLabelText("EVIDENCE REFERENCE")).toHaveValue("https://figment.io/.well-known/bcc");
+  });
+
+  it("a 422 with any OTHER reason still lands on its field, never the not-eligible line", async () => {
+    api.getPage.mockResolvedValue(rel());
+    renderPage();
+    await ownership();
+    await fillLinkForm();
+    api.start.mockResolvedValue(stepUpStarted());
+    press(screen.getByRole("button", { name: "Link owner" }));
+    await passPassword();
+
+    api.link.mockRejectedValue(
+      apiError("bcc_invalid_request", 422, { reason: "invalid_evidence", field: "evidence_ref" }),
+    );
+    await enterCode();
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(screen.getByLabelText("EVIDENCE REFERENCE")).toHaveAttribute("aria-invalid", "true");
+    expect(screen.getByText(LINK_COPY.rejected)).toBeInTheDocument();
+    expect(screen.queryByText(STEP_UP_COPY.targetNotEligible)).toBeNull();
+  });
 });
 
 

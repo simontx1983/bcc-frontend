@@ -66,6 +66,11 @@ export function stepUpFailureReason(err: unknown): string | null {
   return dataString(err, "bcc_step_up_failed", "reason");
 }
 
+/** A 422 `bcc_invalid_request`'s `data.reason` (e.g. `target_not_eligible`), or null. */
+export function invalidReason(err: unknown): string | null {
+  return dataString(err, "bcc_invalid_request", "reason");
+}
+
 /** The field a 422 `bcc_invalid_request` names in `data.field`, or null. */
 export function invalidField(err: unknown): string | null {
   return dataString(err, "bcc_invalid_request", "field");
