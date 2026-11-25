@@ -605,13 +605,6 @@
     min-height: 100dvh;
   }
 
-  /* F-582: the document-scrolling shells reserve room for a persistent
-     bottom-slot panel too (0 when there is none). */
-  .bcc-detail-shell,
-  .bcc-marketing-shell {
-    padding-bottom: var(--bcc-bottom-reserve, 0px);
-  }
-
   /* Legal/detail/marketing pages get a visible scrollbar thumb. Once
      body's overflow is unlocked above, the browser propagates it to the
      viewport and `html` (not `body`) becomes the actual scrolling
@@ -780,11 +773,20 @@
     min-width: 0;
     background: var(--bcc-bg);
     padding: 0;
-    /* F-582: room for a persistent bottom-slot panel (the suspension
-       notice sets --bcc-bottom-reserve to its height), so the column's
-       last content can always scroll clear of it. 0 when nothing is there. */
-    padding-bottom: var(--bcc-bottom-reserve, 0px);
     scrollbar-gutter: stable;
+  }
+
+  /* F-582: room at the END of the scroll content for a persistent
+     bottom-slot panel (the suspension notice sets --bcc-bottom-reserve to
+     its height), so the last content can always scroll clear of it. A
+     spacer, not padding, so the column's own padding rules stay as they
+     are. 0 tall when nothing is there. */
+  .bcc-col-center::after,
+  .bcc-detail-shell::after,
+  .bcc-marketing-shell::after {
+    content: "";
+    display: block;
+    height: var(--bcc-bottom-reserve, 0px);
   }
   /* Center column inner content wrapper — constrains reading width */
   .bcc-col-center > div {
@@ -869,7 +871,7 @@
   @media (max-width: 767px), (max-width: 900px) and (orientation: landscape) {
     .bcc-col-left  { display: none; }
     .bcc-col-right { display: none; }
-    .bcc-col-center { padding-bottom: calc(var(--bcc-mobile-nav-total-h) + var(--bcc-bottom-reserve, 0px)); }
+    .bcc-col-center { padding-bottom: var(--bcc-mobile-nav-total-h); }
   }
 }
 
