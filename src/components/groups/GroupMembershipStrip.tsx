@@ -13,8 +13,10 @@
  *      `viewer_membership.status` + `permissions.can_request_join`:
  *      invited → ACCEPT / DECLINE; requested → CANCEL REQUEST;
  *      can_request_join.allowed → REQUEST TO JOIN
- *   4. permissions.can_join.unlock_hint !== null → render hint verbatim
- *   5. otherwise → no action surface
+ *   4. can_join denied for a signed-out viewer (auth_required /
+ *      signin_required) → the hint verbatim + SIGN IN TO JOIN, back here
+ *   5. permissions.can_join.unlock_hint !== null → render hint verbatim
+ *   6. otherwise → no action surface
  *
  * On success → `router.refresh()` re-fetches the parent server component
  * (the page is SSR'd). This matches `HallMembershipControls` and is
@@ -62,7 +64,8 @@ import type {
   GroupMembershipStatus,
   GroupValidatorStats,
 } from "@/lib/api/types";
-import { isAllowed, reasonCode, unlockHint } from "@/lib/permissions";
+import { useSignInLink } from "@/lib/auth/sign-in-link";
+import { isAllowed, isSignInGate, reasonCode, unlockHint } from "@/lib/permissions";
 import { findWalletChain } from "@/lib/wallet/chain-catalog";
 import { humanizeCode } from "@/lib/api/errors";
 import { humanizeLinkError } from "@/lib/wallet/linkFlow";
@@ -375,10 +378,41 @@ function MembershipBody({ group, onActionStart, onActionError }: MembershipBodyP
     );
   }
   const joinHint = unlockHint(permissions, "can_join");
+  // F-321 / M-gr4, as on a Hall: signed out, the way forward is signing in,
+  // so the strip offers that (and comes back here) instead of LOCKED. The
+  // detail header has no trading card any more, so this is the visitor's
+  // only way in.
+  if (isSignInGate(permissions, "can_join")) {
+    return <SignInToJoin hint={joinHint} />;
+  }
   if (joinHint !== null) {
     return <UnlockHint hint={joinHint} />;
   }
   return <RestingCopy />;
+}
+
+/** The server's sign-in hint, verbatim (§A4), beside a link that signs in and returns here. */
+function SignInToJoin({ hint }: { hint: string | null }) {
+  const signIn = useSignInLink();
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-4">
+      {hint !== null && (
+        <p
+          className="font-serif italic text-ink-soft"
+          style={{ fontSize: "15px", lineHeight: 1.5, maxWidth: "44ch" }}
+        >
+          {hint}
+        </p>
+      )}
+      <Link
+        href={signIn.href}
+        onClick={signIn.onClick}
+        className="bcc-stencil inline-flex min-h-[44px] shrink-0 items-center rounded-sm bg-ink px-5 text-[12px] tracking-[0.2em] text-cardstock transition hover:bg-blueprint"
+      >
+        SIGN IN TO JOIN
+      </Link>
+    </div>
+  );
 }
 
 interface ActionDispatchProps {

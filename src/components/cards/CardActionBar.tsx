@@ -59,7 +59,7 @@ import { humanizeCode } from "@/lib/api/errors";
 import { FOLLOW_COPY } from "@/lib/copy";
 import { ATTESTATION_COPY } from "@/lib/copy/trust-layer";
 import { useSignInLink } from "@/lib/auth/sign-in-link";
-import { isAllowed, reasonCode, unlockHint } from "@/lib/permissions";
+import { SIGN_IN_REASON_CODES, isAllowed, reasonCode, unlockHint } from "@/lib/permissions";
 import {
   isNeverClaimedValidator,
   resolveValidatorMessageAction,
@@ -266,11 +266,11 @@ function PillNoticeLine({ id, notice }: { id: string; notice: PillNotice }) {
 }
 
 /**
- * Denial codes that mean "you're signed out". F-321: a signed-out viewer's
- * Watch / Vouch pill is a link to sign in (and back), not a dead control.
- * Page cards send `signin_required`; other surfaces use `auth_required`.
+ * Denial codes that mean "you're signed out" (lib/permissions). F-321: a
+ * signed-out viewer's Watch / Vouch / Join pill is a link to sign in (and
+ * back), not a dead control.
  */
-const SIGN_IN_CODES: ReadonlySet<string> = new Set(["signin_required", "auth_required"]);
+const SIGN_IN_CODES = SIGN_IN_REASON_CODES;
 
 function SignInPill({
   color,

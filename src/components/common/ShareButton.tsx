@@ -33,6 +33,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { ShareIcon } from "@/components/feed/actionIcons";
 import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
+import { HIT_AREA_44 } from "@/components/feed/hitArea";
 
 interface ShareButtonProps {
   /**
@@ -179,7 +180,9 @@ export function ShareButton({ path, title, ariaLabel }: ShareButtonProps) {
       <button
         ref={anchorRef}
         type="button"
-        className="bcc-btn bcc-btn-ghost"
+        // .bcc-btn draws 39px tall; the invisible ::before makes the tap
+        // target 44px without changing the look (F-355).
+        className={`bcc-btn bcc-btn-ghost ${HIT_AREA_44}`}
         aria-label={label}
         {...(!nativeShare
           ? { "aria-haspopup": "menu" as const, "aria-expanded": open }
