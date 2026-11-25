@@ -235,12 +235,18 @@ export async function verifyEmail(input: {
  *
  * Always resolves (backend returns ok=true regardless of whether the
  * email matches a real unverified account — anti-enumeration). Only
- * throws on network error or rate-limit (3/hour per IP).
+ * throws on network error or rate-limit.
+ *
+ * Pass the address (sent as `email`), or `{ identifier }` — an email or a
+ * handle (contract v1.175, F-294) — when only the handle is known, as after
+ * an unverified handle sign-in (F-378). After a resend by handle the
+ * emailed LINK works on its own; the 6-digit code still needs the address
+ * at /verify-email.
  */
-export async function resendVerification(email: string): Promise<void> {
+export async function resendVerification(target: string | { identifier: string }): Promise<void> {
   await bccFetch<{ ok: true }>("auth/resend-verification", {
     method: "POST",
-    body: { email },
+    body: typeof target === "string" ? { email: target } : { identifier: target.identifier },
   });
 }
 
