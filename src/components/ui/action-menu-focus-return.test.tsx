@@ -95,5 +95,8 @@ describe("ActionMenu disabled items and the pointer", () => {
     expect(screen.getByRole("menuitem", { name: "Gamma" })).toHaveFocus();
     fireEvent.mouseEnter(screen.getByRole("menuitem", { name: "Beta" }));
     expect(screen.getByRole("menuitem", { name: "Gamma" })).toHaveFocus();
+    // The roving tab stop stays on Gamma, never on the inert Beta.
+    expect(screen.getByRole("menuitem", { name: "Gamma" })).toHaveAttribute("tabindex", "0");
+    expect(screen.getByRole("menuitem", { name: "Beta" })).toHaveAttribute("tabindex", "-1");
   });
 });

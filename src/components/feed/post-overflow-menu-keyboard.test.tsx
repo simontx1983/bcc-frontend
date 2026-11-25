@@ -116,6 +116,10 @@ describe("inside the menu", () => {
   it("arrows move and wrap, Home / End jump, and only the active item is tabbable", () => {
     renderMenu();
     key(trigger(), "Enter");
+    // One tab stop: the active item only.
+    expect(item("Copy link")).toHaveAttribute("tabindex", "0");
+    expect(item("Report")).toHaveAttribute("tabindex", "-1");
+    expect(item("Delete")).toHaveAttribute("tabindex", "-1");
     key(menu(), "ArrowDown");
     expect(item("Report")).toHaveFocus();
     expect(item("Report")).toHaveAttribute("tabindex", "0");
