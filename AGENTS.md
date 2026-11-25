@@ -1,12 +1,12 @@
 ﻿# Instructions for Codex
 
-Before working in this frontend repository, read the umbrella repository's AI
-guidance:
+Before working in this frontend repository, locate and read the umbrella
+repository's AI guidance:
 
-- In the full local tree, read `../docs/ai/README.md`.
-- In a standalone or cloud checkout where that sibling file is unavailable,
-  clone or otherwise consult the umbrella repository and read its
-  `docs/ai/README.md`.
+- In the full nested layout, read `../docs/ai/README.md`.
+- In a flat standalone layout, read `../Blue-collar-crypto/docs/ai/README.md`.
+- If neither local path is available, consult the canonical
+  [umbrella AI guidance](https://github.com/simontx1983/Blue-collar-crypto/blob/main/docs/ai/README.md).
 
 For frontend work, follow `CLAUDE.md` and `docs/frontend-doctrine.md` (especially
 §5). Keep the frontend presentational: no business logic. Use the typed API
