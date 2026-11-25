@@ -345,7 +345,7 @@ export function AttestationActionCluster(props: AttestationActionClusterProps) {
 
   return (
     <section
-      aria-label="Trust attestation actions"
+      aria-label="Vouch, back and report"
       className="grid grid-cols-1 justify-items-start gap-2 sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]"
     >
       {/* §J trust-not-adversarial weighting (per 2026-05-13 UX review):
@@ -681,8 +681,9 @@ function buttonClassFor(
  * `pageTargetCast`: a CAST against a page target (validator / project /
  * creator) that 404s means the page has no claimed operator to attest
  * to, so `bcc_not_found` gets the unclaimed-page line. Revokes and member
- * targets keep "Attestation not found." — there the missing thing really
- * is the attestation row.
+ * targets keep "We couldn't find that vouch." — there the missing thing
+ * really is the attestation row. (F-264: the in-app copy says "vouch",
+ * F-579's word; "attestation" stays in code names only.)
  */
 function humanizeAttestationError(
   err: BccApiError,
@@ -700,21 +701,21 @@ function humanizeAttestationError(
   return humanizeCode(
     err,
     {
-      bcc_unauthorized: "Sign in to attest.",
+      bcc_unauthorized: "Sign in to vouch.",
       bcc_rate_limited: "Too many actions just now. Wait a moment.",
-      bcc_invalid_request: "We couldn't record that attestation.",
-      bcc_attestation_self: "You can't attest on yourself.",
+      bcc_invalid_request: "We couldn't record that vouch.",
+      bcc_attestation_self: "You can't vouch for yourself.",
       bcc_attestation_bandwidth_exhausted:
         "You're at your Backing limit. Revoke one to free a slot.",
       bcc_attestation_fraud_blocked:
-        "Your account is temporarily restricted from attesting.",
+        "Your account is temporarily restricted from vouching.",
       bcc_attestation_revoked:
-        "That attestation was already revoked.",
+        "That vouch was already revoked.",
       bcc_not_found: pageTargetCast
         ? ATTESTATION_COPY.unclaimed_page_target
-        : "Attestation not found.",
-      bcc_forbidden: "You can only act on your own attestations.",
+        : "We couldn't find that vouch.",
+      bcc_forbidden: "You can only change your own vouches.",
     },
-    "Couldn't update attestation. Try again.",
+    "Couldn't update your vouch. Try again.",
   );
 }

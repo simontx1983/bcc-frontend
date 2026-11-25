@@ -12,15 +12,24 @@
  * a host that keeps rendering it (PostDetail, which reads its own cache
  * entry seeded from the server render) passes `onDeleted` so it can say
  * "Post deleted" instead of leaving the post on screen.
+ *
+ * Keyboard (F-264): the shared menu-button contract from `useMenuButton`
+ * (the same one ActionMenu uses): Enter / Space / ArrowDown open at the
+ * first item, ArrowUp at the last, arrows move and wrap, Home / End,
+ * Escape closes and returns focus to "⋯", Tab closes. Copy link keeps the
+ * menu open so "Copied" can show; Report and Delete close it, put focus
+ * back on "⋯", and then open their dialog, which returns focus there when
+ * it closes.
  */
 
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { MoreHorizontal } from "lucide-react";
 
 import { canReportFeedItem, ReportModal, resolveTargetId } from "@/components/feed/ReportButton";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useCopyConfirm } from "@/hooks/useCopyConfirm";
 import { useDeletePostMutation } from "@/hooks/useDeletePost";
+import { useMenuButton } from "@/hooks/useMenuButton";
 import { humanizeCode } from "@/lib/api/errors";
 import type { FeedItem } from "@/lib/api/types";
 
@@ -48,59 +57,51 @@ export function PostOverflowMenu({
   /** Called after a successful delete, for hosts that still show the post. */
   onDeleted?: () => void;
 }) {
-  const [open, setOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const { copied, copy } = useCopyConfirm();
-  const containerRef = useRef<HTMLDivElement>(null);
   const canReport = item !== undefined && canReportFeedItem(item);
   const canDelete = item !== undefined && item.permissions["can_delete"]?.allowed === true;
   const deleteMutation = useDeletePostMutation();
-
-  useEffect(() => {
-    if (!open) return;
-    const onDocClick = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
-    };
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        setOpen(false);
-      }
-    };
-    window.addEventListener("click", onDocClick);
-    window.addEventListener("keydown", onKeyDown);
-    return () => {
-      window.removeEventListener("click", onDocClick);
-      window.removeEventListener("keydown", onKeyDown);
-    };
-  }, [open]);
+  // Items in DOM order: Copy link, then Report and Delete when shown.
+  const reportIndex = 1;
+  const deleteIndex = canReport ? 2 : 1;
+  const menu = useMenuButton({ itemCount: 1 + (canReport ? 1 : 0) + (canDelete ? 1 : 0) });
 
   return (
-    <div ref={containerRef} className="relative shrink-0">
+    <div className="relative shrink-0">
       <button
         type="button"
+        ref={menu.triggerRef}
         onClick={(e) => {
           e.stopPropagation();
-          setOpen((o) => !o);
+          menu.toggle();
         }}
+        onKeyDown={menu.onTriggerKeyDown}
         aria-label="More actions"
         aria-haspopup="menu"
-        aria-expanded={open}
+        aria-expanded={menu.open}
+        aria-controls={menu.open ? menu.menuId : undefined}
         className="bcc-mono -my-3 -mr-3 inline-flex min-h-11 min-w-11 items-center justify-center text-[var(--bcc-text-secondary)] hover:text-[var(--bcc-text)]"
       >
         <MoreHorizontal size={15} strokeWidth={2} aria-hidden />
       </button>
-      {open && (
+      {menu.open && (
         <div
+          id={menu.menuId}
+          ref={menu.menuRef}
           role="menu"
+          aria-label="More actions"
+          onKeyDown={menu.onMenuKeyDown}
           onClick={(e) => e.stopPropagation()}
           className="bcc-panel absolute right-0 top-full z-20 mt-1 min-w-[140px] p-1"
         >
           <button
             type="button"
             role="menuitem"
+            ref={menu.itemRef(0)}
+            tabIndex={menu.activeIndex === 0 ? 0 : -1}
+            onMouseEnter={() => menu.hover(0)}
             onClick={() => {
               void copy(`${window.location.origin}${selfHref}`);
             }}
@@ -112,10 +113,10 @@ export function PostOverflowMenu({
             <button
               type="button"
               role="menuitem"
-              onClick={() => {
-                setOpen(false);
-                setReportOpen(true);
-              }}
+              ref={menu.itemRef(reportIndex)}
+              tabIndex={menu.activeIndex === reportIndex ? 0 : -1}
+              onMouseEnter={() => menu.hover(reportIndex)}
+              onClick={() => menu.closeThen(() => setReportOpen(true), { returnFocus: true })}
               className="bcc-mono flex min-h-[44px] w-full items-center rounded-lg px-2 py-1.5 text-left text-[11px] text-[var(--bcc-text-secondary)] hover:bg-[var(--bcc-surface-active)] hover:text-bcc-text-safety"
             >
               Report
@@ -125,11 +126,18 @@ export function PostOverflowMenu({
             <button
               type="button"
               role="menuitem"
-              onClick={() => {
-                setOpen(false);
-                deleteMutation.reset();
-                setConfirmingDelete(true);
-              }}
+              ref={menu.itemRef(deleteIndex)}
+              tabIndex={menu.activeIndex === deleteIndex ? 0 : -1}
+              onMouseEnter={() => menu.hover(deleteIndex)}
+              onClick={() =>
+                menu.closeThen(
+                  () => {
+                    deleteMutation.reset();
+                    setConfirmingDelete(true);
+                  },
+                  { returnFocus: true },
+                )
+              }
               className="bcc-mono flex min-h-[44px] w-full items-center rounded-lg px-2 py-1.5 text-left text-[11px] text-bcc-text-safety hover:bg-[var(--bcc-surface-active)]"
             >
               Delete

@@ -1,8 +1,8 @@
 /**
  * `bcc_not_found` on an attestation CAST against a page target means the
  * page has no claimed operator to attest to; the cluster says so. Member
- * targets and revokes keep "Attestation not found." — there the missing
- * thing really is the attestation row.
+ * targets and revokes keep "We couldn't find that vouch." — there the
+ * missing thing really is the attestation row.
  */
 
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
@@ -65,12 +65,37 @@ describe("AttestationActionCluster — bcc_not_found copy", () => {
   it("a member target keeps the original copy", () => {
     renderCluster("user_profile");
     act(() => hookOpts.cast?.onError?.(notFound()));
-    expect(screen.getByRole("alert").textContent).toBe("Attestation not found.");
+    expect(screen.getByRole("alert").textContent).toBe("We couldn't find that vouch.");
   });
 
   it("a revoke on a page target keeps the original copy", () => {
     renderCluster("validator_card");
     act(() => hookOpts.revoke?.onError?.(notFound()));
-    expect(screen.getByRole("alert").textContent).toBe("Attestation not found.");
+    expect(screen.getByRole("alert").textContent).toBe("We couldn't find that vouch.");
+  });
+});
+
+describe("AttestationActionCluster — in-app words say 'vouch' (F-264 / F-579)", () => {
+  const fail = (code: string) => new BccApiError(code, "RAW SERVER TEXT", 400, null);
+
+  it("the cluster is named in the words its buttons use", () => {
+    renderCluster("user_profile");
+    expect(screen.getByRole("region", { name: "Vouch, back and report" })).toBeInTheDocument();
+  });
+
+  it.each([
+    ["bcc_unauthorized", "Sign in to vouch."],
+    ["bcc_invalid_request", "We couldn't record that vouch."],
+    ["bcc_attestation_self", "You can't vouch for yourself."],
+    ["bcc_attestation_fraud_blocked", "Your account is temporarily restricted from vouching."],
+    ["bcc_attestation_revoked", "That vouch was already revoked."],
+    ["bcc_forbidden", "You can only change your own vouches."],
+    ["bcc_something_new", "Couldn't update your vouch. Try again."],
+  ])("%s reads %s", (code, copy) => {
+    renderCluster("user_profile");
+    act(() => hookOpts.cast?.onError?.(fail(code)));
+    const alert = screen.getByRole("alert");
+    expect(alert.textContent).toBe(copy);
+    expect(alert.textContent).not.toMatch(/attest/i);
   });
 });
