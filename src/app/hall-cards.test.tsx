@@ -5,9 +5,10 @@
  *   1. every item has a card → the shared community card grid;
  *   2. any item without one → today's Hall panels, never a mix;
  *   3. a Hall's card shows its three counts side by side in the stats row,
- *      Members · Posts 7d · Validators (Phillip, 2026-11-25); a topic Hall
- *      sends no Validators stat and shows none, never a 0; any other
- *      community keeps Members in the name line, like every card.
+ *      Members · Posts 7d · Validators (Phillip, 2026-11-25), in that order
+ *      whatever order the server sends; a topic Hall sends no Validators
+ *      stat and shows none, never a 0; any other community keeps Members
+ *      in the name line, like every card.
  */
 import { cleanup, render, screen } from "@testing-library/react";
 import type { AnchorHTMLAttributes, ReactNode } from "react";
@@ -150,6 +151,11 @@ describe("3. a Hall card's counts", () => {
     expect(screen.getAllByText("Members")).toHaveLength(1);
     expect(screen.queryByText("Active")).toBeNull();
     expect(screen.queryByText("Access")).toBeNull();
+  });
+
+  it("the card orders the row itself: a server order of validators before posts_7d still reads Members · Posts (7d) · Validators", () => {
+    const { container } = face(hallCard("Akash Hall", [access, validators, active, posts, members], "hall"));
+    expect(statsRow(container)).toEqual({ cols: "3", labels: ["Members", "Posts (7d)", "Validators"] });
   });
 
   it("before the validators stat ships: Members · Posts (7d), never Active in its place", () => {
