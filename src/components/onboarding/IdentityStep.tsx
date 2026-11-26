@@ -1,5 +1,7 @@
 "use client";
 
+import { UploadRightsReminder } from "@/components/media/UploadRightsReminder";
+
 /**
  * IdentityStep — avatar · cover · bio during onboarding. Fully skippable.
  *
@@ -192,6 +194,7 @@ export function IdentityStep({
       </LandingReveal>
 
       <div className="bcc-onb-panel" style={{ marginTop: "clamp(24px, 4vw, 40px)" }}>
+        <UploadRightsReminder />
         {/* Cover */}
         <div className="bcc-onb-id-cover">
           {hasCover && isWpMediaUrl(current.cover_photo_url ?? "") ? (

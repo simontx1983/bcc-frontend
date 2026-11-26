@@ -40,6 +40,7 @@ import { PageStreamPanel } from "@/components/entity/panels/PageStreamPanel";
 import { LockedStreamPanel } from "@/components/entity/LockedStreamPanel";
 import { FileRail } from "@/components/layout/FileRail";
 import { PageHero } from "@/components/layout/PageHero";
+import { CopyrightReportLink } from "@/components/media/CopyrightReportLink";
 import { MessageValidatorButton } from "@/components/messages/MessageValidatorButton";
 import { AttestationActionCluster } from "@/components/profile/AttestationActionCluster";
 import { AttestationRoster } from "@/components/profile/AttestationRoster";
@@ -201,6 +202,9 @@ export function EntityProfile({
           >
             @{card.handle}
           </p>
+        )}
+        {Boolean(card.crest?.image_url) && (
+          <CopyrightReportLink path={card.links.self} item="Entity page image" />
         )}
       </header>
 

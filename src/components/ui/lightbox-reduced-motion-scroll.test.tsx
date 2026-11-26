@@ -111,6 +111,12 @@ function jumpButtons() {
 }
 
 describe("Lightbox — Jump to comments under reduced motion (F-426)", () => {
+  it("provides the post location for a copyright concern", () => {
+    renderLightbox();
+    const href = screen.getByRole("link", { name: "Report a copyright concern" }).getAttribute("href");
+    expect(decodeURIComponent(href ?? "")).toContain("/post/feed_7");
+  });
+
   it("no preference: the jump still glides (smooth) and focuses the composer", () => {
     const composer = renderLightbox();
     fireEvent.click(jumpButtons()[0]!);

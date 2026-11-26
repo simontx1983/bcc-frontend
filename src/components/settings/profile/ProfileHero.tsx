@@ -1,5 +1,7 @@
 "use client";
 
+import { UploadRightsReminder } from "@/components/media/UploadRightsReminder";
+
 /**
  * ProfileHero — combined cover banner + avatar overlay, and the owner's
  * editor for both.
@@ -828,6 +830,7 @@ export function ProfileHero({ profile, nav }: ProfileHeroProps) {
             Text label, never icon-only: "⋯" alone does not tell a
             first-time owner what it controls. */}
         <div ref={menuAnchorRef} className="flex flex-col items-start gap-2">
+          <UploadRightsReminder />
           <input
             ref={avatarInputRef}
             type="file"

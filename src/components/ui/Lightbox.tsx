@@ -42,6 +42,7 @@
 
 import Image from "next/image";
 
+import { CopyrightReportLink } from "@/components/media/CopyrightReportLink";
 import { Dialog } from "@/components/ui/Dialog";
 import { isWpMediaUrl } from "@/lib/media";
 import { AuthorBadge } from "@/components/identity/AuthorBadge";
@@ -108,6 +109,9 @@ export function Lightbox({
         >
           ✕
         </button>
+        <div data-theme="dark" className="absolute left-3 top-3 z-10 rounded-sm bg-ink/80 px-3">
+          <CopyrightReportLink path={item.links.self} item="Media attached to this post" />
+        </div>
 
         {isWpMediaUrl(src) ? (
           <Image
