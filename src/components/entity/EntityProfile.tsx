@@ -41,6 +41,7 @@ import { LockedStreamPanel } from "@/components/entity/LockedStreamPanel";
 import { FileRail } from "@/components/layout/FileRail";
 import { PageHero } from "@/components/layout/PageHero";
 import { CopyrightReportLink } from "@/components/media/CopyrightReportLink";
+import { UploadRightsReminder } from "@/components/media/UploadRightsReminder";
 import { MessageValidatorButton } from "@/components/messages/MessageValidatorButton";
 import { AttestationActionCluster } from "@/components/profile/AttestationActionCluster";
 import { AttestationRoster } from "@/components/profile/AttestationRoster";
@@ -142,6 +143,7 @@ export function EntityProfile({
 }: EntityProfileProps) {
   const targetKind     = cardKindToAttestationTargetKind(card.card_kind);
   const entityCardKind = cardKindToEntityCardKind(card.card_kind);
+  const canEditImage = isAllowed(card.permissions, "can_edit_image");
 
   return (
     <main className="pb-24">
@@ -229,10 +231,12 @@ export function EntityProfile({
                   is `{allowed:true}` only for the verified claimer, so
                   feed/directory cards (which never pass canEditAvatar)
                   stay read-only. */}
-              <CardFactory
-                card={card}
-                canEditAvatar={isAllowed(card.permissions, "can_edit_image")}
-              />
+              {canEditImage && (
+                <div className="mb-2">
+                  <UploadRightsReminder />
+                </div>
+              )}
+              <CardFactory card={card} canEditAvatar={canEditImage} />
             </div>
           }
           actions={

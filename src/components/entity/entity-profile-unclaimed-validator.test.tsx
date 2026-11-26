@@ -123,6 +123,20 @@ function renderProfile(c: never) {
   );
 }
 
+describe("EntityProfile image upload reminder", () => {
+  const reminder = "Only upload images you created or have permission to share.";
+
+  it("shows the reminder on the editable entity hero", () => {
+    renderProfile(card({ permissions: { can_edit_image: { allowed: true, unlock_hint: null } } }));
+    expect(screen.getByText(reminder)).toBeVisible();
+  });
+
+  it("omits the reminder on a view-only entity hero", () => {
+    renderProfile(card({ permissions: { can_edit_image: { allowed: false, unlock_hint: null } } }));
+    expect(screen.queryByText(reminder)).toBeNull();
+  });
+});
+
 describe("EntityProfile claim callout (F-552)", () => {
   it("hands the page's can_claim to the callout, which renders from it", () => {
     claimProps.length = 0;
