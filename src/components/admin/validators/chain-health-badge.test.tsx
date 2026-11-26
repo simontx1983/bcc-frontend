@@ -56,7 +56,7 @@ describe("ChainHealthBadge", () => {
     renderBadge();
 
     const alert = await screen.findByRole("alert");
-    expect(alert).toHaveTextContent("AUDIT LOG CHECK FAILED");
+    expect(alert).toHaveTextContent("AUDIT LOG NEEDS ATTENTION");
     expect(alert).toHaveTextContent(/report it to engineering/i);
     expect(alert).toHaveTextContent("1 row");
     expect(alert.querySelector("time")).toHaveAttribute("datetime", "2026-11-23T09:30:00Z");

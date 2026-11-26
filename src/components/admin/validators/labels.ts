@@ -75,9 +75,9 @@ export const STEP_UP_LABEL: Readonly<Record<ValidatorRelationshipStepUp, string>
 };
 
 /** `table[value]`, or the raw value when the server sent one we don't know. */
-export function labelFor<K extends string>(table: Readonly<Record<K, string>>, value: K): string {
-  const known: string | undefined = (table as Readonly<Record<string, string>>)[value];
-  return known ?? value;
+export function labelFor(table: Readonly<Partial<Record<string, string>>>, value: string): string {
+  const known = Object.prototype.hasOwnProperty.call(table, value) ? table[value] : undefined;
+  return typeof known === "string" ? known : value;
 }
 
 /**

@@ -29,6 +29,8 @@ describe("AdminNav", () => {
 
   it.each([
     ["/admin/validators", "Validator Directory"],
+    ["/admin/validators/123", "Validator Directory"],
+    ["/admin/validators/123/", "Validator Directory"],
     ["/admin/validators/history", "Validator Audit History"],
   ])("on %s, only %s is the current page", (pathname, current) => {
     nav.pathname = pathname;
@@ -36,6 +38,14 @@ describe("AdminNav", () => {
     for (const link of screen.getAllByRole("link")) {
       if (link.textContent === current) expect(link).toHaveAttribute("aria-current", "page");
       else expect(link).not.toHaveAttribute("aria-current");
+    }
+  });
+
+  it("does not treat an unknown validator route as a directory detail", () => {
+    nav.pathname = "/admin/validators/history-other";
+    render(<AdminNav />);
+    for (const link of screen.getAllByRole("link")) {
+      expect(link).not.toHaveAttribute("aria-current");
     }
   });
 });

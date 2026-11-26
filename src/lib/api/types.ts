@@ -4878,6 +4878,8 @@ export interface AdminValidatorDirectoryResponse {
   items: AdminValidatorDirectoryItem[];
   pagination: { next_cursor: string | null; has_more: boolean };
   chains: AdminValidatorDirectoryChain[];
+  /** Unique page counts across chains; chain facets can count the same page more than once. */
+  total_counts?: AdminValidatorStateCounts;
 }
 
 export type ValidatorRelationshipAction =
@@ -4906,10 +4908,12 @@ export interface ValidatorRelationshipSnapshot {
 }
 
 export interface ValidatorRelationshipHistoryItem {
+  /** Audit history event ID, separate from the canonical claim ID used by link_id. */
   id: number;
   /** ISO 8601 UTC. */
   created_at: string;
-  action: ValidatorRelationshipAction;
+  /** Existing and future log actions are preserved; known actions have display labels. */
+  action: string;
   /** Null when the account no longer exists (e.g. after `account_deleted`). */
   subject: AdminUserRef | null;
   /** Null for SYSTEM events (re-verify sweep, `step_up_expired`, invite expiry, wallet-proof supersede). */
@@ -4951,7 +4955,7 @@ export interface ValidatorRelationshipHealth {
 
 /** The page's current owner, as route 2 returns it. */
 export interface AdminValidatorPageOwner {
-  /** The audit-log id of the link event; the handle for revoke and cancel. */
+  /** Canonical claim ID; the handle for revoke and cancel, separate from history event IDs. */
   link_id: number;
   user: AdminUserRef;
   verification: ValidatorOwnerVerification;
@@ -5036,6 +5040,7 @@ export interface LinkValidatorOwnerRequest extends ValidatorStepUpProof {
 
 /** 201. */
 export interface LinkValidatorOwnerResponse {
+  /** Canonical claim ID, not an audit history event ID. */
   link_id: number;
   owner: AdminValidatorPageOwner;
 }
@@ -5058,14 +5063,14 @@ export interface CancelValidatorOwnerLinkRequest extends ValidatorStepUpProof {
 
 export interface CancelValidatorOwnerLinkResponse {
   cancelled: true;
-  /** The owner the cancelled link had replaced, now restored; null if none. */
+  /** Compatibility field; the current service only removes the staff link and returns null. */
   restored_owner: AdminUserRef | null;
 }
 
 /**
- * GET /admin/users/search?q= — at most 10. Matches handle or display
+ * POST /admin/users/search with { q } — at most 10. Matches handle or display
  * name, or an exact email or login, and never echoes either back. An
- * over-throttled search answers 200 with no items, like no match.
+ * rate-limited search answers 429 with retry_after, distinct from no match.
  */
 export interface AdminUserSearchResponse {
   items: AdminUserRef[];

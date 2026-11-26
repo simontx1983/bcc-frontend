@@ -121,6 +121,23 @@ describe("Validator Directory — facet tabs and filters", () => {
     expect(screen.getByRole("tab", { name: /all chains/i })).toHaveAttribute("aria-selected", "true");
   });
 
+  it("uses unique server totals for multi-chain pages while retaining each chain's facet", async () => {
+    getDir.mockResolvedValue({
+      ...page([item(1)]),
+      total_counts: { unclaimed: 5, wallet_verified: 2, staff_verified: 2, conflict: 1 },
+    });
+    renderDirectory();
+    await screen.findByRole("heading", { name: "Validator 1" });
+    expect(screen.getAllByRole("tab").map((tab) => tab.textContent)).toEqual([
+      "All chains10", "Cosmos Hub6", "Osmosis7",
+    ]);
+    expect(screen.getByRole("button", { name: "ALL · 10" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "UNCLAIMED · 5" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("tab", { name: /cosmos hub/i }));
+    expect(await screen.findByRole("button", { name: "ALL · 6" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "UNCLAIMED · 3" })).toBeInTheDocument();
+  });
+
   it("the first read sends no chain, no state and no q", async () => {
     getDir.mockResolvedValue(page([item(1)]));
     renderDirectory();

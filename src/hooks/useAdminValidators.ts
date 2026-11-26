@@ -52,6 +52,7 @@ import {
   isAdminDenial,
   isAdminIdNotFound,
   isAdminToolUnavailable,
+  isCommittedValidatorResult,
   isOwnershipConflict,
 } from "@/lib/api/admin-errors";
 import { rateLimitedRetryDelay, retryRateLimitedRead } from "@/lib/api/errors";
@@ -245,8 +246,8 @@ const USER_SEARCH_DEBOUNCE_MS = 300;
 
 /**
  * Debounced like useMentionSearch: an empty query sends nothing. The
- * server caps results at 10 and answers an over-throttled search with an
- * empty list, so "no matches" is all the UI can say either way.
+ * server caps results at 10. A rate limit is a retryable 429, distinct
+ * from a successful search with no matching members.
  */
 export function useAdminUserSearch(query: string) {
   const [debounced, setDebounced] = useState(query);
@@ -296,7 +297,7 @@ export function useStartValidatorStepUp(pageId: number) {
     mutationFn: (body) => startValidatorStepUp(pageId, body),
     gcTime: SECRET_GC_TIME,
     onError: (err) => {
-      if (isOwnershipConflict(err)) refreshOwnershipReads(queryClient, pageId);
+      if (isOwnershipConflict(err) || isCommittedValidatorResult(err)) refreshOwnershipReads(queryClient, pageId);
     },
   });
 }
@@ -318,7 +319,7 @@ function useOwnershipWrite<TData, TVariables>(
     gcTime: SECRET_GC_TIME,
     onSuccess: () => refreshOwnershipReads(queryClient, pageId),
     onError: (err) => {
-      if (isOwnershipConflict(err)) refreshOwnershipReads(queryClient, pageId);
+      if (isOwnershipConflict(err) || isCommittedValidatorResult(err)) refreshOwnershipReads(queryClient, pageId);
     },
   });
 }

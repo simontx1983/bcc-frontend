@@ -36,7 +36,9 @@ export function AdminNav() {
       </h2>
       <ul className="mt-2 flex flex-wrap gap-1 border-b border-bcc-border pb-2">
         {ADMIN_NAV_ITEMS.map((item) => {
-          const current = pathname === item.href;
+          const current = pathname === item.href || (
+            item.href === "/admin/validators" && /^\/admin\/validators\/\d+\/?$/.test(pathname)
+          );
           return (
             <li key={item.href}>
               <Link
