@@ -13,9 +13,10 @@
  *
  * The address the code went to is never shown (the server never sends
  * it). The password and code live only in this component's state: they
- * go when the dialog closes (it unmounts), the start mutation is reset
- * as soon as it succeeds, and the step-up / write mutations are dropped
- * from the cache with `gcTime: 0` (useAdminValidators).
+ * go when the dialog closes (it unmounts). A failed start or write resets
+ * its mutation immediately; a successful start also resets immediately,
+ * and a successful write closes the dialog. Unobserved step-up / write
+ * mutations leave the cache with `gcTime: 0` (useAdminValidators).
  *
  * Errors are keyed on `code` + `data.reason` (§γ), never the server's
  * message — see `stepUpErrorOutcome`. A 409 or a vanished link closes
@@ -49,6 +50,7 @@ import {
   invalidReason,
   isAdminDenial,
   isAdminIdNotFound,
+  isCommittedValidatorResult,
   isOwnershipConflict,
   stepUpFailureReason,
 } from "@/lib/api/admin-errors";
@@ -67,7 +69,7 @@ export const STEP_UP_COPY = {
   mismatch: "This confirmation was for a different action. Start again.",
   restart: "This confirmation can't be used any more. Start again.",
   rateLimited: "Too many attempts. Wait a moment and try again.",
-  unavailable: "The server couldn't finish this just now, and nothing was changed. Try again.",
+  unavailable: "The server couldn't finish this just now. Refresh the latest details before trying again.",
   denied: "Changing validator ownership is restricted to platform admins.",
   signIn: "Your session has ended. Sign in again, then try again.",
   passwordRequired: "Enter your current password.",
@@ -76,7 +78,9 @@ export const STEP_UP_COPY = {
   targetNotEligible: "This member can't be made an owner. Pick someone else.",
   vanished: "That page or owner link no longer exists. The latest details are shown.",
   generic: "Couldn't finish this. Try again.",
+  savedResultUnavailable: "The change was saved, but the latest details couldn't be loaded. Refresh before making another change.",
   resent: "A new code is on its way.",
+  mailUnavailable: "Couldn't send the confirmation email. Enter your password to try again.",
   resendFailed: "Couldn't send a new code. Try again.",
 } as const;
 
@@ -120,6 +124,7 @@ export function stepUpErrorOutcome(
     clear,
   });
   if (isAdminDenial(err)) return stay(STEP_UP_COPY.denied);
+  if (isCommittedValidatorResult(err)) return { kind: "close", message: STEP_UP_COPY.savedResultUnavailable };
   if (isCode(err, "bcc_step_up_failed")) {
     switch (stepUpFailureReason(err)) {
       case "password":
@@ -156,6 +161,9 @@ export function stepUpErrorOutcome(
   if (isCode(err, "bcc_rate_limited") || (err instanceof BccApiError && err.status === 429)) {
     return stay(STEP_UP_COPY.rateLimited);
   }
+  if (err instanceof BccApiError && err.code === "bcc_unavailable" && err.data?.["reason"] === "mail_unavailable") {
+    return { kind: "restart", message: STEP_UP_COPY.mailUnavailable };
+  }
   if (isServiceUnavailable(err)) return stay(STEP_UP_COPY.unavailable);
   if (err instanceof BccApiError && err.status === 401) return stay(STEP_UP_COPY.signIn);
   return stay(fallback);
@@ -165,6 +173,8 @@ export function stepUpErrorOutcome(
 export interface StepUpWrite {
   /** The write's mutation is in flight. */
   isPending: boolean;
+  /** Drop the confirmation code from a failed mutation's variables. */
+  reset: () => void;
   /**
    * Run the write with the proof. Success is the caller's to handle (it
    * closes this dialog); a failure goes to `onError`.
@@ -317,7 +327,10 @@ export function StepUpDialog({
           setNotice(null);
           setStep(2);
         },
-        onError: (err) => handleError(err),
+        onError: (err) => {
+          start.reset();
+          handleError(err);
+        },
       },
     );
   }
@@ -333,7 +346,10 @@ export function StepUpDialog({
     latch.current = true;
     setError(null);
     setNotice(null);
-    write.run({ step_up_id: stepUp.id, code }, (err) => handleError(err));
+    write.run({ step_up_id: stepUp.id, code }, (err) => {
+      write.reset();
+      handleError(err);
+    });
   }
 
   const resendBlocked = resendIn > 0 || resend.isPending || pending || stepUp === null;

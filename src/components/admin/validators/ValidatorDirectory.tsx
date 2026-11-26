@@ -20,7 +20,7 @@
  *
  * No business logic: the state, the owner's verification and "wallet
  * claim possible" are all server-decided. The only arithmetic here is
- * adding up the facet's counts for the tab totals and the All chip.
+ * using the server's unique totals (or legacy facet sums) for All chains.
  */
 
 import type { Route } from "next";
@@ -78,14 +78,16 @@ function totalOf(counts: AdminValidatorStateCounts): number {
   return STATE_ORDER.reduce((sum, state) => sum + counts[state], 0);
 }
 
-/** The selected chain's counts, or every chain's added up for "All chains". */
+/** Use unique page totals for All chains; older servers only provide chain facets. */
 function countsFor(
   chains: ReadonlyArray<AdminValidatorDirectoryChain>,
   chain: string | null,
+  totalCounts?: AdminValidatorStateCounts,
 ): AdminValidatorStateCounts {
   if (chain !== null) {
     return chains.find((c) => c.slug === chain)?.counts ?? ZERO_COUNTS;
   }
+  if (totalCounts !== undefined) return totalCounts;
   const sum = { ...ZERO_COUNTS };
   for (const c of chains) {
     for (const state of STATE_ORDER) sum[state] += c.counts[state];
@@ -107,12 +109,19 @@ export function ValidatorDirectory() {
 
   const query = useAdminValidatorDirectory(filters);
 
-  const freshChains = query.data?.pages[0]?.chains;
-  const [lastChains, setLastChains] = useState<AdminValidatorDirectoryChain[] | null>(null);
+  const freshFacet = query.data?.pages[0];
+  const [lastFacet, setLastFacet] = useState<{
+    chains: AdminValidatorDirectoryChain[];
+    total_counts: AdminValidatorStateCounts | undefined;
+  } | null>(null);
   useEffect(() => {
-    if (freshChains !== undefined) setLastChains(freshChains);
-  }, [freshChains]);
-  const chains = freshChains ?? lastChains;
+    if (freshFacet !== undefined) {
+      setLastFacet({ chains: freshFacet.chains, total_counts: freshFacet.total_counts });
+    }
+  }, [freshFacet]);
+  const facet = freshFacet ?? lastFacet;
+  const chains = facet?.chains ?? null;
+  const totalCounts = facet?.total_counts;
 
   const selectChain = useCallback((key: string) => {
     setFilters((prev) => ({ ...prev, chain: key === ALL_CHAINS ? null : key }));
@@ -130,10 +139,10 @@ export function ValidatorDirectory() {
       chains === null
         ? []
         : [
-            { key: ALL_CHAINS, label: "All chains", total: totalOf(countsFor(chains, null)) },
+            { key: ALL_CHAINS, label: "All chains", total: totalOf(countsFor(chains, null, totalCounts)) },
             ...chains.map((c) => ({ key: c.slug, label: c.name, total: totalOf(c.counts) })),
           ],
-    [chains],
+    [chains, totalCounts],
   );
   const tabKeys = useMemo(() => tabs.map((t) => t.key), [tabs]);
   const { setRef, onKeyDown } = useRovingTabs<string>(tabKeys, selectChain);
@@ -155,7 +164,7 @@ export function ValidatorDirectory() {
     );
   }
 
-  const stateCounts = chains === null ? null : countsFor(chains, filters.chain);
+  const stateCounts = chains === null ? null : countsFor(chains, filters.chain, totalCounts);
   const stateOptions =
     stateCounts === null
       ? []

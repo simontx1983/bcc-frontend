@@ -56,6 +56,12 @@ export function isOwnershipConflict(err: unknown): boolean {
   return err instanceof BccApiError && err.code === "bcc_conflict";
 }
 
+/** The write committed; only its result projection failed. Never offer a blind retry. */
+export function isCommittedValidatorResult(err: unknown): boolean {
+  return dataString(err, "bcc_unavailable", "reason") === "result_unavailable"
+    && err instanceof BccApiError && err.data?.["committed"] === true;
+}
+
 /** The 409's `data.reason` (`wallet_owner_present`, `owner_exists`, …), or null. */
 export function conflictReason(err: unknown): string | null {
   return dataString(err, "bcc_conflict", "reason");

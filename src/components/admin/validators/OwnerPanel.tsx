@@ -61,7 +61,7 @@ export const OWNER_COPY = {
   noReasons: "The server sent no revoke reasons, so this owner can't be revoked here.",
   revoked: "Owner revoked.",
   cancelHeading: "Cancel this link",
-  cancelIntro: "Undoes this link. If the page had an owner before it, they're restored.",
+  cancelIntro: "Removes this staff-approved owner link.",
   cancelled: "Link cancelled.",
   rejected: "The server didn't accept this. Check it and try again.",
 } as const;
@@ -332,6 +332,7 @@ function RevokeOwner({ pageId, owner, reasons, onNotice }: StaffOwnerStateProps)
           title="Revoke owner"
           write={{
             isPending: revoke.isPending,
+            reset: revoke.reset,
             run: (proof, onError) =>
               revoke.mutate(
                 { linkId: owner.link_id, body: { reason, note: note.trim(), ...proof } },
@@ -423,6 +424,7 @@ function CancelLink({
           title="Cancel this link"
           write={{
             isPending: cancel.isPending,
+            reset: cancel.reset,
             run: (proof, onError) =>
               cancel.mutate(
                 { linkId: owner.link_id, body: { note: note.trim(), ...proof } },

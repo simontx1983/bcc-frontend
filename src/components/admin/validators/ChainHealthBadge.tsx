@@ -107,12 +107,12 @@ export function ChainHealthBadge() {
           style={{ background: "var(--bcc-warning)" }}
         />
         <span className="bcc-mono text-[11px] tracking-[0.18em] text-bcc-text">
-          AUDIT LOG CHECK FAILED
+          AUDIT LOG NEEDS ATTENTION
         </span>
       </p>
       <p className="font-serif text-sm text-bcc-text-secondary">
-        The audit log&apos;s hash chain did not verify, so rows may have been changed or
-        removed outside the app. Report it to engineering before relying on this history.
+        The latest check did not confirm the audit log&apos;s integrity. Report it to
+        engineering before relying on this history.
       </p>
       <CheckedLine health={health} />
     </div>

@@ -139,11 +139,14 @@ export function getAdminValidatorPageHistory(
   return bccFetchAsClient<ValidatorRelationshipHistoryResponse>(path, { method: "GET", signal });
 }
 
-/** Route 8: at most 10 users by handle, display name, or an exact email or login. */
+/**
+ * Route 8: at most 10 users by handle, display name, or an exact email or
+ * login. The query travels in the POST body, with cancellation preserved.
+ */
 export function searchAdminUsers(q: string, signal?: AbortSignal): Promise<AdminUserSearchResponse> {
-  const search = new URLSearchParams({ q });
-  return bccFetchAsClient<AdminUserSearchResponse>(`admin/users/search?${search.toString()}`, {
-    method: "GET",
+  return bccFetchAsClient<AdminUserSearchResponse>("admin/users/search", {
+    method: "POST",
+    body: { q },
     signal,
   });
 }
@@ -178,7 +181,7 @@ export function linkValidatorOwner(
   });
 }
 
-/** Route 5: revoke the owner linked by `linkId`. */
+/** Route 5: revoke the owner using its canonical claim `linkId` (not a history event ID). */
 export function revokeValidatorOwner(
   pageId: number,
   linkId: number,
@@ -190,7 +193,7 @@ export function revokeValidatorOwner(
   );
 }
 
-/** Route 6: cancel the staff link `linkId`, restoring any previous owner. */
+/** Route 6: remove the staff link by canonical claim `linkId`; previous owners are not restored. */
 export function cancelValidatorOwnerLink(
   pageId: number,
   linkId: number,

@@ -38,6 +38,7 @@ export const LINK_COPY = {
   userRequired: "Pick the member who owns this page.",
   typeRequired: "Pick the evidence type.",
   noteRequired: "Add an evidence note.",
+  refInvalid: "Enter a complete link starting with http:// or https://.",
   refRequired: "Add an evidence reference.",
   rejected: "The server didn't accept this. Check it and try again.",
   linked: "Owner linked. Every admin has been notified.",
@@ -60,6 +61,15 @@ const FIELD_ORDER: ReadonlyArray<LinkField> = [
   "evidence_note",
   "evidence_ref",
 ];
+
+function isEvidenceUrl(value: string): boolean {
+  if (!/^https?:\/\/[^/\s]/i.test(value)) return false;
+  try {
+    return new URL(value).hostname !== "";
+  } catch {
+    return false;
+  }
+}
 
 export interface LinkOwnerFormProps {
   pageId: number;
@@ -116,6 +126,7 @@ export function LinkOwnerForm({ pageId, onNotice }: LinkOwnerFormProps) {
     if (evidenceType === "") found.verification_method = LINK_COPY.typeRequired;
     if (trimmedNote === "") found.evidence_note = LINK_COPY.noteRequired;
     if (trimmedRef === "") found.evidence_ref = LINK_COPY.refRequired;
+    else if (!isEvidenceUrl(trimmedRef)) found.evidence_ref = LINK_COPY.refInvalid;
     setErrors(found);
     const first = FIELD_ORDER.find((f) => found[f] !== undefined);
     if (first !== undefined) {
@@ -248,7 +259,8 @@ export function LinkOwnerForm({ pageId, onNotice }: LinkOwnerFormProps) {
             }}
             maxLength={EVIDENCE_REF_MAX}
             required
-            placeholder="A URL, a Keybase proof, or a ticket id"
+            placeholder="https://example.com/proof"
+            inputMode="url"
             aria-invalid={errors.evidence_ref !== undefined}
             aria-describedby={describedBy("evidence_ref", `${ids.evidence_ref}-count`)}
             className={ADMIN_INPUT_CLASS}
@@ -280,6 +292,7 @@ export function LinkOwnerForm({ pageId, onNotice }: LinkOwnerFormProps) {
           title={LINK_COPY.heading}
           write={{
             isPending: link.isPending,
+            reset: link.reset,
             run: (proof, onError) =>
               link.mutate(
                 {

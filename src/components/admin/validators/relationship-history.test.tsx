@@ -119,6 +119,15 @@ const paramsOf = (n: number) => getHistory.mock.calls[n]?.[0] as Record<string, 
 const lastParams = () => paramsOf(getHistory.mock.calls.length - 1);
 const rowOf = (pageTitle: string) => screen.getByText(pageTitle).closest("li") as HTMLElement;
 
+describe("Audit history — unfamiliar actions", () => {
+  it.each(["owner_released", "constructor", "__proto__"])("renders %s as text without treating inherited properties as labels", async (action) => {
+    getHistory.mockResolvedValue(page([entry(1, { action })]));
+    renderHistory();
+    expect(await screen.findByText(action.toUpperCase())).toBeInTheDocument();
+    expect(screen.getByText("Validator 1")).toBeInTheDocument();
+  });
+});
+
 describe("Audit history — evidence is plain text (security D5)", () => {
   const HOSTILE_NOTE = '<img src="x" onerror="alert(1)"> see <a href="https://evil.example">this</a>';
 

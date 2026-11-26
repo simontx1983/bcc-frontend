@@ -260,6 +260,30 @@ async function fillLinkForm() {
   });
 }
 
+it("rejects a bare evidence ticket before starting confirmation", async () => {
+  api.getPage.mockResolvedValue(rel());
+  renderPage();
+  await ownership();
+  await fillLinkForm();
+  const input = screen.getByLabelText("EVIDENCE REFERENCE");
+  fireEvent.change(input, { target: { value: "TICKET-123" } });
+  fireEvent.click(screen.getByRole("button", { name: "Link owner" }));
+  expect(await screen.findByText(LINK_COPY.refInvalid)).toBeInTheDocument();
+  expect(input).toHaveFocus();
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(api.start).not.toHaveBeenCalled();
+});
+
+it("shows a send failure and lets the admin restart confirmation", async () => {
+  await openStaffRevokeDialog();
+  api.start.mockRejectedValueOnce(apiError("bcc_unavailable", 503, { reason: "mail_unavailable" }));
+  fireEvent.change(screen.getByLabelText("CURRENT PASSWORD"), { target: { value: PASSWORD } });
+  fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+  expect(await screen.findByText(STEP_UP_COPY.mailUnavailable)).toBeInTheDocument();
+  expect(screen.getByLabelText("CURRENT PASSWORD")).toHaveValue("");
+  expect(screen.queryByLabelText("CODE")).toBeNull();
+});
+
 async function openRevoke() {
   const section = await ownership();
   fireEvent.change(within(section).getByLabelText("REASON"), { target: { value: "evidence_withdrawn" } });
@@ -779,6 +803,47 @@ describe("Cancel this link", () => {
 });
 
 describe("Step-up — secrets and focus", () => {
+  it("refreshes a saved write's unavailable result without keeping a retry dialog", async () => {
+    const { qc } = await openStaffRevokeDialog();
+    api.start.mockResolvedValue(stepUpStarted());
+    await passPassword();
+    api.revoke.mockRejectedValueOnce(apiError("bcc_unavailable", 503, { reason: "result_unavailable", committed: true }));
+    await enterCode();
+
+    expect(await screen.findByText(STEP_UP_COPY.savedResultUnavailable)).toHaveAttribute("role", "alert");
+    expect(screen.queryByRole("dialog")).toBeNull();
+    await waitFor(() => expect(api.getPage).toHaveBeenCalledTimes(2));
+    expect(api.revoke).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(qc.getMutationCache().getAll().some((m) => JSON.stringify(m.state.variables ?? null).includes(CODE))).toBe(false));
+  });
+
+  const cacheHolds = (qc: QueryClient, secret: string) =>
+    qc.getMutationCache().getAll().some((m) => JSON.stringify(m.state.variables ?? null).includes(secret));
+
+  it("after a failed step-up start, the mutation cache holds no variables containing the password", async () => {
+    const { qc } = await openStaffRevokeDialog();
+    api.start.mockRejectedValueOnce(apiError("bcc_step_up_failed", 403, { reason: "password" }));
+    fireEvent.change(screen.getByLabelText("CURRENT PASSWORD"), { target: { value: PASSWORD } });
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    await screen.findByText(STEP_UP_COPY.wrongPassword);
+
+    // The dialog is still open: the reset happens on the failure, not on close.
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    await waitFor(() => expect(cacheHolds(qc, PASSWORD)).toBe(false));
+  });
+
+  it("after a failed write, the mutation cache holds no variables containing the code", async () => {
+    const { qc } = await openStaffRevokeDialog();
+    api.start.mockResolvedValue(stepUpStarted());
+    await passPassword();
+    api.revoke.mockRejectedValueOnce(apiError("bcc_unavailable", 503));
+    await enterCode();
+    await screen.findByText(STEP_UP_COPY.unavailable);
+
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    await waitFor(() => expect(cacheHolds(qc, CODE)).toBe(false));
+  });
+
   it("the password leaves the DOM and the mutation cache when the dialog closes", async () => {
     const { qc } = await openStaffRevokeDialog();
     api.start.mockReturnValueOnce(Promise.reject(apiError("bcc_rate_limited", 429)));
