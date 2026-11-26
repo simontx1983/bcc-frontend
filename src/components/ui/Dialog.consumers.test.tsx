@@ -21,6 +21,8 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
+vi.mock("@/lib/api/auth-endpoints", () => ({ checkSignupAge: vi.fn() }));
+
 // Mocked at the hook/module boundary so the API client — and the env
 // vars it demands at import time — stay out of this test's import graph.
 vi.mock("next-auth/react", () => ({ signOut: vi.fn(async () => undefined) }));
@@ -298,15 +300,15 @@ describe("focus returns to the opener", () => {
 });
 
 describe("WalletSignupPrompt — bare mode preserves initial focus", () => {
-  it("focuses the handle input rather than a close button", () => {
-    // With no corner ✕, the handle input is the panel's first focusable,
+  it("focuses the date input rather than a close button", () => {
+    // With no corner ✕, the date input is the panel's first focusable,
     // so Dialog's focus-on-open lands exactly where the component's own
     // (now-deleted) focus effect used to put it.
     render(<WalletSignupPrompt onSuccess={() => {}} onDismiss={() => {}} />);
 
     const active = document.activeElement as HTMLElement;
     expect(active.tagName).toBe("INPUT");
-    expect(active).toHaveAttribute("autocomplete", "username");
+    expect(active).toBe(screen.getByLabelText("Date of birth"));
   });
 });
 
@@ -382,11 +384,13 @@ describe("migrated content is unchanged", () => {
     expect(screen.getByRole("button", { name: /^cancel$/i })).toBeInTheDocument();
   });
 
-  it("WalletSignupPrompt keeps its three fields and cancel", () => {
+  it("WalletSignupPrompt asks for age before identity fields or the wallet signature", () => {
     render(<WalletSignupPrompt onSuccess={() => {}} onDismiss={() => {}} />);
-    expect(screen.getByText("Handle")).toBeInTheDocument();
-    expect(screen.getByText("Display name (optional)")).toBeInTheDocument();
-    expect(screen.getByText("Email (optional)")).toBeInTheDocument();
+    expect(screen.getByLabelText("Date of birth")).toBeInTheDocument();
+    expect(screen.queryByText("Handle")).toBeNull();
+    expect(screen.queryByText("Display name (optional)")).toBeNull();
+    expect(screen.queryByText("Email (optional)")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Continue with wallet" })).toBeNull();
     expect(screen.getByRole("button", { name: /^cancel$/i })).toBeInTheDocument();
   });
 

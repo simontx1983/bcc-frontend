@@ -107,6 +107,9 @@ interface UnfinishedSignup {
 
 export interface WalletAuthButtonProps {
   mode: "login" | "signup";
+  /** Opaque proof required before a new account can request a signature. */
+  eligibilityToken?: string;
+  onEligibilityExpired?: () => void;
   /** Required when mode="signup" — server validates per §B6 too. */
   handle?: string;
   /** Optional display name for signup. */
@@ -171,6 +174,11 @@ export function WalletAuthButton(props: WalletAuthButtonProps) {
 
   async function run() {
     setError(null);
+    const eligibilityToken = props.eligibilityToken ?? "";
+    if (isSignup && eligibilityToken === "") {
+      props.onEligibilityExpired?.();
+      return;
+    }
 
     if (selectedChain === undefined) {
       setError("Pick a supported chain.");
@@ -198,7 +206,7 @@ export function WalletAuthButton(props: WalletAuthButtonProps) {
       if (isSignup) {
         setStep(1);
         const signed = await fetchAndSign(chainSlug, chainType, connection);
-        await runSignup(connection, signed, props);
+        await runSignup(connection, signed, props, eligibilityToken);
         progress.created = { chainSlug, chainType, connection };
         setStep(2);
         await signInWithFreshSignature(chainSlug, chainType, connection);
@@ -211,6 +219,8 @@ export function WalletAuthButton(props: WalletAuthButtonProps) {
     } catch (err) {
       if (progress.created !== null) {
         markUnfinished(progress.created, err);
+      } else if (err instanceof BccApiError && err.code === "age_eligibility_required") {
+        props.onEligibilityExpired?.();
       } else {
         setError(humanizeError(err));
       }
@@ -424,12 +434,14 @@ async function runSignup(
   connection: WalletConnection,
   signed: { signature: string; extra: Record<string, string> },
   props: WalletAuthButtonProps,
+  eligibilityToken: string,
 ): Promise<void> {
   const handle = (props.handle ?? "").trim().toLowerCase();
   const displayName = (props.displayName ?? "").trim();
   const emailRaw = (props.email ?? "").trim();
 
   await walletSignup({
+    eligibility_token: eligibilityToken,
     wallet_address: connection.address,
     signature:      signed.signature,
     extra:          signed.extra,

@@ -23,6 +23,11 @@ export default function PrivacyPage() {
           {LEGAL.brand} (the &quot;Service&quot;). It should be read together with
           our Cookie Policy and Terms of Service.
         </LegalP>
+        <LegalP>
+          During signup, we use your date of birth to check eligibility.
+          The check issues a short-lived result for signup. The date is
+          not added to your account or sent to analytics or sign-in providers.
+        </LegalP>
       </LegalSection>
 
       <LegalSection n={2} heading="Information we collect">

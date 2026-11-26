@@ -48,7 +48,7 @@ const { MetaMaskUserRejectedError } = await import("@/lib/wallet/metamask");
 const onSuccess = vi.fn();
 
 function renderSignup(extra: { disabled?: boolean } = {}) {
-  return render(<WalletAuthButton mode="signup" handle="jo-welds" onSuccess={onSuccess} {...extra} />);
+  return render(<WalletAuthButton mode="signup" eligibilityToken="test-eligibility-proof" handle="jo-welds" onSuccess={onSuccess} {...extra} />);
 }
 const signUpButton = () => screen.getByRole("button", { name: "Sign up with wallet" });
 const finishButton = () => screen.getByRole("button", { name: "Sign in with wallet" });
@@ -187,7 +187,7 @@ describe("a failure after the account exists", () => {
     fireEvent.click(signUpButton());
     await screen.findByText("Account created — sign in");
 
-    rerender(<WalletAuthButton mode="signup" handle="" disabled onSuccess={onSuccess} />);
+    rerender(<WalletAuthButton mode="signup" eligibilityToken="test-eligibility-proof" handle="" disabled onSuccess={onSuccess} />);
     expect(finishButton()).toBeEnabled();
   });
 

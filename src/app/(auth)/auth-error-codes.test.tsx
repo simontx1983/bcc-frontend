@@ -23,6 +23,7 @@ import {
   stashPendingVerificationEmail,
 } from "@/lib/auth/pending-verification-email";
 
+vi.mock("@/components/auth/SignupAgeForm", async () => import("@/test/fixtures/approved-signup-age"));
 vi.mock("@/lib/env", () => ({
   clientEnv: { BCC_API_URL: "https://wp.example" },
 }));

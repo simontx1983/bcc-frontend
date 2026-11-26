@@ -35,6 +35,8 @@ import { type FormEvent, Suspense, useEffect, useState } from "react";
 
 import { AuthCard } from "@/components/auth/AuthCard";
 import { noteSignupCompleted, signupMethodForProvider } from "@/lib/analytics/posthog";
+import { SignupAgeForm } from "@/components/auth/SignupAgeForm";
+import { takeOAuthEligibility } from "@/lib/auth/signup-age-handoff";
 import { oauthComplete } from "@/lib/api/auth-endpoints";
 import { BccApiError } from "@/lib/api/types";
 import { suspendedCredential } from "@/lib/auth/auth-flags";
@@ -77,8 +79,11 @@ function CompleteProfileContent() {
   // it out of the URL (effect below) so a later visitor to this history
   // entry, or anyone handed the address, cannot replay it.
   const [pt]         = useState(() => searchParams.get("pt") ?? "");
+  const [eligibilityToken, setEligibilityToken] = useState<string | null>(null);
   useEffect(() => {
     scrubProviderTokenFromUrl();
+    const saved = takeOAuthEligibility();
+    if (saved !== null) setEligibilityToken(saved);
   }, []);
   const needsEmail   = (searchParams.get("email") ?? "") === "";
   // `?provider=` is appended by the OAuth callback (lib/auth.ts).
@@ -99,13 +104,14 @@ function CompleteProfileContent() {
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    if (!handleValid || !emailValid || pt === "") return;
+    if (!handleValid || !emailValid || pt === "" || eligibilityToken === null) return;
     setError(null);
     setSubmitting(true);
 
     try {
       const jwt = await oauthComplete({
         provider_token: pt,
+        eligibility_token: eligibilityToken,
         handle:         handle.trim().toLowerCase(),
         ...(displayName.trim() !== "" ? { display_name: displayName.trim() } : {}),
         ...(needsEmail ? { email: email.trim() } : {}),
@@ -138,6 +144,13 @@ function CompleteProfileContent() {
       const code = err instanceof BccApiError ? err.code : "bcc_unknown";
       if (code === "bcc_invalid_oauth_token") {
         setTokenExpired(true);
+      }
+      if (code === "age_eligibility_required") {
+        setEligibilityToken(null);
+        setHandle("");
+        setDisplayName("");
+        setEmail("");
+        return;
       }
       setError(ERROR_COPY[code] ?? "Something went wrong. Please try again.");
     } finally {
@@ -173,6 +186,14 @@ function CompleteProfileContent() {
         <p className="bcc-auth-hint" style={{ textAlign: "center", padding: "8px 0" }}>
           Just a moment…
         </p>
+      </AuthCard>
+    );
+  }
+
+  if (eligibilityToken === null) {
+    return (
+      <AuthCard heading="Create an account" footer={<Link href="/login">Back to sign in</Link>}>
+        <SignupAgeForm onEligible={setEligibilityToken} />
       </AuthCard>
     );
   }
