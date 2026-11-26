@@ -1,7 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import { getServerSession } from "next-auth";
-import { SpeedInsights } from "@vercel/speed-insights/next";
 
 import { Providers } from "./providers";
 import { VercelAnalytics } from "@/components/analytics/VercelAnalytics";
@@ -126,7 +125,6 @@ export default async function RootLayout({
           {children}
         </Providers>
         <VercelAnalytics />
-        <SpeedInsights />
       </body>
     </html>
   );

@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * VercelAnalytics — Vercel Web Analytics with the URL filter applied.
+ * VercelAnalytics — Vercel Web Analytics and Speed Insights with the URL filter applied.
  *
  * A client wrapper because `beforeSend` is a function, and a function
  * cannot be passed as a prop from the server root layout to a client
@@ -14,9 +14,15 @@
  */
 
 import { Analytics } from "@vercel/analytics/next";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 
 import { vercelAnalyticsBeforeSend } from "@/lib/analytics/vercel";
 
 export function VercelAnalytics() {
-  return <Analytics beforeSend={vercelAnalyticsBeforeSend} />;
+  return (
+    <>
+      <Analytics beforeSend={vercelAnalyticsBeforeSend} />
+      <SpeedInsights beforeSend={vercelAnalyticsBeforeSend} />
+    </>
+  );
 }

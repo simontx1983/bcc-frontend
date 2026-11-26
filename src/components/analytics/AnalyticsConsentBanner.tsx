@@ -46,8 +46,8 @@ export function AnalyticsConsentBanner() {
         <p className="font-serif text-sm text-bcc-text-secondary">
           Allow PostHog to measure the pages you open and selected actions,
           such as publishing a post? PostHog stays off until you allow it.
-          This choice applies only to PostHog. Vercel page counts and Sentry
-          diagnostics, when enabled, are separate. Change your choice on the{" "}
+          This choice applies only to PostHog. Vercel site measurement and
+          Sentry diagnostics, when enabled, are separate. Change your choice on the{" "}
           <Link href="/privacy" className="text-[var(--bcc-accent)] underline">
             Privacy page
           </Link>

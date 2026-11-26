@@ -41,7 +41,7 @@ describe("AnalyticsConsentBanner", () => {
   it("asks once, and Allow records consent and hides the banner", () => {
     render(<AnalyticsConsentBanner />);
     expect(screen.getByRole("region", { name: "Optional product analytics" })).toBeInTheDocument();
-    expect(screen.getByText(/This choice applies only to PostHog/)).toHaveTextContent("Vercel page counts and Sentry diagnostics");
+    expect(screen.getByText(/This choice applies only to PostHog/)).toHaveTextContent("Vercel site measurement and Sentry diagnostics");
     // F-514: in the shared bottom slot, stacked with the other notices.
     expect(screen.getByRole("region", { name: "Optional product analytics" }).closest("#bcc-bottom-slot")).not.toBeNull();
 
