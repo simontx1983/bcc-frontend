@@ -78,9 +78,9 @@ export default function PrivacyPage() {
           our control. Wallet addresses you link and their associated on-chain
           activity are publicly visible on the relevant network regardless of our
           Service. Linking a wallet creates an account association within BCC.
-          Other members may see on-chain information that a BCC feature makes
-          visible, such as a verification badge or eligible holdings. BCC
-          keeps linked wallet addresses private from other members.
+          Other members may see derived signals such as a verification badge.
+          BCC keeps linked wallet addresses, member-specific holdings and
+          wallet activity private from other members.
         </LegalP>
       </LegalSection>
 
