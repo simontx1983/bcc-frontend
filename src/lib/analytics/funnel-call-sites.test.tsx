@@ -18,6 +18,7 @@ import { isScript, isTestFile, sourceFiles } from "@/app/source-tree.testing";
 
 import type * as AnalyticsModule from "@/lib/analytics/posthog";
 
+vi.mock("@/components/auth/SignupAgeForm", async () => import("@/test/fixtures/approved-signup-age"));
 vi.mock("@/lib/env", () => ({
   clientEnv: { BCC_API_URL: "https://wp.example" },
 }));

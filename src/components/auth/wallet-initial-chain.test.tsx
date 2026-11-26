@@ -65,7 +65,7 @@ describe("WalletAuthButton — the chain across 'no account yet'", () => {
   });
 
   it("starts on initialChainSlug when it is a supported chain", () => {
-    render(<WalletAuthButton mode="signup" handle="jo-welds" onSuccess={() => {}} initialChainSlug="arbitrum" />);
+    render(<WalletAuthButton mode="signup" eligibilityToken="test-eligibility-proof" handle="jo-welds" onSuccess={() => {}} initialChainSlug="arbitrum" />);
     expect(chainSelect().value).toBe("arbitrum");
   });
 
@@ -88,6 +88,7 @@ describe("WalletAuthButton — the chain across 'no account yet'", () => {
     render(
       <WalletAuthButton
         mode="signup"
+        eligibilityToken="test-eligibility-proof"
         handle="jo-welds"
         onSuccess={() => {}}
         onWalletNotLinked={onWalletNotLinked}

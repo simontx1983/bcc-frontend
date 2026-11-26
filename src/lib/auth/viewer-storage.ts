@@ -91,6 +91,9 @@ export const VIEWER_SCOPED_STORAGE_KEYS: readonly string[] = [
   // `lib/auth/pending-verification-email`). It is one person's email
   // address, so a sign-out or viewer switch clears it.
   "bcc.verify.email",
+  // The short-lived age proof used across a same-tab signup OAuth redirect.
+  // Consumed when signup resumes, or cleared at a viewer boundary.
+  "bcc.signup.oauth-eligibility",
   // The one-shot "an account was just created" analytics marker
   // (`lib/analytics/posthog`, SIGNUP_COMPLETED_STORAGE_KEY), in
   // sessionStorage. Holds only the signup method, but it is about one

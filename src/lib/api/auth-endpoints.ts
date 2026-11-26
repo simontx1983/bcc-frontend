@@ -127,6 +127,7 @@ export interface OAuthHandleRequiredResponse {
 
 export interface OAuthCompleteRequest {
   provider_token: string;
+  eligibility_token: string;
   handle: string;
   display_name?: string;
   /**
@@ -162,6 +163,7 @@ export async function oauthComplete(input: OAuthCompleteRequest): Promise<AuthTo
 }
 
 export interface SignupRequest {
+  eligibility_token: string;
   email: string;
   password: string;
   handle: string;
@@ -198,6 +200,13 @@ export async function signup(input: SignupRequest): Promise<SignupResponse> {
   return bccFetch<SignupResponse>("auth/signup", {
     method: "POST",
     body: input,
+  });
+}
+
+export function checkSignupAge(birthDate: string): Promise<{ eligibility_token: string }> {
+  return bccFetch<{ eligibility_token: string }>("auth/age-eligibility", {
+    method: "POST",
+    body: { birth_date: birthDate },
   });
 }
 

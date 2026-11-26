@@ -4033,6 +4033,7 @@ export interface WalletLoginRequest {
 }
 
 export interface WalletSignupRequest {
+  eligibility_token: string;
   wallet_address: string;
   signature: string;
   /** §B6 handle rules — server is authoritative. */

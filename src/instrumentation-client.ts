@@ -6,6 +6,7 @@ import * as Sentry from "@sentry/nextjs";
 
 import { initAnalytics } from "@/lib/analytics/posthog";
 import { scrubSentryEvent } from "@/lib/sentry/scrub";
+import { filterSignupAgeBreadcrumb, isSignupAgeRequest } from "@/lib/sentry/signup-age";
 
 // Product analytics is opt-in: this starts PostHog only when the build is
 // configured AND this device has already consented. Otherwise the consent
@@ -36,6 +37,12 @@ Sentry.init({
   // 10% sampling balances signal vs Sentry billing in production. Bump
   // to 1 only when actively debugging.
   tracesSampleRate: 0.1,
+  integrations: (defaults) => defaults.map((integration) =>
+    integration.name === "BrowserTracing"
+      ? Sentry.browserTracingIntegration({ shouldCreateSpanForRequest: (url) => !isSignupAgeRequest(url) })
+      : integration
+  ),
+  beforeBreadcrumb: filterSignupAgeBreadcrumb,
 
   // Disabled: see sentry.server.config.ts for rationale.
   enableLogs: false,

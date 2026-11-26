@@ -22,6 +22,7 @@ import { type FormEvent, useState } from "react";
 
 import { AuthCard, AuthDivider, SSOButton } from "@/components/auth/AuthCard";
 import { PasswordStrengthMeter } from "@/components/auth/PasswordStrengthMeter";
+import { SignupAgeForm } from "@/components/auth/SignupAgeForm";
 import { WalletAuthButton } from "@/components/auth/WalletAuthButton";
 import { captureAnalyticsEvent, noteSignupCompleted } from "@/lib/analytics/posthog";
 import { signup } from "@/lib/api/auth-endpoints";
@@ -29,6 +30,7 @@ import { BccApiError } from "@/lib/api/types";
 import { checkHandleLocal, formatHandleHint } from "@/lib/auth/handleValidation";
 import { PASSWORD_BREACHED_CODE, PASSWORD_BREACHED_COPY } from "@/lib/auth/password-policy";
 import { stashPendingVerificationEmail } from "@/lib/auth/pending-verification-email";
+import { stashOAuthEligibility } from "@/lib/auth/signup-age-handoff";
 
 const ERROR_COPY: Record<string, string> = {
   bcc_invalid_request: "Email, password, and handle are all required.",
@@ -41,6 +43,25 @@ const ERROR_COPY: Record<string, string> = {
 };
 
 export function SignupPageClient() {
+  const [eligibilityToken, setEligibilityToken] = useState<string | null>(null);
+  if (eligibilityToken === null) {
+    return (
+      <AuthCard heading="Create an account" footer={<Link href="/login">Sign in</Link>}>
+        <SignupAgeForm onEligible={setEligibilityToken} />
+      </AuthCard>
+    );
+  }
+
+  return <SignupMethods eligibilityToken={eligibilityToken} onExpired={() => setEligibilityToken(null)} />;
+}
+
+function SignupMethods({
+  eligibilityToken,
+  onExpired,
+}: {
+  eligibilityToken: string;
+  onExpired: () => void;
+}) {
   const router = useRouter();
 
   const [email, setEmail]             = useState("");
@@ -68,6 +89,7 @@ export function SignupPageClient() {
     try {
       const trimmedDisplayName = displayName.trim();
       await signup({
+        eligibility_token: eligibilityToken,
         email:   trimmedEmail,
         password,
         handle:  handle.trim().toLowerCase(),
@@ -75,7 +97,9 @@ export function SignupPageClient() {
       });
     } catch (err) {
       setSubmitting(false);
-      if (err instanceof BccApiError && err.code === PASSWORD_BREACHED_CODE) {
+      if (err instanceof BccApiError && err.code === "age_eligibility_required") {
+        onExpired();
+      } else if (err instanceof BccApiError && err.code === PASSWORD_BREACHED_CODE) {
         setPasswordError(PASSWORD_BREACHED_COPY);
       } else if (err instanceof BccApiError) {
         // §γ — unmapped codes fall back to generic copy, never err.message.
@@ -106,12 +130,18 @@ export function SignupPageClient() {
       <SSOButton
         provider="google"
         mode="signup"
-        onStart={() => { captureAnalyticsEvent("signup_started", { method: "google" }); }}
+        onStart={() => {
+          stashOAuthEligibility(eligibilityToken);
+          captureAnalyticsEvent("signup_started", { method: "google" });
+        }}
       />
       <SSOButton
         provider="twitter"
         mode="signup"
-        onStart={() => { captureAnalyticsEvent("signup_started", { method: "x" }); }}
+        onStart={() => {
+          stashOAuthEligibility(eligibilityToken);
+          captureAnalyticsEvent("signup_started", { method: "x" });
+        }}
       />
 
       <AuthDivider />
@@ -240,6 +270,8 @@ export function SignupPageClient() {
         </p>
         <WalletAuthButton
           mode="signup"
+          eligibilityToken={eligibilityToken}
+          onEligibilityExpired={onExpired}
           handle={handle}
           {...(displayName.trim() !== "" ? { displayName } : {})}
           disabled={!handleValid || submitting}

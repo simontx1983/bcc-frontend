@@ -38,10 +38,11 @@
  * first focusable and Dialog's focus-on-open picks it.
  */
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { Dialog } from "@/components/ui/Dialog";
 import { WalletAuthButton } from "@/components/auth/WalletAuthButton";
+import { SignupAgeForm } from "@/components/auth/SignupAgeForm";
 import { captureAnalyticsEvent, noteSignupCompleted } from "@/lib/analytics/posthog";
 import { checkHandleLocal, formatHandleHint } from "@/lib/auth/handleValidation";
 import { newAccountScope } from "@/lib/auth/new-account-scope";
@@ -69,18 +70,10 @@ export interface WalletSignupPromptProps {
 
 
 export function WalletSignupPrompt(props: WalletSignupPromptProps) {
-  const [handle, setHandle] = useState(props.initialHandle ?? "");
-  const [displayName, setDisplayName] = useState("");
-  const [email, setEmail] = useState("");
-
-  const handleErrorKind = checkHandleLocal(handle);
-  const handleValid = handleErrorKind === null && handle.length >= 3;
-  const handleHint = formatHandleHint(handle, handleErrorKind);
-
+  const [eligibilityToken, setEligibilityToken] = useState<string | null>(null);
   return (
     // `bare` so the existing bcc-panel shell, its p-8 padding and the
-    // absence of a corner close control all survive untouched — and so
-    // the handle input stays the first focusable. The backdrop keeps its
+    // absence of a corner close control all survive untouched. The backdrop keeps its
     // original 60% tint with no blur; Dialog's default would add both a
     // heavier tint and backdrop-blur-sm that this surface never had.
     <Dialog
@@ -99,12 +92,45 @@ export function WalletSignupPrompt(props: WalletSignupPromptProps) {
         create one. You&apos;ll sign in with this wallet, no password needed.
       </p>
 
-      <div className="mt-6 flex flex-col gap-4">
+      <div className="mt-6">
+        {eligibilityToken === null
+          ? <SignupAgeForm onEligible={setEligibilityToken} focusOnMount />
+          : <WalletSignupDetails {...props} eligibilityToken={eligibilityToken} onExpired={() => setEligibilityToken(null)} />}
+      </div>
+      <button
+        type="button"
+        onClick={props.onDismiss}
+        className="bcc-mono mt-2 min-h-[44px] w-full py-2 text-bcc-text-secondary underline"
+      >
+        Cancel
+      </button>
+    </Dialog>
+  );
+}
+
+function WalletSignupDetails({
+  initialHandle, initialChainSlug, onSuccess, eligibilityToken, onExpired,
+}: Omit<WalletSignupPromptProps, "onDismiss"> & { eligibilityToken: string; onExpired: () => void }) {
+  const [handle, setHandle] = useState(initialHandle ?? "");
+  const [displayName, setDisplayName] = useState("");
+  const [email, setEmail] = useState("");
+  const handleInput = useRef<HTMLInputElement>(null);
+  const handleErrorKind = checkHandleLocal(handle);
+  const handleValid = handleErrorKind === null && handle.length >= 3;
+  const handleHint = formatHandleHint(handle, handleErrorKind);
+
+  useEffect(() => {
+    handleInput.current?.focus();
+  }, []);
+
+  return (
+      <div className="flex flex-col gap-4">
         <label className="flex flex-col gap-1.5">
           <span className="bcc-mono text-bcc-text-secondary">Handle</span>
           <div className="flex items-center border border-bcc-input-border bg-bcc-input-bg focus-within:border-bcc-accent focus-within:ring-1 focus-within:ring-bcc-accent">
             <span className="bcc-mono pl-3 text-bcc-text-secondary">@</span>
             <input
+              ref={handleInput}
               type="text"
               required
               minLength={3}
@@ -158,8 +184,10 @@ export function WalletSignupPrompt(props: WalletSignupPromptProps) {
         <WalletAuthButton
           mode="signup"
           handle={handle}
+          eligibilityToken={eligibilityToken}
+          onEligibilityExpired={onExpired}
           disabled={!handleValid}
-          {...(props.initialChainSlug !== undefined ? { initialChainSlug: props.initialChainSlug } : {})}
+          {...(initialChainSlug !== undefined ? { initialChainSlug } : {})}
           {...(displayName.trim() !== "" ? { displayName } : {})}
           {...(email.trim() !== "" ? { email } : {})}
           // This modal sits on /login, a denied analytics route, so the
@@ -179,19 +207,11 @@ export function WalletSignupPrompt(props: WalletSignupPromptProps) {
               // signup sent nothing.
               const trimmedEmail = email.trim();
               if (trimmedEmail !== "") writePendingRecoveryEmail(trimmedEmail, scope);
-              props.onSuccess(scope);
+              onSuccess(scope);
             })();
           }}
         />
 
-        <button
-          type="button"
-          onClick={props.onDismiss}
-          className="bcc-mono min-h-[44px] py-2 text-bcc-text-secondary underline"
-        >
-          Cancel
-        </button>
       </div>
-    </Dialog>
   );
 }
