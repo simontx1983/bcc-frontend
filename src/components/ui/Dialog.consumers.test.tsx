@@ -18,7 +18,8 @@
  * individual utilities, never a whole class string.
  */
 
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { checkSignupAge } from "@/lib/api/auth-endpoints";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/api/auth-endpoints", () => ({ checkSignupAge: vi.fn() }));
@@ -309,6 +310,14 @@ describe("WalletSignupPrompt — bare mode preserves initial focus", () => {
     const active = document.activeElement as HTMLElement;
     expect(active.tagName).toBe("INPUT");
     expect(active).toBe(screen.getByLabelText("Date of birth"));
+  });
+
+  it("moves focus to the handle when the wallet age step finishes", async () => {
+    vi.mocked(checkSignupAge).mockResolvedValueOnce({ eligibility_token: "test-proof" });
+    render(<WalletSignupPrompt onSuccess={() => {}} onDismiss={() => {}} />);
+    fireEvent.change(screen.getByLabelText("Date of birth"), { target: { value: "2000-01-01" } });
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    await waitFor(() => expect(document.activeElement).toHaveAttribute("autocomplete", "username"));
   });
 });
 

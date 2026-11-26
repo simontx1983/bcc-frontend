@@ -38,7 +38,7 @@
  * first focusable and Dialog's focus-on-open picks it.
  */
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { Dialog } from "@/components/ui/Dialog";
 import { WalletAuthButton } from "@/components/auth/WalletAuthButton";
@@ -73,8 +73,7 @@ export function WalletSignupPrompt(props: WalletSignupPromptProps) {
   const [eligibilityToken, setEligibilityToken] = useState<string | null>(null);
   return (
     // `bare` so the existing bcc-panel shell, its p-8 padding and the
-    // absence of a corner close control all survive untouched — and so
-    // the handle input stays the first focusable. The backdrop keeps its
+    // absence of a corner close control all survive untouched. The backdrop keeps its
     // original 60% tint with no blur; Dialog's default would add both a
     // heavier tint and backdrop-blur-sm that this surface never had.
     <Dialog
@@ -95,7 +94,7 @@ export function WalletSignupPrompt(props: WalletSignupPromptProps) {
 
       <div className="mt-6">
         {eligibilityToken === null
-          ? <SignupAgeForm onEligible={setEligibilityToken} />
+          ? <SignupAgeForm onEligible={setEligibilityToken} focusOnMount />
           : <WalletSignupDetails {...props} eligibilityToken={eligibilityToken} onExpired={() => setEligibilityToken(null)} />}
       </div>
       <button
@@ -115,9 +114,14 @@ function WalletSignupDetails({
   const [handle, setHandle] = useState(initialHandle ?? "");
   const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
+  const handleInput = useRef<HTMLInputElement>(null);
   const handleErrorKind = checkHandleLocal(handle);
   const handleValid = handleErrorKind === null && handle.length >= 3;
   const handleHint = formatHandleHint(handle, handleErrorKind);
+
+  useEffect(() => {
+    handleInput.current?.focus();
+  }, []);
 
   return (
       <div className="flex flex-col gap-4">
@@ -126,6 +130,7 @@ function WalletSignupDetails({
           <div className="flex items-center border border-bcc-input-border bg-bcc-input-bg focus-within:border-bcc-accent focus-within:ring-1 focus-within:ring-bcc-accent">
             <span className="bcc-mono pl-3 text-bcc-text-secondary">@</span>
             <input
+              ref={handleInput}
               type="text"
               required
               minLength={3}

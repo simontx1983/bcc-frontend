@@ -1,16 +1,27 @@
 "use client";
 
-import { useId, useState, type FormEvent } from "react";
+import { useEffect, useId, useRef, useState, type FormEvent } from "react";
 
 import { checkSignupAge } from "@/lib/api/auth-endpoints";
 import { BccApiError } from "@/lib/api/types";
 
-export function SignupAgeForm({ onEligible }: { onEligible: (token: string) => void }) {
+export function SignupAgeForm({
+  onEligible,
+  focusOnMount = false,
+}: {
+  onEligible: (token: string) => void;
+  focusOnMount?: boolean;
+}) {
   const dateId = useId();
+  const dateInput = useRef<HTMLInputElement>(null);
   const [date, setDate] = useState("");
   const [pending, setPending] = useState(false);
   const [refused, setRefused] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (focusOnMount) dateInput.current?.focus();
+  }, [focusOnMount]);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -20,6 +31,10 @@ export function SignupAgeForm({ onEligible }: { onEligible: (token: string) => v
     setDate("");
     try {
       const { eligibility_token } = await checkSignupAge(date);
+      if (typeof eligibility_token !== "string" || eligibility_token.trim() === "") {
+        setError("The age check is unavailable. Try again.");
+        return;
+      }
       onEligible(eligibility_token);
     } catch (cause) {
       const code = cause instanceof BccApiError ? cause.code : null;
@@ -45,6 +60,7 @@ export function SignupAgeForm({ onEligible }: { onEligible: (token: string) => v
         <label className="bcc-auth-label" htmlFor={dateId}>Date of birth</label>
         <input
           id={dateId}
+          ref={dateInput}
           className="bcc-auth-input"
           type="date"
           autoComplete="off"

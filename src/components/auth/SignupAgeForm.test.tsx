@@ -53,4 +53,13 @@ describe("signup age check", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("Enter a valid date of birth.");
     expect(screen.getByLabelText("Date of birth")).toHaveValue("");
   });
+
+  it("keeps the next step closed when the service returns an empty proof", async () => {
+    const next = vi.fn();
+    vi.mocked(checkSignupAge).mockResolvedValue({ eligibility_token: "" });
+    render(<SignupAgeForm onEligible={next} />);
+    answer("2000-01-01");
+    expect(await screen.findByRole("alert")).toHaveTextContent("The age check is unavailable.");
+    expect(next).not.toHaveBeenCalled();
+  });
 });

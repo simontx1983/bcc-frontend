@@ -20,6 +20,7 @@ interface StorageRow {
 const STORAGE: StorageRow[] = [
   { name: "Session token", type: "Cookie (HttpOnly)", purpose: "Keeps you signed in and secures authenticated requests.", category: "Strictly necessary" },
   { name: "CSRF token", type: "Cookie", purpose: "Protects sign-in and session actions against cross-site request forgery.", category: "Strictly necessary" },
+  { name: "Signup eligibility proof", type: "Session storage", purpose: "Keeps the short-lived age eligibility result in this tab while you go to Google or X and back. It holds no birth date and is removed when signup resumes.", category: "Strictly necessary" },
   { name: "Theme preference", type: "Local storage", purpose: "Remembers your light/dark theme choice.", category: "Functional" },
   { name: "Sidebar state", type: "Local storage", purpose: "Remembers whether you collapsed the navigation sidebar.", category: "Functional" },
   { name: "Fraud-check flag", type: "Session storage", purpose: "Records that this session already ran the once-per-session fraud-prevention device check, so it is not repeated.", category: "Functional" },
