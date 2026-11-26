@@ -48,6 +48,7 @@ import { notFound, permanentRedirect } from "next/navigation";
 import { ProfileUnavailable } from "@/components/errors/ProfileUnavailable";
 
 import { FileRail } from "@/components/layout/FileRail";
+import { CopyrightReportLink } from "@/components/media/CopyrightReportLink";
 import { AttestationActionCluster } from "@/components/profile/AttestationActionCluster";
 import { BlockToggle } from "@/components/profile/BlockToggle";
 import { ProfileMessageButton } from "@/components/profile/ProfileMessageButton";
@@ -366,6 +367,12 @@ export default async function MemberProfilePage({ params, searchParams }: PagePr
           variant={profile.viewer_is_watching === true ? "compact" : "full"}
           nameAs="h1"
         />
+        {(profile.avatar_url || profile.cover_photo_url) && (
+          <CopyrightReportLink
+            path={`/u/${encodeURIComponent(profile.handle)}`}
+            item="Profile avatar or cover photo (please specify which)"
+          />
+        )}
         {titleFallbackUsed && profile.display_name.trim() !== "" && (
           <p
             className="bcc-mono mt-2 text-bcc-text-secondary"

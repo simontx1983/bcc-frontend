@@ -90,6 +90,8 @@ import { useGiphyIntegration } from "@/hooks/useGiphyIntegration";
 import { useMenuButton } from "@/hooks/useMenuButton";
 import { captureAnalyticsEvent } from "@/lib/analytics/posthog";
 import { uploadBlogCoverImage } from "@/lib/api/blog-endpoints";
+import { CopyrightReportLink } from "@/components/media/CopyrightReportLink";
+import { UploadRightsReminder } from "@/components/media/UploadRightsReminder";
 import { humanizeCode, isPermissionDenial } from "@/lib/api/errors";
 import {
   shouldWithdrawOnDenial,
@@ -1151,6 +1153,12 @@ function CommentRow({
       {comment.media !== undefined && (
         <div className="pl-[40px]">
           <CommentMediaView media={comment.media} />
+          {comment.media.kind === "photo" && (
+            <CopyrightReportLink
+              path={`/post/${encodeURIComponent(feedId)}`}
+              item={`Comment image (${comment.id})`}
+            />
+          )}
         </div>
       )}
       {/* Mobile-only: the rail is too tight to also carry the timestamp once
@@ -2024,6 +2032,7 @@ function CommentComposer({
             the submit failed. */}
         {expanded && (
           <div className="flex flex-col gap-1">
+            <UploadRightsReminder />
             <div className="flex items-center justify-between gap-3">
               {/* gap-3 here and below: each 32px control carries
                   HIT_AREA_44, and the enlarged areas must not cover a

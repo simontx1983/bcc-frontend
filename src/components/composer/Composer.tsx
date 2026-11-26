@@ -53,6 +53,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { counterToneClass } from "@/lib/counter-tone";
 import { useCreatePostMutation } from "@/hooks/useCreatePost";
 import { PhotoIcon } from "@/components/feed/actionIcons";
+import { UploadRightsReminder } from "@/components/media/UploadRightsReminder";
 import { Avatar } from "@/components/identity/Avatar";
 import { GifPicker } from "@/components/composer/GifPicker";
 import { LongFormOffer } from "@/components/composer/LongFormOffer";
@@ -913,6 +914,8 @@ function InlineStatusComposer({
                 </div>
               </fieldset>
             )}
+
+            {!isPageScoped && <UploadRightsReminder />}
 
             <footer className="flex items-center justify-between gap-2 sm:gap-3">
               <div className="flex min-w-0 flex-1 items-center gap-1.5 sm:gap-2">

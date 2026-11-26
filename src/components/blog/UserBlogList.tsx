@@ -1,5 +1,7 @@
 "use client";
 
+import { CopyrightReportLink } from "@/components/media/CopyrightReportLink";
+
 /**
  * UserBlogList — paginated blog post list for the §D6 Blog tab.
  *
@@ -201,6 +203,9 @@ function BlogPostBody({ item, onEdit }: BlogPostBodyProps) {
             className="object-cover"
             unoptimized
           />
+          <div data-theme="dark" className="absolute bottom-3 right-3 rounded-sm bg-ink/80 px-3">
+            <CopyrightReportLink path={item.links.self} item="Blog cover image" />
+          </div>
         </div>
       )}
 

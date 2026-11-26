@@ -27,6 +27,7 @@
 import { useEffect, useState } from "react";
 
 import { Dialog } from "@/components/ui/Dialog";
+import { CopyrightReportLink } from "@/components/media/CopyrightReportLink";
 import { useReportContent } from "@/hooks/useReportContent";
 import { humanizeCode } from "@/lib/api/errors";
 import {
@@ -76,6 +77,8 @@ interface ReportModalProps {
    * Report on an announcement is a small lie the modal does not need to tell.
    */
   subjectLabel?: string;
+  /** Location for the separate copyright concern workflow on media posts. */
+  mediaReportPath?: string;
   onClose: () => void;
 }
 
@@ -100,6 +103,7 @@ export function ReportModal({
   targetKind,
   targetId,
   subjectLabel = "post",
+  mediaReportPath,
   onClose,
 }: ReportModalProps) {
   const [reason, setReason] = useState<ContentReportReason | null>(null);
@@ -186,6 +190,10 @@ export function ReportModal({
               CLOSE
             </button>
           </header>
+
+          {mediaReportPath !== undefined && (
+            <CopyrightReportLink path={mediaReportPath} item="Media attached to this post" />
+          )}
 
           <fieldset className="flex flex-col gap-2">
             <legend className="bcc-mono mb-1 text-[10px] tracking-[0.24em] text-bcc-text-secondary">

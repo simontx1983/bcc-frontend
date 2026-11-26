@@ -173,6 +173,9 @@ export function PostOverflowMenu({
         <ReportModal
           targetKind="feed_item"
           targetId={resolveTargetId(item)}
+          {...(item.post_kind === "photo" || item.post_kind === "gif" || item.post_kind === "blog_excerpt"
+            ? { mediaReportPath: selfHref }
+            : {})}
           onClose={() => setReportOpen(false)}
         />
       )}

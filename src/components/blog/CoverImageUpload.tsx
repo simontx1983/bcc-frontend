@@ -1,5 +1,7 @@
 "use client";
 
+import { UPLOAD_RIGHTS_REMINDER } from "@/components/media/UploadRightsReminder";
+
 /**
  * CoverImageUpload — drag-drop or click cover-image uploader.
  *
@@ -166,6 +168,9 @@ export function CoverImageUpload({ value, onChange, disabled = false }: CoverIma
           </span>
           <span className="bcc-mono text-[10px] text-bcc-text-secondary">
             JPEG · PNG · WebP · GIF · up to 8 MB
+          </span>
+          <span className="bcc-mono px-2 text-center text-[11px] text-bcc-text-secondary">
+            {UPLOAD_RIGHTS_REMINDER}
           </span>
         </label>
       )}

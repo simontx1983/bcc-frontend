@@ -17,7 +17,8 @@
  * without a Gravatar / WP avatar).
  */
 
-import { type ChangeEvent, type MouseEvent, useRef } from "react";
+import { type ChangeEvent, type MouseEvent, useId, useRef } from "react";
+import { UPLOAD_RIGHTS_REMINDER } from "@/components/media/UploadRightsReminder";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
@@ -47,6 +48,7 @@ export function Crest({
   const isPageCard = card.card_kind !== "member";
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const uploadReminderId = useId();
   const router = useRouter();
   const queryClient = useQueryClient();
 
@@ -183,6 +185,7 @@ export function Crest({
             modal. */}
         {canEditAvatar && (
           <>
+            <span id={uploadReminderId} className="sr-only">{UPLOAD_RIGHTS_REMINDER}</span>
             <input
             ref={fileInputRef}
             type="file"
@@ -195,6 +198,8 @@ export function Crest({
             type="button"
             onClick={handleOpenPicker}
             aria-label="Update avatar"
+            aria-describedby={uploadReminderId}
+            title={UPLOAD_RIGHTS_REMINDER}
             disabled={activeUpload.isPending || pageDelete.isPending}
             // z-[10]: above the card's z-5 .bcc-card-body-link nav overlay
             // (interactive affordances live at 10+ — see globals.css). The
