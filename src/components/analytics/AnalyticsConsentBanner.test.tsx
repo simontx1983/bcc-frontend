@@ -40,16 +40,17 @@ afterEach(() => {
 describe("AnalyticsConsentBanner", () => {
   it("asks once, and Allow records consent and hides the banner", () => {
     render(<AnalyticsConsentBanner />);
-    expect(screen.getByRole("region", { name: "Analytics" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Optional product analytics" })).toBeInTheDocument();
+    expect(screen.getByText(/This choice applies only to PostHog/)).toHaveTextContent("Vercel page counts and Sentry diagnostics");
     // F-514: in the shared bottom slot, stacked with the other notices.
-    expect(screen.getByRole("region", { name: "Analytics" }).closest("#bcc-bottom-slot")).not.toBeNull();
+    expect(screen.getByRole("region", { name: "Optional product analytics" }).closest("#bcc-bottom-slot")).not.toBeNull();
 
     act(() => {
       fireEvent.click(screen.getByRole("button", { name: "Allow" }));
     });
 
     expect(window.localStorage.getItem("bcc-analytics-consent")).toBe("granted");
-    expect(screen.queryByRole("region", { name: "Analytics" })).toBeNull();
+    expect(screen.queryByRole("region", { name: "Optional product analytics" })).toBeNull();
   });
 
   it("Decline records the choice without starting the SDK", () => {
@@ -60,13 +61,13 @@ describe("AnalyticsConsentBanner", () => {
     });
     expect(window.localStorage.getItem("bcc-analytics-consent")).toBe("denied");
     expect(sdk.init).not.toHaveBeenCalled();
-    expect(screen.queryByRole("region", { name: "Analytics" })).toBeNull();
+    expect(screen.queryByRole("region", { name: "Optional product analytics" })).toBeNull();
   });
 
   it("stays hidden once a choice exists", () => {
     window.localStorage.setItem("bcc-analytics-consent", "denied");
     render(<AnalyticsConsentBanner />);
-    expect(screen.queryByRole("region", { name: "Analytics" })).toBeNull();
+    expect(screen.queryByRole("region", { name: "Optional product analytics" })).toBeNull();
   });
 });
 

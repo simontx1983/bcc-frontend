@@ -29,11 +29,11 @@ export default function PrivacyPage() {
         <LegalP>We collect the following categories of information:</LegalP>
         <LegalUL>
           <li><strong>Account information</strong> — email address, chosen handle, display name, and a securely hashed password (we never store passwords in plain text).</li>
-          <li><strong>Wallet and on-chain information</strong> — blockchain wallet addresses you link (verified by a signature), and the public on-chain holdings, tokens, NFT, and validator activity associated with them. This data is public on the blockchain; we index and display it.</li>
+          <li><strong>Wallet and on-chain information</strong> — addresses you link using a signature, the link to your BCC account, and the public on-chain holdings and activity we use for supported features.</li>
           <li><strong>Profile and activity</strong> — content you create (posts, comments, media), reactions, attestations, reviews, disputes, group memberships, and trust/reputation signals derived from your activity.</li>
-          <li><strong>Device and technical information</strong> — IP address (stored only in hashed form for security), browser and device characteristics, and a device fingerprint used for fraud and multiple-account detection (see section 4).</li>
+          <li><strong>Device and technical information</strong> — IP address, request information, browser and device characteristics, and a device fingerprint for fraud and multiple-account detection (see section 4).</li>
           <li><strong>Usage information</strong> — pages viewed, actions taken, timestamps, and request metadata, used to operate and secure the Service.</li>
-          <li><strong>Communications</strong> — messages you send us and, where applicable, notification and email preferences.</li>
+          <li><strong>Communications</strong> — private messages you send or receive through the Service, messages you send us, and notification and email preferences.</li>
           <li><strong>Authentication data from single sign-on</strong> — if you sign in with Google or X, we receive basic profile information (such as your email and identifier) from that provider.</li>
         </LegalUL>
       </LegalSection>
@@ -57,7 +57,11 @@ export default function PrivacyPage() {
           from limited browser-reported signals (such as an automation flag and
           screen characteristics). We use it to detect when one device or actor
           controls multiple accounts and to score automation. IP addresses used
-          in this process are stored only as keyed hashes, not in raw form.
+          for these fingerprint records are stored as keyed hashes. This
+          applies to our fingerprint records. Hosting and security providers
+          receive IP addresses when they handle requests. When we use
+          Cloudflare Turnstile to check for bots, our server may send
+          Cloudflare the challenge response and your IP address for verification.
         </LegalP>
         <LegalP>
           <strong>Consent.</strong> When you create an account, you consent to
@@ -73,8 +77,10 @@ export default function PrivacyPage() {
           Blockchain networks are public and, by design, permanent and outside
           our control. Wallet addresses you link and their associated on-chain
           activity are publicly visible on the relevant network regardless of our
-          Service. When you link a wallet, you acknowledge that this information
-          is public and may be displayed and associated with your profile.
+          Service. Linking a wallet creates an account association within BCC.
+          Other members may see on-chain information that a BCC feature makes
+          visible, such as a verification badge or eligible holdings. BCC
+          keeps linked wallet addresses private from other members.
         </LegalP>
       </LegalSection>
 
@@ -96,7 +102,9 @@ export default function PrivacyPage() {
           We do not sell your personal information. We share it only with:
         </LegalP>
         <LegalUL>
-          <li><strong>Service providers / processors</strong> that help us run the Service, including cloud hosting and deployment, error and performance monitoring, blockchain RPC and data providers (used to read public on-chain data), single sign-on providers, media providers, email delivery, and product analytics (PostHog, only if you allow analytics — see section 14). These providers process data on our behalf under contractual safeguards.</li>
+          <li><strong>Hosting and storage.</strong> Vercel serves the website. Our WordPress hosting processes account, content and API requests, and stores media uploaded to the Service. These systems receive request information such as IP addresses as part of delivering the Service.</li>
+          <li><strong>Services you choose to use.</strong> Google or X handles your sign-in choices when you select that provider. When you use the GIF picker, your browser sends searches directly to GIPHY, which receives your search terms and IP address. Wallet connections and blockchain lookups involve your wallet software and supported blockchain data providers.</li>
+          <li><strong>Delivery, security and measurement.</strong> Email providers receive the destination address and message for delivery. If you enable browser push, the browser&apos;s push service processes the subscription and notification for delivery. Cloudflare verifies bot challenges. Vercel Web Analytics, Sentry diagnostics and optional PostHog product analytics are described in section 14.</li>
           <li><strong>Legal and safety</strong> — where required by law, legal process, or to protect the rights, safety, and integrity of the Service and its users.</li>
           <li><strong>Business transfers</strong> — in connection with a merger, acquisition, financing, or sale of assets, subject to this policy.</li>
         </LegalUL>
@@ -126,7 +134,7 @@ export default function PrivacyPage() {
       <LegalSection n={10} heading="Security">
         <LegalP>
           We use technical and organizational measures to protect information,
-          including password hashing, hashed IP storage, signed authentication
+          including password hashing, keyed IP hashes in fingerprint records, signed authentication
           tokens, access controls, rate limiting, and audit logging. No method of
           transmission or storage is completely secure, and we cannot guarantee
           absolute security. You are responsible for safeguarding your
@@ -153,9 +161,11 @@ export default function PrivacyPage() {
 
       <LegalSection n={12} heading="Children">
         <LegalP>
-          The Service is not directed to children under 18, and we do not
-          knowingly collect their information. If you believe a child has
-          provided us information, contact us and we will delete it.
+          Membership is limited to people aged 18 or older. To report an
+          account that may belong to someone under 18, contact{" "}
+          <a href={`mailto:${LEGAL.privacyEmail}`} className="text-[var(--bcc-accent)] underline">{LEGAL.privacyEmail}</a>.
+          We review those reports and handle the account and its information
+          under applicable requirements.
         </LegalP>
       </LegalSection>
 
@@ -205,15 +215,24 @@ export default function PrivacyPage() {
         <LegalP>
           <strong>Vercel Web Analytics.</strong> Separately, our host Vercel
           counts page views in aggregate. It uses no cookies and stores
-          nothing on your device, so it does not need your consent. Page
+          no analytics identifier on your device. The PostHog choice does
+          not control Vercel Web Analytics. Page
           addresses are sent without their query string or fragment, with
           person identifiers replaced as above, and nothing is sent from
           sign-in, sign-up completion, password-reset, email-verification or
           messaging pages. Along with the page address, Vercel records the
           referring site, and derives your country, browser, operating system
           and device type from the request. Visitors are counted with an
-          identifier that resets every day; Vercel does not store your IP
-          address.
+          identifier that resets every day. Vercel processes request IP
+          information for measurement. Hosting logs are separate from Web
+          Analytics.
+        </LegalP>
+        <LegalP>
+          <strong>Sentry diagnostics.</strong> When configured, Sentry receives
+          errors and sampled performance data to help us diagnose issues.
+          We filter diagnostic data and disable default collection of personal
+          information. Session Replay is disabled. The PostHog choice applies
+          to PostHog and does not control these diagnostics.
         </LegalP>
         <div id="analytics-choice" className="mt-4">
           <AnalyticsConsentControl />

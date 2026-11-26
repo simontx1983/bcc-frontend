@@ -4,8 +4,8 @@
  * AnalyticsConsentBanner — the one-time product-analytics choice.
  *
  * Shown only when PostHog is configured for this build and the device has
- * not chosen yet. Not modal: the page stays usable, and nothing is
- * recorded while it is open. Both answers carry equal visual weight. The
+ * not chosen yet. The page stays usable and PostHog stays off until
+ * consent. Both answers carry equal visual weight. The
  * choice can be changed later from the Privacy and Cookie pages
  * (`AnalyticsConsentControl`).
  *
@@ -41,13 +41,13 @@ export function AnalyticsConsentBanner() {
           id={headingId}
           className="bcc-mono text-[10px] uppercase tracking-[0.18em] text-bcc-text-secondary"
         >
-          Analytics
+          Optional product analytics
         </h2>
         <p className="font-serif text-sm text-bcc-text-secondary">
-          May we record which pages you open and a few actions, such as
-          publishing a post, to see how the site is used? This uses PostHog.
-          Page addresses are sent without query strings, and nothing is
-          recorded unless you allow it. You can change this later on the{" "}
+          Allow PostHog to measure the pages you open and selected actions,
+          such as publishing a post? PostHog stays off until you allow it.
+          This choice applies only to PostHog. Vercel page counts and Sentry
+          diagnostics, when enabled, are separate. Change your choice on the{" "}
           <Link href="/privacy" className="text-[var(--bcc-accent)] underline">
             Privacy page
           </Link>
