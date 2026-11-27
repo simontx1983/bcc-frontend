@@ -104,10 +104,10 @@ export default function CookiesPage() {
           them may prevent you from signing in or using core features.
         </LegalP>
         <LegalP>
-          You can allow or turn off optional PostHog product analytics for
-          this browser here. Vercel Web Analytics, Vercel Speed Insights and Sentry diagnostics,
-          when enabled, operate separately. The Privacy Policy explains
-          what each service receives.
+          When optional PostHog product analytics is available, you can allow
+          it or turn it off for this browser here. Vercel Web Analytics,
+          Vercel Speed Insights and Sentry diagnostics, when enabled, operate
+          separately. The Privacy Policy explains what each service receives.
         </LegalP>
         <div className="mt-3">
           <AnalyticsConsentControl />

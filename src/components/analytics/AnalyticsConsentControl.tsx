@@ -24,7 +24,7 @@ export function AnalyticsConsentControl() {
   if (!isAnalyticsConfigured) {
     return (
       <p className="bcc-mono text-[11px] text-bcc-text-secondary">
-        Product analytics is not enabled on this site, so nothing is recorded.
+        PostHog product analytics is disabled on this site.
       </p>
     );
   }

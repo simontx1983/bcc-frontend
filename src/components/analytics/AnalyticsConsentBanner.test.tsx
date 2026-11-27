@@ -28,6 +28,7 @@ vi.mock("next/link", () => ({
 
 import { AnalyticsConsentBanner } from "@/components/analytics/AnalyticsConsentBanner";
 import { AnalyticsConsentControl } from "@/components/analytics/AnalyticsConsentControl";
+import * as analytics from "@/lib/analytics/posthog";
 
 beforeEach(() => {
   window.localStorage.clear();
@@ -35,6 +36,7 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup();
+  vi.restoreAllMocks();
 });
 
 describe("AnalyticsConsentBanner", () => {
@@ -72,6 +74,15 @@ describe("AnalyticsConsentBanner", () => {
 });
 
 describe("AnalyticsConsentControl", () => {
+  it("scopes the unavailable message to PostHog", () => {
+    vi.spyOn(analytics, "isAnalyticsConfigured", "get").mockReturnValue(false);
+
+    render(<AnalyticsConsentControl />);
+
+    expect(screen.getByText("PostHog product analytics is disabled on this site.")).toBeInTheDocument();
+    expect(screen.queryByRole("group", { name: "Analytics choice" })).not.toBeInTheDocument();
+  });
+
   it("shows the current choice and lets it be changed", () => {
     window.localStorage.setItem("bcc-analytics-consent", "granted");
     render(<AnalyticsConsentControl />);
