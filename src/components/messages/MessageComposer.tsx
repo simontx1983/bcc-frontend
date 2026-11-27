@@ -23,13 +23,13 @@ import Link from "next/link";
 import {
   useRef,
   useState,
-  useSyncExternalStore,
   type KeyboardEvent as ReactKeyboardEvent,
 } from "react";
 
 import { captureAnalyticsEvent } from "@/lib/analytics/posthog";
 import { counterToneClass } from "@/lib/counter-tone";
 import { useReplyInConversationMutation } from "@/hooks/useReplyInConversation";
+import { useTouchOnly } from "@/hooks/useTouchOnly";
 import { humanizeCode } from "@/lib/api/errors";
 import { MESSAGE_BODY_MAX_LENGTH, type CardPermissionEntry } from "@/lib/api/types";
 import { resolveDmGate } from "@/lib/validators/messaging";
@@ -43,31 +43,8 @@ interface MessageComposerProps {
 /** Where the viewer's own direct-message switch lives. */
 const MESSAGE_SETTINGS_HREF = "/u/me?tab=messages" as Route;
 
-const COARSE_POINTER = "(any-pointer: coarse)";
-const FINE_POINTER = "(any-pointer: fine)";
-
-/** Touch only: some coarse pointer and no fine one (M-me3). */
-function readTouchOnly(): boolean {
-  if (typeof window === "undefined" || typeof window.matchMedia !== "function") return false;
-  return window.matchMedia(COARSE_POINTER).matches && !window.matchMedia(FINE_POINTER).matches;
-}
-
-function subscribeToPointers(onChange: () => void): () => void {
-  if (typeof window === "undefined" || typeof window.matchMedia !== "function") return () => {};
-  const lists = [window.matchMedia(COARSE_POINTER), window.matchMedia(FINE_POINTER)];
-  for (const list of lists) list.addEventListener?.("change", onChange);
-  return () => {
-    for (const list of lists) list.removeEventListener?.("change", onChange);
-  };
-}
-
-/**
- * Live, so plugging a trackpad into a tablet switches Enter back to send.
- * The server snapshot is "not touch only": the markup a desktop expects.
- */
-function useTouchOnly(): boolean {
-  return useSyncExternalStore(subscribeToPointers, readTouchOnly, () => false);
-}
+// Touch only (M-me3): Enter inserts a newline. The signal lives in
+// hooks/useTouchOnly, shared with the "Open in wallet app" step.
 
 export function MessageComposer({ conversationId, canReply }: MessageComposerProps) {
   const gate = resolveDmGate(canReply);

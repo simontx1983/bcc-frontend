@@ -37,6 +37,9 @@ import { recoveryAvailability } from "@/lib/onboarding/recovery-availability";
 import { findWalletChain, groupedWalletChains } from "@/lib/wallet/chain-catalog";
 import { walletHintFor } from "@/lib/wallet/dispatch";
 import { humanizeLinkError, runLinkFlow } from "@/lib/wallet/linkFlow";
+import { walletInstallUrl } from "@/lib/wallet/dispatch";
+import type { WalletChainType } from "@/lib/wallet/chain-catalog";
+import { OpenInWalletApp } from "@/components/wallet/OpenInWalletApp";
 import { CollectionStancePanel } from "@/components/onchain/CollectionStancePanel";
 import {
   SessionWriteFailedNotice,
@@ -298,6 +301,8 @@ function LinkWalletForm({ chainSelectRef }: LinkWalletFormProps) {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  /** The chain type whose wallet wasn't installed, for the phone step. */
+  const [notInstalled, setNotInstalled] = useState<WalletChainType | null>(null);
 
   const selectedChain = findWalletChain(chainSlug);
 
@@ -308,6 +313,7 @@ function LinkWalletForm({ chainSelectRef }: LinkWalletFormProps) {
     }
     setError(null);
     setSuccess(null);
+    setNotInstalled(null);
     setPending(true);
 
     try {
@@ -331,6 +337,7 @@ function LinkWalletForm({ chainSelectRef }: LinkWalletFormProps) {
       setSuccess(`Linked ${response.chain_name || response.chain_slug} wallet.`);
     } catch (err) {
       setError(humanizeLinkError(err));
+      setNotInstalled(walletInstallUrl(err) !== null ? selectedChain.chainType : null);
     } finally {
       setPending(false);
     }
@@ -390,6 +397,7 @@ function LinkWalletForm({ chainSelectRef }: LinkWalletFormProps) {
           {error}
         </p>
       )}
+      {notInstalled !== null && <OpenInWalletApp chainType={notInstalled} />}
       {success !== null && (
         <p className="bcc-mono text-[11px]" style={{ color: "var(--verified)" }}>
           {success}

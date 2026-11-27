@@ -51,8 +51,10 @@ import {
   humanizeWalletProviderError,
   signWalletChallenge,
   walletHintFor,
+  walletInstallUrl,
   type WalletConnection,
 } from "@/lib/wallet/dispatch";
+import { OpenInWalletApp } from "@/components/wallet/OpenInWalletApp";
 
 // ─────────────────────────────────────────────────────────────────────
 // Chain options — full catalog of providers BCC has signing flows for
@@ -144,6 +146,8 @@ export function WalletAuthButton(props: WalletAuthButtonProps) {
   );
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** The chain type whose wallet wasn't installed, for the phone step. */
+  const [notInstalled, setNotInstalled] = useState<WalletChainType | null>(null);
   /** Which of a sign-up's two prompts is running; 0 when none is. */
   const [step, setStep] = useState<0 | 1 | 2>(0);
   /** Set once a sign-up created the account but signing in did not finish. */
@@ -171,6 +175,7 @@ export function WalletAuthButton(props: WalletAuthButtonProps) {
 
   async function run() {
     setError(null);
+    setNotInstalled(null);
 
     if (selectedChain === undefined) {
       setError("Pick a supported chain.");
@@ -213,6 +218,7 @@ export function WalletAuthButton(props: WalletAuthButtonProps) {
         markUnfinished(progress.created, err);
       } else {
         setError(humanizeError(err));
+        setNotInstalled(walletInstallUrl(err) !== null ? chainType : null);
       }
     } finally {
       setPending(false);
@@ -345,6 +351,7 @@ export function WalletAuthButton(props: WalletAuthButtonProps) {
           {error !== null && (
             <p role="alert" className="bcc-auth-error">{error}</p>
           )}
+          {notInstalled !== null && <OpenInWalletApp chainType={notInstalled} />}
         </div>
       )}
 

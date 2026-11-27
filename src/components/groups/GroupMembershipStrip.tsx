@@ -69,6 +69,8 @@ import { isAllowed, isSignInGate, reasonCode, unlockHint } from "@/lib/permissio
 import { findWalletChain } from "@/lib/wallet/chain-catalog";
 import { humanizeCode } from "@/lib/api/errors";
 import { humanizeLinkError } from "@/lib/wallet/linkFlow";
+import { walletInstallUrl } from "@/lib/wallet/dispatch";
+import { OpenInWalletApp } from "@/components/wallet/OpenInWalletApp";
 
 interface GroupMembershipStripProps {
   group: GroupDetailResponse;
@@ -631,23 +633,31 @@ function EligibilityCheck({
   // §γ-keyed join copy (collection-aware not-eligible / opt-out / rate-limit).
   const joinErrorMessage = join.error ? humanizeJoinError(join.error) : null;
   const errorMessage = link.error ? humanizeLinkError(link.error) : joinErrorMessage;
+  // On a phone, "not installed" is a dead end: offer the wallet app's own browser.
+  const openInWalletApp =
+    chainOpt !== undefined && link.error !== null && walletInstallUrl(link.error) !== null ? (
+      <OpenInWalletApp chainType={chainOpt.chainType} />
+    ) : null;
 
   // No verified wallet on the group's chain → connect one inline, then join.
   if (noMatchingWallet && canConnect) {
     return (
-      <ActionRow primaryCopy={connectCopy(chainOpt.label)}>
-        <GroupActionButton
-          groupId={group.id}
-          label="CONNECT WALLET & VERIFY"
-          pendingLabel={connectLabel}
-          isPending={busy}
-          errorMessage={errorMessage}
-          touchTarget
-          onClick={() => {
-            void connectAndJoin();
-          }}
-        />
-      </ActionRow>
+      <div className="flex flex-col gap-3">
+        <ActionRow primaryCopy={connectCopy(chainOpt.label)}>
+          <GroupActionButton
+            groupId={group.id}
+            label="CONNECT WALLET & VERIFY"
+            pendingLabel={connectLabel}
+            isPending={busy}
+            errorMessage={errorMessage}
+            touchTarget
+            onClick={() => {
+              void connectAndJoin();
+            }}
+          />
+        </ActionRow>
+        {openInWalletApp}
+      </div>
     );
   }
 
@@ -690,6 +700,7 @@ function EligibilityCheck({
           </button>
         </div>
       )}
+      {openInWalletApp}
     </div>
   );
 }
