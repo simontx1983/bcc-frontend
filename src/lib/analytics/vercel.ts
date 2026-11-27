@@ -1,5 +1,5 @@
 /**
- * vercel — the `beforeSend` filter for Vercel Web Analytics.
+ * vercel — the `beforeSend` filter for Vercel Web Analytics and Speed Insights.
  *
  * Vercel Web Analytics is cookieless and aggregate (page-view counts, no
  * identity, nothing stored on the device), so it runs without the PostHog
@@ -23,6 +23,7 @@ import {
 /** Structurally the SDK's `BeforeSendEvent`: only `url` is read or rewritten. */
 interface VercelAnalyticsEvent {
   url: string;
+  route?: string;
 }
 
 /** The pathname of an absolute or root-relative URL, or null if unparseable. */
@@ -40,5 +41,10 @@ export function vercelAnalyticsBeforeSend<T extends VercelAnalyticsEvent>(
   const path = pathnameOf(event.url);
   // Unparseable means we cannot prove the page is allowed: drop it.
   if (path === null || isDeniedAnalyticsPath(path)) return null;
-  return { ...event, url: generaliseUrlPath(stripQueryAndHash(event.url)) };
+  const url = generaliseUrlPath(stripQueryAndHash(event.url));
+  if (event.route === undefined) return { ...event, url };
+
+  const routePath = pathnameOf(event.route);
+  if (routePath === null || isDeniedAnalyticsPath(routePath)) return null;
+  return { ...event, url, route: generaliseUrlPath(stripQueryAndHash(event.route)) };
 }

@@ -3,6 +3,25 @@ import { describe, expect, it } from "vitest";
 import { ANALYTICS_DENIED_ROUTES } from "@/lib/analytics/sanitize";
 import { vercelAnalyticsBeforeSend } from "@/lib/analytics/vercel";
 
+describe("Speed Insights filtering", () => {
+  it("generalizes both URL and route while keeping the vital event type", () => {
+    expect(vercelAnalyticsBeforeSend({
+      type: "vital",
+      url: "https://bluecollarcrypto.io/u/alice?tab=account",
+      route: "/u/alice?tab=account#details",
+    })).toEqual({
+      type: "vital",
+      url: "https://bluecollarcrypto.io/u/[handle]",
+      route: "/u/[handle]",
+    });
+  });
+
+  it("drops a vital when either the URL or its route belongs to a sensitive page", () => {
+    expect(vercelAnalyticsBeforeSend({ type: "vital", url: "/login", route: "/feed" })).toBeNull();
+    expect(vercelAnalyticsBeforeSend({ type: "vital", url: "/feed", route: "/messages" })).toBeNull();
+  });
+});
+
 const ORIGIN = "https://bluecollarcrypto.io";
 const view = (url: string) => ({ type: "pageview" as const, url });
 
