@@ -26,10 +26,12 @@ import {
 import { PageContextLine } from "@/components/feed/PageContextLine";
 import { POST_KIND_LABELS, deriveBodySummary } from "@/components/feed/postBody";
 import { useFeedItem } from "@/hooks/useFeed";
+import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
 import { CommentDrawer } from "@/components/feed/CommentDrawer";
 import { PostActionBar } from "@/components/feed/PostActionBar";
 import { PostOverflowMenu } from "@/components/feed/PostOverflowMenu";
 import { ReactorStack } from "@/components/feed/ReactorStack";
+import { RepostedOriginal } from "@/components/feed/RepostBlocks";
 import { VerificationBadge } from "@/components/groups/VerificationBadge";
 import { AuthorBadge } from "@/components/identity/AuthorBadge";
 import { formatAbsoluteDateTime } from "@/lib/format";
@@ -75,6 +77,8 @@ export function PostDetail({
   useEffect(() => {
     if (deleted) deletedHeadingRef.current?.focus();
   }, [deleted]);
+  // F-426: the jump to the composer respects prefers-reduced-motion.
+  const reducedMotion = usePrefersReducedMotion();
   const kindLabel = POST_KIND_LABELS[item.post_kind] ?? item.post_kind.toUpperCase();
   const isReview  = item.post_kind === "review";
   const isBlog    = item.post_kind === "blog_excerpt";
@@ -168,6 +172,10 @@ export function PostDetail({
         </p>
       )}
 
+      {/* F-346: a repost's permalink nests the original read-only, or the
+          "original unavailable" block when this viewer can't see it. */}
+      <RepostedOriginal item={item} />
+
       <ReactorStack social_proof={item.social_proof} />
 
       <PostActionBar
@@ -178,7 +186,7 @@ export function PostDetail({
           // Comments are always open below on the detail page — jump the
           // viewer to the composer rather than navigating anywhere.
           const el = document.getElementById(`comment-${item.id}`);
-          el?.scrollIntoView({ block: "center", behavior: "smooth" });
+          el?.scrollIntoView({ block: "center", behavior: reducedMotion ? "auto" : "smooth" });
           (el as HTMLTextAreaElement | null)?.focus();
         }}
         commentTitle="Jump to the composer"

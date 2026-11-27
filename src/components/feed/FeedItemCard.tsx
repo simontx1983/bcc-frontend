@@ -34,6 +34,7 @@ import { POST_KIND_LABELS, deriveBodySummary } from "@/components/feed/postBody"
 import { PostActionBar } from "@/components/feed/PostActionBar";
 import { PostOverflowMenu } from "@/components/feed/PostOverflowMenu";
 import { ReactorStack } from "@/components/feed/ReactorStack";
+import { RepostedByLine, RepostedOriginal, isPlainRepost } from "@/components/feed/RepostBlocks";
 import { VerificationBadge } from "@/components/groups/VerificationBadge";
 import { AuthorBadge } from "@/components/identity/AuthorBadge";
 import { formatAbsoluteDateTime } from "@/lib/format";
@@ -43,8 +44,15 @@ import type { FeedItem } from "@/lib/api/types";
 function FeedItemCardImpl({
   item,
   canInteract = true,
+  repost,
 }: {
   item: FeedItem;
+  /**
+   * F-346: set when `item` is the ORIGINAL shown for a plain repost — this
+   * is the reposter's wrapper item, for the "@x reposted" line. Everything
+   * else on the card (body, links, action bar) is the original's.
+   */
+  repost?: FeedItem | undefined;
   /**
    * Gates the WRITE affordances only. When false (§4.7.6 non-member
    * group teaser): the reaction rail's buttons are disabled and the
@@ -167,6 +175,8 @@ function FeedItemCardImpl({
       data-bcc-tour="feed.item"
       className="bcc-panel relative flex cursor-pointer flex-col gap-3 p-3.5 pb-2.5 sm:p-4 sm:pb-3"
     >
+      {repost !== undefined && <RepostedByLine repost={repost} />}
+
       {/*
         Sprint 1 Identity Grammar — header is now <AuthorBadge>. Operator
         pill folds into AuthorBadge (driven by author.is_operator); the
@@ -243,6 +253,10 @@ function FeedItemCardImpl({
           </p>
         )}
 
+        {/* F-346 quote repost: the original nested read-only, or the
+            "original unavailable" block when this viewer can't see it. */}
+        <RepostedOriginal item={item} />
+
         <ReactorStack social_proof={item.social_proof} />
       </div>
 
@@ -265,5 +279,19 @@ function FeedItemCardImpl({
 // `item` references should skip re-render. Memoization was previously
 // absent on this surface; adding it as part of Sprint 1 Identity
 // Grammar to keep the new AuthorBadge sub-tree from amplifying churn.
-export const FeedItemCard = memo(FeedItemCardImpl);
+//
+// F-346: a PLAIN repost renders as the original, under a "reposted" line,
+// so its actions hit the original and engagement is not split across
+// copies. Plain vs quote is the reposter's text (isPlainRepost: empty =
+// plain), so a quote always keeps the wrapper (its text plus the nested
+// original) and no text is ever dropped. No hooks here, so the switch
+// cannot change Impl's hook order.
+function FeedItemCardSwitch({ item, canInteract = true }: { item: FeedItem; canInteract?: boolean }) {
+  if (isPlainRepost(item)) {
+    return <FeedItemCardImpl item={item.repost_of} canInteract={canInteract} repost={item} />;
+  }
+  return <FeedItemCardImpl item={item} canInteract={canInteract} />;
+}
+
+export const FeedItemCard = memo(FeedItemCardSwitch);
 FeedItemCard.displayName = "FeedItemCard";
