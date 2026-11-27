@@ -107,3 +107,22 @@ export function cardHeaderWord(card: Card): string {
   const kicker = card.kicker?.trim() ?? "";
   return kicker !== "" ? kicker : "community";
 }
+
+/**
+ * Chain slug for the header pill, or null.
+ *
+ * Validators carry it on the crest; communities carry it on the dossier.
+ * There is deliberately NO fallback: the old band printed a literal
+ * "BCC" whenever the crest wasn't chain-keyed, which put a meaningless
+ * word in the card's most prominent slot. Empty means empty.
+ */
+export function chainSlug(card: Card): string | null {
+  if (card.card_kind === "community") {
+    const tag = card.community_dossier?.chain_tag ?? null;
+    return tag !== null && tag !== "" ? tag : null;
+  }
+  if (card.crest.background_kind === "chain" && card.crest.background_value !== "") {
+    return card.crest.background_value;
+  }
+  return null;
+}

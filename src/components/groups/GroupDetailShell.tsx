@@ -44,6 +44,7 @@ import { GroupTabs, type GroupTabKey } from "@/components/groups/GroupTabs";
 import { Avatar } from "@/components/identity/Avatar";
 import { FileRail } from "@/components/layout/FileRail";
 import type { GroupDetailResponse } from "@/lib/api/types";
+import { communityChainLabel } from "@/lib/communities/chain-catalog";
 
 const KIND_RAIL_LABEL: Record<GroupDetailResponse["type"], string> = {
   nft:    "HOLDERS",
@@ -138,6 +139,12 @@ export function GroupDetailShell({
   const showShare = sharePath !== undefined && sharePath !== "";
   const description = group.description?.trim() ?? "";
   const access = communityAccessLabel(group);
+  // The chain's name from the catalog ("Cosmos Hub"), the slug only when
+  // the catalog has none — as the card back says it.
+  const chain =
+    group.chain_tag !== null && group.chain_tag !== ""
+      ? (communityChainLabel(group.chain_tag) ?? group.chain_tag)
+      : null;
   const requirement = holdingRequirement(group.collection_stats);
   // The barrier is for someone outside: a member already holds enough
   // (the card's standing strip draws the same line).
@@ -169,7 +176,7 @@ export function GroupDetailShell({
           <>
             <Chip>{access}</Chip>
             {showRequirementChip && <Chip>{requirement}</Chip>}
-            {group.chain_tag !== null && group.chain_tag !== "" && <Chip>{group.chain_tag}</Chip>}
+            {chain !== null && <Chip>{chain}</Chip>}
             {group.verification !== null && <Chip verified>{group.verification.label}</Chip>}
           </>
         }
@@ -227,10 +234,10 @@ export function GroupDetailShell({
               <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-[14px]">
                 <dt className="text-bcc-text-secondary">Access</dt>
                 <dd>{access}</dd>
-                {group.chain_tag !== null && group.chain_tag !== "" && (
+                {chain !== null && (
                   <>
                     <dt className="text-bcc-text-secondary">Chain</dt>
-                    <dd>{group.chain_tag}</dd>
+                    <dd>{chain}</dd>
                   </>
                 )}
                 {group.verification !== null && (

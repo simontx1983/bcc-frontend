@@ -1,7 +1,9 @@
 /**
  * Testnet UX audit (2026-11-23), phone layout:
  *   - S2: the validator stats strip put every stat in one row at every
- *     width, so at 375px four stats clipped their labels ("FOLLOW…").
+ *     width, so at 375px four stats clipped their labels ("FOLLOW…"). The
+ *     strip is now the detail header's counts (Site Structure A §12), and
+ *     the rule moved with it.
  *   - S5: controls on the main tester journeys under 44px: the header
  *     Sign Up / Join the Floor, the card Flip chip (24px), WRITE A REVIEW
  *     and VOUCH (and their REMOVE twins), and the legal links in the phone
@@ -19,37 +21,36 @@ import { resolve } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 
 import { MECHANISM, classesOf, openTags } from "@/app/tap-target-scan.testing";
-// Imported at collection, outside every test's 5s timer: EntityProfile pulls
-// in a large module graph, and importing it inside `it` timed out.
-import { statsCellSpan, statsStripColumns } from "@/components/entity/EntityProfile";
+// Imported at collection, outside every test's 5s timer (large module graphs).
+import { headerStatsCellSpan, headerStatsColumns } from "@/components/detail/DetailLayout";
 
 vi.mock("@/lib/env", () => ({ env: { NEXT_PUBLIC_BCC_API_URL: "http://x" }, clientEnv: { BCC_API_URL: "http://x" } }));
 
 const read = (p: string) => readFileSync(resolve(process.cwd(), p), "utf-8");
 const short = (tags: string[], src: string) => tags.filter((t) => !MECHANISM.test(classesOf(t, src)));
 
-describe("S2 — the validator stats strip", () => {
-  it("is at most two across below sm, and one row of up to six from sm up", () => {
-    expect(statsStripColumns(1)).toBe("grid-cols-1 sm:grid-cols-1");
-    expect(statsStripColumns(2)).toBe("grid-cols-2 sm:grid-cols-2");
-    expect(statsStripColumns(4)).toBe("grid-cols-2 sm:grid-cols-4");
-    expect(statsStripColumns(6)).toBe("grid-cols-2 sm:grid-cols-6");
-    expect(statsStripColumns(9)).toBe("grid-cols-2 sm:grid-cols-6");
+describe("S2 — the detail header's counts strip", () => {
+  it("up to three counts in one row; four or more two across below sm, one row of up to six from sm up", () => {
+    expect(headerStatsColumns(1)).toBe("grid-cols-1 sm:grid-cols-1");
+    expect(headerStatsColumns(3)).toBe("grid-cols-3 sm:grid-cols-3");
+    expect(headerStatsColumns(4)).toBe("grid-cols-2 sm:grid-cols-4");
+    expect(headerStatsColumns(6)).toBe("grid-cols-2 sm:grid-cols-6");
+    expect(headerStatsColumns(9)).toBe("grid-cols-2 sm:grid-cols-6");
   });
 
-  it("an odd count's last stat spans both columns below sm, so no empty cell shows", () => {
-    expect([0, 1, 2].map((i) => statsCellSpan(3, i))).toEqual(["", "", "col-span-2 sm:col-span-1"]);
-    expect(statsCellSpan(5, 4)).toBe("col-span-2 sm:col-span-1");
-    expect([0, 1, 2, 3].map((i) => statsCellSpan(4, i))).toEqual(["", "", "", ""]);
-    expect(statsCellSpan(1, 0)).toBe("");
-    const src = read("src/components/entity/EntityProfile.tsx");
-    expect(src).toContain("statsCellSpan(stats.length, i)");
+  it("an odd count of four or more spans its last cell below sm, so no empty cell shows", () => {
+    expect(headerStatsCellSpan(5, 4)).toBe("col-span-2 sm:col-span-1");
+    expect([0, 1, 2].map((i) => headerStatsCellSpan(3, i))).toEqual(["", "", ""]);
+    expect([0, 1, 2, 3].map((i) => headerStatsCellSpan(4, i))).toEqual(["", "", "", ""]);
+    const src = read("src/components/detail/DetailLayout.tsx");
+    expect(src).toContain("headerStatsCellSpan(shownStats.length, i)");
   });
 
   it("no inline column count overrides the classes", () => {
-    const src = read("src/components/entity/EntityProfile.tsx");
-    const strip = src.slice(src.indexOf("function StatsStrip("), src.indexOf("function StatsStrip(") + 700);
-    expect(strip).toMatch(/statsStripColumns\(stats\.length\)/);
+    const src = read("src/components/detail/DetailLayout.tsx");
+    const at = src.indexOf("{shownStats.length > 0 && (");
+    const strip = src.slice(at, at + 900);
+    expect(strip).toMatch(/headerStatsColumns\(shownStats\.length\)/);
     expect(strip).not.toMatch(/gridTemplateColumns/);
   });
 });

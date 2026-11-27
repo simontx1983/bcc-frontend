@@ -14,8 +14,12 @@
  *               announcements); other kinds: LockedStreamPanel / §N10 empty
  *   Watchers  — CardWatchersPanel (PeepSo follower graph anchored on
  *               the page's post_author; empty for unclaimed cards)
+ *   Delegators — DelegatorGroupPanel (validator pages with a delegator
+ *               group; it used to sit above the tabs)
  *   On-chain  — OnchainSignalsBlock (validator-only; tab hidden when
  *               indexer hasn't produced data)
+ *   Gallery   — CreatorGallery (creator pages; it used to sit below the
+ *               page, Site Structure A §12)
  *   Chains    — ChainTabs (multi-chain operators only)
  *
  * Default active tab: `backing` — matches the visitor default on
@@ -40,7 +44,9 @@ type EntityTabKey =
   | "announcements"
   | "activity"
   | "watchers"
+  | "delegators"
   | "onchain"
+  | "gallery"
   | "chains";
 
 interface EntityTabDef {
@@ -66,8 +72,12 @@ export interface EntityTabsProps {
    * On-chain and Chains panels below.
    */
   announcementsPanel?: ReactNode | null;
+  /** Optional Delegators panel (validator pages) — when null, the tab is hidden. */
+  delegatorsPanel?: ReactNode | null;
   /** Optional On-chain panel — when null, the tab is hidden. */
   onchainPanel?: ReactNode | null;
+  /** Optional Gallery panel (creator pages) — when null, the tab is hidden. */
+  galleryPanel?: ReactNode | null;
   /** Optional Chains panel — when null, the tab is hidden. */
   chainsPanel?: ReactNode | null;
 }
@@ -78,12 +88,16 @@ export function EntityTabs({
   activityPanel,
   watchersPanel,
   announcementsPanel,
+  delegatorsPanel,
   onchainPanel,
+  galleryPanel,
   chainsPanel,
 }: EntityTabsProps) {
   const hasAnnouncements =
     announcementsPanel !== undefined && announcementsPanel !== null;
+  const hasDelegators = delegatorsPanel !== undefined && delegatorsPanel !== null;
   const hasOnchain = onchainPanel !== undefined && onchainPanel !== null;
+  const hasGallery = galleryPanel !== undefined && galleryPanel !== null;
   const hasChains  = chainsPanel  !== undefined && chainsPanel  !== null;
 
   // Memoized because `tabKeys` below feeds useRovingTabs, whose onKeyDown is
@@ -111,10 +125,13 @@ export function EntityTabs({
       { key: "activity", label: "Activity" },
       { key: "watchers", label: "Watchers" },
     ];
+    // The kind's own tabs, in the §12 order: Delegators, On-chain, Gallery, Chains.
+    if (hasDelegators) list.push({ key: "delegators", label: "Delegators" });
     if (hasOnchain) list.push({ key: "onchain", label: "On-chain" });
+    if (hasGallery) list.push({ key: "gallery", label: "Gallery" });
     if (hasChains)  list.push({ key: "chains",  label: "Chains"  });
     return list;
-  }, [hasAnnouncements, hasOnchain, hasChains]);
+  }, [hasAnnouncements, hasDelegators, hasOnchain, hasGallery, hasChains]);
 
   const [active, setActive] = useState<EntityTabKey>("backing");
 
@@ -134,8 +151,8 @@ export function EntityTabs({
       {/* Strip — mirrors ProfileTabs exactly (same .bcc-tab class).
           Horizontal scroll on phones so the row never compresses below
           a readable width. */}
-      {/* Four always-on tabs plus up to three optional ones (announcements,
-          onchain, chains) — so four to seven, scrolling below `sm`. The active
+      {/* Four always-on tabs plus up to five optional ones (announcements,
+          delegators, onchain, gallery, chains), scrolling below `sm`. The active
           tab cannot ARRIVE off-screen here — `active` is seeded to the first
           key and there is no initialTab prop or URL read — but the rail still
           hides the tail of a full strip on a phone with nothing to say so. The
@@ -187,7 +204,9 @@ export function EntityTabs({
         {active === "announcements" && announcementsPanel !== undefined && announcementsPanel !== null && announcementsPanel}
         {active === "activity" && activityPanel}
         {active === "watchers" && watchersPanel}
+        {active === "delegators" && hasDelegators && delegatorsPanel}
         {active === "onchain"  && onchainPanel !== undefined && onchainPanel !== null && onchainPanel}
+        {active === "gallery"  && hasGallery && galleryPanel}
         {active === "chains"   && chainsPanel  !== undefined && chainsPanel  !== null && chainsPanel}
       </div>
     </section>

@@ -41,3 +41,12 @@ export const COMMUNITY_CHAIN_CATALOG: ReadonlyArray<CommunityChainOption> = [
   { slug: "polygon",  label: "Polygon" },
   { slug: "base",     label: "Base" },
 ];
+
+/**
+ * A chain slug's display label from the catalog ("cosmos" → "Cosmos Hub"),
+ * or null when the catalog has no entry. The ONE lookup; each caller picks
+ * its own fallback (the slug as sent, or upper-cased).
+ */
+export function communityChainLabel(slug: string): string | null {
+  return COMMUNITY_CHAIN_CATALOG.find((o) => o.slug === slug)?.label ?? null;
+}

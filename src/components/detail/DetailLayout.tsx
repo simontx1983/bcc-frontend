@@ -32,6 +32,39 @@ export function DetailPage({ children }: { children: ReactNode }) {
 /** The 1440px container every detail section sits in. */
 export const DETAIL_CONTAINER = "mx-auto w-full max-w-[1440px] px-4 sm:px-7";
 
+/*
+ * The header's counts strip, as static class strings so Tailwind generates
+ * them. Up to three counts sit in one row at every width (a community's
+ * Posts (7d) · Active · Members reads fine at 390px). Four or more go two
+ * across below sm: four in one row clipped their labels at 375px ("FOLLOW…",
+ * testnet UX audit S2, when the entity page drew them in its StatsStrip).
+ */
+const STATS_BASE_COLS = ["grid-cols-1", "grid-cols-2", "grid-cols-3"] as const;
+const STATS_SM_COLS = [
+  "sm:grid-cols-1",
+  "sm:grid-cols-2",
+  "sm:grid-cols-3",
+  "sm:grid-cols-4",
+  "sm:grid-cols-5",
+  "sm:grid-cols-6",
+] as const;
+
+export function headerStatsColumns(count: number): string {
+  const n = Math.max(1, Math.min(count, 6));
+  const base = n <= 3 ? STATS_BASE_COLS[n - 1] : "grid-cols-2";
+  return `${base} ${STATS_SM_COLS[n - 1]}`;
+}
+
+/**
+ * Below sm, an odd count of four or more (5) would leave an empty cell
+ * beside the last count in the two-across grid; the last one spans both
+ * columns instead. From sm up it is one row, so no span.
+ */
+export function headerStatsCellSpan(count: number, index: number): string {
+  const n = Math.min(count, 6);
+  return n >= 4 && n % 2 === 1 && index === n - 1 ? "col-span-2 sm:col-span-1" : "";
+}
+
 export function DetailHeader({
   avatar,
   kind,
@@ -105,9 +138,11 @@ export function DetailHeader({
             </h1>
             {share !== undefined && <div className="shrink-0 pt-1">{share}</div>}
           </div>
-          <p className="bcc-mono mt-1 text-bcc-text-secondary" style={{ fontSize: "12px" }}>
-            @{handle}
-          </p>
+          {handle !== "" && (
+            <p className="bcc-mono mt-1 text-bcc-text-secondary" style={{ fontSize: "12px" }}>
+              @{handle}
+            </p>
+          )}
           {chips !== undefined && <div className="mt-3 flex flex-wrap items-center gap-2">{chips}</div>}
         </div>
 
@@ -119,14 +154,15 @@ export function DetailHeader({
       </div>
 
       {shownStats.length > 0 && (
+        // The 1px gaps over a border-coloured ground draw the dividers, so
+        // they stay right when four or more counts wrap to two rows.
         <dl
-          className="mt-5 grid max-w-[640px] rounded-[10px] border border-bcc-border"
-          style={{ gridTemplateColumns: `repeat(${shownStats.length}, minmax(0, 1fr))` }}
+          className={`mt-5 grid max-w-[640px] gap-px overflow-hidden rounded-[10px] border border-bcc-border bg-bcc-border ${headerStatsColumns(shownStats.length)}`}
         >
           {shownStats.map((stat, i) => (
             <div
               key={stat.key}
-              className={`flex flex-col-reverse items-center py-2 ${i > 0 ? "border-l border-bcc-border" : ""}`}
+              className={`flex flex-col-reverse items-center bg-bcc-bg py-2 ${headerStatsCellSpan(shownStats.length, i)}`}
             >
               <dt className="bcc-mono text-bcc-text-secondary" style={{ fontSize: "10px", letterSpacing: "0.08em" }}>
                 {stat.label}

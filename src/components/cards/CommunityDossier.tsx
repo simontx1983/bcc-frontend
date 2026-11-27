@@ -26,7 +26,7 @@ import type { MouseEvent } from "react";
 
 import { communityAccessLabel, holdingRequirement } from "@/components/cards/community-access";
 import { DossierSection, Row } from "@/components/cards/MemberDossier";
-import { COMMUNITY_CHAIN_CATALOG } from "@/lib/communities/chain-catalog";
+import { communityChainLabel } from "@/lib/communities/chain-catalog";
 import type { CardCommunityDossier } from "@/lib/api/types";
 
 export function CommunityDossierBack({
@@ -143,8 +143,7 @@ function CollectionBlock({ dossier }: { dossier: CardCommunityDossier }) {
 function FloorBlock({ dossier }: { dossier: CardCommunityDossier }) {
   const chainLabel =
     dossier.chain_tag !== null
-      ? COMMUNITY_CHAIN_CATALOG.find((o) => o.slug === dossier.chain_tag)
-          ?.label ?? dossier.chain_tag.toUpperCase()
+      ? (communityChainLabel(dossier.chain_tag) ?? dossier.chain_tag.toUpperCase())
       : null;
 
   return (

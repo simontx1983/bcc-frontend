@@ -28,7 +28,7 @@ import { useState } from "react";
 import Link from "next/link";
 
 import { ActionBar, CommunityActionBar } from "@/components/cards/CardActionBar";
-import { cardHeaderWord, splitStats, STATS_ROW_MAX } from "@/components/cards/card-face-stats";
+import { cardHeaderWord, chainSlug, splitStats, STATS_ROW_MAX } from "@/components/cards/card-face-stats";
 import { OnchainSignalsStrip } from "@/components/cards/CardOnchainSignals";
 import { CardStandingStrip } from "@/components/cards/CardStandingStrip";
 import { Crest } from "@/components/cards/Crest";
@@ -159,25 +159,6 @@ export function CardFrontFace({
 // type-context that splitting into separate files would just add
 // import noise. Promote later if any one grows past ~80 lines.
 // ─────────────────────────────────────────────────────────────────────
-
-/**
- * Chain slug for the header pill, or null.
- *
- * Validators carry it on the crest; communities carry it on the dossier.
- * There is deliberately NO fallback: the old band printed a literal
- * "BCC" whenever the crest wasn't chain-keyed, which put a meaningless
- * word in the card's most prominent slot. Empty means empty.
- */
-function chainSlug(card: Card): string | null {
-  if (card.card_kind === "community") {
-    const tag = card.community_dossier?.chain_tag ?? null;
-    return tag !== null && tag !== "" ? tag : null;
-  }
-  if (card.crest.background_kind === "chain" && card.crest.background_value !== "") {
-    return card.crest.background_value;
-  }
-  return null;
-}
 
 /**
  * Header row — 46px. Kind word on the left, one optional element on the
