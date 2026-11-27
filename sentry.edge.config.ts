@@ -5,7 +5,7 @@
 
 import * as Sentry from "@sentry/nextjs";
 
-import { scrubSentryEvent } from "@/lib/sentry/scrub";
+import { sentryPrivacyOptions } from "@/lib/sentry/scrub";
 
 Sentry.init({
   dsn: process.env['NEXT_PUBLIC_SENTRY_DSN'],
@@ -24,25 +24,12 @@ Sentry.init({
   // to 1 only when actively debugging.
   tracesSampleRate: 0.1,
 
-  // Disabled: see sentry.server.config.ts for rationale.
-  enableLogs: false,
+  ...sentryPrivacyOptions,
 
-  // Disabled: see sentry.server.config.ts for rationale.
-  sendDefaultPii: false,
-
-  // See sentry.server.config.ts: no request cookies or body, ever. Edge
-  // also sends no headers: in @sentry/vercel-edge 10 requestData is a
-  // default only with sendDefaultPii, so before #322 edge events carried
-  // no request data at all. Keep it minimal: the URL (its query is cut by
-  // the scrubber) and nothing else.
+  // Edge events retain the scrubbed request path.
   integrations: [
     Sentry.requestDataIntegration({
-      include: { cookies: false, data: false, query_string: false, headers: false, url: true },
+      include: { cookies: false, data: false, query_string: false, ip: false, headers: false, url: true },
     }),
   ],
-
-  // See sentry.server.config.ts: URLs lose their query string and
-  // fragment before any event leaves.
-  beforeSend: scrubSentryEvent,
-  beforeSendTransaction: scrubSentryEvent,
 });
