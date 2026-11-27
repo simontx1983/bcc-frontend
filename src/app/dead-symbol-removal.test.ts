@@ -163,7 +163,7 @@ describe("dead symbols — the survivors were not collateral damage", () => {
     expect(refs("STATUS_POST_MAX_LENGTH").length).toBeGreaterThan(0);
   });
 
-  it("the icon registry keeps its five live exports", () => {
+  it("the icon registry keeps its six live exports", () => {
     const registry = SOURCES.find((s) => s.path === "components/icons/registry.ts");
     expect(registry).toBeDefined();
     const exported = [...(registry?.code ?? "").matchAll(/as (\w+Icon)\b/g)].map((m) => m[1]);
@@ -177,6 +177,8 @@ describe("dead symbols — the survivors were not collateral damage", () => {
         // same reason as the other four: the set is pinned so a dead-code
         // sweep cannot quietly drop a live icon.
         "MessageIcon",
+        // Added with the home feed's "My Groups" tab (F-416): FeedTabs.
+        "GroupsIcon",
       ]),
     );
   });
@@ -185,7 +187,7 @@ describe("dead symbols — the survivors were not collateral damage", () => {
     // The point of the pinned set above is that each entry is LIVE. Assert
     // that directly, so adding a name to the list can never be a way to
     // smuggle in an unused export.
-    for (const icon of ["WatchIcon", "VouchIcon", "JoinIcon", "FlipIcon", "MessageIcon"]) {
+    for (const icon of ["WatchIcon", "VouchIcon", "JoinIcon", "FlipIcon", "MessageIcon", "GroupsIcon"]) {
       expect(refs(icon).length, `${icon} has no consumer`).toBeGreaterThan(0);
     }
   });

@@ -37,6 +37,7 @@
  * navigation alone).
  */
 
+import Link from "next/link";
 import { memo, useCallback, useEffect, useMemo, useState } from "react";
 
 import { DiscoverPanel } from "@/components/feed/DiscoverPanel";
@@ -129,8 +130,33 @@ function AuthedFeedData({
           nothing when empty), so it never reserves space without content.
           Auth is satisfied by this being the authed branch. */}
       {scope === "signals" && <HighlightStrip />}
-      <FeedBody {...query} />
+      {scope === "groups" ? <FeedBody {...query} emptyState={<GroupsFeedEmpty />} /> : <FeedBody {...query} />}
     </>
+  );
+}
+
+/**
+ * F-416 — My Groups with nothing to show: the viewer is in no group or
+ * Hall yet, or theirs are quiet. One neutral line covers both (the server
+ * sends no reason, and none is needed), plus the way to find one. A failed
+ * membership read is a 503, which FeedBody shows as a retry, never this.
+ */
+function GroupsFeedEmpty() {
+  return (
+    <div className="bcc-panel my-6 px-5 py-8 text-center">
+      <p className="bcc-mono text-bcc-text-secondary" style={{ fontSize: "10px", letterSpacing: "0.24em" }}>
+        MY GROUPS
+      </p>
+      <p className="mt-3 font-serif italic text-bcc-text-secondary" style={{ fontSize: "15px" }}>
+        Posts from the groups and Halls you belong to show up here.
+      </p>
+      <Link
+        href="/communities"
+        className="bcc-mono mt-4 inline-flex min-h-[44px] items-center text-[11px] tracking-[0.18em] text-bcc-text hover:underline"
+      >
+        BROWSE COMMUNITIES <span aria-hidden="true">&nbsp;→</span>
+      </Link>
+    </div>
   );
 }
 

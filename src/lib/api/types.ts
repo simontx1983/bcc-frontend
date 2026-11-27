@@ -896,7 +896,11 @@ export interface OnboardingSuggestions {
  *              (excludes signals — those have their own tab)
  *  - signals   on-chain events only, time-ordered
  */
-export type FeedScope = "for_you" | "following" | "signals";
+/**
+ * `groups` (F-416): posts from every group and Hall the viewer is an active
+ * member of. `signals` stays valid server-side; its tab is hidden for now.
+ */
+export type FeedScope = "for_you" | "following" | "groups" | "signals";
 
 /**
  * Author block on every feed item. Loose — backend may expand this
