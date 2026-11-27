@@ -211,6 +211,8 @@ export function WalletAuthButton(props: WalletAuthButtonProps) {
     } catch (err) {
       if (progress.created !== null) {
         markUnfinished(progress.created, err);
+      } else if (isSignup && emailRefused(err, props)) {
+        setError(EMAIL_REFUSED_COPY);
       } else {
         setError(humanizeError(err));
       }
@@ -456,6 +458,22 @@ async function signInWithFreshSignature(
 ): Promise<void> {
   const signed = await fetchAndSign(chainSlug, chainType, connection);
   await runLogin(connection, signed);
+}
+
+/**
+ * F-263 (M23): a sign-up that sent an email and got `bcc_invalid_request`
+ * back was refused for that address (the server checks it with WordPress's
+ * is_email, which is stricter than the browser). "Wallet request was
+ * malformed" pointed nowhere; this points at the field.
+ */
+const EMAIL_REFUSED_COPY = "Check the email above. It doesn't look like a complete address.";
+
+function emailRefused(err: unknown, props: WalletAuthButtonProps): boolean {
+  return (
+    err instanceof BccApiError &&
+    err.code === "bcc_invalid_request" &&
+    (props.email ?? "").trim() !== ""
+  );
 }
 
 function humanizeError(err: unknown): string {
