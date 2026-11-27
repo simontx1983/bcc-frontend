@@ -4,7 +4,7 @@
 
 import * as Sentry from "@sentry/nextjs";
 
-import { scrubSentryEvent } from "@/lib/sentry/scrub";
+import { sentryPrivacyOptions } from "@/lib/sentry/scrub";
 
 Sentry.init({
   dsn: process.env['NEXT_PUBLIC_SENTRY_DSN'],
@@ -30,33 +30,20 @@ Sentry.init({
   // to 1 only when actively debugging.
   tracesSampleRate: 0.1,
 
-  // Disabled: console.* forwarding combined with PII would leak user
-  // data via incidental log statements. Re-enable only with an explicit
-  // beforeSend redaction layer.
-  enableLogs: false,
+  ...sentryPrivacyOptions,
+  dataCollection: {
+    ...sentryPrivacyOptions.dataCollection,
+    httpHeaders: {
+      request: { allow: ["user-agent", "referer"] },
+      response: false,
+    },
+  },
 
-  // Disabled: BCC handles wallet addresses, NFT holdings, dispute
-  // metadata, and PeepSo private-group membership. Sending IPs, headers,
-  // cookies, and request bodies to Sentry by default is incompatible
-  // with that surface. Selectively opt back in if a specific field is
-  // genuinely needed.
-  sendDefaultPii: false,
-
-  // Never collect request cookies or the body. In @sentry/nextjs 10 the
-  // requestData integration includes cookies, data and headers by default
-  // whatever sendDefaultPii says, so the next-auth session cookie could be
-  // attached to a server event. Headers stay (user agent, referer); the
-  // scrubber drops cookie/authorization headers and every URL query.
+  // Keep the request path and diagnostic headers. The scrubber strips
+  // queries from URLs, including the Referer.
   integrations: [
     Sentry.requestDataIntegration({
-      include: { cookies: false, data: false, query_string: false, headers: true, url: true },
+      include: { cookies: false, data: false, query_string: false, ip: false, headers: true, url: true },
     }),
   ],
-
-  // URLs keep their path but lose the query string and fragment before
-  // any event leaves: `?pt=`, the password-reset `?key=&login=` and OAuth
-  // `?code=` would otherwise be stored as sent. Sentry's own scrubber
-  // matches field names, not these keys. See lib/sentry/scrub.
-  beforeSend: scrubSentryEvent,
-  beforeSendTransaction: scrubSentryEvent,
 });

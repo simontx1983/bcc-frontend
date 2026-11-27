@@ -171,11 +171,15 @@ describe("bounded walk (#322 review)", () => {
     const other = new Holder();
     const t0 = performance.now();
     const out = scrubSentryEvent({
-      sdkProcessingMetadata: { capturedSpanScope: scope },
+      sdkProcessingMetadata: {
+        capturedSpanScope: scope,
+        dynamicSamplingContext: { transaction: "GET /signup/complete-profile?pt=" + PT },
+      },
       extra: { holder: other },
     });
     expect(performance.now() - t0).toBeLessThan(50);
     expect(out.sdkProcessingMetadata.capturedSpanScope).toBe(scope);
+    expect(out.sdkProcessingMetadata.dynamicSamplingContext.transaction).toBe("GET /signup/complete-profile");
     expect(out.extra.holder).toBe(other);
   });
 });
@@ -196,6 +200,9 @@ vi.mock("@/lib/analytics/posthog", () => ({ initAnalytics: vi.fn() }));
 type Hooks = {
   beforeSend: (e: unknown, h: unknown) => unknown;
   beforeSendTransaction: (e: unknown, h: unknown) => unknown;
+  beforeSendLog: () => null;
+  traceLifecycle: string;
+  dataCollection: { httpHeaders: unknown };
   integrations?: Array<{ name: string; options: unknown }>;
 };
 
@@ -214,6 +221,23 @@ describe("each Sentry config runs the scrubber", () => {
     await load();
     expect(init).toHaveBeenCalledTimes(1);
     const opts = init.mock.calls[0]?.[0] as Hooks;
+    expect(opts).toMatchObject({
+      traceLifecycle: "static",
+      attachStacktrace: false,
+      dataCollection: {
+        userInfo: false,
+        cookies: false,
+        httpBodies: [],
+        urlQueryParams: false,
+        graphQL: { document: false, variables: false },
+        genAI: { inputs: false, outputs: false },
+        mcp: { inputs: false, outputs: false },
+        databaseQueryData: false,
+        queues: false,
+        stackFrameVariables: false,
+      },
+    });
+    expect(opts.beforeSendLog()).toBeNull();
     expect(leaks(opts.beforeSend(errorEvent(), {}))).toEqual([]);
     expect(leaks(opts.beforeSendTransaction(transactionEvent(), {}))).toEqual([]);
   });
@@ -225,13 +249,33 @@ describe("each Sentry config runs the scrubber", () => {
     await load();
     const opts = init.mock.calls[0]?.[0] as Hooks;
     const rd = opts.integrations?.find((i) => i.name === "RequestData");
-    expect(rd?.options).toMatchObject({ include: { cookies: false, data: false } });
+    expect(rd?.options).toMatchObject({
+      include: { cookies: false, data: false, query_string: false, ip: false },
+    });
   });
 
-  it("edge sends no request headers either (minimal data)", async () => {
+  it.each([
+    ["browser", () => import("@/instrumentation-client")],
+    ["edge", () => import("../../../sentry.edge.config")],
+  ])("%s disables header collection", async (_name, load) => {
+    await load();
+    const opts = init.mock.calls[0]?.[0] as Hooks;
+    expect(opts.dataCollection.httpHeaders).toBe(false);
+  });
+
+  it("keeps only the request path on Edge", async () => {
     await import("../../../sentry.edge.config");
     const opts = init.mock.calls[0]?.[0] as Hooks;
     const rd = opts.integrations?.find((i) => i.name === "RequestData");
     expect(rd?.options).toMatchObject({ include: { headers: false, url: true } });
+  });
+
+  it("keeps the existing diagnostic header values on the server", async () => {
+    await import("../../../sentry.server.config");
+    const opts = init.mock.calls[0]?.[0] as Hooks;
+    expect(opts.dataCollection.httpHeaders).toEqual({
+      request: { allow: ["user-agent", "referer"] },
+      response: false,
+    });
   });
 });

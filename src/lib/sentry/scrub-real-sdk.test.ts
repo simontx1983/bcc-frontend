@@ -1,6 +1,6 @@
 // @vitest-environment node
 /**
- * #322 review (free agent, HIGH): a REAL Sentry 10 transaction reaches
+ * A real Sentry transaction reaches
  * beforeSendTransaction with `sdkProcessingMetadata.capturedSpanScope` /
  * `capturedSpanIsolationScope`, live Scope instances that reach the whole
  * client. The first scrubber walked them (~18.8M nodes, ~5.8 s
@@ -10,34 +10,45 @@
  */
 
 // @sentry/node is not a direct dependency: it is installed (and hoisted)
-// as a dependency of @sentry/nextjs, at the version that package pins. A
-// lock-file edit is blocked here, so this test relies on that; if the
+// as a dependency of @sentry/nextjs, at the version that package pins. If the
 // import ever fails to resolve, add @sentry/node to devDependencies at
 // @sentry/nextjs's version.
 import * as Sentry from "@sentry/node";
 import { afterAll, describe, expect, it } from "vitest";
 
-import { scrubSentryEvent } from "@/lib/sentry/scrub";
+import { scrubSentryEvent, sentryPrivacyOptions } from "@/lib/sentry/scrub";
 
 type Captured = { event: Record<string, unknown>; out: Record<string, unknown>; ms: number };
 
 const transactions: Captured[] = [];
 const errors: Captured[] = [];
+const envelopes: unknown[] = [];
 
-function timed(event: Record<string, unknown>, into: Captured[]): null {
+function timed<T extends object>(event: T, into: Captured[]): T {
   const t0 = performance.now();
   const out = scrubSentryEvent(event);
-  into.push({ event, out, ms: performance.now() - t0 });
-  return null; // never send
+  into.push({
+    event: event as Record<string, unknown>,
+    // The SDK removes processing metadata when it constructs the envelope.
+    out: { ...out } as Record<string, unknown>,
+    ms: performance.now() - t0,
+  });
+  return out;
 }
 
 Sentry.init({
+  ...sentryPrivacyOptions,
   dsn: "https://public@o0.ingest.sentry.io/0",
   tracesSampleRate: 1,
-  sendDefaultPii: false,
-  transport: () => ({ send: async () => ({}), flush: async () => true }),
-  beforeSendTransaction: (event) => timed(event as unknown as Record<string, unknown>, transactions),
-  beforeSend: (event) => timed(event as unknown as Record<string, unknown>, errors),
+  transport: () => ({
+    send: async (envelope) => {
+      envelopes.push(envelope);
+      return {};
+    },
+    flush: async () => true,
+  }),
+  beforeSendTransaction: (event) => timed(event, transactions),
+  beforeSend: (event) => timed(event, errors),
 });
 
 afterAll(async () => {
@@ -57,6 +68,9 @@ describe("scrubSentryEvent on real SDK events", () => {
     expect(outMeta?.["capturedSpanScope"]).toBe(meta?.["capturedSpanScope"]);
     expect(outMeta?.["capturedSpanIsolationScope"]).toBe(meta?.["capturedSpanIsolationScope"]);
     expect(got.out["transaction"]).toBe("GET /signup/complete-profile");
+    const sent = JSON.stringify(envelopes);
+    expect(sent.includes("GET /signup/complete-profile")).toBe(true);
+    expect(sent.includes("pt=SECRET")).toBe(false);
     expect(got.ms).toBeLessThan(100);
   });
 
@@ -66,6 +80,7 @@ describe("scrubSentryEvent on real SDK events", () => {
     // "found" in the stack frames and say nothing about the scrubber.
     const rand = () => Math.random().toString(36).slice(2, 10);
     const [session, bearer, password, resetKey, login] = [rand(), rand(), rand(), rand(), rand()];
+    const logMarker = rand();
     Sentry.withScope((scope) => {
       scope.setSDKProcessingMetadata({
         normalizedRequest: {
@@ -83,16 +98,16 @@ describe("scrubSentryEvent on real SDK events", () => {
       });
       Sentry.captureException(new Error("boom"));
     });
+    Sentry.logger.info(logMarker);
     await Sentry.flush(2000);
     const got = errors.at(-1);
     expect(got).toBeDefined();
     if (got === undefined) return;
-    // sdkProcessingMetadata is internal and never sent; check the rest.
-    const sent: Record<string, unknown> = { ...got.out };
-    delete sent["sdkProcessingMetadata"];
-    const s = JSON.stringify(sent);
+    const s = JSON.stringify(envelopes);
+    expect(s.includes("https://app.example/reset-password")).toBe(true);
+    expect(s.includes(logMarker)).toBe(false);
     for (const leak of [session, bearer, password, resetKey, login]) {
-      expect(s).not.toContain(leak);
+      expect(s.includes(leak ?? "")).toBe(false);
     }
     expect(got.ms).toBeLessThan(100);
   });
