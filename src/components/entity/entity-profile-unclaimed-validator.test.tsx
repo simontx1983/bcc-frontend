@@ -5,6 +5,10 @@
  *
  * Every child surface is stubbed: this pins EntityProfile's own wiring,
  * not the children.
+ *
+ * Also PR C1's public mount (rendered for real, not stubbed): the
+ * owner-verification badge in the header. An absent field renders
+ * today's page.
  */
 
 import { cleanup, render, screen } from "@testing-library/react";
@@ -179,5 +183,27 @@ describe("EntityProfile Backing empty state", () => {
     expect(screen.getByTestId("roster").textContent).toBe(
       "No attestations on file yet. Be the first to vouch.",
     );
+  });
+});
+
+
+describe("EntityProfile PR C1 public verification", () => {
+  it("renders no badge when the card has no owner_verification", () => {
+    renderProfile(card({}));
+    expect(screen.queryByTestId("owner-verification")).toBeNull();
+  });
+
+  it("renders no badge for an explicit null (no single verified operator)", () => {
+    renderProfile(card({ owner_verification: null }));
+    expect(screen.queryByTestId("owner-verification")).toBeNull();
+  });
+
+  it("shows the server's verification label in the page header", () => {
+    renderProfile(
+      card({ owner_verification: { kind: "wallet", label: "Wallet Verified", description: "Cryptographic proof" } }),
+    );
+    const badge = screen.getByTestId("owner-verification");
+    expect(badge.closest("header")).not.toBeNull();
+    expect(badge).toHaveTextContent("Wallet Verified");
   });
 });
