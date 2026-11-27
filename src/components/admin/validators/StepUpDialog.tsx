@@ -13,9 +13,11 @@
  *
  * The address the code went to is never shown (the server never sends
  * it). The password and code live only in this component's state: they
- * go when the dialog closes (it unmounts), the start mutation is reset
- * as soon as it succeeds, and the step-up / write mutations are dropped
- * from the cache with `gcTime: 0` (useAdminValidators).
+ * go when the dialog closes (it unmounts), the start and write
+ * mutations are reset as soon as they settle, success OR failure, and
+ * both are dropped from the cache with `gcTime: 0` (useAdminValidators).
+ * A failed attempt never keeps the password or code in mutation
+ * variables until the next try.
  *
  * Errors are keyed on `code` + `data.reason` (§γ), never the server's
  * message — see `stepUpErrorOutcome`. A 409 or a vanished link closes
@@ -32,6 +34,7 @@
 
 import { useEffect, useId, useRef, useState, type FormEvent } from "react";
 
+import { ADMIN_TOOL_UNAVAILABLE_COPY } from "@/components/admin/validators/AdminReadFailure";
 import {
   ADMIN_FIELD_ERROR_CLASS,
   ADMIN_GHOST_BUTTON_CLASS,
@@ -40,6 +43,7 @@ import {
   ADMIN_OUTLINE_BUTTON_CLASS,
   ADMIN_PRIMARY_BUTTON_CLASS,
 } from "@/components/admin/validators/form-classes";
+import { PasswordConfirmField } from "@/components/admin/validators/PasswordConfirmField";
 import { OneTimeCodeInput } from "@/components/auth/OneTimeCodeInput";
 import { Dialog } from "@/components/ui/Dialog";
 import { useResendValidatorStepUp, useStartValidatorStepUp } from "@/hooks/useAdminValidators";
@@ -49,6 +53,7 @@ import {
   invalidReason,
   isAdminDenial,
   isAdminIdNotFound,
+  isAdminToolUnavailable,
   isOwnershipConflict,
   stepUpFailureReason,
 } from "@/lib/api/admin-errors";
@@ -120,6 +125,9 @@ export function stepUpErrorOutcome(
     clear,
   });
   if (isAdminDenial(err)) return stay(STEP_UP_COPY.denied);
+  // The backend can ship one route before another; a missing route is not
+  // a passing failure, so it never reads as "try again".
+  if (isAdminToolUnavailable(err)) return stay(ADMIN_TOOL_UNAVAILABLE_COPY);
   if (isCode(err, "bcc_step_up_failed")) {
     switch (stepUpFailureReason(err)) {
       case "password":
@@ -165,6 +173,11 @@ export function stepUpErrorOutcome(
 export interface StepUpWrite {
   /** The write's mutation is in flight. */
   isPending: boolean;
+  /**
+   * The write mutation's `reset`. Called on a failed write so the code it
+   * carried leaves the mutation's variables at once.
+   */
+  reset: () => void;
   /**
    * Run the write with the proof. Success is the caller's to handle (it
    * closes this dialog); a failure goes to `onError`.
@@ -317,7 +330,12 @@ export function StepUpDialog({
           setNotice(null);
           setStep(2);
         },
-        onError: (err) => handleError(err),
+        onError: (err) => {
+          // Drop the password from the failed mutation's variables now,
+          // not on the next try or on close.
+          start.reset();
+          handleError(err);
+        },
       },
     );
   }
@@ -333,7 +351,11 @@ export function StepUpDialog({
     latch.current = true;
     setError(null);
     setNotice(null);
-    write.run({ step_up_id: stepUp.id, code }, (err) => handleError(err));
+    write.run({ step_up_id: stepUp.id, code }, (err) => {
+      // Same for the code a failed write carried.
+      write.reset();
+      handleError(err);
+    });
   }
 
   const resendBlocked = resendIn > 0 || resend.isPending || pending || stepUp === null;
@@ -377,23 +399,14 @@ export function StepUpDialog({
         <form noValidate onSubmit={submitPassword} className="mt-2 flex flex-col gap-4">
           <h2 className="bcc-stencil text-2xl text-bcc-text">{STEP_UP_COPY.passwordHeading}</h2>
           <p className="font-serif text-bcc-text-secondary">{STEP_UP_COPY.passwordIntro}</p>
-          <div className="flex flex-col gap-2">
-            <label htmlFor={passwordId} className={ADMIN_LABEL_CLASS}>
-              CURRENT PASSWORD
-            </label>
-            <input
-              ref={passwordRef}
-              id={passwordId}
-              type="password"
-              autoComplete="current-password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              aria-invalid={error !== null}
-              aria-describedby={error !== null ? errorId : undefined}
-              className={ADMIN_INPUT_CLASS}
-            />
-          </div>
+          <PasswordConfirmField
+            ref={passwordRef}
+            id={passwordId}
+            value={password}
+            onChange={setPassword}
+            invalid={error !== null}
+            describedBy={error !== null ? errorId : undefined}
+          />
           {errorLine}
           <div className="flex flex-wrap justify-end gap-2">
             <button

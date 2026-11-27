@@ -139,11 +139,15 @@ export function getAdminValidatorPageHistory(
   return bccFetchAsClient<ValidatorRelationshipHistoryResponse>(path, { method: "GET", signal });
 }
 
-/** Route 8: at most 10 users by handle, display name, or an exact email or login. */
+/**
+ * Route 8: at most 10 users by handle, display name, or an exact email or
+ * login. A POST with `{q}` in the JSON body, never in the URL: the term
+ * can be an email or login, and a URL ends up in access logs.
+ */
 export function searchAdminUsers(q: string, signal?: AbortSignal): Promise<AdminUserSearchResponse> {
-  const search = new URLSearchParams({ q });
-  return bccFetchAsClient<AdminUserSearchResponse>(`admin/users/search?${search.toString()}`, {
-    method: "GET",
+  return bccFetchAsClient<AdminUserSearchResponse>("admin/users/search", {
+    method: "POST",
+    body: { q },
     signal,
   });
 }

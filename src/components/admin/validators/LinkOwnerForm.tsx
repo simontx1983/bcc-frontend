@@ -280,6 +280,7 @@ export function LinkOwnerForm({ pageId, onNotice }: LinkOwnerFormProps) {
           title={LINK_COPY.heading}
           write={{
             isPending: link.isPending,
+            reset: link.reset,
             run: (proof, onError) =>
               link.mutate(
                 {

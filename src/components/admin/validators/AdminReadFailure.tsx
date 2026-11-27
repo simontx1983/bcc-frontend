@@ -36,6 +36,13 @@ export function adminReadFailureCopy(error: unknown, subject: string): string {
 /** An id filter that matches nothing (`bcc_not_found`). */
 export const ADMIN_ID_NOT_FOUND_COPY = "No page or member matches that id.";
 
+/**
+ * A route this server doesn't have yet (`rest_no_route`). Reads show it
+ * as a panel; writes and the user search show it as their error line,
+ * since a Retry against a missing route can't help.
+ */
+export const ADMIN_TOOL_UNAVAILABLE_COPY = "This tool isn't available on the server yet.";
+
 function AdminToolUnavailable() {
   return (
     <div className="bcc-panel p-6">
@@ -45,9 +52,7 @@ function AdminToolUnavailable() {
       >
         NOT AVAILABLE YET
       </p>
-      <p className="font-serif italic text-bcc-text-secondary">
-        This tool isn&apos;t available on the server yet.
-      </p>
+      <p className="font-serif italic text-bcc-text-secondary">{ADMIN_TOOL_UNAVAILABLE_COPY}</p>
     </div>
   );
 }

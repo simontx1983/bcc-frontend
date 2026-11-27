@@ -4,8 +4,9 @@
  * ValidatorDirectory — every validator page, its ownership state, and who
  * owns it. Read-only: each row's title links to the page view
  * (/admin/validators/<page_id>), where owners are linked and revoked.
- * A row whose owner the server has locked for staff
- * (`owner.locked_for_staff === true`) carries a Locked marker.
+ * A row with an owner carries a Locked marker unless the server's
+ * `owner.locked_for_staff` is exactly `false` (fail closed, via
+ * `lockedForStaff()`): true, missing or not a boolean all read as locked.
  *
  * Filters (all server-side, via useAdminValidatorDirectory):
  *   - chain tabs, one per entry in the response's `chains` facet, plus
